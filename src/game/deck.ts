@@ -28,8 +28,11 @@ export function shuffleDeck(deck: Card[]): Card[] {
   return result;
 }
 
+/** Порядок «следующий игрок слева»: 0→2→1→3→0 (Юг→Запад→Север→Восток) */
+const NEXT_LEFT = [2, 3, 1, 0];
+
 /**
- * Раздаёт карты игрокам.
+ * Раздаёт карты игрокам по часовой (слева от сдающего).
  * @param firstReceiver — кому идёт первая карта (игрок слева от сдающего)
  */
 export function dealCards(
@@ -40,8 +43,10 @@ export function dealCards(
 ): Card[][] {
   const hands: Card[][] = Array.from({ length: playerCount }, () => []);
   const total = cardsPerPlayer * playerCount;
+  let receiver = firstReceiver;
   for (let i = 0; i < total; i++) {
-    hands[(firstReceiver + i) % playerCount].push(deck[i]);
+    hands[receiver].push(deck[i]);
+    receiver = NEXT_LEFT[receiver];
   }
   return hands;
 }

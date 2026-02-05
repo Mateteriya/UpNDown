@@ -1,7 +1,21 @@
 /**
  * Игровой движок Up&Down
  * Управляет ходом игры: раздача, заказы, розыгрыш
+ *
+ * Расположение игроков (вид сверху): Юг(0, вы) внизу, Север(1) вверху, Запад(2) слева, Восток(3) справа.
+ * Порядок «по левую руку» (следующий сдающий/игрок по часовой): 0→2→1→3→0
  */
+const NEXT_PLAYER_LEFT = [2, 3, 1, 0] as const; // следующий игрок слева от [0,1,2,3]
+
+function nextPlayerLeft(i: number): number {
+  return NEXT_PLAYER_LEFT[i % 4];
+}
+
+function playerAtLeftFrom(base: number, steps: number): number {
+  let cur = base;
+  for (let k = 0; k < steps; k++) cur = nextPlayerLeft(cur);
+  return cur;
+}
 
 import type { Card, GamePhase, Player, Suit } from './types';
 import { createDeck, shuffleDeck, dealCards } from './deck';
@@ -11,6 +25,8 @@ import { isValidBidSum, getTrickWinner, isValidPlay } from './rules';
 export interface LastCompletedTrick {
   cards: Card[];
   winnerIndex: number;
+  /** Индекс игрока, который ходил первым в этой взятке */
+  leaderIndex: number;
 }
 
 export interface GameState {
@@ -86,7 +102,7 @@ export function startDeal(state: GameState): GameState {
   const tricksInDeal = getTricksInDeal(state.dealNumber);
   const deck = shuffleDeck(createDeck());
   const dealerIndex = state.dealerIndex % 4;
-  const firstReceiver = (dealerIndex + 1) % 4;
+  const firstReceiver = nextPlayerLeft(dealerIndex);
   const hands = dealCards(deck, 4, tricksInDeal, firstReceiver);
 
   const cardsDealt = tricksInDeal * 4;
@@ -126,7 +142,7 @@ export function startDeal(state: GameState): GameState {
 /** Старт тёмной раздачи: заказ до раздачи, карт ещё нет */
 export function startDarkBidding(state: GameState): GameState {
   const dealerIndex = state.dealerIndex % 4;
-  const firstBidder = (dealerIndex + 1) % 4;
+  const firstBidder = nextPlayerLeft(dealerIndex);
   const tricksInDeal = 9;
 
   return {
@@ -149,7 +165,7 @@ export function startDarkBidding(state: GameState): GameState {
 export function completeDarkDeal(state: GameState): GameState {
   const deck = shuffleDeck(createDeck());
   const dealerIndex = state.dealerIndex % 4;
-  const firstReceiver = (dealerIndex + 1) % 4;
+  const firstReceiver = nextPlayerLeft(dealerIndex);
   const hands = dealCards(deck, 4, 9, firstReceiver);
 
   const trumpCard: Card = deck[35]; // вся колода роздана — козырь последняя у сдающего
@@ -180,7 +196,7 @@ export function completeDarkDeal(state: GameState): GameState {
 /** Следующая раздача в партии. Возвращает null, если партия завершена (28 раздач). */
 export function startNextDeal(state: GameState): GameState | null {
   if (state.dealNumber >= 28) return null;
-  const nextDealerIndex = (state.dealerIndex + 1) % 4;
+  const nextDealerIndex = nextPlayerLeft(state.dealerIndex);
   const nextDealNumber = state.dealNumber + 1;
   const prepared = { ...state, dealNumber: nextDealNumber, dealerIndex: nextDealerIndex };
   return startDeal(prepared);
@@ -198,7 +214,7 @@ export function placeBid(
     i === playerIndex ? { ...p, bid } : p
   );
 
-  const nextPlayer = (playerIndex + 1) % 4;
+  const nextPlayer = nextPlayerLeft(playerIndex);
   const allBid = newBids.every(b => b !== null);
 
   if (!allBid) {
@@ -264,7 +280,7 @@ export function playCard(
     i === playerIndex ? { ...p, hand: newHand } : p
   );
 
-  const nextPlayer = (playerIndex + 1) % 4;
+  const nextPlayer = nextPlayerLeft(playerIndex);
   const trickComplete = newTrick.length === 4;
 
   if (!trickComplete) {
@@ -278,7 +294,7 @@ export function playCard(
 
   // Взятка завершена
   const winnerOffset = getTrickWinner(newTrick, newTrick[0].suit, trump ?? undefined);
-  const trickWinner = (trickLeaderIndex + winnerOffset) % 4;
+  const trickWinner = playerAtLeftFrom(trickLeaderIndex, winnerOffset);
 
   const updatedPlayers = newPlayers.map((p, i) =>
     i === trickWinner
@@ -302,7 +318,7 @@ export function playCard(
       currentTrick: [],
       currentPlayerIndex: trickWinner,
       phase: 'deal-complete',
-      lastCompletedTrick: { cards: newTrick, winnerIndex: trickWinner },
+      lastCompletedTrick: { cards: newTrick, winnerIndex: trickWinner, leaderIndex: trickLeaderIndex },
     };
   }
 
@@ -312,7 +328,7 @@ export function playCard(
     currentTrick: [],
     trickLeaderIndex: trickWinner,
     currentPlayerIndex: trickWinner,
-    lastCompletedTrick: { cards: newTrick, winnerIndex: trickWinner },
+    lastCompletedTrick: { cards: newTrick, winnerIndex: trickWinner, leaderIndex: trickLeaderIndex },
   };
 }
 

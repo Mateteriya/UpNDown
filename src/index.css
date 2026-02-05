@@ -36,3 +36,28 @@ body {
     transform: translateY(0);
   }
 }
+
+.trump-on-deck--full {
+  animation: trumpShimmer 3s ease-in-out infinite;
+}
+.trump-on-deck--dim {
+  animation: trumpShimmerDim 3s ease-in-out infinite;
+}
+@keyframes trumpShimmer {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 6px rgba(255,255,255,0.4)); }
+  50% { filter: brightness(1.04) drop-shadow(0 0 10px rgba(255,255,255,0.5)); }
+}
+@keyframes trumpShimmerDim {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 4px rgba(255,255,255,0.25)); }
+  50% { filter: brightness(1.02) drop-shadow(0 0 6px rgba(255,255,255,0.35)); }
+}
+
+.trump-btn-lamp-off {
+  animation: lampOffFlicker 2.5s ease-in-out infinite;
+}
+@keyframes lampOffFlicker {
+  0%, 100% { opacity: 0.65; filter: drop-shadow(0 0 3px rgba(251, 146, 60, 0.35)); }
+  25% { opacity: 0.5; filter: drop-shadow(0 0 2px rgba(251, 146, 60, 0.25)); }
+  50% { opacity: 0.75; filter: drop-shadow(0 0 4px rgba(251, 146, 60, 0.4)); }
+  75% { opacity: 0.55; filter: drop-shadow(0 0 2px rgba(251, 146, 60, 0.3)); }
+}

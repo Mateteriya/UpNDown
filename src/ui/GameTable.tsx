@@ -40,6 +40,26 @@ interface GameTableProps {
 
 const TRICK_PAUSE_MS = 2000;
 
+const NEXT_PLAYER_LEFT = [2, 3, 1, 0] as const;
+function getTrickPlayerIndex(trickLeaderIndex: number, cardIndex: number): number {
+  let p = trickLeaderIndex;
+  for (let i = 0; i < cardIndex; i++) p = NEXT_PLAYER_LEFT[p];
+  return p;
+}
+
+function getTrickCardSlotStyle(playerIdx: number): React.CSSProperties {
+  const base: React.CSSProperties = { position: 'absolute', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' };
+  const offsetEdge = 17;
+  const offsetWestEast = 96;
+  switch (playerIdx) {
+    case 0: return { ...base, bottom: offsetEdge, left: '50%', transform: 'translateX(-50%)' };   // Юг — низ по центру
+    case 1: return { ...base, top: offsetEdge, left: '50%', transform: 'translateX(-50%)' };      // Север — верх по центру
+    case 2: return { ...base, left: offsetWestEast, top: '50%', transform: 'translateY(-50%)' };  // Запад — ближе к центру
+    case 3: return { ...base, right: offsetWestEast, top: '50%', transform: 'translateY(-50%)' }; // Восток — ближе к центру
+    default: return { ...base, bottom: offset, left: '50%', transform: 'translateX(-50%)' };
+  }
+}
+
 const SUIT_COLORS: Record<string, string> = {
   '♠': '#22d3ee',
   '♥': '#f472b6',
@@ -48,13 +68,20 @@ const SUIT_COLORS: Record<string, string> = {
 };
 
 const trumpHighlightBtnStyle: CSSProperties = {
-  padding: '6px 12px',
-  background: 'transparent',
-  border: '1px solid #475569',
-  borderRadius: 6,
-  color: '#94a3b8',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  padding: '8px 14px',
+  background: 'rgba(15, 23, 42, 0.9)',
+  border: '1px solid rgba(34, 211, 238, 0.55)',
+  borderRadius: 8,
+  color: 'rgba(34, 211, 238, 0.9)',
   cursor: 'pointer',
   fontSize: 12,
+  fontWeight: 600,
+  boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.2), 0 0 8px rgba(34, 211, 238, 0.15)',
+  transition: 'box-shadow 0.2s, border-color 0.2s, color 0.2s',
 };
 
 export function GameTable({ gameId, onExit }: GameTableProps) {
@@ -161,15 +188,40 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
         <button
           type="button"
           onClick={() => setTrumpHighlightOn(v => !v)}
-          style={trumpHighlightBtnStyle}
-          title={trumpHighlightOn ? 'Доп. подсветка козырей вкл' : 'Доп. подсветка козырей выкл'}
+          style={{
+            ...trumpHighlightBtnStyle,
+            ...(trumpHighlightOn
+              ? {
+                  borderColor: 'rgba(34, 211, 238, 0.9)',
+                  color: '#5eead4',
+                  boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(94, 234, 212, 0.4), 0 0 18px rgba(34, 211, 238, 0.25)',
+                }
+              : { color: 'rgba(251, 146, 60, 0.7)' }),
+          }}
+          title={trumpHighlightOn ? 'Выключить дополнительную подсветку' : 'Включить дополнительную подсветку'}
         >
-          {trumpHighlightOn ? '✦ Подсветка вкл' : '○ Подсветка выкл'}
+          <svg
+            width="18"
+            height="20"
+            viewBox="0 0 18 20"
+            fill="currentColor"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={!trumpHighlightOn ? 'trump-btn-lamp-off' : undefined}
+            style={trumpHighlightOn ? { filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.6)) drop-shadow(0 0 8px rgba(94, 234, 212, 0.5))' } : undefined}
+          >
+            <path d="M9 2c-3.3 0-6 2.7-6 6 0 2.2 1.2 4.1 3 5.2v2.3c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-2.3c1.8-1.1 3-3 3-5.2 0-3.3-2.7-6-6-6z" />
+            <path d="M9 15v2" />
+            <path d="M6 19h6" />
+          </svg>
+          {trumpHighlightOn ? 'Выключить' : 'Включить'}
         </button>
       </header>
 
-      {(state.phase === 'bidding' || state.phase === 'dark-bidding' || state.phase === 'playing') && (
-        <div style={gameInfoTopRowStyle}>
+      <div style={gameTableBlockStyle}>
+      <div style={gameInfoTopRowStyle}>
           <div style={gameInfoLeftSectionStyle}>
             <div style={gameInfoBadgeStyle}>
               <span style={gameInfoLabelStyle}>Первый ход</span>
@@ -189,12 +241,14 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
                   {state.phase === 'dark-bidding' && ' (вслепую)'}
                 </span>
               </div>
-            )}
-          </div>
-          <div style={gameInfoNorthSlotWrapper}>
-            <OpponentSlot state={state} index={1} position="top" inline />
-          </div>
-          <div style={gameInfoRightSectionStyle}>
+          )}
+        </div>
+        <div style={gameInfoTopRowSpacerStyle} aria-hidden />
+        <div style={gameInfoNorthSlotWrapper}>
+          <OpponentSlot state={state} index={1} position="top" inline />
+        </div>
+        <div style={gameInfoTopRowSpacerStyle} aria-hidden />
+        <div style={gameInfoRightSectionStyle}>
             <div style={gameInfoBadgeStyle}>
               <span style={gameInfoLabelStyle}>Раздача</span>
               <span style={gameInfoValueStyle}>№{state.dealNumber}</span>
@@ -221,7 +275,6 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
             )}
           </div>
         </div>
-      )}
 
       <div style={centerAreaSpacerTopStyle} aria-hidden />
 
@@ -243,10 +296,12 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
         <div style={tableOuterStyle}>
           <div style={tableSurfaceStyle}>
             {state.trumpCard && (
-              <div style={trumpStyle}>
-                <span style={{ fontSize: 12, color: 'rgba(34, 211, 238, 0.9)', textShadow: '0 0 8px rgba(34, 211, 238, 0.5)' }}>Козырь</span>
-                <CardView card={state.trumpCard} disabled compact doubleBorder={trumpHighlightOn} />
-              </div>
+              <DeckWithTrump
+                tricksInDeal={state.tricksInDeal}
+                trumpCard={state.trumpCard}
+                trumpHighlightOn={trumpHighlightOn}
+                dealerIndex={state.dealerIndex}
+              />
             )}
             <div style={trickStyle}>
               {(state.currentTrick.length > 0
@@ -254,15 +309,23 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
                 : state.lastCompletedTrick && Date.now() < trickPauseUntil
                   ? state.lastCompletedTrick.cards
                   : []
-              ).map((card, i) => (
-                <CardView
-                  key={`${card.suit}-${card.rank}-${i}`}
-                  card={card}
-                  compact
-                  doubleBorder={trumpHighlightOn}
-                  isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
-                />
-              ))}
+              ).map((card, i) => {
+                const leader = state.currentTrick.length > 0
+                  ? state.trickLeaderIndex
+                  : state.lastCompletedTrick?.leaderIndex ?? 0;
+                const playerIdx = getTrickPlayerIndex(leader, i);
+                const slotStyle = getTrickCardSlotStyle(playerIdx);
+                return (
+                  <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
+                    <CardView
+                      card={card}
+                      compact
+                      doubleBorder={trumpHighlightOn}
+                      isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
+                    />
+                  </div>
+                );
+              })}
             </div>
             {state.lastCompletedTrick && (
               <button
@@ -282,6 +345,7 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
       </div>
 
       <div style={centerAreaSpacerBottomStyle} aria-hidden />
+      </div>
 
       <div style={playerSpacerStyle} aria-hidden />
 
@@ -291,12 +355,14 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
           ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyle : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
         }}>
           <div style={playerInfoHeaderStyle}>
-            <span style={playerNameStyle}>{state.players[humanIdx].name}</span>
-            {state.dealerIndex === humanIdx && (
-              <span style={dealerLampStyle} title="Сдающий">
-                <span style={dealerLampBulbStyle} /> Сдающий
-              </span>
-            )}
+            <span style={playerNameDealerWrapStyle}>
+              <span style={playerNameStyle}>{state.players[humanIdx].name}</span>
+              {state.dealerIndex === humanIdx && (
+                <span style={dealerLampStyle} title="Сдающий">
+                  <span style={dealerLampBulbStyle} /> Сдающий
+                </span>
+              )}
+            </span>
             {state.currentPlayerIndex === humanIdx && (
               <span style={yourTurnBadgeStyle}>Ваш ход</span>
             )}
@@ -434,14 +500,14 @@ function OpponentSlot({
 
   const frameStyle = isActive ? activeTurnPanelFrameStyle : isDealer ? dealerPanelFrameStyle : undefined;
   return (
-    <div style={{ ...opponentSlotStyle, ...posStyle, ...frameStyle }}>
+    <div style={{ ...opponentSlotStyle, ...posStyle, ...frameStyle, overflow: 'visible' }}>
+      {isDealer && (
+        <span style={dealerLampExternalStyle} title="Сдающий">
+          <span style={dealerLampBulbStyle} /> Сдающий
+        </span>
+      )}
       <div style={opponentHeaderStyle}>
         <span style={opponentNameStyle}>{p.name}</span>
-        {isDealer && (
-          <span style={dealerLampStyle} title="Сдающий">
-            <span style={dealerLampBulbStyle} /> Сдающий
-          </span>
-        )}
         {isActive && <span style={opponentTurnBadgeStyle}>Ходит</span>}
       </div>
       <div style={opponentStatsRowStyle}>
@@ -457,6 +523,63 @@ function OpponentSlot({
           <span style={opponentStatLabelStyle}>Очки</span>
           <span style={opponentStatValueStyle}>{p.score}</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DeckWithTrump({
+  tricksInDeal,
+  trumpCard,
+  trumpHighlightOn,
+  dealerIndex,
+}: {
+  tricksInDeal: number;
+  trumpCard: Card;
+  trumpHighlightOn: boolean;
+  dealerIndex: number;
+}) {
+  const cardsDealt = tricksInDeal * 4;
+  const cardsUnderTrump = Math.max(0, 36 - cardsDealt - 1);
+  const numLayers = cardsUnderTrump === 0 ? 1 : Math.min(5, 2 + Math.floor(cardsUnderTrump / 8));
+
+  const cornerStyle: React.CSSProperties = (() => {
+    const base = 20;
+    switch (dealerIndex % 4) {
+      case 0: return { left: base, bottom: base };   // Юг — левый нижний
+      case 1: return { top: base, right: base };     // Север — правый верхний
+      case 2: return { top: base, left: base };      // Запад — левый верхний
+      case 3: return { bottom: base, right: base };  // Восток — правый нижний
+      default: return { left: base, bottom: base };
+    }
+  })();
+
+  return (
+    <div style={{ ...deckStackWrapStyle, ...cornerStyle }}>
+      {Array.from({ length: numLayers }, (_, i) => (
+        <div
+          key={i}
+          style={{
+            ...cardBackStyle,
+            position: 'absolute',
+            top: i * 2,
+            left: i * 2,
+            zIndex: i,
+          }}
+          aria-hidden
+        />
+      ))}
+      <div
+        style={{
+          ...trumpStyle,
+          position: 'absolute',
+          top: (numLayers - 1) * 2,
+          left: (numLayers - 1) * 2,
+          zIndex: numLayers + 1,
+        }}
+      >
+        <span style={{ fontSize: 12, color: 'rgba(34, 211, 238, 0.9)', textShadow: '0 0 8px rgba(34, 211, 238, 0.5)' }}>Козырь</span>
+        <CardView card={trumpCard} disabled compact doubleBorder={trumpHighlightOn} trumpOnDeck trumpDeckHighlightOn={trumpHighlightOn} />
       </div>
     </div>
   );
@@ -592,6 +715,8 @@ const headerStyle: React.CSSProperties = {
   flexWrap: 'wrap',
   gap: 12,
   flexShrink: 0,
+  position: 'relative',
+  zIndex: 20,
 };
 
 const centerAreaSpacerTopStyle: React.CSSProperties = {
@@ -609,14 +734,25 @@ const playerSpacerStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
+const GAME_TABLE_UP_OFFSET = 70;
+
+const gameTableBlockStyle: React.CSSProperties = {
+  transform: `translateY(-${GAME_TABLE_UP_OFFSET}px)`,
+  flexShrink: 0,
+};
+
 const gameInfoTopRowStyle: React.CSSProperties = {
   display: 'flex',
-  flexWrap: 'wrap',
-  justifyContent: 'space-between',
+  flexDirection: 'row',
   alignItems: 'stretch',
   gap: 16,
   marginBottom: 12,
   flexShrink: 0,
+};
+
+const gameInfoTopRowSpacerStyle: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
 };
 
 const gameInfoLeftSectionStyle: React.CSSProperties = {
@@ -629,9 +765,14 @@ const gameInfoLeftSectionStyle: React.CSSProperties = {
   border: '1px solid rgba(139, 92, 246, 0.5)',
   boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1)',
   background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.9) 0%, rgba(67, 56, 202, 0.85) 50%, rgba(79, 70, 229, 0.9) 100%)',
+  flexShrink: 0,
+  marginTop: 70,
 };
 
 const gameInfoNorthSlotWrapper: React.CSSProperties = {
+  width: 180,
+  minWidth: 180,
+  maxWidth: 180,
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
@@ -649,6 +790,8 @@ const gameInfoRightSectionStyle: React.CSSProperties = {
   border: '1px solid rgba(56, 189, 248, 0.5)',
   boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1)',
   background: 'linear-gradient(135deg, rgba(30, 64, 175, 0.9) 0%, rgba(59, 130, 246, 0.85) 50%, rgba(34, 211, 238, 0.9) 100%)',
+  flexShrink: 0,
+  marginTop: 70,
 };
 
 const gameInfoSpecialBadgeStyle: React.CSSProperties = {
@@ -712,6 +855,7 @@ const centerAreaStyle: React.CSSProperties = {
   gap: 16,
   position: 'relative',
   zIndex: 10,
+  marginTop: 50,
 };
 
 const opponentSideWrapStyle: React.CSSProperties = {
@@ -729,7 +873,9 @@ const opponentSlotStyle: React.CSSProperties = {
   background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
   borderRadius: 12,
   border: '1px solid rgba(34, 211, 238, 0.45)',
-  minWidth: 140,
+  width: 180,
+  minWidth: 180,
+  maxWidth: 180,
   boxShadow: [
     '0 0 0 1px rgba(34, 211, 238, 0.25)',
     '0 0 20px rgba(34, 211, 238, 0.12)',
@@ -797,6 +943,17 @@ const dealerLampStyle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
   boxShadow: '0 0 10px rgba(56, 189, 248, 0.3), inset 0 0 8px rgba(56, 189, 248, 0.08)',
+};
+
+const dealerLampExternalStyle: React.CSSProperties = {
+  ...dealerLampStyle,
+  position: 'absolute',
+  top: 0,
+  left: 7,
+  transform: 'translateY(-100%)',
+  whiteSpace: 'nowrap',
+  zIndex: 1,
+  borderRadius: '14px 14px 0 0',
 };
 
 const dealerLampBulbStyle: React.CSSProperties = {
@@ -874,6 +1031,7 @@ const tableOuterStyle: React.CSSProperties = {
 };
 
 const tableSurfaceStyle: React.CSSProperties = {
+  position: 'relative',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -906,6 +1064,37 @@ const centerStyle: React.CSSProperties = {
   gap: 16,
 };
 
+const deckStackWrapStyle: React.CSSProperties = {
+  position: 'absolute',
+  width: 64,
+  height: 96,
+};
+
+const cardBackStyle: React.CSSProperties = {
+  width: 52,
+  height: 76,
+  borderRadius: 8,
+  border: '2px solid rgba(99, 102, 241, 0.5)',
+  boxShadow: [
+    'inset 0 0 30px rgba(99, 102, 241, 0.15)',
+    'inset 0 0 0 1px rgba(255, 255, 255, 0.08)',
+    '0 2px 8px rgba(0, 0, 0, 0.3)',
+  ].join(', '),
+  background: [
+    'radial-gradient(1.5px 1.5px at 20% 25%, #fef3c7 0%, transparent 100%)',
+    'radial-gradient(1px 1px at 45% 15%, #e0e7ff 0%, transparent 100%)',
+    'radial-gradient(2px 2px at 75% 35%, #c7d2fe 0%, transparent 100%)',
+    'radial-gradient(1px 1px at 15% 60%, #fce7f3 0%, transparent 100%)',
+    'radial-gradient(1.5px 1.5px at 85% 75%, #a5f3fc 0%, transparent 100%)',
+    'radial-gradient(1px 1px at 50% 80%, #e0e7ff 0%, transparent 100%)',
+    'radial-gradient(ellipse 60% 40% at 50% 30%, rgba(192, 132, 252, 0.4) 0%, transparent 50%)',
+    'radial-gradient(circle at 30% 70%, rgba(59, 130, 246, 0.3) 0%, transparent 40%)',
+    'radial-gradient(circle at 70% 60%, rgba(236, 72, 153, 0.25) 0%, transparent 35%)',
+    'linear-gradient(145deg, #0f0a1e 0%, #1e1b4b 20%, #312e81 40%, #1e3a5f 60%, #0c4a6e 80%, #134e4a 100%)',
+  ].join(', '),
+  backgroundSize: '100% 100%',
+};
+
 const trumpStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -914,10 +1103,9 @@ const trumpStyle: React.CSSProperties = {
 };
 
 const trickStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: 4,
-  flexWrap: 'wrap',
-  justifyContent: 'center',
+  position: 'absolute',
+  inset: 0,
+  pointerEvents: 'none',
 };
 
 const lastTrickButtonStyle: React.CSSProperties = {
@@ -935,10 +1123,11 @@ const lastTrickButtonStyle: React.CSSProperties = {
 
 const playerStyle: React.CSSProperties = {
   position: 'fixed',
-  bottom: 0,
+  bottom: 30,
   left: 0,
   right: 0,
   padding: 20,
+  marginTop: 20,
   background: 'linear-gradient(0deg, #1e293b 0%, transparent 100%)',
   zIndex: 5,
 };
@@ -968,6 +1157,12 @@ const playerInfoHeaderStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 12,
   flexWrap: 'wrap',
+};
+
+const playerNameDealerWrapStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 8,
 };
 
 const playerNameStyle: React.CSSProperties = {
