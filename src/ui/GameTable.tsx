@@ -223,14 +223,11 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
         </div>
       )}
 
-      <div style={opponentsStyle}>
-        <OpponentSlot state={state} index={2} position="left" />
-        <OpponentSlot state={state} index={3} position="right" />
-      </div>
+      <div style={centerAreaSpacerTopStyle} aria-hidden />
 
       <div
         style={{
-          ...centerStyle,
+          ...centerAreaStyle,
           ...(isAITurn ? { cursor: 'pointer' } : {}),
         }}
         onClick={isAITurn ? accelerateAI : undefined}
@@ -239,6 +236,10 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
         tabIndex={isAITurn ? 0 : undefined}
         title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}
       >
+        <div style={opponentSideWrapStyle}>
+          <OpponentSlot state={state} index={2} position="left" inline />
+        </div>
+        <div style={centerStyle}>
         <div style={tableOuterStyle}>
           <div style={tableSurfaceStyle}>
             {state.trumpCard && (
@@ -274,10 +275,21 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
             )}
           </div>
         </div>
+        </div>
+        <div style={opponentSideWrapStyle}>
+          <OpponentSlot state={state} index={3} position="right" inline />
+        </div>
       </div>
 
+      <div style={centerAreaSpacerBottomStyle} aria-hidden />
+
+      <div style={playerSpacerStyle} aria-hidden />
+
       <div style={playerStyle}>
-        <div style={playerInfoPanelStyle}>
+        <div style={{
+          ...playerInfoPanelStyle,
+          ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyle : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
+        }}>
           <div style={playerInfoHeaderStyle}>
             <span style={playerNameStyle}>{state.players[humanIdx].name}</span>
             {state.dealerIndex === humanIdx && (
@@ -361,7 +373,7 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
       </div>
 
       {isHumanBidding && bidPanelVisible && (
-        <div style={bidSidePanelStyle} aria-label="Выбор заказа">
+        <div className="bid-panel-bottom" style={bidSidePanelStyle} aria-label="Выбор заказа">
           <div style={bidSidePanelTitle}>
             {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
           </div>
@@ -412,16 +424,17 @@ function OpponentSlot({
   const isDealer = state.dealerIndex === index;
   const bid = state.bids[index];
 
-  const posStyle = inline && position === 'top'
-    ? { position: 'relative' as const, top: 'auto', left: 'auto', transform: 'none' }
+  const posStyle = inline
+    ? { position: 'relative' as const, top: 'auto', left: 'auto', right: 'auto', transform: 'none' }
     : position === 'top'
     ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' as const }
     : position === 'left'
     ? { left: 20, top: '50%', transform: 'translateY(-50%)' as const }
     : { right: 20, top: '50%', transform: 'translateY(-50%)' as const };
 
+  const frameStyle = isActive ? activeTurnPanelFrameStyle : isDealer ? dealerPanelFrameStyle : undefined;
   return (
-    <div style={{ ...opponentSlotStyle, ...posStyle }}>
+    <div style={{ ...opponentSlotStyle, ...posStyle, ...frameStyle }}>
       <div style={opponentHeaderStyle}>
         <span style={opponentNameStyle}>{p.name}</span>
         {isDealer && (
@@ -559,11 +572,17 @@ const tableLayoutStyle: React.CSSProperties = {
   color: '#f8fafc',
 };
 
+const TABLE_GAP = 48;
+const PLAYER_AREA_HEIGHT = 260;
+
 const tableStyle: React.CSSProperties = {
   flex: 1,
   position: 'relative',
   padding: 20,
-  paddingBottom: 260,
+  paddingBottom: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  minHeight: 0,
 };
 
 const headerStyle: React.CSSProperties = {
@@ -573,9 +592,23 @@ const headerStyle: React.CSSProperties = {
   marginBottom: 16,
   flexWrap: 'wrap',
   gap: 12,
+  flexShrink: 0,
 };
 
-const TABLE_GAP = 48;
+const centerAreaSpacerTopStyle: React.CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+};
+
+const centerAreaSpacerBottomStyle: React.CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+};
+
+const playerSpacerStyle: React.CSSProperties = {
+  height: PLAYER_AREA_HEIGHT,
+  flexShrink: 0,
+};
 
 const gameInfoTopRowStyle: React.CSSProperties = {
   display: 'flex',
@@ -584,6 +617,7 @@ const gameInfoTopRowStyle: React.CSSProperties = {
   alignItems: 'stretch',
   gap: 16,
   marginBottom: 12,
+  flexShrink: 0,
 };
 
 const gameInfoLeftSectionStyle: React.CSSProperties = {
@@ -603,6 +637,7 @@ const gameInfoNorthSlotWrapper: React.CSSProperties = {
   justifyContent: 'center',
   alignItems: 'center',
   flexShrink: 0,
+  transform: 'translateY(32px)',
 };
 
 const gameInfoRightSectionStyle: React.CSSProperties = {
@@ -669,10 +704,24 @@ const exitBtnStyle: React.CSSProperties = {
   fontSize: 14,
 };
 
-const opponentsStyle: React.CSSProperties = {
+const centerAreaStyle: React.CSSProperties = {
+  flexShrink: 0,
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 16,
   position: 'relative',
-  height: TABLE_GAP,
-  marginBottom: 0,
+  zIndex: 10,
+};
+
+const opponentSideWrapStyle: React.CSSProperties = {
+  flex: 1,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: 140,
+  maxWidth: 180,
 };
 
 const opponentSlotStyle: React.CSSProperties = {
@@ -683,6 +732,16 @@ const opponentSlotStyle: React.CSSProperties = {
   border: '1px solid rgba(71, 85, 105, 0.6)',
   minWidth: 140,
   boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08)',
+};
+
+const dealerPanelFrameStyle: React.CSSProperties = {
+  border: '1px solid rgba(56, 189, 248, 0.6)',
+  boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 12px rgba(56, 189, 248, 0.35)',
+};
+
+const activeTurnPanelFrameStyle: React.CSSProperties = {
+  border: '1px solid rgba(251, 146, 60, 0.45)',
+  boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 10px rgba(251, 146, 60, 0.2)',
 };
 
 const opponentHeaderStyle: React.CSSProperties = {
@@ -716,19 +775,20 @@ const dealerLampStyle: React.CSSProperties = {
   gap: 6,
   padding: '3px 10px',
   borderRadius: 14,
-  background: 'rgba(34, 197, 94, 0.15)',
-  border: '1px solid rgba(34, 197, 94, 0.4)',
-  color: '#4ade80',
+  background: 'rgba(56, 189, 248, 0.12)',
+  border: '1px solid rgba(56, 189, 248, 0.6)',
+  color: '#7dd3fc',
   fontSize: 11,
   fontWeight: 600,
+  boxShadow: '0 0 10px rgba(56, 189, 248, 0.3), inset 0 0 8px rgba(56, 189, 248, 0.08)',
 };
 
 const dealerLampBulbStyle: React.CSSProperties = {
   width: 8,
   height: 8,
   borderRadius: '50%',
-  background: '#22c55e',
-  boxShadow: '0 0 8px rgba(34, 197, 94, 0.8)',
+  background: '#38bdf8',
+  boxShadow: '0 0 8px rgba(56, 189, 248, 0.8)',
 };
 
 const opponentStatsRowStyle: React.CSSProperties = {
@@ -766,6 +826,7 @@ const opponentStatValueStyle: React.CSSProperties = {
 
 const tableOuterStyle: React.CSSProperties = {
   position: 'relative',
+  flexShrink: 0,
   padding: 18,
   borderRadius: '24px',
   background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.95) 50%, rgba(15, 23, 42, 0.98) 100%)',
@@ -784,7 +845,9 @@ const tableSurfaceStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: 16,
+  width: 576,
   minWidth: 576,
+  height: 250,
   minHeight: 250,
   padding: 36,
   borderRadius: '16px',
@@ -801,16 +864,12 @@ const tableSurfaceStyle: React.CSSProperties = {
 };
 
 const centerStyle: React.CSSProperties = {
+  flexShrink: 0,
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  justifyContent: 'flex-start',
-  paddingTop: 0,
-  paddingBottom: TABLE_GAP,
-  marginBottom: 0,
+  justifyContent: 'center',
   gap: 16,
-  position: 'relative',
-  zIndex: 10,
 };
 
 const trumpStyle: React.CSSProperties = {
@@ -937,60 +996,71 @@ const handStyle: React.CSSProperties = {
 };
 
 const bidSidePanelStyle: React.CSSProperties = {
-  width: 88,
-  padding: '20px 16px',
-  background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
-  borderLeft: '1px solid rgba(71, 85, 105, 0.6)',
+  position: 'fixed',
+  bottom: 24,
+  left: 24,
+  zIndex: 100,
+  padding: '16px 20px',
+  background: 'linear-gradient(180deg, #22d3ee 0%, #06b6d4 40%, #14b8a6 80%, #0d9488 100%)',
+  border: '2px solid rgba(139, 92, 246, 0.7)',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.2), 0 0 12px rgba(139, 92, 246, 0.3)',
+  borderRadius: 12,
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   gap: 8,
-  boxShadow: '-4px 0 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)',
-  flexShrink: 0,
 };
 
 const bidSidePanelTitle: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: 22,
   fontWeight: 700,
-  color: '#f8fafc',
+  fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
+  color: '#4c1d95',
   letterSpacing: '0.5px',
+  textShadow: '0 1px 2px rgba(255,255,255,0.3)',
 };
 
 const bidSidePanelSubtitle: React.CSSProperties = {
-  fontSize: 11,
-  color: '#94a3b8',
+  fontSize: 16,
+  fontWeight: 600,
+  fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
+  color: '#4c1d95',
   marginBottom: 4,
+  textShadow: '0 1px 2px rgba(255,255,255,0.3)',
 };
 
 const bidSidePanelGrid: React.CSSProperties = {
   display: 'flex',
-  flexDirection: 'column',
+  flexDirection: 'row',
+  flexWrap: 'wrap',
   gap: 6,
-  width: '100%',
+  justifyContent: 'center',
+  maxWidth: 220,
 };
 
 const bidSidePanelButton: React.CSSProperties = {
-  width: '100%',
-  height: 44,
+  width: 38,
+  height: 38,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   borderRadius: 10,
-  border: '2px solid #475569',
-  background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)',
-  color: '#f8fafc',
+  border: '1px solid rgba(34, 197, 94, 0.6)',
+  background: 'linear-gradient(180deg, #4ade80 0%, #22c55e 100%)',
+  color: '#052e16',
   fontSize: 18,
   fontWeight: 700,
   cursor: 'pointer',
   userSelect: 'none',
   transition: 'all 0.15s ease',
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 4px rgba(0,0,0,0.15)',
 };
 
 const bidSidePanelButtonDisabled: React.CSSProperties = {
-  opacity: 0.5,
+  background: 'rgba(88, 28, 40, 0.5)',
+  border: '1px solid rgba(88, 28, 40, 0.6)',
+  color: 'rgba(255,255,255,0.6)',
   cursor: 'not-allowed',
-  borderColor: '#64748b',
 };
 
 const modalOverlay: React.CSSProperties = {

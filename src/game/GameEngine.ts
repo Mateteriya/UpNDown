@@ -41,8 +41,8 @@ export function createGame(
   const players: Player[] = [
     { id: 'human', name: humanPlayerName, hand: [], bid: undefined, tricksTaken: 0, score: 0 },
     { id: 'ai1', name: 'ИИ Север', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
-    { id: 'ai2', name: 'ИИ Восток', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
-    { id: 'ai3', name: 'ИИ Юг', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
+    { id: 'ai2', name: 'ИИ Запад', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
+    { id: 'ai3', name: 'ИИ Восток', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
   ];
 
   return {
