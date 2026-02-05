@@ -1,0 +1,24 @@
+:root {
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #0f172a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.bid-panel-btn:not(:disabled):hover {
+  background: linear-gradient(180deg, #475569 0%, #334155 100%) !important;
+  border-color: #64748b !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 2px 8px rgba(0,0,0,0.2) !important;
+  transform: scale(1.02);
+}
