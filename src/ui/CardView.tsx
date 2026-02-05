@@ -84,7 +84,6 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         }
       }}
       onMouseLeave={e => {
-        const n = suitNeonBorder[card.suit] ?? suitNeonBorder['♠'];
         e.currentTarget.style.transform = '';
         e.currentTarget.style.boxShadow = trumpShadow;
       }}

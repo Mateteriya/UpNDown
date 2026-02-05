@@ -302,15 +302,15 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
             )}
           </div>
           <div style={playerStatsRowStyle}>
-            <div style={playerStatBadgeStyle}>
+            <div style={playerStatBadgeBidStyle}>
               <span style={playerStatLabelStyle}>Заказ</span>
               <span style={playerStatValueStyle}>{state.bids[humanIdx] ?? '—'}</span>
             </div>
-            <div style={playerStatBadgeStyle}>
+            <div style={playerStatBadgeTricksStyle}>
               <span style={playerStatLabelStyle}>Взяток</span>
               <span style={playerStatValueStyle}>{state.players[humanIdx].tricksTaken}</span>
             </div>
-            <div style={playerStatBadgeStyle}>
+            <div style={playerStatBadgeScoreStyle}>
               <span style={playerStatLabelStyle}>Очки</span>
               <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
             </div>
@@ -445,17 +445,17 @@ function OpponentSlot({
         {isActive && <span style={opponentTurnBadgeStyle}>Ходит</span>}
       </div>
       <div style={opponentStatsRowStyle}>
-        <div style={opponentStatBadgeStyle}>
+        <div style={opponentStatBadgeBidStyle}>
           <span style={opponentStatLabelStyle}>Заказ</span>
           <span style={opponentStatValueStyle}>{bid ?? '—'}</span>
         </div>
-        <div style={opponentStatBadgeStyle}>
+        <div style={opponentStatBadgeTricksStyle}>
           <span style={opponentStatLabelStyle}>Взяток</span>
           <span style={opponentStatValueStyle}>{p.tricksTaken}</span>
         </div>
-        <div style={opponentStatBadgeStyle}>
-          <span style={opponentStatLabelStyle}>Карт</span>
-          <span style={opponentStatValueStyle}>{p.hand.length}</span>
+        <div style={opponentStatBadgeScoreStyle}>
+          <span style={opponentStatLabelStyle}>Очки</span>
+          <span style={opponentStatValueStyle}>{p.score}</span>
         </div>
       </div>
     </div>
@@ -572,7 +572,6 @@ const tableLayoutStyle: React.CSSProperties = {
   color: '#f8fafc',
 };
 
-const TABLE_GAP = 48;
 const PLAYER_AREA_HEIGHT = 260;
 
 const tableStyle: React.CSSProperties = {
@@ -729,19 +728,36 @@ const opponentSlotStyle: React.CSSProperties = {
   padding: '12px 16px',
   background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
   borderRadius: 12,
-  border: '1px solid rgba(71, 85, 105, 0.6)',
+  border: '1px solid rgba(34, 211, 238, 0.45)',
   minWidth: 140,
-  boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08)',
+  boxShadow: [
+    '0 0 0 1px rgba(34, 211, 238, 0.25)',
+    '0 0 20px rgba(34, 211, 238, 0.12)',
+    '0 4px 20px rgba(0,0,0,0.25)',
+    'inset 0 1px 0 rgba(255,255,255,0.08)',
+  ].join(', '),
 };
 
 const dealerPanelFrameStyle: React.CSSProperties = {
   border: '1px solid rgba(56, 189, 248, 0.6)',
-  boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 12px rgba(56, 189, 248, 0.35)',
+  boxShadow: [
+    '0 0 0 1px rgba(34, 211, 238, 0.2)',
+    '0 0 20px rgba(34, 211, 238, 0.1)',
+    '0 0 12px rgba(56, 189, 248, 0.35)',
+    '0 4px 20px rgba(0,0,0,0.25)',
+    'inset 0 1px 0 rgba(255,255,255,0.08)',
+  ].join(', '),
 };
 
 const activeTurnPanelFrameStyle: React.CSSProperties = {
   border: '1px solid rgba(251, 146, 60, 0.45)',
-  boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 10px rgba(251, 146, 60, 0.2)',
+  boxShadow: [
+    '0 0 0 1px rgba(34, 211, 238, 0.2)',
+    '0 0 20px rgba(34, 211, 238, 0.1)',
+    '0 0 10px rgba(251, 146, 60, 0.2)',
+    '0 4px 20px rgba(0,0,0,0.25)',
+    'inset 0 1px 0 rgba(255,255,255,0.08)',
+  ].join(', '),
 };
 
 const opponentHeaderStyle: React.CSSProperties = {
@@ -807,6 +823,24 @@ const opponentStatBadgeStyle: React.CSSProperties = {
   borderRadius: 6,
   border: '1px solid rgba(71, 85, 105, 0.4)',
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
+};
+
+const opponentStatBadgeBidStyle: React.CSSProperties = {
+  ...opponentStatBadgeStyle,
+  borderColor: 'rgba(251, 146, 60, 0.5)',
+  background: 'linear-gradient(180deg, rgba(251, 146, 60, 0.12) 0%, rgba(30, 41, 59, 0.8) 100%)',
+};
+
+const opponentStatBadgeTricksStyle: React.CSSProperties = {
+  ...opponentStatBadgeStyle,
+  borderColor: 'rgba(34, 197, 94, 0.5)',
+  background: 'linear-gradient(180deg, rgba(34, 197, 94, 0.12) 0%, rgba(30, 41, 59, 0.8) 100%)',
+};
+
+const opponentStatBadgeScoreStyle: React.CSSProperties = {
+  ...opponentStatBadgeStyle,
+  borderColor: 'rgba(139, 92, 246, 0.5)',
+  background: 'linear-gradient(180deg, rgba(139, 92, 246, 0.12) 0%, rgba(30, 41, 59, 0.8) 100%)',
 };
 
 const opponentStatLabelStyle: React.CSSProperties = {
@@ -917,8 +951,13 @@ const playerInfoPanelStyle: React.CSSProperties = {
   padding: '14px 20px',
   background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
   borderRadius: 12,
-  border: '1px solid rgba(71, 85, 105, 0.6)',
-  boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08)',
+  border: '1px solid rgba(34, 211, 238, 0.45)',
+  boxShadow: [
+    '0 0 0 1px rgba(34, 211, 238, 0.25)',
+    '0 0 20px rgba(34, 211, 238, 0.12)',
+    '0 4px 20px rgba(0,0,0,0.25)',
+    'inset 0 1px 0 rgba(255,255,255,0.08)',
+  ].join(', '),
   maxWidth: 420,
   marginLeft: 'auto',
   marginRight: 'auto',
@@ -965,6 +1004,24 @@ const playerStatBadgeStyle: React.CSSProperties = {
   borderRadius: 8,
   border: '1px solid rgba(71, 85, 105, 0.5)',
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
+};
+
+const playerStatBadgeBidStyle: React.CSSProperties = {
+  ...playerStatBadgeStyle,
+  borderColor: 'rgba(251, 146, 60, 0.55)',
+  background: 'linear-gradient(180deg, rgba(251, 146, 60, 0.15) 0%, rgba(30, 41, 59, 0.85) 100%)',
+};
+
+const playerStatBadgeTricksStyle: React.CSSProperties = {
+  ...playerStatBadgeStyle,
+  borderColor: 'rgba(34, 197, 94, 0.55)',
+  background: 'linear-gradient(180deg, rgba(34, 197, 94, 0.15) 0%, rgba(30, 41, 59, 0.85) 100%)',
+};
+
+const playerStatBadgeScoreStyle: React.CSSProperties = {
+  ...playerStatBadgeStyle,
+  borderColor: 'rgba(139, 92, 246, 0.55)',
+  background: 'linear-gradient(180deg, rgba(139, 92, 246, 0.15) 0%, rgba(30, 41, 59, 0.85) 100%)',
 };
 
 const playerTrumpBadgeStyle: React.CSSProperties = {
