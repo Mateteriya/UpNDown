@@ -4,31 +4,19 @@
  */
 
 import type { CSSProperties } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { GameState } from '../game/GameEngine';
 import {
   createGame,
   startDeal,
   startNextDeal,
-  getTricksInDeal,
   getDealType,
   placeBid,
   playCard,
   getValidPlays,
   isHumanPlayer,
 } from '../game/GameEngine';
-
-function getNextDealLabel(dealNumber: number): string {
-  const next = dealNumber + 1;
-  const cards = getTricksInDeal(next);
-  const type = getDealType(next);
-  const cardsStr = cards === 1 ? '1 карта' : cards < 5 ? `${cards} карты` : `${cards} карт`;
-  if (type === 'no-trump') return `№${next} Бескозырка (${cardsStr})`;
-  if (type === 'dark') return `№${next} Тёмная (${cardsStr})`;
-  return `№${next} (${cardsStr})`;
-}
-import { calculateDealPoints } from '../game/scoring';
 import { aiBid, aiPlay } from '../game/ai';
 import { CardView } from './CardView';
 import type { Card } from '../game/types';
@@ -50,15 +38,23 @@ function getTrickPlayerIndex(trickLeaderIndex: number, cardIndex: number): numbe
 function getTrickCardSlotStyle(playerIdx: number): React.CSSProperties {
   const base: React.CSSProperties = { position: 'absolute', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' };
   const offsetEdge = 17;
-  const offsetWestEast = 96;
+  const offsetWestEast = 101;
   switch (playerIdx) {
     case 0: return { ...base, bottom: offsetEdge, left: '50%', transform: 'translateX(-50%)' };   // Юг — низ по центру
     case 1: return { ...base, top: offsetEdge, left: '50%', transform: 'translateX(-50%)' };      // Север — верх по центру
     case 2: return { ...base, left: offsetWestEast, top: '50%', transform: 'translateY(-50%)' };  // Запад — ближе к центру
     case 3: return { ...base, right: offsetWestEast, top: '50%', transform: 'translateY(-50%)' }; // Восток — ближе к центру
-    default: return { ...base, bottom: offset, left: '50%', transform: 'translateX(-50%)' };
+    default: return { ...base, bottom: offsetEdge, left: '50%', transform: 'translateX(-50%)' };
   }
 }
+
+/** Смещения от центра для анимации сбора карт */
+const SLOT_OFFSET_FROM_CENTER: Record<number, string> = {
+  0: 'translate(-50%, -50%) translateY(35%)',   // Юг
+  1: 'translate(-50%, -50%) translateY(-35%)',  // Север
+  2: 'translate(-50%, -50%) translateX(-32%)',  // Запад
+  3: 'translate(-50%, -50%) translateX(32%)',   // Восток
+};
 
 const SUIT_COLORS: Record<string, string> = {
   '♠': '#22d3ee',
@@ -90,6 +86,7 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
   const [showLastTrickModal, setShowLastTrickModal] = useState(false);
   const [bidPanelVisible, setBidPanelVisible] = useState(false);
   const [trumpHighlightOn, setTrumpHighlightOn] = useState(true);
+  const [lastTrickCollectingPhase, setLastTrickCollectingPhase] = useState<'idle' | 'slots' | 'animating' | 'stacked'>('idle');
   const lastCompletedTrickRef = useRef<unknown>(null);
 
   useEffect(() => {
@@ -105,13 +102,16 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
   const isHumanTurn = state?.phase === 'playing' && state.currentPlayerIndex === humanIdx;
   const isHumanBidding = (state?.phase === 'bidding' || state?.phase === 'dark-bidding') && state.currentPlayerIndex === humanIdx;
 
+  const dealJustCompleted = !!state?.lastCompletedTrick && state.players.every(p => p.hand.length === 0);
+  const shouldShowBidPanel = isHumanBidding && !dealJustCompleted && state?.phase !== 'deal-complete';
+
   useEffect(() => {
-    if (isHumanBidding && (state?.phase === 'bidding' || state?.phase === 'dark-bidding')) {
-      const t = setTimeout(() => setBidPanelVisible(true), 80);
+    if (shouldShowBidPanel) {
+      const t = setTimeout(() => setBidPanelVisible(true), 140);
       return () => clearTimeout(t);
     }
     setBidPanelVisible(false);
-  }, [isHumanBidding, state?.phase]);
+  }, [shouldShowBidPanel]);
 
   const validPlays = state && isHumanTurn ? getValidPlays(state, humanIdx) : [];
 
@@ -128,18 +128,47 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
   const handleBidRef = useRef(handleBid);
   handleBidRef.current = handleBid;
 
-  useEffect(() => {
+  const COLLECTING_ANIMATION_MS = 1000;
+  useLayoutEffect(() => {
     if (!state?.lastCompletedTrick) {
       lastCompletedTrickRef.current = null;
+      setLastTrickCollectingPhase('idle');
       return;
     }
     const trick = state.lastCompletedTrick;
+    const isLastTrickOfDeal = state.players.every(p => p.hand.length === 0);
     if (lastCompletedTrickRef.current === trick) return;
     lastCompletedTrickRef.current = trick;
     setTrickPauseUntil(Date.now() + TRICK_PAUSE_MS);
-    const t = setTimeout(() => setTrickPauseUntil(0), TRICK_PAUSE_MS);
-    return () => clearTimeout(t);
-  }, [state?.lastCompletedTrick]);
+    const t = setTimeout(() => {
+      setTrickPauseUntil(0);
+      setState(prev => {
+        if (prev?.phase === 'deal-complete') {
+          const next = startNextDeal(prev);
+          return next ?? prev;
+        }
+        return prev ?? null;
+      });
+    }, TRICK_PAUSE_MS);
+    let rafId = 0;
+    let t2 = 0;
+    if (isLastTrickOfDeal) {
+      setLastTrickCollectingPhase('slots');
+      rafId = requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setLastTrickCollectingPhase('animating');
+          t2 = window.setTimeout(() => setLastTrickCollectingPhase('stacked'), COLLECTING_ANIMATION_MS);
+        });
+      });
+    } else {
+      setLastTrickCollectingPhase('idle');
+    }
+    return () => {
+      clearTimeout(t);
+      if (rafId) cancelAnimationFrame(rafId);
+      if (t2) clearTimeout(t2);
+    };
+  }, [state?.lastCompletedTrick, state?.players]);
 
   const isAITurn =
     !!state &&
@@ -244,8 +273,15 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
           )}
         </div>
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
-        <div style={gameInfoNorthSlotWrapper}>
-          <OpponentSlot state={state} index={1} position="top" inline />
+        <div style={gameInfoNorthSlotWrapper} aria-hidden />
+        <div style={gameInfoNorthSlotWrapperAbsolute}>
+          <OpponentSlot
+          state={state}
+          index={1}
+          position="top"
+          inline
+          collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked')}
+        />
         </div>
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
         <div style={gameInfoRightSectionStyle}>
@@ -289,8 +325,14 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
         tabIndex={isAITurn ? 0 : undefined}
         title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}
       >
-        <div style={opponentSideWrapStyle}>
-          <OpponentSlot state={state} index={2} position="left" inline />
+        <div style={opponentSideWrapWestStyle}>
+          <OpponentSlot
+          state={state}
+          index={2}
+          position="left"
+          inline
+          collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked')}
+        />
         </div>
         <div style={centerStyle}>
         <div style={tableOuterStyle}>
@@ -304,28 +346,85 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
               />
             )}
             <div style={trickStyle}>
-              {(state.currentTrick.length > 0
-                ? state.currentTrick
-                : state.lastCompletedTrick && Date.now() < trickPauseUntil
-                  ? state.lastCompletedTrick.cards
-                  : []
-              ).map((card, i) => {
-                const leader = state.currentTrick.length > 0
-                  ? state.trickLeaderIndex
-                  : state.lastCompletedTrick?.leaderIndex ?? 0;
-                const playerIdx = getTrickPlayerIndex(leader, i);
-                const slotStyle = getTrickCardSlotStyle(playerIdx);
-                return (
-                  <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
-                    <CardView
-                      card={card}
-                      compact
-                      doubleBorder={trumpHighlightOn}
-                      isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
-                    />
-                  </div>
-                );
-              })}
+              {state.currentTrick.length > 0 ? (
+                state.currentTrick.map((card, i) => {
+                  const leader = state.trickLeaderIndex;
+                  const playerIdx = getTrickPlayerIndex(leader, i);
+                  const slotStyle = getTrickCardSlotStyle(playerIdx);
+                  return (
+                    <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
+                      <CardView
+                        card={card}
+                        compact
+                        scale={1.18}
+                        doubleBorder={trumpHighlightOn}
+                        isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
+                      />
+                    </div>
+                  );
+                })
+              ) : state.lastCompletedTrick && Date.now() < trickPauseUntil ? (
+                dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked') ? (
+                  state.lastCompletedTrick.cards.map((card, i) => {
+                    const leader = state.lastCompletedTrick!.leaderIndex;
+                    const playerIdx = getTrickPlayerIndex(leader, i);
+                    const isAnimating = lastTrickCollectingPhase === 'animating';
+                    const isStacked = lastTrickCollectingPhase === 'stacked';
+                    const toCenter = isAnimating || isStacked;
+                    const cardScale = 1.18;
+                    const cardW = Math.round(52 * cardScale);
+                    const cardH = Math.round(76 * cardScale);
+                    return (
+                      <div
+                        key={`${card.suit}-${card.rank}-${i}`}
+                        style={{
+                          position: 'absolute',
+                          left: '50%',
+                          top: '50%',
+                          transform: toCenter
+                            ? `translate(calc(-50% + ${i * 3}px), calc(-50% + ${i * 3}px))`
+                            : SLOT_OFFSET_FROM_CENTER[playerIdx] ?? `translate(-50%, -50%)`,
+                          zIndex: i,
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          pointerEvents: 'none',
+                          transition: 'transform 1s ease-out',
+                        }}
+                      >
+                        {toCenter ? (
+                          <div style={{ ...cardBackStyle, width: cardW, height: cardH }} />
+                        ) : (
+                          <CardView
+                            card={card}
+                            compact
+                            scale={cardScale}
+                            doubleBorder={trumpHighlightOn}
+                            isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
+                          />
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  state.lastCompletedTrick.cards.map((card, i) => {
+                    const leader = state.lastCompletedTrick!.leaderIndex;
+                    const playerIdx = getTrickPlayerIndex(leader, i);
+                    const slotStyle = getTrickCardSlotStyle(playerIdx);
+                    return (
+                      <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
+                        <CardView
+                          card={card}
+                          compact
+                          scale={1.18}
+                          doubleBorder={trumpHighlightOn}
+                          isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
+                        />
+                      </div>
+                    );
+                  })
+                )
+              ) : null}
             </div>
             {state.lastCompletedTrick && (
               <button
@@ -339,8 +438,14 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
           </div>
         </div>
         </div>
-        <div style={opponentSideWrapStyle}>
-          <OpponentSlot state={state} index={3} position="right" inline />
+        <div style={opponentSideWrapEastStyle}>
+          <OpponentSlot
+          state={state}
+          index={3}
+          position="right"
+          inline
+          collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked')}
+        />
         </div>
       </div>
 
@@ -350,6 +455,27 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
       <div style={playerSpacerStyle} aria-hidden />
 
       <div style={playerStyle}>
+        <div style={handFrameStyle}>
+          <div style={handStyle}>
+            {state.players[humanIdx].hand
+              .slice()
+              .sort((a, b) => cardSort(a, b, state.trump))
+              .map((card, i) => (
+                <CardView
+                  key={`${card.suit}-${card.rank}-${i}`}
+                  card={card}
+                  doubleBorder={trumpHighlightOn}
+                  isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
+                  onClick={() => {
+                    if (isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
+                      setState(prev => prev && playCard(prev, humanIdx, card));
+                    }
+                  }}
+                  disabled={!isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                />
+              ))}
+          </div>
+        </div>
         <div style={{
           ...playerInfoPanelStyle,
           ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyle : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
@@ -364,66 +490,25 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
               )}
             </span>
             {state.currentPlayerIndex === humanIdx && (
-              <span style={yourTurnBadgeStyle}>Ваш ход</span>
+              <span style={yourTurnBadgeStyle}>
+                {(state.phase === 'bidding' || state.phase === 'dark-bidding') ? 'Ваш заказ' : 'Ваш ход'}
+              </span>
             )}
           </div>
           <div style={playerStatsRowStyle}>
-            <div style={playerStatBadgeBidStyle}>
-              <span style={playerStatLabelStyle}>Заказ</span>
-              <span style={playerStatValueStyle}>{state.bids[humanIdx] ?? '—'}</span>
-            </div>
-            <div style={playerStatBadgeTricksStyle}>
-              <span style={playerStatLabelStyle}>Взяток</span>
-              <span style={playerStatValueStyle}>{state.players[humanIdx].tricksTaken}</span>
-            </div>
             <div style={playerStatBadgeScoreStyle}>
               <span style={playerStatLabelStyle}>Очки</span>
               <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
             </div>
-            {((getDealType(state.dealNumber) === 'normal' && state.trump) ||
-              (getDealType(state.dealNumber) === 'dark' && state.phase !== 'dark-bidding' && state.trump)) && (
-              <div style={playerTrumpBadgeStyle}>
-                <span style={playerStatLabelStyle}>Козырь</span>
-                <span style={{
-                  ...playerStatValueStyle,
-                  fontSize: 22,
-                  color: SUIT_COLORS[state.trump!] ?? '#f8fafc',
-                  textShadow: `0 0 8px ${SUIT_COLORS[state.trump!] ?? '#f8fafc'}66`,
-                }}>{state.trump}</span>
-              </div>
-            )}
+            <TrickSlotsDisplay
+              bid={state.bids[humanIdx] ?? null}
+              tricksTaken={state.players[humanIdx].tricksTaken}
+              variant="player"
+              collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked')}
+            />
           </div>
         </div>
-        <div style={handStyle}>
-          {state.players[humanIdx].hand
-            .slice()
-            .sort((a, b) => cardSort(a, b, state.trump))
-            .map((card, i) => (
-              <CardView
-                key={`${card.suit}-${card.rank}-${i}`}
-                card={card}
-                doubleBorder={trumpHighlightOn}
-                onClick={() => {
-                  if (isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
-                    setState(prev => prev && playCard(prev, humanIdx, card));
-                  }
-                }}
-                disabled={!isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
-              />
-            ))}
-        </div>
       </div>
-
-      {state.phase === 'deal-complete' && Date.now() >= trickPauseUntil && (
-        <DealCompleteOverlay
-          state={state}
-          onNextDeal={() => {
-            const next = state && startNextDeal(state);
-            setState(next ?? state);
-          }}
-          onExit={onExit}
-        />
-      )}
 
       {showLastTrickModal && state.lastCompletedTrick && createPortal(
         <LastTrickModal
@@ -438,7 +523,7 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
       )}
       </div>
 
-      {isHumanBidding && bidPanelVisible && (
+      {shouldShowBidPanel && bidPanelVisible && (
         <div className="bid-panel-bottom" style={bidSidePanelStyle} aria-label="Выбор заказа">
           <div style={bidSidePanelTitle}>
             {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
@@ -474,16 +559,89 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
   );
 }
 
+function TrickSlotsDisplay({
+  bid,
+  tricksTaken,
+  variant,
+  horizontalOnly,
+  collectingCards,
+}: {
+  bid: number | null;
+  tricksTaken: number;
+  variant: 'opponent' | 'player';
+  horizontalOnly?: boolean;
+  collectingCards?: boolean;
+}) {
+  const isCompact = variant === 'opponent';
+  const slotSize = isCompact ? { w: 44, h: 62 } : { w: 52, h: 76 };
+
+  if (bid === null) {
+    return (
+      <div style={trickSlotsWrapStyle}>
+        <span style={trickSlotsLabelStyle}>Заказ</span>
+        <span style={trickSlotsValueStyle}>—</span>
+      </div>
+    );
+  }
+
+  const extra = Math.max(0, tricksTaken - bid);
+  const orderedSlots = bid;
+  const totalFilled = tricksTaken;
+  const hideCards = !!collectingCards;
+
+  const rowStyle = { ...trickSlotsRowStyle, ...(horizontalOnly ? { flexWrap: 'nowrap' as const } : {}) };
+  return (
+    <div style={trickSlotsWrapStyle}>
+      <span style={trickSlotsLabelStyle}>Заказ {bid}</span>
+      <div style={rowStyle}>
+        {Array.from({ length: orderedSlots }, (_, i) => {
+          const filled = i < totalFilled;
+          const useCardBack = filled && !hideCards;
+          return (
+            <div
+              key={`o-${i}`}
+              style={{
+                ...trickSlotBaseStyle,
+                width: slotSize.w,
+                height: slotSize.h,
+                ...(useCardBack ? { ...cardBackStyle, width: slotSize.w, height: slotSize.h } : (filled && !hideCards) ? trickSlotFilledStyle : trickSlotEmptyStyle),
+              }}
+            />
+          );
+        })}
+        {extra > 0 && (
+          <>
+            <span style={trickSlotsPlusStyle}>+</span>
+            {Array.from({ length: extra }, (_, i) => (
+              <div
+                key={`e-${i}`}
+                style={{
+                  ...trickSlotBaseStyle,
+                  width: slotSize.w,
+                  height: slotSize.h,
+                  ...(hideCards ? trickSlotEmptyStyle : trickSlotExtraStyle),
+                }}
+              />
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function OpponentSlot({
   state,
   index,
   position,
   inline,
+  collectingCards,
 }: {
   state: GameState;
   index: number;
   position: 'top' | 'left' | 'right';
   inline?: boolean;
+  collectingCards?: boolean;
 }) {
   const p = state.players[index];
   const isActive = state.currentPlayerIndex === index;
@@ -499,8 +657,11 @@ function OpponentSlot({
     : { right: 20, top: '50%', transform: 'translateY(-50%)' as const };
 
   const frameStyle = isActive ? activeTurnPanelFrameStyle : isDealer ? dealerPanelFrameStyle : undefined;
+  const northSlotOverrides = position === 'top' && inline
+    ? { width: 'fit-content' as const, minWidth: 180, maxWidth: 'none' as const }
+    : {};
   return (
-    <div style={{ ...opponentSlotStyle, ...posStyle, ...frameStyle, overflow: 'visible' }}>
+    <div style={{ ...opponentSlotStyle, ...northSlotOverrides, ...posStyle, ...frameStyle, overflow: 'visible' }}>
       {isDealer && (
         <span style={dealerLampExternalStyle} title="Сдающий">
           <span style={dealerLampBulbStyle} /> Сдающий
@@ -510,15 +671,12 @@ function OpponentSlot({
         <span style={opponentNameStyle}>{p.name}</span>
         {isActive && <span style={opponentTurnBadgeStyle}>Ходит</span>}
       </div>
-      <div style={opponentStatsRowStyle}>
-        <div style={opponentStatBadgeBidStyle}>
-          <span style={opponentStatLabelStyle}>Заказ</span>
-          <span style={opponentStatValueStyle}>{bid ?? '—'}</span>
-        </div>
-        <div style={opponentStatBadgeTricksStyle}>
-          <span style={opponentStatLabelStyle}>Взяток</span>
-          <span style={opponentStatValueStyle}>{p.tricksTaken}</span>
-        </div>
+      <div style={{
+        ...opponentStatsRowStyle,
+        ...(position === 'top' && inline ? { flexWrap: 'nowrap' as const } : {}),
+        ...(position === 'left' && inline ? { flexDirection: 'row-reverse' as const } : {}),
+      }}>
+        <TrickSlotsDisplay bid={bid} tricksTaken={p.tricksTaken} variant="opponent" horizontalOnly={position === 'top' && inline} collectingCards={collectingCards} />
         <div style={opponentStatBadgeScoreStyle}>
           <span style={opponentStatLabelStyle}>Очки</span>
           <span style={opponentStatValueStyle}>{p.score}</span>
@@ -554,16 +712,24 @@ function DeckWithTrump({
     }
   })();
 
+  const deckScale = 1.18;
+  const cardBackW = Math.round(52 * deckScale);
+  const cardBackH = Math.round(76 * deckScale);
+  const stackOffset = Math.round(2 * deckScale);
+
   return (
-    <div style={{ ...deckStackWrapStyle, ...cornerStyle }}>
+    <div style={{ ...deckStackWrapStyle, width: Math.round(64 * deckScale), height: Math.round(96 * deckScale), ...cornerStyle }}>
       {Array.from({ length: numLayers }, (_, i) => (
         <div
           key={i}
           style={{
             ...cardBackStyle,
+            width: cardBackW,
+            height: cardBackH,
+            borderRadius: Math.round(8 * deckScale),
             position: 'absolute',
-            top: i * 2,
-            left: i * 2,
+            top: i * stackOffset,
+            left: i * stackOffset,
             zIndex: i,
           }}
           aria-hidden
@@ -573,13 +739,13 @@ function DeckWithTrump({
         style={{
           ...trumpStyle,
           position: 'absolute',
-          top: (numLayers - 1) * 2,
-          left: (numLayers - 1) * 2,
+          top: (numLayers - 1) * stackOffset,
+          left: (numLayers - 1) * stackOffset,
           zIndex: numLayers + 1,
         }}
       >
-        <span style={{ fontSize: 12, color: 'rgba(34, 211, 238, 0.9)', textShadow: '0 0 8px rgba(34, 211, 238, 0.5)' }}>Козырь</span>
-        <CardView card={trumpCard} disabled compact doubleBorder={trumpHighlightOn} trumpOnDeck trumpDeckHighlightOn={trumpHighlightOn} />
+        <span style={{ fontSize: 16, color: 'rgba(34, 211, 238, 0.9)', textShadow: '0 0 8px rgba(34, 211, 238, 0.5)' }}>Козырь</span>
+        <CardView card={trumpCard} disabled compact scale={1.18} doubleBorder={trumpHighlightOn} trumpOnDeck trumpDeckHighlightOn={trumpHighlightOn} />
       </div>
     </div>
   );
@@ -629,61 +795,13 @@ function LastTrickModal({
   );
 }
 
-function DealCompleteOverlay({
-  state,
-  onNextDeal,
-  onExit,
-}: {
-  state: GameState;
-  onNextDeal: () => void;
-  onExit: () => void;
-}) {
-  const bids = state.bids as number[];
-  const isPartyComplete = state.dealNumber >= 28;
-  return (
-    <div style={modalOverlay}>
-      <div style={modalContent}>
-        <h3>{isPartyComplete ? 'Партия завершена' : `Раздача ${state.dealNumber} завершена`}</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-          {state.players.map((p, i) => {
-            const pts = bids[i] !== null ? calculateDealPoints(bids[i], p.tricksTaken) : 0;
-            const sign = pts >= 0 ? '+' : '';
-            return (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 24 }}>
-                <span>{p.name}</span>
-                <span>Заказ: {bids[i]}, Взято: {p.tricksTaken} → {sign}{pts}</span>
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ fontSize: 14, color: '#94a3b8', marginBottom: 16 }}>
-          Итого: {state.players.map(p => `${p.name}: ${p.score}`).join(' | ')}
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {!isPartyComplete && (
-            <button onClick={onNextDeal} style={{ ...buttonStyle, background: '#22c55e' }}>
-              Следующая раздача {getNextDealLabel(state.dealNumber)}
-            </button>
-          )}
-          <button onClick={onExit} style={buttonStyle}>В меню</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function cardSort(a: Card, b: Card, trump: string | null): number {
+function cardSort(a: Card, b: Card, _trump: string | null): number {
   const suitOrder: Record<string, number> = { '♠': 0, '♥': 1, '♣': 2, '♦': 3 };
-  const getSuitOrder = (s: string) => {
-    const base = suitOrder[s] ?? 4;
-    if (trump && s === trump) return -1;
-    return base;
-  };
   const rankOrder: Record<string, number> = {
     '6': 0, '7': 1, '8': 2, '9': 3, '10': 4,
     'J': 5, 'Q': 6, 'K': 7, 'A': 8,
   };
-  const suitDiff = getSuitOrder(a.suit) - getSuitOrder(b.suit);
+  const suitDiff = (suitOrder[a.suit] ?? 4) - (suitOrder[b.suit] ?? 4);
   if (suitDiff !== 0) return suitDiff;
   return rankOrder[b.rank] - rankOrder[a.rank];
 }
@@ -734,7 +852,7 @@ const playerSpacerStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const GAME_TABLE_UP_OFFSET = 70;
+const GAME_TABLE_UP_OFFSET = 90;
 
 const gameTableBlockStyle: React.CSSProperties = {
   transform: `translateY(-${GAME_TABLE_UP_OFFSET}px)`,
@@ -748,6 +866,7 @@ const gameInfoTopRowStyle: React.CSSProperties = {
   gap: 16,
   marginBottom: 12,
   flexShrink: 0,
+  position: 'relative',
 };
 
 const gameInfoTopRowSpacerStyle: React.CSSProperties = {
@@ -770,14 +889,24 @@ const gameInfoLeftSectionStyle: React.CSSProperties = {
 };
 
 const gameInfoNorthSlotWrapper: React.CSSProperties = {
-  width: 180,
-  minWidth: 180,
-  maxWidth: 180,
+  width: 420,
+  flex: '0 0 420px',
+  pointerEvents: 'none',
+  visibility: 'hidden',
+};
+
+const gameInfoNorthSlotWrapperAbsolute: React.CSSProperties = {
+  position: 'absolute',
+  left: '50%',
+  top: 0,
+  transform: 'translate(-50%, 47px)',
   display: 'flex',
   justifyContent: 'center',
-  alignItems: 'center',
-  flexShrink: 0,
-  transform: 'translateY(32px)',
+  alignItems: 'flex-start',
+  width: 420,
+  overflow: 'visible',
+  pointerEvents: 'auto',
+  zIndex: 5,
 };
 
 const gameInfoRightSectionStyle: React.CSSProperties = {
@@ -865,6 +994,18 @@ const opponentSideWrapStyle: React.CSSProperties = {
   justifyContent: 'center',
   minWidth: 140,
   maxWidth: 180,
+};
+
+const opponentSideWrapWestStyle: React.CSSProperties = {
+  ...opponentSideWrapStyle,
+  justifyContent: 'flex-end',
+  overflow: 'visible',
+};
+
+const opponentSideWrapEastStyle: React.CSSProperties = {
+  ...opponentSideWrapStyle,
+  justifyContent: 'flex-start',
+  overflow: 'visible',
 };
 
 const opponentSlotStyle: React.CSSProperties = {
@@ -1070,6 +1211,76 @@ const deckStackWrapStyle: React.CSSProperties = {
   height: 96,
 };
 
+const trickSlotsWrapStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 4,
+  padding: '6px 10px',
+  borderRadius: 8,
+  border: '1px solid rgba(251, 146, 60, 0.4)',
+  background: 'linear-gradient(180deg, rgba(251, 146, 60, 0.08) 0%, rgba(30, 41, 59, 0.85) 100%)',
+};
+
+const trickSlotsLabelStyle: React.CSSProperties = {
+  fontSize: 9,
+  fontWeight: 600,
+  color: '#94a3b8',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+};
+
+const trickSlotsValueStyle: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 700,
+  color: '#f8fafc',
+};
+
+const trickSlotsRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+  flexWrap: 'wrap',
+  justifyContent: 'center',
+};
+
+const trickSlotBaseStyle: React.CSSProperties = {
+  borderRadius: 4,
+  flexShrink: 0,
+};
+
+const trickSlotEmptyStyle: React.CSSProperties = {
+  border: '1px dashed rgba(251, 146, 60, 0.5)',
+  background: 'rgba(30, 41, 59, 0.5)',
+};
+
+const trickSlotFilledStyle: React.CSSProperties = {
+  border: '1px solid rgba(99, 102, 241, 0.5)',
+  boxShadow: 'inset 0 0 6px rgba(99, 102, 241, 0.15), 0 1px 3px rgba(0,0,0,0.25)',
+  background: [
+    'linear-gradient(145deg, #1e1b4b 0%, #312e81 50%, #134e4a 100%)',
+    'radial-gradient(1px 1px at 30% 40%, #e0e7ff 0%, transparent 100%)',
+    'radial-gradient(1px 1px at 70% 60%, #c7d2fe 0%, transparent 100%)',
+  ].join(', '),
+};
+
+const trickSlotExtraStyle: React.CSSProperties = {
+  border: '1px solid rgba(251, 146, 60, 0.6)',
+  boxShadow: 'inset 0 0 6px rgba(251, 146, 60, 0.1), 0 1px 3px rgba(0,0,0,0.25)',
+  background: [
+    'linear-gradient(145deg, #422006 0%, #78350f 50%, #134e4a 100%)',
+    'radial-gradient(1px 1px at 30% 40%, rgba(251, 146, 60, 0.4) 0%, transparent 100%)',
+  ].join(', '),
+};
+
+const trickSlotsPlusStyle: React.CSSProperties = {
+  fontSize: 10,
+  color: 'rgba(251, 146, 60, 0.8)',
+  fontWeight: 700,
+  marginLeft: 2,
+  marginRight: 0,
+};
+
 const cardBackStyle: React.CSSProperties = {
   width: 52,
   height: 76,
@@ -1109,8 +1320,10 @@ const trickStyle: React.CSSProperties = {
 };
 
 const lastTrickButtonStyle: React.CSSProperties = {
+  position: 'absolute',
+  bottom: 12,
+  right: 12,
   padding: '8px 20px',
-  marginTop: 4,
   borderRadius: 8,
   border: '1px solid rgba(34, 211, 238, 0.4)',
   background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%)',
@@ -1123,7 +1336,7 @@ const lastTrickButtonStyle: React.CSSProperties = {
 
 const playerStyle: React.CSSProperties = {
   position: 'fixed',
-  bottom: 30,
+  bottom: 0,
   left: 0,
   right: 0,
   padding: 20,
@@ -1147,9 +1360,11 @@ const playerInfoPanelStyle: React.CSSProperties = {
     '0 4px 20px rgba(0,0,0,0.25)',
     'inset 0 1px 0 rgba(255,255,255,0.08)',
   ].join(', '),
-  maxWidth: 420,
+  maxWidth: 800,
   marginLeft: 'auto',
   marginRight: 'auto',
+  minHeight: 185,
+  maxHeight: 185,
 };
 
 const playerInfoHeaderStyle: React.CSSProperties = {
@@ -1219,12 +1434,6 @@ const playerStatBadgeScoreStyle: React.CSSProperties = {
   background: 'linear-gradient(180deg, rgba(139, 92, 246, 0.15) 0%, rgba(30, 41, 59, 0.85) 100%)',
 };
 
-const playerTrumpBadgeStyle: React.CSSProperties = {
-  ...playerStatBadgeStyle,
-  padding: '8px 16px',
-  minWidth: 60,
-};
-
 const playerStatLabelStyle: React.CSSProperties = {
   fontSize: 10,
   fontWeight: 600,
@@ -1240,9 +1449,21 @@ const playerStatValueStyle: React.CSSProperties = {
   color: '#f8fafc',
 };
 
+const handFrameStyle: React.CSSProperties = {
+  padding: '4px 12px',
+  borderRadius: 12,
+  border: '1px solid rgba(34, 211, 238, 0.45)',
+  boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.2), 0 0 12px rgba(34, 211, 238, 0.08)',
+  marginBottom: 8,
+  maxWidth: 800,
+  width: 'fit-content',
+  marginLeft: 'auto',
+  marginRight: 'auto',
+};
+
 const handStyle: React.CSSProperties = {
   display: 'flex',
-  flexWrap: 'wrap',
+  flexWrap: 'nowrap',
   justifyContent: 'center',
   gap: 0,
 };

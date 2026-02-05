@@ -17,6 +17,8 @@ interface CardViewProps {
   trumpOnDeck?: boolean;
   /** При trumpOnDeck: вкл — полная интенсивность, выкл — в 1.5–2 раза слабее */
   trumpDeckHighlightOn?: boolean;
+  /** Масштаб (напр. 1.3 для карт на столе) */
+  scale?: number;
 }
 
 const suitColor: Record<string, string> = {
@@ -34,11 +36,13 @@ const suitNeonBorder: Record<string, { border: string; outline: string }> = {
   '♣': { border: '#34d399', outline: '0 0 0 2px #34d399' },
 };
 
-export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true }: CardViewProps) {
+export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, scale = 1 }: CardViewProps) {
   const color = suitColor[card.suit];
   const neon = suitNeonBorder[card.suit] ?? suitNeonBorder['♠'];
-  const w = compact ? 52 : 70;
-  const h = compact ? 76 : 100;
+  const bw = compact ? 52 : 70;
+  const bh = compact ? 76 : 100;
+  const w = Math.round(bw * scale);
+  const h = Math.round(bh * scale);
   const baseShadow = doubleBorder ? neon.outline : 'none';
   let trumpShadow = isTrumpOnTable
     ? `${baseShadow}, 0 0 14px ${neon.border}dd, 0 0 22px ${neon.border}77, inset 0 0 14px ${neon.border}33`
@@ -67,12 +71,12 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         height: h,
         minWidth: w,
         minHeight: h,
-        padding: 4,
-        margin: compact ? 2 : 4,
+        padding: Math.round(4 * scale),
+        margin: compact ? Math.round(2 * scale) : Math.round(4 * scale),
         border: doubleBorder ? `3px solid ${neon.border}` : `2px solid ${neon.border}`,
         outline: trumpOnDeck ? `2px solid ${neon.border}ee` : (doubleBorder && isTrumpOnTable) ? `2px solid ${neon.border}cc` : 'none',
         outlineOffset: trumpOnDeck ? 1 : isTrumpOnTable ? 2 : 0,
-        borderRadius: 8,
+        borderRadius: Math.round(8 * scale),
         boxShadow: trumpShadow,
         background: trumpOnDeck
           ? `linear-gradient(145deg, ${neon.border}50 0%, #ffffff 30%, #f1f5f9 70%, ${neon.border}25 100%)`
@@ -80,7 +84,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
             ? `linear-gradient(145deg, ${neon.border}38 0%, #f8fafc 35%, #e2e8f0 100%)`
             : 'linear-gradient(145deg, #f8fafc, #e2e8f0)',
         color,
-        fontSize: compact ? 12 : 14,
+        fontSize: Math.round((compact ? 12 : 14) * scale),
         fontWeight: 600,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: trumpOnDeck ? 1 : disabled ? 0.6 : 1,
@@ -124,7 +128,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         </span>
       )}
       <span>{card.rank}</span>
-      <span style={{ fontSize: compact ? 18 : 24 }}>{card.suit}</span>
+      <span style={{ fontSize: Math.round((compact ? 18 : 24) * scale) }}>{card.suit}</span>
     </button>
   );
 }
