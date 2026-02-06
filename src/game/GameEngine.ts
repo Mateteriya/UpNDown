@@ -61,10 +61,11 @@ export function createGame(
     { id: 'ai3', name: 'ИИ Восток', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
   ];
 
+  const firstDealer = Math.floor(Math.random() * 4);
   return {
     phase: 'bidding',
     players,
-    dealerIndex: 0,
+    dealerIndex: firstDealer,
     currentPlayerIndex: 0,
     trump: null,
     tricksInDeal: 1,

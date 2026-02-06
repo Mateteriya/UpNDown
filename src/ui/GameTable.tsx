@@ -18,6 +18,7 @@ import {
   isHumanPlayer,
 } from '../game/GameEngine';
 import { aiBid, aiPlay } from '../game/ai';
+import { getTrickWinner } from '../game/rules';
 import { calculateDealPoints } from '../game/scoring';
 import { CardView } from './CardView';
 import type { Card } from '../game/types';
@@ -27,7 +28,11 @@ interface GameTableProps {
   onExit: () => void;
 }
 
-const TRICK_PAUSE_MS = 4100;
+/** Пауза с картами на столе — 4‑й игрок положил карту на своё место */
+const LAST_TRICK_CARDS_PAUSE_MS = 1200;
+/** Пауза с миганием панельки взявшего взятку */
+const LAST_TRICK_WINNER_PAUSE_MS = 800;
+const TRICK_PAUSE_MS = 5500;
 
 const NEXT_PLAYER_LEFT = [2, 3, 1, 0] as const;
 function getTrickPlayerIndex(trickLeaderIndex: number, cardIndex: number): number {
@@ -49,12 +54,34 @@ function getTrickCardSlotStyle(playerIdx: number): React.CSSProperties {
   }
 }
 
-/** Смещения от центра для анимации сбора карт */
-const SLOT_OFFSET_FROM_CENTER: Record<number, string> = {
-  0: 'translate(-50%, -50%) translateY(35%)',   // Юг
-  1: 'translate(-50%, -50%) translateY(-35%)',  // Север
-  2: 'translate(-50%, -50%) translateX(-32%)',  // Запад
-  3: 'translate(-50%, -50%) translateX(32%)',   // Восток
+/** Индекс игрока, чья карта пока наивысшая во взятке (или null) */
+function getCurrentTrickLeaderIndex(state: GameState): number | null {
+  if (state.phase !== 'playing' || state.currentTrick.length === 0) return null;
+  const winnerOffset = getTrickWinner(
+    state.currentTrick,
+    state.currentTrick[0].suit,
+    state.trump ?? undefined
+  );
+  return getTrickPlayerIndex(state.trickLeaderIndex, winnerOffset);
+}
+
+/** Трансформ слота от центра (left:50% top:50%) — для анимации сбора карт к победителю */
+function getTrickSlotTransform(playerIdx: number): string {
+  switch (playerIdx) {
+    case 0: return 'translate(-50%, -50%) translateY(32%)';   // Юг
+    case 1: return 'translate(-50%, -50%) translateY(-32%)';  // Север
+    case 2: return 'translate(-50%, -50%) translateX(-30%)';  // Запад
+    case 3: return 'translate(-50%, -50%) translateX(30%)';   // Восток
+    default: return 'translate(-50%, -50%) translateY(32%)';
+  }
+}
+
+/** Подсветка панельки игрока, чья карта пока наивысшая во взятке — слабый оранжево-жёлтый неон от границ вовнутрь */
+const currentTrickLeaderGlowStyle: CSSProperties = {
+  boxShadow: [
+    'inset 0 0 20px rgba(251, 191, 36, 0.25)',
+    'inset 0 0 0 1px rgba(251, 146, 60, 0.4)',
+  ].join(', '),
 };
 
 const trumpHighlightBtnStyle: CSSProperties = {
@@ -80,7 +107,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
   const [showLastTrickModal, setShowLastTrickModal] = useState(false);
   const [bidPanelVisible, setBidPanelVisible] = useState(false);
   const [trumpHighlightOn, setTrumpHighlightOn] = useState(true);
-  const [lastTrickCollectingPhase, setLastTrickCollectingPhase] = useState<'idle' | 'slots' | 'animating' | 'stacked' | 'collapsing' | 'button'>('idle');
+  const [lastTrickCollectingPhase, setLastTrickCollectingPhase] = useState<'idle' | 'slots' | 'winner' | 'collapsing' | 'button'>('idle');
   const [showDealResultsButton, setShowDealResultsButton] = useState(false);
   const [dealResultsExpanded, setDealResultsExpanded] = useState(false);
   const [lastDealResultsSnapshot, setLastDealResultsSnapshot] = useState<GameState | null>(null);
@@ -128,9 +155,6 @@ function GameTable({ gameId, onExit }: GameTableProps) {
   const handleBidRef = useRef(handleBid);
   handleBidRef.current = handleBid;
 
-  const COLLECTING_ANIMATION_MS = 3000;
-  const CARD_COLLECT_START_MS = 200;
-  const COLLAPSE_DELAY_MS = 300;
   const COLLAPSING_MS = 750;
   useLayoutEffect(() => {
     if (!state?.lastCompletedTrick) {
@@ -156,37 +180,30 @@ function GameTable({ gameId, onExit }: GameTableProps) {
         return prev ?? null;
       });
     }, TRICK_PAUSE_MS);
-    let rafId = 0;
-    let t2 = 0;
-    let t3 = 0;
-    let t4 = 0;
+    let viewDelay: ReturnType<typeof setTimeout> | undefined;
+    let winnerDelay: ReturnType<typeof setTimeout> | undefined;
+    let collapseDelay: ReturnType<typeof setTimeout> | undefined;
     if (isLastTrickOfDeal) {
       setLastTrickCollectingPhase('slots');
-      rafId = requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setLastTrickCollectingPhase('animating');
-          t2 = window.setTimeout(() => {
-            setLastTrickCollectingPhase('stacked');
-            t3 = window.setTimeout(() => {
-              setLastTrickCollectingPhase('collapsing');
-              t4 = window.setTimeout(() => {
-                setLastTrickCollectingPhase('button');
-                setShowDealResultsButton(true);
-                setLastDealResultsSnapshot(state);
-              }, COLLAPSING_MS);
-            }, COLLAPSE_DELAY_MS);
-          }, COLLECTING_ANIMATION_MS);
-        });
-      });
+      viewDelay = window.setTimeout(() => {
+        setLastTrickCollectingPhase('winner');
+        winnerDelay = window.setTimeout(() => {
+          setLastTrickCollectingPhase('collapsing');
+          collapseDelay = window.setTimeout(() => {
+            setLastTrickCollectingPhase('button');
+            setShowDealResultsButton(true);
+            setLastDealResultsSnapshot(state);
+          }, COLLAPSING_MS);
+        }, LAST_TRICK_WINNER_PAUSE_MS);
+      }, LAST_TRICK_CARDS_PAUSE_MS);
     } else {
       setLastTrickCollectingPhase('idle');
     }
     return () => {
       clearTimeout(t);
-      clearTimeout(t3);
-      clearTimeout(t4);
-      if (rafId) cancelAnimationFrame(rafId);
-      if (t2) clearTimeout(t2);
+      if (viewDelay) clearTimeout(viewDelay);
+      if (winnerDelay) clearTimeout(winnerDelay);
+      if (collapseDelay) clearTimeout(collapseDelay);
     };
   }, [state?.lastCompletedTrick, state?.players]);
 
@@ -340,7 +357,10 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           index={1}
           position="top"
           inline
-          collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked')}
+          collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
+          winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1}
+          currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
+          firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
         />
         </div>
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
@@ -365,7 +385,10 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           index={2}
           position="left"
           inline
-          collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked')}
+          collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
+          winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2}
+          currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
+          firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
         />
         </div>
         <div style={centerStyle}>
@@ -397,17 +420,14 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                     </div>
                   );
                 })
-              ) : state.lastCompletedTrick && Date.now() < trickPauseUntil ? (
-                dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked' || lastTrickCollectingPhase === 'collapsing') ? (
+              ) : state.lastCompletedTrick && Date.now() < trickPauseUntil && lastTrickCollectingPhase !== 'button' ? (
+                dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') ? (
                   state.lastCompletedTrick.cards.map((card, i) => {
                     const leader = state.lastCompletedTrick!.leaderIndex;
                     const playerIdx = getTrickPlayerIndex(leader, i);
-                    const isAnimating = lastTrickCollectingPhase === 'animating';
-                    const isStacked = lastTrickCollectingPhase === 'stacked' || lastTrickCollectingPhase === 'collapsing';
-                    const toCenter = isAnimating || isStacked;
-                    const cardScale = 1.18;
-                    const cardW = Math.round(52 * cardScale);
-                    const cardH = Math.round(76 * cardScale);
+                    const winnerIdx = state.lastCompletedTrick!.winnerIndex;
+                    const collectToWinner = lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing';
+                    const CARD_COLLECT_MS = 500;
                     return (
                       <div
                         key={`${card.suit}-${card.rank}-${i}`}
@@ -415,28 +435,22 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                           position: 'absolute',
                           left: '50%',
                           top: '50%',
-                          transform: toCenter
-                            ? `translate(calc(-50% + ${i * 3}px), calc(-50% + ${i * 3}px))`
-                            : SLOT_OFFSET_FROM_CENTER[playerIdx] ?? `translate(-50%, -50%)`,
-                          zIndex: i,
                           display: 'flex',
                           justifyContent: 'center',
                           alignItems: 'center',
                           pointerEvents: 'none',
-                          transition: `transform ${(COLLECTING_ANIMATION_MS - CARD_COLLECT_START_MS) / 1000}s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${CARD_COLLECT_START_MS}ms`,
+                          zIndex: i,
+                          transform: collectToWinner ? getTrickSlotTransform(winnerIdx) : getTrickSlotTransform(playerIdx),
+                          transition: collectToWinner ? `transform ${CARD_COLLECT_MS}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` : 'none',
                         }}
                       >
-                        {toCenter ? (
-                          <div style={{ ...cardBackStyle, width: cardW, height: cardH }} />
-                        ) : (
-                          <CardView
-                            card={card}
-                            compact
-                            scale={cardScale}
-                            doubleBorder={trumpHighlightOn}
-                            isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
-                          />
-                        )}
+                        <CardView
+                          card={card}
+                          compact
+                          scale={1.18}
+                          doubleBorder={trumpHighlightOn}
+                          isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
+                        />
                       </div>
                     );
                   })
@@ -464,7 +478,10 @@ function GameTable({ gameId, onExit }: GameTableProps) {
               <button
                 type="button"
                 onClick={e => { e.stopPropagation(); setShowLastTrickModal(true); }}
-                style={lastTrickButtonStyle}
+                style={{
+                  ...lastTrickButtonStyle,
+                  ...(state.dealerIndex === 3 ? { left: 12, right: 'auto' } : {}),
+                }}
               >
                 Последняя взятка
               </button>
@@ -478,10 +495,13 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           index={3}
           position="right"
           inline
-          collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked')}
+          collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
+          winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 3}
+          currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
+          firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
         />
         </div>
-        {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked' || lastTrickCollectingPhase === 'collapsing') && (
+        {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && (
           <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} />
         )}
       </div>
@@ -493,7 +513,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
 
       <div style={{
         ...playerStyle,
-        ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked' || lastTrickCollectingPhase === 'collapsing')
+        ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')
           ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
           : {}),
       }}>
@@ -520,8 +540,16 @@ function GameTable({ gameId, onExit }: GameTableProps) {
         </div>
         <div style={{
           ...playerInfoPanelStyle,
+          position: 'relative',
           ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyle : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
+          ...(dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === humanIdx ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
+          ...(getCurrentTrickLeaderIndex(state) === humanIdx ? currentTrickLeaderGlowStyle : {}),
         }}>
+          {(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx && (
+            <span style={firstBidderLampExternalStyle} title="Первый заказ/ход">
+              <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
+            </span>
+          )}
           <div style={playerInfoHeaderStyle}>
             <span style={playerNameDealerWrapStyle}>
               <span style={playerNameStyle}>{state.players[humanIdx].name}</span>
@@ -546,7 +574,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
               bid={state.bids[humanIdx] ?? null}
               tricksTaken={state.players[humanIdx].tricksTaken}
               variant="player"
-              collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked')}
+              collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
             />
           </div>
         </div>
@@ -887,12 +915,18 @@ function OpponentSlot({
   position,
   inline,
   collectingCards,
+  winnerPanelBlink,
+  currentTrickLeaderHighlight,
+  firstBidderBadge,
 }: {
   state: GameState;
   index: number;
   position: 'top' | 'left' | 'right';
   inline?: boolean;
   collectingCards?: boolean;
+  winnerPanelBlink?: boolean;
+  currentTrickLeaderHighlight?: boolean;
+  firstBidderBadge?: boolean;
 }) {
   const p = state.players[index];
   const isActive = state.currentPlayerIndex === index;
@@ -912,10 +946,25 @@ function OpponentSlot({
     ? { width: 'fit-content' as const, minWidth: 180, maxWidth: 'none' as const }
     : {};
   return (
-    <div style={{ ...opponentSlotStyle, ...northSlotOverrides, ...posStyle, ...frameStyle, overflow: 'visible' }}>
+    <div
+      style={{
+        ...opponentSlotStyle,
+        ...northSlotOverrides,
+        ...posStyle,
+        ...frameStyle,
+        overflow: 'visible',
+        ...(winnerPanelBlink ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
+        ...(currentTrickLeaderHighlight ? currentTrickLeaderGlowStyle : {}),
+      }}
+    >
       {isDealer && (
         <span style={dealerLampExternalStyle} title="Сдающий">
           <span style={dealerLampBulbStyle} /> Сдающий
+        </span>
+      )}
+      {firstBidderBadge && (
+        <span style={firstBidderLampExternalStyle} title="Первый заказ/ход">
+          <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
         </span>
       )}
       <div style={opponentHeaderStyle}>
@@ -1676,6 +1725,40 @@ const dealerLampBulbStyle: React.CSSProperties = {
   borderRadius: '50%',
   background: '#38bdf8',
   boxShadow: '0 0 8px rgba(56, 189, 248, 0.8)',
+};
+
+/** Бейджик «Первый заказ/ход» — прикреплён к верхней границе панельки, оранжевый неон */
+const firstBidderLampStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '3px 10px',
+  borderRadius: 14,
+  background: 'rgba(251, 146, 60, 0.12)',
+  border: '1px solid rgba(251, 146, 60, 0.6)',
+  color: '#fdba74',
+  fontSize: 11,
+  fontWeight: 600,
+  boxShadow: '0 0 10px rgba(251, 146, 60, 0.3), inset 0 0 8px rgba(251, 146, 60, 0.08)',
+};
+
+const firstBidderLampExternalStyle: React.CSSProperties = {
+  ...firstBidderLampStyle,
+  position: 'absolute',
+  top: 0,
+  left: 7,
+  transform: 'translateY(-100%)',
+  whiteSpace: 'nowrap',
+  zIndex: 1,
+  borderRadius: '14px 14px 0 0',
+};
+
+const firstBidderLampBulbStyle: React.CSSProperties = {
+  width: 8,
+  height: 8,
+  borderRadius: '50%',
+  background: '#fb923c',
+  boxShadow: '0 0 8px rgba(251, 146, 60, 0.8)',
 };
 
 const opponentStatsRowStyle: React.CSSProperties = {
