@@ -18,6 +18,7 @@ import {
   isHumanPlayer,
 } from '../game/GameEngine';
 import { aiBid, aiPlay } from '../game/ai';
+import { calculateDealPoints } from '../game/scoring';
 import { CardView } from './CardView';
 import type { Card } from '../game/types';
 
@@ -26,7 +27,7 @@ interface GameTableProps {
   onExit: () => void;
 }
 
-const TRICK_PAUSE_MS = 2000;
+const TRICK_PAUSE_MS = 4100;
 
 const NEXT_PLAYER_LEFT = [2, 3, 1, 0] as const;
 function getTrickPlayerIndex(trickLeaderIndex: number, cardIndex: number): number {
@@ -86,7 +87,10 @@ function GameTable({ gameId, onExit }: GameTableProps) {
   const [showLastTrickModal, setShowLastTrickModal] = useState(false);
   const [bidPanelVisible, setBidPanelVisible] = useState(false);
   const [trumpHighlightOn, setTrumpHighlightOn] = useState(true);
-  const [lastTrickCollectingPhase, setLastTrickCollectingPhase] = useState<'idle' | 'slots' | 'animating' | 'stacked'>('idle');
+  const [lastTrickCollectingPhase, setLastTrickCollectingPhase] = useState<'idle' | 'slots' | 'animating' | 'stacked' | 'collapsing' | 'button'>('idle');
+  const [showDealResultsButton, setShowDealResultsButton] = useState(false);
+  const [dealResultsExpanded, setDealResultsExpanded] = useState(false);
+  const [lastDealResultsSnapshot, setLastDealResultsSnapshot] = useState<GameState | null>(null);
   const lastCompletedTrickRef = useRef<unknown>(null);
 
   useEffect(() => {
@@ -96,6 +100,9 @@ function GameTable({ gameId, onExit }: GameTableProps) {
     setTrickPauseUntil(0);
     setShowLastTrickModal(false);
     setBidPanelVisible(false);
+    setShowDealResultsButton(false);
+    setDealResultsExpanded(false);
+    setLastDealResultsSnapshot(null);
   }, [gameId]);
 
   const humanIdx = 0;
@@ -128,7 +135,10 @@ function GameTable({ gameId, onExit }: GameTableProps) {
   const handleBidRef = useRef(handleBid);
   handleBidRef.current = handleBid;
 
-  const COLLECTING_ANIMATION_MS = 1000;
+  const COLLECTING_ANIMATION_MS = 3000;
+  const CARD_COLLECT_START_MS = 200;
+  const COLLAPSE_DELAY_MS = 300;
+  const COLLAPSING_MS = 750;
   useLayoutEffect(() => {
     if (!state?.lastCompletedTrick) {
       lastCompletedTrickRef.current = null;
@@ -137,6 +147,9 @@ function GameTable({ gameId, onExit }: GameTableProps) {
     }
     const trick = state.lastCompletedTrick;
     const isLastTrickOfDeal = state.players.every(p => p.hand.length === 0);
+    if (lastCompletedTrickRef.current !== trick) {
+      setShowDealResultsButton(false);
+    }
     if (lastCompletedTrickRef.current === trick) return;
     lastCompletedTrickRef.current = trick;
     setTrickPauseUntil(Date.now() + TRICK_PAUSE_MS);
@@ -152,12 +165,24 @@ function GameTable({ gameId, onExit }: GameTableProps) {
     }, TRICK_PAUSE_MS);
     let rafId = 0;
     let t2 = 0;
+    let t3 = 0;
+    let t4 = 0;
     if (isLastTrickOfDeal) {
       setLastTrickCollectingPhase('slots');
       rafId = requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setLastTrickCollectingPhase('animating');
-          t2 = window.setTimeout(() => setLastTrickCollectingPhase('stacked'), COLLECTING_ANIMATION_MS);
+          t2 = window.setTimeout(() => {
+            setLastTrickCollectingPhase('stacked');
+            t3 = window.setTimeout(() => {
+              setLastTrickCollectingPhase('collapsing');
+              t4 = window.setTimeout(() => {
+                setLastTrickCollectingPhase('button');
+                setShowDealResultsButton(true);
+                setLastDealResultsSnapshot(state);
+              }, COLLAPSING_MS);
+            }, COLLAPSE_DELAY_MS);
+          }, COLLECTING_ANIMATION_MS);
         });
       });
     } else {
@@ -165,6 +190,8 @@ function GameTable({ gameId, onExit }: GameTableProps) {
     }
     return () => {
       clearTimeout(t);
+      clearTimeout(t3);
+      clearTimeout(t4);
       if (rafId) cancelAnimationFrame(rafId);
       if (t2) clearTimeout(t2);
     };
@@ -222,6 +249,18 @@ function GameTable({ gameId, onExit }: GameTableProps) {
         </div>
         <div style={headerRightWrapStyle}>
           <div style={headerRightTopRowStyle}>
+            {showDealResultsButton && (
+              <button
+                type="button"
+                onClick={() => setDealResultsExpanded(true)}
+                style={dealResultsButtonStyle}
+                className="deal-results-btn"
+                title="Результаты раздачи"
+                aria-label="Показать результаты раздачи"
+              >
+                Σ
+              </button>
+            )}
             <div style={dealNumberBadgeStyle}>
               <span style={dealNumberLabelStyle}>Раздача</span>
               <span style={dealNumberValueStyle}>№{state.dealNumber}</span>
@@ -366,12 +405,12 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                   );
                 })
               ) : state.lastCompletedTrick && Date.now() < trickPauseUntil ? (
-                dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked') ? (
+                dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked' || lastTrickCollectingPhase === 'collapsing') ? (
                   state.lastCompletedTrick.cards.map((card, i) => {
                     const leader = state.lastCompletedTrick!.leaderIndex;
                     const playerIdx = getTrickPlayerIndex(leader, i);
                     const isAnimating = lastTrickCollectingPhase === 'animating';
-                    const isStacked = lastTrickCollectingPhase === 'stacked';
+                    const isStacked = lastTrickCollectingPhase === 'stacked' || lastTrickCollectingPhase === 'collapsing';
                     const toCenter = isAnimating || isStacked;
                     const cardScale = 1.18;
                     const cardW = Math.round(52 * cardScale);
@@ -391,7 +430,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                           justifyContent: 'center',
                           alignItems: 'center',
                           pointerEvents: 'none',
-                          transition: 'transform 1s ease-out',
+                          transition: `transform ${(COLLECTING_ANIMATION_MS - CARD_COLLECT_START_MS) / 1000}s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${CARD_COLLECT_START_MS}ms`,
                         }}
                       >
                         {toCenter ? (
@@ -449,6 +488,9 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked')}
         />
         </div>
+        {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked' || lastTrickCollectingPhase === 'collapsing') && (
+          <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} />
+        )}
       </div>
 
       <div style={centerAreaSpacerBottomStyle} aria-hidden />
@@ -456,7 +498,12 @@ function GameTable({ gameId, onExit }: GameTableProps) {
 
       <div style={playerSpacerStyle} aria-hidden />
 
-      <div style={playerStyle}>
+      <div style={{
+        ...playerStyle,
+        ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'animating' || lastTrickCollectingPhase === 'stacked' || lastTrickCollectingPhase === 'collapsing')
+          ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
+          : {}),
+      }}>
         <div style={handFrameStyle}>
           <div style={handStyle}>
             {state.players[humanIdx].hand
@@ -512,6 +559,63 @@ function GameTable({ gameId, onExit }: GameTableProps) {
         </div>
       </div>
 
+      {dealResultsExpanded && lastDealResultsSnapshot && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+          onClick={() => setDealResultsExpanded(false)}
+          onKeyDown={e => { if (e.key === 'Escape') setDealResultsExpanded(false); }}
+          role="button"
+          tabIndex={0}
+          aria-label="Закрыть"
+        >
+          <div
+            style={{
+              position: 'relative',
+              width: 'min(96vw, 800px)',
+              minWidth: 500,
+              maxHeight: '98vh',
+              overflow: 'visible',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 20,
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ transform: 'scale(1.35)', transformOrigin: 'center center', flexShrink: 0 }}>
+              <DealResultsScreen state={lastDealResultsSnapshot} variant="modal" />
+            </div>
+            <button
+              type="button"
+              onClick={() => setDealResultsExpanded(false)}
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                border: '1px solid rgba(34, 211, 238, 0.5)',
+                background: 'rgba(15, 23, 42, 0.9)',
+                color: '#22d3ee',
+                cursor: 'pointer',
+                fontSize: 18,
+              }}
+            >
+              ×
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )}
       {showLastTrickModal && state.lastCompletedTrick && createPortal(
         <LastTrickModal
           trick={state.lastCompletedTrick}
@@ -563,6 +667,157 @@ function GameTable({ gameId, onExit }: GameTableProps) {
 
 export default GameTable;
 
+const PLAYER_POSITIONS = [
+  { idx: 0, side: 'bottom' as const, name: 'Юг' },
+  { idx: 1, side: 'top' as const, name: 'Север' },
+  { idx: 2, side: 'left' as const, name: 'Запад' },
+  { idx: 3, side: 'right' as const, name: 'Восток' },
+];
+
+function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay' }: { state: GameState; isCollapsing?: boolean; variant?: 'overlay' | 'modal' }) {
+  const bids = state.bids as number[];
+  const players = state.players;
+  const baseStyle = variant === 'modal' ? dealResultsModalStyle : dealResultsOverlayStyle;
+  const scores = players.map(p => p.score);
+  const minScore = Math.min(...scores);
+  const maxScore = Math.max(...scores);
+  const range = maxScore - minScore;
+  const humanIdx = 0;
+  const sorted = [...players].map((p, i) => ({ ...p, idx: i })).sort((a, b) => b.score - a.score);
+  const renderPanel = (idx: number) => {
+    const bid = bids[idx] ?? 0;
+    const taken = players[idx].tricksTaken;
+    const points = calculateDealPoints(bid, taken);
+    const score = players[idx].score;
+    const side = PLAYER_POSITIONS.find(p => p.idx === idx)!.side;
+    const panelPos = variant === 'modal' ? undefined : getDealResultsPanelPosition(side);
+    return (
+      <div key={idx} style={{ ...dealResultsPanelStyle, ...(panelPos ?? {}) }}>
+        <div style={dealResultsPanelTitleStyle}>{players[idx].name}</div>
+        <div style={dealResultsRowStyle}>
+          <span style={dealResultsLabelStyle}>Заказ</span>
+          <span style={dealResultsValueStyle}>{bid}</span>
+        </div>
+        <div style={dealResultsRowStyle}>
+          <span style={dealResultsLabelStyle}>Взяток</span>
+          <span style={dealResultsValueStyle}>{taken}</span>
+        </div>
+        <div style={dealResultsRowStyle}>
+          <span style={dealResultsLabelStyle}>Очки</span>
+          <span style={{ ...dealResultsValueStyle, color: points >= 0 ? '#4ade80' : '#f87171' }}>{points >= 0 ? '+' : ''}{points}</span>
+        </div>
+        <div style={{ ...dealResultsRowStyle, borderTop: '1px solid rgba(34, 211, 238, 0.3)', marginTop: 4, paddingTop: 4 }}>
+          <span style={dealResultsLabelTotalStyle}>Итого</span>
+          <span style={{
+            ...dealResultsValueStyle,
+            ...(variant === 'modal' && score === maxScore && range > 0 ? dealResultsValueLeaderStyle : {}),
+          }}>{score}</span>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{
+      ...baseStyle,
+      ...(isCollapsing ? dealResultsCollapsingStyle : {}),
+    }} aria-hidden>
+      {variant === 'modal' ? (
+        <div style={dealResultsModalFlexStyle}>
+          <div style={dealResultsModalRow1Style}>{renderPanel(0)}</div>
+          <div style={dealResultsModalRow2Style}>
+            {[1, 2, 3].map(i => renderPanel(i))}
+          </div>
+          <div style={dealResultsModalRow3Style}>
+            <div style={dealResultsChartWrapStyle}>
+              <div style={dealResultsChartTitleStyle}>Общий счёт • Раздача №{state.dealNumber}</div>
+              <div style={dealResultsChartBarsStyle}>
+                {sorted.map((p, rank) => {
+                  const barPct = (range === 0 || range < 0) ? 100 : ((p.score - minScore) / range) * 100;
+                  const isLeader = p.score === maxScore && maxScore > minScore;
+                  const isHuman = p.idx === humanIdx;
+                  return (
+                    <div key={p.idx} style={dealResultsChartRowStyle}>
+                      <span style={{
+                        ...dealResultsChartNameStyle,
+                        ...(isHuman ? { color: '#22d3ee', fontWeight: 700 } : {}),
+                      }}>
+                        <span style={dealResultsChartRankStyle}>{rank + 1}.</span>
+                        {p.name}
+                      </span>
+                      <span style={{
+                        ...dealResultsChartScoreStyle,
+                        ...(isLeader ? { color: '#22d3ee', fontWeight: 800 } : {}),
+                      }}>
+                        {p.score >= 0 ? '+' : ''}{p.score}
+                      </span>
+                      <div style={dealResultsChartBarBgStyle}>
+                        <div
+                          style={{
+                            ...dealResultsChartBarFillStyle,
+                            width: `${barPct}%`,
+                            ...(isLeader ? dealResultsChartBarLeaderStyle : {}),
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+      {PLAYER_POSITIONS.map(({ idx, side }) => {
+        const bid = bids[idx] ?? 0;
+        const taken = players[idx].tricksTaken;
+        const points = calculateDealPoints(bid, taken);
+        const score = players[idx].score;
+        const panelPos = getDealResultsPanelPosition(side);
+        return (
+          <div key={idx} style={{ ...dealResultsPanelStyle, ...panelPos }}>
+            <div style={dealResultsPanelTitleStyle}>{players[idx].name}</div>
+            <div style={dealResultsRowStyle}>
+              <span style={dealResultsLabelStyle}>Заказ</span>
+              <span style={dealResultsValueStyle}>{bid}</span>
+            </div>
+            <div style={dealResultsRowStyle}>
+              <span style={dealResultsLabelStyle}>Взяток</span>
+              <span style={dealResultsValueStyle}>{taken}</span>
+            </div>
+            <div style={dealResultsRowStyle}>
+              <span style={dealResultsLabelStyle}>Очки</span>
+              <span style={{ ...dealResultsValueStyle, color: points >= 0 ? '#4ade80' : '#f87171' }}>{points >= 0 ? '+' : ''}{points}</span>
+            </div>
+            <div style={{ ...dealResultsRowStyle, borderTop: '1px solid rgba(34, 211, 238, 0.3)', marginTop: 4, paddingTop: 4 }}>
+              <span style={dealResultsLabelTotalStyle}>Итого</span>
+              <span style={{
+                ...dealResultsValueStyle,
+                ...(variant === 'modal' && score === maxScore && range > 0 ? dealResultsValueLeaderStyle : {}),
+              }}>{score}</span>
+            </div>
+          </div>
+        );
+      })}
+        </>
+      )}
+    </div>
+  );
+}
+
+function getDealResultsPanelPosition(side: 'top' | 'bottom' | 'left' | 'right'): React.CSSProperties {
+  const base: React.CSSProperties = { position: 'absolute' };
+  const edgeGap = 16;
+  switch (side) {
+    case 'top': return { ...base, top: 36, left: '50%', transform: 'translateX(-50%)' };
+    case 'bottom': return { ...base, bottom: 12, left: '50%', transform: 'translateX(-50%)' };
+    case 'left': return { ...base, left: edgeGap, top: '50%', transform: 'translateY(-50%)' };
+    case 'right': return { ...base, right: edgeGap, top: '50%', transform: 'translateY(-50%)' };
+    default: return base;
+  }
+}
+
 function TrickSlotsDisplay({
   bid,
   tricksTaken,
@@ -581,7 +836,7 @@ function TrickSlotsDisplay({
 
   if (bid === null) {
     return (
-      <div style={trickSlotsWrapStyle}>
+      <div style={trickSlotsWrapStyle} className={collectingCards ? 'trick-slots-collecting' : 'trick-slots-normal'}>
         <span style={trickSlotsLabelStyle}>Заказ</span>
         <span style={trickSlotsValueStyle}>—</span>
       </div>
@@ -597,7 +852,7 @@ function TrickSlotsDisplay({
   const hasFilledOrder = totalFilled >= bid;
   const wrapStyle = { ...trickSlotsWrapStyle, ...(hasFilledOrder ? trickSlotsWrapSuccessStyle : trickSlotsWrapPendingStyle) };
   return (
-    <div style={wrapStyle}>
+    <div style={wrapStyle} className={hideCards ? 'trick-slots-collecting' : 'trick-slots-normal'}>
       <span style={trickSlotsLabelStyle}>Заказ {bid}</span>
       <div style={rowStyle}>
         {Array.from({ length: orderedSlots }, (_, i) => {
@@ -1092,6 +1347,234 @@ const centerAreaStyle: React.CSSProperties = {
   marginTop: 80,
 };
 
+const dealResultsOverlayStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 260,
+  left: '36%',
+  right: '36%',
+  height: 320,
+  zIndex: 15,
+  pointerEvents: 'none',
+  background: 'linear-gradient(180deg, rgba(3, 7, 18, 0.96) 0%, rgba(15, 23, 42, 0.96) 100%)',
+  borderRadius: 20,
+  border: '3px solid rgba(34, 211, 238, 0.5)',
+  boxShadow: [
+    'inset 0 0 80px rgba(0, 0, 0, 0.5)',
+    '0 0 0 1px rgba(34, 211, 238, 0.3)',
+    '0 0 40px rgba(34, 211, 238, 0.25)',
+    '0 0 80px rgba(34, 211, 238, 0.12)',
+  ].join(', '),
+  animation: 'dealResultsFadeIn 0.5s ease-out',
+};
+
+const dealResultsCollapsingStyle: React.CSSProperties = {
+  animation: 'dealResultsCollapse 0.75s cubic-bezier(0.33, 0, 0.2, 1) forwards',
+  transformOrigin: '50% 100%',
+};
+
+const dealResultsModalStyle: React.CSSProperties = {
+  ...dealResultsOverlayStyle,
+  position: 'relative',
+  top: 0,
+  left: 0,
+  right: 0,
+  width: '100%',
+  height: 'min(75vh, 510px)',
+  minHeight: 450,
+  maxHeight: '75vh',
+  minWidth: 400,
+  overflow: 'hidden',
+};
+
+const MODAL_GAP = 8;
+const dealResultsModalFlexStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  height: '100%',
+  minHeight: 0,
+  padding: `${MODAL_GAP}px 16px`,
+  gap: MODAL_GAP,
+  boxSizing: 'border-box',
+  overflow: 'hidden',
+};
+
+const dealResultsModalRow1Style: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'center',
+  flexShrink: 0,
+};
+
+const dealResultsModalRow2Style: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-around',
+  alignItems: 'center',
+  flexShrink: 0,
+  gap: 12,
+};
+
+const dealResultsModalRow3Style: React.CSSProperties = {
+  flex: '0 1 auto',
+  minHeight: 0,
+  display: 'flex',
+  justifyContent: 'center',
+  overflow: 'hidden',
+};
+
+const dealResultsChartWrapStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: 360,
+  height: 'auto',
+  padding: '12px 14px',
+  background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(3, 7, 18, 0.98) 100%)',
+  borderRadius: 12,
+  border: '1px solid rgba(34, 211, 238, 0.4)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 0 12px rgba(34, 211, 238, 0.15)',
+};
+
+const dealResultsChartTitleStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: '#22d3ee',
+  marginBottom: 10,
+  textAlign: 'center',
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase',
+};
+
+const dealResultsChartBarsStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
+};
+
+const dealResultsChartRowStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr auto',
+  alignItems: 'center',
+  gap: 8,
+};
+
+const dealResultsChartNameStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  color: '#94a3b8',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+};
+
+const dealResultsChartRankStyle: React.CSSProperties = {
+  fontSize: 10,
+  color: '#64748b',
+  minWidth: 14,
+};
+
+const dealResultsChartScoreStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: '#f8fafc',
+  minWidth: 36,
+  textAlign: 'right',
+};
+
+const dealResultsChartBarBgStyle: React.CSSProperties = {
+  gridColumn: '1 / -1',
+  height: 8,
+  borderRadius: 4,
+  background: 'rgba(15, 23, 42, 0.9)',
+  overflow: 'hidden',
+  border: '1px solid rgba(34, 211, 238, 0.25)',
+};
+
+const dealResultsChartBarFillStyle: React.CSSProperties = {
+  height: '100%',
+  borderRadius: 3,
+  background: 'linear-gradient(90deg, rgba(34, 211, 238, 0.5) 0%, rgba(34, 211, 238, 0.8) 100%)',
+  transition: 'width 0.5s ease-out',
+};
+
+const dealResultsChartBarLeaderStyle: React.CSSProperties = {
+  background: 'linear-gradient(90deg, rgba(34, 211, 238, 0.7) 0%, #22d3ee 50%, rgba(94, 234, 212, 0.9) 100%)',
+  boxShadow: '0 0 8px rgba(34, 211, 238, 0.5)',
+};
+
+const dealResultsButtonStyle: React.CSSProperties = {
+  position: 'relative',
+  width: 36,
+  height: 36,
+  borderRadius: '50%',
+  border: '2px solid rgba(34, 211, 238, 0.6)',
+  background: 'linear-gradient(135deg, rgba(30, 64, 175, 0.9) 0%, rgba(59, 130, 246, 0.85) 100%)',
+  boxShadow: '0 0 12px rgba(34, 211, 238, 0.5), inset 0 1px 0 rgba(255,255,255,0.2)',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#22d3ee',
+  fontSize: 14,
+  fontWeight: 700,
+  flexShrink: 0,
+};
+
+const dealResultsPanelStyle: React.CSSProperties = {
+  padding: '10px 14px',
+  minWidth: 100,
+  background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
+  borderRadius: 12,
+  border: '1px solid rgba(34, 211, 238, 0.5)',
+  boxShadow: [
+    '0 0 0 1px rgba(34, 211, 238, 0.2)',
+    '0 0 16px rgba(34, 211, 238, 0.15)',
+    'inset 0 1px 0 rgba(255,255,255,0.08)',
+  ].join(', '),
+};
+
+const dealResultsPanelTitleStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: '#22d3ee',
+  marginBottom: 8,
+  textAlign: 'center',
+  letterSpacing: '0.5px',
+};
+
+const dealResultsRowStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: 12,
+  fontSize: 11,
+};
+
+const dealResultsLabelStyle: React.CSSProperties = {
+  color: '#94a3b8',
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.4px',
+};
+
+const dealResultsLabelTotalStyle: React.CSSProperties = {
+  ...dealResultsLabelStyle,
+  color: '#fcd34d',
+  fontWeight: 800,
+};
+
+const dealResultsValueStyle: React.CSSProperties = {
+  color: '#f8fafc',
+  fontWeight: 700,
+  fontSize: 12,
+};
+
+const dealResultsValueLeaderStyle: React.CSSProperties = {
+  color: '#22d3ee',
+  fontWeight: 800,
+  textShadow: '0 0 8px rgba(34, 211, 238, 0.6)',
+  background: 'linear-gradient(135deg, rgba(15, 50, 120, 0.85) 0%, rgba(30, 64, 175, 0.9) 50%, rgba(15, 50, 120, 0.85) 100%)',
+  padding: '2px 8px',
+  borderRadius: 6,
+  boxShadow: 'inset 0 0 12px rgba(34, 211, 238, 0.25), 0 0 10px rgba(34, 211, 238, 0.35)',
+};
+
 const opponentSideWrapStyle: React.CSSProperties = {
   flex: 1,
   display: 'flex',
@@ -1468,14 +1951,16 @@ const playerInfoPanelStyle: React.CSSProperties = {
   gap: 7,
   marginBottom: 7,
   padding: '7px 14px',
-  background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
-  borderRadius: 12,
-  border: '1px solid rgba(34, 211, 238, 0.45)',
+  background: 'linear-gradient(145deg, rgba(51, 65, 85, 0.9) 0%, rgba(30, 41, 59, 0.95) 30%, rgba(15, 23, 42, 0.98) 70%, rgba(30, 41, 59, 0.95) 100%)',
+  borderRadius: 14,
+  border: '1px solid rgba(34, 211, 238, 0.6)',
   boxShadow: [
-    '0 0 0 1px rgba(34, 211, 238, 0.25)',
-    '0 0 20px rgba(34, 211, 238, 0.12)',
-    '0 4px 20px rgba(0,0,0,0.25)',
-    'inset 0 1px 0 rgba(255,255,255,0.08)',
+    '0 0 0 1px rgba(34, 211, 238, 0.35)',
+    '0 0 24px rgba(34, 211, 238, 0.25)',
+    '0 0 48px rgba(34, 211, 238, 0.12)',
+    '0 8px 32px rgba(0,0,0,0.4)',
+    'inset 0 2px 4px rgba(255,255,255,0.12)',
+    'inset 0 -2px 6px rgba(0,0,0,0.2)',
   ].join(', '),
   maxWidth: 800,
   marginLeft: 'auto',
@@ -1525,10 +2010,15 @@ const playerStatBadgeStyle: React.CSSProperties = {
   alignItems: 'center',
   minWidth: 53,
   padding: '4px 10px',
-  background: 'linear-gradient(180deg, rgba(51, 65, 85, 0.7) 0%, rgba(30, 41, 59, 0.8) 100%)',
-  borderRadius: 8,
-  border: '1px solid rgba(71, 85, 105, 0.5)',
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
+  background: 'linear-gradient(145deg, rgba(71, 85, 105, 0.8) 0%, rgba(51, 65, 85, 0.85) 50%, rgba(30, 41, 59, 0.9) 100%)',
+  borderRadius: 10,
+  border: '1px solid rgba(34, 211, 238, 0.35)',
+  boxShadow: [
+    'inset 0 1px 2px rgba(255,255,255,0.1)',
+    'inset 0 -1px 3px rgba(0,0,0,0.15)',
+    '0 2px 8px rgba(0,0,0,0.2)',
+    '0 0 12px rgba(34, 211, 238, 0.08)',
+  ].join(', '),
 };
 
 const playerStatBadgeBidStyle: React.CSSProperties = {
@@ -1566,9 +2056,16 @@ const playerStatValueStyle: React.CSSProperties = {
 
 const handFrameStyle: React.CSSProperties = {
   padding: '5px 12px',
-  borderRadius: 12,
-  border: '1px solid rgba(34, 211, 238, 0.45)',
-  boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.2), 0 0 12px rgba(34, 211, 238, 0.08)',
+  borderRadius: 14,
+  border: '1px solid rgba(34, 211, 238, 0.6)',
+  boxShadow: [
+    '0 0 0 1px rgba(34, 211, 238, 0.35)',
+    '0 0 20px rgba(34, 211, 238, 0.22)',
+    '0 0 40px rgba(34, 211, 238, 0.1)',
+    '0 6px 24px rgba(0,0,0,0.35)',
+    'inset 0 2px 4px rgba(255,255,255,0.1)',
+    'inset 0 -2px 6px rgba(0,0,0,0.18)',
+  ].join(', '),
   marginBottom: 6,
   transform: 'translateY(3px)',
   maxWidth: 800,
