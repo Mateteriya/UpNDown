@@ -57,13 +57,6 @@ const SLOT_OFFSET_FROM_CENTER: Record<number, string> = {
   3: 'translate(-50%, -50%) translateX(32%)',   // Восток
 };
 
-const SUIT_COLORS: Record<string, string> = {
-  '♠': '#22d3ee',
-  '♥': '#f472b6',
-  '♦': '#fbbf24',
-  '♣': '#34d399',
-};
-
 const trumpHighlightBtnStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
@@ -792,10 +785,7 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay' }:
             </div>
             <div style={{ ...dealResultsRowStyle, borderTop: '1px solid rgba(34, 211, 238, 0.3)', marginTop: 4, paddingTop: 4 }}>
               <span style={dealResultsLabelTotalStyle}>Итого</span>
-              <span style={{
-                ...dealResultsValueStyle,
-                ...(variant === 'modal' && score === maxScore && range > 0 ? dealResultsValueLeaderStyle : {}),
-              }}>{score}</span>
+              <span style={dealResultsValueStyle}>{score}</span>
             </div>
           </div>
         );
@@ -1283,11 +1273,6 @@ const gameInfoCardsPanelStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const gameInfoSpecialBadgeStyle: React.CSSProperties = {
-  background: 'rgba(99, 102, 241, 0.25)',
-  borderColor: 'rgba(99, 102, 241, 0.6)',
-};
-
 const gameInfoBadgeStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -1711,18 +1696,6 @@ const opponentStatBadgeStyle: React.CSSProperties = {
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
 };
 
-const opponentStatBadgeBidStyle: React.CSSProperties = {
-  ...opponentStatBadgeStyle,
-  borderColor: 'rgba(251, 146, 60, 0.5)',
-  background: 'linear-gradient(180deg, rgba(251, 146, 60, 0.12) 0%, rgba(30, 41, 59, 0.8) 100%)',
-};
-
-const opponentStatBadgeTricksStyle: React.CSSProperties = {
-  ...opponentStatBadgeStyle,
-  borderColor: 'rgba(34, 197, 94, 0.5)',
-  background: 'linear-gradient(180deg, rgba(34, 197, 94, 0.12) 0%, rgba(30, 41, 59, 0.8) 100%)',
-};
-
 const opponentStatBadgeScoreStyle: React.CSSProperties = {
   ...opponentStatBadgeStyle,
   borderColor: 'rgba(139, 92, 246, 0.5)',
@@ -2019,18 +1992,6 @@ const playerStatBadgeStyle: React.CSSProperties = {
     '0 2px 8px rgba(0,0,0,0.2)',
     '0 0 12px rgba(34, 211, 238, 0.08)',
   ].join(', '),
-};
-
-const playerStatBadgeBidStyle: React.CSSProperties = {
-  ...playerStatBadgeStyle,
-  borderColor: 'rgba(251, 146, 60, 0.55)',
-  background: 'linear-gradient(180deg, rgba(251, 146, 60, 0.15) 0%, rgba(30, 41, 59, 0.85) 100%)',
-};
-
-const playerStatBadgeTricksStyle: React.CSSProperties = {
-  ...playerStatBadgeStyle,
-  borderColor: 'rgba(34, 197, 94, 0.55)',
-  background: 'linear-gradient(180deg, rgba(34, 197, 94, 0.15) 0%, rgba(30, 41, 59, 0.85) 100%)',
 };
 
 const playerStatBadgeScoreStyle: React.CSSProperties = {
