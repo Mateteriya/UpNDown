@@ -80,7 +80,7 @@ const trumpHighlightBtnStyle: CSSProperties = {
   transition: 'box-shadow 0.2s, border-color 0.2s, color 0.2s',
 };
 
-export function GameTable({ gameId, onExit }: GameTableProps) {
+function GameTable({ gameId, onExit }: GameTableProps) {
   const [state, setState] = useState<GameState | null>(null);
   const [trickPauseUntil, setTrickPauseUntil] = useState(0);
   const [showLastTrickModal, setShowLastTrickModal] = useState(false);
@@ -213,10 +213,22 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
     <div style={tableLayoutStyle}>
       <div style={tableStyle}>
       <header style={headerStyle}>
-        <button onClick={onExit} style={exitBtnStyle}>← В меню</button>
-        <button
-          type="button"
-          onClick={() => setTrumpHighlightOn(v => !v)}
+        <div style={headerLeftWrapStyle}>
+          <button onClick={onExit} style={exitBtnStyle}>← В меню</button>
+          <div style={firstMoveBadgeStyle}>
+            <span style={firstMoveLabelStyle}>Первый ход</span>
+            <span style={firstMoveValueStyle}>{state.players[state.trickLeaderIndex].name}</span>
+          </div>
+        </div>
+        <div style={headerRightWrapStyle}>
+          <div style={headerRightTopRowStyle}>
+            <div style={dealNumberBadgeStyle}>
+              <span style={dealNumberLabelStyle}>Раздача</span>
+              <span style={dealNumberValueStyle}>№{state.dealNumber}</span>
+            </div>
+            <button
+            type="button"
+            onClick={() => setTrumpHighlightOn(v => !v)}
           style={{
             ...trumpHighlightBtnStyle,
             ...(trumpHighlightOn
@@ -247,31 +259,47 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
           </svg>
           {trumpHighlightOn ? 'Выключить' : 'Включить'}
         </button>
+          </div>
+          <div style={gameInfoCardsPanelStyle}>
+            <span style={{ ...gameInfoLabelStyle, marginBottom: 0, fontSize: 10, lineHeight: 1 }}>Карт</span>
+            <span style={{ ...gameInfoValueStyle, fontSize: 13, lineHeight: 1 }}>
+              {state.tricksInDeal} {state.tricksInDeal === 1 ? 'карта' : state.tricksInDeal < 5 ? 'карты' : 'карт'}
+            </span>
+          </div>
+        </div>
       </header>
 
       <div style={gameTableBlockStyle}>
       <div style={gameInfoTopRowStyle}>
-          <div style={gameInfoLeftSectionStyle}>
-            <div style={gameInfoBadgeStyle}>
-              <span style={gameInfoLabelStyle}>Первый ход</span>
-              <span style={gameInfoValueStyle}>{state.players[state.trickLeaderIndex].name}</span>
-            </div>
-            {state.phase === 'playing' && (
-              <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
-                <span style={gameInfoLabelStyle}>Сейчас ход</span>
-                <span style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{state.players[state.currentPlayerIndex].name}</span>
+          <div style={gameInfoLeftColumnStyle}>
+            {(state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') && (
+              <div style={gameInfoLeftSectionStyle}>
+                {state.phase === 'playing' && (
+                  <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
+                    <span style={gameInfoLabelStyle}>Сейчас ход</span>
+                    <span style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{state.players[state.currentPlayerIndex].name}</span>
+                  </div>
+                )}
+                {(state.phase === 'bidding' || state.phase === 'dark-bidding') && (
+                  <div style={{ ...gameInfoBadgeStyle, ...gameInfoBiddingBadgeStyle }}>
+                    <span style={gameInfoLabelStyle}>Заказывает</span>
+                    <span style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
+                      {state.players[state.currentPlayerIndex].name}
+                      {state.phase === 'dark-bidding' && ' (вслепую)'}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
-            {(state.phase === 'bidding' || state.phase === 'dark-bidding') && (
-              <div style={{ ...gameInfoBadgeStyle, ...gameInfoBiddingBadgeStyle }}>
-                <span style={gameInfoLabelStyle}>Заказывает</span>
-                <span style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
-                  {state.players[state.currentPlayerIndex].name}
-                  {state.phase === 'dark-bidding' && ' (вслепую)'}
+            {(getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark') && (
+              <div style={gameInfoModePanelStyle}>
+                <span style={gameInfoLabelStyle}>Режим</span>
+                <span style={gameInfoValueStyle}>
+                  {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : state.phase === 'dark-bidding' ? 'Тёмная (вслепую)' : 'Тёмная'}
                 </span>
               </div>
-          )}
-        </div>
+            )}
+          </div>
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
         <div style={gameInfoNorthSlotWrapper} aria-hidden />
         <div style={gameInfoNorthSlotWrapperAbsolute}>
@@ -284,32 +312,6 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
         />
         </div>
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
-        <div style={gameInfoRightSectionStyle}>
-            <div style={gameInfoBadgeStyle}>
-              <span style={gameInfoLabelStyle}>Раздача</span>
-              <span style={gameInfoValueStyle}>№{state.dealNumber}</span>
-            </div>
-            <div style={gameInfoBadgeStyle}>
-              <span style={gameInfoLabelStyle}>Карт</span>
-              <span style={gameInfoValueStyle}>
-                {state.tricksInDeal} {state.tricksInDeal === 1 ? 'карта' : state.tricksInDeal < 5 ? 'карты' : 'карт'}
-              </span>
-            </div>
-            {getDealType(state.dealNumber) === 'no-trump' && (
-              <div style={{ ...gameInfoBadgeStyle, ...gameInfoSpecialBadgeStyle }}>
-                <span style={gameInfoLabelStyle}>Режим</span>
-                <span style={gameInfoValueStyle}>Бескозырка</span>
-              </div>
-            )}
-            {getDealType(state.dealNumber) === 'dark' && (
-              <div style={{ ...gameInfoBadgeStyle, ...gameInfoSpecialBadgeStyle }}>
-                <span style={gameInfoLabelStyle}>Режим</span>
-                <span style={gameInfoValueStyle}>
-                  {state.phase === 'dark-bidding' ? 'Тёмная (вслепую)' : 'Тёмная'}
-                </span>
-              </div>
-            )}
-          </div>
         </div>
 
       <div style={centerAreaSpacerTopStyle} aria-hidden />
@@ -559,6 +561,8 @@ export function GameTable({ gameId, onExit }: GameTableProps) {
   );
 }
 
+export default GameTable;
+
 function TrickSlotsDisplay({
   bid,
   tricksTaken,
@@ -590,8 +594,10 @@ function TrickSlotsDisplay({
   const hideCards = !!collectingCards;
 
   const rowStyle = { ...trickSlotsRowStyle, ...(horizontalOnly ? { flexWrap: 'nowrap' as const } : {}) };
+  const hasFilledOrder = totalFilled >= bid;
+  const wrapStyle = { ...trickSlotsWrapStyle, ...(hasFilledOrder ? trickSlotsWrapSuccessStyle : trickSlotsWrapPendingStyle) };
   return (
-    <div style={trickSlotsWrapStyle}>
+    <div style={wrapStyle}>
       <span style={trickSlotsLabelStyle}>Заказ {bid}</span>
       <div style={rowStyle}>
         {Array.from({ length: orderedSlots }, (_, i) => {
@@ -808,7 +814,11 @@ function cardSort(a: Card, b: Card, _trump: string | null): number {
 
 const tableLayoutStyle: React.CSSProperties = {
   display: 'flex',
-  minHeight: '100vh',
+  flexDirection: 'column',
+  width: '100%',
+  height: '100vh',
+  minHeight: 0,
+  overflow: 'hidden',
   background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
   color: '#f8fafc',
 };
@@ -817,6 +827,8 @@ const PLAYER_AREA_HEIGHT = 260;
 
 const tableStyle: React.CSSProperties = {
   flex: 1,
+  width: '100%',
+  minWidth: 0,
   position: 'relative',
   padding: 20,
   paddingBottom: 0,
@@ -828,7 +840,8 @@ const tableStyle: React.CSSProperties = {
 const headerStyle: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
-  alignItems: 'center',
+  alignItems: 'flex-start',
+  width: '100%',
   marginBottom: 16,
   flexWrap: 'wrap',
   gap: 12,
@@ -852,7 +865,7 @@ const playerSpacerStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const GAME_TABLE_UP_OFFSET = 90;
+const GAME_TABLE_UP_OFFSET = 129;
 
 const gameTableBlockStyle: React.CSSProperties = {
   transform: `translateY(-${GAME_TABLE_UP_OFFSET}px)`,
@@ -863,6 +876,8 @@ const gameInfoTopRowStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'row',
   alignItems: 'stretch',
+  width: '100%',
+  height: 130,
   gap: 16,
   marginBottom: 12,
   flexShrink: 0,
@@ -872,6 +887,97 @@ const gameInfoTopRowStyle: React.CSSProperties = {
 const gameInfoTopRowSpacerStyle: React.CSSProperties = {
   flex: 1,
   minWidth: 0,
+};
+
+const headerLeftWrapStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+};
+
+const firstMoveBadgeStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 8,
+  padding: '6px 14px',
+  borderRadius: 8,
+  border: '1px solid rgba(139, 92, 246, 0.5)',
+  background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.85) 0%, rgba(67, 56, 202, 0.8) 100%)',
+  boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
+};
+
+const firstMoveLabelStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 600,
+  color: '#94a3b8',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+};
+
+const firstMoveValueStyle: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 700,
+  color: '#f8fafc',
+};
+
+const headerRightWrapStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-end',
+  gap: 12,
+};
+
+const headerRightTopRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+};
+
+const dealNumberBadgeStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 6,
+  padding: '5px 10px',
+  borderRadius: 8,
+  border: '1px solid rgba(56, 189, 248, 0.5)',
+  background: 'linear-gradient(135deg, rgba(30, 64, 175, 0.8) 0%, rgba(59, 130, 246, 0.75) 100%)',
+  boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+};
+
+const dealNumberLabelStyle: React.CSSProperties = {
+  fontSize: 9,
+  fontWeight: 600,
+  color: '#94a3b8',
+  textTransform: 'uppercase',
+  letterSpacing: '0.4px',
+};
+
+const dealNumberValueStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: '#f8fafc',
+};
+
+const gameInfoLeftColumnStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 5,
+  alignItems: 'flex-start',
+  flexShrink: 0,
+  marginTop: 77,
+};
+
+const gameInfoModePanelStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  padding: '8px 14px',
+  borderRadius: 10,
+  border: '1px solid rgba(99, 102, 241, 0.6)',
+  background: 'rgba(99, 102, 241, 0.25)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
 };
 
 const gameInfoLeftSectionStyle: React.CSSProperties = {
@@ -884,8 +990,6 @@ const gameInfoLeftSectionStyle: React.CSSProperties = {
   border: '1px solid rgba(139, 92, 246, 0.5)',
   boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1)',
   background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.9) 0%, rgba(67, 56, 202, 0.85) 50%, rgba(79, 70, 229, 0.9) 100%)',
-  flexShrink: 0,
-  marginTop: 70,
 };
 
 const gameInfoNorthSlotWrapper: React.CSSProperties = {
@@ -898,29 +1002,30 @@ const gameInfoNorthSlotWrapper: React.CSSProperties = {
 const gameInfoNorthSlotWrapperAbsolute: React.CSSProperties = {
   position: 'absolute',
   left: '50%',
-  top: 0,
-  transform: 'translate(-50%, 47px)',
+  bottom: -65,
+  transform: 'translateX(-50%)',
   display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'flex-start',
+  flexDirection: 'column-reverse',
+  justifyContent: 'flex-start',
+  alignItems: 'center',
   width: 420,
   overflow: 'visible',
   pointerEvents: 'auto',
   zIndex: 5,
 };
 
-const gameInfoRightSectionStyle: React.CSSProperties = {
+const gameInfoCardsPanelStyle: React.CSSProperties = {
   display: 'flex',
-  gap: 12,
-  flexWrap: 'wrap',
+  flexDirection: 'row',
   alignItems: 'center',
-  padding: '12px 18px',
-  borderRadius: 12,
+  gap: 6,
+  padding: '0 12px',
+  height: 28,
+  borderRadius: 6,
   border: '1px solid rgba(56, 189, 248, 0.5)',
-  boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1)',
-  background: 'linear-gradient(135deg, rgba(30, 64, 175, 0.9) 0%, rgba(59, 130, 246, 0.85) 50%, rgba(34, 211, 238, 0.9) 100%)',
+  background: 'linear-gradient(135deg, rgba(30, 64, 175, 0.85) 0%, rgba(59, 130, 246, 0.8) 100%)',
+  boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
   flexShrink: 0,
-  marginTop: 70,
 };
 
 const gameInfoSpecialBadgeStyle: React.CSSProperties = {
@@ -984,7 +1089,7 @@ const centerAreaStyle: React.CSSProperties = {
   gap: 16,
   position: 'relative',
   zIndex: 10,
-  marginTop: 50,
+  marginTop: 80,
 };
 
 const opponentSideWrapStyle: React.CSSProperties = {
@@ -1222,10 +1327,21 @@ const trickSlotsWrapStyle: React.CSSProperties = {
   background: 'linear-gradient(180deg, rgba(251, 146, 60, 0.08) 0%, rgba(30, 41, 59, 0.85) 100%)',
 };
 
+const trickSlotsWrapSuccessStyle: React.CSSProperties = {
+  border: '1px solid rgba(34, 197, 94, 0.6)',
+  background: 'linear-gradient(180deg, rgba(34, 197, 94, 0.15) 0%, rgba(22, 163, 74, 0.08) 50%, rgba(30, 41, 59, 0.85) 100%)',
+  boxShadow: '0 0 0 1px rgba(34, 197, 94, 0.2)',
+};
+
+const trickSlotsWrapPendingStyle: React.CSSProperties = {
+  border: '1px solid rgba(239, 68, 68, 0.4)',
+  boxShadow: '0 0 0 1px rgba(239, 68, 68, 0.12)',
+};
+
 const trickSlotsLabelStyle: React.CSSProperties = {
   fontSize: 9,
-  fontWeight: 600,
-  color: '#94a3b8',
+  fontWeight: 700,
+  color: '#e2e8f0',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
 };
@@ -1336,11 +1452,12 @@ const lastTrickButtonStyle: React.CSSProperties = {
 
 const playerStyle: React.CSSProperties = {
   position: 'fixed',
-  bottom: 0,
+  bottom: 34,
   left: 0,
   right: 0,
   padding: 20,
   marginTop: 20,
+  transform: 'translateY(4px)',
   background: 'linear-gradient(0deg, #1e293b 0%, transparent 100%)',
   zIndex: 5,
 };
@@ -1348,9 +1465,9 @@ const playerStyle: React.CSSProperties = {
 const playerInfoPanelStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 12,
-  marginBottom: 14,
-  padding: '14px 20px',
+  gap: 7,
+  marginBottom: 7,
+  padding: '7px 14px',
   background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
   borderRadius: 12,
   border: '1px solid rgba(34, 211, 238, 0.45)',
@@ -1363,21 +1480,19 @@ const playerInfoPanelStyle: React.CSSProperties = {
   maxWidth: 800,
   marginLeft: 'auto',
   marginRight: 'auto',
-  minHeight: 185,
-  maxHeight: 185,
 };
 
 const playerInfoHeaderStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 12,
+  gap: 7,
   flexWrap: 'wrap',
 };
 
 const playerNameDealerWrapStyle: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 8,
+  gap: 6,
 };
 
 const playerNameStyle: React.CSSProperties = {
@@ -1388,11 +1503,11 @@ const playerNameStyle: React.CSSProperties = {
 };
 
 const yourTurnBadgeStyle: React.CSSProperties = {
-  padding: '4px 12px',
-  borderRadius: 20,
+  padding: '2px 10px',
+  borderRadius: 14,
   background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
   color: '#fff',
-  fontSize: 12,
+  fontSize: 11,
   fontWeight: 600,
   letterSpacing: '0.5px',
   boxShadow: '0 2px 8px rgba(34, 197, 94, 0.4)',
@@ -1400,7 +1515,7 @@ const yourTurnBadgeStyle: React.CSSProperties = {
 
 const playerStatsRowStyle: React.CSSProperties = {
   display: 'flex',
-  gap: 16,
+  gap: 10,
   flexWrap: 'wrap',
 };
 
@@ -1408,8 +1523,8 @@ const playerStatBadgeStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  minWidth: 56,
-  padding: '6px 14px',
+  minWidth: 53,
+  padding: '4px 10px',
   background: 'linear-gradient(180deg, rgba(51, 65, 85, 0.7) 0%, rgba(30, 41, 59, 0.8) 100%)',
   borderRadius: 8,
   border: '1px solid rgba(71, 85, 105, 0.5)',
@@ -1435,12 +1550,12 @@ const playerStatBadgeScoreStyle: React.CSSProperties = {
 };
 
 const playerStatLabelStyle: React.CSSProperties = {
-  fontSize: 10,
+  fontSize: 9,
   fontWeight: 600,
   color: '#94a3b8',
   textTransform: 'uppercase',
-  letterSpacing: '0.8px',
-  marginBottom: 2,
+  letterSpacing: '0.6px',
+  marginBottom: 1,
 };
 
 const playerStatValueStyle: React.CSSProperties = {
@@ -1450,11 +1565,12 @@ const playerStatValueStyle: React.CSSProperties = {
 };
 
 const handFrameStyle: React.CSSProperties = {
-  padding: '4px 12px',
+  padding: '5px 12px',
   borderRadius: 12,
   border: '1px solid rgba(34, 211, 238, 0.45)',
   boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.2), 0 0 12px rgba(34, 211, 238, 0.08)',
-  marginBottom: 8,
+  marginBottom: 6,
+  transform: 'translateY(3px)',
   maxWidth: 800,
   width: 'fit-content',
   marginLeft: 'auto',
@@ -1470,13 +1586,10 @@ const handStyle: React.CSSProperties = {
 
 const bidSidePanelStyle: React.CSSProperties = {
   position: 'fixed',
-  bottom: 24,
+  bottom: 20,
   left: 24,
   zIndex: 100,
   padding: '16px 20px',
-  background: 'linear-gradient(180deg, #22d3ee 0%, #06b6d4 40%, #14b8a6 80%, #0d9488 100%)',
-  border: '2px solid rgba(139, 92, 246, 0.7)',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.2), 0 0 12px rgba(139, 92, 246, 0.3)',
   borderRadius: 12,
   display: 'flex',
   flexDirection: 'column',
@@ -1565,3 +1678,5 @@ const buttonStyle: React.CSSProperties = {
   cursor: 'pointer',
   fontSize: 14,
 };
+
+export { GameTable };

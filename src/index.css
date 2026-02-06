@@ -24,7 +24,36 @@ body {
 }
 
 .bid-panel-bottom {
-  animation: bidPanelSlideUp 0.3s ease-out;
+  animation: bidPanelSlideUp 0.3s ease-out, bidPanelShimmer 10s ease-in-out infinite 0.3s;
+  border: 2px solid rgba(59, 130, 246, 1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 18px rgba(59, 130, 246, 0.9), 0 0 28px rgba(59, 130, 246, 0.5);
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(34, 211, 238, 0.55) 45%,
+    rgba(34, 231, 251, 0.98) 50%,
+    rgba(34, 211, 238, 0.55) 55%,
+    transparent 65%,
+    transparent 100%
+  ),
+  linear-gradient(180deg, #0c4a6e 0%, #0369a1 25%, #0284c7 50%, #0ea5e9 75%, #38bdf8 100%);
+  background-size: 150% 100%, 100% 100%;
+  background-position: -50% 0, 0 0;
+}
+@keyframes bidPanelShimmer {
+  0% {
+    background-position: -50% 0, 0 0;
+  }
+  25% {
+    background-position: 150% 0, 0 0;
+  }
+  50% {
+    background-position: -50% 0, 0 0;
+  }
+  85%, 100% {
+    background-position: -50% 0, 0 0;
+  }
 }
 @keyframes bidPanelSlideUp {
   from {
