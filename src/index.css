@@ -5,6 +5,138 @@
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: #0f172a;
+  /* Размеры для адаптивности (десктоп по умолчанию) */
+  --game-table-surface-width: 576px;
+  --game-table-surface-height: 297px;
+  --game-table-north-slot-width: 420px;
+  --game-table-opponent-slot-width: 180px;
+  --game-table-opponent-side-min: 140px;
+  --game-table-opponent-side-max: 180px;
+  --game-table-center-margin-top: 80px;
+  --game-table-up-offset: 129px;
+  --game-table-row-height: 130px;
+  --game-player-area-height: 260px;
+  --game-table-padding: 18px;
+  --game-info-left-margin-top: 77px;
+  --deal-results-overlay-top: 260px;
+  --deal-results-overlay-height: 320px;
+  --game-header-padding: 20px;
+  --game-header-padding-top: 7px;
+  --game-player-bottom: 34px;
+  --trick-slot-offset-edge: 17px;
+  --trick-slot-offset-west-east: 140px;
+  --trick-slot-ns-offset-x: 28px;
+  --game-north-slot-bottom: -65px;
+}
+
+/* Планшет: экран ~768–1024px */
+@media (max-width: 1024px) {
+  :root {
+    --game-table-surface-width: min(576px, 55vw);
+    --game-table-surface-height: min(320px, 25vh);
+    --game-table-north-slot-width: min(420px, 60vw);
+    --game-table-opponent-slot-width: min(160px, 18vw);
+    --game-table-opponent-side-min: 80px;
+    --game-table-opponent-side-max: 140px;
+    --game-table-center-margin-top: 8px;
+    --game-table-up-offset: 70px;
+    --game-table-row-height: 90px;
+    --game-player-area-height: 300px;
+    --game-table-padding: 10px;
+    --game-info-left-margin-top: 18px;
+    --deal-results-overlay-top: 225px;
+    --deal-results-overlay-height: 260px;
+    --game-header-padding: 12px;
+    --game-header-padding-top: 8px;
+    --game-player-bottom: 20px;
+    --trick-slot-offset-edge: 12px;
+    --trick-slot-offset-west-east: 95px;
+    --trick-slot-ns-offset-x: 36px;
+    --game-north-slot-bottom: 2px;
+    --game-north-table-gap: 4px;
+    --game-table-block-margin-top: 8px;
+    --game-table-center-margin-top: 3px;
+  }
+}
+
+/* Широкий планшет / ограниченная высота (напр. 2560×1600 с масштабом) */
+@media (min-width: 1025px) and (max-width: 1800px),
+       (max-height: 1000px) {
+  :root {
+    --game-player-area-height: 360px;
+    --game-table-surface-height: min(458px, 32vh);
+    --deal-results-overlay-top: 200px;
+    --deal-results-overlay-height: 240px;
+  }
+}
+
+/* Ограничение отступа стол–Север до 7px на планшете/мобильных */
+@media (max-width: 1024px) {
+  .game-center-spacer-top {
+    flex: 0 0 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+  }
+}
+
+/* Планшет узкий: ~600–768px */
+@media (max-width: 768px) {
+  :root {
+    --game-table-surface-width: min(480px, 75vw);
+    --game-table-surface-height: min(280px, 23vh);
+    --game-table-north-slot-width: min(360px, 75vw);
+    --game-table-opponent-slot-width: min(140px, 22vw);
+    --game-table-opponent-side-min: 60px;
+    --game-table-opponent-side-max: 100px;
+    --game-table-center-margin-top: 6px;
+    --game-table-up-offset: 60px;
+    --game-table-row-height: 72px;
+    --game-player-area-height: 280px;
+    --game-table-padding: 8px;
+    --game-info-left-margin-top: 12px;
+    --deal-results-overlay-top: 195px;
+    --deal-results-overlay-height: 200px;
+    --game-header-padding: 8px;
+    --game-header-padding-top: 8px;
+    --game-player-bottom: 10px;
+    --trick-slot-offset-edge: 8px;
+    --trick-slot-offset-west-east: 65px;
+    --trick-slot-ns-offset-x: 32px;
+    --game-north-slot-bottom: 2px;
+    --game-north-table-gap: 4px;
+    --game-table-block-margin-top: 8px;
+    --game-table-center-margin-top: 4px;
+  }
+}
+
+/* Мобильный: <600px */
+@media (max-width: 600px) {
+  :root {
+    --game-table-surface-width: min(400px, 92vw);
+    --game-table-surface-height: min(260px, 21vh);
+    --game-table-north-slot-width: min(320px, 92vw);
+    --game-table-opponent-slot-width: min(120px, 26vw);
+    --game-table-opponent-side-min: 50px;
+    --game-table-opponent-side-max: 90px;
+    --game-table-center-margin-top: 4px;
+    --game-table-up-offset: 45px;
+    --game-table-row-height: 64px;
+    --game-player-area-height: 260px;
+    --game-table-padding: 6px;
+    --game-info-left-margin-top: 10px;
+    --deal-results-overlay-top: 160px;
+    --deal-results-overlay-height: 180px;
+    --game-header-padding: 6px;
+    --game-header-padding-top: 8px;
+    --game-player-bottom: 8px;
+    --trick-slot-offset-edge: 6px;
+    --trick-slot-offset-west-east: 52px;
+    --trick-slot-ns-offset-x: 28px;
+    --game-north-slot-bottom: -7px;
+    --game-north-table-gap: 4px;
+    --game-table-block-margin-top: 8px;
+    --game-table-center-margin-top: 3px;
+  }
 }
 
 * {
@@ -16,11 +148,99 @@ body {
   min-height: 100vh;
 }
 
+/* Кнопка «Последняя взятка» — прозрачный фон, на 1% ниже */
+.last-trick-btn {
+  bottom: 1% !important;
+  background: transparent !important;
+}
+/* При сдающем Востоке — слева, на всех экранах */
+.last-trick-btn-left {
+  left: 12px !important;
+  right: auto !important;
+}
+/* При сдающем Севере — слева только на планшетах и мобильных */
+@media (max-width: 1024px) {
+  .last-trick-btn-left-mobile-only {
+    left: 12px !important;
+    right: auto !important;
+  }
+}
+
 .bid-panel-btn:not(:disabled):hover {
   background: linear-gradient(180deg, #86efac 0%, #4ade80 100%) !important;
   border-color: rgba(34, 197, 94, 0.8) !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 8px rgba(0,0,0,0.2) !important;
   transform: scale(1.02);
+}
+
+/* Панель «Ваш заказ»: на планшете и мобильных — внутри панели игрока */
+.bid-panel-floating {
+  display: flex;
+}
+.bid-panel-inline {
+  display: none;
+}
+@media (max-width: 1280px) {
+  .bid-panel-floating {
+    display: none !important;
+  }
+  .bid-panel-inline {
+    display: flex !important;
+  }
+  .bid-panel-inline.bid-panel {
+    padding: 4px 8px !important;
+    gap: 6px !important;
+  }
+  .bid-panel-floating.bid-panel {
+    padding: 10px 12px !important;
+    gap: 4px !important;
+    left: 12px !important;
+    bottom: 12px !important;
+  }
+  .bid-panel-subtitle {
+    display: none !important;
+  }
+  .bid-panel .bid-panel-title {
+    font-size: 16px !important;
+    margin-bottom: 0 !important;
+  }
+  .bid-panel-inline .bid-panel-title-inline {
+    font-size: 12px !important;
+  }
+  .bid-panel-grid {
+    gap: 4px !important;
+    flex-wrap: nowrap !important;
+    max-width: none !important;
+  }
+  .bid-panel-btn {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 15px !important;
+    padding: 0 !important;
+  }
+}
+@media (max-width: 600px) {
+  .bid-panel-inline.bid-panel {
+    padding: 4px 6px !important;
+    gap: 4px !important;
+  }
+  .bid-panel-floating.bid-panel {
+    left: 8px !important;
+    bottom: 8px !important;
+  }
+  .bid-panel .bid-panel-title {
+    font-size: 14px !important;
+  }
+  .bid-panel-grid {
+    gap: 3px !important;
+    flex-wrap: nowrap !important;
+    max-width: none !important;
+  }
+  .bid-panel-btn {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 14px !important;
+  }
 }
 
 .bid-panel-bottom {
@@ -63,6 +283,59 @@ body {
     box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.9), 0 0 40px rgba(34, 211, 238, 0.6);
   }
 }
+
+/* Панель карт игрока: мягкая мигающая подсветка, когда его ход */
+@keyframes playerHandYourTurnGlow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.4),
+      0 0 24px rgba(34, 211, 238, 0.2),
+      0 0 48px rgba(34, 211, 238, 0.1),
+      0 6px 24px rgba(0, 0, 0, 0.35),
+      inset 0 2px 4px rgba(255, 255, 255, 0.1),
+      inset 0 -2px 6px rgba(0, 0, 0, 0.18);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(34, 211, 238, 0.7),
+      0 0 40px rgba(34, 211, 238, 0.45),
+      0 0 80px rgba(34, 211, 238, 0.25),
+      0 6px 24px rgba(0, 0, 0, 0.35),
+      inset 0 2px 4px rgba(255, 255, 255, 0.1),
+      inset 0 -2px 6px rgba(0, 0, 0, 0.18);
+  }
+}
+.player-hand-your-turn {
+  animation: playerHandYourTurnGlow 1.8s ease-in-out infinite;
+}
+/* Overlay анимации между раздачами: блоки Запад/Восток/Север/Юг */
+.deal-results-overlay-animation .deal-results-panel-west {
+  left: 8%;
+}
+.deal-results-overlay-animation .deal-results-panel-east {
+  right: 8%;
+}
+.deal-results-overlay-animation .deal-results-panel-north {
+  top: 2px;
+}
+.deal-results-overlay-animation .deal-results-panel-south {
+  bottom: 0;
+}
+@media (max-width: 1024px) {
+  .deal-results-overlay-animation .deal-results-panel-west {
+    left: 2%;
+  }
+  .deal-results-overlay-animation .deal-results-panel-east {
+    right: 2%;
+  }
+  .deal-results-overlay-animation .deal-results-panel-north {
+    top: -16px;
+  }
+  .deal-results-overlay-animation .deal-results-panel-south {
+    bottom: -16px;
+  }
+}
+
 .trick-slots-collecting {
   opacity: 0.4;
   transition: opacity 0.4s ease-out;

@@ -14,6 +14,7 @@ import {
   getDealType,
   placeBid,
   playCard,
+  completeTrick,
   getValidPlays,
   isHumanPlayer,
 } from '../game/GameEngine';
@@ -28,6 +29,8 @@ interface GameTableProps {
   onExit: () => void;
 }
 
+/** Задержка перед завершением взятки — 4‑я карта показывается в слоте */
+const FOURTH_CARD_SLOT_PAUSE_MS = 550;
 /** Пауза с картами на столе — 4‑й игрок положил карту на своё место */
 const LAST_TRICK_CARDS_PAUSE_MS = 1200;
 /** Пауза с миганием панельки взявшего взятку */
@@ -43,11 +46,12 @@ function getTrickPlayerIndex(trickLeaderIndex: number, cardIndex: number): numbe
 
 function getTrickCardSlotStyle(playerIdx: number): React.CSSProperties {
   const base: React.CSSProperties = { position: 'absolute', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' };
-  const offsetEdge = 17;
-  const offsetWestEast = 101;
+  const offsetEdge = 'var(--trick-slot-offset-edge, 17px)';
+  const offsetWestEast = 'var(--trick-slot-offset-west-east, 101px)';
+  const nsOffset = 'var(--trick-slot-ns-offset-x, 28px)';
   switch (playerIdx) {
-    case 0: return { ...base, bottom: offsetEdge, left: '50%', transform: 'translateX(-50%)' };   // Юг — низ по центру
-    case 1: return { ...base, top: offsetEdge, left: '50%', transform: 'translateX(-50%)' };      // Север — верх по центру
+    case 0: return { ...base, bottom: offsetEdge, left: '50%', transform: `translateX(calc(-50% + ${nsOffset}))` };   // Юг — правее
+    case 1: return { ...base, top: offsetEdge, left: '50%', transform: `translateX(calc(-50% - ${nsOffset}))` };      // Север — левее
     case 2: return { ...base, left: offsetWestEast, top: '50%', transform: 'translateY(-50%)' };  // Запад — ближе к центру
     case 3: return { ...base, right: offsetWestEast, top: '50%', transform: 'translateY(-50%)' }; // Восток — ближе к центру
     default: return { ...base, bottom: offsetEdge, left: '50%', transform: 'translateX(-50%)' };
@@ -67,12 +71,13 @@ function getCurrentTrickLeaderIndex(state: GameState): number | null {
 
 /** Трансформ слота от центра (left:50% top:50%) — для анимации сбора карт к победителю */
 function getTrickSlotTransform(playerIdx: number): string {
+  const ns = 'var(--trick-slot-ns-offset-x, 28px)';
   switch (playerIdx) {
-    case 0: return 'translate(-50%, -50%) translateY(32%)';   // Юг
-    case 1: return 'translate(-50%, -50%) translateY(-32%)';  // Север
+    case 0: return `translate(-50%, -50%) translateY(32%) translateX(${ns})`;   // Юг — правее
+    case 1: return `translate(-50%, -50%) translateY(-32%) translateX(calc(-1 * ${ns}))`;  // Север — левее
     case 2: return 'translate(-50%, -50%) translateX(-30%)';  // Запад
     case 3: return 'translate(-50%, -50%) translateX(30%)';   // Восток
-    default: return 'translate(-50%, -50%) translateY(32%)';
+    default: return `translate(-50%, -50%) translateY(32%) translateX(${ns})`;
   }
 }
 
@@ -101,7 +106,19 @@ const trumpHighlightBtnStyle: CSSProperties = {
   transition: 'box-shadow 0.2s, border-color 0.2s, color 0.2s',
 };
 
+function useIsMobileOrTablet() {
+  const [match, setMatch] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1400px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1400px)');
+    const handler = () => setMatch(mq.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return match;
+}
+
 function GameTable({ gameId, onExit }: GameTableProps) {
+  const isMobileOrTablet = useIsMobileOrTablet();
   const [state, setState] = useState<GameState | null>(null);
   const [trickPauseUntil, setTrickPauseUntil] = useState(0);
   const [showLastTrickModal, setShowLastTrickModal] = useState(false);
@@ -207,8 +224,17 @@ function GameTable({ gameId, onExit }: GameTableProps) {
     };
   }, [state?.lastCompletedTrick, state?.players]);
 
+  useEffect(() => {
+    if (!state?.pendingTrickCompletion) return;
+    const t = setTimeout(() => {
+      setState(prev => prev && completeTrick(prev));
+    }, FOURTH_CARD_SLOT_PAUSE_MS);
+    return () => clearTimeout(t);
+  }, [state?.pendingTrickCompletion]);
+
   const isAITurn =
     !!state &&
+    !state.pendingTrickCompletion &&
     (state.phase === 'bidding' || state.phase === 'dark-bidding' || state.phase === 'playing') &&
     !isHumanPlayer(state, state.currentPlayerIndex);
 
@@ -315,6 +341,14 @@ function GameTable({ gameId, onExit }: GameTableProps) {
               {state.tricksInDeal} {state.tricksInDeal === 1 ? 'карта' : state.tricksInDeal < 5 ? 'карты' : 'карт'}
             </span>
           </div>
+          {isMobileOrTablet && (getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark') && (
+            <div style={{ ...gameInfoModePanelStyle, marginTop: 6 }}>
+              <span style={gameInfoLabelStyle}>Режим</span>
+              <span style={gameInfoValueStyle}>
+                {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : state.phase === 'dark-bidding' ? 'Тёмная (вслепую)' : 'Тёмная'}
+              </span>
+            </div>
+          )}
         </div>
       </header>
 
@@ -340,7 +374,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                 )}
               </div>
             )}
-            {(getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark') && (
+            {(getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark') && !isMobileOrTablet && (
               <div style={gameInfoModePanelStyle}>
                 <span style={gameInfoLabelStyle}>Режим</span>
                 <span style={gameInfoValueStyle}>
@@ -357,6 +391,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           index={1}
           position="top"
           inline
+          compactMode={isMobileOrTablet}
           collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
           winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1}
           currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
@@ -366,7 +401,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
         </div>
 
-      <div style={centerAreaSpacerTopStyle} aria-hidden />
+      <div className="game-center-spacer-top" style={centerAreaSpacerTopStyle} aria-hidden />
 
       <div
         style={{
@@ -385,6 +420,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           index={2}
           position="left"
           inline
+          compactMode={isMobileOrTablet}
           collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
           winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2}
           currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
@@ -400,6 +436,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                 trumpCard={state.trumpCard}
                 trumpHighlightOn={trumpHighlightOn}
                 dealerIndex={state.dealerIndex}
+                compactTable={isMobileOrTablet}
               />
             )}
             <div style={trickStyle}>
@@ -413,7 +450,8 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                       <CardView
                         card={card}
                         compact
-                        scale={1.18}
+                        scale={isMobileOrTablet ? 0.98 : 1.18}
+                        contentScale={isMobileOrTablet ? 1.8 : undefined}
                         doubleBorder={trumpHighlightOn}
                         isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
                       />
@@ -427,7 +465,11 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                     const playerIdx = getTrickPlayerIndex(leader, i);
                     const winnerIdx = state.lastCompletedTrick!.winnerIndex;
                     const collectToWinner = lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing';
+                    const showCardBack = lastTrickCollectingPhase === 'collapsing';
                     const CARD_COLLECT_MS = 500;
+                    const cardScale = isMobileOrTablet ? 0.98 : 1.18;
+                    const cardW = Math.round(52 * cardScale);
+                    const cardH = Math.round(76 * cardScale);
                     return (
                       <div
                         key={`${card.suit}-${card.rank}-${i}`}
@@ -444,13 +486,18 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                           transition: collectToWinner ? `transform ${CARD_COLLECT_MS}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` : 'none',
                         }}
                       >
-                        <CardView
-                          card={card}
-                          compact
-                          scale={1.18}
-                          doubleBorder={trumpHighlightOn}
-                          isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
-                        />
+                        {showCardBack ? (
+                          <div style={{ ...cardBackStyle, width: cardW, height: cardH }} aria-hidden />
+                        ) : (
+                          <CardView
+                            card={card}
+                            compact
+                            scale={cardScale}
+                            contentScale={isMobileOrTablet ? 1.5 : undefined}
+                            doubleBorder={trumpHighlightOn}
+                            isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
+                          />
+                        )}
                       </div>
                     );
                   })
@@ -464,7 +511,8 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                         <CardView
                           card={card}
                           compact
-                          scale={1.18}
+                          scale={isMobileOrTablet ? 0.98 : 1.18}
+                          contentScale={isMobileOrTablet ? 1.5 : undefined}
                           doubleBorder={trumpHighlightOn}
                           isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
                         />
@@ -477,6 +525,11 @@ function GameTable({ gameId, onExit }: GameTableProps) {
             {state.lastCompletedTrick && (
               <button
                 type="button"
+                className={
+                  state.dealerIndex === 3 ? 'last-trick-btn last-trick-btn-left' :
+                  state.dealerIndex === 1 ? 'last-trick-btn last-trick-btn-left-mobile-only' :
+                  'last-trick-btn'
+                }
                 onClick={e => { e.stopPropagation(); setShowLastTrickModal(true); }}
                 style={{
                   ...lastTrickButtonStyle,
@@ -495,6 +548,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           index={3}
           position="right"
           inline
+          compactMode={isMobileOrTablet}
           collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
           winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 3}
           currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
@@ -517,7 +571,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
           : {}),
       }}>
-        <div style={handFrameStyle}>
+        <div className={state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : undefined} style={handFrameStyle}>
           <div style={handStyle}>
             {state.players[humanIdx].hand
               .slice()
@@ -526,14 +580,16 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                 <CardView
                   key={`${card.suit}-${card.rank}-${i}`}
                   card={card}
+                  scale={isMobileOrTablet ? 1 / (1.3 * 1.1) : 1}
+                  contentScale={isMobileOrTablet ? 1.5 : undefined}
                   doubleBorder={trumpHighlightOn}
                   isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
                   onClick={() => {
-                    if (isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
+                    if (!state.pendingTrickCompletion && isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
                       setState(prev => prev && playCard(prev, humanIdx, card));
                     }
                   }}
-                  disabled={!isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                  disabled={!!state.pendingTrickCompletion || !isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
                 />
               ))}
           </div>
@@ -575,7 +631,37 @@ function GameTable({ gameId, onExit }: GameTableProps) {
               tricksTaken={state.players[humanIdx].tricksTaken}
               variant="player"
               collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
+              compactMode={isMobileOrTablet}
             />
+            {shouldShowBidPanel && bidPanelVisible && (
+              <div className="bid-panel bid-panel-inline bid-panel-bottom" style={bidPanelInlineStyle} aria-label="Выбор заказа">
+                <span className="bid-panel-title bid-panel-title-inline" style={bidPanelInlineTitleStyle}>
+                  {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
+                </span>
+                <div className="bid-panel-grid" style={bidSidePanelGrid}>
+                  {Array.from({ length: state.tricksInDeal + 1 }, (_, i) => {
+                    const disabled = invalidBid === i;
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        className="bid-panel-btn"
+                        disabled={disabled}
+                        onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
+                        onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
+                        style={{
+                          ...bidSidePanelButton,
+                          ...(disabled ? bidSidePanelButtonDisabled : {}),
+                        }}
+                        title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
+                      >
+                        {i}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -650,38 +736,6 @@ function GameTable({ gameId, onExit }: GameTableProps) {
       )}
       </div>
 
-      {shouldShowBidPanel && bidPanelVisible && (
-        <div className="bid-panel-bottom" style={bidSidePanelStyle} aria-label="Выбор заказа">
-          <div style={bidSidePanelTitle}>
-            {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
-          </div>
-          <div style={bidSidePanelSubtitle}>
-            {state.phase === 'dark-bidding' ? 'Вслепую, 0–9 взяток' : `0–${state.tricksInDeal} взяток`}
-          </div>
-          <div style={bidSidePanelGrid}>
-            {Array.from({ length: state.tricksInDeal + 1 }, (_, i) => {
-              const disabled = invalidBid === i;
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  className="bid-panel-btn"
-                  disabled={disabled}
-                  onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
-                  onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
-                  style={{
-                    ...bidSidePanelButton,
-                    ...(disabled ? bidSidePanelButtonDisabled : {}),
-                  }}
-                  title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
-                >
-                  {i}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -739,10 +793,14 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay' }:
   };
 
   return (
-    <div style={{
-      ...baseStyle,
-      ...(isCollapsing ? dealResultsCollapsingStyle : {}),
-    }} aria-hidden>
+    <div
+      className={variant === 'overlay' ? 'deal-results-overlay-animation' : undefined}
+      style={{
+        ...baseStyle,
+        ...(isCollapsing ? dealResultsCollapsingStyle : {}),
+      }}
+      aria-hidden
+    >
       {variant === 'modal' ? (
         <div style={dealResultsModalFlexStyle}>
           <div style={dealResultsModalRow1Style}>{renderPanel(0)}</div>
@@ -796,8 +854,9 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay' }:
         const points = calculateDealPoints(bid, taken);
         const score = players[idx].score;
         const panelPos = getDealResultsPanelPosition(side);
+        const sideClass = side === 'left' ? 'deal-results-panel-west' : side === 'right' ? 'deal-results-panel-east' : side === 'top' ? 'deal-results-panel-north' : side === 'bottom' ? 'deal-results-panel-south' : undefined;
         return (
-          <div key={idx} style={{ ...dealResultsPanelStyle, ...panelPos }}>
+          <div key={idx} className={sideClass} style={{ ...dealResultsPanelStyle, ...panelPos }}>
             <div style={dealResultsPanelTitleStyle}>{players[idx].name}</div>
             <div style={dealResultsRowStyle}>
               <span style={dealResultsLabelStyle}>Заказ</span>
@@ -826,12 +885,11 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay' }:
 
 function getDealResultsPanelPosition(side: 'top' | 'bottom' | 'left' | 'right'): React.CSSProperties {
   const base: React.CSSProperties = { position: 'absolute' };
-  const edgeGap = 16;
   switch (side) {
-    case 'top': return { ...base, top: 36, left: '50%', transform: 'translateX(-50%)' };
-    case 'bottom': return { ...base, bottom: 12, left: '50%', transform: 'translateX(-50%)' };
-    case 'left': return { ...base, left: edgeGap, top: '50%', transform: 'translateY(-50%)' };
-    case 'right': return { ...base, right: edgeGap, top: '50%', transform: 'translateY(-50%)' };
+    case 'top': return { ...base, left: '50%', transform: 'translateX(-50%)' };
+    case 'bottom': return { ...base, left: '50%', transform: 'translateX(-50%)' };
+    case 'left': return { ...base, top: '50%', transform: 'translateY(-50%)' };
+    case 'right': return { ...base, top: '50%', transform: 'translateY(-50%)' };
     default: return base;
   }
 }
@@ -842,19 +900,22 @@ function TrickSlotsDisplay({
   variant,
   horizontalOnly,
   collectingCards,
+  compactMode,
 }: {
   bid: number | null;
   tricksTaken: number;
   variant: 'opponent' | 'player';
   horizontalOnly?: boolean;
   collectingCards?: boolean;
+  compactMode?: boolean;
 }) {
   const isCompact = variant === 'opponent';
   const slotSize = isCompact ? { w: 44, h: 62 } : { w: 52, h: 76 };
 
   if (bid === null) {
+    const nullWrap = compactMode ? { ...trickCirclesWrapStyle, border: '1px solid rgba(71, 85, 105, 0.5)', background: 'rgba(30, 41, 59, 0.8)', boxShadow: 'none' } : trickSlotsWrapStyle;
     return (
-      <div style={trickSlotsWrapStyle} className={collectingCards ? 'trick-slots-collecting' : 'trick-slots-normal'}>
+      <div style={nullWrap} className={collectingCards ? 'trick-slots-collecting' : 'trick-slots-normal'}>
         <span style={trickSlotsLabelStyle}>Заказ</span>
         <span style={trickSlotsValueStyle}>—</span>
       </div>
@@ -865,9 +926,48 @@ function TrickSlotsDisplay({
   const orderedSlots = bid;
   const totalFilled = tricksTaken;
   const hideCards = !!collectingCards;
+  const hasFilledOrder = totalFilled >= bid;
+
+  if (compactMode) {
+    const wrapStyle = {
+      ...trickCirclesWrapStyle,
+      ...(hasFilledOrder ? trickCirclesWrapSuccessStyle : trickCirclesWrapPendingStyle),
+      ...(variant === 'player' ? {
+        position: 'absolute' as const,
+        right: 14,
+        top: '50%',
+        padding: '2px 6px',
+        transform: 'translateY(-50%) scale(1.7)',
+        transformOrigin: 'right center',
+      } : {}),
+    };
+    return (
+      <div style={wrapStyle} className={hideCards ? 'trick-slots-collecting' : 'trick-slots-normal'}>
+        <span style={trickSlotsLabelStyle}>Заказ {bid}</span>
+        <div style={trickCirclesRowStyle}>
+          {Array.from({ length: orderedSlots }, (_, i) => {
+            const filled = i < Math.min(totalFilled, bid) && !hideCards;
+            const circleStyle = variant === 'player' ? { ...trickCircleBaseStyle, width: 18, height: 18 } : trickCircleBaseStyle;
+            return (
+              <div
+                key={`c-${i}`}
+                style={{
+                  ...circleStyle,
+                  ...(filled ? trickCircleFilledStyle : trickCircleEmptyStyle),
+                }}
+                aria-hidden
+              />
+            );
+          })}
+          {extra > 0 && !hideCards && (
+            <span style={trickCirclesPlusStyle}>+{extra}</span>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const rowStyle = { ...trickSlotsRowStyle, ...(horizontalOnly ? { flexWrap: 'nowrap' as const } : {}) };
-  const hasFilledOrder = totalFilled >= bid;
   const wrapStyle = { ...trickSlotsWrapStyle, ...(hasFilledOrder ? trickSlotsWrapSuccessStyle : trickSlotsWrapPendingStyle) };
   return (
     <div style={wrapStyle} className={hideCards ? 'trick-slots-collecting' : 'trick-slots-normal'}>
@@ -914,6 +1014,7 @@ function OpponentSlot({
   index,
   position,
   inline,
+  compactMode,
   collectingCards,
   winnerPanelBlink,
   currentTrickLeaderHighlight,
@@ -923,6 +1024,7 @@ function OpponentSlot({
   index: number;
   position: 'top' | 'left' | 'right';
   inline?: boolean;
+  compactMode?: boolean;
   collectingCards?: boolean;
   winnerPanelBlink?: boolean;
   currentTrickLeaderHighlight?: boolean;
@@ -943,7 +1045,7 @@ function OpponentSlot({
 
   const frameStyle = isActive ? activeTurnPanelFrameStyle : isDealer ? dealerPanelFrameStyle : undefined;
   const northSlotOverrides = position === 'top' && inline
-    ? { width: 'fit-content' as const, minWidth: 180, maxWidth: 'none' as const }
+    ? { width: 'fit-content' as const, minWidth: 'var(--game-table-opponent-slot-width, 180px)' as React.CSSProperties['minWidth'], maxWidth: 'none' as const }
     : {};
   return (
     <div
@@ -976,7 +1078,7 @@ function OpponentSlot({
         ...(position === 'top' && inline ? { flexWrap: 'nowrap' as const } : {}),
         ...(position === 'left' && inline ? { flexDirection: 'row-reverse' as const } : {}),
       }}>
-        <TrickSlotsDisplay bid={bid} tricksTaken={p.tricksTaken} variant="opponent" horizontalOnly={position === 'top' && inline} collectingCards={collectingCards} />
+        <TrickSlotsDisplay bid={bid} tricksTaken={p.tricksTaken} variant="opponent" horizontalOnly={position === 'top' && inline} collectingCards={collectingCards} compactMode={compactMode} />
         <div style={opponentStatBadgeScoreStyle}>
           <span style={opponentStatLabelStyle}>Очки</span>
           <span style={opponentStatValueStyle}>{p.score}</span>
@@ -991,11 +1093,13 @@ function DeckWithTrump({
   trumpCard,
   trumpHighlightOn,
   dealerIndex,
+  compactTable,
 }: {
   tricksInDeal: number;
   trumpCard: Card;
   trumpHighlightOn: boolean;
   dealerIndex: number;
+  compactTable?: boolean;
 }) {
   const cardsDealt = tricksInDeal * 4;
   const cardsUnderTrump = Math.max(0, 36 - cardsDealt - 1);
@@ -1012,7 +1116,7 @@ function DeckWithTrump({
     }
   })();
 
-  const deckScale = 1.18;
+  const deckScale = compactTable ? 1.18 / 1.2 : 1.18;
   const cardBackW = Math.round(52 * deckScale);
   const cardBackH = Math.round(76 * deckScale);
   const stackOffset = Math.round(2 * deckScale);
@@ -1044,8 +1148,8 @@ function DeckWithTrump({
           zIndex: numLayers + 1,
         }}
       >
-        <span style={{ fontSize: 16, color: 'rgba(34, 211, 238, 0.9)', textShadow: '0 0 8px rgba(34, 211, 238, 0.5)' }}>Козырь</span>
-        <CardView card={trumpCard} disabled compact scale={1.18} doubleBorder={trumpHighlightOn} trumpOnDeck trumpDeckHighlightOn={trumpHighlightOn} />
+        <span style={{ fontSize: compactTable ? 14 : 16, color: 'rgba(34, 211, 238, 0.9)', textShadow: '0 0 8px rgba(34, 211, 238, 0.5)' }}>Козырь</span>
+        <CardView card={trumpCard} disabled compact scale={deckScale} contentScale={compactTable ? 1.5 : undefined} doubleBorder={trumpHighlightOn} trumpOnDeck trumpDeckHighlightOn={trumpHighlightOn} />
       </div>
     </div>
   );
@@ -1111,24 +1215,22 @@ const tableLayoutStyle: React.CSSProperties = {
   flexDirection: 'column',
   width: '100%',
   height: '100vh',
-  minHeight: 0,
+  maxHeight: '100dvh',
   overflow: 'hidden',
   background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
   color: '#f8fafc',
 };
-
-const PLAYER_AREA_HEIGHT = 260;
 
 const tableStyle: React.CSSProperties = {
   flex: 1,
   width: '100%',
   minWidth: 0,
   position: 'relative',
-  padding: 20,
-  paddingBottom: 0,
+  padding: 'var(--game-header-padding-top, 7px) var(--game-header-padding, 20px) 16px var(--game-header-padding, 20px)',
   display: 'flex',
   flexDirection: 'column',
   minHeight: 0,
+  overflow: 'auto',
 };
 
 const headerStyle: React.CSSProperties = {
@@ -1155,14 +1257,13 @@ const centerAreaSpacerBottomStyle: React.CSSProperties = {
 };
 
 const playerSpacerStyle: React.CSSProperties = {
-  height: PLAYER_AREA_HEIGHT,
+  height: 'var(--game-player-area-height, 260px)',
   flexShrink: 0,
 };
 
-const GAME_TABLE_UP_OFFSET = 129;
-
 const gameTableBlockStyle: React.CSSProperties = {
-  transform: `translateY(-${GAME_TABLE_UP_OFFSET}px)`,
+  marginTop: 'var(--game-table-block-margin-top, 0)',
+  transform: 'translateY(calc(-1 * var(--game-table-up-offset, 129px)))',
   flexShrink: 0,
 };
 
@@ -1171,9 +1272,9 @@ const gameInfoTopRowStyle: React.CSSProperties = {
   flexDirection: 'row',
   alignItems: 'stretch',
   width: '100%',
-  height: 130,
+  height: 'var(--game-table-row-height, 130px)',
   gap: 16,
-  marginBottom: 12,
+  marginBottom: 'var(--game-north-table-gap, 12px)',
   flexShrink: 0,
   position: 'relative',
 };
@@ -1260,7 +1361,7 @@ const gameInfoLeftColumnStyle: React.CSSProperties = {
   gap: 5,
   alignItems: 'flex-start',
   flexShrink: 0,
-  marginTop: 77,
+  marginTop: 'var(--game-info-left-margin-top, 77px)',
 };
 
 const gameInfoModePanelStyle: React.CSSProperties = {
@@ -1287,8 +1388,8 @@ const gameInfoLeftSectionStyle: React.CSSProperties = {
 };
 
 const gameInfoNorthSlotWrapper: React.CSSProperties = {
-  width: 420,
-  flex: '0 0 420px',
+  width: 'var(--game-table-north-slot-width, 420px)',
+  flex: '0 0 var(--game-table-north-slot-width, 420px)',
   pointerEvents: 'none',
   visibility: 'hidden',
 };
@@ -1296,13 +1397,13 @@ const gameInfoNorthSlotWrapper: React.CSSProperties = {
 const gameInfoNorthSlotWrapperAbsolute: React.CSSProperties = {
   position: 'absolute',
   left: '50%',
-  bottom: -65,
+  bottom: 'var(--game-north-slot-bottom, -65px)',
   transform: 'translateX(-50%)',
   display: 'flex',
   flexDirection: 'column-reverse',
   justifyContent: 'flex-start',
   alignItems: 'center',
-  width: 420,
+  width: 'var(--game-table-north-slot-width, 420px)',
   overflow: 'visible',
   pointerEvents: 'auto',
   zIndex: 5,
@@ -1378,15 +1479,15 @@ const centerAreaStyle: React.CSSProperties = {
   gap: 16,
   position: 'relative',
   zIndex: 10,
-  marginTop: 80,
+  marginTop: 'var(--game-table-center-margin-top, 80px)',
 };
 
 const dealResultsOverlayStyle: React.CSSProperties = {
   position: 'absolute',
-  top: 260,
-  left: '36%',
-  right: '36%',
-  height: 320,
+  top: 'var(--deal-results-overlay-top, 260px)',
+  left: '33%',
+  right: '33%',
+  height: 'var(--deal-results-overlay-height, 320px)',
   zIndex: 15,
   pointerEvents: 'none',
   background: 'linear-gradient(180deg, rgba(3, 7, 18, 0.96) 0%, rgba(15, 23, 42, 0.96) 100%)',
@@ -1421,13 +1522,14 @@ const dealResultsModalStyle: React.CSSProperties = {
 };
 
 const MODAL_GAP = 8;
+const MODAL_ROW_GAP = 22;
 const dealResultsModalFlexStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
   minHeight: 0,
   padding: `${MODAL_GAP}px 16px`,
-  gap: MODAL_GAP,
+  gap: MODAL_ROW_GAP,
   boxSizing: 'border-box',
   overflow: 'hidden',
 };
@@ -1443,7 +1545,7 @@ const dealResultsModalRow2Style: React.CSSProperties = {
   justifyContent: 'space-around',
   alignItems: 'center',
   flexShrink: 0,
-  gap: 12,
+  gap: 20,
 };
 
 const dealResultsModalRow3Style: React.CSSProperties = {
@@ -1614,8 +1716,8 @@ const opponentSideWrapStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  minWidth: 140,
-  maxWidth: 180,
+  minWidth: 'var(--game-table-opponent-side-min, 140px)',
+  maxWidth: 'var(--game-table-opponent-side-max, 180px)',
 };
 
 const opponentSideWrapWestStyle: React.CSSProperties = {
@@ -1636,9 +1738,9 @@ const opponentSlotStyle: React.CSSProperties = {
   background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
   borderRadius: 12,
   border: '1px solid rgba(34, 211, 238, 0.45)',
-  width: 180,
-  minWidth: 180,
-  maxWidth: 180,
+  width: 'var(--game-table-opponent-slot-width, 180px)',
+  minWidth: 'var(--game-table-opponent-slot-width, 180px)',
+  maxWidth: 'var(--game-table-opponent-slot-width, 180px)',
   boxShadow: [
     '0 0 0 1px rgba(34, 211, 238, 0.25)',
     '0 0 20px rgba(34, 211, 238, 0.12)',
@@ -1803,7 +1905,7 @@ const opponentStatValueStyle: React.CSSProperties = {
 const tableOuterStyle: React.CSSProperties = {
   position: 'relative',
   flexShrink: 0,
-  padding: 18,
+  padding: 'var(--game-table-padding, 18px)',
   borderRadius: '24px',
   background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.95) 50%, rgba(15, 23, 42, 0.98) 100%)',
   border: '2px solid rgba(34, 211, 238, 0.5)',
@@ -1822,10 +1924,10 @@ const tableSurfaceStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: 16,
-  width: 576,
-  minWidth: 576,
-  height: 250,
-  minHeight: 250,
+  width: 'var(--game-table-surface-width, 576px)',
+  minWidth: 0,
+  height: 'var(--game-table-surface-height, 250px)',
+  minHeight: 'var(--game-table-surface-height, 250px)',
   padding: 36,
   borderRadius: '16px',
   background: [
@@ -1864,6 +1966,57 @@ const trickSlotsWrapStyle: React.CSSProperties = {
   borderRadius: 8,
   border: '1px solid rgba(251, 146, 60, 0.4)',
   background: 'linear-gradient(180deg, rgba(251, 146, 60, 0.08) 0%, rgba(30, 41, 59, 0.85) 100%)',
+};
+
+/** Кружочки-индикаторы взяток (мобильные/планшеты) */
+const trickCirclesWrapStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 3,
+  padding: '4px 8px',
+  borderRadius: 8,
+  border: '1px solid rgba(251, 146, 60, 0.5)',
+  background: 'linear-gradient(180deg, rgba(251, 191, 36, 0.12) 0%, rgba(245, 158, 11, 0.08) 50%, rgba(30, 41, 59, 0.9) 100%)',
+  boxShadow: 'inset 0 0 8px rgba(251, 191, 36, 0.15)',
+};
+const trickCirclesWrapPendingStyle: React.CSSProperties = {
+  border: '1px solid rgba(251, 191, 36, 0.55)',
+  background: 'linear-gradient(180deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.1) 50%, rgba(30, 41, 59, 0.9) 100%)',
+  boxShadow: 'inset 0 0 10px rgba(251, 191, 36, 0.2)',
+};
+const trickCirclesWrapSuccessStyle: React.CSSProperties = {
+  border: '1px solid rgba(34, 211, 238, 0.6)',
+  background: 'linear-gradient(180deg, rgba(34, 211, 238, 0.12) 0%, rgba(34, 197, 94, 0.1) 50%, rgba(30, 41, 59, 0.9) 100%)',
+  boxShadow: 'inset 0 0 10px rgba(34, 211, 238, 0.2)',
+};
+const trickCirclesRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+  flexWrap: 'wrap',
+  justifyContent: 'center',
+};
+const trickCircleBaseStyle: React.CSSProperties = {
+  width: 14,
+  height: 14,
+  borderRadius: '50%',
+  flexShrink: 0,
+};
+const trickCircleEmptyStyle: React.CSSProperties = {
+  border: '1px dashed rgba(251, 146, 60, 0.6)',
+  background: 'rgba(30, 41, 59, 0.6)',
+};
+const trickCircleFilledStyle: React.CSSProperties = {
+  border: '1px solid rgba(99, 102, 241, 0.7)',
+  background: 'radial-gradient(circle at 30% 30%, rgba(199, 210, 254, 0.9) 0%, rgba(99, 102, 241, 0.8) 40%, #1e1b4b 100%)',
+  boxShadow: 'inset 0 0 6px rgba(99, 102, 241, 0.4), 0 0 8px rgba(99, 102, 241, 0.5)',
+};
+const trickCirclesPlusStyle: React.CSSProperties = {
+  fontSize: 10,
+  color: 'rgba(251, 146, 60, 0.9)',
+  fontWeight: 700,
+  marginLeft: 2,
 };
 
 const trickSlotsWrapSuccessStyle: React.CSSProperties = {
@@ -1976,12 +2129,12 @@ const trickStyle: React.CSSProperties = {
 
 const lastTrickButtonStyle: React.CSSProperties = {
   position: 'absolute',
-  bottom: 12,
+  bottom: '1%',
   right: 12,
   padding: '8px 20px',
   borderRadius: 8,
   border: '1px solid rgba(34, 211, 238, 0.4)',
-  background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%)',
+  background: 'transparent',
   color: 'rgba(34, 211, 238, 0.95)',
   fontSize: 12,
   fontWeight: 600,
@@ -1991,14 +2144,14 @@ const lastTrickButtonStyle: React.CSSProperties = {
 
 const playerStyle: React.CSSProperties = {
   position: 'fixed',
-  bottom: 34,
+  bottom: 0,
   left: 0,
   right: 0,
-  padding: 20,
-  marginTop: 20,
-  transform: 'translateY(4px)',
-  background: 'linear-gradient(0deg, #1e293b 0%, transparent 100%)',
-  zIndex: 5,
+  maxHeight: 'var(--game-player-area-height, 260px)',
+  padding: 'var(--game-header-padding, 20px)',
+  paddingTop: 12,
+  background: 'linear-gradient(0deg, #1e293b 0%, rgba(30, 41, 59, 0.98) 40%, transparent 100%)',
+  zIndex: 10,
 };
 
 const playerInfoPanelStyle: React.CSSProperties = {
@@ -2125,44 +2278,28 @@ const handStyle: React.CSSProperties = {
   gap: 0,
 };
 
-const bidSidePanelStyle: React.CSSProperties = {
-  position: 'fixed',
-  bottom: 20,
-  left: 24,
-  zIndex: 100,
-  padding: '16px 20px',
-  borderRadius: 12,
+/** Стили панели заказа, встроенной в панель игрока — справа от бейджиков, без увеличения высоты */
+const bidPanelInlineStyle: React.CSSProperties = {
   display: 'flex',
-  flexDirection: 'column',
+  flexDirection: 'row',
   alignItems: 'center',
-  gap: 8,
+  gap: 6,
+  padding: '4px 8px',
+  borderRadius: 8,
 };
-
-const bidSidePanelTitle: React.CSSProperties = {
-  fontSize: 22,
-  fontWeight: 700,
-  fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
-  color: '#4c1d95',
-  letterSpacing: '0.5px',
-  textShadow: '0 1px 2px rgba(255,255,255,0.3)',
-};
-
-const bidSidePanelSubtitle: React.CSSProperties = {
-  fontSize: 16,
+const bidPanelInlineTitleStyle: React.CSSProperties = {
+  fontSize: 12,
   fontWeight: 600,
-  fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
   color: '#4c1d95',
-  marginBottom: 4,
-  textShadow: '0 1px 2px rgba(255,255,255,0.3)',
+  whiteSpace: 'nowrap',
 };
 
 const bidSidePanelGrid: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'row',
-  flexWrap: 'wrap',
+  flexWrap: 'nowrap',
   gap: 6,
   justifyContent: 'center',
-  maxWidth: 220,
 };
 
 const bidSidePanelButton: React.CSSProperties = {

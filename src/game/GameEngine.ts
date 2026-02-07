@@ -3,9 +3,9 @@
  * Управляет ходом игры: раздача, заказы, розыгрыш
  *
  * Расположение игроков (вид сверху): Юг(0, вы) внизу, Север(1) вверху, Запад(2) слева, Восток(3) справа.
- * Порядок «по левую руку» (следующий сдающий/игрок по часовой): 0→2→1→3→0
+ * Порядок «по левую руку» (следующий сдающий по часовой): Юг→Запад→Север→Восток→Юг (0→2→1→3→0)
  */
-const NEXT_PLAYER_LEFT = [2, 3, 1, 0] as const; // следующий игрок слева от [0,1,2,3]
+const NEXT_PLAYER_LEFT = [2, 3, 1, 0] as const; // [0]=Запад, [1]=Восток, [2]=Север, [3]=Юг — следующий слева
 
 function nextPlayerLeft(i: number): number {
   return NEXT_PLAYER_LEFT[i % 4];
@@ -29,6 +29,14 @@ export interface LastCompletedTrick {
   leaderIndex: number;
 }
 
+/** Взятка ждёт визуального отображения карт в слотах перед завершением */
+export interface PendingTrickCompletion {
+  cards: Card[];
+  winnerIndex: number;
+  leaderIndex: number;
+  allPlayed: boolean;
+}
+
 export interface GameState {
   phase: GamePhase;
   players: Player[];
@@ -44,6 +52,8 @@ export interface GameState {
   trumpCard: Card | null;
   /** Последняя взятая взятка — для просмотра и паузы после завершения */
   lastCompletedTrick: LastCompletedTrick | null;
+  /** Взятка с 4 картами — карты в слотах, ждём задержку перед завершением */
+  pendingTrickCompletion: PendingTrickCompletion | null;
 }
 
 export type GameMode = 'classical' | 'extended';
@@ -61,6 +71,7 @@ export function createGame(
     { id: 'ai3', name: 'ИИ Восток', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
   ];
 
+  /** Первая раздача в партии: сдающий выбирается случайно */
   const firstDealer = Math.floor(Math.random() * 4);
   return {
     phase: 'bidding',
@@ -75,6 +86,7 @@ export function createGame(
     dealNumber: 1,
     trumpCard: null,
     lastCompletedTrick: null,
+    pendingTrickCompletion: null,
   };
 }
 
@@ -137,6 +149,7 @@ export function startDeal(state: GameState): GameState {
     trickLeaderIndex: firstBidder,
     bids: [null, null, null, null],
     lastCompletedTrick: null,
+    pendingTrickCompletion: null,
   };
 }
 
@@ -159,6 +172,7 @@ export function startDarkBidding(state: GameState): GameState {
     trickLeaderIndex: firstBidder,
     bids: [null, null, null, null],
     lastCompletedTrick: null,
+    pendingTrickCompletion: null,
   };
 }
 
@@ -191,10 +205,14 @@ export function completeDarkDeal(state: GameState): GameState {
     trickLeaderIndex: firstBidder,
     currentPlayerIndex: firstBidder,
     lastCompletedTrick: null,
+    pendingTrickCompletion: null,
   };
 }
 
-/** Следующая раздача в партии. Возвращает null, если партия завершена (28 раздач). */
+/**
+ * Следующая раздача в партии. Возвращает null, если партия завершена (28 раздач).
+ * Сдающий строго по очереди: игрок по левую руку (по часовой) от предыдущего сдающего.
+ */
 export function startNextDeal(state: GameState): GameState | null {
   if (state.dealNumber >= 28) return null;
   const nextDealerIndex = nextPlayerLeft(state.dealerIndex);
@@ -293,7 +311,7 @@ export function playCard(
     };
   }
 
-  // Взятка завершена
+  // Взятка завершена — отложить завершение, чтобы карты успели показаться в слотах
   const winnerOffset = getTrickWinner(newTrick, newTrick[0].suit, trump ?? undefined);
   const trickWinner = playerAtLeftFrom(trickLeaderIndex, winnerOffset);
 
@@ -305,8 +323,29 @@ export function playCard(
 
   const allPlayed = updatedPlayers.every(p => p.hand.length === 0);
 
+  return {
+    ...state,
+    players: updatedPlayers,
+    currentTrick: newTrick,
+    currentPlayerIndex: trickWinner,
+    pendingTrickCompletion: {
+      cards: newTrick,
+      winnerIndex: trickWinner,
+      leaderIndex: trickLeaderIndex,
+      allPlayed,
+    },
+  };
+}
+
+/** Завершить взятку после задержки (карты уже показаны в слотах) */
+export function completeTrick(state: GameState): GameState {
+  const pending = state.pendingTrickCompletion;
+  if (!pending) return state;
+
+  const { cards, winnerIndex, leaderIndex, allPlayed } = pending;
+  const updatedPlayers = state.players;
+
   if (allPlayed) {
-    // Раздача завершена — подсчёт очков
     const bids = state.bids as number[];
     const finalPlayers = updatedPlayers.map((p, i) => ({
       ...p,
@@ -317,19 +356,20 @@ export function playCard(
       ...state,
       players: finalPlayers,
       currentTrick: [],
-      currentPlayerIndex: trickWinner,
+      currentPlayerIndex: winnerIndex,
       phase: 'deal-complete',
-      lastCompletedTrick: { cards: newTrick, winnerIndex: trickWinner, leaderIndex: trickLeaderIndex },
+      lastCompletedTrick: { cards, winnerIndex, leaderIndex },
+      pendingTrickCompletion: null,
     };
   }
 
   return {
     ...state,
-    players: updatedPlayers,
     currentTrick: [],
-    trickLeaderIndex: trickWinner,
-    currentPlayerIndex: trickWinner,
-    lastCompletedTrick: { cards: newTrick, winnerIndex: trickWinner, leaderIndex: trickLeaderIndex },
+    trickLeaderIndex: winnerIndex,
+    currentPlayerIndex: winnerIndex,
+    lastCompletedTrick: { cards, winnerIndex, leaderIndex },
+    pendingTrickCompletion: null,
   };
 }
 
