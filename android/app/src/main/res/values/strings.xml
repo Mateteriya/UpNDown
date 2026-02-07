@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Up&amp;Down</string>
+    <string name="title_activity_main">Up&amp;Down</string>
+    <string name="package_name">com.example.updown</string>
+    <string name="custom_url_scheme">com.example.updown</string>
+</resources>

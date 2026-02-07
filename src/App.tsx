@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import GameTable from './ui/GameTable'
+import MobileOverlapHint from './ui/MobileOverlapHint'
 
 function App() {
   const [screen, setScreen] = useState<'menu' | 'game'>('menu')
@@ -42,6 +43,7 @@ function App() {
       {/* key={gameId} — полное пересоздание при новой партии, чтобы сбросить все refs и эффекты */}
       <div style={{ display: screen === 'game' ? 'block' : 'none', position: 'fixed', inset: 0, overflow: 'hidden' }}>
         {gameId > 0 && <GameTable key={gameId} gameId={gameId} onExit={() => setScreen('menu')} />}
+        <MobileOverlapHint />
       </div>
     </>
   )

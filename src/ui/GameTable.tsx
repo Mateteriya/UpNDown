@@ -421,7 +421,8 @@ function GameTable({ gameId, onExit }: GameTableProps) {
             </div>
           </div>
           <div className="game-center-spacer-top" style={centerAreaSpacerTopStyle} aria-hidden />
-          <div className="game-center-area game-mobile-center" style={{ ...centerAreaStyle, flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'stretch', ...(isAITurn ? { cursor: 'pointer' } : {}) }}
+          <div className="game-mobile-table-and-hand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0, width: '100%', padding: 0, boxSizing: 'border-box' }}>
+          <div className="game-center-area game-mobile-center" style={{ ...centerAreaStyle, flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'stretch', width: '100%', maxWidth: '100%', gap: 12, marginLeft: 0, marginRight: 0, transform: 'translateX(-28px)', ...(isAITurn ? { cursor: 'pointer' } : {}) }}
             onClick={isAITurn ? accelerateAI : undefined}
             onKeyDown={e => { if (isAITurn && e.key === ' ') { e.preventDefault(); accelerateAI(); } }}
             role={isAITurn ? 'button' : undefined}
@@ -540,6 +541,46 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                 Последняя взятка
               </button>
             )}
+            {isMobile && shouldShowBidPanel && bidPanelVisible && (
+              <div className="bid-panel-mobile-on-table-wrap" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', paddingBottom: 12, paddingLeft: 8, paddingRight: 8, zIndex: 15, pointerEvents: 'none' }}>
+                <div
+                  className="bid-panel bid-panel-inline bid-panel-bottom bid-panel-mobile-inline"
+                  style={{
+                    ...bidPanelInlineStyle,
+                    padding: '14px 18px',
+                    gap: 12,
+                    pointerEvents: 'auto',
+                  }}
+                  aria-label="Выбор заказа"
+                >
+                  <span className="bid-panel-title bid-panel-title-inline" style={{ ...bidPanelInlineTitleStyle, fontSize: 16 }}>
+                    {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
+                  </span>
+                  <div className="bid-panel-grid bid-panel-mobile-grid" style={bidSidePanelGrid}>
+                    {Array.from({ length: state.tricksInDeal + 1 }, (_, i) => {
+                      const disabled = invalidBid === i;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          className="bid-panel-btn"
+                          disabled={disabled}
+                          onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
+                          onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
+                          style={{
+                            ...bidSidePanelButton,
+                            ...(disabled ? bidSidePanelButtonDisabled : {}),
+                          }}
+                          title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
+                        >
+                          {i}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         </div>
@@ -555,14 +596,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
               />
             </div>
       </div>
-      <div className="game-mobile-bottom-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
-        <div className="game-mobile-player-wrap game-mobile-player" style={{ flex: 1, minWidth: 0, width: '100%', maxWidth: 800 }}>
-      <div className="game-mobile-player-panel" style={{
-        ...playerStyle,
-        ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')
-          ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
-          : {}),
-      }}>
+      <div className="game-mobile-hand-attached" style={{ width: '100%', maxWidth: 800, flexShrink: 0 }}>
         <div className={state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : undefined} style={handFrameStyle}>
           <div style={handStyle}>
             {state.players[humanIdx].hand
@@ -587,6 +621,16 @@ function GameTable({ gameId, onExit }: GameTableProps) {
               ))}
           </div>
         </div>
+      </div>
+      </div>
+      <div className="game-mobile-bottom-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
+        <div className="game-mobile-player-wrap game-mobile-player" style={{ flex: 1, minWidth: 0, width: '100%', maxWidth: 800 }}>
+      <div className="game-mobile-player-panel" style={{
+        ...playerStyle,
+        ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')
+          ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
+          : {}),
+      }}>
         <div className="game-mobile-player-info" style={{
           ...playerInfoPanelStyle,
           position: 'relative',
@@ -907,58 +951,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
       </div>
       )}
 
-      {isMobile && shouldShowBidPanel && bidPanelVisible && createPortal(
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'center',
-            paddingTop: 'min(18vh, 120px)',
-            zIndex: 9998,
-            pointerEvents: 'none',
-          }}
-        >
-          <div
-            className="bid-panel bid-panel-inline bid-panel-bottom bid-panel-mobile-overlay"
-            style={{
-              ...bidPanelInlineStyle,
-              pointerEvents: 'auto',
-              padding: '10px 14px',
-              gap: 10,
-            }}
-            aria-label="Выбор заказа"
-          >
-            <span className="bid-panel-title bid-panel-title-inline" style={{ ...bidPanelInlineTitleStyle, fontSize: 14 }}>
-              {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
-            </span>
-            <div className="bid-panel-grid" style={bidSidePanelGrid}>
-              {Array.from({ length: state.tricksInDeal + 1 }, (_, i) => {
-                const disabled = invalidBid === i;
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    className="bid-panel-btn"
-                    disabled={disabled}
-                    onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
-                    onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
-                    style={{
-                      ...bidSidePanelButton,
-                      ...(disabled ? bidSidePanelButtonDisabled : {}),
-                    }}
-                    title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
-                  >
-                    {i}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      {/* Мобильная панель заказа рендерится в потоке под картами (bid-panel-mobile-inline-wrap), не в портале */}
 
       {dealResultsExpanded && lastDealResultsSnapshot && createPortal(
         <div
@@ -1343,6 +1336,7 @@ function OpponentSlot({
     : {};
   return (
     <div
+      className={position === 'right' ? 'opponent-slot-east' : undefined}
       style={{
         ...opponentSlotStyle,
         ...northSlotOverrides,
@@ -1354,16 +1348,28 @@ function OpponentSlot({
       }}
     >
       {isDealer && (
-        <span style={dealerLampExternalStyle} title="Сдающий">
-          <span style={dealerLampBulbStyle} /> Сдающий
+        <span className="opponent-badge dealer-badge" style={dealerLampExternalStyle} title="Сдающий">
+          <span style={dealerLampBulbStyle} />
+          <span className="dealer-badge-text">Сдающий</span>
         </span>
       )}
       {firstBidderBadge && (
-        <span style={firstBidderLampExternalStyle} title="Первый заказ/ход">
-          <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
+        <span className={`opponent-badge first-bidder-badge${position === 'top' || position === 'left' ? ' first-bidder-badge-two-lines' : ''}`} style={firstBidderLampExternalStyle} title="Первый заказ/ход">
+          {(position === 'top' || position === 'left') ? (
+            <>
+              <span className="first-bidder-line1">
+                <span style={firstBidderLampBulbStyle} /> Первый:
+              </span>
+              <span className="first-bidder-line2">заказ/ход</span>
+            </>
+          ) : (
+            <>
+              <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
+            </>
+          )}
         </span>
       )}
-      <div style={opponentHeaderStyle}>
+      <div className="opponent-slot-header" style={opponentHeaderStyle}>
         <span style={opponentNameStyle}>{p.name}</span>
         {isActive && <span style={opponentTurnBadgeStyle}>Ходит</span>}
       </div>
@@ -1373,7 +1379,7 @@ function OpponentSlot({
         ...(position === 'left' && inline ? { flexDirection: 'row-reverse' as const } : {}),
       }}>
         <TrickSlotsDisplay bid={bid} tricksTaken={p.tricksTaken} variant="opponent" horizontalOnly={position === 'top' && inline} collectingCards={collectingCards} compactMode={compactMode} />
-        <div style={opponentStatBadgeScoreStyle}>
+        <div className="opponent-score-badge" style={opponentStatBadgeScoreStyle}>
           <span style={opponentStatLabelStyle}>Очки</span>
           <span style={opponentStatValueStyle}>{p.score}</span>
         </div>

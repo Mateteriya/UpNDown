@@ -148,12 +148,13 @@
     --game-player-area-height: 130px;
   }
 
-  /* Чтобы контент не выходил за экран и не сдвигался влево */
+  /* Чтобы контент не выходил за экран и не сдвигался влево; стол и Восток — высота в 1.1 раза меньше */
   .game-table-root.viewport-mobile {
     box-sizing: border-box !important;
     max-width: 100vw !important;
     padding-right: 2px !important;
     overflow-x: hidden !important;
+    --game-table-surface-height: min(236px, 40.9vh) !important; /* было min(260px, 45vh) */
   }
 
   /* Опустить стол и панель Юга к низу страницы, заполняя экран адаптивно */
@@ -163,24 +164,51 @@
     flex: 1 1 auto !important;
     min-height: 0 !important;
     transform: none !important;
-    padding-top: 10px !important;
+    padding-top: 2px !important;
   }
   .game-table-root.viewport-mobile .game-table-block-mobile .game-center-spacer-top {
     flex: 0 1 auto !important;
-    max-height: min(60px, 12vh) !important;
-    min-height: 8px !important;
+    max-height: min(24px, 6vh) !important;
+    min-height: 2px !important;
   }
   .game-table-root.viewport-mobile .game-table-block-mobile .game-center-area.game-mobile-center {
     flex-shrink: 0 !important;
     margin-top: -3px !important;
-    margin-left: -2px !important;
-    align-self: flex-start !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
   }
   .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-bottom-row {
     flex: 0 1 auto !important;
     min-height: 0 !important;
     max-height: min(42vh, 220px) !important;
     overflow: hidden !important;
+    margin-top: 0 !important;
+  }
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-center-area.game-mobile-center {
+    margin-bottom: 0 !important;
+  }
+  /* Монолит: стол + панель карт Юга; строка стол+Восток на всю ширину: стол у левого края, 12px зазор, Восток у правого края */
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-table-and-hand {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0 !important;
+    width: 100% !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-table-and-hand .game-center-area.game-mobile-center {
+    margin-bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-attached {
+    margin: 0 !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    flex-shrink: 0 !important;
   }
 
   /* Шапка и бейджи сверху — одна линия по верхней границе */
@@ -382,12 +410,12 @@
     align-items: center !important;
     min-height: 24px !important;
   }
-  /* Место под фиксированную шапку — минимум, чтобы панели Север/Запад поднялись выше */
+  /* Минимальный отступ под фиксированную шапку — панели Запад/Север/Стол/Восток ближе к кнопкам и бейджам */
   .game-table-root.viewport-mobile .game-mobile-top-row {
-    padding-top: 34px !important;
+    padding-top: 28px !important;
   }
   .game-table-root.viewport-mobile > div {
-    padding-top: 38px !important;
+    padding-top: 30px !important;
   }
   .game-table-root .game-info-left-col {
     margin-top: 4px !important;
@@ -436,18 +464,65 @@
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
-    padding: 6px 8px !important;
+    padding: 4px 6px !important;
     border-radius: 8px !important;
+    gap: 2px !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot-header,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot-header {
+    margin-bottom: 2px !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-score-badge,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-score-badge {
+    display: none !important;
+  }
+  /* Бейдж «Сдающий» у Запада и Севера — у нижней границы панели справа, скруглены верхний левый и нижний правый */
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > .dealer-badge,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div > .dealer-badge {
+    top: auto !important;
+    bottom: 0 !important;
+    left: auto !important;
+    right: 0 !important;
+    transform: none !important;
+    border-radius: 6px 0 6px 0 !important;
+  }
+  /* Бейдж «Первый заказ/ход» у Запада и Севера — у нижней границы панели справа, скруглены верхний левый и нижний правый */
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > .first-bidder-badge,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div > .first-bidder-badge {
+    top: auto !important;
+    bottom: 0 !important;
+    left: auto !important;
+    right: 0 !important;
+    transform: none !important;
+    border-radius: 6px 0 6px 0 !important;
+  }
+  /* Две строки: «Первый:» и «заказ/ход» — только для Север и Запад */
+  .game-table-root.viewport-mobile .game-mobile-top-row .first-bidder-badge-two-lines {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0 !important;
+    padding: 3px 4px !important;
+    line-height: 1.2 !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .first-bidder-badge-two-lines .first-bidder-line1 {
+    display: inline-flex !important;
+    align-items: center !important;
     gap: 4px !important;
+    white-space: nowrap !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .first-bidder-badge-two-lines .first-bidder-line2 {
+    display: block !important;
+    white-space: nowrap !important;
   }
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > div:last-child,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div > div:last-child {
     flex-direction: row !important;
     flex-wrap: nowrap !important;
-    gap: 6px !important;
+    gap: 4px !important;
   }
 
-  /* Мобильный центр: стол слева, Восток справа от стола (в один ряд) */
+  /* Мобильный центр: стол и Восток в один ряд; зазор между ними 12px; блок по 12px от краёв экрана (центрирован) */
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center {
     flex-direction: row !important;
     flex-wrap: nowrap !important;
@@ -460,11 +535,11 @@
   }
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east {
     width: auto !important;
-    min-width: 22px !important;
-    max-width: 36px !important;
+    min-width: 28px !important;
+    max-width: 44px !important;
     flex: 0 0 auto !important;
     align-self: stretch !important;
-    margin-left: 14px !important;
+    margin-left: 0 !important;
     margin-right: 0 !important;
     min-height: 0 !important;
     height: auto !important;
@@ -482,6 +557,71 @@
     flex-direction: column !important;
     align-items: center !important;
     justify-content: flex-start !important;
+  }
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-header {
+    margin-bottom: 2px !important;
+  }
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-score-badge {
+    display: none !important;
+  }
+  /* Бейдж «Сдающий» в панели Восток — кружок над текстом, текст вертикально у нижнего правого угла */
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-east > .dealer-badge {
+    top: auto !important;
+    left: auto !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    transform: none !important;
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 6px !important;
+    writing-mode: horizontal-tb !important;
+    padding: 4px 3px !important;
+    font-size: 8px !important;
+    line-height: 1.15 !important;
+    border-radius: 6px 0 6px 0 !important;
+  }
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-east > .dealer-badge > .dealer-badge-text {
+    writing-mode: vertical-rl !important;
+    text-orientation: upright !important;
+    letter-spacing: 0.08em !important;
+    white-space: pre !important;
+  }
+  /* Бейдж «Первый заказ/ход» в панели Восток — у нижней границы: кружок в первой строке, текст во второй */
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-east > .first-bidder-badge {
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    transform: none !important;
+    margin: 0 !important;
+    width: 100% !important;
+    min-height: 36px !important;
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    writing-mode: horizontal-tb !important;
+    text-orientation: mixed !important;
+    white-space: nowrap !important;
+    letter-spacing: normal !important;
+    padding: 4px 6px !important;
+    font-size: 9px !important;
+    line-height: 1.2 !important;
+    border-radius: 0 0 6px 6px !important;
+  }
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-east > .first-bidder-badge > span:first-child {
+    flex-shrink: 0 !important;
+    width: 10px !important;
+    height: 10px !important;
+  }
+  /* Кружок у бейджа «Сдающий» в Востоке — над текстом, лёгкая пульсация */
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-east > .dealer-badge > span:first-child {
+    flex-shrink: 0 !important;
+    width: 8px !important;
+    height: 8px !important;
+    animation: dealer-badge-lamp-pulse 1.8s ease-in-out infinite !important;
   }
 
   /* Общие правила для west/east (Запад в top-row, Восток — только в game-mobile-center справа от стола) */
@@ -534,18 +674,13 @@
     padding: 3px 6px !important;
     gap: 2px !important;
     margin-bottom: 2px !important;
+    align-items: flex-start !important;
+    text-align: left !important;
   }
-  /* Компактная рамка руки на мобильных; карты помещаются в ширину */
-  .game-table-root.viewport-mobile .game-mobile-player-panel > div:first-child {
-    margin-bottom: 3px !important;
-    padding: 3px 6px !important;
-    transform: none !important;
-    max-width: 100% !important;
-  }
-  .game-table-root.viewport-mobile .game-mobile-player-panel > div:first-child > div {
-    max-width: 100% !important;
-    justify-content: center !important;
-    flex-wrap: nowrap !important;
+  /* Рамка руки теперь в game-mobile-hand-attached; панель содержит только game-mobile-player-info — выравнивание по левому краю */
+  .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info > div:first-child,
+  .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info > div:nth-child(2) {
+    justify-content: flex-start !important;
   }
   .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info .game-mobile-player-info,
   .game-table-root.viewport-mobile .game-mobile-player-info > div:first-child {
@@ -557,11 +692,35 @@
   }
 }
 
-/* Мобильная панель заказа — overlay по центру */
-.bid-panel-mobile-overlay {
+/* Мобильная панель заказа — поверх нижней части стола (overlay), над панелью карт Юга */
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-table > div > div {
+  position: relative !important;
+}
+.game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap {
+  pointer-events: none !important;
+}
+.game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel {
+  pointer-events: auto !important;
+}
+.game-table-root.viewport-mobile .bid-panel-mobile-inline.bid-panel {
+  padding: 14px 18px !important;
+  gap: 12px !important;
   box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 18px rgba(59, 130, 246, 0.9) !important;
   border: 2px solid rgba(59, 130, 246, 1) !important;
   background: linear-gradient(180deg, #0c4a6e 0%, #0369a1 25%, #0284c7 50%, #0ea5e9 75%, #38bdf8 100%) !important;
+}
+.game-table-root.viewport-mobile .bid-panel-mobile-inline .bid-panel-title-inline {
+  font-size: 17px !important;
+  font-weight: 700 !important;
+}
+.game-table-root.viewport-mobile .bid-panel-mobile-inline .bid-panel-mobile-grid {
+  gap: 10px !important;
+}
+.game-table-root.viewport-mobile .bid-panel-mobile-inline .bid-panel-btn {
+  width: 44px !important;
+  height: 44px !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
 }
 
 * {
@@ -916,4 +1075,9 @@ body {
   25% { opacity: 0.5; filter: drop-shadow(0 0 2px rgba(251, 146, 60, 0.25)); }
   50% { opacity: 0.75; filter: drop-shadow(0 0 4px rgba(251, 146, 60, 0.4)); }
   75% { opacity: 0.55; filter: drop-shadow(0 0 2px rgba(251, 146, 60, 0.3)); }
+}
+
+@keyframes dealer-badge-lamp-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 6px rgba(56, 189, 248, 0.8); }
+  50% { opacity: 0.85; transform: scale(1.15); box-shadow: 0 0 10px rgba(56, 189, 248, 0.95); }
 }
