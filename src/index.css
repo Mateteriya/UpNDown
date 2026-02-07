@@ -26,6 +26,10 @@
   --trick-slot-offset-edge: 17px;
   --trick-slot-offset-west-east: 140px;
   --trick-slot-ns-offset-x: 28px;
+  /* Слоты взятки: сетка 2×2 у центра, минимальные отступы — Запад сверху слева, Север сверху справа, Восток снизу справа, Юг снизу слева */
+  --trick-slot-half-w: 26px;
+  --trick-slot-half-h: 38px;
+  --trick-slot-gap: 2px;
   --game-north-slot-bottom: -65px;
 }
 
@@ -112,8 +116,9 @@
 /* Мобильный: <600px */
 @media (max-width: 600px) {
   :root {
-    --game-table-surface-width: min(400px, 92vw);
-    --game-table-surface-height: min(260px, 21vh);
+    --game-player-area-height: 130px;
+    --game-table-surface-width: min(227px, calc(75vw - 33px));
+    --game-table-surface-height: min(260px, 45vh);
     --game-table-north-slot-width: min(320px, 92vw);
     --game-table-opponent-slot-width: min(120px, 26vw);
     --game-table-opponent-side-min: 50px;
@@ -126,17 +131,437 @@
     --game-info-left-margin-top: 10px;
     --deal-results-overlay-top: 160px;
     --deal-results-overlay-height: 180px;
-    --game-header-padding: 6px;
-    --game-header-padding-top: 8px;
+    --game-header-padding: 3px;
+    --game-header-padding-top: 4px;
     --game-player-bottom: 8px;
     --trick-slot-offset-edge: 6px;
     --trick-slot-offset-west-east: 52px;
     --trick-slot-ns-offset-x: 28px;
+    --trick-slot-half-w: 24px;
+    --trick-slot-half-h: 36px;
+    --trick-slot-gap: 1px;
+    --trick-slot-grid-offset-x: 36px;
     --game-north-slot-bottom: -7px;
     --game-north-table-gap: 4px;
     --game-table-block-margin-top: 8px;
     --game-table-center-margin-top: 3px;
+    --game-player-area-height: 130px;
   }
+
+  /* Чтобы контент не выходил за экран и не сдвигался влево */
+  .game-table-root.viewport-mobile {
+    box-sizing: border-box !important;
+    max-width: 100vw !important;
+    padding-right: 2px !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Опустить стол и панель Юга к низу страницы, заполняя экран адаптивно */
+  .game-table-root.viewport-mobile .game-table-block-mobile {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    transform: none !important;
+    padding-top: 10px !important;
+  }
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-center-spacer-top {
+    flex: 0 1 auto !important;
+    max-height: min(60px, 12vh) !important;
+    min-height: 8px !important;
+  }
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-center-area.game-mobile-center {
+    flex-shrink: 0 !important;
+    margin-top: -3px !important;
+    margin-left: -2px !important;
+    align-self: flex-start !important;
+  }
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-bottom-row {
+    flex: 0 1 auto !important;
+    min-height: 0 !important;
+    max-height: min(42vh, 220px) !important;
+    overflow: hidden !important;
+  }
+
+  /* Шапка и бейджи сверху — одна линия по верхней границе */
+  .game-table-root.viewport-mobile .game-header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 99 !important;
+    padding: 2px 4px !important;
+    gap: 2px !important;
+    margin-bottom: 0 !important;
+    flex-wrap: wrap !important;
+    align-items: flex-start !important;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:first-child {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 2px !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:last-child {
+    gap: 2px !important;
+    align-items: flex-end !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child {
+    align-items: center !important;
+  }
+  /* Одна высота верхней линии: кнопка меню, бейдж трансляции, кнопка подсветки, бейдж раздачи */
+  .game-table-root.viewport-mobile .game-header > div:first-child > button,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-col .game-info-left-section,
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn),
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > div {
+    min-height: 24px !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+  .game-table-root.viewport-mobile .game-header button {
+    padding: 2px 4px !important;
+    font-size: 9px !important;
+    min-height: 24px !important;
+    border-radius: 3px !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:first-child > button {
+    font-size: 12px !important;
+    padding: 4px 8px !important;
+    min-height: 28px !important;
+  }
+  .game-table-root.viewport-mobile .game-header .deal-results-btn {
+    width: 22px !important;
+    height: 24px !important;
+    min-width: 22px !important;
+    min-height: 24px !important;
+    padding: 0 !important;
+    font-size: 10px !important;
+    margin-right: -4px !important;
+  }
+  /* Кнопка подсветки козыря: только иконка-лампочка, без надписи */
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn) {
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 28px !important;
+    padding: 4px !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn) svg {
+    width: 16px !important;
+    height: 18px !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:first-child > div {
+    padding: 4px 8px !important;
+    gap: 3px !important;
+    border-radius: 5px !important;
+    min-height: 28px !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:first-child > div span {
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:first-child > div span:last-child {
+    font-size: 12px !important;
+  }
+  /* Бейдж «Раздача»: круглый, только цифра номера раздачи (без «№») */
+  .game-table-root.viewport-mobile .game-header .deal-number-badge .deal-num-symbol {
+    display: none !important;
+  }
+  .game-table-root.viewport-mobile .game-header .deal-number-badge {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    margin-right: -6px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .game-table-root.viewport-mobile .game-header .deal-number-badge .deal-num-value {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+  }
+  .game-table-root.viewport-mobile .game-header .deal-number-badge span:first-child {
+    display: none !important;
+  }
+  /* Кнопка «вкл/выкл подсветку»: без рамки, только иконка лампочки */
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn) {
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 28px !important;
+    padding: 4px !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    margin-right: -6px !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):hover {
+    background: rgba(255,255,255,0.06) !important;
+  }
+  /* Бейдж «Карт»: только кол-во, без подписи — покрупнее */
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:nth-child(2) span:first-child {
+    display: none !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:nth-child(2) {
+    padding: 4px 8px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    gap: 0 !important;
+    border-radius: 5px !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:nth-child(2) span:last-child {
+    font-size: 12px !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:nth-child(3) {
+    padding: 1px 4px !important;
+    border-radius: 3px !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:nth-child(3) span {
+    font-size: 6px !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:nth-child(3) span:last-child {
+    font-size: 8px !important;
+  }
+
+  /* Мобильный рефакторинг UI — переопределения для компактности */
+  .game-table-root .game-header {
+    padding: 6px 8px !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+  }
+  .game-table-root .game-header > div:first-child {
+    gap: 8px !important;
+  }
+  .game-table-root .game-header > div:last-child {
+    gap: 6px !important;
+  }
+  .game-table-root.viewport-mobile .game-info-row,
+  .game-table-root.viewport-mobile .game-mobile-top-row {
+    height: auto !important;
+    min-height: 28px !important;
+    gap: 4px !important;
+    margin-bottom: 2px !important;
+  }
+  .game-table-root .game-info-row {
+    height: 56px !important;
+    gap: 8px !important;
+    margin-bottom: 4px !important;
+  }
+  .game-table-root.viewport-mobile .game-info-left-col,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-col {
+    margin-top: 0 !important;
+  }
+  /* Панель хода игры — зафиксировать вверху по центру, на одной линии с шапкой */
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-col {
+    position: fixed !important;
+    top: 0 !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 100 !important;
+    width: auto !important;
+    max-width: calc(100vw - 24px) !important;
+    padding: 2px 0 !important;
+    min-height: 24px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-col .game-info-left-section {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    min-height: 24px !important;
+  }
+  /* Место под фиксированную шапку — минимум, чтобы панели Север/Запад поднялись выше */
+  .game-table-root.viewport-mobile .game-mobile-top-row {
+    padding-top: 34px !important;
+  }
+  .game-table-root.viewport-mobile > div {
+    padding-top: 38px !important;
+  }
+  .game-table-root .game-info-left-col {
+    margin-top: 4px !important;
+  }
+  .game-table-root.viewport-mobile .game-info-left-section,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-section {
+    padding: 3px 6px !important;
+    gap: 3px !important;
+  }
+  .game-table-root.viewport-mobile .game-info-left-section span,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-section span {
+    font-size: 8px !important;
+  }
+  .game-table-root.viewport-mobile .game-info-left-section span:last-child,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-section span:last-child {
+    font-size: 10px !important;
+  }
+  .game-table-root.viewport-mobile .game-info-left-section > div,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-section > div {
+    padding: 2px 4px !important;
+    gap: 2px !important;
+    border-radius: 4px !important;
+  }
+  .game-table-root .game-info-left-section {
+    padding: 8px 12px !important;
+    gap: 8px !important;
+  }
+
+  /* Панели Север и Запад в одном ряду — одинаковые по размеру и виду */
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: stretch !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    flex: 1 1 0 !important;
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 6px 8px !important;
+    border-radius: 8px !important;
+    gap: 4px !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > div:last-child,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div > div:last-child {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+  }
+
+  /* Мобильный центр: стол слева, Восток справа от стола (в один ряд) */
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-table {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east {
+    width: auto !important;
+    min-width: 22px !important;
+    max-width: 36px !important;
+    flex: 0 0 auto !important;
+    align-self: stretch !important;
+    margin-left: 14px !important;
+    margin-right: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    padding-top: 6px !important;
+  }
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+  }
+
+  /* Общие правила для west/east (Запад в top-row, Восток — только в game-mobile-center справа от стола) */
+  .game-table-root.viewport-mobile .game-center-west {
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+    justify-content: center !important;
+    position: relative !important;
+  }
+  .game-table-root.viewport-mobile .game-center-west > div {
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    transform: none !important;
+    top: auto !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  .game-table-root.viewport-mobile .game-center-table {
+    flex: 0 0 auto !important;
+  }
+  /* Колода с козырем на мобильных — всегда строго в левом верхнем углу стола */
+  .game-table-root.viewport-mobile .game-center-table .deck-with-trump-wrap {
+    top: 6px !important;
+    left: 6px !important;
+    right: auto !important;
+    bottom: auto !important;
+  }
+
+  /* Панель Юга (игрока) — компактно, не уходит за нижнюю границу экрана */
+  .game-table-root.viewport-mobile .game-mobile-player,
+  .game-table-root.viewport-mobile .game-mobile-player-wrap {
+    max-height: min(38vh, 200px) !important;
+    min-height: 0 !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-player-panel {
+    max-height: min(38vh, 200px) !important;
+    min-height: 0 !important;
+    padding: 3px 6px !important;
+    padding-top: 4px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info {
+    padding: 3px 6px !important;
+    gap: 2px !important;
+    margin-bottom: 2px !important;
+  }
+  /* Компактная рамка руки на мобильных; карты помещаются в ширину */
+  .game-table-root.viewport-mobile .game-mobile-player-panel > div:first-child {
+    margin-bottom: 3px !important;
+    padding: 3px 6px !important;
+    transform: none !important;
+    max-width: 100% !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-player-panel > div:first-child > div {
+    max-width: 100% !important;
+    justify-content: center !important;
+    flex-wrap: nowrap !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info .game-mobile-player-info,
+  .game-table-root.viewport-mobile .game-mobile-player-info > div:first-child {
+    font-size: 12px !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-player-info .player-stat-value,
+  .game-table-root.viewport-mobile .game-mobile-player-info > div:nth-child(2) > div > span:last-child {
+    font-size: 14px !important;
+  }
+}
+
+/* Мобильная панель заказа — overlay по центру */
+.bid-panel-mobile-overlay {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 18px rgba(59, 130, 246, 0.9) !important;
+  border: 2px solid rgba(59, 130, 246, 1) !important;
+  background: linear-gradient(180deg, #0c4a6e 0%, #0369a1 25%, #0284c7 50%, #0ea5e9 75%, #38bdf8 100%) !important;
 }
 
 * {
@@ -333,6 +758,14 @@ body {
   }
   .deal-results-overlay-animation .deal-results-panel-south {
     bottom: -16px;
+  }
+}
+@media (max-width: 600px) {
+  .deal-results-overlay-animation .deal-results-panel-north {
+    top: -12px;
+  }
+  .deal-results-overlay-animation .deal-results-panel-south {
+    bottom: -12px;
   }
 }
 
