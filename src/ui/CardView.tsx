@@ -17,8 +17,10 @@ interface CardViewProps {
   trumpOnDeck?: boolean;
   /** При trumpOnDeck: вкл — полная интенсивность, выкл — в 1.5–2 раза слабее */
   trumpDeckHighlightOn?: boolean;
-  /** Масштаб (напр. 1.3 для карт на столе) */
+  /** Масштаб карты (размеры, padding, border-radius) */
   scale?: number;
+  /** Масштаб символов (ранг, масть). По умолчанию = scale */
+  contentScale?: number;
 }
 
 const suitColor: Record<string, string> = {
@@ -36,7 +38,8 @@ const suitNeonBorder: Record<string, { border: string; outline: string }> = {
   '♣': { border: '#34d399', outline: '0 0 0 2px #34d399' },
 };
 
-export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, scale = 1 }: CardViewProps) {
+export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, scale = 1, contentScale }: CardViewProps) {
+  const cs = contentScale ?? scale;
   const color = suitColor[card.suit];
   const neon = suitNeonBorder[card.suit] ?? suitNeonBorder['♠'];
   const bw = compact ? 52 : 70;
@@ -84,7 +87,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
             ? `linear-gradient(145deg, ${neon.border}38 0%, #f8fafc 35%, #e2e8f0 100%)`
             : 'linear-gradient(145deg, #f8fafc, #e2e8f0)',
         color,
-        fontSize: Math.round((compact ? 12 : 14) * scale),
+        fontSize: Math.round((compact ? 12 : 14) * cs),
         fontWeight: 600,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: trumpOnDeck ? 1 : disabled ? 0.6 : 1,
@@ -128,7 +131,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         </span>
       )}
       <span>{card.rank}</span>
-      <span style={{ fontSize: Math.round((compact ? 18 : 24) * scale) }}>{card.suit}</span>
+      <span style={{ fontSize: Math.round((compact ? 18 : 24) * cs) }}>{card.suit}</span>
     </button>
   );
 }
