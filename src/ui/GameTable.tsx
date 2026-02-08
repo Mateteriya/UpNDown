@@ -44,26 +44,38 @@ function getTrickPlayerIndex(trickLeaderIndex: number, cardIndex: number): numbe
   return p;
 }
 
-function getTrickCardSlotStyle(playerIdx: number): React.CSSProperties {
+function getTrickCardSlotStyle(playerIdx: number, isMobileOrTablet: boolean): React.CSSProperties {
   const base: React.CSSProperties = {
     position: 'absolute',
-    left: '50%',
-    top: '50%',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     pointerEvents: 'none',
   };
-  const hw = 'var(--trick-slot-half-w, 26px)';
-  const hh = 'var(--trick-slot-half-h, 38px)';
-  const g = 'var(--trick-slot-gap, 2px)';
-  const gridX = 'var(--trick-slot-grid-offset-x, 0)';
+  if (isMobileOrTablet) {
+    const hw = 'var(--trick-slot-half-w, 26px)';
+    const hh = 'var(--trick-slot-half-h, 38px)';
+    const g = 'var(--trick-slot-gap, 2px)';
+    const gridX = 'var(--trick-slot-grid-offset-x, 0)';
+    const mobileBase = { ...base, left: '50%', top: '50%' };
+    switch (playerIdx) {
+      case 2: return { ...mobileBase, transform: `translate(calc(-50% - ${hw} - ${g} + ${gridX}), calc(-50% - ${hh} - ${g}))` };
+      case 1: return { ...mobileBase, transform: `translate(calc(${g} + ${gridX}), calc(-50% - ${hh} - ${g}))` };
+      case 3: return { ...mobileBase, transform: `translate(calc(${g} + ${gridX}), calc(${g}))` };
+      case 0: return { ...mobileBase, transform: `translate(calc(-50% - ${hw} - ${g} + ${gridX}), calc(${g}))` };
+      default: return { ...mobileBase, transform: `translate(calc(-50% - ${hw} - ${g} + ${gridX}), calc(${g}))` };
+    }
+  }
+  // ПК: позиционирование по сторонам стола (bottom/top/left/right)
+  const offsetEdge = 'var(--trick-slot-offset-edge, 17px)';
+  const offsetWestEast = 'var(--trick-slot-offset-west-east, 101px)';
+  const nsOffset = 'var(--trick-slot-ns-offset-x, 28px)';
   switch (playerIdx) {
-    case 2: return { ...base, transform: `translate(calc(-50% - ${hw} - ${g} + ${gridX}), calc(-50% - ${hh} - ${g}))` };  // Запад — сверху слева
-    case 1: return { ...base, transform: `translate(calc(${g} + ${gridX}), calc(-50% - ${hh} - ${g}))` };                 // Север — сверху справа
-    case 3: return { ...base, transform: `translate(calc(${g} + ${gridX}), calc(${g}))` };                                 // Восток — снизу справа
-    case 0: return { ...base, transform: `translate(calc(-50% - ${hw} - ${g} + ${gridX}), calc(${g}))` };                   // Юг — снизу слева
-    default: return { ...base, transform: `translate(calc(-50% - ${hw} - ${g} + ${gridX}), calc(${g}))` };
+    case 0: return { ...base, bottom: offsetEdge, left: '50%', transform: `translateX(calc(-50% + ${nsOffset}))` };
+    case 1: return { ...base, top: offsetEdge, left: '50%', transform: `translateX(calc(-50% - ${nsOffset}))` };
+    case 2: return { ...base, left: offsetWestEast, top: '50%', transform: 'translateY(-50%)' };
+    case 3: return { ...base, right: offsetWestEast, top: '50%', transform: 'translateY(-50%)' };
+    default: return { ...base, bottom: offsetEdge, left: '50%', transform: 'translateX(-50%)' };
   }
 }
 
@@ -78,18 +90,28 @@ function getCurrentTrickLeaderIndex(state: GameState): number | null {
   return getTrickPlayerIndex(state.trickLeaderIndex, winnerOffset);
 }
 
-/** Трансформ слота от центра (left:50% top:50%) — для анимации сбора карт к победителю; те же позиции, что и getTrickCardSlotStyle */
-function getTrickSlotTransform(playerIdx: number): string {
-  const hw = 'var(--trick-slot-half-w, 26px)';
-  const hh = 'var(--trick-slot-half-h, 38px)';
-  const g = 'var(--trick-slot-gap, 2px)';
-  const gridX = 'var(--trick-slot-grid-offset-x, 0)';
+/** Трансформ слота — для анимации сбора карт к победителю; те же позиции, что и getTrickCardSlotStyle */
+function getTrickSlotTransform(playerIdx: number, isMobileOrTablet: boolean): string {
+  if (isMobileOrTablet) {
+    const hw = 'var(--trick-slot-half-w, 26px)';
+    const hh = 'var(--trick-slot-half-h, 38px)';
+    const g = 'var(--trick-slot-gap, 2px)';
+    const gridX = 'var(--trick-slot-grid-offset-x, 0)';
+    switch (playerIdx) {
+      case 2: return `translate(calc(-50% - ${hw} - ${g} + ${gridX}), calc(-50% - ${hh} - ${g}))`;
+      case 1: return `translate(calc(${g} + ${gridX}), calc(-50% - ${hh} - ${g}))`;
+      case 3: return `translate(calc(${g} + ${gridX}), calc(${g}))`;
+      case 0: return `translate(calc(-50% - ${hw} - ${g} + ${gridX}), calc(${g}))`;
+      default: return `translate(calc(-50% - ${hw} - ${g} + ${gridX}), calc(${g}))`;
+    }
+  }
+  const ns = 'var(--trick-slot-ns-offset-x, 28px)';
   switch (playerIdx) {
-    case 2: return `translate(calc(-50% - ${hw} - ${g} + ${gridX}), calc(-50% - ${hh} - ${g}))`;  // Запад — сверху слева
-    case 1: return `translate(calc(${g} + ${gridX}), calc(-50% - ${hh} - ${g}))`;                 // Север — сверху справа
-    case 3: return `translate(calc(${g} + ${gridX}), calc(${g}))`;                                 // Восток — снизу справа
-    case 0: return `translate(calc(-50% - ${hw} - ${g} + ${gridX}), calc(${g}))`;                  // Юг — снизу слева
-    default: return `translate(calc(-50% - ${hw} - ${g} + ${gridX}), calc(${g}))`;
+    case 0: return `translate(-50%, -50%) translateY(32%) translateX(${ns})`;
+    case 1: return `translate(-50%, -50%) translateY(-32%) translateX(calc(-1 * ${ns}))`;
+    case 2: return 'translate(-50%, -50%) translateX(-30%)';
+    case 3: return 'translate(-50%, -50%) translateX(30%)';
+    default: return `translate(-50%, -50%) translateY(32%) translateX(${ns})`;
   }
 }
 
@@ -119,9 +141,10 @@ const trumpHighlightBtnStyle: CSSProperties = {
 };
 
 function useIsMobileOrTablet() {
-  const [match, setMatch] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1400px)').matches);
+  /* Слоты взятки: при ≤1024px — сетка 2×2 (мобильные/планшеты), при >1024px — ПК: карты по сторонам стола */
+  const [match, setMatch] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px)').matches);
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1400px)');
+    const mq = window.matchMedia('(max-width: 1024px)');
     const handler = () => setMatch(mq.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
@@ -222,9 +245,9 @@ function GameTable({ gameId, onExit }: GameTableProps) {
         return prev ?? null;
       });
     }, TRICK_PAUSE_MS);
-    let viewDelay: ReturnType<typeof setTimeout> | undefined;
-    let winnerDelay: ReturnType<typeof setTimeout> | undefined;
-    let collapseDelay: ReturnType<typeof setTimeout> | undefined;
+    let viewDelay: number | undefined;
+    let winnerDelay: number | undefined;
+    let collapseDelay: number | undefined;
     if (isLastTrickOfDeal) {
       setLastTrickCollectingPhase('slots');
       viewDelay = window.setTimeout(() => {
@@ -446,14 +469,16 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                 state.currentTrick.map((card, i) => {
                   const leader = state.trickLeaderIndex;
                   const playerIdx = getTrickPlayerIndex(leader, i);
-                  const slotStyle = getTrickCardSlotStyle(playerIdx);
+                  const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet);
                   return (
                     <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
                       <CardView
                         card={card}
                         compact
+                        showDesktopFaceIndices={true}
+                        tableCardMobile={isMobileOrTablet}
                         scale={isMobileOrTablet ? 0.98 : 1.18}
-                        contentScale={isMobileOrTablet ? 1.8 : undefined}
+                        contentScale={isMobileOrTablet ? 1.5 : undefined}
                         doubleBorder={trumpHighlightOn}
                         isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
                       />
@@ -484,7 +509,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                           alignItems: 'center',
                           pointerEvents: 'none',
                           zIndex: i,
-                          transform: collectToWinner ? getTrickSlotTransform(winnerIdx) : getTrickSlotTransform(playerIdx),
+                          transform: collectToWinner ? getTrickSlotTransform(winnerIdx, isMobileOrTablet) : getTrickSlotTransform(playerIdx, isMobileOrTablet),
                           transition: collectToWinner ? `transform ${CARD_COLLECT_MS}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` : 'none',
                         }}
                       >
@@ -494,6 +519,8 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                           <CardView
                             card={card}
                             compact
+                            showDesktopFaceIndices={true}
+                            tableCardMobile={isMobileOrTablet}
                             scale={cardScale}
                             contentScale={isMobileOrTablet ? 1.5 : undefined}
                             doubleBorder={trumpHighlightOn}
@@ -507,12 +534,14 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                   state.lastCompletedTrick.cards.map((card, i) => {
                     const leader = state.lastCompletedTrick!.leaderIndex;
                     const playerIdx = getTrickPlayerIndex(leader, i);
-                    const slotStyle = getTrickCardSlotStyle(playerIdx);
+                    const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet);
                     return (
                       <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
                         <CardView
                           card={card}
                           compact
+                          showDesktopFaceIndices={true}
+                          tableCardMobile={isMobileOrTablet}
                           scale={isMobileOrTablet ? 0.98 : 1.18}
                           contentScale={isMobileOrTablet ? 1.5 : undefined}
                           doubleBorder={trumpHighlightOn}
@@ -609,6 +638,8 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                   scale={0.72}
                   contentScale={1.5}
                   compact
+                  showDesktopFaceIndices={true}
+                  suitIndexInHandMobile={true}
                   doubleBorder={trumpHighlightOn}
                   isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
                   onClick={() => {
@@ -776,10 +807,10 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                 state.currentTrick.map((card, i) => {
                   const leader = state.trickLeaderIndex;
                   const playerIdx = getTrickPlayerIndex(leader, i);
-                  const slotStyle = getTrickCardSlotStyle(playerIdx);
+                  const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet);
                   return (
                     <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
-                      <CardView card={card} compact scale={isMobileOrTablet ? 0.98 : 1.18} contentScale={isMobileOrTablet ? 1.8 : undefined}
+                      <CardView card={card} compact showDesktopFaceIndices={true} tableCardMobile={isMobileOrTablet} scale={isMobileOrTablet ? 0.98 : 1.18} contentScale={isMobileOrTablet ? 1.8 : undefined}
                         doubleBorder={trumpHighlightOn} isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump} />
                     </div>
                   );
@@ -798,11 +829,11 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                     const cardH = Math.round(76 * cardScale);
                     return (
                       <div key={`${card.suit}-${card.rank}-${i}`} style={{ position: 'absolute', left: '50%', top: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none', zIndex: i,
-                        transform: collectToWinner ? getTrickSlotTransform(winnerIdx) : getTrickSlotTransform(playerIdx),
+                        transform: collectToWinner ? getTrickSlotTransform(winnerIdx, isMobileOrTablet) : getTrickSlotTransform(playerIdx, isMobileOrTablet),
                         transition: collectToWinner ? `transform ${CARD_COLLECT_MS}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` : 'none',
                       }}>
                         {showCardBack ? <div style={{ ...cardBackStyle, width: cardW, height: cardH }} aria-hidden /> : (
-                          <CardView card={card} compact scale={cardScale} contentScale={isMobileOrTablet ? 1.5 : undefined} doubleBorder={trumpHighlightOn} isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump} />
+                          <CardView card={card} compact showDesktopFaceIndices={true} tableCardMobile={isMobileOrTablet} scale={cardScale} contentScale={isMobileOrTablet ? 1.5 : undefined} doubleBorder={trumpHighlightOn} isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump} />
                         )}
                       </div>
                     );
@@ -811,10 +842,10 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                   state.lastCompletedTrick.cards.map((card, i) => {
                     const leader = state.lastCompletedTrick!.leaderIndex;
                     const playerIdx = getTrickPlayerIndex(leader, i);
-                    const slotStyle = getTrickCardSlotStyle(playerIdx);
+                    const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet);
                     return (
                       <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
-                        <CardView card={card} compact scale={isMobileOrTablet ? 0.98 : 1.18} contentScale={isMobileOrTablet ? 1.5 : undefined} doubleBorder={trumpHighlightOn} isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump} />
+                        <CardView card={card} compact showDesktopFaceIndices={true} tableCardMobile={isMobileOrTablet} scale={isMobileOrTablet ? 0.98 : 1.18} contentScale={isMobileOrTablet ? 1.5 : undefined} doubleBorder={trumpHighlightOn} isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump} />
                       </div>
                     );
                   })
@@ -1017,6 +1048,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           trump={state.trump}
           trumpHighlightOn={trumpHighlightOn}
           doubleBorder={trumpHighlightOn}
+          showDesktopFaceIndices={true}
           onClose={() => setShowLastTrickModal(false)}
         />,
         document.body
@@ -1394,12 +1426,14 @@ function DeckWithTrump({
   trumpHighlightOn,
   dealerIndex,
   compactTable,
+  forceDeckTopLeft,
 }: {
   tricksInDeal: number;
   trumpCard: Card;
   trumpHighlightOn: boolean;
   dealerIndex: number;
   compactTable?: boolean;
+  forceDeckTopLeft?: boolean;
 }) {
   const cardsDealt = tricksInDeal * 4;
   const cardsUnderTrump = Math.max(0, 36 - cardsDealt - 1);
@@ -1407,6 +1441,7 @@ function DeckWithTrump({
 
   const cornerStyle: React.CSSProperties = (() => {
     const base = 20;
+    if (forceDeckTopLeft) return { top: base, left: base };
     switch (dealerIndex % 4) {
       case 0: return { left: base, bottom: base };   // Юг — левый нижний
       case 1: return { top: base, right: base };     // Север — правый верхний
@@ -1449,7 +1484,7 @@ function DeckWithTrump({
         }}
       >
         <span style={{ fontSize: compactTable ? 14 : 16, color: 'rgba(34, 211, 238, 0.9)', textShadow: '0 0 8px rgba(34, 211, 238, 0.5)' }}>Козырь</span>
-        <CardView card={trumpCard} disabled compact scale={deckScale} contentScale={compactTable ? 1.5 : undefined} doubleBorder={trumpHighlightOn} trumpOnDeck trumpDeckHighlightOn={trumpHighlightOn} />
+        <CardView card={trumpCard} disabled compact showDesktopFaceIndices={true} tableCardMobile={compactTable} scale={compactTable ? 0.98 : deckScale} contentScale={compactTable ? 1.5 : undefined} doubleBorder={trumpHighlightOn} trumpOnDeck trumpDeckHighlightOn={trumpHighlightOn} />
       </div>
     </div>
   );
@@ -1461,6 +1496,7 @@ function LastTrickModal({
   trump,
   trumpHighlightOn,
   doubleBorder,
+  showDesktopFaceIndices,
   onClose,
 }: {
   trick: { cards: Card[]; winnerIndex: number };
@@ -1468,6 +1504,7 @@ function LastTrickModal({
   trump: string | null;
   trumpHighlightOn: boolean;
   doubleBorder: boolean;
+  showDesktopFaceIndices?: boolean;
   onClose: () => void;
 }) {
   const winnerName = players[trick.winnerIndex]?.name ?? '';
@@ -1488,6 +1525,7 @@ function LastTrickModal({
               key={`${card.suit}-${card.rank}-${i}`}
               card={card}
               compact
+              showDesktopFaceIndices={showDesktopFaceIndices}
               doubleBorder={doubleBorder}
               isTrumpOnTable={trumpHighlightOn && trump !== null && card.suit === trump}
             />
