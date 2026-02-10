@@ -86,6 +86,8 @@ export interface CardViewProps {
   suitIndexInHandMobile?: boolean;
   /** Только карты на столе в мобильной: индекс значения в 1.3 раза мельче */
   tableCardMobile?: boolean;
+  /** Мобильная рука на этапе заказа: не затемнять, подсветить и чуть укрупнить */
+  biddingHighlightMobile?: boolean;
 }
 
 const suitColor: Record<string, string> = {
@@ -103,7 +105,7 @@ const suitNeonBorder: Record<string, { border: string; outline: string }> = {
   '♣': { border: '#34d399', outline: '0 0 0 2px #34d399' },
 };
 
-export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false }: CardViewProps) {
+export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false }: CardViewProps) {
   const cs = contentScale ?? scale;
   const color = suitColor[card.suit];
   const neon = suitNeonBorder[card.suit] ?? suitNeonBorder['♠'];
@@ -155,8 +157,13 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         fontSize: Math.round((compact ? 12 : 14) * cs),
         fontWeight: 600,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: trumpOnDeck ? 1 : disabled ? 0.6 : 1,
+        opacity: trumpOnDeck ? 1 : biddingHighlightMobile ? 1 : disabled ? 0.6 : 1,
         transition: 'transform 0.15s, box-shadow 0.15s',
+        ...(biddingHighlightMobile ? {
+          boxShadow: `${trumpShadow}, 0 0 12px ${neon.border}99, 0 0 20px ${neon.border}55`,
+          transform: 'scale(1.06)',
+          transformOrigin: 'center bottom',
+        } : {}),
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
@@ -219,25 +226,42 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
             (() => {
               const faceK = 0.65;
               const suitBase = 24 * 1.5 * faceK * cs;
+              const isAceMobile = card.rank === 'A' && (suitIndexInHandMobile || tableCardMobile);
+              const isBlackSuit = card.suit === '♠' || card.suit === '♣';
+              const isFaceBlackMobile = (card.rank === 'J' || card.rank === 'Q' || card.rank === 'K') && isBlackSuit && (suitIndexInHandMobile || tableCardMobile);
               const suitSize = suitIndexInHandMobile ? suitBase / 1.5 : tableCardMobile ? (suitBase / 1.4) * 1.1 : suitBase;
+              const suitSizeFinal = isAceMobile ? (isBlackSuit ? suitSize * 0.855 : suitSize * 0.874) : isFaceBlackMobile ? suitSize * 0.855 : suitSize;
               const rankBase = 18 * 1.21 * faceK * cs;
               const rankSize = suitIndexInHandMobile ? rankBase / 1.3 / 1.2 : tableCardMobile ? (rankBase / 1.3 / 1.2) * 1.2 : rankBase;
               const suitBottom = suitIndexInHandMobile ? -2.5 : tableCardMobile ? -3 : -6;
+              const isFaceMobile = (suitIndexInHandMobile || tableCardMobile) && (card.rank === 'A' || card.rank === 'J' || card.rank === 'Q' || card.rank === 'K');
+              const suitBottomFinal = isFaceMobile ? suitBottom - 1.5 : suitBottom;
               return (
             <>
               <span style={{ position: 'absolute', top: 2, left: 3, zIndex: 2, fontSize: Math.round(rankSize), fontWeight: 800, lineHeight: 1.1 }}>
                 {FACE_LABEL[card.rank] ?? card.rank}
               </span>
-              <span style={{ position: 'absolute', bottom: suitBottom, right: 3, zIndex: 2, fontSize: Math.round(suitSize), fontWeight: 700, lineHeight: 1 }}>
+              <span
+                className={isAceMobile ? (isBlackSuit ? 'card-ace-suit-index-mobile card-ace-suit-black' : 'card-ace-suit-index-mobile') : undefined}
+                style={{ position: 'absolute', bottom: suitBottomFinal, right: 3, zIndex: 2, fontSize: Math.round(suitSizeFinal), fontWeight: 700, lineHeight: 1 }}
+              >
                 {card.suit}
               </span>
               <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto', position: 'relative', zIndex: 1 }}>
                 {card.rank === 'A' ? (
-                  <span style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', width: suitIndexInHandMobile ? '96%' : tableCardMobile ? '94%' : '92%', height: suitIndexInHandMobile ? '76%' : tableCardMobile ? '74%' : '72%', minHeight: suitIndexInHandMobile ? '76%' : tableCardMobile ? '74%' : '72%',
-                    ...(card.suit === '♥' ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' } : {}),
-                  }}>
-                    <img src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`} alt="Т" style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }} />
+                  <span
+                    className={(suitIndexInHandMobile || tableCardMobile) ? 'card-ace-central-drawing' : undefined}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', width: suitIndexInHandMobile ? '96%' : tableCardMobile ? '94%' : '92%', height: suitIndexInHandMobile ? '76%' : tableCardMobile ? '74%' : '72%', minHeight: suitIndexInHandMobile ? '76%' : tableCardMobile ? '74%' : '72%',
+                      ...(card.suit === '♥' && !(suitIndexInHandMobile || tableCardMobile) ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' } : {}),
+                    }}
+                  >
+                    <img
+                      className={(suitIndexInHandMobile || tableCardMobile) ? 'card-ace-central-img' : undefined}
+                      src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`}
+                      alt="Т"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }}
+                    />
                   </span>
                 ) : (
                   <img

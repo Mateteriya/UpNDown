@@ -4,16 +4,27 @@
  */
 
 import { useState } from 'react'
+import { hasSavedGame, clearGameStateFromStorage } from './game/persistence'
 import GameTable from './ui/GameTable'
 import MobileOverlapHint from './ui/MobileOverlapHint'
 
 function App() {
-  const [screen, setScreen] = useState<'menu' | 'game'>('menu')
-  const [gameId, setGameId] = useState(0)
+  const [screen, setScreen] = useState<'menu' | 'game'>(() => (hasSavedGame() ? 'game' : 'menu'))
+  const [gameId, setGameId] = useState(1)
 
   const startGame = () => {
     setGameId(id => id + 1)
     setScreen('game')
+  }
+
+  const handleExit = () => {
+    clearGameStateFromStorage()
+    setScreen('menu')
+  }
+
+  const handleNewGame = () => {
+    clearGameStateFromStorage()
+    setGameId(id => id + 1)
   }
 
   return (
@@ -40,9 +51,16 @@ function App() {
           </nav>
         </main>
       )}
-      {/* key={gameId} — полное пересоздание при новой партии, чтобы сбросить все refs и эффекты */}
+      {/* key={gameId} — полное пересоздание при новой партии */}
       <div style={{ display: screen === 'game' ? 'block' : 'none', position: 'fixed', inset: 0, overflow: 'hidden' }}>
-        {gameId > 0 && <GameTable key={gameId} gameId={gameId} onExit={() => setScreen('menu')} />}
+        {gameId >= 1 && (
+          <GameTable
+            key={gameId}
+            gameId={gameId}
+            onExit={handleExit}
+            onNewGame={handleNewGame}
+          />
+        )}
         <MobileOverlapHint />
       </div>
     </>

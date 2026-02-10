@@ -37,6 +37,13 @@ export interface PendingTrickCompletion {
   allPlayed: boolean;
 }
 
+/** Результат одной раздачи: заказы и очки по игрокам [Юг, Север, Запад, Восток] */
+export interface DealResult {
+  dealNumber: number;
+  bids: number[];
+  points: number[];
+}
+
 export interface GameState {
   phase: GamePhase;
   players: Player[];
@@ -54,10 +61,20 @@ export interface GameState {
   lastCompletedTrick: LastCompletedTrick | null;
   /** Взятка с 4 картами — карты в слотах, ждём задержку перед завершением */
   pendingTrickCompletion: PendingTrickCompletion | null;
+  /** История завершённых раздач для таблицы результатов (мобильная модалка) */
+  dealHistory: DealResult[];
 }
 
 export type GameMode = 'classical' | 'extended';
 export type AIDifficulty = 'novice' | 'amateur' | 'expert';
+
+/** Максимальная длина имени игрока (включая пробелы) */
+export const MAX_PLAYER_NAME_LENGTH = 17;
+
+function trimPlayerName(name: string): string {
+  if (name.length <= MAX_PLAYER_NAME_LENGTH) return name;
+  return name.slice(0, MAX_PLAYER_NAME_LENGTH);
+}
 
 export function createGame(
   _playerCount: 4,
@@ -65,9 +82,9 @@ export function createGame(
   humanPlayerName = 'Вы'
 ): GameState {
   const players: Player[] = [
-    { id: 'human', name: humanPlayerName, hand: [], bid: undefined, tricksTaken: 0, score: 0 },
+    { id: 'human', name: trimPlayerName(humanPlayerName), hand: [], bid: undefined, tricksTaken: 0, score: 0 },
     { id: 'ai1', name: 'ИИ Север', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
-    { id: 'ai2', name: 'ИИ Запад', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
+    { id: 'ai2', name: 'ИИ супердлинноеим', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
     { id: 'ai3', name: 'ИИ Восток', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
   ];
 
@@ -87,6 +104,7 @@ export function createGame(
     trumpCard: null,
     lastCompletedTrick: null,
     pendingTrickCompletion: null,
+    dealHistory: [],
   };
 }
 
@@ -347,14 +365,17 @@ export function completeTrick(state: GameState): GameState {
 
   if (allPlayed) {
     const bids = state.bids as number[];
+    const pointsThisDeal = updatedPlayers.map((p, i) => calculateDealPoints(bids[i], p.tricksTaken));
     const finalPlayers = updatedPlayers.map((p, i) => ({
       ...p,
-      score: p.score + calculateDealPoints(bids[i], p.tricksTaken),
+      score: p.score + pointsThisDeal[i],
     }));
+    const dealHistory = [...(state.dealHistory || []), { dealNumber: state.dealNumber, bids: [...bids], points: pointsThisDeal }];
 
     return {
       ...state,
       players: finalPlayers,
+      dealHistory,
       currentTrick: [],
       currentPlayerIndex: winnerIndex,
       phase: 'deal-complete',

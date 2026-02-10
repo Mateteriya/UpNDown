@@ -33,6 +33,135 @@
   --game-north-slot-bottom: -65px;
 }
 
+/* Подсветка первого ходящего во время заказа — пульсация на всех экранах */
+.game-table-root .first-mover-bidding-panel {
+  position: relative !important;
+}
+.game-table-root .first-mover-bidding-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 36px rgba(139, 92, 246, 0.38), inset 0 0 0 1px rgba(167, 139, 250, 0.55);
+  animation: first-mover-bidding-pulse 2.2s ease-in-out infinite;
+}
+@keyframes first-mover-bidding-pulse {
+  0%, 100% { opacity: 0.82; filter: brightness(0.95); }
+  50% { opacity: 1; filter: brightness(1.08); }
+}
+
+/* ПК: кнопка «обновить» под кнопкой «домой»; бейдж «I:» закреплён НАД блоком «Заказывает / Сейчас ход», нижняя грань бейджа — к верхней грани блока */
+@media (min-width: 1025px) {
+  .game-table-root .game-header > div:first-child > div:first-child {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px !important;
+  }
+  .game-table-root .game-info-row .game-info-left-col {
+    margin-left: 58px !important;
+    margin-top: 22px !important;
+    gap: 0 !important;
+    align-items: stretch !important;
+    transform: scale(1.2);
+    transform-origin: top left;
+  }
+  .game-table-root .game-info-row .game-info-left-col .first-move-badge-above-block {
+    margin-bottom: 0 !important;
+    border-radius: 8px 8px 0 0 !important;
+  }
+  .game-table-root .game-info-row .game-info-left-col .game-info-left-section {
+    margin-top: 0 !important;
+    width: 100% !important;
+    max-width: 280px !important;
+    box-sizing: border-box !important;
+    border-radius: 0 0 10px 10px !important;
+    overflow: visible !important;
+    padding: 8px 12px !important;
+    gap: 6px !important;
+  }
+  .game-table-root .game-info-row .game-info-left-col .game-info-left-section > div {
+    transform: none;
+    padding: 5px 10px !important;
+    min-width: 80px !important;
+    border-radius: 6px !important;
+  }
+  .game-table-root .game-info-row .game-info-left-col .game-info-left-section .game-info-value-name,
+  .game-table-root .game-info-row .game-info-left-col .game-info-left-section > div > span:last-child {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    line-height: 1.25 !important;
+  }
+  .game-table-root .game-info-row .game-info-left-col .game-info-left-section > div > span:first-child {
+    font-size: 10px !important;
+    letter-spacing: 0.4px !important;
+    margin-bottom: 2px !important;
+  }
+  /* Имя игрока: ограничено шириной, перенос на вторую строку, остаётся внутри блока */
+  .game-table-root .game-info-row .game-info-left-col .game-info-value-name {
+    max-width: 180px !important;
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+    text-align: center !important;
+  }
+}
+
+/* Только мобильная версия: индекс масти у тузов (рука, стол, козырь) — чуть мельче + пульсация света */
+@media (max-width: 1024px) {
+  /* Красные масти: пульсация яркости и лёгкий glow */
+  .game-table-root .card-ace-suit-index-mobile:not(.card-ace-suit-black) {
+    animation: ace-suit-index-pulse 2s ease-in-out infinite;
+  }
+  /* Черные масти: только центральная пульсация у правого нижнего индекса (без внешних теней) */
+  .game-table-root .card-ace-suit-index-mobile.card-ace-suit-black {
+    position: relative;
+    animation: none;
+  }
+  .game-table-root .card-ace-suit-index-mobile.card-ace-suit-black::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 0.55em;
+    height: 0.55em;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.7) 0%, rgba(34, 211, 238, 0.35) 35%, transparent 65%);
+    animation: ace-suit-center-pulse-black 2s ease-in-out infinite;
+  }
+  @keyframes ace-suit-index-pulse {
+    0%, 100% {
+      text-shadow: 0 0 3px currentColor, 0 0 6px currentColor;
+      filter: brightness(0.92);
+    }
+    50% {
+      text-shadow: 0 0 8px currentColor, 0 0 14px currentColor, 0 0 20px rgba(255, 255, 255, 0.4);
+      filter: brightness(1.15);
+    }
+  }
+  @keyframes ace-suit-center-pulse-black {
+    0%, 100% {
+      opacity: 0.45;
+      transform: translate(-50%, -50%) scale(0.85);
+    }
+    50% {
+      opacity: 0.85;
+      transform: translate(-50%, -50%) scale(1.1);
+    }
+  }
+
+  /* Центральный рисунок туза: контур и выпуклость только по форме картинки (drop-shadow по альфе) */
+  .game-table-root .card-ace-central-img {
+    filter:
+      drop-shadow(0 0 1px rgba(255, 255, 255, 0.75))
+      drop-shadow(0 5px 14px rgba(0, 0, 0, 0.45))
+      drop-shadow(0 -3px 6px rgba(255, 255, 255, 0.25));
+  }
+}
+
 /* Планшет: экран ~768–1024px */
 @media (max-width: 1024px) {
   :root {
@@ -229,7 +358,7 @@
   .game-table-root.viewport-mobile .game-header > div:first-child {
     flex-direction: column !important;
     align-items: flex-start !important;
-    gap: 2px !important;
+    gap: 0 !important;
   }
   .game-table-root.viewport-mobile .game-header > div:last-child {
     gap: 2px !important;
@@ -259,6 +388,65 @@
     padding: 4px 8px !important;
     min-height: 28px !important;
   }
+  /* Кнопки «домик» и ↻: один размер */
+  .game-table-root.viewport-mobile .game-header .header-exit-btn,
+  .game-table-root.viewport-mobile .game-header .header-new-game-btn {
+    width: 33px !important;
+    min-width: 33px !important;
+    height: 29px !important;
+    min-height: 29px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  /* Домик: зеленоватый хрустальный неон */
+  .game-table-root.viewport-mobile .game-header .header-exit-btn {
+    color: rgba(167, 243, 208, 0.75) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-exit-btn svg {
+    width: 16px !important;
+    height: 16px !important;
+    filter: drop-shadow(0 0 4px rgba(52, 211, 153, 0.9)) drop-shadow(0 0 10px rgba(34, 197, 94, 0.5)) !important;
+  }
+  /* Кнопка ↻: бирюзовый хрустальный неон */
+  .game-table-root.viewport-mobile .game-header .header-new-game-btn {
+    font-size: 18px !important;
+    line-height: 1 !important;
+    color: rgba(186, 230, 253, 0.7) !important;
+    text-shadow:
+      0 0 6px rgba(34, 211, 238, 0.9),
+      0 0 12px rgba(56, 189, 248, 0.6),
+      0 0 18px rgba(34, 211, 238, 0.4) !important;
+  }
+  .game-table-root .game-header .header-exit-btn,
+  .game-table-root .game-header .header-new-game-btn {
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 35px !important;
+    min-height: 35px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .game-table-root .game-header .header-exit-btn {
+    color: rgba(167, 243, 208, 0.75) !important;
+  }
+  .game-table-root .game-header .header-exit-btn svg {
+    width: 18px !important;
+    height: 18px !important;
+    filter: drop-shadow(0 0 4px rgba(52, 211, 153, 0.9)) drop-shadow(0 0 10px rgba(34, 197, 94, 0.5)) !important;
+  }
+  .game-table-root .game-header .header-new-game-btn {
+    font-size: 20px !important;
+    line-height: 1 !important;
+    color: rgba(186, 230, 253, 0.7) !important;
+    text-shadow:
+      0 0 6px rgba(34, 211, 238, 0.9),
+      0 0 12px rgba(56, 189, 248, 0.6),
+      0 0 18px rgba(34, 211, 238, 0.4) !important;
+  }
   .game-table-root.viewport-mobile .game-header .deal-results-btn {
     width: 22px !important;
     height: 24px !important;
@@ -281,7 +469,7 @@
     width: 16px !important;
     height: 18px !important;
   }
-  .game-table-root.viewport-mobile .game-header > div:first-child > div {
+  .game-table-root.viewport-mobile .game-header > div:first-child > div:not(.first-move-badge) {
     padding: 4px 8px !important;
     gap: 3px !important;
     border-radius: 5px !important;
@@ -293,6 +481,23 @@
   }
   .game-table-root.viewport-mobile .game-header > div:first-child > div span:last-child {
     font-size: 12px !important;
+  }
+  /* Бейдж «чей первый ход»: тонкая полоска под буквами */
+  .game-table-root.viewport-mobile .game-header .first-move-badge {
+    min-height: 0 !important;
+    padding: 4px 14px 4px !important;
+    border-bottom: 2px solid rgba(167, 139, 250, 0.9) !important;
+    border-radius: 8px 8px 0 0 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .first-move-badge span {
+    line-height: 1 !important;
+  }
+  .game-table-root.viewport-mobile .game-header .first-move-badge span:last-child {
+    max-width: 10ch !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
   }
   /* Бейдж «Раздача»: круглый, только цифра номера раздачи (без «№») */
   .game-table-root.viewport-mobile .game-header .deal-number-badge .deal-num-symbol {
@@ -366,7 +571,29 @@
     flex-wrap: wrap !important;
   }
   .game-table-root .game-header > div:first-child {
-    gap: 8px !important;
+    gap: 4px !important;
+  }
+  /* Бейдж «чей первый ход»: тонкая полоска под буквами */
+  .game-table-root .game-header .first-move-badge {
+    min-height: 0 !important;
+    padding: 4px 14px 4px !important;
+    border-bottom: 2px solid rgba(167, 139, 250, 0.9) !important;
+    border-radius: 8px 8px 0 0 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+  }
+  .game-table-root .game-header .first-move-badge span {
+    line-height: 1 !important;
+  }
+  /* После «I:» — не более 10 знаков по ширине */
+  .game-table-root .game-header .first-move-badge span:last-child {
+    max-width: 10ch !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  .game-table-root .game-header .first-move-badge .first-move-num {
+    font-weight: 800 !important;
+    color: #f1f5f9 !important;
   }
   .game-table-root .game-header > div:last-child {
     gap: 6px !important;
@@ -408,7 +635,7 @@
     display: flex !important;
     justify-content: center !important;
     align-items: center !important;
-    min-height: 24px !important;
+    min-height: 35px !important;
   }
   /* Минимальный отступ под фиксированную шапку — панели Запад/Север/Стол/Восток ближе к кнопкам и бейджам */
   .game-table-root.viewport-mobile .game-mobile-top-row {
@@ -422,25 +649,25 @@
   }
   .game-table-root.viewport-mobile .game-info-left-section,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-section {
-    padding: 3px 6px !important;
-    gap: 3px !important;
+    padding: 6px 8px !important;
+    gap: 4px !important;
   }
   .game-table-root.viewport-mobile .game-info-left-section span,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-section span {
-    font-size: 8px !important;
+    font-size: 10px !important;
   }
   .game-table-root.viewport-mobile .game-info-left-section span:last-child,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-section span:last-child {
-    font-size: 10px !important;
+    font-size: 12px !important;
   }
   .game-table-root.viewport-mobile .game-info-left-section > div,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-section > div {
-    padding: 2px 4px !important;
+    padding: 4px 5px !important;
     gap: 2px !important;
     border-radius: 4px !important;
   }
   .game-table-root .game-info-left-section {
-    padding: 8px 12px !important;
+    padding: 12px 14px !important;
     gap: 8px !important;
   }
 
@@ -692,6 +919,18 @@
   }
 }
 
+/* Имя в панели игрока: максимум две строки, перенос по словам, не вылезает за границы */
+.game-table-root .player-panel-name {
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  max-width: 100% !important;
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+  overflow: hidden !important;
+}
+
 /* Мобильная панель заказа — поверх нижней части стола (overlay), над панелью карт Юга */
 .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-table > div > div {
   position: relative !important;
@@ -702,25 +941,88 @@
 .game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel {
   pointer-events: auto !important;
 }
+/* Надпись «Сколько хотите взять взяток»: внутреннее свечение, мягкое внешнее, скруглённая рамка */
+.game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel-mobile-badge {
+  border-radius: 14px !important;
+  box-shadow: 0 0 4px rgba(34, 211, 238, 0.25), inset 0 0 14px rgba(34, 211, 238, 0.2), inset 0 1px 0 rgba(34, 211, 238, 0.35);
+  animation: bidBadgeFramePulse 2.2s ease-in-out infinite;
+}
+.game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel-mobile-badge .bid-panel-mobile-badge-text {
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 8px rgba(34, 211, 238, 0.5);
+  animation: bidBadgeTextPulse 1.8s ease-in-out infinite;
+}
+@keyframes bidBadgeFramePulse {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(34, 211, 238, 0.25), inset 0 0 14px rgba(34, 211, 238, 0.2), inset 0 1px 0 rgba(34, 211, 238, 0.35);
+    border-color: rgba(34, 211, 238, 0.85);
+  }
+  50% {
+    box-shadow: 0 0 6px rgba(34, 211, 238, 0.35), inset 0 0 22px rgba(34, 211, 238, 0.35), inset 0 0 8px rgba(94, 234, 212, 0.2), inset 0 1px 0 rgba(34, 211, 238, 0.5);
+    border-color: rgba(34, 211, 238, 1);
+  }
+}
+@keyframes bidBadgeTextPulse {
+  0%, 100% {
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 8px rgba(34, 211, 238, 0.5);
+  }
+  50% {
+    color: #fff;
+    text-shadow: 0 0 4px rgba(255, 255, 255, 0.9), 0 0 14px rgba(34, 211, 238, 0.9), 0 0 20px rgba(94, 234, 212, 0.5);
+  }
+}
 .game-table-root.viewport-mobile .bid-panel-mobile-inline.bid-panel {
-  padding: 14px 18px !important;
-  gap: 12px !important;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 18px rgba(59, 130, 246, 0.9) !important;
-  border: 2px solid rgba(59, 130, 246, 1) !important;
-  background: linear-gradient(180deg, #0c4a6e 0%, #0369a1 25%, #0284c7 50%, #0ea5e9 75%, #38bdf8 100%) !important;
+  padding: 8px 10px !important;
+  gap: 8px !important;
+  box-shadow: none !important;
+  border: none !important;
+  background: transparent !important;
+  transform: translateY(-6px) !important;
 }
 .game-table-root.viewport-mobile .bid-panel-mobile-inline .bid-panel-title-inline {
   font-size: 17px !important;
   font-weight: 700 !important;
 }
+/* Обратная волна: нижняя строка заполняется первой [3,2,1,0] (0 справа), затем средняя [7,6,5,4], верхняя [ph,ph,9,8]. row-reverse = справа налево, wrap-reverse = строки снизу вверх. */
 .game-table-root.viewport-mobile .bid-panel-mobile-inline .bid-panel-mobile-grid {
-  gap: 10px !important;
+  gap: 4px !important;
+  flex-wrap: wrap-reverse !important;
+  flex-direction: row-reverse !important;
+  justify-content: center !important;
+  max-width: 188px !important; /* 4 * 44px + 3 * 4px */
+}
+.game-table-root.viewport-mobile .bid-panel-mobile-inline .bid-panel-mobile-placeholder {
+  width: 44px !important;
+  height: 44px !important;
+  flex-shrink: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 .game-table-root.viewport-mobile .bid-panel-mobile-inline .bid-panel-btn {
   width: 44px !important;
   height: 44px !important;
   font-size: 20px !important;
   font-weight: 700 !important;
+}
+/* Пульсация кнопок заказа на мобильной — лёгкий акцент */
+@keyframes bidBtnMobilePulse {
+  0%, 100% {
+    box-shadow: inset 0 1px 0 rgba(34, 211, 238, 0.5), inset 0 0 14px rgba(34, 211, 238, 0.15), 0 0 20px rgba(34, 211, 238, 0.45), 0 0 10px rgba(94, 234, 212, 0.3), 0 2px 8px rgba(0,0,0,0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: inset 0 1px 0 rgba(34, 211, 238, 0.6), inset 0 0 18px rgba(34, 211, 238, 0.22), 0 0 28px rgba(34, 211, 238, 0.6), 0 0 16px rgba(94, 234, 212, 0.45), 0 2px 8px rgba(0,0,0,0.3);
+    transform: scale(1.03);
+  }
+}
+.game-table-root.viewport-mobile .bid-panel-mobile-inline .bid-panel-btn-mobile:not(:disabled) {
+  animation: bidBtnMobilePulse 2s ease-in-out infinite;
+}
+.game-table-root.viewport-mobile .bid-panel-mobile-inline .bid-panel-btn-mobile:not(:disabled):active {
+  animation: none;
+  transform: scale(0.95);
+  box-shadow: inset 0 1px 0 rgba(34, 211, 238, 0.4), inset 0 0 12px rgba(34, 211, 238, 0.2), 0 0 16px rgba(34, 211, 238, 0.5);
 }
 
 * {
@@ -928,6 +1230,173 @@ body {
   }
 }
 
+/* Мобильная версия: итоги раздачи — сетка 2×2 по центру, чуть ниже середины; панель пользователя (Юг) с рамкой */
+.game-table-root.viewport-mobile .deal-results-overlay-animation {
+  position: fixed !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 10px;
+  top: 55% !important;
+  left: 50% !important;
+  right: auto !important;
+  width: min(92vw, 300px) !important;
+  height: auto !important;
+  min-height: 160px;
+  transform: translate(-50%, -50%);
+  padding: 12px;
+  justify-items: stretch;
+  align-items: stretch;
+}
+.game-table-root.viewport-mobile .deal-results-overlay-animation .deal-results-panel-north,
+.game-table-root.viewport-mobile .deal-results-overlay-animation .deal-results-panel-east,
+.game-table-root.viewport-mobile .deal-results-overlay-animation .deal-results-panel-south,
+.game-table-root.viewport-mobile .deal-results-overlay-animation .deal-results-panel-west {
+  position: static !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+}
+.game-table-root.viewport-mobile .deal-results-overlay-animation .deal-results-panel-north {
+  grid-column: 1;
+  grid-row: 1;
+}
+.game-table-root.viewport-mobile .deal-results-overlay-animation .deal-results-panel-east {
+  grid-column: 2;
+  grid-row: 1;
+}
+.game-table-root.viewport-mobile .deal-results-overlay-animation .deal-results-panel-south {
+  grid-column: 1;
+  grid-row: 2;
+  border: 3px solid rgba(34, 211, 238, 1) !important;
+  box-shadow:
+    0 0 20px rgba(34, 211, 238, 0.6),
+    0 0 40px rgba(34, 211, 238, 0.25),
+    inset 0 0 20px rgba(34, 211, 238, 0.15) !important;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.08) 0%, rgba(34, 211, 238, 0.03) 100%) !important;
+}
+.game-table-root.viewport-mobile .deal-results-overlay-animation .deal-results-panel-west {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+/* Мобильная модалка открыта: блокируем прокрутку body (без position:fixed — иначе тач-скролл внутри модалки ломается) */
+body.deal-results-modal-open-mobile {
+  overflow: hidden !important;
+  height: 100%;
+}
+
+/* Оверлей модалки не скроллится */
+.deal-results-modal-overlay-mobile {
+  overflow: hidden !important;
+}
+
+/* В мобильной модалке у всех элементов убираем полосу прокрутки — только пальцевая прокрутка */
+.deal-results-modal-overlay-mobile,
+.deal-results-modal-overlay-mobile * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.deal-results-modal-overlay-mobile ::-webkit-scrollbar,
+.deal-results-modal-overlay-mobile *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+.deal-results-modal-overlay-mobile *::-webkit-scrollbar-track,
+.deal-results-modal-overlay-mobile *::-webkit-scrollbar-thumb,
+.deal-results-modal-overlay-mobile *::-webkit-scrollbar-corner {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Таблица результатов в мобильной модалке: разделители столбцов */
+/* 1) Между игроками (полная граница между блоком «Заказ+Очки» одного игрока и следующего) */
+/* Слева: между столбцом № и первым игроком — тоньше и прозрачнее */
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(1) th:nth-child(1),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(1),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(1),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr th:nth-child(1) {
+  border-right: 1px solid rgba(34, 211, 238, 0.4) !important;
+}
+/* Между игроками */
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(3),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(5),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(7),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(3),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(5),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(7),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(3),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(5),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(7),
+/* Справа: после последнего игрока */
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(9),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(9),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(9) {
+  border-right: 2px solid rgba(34, 211, 238, 0.75) !important;
+}
+/* Подсветка только шапки столбца с именем игрока-пользователя: белая неоновая */
+.deal-results-modal-overlay-mobile .deal-results-table-window table .deal-results-cell-human {
+  box-shadow: inset 0 0 18px 2px rgba(255, 255, 255, 0.14), inset 0 0 36px 4px rgba(255, 255, 255, 0.07) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%) !important;
+}
+/* Разделитель между игроком-пользователем и следующим игроком — поярче, сиреневый */
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(3),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(3),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(3) {
+  border-right: 2px solid rgba(192, 132, 252, 0.9) !important;
+}
+
+/* 2) Внутри игрока (между столбцами «Заказ» и «Очки») */
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(2),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(4),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(6),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(8),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(2),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(4),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(6),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(8),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(2),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(4),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(6),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(8) {
+  border-right: 1px solid rgba(255, 255, 255, 0.35) !important;
+}
+
+/* «Окно» таблицы: неоновая внутренняя подсветка сверху и снизу — эффект глубины, будто таблица внутри настоящего окна */
+.deal-results-modal-overlay-mobile .deal-results-table-window {
+  position: relative !important;
+  box-shadow:
+    inset 0 -20px 28px -8px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(34, 211, 238, 0.2),
+    0 4px 20px rgba(0, 0, 0, 0.2),
+    inset 0 16px 24px -8px rgba(34, 211, 238, 0.18),
+    inset 0 -20px 28px -8px rgba(34, 211, 238, 0.28),
+    inset 0 0 40px -8px rgba(34, 211, 238, 0.12) !important;
+}
+/* Контейнер таблицы: прокрутка (подсветка сверху/снизу — отдельные div в .deal-results-table-scroll-wrap) */
+.deal-results-modal-overlay-mobile .deal-results-table-scroll {
+  overflow-y: scroll !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+}
+
+/* Индикатор «можно прокрутить»: стрелка вниз, лёгкая анимация */
+.deal-results-table-scroll-hint-chevron {
+  animation: dealResultsScrollHintBounce 1.8s ease-in-out infinite;
+}
+@keyframes dealResultsScrollHintBounce {
+  0%, 100% { transform: translateY(0); opacity: 1; }
+  50% { transform: translateY(6px); opacity: 0.9; }
+}
+
 .trick-slots-collecting {
   opacity: 0.4;
   transition: opacity 0.4s ease-out;
@@ -967,6 +1436,19 @@ body {
   }
 }
 
+
+/* Модалка «Партия завершена»: лёгкая пульсация подсветки на праздничном экране */
+.game-over-celebration-glow {
+  animation: gameOverCelebrationPulse 2.5s ease-in-out infinite;
+}
+@keyframes gameOverCelebrationPulse {
+  0%, 100% {
+    box-shadow: 0 0 40px rgba(34, 211, 238, 0.2), inset 0 0 60px rgba(255, 255, 255, 0.04);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(34, 211, 238, 0.35), inset 0 0 70px rgba(255, 255, 255, 0.07);
+  }
+}
 
 @keyframes dealResultsButtonPop {
   0% {

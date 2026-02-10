@@ -25,3 +25,13 @@ export function calculateDealPoints(bid: number, taken: number): number {
   // Перебор (при заказе > 0)
   return taken;
 }
+
+/**
+ * Восстанавливает количество взяток по заказу и очкам за раздачу (для статистики «точность заказов»).
+ */
+export function getTakenFromDealPoints(bid: number, points: number): number {
+  if (bid === 0) return points === 5 ? 0 : points;
+  if (points === 10 * bid) return bid;
+  if (points < 0) return bid + points / 10;
+  return points; // перебор
+}

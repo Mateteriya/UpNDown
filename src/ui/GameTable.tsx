@@ -4,7 +4,7 @@
  */
 
 import type { CSSProperties } from 'react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { GameState } from '../game/GameEngine';
 import {
@@ -12,21 +12,24 @@ import {
   startDeal,
   startNextDeal,
   getDealType,
+  getTricksInDeal,
   placeBid,
   playCard,
   completeTrick,
   getValidPlays,
   isHumanPlayer,
 } from '../game/GameEngine';
+import { loadGameStateFromStorage, saveGameStateToStorage, clearGameStateFromStorage, updateLocalRating, getLocalRating } from '../game/persistence';
 import { aiBid, aiPlay } from '../game/ai';
 import { getTrickWinner } from '../game/rules';
-import { calculateDealPoints } from '../game/scoring';
+import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
 import { CardView } from './CardView';
 import type { Card } from '../game/types';
 
 interface GameTableProps {
   gameId: number;
   onExit: () => void;
+  onNewGame?: () => void;
 }
 
 /** Задержка перед завершением взятки — 4‑я карта показывается в слоте */
@@ -123,6 +126,12 @@ const currentTrickLeaderGlowStyle: CSSProperties = {
   ].join(', '),
 };
 
+/** Дополнительные тени для подсветки первого ходящего во время заказа — добавляются к существующему boxShadow панели */
+const firstMoverBiddingGlowExtraShadow = [
+  'inset 0 0 32px rgba(139, 92, 246, 0.28)',
+  'inset 0 0 0 1px rgba(167, 139, 250, 0.45)',
+].join(', ');
+
 const trumpHighlightBtnStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
@@ -164,7 +173,131 @@ function useIsMobile() {
   return match;
 }
 
-function GameTable({ gameId, onExit }: GameTableProps) {
+/** Модалка «Партия завершена»: праздничный экран → по «Подробнее» развёрнутый вид с таблицей, статистикой, рейтингом */
+function GameOverModal({
+  snapshot,
+  onNewGame,
+  onExit,
+}: {
+  snapshot: GameState;
+  onNewGame: () => void;
+  onExit: () => void;
+}) {
+  const [showExpanded, setShowExpanded] = useState(false);
+  const humanIdx = 0;
+  const players = snapshot.players;
+  const sorted = [...players]
+    .map((p, i) => ({ ...p, idx: i }))
+    .sort((a, b) => b.score - a.score);
+  const maxScore = sorted[0]?.score ?? 0;
+  const winners = sorted.filter(p => p.score === maxScore);
+  const isTie = winners.length > 1;
+  const humanPlace = sorted.findIndex(p => p.idx === humanIdx) + 1;
+  const localRating = getLocalRating();
+
+  const dealHistory = snapshot.dealHistory ?? [];
+  /** Для каждого игрока — доля раздач (0..1), где заказ совпал с взятками (точное попадание) */
+  const bidAccuracyPerPlayer = [0, 1, 2, 3].map(pi => {
+    let metCount = 0;
+    for (const deal of dealHistory) {
+      const bid = deal.bids[pi];
+      const points = deal.points[pi];
+      const taken = getTakenFromDealPoints(bid, points);
+      if (bid === taken) metCount++;
+    }
+    return dealHistory.length > 0 ? Math.round((metCount / dealHistory.length) * 100) : 0;
+  });
+  const bestAccuracy = bidAccuracyPerPlayer.length > 0 ? Math.max(...bidAccuracyPerPlayer) : 0;
+
+  if (!showExpanded) {
+    return (
+      <div style={gameOverCelebrationWrapStyle}>
+        <div className="game-over-celebration-glow" style={gameOverCelebrationInnerStyle}>
+          <h2 style={gameOverCelebrationTitleStyle}>Партия завершена</h2>
+          {isTie ? (
+            <p style={gameOverCelebrationWinnerStyle}>
+              Ничья между {winners.map(w => w.name).join(' и ')}
+            </p>
+          ) : (
+            <>
+              <p style={gameOverCelebrationWinnerStyle}>Победитель: {winners[0]?.name}</p>
+              {winners[0]?.idx === humanIdx && <p style={gameOverCelebrationSuperStyle}>Супер!</p>}
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowExpanded(true)}
+            style={gameOverButtonPrimaryStyle}
+          >
+            Подробнее
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={gameOverExpandedWrapStyle}>
+      <h2 style={gameOverExpandedTitleStyle}>Итоги партии</h2>
+      <div style={gameOverTableWrapStyle}>
+        <table style={gameOverTableStyle}>
+          <thead>
+            <tr>
+              <th style={gameOverThStyle}>Место</th>
+              <th style={gameOverThStyle}>Игрок</th>
+              <th style={gameOverThStyle}>Очки</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((p, rank) => (
+              <tr key={p.idx} style={p.idx === humanIdx ? gameOverTrHumanStyle : undefined}>
+                <td style={gameOverTdStyle}>{rank + 1}</td>
+                <td style={gameOverTdStyle}>{p.name}</td>
+                <td style={gameOverTdStyle}>{p.score >= 0 ? '+' : ''}{p.score}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={gameOverStatsWrapStyle}>
+        <div style={gameOverStatsTitleStyle}>Точность заказов</div>
+        <div style={gameOverStatsHintStyle}>доля раздач, где заказ совпал с результатом (взяток взято ровно столько, сколько заказано)</div>
+        {players.map((p, i) => (
+          <div key={i} style={gameOverStatsRowWithBarStyle}>
+            <span style={{ flexShrink: 0, ...(i === humanIdx ? gameOverStatsNameHumanStyle : undefined) }}>{p.name}</span>
+            <div style={gameOverProgressTrackStyle} role="progressbar" aria-valuenow={bidAccuracyPerPlayer[i]} aria-valuemin={0} aria-valuemax={100} aria-label={`Точность заказов: ${bidAccuracyPerPlayer[i]}%`}>
+              <div style={{ ...(bidAccuracyPerPlayer[i] === bestAccuracy ? gameOverProgressFillBestStyle : gameOverProgressFillStyle), width: `${bidAccuracyPerPlayer[i]}%` }} />
+            </div>
+            <span style={{ ...gameOverStatsValueStyle, flexShrink: 0 }}>{bidAccuracyPerPlayer[i]}%</span>
+          </div>
+        ))}
+      </div>
+      <div style={gameOverRatingWrapStyle}>
+        <div style={gameOverStatsTitleStyle}>Ваш рейтинг</div>
+        <div style={gameOverStatsRowStyle}>
+          <span style={gameOverStatsValueStyle}>Место в этой партии: {humanPlace}</span>
+        </div>
+        <div style={gameOverStatsRowStyle}>
+          <span style={gameOverStatsValueStyle}>Игр сыграно: {localRating.gamesPlayed}</span>
+        </div>
+        <div style={gameOverStatsRowStyle}>
+          <span style={gameOverStatsValueStyle}>Побед: {localRating.wins}</span>
+        </div>
+        <div style={gameOverRatingPlaceholderStyle}>Глобальный рейтинг — скоро</div>
+      </div>
+      <div style={gameOverButtonsWrapStyle}>
+        <button type="button" onClick={onExit} style={gameOverButtonSecondaryStyle}>
+          В меню
+        </button>
+        <button type="button" onClick={onNewGame} style={gameOverButtonPrimaryStyle}>
+          Новая партия
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
   const [state, setState] = useState<GameState | null>(null);
@@ -176,19 +309,43 @@ function GameTable({ gameId, onExit }: GameTableProps) {
   const [showDealResultsButton, setShowDealResultsButton] = useState(false);
   const [dealResultsExpanded, setDealResultsExpanded] = useState(false);
   const [lastDealResultsSnapshot, setLastDealResultsSnapshot] = useState<GameState | null>(null);
+  const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
+  const [gameOverSnapshot, setGameOverSnapshot] = useState<GameState | null>(null);
+  const [showGameOverModal, setShowGameOverModal] = useState(false);
   const lastCompletedTrickRef = useRef<unknown>(null);
+  /** ПК: имя в блоке «Заказывает/Сейчас ход» ограничено CSS (max-width + перенос строки) */
 
   useEffect(() => {
-    let s = createGame(4, 'classical', 'Вы');
-    s = startDeal(s);
-    setState(s);
+    const restored = loadGameStateFromStorage();
+    if (restored) {
+      setState(restored);
+    } else {
+      let s = createGame(4, 'classical', 'Вы');
+      s = startDeal(s);
+      setState(s);
+    }
     setTrickPauseUntil(0);
     setShowLastTrickModal(false);
     setBidPanelVisible(false);
     setShowDealResultsButton(false);
     setDealResultsExpanded(false);
     setLastDealResultsSnapshot(null);
+    setGameOverSnapshot(null);
+    setShowGameOverModal(false);
   }, [gameId]);
+
+  useEffect(() => {
+    if (state !== null) {
+      saveGameStateToStorage(state);
+    }
+  }, [state]);
+
+  useEffect(() => {
+    if (dealResultsExpanded && isMobile) {
+      document.body.classList.add('deal-results-modal-open-mobile');
+      return () => document.body.classList.remove('deal-results-modal-open-mobile');
+    }
+  }, [dealResultsExpanded, isMobile]);
 
   const humanIdx = 0;
   const isHumanTurn = state?.phase === 'playing' && state.currentPlayerIndex === humanIdx;
@@ -256,8 +413,16 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           setLastTrickCollectingPhase('collapsing');
           collapseDelay = window.setTimeout(() => {
             setLastTrickCollectingPhase('button');
-            setShowDealResultsButton(true);
-            setLastDealResultsSnapshot(state);
+            if (state.dealNumber === 28) {
+              setGameOverSnapshot(state);
+              setShowGameOverModal(true);
+              const maxScore = Math.max(...state.players.map(p => p.score));
+              const humanWon = state.players[0].score === maxScore;
+              updateLocalRating(humanWon);
+            } else {
+              setShowDealResultsButton(true);
+              setLastDealResultsSnapshot(state);
+            }
           }, COLLAPSING_MS);
         }, LAST_TRICK_WINNER_PAUSE_MS);
       }, LAST_TRICK_CARDS_PAUSE_MS);
@@ -325,11 +490,39 @@ function GameTable({ gameId, onExit }: GameTableProps) {
       <div style={tableStyle}>
       <header className="game-header" style={headerStyle}>
         <div style={headerLeftWrapStyle}>
-          <button onClick={onExit} style={exitBtnStyle}>← В меню</button>
-          <div style={firstMoveBadgeStyle}>
-            <span style={firstMoveLabelStyle}>I:</span>
-            <span style={firstMoveValueStyle}>{state.players[state.trickLeaderIndex].name}</span>
+          <div style={headerMenuButtonsWrapStyle}>
+            <button
+              type="button"
+              className="header-exit-btn"
+              onClick={onExit}
+              style={exitBtnStyle}
+              title="В меню"
+              aria-label="В меню"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+            </button>
+            {onNewGame && (
+              <button
+                type="button"
+                className="header-new-game-btn"
+                onClick={() => setShowNewGameConfirm(true)}
+                style={newGameBtnStyle}
+                title="Новая партия"
+                aria-label="Новая партия"
+              >
+                ↻
+              </button>
+            )}
           </div>
+          {isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
+            <div className="first-move-badge" style={firstMoveBadgeStyle}>
+              <span className="first-move-num" style={firstMoveLabelStyle}>I:</span>
+              <span style={firstMoveValueStyle}>{state.players[state.trickLeaderIndex].name}</span>
+            </div>
+          )}
         </div>
         <div style={headerRightWrapStyle}>
           <div style={headerRightTopRowStyle}>
@@ -383,17 +576,18 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           {trumpHighlightOn ? 'Выключить' : 'Включить'}
         </button>
           </div>
-          <div style={gameInfoCardsPanelStyle}>
-            <span style={{ ...gameInfoLabelStyle, marginBottom: 0, fontSize: 10, lineHeight: 1 }}>Карт</span>
-            <span style={{ ...gameInfoValueStyle, fontSize: 13, lineHeight: 1 }}>
-              {state.tricksInDeal} {state.tricksInDeal === 1 ? 'карта' : state.tricksInDeal < 5 ? 'карты' : 'карт'}
-            </span>
-          </div>
-          {isMobileOrTablet && (getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark') && (
-            <div style={{ ...gameInfoModePanelStyle, marginTop: 6 }}>
+          {isMobileOrTablet && (getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark') ? (
+            <div style={gameInfoModePanelStyle}>
               <span style={gameInfoLabelStyle}>Режим</span>
               <span style={gameInfoValueStyle}>
                 {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : state.phase === 'dark-bidding' ? 'Тёмная (вслепую)' : 'Тёмная'}
+              </span>
+            </div>
+          ) : (
+            <div style={gameInfoCardsPanelStyle}>
+              <span style={{ ...gameInfoLabelStyle, marginBottom: 0, fontSize: 10, lineHeight: 1 }}>Карт</span>
+              <span style={{ ...gameInfoValueStyle, fontSize: 13, lineHeight: 1 }}>
+                {state.tricksInDeal} {state.tricksInDeal === 1 ? 'карта' : state.tricksInDeal < 5 ? 'карты' : 'карт'}
               </span>
             </div>
           )}
@@ -432,6 +626,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                 winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2}
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
+                firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
               />
             </div>
             <div className="game-mobile-slot-north" style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
@@ -440,6 +635,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                 winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1}
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
+                firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
               />
             </div>
           </div>
@@ -571,41 +767,94 @@ function GameTable({ gameId, onExit }: GameTableProps) {
               </button>
             )}
             {isMobile && shouldShowBidPanel && bidPanelVisible && (
-              <div className="bid-panel-mobile-on-table-wrap" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', paddingBottom: 12, paddingLeft: 8, paddingRight: 8, zIndex: 15, pointerEvents: 'none' }}>
-                <div
-                  className="bid-panel bid-panel-inline bid-panel-bottom bid-panel-mobile-inline"
-                  style={{
-                    ...bidPanelInlineStyle,
-                    padding: '14px 18px',
-                    gap: 12,
-                    pointerEvents: 'auto',
-                  }}
-                  aria-label="Выбор заказа"
-                >
-                  <span className="bid-panel-title bid-panel-title-inline" style={{ ...bidPanelInlineTitleStyle, fontSize: 16 }}>
-                    {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
+              <div className="bid-panel-mobile-on-table-wrap" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-end', paddingBottom: 12, paddingLeft: 8, paddingRight: 8, zIndex: 15, pointerEvents: 'none' }}>
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span
+                    className="bid-panel-mobile-badge"
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      padding: '4px 10px',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      background: 'transparent',
+                      whiteSpace: 'nowrap',
+                      zIndex: 1,
+                      border: '1px solid rgba(34, 211, 238, 0.85)',
+                      borderRadius: 14,
+                    }}
+                  >
+                    <span className="bid-panel-mobile-badge-text">
+                      {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Сколько хотите взять взяток:'}
+                    </span>
                   </span>
-                  <div className="bid-panel-grid bid-panel-mobile-grid" style={bidSidePanelGrid}>
-                    {Array.from({ length: state.tricksInDeal + 1 }, (_, i) => {
-                      const disabled = invalidBid === i;
-                      return (
-                        <button
-                          key={i}
-                          type="button"
-                          className="bid-panel-btn"
-                          disabled={disabled}
-                          onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
-                          onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
-                          style={{
-                            ...bidSidePanelButton,
-                            ...(disabled ? bidSidePanelButtonDisabled : {}),
-                          }}
-                          title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
-                        >
-                          {i}
-                        </button>
-                      );
-                    })}
+                  <div
+                    className="bid-panel bid-panel-inline bid-panel-bottom bid-panel-mobile-inline"
+                    style={{
+                      ...bidPanelInlineStyle,
+                      padding: '10px 14px',
+                      gap: 8,
+                      pointerEvents: 'auto',
+                    }}
+                    aria-label="Выбор заказа"
+                  >
+                    <div className="bid-panel-grid bid-panel-mobile-grid" style={bidSidePanelGrid}>
+                    {isMobile ? (
+                      (() => {
+                        const n = state.tricksInDeal;
+                        const bidOrder = Array.from({ length: n + 1 }, (_, i) => i);
+                        return (
+                          <>
+                            {bidOrder.map((i) => {
+                              const disabled = invalidBid === i;
+                              return (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  className="bid-panel-btn bid-panel-btn-mobile"
+                                  disabled={disabled}
+                                  onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
+                                  onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
+                                  style={{
+                                    ...bidSidePanelButtonMobile,
+                                    ...(disabled ? bidSidePanelButtonDisabledMobile : {}),
+                                  }}
+                                  title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
+                                >
+                                  {i}
+                                </button>
+                              );
+                            })}
+                            <span key="ph1" className="bid-panel-mobile-placeholder" aria-hidden />
+                            <span key="ph2" className="bid-panel-mobile-placeholder" aria-hidden />
+                          </>
+                        );
+                      })()
+                    ) : (
+                      Array.from({ length: state.tricksInDeal + 1 }, (_, i) => {
+                        const disabled = invalidBid === i;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            className="bid-panel-btn"
+                            disabled={disabled}
+                            onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
+                            onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
+                            style={{
+                              ...bidSidePanelButton,
+                              ...(disabled ? bidSidePanelButtonDisabled : {}),
+                            }}
+                            title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
+                          >
+                            {i}
+                          </button>
+                        );
+                      })
+                    )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -613,7 +862,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           </div>
         </div>
         </div>
-        {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && (
+        {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && !isMobile && (
           <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} />
         )}
             <div className="game-center-east game-mobile-east" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', ...(isMobile ? {} : { minWidth: 60 }) }}>
@@ -622,6 +871,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                 winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 3}
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
+                firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
               />
             </div>
       </div>
@@ -640,6 +890,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
                   compact
                   showDesktopFaceIndices={true}
                   suitIndexInHandMobile={true}
+                  biddingHighlightMobile={isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding')}
                   doubleBorder={trumpHighlightOn}
                   isTrumpOnTable={trumpHighlightOn && state.trump !== null && card.suit === state.trump}
                   onClick={() => {
@@ -662,24 +913,29 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
           : {}),
       }}>
-        <div className="game-mobile-player-info" style={{
+        <div className={['game-mobile-player-info', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : ''].filter(Boolean).join(' ')} style={{
           ...playerInfoPanelStyle,
           position: 'relative',
           ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyle : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
           ...(dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === humanIdx ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
           ...(getCurrentTrickLeaderIndex(state) === humanIdx ? currentTrickLeaderGlowStyle : {}),
+          ...((state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? (() => {
+            const base = state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyle : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : null;
+            const baseShadow = base?.boxShadow ?? playerInfoPanelStyle.boxShadow;
+            return { boxShadow: [baseShadow, firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', ') };
+          })() : {}),
         }}>
-          {(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx && (
-            <span style={firstBidderLampExternalStyle} title="Первый заказ/ход">
-              <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
-            </span>
-          )}
           <div style={playerInfoHeaderStyle}>
             <span style={playerNameDealerWrapStyle}>
-              <span style={playerNameStyle}>{state.players[humanIdx].name}</span>
+              <span className="player-panel-name" style={playerNameStyle}>{state.players[humanIdx].name}</span>
               {state.dealerIndex === humanIdx && (
                 <span style={dealerLampStyle} title="Сдающий">
                   <span style={dealerLampBulbStyle} /> Сдающий
+                </span>
+              )}
+              {isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx && (
+                <span style={firstBidderLampStyle} title="Первый заказ/ход">
+                  <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
                 </span>
               )}
             </span>
@@ -741,18 +997,24 @@ function GameTable({ gameId, onExit }: GameTableProps) {
         <>
       <div className="game-info-row" style={gameInfoTopRowStyle}>
           <div className="game-info-left-col" style={gameInfoLeftColumnStyle}>
+            {!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
+              <div className="first-move-badge first-move-badge-above-block" style={firstMoveBadgeStyle}>
+                <span className="first-move-num" style={firstMoveLabelStyle}>Первый ход:</span>
+                <span style={firstMoveValueStyle}>{state.players[state.trickLeaderIndex].name}</span>
+              </div>
+            )}
             {(state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') && (
               <div className="game-info-left-section" style={gameInfoLeftSectionStyle}>
                 {state.phase === 'playing' && (
                   <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
                     <span style={gameInfoLabelStyle}>Сейчас ход</span>
-                    <span style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{state.players[state.currentPlayerIndex].name}</span>
+                    <span className="game-info-value-name" style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{state.players[state.currentPlayerIndex].name}</span>
                   </div>
                 )}
                 {(state.phase === 'bidding' || state.phase === 'dark-bidding') && (
                   <div style={{ ...gameInfoBadgeStyle, ...gameInfoBiddingBadgeStyle }}>
                     <span style={gameInfoLabelStyle}>Заказывает</span>
-                    <span style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
+                    <span className="game-info-value-name" style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
                       {state.players[state.currentPlayerIndex].name}
                       {state.phase === 'dark-bidding' && ' (вслепую)'}
                     </span>
@@ -777,6 +1039,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
             winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1}
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
             firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
+            firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
           />
         </div>
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
@@ -794,6 +1057,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
             winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2}
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
             firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
+            firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
           />
         </div>
         <div className="game-center-table" style={centerStyle}>
@@ -867,9 +1131,10 @@ function GameTable({ gameId, onExit }: GameTableProps) {
             winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 3}
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
             firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
+            firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
           />
         </div>
-        {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && (
+        {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && !isMobile && (
           <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} />
         )}
       </div>
@@ -909,12 +1174,17 @@ function GameTable({ gameId, onExit }: GameTableProps) {
               ))}
           </div>
         </div>
-        <div style={{
+        <div className={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : undefined} style={{
           ...playerInfoPanelStyle,
           position: 'relative',
           ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyle : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
           ...(dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === humanIdx ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
           ...(getCurrentTrickLeaderIndex(state) === humanIdx ? currentTrickLeaderGlowStyle : {}),
+          ...((state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? (() => {
+            const base = state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyle : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : null;
+            const baseShadow = base?.boxShadow ?? playerInfoPanelStyle.boxShadow;
+            return { boxShadow: [baseShadow, firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', ') };
+          })() : {}),
         }}>
           {(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx && (
             <span style={firstBidderLampExternalStyle} title="Первый заказ/ход">
@@ -923,7 +1193,7 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           )}
           <div style={playerInfoHeaderStyle}>
             <span style={playerNameDealerWrapStyle}>
-              <span style={playerNameStyle}>{state.players[humanIdx].name}</span>
+              <span className="player-panel-name" style={playerNameStyle}>{state.players[humanIdx].name}</span>
               {state.dealerIndex === humanIdx && (
                 <span style={dealerLampStyle} title="Сдающий">
                   <span style={dealerLampBulbStyle} /> Сдающий
@@ -984,16 +1254,26 @@ function GameTable({ gameId, onExit }: GameTableProps) {
 
       {/* Мобильная панель заказа рендерится в потоке под картами (bid-panel-mobile-inline-wrap), не в портале */}
 
+      {/* На мобильной оверлей итогов раздачи рендерим в портал, чтобы position:fixed считался от viewport (нет предка с transform) */}
+      {isMobile && dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && createPortal(
+        <div className="game-table-root viewport-mobile" style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 15 }}>
+          <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} />
+        </div>,
+        document.body,
+      )}
+
       {dealResultsExpanded && lastDealResultsSnapshot && createPortal(
         <div
+          className={isMobile ? 'deal-results-modal-overlay-mobile' : undefined}
           style={{
             position: 'fixed',
             inset: 0,
             background: 'rgba(0,0,0,0.6)',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: isMobile ? 'flex-start' : 'center',
             justifyContent: 'center',
             zIndex: 9999,
+            overflow: isMobile ? 'hidden' : 'auto',
           }}
           onClick={() => setDealResultsExpanded(false)}
           onKeyDown={e => { if (e.key === 'Escape') setDealResultsExpanded(false); }}
@@ -1001,42 +1281,83 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           tabIndex={0}
           aria-label="Закрыть"
         >
-          <div
-            style={{
-              position: 'relative',
-              width: 'min(96vw, 800px)',
-              minWidth: 500,
-              maxHeight: '98vh',
-              overflow: 'visible',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 20,
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ transform: 'scale(1.35)', transformOrigin: 'center center', flexShrink: 0 }}>
-              <DealResultsScreen state={lastDealResultsSnapshot} variant="modal" />
-            </div>
+          {isMobile && (
             <button
               type="button"
-              onClick={() => setDealResultsExpanded(false)}
+              onClick={e => { e.stopPropagation(); setDealResultsExpanded(false); }}
               style={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                width: 32,
-                height: 32,
+                position: 'fixed',
+                top: 12,
+                right: 12,
+                width: 40,
+                height: 40,
                 borderRadius: '50%',
-                border: '1px solid rgba(34, 211, 238, 0.5)',
-                background: 'rgba(15, 23, 42, 0.9)',
+                border: '2px solid rgba(34, 211, 238, 0.7)',
+                background: 'rgba(15, 23, 42, 0.95)',
                 color: '#22d3ee',
                 cursor: 'pointer',
-                fontSize: 18,
+                fontSize: 22,
+                zIndex: 10001,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
+              aria-label="Закрыть"
             >
               ×
             </button>
+          )}
+          <div
+            style={{
+              position: 'relative',
+              width: isMobile ? '100%' : 'min(96vw, 800px)',
+              minWidth: isMobile ? 0 : 500,
+              maxWidth: isMobile ? '100%' : undefined,
+              maxHeight: isMobile ? '100%' : '98vh',
+              overflow: isMobile ? 'hidden' : 'visible',
+              display: 'flex',
+              alignItems: isMobile ? 'stretch' : 'center',
+              justifyContent: 'center',
+              padding: isMobile ? 12 : 20,
+              minHeight: isMobile ? '100%' : undefined,
+              height: isMobile ? '100%' : undefined,
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {!isMobile && (
+              <button
+                type="button"
+                onClick={() => setDealResultsExpanded(false)}
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  border: '1px solid rgba(34, 211, 238, 0.5)',
+                  background: 'rgba(15, 23, 42, 0.9)',
+                  color: '#22d3ee',
+                  cursor: 'pointer',
+                  fontSize: 18,
+                  zIndex: 1,
+                }}
+              >
+                ×
+              </button>
+            )}
+            <div style={{
+              transform: isMobile ? 'none' : 'scale(1.35)',
+              transformOrigin: 'center center',
+              flexShrink: 0,
+              width: isMobile ? '100%' : undefined,
+              maxWidth: isMobile ? '100%' : undefined,
+              height: isMobile ? '100%' : undefined,
+              display: isMobile ? 'flex' : undefined,
+              flexDirection: isMobile ? 'column' : undefined,
+            }}>
+              <DealResultsScreen state={lastDealResultsSnapshot} variant="modal" isMobile={isMobile} />
+            </div>
           </div>
         </div>,
         document.body,
@@ -1051,6 +1372,100 @@ function GameTable({ gameId, onExit }: GameTableProps) {
           showDesktopFaceIndices={true}
           onClose={() => setShowLastTrickModal(false)}
         />,
+        document.body
+      )}
+
+      {showGameOverModal && gameOverSnapshot && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 16,
+          }}
+          onClick={e => e.stopPropagation()}
+          onKeyDown={e => { if (e.key === 'Escape') { setShowGameOverModal(false); setGameOverSnapshot(null); } }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="game-over-title"
+        >
+          <div
+            style={{
+              background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+              borderRadius: 16,
+              border: '1px solid rgba(34, 211, 238, 0.35)',
+              boxShadow: '0 24px 48px rgba(0,0,0,0.5), 0 0 60px rgba(34, 211, 238, 0.15)',
+              maxHeight: '95vh',
+              overflow: 'auto',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <GameOverModal
+              snapshot={gameOverSnapshot}
+              onNewGame={() => {
+                setShowGameOverModal(false);
+                setGameOverSnapshot(null);
+                onNewGame?.();
+              }}
+              onExit={() => {
+                setShowGameOverModal(false);
+                setGameOverSnapshot(null);
+                onExit();
+              }}
+            />
+          </div>
+        </div>,
+        document.body,
+      )}
+      {showNewGameConfirm && onNewGame && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+          onClick={() => setShowNewGameConfirm(false)}
+          onKeyDown={e => { if (e.key === 'Escape') setShowNewGameConfirm(false); }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="new-game-confirm-title"
+        >
+          <div
+            style={newGameConfirmModalStyle}
+            onClick={e => e.stopPropagation()}
+          >
+            <p id="new-game-confirm-title" style={newGameConfirmTextStyle}>
+              Текущая партия будет сброшена. Начать новую?
+            </p>
+            <div style={newGameConfirmButtonsStyle}>
+              <button
+                type="button"
+                onClick={() => setShowNewGameConfirm(false)}
+                style={newGameConfirmCancelBtnStyle}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNewGameConfirm(false);
+                  onNewGame();
+                }}
+                style={newGameConfirmOkBtnStyle}
+              >
+                Начать заново
+              </button>
+            </div>
+          </div>
+        </div>,
         document.body
       )}
       </div>
@@ -1068,16 +1483,24 @@ const PLAYER_POSITIONS = [
   { idx: 3, side: 'right' as const, name: 'Восток' },
 ];
 
-function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay' }: { state: GameState; isCollapsing?: boolean; variant?: 'overlay' | 'modal' }) {
+function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay', isMobile = false }: { state: GameState; isCollapsing?: boolean; variant?: 'overlay' | 'modal'; isMobile?: boolean }) {
+  const [scrollHintVisible, setScrollHintVisible] = useState(variant === 'modal' && isMobile);
   const bids = state.bids as number[];
   const players = state.players;
-  const baseStyle = variant === 'modal' ? dealResultsModalStyle : dealResultsOverlayStyle;
+  const baseStyle = variant === 'modal'
+    ? { ...dealResultsModalStyle, ...(isMobile ? dealResultsModalStyleMobile : {}) }
+    : dealResultsOverlayStyle;
   const scores = players.map(p => p.score);
   const minScore = Math.min(...scores);
   const maxScore = Math.max(...scores);
   const range = maxScore - minScore;
   const humanIdx = 0;
   const sorted = [...players].map((p, i) => ({ ...p, idx: i })).sort((a, b) => b.score - a.score);
+  const compactModal = variant === 'modal' && isMobile;
+  const panelStyle = compactModal ? { ...dealResultsPanelStyle, ...dealResultsPanelStyleMobile } : dealResultsPanelStyle;
+  const panelTitleStyle = compactModal ? { ...dealResultsPanelTitleStyle, ...dealResultsPanelTitleStyleMobile } : dealResultsPanelTitleStyle;
+  const rowStyle = compactModal ? { ...dealResultsRowStyle, ...dealResultsRowStyleMobile } : dealResultsRowStyle;
+
   const renderPanel = (idx: number) => {
     const bid = bids[idx] ?? 0;
     const taken = players[idx].tricksTaken;
@@ -1086,21 +1509,21 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay' }:
     const side = PLAYER_POSITIONS.find(p => p.idx === idx)!.side;
     const panelPos = variant === 'modal' ? undefined : getDealResultsPanelPosition(side);
     return (
-      <div key={idx} style={{ ...dealResultsPanelStyle, ...(panelPos ?? {}) }}>
-        <div style={dealResultsPanelTitleStyle}>{players[idx].name}</div>
-        <div style={dealResultsRowStyle}>
+      <div key={idx} style={{ ...panelStyle, ...(panelPos ?? {}) }}>
+        <div style={panelTitleStyle}>{players[idx].name}</div>
+        <div style={rowStyle}>
           <span style={dealResultsLabelStyle}>Заказ</span>
           <span style={dealResultsValueStyle}>{bid}</span>
         </div>
-        <div style={dealResultsRowStyle}>
+        <div style={rowStyle}>
           <span style={dealResultsLabelStyle}>Взяток</span>
           <span style={dealResultsValueStyle}>{taken}</span>
         </div>
-        <div style={dealResultsRowStyle}>
+        <div style={rowStyle}>
           <span style={dealResultsLabelStyle}>Очки</span>
           <span style={{ ...dealResultsValueStyle, color: points >= 0 ? '#4ade80' : '#f87171' }}>{points >= 0 ? '+' : ''}{points}</span>
         </div>
-        <div style={{ ...dealResultsRowStyle, borderTop: '1px solid rgba(34, 211, 238, 0.3)', marginTop: 4, paddingTop: 4 }}>
+        <div style={{ ...rowStyle, borderTop: '1px solid rgba(34, 211, 238, 0.3)', marginTop: 4, paddingTop: 4 }}>
           <span style={dealResultsLabelTotalStyle}>Итого</span>
           <span style={{
             ...dealResultsValueStyle,
@@ -1110,6 +1533,19 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay' }:
       </div>
     );
   };
+
+  /** Полная подпись раздачи (для title) */
+  const getDealCellLabel = (dealNumber: number) => {
+    const type = getDealType(dealNumber);
+    const tricks = getTricksInDeal(dealNumber);
+    if (type === 'no-trump') return `${dealNumber} БК`;
+    if (type === 'dark') return `${dealNumber} Тёмн.`;
+    return `${dealNumber} (${tricks} ${tricks === 1 ? 'карта' : tricks < 5 ? 'карты' : 'карт'})`;
+  };
+  /** Подписи первого столбца таблицы: 1..8, 9×4, 8..1, Б×4, Т×4; последняя строка — Итог */
+  const DEAL_COLUMN_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '9', '9', '9', '8', '7', '6', '5', '4', '3', '2', '1', 'Б', 'Б', 'Б', 'Б', 'Т', 'Т', 'Т', 'Т'] as const;
+
+  const dealHistory = state.dealHistory || [];
 
   return (
     <div
@@ -1121,21 +1557,119 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay' }:
       aria-hidden
     >
       {variant === 'modal' ? (
-        <div style={dealResultsModalFlexStyle}>
+        isMobile ? (
+          <div style={dealResultsTableOuterMobileStyle}>
+            <div className="deal-results-table-scroll-wrap" style={dealResultsTableScrollWrapStyle}>
+              <div
+                className="deal-results-table-scroll"
+                style={dealResultsTableScrollAreaStyle}
+                onScroll={() => scrollHintVisible && setScrollHintVisible(false)}
+              >
+                <div className="deal-results-table-window" style={dealResultsTableWindowStyle}>
+            <table style={dealResultsTableStyle}>
+              <caption style={dealResultsTableCaptionStyle}>
+                <span style={{ ...dealResultsTableCaptionZStyle }}>З</span>
+                {' — заказ, '}
+                <span style={{ ...dealResultsTableCaptionOStyle }}>О</span>
+                {' — очки'}
+              </caption>
+              <colgroup>
+                <col style={{ width: DEAL_COLUMN_WIDTH, minWidth: DEAL_COLUMN_WIDTH }} />
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  <col key={i} style={{ width: 38 }} />
+                ))}
+              </colgroup>
+              <thead>
+                <tr>
+                  <th style={{ ...dealResultsTableThStyle, ...dealResultsTableThDealStyle, ...dealResultsTableThNumWrapStyle, minWidth: DEAL_COLUMN_WIDTH, width: DEAL_COLUMN_WIDTH }}>
+                    <span style={dealResultsTableThNumBadgeStyle}>
+                      <span style={dealResultsTableThNumSymbolStyle}>№</span>
+                    </span>
+                  </th>
+                  {players.map((p, i) => (
+                    <th key={i} colSpan={2} className={i === humanIdx ? 'deal-results-cell-human' : undefined} style={{ ...dealResultsTableThStyle, ...dealResultsTableThNameStyle, ...(i > 0 ? dealResultsTableThNameDividerStyle : {}) }}>
+                      <span style={dealResultsTableThNameTextStyle}>{p.name}</span>
+                    </th>
+                  ))}
+                </tr>
+                <tr>
+                  <th style={{ ...dealResultsTableThStyle, ...dealResultsTableThDealStyle, minWidth: DEAL_COLUMN_WIDTH, width: DEAL_COLUMN_WIDTH }}></th>
+                  {players.map((_, i) => (
+                    <Fragment key={i}>
+                      <th style={{ ...dealResultsTableThBidStyle, ...(i === 0 ? dealResultsTableThBidFirstStyle : {}) }} title="Заказ">З</th>
+                      <th style={{ ...dealResultsTableThResultStyle }} title="Очки">О</th>
+                    </Fragment>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 28 }, (_, i) => i + 1).map((dealNum, rowIndex) => {
+                  const row = dealHistory.find((r) => r.dealNumber === dealNum);
+                  return (
+                    <tr key={dealNum}>
+                      <td style={{ ...dealResultsTableTdStyle, ...dealResultsTableTdDealStyle }} title={getDealCellLabel(dealNum)}>{DEAL_COLUMN_LABELS[rowIndex]}</td>
+                      {row
+                        ? players.map((_, i) => (
+                            <Fragment key={i}>
+                              <td style={dealResultsTableTdBidStyle}>
+                                {(row as { bids?: number[] }).bids ? (row as { bids: number[] }).bids[i] : '—'}
+                              </td>
+                              <td style={{ ...dealResultsTableTdResultStyle, color: row.points[i] >= 0 ? '#4ade80' : '#f87171' }}>
+                                {row.points[i] >= 0 ? '+' : ''}{row.points[i]}
+                              </td>
+                            </Fragment>
+                          ))
+                        : players.map((_, i) => (
+                            <Fragment key={i}>
+                              <td style={dealResultsTableTdBidStyle}>—</td>
+                              <td style={dealResultsTableTdResultStyle}>—</td>
+                            </Fragment>
+                          ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th style={{ ...dealResultsTableThStyle, ...dealResultsTableTfootStyle, ...dealResultsTableThDealStyle, ...dealResultsTableThDealFooterStyle }} title="Итого">Итог</th>
+                  {players.map((p, i) => (
+                    <Fragment key={i}>
+                      <td style={{ ...(i === 0 ? dealResultsTableTdFooterFirstStyle : dealResultsTableTdBidStyle), ...dealResultsTableTfootStyle }}></td>
+                      <td style={{ ...dealResultsTableTdResultStyle, ...dealResultsTableTfootStyle }}>
+                        {p.score >= 0 ? '+' : ''}{p.score}
+                      </td>
+                    </Fragment>
+                  ))}
+                </tr>
+              </tfoot>
+            </table>
+                </div>
+              </div>
+              <div className="deal-results-table-glow-top" style={dealResultsTableGlowTopStyle} aria-hidden />
+              <div className="deal-results-table-glow-bottom" style={dealResultsTableGlowBottomStyle} aria-hidden />
+              {scrollHintVisible && (
+                <div className="deal-results-table-scroll-hint" style={dealResultsTableScrollHintWrapStyle} aria-hidden>
+                  <span className="deal-results-table-scroll-hint-chevron" style={dealResultsTableScrollHintChevronStyle}>↓</span>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+        <div style={{ ...dealResultsModalFlexStyle, ...(compactModal ? dealResultsModalFlexStyleMobile : {}) }}>
           <div style={dealResultsModalRow1Style}>{renderPanel(0)}</div>
-          <div style={dealResultsModalRow2Style}>
+          <div style={{ ...dealResultsModalRow2Style, ...(compactModal ? dealResultsModalRow2StyleMobile : {}) }}>
             {[1, 2, 3].map(i => renderPanel(i))}
           </div>
-          <div style={dealResultsModalRow3Style}>
-            <div style={dealResultsChartWrapStyle}>
-              <div style={dealResultsChartTitleStyle}>Общий счёт • Раздача №{state.dealNumber}</div>
+          <div style={{ ...dealResultsModalRow3Style, ...(compactModal ? dealResultsModalRow3StyleMobile : {}) }}>
+            <div style={{ ...dealResultsChartWrapStyle, ...(compactModal ? dealResultsChartWrapStyleMobile : {}) }}>
+              <div style={{ ...dealResultsChartTitleStyle, ...(compactModal ? dealResultsChartTitleStyleMobile : {}) }}>Общий счёт • Раздача №{state.dealNumber}</div>
               <div style={dealResultsChartBarsStyle}>
                 {sorted.map((p, rank) => {
                   const barPct = (range === 0 || range < 0) ? 100 : ((p.score - minScore) / range) * 100;
                   const isLeader = p.score === maxScore && maxScore > minScore;
                   const isHuman = p.idx === humanIdx;
                   return (
-                    <div key={p.idx} style={dealResultsChartRowStyle}>
+                    <div key={p.idx} style={{ ...dealResultsChartRowStyle, ...(compactModal ? dealResultsChartRowStyleMobile : {}) }}>
                       <span style={{
                         ...dealResultsChartNameStyle,
                         ...(isHuman ? { color: '#22d3ee', fontWeight: 700 } : {}),
@@ -1149,7 +1683,7 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay' }:
                       }}>
                         {p.score >= 0 ? '+' : ''}{p.score}
                       </span>
-                      <div style={dealResultsChartBarBgStyle}>
+                      <div style={{ ...dealResultsChartBarBgStyle, ...(compactModal ? dealResultsChartBarBgStyleMobile : {}) }}>
                         <div
                           style={{
                             ...dealResultsChartBarFillStyle,
@@ -1165,6 +1699,7 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay' }:
             </div>
           </div>
         </div>
+        )
       ) : (
         <>
       {PLAYER_POSITIONS.map(({ idx, side }) => {
@@ -1248,6 +1783,7 @@ function TrickSlotsDisplay({
   const hasFilledOrder = totalFilled >= bid;
 
   if (compactMode) {
+    const scaleDown = variant === 'player' && bid > 6 ? Math.min(1, 6 / bid) : 1;
     const wrapStyle = {
       ...trickCirclesWrapStyle,
       ...(hasFilledOrder ? trickCirclesWrapSuccessStyle : trickCirclesWrapPendingStyle),
@@ -1255,18 +1791,20 @@ function TrickSlotsDisplay({
         position: 'absolute' as const,
         right: 14,
         top: '50%',
-        padding: '2px 6px',
+        padding: scaleDown < 1 ? `${Math.round(2 * scaleDown)}px ${Math.round(6 * scaleDown)}px` : '2px 6px',
         transform: 'translateY(-50%) scale(1.7)',
         transformOrigin: 'right center',
       } : {}),
     };
+    const circleSize = variant === 'player' ? (scaleDown < 1 ? Math.max(10, Math.round(18 * scaleDown)) : 18) : undefined;
+    const rowStyle = scaleDown < 1 ? { ...trickCirclesRowStyle, gap: Math.max(2, Math.round(4 * scaleDown)) } : trickCirclesRowStyle;
     return (
       <div style={wrapStyle} className={hideCards ? 'trick-slots-collecting' : 'trick-slots-normal'}>
-        <span style={trickSlotsLabelStyle}>Заказ {bid}</span>
-        <div style={trickCirclesRowStyle}>
+        <span style={{ ...trickSlotsLabelStyle, ...(scaleDown < 1 ? { fontSize: Math.max(8, Math.round(9 * scaleDown)) } : {}) }}>Заказ {bid}</span>
+        <div style={rowStyle}>
           {Array.from({ length: orderedSlots }, (_, i) => {
             const filled = i < Math.min(totalFilled, bid) && !hideCards;
-            const circleStyle = variant === 'player' ? { ...trickCircleBaseStyle, width: 18, height: 18 } : trickCircleBaseStyle;
+            const circleStyle = variant === 'player' ? { ...trickCircleBaseStyle, width: circleSize ?? 18, height: circleSize ?? 18 } : trickCircleBaseStyle;
             return (
               <div
                 key={`c-${i}`}
@@ -1279,7 +1817,7 @@ function TrickSlotsDisplay({
             );
           })}
           {extra > 0 && !hideCards && (
-            <span style={trickCirclesPlusStyle}>+{extra}</span>
+            <span style={{ ...trickCirclesPlusStyle, ...(scaleDown < 1 ? { fontSize: Math.max(7, Math.round(10 * scaleDown)) } : {}) }}>+{extra}</span>
           )}
         </div>
       </div>
@@ -1338,6 +1876,7 @@ function OpponentSlot({
   winnerPanelBlink,
   currentTrickLeaderHighlight,
   firstBidderBadge,
+  firstMoverBiddingHighlight,
 }: {
   state: GameState;
   index: number;
@@ -1348,6 +1887,7 @@ function OpponentSlot({
   winnerPanelBlink?: boolean;
   currentTrickLeaderHighlight?: boolean;
   firstBidderBadge?: boolean;
+  firstMoverBiddingHighlight?: boolean;
 }) {
   const p = state.players[index];
   const isActive = state.currentPlayerIndex === index;
@@ -1368,7 +1908,7 @@ function OpponentSlot({
     : {};
   return (
     <div
-      className={position === 'right' ? 'opponent-slot-east' : undefined}
+      className={[position === 'right' ? 'opponent-slot-east' : '', firstMoverBiddingHighlight ? 'first-mover-bidding-panel' : ''].filter(Boolean).join(' ') || undefined}
       style={{
         ...opponentSlotStyle,
         ...northSlotOverrides,
@@ -1377,6 +1917,7 @@ function OpponentSlot({
         overflow: 'visible',
         ...(winnerPanelBlink ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
         ...(currentTrickLeaderHighlight ? currentTrickLeaderGlowStyle : {}),
+        ...(firstMoverBiddingHighlight ? { boxShadow: [(frameStyle?.boxShadow ?? opponentSlotStyle.boxShadow), firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', ') } : {}),
       }}
     >
       {isDealer && (
@@ -1625,7 +2166,14 @@ const gameInfoTopRowSpacerStyle: React.CSSProperties = {
 const headerLeftWrapStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 12,
+  gap: 6,
+};
+
+const headerMenuButtonsWrapStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  flexShrink: 0,
 };
 
 const firstMoveBadgeStyle: React.CSSProperties = {
@@ -1633,11 +2181,12 @@ const firstMoveBadgeStyle: React.CSSProperties = {
   flexDirection: 'row',
   alignItems: 'center',
   gap: 8,
-  padding: '6px 14px',
-  borderRadius: 8,
+  padding: '4px 14px 4px',
+  borderRadius: '8px 8px 0 0',
   border: '1px solid rgba(139, 92, 246, 0.5)',
+  borderBottom: '2px solid rgba(167, 139, 250, 0.9)',
   background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.85) 0%, rgba(67, 56, 202, 0.8) 100%)',
-  boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
 };
 
 const firstMoveLabelStyle: React.CSSProperties = {
@@ -1646,12 +2195,14 @@ const firstMoveLabelStyle: React.CSSProperties = {
   color: '#94a3b8',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
+  lineHeight: 1,
 };
 
 const firstMoveValueStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 700,
   color: '#f8fafc',
+  lineHeight: 1,
 };
 
 const headerRightWrapStyle: React.CSSProperties = {
@@ -1718,7 +2269,7 @@ const gameInfoLeftSectionStyle: React.CSSProperties = {
   gap: 12,
   flexWrap: 'wrap',
   alignItems: 'center',
-  padding: '12px 18px',
+  padding: '18px 22px',
   borderRadius: 12,
   border: '1px solid rgba(139, 92, 246, 0.5)',
   boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1)',
@@ -1765,11 +2316,11 @@ const gameInfoBadgeStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  padding: '8px 16px',
+  padding: '10px 19px',
   background: 'linear-gradient(180deg, rgba(51, 65, 85, 0.7) 0%, rgba(30, 41, 59, 0.8) 100%)',
   borderRadius: 10,
   border: '1px solid rgba(71, 85, 105, 0.5)',
-  minWidth: 100,
+  minWidth: 120,
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
 };
 
@@ -1784,28 +2335,267 @@ const gameInfoBiddingBadgeStyle: React.CSSProperties = {
 };
 
 const gameInfoLabelStyle: React.CSSProperties = {
-  fontSize: 10,
+  fontSize: 12,
   fontWeight: 600,
   color: '#94a3b8',
   textTransform: 'uppercase',
   letterSpacing: '0.6px',
-  marginBottom: 4,
+  marginBottom: 5,
 };
 
 const gameInfoValueStyle: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: 17,
   fontWeight: 700,
   color: '#f8fafc',
 };
 
 const exitBtnStyle: React.CSSProperties = {
-  padding: '8px 16px',
+  padding: '8px 12px',
+  minWidth: 40,
   background: '#334155',
   border: '1px solid #475569',
   borderRadius: 8,
   color: '#f8fafc',
   cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+};
+
+const newGameBtnStyle: React.CSSProperties = {
+  ...exitBtnStyle,
+  padding: '8px 12px',
+  minWidth: 40,
+  background: '#1e3a5f',
+  borderColor: '#2563eb',
+  fontSize: 32,
+  lineHeight: 1,
+  fontWeight: 400,
+};
+
+const newGameConfirmModalStyle: React.CSSProperties = {
+  background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+  borderRadius: 12,
+  padding: 24,
+  maxWidth: 360,
+  width: '90%',
+  border: '1px solid #334155',
+  boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
+};
+
+const newGameConfirmTextStyle: React.CSSProperties = {
+  margin: '0 0 20px',
+  color: '#f8fafc',
+  fontSize: 16,
+  lineHeight: 1.5,
+};
+
+const newGameConfirmButtonsStyle: React.CSSProperties = {
+  display: 'flex',
+  gap: 12,
+  justifyContent: 'flex-end',
+};
+
+const newGameConfirmCancelBtnStyle: React.CSSProperties = {
+  padding: '10px 20px',
+  borderRadius: 8,
+  border: '1px solid #475569',
+  background: '#334155',
+  color: '#f8fafc',
+  cursor: 'pointer',
   fontSize: 14,
+};
+
+const newGameConfirmOkBtnStyle: React.CSSProperties = {
+  padding: '10px 20px',
+  borderRadius: 8,
+  border: '1px solid #2563eb',
+  background: '#1e3a5f',
+  color: '#93c5fd',
+  cursor: 'pointer',
+  fontSize: 14,
+};
+
+const gameOverCelebrationWrapStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: 280,
+  padding: 24,
+};
+const gameOverCelebrationInnerStyle: React.CSSProperties = {
+  textAlign: 'center',
+  padding: '32px 40px',
+  borderRadius: 16,
+  border: '1px solid rgba(34, 211, 238, 0.4)',
+  background: 'linear-gradient(180deg, rgba(30, 58, 138, 0.25) 0%, rgba(15, 23, 42, 0.95) 100%)',
+  boxShadow: '0 0 40px rgba(34, 211, 238, 0.2), inset 0 0 60px rgba(255, 255, 255, 0.04)',
+};
+const gameOverCelebrationTitleStyle: React.CSSProperties = {
+  margin: '0 0 16px',
+  color: '#e2e8f0',
+  fontSize: 22,
+  fontWeight: 700,
+};
+const gameOverCelebrationWinnerStyle: React.CSSProperties = {
+  margin: '0 0 24px',
+  color: '#fcd34d',
+  fontSize: 20,
+  fontWeight: 600,
+  textShadow: '0 0 12px rgba(252, 211, 77, 0.5)',
+};
+const gameOverCelebrationSuperStyle: React.CSSProperties = {
+  margin: '0 0 24px',
+  color: '#4ade80',
+  fontSize: 18,
+  fontWeight: 700,
+  textShadow: '0 0 10px rgba(74, 222, 128, 0.5)',
+};
+const gameOverButtonPrimaryStyle: React.CSSProperties = {
+  padding: '12px 24px',
+  borderRadius: 10,
+  border: '2px solid rgba(34, 211, 238, 0.7)',
+  background: 'linear-gradient(180deg, rgba(34, 211, 238, 0.2) 0%, rgba(21, 94, 117, 0.3) 100%)',
+  color: '#22d3ee',
+  cursor: 'pointer',
+  fontSize: 16,
+  fontWeight: 600,
+  boxShadow: '0 0 16px rgba(34, 211, 238, 0.3)',
+};
+const gameOverExpandedWrapStyle: React.CSSProperties = {
+  padding: '20px 24px 24px',
+  maxWidth: 420,
+  width: '100%',
+  maxHeight: '90vh',
+  overflowY: 'auto',
+};
+const gameOverExpandedTitleStyle: React.CSSProperties = {
+  margin: '0 0 16px',
+  color: '#e2e8f0',
+  fontSize: 20,
+  fontWeight: 700,
+  textAlign: 'center',
+};
+const gameOverTableWrapStyle: React.CSSProperties = {
+  marginBottom: 20,
+  borderRadius: 10,
+  overflow: 'hidden',
+  border: '1px solid rgba(34, 211, 238, 0.35)',
+};
+const gameOverTableStyle: React.CSSProperties = {
+  width: '100%',
+  borderCollapse: 'collapse',
+  background: 'rgba(15, 23, 42, 0.8)',
+};
+const gameOverThStyle: React.CSSProperties = {
+  padding: '10px 12px',
+  textAlign: 'left',
+  color: '#94a3b8',
+  fontSize: 13,
+  fontWeight: 600,
+  borderBottom: '1px solid rgba(34, 211, 238, 0.3)',
+};
+const gameOverTdStyle: React.CSSProperties = {
+  padding: '10px 12px',
+  color: '#e2e8f0',
+  fontSize: 14,
+  borderBottom: '1px solid rgba(34, 211, 238, 0.15)',
+};
+const gameOverTrHumanStyle: React.CSSProperties = {
+  background: 'rgba(34, 211, 238, 0.12)',
+};
+const gameOverStatsWrapStyle: React.CSSProperties = {
+  marginBottom: 16,
+  padding: '12px 16px',
+  borderRadius: 10,
+  border: '1px solid rgba(34, 211, 238, 0.25)',
+  background: 'rgba(15, 23, 42, 0.6)',
+};
+const gameOverStatsTitleStyle: React.CSSProperties = {
+  margin: '0 0 8px',
+  color: '#94a3b8',
+  fontSize: 12,
+  fontWeight: 600,
+  textTransform: 'uppercase',
+};
+const gameOverStatsHintStyle: React.CSSProperties = {
+  margin: '0 0 10px',
+  color: '#64748b',
+  fontSize: 11,
+  fontStyle: 'italic',
+};
+const gameOverStatsRowStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  marginBottom: 4,
+  fontSize: 14,
+  color: '#e2e8f0',
+};
+const gameOverStatsRowWithBarStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  marginBottom: 8,
+  fontSize: 14,
+  color: '#e2e8f0',
+};
+const gameOverProgressTrackStyle: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  height: 8,
+  borderRadius: 4,
+  background: 'rgba(30, 27, 75, 0.35)',
+  backdropFilter: 'blur(8px)',
+  WebkitBackdropFilter: 'blur(8px)',
+  border: '1px solid rgba(129, 140, 248, 0.4)',
+  overflow: 'hidden',
+  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 2px rgba(0, 0, 0, 0.25), 0 0 12px rgba(129, 140, 248, 0.15)',
+};
+const gameOverProgressFillStyle: React.CSSProperties = {
+  height: '100%',
+  borderRadius: 3,
+  background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.8) 0%, rgba(139, 92, 246, 0.85) 100%)',
+  boxShadow: '0 0 12px rgba(139, 92, 246, 0.5), 0 0 20px rgba(99, 102, 241, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+  transition: 'width 0.4s ease-out',
+};
+const gameOverProgressFillBestStyle: React.CSSProperties = {
+  ...gameOverProgressFillStyle,
+  background: 'linear-gradient(90deg, rgba(34, 211, 238, 0.5) 0%, rgba(99, 102, 241, 0.85) 50%, rgba(139, 92, 246, 0.9) 100%)',
+  boxShadow: '0 0 14px rgba(34, 211, 238, 0.5), 0 0 20px rgba(139, 92, 246, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35)',
+};
+const gameOverStatsNameHumanStyle: React.CSSProperties = {
+  color: '#22d3ee',
+  fontWeight: 600,
+};
+const gameOverStatsValueStyle: React.CSSProperties = {};
+const gameOverRatingWrapStyle: React.CSSProperties = {
+  marginBottom: 20,
+  padding: '12px 16px',
+  borderRadius: 10,
+  border: '1px solid rgba(192, 132, 252, 0.35)',
+  background: 'rgba(30, 27, 75, 0.3)',
+};
+const gameOverRatingPlaceholderStyle: React.CSSProperties = {
+  marginTop: 8,
+  fontSize: 12,
+  color: '#a78bfa',
+  fontStyle: 'italic',
+};
+const gameOverButtonsWrapStyle: React.CSSProperties = {
+  display: 'flex',
+  gap: 12,
+  justifyContent: 'center',
+  flexWrap: 'wrap',
+};
+const gameOverButtonSecondaryStyle: React.CSSProperties = {
+  padding: '12px 24px',
+  borderRadius: 10,
+  border: '2px solid rgba(148, 163, 184, 0.6)',
+  background: 'rgba(51, 65, 85, 0.5)',
+  color: '#e2e8f0',
+  cursor: 'pointer',
+  fontSize: 16,
+  fontWeight: 600,
 };
 
 const centerAreaStyle: React.CSSProperties = {
@@ -1856,11 +2646,26 @@ const dealResultsModalStyle: React.CSSProperties = {
   minHeight: 450,
   maxHeight: '75vh',
   minWidth: 400,
+  pointerEvents: 'auto',
+  overflow: 'hidden',
+};
+
+/** Мобильная версия модалки: корень на всю высоту, скролл только у таблицы */
+const dealResultsModalStyleMobile: React.CSSProperties = {
+  minWidth: 0,
+  width: '100%',
+  maxWidth: '100%',
+  flex: 1,
+  minHeight: 0,
+  display: 'flex',
+  flexDirection: 'column',
   overflow: 'hidden',
 };
 
 const MODAL_GAP = 8;
 const MODAL_ROW_GAP = 22;
+const MODAL_GAP_MOBILE = 6;
+const MODAL_ROW_GAP_MOBILE = 12;
 const dealResultsModalFlexStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -1870,6 +2675,23 @@ const dealResultsModalFlexStyle: React.CSSProperties = {
   gap: MODAL_ROW_GAP,
   boxSizing: 'border-box',
   overflow: 'hidden',
+};
+
+const dealResultsModalFlexStyleMobile: React.CSSProperties = {
+  padding: `${MODAL_GAP_MOBILE}px 10px`,
+  gap: MODAL_ROW_GAP_MOBILE,
+  overflow: 'auto',
+  minHeight: 0,
+};
+/** Только для мобильной модалки с таблицей: внешний контейнер не скроллится, скролл только у таблицы */
+const dealResultsTableOuterMobileStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  flex: 1,
+  minHeight: 0,
+  overflow: 'hidden',
+  padding: '10px 8px 10px 4px',
+  boxSizing: 'border-box',
 };
 
 const dealResultsModalRow1Style: React.CSSProperties = {
@@ -1886,12 +2708,23 @@ const dealResultsModalRow2Style: React.CSSProperties = {
   gap: 20,
 };
 
+const dealResultsModalRow2StyleMobile: React.CSSProperties = {
+  gap: 8,
+  flexWrap: 'wrap' as const,
+  justifyContent: 'center',
+};
+
 const dealResultsModalRow3Style: React.CSSProperties = {
   flex: '0 1 auto',
   minHeight: 0,
   display: 'flex',
   justifyContent: 'center',
   overflow: 'hidden',
+};
+
+const dealResultsModalRow3StyleMobile: React.CSSProperties = {
+  flex: '0 0 auto',
+  overflow: 'visible',
 };
 
 const dealResultsChartWrapStyle: React.CSSProperties = {
@@ -1905,6 +2738,12 @@ const dealResultsChartWrapStyle: React.CSSProperties = {
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 0 12px rgba(34, 211, 238, 0.15)',
 };
 
+const dealResultsChartWrapStyleMobile: React.CSSProperties = {
+  maxWidth: '100%',
+  padding: '10px 12px',
+  borderRadius: 10,
+};
+
 const dealResultsChartTitleStyle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
@@ -1913,6 +2752,306 @@ const dealResultsChartTitleStyle: React.CSSProperties = {
   textAlign: 'center',
   letterSpacing: '0.5px',
   textTransform: 'uppercase',
+};
+
+const dealResultsChartTitleStyleMobile: React.CSSProperties = {
+  fontSize: 10,
+  marginBottom: 6,
+};
+
+const dealResultsChartRowStyleMobile: React.CSSProperties = {
+  gap: 4,
+};
+
+const dealResultsChartBarBgStyleMobile: React.CSSProperties = {
+  height: 6,
+};
+
+/** Внешний контейнер таблицы (мобильная модалка) */
+const dealResultsTableWrapOuterStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 8px 10px 4px',
+  boxSizing: 'border-box',
+};
+/** Цвет «З» (заказ) в подписи и заголовках столбцов */
+const DEAL_RESULTS_Z_COLOR = '#a78bfa';
+/** Цвет «О» (очки) в подписи и заголовках столбцов */
+const DEAL_RESULTS_O_COLOR = '#2dd4bf';
+/** Подпись таблицы: З/О — ярко и наглядно */
+const dealResultsTableCaptionStyle: React.CSSProperties = {
+  captionSide: 'top',
+  fontSize: 13,
+  fontWeight: 600,
+  paddingBottom: 6,
+  textAlign: 'center',
+  color: '#cbd5e1',
+  letterSpacing: '0.02em',
+};
+/** Буква «З» в подписи — фиолетовый акцент */
+const dealResultsTableCaptionZStyle: React.CSSProperties = {
+  color: DEAL_RESULTS_Z_COLOR,
+  fontWeight: 800,
+  textShadow: `0 0 6px ${DEAL_RESULTS_Z_COLOR}99, 0 0 2px ${DEAL_RESULTS_Z_COLOR}`,
+};
+/** Буква «О» в подписи — бирюзовый акцент */
+const dealResultsTableCaptionOStyle: React.CSSProperties = {
+  color: DEAL_RESULTS_O_COLOR,
+  fontWeight: 800,
+  textShadow: `0 0 6px ${DEAL_RESULTS_O_COLOR}99, 0 0 2px ${DEAL_RESULTS_O_COLOR}`,
+};
+/** Обёртка индикатора прокрутки: по центру внизу видимой области */
+const dealResultsTableScrollHintWrapStyle: React.CSSProperties = {
+  position: 'absolute',
+  bottom: 12,
+  left: 0,
+  right: 0,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  pointerEvents: 'none',
+  zIndex: 3,
+};
+/** Анимированная стрелка «прокрутите вниз» */
+const dealResultsTableScrollHintChevronStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 28,
+  height: 28,
+  borderRadius: '50%',
+  background: 'rgba(15, 23, 42, 0.9)',
+  border: '1px solid rgba(34, 211, 238, 0.5)',
+  color: '#22d3ee',
+  fontSize: 16,
+  fontWeight: 700,
+  boxShadow: '0 0 12px rgba(34, 211, 238, 0.3), inset 0 0 8px rgba(34, 211, 238, 0.1)',
+};
+/** Обёртка скролла: задаёт область, поверх неё — фиксированные полосы подсветки (не скроллятся) */
+const dealResultsTableScrollWrapStyle: React.CSSProperties = {
+  position: 'relative',
+  flex: 1,
+  minHeight: 0,
+  width: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  boxSizing: 'border-box',
+};
+/** Скролл: этот блок скроллится */
+const dealResultsTableScrollAreaStyle: React.CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+  width: '100%',
+  overflowX: 'auto',
+  overflowY: 'auto',
+  WebkitOverflowScrolling: 'touch',
+  touchAction: 'pan-y',
+  boxSizing: 'border-box',
+};
+/** Полоса неоновой подсветки сверху — не скроллится, привязана к видимой области */
+const dealResultsTableGlowTopStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  height: 26,
+  pointerEvents: 'none',
+  zIndex: 2,
+  borderRadius: '11px 11px 0 0',
+  background: 'linear-gradient(to bottom, rgba(34, 211, 238, 0.52) 0%, rgba(34, 211, 238, 0.22) 45%, transparent 100%)',
+  boxShadow: '0 4px 22px rgba(34, 211, 238, 0.5), 0 0 16px rgba(34, 211, 238, 0.25), inset 0 1px 0 rgba(34, 211, 238, 0.6)',
+};
+/** Полоса неоновой подсветки снизу — не скроллится, привязана к видимой области */
+const dealResultsTableGlowBottomStyle: React.CSSProperties = {
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  height: 28,
+  pointerEvents: 'none',
+  zIndex: 2,
+  borderRadius: '0 0 11px 11px',
+  background: 'linear-gradient(to top, rgba(34, 211, 238, 0.58) 0%, rgba(34, 211, 238, 0.28) 50%, transparent 100%)',
+  boxShadow: '0 -5px 24px rgba(34, 211, 238, 0.55), 0 0 20px rgba(34, 211, 238, 0.28), inset 0 -1px 0 rgba(34, 211, 238, 0.55)',
+};
+/** «Окно» таблицы: рамка, глубина, неоновая внутренняя подсветка (полосы сверху/снизу — в CSS у .deal-results-table-scroll) */
+const dealResultsTableWindowStyle: React.CSSProperties = {
+  width: '100%',
+  minHeight: '100%',
+  position: 'relative',
+  borderRadius: 12,
+  border: '1px solid rgba(34, 211, 238, 0.35)',
+  boxShadow: [
+    'inset 0 -20px 28px -8px rgba(0, 0, 0, 0.35)',
+    '0 0 0 1px rgba(34, 211, 238, 0.2)',
+    '0 4px 20px rgba(0, 0, 0, 0.2)',
+    'inset 0 16px 24px -8px rgba(34, 211, 238, 0.18)',
+    'inset 0 -20px 28px -8px rgba(34, 211, 238, 0.28)',
+    'inset 0 0 40px -8px rgba(34, 211, 238, 0.12)',
+  ].join(', '),
+  background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%)',
+  padding: 1,
+};
+/** Узкая ширина первого столбца для строк с цифрой/Б/Т */
+const DEAL_COLUMN_WIDTH = 14;
+/** Ширина «визуальной» ячейки Итог: текст может выходить в соседнюю ячейку */
+const DEAL_COLUMN_FOOTER_EXTRA = 14;
+const dealResultsTableStyle: React.CSSProperties = {
+  width: '100%',
+  tableLayout: 'fixed',
+  minWidth: DEAL_COLUMN_WIDTH + 8 * 38,
+  borderCollapse: 'collapse',
+  fontSize: 14,
+  color: '#e2e8f0',
+};
+/** Ячейки первого столбца (номер/название раздачи): неоновая подсветка по краю, цифры — серебристый металл */
+const dealResultsTableTdDealStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: '#e2e8f0',
+  minWidth: DEAL_COLUMN_WIDTH,
+  width: DEAL_COLUMN_WIDTH,
+  boxSizing: 'border-box',
+  background: 'linear-gradient(to right, rgba(34, 211, 238, 0.12) 0%, transparent 70%)',
+  boxShadow: 'inset 2px 0 10px rgba(34, 211, 238, 0.2), inset 0 0 12px rgba(34, 211, 238, 0.06)',
+  textShadow: '0 0 1px rgba(255, 255, 255, 0.8), 0 1px 0 rgba(0, 0, 0, 0.15)',
+};
+/** Заголовки первого столбца (№ и футер Итог): неоновая подсветка по краю, текст — серебристый металл */
+const dealResultsTableThDealStyle: React.CSSProperties = {
+  color: '#e2e8f0',
+  textShadow: '0 0 1px rgba(255, 255, 255, 0.8), 0 1px 0 rgba(0, 0, 0, 0.15)',
+  boxShadow: 'inset 2px 0 12px rgba(34, 211, 238, 0.25), inset 0 0 14px rgba(34, 211, 238, 0.08)',
+};
+/** Обёртка ячейки «№»: только центрирует круглый значок */
+const dealResultsTableThNumWrapStyle: React.CSSProperties = {
+  padding: 2,
+  textAlign: 'center',
+  verticalAlign: 'middle',
+};
+/** Круглая рамка-значок с символом «№»: ширина 14, высота в 1.5 раза больше, сдвиг влево */
+const dealResultsTableThNumBadgeStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 14,
+  height: 21,
+  borderRadius: '50%',
+  border: '1px solid rgba(34, 211, 238, 0.6)',
+  background: 'rgba(15, 23, 42, 0.95)',
+  boxShadow: 'inset 0 0 6px rgba(34, 211, 238, 0.1)',
+  transform: 'translateX(-3px)',
+};
+/** Символ «№» внутри значка: вытянут по высоте в 1.5 раза */
+const dealResultsTableThNumSymbolStyle: React.CSSProperties = {
+  display: 'inline-block',
+  fontSize: 9,
+  fontWeight: 700,
+  color: '#94a3b8',
+  lineHeight: 1,
+  transform: 'scaleY(1.5)',
+};
+/** Ячейка «Итог»: та же колонка, но overflow вправо, чтобы слово помещалось */
+const dealResultsTableThDealFooterStyle: React.CSSProperties = {
+  minWidth: DEAL_COLUMN_WIDTH,
+  width: DEAL_COLUMN_WIDTH,
+  overflow: 'visible',
+  whiteSpace: 'nowrap',
+  textAlign: 'left',
+};
+const dealResultsTableThStyle: React.CSSProperties = {
+  padding: '8px 6px',
+  textAlign: 'center',
+  fontWeight: 700,
+  fontSize: 13,
+  color: '#22d3ee',
+  borderBottom: '2px solid rgba(34, 211, 238, 0.5)',
+  background: 'rgba(15, 23, 42, 0.95)',
+  whiteSpace: 'nowrap',
+};
+/** Ячейки с именами игроков: перенос на вторую строку */
+const dealResultsTableThNameStyle: React.CSSProperties = {
+  whiteSpace: 'normal',
+  paddingLeft: 6,
+  paddingRight: 6,
+};
+/** Обёртка текста имени: макс. 2 строки, затем многоточие (только внутренний блок, ячейка не трогается) */
+const dealResultsTableThNameTextStyle: React.CSSProperties = {
+  display: '-webkit-box',
+  WebkitBoxOrient: 'vertical',
+  WebkitLineClamp: 2,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+};
+/** Разделитель слева у ячеек с именами (кроме первой) */
+const dealResultsTableThNameDividerStyle: React.CSSProperties = {
+  borderLeft: '2px solid rgba(34, 211, 238, 0.7)',
+};
+const dealResultsTableTdStyle: React.CSSProperties = {
+  padding: '6px 4px',
+  textAlign: 'center' as const,
+  borderBottom: '1px solid rgba(34, 211, 238, 0.2)',
+};
+/** Фон столбца «заказ» (взяток); цифры — в цвете «З» */
+const dealResultsTableTdBidStyle: React.CSSProperties = {
+  ...dealResultsTableTdStyle,
+  background: 'rgba(30, 58, 138, 0.25)',
+  paddingLeft: 4,
+  paddingRight: 2,
+  color: DEAL_RESULTS_Z_COLOR,
+  fontWeight: 600,
+  textShadow: `0 0 2px ${DEAL_RESULTS_Z_COLOR}e6`,
+};
+/** Первая ячейка футера: отступ слева под overflow «Итог» из первой колонки */
+const dealResultsTableTdFooterFirstStyle: React.CSSProperties = {
+  ...dealResultsTableTdBidStyle,
+  paddingLeft: DEAL_COLUMN_WIDTH + DEAL_COLUMN_FOOTER_EXTRA,
+};
+/** Фон столбца «результат» (очки за раздачу); между парой заказ/результат — минимум отступа */
+const dealResultsTableTdResultStyle: React.CSSProperties = {
+  ...dealResultsTableTdStyle,
+  background: 'rgba(21, 94, 117, 0.2)',
+  paddingLeft: 2,
+  paddingRight: 4,
+};
+/** Заголовок столбца «З» (заказ): цвет + эффект «окна» */
+const dealResultsTableThBidStyle: React.CSSProperties = {
+  ...dealResultsTableThStyle,
+  color: DEAL_RESULTS_Z_COLOR,
+  background: 'rgba(30, 58, 138, 0.4)',
+  width: 38,
+  minWidth: 38,
+  paddingLeft: 4,
+  paddingRight: 4,
+  boxSizing: 'border-box',
+  textShadow: `0 0 4px ${DEAL_RESULTS_Z_COLOR}88`,
+  borderRight: '2px solid rgba(34, 211, 238, 0.7)',
+  boxShadow: 'inset 0 0 10px rgba(34, 211, 238, 0.08), inset 0 1px 0 rgba(34, 211, 238, 0.2)',
+};
+/** Левый разделитель только у первой ячейки «З» в строке */
+const dealResultsTableThBidFirstStyle: React.CSSProperties = {
+  borderLeft: '2px solid rgba(34, 211, 238, 0.7)',
+};
+/** Заголовок столбца «О» (очки): цвет + эффект «окна» */
+const dealResultsTableThResultStyle: React.CSSProperties = {
+  ...dealResultsTableThStyle,
+  color: DEAL_RESULTS_O_COLOR,
+  background: 'rgba(21, 94, 117, 0.35)',
+  width: 38,
+  minWidth: 38,
+  paddingLeft: 5,
+  paddingRight: 4,
+  borderLeft: '2px solid rgba(34, 211, 238, 0.7)',
+  borderRight: '2px solid rgba(34, 211, 238, 0.7)',
+  boxSizing: 'border-box',
+  textShadow: `0 0 4px ${DEAL_RESULTS_O_COLOR}88`,
+  boxShadow: 'inset 0 0 10px rgba(34, 211, 238, 0.08), inset 0 1px 0 rgba(34, 211, 238, 0.2)',
+};
+const dealResultsTableTfootStyle: React.CSSProperties = {
+  padding: '8px 6px',
+  fontWeight: 800,
+  fontSize: 14,
+  color: '#fcd34d',
+  background: 'rgba(30, 41, 59, 0.9)',
+  borderTop: '2px solid rgba(34, 211, 238, 0.6)',
 };
 
 const dealResultsChartBarsStyle: React.CSSProperties = {
@@ -2003,6 +3142,12 @@ const dealResultsPanelStyle: React.CSSProperties = {
   ].join(', '),
 };
 
+const dealResultsPanelStyleMobile: React.CSSProperties = {
+  padding: '6px 10px',
+  minWidth: 72,
+  borderRadius: 10,
+};
+
 const dealResultsPanelTitleStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 700,
@@ -2012,12 +3157,22 @@ const dealResultsPanelTitleStyle: React.CSSProperties = {
   letterSpacing: '0.5px',
 };
 
+const dealResultsPanelTitleStyleMobile: React.CSSProperties = {
+  fontSize: 10,
+  marginBottom: 4,
+};
+
 const dealResultsRowStyle: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
   gap: 12,
   fontSize: 11,
+};
+
+const dealResultsRowStyleMobile: React.CSSProperties = {
+  gap: 6,
+  fontSize: 10,
 };
 
 const dealResultsLabelStyle: React.CSSProperties = {
@@ -2525,6 +3680,8 @@ const playerNameDealerWrapStyle: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
+  minWidth: 0,
+  flex: '1 1 0',
 };
 
 const playerNameStyle: React.CSSProperties = {
@@ -2658,11 +3815,39 @@ const bidSidePanelButton: React.CSSProperties = {
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 4px rgba(0,0,0,0.15)',
 };
 
+/** Только мобильная версия: кнопки заказа в стиле приложения (cyan/teal, больше подсветки) */
+const bidSidePanelButtonMobile: React.CSSProperties = {
+  width: 40,
+  height: 40,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: 12,
+  border: '1px solid rgba(34, 211, 238, 0.85)',
+  background: 'linear-gradient(180deg, rgba(20, 184, 166, 0.45) 0%, rgba(15, 23, 42, 0.92) 50%, rgba(6, 78, 59, 0.5) 100%)',
+  color: '#5eead4',
+  fontSize: 18,
+  fontWeight: 700,
+  cursor: 'pointer',
+  userSelect: 'none',
+  transition: 'transform 0.12s ease, box-shadow 0.2s ease',
+  boxShadow: 'inset 0 1px 0 rgba(34, 211, 238, 0.5), inset 0 0 14px rgba(34, 211, 238, 0.15), 0 0 20px rgba(34, 211, 238, 0.45), 0 0 10px rgba(94, 234, 212, 0.3), 0 2px 8px rgba(0,0,0,0.3)',
+};
+
 const bidSidePanelButtonDisabled: React.CSSProperties = {
   background: 'rgba(88, 28, 40, 0.5)',
   border: '1px solid rgba(88, 28, 40, 0.6)',
   color: 'rgba(255,255,255,0.6)',
   cursor: 'not-allowed',
+};
+
+/** Отключённая кнопка заказа — только мобильная */
+const bidSidePanelButtonDisabledMobile: React.CSSProperties = {
+  background: 'rgba(30, 41, 59, 0.8)',
+  border: '1px solid rgba(71, 85, 105, 0.6)',
+  color: 'rgba(148, 163, 184, 0.6)',
+  cursor: 'not-allowed',
+  boxShadow: 'none',
 };
 
 const modalOverlay: React.CSSProperties = {
