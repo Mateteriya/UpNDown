@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Валет — Кот в шляпе (4 масти)</title>
+  <title>Демо карт (ПК) — Up&amp;Down</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -13,180 +13,33 @@
       min-height: 100vh;
       margin: 0;
       padding: 24px;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 8px;
-      font-size: 1.5rem;
-    }
-    .subtitle {
-      text-align: center;
-      color: #94a3b8;
-      margin-bottom: 12px;
-      font-size: 0.95rem;
-    }
-    .section-title {
-      text-align: center;
-      font-size: 1.1rem;
-      margin: 32px 0 16px;
-      color: #cbd5e1;
-    }
-    .cards {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 24px;
-      max-width: 900px;
-      margin: 0 auto;
-    }
-    .card-wrap {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 12px;
-    }
-    .card {
-      width: 140px;
-      height: 200px;
-      border-radius: 10px;
-      padding: 6px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      position: relative;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    }
-    .card.spades { border: 3px solid #22d3ee; box-shadow: 0 0 0 2px #22d3ee, 0 8px 24px rgba(0,0,0,0.4); background: linear-gradient(145deg, #f8fafc, #e2e8f0); }
-    .card.hearts { border: 3px solid #f472b6; box-shadow: 0 0 0 2px #f472b6, 0 8px 24px rgba(0,0,0,0.4); background: linear-gradient(145deg, #fdf2f8, #fce7f3); }
-    .card.diamonds { border: 3px solid #fbbf24; box-shadow: 0 0 0 2px #fbbf24, 0 8px 24px rgba(0,0,0,0.4); background: linear-gradient(145deg, #fffbeb, #fef3c7); }
-    .card.clubs { border: 3px solid #34d399; box-shadow: 0 0 0 2px #34d399, 0 8px 24px rgba(0,0,0,0.4); background: linear-gradient(145deg, #f0fdf4, #dcfce7); }
-    .card .corner {
-      position: absolute;
-      top: 4px;
-      left: 6px;
-      font-weight: 700;
-      font-size: 24px;
-      line-height: 1.2;
-    }
-    .card .corner-bottom {
-      top: auto;
-      left: auto;
-      bottom: 4px;
-      right: 6px;
-      transform: rotate(180deg);
-    }
-    .card.spades .corner { color: #0f172a; }
-    .card.hearts .corner { color: #dc2626; }
-    .card.diamonds .corner { color: #b45309; }
-    .card.clubs .corner { color: #0f172a; }
-    .card .suit { font-size: 26px; }
-    .card .center {
-      flex: 1;
-      display: flex;
-      align-items: center;
       justify-content: center;
-      width: 100%;
-      padding: 4px;
-      overflow: hidden;
-    }
-    /* Голова кота — чуть больше трети карты */
-    .card .center img {
-      max-width: 92%;
-      max-height: 42%;
-      object-fit: contain;
-    }
-    .card-label {
-      font-size: 0.85rem;
-      color: #cbd5e1;
       text-align: center;
-      max-width: 140px;
     }
-    .saved-section {
-      margin-top: 40px;
-      padding-top: 24px;
-      border-top: 1px solid rgba(148, 163, 184, 0.3);
-    }
-    .saved-section .cards .card { border: 3px solid #64748b; box-shadow: 0 0 0 2px #64748b, 0 8px 24px rgba(0,0,0,0.4); }
-    .saved-section .card .center img { max-height: 100%; }
-    .note {
-      text-align: center;
-      margin-top: 24px;
-      padding: 16px;
-      background: rgba(34, 211, 238, 0.1);
+    h1 { font-size: 1.5rem; margin-bottom: 8px; }
+    p { color: #94a3b8; margin-bottom: 20px; max-width: 420px; }
+    a {
+      display: inline-block;
+      padding: 12px 24px;
+      font-size: 1rem;
       border-radius: 8px;
-      border: 1px solid rgba(34, 211, 238, 0.3);
-      max-width: 560px;
-      margin-left: auto;
-      margin-right: auto;
-      font-size: 0.9rem;
-      line-height: 1.5;
+      border: 1px solid rgba(34, 211, 238, 0.5);
+      background: rgba(34, 211, 238, 0.15);
+      color: #22d3ee;
+      text-decoration: none;
+      transition: background 0.2s;
     }
+    a:hover { background: rgba(34, 211, 238, 0.25); }
   </style>
 </head>
 <body>
-  <h1>Валет — Кот в шляпе</h1>
-  <p class="subtitle">4 варианта по мастям (голова ~⅓ карты, кот-парень)</p>
-
-  <p class="section-title">Для этого проекта — валеты по мастям</p>
-  <div class="cards">
-    <div class="card-wrap">
-      <div class="card spades">
-        <span class="corner">В<br><span class="suit">♠</span></span>
-        <span class="corner corner-bottom">В<br><span class="suit">♠</span></span>
-        <div class="center">
-          <img src="images/jack-cat-hat-spades.png" onerror="this.src='images/jack-cat-in-hat.png'" alt="Валет ♠">
-        </div>
-      </div>
-      <span class="card-label">♠ Пики</span>
-    </div>
-    <div class="card-wrap">
-      <div class="card hearts">
-        <span class="corner">В<br><span class="suit">♥</span></span>
-        <span class="corner corner-bottom">В<br><span class="suit">♥</span></span>
-        <div class="center">
-          <img src="images/jack-cat-hat-hearts.png" onerror="this.src='images/jack-cat-in-hat.png'" alt="Валет ♥">
-        </div>
-      </div>
-      <span class="card-label">♥ Червы</span>
-    </div>
-    <div class="card-wrap">
-      <div class="card diamonds">
-        <span class="corner">В<br><span class="suit">♦</span></span>
-        <span class="corner corner-bottom">В<br><span class="suit">♦</span></span>
-        <div class="center">
-          <img src="images/jack-cat-hat-diamonds.png" onerror="this.src='images/jack-cat-in-hat.png'" alt="Валет ♦">
-        </div>
-      </div>
-      <span class="card-label">♦ Бубны</span>
-    </div>
-    <div class="card-wrap">
-      <div class="card clubs">
-        <span class="corner">В<br><span class="suit">♣</span></span>
-        <span class="corner corner-bottom">В<br><span class="suit">♣</span></span>
-        <div class="center">
-          <img src="images/jack-cat-hat-clubs.png" onerror="this.src='images/jack-cat-in-hat.png'" alt="Валет ♣">
-        </div>
-      </div>
-      <span class="card-label">♣ Трефы</span>
-    </div>
-  </div>
-
-  <p class="section-title saved-section">Сохранено для других проектов</p>
-  <div class="cards">
-    <div class="card-wrap">
-      <div class="card">
-        <span class="corner">В<br><span class="suit">♠</span></span>
-        <span class="corner corner-bottom">В<br><span class="suit">♠</span></span>
-        <div class="center">
-          <img src="saved-for-other-projects/jack-puss-in-boots.png" alt="Кот в сапогах">
-        </div>
-      </div>
-      <span class="card-label">Кот в сапогах (бомба — для других проектов)</span>
-    </div>
-  </div>
-
-  <p class="note">
-    Сейчас для всех мастей показывается один и тот же <code>jack-cat-in-hat.png</code> (голова ограничена ~⅓ карты через CSS). Когда будут готовы 4 отдельных файла по мастям — положите их в <code>images/</code> как <code>jack-cat-hat-spades.png</code>, <code>jack-cat-hat-hearts.png</code>, <code>jack-cat-hat-diamonds.png</code>, <code>jack-cat-hat-clubs.png</code> и замените в разметке. Кот в сапогах сохранён в <code>saved-for-other-projects/</code> для других проектов.
-  </p>
+  <h1>Демо карт (ПК)</h1>
+  <p>Подбор стилей для рук, стола, анимации и козыря теперь в приложении.</p>
+  <p>Запустите <code>npm run dev</code> и откройте в браузере:</p>
+  <a href="/demo">Открыть демо карт →</a>
+  <p style="margin-top: 24px; font-size: 0.85rem;">Если открыли этот файл напрямую — перейдите в корень проекта, выполните <code>npm run dev</code> и откройте <code>http://localhost:5173/demo</code></p>
 </body>
 </html>

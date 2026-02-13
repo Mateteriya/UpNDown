@@ -51,7 +51,15 @@
   50% { opacity: 1; filter: brightness(1.08); }
 }
 
-/* ПК: кнопка «обновить» под кнопкой «домой»; бейдж «I:» закреплён НАД блоком «Заказывает / Сейчас ход», нижняя грань бейджа — к верхней грани блока */
+/* Блеск на козырях в руке во время заказа взяток (мобильная и ПК) */
+@keyframes card-trump-shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+/* ПК: кнопка «обновить» под кнопкой «домой»; бейдж «I:» закреплён НАД блоком «Заказывает / Сейчас ход», нижняя грань бейджа — к верхней грани блока.
+   Чтобы правки карт на ПК НЕ ЗАДЕВАЛИ мобильную: все стили карт для ПК — только здесь и с селектором .game-table-root:not(.viewport-mobile).
+   См. docs/PC-CARDS-PROTECT-MOBILE.md */
 @media (min-width: 1025px) {
   .game-table-root .game-header > div:first-child > div:first-child {
     flex-direction: column !important;
@@ -160,6 +168,17 @@
       drop-shadow(0 5px 14px rgba(0, 0, 0, 0.45))
       drop-shadow(0 -3px 6px rgba(255, 255, 255, 0.25));
   }
+}
+
+/* Туз крестей: обводка голубая + лёгкое свечение, глубокий ультрафиолет + свечение (без мерцания) */
+.card-ace-clubs-img {
+  filter:
+    drop-shadow(0 0 1px #22d3ee)
+    drop-shadow(0 0 4px rgba(34, 211, 238, 0.4))
+    drop-shadow(0 0 6px #5b21b6)
+    drop-shadow(0 0 10px rgba(91, 33, 182, 0.5))
+    drop-shadow(0 5px 14px rgba(0, 0, 0, 0.45))
+    drop-shadow(0 -3px 6px rgba(255, 255, 255, 0.25));
 }
 
 /* Планшет: экран ~768–1024px */
@@ -312,6 +331,10 @@
     max-height: min(42vh, 220px) !important;
     overflow: hidden !important;
     margin-top: 0 !important;
+  }
+  /* Чтобы неоновая подсветка панели заказа/очков не обрезалась прямоугольником, даём overflow: visible когда панель в «ваш ход» */
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-bottom-row:has(.player-info-panel-your-turn) {
+    overflow: visible !important;
   }
   .game-table-root.viewport-mobile .game-table-block-mobile .game-center-area.game-mobile-center {
     margin-bottom: 0 !important;
@@ -896,6 +919,11 @@
     padding-top: 4px !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
+    border-radius: 14px !important; /* в тон панели .game-mobile-player-info, чтобы контейнер не обрезал подсветку прямоугольником */
+  }
+  /* Чтобы неоновое свечение панели не обрезалось, при «ваш ход» разрешаем overflow */
+  .game-table-root.viewport-mobile .game-mobile-player-panel:has(.player-info-panel-your-turn) {
+    overflow: visible !important;
   }
   .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info {
     padding: 3px 6px !important;
@@ -1058,6 +1086,13 @@ body {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 8px rgba(0,0,0,0.2) !important;
   transform: scale(1.02);
 }
+/* Встроенная панель заказа (ПК): полупрозрачные кнопки в стиле мобильной — hover в тон cyan/teal */
+.bid-panel-inline .bid-panel-btn:not(:disabled):hover {
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.55) 0%, rgba(20, 184, 166, 0.5) 50%, rgba(6, 78, 59, 0.6) 100%) !important;
+  border-color: rgba(34, 211, 238, 0.95) !important;
+  box-shadow: inset 0 1px 0 rgba(34, 211, 238, 0.55), inset 0 0 16px rgba(34, 211, 238, 0.2), 0 0 24px rgba(34, 211, 238, 0.5), 0 2px 8px rgba(0,0,0,0.3) !important;
+  transform: scale(1.02);
+}
 
 /* Панель «Ваш заказ»: на планшете и мобильных — внутри панели игрока */
 .bid-panel-floating {
@@ -1170,22 +1205,22 @@ body {
   }
 }
 
-/* Панель карт игрока: мягкая мигающая подсветка, когда его ход */
+/* Панель карт игрока: умеренная подсветка рамки, когда его ход (не такая сильная, как у панели заказа) */
 @keyframes playerHandYourTurnGlow {
   0%, 100% {
     box-shadow:
-      0 0 0 1px rgba(34, 211, 238, 0.4),
-      0 0 24px rgba(34, 211, 238, 0.2),
-      0 0 48px rgba(34, 211, 238, 0.1),
+      0 0 0 1px rgba(34, 211, 238, 0.5),
+      0 0 16px rgba(34, 211, 238, 0.22),
+      0 0 32px rgba(34, 211, 238, 0.12),
       0 6px 24px rgba(0, 0, 0, 0.35),
       inset 0 2px 4px rgba(255, 255, 255, 0.1),
       inset 0 -2px 6px rgba(0, 0, 0, 0.18);
   }
   50% {
     box-shadow:
-      0 0 0 3px rgba(34, 211, 238, 0.7),
-      0 0 40px rgba(34, 211, 238, 0.45),
-      0 0 80px rgba(34, 211, 238, 0.25),
+      0 0 0 2px rgba(34, 211, 238, 0.65),
+      0 0 24px rgba(34, 211, 238, 0.35),
+      0 0 48px rgba(34, 211, 238, 0.18),
       0 6px 24px rgba(0, 0, 0, 0.35),
       inset 0 2px 4px rgba(255, 255, 255, 0.1),
       inset 0 -2px 6px rgba(0, 0, 0, 0.18);
@@ -1228,6 +1263,89 @@ body {
   .deal-results-overlay-animation .deal-results-panel-south {
     bottom: -12px;
   }
+}
+
+/* ПК: оверлей результатов раздачи — сетка 2×2, панели равномерно с отступами; контейнер по высоте под контент */
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  grid-template-rows: auto auto !important;
+  gap: 14px !important;
+  padding: 16px !important;
+  align-items: stretch !important;
+  justify-items: stretch !important;
+  height: auto !important;
+  min-height: 380px !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-north {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  position: static !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-east {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  position: static !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-south {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  position: static !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  border: 2px solid rgba(255, 255, 255, 0.85) !important;
+  box-shadow:
+    0 0 0 2px rgba(220, 240, 255, 0.6),
+    0 0 20px rgba(255, 255, 255, 0.35),
+    0 0 36px rgba(200, 230, 255, 0.25),
+    inset 0 0 24px rgba(255, 255, 255, 0.08) !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-west {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+  position: static !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-panel-title-overlay {
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
 }
 
 /* Мобильная версия: итоги раздачи — сетка 2×2 по центру, чуть ниже середины; панель пользователя (Юг) с рамкой */
@@ -1316,7 +1434,83 @@ body.deal-results-modal-open-mobile {
   height: 0 !important;
 }
 
-/* Таблица результатов в мобильной модалке: разделители столбцов */
+/* Мобильная: первый столбец — всё по центру (надпись «Раздача», цифры раздач, «Итог»), высота строк заголовков чуть увеличена */
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr.deal-results-table-mobile-header-row th {
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+/* Мобильная: статичные вертикальные линии между именами игроков в первой строке шапки */
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th {
+  position: relative !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:nth-child(n+2)::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 2px !important;
+  background: linear-gradient(180deg, transparent 0%, rgba(167, 139, 250, 0.7) 15%, rgba(167, 139, 250, 0.85) 50%, rgba(167, 139, 250, 0.7) 85%, transparent 100%) !important;
+  pointer-events: none !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:last-child::after {
+  content: '' !important;
+  position: absolute !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 2px !important;
+  background: linear-gradient(180deg, transparent 0%, rgba(167, 139, 250, 0.7) 15%, rgba(167, 139, 250, 0.85) 50%, rgba(167, 139, 250, 0.7) 85%, transparent 100%) !important;
+  pointer-events: none !important;
+}
+/* Мобильная: в ячейках с именами до 3 строк, длинные слова переносим/разбиваем (только внутренний span) */
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:not(:first-child) > span {
+  -webkit-line-clamp: 3 !important;
+  line-clamp: 3 !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  min-width: 0 !important;
+}
+/* Первый столбец: принудительный сдвиг контента влево */
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr th:first-child,
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc tbody tr td:first-child,
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc tfoot tr th:first-child {
+  text-align: center !important;
+  padding-left: 5px !important;
+  padding-right: 5px !important;
+  box-sizing: border-box !important;
+  transform: translateX(-3px) !important;
+}
+/* Итог: объединённая ячейка (Раздача + Заказано) — без сдвига, по центру */
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc tfoot tr th.deal-results-tfoot-total-mobile {
+  transform: none !important;
+  min-width: auto !important;
+  width: auto !important;
+}
+/* Ячейка с «Раздача» — флекс по центру */
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:first-child {
+  vertical-align: middle !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  flex-direction: column !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:first-child .deal-results-table-vertical-label {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.8), 0 1px 0 rgba(0, 0, 0, 0.15);
+  letter-spacing: 0.02em;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:first-child .deal-results-table-vertical-label > span {
+  display: block !important;
+  text-align: center !important;
+}
+
+/* Разделители столбцов */
 /* 1) Между игроками (полная граница между блоком «Заказ+Очки» одного игрока и следующего) */
 /* Слева: между столбцом № и первым игроком — тоньше и прозрачнее */
 .deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(1) th:nth-child(1),
@@ -1332,13 +1526,13 @@ body.deal-results-modal-open-mobile {
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(3),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(5),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(7),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(3),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(5),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(7),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(2),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(4),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(6),
 /* Справа: после последнего игрока */
 .deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(9),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(9),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(9) {
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(8) {
   border-right: 2px solid rgba(34, 211, 238, 0.75) !important;
 }
 /* Подсветка только шапки столбца с именем игрока-пользователя: белая неоновая */
@@ -1349,7 +1543,7 @@ body.deal-results-modal-open-mobile {
 /* Разделитель между игроком-пользователем и следующим игроком — поярче, сиреневый */
 .deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(3),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(3),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(3) {
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(2) {
   border-right: 2px solid rgba(192, 132, 252, 0.9) !important;
 }
 
@@ -1362,10 +1556,9 @@ body.deal-results-modal-open-mobile {
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(4),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(6),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(8),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(2),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(4),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(6),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(8) {
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(3),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(5),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(7) {
   border-right: 1px solid rgba(255, 255, 255, 0.35) !important;
 }
 
@@ -1380,12 +1573,359 @@ body.deal-results-modal-open-mobile {
     inset 0 -20px 28px -8px rgba(34, 211, 238, 0.28),
     inset 0 0 40px -8px rgba(34, 211, 238, 0.12) !important;
 }
-/* Контейнер таблицы: прокрутка (подсветка сверху/снизу — отдельные div в .deal-results-table-scroll-wrap) */
+/* Мобильная: та же схема — шапка фиксирована, скролл только по строкам результатов и «Итог» */
 .deal-results-modal-overlay-mobile .deal-results-table-scroll {
-  overflow-y: scroll !important;
+  overflow: hidden !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  -webkit-overflow-scrolling: touch;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window:has(.deal-results-table-header-pc) {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window:has(.deal-results-table-header-pc) > div:first-child {
+  flex-shrink: 0 !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc {
+  flex-shrink: 0 !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-body-scroll-pc {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-y;
   overscroll-behavior-y: contain;
+}
+
+/* ПК-модалка: таблица результатов — скролл и адаптация */
+.deal-results-table-outer-pc .deal-results-table-scroll-wrap {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  isolation: isolate !important; /* контент не вылезает над неоновой полосой */
+}
+/* ПК: контейнер таблицы — флекс, скролла нет; скролл только у .deal-results-table-body-scroll-pc */
+.deal-results-table-outer-pc .deal-results-table-scroll {
+  overflow: hidden !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  z-index: 0 !important;
+}
+.deal-results-table-outer-pc .deal-results-table-window:has(.deal-results-table-unified-scroll-pc) {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  padding: 14px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-width: fit-content !important;
+}
+.deal-results-table-outer-pc .deal-results-table-body-scroll-pc {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(167, 139, 250, 0.55) rgba(139, 92, 246, 0.12) !important;
+  box-sizing: border-box !important;
+}
+.deal-results-table-outer-pc .deal-results-table-body-scroll-pc::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+.deal-results-table-outer-pc .deal-results-table-body-scroll-pc::-webkit-scrollbar-track {
+  background: rgba(139, 92, 246, 0.1) !important;
+  border-radius: 4px !important;
+}
+.deal-results-table-outer-pc .deal-results-table-body-scroll-pc::-webkit-scrollbar-thumb {
+  background: rgba(167, 139, 250, 0.5) !important;
+  border-radius: 4px !important;
+}
+.deal-results-table-outer-pc .deal-results-table-body-scroll-pc::-webkit-scrollbar-thumb:hover {
+  background: rgba(167, 139, 250, 0.7) !important;
+}
+.deal-results-table-outer-pc .deal-results-table-body-scroll-pc::-webkit-scrollbar-corner {
+  background: rgba(139, 92, 246, 0.08) !important;
+  border-radius: 4px !important;
+}
+.deal-results-table-outer-pc .deal-results-table-window {
+  padding: 14px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-width: fit-content;
+}
+.deal-results-table-outer-pc .deal-results-table-window table {
+  font-size: 15px !important;
+  border-collapse: collapse !important;
+}
+.deal-results-table-outer-pc .deal-results-table-window caption {
+  font-size: 13px !important;
+  padding-bottom: 8px !important;
+}
+.deal-results-table-outer-pc .deal-results-table-window th,
+.deal-results-table-outer-pc .deal-results-table-window td {
+  padding: 6px 8px !important;
+}
+
+/* ПК: боковая рамка без скруглений, границы полупрозрачные; без линий сверху и снизу (полосы от glow-div) */
+.deal-results-table-outer-pc .deal-results-table-window {
+  position: relative !important;
+  border-radius: 0 !important;
+  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  border-top: none !important;
+  border-bottom: none !important;
+  box-shadow: 0 0 24px rgba(100, 116, 139, 0.1), 0 4px 24px rgba(0, 0, 0, 0.2) !important;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%) !important;
+}
+/* ПК: одна неоновая линия по верхней границе таблицы — насыщенный голубой */
+.deal-results-table-outer-pc .deal-results-table-window::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0%, rgba(100, 180, 255, 1) 15%, rgba(140, 200, 255, 1) 50%, rgba(100, 180, 255, 1) 85%, transparent 100%);
+  box-shadow: 0 0 10px rgba(140, 200, 255, 0.95), 0 0 22px rgba(100, 180, 255, 0.9), 0 0 32px rgba(70, 150, 255, 0.85), 0 0 28px rgba(50, 130, 255, 0.8);
+  z-index: 2;
+  pointer-events: none;
+}
+.deal-results-table-outer-pc .deal-results-table-window table .deal-results-cell-human {
+  box-shadow: inset 0 0 20px 2px rgba(129, 140, 248, 0.12), inset 0 0 0 1px rgba(167, 139, 250, 0.2) !important;
+  background-image: linear-gradient(180deg, rgba(129, 140, 248, 0.08) 0%, transparent 55%) !important;
+}
+.deal-results-table-outer-pc .deal-results-table-window table thead tr:first-child th.deal-results-cell-human {
+  color: rgba(224, 231, 255, 0.95) !important;
+  text-shadow: 0 0 12px rgba(167, 139, 250, 0.4) !important;
+}
+
+/* ПК: первый столбец — подсветка слева и справа, серебристый градиент текста */
+.deal-results-table-outer-pc .deal-results-table-window table .deal-results-deal-column-pc {
+  background: linear-gradient(to right, rgba(34, 211, 238, 0.14) 0%, transparent 35%, transparent 65%, rgba(34, 211, 238, 0.14) 100%) !important;
+  box-shadow: inset 2px 0 10px rgba(34, 211, 238, 0.22), inset -2px 0 10px rgba(34, 211, 238, 0.22), inset 0 0 12px rgba(34, 211, 238, 0.06) !important;
+}
+.deal-results-table-outer-pc .deal-results-table-window table .deal-results-deal-cell-label {
+  background: linear-gradient(180deg, #f1f5f9 0%, #cbd5e1 45%, #94a3b8 55%, #e2e8f0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+}
+
+/* ПК: одна таблица — одна ширина, шапка липкая при скролле */
+.deal-results-table-outer-pc .deal-results-table-unified-pc {
+  table-layout: fixed !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1 !important;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+/* ПК: статичные вертикальные линии между именами игроков в шапке (::before по границе ячейки) */
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th {
+  position: relative !important;
+}
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th:nth-child(n+2)::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 2px !important;
+  background: linear-gradient(180deg, transparent 0%, rgba(167, 139, 250, 0.7) 15%, rgba(167, 139, 250, 0.85) 50%, rgba(167, 139, 250, 0.7) 85%, transparent 100%) !important;
+  pointer-events: none !important;
+}
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th:last-child::after {
+  content: '' !important;
+  position: absolute !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 2px !important;
+  background: linear-gradient(180deg, transparent 0%, rgba(167, 139, 250, 0.7) 15%, rgba(167, 139, 250, 0.85) 50%, rgba(167, 139, 250, 0.7) 85%, transparent 100%) !important;
+  pointer-events: none !important;
+}
+/* ПК: ячейки шапки («Заказ»/«Очки») — ширина из колонки */
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:nth-child(2) th:not(:first-child) {
+  width: auto !important;
+  min-width: 0 !important;
+}
+
+/* ПК: ячейки с цифрами (заказ и очки) — база: padding и рамка; подсветка только у пользователя и лидера (ниже) */
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:nth-child(2) th:not(:first-child),
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:not(:first-child),
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td:not(.deal-results-cell-winner) {
+  box-sizing: border-box !important;
+  padding: 6px 5px !important;
+  border-radius: 3px !important;
+}
+/* ПК: остальные игроки (не пользователь, не лидер) — нейтральный фон, без «стекла» */
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th:nth-child(n+2):not(.deal-results-cell-human):not(.deal-results-column-leader) {
+  background: rgba(30, 41, 59, 0.6) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+}
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:nth-child(2) th:not(:first-child):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:not(:first-child):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td:not(.deal-results-cell-winner):not(.deal-results-cell-human):not(.deal-results-column-leader) {
+  background: linear-gradient(145deg, rgba(51, 65, 85, 0.5) 0%, rgba(30, 41, 59, 0.6) 50%, rgba(51, 65, 85, 0.4) 100%) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.08) !important;
+}
+/* ПК: лёгкое размытие цифр только у пользователя и лидера (у остальных не применяем) */
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:not(:first-child).deal-results-cell-human,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:not(:first-child).deal-results-column-leader,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td.deal-results-cell-human,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td.deal-results-column-leader {
+  filter: blur(0.35px);
+}
+/* ПК: неоновое свечение очков только у колонки пользователя и лидера */
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:nth-child(3).deal-results-cell-human,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:nth-child(3).deal-results-column-leader,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:nth-child(5).deal-results-cell-human,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:nth-child(5).deal-results-column-leader,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:nth-child(7).deal-results-cell-human,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:nth-child(7).deal-results-column-leader,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:nth-child(9).deal-results-cell-human,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:nth-child(9).deal-results-column-leader,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td:nth-child(3).deal-results-cell-human,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td:nth-child(3).deal-results-column-leader,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td:nth-child(5).deal-results-cell-human,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td:nth-child(5).deal-results-column-leader,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td:nth-child(7).deal-results-cell-human,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td:nth-child(7).deal-results-column-leader,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td:nth-child(9).deal-results-cell-human,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td:nth-child(9).deal-results-column-leader {
+  text-shadow: 0 0 8px currentColor, 0 0 14px currentColor, 0 0 20px currentColor, 0 0 24px rgba(0, 0, 0, 0.12);
+}
+/* ПК: ячейка победителя в футере — золотой фон + рамка «стекла», тот же padding */
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td.deal-results-cell-winner {
+  box-sizing: border-box !important;
+  padding: 6px 5px !important;
+  box-shadow:
+    inset 0 0 16px 2px rgba(251, 191, 36, 0.2),
+    inset 0 0 0 1px rgba(251, 191, 36, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.06) !important;
+  border-radius: 3px !important;
+}
+
+/* Мобильная: столбец лидера — свет в ячейках + все границы (левая столбца, разделитель Заказ/Очки, правая столбца) */
+.deal-results-modal-overlay-mobile .deal-results-column-leader {
+  box-shadow: inset 0 0 24px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.9) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, transparent 50%) !important;
+  border-left: 3px solid rgba(167, 139, 250, 1) !important;
+}
+/* Мобильная: правая граница столбца «Очки» — рисуем внутри ячейки (градиент), чтобы не перекрывалась */
+.deal-results-modal-overlay-mobile .deal-results-column-leader.deal-results-column-leader-r {
+  border-right: none !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, transparent 50%),
+    linear-gradient(to left, rgba(167, 139, 250, 1) 0px, rgba(167, 139, 250, 1) 3px, transparent 3px) !important;
+  background-size: 100% 100%, 3px 100% !important;
+  background-position: 0 0, right top !important;
+  background-repeat: no-repeat !important;
+  box-shadow: inset 0 0 24px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.9), -2px 0 12px rgba(167, 139, 250, 0.55), 2px 0 12px rgba(167, 139, 250, 0.55) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-column-leader:not(.deal-results-column-leader-r) {
+  box-shadow: inset 0 0 24px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.9), -2px 0 12px rgba(167, 139, 250, 0.55) !important;
+}
+
+/* ПК: столбец лидера — только свет в ячейках, без границ столбца */
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:nth-child(2) th.deal-results-column-leader,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td.deal-results-column-leader,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td.deal-results-column-leader {
+  box-sizing: border-box !important;
+  padding: 6px 5px !important;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.28) 0%, rgba(210, 195, 255, 0.12) 45%, rgba(255, 255, 255, 0.2) 100%) !important;
+  box-shadow:
+    inset 0 0 26px 4px rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.95),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.06) !important;
+  border-radius: 3px !important;
+}
+/* ПК: только одна линия — между «Заказ» и «Очки» лидера (левая грань ячейки «Очки», рисуем inset) */
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:nth-child(2) th.deal-results-column-leader.deal-results-column-leader-r,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td.deal-results-column-leader.deal-results-column-leader-r,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td.deal-results-column-leader.deal-results-column-leader-r {
+  box-shadow:
+    inset 3px 0 0 0 rgba(167, 139, 250, 1),
+    inset 0 0 26px 4px rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.95),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.06),
+    -2px 0 14px rgba(167, 139, 250, 0.55) !important;
+}
+/* ПК: первая строка (имена) лидера — только свет, без границ */
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th.deal-results-column-leader {
+  box-shadow: inset 0 0 26px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.95) !important;
+}
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th.deal-results-column-leader.deal-results-column-leader-r {
+  box-shadow: inset 0 0 26px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.95) !important;
+}
+/* ПК: ячейка с именем лидера — лёгкий зеленоватый неон фона (только ПК) */
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th.deal-results-column-leader {
+  background: linear-gradient(145deg, rgba(74, 222, 128, 0.12) 0%, rgba(34, 197, 94, 0.06) 40%, rgba(22, 163, 74, 0.08) 100%) !important;
+  box-shadow: inset 0 0 26px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.95), inset 0 0 20px 4px rgba(74, 222, 128, 0.15) !important;
+}
+
+/* ПК: ячейки пользователя (имя + столбец Заказ/Очки) — лёгкий зеленоватый неон, только ПК */
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th.deal-results-cell-human {
+  background: linear-gradient(145deg, rgba(74, 222, 128, 0.14) 0%, rgba(34, 197, 94, 0.08) 40%, rgba(22, 163, 74, 0.1) 100%) !important;
+  box-shadow: inset 0 0 26px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.95), inset 0 0 22px 4px rgba(74, 222, 128, 0.18) !important;
+  color: rgba(224, 231, 255, 0.98) !important;
+  text-shadow: 0 0 12px rgba(74, 222, 128, 0.35) !important;
+}
+.deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:nth-child(2) th.deal-results-cell-human,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td.deal-results-cell-human,
+.deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td.deal-results-cell-human {
+  background: linear-gradient(145deg, rgba(74, 222, 128, 0.12) 0%, rgba(34, 197, 94, 0.06) 45%, rgba(22, 163, 74, 0.08) 100%) !important;
+  box-shadow:
+    inset 0 0 22px 4px rgba(74, 222, 128, 0.12),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.25),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ПК: ровно одна неоновая полоса сверху и одна снизу; верхняя чуть заходит на таблицу (2–3%) */
+.deal-results-table-outer-pc .deal-results-table-glow-top.deal-results-table-glow-pc {
+  background: linear-gradient(to bottom, rgba(167, 139, 250, 0.9) 0%, rgba(139, 92, 246, 0.35) 35%, rgba(30, 41, 59, 0.98) 100%) !important;
+  box-shadow: 0 4px 14px rgba(167, 139, 250, 0.35) !important;
+  height: 26px !important;
+  margin-bottom: -1px !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+.deal-results-table-outer-pc .deal-results-table-glow-bottom.deal-results-table-glow-pc {
+  background: linear-gradient(to top, rgba(167, 139, 250, 0.9) 0%, rgba(139, 92, 246, 0.35) 35%, rgba(30, 41, 59, 0.98) 100%) !important;
+  box-shadow: 0 -4px 14px rgba(167, 139, 250, 0.35) !important;
+  height: 26px !important;
+}
+
+/* Итоги победителя в футере таблицы */
+.deal-results-table-window table tfoot td.deal-results-cell-winner {
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.25) 0%, rgba(245, 158, 11, 0.15) 100%) !important;
+  box-shadow: inset 0 0 16px 2px rgba(251, 191, 36, 0.2), inset 0 0 0 1px rgba(251, 191, 36, 0.35) !important;
+  color: #fde047 !important;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.5) !important;
 }
 
 /* Индикатор «можно прокрутить»: стрелка вниз, лёгкая анимация */
@@ -1541,12 +2081,12 @@ body.deal-results-modal-open-mobile {
   animation: trumpShimmerDim 3s ease-in-out infinite;
 }
 @keyframes trumpShimmer {
-  0%, 100% { filter: brightness(1) drop-shadow(0 0 6px rgba(255,255,255,0.4)); }
-  50% { filter: brightness(1.04) drop-shadow(0 0 10px rgba(255,255,255,0.5)); }
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 4px rgba(255,255,255,0.28)); }
+  50% { filter: brightness(1.02) drop-shadow(0 0 6px rgba(255,255,255,0.35)); }
 }
 @keyframes trumpShimmerDim {
-  0%, 100% { filter: brightness(1) drop-shadow(0 0 4px rgba(255,255,255,0.25)); }
-  50% { filter: brightness(1.02) drop-shadow(0 0 6px rgba(255,255,255,0.35)); }
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 4px rgba(255,255,255,0.2)); }
+  50% { filter: brightness(1.01) drop-shadow(0 0 6px rgba(255,255,255,0.28)); }
 }
 
 .trump-btn-lamp-off {
