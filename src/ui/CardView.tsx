@@ -2,7 +2,10 @@
  * Отображение карты
  */
 
+import { useState } from 'react';
+import type { ImgHTMLAttributes } from 'react';
 import type { Card } from '../game/types';
+import { JACK_CAT_BY_SUIT, QUEEN_IMAGE_BY_SUIT, KING_IMAGE_BY_SUIT, ACE_IMAGE_BY_SUIT } from '../cardAssets';
 
 /** Ранги: 6–10 числовые, J/Q/K/A фигуры */
 const RANK_NUMERIC = ['6', '7', '8', '9', '10'] as const;
@@ -50,37 +53,39 @@ const FACE_LABEL: Record<string, string> = {
   A: 'Т',
 };
 
-/** Масть → имя файла валета-кота */
-const JACK_CAT_BY_SUIT: Record<string, string> = {
-  '♠': 'jack-cat-hat-spades.png',
-  '♥': 'jack-cat-hat-hearts.png',
-  '♦': 'jack-cat-hat-diamonds.png',
-  '♣': 'jack-cat-hat-clubs.png',
-};
-
-/** Масть → имя файла дамы */
-const QUEEN_IMAGE_BY_SUIT: Record<string, string> = {
-  '♠': 'Дама Пики.png',
-  '♥': 'Дама Черви.png',
-  '♦': 'Дама Буби.png',
-  '♣': 'Дама Крести.png',
-};
-
-/** Масть → имя файла короля */
-const KING_IMAGE_BY_SUIT: Record<string, string> = {
-  '♠': 'Король Пики.png',
-  '♥': 'Король Черви.png',
-  '♦': 'Король Буби.png',
-  '♣': 'Король Крести.png',
-};
-
-/** Масть → имя файла туза */
-const ACE_IMAGE_BY_SUIT: Record<string, string> = {
-  '♠': 'Туз Пик.png',
-  '♥': 'Туз Червей.png',
-  '♦': 'Туз Бубей.png',
-  '♣': 'Туз Крестей.png',
-};
+/** Плейсхолдер до загрузки картинки фигурной карты; скрывается после onLoad */
+function CardFaceImage({
+  src,
+  alt,
+  className,
+  style,
+  ...rest
+}: ImgHTMLAttributes<HTMLImageElement>) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <span style={{ position: 'relative', display: 'block', width: '100%', height: '100%', minHeight: '100%' }}>
+      {!loaded && (
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(145deg, rgba(248,250,252,0.95) 0%, rgba(226,232,240,0.9) 100%)',
+            borderRadius: '8%',
+          }}
+        />
+      )}
+      <img
+        {...rest}
+        src={src}
+        alt={alt}
+        className={className}
+        style={{ ...style, width: style?.width ?? '100%', height: style?.height ?? '100%', objectFit: 'contain', opacity: loaded ? 1 : 0, transition: 'opacity 0.2s ease-out' }}
+        onLoad={() => setLoaded(true)}
+      />
+    </span>
+  );
+}
 
 export interface CardViewProps {
   card: Card;
@@ -113,6 +118,8 @@ export interface CardViewProps {
   tableCardMobile?: boolean;
   /** Мобильная рука на этапе заказа: не затемнять, подсветить и чуть укрупнить */
   biddingHighlightMobile?: boolean;
+  /** ПК: этап заказа — не затемнять карты руки, показывать в полной яркости */
+  biddingHighlightPC?: boolean;
   /** Показывать неоновые границы между зоной индексов и зоной пипов (6–10, рука ПК). Привязано к опции «доп. подсветка». */
   showPipZoneBorders?: boolean;
   /** true = стили только для ПК (тонкие рамки некозырей, козыри в руке/на столе без подсветки, туз крестей обводка). На мобильной передавать false. */
@@ -144,7 +151,7 @@ const suitNeonBorder: Record<string, { border: string; outline: string }> = {
   '♣': { border: '#5b21b6', outline: '0 0 0 2px #5b21b6' },   /* крести: ультрафиолетовый глубокий космический тёмный */
 };
 
-export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, mobileTrumpShineBidding = false }: CardViewProps) {
+export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, mobileTrumpShineBidding = false }: CardViewProps) {
   const cs = contentScale ?? scale;
   const color = suitColor[card.suit];
   const neon = suitNeonBorder[card.suit] ?? suitNeonBorder['♠'];
@@ -211,6 +218,12 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
     ].join(', ');
   }
 
+  /* Мобильная рука при вкл. подсветке: тонкая цветная обводка по масти (в box-shadow, чтобы не обрезалась обёрткой) */
+  const mobileHandHighlightRing = suitIndexInHandMobile && trumpHighlightOn ? `0 0 0 1px ${neon.border}` : '';
+  const baseCardShadow = biddingHighlightPC
+    ? `${trumpShadow}, 0 0 12px rgba(255,255,255,0.38)`
+    : mobileHandHighlightRing ? (trumpShadow === 'none' ? mobileHandHighlightRing : `${trumpShadow}, ${mobileHandHighlightRing}`) : trumpShadow;
+
   return (
     <button
       type="button"
@@ -224,13 +237,18 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         minHeight: h,
         padding: Math.round(4 * scale),
         margin: compact ? Math.round(2 * scale) : Math.round(4 * scale),
-        border: showMobileHandHighlight
+        /* В мобильной руке при подсветке: цветная рамка по масти (и для козырей тоже при вкл. подсветки); иначе козырь/доступный ход — белая рамка */
+        border: showMobileHandHighlight && thinBorder
+          ? (suitIndexInHandMobile && trumpHighlightOn ? `1px solid ${neon.border}` : '1px solid rgba(255,255,255,0.98)')
+          : showMobileHandHighlight
           ? '3px solid rgba(255,255,255,0.98)'
           : (thinBorder ? `1px solid ${neon.border}` : (trumpOnDeck && !trumpDeckHighlightOn ? `2px solid ${neon.border}bb` : (doubleBorder ? (isNonTrumpWithHighlight ? `2px solid ${neon.border}` : `3px solid ${neon.border}`) : `2px solid ${neon.border}`))),
-        outline: thinBorder ? 'none' : (trumpOnDeck ? (trumpDeckHighlightOn ? `2px solid ${neon.border}ee` : `1px solid ${neon.border}99`) : (isTrumpOnTable && trumpHighlightOn) ? `2px solid rgba(200,220,160,0.92)` : (doubleBorder ? (isNonTrumpWithHighlight ? `1px solid ${neon.border}cc` : `2px solid ${neon.border}cc`) : 'none')),
-        outlineOffset: trumpOnDeck ? 1 : (isTrumpOnTable && trumpHighlightOn) ? 2 : 0,
+        outline: thinBorder
+          ? (suitIndexInHandMobile && trumpHighlightOn ? `1px solid ${neon.border}cc` : 'none')
+          : (trumpOnDeck ? (trumpDeckHighlightOn ? `2px solid ${neon.border}ee` : `1px solid ${neon.border}99`) : (isTrumpOnTable && trumpHighlightOn) ? `2px solid rgba(200,220,160,0.92)` : (doubleBorder ? (isNonTrumpWithHighlight ? `1px solid ${neon.border}cc` : `2px solid ${neon.border}cc`) : 'none')),
+        outlineOffset: trumpOnDeck ? 1 : (suitIndexInHandMobile && trumpHighlightOn) ? 1 : (isTrumpOnTable && trumpHighlightOn) ? 2 : 0,
         borderRadius: Math.round(8 * scale),
-        boxShadow: trumpShadow,
+        boxShadow: biddingHighlightMobile ? undefined : baseCardShadow,
         background: trumpOnDeck
           ? (trumpDeckHighlightOn
               ? `linear-gradient(145deg, ${neon.border}50 0%, #ffffff 30%, #f1f5f9 70%, ${neon.border}25 100%)`
@@ -248,7 +266,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         fontSize: Math.round((compact ? 12 : 14) * cs),
         fontWeight: 600,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: trumpOnDeck ? 1 : biddingHighlightMobile ? 1 : isMobileHandTrump ? 1 : disabled ? 0.6 : 1,
+        opacity: trumpOnDeck ? 1 : biddingHighlightMobile ? 1 : biddingHighlightPC ? 1 : isMobileHandTrump ? 1 : disabled ? 0.6 : 1,
         transition: 'transform 0.15s, box-shadow 0.15s',
         ...(biddingHighlightMobile ? {
           boxShadow: `${trumpShadow}, 0 0 10px ${neon.border}88, 0 0 16px ${neon.border}44`,
@@ -275,11 +293,11 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
       }}
       onMouseLeave={e => {
         e.currentTarget.style.transform = '';
-        e.currentTarget.style.boxShadow = trumpShadow;
+        e.currentTarget.style.boxShadow = baseCardShadow;
       }}
     >
-      {/* Блеск-отблеск на козырях в руке во время заказа взяток (мобильная и ПК): проходящий раз в ~4 с */}
-      {mobileTrumpShineBidding && (
+      {/* Блеск-отблеск: козыри в руке при заказе (раз в ~4 с) и доступные для хода карты при нашем ходе (раз в ~5 с) */}
+      {(mobileTrumpShineBidding || (highlightAsValidPlay && !pcCardStyles && !!isTrumpInHand)) && (
         <span
           aria-hidden
           style={{
@@ -299,7 +317,9 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
               width: '40%',
               height: '100%',
               background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.45) 35%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.45) 65%, transparent 100%)',
-              animation: 'card-trump-shine 4s ease-in-out infinite',
+              animation: highlightAsValidPlay && !pcCardStyles && isTrumpInHand
+                ? 'card-trump-shine 5s ease-in-out infinite'
+                : 'card-trump-shine 4s ease-in-out infinite',
             }}
           />
         </span>
@@ -319,7 +339,8 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
           }}
         />
       )}
-      {isTrumpOnTable && !isNumericRank(card.rank) && (
+      {/* Бейдж «К» только на ПК; в мобильной версии — то же позиционирование, что у некозырей (без доп. элемента) */}
+      {isTrumpOnTable && !isNumericRank(card.rank) && !tableCardMobile && !trumpOnDeck && (
         <span
           style={{
             position: 'absolute',
@@ -363,8 +384,8 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
           }}
         />
       )}
-      {/* Карты на столе (ПК): те же правила, что на руках — 4 угла, сетка пипов, границы; не для мобильной руки (suitIndexInHandMobile) */}
-      {compact && showDesktopFaceIndices && !tableCardMobile && !suitIndexInHandMobile && isNumericRank(card.rank) && (() => {
+      {/* Карты на столе (ПК): те же правила, что на руках — 4 угла, сетка пипов, границы; не для мобильной руки и не для козыря на колоде */}
+      {compact && showDesktopFaceIndices && !tableCardMobile && !suitIndexInHandMobile && (!trumpOnDeck || pcCardStyles) && isNumericRank(card.rank) && (() => {
         const kTable = 1.2;
         const topRightTable = -4; /* верхний правый индекс масти чуть повыше (блок 2 — карты на столе) */
         return (
@@ -387,7 +408,39 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
       {/* Мобильная версия: простой центр без пипов (6–10) или индекс+фигура (В/Д/К/Т) */}
       {compact ? (
         isNumericRank(card.rank) ? (
-          showDesktopFaceIndices && !tableCardMobile && !suitIndexInHandMobile ? null : (
+          showDesktopFaceIndices && !tableCardMobile && !suitIndexInHandMobile && (!trumpOnDeck || pcCardStyles) ? null : (suitIndexInHandMobile || tableCardMobile || (trumpOnDeck && !pcCardStyles)) ? (
+          /* Мобильная версия 6–10 (рука/стол мобильный или козырь на колоде только на мобильном): индексы масти как у фигур, значение по центру. На ПК козырь на колоде не сюда. */
+          (() => {
+            const faceK = 0.65;
+            const suitBase = 24 * 1.5 * faceK * cs;
+            const useMobileLayoutNum = suitIndexInHandMobile || tableCardMobile || (trumpOnDeck && !pcCardStyles);
+            const suitSize = suitIndexInHandMobile ? suitBase / 1.5 : useMobileLayoutNum ? (suitBase / 1.4) * 1.1 : suitBase;
+            const suitSizeFinal = suitSize / 1.1; /* тот же размер, что у нижнего индекса масти у фигур (J/Q/K) */
+            const suitIndexScaleTrumpDeckMobile = (trumpOnDeck && !pcCardStyles) ? 1.18 : 1; /* мобильная: козырь на колоде — индексы масти чуть крупнее */
+            const topSuitScaleTableMobile = tableCardMobile ? 1.15 : 1; /* мобильный стол 6–10: верхний индекс масти немного крупнее */
+            const topLeftTable = 2; /* как у фигур: верхний левый индекс */
+            const topLeftFinal = (trumpOnDeck && !pcCardStyles) ? topLeftTable - 2 : topLeftTable - 1; /* козырь на колоде мобильный: верхний индекс повыше */
+            /* Позиция нижнего правого индекса масти — та же формула, что у фигурных карт в мобильной версии */
+            const suitBottom = suitIndexInHandMobile ? -2.5 : -3;
+            const suitBottomFinal = suitBottom - 1.5;
+            const bottomRightLift = suitBottomFinal + 1;
+            /* В руке пользователя (мобильная) центральный индекс значения ещё в 1.1×1.1 раз мельче */
+            const rankCenterSize = Math.round((28 / 1.3 / 1.1) * (suitIndexInHandMobile ? 1 / 1.1 / 1.1 : 1) * cs);
+            return (
+              <>
+                <span style={{ position: 'absolute', top: topLeftFinal, left: 3, zIndex: 2, fontSize: Math.round((suitSizeFinal / 1.4 / 1.1) * suitIndexScaleTrumpDeckMobile * topSuitScaleTableMobile), fontWeight: 700, lineHeight: 1.1 }}>
+                  {card.suit}
+                </span>
+                <span style={{ position: 'absolute', bottom: bottomRightLift, right: 3, zIndex: 2, fontSize: Math.round((suitSizeFinal / 1.1) * suitIndexScaleTrumpDeckMobile), fontWeight: 700, lineHeight: 1 }}>
+                  {card.suit}
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 'auto', marginBottom: 'auto', fontSize: rankCenterSize, fontWeight: 800, lineHeight: 1, position: 'relative', zIndex: 1 }}>
+                  {card.rank}
+                </span>
+              </>
+            );
+          })()
+          ) : (
           <span
             style={{
               display: 'flex',
@@ -409,50 +462,67 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
             (() => {
               const faceK = 0.65;
               const suitBase = 24 * 1.5 * faceK * cs;
-              const isAceMobile = card.rank === 'A' && (suitIndexInHandMobile || tableCardMobile);
+              /* Мобильная раскладка только при мобильной руке/столе или козыре на колоде на мобильном; на ПК козырь на колоде = те же настройки, что карты на столе ПК */
+              const useMobileLayout = (suitIndexInHandMobile || tableCardMobile) || (trumpOnDeck && !pcCardStyles);
+              const isAceMobile = card.rank === 'A' && useMobileLayout;
               const isBlackSuit = card.suit === '♠' || card.suit === '♣';
-              const isFaceBlackMobile = (card.rank === 'J' || card.rank === 'Q' || card.rank === 'K') && isBlackSuit && (suitIndexInHandMobile || tableCardMobile);
-              const suitSize = suitIndexInHandMobile ? suitBase / 1.5 : tableCardMobile ? (suitBase / 1.4) * 1.1 : suitBase;
-              const suitSizeFinal = isAceMobile ? (isBlackSuit ? suitSize * 0.855 : suitSize * 0.874) : isFaceBlackMobile ? suitSize * 0.855 : suitSize;
+              const isFaceBlackMobile = (card.rank === 'J' || card.rank === 'Q' || card.rank === 'K') && isBlackSuit && useMobileLayout;
+              const suitSize = suitIndexInHandMobile ? suitBase / 1.5 : useMobileLayout ? (suitBase / 1.4) * 1.1 : suitBase;
+              /* Мобильная раскладка: один размер индекса масти для всех мастей, в 1.1 раз мельче */
+              const suitSizeFinal = useMobileLayout && (card.rank === 'A' || card.rank === 'J' || card.rank === 'Q' || card.rank === 'K')
+                ? suitSize / 1.1
+                : isAceMobile ? (isBlackSuit ? suitSize * 0.855 : suitSize * 0.874) : isFaceBlackMobile ? suitSize * 0.855 : suitSize;
+              const suitIndexScaleTrumpDeckMobile = (trumpOnDeck && !pcCardStyles) ? 1.18 : 1; /* мобильная: козырь на колоде — индекс масти чуть крупнее */
               const rankBase = 18 * 1.21 * faceK * cs;
-              const rankSize = suitIndexInHandMobile ? rankBase / 1.3 / 1.2 : tableCardMobile ? (rankBase / 1.3 / 1.2) * 1.2 : rankBase;
-              const indexScaleTable = !tableCardMobile && !suitIndexInHandMobile ? 1.2 : 1; /* фигуры на столе ПК: индексы в 1.2 раза крупнее */
-              const suitBottom = suitIndexInHandMobile ? -2.5 : tableCardMobile ? -3 : -3; /* ПК стол: -3 (нижний правый индекс фигур поднят на 3 от исходного) */
-              const isFaceMobile = (suitIndexInHandMobile || tableCardMobile) && (card.rank === 'A' || card.rank === 'J' || card.rank === 'Q' || card.rank === 'K');
+              const rankSize = suitIndexInHandMobile ? rankBase / 1.3 / 1.2 : useMobileLayout ? (rankBase / 1.3 / 1.2) * 1.2 : rankBase;
+              const indexScaleTable = !useMobileLayout ? 1.2 : 1; /* ПК (стол и козырь на колоде): индексы в 1.2 раза крупнее */
+              const suitBottom = suitIndexInHandMobile ? -2.5 : -3;
+              const isFaceMobile = useMobileLayout && (card.rank === 'A' || card.rank === 'J' || card.rank === 'Q' || card.rank === 'K');
               const suitBottomFinal = isFaceMobile ? suitBottom - 1.5 : suitBottom;
-              const topLeftTable = !tableCardMobile && !suitIndexInHandMobile ? 0 : 2; /* фигуры на столе ПК: верхний левый индекс приподнят на 2 */
+              const bottomRightLift = isFaceMobile && (card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A')
+                ? suitBottomFinal + 1
+                : suitBottomFinal;
+              const topLeftTable = !useMobileLayout ? 0 : 2;
+              const topLeftFinal = useMobileLayout ? topLeftTable - 1 : topLeftTable;
+              const isMobileHandOrTable = suitIndexInHandMobile || tableCardMobile;
               return (
             <>
-              <span style={{ position: 'absolute', top: topLeftTable, left: 3, zIndex: 2, fontSize: Math.round(rankSize * indexScaleTable), fontWeight: 800, lineHeight: 1.1 }}>
+              <span className="card-face-value-index" style={{ position: 'absolute', top: topLeftFinal, left: 3, zIndex: 2, fontSize: Math.round(rankSize * indexScaleTable), fontWeight: 900, lineHeight: 1.1 }}>
                 {FACE_LABEL[card.rank] ?? card.rank}
               </span>
               <span
                 className={isAceMobile ? (isBlackSuit ? 'card-ace-suit-index-mobile card-ace-suit-black' : 'card-ace-suit-index-mobile') : undefined}
-                style={{ position: 'absolute', bottom: suitBottomFinal, right: 3, zIndex: 2, fontSize: Math.round(suitSizeFinal * indexScaleTable), fontWeight: 700, lineHeight: 1 }}
+                style={{ position: 'absolute', bottom: bottomRightLift, right: isMobileHandOrTable ? 3 : 1, zIndex: 2, fontSize: Math.round((suitSizeFinal * indexScaleTable) / (isMobileHandOrTable ? 1.1 : 1) * suitIndexScaleTrumpDeckMobile), fontWeight: 700, lineHeight: 1 }}
               >
                 {card.suit}
               </span>
-              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto', position: 'relative', zIndex: 1, ...(!tableCardMobile && !suitIndexInHandMobile ? { transform: card.rank === 'J' ? 'scale(1.44) translateY(-2px)' : 'scale(1.44)' } : {}) }}>
+              <span style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto', position: 'relative', zIndex: 1,
+                /* ПК стол: центральный рисунок чуть ниже — строго по центру */
+                ...(!useMobileLayout ? { transform: 'scale(1.44) translateY(3px)' } : {}),
+                /* Мобильная рука: 4px вниз; мобильный стол (и козырь на колоде): 2px вниз — по центру */
+                ...(suitIndexInHandMobile ? { transform: 'translateY(4px)' } : useMobileLayout ? { transform: 'translateY(2px)' } : {}),
+              }}>
                 {card.rank === 'A' ? (
                   <span
-                    className={(suitIndexInHandMobile || tableCardMobile) ? 'card-ace-central-drawing' : undefined}
+                    className={useMobileLayout ? 'card-ace-central-drawing' : undefined}
                     style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', width: suitIndexInHandMobile ? '96%' : tableCardMobile ? '94%' : '92%', height: suitIndexInHandMobile ? '76%' : tableCardMobile ? '74%' : '72%', minHeight: suitIndexInHandMobile ? '76%' : tableCardMobile ? '74%' : '72%',
-                      ...(card.suit === '♥' && !(suitIndexInHandMobile || tableCardMobile) ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' } : {}),
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', width: suitIndexInHandMobile ? '96%' : useMobileLayout ? '94%' : '92%', height: suitIndexInHandMobile ? '76%' : useMobileLayout ? '74%' : '72%', minHeight: suitIndexInHandMobile ? '76%' : useMobileLayout ? '74%' : '72%',
+                      ...(card.suit === '♥' && !useMobileLayout ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' } : {}),
                     }}
                   >
-                    <img
-                      className={(suitIndexInHandMobile || tableCardMobile) ? `card-ace-central-img${card.suit === '♣' && pcCardStyles ? ' card-ace-clubs-img' : ''}` : card.suit === '♣' && pcCardStyles ? 'card-ace-clubs-img' : undefined}
+                    <CardFaceImage
+                      className={useMobileLayout ? `card-ace-central-img${card.suit === '♣' && pcCardStyles ? ' card-ace-clubs-img' : ''}` : card.suit === '♣' && pcCardStyles ? 'card-ace-clubs-img' : undefined}
                       src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`}
                       alt="Т"
                       style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }}
                     />
                   </span>
                 ) : (
-                  <img
+                  <CardFaceImage
                     src={card.rank === 'J' ? `/cards/${JACK_CAT_BY_SUIT[card.suit]}` : card.rank === 'Q' ? `/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}` : `/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`}
                     alt={FACE_LABEL[card.rank] ?? card.rank}
-                    style={{ maxWidth: suitIndexInHandMobile ? '96%' : tableCardMobile ? '94%' : '92%', maxHeight: suitIndexInHandMobile ? '76%' : tableCardMobile ? '74%' : '72%', objectFit: 'contain' }}
+                    style={{ maxWidth: suitIndexInHandMobile ? '96%' : useMobileLayout ? '94%' : '92%', maxHeight: suitIndexInHandMobile ? '76%' : useMobileLayout ? '74%' : '72%', objectFit: 'contain' }}
                   />
                 )}
               </span>
@@ -461,37 +531,37 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
             })()
           ) : card.rank === 'J' ? (
             <>
-              <span style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 800, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span className="card-face-value-index" style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 900, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                 <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
                 <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
               </span>
               <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto' }}>
-                <img src={`/cards/${JACK_CAT_BY_SUIT[card.suit]}`} alt="В" style={{ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' }} />
+                <CardFaceImage src={`/cards/${JACK_CAT_BY_SUIT[card.suit]}`} alt="В" style={{ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' }} />
               </span>
             </>
           ) : card.rank === 'Q' ? (
             <>
-              <span style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 800, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span className="card-face-value-index" style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 900, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                 <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
                 <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
               </span>
               <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto' }}>
-                <img src={`/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}`} alt="Д" style={{ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' }} />
+                <CardFaceImage src={`/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}`} alt="Д" style={{ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' }} />
               </span>
             </>
           ) : card.rank === 'K' ? (
             <>
-              <span style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 800, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span className="card-face-value-index" style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 900, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                 <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
                 <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
               </span>
               <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto' }}>
-                <img src={`/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`} alt="К" style={{ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' }} />
+                <CardFaceImage src={`/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`} alt="К" style={{ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' }} />
               </span>
             </>
           ) : (
             <>
-              <span style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 800, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span className="card-face-value-index" style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 900, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                 <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
                 <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
               </span>
@@ -499,7 +569,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                 display: 'flex', alignItems: 'center', justifyContent: 'center', width: '95%', height: '85%', minHeight: '85%', marginTop: 'auto', marginBottom: 'auto',
                 ...(card.suit === '♥' ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' } : {}),
               }}>
-                <img className={card.suit === '♣' && pcCardStyles ? 'card-ace-clubs-img' : undefined} src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`} alt="Т" style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }} />
+                <CardFaceImage className={card.suit === '♣' && pcCardStyles ? 'card-ace-clubs-img' : undefined} src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`} alt="Т" style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }} />
               </span>
             </>
           )
@@ -518,7 +588,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                 alignItems: 'flex-start',
               }}
             >
-              <span style={(card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? { fontWeight: 800, fontSize: Math.round(10 * 1.21 * cs) } : undefined}>{FACE_LABEL[card.rank] ?? card.rank}</span>
+              <span className={(card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? 'card-face-value-index' : undefined} style={(card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? { fontWeight: 900, fontSize: Math.round(10 * 1.21 * cs) } : undefined}>{FACE_LABEL[card.rank] ?? card.rank}</span>
               <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
             </span>
             <span
@@ -533,7 +603,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                 marginBottom: 'auto',
               }}
             >
-              <span style={{ fontSize: Math.round(11 * cs), fontWeight: 700 }}>{FACE_LABEL[card.rank] ?? card.rank}</span>
+              <span className="card-face-value-index" style={{ fontSize: Math.round(11 * cs), fontWeight: 900 }}>{FACE_LABEL[card.rank] ?? card.rank}</span>
               <span style={{ fontSize: Math.round(12 * cs), lineHeight: 1 }}>{card.suit}</span>
             </span>
           </>
@@ -578,7 +648,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
               >
                 {(card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? (
                   <>
-                    <span style={{ fontWeight: 800, fontSize: Math.round(18 * 1.21 * cs) }}>{FACE_LABEL[card.rank] ?? card.rank}</span>
+                    <span className="card-face-value-index" style={{ fontWeight: 900, fontSize: Math.round(18 * 1.21 * cs) }}>{FACE_LABEL[card.rank] ?? card.rank}</span>
                     <span style={{ fontSize: Math.round(18 * cs) }}>{card.suit}</span>
                   </>
                 ) : (
@@ -615,7 +685,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         </>
       )}
       {/* Центр: пипы (6–10) — рука ПК и карты на столе (ПК). Мобильную руку не трогаем (suitIndexInHandMobile). */}
-      {((!compact || (compact && showDesktopFaceIndices && !tableCardMobile && !suitIndexInHandMobile)) && isNumericRank(card.rank)) ? (
+      {((!compact || (compact && showDesktopFaceIndices && !tableCardMobile && !suitIndexInHandMobile && (!trumpOnDeck || pcCardStyles))) && isNumericRank(card.rank)) ? (
         /* Рука ПК / стол ПК: сетка 3 колонки, те же правила; для compact — меньший размер пипов */
         (() => {
           const pipSize = compact ? Math.round(10 * 1.2 * cs) : Math.round(12 * 1.2 * cs);
@@ -727,7 +797,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                 </span>
               ))
             ) : card.rank === 'J' && !hideJackCat && JACK_CAT_BY_SUIT[card.suit] ? (
-              <img
+              <CardFaceImage
                 src={`/cards/${JACK_CAT_BY_SUIT[card.suit]}`}
                 alt="В"
                 style={{
@@ -737,7 +807,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                 }}
               />
             ) : card.rank === 'Q' && QUEEN_IMAGE_BY_SUIT[card.suit] ? (
-              <img
+              <CardFaceImage
                 src={`/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}`}
                 alt="Д"
                 style={{
@@ -747,7 +817,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                 }}
               />
             ) : card.rank === 'K' && KING_IMAGE_BY_SUIT[card.suit] ? (
-              <img
+              <CardFaceImage
                 src={`/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`}
                 alt="К"
                 style={{
@@ -761,7 +831,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                 display: 'flex', alignItems: 'center', justifyContent: 'center', width: '98%', height: '78%', minHeight: '78%',
                 ...(card.suit === '♥' ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' } : {}),
               }}>
-                <img
+                <CardFaceImage
                   className={card.suit === '♣' && pcCardStyles ? 'card-ace-clubs-img' : undefined}
                   src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`}
                   alt="Т"
@@ -770,7 +840,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
               </span>
             ) : (
               <>
-                <span style={{ fontSize: Math.round(20 * cs), fontWeight: 700 }}>{FACE_LABEL[card.rank] ?? card.rank}</span>
+                <span className="card-face-value-index" style={{ fontSize: Math.round(20 * cs), fontWeight: 900 }}>{FACE_LABEL[card.rank] ?? card.rank}</span>
                 <span style={{ fontSize: Math.round(24 * cs), lineHeight: 1 }}>{card.suit}</span>
               </>
             )}

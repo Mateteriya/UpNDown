@@ -19,15 +19,20 @@ import {
   getValidPlays,
   isHumanPlayer,
 } from '../game/GameEngine';
-import { loadGameStateFromStorage, saveGameStateToStorage, clearGameStateFromStorage, updateLocalRating, getLocalRating } from '../game/persistence';
+import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating } from '../game/persistence';
 import { aiBid, aiPlay } from '../game/ai';
 import { getTrickWinner } from '../game/rules';
 import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
+import { preloadCardImages } from '../cardAssets';
 import { CardView } from './CardView';
+import { PlayerAvatar } from './PlayerAvatar';
+import { PlayerInfoPanel } from './PlayerInfoPanel';
 import type { Card } from '../game/types';
 
 interface GameTableProps {
   gameId: number;
+  playerDisplayName?: string;
+  playerAvatarDataUrl?: string | null;
   onExit: () => void;
   onNewGame?: () => void;
 }
@@ -286,8 +291,13 @@ function GameOverModal({
           <span style={gameOverStatsValueStyle}>Игр сыграно: {localRating.gamesPlayed}</span>
         </div>
         <div style={gameOverStatsRowStyle}>
-          <span style={gameOverStatsValueStyle}>Побед: {localRating.wins}</span>
+          <span style={gameOverStatsValueStyle}>Побед: {localRating.wins}{localRating.gamesPlayed > 0 ? ` (${Math.round((localRating.wins / localRating.gamesPlayed) * 100)}%)` : ''}</span>
         </div>
+        {localRating.bidAccuracyCount > 0 && (
+          <div style={gameOverStatsRowStyle}>
+            <span style={gameOverStatsValueStyle}>Средняя точность заказов: {Math.round(localRating.bidAccuracySum / localRating.bidAccuracyCount)}%</span>
+          </div>
+        )}
         <div style={gameOverRatingPlaceholderStyle}>Глобальный рейтинг — скоро</div>
       </div>
       <div style={gameOverButtonsWrapStyle}>
@@ -305,7 +315,7 @@ function GameOverModal({
   );
 }
 
-function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
+function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame }: GameTableProps) {
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
   const [state, setState] = useState<GameState | null>(null);
@@ -320,17 +330,35 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
   const [gameOverSnapshot, setGameOverSnapshot] = useState<GameState | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [selectedPlayerForInfo, setSelectedPlayerForInfo] = useState<number | null>(null);
+  const [showDealerTooltip, setShowDealerTooltip] = useState(false);
+  const [showYourTurnPrompt, setShowYourTurnPrompt] = useState(false);
+  const yourTurnPromptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const yourTurnPromptIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastCompletedTrickRef = useRef<unknown>(null);
+
+  useEffect(() => {
+    const t = setTimeout(preloadCardImages, 0);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!showDealerTooltip) return;
+    const t = setTimeout(() => setShowDealerTooltip(false), 2000);
+    return () => clearTimeout(t);
+  }, [showDealerTooltip]);
   /** После первого появления кнопка «Результаты» больше не скрывается до конца партии */
   const dealResultsButtonEverShownRef = useRef(false);
   /** ПК: имя в блоке «Заказывает/Сейчас ход» ограничено CSS (max-width + перенос строки) */
 
   useEffect(() => {
     const restored = loadGameStateFromStorage();
+    const humanName = playerDisplayName?.trim() && playerDisplayName !== 'Вы' ? playerDisplayName : 'Вы';
     if (restored) {
-      setState(restored);
+      const synced = { ...restored, players: restored.players.map((p, i) => i === 0 ? { ...p, name: humanName } : p) };
+      setState(synced);
     } else {
-      let s = createGame(4, 'classical', 'Вы');
+      let s = createGame(4, 'classical', humanName);
       s = startDeal(s);
       setState(s);
     }
@@ -343,7 +371,7 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
     setLastDealResultsSnapshot(null);
     setGameOverSnapshot(null);
     setShowGameOverModal(false);
-  }, [gameId]);
+  }, [gameId, playerDisplayName]);
 
   useEffect(() => {
     if (state !== null) {
@@ -372,6 +400,36 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
     }
     setBidPanelVisible(false);
   }, [shouldShowBidPanel]);
+
+  /** Мобильная: через 3.5 с бездействия — «Ваш ход!»/«Ваш заказ!», затем каждые 3.5 с чередование с именем (мигание) */
+  useEffect(() => {
+    if (!isMobile || !state) return;
+    const isUserTurnToAct =
+      state.currentPlayerIndex === humanIdx &&
+      (state.phase === 'playing' ||
+        ((state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids[humanIdx] === null));
+    if (isUserTurnToAct) {
+      yourTurnPromptTimeoutRef.current = setTimeout(() => {
+        setShowYourTurnPrompt(true);
+        yourTurnPromptIntervalRef.current = setInterval(
+          () => setShowYourTurnPrompt(p => !p),
+          3500
+        );
+      }, 3500);
+      return () => {
+        if (yourTurnPromptTimeoutRef.current) clearTimeout(yourTurnPromptTimeoutRef.current);
+        yourTurnPromptTimeoutRef.current = null;
+        if (yourTurnPromptIntervalRef.current) clearInterval(yourTurnPromptIntervalRef.current);
+        yourTurnPromptIntervalRef.current = null;
+        setShowYourTurnPrompt(false);
+      };
+    }
+    setShowYourTurnPrompt(false);
+    return () => {
+      if (yourTurnPromptTimeoutRef.current) clearTimeout(yourTurnPromptTimeoutRef.current);
+      yourTurnPromptTimeoutRef.current = null;
+    };
+  }, [isMobile, state?.currentPlayerIndex, state?.phase, state?.bids, humanIdx]);
 
   const validPlays = state && isHumanTurn ? getValidPlays(state, humanIdx) : [];
 
@@ -429,7 +487,19 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
               setShowGameOverModal(true);
               const maxScore = Math.max(...state.players.map(p => p.score));
               const humanWon = state.players[0].score === maxScore;
-              updateLocalRating(humanWon);
+              let bidAccuracy = 0;
+              if (state.dealHistory?.length) {
+                let met = 0;
+                for (const d of state.dealHistory) {
+                  const bid = d.bids[0];
+                  const pts = d.points[0];
+                  if (bid == null) continue;
+                  const taken = getTakenFromDealPoints(bid, pts);
+                  if (bid === taken) met++;
+                }
+                bidAccuracy = Math.round((met / state.dealHistory.length) * 100);
+              }
+              updateLocalRating(humanWon, undefined, bidAccuracy);
             } else {
               setShowDealResultsButton(true);
               dealResultsButtonEverShownRef.current = true;
@@ -499,6 +569,11 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
 
   return (
     <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}`} style={tableLayoutStyle}>
+      {isMobileOrTablet && showDealerTooltip && (
+        <div className="dealer-tooltip-toast" role="status" aria-live="polite">
+          Сдающий
+        </div>
+      )}
       <div style={tableStyle}>
       <header className="game-header" style={headerStyle}>
         <div style={headerLeftWrapStyle}>
@@ -654,6 +729,8 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
                 isMobile={true}
+                onAvatarClick={setSelectedPlayerForInfo}
+                onDealerBadgeClick={() => setShowDealerTooltip(true)}
               />
             </div>
             <div className="game-mobile-slot-north" style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
@@ -664,6 +741,8 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
                 isMobile={true}
+                onAvatarClick={setSelectedPlayerForInfo}
+                onDealerBadgeClick={() => setShowDealerTooltip(true)}
               />
             </div>
           </div>
@@ -908,20 +987,23 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
                 isMobile={true}
+                onAvatarClick={setSelectedPlayerForInfo}
+                onDealerBadgeClick={() => setShowDealerTooltip(true)}
               />
             </div>
       </div>
       <div className="game-mobile-hand-attached" style={{ width: '100%', maxWidth: 800, flexShrink: 0, minWidth: 0 }}>
         <div className={state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : undefined} style={handFrameStyleMobile}>
-          <div style={{ ...handStyle, overflow: 'hidden', justifyContent: 'center' }}>
+          <div style={{ ...handStyle, overflow: 'hidden', justifyContent: 'center', paddingLeft: 10, paddingRight: 10, borderRadius: 10 }}>
             {state.players[humanIdx].hand
               .slice()
               .sort((a, b) => cardSort(a, b, state.trump))
               .map((card, i) => {
                 const handLen = state.players[humanIdx].hand.length;
                 const overlap = handLen >= 9 ? 5 : handLen >= 7 ? 3 : handLen >= 6 ? 2 : 0;
+                const isValidPlay = state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && validPlays.some(c => c.suit === card.suit && c.rank === card.rank);
                 return (
-                <div key={`${card.suit}-${card.rank}-${i}`} style={{ marginRight: overlap ? -overlap : 0, flexShrink: 0 }}>
+                <div key={`${card.suit}-${card.rank}-${i}`} style={{ marginRight: overlap ? -overlap : 0, flexShrink: 0, overflow: 'hidden', borderRadius: 6, position: 'relative', zIndex: isValidPlay ? 1 : 0, padding: 2 }}>
                 <CardView
                   card={card}
                   scale={0.72}
@@ -962,7 +1044,7 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
           ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
           : {}),
       }}>
-        <div className={['game-mobile-player-info', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : ''].filter(Boolean).join(' ')} style={{
+        <div className={['game-mobile-player-info', 'user-player-panel', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : ''].filter(Boolean).join(' ')} style={{
           ...playerInfoPanelStyle,
           position: 'relative',
           ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
@@ -975,12 +1057,38 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
           })() : {}),
         }}>
           <div style={playerInfoHeaderStyle}>
+            <button
+              type="button"
+              onClick={() => setSelectedPlayerForInfo(0)}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', lineHeight: 0 }}
+              title="Информация об игроке"
+              aria-label={`Информация об игроке ${state.players[humanIdx].name}`}
+            >
+              <PlayerAvatar name={state.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
+            </button>
             <span style={playerNameDealerWrapStyle}>
-              <span className="player-panel-name" style={{ ...playerNameStyle, ...(state.currentPlayerIndex === humanIdx ? nameActiveMobileStyle : {}) }}>{state.players[humanIdx].name}</span>
+              <span
+                className={['player-panel-name', isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? 'your-turn-prompt' : ''].filter(Boolean).join(' ')}
+                style={{
+                  ...playerNameStyle,
+                  ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
+                  ...(isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? yourTurnPromptStyle : {}),
+                }}
+              >
+                {isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding)
+                  ? (state.phase === 'playing' ? 'Ваш ход!' : 'Ваш заказ!')
+                  : state.players[humanIdx].name}
+              </span>
               {state.dealerIndex === humanIdx && (
-                <span style={dealerLampStyle} title="Сдающий">
-                  <span style={dealerLampBulbStyle} /> Сдающий
-                </span>
+                isMobileOrTablet && state.phase === 'playing' ? (
+                  <button type="button" className="dealer-badge-compact-mobile" style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={() => setShowDealerTooltip(true)} title="Сдающий" aria-label="Сдающий">
+                    <span style={dealerLampBulbStyle} /><span className="dealer-badge-text" aria-hidden>Сдающий</span>
+                  </button>
+                ) : (
+                  <span style={dealerLampStyle} title="Сдающий">
+                    <span style={dealerLampBulbStyle} /> Сдающий
+                  </span>
+                )
               )}
               {isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx && (
                 <span style={firstBidderLampStyle} title="Первый заказ/ход">
@@ -989,8 +1097,8 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
               )}
             </span>
           </div>
-          <div style={playerStatsRowStyle}>
-            <div style={playerStatBadgeScoreStyle}>
+          <div className="player-stats-row" style={playerStatsRowStyle}>
+            <div className="player-score-badge" style={playerStatBadgeScoreStyle}>
               <span style={playerStatLabelStyle}>Очки</span>
               <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
             </div>
@@ -1076,6 +1184,8 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
             firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
             firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
+            onAvatarClick={setSelectedPlayerForInfo}
+            onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
           />
         </div>
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
@@ -1094,6 +1204,8 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
             firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
             firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
+            onAvatarClick={setSelectedPlayerForInfo}
+            onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
           />
         </div>
         <div className="game-center-table" style={centerStyle}>
@@ -1168,6 +1280,8 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
             firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
             firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
+            onAvatarClick={setSelectedPlayerForInfo}
+            onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
           />
         </div>
         {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && !isMobile && (
@@ -1208,6 +1322,7 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
                   mobileTrumpShineBidding={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.trump !== null && card.suit === state.trump}
                   showPipZoneBorders={trumpHighlightOn}
                   pcCardStyles={!isMobileOrTablet}
+                  biddingHighlightPC={!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding')}
                   onClick={() => {
                     if (!state.pendingTrickCompletion && isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
                       setState(prev => prev && playCard(prev, humanIdx, card));
@@ -1218,7 +1333,7 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
               ))}
           </div>
         </div>
-        <div className={[state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : ''].filter(Boolean).join(' ') || undefined} style={{
+        <div className={['user-player-panel', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : ''].filter(Boolean).join(' ') || undefined} style={{
           ...playerInfoPanelStyle,
           position: 'relative',
           ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
@@ -1236,12 +1351,27 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
             </span>
           )}
           <div style={playerInfoHeaderStyle}>
+            <button
+              type="button"
+              onClick={() => setSelectedPlayerForInfo(0)}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', lineHeight: 0 }}
+              title="Информация об игроке"
+              aria-label={`Информация об игроке ${state.players[humanIdx].name}`}
+            >
+              <PlayerAvatar name={state.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
+            </button>
             <span style={playerNameDealerWrapStyle}>
               <span className="player-panel-name" style={playerNameStyle}>{state.players[humanIdx].name}</span>
               {state.dealerIndex === humanIdx && (
-                <span style={dealerLampStyle} title="Сдающий">
-                  <span style={dealerLampBulbStyle} /> Сдающий
-                </span>
+                isMobileOrTablet && state.phase === 'playing' ? (
+                  <button type="button" className="dealer-badge-compact-mobile" style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={() => setShowDealerTooltip(true)} title="Сдающий" aria-label="Сдающий">
+                    <span style={dealerLampBulbStyle} /><span className="dealer-badge-text" aria-hidden>Сдающий</span>
+                  </button>
+                ) : (
+                  <span style={dealerLampStyle} title="Сдающий">
+                    <span style={dealerLampBulbStyle} /> Сдающий
+                  </span>
+                )
               )}
             </span>
             {state.currentPlayerIndex === humanIdx && (
@@ -1250,8 +1380,8 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
               </span>
             )}
           </div>
-          <div style={playerStatsRowStyle}>
-            <div style={playerStatBadgeScoreStyle}>
+          <div className="player-stats-row" style={playerStatsRowStyle}>
+            <div className="player-score-badge" style={playerStatBadgeScoreStyle}>
               <span style={playerStatLabelStyle}>Очки</span>
               <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
             </div>
@@ -1473,6 +1603,16 @@ function GameTable({ gameId, onExit, onNewGame }: GameTableProps) {
         </div>,
         document.body
       )}
+
+      {selectedPlayerForInfo !== null && state && createPortal(
+        <PlayerInfoPanel
+          state={state}
+          playerIndex={selectedPlayerForInfo}
+          playerAvatarDataUrl={selectedPlayerForInfo === 0 ? playerAvatarDataUrl : undefined}
+          onClose={() => setSelectedPlayerForInfo(null)}
+        />,
+        document.body
+      )}
       </div>
 
     </div>
@@ -1500,13 +1640,13 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay', i
   const maxScore = Math.max(...scores);
   const range = maxScore - minScore;
   const humanIdx = 0;
-  const sorted = [...players].map((p, i) => ({ ...p, idx: i })).sort((a, b) => b.score - a.score);
+  const _sorted = [...players].map((p, i) => ({ ...p, idx: i })).sort((a, b) => b.score - a.score);
   const compactModal = variant === 'modal' && isMobile;
   const panelStyle = compactModal ? { ...dealResultsPanelStyle, ...dealResultsPanelStyleMobile } : dealResultsPanelStyle;
   const panelTitleStyle = compactModal ? { ...dealResultsPanelTitleStyle, ...dealResultsPanelTitleStyleMobile } : dealResultsPanelTitleStyle;
   const rowStyle = compactModal ? { ...dealResultsRowStyle, ...dealResultsRowStyleMobile } : dealResultsRowStyle;
 
-  const renderPanel = (idx: number) => {
+  const _renderPanel = (idx: number) => {
     const bid = bids[idx] ?? 0;
     const taken = players[idx].tricksTaken;
     const points = calculateDealPoints(bid, taken);
@@ -1540,7 +1680,7 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay', i
   };
 
   /** Краткая подпись раздачи (в ячейке) */
-  const getDealCellLabel = (dealNumber: number) => {
+  const _getDealCellLabel = (dealNumber: number) => {
     const type = getDealType(dealNumber);
     const tricks = getTricksInDeal(dealNumber);
     if (type === 'no-trump') return `${dealNumber} БК`;
@@ -1896,6 +2036,7 @@ function TrickSlotsDisplay({
   horizontalOnly,
   collectingCards,
   compactMode,
+  eastMobileTricks,
 }: {
   bid: number | null;
   tricksTaken: number;
@@ -1903,15 +2044,18 @@ function TrickSlotsDisplay({
   horizontalOnly?: boolean;
   collectingCards?: boolean;
   compactMode?: boolean;
+  /** Только мобильная панель ИИ-Восток: панелька взяток +17%, подпись «Заказ N» вертикально */
+  eastMobileTricks?: boolean;
 }) {
   const isCompact = variant === 'opponent';
   const slotSize = isCompact ? { w: 44, h: 62 } : { w: 52, h: 76 };
 
   if (bid === null) {
     const nullWrap = compactMode ? { ...trickCirclesWrapStyle, border: '1px solid rgba(71, 85, 105, 0.5)', background: 'rgba(30, 41, 59, 0.8)', boxShadow: 'none' } : trickSlotsWrapStyle;
+    const nullCls = [collectingCards ? 'trick-slots-collecting' : 'trick-slots-normal', eastMobileTricks ? 'trick-slots-east-mobile' : ''].filter(Boolean).join(' ');
     return (
-      <div style={nullWrap} className={collectingCards ? 'trick-slots-collecting' : 'trick-slots-normal'}>
-        <span style={trickSlotsLabelStyle}>Заказ</span>
+      <div style={nullWrap} className={nullCls}>
+        <span className={eastMobileTricks ? 'trick-slots-label-east-mobile' : undefined} style={trickSlotsLabelStyle}>Заказ</span>
         <span style={trickSlotsValueStyle}>—</span>
       </div>
     );
@@ -1925,6 +2069,8 @@ function TrickSlotsDisplay({
 
   if (compactMode) {
     const scaleDown = variant === 'player' && bid > 6 ? Math.min(1, 6 / bid) : 1;
+    const opponentScaleDown = variant === 'opponent' && bid > 5 ? Math.min(1, 5 / bid) : 1;
+    const playerScale = variant === 'player' ? (1.3 * 1.1 * 1.1 * 1.15 / 1.7) : 1;
     const wrapStyle = {
       ...trickCirclesWrapStyle,
       ...(hasFilledOrder ? trickCirclesWrapSuccessStyle : trickCirclesWrapPendingStyle),
@@ -1932,20 +2078,42 @@ function TrickSlotsDisplay({
         position: 'absolute' as const,
         right: 14,
         top: '50%',
-        padding: scaleDown < 1 ? `${Math.round(2 * scaleDown)}px ${Math.round(6 * scaleDown)}px` : '2px 6px',
-        transform: 'translateY(-50%) scale(1.7)',
+        padding: scaleDown < 1 ? `${Math.round(2 * scaleDown * playerScale)}px ${Math.round(6 * scaleDown * playerScale)}px` : `${Math.round(2 * playerScale)}px ${Math.round(6 * playerScale)}px`,
+        transform: `translateY(-50%) scale(${playerScale * (scaleDown < 1 ? scaleDown : 1)})`,
         transformOrigin: 'right center',
       } : {}),
+      ...(variant === 'opponent' && opponentScaleDown < 1 ? {
+        padding: `${Math.max(1, Math.round(4 * opponentScaleDown))}px ${Math.max(2, Math.round(8 * opponentScaleDown))}px`,
+      } : {}),
     };
-    const circleSize = variant === 'player' ? (scaleDown < 1 ? Math.max(10, Math.round(18 * scaleDown)) : 18) : undefined;
-    const rowStyle = scaleDown < 1 ? { ...trickCirclesRowStyle, gap: Math.max(2, Math.round(4 * scaleDown)) } : trickCirclesRowStyle;
+    const baseCircle = variant === 'player' ? Math.round(18 * playerScale) : undefined;
+    const playerCircleSize = variant === 'player' ? (scaleDown < 1 ? Math.max(6, Math.round((baseCircle ?? 18) * scaleDown)) : baseCircle ?? 11) : undefined;
+    const opponentCircleSize = variant === 'opponent' && opponentScaleDown < 1 ? Math.max(8, Math.round(14 * opponentScaleDown)) : undefined;
+    const circleSize = variant === 'player' ? playerCircleSize : opponentCircleSize;
+    const rowStyle = scaleDown < 1
+      ? { ...trickCirclesRowStyle, gap: Math.max(2, Math.round(4 * scaleDown)) }
+      : opponentScaleDown < 1
+        ? { ...trickCirclesRowStyle, gap: Math.max(1, Math.round(4 * opponentScaleDown)) }
+        : trickCirclesRowStyle;
+    const wrapCls = [hideCards ? 'trick-slots-collecting' : 'trick-slots-normal', eastMobileTricks ? 'trick-slots-east-mobile' : ''].filter(Boolean).join(' ');
     return (
-      <div style={wrapStyle} className={hideCards ? 'trick-slots-collecting' : 'trick-slots-normal'}>
-        <span style={{ ...trickSlotsLabelStyle, ...(scaleDown < 1 ? { fontSize: Math.max(8, Math.round(9 * scaleDown)) } : {}) }}>Заказ {bid}</span>
+      <div style={wrapStyle} className={wrapCls}>
+        <span
+          className={eastMobileTricks ? 'trick-slots-label-east-mobile' : undefined}
+          style={{
+            ...trickSlotsLabelStyle,
+            ...(scaleDown < 1 ? { fontSize: Math.max(8, Math.round(9 * scaleDown)) } : {}),
+            ...(opponentScaleDown < 1 && !eastMobileTricks ? { fontSize: Math.max(8, Math.round(9 * opponentScaleDown)) } : {}),
+          }}
+        >
+          Заказ {bid}
+        </span>
         <div style={rowStyle}>
           {Array.from({ length: orderedSlots }, (_, i) => {
             const filled = i < Math.min(totalFilled, bid) && !hideCards;
-            const circleStyle = variant === 'player' ? { ...trickCircleBaseStyle, width: circleSize ?? 18, height: circleSize ?? 18 } : trickCircleBaseStyle;
+            const circleStyle = variant === 'player'
+              ? { ...trickCircleBaseStyle, width: circleSize ?? 18, height: circleSize ?? 18 }
+              : { ...trickCircleBaseStyle, width: circleSize ?? 14, height: circleSize ?? 14 };
             return (
               <div
                 key={`c-${i}`}
@@ -1958,18 +2126,38 @@ function TrickSlotsDisplay({
             );
           })}
           {extra > 0 && !hideCards && (
-            <span style={{ ...trickCirclesPlusStyle, ...(scaleDown < 1 ? { fontSize: Math.max(7, Math.round(10 * scaleDown)) } : {}) }}>+{extra}</span>
+            <span style={{
+              ...trickCirclesPlusStyle,
+              ...(scaleDown < 1 ? { fontSize: Math.max(7, Math.round(10 * scaleDown)) } : {}),
+              ...(opponentScaleDown < 1 ? { fontSize: Math.max(7, Math.round(10 * opponentScaleDown)) } : {}),
+            }}>+{extra}</span>
           )}
         </div>
       </div>
     );
   }
 
-  const rowStyle = { ...trickSlotsRowStyle, ...(horizontalOnly ? { flexWrap: 'nowrap' as const } : {}) };
-  const wrapStyle = { ...trickSlotsWrapStyle, ...(hasFilledOrder ? trickSlotsWrapSuccessStyle : trickSlotsWrapPendingStyle) };
+  const opponentScaleDownPc = variant === 'opponent' && bid > 5 ? Math.min(1, 5 / bid) : 1;
+  const effectiveSlotSize =
+    variant === 'opponent' && opponentScaleDownPc < 1
+      ? { w: Math.max(22, Math.round(44 * opponentScaleDownPc)), h: Math.max(36, Math.round(62 * opponentScaleDownPc)) }
+      : slotSize;
+  const rowStyle = {
+    ...trickSlotsRowStyle,
+    ...(horizontalOnly ? { flexWrap: 'nowrap' as const } : {}),
+    ...(opponentScaleDownPc < 1 ? { gap: Math.max(2, Math.round(6 * opponentScaleDownPc)) } : {}),
+  };
+  const wrapStyle = {
+    ...trickSlotsWrapStyle,
+    ...(hasFilledOrder ? trickSlotsWrapSuccessStyle : trickSlotsWrapPendingStyle),
+    ...(opponentScaleDownPc < 1 ? { padding: `${Math.max(2, Math.round(4 * opponentScaleDownPc))}px ${Math.max(4, Math.round(8 * opponentScaleDownPc))}px` } : {}),
+  };
   return (
     <div style={wrapStyle} className={hideCards ? 'trick-slots-collecting' : 'trick-slots-normal'}>
-      <span style={trickSlotsLabelStyle}>Заказ {bid}</span>
+      <span style={{
+        ...trickSlotsLabelStyle,
+        ...(opponentScaleDownPc < 1 ? { fontSize: Math.max(9, Math.round(10 * opponentScaleDownPc)) } : {}),
+      }}>Заказ {bid}</span>
       <div style={rowStyle}>
         {Array.from({ length: orderedSlots }, (_, i) => {
           const filled = i < totalFilled;
@@ -1979,23 +2167,23 @@ function TrickSlotsDisplay({
               key={`o-${i}`}
               style={{
                 ...trickSlotBaseStyle,
-                width: slotSize.w,
-                height: slotSize.h,
-                ...(useCardBack ? { ...cardBackStyle, width: slotSize.w, height: slotSize.h } : (filled && !hideCards) ? trickSlotFilledStyle : trickSlotEmptyStyle),
+                width: effectiveSlotSize.w,
+                height: effectiveSlotSize.h,
+                ...(useCardBack ? { ...cardBackStyle, width: effectiveSlotSize.w, height: effectiveSlotSize.h } : (filled && !hideCards) ? trickSlotFilledStyle : trickSlotEmptyStyle),
               }}
             />
           );
         })}
         {extra > 0 && (
           <>
-            <span style={trickSlotsPlusStyle}>+</span>
+            <span style={{ ...trickSlotsPlusStyle, ...(opponentScaleDownPc < 1 ? { fontSize: Math.max(9, Math.round(11 * opponentScaleDownPc)) } : {}) }}>+</span>
             {Array.from({ length: extra }, (_, i) => (
               <div
                 key={`e-${i}`}
                 style={{
                   ...trickSlotBaseStyle,
-                  width: slotSize.w,
-                  height: slotSize.h,
+                  width: effectiveSlotSize.w,
+                  height: effectiveSlotSize.h,
                   ...(hideCards ? trickSlotEmptyStyle : trickSlotExtraStyle),
                 }}
               />
@@ -2019,6 +2207,9 @@ function OpponentSlot({
   firstBidderBadge,
   firstMoverBiddingHighlight,
   isMobile,
+  avatarDataUrl,
+  onAvatarClick,
+  onDealerBadgeClick,
 }: {
   state: GameState;
   index: number;
@@ -2032,12 +2223,28 @@ function OpponentSlot({
   firstMoverBiddingHighlight?: boolean;
   /** Только мобильная версия: при ходе ИИ не показывать бейдж «Ходит», выделять имя зелёной неоновой рамкой */
   isMobile?: boolean;
+  /** Фото игрока (Data URL), только для человеческого игрока */
+  avatarDataUrl?: string | null;
+  /** По клику на аватар открыть панель с информацией об игроке */
+  onAvatarClick?: (playerIndex: number) => void;
+  /** По тапу на компактный бейдж «Сдающий» показать подсказку (мобильная) */
+  onDealerBadgeClick?: () => void;
 }) {
   const p = state.players[index];
   const isActive = state.currentPlayerIndex === index;
   const isDealer = state.dealerIndex === index;
   const bid = state.bids[index];
+  const debugBid = (() => {
+    if (typeof window === 'undefined') return null;
+    const v = new URLSearchParams(window.location.search).get('debugOpponentBid');
+    if (v == null) return null;
+    const n = parseInt(v, 10);
+    return (Number.isFinite(n) && n >= 0 && n <= 9) ? n : null;
+  })();
+  const displayBid = debugBid !== null ? debugBid : bid;
   const mobileActiveName = isMobile && isActive;
+  const avatarSizePx = compactMode ? (position === 'right' ? 32 : 32) : 38;
+  const eastMobileOnlyAvatar = position === 'right' && isMobile;
 
   const posStyle = inline
     ? { position: 'relative' as const, top: 'auto', left: 'auto', right: 'auto', transform: 'none' }
@@ -2053,7 +2260,7 @@ function OpponentSlot({
     : {};
   return (
     <div
-      className={[position === 'right' ? 'opponent-slot-east' : '', firstMoverBiddingHighlight ? 'first-mover-bidding-panel' : ''].filter(Boolean).join(' ') || undefined}
+      className={[position === 'right' ? 'opponent-slot-east' : '', firstMoverBiddingHighlight ? 'first-mover-bidding-panel' : '', isActive ? 'opponent-slot-current-turn' : ''].filter(Boolean).join(' ') || undefined}
       style={{
         ...opponentSlotStyle,
         ...northSlotOverrides,
@@ -2066,10 +2273,17 @@ function OpponentSlot({
       }}
     >
       {isDealer && (
-        <span className="opponent-badge dealer-badge" style={dealerLampExternalStyle} title="Сдающий">
-          <span style={dealerLampBulbStyle} />
-          <span className="dealer-badge-text">Сдающий</span>
-        </span>
+        isMobile && state.phase === 'playing' && onDealerBadgeClick ? (
+          <button type="button" className={['opponent-badge', 'dealer-badge', 'dealer-badge-compact-mobile'].join(' ')} style={{ ...dealerLampExternalStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={onDealerBadgeClick} title="Сдающий" aria-label="Сдающий">
+            <span style={dealerLampBulbStyle} />
+            <span className="dealer-badge-text" aria-hidden>Сдающий</span>
+          </button>
+        ) : (
+          <span className={['opponent-badge', 'dealer-badge', isMobile && state.phase === 'playing' ? 'dealer-badge-compact-mobile' : ''].filter(Boolean).join(' ')} style={dealerLampExternalStyle} title="Сдающий">
+            <span style={dealerLampBulbStyle} />
+            <span className="dealer-badge-text">Сдающий</span>
+          </span>
+        )
       )}
       {firstBidderBadge && (
         <span className={`opponent-badge first-bidder-badge${position === 'top' || position === 'left' ? ' first-bidder-badge-two-lines' : ''}`} style={firstBidderLampExternalStyle} title="Первый заказ/ход">
@@ -2088,10 +2302,32 @@ function OpponentSlot({
         </span>
       )}
       <div className="opponent-slot-header" style={opponentHeaderStyle}>
-        <span style={{
-          ...opponentNameStyle,
-          ...(mobileActiveName ? nameActiveMobileStyle : {}),
-        }}>{p.name}</span>
+        {onAvatarClick ? (
+          <button
+            type="button"
+            onClick={() => onAvatarClick(index)}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', lineHeight: 0 }}
+            title="Информация об игроке"
+            aria-label={`Информация об игроке ${p.name}`}
+          >
+            <PlayerAvatar name={p.name} avatarDataUrl={avatarDataUrl} sizePx={avatarSizePx} title={p.name} />
+          </button>
+        ) : (
+          <PlayerAvatar name={p.name} avatarDataUrl={avatarDataUrl} sizePx={avatarSizePx} title={p.name} />
+        )}
+        <span
+          className={eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : undefined}
+          style={{
+            ...opponentNameStyle,
+            ...(mobileActiveName ? nameActiveMobileStyle : {}),
+            minWidth: 0,
+            ...(eastMobileOnlyAvatar
+              ? { overflow: 'visible', whiteSpace: 'normal' as const, wordBreak: 'break-word' as const, overflowWrap: 'break-word' as const }
+              : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
+          }}
+        >
+          {p.name}
+        </span>
         {isActive && !isMobile && <span style={opponentTurnBadgeStyle}>Ходит</span>}
       </div>
       <div style={{
@@ -2099,7 +2335,7 @@ function OpponentSlot({
         ...(position === 'top' && inline ? { flexWrap: 'nowrap' as const } : {}),
         ...(position === 'left' && inline ? { flexDirection: 'row-reverse' as const } : {}),
       }}>
-        <TrickSlotsDisplay bid={bid} tricksTaken={p.tricksTaken} variant="opponent" horizontalOnly={position === 'top' && inline} collectingCards={collectingCards} compactMode={compactMode} />
+        <TrickSlotsDisplay bid={displayBid} tricksTaken={p.tricksTaken} variant="opponent" horizontalOnly={position === 'top' && inline} collectingCards={collectingCards} compactMode={compactMode} eastMobileTricks={position === 'right' && !!isMobile && displayBid !== null && displayBid > 0} />
         <div className="opponent-score-badge" style={opponentStatBadgeScoreStyle}>
           <span style={opponentStatLabelStyle}>Очки</span>
           <span style={opponentStatValueStyle}>{p.score}</span>
@@ -2830,7 +3066,7 @@ const MODAL_GAP = 8;
 const MODAL_ROW_GAP = 22;
 const MODAL_GAP_MOBILE = 6;
 const MODAL_ROW_GAP_MOBILE = 12;
-const dealResultsModalFlexStyle: React.CSSProperties = {
+const _dealResultsModalFlexStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
@@ -2841,7 +3077,7 @@ const dealResultsModalFlexStyle: React.CSSProperties = {
   overflow: 'hidden',
 };
 
-const dealResultsModalFlexStyleMobile: React.CSSProperties = {
+const _dealResultsModalFlexStyleMobile: React.CSSProperties = {
   padding: `${MODAL_GAP_MOBILE}px 10px`,
   gap: MODAL_ROW_GAP_MOBILE,
   overflow: 'auto',
@@ -2873,13 +3109,13 @@ const dealResultsTableOuterPCStyle: React.CSSProperties = {
   marginRight: 'auto',
 };
 
-const dealResultsModalRow1Style: React.CSSProperties = {
+const _dealResultsModalRow1Style: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'center',
   flexShrink: 0,
 };
 
-const dealResultsModalRow2Style: React.CSSProperties = {
+const _dealResultsModalRow2Style: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-around',
   alignItems: 'center',
@@ -2887,13 +3123,13 @@ const dealResultsModalRow2Style: React.CSSProperties = {
   gap: 20,
 };
 
-const dealResultsModalRow2StyleMobile: React.CSSProperties = {
+const _dealResultsModalRow2StyleMobile: React.CSSProperties = {
   gap: 8,
   flexWrap: 'wrap' as const,
   justifyContent: 'center',
 };
 
-const dealResultsModalRow3Style: React.CSSProperties = {
+const _dealResultsModalRow3Style: React.CSSProperties = {
   flex: '0 1 auto',
   minHeight: 0,
   display: 'flex',
@@ -2901,12 +3137,12 @@ const dealResultsModalRow3Style: React.CSSProperties = {
   overflow: 'hidden',
 };
 
-const dealResultsModalRow3StyleMobile: React.CSSProperties = {
+const _dealResultsModalRow3StyleMobile: React.CSSProperties = {
   flex: '0 0 auto',
   overflow: 'visible',
 };
 
-const dealResultsChartWrapStyle: React.CSSProperties = {
+const _dealResultsChartWrapStyle: React.CSSProperties = {
   width: '100%',
   maxWidth: 360,
   height: 'auto',
@@ -2917,13 +3153,13 @@ const dealResultsChartWrapStyle: React.CSSProperties = {
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 0 12px rgba(34, 211, 238, 0.15)',
 };
 
-const dealResultsChartWrapStyleMobile: React.CSSProperties = {
+const _dealResultsChartWrapStyleMobile: React.CSSProperties = {
   maxWidth: '100%',
   padding: '10px 12px',
   borderRadius: 10,
 };
 
-const dealResultsChartTitleStyle: React.CSSProperties = {
+const _dealResultsChartTitleStyle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
   color: '#22d3ee',
@@ -2933,21 +3169,21 @@ const dealResultsChartTitleStyle: React.CSSProperties = {
   textTransform: 'uppercase',
 };
 
-const dealResultsChartTitleStyleMobile: React.CSSProperties = {
+const _dealResultsChartTitleStyleMobile: React.CSSProperties = {
   fontSize: 10,
   marginBottom: 6,
 };
 
-const dealResultsChartRowStyleMobile: React.CSSProperties = {
+const _dealResultsChartRowStyleMobile: React.CSSProperties = {
   gap: 4,
 };
 
-const dealResultsChartBarBgStyleMobile: React.CSSProperties = {
+const _dealResultsChartBarBgStyleMobile: React.CSSProperties = {
   height: 6,
 };
 
 /** Внешний контейнер таблицы (мобильная модалка) */
-const dealResultsTableWrapOuterStyle: React.CSSProperties = {
+const _dealResultsTableWrapOuterStyle: React.CSSProperties = {
   width: '100%',
   padding: '10px 8px 10px 4px',
   boxSizing: 'border-box',
@@ -3016,7 +3252,7 @@ const dealResultsTableScrollWrapStyle: React.CSSProperties = {
   boxSizing: 'border-box',
 };
 /** Скролл: этот блок скроллится */
-const dealResultsTableScrollAreaStyle: React.CSSProperties = {
+const _dealResultsTableScrollAreaStyle: React.CSSProperties = {
   flex: 1,
   minHeight: 0,
   width: '100%',
@@ -3209,7 +3445,7 @@ const dealResultsTableThNameTextStyle: React.CSSProperties = {
   textOverflow: 'ellipsis',
 };
 /** Разделитель слева у ячеек с именами (кроме первой) */
-const dealResultsTableThNameDividerStyle: React.CSSProperties = {
+const _dealResultsTableThNameDividerStyle: React.CSSProperties = {
   borderLeft: '2px solid rgba(34, 211, 238, 0.7)',
 };
 const dealResultsTableTdStyle: React.CSSProperties = {
@@ -3287,20 +3523,20 @@ const dealResultsTableTfootStyle: React.CSSProperties = {
   borderTop: '2px solid rgba(34, 211, 238, 0.6)',
 };
 
-const dealResultsChartBarsStyle: React.CSSProperties = {
+const _dealResultsChartBarsStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 6,
 };
 
-const dealResultsChartRowStyle: React.CSSProperties = {
+const _dealResultsChartRowStyle: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr auto',
   alignItems: 'center',
   gap: 8,
 };
 
-const dealResultsChartNameStyle: React.CSSProperties = {
+const _dealResultsChartNameStyle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
   color: '#94a3b8',
@@ -3309,13 +3545,13 @@ const dealResultsChartNameStyle: React.CSSProperties = {
   gap: 4,
 };
 
-const dealResultsChartRankStyle: React.CSSProperties = {
+const _dealResultsChartRankStyle: React.CSSProperties = {
   fontSize: 10,
   color: '#64748b',
   minWidth: 14,
 };
 
-const dealResultsChartScoreStyle: React.CSSProperties = {
+const _dealResultsChartScoreStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 700,
   color: '#f8fafc',
@@ -3323,7 +3559,7 @@ const dealResultsChartScoreStyle: React.CSSProperties = {
   textAlign: 'right',
 };
 
-const dealResultsChartBarBgStyle: React.CSSProperties = {
+const _dealResultsChartBarBgStyle: React.CSSProperties = {
   gridColumn: '1 / -1',
   height: 8,
   borderRadius: 4,
@@ -3332,14 +3568,14 @@ const dealResultsChartBarBgStyle: React.CSSProperties = {
   border: '1px solid rgba(34, 211, 238, 0.25)',
 };
 
-const dealResultsChartBarFillStyle: React.CSSProperties = {
+const _dealResultsChartBarFillStyle: React.CSSProperties = {
   height: '100%',
   borderRadius: 3,
   background: 'linear-gradient(90deg, rgba(34, 211, 238, 0.5) 0%, rgba(34, 211, 238, 0.8) 100%)',
   transition: 'width 0.5s ease-out',
 };
 
-const dealResultsChartBarLeaderStyle: React.CSSProperties = {
+const _dealResultsChartBarLeaderStyle: React.CSSProperties = {
   background: 'linear-gradient(90deg, rgba(34, 211, 238, 0.7) 0%, #22d3ee 50%, rgba(94, 234, 212, 0.9) 100%)',
   boxShadow: '0 0 8px rgba(34, 211, 238, 0.5)',
 };
@@ -3533,7 +3769,7 @@ const opponentHeaderStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 8,
   marginBottom: 10,
-  flexWrap: 'wrap',
+  flexWrap: 'nowrap',
 };
 
 const opponentNameStyle: React.CSSProperties = {
@@ -3547,6 +3783,11 @@ const opponentNameStyle: React.CSSProperties = {
 const nameActiveMobileStyle: React.CSSProperties = {
   color: '#22c55e',
   textShadow: '0 0 10px rgba(34, 197, 94, 0.6), 0 0 4px rgba(34, 197, 94, 0.4)',
+};
+
+/** Мобильная: подсказка «Ваш ход!» / «Ваш заказ!» — такой же зелёный с неоном, как имена оппонентов при их ходе */
+const yourTurnPromptStyle: React.CSSProperties = {
+  ...nameActiveMobileStyle,
 };
 
 const opponentTurnBadgeStyle: React.CSSProperties = {

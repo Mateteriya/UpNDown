@@ -43,10 +43,3 @@ export type GamePhase =
   | 'deal-complete'  // Раздача завершена
   | 'game-complete'; // Игра завершена
 
-/** Результат раздачи */
-export interface DealResult {
-  playerId: string;
-  bid: number;
-  taken: number;
-  points: number;
-}

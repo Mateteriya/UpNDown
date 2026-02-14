@@ -85,7 +85,7 @@ export function createGame(
     { id: 'human', name: trimPlayerName(humanPlayerName), hand: [], bid: undefined, tricksTaken: 0, score: 0 },
     { id: 'ai1', name: 'ИИ Север', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
     { id: 'ai2', name: 'ИИ супердлинноеим', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
-    { id: 'ai3', name: 'ИИ Восток', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
+    { id: 'ai3', name: 'Семнадцать символ', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
   ];
 
   /** Первая раздача в партии: сдающий выбирается случайно */

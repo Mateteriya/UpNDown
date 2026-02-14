@@ -1,14 +1,1 @@
-{
-  "name": "Up&Down — Карточная игра на взятки",
-  "short_name": "Up&Down",
-  "description": "Мультиплатформенное приложение для карточной игры Up&Down",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
-  "orientation": "portrait",
-  "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
-  ]
-}
+{"name":"Up&Down — Карточная игра на взятки","short_name":"Up&Down","description":"Мультиплатформенное приложение для карточной игры Up&Down","start_url":"/","display":"standalone","background_color":"#0f172a","theme_color":"#0f172a","orientation":"portrait","icons":[{"src":"/favicon.ico","sizes":"48x48","type":"image/x-icon","purpose":"any"},{"src":"/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},{"src":"/icon-256.png","sizes":"256x256","type":"image/png","purpose":"any"},{"src":"/favicon.ico","sizes":"256x256","type":"image/x-icon","purpose":"any"},{"src":"/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},{"src":"/icon-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}]}
