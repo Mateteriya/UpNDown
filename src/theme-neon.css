@@ -1,0 +1,92 @@
+/**
+ * Неоновая тема — только мобильная (viewport-mobile).
+ * ПК не затрагивается.
+ */
+
+/* Бейдж «I: имя», тосты-подсказки */
+.theme-neon .game-table-root.viewport-mobile .first-move-badge span {
+  color: #38bdf8 !important;
+  -webkit-text-fill-color: #38bdf8 !important;
+  opacity: 1 !important;
+  text-shadow: 0 0 8px rgba(56, 189, 248, 0.6) !important;
+}
+.theme-neon .game-table-root.viewport-mobile .dealer-tooltip-toast {
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.92) 0%, rgba(59, 130, 246, 0.88) 100%) !important;
+  border: 1px solid rgba(56, 189, 248, 0.6) !important;
+  color: #e0f2fe !important;
+  -webkit-text-fill-color: #e0f2fe !important;
+  opacity: 1 !important;
+  box-shadow: 0 4px 24px rgba(30, 64, 175, 0.35), 0 0 20px rgba(56, 189, 248, 0.25) !important;
+}
+.theme-neon .game-table-root.viewport-mobile .first-move-tooltip-toast {
+  background: linear-gradient(135deg, rgba(88, 28, 135, 0.92) 0%, rgba(67, 56, 202, 0.9) 50%, rgba(30, 64, 175, 0.88) 100%) !important;
+  border: 1px solid rgba(167, 139, 250, 0.65) !important;
+  color: #e9d5ff !important;
+  -webkit-text-fill-color: #e9d5ff !important;
+  opacity: 1 !important;
+  box-shadow: 0 4px 24px rgba(88, 28, 135, 0.4), 0 0 24px rgba(167, 139, 250, 0.3) !important;
+}
+.theme-neon .game-table-root.viewport-mobile .first-move-tooltip-toast .first-move-tooltip-name {
+  color: #67e8f9 !important;
+  -webkit-text-fill-color: #67e8f9 !important;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.8), 0 0 4px rgba(34, 211, 238, 0.5) !important;
+}
+.theme-neon .game-table-root.viewport-mobile .first-move-tooltip-toast > div:last-child {
+  color: #c4b5fd !important;
+  -webkit-text-fill-color: #c4b5fd !important;
+  opacity: 1 !important;
+}
+
+/* Панельки игроков: неоновая подсветка при доп. подсветке */
+.theme-neon .game-table-root.viewport-mobile.trump-highlight-on .game-mobile-top-row .game-mobile-slot-north > div,
+.theme-neon .game-table-root.viewport-mobile.trump-highlight-on .game-mobile-top-row .game-mobile-slot-west > div,
+.theme-neon .game-table-root.viewport-mobile.trump-highlight-on .game-center-area.game-mobile-center .game-center-east .opponent-slot-east,
+.theme-neon .game-table-root.viewport-mobile.trump-highlight-on .game-mobile-player-panel {
+  border: 2px solid rgba(96, 165, 255, 0.85) !important;
+  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.55), inset 0 0 40px rgba(180, 220, 255, 0.12), inset 0 0 0 2px rgba(59, 130, 246, 0.55), inset 0 0 28px rgba(99, 102, 241, 0.5), 0 0 0 3px rgba(139, 92, 246, 0.6), 0 0 28px rgba(99, 102, 241, 0.4) !important;
+}
+
+/* Имена оппонентов и игрока — сплошной цвет */
+.theme-neon .game-table-root.viewport-mobile .opponent-slot-header .player-panel-name,
+.theme-neon .game-table-root.viewport-mobile .opponent-slot-header > span:not([class]),
+.theme-neon .game-table-root.viewport-mobile .opponent-slot-header .opponent-name-east-mobile {
+  background: none !important;
+  background-clip: unset !important;
+  -webkit-background-clip: unset !important;
+  color: #e2e8f0 !important;
+  -webkit-text-fill-color: #e2e8f0 !important;
+}
+.theme-neon .game-table-root.viewport-mobile .user-player-panel .player-panel-name {
+  background: none !important;
+  background-clip: unset !important;
+  -webkit-background-clip: unset !important;
+  color: #fdba74 !important;
+  -webkit-text-fill-color: #fdba74 !important;
+  text-shadow:
+    0 -1px 0 rgba(255, 255, 255, 0.4),
+    0 1px 0 rgba(0, 0, 0, 0.15),
+    0 0 8px rgba(251, 146, 60, 0.3) !important;
+}
+.theme-neon .game-table-root.viewport-mobile .player-info-panel-your-turn .player-panel-name:not(.your-turn-prompt) {
+  color: #c4b5fd !important;
+  -webkit-text-fill-color: #c4b5fd !important;
+}
+.theme-neon .game-table-root.viewport-mobile .player-info-panel-your-turn .player-panel-name.your-turn-prompt {
+  color: #4ade80 !important;
+  -webkit-text-fill-color: #4ade80 !important;
+  text-shadow: 0 0 10px rgba(74, 222, 128, 0.6), 0 0 4px rgba(74, 222, 128, 0.4) !important;
+}
+.theme-neon .game-table-root.viewport-mobile .opponent-slot-current-turn .opponent-slot-header > span {
+  color: #4ade80 !important;
+  text-shadow: 0 0 10px rgba(74, 222, 128, 0.6), 0 0 4px rgba(74, 222, 128, 0.4) !important;
+}
+
+/* Козырь на колоде — рамка тоньше */
+.theme-neon .game-table-root.viewport-mobile .trump-on-deck--full {
+  border-width: 1.5px !important;
+  outline-width: 1px !important;
+}
+.theme-neon .game-table-root.viewport-mobile .trump-on-deck--dim {
+  border-width: 1px !important;
+  outline-width: 0.5px !important;
+}

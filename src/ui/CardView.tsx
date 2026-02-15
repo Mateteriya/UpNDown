@@ -5,7 +5,8 @@
 import { useState } from 'react';
 import type { ImgHTMLAttributes } from 'react';
 import type { Card } from '../game/types';
-import { JACK_CAT_BY_SUIT, QUEEN_IMAGE_BY_SUIT, KING_IMAGE_BY_SUIT, ACE_IMAGE_BY_SUIT } from '../cardAssets';
+import { useTheme } from '../contexts/ThemeContext';
+import { JACK_CAT_BY_SUIT, QUEEN_IMAGE_BY_SUIT, KING_IMAGE_BY_SUIT, ACE_IMAGE_BY_SUIT, isCardImageCached, markCardImageLoaded } from '../cardAssets';
 
 /** Ранги: 6–10 числовые, J/Q/K/A фигуры */
 const RANK_NUMERIC = ['6', '7', '8', '9', '10'] as const;
@@ -53,7 +54,7 @@ const FACE_LABEL: Record<string, string> = {
   A: 'Т',
 };
 
-/** Плейсхолдер до загрузки картинки фигурной карты; скрывается после onLoad */
+/** Плейсхолдер до загрузки картинки фигурной карты; скрывается после onLoad. Использует глобальный кэш — при повторном появлении карты (напр. на столе) сразу показывает картинку без «перезагрузки». */
 function CardFaceImage({
   src,
   alt,
@@ -61,7 +62,11 @@ function CardFaceImage({
   style,
   ...rest
 }: ImgHTMLAttributes<HTMLImageElement>) {
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(() => (src ? isCardImageCached(src) : false));
+  const handleLoad = () => {
+    if (src) markCardImageLoaded(src);
+    setLoaded(true);
+  };
   return (
     <span style={{ position: 'relative', display: 'block', width: '100%', height: '100%', minHeight: '100%' }}>
       {!loaded && (
@@ -81,7 +86,7 @@ function CardFaceImage({
         alt={alt}
         className={className}
         style={{ ...style, width: style?.width ?? '100%', height: style?.height ?? '100%', objectFit: 'contain', opacity: loaded ? 1 : 0, transition: 'opacity 0.2s ease-out' }}
-        onLoad={() => setLoaded(true)}
+        onLoad={handleLoad}
       />
     </span>
   );
@@ -136,11 +141,17 @@ export interface CardViewProps {
   mobileTrumpShineBidding?: boolean;
 }
 
-const suitColor: Record<string, string> = {
+const suitColorLight: Record<string, string> = {
   '♠': '#0f172a',
-  '♥': '#c41e3a',  /* черви: насыщенный красный (индексы и пипы) */
-  '♦': '#ea580c',  /* буби: оранжевый (индексы и пипы) */
-  '♣': '#3b0764',  /* крести: ультрафиолетовый глубокий космический тёмный (индексы и пипы) */
+  '♥': '#c41e3a',  /* черви: насыщенный красный */
+  '♦': '#ea580c',  /* буби: оранжевый */
+  '♣': '#3b0764',  /* крести: ультрафиолетовый */
+};
+const suitColorDark: Record<string, string> = {
+  '♠': '#94a3b8',  /* пики: светло-серебристый для тёмного фона */
+  '♥': '#f87171',  /* черви: яркий красный для контраста на тёмном */
+  '♦': '#fdba74',  /* буби: яркий янтарный для контраста на тёмном */
+  '♣': '#c4b5fd',  /* крести: светло-фиолетовый, отличим от пик */
 };
 
 /** Неоновые цвета рамочек по мастям — двойная рамка (бордюр + outline), чёткая */
@@ -151,10 +162,21 @@ const suitNeonBorder: Record<string, { border: string; outline: string }> = {
   '♣': { border: '#5b21b6', outline: '0 0 0 2px #5b21b6' },   /* крести: ультрафиолетовый глубокий космический тёмный */
 };
 
+/** Тёмная тема: градиент карт — синий и фиолетовый космический оттенок */
+const CARD_BG_DARK = 'linear-gradient(145deg, #0f172a 0%, #1e293b 20%, #312e81 40%, #334155 60%, #1e293b 80%, #0f172a 100%)';
+const CARD_BG_DARK_TRUMP = 'linear-gradient(145deg, #1e293b 0%, #312e81 25%, #4338ca 50%, #334155 75%, #1e293b 100%)';
+const CARD_BG_DARK_HIGHLIGHT = 'linear-gradient(145deg, #1e293b 0%, #334155 30%, #475569 50%, #334155 70%, #1e293b 100%)';
+
 export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, mobileTrumpShineBidding = false }: CardViewProps) {
+  const { theme } = useTheme();
+  /** Тёмная тема карт — только на мобильной/планшете; на ПК всегда светлый стиль */
+  const isDark = theme === 'neon' && !pcCardStyles;
   const cs = contentScale ?? scale;
+  const suitColor = isDark ? suitColorDark : suitColorLight;
   const color = suitColor[card.suit];
   const neon = suitNeonBorder[card.suit] ?? suitNeonBorder['♠'];
+  /** Тёмная тема: рамки карт — цвет индексов (suitColor), иначе неон */
+  const borderColor = isDark ? color : neon.border;
   const bw = compact ? 52 : 70;
   const bh = compact ? 76 : 100;
   const w = Math.round(bw * scale);
@@ -203,19 +225,28 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
       'inset 0 -1px 2px rgba(0,0,0,0.1)',
     ].join(', ');
   } else if (pcCardStyles && isTrumpInHand && trumpHighlightOn) {
-    trumpShadow = `${baseShadow}, 0 0 0 1px rgba(255,255,255,0.85), 0 0 18px rgba(255,255,255,0.52), 0 0 12px ${neon.border}bb, 0 0 20px ${neon.border}66, inset 0 0 14px ${neon.border}33, inset 0 1px 6px rgba(255,255,255,0.52)`;
+    trumpShadow = isDark
+      ? `${baseShadow}, 0 0 0 1px rgba(255,255,255,0.25), 0 0 12px ${borderColor}66, 0 0 16px ${borderColor}44, inset 0 0 8px ${borderColor}22`
+      : `${baseShadow}, 0 0 0 1px rgba(255,255,255,0.85), 0 0 18px rgba(255,255,255,0.52), 0 0 12px ${neon.border}bb, 0 0 20px ${neon.border}66, inset 0 0 14px ${neon.border}33, inset 0 1px 6px rgba(255,255,255,0.52)`;
   } else if (isNonTrumpWithHighlight) {
     trumpShadow = `0 0 0 1px ${neon.border}`;
   } else if (showMobileHandHighlight) {
     /* Козыри в руке (заказ/первый ход во взятке) или доступные для хода карты в мобильной версии */
-    trumpShadow = [
-      `0 0 0 1px rgba(255,255,255,0.95)`,
-      `0 0 16px rgba(255,255,255,0.5)`,
-      `0 2px 8px rgba(0,0,0,0.12)`,
-      `inset 0 0 14px rgba(255,255,255,0.95)`,
-      `inset 0 0 34px rgba(255,255,255,0.68)`,
-      `inset 0 0 58px rgba(255,255,255,0.35)`,
-    ].join(', ');
+    trumpShadow = isDark
+      ? [
+          `0 0 0 1px rgba(255,255,255,0.3)`,
+          `0 0 12px ${borderColor}66`,
+          `0 2px 8px rgba(0,0,0,0.2)`,
+          `inset 0 0 8px ${borderColor}22`,
+        ].join(', ')
+      : [
+          `0 0 0 1px rgba(255,255,255,0.95)`,
+          `0 0 16px rgba(255,255,255,0.5)`,
+          `0 2px 8px rgba(0,0,0,0.12)`,
+          `inset 0 0 14px rgba(255,255,255,0.95)`,
+          `inset 0 0 34px rgba(255,255,255,0.68)`,
+          `inset 0 0 58px rgba(255,255,255,0.35)`,
+        ].join(', ');
   }
 
   /* Мобильная рука при вкл. подсветке: тонкая цветная обводка по масти (в box-shadow, чтобы не обрезалась обёрткой) */
@@ -239,29 +270,31 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         margin: compact ? Math.round(2 * scale) : Math.round(4 * scale),
         /* В мобильной руке при подсветке: цветная рамка по масти (и для козырей тоже при вкл. подсветки); иначе козырь/доступный ход — белая рамка */
         border: showMobileHandHighlight && thinBorder
-          ? (suitIndexInHandMobile && trumpHighlightOn ? `1px solid ${neon.border}` : '1px solid rgba(255,255,255,0.98)')
+          ? (suitIndexInHandMobile && trumpHighlightOn ? `1px solid ${borderColor}` : '1px solid rgba(255,255,255,0.98)')
           : showMobileHandHighlight
           ? '3px solid rgba(255,255,255,0.98)'
-          : (thinBorder ? `1px solid ${neon.border}` : (trumpOnDeck && !trumpDeckHighlightOn ? `2px solid ${neon.border}bb` : (doubleBorder ? (isNonTrumpWithHighlight ? `2px solid ${neon.border}` : `3px solid ${neon.border}`) : `2px solid ${neon.border}`))),
+          : (thinBorder ? `1px solid ${borderColor}` : (trumpOnDeck && !trumpDeckHighlightOn ? `2px solid ${borderColor}bb` : (doubleBorder ? (isNonTrumpWithHighlight ? `2px solid ${borderColor}` : `3px solid ${borderColor}`) : `2px solid ${borderColor}`))),
         outline: thinBorder
-          ? (suitIndexInHandMobile && trumpHighlightOn ? `1px solid ${neon.border}cc` : 'none')
-          : (trumpOnDeck ? (trumpDeckHighlightOn ? `2px solid ${neon.border}ee` : `1px solid ${neon.border}99`) : (isTrumpOnTable && trumpHighlightOn) ? `2px solid rgba(200,220,160,0.92)` : (doubleBorder ? (isNonTrumpWithHighlight ? `1px solid ${neon.border}cc` : `2px solid ${neon.border}cc`) : 'none')),
+          ? (suitIndexInHandMobile && trumpHighlightOn ? `1px solid ${borderColor}cc` : 'none')
+          : (trumpOnDeck ? (trumpDeckHighlightOn ? `2px solid ${borderColor}ee` : `1px solid ${borderColor}99`) : (isTrumpOnTable && trumpHighlightOn) ? `2px solid rgba(200,220,160,0.92)` : (doubleBorder ? (isNonTrumpWithHighlight ? `1px solid ${borderColor}cc` : `2px solid ${borderColor}cc`) : 'none')),
         outlineOffset: trumpOnDeck ? 1 : (suitIndexInHandMobile && trumpHighlightOn) ? 1 : (isTrumpOnTable && trumpHighlightOn) ? 2 : 0,
         borderRadius: Math.round(8 * scale),
         boxShadow: biddingHighlightMobile ? undefined : baseCardShadow,
-        background: trumpOnDeck
-          ? (trumpDeckHighlightOn
-              ? `linear-gradient(145deg, ${neon.border}50 0%, #ffffff 30%, #f1f5f9 70%, ${neon.border}25 100%)`
-              : `linear-gradient(145deg, ${neon.border}28 0%, #ffffff 38%, #f5f7fa 72%, ${neon.border}12 100%)`)
-          : pcCardStyles && (isTrumpInHand || isTrumpOnTableDim) && !trumpHighlightOn
-            ? `linear-gradient(145deg, ${neon.border}38 0%, #ffffff 35%, #f5f7fa 68%, ${neon.border}18 100%)`
-            : isTableNumericTrump
-              ? `linear-gradient(145deg, ${neon.border}38 0%, #ffffff 35%, #f5f7fa 70%, ${neon.border}20 100%)`
-              : pcCardStyles && ((isTrumpOnTable && trumpHighlightOn) || (isTrumpInHand && trumpHighlightOn))
-                ? `linear-gradient(145deg, ${neon.border}38 0%, #f8fafc 35%, #e2e8f0 100%)`
-                : showMobileHandHighlight
-                  ? 'linear-gradient(145deg, #ffffff 0%, #fdfefe 32%, #edf2f7 62%, #d7e0ea 100%)'
-                  : 'linear-gradient(145deg, #f8fafc, #e2e8f0)',
+        background: isDark
+          ? (trumpOnDeck ? CARD_BG_DARK_TRUMP : (trumpHighlightOn && isTrumpOnTable) ? CARD_BG_DARK_HIGHLIGHT : (trumpHighlightOn && isTrumpInHand) ? CARD_BG_DARK_TRUMP : CARD_BG_DARK)
+          : trumpOnDeck
+            ? (trumpDeckHighlightOn
+                ? `linear-gradient(145deg, ${neon.border}50 0%, #ffffff 30%, #f1f5f9 70%, ${neon.border}25 100%)`
+                : `linear-gradient(145deg, ${neon.border}28 0%, #ffffff 38%, #f5f7fa 72%, ${neon.border}12 100%)`)
+            : pcCardStyles && (isTrumpInHand || isTrumpOnTableDim) && !trumpHighlightOn
+              ? `linear-gradient(145deg, ${neon.border}38 0%, #ffffff 35%, #f5f7fa 68%, ${neon.border}18 100%)`
+              : isTableNumericTrump
+                ? `linear-gradient(145deg, ${neon.border}38 0%, #ffffff 35%, #f5f7fa 70%, ${neon.border}20 100%)`
+                : pcCardStyles && ((isTrumpOnTable && trumpHighlightOn) || (isTrumpInHand && trumpHighlightOn))
+                  ? `linear-gradient(145deg, ${neon.border}38 0%, #f8fafc 35%, #e2e8f0 100%)`
+                  : showMobileHandHighlight
+                    ? 'linear-gradient(145deg, #ffffff 0%, #fdfefe 32%, #edf2f7 62%, #d7e0ea 100%)'
+                    : 'linear-gradient(145deg, #f8fafc, #e2e8f0)',
         color,
         fontSize: Math.round((compact ? 12 : 14) * cs),
         fontWeight: 600,
@@ -316,7 +349,9 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
               left: 0,
               width: '40%',
               height: '100%',
-              background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.45) 35%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.45) 65%, transparent 100%)',
+              background: isDark
+                ? 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 35%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.12) 65%, transparent 100%)'
+                : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.45) 35%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.45) 65%, transparent 100%)',
               animation: highlightAsValidPlay && !pcCardStyles && isTrumpInHand
                 ? 'card-trump-shine 5s ease-in-out infinite'
                 : 'card-trump-shine 4s ease-in-out infinite',
@@ -485,6 +520,8 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
               const topLeftTable = !useMobileLayout ? 0 : 2;
               const topLeftFinal = useMobileLayout ? topLeftTable - 1 : topLeftTable;
               const isMobileHandOrTable = suitIndexInHandMobile || tableCardMobile;
+              /* Туз крестей в тёмной теме на мобильной: центральный рисунок чуть выше */
+              const aceClubsDarkMobileLift = card.rank === 'A' && card.suit === '♣' && isDark && useMobileLayout;
               return (
             <>
               <span className="card-face-value-index" style={{ position: 'absolute', top: topLeftFinal, left: 3, zIndex: 2, fontSize: Math.round(rankSize * indexScaleTable), fontWeight: 900, lineHeight: 1.1 }}>
@@ -501,7 +538,8 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                 /* ПК стол: центральный рисунок чуть ниже — строго по центру */
                 ...(!useMobileLayout ? { transform: 'scale(1.44) translateY(3px)' } : {}),
                 /* Мобильная рука: 4px вниз; мобильный стол (и козырь на колоде): 2px вниз — по центру */
-                ...(suitIndexInHandMobile ? { transform: 'translateY(4px)' } : useMobileLayout ? { transform: 'translateY(2px)' } : {}),
+                /* Туз крестей в тёмной теме на мобильной: приподнять центральный рисунок */
+                ...(aceClubsDarkMobileLift ? { transform: 'translateY(-2px)' } : suitIndexInHandMobile ? { transform: 'translateY(4px)' } : useMobileLayout ? { transform: 'translateY(2px)' } : {}),
               }}>
                 {card.rank === 'A' ? (
                   <span

@@ -54,10 +54,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithOAuth = useCallback(async (provider: Provider) => {
     if (!supabase) return { error: new Error('Supabase не настроен') };
-    const { error } = await supabase.auth.signInWithOAuth({
+    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+    const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
+    const options: Parameters<typeof supabase.auth.signInWithOAuth>[0]['options'] = {
+      redirectTo,
+      skipBrowserRedirect: true,
+    };
+    // Google на мобильных иногда зависает — prompt: 'select_account' принудительно показывает выбор аккаунта
+    if (provider === 'google' && isMobile) {
+      options.queryParams = { prompt: 'select_account' };
+    }
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined },
+      options,
     });
+    if (error) return { error };
+    if (data?.url && typeof window !== 'undefined') {
+      // На мобильных для Google пробуем новую вкладку — иногда обходит зависание
+      if (provider === 'google' && isMobile) {
+        const w = window.open(data.url, '_blank', 'noopener,noreferrer');
+        if (w) return { error: null }; // Открылось — пользователь завершит вход в новой вкладке
+      }
+      window.location.href = data.url;
+      return { error: null };
+    }
     return { error: error ?? null };
   }, []);
 

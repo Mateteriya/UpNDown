@@ -24,6 +24,7 @@ import { aiBid, aiPlay } from '../game/ai';
 import { getTrickWinner } from '../game/rules';
 import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
 import { preloadCardImages } from '../cardAssets';
+import { useTheme } from '../contexts/ThemeContext';
 import { CardView } from './CardView';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel } from './PlayerInfoPanel';
@@ -316,6 +317,7 @@ function GameOverModal({
 }
 
 function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame }: GameTableProps) {
+  const { theme, toggleTheme } = useTheme();
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
   const [state, setState] = useState<GameState | null>(null);
@@ -332,6 +334,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [selectedPlayerForInfo, setSelectedPlayerForInfo] = useState<number | null>(null);
   const [showDealerTooltip, setShowDealerTooltip] = useState(false);
+  const [showFirstMoveTooltip, setShowFirstMoveTooltip] = useState(false);
   const [showYourTurnPrompt, setShowYourTurnPrompt] = useState(false);
   const yourTurnPromptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const yourTurnPromptIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -347,6 +350,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     const t = setTimeout(() => setShowDealerTooltip(false), 2000);
     return () => clearTimeout(t);
   }, [showDealerTooltip]);
+  useEffect(() => {
+    if (!showFirstMoveTooltip) return;
+    const t = setTimeout(() => setShowFirstMoveTooltip(false), 4000);
+    return () => clearTimeout(t);
+  }, [showFirstMoveTooltip]);
   /** После первого появления кнопка «Результаты» больше не скрывается до конца партии */
   const dealResultsButtonEverShownRef = useRef(false);
   /** ПК: имя в блоке «Заказывает/Сейчас ход» ограничено CSS (max-width + перенос строки) */
@@ -568,48 +576,93 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   if (!state) return <div style={{ padding: 20 }}>Загрузка...</div>;
 
   return (
-    <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}`} style={tableLayoutStyle}>
+    <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}`} style={tableLayoutStyle}>
       {isMobileOrTablet && showDealerTooltip && (
         <div className="dealer-tooltip-toast" role="status" aria-live="polite">
           Сдающий
+        </div>
+      )}
+      {isMobile && showFirstMoveTooltip && state && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
+        <div className="first-move-tooltip-toast dealer-tooltip-toast" role="status" aria-live="polite">
+          <div className="first-move-tooltip-name">{state.players[state.trickLeaderIndex].name}</div>
+          <div style={{ fontSize: 12, opacity: 0.9 }}>У данного игрока будет первый ход в этой раздаче</div>
         </div>
       )}
       <div style={tableStyle}>
       <header className="game-header" style={headerStyle}>
         <div style={headerLeftWrapStyle}>
           <div style={headerMenuButtonsWrapStyle}>
-            <button
-              type="button"
-              className="header-exit-btn"
-              onClick={onExit}
-              style={exitBtnStyle}
-              title="В меню"
-              aria-label="В меню"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
-              </svg>
-            </button>
-            {onNewGame && (
-              <button
-                type="button"
-                className="header-new-game-btn"
-                onClick={() => setShowNewGameConfirm(true)}
-                style={newGameBtnStyle}
-                title="Новая партия"
-                aria-label="Новая партия"
-              >
-                ↻
-              </button>
+            {isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding') ? (
+              <div className="first-move-badge-hang-wrap" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="header-exit-btn"
+                    onClick={onExit}
+                    style={exitBtnStyle}
+                    title="В меню"
+                    aria-label="В меню"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                  </button>
+                  {onNewGame && (
+                    <button
+                      type="button"
+                      className="header-new-game-btn"
+                      onClick={() => setShowNewGameConfirm(true)}
+                      style={newGameBtnStyle}
+                      title="Новая партия"
+                      aria-label="Новая партия"
+                    >
+                      ↻
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="first-move-badge first-move-badge-clickable first-move-badge-below-home"
+                  style={{ ...firstMoveBadgeStyle, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
+                  onClick={() => setShowFirstMoveTooltip(true)}
+                  title={`${state.players[state.trickLeaderIndex].name} — у данного игрока будет первый ход в этой раздаче`}
+                  aria-label={`Первый ход: ${state.players[state.trickLeaderIndex].name}. Нажмите для подсказки`}
+                >
+                  <span className="first-move-num" style={firstMoveLabelStyle}>I:</span>
+                  <span style={firstMoveValueStyle}>{state.players[state.trickLeaderIndex].name}</span>
+                </button>
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="header-exit-btn"
+                  onClick={onExit}
+                  style={exitBtnStyle}
+                  title="В меню"
+                  aria-label="В меню"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                  </svg>
+                </button>
+                {onNewGame && (
+                  <button
+                    type="button"
+                    className="header-new-game-btn"
+                    onClick={() => setShowNewGameConfirm(true)}
+                    style={newGameBtnStyle}
+                    title="Новая партия"
+                    aria-label="Новая партия"
+                  >
+                    ↻
+                  </button>
+                )}
+              </>
             )}
           </div>
-          {isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
-            <div className="first-move-badge" style={firstMoveBadgeStyle}>
-              <span className="first-move-num" style={firstMoveLabelStyle}>I:</span>
-              <span style={firstMoveValueStyle}>{state.players[state.trickLeaderIndex].name}</span>
-            </div>
-          )}
         </div>
         <div style={headerRightWrapStyle}>
           <div style={headerRightTopRowStyle}>
@@ -662,9 +715,42 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           </svg>
           {trumpHighlightOn ? 'Выключить' : 'Включить'}
         </button>
+            {isMobile && (
+              <button
+                type="button"
+                className="theme-toggle-btn"
+                onClick={toggleTheme}
+                title={theme === 'neon' ? 'Стандарт' : 'Неоновая'}
+                aria-label={theme === 'neon' ? 'Переключить на стандартную тему' : 'Переключить на неоновую тему'}
+                style={{
+                  width: 32,
+                  height: 28,
+                  padding: 4,
+                  borderRadius: 8,
+                  border: '1px solid rgba(34, 211, 238, 0.55)',
+                  background: 'rgba(15, 23, 42, 0.9)',
+                  color: theme === 'neon' ? '#67e8f9' : '#fbbf24',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.2), 0 0 8px rgba(34, 211, 238, 0.15)',
+                }}
+              >
+                {theme === 'neon' ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ filter: 'drop-shadow(0 0 2px currentColor)' }}>
+                    <text x="12" y="17" textAnchor="middle" fontSize="14" fontWeight="700" fill="currentColor" fontFamily="system-ui, sans-serif">S</text>
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ filter: 'drop-shadow(0 0 4px rgba(34,211,238,0.8))' }}>
+                    <circle cx="12" cy="12" r="6" />
+                  </svg>
+                )}
+              </button>
+            )}
           </div>
           {(getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark') ? (
-            <div style={{
+            <div className="game-info-mode-panel" style={{
               ...gameInfoModePanelStyle,
               ...(!isMobile ? {
                 flexDirection: 'row',
@@ -681,11 +767,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 ...gameInfoValueStyle,
                 ...(!isMobile ? { fontSize: 14, lineHeight: 1 } : {}),
               }}>
-                {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : state.phase === 'dark-bidding' ? 'Тёмная (вслепую)' : 'Тёмная'}
+                {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
               </span>
             </div>
           ) : (
-            <div style={gameInfoCardsPanelStyle}>
+            <div className="game-info-cards-panel" style={gameInfoCardsPanelStyle}>
               <span style={{ ...gameInfoLabelStyle, marginBottom: 0, fontSize: 10, lineHeight: 1 }}>Карт</span>
               <span style={{ ...gameInfoValueStyle, fontSize: 13, lineHeight: 1 }}>
                 {state.tricksInDeal} {state.tricksInDeal === 1 ? 'карта' : state.tricksInDeal < 5 ? 'карты' : 'карт'}
@@ -714,7 +800,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       <span style={gameInfoLabelStyle}>Заказывает</span>
                       <span style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
                         {state.players[state.currentPlayerIndex].name}
-                        {state.phase === 'dark-bidding' && ' (вслепую)'}
                       </span>
                     </div>
                   )}
@@ -890,14 +975,14 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       top: '100%',
                       left: '50%',
                       transform: 'translate(-50%, -50%)',
-                      padding: '4px 10px',
+                      padding: '2px 6px',
                       fontSize: 14,
                       fontWeight: 600,
                       background: 'transparent',
                       whiteSpace: 'nowrap',
                       zIndex: 1,
                       border: '1px solid rgba(34, 211, 238, 0.85)',
-                      borderRadius: 14,
+                      borderRadius: 10,
                     }}
                   >
                     <span className="bid-panel-mobile-badge-text">
@@ -1168,7 +1253,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                     <span style={gameInfoLabelStyle}>Заказывает</span>
                     <span className="game-info-value-name" style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
                       {state.players[state.currentPlayerIndex].name}
-                      {state.phase === 'dark-bidding' && ' (вслепую)'}
                     </span>
                   </div>
                 )}
@@ -1177,7 +1261,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           </div>
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
         <div style={gameInfoNorthSlotWrapper} aria-hidden />
-        <div style={gameInfoNorthSlotWrapperAbsolute}>
+        <div className="game-center-north" style={gameInfoNorthSlotWrapperAbsolute}>
           <OpponentSlot state={state} index={1} position="top" inline compactMode={isMobileOrTablet}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
             winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1}
@@ -2570,11 +2654,10 @@ const firstMoveBadgeStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'row',
   alignItems: 'center',
-  gap: 8,
-  padding: '4px 14px 4px',
-  borderRadius: '8px 8px 0 0',
-  border: '1px solid rgba(139, 92, 246, 0.5)',
-  borderBottom: '2px solid rgba(167, 139, 250, 0.9)',
+  gap: 6,
+  padding: '1px 6px 1px',
+  borderRadius: 8,
+  border: '1px solid rgba(167, 139, 250, 0.7)',
   background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.85) 0%, rgba(67, 56, 202, 0.8) 100%)',
   boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
 };

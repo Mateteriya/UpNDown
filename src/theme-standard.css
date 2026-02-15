@@ -1,0 +1,163 @@
+/**
+ * Стандартная тема (светлая) — только мобильная (viewport-mobile).
+ * ПК не затрагивается.
+ */
+
+/* color-scheme и filter (против Samsung Force Dark) */
+.theme-standard {
+  color-scheme: only light !important;
+}
+.theme-standard,
+.theme-standard body {
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+/* Светло-голубой текст (не ярко-белый) */
+.theme-standard .game-table-root.viewport-mobile .opponent-slot-header .player-panel-name,
+.theme-standard .game-table-root.viewport-mobile .opponent-slot-header > span:not([class]),
+.theme-standard .game-table-root.viewport-mobile .opponent-slot-header .opponent-name-east-mobile {
+  color: #38bdf8 !important;
+  -webkit-text-fill-color: #38bdf8 !important;
+  background: none !important;
+  background-clip: unset !important;
+  -webkit-background-clip: unset !important;
+  animation: name-pulse 5s ease-in-out infinite;
+}
+/* При ходе — зелёная подсветка */
+.theme-standard .game-table-root.viewport-mobile .opponent-slot-current-turn .opponent-slot-header .player-panel-name,
+.theme-standard .game-table-root.viewport-mobile .opponent-slot-current-turn .opponent-slot-header > span,
+.theme-standard .game-table-root.viewport-mobile .opponent-slot-current-turn .opponent-slot-header .opponent-name-east-mobile {
+  color: #22c55e !important;
+  -webkit-text-fill-color: #22c55e !important;
+  text-shadow: 0 0 10px rgba(34, 197, 94, 0.6), 0 0 4px rgba(34, 197, 94, 0.4) !important;
+  animation: none !important;
+}
+
+/* Бейджи, таблички — голубой #38bdf8 */
+.theme-standard .game-table-root.viewport-mobile .game-info-mode-panel,
+.theme-standard .game-table-root.viewport-mobile .game-info-mode-panel span,
+.theme-standard .game-table-root.viewport-mobile .game-info-cards-panel,
+.theme-standard .game-table-root.viewport-mobile .game-info-cards-panel span,
+.theme-standard .game-table-root.viewport-mobile .deal-number-badge,
+.theme-standard .game-table-root.viewport-mobile .deal-number-badge span,
+.theme-standard .game-table-root.viewport-mobile .opponent-score-badge,
+.theme-standard .game-table-root.viewport-mobile .opponent-score-badge span,
+.theme-standard .game-table-root.viewport-mobile .player-score-badge,
+.theme-standard .game-table-root.viewport-mobile .player-score-badge span,
+.theme-standard .game-table-root.viewport-mobile .dealer-badge,
+.theme-standard .game-table-root.viewport-mobile .dealer-badge span,
+.theme-standard .game-table-root.viewport-mobile .dealer-badge-compact-mobile,
+.theme-standard .game-table-root.viewport-mobile .dealer-badge-compact-mobile .dealer-badge-text,
+.theme-standard .game-table-root.viewport-mobile .bid-panel,
+.theme-standard .game-table-root.viewport-mobile .bid-panel-title,
+.theme-standard .game-table-root.viewport-mobile .bid-panel-title-inline,
+.theme-standard .game-table-root.viewport-mobile .bid-panel-subtitle,
+.theme-standard .game-table-root.viewport-mobile .trick-slots-normal span,
+.theme-standard .game-table-root.viewport-mobile .trick-slots-collecting span,
+.theme-standard .game-table-root.viewport-mobile .trick-slots-label-east-mobile,
+.theme-standard .game-table-root.viewport-mobile .trick-slots-east-mobile span,
+.theme-standard .game-table-root.viewport-mobile .player-stats-row > span,
+.theme-standard .game-table-root.viewport-mobile .user-player-panel:not(.player-info-panel-your-turn) .player-panel-name,
+.theme-standard .game-table-root.viewport-mobile .deal-results-table-window,
+.theme-standard .game-table-root.viewport-mobile .deal-results-table-window th,
+.theme-standard .game-table-root.viewport-mobile .deal-results-table-window td,
+.theme-standard .game-table-root.viewport-mobile .deal-results-table-window caption,
+.theme-standard .deal-results-modal-overlay-mobile .deal-results-table-window,
+.theme-standard .deal-results-modal-overlay-mobile .deal-results-table-window th,
+.theme-standard .deal-results-modal-overlay-mobile .deal-results-table-window td,
+.theme-standard .deal-results-modal-overlay-mobile .deal-results-table-window caption {
+  color: #38bdf8 !important;
+  -webkit-text-fill-color: #38bdf8 !important;
+  opacity: 0.94 !important;
+  background: none !important;
+  background-clip: unset !important;
+  -webkit-background-clip: unset !important;
+}
+/* Кружочки «Сдающий» и «Первый заказ/ход» */
+.theme-standard .game-table-root.viewport-mobile .dealer-badge > span:first-child,
+.theme-standard .game-table-root.viewport-mobile .dealer-badge-compact-mobile > span:first-child {
+  background: #38bdf8 !important;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.8) !important;
+  opacity: 1 !important;
+  color: inherit !important;
+  -webkit-text-fill-color: inherit !important;
+}
+.theme-standard .game-table-root.viewport-mobile .first-bidder-badge:not(.first-bidder-badge-two-lines) > span:first-child,
+.theme-standard .game-table-root.viewport-mobile .first-bidder-badge .first-bidder-line1 > span:first-child {
+  background: #fb923c !important;
+  box-shadow: 0 0 8px rgba(251, 146, 60, 0.8) !important;
+  opacity: 1 !important;
+  color: inherit !important;
+  -webkit-text-fill-color: inherit !important;
+}
+/* Бейдж «Первый заказ/ход» — как в Неоновой теме: фон, рамка, тень, цвет текста */
+.theme-standard .game-table-root.viewport-mobile .first-bidder-badge {
+  color: #fdba74 !important;
+  -webkit-text-fill-color: #fdba74 !important;
+  opacity: 1 !important;
+  background: rgba(251, 146, 60, 0.12) !important;
+  border: 1px solid rgba(251, 146, 60, 0.6) !important;
+  box-shadow: 0 0 10px rgba(251, 146, 60, 0.3), inset 0 0 8px rgba(251, 146, 60, 0.08) !important;
+}
+.theme-standard .game-table-root.viewport-mobile .first-bidder-badge span,
+.theme-standard .game-table-root.viewport-mobile .first-bidder-badge-two-lines .first-bidder-line1,
+.theme-standard .game-table-root.viewport-mobile .first-bidder-badge-two-lines .first-bidder-line2 {
+  color: #fdba74 !important;
+  -webkit-text-fill-color: #fdba74 !important;
+  opacity: 1 !important;
+  background: none !important;
+  background-clip: unset !important;
+  -webkit-background-clip: unset !important;
+}
+
+/* Бейдж «I: имя», тосты */
+.theme-standard .game-table-root.viewport-mobile .first-move-tooltip-toast .first-move-tooltip-name {
+  color: #6d28d9 !important;
+  text-shadow: none !important;
+}
+.theme-standard .game-table-root.viewport-mobile .first-move-badge {
+  background: linear-gradient(135deg, rgba(88, 28, 135, 0.9) 0%, rgba(67, 56, 202, 0.85) 100%) !important;
+  opacity: 1 !important;
+}
+.theme-standard .game-table-root.viewport-mobile .first-move-badge span {
+  color: #38bdf8 !important;
+  -webkit-text-fill-color: #38bdf8 !important;
+  opacity: 1 !important;
+  text-shadow: 0 0 8px rgba(56, 189, 248, 0.6) !important;
+}
+.theme-standard .game-table-root.viewport-mobile .dealer-tooltip-toast {
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.92) 0%, rgba(59, 130, 246, 0.88) 100%) !important;
+  border: 1px solid rgba(56, 189, 248, 0.6) !important;
+  color: #e0f2fe !important;
+  -webkit-text-fill-color: #e0f2fe !important;
+  opacity: 1 !important;
+  box-shadow: 0 4px 24px rgba(30, 64, 175, 0.35), 0 0 20px rgba(56, 189, 248, 0.25) !important;
+}
+.theme-standard .game-table-root.viewport-mobile .first-move-tooltip-toast {
+  background: linear-gradient(135deg, rgba(88, 28, 135, 0.92) 0%, rgba(67, 56, 202, 0.9) 50%, rgba(30, 64, 175, 0.88) 100%) !important;
+  border: 1px solid rgba(167, 139, 250, 0.65) !important;
+  color: #e9d5ff !important;
+  -webkit-text-fill-color: #e9d5ff !important;
+  opacity: 1 !important;
+  box-shadow: 0 4px 24px rgba(88, 28, 135, 0.4), 0 0 24px rgba(167, 139, 250, 0.3) !important;
+}
+.theme-standard .game-table-root.viewport-mobile .first-move-tooltip-toast .first-move-tooltip-name {
+  color: #67e8f9 !important;
+  -webkit-text-fill-color: #67e8f9 !important;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.8), 0 0 4px rgba(34, 211, 238, 0.5) !important;
+}
+.theme-standard .game-table-root.viewport-mobile .first-move-tooltip-toast > div:last-child {
+  color: #c4b5fd !important;
+  -webkit-text-fill-color: #c4b5fd !important;
+  opacity: 1 !important;
+}
+
+/* «Сколько хотите взять взяток»: голубой текст, мерцание в фиолетовый — без -webkit-text-fill-color, чтобы анимация color работала плавно */
+.theme-standard .game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel-mobile-badge,
+.theme-standard .game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel-mobile-badge .bid-panel-mobile-badge-text {
+  color: #38bdf8;
+}
+.theme-standard .game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel-mobile-badge .bid-panel-mobile-badge-text {
+  animation: bidBadgeTextPulse 6s ease-in-out infinite;
+}

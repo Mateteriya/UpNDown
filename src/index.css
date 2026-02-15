@@ -1,3 +1,6 @@
+@import './theme-standard.css';
+@import './theme-neon.css';
+
 :root {
   font-family: system-ui, -apple-system, sans-serif;
   line-height: 1.5;
@@ -31,6 +34,12 @@
   --trick-slot-half-h: 38px;
   --trick-slot-gap: 2px;
   --game-north-slot-bottom: -65px;
+}
+
+/* Лёгкая пульсация имён (theme-standard): opacity 0.90 → 0.74 */
+@keyframes name-pulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.74; }
 }
 
 /* Подсветка первого ходящего во время заказа — пульсация на всех экранах */
@@ -74,6 +83,21 @@
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+/* Подсказка по тапу на бейдж «I: имя» (мобильная): полное имя + пояснение */
+.game-table-root .first-move-tooltip-toast {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  min-width: 180px !important;
+}
+.game-table-root .first-move-tooltip-toast .first-move-tooltip-name {
+  font-weight: 800 !important;
+  font-size: 16px !important;
+  color: #c4b5fd !important;
+  text-shadow: 0 0 8px rgba(167, 139, 250, 0.6) !important;
+  margin-bottom: 6px !important;
+}
 /* Блеск на козырях в руке во время заказа взяток (мобильная и ПК) */
 @keyframes card-trump-shine {
   0% { transform: translateX(-100%); }
@@ -412,6 +436,7 @@
   }
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child {
     align-items: center !important;
+    gap: 1px !important;
   }
   /* Одна высота верхней линии: кнопка меню, бейдж трансляции, кнопка подсветки, бейдж раздачи */
   .game-table-root.viewport-mobile .game-header > div:first-child > button,
@@ -511,7 +536,7 @@
     font-size: 0 !important;
     line-height: 0 !important;
   }
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn) svg {
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):not(.theme-toggle-btn) svg {
     width: 16px !important;
     height: 18px !important;
   }
@@ -528,19 +553,36 @@
   .game-table-root.viewport-mobile .game-header > div:first-child > div span:last-child {
     font-size: 12px !important;
   }
-  /* Бейдж «чей первый ход»: тонкая полоска под буквами */
+  /* Бейдж «I: имя» — висит независимо под кнопками, скруглённая рамка со всех сторон */
+  .game-table-root.viewport-mobile .game-header .first-move-badge-hang-wrap {
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+  .game-table-root.viewport-mobile .game-header .first-move-badge-below-home {
+    align-self: flex-start !important;
+    min-width: 80px !important;
+    box-sizing: border-box !important;
+  }
+  .game-table-root.viewport-mobile .game-header .first-move-badge.first-move-badge-clickable {
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: rgba(167, 139, 250, 0.3);
+  }
   .game-table-root.viewport-mobile .game-header .first-move-badge {
     min-height: 0 !important;
-    padding: 4px 14px 4px !important;
-    border-bottom: 2px solid rgba(167, 139, 250, 0.9) !important;
-    border-radius: 8px 8px 0 0 !important;
+    padding: 1px 6px 1px !important;
+    border: 1px solid rgba(167, 139, 250, 0.7) !important;
+    border-radius: 8px !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
   }
   .game-table-root.viewport-mobile .game-header .first-move-badge span {
     line-height: 1 !important;
   }
+  .game-table-root.viewport-mobile .game-header .first-move-badge .first-move-num {
+    font-size: 13px !important;
+  }
   .game-table-root.viewport-mobile .game-header .first-move-badge span:last-child {
-    max-width: 10ch !important;
+    font-size: 16px !important;
+    max-width: 9ch !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
@@ -553,6 +595,7 @@
     width: 20px !important;
     height: 20px !important;
     min-width: 20px !important;
+    margin-right: 3px !important;
     min-height: 20px !important;
     padding: 0 !important;
     gap: 0 !important;
@@ -569,8 +612,21 @@
   .game-table-root.viewport-mobile .game-header .deal-number-badge span:first-child {
     display: none !important;
   }
-  /* Кнопка «вкл/выкл подсветку»: без рамки, только иконка лампочки */
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn) {
+  /* Кнопка переключения темы: SVG-иконка (солнце/луна), всегда видимая */
+  .game-table-root.viewport-mobile .game-header .theme-toggle-btn {
+    font-size: 0 !important;
+    line-height: 0 !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 28px !important;
+    padding: 4px !important;
+  }
+  .game-table-root.viewport-mobile .game-header .theme-toggle-btn svg {
+    width: 16px !important;
+    height: 18px !important;
+  }
+  /* Кнопка «вкл/выкл подсветку»: без рамки, только иконка лампочки; сдвиг вправо на 7px */
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):not(.theme-toggle-btn) {
     width: 32px !important;
     min-width: 32px !important;
     height: 28px !important;
@@ -580,7 +636,7 @@
     border: none !important;
     background: transparent !important;
     box-shadow: none !important;
-    margin-right: -6px !important;
+    transform: translateX(7px) !important;
   }
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):hover {
     background: rgba(255,255,255,0.06) !important;
@@ -622,17 +678,17 @@
   /* Бейдж «чей первый ход»: тонкая полоска под буквами */
   .game-table-root .game-header .first-move-badge {
     min-height: 0 !important;
-    padding: 4px 14px 4px !important;
-    border-bottom: 2px solid rgba(167, 139, 250, 0.9) !important;
-    border-radius: 8px 8px 0 0 !important;
+    padding: 1px 6px 1px !important;
+    border: 1px solid rgba(167, 139, 250, 0.7) !important;
+    border-radius: 8px !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
   }
   .game-table-root .game-header .first-move-badge span {
     line-height: 1 !important;
   }
-  /* После «I:» — не более 10 знаков по ширине */
+  /* После «I:» — не более 9 знаков по ширине (мобильная: на 1 меньше) */
   .game-table-root .game-header .first-move-badge span:last-child {
-    max-width: 10ch !important;
+    max-width: 9ch !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
@@ -1308,14 +1364,18 @@
 }
 /* Надпись «Сколько хотите взять взяток»: внутреннее свечение, мягкое внешнее, скруглённая рамка */
 .game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel-mobile-badge {
-  border-radius: 14px !important;
+  border-radius: 10px !important;
   box-shadow: 0 0 4px rgba(34, 211, 238, 0.25), inset 0 0 14px rgba(34, 211, 238, 0.2), inset 0 1px 0 rgba(34, 211, 238, 0.35);
-  animation: bidBadgeFramePulse 2.2s ease-in-out infinite;
+  animation: bidBadgeFramePulse 5s linear infinite, bidBadgeBreathe 3.5s ease-in-out infinite;
 }
 .game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel-mobile-badge .bid-panel-mobile-badge-text {
-  color: rgba(255, 255, 255, 0.95);
+  color: #38bdf8;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 8px rgba(34, 211, 238, 0.5);
-  animation: bidBadgeTextPulse 1.8s ease-in-out infinite;
+  animation: bidBadgeTextPulse 6s ease-in-out infinite;
+}
+@keyframes bidBadgeBreathe {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.04); }
 }
 @keyframes bidBadgeFramePulse {
   0%, 100% {
@@ -1328,13 +1388,18 @@
   }
 }
 @keyframes bidBadgeTextPulse {
+  /* Голубой → фиолетовый → розовый → голубой */
   0%, 100% {
-    color: rgba(255, 255, 255, 0.95);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 8px rgba(34, 211, 238, 0.5);
+    color: #38bdf8;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 6px rgba(56, 189, 248, 0.5);
   }
-  50% {
-    color: #fff;
-    text-shadow: 0 0 4px rgba(255, 255, 255, 0.9), 0 0 14px rgba(34, 211, 238, 0.9), 0 0 20px rgba(94, 234, 212, 0.5);
+  33% {
+    color: #c4b5fd;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 6px rgba(167, 139, 250, 0.6);
+  }
+  66% {
+    color: #a78bfa;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 6px rgba(167, 139, 250, 0.6);
   }
 }
 .game-table-root.viewport-mobile .bid-panel-mobile-inline.bid-panel {

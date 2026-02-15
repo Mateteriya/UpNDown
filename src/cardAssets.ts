@@ -42,6 +42,17 @@ function getAllCardImagePaths(): string[] {
 
 const CARD_IMAGE_PATHS = getAllCardImagePaths();
 
+/** Кэш URL картинок, уже загруженных в браузере. Используется, чтобы не показывать плейсхолдер при повторном появлении карты (напр. со стола). */
+const loadedImageUrls = new Set<string>();
+
+export function isCardImageCached(src: string): boolean {
+  return loadedImageUrls.has(src);
+}
+
+export function markCardImageLoaded(src: string): void {
+  if (src) loadedImageUrls.add(src);
+}
+
 /**
  * Предзагрузка всех картинок фигурных карт в фоне.
  * Вызывать при монтировании экрана игры (GameTable).
@@ -50,6 +61,7 @@ export function preloadCardImages(): void {
   if (typeof window === 'undefined') return;
   CARD_IMAGE_PATHS.forEach((src) => {
     const img = new Image();
+    img.onload = () => markCardImageLoaded(src);
     img.src = src;
   });
 }

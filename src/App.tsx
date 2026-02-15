@@ -7,6 +7,7 @@ import { useState, useCallback, useEffect, lazy, Suspense } from 'react'
 import { hasSavedGame, clearGameStateFromStorage, getPlayerProfile, savePlayerProfile, type PlayerProfile } from './game/persistence'
 import { loadProfileFromSupabase, saveProfileToSupabase } from './lib/profileSync'
 import { useAuth } from './contexts/AuthContext'
+import { useTheme } from './contexts/ThemeContext'
 import MobileOverlapHint from './ui/MobileOverlapHint'
 import { NameAvatarModal } from './ui/NameAvatarModal'
 import { RatingModal } from './ui/RatingModal'
@@ -21,6 +22,7 @@ const DEFAULT_DISPLAY_NAME = 'Вы'
 
 function App() {
   const { user, signOut, configured } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const [screen, setScreen] = useState<'menu' | 'game'>(() => (hasSavedGame() ? 'game' : 'menu'))
   const [gameId, setGameId] = useState(1)
   const [devMode, setDevMode] = useState(() => typeof sessionStorage !== 'undefined' && sessionStorage.getItem(DEV_MODE_KEY) === '1')
@@ -122,7 +124,32 @@ function App() {
   return (
     <>
       {screen === 'menu' && !screenLobby && (
-        <main style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
+        <main style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto', position: 'relative' }}>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            title={theme === 'neon' ? 'Стандарт' : 'Неоновая'}
+            aria-label={theme === 'neon' ? 'Переключить на стандартную тему' : 'Переключить на неоновую тему'}
+            style={{
+              position: 'absolute',
+              top: '1rem',
+              right: '1rem',
+              width: 40,
+              height: 40,
+              padding: 0,
+              borderRadius: 8,
+              border: '1px solid #334155',
+              background: theme === 'neon' ? '#1e293b' : '#f1f5f9',
+              color: theme === 'neon' ? '#94a3b8' : '#64748b',
+              cursor: 'pointer',
+              fontSize: 18,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {theme === 'neon' ? '☀' : '🌙'}
+          </button>
           <h1
             style={{ fontSize: '2rem', marginBottom: '0.5rem', userSelect: 'none' }}
             onContextMenu={(e) => e.preventDefault()}
