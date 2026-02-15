@@ -108,6 +108,35 @@ export function createGame(
   };
 }
 
+/** Создать игру для 4 онлайн-игроков (имена по слотам). */
+export function createGameOnline(playerNames: [string, string, string, string]): GameState {
+  const players: Player[] = playerNames.map((name, i) => ({
+    id: `online-${i}`,
+    name: trimPlayerName(name),
+    hand: [],
+    bid: undefined,
+    tricksTaken: 0,
+    score: 0,
+  }));
+  const firstDealer = Math.floor(Math.random() * 4);
+  return {
+    phase: 'bidding',
+    players,
+    dealerIndex: firstDealer,
+    currentPlayerIndex: 0,
+    trump: null,
+    tricksInDeal: 1,
+    currentTrick: [],
+    trickLeaderIndex: 0,
+    bids: [null, null, null, null],
+    dealNumber: 1,
+    trumpCard: null,
+    lastCompletedTrick: null,
+    pendingTrickCompletion: null,
+    dealHistory: [],
+  };
+}
+
 /** Карт в раздаче по номеру: вверх 1→9, плато 9×4, вниз 8→1, бескозырка 9×4, тёмная 9×4 */
 export function getTricksInDeal(dealNumber: number): number {
   if (dealNumber <= 9) return dealNumber;

@@ -10,6 +10,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { OnlineGameProvider } from './contexts/OnlineGameContext'
 import { ErrorBoundary } from './ui/ErrorBoundary'
 import { CardsDemoPage } from './ui/CardsDemoPage'
 import './index.css'
@@ -37,9 +38,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       </ThemeProvider>
     ) : (
       <AuthProvider>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
+        <OnlineGameProvider>
+          <ThemeProvider>
+            <App />
+          </ThemeProvider>
+        </OnlineGameProvider>
       </AuthProvider>
     )}
   </ErrorBoundary>

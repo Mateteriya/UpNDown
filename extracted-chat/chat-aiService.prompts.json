@@ -1,0 +1,42 @@
+[
+  {
+    "text": "подскажешь мне как правильно удалить с компа - Check Point Endpoint Security VPN\n ? мне нужно было его по работе установить. но теперь он неактуален. как и где его удалять?",
+    "commandType": 4
+  },
+  {
+    "text": "Это с nic.ru: \"Результаты тестирования\n\nТестирование завершено. В процессе тестирования были обнаружены ошибки.\n\nОпределение IP-адреса для DNS-сервера\nДополнительная информация\tns1.vercel-dns.com\n198.51.44.13,\n2620:4d:4000:6259:7:13:0:1\tДля ns1.vercel-dns.com определены IP-адреса: 198.51.44.13, 2620:4d:4000:6259:7:13:0:1.\nДополнительная информация\tns2.vercel-dns.com\n198.51.45.13,\n2a00:edc0:6259:7:13:0:0:2\tДля ns2.vercel-dns.com определены IP-адреса: 198.51.45.13, 2a00:edc0:6259:7:13:0:0:2.\nТест пройден\n \nПроверка уникальности IP-адресов у DNS-серверов\nТест пройден\n \nПроверка корректности записи для имени DNS-сервера\nТест пройден\n \nПроверка авторитетности DNS-сервера\nКритическая ошибка\tВремя, отведенное на тестирование — превышено. Тестирование прекращено.\nТест не пройден\" - это норм?",
+    "commandType": 4
+  },
+  {
+    "text": "нет.. не открываются сайты с Версель с моими доменами, только с доменом Верселя.. а мои - https://up2down.ru  -  черная страница и надпись \"Загрузка…\"",
+    "commandType": 4
+  },
+  {
+    "text": "не исправилось никак! только по этой ссылке - https://up-n-down-git-main-mashs-projects-2e646156.vercel.app/  - все корректно и быстро открывается. а мои домены не работают!, хотя их Версель считает валидными, предлагает эти ссылки, на nic.ru - тоже все правильно. значит, ошибка именно в коде. где-то в нем неправильно указаны имена сайтов, возможно?",
+    "commandType": 4
+  },
+  {
+    "text": "up2down.ru\nExpiration Date\n–\nRenewal Price\n–\nRegistrar\nThird Party\nAuto Renewal\n–\nAge\n24h\nmateteriya-9170 Avatar\nNameservers\nVercel\nVercel CDN\nActive\nDNS Records\nDNS records point to services your domain uses, like forwarding your domain or setting up an email service. You can enable Vercel's nameservers or use a third-party to manage your domain's DNS records.\nName\nsubdomain\nType\n\nA\nValue\n76.76.21.21\nTTL\n60\nPriority\nComment\nA comment explaining what this DNS record is for\nLearn more about DNS Records\nCurrent DNS Records\n\nName\nType\nValue\nTTL\nPriority\nAge\nComment\nALIAS\tc7dc23c0d0273cec.vercel-dns-017.com\t60\t\t12h\t\nVercel automatically manages this record. It may change without notice.\n*\tALIAS\tcname.vercel-dns-017.com.\t60\t\t12h\t\nVercel automatically manages this record. It may change without notice.\nCAA\t0 issue \"letsencrypt.org\"\t60\t\t24h\t\t\n",
+    "commandType": 4
+  },
+  {
+    "text": "index-DfC-sk0W.js:1  Failed to load resource: net::ERR_CONNECTION_RESET\n",
+    "commandType": 4
+  },
+  {
+    "text": "вот еще сколько ошибок: \"index-DfC-sk0W.js:1  Failed to load resource: net::ERR_CONNECTION_RESET\n/favicon.ico:1  GET https://up2down.online/favicon.ico net::ERR_CONNECTION_RESET\nAn unknown error occurred when fetching the script.\n/icon-192.png:1  GET https://up2down.online/icon-192.png net::ERR_CONNECTION_RESET 200 (OK)\n(index):1 Error while trying to use the following icon from the Manifest: https://up2down.online/icon-192.png (Download error or resource isn't a valid image)\n(index):1 Uncaught (in promise) TypeError: Failed to register a ServiceWorker for scope ('https://up2down.online/') with script ('https://up2down.online/sw.js'): An unknown error occurred when fetching the script.\n/icon-512.png:1  GET https://up2down.online/icon-512.png net::ERR_CONNECTION_RESET 200 (OK)\n\"",
+    "commandType": 4
+  },
+  {
+    "text": "внатурре! попросила товарища открыть https://up2down.online/ у себя - он находится в Армении - и у него все сразу же открылось\\загрузилось! - вот это дииииичь... сайт с адресом от Версель - работает, а с моими адресами - ВПН нужен - БЛОК В РОССИИ! - это ли не дискриминация!? охуеть просто. за что МНЕ это..?. ок. пока обойдемся тем, что есть. будем пока юзАть сайт от Верселя.. - https://up-n-down-git-main-mashs-projects-2e646156.vercel.app/    - нам надо продолжать работу. ты помнишь и мне напомнишь наши дальнейшие планы?",
+    "commandType": 4
+  },
+  {
+    "text": "давай, все это по порядку. начнем с Supabase для продакшена\nSite URL: https://up-n-down-git-main-mashs-projects-2e646156.vercel.app\nRedirect URLs: добавить этот URL и /auth-callback.html\nЧтобы OAuth работал при входе через vercel.app.\nПродакшен-URL Vercel\nПроверить основной домен проекта (например, up-n-down.vercel.app) — он может отличаться от preview и иногда лучше открывается из России.",
+    "commandType": 4
+  },
+  {
+    "text": "я куда-то не туда нажала (какую-то комбинацию клавиш) и у меня ужасно закрылся с тобой предыдущий чат. после чего он полностью сломался. и теперь при попытке повторного открытия этого чата - он просто пишет, что \"грузится\", но ничего не происходит (так бывало раньше - и это НЕ проходило, - то есть, - чат полностью ломается и более не восстанавливается..) но у меня там были прописаны наши планы.. и важный твой последний ответ.. как же мне его достать?? чат называется - \"Позиционирование элементов карт для мобильной версии\"",
+    "commandType": 4
+  }
+]

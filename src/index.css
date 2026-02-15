@@ -525,7 +525,7 @@
     min-height: 24px !important;
     padding: 0 !important;
     font-size: 10px !important;
-    margin-right: -4px !important;
+    margin-right: 6px !important;
   }
   /* Кнопка подсветки козыря: только иконка-лампочка, без надписи */
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn) {

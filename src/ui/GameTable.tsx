@@ -25,6 +25,7 @@ import { getTrickWinner } from '../game/rules';
 import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
 import { preloadCardImages } from '../cardAssets';
 import { useTheme } from '../contexts/ThemeContext';
+import { useOnlineGame } from '../contexts/OnlineGameContext';
 import { CardView } from './CardView';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel } from './PlayerInfoPanel';
@@ -40,6 +41,10 @@ interface GameTableProps {
 
 /** Задержка перед завершением взятки — 4‑я карта показывается в слоте */
 const FOURTH_CARD_SLOT_PAUSE_MS = 550;
+/** Если живой игрок не сделал ход/заказ за это время — за него ходит ИИ (один ход). */
+const TURN_TIMEOUT_MS = 60_000;
+/** После стольких таймаутов хода подряд игрок считается неактивным и заменяется на ИИ навсегда. */
+const INACTIVE_REPLACE_THRESHOLD = 3;
 /** Пауза с картами на столе — 4‑й игрок положил карту на своё место */
 const LAST_TRICK_CARDS_PAUSE_MS = 1200;
 /** Пауза с миганием панельки взявшего взятку */
@@ -186,12 +191,14 @@ function GameOverModal({
   onNewGame,
   onExit,
   onOpenTable,
+  hideNewGame,
 }: {
   snapshot: GameState;
   gameId: number;
   onNewGame: () => void;
   onExit: () => void;
   onOpenTable: () => void;
+  hideNewGame?: boolean;
 }) {
   const [showExpanded, setShowExpanded] = useState(false);
   const humanIdx = 0;
@@ -308,9 +315,11 @@ function GameOverModal({
         <button type="button" onClick={onOpenTable} style={gameOverButtonSecondaryStyle} title="Таблица результатов по раздачам">
           Открыть таблицу
         </button>
-        <button type="button" onClick={onNewGame} style={gameOverButtonPrimaryStyle}>
-          Новая партия
-        </button>
+        {!hideNewGame && (
+          <button type="button" onClick={onNewGame} style={gameOverButtonPrimaryStyle}>
+            Новая партия
+          </button>
+        )}
       </div>
     </div>
   );
@@ -318,9 +327,16 @@ function GameOverModal({
 
 function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame }: GameTableProps) {
   const { theme, toggleTheme } = useTheme();
+  const online = useOnlineGame();
+  const isOnline = !!(online.roomId && online.status === 'playing' && online.displayState);
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
-  const [state, setState] = useState<GameState | null>(null);
+  const [localState, setLocalState] = useState<GameState | null>(null);
+  const state = isOnline ? online.displayState : localState;
+  const setState = useCallback((updater: React.SetStateAction<GameState | null>) => {
+    if (typeof updater === 'function') setLocalState(prev => updater(prev));
+    else setLocalState(updater);
+  }, []);
   const [trickPauseUntil, setTrickPauseUntil] = useState(0);
   const [showLastTrickModal, setShowLastTrickModal] = useState(false);
   const [bidPanelVisible, setBidPanelVisible] = useState(false);
@@ -360,15 +376,16 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   /** ПК: имя в блоке «Заказывает/Сейчас ход» ограничено CSS (max-width + перенос строки) */
 
   useEffect(() => {
+    if (isOnline) return;
     const restored = loadGameStateFromStorage();
     const humanName = playerDisplayName?.trim() && playerDisplayName !== 'Вы' ? playerDisplayName : 'Вы';
     if (restored) {
       const synced = { ...restored, players: restored.players.map((p, i) => i === 0 ? { ...p, name: humanName } : p) };
-      setState(synced);
+      setLocalState(synced);
     } else {
       let s = createGame(4, 'classical', humanName);
       s = startDeal(s);
-      setState(s);
+      setLocalState(s);
     }
     setTrickPauseUntil(0);
     setShowLastTrickModal(false);
@@ -379,13 +396,12 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     setLastDealResultsSnapshot(null);
     setGameOverSnapshot(null);
     setShowGameOverModal(false);
-  }, [gameId, playerDisplayName]);
+  }, [gameId, playerDisplayName, isOnline]);
 
   useEffect(() => {
-    if (state !== null) {
-      saveGameStateToStorage(state);
-    }
-  }, [state]);
+    if (isOnline || state === null) return;
+    saveGameStateToStorage(state);
+  }, [state, isOnline]);
 
   useEffect(() => {
     if (dealResultsExpanded && isMobile) {
@@ -448,11 +464,20 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       : null;
 
   const handleBid = useCallback((bid: number) => {
-    setState(prev => prev && placeBid(prev, humanIdx, bid));
-  }, [humanIdx]);
+    if (isOnline) {
+      online.sendBid(bid);
+      return;
+    }
+    setLocalState(prev => prev && placeBid(prev, humanIdx, bid));
+  }, [humanIdx, isOnline, online]);
 
   const handleBidRef = useRef(handleBid);
   handleBidRef.current = handleBid;
+
+  const handleExit = useCallback(() => {
+    if (isOnline) online.leaveRoom();
+    onExit();
+  }, [isOnline, online, onExit]);
 
   const COLLAPSING_MS = 750;
   useLayoutEffect(() => {
@@ -471,13 +496,19 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     setTrickPauseUntil(Date.now() + TRICK_PAUSE_MS);
     const t = setTimeout(() => {
       setTrickPauseUntil(0);
-      setState(prev => {
-        if (prev?.phase === 'deal-complete') {
-          const next = startNextDeal(prev);
-          return next ?? prev;
+      if (state?.phase === 'deal-complete') {
+        if (isOnline) {
+          online.sendStartNextDeal();
+        } else {
+          setLocalState(prev => {
+            if (prev?.phase === 'deal-complete') {
+              const next = startNextDeal(prev);
+              return next ?? prev;
+            }
+            return prev ?? null;
+          });
         }
-        return prev ?? null;
-      });
+      }
     }, TRICK_PAUSE_MS);
     let viewDelay: number | undefined;
     let winnerDelay: number | undefined;
@@ -493,21 +524,23 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             if (state.dealNumber === 28) {
               setGameOverSnapshot(state);
               setShowGameOverModal(true);
-              const maxScore = Math.max(...state.players.map(p => p.score));
-              const humanWon = state.players[0].score === maxScore;
-              let bidAccuracy = 0;
-              if (state.dealHistory?.length) {
-                let met = 0;
-                for (const d of state.dealHistory) {
-                  const bid = d.bids[0];
-                  const pts = d.points[0];
-                  if (bid == null) continue;
-                  const taken = getTakenFromDealPoints(bid, pts);
-                  if (bid === taken) met++;
+              if (!isOnline) {
+                const maxScore = Math.max(...state.players.map(p => p.score));
+                const humanWon = state.players[0].score === maxScore;
+                let bidAccuracy = 0;
+                if (state.dealHistory?.length) {
+                  let met = 0;
+                  for (const d of state.dealHistory) {
+                    const bid = d.bids[0];
+                    const pts = d.points[0];
+                    if (bid == null) continue;
+                    const taken = getTakenFromDealPoints(bid, pts);
+                    if (bid === taken) met++;
+                  }
+                  bidAccuracy = Math.round((met / state.dealHistory.length) * 100);
                 }
-                bidAccuracy = Math.round((met / state.dealHistory.length) * 100);
+                updateLocalRating(humanWon, undefined, bidAccuracy);
               }
-              updateLocalRating(humanWon, undefined, bidAccuracy);
             } else {
               setShowDealResultsButton(true);
               dealResultsButtonEverShownRef.current = true;
@@ -525,21 +558,35 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       if (winnerDelay) clearTimeout(winnerDelay);
       if (collapseDelay) clearTimeout(collapseDelay);
     };
-  }, [state?.lastCompletedTrick, state?.players]);
+  }, [state?.lastCompletedTrick, state?.players, state?.phase, state?.dealNumber, isOnline, online]);
 
   useEffect(() => {
     if (!state?.pendingTrickCompletion) return;
     const t = setTimeout(() => {
-      setState(prev => prev && completeTrick(prev));
+      if (isOnline) {
+        online.sendCompleteTrick();
+      } else {
+        setLocalState(prev => prev && completeTrick(prev));
+      }
     }, FOURTH_CARD_SLOT_PAUSE_MS);
     return () => clearTimeout(t);
-  }, [state?.pendingTrickCompletion]);
+  }, [state?.pendingTrickCompletion, isOnline, online]);
 
-  const isAITurn =
+  const isOnlineAiTurn =
+    isOnline &&
     !!state &&
     !state.pendingTrickCompletion &&
     (state.phase === 'bidding' || state.phase === 'dark-bidding' || state.phase === 'playing') &&
-    !isHumanPlayer(state, state.currentPlayerIndex);
+    !!online.canonicalState &&
+    !online.playerSlots[online.canonicalState.currentPlayerIndex]?.userId;
+
+  const isAITurn =
+    (isOnline && isOnlineAiTurn) ||
+    (!isOnline &&
+      !!state &&
+      !state.pendingTrickCompletion &&
+      (state.phase === 'bidding' || state.phase === 'dark-bidding' || state.phase === 'playing') &&
+      !isHumanPlayer(state, state.currentPlayerIndex));
 
   const accelerateAI = useCallback(() => {
     if (!state) return;
@@ -573,8 +620,79 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     return () => clearInterval(iv);
   }, [isAITurn, state?.phase, state?.currentPlayerIndex]);
 
+  // Онлайн: хост выполняет ход ИИ и пушит состояние
+  const lastOnlineAiTurnKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isOnlineAiTurn || online.mySlotIndex !== 0 || !online.canonicalState || !online.sendState) return;
+    const c = online.canonicalState;
+    const key = `${c.dealNumber}-${c.phase}-${c.currentPlayerIndex}-${c.bids?.join(',')}-${c.currentTrick?.length}`;
+    if (lastOnlineAiTurnKeyRef.current === key) return;
+    lastOnlineAiTurnKeyRef.current = key;
+    const idx = c.currentPlayerIndex;
+    const t = setTimeout(() => {
+      let next: GameState | null = null;
+      if (c.phase === 'bidding' || c.phase === 'dark-bidding') {
+        const bid = aiBid(c, idx);
+        next = placeBid(c, idx, bid);
+      } else if (c.phase === 'playing') {
+        const card = aiPlay(c, idx);
+        if (card) next = playCard(c, idx, card);
+      }
+      if (next) online.sendState(next);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [isOnlineAiTurn, online.mySlotIndex, online.canonicalState, online.sendState]);
+
+  // Онлайн: отслеживание смены хода (для таймаута «зависшего» игрока)
+  const lastTurnChangeAtRef = useRef(Date.now());
+  const prevTurnKeyRef = useRef<string>('');
+  const latestCanonicalRef = useRef<GameState | null>(null);
+  if (isOnline && online.canonicalState) latestCanonicalRef.current = online.canonicalState;
+  useEffect(() => {
+    if (!isOnline || !online.canonicalState) return;
+    const c = online.canonicalState;
+    const turnKey = `${c.phase}-${c.currentPlayerIndex}`;
+    if (turnKey !== prevTurnKeyRef.current) {
+      prevTurnKeyRef.current = turnKey;
+      lastTurnChangeAtRef.current = Date.now();
+    }
+  }, [isOnline, online.canonicalState]);
+
+  // Онлайн, хост: если живой игрок не ходит больше минуты — один ход за него делает ИИ; после N раз — замена на ИИ навсегда
+  const turnTimeoutCountRef = useRef<Record<number, number>>({});
+  useEffect(() => {
+    if (!isOnline || online.mySlotIndex !== 0 || !online.sendState || !online.replaceInactivePlayer) return;
+    const iv = setInterval(() => {
+      const c = latestCanonicalRef.current;
+      if (!c || c.pendingTrickCompletion) return;
+      if (c.phase !== 'bidding' && c.phase !== 'dark-bidding' && c.phase !== 'playing') return;
+      const idx = c.currentPlayerIndex;
+      if (!online.playerSlots[idx]?.userId) return;
+      if (Date.now() - lastTurnChangeAtRef.current < TURN_TIMEOUT_MS) return;
+      const count = (turnTimeoutCountRef.current[idx] ?? 0) + 1;
+      turnTimeoutCountRef.current[idx] = count;
+      lastTurnChangeAtRef.current = Date.now();
+      if (count >= INACTIVE_REPLACE_THRESHOLD) {
+        turnTimeoutCountRef.current[idx] = 0;
+        online.replaceInactivePlayer(idx);
+        return;
+      }
+      let next: GameState | null = null;
+      if (c.phase === 'bidding' || c.phase === 'dark-bidding') {
+        const bid = aiBid(c, idx);
+        next = placeBid(c, idx, bid);
+      } else if (c.phase === 'playing') {
+        const card = aiPlay(c, idx);
+        if (card) next = playCard(c, idx, card);
+      }
+      if (next) online.sendState(next);
+    }, 10_000);
+    return () => clearInterval(iv);
+  }, [isOnline, online.mySlotIndex, online.sendState, online.playerSlots, online.replaceInactivePlayer]);
+
   if (!state) return <div style={{ padding: 20 }}>Загрузка...</div>;
 
+  /* Мобильная вёрстка (viewport-mobile при width ≤600px): рука внизу, слоты взятки в сетке 2×2, козырь на колоде; стили в index.css @media (max-width: 1024px) .game-table-root.viewport-mobile */
   return (
     <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}`} style={tableLayoutStyle}>
       {isMobileOrTablet && showDealerTooltip && (
@@ -598,7 +716,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   <button
                     type="button"
                     className="header-exit-btn"
-                    onClick={onExit}
+                    onClick={handleExit}
                     style={exitBtnStyle}
                     title="В меню"
                     aria-label="В меню"
@@ -608,7 +726,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       <polyline points="9 22 9 12 15 12 15 22" />
                     </svg>
                   </button>
-                  {onNewGame && (
+                  {onNewGame && !isOnline && (
                     <button
                       type="button"
                       className="header-new-game-btn"
@@ -638,7 +756,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 <button
                   type="button"
                   className="header-exit-btn"
-                  onClick={onExit}
+                  onClick={handleExit}
                   style={exitBtnStyle}
                   title="В меню"
                   aria-label="В меню"
@@ -648,15 +766,15 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                     <polyline points="9 22 9 12 15 12 15 22" />
                   </svg>
                 </button>
-                {onNewGame && (
-                  <button
-                    type="button"
-                    className="header-new-game-btn"
-                    onClick={() => setShowNewGameConfirm(true)}
-                    style={newGameBtnStyle}
-                    title="Новая партия"
-                    aria-label="Новая партия"
-                  >
+                {onNewGame && !isOnline && (
+                    <button
+                      type="button"
+                      className="header-new-game-btn"
+                      onClick={() => setShowNewGameConfirm(true)}
+                      style={newGameBtnStyle}
+                      title="Новая партия"
+                      aria-label="Новая партия"
+                    >
                     ↻
                   </button>
                 )}
@@ -666,10 +784,13 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         </div>
         <div style={headerRightWrapStyle}>
           <div style={headerRightTopRowStyle}>
-            {showDealResultsButton && (
+            {(showDealResultsButton || (state.dealHistory && state.dealHistory.length > 0)) && (
               <button
                 type="button"
-                onClick={() => setDealResultsExpanded(true)}
+                onClick={() => {
+                  setLastDealResultsSnapshot(state);
+                  setDealResultsExpanded(true);
+                }}
                 style={dealResultsButtonStyle}
                 className="deal-results-btn"
                 title="Результаты раздачи"
@@ -1079,7 +1200,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       </div>
       <div className="game-mobile-hand-attached" style={{ width: '100%', maxWidth: 800, flexShrink: 0, minWidth: 0 }}>
         <div className={state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : undefined} style={handFrameStyleMobile}>
-          <div style={{ ...handStyle, overflow: 'hidden', justifyContent: 'center', paddingLeft: 10, paddingRight: 10, borderRadius: 10 }}>
+          <div style={{ ...handStyle, overflow: 'visible', justifyContent: 'center', paddingLeft: 10, paddingRight: 10, borderRadius: 10 }}>
             {state.players[humanIdx].hand
               .slice()
               .sort((a, b) => cardSort(a, b, state.trump))
@@ -1110,7 +1231,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   thinBorder={true}
                   onClick={() => {
                     if (!state.pendingTrickCompletion && isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
-                      setState(prev => prev && playCard(prev, humanIdx, card));
+                      if (isOnline) online.sendPlay(card);
+                      else setLocalState(prev => prev && playCard(prev, humanIdx, card));
                     }
                   }}
                   disabled={!!state.pendingTrickCompletion || !isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
@@ -1409,7 +1531,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   biddingHighlightPC={!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding')}
                   onClick={() => {
                     if (!state.pendingTrickCompletion && isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
-                      setState(prev => prev && playCard(prev, humanIdx, card));
+                      if (isOnline) online.sendPlay(card);
+                      else setLocalState(prev => prev && playCard(prev, humanIdx, card));
                     }
                   }}
                   disabled={!!state.pendingTrickCompletion || !isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
@@ -1620,6 +1743,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             <GameOverModal
               snapshot={gameOverSnapshot}
               gameId={gameId}
+              hideNewGame={isOnline}
               onNewGame={() => {
                 setShowGameOverModal(false);
                 setGameOverSnapshot(null);
@@ -1628,7 +1752,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               onExit={() => {
                 setShowGameOverModal(false);
                 setGameOverSnapshot(null);
-                onExit();
+                handleExit();
               }}
               onOpenTable={() => {
                 setLastDealResultsSnapshot(gameOverSnapshot);
@@ -4392,11 +4516,11 @@ const handFrameStyle: React.CSSProperties = {
   marginRight: 'auto',
 };
 
-/** Мобильная рука: не выходить за правый край окна, при необходимости карты слегка накладываются */
+/** Мобильная рука: карты по центру, не обрезать правый край последней карты */
 const handFrameStyleMobile: React.CSSProperties = {
   ...handFrameStyle,
   maxWidth: '100%',
-  overflow: 'hidden',
+  overflow: 'visible',
   boxSizing: 'border-box',
 };
 

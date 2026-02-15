@@ -194,3 +194,41 @@ export function savePlayerProfile(profile: PlayerProfile): void {
     /* ignore */
   }
 }
+
+/** Незавершённые онлайн-партии (игрок отказался вернуться — для статистики/истории) */
+const UNFINISHED_ONLINE_KEY = 'updown_unfinished_online';
+
+export interface UnfinishedOnlineGame {
+  roomId: string;
+  code: string;
+  leftAt: string;
+}
+
+export function saveUnfinishedOnlineGame(roomId: string, code: string): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const raw = localStorage.getItem(UNFINISHED_ONLINE_KEY);
+    const list: UnfinishedOnlineGame[] = raw ? (JSON.parse(raw) as UnfinishedOnlineGame[]) : [];
+    if (!Array.isArray(list)) return;
+    list.push({ roomId, code, leftAt: new Date().toISOString() });
+    const trimmed = list.slice(-50);
+    localStorage.setItem(UNFINISHED_ONLINE_KEY, JSON.stringify(trimmed));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function getUnfinishedOnlineGames(): UnfinishedOnlineGame[] {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(UNFINISHED_ONLINE_KEY) : null;
+    if (!raw) return [];
+    const list = JSON.parse(raw) as unknown;
+    if (!Array.isArray(list)) return [];
+    return list.filter(
+      (x): x is UnfinishedOnlineGame =>
+        x && typeof x === 'object' && typeof (x as UnfinishedOnlineGame).roomId === 'string' && typeof (x as UnfinishedOnlineGame).code === 'string'
+    );
+  } catch {
+    return [];
+  }
+}

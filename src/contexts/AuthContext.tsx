@@ -54,14 +54,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithOAuth = useCallback(async (provider: Provider) => {
     if (!supabase) return { error: new Error('Supabase не настроен') };
-    const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
-    const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
+    const redirectTo = typeof window !== 'undefined'
+      ? window.location.origin + '/auth-callback.html'
+      : undefined;
     const options: Parameters<typeof supabase.auth.signInWithOAuth>[0]['options'] = {
       redirectTo,
       skipBrowserRedirect: true,
     };
-    // Google на мобильных иногда зависает — prompt: 'select_account' принудительно показывает выбор аккаунта
-    if (provider === 'google' && isMobile) {
+    // Google: prompt=select_account — сразу выбор аккаунта, без автодетекта
+    if (provider === 'google') {
       options.queryParams = { prompt: 'select_account' };
     }
     const { data, error } = await supabase.auth.signInWithOAuth({
@@ -70,11 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (error) return { error };
     if (data?.url && typeof window !== 'undefined') {
-      // На мобильных для Google пробуем новую вкладку — иногда обходит зависание
-      if (provider === 'google' && isMobile) {
-        const w = window.open(data.url, '_blank', 'noopener,noreferrer');
-        if (w) return { error: null }; // Открылось — пользователь завершит вход в новой вкладке
-      }
+      // Редирект в той же вкладке (как GitHub) — новая вкладка давала чёрный экран после возврата
       window.location.href = data.url;
       return { error: null };
     }
