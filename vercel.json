@@ -1,6 +1,9 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/((?!assets/|cards/|favicon|icon|manifest|registerSW|sw\\.js|workbox|auth-callback\\.html).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
