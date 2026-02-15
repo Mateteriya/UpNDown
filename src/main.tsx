@@ -10,6 +10,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { ErrorBoundary } from './ui/ErrorBoundary'
 import { CardsDemoPage } from './ui/CardsDemoPage'
 import './index.css'
 
@@ -27,17 +28,19 @@ function DemoGuard({ children }: { children: React.ReactNode }) {
 
 // StrictMode отключён — двойной вызов эффектов ломал таймеры AI (зависания на 4й, 6й раздаче)
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  isDemo ? (
-    <ThemeProvider>
-      <DemoGuard>
-        <CardsDemoPage onBack={() => (window.location.href = '/')} />
-      </DemoGuard>
-    </ThemeProvider>
-  ) : (
-    <AuthProvider>
+  <ErrorBoundary>
+    {isDemo ? (
       <ThemeProvider>
-        <App />
+        <DemoGuard>
+          <CardsDemoPage onBack={() => (window.location.href = '/')} />
+        </DemoGuard>
       </ThemeProvider>
-    </AuthProvider>
-  )
+    ) : (
+      <AuthProvider>
+        <ThemeProvider>
+          <App />
+        </ThemeProvider>
+      </AuthProvider>
+    )}
+  </ErrorBoundary>
 )

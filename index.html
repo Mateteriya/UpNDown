@@ -18,7 +18,25 @@
     <title>Up&Down — Карточная игра на взятки</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="loading-fallback" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;color:#94a3b8;font-size:16px;gap:12px">
+        <span>Загрузка…</span>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Если после возврата с OAuth страница не загрузилась за 8 сек — показать подсказку -->
+    <script>
+      (function(){
+        var h=window.location.hash;
+        if(!h||!h.includes('access_token'))return;
+        setTimeout(function(){
+          var r=document.getElementById('root');
+          var lb=document.getElementById('loading-fallback');
+          if(r&&r.children.length===1&&lb&&lb.offsetParent!==null){
+            lb.innerHTML='<p style="margin:0 0 12px;color:#e2e8f0">Страница не загрузилась</p><p style="margin:0 0 16px;font-size:14px">Нажмите кнопку ниже</p><button onclick="location.reload()" style="padding:12px 24px;font-size:16px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#22d3ee;cursor:pointer">Обновить</button>';
+          }
+        },8000);
+      })();
+    </script>
   </body>
 </html>
