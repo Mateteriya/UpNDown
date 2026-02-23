@@ -30,7 +30,7 @@ function App() {
   const [devMode, setDevMode] = useState(() => typeof sessionStorage !== 'undefined' && sessionStorage.getItem(DEV_MODE_KEY) === '1')
   const [profile, setProfile] = useState<PlayerProfile>(() => getPlayerProfile())
   const [showNameAvatarModal, setShowNameAvatarModal] = useState(false)
-  const [nameAvatarMode, setNameAvatarMode] = useState<'first-run' | 'profile'>('profile')
+  const [nameAvatarMode, setNameAvatarMode] = useState<'first-run' | 'profile' | 'new-account'>('profile')
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
@@ -69,9 +69,10 @@ function App() {
     }
   }, [user?.id])
 
-  // Синхронизация профиля с Supabase при входе
+  // Синхронизация профиля с Supabase при входе (имя/ник жёстко привязаны к аккаунту/почте)
   useEffect(() => {
     if (!user?.id) return
+    const PENDING_NAME_KEY_PREFIX = 'updown_pending_name_'
     let cancelled = false
     ;(async () => {
       const remote = await loadProfileFromSupabase(user.id)
@@ -85,12 +86,34 @@ function App() {
         savePlayerProfile(merged)
         setProfile(merged)
       } else {
-        const local = getPlayerProfile()
-        await saveProfileToSupabase(user.id, local)
+        // Новый пользователь: имя при регистрации по email сохранено в sessionStorage; иначе — запросим в модалке
+        const emailKey = user.email?.toLowerCase().trim()
+        const pendingName = emailKey && typeof sessionStorage !== 'undefined'
+          ? sessionStorage.getItem(PENDING_NAME_KEY_PREFIX + emailKey)
+          : null
+        if (pendingName != null && pendingName.trim()) {
+          const defaultProfile: PlayerProfile = {
+            displayName: pendingName.trim().slice(0, 17),
+            avatarDataUrl: null,
+            profileId: getPlayerProfile().profileId,
+          }
+          await saveProfileToSupabase(user.id, defaultProfile)
+          savePlayerProfile(defaultProfile)
+          setProfile(defaultProfile)
+          try {
+            sessionStorage.removeItem(PENDING_NAME_KEY_PREFIX + emailKey)
+          } catch {
+            /* ignore */
+          }
+        } else {
+          // OAuth или вход без регистрации — имя не задано, показываем модалку «Задайте имя для этого аккаунта»
+          setNameAvatarMode('new-account')
+          setShowNameAvatarModal(true)
+        }
       }
     })()
     return () => { cancelled = true }
-  }, [user?.id])
+  }, [user?.id, user?.email])
 
   const enableDevMode = useCallback(() => {
     sessionStorage.setItem(DEV_MODE_KEY, '1')
@@ -125,6 +148,7 @@ function App() {
     setShowNameAvatarModal(false)
     if (user?.id) saveProfileToSupabase(user.id, next)
     if (nameAvatarMode === 'first-run') startGame()
+    if (nameAvatarMode === 'new-account') setNameAvatarMode('profile')
   }, [nameAvatarMode, user?.id])
 
   const handleExit = () => {
@@ -242,7 +266,7 @@ function App() {
               style={{ ...buttonStyle, background: 'transparent', borderColor: 'rgba(148,163,184,0.5)' }}
               onClick={() => { setNameAvatarMode('profile'); setShowNameAvatarModal(true) }}
             >
-              Профиль (имя и фото)
+              Изменить профиль (имя и фото)
             </button>
             <button
               type="button"
@@ -506,9 +530,15 @@ function App() {
       )}
       {showNameAvatarModal && (
         <NameAvatarModal
-          initialDisplayName={profile.displayName}
+          initialDisplayName={nameAvatarMode === 'new-account' ? (user?.email?.split('@')[0] ?? '') : profile.displayName}
           initialAvatarDataUrl={profile.avatarDataUrl}
-          title={nameAvatarMode === 'first-run' ? 'Как к вам обращаться?' : 'Профиль'}
+          title={
+            nameAvatarMode === 'first-run'
+              ? 'Как к вам обращаться?'
+              : nameAvatarMode === 'new-account'
+                ? 'Задайте имя для этого аккаунта (привязывается к почте)'
+                : 'Профиль'
+          }
           confirmLabel="Сохранить"
           onConfirm={handleNameAvatarConfirm}
           onCancel={nameAvatarMode === 'profile' ? () => setShowNameAvatarModal(false) : undefined}
