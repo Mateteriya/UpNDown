@@ -45,7 +45,11 @@ function App() {
 
   // После обновления страницы: если восстановилась онлайн-партия — открыть экран игры
   useEffect(() => {
-    if (online.status === 'playing' && online.roomId && screen === 'menu') {
+    if (screen !== 'menu') return;
+    let suppress = false
+    try { suppress = sessionStorage.getItem(SUPPRESS_AUTO_OPEN_KEY) === '1' } catch { suppress = false }
+    if (suppress) return;
+    if (online.status === 'playing' && online.roomId) {
       setScreen('game')
     }
   }, [online.status, online.roomId, screen])
@@ -151,7 +155,11 @@ function App() {
     if (nameAvatarMode === 'new-account') setNameAvatarMode('profile')
   }, [nameAvatarMode, user?.id])
 
+  const SUPPRESS_AUTO_OPEN_KEY = 'updown_suppress_auto_open'
   const handleExit = () => {
+    try {
+      sessionStorage.setItem(SUPPRESS_AUTO_OPEN_KEY, '1')
+    } catch { /* ignore */ }
     clearGameStateFromStorage()
     setScreen('menu')
   }
@@ -165,6 +173,7 @@ function App() {
 
   const handleResumeOnline = useCallback(async () => {
     if (!user) return
+    try { sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY) } catch { /* ignore */ }
     const r = await online.tryRestoreSession()
     if (r.roomFinished) {
       setRoomFinishedMessage('Партия уже завершена.')
@@ -189,6 +198,31 @@ function App() {
     clearGameStateFromStorage()
     setGameId(id => id + 1)
   }
+
+  // Управление историей браузера: #menu ↔ #game и popstate
+  useEffect(() => {
+    const applyHash = () => {
+      const h = window.location.hash || '#menu'
+      if (h === '#menu') {
+        try { sessionStorage.setItem(SUPPRESS_AUTO_OPEN_KEY, '1') } catch { /* ignore */ }
+        setScreen('menu')
+      } else if (h === '#game') {
+        try { sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY) } catch { /* ignore */ }
+        setScreen('game')
+      }
+    }
+    window.addEventListener('popstate', applyHash)
+    return () => window.removeEventListener('popstate', applyHash)
+  }, [])
+  useEffect(() => {
+    const targetHash = screen === 'game' ? '#game' : '#menu'
+    if (window.location.hash !== targetHash) {
+      history.pushState({ screen }, '', targetHash)
+    }
+    if (screen === 'menu') {
+      try { sessionStorage.setItem(SUPPRESS_AUTO_OPEN_KEY, '1') } catch { /* ignore */ }
+    }
+  }, [screen])
 
   return (
     <>

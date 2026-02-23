@@ -325,10 +325,20 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const sendCompleteTrick = useCallback(async (): Promise<boolean> => { if (!roomId || !canonicalState) return false; const next = completeTrick(canonicalState); const { error: err } = await updateRoomState(roomId, next); if (err) { setError(err); return false; } return true; }, [roomId, canonicalState]);
     const sendStartNextDeal = useCallback(async (): Promise<boolean> => { if (!roomId || !canonicalState) return false; const next = startNextDeal(canonicalState); if (!next) return false; const { error: err } = await updateRoomState(roomId, next); if (err) { setError(err); return false; } return true; }, [roomId, canonicalState]);
     const sendState = useCallback(async (newState: GameState): Promise<boolean> => { if (!roomId) return false; const { error: err } = await updateRoomState(roomId, newState); if (err) { setError(err); return false; } return true; }, [roomId]);
-    const confirmReclaim = useCallback(async (): Promise<boolean> => {return false /* Логика не реализована в этой упрощенной версии */}, []);
+    const confirmReclaim = useCallback(async (): Promise<boolean> => {return false}, []);
     const dismissReclaim = useCallback(() => {}, []);
     const replaceInactivePlayer = useCallback(async (_slotIndex: number): Promise<boolean> => {return false}, []);
-    const leaveRoomAndReplaceWithAI = useCallback(async () => {}, []);
+    const leaveRoomAndReplaceWithAI = useCallback(async () => {
+      // Упрощённо: просто покидаем комнату и очищаем локальную сессию
+      const rid = roomId;
+      if (unsubRef.current) {
+        unsubRef.current();
+        unsubRef.current = null;
+      }
+      setRoomId(null); setCode(null); setCanonicalState(null); setPlayerSlots([]); setStatus('idle'); setError(null);
+      clearOnlineSession();
+      if (rid) await apiLeaveRoom(rid, deviceIdRef.current);
+    }, [roomId]);
     const clearPlayerLeftToast = useCallback(() => setPlayerLeftToast(null), []);
     const clearError = useCallback(() => setError(null), []);
 
