@@ -368,6 +368,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [dealResultsExpanded, setDealResultsExpanded] = useState(false);
   const [lastDealResultsSnapshot, setLastDealResultsSnapshot] = useState<GameState | null>(null);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [gameOverSnapshot, setGameOverSnapshot] = useState<GameState | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [selectedPlayerForInfo, setSelectedPlayerForInfo] = useState<number | null>(null);
@@ -787,7 +789,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   <button
                     type="button"
                     className="header-exit-btn"
-                    onClick={handleExit}
+                    onClick={() => { if (isOnline || isWaitingInRoom) setShowExitConfirm(true); else handleExit(); }}
                     style={exitBtnStyle}
                     title="В меню"
                     aria-label="В меню"
@@ -801,7 +803,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                     <button
                       type="button"
                       className="header-exit-btn"
-                      onClick={isWaitingInRoom ? handleLeaveFromWaiting : handleLeaveRoomAndExit}
+                      onClick={() => setShowLeaveConfirm(true)}
                       style={exitBtnStyle}
                       title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
                       aria-label="Выйти из комнаты"
@@ -839,7 +841,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 <button
                   type="button"
                   className="header-exit-btn"
-                  onClick={handleExit}
+                  onClick={() => { if (isOnline || isWaitingInRoom) setShowExitConfirm(true); else handleExit(); }}
                   style={exitBtnStyle}
                   title="В меню"
                   aria-label="В меню"
@@ -853,7 +855,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   <button
                     type="button"
                     className="header-exit-btn"
-                    onClick={isWaitingInRoom ? handleLeaveFromWaiting : handleLeaveRoomAndExit}
+                    onClick={() => setShowLeaveConfirm(true)}
                     style={exitBtnStyle}
                     title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
                     aria-label="Выйти из комнаты"
@@ -1397,7 +1399,12 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               title="Информация об игроке"
               aria-label={`Информация об игроке ${state.players[humanIdx].name}`}
             >
-              <PlayerAvatar name={state.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
+              <PlayerAvatar
+                name={state.players[humanIdx].name}
+                avatarDataUrl={playerAvatarDataUrl}
+                sizePx={isMobileOrTablet ? 34 : 38}
+                title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
+              />
             </button>
             <span style={playerNameDealerWrapStyle}>
               <span
@@ -1407,10 +1414,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
                   ...(isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? yourTurnPromptStyle : {}),
                 }}
+                title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
               >
                 {isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding)
                   ? (state.phase === 'playing' ? 'Ваш ход!' : 'Ваш заказ!')
-                  : `${state.players[humanIdx].name} (${getCompassLabel(humanIdx)})`}
+                  : state.players[humanIdx].name}
               </span>
               {state.dealerIndex === humanIdx && (
                 isMobileOrTablet && state.phase === 'playing' ? (
@@ -1718,10 +1726,15 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               title="Информация об игроке"
               aria-label={`Информация об игроке ${state.players[humanIdx].name}`}
             >
-              <PlayerAvatar name={state.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
+              <PlayerAvatar
+                name={state.players[humanIdx].name}
+                avatarDataUrl={playerAvatarDataUrl}
+                sizePx={isMobileOrTablet ? 34 : 38}
+                title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
+              />
             </button>
             <span style={playerNameDealerWrapStyle}>
-              <span className="player-panel-name" style={playerNameStyle}>{state.players[humanIdx].name} ({getCompassLabel(humanIdx)})</span>
+              <span className="player-panel-name" style={playerNameStyle} title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}>{state.players[humanIdx].name}</span>
               {state.dealerIndex === humanIdx && (
                 isMobileOrTablet && state.phase === 'playing' ? (
                   <button type="button" className="dealer-badge-compact-mobile" style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={() => setShowDealerTooltip(true)} title="Сдающий" aria-label="Сдающий">
@@ -1958,6 +1971,101 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 style={newGameConfirmOkBtnStyle}
               >
                 Начать заново
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showExitConfirm && (isOnline || isWaitingInRoom) && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+          onClick={() => setShowExitConfirm(false)}
+          onKeyDown={e => { if (e.key === 'Escape') setShowExitConfirm(false); }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="exit-confirm-title"
+        >
+          <div
+            style={newGameConfirmModalStyle}
+            onClick={e => e.stopPropagation()}
+          >
+            <p id="exit-confirm-title" style={newGameConfirmTextStyle}>
+              Вернуться в меню? Вы сможете продолжить эту партию позже.
+              <br />
+              Если не вернётесь в течение 1 минуты — ход/заказ за вас выполнит ИИ.
+              После 3 таких таймаутов ИИ займёт ваше место.
+            </p>
+            <div style={newGameConfirmButtonsStyle}>
+              <button type="button" onClick={() => setShowExitConfirm(false)} style={newGameConfirmCancelBtnStyle}>
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowExitConfirm(false);
+                  handleExit();
+                }}
+                style={newGameConfirmOkBtnStyle}
+              >
+                В меню
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showLeaveConfirm && (isOnline || isWaitingInRoom) && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+          onClick={() => setShowLeaveConfirm(false)}
+          onKeyDown={e => { if (e.key === 'Escape') setShowLeaveConfirm(false); }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="leave-confirm-title"
+        >
+          <div
+            style={newGameConfirmModalStyle}
+            onClick={e => e.stopPropagation()}
+          >
+            <p id="leave-confirm-title" style={newGameConfirmTextStyle}>
+              Вы покидаете онлайн‑комнату. Вернуться в эту партию будет нельзя. Выйти?
+            </p>
+            <div style={newGameConfirmButtonsStyle}>
+              <button type="button" onClick={() => setShowLeaveConfirm(false)} style={newGameConfirmCancelBtnStyle}>
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowLeaveConfirm(false);
+                  if (isWaitingInRoom) {
+                    await handleLeaveFromWaiting();
+                  } else {
+                    await handleLeaveRoomAndExit();
+                  }
+                }}
+                style={newGameConfirmOkBtnStyle}
+              >
+                Выйти
               </button>
             </div>
           </div>
@@ -2674,10 +2782,10 @@ function OpponentSlot({
             title="Информация об игроке"
             aria-label={`Информация об игроке ${p.name}`}
           >
-            <PlayerAvatar name={p.name} avatarDataUrl={avatarDataUrl} sizePx={avatarSizePx} title={p.name} />
+            <PlayerAvatar name={p.name} avatarDataUrl={avatarDataUrl} sizePx={avatarSizePx} title={`${p.name} — ${getCompassLabel(index)}`} />
           </button>
         ) : (
-          <PlayerAvatar name={p.name} avatarDataUrl={avatarDataUrl} sizePx={avatarSizePx} title={p.name} />
+          <PlayerAvatar name={p.name} avatarDataUrl={avatarDataUrl} sizePx={avatarSizePx} title={`${p.name} — ${getCompassLabel(index)}`} />
         )}
         <span
           className={eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : undefined}
@@ -2689,8 +2797,9 @@ function OpponentSlot({
               ? { overflow: 'visible', whiteSpace: 'normal' as const, wordBreak: 'break-word' as const, overflowWrap: 'break-word' as const }
               : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
           }}
+          title={`${p.name} — ${getCompassLabel(index)}`}
         >
-          {p.name} ({getCompassLabel(index)})
+          {p.name}
         </span>
         {isActive && !isMobile && <span style={opponentTurnBadgeStyle}>Ходит</span>}
       </div>

@@ -327,7 +327,28 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const sendState = useCallback(async (newState: GameState): Promise<boolean> => { if (!roomId) return false; const { error: err } = await updateRoomState(roomId, newState); if (err) { setError(err); return false; } return true; }, [roomId]);
     const confirmReclaim = useCallback(async (): Promise<boolean> => {return false}, []);
     const dismissReclaim = useCallback(() => {}, []);
-    const replaceInactivePlayer = useCallback(async (_slotIndex: number): Promise<boolean> => {return false}, []);
+    const replaceInactivePlayer = useCallback(async (slotIndex: number): Promise<boolean> => {
+      if (!roomId || !canonicalState) return false;
+      const slots = [...playerSlots];
+      const idx = slots.findIndex(s => s.slotIndex === slotIndex);
+      if (idx < 0) return false;
+      const prev = slots[idx];
+      const aiName = ['ИИ 1', 'ИИ 2', 'ИИ 3', 'ИИ 4'][slotIndex] as string;
+      const updated: PlayerSlot = {
+        slotIndex,
+        displayName: aiName,
+        userId: null,
+        deviceId: null,
+        shortLabel: null,
+        replacedUserId: prev.userId ?? null,
+        replacedDisplayName: prev.displayName ?? null,
+      };
+      slots[idx] = updated;
+      setPlayerLeftToast(prev.displayName);
+      const { error: err } = await updateRoomState(roomId, canonicalState, slots);
+      if (err) { setError(err); return false; }
+      return true;
+    }, [roomId, canonicalState, playerSlots]);
     const leaveRoomAndReplaceWithAI = useCallback(async () => {
       // Упрощённо: просто покидаем комнату и очищаем локальную сессию
       const rid = roomId;
