@@ -12,6 +12,7 @@ import { useOnlineGame, loadOnlineSession } from './contexts/OnlineGameContext'
 import MobileOverlapHint from './ui/MobileOverlapHint'
 import { HistoryModal } from './ui/HistoryModal'
 import { NameAvatarModal } from './ui/NameAvatarModal'
+import TrainingScreen from './ui/TrainingScreen'
 import { RatingModal } from './ui/RatingModal'
 import { AuthModal } from './ui/AuthModal'
 import { LobbyScreen } from './ui/LobbyScreen'
@@ -26,7 +27,7 @@ function App() {
   const { user, signOut, configured } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const online = useOnlineGame()
-  const [screen, setScreen] = useState<'menu' | 'game'>('menu')
+  const [screen, setScreen] = useState<'menu' | 'game' | 'training'>('menu')
   const [gameId, setGameId] = useState(1)
   const [devMode, setDevMode] = useState(() => typeof sessionStorage !== 'undefined' && sessionStorage.getItem(DEV_MODE_KEY) === '1')
   const [profile, setProfile] = useState<PlayerProfile>(() => getPlayerProfile())
@@ -339,8 +340,8 @@ function App() {
             <button disabled style={buttonStyle}>
               Турниры (скоро)
             </button>
-            <button disabled style={buttonStyle}>
-              Обучение (скоро)
+            <button style={buttonStyle} onClick={() => setScreen('training')}>
+              Обучение
             </button>
           </nav>
         </main>
@@ -448,6 +449,9 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+      {screen === 'training' && (
+        <TrainingScreen onBack={() => setScreen('menu')} profile={profile} />
       )}
       {showRatingModal && (
         <RatingModal
