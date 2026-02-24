@@ -458,6 +458,14 @@ function App() {
       {showHistoryModal && (
         <HistoryModal
           onClose={() => setShowHistoryModal(false)}
+          onGoToOffline={() => {
+            setShowHistoryModal(false)
+            if (online.status !== 'idle') {
+              online.leaveRoom().finally(() => setScreen('game'))
+            } else {
+              setScreen('game')
+            }
+          }}
         />
       )}
       {showAuthModal && (

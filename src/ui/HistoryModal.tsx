@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getMyMatchHistory, type MatchHistoryItem } from '../lib/onlineGameSupabase';
+import { hasSavedGame } from '../game/persistence';
 
-export function HistoryModal({ onClose }: { onClose: () => void }) {
+export function HistoryModal({ onClose, onGoToOffline }: { onClose: () => void; onGoToOffline?: () => void }) {
   const { user, configured } = useAuth();
   const [items, setItems] = useState<MatchHistoryItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const offlineAvailable = hasSavedGame();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() };
@@ -79,6 +81,21 @@ export function HistoryModal({ onClose }: { onClose: () => void }) {
         )}
         {error && (
           <p style={{ margin: '8px 0 0', fontSize: 14, color: '#ef4444' }}>{error}</p>
+        )}
+        {offlineAvailable && onGoToOffline && (
+          <div style={{ marginTop: 12, padding: '12px 14px', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>Последняя офлайн‑партия</span>
+              <span style={{ fontSize: 12, color: '#94a3b8' }}>Есть незавершённая партия на устройстве</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => { onClose(); onGoToOffline(); }}
+              style={{ padding: '8px 12px', fontSize: 14, borderRadius: 8, border: '1px solid rgba(34,211,238,0.5)', background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)', color: '#f8fafc', cursor: 'pointer' }}
+            >
+              Продолжить
+            </button>
+          </div>
         )}
         {items == null ? (
           <div style={{ marginTop: 12, fontSize: 14, color: '#94a3b8' }}>Загрузка…</div>
