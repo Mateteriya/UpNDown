@@ -112,9 +112,12 @@ export function HistoryModal({ onClose, onGoToOffline }: { onClose: () => void; 
               ].filter(Boolean).join(' · ');
               return (
                 <div key={it.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 10 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: '#e2e8f0' }}>Код {it.code}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>Онлайн‑партия</span>
                     <span style={{ fontSize: 12, color: '#94a3b8' }}>{date}{flags ? ' — ' + flags : ''}</span>
+                    {it.code && (
+                      <span style={{ marginTop: 2, fontSize: 11, color: '#64748b' }}>Комната {it.code}</span>
+                    )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
                     <span style={{ fontSize: 12, color: '#94a3b8' }}>Место</span>
