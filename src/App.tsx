@@ -10,6 +10,7 @@ import { useAuth } from './contexts/AuthContext'
 import { useTheme } from './contexts/ThemeContext'
 import { useOnlineGame, loadOnlineSession } from './contexts/OnlineGameContext'
 import MobileOverlapHint from './ui/MobileOverlapHint'
+import { HistoryModal } from './ui/HistoryModal'
 import { NameAvatarModal } from './ui/NameAvatarModal'
 import { RatingModal } from './ui/RatingModal'
 import { AuthModal } from './ui/AuthModal'
@@ -32,6 +33,7 @@ function App() {
   const [showNameAvatarModal, setShowNameAvatarModal] = useState(false)
   const [nameAvatarMode, setNameAvatarMode] = useState<'first-run' | 'profile' | 'new-account'>('profile')
   const [showRatingModal, setShowRatingModal] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [screenLobby, setScreenLobby] = useState(false)
@@ -292,6 +294,13 @@ function App() {
             <button style={buttonStyle} onClick={() => setScreenLobby(true)}>
               Онлайн
             </button>
+            <button
+              type="button"
+              style={{ ...buttonStyle, background: 'transparent', borderColor: 'rgba(148,163,184,0.5)' }}
+              onClick={() => setShowHistoryModal(true)}
+            >
+              История
+            </button>
             <button style={buttonStyle} onClick={handleOfflineClick}>
               Офлайн против ИИ
             </button>
@@ -345,6 +354,11 @@ function App() {
         <RatingModal
           onClose={() => setShowRatingModal(false)}
           playerAvatarDataUrl={profile.avatarDataUrl}
+        />
+      )}
+      {showHistoryModal && (
+        <HistoryModal
+          onClose={() => setShowHistoryModal(false)}
         />
       )}
       {showAuthModal && (

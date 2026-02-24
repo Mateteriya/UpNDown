@@ -585,6 +585,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   bidAccuracy = Math.round((met / state.dealHistory.length) * 100);
                 }
                 updateLocalRating(humanWon, undefined, bidAccuracy);
+              } else {
+                if (online.mySlotIndex === 0) {
+                  online.reportGameFinished(state);
+                }
               }
             } else {
               setShowDealResultsButton(true);

@@ -24,6 +24,8 @@ import {
   updateRoomState,
   subscribeToRoom,
   leaveRoom as apiLeaveRoom,
+  finishMatch,
+  markRoomFinished,
   // ... импорты, которые не меняются
   heartbeatPresence,
   getPresence,
@@ -106,6 +108,7 @@ interface OnlineGameContextValue {
   pendingReclaimOffer: { roomId: string; code: string; slotIndex: number; replacedDisplayName: string } | null;
   replaceInactivePlayer: (slotIndex: number) => Promise<boolean>;
   leaveRoomAndReplaceWithAI: () => Promise<void>;
+  reportGameFinished: (snapshot: GameState) => Promise<boolean>;
   playerLeftToast: string | null;
   clearPlayerLeftToast: () => void;
   clearError: () => void;
@@ -363,9 +366,18 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const clearPlayerLeftToast = useCallback(() => setPlayerLeftToast(null), []);
     const clearError = useCallback(() => setError(null), []);
 
+    const reportGameFinished = useCallback(async (snapshot: GameState): Promise<boolean> => {
+      if (!roomId) return false;
+      const room = await getRoom(roomId);
+      if (!room) return false;
+      const res = await finishMatch(roomId, room.code, snapshot, playerSlots);
+      if (!res.ok) { setError(res.error ?? 'Ошибка записи результатов'); return false; }
+      await markRoomFinished(roomId);
+      return true;
+    }, [roomId, playerSlots]);
 
   const value: OnlineGameContextValue = {
-    status, roomId, code, mySlotIndex, lockToHostView, playerSlots, canonicalState, displayState, error, createRoom, joinRoom, leaveRoom, startGame, sendBid, sendPlay, sendCompleteTrick, sendStartNextDeal, sendState, tryRestoreSession, confirmReclaim, dismissReclaim, pendingReclaimOffer, replaceInactivePlayer, leaveRoomAndReplaceWithAI, playerLeftToast, clearPlayerLeftToast, clearError,
+    status, roomId, code, mySlotIndex, lockToHostView, playerSlots, canonicalState, displayState, error, createRoom, joinRoom, leaveRoom, startGame, sendBid, sendPlay, sendCompleteTrick, sendStartNextDeal, sendState, tryRestoreSession, confirmReclaim, dismissReclaim, pendingReclaimOffer, replaceInactivePlayer, leaveRoomAndReplaceWithAI, reportGameFinished, playerLeftToast, clearPlayerLeftToast, clearError,
   };
 
   return (

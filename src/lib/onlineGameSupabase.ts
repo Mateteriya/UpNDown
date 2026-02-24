@@ -47,6 +47,12 @@ function generateCode(): string {
   return s;
 }
 
+export async function markRoomFinished(roomId: string): Promise<{ error?: string }> {
+  if (!supabase) return { error: 'Supabase не настроен' };
+  const { error } = await supabase.from(TABLE).update({ status: 'finished' }).eq('id', roomId);
+  return error ? { error: error.message } : {};
+}
+
 /** Создать комнату. Возвращает roomId и code или ошибку. */
 export async function createRoom(
   hostUserId: string,
@@ -159,6 +165,143 @@ export async function updateRoomState(
   if (playerSlots) payload.player_slots = playerSlots;
   const { error } = await supabase.from(TABLE).update(payload).eq('id', roomId);
   return error ? { error: error.message } : {};
+}
+
+export interface MatchPlayerInsert {
+  match_id: string;
+  slot_index: number;
+  user_id: string | null;
+  display_name: string;
+  is_ai: boolean;
+  final_score: number;
+  bid_accuracy: number | null;
+  interrupted: boolean;
+  is_rated: boolean;
+  replaced_user_id: string | null;
+}
+
+export async function finishMatch(
+  roomId: string,
+  code: string,
+  snapshot: GameState,
+  playerSlots: PlayerSlot[]
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: 'Supabase не настроен' };
+  const createdAt = snapshot?.dealHistory && (snapshot as any).createdAt ? String((snapshot as any).createdAt) : new Date().toISOString();
+  const finishedAt = new Date().toISOString();
+  const dealsCount = snapshot.dealNumber;
+  const players = snapshot.players;
+  const bh = snapshot.dealHistory ?? [];
+  const calcAcc = (pi: number) => {
+    if (!bh.length) return null;
+    let met = 0;
+    for (const d of bh) {
+      const bid = d.bids[pi];
+      const pts = d.points[pi];
+      if (bid == null) continue;
+      const taken = Math.max(0, Math.round((pts + Math.abs(pts)) / 20));
+      if (bid === taken) met++;
+    }
+    return Math.round((met / bh.length) * 100);
+  };
+  const { data: matchRow, error: matchErr } = await supabase
+    .from('matches')
+    .insert({
+      room_id: roomId,
+      code,
+      created_at: createdAt,
+      finished_at: finishedAt,
+      deals_count: dealsCount,
+      status: 'finished',
+    })
+    .select('id')
+    .single();
+  if (matchErr || !matchRow?.id) {
+    return { ok: false, error: matchErr?.message || 'insert matches failed' };
+  }
+  const matchId = matchRow.id as string;
+  const rows: MatchPlayerInsert[] = players.map((p, i) => {
+    const slot = playerSlots.find(s => s.slotIndex === i) as PlayerSlot | undefined;
+    const userId = slot?.userId ?? null;
+    const isAi = !userId;
+    const interrupted = !!slot?.replacedUserId;
+    const isRated = !interrupted;
+    const acc = calcAcc(i);
+    return {
+      match_id: matchId,
+      slot_index: i,
+      user_id: userId,
+      display_name: slot?.displayName ?? p.name,
+      is_ai: isAi,
+      final_score: p.score,
+      bid_accuracy: acc,
+      interrupted,
+      is_rated: isRated,
+      replaced_user_id: slot?.replacedUserId ?? null,
+    };
+  });
+  const { error: mpErr } = await supabase.from('match_players').insert(rows);
+  if (mpErr) return { ok: false, error: mpErr.message };
+  return { ok: true };
+}
+
+export interface MatchHistoryItem {
+  id: string;
+  code: string;
+  finished_at: string;
+  deals_count: number | null;
+  place: number | null;
+  final_score: number | null;
+  interrupted: boolean;
+  is_rated: boolean;
+}
+
+export async function getMyMatchHistory(userId: string, limit = 20): Promise<MatchHistoryItem[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('match_players')
+    .select('match_id:match_id, final_score, interrupted, is_rated, place:place, matches:matches!inner(id, code, finished_at, deals_count)')
+    .eq('user_id', userId)
+    .order('finished_at', { referencedTable: 'matches', ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return (data as any[]).map(row => ({
+    id: row.matches.id as string,
+    code: row.matches.code as string,
+    finished_at: row.matches.finished_at as string,
+    deals_count: row.matches.deals_count ?? null,
+    place: (row as any).place ?? null,
+    final_score: row.final_score ?? null,
+    interrupted: !!row.interrupted,
+    is_rated: !!row.is_rated,
+  }));
+}
+
+export interface RatingSummary {
+  games: number;
+  ratedGames: number;
+  wins: number;
+  points: number;
+}
+
+export async function getMyRatingSummary(userId: string): Promise<RatingSummary | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('match_players')
+    .select('final_score, interrupted, is_rated, place')
+    .eq('user_id', userId);
+  if (error || !data) return null;
+  let games = 0, rated = 0, wins = 0, pts = 0;
+  for (const r of data as any[]) {
+    games++;
+    if (r.is_rated) {
+      rated++;
+      if (r.place === 1) wins++;
+      if (r.place === 1) pts += 20;
+      else if (r.place === 2) pts += 5;
+    }
+  }
+  return { games, ratedGames: rated, wins, points: pts };
 }
 
 /** Подписаться на изменения строки комнаты. Возвращает функцию отписки. */
