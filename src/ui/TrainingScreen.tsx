@@ -19,7 +19,15 @@ export function TrainingScreen({ onBack, profile }: { onBack: () => void; profil
     const h = (e: KeyboardEvent) => {
       if (!showOverlay) return;
       if (e.key === 'Escape') setShowOverlay(false);
-      if (e.key === 'Enter') setStep(s => Math.min(s + 1, steps.length - 1));
+      if (e.key === 'Enter') {
+        setStep(s => {
+          if (s >= steps.length - 1) {
+            setShowOverlay(false);
+            return s;
+          }
+          return s + 1;
+        });
+      }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
@@ -65,7 +73,10 @@ export function TrainingScreen({ onBack, profile }: { onBack: () => void; profil
             <h2 id="training-title" style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#f1f5f9' }}>
               {steps[step].title}
             </h2>
-            <p style={{ margin: '0 0 16px', fontSize: 14, color: '#94a3b8' }}>{steps[step].text}</p>
+            <p style={{ margin: '0 8px 16px', fontSize: 14, color: '#94a3b8' }}>{steps[step].text}</p>
+            <p style={{ margin: '0 0 16px', fontSize: 12, color: '#64748b' }}>
+              Enter — далее • Esc — скрыть подсказки
+            </p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
               <button
                 type="button"
@@ -80,12 +91,14 @@ export function TrainingScreen({ onBack, profile }: { onBack: () => void; profil
                   cursor: 'pointer',
                 }}
               >
-                Понятно
+                Скрыть подсказки
               </button>
               <button
                 type="button"
-                onClick={() => setStep(s => Math.min(s + 1, steps.length - 1))}
-                disabled={step >= steps.length - 1}
+                onClick={() => {
+                  if (step >= steps.length - 1) setShowOverlay(false);
+                  else setStep(s => s + 1);
+                }}
                 style={{
                   padding: '10px 16px',
                   fontSize: 14,
@@ -94,10 +107,9 @@ export function TrainingScreen({ onBack, profile }: { onBack: () => void; profil
                   background: '#334155',
                   color: '#f8fafc',
                   cursor: 'pointer',
-                  opacity: step >= steps.length - 1 ? 0.6 : 1,
                 }}
               >
-                Далее
+                {step >= steps.length - 1 ? 'Начать' : 'Далее'}
               </button>
               <button
                 type="button"
