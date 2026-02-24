@@ -35,6 +35,7 @@ export function RatingModal({ onClose, playerAvatarDataUrl }: RatingModalProps) 
 
   const winRate = rating.gamesPlayed > 0 ? Math.round((rating.wins / rating.gamesPlayed) * 100) : 0;
   const avgBidAccuracy = rating.bidAccuracyCount > 0 ? Math.round(rating.bidAccuracySum / rating.bidAccuracyCount) : null;
+  const showOfflineBlock = !(online && online.games > 0 && rating.gamesPlayed === 0);
 
   return (
     <div
@@ -107,25 +108,29 @@ export function RatingModal({ onClose, playerAvatarDataUrl }: RatingModalProps) 
                 <hr style={{ border: 'none', borderTop: '1px solid rgba(148,163,184,0.25)' }} />
               </>
             )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 14, color: '#94a3b8' }}>Игр сыграно</span>
-              <span style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>{rating.gamesPlayed}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 14, color: '#94a3b8' }}>Побед</span>
-              <span style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>{rating.wins}</span>
-            </div>
-            {rating.gamesPlayed > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 14, color: '#94a3b8' }}>Процент побед</span>
-                <span style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>{winRate}%</span>
-              </div>
-            )}
-            {avgBidAccuracy !== null && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 14, color: '#94a3b8' }}>Средняя точность заказов</span>
-                <span style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>{avgBidAccuracy}%</span>
-              </div>
+            {showOfflineBlock && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 14, color: '#94a3b8' }}>Офлайн: игр сыграно</span>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>{rating.gamesPlayed}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 14, color: '#94a3b8' }}>Офлайн: побед</span>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>{rating.wins}</span>
+                </div>
+                {rating.gamesPlayed > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 14, color: '#94a3b8' }}>Процент побед</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>{winRate}%</span>
+                  </div>
+                )}
+                {avgBidAccuracy !== null && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 14, color: '#94a3b8' }}>Средняя точность заказов</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>{avgBidAccuracy}%</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
           <p style={{ margin: '8px 0 0', fontSize: 12, color: '#64748b', textAlign: 'center' }}>
