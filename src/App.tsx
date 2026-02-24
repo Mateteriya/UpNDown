@@ -166,7 +166,6 @@ function App() {
     try {
       sessionStorage.setItem(SUPPRESS_AUTO_OPEN_KEY, '1')
     } catch { /* ignore */ }
-    clearGameStateFromStorage()
     setScreen('menu')
   }
 
