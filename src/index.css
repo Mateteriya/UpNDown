@@ -719,7 +719,7 @@
   /* Панель хода игры — зафиксировать вверху по центру, на одной линии с шапкой */
   .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-col {
     position: fixed !important;
-    top: 0 !important;
+    top: 28px !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     z-index: 100 !important;
