@@ -40,6 +40,7 @@ function App() {
   const [showRegistrationSuccessModal, setShowRegistrationSuccessModal] = useState(false)
   const [showOAuthSuccessModal, setShowOAuthSuccessModal] = useState(false)
   const [roomFinishedMessage, setRoomFinishedMessage] = useState<string | null>(null)
+  const [showOfflineChoiceModal, setShowOfflineChoiceModal] = useState(false)
 
   useEffect(() => {
     setProfile(getPlayerProfile())
@@ -132,6 +133,10 @@ function App() {
   }
 
   const handleOfflineClick = () => {
+    if (hasSavedGame()) {
+      setShowOfflineChoiceModal(true)
+      return
+    }
     if (profile.displayName === DEFAULT_DISPLAY_NAME) {
       setNameAvatarMode('first-run')
       setShowNameAvatarModal(true)
@@ -356,6 +361,110 @@ function App() {
             </button>
           </nav>
         </main>
+      )}
+      {showOfflineChoiceModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: 20,
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowOfflineChoiceModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="offline-choice-title"
+        >
+          <div
+            style={{
+              background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+              borderRadius: 16,
+              border: '1px solid rgba(148, 163, 184, 0.35)',
+              boxShadow: '0 24px 48px rgba(0,0,0,0.4)',
+              width: '100%',
+              maxWidth: 360,
+              padding: 24,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="offline-choice-title" style={{ margin: '0 0 12px', fontSize: 18, fontWeight: 700, color: '#f1f5f9' }}>
+              Продолжить незаконченную партию?
+            </h2>
+            <p style={{ margin: '0 0 16px', fontSize: 14, color: '#94a3b8' }}>
+              Найдена сохранённая офлайн‑партия.
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowOfflineChoiceModal(false)}
+                style={{
+                  padding: '10px 16px',
+                  fontSize: 14,
+                  borderRadius: 8,
+                  border: '1px solid #475569',
+                  background: 'transparent',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOfflineChoiceModal(false)
+                  if (online.status !== 'idle') {
+                    online.leaveRoom().finally(() => setScreen('game'))
+                  } else {
+                    setScreen('game')
+                  }
+                }}
+                style={{
+                  padding: '10px 16px',
+                  fontSize: 14,
+                  borderRadius: 8,
+                  border: '1px solid rgba(34, 211, 238, 0.5)',
+                  background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
+                  color: '#f8fafc',
+                  cursor: 'pointer',
+                }}
+              >
+                Продолжить
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOfflineChoiceModal(false)
+                  clearGameStateFromStorage()
+                  if (profile.displayName === DEFAULT_DISPLAY_NAME) {
+                    setNameAvatarMode('first-run')
+                    setShowNameAvatarModal(true)
+                    import('./ui/GameTable')
+                  } else {
+                    const startNew = () => { setGameId(id => id + 1); setScreen('game') }
+                    if (online.status !== 'idle') online.leaveRoom().finally(startNew)
+                    else startNew()
+                  }
+                }}
+                style={{
+                  padding: '10px 16px',
+                  fontSize: 14,
+                  borderRadius: 8,
+                  border: '1px solid #334155',
+                  background: '#334155',
+                  color: '#f8fafc',
+                  cursor: 'pointer',
+                }}
+              >
+                Начать новую
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {showRatingModal && (
         <RatingModal
