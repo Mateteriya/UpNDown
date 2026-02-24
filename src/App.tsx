@@ -174,16 +174,8 @@ function App() {
     setScreen('menu')
   }
 
-  const canResumeOffline = hasSavedGame()
   const canResumeOnline = loadOnlineSession() !== null
-
-  const handleResumeOffline = useCallback(() => {
-    if (online.status !== 'idle') {
-      online.leaveRoom().finally(() => setScreen('game'))
-    } else {
-      setScreen('game')
-    }
-  }, [online.status, online.leaveRoom])
+  // Кнопка «Продолжить офлайн-партию» убрана — при входе через «Офлайн против ИИ» показываем модалку выбора
 
   const handleResumeOnline = useCallback(async () => {
     if (!user) return
@@ -285,15 +277,6 @@ function App() {
             Карточная игра на взятки
           </p>
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {canResumeOffline && (
-              <button
-                type="button"
-                style={{ ...buttonStyle, borderColor: 'rgba(34,211,238,0.6)', background: 'rgba(34,211,238,0.15)' }}
-                onClick={handleResumeOffline}
-              >
-                Продолжить офлайн-партию
-              </button>
-            )}
             {canResumeOnline && (
               <button
                 type="button"
