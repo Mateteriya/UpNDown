@@ -178,6 +178,7 @@ export interface MatchPlayerInsert {
   interrupted: boolean;
   is_rated: boolean;
   replaced_user_id: string | null;
+  place: number | null;
 }
 
 export async function finishMatch(
@@ -187,10 +188,8 @@ export async function finishMatch(
   playerSlots: PlayerSlot[]
 ): Promise<{ ok: boolean; error?: string }> {
   if (!supabase) return { ok: false, error: 'Supabase не настроен' };
-  const createdAt = snapshot?.dealHistory && (snapshot as any).createdAt ? String((snapshot as any).createdAt) : new Date().toISOString();
-  const finishedAt = new Date().toISOString();
-  const dealsCount = snapshot.dealNumber;
   const players = snapshot.players;
+  const dealsCount = snapshot.dealNumber;
   const bh = snapshot.dealHistory ?? [];
   const calcAcc = (pi: number) => {
     if (!bh.length) return null;
@@ -204,23 +203,18 @@ export async function finishMatch(
     }
     return Math.round((met / bh.length) * 100);
   };
-  const { data: matchRow, error: matchErr } = await supabase
-    .from('matches')
-    .insert({
-      room_id: roomId,
-      code,
-      created_at: createdAt,
-      finished_at: finishedAt,
-      deals_count: dealsCount,
-      status: 'finished',
-    })
-    .select('id')
-    .single();
-  if (matchErr || !matchRow?.id) {
-    return { ok: false, error: matchErr?.message || 'insert matches failed' };
-  }
-  const matchId = matchRow.id as string;
-  const rows: MatchPlayerInsert[] = players.map((p, i) => {
+  const order = players.map((p, i) => ({ i, s: p.score })).sort((a, b) => b.s - a.s);
+  const placeByIndex: Record<number, number> = {};
+  let prevScore: number | null = null;
+  let prevPlace = 0;
+  order.forEach((row, idx) => {
+    const score = row.s;
+    const place = prevScore === null ? 1 : (score === prevScore ? prevPlace : idx + 1);
+    placeByIndex[row.i] = place;
+    prevScore = score;
+    prevPlace = place;
+  });
+  const payload = players.map((p, i) => {
     const slot = playerSlots.find(s => s.slotIndex === i) as PlayerSlot | undefined;
     const userId = slot?.userId ?? null;
     const isAi = !userId;
@@ -228,7 +222,6 @@ export async function finishMatch(
     const isRated = !interrupted;
     const acc = calcAcc(i);
     return {
-      match_id: matchId,
       slot_index: i,
       user_id: userId,
       display_name: slot?.displayName ?? p.name,
@@ -238,10 +231,16 @@ export async function finishMatch(
       interrupted,
       is_rated: isRated,
       replaced_user_id: slot?.replacedUserId ?? null,
+      place: placeByIndex[i] ?? null,
     };
   });
-  const { error: mpErr } = await supabase.from('match_players').insert(rows);
-  if (mpErr) return { ok: false, error: mpErr.message };
+  const rpc = await supabase.rpc('finish_game', {
+    p_room_id: roomId,
+    p_code: code,
+    p_deals_count: dealsCount,
+    p_players: payload,
+  } as any);
+  if (rpc.error) return { ok: false, error: rpc.error.message };
   return { ok: true };
 }
 

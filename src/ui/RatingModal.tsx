@@ -2,8 +2,10 @@
  * Модалка «Ваш рейтинг»: статистика текущего профиля (игр, побед, точность заказов).
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getLocalRating, getPlayerProfile } from '../game/persistence';
+import { useAuth } from '../contexts/AuthContext';
+import { getMyRatingSummary } from '../lib/onlineGameSupabase';
 import { PlayerAvatar } from './PlayerAvatar';
 
 export interface RatingModalProps {
@@ -14,12 +16,22 @@ export interface RatingModalProps {
 export function RatingModal({ onClose, playerAvatarDataUrl }: RatingModalProps) {
   const profile = getPlayerProfile();
   const rating = getLocalRating();
+  const { user, configured } = useAuth();
+  const [online, setOnline] = useState<{ games: number; ratedGames: number; wins: number; points: number } | null>(null);
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
   }, [onClose]);
+
+  useEffect(() => {
+    (async () => {
+      if (!configured || !user?.id) { setOnline(null); return; }
+      const s = await getMyRatingSummary(user.id);
+      setOnline(s);
+    })().catch(() => {});
+  }, [configured, user?.id]);
 
   const winRate = rating.gamesPlayed > 0 ? Math.round((rating.wins / rating.gamesPlayed) * 100) : 0;
   const avgBidAccuracy = rating.bidAccuracyCount > 0 ? Math.round(rating.bidAccuracySum / rating.bidAccuracyCount) : null;
@@ -78,6 +90,23 @@ export function RatingModal({ onClose, playerAvatarDataUrl }: RatingModalProps) 
           <PlayerAvatar name={profile.displayName} avatarDataUrl={playerAvatarDataUrl} sizePx={64} />
           <span style={{ fontSize: 16, fontWeight: 600, color: '#e2e8f0' }}>{profile.displayName}</span>
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {configured && user?.id && online && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 14, color: '#94a3b8' }}>Онлайн: сыграно (рейтинговых)</span>
+                  <span style={{ fontSize: 16, fontWeight: 600, color: '#f8fafc' }}>{online.games} ({online.ratedGames})</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 14, color: '#94a3b8' }}>Онлайн: побед</span>
+                  <span style={{ fontSize: 16, fontWeight: 600, color: '#f8fafc' }}>{online.wins}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 14, color: '#94a3b8' }}>Онлайн: очки рейтинга</span>
+                  <span style={{ fontSize: 16, fontWeight: 600, color: '#f8fafc' }}>{online.points}</span>
+                </div>
+                <hr style={{ border: 'none', borderTop: '1px solid rgba(148,163,184,0.25)' }} />
+              </>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 14, color: '#94a3b8' }}>Игр сыграно</span>
               <span style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>{rating.gamesPlayed}</span>
