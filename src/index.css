@@ -120,7 +120,7 @@
   }
   .game-table-root .game-info-row .game-info-left-col {
     margin-left: 58px !important;
-    margin-top: 22px !important;
+    margin-top: 36px !important;
     gap: 0 !important;
     align-items: stretch !important;
     transform: scale(1.2);
@@ -719,7 +719,7 @@
   /* Панель хода игры — зафиксировать вверху по центру, на одной линии с шапкой */
   .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-col {
     position: fixed !important;
-    top: 28px !important;
+    top: 0 !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     z-index: 100 !important;
