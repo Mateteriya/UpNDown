@@ -350,11 +350,12 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     return rotateStateForPlayer(base, online.lockToHostView ? 0 : online.mySlotIndex);
   }, [isWaitingInRoom, online.playerSlots, online.mySlotIndex, online.lockToHostView]);
   const isOnline = !!(online.roomId && online.status === 'playing' && online.displayState);
+  const offlineMode = !isOnline && !isWaitingInRoom;
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
   const [localState, setLocalState] = useState<GameState | null>(null);
   const [startingFromWaiting, setStartingFromWaiting] = useState(false);
-  const state = isWaitingInRoom ? waitingState : (isOnline ? online.displayState : localState);
+  const state = isWaitingInRoom && !offlineMode ? waitingState : (isOnline ? online.displayState : localState);
   const setState = useCallback((updater: React.SetStateAction<GameState | null>) => {
     if (typeof updater === 'function') setLocalState(prev => updater(prev));
     else setLocalState(updater);
@@ -1982,7 +1983,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         document.body
       )}
 
-      {showExitConfirm && (isOnline || isWaitingInRoom) && createPortal(
+      {showExitConfirm && (isOnline || isWaitingInRoom) && !offlineMode && createPortal(
         <div
           style={{
             position: 'fixed',

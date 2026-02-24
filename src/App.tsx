@@ -138,7 +138,11 @@ function App() {
       // Пока пользователь вводит имя — подгружаем чанк игры, чтобы к моменту «Сохранить» экран открылся быстрее
       import('./ui/GameTable')
     } else {
-      startGame()
+      if (online.status !== 'idle') {
+        online.leaveRoom().finally(() => startGame())
+      } else {
+        startGame()
+      }
     }
   }
 
@@ -170,8 +174,12 @@ function App() {
   const canResumeOnline = loadOnlineSession() !== null
 
   const handleResumeOffline = useCallback(() => {
-    setScreen('game')
-  }, [])
+    if (online.status !== 'idle') {
+      online.leaveRoom().finally(() => setScreen('game'))
+    } else {
+      setScreen('game')
+    }
+  }, [online.status, online.leaveRoom])
 
   const handleResumeOnline = useCallback(async () => {
     if (!user) return
