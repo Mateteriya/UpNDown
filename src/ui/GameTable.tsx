@@ -748,6 +748,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
 
   if (!state) return <div style={{ padding: 20 }}>Загрузка...</div>;
 
+  const displayState = stateToShow as GameState;
+
   /* Мобильная вёрстка (viewport-mobile при width ≤600px): рука внизу, слоты взятки в сетке 2×2, козырь на колоде; стили в index.css @media (max-width: 1024px) .game-table-root.viewport-mobile */
   return (
     <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}`} style={tableLayoutStyle}>
@@ -781,7 +783,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       )}
       {isMobile && showFirstMoveTooltip && state && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
         <div className="first-move-tooltip-toast dealer-tooltip-toast" role="status" aria-live="polite">
-          <div className="first-move-tooltip-name">{stateToShow.players[state.trickLeaderIndex].name}</div>
+          <div className="first-move-tooltip-name">{displayState.players[state.trickLeaderIndex].name}</div>
           <div style={{ fontSize: 12, opacity: 0.9 }}>У данного игрока будет первый ход в этой раздаче</div>
         </div>
       )}
@@ -835,11 +837,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   className="first-move-badge first-move-badge-clickable first-move-badge-below-home"
                   style={{ ...firstMoveBadgeStyle, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
                   onClick={() => setShowFirstMoveTooltip(true)}
-                  title={`${stateToShow.players[state.trickLeaderIndex].name} — у данного игрока будет первый ход в этой раздаче`}
-                  aria-label={`Первый ход: ${stateToShow.players[state.trickLeaderIndex].name}. Нажмите для подсказки`}
+                  title={`${displayState.players[state.trickLeaderIndex].name} — у данного игрока будет первый ход в этой раздаче`}
+                  aria-label={`Первый ход: ${displayState.players[state.trickLeaderIndex].name}. Нажмите для подсказки`}
                 >
                   <span className="first-move-num" style={firstMoveLabelStyle}>I:</span>
-                  <span style={firstMoveValueStyle}>{stateToShow.players[state.trickLeaderIndex].name}</span>
+                  <span style={firstMoveValueStyle}>{displayState.players[state.trickLeaderIndex].name}</span>
                 </button>
               </div>
             ) : (
@@ -1020,14 +1022,14 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   {state.phase === 'playing' && (
                     <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
                       <span style={gameInfoLabelStyle}>Сейчас ход</span>
-                      <span style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{stateToShow.players[state.currentPlayerIndex].name}</span>
+                      <span style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{displayState.players[state.currentPlayerIndex].name}</span>
                     </div>
                   )}
                   {(state.phase === 'bidding' || state.phase === 'dark-bidding') && (
                     <div style={{ ...gameInfoBadgeStyle, ...gameInfoBiddingBadgeStyle }}>
                       <span style={gameInfoLabelStyle}>Заказывает</span>
                       <span style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
-                        {stateToShow.players[state.currentPlayerIndex].name}
+                        {displayState.players[state.currentPlayerIndex].name}
                       </span>
                     </div>
                   )}
@@ -1035,7 +1037,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               )}
             </div>
             <div className="game-mobile-slot-west" style={{ display: 'flex', flexShrink: 0 }}>
-              <OpponentSlot state={stateToShow} index={2} position="left" inline compactMode={isMobileOrTablet}
+              <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
                 collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
                 winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2}
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
@@ -1047,7 +1049,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               />
             </div>
             <div className="game-mobile-slot-north" style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
-              <OpponentSlot state={stateToShow} index={1} position="top" inline compactMode={isMobileOrTablet}
+              <OpponentSlot state={displayState} index={1} position="top" inline compactMode={isMobileOrTablet}
                 collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
                 winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1}
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
@@ -1320,7 +1322,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
         )}
             <div className="game-center-east game-mobile-east" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', ...(isMobile ? {} : { minWidth: 60 }) }}>
-              <OpponentSlot state={stateToShow} index={3} position="right" inline compactMode={isMobileOrTablet}
+              <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
                 collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
                 winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 3}
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
@@ -1403,9 +1405,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               onClick={() => setSelectedPlayerForInfo(0)}
               style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', lineHeight: 0 }}
               title="Информация об игроке"
-              aria-label={`Информация об игроке ${stateToShow.players[humanIdx].name}`}
+              aria-label={`Информация об игроке ${displayState.players[humanIdx].name}`}
             >
-              <PlayerAvatar name={stateToShow.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
+              <PlayerAvatar name={displayState.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
             </button>
             <span style={playerNameDealerWrapStyle}>
               <span
@@ -1418,7 +1420,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               >
                 {isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding)
                   ? (state.phase === 'playing' ? 'Ваш ход!' : 'Ваш заказ!')
-                  : stateToShow.players[humanIdx].name}
+                  : displayState.players[humanIdx].name}
               </span>
               {state.dealerIndex === humanIdx && (
                 isMobileOrTablet && state.phase === 'playing' ? (
@@ -1493,7 +1495,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             {!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
               <div className="first-move-badge first-move-badge-above-block" style={firstMoveBadgeStyle}>
                 <span className="first-move-num" style={firstMoveLabelStyle}>Первый ход:</span>
-                <span style={firstMoveValueStyle}>{stateToShow.players[state.trickLeaderIndex].name}</span>
+                <span style={firstMoveValueStyle}>{displayState.players[state.trickLeaderIndex].name}</span>
               </div>
             )}
             {(state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') && (
@@ -1501,14 +1503,14 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 {state.phase === 'playing' && (
                   <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
                     <span style={gameInfoLabelStyle}>Сейчас ход</span>
-                    <span className="game-info-value-name" style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{stateToShow.players[state.currentPlayerIndex].name}</span>
+                    <span className="game-info-value-name" style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{displayState.players[state.currentPlayerIndex].name}</span>
                   </div>
                 )}
                 {(state.phase === 'bidding' || state.phase === 'dark-bidding') && (
                   <div style={{ ...gameInfoBadgeStyle, ...gameInfoBiddingBadgeStyle }}>
                     <span style={gameInfoLabelStyle}>Заказывает</span>
                     <span className="game-info-value-name" style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
-                      {stateToShow.players[state.currentPlayerIndex].name}
+                      {displayState.players[state.currentPlayerIndex].name}
                     </span>
                   </div>
                 )}
@@ -1518,7 +1520,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
         <div style={gameInfoNorthSlotWrapper} aria-hidden />
         <div className="game-center-north" style={gameInfoNorthSlotWrapperAbsolute}>
-          <OpponentSlot state={stateToShow} index={1} position="top" inline compactMode={isMobileOrTablet}
+          <OpponentSlot state={displayState} index={1} position="top" inline compactMode={isMobileOrTablet}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
             winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1}
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
@@ -1538,7 +1540,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         tabIndex={isAITurn ? 0 : undefined}
         title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}>
         <div className="game-center-west" style={opponentSideWrapWestStyle}>
-          <OpponentSlot state={stateToShow} index={2} position="left" inline compactMode={isMobileOrTablet}
+          <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
             winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2}
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
@@ -1641,7 +1643,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         </div>
         </div>
         <div className="game-center-east" style={opponentSideWrapEastStyle}>
-          <OpponentSlot state={stateToShow} index={3} position="right" inline compactMode={isMobileOrTablet}
+          <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
             winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 3}
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
@@ -1724,12 +1726,12 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               onClick={() => setSelectedPlayerForInfo(0)}
               style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', lineHeight: 0 }}
               title="Информация об игроке"
-              aria-label={`Информация об игроке ${stateToShow.players[humanIdx].name}`}
+              aria-label={`Информация об игроке ${displayState.players[humanIdx].name}`}
             >
-              <PlayerAvatar name={stateToShow.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
+              <PlayerAvatar name={displayState.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
             </button>
             <span style={playerNameDealerWrapStyle}>
-              <span className="player-panel-name" style={playerNameStyle}>{stateToShow.players[humanIdx].name}</span>
+              <span className="player-panel-name" style={playerNameStyle}>{displayState.players[humanIdx].name}</span>
               {state.dealerIndex === humanIdx && (
                 isMobileOrTablet && state.phase === 'playing' ? (
                   <button type="button" className="dealer-badge-compact-mobile" style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={() => setShowDealerTooltip(true)} title="Сдающий" aria-label="Сдающий">
@@ -1975,7 +1977,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
 
       {selectedPlayerForInfo !== null && state && createPortal(
         <PlayerInfoPanel
-          state={stateToShow}
+          state={displayState}
           playerIndex={selectedPlayerForInfo}
           playerAvatarDataUrl={selectedPlayerForInfo === 0 ? playerAvatarDataUrl : undefined}
           onClose={() => setSelectedPlayerForInfo(null)}
