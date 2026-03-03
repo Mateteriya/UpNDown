@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:host": "vite --host",
     "build": "node scripts/gen-favicon.mjs && tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
@@ -17,11 +18,13 @@
     "@capacitor/core": "^8.0.2",
     "@supabase/supabase-js": "^2.45.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.2.1",
     "png-to-ico": "^3.0.0",
     "sql.js": "^1.14.0",

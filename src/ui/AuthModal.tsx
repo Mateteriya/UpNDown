@@ -33,11 +33,14 @@ const GoogleIcon = () => (
   </svg>
 );
 
+const PENDING_NAME_KEY_PREFIX = 'updown_pending_name_';
+
 export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
   const { signIn, signUp, signInWithOAuth, configured } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -73,11 +76,29 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
       setError('Пароли не совпадают');
       return;
     }
+    if (mode === 'register') {
+      const nick = displayName.trim();
+      if (!nick) {
+        setError('Введите имя или ник — оно будет привязано к этому аккаунту');
+        return;
+      }
+      if (nick.length > 17) {
+        setError('Имя не длиннее 17 символов');
+        return;
+      }
+    }
     if (!configured) {
       setSuccessMessage('Сервер не настроен. Добавьте VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY в .env.local');
       return;
     }
     setLoading(true);
+    if (mode === 'register') {
+      try {
+        sessionStorage.setItem(PENDING_NAME_KEY_PREFIX + em, displayName.trim().slice(0, 17));
+      } catch {
+        /* ignore */
+      }
+    }
     const { error: authError } = mode === 'login'
       ? await signIn(em, password)
       : await signUp(em, password);
@@ -296,29 +317,55 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
             />
           </div>
           {mode === 'register' && (
-            <div>
-              <label htmlFor="auth-confirm" style={{ display: 'block', marginBottom: 4, fontSize: 14, color: '#94a3b8' }}>
-                Подтвердите пароль
-              </label>
-              <input
-                id="auth-confirm"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                autoComplete="new-password"
-                placeholder="Повторите пароль"
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  fontSize: 16,
-                  borderRadius: 8,
-                  border: '1px solid #334155',
-                  background: '#0f172a',
-                  color: '#f8fafc',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
+            <>
+              <div>
+                <label htmlFor="auth-display-name" style={{ display: 'block', marginBottom: 4, fontSize: 14, color: '#94a3b8' }}>
+                  Имя или ник <span style={{ color: '#64748b' }}>(привязывается к этой почте)</span>
+                </label>
+                <input
+                  id="auth-display-name"
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  autoComplete="username"
+                  placeholder="Как к вам обращаться в игре"
+                  maxLength={17}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: 16,
+                    borderRadius: 8,
+                    border: '1px solid #334155',
+                    background: '#0f172a',
+                    color: '#f8fafc',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="auth-confirm" style={{ display: 'block', marginBottom: 4, fontSize: 14, color: '#94a3b8' }}>
+                  Подтвердите пароль
+                </label>
+                <input
+                  id="auth-confirm"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                  placeholder="Повторите пароль"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: 16,
+                    borderRadius: 8,
+                    border: '1px solid #334155',
+                    background: '#0f172a',
+                    color: '#f8fafc',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+            </>
           )}
           {error && <p style={{ margin: 0, fontSize: 14, color: '#f87171' }}>{error}</p>}
           <button

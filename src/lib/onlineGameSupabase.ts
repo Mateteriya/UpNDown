@@ -12,6 +12,8 @@ export interface PlayerSlot {
   userId?: string | null;
   displayName: string;
   slotIndex: number;
+  /** Короткая метка (например часть email), чтобы различать игроков с одинаковым именем */
+  shortLabel?: string | null;
   /** Если слот заменён на ИИ из-за отключения — id пользователя, который может вернуться */
   replacedUserId?: string | null;
   /** Имя заменённого игрока (для возврата в слот) */
@@ -46,14 +48,24 @@ function generateCode(): string {
 /** Создать комнату. Возвращает roomId и code или ошибку. */
 export async function createRoom(
   hostUserId: string,
-  hostDisplayName: string
+  hostDisplayName: string,
+  hostShortLabel?: string
 ): Promise<{ roomId: string; code: string } | { error: string }> {
   if (!supabase) return { error: 'Supabase не настроен' };
+
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateCode();
     const playerSlots: PlayerSlot[] = [
-      { userId: hostUserId, displayName: hostDisplayName.slice(0, 17), slotIndex: 0 },
+      {
+        userId: hostUserId,
+        displayName: hostDisplayName.slice(0, 17),
+        slotIndex: 0,
+        ...(hostShortLabel != null && hostShortLabel !== ''
+          ? { shortLabel: hostShortLabel.slice(0, 12) }
+          : {}),
+      },
     ];
+
     const { data, error } = await supabase
       .from(TABLE)
       .insert({
@@ -65,12 +77,15 @@ export async function createRoom(
       })
       .select('id, code')
       .single();
+
     if (error) {
-      if (error.code === '23505') continue; // unique violation, retry with new code
+      // 23505 — unique violation, пробуем сгенерировать другой код
+      if ((error as any).code === '23505') continue;
       return { error: error.message };
     }
     if (data) return { roomId: data.id, code: data.code };
   }
+
   return { error: 'Не удалось создать уникальный код комнаты' };
 }
 
@@ -78,9 +93,11 @@ export async function createRoom(
 export async function joinRoom(
   code: string,
   userId: string,
-  displayName: string
+  displayName: string,
+  shortLabel?: string
 ): Promise<{ roomId: string; mySlotIndex: number } | { error: string }> {
   if (!supabase) return { error: 'Supabase не настроен' };
+
   const normalizedCode = code.trim().toUpperCase();
   if (!normalizedCode) return { error: 'Введите код комнаты' };
 
@@ -94,15 +111,28 @@ export async function joinRoom(
   if (room.status !== 'waiting') return { error: 'Игра уже началась' };
 
   const slots = (room.player_slots as PlayerSlot[]) || [];
+
+  // Не даём «войти» тем же аккаунтом с другого устройства — иначе оба увидят один слот
   if (slots.some((s) => s.userId != null && s.userId === userId)) {
-    return { roomId: room.id, mySlotIndex: slots.find((s) => s.userId === userId)!.slotIndex };
+    return {
+      error:
+        'Вы уже в этой комнате. Чтобы играть вдвоём с телефона и ПК, войдите на втором устройстве под другим аккаунтом.',
+    };
   }
+
   if (slots.length >= 4) return { error: 'Комната заполнена' };
 
   const mySlotIndex = slots.length;
   const newSlots: PlayerSlot[] = [
     ...slots,
-    { userId, displayName: displayName.slice(0, 17), slotIndex: mySlotIndex },
+    {
+      userId,
+      displayName: displayName.slice(0, 17),
+      slotIndex: mySlotIndex,
+      ...(shortLabel != null && shortLabel !== ''
+        ? { shortLabel: shortLabel.slice(0, 12) }
+        : {}),
+    },
   ];
 
   const { error: updateError } = await supabase
@@ -111,6 +141,7 @@ export async function joinRoom(
     .eq('id', room.id);
 
   if (updateError) return { error: updateError.message };
+
   return { roomId: room.id, mySlotIndex };
 }
 
@@ -164,14 +195,16 @@ export function subscribeToRoom(
   };
 }
 
-/** Выйти из комнаты (удалить себя из player_slots). Если хост вышел — комната остаётся; можно не удалять. */
+/** Выйти из комнаты (удалить себя из player_slots). Если хост вышел — комната остаётся. */
 export async function leaveRoom(roomId: string, userId: string): Promise<{ error?: string }> {
   if (!supabase) return { error: 'Supabase не настроен' };
   const room = await getRoom(roomId);
   if (!room) return {};
+
   const slots = (room.player_slots as PlayerSlot[]) || [];
   const newSlots = slots.filter((s) => s.userId != null && s.userId !== userId);
   if (newSlots.length === slots.length) return {};
+
   const { error } = await supabase
     .from(TABLE)
     .update({ player_slots: newSlots })
@@ -179,7 +212,7 @@ export async function leaveRoom(roomId: string, userId: string): Promise<{ error
   return error ? { error: error.message } : {};
 }
 
-/** Отметить присутствие в комнате (вызывать периодически при игре). Требуется таблица game_room_presence (room_id, user_id, last_seen). */
+/** Отметить присутствие в комнате (вызывать периодически при игре). */
 export async function heartbeatPresence(roomId: string, userId: string): Promise<void> {
   if (!supabase) return;
   const now = new Date().toISOString();
@@ -198,7 +231,7 @@ export async function getPresence(roomId: string): Promise<Record<string, string
     .eq('room_id', roomId);
   if (error) return {};
   const out: Record<string, string> = {};
-  for (const row of data || []) {
+  for (const row of (data as any[]) || []) {
     const uid = (row as { user_id: string; last_seen: string }).user_id;
     const seen = (row as { user_id: string; last_seen: string }).last_seen;
     if (uid && seen) out[uid] = seen;

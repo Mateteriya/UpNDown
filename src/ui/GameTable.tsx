@@ -4,11 +4,12 @@
  */
 
 import type { CSSProperties } from 'react';
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { GameState } from '../game/GameEngine';
 import {
   createGame,
+  createGameOnline,
   startDeal,
   startNextDeal,
   getDealType,
@@ -22,6 +23,7 @@ import {
 import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating } from '../game/persistence';
 import { aiBid, aiPlay } from '../game/ai';
 import { getTrickWinner } from '../game/rules';
+import { getCanonicalIndexForDisplay } from '../game/rotateState';
 import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
 import { preloadCardImages } from '../cardAssets';
 import { useTheme } from '../contexts/ThemeContext';
@@ -328,11 +330,38 @@ function GameOverModal({
 function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame }: GameTableProps) {
   const { theme, toggleTheme } = useTheme();
   const online = useOnlineGame();
+  const isWaitingInRoom = !!(online.roomId && online.status === 'waiting');
+  const waitingState = useMemo(() => {
+    if (!isWaitingInRoom) return null;
+    const names: [string, string, string, string] = [0, 1, 2, 3].map((i) => {
+      const s = online.playerSlots.find((sl) => sl.slotIndex === i);
+      return s ? s.displayName : '—';
+    }) as [string, string, string, string];
+    return createGameOnline(names);
+  }, [isWaitingInRoom, online.playerSlots]);
   const isOnline = !!(online.roomId && online.status === 'playing' && online.displayState);
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
   const [localState, setLocalState] = useState<GameState | null>(null);
-  const state = isOnline ? online.displayState : localState;
+  const [startingFromWaiting, setStartingFromWaiting] = useState(false);
+  const state = isWaitingInRoom ? waitingState : (isOnline ? online.displayState : localState);
+  /** В онлайне: имена из playerSlots (кто какой слот занял) и текущий профиль для «меня», чтобы на каждом устройстве были свои ники. */
+  const stateForRender = useMemo(() => {
+    if (!state) return null;
+    if (!isOnline || !online.playerSlots.length) return state;
+    return {
+      ...state,
+      players: state.players.map((p, i) => ({
+        ...p,
+        name:
+          i === 0
+            ? (playerDisplayName?.trim() || p.name)
+            : (online.playerSlots.find((s) => s.slotIndex === getCanonicalIndexForDisplay(i, online.myServerIndex))
+                ?.displayName ?? p.name),
+      })),
+    };
+  }, [state, isOnline, online.playerSlots, online.myServerIndex, playerDisplayName]);
+  const stateToShow = stateForRender ?? state;
   const setState = useCallback((updater: React.SetStateAction<GameState | null>) => {
     if (typeof updater === 'function') setLocalState(prev => updater(prev));
     else setLocalState(updater);
@@ -355,6 +384,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const yourTurnPromptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const yourTurnPromptIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastCompletedTrickRef = useRef<unknown>(null);
+  const stateRef = useRef<GameState | null>(null);
+  if (state) stateRef.current = state;
 
   useEffect(() => {
     const t = setTimeout(preloadCardImages, 0);
@@ -376,7 +407,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   /** ПК: имя в блоке «Заказывает/Сейчас ход» ограничено CSS (max-width + перенос строки) */
 
   useEffect(() => {
-    if (isOnline) return;
+    if (isOnline || isWaitingInRoom) return;
     const restored = loadGameStateFromStorage();
     const humanName = playerDisplayName?.trim() && playerDisplayName !== 'Вы' ? playerDisplayName : 'Вы';
     if (restored) {
@@ -399,9 +430,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   }, [gameId, playerDisplayName, isOnline]);
 
   useEffect(() => {
-    if (isOnline || state === null) return;
+    if (isOnline || isWaitingInRoom || state === null) return;
     saveGameStateToStorage(state);
-  }, [state, isOnline]);
+  }, [state, isOnline, isWaitingInRoom]);
 
   useEffect(() => {
     if (dealResultsExpanded && isMobile) {
@@ -410,7 +441,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     }
   }, [dealResultsExpanded, isMobile]);
 
-  const humanIdx = 0;
+  const humanIdx = isOnline ? 0 : (isWaitingInRoom ? online.myServerIndex : 0);
   const isHumanTurn = state?.phase === 'playing' && state.currentPlayerIndex === humanIdx;
   const isHumanBidding = (state?.phase === 'bidding' || state?.phase === 'dark-bidding') && state.currentPlayerIndex === humanIdx;
 
@@ -475,19 +506,41 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   handleBidRef.current = handleBid;
 
   const handleExit = useCallback(() => {
-    if (isOnline) online.leaveRoom();
     onExit();
-  }, [isOnline, online, onExit]);
+  }, [onExit]);
+
+  const handleLeaveRoomAndExit = useCallback(async () => {
+    await online.leaveRoomAndReplaceWithAI();
+    onExit();
+  }, [online, onExit]);
+
+  const handleLeaveFromWaiting = useCallback(async () => {
+    await online.leaveRoom();
+    onExit();
+  }, [online, onExit]);
+
+  const handleStartFromWaiting = useCallback(async () => {
+    setStartingFromWaiting(true);
+    await online.startGame();
+    setStartingFromWaiting(false);
+  }, [online]);
+
+  useEffect(() => {
+    if (!online.playerLeftToast) return;
+    const t = setTimeout(() => online.clearPlayerLeftToast(), 5000);
+    return () => clearTimeout(t);
+  }, [online.playerLeftToast, online.clearPlayerLeftToast]);
 
   const COLLAPSING_MS = 750;
   useLayoutEffect(() => {
-    if (!state?.lastCompletedTrick) {
+    const s = stateRef.current;
+    if (!s?.lastCompletedTrick) {
       lastCompletedTrickRef.current = null;
       setLastTrickCollectingPhase('idle');
       return;
     }
-    const trick = state.lastCompletedTrick;
-    const isLastTrickOfDeal = state.players.every(p => p.hand.length === 0);
+    const trick = s.lastCompletedTrick;
+    const isLastTrickOfDeal = s.players.every(p => p.hand.length === 0);
     if (lastCompletedTrickRef.current !== trick && !dealResultsButtonEverShownRef.current) {
       setShowDealResultsButton(false);
     }
@@ -496,7 +549,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     setTrickPauseUntil(Date.now() + TRICK_PAUSE_MS);
     const t = setTimeout(() => {
       setTrickPauseUntil(0);
-      if (state?.phase === 'deal-complete') {
+      const current = stateRef.current;
+      if (current?.phase === 'deal-complete') {
         if (isOnline) {
           online.sendStartNextDeal();
         } else {
@@ -521,30 +575,31 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           setLastTrickCollectingPhase('collapsing');
           collapseDelay = window.setTimeout(() => {
             setLastTrickCollectingPhase('button');
-            if (state.dealNumber === 28) {
-              setGameOverSnapshot(state);
+            const snap = stateRef.current;
+            if (snap?.dealNumber === 28) {
+              setGameOverSnapshot(snap);
               setShowGameOverModal(true);
-              if (!isOnline) {
-                const maxScore = Math.max(...state.players.map(p => p.score));
-                const humanWon = state.players[0].score === maxScore;
+              if (!isOnline && snap) {
+                const maxScore = Math.max(...snap.players.map(p => p.score));
+                const humanWon = snap.players[0].score === maxScore;
                 let bidAccuracy = 0;
-                if (state.dealHistory?.length) {
+                if (snap.dealHistory?.length) {
                   let met = 0;
-                  for (const d of state.dealHistory) {
+                  for (const d of snap.dealHistory) {
                     const bid = d.bids[0];
                     const pts = d.points[0];
                     if (bid == null) continue;
                     const taken = getTakenFromDealPoints(bid, pts);
                     if (bid === taken) met++;
                   }
-                  bidAccuracy = Math.round((met / state.dealHistory.length) * 100);
+                  bidAccuracy = Math.round((met / snap.dealHistory.length) * 100);
                 }
                 updateLocalRating(humanWon, undefined, bidAccuracy);
               }
-            } else {
+            } else if (snap) {
               setShowDealResultsButton(true);
               dealResultsButtonEverShownRef.current = true;
-              setLastDealResultsSnapshot(state);
+              setLastDealResultsSnapshot(snap);
             }
           }, COLLAPSING_MS);
         }, LAST_TRICK_WINNER_PAUSE_MS);
@@ -558,7 +613,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       if (winnerDelay) clearTimeout(winnerDelay);
       if (collapseDelay) clearTimeout(collapseDelay);
     };
-  }, [state?.lastCompletedTrick, state?.players, state?.phase, state?.dealNumber, isOnline, online]);
+    // Только по смене завершённой взятки — иначе таймеры сбрасываются и модалка «зависает»
+  }, [state?.lastCompletedTrick, isOnline, online]);
 
   useEffect(() => {
     if (!state?.pendingTrickCompletion) return;
@@ -623,7 +679,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   // Онлайн: хост выполняет ход ИИ и пушит состояние
   const lastOnlineAiTurnKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!isOnlineAiTurn || online.mySlotIndex !== 0 || !online.canonicalState || !online.sendState) return;
+    if (!isOnlineAiTurn || online.myServerIndex !== 0 || !online.canonicalState || !online.sendState) return;
     const c = online.canonicalState;
     const key = `${c.dealNumber}-${c.phase}-${c.currentPlayerIndex}-${c.bids?.join(',')}-${c.currentTrick?.length}`;
     if (lastOnlineAiTurnKeyRef.current === key) return;
@@ -641,7 +697,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       if (next) online.sendState(next);
     }, 400);
     return () => clearTimeout(t);
-  }, [isOnlineAiTurn, online.mySlotIndex, online.canonicalState, online.sendState]);
+  }, [isOnlineAiTurn, online.myServerIndex, online.canonicalState, online.sendState]);
 
   // Онлайн: отслеживание смены хода (для таймаута «зависшего» игрока)
   const lastTurnChangeAtRef = useRef(Date.now());
@@ -661,7 +717,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   // Онлайн, хост: если живой игрок не ходит больше минуты — один ход за него делает ИИ; после N раз — замена на ИИ навсегда
   const turnTimeoutCountRef = useRef<Record<number, number>>({});
   useEffect(() => {
-    if (!isOnline || online.mySlotIndex !== 0 || !online.sendState || !online.replaceInactivePlayer) return;
+    if (!isOnline || online.myServerIndex !== 0 || !online.sendState || !online.replaceInactivePlayer) return;
     const iv = setInterval(() => {
       const c = latestCanonicalRef.current;
       if (!c || c.pendingTrickCompletion) return;
@@ -688,13 +744,36 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       if (next) online.sendState(next);
     }, 10_000);
     return () => clearInterval(iv);
-  }, [isOnline, online.mySlotIndex, online.sendState, online.playerSlots, online.replaceInactivePlayer]);
+  }, [isOnline, online.myServerIndex, online.sendState, online.playerSlots, online.replaceInactivePlayer]);
 
   if (!state) return <div style={{ padding: 20 }}>Загрузка...</div>;
 
   /* Мобильная вёрстка (viewport-mobile при width ≤600px): рука внизу, слоты взятки в сетке 2×2, козырь на колоде; стили в index.css @media (max-width: 1024px) .game-table-root.viewport-mobile */
   return (
     <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}`} style={tableLayoutStyle}>
+      {isOnline && online.playerLeftToast && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            top: 12,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '12px 20px',
+            borderRadius: 8,
+            background: '#1e293b',
+            border: '1px solid rgba(34,211,238,0.4)',
+            color: '#f8fafc',
+            zIndex: 10000,
+            fontSize: 14,
+            maxWidth: '90%',
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          }}
+        >
+          Игрок {online.playerLeftToast} покинул игру. Партия продолжается с ИИ вместо него.
+        </div>
+      )}
       {isMobileOrTablet && showDealerTooltip && (
         <div className="dealer-tooltip-toast" role="status" aria-live="polite">
           Сдающий
@@ -702,7 +781,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       )}
       {isMobile && showFirstMoveTooltip && state && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
         <div className="first-move-tooltip-toast dealer-tooltip-toast" role="status" aria-live="polite">
-          <div className="first-move-tooltip-name">{state.players[state.trickLeaderIndex].name}</div>
+          <div className="first-move-tooltip-name">{stateToShow.players[state.trickLeaderIndex].name}</div>
           <div style={{ fontSize: 12, opacity: 0.9 }}>У данного игрока будет первый ход в этой раздаче</div>
         </div>
       )}
@@ -710,7 +789,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       <header className="game-header" style={headerStyle}>
         <div style={headerLeftWrapStyle}>
           <div style={headerMenuButtonsWrapStyle}>
-            {isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding') ? (
+            {isMobile && !isWaitingInRoom && (state.phase === 'bidding' || state.phase === 'dark-bidding') ? (
               <div className="first-move-badge-hang-wrap" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <button
@@ -726,7 +805,19 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       <polyline points="9 22 9 12 15 12 15 22" />
                     </svg>
                   </button>
-                  {onNewGame && !isOnline && (
+                  {(isOnline || isWaitingInRoom) && (
+                    <button
+                      type="button"
+                      className="header-exit-btn"
+                      onClick={isWaitingInRoom ? handleLeaveFromWaiting : handleLeaveRoomAndExit}
+                      style={exitBtnStyle}
+                      title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
+                      aria-label="Выйти из комнаты"
+                    >
+                      <span style={{ fontSize: 14 }}>Выйти</span>
+                    </button>
+                  )}
+                  {onNewGame && !isOnline && !isWaitingInRoom && (
                     <button
                       type="button"
                       className="header-new-game-btn"
@@ -744,11 +835,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   className="first-move-badge first-move-badge-clickable first-move-badge-below-home"
                   style={{ ...firstMoveBadgeStyle, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
                   onClick={() => setShowFirstMoveTooltip(true)}
-                  title={`${state.players[state.trickLeaderIndex].name} — у данного игрока будет первый ход в этой раздаче`}
-                  aria-label={`Первый ход: ${state.players[state.trickLeaderIndex].name}. Нажмите для подсказки`}
+                  title={`${stateToShow.players[state.trickLeaderIndex].name} — у данного игрока будет первый ход в этой раздаче`}
+                  aria-label={`Первый ход: ${stateToShow.players[state.trickLeaderIndex].name}. Нажмите для подсказки`}
                 >
                   <span className="first-move-num" style={firstMoveLabelStyle}>I:</span>
-                  <span style={firstMoveValueStyle}>{state.players[state.trickLeaderIndex].name}</span>
+                  <span style={firstMoveValueStyle}>{stateToShow.players[state.trickLeaderIndex].name}</span>
                 </button>
               </div>
             ) : (
@@ -766,7 +857,19 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                     <polyline points="9 22 9 12 15 12 15 22" />
                   </svg>
                 </button>
-                {onNewGame && !isOnline && (
+                {(isOnline || isWaitingInRoom) && (
+                  <button
+                    type="button"
+                    className="header-exit-btn"
+                    onClick={isWaitingInRoom ? handleLeaveFromWaiting : handleLeaveRoomAndExit}
+                    style={exitBtnStyle}
+                    title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
+                    aria-label="Выйти из комнаты"
+                  >
+                    <span style={{ fontSize: 14 }}>Выйти</span>
+                  </button>
+                )}
+                {onNewGame && !isOnline && !isWaitingInRoom && (
                     <button
                       type="button"
                       className="header-new-game-btn"
@@ -784,7 +887,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         </div>
         <div style={headerRightWrapStyle}>
           <div style={headerRightTopRowStyle}>
-            {(showDealResultsButton || (state.dealHistory && state.dealHistory.length > 0)) && (
+            {!isWaitingInRoom && (showDealResultsButton || (state.dealHistory && state.dealHistory.length > 0)) && (
               <button
                 type="button"
                 onClick={() => {
@@ -799,10 +902,13 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 Σ
               </button>
             )}
+            {!isWaitingInRoom && (
             <div style={dealNumberBadgeStyle} className="deal-number-badge">
               <span style={dealNumberLabelStyle}>Раздача</span>
               <span style={dealNumberValueStyle}><span className="deal-num-symbol" aria-hidden>№</span><span className="deal-num-value">{state.dealNumber}</span></span>
             </div>
+            )}
+            {!isWaitingInRoom && (
             <button
             type="button"
             onClick={() => setTrumpHighlightOn(v => !v)}
@@ -836,6 +942,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           </svg>
           {trumpHighlightOn ? 'Выключить' : 'Включить'}
         </button>
+            )}
             {isMobile && (
               <button
                 type="button"
@@ -913,14 +1020,14 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   {state.phase === 'playing' && (
                     <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
                       <span style={gameInfoLabelStyle}>Сейчас ход</span>
-                      <span style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{state.players[state.currentPlayerIndex].name}</span>
+                      <span style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{stateToShow.players[state.currentPlayerIndex].name}</span>
                     </div>
                   )}
                   {(state.phase === 'bidding' || state.phase === 'dark-bidding') && (
                     <div style={{ ...gameInfoBadgeStyle, ...gameInfoBiddingBadgeStyle }}>
                       <span style={gameInfoLabelStyle}>Заказывает</span>
                       <span style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
-                        {state.players[state.currentPlayerIndex].name}
+                        {stateToShow.players[state.currentPlayerIndex].name}
                       </span>
                     </div>
                   )}
@@ -928,7 +1035,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               )}
             </div>
             <div className="game-mobile-slot-west" style={{ display: 'flex', flexShrink: 0 }}>
-              <OpponentSlot state={state} index={2} position="left" inline compactMode={isMobileOrTablet}
+              <OpponentSlot state={stateToShow} index={2} position="left" inline compactMode={isMobileOrTablet}
                 collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
                 winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2}
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
@@ -940,7 +1047,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               />
             </div>
             <div className="game-mobile-slot-north" style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
-              <OpponentSlot state={state} index={1} position="top" inline compactMode={isMobileOrTablet}
+              <OpponentSlot state={stateToShow} index={1} position="top" inline compactMode={isMobileOrTablet}
                 collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
                 winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1}
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
@@ -963,6 +1070,33 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             <div className="game-center-table" style={{ ...centerStyle, flex: 1, minWidth: 0 }}>
         <div style={{ ...tableOuterStyle, ...(trumpHighlightOn ? tableOuterStyleWithHighlight : {}) }}>
           <div style={{ ...tableSurfaceStyle, ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}) }}>
+            {isWaitingInRoom && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, zIndex: 10 }}>
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: 14 }}>Код комнаты: <strong style={{ color: '#22d3ee', letterSpacing: 2 }}>{online.code || '—'}</strong></p>
+                {online.error && <p style={{ margin: 0, fontSize: 13, color: '#f87171' }}>{online.error}</p>}
+                {online.myServerIndex === 0 && (
+                  <button
+                    type="button"
+                    disabled={online.playerSlots.length < 2 || startingFromWaiting}
+                    onClick={handleStartFromWaiting}
+                    style={{
+                      padding: '14px 24px',
+                      fontSize: 16,
+                      fontWeight: 600,
+                      borderRadius: 8,
+                      border: '1px solid rgba(34, 211, 238, 0.5)',
+                      background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
+                      color: '#f8fafc',
+                      cursor: 'pointer',
+                      opacity: online.playerSlots.length < 2 ? 0.6 : 1,
+                    }}
+                  >
+                    {startingFromWaiting ? 'Запуск…' : online.playerSlots.length >= 4 ? 'Начать игру' : 'Начать игру с ИИ'}
+                  </button>
+                )}
+                {online.myServerIndex !== 0 && <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>Ожидание старта от хоста…</p>}
+              </div>
+            )}
             {state.trumpCard && (
               <DeckWithTrump
                 tricksInDeal={state.tricksInDeal}
@@ -1186,7 +1320,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
         )}
             <div className="game-center-east game-mobile-east" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', ...(isMobile ? {} : { minWidth: 60 }) }}>
-              <OpponentSlot state={state} index={3} position="right" inline compactMode={isMobileOrTablet}
+              <OpponentSlot state={stateToShow} index={3} position="right" inline compactMode={isMobileOrTablet}
                 collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
                 winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 3}
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
@@ -1269,9 +1403,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               onClick={() => setSelectedPlayerForInfo(0)}
               style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', lineHeight: 0 }}
               title="Информация об игроке"
-              aria-label={`Информация об игроке ${state.players[humanIdx].name}`}
+              aria-label={`Информация об игроке ${stateToShow.players[humanIdx].name}`}
             >
-              <PlayerAvatar name={state.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
+              <PlayerAvatar name={stateToShow.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
             </button>
             <span style={playerNameDealerWrapStyle}>
               <span
@@ -1284,7 +1418,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               >
                 {isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding)
                   ? (state.phase === 'playing' ? 'Ваш ход!' : 'Ваш заказ!')
-                  : state.players[humanIdx].name}
+                  : stateToShow.players[humanIdx].name}
               </span>
               {state.dealerIndex === humanIdx && (
                 isMobileOrTablet && state.phase === 'playing' ? (
@@ -1359,7 +1493,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             {!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
               <div className="first-move-badge first-move-badge-above-block" style={firstMoveBadgeStyle}>
                 <span className="first-move-num" style={firstMoveLabelStyle}>Первый ход:</span>
-                <span style={firstMoveValueStyle}>{state.players[state.trickLeaderIndex].name}</span>
+                <span style={firstMoveValueStyle}>{stateToShow.players[state.trickLeaderIndex].name}</span>
               </div>
             )}
             {(state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') && (
@@ -1367,14 +1501,14 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 {state.phase === 'playing' && (
                   <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
                     <span style={gameInfoLabelStyle}>Сейчас ход</span>
-                    <span className="game-info-value-name" style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{state.players[state.currentPlayerIndex].name}</span>
+                    <span className="game-info-value-name" style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{stateToShow.players[state.currentPlayerIndex].name}</span>
                   </div>
                 )}
                 {(state.phase === 'bidding' || state.phase === 'dark-bidding') && (
                   <div style={{ ...gameInfoBadgeStyle, ...gameInfoBiddingBadgeStyle }}>
                     <span style={gameInfoLabelStyle}>Заказывает</span>
                     <span className="game-info-value-name" style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
-                      {state.players[state.currentPlayerIndex].name}
+                      {stateToShow.players[state.currentPlayerIndex].name}
                     </span>
                   </div>
                 )}
@@ -1384,7 +1518,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
         <div style={gameInfoNorthSlotWrapper} aria-hidden />
         <div className="game-center-north" style={gameInfoNorthSlotWrapperAbsolute}>
-          <OpponentSlot state={state} index={1} position="top" inline compactMode={isMobileOrTablet}
+          <OpponentSlot state={stateToShow} index={1} position="top" inline compactMode={isMobileOrTablet}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
             winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1}
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
@@ -1404,7 +1538,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         tabIndex={isAITurn ? 0 : undefined}
         title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}>
         <div className="game-center-west" style={opponentSideWrapWestStyle}>
-          <OpponentSlot state={state} index={2} position="left" inline compactMode={isMobileOrTablet}
+          <OpponentSlot state={stateToShow} index={2} position="left" inline compactMode={isMobileOrTablet}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
             winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2}
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
@@ -1417,6 +1551,33 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         <div className="game-center-table" style={centerStyle}>
         <div style={{ ...tableOuterStyle, ...(trumpHighlightOn ? tableOuterStyleWithHighlight : {}) }}>
           <div style={{ ...tableSurfaceStyle, ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}) }}>
+            {isWaitingInRoom && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, zIndex: 10 }}>
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: 14 }}>Код комнаты: <strong style={{ color: '#22d3ee', letterSpacing: 2 }}>{online.code || '—'}</strong></p>
+                {online.error && <p style={{ margin: 0, fontSize: 13, color: '#f87171' }}>{online.error}</p>}
+                {online.myServerIndex === 0 && (
+                  <button
+                    type="button"
+                    disabled={online.playerSlots.length < 2 || startingFromWaiting}
+                    onClick={handleStartFromWaiting}
+                    style={{
+                      padding: '14px 24px',
+                      fontSize: 16,
+                      fontWeight: 600,
+                      borderRadius: 8,
+                      border: '1px solid rgba(34, 211, 238, 0.5)',
+                      background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
+                      color: '#f8fafc',
+                      cursor: 'pointer',
+                      opacity: online.playerSlots.length < 2 ? 0.6 : 1,
+                    }}
+                  >
+                    {startingFromWaiting ? 'Запуск…' : online.playerSlots.length >= 4 ? 'Начать игру' : 'Начать игру с ИИ'}
+                  </button>
+                )}
+                {online.myServerIndex !== 0 && <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>Ожидание старта от хоста…</p>}
+              </div>
+            )}
             {state.trumpCard && (
               <DeckWithTrump tricksInDeal={state.tricksInDeal} trumpCard={state.trumpCard} trumpHighlightOn={trumpHighlightOn} dealerIndex={state.dealerIndex} compactTable={isMobileOrTablet} pcCardStyles={!isMobileOrTablet} />
             )}
@@ -1480,7 +1641,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         </div>
         </div>
         <div className="game-center-east" style={opponentSideWrapEastStyle}>
-          <OpponentSlot state={state} index={3} position="right" inline compactMode={isMobileOrTablet}
+          <OpponentSlot state={stateToShow} index={3} position="right" inline compactMode={isMobileOrTablet}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
             winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 3}
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
@@ -1563,12 +1724,12 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               onClick={() => setSelectedPlayerForInfo(0)}
               style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', lineHeight: 0 }}
               title="Информация об игроке"
-              aria-label={`Информация об игроке ${state.players[humanIdx].name}`}
+              aria-label={`Информация об игроке ${stateToShow.players[humanIdx].name}`}
             >
-              <PlayerAvatar name={state.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
+              <PlayerAvatar name={stateToShow.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
             </button>
             <span style={playerNameDealerWrapStyle}>
-              <span className="player-panel-name" style={playerNameStyle}>{state.players[humanIdx].name}</span>
+              <span className="player-panel-name" style={playerNameStyle}>{stateToShow.players[humanIdx].name}</span>
               {state.dealerIndex === humanIdx && (
                 isMobileOrTablet && state.phase === 'playing' ? (
                   <button type="button" className="dealer-badge-compact-mobile" style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={() => setShowDealerTooltip(true)} title="Сдающий" aria-label="Сдающий">
@@ -1814,7 +1975,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
 
       {selectedPlayerForInfo !== null && state && createPortal(
         <PlayerInfoPanel
-          state={state}
+          state={stateToShow}
           playerIndex={selectedPlayerForInfo}
           playerAvatarDataUrl={selectedPlayerForInfo === 0 ? playerAvatarDataUrl : undefined}
           onClose={() => setSelectedPlayerForInfo(null)}
