@@ -20,14 +20,19 @@ import {
   getValidPlays,
   isHumanPlayer,
 } from '../game/GameEngine';
-import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating } from '../game/persistence';
+import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating, getPlayerProfile } from '../game/persistence';
+import { loadOnlineSession } from '../lib/onlineSession';
+import { logDealOutcome } from '../game/aiLearning';
 import { aiBid, aiPlay } from '../game/ai';
 import { getTrickWinner } from '../game/rules';
-import { getCanonicalIndexForDisplay } from '../game/rotateState';
+import { getCanonicalIndexForDisplay, rotateStateForPlayer } from '../game/rotateState';
 import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
 import { preloadCardImages } from '../cardAssets';
 import { useTheme } from '../contexts/ThemeContext';
-import { useOnlineGame } from '../contexts/OnlineGameContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useOnlineGame } from '../contexts/useOnlineGame';
+import { heartbeatPresence } from '../lib/onlineGameSupabase';
+import { isPersonalAiReplacementEnabled } from '../lib/featureFlags';
 import { CardView } from './CardView';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel } from './PlayerInfoPanel';
@@ -39,18 +44,18 @@ interface GameTableProps {
   playerAvatarDataUrl?: string | null;
   onExit: () => void;
   onNewGame?: () => void;
+  /** Открыть модалку профиля (имя и фото) — для кнопки «Сменить фото» в меню аватара. */
+  onOpenProfileModal?: () => void;
 }
 
-/** Задержка перед завершением взятки — 4‑я карта показывается в слоте */
-const FOURTH_CARD_SLOT_PAUSE_MS = 550;
-/** Если живой игрок не сделал ход/заказ за это время — за него ходит ИИ (один ход). */
-const TURN_TIMEOUT_MS = 60_000;
-/** После стольких таймаутов хода подряд игрок считается неактивным и заменяется на ИИ навсегда. */
-const INACTIVE_REPLACE_THRESHOLD = 3;
-/** Пауза с картами на столе — 4‑й игрок положил карту на своё место */
-const LAST_TRICK_CARDS_PAUSE_MS = 1200;
+/** Сколько мс карты остаются на столе после 4‑го хода, чтобы все успели увидеть (прогрузка, онлайн). */
+const FOURTH_CARD_SLOT_PAUSE_MS = 2000;
+/** Пауза с картами на столе (последняя взятка раздачи) — чтобы все успели увидеть карты. */
+const LAST_TRICK_CARDS_PAUSE_MS = 2000;
 /** Пауза с миганием панельки взявшего взятку */
 const LAST_TRICK_WINNER_PAUSE_MS = 800;
+/** Длительность фазы «таблица сворачивается в кнопку» */
+const DEAL_RESULTS_COLLAPSING_MS = 750;
 const TRICK_PAUSE_MS = 5500;
 
 const NEXT_PLAYER_LEFT = [2, 3, 1, 0] as const;
@@ -136,6 +141,14 @@ const currentTrickLeaderGlowStyle: CSSProperties = {
   boxShadow: [
     'inset 0 0 20px rgba(251, 191, 36, 0.25)',
     'inset 0 0 0 1px rgba(251, 146, 60, 0.4)',
+  ].join(', '),
+};
+
+/** Подсветка панельки игрока, которому достаётся текущая взятка (пока карты на столе). */
+const trickWinnerGlowStyle: CSSProperties = {
+  boxShadow: [
+    'inset 0 0 24px rgba(34, 197, 94, 0.35)',
+    'inset 0 0 0 2px rgba(34, 197, 94, 0.6)',
   ].join(', '),
 };
 
@@ -327,9 +340,12 @@ function GameOverModal({
   );
 }
 
-function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame }: GameTableProps) {
+function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame, onOpenProfileModal }: GameTableProps) {
   const { theme, toggleTheme } = useTheme();
+  const { user } = useAuth();
   const online = useOnlineGame();
+  const onlineRef = useRef(online);
+  onlineRef.current = online;
   const isWaitingInRoom = !!(online.roomId && online.status === 'waiting');
   const waitingState = useMemo(() => {
     if (!isWaitingInRoom) return null;
@@ -344,24 +360,57 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const isMobile = useIsMobile();
   const [localState, setLocalState] = useState<GameState | null>(null);
   const [startingFromWaiting, setStartingFromWaiting] = useState(false);
-  const state = isWaitingInRoom ? waitingState : (isOnline ? online.displayState : localState);
-  /** В онлайне: имена из playerSlots (кто какой слот занял) и текущий профиль для «меня», чтобы на каждом устройстве были свои ники. */
+  const lastOnlineAiTurnKeyRef = useRef<string | null>(null);
+  const latestCanonicalForAiRef = useRef<GameState | null>(null);
+  const latestCanonicalRef = useRef<GameState | null>(null);
+  const myServerIndexForLogRef = useRef(0);
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+  const [takingPause, setTakingPause] = useState(false);
+  const [returningFromPause, setReturningFromPause] = useState(false);
+  const [reclaiming, setReclaiming] = useState(false);
+  const state = isWaitingInRoom
+    ? (waitingState ? rotateStateForPlayer(waitingState, online.myServerIndex) : null)
+    : (isOnline ? online.displayState : localState);
+  /** В онлайне и в ожидании: один и тот же порядок «вид из моего места» (0=я внизу) и имена из playerSlots по canonical-индексу. Если слоты ещё не подгрузились — хотя бы «я» из профиля. */
   const stateForRender = useMemo(() => {
     if (!state) return null;
-    if (!isOnline || !online.playerSlots.length) return state;
-    return {
+    const slots = online.playerSlots;
+    const me = online.myServerIndex;
+    if (!isOnline && !isWaitingInRoom) return state;
+    const base = {
       ...state,
       players: state.players.map((p, i) => ({
         ...p,
         name:
           i === 0
-            ? (playerDisplayName?.trim() || p.name)
-            : (online.playerSlots.find((s) => s.slotIndex === getCanonicalIndexForDisplay(i, online.myServerIndex))
-                ?.displayName ?? p.name),
+            ? (playerDisplayName?.trim() || 'Игрок')
+            : (slots.length ? (slots.find((s) => s.slotIndex === getCanonicalIndexForDisplay(i, me))?.displayName ?? p.name) : p.name),
       })),
     };
-  }, [state, isOnline, online.playerSlots, online.myServerIndex, playerDisplayName]);
+    if (isWaitingInRoom) {
+      return { ...base, dealerIndex: -1 };
+    }
+    return base;
+  }, [state, isOnline, isWaitingInRoom, online.playerSlots, online.myServerIndex, playerDisplayName]);
   const stateToShow = stateForRender ?? state;
+  const dealContractStats = useMemo(() => {
+    if (!stateToShow) {
+      return {
+        allBidsPlaced: false,
+        totalOrders: 0,
+        totalTricks: 0,
+        tricksInDeal: 0,
+        cardsWord: 'карт' as string,
+      };
+    }
+    const s = stateToShow;
+    const allBidsPlaced = s.bids.length === 4 && s.bids.every((b) => b != null);
+    const totalOrders = allBidsPlaced ? (s.bids as number[]).reduce((a, b) => a + b, 0) : 0;
+    const totalTricks = s.players.reduce((sum, p) => sum + (p.tricksTaken ?? 0), 0);
+    const tricksInDeal = s.tricksInDeal;
+    const cardsWord = tricksInDeal === 1 ? 'карта' : tricksInDeal < 5 ? 'карты' : 'карт';
+    return { allBidsPlaced, totalOrders, totalTricks, tricksInDeal, cardsWord };
+  }, [stateToShow]);
   const setState = useCallback((updater: React.SetStateAction<GameState | null>) => {
     if (typeof updater === 'function') setLocalState(prev => updater(prev));
     else setLocalState(updater);
@@ -375,11 +424,14 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [dealResultsExpanded, setDealResultsExpanded] = useState(false);
   const [lastDealResultsSnapshot, setLastDealResultsSnapshot] = useState<GameState | null>(null);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showHomeConfirm, setShowHomeConfirm] = useState(false);
   const [gameOverSnapshot, setGameOverSnapshot] = useState<GameState | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [selectedPlayerForInfo, setSelectedPlayerForInfo] = useState<number | null>(null);
   const [showDealerTooltip, setShowDealerTooltip] = useState(false);
   const [showFirstMoveTooltip, setShowFirstMoveTooltip] = useState(false);
+  const [showDealContractHelp, setShowDealContractHelp] = useState(false);
   const [showYourTurnPrompt, setShowYourTurnPrompt] = useState(false);
   const yourTurnPromptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const yourTurnPromptIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -402,12 +454,23 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     const t = setTimeout(() => setShowFirstMoveTooltip(false), 4000);
     return () => clearTimeout(t);
   }, [showFirstMoveTooltip]);
+  useEffect(() => {
+    if (!showDealContractHelp) return;
+    const t = setTimeout(() => setShowDealContractHelp(false), 5500);
+    return () => clearTimeout(t);
+  }, [showDealContractHelp]);
   /** После первого появления кнопка «Результаты» больше не скрывается до конца партии */
   const dealResultsButtonEverShownRef = useRef(false);
-  /** ПК: имя в блоке «Заказывает/Сейчас ход» ограничено CSS (max-width + перенос строки) */
+  /** Номер раздачи, для которой уже запущена анимация результатов (один раз на раздачу, без повторов при опросе). */
+  const lastAnimatedDealNumberRef = useRef<number | null>(null);
+  /** Таймеры анимации результатов; очищаем только в том запуске эффекта, который их создал. */
+  const dealResultsTimeoutsRef = useRef<{ main?: number; slots?: number; winner?: number; collapse?: number }>({});
+  const dealResultsRunIdRef = useRef(0);
+  const dealResultsTimeoutsRunIdRef = useRef(0);
 
   useEffect(() => {
     if (isOnline || isWaitingInRoom) return;
+    if (loadOnlineSession()) return;
     const restored = loadGameStateFromStorage();
     const humanName = playerDisplayName?.trim() && playerDisplayName !== 'Вы' ? playerDisplayName : 'Вы';
     if (restored) {
@@ -423,16 +486,32 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     setBidPanelVisible(false);
     setShowDealResultsButton(false);
     dealResultsButtonEverShownRef.current = false;
+    lastAnimatedDealNumberRef.current = null;
     setDealResultsExpanded(false);
     setLastDealResultsSnapshot(null);
     setGameOverSnapshot(null);
     setShowGameOverModal(false);
-  }, [gameId, playerDisplayName, isOnline]);
+  }, [gameId, playerDisplayName, isOnline, isWaitingInRoom]);
 
   useEffect(() => {
     if (isOnline || isWaitingInRoom || state === null) return;
     saveGameStateToStorage(state);
   }, [state, isOnline, isWaitingInRoom]);
+
+  const waitingRefreshDoneRef = useRef(false);
+  useEffect(() => {
+    if (!isWaitingInRoom || !online.roomId || !online.refreshRoom) return;
+    if (waitingRefreshDoneRef.current) return;
+    const t = setTimeout(() => {
+      waitingRefreshDoneRef.current = true;
+      online.refreshRoom();
+    }, 400);
+    return () => clearTimeout(t);
+  }, [isWaitingInRoom, online.roomId, online.refreshRoom]);
+
+  useEffect(() => {
+    if (!isWaitingInRoom) waitingRefreshDoneRef.current = false;
+  }, [isWaitingInRoom]);
 
   useEffect(() => {
     if (dealResultsExpanded && isMobile) {
@@ -441,7 +520,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     }
   }, [dealResultsExpanded, isMobile]);
 
-  const humanIdx = isOnline ? 0 : (isWaitingInRoom ? online.myServerIndex : 0);
+  const humanIdx = isOnline || isWaitingInRoom ? 0 : 0;
   const isHumanTurn = state?.phase === 'playing' && state.currentPlayerIndex === humanIdx;
   const isHumanBidding = (state?.phase === 'bidding' || state?.phase === 'dark-bidding') && state.currentPlayerIndex === humanIdx;
 
@@ -509,15 +588,29 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     onExit();
   }, [onExit]);
 
-  const handleLeaveRoomAndExit = useCallback(async () => {
-    await online.leaveRoomAndReplaceWithAI();
+  const handleHomeClick = useCallback(() => {
+    if (isOnline || isWaitingInRoom) {
+      setShowHomeConfirm(true);
+    } else {
+      onExit();
+    }
+  }, [isOnline, isWaitingInRoom, onExit]);
+
+  const handleHomeConfirm = useCallback(async () => {
+    setShowHomeConfirm(false);
+    await online.leaveRoom?.();
     onExit();
   }, [online, onExit]);
 
-  const handleLeaveFromWaiting = useCallback(async () => {
-    await online.leaveRoom();
+  const handleLeaveRoomClick = useCallback(() => {
+    setShowExitConfirm(true);
+  }, []);
+
+  const handleExitConfirm = useCallback(async () => {
+    if (isWaitingInRoom || isOnline) await online.leaveRoom();
+    setShowExitConfirm(false);
     onExit();
-  }, [online, onExit]);
+  }, [isOnline, isWaitingInRoom, online, onExit]);
 
   const handleStartFromWaiting = useCallback(async () => {
     setStartingFromWaiting(true);
@@ -531,90 +624,122 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     return () => clearTimeout(t);
   }, [online.playerLeftToast, online.clearPlayerLeftToast]);
 
-  const COLLAPSING_MS = 750;
+  // Онлайн: отправка heartbeat для актуального presence во время партии.
+  useEffect(() => {
+    if (!isOnline || !online.roomId || !user?.id) return;
+    const roomId = online.roomId;
+    const userId = user.id;
+    heartbeatPresence(roomId, userId);
+    const iv = setInterval(() => {
+      if (roomId && userId) heartbeatPresence(roomId, userId);
+    }, 25_000);
+    return () => clearInterval(iv);
+  }, [isOnline, online.roomId, user?.id]);
+
+  const dealJustCompletedKey =
+    state?.lastCompletedTrick && state.players.every((p) => p.hand.length === 0)
+      ? state.dealNumber
+      : null;
+
   useLayoutEffect(() => {
-    const s = stateRef.current;
-    if (!s?.lastCompletedTrick) {
+    const runId = ++dealResultsRunIdRef.current;
+    const timeouts = dealResultsTimeoutsRef.current;
+
+    if (dealJustCompletedKey === null) {
       lastCompletedTrickRef.current = null;
+      lastAnimatedDealNumberRef.current = null;
       setLastTrickCollectingPhase('idle');
-      return;
+      return () => {};
     }
-    const trick = s.lastCompletedTrick;
-    const isLastTrickOfDeal = s.players.every(p => p.hand.length === 0);
-    if (lastCompletedTrickRef.current !== trick && !dealResultsButtonEverShownRef.current) {
-      setShowDealResultsButton(false);
-    }
-    if (lastCompletedTrickRef.current === trick) return;
-    lastCompletedTrickRef.current = trick;
+
+    if (lastAnimatedDealNumberRef.current === dealJustCompletedKey) return () => {};
+
+    lastAnimatedDealNumberRef.current = dealJustCompletedKey;
+    if (!dealResultsButtonEverShownRef.current) setShowDealResultsButton(false);
+    lastCompletedTrickRef.current = stateRef.current?.lastCompletedTrick ?? null;
+
+    const clearStoredTimeouts = () => {
+      if (timeouts.main != null) clearTimeout(timeouts.main);
+      if (timeouts.slots != null) clearTimeout(timeouts.slots);
+      if (timeouts.winner != null) clearTimeout(timeouts.winner);
+      if (timeouts.collapse != null) clearTimeout(timeouts.collapse);
+      timeouts.main = timeouts.slots = timeouts.winner = timeouts.collapse = undefined;
+    };
+    clearStoredTimeouts();
+
+    dealResultsTimeoutsRunIdRef.current = runId;
     setTrickPauseUntil(Date.now() + TRICK_PAUSE_MS);
-    const t = setTimeout(() => {
+    timeouts.main = window.setTimeout(() => {
+      timeouts.main = undefined;
       setTrickPauseUntil(0);
       const current = stateRef.current;
       if (current?.phase === 'deal-complete') {
-        if (isOnline) {
-          online.sendStartNextDeal();
-        } else {
-          setLocalState(prev => {
-            if (prev?.phase === 'deal-complete') {
-              const next = startNextDeal(prev);
-              return next ?? prev;
-            }
-            return prev ?? null;
-          });
-        }
+        if (isOnline) onlineRef.current?.sendStartNextDeal?.();
+        else
+          setLocalState((prev) =>
+            prev?.phase === 'deal-complete' ? startNextDeal(prev) ?? prev : prev ?? null
+          );
       }
     }, TRICK_PAUSE_MS);
-    let viewDelay: number | undefined;
-    let winnerDelay: number | undefined;
-    let collapseDelay: number | undefined;
-    if (isLastTrickOfDeal) {
-      setLastTrickCollectingPhase('slots');
-      viewDelay = window.setTimeout(() => {
-        setLastTrickCollectingPhase('winner');
-        winnerDelay = window.setTimeout(() => {
-          setLastTrickCollectingPhase('collapsing');
-          collapseDelay = window.setTimeout(() => {
-            setLastTrickCollectingPhase('button');
-            const snap = stateRef.current;
-            if (snap?.dealNumber === 28) {
-              setGameOverSnapshot(snap);
-              setShowGameOverModal(true);
-              if (!isOnline && snap) {
-                const maxScore = Math.max(...snap.players.map(p => p.score));
-                const humanWon = snap.players[0].score === maxScore;
-                let bidAccuracy = 0;
-                if (snap.dealHistory?.length) {
-                  let met = 0;
-                  for (const d of snap.dealHistory) {
-                    const bid = d.bids[0];
-                    const pts = d.points[0];
-                    if (bid == null) continue;
-                    const taken = getTakenFromDealPoints(bid, pts);
-                    if (bid === taken) met++;
-                  }
-                  bidAccuracy = Math.round((met / snap.dealHistory.length) * 100);
+
+    setLastTrickCollectingPhase('slots');
+    timeouts.slots = window.setTimeout(() => {
+      timeouts.slots = undefined;
+      setLastTrickCollectingPhase('winner');
+      timeouts.winner = window.setTimeout(() => {
+        timeouts.winner = undefined;
+        setLastTrickCollectingPhase('collapsing');
+        timeouts.collapse = window.setTimeout(() => {
+          timeouts.collapse = undefined;
+          setLastTrickCollectingPhase('button');
+          const snap = stateRef.current;
+          if (snap?.dealNumber === 28) {
+            setGameOverSnapshot(snap);
+            setShowGameOverModal(true);
+            if (!isOnline && snap) {
+              const maxScore = Math.max(...snap.players.map((p) => p.score));
+              const humanWon = snap.players[0].score === maxScore;
+              let bidAccuracy = 0;
+              if (snap.dealHistory?.length) {
+                let met = 0;
+                for (const d of snap.dealHistory) {
+                  const bid = d.bids[0];
+                  const pts = d.points[0];
+                  if (bid == null) continue;
+                  const taken = getTakenFromDealPoints(bid, pts);
+                  if (bid === taken) met++;
                 }
-                updateLocalRating(humanWon, undefined, bidAccuracy);
+                bidAccuracy = Math.round((met / snap.dealHistory.length) * 100);
               }
-            } else if (snap) {
-              setShowDealResultsButton(true);
-              dealResultsButtonEverShownRef.current = true;
-              setLastDealResultsSnapshot(snap);
+              updateLocalRating(humanWon, undefined, bidAccuracy);
             }
-          }, COLLAPSING_MS);
-        }, LAST_TRICK_WINNER_PAUSE_MS);
-      }, LAST_TRICK_CARDS_PAUSE_MS);
-    } else {
-      setLastTrickCollectingPhase('idle');
-    }
+          } else if (snap) {
+            setShowDealResultsButton(true);
+            dealResultsButtonEverShownRef.current = true;
+            setLastDealResultsSnapshot(snap);
+            const dh = snap.dealHistory;
+            if (dh?.length) {
+              const last = dh[dh.length - 1];
+              const myIdx = isOnline ? myServerIndexForLogRef.current : 0;
+              const bid = last.bids[myIdx] ?? 0;
+              const points = last.points[myIdx] ?? 0;
+              const taken = getTakenFromDealPoints(bid, points);
+              const profileId = getPlayerProfile().profileId;
+              if (profileId) {
+                logDealOutcome(profileId, snap.dealNumber, snap.tricksInDeal, !!snap.trump, bid, taken, points);
+              }
+            }
+          }
+        }, DEAL_RESULTS_COLLAPSING_MS);
+      }, LAST_TRICK_WINNER_PAUSE_MS);
+    }, LAST_TRICK_CARDS_PAUSE_MS);
+
     return () => {
-      clearTimeout(t);
-      if (viewDelay) clearTimeout(viewDelay);
-      if (winnerDelay) clearTimeout(winnerDelay);
-      if (collapseDelay) clearTimeout(collapseDelay);
+      if (dealResultsTimeoutsRunIdRef.current === runId) {
+        clearStoredTimeouts();
+      }
     };
-    // Только по смене завершённой взятки — иначе таймеры сбрасываются и модалка «зависает»
-  }, [state?.lastCompletedTrick, isOnline, online]);
+  }, [dealJustCompletedKey, isOnline]);
 
   useEffect(() => {
     if (!state?.pendingTrickCompletion) return;
@@ -628,13 +753,20 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     return () => clearTimeout(t);
   }, [state?.pendingTrickCompletion, isOnline, online]);
 
+  // Онлайн: ход бота только если в player_slots у текущего места userId пустой, либо слота ещё нет, но имя в game_state — встроенный бот («ИИ …»). Иначе при лаге слотов хост не подменяет ход человека.
+  const currentPlayerSlot = online.canonicalState ? online.playerSlots.find((s) => s.slotIndex === online.canonicalState!.currentPlayerIndex) : undefined;
+  const canonicalAiTurn =
+    !!online.canonicalState &&
+    (online.canonicalState.players[online.canonicalState.currentPlayerIndex]?.name ?? '').startsWith('ИИ ');
+  const seatIsAiSlot =
+    currentPlayerSlot != null && (currentPlayerSlot.userId == null || currentPlayerSlot.userId === '');
   const isOnlineAiTurn =
     isOnline &&
     !!state &&
     !state.pendingTrickCompletion &&
     (state.phase === 'bidding' || state.phase === 'dark-bidding' || state.phase === 'playing') &&
     !!online.canonicalState &&
-    !online.playerSlots[online.canonicalState.currentPlayerIndex]?.userId;
+    (seatIsAiSlot || (currentPlayerSlot == null && canonicalAiTurn));
 
   const isAITurn =
     (isOnline && isOnlineAiTurn) ||
@@ -676,8 +808,12 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     return () => clearInterval(iv);
   }, [isAITurn, state?.phase, state?.currentPlayerIndex]);
 
-  // Онлайн: хост выполняет ход ИИ и пушит состояние
-  const lastOnlineAiTurnKeyRef = useRef<string | null>(null);
+  if (isOnline && online.canonicalState) {
+    latestCanonicalForAiRef.current = online.canonicalState;
+    latestCanonicalRef.current = online.canonicalState;
+    myServerIndexForLogRef.current = online.myServerIndex ?? 0;
+  }
+  // Онлайн, хост: ход текущего игрока — ИИ; один раз по ключу делаем aiBid/aiPlay и sendState. Если слот «я на паузе» — передаём profileId для персонального ИИ.
   useEffect(() => {
     if (!isOnlineAiTurn || online.myServerIndex !== 0 || !online.canonicalState || !online.sendState) return;
     const c = online.canonicalState;
@@ -685,74 +821,270 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     if (lastOnlineAiTurnKeyRef.current === key) return;
     lastOnlineAiTurnKeyRef.current = key;
     const idx = c.currentPlayerIndex;
-    const t = setTimeout(() => {
+    const replacedByMe = online.playerSlots.find((s) => s.slotIndex === idx)?.replacedUserId === user?.id;
+    const personalProfileId = replacedByMe && isPersonalAiReplacementEnabled(user?.id) ? (getPlayerProfile().profileId ?? undefined) : undefined;
+    const sendStateFn = online.sendState;
+    setTimeout(async () => {
+      const current = latestCanonicalForAiRef.current;
+      if (!current) return;
+      const currentKey = `${current.dealNumber}-${current.phase}-${current.currentPlayerIndex}-${current.bids?.join(',')}-${current.currentTrick?.length}`;
+      if (currentKey !== key) return;
       let next: GameState | null = null;
-      if (c.phase === 'bidding' || c.phase === 'dark-bidding') {
-        const bid = aiBid(c, idx);
-        next = placeBid(c, idx, bid);
-      } else if (c.phase === 'playing') {
-        const card = aiPlay(c, idx);
-        if (card) next = playCard(c, idx, card);
+      if (current.phase === 'bidding' || current.phase === 'dark-bidding') {
+        const bid = aiBid(current, idx, personalProfileId);
+        next = placeBid(current, idx, bid);
+      } else if (current.phase === 'playing') {
+        const card = aiPlay(current, idx);
+        if (card) next = playCard(current, idx, card);
       }
-      if (next) online.sendState(next);
-    }, 400);
-    return () => clearTimeout(t);
-  }, [isOnlineAiTurn, online.myServerIndex, online.canonicalState, online.sendState]);
-
-  // Онлайн: отслеживание смены хода (для таймаута «зависшего» игрока)
-  const lastTurnChangeAtRef = useRef(Date.now());
-  const prevTurnKeyRef = useRef<string>('');
-  const latestCanonicalRef = useRef<GameState | null>(null);
-  if (isOnline && online.canonicalState) latestCanonicalRef.current = online.canonicalState;
-  useEffect(() => {
-    if (!isOnline || !online.canonicalState) return;
-    const c = online.canonicalState;
-    const turnKey = `${c.phase}-${c.currentPlayerIndex}`;
-    if (turnKey !== prevTurnKeyRef.current) {
-      prevTurnKeyRef.current = turnKey;
-      lastTurnChangeAtRef.current = Date.now();
-    }
-  }, [isOnline, online.canonicalState]);
-
-  // Онлайн, хост: если живой игрок не ходит больше минуты — один ход за него делает ИИ; после N раз — замена на ИИ навсегда
-  const turnTimeoutCountRef = useRef<Record<number, number>>({});
-  useEffect(() => {
-    if (!isOnline || online.myServerIndex !== 0 || !online.sendState || !online.replaceInactivePlayer) return;
-    const iv = setInterval(() => {
-      const c = latestCanonicalRef.current;
-      if (!c || c.pendingTrickCompletion) return;
-      if (c.phase !== 'bidding' && c.phase !== 'dark-bidding' && c.phase !== 'playing') return;
-      const idx = c.currentPlayerIndex;
-      if (!online.playerSlots[idx]?.userId) return;
-      if (Date.now() - lastTurnChangeAtRef.current < TURN_TIMEOUT_MS) return;
-      const count = (turnTimeoutCountRef.current[idx] ?? 0) + 1;
-      turnTimeoutCountRef.current[idx] = count;
-      lastTurnChangeAtRef.current = Date.now();
-      if (count >= INACTIVE_REPLACE_THRESHOLD) {
-        turnTimeoutCountRef.current[idx] = 0;
-        online.replaceInactivePlayer(idx);
-        return;
+      if (next) {
+        const ok = await sendStateFn(next);
+        if (!ok) lastOnlineAiTurnKeyRef.current = null;
       }
-      let next: GameState | null = null;
-      if (c.phase === 'bidding' || c.phase === 'dark-bidding') {
-        const bid = aiBid(c, idx);
-        next = placeBid(c, idx, bid);
-      } else if (c.phase === 'playing') {
-        const card = aiPlay(c, idx);
-        if (card) next = playCard(c, idx, card);
-      }
-      if (next) online.sendState(next);
-    }, 10_000);
-    return () => clearInterval(iv);
-  }, [isOnline, online.myServerIndex, online.sendState, online.playerSlots, online.replaceInactivePlayer]);
+    }, 150);
+  }, [isOnlineAiTurn, online.myServerIndex, online.canonicalState, online.sendState, online.playerSlots, user?.id]);
 
-  if (!state) return <div style={{ padding: 20 }}>Загрузка...</div>;
+  const showReclaimBar = (isOnline || (online.roomId && online.status === 'playing')) && online.pendingReclaimOffer && online.confirmReclaim;
+  if (!state) {
+    return (
+      <>
+        <div style={{ padding: 20 }}>Загрузка...</div>
+        {showReclaimBar && (
+          <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9998, padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))', background: 'linear-gradient(180deg, rgba(15,23,42,0.97) 0%, rgba(15,23,42,0.99) 100%)', borderTop: '1px solid rgba(34, 211, 238, 0.4)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <button type="button" disabled={reclaiming} onClick={async () => { setReclaiming(true); await online.confirmReclaim?.(); setReclaiming(false); }} style={{ padding: '14px 24px', fontSize: 16, fontWeight: 600, borderRadius: 10, border: '2px solid rgba(34, 211, 238, 0.6)', background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)', color: '#f8fafc', cursor: reclaiming ? 'wait' : 'pointer' }}>
+              {reclaiming ? 'Возврат…' : 'Вернуть игру в свои руки'}
+            </button>
+          </div>
+        )}
+      </>
+    );
+  }
 
   const displayState = stateToShow as GameState;
 
   /* Мобильная вёрстка (viewport-mobile при width ≤600px): рука внизу, слоты взятки в сетке 2×2, козырь на колоде; стили в index.css @media (max-width: 1024px) .game-table-root.viewport-mobile */
   return (
-    <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}`} style={tableLayoutStyle}>
+    <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}`} style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}>
+      {isOnline && online.userOnPause && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pause-overlay-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10002,
+            padding: 24,
+          }}
+        >
+          <div
+            style={{
+              background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+              borderRadius: 16,
+              border: '2px solid rgba(34, 211, 238, 0.5)',
+              padding: 32,
+              maxWidth: 360,
+              width: '100%',
+              textAlign: 'center',
+            }}
+          >
+            <h2 id="pause-overlay-title" style={{ margin: '0 0 12px', fontSize: 22, fontWeight: 700, color: '#e2e8f0' }}>
+              Вы на паузе
+            </h2>
+            <p style={{ margin: '0 0 24px', fontSize: 15, color: '#94a3b8' }}>
+              За вас играет ИИ. Верните управление, когда будете готовы.
+            </p>
+            <button
+              type="button"
+              disabled={returningFromPause}
+              onClick={async () => {
+                setReturningFromPause(true);
+                await online.returnFromPause?.();
+                setReturningFromPause(false);
+              }}
+              style={{
+                padding: '14px 24px',
+                fontSize: 16,
+                fontWeight: 600,
+                borderRadius: 8,
+                border: '1px solid rgba(34, 211, 238, 0.5)',
+                background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
+                color: '#f8fafc',
+                cursor: returningFromPause ? 'wait' : 'pointer',
+                opacity: returningFromPause ? 0.8 : 1,
+              }}
+            >
+              {returningFromPause ? 'Возврат…' : 'Вернуть управление'}
+            </button>
+          </div>
+        </div>
+      )}
+      {online.roomId && showAvatarMenu && !online.userOnPause && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Меню игрока"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 10003,
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            padding: '0 16px calc(120px + env(safe-area-inset-bottom, 0px))',
+          }}
+          onClick={() => setShowAvatarMenu(false)}
+        >
+          <div
+            style={{
+              background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+              borderRadius: 16,
+              border: '1px solid rgba(34, 211, 238, 0.35)',
+              boxShadow: '0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
+              minWidth: 280,
+              maxWidth: 320,
+              maxHeight: 'min(85vh, 420px)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <PlayerAvatar name={playerDisplayName || state?.players[0]?.name || 'Вы'} avatarDataUrl={playerAvatarDataUrl} sizePx={52} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 17, fontWeight: 600, color: '#f8fafc', marginBottom: 2 }}>
+                    {playerDisplayName || state?.players[0]?.name || 'Вы'}
+                  </div>
+                  {state && (
+                    <div style={{ fontSize: 13, color: '#94a3b8' }}>
+                      Очки: <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{state.players[0].score}</span>
+                      {state.bids[0] != null && (
+                        <> · Текущий заказ: <span style={{ color: '#e2e8f0' }}>{state.bids[0]}</span></>
+                      )}
+                      {state.phase === 'playing' && (
+                        <> · Взяток: <span style={{ color: '#e2e8f0' }}>{state.players[0].tricksTaken}</span></>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '12px 12px 16px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', WebkitOverflowScrolling: 'touch' as const, flex: '1 1 auto', minHeight: 0 }}>
+              {onOpenProfileModal && (
+                <button
+                  type="button"
+                  onClick={() => { onOpenProfileModal(); setShowAvatarMenu(false); }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: 10,
+                    border: '1px solid rgba(34,211,238,0.4)',
+                    background: 'rgba(34,211,238,0.12)',
+                    color: '#67e8f9',
+                    fontSize: 15,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'background 0.2s, border-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(34,211,238,0.2)';
+                    e.currentTarget.style.borderColor = 'rgba(34,211,238,0.6)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(34,211,238,0.12)';
+                    e.currentTarget.style.borderColor = 'rgba(34,211,238,0.4)';
+                  }}
+                >
+                  <span aria-hidden>📷</span> Сменить фото
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => { setSelectedPlayerForInfo(0); setShowAvatarMenu(false); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: 10,
+                  border: '1px solid rgba(148,163,184,0.3)',
+                  background: 'rgba(51,65,85,0.6)',
+                  color: '#e2e8f0',
+                  fontSize: 15,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  transition: 'background 0.2s, border-color 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(71,85,105,0.8)';
+                  e.currentTarget.style.borderColor = 'rgba(148,163,184,0.5)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(51,65,85,0.6)';
+                  e.currentTarget.style.borderColor = 'rgba(148,163,184,0.3)';
+                }}
+              >
+                <span aria-hidden>ℹ️</span> Подробнее об игроке
+              </button>
+              {online.status === 'playing' && online.takePause && (
+                <button
+                  type="button"
+                  disabled={takingPause}
+                  onClick={async () => {
+                    setTakingPause(true);
+                    await online.takePause?.();
+                    setTakingPause(false);
+                    setShowAvatarMenu(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: 10,
+                    border: '1px solid rgba(251,146,60,0.4)',
+                    background: takingPause ? 'rgba(251,146,60,0.2)' : 'rgba(251,146,60,0.15)',
+                    color: '#fb923c',
+                    fontSize: 15,
+                    fontWeight: 500,
+                    cursor: takingPause ? 'wait' : 'pointer',
+                    opacity: takingPause ? 0.8 : 1,
+                    transition: 'background 0.2s, border-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!takingPause) {
+                      e.currentTarget.style.background = 'rgba(251,146,60,0.25)';
+                      e.currentTarget.style.borderColor = 'rgba(251,146,60,0.6)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = takingPause ? 'rgba(251,146,60,0.2)' : 'rgba(251,146,60,0.15)';
+                    e.currentTarget.style.borderColor = 'rgba(251,146,60,0.4)';
+                  }}
+                >
+                  <span aria-hidden>⏸</span> {takingPause ? 'Пауза…' : 'Взять паузу'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
       {isOnline && online.playerLeftToast && (
         <div
           role="status"
@@ -776,15 +1108,123 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           Игрок {online.playerLeftToast} покинул игру. Партия продолжается с ИИ вместо него.
         </div>
       )}
+      {(isOnline || (online.roomId && online.status === 'playing')) && online.pendingReclaimOffer && online.confirmReclaim && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 9998,
+            padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
+            background: 'linear-gradient(180deg, rgba(15,23,42,0.97) 0%, rgba(15,23,42,0.99) 100%)',
+            borderTop: '1px solid rgba(34, 211, 238, 0.4)',
+            boxShadow: '0 -4px 20px rgba(0,0,0,0.3)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <button
+            type="button"
+            disabled={reclaiming}
+            onClick={async () => {
+              setReclaiming(true);
+              await online.confirmReclaim?.();
+              setReclaiming(false);
+            }}
+            style={{
+              padding: '14px 24px',
+              fontSize: 16,
+              fontWeight: 600,
+              borderRadius: 10,
+              border: '2px solid rgba(34, 211, 238, 0.6)',
+              background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
+              color: '#f8fafc',
+              cursor: reclaiming ? 'wait' : 'pointer',
+              boxShadow: '0 0 16px rgba(34, 211, 238, 0.25)',
+              opacity: reclaiming ? 0.9 : 1,
+            }}
+            aria-label="Вернуть игру в свои руки"
+          >
+            {reclaiming ? 'Возврат…' : 'Вернуть игру в свои руки'}
+          </button>
+        </div>
+      )}
       {isMobileOrTablet && showDealerTooltip && (
-        <div className="dealer-tooltip-toast" role="status" aria-live="polite">
+        <div className="dealer-tooltip-toast toast-with-close" role="status" aria-live="polite">
           Сдающий
+          <button
+            type="button"
+            className="toast-close-btn"
+            onClick={() => setShowDealerTooltip(false)}
+            aria-label="Закрыть подсказку"
+          >
+            ×
+          </button>
         </div>
       )}
       {isMobile && showFirstMoveTooltip && state && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
-        <div className="first-move-tooltip-toast dealer-tooltip-toast" role="status" aria-live="polite">
+        <div className="first-move-tooltip-toast dealer-tooltip-toast toast-with-close first-move-tooltip-toast-dismissible" role="status" aria-live="polite">
+          <button
+            type="button"
+            className="toast-close-btn"
+            onClick={() => setShowFirstMoveTooltip(false)}
+            aria-label="Закрыть подсказку"
+          >
+            ×
+          </button>
           <div className="first-move-tooltip-name">{displayState.players[state.trickLeaderIndex].name}</div>
           <div style={{ fontSize: 12, opacity: 0.9 }}>У данного игрока будет первый ход в этой раздаче</div>
+        </div>
+      )}
+      {showDealContractHelp && state && (
+        <div className="first-move-tooltip-toast dealer-tooltip-toast deal-contract-tooltip-toast toast-with-close" role="status" aria-live="polite">
+          <button
+            type="button"
+            className="toast-close-btn"
+            onClick={() => setShowDealContractHelp(false)}
+            aria-label="Закрыть подсказку"
+          >
+            ×
+          </button>
+          {dealContractStats.allBidsPlaced ? (
+            <>
+              <div style={{ fontWeight: 700, marginBottom: 8, color: '#e2e8f0' }}>Текущая раздача</div>
+              {isMobile ? (
+                <div
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 700,
+                    marginBottom: 10,
+                    color: '#f8fafc',
+                    fontVariantNumeric: 'tabular-nums',
+                    lineHeight: 1.35,
+                  }}
+                >
+                  Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}
+                </div>
+              ) : null}
+              {displayState.players.map((p, i) => (
+                <div key={i} style={{ fontSize: 13, opacity: 0.95, marginBottom: 4 }}>
+                  {p.name}: заказ {displayState.bids[i] ?? '—'}, взяток {p.tricksTaken}
+                </div>
+              ))}
+              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.88, lineHeight: 1.45 }}>
+                Сумма заказов — {dealContractStats.totalOrders}, взято взяток — {dealContractStats.totalTricks}. Сумма заказов может не совпадать с числом взяток — это нормально.
+                {getDealType(state.dealNumber) !== 'no-trump' && getDealType(state.dealNumber) !== 'dark' ? (
+                  <> Карт у каждого: {dealContractStats.tricksInDeal} ({dealContractStats.cardsWord}).</>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontWeight: 700, marginBottom: 6, color: '#e2e8f0' }}>Размер раздачи</div>
+              <div style={{ fontSize: 13, opacity: 0.95, lineHeight: 1.45 }}>
+                В этой раздаче у каждого по {dealContractStats.tricksInDeal} {dealContractStats.cardsWord} на руке (всего {dealContractStats.tricksInDeal * 4} карт). Когда все игроки сделают заказы, бейдж покажет сумму заказов и взятых взяток — нажмите снова для списка по игрокам.
+              </div>
+            </>
+          )}
         </div>
       )}
       <div style={tableStyle}>
@@ -797,7 +1237,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   <button
                     type="button"
                     className="header-exit-btn"
-                    onClick={handleExit}
+                    onClick={handleHomeClick}
                     style={exitBtnStyle}
                     title="В меню"
                     aria-label="В меню"
@@ -811,7 +1251,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                     <button
                       type="button"
                       className="header-exit-btn"
-                      onClick={isWaitingInRoom ? handleLeaveFromWaiting : handleLeaveRoomAndExit}
+                      onClick={handleLeaveRoomClick}
                       style={exitBtnStyle}
                       title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
                       aria-label="Выйти из комнаты"
@@ -825,8 +1265,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       className="header-new-game-btn"
                       onClick={() => setShowNewGameConfirm(true)}
                       style={newGameBtnStyle}
-                      title="Новая партия"
-                      aria-label="Новая партия"
+                      title="Обновить — новая партия"
+                      aria-label="Обновить — новая партия"
                     >
                       ↻
                     </button>
@@ -849,7 +1289,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 <button
                   type="button"
                   className="header-exit-btn"
-                  onClick={handleExit}
+                  onClick={handleHomeClick}
                   style={exitBtnStyle}
                   title="В меню"
                   aria-label="В меню"
@@ -863,7 +1303,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   <button
                     type="button"
                     className="header-exit-btn"
-                    onClick={isWaitingInRoom ? handleLeaveFromWaiting : handleLeaveRoomAndExit}
+                    onClick={handleLeaveRoomClick}
                     style={exitBtnStyle}
                     title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
                     aria-label="Выйти из комнаты"
@@ -877,8 +1317,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       className="header-new-game-btn"
                       onClick={() => setShowNewGameConfirm(true)}
                       style={newGameBtnStyle}
-                      title="Новая партия"
-                      aria-label="Новая партия"
+                      title="Обновить — новая партия"
+                      aria-label="Обновить — новая партия"
                     >
                     ↻
                   </button>
@@ -979,34 +1419,155 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               </button>
             )}
           </div>
+          {isOnline && online.myServerIndex === 0 && online.returnSlotToPlayer && online.playerSlots.some((s) => s.replacedUserId) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 6 }}>
+              {online.playerSlots.map((s) =>
+                s.replacedUserId && s.replacedDisplayName ? (
+                  <button
+                    key={s.slotIndex}
+                    type="button"
+                    onClick={() => online.returnSlotToPlayer?.(s.slotIndex)}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: 12,
+                      borderRadius: 6,
+                      border: '1px solid rgba(34, 211, 238, 0.5)',
+                      background: 'rgba(14, 116, 144, 0.4)',
+                      color: '#e2e8f0',
+                      cursor: 'pointer',
+                    }}
+                    title={`Вернуть управление игроку ${s.replacedDisplayName}`}
+                  >
+                    Вернуть {s.replacedDisplayName}
+                  </button>
+                ) : null
+              )}
+            </div>
+          )}
           {(getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark') ? (
-            <div className="game-info-mode-panel" style={{
-              ...gameInfoModePanelStyle,
-              ...(!isMobile ? {
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                padding: '6px 12px',
-              } : {}),
-            }}>
-              <span style={{
-                ...gameInfoLabelStyle,
-                ...(!isMobile ? { marginBottom: 0, fontSize: 11, lineHeight: 1 } : {}),
-              }}>Режим</span>
-              <span style={{
-                ...gameInfoValueStyle,
-                ...(!isMobile ? { fontSize: 14, lineHeight: 1 } : {}),
-              }}>
-                {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
-              </span>
+            <div
+              className="game-info-mode-panel"
+              style={{
+                ...gameInfoModePanelStyle,
+                ...(!isMobile
+                  ? {
+                      flexDirection: dealContractStats.allBidsPlaced ? 'column' : 'row',
+                      alignItems: dealContractStats.allBidsPlaced ? 'stretch' : 'center',
+                      gap: dealContractStats.allBidsPlaced ? 8 : 6,
+                      padding: dealContractStats.allBidsPlaced ? '8px 12px' : '6px 12px',
+                    }
+                  : {
+                      flexDirection: 'column',
+                      alignItems: 'stretch',
+                      gap: 8,
+                    }),
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    ...gameInfoLabelStyle,
+                    ...(!isMobile ? { marginBottom: 0, fontSize: 11, lineHeight: 1 } : {}),
+                  }}
+                >
+                  Режим
+                </span>
+                <span
+                  style={{
+                    ...gameInfoValueStyle,
+                    ...(!isMobile ? { fontSize: 14, lineHeight: 1 } : {}),
+                  }}
+                >
+                  {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
+                </span>
+              </div>
+              {dealContractStats.allBidsPlaced ? (
+                <button
+                  type="button"
+                  className="game-info-deal-contract-panel game-info-deal-contract-panel--in-mode"
+                  style={{ ...gameInfoDealContractPanelStyle, padding: '5px 10px', minHeight: 30 }}
+                  onClick={() => setShowDealContractHelp(true)}
+                  title={
+                    isMobile
+                      ? `Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}. Нажмите — подробности по игрокам`
+                      : 'Подробности по игрокам'
+                  }
+                  aria-label={`Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks}. Показать по игрокам`}
+                >
+                  {isMobile ? (
+                    <span
+                      className="deal-contract-line deal-contract-line-mobile-split"
+                      style={dealContractLineMobileSplitOuterStyle}
+                    >
+                      <span className="deal-contract-mobile-order" style={dealContractMobileOrderStyle}>
+                        З: {dealContractStats.totalOrders}
+                      </span>
+                      <span className="deal-contract-mobile-sep" style={dealContractMobileSepStyle} aria-hidden="true">
+                        ;{' '}
+                      </span>
+                      <span className="deal-contract-mobile-tricks" style={dealContractMobileTricksStyle}>
+                        В: {dealContractStats.totalTricks}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="deal-contract-line" style={dealContractLineTextStyle}>
+                      Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}
+                    </span>
+                  )}
+                </button>
+              ) : null}
             </div>
           ) : (
-            <div className="game-info-cards-panel" style={gameInfoCardsPanelStyle}>
-              <span style={{ ...gameInfoLabelStyle, marginBottom: 0, fontSize: 10, lineHeight: 1 }}>Карт</span>
-              <span style={{ ...gameInfoValueStyle, fontSize: 13, lineHeight: 1 }}>
-                {state.tricksInDeal} {state.tricksInDeal === 1 ? 'карта' : state.tricksInDeal < 5 ? 'карты' : 'карт'}
-              </span>
-            </div>
+            <button
+              type="button"
+              className="game-info-deal-contract-panel game-info-cards-panel"
+              style={gameInfoDealContractPanelStyle}
+              onClick={() => setShowDealContractHelp(true)}
+              title={
+                dealContractStats.allBidsPlaced
+                  ? isMobile
+                    ? `Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}. Нажмите — подробности по игрокам`
+                    : 'Подробности по игрокам'
+                  : 'Сколько карт в раздаче'
+              }
+              aria-label={
+                dealContractStats.allBidsPlaced
+                  ? `Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks}. Показать по игрокам`
+                  : `В раздаче ${dealContractStats.tricksInDeal} ${dealContractStats.cardsWord} у каждого`
+              }
+            >
+              {dealContractStats.allBidsPlaced ? (
+                isMobile ? (
+                  <span
+                    className="deal-contract-line deal-contract-line-mobile-split"
+                    style={dealContractLineMobileSplitOuterStyle}
+                  >
+                    <span className="deal-contract-mobile-order" style={dealContractMobileOrderStyle}>
+                      З: {dealContractStats.totalOrders}
+                    </span>
+                    <span className="deal-contract-mobile-sep" style={dealContractMobileSepStyle} aria-hidden="true">
+                      ;{' '}
+                    </span>
+                    <span className="deal-contract-mobile-tricks" style={dealContractMobileTricksStyle}>
+                      В: {dealContractStats.totalTricks}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="deal-contract-line" style={dealContractLineTextStyle}>
+                    Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}
+                  </span>
+                )
+              ) : (
+                <>
+                  <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
+                    Карт
+                  </span>
+                  <span className="deal-contract-value" style={dealContractCardsValueStyle}>
+                    {dealContractStats.tricksInDeal} {dealContractStats.cardsWord}
+                  </span>
+                </>
+              )}
+            </button>
           )}
         </div>
       </header>
@@ -1038,8 +1599,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             </div>
             <div className="game-mobile-slot-west" style={{ display: 'flex', flexShrink: 0 }}>
               <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
+                avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.avatarDataUrl ?? undefined}
+                replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.replacedUserId}
                 collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
                 winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2}
+                trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 2}
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
@@ -1050,8 +1614,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             </div>
             <div className="game-mobile-slot-north" style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
               <OpponentSlot state={displayState} index={1} position="top" inline compactMode={isMobileOrTablet}
+                avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.avatarDataUrl ?? undefined}
+                replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.replacedUserId}
                 collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
                 winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1}
+                trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 1}
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
@@ -1319,12 +1886,15 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         </div>
         </div>
         {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && !isMobile && (
-          <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
+          <DealResultsScreen state={state} myServerIndex={online?.myServerIndex ?? 0} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
         )}
             <div className="game-center-east game-mobile-east" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', ...(isMobile ? {} : { minWidth: 60 }) }}>
               <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
+                avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.avatarDataUrl ?? undefined}
+                replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.replacedUserId}
                 collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
                 winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 3}
+                trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 3}
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
@@ -1392,6 +1962,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           position: 'relative',
           ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
           ...(dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === humanIdx ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
+          ...(!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === humanIdx ? trickWinnerGlowStyle : {}),
           ...(getCurrentTrickLeaderIndex(state) === humanIdx ? currentTrickLeaderGlowStyle : {}),
           ...((state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? (() => {
             const base = state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : null;
@@ -1402,10 +1973,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           <div style={playerInfoHeaderStyle}>
             <button
               type="button"
-              onClick={() => setSelectedPlayerForInfo(0)}
+              onClick={() => (online.roomId ? setShowAvatarMenu(true) : setSelectedPlayerForInfo(0))}
               style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', lineHeight: 0 }}
-              title="Информация об игроке"
-              aria-label={`Информация об игроке ${displayState.players[humanIdx].name}`}
+              title={online.roomId ? 'Меню (пауза, информация)' : 'Информация об игроке'}
+              aria-label={online.roomId ? `Меню ${displayState.players[humanIdx].name}` : `Информация об игроке ${displayState.players[humanIdx].name}`}
             >
               <PlayerAvatar name={displayState.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
             </button>
@@ -1521,8 +2092,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         <div style={gameInfoNorthSlotWrapper} aria-hidden />
         <div className="game-center-north" style={gameInfoNorthSlotWrapperAbsolute}>
           <OpponentSlot state={displayState} index={1} position="top" inline compactMode={isMobileOrTablet}
+            avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.avatarDataUrl ?? undefined}
+            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.replacedUserId}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
             winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1}
+            trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 1}
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
             firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
             firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
@@ -1541,8 +2115,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}>
         <div className="game-center-west" style={opponentSideWrapWestStyle}>
           <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
+            avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.avatarDataUrl ?? undefined}
+            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.replacedUserId}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
             winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2}
+            trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 2}
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
             firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
             firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
@@ -1644,8 +2221,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         </div>
         <div className="game-center-east" style={opponentSideWrapEastStyle}>
           <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
+            avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.avatarDataUrl ?? undefined}
+            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.replacedUserId}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
             winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 3}
+            trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 3}
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
             firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
             firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
@@ -1654,7 +2234,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           />
         </div>
         {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && !isMobile && (
-          <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
+          <DealResultsScreen state={state} myServerIndex={online?.myServerIndex ?? 0} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
         )}
       </div>
       <div style={centerAreaSpacerBottomStyle} aria-hidden />
@@ -1708,6 +2288,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           position: 'relative',
           ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
           ...(dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === humanIdx ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
+          ...(!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === humanIdx ? trickWinnerGlowStyle : {}),
           ...(getCurrentTrickLeaderIndex(state) === humanIdx ? currentTrickLeaderGlowStyle : {}),
           ...((state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? (() => {
             const base = state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : null;
@@ -1723,10 +2304,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           <div style={playerInfoHeaderStyle}>
             <button
               type="button"
-              onClick={() => setSelectedPlayerForInfo(0)}
+              onClick={() => (online.roomId ? setShowAvatarMenu(true) : setSelectedPlayerForInfo(0))}
               style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', lineHeight: 0 }}
-              title="Информация об игроке"
-              aria-label={`Информация об игроке ${displayState.players[humanIdx].name}`}
+              title={online.roomId ? 'Меню (пауза, информация)' : 'Информация об игроке'}
+              aria-label={online.roomId ? `Меню ${displayState.players[humanIdx].name}` : `Информация об игроке ${displayState.players[humanIdx].name}`}
             >
               <PlayerAvatar name={displayState.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
             </button>
@@ -1801,7 +2382,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       {/* На мобильной оверлей итогов раздачи рендерим в портал, чтобы position:fixed считался от viewport (нет предка с transform) */}
       {isMobile && dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && createPortal(
         <div className="game-table-root viewport-mobile" style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 15 }}>
-          <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={true} />
+          <DealResultsScreen state={state} myServerIndex={online?.myServerIndex ?? 0} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={true} />
         </div>,
         document.body,
       )}
@@ -1854,7 +2435,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               flexDirection: isMobile ? 'column' : undefined,
               minHeight: 0,
             }}>
-              <DealResultsScreen state={lastDealResultsSnapshot} variant="modal" isMobile={isMobile} onClose={() => setDealResultsExpanded(false)} />
+              <DealResultsScreen state={lastDealResultsSnapshot} myServerIndex={online?.myServerIndex ?? 0} variant="modal" isMobile={isMobile} onClose={() => setDealResultsExpanded(false)} />
             </div>
           </div>
         </div>,
@@ -1912,9 +2493,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 setGameOverSnapshot(null);
                 onNewGame?.();
               }}
-              onExit={() => {
+              onExit={async () => {
                 setShowGameOverModal(false);
                 setGameOverSnapshot(null);
+                if (isOnline && online.leaveRoom) await online.leaveRoom();
                 handleExit();
               }}
               onOpenTable={() => {
@@ -1975,6 +2557,98 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         document.body
       )}
 
+      {showExitConfirm && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+          onClick={() => setShowExitConfirm(false)}
+          onKeyDown={e => { if (e.key === 'Escape') setShowExitConfirm(false); }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="exit-confirm-title"
+        >
+          <div
+            style={newGameConfirmModalStyle}
+            onClick={e => e.stopPropagation()}
+          >
+            <p id="exit-confirm-title" style={newGameConfirmTextStyle}>
+              {isWaitingInRoom
+                ? 'Выйти из комнаты? Сессия сбросится, вернуться в эту партию будет нельзя.'
+                : 'Выйти из игры? Вы покинете комнату. Вернуться в эту партию будет нельзя.'}
+            </p>
+            <div style={newGameConfirmButtonsStyle}>
+              <button
+                type="button"
+                onClick={() => setShowExitConfirm(false)}
+                style={newGameConfirmCancelBtnStyle}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExitConfirm()}
+                style={newGameConfirmOkBtnStyle}
+              >
+                Выйти
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showHomeConfirm && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+          onClick={() => setShowHomeConfirm(false)}
+          onKeyDown={e => { if (e.key === 'Escape') setShowHomeConfirm(false); }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="home-confirm-title"
+        >
+          <div
+            style={{ ...newGameConfirmModalStyle, maxWidth: 400 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <p id="home-confirm-title" style={newGameConfirmTextStyle}>
+              Выйти в меню? Вы покинете партию. Вернуться в эту партию будет нельзя.
+            </p>
+            <div style={newGameConfirmButtonsStyle}>
+              <button
+                type="button"
+                onClick={() => setShowHomeConfirm(false)}
+                style={newGameConfirmCancelBtnStyle}
+              >
+                Остаться
+              </button>
+              <button
+                type="button"
+                onClick={() => handleHomeConfirm()}
+                style={newGameConfirmOkBtnStyle}
+              >
+                В меню
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {selectedPlayerForInfo !== null && state && createPortal(
         <PlayerInfoPanel
           state={displayState}
@@ -1999,10 +2673,11 @@ const PLAYER_POSITIONS = [
   { idx: 3, side: 'right' as const, name: 'Восток' },
 ];
 
-function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay', isMobile = false, onClose }: { state: GameState; isCollapsing?: boolean; variant?: 'overlay' | 'modal'; isMobile?: boolean; onClose?: () => void }) {
+function DealResultsScreen({ state, myServerIndex = 0, isCollapsing = false, variant = 'overlay', isMobile = false, onClose }: { state: GameState; myServerIndex?: number; isCollapsing?: boolean; variant?: 'overlay' | 'modal'; isMobile?: boolean; onClose?: () => void }) {
   const [scrollHintVisible, setScrollHintVisible] = useState(variant === 'modal' && isMobile);
   const bids = state.bids as number[];
   const players = state.players;
+  const canon = (displayIdx: number) => getCanonicalIndexForDisplay(displayIdx, myServerIndex);
   const baseStyle = variant === 'modal'
     ? { ...dealResultsModalStyle, ...(isMobile ? dealResultsModalStyleMobile : {}) }
     : dealResultsOverlayStyle;
@@ -2196,14 +2871,15 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay', i
                                   <td style={{ ...dealResultsTableTdStyle, ...dealResultsTableTdDealStyle, width: dealColumnWidth, minWidth: dealColumnWidth }} title={getDealCellTitle(dealNum)}>{getDealColumnLabel(rowIndex)}</td>
                                   {row
                                     ? players.map((_, i) => {
+                                        const ci = canon(i);
                                         const isLeader = range > 0 && players[i].score === maxScore;
                                         return (
                                           <Fragment key={i}>
                                             <td className={isLeader ? 'deal-results-column-leader' : undefined} style={dealResultsTableTdBidStyle}>
-                                              {(row as { bids?: number[] }).bids ? (row as { bids: number[] }).bids[i] : '—'}
+                                              {(row as { bids?: number[] }).bids ? (row as { bids: number[] }).bids[ci] : '—'}
                                             </td>
-                                            <td className={isLeader ? 'deal-results-column-leader deal-results-column-leader-r' : undefined} style={{ ...dealResultsTableTdResultStyle, color: row.points[i] >= 0 ? '#4ade80' : '#f87171' }}>
-                                              {row.points[i] >= 0 ? '+' : ''}{row.points[i]}
+                                            <td className={isLeader ? 'deal-results-column-leader deal-results-column-leader-r' : undefined} style={{ ...dealResultsTableTdResultStyle, color: row.points[ci] >= 0 ? '#4ade80' : '#f87171' }}>
+                                              {row.points[ci] >= 0 ? '+' : ''}{row.points[ci]}
                                             </td>
                                           </Fragment>
                                         );
@@ -2288,15 +2964,16 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay', i
                                 <td className="deal-results-deal-column-pc" style={{ ...dealResultsTableTdStyle, ...dealResultsTableTdDealStyle, width: dealColumnWidth, minWidth: dealColumnWidth }} title={getDealCellTitle(dealNum)}><span className="deal-results-deal-cell-label">{getDealColumnLabel(rowIndex)}</span></td>
                                 {row
                                   ? players.map((_, i) => {
+                                      const ci = canon(i);
                                       const isLeader = range > 0 && players[i].score === maxScore;
                                       const isHuman = i === humanIdx;
                                       return (
                                         <Fragment key={i}>
                                           <td className={[isLeader && 'deal-results-column-leader', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={dealResultsTableTdBidStyle}>
-                                            {(row as { bids?: number[] }).bids ? (row as { bids: number[] }).bids[i] : '—'}
+                                            {(row as { bids?: number[] }).bids ? (row as { bids: number[] }).bids[ci] : '—'}
                                           </td>
-                                          <td className={[isLeader && 'deal-results-column-leader', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={{ ...dealResultsTableTdResultStyle, color: row.points[i] >= 0 ? '#4ade80' : '#f87171' }}>
-                                            {row.points[i] >= 0 ? '+' : ''}{row.points[i]}
+                                          <td className={[isLeader && 'deal-results-column-leader', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={{ ...dealResultsTableTdResultStyle, color: row.points[ci] >= 0 ? '#4ade80' : '#f87171' }}>
+                                            {row.points[ci] >= 0 ? '+' : ''}{row.points[ci]}
                                           </td>
                                         </Fragment>
                                       );
@@ -2574,11 +3251,13 @@ function OpponentSlot({
   compactMode,
   collectingCards,
   winnerPanelBlink,
+  trickWinnerHighlight,
   currentTrickLeaderHighlight,
   firstBidderBadge,
   firstMoverBiddingHighlight,
   isMobile,
   avatarDataUrl,
+  replacedByAi,
   onAvatarClick,
   onDealerBadgeClick,
 }: {
@@ -2589,6 +3268,8 @@ function OpponentSlot({
   compactMode?: boolean;
   collectingCards?: boolean;
   winnerPanelBlink?: boolean;
+  /** Подсветка: этому игроку достаётся текущая взятка (карты ещё на столе). */
+  trickWinnerHighlight?: boolean;
   currentTrickLeaderHighlight?: boolean;
   firstBidderBadge?: boolean;
   firstMoverBiddingHighlight?: boolean;
@@ -2596,6 +3277,8 @@ function OpponentSlot({
   isMobile?: boolean;
   /** Фото игрока (Data URL), только для человеческого игрока */
   avatarDataUrl?: string | null;
+  /** Слот заменён на ИИ (игрок вышел/пауза) — показываем имя ушедшего и метку «ИИ» */
+  replacedByAi?: boolean;
   /** По клику на аватар открыть панель с информацией об игроке */
   onAvatarClick?: (playerIndex: number) => void;
   /** По тапу на компактный бейдж «Сдающий» показать подсказку (мобильная) */
@@ -2639,6 +3322,7 @@ function OpponentSlot({
         ...frameStyle,
         overflow: 'visible',
         ...(winnerPanelBlink ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
+        ...(trickWinnerHighlight ? trickWinnerGlowStyle : {}),
         ...(currentTrickLeaderHighlight ? currentTrickLeaderGlowStyle : {}),
         ...(firstMoverBiddingHighlight ? { boxShadow: [(frameStyle?.boxShadow ?? opponentSlotStyle.boxShadow), firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', ') } : {}),
       }}
@@ -2676,8 +3360,24 @@ function OpponentSlot({
         {onAvatarClick ? (
           <button
             type="button"
-            onClick={() => onAvatarClick(index)}
-            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', lineHeight: 0 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAvatarClick(index);
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              lineHeight: 0,
+              position: 'relative',
+              zIndex: 2,
+              minWidth: 44,
+              minHeight: 44,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
             title="Информация об игроке"
             aria-label={`Информация об игроке ${p.name}`}
           >
@@ -2698,6 +3398,11 @@ function OpponentSlot({
           }}
         >
           {p.name}
+          {replacedByAi && (
+            <span style={{ marginLeft: 4, fontSize: '0.85em', color: '#94a3b8', fontWeight: 500 }} title="Игрок вышел, за него играет ИИ">
+              (ИИ)
+            </span>
+          )}
         </span>
         {isActive && !isMobile && <span style={opponentTurnBadgeStyle}>Ходит</span>}
       </div>
@@ -3070,6 +3775,81 @@ const gameInfoCardsPanelStyle: React.CSSProperties = {
   background: 'linear-gradient(135deg, rgba(30, 64, 175, 0.85) 0%, rgba(59, 130, 246, 0.8) 100%)',
   boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
   flexShrink: 0,
+};
+
+/** Интерактивный бейдж: карт в раздаче / заказ и взятки (после всех заказов). */
+const gameInfoDealContractPanelStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexWrap: 'wrap',
+  gap: 8,
+  padding: '7px 14px',
+  minHeight: 34,
+  borderRadius: 9,
+  border: '1px solid rgba(45, 212, 191, 0.52)',
+  background: 'linear-gradient(145deg, rgba(13, 148, 136, 0.38) 0%, rgba(30, 58, 138, 0.9) 52%, rgba(30, 64, 175, 0.85) 100%)',
+  boxShadow: [
+    '0 0 20px rgba(34, 211, 238, 0.2)',
+    '0 2px 14px rgba(0,0,0,0.26)',
+    'inset 0 1px 0 rgba(255,255,255,0.09)',
+  ].join(', '),
+  flexShrink: 0,
+  cursor: 'pointer',
+  font: 'inherit',
+  color: '#f1f5f9',
+  textAlign: 'center',
+  transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
+};
+
+const dealContractCardsLabelStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  color: '#a5f3fc',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+};
+
+const dealContractCardsValueStyle: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 700,
+  color: '#f8fafc',
+  fontVariantNumeric: 'tabular-nums',
+};
+
+const dealContractLineTextStyle: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 700,
+  color: '#ecfeff',
+  fontVariantNumeric: 'tabular-nums',
+  letterSpacing: '0.02em',
+  lineHeight: 1.25,
+};
+
+/** Мобильная строка «З: N; В: M» — контейнер (размер задаётся в index.css .deal-contract-line) */
+const dealContractLineMobileSplitOuterStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  flexDirection: 'row',
+  alignItems: 'baseline',
+  gap: 3,
+  fontWeight: 700,
+  fontVariantNumeric: 'tabular-nums',
+  lineHeight: 1.25,
+};
+
+const dealContractMobileOrderStyle: React.CSSProperties = {
+  color: '#fde68a',
+  textShadow: '0 0 10px rgba(251, 191, 36, 0.35)',
+};
+
+const dealContractMobileSepStyle: React.CSSProperties = {
+  color: 'rgba(241, 245, 249, 0.42)',
+};
+
+const dealContractMobileTricksStyle: React.CSSProperties = {
+  color: '#5eead4',
+  textShadow: '0 0 10px rgba(45, 212, 191, 0.35)',
 };
 
 const gameInfoBadgeStyle: React.CSSProperties = {

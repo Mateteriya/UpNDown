@@ -3,12 +3,13 @@
  * @see TZ.md раздел 7.2
  */
 
-import { useState, useCallback, useEffect, lazy, Suspense } from 'react'
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
 import { hasSavedGame, clearGameStateFromStorage, getPlayerProfile, savePlayerProfile, type PlayerProfile } from './game/persistence'
 import { loadProfileFromSupabase, saveProfileToSupabase } from './lib/profileSync'
 import { useAuth } from './contexts/AuthContext'
 import { useTheme } from './contexts/ThemeContext'
-import { useOnlineGame, loadOnlineSession } from './contexts/OnlineGameContext'
+import { useOnlineGame } from './contexts/useOnlineGame'
+import { loadOnlineSession } from './lib/onlineSession'
 import MobileOverlapHint from './ui/MobileOverlapHint'
 import { NameAvatarModal } from './ui/NameAvatarModal'
 import { RatingModal } from './ui/RatingModal'
@@ -22,10 +23,14 @@ const DEV_MODE_KEY = 'updown-devMode'
 const DEFAULT_DISPLAY_NAME = 'Вы'
 
 function App() {
-  const { user, signOut, configured } = useAuth()
+  const { user, signOut, configured, loading: authLoading } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const online = useOnlineGame()
-  const [screen, setScreen] = useState<'menu' | 'game'>('menu')
+  // Не открывать стол по одному лишь sessionStorage: до applyRoomData roomId пустой —
+  // GameTable успевал поднять офлайн-партию с ИИ и перекрывал лобби (fixed без z-index).
+  const [screen, setScreen] = useState<'menu' | 'game'>(() => 'menu')
+  const didAutoOpenLobbyRef = useRef(false)
+  const hadOnlineRoomRef = useRef(false)
   const [gameId, setGameId] = useState(1)
   const [devMode, setDevMode] = useState(() => typeof sessionStorage !== 'undefined' && sessionStorage.getItem(DEV_MODE_KEY) === '1')
   const [profile, setProfile] = useState<PlayerProfile>(() => getPlayerProfile())
@@ -34,21 +39,50 @@ function App() {
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
-  const [screenLobby, setScreenLobby] = useState(false)
+  const [screenLobby, setScreenLobby] = useState(() => {
+    if (typeof window === 'undefined') return false
+    const code = new URLSearchParams(window.location.search).get('code')?.trim()
+    return !!code
+  })
+  const [urlJoinCode, setUrlJoinCode] = useState(() => {
+    if (typeof window === 'undefined') return null
+    return new URLSearchParams(window.location.search).get('code')?.trim() ?? null
+  })
   const [showRegistrationSuccessModal, setShowRegistrationSuccessModal] = useState(false)
   const [showOAuthSuccessModal, setShowOAuthSuccessModal] = useState(false)
   const [roomFinishedMessage, setRoomFinishedMessage] = useState<string | null>(null)
+  const [onlineResumeMessage, setOnlineResumeMessage] = useState<string | null>(null)
+  const [showReturnReclaimDialog, setShowReturnReclaimDialog] = useState(false)
+  const [showReclaimModal, setShowReclaimModal] = useState(true)
 
   useEffect(() => {
     setProfile(getPlayerProfile())
   }, [screen])
 
-  // После обновления страницы: если восстановилась онлайн-партия — открыть экран игры
+  // После обновления: восстановить экран (игра или лобби); в меню — только если вышли из онлайн (не сбрасывать при открытии офлайн-игры).
+  // Не сбрасывать didAutoOpenLobbyRef при каждом тике с roomId — иначе waiting снова открывает лобби и перекрывает стол после «Войти в игру» / восстановления.
   useEffect(() => {
-    if (online.status === 'playing' && online.roomId && screen === 'menu') {
-      setScreen('game')
+    if (online.userLeftTemporarily === true) return
+    if (online.roomId) {
+      hadOnlineRoomRef.current = true
+      if (online.status === 'playing') {
+        setScreen('game')
+      } else if (online.status === 'waiting' && !didAutoOpenLobbyRef.current) {
+        didAutoOpenLobbyRef.current = true
+        setScreenLobby(true)
+      }
+      return
     }
-  }, [online.status, online.roomId, screen])
+    didAutoOpenLobbyRef.current = false
+    if (online.status === 'idle' && screen === 'game' && !loadOnlineSession() && hadOnlineRoomRef.current) {
+      setScreen('menu')
+    }
+    hadOnlineRoomRef.current = false
+  }, [online.status, online.roomId, screen, online.userLeftTemporarily])
+
+  useEffect(() => {
+    if (online.pendingReclaimOffer) setShowReclaimModal(true)
+  }, [online.pendingReclaimOffer])
 
   useEffect(() => {
     if (!roomFinishedMessage) return
@@ -125,6 +159,12 @@ function App() {
     setScreen('game')
   }
 
+  /** Офлайн-стол: сбросить онлайн-сессию, иначе GameTable не поднимет локальную партию (guard по sessionStorage). */
+  const startOfflineGame = () => {
+    void online.leaveRoom()
+    startGame()
+  }
+
   const handleOfflineClick = () => {
     if (profile.displayName === DEFAULT_DISPLAY_NAME) {
       setNameAvatarMode('first-run')
@@ -132,7 +172,7 @@ function App() {
       // Пока пользователь вводит имя — подгружаем чанк игры, чтобы к моменту «Сохранить» экран открылся быстрее
       import('./ui/GameTable')
     } else {
-      startGame()
+      startOfflineGame()
     }
   }
 
@@ -147,24 +187,38 @@ function App() {
     setProfile(next)
     setShowNameAvatarModal(false)
     if (user?.id) saveProfileToSupabase(user.id, next)
-    if (nameAvatarMode === 'first-run') startGame()
+    if (online.roomId && online.syncMySlotAvatar) void online.syncMySlotAvatar()
+    if (nameAvatarMode === 'first-run') {
+      void online.leaveRoom()
+      startGame()
+    }
     if (nameAvatarMode === 'new-account') setNameAvatarMode('profile')
-  }, [nameAvatarMode, user?.id])
+  }, [nameAvatarMode, user?.id, online.roomId, online.syncMySlotAvatar, online.leaveRoom])
 
-  const handleExit = () => {
+  const handleExit = useCallback(() => {
+    if (loadOnlineSession()) online.leaveRoom()
     clearGameStateFromStorage()
     setScreen('menu')
-  }
+  }, [online])
 
   const canResumeOffline = hasSavedGame()
   const canResumeOnline = loadOnlineSession() !== null
 
   const handleResumeOffline = useCallback(() => {
+    void online.leaveRoom()
     setScreen('game')
-  }, [])
+  }, [online])
 
   const handleResumeOnline = useCallback(async () => {
-    if (!user) return
+    setOnlineResumeMessage(null)
+    if (authLoading) {
+      setOnlineResumeMessage('Подождите, восстанавливается сессия входа…')
+      return
+    }
+    if (!user) {
+      setOnlineResumeMessage('Войдите в аккаунт, затем снова нажмите «Продолжить онлайн-партию».')
+      return
+    }
     const r = await online.tryRestoreSession()
     if (r.roomFinished) {
       setRoomFinishedMessage('Партия уже завершена.')
@@ -173,8 +227,15 @@ function App() {
     if (r.needReclaim) {
       return
     }
-    if (r.ok) setScreen('game')
-  }, [user, online])
+    if (r.ok) {
+      const wasTemporary = online.userLeftTemporarily === true
+      online.setUserLeftTemporarily?.(false)
+      setScreen('game')
+      if (wasTemporary) setShowReturnReclaimDialog(true)
+      return
+    }
+    if (r.error) setOnlineResumeMessage(r.error)
+  }, [user, online, authLoading])
 
   const handleConfirmReclaim = useCallback(async () => {
     const ok = await online.confirmReclaim()
@@ -250,10 +311,15 @@ function App() {
               <button
                 type="button"
                 style={{ ...buttonStyle, borderColor: 'rgba(34,211,238,0.6)', background: 'rgba(34,211,238,0.15)' }}
-                onClick={handleResumeOnline}
+                onClick={() => { void handleResumeOnline() }}
               >
                 Продолжить онлайн-партию
               </button>
+            )}
+            {onlineResumeMessage && (
+              <p style={{ margin: 0, fontSize: 14, color: '#f87171', maxWidth: 360, lineHeight: 1.4 }} role="alert">
+                {onlineResumeMessage}
+              </p>
             )}
             <button style={buttonStyle} onClick={() => setScreenLobby(true)}>
               Онлайн
@@ -426,7 +492,7 @@ function App() {
           </div>
         </div>
       )}
-      {online.pendingReclaimOffer && (
+      {online.pendingReclaimOffer && showReclaimModal && (
         <div
           style={{
             position: 'fixed',
@@ -479,7 +545,7 @@ function App() {
               </button>
               <button
                 type="button"
-                onClick={handleDismissReclaim}
+                onClick={() => setShowReclaimModal(false)}
                 style={{
                   padding: '12px 24px',
                   fontSize: 16,
@@ -490,7 +556,76 @@ function App() {
                   cursor: 'pointer',
                 }}
               >
-                Не продолжать
+                Не сейчас
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showReturnReclaimDialog && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: 20,
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="return-reclaim-title"
+        >
+          <div
+            style={{
+              background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+              borderRadius: 16,
+              border: '1px solid rgba(34,211,238,0.3)',
+              padding: 32,
+              maxWidth: 400,
+              textAlign: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p id="return-reclaim-title" style={{ margin: '0 0 12px', fontSize: 20, fontWeight: 600, color: '#22d3ee' }}>
+              Продолжить играть сами?
+            </p>
+            <p style={{ margin: '0 0 24px', fontSize: 15, color: '#94a3b8', lineHeight: 1.5 }}>
+              За вас уже сделал ход ИИ. Если вы согласны — вы снова будете делать ходы сами. Нажмите «Да, играю сам», чтобы вернуть управление.
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setShowReturnReclaimDialog(false)}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  border: '1px solid #22d3ee',
+                  background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
+                  color: '#f8fafc',
+                  cursor: 'pointer',
+                }}
+              >
+                Да, играю сам
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReturnReclaimDialog(false)}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: 16,
+                  borderRadius: 8,
+                  border: '1px solid #64748b',
+                  background: 'transparent',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                }}
+              >
+                Нет
               </button>
             </div>
           </div>
@@ -517,12 +652,50 @@ function App() {
           {roomFinishedMessage}
         </div>
       )}
+      {screen === 'game' && online.pendingReclaimOffer && online.confirmReclaim && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
+            background: 'linear-gradient(180deg, rgba(15,23,42,0.98) 0%, rgba(15,23,42,1) 100%)',
+            borderTop: '2px solid rgba(34, 211, 238, 0.6)',
+            boxShadow: '0 -4px 24px rgba(0,0,0,0.4)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <button
+            type="button"
+            onClick={async () => { await online.confirmReclaim?.(); }}
+            style={{
+              padding: '14px 24px',
+              fontSize: 16,
+              fontWeight: 600,
+              borderRadius: 10,
+              border: '2px solid rgba(34, 211, 238, 0.6)',
+              background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
+              color: '#f8fafc',
+              cursor: 'pointer',
+              boxShadow: '0 0 16px rgba(34, 211, 238, 0.3)',
+            }}
+          >
+            Вернуть игру в свои руки
+          </button>
+        </div>
+      )}
       {screenLobby && (
         <LobbyScreen
-          onBack={() => setScreenLobby(false)}
+          onBack={() => { setScreenLobby(false); setUrlJoinCode(null) }}
           playerName={profile.displayName}
+          initialJoinCode={urlJoinCode ?? undefined}
           onGoToGame={() => {
             setScreenLobby(false);
+            setUrlJoinCode(null);
             setGameId(id => id + 1);
             setScreen('game');
           }}
@@ -560,6 +733,7 @@ function App() {
               playerAvatarDataUrl={profile.avatarDataUrl}
               onExit={handleExit}
               onNewGame={handleNewGame}
+              onOpenProfileModal={() => { setNameAvatarMode('profile'); setShowNameAvatarModal(true) }}
             />
           </Suspense>
         )}

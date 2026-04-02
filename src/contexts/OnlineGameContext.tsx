@@ -1,7 +1,7 @@
 /**
  * Контекст онлайн-игры. Принцип: "Я всегда Юг".
  */
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import type { Card } from '../game/types';
@@ -14,22 +14,37 @@ import {
   completeTrick,
   createGameOnline,
 } from '../game/GameEngine';
-import { saveUnfinishedOnlineGame } from '../game/persistence';
+import { saveUnfinishedOnlineGame, getPlayerProfile } from '../game/persistence';
 import { rotateStateForPlayer } from '../game/rotateState';
 import {
   createRoom as apiCreateRoom,
   joinRoom as apiJoinRoom,
   getRoom,
   updateRoomState,
+  updateRoomPlayerSlots,
   subscribeToRoom,
   leaveRoom as apiLeaveRoom,
-  // ... импорты, которые не меняются
+  returnSlotToPlayer as apiReturnSlotToPlayer,
+  takePauseInRoom as apiTakePause,
   heartbeatPresence,
-  getPresence,
-  DISCONNECT_THRESHOLD_MS_EXPORT as DISCONNECT_MS,
   type PlayerSlot,
   type GameRoomRow,
 } from '../lib/onlineGameSupabase';
+import { saveOnlineSession, clearOnlineSession, loadOnlineSession } from '../lib/onlineSession';
+
+/** Сообщение при обрыве по таймауту fetch в supabase.ts (~55 с). */
+function formatSupabaseNetworkError(e: unknown): string {
+  if (e instanceof DOMException && e.name === 'AbortError') {
+    return 'Нет ответа от Supabase вовремя. Проверьте интернет и VPN. Откройте игру по адресу ПК в Wi‑Fi (http://192.168.…:5173), не localhost. В панели Supabase убедитесь, что проект не на паузе (бесплатный тариф).';
+  }
+  if (e instanceof Error && (e.name === 'AbortError' || /aborted|abort/i.test(e.message))) {
+    return 'Нет ответа от Supabase вовремя. Проверьте интернет, VPN и статус проекта на supabase.com.';
+  }
+  if (e instanceof TypeError && /failed to fetch|load failed|networkerror/i.test(e.message)) {
+    return 'Нет связи с сервером (сеть или блокировка). Проверьте Wi‑Fi/VPN, не используйте localhost с другого устройства — откройте игру по IP ПК в одной сети.';
+  }
+  return e instanceof Error ? e.message : String(e);
+}
 
 // --- Управление Device ID (остается без изменений) ---
 const DEVICE_ID_KEY = 'updown_device_id';
@@ -46,40 +61,36 @@ function getDeviceId(): string {
   }
 }
 
-// --- Управление Сессией (остается без изменений) ---
-const ONLINE_SESSION_KEY = 'updown_online_session';
 type OnlineStatus = 'idle' | 'waiting' | 'playing' | 'left';
 
-function saveOnlineSession(roomId: string, deviceId: string) {
-  try {
-    sessionStorage.setItem(ONLINE_SESSION_KEY, JSON.stringify({ roomId, deviceId }));
-  } catch { /* ignore */ }
+type PendingReclaimOffer = {
+  roomId: string;
+  code: string;
+  slotIndex: number;
+  replacedDisplayName: string;
+};
+
+/** Хотя бы у одного игрока есть карты на руке (раздача уже в состоянии). */
+function stateHasDealtHands(state: GameState | null): boolean {
+  if (!state) return false;
+  return state.players.some((p) => (p.hand?.length ?? 0) > 0);
 }
 
-function clearOnlineSession() {
-  try {
-    sessionStorage.removeItem(ONLINE_SESSION_KEY);
-  } catch { /* ignore */ }
+/** Стабильный отпечаток раздачи по рукам в каноническом порядке слотов 0..3. */
+function handMultisetFingerprint(state: GameState | null): string {
+  if (!state) return '';
+  return state.players
+    .map((p) =>
+      [...(p.hand ?? [])]
+        .map((c) => `${c.rank}:${c.suit}`)
+        .sort()
+        .join(',')
+    )
+    .join('|');
 }
-
-export function loadOnlineSession(): { roomId: string; deviceId: string } | null {
-    try {
-        const raw = sessionStorage.getItem(ONLINE_SESSION_KEY);
-        if (!raw) return null;
-        const p = JSON.parse(raw) as unknown;
-        if (p && typeof p === 'object' && typeof (p as { roomId?: string }).roomId === 'string' && typeof (p as { deviceId?: string }).deviceId === 'string') {
-            return p as { roomId: string; deviceId: string };
-        }
-        return null;
-    } catch {
-        return null;
-    }
-}
-// --- Конец секции управления сессией ---
-
 
 // --- Интерфейс Контекста (остается без изменений) ---
-interface OnlineGameContextValue {
+export interface OnlineGameContextValue {
   status: OnlineStatus;
   roomId: string | null;
   code: string | null;
@@ -88,35 +99,47 @@ interface OnlineGameContextValue {
   canonicalState: GameState | null;
   displayState: GameState | null;
   error: string | null;
-  createRoom: (userId: string, displayName: string, shortLabel?: string) => Promise<boolean>;
-  joinRoom: (code: string, userId: string, displayName: string, shortLabel?: string) => Promise<boolean>;
+  createRoom: (userId: string, displayName: string, shortLabel?: string) => Promise<{ ok: boolean; error?: string }>;
+  joinRoom: (code: string, userId: string, displayName: string, shortLabel?: string) => Promise<{ ok: boolean; error?: string }>;
   // ... остальной интерфейс без изменений
   leaveRoom: () => Promise<void>;
+  refreshRoom: () => Promise<void>;
+  syncMySlotDisplayName: (displayName: string) => Promise<void>;
+  /** Обновить аватарку в нашем слоте (после смены фото в профиле). */
+  syncMySlotAvatar: () => Promise<void>;
   startGame: () => Promise<boolean>;
   sendBid: (bid: number) => Promise<boolean>;
   sendPlay: (card: Card) => Promise<boolean>;
   sendCompleteTrick: () => Promise<boolean>;
   sendStartNextDeal: () => Promise<boolean>;
   sendState: (state: GameState) => Promise<boolean>;
-  tryRestoreSession: () => Promise<{ ok: boolean; needReclaim?: boolean; roomFinished?: boolean }>;
+  tryRestoreSession: () => Promise<{ ok: boolean; needReclaim?: boolean; roomFinished?: boolean; error?: string }>;
   confirmReclaim: () => Promise<boolean>;
   dismissReclaim: () => void;
-  pendingReclaimOffer: { roomId: string; code: string; slotIndex: number; replacedDisplayName: string } | null;
-  replaceInactivePlayer: (slotIndex: number) => Promise<boolean>;
-  leaveRoomAndReplaceWithAI: () => Promise<void>;
+  pendingReclaimOffer: PendingReclaimOffer | null;
+  returnSlotToPlayer: (slotIndex: number) => Promise<boolean>;
+  /** Игрок сам вручную взял паузу (передал слот ИИ), может вернуть управление. */
+  userOnPause: boolean;
+  takePause: () => Promise<boolean>;
+  returnFromPause: () => Promise<boolean>;
   playerLeftToast: string | null;
   clearPlayerLeftToast: () => void;
   clearError: () => void;
+  userLeftTemporarily: boolean;
+  setUserLeftTemporarily: (value: boolean) => void;
 }
 // --- Конец интерфейса ---
 
-const OnlineGameContext = createContext<OnlineGameContextValue | null>(null);
+export const OnlineGameContext = createContext<OnlineGameContextValue | null>(null);
 
 export function OnlineGameProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [status, setStatus] = useState<OnlineStatus>('idle');
   const [roomId, setRoomId] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
+  /** Актуальный roomId для отсечения поздних ответов getRoom после смены/выхода из комнаты (синхронно сбрасывается в leaveRoom). */
+  const roomIdRef = useRef<string | null>(roomId);
+  roomIdRef.current = roomId;
 
   // ИЗМЕНЕНО: mySlotIndex -> myServerIndex. Это наш индекс на сервере (0, 1, 2, или 3).
   // Для отображения мы всегда будем на месте 0.
@@ -125,80 +148,296 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const [playerSlots, setPlayerSlots] = useState<PlayerSlot[]>([]);
   const [canonicalState, setCanonicalState] = useState<GameState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pendingReclaimOffer, setPendingReclaimOffer] = useState</*...*/ | null>(null);
+  const [realtimeHealKey, setRealtimeHealKey] = useState(0);
+  const [pendingReclaimOffer, setPendingReclaimOffer] = useState<PendingReclaimOffer | null>(null);
   const deviceIdRef = useRef<string>(getDeviceId());
   const unsubRef = useRef<(() => void) | null>(null);
+  const realtimeErrorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Порядок слотов ВЕЗДЕ один и тот же: 0=Юг, 1=Север, 2=Запад, 3=Восток. Не вращаем — только «я» = myServerIndex.
   const displayState = canonicalState ? rotateStateForPlayer(canonicalState, myServerIndex) : null;
+  const canonicalStateRef = useRef<GameState | null>(null);
+  canonicalStateRef.current = canonicalState;
+  const lastSendAtRef = useRef(0);
+  /** Время последней строки комнаты с сервера (updated_at), чтобы опрос мог принудительно подтянуть актуальное game_state при «залипании» onlyIfNewer. */
+  const lastSeenRoomUpdatedAtMsRef = useRef(0);
 
-  // Эта функция теперь ТОЛЬКО обновляет данные, не пытаясь "угадать" наш слот.
+  /** Серверное состояние применяем только если оно не старее локального (иначе Realtime/опрос перезатирают ход → карта «забирается назад»). */
+  const isServerStateNewerOrEqual = useCallback((server: GameState | null, local: GameState | null): boolean => {
+    if (!server) return false;
+    if (!local) return true;
+    if (server.dealNumber > local.dealNumber) return true;
+    if (server.dealNumber < local.dealNumber) return false;
+    const phaseOrder = (p: string) => (p === 'bidding' ? 0 : p === 'dark-bidding' ? 1 : p === 'playing' ? 2 : 3);
+    if (phaseOrder(server.phase) > phaseOrder(local.phase)) return true;
+    if (phaseOrder(server.phase) < phaseOrder(local.phase)) return false;
+    const bidsCount = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
+    if (bidsCount(server.bids) > bidsCount(local.bids)) return true;
+    if (bidsCount(server.bids) < bidsCount(local.bids)) return false;
+    const trickLen = (t: unknown[] | undefined) => (t ?? []).length;
+    if (trickLen(server.currentTrick) > trickLen(local.currentTrick)) return true;
+    if (trickLen(server.currentTrick) < trickLen(local.currentTrick)) return false;
+    const tricksTaken = (s: GameState) => s.players.reduce((sum, p) => sum + (p.tricksTaken ?? 0), 0);
+    if (tricksTaken(server) > tricksTaken(local)) return true;
+    if (tricksTaken(server) < tricksTaken(local)) return false;
+    // Одинаковый прогресс по сделке/фазе/заказам/взяткам, но другой набор карт — типичная гонка (например updated_at из-за player_slots + старый game_state).
+    if (stateHasDealtHands(local) && stateHasDealtHands(server) && handMultisetFingerprint(server) !== handMultisetFingerprint(local)) {
+      return false;
+    }
+    return true;
+  }, []);
+
   const applyRoomData = useCallback((room: GameRoomRow) => {
+    if (!room?.id) return;
+    roomIdRef.current = room.id;
+    const ts = Date.parse(room.updated_at);
+    if (Number.isFinite(ts)) {
+      lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
+    }
     setRoomId(room.id);
     setCode(room.code);
     setPlayerSlots(room.player_slots || []);
     setCanonicalState(room.game_state ?? null);
+    if (room.status === 'playing') setStatus('playing');
+    else setStatus('waiting');
+  }, []);
 
-    // БЛОК, УСТАНАВЛИВАЮЩИЙ myServerIndex, ПОЛНОСТЬЮ УДАЛЕН.
-    // applyRoomData теперь только СИНХРОНИЗИРУЕТ ДАННЫЕ, но НЕ ТРОГАЕТ
-    // идентификацию текущего игрока.
+  const applyRoomDataOnlyIfNewer = useCallback(
+    (room: GameRoomRow) => {
+      if (!room?.id) return;
+      // Подписка Realtime уже с фильтром id=eq.roomId; не сравниваем с ref — иначе при рассинхроне ref/state глушились player_slots (гости «не появлялись» у хоста).
+      // В лобби game_state всегда null: сравнение «новизны» по состоянию раздачи ломало доставку player_slots (хост не видел новых игроков).
+      if (room.status === 'waiting') {
+        applyRoomData(room);
+        return;
+      }
+      const ts = Date.parse(room.updated_at);
+      const rowTimestampNewer =
+        Number.isFinite(ts) && ts > lastSeenRoomUpdatedAtMsRef.current;
+      const serverState = room.game_state ?? null;
+      const isNewer = isServerStateNewerOrEqual(serverState, canonicalStateRef.current);
+      // Строка в БД уже новее по времени — доверяем присланному game_state (иначе отпечаток рук/эвристика отсекали чужие ходы → только refresh помогал).
+      if (rowTimestampNewer && (room.status === 'playing' || room.status === 'finished')) {
+        applyRoomData(room);
+        return;
+      }
+      if (!isNewer) {
+        setPlayerSlots(room.player_slots || []);
+        setCode(room.code);
+        if (room.status === 'playing') setStatus('playing');
+        return;
+      }
+      applyRoomData(room);
+    },
+    [applyRoomData, isServerStateNewerOrEqual]
+  );
 
-    if (room.status === 'playing') {
-        setStatus('playing');
-    } else {
-        setStatus('waiting');
-    }
-}, []); // Пустые зависимости, т.к. deviceIdRef не меняется.
+  const refreshRoom = useCallback(async () => {
+    if (!roomId) return;
+    const rid = roomId;
+    const room = await getRoom(rid);
+    if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
+    applyRoomDataOnlyIfNewer(room);
+  }, [roomId, applyRoomDataOnlyIfNewer]);
+
+  useEffect(() => {
+    lastSeenRoomUpdatedAtMsRef.current = 0;
+  }, [roomId]);
 
   useEffect(() => {
     if (!roomId) return;
-    const unsub = subscribeToRoom(roomId, applyRoomData);
-    return () => unsub();
-  }, [roomId, applyRoomData]);
+    let cancelled = false;
+    const unsub = subscribeToRoom(roomId, applyRoomDataOnlyIfNewer, (status) => {
+      if (cancelled) return;
+      if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT') return;
+      if (realtimeErrorDebounceRef.current) clearTimeout(realtimeErrorDebounceRef.current);
+      realtimeErrorDebounceRef.current = setTimeout(() => {
+        realtimeErrorDebounceRef.current = null;
+        if (cancelled) return;
+        void refreshRoom();
+        setRealtimeHealKey((k) => k + 1);
+      }, 400);
+    });
+    unsubRef.current = unsub;
+    return () => {
+      cancelled = true;
+      unsubRef.current = null;
+      if (realtimeErrorDebounceRef.current) {
+        clearTimeout(realtimeErrorDebounceRef.current);
+        realtimeErrorDebounceRef.current = null;
+      }
+      unsub();
+    };
+  }, [roomId, applyRoomDataOnlyIfNewer, refreshRoom, realtimeHealKey]);
+
+  useEffect(() => {
+    if (!roomId) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refreshRoom();
+    };
+    const onOnline = () => {
+      void refreshRoom();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', onOnline);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [roomId, refreshRoom]);
+
+  // Опрос: подтягиваем ходы, если Realtime не дошёл. При более новом updated_at в игре всегда берём полный game_state.
+  const POLL_INTERVAL_MS = 900;
+  const POLL_SKIP_MS = 700;
+  useEffect(() => {
+    if (!roomId) return;
+    const t = setInterval(() => {
+      if (Date.now() - lastSendAtRef.current < POLL_SKIP_MS) return;
+      const rid = roomId;
+      getRoom(rid).then((room) => {
+        if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
+        const ts = Date.parse(room.updated_at);
+        if (Number.isFinite(ts) && ts > lastSeenRoomUpdatedAtMsRef.current) {
+          if (room.status === 'waiting') {
+            lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
+            applyRoomData(room);
+            return;
+          }
+          if (room.status === 'playing' || room.status === 'finished') {
+            applyRoomData(room);
+            return;
+          }
+        }
+        applyRoomDataOnlyIfNewer(room);
+      });
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(t);
+  }, [roomId, applyRoomData, applyRoomDataOnlyIfNewer]);
+
+  /** После успешного авто-восстановления не дублировать, пока сессия жива. Сбрасывается в leaveRoom и при отсутствии saved. */
+  const sessionRestoreOkRef = useRef(false);
+
+  const performSessionRestore = useCallback(
+    async (saved: { roomId: string; deviceId: string }): Promise<{ ok: boolean; roomFinished?: boolean; error?: string }> => {
+      if (!user?.id) return { ok: false, error: 'Войдите в аккаунт, чтобы продолжить онлайн-партию.' };
+      /** Сессия в storage уже не та (успели выйти/войти в другую комнату) — не трогаем UI и не затираем новую сессию. */
+      const storageStillThisRoom = (): boolean => {
+        const latest = loadOnlineSession();
+        return latest != null && latest.roomId === saved.roomId;
+      };
+      let room: GameRoomRow | null = null;
+      const maxAttempts = 5;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          room = await getRoom(saved.roomId);
+        } catch {
+          return { ok: false, error: 'Нет связи с сервером. Проверьте интернет и попробуйте снова.' };
+        }
+        if (room) break;
+        if (attempt < maxAttempts - 1) await new Promise((r) => setTimeout(r, 350));
+      }
+      if (!room) {
+        if (storageStillThisRoom()) clearOnlineSession();
+        return { ok: false, error: 'Комната не найдена или сервер не ответил (проверьте вход в аккаунт и RLS в Supabase).' };
+      }
+      if (room.status === 'finished') {
+        if (storageStillThisRoom()) clearOnlineSession();
+        return { ok: false, roomFinished: true };
+      }
+      const slots = (room.player_slots || []) as PlayerSlot[];
+      const meSlot = slots.find((s) => s.userId === user.id || s.replacedUserId === user.id);
+      if (!meSlot) {
+        if (storageStillThisRoom()) clearOnlineSession();
+        return { ok: false, error: 'В этой комнате нет вашего места. Войдите по коду заново.' };
+      }
+      if (!storageStillThisRoom()) {
+        return { ok: false };
+      }
+      if (saved.deviceId !== deviceIdRef.current) {
+        saveOnlineSession(saved.roomId, deviceIdRef.current);
+      }
+      applyRoomData(room);
+      setMyServerIndex(meSlot.slotIndex);
+      return { ok: true };
+    },
+    [applyRoomData, user?.id]
+  );
+
+  // При загрузке/обновлении страницы: восстановить онлайн-сессию из sessionStorage (после готовности JWT).
+  useEffect(() => {
+    if (authLoading || !user?.id) return;
+    const saved = loadOnlineSession();
+    if (!saved) {
+      sessionRestoreOkRef.current = false;
+      return;
+    }
+    if (sessionRestoreOkRef.current) return;
+    void performSessionRestore(saved).then((r) => {
+      if (r.ok || r.roomFinished) sessionRestoreOkRef.current = true;
+    });
+  }, [authLoading, user?.id, performSessionRestore]);
+
+  // Если в игре есть слот с replacedUserId === наш user.id (ручная пауза) — предложить вернуть слот.
+  useEffect(() => {
+    if (status !== 'playing' || !roomId || !user?.id) {
+      setPendingReclaimOffer(null);
+      return;
+    }
+    const slot = playerSlots.find((s) => s.replacedUserId === user.id);
+    if (slot) {
+      setPendingReclaimOffer({
+        roomId,
+        code: code ?? '',
+        slotIndex: slot.slotIndex,
+        replacedDisplayName: slot.replacedDisplayName ?? slot.displayName ?? 'Игрок',
+      });
+    } else {
+      setPendingReclaimOffer(null);
+    }
+  }, [status, roomId, code, user?.id, playerSlots]);
 
   const createRoom = useCallback(
-    async (userId: string, displayName: string, shortLabel?: string): Promise<boolean> => {
-      setError(null);
-      const result = await apiCreateRoom(userId, displayName, shortLabel);
-      if ('error' in result) {
-        setError(result.error);
-        return false;
+    async (userId: string, displayName: string, shortLabel?: string): Promise<{ ok: boolean; error?: string }> => {
+      try {
+        setError(null);
+        const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
+        const result = await apiCreateRoom(userId, displayName, shortLabel, avatarDataUrl);
+        if ('error' in result) {
+          setError(result.error);
+          return { ok: false, error: result.error };
+        }
+        applyRoomData(result.room);
+        saveOnlineSession(result.room.id, deviceIdRef.current);
+        setMyServerIndex(0);
+        return { ok: true };
+      } catch (e) {
+        const msg = formatSupabaseNetworkError(e) || 'Ошибка при создании комнаты.';
+        setError(msg);
+        return { ok: false, error: msg };
       }
-      
-      const room = await getRoom(result.roomId);
-      if (room) {
-        applyRoomData(room);
-        saveOnlineSession(room.id, deviceIdRef.current);
-      } else {
-        setError("Не удалось получить данные комнаты после создания.");
-        return false;
-      }
-      return true;
     },
     [applyRoomData]
   );
 
   const joinRoom = useCallback(
-    async (codeInput: string, userId: string, displayName: string, shortLabel?: string): Promise<boolean> => {
-      setError(null);
-      // Используем SQL-функцию, которая атомарна
-      const result = await apiJoinRoom(codeInput, userId, displayName, shortLabel);
-      if ('error' in result) {
-        setError(result.error);
-        return false;
+    async (codeInput: string, userId: string, displayName: string, shortLabel?: string): Promise<{ ok: boolean; error?: string }> => {
+      try {
+        setError(null);
+        const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
+        const result = await apiJoinRoom(codeInput, userId, displayName, shortLabel, avatarDataUrl);
+        if ('error' in result) {
+          setError(result.error);
+          return { ok: false, error: result.error };
+        }
+        applyRoomData(result.room);
+        setMyServerIndex(result.mySlotIndex);
+        saveOnlineSession(result.roomId, deviceIdRef.current);
+        return { ok: true };
+      } catch (e) {
+        const msg = formatSupabaseNetworkError(e) || 'Ошибка при входе в комнату.';
+        setError(msg);
+        return { ok: false, error: msg };
       }
-      setRoomId(result.roomId);
-      setMyServerIndex(result.mySlotIndex);
-      setStatus('waiting');
-      saveOnlineSession(result.roomId, deviceIdRef.current);
-
-      // Подписываемся на будущие обновления
-      const room = await getRoom(result.roomId);
-      if (room) {
-        applyRoomData(room);
-      }
-
-      return true;
     },
     [applyRoomData]
   );
@@ -206,16 +445,68 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   // --- Остальной код в основном без изменений, просто использует myServerIndex ---
   // ... (leaveRoom, startGame, sendBid, sendPlay и т.д.)
   // ... (Я включу его полностью для простоты копирования)
-  
+
+  const syncMySlotDisplayName = useCallback(
+    async (displayName: string) => {
+      if (!roomId || status !== 'waiting' || !displayName.trim()) return;
+      const slots = playerSlots.slice();
+      const idx = slots.findIndex((s) => s.slotIndex === myServerIndex);
+      if (idx === -1) return;
+      const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
+      slots[idx] = {
+        ...slots[idx],
+        displayName: displayName.trim().slice(0, 17),
+        ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : {}),
+      };
+      const { error: err } = await updateRoomPlayerSlots(roomId, slots);
+      if (err) setError(err);
+      else setPlayerSlots(slots);
+    },
+    [roomId, status, playerSlots, myServerIndex]
+  );
+
+  const syncMySlotAvatar = useCallback(async () => {
+    if (!roomId) return;
+    const slots = playerSlots.slice();
+    const idx = slots.findIndex((s) => s.slotIndex === myServerIndex);
+    if (idx === -1) return;
+    const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
+    slots[idx] = { ...slots[idx], ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : { avatarDataUrl: null }) };
+    if (status === 'waiting') {
+      const { error: err } = await updateRoomPlayerSlots(roomId, slots);
+      if (!err) setPlayerSlots(slots);
+    } else if (canonicalState) {
+      const { error: err, room } = await updateRoomState(roomId, canonicalState, slots);
+      if (!err && room) applyRoomData(room);
+      else if (!err) setPlayerSlots(slots);
+    }
+  }, [roomId, status, playerSlots, myServerIndex, canonicalState, applyRoomData]);
+
+  const [userLeftTemporarily, setUserLeftTemporarily] = useState(false);
+  const [userOnPause, setUserOnPause] = useState(false);
+
   const leaveRoom = useCallback(async () => {
     const rid = roomId;
     if (unsubRef.current) {
       unsubRef.current();
       unsubRef.current = null;
     }
+    roomIdRef.current = null;
     setRoomId(null); setCode(null); setCanonicalState(null); setPlayerSlots([]); setStatus('idle'); setError(null);
+    setMyServerIndex(0);
+    sessionRestoreOkRef.current = false;
+    setUserLeftTemporarily(false);
+    setUserOnPause(false);
     clearOnlineSession();
-    if (rid && user?.id) await apiLeaveRoom(rid, user.id);
+    if (rid && user?.id) {
+      const LEAVE_API_MS = 8000;
+      await Promise.race([
+        apiLeaveRoom(rid, user.id).then(() => undefined),
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, LEAVE_API_MS);
+        }),
+      ]);
+    }
   }, [roomId, user?.id]);
   
   const AI_NAMES = ['ИИ Север', 'ИИ Восток', 'ИИ Юг', 'ИИ Запад'] as const;
@@ -237,71 +528,143 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const names: [string, string, string, string] = [ fullSlots[0].displayName, fullSlots[1].displayName, fullSlots[2].displayName, fullSlots[3].displayName, ];
     let state = createGameOnline(names);
     state = startDeal(state);
-    const { error: err } = await updateRoomState(roomId, state, fullSlots);
+    const { error: err, room } = await updateRoomState(roomId, state, fullSlots);
     if (err) { setError(err); return false; }
-    setStatus('playing');
+    if (room) applyRoomData(room);
+    else {
+      setPlayerSlots(fullSlots);
+      setCanonicalState(state);
+      setStatus('playing');
+    }
     return true;
-  }, [roomId, myServerIndex, playerSlots]);
+  }, [roomId, myServerIndex, playerSlots, applyRoomData]);
 
     const sendBid = useCallback(async (bid: number): Promise<boolean> => {
         if (!roomId || !canonicalState) return false;
-        const next = placeBid(canonicalState, myServerIndex, bid);
-        const { error: err } = await updateRoomState(roomId, next);
-        if (err) { setError(err); return false; }
+        const prev = canonicalState;
+        const next = placeBid(prev, myServerIndex, bid);
+        setCanonicalState(next);
+        lastSendAtRef.current = Date.now();
+        const { error: err, room } = await updateRoomState(roomId, next);
+        if (err) { setError(err); setCanonicalState(prev); return false; }
+        if (room) applyRoomData(room);
         return true;
-    }, [roomId, canonicalState, myServerIndex]);
+    }, [roomId, canonicalState, myServerIndex, applyRoomData]);
 
     const sendPlay = useCallback(async (card: Card): Promise<boolean> => {
         if (!roomId || !canonicalState) return false;
-        const next = playCard(canonicalState, myServerIndex, card);
-        const { error: err } = await updateRoomState(roomId, next);
-        if (err) { setError(err); return false; }
+        const prev = canonicalState;
+        const next = playCard(prev, myServerIndex, card);
+        setCanonicalState(next);
+        lastSendAtRef.current = Date.now();
+        const { error: err, room } = await updateRoomState(roomId, next);
+        if (err) { setError(err); setCanonicalState(prev); return false; }
+        if (room) applyRoomData(room);
         return true;
-    }, [roomId, canonicalState, myServerIndex]);
+    }, [roomId, canonicalState, myServerIndex, applyRoomData]);
 
-    const tryRestoreSession = useCallback(async(): Promise<{ok: boolean, needReclaim?: boolean, roomFinished?: boolean}> => {
-        const saved = loadOnlineSession();
-        if (!saved || saved.deviceId !== deviceIdRef.current) return {ok: false};
-        
-        const room = await getRoom(saved.roomId);
-        if (!room) return {ok: false};
-
-        if (room.status !== 'playing') {
-            clearOnlineSession();
-            return {ok: false, roomFinished: true};
-        }
-
-        applyRoomData(room);
-        return {ok: true};
-    }, [applyRoomData]);
+    const tryRestoreSession = useCallback(async (): Promise<{ ok: boolean; needReclaim?: boolean; roomFinished?: boolean; error?: string }> => {
+      const saved = loadOnlineSession();
+      if (!saved) return { ok: false, error: 'Сессия не найдена. Откройте онлайн и войдите по коду.' };
+      const r = await performSessionRestore(saved);
+      if (r.ok || r.roomFinished) sessionRestoreOkRef.current = true;
+      return r;
+    }, [performSessionRestore]);
   
     // ... Остальной код, который вы можете скопировать из предыдущей версии, он не должен требовать изменений
     // ... confirmReclaim, dismissReclaim, и т.д.
     
     // Я оставлю их здесь для полноты
     const [playerLeftToast, setPlayerLeftToast] = useState<string | null>(null);
-    const sendCompleteTrick = useCallback(async (): Promise<boolean> => { if (!roomId || !canonicalState) return false; const next = completeTrick(canonicalState); const { error: err } = await updateRoomState(roomId, next); if (err) { setError(err); return false; } return true; }, [roomId, canonicalState]);
-    const sendStartNextDeal = useCallback(async (): Promise<boolean> => { if (!roomId || !canonicalState) return false; const next = startNextDeal(canonicalState); if (!next) return false; const { error: err } = await updateRoomState(roomId, next); if (err) { setError(err); return false; } return true; }, [roomId, canonicalState]);
-    const sendState = useCallback(async (newState: GameState): Promise<boolean> => { if (!roomId) return false; const { error: err } = await updateRoomState(roomId, newState); if (err) { setError(err); return false; } return true; }, [roomId]);
-    const confirmReclaim = useCallback(async (): Promise<boolean> => {return false /* Логика не реализована в этой упрощенной версии */}, []);
-    const dismissReclaim = useCallback(() => {}, []);
-    const replaceInactivePlayer = useCallback(async (_slotIndex: number): Promise<boolean> => { return false; }, []);
-    const leaveRoomAndReplaceWithAI = useCallback(async () => {}, []);
+    const sendCompleteTrick = useCallback(async (): Promise<boolean> => {
+      if (!roomId || !canonicalState) return false;
+      const prev = canonicalState;
+      const next = completeTrick(canonicalState);
+      setCanonicalState(next);
+      lastSendAtRef.current = Date.now();
+      const { error: err, room } = await updateRoomState(roomId, next);
+      if (err) { setError(err); setCanonicalState(prev); return false; }
+      if (room) applyRoomData(room);
+      return true;
+    }, [roomId, canonicalState, applyRoomData]);
+    const sendStartNextDeal = useCallback(async (): Promise<boolean> => {
+      if (!roomId || !canonicalState) return false;
+      const prev = canonicalState;
+      const next = startNextDeal(canonicalState);
+      if (!next) return false;
+      setCanonicalState(next);
+      lastSendAtRef.current = Date.now();
+      const { error: err, room } = await updateRoomState(roomId, next);
+      if (err) { setError(err); setCanonicalState(prev); return false; }
+      if (room) applyRoomData(room);
+      return true;
+    }, [roomId, canonicalState, applyRoomData]);
+    const sendState = useCallback(async (newState: GameState): Promise<boolean> => {
+      if (!roomId) return false;
+      lastSendAtRef.current = Date.now();
+      const { error: err, room } = await updateRoomState(roomId, newState);
+      if (err) { setError(err); return false; }
+      if (room) applyRoomData(room);
+      else setCanonicalState(newState);
+      return true;
+    }, [roomId, applyRoomData]);
+    const confirmReclaim = useCallback(async (): Promise<boolean> => {
+      if (!roomId || !pendingReclaimOffer || pendingReclaimOffer.roomId !== roomId || !user?.id) return false;
+      const { error: err } = await apiReturnSlotToPlayer(roomId, pendingReclaimOffer.slotIndex);
+      if (err) { setError(err); return false; }
+      setPendingReclaimOffer(null);
+      await heartbeatPresence(roomId, user.id);
+      const room = await getRoom(roomId);
+      if (room) applyRoomData(room);
+      return true;
+    }, [roomId, pendingReclaimOffer, user?.id, applyRoomData]);
+    const dismissReclaim = useCallback(() => { /* не сбрасываем offer — кнопка «Вернуть игру в свои руки» остаётся доступной */ }, []);
+    const returnSlotToPlayer = useCallback(async (slotIndex: number): Promise<boolean> => {
+      if (!roomId) return false;
+      const { error: err } = await apiReturnSlotToPlayer(roomId, slotIndex);
+      if (err) { setError(err); return false; }
+      const room = await getRoom(roomId);
+      if (room) applyRoomData(room);
+      return true;
+    }, [roomId, applyRoomData]);
+    const takePause = useCallback(async (): Promise<boolean> => {
+      if (!roomId || !user?.id) return false;
+      const displayName = playerSlots.find((s) => s.slotIndex === myServerIndex)?.displayName ?? user.email?.split('@')[0] ?? 'Игрок';
+      const shortLabel = user.email ? user.email.replace(/@.*$/, '').slice(-8) : undefined;
+      const { error: err } = await apiTakePause(roomId, user.id, displayName.slice(0, 17), shortLabel);
+      if (err) { setError(err); return false; }
+      setUserOnPause(true);
+      const room = await getRoom(roomId);
+      if (room) applyRoomData(room);
+      return true;
+    }, [roomId, user?.id, user?.email, myServerIndex, playerSlots]);
+    const returnFromPause = useCallback(async (): Promise<boolean> => {
+      if (!roomId || !user?.id) {
+        setUserOnPause(false);
+        return false;
+      }
+      const slot = playerSlots.find((s) => s.replacedUserId === user.id);
+      const slotIndex = slot != null ? slot.slotIndex : myServerIndex;
+      const ok = await returnSlotToPlayer(slotIndex);
+      setUserOnPause(false);
+      if (ok) {
+        await heartbeatPresence(roomId, user.id);
+        const room = await getRoom(roomId);
+        if (room) applyRoomData(room);
+      } else {
+        setError('Не удалось вернуть управление. Попробуйте ещё раз или обновите страницу.');
+      }
+      return ok;
+    }, [roomId, user?.id, myServerIndex, playerSlots, returnSlotToPlayer, getRoom, applyRoomData]);
     const clearPlayerLeftToast = useCallback(() => setPlayerLeftToast(null), []);
     const clearError = useCallback(() => setError(null), []);
 
 
   const value: OnlineGameContextValue = {
-    status, roomId, code, myServerIndex, playerSlots, canonicalState, displayState, error, createRoom, joinRoom, leaveRoom, startGame, sendBid, sendPlay, sendCompleteTrick, sendStartNextDeal, sendState, tryRestoreSession, confirmReclaim, dismissReclaim, pendingReclaimOffer, replaceInactivePlayer, leaveRoomAndReplaceWithAI, playerLeftToast, clearPlayerLeftToast, clearError,
+    status, roomId, code, myServerIndex, playerSlots, canonicalState, displayState, error, createRoom, joinRoom, leaveRoom, refreshRoom, syncMySlotDisplayName, syncMySlotAvatar, startGame, sendBid, sendPlay, sendCompleteTrick, sendStartNextDeal, sendState, tryRestoreSession, confirmReclaim, dismissReclaim, pendingReclaimOffer, returnSlotToPlayer, userOnPause, takePause, returnFromPause, playerLeftToast, clearPlayerLeftToast, clearError, userLeftTemporarily, setUserLeftTemporarily,
   };
 
   return (
     <OnlineGameContext.Provider value={value}>{children}</OnlineGameContext.Provider>
   );
-}
-
-export function useOnlineGame(): OnlineGameContextValue {
-  const ctx = useContext(OnlineGameContext);
-  if (!ctx) throw new Error('useOnlineGame must be used within OnlineGameProvider');
-  return ctx;
 }

@@ -78,6 +78,50 @@
   animation: dealer-tooltip-fade 0.2s ease-out !important;
   pointer-events: none !important;
 }
+
+/* Тост с крестиком: не задавать position:relative — иначе затирается fixed у .dealer-tooltip-toast и тост уезжает в поток страницы */
+.game-table-root .dealer-tooltip-toast.toast-with-close {
+  pointer-events: auto !important;
+  padding-right: 40px !important;
+}
+
+.game-table-root .first-move-tooltip-toast.first-move-tooltip-toast-dismissible {
+  padding-top: 40px !important;
+}
+
+.game-table-root .toast-close-btn {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  z-index: 1 !important;
+  width: 28px !important;
+  height: 28px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+  font-weight: 300 !important;
+  cursor: pointer !important;
+  transition: background 0.15s ease, color 0.15s ease !important;
+}
+
+.game-table-root .toast-close-btn:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: #f8fafc !important;
+}
+
+.game-table-root .toast-close-btn:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.8) !important;
+  outline-offset: 2px !important;
+}
+
 @keyframes dealer-tooltip-fade {
   from { opacity: 0; transform: translateX(-50%) translateY(8px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -98,6 +142,38 @@
   text-shadow: 0 0 8px rgba(167, 139, 250, 0.6) !important;
   margin-bottom: 6px !important;
 }
+
+.game-table-root .deal-contract-tooltip-toast {
+  max-width: min(92vw, 360px) !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  padding: 14px 18px !important;
+  padding-top: 40px !important;
+  line-height: 1.45 !important;
+}
+
+.game-table-root .deal-contract-tooltip-toast.toast-with-close {
+  padding-right: 16px !important;
+}
+
+/* Мобильная: длинный тост не вылезает за верх экрана — ограничение высоты и прокрутка */
+.game-table-root.viewport-mobile .dealer-tooltip-toast.deal-contract-tooltip-toast {
+  max-height: min(68vh, calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)) !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  bottom: max(12%, env(safe-area-inset-bottom, 0px), 48px) !important;
+}
+
+.game-table-root:not(.viewport-mobile) .game-info-deal-contract-panel:hover {
+  border-color: rgba(94, 234, 234, 0.78);
+  box-shadow:
+    0 0 24px rgba(34, 211, 238, 0.28),
+    0 2px 16px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
 /* Блеск на козырях в руке во время заказа взяток (мобильная и ПК) */
 @keyframes card-trump-shine {
   0% { transform: translateX(-100%); }
@@ -119,7 +195,7 @@
     gap: 4px !important;
   }
   .game-table-root .game-info-row .game-info-left-col {
-    margin-left: 58px !important;
+    margin-left: 76px !important;
     margin-top: 22px !important;
     gap: 0 !important;
     align-items: stretch !important;
@@ -127,11 +203,14 @@
     transform-origin: top left;
   }
   .game-table-root .game-info-row .game-info-left-col .first-move-badge-above-block {
+    margin-top: 8px !important;
     margin-bottom: 0 !important;
+    margin-left: 12px !important;
     border-radius: 8px 8px 0 0 !important;
   }
   .game-table-root .game-info-row .game-info-left-col .game-info-left-section {
     margin-top: 0 !important;
+    margin-left: 12px !important;
     width: 100% !important;
     max-width: 280px !important;
     box-sizing: border-box !important;
@@ -641,19 +720,33 @@
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):hover {
     background: rgba(255,255,255,0.06) !important;
   }
-  /* Бейдж «Карт»: только кол-во, без подписи — покрупнее */
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:nth-child(2) span:first-child {
+  /* Бейдж «Карт / заказ»: компактно, на мобильной без подписи «Карт» */
+  .game-table-root.viewport-mobile .game-header .game-info-deal-contract-panel .deal-contract-label {
     display: none !important;
   }
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:nth-child(2) {
-    padding: 4px 8px !important;
-    height: 28px !important;
+  .game-table-root.viewport-mobile .game-header .game-info-deal-contract-panel {
+    padding: 5px 8px !important;
     min-height: 28px !important;
+    max-width: 100% !important;
     gap: 0 !important;
-    border-radius: 5px !important;
+    border-radius: 6px !important;
   }
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:nth-child(2) span:last-child {
+  .game-table-root.viewport-mobile .game-header .game-info-deal-contract-panel .deal-contract-value {
     font-size: 12px !important;
+  }
+  .game-table-root.viewport-mobile .game-header .game-info-deal-contract-panel .deal-contract-line {
+    font-size: 11px !important;
+    letter-spacing: 0 !important;
+  }
+  .game-table-root.viewport-mobile .game-header .game-info-deal-contract-panel .deal-contract-line-mobile-split {
+    display: inline-flex !important;
+    align-items: baseline !important;
+    gap: 2px !important;
+    flex-wrap: nowrap !important;
+  }
+  .game-table-root.viewport-mobile .game-header .game-info-deal-contract-panel--in-mode {
+    padding: 4px 8px !important;
+    min-height: 26px !important;
   }
   .game-table-root.viewport-mobile .game-header > div:last-child > div:nth-child(3) {
     padding: 1px 4px !important;
