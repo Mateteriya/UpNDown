@@ -22,6 +22,7 @@ import { LobbyScreen } from './ui/LobbyScreen'
 const GameTable = lazy(() => import('./ui/GameTable'))
 
 const DEV_MODE_KEY = 'updown-devMode'
+const SUPPRESS_AUTO_OPEN_KEY = 'updown_suppress_auto_open'
 const DEFAULT_DISPLAY_NAME = 'Вы'
 
 function App() {
@@ -30,7 +31,7 @@ function App() {
   const online = useOnlineGame()
   // Не открывать стол по одному лишь sessionStorage: до applyRoomData roomId пустой —
   // GameTable успевал поднять офлайн-партию с ИИ и перекрывал лобби (fixed без z-index).
-  const [screen, setScreen] = useState<'menu' | 'game'>(() => 'menu')
+  const [screen, setScreen] = useState<'menu' | 'game' | 'training'>(() => 'menu')
   const didAutoOpenLobbyRef = useRef(false)
   const hadOnlineRoomRef = useRef(false)
   const [gameId, setGameId] = useState(1)
@@ -40,6 +41,7 @@ function App() {
   const [nameAvatarMode, setNameAvatarMode] = useState<'first-run' | 'profile' | 'new-account'>('profile')
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [showOfflineChoiceModal, setShowOfflineChoiceModal] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [screenLobby, setScreenLobby] = useState(() => {
@@ -205,6 +207,11 @@ function App() {
   const handleExit = useCallback(() => {
     if (loadOnlineSession()) online.leaveRoom()
     clearGameStateFromStorage()
+    try {
+      sessionStorage.setItem(SUPPRESS_AUTO_OPEN_KEY, '1')
+    } catch {
+      /* ignore */
+    }
     setScreen('menu')
   }, [online])
 
@@ -217,6 +224,11 @@ function App() {
 
   const handleResumeOnline = useCallback(async () => {
     setOnlineResumeMessage(null)
+    try {
+      sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
+    } catch {
+      /* ignore */
+    }
     if (authLoading) {
       setOnlineResumeMessage('Подождите, восстанавливается сессия входа…')
       return

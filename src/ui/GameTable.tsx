@@ -37,7 +37,6 @@ import { CardView } from './CardView';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel } from './PlayerInfoPanel';
 import type { Card } from '../game/types';
-import { rotateStateForPlayer } from '../game/rotateState';
 
 function getCompassLabel(idx: number): 'Юг' | 'Север' | 'Запад' | 'Восток' {
   switch (idx) {

@@ -20,7 +20,6 @@ import {
   createRoom as apiCreateRoom,
   joinRoom as apiJoinRoom,
   getRoom,
-  getRoomByCode,
   updateRoomState,
   updateRoomPlayerSlots,
   subscribeToRoom,
@@ -498,7 +497,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       const mySlot = (room.player_slots || []).find(s => s.deviceId === deviceIdRef.current || (s.userId && s.userId === user?.id));
       if (mySlot) {
         setRoomId(room.id);
-        setMySlotIndex(mySlot.slotIndex);
+        setMyServerIndex(mySlot.slotIndex);
         applyRoomData(room);
         setStatus(room.status === 'playing' ? 'playing' : 'waiting');
       } else {
