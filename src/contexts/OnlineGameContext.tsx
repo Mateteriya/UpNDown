@@ -20,6 +20,7 @@ import {
   createRoom as apiCreateRoom,
   joinRoom as apiJoinRoom,
   getRoom,
+  getRoomByCode,
   updateRoomState,
   updateRoomPlayerSlots,
   subscribeToRoom,
@@ -61,6 +62,8 @@ function getDeviceId(): string {
   }
 }
 
+// --- Управление Сессией (остается без изменений) ---
+const ONLINE_SESSION_KEY = 'updown_online_session';
 type OnlineStatus = 'idle' | 'waiting' | 'playing' | 'left';
 
 type PendingReclaimOffer = {
@@ -485,6 +488,30 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const [userLeftTemporarily, setUserLeftTemporarily] = useState(false);
   const [userOnPause, setUserOnPause] = useState(false);
 
+  useEffect(() => {
+    if (status !== 'idle') return;
+    (async () => {
+      const saved = loadOnlineSession();
+      if (!saved || saved.deviceId !== deviceIdRef.current) return;
+      const room = await getRoom(saved.roomId);
+      if (!room) { clearOnlineSession(); return; }
+      const mySlot = (room.player_slots || []).find(s => s.deviceId === deviceIdRef.current || (s.userId && s.userId === user?.id));
+      if (mySlot) {
+        setRoomId(room.id);
+        setMySlotIndex(mySlot.slotIndex);
+        applyRoomData(room);
+        setStatus(room.status === 'playing' ? 'playing' : 'waiting');
+      } else {
+        clearOnlineSession();
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  // --- Остальной код в основном без изменений, просто использует myServerIndex ---
+  // ... (leaveRoom, startGame, sendBid, sendPlay и т.д.)
+  // ... (Я включу его полностью для простоты копирования)
+  
   const leaveRoom = useCallback(async () => {
     const rid = roomId;
     if (unsubRef.current) {

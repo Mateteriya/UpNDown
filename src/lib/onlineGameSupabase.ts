@@ -10,6 +10,8 @@ import type { GameState } from '../game/GameEngine';
 export interface PlayerSlot {
   /** Отсутствует или null = слот ИИ */
   userId?: string | null;
+  /** Идентификатор устройства — используем для устойчивой идентификации слота на одном и том же девайсе */
+  deviceId?: string | null;
   displayName: string;
   slotIndex: number;
   /** Data URL аватарки игрока (синхронизируется при входе и смене фото) */
@@ -140,7 +142,7 @@ export async function createRoom(
   return { error: lastMessage };
 }
 
-/** Найти комнату по коду и присоединиться. Возвращает roomId и мой slotIndex или ошибку. */
+/** Найти комнату по коду и присоединиться через SQL-функцию (атомарно). */
 export async function joinRoom(
   code: string,
   userId: string,
@@ -342,6 +344,142 @@ export async function updateRoomState(
   const { data, error } = await supabase.from(TABLE).update(payload).eq('id', roomId).select('*').single();
   if (error) return { error: error.message };
   return { room: data as GameRoomRow };
+}
+
+export interface MatchPlayerInsert {
+  match_id: string;
+  slot_index: number;
+  user_id: string | null;
+  display_name: string;
+  is_ai: boolean;
+  final_score: number;
+  bid_accuracy: number | null;
+  interrupted: boolean;
+  is_rated: boolean;
+  replaced_user_id: string | null;
+  place: number | null;
+}
+
+export async function finishMatch(
+  roomId: string,
+  code: string,
+  snapshot: GameState,
+  playerSlots: PlayerSlot[]
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: 'Supabase не настроен' };
+  const players = snapshot.players;
+  const dealsCount = snapshot.dealNumber;
+  const bh = snapshot.dealHistory ?? [];
+  const calcAcc = (pi: number) => {
+    if (!bh.length) return null;
+    let met = 0;
+    for (const d of bh) {
+      const bid = d.bids[pi];
+      const pts = d.points[pi];
+      if (bid == null) continue;
+      const taken = Math.max(0, Math.round((pts + Math.abs(pts)) / 20));
+      if (bid === taken) met++;
+    }
+    return Math.round((met / bh.length) * 100);
+  };
+  const order = players.map((p, i) => ({ i, s: p.score })).sort((a, b) => b.s - a.s);
+  const placeByIndex: Record<number, number> = {};
+  let prevScore: number | null = null;
+  let prevPlace = 0;
+  order.forEach((row, idx) => {
+    const score = row.s;
+    const place = prevScore === null ? 1 : (score === prevScore ? prevPlace : idx + 1);
+    placeByIndex[row.i] = place;
+    prevScore = score;
+    prevPlace = place;
+  });
+  const payload = players.map((p, i) => {
+    const slot = playerSlots.find(s => s.slotIndex === i) as PlayerSlot | undefined;
+    const userId = slot?.userId ?? null;
+    const isAi = !userId;
+    const interrupted = !!slot?.replacedUserId;
+    const isRated = !interrupted;
+    const acc = calcAcc(i);
+    return {
+      slot_index: i,
+      user_id: userId,
+      display_name: slot?.displayName ?? p.name,
+      is_ai: isAi,
+      final_score: p.score,
+      bid_accuracy: acc,
+      interrupted,
+      is_rated: isRated,
+      replaced_user_id: slot?.replacedUserId ?? null,
+      place: placeByIndex[i] ?? null,
+    };
+  });
+  const rpc = await supabase.rpc('finish_game', {
+    p_room_id: roomId,
+    p_code: code,
+    p_deals_count: dealsCount,
+    p_players: payload,
+  } as any);
+  if (rpc.error) return { ok: false, error: rpc.error.message };
+  return { ok: true };
+}
+
+export interface MatchHistoryItem {
+  id: string;
+  code: string;
+  finished_at: string;
+  deals_count: number | null;
+  place: number | null;
+  final_score: number | null;
+  interrupted: boolean;
+  is_rated: boolean;
+}
+
+export async function getMyMatchHistory(userId: string, limit = 20): Promise<MatchHistoryItem[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('match_players')
+    .select('match_id:match_id, final_score, interrupted, is_rated, place:place, matches:matches!inner(id, code, finished_at, deals_count)')
+    .eq('user_id', userId)
+    .order('finished_at', { referencedTable: 'matches', ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return (data as any[]).map(row => ({
+    id: row.matches.id as string,
+    code: row.matches.code as string,
+    finished_at: row.matches.finished_at as string,
+    deals_count: row.matches.deals_count ?? null,
+    place: (row as any).place ?? null,
+    final_score: row.final_score ?? null,
+    interrupted: !!row.interrupted,
+    is_rated: !!row.is_rated,
+  }));
+}
+
+export interface RatingSummary {
+  games: number;
+  ratedGames: number;
+  wins: number;
+  points: number;
+}
+
+export async function getMyRatingSummary(userId: string): Promise<RatingSummary | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('match_players')
+    .select('final_score, interrupted, is_rated, place')
+    .eq('user_id', userId);
+  if (error || !data) return null;
+  let games = 0, rated = 0, wins = 0, pts = 0;
+  for (const r of data as any[]) {
+    games++;
+    if (r.is_rated) {
+      rated++;
+      if (r.place === 1) wins++;
+      if (r.place === 1) pts += 20;
+      else if (r.place === 2) pts += 5;
+    }
+  }
+  return { games, ratedGames: rated, wins, points: pts };
 }
 
 /** Подписаться на изменения строки комнаты. Возвращает функцию отписки. */

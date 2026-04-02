@@ -11,7 +11,9 @@ import { useTheme } from './contexts/ThemeContext'
 import { useOnlineGame } from './contexts/useOnlineGame'
 import { loadOnlineSession } from './lib/onlineSession'
 import MobileOverlapHint from './ui/MobileOverlapHint'
+import { HistoryModal } from './ui/HistoryModal'
 import { NameAvatarModal } from './ui/NameAvatarModal'
+import TrainingScreen from './ui/TrainingScreen'
 import { RatingModal } from './ui/RatingModal'
 import { AuthModal } from './ui/AuthModal'
 import { LobbyScreen } from './ui/LobbyScreen'
@@ -37,6 +39,7 @@ function App() {
   const [showNameAvatarModal, setShowNameAvatarModal] = useState(false)
   const [nameAvatarMode, setNameAvatarMode] = useState<'first-run' | 'profile' | 'new-account'>('profile')
   const [showRatingModal, setShowRatingModal] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [screenLobby, setScreenLobby] = useState(() => {
@@ -166,6 +169,10 @@ function App() {
   }
 
   const handleOfflineClick = () => {
+    if (hasSavedGame()) {
+      setShowOfflineChoiceModal(true)
+      return
+    }
     if (profile.displayName === DEFAULT_DISPLAY_NAME) {
       setNameAvatarMode('first-run')
       setShowNameAvatarModal(true)
@@ -201,7 +208,6 @@ function App() {
     setScreen('menu')
   }, [online])
 
-  const canResumeOffline = hasSavedGame()
   const canResumeOnline = loadOnlineSession() !== null
 
   const handleResumeOffline = useCallback(() => {
@@ -251,6 +257,31 @@ function App() {
     setGameId(id => id + 1)
   }
 
+  // Управление историей браузера: #menu ↔ #game и popstate
+  useEffect(() => {
+    const applyHash = () => {
+      const h = window.location.hash || '#menu'
+      if (h === '#menu') {
+        try { sessionStorage.setItem(SUPPRESS_AUTO_OPEN_KEY, '1') } catch { /* ignore */ }
+        setScreen('menu')
+      } else if (h === '#game') {
+        try { sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY) } catch { /* ignore */ }
+        setScreen('game')
+      }
+    }
+    window.addEventListener('popstate', applyHash)
+    return () => window.removeEventListener('popstate', applyHash)
+  }, [])
+  useEffect(() => {
+    const targetHash = screen === 'game' ? '#game' : '#menu'
+    if (window.location.hash !== targetHash) {
+      history.pushState({ screen }, '', targetHash)
+    }
+    if (screen === 'menu') {
+      try { sessionStorage.setItem(SUPPRESS_AUTO_OPEN_KEY, '1') } catch { /* ignore */ }
+    }
+  }, [screen])
+
   return (
     <>
       {screen === 'menu' && !screenLobby && (
@@ -298,15 +329,6 @@ function App() {
             Карточная игра на взятки
           </p>
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {canResumeOffline && (
-              <button
-                type="button"
-                style={{ ...buttonStyle, borderColor: 'rgba(34,211,238,0.6)', background: 'rgba(34,211,238,0.15)' }}
-                onClick={handleResumeOffline}
-              >
-                Продолжить офлайн-партию
-              </button>
-            )}
             {canResumeOnline && (
               <button
                 type="button"
@@ -323,6 +345,13 @@ function App() {
             )}
             <button style={buttonStyle} onClick={() => setScreenLobby(true)}>
               Онлайн
+            </button>
+            <button
+              type="button"
+              style={{ ...buttonStyle, background: 'transparent', borderColor: 'rgba(148,163,184,0.5)' }}
+              onClick={() => setShowHistoryModal(true)}
+            >
+              История
             </button>
             <button style={buttonStyle} onClick={handleOfflineClick}>
               Офлайн против ИИ
@@ -367,16 +396,136 @@ function App() {
             <button disabled style={buttonStyle}>
               Турниры (скоро)
             </button>
-            <button disabled style={buttonStyle}>
-              Обучение (скоро)
+            <button style={buttonStyle} onClick={() => setScreen('training')}>
+              Обучение
             </button>
           </nav>
         </main>
+      )}
+      {showOfflineChoiceModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: 20,
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowOfflineChoiceModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="offline-choice-title"
+        >
+          <div
+            style={{
+              background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+              borderRadius: 16,
+              border: '1px solid rgba(148, 163, 184, 0.35)',
+              boxShadow: '0 24px 48px rgba(0,0,0,0.4)',
+              width: '100%',
+              maxWidth: 360,
+              padding: 24,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="offline-choice-title" style={{ margin: '0 0 12px', fontSize: 18, fontWeight: 700, color: '#f1f5f9' }}>
+              Продолжить незаконченную партию?
+            </h2>
+            <p style={{ margin: '0 0 16px', fontSize: 14, color: '#94a3b8' }}>
+              Найдена сохранённая офлайн‑партия.
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowOfflineChoiceModal(false)}
+                style={{
+                  padding: '10px 16px',
+                  fontSize: 14,
+                  borderRadius: 8,
+                  border: '1px solid #475569',
+                  background: 'transparent',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOfflineChoiceModal(false)
+                  if (online.status !== 'idle') {
+                    online.leaveRoom().finally(() => setScreen('game'))
+                  } else {
+                    setScreen('game')
+                  }
+                }}
+                style={{
+                  padding: '10px 16px',
+                  fontSize: 14,
+                  borderRadius: 8,
+                  border: '1px solid rgba(34, 211, 238, 0.5)',
+                  background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
+                  color: '#f8fafc',
+                  cursor: 'pointer',
+                }}
+              >
+                Продолжить
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOfflineChoiceModal(false)
+                  clearGameStateFromStorage()
+                  if (profile.displayName === DEFAULT_DISPLAY_NAME) {
+                    setNameAvatarMode('first-run')
+                    setShowNameAvatarModal(true)
+                    import('./ui/GameTable')
+                  } else {
+                    const startNew = () => { setGameId(id => id + 1); setScreen('game') }
+                    if (online.status !== 'idle') online.leaveRoom().finally(startNew)
+                    else startNew()
+                  }
+                }}
+                style={{
+                  padding: '10px 16px',
+                  fontSize: 14,
+                  borderRadius: 8,
+                  border: '1px solid #334155',
+                  background: '#334155',
+                  color: '#f8fafc',
+                  cursor: 'pointer',
+                }}
+              >
+                Начать новую
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {screen === 'training' && (
+        <TrainingScreen onBack={() => setScreen('menu')} profile={profile} />
       )}
       {showRatingModal && (
         <RatingModal
           onClose={() => setShowRatingModal(false)}
           playerAvatarDataUrl={profile.avatarDataUrl}
+        />
+      )}
+      {showHistoryModal && (
+        <HistoryModal
+          onClose={() => setShowHistoryModal(false)}
+          onGoToOffline={() => {
+            setShowHistoryModal(false)
+            if (online.status !== 'idle') {
+              online.leaveRoom().finally(() => setScreen('game'))
+            } else {
+              setScreen('game')
+            }
+          }}
         />
       )}
       {showAuthModal && (

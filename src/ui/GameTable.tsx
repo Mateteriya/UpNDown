@@ -37,7 +37,17 @@ import { CardView } from './CardView';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel } from './PlayerInfoPanel';
 import type { Card } from '../game/types';
+import { rotateStateForPlayer } from '../game/rotateState';
 
+function getCompassLabel(idx: number): 'Юг' | 'Север' | 'Запад' | 'Восток' {
+  switch (idx) {
+    case 0: return 'Юг';
+    case 1: return 'Север';
+    case 2: return 'Запад';
+    case 3: return 'Восток';
+    default: return 'Юг';
+  }
+}
 interface GameTableProps {
   gameId: number;
   playerDisplayName?: string;
@@ -356,6 +366,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     return createGameOnline(names);
   }, [isWaitingInRoom, online.playerSlots]);
   const isOnline = !!(online.roomId && online.status === 'playing' && online.displayState);
+  const offlineMode = !isOnline && !isWaitingInRoom;
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
   const [localState, setLocalState] = useState<GameState | null>(null);
@@ -1578,9 +1589,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         <>
           <div className="game-mobile-top-row" style={{ ...gameInfoTopRowStyle, justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
             <div className="game-info-left-col" style={gameInfoLeftColumnStyle}>
-              {(state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') && (
+              {!isWaitingInRoom && (state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') && (
                 <div className="game-info-left-section" style={gameInfoLeftSectionStyle}>
-                  {state.phase === 'playing' && (
+            {!isWaitingInRoom && state.phase === 'playing' && (
                     <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
                       <span style={gameInfoLabelStyle}>Сейчас ход</span>
                       <span style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{displayState.players[state.currentPlayerIndex].name}</span>
@@ -1988,6 +1999,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
                   ...(isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? yourTurnPromptStyle : {}),
                 }}
+                title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
               >
                 {isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding)
                   ? (state.phase === 'playing' ? 'Ваш ход!' : 'Ваш заказ!')
@@ -2077,7 +2089,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                     <span className="game-info-value-name" style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{displayState.players[state.currentPlayerIndex].name}</span>
                   </div>
                 )}
-                {(state.phase === 'bidding' || state.phase === 'dark-bidding') && (
+                {!isWaitingInRoom && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
                   <div style={{ ...gameInfoBadgeStyle, ...gameInfoBiddingBadgeStyle }}>
                     <span style={gameInfoLabelStyle}>Заказывает</span>
                     <span className="game-info-value-name" style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
@@ -3256,6 +3268,7 @@ function OpponentSlot({
   firstBidderBadge,
   firstMoverBiddingHighlight,
   isMobile,
+  hideDealerBadge,
   avatarDataUrl,
   replacedByAi,
   onAvatarClick,
@@ -3275,6 +3288,8 @@ function OpponentSlot({
   firstMoverBiddingHighlight?: boolean;
   /** Только мобильная версия: при ходе ИИ не показывать бейдж «Ходит», выделять имя зелёной неоновой рамкой */
   isMobile?: boolean;
+  /** Скрыть бейдж «Сдающий» (в режиме ожидания) */
+  hideDealerBadge?: boolean;
   /** Фото игрока (Data URL), только для человеческого игрока */
   avatarDataUrl?: string | null;
   /** Слот заменён на ИИ (игрок вышел/пауза) — показываем имя ушедшего и метку «ИИ» */
@@ -3327,7 +3342,7 @@ function OpponentSlot({
         ...(firstMoverBiddingHighlight ? { boxShadow: [(frameStyle?.boxShadow ?? opponentSlotStyle.boxShadow), firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', ') } : {}),
       }}
     >
-      {isDealer && (
+      {isDealer && !hideDealerBadge && (
         isMobile && state.phase === 'playing' && onDealerBadgeClick ? (
           <button type="button" className={['opponent-badge', 'dealer-badge', 'dealer-badge-compact-mobile'].join(' ')} style={{ ...dealerLampExternalStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={onDealerBadgeClick} title="Сдающий" aria-label="Сдающий">
             <span style={dealerLampBulbStyle} />
@@ -3381,10 +3396,10 @@ function OpponentSlot({
             title="Информация об игроке"
             aria-label={`Информация об игроке ${p.name}`}
           >
-            <PlayerAvatar name={p.name} avatarDataUrl={avatarDataUrl} sizePx={avatarSizePx} title={p.name} />
+            <PlayerAvatar name={p.name} avatarDataUrl={avatarDataUrl} sizePx={avatarSizePx} title={`${p.name} — ${getCompassLabel(index)}`} />
           </button>
         ) : (
-          <PlayerAvatar name={p.name} avatarDataUrl={avatarDataUrl} sizePx={avatarSizePx} title={p.name} />
+          <PlayerAvatar name={p.name} avatarDataUrl={avatarDataUrl} sizePx={avatarSizePx} title={`${p.name} — ${getCompassLabel(index)}`} />
         )}
         <span
           className={eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : undefined}
@@ -3396,6 +3411,7 @@ function OpponentSlot({
               ? { overflow: 'visible', whiteSpace: 'normal' as const, wordBreak: 'break-word' as const, overflowWrap: 'break-word' as const }
               : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
           }}
+          title={`${p.name} — ${getCompassLabel(index)}`}
         >
           {p.name}
           {replacedByAi && (
