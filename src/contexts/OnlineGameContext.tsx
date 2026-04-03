@@ -217,7 +217,27 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       const rowTimestampNewer =
         Number.isFinite(ts) && ts > lastSeenRoomUpdatedAtMsRef.current;
       const serverState = room.game_state ?? null;
-      const isNewer = isServerStateNewerOrEqual(serverState, canonicalStateRef.current);
+      const local = canonicalStateRef.current;
+      const isNewer = isServerStateNewerOrEqual(serverState, local);
+
+      const bidNonNull = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
+
+      // Заказы с другого устройства: эвристика isServerStateNewerOrEqual иногда даёт false (отпечаток рук и т.д.),
+      // а ветка !isNewer раньше вообще не подмешивала game_state — второй клиент «не видел» заказы. Тянем полную строку, если на сервере заказы однозначно не отстают.
+      if (
+        (room.status === 'playing' || room.status === 'finished') &&
+        serverState &&
+        local &&
+        JSON.stringify(serverState.bids) !== JSON.stringify(local.bids)
+      ) {
+        const nS = bidNonNull(serverState.bids);
+        const nL = bidNonNull(local.bids);
+        if (nS > nL || (rowTimestampNewer && nS === nL)) {
+          applyRoomData(room);
+          return;
+        }
+      }
+
       // Строка в БД уже новее по времени — доверяем присланному game_state (иначе отпечаток рук/эвристика отсекали чужие ходы → только refresh помогал).
       if (rowTimestampNewer && (room.status === 'playing' || room.status === 'finished')) {
         applyRoomData(room);

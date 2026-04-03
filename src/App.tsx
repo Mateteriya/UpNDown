@@ -25,13 +25,22 @@ const DEV_MODE_KEY = 'updown-devMode'
 const SUPPRESS_AUTO_OPEN_KEY = 'updown_suppress_auto_open'
 const DEFAULT_DISPLAY_NAME = 'Вы'
 
+function readInitialScreen(): 'menu' | 'game' | 'training' {
+  if (typeof window === 'undefined') return 'menu'
+  const h = (window.location.hash || '#menu').trim().toLowerCase()
+  if (h === '#game') return 'game'
+  if (h === '#training') return 'training'
+  return 'menu'
+}
+
 function App() {
   const { user, signOut, configured, loading: authLoading } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const online = useOnlineGame()
   // Не открывать стол по одному лишь sessionStorage: до applyRoomData roomId пустой —
   // GameTable успевал поднять офлайн-партию с ИИ и перекрывал лобби (fixed без z-index).
-  const [screen, setScreen] = useState<'menu' | 'game' | 'training'>(() => 'menu')
+  // После F5 с #game не затирать хеш в меню: начальный экран совпадает с location.hash.
+  const [screen, setScreen] = useState<'menu' | 'game' | 'training'>(() => readInitialScreen())
   const didAutoOpenLobbyRef = useRef(false)
   const hadOnlineRoomRef = useRef(false)
   const [gameId, setGameId] = useState(1)
@@ -272,20 +281,23 @@ function App() {
   // Управление историей браузера: #menu ↔ #game и popstate
   useEffect(() => {
     const applyHash = () => {
-      const h = window.location.hash || '#menu'
+      const h = (window.location.hash || '#menu').trim().toLowerCase()
       if (h === '#menu') {
         try { sessionStorage.setItem(SUPPRESS_AUTO_OPEN_KEY, '1') } catch { /* ignore */ }
         setScreen('menu')
       } else if (h === '#game') {
         try { sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY) } catch { /* ignore */ }
         setScreen('game')
+      } else if (h === '#training') {
+        setScreen('training')
       }
     }
     window.addEventListener('popstate', applyHash)
     return () => window.removeEventListener('popstate', applyHash)
   }, [])
   useEffect(() => {
-    const targetHash = screen === 'game' ? '#game' : '#menu'
+    const targetHash =
+      screen === 'game' ? '#game' : screen === 'training' ? '#training' : '#menu'
     if (window.location.hash !== targetHash) {
       history.pushState({ screen }, '', targetHash)
     }
