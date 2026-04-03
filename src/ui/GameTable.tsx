@@ -442,6 +442,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [showDealerTooltip, setShowDealerTooltip] = useState(false);
   const [showFirstMoveTooltip, setShowFirstMoveTooltip] = useState(false);
   const [showDealContractHelp, setShowDealContractHelp] = useState(false);
+  /** Мобильная бескозырка/тёмная: одна кнопка, чередование «режим» ↔ «карт/заказ». */
+  const [mobileSpecialDealBadgeFace, setMobileSpecialDealBadgeFace] = useState(0);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
   const [showYourTurnPrompt, setShowYourTurnPrompt] = useState(false);
   const yourTurnPromptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const yourTurnPromptIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -469,6 +474,26 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     const t = setTimeout(() => setShowDealContractHelp(false), 5500);
     return () => clearTimeout(t);
   }, [showDealContractHelp]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = () => setPrefersReducedMotion(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  useEffect(() => {
+    setMobileSpecialDealBadgeFace(0);
+  }, [state?.dealNumber]);
+
+  useEffect(() => {
+    if (!isMobile || prefersReducedMotion || !state) return;
+    const k = getDealType(state.dealNumber);
+    if (k !== 'no-trump' && k !== 'dark') return;
+    const id = window.setInterval(() => setMobileSpecialDealBadgeFace((f) => 1 - f), 3200);
+    return () => window.clearInterval(id);
+  }, [isMobile, prefersReducedMotion, state?.dealNumber]);
   /** После первого появления кнопка «Результаты» больше не скрывается до конца партии */
   const dealResultsButtonEverShownRef = useRef(false);
   /** Номер раздачи, для которой уже запущена анимация результатов (один раз на раздачу, без повторов при опросе). */
@@ -1212,7 +1237,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                     lineHeight: 1.35,
                   }}
                 >
-                  Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}
+                  Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}/{dealContractStats.tricksInDeal}
                 </div>
               ) : null}
               {displayState.players.map((p, i) => (
@@ -1221,7 +1246,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 </div>
               ))}
               <div style={{ marginTop: 10, fontSize: 12, opacity: 0.88, lineHeight: 1.45 }}>
-                Сумма заказов — {dealContractStats.totalOrders}, взято взяток — {dealContractStats.totalTricks}. Сумма заказов может не совпадать с числом взяток — это нормально.
+                Сумма заказов — {dealContractStats.totalOrders}, сыграно взяток — {dealContractStats.totalTricks} из {dealContractStats.tricksInDeal}. Сумма заказов может не совпадать с числом взяток — это нормально.
                 {getDealType(state.dealNumber) !== 'no-trump' && getDealType(state.dealNumber) !== 'dark' ? (
                   <> Карт у каждого: {dealContractStats.tricksInDeal} ({dealContractStats.cardsWord}).</>
                 ) : null}
@@ -1455,56 +1480,73 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             </div>
           )}
           {(getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark') ? (
-            <div
-              className="game-info-mode-panel"
-              style={{
-                ...gameInfoModePanelStyle,
-                ...(!isMobile
-                  ? {
-                      flexDirection: dealContractStats.allBidsPlaced ? 'column' : 'row',
-                      alignItems: dealContractStats.allBidsPlaced ? 'stretch' : 'center',
-                      gap: dealContractStats.allBidsPlaced ? 8 : 6,
-                      padding: dealContractStats.allBidsPlaced ? '8px 12px' : '6px 12px',
-                    }
-                  : {
+            isMobile ? (
+              <button
+                type="button"
+                className="game-info-deal-contract-panel game-info-cards-panel"
+                style={gameInfoDealContractPanelStyle}
+                onClick={() => setShowDealContractHelp(true)}
+                title={
+                  dealContractStats.allBidsPlaced
+                    ? `Режим: ${getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}. Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности`
+                    : `Режим: ${getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}. В раздаче ${dealContractStats.tricksInDeal} ${dealContractStats.cardsWord} у каждого. Нажмите — подробности`
+                }
+                aria-label={
+                  dealContractStats.allBidsPlaced
+                    ? `Режим ${getDealType(state.dealNumber) === 'no-trump' ? 'бескозырка' : 'тёмная'}. Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
+                    : `Режим ${getDealType(state.dealNumber) === 'no-trump' ? 'бескозырка' : 'тёмная'}. В раздаче ${dealContractStats.tricksInDeal} ${dealContractStats.cardsWord} у каждого. Показать по игрокам`
+                }
+              >
+                {prefersReducedMotion ? (
+                  <span
+                    style={{
+                      display: 'flex',
                       flexDirection: 'column',
-                      alignItems: 'stretch',
-                      gap: 8,
-                    }),
-              }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <span
-                  style={{
-                    ...gameInfoLabelStyle,
-                    ...(!isMobile ? { marginBottom: 0, fontSize: 11, lineHeight: 1 } : {}),
-                  }}
-                >
-                  Режим
-                </span>
-                <span
-                  style={{
-                    ...gameInfoValueStyle,
-                    ...(!isMobile ? { fontSize: 14, lineHeight: 1 } : {}),
-                  }}
-                >
-                  {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
-                </span>
-              </div>
-              {dealContractStats.allBidsPlaced ? (
-                <button
-                  type="button"
-                  className="game-info-deal-contract-panel game-info-deal-contract-panel--in-mode"
-                  style={{ ...gameInfoDealContractPanelStyle, padding: '5px 10px', minHeight: 30 }}
-                  onClick={() => setShowDealContractHelp(true)}
-                  title={
-                    isMobile
-                      ? `Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}. Нажмите — подробности по игрокам`
-                      : 'Подробности по игрокам'
-                  }
-                  aria-label={`Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks}. Показать по игрокам`}
-                >
-                  {isMobile ? (
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 2,
+                      width: '100%',
+                      minHeight: 28,
+                    }}
+                  >
+                    <span className="deal-contract-line deal-contract-mobile-mode-alternate" style={dealContractMobileModeAlternateLineStyle}>
+                      {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
+                    </span>
+                    {dealContractStats.allBidsPlaced ? (
+                      <span
+                        className="deal-contract-line deal-contract-line-mobile-split"
+                        style={dealContractLineMobileSplitOuterStyle}
+                      >
+                        <span className="deal-contract-mobile-order" style={dealContractMobileOrderStyle}>
+                          З: {dealContractStats.totalOrders}
+                        </span>
+                        <span className="deal-contract-mobile-sep" style={dealContractMobileSepStyle} aria-hidden="true">
+                          ;{' '}
+                        </span>
+                        <span className="deal-contract-mobile-tricks" style={dealContractMobileTricksStyle}>
+                          В: {dealContractStats.totalTricks}/{dealContractStats.tricksInDeal}
+                        </span>
+                      </span>
+                    ) : (
+                      <>
+                        <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
+                          Карт
+                        </span>
+                        <span className="deal-contract-value" style={dealContractCardsValueStyle}>
+                          {dealContractStats.tricksInDeal} {dealContractStats.cardsWord}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                ) : mobileSpecialDealBadgeFace === 0 ? (
+                  <span
+                    className="deal-contract-line deal-contract-mobile-mode-alternate"
+                    style={{ ...dealContractMobileAlternateSlotStyle, ...dealContractMobileModeAlternateLineStyle }}
+                  >
+                    {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
+                  </span>
+                ) : dealContractStats.allBidsPlaced ? (
+                  <span style={dealContractMobileAlternateSlotStyle}>
                     <span
                       className="deal-contract-line deal-contract-line-mobile-split"
                       style={dealContractLineMobileSplitOuterStyle}
@@ -1516,17 +1558,71 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                         ;{' '}
                       </span>
                       <span className="deal-contract-mobile-tricks" style={dealContractMobileTricksStyle}>
-                        В: {dealContractStats.totalTricks}
+                        В: {dealContractStats.totalTricks}/{dealContractStats.tricksInDeal}
                       </span>
                     </span>
-                  ) : (
+                  </span>
+                ) : (
+                  <span style={dealContractMobileAlternateSlotStyle}>
+                    <>
+                      <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
+                        Карт
+                      </span>
+                      <span className="deal-contract-value" style={dealContractCardsValueStyle}>
+                        {dealContractStats.tricksInDeal} {dealContractStats.cardsWord}
+                      </span>
+                    </>
+                  </span>
+                )}
+              </button>
+            ) : (
+              <div
+                className="game-info-mode-panel"
+                style={{
+                  ...gameInfoModePanelStyle,
+                  flexDirection: dealContractStats.allBidsPlaced ? 'column' : 'row',
+                  alignItems: dealContractStats.allBidsPlaced ? 'stretch' : 'center',
+                  gap: dealContractStats.allBidsPlaced ? 8 : 6,
+                  padding: dealContractStats.allBidsPlaced ? '8px 12px' : '6px 12px',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <span
+                    style={{
+                      ...gameInfoLabelStyle,
+                      marginBottom: 0,
+                      fontSize: 11,
+                      lineHeight: 1,
+                    }}
+                  >
+                    Режим
+                  </span>
+                  <span
+                    style={{
+                      ...gameInfoValueStyle,
+                      fontSize: 14,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
+                  </span>
+                </div>
+                {dealContractStats.allBidsPlaced ? (
+                  <button
+                    type="button"
+                    className="game-info-deal-contract-panel game-info-deal-contract-panel--in-mode"
+                    style={{ ...gameInfoDealContractPanelStyle, padding: '5px 10px', minHeight: 30 }}
+                    onClick={() => setShowDealContractHelp(true)}
+                    title="Подробности по игрокам"
+                    aria-label={`Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`}
+                  >
                     <span className="deal-contract-line" style={dealContractLineTextStyle}>
-                      Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}
+                      Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}/{dealContractStats.tricksInDeal}
                     </span>
-                  )}
-                </button>
-              ) : null}
-            </div>
+                  </button>
+                ) : null}
+              </div>
+            )
           ) : (
             <button
               type="button"
@@ -1536,13 +1632,13 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               title={
                 dealContractStats.allBidsPlaced
                   ? isMobile
-                    ? `Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}. Нажмите — подробности по игрокам`
+                    ? `Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности по игрокам`
                     : 'Подробности по игрокам'
                   : 'Сколько карт в раздаче'
               }
               aria-label={
                 dealContractStats.allBidsPlaced
-                  ? `Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks}. Показать по игрокам`
+                  ? `Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
                   : `В раздаче ${dealContractStats.tricksInDeal} ${dealContractStats.cardsWord} у каждого`
               }
             >
@@ -1559,12 +1655,12 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       ;{' '}
                     </span>
                     <span className="deal-contract-mobile-tricks" style={dealContractMobileTricksStyle}>
-                      В: {dealContractStats.totalTricks}
+                      В: {dealContractStats.totalTricks}/{dealContractStats.tricksInDeal}
                     </span>
                   </span>
                 ) : (
                   <span className="deal-contract-line" style={dealContractLineTextStyle}>
-                    Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}
+                    Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}/{dealContractStats.tricksInDeal}
                   </span>
                 )
               ) : (
@@ -3842,7 +3938,22 @@ const dealContractLineTextStyle: React.CSSProperties = {
   lineHeight: 1.25,
 };
 
-/** Мобильная строка «З: N; В: M» — контейнер (размер задаётся в index.css .deal-contract-line) */
+/** Один слот высоты при чередовании «режим» / «заказ» на мобильной (бескозырка, тёмная). */
+const dealContractMobileAlternateSlotStyle: React.CSSProperties = {
+  minHeight: 18,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '100%',
+};
+
+const dealContractMobileModeAlternateLineStyle: React.CSSProperties = {
+  fontWeight: 700,
+  fontVariantNumeric: 'tabular-nums',
+  lineHeight: 1.25,
+};
+
+/** Мобильная строка «З: N; В: M/T» (M — сыграно взяток, T — всего в раздаче); размер — index.css .deal-contract-line */
 const dealContractLineMobileSplitOuterStyle: React.CSSProperties = {
   display: 'inline-flex',
   flexDirection: 'row',
