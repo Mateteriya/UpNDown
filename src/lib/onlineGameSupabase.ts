@@ -67,6 +67,51 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** Задержка между повторами REST при обрывах (ERR_CONNECTION_RESET, Failed to fetch). */
+function roomRetryDelayMs(attempt: number): number {
+  return Math.min(2400, 120 + attempt * 200 + Math.floor(Math.random() * 140));
+}
+
+function isRetryableNetworkMessage(msg: string): boolean {
+  const m = msg.toLowerCase();
+  return (
+    m.includes('failed to fetch') ||
+    m.includes('load failed') ||
+    m.includes('networkerror') ||
+    m.includes('err_connection_reset') ||
+    m.includes('connection reset') ||
+    m.includes('econnreset') ||
+    (m.includes('network') && m.includes('error')) ||
+    m.includes('fetch') && m.includes('fail') ||
+    m.includes('timeout') ||
+    m.includes('aborted') ||
+    m.includes('bad gateway') ||
+    m.includes('service unavailable')
+  );
+}
+
+function isRetryableReadFailure(
+  error: { message?: string; code?: string; details?: string } | null,
+  hasData: boolean
+): boolean {
+  if (hasData) return false;
+  if (!error) return true;
+  const c = error.code ?? '';
+  if (c === 'PGRST116') return false;
+  if (c === '42501' || c === 'PGRST301') return false;
+  return isRetryableNetworkMessage(error.message ?? '') || isRetryableNetworkMessage(String(error.details ?? ''));
+}
+
+function isRetryableWriteFailure(error: { message?: string; code?: string; details?: string } | null): boolean {
+  if (!error) return true;
+  const c = error.code ?? '';
+  if (c === '42501' || c === 'PGRST301' || c === '23505' || c === 'PGRST116') return false;
+  return isRetryableNetworkMessage(error.message ?? '') || isRetryableNetworkMessage(String(error.details ?? ''));
+}
+
+const ROOM_READ_MAX_ATTEMPTS = 4;
+const ROOM_WRITE_MAX_ATTEMPTS = 5;
+
 /** Один REST-запрос лобби: не использовать глобальные 55 с — иначе N попыток join дают минуты «тишины». */
 const LOBBY_REQUEST_MS = 14_000;
 const JOIN_WALL_CLOCK_MS = 36_000;
@@ -313,16 +358,22 @@ export async function joinRoom(
   };
 }
 
-/** Получить текущее состояние комнаты. */
+/** Получить текущее состояние комнаты (с повторами при обрыве TLS/сети — иначе опрос и ИИ-хост «зависают» без game_state). */
 export async function getRoom(roomId: string): Promise<GameRoomRow | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select('*')
-    .eq('id', roomId)
-    .single();
-  if (error || !data) return null;
-  return data as GameRoomRow;
+  for (let attempt = 0; attempt < ROOM_READ_MAX_ATTEMPTS; attempt++) {
+    try {
+      const { data, error } = await supabase.from(TABLE).select('*').eq('id', roomId).single();
+      if (data && !error) return data as GameRoomRow;
+      if (error?.code === 'PGRST116') return null;
+      if (!isRetryableReadFailure(error, !!data) || attempt === ROOM_READ_MAX_ATTEMPTS - 1) return null;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!isRetryableNetworkMessage(msg) || attempt === ROOM_READ_MAX_ATTEMPTS - 1) return null;
+    }
+    await sleep(roomRetryDelayMs(attempt));
+  }
+  return null;
 }
 
 /** Обновить только слоты в комнате (для синхронизации имён в лобби). Не трогает game_state и status. */
@@ -341,9 +392,30 @@ export async function updateRoomState(
   if (!supabase) return { error: 'Supabase не настроен' };
   const payload: Record<string, unknown> = { game_state: gameState, status: 'playing' };
   if (playerSlots) payload.player_slots = playerSlots;
-  const { data, error } = await supabase.from(TABLE).update(payload).eq('id', roomId).select('*').single();
-  if (error) return { error: error.message };
-  return { room: data as GameRoomRow };
+  let lastMessage = 'Не удалось сохранить состояние. Проверьте связь.';
+  for (let attempt = 0; attempt < ROOM_WRITE_MAX_ATTEMPTS; attempt++) {
+    try {
+      const { data, error } = await supabase.from(TABLE).update(payload).eq('id', roomId).select('*').single();
+      if (data && !error) return { room: data as GameRoomRow };
+      if (error) {
+        lastMessage = error.message || lastMessage;
+        if (!isRetryableWriteFailure(error)) return { error: lastMessage };
+        if (attempt === ROOM_WRITE_MAX_ATTEMPTS - 1) return { error: lastMessage };
+      } else if (attempt === ROOM_WRITE_MAX_ATTEMPTS - 1) {
+        return { error: lastMessage };
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      lastMessage = isRetryableNetworkMessage(msg)
+        ? 'Нет связи с сервером (обрыв соединения). Повторите или проверьте сеть.'
+        : msg;
+      if (!isRetryableNetworkMessage(msg) || attempt === ROOM_WRITE_MAX_ATTEMPTS - 1) {
+        return { error: lastMessage };
+      }
+    }
+    await sleep(roomRetryDelayMs(attempt));
+  }
+  return { error: lastMessage };
 }
 
 export interface MatchPlayerInsert {
