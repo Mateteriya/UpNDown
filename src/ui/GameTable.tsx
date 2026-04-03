@@ -3192,6 +3192,7 @@ function TrickSlotsDisplay({
   collectingCards,
   compactMode,
   eastMobileTricks,
+  opponentMobileHideOrderLabel,
 }: {
   bid: number | null;
   tricksTaken: number;
@@ -3201,16 +3202,28 @@ function TrickSlotsDisplay({
   compactMode?: boolean;
   /** Только мобильная панель ИИ-Восток: панелька взяток +17%, подпись «Заказ N» вертикально */
   eastMobileTricks?: boolean;
+  /** Только мобильная + оппоненты: без слова «Заказ», только кружочки (у игрока подпись остаётся). */
+  opponentMobileHideOrderLabel?: boolean;
 }) {
   const isCompact = variant === 'opponent';
+  const hideOppOrderWord = Boolean(compactMode && variant === 'opponent' && opponentMobileHideOrderLabel);
   const slotSize = isCompact ? { w: 44, h: 62 } : { w: 52, h: 76 };
 
   if (bid === null) {
     const nullWrap = compactMode ? { ...trickCirclesWrapStyle, border: '1px solid rgba(71, 85, 105, 0.5)', background: 'rgba(30, 41, 59, 0.8)', boxShadow: 'none' } : trickSlotsWrapStyle;
     const nullCls = [collectingCards ? 'trick-slots-collecting' : 'trick-slots-normal', eastMobileTricks ? 'trick-slots-east-mobile' : ''].filter(Boolean).join(' ');
     return (
-      <div style={nullWrap} className={nullCls}>
-        <span className={eastMobileTricks ? 'trick-slots-label-east-mobile' : undefined} style={trickSlotsLabelStyle}>Заказ</span>
+      <div
+        style={nullWrap}
+        className={nullCls}
+        role="status"
+        aria-label={hideOppOrderWord ? 'Заказ ещё не сделан' : undefined}
+      >
+        {!hideOppOrderWord && (
+          <span className={eastMobileTricks ? 'trick-slots-label-east-mobile' : undefined} style={trickSlotsLabelStyle}>
+            Заказ
+          </span>
+        )}
         <span style={trickSlotsValueStyle}>—</span>
       </div>
     );
@@ -3252,17 +3265,24 @@ function TrickSlotsDisplay({
         : trickCirclesRowStyle;
     const wrapCls = [hideCards ? 'trick-slots-collecting' : 'trick-slots-normal', eastMobileTricks ? 'trick-slots-east-mobile' : ''].filter(Boolean).join(' ');
     return (
-      <div style={wrapStyle} className={wrapCls}>
-        <span
-          className={eastMobileTricks ? 'trick-slots-label-east-mobile' : undefined}
-          style={{
-            ...trickSlotsLabelStyle,
-            ...(scaleDown < 1 ? { fontSize: Math.max(8, Math.round(9 * scaleDown)) } : {}),
-            ...(opponentScaleDown < 1 && !eastMobileTricks ? { fontSize: Math.max(8, Math.round(9 * opponentScaleDown)) } : {}),
-          }}
-        >
-          Заказ {bid}
-        </span>
+      <div
+        style={wrapStyle}
+        className={wrapCls}
+        role="status"
+        aria-label={hideOppOrderWord ? `Заказ ${bid}, взято взяток ${tricksTaken}` : undefined}
+      >
+        {!hideOppOrderWord && (
+          <span
+            className={eastMobileTricks ? 'trick-slots-label-east-mobile' : undefined}
+            style={{
+              ...trickSlotsLabelStyle,
+              ...(scaleDown < 1 ? { fontSize: Math.max(8, Math.round(9 * scaleDown)) } : {}),
+              ...(opponentScaleDown < 1 && !eastMobileTricks ? { fontSize: Math.max(8, Math.round(9 * opponentScaleDown)) } : {}),
+            }}
+          >
+            Заказ {bid}
+          </span>
+        )}
         <div style={rowStyle}>
           {Array.from({ length: orderedSlots }, (_, i) => {
             const filled = i < Math.min(totalFilled, bid) && !hideCards;
@@ -3522,7 +3542,16 @@ function OpponentSlot({
         ...(position === 'top' && inline ? { flexWrap: 'nowrap' as const } : {}),
         ...(position === 'left' && inline ? { flexDirection: 'row-reverse' as const } : {}),
       }}>
-        <TrickSlotsDisplay bid={displayBid} tricksTaken={p.tricksTaken} variant="opponent" horizontalOnly={position === 'top' && inline} collectingCards={collectingCards} compactMode={compactMode} eastMobileTricks={position === 'right' && !!isMobile && displayBid !== null && displayBid > 0} />
+        <TrickSlotsDisplay
+          bid={displayBid}
+          tricksTaken={p.tricksTaken}
+          variant="opponent"
+          horizontalOnly={position === 'top' && inline}
+          collectingCards={collectingCards}
+          compactMode={compactMode}
+          eastMobileTricks={position === 'right' && !!isMobile && displayBid !== null && displayBid > 0}
+          opponentMobileHideOrderLabel={!!isMobile}
+        />
         <div className="opponent-score-badge" style={opponentStatBadgeScoreStyle}>
           <span style={opponentStatLabelStyle}>Очки</span>
           <span style={opponentStatValueStyle}>{p.score}</span>

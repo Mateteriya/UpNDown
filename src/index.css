@@ -1058,7 +1058,7 @@
     height: 8px !important;
     animation: dealer-badge-lamp-pulse 1.8s ease-in-out infinite !important;
   }
-  /* Панелька взяток ИИ-Восток на мобильной: +17% размер, подпись «Заказ N» вертикально, кружочки в один вертикальный ряд */
+  /* Панелька взяток Восток на мобильной: +17% размер; при заказе — кружочки в один вертикальный ряд (подпись «Заказ» у оппонентов скрыта в разметке) */
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .trick-slots-east-mobile {
     transform: scale(1.17) !important;
     transform-origin: center center !important;
