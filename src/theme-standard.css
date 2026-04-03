@@ -39,6 +39,8 @@
 .theme-standard .game-table-root.viewport-mobile .game-info-mode-panel span,
 .theme-standard .game-table-root.viewport-mobile .game-info-cards-panel,
 .theme-standard .game-table-root.viewport-mobile .game-info-cards-panel span,
+.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel,
+.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel span,
 .theme-standard .game-table-root.viewport-mobile .deal-number-badge,
 .theme-standard .game-table-root.viewport-mobile .deal-number-badge span,
 .theme-standard .game-table-root.viewport-mobile .opponent-score-badge,
@@ -74,6 +76,34 @@
   background-clip: unset !important;
   -webkit-background-clip: unset !important;
 }
+
+/* Кнопка-бейдж заказа: вернуть фон и рамку (общее правило выше их сбрасывает) */
+.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel {
+  opacity: 1 !important;
+  background: linear-gradient(145deg, rgba(13, 148, 136, 0.42) 0%, rgba(30, 58, 138, 0.92) 52%, rgba(30, 64, 175, 0.88) 100%) !important;
+  border: 1px solid rgba(56, 189, 248, 0.55) !important;
+  box-shadow:
+    0 0 18px rgba(34, 211, 238, 0.22),
+    0 2px 12px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+/* «З: N» / «В: M» — разные цвета (общий селектор span перекрашивает всё в один голубой) */
+.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel .deal-contract-mobile-order {
+  color: #fbbf24 !important;
+  -webkit-text-fill-color: #fbbf24 !important;
+  text-shadow: none !important;
+}
+.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel .deal-contract-mobile-tricks {
+  color: #22d3ee !important;
+  -webkit-text-fill-color: #22d3ee !important;
+  text-shadow: none !important;
+}
+.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel .deal-contract-mobile-sep {
+  color: rgba(224, 242, 254, 0.4) !important;
+  -webkit-text-fill-color: rgba(224, 242, 254, 0.4) !important;
+}
+
 /* Кружочки «Сдающий» и «Первый заказ/ход» */
 .theme-standard .game-table-root.viewport-mobile .dealer-badge > span:first-child,
 .theme-standard .game-table-root.viewport-mobile .dealer-badge-compact-mobile > span:first-child {

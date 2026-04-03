@@ -1,11 +1,12 @@
 /**
  * ИИ для Up&Down
- * Базовый уровень: Новичок
+ * Базовый уровень: Новичок. Поддержка персонального профиля (обучение на стиле игрока).
  */
 
 import type { Card, Suit } from './types';
 import { getValidPlays } from './GameEngine';
 import type { GameState } from './GameEngine';
+import { suggestPersonalBid } from './personalAi';
 
 const RANK_ORDER: Record<string, number> = {
   '6': 0, '7': 1, '8': 2, '9': 3, '10': 4,
@@ -18,8 +19,11 @@ function cardStrength(card: Card, trump: Suit | null): number {
   return s;
 }
 
-/** Выбор заказа: простая эвристика по количеству козырей и старших карт */
-export function aiBid(state: GameState, playerIndex: number): number {
+/** Выбор заказа: эвристика по руке; при наличии profileId — учёт персонального профиля (обучение на стиле и успешности игрока). */
+export function aiBid(state: GameState, playerIndex: number, profileId?: string | null): number {
+  const personal = suggestPersonalBid(state, playerIndex, profileId ?? null);
+  if (personal !== null) return personal;
+
   const { players, trump, tricksInDeal, bids, dealerIndex } = state;
   const hand = players[playerIndex].hand;
 
@@ -33,14 +37,12 @@ export function aiBid(state: GameState, playerIndex: number): number {
     preferred = Math.min(tricksInDeal, Math.max(0, Math.floor(count / 3)));
   }
 
-  // Ответственность сдающего: сумма заказов ≠ tricksInDeal
   if (playerIndex === dealerIndex) {
     const othersSum = bids
       .map((b, i) => (i !== dealerIndex && b !== null ? b : 0))
       .reduce((a, b) => a + b, 0);
     const forbidden = tricksInDeal - othersSum;
     if (forbidden >= 0 && forbidden <= tricksInDeal && preferred === forbidden) {
-      // Выбираем ближайший допустимый заказ
       const alt = forbidden === 0 ? 1 : forbidden === tricksInDeal ? tricksInDeal - 1 : forbidden - 1;
       return Math.max(0, Math.min(tricksInDeal, alt));
     }

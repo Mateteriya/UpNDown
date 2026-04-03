@@ -3,12 +3,14 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useOnlineGame } from '../contexts/OnlineGameContext';
+import { useOnlineGame } from '../contexts/useOnlineGame';
 
 export interface LobbyScreenProps {
   onBack: () => void;
   playerName: string;
   onGoToGame?: () => void;
+  /** Код комнаты из URL (?code=XXX) — подставляется в поле «Присоединиться» */
+  initialJoinCode?: string;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -43,22 +45,23 @@ const buttonSecondary: React.CSSProperties = {
   color: '#94a3b8',
 };
 
-export function LobbyScreen({ onBack, playerName, onGoToGame }: LobbyScreenProps) {
+export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }: LobbyScreenProps) {
   const { user } = useAuth();
   const {
     status,
     code,
     roomId,
-    mySlotIndex,
+    myServerIndex,
     playerSlots,
     error,
     createRoom,
     joinRoom,
     leaveRoom,
     clearError,
+    syncMySlotDisplayName,
   } = useOnlineGame();
 
-  const [joinCode, setJoinCode] = useState('');
+  const [joinCode, setJoinCode] = useState(initialJoinCode ?? '');
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -71,8 +74,19 @@ export function LobbyScreen({ onBack, playerName, onGoToGame }: LobbyScreenProps
     if (status === 'playing' && onGoToGame) onGoToGame();
   }, [status, onGoToGame]);
 
-  const isHost = mySlotIndex === 0;
+  const isHost = myServerIndex === 0;
   const inRoom = status === 'waiting' && roomId;
+
+  const hostSyncedRef = useRef(false);
+  useEffect(() => {
+    if (!inRoom || !isHost || !playerName.trim() || !syncMySlotDisplayName) return;
+    if (hostSyncedRef.current) return;
+    hostSyncedRef.current = true;
+    syncMySlotDisplayName(playerName);
+  }, [inRoom, isHost, playerName, syncMySlotDisplayName]);
+  useEffect(() => {
+    if (!inRoom) hostSyncedRef.current = false;
+  }, [inRoom]);
 
   useEffect(() => {
     if (!inRoom || playerSlots.length >= prevSlotsRef.current.length) {
@@ -96,27 +110,54 @@ export function LobbyScreen({ onBack, playerName, onGoToGame }: LobbyScreenProps
     : undefined;
 
   const handleCreateRoom = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setJoinError('Войдите в аккаунт, чтобы создать комнату.');
+      return;
+    }
+    const name = playerName.trim();
+    if (!name) {
+      setJoinError('Укажите имя в профиле перед созданием комнаты.');
+      return;
+    }
     clearError();
+    setJoinError(null);
     setCreating(true);
-    // Изменений в вызове здесь нет, т.к. deviceId получается внутри контекста
-    await createRoom(user.id, playerName, shortLabel);
-    setCreating(false);
+    try {
+      await leaveRoom();
+      const r = await createRoom(user.id, name, shortLabel);
+      if (!r.ok) setJoinError(r.error ?? 'Не удалось создать комнату.');
+    } catch (e) {
+      setJoinError(e instanceof Error ? e.message : 'Ошибка при создании комнаты.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const [joinError, setJoinError] = useState<string | null>(null);
 
   const handleJoinRoom = async () => {
-    if (!user?.id) return;
+    const code = joinCode.trim();
+    if (!code) {
+      setJoinError('Введите код комнаты.');
+      return;
+    }
+    if (!user?.id) {
+      setJoinError('Войдите в аккаунт, чтобы присоединиться к комнате.');
+      return;
+    }
     clearError();
     setJoinError(null);
     setJoining(true);
     try {
-      // Изменений в вызове здесь нет
-      const ok = await joinRoom(joinCode.trim(), user.id, playerName, shortLabel);
-      if (!ok) setJoinError(error || 'Не удалось присоединиться. Проверьте код и подключение.');
+      // Выйти из любой восстановленной/старой комнаты и очистить сессию, чтобы не попасть в предыдущую игру
+      await leaveRoom();
+      const r = await joinRoom(code, user.id, playerName, shortLabel);
+      if (!r.ok) setJoinError(r.error ?? 'Не удалось присоединиться. Проверьте код и подключение.');
+      else if (onGoToGame && typeof window !== 'undefined' && window.innerWidth <= 1024) {
+        onGoToGame();
+      }
     } catch (e) {
-      setJoinError(e instanceof Error ? e.message : 'Ошибка соединения. Проверьте интернет.');
+      setJoinError(e instanceof Error ? e.message : String(e) || 'Ошибка соединения. Проверьте интернет.');
     } finally {
       setJoining(false);
     }
@@ -161,7 +202,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame }: LobbyScreenProps
     //--- Начало неизмененной части ---
   if (!user) {
     return (
-      <div style={{ position: 'fixed', inset: 0, background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 24, }} >
+      <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 24, }} >
         <h1 style={{ margin: 0, fontSize: '1.75rem', color: '#f1f5f9' }}>Онлайн-лобби</h1>
         <p style={{ margin: 0, fontSize: 14, color: '#94a3b8', textAlign: 'center', maxWidth: 320 }}>
           Войдите в аккаунт, чтобы создавать комнаты и играть онлайн.
@@ -176,7 +217,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame }: LobbyScreenProps
   if (inRoom) {
     return (
       <>
-        <div style={{ position: 'fixed', inset: 0, background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 20, }} >
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 20, }} >
           <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#f1f5f9' }}>Комната</h1>
           <p style={{ margin: '0 0 12px', fontSize: 14, color: '#94a3b8' }}>
             Вы в комнате. Дождитесь игроков или поделитесь кодом.
@@ -209,7 +250,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame }: LobbyScreenProps
                 <li key={s.slotIndex}>
                   {s.displayName}
                   {s.shortLabel ? ` (${s.shortLabel})` : ''}
-                  {i === mySlotIndex && ' (вы)'}
+                  {i === myServerIndex && ' (вы)'}
                   {isHost && i === 0 && ' — хост'}
                 </li>
               ))}
@@ -255,7 +296,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame }: LobbyScreenProps
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 24, }} >
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 24, }} >
       <h1 style={{ margin: 0, fontSize: '1.75rem', color: '#f1f5f9' }}>Онлайн-лобби</h1>
       <p style={{ margin: 0, fontSize: 14, color: '#94a3b8', textAlign: 'center', maxWidth: 320 }}>
         Вы: <strong style={{ color: '#e2e8f0' }}>{playerName}</strong>
@@ -271,10 +312,15 @@ export function LobbyScreen({ onBack, playerName, onGoToGame }: LobbyScreenProps
         </button>
         <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 280, flexWrap: 'wrap' }}>
           <input type="text" placeholder="Код комнаты" value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setJoinError(null); }} maxLength={CODE_LENGTH} style={inputStyle} aria-label="Код комнаты" />
-          <button type="button" disabled={joining || !joinCode.trim()} onClick={handleJoinRoom} style={{ ...buttonPrimary, flex: 1, minWidth: 120 }} >
+          <button type="button" disabled={joining} onClick={handleJoinRoom} style={{ ...buttonPrimary, flex: 1, minWidth: 120 }} >
             {joining ? 'Вход…' : 'Присоединиться'}
           </button>
         </div>
+        {(joining || creating) && (
+          <p style={{ margin: 0, fontSize: 12, color: '#64748b', textAlign: 'center', maxWidth: 300, lineHeight: 1.4 }}>
+            Связь с сервером обычно до ~30 с. Если долго — проверьте сеть; при разработке избегайте частых сохранений файлов (Vite перезагружает страницу).
+          </p>
+        )}
       </div>
       <button type="button" onClick={onBack} style={buttonSecondary}>
         ← Назад в меню

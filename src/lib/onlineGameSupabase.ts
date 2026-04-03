@@ -14,12 +14,18 @@ export interface PlayerSlot {
   deviceId?: string | null;
   displayName: string;
   slotIndex: number;
+  /** Data URL аватарки игрока (синхронизируется при входе и смене фото) */
+  avatarDataUrl?: string | null;
   /** Короткая метка (например часть email), чтобы различать игроков с одинаковым именем */
   shortLabel?: string | null;
-  /** Если слот заменён на ИИ из-за отключения — id пользователя, который может вернуться */
+  /** Если слот заменён на ИИ вручную через «Взять паузу» — id пользователя, который может вернуться */
   replacedUserId?: string | null;
-  /** Имя заменённого игрока (для возврата в слот) */
+  /** Имя игрока, ушедшего на ручную паузу (для возврата в слот) */
   replacedDisplayName?: string | null;
+  /** Слот переведён в ИИ именно вручную через «Взять паузу». */
+  pausedByUser?: boolean | null;
+  /** Время возврата слота игроку (ISO). */
+  reclaimed_at?: string | null;
 }
 
 export interface GameRoomRow {
@@ -39,6 +45,12 @@ const CODE_LENGTH = 6;
 const DISCONNECT_THRESHOLD_MS = 60_000;
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+/** Огромный data URL аватара раздувает INSERT/UPDATE и на мобильной сети даёт таймауты. */
+function capAvatarDataUrl(url: string | null | undefined, maxLen = 24_000): string | null | undefined {
+  if (url == null || url === '') return url;
+  return url.length <= maxLen ? url : undefined;
+}
+
 function generateCode(): string {
   let s = '';
   for (let i = 0; i < CODE_LENGTH; i++) {
@@ -47,87 +59,258 @@ function generateCode(): string {
   return s;
 }
 
-export async function markRoomFinished(roomId: string): Promise<{ error?: string }> {
-  if (!supabase) return { error: 'Supabase не настроен' };
-  const { error } = await supabase.from(TABLE).update({ status: 'finished' }).eq('id', roomId);
-  return error ? { error: error.message } : {};
+function joinBackoffMs(attempt: number): number {
+  return Math.min(400, 40 + attempt * 22 + Math.floor(Math.random() * 50));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Один REST-запрос лобби: не использовать глобальные 55 с — иначе N попыток join дают минуты «тишины». */
+const LOBBY_REQUEST_MS = 14_000;
+const JOIN_WALL_CLOCK_MS = 36_000;
+
+/** Без AbortSignal.timeout (старые WebView / Safari) — иначе create/join падают ещё до fetch. */
+function lobbyAbort(): AbortSignal {
+  if (typeof AbortSignal !== 'undefined' && typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function') {
+    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(LOBBY_REQUEST_MS);
+  }
+  const c = new AbortController();
+  setTimeout(() => c.abort(), LOBBY_REQUEST_MS);
+  return c.signal;
+}
+
+function isAbortLike(err: { message?: string; name?: string; code?: string } | null | undefined): boolean {
+  if (!err) return false;
+  if (err.name === 'AbortError') return true;
+  const m = (err.message ?? '').toLowerCase();
+  return m.includes('abort') || m.includes('signal') || m.includes('timeout');
 }
 
 /** Создать комнату. Возвращает roomId и code или ошибку. */
 export async function createRoom(
   hostUserId: string,
-  deviceId: string,
   hostDisplayName: string,
-  hostShortLabel?: string
-): Promise<{ roomId: string; code: string } | { error: string }> {
+  hostShortLabel?: string,
+  hostAvatarDataUrl?: string | null
+): Promise<{ room: GameRoomRow } | { error: string }> {
   if (!supabase) return { error: 'Supabase не настроен' };
 
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const code = generateCode();
-    const playerSlots: PlayerSlot[] = [
-      {
-        userId: hostUserId,
-        deviceId,
-        displayName: hostDisplayName.slice(0, 17),
-        slotIndex: 0,
-        ...(hostShortLabel != null && hostShortLabel !== ''
-          ? { shortLabel: hostShortLabel.slice(0, 12) }
-          : {}),
-      },
-    ];
+  const avatar = capAvatarDataUrl(hostAvatarDataUrl ?? undefined);
 
-    const { data, error } = await supabase
-      .from(TABLE)
-      .insert({
-        code,
-        host_user_id: hostUserId,
-        status: 'waiting',
-        game_state: null,
-        player_slots: playerSlots,
-      })
-      .select('id, code')
-      .single();
+  let lastMessage = 'Не удалось создать комнату';
+  for (let round = 0; round < 3; round++) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = generateCode();
+      const playerSlots: PlayerSlot[] = [
+        {
+          userId: hostUserId,
+          displayName: hostDisplayName.slice(0, 17),
+          slotIndex: 0,
+          ...(hostShortLabel != null && hostShortLabel !== ''
+            ? { shortLabel: hostShortLabel.slice(0, 12) }
+            : {}),
+          ...(avatar != null && avatar !== '' ? { avatarDataUrl: avatar } : {}),
+        },
+      ];
 
-    if (error) {
-      // 23505 — unique violation, пробуем сгенерировать другой код
-      if ((error as any).code === '23505') continue;
-      return { error: error.message };
+      // INSERT один на запрос — не обрезаем 14 с: на слабой сети иначе «не создаётся комната»;
+      // глобальный fetch в supabase.ts (~55 с) всё равно ограничивает висящие запросы.
+      const { data, error } = await supabase
+        .from(TABLE)
+        .insert({
+          code,
+          host_user_id: hostUserId,
+          status: 'waiting',
+          game_state: null,
+          player_slots: playerSlots,
+        })
+        .select('*')
+        .single();
+
+      if (error) {
+        if ((error as { code?: string }).code === '23505') continue;
+        lastMessage = error.message;
+        break;
+      }
+      if (data) return { room: data as GameRoomRow };
     }
-    if (data) return { roomId: data.id, code: data.code };
+    if (round < 2) await sleep(150 + round * 100);
   }
 
-  return { error: 'Не удалось создать уникальный код комнаты' };
+  return { error: lastMessage };
 }
 
 /** Найти комнату по коду и присоединиться через SQL-функцию (атомарно). */
 export async function joinRoom(
   code: string,
   userId: string,
-  deviceId: string,
   displayName: string,
-  shortLabel?: string
-): Promise<{ roomId: string; mySlotIndex: number } | { error: string }> {
+  shortLabel?: string,
+  avatarDataUrl?: string | null
+): Promise<{ roomId: string; mySlotIndex: number; room: GameRoomRow } | { error: string }> {
   if (!supabase) return { error: 'Supabase не настроен' };
+
   const normalizedCode = code.trim().toUpperCase();
   if (!normalizedCode) return { error: 'Введите код комнаты' };
 
-  const rpc = await supabase.rpc('join_game_room', {
-    p_code: normalizedCode,
-    p_user_id: userId,
-    p_device_id: deviceId,
-    p_display_name: displayName.slice(0, 17),
-    p_short_label: shortLabel ?? '',
-  });
-  if (rpc.error) {
-    return { error: rpc.error.message };
+  const av = capAvatarDataUrl(avatarDataUrl ?? undefined);
+
+  const MAX_ATTEMPTS = 16;
+  const joinStarted = Date.now();
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    if (Date.now() - joinStarted > JOIN_WALL_CLOCK_MS) {
+      return {
+        error:
+          'Время ожидания входа истекло. Проверьте интернет и нажмите «Присоединиться» ещё раз.',
+      };
+    }
+
+    const { data: fullRow, error: fetchError } = await supabase
+      .from(TABLE)
+      .select('*')
+      .eq('code', normalizedCode)
+      .abortSignal(lobbyAbort())
+      .single();
+
+    if (fetchError) {
+      if (isAbortLike(fetchError)) {
+        await sleep(joinBackoffMs(attempt));
+        continue;
+      }
+      if ((fetchError as { code?: string }).code === 'PGRST116') return { error: 'Комната не найдена' };
+      return { error: fetchError.message };
+    }
+    if (!fullRow) return { error: 'Комната не найдена' };
+    const row = fullRow as GameRoomRow;
+    const slots = (row.player_slots as PlayerSlot[]) || [];
+    const stamp = row.updated_at;
+
+    if (row.status === 'finished') {
+      return { error: 'Комната уже завершена' };
+    }
+
+    // Игра уже идёт: возврат с ручной паузы, повторный вход тем же аккаунтом или место ИИ (свободный слот)
+    if (row.status === 'playing') {
+      const reclaimSlot = slots.find((s) => s.replacedUserId === userId);
+      if (reclaimSlot != null) {
+        const newSlots = slots.map((s) =>
+          s.slotIndex === reclaimSlot.slotIndex
+            ? {
+                ...s,
+                userId,
+                displayName: displayName.slice(0, 17),
+                slotIndex: s.slotIndex,
+                replacedUserId: undefined,
+                replacedDisplayName: undefined,
+                pausedByUser: undefined,
+                ...(shortLabel != null && shortLabel !== '' ? { shortLabel: shortLabel.slice(0, 12) } : {}),
+                ...(av != null && av !== '' ? { avatarDataUrl: av } : {}),
+              }
+            : s
+        );
+        const { data: updated, error: updateError } = await supabase
+          .from(TABLE)
+          .update({ player_slots: newSlots })
+          .eq('id', row.id)
+          .eq('updated_at', stamp)
+          .select('*')
+          .abortSignal(lobbyAbort())
+          .maybeSingle();
+        if (updateError || !updated) {
+          await sleep(joinBackoffMs(attempt));
+          continue;
+        }
+        return { roomId: row.id, mySlotIndex: reclaimSlot.slotIndex, room: updated as GameRoomRow };
+      }
+
+      const already = slots.find((s) => s.userId != null && s.userId === userId);
+      if (already) {
+        return { roomId: row.id, mySlotIndex: already.slotIndex, room: row };
+      }
+
+      const free = slots.find((s) => s.userId == null && (s.replacedUserId == null || s.replacedUserId === undefined));
+      if (!free) {
+        return {
+          error:
+            'Игра уже идёт и все четыре места заняты. Дождитесь окончания раздачи или создайте новую комнату.',
+        };
+      }
+
+      const newSlots = slots.map((s) =>
+        s.slotIndex === free.slotIndex
+          ? {
+              ...s,
+              userId,
+              displayName: displayName.slice(0, 17),
+              slotIndex: s.slotIndex,
+              replacedUserId: undefined,
+              replacedDisplayName: undefined,
+              pausedByUser: undefined,
+              ...(shortLabel != null && shortLabel !== '' ? { shortLabel: shortLabel.slice(0, 12) } : {}),
+              ...(av != null && av !== '' ? { avatarDataUrl: av } : {}),
+            }
+          : s
+      );
+      const { data: updated, error: updateError } = await supabase
+        .from(TABLE)
+        .update({ player_slots: newSlots })
+        .eq('id', row.id)
+        .eq('updated_at', stamp)
+        .select('*')
+        .abortSignal(lobbyAbort())
+        .maybeSingle();
+      if (updateError || !updated) {
+        await sleep(joinBackoffMs(attempt));
+        continue;
+      }
+      return { roomId: row.id, mySlotIndex: free.slotIndex, room: updated as GameRoomRow };
+    }
+
+    // Лобби (waiting): идемпотентный вход + оптимистичная блокировка по updated_at (не теряем игроков при одновременном join)
+    const alreadyWaiting = slots.find((s) => s.userId != null && s.userId === userId);
+    if (alreadyWaiting) {
+      return { roomId: row.id, mySlotIndex: alreadyWaiting.slotIndex, room: row };
+    }
+    if (slots.length >= 4) return { error: 'Комната заполнена' };
+
+    const mySlotIndex = slots.length;
+    const newSlots: PlayerSlot[] = [
+      ...slots,
+      {
+        userId,
+        displayName: displayName.slice(0, 17),
+        slotIndex: mySlotIndex,
+        ...(shortLabel != null && shortLabel !== '' ? { shortLabel: shortLabel.slice(0, 12) } : {}),
+        ...(av != null && av !== '' ? { avatarDataUrl: av } : {}),
+      },
+    ];
+
+    const { data: updated, error: updateError } = await supabase
+      .from(TABLE)
+      .update({ player_slots: newSlots })
+      .eq('id', row.id)
+      .eq('updated_at', stamp)
+      .select('*')
+      .abortSignal(lobbyAbort())
+      .maybeSingle();
+
+    if (updateError || !updated) {
+      await sleep(joinBackoffMs(attempt));
+      continue;
+    }
+    const finalSlots = (updated.player_slots as PlayerSlot[]) || [];
+    const me = finalSlots.find((s) => s.userId === userId);
+    const idx = me?.slotIndex ?? mySlotIndex;
+    return { roomId: row.id, mySlotIndex: idx, room: updated as GameRoomRow };
   }
-  const payload = rpc.data as any;
-  if (!payload || typeof payload !== 'object') return { error: 'Некорректный ответ сервера' };
-  if (payload.error) return { error: String(payload.error) };
-  const roomId = String(payload.room_id ?? '');
-  const mySlotIndex = Number(payload.my_slot_index ?? NaN);
-  if (!roomId || Number.isNaN(mySlotIndex)) return { error: 'Некорректные данные комнаты' };
-  return { roomId, mySlotIndex };
+
+  return {
+    error:
+      'Не удалось войти из‑за одновременных запросов. Нажмите «Присоединиться» ещё раз.',
+  };
 }
 
 /** Получить текущее состояние комнаты. */
@@ -142,29 +325,25 @@ export async function getRoom(roomId: string): Promise<GameRoomRow | null> {
   return data as GameRoomRow;
 }
 
-/** Получить комнату по коду */
-export async function getRoomByCode(code: string): Promise<GameRoomRow | null> {
-  if (!supabase) return null;
-  const normalized = code.trim().toUpperCase();
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select('*')
-    .eq('code', normalized)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data as GameRoomRow;
+/** Обновить только слоты в комнате (для синхронизации имён в лобби). Не трогает game_state и status. */
+export async function updateRoomPlayerSlots(roomId: string, playerSlots: PlayerSlot[]): Promise<{ error?: string }> {
+  if (!supabase) return { error: 'Supabase не настроен' };
+  const { error } = await supabase.from(TABLE).update({ player_slots: playerSlots }).eq('id', roomId);
+  return error ? { error: error.message } : {};
 }
-/** Обновить состояние игры в комнате. */
+
+/** Обновить состояние игры в комнате. Возвращает актуальную строку — чтобы сразу выровнять updated_at и не затирать ходы устаревшим Realtime. */
 export async function updateRoomState(
   roomId: string,
   gameState: GameState,
   playerSlots?: PlayerSlot[]
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; room?: GameRoomRow }> {
   if (!supabase) return { error: 'Supabase не настроен' };
   const payload: Record<string, unknown> = { game_state: gameState, status: 'playing' };
   if (playerSlots) payload.player_slots = playerSlots;
-  const { error } = await supabase.from(TABLE).update(payload).eq('id', roomId);
-  return error ? { error: error.message } : {};
+  const { data, error } = await supabase.from(TABLE).update(payload).eq('id', roomId).select('*').single();
+  if (error) return { error: error.message };
+  return { room: data as GameRoomRow };
 }
 
 export interface MatchPlayerInsert {
@@ -306,7 +485,8 @@ export async function getMyRatingSummary(userId: string): Promise<RatingSummary 
 /** Подписаться на изменения строки комнаты. Возвращает функцию отписки. */
 export function subscribeToRoom(
   roomId: string,
-  onUpdate: (row: GameRoomRow) => void
+  onUpdate: (row: GameRoomRow) => void,
+  onSubscribeStatus?: (status: string) => void
 ): () => void {
   const client = supabase;
   if (!client) return () => {};
@@ -321,21 +501,81 @@ export function subscribeToRoom(
         if (row) onUpdate(row);
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      onSubscribeStatus?.(status);
+    });
 
   return () => {
     client.removeChannel(channel);
   };
 }
 
+/** Взять паузу: игрок сам вручную передаёт свой слот ИИ (слот сохраняет replacedUserId для возврата). */
+export async function takePauseInRoom(
+  roomId: string,
+  userId: string,
+  displayName: string,
+  shortLabel?: string
+): Promise<{ error?: string }> {
+  if (!supabase) return { error: 'Supabase не настроен' };
+  const room = await getRoom(roomId);
+  if (!room) return { error: 'Комната не найдена' };
+  const slots = (room.player_slots as PlayerSlot[]) || [];
+  const idx = slots.findIndex((s) => s.userId === userId);
+  if (idx === -1) return { error: 'Вы не в этой комнате' };
+  const slot = slots[idx];
+  const newSlots = slots.map((s, i) =>
+    i === idx
+      ? {
+          ...s,
+          replacedUserId: s.userId,
+          replacedDisplayName: s.displayName ?? displayName.slice(0, 17),
+          pausedByUser: true,
+          userId: null,
+          /* Имя не меняем — в UI показываем метку «ИИ» */
+          ...(shortLabel != null && shortLabel !== '' ? { shortLabel: undefined } : {}),
+        }
+      : s
+  );
+  const { error } = await supabase.from(TABLE).update({ player_slots: newSlots }).eq('id', roomId);
+  return error ? { error: error.message } : {};
+}
+
+/** Вернуть слот игроку после ручной паузы. Только для слотов с replacedUserId. */
+export async function returnSlotToPlayer(roomId: string, slotIndex: number): Promise<{ error?: string }> {
+  if (!supabase) return { error: 'Supabase не настроен' };
+  const room = await getRoom(roomId);
+  if (!room) return { error: 'Комната не найдена' };
+  const slots = (room.player_slots as PlayerSlot[]) || [];
+  const slot = slots[slotIndex];
+  if (!slot || slot.replacedUserId == null) return { error: 'Слот не для возврата' };
+  const newSlots = slots.map((s, i) =>
+    i === slotIndex
+      ? {
+          ...s,
+          userId: s.replacedUserId,
+          displayName: s.replacedDisplayName ?? s.displayName,
+          replacedUserId: undefined,
+          replacedDisplayName: undefined,
+          pausedByUser: undefined,
+          reclaimed_at: new Date().toISOString(),
+        }
+      : s
+  );
+  const { error } = await supabase.from(TABLE).update({ player_slots: newSlots }).eq('id', roomId);
+  return error ? { error: error.message } : {};
+}
+
 /** Выйти из комнаты (удалить себя из player_slots). Если хост вышел — комната остаётся. */
-export async function leaveRoom(roomId: string, deviceId: string): Promise<{ error?: string }> {
+export async function leaveRoom(roomId: string, userId: string): Promise<{ error?: string }> {
   if (!supabase) return { error: 'Supabase не настроен' };
   const room = await getRoom(roomId);
   if (!room) return {};
 
   const slots = (room.player_slots as PlayerSlot[]) || [];
-  const newSlots = slots.filter((s) => s.deviceId != null && s.deviceId !== deviceId);
+  const newSlots = slots
+    .filter((s) => s.userId != null && s.userId !== userId)
+    .map((s, i) => ({ ...s, slotIndex: i }));
   if (newSlots.length === slots.length) return {};
 
   const { error } = await supabase
@@ -347,7 +587,7 @@ export async function leaveRoom(roomId: string, deviceId: string): Promise<{ err
 
 /** Отметить присутствие в комнате (вызывать периодически при игре). */
 export async function heartbeatPresence(roomId: string, userId: string): Promise<void> {
-  if (!supabase) return;
+  if (!supabase || !roomId || !userId) return;
   const now = new Date().toISOString();
   await supabase.from(PRESENCE_TABLE).upsert(
     { room_id: roomId, user_id: userId, last_seen: now },

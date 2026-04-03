@@ -1,107 +1,77 @@
 /**
- * Ротация GameState для отображения: игрок с индексом mySlotIndex становится «я» (индекс 0).
- * Используется в онлайн-режиме: на сервере состояние в «каноническом» виде (слот 0 = хост и т.д.),
- * у каждого клиента свой mySlotIndex; для отрисовки вращаем состояние так, чтобы «я» всегда внизу.
- *
- * В UI индекс 0 всегда отображается в позиции «Юг» (нижняя панель), независимо от того,
- * каким по счёту игрок присоединился к комнате — место пользователя всегда строго внизу (ИИ-Юг).
+ * Ротация GameState для онлайн: «вид из моего места».
+ * Порядок на экране: 0=я (внизу), 1=напротив, 2=слева от меня, 3=справа от меня.
+ * Геометрия стола как в GameEngine: Юг(0) внизу, Север(1) вверху, Запад(2) слева, Восток(3) справа;
+ * следующий слева: 0→2→1→3→0 (NEXT_PLAYER_LEFT).
  */
 
 import type { GameState } from './GameEngine';
 
-const NEXT_LEFT = [2, 3, 1, 0] as const;
+// Геометрия стола (как в GameEngine): противоположные пары Юг–Север, Запад–Восток
+const OPPOSITE = [1, 0, 3, 2] as const;
+// Следующий по левую руку: Юг→Запад→Север→Восток→Юг
+const NEXT_PLAYER_LEFT = [2, 3, 1, 0] as const;
+// Сосед справа (у кого я слева)
+const NEXT_PLAYER_RIGHT = [3, 2, 0, 1] as const;
 
-function canonToDisplayMap(mySlot: number): number[] {
-  const m = new Array(4);
-  m[mySlot] = 0;
-  const l1 = NEXT_LEFT[mySlot];
-  m[l1] = 2;
-  const l2 = NEXT_LEFT[l1];
-  m[l2] = 1;
-  const l3 = NEXT_LEFT[l2];
-  m[l3] = 3;
-  return m;
+/** Порядок слотов для отображения: [я, напротив, слева, справа] */
+function displayOrder(mySlot: number): [number, number, number, number] {
+  return [
+    mySlot,
+    OPPOSITE[mySlot],
+    NEXT_PLAYER_LEFT[mySlot],
+    NEXT_PLAYER_RIGHT[mySlot],
+  ];
 }
 
-function displayToCanonMap(mySlot: number): number[] {
-  const m = canonToDisplayMap(mySlot);
-  const inv = new Array(4);
-  for (let i = 0; i < 4; i++) inv[m[i]] = i;
-  return inv;
+/** Индекс в canonical по display-индексу (для unrotate и подстановки имён из слотов). */
+export function getCanonicalIndexForDisplay(displayIdx: number, myServerIndex: number): number {
+  return displayOrder(myServerIndex)[displayIdx];
+}
+function canonicalIndex(displayIdx: number, mySlot: number): number {
+  return displayOrder(mySlot)[displayIdx];
 }
 
-export function rotateStateForPlayer(state: GameState, mySlotIndex: number): GameState {
-  if (mySlotIndex === 0) return state;
-  const m = canonToDisplayMap(mySlotIndex);
-  const inv = displayToCanonMap(mySlotIndex);
+export function rotateStateForPlayer(state: GameState, myServerIndex: number): GameState {
+  if (myServerIndex === 0) return state;
+  const [d0, d1, d2, d3] = displayOrder(myServerIndex);
+  const toDisplay = (canonicalIdx: number): number => {
+    if (canonicalIdx === d0) return 0;
+    if (canonicalIdx === d1) return 1;
+    if (canonicalIdx === d2) return 2;
+    return 3;
+  };
   return {
     ...state,
-    players: [
-      state.players[inv[0]],
-      state.players[inv[1]],
-      state.players[inv[2]],
-      state.players[inv[3]],
-    ],
-    bids: [
-      state.bids[inv[0]],
-      state.bids[inv[1]],
-      state.bids[inv[2]],
-      state.bids[inv[3]],
-    ],
-    dealerIndex: m[state.dealerIndex],
-    currentPlayerIndex: m[state.currentPlayerIndex],
-    trickLeaderIndex: m[state.trickLeaderIndex],
+    players: [state.players[d0], state.players[d1], state.players[d2], state.players[d3]],
+    bids: [state.bids[d0], state.bids[d1], state.bids[d2], state.bids[d3]],
+    dealerIndex: toDisplay(state.dealerIndex),
+    currentPlayerIndex: toDisplay(state.currentPlayerIndex),
+    trickLeaderIndex: toDisplay(state.trickLeaderIndex),
     lastCompletedTrick: state.lastCompletedTrick
-      ? {
-          ...state.lastCompletedTrick,
-          winnerIndex: m[state.lastCompletedTrick.winnerIndex],
-          leaderIndex: m[state.lastCompletedTrick.leaderIndex],
-        }
+      ? { ...state.lastCompletedTrick, winnerIndex: toDisplay(state.lastCompletedTrick.winnerIndex), leaderIndex: toDisplay(state.lastCompletedTrick.leaderIndex) }
       : null,
     pendingTrickCompletion: state.pendingTrickCompletion
-      ? {
-          ...state.pendingTrickCompletion,
-          winnerIndex: m[state.pendingTrickCompletion.winnerIndex],
-          leaderIndex: m[state.pendingTrickCompletion.leaderIndex],
-        }
+      ? { ...state.pendingTrickCompletion, winnerIndex: toDisplay(state.pendingTrickCompletion.winnerIndex), leaderIndex: toDisplay(state.pendingTrickCompletion.leaderIndex) }
       : null,
   };
 }
 
-export function unrotateStateToCanonical(state: GameState, mySlotIndex: number): GameState {
-  if (mySlotIndex === 0) return state;
-  const m = canonToDisplayMap(mySlotIndex);
-  const inv = displayToCanonMap(mySlotIndex);
+export function unrotateStateToCanonical(state: GameState, myServerIndex: number): GameState {
+  if (myServerIndex === 0) return state;
+  const toCanonical = (displayIdx: number) => canonicalIndex(displayIdx, myServerIndex);
   return {
     ...state,
-    players: [
-      state.players[m[0]],
-      state.players[m[1]],
-      state.players[m[2]],
-      state.players[m[3]],
-    ],
-    bids: [
-      state.bids[m[0]],
-      state.bids[m[1]],
-      state.bids[m[2]],
-      state.bids[m[3]],
-    ],
-    dealerIndex: inv[state.dealerIndex],
-    currentPlayerIndex: inv[state.currentPlayerIndex],
-    trickLeaderIndex: inv[state.trickLeaderIndex],
+    players: [state.players[toCanonical(0)], state.players[toCanonical(1)], state.players[toCanonical(2)], state.players[toCanonical(3)]],
+    bids: [state.bids[toCanonical(0)], state.bids[toCanonical(1)], state.bids[toCanonical(2)], state.bids[toCanonical(3)]],
+    dealerIndex: toCanonical(state.dealerIndex),
+    currentPlayerIndex: toCanonical(state.currentPlayerIndex),
+    trickLeaderIndex: toCanonical(state.trickLeaderIndex),
     lastCompletedTrick: state.lastCompletedTrick
-      ? {
-          ...state.lastCompletedTrick,
-          winnerIndex: inv[state.lastCompletedTrick.winnerIndex],
-          leaderIndex: inv[state.lastCompletedTrick.leaderIndex],
-        }
+      ? { ...state.lastCompletedTrick, winnerIndex: toCanonical(state.lastCompletedTrick.winnerIndex), leaderIndex: toCanonical(state.lastCompletedTrick.leaderIndex) }
       : null,
     pendingTrickCompletion: state.pendingTrickCompletion
-      ? {
-          ...state.pendingTrickCompletion,
-          winnerIndex: inv[state.pendingTrickCompletion.winnerIndex],
-          leaderIndex: inv[state.pendingTrickCompletion.leaderIndex],
-        }
+      ? { ...state.pendingTrickCompletion, winnerIndex: toCanonical(state.pendingTrickCompletion.winnerIndex), leaderIndex: toCanonical(state.pendingTrickCompletion.leaderIndex) }
       : null,
   };
 }
