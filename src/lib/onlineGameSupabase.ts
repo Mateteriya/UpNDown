@@ -184,14 +184,9 @@ export async function createRoom(
           player_slots: playerSlots,
         })
         .select('*')
-        .abortSignal(lobbyAbort())
         .single();
 
       if (error) {
-        if (isAbortLike(error)) {
-          await sleep(joinBackoffMs(attempt));
-          continue;
-        }
         if ((error as { code?: string }).code === '23505') continue;
         lastMessage = error.message;
         break;

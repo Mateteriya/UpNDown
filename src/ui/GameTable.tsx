@@ -653,8 +653,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
 
   const handleStartFromWaiting = useCallback(async () => {
     setStartingFromWaiting(true);
-    await online.startGame();
-    setStartingFromWaiting(false);
+    try {
+      await online.startGame();
+    } finally {
+      setStartingFromWaiting(false);
+    }
   }, [online]);
 
   useEffect(() => {
@@ -1777,7 +1780,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 {online.myServerIndex === 0 && (
                   <button
                     type="button"
-                    disabled={online.playerSlots.length < 2 || startingFromWaiting}
+                    disabled={
+                      startingFromWaiting ||
+                      !online.playerSlots.some((s) => s.userId != null && s.userId !== '')
+                    }
                     onClick={handleStartFromWaiting}
                     style={{
                       padding: '14px 24px',
@@ -1788,7 +1794,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
                       color: '#f8fafc',
                       cursor: 'pointer',
-                      opacity: online.playerSlots.length < 2 ? 0.6 : 1,
+                      opacity: online.playerSlots.some((s) => s.userId != null && s.userId !== '') ? 1 : 0.6,
                     }}
                   >
                     {startingFromWaiting ? 'Запуск…' : online.playerSlots.length >= 4 ? 'Начать игру' : 'Начать игру с ИИ'}
@@ -2269,7 +2275,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 {online.myServerIndex === 0 && (
                   <button
                     type="button"
-                    disabled={online.playerSlots.length < 2 || startingFromWaiting}
+                    disabled={
+                      startingFromWaiting ||
+                      !online.playerSlots.some((s) => s.userId != null && s.userId !== '')
+                    }
                     onClick={handleStartFromWaiting}
                     style={{
                       padding: '14px 24px',
@@ -2280,7 +2289,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
                       color: '#f8fafc',
                       cursor: 'pointer',
-                      opacity: online.playerSlots.length < 2 ? 0.6 : 1,
+                      opacity: online.playerSlots.some((s) => s.userId != null && s.userId !== '') ? 1 : 0.6,
                     }}
                   >
                     {startingFromWaiting ? 'Запуск…' : online.playerSlots.length >= 4 ? 'Начать игру' : 'Начать игру с ИИ'}

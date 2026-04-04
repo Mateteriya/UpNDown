@@ -479,8 +479,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     async (userId: string, displayName: string, shortLabel?: string): Promise<{ ok: boolean; error?: string }> => {
       try {
         setError(null);
-        clearOnlineSession();
-        sessionRestoreOkRef.current = false;
         const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
         const result = await apiCreateRoom(userId, displayName, shortLabel, avatarDataUrl);
         if ('error' in result) {
@@ -611,13 +609,21 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const AI_NAMES = ['ИИ Север', 'ИИ Восток', 'ИИ Юг', 'ИИ Запад'] as const;
 
   const startGame = useCallback(async (): Promise<boolean> => {
-    if (!roomId || myServerIndex !== 0) return false; // Только хост (индекс 0) может начать
-    const slots = playerSlots.slice(0, 4);
-    if (slots.length < 2) { setError('Нужно минимум 2 игрока'); return false; }
-    
+    if (!roomId || myServerIndex !== 0) {
+      if (roomId && myServerIndex !== 0) {
+        setError('Начать игру может только хост (создатель комнаты).');
+      }
+      return false;
+    }
+    const humans = playerSlots.filter((s) => s.userId != null && s.userId !== '');
+    if (humans.length < 1) {
+      setError('В комнате нет игроков. Обновите экран или зайдите по коду снова.');
+      return false;
+    }
+
     const fullSlots: PlayerSlot[] = [];
     for (let i = 0; i < 4; i++) {
-      const existing = slots.find((s) => s.slotIndex === i);
+      const existing = playerSlots.find((s) => s.slotIndex === i);
       if (existing) {
         fullSlots.push(existing);
       } else {
