@@ -155,6 +155,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const deviceIdRef = useRef<string>(getDeviceId());
   const unsubRef = useRef<(() => void) | null>(null);
   const realtimeErrorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const realtimePollBurstTimeoutsRef = useRef<number[]>([]);
   
   // Порядок слотов ВЕЗДЕ один и тот же: 0=Юг, 1=Север, 2=Запад, 3=Восток. Не вращаем — только «я» = myServerIndex.
   const displayState = canonicalState ? rotateStateForPlayer(canonicalState, myServerIndex) : null;
@@ -276,7 +277,15 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       realtimeErrorDebounceRef.current = setTimeout(() => {
         realtimeErrorDebounceRef.current = null;
         if (cancelled) return;
+        realtimePollBurstTimeoutsRef.current.forEach((id) => clearTimeout(id));
+        realtimePollBurstTimeoutsRef.current = [];
         void refreshRoom();
+        for (let i = 1; i <= 3; i++) {
+          const id = window.setTimeout(() => {
+            void refreshRoom();
+          }, 400 + i * 1200);
+          realtimePollBurstTimeoutsRef.current.push(id);
+        }
         setRealtimeHealKey((k) => k + 1);
       }, 400);
     });
@@ -284,6 +293,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     return () => {
       cancelled = true;
       unsubRef.current = null;
+      realtimePollBurstTimeoutsRef.current.forEach((id) => clearTimeout(id));
+      realtimePollBurstTimeoutsRef.current = [];
       if (realtimeErrorDebounceRef.current) {
         clearTimeout(realtimeErrorDebounceRef.current);
         realtimeErrorDebounceRef.current = null;
@@ -308,34 +319,52 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     };
   }, [roomId, refreshRoom]);
 
-  // Опрос: подстраховка, если Realtime пропустил апдейт. На prod (main) такого опроса нет — только подписка;
-  // слишком частый getRoom (900 мс) давал лишний трафик и постоянные apply → «тормоза» на staging.
-  const POLL_INTERVAL_MS = 2800;
-  const POLL_SKIP_MS = 2000;
+  // getRoom по таймеру только пока вкладка в фоне (Realtime в фоне часто не догоняет). В активной вкладке — только Realtime + refresh при ошибке канала / возврате на вкладку.
+  const BACKGROUND_POLL_MS = 5000;
+  const BACKGROUND_POLL_SKIP_MS = 3500;
+  const runBackgroundPollTick = useCallback(() => {
+    if (document.visibilityState !== 'hidden') return;
+    if (Date.now() - lastSendAtRef.current < BACKGROUND_POLL_SKIP_MS) return;
+    const rid = roomIdRef.current;
+    if (!rid) return;
+    getRoom(rid).then((room) => {
+      if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
+      const ts = Date.parse(room.updated_at);
+      if (Number.isFinite(ts) && ts > lastSeenRoomUpdatedAtMsRef.current) {
+        if (room.status === 'waiting') {
+          lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
+          applyRoomData(room);
+          return;
+        }
+        if (room.status === 'playing' || room.status === 'finished') {
+          applyRoomData(room);
+          return;
+        }
+      }
+      applyRoomDataOnlyIfNewer(room);
+    });
+  }, [applyRoomData, applyRoomDataOnlyIfNewer]);
+
   useEffect(() => {
     if (!roomId) return;
-    const t = setInterval(() => {
-      if (Date.now() - lastSendAtRef.current < POLL_SKIP_MS) return;
-      const rid = roomId;
-      getRoom(rid).then((room) => {
-        if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
-        const ts = Date.parse(room.updated_at);
-        if (Number.isFinite(ts) && ts > lastSeenRoomUpdatedAtMsRef.current) {
-          if (room.status === 'waiting') {
-            lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
-            applyRoomData(room);
-            return;
-          }
-          if (room.status === 'playing' || room.status === 'finished') {
-            applyRoomData(room);
-            return;
-          }
-        }
-        applyRoomDataOnlyIfNewer(room);
-      });
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(t);
-  }, [roomId, applyRoomData, applyRoomDataOnlyIfNewer]);
+    let iv: ReturnType<typeof setInterval> | null = null;
+    const syncBackgroundPoll = () => {
+      if (iv) {
+        clearInterval(iv);
+        iv = null;
+      }
+      if (document.visibilityState === 'hidden') {
+        runBackgroundPollTick();
+        iv = setInterval(() => runBackgroundPollTick(), BACKGROUND_POLL_MS);
+      }
+    };
+    syncBackgroundPoll();
+    document.addEventListener('visibilitychange', syncBackgroundPoll);
+    return () => {
+      document.removeEventListener('visibilitychange', syncBackgroundPoll);
+      if (iv) clearInterval(iv);
+    };
+  }, [roomId, runBackgroundPollTick]);
 
   /** После успешного авто-восстановления не дублировать, пока сессия жива. Сбрасывается в leaveRoom и при отсутствии saved. */
   const sessionRestoreOkRef = useRef(false);

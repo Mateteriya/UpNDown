@@ -67,9 +67,9 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/** Задержка между повторами REST при обрывах (ERR_CONNECTION_RESET, Failed to fetch). */
+/** Короткая пауза между повторами: длинные ретраи при плохой сети только удлиняют создание комнаты и ходы. */
 function roomRetryDelayMs(attempt: number): number {
-  return Math.min(2400, 120 + attempt * 200 + Math.floor(Math.random() * 140));
+  return Math.min(650, 40 + attempt * 120 + Math.floor(Math.random() * 90));
 }
 
 function isRetryableNetworkMessage(msg: string): boolean {
@@ -109,8 +109,9 @@ function isRetryableWriteFailure(error: { message?: string; code?: string; detai
   return isRetryableNetworkMessage(error.message ?? '') || isRetryableNetworkMessage(String(error.details ?? ''));
 }
 
-const ROOM_READ_MAX_ATTEMPTS = 4;
-const ROOM_WRITE_MAX_ATTEMPTS = 5;
+/** Две попытки (один повтор) — при стойком обрыве лучше быстро показать ошибку, чем копить запросы. */
+const ROOM_READ_MAX_ATTEMPTS = 2;
+const ROOM_WRITE_MAX_ATTEMPTS = 2;
 
 /** Один REST-запрос лобби: не использовать глобальные 55 с — иначе N попыток join дают минуты «тишины». */
 const LOBBY_REQUEST_MS = 14_000;
