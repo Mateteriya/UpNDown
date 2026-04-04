@@ -60,7 +60,7 @@ function generateCode(): string {
 }
 
 function joinBackoffMs(attempt: number): number {
-  return Math.min(220, 25 + attempt * 18 + Math.floor(Math.random() * 35));
+  return Math.min(400, 40 + attempt * 22 + Math.floor(Math.random() * 50));
 }
 
 function sleep(ms: number): Promise<void> {
@@ -113,22 +113,10 @@ function isRetryableWriteFailure(error: { message?: string; code?: string; detai
 const ROOM_READ_MAX_ATTEMPTS = 2;
 const ROOM_WRITE_MAX_ATTEMPTS = 2;
 
-/** Лобби: короткий таймаут → быстрее повтор, не копим минуты как с глобальным fetch 55 с. */
-const LOBBY_REQUEST_MS = 6_500;
-const JOIN_WALL_CLOCK_MS = 22_000;
-
-/** Опрос комнаты в ожидании/фоне — обязательно с отдельным abort, иначе select('*') может висеть до FETCH_TIMEOUT_MS в supabase.ts. */
-const SYNC_POLL_READ_MS = 7_500;
-function syncPollAbort(): AbortSignal {
-  if (typeof AbortSignal !== 'undefined' && typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function') {
-    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(SYNC_POLL_READ_MS);
-  }
-  const c = new AbortController();
-  setTimeout(() => c.abort(), SYNC_POLL_READ_MS);
-  return c.signal;
-}
-
 /** Без AbortSignal.timeout (старые WebView / Safari) — иначе create/join падают ещё до fetch. */
+const LOBBY_REQUEST_MS = 12_000;
+const JOIN_WALL_CLOCK_MS = 35_000;
+
 function lobbyAbort(): AbortSignal {
   if (typeof AbortSignal !== 'undefined' && typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function') {
     return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(LOBBY_REQUEST_MS);
@@ -195,14 +183,9 @@ export async function createRoom(
           player_slots: playerSlots,
         })
         .select('*')
-        .abortSignal(gameMutationAbort())
         .single();
 
       if (error) {
-        if (isAbortLike(error)) {
-          await sleep(joinBackoffMs(attempt));
-          continue;
-        }
         if ((error as { code?: string }).code === '23505') continue;
         lastMessage = error.message;
         break;
@@ -230,7 +213,7 @@ export async function joinRoom(
 
   const av = capAvatarDataUrl(avatarDataUrl ?? undefined);
 
-  const MAX_ATTEMPTS = 10;
+  const MAX_ATTEMPTS = 14;
   const joinStarted = Date.now();
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -402,24 +385,6 @@ export async function getRoom(roomId: string): Promise<GameRoomRow | null> {
     await sleep(roomRetryDelayMs(attempt));
   }
   return null;
-}
-
-/** Быстрый get для опроса/лобби: не блокирует UI на глобальные ~55 с при «тишине» TCP. */
-export async function getRoomForSyncPoll(roomId: string): Promise<GameRoomRow | null> {
-  if (!supabase) return null;
-  try {
-    const { data, error } = await supabase
-      .from(TABLE)
-      .select('*')
-      .eq('id', roomId)
-      .abortSignal(syncPollAbort())
-      .single();
-    if (data && !error) return data as GameRoomRow;
-    if (error?.code === 'PGRST116') return null;
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 /** Обновить только слоты в комнате (для синхронизации имён в лобби). Не трогает game_state и status. */

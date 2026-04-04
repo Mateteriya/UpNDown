@@ -20,7 +20,6 @@ import {
   createRoom as apiCreateRoom,
   joinRoom as apiJoinRoom,
   getRoom,
-  getRoomForSyncPoll,
   updateRoomState,
   updateRoomPlayerSlots,
   subscribeToRoom,
@@ -162,8 +161,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const displayState = canonicalState ? rotateStateForPlayer(canonicalState, myServerIndex) : null;
   const canonicalStateRef = useRef<GameState | null>(null);
   canonicalStateRef.current = canonicalState;
-  const statusRef = useRef<OnlineStatus>(status);
-  statusRef.current = status;
   const lastSendAtRef = useRef(0);
   /** Время последней строки комнаты с сервера (updated_at), чтобы опрос мог принудительно подтянуть актуальное game_state при «залипании» onlyIfNewer. */
   const lastSeenRoomUpdatedAtMsRef = useRef(0);
@@ -297,10 +294,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const refreshRoom = useCallback(async () => {
     if (!roomId) return;
     const rid = roomId;
-    const room =
-      statusRef.current === 'waiting'
-        ? await getRoomForSyncPoll(rid)
-        : await getRoom(rid);
+    const room = await getRoom(rid);
     if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
     applyRoomDataOnlyIfNewer(room);
   }, [roomId, applyRoomDataOnlyIfNewer]);
@@ -361,22 +355,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     };
   }, [roomId, refreshRoom]);
 
-  /** Первые секунды в лобби — доп. подтягивание слотов (Realtime на части сетей запаздывает). */
-  useEffect(() => {
-    if (!roomId || status !== 'waiting') return;
-    const ids = [1, 2, 3, 4, 5].map((n) =>
-      window.setTimeout(() => {
-        void refreshRoom();
-      }, 120 * n)
-    );
-    return () => ids.forEach((id) => clearTimeout(id));
-  }, [roomId, status, refreshRoom]);
-
-  // Лобби: частый опрос + быстрый getRoomForSyncPoll (не 55 с без ответа). В партии — реже.
-  const ROOM_SYNC_POLL_MS_WAITING = 350;
+  // Резерв к Realtime: редкий опрос, один getRoom, без дублирующих «ускорителей».
+  const ROOM_SYNC_POLL_MS_WAITING = 2800;
   const ROOM_SYNC_POLL_SKIP_WAITING = 0;
-  const ROOM_SYNC_POLL_MS_PLAYING = 1400;
-  const ROOM_SYNC_POLL_SKIP_PLAYING = 450;
+  const ROOM_SYNC_POLL_MS_PLAYING = 3200;
+  const ROOM_SYNC_POLL_SKIP_PLAYING = 800;
   const roomSyncSkipRef = useRef(ROOM_SYNC_POLL_SKIP_WAITING);
   roomSyncSkipRef.current = status === 'playing' ? ROOM_SYNC_POLL_SKIP_PLAYING : ROOM_SYNC_POLL_SKIP_WAITING;
 
@@ -384,20 +367,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (Date.now() - lastSendAtRef.current < roomSyncSkipRef.current) return;
     const rid = roomIdRef.current;
     if (!rid) return;
-    const fetchRoom = statusRef.current === 'playing' ? getRoom(rid) : getRoomForSyncPoll(rid);
-    fetchRoom.then((room) => {
+    void getRoom(rid).then((room) => {
       if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
-      const ts = Date.parse(room.updated_at);
-      if (Number.isFinite(ts) && ts > lastSeenRoomUpdatedAtMsRef.current) {
-        if (room.status === 'waiting') {
-          lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
-          applyRoomData(room);
-          return;
-        }
-        if (room.status === 'playing' || room.status === 'finished') {
-          applyRoomData(room);
-          return;
-        }
+      if (room.status === 'waiting') {
+        applyRoomData(room);
+        return;
       }
       applyRoomDataOnlyIfNewer(room);
     });
@@ -460,7 +434,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     [applyRoomData, user?.id]
   );
 
-  // При загрузке/обновлении страницы: восстановить онлайн-сессию из sessionStorage (после готовности JWT).
+  // F5 / возврат в приложение: одна точка восстановления из sessionStorage (не дублировать вторым эффектом).
   useEffect(() => {
     if (authLoading || !user?.id) return;
     const saved = loadOnlineSession();
@@ -582,30 +556,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const [userLeftTemporarily, setUserLeftTemporarily] = useState(false);
   const [userOnPause, setUserOnPause] = useState(false);
 
-  useEffect(() => {
-    if (status !== 'idle') return;
-    (async () => {
-      const saved = loadOnlineSession();
-      if (!saved || saved.deviceId !== deviceIdRef.current) return;
-      const room = await getRoom(saved.roomId);
-      if (!room) { clearOnlineSession(); return; }
-      const mySlot = (room.player_slots || []).find(s => s.deviceId === deviceIdRef.current || (s.userId && s.userId === user?.id));
-      if (mySlot) {
-        setRoomId(room.id);
-        setMyServerIndex(mySlot.slotIndex);
-        applyRoomData(room);
-        setStatus(room.status === 'playing' ? 'playing' : 'waiting');
-      } else {
-        clearOnlineSession();
-      }
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  
-  // --- Остальной код в основном без изменений, просто использует myServerIndex ---
-  // ... (leaveRoom, startGame, sendBid, sendPlay и т.д.)
-  // ... (Я включу его полностью для простоты копирования)
-  
   const leaveRoom = useCallback(async () => {
     const rid = roomId;
     if (unsubRef.current) {
