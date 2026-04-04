@@ -250,12 +250,26 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         applyRoomData(room);
         return;
       }
+      // Финиш и итоговые очки — всегда тянем строку целиком (эвристика «новее» могла отсечь обновление таблицы/модалки).
+      if (room.status === 'finished') {
+        applyRoomData(room);
+        return;
+      }
       const ts = Date.parse(room.updated_at);
       const rowTimestampNewer =
         Number.isFinite(ts) && ts > lastSeenRoomUpdatedAtMsRef.current;
       const serverState = room.game_state ?? null;
       const local = canonicalStateRef.current;
       const isNewer = isServerStateNewerOrEqual(serverState, local);
+
+      // Очки на сервере разошлись с локальными — доверяем БД (видимость взяток/подсчёта у гостей).
+      if (serverState && local) {
+        const scoresSig = (s: GameState) => s.players.map((p) => p.score).join(',');
+        if (scoresSig(serverState) !== scoresSig(local)) {
+          applyRoomData(room);
+          return;
+        }
+      }
 
       const bidNonNull = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
 
@@ -320,8 +334,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         realtimePollBurstTimeoutsRef.current.forEach((id) => clearTimeout(id));
         realtimePollBurstTimeoutsRef.current = [];
         void refreshRoom();
-        const id = window.setTimeout(() => void refreshRoom(), 1000);
-        realtimePollBurstTimeoutsRef.current.push(id);
+        const idA = window.setTimeout(() => void refreshRoom(), 400);
+        const idB = window.setTimeout(() => void refreshRoom(), 1000);
+        realtimePollBurstTimeoutsRef.current.push(idA, idB);
         setRealtimeHealKey((k) => k + 1);
       }, 250);
     });
@@ -355,11 +370,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     };
   }, [roomId, refreshRoom]);
 
-  // Резерв к Realtime: редкий опрос, один getRoom, без дублирующих «ускорителей».
-  const ROOM_SYNC_POLL_MS_WAITING = 2800;
+  // Резерв к Realtime: чуть чаще опрос, чем раньше — быстрее подхват при отвале WS; skip после своего хода короче, чужие клиенты не ждут зря.
+  const ROOM_SYNC_POLL_MS_WAITING = 2200;
   const ROOM_SYNC_POLL_SKIP_WAITING = 0;
-  const ROOM_SYNC_POLL_MS_PLAYING = 3200;
-  const ROOM_SYNC_POLL_SKIP_PLAYING = 800;
+  const ROOM_SYNC_POLL_MS_PLAYING = 2200;
+  const ROOM_SYNC_POLL_SKIP_PLAYING = 400;
   const roomSyncSkipRef = useRef(ROOM_SYNC_POLL_SKIP_WAITING);
   roomSyncSkipRef.current = status === 'playing' ? ROOM_SYNC_POLL_SKIP_PLAYING : ROOM_SYNC_POLL_SKIP_WAITING;
 

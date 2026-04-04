@@ -109,9 +109,9 @@ function isRetryableWriteFailure(error: { message?: string; code?: string; detai
   return isRetryableNetworkMessage(error.message ?? '') || isRetryableNetworkMessage(String(error.details ?? ''));
 }
 
-/** Две попытки (один повтор) — при стойком обрыве лучше быстро показать ошибку, чем копить запросы. */
-const ROOM_READ_MAX_ATTEMPTS = 2;
-const ROOM_WRITE_MAX_ATTEMPTS = 2;
+/** Несколько коротких попыток — мобильный TLS/обрыв часто проходит со второго-третьего раза без долгого ожидания. */
+const ROOM_READ_MAX_ATTEMPTS = 3;
+const ROOM_WRITE_MAX_ATTEMPTS = 3;
 
 /** Без AbortSignal.timeout (старые WebView / Safari) — иначе create/join падают ещё до fetch. */
 const LOBBY_REQUEST_MS = 12_000;

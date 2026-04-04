@@ -31,6 +31,16 @@ function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise
   return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(t));
 }
 
+/** Auth (OAuth URL, setSession, refresh) без искусственного 55s — иначе на VPN/медленной сети два подряд вызова ≈ 2 мин ожидания. */
+function fetchForSupabase(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  let href = '';
+  if (typeof input === 'string') href = input;
+  else if (typeof URL !== 'undefined' && input instanceof URL) href = input.href;
+  else if (typeof Request !== 'undefined' && input instanceof Request) href = input.url;
+  if (href.includes('/auth/v1/')) return fetch(input, init);
+  return fetchWithTimeout(input, init);
+}
+
 let _supabase: SupabaseClient | null = null;
 
 try {
@@ -38,7 +48,7 @@ try {
   const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
   if (url && anonKey && url.startsWith('http')) {
     _supabase = createClient(url, anonKey, {
-      global: { fetch: fetchWithTimeout },
+      global: { fetch: fetchForSupabase },
     });
   }
 } catch {
