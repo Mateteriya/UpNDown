@@ -352,6 +352,8 @@ function GameOverModal({
 function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame, onOpenProfileModal }: GameTableProps) {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
+  const userRef = useRef(user);
+  userRef.current = user;
   const online = useOnlineGame();
   const onlineRef = useRef(online);
   onlineRef.current = online;
@@ -370,7 +372,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const isMobile = useIsMobile();
   const [localState, setLocalState] = useState<GameState | null>(null);
   const [startingFromWaiting, setStartingFromWaiting] = useState(false);
-  const lastOnlineAiTurnKeyRef = useRef<string | null>(null);
   const prevOnlineAiDriveKeyRef = useRef<string | null>(null);
   const onlineAiSendFailsRef = useRef(0);
   const [onlineAiDriveRetry, setOnlineAiDriveRetry] = useState(0);
@@ -800,10 +801,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     currentPlayerSlot != null && (currentPlayerSlot.userId == null || currentPlayerSlot.userId === '');
   const isOnlineAiTurn =
     isOnline &&
-    !!state &&
-    !state.pendingTrickCompletion &&
-    (state.phase === 'bidding' || state.phase === 'dark-bidding' || state.phase === 'playing') &&
     !!online.canonicalState &&
+    !online.canonicalState.pendingTrickCompletion &&
+    (online.canonicalState.phase === 'bidding' ||
+      online.canonicalState.phase === 'dark-bidding' ||
+      online.canonicalState.phase === 'playing') &&
     (seatIsAiSlot || (currentPlayerSlot == null && canonicalAiTurn));
 
   const isAITurn =
@@ -852,38 +854,46 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     latestCanonicalRef.current = online.canonicalState;
     myServerIndexForLogRef.current = online.myServerIndex ?? 0;
   }
-  // Онлайн: ход бота — любой открытый клиент шлёт sendState (раньше только хост slot 0: если у хоста уснула вкладка/телефон в фоне, ИИ не ходил).
+  // Онлайн: ход бота — любой открытый клиент шлёт sendState.
+  // Нельзя отменять ход по «ключу уже обработан»: при новой ссылке canonicalState с тем же ключом cleanup снимает таймер, а ранний return не ставил новый — ИИ замирал.
   useEffect(() => {
     if (!isOnlineAiTurn || !online.canonicalState || !online.sendState) return;
     const c = online.canonicalState;
-    const key = `${c.dealNumber}-${c.phase}-${c.currentPlayerIndex}-${c.bids?.join(',')}-${c.currentTrick?.length}`;
-    if (prevOnlineAiDriveKeyRef.current !== key) {
-      prevOnlineAiDriveKeyRef.current = key;
+    const scheduleKey = `${c.dealNumber}-${c.phase}-${c.currentPlayerIndex}-${c.bids?.join(',')}-${c.currentTrick?.length}`;
+    if (prevOnlineAiDriveKeyRef.current !== scheduleKey) {
+      prevOnlineAiDriveKeyRef.current = scheduleKey;
       onlineAiSendFailsRef.current = 0;
     }
-    if (lastOnlineAiTurnKeyRef.current === key) return;
-    lastOnlineAiTurnKeyRef.current = key;
-    const idx = c.currentPlayerIndex;
-    const replacedByMe = online.playerSlots.find((s) => s.slotIndex === idx)?.replacedUserId === user?.id;
-    const personalProfileId = replacedByMe && isPersonalAiReplacementEnabled(user?.id) ? (getPlayerProfile().profileId ?? undefined) : undefined;
     const sendStateFn = online.sendState;
-    setTimeout(async () => {
+    const tid = window.setTimeout(async () => {
       const current = latestCanonicalForAiRef.current;
       if (!current) return;
       const currentKey = `${current.dealNumber}-${current.phase}-${current.currentPlayerIndex}-${current.bids?.join(',')}-${current.currentTrick?.length}`;
-      if (currentKey !== key) return;
+      if (currentKey !== scheduleKey) return;
+      const playerIdx = current.currentPlayerIndex;
+      const slotsNow = onlineRef.current.playerSlots;
+      const uid = userRef.current?.id;
+      const replacedByMe = slotsNow.find((s) => s.slotIndex === playerIdx)?.replacedUserId === uid;
+      const personalProfileId =
+        replacedByMe && isPersonalAiReplacementEnabled(uid) ? (getPlayerProfile().profileId ?? undefined) : undefined;
       let next: GameState | null = null;
       if (current.phase === 'bidding' || current.phase === 'dark-bidding') {
-        const bid = aiBid(current, idx, personalProfileId);
-        next = placeBid(current, idx, bid);
+        const bid = aiBid(current, playerIdx, personalProfileId);
+        next = placeBid(current, playerIdx, bid);
       } else if (current.phase === 'playing') {
-        const card = aiPlay(current, idx);
-        if (card) next = playCard(current, idx, card);
+        const card = aiPlay(current, playerIdx);
+        if (card) next = playCard(current, playerIdx, card);
+        else {
+          onlineAiSendFailsRef.current += 1;
+          if (onlineAiSendFailsRef.current <= 8) {
+            window.setTimeout(() => setOnlineAiDriveRetry((n) => n + 1), 400);
+          }
+          return;
+        }
       }
       if (next) {
         const ok = await sendStateFn(next);
         if (!ok) {
-          lastOnlineAiTurnKeyRef.current = null;
           onlineAiSendFailsRef.current += 1;
           if (onlineAiSendFailsRef.current <= 8) {
             window.setTimeout(() => setOnlineAiDriveRetry((n) => n + 1), 500);
@@ -891,7 +901,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         }
       }
     }, 150);
-  }, [isOnlineAiTurn, online.canonicalState, online.sendState, online.playerSlots, user?.id, onlineAiDriveRetry]);
+    return () => window.clearTimeout(tid);
+  }, [isOnlineAiTurn, online.canonicalState, online.sendState, onlineAiDriveRetry]);
 
   const showReclaimBar = (isOnline || (online.roomId && online.status === 'playing')) && online.pendingReclaimOffer && online.confirmReclaim;
   if (!state) {

@@ -113,8 +113,8 @@ function isRetryableWriteFailure(error: { message?: string; code?: string; detai
 const ROOM_READ_MAX_ATTEMPTS = 2;
 const ROOM_WRITE_MAX_ATTEMPTS = 2;
 
-/** Один REST-запрос лобби: не использовать глобальные 55 с — иначе N попыток join дают минуты «тишины». */
-const LOBBY_REQUEST_MS = 14_000;
+/** Один REST-запрос лобби: не использовать глобальные 55 с — иначе N попыток join дают минуты «тишины». Короче таймаут → быстрее повтор при «подвисшем» TCP на части ПК/сетей. */
+const LOBBY_REQUEST_MS = 9_000;
 const JOIN_WALL_CLOCK_MS = 36_000;
 
 /** Без AbortSignal.timeout (старые WebView / Safari) — иначе create/join падают ещё до fetch. */
