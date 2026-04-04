@@ -371,6 +371,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [localState, setLocalState] = useState<GameState | null>(null);
   const [startingFromWaiting, setStartingFromWaiting] = useState(false);
   const lastOnlineAiTurnKeyRef = useRef<string | null>(null);
+  const prevOnlineAiDriveKeyRef = useRef<string | null>(null);
+  const onlineAiSendFailsRef = useRef(0);
+  const [onlineAiDriveRetry, setOnlineAiDriveRetry] = useState(0);
   const latestCanonicalForAiRef = useRef<GameState | null>(null);
   const latestCanonicalRef = useRef<GameState | null>(null);
   const myServerIndexForLogRef = useRef(0);
@@ -823,8 +826,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     }
   }, [state]);
 
+  /** Офлайн: тикер ИИ. В онлайне состояние с сервера — локальный setState не обновляет стол (ход ИИ шлёт sendState отдельным эффектом). */
   useEffect(() => {
-    if (!isAITurn || !state) return;
+    if (isOnline || !isAITurn || !state) return;
     const iv = setInterval(() => {
       setState(s => {
         if (!s) return s;
@@ -841,18 +845,22 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       });
     }, 650);
     return () => clearInterval(iv);
-  }, [isAITurn, state?.phase, state?.currentPlayerIndex]);
+  }, [isOnline, isAITurn, state?.phase, state?.currentPlayerIndex]);
 
   if (isOnline && online.canonicalState) {
     latestCanonicalForAiRef.current = online.canonicalState;
     latestCanonicalRef.current = online.canonicalState;
     myServerIndexForLogRef.current = online.myServerIndex ?? 0;
   }
-  // Онлайн, хост: ход текущего игрока — ИИ; один раз по ключу делаем aiBid/aiPlay и sendState. Если слот «я на паузе» — передаём profileId для персонального ИИ.
+  // Онлайн: ход бота — любой открытый клиент шлёт sendState (раньше только хост slot 0: если у хоста уснула вкладка/телефон в фоне, ИИ не ходил).
   useEffect(() => {
-    if (!isOnlineAiTurn || online.myServerIndex !== 0 || !online.canonicalState || !online.sendState) return;
+    if (!isOnlineAiTurn || !online.canonicalState || !online.sendState) return;
     const c = online.canonicalState;
     const key = `${c.dealNumber}-${c.phase}-${c.currentPlayerIndex}-${c.bids?.join(',')}-${c.currentTrick?.length}`;
+    if (prevOnlineAiDriveKeyRef.current !== key) {
+      prevOnlineAiDriveKeyRef.current = key;
+      onlineAiSendFailsRef.current = 0;
+    }
     if (lastOnlineAiTurnKeyRef.current === key) return;
     lastOnlineAiTurnKeyRef.current = key;
     const idx = c.currentPlayerIndex;
@@ -874,10 +882,16 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       }
       if (next) {
         const ok = await sendStateFn(next);
-        if (!ok) lastOnlineAiTurnKeyRef.current = null;
+        if (!ok) {
+          lastOnlineAiTurnKeyRef.current = null;
+          onlineAiSendFailsRef.current += 1;
+          if (onlineAiSendFailsRef.current <= 8) {
+            window.setTimeout(() => setOnlineAiDriveRetry((n) => n + 1), 500);
+          }
+        }
       }
     }, 150);
-  }, [isOnlineAiTurn, online.myServerIndex, online.canonicalState, online.sendState, online.playerSlots, user?.id]);
+  }, [isOnlineAiTurn, online.canonicalState, online.sendState, online.playerSlots, user?.id, onlineAiDriveRetry]);
 
   const showReclaimBar = (isOnline || (online.roomId && online.status === 'playing')) && online.pendingReclaimOffer && online.confirmReclaim;
   if (!state) {
