@@ -3184,6 +3184,144 @@ function getDealResultsPanelPosition(side: 'top' | 'bottom' | 'left' | 'right'):
   }
 }
 
+/** Подсказка для таблички заказа оппонента (title / тап на мобильной). */
+function opponentOrderBadgeTitle(bid: number | null, tricksTaken: number): string {
+  if (bid == null) {
+    return 'Заказ в раздаче — сколько взяток игрок обязуется взять. Сейчас заказ ещё не сделан.';
+  }
+  return `Заказ игрока: ${bid} взяток в этой раздаче. Кружки показывают прогресс: уже взято ${tricksTaken}.`;
+}
+
+function opponentOrderTapHintText(bid: number | null, tricksTaken: number): string {
+  if (bid == null) {
+    return 'Заказ — сколько взяток игрок возьмёт в этой раздаче. Сейчас заказ не выбран.';
+  }
+  return `Заказ: ${bid} взяток. Подсвеченные кружки — уже взято (${tricksTaken}).`;
+}
+
+/** Оппонент, компактная табличка: title; на мобильной без подписи «Заказ» — тап открывает короткую подсказку. */
+function OpponentBidCompactWrap({
+  children,
+  wrapStyle,
+  wrapCls,
+  bid,
+  tricksTaken,
+  tapHintEnabled,
+  ariaLabel,
+}: {
+  children: React.ReactNode;
+  wrapStyle: CSSProperties;
+  wrapCls: string;
+  bid: number | null;
+  tricksTaken: number;
+  tapHintEnabled: boolean;
+  ariaLabel?: string;
+}) {
+  const [hintVisible, setHintVisible] = useState(false);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    },
+    []
+  );
+
+  const clearHintTimer = () => {
+    if (hintTimerRef.current) {
+      clearTimeout(hintTimerRef.current);
+      hintTimerRef.current = null;
+    }
+  };
+
+  const showHint = useCallback(
+    (e: React.MouseEvent | React.KeyboardEvent) => {
+      if (!tapHintEnabled) return;
+      e.stopPropagation();
+      if ('key' in e && e.key !== 'Enter' && e.key !== ' ') return;
+      if ('key' in e) e.preventDefault();
+      clearHintTimer();
+      setHintVisible(true);
+      hintTimerRef.current = setTimeout(() => {
+        setHintVisible(false);
+        hintTimerRef.current = null;
+      }, 2600);
+    },
+    [tapHintEnabled]
+  );
+
+  const title = opponentOrderBadgeTitle(bid, tricksTaken);
+  const mergedStyle: CSSProperties = { ...wrapStyle, position: 'relative' };
+
+  if (tapHintEnabled) {
+    return (
+      <button
+        type="button"
+        className={wrapCls}
+        style={{
+          ...mergedStyle,
+          cursor: 'pointer',
+          font: 'inherit',
+          color: 'inherit',
+          WebkitTapHighlightColor: 'transparent',
+          border: mergedStyle.border ?? '1px solid transparent',
+          background: mergedStyle.background as string | undefined,
+          padding: mergedStyle.padding,
+          margin: 0,
+          borderRadius: mergedStyle.borderRadius,
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: mergedStyle.gap ?? 3,
+          maxWidth: '100%',
+        }}
+        title={title}
+        aria-label={ariaLabel ?? title}
+        onClick={showHint}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') showHint(e);
+        }}
+      >
+        {children}
+        {hintVisible ? (
+          <span
+            className="opponent-order-hint-popover"
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 6px)',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 25,
+              maxWidth: 240,
+              padding: '8px 10px',
+              fontSize: 11,
+              fontWeight: 600,
+              lineHeight: 1.35,
+              textAlign: 'center',
+              color: '#e2e8f0',
+              background: 'rgba(15, 23, 42, 0.97)',
+              border: '1px solid rgba(56, 189, 248, 0.5)',
+              borderRadius: 8,
+              boxShadow: '0 4px 18px rgba(0,0,0,0.4)',
+              pointerEvents: 'none',
+            }}
+            role="status"
+          >
+            {opponentOrderTapHintText(bid, tricksTaken)}
+          </span>
+        ) : null}
+      </button>
+    );
+  }
+
+  return (
+    <div style={mergedStyle} className={wrapCls} title={title} role="status" aria-label={ariaLabel ?? title}>
+      {children}
+    </div>
+  );
+}
+
 function TrickSlotsDisplay({
   bid,
   tricksTaken,
@@ -3212,19 +3350,33 @@ function TrickSlotsDisplay({
   if (bid === null) {
     const nullWrap = compactMode ? { ...trickCirclesWrapStyle, border: '1px solid rgba(71, 85, 105, 0.5)', background: 'rgba(30, 41, 59, 0.8)', boxShadow: 'none' } : trickSlotsWrapStyle;
     const nullCls = [collectingCards ? 'trick-slots-collecting' : 'trick-slots-normal', eastMobileTricks ? 'trick-slots-east-mobile' : ''].filter(Boolean).join(' ');
-    return (
-      <div
-        style={nullWrap}
-        className={nullCls}
-        role="status"
-        aria-label={hideOppOrderWord ? 'Заказ ещё не сделан' : undefined}
-      >
+    const nullInner = (
+      <>
         {!hideOppOrderWord && (
           <span className={eastMobileTricks ? 'trick-slots-label-east-mobile' : undefined} style={trickSlotsLabelStyle}>
             Заказ
           </span>
         )}
         <span style={trickSlotsValueStyle}>—</span>
+      </>
+    );
+    if (variant === 'opponent' && compactMode) {
+      return (
+        <OpponentBidCompactWrap
+          wrapStyle={nullWrap}
+          wrapCls={nullCls}
+          bid={null}
+          tricksTaken={tricksTaken}
+          tapHintEnabled={hideOppOrderWord}
+          ariaLabel={hideOppOrderWord ? 'Заказ ещё не сделан' : undefined}
+        >
+          {nullInner}
+        </OpponentBidCompactWrap>
+      );
+    }
+    return (
+      <div style={nullWrap} className={nullCls} role="status" aria-label={hideOppOrderWord ? 'Заказ ещё не сделан' : undefined}>
+        {nullInner}
       </div>
     );
   }
@@ -3264,13 +3416,8 @@ function TrickSlotsDisplay({
         ? { ...trickCirclesRowStyle, gap: Math.max(1, Math.round(4 * opponentScaleDown)) }
         : trickCirclesRowStyle;
     const wrapCls = [hideCards ? 'trick-slots-collecting' : 'trick-slots-normal', eastMobileTricks ? 'trick-slots-east-mobile' : ''].filter(Boolean).join(' ');
-    return (
-      <div
-        style={wrapStyle}
-        className={wrapCls}
-        role="status"
-        aria-label={hideOppOrderWord ? `Заказ ${bid}, взято взяток ${tricksTaken}` : undefined}
-      >
+    const compactInner = (
+      <>
         {!hideOppOrderWord && (
           <span
             className={eastMobileTricks ? 'trick-slots-label-east-mobile' : undefined}
@@ -3308,6 +3455,25 @@ function TrickSlotsDisplay({
             }}>+{extra}</span>
           )}
         </div>
+      </>
+    );
+    if (variant === 'opponent') {
+      return (
+        <OpponentBidCompactWrap
+          wrapStyle={wrapStyle}
+          wrapCls={wrapCls}
+          bid={bid}
+          tricksTaken={tricksTaken}
+          tapHintEnabled={hideOppOrderWord}
+          ariaLabel={hideOppOrderWord ? `Заказ ${bid}, взято взяток ${tricksTaken}` : undefined}
+        >
+          {compactInner}
+        </OpponentBidCompactWrap>
+      );
+    }
+    return (
+      <div style={wrapStyle} className={wrapCls} role="status">
+        {compactInner}
       </div>
     );
   }
@@ -3328,7 +3494,11 @@ function TrickSlotsDisplay({
     ...(opponentScaleDownPc < 1 ? { padding: `${Math.max(2, Math.round(4 * opponentScaleDownPc))}px ${Math.max(4, Math.round(8 * opponentScaleDownPc))}px` } : {}),
   };
   return (
-    <div style={wrapStyle} className={hideCards ? 'trick-slots-collecting' : 'trick-slots-normal'}>
+    <div
+      style={wrapStyle}
+      className={hideCards ? 'trick-slots-collecting' : 'trick-slots-normal'}
+      {...(variant === 'opponent' ? { title: opponentOrderBadgeTitle(bid, tricksTaken) } : {})}
+    >
       <span style={{
         ...trickSlotsLabelStyle,
         ...(opponentScaleDownPc < 1 ? { fontSize: Math.max(9, Math.round(10 * opponentScaleDownPc)) } : {}),
