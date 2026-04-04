@@ -319,12 +319,12 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     };
   }, [roomId, refreshRoom]);
 
-  // getRoom по таймеру только пока вкладка в фоне (Realtime в фоне часто не догоняет). В активной вкладке — только Realtime + refresh при ошибке канала / возврате на вкладку.
-  const BACKGROUND_POLL_MS = 5000;
-  const BACKGROUND_POLL_SKIP_MS = 3500;
-  const runBackgroundPollTick = useCallback(() => {
-    if (document.visibilityState !== 'hidden') return;
-    if (Date.now() - lastSendAtRef.current < BACKGROUND_POLL_SKIP_MS) return;
+  // Редкий getRoom в лобби и в партии: без этого гость при сбое Realtime не видит «старт» (status остаётся waiting) и залипает на заказах/ходах.
+  // Интервал ~5.5 с — компромисс с частым опросом; Realtime по-прежнему основной канал.
+  const ROOM_SYNC_POLL_MS = 5500;
+  const ROOM_SYNC_POLL_SKIP_MS = 2800;
+  const runRoomSyncPollTick = useCallback(() => {
+    if (Date.now() - lastSendAtRef.current < ROOM_SYNC_POLL_SKIP_MS) return;
     const rid = roomIdRef.current;
     if (!rid) return;
     getRoom(rid).then((room) => {
@@ -346,25 +346,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   }, [applyRoomData, applyRoomDataOnlyIfNewer]);
 
   useEffect(() => {
-    if (!roomId) return;
-    let iv: ReturnType<typeof setInterval> | null = null;
-    const syncBackgroundPoll = () => {
-      if (iv) {
-        clearInterval(iv);
-        iv = null;
-      }
-      if (document.visibilityState === 'hidden') {
-        runBackgroundPollTick();
-        iv = setInterval(() => runBackgroundPollTick(), BACKGROUND_POLL_MS);
-      }
-    };
-    syncBackgroundPoll();
-    document.addEventListener('visibilitychange', syncBackgroundPoll);
-    return () => {
-      document.removeEventListener('visibilitychange', syncBackgroundPoll);
-      if (iv) clearInterval(iv);
-    };
-  }, [roomId, runBackgroundPollTick]);
+    if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
+    runRoomSyncPollTick();
+    const iv = setInterval(() => runRoomSyncPollTick(), ROOM_SYNC_POLL_MS);
+    return () => clearInterval(iv);
+  }, [roomId, status, runRoomSyncPollTick]);
 
   /** После успешного авто-восстановления не дублировать, пока сессия жива. Сбрасывается в leaveRoom и при отсутствии saved. */
   const sessionRestoreOkRef = useRef(false);

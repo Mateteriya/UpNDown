@@ -127,6 +127,17 @@ function lobbyAbort(): AbortSignal {
   return c.signal;
 }
 
+/** Старт партии / ходы — тело запроса крупное; глобальный fetch 55 с превращает «завис старт» в минуту ожидания. */
+const GAME_MUTATION_MS = 22_000;
+function gameMutationAbort(): AbortSignal {
+  if (typeof AbortSignal !== 'undefined' && typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function') {
+    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(GAME_MUTATION_MS);
+  }
+  const c = new AbortController();
+  setTimeout(() => c.abort(), GAME_MUTATION_MS);
+  return c.signal;
+}
+
 function isAbortLike(err: { message?: string; name?: string; code?: string } | null | undefined): boolean {
   if (!err) return false;
   if (err.name === 'AbortError') return true;
@@ -396,7 +407,13 @@ export async function updateRoomState(
   let lastMessage = 'Не удалось сохранить состояние. Проверьте связь.';
   for (let attempt = 0; attempt < ROOM_WRITE_MAX_ATTEMPTS; attempt++) {
     try {
-      const { data, error } = await supabase.from(TABLE).update(payload).eq('id', roomId).select('*').single();
+      const { data, error } = await supabase
+        .from(TABLE)
+        .update(payload)
+        .eq('id', roomId)
+        .select('*')
+        .abortSignal(gameMutationAbort())
+        .single();
       if (data && !error) return { room: data as GameRoomRow };
       if (error) {
         lastMessage = error.message || lastMessage;
