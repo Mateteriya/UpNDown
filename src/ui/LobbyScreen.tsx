@@ -68,6 +68,9 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
   const [leftPlayerToast, setLeftPlayerToast] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const prevSlotsRef = useRef<typeof playerSlots>([]);
+  /** Актуальные слоты для отложенной проверки «ушёл ли игрок» (иначе гонка Realtime/опроса даёт ложный тост). */
+  const playerSlotsRef = useRef<typeof playerSlots>(playerSlots);
+  playerSlotsRef.current = playerSlots;
 
   // Когда игра началась — перейти на экран игры
   useEffect(() => {
@@ -95,8 +98,17 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     }
     const prev = prevSlotsRef.current;
     const gone = prev.find((p) => p.userId && !playerSlots.some((s) => s.userId === p.userId));
-    if (gone?.displayName) setLeftPlayerToast(gone.displayName);
     prevSlotsRef.current = playerSlots;
+    if (!gone?.userId || !gone.displayName) return;
+    const goneUserId = gone.userId;
+    const goneName = gone.displayName;
+    const t = window.setTimeout(() => {
+      const latest = playerSlotsRef.current;
+      if (!latest.some((s) => s.userId === goneUserId)) {
+        setLeftPlayerToast(goneName);
+      }
+    }, 900);
+    return () => clearTimeout(t);
   }, [inRoom, playerSlots]);
 
   useEffect(() => {

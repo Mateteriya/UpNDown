@@ -109,9 +109,9 @@ function isRetryableWriteFailure(error: { message?: string; code?: string; detai
   return isRetryableNetworkMessage(error.message ?? '') || isRetryableNetworkMessage(String(error.details ?? ''));
 }
 
-/** Несколько коротких попыток — мобильный TLS/обрыв часто проходит со второго-третьего раза без долгого ожидания. */
+/** Чтение: короткие повторы. Запись: при 52 с на попытку три ретрая = минуты ожидания — достаточно двух. */
 const ROOM_READ_MAX_ATTEMPTS = 3;
-const ROOM_WRITE_MAX_ATTEMPTS = 3;
+const ROOM_WRITE_MAX_ATTEMPTS = 2;
 
 /** Без AbortSignal.timeout (старые WebView / Safari) — иначе create/join падают ещё до fetch. */
 const LOBBY_REQUEST_MS = 12_000;
@@ -126,8 +126,8 @@ function lobbyAbort(): AbortSignal {
   return c.signal;
 }
 
-/** Старт партии / ходы — тело запроса крупное; глобальный fetch 55 с превращает «завис старт» в минуту ожидания. */
-const GAME_MUTATION_MS = 22_000;
+/** Старт партии (полный game_state с руками) на мобильной/VPN часто >20 с; 22 с давало двойной таймаут ≈40–45 с «Запуск…». */
+const GAME_MUTATION_MS = 52_000;
 function gameMutationAbort(): AbortSignal {
   if (typeof AbortSignal !== 'undefined' && typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function') {
     return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(GAME_MUTATION_MS);

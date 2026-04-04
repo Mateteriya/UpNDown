@@ -256,9 +256,19 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return;
       }
       const ts = Date.parse(room.updated_at);
+      const serverState = room.game_state ?? null;
+      // Свежая строка в БД по времени — без эвристик: иначе второй клиент долго живёт на старом game_state.
+      if (
+        room.status === 'playing' &&
+        serverState &&
+        Number.isFinite(ts) &&
+        ts > lastSeenRoomUpdatedAtMsRef.current
+      ) {
+        applyRoomData(room);
+        return;
+      }
       const rowTimestampNewer =
         Number.isFinite(ts) && ts > lastSeenRoomUpdatedAtMsRef.current;
-      const serverState = room.game_state ?? null;
       const local = canonicalStateRef.current;
       const bidNonNullEarly = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
       // Торги: чужой заказ на сервере — тянем сразу (не ждём rowTimestampNewer при nS === nL).
@@ -314,11 +324,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         }
       }
 
-      // Строка в БД уже новее по времени — доверяем присланному game_state (иначе отпечаток рук/эвристика отсекали чужие ходы → только refresh помогал).
-      if (rowTimestampNewer && (room.status === 'playing' || room.status === 'finished')) {
-        applyRoomData(room);
-        return;
-      }
       if (!isNewer) {
         setPlayerSlots(room.player_slots || []);
         setCode(room.code);
@@ -345,10 +350,15 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!roomId) return;
     let cancelled = false;
+    let subscribedExtraRefresh: number | null = null;
     const unsub = subscribeToRoom(roomId, applyRoomDataOnlyIfNewer, (status) => {
       if (cancelled) return;
       if (status === 'SUBSCRIBED') {
         void refreshRoom();
+        subscribedExtraRefresh = window.setTimeout(() => {
+          subscribedExtraRefresh = null;
+          if (!cancelled) void refreshRoom();
+        }, 180);
         return;
       }
       if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT') return;
@@ -368,6 +378,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     unsubRef.current = unsub;
     return () => {
       cancelled = true;
+      if (subscribedExtraRefresh != null) clearTimeout(subscribedExtraRefresh);
       unsubRef.current = null;
       realtimePollBurstTimeoutsRef.current.forEach((id) => clearTimeout(id));
       realtimePollBurstTimeoutsRef.current = [];
