@@ -260,6 +260,31 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         Number.isFinite(ts) && ts > lastSeenRoomUpdatedAtMsRef.current;
       const serverState = room.game_state ?? null;
       const local = canonicalStateRef.current;
+      const bidNonNullEarly = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
+      // Торги: чужой заказ на сервере — тянем сразу (не ждём rowTimestampNewer при nS === nL).
+      if (
+        serverState &&
+        local &&
+        (serverState.phase === 'bidding' || serverState.phase === 'dark-bidding') &&
+        (local.phase === 'bidding' || local.phase === 'dark-bidding')
+      ) {
+        const nS = bidNonNullEarly(serverState.bids);
+        const nL = bidNonNullEarly(local.bids);
+        if (nS > nL) {
+          applyRoomData(room);
+          return;
+        }
+        if (
+          nS === nL &&
+          nS > 0 &&
+          JSON.stringify(serverState.bids) !== JSON.stringify(local.bids) &&
+          Number.isFinite(ts) &&
+          ts >= lastSeenRoomUpdatedAtMsRef.current
+        ) {
+          applyRoomData(room);
+          return;
+        }
+      }
       const isNewer = isServerStateNewerOrEqual(serverState, local);
 
       // Очки на сервере разошлись с локальными — доверяем БД (видимость взяток/подсчёта у гостей).
@@ -616,8 +641,13 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const names: [string, string, string, string] = [ fullSlots[0].displayName, fullSlots[1].displayName, fullSlots[2].displayName, fullSlots[3].displayName, ];
     let state = createGameOnline(names);
     state = startDeal(state);
+    canonicalStateRef.current = state;
     const { error: err, room } = await updateRoomState(roomId, state, fullSlots);
-    if (err) { setError(err); return false; }
+    if (err) {
+      setError(err);
+      canonicalStateRef.current = null;
+      return false;
+    }
     if (room) applyRoomData(room);
     else {
       setPlayerSlots(fullSlots);
@@ -631,10 +661,16 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         if (!roomId || !canonicalState) return false;
         const prev = canonicalState;
         const next = placeBid(prev, myServerIndex, bid);
+        canonicalStateRef.current = next;
         setCanonicalState(next);
         lastSendAtRef.current = Date.now();
         const { error: err, room } = await updateRoomState(roomId, next);
-        if (err) { setError(err); setCanonicalState(prev); return false; }
+        if (err) {
+          setError(err);
+          canonicalStateRef.current = prev;
+          setCanonicalState(prev);
+          return false;
+        }
         if (room) applyRoomData(room);
         return true;
     }, [roomId, canonicalState, myServerIndex, applyRoomData]);
@@ -643,10 +679,16 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         if (!roomId || !canonicalState) return false;
         const prev = canonicalState;
         const next = playCard(prev, myServerIndex, card);
+        canonicalStateRef.current = next;
         setCanonicalState(next);
         lastSendAtRef.current = Date.now();
         const { error: err, room } = await updateRoomState(roomId, next);
-        if (err) { setError(err); setCanonicalState(prev); return false; }
+        if (err) {
+          setError(err);
+          canonicalStateRef.current = prev;
+          setCanonicalState(prev);
+          return false;
+        }
         if (room) applyRoomData(room);
         return true;
     }, [roomId, canonicalState, myServerIndex, applyRoomData]);
@@ -668,10 +710,16 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       if (!roomId || !canonicalState) return false;
       const prev = canonicalState;
       const next = completeTrick(canonicalState);
+      canonicalStateRef.current = next;
       setCanonicalState(next);
       lastSendAtRef.current = Date.now();
       const { error: err, room } = await updateRoomState(roomId, next);
-      if (err) { setError(err); setCanonicalState(prev); return false; }
+      if (err) {
+        setError(err);
+        canonicalStateRef.current = prev;
+        setCanonicalState(prev);
+        return false;
+      }
       if (room) applyRoomData(room);
       return true;
     }, [roomId, canonicalState, applyRoomData]);
@@ -680,20 +728,33 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       const prev = canonicalState;
       const next = startNextDeal(canonicalState);
       if (!next) return false;
+      canonicalStateRef.current = next;
       setCanonicalState(next);
       lastSendAtRef.current = Date.now();
       const { error: err, room } = await updateRoomState(roomId, next);
-      if (err) { setError(err); setCanonicalState(prev); return false; }
+      if (err) {
+        setError(err);
+        canonicalStateRef.current = prev;
+        setCanonicalState(prev);
+        return false;
+      }
       if (room) applyRoomData(room);
       return true;
     }, [roomId, canonicalState, applyRoomData]);
     const sendState = useCallback(async (newState: GameState): Promise<boolean> => {
       if (!roomId) return false;
+      canonicalStateRef.current = newState;
       lastSendAtRef.current = Date.now();
       const { error: err, room } = await updateRoomState(roomId, newState);
-      if (err) { setError(err); return false; }
+      if (err) {
+        setError(err);
+        return false;
+      }
       if (room) applyRoomData(room);
-      else setCanonicalState(newState);
+      else {
+        canonicalStateRef.current = newState;
+        setCanonicalState(newState);
+      }
       return true;
     }, [roomId, applyRoomData]);
     const confirmReclaim = useCallback(async (): Promise<boolean> => {
