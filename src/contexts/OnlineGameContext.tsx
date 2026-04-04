@@ -183,9 +183,30 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const tricksTaken = (s: GameState) => s.players.reduce((sum, p) => sum + (p.tricksTaken ?? 0), 0);
     if (tricksTaken(server) > tricksTaken(local)) return true;
     if (tricksTaken(server) < tricksTaken(local)) return false;
-    // Одинаковый прогресс по сделке/фазе/заказам/взяткам, но другой набор карт — типичная гонка (например updated_at из-за player_slots + старый game_state).
+    // Одна длина взятки, но разные карты на столе — валидно только одно состояние; доверяем серверу (иначе isNewer=false и гость минутами не видит чужой ход).
+    const trickSig = (t: GameState['currentTrick']) =>
+      (t ?? []).map((c) => `${c.rank}:${c.suit}`).join('|');
+    if (
+      trickLen(server.currentTrick) === trickLen(local.currentTrick) &&
+      trickLen(server.currentTrick) > 0 &&
+      trickSig(server.currentTrick) !== trickSig(local.currentTrick)
+    ) {
+      return true;
+    }
+    // Тот же прогресс по взяткам/конуру, но разный currentPlayerIndex — чужой ход уже ушёл на сервер.
+    if (
+      server.phase === 'playing' &&
+      local.phase === 'playing' &&
+      bidsCount(server.bids) >= 4 &&
+      tricksTaken(server) === tricksTaken(local) &&
+      trickLen(server.currentTrick) === trickLen(local.currentTrick) &&
+      server.currentPlayerIndex !== local.currentPlayerIndex
+    ) {
+      return true;
+    }
+    // Руки разошлись при совпадающих метриках выше — почти всегда сервер свежее (было return false → залипание второго клиента).
     if (stateHasDealtHands(local) && stateHasDealtHands(server) && handMultisetFingerprint(server) !== handMultisetFingerprint(local)) {
-      return false;
+      return true;
     }
     return true;
   }, []);
@@ -319,12 +340,16 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     };
   }, [roomId, refreshRoom]);
 
-  // Редкий getRoom в лобби и в партии: без этого гость при сбое Realtime не видит «старт» (status остаётся waiting) и залипает на заказах/ходах.
-  // Интервал ~5.5 с — компромисс с частым опросом; Realtime по-прежнему основной канал.
-  const ROOM_SYNC_POLL_MS = 5500;
-  const ROOM_SYNC_POLL_SKIP_MS = 2800;
+  // Лобби — редко; в партии чаще (Realtime на мобильных/ПК иногда запаздывает).
+  const ROOM_SYNC_POLL_MS_WAITING = 5500;
+  const ROOM_SYNC_POLL_SKIP_WAITING = 2800;
+  const ROOM_SYNC_POLL_MS_PLAYING = 1800;
+  const ROOM_SYNC_POLL_SKIP_PLAYING = 800;
+  const roomSyncSkipRef = useRef(ROOM_SYNC_POLL_SKIP_WAITING);
+  roomSyncSkipRef.current = status === 'playing' ? ROOM_SYNC_POLL_SKIP_PLAYING : ROOM_SYNC_POLL_SKIP_WAITING;
+
   const runRoomSyncPollTick = useCallback(() => {
-    if (Date.now() - lastSendAtRef.current < ROOM_SYNC_POLL_SKIP_MS) return;
+    if (Date.now() - lastSendAtRef.current < roomSyncSkipRef.current) return;
     const rid = roomIdRef.current;
     if (!rid) return;
     getRoom(rid).then((room) => {
@@ -347,8 +372,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
+    const period = status === 'playing' ? ROOM_SYNC_POLL_MS_PLAYING : ROOM_SYNC_POLL_MS_WAITING;
     runRoomSyncPollTick();
-    const iv = setInterval(() => runRoomSyncPollTick(), ROOM_SYNC_POLL_MS);
+    const iv = setInterval(() => runRoomSyncPollTick(), period);
     return () => clearInterval(iv);
   }, [roomId, status, runRoomSyncPollTick]);
 
