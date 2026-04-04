@@ -308,6 +308,10 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     let cancelled = false;
     const unsub = subscribeToRoom(roomId, applyRoomDataOnlyIfNewer, (status) => {
       if (cancelled) return;
+      if (status === 'SUBSCRIBED') {
+        void refreshRoom();
+        return;
+      }
       if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT') return;
       if (realtimeErrorDebounceRef.current) clearTimeout(realtimeErrorDebounceRef.current);
       realtimeErrorDebounceRef.current = setTimeout(() => {
@@ -316,14 +320,10 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         realtimePollBurstTimeoutsRef.current.forEach((id) => clearTimeout(id));
         realtimePollBurstTimeoutsRef.current = [];
         void refreshRoom();
-        for (let i = 1; i <= 3; i++) {
-          const id = window.setTimeout(() => {
-            void refreshRoom();
-          }, 400 + i * 1200);
-          realtimePollBurstTimeoutsRef.current.push(id);
-        }
+        const id = window.setTimeout(() => void refreshRoom(), 1000);
+        realtimePollBurstTimeoutsRef.current.push(id);
         setRealtimeHealKey((k) => k + 1);
-      }, 400);
+      }, 250);
     });
     unsubRef.current = unsub;
     return () => {
@@ -355,11 +355,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     };
   }, [roomId, refreshRoom]);
 
-  // Лобби — редко; в партии чаще (Realtime на мобильных/ПК иногда запаздывает).
-  const ROOM_SYNC_POLL_MS_WAITING = 5500;
-  const ROOM_SYNC_POLL_SKIP_WAITING = 2800;
-  const ROOM_SYNC_POLL_MS_PLAYING = 1800;
-  const ROOM_SYNC_POLL_SKIP_PLAYING = 800;
+  // Лобби: частый опрос — иначе второй клиент ждёт Realtime/5.5 с и «не видит» гостя. В игре — умеренно.
+  const ROOM_SYNC_POLL_MS_WAITING = 1000;
+  const ROOM_SYNC_POLL_SKIP_WAITING = 200;
+  const ROOM_SYNC_POLL_MS_PLAYING = 1600;
+  const ROOM_SYNC_POLL_SKIP_PLAYING = 600;
   const roomSyncSkipRef = useRef(ROOM_SYNC_POLL_SKIP_WAITING);
   roomSyncSkipRef.current = status === 'playing' ? ROOM_SYNC_POLL_SKIP_PLAYING : ROOM_SYNC_POLL_SKIP_WAITING;
 
@@ -602,13 +602,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setUserOnPause(false);
     clearOnlineSession();
     if (rid && user?.id) {
-      const LEAVE_API_MS = 8000;
-      await Promise.race([
-        apiLeaveRoom(rid, user.id).then(() => undefined),
-        new Promise<void>((resolve) => {
-          setTimeout(resolve, LEAVE_API_MS);
-        }),
-      ]);
+      void apiLeaveRoom(rid, user.id).catch(() => {});
     }
   }, [roomId, user?.id]);
   

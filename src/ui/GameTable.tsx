@@ -544,7 +544,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     const t = setTimeout(() => {
       waitingRefreshDoneRef.current = true;
       online.refreshRoom();
-    }, 400);
+    }, 120);
     return () => clearTimeout(t);
   }, [isWaitingInRoom, online.roomId, online.refreshRoom]);
 
