@@ -308,9 +308,10 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     };
   }, [roomId, refreshRoom]);
 
-  // Опрос: подтягиваем ходы, если Realtime не дошёл. При более новом updated_at в игре всегда берём полный game_state.
-  const POLL_INTERVAL_MS = 900;
-  const POLL_SKIP_MS = 700;
+  // Опрос: подстраховка, если Realtime пропустил апдейт. На prod (main) такого опроса нет — только подписка;
+  // слишком частый getRoom (900 мс) давал лишний трафик и постоянные apply → «тормоза» на staging.
+  const POLL_INTERVAL_MS = 2800;
+  const POLL_SKIP_MS = 2000;
   useEffect(() => {
     if (!roomId) return;
     const t = setInterval(() => {
