@@ -479,6 +479,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     async (userId: string, displayName: string, shortLabel?: string): Promise<{ ok: boolean; error?: string }> => {
       try {
         setError(null);
+        clearOnlineSession();
+        sessionRestoreOkRef.current = false;
         const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
         const result = await apiCreateRoom(userId, displayName, shortLabel, avatarDataUrl);
         if ('error' in result) {

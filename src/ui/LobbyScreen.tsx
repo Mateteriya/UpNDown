@@ -123,7 +123,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     setJoinError(null);
     setCreating(true);
     try {
-      if (roomId != null || status !== 'idle') await leaveRoom();
+      await leaveRoom();
       const r = await createRoom(user.id, name, shortLabel);
       if (!r.ok) setJoinError(r.error ?? 'Не удалось создать комнату.');
     } catch (e) {
@@ -149,7 +149,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     setJoinError(null);
     setJoining(true);
     try {
-      if (roomId != null || status !== 'idle') await leaveRoom();
+      await leaveRoom();
       const r = await joinRoom(code, user.id, playerName, shortLabel);
       if (!r.ok) setJoinError(r.error ?? 'Не удалось присоединиться. Проверьте код и подключение.');
       else if (onGoToGame && typeof window !== 'undefined' && window.innerWidth <= 1024) {
