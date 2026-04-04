@@ -178,11 +178,26 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (bidsCount(server.bids) > bidsCount(local.bids)) return true;
     if (bidsCount(server.bids) < bidsCount(local.bids)) return false;
     const trickLen = (t: unknown[] | undefined) => (t ?? []).length;
+    const tricksTaken = (s: GameState) => s.players.reduce((sum, p) => sum + (p.tricksTaken ?? 0), 0);
+    const trickSigSorted = (cards: GameState['currentTrick']) =>
+      [...(cards ?? [])].map((c) => `${c.rank}:${c.suit}`).sort().join('|');
+    // У клиента ещё 4 карты в конуре + pendingTrickCompletion; другой клиент уже вызвал completeTrick.
+    // Раньше сравнивали длину кона раньше суммы взяток → server.length 0 < local 4 ⇒ «сервер старее» и телефон залипал.
+    if (
+      local.pendingTrickCompletion &&
+      !server.pendingTrickCompletion &&
+      server.dealNumber === local.dealNumber &&
+      server.lastCompletedTrick &&
+      trickSigSorted(local.pendingTrickCompletion.cards) === trickSigSorted(server.lastCompletedTrick.cards)
+    ) {
+      return true;
+    }
+    const trS = tricksTaken(server);
+    const trL = tricksTaken(local);
+    if (trS > trL) return true;
+    if (trS < trL) return false;
     if (trickLen(server.currentTrick) > trickLen(local.currentTrick)) return true;
     if (trickLen(server.currentTrick) < trickLen(local.currentTrick)) return false;
-    const tricksTaken = (s: GameState) => s.players.reduce((sum, p) => sum + (p.tricksTaken ?? 0), 0);
-    if (tricksTaken(server) > tricksTaken(local)) return true;
-    if (tricksTaken(server) < tricksTaken(local)) return false;
     // Одна длина взятки, но разные карты на столе — валидно только одно состояние; доверяем серверу (иначе isNewer=false и гость минутами не видит чужой ход).
     const trickSig = (t: GameState['currentTrick']) =>
       (t ?? []).map((c) => `${c.rank}:${c.suit}`).join('|');
