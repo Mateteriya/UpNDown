@@ -32,9 +32,6 @@ import {
 } from '../lib/onlineGameSupabase';
 import { saveOnlineSession, clearOnlineSession, loadOnlineSession } from '../lib/onlineSession';
 
-/** После своего updateRoomState не принимать регрессивный game_state из гонки Realtime/опроса. */
-const POST_LOCAL_WRITE_STALE_GUARD_MS = 550;
-
 /** Сообщение при обрыве по таймауту fetch в supabase.ts (~55 с). */
 function formatSupabaseNetworkError(e: unknown): string {
   if (e instanceof DOMException && e.name === 'AbortError') {
@@ -92,6 +89,40 @@ function handMultisetFingerprint(state: GameState | null): string {
         .join(',')
     )
     .join('|');
+}
+
+function bidsArraySig(b: (number | null)[] | undefined): string {
+  return (b ?? []).map((x) => (x == null ? 'n' : String(x))).join(',');
+}
+
+/** Лёгкий отпечаток для сравнения «тот же прогресс игры» без JSON.stringify всего state (Realtime/опрос вызывают это очень часто). */
+function gameStateMergeFingerprint(s: GameState | null): string {
+  if (!s) return '';
+  const trick = s.currentTrick ?? [];
+  const trickSig = trick.map((c) => `${c.rank}:${c.suit}`).join('|');
+  const dh = s.dealHistory ?? [];
+  const dhSig = dh.length === 0 ? '0' : `${dh.length}:${dh[dh.length - 1]?.dealNumber ?? 0}`;
+  const pend = s.pendingTrickCompletion
+    ? [...(s.pendingTrickCompletion.cards ?? [])]
+        .map((c) => `${c.rank}:${c.suit}`)
+        .sort()
+        .join('|')
+    : '';
+  const tricksSum = s.players.reduce((sum, p) => sum + (p.tricksTaken ?? 0), 0);
+  return [
+    s.dealNumber,
+    s.phase,
+    bidsArraySig(s.bids),
+    tricksSum,
+    trick.length,
+    trickSig,
+    s.currentPlayerIndex,
+    s.dealerIndex,
+    handMultisetFingerprint(s),
+    s.players.map((p) => p.score).join(','),
+    dhSig,
+    pend,
+  ].join('#');
 }
 
 // --- Интерфейс Контекста (остается без изменений) ---
@@ -165,8 +196,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const canonicalStateRef = useRef<GameState | null>(null);
   canonicalStateRef.current = canonicalState;
   const lastSendAtRef = useRef(0);
-  /** После своего updateRoomState ещё коротко отсекаем регрессивный game_state из гонки Realtime/опроса (inFlight уже 0). */
-  const postLocalWriteGuardUntilRef = useRef(0);
   /** Активный update game_state в Supabase — пока >0, игнорируем устаревшие строки из опроса/Realtime (сброс заказа, откат стола). */
   const gameWriteInFlightRef = useRef(0);
   /** Время последней строки комнаты с сервера (updated_at), чтобы опрос мог принудительно подтянуть актуальное game_state при «залипании» onlyIfNewer. */
@@ -258,12 +287,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       if (Date.now() - lastSendAtRef.current < 900) return false;
       return true;
     }
-    try {
-      if (JSON.stringify(server) === JSON.stringify(local)) return true;
-    } catch {
-      /* ignore */
-    }
-    // Не удалось доказать, что сервер впереди — сохраняем локальное (избегаем мигания/отката).
+    // Тот же игровой прогресс по компактному отпечатку — безопасно принять сервер (синхронизация слотов/мелочей).
+    if (gameStateMergeFingerprint(server) === gameStateMergeFingerprint(local)) return true;
+    // Сервер не выглядит новее и не совпадает по прогрессу — не затирать локальное устаревшим JSON.
     return false;
   }, [phaseOrder]);
 
@@ -332,22 +358,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
       }
 
-      if (
-        room.status === 'playing' &&
-        serverState &&
-        Date.now() < postLocalWriteGuardUntilRef.current
-      ) {
-        const localGuard = canonicalStateRef.current;
-        if (localGuard && !isServerStateNewerOrEqual(serverState, localGuard)) {
-          if (Number.isFinite(ts)) {
-            lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
-          }
-          setPlayerSlots(room.player_slots || []);
-          setCode(room.code);
-          if (room.status === 'playing') setStatus('playing');
-          return;
-        }
-      }
       const rowTimestampNewer =
         Number.isFinite(ts) && ts > lastSeenRoomUpdatedAtMsRef.current;
       const local = canonicalStateRef.current;
@@ -368,7 +378,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         if (
           nS === nL &&
           nS > 0 &&
-          JSON.stringify(serverState.bids) !== JSON.stringify(local.bids) &&
+          bidsArraySig(serverState.bids) !== bidsArraySig(local.bids) &&
           Number.isFinite(ts) &&
           ts >= lastSeenRoomUpdatedAtMsRef.current
         ) {
@@ -395,7 +405,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         (room.status === 'playing' || room.status === 'finished') &&
         serverState &&
         local &&
-        JSON.stringify(serverState.bids) !== JSON.stringify(local.bids)
+        bidsArraySig(serverState.bids) !== bidsArraySig(local.bids)
       ) {
         const nS = bidNonNull(serverState.bids);
         const nL = bidNonNull(local.bids);
@@ -698,7 +708,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         else if (!err) setPlayerSlots(slots);
       } finally {
         gameWriteInFlightRef.current -= 1;
-        postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
       }
     }
   }, [roomId, status, playerSlots, myServerIndex, canonicalState, applyRoomData]);
@@ -713,7 +722,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       unsubRef.current = null;
     }
     roomIdRef.current = null;
-    postLocalWriteGuardUntilRef.current = 0;
     setRoomId(null); setCode(null); setCanonicalState(null); setPlayerSlots([]); setStatus('idle'); setError(null);
     setMyServerIndex(0);
     sessionRestoreOkRef.current = false;
@@ -770,7 +778,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       return true;
     } finally {
       gameWriteInFlightRef.current -= 1;
-      postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
     }
   }, [roomId, myServerIndex, playerSlots, applyRoomData]);
 
@@ -794,7 +801,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           return true;
         } finally {
           gameWriteInFlightRef.current -= 1;
-          postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
         }
     }, [roomId, canonicalState, myServerIndex, applyRoomData]);
 
@@ -818,7 +824,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           return true;
         } finally {
           gameWriteInFlightRef.current -= 1;
-          postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
         }
     }, [roomId, canonicalState, myServerIndex, applyRoomData]);
 
@@ -855,7 +860,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return true;
       } finally {
         gameWriteInFlightRef.current -= 1;
-        postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
       }
     }, [roomId, canonicalState, applyRoomData]);
     const sendStartNextDeal = useCallback(async (): Promise<boolean> => {
@@ -879,7 +883,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return true;
       } finally {
         gameWriteInFlightRef.current -= 1;
-        postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
       }
     }, [roomId, canonicalState, applyRoomData]);
     const sendState = useCallback(async (newState: GameState): Promise<boolean> => {
@@ -901,7 +904,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return true;
       } finally {
         gameWriteInFlightRef.current -= 1;
-        postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
       }
     }, [roomId, applyRoomData]);
     const confirmReclaim = useCallback(async (): Promise<boolean> => {
