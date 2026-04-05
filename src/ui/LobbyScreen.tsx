@@ -82,16 +82,14 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
   const isHost = myServerIndex === 0;
   const inRoom = status === 'waiting' && roomId;
 
-  const hostSyncedRef = useRef(false);
+  /** Сразу после входа хоста sync давал UPDATE player_slots без проверки updated_at — сдвигал штамп и ломал гостевой join (optimistic lock по updated_at). Дебаунс 2 с. */
   useEffect(() => {
     if (!inRoom || !isHost || !playerName.trim() || !syncMySlotDisplayName) return;
-    if (hostSyncedRef.current) return;
-    hostSyncedRef.current = true;
-    syncMySlotDisplayName(playerName);
+    const t = window.setTimeout(() => {
+      void syncMySlotDisplayName(playerName);
+    }, 2000);
+    return () => clearTimeout(t);
   }, [inRoom, isHost, playerName, syncMySlotDisplayName]);
-  useEffect(() => {
-    if (!inRoom) hostSyncedRef.current = false;
-  }, [inRoom]);
 
   useEffect(() => {
     if (!inRoom || playerSlots.length >= prevSlotsRef.current.length) {

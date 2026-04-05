@@ -209,7 +209,36 @@ export async function joinRoom(
 
   const av = capAvatarDataUrl(avatarDataUrl ?? undefined);
 
-  const MAX_ATTEMPTS = 14;
+  /** Атомарный вход в waiting (миграция 20250405180000). Убирает гонку с updated_at при одновременном sync хоста. */
+  const { data: rpcRaw, error: rpcError } = await supabase.rpc('updown_join_waiting_room', {
+    p_code: normalizedCode,
+    p_user_id: userId,
+    p_display_name: displayName,
+    p_short_label: shortLabel ?? null,
+    p_avatar_data_url: av ?? null,
+  });
+  if (!rpcError && rpcRaw && typeof rpcRaw === 'object') {
+    const payload = rpcRaw as {
+      ok?: boolean;
+      error?: string;
+      room_id?: string;
+      my_slot_index?: number;
+    };
+    if (payload.ok === true && typeof payload.room_id === 'string') {
+      const room = await getRoom(payload.room_id);
+      if (room) {
+        const idx = typeof payload.my_slot_index === 'number' ? payload.my_slot_index : 0;
+        return { roomId: room.id, mySlotIndex: idx, room };
+      }
+    }
+    if (payload.ok === false) {
+      if (payload.error === 'not_found') return { error: 'Комната не найдена' };
+      if (payload.error === 'room_full') return { error: 'Комната заполнена' };
+      /* not_waiting — ниже обычный цикл (playing / reclaim и т.д.) */
+    }
+  }
+
+  const MAX_ATTEMPTS = 24;
   const joinStarted = Date.now();
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
