@@ -32,6 +32,9 @@ import {
 } from '../lib/onlineGameSupabase';
 import { saveOnlineSession, clearOnlineSession, loadOnlineSession } from '../lib/onlineSession';
 
+/** После своего updateRoomState не принимать регрессивный game_state из гонки Realtime/опроса. */
+const POST_LOCAL_WRITE_STALE_GUARD_MS = 550;
+
 /** Сообщение при обрыве по таймауту fetch в supabase.ts (~55 с). */
 function formatSupabaseNetworkError(e: unknown): string {
   if (e instanceof DOMException && e.name === 'AbortError') {
@@ -162,10 +165,32 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const canonicalStateRef = useRef<GameState | null>(null);
   canonicalStateRef.current = canonicalState;
   const lastSendAtRef = useRef(0);
+  /** После своего updateRoomState ещё коротко отсекаем регрессивный game_state из гонки Realtime/опроса (inFlight уже 0). */
+  const postLocalWriteGuardUntilRef = useRef(0);
   /** Активный update game_state в Supabase — пока >0, игнорируем устаревшие строки из опроса/Realtime (сброс заказа, откат стола). */
   const gameWriteInFlightRef = useRef(0);
   /** Время последней строки комнаты с сервера (updated_at), чтобы опрос мог принудительно подтянуть актуальное game_state при «залипании» onlyIfNewer. */
   const lastSeenRoomUpdatedAtMsRef = useRef(0);
+
+  /** Линейный порядок фаз внутри одной раздачи (и конец игры). */
+  const phaseOrder = useCallback((p: string) => {
+    switch (p) {
+      case 'bidding':
+        return 0;
+      case 'dark-bidding':
+        return 1;
+      case 'playing':
+        return 2;
+      case 'trick-complete':
+        return 3;
+      case 'deal-complete':
+        return 4;
+      case 'game-complete':
+        return 5;
+      default:
+        return 2;
+    }
+  }, []);
 
   /** Серверное состояние применяем только если оно не старее локального (иначе Realtime/опрос перезатирают ход → карта «забирается назад»). */
   const isServerStateNewerOrEqual = useCallback((server: GameState | null, local: GameState | null): boolean => {
@@ -173,7 +198,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (!local) return true;
     if (server.dealNumber > local.dealNumber) return true;
     if (server.dealNumber < local.dealNumber) return false;
-    const phaseOrder = (p: string) => (p === 'bidding' ? 0 : p === 'dark-bidding' ? 1 : p === 'playing' ? 2 : 3);
     if (phaseOrder(server.phase) > phaseOrder(local.phase)) return true;
     if (phaseOrder(server.phase) < phaseOrder(local.phase)) return false;
     const bidsCount = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
@@ -221,12 +245,27 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     ) {
       return true;
     }
-    // Руки разошлись при совпадающих метриках выше — почти всегда сервер свежее (было return false → залипание второго клиента).
+    // Руки разошлись при совпадающих длине кона / взятках — часто это «сервер ещё не подтянул ход» vs «гость отстаёт».
+    // Слепой return true откатывал оптимистичный ход (карта возвращалась в руку).
     if (stateHasDealtHands(local) && stateHasDealtHands(server) && handMultisetFingerprint(server) !== handMultisetFingerprint(local)) {
+      const sig = (t: GameState['currentTrick']) => (t ?? []).map((c) => `${c.rank}:${c.suit}`).join('|');
+      const tlS = trickLen(server.currentTrick);
+      const tlL = trickLen(local.currentTrick);
+      if (tlS < tlL) return false;
+      if (tlS > tlL) return true;
+      if (tlS > 0 && sig(server.currentTrick) !== sig(local.currentTrick)) return true;
+      // Кон совпадает по составу, руки всё же разные — сразу после своего хода не откатываем локальное.
+      if (Date.now() - lastSendAtRef.current < 900) return false;
       return true;
     }
-    return true;
-  }, []);
+    try {
+      if (JSON.stringify(server) === JSON.stringify(local)) return true;
+    } catch {
+      /* ignore */
+    }
+    // Не удалось доказать, что сервер впереди — сохраняем локальное (избегаем мигания/отката).
+    return false;
+  }, [phaseOrder]);
 
   const applyRoomData = useCallback((room: GameRoomRow) => {
     if (!room?.id) return;
@@ -278,15 +317,36 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           if ((serverState.currentTrick ?? []).length < (local.currentTrick ?? []).length) return;
         }
       }
-      // Свежая строка в БД по времени — без эвристик: иначе второй клиент долго живёт на старом game_state.
+      // updated_at мог обновиться из-за player_slots/аватара; нельзя без проверки затирать game_state устаревшим JSON.
       if (
         room.status === 'playing' &&
         serverState &&
         Number.isFinite(ts) &&
         ts > lastSeenRoomUpdatedAtMsRef.current
       ) {
-        applyRoomData(room);
-        return;
+        const localEarly = canonicalStateRef.current;
+        if (!localEarly || isServerStateNewerOrEqual(serverState, localEarly)) {
+          applyRoomData(room);
+          return;
+        }
+        lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
+      }
+
+      if (
+        room.status === 'playing' &&
+        serverState &&
+        Date.now() < postLocalWriteGuardUntilRef.current
+      ) {
+        const localGuard = canonicalStateRef.current;
+        if (localGuard && !isServerStateNewerOrEqual(serverState, localGuard)) {
+          if (Number.isFinite(ts)) {
+            lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
+          }
+          setPlayerSlots(room.player_slots || []);
+          setCode(room.code);
+          if (room.status === 'playing') setStatus('playing');
+          return;
+        }
       }
       const rowTimestampNewer =
         Number.isFinite(ts) && ts > lastSeenRoomUpdatedAtMsRef.current;
@@ -638,6 +698,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         else if (!err) setPlayerSlots(slots);
       } finally {
         gameWriteInFlightRef.current -= 1;
+        postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
       }
     }
   }, [roomId, status, playerSlots, myServerIndex, canonicalState, applyRoomData]);
@@ -652,6 +713,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       unsubRef.current = null;
     }
     roomIdRef.current = null;
+    postLocalWriteGuardUntilRef.current = 0;
     setRoomId(null); setCode(null); setCanonicalState(null); setPlayerSlots([]); setStatus('idle'); setError(null);
     setMyServerIndex(0);
     sessionRestoreOkRef.current = false;
@@ -708,6 +770,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       return true;
     } finally {
       gameWriteInFlightRef.current -= 1;
+      postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
     }
   }, [roomId, myServerIndex, playerSlots, applyRoomData]);
 
@@ -731,6 +794,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           return true;
         } finally {
           gameWriteInFlightRef.current -= 1;
+          postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
         }
     }, [roomId, canonicalState, myServerIndex, applyRoomData]);
 
@@ -754,6 +818,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           return true;
         } finally {
           gameWriteInFlightRef.current -= 1;
+          postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
         }
     }, [roomId, canonicalState, myServerIndex, applyRoomData]);
 
@@ -790,6 +855,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return true;
       } finally {
         gameWriteInFlightRef.current -= 1;
+        postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
       }
     }, [roomId, canonicalState, applyRoomData]);
     const sendStartNextDeal = useCallback(async (): Promise<boolean> => {
@@ -813,6 +879,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return true;
       } finally {
         gameWriteInFlightRef.current -= 1;
+        postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
       }
     }, [roomId, canonicalState, applyRoomData]);
     const sendState = useCallback(async (newState: GameState): Promise<boolean> => {
@@ -834,6 +901,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return true;
       } finally {
         gameWriteInFlightRef.current -= 1;
+        postLocalWriteGuardUntilRef.current = Date.now() + POST_LOCAL_WRITE_STALE_GUARD_MS;
       }
     }, [roomId, applyRoomData]);
     const confirmReclaim = useCallback(async (): Promise<boolean> => {
