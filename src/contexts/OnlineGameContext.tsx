@@ -580,8 +580,10 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
     const period = status === 'playing' ? ROOM_SYNC_POLL_MS_PLAYING : ROOM_SYNC_POLL_MS_WAITING;
     runRoomSyncPollTick();
-    const needPollFallback = !realtimeSyncHealthy || tabHidden;
-    if (!needPollFallback) return;
+    // В лобби Realtime на мобильных/WebView часто запаздывает на десятки секунд — без опроса хост не видит гостей.
+    const needPollInterval =
+      status === 'waiting' || !realtimeSyncHealthy || tabHidden;
+    if (!needPollInterval) return;
     const iv = setInterval(() => runRoomSyncPollTick(), period);
     return () => clearInterval(iv);
   }, [roomId, status, runRoomSyncPollTick, realtimeSyncHealthy, tabHidden]);
@@ -812,6 +814,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       return false;
     }
 
+    const prevSlots = playerSlots.slice();
+    const prevCanonical = canonicalStateRef.current;
+
     gameWriteInFlightRef.current += 1;
     try {
       const fullSlots: PlayerSlot[] = [];
@@ -827,18 +832,20 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       let state = createGameOnline(names);
       state = startDeal(state);
       canonicalStateRef.current = state;
+      setPlayerSlots(fullSlots);
+      setCanonicalState(state);
+      setStatus('playing');
+
       const { error: err, room } = await updateRoomState(roomId, state, fullSlots);
       if (err) {
         setError(err);
-        canonicalStateRef.current = null;
+        canonicalStateRef.current = prevCanonical ?? null;
+        setPlayerSlots(prevSlots);
+        setCanonicalState(prevCanonical ?? null);
+        setStatus('waiting');
         return false;
       }
       if (room) applyRoomData(room);
-      else {
-        setPlayerSlots(fullSlots);
-        setCanonicalState(state);
-        setStatus('playing');
-      }
       return true;
     } finally {
       gameWriteInFlightRef.current -= 1;
