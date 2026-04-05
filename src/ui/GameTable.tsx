@@ -216,6 +216,8 @@ function GameOverModal({
   onExit,
   onOpenTable,
   hideNewGame,
+  /** Онлайн: индекс места на сервере (0–3); офлайн не передавать — «человек» в snapshot на месте 0. */
+  viewerCanonicalSlotIndex,
 }: {
   snapshot: GameState;
   gameId: number;
@@ -223,9 +225,10 @@ function GameOverModal({
   onExit: () => void;
   onOpenTable: () => void;
   hideNewGame?: boolean;
+  viewerCanonicalSlotIndex?: number | null;
 }) {
   const [showExpanded, setShowExpanded] = useState(false);
-  const humanIdx = 0;
+  const humanIdx = viewerCanonicalSlotIndex ?? 0;
   const players = snapshot.players;
   const sorted = [...players]
     .map((p, i) => ({ ...p, idx: i }))
@@ -441,7 +444,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showHomeConfirm, setShowHomeConfirm] = useState(false);
   const [gameOverSnapshot, setGameOverSnapshot] = useState<GameState | null>(null);
+  /** Для онлайна — канонический снимок + слот; иначе dealHistory и players расходятся по индексам. */
+  const [gameOverViewerSlot, setGameOverViewerSlot] = useState<number | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const startFromWaitingLockRef = useRef(false);
   const [selectedPlayerForInfo, setSelectedPlayerForInfo] = useState<number | null>(null);
   const [showDealerTooltip, setShowDealerTooltip] = useState(false);
   const [showFirstMoveTooltip, setShowFirstMoveTooltip] = useState(false);
@@ -652,10 +658,13 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   }, [isOnline, isWaitingInRoom, online, onExit]);
 
   const handleStartFromWaiting = useCallback(async () => {
+    if (startFromWaitingLockRef.current) return;
+    startFromWaitingLockRef.current = true;
     setStartingFromWaiting(true);
     try {
       await online.startGame();
     } finally {
+      startFromWaitingLockRef.current = false;
       setStartingFromWaiting(false);
     }
   }, [online]);
@@ -734,11 +743,14 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         timeouts.collapse = window.setTimeout(() => {
           timeouts.collapse = undefined;
           setLastTrickCollectingPhase('button');
-          const snap = stateRef.current;
+          const o = onlineRef.current;
+          const canonicalSnap = o?.canonicalState;
+          const snap = canonicalSnap ?? stateRef.current;
           if (snap?.dealNumber === 28) {
             setGameOverSnapshot(snap);
+            setGameOverViewerSlot(canonicalSnap != null ? o.myServerIndex : null);
             setShowGameOverModal(true);
-            if (!isOnline && snap) {
+            if (!canonicalSnap && snap) {
               const maxScore = Math.max(...snap.players.map((p) => p.score));
               const humanWon = snap.players[0].score === maxScore;
               let bidAccuracy = 0;
@@ -758,7 +770,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           } else if (snap) {
             setShowDealResultsButton(true);
             dealResultsButtonEverShownRef.current = true;
-            setLastDealResultsSnapshot(snap);
+            setLastDealResultsSnapshot(
+              canonicalSnap && o
+                ? rotateStateForPlayer(snap, o.myServerIndex)
+                : snap,
+            );
             const dh = snap.dealHistory;
             if (dh?.length) {
               const last = dh[dh.length - 1];
@@ -2023,7 +2039,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         </div>
         </div>
         {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && !isMobile && (
-          <DealResultsScreen state={state} myServerIndex={online?.myServerIndex ?? 0} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
+          <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
         )}
             <div className="game-center-east game-mobile-east" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', ...(isMobile ? {} : { minWidth: 60 }) }}>
               <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
@@ -2375,7 +2391,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           />
         </div>
         {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && !isMobile && (
-          <DealResultsScreen state={state} myServerIndex={online?.myServerIndex ?? 0} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
+          <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
         )}
       </div>
       <div style={centerAreaSpacerBottomStyle} aria-hidden />
@@ -2523,7 +2539,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       {/* На мобильной оверлей итогов раздачи рендерим в портал, чтобы position:fixed считался от viewport (нет предка с transform) */}
       {isMobile && dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && createPortal(
         <div className="game-table-root viewport-mobile" style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 15 }}>
-          <DealResultsScreen state={state} myServerIndex={online?.myServerIndex ?? 0} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={true} />
+          <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={true} />
         </div>,
         document.body,
       )}
@@ -2576,7 +2592,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               flexDirection: isMobile ? 'column' : undefined,
               minHeight: 0,
             }}>
-              <DealResultsScreen state={lastDealResultsSnapshot} myServerIndex={online?.myServerIndex ?? 0} variant="modal" isMobile={isMobile} onClose={() => setDealResultsExpanded(false)} />
+              <DealResultsScreen state={lastDealResultsSnapshot} variant="modal" isMobile={isMobile} onClose={() => setDealResultsExpanded(false)} />
             </div>
           </div>
         </div>,
@@ -2609,7 +2625,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             padding: 16,
           }}
           onClick={e => e.stopPropagation()}
-          onKeyDown={e => { if (e.key === 'Escape') { setShowGameOverModal(false); setGameOverSnapshot(null); } }}
+          onKeyDown={e => { if (e.key === 'Escape') { setShowGameOverModal(false); setGameOverSnapshot(null); setGameOverViewerSlot(null); } }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="game-over-title"
@@ -2629,19 +2645,25 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               snapshot={gameOverSnapshot}
               gameId={gameId}
               hideNewGame={isOnline}
+              viewerCanonicalSlotIndex={gameOverViewerSlot}
               onNewGame={() => {
                 setShowGameOverModal(false);
                 setGameOverSnapshot(null);
+                setGameOverViewerSlot(null);
                 onNewGame?.();
               }}
               onExit={async () => {
                 setShowGameOverModal(false);
                 setGameOverSnapshot(null);
+                setGameOverViewerSlot(null);
                 if (isOnline && online.leaveRoom) await online.leaveRoom();
                 handleExit();
               }}
               onOpenTable={() => {
-                setLastDealResultsSnapshot(gameOverSnapshot);
+                const v = gameOverViewerSlot;
+                setLastDealResultsSnapshot(
+                  v != null ? rotateStateForPlayer(gameOverSnapshot, v) : gameOverSnapshot,
+                );
                 setDealResultsExpanded(true);
                 /* панель «Итоги партии» не закрываем — после закрытия таблицы пользователь снова её увидит */
               }}
@@ -2814,11 +2836,10 @@ const PLAYER_POSITIONS = [
   { idx: 3, side: 'right' as const, name: 'Восток' },
 ];
 
-function DealResultsScreen({ state, myServerIndex = 0, isCollapsing = false, variant = 'overlay', isMobile = false, onClose }: { state: GameState; myServerIndex?: number; isCollapsing?: boolean; variant?: 'overlay' | 'modal'; isMobile?: boolean; onClose?: () => void }) {
+function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay', isMobile = false, onClose }: { state: GameState; isCollapsing?: boolean; variant?: 'overlay' | 'modal'; isMobile?: boolean; onClose?: () => void }) {
   const [scrollHintVisible, setScrollHintVisible] = useState(variant === 'modal' && isMobile);
   const bids = state.bids as number[];
   const players = state.players;
-  const canon = (displayIdx: number) => getCanonicalIndexForDisplay(displayIdx, myServerIndex);
   const baseStyle = variant === 'modal'
     ? { ...dealResultsModalStyle, ...(isMobile ? dealResultsModalStyleMobile : {}) }
     : dealResultsOverlayStyle;
@@ -3012,15 +3033,14 @@ function DealResultsScreen({ state, myServerIndex = 0, isCollapsing = false, var
                                   <td style={{ ...dealResultsTableTdStyle, ...dealResultsTableTdDealStyle, width: dealColumnWidth, minWidth: dealColumnWidth }} title={getDealCellTitle(dealNum)}>{getDealColumnLabel(rowIndex)}</td>
                                   {row
                                     ? players.map((_, i) => {
-                                        const ci = canon(i);
                                         const isLeader = range > 0 && players[i].score === maxScore;
                                         return (
                                           <Fragment key={i}>
                                             <td className={isLeader ? 'deal-results-column-leader' : undefined} style={dealResultsTableTdBidStyle}>
-                                              {(row as { bids?: number[] }).bids ? (row as { bids: number[] }).bids[ci] : '—'}
+                                              {(row as { bids?: number[] }).bids ? (row as { bids: number[] }).bids[i] : '—'}
                                             </td>
-                                            <td className={isLeader ? 'deal-results-column-leader deal-results-column-leader-r' : undefined} style={{ ...dealResultsTableTdResultStyle, color: row.points[ci] >= 0 ? '#4ade80' : '#f87171' }}>
-                                              {row.points[ci] >= 0 ? '+' : ''}{row.points[ci]}
+                                            <td className={isLeader ? 'deal-results-column-leader deal-results-column-leader-r' : undefined} style={{ ...dealResultsTableTdResultStyle, color: row.points[i] >= 0 ? '#4ade80' : '#f87171' }}>
+                                              {row.points[i] >= 0 ? '+' : ''}{row.points[i]}
                                             </td>
                                           </Fragment>
                                         );
@@ -3105,16 +3125,15 @@ function DealResultsScreen({ state, myServerIndex = 0, isCollapsing = false, var
                                 <td className="deal-results-deal-column-pc" style={{ ...dealResultsTableTdStyle, ...dealResultsTableTdDealStyle, width: dealColumnWidth, minWidth: dealColumnWidth }} title={getDealCellTitle(dealNum)}><span className="deal-results-deal-cell-label">{getDealColumnLabel(rowIndex)}</span></td>
                                 {row
                                   ? players.map((_, i) => {
-                                      const ci = canon(i);
                                       const isLeader = range > 0 && players[i].score === maxScore;
                                       const isHuman = i === humanIdx;
                                       return (
                                         <Fragment key={i}>
                                           <td className={[isLeader && 'deal-results-column-leader', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={dealResultsTableTdBidStyle}>
-                                            {(row as { bids?: number[] }).bids ? (row as { bids: number[] }).bids[ci] : '—'}
+                                            {(row as { bids?: number[] }).bids ? (row as { bids: number[] }).bids[i] : '—'}
                                           </td>
-                                          <td className={[isLeader && 'deal-results-column-leader', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={{ ...dealResultsTableTdResultStyle, color: row.points[ci] >= 0 ? '#4ade80' : '#f87171' }}>
-                                            {row.points[ci] >= 0 ? '+' : ''}{row.points[ci]}
+                                          <td className={[isLeader && 'deal-results-column-leader', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={{ ...dealResultsTableTdResultStyle, color: row.points[i] >= 0 ? '#4ade80' : '#f87171' }}>
+                                            {row.points[i] >= 0 ? '+' : ''}{row.points[i]}
                                           </td>
                                         </Fragment>
                                       );

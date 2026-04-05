@@ -6,6 +6,7 @@
  */
 
 import type { GameState } from './GameEngine';
+import type { DealResult } from './GameEngine';
 
 // Геометрия стола (как в GameEngine): противоположные пары Юг–Север, Запад–Восток
 const OPPOSITE = [1, 0, 3, 2] as const;
@@ -41,10 +42,16 @@ export function rotateStateForPlayer(state: GameState, myServerIndex: number): G
     if (canonicalIdx === d2) return 2;
     return 3;
   };
+  const mapDealRow = (deal: DealResult): DealResult => ({
+    ...deal,
+    bids: [deal.bids[d0], deal.bids[d1], deal.bids[d2], deal.bids[d3]],
+    points: [deal.points[d0], deal.points[d1], deal.points[d2], deal.points[d3]],
+  });
   return {
     ...state,
     players: [state.players[d0], state.players[d1], state.players[d2], state.players[d3]],
     bids: [state.bids[d0], state.bids[d1], state.bids[d2], state.bids[d3]],
+    dealHistory: (state.dealHistory ?? []).map(mapDealRow),
     dealerIndex: toDisplay(state.dealerIndex),
     currentPlayerIndex: toDisplay(state.currentPlayerIndex),
     trickLeaderIndex: toDisplay(state.trickLeaderIndex),
@@ -60,10 +67,20 @@ export function rotateStateForPlayer(state: GameState, myServerIndex: number): G
 export function unrotateStateToCanonical(state: GameState, myServerIndex: number): GameState {
   if (myServerIndex === 0) return state;
   const toCanonical = (displayIdx: number) => canonicalIndex(displayIdx, myServerIndex);
+  const c0 = toCanonical(0);
+  const c1 = toCanonical(1);
+  const c2 = toCanonical(2);
+  const c3 = toCanonical(3);
+  const mapDealRowBack = (deal: DealResult): DealResult => ({
+    ...deal,
+    bids: [deal.bids[c0], deal.bids[c1], deal.bids[c2], deal.bids[c3]],
+    points: [deal.points[c0], deal.points[c1], deal.points[c2], deal.points[c3]],
+  });
   return {
     ...state,
     players: [state.players[toCanonical(0)], state.players[toCanonical(1)], state.players[toCanonical(2)], state.players[toCanonical(3)]],
     bids: [state.bids[toCanonical(0)], state.bids[toCanonical(1)], state.bids[toCanonical(2)], state.bids[toCanonical(3)]],
+    dealHistory: (state.dealHistory ?? []).map(mapDealRowBack),
     dealerIndex: toCanonical(state.dealerIndex),
     currentPlayerIndex: toCanonical(state.currentPlayerIndex),
     trickLeaderIndex: toCanonical(state.trickLeaderIndex),
