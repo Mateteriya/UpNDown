@@ -139,6 +139,8 @@ function isAbortLike(err: { message?: string; name?: string; code?: string } | n
 
 /** Лобби/RPC/getRoom: не ждать глобальные 38 с на один запрос — иначе создание/вход ощущаются как «минуты». */
 const LOBBY_REST_TIMEOUT_MS = 20_000;
+/** RPC входа (крупный JSON слотов/аватаров на медленном LTE): обрывать на 20 с = лишние ретраи и «минута до лобби». */
+const LOBBY_HEAVY_RPC_TIMEOUT_MS = 55_000;
 function lobbyRestAbortSignal(): AbortSignal {
   if (
     typeof AbortSignal !== 'undefined' &&
@@ -148,6 +150,17 @@ function lobbyRestAbortSignal(): AbortSignal {
   }
   const c = new AbortController();
   setTimeout(() => c.abort(), LOBBY_REST_TIMEOUT_MS);
+  return c.signal;
+}
+function lobbyHeavyRpcAbortSignal(): AbortSignal {
+  if (
+    typeof AbortSignal !== 'undefined' &&
+    typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function'
+  ) {
+    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(LOBBY_HEAVY_RPC_TIMEOUT_MS);
+  }
+  const c = new AbortController();
+  setTimeout(() => c.abort(), LOBBY_HEAVY_RPC_TIMEOUT_MS);
   return c.signal;
 }
 
@@ -233,7 +246,7 @@ export async function joinRoom(
       p_short_label: shortLabel ?? null,
       p_avatar_data_url: av ?? null,
     })
-    .abortSignal(lobbyRestAbortSignal());
+    .abortSignal(lobbyHeavyRpcAbortSignal());
   if (!rpcError && rpcRaw && typeof rpcRaw === 'object') {
     const payload = rpcRaw as {
       ok?: boolean;

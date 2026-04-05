@@ -185,11 +185,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const [canonicalState, setCanonicalState] = useState<GameState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [realtimeHealKey, setRealtimeHealKey] = useState(0);
-  /** Realtime подписан и жив — постоянный poll не нужен (только fallback). */
-  const [realtimeSyncHealthy, setRealtimeSyncHealthy] = useState(false);
-  const [tabHidden, setTabHidden] = useState(
-    () => typeof document !== 'undefined' && document.visibilityState === 'hidden',
-  );
   const [pendingReclaimOffer, setPendingReclaimOffer] = useState<PendingReclaimOffer | null>(null);
   const deviceIdRef = useRef<string>(getDeviceId());
   const unsubRef = useRef<(() => void) | null>(null);
@@ -207,6 +202,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const lastSeenRoomUpdatedAtMsRef = useRef(0);
   /** Последняя применённая game_state_revision с сервера (колонка + триггер в БД); -1 = ещё не было. */
   const lastAppliedGameStateRevisionRef = useRef(-1);
+  /** Не запускать второй getRoom, пока предыдущий тик опроса не завершился (медленный телефон). */
+  const roomPollInFlightRef = useRef(false);
 
   /** Линейный порядок фаз внутри одной раздачи (и конец игры). */
   const phaseOrder = useCallback((p: string) => {
@@ -311,7 +308,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setCode(room.code);
     setPlayerSlots(room.player_slots || []);
     setCanonicalState(room.game_state ?? null);
-    if (room.status === 'playing') setStatus('playing');
+    // Без JSON стола нельзя показывать игровой стол — иначе GameTable: displayState=null и вечная «Загрузка…».
+    if (room.status === 'playing') setStatus(room.game_state != null ? 'playing' : 'waiting');
     else setStatus('waiting');
     const r = room.game_state_revision;
     if (typeof r === 'number' && !Number.isNaN(r)) {
@@ -335,7 +333,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setRoomId(room.id);
     setCode(room.code);
     setPlayerSlots(room.player_slots || []);
-    if (room.status === 'playing') setStatus('playing');
+    if (room.status === 'playing') setStatus(room.game_state != null ? 'playing' : 'waiting');
     else setStatus('waiting');
   }, [applyRoomData]);
 
@@ -360,6 +358,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       const ts = Date.parse(room.updated_at);
       const serverState = room.game_state ?? null;
+      // Гость / второй клиент: пока локально нет стола — всегда полная строка (не merge-only по rev/timestamp).
+      if (room.status === 'playing' && serverState != null && canonicalStateRef.current == null) {
+        applyRoomData(room);
+        return;
+      }
       const revRaw = room.game_state_revision;
       const hasRevisionColumn = typeof revRaw === 'number' && !Number.isNaN(revRaw);
       const bidNonNullGuard = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
@@ -499,16 +502,13 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const unsub = subscribeToRoom(roomId, applyRoomDataOnlyIfNewer, (status) => {
       if (cancelled) return;
       if (status === 'SUBSCRIBED') {
-        setRealtimeSyncHealthy(true);
         void refreshRoom();
         return;
       }
       if (status === 'CLOSED') {
-        setRealtimeSyncHealthy(false);
         return;
       }
       if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT') return;
-      setRealtimeSyncHealthy(false);
       if (realtimeErrorDebounceRef.current) clearTimeout(realtimeErrorDebounceRef.current);
       realtimeErrorDebounceRef.current = setTimeout(() => {
         realtimeErrorDebounceRef.current = null;
@@ -525,7 +525,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     unsubRef.current = unsub;
     return () => {
       cancelled = true;
-      setRealtimeSyncHealthy(false);
       unsubRef.current = null;
       realtimePollBurstTimeoutsRef.current.forEach((id) => clearTimeout(id));
       realtimePollBurstTimeoutsRef.current = [];
@@ -540,7 +539,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!roomId) return;
     const onVisibility = () => {
-      setTabHidden(document.visibilityState === 'hidden');
       if (document.visibilityState === 'visible') void refreshRoom();
     };
     const onOnline = () => {
@@ -554,10 +552,10 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     };
   }, [roomId, refreshRoom]);
 
-  // Резерв к Realtime: чуть чаще опрос, чем раньше — быстрее подхват при отвале WS; skip после своего хода короче, чужие клиенты не ждут зря.
+  // Realtime + периодический getRoom: при «зелёной» подписке события всё равно могут не доходить до второго устройства (особенно мобильный WebView).
   const ROOM_SYNC_POLL_MS_WAITING = 2200;
   const ROOM_SYNC_POLL_SKIP_WAITING = 0;
-  const ROOM_SYNC_POLL_MS_PLAYING = 2200;
+  const ROOM_SYNC_POLL_MS_PLAYING = 2800;
   const ROOM_SYNC_POLL_SKIP_PLAYING = 400;
   const roomSyncSkipRef = useRef(ROOM_SYNC_POLL_SKIP_WAITING);
   roomSyncSkipRef.current = status === 'playing' ? ROOM_SYNC_POLL_SKIP_PLAYING : ROOM_SYNC_POLL_SKIP_WAITING;
@@ -566,27 +564,30 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (Date.now() - lastSendAtRef.current < roomSyncSkipRef.current) return;
     const rid = roomIdRef.current;
     if (!rid) return;
-    void getRoom(rid).then((room) => {
-      if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
-      if (room.status === 'waiting') {
-        applyRoomData(room);
-        return;
-      }
-      applyRoomDataOnlyIfNewer(room);
-    });
+    if (roomPollInFlightRef.current) return;
+    roomPollInFlightRef.current = true;
+    void getRoom(rid)
+      .then((room) => {
+        if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
+        if (room.status === 'waiting') {
+          applyRoomData(room);
+          return;
+        }
+        applyRoomDataOnlyIfNewer(room);
+      })
+      .finally(() => {
+        roomPollInFlightRef.current = false;
+      });
   }, [applyRoomData, applyRoomDataOnlyIfNewer]);
 
   useEffect(() => {
     if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
     const period = status === 'playing' ? ROOM_SYNC_POLL_MS_PLAYING : ROOM_SYNC_POLL_MS_WAITING;
     runRoomSyncPollTick();
-    // В лобби Realtime на мобильных/WebView часто запаздывает на десятки секунд — без опроса хост не видит гостей.
-    const needPollInterval =
-      status === 'waiting' || !realtimeSyncHealthy || tabHidden;
-    if (!needPollInterval) return;
+    // И в лобби, и в игре: Realtime часто «зелёный», но события не доходят до второго устройства — без опроса ходы не синхронизируются.
     const iv = setInterval(() => runRoomSyncPollTick(), period);
     return () => clearInterval(iv);
-  }, [roomId, status, runRoomSyncPollTick, realtimeSyncHealthy, tabHidden]);
+  }, [roomId, status, runRoomSyncPollTick]);
 
   /** После успешного авто-восстановления не дублировать, пока сессия жива. Сбрасывается в leaveRoom и при отсутствии saved. */
   const sessionRestoreOkRef = useRef(false);
@@ -787,7 +788,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     roomIdRef.current = null;
     lastAppliedGameStateRevisionRef.current = -1;
     lastSeenRoomUpdatedAtMsRef.current = 0;
-    setRealtimeSyncHealthy(false);
     setRoomId(null); setCode(null); setCanonicalState(null); setPlayerSlots([]); setStatus('idle'); setError(null);
     setMyServerIndex(0);
     sessionRestoreOkRef.current = false;
