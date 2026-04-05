@@ -114,8 +114,8 @@ const ROOM_READ_MAX_ATTEMPTS = 3;
 const ROOM_WRITE_MAX_ATTEMPTS = 2;
 
 /** Без AbortSignal.timeout (старые WebView / Safari) — иначе create/join падают ещё до fetch. */
-const LOBBY_REQUEST_MS = 12_000;
-const JOIN_WALL_CLOCK_MS = 35_000;
+const LOBBY_REQUEST_MS = 22_000;
+const JOIN_WALL_CLOCK_MS = 60_000;
 
 function lobbyAbort(): AbortSignal {
   if (typeof AbortSignal !== 'undefined' && typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function') {
@@ -213,7 +213,7 @@ export async function joinRoom(
 
   const av = capAvatarDataUrl(avatarDataUrl ?? undefined);
 
-  const MAX_ATTEMPTS = 14;
+  const MAX_ATTEMPTS = 24;
   const joinStarted = Date.now();
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {

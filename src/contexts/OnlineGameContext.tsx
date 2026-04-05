@@ -162,6 +162,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const canonicalStateRef = useRef<GameState | null>(null);
   canonicalStateRef.current = canonicalState;
   const lastSendAtRef = useRef(0);
+  /** Активный update game_state в Supabase — пока >0, игнорируем устаревшие строки из опроса/Realtime (сброс заказа, откат стола). */
+  const gameWriteInFlightRef = useRef(0);
   /** Время последней строки комнаты с сервера (updated_at), чтобы опрос мог принудительно подтянуть актуальное game_state при «залипании» onlyIfNewer. */
   const lastSeenRoomUpdatedAtMsRef = useRef(0);
 
@@ -244,6 +246,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const applyRoomDataOnlyIfNewer = useCallback(
     (room: GameRoomRow) => {
       if (!room?.id) return;
+      // Пока updateRoomState ещё в полёте, опрос часто отдаёт старый waiting — не сбрасываем уже посчитанную раздачу.
+      if (room.status === 'waiting' && gameWriteInFlightRef.current > 0) {
+        const local = canonicalStateRef.current;
+        if (local && stateHasDealtHands(local)) return;
+      }
       // Подписка Realtime уже с фильтром id=eq.roomId; не сравниваем с ref — иначе при рассинхроне ref/state глушились player_slots (гости «не появлялись» у хоста).
       // В лобби game_state всегда null: сравнение «новизны» по состоянию раздачи ломало доставку player_slots (хост не видел новых игроков).
       if (room.status === 'waiting') {
@@ -257,6 +264,20 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       const ts = Date.parse(room.updated_at);
       const serverState = room.game_state ?? null;
+      const bidNonNullGuard = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
+      if (room.status === 'playing' && serverState && gameWriteInFlightRef.current > 0) {
+        const local = canonicalStateRef.current;
+        if (
+          local &&
+          (local.phase === 'bidding' || local.phase === 'dark-bidding') &&
+          (serverState.phase === 'bidding' || serverState.phase === 'dark-bidding')
+        ) {
+          if (bidNonNullGuard(serverState.bids) < bidNonNullGuard(local.bids)) return;
+        }
+        if (local?.phase === 'playing' && serverState.phase === 'playing') {
+          if ((serverState.currentTrick ?? []).length < (local.currentTrick ?? []).length) return;
+        }
+      }
       // Свежая строка в БД по времени — без эвристик: иначе второй клиент долго живёт на старом game_state.
       if (
         room.status === 'playing' &&
@@ -598,9 +619,14 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       const { error: err } = await updateRoomPlayerSlots(roomId, slots);
       if (!err) setPlayerSlots(slots);
     } else if (canonicalState) {
-      const { error: err, room } = await updateRoomState(roomId, canonicalState, slots);
-      if (!err && room) applyRoomData(room);
-      else if (!err) setPlayerSlots(slots);
+      gameWriteInFlightRef.current += 1;
+      try {
+        const { error: err, room } = await updateRoomState(roomId, canonicalState, slots);
+        if (!err && room) applyRoomData(room);
+        else if (!err) setPlayerSlots(slots);
+      } finally {
+        gameWriteInFlightRef.current -= 1;
+      }
     }
   }, [roomId, status, playerSlots, myServerIndex, canonicalState, applyRoomData]);
 
@@ -640,32 +666,37 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       return false;
     }
 
-    const fullSlots: PlayerSlot[] = [];
-    for (let i = 0; i < 4; i++) {
-      const existing = playerSlots.find((s) => s.slotIndex === i);
-      if (existing) {
-        fullSlots.push(existing);
-      } else {
-        fullSlots.push({ slotIndex: i, displayName: AI_NAMES[i], userId: null });
+    gameWriteInFlightRef.current += 1;
+    try {
+      const fullSlots: PlayerSlot[] = [];
+      for (let i = 0; i < 4; i++) {
+        const existing = playerSlots.find((s) => s.slotIndex === i);
+        if (existing) {
+          fullSlots.push(existing);
+        } else {
+          fullSlots.push({ slotIndex: i, displayName: AI_NAMES[i], userId: null });
+        }
       }
+      const names: [string, string, string, string] = [ fullSlots[0].displayName, fullSlots[1].displayName, fullSlots[2].displayName, fullSlots[3].displayName, ];
+      let state = createGameOnline(names);
+      state = startDeal(state);
+      canonicalStateRef.current = state;
+      const { error: err, room } = await updateRoomState(roomId, state, fullSlots);
+      if (err) {
+        setError(err);
+        canonicalStateRef.current = null;
+        return false;
+      }
+      if (room) applyRoomData(room);
+      else {
+        setPlayerSlots(fullSlots);
+        setCanonicalState(state);
+        setStatus('playing');
+      }
+      return true;
+    } finally {
+      gameWriteInFlightRef.current -= 1;
     }
-    const names: [string, string, string, string] = [ fullSlots[0].displayName, fullSlots[1].displayName, fullSlots[2].displayName, fullSlots[3].displayName, ];
-    let state = createGameOnline(names);
-    state = startDeal(state);
-    canonicalStateRef.current = state;
-    const { error: err, room } = await updateRoomState(roomId, state, fullSlots);
-    if (err) {
-      setError(err);
-      canonicalStateRef.current = null;
-      return false;
-    }
-    if (room) applyRoomData(room);
-    else {
-      setPlayerSlots(fullSlots);
-      setCanonicalState(state);
-      setStatus('playing');
-    }
-    return true;
   }, [roomId, myServerIndex, playerSlots, applyRoomData]);
 
     const sendBid = useCallback(async (bid: number): Promise<boolean> => {
@@ -675,15 +706,20 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         canonicalStateRef.current = next;
         setCanonicalState(next);
         lastSendAtRef.current = Date.now();
-        const { error: err, room } = await updateRoomState(roomId, next);
-        if (err) {
-          setError(err);
-          canonicalStateRef.current = prev;
-          setCanonicalState(prev);
-          return false;
+        gameWriteInFlightRef.current += 1;
+        try {
+          const { error: err, room } = await updateRoomState(roomId, next);
+          if (err) {
+            setError(err);
+            canonicalStateRef.current = prev;
+            setCanonicalState(prev);
+            return false;
+          }
+          if (room) applyRoomData(room);
+          return true;
+        } finally {
+          gameWriteInFlightRef.current -= 1;
         }
-        if (room) applyRoomData(room);
-        return true;
     }, [roomId, canonicalState, myServerIndex, applyRoomData]);
 
     const sendPlay = useCallback(async (card: Card): Promise<boolean> => {
@@ -693,15 +729,20 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         canonicalStateRef.current = next;
         setCanonicalState(next);
         lastSendAtRef.current = Date.now();
-        const { error: err, room } = await updateRoomState(roomId, next);
-        if (err) {
-          setError(err);
-          canonicalStateRef.current = prev;
-          setCanonicalState(prev);
-          return false;
+        gameWriteInFlightRef.current += 1;
+        try {
+          const { error: err, room } = await updateRoomState(roomId, next);
+          if (err) {
+            setError(err);
+            canonicalStateRef.current = prev;
+            setCanonicalState(prev);
+            return false;
+          }
+          if (room) applyRoomData(room);
+          return true;
+        } finally {
+          gameWriteInFlightRef.current -= 1;
         }
-        if (room) applyRoomData(room);
-        return true;
     }, [roomId, canonicalState, myServerIndex, applyRoomData]);
 
     const tryRestoreSession = useCallback(async (): Promise<{ ok: boolean; needReclaim?: boolean; roomFinished?: boolean; error?: string }> => {
@@ -724,15 +765,20 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       canonicalStateRef.current = next;
       setCanonicalState(next);
       lastSendAtRef.current = Date.now();
-      const { error: err, room } = await updateRoomState(roomId, next);
-      if (err) {
-        setError(err);
-        canonicalStateRef.current = prev;
-        setCanonicalState(prev);
-        return false;
+      gameWriteInFlightRef.current += 1;
+      try {
+        const { error: err, room } = await updateRoomState(roomId, next);
+        if (err) {
+          setError(err);
+          canonicalStateRef.current = prev;
+          setCanonicalState(prev);
+          return false;
+        }
+        if (room) applyRoomData(room);
+        return true;
+      } finally {
+        gameWriteInFlightRef.current -= 1;
       }
-      if (room) applyRoomData(room);
-      return true;
     }, [roomId, canonicalState, applyRoomData]);
     const sendStartNextDeal = useCallback(async (): Promise<boolean> => {
       if (!roomId || !canonicalState) return false;
@@ -742,31 +788,41 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       canonicalStateRef.current = next;
       setCanonicalState(next);
       lastSendAtRef.current = Date.now();
-      const { error: err, room } = await updateRoomState(roomId, next);
-      if (err) {
-        setError(err);
-        canonicalStateRef.current = prev;
-        setCanonicalState(prev);
-        return false;
+      gameWriteInFlightRef.current += 1;
+      try {
+        const { error: err, room } = await updateRoomState(roomId, next);
+        if (err) {
+          setError(err);
+          canonicalStateRef.current = prev;
+          setCanonicalState(prev);
+          return false;
+        }
+        if (room) applyRoomData(room);
+        return true;
+      } finally {
+        gameWriteInFlightRef.current -= 1;
       }
-      if (room) applyRoomData(room);
-      return true;
     }, [roomId, canonicalState, applyRoomData]);
     const sendState = useCallback(async (newState: GameState): Promise<boolean> => {
       if (!roomId) return false;
       canonicalStateRef.current = newState;
       lastSendAtRef.current = Date.now();
-      const { error: err, room } = await updateRoomState(roomId, newState);
-      if (err) {
-        setError(err);
-        return false;
+      gameWriteInFlightRef.current += 1;
+      try {
+        const { error: err, room } = await updateRoomState(roomId, newState);
+        if (err) {
+          setError(err);
+          return false;
+        }
+        if (room) applyRoomData(room);
+        else {
+          canonicalStateRef.current = newState;
+          setCanonicalState(newState);
+        }
+        return true;
+      } finally {
+        gameWriteInFlightRef.current -= 1;
       }
-      if (room) applyRoomData(room);
-      else {
-        canonicalStateRef.current = newState;
-        setCanonicalState(newState);
-      }
-      return true;
     }, [roomId, applyRoomData]);
     const confirmReclaim = useCallback(async (): Promise<boolean> => {
       if (!roomId || !pendingReclaimOffer || pendingReclaimOffer.roomId !== roomId || !user?.id) return false;

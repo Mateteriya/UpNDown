@@ -45,6 +45,8 @@ const buttonSecondary: React.CSSProperties = {
   color: '#94a3b8',
 };
 
+const JOIN_ROOM_UI_TIMEOUT_MS = 55_000;
+
 export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }: LobbyScreenProps) {
   const { user } = useAuth();
   const {
@@ -162,7 +164,20 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     setJoining(true);
     try {
       await leaveRoom();
-      const r = await joinRoom(code, user.id, playerName, shortLabel);
+      const r = await Promise.race([
+        joinRoom(code, user.id, playerName, shortLabel),
+        new Promise<{ ok: false; error: string }>((resolve) =>
+          window.setTimeout(
+            () =>
+              resolve({
+                ok: false,
+                error:
+                  'Сервер не ответил вовремя. Проверьте сеть и нажмите «Присоединиться» снова — вход мог уже пройти.',
+              }),
+            JOIN_ROOM_UI_TIMEOUT_MS
+          )
+        ),
+      ]);
       if (!r.ok) setJoinError(r.error ?? 'Не удалось присоединиться. Проверьте код и подключение.');
       else if (onGoToGame && typeof window !== 'undefined' && window.innerWidth <= 1024) {
         onGoToGame();
