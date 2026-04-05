@@ -34,6 +34,8 @@ export interface GameRoomRow {
   host_user_id: string | null;
   status: 'waiting' | 'playing' | 'finished';
   game_state: GameState | null;
+  /** С сервера (триггер): растёт только при изменении game_state, не при правках только слотов. */
+  game_state_revision?: number;
   player_slots: PlayerSlot[];
   created_at: string;
   updated_at: string;
@@ -114,7 +116,7 @@ const ROOM_READ_MAX_ATTEMPTS = 3;
 const ROOM_WRITE_MAX_ATTEMPTS = 2;
 
 /** Без AbortSignal.timeout (старые WebView / Safari) — иначе create/join падают ещё до fetch. */
-const LOBBY_REQUEST_MS = 22_000;
+const LOBBY_REQUEST_MS = 15_000;
 const JOIN_WALL_CLOCK_MS = 60_000;
 
 function lobbyAbort(): AbortSignal {
@@ -126,14 +128,16 @@ function lobbyAbort(): AbortSignal {
   return c.signal;
 }
 
-/** Старт партии (полный game_state с руками) на мобильной/VPN часто >20 с; 22 с давало двойной таймаут ≈40–45 с «Запуск…». */
-const GAME_MUTATION_MS = 52_000;
-function gameMutationAbort(): AbortSignal {
+/** Первая запись game_state (руки) — мобильная сеть; вторая попытка только при сбое — короткая, иначе 52×2 с ≈ две минуты «Запуск…». */
+const GAME_MUTATION_FIRST_MS = 38_000;
+const GAME_MUTATION_RETRY_MS = 14_000;
+function gameMutationAbort(attempt: number): AbortSignal {
+  const ms = attempt === 0 ? GAME_MUTATION_FIRST_MS : GAME_MUTATION_RETRY_MS;
   if (typeof AbortSignal !== 'undefined' && typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function') {
-    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(GAME_MUTATION_MS);
+    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(ms);
   }
   const c = new AbortController();
-  setTimeout(() => c.abort(), GAME_MUTATION_MS);
+  setTimeout(() => c.abort(), ms);
   return c.signal;
 }
 
@@ -411,7 +415,7 @@ export async function updateRoomState(
         .update(payload)
         .eq('id', roomId)
         .select('*')
-        .abortSignal(gameMutationAbort())
+        .abortSignal(gameMutationAbort(attempt))
         .single();
       if (data && !error) return { room: data as GameRoomRow };
       if (error) {

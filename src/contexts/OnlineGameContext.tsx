@@ -185,6 +185,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const [canonicalState, setCanonicalState] = useState<GameState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [realtimeHealKey, setRealtimeHealKey] = useState(0);
+  /** Realtime подписан и жив — постоянный poll не нужен (только fallback). */
+  const [realtimeSyncHealthy, setRealtimeSyncHealthy] = useState(false);
+  const [tabHidden, setTabHidden] = useState(
+    () => typeof document !== 'undefined' && document.visibilityState === 'hidden',
+  );
   const [pendingReclaimOffer, setPendingReclaimOffer] = useState<PendingReclaimOffer | null>(null);
   const deviceIdRef = useRef<string>(getDeviceId());
   const unsubRef = useRef<(() => void) | null>(null);
@@ -200,6 +205,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const gameWriteInFlightRef = useRef(0);
   /** Время последней строки комнаты с сервера (updated_at), чтобы опрос мог принудительно подтянуть актуальное game_state при «залипании» onlyIfNewer. */
   const lastSeenRoomUpdatedAtMsRef = useRef(0);
+  /** Последняя применённая game_state_revision с сервера (колонка + триггер в БД); -1 = ещё не было. */
+  const lastAppliedGameStateRevisionRef = useRef(-1);
 
   /** Линейный порядок фаз внутри одной раздачи (и конец игры). */
   const phaseOrder = useCallback((p: string) => {
@@ -306,6 +313,25 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setCanonicalState(room.game_state ?? null);
     if (room.status === 'playing') setStatus('playing');
     else setStatus('waiting');
+    const r = room.game_state_revision;
+    if (typeof r === 'number' && !Number.isNaN(r)) {
+      lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r);
+    }
+  }, []);
+
+  /** Лобби: слоты и код без подмены game_state (updated_at от аватаров не трогает стол). */
+  const mergeLobbyFieldsFromRoom = useCallback((room: GameRoomRow) => {
+    if (!room?.id) return;
+    roomIdRef.current = room.id;
+    const ts = Date.parse(room.updated_at);
+    if (Number.isFinite(ts)) {
+      lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
+    }
+    setRoomId(room.id);
+    setCode(room.code);
+    setPlayerSlots(room.player_slots || []);
+    if (room.status === 'playing') setStatus('playing');
+    else setStatus('waiting');
   }, []);
 
   const applyRoomDataOnlyIfNewer = useCallback(
@@ -329,6 +355,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       const ts = Date.parse(room.updated_at);
       const serverState = room.game_state ?? null;
+      const revRaw = room.game_state_revision;
+      const hasRevisionColumn = typeof revRaw === 'number' && !Number.isNaN(revRaw);
       const bidNonNullGuard = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
       if (room.status === 'playing' && serverState && gameWriteInFlightRef.current > 0) {
         const local = canonicalStateRef.current;
@@ -343,6 +371,24 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           if ((serverState.currentTrick ?? []).length < (local.currentTrick ?? []).length) return;
         }
       }
+
+      // Есть game_state_revision в БД: порядок событий по одному числу; слоты подмешиваем без подмены стола при том же/старом rev.
+      if (room.status === 'playing' && serverState && hasRevisionColumn) {
+        const rev = revRaw as number;
+        const lastRev = lastAppliedGameStateRevisionRef.current;
+        if (rev < lastRev) {
+          mergeLobbyFieldsFromRoom(room);
+          return;
+        }
+        if (rev === lastRev) {
+          mergeLobbyFieldsFromRoom(room);
+          return;
+        }
+        applyRoomData(room);
+        return;
+      }
+
+      // --- Дальше — fallback без колонки revision (старая БД) ---
       // updated_at мог обновиться из-за player_slots/аватара; нельзя без проверки затирать game_state устаревшим JSON.
       if (
         room.status === 'playing' &&
@@ -416,14 +462,12 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
 
       if (!isNewer) {
-        setPlayerSlots(room.player_slots || []);
-        setCode(room.code);
-        if (room.status === 'playing') setStatus('playing');
+        mergeLobbyFieldsFromRoom(room);
         return;
       }
       applyRoomData(room);
     },
-    [applyRoomData, isServerStateNewerOrEqual]
+    [applyRoomData, mergeLobbyFieldsFromRoom, isServerStateNewerOrEqual]
   );
 
   const refreshRoom = useCallback(async () => {
@@ -436,6 +480,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     lastSeenRoomUpdatedAtMsRef.current = 0;
+    lastAppliedGameStateRevisionRef.current = -1;
   }, [roomId]);
 
   useEffect(() => {
@@ -445,6 +490,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const unsub = subscribeToRoom(roomId, applyRoomDataOnlyIfNewer, (status) => {
       if (cancelled) return;
       if (status === 'SUBSCRIBED') {
+        setRealtimeSyncHealthy(true);
         void refreshRoom();
         subscribedExtraRefresh = window.setTimeout(() => {
           subscribedExtraRefresh = null;
@@ -452,7 +498,12 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         }, 180);
         return;
       }
+      if (status === 'CLOSED') {
+        setRealtimeSyncHealthy(false);
+        return;
+      }
       if (status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT') return;
+      setRealtimeSyncHealthy(false);
       if (realtimeErrorDebounceRef.current) clearTimeout(realtimeErrorDebounceRef.current);
       realtimeErrorDebounceRef.current = setTimeout(() => {
         realtimeErrorDebounceRef.current = null;
@@ -469,6 +520,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     unsubRef.current = unsub;
     return () => {
       cancelled = true;
+      setRealtimeSyncHealthy(false);
       if (subscribedExtraRefresh != null) clearTimeout(subscribedExtraRefresh);
       unsubRef.current = null;
       realtimePollBurstTimeoutsRef.current.forEach((id) => clearTimeout(id));
@@ -483,16 +535,17 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (!roomId) return;
-    const onVisible = () => {
+    const onVisibility = () => {
+      setTabHidden(document.visibilityState === 'hidden');
       if (document.visibilityState === 'visible') void refreshRoom();
     };
     const onOnline = () => {
       void refreshRoom();
     };
-    document.addEventListener('visibilitychange', onVisible);
+    document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('online', onOnline);
     return () => {
-      document.removeEventListener('visibilitychange', onVisible);
+      document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('online', onOnline);
     };
   }, [roomId, refreshRoom]);
@@ -523,9 +576,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
     const period = status === 'playing' ? ROOM_SYNC_POLL_MS_PLAYING : ROOM_SYNC_POLL_MS_WAITING;
     runRoomSyncPollTick();
+    const needPollFallback = !realtimeSyncHealthy || tabHidden;
+    if (!needPollFallback) return;
     const iv = setInterval(() => runRoomSyncPollTick(), period);
     return () => clearInterval(iv);
-  }, [roomId, status, runRoomSyncPollTick]);
+  }, [roomId, status, runRoomSyncPollTick, realtimeSyncHealthy, tabHidden]);
 
   /** После успешного авто-восстановления не дублировать, пока сессия жива. Сбрасывается в leaveRoom и при отсутствии saved. */
   const sessionRestoreOkRef = useRef(false);
@@ -722,6 +777,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       unsubRef.current = null;
     }
     roomIdRef.current = null;
+    lastAppliedGameStateRevisionRef.current = -1;
+    setRealtimeSyncHealthy(false);
     setRoomId(null); setCode(null); setCanonicalState(null); setPlayerSlots([]); setStatus('idle'); setError(null);
     setMyServerIndex(0);
     sessionRestoreOkRef.current = false;

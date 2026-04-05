@@ -5,8 +5,8 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-/** Иначе на части мобильных сетей fetch может висеть без ответа — UI застревает в «Создание…». */
-const FETCH_TIMEOUT_MS = 55_000;
+/** Верхняя граница висящего REST; 55 с × два последовательных вызова ощущались как ~2 мин на телефоне. */
+const FETCH_TIMEOUT_MS = 38_000;
 
 function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const controller = new AbortController();
@@ -31,13 +31,14 @@ function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise
   return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(t));
 }
 
-/** Auth (OAuth URL, setSession, refresh) без искусственного 55s — иначе на VPN/медленной сети два подряд вызова ≈ 2 мин ожидания. */
+/** Auth (OAuth, setSession, refresh) без общего таймаута — иначе цепочка вызовов даёт минуты ожидания. */
 function fetchForSupabase(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   let href = '';
   if (typeof input === 'string') href = input;
   else if (typeof URL !== 'undefined' && input instanceof URL) href = input.href;
   else if (typeof Request !== 'undefined' && input instanceof Request) href = input.url;
-  if (href.includes('/auth/v1/')) return fetch(input, init);
+  // Любой путь GoTrue, не только /auth/v1/…
+  if (/\/auth\/v1\b/i.test(href)) return fetch(input, init);
   return fetchWithTimeout(input, init);
 }
 
