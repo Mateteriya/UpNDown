@@ -175,8 +175,8 @@ export async function createRoom(
         },
       ];
 
-      // INSERT один на запрос — не обрезаем 14 с: на слабой сети иначе «не создаётся комната»;
-      // глобальный fetch в supabase.ts (~55 с) всё равно ограничивает висящие запросы.
+      // Без отдельного abortSignal: вложенный таймаут (roomHttpRead) + глобальный fetch в supabase.ts
+      // давали ложные AbortError и «комната не создаётся» на ПК/телефоне при нормальной сети.
       const { data, error } = await supabase
         .from(TABLE)
         .insert({
@@ -187,11 +187,14 @@ export async function createRoom(
           player_slots: playerSlots,
         })
         .select('*')
-        .abortSignal(roomHttpReadAbort())
         .single();
 
       if (error) {
         if ((error as { code?: string }).code === '23505') continue;
+        if (isAbortLike(error)) {
+          await sleep(joinBackoffMs(attempt));
+          continue;
+        }
         lastMessage = error.message;
         break;
       }

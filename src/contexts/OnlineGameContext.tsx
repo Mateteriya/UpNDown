@@ -373,6 +373,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
 
       // Есть game_state_revision в БД: порядок событий по одному числу; слоты подмешиваем без подмены стола при том же/старом rev.
+      // ВАЖНО: если триггер в Supabase не развёрнут, revision остаётся 0 при каждом UPDATE — ветка «rev === lastRev» иначе
+      // навсегда глотала бы новый game_state (игра не идёт). При том же rev, но другом содержимом state — всегда применяем стол.
       if (room.status === 'playing' && serverState && hasRevisionColumn) {
         const rev = revRaw as number;
         const lastRev = lastAppliedGameStateRevisionRef.current;
@@ -381,6 +383,14 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           return;
         }
         if (rev === lastRev) {
+          const localSnap = canonicalStateRef.current;
+          if (
+            gameStateMergeFingerprint(serverState) !== gameStateMergeFingerprint(localSnap) ||
+            (localSnap == null && serverState != null)
+          ) {
+            applyRoomData(room);
+            return;
+          }
           mergeLobbyFieldsFromRoom(room);
           return;
         }
@@ -671,6 +681,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         applyRoomData(result.room);
         saveOnlineSession(result.room.id, deviceIdRef.current);
         setMyServerIndex(0);
+        sessionRestoreOkRef.current = true;
         return { ok: true };
       } catch (e) {
         const msg = formatSupabaseNetworkError(e) || 'Ошибка при создании комнаты.';
@@ -694,6 +705,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         applyRoomData(result.room);
         setMyServerIndex(result.mySlotIndex);
         saveOnlineSession(result.roomId, deviceIdRef.current);
+        sessionRestoreOkRef.current = true;
         return { ok: true };
       } catch (e) {
         const msg = formatSupabaseNetworkError(e) || 'Ошибка при входе в комнату.';
