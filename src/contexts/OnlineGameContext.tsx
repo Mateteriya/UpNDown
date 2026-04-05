@@ -322,6 +322,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   /** Лобби: слоты и код без подмены game_state (updated_at от аватаров не трогает стол). */
   const mergeLobbyFieldsFromRoom = useCallback((room: GameRoomRow) => {
     if (!room?.id) return;
+    // Иначе merge-only оставляет status=playing и пустой стол (висит UI после гонок revision/Realtime).
+    if (room.status === 'playing' && room.game_state && !canonicalStateRef.current) {
+      applyRoomData(room);
+      return;
+    }
     roomIdRef.current = room.id;
     const ts = Date.parse(room.updated_at);
     if (Number.isFinite(ts)) {
@@ -332,7 +337,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setPlayerSlots(room.player_slots || []);
     if (room.status === 'playing') setStatus('playing');
     else setStatus('waiting');
-  }, []);
+  }, [applyRoomData]);
 
   const applyRoomDataOnlyIfNewer = useCallback(
     (room: GameRoomRow) => {
@@ -487,11 +492,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
     applyRoomDataOnlyIfNewer(room);
   }, [roomId, applyRoomDataOnlyIfNewer]);
-
-  useEffect(() => {
-    lastSeenRoomUpdatedAtMsRef.current = 0;
-    lastAppliedGameStateRevisionRef.current = -1;
-  }, [roomId]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -784,6 +784,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     }
     roomIdRef.current = null;
     lastAppliedGameStateRevisionRef.current = -1;
+    lastSeenRoomUpdatedAtMsRef.current = 0;
     setRealtimeSyncHealthy(false);
     setRoomId(null); setCode(null); setCanonicalState(null); setPlayerSlots([]); setStatus('idle'); setError(null);
     setMyServerIndex(0);
