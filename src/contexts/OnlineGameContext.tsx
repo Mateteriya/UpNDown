@@ -592,7 +592,10 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const syncMySlotDisplayName = useCallback(
     async (displayName: string) => {
       if (!roomId || status !== 'waiting' || !displayName.trim()) return;
-      const slots = playerSlots.slice();
+      // Всегда мержим в актуальный список с сервера — иначе локальный [только хост] затирает гостей при гонке с Realtime.
+      const fresh = await getRoom(roomId);
+      if (!fresh?.id || fresh.id !== roomId) return;
+      const slots = ((fresh.player_slots as PlayerSlot[]) || []).slice();
       const idx = slots.findIndex((s) => s.slotIndex === myServerIndex);
       if (idx === -1) return;
       const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
@@ -603,22 +606,31 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       };
       const { error: err } = await updateRoomPlayerSlots(roomId, slots);
       if (err) setError(err);
-      else setPlayerSlots(slots);
+      else applyRoomData({ ...fresh, player_slots: slots });
     },
-    [roomId, status, playerSlots, myServerIndex]
+    [roomId, status, myServerIndex, applyRoomData]
   );
 
   const syncMySlotAvatar = useCallback(async () => {
     if (!roomId) return;
-    const slots = playerSlots.slice();
-    const idx = slots.findIndex((s) => s.slotIndex === myServerIndex);
-    if (idx === -1) return;
     const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
-    slots[idx] = { ...slots[idx], ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : { avatarDataUrl: null }) };
     if (status === 'waiting') {
+      const fresh = await getRoom(roomId);
+      if (!fresh?.id || fresh.id !== roomId) return;
+      const slots = ((fresh.player_slots as PlayerSlot[]) || []).slice();
+      const idx = slots.findIndex((s) => s.slotIndex === myServerIndex);
+      if (idx === -1) return;
+      slots[idx] = {
+        ...slots[idx],
+        ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : { avatarDataUrl: null }),
+      };
       const { error: err } = await updateRoomPlayerSlots(roomId, slots);
-      if (!err) setPlayerSlots(slots);
+      if (!err) applyRoomData({ ...fresh, player_slots: slots });
     } else if (canonicalState) {
+      const slots = playerSlots.slice();
+      const idx = slots.findIndex((s) => s.slotIndex === myServerIndex);
+      if (idx === -1) return;
+      slots[idx] = { ...slots[idx], ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : { avatarDataUrl: null }) };
       gameWriteInFlightRef.current += 1;
       try {
         const { error: err, room } = await updateRoomState(roomId, canonicalState, slots);
