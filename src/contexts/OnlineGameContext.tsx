@@ -486,16 +486,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!roomId) return;
     let cancelled = false;
-    let subscribedExtraRefresh: number | null = null;
     const unsub = subscribeToRoom(roomId, applyRoomDataOnlyIfNewer, (status) => {
       if (cancelled) return;
       if (status === 'SUBSCRIBED') {
         setRealtimeSyncHealthy(true);
         void refreshRoom();
-        subscribedExtraRefresh = window.setTimeout(() => {
-          subscribedExtraRefresh = null;
-          if (!cancelled) void refreshRoom();
-        }, 180);
         return;
       }
       if (status === 'CLOSED') {
@@ -521,7 +516,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     return () => {
       cancelled = true;
       setRealtimeSyncHealthy(false);
-      if (subscribedExtraRefresh != null) clearTimeout(subscribedExtraRefresh);
       unsubRef.current = null;
       realtimePollBurstTimeoutsRef.current.forEach((id) => clearTimeout(id));
       realtimePollBurstTimeoutsRef.current = [];

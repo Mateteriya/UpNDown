@@ -221,6 +221,5 @@ create trigger game_rooms_updated_at
 - [ ] Включила Realtime для game_rooms (Database → Replication или SQL из Шага 2.2).
 - [ ] Выполнила SQL включения RLS и создания политик (Часть 3).
 - [ ] (По желанию) Выполнила SQL триггера для updated_at (Часть 4).
-- [ ] **Ревизия `game_state`** (колонка + триггер) — см. отдельно [ONLINE-GAME-STATE-REVISION.md](./ONLINE-GAME-STATE-REVISION.md) (один SQL-файл из репозитория, SQL Editor → Run).
 
 После выполнения всех пунктов напиши в чат — перейдём к коду (лобби + онлайн-игра).

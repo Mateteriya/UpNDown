@@ -115,22 +115,22 @@ function isRetryableWriteFailure(error: { message?: string; code?: string; detai
 const ROOM_READ_MAX_ATTEMPTS = 3;
 const ROOM_WRITE_MAX_ATTEMPTS = 2;
 
-/** Без AbortSignal.timeout (старые WebView / Safari) — иначе create/join падают ещё до fetch. */
-const LOBBY_REQUEST_MS = 15_000;
-const JOIN_WALL_CLOCK_MS = 60_000;
+/** GET строки комнаты / join / create: без этого запрос «висит» до глобального fetch-таймаута — два подряда ощущаются как минута+. */
+const ROOM_HTTP_READ_MS = 12_000;
+const JOIN_WALL_CLOCK_MS = 55_000;
 
-function lobbyAbort(): AbortSignal {
+function roomHttpReadAbort(): AbortSignal {
   if (typeof AbortSignal !== 'undefined' && typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function') {
-    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(LOBBY_REQUEST_MS);
+    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(ROOM_HTTP_READ_MS);
   }
   const c = new AbortController();
-  setTimeout(() => c.abort(), LOBBY_REQUEST_MS);
+  setTimeout(() => c.abort(), ROOM_HTTP_READ_MS);
   return c.signal;
 }
 
-/** Первая запись game_state (руки) — мобильная сеть; вторая попытка только при сбое — короткая, иначе 52×2 с ≈ две минуты «Запуск…». */
-const GAME_MUTATION_FIRST_MS = 38_000;
-const GAME_MUTATION_RETRY_MS = 14_000;
+/** Первая запись game_state; вторая — короткая, суммарно не раздувать «Запуск игры». */
+const GAME_MUTATION_FIRST_MS = 28_000;
+const GAME_MUTATION_RETRY_MS = 10_000;
 function gameMutationAbort(attempt: number): AbortSignal {
   const ms = attempt === 0 ? GAME_MUTATION_FIRST_MS : GAME_MUTATION_RETRY_MS;
   if (typeof AbortSignal !== 'undefined' && typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function') {
@@ -187,6 +187,7 @@ export async function createRoom(
           player_slots: playerSlots,
         })
         .select('*')
+        .abortSignal(roomHttpReadAbort())
         .single();
 
       if (error) {
@@ -217,7 +218,7 @@ export async function joinRoom(
 
   const av = capAvatarDataUrl(avatarDataUrl ?? undefined);
 
-  const MAX_ATTEMPTS = 24;
+  const MAX_ATTEMPTS = 14;
   const joinStarted = Date.now();
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -232,7 +233,7 @@ export async function joinRoom(
       .from(TABLE)
       .select('*')
       .eq('code', normalizedCode)
-      .abortSignal(lobbyAbort())
+      .abortSignal(roomHttpReadAbort())
       .single();
 
     if (fetchError) {
@@ -277,7 +278,7 @@ export async function joinRoom(
           .eq('id', row.id)
           .eq('updated_at', stamp)
           .select('*')
-          .abortSignal(lobbyAbort())
+          .abortSignal(roomHttpReadAbort())
           .maybeSingle();
         if (updateError || !updated) {
           await sleep(joinBackoffMs(attempt));
@@ -320,7 +321,7 @@ export async function joinRoom(
         .eq('id', row.id)
         .eq('updated_at', stamp)
         .select('*')
-        .abortSignal(lobbyAbort())
+        .abortSignal(roomHttpReadAbort())
         .maybeSingle();
       if (updateError || !updated) {
         await sleep(joinBackoffMs(attempt));
@@ -354,7 +355,7 @@ export async function joinRoom(
       .eq('id', row.id)
       .eq('updated_at', stamp)
       .select('*')
-      .abortSignal(lobbyAbort())
+      .abortSignal(roomHttpReadAbort())
       .maybeSingle();
 
     if (updateError || !updated) {
@@ -378,7 +379,12 @@ export async function getRoom(roomId: string): Promise<GameRoomRow | null> {
   if (!supabase) return null;
   for (let attempt = 0; attempt < ROOM_READ_MAX_ATTEMPTS; attempt++) {
     try {
-      const { data, error } = await supabase.from(TABLE).select('*').eq('id', roomId).single();
+      const { data, error } = await supabase
+        .from(TABLE)
+        .select('*')
+        .eq('id', roomId)
+        .abortSignal(roomHttpReadAbort())
+        .single();
       if (data && !error) return data as GameRoomRow;
       if (error?.code === 'PGRST116') return null;
       if (!isRetryableReadFailure(error, !!data) || attempt === ROOM_READ_MAX_ATTEMPTS - 1) return null;
