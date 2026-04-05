@@ -5,8 +5,11 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-/** Верхняя граница висящего REST; 55 с × два последовательных вызова ощущались как ~2 мин на телефоне. */
-const FETCH_TIMEOUT_MS = 38_000;
+/**
+ * Верхняя граница висящего REST (не auth).
+ * Должна быть ≥ таймаута записи game_state (~55 с), иначе updateRoomState обрывается раньше и «старт игры» не доезжает.
+ */
+const FETCH_TIMEOUT_MS = 70_000;
 
 function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const controller = new AbortController();

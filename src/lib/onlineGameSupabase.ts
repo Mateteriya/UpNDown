@@ -115,11 +115,11 @@ function isRetryableWriteFailure(error: { message?: string; code?: string; detai
 const ROOM_READ_MAX_ATTEMPTS = 3;
 const ROOM_WRITE_MAX_ATTEMPTS = 2;
 
-const JOIN_WALL_CLOCK_MS = 55_000;
+const JOIN_WALL_CLOCK_MS = 48_000;
 
-/** Первая запись game_state; вторая — короткая, суммарно не раздувать «Запуск игры». */
-const GAME_MUTATION_FIRST_MS = 28_000;
-const GAME_MUTATION_RETRY_MS = 10_000;
+/** Первая запись game_state (крупный JSON) на мобильной сети; вторая попытка короче. */
+const GAME_MUTATION_FIRST_MS = 55_000;
+const GAME_MUTATION_RETRY_MS = 18_000;
 function gameMutationAbort(attempt: number): AbortSignal {
   const ms = attempt === 0 ? GAME_MUTATION_FIRST_MS : GAME_MUTATION_RETRY_MS;
   if (typeof AbortSignal !== 'undefined' && typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function') {
@@ -135,6 +135,20 @@ function isAbortLike(err: { message?: string; name?: string; code?: string } | n
   if (err.name === 'AbortError') return true;
   const m = (err.message ?? '').toLowerCase();
   return m.includes('abort') || m.includes('signal') || m.includes('timeout');
+}
+
+/** Лобби/RPC/getRoom: не ждать глобальные 38 с на один запрос — иначе создание/вход ощущаются как «минуты». */
+const LOBBY_REST_TIMEOUT_MS = 20_000;
+function lobbyRestAbortSignal(): AbortSignal {
+  if (
+    typeof AbortSignal !== 'undefined' &&
+    typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function'
+  ) {
+    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(LOBBY_REST_TIMEOUT_MS);
+  }
+  const c = new AbortController();
+  setTimeout(() => c.abort(), LOBBY_REST_TIMEOUT_MS);
+  return c.signal;
 }
 
 /** Создать комнату. Возвращает roomId и code или ошибку. */
@@ -175,6 +189,7 @@ export async function createRoom(
           player_slots: playerSlots,
         })
         .select('*')
+        .abortSignal(lobbyRestAbortSignal())
         .single();
 
       if (error) {
@@ -209,25 +224,31 @@ export async function joinRoom(
 
   const av = capAvatarDataUrl(avatarDataUrl ?? undefined);
 
-  /** Атомарный вход в waiting (миграция 20250405180000). Убирает гонку с updated_at при одновременном sync хоста. */
-  const { data: rpcRaw, error: rpcError } = await supabase.rpc('updown_join_waiting_room', {
-    p_code: normalizedCode,
-    p_user_id: userId,
-    p_display_name: displayName,
-    p_short_label: shortLabel ?? null,
-    p_avatar_data_url: av ?? null,
-  });
+  /** Атомарный вход в waiting (RPC + миграция с полем room в JSON — без лишнего getRoom). */
+  const { data: rpcRaw, error: rpcError } = await supabase
+    .rpc('updown_join_waiting_room', {
+      p_code: normalizedCode,
+      p_user_id: userId,
+      p_display_name: displayName,
+      p_short_label: shortLabel ?? null,
+      p_avatar_data_url: av ?? null,
+    })
+    .abortSignal(lobbyRestAbortSignal());
   if (!rpcError && rpcRaw && typeof rpcRaw === 'object') {
     const payload = rpcRaw as {
       ok?: boolean;
       error?: string;
       room_id?: string;
       my_slot_index?: number;
+      room?: GameRoomRow;
     };
     if (payload.ok === true && typeof payload.room_id === 'string') {
+      const idx = typeof payload.my_slot_index === 'number' ? payload.my_slot_index : 0;
+      if (payload.room && typeof payload.room === 'object' && 'id' in payload.room) {
+        return { roomId: payload.room.id, mySlotIndex: idx, room: payload.room as GameRoomRow };
+      }
       const room = await getRoom(payload.room_id);
       if (room) {
-        const idx = typeof payload.my_slot_index === 'number' ? payload.my_slot_index : 0;
         return { roomId: room.id, mySlotIndex: idx, room };
       }
     }
@@ -253,6 +274,7 @@ export async function joinRoom(
       .from(TABLE)
       .select('*')
       .eq('code', normalizedCode)
+      .abortSignal(lobbyRestAbortSignal())
       .single();
 
     if (fetchError) {
@@ -297,6 +319,7 @@ export async function joinRoom(
           .eq('id', row.id)
           .eq('updated_at', stamp)
           .select('*')
+          .abortSignal(lobbyRestAbortSignal())
           .maybeSingle();
         if (updateError || !updated) {
           await sleep(joinBackoffMs(attempt));
@@ -339,6 +362,7 @@ export async function joinRoom(
         .eq('id', row.id)
         .eq('updated_at', stamp)
         .select('*')
+        .abortSignal(lobbyRestAbortSignal())
         .maybeSingle();
       if (updateError || !updated) {
         await sleep(joinBackoffMs(attempt));
@@ -372,6 +396,7 @@ export async function joinRoom(
       .eq('id', row.id)
       .eq('updated_at', stamp)
       .select('*')
+      .abortSignal(lobbyRestAbortSignal())
       .maybeSingle();
 
     if (updateError || !updated) {
@@ -399,6 +424,7 @@ export async function getRoom(roomId: string): Promise<GameRoomRow | null> {
         .from(TABLE)
         .select('*')
         .eq('id', roomId)
+        .abortSignal(lobbyRestAbortSignal())
         .single();
       if (data && !error) return data as GameRoomRow;
       if (error?.code === 'PGRST116') return null;
@@ -415,7 +441,11 @@ export async function getRoom(roomId: string): Promise<GameRoomRow | null> {
 /** Обновить только слоты в комнате (для синхронизации имён в лобби). Не трогает game_state и status. */
 export async function updateRoomPlayerSlots(roomId: string, playerSlots: PlayerSlot[]): Promise<{ error?: string }> {
   if (!supabase) return { error: 'Supabase не настроен' };
-  const { error } = await supabase.from(TABLE).update({ player_slots: playerSlots }).eq('id', roomId);
+  const { error } = await supabase
+    .from(TABLE)
+    .update({ player_slots: playerSlots })
+    .eq('id', roomId)
+    .abortSignal(lobbyRestAbortSignal());
   return error ? { error: error.message } : {};
 }
 
@@ -437,8 +467,13 @@ export async function updateRoomState(
         .eq('id', roomId)
         .select('*')
         .abortSignal(gameMutationAbort(attempt))
-        .single();
+        .maybeSingle();
       if (data && !error) return { room: data as GameRoomRow };
+      /* PostgREST иногда не возвращает строку при update+select (RLS/представление) — подтягиваем явно. */
+      if (!error && !data) {
+        const r = await getRoom(roomId);
+        if (r?.status === 'playing' && r.game_state != null) return { room: r };
+      }
       if (error) {
         lastMessage = error.message || lastMessage;
         if (!isRetryableWriteFailure(error)) return { error: lastMessage };
