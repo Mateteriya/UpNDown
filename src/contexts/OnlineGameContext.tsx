@@ -307,13 +307,22 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setRoomId(room.id);
     setCode(room.code);
     setPlayerSlots(room.player_slots || []);
-    setCanonicalState(room.game_state ?? null);
-    // Без JSON стола нельзя показывать игровой стол — иначе GameTable: displayState=null и вечная «Загрузка…».
-    if (room.status === 'playing') setStatus(room.game_state != null ? 'playing' : 'waiting');
+    const incoming = room.game_state ?? null;
+    // playing без game_state в payload бывает при гонках Realtime/опроса — нельзя затирать уже принятый стол (хост после старта, гость после merge).
+    if (room.status === 'playing' && incoming == null && canonicalStateRef.current != null) {
+      setStatus('playing');
+      const r = room.game_state_revision;
+      if (typeof r === 'number' && !Number.isNaN(r)) {
+        lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r);
+      }
+      return;
+    }
+    setCanonicalState(incoming);
+    if (room.status === 'playing') setStatus(incoming != null ? 'playing' : 'waiting');
     else setStatus('waiting');
-    const r = room.game_state_revision;
-    if (typeof r === 'number' && !Number.isNaN(r)) {
-      lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r);
+    const r2 = room.game_state_revision;
+    if (typeof r2 === 'number' && !Number.isNaN(r2)) {
+      lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r2);
     }
   }, []);
 
@@ -333,8 +342,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setRoomId(room.id);
     setCode(room.code);
     setPlayerSlots(room.player_slots || []);
-    if (room.status === 'playing') setStatus(room.game_state != null ? 'playing' : 'waiting');
-    else setStatus('waiting');
+    if (room.status === 'playing') {
+      setStatus(room.game_state != null || canonicalStateRef.current != null ? 'playing' : 'waiting');
+    } else setStatus('waiting');
   }, [applyRoomData]);
 
   const applyRoomDataOnlyIfNewer = useCallback(
