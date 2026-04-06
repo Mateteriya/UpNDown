@@ -403,10 +403,16 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         }
         if (rev === lastRev) {
           const localSnap = canonicalStateRef.current;
-          if (
-            gameStateMergeFingerprint(serverState) !== gameStateMergeFingerprint(localSnap) ||
-            (localSnap == null && serverState != null)
-          ) {
+          if (localSnap == null && serverState != null) {
+            applyRoomData(room);
+            return;
+          }
+          // Раньше при любом расхождении отпечатка тянули сервер — опрос часто приходит ДО commit PATCH → «старая картинка» и карта возвращается в руку.
+          if (localSnap != null && gameStateMergeFingerprint(serverState) !== gameStateMergeFingerprint(localSnap)) {
+            if (!isServerStateNewerOrEqual(serverState, localSnap)) {
+              mergeLobbyFieldsFromRoom(room);
+              return;
+            }
             applyRoomData(room);
             return;
           }
