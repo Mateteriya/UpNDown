@@ -618,54 +618,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       ? state.tricksInDeal - (state.bids[1]! + state.bids[2]! + state.bids[3]!)
       : null;
 
-  /** Онлайн: после раздачи JSON несколько раз «прыгает» — не показываем лицо карт, пока состав руки не стабилен. */
-  const ONLINE_BIDDING_HAND_STABLE_MS = 420;
-  const onlineBiddingMyHandSig = useMemo(() => {
-    if (!isOnline || !stateToShow) return '';
-    if (stateToShow.phase !== 'bidding') return '';
-    const h = stateToShow.players[humanIdx]?.hand ?? [];
-    if (h.length === 0) return '';
-    return `${stateToShow.dealNumber}:${h.map((c) => `${c.rank}:${c.suit}`).sort().join('|')}`;
-  }, [isOnline, stateToShow, humanIdx]);
-
-  const [showOnlineBiddingHand, setShowOnlineBiddingHand] = useState(true);
-  const onlineHandStableTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!isOnline) {
-      setShowOnlineBiddingHand(true);
-      return;
-    }
-    if (!stateToShow || (stateToShow.phase !== 'bidding' && stateToShow.phase !== 'dark-bidding')) {
-      setShowOnlineBiddingHand(true);
-      return;
-    }
-    if (stateToShow.phase === 'dark-bidding') {
-      setShowOnlineBiddingHand(true);
-      return;
-    }
-    if (!onlineBiddingMyHandSig) {
-      setShowOnlineBiddingHand(true);
-      return;
-    }
-    setShowOnlineBiddingHand(false);
-    if (onlineHandStableTimerRef.current) clearTimeout(onlineHandStableTimerRef.current);
-    onlineHandStableTimerRef.current = setTimeout(() => {
-      setShowOnlineBiddingHand(true);
-      onlineHandStableTimerRef.current = null;
-    }, ONLINE_BIDDING_HAND_STABLE_MS);
-    return () => {
-      if (onlineHandStableTimerRef.current) clearTimeout(onlineHandStableTimerRef.current);
-    };
-  }, [isOnline, stateToShow?.phase, onlineBiddingMyHandSig]);
-
-  const hideOnlineBiddingHandFaces =
-    isOnline &&
-    !!state &&
-    state.phase === 'bidding' &&
-    !showOnlineBiddingHand &&
-    (state.players[humanIdx]?.hand?.length ?? 0) > 0;
-
   const handleBid = useCallback((bid: number) => {
     if (isOnline) {
       online.sendBid(bid);
@@ -2108,62 +2060,44 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       <div className="game-mobile-hand-attached" style={{ width: '100%', maxWidth: 800, flexShrink: 0, minWidth: 0 }}>
         <div className={state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : undefined} style={handFrameStyleMobile}>
           <div style={{ ...handStyle, overflow: 'visible', justifyContent: 'center', paddingLeft: 10, paddingRight: 10, borderRadius: 10 }}>
-            {hideOnlineBiddingHandFaces
-              ? (() => {
-                  const handLen = state.players[humanIdx].hand.length;
-                  const overlap = handLen >= 9 ? 5 : handLen >= 7 ? 3 : handLen >= 6 ? 2 : 0;
-                  const cardW = Math.round(52 * 0.72);
-                  const cardH = Math.round(76 * 0.72);
-                  return Array.from({ length: handLen }, (_, i) => (
-                    <div
-                      key={`deal-stabilize-m-${i}`}
-                      style={{ marginRight: overlap ? -overlap : 0, flexShrink: 0, overflow: 'hidden', borderRadius: 6, position: 'relative', padding: 2 }}
-                      aria-busy="true"
-                      aria-label="Раздача"
-                    >
-                      <div style={{ ...cardBackStyle, width: cardW, height: cardH }} aria-hidden />
-                    </div>
-                  ));
-                })()
-              : state.players[humanIdx].hand
-                  .slice()
-                  .sort((a, b) => cardSort(a, b, state.trump))
-                  .map((card, i) => {
-                    const handLen = state.players[humanIdx].hand.length;
-                    const overlap = handLen >= 9 ? 5 : handLen >= 7 ? 3 : handLen >= 6 ? 2 : 0;
-                    const isValidPlay = state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && validPlays.some(c => c.suit === card.suit && c.rank === card.rank);
-                    return (
-                      <div key={`${card.suit}-${card.rank}-${i}`} style={{ marginRight: overlap ? -overlap : 0, flexShrink: 0, overflow: 'hidden', borderRadius: 6, position: 'relative', zIndex: isValidPlay ? 1 : 0, padding: 2 }}>
-                        <CardView
-                          card={card}
-                          scale={0.72}
-                          contentScale={1.5}
-                          compact
-                          showDesktopFaceIndices={true}
-                          suitIndexInHandMobile={true}
-                          biddingHighlightMobile={isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding')}
-                          doubleBorder={false}
-                          isTrumpOnTable={false}
-                          trumpHighlightOn={trumpHighlightOn}
-                          isTrumpInHand={state.trump !== null && card.suit === state.trump}
-                          forceMobileTrumpGlow={isMobileOrTablet && state.trump !== null && card.suit === state.trump && (state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0))}
-                          mobileTrumpGlowActive={state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0)}
-                          highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
-                          mobileTrumpShineBidding={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.trump !== null && card.suit === state.trump}
-                          showPipZoneBorders={false}
-                          pcCardStyles={false}
-                          thinBorder={true}
-                          onClick={() => {
-                            if (!state.pendingTrickCompletion && isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
-                              if (isOnline) online.sendPlay(card);
-                              else setLocalState(prev => prev && playCard(prev, humanIdx, card));
-                            }
-                          }}
-                          disabled={!!state.pendingTrickCompletion || !isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
-                        />
-                      </div>
-                    );
-                  })}
+            {state.players[humanIdx].hand
+              .slice()
+              .sort((a, b) => cardSort(a, b, state.trump))
+              .map((card, i) => {
+                const handLen = state.players[humanIdx].hand.length;
+                const overlap = handLen >= 9 ? 5 : handLen >= 7 ? 3 : handLen >= 6 ? 2 : 0;
+                const isValidPlay = state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && validPlays.some(c => c.suit === card.suit && c.rank === card.rank);
+                return (
+                <div key={`${card.suit}-${card.rank}-${i}`} style={{ marginRight: overlap ? -overlap : 0, flexShrink: 0, overflow: 'hidden', borderRadius: 6, position: 'relative', zIndex: isValidPlay ? 1 : 0, padding: 2 }}>
+                <CardView
+                  card={card}
+                  scale={0.72}
+                  contentScale={1.5}
+                  compact
+                  showDesktopFaceIndices={true}
+                  suitIndexInHandMobile={true}
+                  biddingHighlightMobile={isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding')}
+                  doubleBorder={false}
+                  isTrumpOnTable={false}
+                  trumpHighlightOn={trumpHighlightOn}
+                  isTrumpInHand={state.trump !== null && card.suit === state.trump}
+                  forceMobileTrumpGlow={isMobileOrTablet && state.trump !== null && card.suit === state.trump && (state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0))}
+                  mobileTrumpGlowActive={state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0)}
+                  highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                  mobileTrumpShineBidding={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.trump !== null && card.suit === state.trump}
+                  showPipZoneBorders={false}
+                  pcCardStyles={false}
+                  thinBorder={true}
+                  onClick={() => {
+                    if (!state.pendingTrickCompletion && isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
+                      if (isOnline) online.sendPlay(card);
+                      else setLocalState(prev => prev && playCard(prev, humanIdx, card));
+                    }
+                  }}
+                  disabled={!!state.pendingTrickCompletion || !isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                />
+                </div>
+              );})}
           </div>
         </div>
       </div>
@@ -2475,44 +2409,35 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       }}>
         <div className={state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : undefined} style={handFrameStyle}>
           <div style={handStyle}>
-            {hideOnlineBiddingHandFaces
-              ? (() => {
-                  const handLen = state.players[humanIdx].hand.length;
-                  return Array.from({ length: handLen }, (_, i) => (
-                    <div key={`deal-stabilize-pc-${i}`} style={{ flexShrink: 0 }} aria-busy="true" aria-label="Раздача">
-                      <div style={{ ...cardBackStyle, width: 52, height: 76 }} aria-hidden />
-                    </div>
-                  ));
-                })()
-              : state.players[humanIdx].hand
-                  .slice()
-                  .sort((a, b) => cardSort(a, b, state.trump))
-                  .map((card, i) => (
-                    <CardView
-                      key={`${card.suit}-${card.rank}-${i}`}
-                      card={card}
-                      scale={isMobileOrTablet ? 1 / (1.3 * 1.1) : 1}
-                      contentScale={isMobileOrTablet ? 1.5 : undefined}
-                      doubleBorder={trumpHighlightOn}
-                      isTrumpOnTable={isMobileOrTablet ? (trumpHighlightOn && state.trump !== null && card.suit === state.trump) : (state.trump !== null && card.suit === state.trump)}
-                      trumpHighlightOn={trumpHighlightOn}
-                      isTrumpInHand={state.trump !== null && card.suit === state.trump}
-                      forceMobileTrumpGlow={isMobileOrTablet && state.trump !== null && card.suit === state.trump && (state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0))}
-                      mobileTrumpGlowActive={state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0)}
-                      highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
-                      mobileTrumpShineBidding={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.trump !== null && card.suit === state.trump}
-                      showPipZoneBorders={trumpHighlightOn}
-                      pcCardStyles={!isMobileOrTablet}
-                      biddingHighlightPC={!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding')}
-                      onClick={() => {
-                        if (!state.pendingTrickCompletion && isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
-                          if (isOnline) online.sendPlay(card);
-                          else setLocalState(prev => prev && playCard(prev, humanIdx, card));
-                        }
-                      }}
-                      disabled={!!state.pendingTrickCompletion || !isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
-                    />
-                  ))}
+            {state.players[humanIdx].hand
+              .slice()
+              .sort((a, b) => cardSort(a, b, state.trump))
+              .map((card, i) => (
+                <CardView
+                  key={`${card.suit}-${card.rank}-${i}`}
+                  card={card}
+                  scale={isMobileOrTablet ? 1 / (1.3 * 1.1) : 1}
+                  contentScale={isMobileOrTablet ? 1.5 : undefined}
+                  doubleBorder={trumpHighlightOn}
+                  isTrumpOnTable={isMobileOrTablet ? (trumpHighlightOn && state.trump !== null && card.suit === state.trump) : (state.trump !== null && card.suit === state.trump)}
+                  trumpHighlightOn={trumpHighlightOn}
+                  isTrumpInHand={state.trump !== null && card.suit === state.trump}
+                  forceMobileTrumpGlow={isMobileOrTablet && state.trump !== null && card.suit === state.trump && (state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0))}
+                  mobileTrumpGlowActive={state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0)}
+                  highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                  mobileTrumpShineBidding={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.trump !== null && card.suit === state.trump}
+                  showPipZoneBorders={trumpHighlightOn}
+                  pcCardStyles={!isMobileOrTablet}
+                  biddingHighlightPC={!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding')}
+                  onClick={() => {
+                    if (!state.pendingTrickCompletion && isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
+                      if (isOnline) online.sendPlay(card);
+                      else setLocalState(prev => prev && playCard(prev, humanIdx, card));
+                    }
+                  }}
+                  disabled={!!state.pendingTrickCompletion || !isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                />
+              ))}
           </div>
         </div>
         <div className={['user-player-panel', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : ''].filter(Boolean).join(' ') || undefined} style={{
