@@ -2215,7 +2215,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         </>
       ) : (
         <>
-      <div className="game-info-row" style={gameInfoTopRowStyle}>
+      <div className="game-info-row" style={{ ...gameInfoTopRowStyle, zIndex: 12 }}>
           <div className="game-info-left-col" style={gameInfoLeftColumnStyle}>
             {!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
               <div className="first-move-badge first-move-badge-above-block" style={firstMoveBadgeStyle}>
@@ -2267,7 +2267,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         role={isAITurn ? 'button' : undefined}
         tabIndex={isAITurn ? 0 : undefined}
         title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}>
-        <div className="game-center-west" style={opponentSideWrapWestStyle}>
+        <div className="game-center-west" style={{ ...opponentSideWrapWestStyle, ...(!isMobileOrTablet ? opponentSideWrapPcGrowStyle : {}) }}>
           <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
             avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.avatarDataUrl ?? undefined}
             replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.replacedUserId}
@@ -2376,7 +2376,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           </div>
         </div>
         </div>
-        <div className="game-center-east" style={opponentSideWrapEastStyle}>
+        <div className="game-center-east" style={{ ...opponentSideWrapEastStyle, ...(!isMobileOrTablet ? opponentSideWrapPcGrowStyle : {}) }}>
           <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
             avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.avatarDataUrl ?? undefined}
             replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.replacedUserId}
@@ -3237,19 +3237,174 @@ function getDealResultsPanelPosition(side: 'top' | 'bottom' | 'left' | 'right'):
   }
 }
 
+/** Склонение «взятка» (1 взятка, 2 взятки, 5 взяток; 11–14 — всегда взяток). */
+function tricksDeclension(n: number): 'взятка' | 'взятки' | 'взяток' {
+  const k = Math.abs(Math.trunc(n)) % 100;
+  const d = k % 10;
+  if (k >= 11 && k <= 14) return 'взяток';
+  if (d === 1) return 'взятка';
+  if (d >= 2 && d <= 4) return 'взятки';
+  return 'взяток';
+}
+
+/** «N взятка/взятки/взяток» для подписей и тултипов. */
+function tricksPhrase(n: number): string {
+  return `${n} ${tricksDeclension(n)}`;
+}
+
 /** Подсказка для таблички заказа оппонента (title / тап на мобильной). */
 function opponentOrderBadgeTitle(bid: number | null, tricksTaken: number): string {
   if (bid == null) {
-    return 'Заказ в раздаче — сколько взяток игрок обязуется взять. Сейчас заказ ещё не сделан.';
+    return 'Сколько взяток игрок обещает взять в этой раздаче. Пока заказ не сделан.';
   }
-  return `Заказ игрока: ${bid} взяток в этой раздаче. Кружки показывают прогресс: уже взято ${tricksTaken}.`;
+  return `Заказ: ${tricksPhrase(bid)}. Уже взято: ${tricksPhrase(tricksTaken)}.`;
 }
 
 function opponentOrderTapHintText(bid: number | null, tricksTaken: number): string {
   if (bid == null) {
-    return 'Заказ — сколько взяток игрок возьмёт в этой раздаче. Сейчас заказ не выбран.';
+    return 'Заказ ещё не выбран.';
   }
-  return `Заказ: ${bid} взяток. Подсвеченные кружки — уже взято (${tricksTaken}).`;
+  return `Заказ ${tricksPhrase(bid)}. Кружки — сколько уже взято: ${tricksPhrase(tricksTaken)}.`;
+}
+
+/** Тултип (ПК, число заказа над стопкой взяток соперника). */
+function opponentPcStackBidTooltip(bid: number): string {
+  return `Обещание в раздаче: ${tricksPhrase(bid)}. Недобор и перебор меняют очки.`;
+}
+
+/** Тултип (ПК, число взятых взяток над стопкой). */
+function opponentPcStackTakenTooltip(bid: number, tricksTaken: number): string {
+  if (tricksTaken < bid) {
+    return `Сейчас ${tricksPhrase(tricksTaken)} из ${tricksPhrase(bid)} по заказу.`;
+  }
+  if (tricksTaken === bid) {
+    return `Ровно ${tricksPhrase(bid)} — как заказано.`;
+  }
+  return `Взято ${tricksPhrase(tricksTaken)} при заказе ${tricksPhrase(bid)}. Справа оранжевым — сверх заказа.`;
+}
+
+/** Тултип (ПК, ваш заказ — число слева у панели взяток). */
+function playerPcStackBidTooltip(bid: number): string {
+  return `Ваш заказ: ${tricksPhrase(bid)}. Недобор и перебор меняют очки.`;
+}
+
+function playerPcStackBidTooltipPending(): string {
+  return 'Сколько взяток хотите взять — выберите в панели заказа.';
+}
+
+/** Тултип (ПК, сколько вы уже взяли взяток). */
+function playerPcStackTakenTooltip(bid: number, tricksTaken: number): string {
+  if (tricksTaken < bid) {
+    return `У вас ${tricksPhrase(tricksTaken)} из ${tricksPhrase(bid)}.`;
+  }
+  if (tricksTaken === bid) {
+    return `Ровно ${tricksPhrase(bid)} — как вы заказали.`;
+  }
+  return `Взято ${tricksPhrase(tricksTaken)}, заказ ${tricksPhrase(bid)}. Оранжевым — сверх заказа.`;
+}
+
+function playerPcStackTakenTooltipPending(tricksTaken: number): string {
+  if (tricksTaken === 0) {
+    return 'Сколько взяток вы уже забрали в этой раздаче.';
+  }
+  return `Уже ${tricksPhrase(tricksTaken)}. После заказа сравните с обещанным числом.`;
+}
+
+const pcTrickBidFigureStyle: React.CSSProperties = {
+  cursor: 'help',
+  color: '#fb923c',
+  textShadow: '0 1px 2px rgba(0,0,0,0.9), 0 0 6px rgba(234,88,12,0.45), 0 0 1px rgba(185,28,28,0.6)',
+};
+
+const pcTrickTakenFigureStyle: React.CSSProperties = {
+  cursor: 'help',
+  color: '#5eead4',
+  textShadow: [
+    '0 0 6px rgba(45, 212, 191, 0.95)',
+    '0 0 12px rgba(34, 211, 238, 0.75)',
+    '0 0 18px rgba(6, 182, 212, 0.45)',
+    '0 1px 2px rgba(0,0,0,0.9)',
+  ].join(', '),
+};
+
+/** Пара «заказ / взято» для ПК: цвета, title-тултипы (оппонент или вы). */
+function PcTrickBidTakenFigures({
+  bid,
+  tricksTaken,
+  audience,
+  fontSize,
+  style,
+}: {
+  bid: number | null;
+  tricksTaken: number;
+  audience: 'opponent' | 'player';
+  fontSize: number;
+  style?: CSSProperties;
+}) {
+  const bidTitle =
+    bid == null
+      ? audience === 'player'
+        ? playerPcStackBidTooltipPending()
+        : 'Заказ в этой раздаче ещё не сделан.'
+      : audience === 'player'
+        ? playerPcStackBidTooltip(bid)
+        : opponentPcStackBidTooltip(bid);
+
+  const takenTitle =
+    bid == null
+      ? audience === 'player'
+        ? playerPcStackTakenTooltipPending(tricksTaken)
+        : `Уже ${tricksPhrase(tricksTaken)}. Число заказа — после его выбора.`
+      : audience === 'player'
+        ? playerPcStackTakenTooltip(bid, tricksTaken)
+        : opponentPcStackTakenTooltip(bid, tricksTaken);
+
+  const bidDisplay = bid == null ? '—' : String(bid);
+  const bidSpanStyle: CSSProperties =
+    bid == null
+      ? {
+          ...pcTrickBidFigureStyle,
+          cursor: 'help',
+          color: 'rgba(148, 163, 184, 0.95)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.85)',
+        }
+      : pcTrickBidFigureStyle;
+
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'baseline',
+        gap: 3,
+        fontSize,
+        fontWeight: 800,
+        letterSpacing: '0.04em',
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
+        ...style,
+      }}
+      aria-hidden
+    >
+      <span title={bidTitle} style={bidSpanStyle}>
+        {bidDisplay}
+      </span>
+      <span
+        style={{
+          cursor: 'default',
+          color: 'rgba(148, 163, 184, 0.95)',
+          fontWeight: 700,
+          textShadow: '0 1px 2px rgba(0,0,0,0.85)',
+          userSelect: 'none',
+        }}
+        aria-hidden
+      >
+        /
+      </span>
+      <span title={takenTitle} style={pcTrickTakenFigureStyle}>
+        {tricksTaken}
+      </span>
+    </span>
+  );
 }
 
 /** Оппонент, компактная табличка: title; на мобильной без подписи «Заказ» — тап открывает короткую подсказку. */
@@ -3427,6 +3582,18 @@ function TrickSlotsDisplay({
         </OpponentBidCompactWrap>
       );
     }
+    if (variant === 'player' && !compactMode) {
+      return (
+        <div
+          style={{ ...nullWrap, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+          className={nullCls}
+          role="status"
+          aria-label={`Заказ не выбран. Уже ${tricksPhrase(tricksTaken)}.`}
+        >
+          <PcTrickBidTakenFigures bid={null} tricksTaken={tricksTaken} audience="player" fontSize={11} />
+        </div>
+      );
+    }
     return (
       <div style={nullWrap} className={nullCls} role="status" aria-label={hideOppOrderWord ? 'Заказ ещё не сделан' : undefined}>
         {nullInner}
@@ -3518,7 +3685,7 @@ function TrickSlotsDisplay({
           bid={bid}
           tricksTaken={tricksTaken}
           tapHintEnabled={hideOppOrderWord}
-          ariaLabel={hideOppOrderWord ? `Заказ ${bid}, взято взяток ${tricksTaken}` : undefined}
+          ariaLabel={hideOppOrderWord ? `Заказ ${tricksPhrase(bid)}, взято ${tricksPhrase(tricksTaken)}` : undefined}
         >
           {compactInner}
         </OpponentBidCompactWrap>
@@ -3546,48 +3713,151 @@ function TrickSlotsDisplay({
     ...(hasFilledOrder ? trickSlotsWrapSuccessStyle : trickSlotsWrapPendingStyle),
     ...(opponentScaleDownPc < 1 ? { padding: `${Math.max(2, Math.round(4 * opponentScaleDownPc))}px ${Math.max(4, Math.round(8 * opponentScaleDownPc))}px` } : {}),
   };
+
+  /** Только ПК-оппоненты: узкая «стопка» слотов (полоска слежу снизу видна) + числа заказ/взято поверх. */
+  const opponentPcStacked = variant === 'opponent';
+  const stripVisiblePx = Math.round(Math.max(9, Math.min(14, effectiveSlotSize.w * 0.28)));
+  const stackStepPc = Math.max(5, effectiveSlotSize.w - stripVisiblePx);
+  const totalStackSlots = orderedSlots + extra;
+  const stackWidthPc =
+    totalStackSlots <= 0 ? Math.max(effectiveSlotSize.w, 36) : (totalStackSlots - 1) * stackStepPc + effectiveSlotSize.w;
+  const overlayFontPc = Math.max(9, Math.round(11 * opponentScaleDownPc));
+
+  if (opponentPcStacked) {
+    /** Зазор между цифрами «заказ/взято» и стопкой слотов (тень у текста тянется вниз). */
+    const stackAreaTop = overlayFontPc + Math.max(14, Math.round(overlayFontPc * 0.75));
+    return (
+      <div
+        style={wrapStyle}
+        className={[hideCards ? 'trick-slots-collecting' : 'trick-slots-normal', 'trick-slots-opponent-pc-stack'].filter(Boolean).join(' ')}
+        role="status"
+        aria-label={`Заказ ${tricksPhrase(bid)}, взято ${tricksPhrase(tricksTaken)}`}
+      >
+        <div
+          style={{
+            position: 'relative',
+            width: stackWidthPc,
+            minHeight: stackAreaTop + effectiveSlotSize.h,
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: 0,
+              transform: 'translateX(-50%)',
+              zIndex: 80,
+            }}
+          >
+            <PcTrickBidTakenFigures
+              bid={bid}
+              tricksTaken={tricksTaken}
+              audience="opponent"
+              fontSize={overlayFontPc}
+              style={{ lineHeight: 1 }}
+            />
+          </span>
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: stackAreaTop,
+              width: stackWidthPc,
+              height: effectiveSlotSize.h,
+            }}
+          >
+            {Array.from({ length: orderedSlots }, (_, i) => {
+              const filled = i < totalFilled;
+              const useCardBack = filled && !hideCards;
+              return (
+                <div
+                  key={`o-${i}`}
+                  style={{
+                    ...trickSlotBaseStyle,
+                    position: 'absolute',
+                    left: i * stackStepPc,
+                    top: 0,
+                    zIndex: i + 1,
+                    width: effectiveSlotSize.w,
+                    height: effectiveSlotSize.h,
+                    ...(useCardBack
+                      ? { ...cardBackStyle, width: effectiveSlotSize.w, height: effectiveSlotSize.h }
+                      : (filled && !hideCards)
+                        ? trickSlotFilledStyle
+                        : trickSlotEmptyStyle),
+                  }}
+                />
+              );
+            })}
+            {extra > 0 &&
+              Array.from({ length: extra }, (_, j) => {
+                const i = orderedSlots + j;
+                return (
+                  <div
+                    key={`e-${j}`}
+                    style={{
+                      ...trickSlotBaseStyle,
+                      position: 'absolute',
+                      left: i * stackStepPc,
+                      top: 0,
+                      zIndex: i + 1,
+                      width: effectiveSlotSize.w,
+                      height: effectiveSlotSize.h,
+                      ...(hideCards ? trickSlotEmptyStyle : trickSlotExtraStyle),
+                    }}
+                  />
+                );
+              })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const playerPcFiguresFont = Math.max(10, Math.round(11 * opponentScaleDownPc));
   return (
     <div
       style={wrapStyle}
       className={hideCards ? 'trick-slots-collecting' : 'trick-slots-normal'}
-      {...(variant === 'opponent' ? { title: opponentOrderBadgeTitle(bid, tricksTaken) } : {})}
+      role="status"
+      aria-label={`Ваш заказ ${tricksPhrase(bid)}, взято ${tricksPhrase(tricksTaken)}`}
     >
-      <span style={{
-        ...trickSlotsLabelStyle,
-        ...(opponentScaleDownPc < 1 ? { fontSize: Math.max(9, Math.round(10 * opponentScaleDownPc)) } : {}),
-      }}>Заказ {bid}</span>
-      <div style={rowStyle}>
-        {Array.from({ length: orderedSlots }, (_, i) => {
-          const filled = i < totalFilled;
-          const useCardBack = filled && !hideCards;
-          return (
-            <div
-              key={`o-${i}`}
-              style={{
-                ...trickSlotBaseStyle,
-                width: effectiveSlotSize.w,
-                height: effectiveSlotSize.h,
-                ...(useCardBack ? { ...cardBackStyle, width: effectiveSlotSize.w, height: effectiveSlotSize.h } : (filled && !hideCards) ? trickSlotFilledStyle : trickSlotEmptyStyle),
-              }}
-            />
-          );
-        })}
-        {extra > 0 && (
-          <>
-            <span style={{ ...trickSlotsPlusStyle, ...(opponentScaleDownPc < 1 ? { fontSize: Math.max(9, Math.round(11 * opponentScaleDownPc)) } : {}) }}>+</span>
-            {Array.from({ length: extra }, (_, i) => (
+      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'nowrap' }}>
+        <PcTrickBidTakenFigures bid={bid} tricksTaken={tricksTaken} audience="player" fontSize={playerPcFiguresFont} />
+        <div style={rowStyle}>
+          {Array.from({ length: orderedSlots }, (_, i) => {
+            const filled = i < totalFilled;
+            const useCardBack = filled && !hideCards;
+            return (
               <div
-                key={`e-${i}`}
+                key={`o-${i}`}
                 style={{
                   ...trickSlotBaseStyle,
                   width: effectiveSlotSize.w,
                   height: effectiveSlotSize.h,
-                  ...(hideCards ? trickSlotEmptyStyle : trickSlotExtraStyle),
+                  ...(useCardBack ? { ...cardBackStyle, width: effectiveSlotSize.w, height: effectiveSlotSize.h } : (filled && !hideCards) ? trickSlotFilledStyle : trickSlotEmptyStyle),
                 }}
               />
-            ))}
-          </>
-        )}
+            );
+          })}
+          {extra > 0 && (
+            <>
+              <span style={{ ...trickSlotsPlusStyle, ...(opponentScaleDownPc < 1 ? { fontSize: Math.max(9, Math.round(11 * opponentScaleDownPc)) } : {}) }}>+</span>
+              {Array.from({ length: extra }, (_, i) => (
+                <div
+                  key={`e-${i}`}
+                  style={{
+                    ...trickSlotBaseStyle,
+                    width: effectiveSlotSize.w,
+                    height: effectiveSlotSize.h,
+                    ...(hideCards ? trickSlotEmptyStyle : trickSlotExtraStyle),
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -3652,6 +3922,12 @@ function OpponentSlot({
   const mobileActiveName = isMobile && isActive;
   const avatarSizePx = compactMode ? (position === 'right' ? 32 : 32) : 38;
   const eastMobileOnlyAvatar = position === 'right' && isMobile;
+  /** ПК, слот «Север» над столом: аватар и имя слева, взятки и очки справа (мобильная не трогается). */
+  const pcNorthSideBySide = position === 'top' && inline && !compactMode && !isMobile;
+  /** ПК Запад/Восток: панель растёт по ширине стопки взяток при переборе. */
+  const sideSlotPcGrow = inline && !compactMode && (position === 'left' || position === 'right');
+  /** ПК Запад/Восток: «Ходит» вынесен над панелью, не в потоке — не раздувает ширину. */
+  const turnBadgeOutsidePc = sideSlotPcGrow && isActive && !isMobile;
 
   const posStyle = inline
     ? { position: 'relative' as const, top: 'auto', left: 'auto', right: 'auto', transform: 'none' }
@@ -3663,13 +3939,18 @@ function OpponentSlot({
 
   const frameStyle = mobileActiveName ? undefined : (isActive ? activeTurnPanelFrameStyle : isDealer ? dealerPanelFrameStyle : undefined);
   const northSlotOverrides = position === 'top' && inline
-    ? { width: 'fit-content' as const, minWidth: 'var(--game-table-opponent-slot-width, 180px)' as React.CSSProperties['minWidth'], maxWidth: 'none' as const }
+    ? {
+        width: 'fit-content' as const,
+        minWidth: (pcNorthSideBySide ? 'min(360px, 94vw)' : 'var(--game-table-opponent-slot-width, 180px)') as React.CSSProperties['minWidth'],
+        maxWidth: 'none' as const,
+      }
     : {};
   return (
     <div
       className={[position === 'right' ? 'opponent-slot-east' : '', firstMoverBiddingHighlight ? 'first-mover-bidding-panel' : '', isActive ? 'opponent-slot-current-turn' : ''].filter(Boolean).join(' ') || undefined}
       style={{
         ...opponentSlotStyle,
+        ...(sideSlotPcGrow ? opponentSlotSidePcGrowStyle : {}),
         ...northSlotOverrides,
         ...posStyle,
         ...frameStyle,
@@ -3709,28 +3990,71 @@ function OpponentSlot({
           )}
         </span>
       )}
-      <div className="opponent-slot-header" style={opponentHeaderStyle}>
-        {onAvatarClick ? (
+      {turnBadgeOutsidePc ? (
+        <span
+          className="opponent-turn-badge-outside-pc"
+          style={{
+            ...opponentTurnBadgeStyle,
+            position: 'absolute',
+            right: 8,
+            left: 'auto',
+            bottom: '100%',
+            transform: 'translateY(-10px)',
+            zIndex: 6,
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+          }}
+          role="status"
+          aria-label="Сейчас ходит этот игрок"
+        >
+          Ходит
+        </span>
+      ) : null}
+      {(() => {
+        const avatarBtnStyle: React.CSSProperties = {
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          cursor: 'pointer',
+          display: 'inline-flex',
+          lineHeight: 0,
+          position: 'relative',
+          zIndex: 2,
+          minWidth: 44,
+          minHeight: 44,
+          alignItems: 'center',
+          justifyContent: 'center',
+        };
+        const nameSpan = (
+          <span
+            className={eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : undefined}
+            style={{
+              ...opponentNameStyle,
+              ...(mobileActiveName ? nameActiveMobileStyle : {}),
+              minWidth: 0,
+              ...(pcNorthSideBySide ? { maxWidth: 200 } : {}),
+              ...(eastMobileOnlyAvatar
+                ? { overflow: 'visible', whiteSpace: 'normal' as const, wordBreak: 'break-word' as const, overflowWrap: 'break-word' as const }
+                : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
+            }}
+            title={`${p.name} — ${getCompassLabel(index)}`}
+          >
+            {p.name}
+            {replacedByAi && (
+              <span style={{ marginLeft: 4, fontSize: '0.85em', color: '#94a3b8', fontWeight: 500 }} title="Игрок вышел, за него играет ИИ">
+                (ИИ)
+              </span>
+            )}
+          </span>
+        );
+        const avatarEl = onAvatarClick ? (
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onAvatarClick(index);
             }}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              lineHeight: 0,
-              position: 'relative',
-              zIndex: 2,
-              minWidth: 44,
-              minHeight: 44,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+            style={avatarBtnStyle}
             title="Информация об игроке"
             aria-label={`Информация об игроке ${p.name}`}
           >
@@ -3738,48 +4062,107 @@ function OpponentSlot({
           </button>
         ) : (
           <PlayerAvatar name={p.name} avatarDataUrl={avatarDataUrl} sizePx={avatarSizePx} title={`${p.name} — ${getCompassLabel(index)}`} />
-        )}
-        <span
-          className={eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : undefined}
-          style={{
-            ...opponentNameStyle,
-            ...(mobileActiveName ? nameActiveMobileStyle : {}),
-            minWidth: 0,
-            ...(eastMobileOnlyAvatar
-              ? { overflow: 'visible', whiteSpace: 'normal' as const, wordBreak: 'break-word' as const, overflowWrap: 'break-word' as const }
-              : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
-          }}
-          title={`${p.name} — ${getCompassLabel(index)}`}
-        >
-          {p.name}
-          {replacedByAi && (
-            <span style={{ marginLeft: 4, fontSize: '0.85em', color: '#94a3b8', fontWeight: 500 }} title="Игрок вышел, за него играет ИИ">
-              (ИИ)
-            </span>
-          )}
-        </span>
-        {isActive && !isMobile && <span style={opponentTurnBadgeStyle}>Ходит</span>}
-      </div>
-      <div style={{
-        ...opponentStatsRowStyle,
-        ...(position === 'top' && inline ? { flexWrap: 'nowrap' as const } : {}),
-        ...(position === 'left' && inline ? { flexDirection: 'row-reverse' as const } : {}),
-      }}>
-        <TrickSlotsDisplay
-          bid={displayBid}
-          tricksTaken={p.tricksTaken}
-          variant="opponent"
-          horizontalOnly={position === 'top' && inline}
-          collectingCards={collectingCards}
-          compactMode={compactMode}
-          eastMobileTricks={position === 'right' && !!isMobile && displayBid !== null && displayBid > 0}
-          opponentMobileHideOrderLabel={!!isMobile}
-        />
-        <div className="opponent-score-badge" style={opponentStatBadgeScoreStyle}>
-          <span style={opponentStatLabelStyle}>Очки</span>
-          <span style={opponentStatValueStyle}>{p.score}</span>
-        </div>
-      </div>
+        );
+        const headerBlock = pcNorthSideBySide ? (
+          <div
+            className="opponent-slot-header opponent-north-pc-header-split"
+            style={{
+              ...opponentHeaderStyle,
+              marginBottom: 0,
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              gap: 12,
+              flexShrink: 0,
+            }}
+          >
+            <div className="opponent-north-pc-avatar-col">
+              {avatarEl}
+              <div
+                className="opponent-score-badge opponent-score-badge-side-pc opponent-score-north-pc"
+                style={opponentStatBadgeScoreStyle}
+              >
+                <span style={opponentStatLabelStyle}>Очки</span>
+                <span style={opponentStatValueStyle}>{p.score}</span>
+              </div>
+            </div>
+            <div className="opponent-north-pc-name-col">
+              {nameSpan}
+              {isActive && !isMobile && <span style={opponentTurnBadgeStyle}>Ходит</span>}
+            </div>
+          </div>
+        ) : (
+          <div className="opponent-slot-header" style={opponentHeaderStyle}>
+            {avatarEl}
+            {nameSpan}
+            {isActive && !isMobile && !turnBadgeOutsidePc ? <span style={opponentTurnBadgeStyle}>Ходит</span> : null}
+          </div>
+        );
+        const statsBlock = (
+          <div
+            className={sideSlotPcGrow ? 'opponent-stats-west-east-pc' : undefined}
+            style={{
+              ...opponentStatsRowStyle,
+              ...(position === 'top' && inline ? { flexWrap: 'nowrap' as const } : {}),
+              ...(position === 'left' && inline && !sideSlotPcGrow ? { flexDirection: 'row-reverse' as const } : {}),
+              ...(pcNorthSideBySide
+                ? { flex: 1, minWidth: 0, justifyContent: 'flex-end', alignItems: 'center' }
+                : {}),
+              ...(sideSlotPcGrow
+                ? {
+                    flexDirection: 'column' as const,
+                    alignItems: 'stretch' as const,
+                    gap: 8,
+                    width: '100%',
+                  }
+                : {}),
+            }}
+          >
+            <TrickSlotsDisplay
+              bid={displayBid}
+              tricksTaken={p.tricksTaken}
+              variant="opponent"
+              horizontalOnly={position === 'top' && inline}
+              collectingCards={collectingCards}
+              compactMode={compactMode}
+              eastMobileTricks={position === 'right' && !!isMobile && displayBid !== null && displayBid > 0}
+              opponentMobileHideOrderLabel={!!isMobile}
+            />
+            {!pcNorthSideBySide && (
+              <div
+                className={['opponent-score-badge', sideSlotPcGrow ? 'opponent-score-badge-side-pc' : ''].filter(Boolean).join(' ') || undefined}
+                style={opponentStatBadgeScoreStyle}
+              >
+                <span style={opponentStatLabelStyle}>Очки</span>
+                <span style={opponentStatValueStyle}>{p.score}</span>
+              </div>
+            )}
+          </div>
+        );
+        if (pcNorthSideBySide) {
+          return (
+            <div
+              className="opponent-slot-north-pc-row"
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 14,
+                width: '100%',
+                boxSizing: 'border-box',
+              }}
+            >
+              {headerBlock}
+              {statsBlock}
+            </div>
+          );
+        }
+        return (
+          <>
+            {headerBlock}
+            {statsBlock}
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -3971,7 +4354,7 @@ const playerSpacerStyle: React.CSSProperties = {
 
 const gameTableBlockStyle: React.CSSProperties = {
   marginTop: 'var(--game-table-block-margin-top, 0)',
-  transform: 'translateY(calc(-1 * var(--game-table-up-offset, 129px)))',
+  transform: 'translateY(calc(-1 * var(--game-table-up-offset, 149px)))',
   flexShrink: 0,
 };
 
@@ -5235,6 +5618,19 @@ const opponentSideWrapEastStyle: React.CSSProperties = {
   ...opponentSideWrapStyle,
   justifyContent: 'flex-start',
   overflow: 'visible',
+};
+
+/** ПК: колонки Запад/Восток могут расширяться вместе со стопкой взяток (перебор заказа). */
+const opponentSideWrapPcGrowStyle: React.CSSProperties = {
+  maxWidth: 'min(560px, 44vw)',
+  flexShrink: 0,
+};
+
+/** ПК, боковой слот: ширина по содержимому, не жёстко 180px. */
+const opponentSlotSidePcGrowStyle: React.CSSProperties = {
+  width: 'fit-content',
+  minWidth: 'var(--game-table-opponent-slot-width, 180px)',
+  maxWidth: 'none',
 };
 
 const opponentSlotStyle: React.CSSProperties = {
