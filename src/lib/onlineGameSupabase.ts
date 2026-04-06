@@ -164,6 +164,20 @@ function lobbyHeavyRpcAbortSignal(): AbortSignal {
   return c.signal;
 }
 
+/** Опрос во время игры: короткий таймаут, чтобы один подвисший GET не держал roomPollInFlight 20+ с и не откладывал все следующие тики. */
+const SYNC_POLL_GET_TIMEOUT_MS = 10_000;
+function syncPollRestAbortSignal(): AbortSignal {
+  if (
+    typeof AbortSignal !== 'undefined' &&
+    typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function'
+  ) {
+    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(SYNC_POLL_GET_TIMEOUT_MS);
+  }
+  const c = new AbortController();
+  setTimeout(() => c.abort(), SYNC_POLL_GET_TIMEOUT_MS);
+  return c.signal;
+}
+
 /** Создать комнату. Возвращает roomId и code или ошибку. */
 export async function createRoom(
   hostUserId: string,
@@ -447,6 +461,38 @@ export async function getRoom(roomId: string): Promise<GameRoomRow | null> {
       if (!isRetryableNetworkMessage(msg) || attempt === ROOM_READ_MAX_ATTEMPTS - 1) return null;
     }
     await sleep(roomRetryDelayMs(attempt));
+  }
+  return null;
+}
+
+/**
+ * Лёгкое чтение для интервального опроса в игре: не цепляет длинные ретраи getRoom — следующий тик придёт через ~1.5 с.
+ */
+export async function getRoomForSyncPoll(roomId: string): Promise<GameRoomRow | null> {
+  if (!supabase) return null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLE)
+        .select('*')
+        .eq('id', roomId)
+        .abortSignal(syncPollRestAbortSignal())
+        .single();
+      if (data && !error) return data as GameRoomRow;
+      if (error?.code === 'PGRST116') return null;
+      if (attempt === 0 && (isAbortLike(error) || isRetryableReadFailure(error, !!data))) {
+        await sleep(200);
+        continue;
+      }
+      return null;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (attempt === 0 && isRetryableNetworkMessage(msg)) {
+        await sleep(200);
+        continue;
+      }
+      return null;
+    }
   }
   return null;
 }

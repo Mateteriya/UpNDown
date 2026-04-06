@@ -20,6 +20,7 @@ import {
   createRoom as apiCreateRoom,
   joinRoom as apiJoinRoom,
   getRoom,
+  getRoomForSyncPoll,
   updateRoomState,
   updateRoomPlayerSlots,
   subscribeToRoom,
@@ -565,8 +566,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   // Realtime + периодический getRoom: при «зелёной» подписке события всё равно могут не доходить до второго устройства (особенно мобильный WebView).
   const ROOM_SYNC_POLL_MS_WAITING = 2200;
   const ROOM_SYNC_POLL_SKIP_WAITING = 0;
-  const ROOM_SYNC_POLL_MS_PLAYING = 2800;
-  const ROOM_SYNC_POLL_SKIP_PLAYING = 400;
+  const ROOM_SYNC_POLL_MS_PLAYING = 1500;
+  const ROOM_SYNC_POLL_SKIP_PLAYING = 350;
   const roomSyncSkipRef = useRef(ROOM_SYNC_POLL_SKIP_WAITING);
   roomSyncSkipRef.current = status === 'playing' ? ROOM_SYNC_POLL_SKIP_PLAYING : ROOM_SYNC_POLL_SKIP_WAITING;
 
@@ -576,7 +577,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (!rid) return;
     if (roomPollInFlightRef.current) return;
     roomPollInFlightRef.current = true;
-    void getRoom(rid)
+    void getRoomForSyncPoll(rid)
       .then((room) => {
         if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
         if (room.status === 'waiting') {
