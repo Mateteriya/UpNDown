@@ -140,7 +140,8 @@ function isAbortLike(err: { message?: string; name?: string; code?: string } | n
 /** Лобби/RPC/getRoom: не ждать глобальные 38 с на один запрос — иначе создание/вход ощущаются как «минуты». */
 const LOBBY_REST_TIMEOUT_MS = 20_000;
 /** RPC входа (крупный JSON слотов/аватаров на медленном LTE): обрывать на 20 с = лишние ретраи и «минута до лобби». */
-const LOBBY_HEAVY_RPC_TIMEOUT_MS = 55_000;
+/** Слишком долгий RPC = «вход минутами»; при обрыве быстрее уходим в REST-цикл joinRoom */
+const LOBBY_HEAVY_RPC_TIMEOUT_MS = 28_000;
 function lobbyRestAbortSignal(): AbortSignal {
   if (
     typeof AbortSignal !== 'undefined' &&
@@ -508,28 +509,45 @@ export async function updateRoomPlayerSlots(roomId: string, playerSlots: PlayerS
   return error ? { error: error.message } : {};
 }
 
+export type UpdateRoomStateOptions = {
+  /**
+   * Ожидаемая ревизия game_state на сервере до этого UPDATE (колонка game_state_revision).
+   * Если за это время другой клиент уже записал состояние — строка не обновится → conflict.
+   */
+  expectedRevision?: number;
+};
+
 /** Обновить состояние игры в комнате. Возвращает актуальную строку — чтобы сразу выровнять updated_at и не затирать ходы устаревшим Realtime. */
 export async function updateRoomState(
   roomId: string,
   gameState: GameState,
-  playerSlots?: PlayerSlot[]
-): Promise<{ error?: string; room?: GameRoomRow }> {
+  playerSlots?: PlayerSlot[],
+  opts?: UpdateRoomStateOptions
+): Promise<{ error?: string; room?: GameRoomRow; conflict?: boolean }> {
   if (!supabase) return { error: 'Supabase не настроен' };
   const payload: Record<string, unknown> = { game_state: gameState, status: 'playing' };
   if (playerSlots) payload.player_slots = playerSlots;
+  const useRevLock =
+    opts?.expectedRevision !== undefined && opts.expectedRevision >= 0 && Number.isFinite(opts.expectedRevision);
   let lastMessage = 'Не удалось сохранить состояние. Проверьте связь.';
   for (let attempt = 0; attempt < ROOM_WRITE_MAX_ATTEMPTS; attempt++) {
     try {
-      const { data, error } = await supabase
-        .from(TABLE)
-        .update(payload)
-        .eq('id', roomId)
-        .select('*')
-        .abortSignal(gameMutationAbort(attempt))
-        .maybeSingle();
-      if (data && !error) return { room: data as GameRoomRow };
+      let q = supabase.from(TABLE).update(payload).eq('id', roomId);
+      if (useRevLock) {
+        q = q.eq('game_state_revision', opts!.expectedRevision!);
+      }
+      const { data, error } = await q.select('*').abortSignal(gameMutationAbort(attempt));
+      const rows = Array.isArray(data) ? data : data ? [data] : [];
+      if (rows.length > 0 && !error) {
+        return { room: rows[0] as GameRoomRow };
+      }
+      /* 0 строк при блокировке по revision = другой клиент успел записать раньше */
+      if (useRevLock && !error && rows.length === 0) {
+        const r = await getRoom(roomId);
+        return { conflict: true, room: r ?? undefined };
+      }
       /* PostgREST иногда не возвращает строку при update+select (RLS/представление) — подтягиваем явно. */
-      if (!error && !data) {
+      if (!error && rows.length === 0) {
         const r = await getRoom(roomId);
         if (r?.status === 'playing' && r.game_state != null) return { room: r };
       }
