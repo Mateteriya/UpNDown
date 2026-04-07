@@ -352,9 +352,13 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     (room: GameRoomRow) => {
       if (!room?.id) return;
       // Пока updateRoomState ещё в полёте, опрос часто отдаёт старый waiting — не сбрасываем уже посчитанную раздачу.
+      // Но слоты/код всё равно подмешиваем — иначе голый return глотает join друзей и Realtime.
       if (room.status === 'waiting' && gameWriteInFlightRef.current > 0) {
         const local = canonicalStateRef.current;
-        if (local && stateHasDealtHands(local)) return;
+        if (local && stateHasDealtHands(local)) {
+          mergeLobbyFieldsFromRoom(room);
+          return;
+        }
       }
       // Подписка Realtime уже с фильтром id=eq.roomId; не сравниваем с ref — иначе при рассинхроне ref/state глушились player_slots (гости «не появлялись» у хоста).
       // В лобби game_state всегда null: сравнение «новизны» по состоянию раздачи ломало доставку player_slots (хост не видел новых игроков).
@@ -384,10 +388,16 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           (local.phase === 'bidding' || local.phase === 'dark-bidding') &&
           (serverState.phase === 'bidding' || serverState.phase === 'dark-bidding')
         ) {
-          if (bidNonNullGuard(serverState.bids) < bidNonNullGuard(local.bids)) return;
+          if (bidNonNullGuard(serverState.bids) < bidNonNullGuard(local.bids)) {
+            mergeLobbyFieldsFromRoom(room);
+            return;
+          }
         }
         if (local?.phase === 'playing' && serverState.phase === 'playing') {
-          if ((serverState.currentTrick ?? []).length < (local.currentTrick ?? []).length) return;
+          if ((serverState.currentTrick ?? []).length < (local.currentTrick ?? []).length) {
+            mergeLobbyFieldsFromRoom(room);
+            return;
+          }
         }
       }
 
@@ -398,6 +408,17 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         const rev = revRaw as number;
         const lastRev = lastAppliedGameStateRevisionRef.current;
         if (rev < lastRev) {
+          // Реф клиента мог уехать вперёд (null payload + bump rev, гонка Realtime) — если сервер по факту новее стола, подтягиваем целиком.
+          const localSnap = canonicalStateRef.current;
+          if (
+            localSnap &&
+            serverState &&
+            isServerStateNewerOrEqual(serverState, localSnap) &&
+            gameStateMergeFingerprint(serverState) !== gameStateMergeFingerprint(localSnap)
+          ) {
+            applyRoomData(room);
+            return;
+          }
           mergeLobbyFieldsFromRoom(room);
           return;
         }
@@ -407,12 +428,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
             applyRoomData(room);
             return;
           }
-          // Раньше при любом расхождении отпечатка тянули сервер — опрос часто приходит ДО commit PATCH → «старая картинка» и карта возвращается в руку.
+          // Одна ревизия в БД = одно содержимое game_state. Расхождение отпечатка ⇒ локальный снимок неверен — всегда доверяем строке с сервера.
+          // (Отсечение через isServerStateNewerOrEqual ломало синхрон двух клиентов при «ложно старом» сравнении.)
           if (localSnap != null && gameStateMergeFingerprint(serverState) !== gameStateMergeFingerprint(localSnap)) {
-            if (!isServerStateNewerOrEqual(serverState, localSnap)) {
-              mergeLobbyFieldsFromRoom(room);
-              return;
-            }
             applyRoomData(room);
             return;
           }
