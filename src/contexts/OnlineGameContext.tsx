@@ -484,13 +484,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           applyRoomData(room);
           return;
         }
-        if (
-          nS === nL &&
-          nS > 0 &&
-          bidsArraySig(serverState.bids) !== bidsArraySig(local.bids) &&
-          Number.isFinite(ts) &&
-          ts >= lastSeenRoomUpdatedAtMsRef.current
-        ) {
+        /* Не требуем ts >= lastSeen: mergeLobby мог поднять lastSeen без game_state — иначе чужой заказ с тем же числом null-ов «залипает» минутами */
+        if (nS === nL && nS > 0 && bidsArraySig(serverState.bids) !== bidsArraySig(local.bids)) {
           applyRoomData(room);
           return;
         }
@@ -518,7 +513,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       ) {
         const nS = bidNonNull(serverState.bids);
         const nL = bidNonNull(local.bids);
-        if (nS > nL || (rowTimestampNewer && nS === nL)) {
+        if (nS > nL || nS === nL) {
           applyRoomData(room);
           return;
         }
@@ -597,11 +592,12 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     };
   }, [roomId, refreshRoom]);
 
-  // Realtime + периодический getRoom: при «зелёной» подписке события всё равно могут не доходить до второго устройства (особенно мобильный WebView).
-  const ROOM_SYNC_POLL_MS_WAITING = 2200;
+  // Realtime + периодический getRoom: мобильный WebView часто не получает postgres_changes — опрос основной канал доставки.
+  const ROOM_SYNC_POLL_MS_WAITING = 700;
   const ROOM_SYNC_POLL_SKIP_WAITING = 0;
-  const ROOM_SYNC_POLL_MS_PLAYING = 900;
-  const ROOM_SYNC_POLL_SKIP_PLAYING = 120;
+  const ROOM_SYNC_POLL_MS_PLAYING_BIDDING = 280;
+  const ROOM_SYNC_POLL_MS_PLAYING_OTHER = 420;
+  const ROOM_SYNC_POLL_SKIP_PLAYING = 0;
   const roomSyncSkipRef = useRef(ROOM_SYNC_POLL_SKIP_WAITING);
   roomSyncSkipRef.current = status === 'playing' ? ROOM_SYNC_POLL_SKIP_PLAYING : ROOM_SYNC_POLL_SKIP_WAITING;
 
@@ -627,12 +623,18 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
-    const period = status === 'playing' ? ROOM_SYNC_POLL_MS_PLAYING : ROOM_SYNC_POLL_MS_WAITING;
+    const phase = canonicalState?.phase;
+    const period =
+      status === 'waiting'
+        ? ROOM_SYNC_POLL_MS_WAITING
+        : phase === 'bidding' || phase === 'dark-bidding'
+          ? ROOM_SYNC_POLL_MS_PLAYING_BIDDING
+          : ROOM_SYNC_POLL_MS_PLAYING_OTHER;
     runRoomSyncPollTick();
     // И в лобби, и в игре: Realtime часто «зелёный», но события не доходят до второго устройства — без опроса ходы не синхронизируются.
     const iv = setInterval(() => runRoomSyncPollTick(), period);
     return () => clearInterval(iv);
-  }, [roomId, status, runRoomSyncPollTick]);
+  }, [roomId, status, canonicalState?.phase, runRoomSyncPollTick]);
 
   /** После успешного авто-восстановления не дублировать, пока сессия жива. Сбрасывается в leaveRoom и при отсутствии saved. */
   const sessionRestoreOkRef = useRef(false);
