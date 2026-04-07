@@ -2195,6 +2195,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               variant="player"
               collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
               compactMode={isMobileOrTablet}
+              playerMobileWideTricks={isMobile}
             />
             {shouldShowBidPanel && bidPanelVisible && !isMobile && (
               <div className="bid-panel bid-panel-inline bid-panel-bottom" style={bidPanelInlineStyle} aria-label="Выбор заказа">
@@ -2521,6 +2522,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               variant="player"
               collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
               compactMode={isMobileOrTablet}
+              playerMobileWideTricks={isMobile}
             />
             {shouldShowBidPanel && bidPanelVisible && (
               <div className="bid-panel bid-panel-inline bid-panel-bottom" style={bidPanelInlineStyle} aria-label="Выбор заказа">
@@ -3567,6 +3569,7 @@ function TrickSlotsDisplay({
   opponentMobileHideOrderLabel,
   opponentMobileZeroOrderCross,
   opponentOrderHintSlot,
+  playerMobileWideTricks,
 }: {
   bid: number | null;
   tricksTaken: number;
@@ -3582,6 +3585,8 @@ function TrickSlotsDisplay({
   opponentMobileZeroOrderCross?: boolean;
   /** Мобильная: сторона слота оппонента — позиция тултипа заказа у края экрана */
   opponentOrderHintSlot?: 'north' | 'west' | 'east';
+  /** Только телефон (viewport-mobile): чуть шире бюджет под кружки заказа у панели игрока (слот Юг). */
+  playerMobileWideTricks?: boolean;
 }) {
   const zeroCrossGradId = useId().replace(/:/g, '');
   const isCompact = variant === 'opponent';
@@ -3639,7 +3644,14 @@ function TrickSlotsDisplay({
   const orderedSlots = bid;
   const totalFilled = tricksTaken;
   const hideCards = !!collectingCards;
-  const hasFilledOrder = totalFilled >= bid;
+  /** Ровно в заказ (без перебора) — для компактной панели и классов мобильной подсветки */
+  const hasFilledOrderExact = tricksTaken === bid;
+  /** ПК: как раньше — успех при взятом ≥ заказа (перебор тоже «закрыл» заказ); компакт: только ровно, перебор отдельным классом */
+  const hasFilledOrder = compactMode
+    ? hasFilledOrderExact
+    : bid === 0
+      ? tricksTaken === 0
+      : tricksTaken >= bid;
 
   if (compactMode) {
     /** Мобильная: заказ 0 — фиксированная зона с крестиком «не брать взятки» (+ перебор, если есть). */
@@ -3655,7 +3667,16 @@ function TrickSlotsDisplay({
         ...zeroTone,
         minWidth: 34,
       };
-      const wrapCls = [hideCards ? 'trick-slots-collecting' : 'trick-slots-normal', eastMobileTricks ? 'trick-slots-east-mobile' : ''].filter(Boolean).join(' ');
+      const zeroOrderMet = !hideCards && tricksTaken === 0;
+      const zeroOrderOver = !hideCards && tricksTaken > 0;
+      const wrapCls = [
+        hideCards ? 'trick-slots-collecting' : 'trick-slots-normal',
+        eastMobileTricks ? 'trick-slots-east-mobile' : '',
+        zeroOrderMet ? 'trick-slots-order-complete' : '',
+        zeroOrderOver ? 'trick-slots-order-over' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
       const zeroRowStyle: CSSProperties = {
         ...trickCirclesRowStyle,
         alignItems: 'center',
@@ -3741,15 +3762,18 @@ function TrickSlotsDisplay({
       } else {
         const naturalW = n * base + Math.max(0, n - 1) * gap + plusW;
         let wMax: number;
+        /** Телефон + панель игрока: жёстче лимит по высоте ряда кружков (base=14), иначе при широком заказе s=1 и кружки выпирают по вертикали */
+        const hSLocal =
+          variant === 'player' && playerMobileWideTricks ? 12 / base : hS;
         if (variant === 'opponent' && hideOppOrderWord) {
           wMax = 100;
         } else if (variant === 'player') {
-          wMax = 140;
+          wMax = playerMobileWideTricks ? 168 : 140;
         } else {
           wMax = 400;
         }
         const wS = wMax / Math.max(naturalW, 1);
-        const s = Math.max(0.22, Math.min(1, wS, hS));
+        const s = Math.max(0.22, Math.min(1, wS, hSLocal));
         if (variant === 'opponent') {
           opponentScaleDown = Math.min(opponentScaleDown, s);
         }
@@ -3762,6 +3786,7 @@ function TrickSlotsDisplay({
     const wrapStyle = {
       ...trickCirclesWrapStyle,
       ...(hasFilledOrder ? trickCirclesWrapSuccessStyle : trickCirclesWrapPendingStyle),
+      ...(variant === 'player' && playerMobileWideTricks ? { gap: 2 } : {}),
       ...(variant === 'player' ? {
         position: 'absolute' as const,
         right: 14,
@@ -3775,14 +3800,19 @@ function TrickSlotsDisplay({
       } : {}),
     };
     const baseCircle = variant === 'player' ? Math.round(18 * playerScale) : undefined;
-    const playerCircleSize = variant === 'player' ? (scaleDown < 1 ? Math.max(6, Math.round((baseCircle ?? 18) * scaleDown)) : baseCircle ?? 11) : undefined;
+    let playerCircleSize = variant === 'player' ? (scaleDown < 1 ? Math.max(6, Math.round((baseCircle ?? 18) * scaleDown)) : baseCircle ?? 11) : undefined;
+    if (variant === 'player' && playerMobileWideTricks && playerCircleSize != null) {
+      playerCircleSize = Math.max(6, Math.round(playerCircleSize * 0.94));
+    }
     const opponentCircleSize = variant === 'opponent' && opponentScaleDown < 1 ? Math.max(8, Math.round(14 * opponentScaleDown)) : undefined;
     const circleSize = variant === 'player' ? playerCircleSize : opponentCircleSize;
     const rowStyle = scaleDown < 1
       ? { ...trickCirclesRowStyle, gap: Math.max(2, Math.round(4 * scaleDown)) }
       : opponentScaleDown < 1
         ? { ...trickCirclesRowStyle, gap: Math.max(1, Math.round(4 * opponentScaleDown)) }
-        : trickCirclesRowStyle;
+        : variant === 'player' && playerMobileWideTricks
+          ? { ...trickCirclesRowStyle, gap: 3 }
+          : trickCirclesRowStyle;
     const eastGap =
       variant === 'opponent' && eastMobileTricks
         ? opponentScaleDown < 1
@@ -3815,7 +3845,17 @@ function TrickSlotsDisplay({
             width: 'max-content',
           }
         : rowStyle;
-    const wrapCls = [hideCards ? 'trick-slots-collecting' : 'trick-slots-normal', eastMobileTricks ? 'trick-slots-east-mobile' : ''].filter(Boolean).join(' ');
+    const orderCompleteMobile = bid != null && !hideCards && tricksTaken === bid;
+    const orderOverMobile = bid != null && !hideCards && tricksTaken > bid;
+    const wrapCls = [
+      hideCards ? 'trick-slots-collecting' : 'trick-slots-normal',
+      eastMobileTricks ? 'trick-slots-east-mobile' : '',
+      orderCompleteMobile ? 'trick-slots-order-complete' : '',
+      orderOverMobile ? 'trick-slots-order-over' : '',
+      playerMobileWideTricks && variant === 'player' ? 'trick-slots-player-mobile-wide' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
     const circlesBlock = (
       <>
         {Array.from({ length: orderedSlots }, (_, i) => {
@@ -3826,6 +3866,7 @@ function TrickSlotsDisplay({
           return (
             <div
               key={`c-${i}`}
+              className={filled && orderOverMobile ? 'trick-circle-filled-order-over' : undefined}
               style={{
                 ...circleStyle,
                 ...(filled ? trickCircleFilledStyle : trickCircleEmptyStyle),

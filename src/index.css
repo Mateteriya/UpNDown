@@ -1594,6 +1594,75 @@
   align-items: center !important;
   min-height: 0 !important;
 }
+/* Только телефон: панель заказа игрока (Юг) — чуть шире; вертикальные отступы + меньше column-gap у подписи «Заказ» */
+.game-table-root.viewport-mobile .user-player-panel .player-stats-row .trick-slots-player-mobile-wide.trick-slots-normal,
+.game-table-root.viewport-mobile .user-player-panel .player-stats-row .trick-slots-player-mobile-wide.trick-slots-collecting {
+  padding: 3px 7px !important;
+  gap: 2px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Мобильная: заказ выполнен (все слоты заказа закрыты) — подсветка панели взяток; свечение чуть слабее, без «белого» ореола */
+.game-table-root.viewport-mobile .trick-slots-order-complete.trick-slots-normal,
+.game-table-root.viewport-mobile .trick-slots-order-complete.trick-slots-collecting,
+.game-table-root.viewport-mobile button.trick-slots-order-complete.trick-slots-normal,
+.game-table-root.viewport-mobile button.trick-slots-order-complete.trick-slots-collecting {
+  border: 2px solid rgba(129, 140, 248, 0.68) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(34, 211, 238, 0.12) 0%,
+    rgba(99, 102, 241, 0.2) 36%,
+    rgba(139, 92, 246, 0.17) 58%,
+    rgba(76, 29, 149, 0.14) 78%,
+    rgba(30, 41, 59, 0.94) 100%
+  ) !important;
+  box-shadow:
+    0 0 0 1px rgba(196, 181, 253, 0.32),
+    0 0 9px rgba(34, 211, 238, 0.22),
+    0 0 16px rgba(129, 140, 248, 0.28),
+    0 0 26px rgba(167, 139, 250, 0.18),
+    inset 0 0 12px rgba(139, 92, 246, 0.12),
+    inset 0 0 0 2px rgba(110, 231, 183, 0.52) !important;
+}
+
+/* Мобильная: перебор (взято больше заказа) — та же «жирность» рамки/слоёв, что у «ровно в заказ», цвет бронзово-рыжий */
+.game-table-root.viewport-mobile .trick-slots-order-over.trick-slots-normal,
+.game-table-root.viewport-mobile .trick-slots-order-over.trick-slots-collecting,
+.game-table-root.viewport-mobile button.trick-slots-order-over.trick-slots-normal,
+.game-table-root.viewport-mobile button.trick-slots-order-over.trick-slots-collecting {
+  border: 2px solid rgba(217, 119, 6, 0.72) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(251, 191, 36, 0.14) 0%,
+    rgba(245, 158, 11, 0.18) 28%,
+    rgba(180, 83, 9, 0.16) 55%,
+    rgba(120, 53, 15, 0.14) 78%,
+    rgba(30, 41, 59, 0.94) 100%
+  ) !important;
+  box-shadow:
+    0 0 0 1px rgba(253, 186, 116, 0.38),
+    0 0 9px rgba(251, 146, 60, 0.28),
+    0 0 16px rgba(234, 88, 12, 0.22),
+    0 0 26px rgba(194, 65, 12, 0.16),
+    inset 0 0 12px rgba(154, 52, 18, 0.14),
+    inset 0 0 0 2px rgba(251, 191, 36, 0.48) !important;
+}
+
+/* Закрытые кружки взяток при переборе — бронзово-медные (только с классом на div) */
+.game-table-root.viewport-mobile .trick-circle-filled-order-over {
+  border: 1px solid rgba(180, 83, 9, 0.88) !important;
+  background: radial-gradient(
+    circle at 30% 28%,
+    rgba(254, 243, 199, 0.95) 0%,
+    rgba(251, 191, 36, 0.82) 28%,
+    rgba(180, 83, 9, 0.75) 52%,
+    rgba(120, 53, 15, 0.92) 100%
+  ) !important;
+  box-shadow:
+    inset 0 0 5px rgba(254, 215, 170, 0.45),
+    inset 0 -1px 4px rgba(67, 20, 7, 0.35),
+    0 0 6px rgba(234, 88, 12, 0.35) !important;
+}
 
 /* ПК: окошки «Очки» и «Заказ» — одна строка (подпись + значение), компактные отступы */
 .game-table-root:not(.viewport-mobile) .opponent-score-badge {
