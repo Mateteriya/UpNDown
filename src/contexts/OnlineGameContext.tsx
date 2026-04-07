@@ -216,98 +216,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   /** Не запускать второй getRoom, пока предыдущий тик опроса не завершился (медленный телефон). */
   const roomPollInFlightRef = useRef(false);
 
-  /** Линейный порядок фаз внутри одной раздачи (и конец игры). */
-  const phaseOrder = useCallback((p: string) => {
-    switch (p) {
-      case 'bidding':
-        return 0;
-      case 'dark-bidding':
-        return 1;
-      case 'playing':
-        return 2;
-      case 'trick-complete':
-        return 3;
-      case 'deal-complete':
-        return 4;
-      case 'game-complete':
-        return 5;
-      default:
-        return 2;
-    }
-  }, []);
-
-  /** Серверное состояние применяем только если оно не старее локального (иначе Realtime/опрос перезатирают ход → карта «забирается назад»). */
-  const isServerStateNewerOrEqual = useCallback((server: GameState | null, local: GameState | null): boolean => {
-    if (!server) return false;
-    if (!local) return true;
-    if (server.dealNumber > local.dealNumber) return true;
-    if (server.dealNumber < local.dealNumber) return false;
-    if (phaseOrder(server.phase) > phaseOrder(local.phase)) return true;
-    if (phaseOrder(server.phase) < phaseOrder(local.phase)) return false;
-    const bidsCount = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
-    if (bidsCount(server.bids) > bidsCount(local.bids)) return true;
-    if (bidsCount(server.bids) < bidsCount(local.bids)) return false;
-    const trickLen = (t: unknown[] | undefined) => (t ?? []).length;
-    const tricksTaken = (s: GameState) => s.players.reduce((sum, p) => sum + (p.tricksTaken ?? 0), 0);
-    const trickSigSorted = (cards: GameState['currentTrick']) =>
-      [...(cards ?? [])].map((c) => `${c.rank}:${c.suit}`).sort().join('|');
-    // У клиента ещё 4 карты в конуре + pendingTrickCompletion; другой клиент уже вызвал completeTrick.
-    // Раньше сравнивали длину кона раньше суммы взяток → server.length 0 < local 4 ⇒ «сервер старее» и телефон залипал.
-    if (
-      local.pendingTrickCompletion &&
-      !server.pendingTrickCompletion &&
-      server.dealNumber === local.dealNumber &&
-      server.lastCompletedTrick &&
-      trickSigSorted(local.pendingTrickCompletion.cards) === trickSigSorted(server.lastCompletedTrick.cards)
-    ) {
-      return true;
-    }
-    const trS = tricksTaken(server);
-    const trL = tricksTaken(local);
-    if (trS > trL) return true;
-    if (trS < trL) return false;
-    if (trickLen(server.currentTrick) > trickLen(local.currentTrick)) return true;
-    if (trickLen(server.currentTrick) < trickLen(local.currentTrick)) return false;
-    // Одна длина взятки, но разные карты на столе — валидно только одно состояние; доверяем серверу (иначе isNewer=false и гость минутами не видит чужой ход).
-    const trickSig = (t: GameState['currentTrick']) =>
-      (t ?? []).map((c) => `${c.rank}:${c.suit}`).join('|');
-    if (
-      trickLen(server.currentTrick) === trickLen(local.currentTrick) &&
-      trickLen(server.currentTrick) > 0 &&
-      trickSig(server.currentTrick) !== trickSig(local.currentTrick)
-    ) {
-      return true;
-    }
-    // Тот же прогресс по взяткам/конуру, но разный currentPlayerIndex — чужой ход уже ушёл на сервер.
-    if (
-      server.phase === 'playing' &&
-      local.phase === 'playing' &&
-      bidsCount(server.bids) >= 4 &&
-      tricksTaken(server) === tricksTaken(local) &&
-      trickLen(server.currentTrick) === trickLen(local.currentTrick) &&
-      server.currentPlayerIndex !== local.currentPlayerIndex
-    ) {
-      return true;
-    }
-    // Руки разошлись при совпадающих длине кона / взятках — часто это «сервер ещё не подтянул ход» vs «гость отстаёт».
-    // Слепой return true откатывал оптимистичный ход (карта возвращалась в руку).
-    if (stateHasDealtHands(local) && stateHasDealtHands(server) && handMultisetFingerprint(server) !== handMultisetFingerprint(local)) {
-      const sig = (t: GameState['currentTrick']) => (t ?? []).map((c) => `${c.rank}:${c.suit}`).join('|');
-      const tlS = trickLen(server.currentTrick);
-      const tlL = trickLen(local.currentTrick);
-      if (tlS < tlL) return false;
-      if (tlS > tlL) return true;
-      if (tlS > 0 && sig(server.currentTrick) !== sig(local.currentTrick)) return true;
-      // Кон совпадает по составу, руки всё же разные — сразу после своего хода не откатываем локальное.
-      if (Date.now() - lastSendAtRef.current < 900) return false;
-      return true;
-    }
-    // Тот же игровой прогресс по компактному отпечатку — безопасно принять сервер (синхронизация слотов/мелочей).
-    if (gameStateMergeFingerprint(server) === gameStateMergeFingerprint(local)) return true;
-    // Сервер не выглядит новее и не совпадает по прогрессу — не затирать локальное устаревшим JSON.
-    return false;
-  }, [phaseOrder]);
-
   const applyRoomData = useCallback((room: GameRoomRow) => {
     if (!room?.id) return;
     roomIdRef.current = room.id;
@@ -381,69 +289,44 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         applyRoomData(room);
         return;
       }
-      const ts = Date.parse(room.updated_at);
       const serverState = room.game_state ?? null;
       // Гость / второй клиент: пока локально нет стола — всегда полная строка (не merge-only по rev/timestamp).
       if (room.status === 'playing' && serverState != null && canonicalStateRef.current == null) {
         applyRoomData(room);
         return;
       }
-      const revParsed = parseGameStateRevision(room.game_state_revision);
-      const hasRevisionColumn = revParsed !== undefined;
-      const bidNonNullGuard = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
-      if (room.status === 'playing' && serverState && gameWriteInFlightRef.current > 0) {
-        const local = canonicalStateRef.current;
-        if (
-          local &&
-          (local.phase === 'bidding' || local.phase === 'dark-bidding') &&
-          (serverState.phase === 'bidding' || serverState.phase === 'dark-bidding')
-        ) {
-          if (bidNonNullGuard(serverState.bids) < bidNonNullGuard(local.bids)) {
-            mergeLobbyFieldsFromRoom(room);
-            return;
-          }
-        }
-        if (local?.phase === 'playing' && serverState.phase === 'playing') {
-          if ((serverState.currentTrick ?? []).length < (local.currentTrick ?? []).length) {
-            mergeLobbyFieldsFromRoom(room);
-            return;
-          }
-        }
-      }
 
-      // Есть game_state_revision в БД: порядок событий по одному числу; слоты подмешиваем без подмены стола при том же/старом rev.
-      // ВАЖНО: если триггер в Supabase не развёрнут, revision остаётся 0 при каждом UPDATE — ветка «rev === lastRev» иначе
-      // навсегда глотала бы новый game_state (игра не идёт). При том же rev, но другом содержимом state — всегда применяем стол.
-      if (room.status === 'playing' && serverState && hasRevisionColumn) {
-        const rev = revParsed as number;
-        const lastRev = lastAppliedGameStateRevisionRef.current;
-        if (rev < lastRev) {
-          // Реф клиента мог уехать вперёд (null payload + bump rev, гонка Realtime) — если сервер по факту новее стола, подтягиваем целиком.
-          const localSnap = canonicalStateRef.current;
+      /** Игра идёт, в строке есть JSON стола — единый простой путь (без веток revision/timestamp: они давали «залипание» минутами). */
+      if (room.status === 'playing' && serverState) {
+        const local = canonicalStateRef.current;
+        const bidNonNullGuard = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
+
+        if (gameWriteInFlightRef.current > 0 && local) {
           if (
-            localSnap &&
-            serverState &&
-            isServerStateNewerOrEqual(serverState, localSnap) &&
-            gameStateMergeFingerprint(serverState) !== gameStateMergeFingerprint(localSnap)
+            (local.phase === 'bidding' || local.phase === 'dark-bidding') &&
+            (serverState.phase === 'bidding' || serverState.phase === 'dark-bidding') &&
+            bidNonNullGuard(serverState.bids) < bidNonNullGuard(local.bids)
           ) {
-            applyRoomData(room);
+            mergeLobbyFieldsFromRoom(room);
             return;
           }
+          if (
+            local.phase === 'playing' &&
+            serverState.phase === 'playing' &&
+            (serverState.currentTrick ?? []).length < (local.currentTrick ?? []).length
+          ) {
+            mergeLobbyFieldsFromRoom(room);
+            return;
+          }
+        }
+
+        const fpLocal = local ? gameStateMergeFingerprint(local) : '';
+        const fpServer = gameStateMergeFingerprint(serverState);
+        if (local != null && fpServer === fpLocal) {
           mergeLobbyFieldsFromRoom(room);
           return;
         }
-        if (rev === lastRev) {
-          const localSnap = canonicalStateRef.current;
-          if (localSnap == null && serverState != null) {
-            applyRoomData(room);
-            return;
-          }
-          // Одна ревизия в БД = одно содержимое game_state. Расхождение отпечатка ⇒ локальный снимок неверен — всегда доверяем строке с сервера.
-          // (Отсечение через isServerStateNewerOrEqual ломало синхрон двух клиентов при «ложно старом» сравнении.)
-          if (localSnap != null && gameStateMergeFingerprint(serverState) !== gameStateMergeFingerprint(localSnap)) {
-            applyRoomData(room);
-            return;
-          }
+        if (gameWriteInFlightRef.current > 0) {
           mergeLobbyFieldsFromRoom(room);
           return;
         }
@@ -451,81 +334,15 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      // --- Дальше — fallback без колонки revision (старая БД) ---
-      // updated_at мог обновиться из-за player_slots/аватара; нельзя без проверки затирать game_state устаревшим JSON.
-      if (
-        room.status === 'playing' &&
-        serverState &&
-        Number.isFinite(ts) &&
-        ts > lastSeenRoomUpdatedAtMsRef.current
-      ) {
-        const localEarly = canonicalStateRef.current;
-        if (!localEarly || isServerStateNewerOrEqual(serverState, localEarly)) {
-          applyRoomData(room);
-          return;
-        }
-        lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
-      }
-
-      const rowTimestampNewer =
-        Number.isFinite(ts) && ts > lastSeenRoomUpdatedAtMsRef.current;
-      const local = canonicalStateRef.current;
-      const bidNonNullEarly = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
-      // Торги: чужой заказ на сервере — тянем сразу (не ждём rowTimestampNewer при nS === nL).
-      if (
-        serverState &&
-        local &&
-        (serverState.phase === 'bidding' || serverState.phase === 'dark-bidding') &&
-        (local.phase === 'bidding' || local.phase === 'dark-bidding')
-      ) {
-        const nS = bidNonNullEarly(serverState.bids);
-        const nL = bidNonNullEarly(local.bids);
-        if (nS > nL) {
-          applyRoomData(room);
-          return;
-        }
-        /* Не требуем ts >= lastSeen: mergeLobby мог поднять lastSeen без game_state — иначе чужой заказ с тем же числом null-ов «залипает» минутами */
-        if (nS === nL && nS > 0 && bidsArraySig(serverState.bids) !== bidsArraySig(local.bids)) {
-          applyRoomData(room);
-          return;
-        }
-      }
-      const isNewer = isServerStateNewerOrEqual(serverState, local);
-
-      // Очки на сервере разошлись с локальными — доверяем БД (видимость взяток/подсчёта у гостей).
-      if (serverState && local) {
-        const scoresSig = (s: GameState) => s.players.map((p) => p.score).join(',');
-        if (scoresSig(serverState) !== scoresSig(local)) {
-          applyRoomData(room);
-          return;
-        }
-      }
-
-      const bidNonNull = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
-
-      // Заказы с другого устройства: эвристика isServerStateNewerOrEqual иногда даёт false (отпечаток рук и т.д.),
-      // а ветка !isNewer раньше вообще не подмешивала game_state — второй клиент «не видел» заказы. Тянем полную строку, если на сервере заказы однозначно не отстают.
-      if (
-        (room.status === 'playing' || room.status === 'finished') &&
-        serverState &&
-        local &&
-        bidsArraySig(serverState.bids) !== bidsArraySig(local.bids)
-      ) {
-        const nS = bidNonNull(serverState.bids);
-        const nL = bidNonNull(local.bids);
-        if (nS > nL || nS === nL) {
-          applyRoomData(room);
-          return;
-        }
-      }
-
-      if (!isNewer) {
+      /** playing, но game_state в ответе пустой — только слоты/мета */
+      if (room.status === 'playing') {
         mergeLobbyFieldsFromRoom(room);
         return;
       }
+
       applyRoomData(room);
     },
-    [applyRoomData, mergeLobbyFieldsFromRoom, isServerStateNewerOrEqual]
+    [applyRoomData, mergeLobbyFieldsFromRoom]
   );
 
   const refreshRoom = useCallback(async () => {
