@@ -45,7 +45,8 @@ const buttonSecondary: React.CSSProperties = {
   color: '#94a3b8',
 };
 
-const JOIN_ROOM_UI_TIMEOUT_MS = 55_000;
+/** Дольше — «Вход…» без обратной связи; после таймаута пробуем recover по коду (слот уже мог записаться) */
+const JOIN_ROOM_UI_TIMEOUT_MS = 26_000;
 
 export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }: LobbyScreenProps) {
   const { user } = useAuth();
@@ -58,6 +59,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     error,
     createRoom,
     joinRoom,
+    recoverJoinIfAlreadyInRoom,
     leaveRoom,
     clearError,
     syncMySlotDisplayName,
@@ -162,22 +164,30 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     setJoining(true);
     try {
       await leaveRoom();
-      const r = await Promise.race([
-        joinRoom(code, user.id, playerName, shortLabel),
+      const joinPromise = joinRoom(code, user.id, playerName, shortLabel);
+      let r = await Promise.race([
+        joinPromise,
         new Promise<{ ok: false; error: string }>((resolve) =>
           window.setTimeout(
             () =>
               resolve({
                 ok: false,
                 error:
-                  'Сервер не ответил вовремя. Проверьте сеть и нажмите «Присоединиться» снова — вход мог уже пройти.',
+                  'Сервер не ответил вовремя. Часто помогает VPN или другая сеть; ниже проверяем, не прошёл ли вход без ответа.',
               }),
             JOIN_ROOM_UI_TIMEOUT_MS
           )
         ),
       ]);
-      if (!r.ok) setJoinError(r.error ?? 'Не удалось присоединиться. Проверьте код и подключение.');
-      else if (onGoToGame && typeof window !== 'undefined' && window.innerWidth <= 1024) {
+      if (!r.ok) {
+        const recovered = await recoverJoinIfAlreadyInRoom(code);
+        if (recovered) {
+          r = { ok: true };
+        } else {
+          setJoinError(r.error ?? 'Не удалось присоединиться. Проверьте код и подключение.');
+        }
+      }
+      if (r.ok && onGoToGame && typeof window !== 'undefined' && window.innerWidth <= 1024) {
         onGoToGame();
       }
     } catch (e) {

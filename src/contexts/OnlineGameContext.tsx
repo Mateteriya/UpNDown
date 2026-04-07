@@ -19,6 +19,7 @@ import { rotateStateForPlayer } from '../game/rotateState';
 import {
   createRoom as apiCreateRoom,
   joinRoom as apiJoinRoom,
+  recoverJoinByCode,
   getRoom,
   getRoomForSyncPoll,
   updateRoomState,
@@ -145,6 +146,8 @@ export interface OnlineGameContextValue {
   error: string | null;
   createRoom: (userId: string, displayName: string, shortLabel?: string) => Promise<{ ok: boolean; error?: string }>;
   joinRoom: (code: string, userId: string, displayName: string, shortLabel?: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Если «Вход…» оборвался, а на сервере вы уже в слотах — подтянуть комнату по коду */
+  recoverJoinIfAlreadyInRoom: (code: string) => Promise<boolean>;
   // ... остальной интерфейс без изменений
   leaveRoom: () => Promise<void>;
   refreshRoom: () => Promise<void>;
@@ -760,6 +763,21 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     },
     [applyRoomData]
   );
+
+  const recoverJoinIfAlreadyInRoom = useCallback(
+    async (codeInput: string): Promise<boolean> => {
+      if (!user?.id) return false;
+      const r = await recoverJoinByCode(codeInput, user.id);
+      if (!r) return false;
+      setError(null);
+      applyRoomData(r.room);
+      setMyServerIndex(r.mySlotIndex);
+      saveOnlineSession(r.roomId, deviceIdRef.current);
+      sessionRestoreOkRef.current = true;
+      return true;
+    },
+    [user?.id, applyRoomData]
+  );
   
   // --- Остальной код в основном без изменений, просто использует myServerIndex ---
   // ... (leaveRoom, startGame, sendBid, sendPlay и т.д.)
@@ -1188,7 +1206,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
 
 
   const value: OnlineGameContextValue = {
-    status, roomId, code, myServerIndex, playerSlots, canonicalState, displayState, error, createRoom, joinRoom, leaveRoom, refreshRoom, syncMySlotDisplayName, syncMySlotAvatar, startGame, sendBid, sendPlay, sendCompleteTrick, sendStartNextDeal, sendState, tryRestoreSession, confirmReclaim, dismissReclaim, pendingReclaimOffer, returnSlotToPlayer, userOnPause, takePause, returnFromPause, playerLeftToast, clearPlayerLeftToast, clearError, userLeftTemporarily, setUserLeftTemporarily,
+    status, roomId, code, myServerIndex, playerSlots, canonicalState, displayState, error, createRoom, joinRoom, recoverJoinIfAlreadyInRoom, leaveRoom, refreshRoom, syncMySlotDisplayName, syncMySlotAvatar, startGame, sendBid, sendPlay, sendCompleteTrick, sendStartNextDeal, sendState, tryRestoreSession, confirmReclaim, dismissReclaim, pendingReclaimOffer, returnSlotToPlayer, userOnPause, takePause, returnFromPause, playerLeftToast, clearPlayerLeftToast, clearError, userLeftTemporarily, setUserLeftTemporarily,
   };
 
   return (

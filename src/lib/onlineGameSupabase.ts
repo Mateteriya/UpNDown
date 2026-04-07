@@ -237,6 +237,36 @@ export async function createRoom(
   return { error: lastMessage };
 }
 
+/**
+ * Ответ join мог не дойти (обрыв/VPN/провайдер), а слот на сервере уже занят — без повторного INSERT.
+ * Также вызывается из лобби после таймаута «Вход…».
+ */
+export async function recoverJoinByCode(
+  code: string,
+  userId: string
+): Promise<{ roomId: string; mySlotIndex: number; room: GameRoomRow } | null> {
+  if (!supabase) return null;
+  const normalizedCode = code.trim().toUpperCase();
+  if (!normalizedCode) return null;
+  try {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select('*')
+      .eq('code', normalizedCode)
+      .abortSignal(lobbyRestAbortSignal())
+      .maybeSingle();
+    if (error || !data) return null;
+    const row = data as GameRoomRow;
+    if (row.status === 'finished') return null;
+    const slots = (row.player_slots as PlayerSlot[]) || [];
+    const me = slots.find((s) => s.userId != null && s.userId === userId);
+    if (!me) return null;
+    return { roomId: row.id, mySlotIndex: me.slotIndex, room: row };
+  } catch {
+    return null;
+  }
+}
+
 /** Найти комнату по коду и присоединиться через SQL-функцию (атомарно). */
 export async function joinRoom(
   code: string,
@@ -251,6 +281,9 @@ export async function joinRoom(
   if (!normalizedCode) return { error: 'Введите код комнаты' };
 
   const av = capAvatarDataUrl(avatarDataUrl ?? undefined);
+
+  const already = await recoverJoinByCode(normalizedCode, userId);
+  if (already) return already;
 
   /** Атомарный вход в waiting (RPC + миграция с полем room в JSON — без лишнего getRoom). */
   const { data: rpcRaw, error: rpcError } = await supabase
@@ -527,8 +560,15 @@ export async function updateRoomState(
   if (!supabase) return { error: 'Supabase не настроен' };
   const payload: Record<string, unknown> = { game_state: gameState, status: 'playing' };
   if (playerSlots) payload.player_slots = playerSlots;
+  /** В .env: VITE_ONLINE_REVISION_LOCK=false — отключить WHERE game_state_revision (если миграция не на проде). */
+  const revLockEnv = import.meta.env.VITE_ONLINE_REVISION_LOCK as string | undefined;
+  const revisionLockEnabled =
+    typeof revLockEnv === 'string' ? !['0', 'false', 'off', 'no'].includes(revLockEnv.trim().toLowerCase()) : true;
   const useRevLock =
-    opts?.expectedRevision !== undefined && opts.expectedRevision >= 0 && Number.isFinite(opts.expectedRevision);
+    revisionLockEnabled &&
+    opts?.expectedRevision !== undefined &&
+    opts.expectedRevision >= 0 &&
+    Number.isFinite(opts.expectedRevision);
   let lastMessage = 'Не удалось сохранить состояние. Проверьте связь.';
   for (let attempt = 0; attempt < ROOM_WRITE_MAX_ATTEMPTS; attempt++) {
     try {
