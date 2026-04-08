@@ -227,8 +227,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setCode(room.code);
     setPlayerSlots(room.player_slots || []);
     const incoming = room.game_state ?? null;
-    // playing без game_state в payload бывает при гонках Realtime/опроса — нельзя затирать уже принятый стол (хост после старта, гость после merge).
-    if (room.status === 'playing' && incoming == null && canonicalStateRef.current != null) {
+    // playing без game_state в payload бывает при гонках Realtime/опроса — нельзя сбрасывать статус в waiting (гость «висит» на лобби при старте).
+    if (room.status === 'playing' && incoming == null) {
       setStatus('playing');
       const r = parseGameStateRevision(room.game_state_revision);
       if (r !== undefined) {
@@ -237,7 +237,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       return;
     }
     setCanonicalState(incoming);
-    if (room.status === 'playing') setStatus(incoming != null ? 'playing' : 'waiting');
+    if (room.status === 'playing') setStatus('playing');
     else setStatus('waiting');
     const r2 = parseGameStateRevision(room.game_state_revision);
     if (r2 !== undefined) {
@@ -261,9 +261,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setRoomId(room.id);
     setCode(room.code);
     setPlayerSlots(room.player_slots || []);
-    if (room.status === 'playing') {
-      setStatus(room.game_state != null || canonicalStateRef.current != null ? 'playing' : 'waiting');
-    } else setStatus('waiting');
+    // Сервер уже playing — UI не должен оставаться в лобби «ждём хоста», даже если JSON стола ещё не пришёл в этом payload.
+    if (room.status === 'playing') setStatus('playing');
+    else setStatus('waiting');
   }, [applyRoomData]);
 
   const applyRoomDataOnlyIfNewer = useCallback(
