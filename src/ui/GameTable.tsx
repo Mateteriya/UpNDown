@@ -30,7 +30,7 @@ import { preloadCardImages } from '../cardAssets';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnlineGame } from '../contexts/useOnlineGame';
-import { heartbeatPresence } from '../lib/onlineGameSupabase';
+import { heartbeatPresence, recordOfflineMatchFinish } from '../lib/onlineGameSupabase';
 import { isPersonalAiReplacementEnabled } from '../lib/featureFlags';
 import { CardView } from './CardView';
 import { PlayerAvatar } from './PlayerAvatar';
@@ -515,6 +515,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   }, [isMobile, prefersReducedMotion, state?.dealNumber]);
   /** После первого появления кнопка «Результаты» больше не скрывается до конца партии */
   const dealResultsButtonEverShownRef = useRef(false);
+  /** Одна отправка завершённой офлайн-партии на сервер за монтаж игры (история аккаунта). */
+  const offlineMatchRecordedRef = useRef(false);
   /** Номер раздачи, для которой уже запущена анимация результатов (один раз на раздачу, без повторов при опросе). */
   const lastAnimatedDealNumberRef = useRef<number | null>(null);
   /** Таймеры анимации результатов; очищаем только в том запуске эффекта, который их создал. */
@@ -540,6 +542,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     setBidPanelVisible(false);
     setShowDealResultsButton(false);
     dealResultsButtonEverShownRef.current = false;
+    offlineMatchRecordedRef.current = false;
     lastAnimatedDealNumberRef.current = null;
     setDealResultsExpanded(false);
     setLastDealResultsSnapshot(null);
@@ -802,6 +805,16 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 bidAccuracy = Math.round((met / snap.dealHistory.length) * 100);
               }
               updateLocalRating(humanWon, undefined, bidAccuracy);
+              if (userRef.current?.id && !offlineMatchRecordedRef.current) {
+                offlineMatchRecordedRef.current = true;
+                const name =
+                  playerDisplayName?.trim() && playerDisplayName !== 'Вы'
+                    ? playerDisplayName
+                    : getPlayerProfile().displayName?.trim() || 'Вы';
+                void recordOfflineMatchFinish(snap, name).then((r) => {
+                  if (!r.ok) offlineMatchRecordedRef.current = false;
+                });
+              }
             }
           } else if (snap) {
             setShowDealResultsButton(true);
@@ -833,7 +846,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         clearStoredTimeouts();
       }
     };
-  }, [dealJustCompletedKey, isOnline]);
+  }, [dealJustCompletedKey, isOnline, playerDisplayName]);
 
   useEffect(() => {
     if (!state?.pendingTrickCompletion) return;

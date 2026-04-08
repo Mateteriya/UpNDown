@@ -215,7 +215,7 @@ function App() {
 
   const handleExit = useCallback(() => {
     if (loadOnlineSession()) online.leaveRoom()
-    clearGameStateFromStorage()
+    /** Не трогаем localStorage партии: иначе «Домой» из офлайна стирало сохранение и пропадали «Продолжить» / модалка. Сброс только через «Начать новую» / явный выбор в модалке. */
     try {
       sessionStorage.setItem(SUPPRESS_AUTO_OPEN_KEY, '1')
     } catch {

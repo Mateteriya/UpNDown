@@ -6,6 +6,7 @@
 import { supabase } from './supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { GameState } from '../game/GameEngine';
+import { getTakenFromDealPoints } from '../game/scoring';
 
 export interface PlayerSlot {
   /** Отсутствует или null = слот ИИ */
@@ -746,6 +747,56 @@ export async function finishMatch(
   return { ok: true };
 }
 
+/** Завершённая офлайн-партия в истории аккаунта (без влияния на рейтинговую сводку — is_rated=false на сервере). */
+export async function recordOfflineMatchFinish(
+  snapshot: GameState,
+  displayName: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: 'Supabase не настроен' };
+  const { data: auth, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !auth.user) return { ok: false, error: 'Не выполнен вход' };
+
+  const players = snapshot.players;
+  const order = players.map((p, i) => ({ i, s: p.score })).sort((a, b) => b.s - a.s);
+  const placeByIndex: Record<number, number> = {};
+  let prevScore: number | null = null;
+  let prevPlace = 0;
+  order.forEach((row, idx) => {
+    const score = row.s;
+    const place = prevScore === null ? 1 : (score === prevScore ? prevPlace : idx + 1);
+    placeByIndex[row.i] = place;
+    prevScore = score;
+    prevPlace = place;
+  });
+  const humanPlace = placeByIndex[0];
+  if (humanPlace == null) return { ok: false, error: 'Нет данных места' };
+
+  const bh = snapshot.dealHistory ?? [];
+  let bidAccuracy = 0;
+  if (bh.length) {
+    let met = 0;
+    for (const d of bh) {
+      const bid = d.bids[0];
+      const pts = d.points[0];
+      if (bid == null) continue;
+      const taken = getTakenFromDealPoints(bid, pts);
+      if (bid === taken) met++;
+    }
+    bidAccuracy = Math.round((met / bh.length) * 100);
+  }
+
+  const { error } = await supabase.rpc('record_offline_match', {
+    p_deals_count: snapshot.dealNumber,
+    p_final_score: players[0]?.score ?? 0,
+    p_place: humanPlace,
+    p_display_name: displayName.slice(0, 80),
+    p_bid_accuracy: bidAccuracy,
+  } as Record<string, unknown>);
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 export interface MatchHistoryItem {
   id: string;
   code: string;
@@ -755,13 +806,17 @@ export interface MatchHistoryItem {
   final_score: number | null;
   interrupted: boolean;
   is_rated: boolean;
+  /** true — запись из record_offline_match; онлайн-матчи после миграции = false */
+  is_offline: boolean;
 }
 
 export async function getMyMatchHistory(userId: string, limit = 20): Promise<MatchHistoryItem[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('match_players')
-    .select('match_id:match_id, final_score, interrupted, is_rated, place:place, matches:matches!inner(id, code, finished_at, deals_count)')
+    .select(
+      'match_id:match_id, final_score, interrupted, is_rated, place:place, matches:matches!inner(id, code, finished_at, deals_count, is_offline)'
+    )
     .eq('user_id', userId)
     .order('finished_at', { referencedTable: 'matches', ascending: false })
     .limit(limit);
@@ -775,6 +830,7 @@ export async function getMyMatchHistory(userId: string, limit = 20): Promise<Mat
     final_score: row.final_score ?? null,
     interrupted: !!row.interrupted,
     is_rated: !!row.is_rated,
+    is_offline: !!row.matches.is_offline,
   }));
 }
 
@@ -789,11 +845,12 @@ export async function getMyRatingSummary(userId: string): Promise<RatingSummary 
   if (!supabase) return null;
   const { data, error } = await supabase
     .from('match_players')
-    .select('final_score, interrupted, is_rated, place')
+    .select('final_score, interrupted, is_rated, place, matches:matches!inner(is_offline)')
     .eq('user_id', userId);
   if (error || !data) return null;
   let games = 0, rated = 0, wins = 0, pts = 0;
   for (const r of data as any[]) {
+    if (r.matches?.is_offline) continue;
     games++;
     if (r.is_rated) {
       rated++;

@@ -30,10 +30,12 @@ export function HistoryModal({ onClose, onGoToOffline }: { onClose: () => void; 
         inset: 0,
         background: 'rgba(0,0,0,0.7)',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
         zIndex: 10000,
-        padding: 20,
+        padding: 'max(16px, env(safe-area-inset-top, 0px)) 20px max(16px, env(safe-area-inset-bottom, 0px))',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
@@ -48,10 +50,16 @@ export function HistoryModal({ onClose, onGoToOffline }: { onClose: () => void; 
           boxShadow: '0 24px 48px rgba(0,0,0,0.4)',
           maxWidth: 420,
           width: '100%',
-          padding: 24,
+          maxHeight: 'min(calc(100vh - max(32px, env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px))), 720px)',
+          marginTop: 8,
+          marginBottom: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        <div style={{ flexShrink: 0, padding: '20px 24px 8px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <h2 id="history-modal-title" style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#f1f5f9' }}>
             История матчей
@@ -73,6 +81,16 @@ export function HistoryModal({ onClose, onGoToOffline }: { onClose: () => void; 
             ×
           </button>
         </div>
+        </div>
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            padding: '0 24px 20px',
+          }}
+        >
         {!configured && (
           <p style={{ margin: '8px 0 0', fontSize: 14, color: '#94a3b8' }}>Сервер не настроен. История появится после настройки.</p>
         )}
@@ -113,9 +131,11 @@ export function HistoryModal({ onClose, onGoToOffline }: { onClose: () => void; 
               return (
                 <div key={it.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 10 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>Онлайн‑партия</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>
+                      {it.is_offline ? 'Офлайн‑партия' : 'Онлайн‑партия'}
+                    </span>
                     <span style={{ fontSize: 12, color: '#94a3b8' }}>{date}{flags ? ' — ' + flags : ''}</span>
-                    {it.code && (
+                    {!it.is_offline && it.code && (
                       <span style={{ marginTop: 2, fontSize: 11, color: '#64748b' }}>Комната {it.code}</span>
                     )}
                   </div>
@@ -130,6 +150,7 @@ export function HistoryModal({ onClose, onGoToOffline }: { onClose: () => void; 
             })}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
