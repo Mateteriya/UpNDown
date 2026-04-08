@@ -761,21 +761,24 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     
     // Я оставлю их здесь для полноты
     const [playerLeftToast, setPlayerLeftToast] = useState<string | null>(null);
+    /** Без canonicalState в deps: иначе ссылка меняется на каждом опросе и useEffect в GameTable сбрасывает таймер sendCompleteTrick. */
     const sendCompleteTrick = useCallback(async (): Promise<boolean> => {
-      if (!roomId || !canonicalState) return false;
-      const prev = canonicalState;
+      const rid = roomIdRef.current;
+      if (!rid) return false;
+      const prev = canonicalStateRef.current;
+      if (!prev?.pendingTrickCompletion) return true;
       gameWriteInFlightRef.current += 1;
       try {
         for (let attempt = 0; attempt < 2; attempt++) {
           const base = canonicalStateRef.current;
-          if (!base) return false;
+          if (!base?.pendingTrickCompletion) return true;
           const next = completeTrick(base);
           canonicalStateRef.current = next;
           setCanonicalState(next);
           lastSendAtRef.current = Date.now();
           const exp =
             lastAppliedGameStateRevisionRef.current >= 0 ? lastAppliedGameStateRevisionRef.current : undefined;
-          const { error: err, room, conflict } = await updateRoomState(roomId, next, undefined, {
+          const { error: err, room, conflict } = await updateRoomState(rid, next, undefined, {
             expectedRevision: exp,
           });
           if (conflict && room?.game_state != null && attempt === 0) {
@@ -801,7 +804,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       } finally {
         gameWriteInFlightRef.current -= 1;
       }
-    }, [roomId, canonicalState, applyRoomData]);
+    }, [applyRoomData]);
     const sendStartNextDeal = useCallback(async (): Promise<boolean> => {
       if (!roomId || !canonicalState) return false;
       const prev = canonicalState;
