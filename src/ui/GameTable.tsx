@@ -397,6 +397,14 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const state = isWaitingInRoom
     ? (waitingState ? rotateStateForPlayer(waitingState, online.myServerIndex) : null)
     : (isOnline ? online.displayState : localState);
+  /**
+   * Онлайн: displayState — новый объект при каждом опросе Supabase, хотя взятка та же.
+   * Зависимость useEffect от pendingTrickCompletion по ссылке сбрасывала таймер completeTrick каждые ~280ms → стол «висел» с 4 картами минутами.
+   */
+  const pendingTrickCompletionKey =
+    state?.pendingTrickCompletion == null
+      ? null
+      : `${state.dealNumber}-${state.pendingTrickCompletion.leaderIndex}-${state.pendingTrickCompletion.winnerIndex}-${state.pendingTrickCompletion.allPlayed}-${state.pendingTrickCompletion.cards.map((c) => `${c.suit}:${c.rank}`).join('|')}`;
   /** В онлайне и в ожидании: один и тот же порядок «вид из моего места» (0=я внизу) и имена из playerSlots по canonical-индексу. Если слоты ещё не подгрузились — хотя бы «я» из профиля. */
   const stateForRender = useMemo(() => {
     if (!state) return null;
@@ -849,16 +857,16 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   }, [dealJustCompletedKey, isOnline, playerDisplayName]);
 
   useEffect(() => {
-    if (!state?.pendingTrickCompletion) return;
+    if (pendingTrickCompletionKey == null) return;
     const t = setTimeout(() => {
       if (isOnline) {
-        online.sendCompleteTrick();
+        void online.sendCompleteTrick();
       } else {
         setLocalState(prev => prev && completeTrick(prev));
       }
     }, FOURTH_CARD_SLOT_PAUSE_MS);
     return () => clearTimeout(t);
-  }, [state?.pendingTrickCompletion, isOnline, online.sendCompleteTrick]);
+  }, [pendingTrickCompletionKey, isOnline, online.sendCompleteTrick]);
 
   // Онлайн: ход бота только если в player_slots у текущего места userId пустой, либо слота ещё нет, но имя в game_state — встроенный бот («ИИ …»). Иначе при лаге слотов хост не подменяет ход человека.
   const currentPlayerSlot = online.canonicalState ? online.playerSlots.find((s) => s.slotIndex === online.canonicalState!.currentPlayerIndex) : undefined;
