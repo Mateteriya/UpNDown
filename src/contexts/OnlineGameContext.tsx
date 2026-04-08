@@ -213,8 +213,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const lastSeenRoomUpdatedAtMsRef = useRef(0);
   /** Последняя применённая game_state_revision с сервера (колонка + триггер в БД); -1 = ещё не было. */
   const lastAppliedGameStateRevisionRef = useRef(-1);
-  /** Не запускать второй getRoom, пока предыдущий тик опроса не завершился (медленный телефон). */
-  const roomPollInFlightRef = useRef(false);
+  /** Пока один GET висит 10 с, старый код пропускал все тики опроса — второй клиент не видел заказы. Новый тик отменяет применение старого ответа по счётчику. */
+  const roomPollSeqRef = useRef(0);
   /** Для одноразового всплеска refresh при входе в playing (старт с лобби — гости быстрее получают game_state). */
   const prevStatusForPlayingBurstRef = useRef<OnlineStatus | undefined>(undefined);
 
@@ -298,10 +298,29 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      /** Игра идёт, есть JSON стола: без «каши» с rev/fp во время записи — она глотала чужие ходы и давала тупняк после старта. */
+      /** Игра идёт, есть JSON стола. */
       if (room.status === 'playing' && serverState) {
         const local = canonicalStateRef.current;
         const bidNonNullGuard = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
+
+        const srvRevTop = parseGameStateRevision(room.game_state_revision);
+        if (srvRevTop !== undefined && srvRevTop > lastAppliedGameStateRevisionRef.current) {
+          applyRoomData(room);
+          return;
+        }
+
+        if (
+          local &&
+          (local.phase === 'bidding' || local.phase === 'dark-bidding') &&
+          (serverState.phase === 'bidding' || serverState.phase === 'dark-bidding')
+        ) {
+          const nL = bidNonNullGuard(local.bids);
+          const nS = bidNonNullGuard(serverState.bids);
+          if (nS > nL || (nS === nL && bidsArraySig(local.bids) !== bidsArraySig(serverState.bids))) {
+            applyRoomData(room);
+            return;
+          }
+        }
 
         if (gameWriteInFlightRef.current > 0 && local) {
           if (
@@ -420,20 +439,16 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (Date.now() - lastSendAtRef.current < roomSyncSkipRef.current) return;
     const rid = roomIdRef.current;
     if (!rid) return;
-    if (roomPollInFlightRef.current) return;
-    roomPollInFlightRef.current = true;
-    void getRoomForSyncPoll(rid)
-      .then((room) => {
-        if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
-        if (room.status === 'waiting') {
-          applyRoomData(room);
-          return;
-        }
-        applyRoomDataOnlyIfNewer(room);
-      })
-      .finally(() => {
-        roomPollInFlightRef.current = false;
-      });
+    const seq = ++roomPollSeqRef.current;
+    void getRoomForSyncPoll(rid).then((room) => {
+      if (seq !== roomPollSeqRef.current) return;
+      if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
+      if (room.status === 'waiting') {
+        applyRoomData(room);
+        return;
+      }
+      applyRoomDataOnlyIfNewer(room);
+    });
   }, [applyRoomData, applyRoomDataOnlyIfNewer]);
 
   useEffect(() => {

@@ -137,8 +137,10 @@ function isAbortLike(err: { message?: string; name?: string; code?: string } | n
   return m.includes('abort') || m.includes('signal') || m.includes('timeout');
 }
 
-/** Лобби/RPC/getRoom: не ждать глобальные 38 с на один запрос — иначе создание/вход ощущаются как «минуты». */
+/** Тяжёлые read после мутаций (getRoom) — оставляем запас. */
 const LOBBY_REST_TIMEOUT_MS = 20_000;
+/** Создание комнаты, join, быстрые get по id: не держать 20 с на запрос — на телефоне это «минута до лобби». */
+const LOBBY_FAST_TIMEOUT_MS = 8_000;
 /** RPC updown_join_waiting_room: короткий предел — при подвисании быстрее REST-цикл join (без минут ожидания). */
 const LOBBY_JOIN_RPC_TIMEOUT_MS = 9_000;
 function lobbyRestAbortSignal(): AbortSignal {
@@ -164,18 +166,60 @@ function lobbyJoinRpcAbortSignal(): AbortSignal {
   return c.signal;
 }
 
+function lobbyFastAbortSignal(): AbortSignal {
+  if (
+    typeof AbortSignal !== 'undefined' &&
+    typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function'
+  ) {
+    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(LOBBY_FAST_TIMEOUT_MS);
+  }
+  const c = new AbortController();
+  setTimeout(() => c.abort(), LOBBY_FAST_TIMEOUT_MS);
+  return c.signal;
+}
+
+/** getRoom по id для лобби/join: короткий таймаут, без тройных 20 с ретраев. */
+async function getRoomForLobby(roomId: string): Promise<GameRoomRow | null> {
+  if (!supabase) return null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLE)
+        .select('*')
+        .eq('id', roomId)
+        .abortSignal(lobbyFastAbortSignal())
+        .single();
+      if (data && !error) return data as GameRoomRow;
+      if (error?.code === 'PGRST116') return null;
+      if (attempt === 0 && (isAbortLike(error) || isRetryableReadFailure(error, !!data))) {
+        await sleep(120);
+        continue;
+      }
+      return null;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (attempt === 0 && (isRetryableNetworkMessage(msg) || isAbortLike(e as { message?: string; name?: string }))) {
+        await sleep(120);
+        continue;
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
 /** После успешного RPC слот уже в БД; один облом getRoom не должен уводить в долгий цикл. */
 async function getRoomWithJoinRetries(roomId: string): Promise<GameRoomRow | null> {
-  for (let i = 0; i < 10; i++) {
-    const room = await getRoom(roomId);
+  for (let i = 0; i < 12; i++) {
+    const room = await getRoomForLobby(roomId);
     if (room) return room;
-    await sleep(60 + i * 35);
+    await sleep(50 + i * 30);
   }
   return null;
 }
 
 /** Опрос во время игры: короткий таймаут, чтобы один подвисший GET не держал roomPollInFlight 20+ с и не откладывал все следующие тики. */
-const SYNC_POLL_GET_TIMEOUT_MS = 10_000;
+const SYNC_POLL_GET_TIMEOUT_MS = 5_000;
 function syncPollRestAbortSignal(): AbortSignal {
   if (
     typeof AbortSignal !== 'undefined' &&
@@ -226,7 +270,7 @@ export async function createRoom(
           player_slots: playerSlots,
         })
         .select('*')
-        .abortSignal(lobbyRestAbortSignal())
+        .abortSignal(lobbyFastAbortSignal())
         .single();
 
       if (error) {
@@ -262,7 +306,7 @@ export async function recoverJoinByCode(
       .from(TABLE)
       .select('*')
       .eq('code', normalizedCode)
-      .abortSignal(lobbyRestAbortSignal())
+      .abortSignal(lobbyFastAbortSignal())
       .maybeSingle();
     if (error || !data) return null;
     const row = data as GameRoomRow;
@@ -344,7 +388,7 @@ export async function joinRoom(
       .from(TABLE)
       .select('*')
       .eq('code', normalizedCode)
-      .abortSignal(lobbyRestAbortSignal())
+      .abortSignal(lobbyFastAbortSignal())
       .single();
 
     if (fetchError) {
@@ -389,7 +433,7 @@ export async function joinRoom(
           .eq('id', row.id)
           .eq('updated_at', stamp)
           .select('*')
-          .abortSignal(lobbyRestAbortSignal())
+          .abortSignal(lobbyFastAbortSignal())
           .maybeSingle();
         if (updateError || !updated) {
           await sleep(joinBackoffMs(attempt));
@@ -466,7 +510,7 @@ export async function joinRoom(
       .eq('id', row.id)
       .eq('updated_at', stamp)
       .select('*')
-      .abortSignal(lobbyRestAbortSignal())
+      .abortSignal(lobbyFastAbortSignal())
       .maybeSingle();
 
     if (updateError || !updated) {
@@ -547,7 +591,7 @@ export async function updateRoomPlayerSlots(roomId: string, playerSlots: PlayerS
     .from(TABLE)
     .update({ player_slots: playerSlots })
     .eq('id', roomId)
-    .abortSignal(lobbyRestAbortSignal());
+    .abortSignal(lobbyFastAbortSignal());
   return error ? { error: error.message } : {};
 }
 
