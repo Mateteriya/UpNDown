@@ -378,7 +378,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     }) as [string, string, string, string];
     return createGameOnline(names);
   }, [isWaitingInRoom, online.playerSlots]);
-  const isOnline = !!(online.roomId && online.status === 'playing' && online.displayState);
+  /** Только комната + статус «идёт игра». Не требовать displayState: иначе краткий null канона после старта даёт isOnline=false и стол берёт localState вместо сервера — рассинхрон и «тормоза». */
+  const isOnline = !!(online.roomId && online.status === 'playing');
   const offlineMode = !isOnline && !isWaitingInRoom;
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
@@ -554,6 +555,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
 
   const waitingRefreshDoneRef = useRef(false);
   useEffect(() => {
+    waitingRefreshDoneRef.current = false;
+  }, [online.roomId]);
+
+  useEffect(() => {
     if (!isWaitingInRoom || !online.roomId || !online.refreshRoom) return;
     if (waitingRefreshDoneRef.current) return;
     const t = setTimeout(() => {
@@ -562,10 +567,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     }, 120);
     return () => clearTimeout(t);
   }, [isWaitingInRoom, online.roomId, online.refreshRoom]);
-
-  useEffect(() => {
-    if (!isWaitingInRoom) waitingRefreshDoneRef.current = false;
-  }, [isWaitingInRoom]);
 
   useEffect(() => {
     if (dealResultsExpanded && isMobile) {
@@ -818,7 +819,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       }
     }, FOURTH_CARD_SLOT_PAUSE_MS);
     return () => clearTimeout(t);
-  }, [state?.pendingTrickCompletion, isOnline, online]);
+  }, [state?.pendingTrickCompletion, isOnline, online.sendCompleteTrick]);
 
   // Онлайн: ход бота только если в player_slots у текущего места userId пустой, либо слота ещё нет, но имя в game_state — встроенный бот («ИИ …»). Иначе при лаге слотов хост не подменяет ход человека.
   const currentPlayerSlot = online.canonicalState ? online.playerSlots.find((s) => s.slotIndex === online.canonicalState!.currentPlayerIndex) : undefined;
