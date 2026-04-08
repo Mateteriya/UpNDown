@@ -370,6 +370,15 @@ function App() {
             <button style={buttonStyle} onClick={() => setScreenLobby(true)}>
               Онлайн
             </button>
+            {hasSavedGame() && (
+              <button
+                type="button"
+                style={{ ...buttonStyle, borderColor: 'rgba(34,211,238,0.45)', background: 'rgba(34,211,238,0.08)' }}
+                onClick={() => { void handleResumeOffline() }}
+              >
+                Продолжить офлайн-партию
+              </button>
+            )}
             <button
               type="button"
               style={{ ...buttonStyle, background: 'transparent', borderColor: 'rgba(148,163,184,0.5)' }}
@@ -869,7 +878,6 @@ function App() {
           onGoToGame={() => {
             setScreenLobby(false);
             setUrlJoinCode(null);
-            setGameId(id => id + 1);
             setScreen('game');
           }}
         />

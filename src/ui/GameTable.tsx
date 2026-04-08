@@ -562,6 +562,23 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     saveGameStateToStorage(state);
   }, [state, isOnline, isWaitingInRoom]);
 
+  useEffect(() => {
+    if (isOnline || isWaitingInRoom) return;
+    const flush = () => {
+      const s = stateRef.current;
+      if (s) saveGameStateToStorage(s);
+    };
+    window.addEventListener('pagehide', flush);
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [isOnline, isWaitingInRoom]);
+
   const waitingRefreshDoneRef = useRef(false);
   useEffect(() => {
     waitingRefreshDoneRef.current = false;

@@ -80,53 +80,6 @@ function stateHasDealtHands(state: GameState | null): boolean {
   return state.players.some((p) => (p.hand?.length ?? 0) > 0);
 }
 
-/** Стабильный отпечаток раздачи по рукам в каноническом порядке слотов 0..3. */
-function handMultisetFingerprint(state: GameState | null): string {
-  if (!state) return '';
-  return state.players
-    .map((p) =>
-      [...(p.hand ?? [])]
-        .map((c) => `${c.rank}:${c.suit}`)
-        .sort()
-        .join(',')
-    )
-    .join('|');
-}
-
-function bidsArraySig(b: (number | null)[] | undefined): string {
-  return (b ?? []).map((x) => (x == null ? 'n' : String(x))).join(',');
-}
-
-/** Лёгкий отпечаток для сравнения «тот же прогресс игры» без JSON.stringify всего state (Realtime/опрос вызывают это очень часто). */
-function gameStateMergeFingerprint(s: GameState | null): string {
-  if (!s) return '';
-  const trick = s.currentTrick ?? [];
-  const trickSig = trick.map((c) => `${c.rank}:${c.suit}`).join('|');
-  const dh = s.dealHistory ?? [];
-  const dhSig = dh.length === 0 ? '0' : `${dh.length}:${dh[dh.length - 1]?.dealNumber ?? 0}`;
-  const pend = s.pendingTrickCompletion
-    ? [...(s.pendingTrickCompletion.cards ?? [])]
-        .map((c) => `${c.rank}:${c.suit}`)
-        .sort()
-        .join('|')
-    : '';
-  const tricksSum = s.players.reduce((sum, p) => sum + (p.tricksTaken ?? 0), 0);
-  return [
-    s.dealNumber,
-    s.phase,
-    bidsArraySig(s.bids),
-    tricksSum,
-    trick.length,
-    trickSig,
-    s.currentPlayerIndex,
-    s.dealerIndex,
-    handMultisetFingerprint(s),
-    s.players.map((p) => p.score).join(','),
-    dhSig,
-    pend,
-  ].join('#');
-}
-
 /** PostgREST иногда отдаёт bigint как строку — без числа ломается ветка по game_state_revision */
 function parseGameStateRevision(raw: unknown): number | undefined {
   if (raw == null || raw === '') return undefined;
@@ -213,8 +166,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const lastSeenRoomUpdatedAtMsRef = useRef(0);
   /** Последняя применённая game_state_revision с сервера (колонка + триггер в БД); -1 = ещё не было. */
   const lastAppliedGameStateRevisionRef = useRef(-1);
-  /** Один poll за раз (без «seq»: при тике 160 ms ответ почти всегда «устаревал» и выкидывался — вечная «Загрузка…» на телефоне). */
-  const roomPollInFlightRef = useRef(false);
   /** Для одноразового всплеска refresh при входе в playing (старт с лобби — гости быстрее получают game_state). */
   const prevStatusForPlayingBurstRef = useRef<OnlineStatus | undefined>(undefined);
 
@@ -268,10 +219,18 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     else setStatus('waiting');
   }, [applyRoomData]);
 
-  const applyRoomDataOnlyIfNewer = useCallback(
+  /** Одна точка: Realtime + опрос. Устаревшие по updated_at ответы отбрасываем (в т.ч. waiting после того как уже применили playing). */
+  const applyRoomSnapshot = useCallback(
     (room: GameRoomRow) => {
       if (!room?.id) return;
-      // Старт с лобби: пока updateRoomState в полёте, опрос может вернуть waiting — не затирать уже выданную раздачу; слоты подмешиваем.
+      const ts = Date.parse(room.updated_at);
+      if (
+        Number.isFinite(ts) &&
+        lastSeenRoomUpdatedAtMsRef.current > 0 &&
+        ts < lastSeenRoomUpdatedAtMsRef.current
+      ) {
+        return;
+      }
       if (room.status === 'waiting' && gameWriteInFlightRef.current > 0) {
         const local = canonicalStateRef.current;
         if (local && stateHasDealtHands(local)) {
@@ -279,38 +238,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           return;
         }
       }
-      if (room.status === 'waiting') {
-        applyRoomData(room);
-        return;
-      }
-      if (room.status === 'finished') {
-        applyRoomData(room);
-        return;
-      }
-      const serverState = room.game_state ?? null;
-      if (room.status === 'playing' && serverState != null && canonicalStateRef.current == null) {
-        applyRoomData(room);
-        return;
-      }
-
-      /** playing + game_state: единственное правило — совпал лёгкий отпечаток стола → только слоты/мета; иначе целиком с сервера (без веток rev/заказов/write — они давали рассинхрон и «висюльки»). */
-      if (room.status === 'playing' && serverState) {
-        const local = canonicalStateRef.current;
-        const fpLocal = local ? gameStateMergeFingerprint(local) : '';
-        const fpServer = gameStateMergeFingerprint(serverState);
-        if (local != null && fpServer === fpLocal) {
-          mergeLobbyFieldsFromRoom(room);
-          return;
-        }
-        applyRoomData(room);
-        return;
-      }
-
-      if (room.status === 'playing') {
-        mergeLobbyFieldsFromRoom(room);
-        return;
-      }
-
       applyRoomData(room);
     },
     [applyRoomData, mergeLobbyFieldsFromRoom]
@@ -321,13 +248,13 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const rid = roomId;
     const room = await getRoom(rid);
     if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
-    applyRoomDataOnlyIfNewer(room);
-  }, [roomId, applyRoomDataOnlyIfNewer]);
+    applyRoomSnapshot(room);
+  }, [roomId, applyRoomSnapshot]);
 
   useEffect(() => {
     if (!roomId) return;
     let cancelled = false;
-    const unsub = subscribeToRoom(roomId, applyRoomDataOnlyIfNewer, (status) => {
+    const unsub = subscribeToRoom(roomId, applyRoomSnapshot, (status) => {
       if (cancelled) return;
       if (status === 'SUBSCRIBED') {
         void refreshRoom();
@@ -362,7 +289,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       unsub();
     };
-  }, [roomId, applyRoomDataOnlyIfNewer, refreshRoom, realtimeHealKey]);
+  }, [roomId, applyRoomSnapshot, refreshRoom, realtimeHealKey]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -380,49 +307,30 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     };
   }, [roomId, refreshRoom]);
 
-  // Realtime + периодический getRoom: мобильный WebView часто не получает postgres_changes — опрос основной канал доставки.
-  const ROOM_SYNC_POLL_MS_WAITING = 350;
-  const ROOM_SYNC_POLL_SKIP_WAITING = 0;
-  const ROOM_SYNC_POLL_MS_PLAYING_BIDDING = 160;
-  const ROOM_SYNC_POLL_MS_PLAYING_OTHER = 220;
-  const ROOM_SYNC_POLL_SKIP_PLAYING = 0;
-  const roomSyncSkipRef = useRef(ROOM_SYNC_POLL_SKIP_WAITING);
-  roomSyncSkipRef.current = status === 'playing' ? ROOM_SYNC_POLL_SKIP_PLAYING : ROOM_SYNC_POLL_SKIP_WAITING;
+  // Опрос: один интервал, параллельные GET допустимы — устаревшие по updated_at отбрасываются в applyRoomSnapshot.
+  const ROOM_SYNC_POLL_MS = 450;
+  const ROOM_SYNC_POLL_SKIP = 0;
+  const roomSyncSkipRef = useRef(ROOM_SYNC_POLL_SKIP);
+  roomSyncSkipRef.current = ROOM_SYNC_POLL_SKIP;
 
   const runRoomSyncPollTick = useCallback(() => {
     if (Date.now() - lastSendAtRef.current < roomSyncSkipRef.current) return;
     const rid = roomIdRef.current;
     if (!rid) return;
-    if (roomPollInFlightRef.current) return;
-    roomPollInFlightRef.current = true;
-    void getRoomForSyncPoll(rid)
-      .then((room) => {
-        if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
-        if (room.status === 'waiting') {
-          applyRoomData(room);
-          return;
-        }
-        applyRoomDataOnlyIfNewer(room);
-      })
-      .finally(() => {
-        roomPollInFlightRef.current = false;
-      });
-  }, [applyRoomData, applyRoomDataOnlyIfNewer]);
+    void getRoomForSyncPoll(rid).then((room) => {
+      if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
+      applyRoomSnapshot(room);
+    });
+  }, [applyRoomSnapshot]);
 
   useEffect(() => {
     if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
-    const phase = canonicalState?.phase;
-    const period =
-      status === 'waiting'
-        ? ROOM_SYNC_POLL_MS_WAITING
-        : phase === 'bidding' || phase === 'dark-bidding'
-          ? ROOM_SYNC_POLL_MS_PLAYING_BIDDING
-          : ROOM_SYNC_POLL_MS_PLAYING_OTHER;
+    const period = ROOM_SYNC_POLL_MS;
     runRoomSyncPollTick();
     // И в лобби, и в игре: Realtime часто «зелёный», но события не доходят до второго устройства — без опроса ходы не синхронизируются.
     const iv = setInterval(() => runRoomSyncPollTick(), period);
     return () => clearInterval(iv);
-  }, [roomId, status, canonicalState?.phase, runRoomSyncPollTick]);
+  }, [roomId, status, runRoomSyncPollTick]);
 
   useEffect(() => {
     const prev = prevStatusForPlayingBurstRef.current;
