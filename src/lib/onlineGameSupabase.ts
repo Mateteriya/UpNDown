@@ -810,18 +810,16 @@ export interface MatchHistoryItem {
   is_offline: boolean;
 }
 
-export async function getMyMatchHistory(userId: string, limit = 20): Promise<MatchHistoryItem[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('match_players')
-    .select(
-      'match_id:match_id, final_score, interrupted, is_rated, place:place, matches:matches!inner(id, code, finished_at, deals_count, is_offline)'
-    )
-    .eq('user_id', userId)
-    .order('finished_at', { referencedTable: 'matches', ascending: false })
-    .limit(limit);
-  if (error || !data) return [];
-  return (data as any[]).map(row => ({
+function matchHistorySelectWithOffline(): string {
+  return 'match_id:match_id, final_score, interrupted, is_rated, place:place, matches:matches!inner(id, code, finished_at, deals_count, is_offline)';
+}
+
+function matchHistorySelectWithoutOffline(): string {
+  return 'match_id:match_id, final_score, interrupted, is_rated, place:place, matches:matches!inner(id, code, finished_at, deals_count)';
+}
+
+function mapMatchHistoryRows(data: unknown[]): MatchHistoryItem[] {
+  return (data as any[]).map((row) => ({
     id: row.matches.id as string,
     code: row.matches.code as string,
     finished_at: row.matches.finished_at as string,
@@ -830,8 +828,37 @@ export async function getMyMatchHistory(userId: string, limit = 20): Promise<Mat
     final_score: row.final_score ?? null,
     interrupted: !!row.interrupted,
     is_rated: !!row.is_rated,
-    is_offline: !!row.matches.is_offline,
+    is_offline: !!row.matches?.is_offline,
   }));
+}
+
+/** История матчей; без колонки matches.is_offline на БД повторяем запрос без неё (иначе PostgREST падает и список пустой). */
+export async function getMyMatchHistory(userId: string, limit = 20): Promise<MatchHistoryItem[]> {
+  if (!supabase) return [];
+  const run = (select: string) =>
+    supabase!
+      .from('match_players')
+      .select(select)
+      .eq('user_id', userId)
+      .order('finished_at', { referencedTable: 'matches', ascending: false })
+      .limit(limit);
+
+  let { data, error } = await run(matchHistorySelectWithOffline());
+  if (error) {
+    const msg = (error.message || '').toLowerCase();
+    const code = String((error as { code?: string }).code || '');
+    const noOfflineCol =
+      msg.includes('is_offline') ||
+      msg.includes('does not exist') ||
+      code === '42703';
+    if (noOfflineCol) {
+      const second = await run(matchHistorySelectWithoutOffline());
+      data = second.data;
+      error = second.error;
+    }
+  }
+  if (error || !data) return [];
+  return mapMatchHistoryRows(data as unknown[]);
 }
 
 export interface RatingSummary {
@@ -843,13 +870,26 @@ export interface RatingSummary {
 
 export async function getMyRatingSummary(userId: string): Promise<RatingSummary | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase
+  const withOffline = await supabase
     .from('match_players')
     .select('final_score, interrupted, is_rated, place, matches:matches!inner(is_offline)')
     .eq('user_id', userId);
-  if (error || !data) return null;
+  let rows: any[] | null = withOffline.data as any[] | null;
+  let err = withOffline.error;
+  if (err) {
+    const msg = (err.message || '').toLowerCase();
+    if (msg.includes('is_offline') || msg.includes('does not exist')) {
+      const plain = await supabase
+        .from('match_players')
+        .select('final_score, interrupted, is_rated, place')
+        .eq('user_id', userId);
+      rows = plain.data as any[] | null;
+      err = plain.error;
+    }
+  }
+  if (err || !rows) return null;
   let games = 0, rated = 0, wins = 0, pts = 0;
-  for (const r of data as any[]) {
+  for (const r of rows) {
     if (r.matches?.is_offline) continue;
     games++;
     if (r.is_rated) {
