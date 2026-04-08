@@ -427,10 +427,10 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   }, [roomId, refreshRoom]);
 
   // Realtime + периодический getRoom: мобильный WebView часто не получает postgres_changes — опрос основной канал доставки.
-  const ROOM_SYNC_POLL_MS_WAITING = 700;
+  const ROOM_SYNC_POLL_MS_WAITING = 350;
   const ROOM_SYNC_POLL_SKIP_WAITING = 0;
-  const ROOM_SYNC_POLL_MS_PLAYING_BIDDING = 280;
-  const ROOM_SYNC_POLL_MS_PLAYING_OTHER = 420;
+  const ROOM_SYNC_POLL_MS_PLAYING_BIDDING = 160;
+  const ROOM_SYNC_POLL_MS_PLAYING_OTHER = 220;
   const ROOM_SYNC_POLL_SKIP_PLAYING = 0;
   const roomSyncSkipRef = useRef(ROOM_SYNC_POLL_SKIP_WAITING);
   roomSyncSkipRef.current = status === 'playing' ? ROOM_SYNC_POLL_SKIP_PLAYING : ROOM_SYNC_POLL_SKIP_WAITING;

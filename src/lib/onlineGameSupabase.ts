@@ -139,9 +139,8 @@ function isAbortLike(err: { message?: string; name?: string; code?: string } | n
 
 /** Лобби/RPC/getRoom: не ждать глобальные 38 с на один запрос — иначе создание/вход ощущаются как «минуты». */
 const LOBBY_REST_TIMEOUT_MS = 20_000;
-/** RPC входа (крупный JSON слотов/аватаров на медленном LTE): обрывать на 20 с = лишние ретраи и «минута до лобби». */
-/** Слишком долгий RPC = «вход минутами»; при обрыве быстрее уходим в REST-цикл joinRoom */
-const LOBBY_HEAVY_RPC_TIMEOUT_MS = 28_000;
+/** RPC updown_join_waiting_room: короткий предел — при подвисании быстрее REST-цикл join (без минут ожидания). */
+const LOBBY_JOIN_RPC_TIMEOUT_MS = 9_000;
 function lobbyRestAbortSignal(): AbortSignal {
   if (
     typeof AbortSignal !== 'undefined' &&
@@ -153,16 +152,26 @@ function lobbyRestAbortSignal(): AbortSignal {
   setTimeout(() => c.abort(), LOBBY_REST_TIMEOUT_MS);
   return c.signal;
 }
-function lobbyHeavyRpcAbortSignal(): AbortSignal {
+function lobbyJoinRpcAbortSignal(): AbortSignal {
   if (
     typeof AbortSignal !== 'undefined' &&
     typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function'
   ) {
-    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(LOBBY_HEAVY_RPC_TIMEOUT_MS);
+    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(LOBBY_JOIN_RPC_TIMEOUT_MS);
   }
   const c = new AbortController();
-  setTimeout(() => c.abort(), LOBBY_HEAVY_RPC_TIMEOUT_MS);
+  setTimeout(() => c.abort(), LOBBY_JOIN_RPC_TIMEOUT_MS);
   return c.signal;
+}
+
+/** После успешного RPC слот уже в БД; один облом getRoom не должен уводить в долгий цикл. */
+async function getRoomWithJoinRetries(roomId: string): Promise<GameRoomRow | null> {
+  for (let i = 0; i < 10; i++) {
+    const room = await getRoom(roomId);
+    if (room) return room;
+    await sleep(60 + i * 35);
+  }
+  return null;
 }
 
 /** Опрос во время игры: короткий таймаут, чтобы один подвисший GET не держал roomPollInFlight 20+ с и не откладывал все следующие тики. */
@@ -294,7 +303,7 @@ export async function joinRoom(
       p_short_label: shortLabel ?? null,
       p_avatar_data_url: av ?? null,
     })
-    .abortSignal(lobbyHeavyRpcAbortSignal());
+    .abortSignal(lobbyJoinRpcAbortSignal());
   if (!rpcError && rpcRaw && typeof rpcRaw === 'object') {
     const payload = rpcRaw as {
       ok?: boolean;
@@ -308,7 +317,7 @@ export async function joinRoom(
       if (payload.room && typeof payload.room === 'object' && 'id' in payload.room) {
         return { roomId: payload.room.id, mySlotIndex: idx, room: payload.room as GameRoomRow };
       }
-      const room = await getRoom(payload.room_id);
+      const room = await getRoomWithJoinRetries(payload.room_id);
       if (room) {
         return { roomId: room.id, mySlotIndex: idx, room };
       }

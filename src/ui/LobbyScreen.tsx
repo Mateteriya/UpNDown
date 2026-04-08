@@ -46,7 +46,8 @@ const buttonSecondary: React.CSSProperties = {
 };
 
 /** Дольше — «Вход…» без обратной связи; после таймаута пробуем recover по коду (слот уже мог записаться) */
-const JOIN_ROOM_UI_TIMEOUT_MS = 26_000;
+/** Дольше RPC+ретраи getRoom+REST; ложный таймаут раньше времени ломал UX на LTE. */
+const JOIN_ROOM_UI_TIMEOUT_MS = 55_000;
 
 export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }: LobbyScreenProps) {
   const { user } = useAuth();

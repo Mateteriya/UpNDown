@@ -883,10 +883,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     latestCanonicalRef.current = online.canonicalState;
     myServerIndexForLogRef.current = online.myServerIndex ?? 0;
   }
-  // Онлайн: ход бота — любой открытый клиент шлёт sendState.
+  // Онлайн: ход бота шлёт только хост (слот 0). Два открытых клиента с одним аккаунтом редки; два разных — оба слали sendState → конфликты ревизий и откаты ходов человека.
   // Нельзя отменять ход по «ключу уже обработан»: при новой ссылке canonicalState с тем же ключом cleanup снимает таймер, а ранний return не ставил новый — ИИ замирал.
   useEffect(() => {
     if (!isOnlineAiTurn || !online.canonicalState || !online.sendState) return;
+    if (online.myServerIndex !== 0) return;
     const c = online.canonicalState;
     const scheduleKey = `${c.dealNumber}-${c.phase}-${c.currentPlayerIndex}-${c.bids?.join(',')}-${c.currentTrick?.length}`;
     if (prevOnlineAiDriveKeyRef.current !== scheduleKey) {
