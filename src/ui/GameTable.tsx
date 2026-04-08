@@ -21,7 +21,6 @@ import {
   isHumanPlayer,
 } from '../game/GameEngine';
 import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating, getPlayerProfile } from '../game/persistence';
-import { loadOnlineSession } from '../lib/onlineSession';
 import { logDealOutcome } from '../game/aiLearning';
 import { aiBid, aiPlay } from '../game/ai';
 import { getTrickWinner } from '../game/rules';
@@ -525,11 +524,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
 
   useEffect(() => {
     if (isOnline || isWaitingInRoom) return;
-    if (loadOnlineSession()) return;
+    const prof = getPlayerProfile();
+    const humanName = prof.displayName?.trim() && prof.displayName !== 'Вы' ? prof.displayName : 'Вы';
     const restored = loadGameStateFromStorage();
-    const humanName = playerDisplayName?.trim() && playerDisplayName !== 'Вы' ? playerDisplayName : 'Вы';
     if (restored) {
-      const synced = { ...restored, players: restored.players.map((p, i) => i === 0 ? { ...p, name: humanName } : p) };
+      const synced = { ...restored, players: restored.players.map((p, i) => (i === 0 ? { ...p, name: humanName } : p)) };
       setLocalState(synced);
     } else {
       let s = createGame(4, 'classical', humanName);
@@ -546,7 +545,17 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     setLastDealResultsSnapshot(null);
     setGameOverSnapshot(null);
     setShowGameOverModal(false);
-  }, [gameId, playerDisplayName, isOnline, isWaitingInRoom]);
+  }, [gameId, isOnline, isWaitingInRoom]);
+
+  useEffect(() => {
+    if (isOnline || isWaitingInRoom) return;
+    const humanName = playerDisplayName?.trim() && playerDisplayName !== 'Вы' ? playerDisplayName : 'Вы';
+    setLocalState((prev) => {
+      if (!prev) return prev;
+      if (prev.players[0]?.name === humanName) return prev;
+      return { ...prev, players: prev.players.map((p, i) => (i === 0 ? { ...p, name: humanName } : p)) };
+    });
+  }, [playerDisplayName, isOnline, isWaitingInRoom]);
 
   useEffect(() => {
     if (isOnline || isWaitingInRoom || state === null) return;

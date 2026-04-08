@@ -215,6 +215,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const lastAppliedGameStateRevisionRef = useRef(-1);
   /** Не запускать второй getRoom, пока предыдущий тик опроса не завершился (медленный телефон). */
   const roomPollInFlightRef = useRef(false);
+  /** Для одноразового всплеска refresh при входе в playing (старт с лобби — гости быстрее получают game_state). */
+  const prevStatusForPlayingBurstRef = useRef<OnlineStatus | undefined>(undefined);
 
   const applyRoomData = useCallback((room: GameRoomRow) => {
     if (!room?.id) return;
@@ -296,7 +298,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      /** Игра идёт, в строке есть JSON стола — единый простой путь (без веток revision/timestamp: они давали «залипание» минутами). */
+      /** Игра идёт, есть JSON стола: без «каши» с rev/fp во время записи — она глотала чужие ходы и давала тупняк после старта. */
       if (room.status === 'playing' && serverState) {
         const local = canonicalStateRef.current;
         const bidNonNullGuard = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
@@ -318,27 +320,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
             mergeLobbyFieldsFromRoom(room);
             return;
           }
-
-          const srvRev = parseGameStateRevision(room.game_state_revision);
-          if (srvRev !== undefined && srvRev > lastAppliedGameStateRevisionRef.current) {
-            applyRoomData(room);
-            return;
-          }
-
-          const fpWhileWrite = gameStateMergeFingerprint(local);
-          const fpServerWhileWrite = gameStateMergeFingerprint(serverState);
-          if (fpWhileWrite === fpServerWhileWrite) {
-            mergeLobbyFieldsFromRoom(room);
-            return;
-          }
-
-          if (srvRev === undefined) {
-            applyRoomData(room);
-            return;
-          }
-
-          mergeLobbyFieldsFromRoom(room);
-          return;
         }
 
         const fpLocal = local ? gameStateMergeFingerprint(local) : '';
@@ -469,6 +450,16 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const iv = setInterval(() => runRoomSyncPollTick(), period);
     return () => clearInterval(iv);
   }, [roomId, status, canonicalState?.phase, runRoomSyncPollTick]);
+
+  useEffect(() => {
+    const prev = prevStatusForPlayingBurstRef.current;
+    prevStatusForPlayingBurstRef.current = status;
+    if (status !== 'playing' || !roomId) return;
+    if (prev === 'playing') return;
+    void refreshRoom();
+    const ids = [90, 220, 480].map((ms) => window.setTimeout(() => void refreshRoom(), ms));
+    return () => ids.forEach((id) => clearTimeout(id));
+  }, [status, roomId, refreshRoom]);
 
   /** После успешного авто-восстановления не дублировать, пока сессия жива. Сбрасывается в leaveRoom и при отсутствии saved. */
   const sessionRestoreOkRef = useRef(false);
