@@ -560,10 +560,14 @@ export async function updateRoomState(
   if (!supabase) return { error: 'Supabase не настроен' };
   const payload: Record<string, unknown> = { game_state: gameState, status: 'playing' };
   if (playerSlots) payload.player_slots = playerSlots;
-  /** В .env: VITE_ONLINE_REVISION_LOCK=false — отключить WHERE game_state_revision (если миграция не на проде). */
+  /**
+   * По умолчанию ВЫКЛ: без миграции game_state_revision UPDATE с .eq(revision) падает или даёт вечные конфликты.
+   * Включить после применения supabase/migrations/20250401120000_game_rooms_state_revision.sql:
+   * VITE_ONLINE_REVISION_LOCK=true
+   */
   const revLockEnv = import.meta.env.VITE_ONLINE_REVISION_LOCK as string | undefined;
   const revisionLockEnabled =
-    typeof revLockEnv === 'string' ? !['0', 'false', 'off', 'no'].includes(revLockEnv.trim().toLowerCase()) : true;
+    typeof revLockEnv === 'string' && ['1', 'true', 'on', 'yes'].includes(revLockEnv.trim().toLowerCase());
   const useRevLock =
     revisionLockEnabled &&
     opts?.expectedRevision !== undefined &&

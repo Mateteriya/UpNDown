@@ -318,15 +318,32 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
             mergeLobbyFieldsFromRoom(room);
             return;
           }
+
+          const srvRev = parseGameStateRevision(room.game_state_revision);
+          if (srvRev !== undefined && srvRev > lastAppliedGameStateRevisionRef.current) {
+            applyRoomData(room);
+            return;
+          }
+
+          const fpWhileWrite = gameStateMergeFingerprint(local);
+          const fpServerWhileWrite = gameStateMergeFingerprint(serverState);
+          if (fpWhileWrite === fpServerWhileWrite) {
+            mergeLobbyFieldsFromRoom(room);
+            return;
+          }
+
+          if (srvRev === undefined) {
+            applyRoomData(room);
+            return;
+          }
+
+          mergeLobbyFieldsFromRoom(room);
+          return;
         }
 
         const fpLocal = local ? gameStateMergeFingerprint(local) : '';
         const fpServer = gameStateMergeFingerprint(serverState);
         if (local != null && fpServer === fpLocal) {
-          mergeLobbyFieldsFromRoom(room);
-          return;
-        }
-        if (gameWriteInFlightRef.current > 0) {
           mergeLobbyFieldsFromRoom(room);
           return;
         }
