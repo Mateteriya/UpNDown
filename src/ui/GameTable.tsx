@@ -2705,6 +2705,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         >
           <div
             style={{
+              position: 'relative',
               background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
               borderRadius: 16,
               border: '1px solid rgba(34, 211, 238, 0.35)',
@@ -2714,15 +2715,46 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             }}
             onClick={e => e.stopPropagation()}
           >
-            <GameOverModal
-              snapshot={gameOverSnapshot}
-              gameId={gameId}
-              hideNewGame={isOnline}
-              viewerCanonicalSlotIndex={gameOverViewerSlot}
-              onNewGame={() => {
+            <button
+              type="button"
+              aria-label="Закрыть"
+              onClick={() => {
                 setShowGameOverModal(false);
                 setGameOverSnapshot(null);
                 setGameOverViewerSlot(null);
+              }}
+              style={{
+                position: 'absolute',
+                top: 10,
+                right: 10,
+                zIndex: 2,
+                width: 36,
+                height: 36,
+                border: 'none',
+                borderRadius: 8,
+                background: 'rgba(15, 23, 42, 0.65)',
+                color: '#94a3b8',
+                fontSize: 22,
+                lineHeight: 1,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              ×
+            </button>
+            <GameOverModal
+              snapshot={gameOverSnapshot}
+              gameId={gameId}
+              viewerCanonicalSlotIndex={gameOverViewerSlot}
+              onNewGame={async () => {
+                setShowGameOverModal(false);
+                setGameOverSnapshot(null);
+                setGameOverViewerSlot(null);
+                if (isOnline && online.leaveRoom) {
+                  await online.leaveRoom();
+                }
                 onNewGame?.();
               }}
               onExit={async () => {
@@ -5026,7 +5058,7 @@ const gameOverCelebrationWrapStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   minHeight: 280,
-  padding: 24,
+  padding: '36px 24px 24px',
 };
 const gameOverCelebrationInnerStyle: React.CSSProperties = {
   textAlign: 'center',
@@ -5068,7 +5100,7 @@ const gameOverButtonPrimaryStyle: React.CSSProperties = {
   boxShadow: '0 0 16px rgba(34, 211, 238, 0.3)',
 };
 const gameOverExpandedWrapStyle: React.CSSProperties = {
-  padding: '20px 24px 24px',
+  padding: '44px 20px 24px 24px',
   maxWidth: 420,
   width: '100%',
   maxHeight: '90vh',
