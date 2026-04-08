@@ -172,16 +172,20 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const applyRoomData = useCallback((room: GameRoomRow) => {
     if (!room?.id) return;
     roomIdRef.current = room.id;
-    const ts = Date.parse(room.updated_at);
-    if (Number.isFinite(ts)) {
-      lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
+    const incoming = room.game_state ?? null;
+    const isPlayingWithoutState = room.status === 'playing' && incoming == null;
+    // Не двигаем lastSeen на «playing без JSON»: иначе гонка с полной строкой и чуть меньшим updated_at может долго отбрасывать актуальный стол.
+    if (!isPlayingWithoutState) {
+      const ts = Date.parse(room.updated_at);
+      if (Number.isFinite(ts)) {
+        lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
+      }
     }
     setRoomId(room.id);
     setCode(room.code);
     setPlayerSlots(room.player_slots || []);
-    const incoming = room.game_state ?? null;
     // playing без game_state в payload бывает при гонках Realtime/опроса — нельзя сбрасывать статус в waiting (гость «висит» на лобби при старте).
-    if (room.status === 'playing' && incoming == null) {
+    if (isPlayingWithoutState) {
       setStatus('playing');
       const r = parseGameStateRevision(room.game_state_revision);
       if (r !== undefined) {
@@ -219,12 +223,20 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     else setStatus('waiting');
   }, [applyRoomData]);
 
-  /** Одна точка: Realtime + опрос. Устаревшие по updated_at ответы отбрасываем (в т.ч. waiting после того как уже применили playing). */
+  /** Одна точка: Realtime + опрос. Устаревшие по updated_at отбрасываем; по ревизии game_state — не откатывать стол из‑за свежего updated_at от слотов без смены state. */
   const applyRoomSnapshot = useCallback(
     (room: GameRoomRow) => {
       if (!room?.id) return;
+      const rIn = parseGameStateRevision(room.game_state_revision);
+      const lastRev = lastAppliedGameStateRevisionRef.current;
+      if (rIn !== undefined && lastRev >= 0 && rIn < lastRev) {
+        return;
+      }
+      const revisionIsNewer =
+        rIn !== undefined && (lastRev < 0 || rIn > lastRev);
       const ts = Date.parse(room.updated_at);
       if (
+        !revisionIsNewer &&
         Number.isFinite(ts) &&
         lastSeenRoomUpdatedAtMsRef.current > 0 &&
         ts < lastSeenRoomUpdatedAtMsRef.current
@@ -307,8 +319,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     };
   }, [roomId, refreshRoom]);
 
-  // Опрос: один интервал, параллельные GET допустимы — устаревшие по updated_at отбрасываются в applyRoomSnapshot.
-  const ROOM_SYNC_POLL_MS = 450;
+  // Опрос: чаще в игре — Realtime часто не доставляет ходы второму клиенту; устаревшие ответы отсекаются в applyRoomSnapshot.
+  const ROOM_SYNC_POLL_MS = 280;
   const ROOM_SYNC_POLL_SKIP = 0;
   const roomSyncSkipRef = useRef(ROOM_SYNC_POLL_SKIP);
   roomSyncSkipRef.current = ROOM_SYNC_POLL_SKIP;
