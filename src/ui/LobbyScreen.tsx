@@ -45,10 +45,6 @@ const buttonSecondary: React.CSSProperties = {
   color: '#94a3b8',
 };
 
-/** Дольше — «Вход…» без обратной связи; после таймаута пробуем recover по коду (слот уже мог записаться) */
-/** Дольше RPC+ретраи getRoom+REST; ложный таймаут раньше времени ломал UX на LTE. */
-const JOIN_ROOM_UI_TIMEOUT_MS = 55_000;
-
 export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }: LobbyScreenProps) {
   const { user } = useAuth();
   const {
@@ -165,21 +161,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     setJoining(true);
     try {
       await leaveRoom();
-      const joinPromise = joinRoom(code, user.id, playerName, shortLabel);
-      let r = await Promise.race([
-        joinPromise,
-        new Promise<{ ok: false; error: string }>((resolve) =>
-          window.setTimeout(
-            () =>
-              resolve({
-                ok: false,
-                error:
-                  'Сервер не ответил вовремя. Часто помогает VPN или другая сеть; ниже проверяем, не прошёл ли вход без ответа.',
-              }),
-            JOIN_ROOM_UI_TIMEOUT_MS
-          )
-        ),
-      ]);
+      let r = await joinRoom(code, user.id, playerName, shortLabel);
       if (!r.ok) {
         const recovered = await recoverJoinIfAlreadyInRoom(code);
         if (recovered) {

@@ -213,8 +213,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const lastSeenRoomUpdatedAtMsRef = useRef(0);
   /** Последняя применённая game_state_revision с сервера (колонка + триггер в БД); -1 = ещё не было. */
   const lastAppliedGameStateRevisionRef = useRef(-1);
-  /** Пока один GET висит 10 с, старый код пропускал все тики опроса — второй клиент не видел заказы. Новый тик отменяет применение старого ответа по счётчику. */
-  const roomPollSeqRef = useRef(0);
+  /** Один poll за раз (без «seq»: при тике 160 ms ответ почти всегда «устаревал» и выкидывался — вечная «Загрузка…» на телефоне). */
+  const roomPollInFlightRef = useRef(false);
   /** Для одноразового всплеска refresh при входе в playing (старт с лобби — гости быстрее получают game_state). */
   const prevStatusForPlayingBurstRef = useRef<OnlineStatus | undefined>(undefined);
 
@@ -271,8 +271,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const applyRoomDataOnlyIfNewer = useCallback(
     (room: GameRoomRow) => {
       if (!room?.id) return;
-      // Пока updateRoomState ещё в полёте, опрос часто отдаёт старый waiting — не сбрасываем уже посчитанную раздачу.
-      // Но слоты/код всё равно подмешиваем — иначе голый return глотает join друзей и Realtime.
+      // Старт с лобби: пока updateRoomState в полёте, опрос может вернуть waiting — не затирать уже выданную раздачу; слоты подмешиваем.
       if (room.status === 'waiting' && gameWriteInFlightRef.current > 0) {
         const local = canonicalStateRef.current;
         if (local && stateHasDealtHands(local)) {
@@ -280,67 +279,23 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           return;
         }
       }
-      // Подписка Realtime уже с фильтром id=eq.roomId; не сравниваем с ref — иначе при рассинхроне ref/state глушились player_slots (гости «не появлялись» у хоста).
-      // В лобби game_state всегда null: сравнение «новизны» по состоянию раздачи ломало доставку player_slots (хост не видел новых игроков).
       if (room.status === 'waiting') {
         applyRoomData(room);
         return;
       }
-      // Финиш и итоговые очки — всегда тянем строку целиком (эвристика «новее» могла отсечь обновление таблицы/модалки).
       if (room.status === 'finished') {
         applyRoomData(room);
         return;
       }
       const serverState = room.game_state ?? null;
-      // Гость / второй клиент: пока локально нет стола — всегда полная строка (не merge-only по rev/timestamp).
       if (room.status === 'playing' && serverState != null && canonicalStateRef.current == null) {
         applyRoomData(room);
         return;
       }
 
-      /** Игра идёт, есть JSON стола. */
+      /** playing + game_state: единственное правило — совпал лёгкий отпечаток стола → только слоты/мета; иначе целиком с сервера (без веток rev/заказов/write — они давали рассинхрон и «висюльки»). */
       if (room.status === 'playing' && serverState) {
         const local = canonicalStateRef.current;
-        const bidNonNullGuard = (b: (number | null)[] | undefined) => (b ?? []).filter((x) => x != null).length;
-
-        const srvRevTop = parseGameStateRevision(room.game_state_revision);
-        if (srvRevTop !== undefined && srvRevTop > lastAppliedGameStateRevisionRef.current) {
-          applyRoomData(room);
-          return;
-        }
-
-        if (
-          local &&
-          (local.phase === 'bidding' || local.phase === 'dark-bidding') &&
-          (serverState.phase === 'bidding' || serverState.phase === 'dark-bidding')
-        ) {
-          const nL = bidNonNullGuard(local.bids);
-          const nS = bidNonNullGuard(serverState.bids);
-          if (nS > nL || (nS === nL && bidsArraySig(local.bids) !== bidsArraySig(serverState.bids))) {
-            applyRoomData(room);
-            return;
-          }
-        }
-
-        if (gameWriteInFlightRef.current > 0 && local) {
-          if (
-            (local.phase === 'bidding' || local.phase === 'dark-bidding') &&
-            (serverState.phase === 'bidding' || serverState.phase === 'dark-bidding') &&
-            bidNonNullGuard(serverState.bids) < bidNonNullGuard(local.bids)
-          ) {
-            mergeLobbyFieldsFromRoom(room);
-            return;
-          }
-          if (
-            local.phase === 'playing' &&
-            serverState.phase === 'playing' &&
-            (serverState.currentTrick ?? []).length < (local.currentTrick ?? []).length
-          ) {
-            mergeLobbyFieldsFromRoom(room);
-            return;
-          }
-        }
-
         const fpLocal = local ? gameStateMergeFingerprint(local) : '';
         const fpServer = gameStateMergeFingerprint(serverState);
         if (local != null && fpServer === fpLocal) {
@@ -351,7 +306,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      /** playing, но game_state в ответе пустой — только слоты/мета */
       if (room.status === 'playing') {
         mergeLobbyFieldsFromRoom(room);
         return;
@@ -439,16 +393,20 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (Date.now() - lastSendAtRef.current < roomSyncSkipRef.current) return;
     const rid = roomIdRef.current;
     if (!rid) return;
-    const seq = ++roomPollSeqRef.current;
-    void getRoomForSyncPoll(rid).then((room) => {
-      if (seq !== roomPollSeqRef.current) return;
-      if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
-      if (room.status === 'waiting') {
-        applyRoomData(room);
-        return;
-      }
-      applyRoomDataOnlyIfNewer(room);
-    });
+    if (roomPollInFlightRef.current) return;
+    roomPollInFlightRef.current = true;
+    void getRoomForSyncPoll(rid)
+      .then((room) => {
+        if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
+        if (room.status === 'waiting') {
+          applyRoomData(room);
+          return;
+        }
+        applyRoomDataOnlyIfNewer(room);
+      })
+      .finally(() => {
+        roomPollInFlightRef.current = false;
+      });
   }, [applyRoomData, applyRoomDataOnlyIfNewer]);
 
   useEffect(() => {
