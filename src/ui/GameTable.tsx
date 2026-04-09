@@ -2386,6 +2386,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
               compactMode={isMobileOrTablet}
               playerMobileWideTricks={isMobile}
+              tricksLeftInDeal={tricksRemainingInDeal(state)}
             />
             {shouldShowBidPanel && bidPanelVisible && !isMobile && (
               <div className="bid-panel bid-panel-inline bid-panel-bottom" style={bidPanelInlineStyle} aria-label="Выбор заказа">
@@ -2716,6 +2717,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
               compactMode={isMobileOrTablet}
               playerMobileWideTricks={isMobile}
+              tricksLeftInDeal={tricksRemainingInDeal(state)}
             />
             {shouldShowBidPanel && bidPanelVisible && (
               <div className="bid-panel bid-panel-inline bid-panel-bottom" style={bidPanelInlineStyle} aria-label="Выбор заказа">
@@ -3501,6 +3503,12 @@ function tricksPhrase(n: number): string {
   return `${n} ${tricksDeclension(n)}`;
 }
 
+/** Сколько взяток ещё не сыграно в раздаче (сумма взятых по всем игрокам = число завершённых взяток). */
+function tricksRemainingInDeal(state: { tricksInDeal: number; players: { tricksTaken?: number }[] }): number {
+  const played = state.players.reduce((sum, p) => sum + (p.tricksTaken ?? 0), 0);
+  return Math.max(0, state.tricksInDeal - played);
+}
+
 /** Подсказка для таблички заказа оппонента (title / тап на мобильной). */
 function opponentOrderBadgeTitle(bid: number | null, tricksTaken: number): string {
   if (bid == null) {
@@ -3577,19 +3585,65 @@ const pcTrickTakenFigureStyle: React.CSSProperties = {
   ].join(', '),
 };
 
-/** Пара «заказ / взято» для ПК: цвета, title-тултипы (оппонент или вы). */
+/** ПК, оппонент: «взято» слева — без неона (пока заказ не совпал с взятым). */
+const pcTrickTakenPlainOpponentStyle: React.CSSProperties = {
+  cursor: 'help',
+  color: 'rgba(226, 232, 240, 0.96)',
+  textShadow: '0 1px 2px rgba(0,0,0,0.9)',
+};
+
+/** ПК: оба числа при ровном попадании в заказ — нежный сиренево-голубой неон */
+const pcTrickExactMatchFigureStyle: React.CSSProperties = {
+  cursor: 'help',
+  color: '#e9d5ff',
+  textShadow: [
+    '0 0 5px rgba(167, 139, 250, 0.42)',
+    '0 0 10px rgba(125, 211, 252, 0.28)',
+    '0 1px 2px rgba(0,0,0,0.92)',
+  ].join(', '),
+};
+
+/** ПК: недобор — приглушённый красный (минус по очкам; не кричащий) */
+const pcTrickUnderBidFigureStyle: React.CSSProperties = {
+  cursor: 'help',
+  color: '#fecaca',
+  textShadow: [
+    '0 0 4px rgba(248, 113, 113, 0.38)',
+    '0 0 10px rgba(185, 70, 80, 0.28)',
+    '0 1px 2px rgba(0,0,0,0.9)',
+  ].join(', '),
+};
+
+/** ПК: перебор — тусклый болотно-жёлтый (без минуса в зачёте) */
+const pcTrickOverBidFigureStyle: React.CSSProperties = {
+  cursor: 'help',
+  color: '#c8c89a',
+  textShadow: [
+    '0 0 5px rgba(154, 166, 95, 0.32)',
+    '0 0 11px rgba(120, 125, 72, 0.2)',
+    '0 0 16px rgba(90, 95, 55, 0.12)',
+    '0 1px 2px rgba(0,0,0,0.88)',
+  ].join(', '),
+};
+
+/**
+ * Пара «взято / заказ» для ПК (порядок цифр одинаковый для игрока и оппонентов).
+ * tricksLeftInDeal: при недоборе красная подсветка только если взято + остаток раздачи < заказа.
+ */
 function PcTrickBidTakenFigures({
   bid,
   tricksTaken,
   audience,
   fontSize,
   style,
+  tricksLeftInDeal,
 }: {
   bid: number | null;
   tricksTaken: number;
   audience: 'opponent' | 'player';
   fontSize: number;
   style?: CSSProperties;
+  tricksLeftInDeal?: number;
 }) {
   const bidTitle =
     bid == null
@@ -3620,6 +3674,94 @@ function PcTrickBidTakenFigures({
         }
       : pcTrickBidFigureStyle;
 
+  const slashStyle: CSSProperties = {
+    cursor: 'default',
+    color: 'rgba(148, 163, 184, 0.95)',
+    fontWeight: 700,
+    textShadow: '0 1px 2px rgba(0,0,0,0.85)',
+    userSelect: 'none',
+  };
+
+  const exactMatch = bid != null && tricksTaken === bid;
+  const overBid = bid != null && tricksTaken > bid;
+  const underBid = bid != null && tricksTaken < bid;
+  const underBidPenalize =
+    underBid &&
+    (tricksLeftInDeal === undefined || tricksTaken + tricksLeftInDeal < bid);
+
+  /** ПК-оппонент: взято / заказ; точно — сирень; перебор — болотно-жёлтый; жёсткий недобор — красный (заказ уже невыполним). */
+  if (audience === 'opponent') {
+    const takenFigStyle = exactMatch
+      ? pcTrickExactMatchFigureStyle
+      : overBid
+        ? pcTrickOverBidFigureStyle
+        : underBidPenalize
+          ? pcTrickUnderBidFigureStyle
+          : pcTrickTakenPlainOpponentStyle;
+    const bidFigStyle: CSSProperties =
+      bid == null
+        ? {
+            ...pcTrickBidFigureStyle,
+            cursor: 'help',
+            color: 'rgba(148, 163, 184, 0.95)',
+            textShadow: '0 1px 2px rgba(0,0,0,0.85)',
+          }
+        : exactMatch
+          ? pcTrickExactMatchFigureStyle
+          : overBid
+            ? pcTrickOverBidFigureStyle
+            : underBidPenalize
+              ? pcTrickUnderBidFigureStyle
+              : pcTrickBidFigureStyle;
+
+    return (
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'baseline',
+          gap: 3,
+          fontSize,
+          fontWeight: 800,
+          letterSpacing: '0.04em',
+          whiteSpace: 'nowrap',
+          flexShrink: 0,
+          ...style,
+        }}
+        aria-hidden
+      >
+        <span title={takenTitle} style={takenFigStyle}>
+          {tricksTaken}
+        </span>
+        <span style={slashStyle} aria-hidden>
+          /
+        </span>
+        <span title={bidTitle} style={bidFigStyle}>
+          {bidDisplay}
+        </span>
+      </span>
+    );
+  }
+
+  const bidFigPlayer: CSSProperties =
+    bid == null
+      ? bidSpanStyle
+      : exactMatch
+        ? pcTrickExactMatchFigureStyle
+        : overBid
+          ? pcTrickOverBidFigureStyle
+          : underBidPenalize
+            ? pcTrickUnderBidFigureStyle
+            : pcTrickBidFigureStyle;
+  const takenFigPlayer: CSSProperties =
+    exactMatch
+      ? pcTrickExactMatchFigureStyle
+      : overBid
+        ? pcTrickOverBidFigureStyle
+        : underBidPenalize
+          ? pcTrickUnderBidFigureStyle
+          : pcTrickTakenFigureStyle;
+
+  /** Как у оппонентов: сначала взято, затем заказ. */
   return (
     <span
       style={{
@@ -3635,23 +3777,14 @@ function PcTrickBidTakenFigures({
       }}
       aria-hidden
     >
-      <span title={bidTitle} style={bidSpanStyle}>
-        {bidDisplay}
+      <span title={takenTitle} style={takenFigPlayer}>
+        {tricksTaken}
       </span>
-      <span
-        style={{
-          cursor: 'default',
-          color: 'rgba(148, 163, 184, 0.95)',
-          fontWeight: 700,
-          textShadow: '0 1px 2px rgba(0,0,0,0.85)',
-          userSelect: 'none',
-        }}
-        aria-hidden
-      >
+      <span style={slashStyle} aria-hidden>
         /
       </span>
-      <span title={takenTitle} style={pcTrickTakenFigureStyle}>
-        {tricksTaken}
+      <span title={bidTitle} style={bidFigPlayer}>
+        {bidDisplay}
       </span>
     </span>
   );
@@ -3795,6 +3928,8 @@ function TrickSlotsDisplay({
   opponentMobileZeroOrderCross,
   opponentOrderHintSlot,
   playerMobileWideTricks,
+  /** Сколько взяток ещё не сыграно в раздаче (для мягкого недобора на ПК). */
+  tricksLeftInDeal,
 }: {
   bid: number | null;
   tricksTaken: number;
@@ -3812,6 +3947,7 @@ function TrickSlotsDisplay({
   opponentOrderHintSlot?: 'north' | 'west' | 'east';
   /** Только телефон (viewport-mobile): чуть шире бюджет под кружки заказа у панели игрока (слот Юг). */
   playerMobileWideTricks?: boolean;
+  tricksLeftInDeal?: number;
 }) {
   const zeroCrossGradId = useId().replace(/:/g, '');
   const isCompact = variant === 'opponent';
@@ -4171,9 +4307,21 @@ function TrickSlotsDisplay({
     ...(horizontalOnly ? { flexWrap: 'nowrap' as const } : {}),
     ...(opponentScaleDownPc < 1 ? { gap: Math.max(2, Math.round(6 * opponentScaleDownPc)) } : {}),
   };
+  /** ПК: точно в заказ — сирень; перебор — болотно-жёлтый; красный недобор — только если заказ уже невыполним. */
+  const pcTrickPanelExactOrder = tricksTaken === bid;
+  const pcTrickPanelOverOrder = tricksTaken > bid;
+  const pcTrickPanelUnderOrderStrict =
+    tricksTaken < bid &&
+    (tricksLeftInDeal === undefined || tricksTaken + tricksLeftInDeal < bid);
   const wrapStyle = {
     ...trickSlotsWrapStyle,
-    ...(hasFilledOrder ? trickSlotsWrapSuccessStyle : trickSlotsWrapPendingStyle),
+    ...(pcTrickPanelExactOrder
+      ? trickSlotsWrapPcExactOrderStyle
+      : pcTrickPanelOverOrder
+        ? trickSlotsWrapPcOverBidStyle
+        : pcTrickPanelUnderOrderStrict
+          ? trickSlotsWrapPcUnderBidStyle
+          : {}),
     ...(opponentScaleDownPc < 1 ? { padding: `${Math.max(2, Math.round(4 * opponentScaleDownPc))}px ${Math.max(4, Math.round(8 * opponentScaleDownPc))}px` } : {}),
   };
 
@@ -4192,9 +4340,17 @@ function TrickSlotsDisplay({
     return (
       <div
         style={wrapStyle}
-        className={[hideCards ? 'trick-slots-collecting' : 'trick-slots-normal', 'trick-slots-opponent-pc-stack'].filter(Boolean).join(' ')}
+        className={[
+          hideCards ? 'trick-slots-collecting' : 'trick-slots-normal',
+          'trick-slots-opponent-pc-stack',
+          pcTrickPanelExactOrder ? 'trick-slots-pc-exact' : '',
+          pcTrickPanelOverOrder ? 'trick-slots-pc-over' : '',
+          pcTrickPanelUnderOrderStrict ? 'trick-slots-pc-under' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         role="status"
-        aria-label={`Заказ ${tricksPhrase(bid)}, взято ${tricksPhrase(tricksTaken)}`}
+        aria-label={`Взято ${tricksPhrase(tricksTaken)}, заказ ${tricksPhrase(bid)}`}
       >
         <div
           style={{
@@ -4219,6 +4375,7 @@ function TrickSlotsDisplay({
               audience="opponent"
               fontSize={overlayFontPc}
               style={{ lineHeight: 1 }}
+              tricksLeftInDeal={tricksLeftInDeal}
             />
           </span>
           <div
@@ -4282,12 +4439,25 @@ function TrickSlotsDisplay({
   return (
     <div
       style={wrapStyle}
-      className={hideCards ? 'trick-slots-collecting' : 'trick-slots-normal'}
+      className={[
+        hideCards ? 'trick-slots-collecting' : 'trick-slots-normal',
+        pcTrickPanelExactOrder ? 'trick-slots-pc-exact' : '',
+        pcTrickPanelOverOrder ? 'trick-slots-pc-over' : '',
+        pcTrickPanelUnderOrderStrict ? 'trick-slots-pc-under' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       role="status"
-      aria-label={`Ваш заказ ${tricksPhrase(bid)}, взято ${tricksPhrase(tricksTaken)}`}
+      aria-label={`Взято ${tricksPhrase(tricksTaken)}, заказ ${tricksPhrase(bid)}`}
     >
       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'nowrap' }}>
-        <PcTrickBidTakenFigures bid={bid} tricksTaken={tricksTaken} audience="player" fontSize={playerPcFiguresFont} />
+        <PcTrickBidTakenFigures
+          bid={bid}
+          tricksTaken={tricksTaken}
+          audience="player"
+          fontSize={playerPcFiguresFont}
+          tricksLeftInDeal={tricksLeftInDeal}
+        />
         <div style={rowStyle}>
           {Array.from({ length: orderedSlots }, (_, i) => {
             const filled = i < totalFilled;
@@ -4592,6 +4762,7 @@ function OpponentSlot({
               opponentMobileHideOrderLabel={!!isMobile}
               opponentMobileZeroOrderCross={!!isMobile}
               opponentOrderHintSlot={position === 'top' ? 'north' : position === 'left' ? 'west' : 'east'}
+              tricksLeftInDeal={tricksRemainingInDeal(state)}
             />
             {!pcNorthSideBySide && (
               <div
@@ -6457,15 +6628,40 @@ const trickCirclesPlusStyle: React.CSSProperties = {
   marginLeft: 2,
 };
 
-const trickSlotsWrapSuccessStyle: React.CSSProperties = {
-  border: '1px solid rgba(34, 197, 94, 0.6)',
-  background: 'linear-gradient(180deg, rgba(34, 197, 94, 0.15) 0%, rgba(22, 163, 74, 0.08) 50%, rgba(30, 41, 59, 0.85) 100%)',
-  boxShadow: '0 0 0 1px rgba(34, 197, 94, 0.2)',
+/** ПК: панель взяток — сиренево-голубая при точном попадании (игрок и оппонент) */
+const trickSlotsWrapPcExactOrderStyle: React.CSSProperties = {
+  border: '1px solid rgba(196, 181, 253, 0.88)',
+  background:
+    'linear-gradient(180deg, rgba(196, 181, 253, 0.26) 0%, rgba(125, 211, 252, 0.16) 42%, rgba(99, 102, 241, 0.14) 100%)',
+  boxShadow: [
+    '0 0 0 1px rgba(139, 92, 246, 0.45)',
+    '0 0 14px rgba(125, 211, 252, 0.38)',
+    '0 0 28px rgba(167, 139, 250, 0.15)',
+    'inset 0 0 16px rgba(186, 230, 253, 0.2)',
+  ].join(', '),
 };
 
-const trickSlotsWrapPendingStyle: React.CSSProperties = {
-  border: '1px solid rgba(239, 68, 68, 0.4)',
-  boxShadow: '0 0 0 1px rgba(239, 68, 68, 0.12)',
+/** ПК: перебор — тусклый болотно-жёлтый (без минуса в зачёте) */
+const trickSlotsWrapPcOverBidStyle: React.CSSProperties = {
+  border: '1px solid rgba(130, 135, 78, 0.48)',
+  background:
+    'linear-gradient(180deg, rgba(115, 118, 72, 0.14) 0%, rgba(95, 98, 58, 0.11) 45%, rgba(48, 52, 38, 0.2) 100%)',
+  boxShadow: [
+    '0 0 0 1px rgba(110, 115, 68, 0.26)',
+    '0 0 10px rgba(140, 145, 85, 0.12)',
+    'inset 0 0 14px rgba(100, 105, 65, 0.09)',
+  ].join(', '),
+};
+
+/** ПК: недобор — тусклый «штрафной» красный (минус по очкам), слабее старого pending */
+const trickSlotsWrapPcUnderBidStyle: React.CSSProperties = {
+  border: '1px solid rgba(190, 80, 88, 0.38)',
+  background:
+    'linear-gradient(180deg, rgba(160, 55, 65, 0.1) 0%, rgba(110, 45, 52, 0.09) 48%, rgba(30, 41, 59, 0.9) 100%)',
+  boxShadow: [
+    '0 0 0 1px rgba(165, 65, 75, 0.18)',
+    'inset 0 0 12px rgba(130, 50, 58, 0.07)',
+  ].join(', '),
 };
 
 const trickSlotsLabelStyle: React.CSSProperties = {

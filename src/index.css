@@ -197,28 +197,49 @@
   }
   .game-table-root .game-info-row .game-info-left-col {
     margin-left: 76px !important;
-    margin-top: 22px !important;
+    /* Ниже верхнего края окна: раньше 22px + scale(1.2) визуально задирали блок */
+    margin-top: 42px !important;
     gap: 0 !important;
-    align-items: stretch !important;
+    box-sizing: border-box !important;
+    padding-left: 12px !important;
     transform: scale(1.2);
     transform-origin: top left;
+    /* По умолчанию (игра, один бейдж) — ширина по содержимому */
+    align-items: flex-start !important;
+    width: fit-content !important;
+    max-width: min(280px, 100%) !important;
+  }
+  /* Торги: есть «Первый ход» — общая ширина 280px, стык двух бейджей */
+  .game-table-root .game-info-row .game-info-left-col:has(.first-move-badge-above-block) {
+    align-items: stretch !important;
+    width: min(280px, 100%) !important;
+    max-width: 280px !important;
   }
   .game-table-root .game-info-row .game-info-left-col .first-move-badge-above-block {
     margin-top: 8px !important;
     margin-bottom: 0 !important;
-    margin-left: 12px !important;
+    margin-left: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    justify-content: center !important;
     border-radius: 8px 8px 0 0 !important;
   }
   .game-table-root .game-info-row .game-info-left-col .game-info-left-section {
     margin-top: 0 !important;
-    margin-left: 12px !important;
-    width: 100% !important;
-    max-width: 280px !important;
+    margin-left: 0 !important;
     box-sizing: border-box !important;
-    border-radius: 0 0 10px 10px !important;
     overflow: visible !important;
     padding: 8px 12px !important;
     gap: 6px !important;
+    /* Один бейдж — скругление со всех сторон и ширина по контенту */
+    width: fit-content !important;
+    max-width: min(280px, 100%) !important;
+    border-radius: 10px !important;
+  }
+  .game-table-root .game-info-row .game-info-left-col:has(.first-move-badge-above-block) .game-info-left-section {
+    width: 100% !important;
+    max-width: 280px !important;
+    border-radius: 0 0 10px 10px !important;
   }
   .game-table-root .game-info-row .game-info-left-col .game-info-left-section > div {
     transform: none;
@@ -1856,6 +1877,24 @@
   align-items: center !important;
   gap: 6px !important;
   padding: 3px 8px !important;
+}
+
+/* ПК: панель взяток (игрок и оппонент) — точное попадание: сиренево-голубой контур */
+.game-table-root:not(.viewport-mobile) .trick-slots-normal.trick-slots-pc-exact:not(.trick-slots-collecting) {
+  outline: 1px solid rgba(186, 230, 253, 0.62) !important;
+  outline-offset: 2px !important;
+}
+
+/* ПК: перебор — тусклый болотно-жёлтый контур */
+.game-table-root:not(.viewport-mobile) .trick-slots-normal.trick-slots-pc-over:not(.trick-slots-collecting) {
+  outline: 1px solid rgba(140, 145, 88, 0.42) !important;
+  outline-offset: 2px !important;
+}
+
+/* ПК: недобор — приглушённый красный контур (минус по очкам) */
+.game-table-root:not(.viewport-mobile) .trick-slots-normal.trick-slots-pc-under:not(.trick-slots-collecting) {
+  outline: 1px solid rgba(190, 80, 88, 0.42) !important;
+  outline-offset: 2px !important;
 }
 
 /* ПК: оппонент «Север» — слева колонка «аватар + плашка очков», справа имя и «Ходит» */
