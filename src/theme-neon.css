@@ -46,6 +46,19 @@
   box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.55), inset 0 0 40px rgba(180, 220, 255, 0.12), inset 0 0 0 2px rgba(59, 130, 246, 0.55), inset 0 0 28px rgba(99, 102, 241, 0.5), 0 0 0 3px rgba(139, 92, 246, 0.6), 0 0 28px rgba(99, 102, 241, 0.4) !important;
 }
 
+/* Панель Юга в ваш ход — заметнее кольцо и глубина (к внутреннему ::before из index.css) */
+.theme-neon .game-table-root.viewport-mobile.trump-highlight-on .game-mobile-player-panel:has(.player-info-panel-your-turn) {
+  border: 2px solid rgba(125, 211, 252, 0.92) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 211, 238, 0.65),
+    inset 0 0 48px rgba(180, 230, 255, 0.18),
+    inset 0 0 0 2px rgba(96, 165, 250, 0.7),
+    inset 0 0 36px rgba(139, 92, 246, 0.42),
+    0 0 0 3px rgba(167, 139, 250, 0.72),
+    0 0 36px rgba(129, 140, 248, 0.48),
+    0 0 56px rgba(99, 102, 241, 0.32) !important;
+}
+
 /* Имена оппонентов и игрока — сплошной цвет */
 .theme-neon .game-table-root.viewport-mobile .opponent-slot-header .player-panel-name,
 .theme-neon .game-table-root.viewport-mobile .opponent-slot-header > span:not([class]),

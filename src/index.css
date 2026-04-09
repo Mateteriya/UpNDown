@@ -489,6 +489,67 @@
     width: 100% !important;
     flex-shrink: 0 !important;
   }
+  /* Мобильная зона карт в ваш ход: то же усиленное cyan/violet свечение, что на ПК (playerHandYourTurnGlowPc) */
+  .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn {
+    animation: playerHandYourTurnGlowPc 1.8s ease-in-out infinite;
+  }
+  /* Ряд карт: по ширине только карты, по центру; без тяжёлого ::after-блика (blend + градиент давали лаги и артефакты за пределами руки). */
+  .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn > div {
+    position: relative;
+    width: fit-content !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    overflow: visible !important;
+  }
+  /*
+   * Волна по картам: задержка через --hand-wave-index (GameTable). Только transform + opacity (::after) — без mix-blend и без анимации box-shadow.
+   */
+  .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn > div > div {
+    transform-origin: center bottom;
+    overflow: visible !important;
+    animation: mobileHandCardWaveLift 1.8s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+    animation-delay: calc(3s + (var(--hand-wave-index, 1) - 1) * 55ms);
+  }
+  /*
+   * Блик: ::after должен быть НАД кнопкой (иначе непрозрачный фон CardView полностью скрывает градиент).
+   * Не трогаем z-index у button — внутренние слои карты (картинка, z-index 5+) остаются как в CardView.
+   */
+  .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn > div > div::after {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    z-index: 4;
+    pointer-events: none;
+    border-radius: 6px;
+    /* Блик на всю высоту карты; soft-light только на этом слое */
+    background: linear-gradient(
+      to top,
+      rgba(196, 181, 253, 0.72) 0%,
+      rgba(255, 255, 255, 0.55) 22%,
+      rgba(186, 230, 253, 0.5) 48%,
+      rgba(56, 189, 248, 0.28) 74%,
+      rgba(196, 181, 253, 0.12) 100%
+    );
+    mix-blend-mode: soft-light;
+    opacity: 0;
+    will-change: opacity;
+    animation: mobileHandCardWaveGloss 1.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    animation-delay: calc(3s + (var(--hand-wave-index, 1) - 1) * 55ms);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn {
+      animation: none !important;
+    }
+    .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn > div > div {
+      animation: none !important;
+      transform: none !important;
+    }
+    .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn > div > div::after {
+      animation: none !important;
+      opacity: 0 !important;
+    }
+  }
 
   /* Шапка и бейджи сверху — одна линия по верхней границе */
   .game-table-root.viewport-mobile .game-header {
@@ -1274,6 +1335,27 @@
   /* Чтобы неоновое свечение панели не обрезалось, при «ваш ход» разрешаем overflow */
   .game-table-root.viewport-mobile .game-mobile-player-panel:has(.player-info-panel-your-turn) {
     overflow: visible !important;
+  }
+  /* Внутреннее сиреневое свечение панели пользователя при вашем ходе — как на ПК; только при вкл. «доп. подсветке» */
+  .game-table-root.trump-highlight-on.viewport-mobile .user-player-panel.player-info-panel-your-turn {
+    overflow: visible;
+  }
+  .game-table-root.trump-highlight-on.viewport-mobile .user-player-panel.player-info-panel-your-turn::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 11px;
+    pointer-events: none;
+    z-index: 0;
+    box-shadow:
+      inset 0 0 18px rgba(221, 214, 254, 0.48),
+      inset 0 0 34px rgba(167, 139, 250, 0.38),
+      inset 0 0 52px rgba(139, 92, 246, 0.26),
+      inset 0 0 72px rgba(91, 33, 182, 0.14);
+  }
+  .game-table-root.trump-highlight-on.viewport-mobile .user-player-panel.player-info-panel-your-turn > * {
+    position: relative;
+    z-index: 1;
   }
   .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info {
     padding: 3px 6px !important;
@@ -2207,6 +2289,132 @@ body {
 .player-hand-your-turn {
   animation: playerHandYourTurnGlow 1.8s ease-in-out infinite;
 }
+
+/* ПК (≥1025px): внешнее неоновое свечение контейнера карт в ход пользователя (слот 0) */
+@keyframes playerHandYourTurnGlowPc {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.55),
+      0 0 0 3px rgba(139, 92, 246, 0.38),
+      0 0 22px rgba(34, 211, 238, 0.48),
+      0 0 44px rgba(34, 211, 238, 0.3),
+      0 0 76px rgba(167, 139, 250, 0.24),
+      0 0 104px rgba(99, 102, 241, 0.14),
+      0 6px 24px rgba(0, 0, 0, 0.35),
+      inset 0 2px 4px rgba(255, 255, 255, 0.1),
+      inset 0 -2px 6px rgba(0, 0, 0, 0.18);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(34, 211, 238, 0.75),
+      0 0 0 5px rgba(192, 132, 252, 0.48),
+      0 0 34px rgba(34, 211, 238, 0.58),
+      0 0 58px rgba(34, 211, 238, 0.36),
+      0 0 92px rgba(192, 132, 252, 0.32),
+      0 0 128px rgba(99, 102, 241, 0.2),
+      0 6px 24px rgba(0, 0, 0, 0.35),
+      inset 0 2px 4px rgba(255, 255, 255, 0.1),
+      inset 0 -2px 6px rgba(0, 0, 0, 0.18);
+  }
+}
+
+/* Мобильная рука: волна подъёма (только transform) */
+@keyframes mobileHandCardWaveLift {
+  0%,
+  100% {
+    transform: scale(1) translateY(0);
+  }
+  45% {
+    transform: scale(1.04) translateY(-2px);
+  }
+}
+
+/* Блик: заметная вспышка в фазу подъёма волны, чуть шире по времени */
+@keyframes mobileHandCardWaveGloss {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  32% {
+    opacity: 0;
+  }
+  42% {
+    opacity: 0.95;
+  }
+  50% {
+    opacity: 1;
+  }
+  58% {
+    opacity: 0.88;
+  }
+  68% {
+    opacity: 0;
+  }
+}
+
+@media (min-width: 1025px) {
+  .game-table-root:not(.viewport-mobile) .player-hand-your-turn {
+    animation-name: playerHandYourTurnGlowPc;
+    animation-duration: 1.8s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  /* Внутреннее сиренево-фиолетовое свечение + гирлянда панели пользователя — только при вкл. «доп. подсветке» (.trump-highlight-on на корне) */
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn {
+    overflow: visible;
+  }
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: 10px;
+    pointer-events: none;
+    z-index: 0;
+    box-shadow:
+      inset 0 0 20px rgba(221, 214, 254, 0.5),
+      inset 0 0 38px rgba(167, 139, 250, 0.42),
+      inset 0 0 58px rgba(139, 92, 246, 0.3),
+      inset 0 0 82px rgba(91, 33, 182, 0.16);
+  }
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Средняя рамка + бегущие «огоньки» по контуру (~18 с на полный круг), без вращения блока */
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+    box-sizing: border-box;
+    /* Без filter на штрихах; движение — rAF в GameTable (без шва CSS infinite на dashoffset) */
+    isolation: isolate;
+  }
+  /* Иначе при preserveAspectRatio="none" толщина обводки неравномерно масштабируется — на боках «огоньки» выглядят как горизонтальные полоски */
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland .user-panel-garland-track,
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland .user-panel-garland-dash {
+    vector-effect: non-scaling-stroke;
+  }
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland .user-panel-garland-track {
+    stroke-width: 1.25px;
+  }
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland-dash {
+    stroke-width: 2.25px;
+  }
+  /* Не используем drop-shadow: на анимируемых SVG-обводках он даёт тяжёлый per-frame filter — ощущение лагов */
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland-dash--cyan {
+    stroke: #5aebff;
+  }
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland-dash--violet {
+    stroke: #d59aff;
+  }
+}
+
 /* Overlay анимации между раздачами: блоки Запад/Восток/Север/Юг */
 .deal-results-overlay-animation .deal-results-panel-west {
   left: 8%;

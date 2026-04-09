@@ -47,6 +47,114 @@ function getCompassLabel(idx: number): 'Юг' | 'Север' | 'Запад' | '�
   }
 }
 
+const USER_PANEL_GARLAND_DURATION_MS = 18000;
+const USER_PANEL_GARLAND_PATH_UNITS = 100;
+/** Половина периода штриха (2.3 + 7.7), чередование голубой / сиреневый */
+const USER_PANEL_GARLAND_VIOLET_PHASE = 5;
+
+/** ПК: гирлянда — offset через rAF без сброса по циклу (у CSS infinite на stroke-dashoffset иногда заметен шов). */
+function UserPanelGarlandOverlay() {
+  const cyanGarlandRef = useRef<SVGRectElement | null>(null);
+  const violetGarlandRef = useRef<SVGRectElement | null>(null);
+
+  useEffect(() => {
+    let raf = 0;
+    let alive = true;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    const applyReduced = () => {
+      cyanGarlandRef.current?.style.setProperty('stroke-dashoffset', '0');
+      violetGarlandRef.current?.style.setProperty('stroke-dashoffset', String(USER_PANEL_GARLAND_VIOLET_PHASE));
+    };
+
+    const tick = () => {
+      if (!alive) return;
+      if (mq.matches) {
+        applyReduced();
+        return;
+      }
+      const travel = (performance.now() / USER_PANEL_GARLAND_DURATION_MS) * USER_PANEL_GARLAND_PATH_UNITS;
+      cyanGarlandRef.current?.style.setProperty('stroke-dashoffset', String(-travel));
+      violetGarlandRef.current?.style.setProperty('stroke-dashoffset', String(-travel + USER_PANEL_GARLAND_VIOLET_PHASE));
+      raf = requestAnimationFrame(tick);
+    };
+
+    const onReducedChange = () => {
+      cancelAnimationFrame(raf);
+      if (mq.matches) {
+        applyReduced();
+      } else {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+
+    if (mq.matches) {
+      applyReduced();
+    } else {
+      raf = requestAnimationFrame(tick);
+    }
+    mq.addEventListener('change', onReducedChange);
+
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf);
+      mq.removeEventListener('change', onReducedChange);
+    };
+  }, []);
+
+  return (
+    <svg className="user-panel-garland" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden focusable="false">
+      {/* Геометрия: по бокам путь шире (меньше x / больше width), сверху/снизу как раньше */}
+      <rect
+        className="user-panel-garland-track"
+        vectorEffect="nonScalingStroke"
+        x="0.65"
+        y="2.25"
+        width="98.7"
+        height="95.5"
+        rx="11.5"
+        ry="11.5"
+        fill="none"
+        stroke="rgba(100, 170, 255, 0.34)"
+      />
+      <rect
+        ref={cyanGarlandRef}
+        className="user-panel-garland-dash user-panel-garland-dash--cyan"
+        vectorEffect="nonScalingStroke"
+        x="0.65"
+        y="2.25"
+        width="98.7"
+        height="95.5"
+        rx="11.5"
+        ry="11.5"
+        fill="none"
+        strokeLinecap="butt"
+        strokeLinejoin="round"
+        pathLength={100}
+        strokeDasharray="2.3 7.7"
+        strokeDashoffset={0}
+      />
+      <rect
+        ref={violetGarlandRef}
+        className="user-panel-garland-dash user-panel-garland-dash--violet"
+        vectorEffect="nonScalingStroke"
+        x="0.65"
+        y="2.25"
+        width="98.7"
+        height="95.5"
+        rx="11.5"
+        ry="11.5"
+        fill="none"
+        strokeLinecap="butt"
+        strokeLinejoin="round"
+        pathLength={100}
+        strokeDasharray="2.3 7.7"
+        strokeDashoffset={USER_PANEL_GARLAND_VIOLET_PHASE}
+      />
+    </svg>
+  );
+}
+
 /** Лидер по очкам в партии при max > min; при полном равенстве счёта — без подсветки. */
 function isPartyScoreLeader(state: GameState, playerIndex: number): boolean {
   if (state.players.length < 2) return false;
@@ -453,6 +561,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [showLastTrickModal, setShowLastTrickModal] = useState(false);
   const [bidPanelVisible, setBidPanelVisible] = useState(false);
   const [trumpHighlightOn, setTrumpHighlightOn] = useState(true);
+  /** ПК: гирлянда на панели пользователя — только через ~3.5 с после начала хода (неон панели без задержки, см. CSS). */
+  const [userTurnGarlandReady, setUserTurnGarlandReady] = useState(false);
   const [lastTrickCollectingPhase, setLastTrickCollectingPhase] = useState<'idle' | 'slots' | 'winner' | 'collapsing' | 'button'>('idle');
   const [showDealResultsButton, setShowDealResultsButton] = useState(false);
   const [dealResultsExpanded, setDealResultsExpanded] = useState(false);
@@ -615,6 +725,21 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const humanIdx = isOnline || isWaitingInRoom ? 0 : 0;
   const isHumanTurn = state?.phase === 'playing' && state.currentPlayerIndex === humanIdx;
   const isHumanBidding = (state?.phase === 'bidding' || state?.phase === 'dark-bidding') && state.currentPlayerIndex === humanIdx;
+
+  const isUserActiveTurnForGarland =
+    !isMobileOrTablet &&
+    !!state &&
+    trumpHighlightOn &&
+    state.currentPlayerIndex === humanIdx;
+  useEffect(() => {
+    if (!isUserActiveTurnForGarland) {
+      setUserTurnGarlandReady(false);
+      return;
+    }
+    setUserTurnGarlandReady(false);
+    const id = window.setTimeout(() => setUserTurnGarlandReady(true), 3500);
+    return () => window.clearTimeout(id);
+  }, [isUserActiveTurnForGarland]);
 
   const dealJustCompleted = !!state?.lastCompletedTrick && state.players.every(p => p.hand.length === 0);
   const shouldShowBidPanel = isHumanBidding && !dealJustCompleted && state?.phase !== 'deal-complete';
@@ -2132,8 +2257,24 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 const handLen = state.players[humanIdx].hand.length;
                 const overlap = handLen >= 9 ? 5 : handLen >= 7 ? 3 : handLen >= 6 ? 2 : 0;
                 const isValidPlay = state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && validPlays.some(c => c.suit === card.suit && c.rank === card.rank);
+                const handCardZ =
+                  isMobile && state.currentPlayerIndex === humanIdx ? (isValidPlay ? 3 : 2) : isValidPlay ? 1 : 0;
                 return (
-                <div key={`${card.suit}-${card.rank}-${i}`} style={{ marginRight: overlap ? -overlap : 0, flexShrink: 0, overflow: 'hidden', borderRadius: 6, position: 'relative', zIndex: isValidPlay ? 1 : 0, padding: 2 }}>
+                <div
+                  key={`${card.suit}-${card.rank}-${i}`}
+                  style={{
+                    marginRight: overlap ? -overlap : 0,
+                    flexShrink: 0,
+                    overflow: 'hidden',
+                    borderRadius: 6,
+                    position: 'relative',
+                    zIndex: handCardZ,
+                    padding: 2,
+                    ...(isMobile && state.currentPlayerIndex === humanIdx
+                      ? ({ '--hand-wave-index': i + 1 } as CSSProperties)
+                      : {}),
+                  }}
+                >
                 <CardView
                   card={card}
                   scale={0.72}
@@ -2522,6 +2663,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             return { boxShadow: [baseShadow, firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', ') };
           })() : {}),
         }}>
+          {!isMobileOrTablet && state.currentPlayerIndex === humanIdx && trumpHighlightOn && userTurnGarlandReady ? (
+            <UserPanelGarlandOverlay />
+          ) : null}
           {(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx && (
             <span style={firstBidderLampExternalStyle} title="Первый заказ/ход">
               <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
