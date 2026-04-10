@@ -48,58 +48,88 @@ function getCompassLabel(idx: number): 'Юг' | 'Север' | 'Запад' | '�
 }
 
 const USER_PANEL_GARLAND_DURATION_MS = 18000;
+/** Мобильная рамка карт — медленнее базовой (меньше «скорость» огоньков) */
+const USER_PANEL_GARLAND_HAND_DURATION_MS = 36000;
+/** ПК: гирлянда после задержки; мобильная панель — дольше, только фаза взяток и пока ход не сделан */
+const USER_PANEL_GARLAND_DELAY_PC_MS = 3500;
+const USER_PANEL_GARLAND_DELAY_MOBILE_MS = 9000;
 const USER_PANEL_GARLAND_PATH_UNITS = 100;
 /** Половина периода штриха (2.3 + 7.7), чередование голубой / сиреневый */
 const USER_PANEL_GARLAND_VIOLET_PHASE = 5;
 
-/** ПК: гирлянда — offset через rAF без сброса по циклу (у CSS infinite на stroke-dashoffset иногда заметен шов). */
-function UserPanelGarlandOverlay() {
+type GarlandTickSubscriber = {
+  getCyan: () => SVGRectElement | null;
+  getViolet: () => SVGRectElement | null;
+  getDurationMs: () => number;
+};
+
+const garlandSubscribers = new Map<number, GarlandTickSubscriber>();
+let garlandSubscriberId = 1;
+let garlandSharedRaf = 0;
+let garlandReducedMotionMq: MediaQueryList | null = null;
+
+function garlandSharedTick() {
+  garlandSharedRaf = 0;
+  if (garlandSubscribers.size === 0) return;
+
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    garlandSharedRaf = requestAnimationFrame(garlandSharedTick);
+    return;
+  }
+
+  const reduced = typeof window !== 'undefined' && (garlandReducedMotionMq?.matches ?? false);
+  if (reduced) {
+    for (const sub of garlandSubscribers.values()) {
+      sub.getCyan()?.style.setProperty('stroke-dashoffset', '0');
+      sub.getViolet()?.style.setProperty('stroke-dashoffset', String(USER_PANEL_GARLAND_VIOLET_PHASE));
+    }
+  } else {
+    const now = performance.now();
+    for (const sub of garlandSubscribers.values()) {
+      const d = Math.max(4000, sub.getDurationMs());
+      const travel = (now / d) * USER_PANEL_GARLAND_PATH_UNITS;
+      sub.getCyan()?.style.setProperty('stroke-dashoffset', String(-travel));
+      sub.getViolet()?.style.setProperty('stroke-dashoffset', String(-travel + USER_PANEL_GARLAND_VIOLET_PHASE));
+    }
+  }
+
+  garlandSharedRaf = requestAnimationFrame(garlandSharedTick);
+}
+
+function garlandSubscribe(sub: GarlandTickSubscriber): number {
+  if (typeof window !== 'undefined' && !garlandReducedMotionMq) {
+    garlandReducedMotionMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  }
+  const id = garlandSubscriberId++;
+  garlandSubscribers.set(id, sub);
+  if (garlandSharedRaf === 0) {
+    garlandSharedRaf = requestAnimationFrame(garlandSharedTick);
+  }
+  return id;
+}
+
+function garlandUnsubscribe(id: number) {
+  garlandSubscribers.delete(id);
+  if (garlandSubscribers.size === 0 && garlandSharedRaf !== 0) {
+    cancelAnimationFrame(garlandSharedRaf);
+    garlandSharedRaf = 0;
+  }
+}
+
+/** Гирлянда по контуру — один общий rAF на все экземпляры; durationMs для разной скорости (рука медленнее). */
+function UserPanelGarlandOverlay({ durationMs = USER_PANEL_GARLAND_DURATION_MS }: { durationMs?: number } = {}) {
   const cyanGarlandRef = useRef<SVGRectElement | null>(null);
   const violetGarlandRef = useRef<SVGRectElement | null>(null);
+  const durationRef = useRef(durationMs);
+  durationRef.current = durationMs;
 
   useEffect(() => {
-    let raf = 0;
-    let alive = true;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-    const applyReduced = () => {
-      cyanGarlandRef.current?.style.setProperty('stroke-dashoffset', '0');
-      violetGarlandRef.current?.style.setProperty('stroke-dashoffset', String(USER_PANEL_GARLAND_VIOLET_PHASE));
-    };
-
-    const tick = () => {
-      if (!alive) return;
-      if (mq.matches) {
-        applyReduced();
-        return;
-      }
-      const travel = (performance.now() / USER_PANEL_GARLAND_DURATION_MS) * USER_PANEL_GARLAND_PATH_UNITS;
-      cyanGarlandRef.current?.style.setProperty('stroke-dashoffset', String(-travel));
-      violetGarlandRef.current?.style.setProperty('stroke-dashoffset', String(-travel + USER_PANEL_GARLAND_VIOLET_PHASE));
-      raf = requestAnimationFrame(tick);
-    };
-
-    const onReducedChange = () => {
-      cancelAnimationFrame(raf);
-      if (mq.matches) {
-        applyReduced();
-      } else {
-        raf = requestAnimationFrame(tick);
-      }
-    };
-
-    if (mq.matches) {
-      applyReduced();
-    } else {
-      raf = requestAnimationFrame(tick);
-    }
-    mq.addEventListener('change', onReducedChange);
-
-    return () => {
-      alive = false;
-      cancelAnimationFrame(raf);
-      mq.removeEventListener('change', onReducedChange);
-    };
+    const id = garlandSubscribe({
+      getCyan: () => cyanGarlandRef.current,
+      getViolet: () => violetGarlandRef.current,
+      getDurationMs: () => durationRef.current,
+    });
+    return () => garlandUnsubscribe(id);
   }, []);
 
   return (
@@ -299,6 +329,12 @@ const trumpHighlightBtnStyle: CSSProperties = {
   boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.2), 0 0 8px rgba(34, 211, 238, 0.15)',
   transition: 'box-shadow 0.2s, border-color 0.2s, color 0.2s',
 };
+
+/** Градиент кольца аватара оппонента: заказ на руке выполнен ровно (кольцо без пульса) */
+const AVATAR_ORDER_RING_GRADIENT_EXACT =
+  'linear-gradient(145deg, #f5e6ff 0%, #d8b4fe 22%, #a78bfa 45%, #818cf8 68%, #38bdf8 100%)';
+
+/** «Нападающий» — tie-dye в CSS: .opponent-avatar-order-ring--chasing (фон + вращающийся ::after) */
 
 function useIsMobileOrTablet() {
   /* Слоты взятки: при ≤1024px — сетка 2×2 (мобильные/планшеты), при >1024px — ПК: карты по сторонам стола */
@@ -561,8 +597,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [showLastTrickModal, setShowLastTrickModal] = useState(false);
   const [bidPanelVisible, setBidPanelVisible] = useState(false);
   const [trumpHighlightOn, setTrumpHighlightOn] = useState(true);
-  /** ПК: гирлянда на панели пользователя — только через ~3.5 с после начала хода (неон панели без задержки, см. CSS). */
+  /** ПК: гирлянда — через USER_PANEL_GARLAND_DELAY_PC_MS после начала хода (неон панели без задержки, см. CSS). */
   const [userTurnGarlandReady, setUserTurnGarlandReady] = useState(false);
+  /** Мобильная панель юга: та же гирлянда, через USER_PANEL_GARLAND_DELAY_MOBILE_MS, только playing и пока нет pendingTrickCompletion. */
+  const [userTurnGarlandReadyMobile, setUserTurnGarlandReadyMobile] = useState(false);
   const [lastTrickCollectingPhase, setLastTrickCollectingPhase] = useState<'idle' | 'slots' | 'winner' | 'collapsing' | 'button'>('idle');
   const [showDealResultsButton, setShowDealResultsButton] = useState(false);
   const [dealResultsExpanded, setDealResultsExpanded] = useState(false);
@@ -737,9 +775,26 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       return;
     }
     setUserTurnGarlandReady(false);
-    const id = window.setTimeout(() => setUserTurnGarlandReady(true), 3500);
+    const id = window.setTimeout(() => setUserTurnGarlandReady(true), USER_PANEL_GARLAND_DELAY_PC_MS);
     return () => window.clearTimeout(id);
   }, [isUserActiveTurnForGarland]);
+
+  const isUserActiveTurnForGarlandMobile =
+    isMobile &&
+    !!state &&
+    trumpHighlightOn &&
+    state.phase === 'playing' &&
+    state.currentPlayerIndex === humanIdx &&
+    !state.pendingTrickCompletion;
+  useEffect(() => {
+    if (!isUserActiveTurnForGarlandMobile) {
+      setUserTurnGarlandReadyMobile(false);
+      return;
+    }
+    setUserTurnGarlandReadyMobile(false);
+    const id = window.setTimeout(() => setUserTurnGarlandReadyMobile(true), USER_PANEL_GARLAND_DELAY_MOBILE_MS);
+    return () => window.clearTimeout(id);
+  }, [isUserActiveTurnForGarlandMobile]);
 
   const dealJustCompleted = !!state?.lastCompletedTrick && state.players.every(p => p.hand.length === 0);
   const shouldShowBidPanel = isHumanBidding && !dealJustCompleted && state?.phase !== 'deal-complete';
@@ -1127,10 +1182,107 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     isMobile && (displayState.phase === 'bidding' || displayState.phase === 'dark-bidding')
       ? ' game-phase-bidding'
       : '';
+  /** Бескозырка (раздачи 21–24): цветовая тема в CSS (.deal-type-no-trump) — мобильная и ПК */
+  const dealTypeNoTrump = getDealType(displayState.dealNumber) === 'no-trump';
+
+  /**
+   * Аватар пользователя с кольцом заказа — как у OpponentSlot: span с градиентом СНАРУЖИ, внутри button → аватар.
+   * Если кольцо вложить в button, браузер часто обрезает padding/фон («кольца не видно»).
+   */
+  const renderUserPlayerAvatar = (avatarSizePx: number) => {
+    const collectingHumanPanel =
+      dealJustCompleted &&
+      (lastTrickCollectingPhase === 'slots' ||
+        lastTrickCollectingPhase === 'winner' ||
+        lastTrickCollectingPhase === 'collapsing');
+    /* Как TrickSlotsDisplay / OpponentSlot: state — числа из снапшота; Number() — на случай строк из JSON */
+    const hbRaw = state.bids[humanIdx] ?? state.players[humanIdx].bid;
+    const bidN = hbRaw == null || Number.isNaN(Number(hbRaw)) ? null : Number(hbRaw);
+    const p = state.players[humanIdx];
+    const tricksTakenNum = Number(p.tricksTaken);
+    const tt = Number.isFinite(tricksTakenNum) ? tricksTakenNum : 0;
+    const orderRingExact = bidN !== null && !collectingHumanPanel && tt === bidN;
+    const orderRingChasing =
+      (state.phase === 'playing' || state.phase === 'trick-complete') &&
+      bidN !== null &&
+      !collectingHumanPanel &&
+      tt < bidN;
+    const orderRingMode: 'exact' | 'chasing' | null = orderRingExact
+      ? 'exact'
+      : orderRingChasing
+        ? 'chasing'
+        : null;
+    const innerCls = orderRingMode ? 'player-avatar-order-ring-inner' : undefined;
+    const avatarBtnStyle: CSSProperties = {
+      background: 'none',
+      border: 'none',
+      padding: 0,
+      cursor: 'pointer',
+      display: 'inline-flex',
+      lineHeight: 0,
+    };
+    const title = online.roomId ? 'Меню (пауза, информация)' : 'Информация об игроке';
+    const ariaLabel = online.roomId ? `Меню ${p.name}` : `Информация об игроке ${p.name}`;
+    const face = (
+      <PlayerAvatar
+        name={displayState.players[humanIdx].name}
+        avatarDataUrl={playerAvatarDataUrl}
+        sizePx={avatarSizePx}
+        className={innerCls}
+      />
+    );
+    const avatarRootCls = 'user-player-avatar-root';
+    const avatarButton = (
+      <button
+        type="button"
+        className={avatarRootCls}
+        onClick={() => (online.roomId ? setShowAvatarMenu(true) : setSelectedPlayerForInfo(0))}
+        style={avatarBtnStyle}
+        title={title}
+        aria-label={ariaLabel}
+      >
+        {face}
+      </button>
+    );
+    if (!orderRingMode) return avatarButton;
+    const ringPaddingNarrow = isMobile;
+    const wrapStyle: CSSProperties = {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: '50%',
+      /* Толщина ободка (padding ×2 от базы): заметный градиент на мобильном */
+      padding:
+        orderRingMode === 'exact'
+          ? ringPaddingNarrow
+            ? 5
+            : 2
+          : ringPaddingNarrow
+            ? 4
+            : 4,
+      boxSizing: 'border-box',
+      lineHeight: 0,
+      ...(orderRingMode === 'exact' ? { background: AVATAR_ORDER_RING_GRADIENT_EXACT } : {}),
+      position: 'relative',
+      zIndex: 2,
+    };
+    const wrapCls =
+      orderRingMode === 'exact'
+        ? 'opponent-avatar-order-ring opponent-avatar-order-ring--exact'
+        : 'opponent-avatar-order-ring opponent-avatar-order-ring--chasing';
+    /* Масштаб 1.2 снаружи: пульс chasing крутит transform на внутреннем span — не смешиваем с scale */
+    return (
+      <span className="user-player-avatar-order-scale-wrap user-player-avatar-root">
+        <span className={wrapCls} style={wrapStyle}>
+          {avatarButton}
+        </span>
+      </span>
+    );
+  };
 
   /* Мобильная вёрстка (viewport-mobile при width ≤600px): рука внизу, слоты взятки в сетке 2×2, козырь на колоде; стили в index.css @media (max-width: 1024px) .game-table-root.viewport-mobile */
   return (
-    <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}`} style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}>
+    <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}`} style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}>
       {isOnline && online.userOnPause && (
         <div
           role="dialog"
@@ -2305,6 +2457,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 </div>
               );})}
           </div>
+          {trumpHighlightOn && userTurnGarlandReadyMobile && isUserActiveTurnForGarlandMobile ? (
+            <UserPanelGarlandOverlay durationMs={USER_PANEL_GARLAND_HAND_DURATION_MS} />
+          ) : null}
         </div>
       </div>
       </div>
@@ -2330,15 +2485,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           })() : {}),
         }}>
           <div style={playerInfoHeaderStyle}>
-            <button
-              type="button"
-              onClick={() => (online.roomId ? setShowAvatarMenu(true) : setSelectedPlayerForInfo(0))}
-              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', lineHeight: 0 }}
-              title={online.roomId ? 'Меню (пауза, информация)' : 'Информация об игроке'}
-              aria-label={online.roomId ? `Меню ${displayState.players[humanIdx].name}` : `Информация об игроке ${displayState.players[humanIdx].name}`}
-            >
-              <PlayerAvatar name={displayState.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
-            </button>
+            {renderUserPlayerAvatar(isMobileOrTablet ? 34 : 38)}
             <span style={playerNameDealerWrapStyle}>
               <span
                 className={['player-panel-name', isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? 'your-turn-prompt' : ''].filter(Boolean).join(' ')}
@@ -2371,7 +2518,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               )}
             </span>
           </div>
-          <div className="player-stats-row" style={playerStatsRowStyle}>
+          <div className="player-mobile-south-tricks-column" style={playerStatsRowStyle}>
             <div
               className={['player-score-badge', isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : ''].filter(Boolean).join(' ')}
               style={playerStatBadgeScoreStyle}
@@ -2418,6 +2565,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               </div>
             )}
           </div>
+          {trumpHighlightOn && userTurnGarlandReadyMobile && isUserActiveTurnForGarlandMobile ? (
+            <UserPanelGarlandOverlay />
+          ) : null}
         </div>
       </div>
       </div>
@@ -2673,15 +2823,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             </span>
           )}
           <div style={playerInfoHeaderStyle}>
-            <button
-              type="button"
-              onClick={() => (online.roomId ? setShowAvatarMenu(true) : setSelectedPlayerForInfo(0))}
-              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', lineHeight: 0 }}
-              title={online.roomId ? 'Меню (пауза, информация)' : 'Информация об игроке'}
-              aria-label={online.roomId ? `Меню ${displayState.players[humanIdx].name}` : `Информация об игроке ${displayState.players[humanIdx].name}`}
-            >
-              <PlayerAvatar name={displayState.players[humanIdx].name} avatarDataUrl={playerAvatarDataUrl} sizePx={isMobileOrTablet ? 34 : 38} />
-            </button>
+            {renderUserPlayerAvatar(isMobileOrTablet ? 34 : 38)}
             <span style={playerNameDealerWrapStyle}>
               <span className="player-panel-name" style={playerNameStyle}>{displayState.players[humanIdx].name}</span>
               {state.dealerIndex === humanIdx && (
@@ -3603,6 +3745,73 @@ const pcTrickExactMatchFigureStyle: React.CSSProperties = {
   ].join(', '),
 };
 
+/** Компактная панель: неон цифр только inline (не зависит от CSS / viewport-класса на корне) */
+const mobileCompactNeonDigitExact: React.CSSProperties = {
+  cursor: 'help',
+  color: '#34d399',
+  fontWeight: 900,
+  WebkitTextStroke: '0.8px rgba(4, 47, 46, 0.92)',
+  textShadow:
+    '0 0 10px rgba(52,211,153,0.98), 0 0 20px rgba(16,185,129,0.92), 0 0 30px rgba(34,211,238,0.72), 0 2px 5px rgba(0,0,0,0.92)',
+};
+
+/** Компакт: «взято» пока заказ не набран — жёлтый неон */
+const mobileCompactNeonDigitChasingTaken: React.CSSProperties = {
+  cursor: 'help',
+  color: '#fde047',
+  fontWeight: 900,
+  WebkitTextStroke: '0.78px rgba(66, 32, 6, 0.9)',
+  textShadow:
+    '0 0 10px rgba(250,204,21,0.98), 0 0 20px rgba(234,179,8,0.88), 0 0 28px rgba(245,158,11,0.62), 0 2px 5px rgba(0,0,0,0.92)',
+};
+
+/** Компакт: перебор — обе цифры рыжо-оранжевый неон */
+const mobileCompactNeonDigitOver: React.CSSProperties = {
+  cursor: 'help',
+  color: '#fdba74',
+  fontWeight: 900,
+  WebkitTextStroke: '0.88px rgba(67, 20, 7, 0.92)',
+  textShadow:
+    '0 0 12px rgba(251,146,60,0.98), 0 0 22px rgba(249,115,22,0.88), 0 0 20px rgba(234,88,12,0.72), 0 2px 5px rgba(0,0,0,0.92)',
+};
+const mobileCompactNeonSlashExact: React.CSSProperties = {
+  cursor: 'default',
+  color: '#6ee7b7',
+  fontWeight: 900,
+  WebkitTextStroke: '0.55px rgba(4, 47, 46, 0.85)',
+  textShadow: '0 0 12px rgba(45,212,191,0.95), 0 0 8px rgba(103,232,249,0.8), 0 1px 2px rgba(0,0,0,0.9)',
+  userSelect: 'none',
+};
+const mobileCompactNeonSlashOver: React.CSSProperties = {
+  cursor: 'default',
+  color: '#fb923c',
+  fontWeight: 900,
+  WebkitTextStroke: '0.72px rgba(67, 20, 7, 0.88)',
+  textShadow:
+    '0 0 12px rgba(251,146,60,0.95), 0 0 18px rgba(249,115,22,0.78), 0 0 10px rgba(234,88,12,0.55), 0 1px 2px rgba(0,0,0,0.9)',
+  userSelect: 'none',
+};
+
+const mobileCompactNeonSlashChasing: React.CSSProperties = {
+  cursor: 'default',
+  color: '#facc15',
+  fontWeight: 900,
+  WebkitTextStroke: '0.62px rgba(66, 32, 6, 0.86)',
+  textShadow:
+    '0 0 12px rgba(250,204,21,0.95), 0 0 14px rgba(234,179,8,0.8), 0 1px 2px rgba(0,0,0,0.9)',
+  userSelect: 'none',
+};
+
+/** Компакт: взятки уже на руке, заказ ещё добираем — цифра заказа, бирюзово-целевой неон */
+const mobileCompactNeonBidChasing: React.CSSProperties = {
+  cursor: 'help',
+  color: '#22d3ee',
+  fontWeight: 900,
+  WebkitTextStroke: '0.72px rgba(8, 47, 73, 0.9)',
+  textShadow:
+    '0 0 10px rgba(34,211,238,0.96), 0 0 18px rgba(6,182,212,0.82), 0 0 14px rgba(45,212,191,0.58), 0 2px 4px rgba(0,0,0,0.9)',
+};
+
 /** ПК: недобор — приглушённый красный (минус по очкам; не кричащий) */
 const pcTrickUnderBidFigureStyle: React.CSSProperties = {
   cursor: 'help',
@@ -3637,6 +3846,8 @@ function PcTrickBidTakenFigures({
   fontSize,
   style,
   tricksLeftInDeal,
+  /** Компактная панель: усиленный неон при взятках на руке (см. tricksOnHandHeavyNeon в TrickSlotsDisplay) */
+  exactMatchHeavyNeon,
 }: {
   bid: number | null;
   tricksTaken: number;
@@ -3644,6 +3855,7 @@ function PcTrickBidTakenFigures({
   fontSize: number;
   style?: CSSProperties;
   tricksLeftInDeal?: number;
+  exactMatchHeavyNeon?: boolean;
 }) {
   const bidTitle =
     bid == null
@@ -3674,7 +3886,7 @@ function PcTrickBidTakenFigures({
         }
       : pcTrickBidFigureStyle;
 
-  const slashStyle: CSSProperties = {
+  const slashStyleBase: CSSProperties = {
     cursor: 'default',
     color: 'rgba(148, 163, 184, 0.95)',
     fontWeight: 700,
@@ -3682,23 +3894,58 @@ function PcTrickBidTakenFigures({
     userSelect: 'none',
   };
 
-  const exactMatch = bid != null && tricksTaken === bid;
-  const overBid = bid != null && tricksTaken > bid;
-  const underBid = bid != null && tricksTaken < bid;
+  const bidN = bid == null || Number.isNaN(Number(bid)) ? null : Number(bid);
+  const exactMatch = bidN !== null && tricksTaken === bidN;
+  const overBid = bidN !== null && tricksTaken > bidN;
+  const underBid = bidN !== null && tricksTaken < bidN;
   const underBidPenalize =
     underBid &&
-    (tricksLeftInDeal === undefined || tricksTaken + tricksLeftInDeal < bid);
+    (tricksLeftInDeal === undefined || (bidN != null && tricksTaken + tricksLeftInDeal < bidN));
+
+  /** Компакт: усиленный неон для панели «взято/заказ» (есть взятки на руке и не жёсткий недобор) */
+  const neonOn = !!exactMatchHeavyNeon;
+  /** Есть взятки на руке, но заказ ещё не выполнен и не перебор — отдельные стили цифр */
+  const chasingHandNeon = neonOn && !overBid && !exactMatch && !underBidPenalize;
+  /** С момента первой взятки на руке — класс + чуть крупнее кегль (см. index.css --hand-bold) */
+  const handNeonBold = neonOn && tricksTaken >= 1;
+  const mobileNeonFiguresCls = neonOn
+    ? [
+        'trick-bid-taken-figures-neon',
+        `trick-bid-taken-figures-neon--${audience}`,
+        overBid ? 'trick-bid-taken-figures-neon--overbid' : '',
+        handNeonBold ? 'trick-bid-taken-figures-neon--hand-bold' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : undefined;
+
+  const slashNeonBase: CSSProperties = neonOn
+    ? overBid
+      ? mobileCompactNeonSlashOver
+      : exactMatch
+        ? mobileCompactNeonSlashExact
+        : chasingHandNeon
+          ? mobileCompactNeonSlashChasing
+          : mobileCompactNeonSlashExact
+    : slashStyleBase;
+  const slashFinal: CSSProperties = slashNeonBase;
 
   /** ПК-оппонент: взято / заказ; точно — сирень; перебор — болотно-жёлтый; жёсткий недобор — красный (заказ уже невыполним). */
   if (audience === 'opponent') {
-    const takenFigStyle = exactMatch
-      ? pcTrickExactMatchFigureStyle
-      : overBid
-        ? pcTrickOverBidFigureStyle
+    let takenFigStyle: CSSProperties = overBid
+      ? neonOn
+        ? mobileCompactNeonDigitOver
+        : pcTrickOverBidFigureStyle
+      : exactMatch
+        ? neonOn
+          ? mobileCompactNeonDigitExact
+          : pcTrickExactMatchFigureStyle
         : underBidPenalize
           ? pcTrickUnderBidFigureStyle
-          : pcTrickTakenPlainOpponentStyle;
-    const bidFigStyle: CSSProperties =
+          : chasingHandNeon
+            ? mobileCompactNeonDigitChasingTaken
+            : pcTrickTakenPlainOpponentStyle;
+    let bidFigStyle: CSSProperties =
       bid == null
         ? {
             ...pcTrickBidFigureStyle,
@@ -3706,23 +3953,30 @@ function PcTrickBidTakenFigures({
             color: 'rgba(148, 163, 184, 0.95)',
             textShadow: '0 1px 2px rgba(0,0,0,0.85)',
           }
-        : exactMatch
-          ? pcTrickExactMatchFigureStyle
-          : overBid
-            ? pcTrickOverBidFigureStyle
+        : overBid
+          ? neonOn
+            ? mobileCompactNeonDigitOver
+            : pcTrickOverBidFigureStyle
+          : exactMatch
+            ? neonOn
+              ? mobileCompactNeonDigitExact
+              : pcTrickExactMatchFigureStyle
             : underBidPenalize
               ? pcTrickUnderBidFigureStyle
-              : pcTrickBidFigureStyle;
+              : chasingHandNeon
+                ? mobileCompactNeonBidChasing
+                : pcTrickBidFigureStyle;
 
     return (
       <span
+        className={mobileNeonFiguresCls}
         style={{
           display: 'inline-flex',
           alignItems: 'baseline',
           gap: 3,
-          fontSize,
-          fontWeight: 800,
-          letterSpacing: '0.04em',
+          fontSize: handNeonBold ? Math.min(14, Math.round(fontSize * 1.14)) : fontSize,
+          fontWeight: neonOn ? 900 : 800,
+          letterSpacing: handNeonBold ? '0.05em' : '0.04em',
           whiteSpace: 'nowrap',
           flexShrink: 0,
           ...style,
@@ -3732,7 +3986,7 @@ function PcTrickBidTakenFigures({
         <span title={takenTitle} style={takenFigStyle}>
           {tricksTaken}
         </span>
-        <span style={slashStyle} aria-hidden>
+        <span style={slashFinal} aria-hidden>
           /
         </span>
         <span title={bidTitle} style={bidFigStyle}>
@@ -3742,35 +3996,47 @@ function PcTrickBidTakenFigures({
     );
   }
 
-  const bidFigPlayer: CSSProperties =
+  let bidFigPlayer: CSSProperties =
     bid == null
       ? bidSpanStyle
-      : exactMatch
-        ? pcTrickExactMatchFigureStyle
-        : overBid
-          ? pcTrickOverBidFigureStyle
+      : overBid
+        ? neonOn
+          ? mobileCompactNeonDigitOver
+          : pcTrickOverBidFigureStyle
+        : exactMatch
+          ? neonOn
+            ? mobileCompactNeonDigitExact
+            : pcTrickExactMatchFigureStyle
           : underBidPenalize
             ? pcTrickUnderBidFigureStyle
-            : pcTrickBidFigureStyle;
-  const takenFigPlayer: CSSProperties =
-    exactMatch
-      ? pcTrickExactMatchFigureStyle
-      : overBid
-        ? pcTrickOverBidFigureStyle
-        : underBidPenalize
-          ? pcTrickUnderBidFigureStyle
+            : chasingHandNeon
+              ? mobileCompactNeonBidChasing
+              : pcTrickBidFigureStyle;
+  let takenFigPlayer: CSSProperties = overBid
+    ? neonOn
+      ? mobileCompactNeonDigitOver
+      : pcTrickOverBidFigureStyle
+    : exactMatch
+      ? neonOn
+        ? mobileCompactNeonDigitExact
+        : pcTrickExactMatchFigureStyle
+      : underBidPenalize
+        ? pcTrickUnderBidFigureStyle
+        : chasingHandNeon
+          ? mobileCompactNeonDigitChasingTaken
           : pcTrickTakenFigureStyle;
 
   /** Как у оппонентов: сначала взято, затем заказ. */
   return (
     <span
+      className={mobileNeonFiguresCls}
       style={{
         display: 'inline-flex',
         alignItems: 'baseline',
         gap: 3,
-        fontSize,
-        fontWeight: 800,
-        letterSpacing: '0.04em',
+        fontSize: handNeonBold ? Math.min(14, Math.round(fontSize * 1.14)) : fontSize,
+        fontWeight: neonOn ? 900 : 800,
+        letterSpacing: handNeonBold ? '0.05em' : '0.04em',
         whiteSpace: 'nowrap',
         flexShrink: 0,
         ...style,
@@ -3780,7 +4046,7 @@ function PcTrickBidTakenFigures({
       <span title={takenTitle} style={takenFigPlayer}>
         {tricksTaken}
       </span>
-      <span style={slashStyle} aria-hidden>
+      <span style={slashFinal} aria-hidden>
         /
       </span>
       <span title={bidTitle} style={bidFigPlayer}>
@@ -3957,7 +4223,17 @@ function TrickSlotsDisplay({
   if (bid === null) {
     const nullWrap = compactMode ? { ...trickCirclesWrapStyle, border: '1px solid rgba(71, 85, 105, 0.5)', background: 'rgba(30, 41, 59, 0.8)', boxShadow: 'none' } : trickSlotsWrapStyle;
     const nullCls = [collectingCards ? 'trick-slots-collecting' : 'trick-slots-normal', eastMobileTricks ? 'trick-slots-east-mobile' : ''].filter(Boolean).join(' ');
-    const nullInner = (
+    const compactNullFigFont = variant === 'player' ? 10 : 9;
+    const nullInner = compactMode ? (
+      <PcTrickBidTakenFigures
+        bid={null}
+        tricksTaken={tricksTaken}
+        audience={variant}
+        fontSize={compactNullFigFont}
+        tricksLeftInDeal={tricksLeftInDeal}
+        style={{ lineHeight: 1 }}
+      />
+    ) : (
       <>
         {!hideOppOrderWord && (
           <span className={eastMobileTricks ? 'trick-slots-label-east-mobile' : undefined} style={trickSlotsLabelStyle}>
@@ -4005,23 +4281,16 @@ function TrickSlotsDisplay({
   const orderedSlots = bid;
   const totalFilled = tricksTaken;
   const hideCards = !!collectingCards;
-  /** Ровно в заказ (без перебора) — для компактной панели и классов мобильной подсветки */
-  const hasFilledOrderExact = tricksTaken === bid;
-  /** ПК: как раньше — успех при взятом ≥ заказа (перебор тоже «закрыл» заказ); компакт: только ровно, перебор отдельным классом */
-  const hasFilledOrder = compactMode
-    ? hasFilledOrderExact
-    : bid === 0
-      ? tricksTaken === 0
-      : tricksTaken >= bid;
 
   if (compactMode) {
+    const bidNum = bid == null || Number.isNaN(Number(bid)) ? null : Number(bid);
     /** Мобильная: заказ 0 — фиксированная зона с крестиком «не брать взятки» (+ перебор, если есть). */
     if (variant === 'opponent' && opponentMobileZeroOrderCross && bid === 0) {
       const zeroTone =
         tricksTaken === 0
           ? trickCirclesWrapPendingStyle
           : !hideCards
-            ? trickCirclesWrapSuccessStyle
+            ? trickCirclesWrapMobileOverBidStyle
             : trickCirclesWrapPendingStyle;
       const wrapStyle = {
         ...trickCirclesWrapStyle,
@@ -4045,11 +4314,15 @@ function TrickSlotsDisplay({
       };
       const zeroInner = (
         <>
-          {!hideOppOrderWord && (
-            <span className={eastMobileTricks ? 'trick-slots-label-east-mobile' : undefined} style={trickSlotsLabelStyle}>
-              Заказ 0
-            </span>
-          )}
+          <PcTrickBidTakenFigures
+            bid={0}
+            tricksTaken={tricksTaken}
+            audience="opponent"
+            fontSize={9}
+            tricksLeftInDeal={tricksLeftInDeal}
+            exactMatchHeavyNeon={!hideCards && tricksTaken > 0}
+            style={{ lineHeight: 1, marginBottom: 2 }}
+          />
           <div style={zeroRowStyle}>
             <span className="opponent-zero-order-cross-mobile" title="Заказ: не брать взятки" aria-hidden>
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
@@ -4144,9 +4417,24 @@ function TrickSlotsDisplay({
       }
     }
     const playerScale = variant === 'player' ? (1.3 * 1.1 * 1.1 * 1.15 / 1.7) : 1;
+    const mobileExactOrder = bidNum != null && bidNum > 0 && !hideCards && tricksTaken === bidNum;
+    const mobileOverOrder = bidNum != null && !hideCards && tricksTaken > bidNum;
+    const mobileUnderStrict =
+      bidNum != null &&
+      bidNum > 0 &&
+      !hideCards &&
+      tricksTaken < bidNum &&
+      (tricksLeftInDeal === undefined || tricksTaken + tricksLeftInDeal < bidNum);
+    const mobileWrapTone: React.CSSProperties = hideCards
+      ? trickCirclesWrapPendingStyle
+      : mobileOverOrder
+        ? trickCirclesWrapMobileOverBidStyle
+        : mobileUnderStrict
+          ? trickCirclesWrapMobileUnderStrictStyle
+          : trickCirclesWrapPendingStyle;
     const wrapStyle = {
       ...trickCirclesWrapStyle,
-      ...(hasFilledOrder ? trickCirclesWrapSuccessStyle : trickCirclesWrapPendingStyle),
+      ...mobileWrapTone,
       ...(variant === 'player' && playerMobileWideTricks ? { gap: 2 } : {}),
       ...(variant === 'player' ? {
         position: 'absolute' as const,
@@ -4206,13 +4494,20 @@ function TrickSlotsDisplay({
             width: 'max-content',
           }
         : rowStyle;
-    const orderCompleteMobile = bid != null && !hideCards && tricksTaken === bid;
-    const orderOverMobile = bid != null && !hideCards && tricksTaken > bid;
+    /**
+     * Компактный неон: при любых взятках на руке (карты в слотах), пока не жёсткий недобор.
+     * Раньше было только tricks >= bid — из‑за этого неон был почти только при переборе.
+     */
+    const tricksOnHandHeavyNeon =
+      bidNum !== null && !hideCards && tricksTaken > 0 && !mobileUnderStrict;
+    const orderCompleteMobile = bidNum !== null && !hideCards && tricksTaken === bidNum;
+    const orderOverMobile = bidNum !== null && !hideCards && tricksTaken > bidNum;
     const wrapCls = [
       hideCards ? 'trick-slots-collecting' : 'trick-slots-normal',
       eastMobileTricks ? 'trick-slots-east-mobile' : '',
       orderCompleteMobile ? 'trick-slots-order-complete' : '',
       orderOverMobile ? 'trick-slots-order-over' : '',
+      mobileUnderStrict ? 'trick-slots-mobile-under-strict' : '',
       playerMobileWideTricks && variant === 'player' ? 'trick-slots-player-mobile-wide' : '',
     ]
       .filter(Boolean)
@@ -4250,13 +4545,18 @@ function TrickSlotsDisplay({
           +{extra}
         </span>
       ) : null;
+    const compactFigFont = variant === 'player' ? 10 : 9;
     const compactInner = (
       <>
-        {!hideOppOrderWord && !(variant === 'opponent' && eastMobileTricks) ? (
-          <span style={trickSlotsLabelStyle}>
-            Заказ {bid}
-          </span>
-        ) : null}
+        <PcTrickBidTakenFigures
+          bid={bid}
+          tricksTaken={tricksTaken}
+          audience={variant}
+          fontSize={compactFigFont}
+          tricksLeftInDeal={tricksLeftInDeal}
+          exactMatchHeavyNeon={tricksOnHandHeavyNeon}
+          style={{ lineHeight: 1, marginBottom: 2 }}
+        />
         {variant === 'opponent' && eastMobileTricks ? (
           <div
             className="trick-slots-east-mobile-tricks-row"
@@ -4553,6 +4853,20 @@ function OpponentSlot({
     return (Number.isFinite(n) && n >= 0 && n <= 9) ? n : null;
   })();
   const displayBid = debugBid !== null ? debugBid : bid;
+  /** Кольцо «заказ на руке» ровно: лавандово-сиреневый градиент, без пульса */
+  const avatarOrderRingExact =
+    displayBid != null && !collectingCards && p.tricksTaken === displayBid;
+  /** Кольцо «ещё нужно добрать взятки»: розыгрыш (и короткая фаза после взятки), взято < заказ */
+  const avatarOrderRingChasing =
+    (state.phase === 'playing' || state.phase === 'trick-complete') &&
+    displayBid != null &&
+    !collectingCards &&
+    p.tricksTaken < displayBid;
+  const avatarOrderRingMode: 'exact' | 'chasing' | null = avatarOrderRingExact
+    ? 'exact'
+    : avatarOrderRingChasing
+      ? 'chasing'
+      : null;
   const mobileActiveName = isMobile && isActive;
   const avatarSizePx = compactMode ? (position === 'right' ? 32 : 32) : 38;
   const eastMobileOnlyAvatar = position === 'right' && isMobile;
@@ -4581,7 +4895,7 @@ function OpponentSlot({
     : {};
   return (
     <div
-      className={[position === 'right' ? 'opponent-slot-east' : '', firstMoverBiddingHighlight ? 'first-mover-bidding-panel' : '', isActive ? 'opponent-slot-current-turn' : ''].filter(Boolean).join(' ') || undefined}
+      className={['opponent-slot', position === 'right' ? 'opponent-slot-east' : '', firstMoverBiddingHighlight ? 'first-mover-bidding-panel' : '', isActive ? 'opponent-slot-current-turn' : ''].filter(Boolean).join(' ') || undefined}
       style={{
         ...opponentSlotStyle,
         ...(sideSlotPcGrow ? opponentSlotSidePcGrowStyle : {}),
@@ -4681,7 +4995,33 @@ function OpponentSlot({
             )}
           </span>
         );
-        const avatarEl = onAvatarClick ? (
+        const avatarOrderRingInnerCls = avatarOrderRingMode ? 'player-avatar-order-ring-inner' : undefined;
+        const avatarOrderRingStyle: React.CSSProperties | undefined = avatarOrderRingMode
+          ? {
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '50%',
+              padding:
+                avatarOrderRingMode === 'exact'
+                  ? isMobile
+                    ? 1
+                    : 2
+                  : isMobile
+                    ? 2
+                    : 4,
+              boxSizing: 'border-box',
+              lineHeight: 0,
+              ...(avatarOrderRingMode === 'exact' ? { background: AVATAR_ORDER_RING_GRADIENT_EXACT } : {}),
+            }
+          : undefined;
+        const avatarOrderRingWrapCls =
+          avatarOrderRingMode === 'exact'
+            ? 'opponent-avatar-order-ring opponent-avatar-order-ring--exact'
+            : avatarOrderRingMode === 'chasing'
+              ? 'opponent-avatar-order-ring opponent-avatar-order-ring--chasing'
+              : undefined;
+        const avatarControl = onAvatarClick ? (
           <button
             type="button"
             onClick={(e) => {
@@ -4692,11 +5032,31 @@ function OpponentSlot({
             title="Информация об игроке"
             aria-label={`Информация об игроке ${p.name}`}
           >
-            <PlayerAvatar name={p.name} avatarDataUrl={avatarDataUrl} sizePx={avatarSizePx} title={`${p.name} — ${getCompassLabel(index)}`} />
+            <PlayerAvatar
+              name={p.name}
+              avatarDataUrl={avatarDataUrl}
+              sizePx={avatarSizePx}
+              title={`${p.name} — ${getCompassLabel(index)}`}
+              className={avatarOrderRingInnerCls}
+            />
           </button>
         ) : (
-          <PlayerAvatar name={p.name} avatarDataUrl={avatarDataUrl} sizePx={avatarSizePx} title={`${p.name} — ${getCompassLabel(index)}`} />
+          <PlayerAvatar
+            name={p.name}
+            avatarDataUrl={avatarDataUrl}
+            sizePx={avatarSizePx}
+            title={`${p.name} — ${getCompassLabel(index)}`}
+            className={avatarOrderRingInnerCls}
+          />
         );
+        const avatarEl =
+          avatarOrderRingMode && avatarOrderRingStyle && avatarOrderRingWrapCls ? (
+            <span className={avatarOrderRingWrapCls} style={avatarOrderRingStyle}>
+              {avatarControl}
+            </span>
+          ) : (
+            avatarControl
+          );
         const headerBlock = pcNorthSideBySide ? (
           <div
             className="opponent-slot-header opponent-north-pc-header-split"
@@ -6594,10 +6954,28 @@ const trickCirclesWrapPendingStyle: React.CSSProperties = {
   background: 'linear-gradient(180deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.1) 50%, rgba(30, 41, 59, 0.9) 100%)',
   boxShadow: 'inset 0 0 10px rgba(251, 191, 36, 0.2)',
 };
-const trickCirclesWrapSuccessStyle: React.CSSProperties = {
-  border: '1px solid rgba(34, 211, 238, 0.6)',
-  background: 'linear-gradient(180deg, rgba(34, 211, 238, 0.12) 0%, rgba(34, 197, 94, 0.1) 50%, rgba(30, 41, 59, 0.9) 100%)',
-  boxShadow: 'inset 0 0 10px rgba(34, 211, 238, 0.2)',
+
+/** Мобильные кружочки: перебор — болотно-жёлтый (как ПК) */
+const trickCirclesWrapMobileOverBidStyle: React.CSSProperties = {
+  border: '1px solid rgba(130, 135, 78, 0.48)',
+  background:
+    'linear-gradient(180deg, rgba(115, 118, 72, 0.14) 0%, rgba(95, 98, 58, 0.11) 45%, rgba(48, 52, 38, 0.2) 100%)',
+  boxShadow: [
+    '0 0 0 1px rgba(110, 115, 68, 0.26)',
+    '0 0 10px rgba(140, 145, 85, 0.12)',
+    'inset 0 0 14px rgba(100, 105, 65, 0.09)',
+  ].join(', '),
+};
+
+/** Мобильные кружочки: жёсткий недобор (заказ невыполним) */
+const trickCirclesWrapMobileUnderStrictStyle: React.CSSProperties = {
+  border: '1px solid rgba(190, 80, 88, 0.38)',
+  background:
+    'linear-gradient(180deg, rgba(160, 55, 65, 0.1) 0%, rgba(110, 45, 52, 0.09) 48%, rgba(30, 41, 59, 0.9) 100%)',
+  boxShadow: [
+    '0 0 0 1px rgba(165, 65, 75, 0.18)',
+    'inset 0 0 12px rgba(130, 50, 58, 0.07)',
+  ].join(', '),
 };
 const trickCirclesRowStyle: React.CSSProperties = {
   display: 'flex',
@@ -6909,12 +7287,13 @@ const handFrameStyle: React.CSSProperties = {
   marginRight: 'auto',
 };
 
-/** Мобильная рука: карты по центру, не обрезать правый край последней карты */
+/** Мобильная рука: карты по центру, не обрезать правый край последней карты; relative — гирлянда (absolute inset 0) */
 const handFrameStyleMobile: React.CSSProperties = {
   ...handFrameStyle,
   maxWidth: '100%',
   overflow: 'visible',
   boxSizing: 'border-box',
+  position: 'relative',
 };
 
 const handStyle: React.CSSProperties = {

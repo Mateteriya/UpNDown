@@ -480,8 +480,9 @@
     overflow: hidden !important;
     margin-top: 0 !important;
   }
-  /* Чтобы неоновая подсветка панели заказа/очков не обрезалась прямоугольником, даём overflow: visible когда панель в «ваш ход» */
-  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-bottom-row:has(.player-info-panel-your-turn) {
+  /* Неон/кольцо панели Юга: visible не только при «ваш ход», иначе при выполненном заказе (ходят другие) обрезает overflow:hidden */
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-bottom-row:has(.player-info-panel-your-turn),
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-bottom-row:has(.user-player-panel .opponent-avatar-order-ring) {
     overflow: visible !important;
   }
   .game-table-root.viewport-mobile .game-table-block-mobile .game-center-area.game-mobile-center {
@@ -512,7 +513,7 @@
   }
   /* Мобильная зона карт в ваш ход: то же усиленное cyan/violet свечение, что на ПК (playerHandYourTurnGlowPc) */
   .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn {
-    animation: playerHandYourTurnGlowPc 1.8s ease-in-out infinite;
+    animation: playerHandYourTurnGlowPc 2.85s ease-in-out infinite;
   }
   /* Ряд карт: по ширине только карты, по центру; без тяжёлого ::after-блика (blend + градиент давали лаги и артефакты за пределами руки). */
   .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn > div {
@@ -529,8 +530,8 @@
   .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn > div > div {
     transform-origin: center bottom;
     overflow: visible !important;
-    animation: mobileHandCardWaveLift 1.8s cubic-bezier(0.42, 0, 0.58, 1) infinite;
-    animation-delay: calc(3s + (var(--hand-wave-index, 1) - 1) * 55ms);
+    animation: mobileHandCardWaveLift 2.85s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+    animation-delay: calc(3.2s + (var(--hand-wave-index, 1) - 1) * 78ms);
   }
   /*
    * Блик: ::after должен быть НАД кнопкой (иначе непрозрачный фон CardView полностью скрывает градиент).
@@ -555,8 +556,8 @@
     mix-blend-mode: soft-light;
     opacity: 0;
     will-change: opacity;
-    animation: mobileHandCardWaveGloss 1.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-    animation-delay: calc(3s + (var(--hand-wave-index, 1) - 1) * 55ms);
+    animation: mobileHandCardWaveGloss 2.85s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    animation-delay: calc(3.2s + (var(--hand-wave-index, 1) - 1) * 78ms);
   }
   @media (prefers-reduced-motion: reduce) {
     .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn {
@@ -1042,15 +1043,24 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
   }
   /*
-   * Запад/Север: бейджи внизу справа перекрывают слоты заказа — мелькаем через filter: opacity(),
-   * чтобы не биться с opacity !important в темах; в «паузе» pointer-events: none — видно кружки под ними.
+   * Запад/Север: «Первый заказ» перекрывает слоты — мигание всегда пока бейдж есть (только торги).
+   * «Сдающий» — мигание только в фазе торгов (.game-phase-bidding); в розыгрыше остаётся компактный кружок без анимации.
    */
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > .dealer-badge,
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div > .dealer-badge,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > .first-bidder-badge,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div > .first-bidder-badge {
     filter: opacity(1);
     animation: mobileNorthWestOpponentBadgeBlink 4s ease-in-out infinite !important;
+  }
+  .game-table-root.viewport-mobile.game-phase-bidding .game-mobile-top-row .game-mobile-slot-north > div > .dealer-badge,
+  .game-table-root.viewport-mobile.game-phase-bidding .game-mobile-top-row .game-mobile-slot-west > div > .dealer-badge {
+    filter: opacity(1);
+    animation: mobileNorthWestOpponentBadgeBlink 4s ease-in-out infinite !important;
+  }
+  .game-table-root.viewport-mobile:not(.game-phase-bidding) .game-mobile-top-row .game-mobile-slot-north > div > .dealer-badge,
+  .game-table-root.viewport-mobile:not(.game-phase-bidding) .game-mobile-top-row .game-mobile-slot-west > div > .dealer-badge {
+    animation: none !important;
+    filter: none !important;
+    pointer-events: auto !important;
   }
   @media (prefers-reduced-motion: reduce) {
     .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > .dealer-badge,
@@ -1353,8 +1363,9 @@
     overflow-x: hidden !important;
     border-radius: 14px !important; /* в тон панели .game-mobile-player-info, чтобы контейнер не обрезал подсветку прямоугольником */
   }
-  /* Чтобы неоновое свечение панели не обрезалось, при «ваш ход» разрешаем overflow */
-  .game-table-root.viewport-mobile .game-mobile-player-panel:has(.player-info-panel-your-turn) {
+  /* Свечение и кольцо заказа на аватаре: при «ваш ход» или при показе кольца (заказ на руке) — иначе overflow-x/y режут градиент */
+  .game-table-root.viewport-mobile .game-mobile-player-panel:has(.player-info-panel-your-turn),
+  .game-table-root.viewport-mobile .game-mobile-player-panel:has(.opponent-avatar-order-ring) {
     overflow: visible !important;
   }
   /* Внутреннее сиреневое свечение панели пользователя при вашем ходе — как на ПК; только при вкл. «доп. подсветке» */
@@ -1435,6 +1446,21 @@
   min-width: 0 !important;
 }
 /* Имя (ник) пользователя: тёплый оранжевый потемнее + эффект блеска (чёткие тени) */
+/* Аватар Юга + кольцо: не сжимать; по вертикали по центру шапки / строки панели */
+.game-table-root .user-player-panel .user-player-avatar-root {
+  flex-shrink: 0 !important;
+  align-self: center !important;
+}
+/* «Заказ в руке»: аватар + кольцо ×1.2 (внешняя обёртка — не ломает transform у chasing на внутреннем span) */
+.game-table-root .user-player-panel .user-player-avatar-order-scale-wrap {
+  display: inline-flex !important;
+  line-height: 0 !important;
+  flex-shrink: 0 !important;
+  align-self: center !important;
+  transform: scale(1.2) !important;
+  transform-origin: center center !important;
+  vertical-align: middle !important;
+}
 .game-table-root .user-player-panel .player-panel-name {
   background: linear-gradient(
     180deg,
@@ -1477,6 +1503,23 @@
     0 0 0 2px rgba(100, 150, 155, 0.45),
     0 4px 12px rgba(0, 0, 0, 0.35) !important;
 }
+/* Кольцо заказа на аватаре: внешняя рамка — у обёртки; класс на аватаре снимает штатный border/box-shadow с первого кадра */
+.game-table-root .player-avatar.player-avatar-order-ring-inner {
+  border: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28) !important;
+  /* Без анимации border/box-shadow: при смене хода не «вспыхивает» тёмной промежуточной рамкой */
+  transition: transform 0.2s ease !important;
+}
+.game-table-root .player-avatar.player-avatar-order-ring-inner:has(img) {
+  border: none !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25) !important;
+}
 /* Чей сейчас ход или кто прямо сейчас делает заказ: тонкая рамка ярко-голубая + сиренево-фиолетовая, усиленное неоновое свечение */
 .game-table-root .opponent-slot-current-turn .player-avatar,
 .game-table-root .player-info-panel-your-turn .player-avatar {
@@ -1502,6 +1545,38 @@
     0 0 12px 3px rgba(180, 140, 255, 0.55),
     0 0 24px 6px rgba(80, 200, 255, 0.5),
     0 4px 12px rgba(0, 0, 0, 0.35) !important;
+}
+.game-table-root .opponent-slot-current-turn .player-avatar.player-avatar-order-ring-inner {
+  border: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25) !important;
+  transition: transform 0.2s ease !important;
+}
+.game-table-root .opponent-slot-current-turn .player-avatar.player-avatar-order-ring-inner:has(img) {
+  border: none !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25) !important;
+}
+/* Юг: «ваш ход» + кольцо «заказ на руке ровно» — убрать бирюзовое внешнее кольцо .player-info-panel-your-turn .player-avatar (иначе не видно лавандового градиента) */
+.game-table-root .player-info-panel-your-turn .opponent-avatar-order-ring .player-avatar.player-avatar-order-ring-inner {
+  border: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28) !important;
+  transition: transform 0.2s ease !important;
+}
+.game-table-root .player-info-panel-your-turn .opponent-avatar-order-ring .player-avatar.player-avatar-order-ring-inner:has(img) {
+  border: none !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25) !important;
+  transition: transform 0.2s ease !important;
 }
 /* Ховер по аватарке (только при наведении мыши) */
 @media (hover: hover) {
@@ -1549,6 +1624,25 @@
       0 0 32px 8px rgba(120, 220, 255, 0.55),
       0 6px 18px rgba(0, 0, 0, 0.4) !important;
   }
+  /* Кольцо заказа на аватаре — при ховере не возвращать штатные внешние кольца .player-avatar */
+  .game-table-root .opponent-avatar-order-ring .player-avatar:hover {
+    border: none !important;
+    transform: scale(1.04) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+      inset 0 4px 12px rgba(255, 255, 255, 0.2),
+      inset 0 -4px 12px rgba(0, 0, 0, 0.4) !important;
+  }
+  .game-table-root .opponent-avatar-order-ring .player-avatar:has(img):hover {
+    border: none !important;
+    transform: scale(1.04) !important;
+    box-shadow:
+      inset 0 5px 14px 2px rgba(255, 255, 255, 0.58),
+      inset 0 -5px 14px 2px rgba(0, 0, 0, 0.48),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.22) !important;
+  }
 }
 /* Аватарка без фото: эффект «стеклянной» поверхности — блик в углу, центр не перекрываем */
 .game-table-root .player-avatar:not(:has(img))::after {
@@ -1587,6 +1681,185 @@
     rgba(255, 255, 255, 0.08) 50%,
     transparent 100%
   ) !important;
+}
+
+/* ПК + мобильная: кольцо по заказу — градиент/padding в TS; exact = сиренево-лавандовое свечение без пульса; chasing = янтарно-сиреневое + пульс */
+.game-table-root .opponent-avatar-order-ring {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  box-sizing: border-box;
+  line-height: 0;
+}
+.game-table-root .opponent-avatar-order-ring--exact {
+  box-shadow:
+    0 0 10px rgba(192, 132, 252, 0.48),
+    0 0 18px rgba(99, 102, 241, 0.34),
+    0 0 26px rgba(34, 211, 238, 0.18);
+}
+.game-table-root .opponent-avatar-order-ring--chasing {
+  position: relative;
+  isolation: isolate;
+  /* Tie-dye: полукруговой conic + цветные «узлы»; вращение — ::after */
+  background:
+    radial-gradient(circle at 72% 26%, rgba(251, 113, 133, 0.58) 0%, transparent 46%),
+    radial-gradient(circle at 22% 70%, rgba(129, 140, 248, 0.54) 0%, transparent 44%),
+    radial-gradient(circle at 58% 80%, rgba(251, 146, 60, 0.52) 0%, transparent 46%),
+    radial-gradient(circle at 34% 30%, rgba(232, 121, 250, 0.5) 0%, transparent 40%),
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.45) 0%, transparent 38%),
+    conic-gradient(
+      from 36deg at 48% 50%,
+      #fff8f4,
+      #ffedd5,
+      #fde68a,
+      #fdba74,
+      #fb923c,
+      #fb7185,
+      #f472b6,
+      #e879f9,
+      #c084fc,
+      #a78bfa,
+      #93c5fd,
+      #fde68a,
+      #fff8f4
+    );
+  /* Меньше слоёв и альфа — без «засвета» ободка (особенно снизу справа) */
+  box-shadow:
+    0 0 8px rgba(253, 186, 116, 0.34),
+    0 0 14px rgba(251, 146, 60, 0.28),
+    0 0 18px rgba(249, 115, 22, 0.22),
+    0 0 16px rgba(232, 121, 250, 0.16);
+  animation: opponentAvatarChasingPulse 2.4s ease-in-out infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+/* Вращающийся conic — «закрутка» тай-дай под глянцем */
+.game-table-root .opponent-avatar-order-ring--chasing::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(255, 248, 242, 0) 0deg,
+    rgba(253, 186, 116, 0.42) 52deg,
+    rgba(244, 114, 182, 0.48) 118deg,
+    rgba(167, 139, 250, 0.46) 188deg,
+    rgba(56, 189, 248, 0.26) 258deg,
+    rgba(253, 186, 116, 0.38) 322deg,
+    rgba(255, 248, 242, 0) 360deg
+  ) !important;
+  mix-blend-mode: soft-light !important;
+  animation: opponentAvatarTieDyeSpin 16s linear infinite !important;
+}
+/* Глянец по ободку: блик сверху-слева + мягкая подсветка снизу справа (убирает ощущение «откушенного» куска) */
+.game-table-root .opponent-avatar-order-ring--chasing::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+  background:
+    radial-gradient(ellipse 82% 68% at 28% 16%, rgba(255, 255, 255, 0.48) 0%, rgba(255, 228, 200, 0.22) 32%, transparent 54%),
+    radial-gradient(ellipse 70% 60% at 82% 84%, rgba(255, 218, 190, 0.26) 0%, rgba(255, 255, 255, 0.06) 38%, transparent 58%) !important;
+  mix-blend-mode: soft-light !important;
+}
+.game-table-root .opponent-avatar-order-ring--chasing > * {
+  position: relative !important;
+  z-index: 2 !important;
+}
+.game-table-root .opponent-avatar-order-ring > button {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
+.game-table-root .opponent-avatar-order-ring .player-avatar,
+.game-table-root .opponent-avatar-order-ring .player-avatar:has(img) {
+  border: none !important;
+  box-shadow:
+    inset 0 4px 12px rgba(255, 255, 255, 0.22),
+    inset 0 -4px 12px rgba(0, 0, 0, 0.45) !important;
+  transition: transform 0.2s ease !important;
+}
+.game-table-root .opponent-slot-current-turn .opponent-avatar-order-ring .player-avatar,
+.game-table-root .opponent-slot-current-turn .opponent-avatar-order-ring .player-avatar:has(img) {
+  border: none !important;
+  box-shadow:
+    inset 0 4px 12px rgba(255, 255, 255, 0.22),
+    inset 0 -4px 12px rgba(0, 0, 0, 0.45) !important;
+  transition: transform 0.2s ease !important;
+}
+
+@keyframes opponentAvatarTieDyeSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root .opponent-avatar-order-ring--chasing::after {
+    animation: none !important;
+  }
+}
+
+@keyframes opponentAvatarChasingPulse {
+  0%,
+  100% {
+    transform: scale(1) translateZ(0);
+    box-shadow:
+      0 0 8px rgba(253, 186, 116, 0.3),
+      0 0 14px rgba(251, 146, 60, 0.24),
+      0 0 18px rgba(249, 115, 22, 0.2),
+      0 0 16px rgba(232, 121, 250, 0.15);
+  }
+  50% {
+    transform: scale(1.045) translateZ(0);
+    box-shadow:
+      0 0 11px rgba(255, 200, 160, 0.4),
+      0 0 18px rgba(253, 186, 116, 0.34),
+      0 0 22px rgba(251, 146, 60, 0.28),
+      0 0 20px rgba(249, 115, 22, 0.24),
+      0 0 18px rgba(232, 121, 250, 0.2);
+  }
+}
+
+/* Мобильная/планшет (как compactMode ≤1024): кольцо «нападающего» — слабее пульс и тусклее неон */
+@media (max-width: 1024px) {
+  .game-table-root .opponent-avatar-order-ring--chasing {
+    box-shadow:
+      0 0 6px rgba(253, 186, 116, 0.28),
+      0 0 11px rgba(251, 146, 60, 0.22),
+      0 0 14px rgba(249, 115, 22, 0.18),
+      0 0 12px rgba(232, 121, 250, 0.14);
+    animation: opponentAvatarChasingPulseMobile 2.65s ease-in-out infinite;
+  }
+}
+
+@keyframes opponentAvatarChasingPulseMobile {
+  0%,
+  100% {
+    transform: scale(1) translateZ(0);
+    box-shadow:
+      0 0 6px rgba(253, 186, 116, 0.26),
+      0 0 10px rgba(251, 146, 60, 0.2),
+      0 0 13px rgba(249, 115, 22, 0.17),
+      0 0 12px rgba(232, 121, 250, 0.12);
+  }
+  50% {
+    transform: scale(1.02) translateZ(0);
+    box-shadow:
+      0 0 9px rgba(255, 200, 160, 0.34),
+      0 0 14px rgba(253, 186, 116, 0.28),
+      0 0 17px rgba(251, 146, 60, 0.22),
+      0 0 15px rgba(249, 115, 22, 0.18),
+      0 0 14px rgba(232, 121, 250, 0.16);
+  }
 }
 
 /* Мобильная: у оппонента чей ход/заказ — имя зелёным с неоном (как у ИИ-Восток), у всех слотов */
@@ -1676,49 +1949,85 @@
   max-height: none !important;
   overflow: visible !important;
 }
-/* Мобильная: одна строка — Очки слева, панелька взяток справа; одинаковая высота у обоих */
-.game-table-root.viewport-mobile .user-player-panel .player-stats-row {
+/* Мобильная панель игрока (Юг): слева шапка (аватар+имя), справа колонка — по вертикали центр относительно высоты панели */
+.game-table-root.viewport-mobile .game-mobile-player-info.user-player-panel {
+  position: relative !important;
+  display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
-  align-items: stretch !important;
+  align-items: center !important;
   gap: 6px !important;
+  padding-right: 6px !important;
+}
+.game-table-root.viewport-mobile .game-mobile-player-info.user-player-panel > div:first-child {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+}
+.game-table-root.viewport-mobile .game-mobile-player-info.user-player-panel .player-mobile-south-tricks-column {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 4px !important;
+  flex-shrink: 0 !important;
+  max-width: min(50vw, 210px) !important;
+}
+.game-table-root.viewport-mobile .user-player-panel .player-mobile-south-tricks-column {
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 4px !important;
   padding-bottom: 0 !important;
   margin-bottom: 0 !important;
-  width: 100% !important;
+  width: auto !important;
 }
-.game-table-root.viewport-mobile .user-player-panel .player-stats-row .trick-slots-normal,
-.game-table-root.viewport-mobile .user-player-panel .player-stats-row .trick-slots-collecting {
+.game-table-root.viewport-mobile .user-player-panel .player-mobile-south-tricks-column .trick-slots-normal,
+.game-table-root.viewport-mobile .user-player-panel .player-mobile-south-tricks-column .trick-slots-collecting {
   position: static !important;
   transform: none !important;
   padding: 2px 5px !important;
   margin: 0 !important;
-  margin-left: auto !important;
+  margin-left: 0 !important;
   display: flex !important;
   align-items: center !important;
   min-height: 0 !important;
 }
 /* Только телефон: панель заказа игрока (Юг) — чуть шире; вертикальные отступы + меньше column-gap у подписи «Заказ» */
-.game-table-root.viewport-mobile .user-player-panel .player-stats-row .trick-slots-player-mobile-wide.trick-slots-normal,
-.game-table-root.viewport-mobile .user-player-panel .player-stats-row .trick-slots-player-mobile-wide.trick-slots-collecting {
+.game-table-root.viewport-mobile .user-player-panel .player-mobile-south-tricks-column .trick-slots-player-mobile-wide.trick-slots-normal,
+.game-table-root.viewport-mobile .user-player-panel .player-mobile-south-tricks-column .trick-slots-player-mobile-wide.trick-slots-collecting {
   padding: 3px 7px !important;
   gap: 2px !important;
   flex-shrink: 0 !important;
 }
+/* Компактнее плашка «Очки» лидера в панели Юга — чтобы колонка не разъезжалась по высоте */
+.game-table-root.viewport-mobile .game-mobile-player-info.user-player-panel .player-score-badge.score-badge-leader {
+  padding: 1px 5px !important;
+  gap: 2px !important;
+  border-width: 2px !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(233, 213, 255, 0.28),
+    inset 0 0 14px rgba(167, 139, 250, 0.14),
+    0 0 12px rgba(167, 139, 250, 0.28),
+    0 0 22px rgba(139, 92, 246, 0.14),
+    0 2px 10px rgba(0, 0, 0, 0.28) !important;
+}
+.game-table-root.viewport-mobile .game-mobile-player-info.user-player-panel .player-score-badge.score-badge-leader > span:first-child {
+  font-size: 8px !important;
+  letter-spacing: 0.08em !important;
+  line-height: 1.05 !important;
+}
+.game-table-root.viewport-mobile .game-mobile-player-info.user-player-panel .player-score-badge.score-badge-leader > span:last-child {
+  font-size: 13px !important;
+  line-height: 1.05 !important;
+}
 
-/* Мобильная: заказ выполнен (все слоты заказа закрыты) — подсветка панели взяток; свечение чуть слабее, без «белого» ореола */
+/* Мобильная: ровно в заказ — плотный тёмный индиго-фиолет + двойная голубо-фиолетовая рамка */
 .game-table-root.viewport-mobile .trick-slots-order-complete.trick-slots-normal,
 .game-table-root.viewport-mobile .trick-slots-order-complete.trick-slots-collecting,
 .game-table-root.viewport-mobile button.trick-slots-order-complete.trick-slots-normal,
 .game-table-root.viewport-mobile button.trick-slots-order-complete.trick-slots-collecting {
   border: 2px solid rgba(129, 140, 248, 0.68) !important;
-  background: linear-gradient(
-    180deg,
-    rgba(34, 211, 238, 0.12) 0%,
-    rgba(99, 102, 241, 0.2) 36%,
-    rgba(139, 92, 246, 0.17) 58%,
-    rgba(76, 29, 149, 0.14) 78%,
-    rgba(30, 41, 59, 0.94) 100%
-  ) !important;
+  background: linear-gradient(180deg, #1e1540 0%, #140d2e 42%, #0a061c 100%) !important;
+  overflow: visible !important;
   box-shadow:
     0 0 0 1px rgba(196, 181, 253, 0.32),
     0 0 9px rgba(34, 211, 238, 0.22),
@@ -1728,43 +2037,89 @@
     inset 0 0 0 2px rgba(110, 231, 183, 0.52) !important;
 }
 
-/* Мобильная: перебор (взято больше заказа) — та же «жирность» рамки/слоёв, что у «ровно в заказ», цвет бронзово-рыжий */
+/* Компактные кружки взяток (≤1024px): «взято/заказ» при ровно в заказ — без .viewport-mobile: планшет 601–1024 тоже compactMode, но класс viewport-mobile только ≤600 */
+.game-table-root .trick-bid-taken-figures-neon {
+  font-weight: 900 !important;
+  line-height: 1.05 !important;
+  letter-spacing: 0.04em !important;
+}
+.game-table-root .trick-bid-taken-figures-neon--opponent {
+  font-size: 10px !important;
+}
+.game-table-root .trick-bid-taken-figures-neon--player {
+  font-size: 11px !important;
+}
+/* С первой взятки на руке: крупнее кегль (перебивает базовый font-size !important выше) */
+.game-table-root .trick-bid-taken-figures-neon--hand-bold.trick-bid-taken-figures-neon--opponent {
+  font-size: 11.5px !important;
+  letter-spacing: 0.05em !important;
+}
+.game-table-root .trick-bid-taken-figures-neon--hand-bold.trick-bid-taken-figures-neon--player {
+  font-size: 12.5px !important;
+  letter-spacing: 0.05em !important;
+}
+/* Цвета цифр и слэша задаются inline в TS (жёлтый добор / зелёный ровно / рыжий перебор) — здесь только плотность шрифта */
+.game-table-root .trick-bid-taken-figures-neon > span {
+  font-weight: 900 !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+/* Жирная обводка заметна в WebView, где inline -webkit-text-stroke слабый; !important перебивает inline-обводку */
+.game-table-root .trick-bid-taken-figures-neon--hand-bold > span {
+  paint-order: stroke fill !important;
+  -webkit-text-stroke: 1.12px rgba(15, 23, 42, 0.78) !important;
+}
+
+/* Мобильная: перебор — болотно-жёлтый (как ПК) */
 .game-table-root.viewport-mobile .trick-slots-order-over.trick-slots-normal,
 .game-table-root.viewport-mobile .trick-slots-order-over.trick-slots-collecting,
 .game-table-root.viewport-mobile button.trick-slots-order-over.trick-slots-normal,
 .game-table-root.viewport-mobile button.trick-slots-order-over.trick-slots-collecting {
-  border: 2px solid rgba(217, 119, 6, 0.72) !important;
+  border: 2px solid rgba(130, 135, 78, 0.55) !important;
   background: linear-gradient(
     180deg,
-    rgba(251, 191, 36, 0.14) 0%,
-    rgba(245, 158, 11, 0.18) 28%,
-    rgba(180, 83, 9, 0.16) 55%,
-    rgba(120, 53, 15, 0.14) 78%,
-    rgba(30, 41, 59, 0.94) 100%
+    rgba(115, 118, 72, 0.16) 0%,
+    rgba(95, 98, 58, 0.12) 45%,
+    rgba(48, 52, 38, 0.22) 72%,
+    rgba(30, 41, 59, 0.92) 100%
   ) !important;
   box-shadow:
-    0 0 0 1px rgba(253, 186, 116, 0.38),
-    0 0 9px rgba(251, 146, 60, 0.28),
-    0 0 16px rgba(234, 88, 12, 0.22),
-    0 0 26px rgba(194, 65, 12, 0.16),
-    inset 0 0 12px rgba(154, 52, 18, 0.14),
-    inset 0 0 0 2px rgba(251, 191, 36, 0.48) !important;
+    0 0 0 1px rgba(110, 115, 68, 0.3),
+    0 0 10px rgba(140, 145, 85, 0.14),
+    inset 0 0 14px rgba(100, 105, 65, 0.1),
+    inset 0 0 0 1px rgba(130, 135, 78, 0.25) !important;
 }
 
-/* Закрытые кружки взяток при переборе — бронзово-медные (только с классом на div) */
-.game-table-root.viewport-mobile .trick-circle-filled-order-over {
-  border: 1px solid rgba(180, 83, 9, 0.88) !important;
-  background: radial-gradient(
-    circle at 30% 28%,
-    rgba(254, 243, 199, 0.95) 0%,
-    rgba(251, 191, 36, 0.82) 28%,
-    rgba(180, 83, 9, 0.75) 52%,
-    rgba(120, 53, 15, 0.92) 100%
+/* Мобильная: жёсткий недобор (заказ уже невыполним) */
+.game-table-root.viewport-mobile .trick-slots-mobile-under-strict.trick-slots-normal,
+.game-table-root.viewport-mobile .trick-slots-mobile-under-strict.trick-slots-collecting,
+.game-table-root.viewport-mobile button.trick-slots-mobile-under-strict.trick-slots-normal,
+.game-table-root.viewport-mobile button.trick-slots-mobile-under-strict.trick-slots-collecting {
+  border: 2px solid rgba(190, 80, 88, 0.45) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(160, 55, 65, 0.12) 0%,
+    rgba(110, 45, 52, 0.1) 48%,
+    rgba(30, 41, 59, 0.9) 100%
   ) !important;
   box-shadow:
-    inset 0 0 5px rgba(254, 215, 170, 0.45),
-    inset 0 -1px 4px rgba(67, 20, 7, 0.35),
-    0 0 6px rgba(234, 88, 12, 0.35) !important;
+    0 0 0 1px rgba(165, 65, 75, 0.22),
+    inset 0 0 12px rgba(130, 50, 58, 0.08) !important;
+}
+
+/* Закрытые кружки взяток при переборе — болотно-оливковый (только с классом на div) */
+.game-table-root.viewport-mobile .trick-circle-filled-order-over {
+  border: 1px solid rgba(110, 115, 68, 0.88) !important;
+  background: radial-gradient(
+    circle at 30% 28%,
+    rgba(220, 218, 175, 0.92) 0%,
+    rgba(154, 158, 95, 0.78) 32%,
+    rgba(95, 98, 58, 0.72) 55%,
+    rgba(48, 52, 38, 0.9) 100%
+  ) !important;
+  box-shadow:
+    inset 0 0 5px rgba(200, 200, 150, 0.35),
+    inset 0 -1px 4px rgba(40, 42, 28, 0.4),
+    0 0 6px rgba(120, 125, 72, 0.28) !important;
 }
 
 /* ПК: окошки «Очки» и «Заказ» — одна строка (подпись + значение), компактные отступы */
@@ -2358,18 +2713,18 @@ body {
   }
 }
 
-/* Мобильная рука: волна подъёма (только transform) */
+/* Мобильная рука: волна подъёма (только transform; чуть мягче амплитуда — см. длительность в .viewport-mobile) */
 @keyframes mobileHandCardWaveLift {
   0%,
   100% {
     transform: scale(1) translateY(0);
   }
   45% {
-    transform: scale(1.04) translateY(-2px);
+    transform: scale(1.026) translateY(-1.5px);
   }
 }
 
-/* Блик: заметная вспышка в фазу подъёма волны, чуть шире по времени */
+/* Блик: вспышка в фазу подъёма (слабее пик — меньше «мигания») */
 @keyframes mobileHandCardWaveGloss {
   0%,
   100% {
@@ -2379,13 +2734,13 @@ body {
     opacity: 0;
   }
   42% {
-    opacity: 0.95;
+    opacity: 0.78;
   }
   50% {
-    opacity: 1;
+    opacity: 0.86;
   }
   58% {
-    opacity: 0.88;
+    opacity: 0.72;
   }
   68% {
     opacity: 0;
@@ -2452,6 +2807,321 @@ body {
   .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland-dash--violet {
     stroke: #d59aff;
   }
+}
+
+/* Мобильная (viewport-mobile): та же гирлянда на панели юга — монтируется из GameTable с задержкой 9 с (фаза playing). Внутреннее свечение — выше в @media (max-width: 600px). SVG — последним ребёнком, чтобы не ломать div:first-child. */
+.game-table-root.viewport-mobile.trump-highlight-on .user-player-panel.player-info-panel-your-turn .user-panel-garland {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  overflow: visible;
+  box-sizing: border-box;
+  isolation: isolate;
+}
+.game-table-root.viewport-mobile.trump-highlight-on .user-player-panel.player-info-panel-your-turn .user-panel-garland .user-panel-garland-track,
+.game-table-root.viewport-mobile.trump-highlight-on .user-player-panel.player-info-panel-your-turn .user-panel-garland .user-panel-garland-dash {
+  vector-effect: non-scaling-stroke;
+}
+.game-table-root.viewport-mobile.trump-highlight-on .user-player-panel.player-info-panel-your-turn .user-panel-garland .user-panel-garland-track {
+  stroke-width: 1.25px;
+}
+.game-table-root.viewport-mobile.trump-highlight-on .user-player-panel.player-info-panel-your-turn .user-panel-garland .user-panel-garland-dash {
+  stroke-width: 2.25px;
+}
+.game-table-root.viewport-mobile.trump-highlight-on .user-player-panel.player-info-panel-your-turn .user-panel-garland-dash--cyan {
+  stroke: #5aebff;
+}
+.game-table-root.viewport-mobile.trump-highlight-on .user-player-panel.player-info-panel-your-turn .user-panel-garland-dash--violet {
+  stroke: #d59aff;
+}
+
+/* Мобильная зона карт: та же гирлянда по контуру рамки руки (задержка 9 с — в GameTable). Ряд карт — над SVG. */
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn:has(.user-panel-garland) > div {
+  z-index: 1;
+}
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  overflow: visible;
+  box-sizing: border-box;
+  isolation: isolate;
+}
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland .user-panel-garland-track,
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland .user-panel-garland-dash {
+  vector-effect: non-scaling-stroke;
+}
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland .user-panel-garland-track {
+  stroke-width: 1.25px;
+}
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland .user-panel-garland-dash {
+  stroke-width: 2.25px;
+}
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland-dash--cyan {
+  stroke: #5aebff;
+}
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland-dash--violet {
+  stroke: #d59aff;
+}
+
+/* Мобильная бескозырка (раздачи 21–24): сильнее зелёные градиенты «страницы»; стол/рука/оппоненты — лавандово-розовые акценты */
+.game-table-root.viewport-mobile.deal-type-no-trump {
+  background:
+    radial-gradient(ellipse 110% 78% at 50% 4%, rgba(134, 239, 172, 0.38) 0%, rgba(74, 222, 128, 0.12) 38%, transparent 58%),
+    radial-gradient(ellipse 100% 70% at 4% 55%, rgba(52, 211, 153, 0.28) 0%, transparent 52%),
+    radial-gradient(ellipse 85% 60% at 98% 28%, rgba(16, 185, 129, 0.26) 0%, transparent 48%),
+    radial-gradient(ellipse 75% 50% at 72% 92%, rgba(5, 150, 105, 0.2) 0%, transparent 46%),
+    radial-gradient(ellipse 55% 40% at 22% 12%, rgba(110, 231, 183, 0.18) 0%, transparent 40%),
+    linear-gradient(198deg, #051910 0%, #0a2218 12%, #0c1f18 28%, #0f172a 52%, #142f38 78%, #1a2e36 100%) !important;
+}
+
+/* Верхний ряд (Запад/Север): общая «подложка», без просветов между слотами и фоном */
+.game-table-root.viewport-mobile.deal-type-no-trump .game-table-block-mobile > .game-mobile-top-row {
+  background:
+    radial-gradient(ellipse 95% 120% at 50% 0%, rgba(52, 211, 153, 0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 80% at 10% 100%, rgba(167, 139, 250, 0.1) 0%, transparent 50%),
+    linear-gradient(188deg, rgba(14, 36, 28, 0.95) 0%, rgba(15, 23, 42, 0.98) 42%, rgba(22, 30, 44, 1) 100%);
+  border-radius: 16px;
+  padding: 8px 10px 10px;
+  margin-bottom: 6px;
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Стол + рука: монолитная непрозрачная подложка (закрывает зазоры под столом и под картами) */
+.game-table-root.viewport-mobile.deal-type-no-trump .game-table-block-mobile .game-mobile-table-and-hand {
+  background:
+    radial-gradient(ellipse 95% 55% at 50% 0%, rgba(196, 181, 253, 0.16) 0%, transparent 52%),
+    radial-gradient(ellipse 70% 45% at 85% 70%, rgba(52, 211, 153, 0.1) 0%, transparent 48%),
+    radial-gradient(ellipse 60% 50% at 12% 85%, rgba(244, 194, 214, 0.08) 0%, transparent 45%),
+    linear-gradient(182deg, #1b2636 0%, #242036 35%, #1e2436 68%, #1a2230 100%) !important;
+  border-radius: 18px;
+  padding: 8px 10px 12px !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  box-sizing: border-box !important;
+  /* Без внешнего blur — иначе «просвечивают» тени на зелёном фоне */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Ряд стол+Восток: без второй «плашки» — виден общий фон .game-mobile-table-and-hand */
+.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-table-and-hand .game-center-area.game-mobile-center {
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  box-shadow: none !important;
+}
+
+.game-table-root.viewport-mobile.deal-type-no-trump .game-center-area.game-mobile-center .game-center-table {
+  border-radius: 14px;
+  /* Непрозрачно: иначе полупрозрачный слой «просвечивает» соседние блоки */
+  background: #1a2330 !important;
+  box-shadow: none !important;
+}
+
+/* Внешняя рамка стола (первый div внутри .game-center-table) — лавандовая оправа, усиленный градиент */
+.game-table-root.viewport-mobile.deal-type-no-trump .game-center-area.game-mobile-center .game-center-table > div:first-child {
+  background:
+    radial-gradient(ellipse 95% 88% at 20% 25%, rgba(233, 213, 255, 0.35) 0%, transparent 42%),
+    radial-gradient(ellipse 70% 60% at 92% 78%, rgba(244, 201, 232, 0.2) 0%, transparent 48%),
+    linear-gradient(152deg, #443a62 0%, #342d50 32%, #2a2542 58%, #221c38 100%) !important;
+  border-color: rgba(196, 181, 253, 0.58) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(216, 180, 254, 0.35),
+    inset 0 3px 50px rgba(0, 0, 0, 0.42) !important;
+}
+
+/* Сукно — плотнее розово-лавандовые переливы */
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .game-center-area.game-mobile-center
+  .game-center-table
+  > div:first-child
+  > div:first-child {
+  background:
+    radial-gradient(ellipse 92% 82% at 45% 32%, rgba(221, 214, 254, 0.5) 0%, transparent 54%),
+    radial-gradient(ellipse 72% 58% at 82% 78%, rgba(251, 182, 206, 0.34) 0%, transparent 52%),
+    radial-gradient(ellipse 58% 48% at 14% 82%, rgba(192, 132, 252, 0.24) 0%, transparent 46%),
+    radial-gradient(ellipse 50% 40% at 88% 18%, rgba(167, 139, 250, 0.15) 0%, transparent 42%),
+    linear-gradient(175deg, #322a48 0%, #2b2440 38%, #241f38 72%, #1c182e 100%) !important;
+  border-color: rgba(196, 181, 253, 0.55) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(232, 200, 255, 0.28),
+    inset 0 4px 70px rgba(0, 0, 0, 0.38) !important;
+}
+
+/* Панели оппонентов (.opponent-slot) — в тон бескозырке */
+.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-top-row .opponent-slot:not(.opponent-slot-current-turn),
+.game-table-root.viewport-mobile.deal-type-no-trump .game-center-east .opponent-slot:not(.opponent-slot-current-turn) {
+  background:
+    radial-gradient(ellipse 100% 95% at 28% 18%, rgba(210, 200, 255, 0.28) 0%, transparent 48%),
+    radial-gradient(ellipse 75% 70% at 92% 88%, rgba(251, 186, 210, 0.16) 0%, transparent 46%),
+    linear-gradient(168deg, #383054 0%, #2c2844 38%, #221e36 100%) !important;
+  border-color: rgba(186, 170, 240, 0.52) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35) !important;
+}
+
+.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-top-row .opponent-slot.opponent-slot-current-turn,
+.game-table-root.viewport-mobile.deal-type-no-trump .game-center-east .opponent-slot.opponent-slot-current-turn {
+  background:
+    radial-gradient(ellipse 95% 90% at 32% 12%, rgba(254, 215, 170, 0.26) 0%, transparent 44%),
+    radial-gradient(ellipse 80% 72% at 85% 85%, rgba(196, 181, 253, 0.2) 0%, transparent 48%),
+    linear-gradient(168deg, #453068 0%, #382858 36%, #2a2042 100%) !important;
+  border-color: rgba(251, 191, 36, 0.52) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 230, 200, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.38) !important;
+}
+
+/* Рука: без пульсирующей box-shadow-анимации (она даёт «ореолы» на цветном фоне) */
+.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-hand-attached .player-hand-your-turn {
+  animation: none !important;
+  box-shadow:
+    0 0 0 1px rgba(186, 170, 240, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Панель юга: убрать размытые неоновые тени, оставить кайму */
+.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-player-panel .game-mobile-player-info.user-player-panel {
+  box-shadow: none !important;
+  border: 1px solid rgba(186, 170, 240, 0.42) !important;
+}
+.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-player-panel .game-mobile-player-info.user-player-panel.player-info-panel-your-turn {
+  box-shadow: none !important;
+  border: 1px solid rgba(196, 181, 253, 0.5) !important;
+}
+
+/* Верхняя панель (кнопки): розово-лавандовый градиент в бескозырке */
+.game-table-root.viewport-mobile.deal-type-no-trump .game-header {
+  background:
+    radial-gradient(ellipse 130% 120% at 50% -30%, rgba(251, 207, 232, 0.45) 0%, transparent 50%),
+    radial-gradient(ellipse 100% 90% at 92% 10%, rgba(216, 180, 254, 0.28) 0%, transparent 48%),
+    radial-gradient(ellipse 80% 70% at 8% 20%, rgba(244, 194, 214, 0.18) 0%, transparent 42%),
+    linear-gradient(180deg, rgba(40, 30, 52, 0.98) 0%, rgba(24, 28, 42, 0.98) 45%, rgba(15, 23, 42, 0.97) 100%) !important;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ПК / планшет (без viewport-mobile): бескозырка — та же логика: зелёный фон, розово-лавандовый стол/панели, без размытых внешних теней */
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) {
+  background:
+    radial-gradient(ellipse 100% 74% at 50% 5%, rgba(134, 239, 172, 0.3) 0%, rgba(74, 222, 128, 0.1) 38%, transparent 56%),
+    radial-gradient(ellipse 92% 62% at 5% 58%, rgba(52, 211, 153, 0.22) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 54% at 97% 30%, rgba(16, 185, 129, 0.2) 0%, transparent 46%),
+    radial-gradient(ellipse 72% 46% at 65% 94%, rgba(5, 150, 105, 0.12) 0%, transparent 44%),
+    linear-gradient(198deg, #051910 0%, #0a2218 14%, #0c1f18 32%, #0f172a 54%, #162e36 80%, #1e2f38 100%) !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header {
+  background:
+    radial-gradient(ellipse 115% 100% at 50% -25%, rgba(251, 207, 232, 0.42) 0%, transparent 50%),
+    radial-gradient(ellipse 85% 75% at 90% 12%, rgba(216, 180, 254, 0.26) 0%, transparent 46%),
+    radial-gradient(ellipse 70% 60% at 10% 25%, rgba(244, 194, 214, 0.14) 0%, transparent 42%),
+    linear-gradient(180deg, rgba(40, 30, 52, 0.98) 0%, rgba(24, 28, 42, 0.98) 48%, rgba(15, 23, 42, 0.97) 100%) !important;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35) !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-info-row {
+  background:
+    radial-gradient(ellipse 100% 110% at 50% 0%, rgba(52, 211, 153, 0.12) 0%, transparent 52%),
+    radial-gradient(ellipse 75% 85% at 88% 100%, rgba(196, 181, 253, 0.14) 0%, transparent 48%),
+    linear-gradient(188deg, rgba(16, 38, 30, 0.65) 0%, rgba(15, 23, 42, 0.82) 55%, rgba(20, 28, 40, 0.9) 100%);
+  border-radius: 18px;
+  padding: 10px 14px 12px;
+  margin-bottom: 6px;
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-center-area:not(.game-mobile-center) {
+  background:
+    radial-gradient(ellipse 90% 48% at 50% 0%, rgba(196, 181, 253, 0.15) 0%, transparent 52%),
+    radial-gradient(ellipse 65% 42% at 90% 65%, rgba(244, 194, 214, 0.09) 0%, transparent 46%),
+    linear-gradient(182deg, #1b2736 0%, #242036 38%, #1e2438 72%, #1a2230 100%) !important;
+  border-radius: 22px;
+  padding: 16px 14px 20px !important;
+  box-sizing: border-box !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-center-area:not(.game-mobile-center) .game-center-table {
+  background: #1a2330 !important;
+  box-shadow: none !important;
+  border-radius: 16px;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-center-area:not(.game-mobile-center) .game-center-table > div:first-child {
+  background:
+    radial-gradient(ellipse 95% 88% at 20% 25%, rgba(233, 213, 255, 0.35) 0%, transparent 42%),
+    radial-gradient(ellipse 70% 60% at 92% 78%, rgba(244, 201, 232, 0.2) 0%, transparent 48%),
+    linear-gradient(152deg, #443a62 0%, #342d50 32%, #2a2542 58%, #221c38 100%) !important;
+  border-color: rgba(196, 181, 253, 0.58) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(216, 180, 254, 0.35),
+    inset 0 3px 50px rgba(0, 0, 0, 0.42) !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-center-area:not(.game-mobile-center)
+  .game-center-table
+  > div:first-child
+  > div:first-child {
+  background:
+    radial-gradient(ellipse 92% 82% at 45% 32%, rgba(221, 214, 254, 0.5) 0%, transparent 54%),
+    radial-gradient(ellipse 72% 58% at 82% 78%, rgba(251, 182, 206, 0.34) 0%, transparent 52%),
+    radial-gradient(ellipse 58% 48% at 14% 82%, rgba(192, 132, 252, 0.24) 0%, transparent 46%),
+    radial-gradient(ellipse 50% 40% at 88% 18%, rgba(167, 139, 250, 0.15) 0%, transparent 42%),
+    linear-gradient(175deg, #322a48 0%, #2b2440 38%, #241f38 72%, #1c182e 100%) !important;
+  border-color: rgba(196, 181, 253, 0.55) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(232, 200, 255, 0.28),
+    inset 0 4px 70px rgba(0, 0, 0, 0.38) !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .opponent-slot:not(.opponent-slot-current-turn) {
+  background:
+    radial-gradient(ellipse 100% 95% at 28% 18%, rgba(210, 200, 255, 0.28) 0%, transparent 48%),
+    radial-gradient(ellipse 75% 70% at 92% 88%, rgba(251, 186, 210, 0.16) 0%, transparent 46%),
+    linear-gradient(168deg, #383054 0%, #2c2844 38%, #221e36 100%) !important;
+  border-color: rgba(186, 170, 240, 0.52) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35) !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .opponent-slot.opponent-slot-current-turn {
+  background:
+    radial-gradient(ellipse 95% 90% at 32% 12%, rgba(254, 215, 170, 0.26) 0%, transparent 44%),
+    radial-gradient(ellipse 80% 72% at 85% 85%, rgba(196, 181, 253, 0.2) 0%, transparent 48%),
+    linear-gradient(168deg, #453068 0%, #382858 36%, #2a2042 100%) !important;
+  border-color: rgba(251, 191, 36, 0.52) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 230, 200, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.38) !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .player-hand-your-turn {
+  animation: none !important;
+  box-shadow:
+    0 0 0 1px rgba(186, 170, 240, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .user-player-panel {
+  box-shadow: none !important;
+  border: 1px solid rgba(186, 170, 240, 0.42) !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn {
+  box-shadow: none !important;
+  border: 1px solid rgba(196, 181, 253, 0.5) !important;
 }
 
 /* Overlay анимации между раздачами: блоки Запад/Восток/Север/Юг */

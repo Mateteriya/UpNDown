@@ -55,10 +55,11 @@
 .theme-standard .game-table-root.viewport-mobile .bid-panel-title,
 .theme-standard .game-table-root.viewport-mobile .bid-panel-title-inline,
 .theme-standard .game-table-root.viewport-mobile .bid-panel-subtitle,
-.theme-standard .game-table-root.viewport-mobile .trick-slots-normal span,
-.theme-standard .game-table-root.viewport-mobile .trick-slots-collecting span,
+/* Не заливать бирюзовым цифры «взято/заказ» с классом .trick-bid-taken-figures-neon (inline-неон сильнее перебивается этим блоком) */
+.theme-standard .game-table-root.viewport-mobile .trick-slots-normal span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *),
+.theme-standard .game-table-root.viewport-mobile .trick-slots-collecting span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *),
 .theme-standard .game-table-root.viewport-mobile .trick-slots-label-east-mobile,
-.theme-standard .game-table-root.viewport-mobile .trick-slots-east-mobile span,
+.theme-standard .game-table-root.viewport-mobile .trick-slots-east-mobile span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *),
 .theme-standard .game-table-root.viewport-mobile .player-stats-row > span,
 .theme-standard .game-table-root.viewport-mobile .user-player-panel:not(.player-info-panel-your-turn) .player-panel-name,
 .theme-standard .game-table-root.viewport-mobile .deal-results-table-window,
@@ -283,4 +284,43 @@
 }
 .theme-standard .game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel-mobile-badge .bid-panel-mobile-badge-text {
   animation: bidBadgeTextPulse 6s ease-in-out infinite;
+}
+
+/* Юг: кольцо «заказ на руке» — явный фон и неон (tie-dye + вращение в index.css; общие правила с background:none не должны обнулять ободок) */
+.theme-standard .game-table-root.viewport-mobile .user-player-panel .opponent-avatar-order-ring--exact {
+  opacity: 1 !important;
+  background: linear-gradient(145deg, #f5e6ff 0%, #d8b4fe 22%, #a78bfa 45%, #818cf8 68%, #38bdf8 100%) !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  box-shadow:
+    0 0 12px rgba(192, 132, 252, 0.55),
+    0 0 22px rgba(99, 102, 241, 0.42),
+    0 0 34px rgba(34, 211, 238, 0.28) !important;
+}
+.theme-standard .game-table-root.viewport-mobile .user-player-panel .opponent-avatar-order-ring--chasing {
+  opacity: 1 !important;
+  background:
+    radial-gradient(circle at 72% 26%, rgba(251, 113, 133, 0.58) 0%, transparent 46%),
+    radial-gradient(circle at 22% 70%, rgba(129, 140, 248, 0.54) 0%, transparent 44%),
+    radial-gradient(circle at 58% 80%, rgba(251, 146, 60, 0.52) 0%, transparent 46%),
+    radial-gradient(circle at 34% 30%, rgba(232, 121, 250, 0.5) 0%, transparent 40%),
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.45) 0%, transparent 38%),
+    conic-gradient(
+      from 36deg at 48% 50%,
+      #fff8f4,
+      #ffedd5,
+      #fde68a,
+      #fdba74,
+      #fb923c,
+      #fb7185,
+      #f472b6,
+      #e879f9,
+      #c084fc,
+      #a78bfa,
+      #93c5fd,
+      #fde68a,
+      #fff8f4
+    ) !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
 }
