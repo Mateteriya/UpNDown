@@ -159,6 +159,180 @@
   padding-right: 16px !important;
 }
 
+/* ПК: тултип «Карт / заказы» — у шапки справа, текст ~в 2× крупнее (база была 12–13px) */
+@keyframes deal-contract-pc-tooltip-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.game-table-root:not(.viewport-mobile) .dealer-tooltip-toast.deal-contract-tooltip-toast {
+  left: auto !important;
+  right: max(20px, env(safe-area-inset-right, 0px)) !important;
+  top: max(88px, env(safe-area-inset-top, 0px) + 64px) !important;
+  bottom: auto !important;
+  transform: none !important;
+  max-width: min(560px, calc(100vw - 40px)) !important;
+  padding: 18px 22px !important;
+  padding-top: 48px !important;
+  font-size: clamp(22px, 1.9vw, 28px) !important;
+  line-height: 1.45 !important;
+  border: 1px solid rgba(45, 212, 191, 0.45) !important;
+  box-shadow:
+    0 0 26px rgba(34, 211, 238, 0.22),
+    0 8px 32px rgba(0, 0, 0, 0.45) !important;
+  animation: deal-contract-pc-tooltip-fade 0.2s ease-out !important;
+}
+
+.game-table-root:not(.viewport-mobile) .deal-contract-tooltip-toast .deal-contract-tooltip-heading {
+  font-size: clamp(28px, 2.4vw, 36px) !important;
+  margin-bottom: 14px !important;
+  line-height: 1.2 !important;
+}
+
+.game-table-root:not(.viewport-mobile) .deal-contract-tooltip-toast .deal-contract-tooltip-body {
+  font-size: clamp(24px, 2.05vw, 32px) !important;
+  line-height: 1.5 !important;
+  opacity: 0.98 !important;
+}
+
+.game-table-root:not(.viewport-mobile) .deal-contract-tooltip-toast .deal-contract-tooltip-player {
+  font-size: clamp(22px, 1.85vw, 28px) !important;
+  margin-bottom: 8px !important;
+  opacity: 0.98 !important;
+}
+
+.game-table-root:not(.viewport-mobile) .deal-contract-tooltip-toast .deal-contract-tooltip-footer {
+  font-size: clamp(21px, 1.75vw, 27px) !important;
+  margin-top: 16px !important;
+  line-height: 1.5 !important;
+  opacity: 0.95 !important;
+}
+
+.game-table-root:not(.viewport-mobile) .deal-contract-tooltip-toast .deal-contract-tooltip-mobile-summary {
+  font-size: clamp(22px, 1.9vw, 28px) !important;
+}
+
+.game-table-root:not(.viewport-mobile) .deal-contract-tooltip-toast.toast-with-close .toast-close-btn {
+  top: 10px !important;
+  right: 10px !important;
+  width: 40px !important;
+  height: 40px !important;
+  font-size: 26px !important;
+}
+
+/* ПК: тултип «Бескозырка» у шапки (не по центру снизу) */
+@keyframes no-trump-pc-tooltip-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.game-table-root:not(.viewport-mobile) .no-trump-mode-pc-tooltip.dealer-tooltip-toast {
+  display: flex !important;
+  flex-direction: column !important;
+  left: auto !important;
+  right: max(20px, env(safe-area-inset-right, 0px)) !important;
+  top: max(88px, env(safe-area-inset-top, 0px) + 64px) !important;
+  bottom: auto !important;
+  transform: none !important;
+  max-width: min(560px, calc(100vw - 40px)) !important;
+  padding: 18px 22px !important;
+  padding-top: 48px !important;
+  text-align: left !important;
+  align-items: flex-start !important;
+  border: 1px solid rgba(244, 114, 182, 0.45) !important;
+  box-shadow:
+    0 0 28px rgba(244, 114, 182, 0.2),
+    0 8px 32px rgba(0, 0, 0, 0.45) !important;
+  animation: no-trump-pc-tooltip-fade 0.2s ease-out !important;
+}
+
+/* Основной текст ~в 2+ раза крупнее прежних 13px */
+.game-table-root:not(.viewport-mobile) .no-trump-mode-pc-tooltip .no-trump-mode-pc-tooltip-title {
+  font-size: clamp(26px, 2.4vw, 34px) !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  margin-bottom: 14px !important;
+  color: #fbcfe8 !important;
+}
+
+.game-table-root:not(.viewport-mobile) .no-trump-mode-pc-tooltip .no-trump-mode-pc-tooltip-body {
+  font-size: clamp(22px, 2vw, 28px) !important;
+  font-weight: 500 !important;
+  line-height: 1.45 !important;
+  color: #e2e8f0 !important;
+  opacity: 0.96 !important;
+}
+
+.game-table-root:not(.viewport-mobile) .no-trump-mode-pc-tooltip.toast-with-close {
+  padding-right: 16px !important;
+}
+
+/* ПК: тултип «Тёмная» — сиренево-голубой неон */
+@keyframes dark-mode-pc-tooltip-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.game-table-root:not(.viewport-mobile) .dark-mode-pc-tooltip.dealer-tooltip-toast {
+  display: flex !important;
+  flex-direction: column !important;
+  left: auto !important;
+  right: max(20px, env(safe-area-inset-right, 0px)) !important;
+  top: max(88px, env(safe-area-inset-top, 0px) + 64px) !important;
+  bottom: auto !important;
+  transform: none !important;
+  max-width: min(560px, calc(100vw - 40px)) !important;
+  padding: 18px 22px !important;
+  padding-top: 48px !important;
+  text-align: left !important;
+  align-items: flex-start !important;
+  border: 1px solid rgba(129, 140, 248, 0.55) !important;
+  box-shadow:
+    0 0 32px rgba(56, 189, 248, 0.22),
+    0 0 48px rgba(139, 92, 246, 0.18),
+    0 8px 32px rgba(0, 0, 0, 0.45) !important;
+  animation: dark-mode-pc-tooltip-fade 0.2s ease-out !important;
+}
+
+.game-table-root:not(.viewport-mobile) .dark-mode-pc-tooltip .dark-mode-pc-tooltip-title {
+  font-size: clamp(26px, 2.4vw, 34px) !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  margin-bottom: 14px !important;
+  color: #c4b5fd !important;
+  text-shadow: 0 0 20px rgba(129, 140, 248, 0.75) !important;
+}
+
+.game-table-root:not(.viewport-mobile) .dark-mode-pc-tooltip .dark-mode-pc-tooltip-body {
+  font-size: clamp(22px, 2vw, 28px) !important;
+  font-weight: 500 !important;
+  line-height: 1.45 !important;
+  color: #e2e8f0 !important;
+  opacity: 0.96 !important;
+}
+
+.game-table-root:not(.viewport-mobile) .dark-mode-pc-tooltip.toast-with-close {
+  padding-right: 16px !important;
+}
+
 /* Мобильная: длинный тост не вылезает за верх экрана — ограничение высоты и прокрутка */
 .game-table-root.viewport-mobile .dealer-tooltip-toast.deal-contract-tooltip-toast {
   max-height: min(68vh, calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)) !important;
@@ -175,6 +349,99 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
+/* ПК: строка «Заказ: N  Взяток: M/T» — разные цвета; сумма заказов vs T; T на 1.3× крупнее */
+.game-table-root:not(.viewport-mobile) .deal-contract-line-pc-colored {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0;
+  row-gap: 2px;
+}
+
+.game-table-root:not(.viewport-mobile) .deal-contract-pc-label {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.game-table-root:not(.viewport-mobile) .deal-contract-pc-label-order {
+  color: #7dd3fc;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+}
+
+.game-table-root:not(.viewport-mobile) .deal-contract-pc-label-tricks {
+  color: #d8b4fe;
+  text-shadow: 0 0 10px rgba(167, 139, 250, 0.4);
+  margin-left: 10px;
+}
+
+.game-table-root:not(.viewport-mobile) .deal-contract-pc-slash {
+  color: rgba(203, 213, 225, 0.55);
+  font-weight: 700;
+  margin: 0 2px;
+}
+
+.game-table-root:not(.viewport-mobile) .deal-contract-pc-num {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Сумма заказов игроков — чуть крупнее базовой строки + боковые отступы */
+.game-table-root:not(.viewport-mobile) .deal-contract-pc-num-order {
+  font-size: 1.2em;
+  padding: 0 9px;
+  margin: 0 4px;
+  display: inline-block;
+  line-height: 1.2;
+  vertical-align: baseline;
+  border-radius: 7px;
+}
+
+/* Сумма заказов > взяток в раздаче — оранжево-огненный / алый */
+.game-table-root:not(.viewport-mobile) .deal-contract-pc-num-order--over {
+  color: #ff4f2a;
+  text-shadow:
+    0 0 12px rgba(255, 120, 40, 0.95),
+    0 0 22px rgba(255, 60, 40, 0.65),
+    0 0 34px rgba(255, 80, 0, 0.35);
+}
+
+/* Сумма заказов < взяток в раздаче — читаемый бордово-терракотовый + яркий розово-фиолетовый неон */
+.game-table-root:not(.viewport-mobile) .deal-contract-pc-num-order--under {
+  color: #fdba92;
+  -webkit-text-stroke: 0.35px rgba(88, 28, 28, 0.35);
+  text-shadow:
+    0 0 8px rgba(255, 250, 240, 0.55),
+    0 0 16px rgba(251, 113, 133, 0.9),
+    0 0 28px rgba(217, 70, 239, 0.75),
+    0 0 40px rgba(139, 92, 246, 0.5);
+}
+
+.game-table-root:not(.viewport-mobile) .deal-contract-pc-num-taken {
+  color: #fef9c3;
+  text-shadow: 0 0 10px rgba(250, 204, 21, 0.35);
+  padding: 0 9px;
+  margin: 0 4px;
+  display: inline-block;
+  line-height: 1.2;
+  vertical-align: baseline;
+  border-radius: 7px;
+}
+
+.game-table-root:not(.viewport-mobile) .deal-contract-pc-num-deal {
+  font-size: 1.3em;
+  font-weight: 800;
+  line-height: 1.15;
+  color: #fcd34d;
+  text-shadow:
+    0 0 12px rgba(251, 191, 36, 0.55),
+    0 0 20px rgba(245, 158, 11, 0.35);
+  padding: 0 9px;
+  margin: 0 4px;
+  display: inline-block;
+  vertical-align: baseline;
+  border-radius: 7px;
+}
+
 /* Блеск на козырях в руке во время заказа взяток (мобильная и ПК) */
 @keyframes card-trump-shine {
   0% { transform: translateX(-100%); }
@@ -184,6 +451,46 @@
 /* Спиннер загрузки экрана игры (Suspense fallback) */
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ПК: три точки на кнопке «приглушить гирлянду» — мигают разными цветами */
+@keyframes user-panel-garland-hint-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.82);
+    filter: brightness(0.75);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+    filter: brightness(1.25);
+  }
+}
+
+/* ПК: «Первый заказ/ход» у пользователя — в строке заголовка правее имени, «вкладка» свисает внутрь; крупнее ~в 2 раза */
+@media (min-width: 1025px) {
+  .game-table-root:not(.viewport-mobile) .user-player-panel .first-bidder-lamp-user-pc {
+    align-self: flex-start;
+    margin-top: -6px;
+    padding: 8px 20px 10px !important;
+    gap: 11px !important;
+    font-size: clamp(18px, 1.45vw, 22px) !important;
+    font-weight: 600 !important;
+    line-height: 1.15 !important;
+    border-radius: 0 0 20px 20px !important;
+    box-shadow:
+      0 8px 22px rgba(0, 0, 0, 0.28),
+      0 0 20px rgba(251, 146, 60, 0.38),
+      inset 0 1px 0 rgba(255, 230, 200, 0.14);
+  }
+
+  .game-table-root:not(.viewport-mobile) .user-player-panel .first-bidder-lamp-user-pc .first-bidder-lamp-user-pc-bulb {
+    width: 15px !important;
+    height: 15px !important;
+    flex-shrink: 0;
+    box-shadow: 0 0 14px rgba(251, 146, 60, 0.95) !important;
+  }
 }
 
 /* ПК: кнопка «обновить» под кнопкой «домой»; бейдж «I:» закреплён НАД блоком «Заказывает / Сейчас ход», нижняя грань бейджа — к верхней грани блока.
@@ -2187,8 +2494,309 @@
   letter-spacing: 0.02em !important;
 }
 
-/* ПК: плашка очков пользователя (Юг) — две строки: подпись, ниже цифры; стиль как у боковых оппонентов */
-.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge {
+/* ПК: панель пользователя Юга — inline padding; планшет без viewport-mobile сохраняет те же отступы */
+.game-table-root:not(.viewport-mobile) .user-player-panel {
+  padding-top: 7px !important;
+  padding-bottom: 7px !important;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+  gap: 7px !important;
+  /* С playerInfoPanelStyle (14px); фиксируем в CSS, чтобы не терять скругление из‑за каскада */
+  border-radius: 14px !important;
+}
+
+/* ПК: слева колонка «аватар + имя под ним» и рядом «Ваш ход» над взятками; справа очки и заказ */
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-layout {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+/* Левая колонка на всю высоту панели; кластер «аватар + взятки» по вертикали по центру — не привязан к высоте блока заказа справа */
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-avatar-col {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  align-self: stretch !important;
+  min-width: 0 !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-left-cluster {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-shrink: 0 !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-avatar-name-stack {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-shrink: 0 !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-tricks-column {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 6px !important;
+  flex-shrink: 0 !important;
+  min-width: 0 !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-your-turn-above-tricks {
+  align-self: flex-start !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-tricks-column:has(.user-player-panel-pc-turn-badge-nudge),
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-left-cluster:has(.user-player-panel-pc-turn-badge-nudge) {
+  overflow: visible !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-name-under-avatar {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 4px !important;
+  max-width: 132px !important;
+  min-width: 0 !important;
+  text-align: center !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-name-text {
+  display: block !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  font-size: clamp(12px, 1.05vw, 15px) !important;
+  line-height: 1.2 !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-main {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 7px !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+}
+/* ПК, торговля: бейджи слева (в ряд), «Очки» справа — без лишней высоты столбца */
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-bidding-top-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-bidding-badges {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 7px !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-bidding-badges:has(.user-player-panel-pc-turn-badge-nudge) {
+  overflow: visible !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-bidding-badges .first-bidder-lamp-user-pc {
+  align-self: center !important;
+  /* Чуть ближе к верху панели (перебивает общий margin-top: -6px у лампы — для строки торгов) */
+  margin-top: -8px !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-bidding-row-end {
+  align-self: center !important;
+  flex-shrink: 0 !important;
+  margin-top: 5px !important;
+  /* Торговля: чуть дальше от правого края панели */
+  margin-right: 6px !important;
+}
+/* ПК, игра: только «Очки» справа; «Ваш ход» — над взятками слева */
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-playing-top-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-playing-top-row--score-only {
+  justify-content: flex-end !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-playing-row-end {
+  align-self: center !important;
+  flex-shrink: 0 !important;
+  margin-top: 5px !important;
+  margin-right: 6px !important;
+}
+/* ПК: ~12.5 с простоя — рамка ::after: дыхание opacity+scale; отдельно медленный перелив через filter (без смены border в keyframes) */
+@keyframes user-panel-idle-nudge-pc-ring {
+  from {
+    opacity: 0.68;
+    transform: scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.024);
+  }
+}
+@keyframes user-panel-idle-nudge-pc-hue {
+  0%,
+  100% {
+    filter: hue-rotate(0deg) saturate(1.16) brightness(1.1);
+  }
+  28% {
+    filter: hue-rotate(48deg) saturate(1.28) brightness(1.22);
+  }
+  /* Светлая фаза: не «белый лист», а ледяной голубой + сирень */
+  52% {
+    filter: hue-rotate(12deg) saturate(1.05) brightness(1.38);
+  }
+  76% {
+    filter: hue-rotate(-18deg) saturate(1.22) brightness(1.2);
+  }
+}
+/* Бейдж при сильном нудже: крупнее и контрастнее рамки панели — только transform в keyframes */
+@keyframes user-panel-pc-turn-badge-nudge {
+  from {
+    transform: translateX(-7px) scale(1.16);
+  }
+  to {
+    transform: translateX(7px) scale(1.48);
+  }
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn.user-player-panel-idle-turn-nudge-pc::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: -4px !important;
+  border-radius: 18px !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  box-sizing: border-box !important;
+  border: 2px solid rgba(220, 232, 255, 0.9) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.32),
+    0 0 0 2px rgba(56, 189, 248, 0.42),
+    0 0 0 1px rgba(167, 139, 250, 0.45),
+    0 0 20px rgba(125, 211, 252, 0.48),
+    0 0 36px rgba(196, 181, 253, 0.5),
+    0 0 40px rgba(236, 72, 153, 0.45),
+    0 0 52px rgba(139, 92, 246, 0.38) !important;
+  transform-origin: center center !important;
+  animation:
+    user-panel-idle-nudge-pc-ring 2.2s ease-in-out infinite alternate,
+    user-panel-idle-nudge-pc-hue 5.6s ease-in-out infinite !important;
+  will-change: transform, opacity, filter !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-turn-badge-nudge {
+  display: inline-block !important;
+  position: relative !important;
+  z-index: 3 !important;
+  font-size: clamp(13px, 1.15vw, 15px) !important;
+  font-weight: 800 !important;
+  padding: 5px 16px !important;
+  border-radius: 16px !important;
+  letter-spacing: 0.08em !important;
+  background: linear-gradient(135deg, #22d3ee 0%, rgb(114 23 175) 100%) !important;
+  color: #9ad0cdeb !important;
+  outline: 2px solid rgb(33 5 73 / 90%) !important;
+  outline-offset: 2px !important;
+  text-shadow: 0 1px 2px rgb(33 5 73), 0 0 14px rgb(88 186 204 / 58%) !important;
+  box-shadow:
+    0 0 0 2px rgb(85 168 227 / 75%),
+    0 0 0 4px rgb(41 158 201 / 98%),
+    0 0 0 7px rgb(84 20 164),
+    0 6px 18px rgb(58 179 224 / 55%),
+    0 0 28px rgb(103 77 216 / 57%) !important;
+  animation: user-panel-pc-turn-badge-nudge 2.8s ease-in-out infinite alternate !important;
+  will-change: transform !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-your-turn-above-tricks.user-player-panel-pc-turn-badge-nudge {
+  margin-bottom: 2px !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn.user-player-panel-idle-turn-nudge-pc::after {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    will-change: auto !important;
+  }
+  .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-turn-badge-nudge {
+    animation: none !important;
+    transform: scale(1.28) !important;
+    background: linear-gradient(135deg, #22d3ee 0%, rgb(114 23 175) 100%) !important;
+    color: #9ad0cdeb !important;
+    text-shadow: 0 1px 2px rgb(33 5 73), 0 0 14px rgb(88 186 204 / 58%) !important;
+    box-shadow:
+      0 0 0 2px rgb(85 168 227 / 75%),
+      0 0 0 4px rgb(41 158 201 / 98%),
+      0 0 0 7px rgb(84 20 164),
+      0 6px 18px rgb(58 179 224 / 55%),
+      0 0 28px rgb(103 77 216 / 57%) !important;
+    will-change: auto !important;
+  }
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-stats-stack {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+/* Панель взяток в колонке рядом с аватаром+именем */
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-tricks-column .trick-slots-normal,
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-tricks-column .trick-slots-collecting {
+  align-self: flex-start !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+}
+/* ПК: горизонтальная плашка «Очки» по ширине содержимого; над блоком взяток (в торговлю взятки скрыты); ниже — заказ */
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: flex-start !important;
+  gap: 10px !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  min-width: unset !important;
+  padding: 5px 14px !important;
+  box-sizing: border-box !important;
+  border-radius: 10px !important;
+  border-color: rgba(167, 139, 250, 0.48) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(88, 28, 135, 0.28) 0%,
+    rgba(30, 27, 75, 0.52) 48%,
+    rgba(15, 23, 42, 0.82) 100%
+  ) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
+    0 0 16px rgba(139, 92, 246, 0.16) !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid > span:first-child {
+  margin-bottom: 0 !important;
+  line-height: 1.1 !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid > span:last-child {
+  line-height: 1 !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .bid-panel-pc-under-score {
+  width: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
+  justify-content: center !important;
+}
+
+/* ПК: плашка очков (только вертикальный вариант — планшет в нижней панели) — две строки */
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge:not(.player-score-badge-pc-above-bid) {
   flex-direction: column !important;
   justify-content: center !important;
   align-items: center !important;
@@ -2208,7 +2816,7 @@
     inset 0 -1px 0 rgba(0, 0, 0, 0.12),
     0 0 16px rgba(139, 92, 246, 0.16) !important;
 }
-.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge > span:first-child {
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge:not(.player-score-badge-pc-above-bid) > span:first-child {
   font-size: 10px !important;
   font-weight: 500 !important;
   letter-spacing: 0.14em !important;
@@ -2217,13 +2825,29 @@
   text-transform: uppercase !important;
   line-height: 1.15 !important;
 }
-.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge > span:last-child {
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge:not(.player-score-badge-pc-above-bid) > span:last-child {
   font-size: 20px !important;
   font-weight: 600 !important;
   font-variant-numeric: tabular-nums !important;
   color: #f3e8ff !important;
   letter-spacing: 0.03em !important;
   line-height: 1.05 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35) !important;
+}
+/* ПК: горизонтальная плашка — те же тона, размеры в одну линию */
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid > span:first-child {
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.14em !important;
+  color: rgba(196, 181, 253, 0.9) !important;
+  text-transform: uppercase !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid > span:last-child {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums !important;
+  color: #f3e8ff !important;
+  letter-spacing: 0.03em !important;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35) !important;
 }
 .game-table-root:not(.viewport-mobile) .trick-slots-normal,
@@ -2302,10 +2926,28 @@
     0 0 52px rgba(245, 158, 11, 0.32),
     0 4px 18px rgba(0, 0, 0, 0.4) !important;
 }
-/* Рамка 3px вместо исходных 1px — ужимаем padding/min-width, чтобы габарит плашки остался как у нелидера */
-.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge.score-badge-leader {
-  padding: 5px 12px !important;
-  min-width: 54px !important;
+/* Рамка 3px вместо исходных 1px — ужимаем padding/min-width (вертикальная плашка на планшете в нижней панели) */
+/* Лидер-победитель по очкам: ~÷1.1 — только вертикальный вариант */
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge.score-badge-leader:not(.player-score-badge-pc-above-bid) {
+  padding: 4.5px 11px !important;
+  min-width: 49px !important;
+  gap: 2.7px !important;
+  border-radius: 9px !important;
+  border-width: 2.7px !important;
+  outline-width: 1.8px !important;
+  outline-offset: 1.5px !important;
+  box-sizing: border-box !important;
+}
+/* ПК: лидер, горизонтальная плашка */
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid.score-badge-leader {
+  padding: 4px 12px !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  gap: 8px !important;
+  border-radius: 9px !important;
+  border-width: 2.7px !important;
+  outline-width: 1.8px !important;
+  outline-offset: 1.5px !important;
   box-sizing: border-box !important;
 }
 .game-table-root.viewport-mobile .user-player-panel .player-score-badge.score-badge-leader {
@@ -2361,19 +3003,45 @@
     0 0 22px rgba(34, 211, 238, 0.45),
     0 1px 2px rgba(0, 0, 0, 0.55) !important;
 }
-/* Перекрываем более специфичные правила ПК (фиолетовые подписи/цифры) */
-.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge.score-badge-leader > span:first-child {
+/* Перекрываем правила ПК для лидера — вертикальная плашка (планшет) */
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge.score-badge-leader:not(.player-score-badge-pc-above-bid) > span:first-child {
+  font-size: 9.1px !important;
+  letter-spacing: 0.127em !important;
+  line-height: 1.12 !important;
   color: #fef08a !important;
   text-shadow:
-    0 0 12px rgba(251, 191, 36, 0.85),
-    0 0 4px rgba(250, 204, 21, 0.9) !important;
+    0 0 11px rgba(251, 191, 36, 0.85),
+    0 0 3.6px rgba(250, 204, 21, 0.9) !important;
 }
-.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge.score-badge-leader > span:last-child {
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge.score-badge-leader:not(.player-score-badge-pc-above-bid) > span:last-child {
+  font-size: 18.2px !important;
+  letter-spacing: 0.027em !important;
+  line-height: 1 !important;
   color: #fffbeb !important;
   text-shadow:
-    0 0 16px rgba(251, 191, 36, 0.75),
-    0 0 22px rgba(34, 211, 238, 0.45),
-    0 1px 2px rgba(0, 0, 0, 0.55) !important;
+    0 0 14.5px rgba(251, 191, 36, 0.75),
+    0 0 20px rgba(34, 211, 238, 0.45),
+    0 0.9px 1.8px rgba(0, 0, 0, 0.55) !important;
+}
+/* ПК: лидер, горизонтальная плашка */
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid.score-badge-leader > span:first-child {
+  font-size: 9.1px !important;
+  letter-spacing: 0.127em !important;
+  line-height: 1.1 !important;
+  color: #fef08a !important;
+  text-shadow:
+    0 0 11px rgba(251, 191, 36, 0.85),
+    0 0 3.6px rgba(250, 204, 21, 0.9) !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid.score-badge-leader > span:last-child {
+  font-size: 17px !important;
+  letter-spacing: 0.027em !important;
+  line-height: 1 !important;
+  color: #fffbeb !important;
+  text-shadow:
+    0 0 14.5px rgba(251, 191, 36, 0.75),
+    0 0 20px rgba(34, 211, 238, 0.45),
+    0 0.9px 1.8px rgba(0, 0, 0, 0.55) !important;
 }
 .game-table-root:not(.viewport-mobile) .opponent-score-badge.opponent-score-badge-side-pc.score-badge-leader > span:first-child {
   color: #fef08a !important;
@@ -2807,6 +3475,222 @@ body {
   .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland-dash--violet {
     stroke: #d59aff;
   }
+  /* ПК: намёк, что подсветку можно «приглушить» кликом — нижний правый угол панели */
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland-dismiss-hint-pc {
+    position: absolute !important;
+    bottom: 6px !important;
+    top: auto !important;
+    right: 8px !important;
+    z-index: 5 !important;
+    box-sizing: border-box !important;
+    min-width: 32px !important;
+    height: 26px !important;
+    padding: 0 6px !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 13px !important;
+    cursor: pointer !important;
+    border: 1px solid rgba(186, 230, 253, 0.5) !important;
+    background: rgba(15, 23, 42, 0.58) !important;
+    line-height: 0 !important;
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.2),
+      0 0 14px rgba(56, 189, 248, 0.28) !important;
+    pointer-events: auto !important;
+  }
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland-dismiss-hint-pc-dots {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+  }
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland-dismiss-hint-pc-dot {
+    width: 5px !important;
+    height: 5px !important;
+    border-radius: 50% !important;
+    flex-shrink: 0 !important;
+    animation: user-panel-garland-hint-dot-pulse 1.05s ease-in-out infinite !important;
+    will-change: transform, opacity, filter !important;
+  }
+  .game-table-root.trump-highlight-on:not(.viewport-mobile)
+    .user-player-panel.player-info-panel-your-turn
+    .user-panel-garland-dismiss-hint-pc-dot--1 {
+    background: #22d3ee !important;
+    animation-delay: 0ms !important;
+    box-shadow: 0 0 6px rgba(34, 211, 238, 0.85) !important;
+  }
+  .game-table-root.trump-highlight-on:not(.viewport-mobile)
+    .user-player-panel.player-info-panel-your-turn
+    .user-panel-garland-dismiss-hint-pc-dot--2 {
+    background: #c084fc !important;
+    animation-delay: 140ms !important;
+    box-shadow: 0 0 6px rgba(192, 132, 252, 0.85) !important;
+  }
+  .game-table-root.trump-highlight-on:not(.viewport-mobile)
+    .user-player-panel.player-info-panel-your-turn
+    .user-panel-garland-dismiss-hint-pc-dot--3 {
+    background: #fb7185 !important;
+    animation-delay: 280ms !important;
+    box-shadow: 0 0 6px rgba(251, 113, 133, 0.85) !important;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland-dismiss-hint-pc-dot {
+      animation: none !important;
+      opacity: 0.9 !important;
+      transform: none !important;
+      filter: none !important;
+      will-change: auto !important;
+    }
+  }
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland-dismiss-hint-pc:hover {
+    border-color: rgba(224, 242, 254, 0.65) !important;
+    background: rgba(30, 41, 59, 0.75) !important;
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.35),
+      0 0 18px rgba(56, 189, 248, 0.4) !important;
+  }
+  .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn .user-panel-garland-dismiss-hint-pc:focus-visible {
+    outline: 2px solid rgba(34, 211, 238, 0.85) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* ПК: «Ровно» — Север сверху; Запад/Восток снизу; пользователь — вертикально слева снаружи */
+  .game-table-root:not(.viewport-mobile) .order-on-hand-badge-pc {
+    z-index: 3 !important;
+  }
+  .game-table-root:not(.viewport-mobile) .order-on-hand-badge-pc .order-on-hand-badge-pc-text {
+    color: #3c67f4fc !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.02em !important;
+    text-shadow: 0 0 12px rgb(44 15 143 / 92%) !important;
+  }
+  /* ПК Север (широкий слот): полоса по высоте слота + border; внутри — галочка над столбиком «Ровно» */
+  .game-table-root:not(.viewport-mobile) .order-on-hand-badge-pc-north-vertical {
+    overflow: visible !important;
+    pointer-events: none;
+  }
+  .game-table-root:not(.viewport-mobile) .order-on-hand-badge-pc-north-vertical-inner {
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+  /* Стык бейджа с панелью оппонента (как одна форма): скругления 12px как у .opponent-slot, общий контур бордюра */
+  .game-table-root:not(.viewport-mobile) .opponent-slot.opponent-slot--north-pc-fused-order-badge {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-left: none !important;
+  }
+  /* Стык справа без правой границы; сиреневая рамка + внешнее свечение. Внутренний неон — ::before под контентом (inset на коробке перекрывается детьми на высокой полосе). */
+  .game-table-root:not(.viewport-mobile) .order-on-hand-badge-pc-north-vertical--fused {
+    align-items: center !important;
+    justify-content: center !important;
+    margin-right: 0 !important;
+    border-right: none !important;
+    border-top: 1px solid rgba(192, 132, 252, 0.62) !important;
+    border-bottom: 1px solid rgba(192, 132, 252, 0.62) !important;
+    border-left: 1px solid rgba(192, 132, 252, 0.62) !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-top-left-radius: 12px !important;
+    border-bottom-left-radius: 12px !important;
+    box-shadow: 0 0 10px rgba(167, 139, 250, 0.32), 0 0 20px rgba(139, 92, 246, 0.14) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .order-on-hand-badge-pc-north-vertical--fused::before {
+    content: '' !important;
+    position: absolute !important;
+    z-index: 0 !important;
+    left: 1px !important;
+    top: 1px !important;
+    right: 0 !important;
+    bottom: 1px !important;
+    border-radius: 11px 0 0 11px !important;
+    pointer-events: none !important;
+    box-shadow:
+      inset 0 0 16px rgba(167, 139, 250, 0.38),
+      inset 0 0 32px rgba(192, 132, 252, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .order-on-hand-badge-pc-north-vertical--fused .order-on-hand-badge-pc-north-vertical-inner {
+    position: relative !important;
+    z-index: 1 !important;
+    transform-origin: center center !important;
+  }
+  .game-table-root:not(.viewport-mobile) .order-on-hand-badge-pc-north-vertical-check {
+    flex-shrink: 0 !important;
+    align-self: center !important;
+    aspect-ratio: 1 !important;
+  }
+  .game-table-root:not(.viewport-mobile) .order-on-hand-badge-pc-north-vertical-letters {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    gap: 0 !important;
+  }
+  /* Вертикальный столбик «Ровно»: line-height 1 — иначе 1.2× на каждой строке + scaleY(1.5) вылезают из полосы */
+  .game-table-root:not(.viewport-mobile)
+    .order-on-hand-badge-pc-north-vertical
+    .order-on-hand-badge-pc-north-vertical-char.order-on-hand-badge-pc-text {
+    display: block !important;
+    color: #3c67f4fc !important;
+    line-height: 1 !important;
+    letter-spacing: 0.02em !important;
+    text-shadow: 0 0 12px rgb(44 15 143 / 92%) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .user-player-panel:has(.order-on-hand-badge-pc-user-side) {
+    overflow: visible !important;
+  }
+  /*
+   * ПК пользователь: без container-type/size — иначе size containment даёт узкую коробку,
+   * а галочка и буквы визуально вылезают из фона.
+   * Размеры текста/кружка — через vmin (не привязаны к «сломанной» ширине контейнера).
+   */
+  .game-table-root:not(.viewport-mobile) .order-on-hand-badge-pc-user-side {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    width: fit-content !important;
+    min-width: min-content !important;
+    max-width: none !important;
+    box-sizing: border-box !important;
+  }
+  .game-table-root:not(.viewport-mobile) .order-on-hand-badge-pc-user-side .order-on-hand-badge-user-check {
+    align-self: center !important;
+    flex-shrink: 0 !important;
+    width: clamp(12px, 3vmin, 20px) !important;
+    height: clamp(12px, 3vmin, 20px) !important;
+    font-size: clamp(8px, 2.2vmin, 13px) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .order-on-hand-badge-pc-user-side .order-on-hand-badge-user-vertical {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    align-self: stretch !important;
+    flex: 0 0 auto !important;
+    min-width: max-content !important;
+    min-height: 0 !important;
+    gap: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+  .game-table-root:not(.viewport-mobile) .order-on-hand-badge-pc-user-side .order-on-hand-badge-user-vertical-char {
+    display: block !important;
+    font-size: clamp(9px, 2.5vmin, 14px) !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    letter-spacing: 0.04em !important;
+    color: #22ceda !important;
+    text-shadow:
+      0 0 10px rgba(116, 33, 199, 0.89),
+      0 1px 0 rgba(9, 9, 72, 0.93) !important;
+  }
 }
 
 /* Мобильная (viewport-mobile): та же гирлянда на панели юга — монтируется из GameTable с задержкой 9 с (фаза playing). Внутреннее свечение — выше в @media (max-width: 600px). SVG — последним ребёнком, чтобы не ломать div:first-child. */
@@ -2873,6 +3757,9 @@ body {
 /* Мобильная бескозырка (раздачи 21–24): сильнее зелёные градиенты «страницы»; стол/рука/оппоненты — лавандово-розовые акценты */
 .game-table-root.viewport-mobile.deal-type-no-trump {
   background:
+    radial-gradient(ellipse 120% 90% at 50% -8%, rgba(251, 113, 133, 0.22) 0%, transparent 42%),
+    radial-gradient(ellipse 90% 70% at 8% 22%, rgba(244, 114, 182, 0.18) 0%, transparent 48%),
+    radial-gradient(ellipse 85% 65% at 96% 18%, rgba(217, 70, 239, 0.16) 0%, transparent 46%),
     radial-gradient(ellipse 110% 78% at 50% 4%, rgba(134, 239, 172, 0.38) 0%, rgba(74, 222, 128, 0.12) 38%, transparent 58%),
     radial-gradient(ellipse 100% 70% at 4% 55%, rgba(52, 211, 153, 0.28) 0%, transparent 52%),
     radial-gradient(ellipse 85% 60% at 98% 28%, rgba(16, 185, 129, 0.26) 0%, transparent 48%),
@@ -2884,9 +3771,11 @@ body {
 /* Верхний ряд (Запад/Север): общая «подложка», без просветов между слотами и фоном */
 .game-table-root.viewport-mobile.deal-type-no-trump .game-table-block-mobile > .game-mobile-top-row {
   background:
+    radial-gradient(ellipse 100% 90% at 50% -10%, rgba(251, 113, 133, 0.16) 0%, transparent 48%),
     radial-gradient(ellipse 95% 120% at 50% 0%, rgba(52, 211, 153, 0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 80% at 10% 100%, rgba(244, 114, 182, 0.12) 0%, transparent 50%),
     radial-gradient(ellipse 70% 80% at 10% 100%, rgba(167, 139, 250, 0.1) 0%, transparent 50%),
-    linear-gradient(188deg, rgba(14, 36, 28, 0.95) 0%, rgba(15, 23, 42, 0.98) 42%, rgba(22, 30, 44, 1) 100%);
+    linear-gradient(188deg, rgba(22, 28, 40, 0.96) 0%, rgba(15, 23, 42, 0.98) 42%, rgba(26, 22, 38, 1) 100%);
   border-radius: 16px;
   padding: 8px 10px 10px;
   margin-bottom: 6px;
@@ -2999,110 +3888,62 @@ body {
   border: 1px solid rgba(196, 181, 253, 0.5) !important;
 }
 
-/* Верхняя панель (кнопки): розово-лавандовый градиент в бескозырке */
+/* Верхняя панель (кнопки): сильнее розовый неон к лаванде */
 .game-table-root.viewport-mobile.deal-type-no-trump .game-header {
   background:
-    radial-gradient(ellipse 130% 120% at 50% -30%, rgba(251, 207, 232, 0.45) 0%, transparent 50%),
+    radial-gradient(ellipse 140% 100% at 50% -35%, rgba(251, 113, 133, 0.38) 0%, transparent 46%),
+    radial-gradient(ellipse 130% 120% at 50% -30%, rgba(251, 207, 232, 0.48) 0%, transparent 50%),
+    radial-gradient(ellipse 100% 90% at 92% 10%, rgba(244, 114, 182, 0.32) 0%, transparent 48%),
     radial-gradient(ellipse 100% 90% at 92% 10%, rgba(216, 180, 254, 0.28) 0%, transparent 48%),
-    radial-gradient(ellipse 80% 70% at 8% 20%, rgba(244, 194, 214, 0.18) 0%, transparent 42%),
-    linear-gradient(180deg, rgba(40, 30, 52, 0.98) 0%, rgba(24, 28, 42, 0.98) 45%, rgba(15, 23, 42, 0.97) 100%) !important;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4) !important;
+    radial-gradient(ellipse 80% 70% at 8% 20%, rgba(249, 168, 212, 0.26) 0%, transparent 42%),
+    linear-gradient(180deg, rgba(52, 28, 48, 0.98) 0%, rgba(28, 22, 42, 0.98) 45%, rgba(15, 23, 42, 0.97) 100%) !important;
+  box-shadow:
+    0 0 28px rgba(244, 114, 182, 0.12),
+    0 1px 0 rgba(0, 0, 0, 0.4) !important;
 }
 
-/* ПК / планшет (без viewport-mobile): бескозырка — та же логика: зелёный фон, розово-лавандовый стол/панели, без размытых внешних теней */
+/*
+ * ПК бескозырка: не трогаем .game-header, .game-info-row, .game-center-area и оболочку стола —
+ * тяжёлые градиенты с !important давали огромные тёмные «простыни» поверх сукна и карт.
+ * Атмосфера — только фон корня; шапка и стол остаются на стилях GameTable / общих правилах.
+ */
 .game-table-root.deal-type-no-trump:not(.viewport-mobile) {
   background:
+    radial-gradient(ellipse 110% 85% at 50% -6%, rgba(251, 113, 133, 0.2) 0%, transparent 44%),
+    radial-gradient(ellipse 95% 70% at 6% 28%, rgba(244, 114, 182, 0.16) 0%, transparent 48%),
+    radial-gradient(ellipse 90% 65% at 94% 22%, rgba(217, 70, 239, 0.14) 0%, transparent 46%),
+    radial-gradient(ellipse 85% 55% at 48% 96%, rgba(249, 168, 212, 0.1) 0%, transparent 42%),
     radial-gradient(ellipse 100% 74% at 50% 5%, rgba(134, 239, 172, 0.3) 0%, rgba(74, 222, 128, 0.1) 38%, transparent 56%),
     radial-gradient(ellipse 92% 62% at 5% 58%, rgba(52, 211, 153, 0.22) 0%, transparent 50%),
     radial-gradient(ellipse 80% 54% at 97% 30%, rgba(16, 185, 129, 0.2) 0%, transparent 46%),
     radial-gradient(ellipse 72% 46% at 65% 94%, rgba(5, 150, 105, 0.12) 0%, transparent 44%),
-    linear-gradient(198deg, #051910 0%, #0a2218 14%, #0c1f18 32%, #0f172a 54%, #162e36 80%, #1e2f38 100%) !important;
-}
-
-.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header {
-  background:
-    radial-gradient(ellipse 115% 100% at 50% -25%, rgba(251, 207, 232, 0.42) 0%, transparent 50%),
-    radial-gradient(ellipse 85% 75% at 90% 12%, rgba(216, 180, 254, 0.26) 0%, transparent 46%),
-    radial-gradient(ellipse 70% 60% at 10% 25%, rgba(244, 194, 214, 0.14) 0%, transparent 42%),
-    linear-gradient(180deg, rgba(40, 30, 52, 0.98) 0%, rgba(24, 28, 42, 0.98) 48%, rgba(15, 23, 42, 0.97) 100%) !important;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35) !important;
-}
-
-.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-info-row {
-  background:
-    radial-gradient(ellipse 100% 110% at 50% 0%, rgba(52, 211, 153, 0.12) 0%, transparent 52%),
-    radial-gradient(ellipse 75% 85% at 88% 100%, rgba(196, 181, 253, 0.14) 0%, transparent 48%),
-    linear-gradient(188deg, rgba(16, 38, 30, 0.65) 0%, rgba(15, 23, 42, 0.82) 55%, rgba(20, 28, 40, 0.9) 100%);
-  border-radius: 18px;
-  padding: 10px 14px 12px;
-  margin-bottom: 6px;
-  box-sizing: border-box;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
-}
-
-.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-center-area:not(.game-mobile-center) {
-  background:
-    radial-gradient(ellipse 90% 48% at 50% 0%, rgba(196, 181, 253, 0.15) 0%, transparent 52%),
-    radial-gradient(ellipse 65% 42% at 90% 65%, rgba(244, 194, 214, 0.09) 0%, transparent 46%),
-    linear-gradient(182deg, #1b2736 0%, #242036 38%, #1e2438 72%, #1a2230 100%) !important;
-  border-radius: 22px;
-  padding: 16px 14px 20px !important;
-  box-sizing: border-box !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
-}
-
-.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-center-area:not(.game-mobile-center) .game-center-table {
-  background: #1a2330 !important;
-  box-shadow: none !important;
-  border-radius: 16px;
-}
-
-.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-center-area:not(.game-mobile-center) .game-center-table > div:first-child {
-  background:
-    radial-gradient(ellipse 95% 88% at 20% 25%, rgba(233, 213, 255, 0.35) 0%, transparent 42%),
-    radial-gradient(ellipse 70% 60% at 92% 78%, rgba(244, 201, 232, 0.2) 0%, transparent 48%),
-    linear-gradient(152deg, #443a62 0%, #342d50 32%, #2a2542 58%, #221c38 100%) !important;
-  border-color: rgba(196, 181, 253, 0.58) !important;
-  box-shadow:
-    inset 0 0 0 1px rgba(216, 180, 254, 0.35),
-    inset 0 3px 50px rgba(0, 0, 0, 0.42) !important;
-}
-
-.game-table-root.deal-type-no-trump:not(.viewport-mobile)
-  .game-center-area:not(.game-mobile-center)
-  .game-center-table
-  > div:first-child
-  > div:first-child {
-  background:
-    radial-gradient(ellipse 92% 82% at 45% 32%, rgba(221, 214, 254, 0.5) 0%, transparent 54%),
-    radial-gradient(ellipse 72% 58% at 82% 78%, rgba(251, 182, 206, 0.34) 0%, transparent 52%),
-    radial-gradient(ellipse 58% 48% at 14% 82%, rgba(192, 132, 252, 0.24) 0%, transparent 46%),
-    radial-gradient(ellipse 50% 40% at 88% 18%, rgba(167, 139, 250, 0.15) 0%, transparent 42%),
-    linear-gradient(175deg, #322a48 0%, #2b2440 38%, #241f38 72%, #1c182e 100%) !important;
-  border-color: rgba(196, 181, 253, 0.55) !important;
-  box-shadow:
-    inset 0 0 0 1px rgba(232, 200, 255, 0.28),
-    inset 0 4px 70px rgba(0, 0, 0, 0.38) !important;
+    linear-gradient(198deg, #061210 0%, #0a1a16 12%, #0f172a 38%, #1a1530 62%, #162e36 82%, #1e2f38 100%) !important;
 }
 
 .game-table-root.deal-type-no-trump:not(.viewport-mobile) .opponent-slot:not(.opponent-slot-current-turn) {
   background:
+    radial-gradient(ellipse 100% 95% at 28% 18%, rgba(251, 182, 206, 0.22) 0%, transparent 44%),
     radial-gradient(ellipse 100% 95% at 28% 18%, rgba(210, 200, 255, 0.28) 0%, transparent 48%),
-    radial-gradient(ellipse 75% 70% at 92% 88%, rgba(251, 186, 210, 0.16) 0%, transparent 46%),
-    linear-gradient(168deg, #383054 0%, #2c2844 38%, #221e36 100%) !important;
-  border-color: rgba(186, 170, 240, 0.52) !important;
+    radial-gradient(ellipse 75% 70% at 92% 88%, rgba(251, 186, 210, 0.22) 0%, transparent 46%),
+    linear-gradient(168deg, #402850 0%, #32244a 38%, #221e36 100%) !important;
+  border-color: rgba(244, 114, 182, 0.55) !important;
   box-shadow:
+    0 0 18px rgba(244, 114, 182, 0.14),
+    0 0 32px rgba(217, 70, 239, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.07),
     inset 0 -1px 0 rgba(0, 0, 0, 0.35) !important;
 }
 
 .game-table-root.deal-type-no-trump:not(.viewport-mobile) .opponent-slot.opponent-slot-current-turn {
   background:
+    radial-gradient(ellipse 95% 90% at 32% 12%, rgba(253, 164, 175, 0.28) 0%, transparent 42%),
     radial-gradient(ellipse 95% 90% at 32% 12%, rgba(254, 215, 170, 0.26) 0%, transparent 44%),
-    radial-gradient(ellipse 80% 72% at 85% 85%, rgba(196, 181, 253, 0.2) 0%, transparent 48%),
-    linear-gradient(168deg, #453068 0%, #382858 36%, #2a2042 100%) !important;
-  border-color: rgba(251, 191, 36, 0.52) !important;
+    radial-gradient(ellipse 80% 72% at 85% 85%, rgba(244, 114, 182, 0.18) 0%, transparent 48%),
+    linear-gradient(168deg, #503070 0%, #3d2858 36%, #2a2042 100%) !important;
+  border-color: rgba(251, 191, 36, 0.55) !important;
   box-shadow:
+    0 0 22px rgba(251, 113, 133, 0.18),
+    0 0 36px rgba(245, 158, 11, 0.1),
     inset 0 1px 0 rgba(255, 230, 200, 0.1),
     inset 0 -1px 0 rgba(0, 0, 0, 0.38) !important;
 }
@@ -3110,18 +3951,398 @@ body {
 .game-table-root.deal-type-no-trump:not(.viewport-mobile) .player-hand-your-turn {
   animation: none !important;
   box-shadow:
-    0 0 0 1px rgba(186, 170, 240, 0.4),
+    0 0 20px rgba(244, 114, 182, 0.12),
+    0 0 0 1px rgba(244, 114, 182, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
 .game-table-root.deal-type-no-trump:not(.viewport-mobile) .user-player-panel {
-  box-shadow: none !important;
-  border: 1px solid rgba(186, 170, 240, 0.42) !important;
+  box-shadow: 0 0 16px rgba(244, 114, 182, 0.1) !important;
+  border: 1px solid rgba(244, 114, 182, 0.48) !important;
 }
 
 .game-table-root.deal-type-no-trump:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn {
-  box-shadow: none !important;
-  border: 1px solid rgba(196, 181, 253, 0.5) !important;
+  box-shadow: 0 0 22px rgba(251, 113, 133, 0.16) !important;
+  border: 1px solid rgba(251, 182, 232, 0.58) !important;
+}
+
+/* ПК: крупный неоновый бейдж «Бескозырка», пока не все сделали заказы */
+@keyframes game-info-no-trump-bidding-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 22px rgba(90, 24, 236, 0.5),
+      0 0 40px rgba(230, 68, 233, 0.28),
+      inset 0 1px 0 rgba(53, 210, 215, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 30px rgba(230, 68, 233, 0.45),
+      0 0 52px rgba(53, 210, 215, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* Условие как у GameTable: кнопка при !isMobile (>600px), без привязки к 1025px — иначе на планшете стили не срабатывали */
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header button.game-info-mode-panel-pc-no-trump-bidding {
+  display: flex !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-no-trump-bidding {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 6px !important;
+  padding: 12px 22px 14px !important;
+  border-radius: 14px !important;
+  border: 2px solid rgba(230, 68, 233, 0.55) !important;
+  background: rgb(90 24 236 / 47%) !important;
+  animation: game-info-no-trump-bidding-pulse 2.6s ease-in-out infinite;
+}
+
+/* Та же палитра после торгов (div), пока раздача бескозырковая — раньше стили были только у кнопки на торгах */
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-no-trump-wrap {
+  border: 2px solid rgba(230, 68, 233, 0.55) !important;
+  background: rgb(90 24 236 / 47%) !important;
+  border-radius: 14px !important;
+  box-shadow:
+    0 0 24px rgba(90, 24, 236, 0.4),
+    0 0 44px rgba(230, 68, 233, 0.25),
+    inset 0 1px 0 rgba(53, 210, 215, 0.18);
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-head,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-head {
+  justify-content: center;
+  gap: 10px;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-tag,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-tag {
+  font-size: 11px !important;
+  letter-spacing: 0.55px !important;
+  color: rgb(53, 210, 215) !important;
+  text-transform: uppercase;
+  text-shadow: 0 0 14px rgba(53, 210, 215, 0.65);
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-name,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-name {
+  font-size: clamp(17px, 1.35vw, 21px) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  color: #ed6bef !important;
+  -webkit-font-smoothing: antialiased;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22),
+    0 1px 2px rgba(12, 4, 28, 0.65);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-no-trump-bidding {
+    animation: none;
+    box-shadow:
+      0 0 24px rgba(90, 24, 236, 0.4),
+      0 0 44px rgba(230, 68, 233, 0.25),
+      inset 0 1px 0 rgba(53, 210, 215, 0.18);
+  }
+}
+
+/* ПК: неоновый бейдж «Тёмная» на торгах (сирень + голубой) */
+@keyframes game-info-dark-bidding-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 22px rgba(129, 140, 248, 0.5),
+      0 0 44px rgba(56, 189, 248, 0.28),
+      inset 0 1px 0 rgba(224, 231, 255, 0.22);
+  }
+  50% {
+    box-shadow:
+      0 0 34px rgba(167, 139, 250, 0.55),
+      0 0 52px rgba(34, 211, 238, 0.22),
+      inset 0 1px 0 rgba(240, 249, 255, 0.28);
+  }
+}
+
+/* «Масляный» перелив: два слоя фона + сдвиг + hue/saturation/brightness (работает поверх background-clip: text) */
+@keyframes game-info-dark-mode-name-oil {
+  0% {
+    background-position:
+      0% 50%,
+      -60% 50%;
+    filter: hue-rotate(-12deg) saturate(1.2) brightness(1.02);
+  }
+  33% {
+    background-position:
+      45% 50%,
+      35% 50%;
+    filter: hue-rotate(22deg) saturate(1.38) brightness(1.05);
+  }
+  66% {
+    background-position:
+      90% 50%,
+      120% 50%;
+    filter: hue-rotate(-18deg) saturate(1.28) brightness(1.04);
+  }
+  100% {
+    background-position:
+      0% 50%,
+      -60% 50%;
+    filter: hue-rotate(-12deg) saturate(1.2) brightness(1.02);
+  }
+}
+
+.game-table-root:not(.viewport-mobile) .game-header button.game-info-mode-panel-pc-dark-bidding {
+  display: flex !important;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-bidding {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 6px !important;
+  padding: 12px 22px 14px !important;
+  border-radius: 14px !important;
+  border: 2px solid rgba(129, 140, 248, 0.78) !important;
+  background:
+    radial-gradient(ellipse 120% 95% at 50% -25%, rgba(56, 189, 248, 0.28) 0%, transparent 52%),
+    radial-gradient(ellipse 90% 80% at 90% 40%, rgba(167, 139, 250, 0.22) 0%, transparent 48%),
+    linear-gradient(152deg, rgba(30, 22, 72, 0.96) 0%, rgba(22, 36, 86, 0.94) 42%, rgba(18, 28, 62, 0.96) 100%) !important;
+  animation: game-info-dark-bidding-pulse 2.6s ease-in-out infinite;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-wrap {
+  border: 2px solid rgba(129, 140, 248, 0.78) !important;
+  border-radius: 14px !important;
+  background:
+    radial-gradient(ellipse 120% 95% at 50% -25%, rgba(56, 189, 248, 0.28) 0%, transparent 52%),
+    radial-gradient(ellipse 90% 80% at 90% 40%, rgba(167, 139, 250, 0.22) 0%, transparent 48%),
+    linear-gradient(152deg, rgba(30, 22, 72, 0.96) 0%, rgba(22, 36, 86, 0.94) 42%, rgba(18, 28, 62, 0.96) 100%) !important;
+  box-shadow:
+    0 0 26px rgba(129, 140, 248, 0.45),
+    0 0 48px rgba(56, 189, 248, 0.2),
+    inset 0 1px 0 rgba(224, 231, 255, 0.22);
+}
+
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-dark-bidding
+  .game-info-mode-panel-head,
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-wrap .game-info-mode-panel-head {
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Классы вешаются в GameTable — короткий селектор надёжнее цепочки .pc-dark-bidding … */
+.game-table-root:not(.viewport-mobile) .game-header .game-info-dark-mode-tag {
+  font-size: 11px !important;
+  letter-spacing: 0.55px !important;
+  font-weight: 700 !important;
+  color: #4bc4ec !important;
+  -webkit-text-fill-color: #4bc4ec !important;
+  text-transform: uppercase;
+  text-shadow: none;
+}
+
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  button.game-info-mode-panel-pc-dark-bidding
+  span.game-info-dark-mode-tag,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-dark-wrap
+  span.game-info-dark-mode-tag {
+  color: #4bc4ec !important;
+  -webkit-text-fill-color: #4bc4ec !important;
+}
+
+/* text-shadow ломает заливку при background-clip: text — блик отдельным слоем градиента */
+.game-table-root:not(.viewport-mobile) .game-header .game-info-dark-mode-name {
+  display: inline-block !important;
+  position: relative;
+  isolation: isolate;
+  transform: translateZ(0);
+  font-size: clamp(17px, 1.35vw, 21px) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  background-color: transparent !important;
+  /* Слой 1: радужно-масляные полосы; слой 2: узкий блик, ездит по буквам */
+  background-image:
+    linear-gradient(
+      110deg,
+      #0f766e 0%,
+      #22d3ee 8%,
+      #a855f7 16%,
+      #d484b2 24%,
+      #4bc4ec 32%,
+      #34d399 40%,
+      #c084fc 48%,
+      #06b6d4 56%,
+      #a78bfa 64%,
+      #2dd4bf 72%,
+      #38bdf8 80%,
+      #d8b4fe 88%,
+      #14b8a6 96%,
+      #0f766e 100%
+    ),
+    linear-gradient(
+      100deg,
+      transparent 0%,
+      transparent 26%,
+      rgba(255, 255, 255, 0.2) 38%,
+      rgba(186, 230, 253, 0.42) 46%,
+      rgba(244, 200, 230, 0.2) 54%,
+      rgba(255, 255, 255, 0.2) 62%,
+      transparent 74%,
+      transparent 100%
+    ) !important;
+  background-repeat: no-repeat, no-repeat !important;
+  background-size:
+    340% 100%,
+    280% 100% !important;
+  background-position:
+    0% 50%,
+    -60% 50% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-font-smoothing: antialiased;
+  will-change: background-position, filter;
+  animation: game-info-dark-mode-name-oil 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-bidding {
+    animation: none;
+    box-shadow:
+      0 0 26px rgba(129, 140, 248, 0.45),
+      0 0 48px rgba(56, 189, 248, 0.2),
+      inset 0 1px 0 rgba(224, 231, 255, 0.22);
+  }
+
+  .game-table-root:not(.viewport-mobile) .game-header .game-info-dark-mode-name {
+    animation: none !important;
+    filter: none !important;
+    will-change: auto !important;
+    background-position:
+      48% 50%,
+      52% 50% !important;
+  }
+}
+
+/* ПК: бейдж «Карт / N карт» (не бескозырка и не тёмная, пока не все заказали) */
+.game-table-root:not(.viewport-mobile) .game-header .game-info-deal-contract-panel.game-info-cards-panel {
+  transition:
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease,
+    transform 0.22s ease;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-cards-panel .deal-contract-label {
+  color: rgb(88 168 255 / 98%) !important;
+  -webkit-text-fill-color: rgb(88 168 255 / 98%) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.16em !important;
+  text-transform: uppercase;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+  transition: color 0.2s ease, text-shadow 0.2s ease, -webkit-text-fill-color 0.2s ease;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-cards-panel .deal-contract-value {
+  color: rgb(172 87 255) !important;
+  -webkit-text-fill-color: rgb(172 87 255) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.045em !important;
+  font-variant-numeric: tabular-nums !important;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+  transition:
+    color 0.2s ease,
+    filter 0.2s ease,
+    -webkit-text-fill-color 0.2s ease;
+}
+
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-deal-contract-panel.game-info-cards-panel:hover,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-deal-contract-panel.game-info-cards-panel:focus-visible {
+  border-color: rgba(56, 189, 248, 0.78) !important;
+  box-shadow:
+    0 0 28px rgba(34, 211, 238, 0.38),
+    0 4px 20px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+  background: linear-gradient(
+    145deg,
+    rgba(13, 148, 136, 0.48) 0%,
+    rgba(37, 99, 235, 0.94) 48%,
+    rgba(59, 130, 246, 0.9) 100%
+  ) !important;
+  transform: translateY(-1px);
+}
+
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-deal-contract-panel.game-info-cards-panel:hover
+  .deal-contract-label,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-deal-contract-panel.game-info-cards-panel:focus-visible
+  .deal-contract-label {
+  color: rgb(125 200 255) !important;
+  -webkit-text-fill-color: rgb(125 200 255) !important;
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.55);
+}
+
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-deal-contract-panel.game-info-cards-panel:hover
+  .deal-contract-value,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-deal-contract-panel.game-info-cards-panel:focus-visible
+  .deal-contract-value {
+  color: rgb(196 130 255) !important;
+  -webkit-text-fill-color: rgb(196 130 255) !important;
+  filter: brightness(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root:not(.viewport-mobile) .game-header .game-info-deal-contract-panel.game-info-cards-panel {
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  }
+
+  .game-table-root:not(.viewport-mobile)
+    .game-header
+    .game-info-deal-contract-panel.game-info-cards-panel:hover,
+  .game-table-root:not(.viewport-mobile)
+    .game-header
+    .game-info-deal-contract-panel.game-info-cards-panel:focus-visible {
+    transform: none;
+  }
 }
 
 /* Overlay анимации между раздачами: блоки Запад/Восток/Север/Юг */

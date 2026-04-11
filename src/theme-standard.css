@@ -297,6 +297,14 @@
     0 0 22px rgba(99, 102, 241, 0.42),
     0 0 34px rgba(34, 211, 238, 0.28) !important;
 }
+/* Панель Юга «заказ на руке ровно» — тот же градиент и усиленное свечение, что у exact-кольца */
+.theme-standard .game-table-root.viewport-mobile .user-player-panel.user-player-panel-order-exact::after {
+  background: linear-gradient(145deg, #f5e6ff 0%, #d8b4fe 22%, #a78bfa 45%, #818cf8 68%, #38bdf8 100%) !important;
+  box-shadow:
+    0 0 12px rgba(192, 132, 252, 0.55),
+    0 0 22px rgba(99, 102, 241, 0.42),
+    0 0 34px rgba(34, 211, 238, 0.28) !important;
+}
 .theme-standard .game-table-root.viewport-mobile .user-player-panel .opponent-avatar-order-ring--chasing {
   opacity: 1 !important;
   background:
