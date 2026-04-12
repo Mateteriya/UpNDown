@@ -8,3 +8,4 @@ export * from './scoring';
 export * from './rules';
 export * from './GameEngine';
 export * from './ai';
+export * from './aiSettings';

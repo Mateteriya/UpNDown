@@ -8,6 +8,9 @@ export type Suit = '♠' | '♥' | '♦' | '♣';
 /** Ранги карт: 6–10, В, Д, К, Т */
 export type Rank = '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K' | 'A';
 
+/** Уровень сложности бота (розыгрыск; заказ пока общий по эвристике) */
+export type AIDifficulty = 'novice' | 'amateur' | 'expert';
+
 /** Карта */
 export interface Card {
   suit: Suit;
@@ -26,6 +29,8 @@ export interface Player {
   tricksTaken: number;
   /** Общий счёт */
   score: number;
+  /** Офлайн: уровень этого бота (id ai1–ai3). В онлайне не используется. */
+  aiDifficulty?: AIDifficulty;
 }
 
 /** Тип раздачи */

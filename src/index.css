@@ -497,6 +497,33 @@
    Чтобы правки карт на ПК НЕ ЗАДЕВАЛИ мобильную: все стили карт для ПК — только здесь и с селектором .game-table-root:not(.viewport-mobile).
    См. docs/PC-CARDS-PROTECT-MOBILE.md */
 @media (min-width: 1025px) {
+  /*
+   * Шапка: z-index 20 и растягивание на всю ширину — «пустая» полоса перехватывала клики по центру экрана,
+   * где после translateY у .game-table-block оказывается панель Север (имя ИИ). Запад/Восток ниже — не страдали.
+   * Сбрасываем hit-test на шапке и включаем только реальные контролы (+ попап ИИ role="dialog").
+   */
+  .game-table-root:not(.viewport-mobile) .game-header {
+    pointer-events: none;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header * {
+    pointer-events: none;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header button,
+  .game-table-root:not(.viewport-mobile) .game-header a[href],
+  .game-table-root:not(.viewport-mobile) .game-header input,
+  .game-table-root:not(.viewport-mobile) .game-header select,
+  .game-table-root:not(.viewport-mobile) .game-header textarea,
+  .game-table-root:not(.viewport-mobile) .game-header [role="button"],
+  .game-table-root:not(.viewport-mobile) .game-header label {
+    pointer-events: auto;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header [role="dialog"],
+  .game-table-root:not(.viewport-mobile) .game-header [role="dialog"] * {
+    pointer-events: auto;
+  }
+  .game-table-root:not(.viewport-mobile) .game-center-spacer-top {
+    pointer-events: none;
+  }
   .game-table-root .game-header > div:first-child > div:first-child {
     flex-direction: column !important;
     align-items: flex-start !important;
@@ -675,6 +702,337 @@
     --deal-results-overlay-top: 200px;
     --deal-results-overlay-height: 240px;
   }
+}
+
+/* ========== Сложность ИИ: попап и «шарики» (мобильная + ПК) ========== */
+/* .ai-difficulty-popover-layer — портал на body (моб.), иначе нет предка .game-table-root */
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-popover-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(196, 181, 253, 0.95);
+  margin-bottom: 10px;
+  text-shadow: 0 0 12px rgba(139, 92, 246, 0.45);
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-popover-head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-popover-head .ai-difficulty-popover-title {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
+  padding-right: 4px;
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-popover-dismiss {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: -4px -4px -4px 0;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.55);
+  color: rgba(203, 213, 225, 0.95);
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-popover-dismiss:hover {
+  color: #f8fafc;
+  background: rgba(51, 65, 85, 0.85);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.35),
+    0 0 12px rgba(34, 211, 238, 0.15);
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-popover-dismiss:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.85);
+  outline-offset: 2px;
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-popover-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(71, 85, 105, 0.65);
+  background: rgba(15, 23, 42, 0.9);
+  color: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-option:hover {
+  border-color: rgba(34, 211, 238, 0.45);
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.12);
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-option--selected {
+  border-color: rgba(167, 139, 250, 0.75);
+  background: linear-gradient(120deg, rgba(88, 28, 135, 0.55) 0%, rgba(30, 27, 75, 0.92) 100%);
+  box-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.35),
+    0 0 20px rgba(139, 92, 246, 0.2);
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-option-ball-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-ball {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.35),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(15, 23, 42, 0.55);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-ball--checked {
+  box-shadow:
+    inset 0 1px 3px rgba(255, 255, 255, 0.5),
+    0 0 0 2px rgba(248, 250, 252, 0.85),
+    0 0 14px rgba(34, 211, 238, 0.55);
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-ball-check {
+  font-size: 12px;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-ball--novice {
+  background: linear-gradient(145deg, #4ade80 0%, #16a34a 55%, #14532d 100%);
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-ball--amateur {
+  background: linear-gradient(145deg, #fde047 0%, #eab308 45%, #a16207 100%);
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-ball--expert {
+  background: linear-gradient(145deg, #e879f9 0%, #a855f7 40%, #6b21a8 100%);
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-option-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #f1f5f9;
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-option-hint {
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(148, 163, 184, 0.95);
+}
+.game-table-root .ai-difficulty-trigger-ball {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow:
+    0 0 6px rgba(255, 255, 255, 0.35),
+    0 0 10px rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(15, 23, 42, 0.4);
+}
+.game-table-root .ai-difficulty-trigger-ball--novice {
+  background: linear-gradient(145deg, #4ade80 0%, #16a34a 70%, #14532d 100%);
+}
+.game-table-root .ai-difficulty-trigger-ball--amateur {
+  background: linear-gradient(145deg, #fde047 0%, #eab308 65%, #a16207 100%);
+}
+.game-table-root .ai-difficulty-trigger-ball--expert {
+  background: linear-gradient(145deg, #e879f9 0%, #a855f7 55%, #6b21a8 100%);
+}
+.game-table-root .header-ai-difficulty-btn {
+  cursor: pointer;
+}
+.game-table-root:not(.viewport-mobile) .header-right-ai-row {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: 2px;
+  padding-right: 2px;
+}
+.game-table-root:not(.viewport-mobile) .ai-difficulty-root--pc {
+  position: relative;
+}
+.game-table-root:not(.viewport-mobile) .header-ai-difficulty-btn--pc {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(167, 139, 250, 0.5);
+  background: linear-gradient(135deg, rgba(67, 56, 202, 0.42) 0%, rgba(30, 27, 75, 0.88) 100%);
+  color: #ede9fe;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.2),
+    0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.game-table-root:not(.viewport-mobile) .header-ai-difficulty-btn--pc:hover {
+  border-color: rgba(34, 211, 238, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.25),
+    0 0 18px rgba(34, 211, 238, 0.2);
+}
+.game-table-root:not(.viewport-mobile) .header-ai-difficulty-btn--pc .ai-difficulty-trigger-ball {
+  width: 12px;
+  height: 12px;
+}
+/* Кнопка ИИ слева в шапке: при right:0 меню тянется влево и вылезает за край экрана — якорь слева, рост вправо */
+.game-table-root:not(.viewport-mobile) .ai-difficulty-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: auto;
+  z-index: 140;
+  min-width: 288px;
+  max-width: min(92vw, 340px);
+  padding: 14px 14px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(167, 139, 250, 0.5);
+  background: linear-gradient(165deg, rgba(30, 27, 75, 1) 0%, rgba(15, 23, 42, 0.995) 100%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.1),
+    0 16px 48px rgba(0, 0, 0, 0.55),
+    0 0 32px rgba(139, 92, 246, 0.22);
+}
+
+/* Мобильный попап ИИ: createPortal(body) — вне stacking context шапки, поверх «Заказывает» */
+.ai-difficulty-popover.ai-difficulty-popover--portal-mobile.ai-difficulty-popover-layer {
+  position: fixed !important;
+  z-index: 220 !important;
+  box-sizing: border-box;
+  min-width: min(88vw, 268px);
+  max-width: 92vw;
+  padding: 12px 12px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  background: linear-gradient(165deg, rgba(30, 27, 75, 1) 0%, rgba(15, 23, 42, 0.995) 100%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.12),
+    0 12px 40px rgba(0, 0, 0, 0.55),
+    0 0 28px rgba(139, 92, 246, 0.25);
+}
+
+/* Офлайн: клик по имени бота — портал на body; без этого короб прозрачный и «наслаивается» на стол */
+.ai-difficulty-popover.offline-ai-difficulty-popover.ai-difficulty-popover-layer {
+  padding: 14px 14px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  background: linear-gradient(165deg, rgba(30, 27, 75, 1) 0%, rgba(15, 23, 42, 0.995) 100%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.12),
+    0 16px 48px rgba(0, 0, 0, 0.55),
+    0 0 32px rgba(139, 92, 246, 0.22);
+}
+
+/* Модалка «инфо по игроку» (createPortal body): заголовок блока уровня ИИ — заметная выпуклая плашка */
+.player-info-panel-root .player-info-panel-ai-difficulty-heading {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 11px 14px 10px;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.25;
+  text-transform: uppercase;
+  color: #3889e7;
+  border: 1px solid rgba(56, 137, 231, 0.45);
+  background: linear-gradient(
+    180deg,
+    rgba(71, 85, 105, 0.75) 0%,
+    rgba(51, 65, 85, 0.92) 38%,
+    rgba(30, 41, 59, 0.98) 100%
+  );
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -3px 8px rgba(15, 23, 42, 0.55),
+    0 3px 10px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(15, 23, 42, 0.6);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 20px rgba(56, 137, 231, 0.35);
+}
+
+.player-info-panel-root .player-info-panel-player-name {
+  color: rgb(181, 126, 35);
+}
+
+.player-info-panel-root .player-info-panel-ai-role {
+  font-size: 12px;
+  font-weight: 700;
+  color: #55ad75eb;
+}
+
+.player-info-panel-root .player-info-panel-label--party-score {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgb(249, 100, 230);
+}
+
+.player-info-panel-root .player-info-panel-value--party-score {
+  font-size: 18px;
+  font-weight: 700;
+  color: #4ade80;
+}
+
+.player-info-panel-root .player-info-panel-label--bid-accuracy-deal {
+  font-size: 14px;
+  color: rgb(181, 142, 255);
+}
+
+.player-info-panel-root .player-info-panel-value--bid-accuracy-deal {
+  font-size: 16px;
+  font-weight: 600;
+  color: #bfe6f7;
+}
+
+/* Только модалка аватарки: Новичок / Любитель / Эксперт (не трогаем попап по имени на столе) */
+.player-info-panel-root .ai-difficulty-popover-layer .ai-difficulty-option-title {
+  color: rgba(34, 238, 212, 0.68);
 }
 
 /* Ограничение отступа стол–Север до 7px на планшете/мобильных */
@@ -886,7 +1244,8 @@
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    z-index: 99 !important;
+    /* Выше контента стола; центр. бейдж — .game-info-left-col (118); попап ИИ — portal z-index 220 */
+    z-index: 110 !important;
     padding: 2px 4px !important;
     gap: 2px !important;
     margin-bottom: 0 !important;
@@ -899,6 +1258,10 @@
     flex-direction: column !important;
     align-items: flex-start !important;
     gap: 0 !important;
+  }
+  /* Обёртка кнопок меню: компактный gap (inline gap:8 из TS перебиваем) */
+  .game-table-root.viewport-mobile .game-header > div:first-child > div:first-child {
+    gap: 4px !important;
   }
   .game-table-root.viewport-mobile .game-header > div:last-child {
     gap: 2px !important;
@@ -929,17 +1292,34 @@
     padding: 4px 8px !important;
     min-height: 28px !important;
   }
-  /* Кнопки «домик» и ↻: один размер */
+  /* Кнопки «домик», ↻, «выйти», ИИ — как Σ / лампа / тема: 32×28, box-sizing */
   .game-table-root.viewport-mobile .game-header .header-exit-btn,
-  .game-table-root.viewport-mobile .game-header .header-new-game-btn {
-    width: 33px !important;
-    min-width: 33px !important;
-    height: 29px !important;
-    min-height: 29px !important;
+  .game-table-root.viewport-mobile .game-header .header-new-game-btn,
+  .game-table-root.viewport-mobile .game-header .header-ai-difficulty-btn {
+    width: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    max-height: 28px !important;
     padding: 0 !important;
+    box-sizing: border-box !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-room-exit-btn span {
+    display: none !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-room-exit-btn {
+    font-size: 0 !important;
+    line-height: 0 !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-room-exit-btn svg {
+    width: 15px !important;
+    height: 15px !important;
+    filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.75)) drop-shadow(0 0 8px rgba(245, 158, 11, 0.45)) !important;
   }
   /* Домик: зеленоватый хрустальный неон */
   .game-table-root.viewport-mobile .game-header .header-exit-btn {
@@ -952,13 +1332,36 @@
   }
   /* Кнопка ↻: бирюзовый хрустальный неон */
   .game-table-root.viewport-mobile .game-header .header-new-game-btn {
-    font-size: 18px !important;
+    font-size: 17px !important;
     line-height: 1 !important;
     color: rgba(186, 230, 253, 0.7) !important;
     text-shadow:
       0 0 6px rgba(34, 211, 238, 0.9),
       0 0 12px rgba(56, 189, 248, 0.6),
       0 0 18px rgba(34, 211, 238, 0.4) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-ai-difficulty-btn {
+    flex-direction: row !important;
+    gap: 3px !important;
+    border: 1px solid rgba(167, 139, 250, 0.55) !important;
+    background: linear-gradient(180deg, rgba(67, 56, 202, 0.55) 0%, rgba(49, 46, 129, 0.85) 100%) !important;
+    color: #e9d5ff !important;
+    box-shadow:
+      0 0 0 1px rgba(139, 92, 246, 0.25),
+      0 0 10px rgba(167, 139, 250, 0.35) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .ai-difficulty-trigger-ball {
+    width: 7px !important;
+    height: 7px !important;
+    flex-shrink: 0 !important;
+  }
+  .game-table-root.viewport-mobile .game-header .ai-difficulty-trigger-label {
+    font-size: 8px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.02em !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   .game-table-root .game-header .header-exit-btn,
   .game-table-root .game-header .header-new-game-btn {
@@ -1010,11 +1413,14 @@
     width: 16px !important;
     height: 18px !important;
   }
+  /* Левый блок меню: без лишнего padding слева — как отступ справа у лампы (только padding шапки 4px) */
   .game-table-root.viewport-mobile .game-header > div:first-child > div:not(.first-move-badge) {
-    padding: 4px 8px !important;
+    padding: 0 !important;
+    margin: 0 !important;
     gap: 3px !important;
-    border-radius: 5px !important;
-    min-height: 28px !important;
+    border-radius: 0 !important;
+    min-height: 0 !important;
+    align-items: center !important;
   }
   .game-table-root.viewport-mobile .game-header > div:first-child > div span {
     font-size: 10px !important;
@@ -1178,6 +1584,150 @@
     font-size: 8px !important;
   }
 
+  /* --- Сложность ИИ (мобильная шапка) --- */
+  /* Единый блок: домик / выход / ↻ / ИИ — фиолетовый градиент, справа лёгкий внутренний отступ под кнопку ИИ */
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
+    align-self: center !important;
+    gap: 0 !important;
+    flex-wrap: nowrap !important;
+    min-height: 28px !important;
+    height: 28px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    background: linear-gradient(
+      152deg,
+      rgba(99, 102, 241, 0.52) 0%,
+      rgba(109, 40, 160, 0.9) 30%,
+      rgba(67, 56, 202, 0.92) 55%,
+      rgba(49, 46, 129, 0.97) 100%
+    ) !important;
+    border: 1px solid rgba(129, 140, 248, 0.82) !important;
+    border-radius: 8px !important;
+    /* Попап ИИ — createPortal(body). Скрываем всё, что рисуется снаружи рамки (тени кнопок, blur, внешние box-shadow) */
+    overflow: hidden !important;
+    contain: paint !important;
+    /* Внутреннее кольцо + верхний блик — индиго/фиолет, без светлой лаванды */
+    box-shadow:
+      inset 0 0 0 1px rgba(99, 102, 241, 0.55),
+      inset 0 1px 0 rgba(165, 180, 252, 0.22) !important;
+  }
+  /* Полоска у нижнего края (внутри рамки): индиго к глубокому фиолету */
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row::after {
+    content: '' !important;
+    position: absolute !important;
+    left: 2px !important;
+    right: 2px !important;
+    bottom: 0 !important;
+    height: 3px !important;
+    pointer-events: none !important;
+    z-index: 2 !important;
+    border-radius: 0 0 5px 5px !important;
+    background: linear-gradient(
+      to top,
+      rgba(99, 102, 241, 0.62) 0%,
+      rgba(79, 70, 229, 0.42) 42%,
+      transparent 100%
+    ) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-exit-btn,
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-new-game-btn,
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-ai-difficulty-btn {
+    border: none !important;
+  }
+  /* Скругления сегментов; обрезка снаружи — overflow:hidden на самом ряду */
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button {
+    border-radius: 0 !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button:first-child {
+    border-radius: 7px 0 0 7px !important;
+  }
+  /* Обрезаем размытие filter: drop-shadow у SVG и свечение текста — они рисуются снаружи и затемняют нижнюю рамку */
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button,
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .ai-difficulty-root .header-ai-difficulty-btn {
+    overflow: hidden !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-exit-btn svg,
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-room-exit-btn svg {
+    filter: none !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-new-game-btn {
+    text-shadow: none !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .ai-difficulty-trigger-ball {
+    box-shadow: none !important;
+  }
+  /* Выпуклые сегменты: только верхний блик + разделители — без тёмного inset снизу (он тонил нижнюю обводку контейнера) */
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button {
+    background: linear-gradient(
+      180deg,
+      rgba(99, 102, 241, 0.3) 0%,
+      rgba(124, 58, 237, 0.28) 40%,
+      rgba(88, 28, 135, 0.4) 78%,
+      rgba(55, 48, 120, 0.48) 100%
+    ) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(199, 210, 254, 0.18),
+      inset -1px 0 0 rgba(129, 140, 248, 0.55),
+      inset -2px 0 0 rgba(79, 70, 229, 0.5) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-exit-btn:hover,
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-new-game-btn:hover,
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-ai-difficulty-btn:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(129, 140, 248, 0.36) 0%,
+      rgba(139, 92, 246, 0.34) 45%,
+      rgba(91, 33, 182, 0.5) 100%
+    ) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(224, 231, 255, 0.22),
+      inset 0 0 14px rgba(99, 102, 241, 0.35) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button:hover {
+    box-shadow:
+      inset 0 1px 0 rgba(224, 231, 255, 0.22),
+      inset 0 0 14px rgba(99, 102, 241, 0.35),
+      inset -1px 0 0 rgba(129, 140, 248, 0.55),
+      inset -2px 0 0 rgba(79, 70, 229, 0.5) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .ai-difficulty-root {
+    display: flex !important;
+    align-items: stretch !important;
+    flex-shrink: 0 !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    border-radius: 0 7px 7px 0 !important;
+    /* 32px кнопка + бывший правый отступ ряда — шарик и «ИИ» по центру последней ячейки */
+    min-width: 39px !important;
+    box-sizing: border-box !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .ai-difficulty-root .header-ai-difficulty-btn {
+    border-radius: 0 !important;
+    height: 100% !important;
+    min-height: 28px !important;
+    max-height: 28px !important;
+    justify-content: center !important;
+    align-items: center !important;
+    background: linear-gradient(
+      180deg,
+      rgba(99, 102, 241, 0.3) 0%,
+      rgba(124, 58, 237, 0.28) 40%,
+      rgba(88, 28, 135, 0.4) 78%,
+      rgba(55, 48, 120, 0.48) 100%
+    ) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(199, 210, 254, 0.18) !important;
+  }
+  .game-table-root.viewport-mobile .ai-difficulty-root {
+    position: relative;
+    flex-shrink: 0;
+  }
+
   /* Мобильный рефакторинг UI — переопределения для компактности */
   .game-table-root .game-header {
     padding: 6px 8px !important;
@@ -1234,7 +1784,8 @@
     top: 0 !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
-    z-index: 100 !important;
+    /* Выше шапки (110), чтобы «Заказывает» не прятался под фоном header; ниже portal-попапа ИИ (220) */
+    z-index: 118 !important;
     width: auto !important;
     max-width: calc(100vw - 24px) !important;
     padding: 2px 0 !important;
@@ -1728,7 +2279,8 @@
 }
 /* Имена оппонентов: жемчужная расцветка, без лишних эффектов (чёткие буквы) */
 .game-table-root .opponent-slot-header .player-panel-name,
-.game-table-root .opponent-slot-header > span:not([class]) {
+.game-table-root .opponent-slot-header > span:not([class]),
+.game-table-root .opponent-slot-header button.opponent-name-offline-ai-pick {
   background: linear-gradient(
     180deg,
     rgba(255, 252, 248, 0.98) 0%,
@@ -1742,11 +2294,84 @@
   text-shadow: none !important;
   -webkit-text-stroke: 0 !important;
 }
+/* Офлайн: имя бота — цвет текста как «шарик» уровня в меню ИИ (градиенты как у .ai-difficulty-ball--*) */
+.game-table-root .opponent-slot-header button.opponent-name-offline-ai-pick.opponent-name-offline-ai-pick--novice,
+.game-table-root .opponent-slot-header span.opponent-name-offline-ai-pick.opponent-name-offline-ai-pick--novice {
+  background: linear-gradient(180deg, #86efac 0%, #4ade80 32%, #16a34a 68%, #14532d 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 !important;
+}
+.game-table-root .opponent-slot-header button.opponent-name-offline-ai-pick.opponent-name-offline-ai-pick--amateur,
+.game-table-root .opponent-slot-header span.opponent-name-offline-ai-pick.opponent-name-offline-ai-pick--amateur {
+  background: linear-gradient(180deg, #fef08a 0%, #fde047 35%, #eab308 62%, #a16207 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 !important;
+}
+.game-table-root .opponent-slot-header button.opponent-name-offline-ai-pick.opponent-name-offline-ai-pick--expert,
+.game-table-root .opponent-slot-header span.opponent-name-offline-ai-pick.opponent-name-offline-ai-pick--expert {
+  background: linear-gradient(180deg, #f0abfc 0%, #e879f9 32%, #a855f7 58%, #6b21a8 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 !important;
+}
+/* Офлайн: имя бота — кнопка выбора уровня ИИ (фон текста — в правилах .opponent-slot-header …) */
+.game-table-root button.opponent-name-offline-ai-pick {
+  border: none !important;
+  font-family: inherit !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  font-style: inherit !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0.04em !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+  text-align: inherit !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  display: block !important;
+}
+@media (min-width: 1025px) {
+  /* ПК: отдельный гротеск для читаемости имён ИИ (не трогаем мобильную вёрстку) */
+  .game-table-root:not(.viewport-mobile) button.opponent-name-offline-ai-pick,
+  .game-table-root:not(.viewport-mobile) span.opponent-name-offline-ai-pick {
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI Variable',
+      'Segoe UI',
+      'Helvetica Neue',
+      Helvetica,
+      Arial,
+      sans-serif !important;
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.025em !important;
+    line-height: 1.38 !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+  }
+}
+.game-table-root button.opponent-name-offline-ai-pick:hover {
+  filter: brightness(1.09);
+}
 .game-table-root .opponent-slot-header {
   flex-wrap: nowrap !important;
 }
 .game-table-root .opponent-slot-header .player-panel-name,
-.game-table-root .opponent-slot-header > span:not([class]) {
+.game-table-root .opponent-slot-header > span:not([class]),
+.game-table-root .opponent-slot-header button.opponent-name-offline-ai-pick,
+.game-table-root .opponent-slot-header span.opponent-name-offline-ai-pick {
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -2788,11 +3413,12 @@
 .game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid > span:last-child {
   line-height: 1 !important;
 }
+/* По ширине контента (подпись + кнопки), не на всю колонку — как плашка «Очки» выше */
 .game-table-root:not(.viewport-mobile) .user-player-panel .bid-panel-pc-under-score {
-  width: 100% !important;
-  max-width: none !important;
+  width: fit-content !important;
+  max-width: 100% !important;
   box-sizing: border-box !important;
-  justify-content: center !important;
+  align-self: flex-end !important;
 }
 
 /* ПК: плашка очков (только вертикальный вариант — планшет в нижней панели) — две строки */
@@ -3691,6 +4317,360 @@ body {
       0 0 10px rgba(116, 33, 199, 0.89),
       0 1px 0 rgba(9, 9, 72, 0.93) !important;
   }
+
+  /* ПК: панели оппонентов — контраст под цветные имена ИИ (обычный режим, не бескозырка) */
+  .game-table-root:not(.viewport-mobile):not(.deal-type-no-trump) .opponent-slot {
+    background: linear-gradient(rgba(60, 86, 204, 0.07) 0%, rgba(44, 10, 138, 0.44) 100%) !important;
+    border-radius: 12px !important;
+    border: 2px solid rgb(147 36 223 / 49%) !important;
+    width: fit-content !important;
+    min-width: var(--game-table-opponent-slot-width, 180px) !important;
+    max-width: none !important;
+    box-shadow:
+      rgb(47 136 210 / 50%) 0 0 0 1px,
+      rgb(37 195 220 / 2%) 0 0 20px,
+      rgb(103 205 202 / 19%) 0 4px 20px,
+      rgb(167 25 207 / 67%) 0 1px 0 inset !important;
+  }
+  .game-table-root:not(.viewport-mobile):not(.deal-type-no-trump) .game-center-north .opponent-slot {
+    min-width: min(360px, 94vw) !important;
+  }
+  .game-table-root:not(.viewport-mobile):not(.deal-type-no-trump) .opponent-slot.opponent-slot--north-pc-fused-order-badge {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-left: none !important;
+  }
+
+  /* ПК бескозырка: фон и рамка панелей оппонентов (раздачи 21–24) */
+  .game-table-root.deal-type-no-trump:not(.viewport-mobile) .opponent-slot {
+    background:
+      radial-gradient(ellipse 100% 95% at 28% 18%, #ed25d747 0%, #00000000 44%),
+      radial-gradient(ellipse 100% 95% at 28% 18%, #020b0e9e 0%, #07200933 48%),
+      radial-gradient(ellipse 75% 70% at 92% 88%, rgb(151 19 116 / 78%) 0%, #00000017 46%),
+      linear-gradient(168deg, #4028509e 0%, #6c671638 38%, #221e36 100%) !important;
+    border-color: #ce803d !important;
+    box-shadow:
+      0 0 0 1px rgba(206, 128, 61, 0.4),
+      0 6px 22px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+  }
+  .game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-center-north .opponent-slot {
+    min-width: min(360px, 94vw) !important;
+  }
+  .game-table-root.deal-type-no-trump:not(.viewport-mobile) .opponent-slot.opponent-slot--north-pc-fused-order-badge {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-left: none !important;
+  }
+
+  /* ПК: панель пользователя (Юг) — те же цвета и тени, что у панелей оппонентов */
+  .game-table-root:not(.viewport-mobile):not(.deal-type-no-trump) .user-player-panel {
+    background: linear-gradient(rgba(60, 86, 204, 0.07) 0%, rgba(44, 10, 138, 0.44) 100%) !important;
+    border-radius: 12px !important;
+    border: 2px solid rgb(147 36 223 / 49%) !important;
+    box-shadow:
+      rgb(47 136 210 / 50%) 0 0 0 1px,
+      rgb(37 195 220 / 2%) 0 0 20px,
+      rgb(103 205 202 / 19%) 0 4px 20px,
+      rgb(167 25 207 / 67%) 0 1px 0 inset !important;
+  }
+  .game-table-root.deal-type-no-trump:not(.viewport-mobile) .user-player-panel {
+    background:
+      radial-gradient(ellipse 100% 95% at 28% 18%, #ed25d747 0%, #00000000 44%),
+      radial-gradient(ellipse 100% 95% at 28% 18%, #020b0e9e 0%, #07200933 48%),
+      radial-gradient(ellipse 75% 70% at 92% 88%, rgb(151 19 116 / 78%) 0%, #00000017 46%),
+      linear-gradient(168deg, #4028509e 0%, #6c671638 38%, #221e36 100%) !important;
+    border-radius: 12px !important;
+    border-color: #ce803d !important;
+    box-shadow:
+      0 0 0 1px rgba(206, 128, 61, 0.4),
+      0 6px 22px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+  }
+
+  /* ПК: небольшой отступ аватарки от верхнего края панели (+чуть выше панель за счёт padding) */
+  .game-table-root:not(.viewport-mobile) .user-player-panel {
+    padding-top: 9px !important;
+    padding-bottom: 8px !important;
+  }
+  .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-avatar-col {
+    padding-top: 3px !important;
+    box-sizing: border-box !important;
+  }
+
+  /*
+   * ПК: аватары офлайн-ботов (ai1–ai3) — палитра уровня ИИ как у .ai-difficulty-ball--* / имени
+   */
+  .game-table-root:not(.viewport-mobile) .opponent-slot .player-avatar.player-avatar-ai-offline--novice:not(:has(img)) {
+    background: linear-gradient(145deg, #4ade80 0%, #16a34a 55%, #14532d 100%) !important;
+    color: #ecfdf5 !important;
+    border: 2.5px solid rgba(52, 211, 153, 0.95) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.32),
+      0 0 0 2px rgba(21, 128, 61, 0.7),
+      0 0 14px rgba(74, 222, 128, 0.45),
+      0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .opponent-slot .player-avatar.player-avatar-ai-offline--novice:has(img) {
+    border: 2.5px solid rgba(52, 211, 153, 0.95) !important;
+    box-shadow:
+      inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+      inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+      0 0 0 2px rgba(22, 163, 74, 0.8),
+      0 0 18px rgba(34, 197, 94, 0.55),
+      0 4px 12px rgba(0, 0, 0, 0.35) !important;
+  }
+  .game-table-root:not(.viewport-mobile)
+    .opponent-slot
+    .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--novice:not(:has(img)) {
+    border: none !important;
+    background: linear-gradient(145deg, #4ade80 0%, #16a34a 55%, #14532d 100%) !important;
+    color: #ecfdf5 !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.28) !important;
+  }
+  .game-table-root:not(.viewport-mobile)
+    .opponent-slot
+    .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--novice:has(img) {
+    border: none !important;
+    box-shadow:
+      inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+      inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+      0 0 0 1.5px rgba(34, 197, 94, 0.7) !important;
+  }
+
+  .game-table-root:not(.viewport-mobile) .opponent-slot .player-avatar.player-avatar-ai-offline--amateur:not(:has(img)) {
+    background: linear-gradient(145deg, #fde047 0%, #eab308 45%, #a16207 100%) !important;
+    color: #422006 !important;
+    border: 2.5px solid rgba(250, 204, 21, 0.95) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+      0 0 0 2px rgba(180, 83, 9, 0.55),
+      0 0 14px rgba(250, 204, 21, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .opponent-slot .player-avatar.player-avatar-ai-offline--amateur:has(img) {
+    border: 2.5px solid rgba(250, 204, 21, 0.95) !important;
+    box-shadow:
+      inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+      inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+      0 0 0 2px rgba(202, 138, 4, 0.75),
+      0 0 18px rgba(234, 179, 8, 0.45),
+      0 4px 12px rgba(0, 0, 0, 0.35) !important;
+  }
+  .game-table-root:not(.viewport-mobile)
+    .opponent-slot
+    .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--amateur:not(:has(img)) {
+    border: none !important;
+    background: linear-gradient(145deg, #fde047 0%, #eab308 45%, #a16207 100%) !important;
+    color: #422006 !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.22) !important;
+  }
+  .game-table-root:not(.viewport-mobile)
+    .opponent-slot
+    .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--amateur:has(img) {
+    border: none !important;
+    box-shadow:
+      inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+      inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+      0 0 0 1.5px rgba(234, 179, 8, 0.75) !important;
+  }
+
+  .game-table-root:not(.viewport-mobile) .opponent-slot .player-avatar.player-avatar-ai-offline--expert:not(:has(img)) {
+    background: linear-gradient(145deg, #e879f9 0%, #a855f7 40%, #6b21a8 100%) !important;
+    color: #faf5ff !important;
+    border: 2.5px solid rgba(216, 180, 254, 0.95) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+      0 0 0 2px rgba(107, 33, 168, 0.75),
+      0 0 16px rgba(168, 85, 247, 0.5),
+      0 2px 8px rgba(0, 0, 0, 0.28) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .opponent-slot .player-avatar.player-avatar-ai-offline--expert:has(img) {
+    border: 2.5px solid rgba(216, 180, 254, 0.95) !important;
+    box-shadow:
+      inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+      inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+      0 0 0 2px rgba(126, 34, 206, 0.8),
+      0 0 20px rgba(192, 132, 252, 0.55),
+      0 4px 12px rgba(0, 0, 0, 0.35) !important;
+  }
+  .game-table-root:not(.viewport-mobile)
+    .opponent-slot
+    .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--expert:not(:has(img)) {
+    border: none !important;
+    background: linear-gradient(145deg, #e879f9 0%, #a855f7 40%, #6b21a8 100%) !important;
+    color: #faf5ff !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.32) !important;
+  }
+  .game-table-root:not(.viewport-mobile)
+    .opponent-slot
+    .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--expert:has(img) {
+    border: none !important;
+    box-shadow:
+      inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+      inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+      0 0 0 1.5px rgba(168, 85, 247, 0.75) !important;
+  }
+
+  /* Ход ИИ: не бирюзово-сиреневый обод, а усиление цвета уровня */
+  .game-table-root:not(.viewport-mobile) .opponent-slot-current-turn .player-avatar.player-avatar-ai-offline--novice:not(:has(img)) {
+    border: 2px solid rgba(167, 243, 208, 0.98) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+      0 0 0 1px rgba(22, 163, 74, 0.9),
+      0 0 0 2px rgba(134, 239, 172, 0.85),
+      0 0 14px rgba(74, 222, 128, 0.55),
+      0 0 28px rgba(34, 197, 94, 0.38),
+      0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .opponent-slot-current-turn .player-avatar.player-avatar-ai-offline--novice:has(img) {
+    border: 2px solid rgba(167, 243, 208, 0.98) !important;
+    box-shadow:
+      inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+      inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+      0 0 0 1px rgba(22, 163, 74, 0.9),
+      0 0 0 2px rgba(134, 239, 172, 0.85),
+      0 0 18px rgba(74, 222, 128, 0.5),
+      0 0 30px rgba(34, 197, 94, 0.38),
+      0 4px 12px rgba(0, 0, 0, 0.35) !important;
+  }
+  .game-table-root:not(.viewport-mobile)
+    .opponent-slot-current-turn
+    .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--novice:not(:has(img)) {
+    border: none !important;
+    background: linear-gradient(145deg, #4ade80 0%, #16a34a 55%, #14532d 100%) !important;
+    color: #ecfdf5 !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.25) !important;
+  }
+  .game-table-root:not(.viewport-mobile)
+    .opponent-slot-current-turn
+    .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--novice:has(img) {
+    border: none !important;
+    box-shadow:
+      inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+      inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+      0 0 0 2px rgba(134, 239, 172, 0.8) !important;
+  }
+
+  .game-table-root:not(.viewport-mobile) .opponent-slot-current-turn .player-avatar.player-avatar-ai-offline--amateur:not(:has(img)) {
+    border: 2px solid rgba(254, 240, 138, 0.98) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+      0 0 0 1px rgba(180, 83, 9, 0.85),
+      0 0 0 2px rgba(253, 224, 71, 0.9),
+      0 0 14px rgba(250, 204, 21, 0.5),
+      0 0 26px rgba(234, 179, 8, 0.35),
+      0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .opponent-slot-current-turn .player-avatar.player-avatar-ai-offline--amateur:has(img) {
+    border: 2px solid rgba(254, 240, 138, 0.98) !important;
+    box-shadow:
+      inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+      inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+      0 0 0 1px rgba(180, 83, 9, 0.85),
+      0 0 0 2px rgba(253, 224, 71, 0.9),
+      0 0 18px rgba(250, 204, 21, 0.45),
+      0 0 28px rgba(234, 179, 8, 0.32),
+      0 4px 12px rgba(0, 0, 0, 0.35) !important;
+  }
+  .game-table-root:not(.viewport-mobile)
+    .opponent-slot-current-turn
+    .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--amateur:not(:has(img)) {
+    border: none !important;
+    background: linear-gradient(145deg, #fde047 0%, #eab308 45%, #a16207 100%) !important;
+    color: #422006 !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.48),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.2) !important;
+  }
+  .game-table-root:not(.viewport-mobile)
+    .opponent-slot-current-turn
+    .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--amateur:has(img) {
+    border: none !important;
+    box-shadow:
+      inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+      inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+      0 0 0 2px rgba(253, 224, 71, 0.82) !important;
+  }
+
+  .game-table-root:not(.viewport-mobile) .opponent-slot-current-turn .player-avatar.player-avatar-ai-offline--expert:not(:has(img)) {
+    border: 2px solid rgba(233, 213, 255, 0.98) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.38),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.32),
+      0 0 0 1px rgba(107, 33, 168, 0.9),
+      0 0 0 2px rgba(192, 132, 252, 0.88),
+      0 0 16px rgba(168, 85, 247, 0.55),
+      0 0 30px rgba(126, 34, 206, 0.38),
+      0 2px 8px rgba(0, 0, 0, 0.28) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .opponent-slot-current-turn .player-avatar.player-avatar-ai-offline--expert:has(img) {
+    border: 2px solid rgba(233, 213, 255, 0.98) !important;
+    box-shadow:
+      inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+      inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+      0 0 0 1px rgba(107, 33, 168, 0.9),
+      0 0 0 2px rgba(192, 132, 252, 0.88),
+      0 0 22px rgba(192, 132, 252, 0.55),
+      0 0 34px rgba(126, 34, 206, 0.35),
+      0 4px 12px rgba(0, 0, 0, 0.35) !important;
+  }
+  .game-table-root:not(.viewport-mobile)
+    .opponent-slot-current-turn
+    .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--expert:not(:has(img)) {
+    border: none !important;
+    background: linear-gradient(145deg, #e879f9 0%, #a855f7 40%, #6b21a8 100%) !important;
+    color: #faf5ff !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.38),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.3) !important;
+  }
+  .game-table-root:not(.viewport-mobile)
+    .opponent-slot-current-turn
+    .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--expert:has(img) {
+    border: none !important;
+    box-shadow:
+      inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+      inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+      inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+      0 0 0 2px rgba(192, 132, 252, 0.85) !important;
+  }
 }
 
 /* Мобильная (viewport-mobile): та же гирлянда на панели юга — монтируется из GameTable с задержкой 9 с (фаза playing). Внутреннее свечение — выше в @media (max-width: 600px). SVG — последним ребёнком, чтобы не ломать div:first-child. */
@@ -3920,33 +4900,7 @@ body {
     linear-gradient(198deg, #061210 0%, #0a1a16 12%, #0f172a 38%, #1a1530 62%, #162e36 82%, #1e2f38 100%) !important;
 }
 
-.game-table-root.deal-type-no-trump:not(.viewport-mobile) .opponent-slot:not(.opponent-slot-current-turn) {
-  background:
-    radial-gradient(ellipse 100% 95% at 28% 18%, rgba(251, 182, 206, 0.22) 0%, transparent 44%),
-    radial-gradient(ellipse 100% 95% at 28% 18%, rgba(210, 200, 255, 0.28) 0%, transparent 48%),
-    radial-gradient(ellipse 75% 70% at 92% 88%, rgba(251, 186, 210, 0.22) 0%, transparent 46%),
-    linear-gradient(168deg, #402850 0%, #32244a 38%, #221e36 100%) !important;
-  border-color: rgba(244, 114, 182, 0.55) !important;
-  box-shadow:
-    0 0 18px rgba(244, 114, 182, 0.14),
-    0 0 32px rgba(217, 70, 239, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35) !important;
-}
-
-.game-table-root.deal-type-no-trump:not(.viewport-mobile) .opponent-slot.opponent-slot-current-turn {
-  background:
-    radial-gradient(ellipse 95% 90% at 32% 12%, rgba(253, 164, 175, 0.28) 0%, transparent 42%),
-    radial-gradient(ellipse 95% 90% at 32% 12%, rgba(254, 215, 170, 0.26) 0%, transparent 44%),
-    radial-gradient(ellipse 80% 72% at 85% 85%, rgba(244, 114, 182, 0.18) 0%, transparent 48%),
-    linear-gradient(168deg, #503070 0%, #3d2858 36%, #2a2042 100%) !important;
-  border-color: rgba(251, 191, 36, 0.55) !important;
-  box-shadow:
-    0 0 22px rgba(251, 113, 133, 0.18),
-    0 0 36px rgba(245, 158, 11, 0.1),
-    inset 0 1px 0 rgba(255, 230, 200, 0.1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.38) !important;
-}
+/* ПК панели оппонентов в бескозырке — см. @media (min-width: 1025px) выше */
 
 .game-table-root.deal-type-no-trump:not(.viewport-mobile) .player-hand-your-turn {
   animation: none !important;
@@ -3956,15 +4910,7 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
-.game-table-root.deal-type-no-trump:not(.viewport-mobile) .user-player-panel {
-  box-shadow: 0 0 16px rgba(244, 114, 182, 0.1) !important;
-  border: 1px solid rgba(244, 114, 182, 0.48) !important;
-}
-
-.game-table-root.deal-type-no-trump:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn {
-  box-shadow: 0 0 22px rgba(251, 113, 133, 0.16) !important;
-  border: 1px solid rgba(251, 182, 232, 0.58) !important;
-}
+/* ПК панель Юга в бескозырке — см. @media (min-width: 1025px) (те же цвета, что у оппонентов) */
 
 /* ПК: крупный неоновый бейдж «Бескозырка», пока не все сделали заказы */
 @keyframes game-info-no-trump-bidding-pulse {

@@ -1,13 +1,15 @@
 /**
  * ИИ для Up&Down
  * Заказ: эвристика по силе козыря, длине козыря и «головам» в боковых мастях (без симуляции).
- * Ход: по-прежнему консервативный выбор минимальной допустимой карты. Персональный профиль — в personalAi.
+ * Ход: см. aiPlay — novice / amateur / expert; перебор заказа (taken > bid) при bid>0 толкает брать ещё взятки (очки = taken).
+ * Персональный профиль заказа — в personalAi.
  */
 
 import type { Card, Suit } from './types';
-import { getValidPlays } from './GameEngine';
-import type { GameState } from './GameEngine';
+import { getValidPlays, absoluteTrickWinnerPlayerIndex } from './GameEngine';
+import type { AIDifficulty, GameState } from './GameEngine';
 import { suggestPersonalBid } from './personalAi';
+import { getTrickWinner, cardBeatsOnTable } from './rules';
 
 const RANK_ORDER: Record<string, number> = {
   '6': 0, '7': 1, '8': 2, '9': 3, '10': 4,
@@ -57,6 +59,27 @@ function cardStrength(card: Card, trump: Suit | null): number {
   let s = RANK_ORDER[card.rank];
   if (trump && card.suit === trump) s += 20;
   return s;
+}
+
+function sameCard(a: Card, b: Card): boolean {
+  return a.suit === b.suit && a.rank === b.rank;
+}
+
+/** ascending=true — слабейшие первыми (дешёвый сброс / дешёвая победа) */
+function sortByStrength(
+  cards: Card[],
+  trump: Suit | null,
+  leadSuit: Suit | null,
+  ascending: boolean
+): Card[] {
+  return [...cards].sort((a, b) => {
+    const aStr = cardStrength(a, trump);
+    const bStr = cardStrength(b, trump);
+    if (aStr !== bStr) return ascending ? aStr - bStr : bStr - aStr;
+    if (leadSuit && a.suit === leadSuit && b.suit !== leadSuit) return ascending ? -1 : 1;
+    if (leadSuit && a.suit !== leadSuit && b.suit === leadSuit) return ascending ? 1 : -1;
+    return 0;
+  });
 }
 
 /**
@@ -143,15 +166,12 @@ export function aiBid(state: GameState, playerIndex: number, profileId?: string 
   return preferred;
 }
 
-/** Выбор карты для хода: минимальная допустимая карта (новичок) */
-export function aiPlay(state: GameState, playerIndex: number): Card | null {
+/** Новичок: всегда минимальная по силе легальная карта (старое поведение). */
+function aiPlayNovice(state: GameState, playerIndex: number): Card | null {
   const valid = getValidPlays(state, playerIndex);
   if (valid.length === 0) return null;
-
   const leadSuit = state.currentTrick.length > 0 ? state.currentTrick[0].suit : null;
   const trump = state.trump;
-
-  // Сортируем: сначала по силе (слабые вперед), при равной силе — масть хода
   valid.sort((a, b) => {
     const aStr = cardStrength(a, trump);
     const bStr = cardStrength(b, trump);
@@ -160,6 +180,110 @@ export function aiPlay(state: GameState, playerIndex: number): Card | null {
     if (leadSuit && a.suit !== leadSuit && b.suit === leadSuit) return 1;
     return 0;
   });
-
   return valid[0];
+}
+
+/**
+ * Заход в взятку (expert): при запасе взяток до конца раздачи не тратит сразу самые сильные карты.
+ */
+function pickLeadCardExpert(
+  valid: Card[],
+  trump: Suit | null,
+  tricksStillNeeded: number,
+  chaseOvertrick: boolean,
+  remainingTricks: number
+): Card {
+  const sortedDesc = sortByStrength(valid, trump, null, false);
+  const top = sortedDesc[0]!;
+  if (chaseOvertrick || tricksStillNeeded <= 0) return top;
+  const slack = remainingTricks - tricksStillNeeded;
+  if (slack <= 0) return top;
+  const dropFromTop = Math.min(slack, Math.max(1, Math.floor(remainingTricks / 3)), 2);
+  const idx = Math.min(dropFromTop, Math.max(0, sortedDesc.length - 1));
+  return sortedDesc[idx] ?? top;
+}
+
+/**
+ * Выбор карты: только среди допустимых (getValidPlays).
+ * — До заказа: выигрывать минимально достаточной картой.
+ * — Заказ 0 или ровно выполнен (взяток === заказ): сбрасывать, не забирать взятки.
+ * — Уже перебор заказа: при bid>0 очки за раздачу = число взяток → выгодно брать ещё (chaseOvertrick).
+ */
+function aiPlaySmart(state: GameState, playerIndex: number, difficulty: AIDifficulty): Card | null {
+  const valid = getValidPlays(state, playerIndex);
+  if (valid.length === 0) return null;
+
+  const trump = state.trump;
+  const trick = state.currentTrick;
+  const leadSuit: Suit | null = trick.length > 0 ? trick[0].suit : null;
+
+  const bid = state.bids[playerIndex] ?? 0;
+  const tricksTaken = state.players[playerIndex].tricksTaken;
+  const tricksStillNeeded = bid === 0 ? 0 : Math.max(0, bid - tricksTaken);
+  const chaseOvertrick = bid > 0 && tricksTaken > bid;
+  const wantWinTricks = tricksStillNeeded > 0 || chaseOvertrick;
+  const avoidTricks = bid === 0 || (bid > 0 && tricksTaken === bid);
+
+  const remainingTricks = state.players[playerIndex].hand.length;
+
+  const pick = (subset: Card[], ascending: boolean) =>
+    sortByStrength(subset, trump, leadSuit, ascending)[0]!;
+
+  if (trick.length === 0) {
+    if (avoidTricks) return pick(valid, true);
+    if (wantWinTricks) {
+      if (difficulty === 'expert') {
+        return pickLeadCardExpert(valid, trump, tricksStillNeeded, chaseOvertrick, remainingTricks);
+      }
+      return pick(valid, false);
+    }
+    return pick(valid, true);
+  }
+
+  const isLastInTrick = trick.length === 3;
+
+  if (isLastInTrick) {
+    const winning = valid.filter(
+      (c) =>
+        absoluteTrickWinnerPlayerIndex(state.trickLeaderIndex, [...trick, c], trump) === playerIndex
+    );
+    const losing = valid.filter((c) => !winning.some((w) => sameCard(w, c)));
+
+    if (avoidTricks) {
+      if (losing.length > 0) return pick(losing, true);
+      return pick(winning.length > 0 ? winning : valid, true);
+    }
+    if (wantWinTricks) {
+      if (winning.length > 0) return pick(winning, true);
+      return pick(valid, true);
+    }
+    return pick(valid, true);
+  }
+
+  const bestIdx = getTrickWinner(trick, leadSuit!, trump ?? undefined);
+  const bestOnTable = trick[bestIdx]!;
+  const beating = valid.filter((c) => cardBeatsOnTable(c, bestOnTable, leadSuit!, trump));
+  const notBeating = valid.filter((c) => !beating.some((b) => sameCard(b, c)));
+
+  if (avoidTricks) {
+    if (notBeating.length > 0) return pick(notBeating, true);
+    return pick(valid, true);
+  }
+  if (wantWinTricks) {
+    if (beating.length > 0) return pick(beating, true);
+    return pick(valid, true);
+  }
+  return pick(valid, true);
+}
+
+/**
+ * @param difficulty `novice` — старая эвристика; `amateur` | `expert` — заказ/перебор и темп захода.
+ */
+export function aiPlay(
+  state: GameState,
+  playerIndex: number,
+  difficulty: AIDifficulty = 'amateur'
+): Card | null {
+  if (difficulty === 'novice') return aiPlayNovice(state, playerIndex);
+  return aiPlaySmart(state, playerIndex, difficulty);
 }

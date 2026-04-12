@@ -11,13 +11,25 @@ function nextPlayerLeft(i: number): number {
   return NEXT_PLAYER_LEFT[i % 4];
 }
 
-function playerAtLeftFrom(base: number, steps: number): number {
+export function playerAtLeftFrom(base: number, steps: number): number {
   let cur = base;
   for (let k = 0; k < steps; k++) cur = nextPlayerLeft(cur);
   return cur;
 }
 
-import type { Card, GamePhase, Player, Suit } from './types';
+/** Абсолютный индекс игрока, выигравшего взятку с картами по порядку хода от trickLeaderIndex. */
+export function absoluteTrickWinnerPlayerIndex(
+  trickLeaderIndex: number,
+  trick: Card[],
+  trump: Suit | null
+): number {
+  if (trick.length === 0) return trickLeaderIndex;
+  const offset = getTrickWinner(trick, trick[0].suit, trump ?? undefined);
+  return playerAtLeftFrom(trickLeaderIndex, offset);
+}
+
+import type { AIDifficulty, Card, GamePhase, Player, Suit } from './types';
+import { offlineAiDifficultyForNewBotId } from './aiSettings';
 import { createDeck, shuffleDeck, dealCards } from './deck';
 import { calculateDealPoints } from './scoring';
 import { isValidBidSum, getTrickWinner, isValidPlay } from './rules';
@@ -66,7 +78,7 @@ export interface GameState {
 }
 
 export type GameMode = 'classical' | 'extended';
-export type AIDifficulty = 'novice' | 'amateur' | 'expert';
+export type { AIDifficulty } from './types';
 
 /** Максимальная длина имени игрока (включая пробелы) */
 export const MAX_PLAYER_NAME_LENGTH = 17;
@@ -83,9 +95,33 @@ export function createGame(
 ): GameState {
   const players: Player[] = [
     { id: 'human', name: trimPlayerName(humanPlayerName), hand: [], bid: undefined, tricksTaken: 0, score: 0 },
-    { id: 'ai1', name: 'ИИ Север', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
-    { id: 'ai2', name: 'ИИ супердлинноеим', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
-    { id: 'ai3', name: 'Семнадцать символ', hand: [], bid: undefined, tricksTaken: 0, score: 0 },
+    {
+      id: 'ai1',
+      name: 'ИИ Север',
+      hand: [],
+      bid: undefined,
+      tricksTaken: 0,
+      score: 0,
+      aiDifficulty: offlineAiDifficultyForNewBotId('ai1'),
+    },
+    {
+      id: 'ai2',
+      name: 'ИИ супердлинноеим',
+      hand: [],
+      bid: undefined,
+      tricksTaken: 0,
+      score: 0,
+      aiDifficulty: offlineAiDifficultyForNewBotId('ai2'),
+    },
+    {
+      id: 'ai3',
+      name: 'Семнадцать символ',
+      hand: [],
+      bid: undefined,
+      tricksTaken: 0,
+      score: 0,
+      aiDifficulty: offlineAiDifficultyForNewBotId('ai3'),
+    },
   ];
 
   /** Первая раздача в партии: сдающий выбирается случайно */

@@ -6,7 +6,7 @@
 import type { CSSProperties } from 'react';
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { GameState } from '../game/GameEngine';
+import type { AIDifficulty, GameState } from '../game/GameEngine';
 import {
   createGame,
   createGameOnline,
@@ -23,6 +23,13 @@ import {
 import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating, getPlayerProfile } from '../game/persistence';
 import { logDealOutcome } from '../game/aiLearning';
 import { aiBid, aiPlay } from '../game/ai';
+import {
+  getAiDifficulty,
+  persistAllOfflineAiDifficulties,
+  persistOfflineAiDifficultyForBotId,
+} from '../game/aiSettings';
+import { AiDifficultyControl, HeaderRoomExitIcon } from './AiDifficultyControl';
+import { OfflineAiDifficultyPopover } from './OfflineAiDifficultyPopover';
 import { getTrickWinner } from '../game/rules';
 import { getCanonicalIndexForDisplay, rotateStateForPlayer } from '../game/rotateState';
 import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
@@ -34,7 +41,7 @@ import { heartbeatPresence, recordOfflineMatchFinish } from '../lib/onlineGameSu
 import { isPersonalAiReplacementEnabled } from '../lib/featureFlags';
 import { CardView } from './CardView';
 import { PlayerAvatar } from './PlayerAvatar';
-import { PlayerInfoPanel } from './PlayerInfoPanel';
+import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
 import type { Card } from '../game/types';
 
 function getCompassLabel(idx: number): 'Юг' | 'Север' | 'Запад' | 'Восток' {
@@ -509,6 +516,11 @@ function GameOverModal({
 /** Сумма заказов vs число взяток в раздаче — цвет цифры «Заказ» на ПК (равенство суммы заказов и T по правилам не бывает) */
 type DealOrderComparePc = 'over' | 'under';
 
+function difficultyForAiPlayMove(online: boolean, st: GameState, playerIndex: number): AIDifficulty {
+  if (online) return getAiDifficulty();
+  return st.players[playerIndex]?.aiDifficulty ?? getAiDifficulty();
+}
+
 function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame, onOpenProfileModal }: GameTableProps) {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
@@ -604,6 +616,19 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     if (typeof updater === 'function') setLocalState(prev => updater(prev));
     else setLocalState(updater);
   }, []);
+  /** Офлайн: кнопка «ИИ» в шапке — один уровень всем ботам */
+  const offlineApplyAllAiFromHeader = useCallback((level: AIDifficulty) => {
+    persistAllOfflineAiDifficulties(level);
+    setLocalState((prev) => {
+      if (!prev || prev.players[0]?.id !== 'human') return prev;
+      return {
+        ...prev,
+        players: prev.players.map((p) =>
+          p.id === 'ai1' || p.id === 'ai2' || p.id === 'ai3' ? { ...p, aiDifficulty: level } : p
+        ),
+      };
+    });
+  }, []);
   const [trickPauseUntil, setTrickPauseUntil] = useState(0);
   const [showLastTrickModal, setShowLastTrickModal] = useState(false);
   const [bidPanelVisible, setBidPanelVisible] = useState(false);
@@ -640,6 +665,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
   const [showYourTurnPrompt, setShowYourTurnPrompt] = useState(false);
+  /** Офлайн, ≤1024px: клик по имени бота — попап уровня (якорь для портала) */
+  const [offlineAiPicker, setOfflineAiPicker] = useState<{ index: number; anchor: HTMLElement } | null>(null);
   const yourTurnPromptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const yourTurnPromptIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastCompletedTrickRef = useRef<unknown>(null);
@@ -1183,10 +1210,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       const bid = aiBid(state, idx);
       setState(prev => prev && placeBid(prev, idx, bid));
     } else if (state.phase === 'playing') {
-      const card = aiPlay(state, idx);
+      const card = aiPlay(state, idx, difficultyForAiPlayMove(isOnline, state, idx));
       if (card) setState(prev => prev && playCard(prev, idx, card));
     }
-  }, [state]);
+  }, [state, isOnline]);
 
   /** Офлайн: тикер ИИ. В онлайне состояние с сервера — локальный setState не обновляет стол (ход ИИ шлёт sendState отдельным эффектом). */
   useEffect(() => {
@@ -1200,7 +1227,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           return placeBid(s, idx, bid);
         }
         if (s.phase === 'playing') {
-          const card = aiPlay(s, idx);
+          const card = aiPlay(s, idx, difficultyForAiPlayMove(false, s, idx));
           return card ? playCard(s, idx, card) : s;
         }
         return s;
@@ -1242,7 +1269,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         const bid = aiBid(current, playerIdx, personalProfileId);
         next = placeBid(current, playerIdx, bid);
       } else if (current.phase === 'playing') {
-        const card = aiPlay(current, playerIdx);
+        const card = aiPlay(current, playerIdx, getAiDifficulty());
         if (card) next = playCard(current, playerIdx, card);
         else {
           onlineAiSendFailsRef.current += 1;
@@ -1282,6 +1309,34 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   }
 
   const displayState = stateToShow as GameState;
+  const offlineAiNamePickEnabled = offlineMode && displayState.players[0]?.id === 'human';
+  /** Офлайн: выбор уровня по клику на имя — только ≤1024px; на ПК — в панели по аватарке */
+  const offlineAiPickDifficultyOnNameClick = offlineAiNamePickEnabled && isMobileOrTablet;
+  const playerInfoOfflineAiDifficultyPicker: PlayerInfoPanelProps['offlineAiDifficultyPicker'] =
+    isMobileOrTablet || !offlineAiNamePickEnabled || selectedPlayerForInfo == null
+      ? undefined
+      : (() => {
+          const idx = selectedPlayerForInfo;
+          const id = displayState.players[idx]?.id;
+          if (id !== 'ai1' && id !== 'ai2' && id !== 'ai3') return undefined;
+          return {
+            current: displayState.players[idx]?.aiDifficulty ?? getAiDifficulty(),
+            onSelect: (level: AIDifficulty) => {
+              const botId = state.players[idx]?.id;
+              if (botId === 'ai1' || botId === 'ai2' || botId === 'ai3')
+                persistOfflineAiDifficultyForBotId(botId, level);
+              setLocalState((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  players: prev.players.map((p, i) =>
+                    i === idx ? { ...p, aiDifficulty: level } : p,
+                  ),
+                };
+              });
+            },
+          };
+        })();
   const biddingPhaseMobileClass =
     isMobile && (displayState.phase === 'bidding' || displayState.phase === 'dark-bidding')
       ? ' game-phase-bidding'
@@ -1411,6 +1466,28 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   /* Мобильная вёрстка (viewport-mobile при width ≤600px): рука внизу, слоты взятки в сетке 2×2, козырь на колоде; стили в index.css @media (max-width: 1024px) .game-table-root.viewport-mobile */
   return (
     <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}`} style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}>
+      {offlineAiPicker && offlineAiPickDifficultyOnNameClick && (
+        <OfflineAiDifficultyPopover
+          open
+          anchorEl={offlineAiPicker.anchor}
+          playerName={state.players[offlineAiPicker.index]?.name ?? ''}
+          current={state.players[offlineAiPicker.index]?.aiDifficulty ?? getAiDifficulty()}
+          onClose={() => setOfflineAiPicker(null)}
+          onSelect={(level) => {
+            const idx = offlineAiPicker.index;
+            const botId = state.players[idx]?.id;
+            if (botId === 'ai1' || botId === 'ai2' || botId === 'ai3') persistOfflineAiDifficultyForBotId(botId, level);
+            setLocalState((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                players: prev.players.map((p, i) => (i === idx ? { ...p, aiDifficulty: level } : p)),
+              };
+            });
+            setOfflineAiPicker(null);
+          }}
+        />
+      )}
       {isOnline && online.userOnPause && (
         <div
           role="dialog"
@@ -1833,7 +1910,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           <div style={headerMenuButtonsWrapStyle}>
             {isMobile && !isWaitingInRoom && (state.phase === 'bidding' || state.phase === 'dark-bidding') ? (
               <div className="first-move-badge-hang-wrap" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <button
                     type="button"
                     className="header-exit-btn"
@@ -1850,13 +1927,13 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   {(isOnline || isWaitingInRoom) && (
                     <button
                       type="button"
-                      className="header-exit-btn"
+                      className={['header-exit-btn', isMobile ? 'header-room-exit-btn' : ''].filter(Boolean).join(' ')}
                       onClick={handleLeaveRoomClick}
                       style={exitBtnStyle}
                       title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
                       aria-label="Выйти из комнаты"
                     >
-                      <span style={{ fontSize: 14 }}>Выйти</span>
+                      {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>Выйти</span>}
                     </button>
                   )}
                   {onNewGame && !isOnline && !isWaitingInRoom && (
@@ -1871,6 +1948,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       ↻
                     </button>
                   )}
+                  <AiDifficultyControl
+                    layout="mobile"
+                    offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
+                  />
                 </div>
                 <button
                   type="button"
@@ -1884,8 +1965,55 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   <span style={firstMoveValueStyle}>{displayState.players[state.trickLeaderIndex].name}</span>
                 </button>
               </div>
+            ) : isMobile ? (
+              <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button
+                  type="button"
+                  className="header-exit-btn"
+                  onClick={handleHomeClick}
+                  style={exitBtnStyle}
+                  title="В меню"
+                  aria-label="В меню"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                  </svg>
+                </button>
+                {(isOnline || isWaitingInRoom) && (
+                  <button
+                    type="button"
+                    className={['header-exit-btn', isMobile ? 'header-room-exit-btn' : ''].filter(Boolean).join(' ')}
+                    onClick={handleLeaveRoomClick}
+                    style={exitBtnStyle}
+                    title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
+                    aria-label="Выйти из комнаты"
+                  >
+                    {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>Выйти</span>}
+                  </button>
+                )}
+                {onNewGame && !isOnline && !isWaitingInRoom && (
+                  <button
+                    type="button"
+                    className="header-new-game-btn"
+                    onClick={() => setShowNewGameConfirm(true)}
+                    style={newGameBtnStyle}
+                    title="Обновить — новая партия"
+                    aria-label="Обновить — новая партия"
+                  >
+                    ↻
+                  </button>
+                )}
+                <AiDifficultyControl
+                  layout="mobile"
+                  offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
+                />
+              </div>
             ) : (
-              <>
+              <div
+                className="header-menu-buttons-col-pc"
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}
+              >
                 <button
                   type="button"
                   className="header-exit-btn"
@@ -1912,18 +2040,22 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   </button>
                 )}
                 {onNewGame && !isOnline && !isWaitingInRoom && (
-                    <button
-                      type="button"
-                      className="header-new-game-btn"
-                      onClick={() => setShowNewGameConfirm(true)}
-                      style={newGameBtnStyle}
-                      title="Обновить — новая партия"
-                      aria-label="Обновить — новая партия"
-                    >
+                  <button
+                    type="button"
+                    className="header-new-game-btn"
+                    onClick={() => setShowNewGameConfirm(true)}
+                    style={newGameBtnStyle}
+                    title="Обновить — новая партия"
+                    aria-label="Обновить — новая партия"
+                  >
                     ↻
                   </button>
                 )}
-              </>
+                <AiDifficultyControl
+                  layout="pc"
+                  offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
+                />
+              </div>
             )}
           </div>
         </div>
@@ -2406,6 +2538,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 isMobile={true}
                 onAvatarClick={setSelectedPlayerForInfo}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
+                offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
+                offlineAiDifficultyNamePickEnabled={offlineAiPickDifficultyOnNameClick}
+                onOfflineAiDifficultyNameClick={(playerIndex, anchor) => setOfflineAiPicker({ index: playerIndex, anchor })}
               />
             </div>
             <div className="game-mobile-slot-north" style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
@@ -2421,6 +2556,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 isMobile={true}
                 onAvatarClick={setSelectedPlayerForInfo}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
+                offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
+                offlineAiDifficultyNamePickEnabled={offlineAiPickDifficultyOnNameClick}
+                onOfflineAiDifficultyNameClick={(playerIndex, anchor) => setOfflineAiPicker({ index: playerIndex, anchor })}
               />
             </div>
           </div>
@@ -2700,6 +2838,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 isMobile={true}
                 onAvatarClick={setSelectedPlayerForInfo}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
+                offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
+                offlineAiDifficultyNamePickEnabled={offlineAiPickDifficultyOnNameClick}
+                onOfflineAiDifficultyNameClick={(playerIndex, anchor) => setOfflineAiPicker({ index: playerIndex, anchor })}
               />
             </div>
       </div>
@@ -2880,7 +3021,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         </>
       ) : (
         <>
-      <div className="game-info-row" style={{ ...gameInfoTopRowStyle, zIndex: 12 }}>
+      {/* z-index выше .game-header (20): иначе из-за translateY у .game-table-block клики по имени Север перехватывает шапка */}
+      <div className="game-info-row" style={{ ...gameInfoTopRowStyle, zIndex: 22 }}>
           <div className="game-info-left-col" style={gameInfoLeftColumnStyle}>
             {!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
               <div className="first-move-badge first-move-badge-above-block" style={firstMoveBadgeStyle}>
@@ -2921,6 +3063,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
             onAvatarClick={setSelectedPlayerForInfo}
             onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
+            offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
+            offlineAiDifficultyNamePickEnabled={offlineAiPickDifficultyOnNameClick}
+            onOfflineAiDifficultyNameClick={(playerIndex, anchor) => setOfflineAiPicker({ index: playerIndex, anchor })}
           />
         </div>
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
@@ -2944,6 +3089,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
             onAvatarClick={setSelectedPlayerForInfo}
             onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
+            offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
+            offlineAiDifficultyNamePickEnabled={offlineAiPickDifficultyOnNameClick}
+            onOfflineAiDifficultyNameClick={(playerIndex, anchor) => setOfflineAiPicker({ index: playerIndex, anchor })}
           />
         </div>
         <div className="game-center-table" style={centerStyle}>
@@ -3053,6 +3201,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
             onAvatarClick={setSelectedPlayerForInfo}
             onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
+            offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
+            offlineAiDifficultyNamePickEnabled={offlineAiPickDifficultyOnNameClick}
+            onOfflineAiDifficultyNameClick={(playerIndex, anchor) => setOfflineAiPicker({ index: playerIndex, anchor })}
           />
         </div>
         {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && !isMobile && (
@@ -3671,6 +3822,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           playerIndex={selectedPlayerForInfo}
           playerAvatarDataUrl={selectedPlayerForInfo === 0 ? playerAvatarDataUrl : undefined}
           onClose={() => setSelectedPlayerForInfo(null)}
+          offlineAiDifficultyPicker={playerInfoOfflineAiDifficultyPicker}
         />,
         document.body
       )}
@@ -5288,6 +5440,9 @@ function OpponentSlot({
   replacedByAi,
   onAvatarClick,
   onDealerBadgeClick,
+  offlineAiNameStyleByDifficulty,
+  offlineAiDifficultyNamePickEnabled,
+  onOfflineAiDifficultyNameClick,
 }: {
   state: GameState;
   index: number;
@@ -5313,6 +5468,11 @@ function OpponentSlot({
   onAvatarClick?: (playerIndex: number) => void;
   /** По тапу на компактный бейдж «Сдающий» показать подсказку (мобильная) */
   onDealerBadgeClick?: () => void;
+  /** Офлайн: раскрасить имя бота по уровню ИИ (ПК — span; ≤1024px — и кнопка при включённом pick) */
+  offlineAiNameStyleByDifficulty?: boolean;
+  /** Офлайн, узкая вёрстка: имя бота — кнопка, открывает выбор уровня */
+  offlineAiDifficultyNamePickEnabled?: boolean;
+  onOfflineAiDifficultyNameClick?: (playerIndex: number, anchor: HTMLElement) => void;
 }) {
   const p = state.players[index];
   const scoreLeaderHighlight = isPartyScoreLeader(state, index);
@@ -5526,26 +5686,72 @@ function OpponentSlot({
           alignItems: 'center',
           justifyContent: 'center',
         };
-        const nameSpan = (
-          <span
-            className={eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : undefined}
-            style={{
-              ...opponentNameStyle,
-              ...(mobileActiveName ? nameActiveMobileStyle : {}),
-              minWidth: 0,
-              ...(pcNorthSideBySide ? { maxWidth: 200 } : {}),
-              ...(eastMobileOnlyAvatar
-                ? { overflow: 'visible', whiteSpace: 'normal' as const, wordBreak: 'break-word' as const, overflowWrap: 'break-word' as const }
-                : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
-            }}
-            title={`${p.name} — ${getCompassLabel(index)}`}
-          >
+        const isAiSlotBot = p.id === 'ai1' || p.id === 'ai2' || p.id === 'ai3';
+        const nameInner = (
+          <>
             {p.name}
             {replacedByAi && (
               <span style={{ marginLeft: 4, fontSize: '0.85em', color: '#94a3b8', fontWeight: 500 }} title="Игрок вышел, за него играет ИИ">
                 (ИИ)
               </span>
             )}
+          </>
+        );
+        const namePickOffline =
+          !!offlineAiDifficultyNamePickEnabled && !!onOfflineAiDifficultyNameClick && isAiSlotBot;
+        const styleOfflineAiNameByDifficulty = !!offlineAiNameStyleByDifficulty && isAiSlotBot;
+        const offlineAiDifficultyForName =
+          namePickOffline || styleOfflineAiNameByDifficulty ? (p.aiDifficulty ?? 'amateur') : null;
+        const nameStyleMerged: React.CSSProperties = {
+          ...opponentNameStyle,
+          ...(mobileActiveName && !namePickOffline ? nameActiveMobileStyle : {}),
+          minWidth: 0,
+          ...(pcNorthSideBySide ? { maxWidth: 200 } : {}),
+          ...(eastMobileOnlyAvatar
+            ? { overflow: 'visible', whiteSpace: 'normal' as const, wordBreak: 'break-word' as const, overflowWrap: 'break-word' as const }
+            : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
+        };
+        const nameSpan = namePickOffline ? (
+          <button
+            type="button"
+            className={[
+              'opponent-name-offline-ai-pick',
+              `opponent-name-offline-ai-pick--${offlineAiDifficultyForName}`,
+              eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            style={nameStyleMerged}
+            title={`${p.name} — ${getCompassLabel(index)}. Нажмите, чтобы выбрать уровень ИИ`}
+            aria-label={`Уровень сложности бота ${p.name}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOfflineAiDifficultyNameClick!(index, e.currentTarget);
+            }}
+          >
+            {nameInner}
+          </button>
+        ) : styleOfflineAiNameByDifficulty && offlineAiDifficultyForName ? (
+          <span
+            className={[
+              'opponent-name-offline-ai-pick',
+              `opponent-name-offline-ai-pick--${offlineAiDifficultyForName}`,
+              eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            style={nameStyleMerged}
+            title={`${p.name} — ${getCompassLabel(index)}. Уровень: в меню по аватарке`}
+          >
+            {nameInner}
+          </span>
+        ) : (
+          <span
+            className={eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : undefined}
+            style={nameStyleMerged}
+            title={`${p.name} — ${getCompassLabel(index)}`}
+          >
+            {nameInner}
           </span>
         );
         const avatarOrderRingInnerCls = avatarOrderRingMode ? 'player-avatar-order-ring-inner' : undefined;
@@ -5574,6 +5780,10 @@ function OpponentSlot({
             : avatarOrderRingMode === 'chasing'
               ? 'opponent-avatar-order-ring opponent-avatar-order-ring--chasing'
               : undefined;
+        const playerAvatarPcAiCls = isAiSlotBot
+          ? `player-avatar-ai-offline player-avatar-ai-offline--${p.aiDifficulty ?? 'amateur'}`
+          : '';
+        const playerAvatarMergedCls = [avatarOrderRingInnerCls, playerAvatarPcAiCls].filter(Boolean).join(' ') || undefined;
         const avatarControl = onAvatarClick ? (
           <button
             type="button"
@@ -5590,7 +5800,7 @@ function OpponentSlot({
               avatarDataUrl={avatarDataUrl}
               sizePx={avatarSizePx}
               title={`${p.name} — ${getCompassLabel(index)}`}
-              className={avatarOrderRingInnerCls}
+              className={playerAvatarMergedCls}
             />
           </button>
         ) : (
@@ -5599,7 +5809,7 @@ function OpponentSlot({
             avatarDataUrl={avatarDataUrl}
             sizePx={avatarSizePx}
             title={`${p.name} — ${getCompassLabel(index)}`}
-            className={avatarOrderRingInnerCls}
+            className={playerAvatarMergedCls}
           />
         );
         const avatarEl =

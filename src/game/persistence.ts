@@ -5,6 +5,7 @@
  */
 
 import type { GameState } from './GameEngine';
+import { offlineAiDifficultyForNewBotId } from './aiSettings';
 
 export const GAME_STATE_STORAGE_KEY = 'updown_game_state';
 
@@ -17,7 +18,19 @@ export function loadGameStateFromStorage(): GameState | null {
     const s = parsed as Record<string, unknown>;
     if (!Array.isArray(s.players) || s.players.length !== 4 || typeof s.phase !== 'string') return null;
     if (typeof s.dealerIndex !== 'number' || typeof s.dealNumber !== 'number') return null;
-    return parsed as GameState;
+    let game = parsed as GameState;
+    if (game.players[0]?.id === 'human') {
+      let changed = false;
+      const players = game.players.map((p) => {
+        if (p.id === 'human') return p;
+        if (p.id !== 'ai1' && p.id !== 'ai2' && p.id !== 'ai3') return p;
+        if (p.aiDifficulty) return p;
+        changed = true;
+        return { ...p, aiDifficulty: offlineAiDifficultyForNewBotId(p.id) };
+      });
+      if (changed) game = { ...game, players };
+    }
+    return game;
   } catch {
     return null;
   }

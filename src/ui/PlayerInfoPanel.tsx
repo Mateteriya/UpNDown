@@ -4,16 +4,22 @@
  */
 
 import { useEffect } from 'react';
-import type { GameState } from '../game/GameEngine';
+import type { AIDifficulty, GameState } from '../game/GameEngine';
 import { getTakenFromDealPoints } from '../game/scoring';
 import { getLocalRating } from '../game/persistence';
 import { PlayerAvatar } from './PlayerAvatar';
+import { OfflineAiDifficultyOptionList } from './OfflineAiDifficultyOptionList';
 
 export interface PlayerInfoPanelProps {
   state: GameState;
   playerIndex: number;
   playerAvatarDataUrl?: string | null;
   onClose: () => void;
+  /** ПК, офлайн-бот: выбор уровня сложности в этой панели */
+  offlineAiDifficultyPicker?: {
+    current: AIDifficulty;
+    onSelect: (level: AIDifficulty) => void;
+  };
 }
 
 function getBidAccuracyInGame(dealHistory: GameState['dealHistory'], playerIndex: number): number {
@@ -29,7 +35,7 @@ function getBidAccuracyInGame(dealHistory: GameState['dealHistory'], playerIndex
   return Math.round((met / dealHistory.length) * 100);
 }
 
-export function PlayerInfoPanel({ state, playerIndex, playerAvatarDataUrl, onClose }: PlayerInfoPanelProps) {
+export function PlayerInfoPanel({ state, playerIndex, playerAvatarDataUrl, onClose, offlineAiDifficultyPicker }: PlayerInfoPanelProps) {
   const p = state.players[playerIndex];
   const isHuman = playerIndex === 0;
   const localRating = isHuman ? getLocalRating() : null;
@@ -43,6 +49,7 @@ export function PlayerInfoPanel({ state, playerIndex, playerAvatarDataUrl, onClo
 
   return (
     <div
+      className="player-info-panel-root"
       style={{
         position: 'fixed',
         inset: 0,
@@ -59,6 +66,7 @@ export function PlayerInfoPanel({ state, playerIndex, playerAvatarDataUrl, onClo
       aria-labelledby="player-info-panel-name"
     >
       <div
+        className="player-info-panel-card"
         style={{
           background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
           borderRadius: 16,
@@ -90,20 +98,20 @@ export function PlayerInfoPanel({ state, playerIndex, playerAvatarDataUrl, onClo
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
           <PlayerAvatar name={p.name} avatarDataUrl={isHuman ? playerAvatarDataUrl : undefined} sizePx={96} />
-          <h2 id="player-info-panel-name" style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#f1f5f9', textAlign: 'center' }}>
+          <h2 id="player-info-panel-name" className="player-info-panel-player-name" style={{ margin: 0, fontSize: 20, fontWeight: 700, textAlign: 'center' }}>
             {p.name}
           </h2>
           {!isHuman && (
-            <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>Игрок ИИ</span>
+            <span className="player-info-panel-ai-role">Игрок ИИ</span>
           )}
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="player-info-panel-stats" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 14, color: '#94a3b8' }}>Очки в партии</span>
-              <span style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>{p.score >= 0 ? '+' : ''}{p.score}</span>
+              <span className="player-info-panel-label player-info-panel-label--party-score">Очки в партии</span>
+              <span className="player-info-panel-value player-info-panel-value--party-score">{p.score >= 0 ? '+' : ''}{p.score}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 14, color: '#94a3b8' }}>Точность заказов в этой партии</span>
-              <span style={{ fontSize: 16, fontWeight: 600, color: '#f8fafc' }}>{bidAccuracy}%</span>
+              <span className="player-info-panel-label player-info-panel-label--bid-accuracy-deal">Точность заказов в этой партии</span>
+              <span className="player-info-panel-value player-info-panel-value--bid-accuracy-deal">{bidAccuracy}%</span>
             </div>
             {isHuman && localRating && (
               <>
@@ -122,6 +130,18 @@ export function PlayerInfoPanel({ state, playerIndex, playerAvatarDataUrl, onClo
                   </div>
                 )}
               </>
+            )}
+            {offlineAiDifficultyPicker && (
+              <div
+                className="ai-difficulty-popover-layer"
+                style={{ width: '100%', marginTop: 6, paddingTop: 12, borderTop: '1px solid rgba(148, 163, 184, 0.25)' }}
+              >
+                <div className="player-info-panel-ai-difficulty-heading">Уровень сложности ИИ</div>
+                <OfflineAiDifficultyOptionList
+                  current={offlineAiDifficultyPicker.current}
+                  onSelect={offlineAiDifficultyPicker.onSelect}
+                />
+              </div>
             )}
           </div>
         </div>

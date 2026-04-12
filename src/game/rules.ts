@@ -65,6 +65,18 @@ function beats(
 }
 
 /**
+ * Бьёт ли карта `challenger` текущего лидера взятки `currentBest` при заданной масти захода (для эвристик ИИ).
+ */
+export function cardBeatsOnTable(
+  challenger: Card,
+  currentBest: Card,
+  leadSuit: Suit,
+  trump: Suit | null | undefined
+): boolean {
+  return beats(challenger, currentBest, leadSuit, trump ?? undefined);
+}
+
+/**
  * Проверяет, можно ли сыграть карту (выход в масть / козырь)
  */
 export function isValidPlay(
