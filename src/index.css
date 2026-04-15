@@ -1116,6 +1116,18 @@
     padding-right: 2px !important;
     overflow-x: hidden !important;
     --game-table-surface-height: min(236px, 40.9vh) !important; /* было min(260px, 45vh) */
+    /*
+     * Юг (моб.): единый горизонтальный inset — фиксированный px (рамка руки: padding на .game-mobile-hand-attached;
+     * панель: padding-inline на .game-mobile-player-panel). Не clamp/vw — отступы не сжимаются при узком экране.
+     */
+    --mobile-south-strip-inset-x: 18px;
+  }
+
+  /* <400px: ещё шире inset (см. mobileSouthStripInsetPx в GameTable.tsx). */
+  @media (max-width: 399px) {
+    .game-table-root.viewport-mobile {
+      --mobile-south-strip-inset-x: 24px;
+    }
   }
 
   /* Опустить стол и панель Юга к низу страницы, заполняя экран адаптивно */
@@ -1129,12 +1141,12 @@
   }
   .game-table-root.viewport-mobile .game-table-block-mobile .game-center-spacer-top {
     flex: 0 1 auto !important;
-    max-height: min(24px, 6vh) !important;
-    min-height: 2px !important;
+    max-height: min(17px, 4vh) !important;
+    min-height: 5px !important;
   }
   .game-table-root.viewport-mobile .game-table-block-mobile .game-center-area.game-mobile-center {
     flex-shrink: 0 !important;
-    margin-top: -3px !important;
+    margin-top: 0 !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
   }
@@ -1144,11 +1156,131 @@
     max-height: min(42vh, 220px) !important;
     overflow: hidden !important;
     margin-top: 0 !important;
+    position: relative !important;
+    z-index: 1 !important;
   }
   /* Неон/кольцо панели Юга: visible не только при «ваш ход», иначе при выполненном заказе (ходят другие) обрезает overflow:hidden */
   .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-bottom-row:has(.player-info-panel-your-turn),
   .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-bottom-row:has(.user-player-panel .opponent-avatar-order-ring) {
     overflow: visible !important;
+  }
+  /* Онлайн-чат: чуть больше вертикали под панель юга + док */
+  .game-table-root.viewport-mobile.game-mobile-table-chat .game-table-block-mobile .game-mobile-bottom-row {
+    max-height: min(58vh, 340px) !important;
+  }
+  .game-table-root.viewport-mobile .table-chat-dock {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    flex-shrink: 0;
+    border: 1px solid rgba(34, 211, 238, 0.32);
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.94) 100%);
+    overflow: hidden;
+  }
+  .game-table-root.viewport-mobile .table-chat-dock--collapsed {
+    display: flex;
+    justify-content: center;
+    padding: 6px 0 4px;
+    background: transparent;
+    border: none;
+  }
+  .game-table-root.viewport-mobile .table-chat-toggle {
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid rgba(34, 211, 238, 0.45);
+    background: rgba(15, 23, 42, 0.85);
+    color: #e2e8f0;
+    cursor: pointer;
+  }
+  .game-table-root.viewport-mobile .table-chat-dock-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(34, 211, 238, 0.2);
+    font-size: 12px;
+    font-weight: 600;
+    color: #94a3b8;
+  }
+  .game-table-root.viewport-mobile .table-chat-dock-collapse {
+    background: none;
+    border: none;
+    color: #22d3ee;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+  .game-table-root.viewport-mobile .table-chat-messages {
+    max-height: min(22vh, 160px);
+    overflow-y: auto;
+    padding: 6px 8px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .game-table-root.viewport-mobile .table-chat-empty {
+    color: #64748b;
+    font-size: 12px;
+    padding: 8px 4px;
+    text-align: center;
+  }
+  .game-table-root.viewport-mobile .table-chat-line {
+    margin-bottom: 6px;
+    word-break: break-word;
+  }
+  .game-table-root.viewport-mobile .table-chat-name {
+    display: block;
+    font-weight: 700;
+    color: #22d3ee;
+    font-size: 11px;
+    margin-bottom: 1px;
+  }
+  .game-table-root.viewport-mobile .table-chat-line--self .table-chat-name {
+    color: #a5f3fc;
+  }
+  .game-table-root.viewport-mobile .table-chat-body {
+    color: #e2e8f0;
+  }
+  .game-table-root.viewport-mobile .table-chat-error {
+    font-size: 11px;
+    color: #f87171;
+    padding: 0 8px 4px;
+  }
+  .game-table-root.viewport-mobile .table-chat-input-row {
+    display: flex;
+    gap: 6px;
+    padding: 6px 8px 8px;
+    border-top: 1px solid rgba(34, 211, 238, 0.15);
+    align-items: center;
+  }
+  .game-table-root.viewport-mobile .table-chat-input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(100, 116, 139, 0.45);
+    background: rgba(15, 23, 42, 0.9);
+    color: #f1f5f9;
+    font-size: 13px;
+  }
+  .game-table-root.viewport-mobile .table-chat-send {
+    flex-shrink: 0;
+    width: 40px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(34, 211, 238, 0.45);
+    background: linear-gradient(180deg, #0e7490 0%, #155e75 100%);
+    color: #f8fafc;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  .game-table-root.viewport-mobile .table-chat-send:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
   .game-table-root.viewport-mobile .game-table-block-mobile .game-center-area.game-mobile-center {
     margin-bottom: 0 !important;
@@ -1169,30 +1301,120 @@
     width: 100% !important;
     max-width: 100% !important;
   }
+  /*
+   * Внешний блок руки: фиксированный горизонтальный inset здесь (полоса на всю ширину колонки минус 2×inset).
+   * Раньше padding был только на .game-mobile-hand-frame — при fit-content рамка сужалась и «отступы» визуально пропадали.
+   */
   .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-attached {
-    margin: 0 !important;
     margin-top: 0 !important;
-    padding: 0 !important;
+    margin-bottom: 0 !important;
+    /* Вертикальный зазор полосы руки от стола/панели (frameStyleExtra не должен сжимать до нуля) */
+    padding-block: 6px !important;
+    padding-inline: var(--mobile-south-strip-inset-x, 18px) !important;
     width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
     flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    position: relative !important;
+    z-index: 2 !important;
   }
-  /* Мобильная зона карт в ваш ход: то же усиленное cyan/violet свечение, что на ПК (playerHandYourTurnGlowPc) */
-  .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn {
-    animation: playerHandYourTurnGlowPc 2.85s ease-in-out infinite;
+  /*
+   * Полоса руки: всегда на всю ширину колонки + min-width:0 (flex), без fit-content/min-content —
+   * иначе при смене брейкпоинтов 9 карт блок то шире колонки (вылезы), то с огромными боковыми зазорами.
+   * Нахлёст и плотность ряда остаются в JS (getMobileNineCardHandLayout).
+   */
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-attached.game-mobile-hand--narrow-vw {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    align-self: stretch !important;
   }
-  /* Ряд карт: по ширине только карты, по центру; без тяжёлого ::after-блика (blend + градиент давали лаги и артефакты за пределами руки). */
-  .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn > div {
-    position: relative;
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-attached.game-mobile-hand--9-wide400 {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    align-self: stretch !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-hand-attached.game-mobile-hand--9-wide400 .game-mobile-hand-frame {
     width: fit-content !important;
     max-width: 100% !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-    overflow: visible !important;
+    min-width: auto !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-hand-attached.game-mobile-hand--9-wide400 .game-mobile-hand-frame > div {
+    width: max-content !important;
+    max-width: 100% !important;
+    min-width: auto !important;
+  }
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-attached.game-mobile-hand--9-wide411 {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    align-self: stretch !important;
+    box-sizing: border-box !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-hand-attached.game-mobile-hand--9-wide411 .game-mobile-hand-frame {
+    width: fit-content !important;
+    max-width: 100% !important;
+    min-width: auto !important;
+    box-sizing: border-box !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-hand-attached.game-mobile-hand--9-wide411 .game-mobile-hand-frame > div {
+    width: max-content !important;
+    max-width: 100% !important;
+    min-width: auto !important;
+    box-sizing: border-box !important;
+  }
+  /* 9 карт, vw 370–399: блок на всю ширину колонки, ряд центрируется внутри */
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-attached.game-mobile-hand--9-mid370 {
+    width: 100% !important;
+    max-width: 100% !important;
+    align-self: stretch !important;
+  }
+  /* 9 карт, узкие vw: ширина — процент родителя, не 100vw (скроллбар / эмулятор дают скачки). */
+  .game-table-root.viewport-mobile .game-mobile-hand-attached.game-mobile-hand--9-tight313.game-mobile-hand--narrow-vw {
+    max-width: 100% !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-hand-attached.game-mobile-hand--9-ultra312.game-mobile-hand--narrow-vw {
+    max-width: 100% !important;
+  }
+  /*
+   * Рамка руки: shrink-wrap (fit-content), max 100% контентной ширины .game-mobile-hand-attached (уже с боковым inset).
+   * Горизонтальный inset — только на attached; иначе узкая рамка «съедает» поля.
+   */
+  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame {
+    width: fit-content !important;
+    max-width: 100% !important;
+    /* min-width:0 давал сжатие рамки уже ряда карт во flex при узком экране (<360) */
+    min-width: auto !important;
+    margin-inline: auto !important;
+    box-sizing: border-box !important;
+    /* Внутренний зазор карта↔граница рамки (--mobile-south-strip-inset-x / GameTable MOBILE_SOUTH_STRIP_INSET_PX) */
+    padding-inline: var(--mobile-south-strip-inset-x, 18px) !important;
+  }
+  /* Мобильная зона карт в ваш ход: cyan/violet пульс (playerHandYourTurnGlowPc) */
+  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn {
+    animation: playerHandYourTurnGlowPc 2.85s ease-in-out infinite;
+  }
+  /* Ряд карт: строго внутри content-box рамки (у рамки padding-inline). */
+  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame > div.game-mobile-hand-row {
+    position: relative;
+    width: max-content !important;
+    max-width: 100% !important;
+    min-width: auto !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    box-sizing: border-box !important;
   }
   /*
    * Волна по картам: задержка через --hand-wave-index (GameTable). Только transform + opacity (::after) — без mix-blend и без анимации box-shadow.
    */
-  .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn > div > div {
+  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn > div > div {
     transform-origin: center bottom;
     overflow: visible !important;
     animation: mobileHandCardWaveLift 2.85s cubic-bezier(0.42, 0, 0.58, 1) infinite;
@@ -1202,7 +1424,7 @@
    * Блик: ::after должен быть НАД кнопкой (иначе непрозрачный фон CardView полностью скрывает градиент).
    * Не трогаем z-index у button — внутренние слои карты (картинка, z-index 5+) остаются как в CardView.
    */
-  .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn > div > div::after {
+  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn > div > div::after {
     content: '';
     position: absolute;
     inset: 1px;
@@ -1224,15 +1446,22 @@
     animation: mobileHandCardWaveGloss 2.85s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
     animation-delay: calc(3.2s + (var(--hand-wave-index, 1) - 1) * 78ms);
   }
+  /* <360px: горизонтальный клип bottom-row мог резать ряд карт; по вертикали по-прежнему ограничение max-height */
+  @media (max-width: 359px) {
+    .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-bottom-row {
+      overflow-x: visible !important;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn {
+    .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn {
       animation: none !important;
     }
-    .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn > div > div {
+    .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn > div > div {
       animation: none !important;
       transform: none !important;
     }
-    .game-table-root.viewport-mobile .game-mobile-hand-attached .player-hand-your-turn > div > div::after {
+    .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn > div > div::after {
       animation: none !important;
       opacity: 0 !important;
     }
@@ -1273,7 +1502,7 @@
   }
   /* Одна высота верхней линии: кнопка меню, бейдж трансляции, кнопка подсветки, бейдж раздачи */
   .game-table-root.viewport-mobile .game-header > div:first-child > button,
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-col .game-info-left-section,
+  .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-col .game-info-left-section,
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn),
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > div {
     min-height: 24px !important;
@@ -1769,17 +1998,20 @@
     gap: 4px !important;
     margin-bottom: 2px !important;
   }
+  .game-table-root.viewport-mobile .game-mobile-top-row {
+    margin-bottom: 6px !important;
+  }
   .game-table-root .game-info-row {
     height: 56px !important;
     gap: 8px !important;
     margin-bottom: 4px !important;
   }
   .game-table-root.viewport-mobile .game-info-left-col,
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-col {
+  .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-col {
     margin-top: 0 !important;
   }
   /* Панель хода игры — зафиксировать вверху по центру, на одной линии с шапкой */
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-col {
+  .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-col {
     position: fixed !important;
     top: 0 !important;
     left: 50% !important;
@@ -1796,7 +2028,7 @@
     background: transparent !important;
     box-shadow: none !important;
   }
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-col .game-info-left-section {
+  .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-col .game-info-left-section {
     display: flex !important;
     justify-content: center !important;
     align-items: center !important;
@@ -1813,20 +2045,20 @@
     margin-top: 4px !important;
   }
   .game-table-root.viewport-mobile .game-info-left-section,
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-section {
+  .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-section {
     padding: 6px 8px !important;
     gap: 4px !important;
   }
   .game-table-root.viewport-mobile .game-info-left-section span,
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-section span {
+  .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-section span {
     font-size: 10px !important;
   }
   .game-table-root.viewport-mobile .game-info-left-section span:last-child,
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-section span:last-child {
+  .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-section span:last-child {
     font-size: 12px !important;
   }
   .game-table-root.viewport-mobile .game-info-left-section > div,
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-info-left-section > div {
+  .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-section > div {
     padding: 4px 5px !important;
     gap: 2px !important;
     border-radius: 4px !important;
@@ -1856,27 +2088,31 @@
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
-    padding: 4px 6px !important;
+    /* Меньше сверху под аватар; снизу узкая зона под невысокие бейджи — полоса заказа по центру по вертикали через .opponent-slot-stats-mobile-nw */
+    padding: 3px 6px 32px 6px !important;
     border-radius: 8px !important;
     gap: 2px !important;
   }
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot-header,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot-header {
-    margin-bottom: 2px !important;
-  }
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-score-badge,
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-score-badge {
-    display: none !important;
+    margin-bottom: 0 !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+    flex-shrink: 0 !important;
   }
   /* Бейдж «Сдающий» у Запада и Севера — у нижней границы панели справа, с отступом от угла */
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > .dealer-badge,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div > .dealer-badge {
     top: auto !important;
-    bottom: 4px !important;
+    bottom: 2px !important;
     left: auto !important;
     right: 4px !important;
     transform: none !important;
     border-radius: 6px 0 6px 0 !important;
+    z-index: 3 !important;
+    padding: 2px 6px !important;
+    gap: 4px !important;
+    min-height: 0 !important;
   }
   /* Бейдж «Первый заказ/ход» у Запада и Севера — у нижней границы панели справа, скруглены верхний левый и нижний правый */
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > .first-bidder-badge,
@@ -1887,6 +2123,8 @@
     right: 0 !important;
     transform: none !important;
     border-radius: 6px 0 6px 0 !important;
+    z-index: 2 !important;
+    min-height: 0 !important;
   }
   /* Север и Запад: плотный тёмный фон «Сдающий» / «Первый заказ» — контраст со слотами заказа */
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > .dealer-badge,
@@ -1930,14 +2168,14 @@
       pointer-events: auto !important;
     }
   }
-  /* Две строки: «Первый:» и «заказ/ход» — только для Север и Запад */
+  /* Две строки: «Первый:» и «заказ/ход» — только для Север и Запад; компактнее по высоте нижняя зона */
   .game-table-root.viewport-mobile .game-mobile-top-row .first-bidder-badge-two-lines {
     display: flex !important;
     flex-direction: column !important;
     align-items: flex-start !important;
     gap: 0 !important;
-    padding: 3px 4px !important;
-    line-height: 1.2 !important;
+    padding: 2px 4px !important;
+    line-height: 1.12 !important;
   }
   .game-table-root.viewport-mobile .game-mobile-top-row .first-bidder-badge-two-lines .first-bidder-line1 {
     display: inline-flex !important;
@@ -1949,30 +2187,87 @@
     display: block !important;
     white-space: nowrap !important;
   }
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > div:last-child,
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div > div:last-child {
+  /* Полоса заказа: по вертикали по центру; по горизонтали к левому краю панели (у Запада — flex-end при row-reverse) */
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     gap: 4px !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    flex-direction: row-reverse !important;
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+  }
+  /* Очки: третья строка слева; ~×1.4 к прежней компактной высоте — укладывается в padding-bottom панели */
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge {
+    display: inline-flex !important;
+    position: absolute !important;
+    bottom: 3px !important;
+    left: 4px !important;
+    right: auto !important;
+    top: auto !important;
+    z-index: 1 !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex-direction: row !important;
+    gap: 4px !important;
+    padding: 2px 7px 3px !important;
+    box-sizing: border-box !important;
+    max-height: 31px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    border-width: 1px !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge > span:first-child,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge > span:first-child {
+    font-size: 11px !important;
+    line-height: 1 !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge > span:last-child,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge > span:last-child {
+    font-size: 14px !important;
+    line-height: 1 !important;
+    font-weight: 800 !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.score-badge-leader,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.score-badge-leader {
+    border-width: 1px !important;
+    padding: 1px 5px 2px !important;
+    max-height: 31px !important;
   }
 
-  /* Мобильный центр: стол и Восток в один ряд; зазор между ними 12px; блок по 12px от краёв экрана (центрирован) */
+  /* Мобильный центр: стол и Восток в один ряд; зазор между ними 12px.
+   * Верх внешней рамки стола и верх панели Восток — на одной линии: flex-start по поперечной оси, стол без
+   * вертикального center в колонке; у Востока без padding-top (не выравниваем по сукну внутри рамки). */
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center {
     flex-direction: row !important;
     flex-wrap: nowrap !important;
-    align-items: stretch !important;
+    align-items: flex-start !important;
     gap: 12px !important;
   }
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-table {
     flex: 1 1 auto !important;
     min-width: 0 !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
   }
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east {
     width: auto !important;
     min-width: 28px !important;
     max-width: 44px !important;
     flex: 0 0 auto !important;
-    align-self: stretch !important;
+    align-self: flex-start !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
     min-height: 0 !important;
@@ -1981,7 +2276,7 @@
     flex-direction: column !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    padding-top: 6px !important;
+    padding-top: 0 !important;
   }
   /* Панель ИИ-Восток на мобильной: имя под аватаром, с переносом по словам/символам */
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-header {
@@ -2008,14 +2303,48 @@
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east > div {
     width: 100% !important;
     max-width: 100% !important;
-    min-height: 100% !important;
+    min-height: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: flex-start !important;
   }
-  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-score-badge {
-    display: none !important;
+  /* Восток: «Очки» — компактно над нижними бейджами, цвет текста #d869e5 */
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge {
+    display: inline-flex !important;
+    position: absolute !important;
+    left: 50% !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: 30px !important;
+    transform: translateX(-50%) !important;
+    z-index: 2 !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    padding: 1px 4px 2px !important;
+    box-sizing: border-box !important;
+    max-height: 31px !important;
+    min-height: 0 !important;
+    min-width: 0 !important;
+    max-width: calc(100% - 4px) !important;
+    overflow: hidden !important;
+    border-width: 1px !important;
+  }
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge > span:first-child {
+    font-size: 8px !important;
+    line-height: 1 !important;
+  }
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge > span:last-child {
+    font-size: 10px !important;
+    line-height: 1 !important;
+    font-weight: 800 !important;
+  }
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.score-badge-leader {
+    border-width: 1px !important;
+    padding: 0 3px 1px !important;
+    max-height: 31px !important;
   }
   /* Бейдж «Сдающий» в панели Восток — полоса на всю ширину панели у нижнего края */
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-east > .dealer-badge {
@@ -2174,7 +2503,7 @@
     display: none !important;
   }
 
-  /* Общие правила для west/east (Запад в top-row, Восток — только в game-mobile-center справа от стола) */
+  /* Общие правила для west/east (Запад в top-row, Восток — справа от стола в .game-mobile-center) */
   .game-table-root.viewport-mobile .game-center-west {
     flex: 0 0 auto !important;
     min-width: 0 !important;
@@ -2215,11 +2544,17 @@
   .game-table-root.viewport-mobile .game-mobile-player-panel {
     max-height: min(38vh, 200px) !important;
     min-height: 0 !important;
-    padding: 3px 6px !important;
     padding-top: 4px !important;
+    padding-bottom: 3px !important;
+    padding-inline: var(--mobile-south-strip-inset-x, 18px) !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     border-radius: 14px !important; /* в тон панели .game-mobile-player-info, чтобы контейнер не обрезал подсветку прямоугольником */
+    border: 1px solid rgba(34, 211, 238, 0.28) !important;
+    background: linear-gradient(168deg, rgba(30, 41, 59, 0.55) 0%, rgba(15, 23, 42, 0.88) 48%, rgba(2, 6, 23, 0.92) 100%) !important;
+    box-shadow:
+      0 2px 14px rgba(0, 0, 0, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
   }
   /* Свечение и кольцо заказа на аватаре: при «ваш ход» или при показе кольца (заказ на руке) — иначе overflow-x/y режут градиент */
   .game-table-root.viewport-mobile .game-mobile-player-panel:has(.player-info-panel-your-turn),
@@ -2248,7 +2583,8 @@
     z-index: 1;
   }
   .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info {
-    padding: 3px 6px !important;
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
     gap: 2px !important;
     margin-bottom: 2px !important;
     align-items: flex-start !important;
@@ -2364,6 +2700,26 @@
 }
 .game-table-root button.opponent-name-offline-ai-pick:hover {
   filter: brightness(1.09);
+}
+/* Мобильная: панели Север/Запад — чуть выразительнее карточка (не трогаем ПК) */
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot {
+  border-color: rgba(34, 211, 238, 0.32) !important;
+  box-shadow:
+    0 2px 14px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+}
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot {
+  /* Инлайн у OpponentSlot — ширина из --game-table-opponent-slot-width; в колонке Восток — 100% ячейки */
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 8px 6px !important;
+  border-color: rgba(34, 211, 238, 0.32) !important;
+  box-shadow:
+    0 2px 14px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
 }
 .game-table-root .opponent-slot-header {
   flex-wrap: nowrap !important;
@@ -2851,9 +3207,19 @@
   flex-wrap: nowrap !important;
   min-width: 0 !important;
 }
-/* Оппоненты: одна высота панели заказа — крестик (0) и кружки (1+); без роста по ширине/высоте */
+/* Оппоненты: полоса заказа — крестик (0) и кружки (1+). Север/Запад выше на ~строку; Восток — компактно как раньше */
 .game-table-root.viewport-mobile .game-mobile-top-row button.trick-slots-normal,
-.game-table-root.viewport-mobile .game-mobile-top-row button.trick-slots-collecting,
+.game-table-root.viewport-mobile .game-mobile-top-row button.trick-slots-collecting {
+  min-height: 34px !important;
+  max-height: 34px !important;
+  box-sizing: border-box !important;
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  overflow: hidden !important;
+  min-width: 0 !important;
+}
 .game-table-root.viewport-mobile .game-center-east button.trick-slots-normal:not(.trick-slots-east-mobile),
 .game-table-root.viewport-mobile .game-center-east button.trick-slots-collecting:not(.trick-slots-east-mobile) {
   min-height: 26px !important;
@@ -2866,9 +3232,124 @@
   overflow: hidden !important;
   min-width: 0 !important;
 }
-.game-table-root.viewport-mobile .game-mobile-top-row button.trick-slots-normal,
-.game-table-root.viewport-mobile .game-mobile-top-row button.trick-slots-collecting {
-  max-width: min(152px, 46vw) !important;
+/* Север/Запад: полоса заказа на всю ширину панели слота (внешние поля 6px у .game-mobile-slot-* > div + внутренние 6px у кнопки — симметрично слева/справа) */
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-normal,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-collecting,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-normal,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-collecting {
+  width: 100% !important;
+  max-width: 100% !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+/* Север/Запад, заказ ≤6: цифры взято/заказ слева, ряд кружков прижат к правому краю панели (ушко — отдельная вёрстка) */
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-normal:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-collecting:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-normal:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-collecting:not(.trick-slots-mobile-nw-high-bid-ear) {
+  justify-content: flex-start !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-normal:not(.trick-slots-mobile-nw-high-bid-ear) > div,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-collecting:not(.trick-slots-mobile-nw-high-bid-ear) > div,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-normal:not(.trick-slots-mobile-nw-high-bid-ear) > div,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-collecting:not(.trick-slots-mobile-nw-high-bid-ear) > div {
+  margin-left: auto !important;
+  justify-content: flex-end !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-normal:not(.trick-slots-mobile-nw-high-bid-ear) > span:first-of-type,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-collecting:not(.trick-slots-mobile-nw-high-bid-ear) > span:first-of-type,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-normal:not(.trick-slots-mobile-nw-high-bid-ear) > span:first-of-type,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-collecting:not(.trick-slots-mobile-nw-high-bid-ear) > span:first-of-type {
+  flex-shrink: 0 !important;
+}
+/* Север/Запад, заказ >6: «ушко» снаружи панели — прикручено к правому верхнему углу (над рамкой), кружки внутри */
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-mobile-nw-high-bid-ear,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-mobile-nw-high-bid-ear {
+  position: relative !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  align-self: stretch !important;
+  overflow: visible !important;
+  min-height: 32px !important;
+  max-height: none !important;
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+  /* Угол под вкладку снаружи */
+  border-top-right-radius: 3px !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw .trick-slots-mobile-nw-ear-inner {
+  position: static !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 22px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: center !important;
+  flex: 1 1 auto !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw .trick-slots-mobile-nw-figures-ear {
+  position: absolute !important;
+  /* CB — padding-box панели: правый край ушка = правый край контента панели */
+  right: 0 !important;
+  left: auto !important;
+  top: 0 !important;
+  bottom: auto !important;
+  /* Вынести полностью над верхней гранью панели (снаружи), слегка опустить к линии рамки */
+  transform: translateY(calc(-100% + 1px)) !important;
+  margin: 0 !important;
+  margin-bottom: -1px !important;
+  z-index: 6 !important;
+  display: inline-flex !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
+  padding: 3px 6px 4px !important;
+  border-radius: 8px 8px 0 0 !important;
+  border-style: solid !important;
+  border-bottom: none !important;
+  /* Толщина/цвет как у панели заказа (база = pending / обычный ход); состояния — ниже */
+  border-width: 1px !important;
+  border-color: rgba(251, 191, 36, 0.55) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.99) 0%,
+    rgba(30, 41, 59, 0.95) 55%,
+    rgba(251, 191, 36, 0.12) 100%
+  ) !important;
+  box-shadow:
+    0 -3px 12px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  /* Нижние «усики» вертикальных границ не заходят на панель (рамка до 2px + субпиксель) */
+  -webkit-clip-path: inset(0 0 3px 0 round 8px 8px 0 0) !important;
+  clip-path: inset(0 0 3px 0 round 8px 8px 0 0) !important;
+}
+/* Ушко: рамка совпадает с панелью (.trick-slots-order-complete / over / under-strict — как в блоках панели) */
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-complete .trick-slots-mobile-nw-figures-ear,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-complete .trick-slots-mobile-nw-figures-ear {
+  border-width: 2px !important;
+  border-color: rgba(129, 140, 248, 0.68) !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-over .trick-slots-mobile-nw-figures-ear,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-over .trick-slots-mobile-nw-figures-ear {
+  border-width: 2px !important;
+  border-color: rgba(130, 135, 78, 0.55) !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-mobile-nw-high-bid-ear.trick-slots-mobile-under-strict .trick-slots-mobile-nw-figures-ear,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-mobile-nw-high-bid-ear.trick-slots-mobile-under-strict .trick-slots-mobile-nw-figures-ear {
+  border-width: 2px !important;
+  border-color: rgba(190, 80, 88, 0.45) !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw .trick-slots-mobile-nw-circles-only {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-wrap: nowrap !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw:has(.trick-slots-mobile-nw-high-bid-ear) {
+  padding-top: 4px !important;
 }
 .game-table-root.viewport-mobile .game-center-east button.trick-slots-normal:not(.trick-slots-east-mobile),
 .game-table-root.viewport-mobile .game-center-east button.trick-slots-collecting:not(.trick-slots-east-mobile) {
@@ -4018,6 +4499,37 @@ body {
   }
 }
 
+/*
+ * Узкий экран (<370 CSS px): scale на слоте + box-shadow на кнопке дают «плывущие» тени (субпиксель / композитинг).
+ * Та же фаза волны — только вертикальный сдвиг, без scale.
+ */
+@keyframes mobileHandCardWaveLiftNarrow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  45% {
+    transform: translateY(-2px);
+  }
+}
+
+@media (max-width: 369px) {
+  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn > div > div {
+    animation-name: mobileHandCardWaveLiftNarrow;
+  }
+}
+
+/*
+ * ≤329px: нахлёст 7–10px + (на ultra) scale ряда — тени снова «плывут». Статичные слоты; scale ряда у ultra убираем.
+ * Блик ::after (opacity) остаётся.
+ */
+@media (max-width: 329px) {
+  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn > div > div {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
 /* Блик: вспышка в фазу подъёма (слабее пик — меньше «мигания») */
 @keyframes mobileHandCardWaveGloss {
   0%,
@@ -4042,6 +4554,94 @@ body {
 }
 
 @media (min-width: 1025px) {
+  .game-table-root:not(.viewport-mobile) .game-pc-table-chat-wrap {
+    align-items: flex-end;
+  }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc {
+    box-sizing: border-box;
+    width: 228px;
+    min-width: 200px;
+    max-width: 28vw;
+    max-height: min(340px, 44vh);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(34, 211, 238, 0.32);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.94) 100%);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-messages {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-empty {
+    color: #64748b;
+    font-size: 12px;
+    padding: 12px 4px;
+    text-align: center;
+  }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-line {
+    margin-bottom: 8px;
+    word-break: break-word;
+  }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-name {
+    display: block;
+    font-weight: 700;
+    color: #22d3ee;
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-line--self .table-chat-name {
+    color: #a5f3fc;
+  }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-body {
+    color: #e2e8f0;
+  }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-error {
+    font-size: 11px;
+    color: #f87171;
+    padding: 0 10px 4px;
+  }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px 10px;
+    border-top: 1px solid rgba(34, 211, 238, 0.15);
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(100, 116, 139, 0.45);
+    background: rgba(15, 23, 42, 0.9);
+    color: #f1f5f9;
+    font-size: 13px;
+  }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-send {
+    flex-shrink: 0;
+    width: 40px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(34, 211, 238, 0.45);
+    background: linear-gradient(180deg, #0e7490 0%, #155e75 100%);
+    color: #f8fafc;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-send:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
   .game-table-root:not(.viewport-mobile) .player-hand-your-turn {
     animation-name: playerHandYourTurnGlowPc;
     animation-duration: 1.8s;
@@ -4673,6 +5273,272 @@ body {
   }
 }
 
+/* Мобильная: аватары офлайн-ботов — та же палитра уровня ИИ, что на ПК */
+.game-table-root.viewport-mobile .opponent-slot .player-avatar.player-avatar-ai-offline--novice:not(:has(img)) {
+  background: linear-gradient(145deg, #4ade80 0%, #16a34a 55%, #14532d 100%) !important;
+  color: #ecfdf5 !important;
+  border: 2.5px solid rgba(52, 211, 153, 0.95) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.32),
+    0 0 0 2px rgba(21, 128, 61, 0.7),
+    0 0 14px rgba(74, 222, 128, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot .player-avatar.player-avatar-ai-offline--novice:has(img) {
+  border: 2.5px solid rgba(52, 211, 153, 0.95) !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 2px rgba(22, 163, 74, 0.8),
+    0 0 18px rgba(34, 197, 94, 0.55),
+    0 4px 12px rgba(0, 0, 0, 0.35) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot
+  .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--novice:not(:has(img)) {
+  border: none !important;
+  background: linear-gradient(145deg, #4ade80 0%, #16a34a 55%, #14532d 100%) !important;
+  color: #ecfdf5 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot
+  .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--novice:has(img) {
+  border: none !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 1.5px rgba(34, 197, 94, 0.7) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot .player-avatar.player-avatar-ai-offline--amateur:not(:has(img)) {
+  background: linear-gradient(145deg, #fde047 0%, #eab308 45%, #a16207 100%) !important;
+  color: #422006 !important;
+  border: 2.5px solid rgba(250, 204, 21, 0.95) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 0 0 2px rgba(180, 83, 9, 0.55),
+    0 0 14px rgba(250, 204, 21, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot .player-avatar.player-avatar-ai-offline--amateur:has(img) {
+  border: 2.5px solid rgba(250, 204, 21, 0.95) !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 2px rgba(202, 138, 4, 0.75),
+    0 0 18px rgba(234, 179, 8, 0.45),
+    0 4px 12px rgba(0, 0, 0, 0.35) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot
+  .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--amateur:not(:has(img)) {
+  border: none !important;
+  background: linear-gradient(145deg, #fde047 0%, #eab308 45%, #a16207 100%) !important;
+  color: #422006 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot
+  .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--amateur:has(img) {
+  border: none !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 1.5px rgba(234, 179, 8, 0.75) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot .player-avatar.player-avatar-ai-offline--expert:not(:has(img)) {
+  background: linear-gradient(145deg, #e879f9 0%, #a855f7 40%, #6b21a8 100%) !important;
+  color: #faf5ff !important;
+  border: 2.5px solid rgba(216, 180, 254, 0.95) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(107, 33, 168, 0.75),
+    0 0 16px rgba(168, 85, 247, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.28) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot .player-avatar.player-avatar-ai-offline--expert:has(img) {
+  border: 2.5px solid rgba(216, 180, 254, 0.95) !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 2px rgba(126, 34, 206, 0.8),
+    0 0 20px rgba(192, 132, 252, 0.55),
+    0 4px 12px rgba(0, 0, 0, 0.35) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot
+  .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--expert:not(:has(img)) {
+  border: none !important;
+  background: linear-gradient(145deg, #e879f9 0%, #a855f7 40%, #6b21a8 100%) !important;
+  color: #faf5ff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.32) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot
+  .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--expert:has(img) {
+  border: none !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 1.5px rgba(168, 85, 247, 0.75) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-current-turn .player-avatar.player-avatar-ai-offline--novice:not(:has(img)) {
+  border: 2px solid rgba(167, 243, 208, 0.98) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(22, 163, 74, 0.9),
+    0 0 0 2px rgba(134, 239, 172, 0.85),
+    0 0 14px rgba(74, 222, 128, 0.55),
+    0 0 28px rgba(34, 197, 94, 0.38),
+    0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-current-turn .player-avatar.player-avatar-ai-offline--novice:has(img) {
+  border: 2px solid rgba(167, 243, 208, 0.98) !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(22, 163, 74, 0.9),
+    0 0 0 2px rgba(134, 239, 172, 0.85),
+    0 0 18px rgba(74, 222, 128, 0.5),
+    0 0 30px rgba(34, 197, 94, 0.38),
+    0 4px 12px rgba(0, 0, 0, 0.35) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-current-turn
+  .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--novice:not(:has(img)) {
+  border: none !important;
+  background: linear-gradient(145deg, #4ade80 0%, #16a34a 55%, #14532d 100%) !important;
+  color: #ecfdf5 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-current-turn
+  .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--novice:has(img) {
+  border: none !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 2px rgba(134, 239, 172, 0.8) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-current-turn .player-avatar.player-avatar-ai-offline--amateur:not(:has(img)) {
+  border: 2px solid rgba(254, 240, 138, 0.98) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(180, 83, 9, 0.85),
+    0 0 0 2px rgba(253, 224, 71, 0.9),
+    0 0 14px rgba(250, 204, 21, 0.5),
+    0 0 26px rgba(234, 179, 8, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-current-turn .player-avatar.player-avatar-ai-offline--amateur:has(img) {
+  border: 2px solid rgba(254, 240, 138, 0.98) !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(180, 83, 9, 0.85),
+    0 0 0 2px rgba(253, 224, 71, 0.9),
+    0 0 18px rgba(250, 204, 21, 0.45),
+    0 0 28px rgba(234, 179, 8, 0.32),
+    0 4px 12px rgba(0, 0, 0, 0.35) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-current-turn
+  .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--amateur:not(:has(img)) {
+  border: none !important;
+  background: linear-gradient(145deg, #fde047 0%, #eab308 45%, #a16207 100%) !important;
+  color: #422006 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-current-turn
+  .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--amateur:has(img) {
+  border: none !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 2px rgba(253, 224, 71, 0.82) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-current-turn .player-avatar.player-avatar-ai-offline--expert:not(:has(img)) {
+  border: 2px solid rgba(233, 213, 255, 0.98) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(107, 33, 168, 0.9),
+    0 0 0 2px rgba(192, 132, 252, 0.88),
+    0 0 16px rgba(168, 85, 247, 0.55),
+    0 0 30px rgba(126, 34, 206, 0.38),
+    0 2px 8px rgba(0, 0, 0, 0.28) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-current-turn .player-avatar.player-avatar-ai-offline--expert:has(img) {
+  border: 2px solid rgba(233, 213, 255, 0.98) !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(107, 33, 168, 0.9),
+    0 0 0 2px rgba(192, 132, 252, 0.88),
+    0 0 22px rgba(192, 132, 252, 0.55),
+    0 0 34px rgba(126, 34, 206, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.35) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-current-turn
+  .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--expert:not(:has(img)) {
+  border: none !important;
+  background: linear-gradient(145deg, #e879f9 0%, #a855f7 40%, #6b21a8 100%) !important;
+  color: #faf5ff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-current-turn
+  .player-avatar.player-avatar-order-ring-inner.player-avatar-ai-offline--expert:has(img) {
+  border: none !important;
+  box-shadow:
+    inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 6px rgba(255, 255, 255, 0.2),
+    inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+    0 0 0 2px rgba(192, 132, 252, 0.85) !important;
+}
+
 /* Мобильная (viewport-mobile): та же гирлянда на панели юга — монтируется из GameTable с задержкой 9 с (фаза playing). Внутреннее свечение — выше в @media (max-width: 600px). SVG — последним ребёнком, чтобы не ломать div:first-child. */
 .game-table-root.viewport-mobile.trump-highlight-on .user-player-panel.player-info-panel-your-turn .user-panel-garland {
   position: absolute;
@@ -4703,10 +5569,10 @@ body {
 }
 
 /* Мобильная зона карт: та же гирлянда по контуру рамки руки (задержка 9 с — в GameTable). Ряд карт — над SVG. */
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn:has(.user-panel-garland) > div {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame:has(.user-panel-garland) > div {
   z-index: 1;
 }
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -4717,20 +5583,20 @@ body {
   box-sizing: border-box;
   isolation: isolate;
 }
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland .user-panel-garland-track,
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland .user-panel-garland-dash {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland .user-panel-garland-track,
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland .user-panel-garland-dash {
   vector-effect: non-scaling-stroke;
 }
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland .user-panel-garland-track {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland .user-panel-garland-track {
   stroke-width: 1.25px;
 }
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland .user-panel-garland-dash {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland .user-panel-garland-dash {
   stroke-width: 2.25px;
 }
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland-dash--cyan {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland-dash--cyan {
   stroke: #5aebff;
 }
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .player-hand-your-turn .user-panel-garland-dash--violet {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland-dash--violet {
   stroke: #d59aff;
 }
 
@@ -4749,7 +5615,7 @@ body {
 }
 
 /* Верхний ряд (Запад/Север): общая «подложка», без просветов между слотами и фоном */
-.game-table-root.viewport-mobile.deal-type-no-trump .game-table-block-mobile > .game-mobile-top-row {
+.game-table-root.viewport-mobile.deal-type-no-trump .game-table-block-mobile > .game-mobile-upper-board .game-mobile-top-row {
   background:
     radial-gradient(ellipse 100% 90% at 50% -10%, rgba(251, 113, 133, 0.16) 0%, transparent 48%),
     radial-gradient(ellipse 95% 120% at 50% 0%, rgba(52, 211, 153, 0.14) 0%, transparent 55%),
@@ -4851,7 +5717,7 @@ body {
 }
 
 /* Рука: без пульсирующей box-shadow-анимации (она даёт «ореолы» на цветном фоне) */
-.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-hand-attached .player-hand-your-turn {
+.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn {
   animation: none !important;
   box-shadow:
     0 0 0 1px rgba(186, 170, 240, 0.4),
@@ -6202,4 +7068,82 @@ body.deal-results-modal-open-mobile {
     filter: opacity(1);
     pointer-events: auto;
   }
+}
+
+/*
+ * Персональный цвет «Очки» у оппонентов на мобиле (классы из GameTable: opponent-score-badge--slot-north|west|east).
+ * В конце файла — перекрывает общие .viewport-mobile .opponent-score-badge* и лидера.
+ */
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-north > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-north > span:last-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-west > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-west > span:last-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-east > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-east > span:last-child {
+  color: #d869e5 !important;
+  -webkit-text-fill-color: #d869e5 !important;
+}
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-north > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-west > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-east > span:first-child {
+  text-shadow: 0 0 8px rgba(216, 105, 229, 0.35) !important;
+}
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-north > span:last-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-west > span:last-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-east > span:last-child {
+  text-shadow: 0 0 10px rgba(216, 105, 229, 0.4) !important;
+}
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-north.score-badge-leader > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-north.score-badge-leader > span:last-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-west.score-badge-leader > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-west.score-badge-leader > span:last-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-east.score-badge-leader > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-east.score-badge-leader > span:last-child {
+  color: #d869e5 !important;
+  -webkit-text-fill-color: #d869e5 !important;
+  text-shadow: 0 0 10px rgba(216, 105, 229, 0.45) !important;
+}
+
+/* Мобильный бейдж «Очки»: по умолчанию только цифра (свёрнуто влево); тап — показать «Очки» */
+.game-table-root.viewport-mobile button.opponent-score-badge.opponent-score-badge--mobile-toggle {
+  font-family: inherit !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  text-align: left !important;
+}
+.game-table-root.viewport-mobile button.opponent-score-badge.opponent-score-badge--mobile-toggle:focus-visible {
+  outline: 2px solid rgba(216, 105, 229, 0.55) !important;
+  outline-offset: 2px !important;
+}
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed {
+  justify-content: flex-start !important;
+  align-items: center !important;
+  gap: 0 !important;
+}
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed {
+  left: 3px !important;
+  right: auto !important;
+  transform: none !important;
+  align-items: flex-start !important;
+}
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded {
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  align-items: center !important;
+}
+/* Развёрнутый бейдж «Очки»: внутренняя неоновая подсветка */
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded {
+  box-shadow:
+    inset 0 0 14px rgba(216, 105, 229, 0.28),
+    inset 0 0 32px rgba(167, 89, 200, 0.14),
+    inset 0 1px 0 rgba(255, 232, 255, 0.38),
+    0 0 14px rgba(216, 105, 229, 0.26) !important;
+}
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.score-badge-leader {
+  box-shadow:
+    inset 0 0 16px rgba(216, 105, 229, 0.34),
+    inset 0 0 36px rgba(167, 139, 250, 0.16),
+    inset 0 1px 0 rgba(255, 240, 255, 0.42),
+    0 0 16px rgba(216, 105, 229, 0.3),
+    0 0 26px rgba(139, 92, 246, 0.22) !important;
 }

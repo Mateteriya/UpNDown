@@ -44,6 +44,7 @@ export interface GameRoomRow {
 
 const TABLE = 'game_rooms';
 const PRESENCE_TABLE = 'game_room_presence';
+const CHAT_TABLE = 'game_room_chat_messages';
 const CODE_LENGTH = 6;
 const DISCONNECT_THRESHOLD_MS = 60_000;
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -1030,6 +1031,74 @@ export async function getPresence(roomId: string): Promise<Record<string, string
     if (uid && seen) out[uid] = seen;
   }
   return out;
+}
+
+export interface RoomChatMessageRow {
+  id: string;
+  room_id: string;
+  user_id: string;
+  display_name: string;
+  body: string;
+  created_at: string;
+}
+
+/** История чата комнаты (последние сообщения, по возрастанию времени). */
+export async function fetchRoomChatMessages(roomId: string, limit = 100): Promise<RoomChatMessageRow[]> {
+  if (!supabase || !roomId) return [];
+  const { data, error } = await supabase
+    .from(CHAT_TABLE)
+    .select('id, room_id, user_id, display_name, body, created_at')
+    .eq('room_id', roomId)
+    .order('created_at', { ascending: true })
+    .limit(Math.min(200, Math.max(1, limit)));
+  if (error || !data) return [];
+  return data as RoomChatMessageRow[];
+}
+
+/** Отправить сообщение в чат комнаты (RLS: только участник слота). */
+export async function sendRoomChatMessage(
+  roomId: string,
+  userId: string,
+  displayName: string,
+  body: string
+): Promise<{ error?: string }> {
+  if (!supabase) return { error: 'Supabase не настроен' };
+  const trimmed = body.trim();
+  if (!trimmed) return { error: 'Пустое сообщение' };
+  if (trimmed.length > 500) return { error: 'Не более 500 символов' };
+  const { error } = await supabase.from(CHAT_TABLE).insert({
+    room_id: roomId,
+    user_id: userId,
+    display_name: displayName.trim().slice(0, 40) || 'Игрок',
+    body: trimmed,
+  });
+  return error ? { error: error.message } : {};
+}
+
+/** Подписка на новые сообщения чата (INSERT). */
+export function subscribeRoomChat(
+  roomId: string,
+  onInsert: (row: RoomChatMessageRow) => void,
+  onSubscribeStatus?: (status: string) => void
+): () => void {
+  const client = supabase;
+  if (!client || !roomId) return () => {};
+
+  const channel = client
+    .channel(`room-chat:${roomId}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: CHAT_TABLE, filter: `room_id=eq.${roomId}` },
+      (payload) => {
+        const row = payload.new as RoomChatMessageRow;
+        if (row?.id) onInsert(row);
+      }
+    )
+    .subscribe((status) => onSubscribeStatus?.(status));
+
+  return () => {
+    client.removeChannel(channel);
+  };
 }
 
 export const DISCONNECT_THRESHOLD_MS_EXPORT = DISCONNECT_THRESHOLD_MS;

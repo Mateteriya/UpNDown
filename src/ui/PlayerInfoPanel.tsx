@@ -15,7 +15,7 @@ export interface PlayerInfoPanelProps {
   playerIndex: number;
   playerAvatarDataUrl?: string | null;
   onClose: () => void;
-  /** ПК, офлайн-бот: выбор уровня сложности в этой панели */
+  /** Офлайн-бот: выбор уровня в этой же панели (ПК и мобильная) */
   offlineAiDifficultyPicker?: {
     current: AIDifficulty;
     onSelect: (level: AIDifficulty) => void;

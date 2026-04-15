@@ -16,6 +16,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      /* Не регистрировать SW в dev — телефон по LAN иначе может тянуть устаревший бандл из кэша вместо Vite */
+      devOptions: {
+        enabled: false,
+      },
       manifest: {
         theme_color: '#0f172a',
         icons: [

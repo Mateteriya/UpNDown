@@ -3,7 +3,7 @@
  * @see TZ.md раздел 7.3
  */
 
-import type { CSSProperties } from 'react';
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AIDifficulty, GameState } from '../game/GameEngine';
@@ -29,7 +29,6 @@ import {
   persistOfflineAiDifficultyForBotId,
 } from '../game/aiSettings';
 import { AiDifficultyControl, HeaderRoomExitIcon } from './AiDifficultyControl';
-import { OfflineAiDifficultyPopover } from './OfflineAiDifficultyPopover';
 import { getTrickWinner } from '../game/rules';
 import { getCanonicalIndexForDisplay, rotateStateForPlayer } from '../game/rotateState';
 import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
@@ -42,6 +41,7 @@ import { isPersonalAiReplacementEnabled } from '../lib/featureFlags';
 import { CardView } from './CardView';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
+import { TableChatDock } from './TableChatDock';
 import type { Card } from '../game/types';
 
 function getCompassLabel(idx: number): 'Юг' | 'Север' | 'Запад' | 'Восток' {
@@ -65,6 +65,202 @@ const USER_PANEL_GARLAND_DELAY_MOBILE_MS = 9000;
 const USER_PANEL_GARLAND_PATH_UNITS = 100;
 /** Половина периода штриха (2.3 + 7.7), чередование голубой / сиреневый */
 const USER_PANEL_GARLAND_VIOLET_PHASE = 5;
+/** Пороги layout viewport (CSS px) — только при ровно 9 карт в руке (любой режим раздачи). */
+const MOBILE_HAND_9_WIDE412_MIN_VW = 412;
+const MOBILE_HAND_9_WIDE_MIN_VW = 400;
+const MOBILE_HAND_9_MID_MIN_VW = 370;
+const MOBILE_HAND_9_OVERLAP_MIN_VW = 330;
+/** 313–329: средний нахлёст; ≤312 — максимальное сжатие ряда */
+const MOBILE_HAND_9_ULTRA_TIGHT_MAX_VW = 312;
+const MOBILE_HAND_9_OVERLAP_BASE_PX = 5;
+const MOBILE_HAND_9_OVERLAP_TIGHT313_PX = 7;
+const MOBILE_HAND_9_OVERLAP_ULTRA312_PX = 10;
+/** 8 карт: ступени как у 9 карт только при очень узком экране — иначе 8 влезают без «девяткиного» нахлёста */
+const MOBILE_HAND_8_NARROW_MAX_VW = 300;
+/** ≤7 карт: сильный нахлёст при очень узком viewport (<292) */
+const MOBILE_HAND_ULTRA_NARROW_MAX_VW = 292;
+/** Базовый горизонтальный inset (3× от 6px); при vw < 400 — 24px — см. @media (max-width: 399px) в index.css */
+const MOBILE_SOUTH_STRIP_INSET_PX = 18;
+const MOBILE_SOUTH_STRIP_INSET_NARROW_PX = 24;
+/** Сумма горизонтальных отступов обёртки стола (--game-header-padding слева+справа в @media max-width 600px). */
+const MOBILE_TABLE_INNER_PAD_X_PX = 6;
+
+function mobileSouthStripInsetPx(vw: number): number {
+  return vw < 400 ? MOBILE_SOUTH_STRIP_INSET_NARROW_PX : MOBILE_SOUTH_STRIP_INSET_PX;
+}
+/** Компактная карта в руке: CardView bw=52, scale=0.72 */
+const MOBILE_HAND_CARD_BODY_W = Math.round(52 * 0.72);
+/** Моб. нахлёст: жест «пианино» — мягкий вход (disabled-кнопки не получают события, слушаем capture на ряду) */
+const MOBILE_OVERLAP_SCRUB_ACTIVATE_DIST = 7;
+const MOBILE_OVERLAP_SCRUB_ACTIVATE_DX = 5;
+const MOBILE_OVERLAP_SCRUB_HOLD_MS = 220;
+const MOBILE_OVERLAP_SCRUB_HOLD_NUDGE = 3;
+const MOBILE_OVERLAP_SCRUB_LINGER_MS = 1000;
+
+/**
+ * Подгонка ряда под ширину колонки: сначала увеличиваем нахлёст, иначе scale<1.
+ * Без overflow:hidden — карты остаются видимыми.
+ */
+function getMobileHandRowFit(
+  vw: number,
+  handLen: number,
+  baseOverlap: number,
+  slotPadding: number,
+): { overlapPx: number; rowScale: number } {
+  const inset = mobileSouthStripInsetPx(vw);
+  /* Ряд живёт внутри table padding + attached + frame insets + padding-right корня */
+  const gutter = inset * 4 + 2 + MOBILE_TABLE_INNER_PAD_X_PX;
+  const inner = Math.max(48, vw - gutter);
+  const slotOuter = MOBILE_HAND_CARD_BODY_W + 2 * slotPadding;
+  if (handLen <= 0) return { overlapPx: 0, rowScale: 1 };
+  if (handLen === 1) return { overlapPx: 0, rowScale: 1 };
+  const maxO = Math.max(baseOverlap, slotOuter - 4);
+  for (let o = Math.max(0, baseOverlap); o <= maxO; o++) {
+    const w = handLen * slotOuter - (handLen - 1) * o;
+    if (w <= inner) return { overlapPx: o, rowScale: 1 };
+  }
+  const wFull = handLen * slotOuter - (handLen - 1) * maxO;
+  const rowScale = wFull > 0 ? Math.min(1, inner / wFull) : 1;
+  return { overlapPx: maxO, rowScale };
+}
+
+function readMobileHandLayoutWidthPx(): number {
+  if (typeof window === 'undefined') return 400;
+  const vv = window.visualViewport;
+  const w =
+    vv != null && Number.isFinite(vv.width) && vv.width > 0 ? vv.width : window.innerWidth;
+  return Math.max(0, Math.round(w));
+}
+
+/** Нахлёст между соседними картами (px), если карт < 9 — без порогов по ширине экрана */
+function mobileHandOverlapBetweenCardsPx(handLen: number): number {
+  if (handLen < 6) return 0;
+  if (handLen >= 9) return MOBILE_HAND_9_OVERLAP_BASE_PX;
+  if (handLen >= 7) return 3;
+  return 2;
+}
+
+type MobileNineCardHandLayout = {
+  /** Доп. классы на .game-mobile-hand-attached (кроме narrow). */
+  attachExtraClass: string | null;
+  /** Сузить блок руки под ряд (fit-content + align-self center). */
+  useNarrowAttach: boolean;
+  frameStyleExtra: CSSProperties;
+  slotPadding: number;
+  overlapPx: number;
+};
+
+/**
+ * Раскладка мобильной руки. 9 карт — ступени по vw; 8 при vw≤MOBILE_HAND_8_NARROW_MAX_VW — те же нахлёсты, что у девятки;
+ * ≤7 при vw<292 — сжатый ряд с нахлёстом.
+ */
+function getMobileNineCardHandLayout(vw: number, handLen: number): MobileNineCardHandLayout {
+  const box = { boxSizing: 'border-box' as const };
+  /** Только вертикаль — иначе перетираем padding-inline у моб. рамки (зазор карт от бордера). */
+  const pv = (tb: string): CSSProperties => ({ paddingTop: tb, paddingBottom: tb, ...box });
+  /** Минимум вертикали рамки (раньше 2px «съедал» отступы). */
+  const vUltra = '5px';
+  const vTight = vw < 360 ? '6px' : '5px';
+  if (handLen === 8 && vw <= MOBILE_HAND_8_NARROW_MAX_VW) {
+    if (vw >= MOBILE_HAND_9_OVERLAP_MIN_VW) {
+      return {
+        attachExtraClass: 'game-mobile-hand--9-overlap330',
+        useNarrowAttach: true,
+        frameStyleExtra: pv('5px'),
+        slotPadding: 0,
+        overlapPx: MOBILE_HAND_9_OVERLAP_BASE_PX,
+      };
+    }
+    if (vw > MOBILE_HAND_9_ULTRA_TIGHT_MAX_VW) {
+      return {
+        attachExtraClass: 'game-mobile-hand--9-tight313',
+        useNarrowAttach: true,
+        frameStyleExtra: pv(vTight),
+        slotPadding: 0,
+        overlapPx: MOBILE_HAND_9_OVERLAP_TIGHT313_PX,
+      };
+    }
+    return {
+      attachExtraClass: 'game-mobile-hand--9-ultra312',
+      useNarrowAttach: true,
+      frameStyleExtra: pv(vUltra),
+      slotPadding: 0,
+      overlapPx: MOBILE_HAND_9_OVERLAP_ULTRA312_PX,
+    };
+  }
+  if (handLen <= 7 && handLen >= 1 && vw < MOBILE_HAND_ULTRA_NARROW_MAX_VW) {
+    const overlapPx =
+      handLen >= 7 ? MOBILE_HAND_9_OVERLAP_ULTRA312_PX : handLen >= 5 ? 8 : handLen >= 3 ? 6 : 4;
+    return {
+      attachExtraClass: 'game-mobile-hand--9-ultra312',
+      useNarrowAttach: true,
+      frameStyleExtra: pv(vUltra),
+      slotPadding: 0,
+      overlapPx,
+    };
+  }
+  if (handLen !== 9) {
+    return {
+      attachExtraClass: null,
+      useNarrowAttach: false,
+      frameStyleExtra: {},
+      slotPadding: 2,
+      overlapPx: mobileHandOverlapBetweenCardsPx(handLen),
+    };
+  }
+  if (vw >= MOBILE_HAND_9_WIDE412_MIN_VW) {
+    return {
+      attachExtraClass: 'game-mobile-hand--9-wide400',
+      useNarrowAttach: false,
+      frameStyleExtra: pv('6px'),
+      slotPadding: 2,
+      overlapPx: 0,
+    };
+  }
+  if (vw >= MOBILE_HAND_9_WIDE_MIN_VW) {
+    return {
+      attachExtraClass: 'game-mobile-hand--9-wide411',
+      useNarrowAttach: false,
+      frameStyleExtra: pv('6px'),
+      slotPadding: 1,
+      overlapPx: 0,
+    };
+  }
+  if (vw >= MOBILE_HAND_9_MID_MIN_VW) {
+    return {
+      attachExtraClass: 'game-mobile-hand--9-mid370',
+      useNarrowAttach: false,
+      frameStyleExtra: pv('5px'),
+      slotPadding: 0,
+      overlapPx: 0,
+    };
+  }
+  if (vw >= MOBILE_HAND_9_OVERLAP_MIN_VW) {
+    return {
+      attachExtraClass: 'game-mobile-hand--9-overlap330',
+      useNarrowAttach: true,
+      frameStyleExtra: pv('5px'),
+      slotPadding: 0,
+      overlapPx: MOBILE_HAND_9_OVERLAP_BASE_PX,
+    };
+  }
+  if (vw > MOBILE_HAND_9_ULTRA_TIGHT_MAX_VW) {
+    return {
+      attachExtraClass: 'game-mobile-hand--9-tight313',
+      useNarrowAttach: true,
+      frameStyleExtra: pv(vTight),
+      slotPadding: 0,
+      overlapPx: MOBILE_HAND_9_OVERLAP_TIGHT313_PX,
+    };
+  }
+  return {
+    attachExtraClass: 'game-mobile-hand--9-ultra312',
+    useNarrowAttach: true,
+    frameStyleExtra: pv(vUltra),
+    slotPadding: 0,
+    overlapPx: MOBILE_HAND_9_OVERLAP_ULTRA312_PX,
+  };
+}
 
 type GarlandTickSubscriber = {
   getCyan: () => SVGRectElement | null;
@@ -543,6 +739,20 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const offlineMode = !isOnline && !isWaitingInRoom;
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
+  const [mobileHandLayoutVw, setMobileHandLayoutVw] = useState(readMobileHandLayoutWidthPx);
+  useLayoutEffect(() => {
+    const upd = () => setMobileHandLayoutVw(readMobileHandLayoutWidthPx());
+    upd();
+    window.addEventListener('resize', upd);
+    window.visualViewport?.addEventListener('resize', upd);
+    window.visualViewport?.addEventListener('scroll', upd);
+    return () => {
+      window.removeEventListener('resize', upd);
+      window.visualViewport?.removeEventListener('resize', upd);
+      window.visualViewport?.removeEventListener('scroll', upd);
+    };
+  }, []);
+  const showTableChat = !!(online.roomId && (isOnline || isWaitingInRoom) && user?.id);
   const [localState, setLocalState] = useState<GameState | null>(null);
   const [startingFromWaiting, setStartingFromWaiting] = useState(false);
   const prevOnlineAiDriveKeyRef = useRef<string | null>(null);
@@ -664,9 +874,14 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
+  const [mobileOverlapScrubPeek, setMobileOverlapScrubPeek] = useState<number | null>(null);
+  const mobileOverlapSlotRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const suppressMobileOverlapClickRef = useRef(false);
+  const mobileOverlapScrubPointerLockRef = useRef<number | null>(null);
+  const mobileOverlapHandRowRef = useRef<HTMLDivElement | null>(null);
+  const mobileOverlapScrubClearPeekTimeoutRef = useRef<number | null>(null);
   const [showYourTurnPrompt, setShowYourTurnPrompt] = useState(false);
   /** Офлайн, ≤1024px: клик по имени бота — попап уровня (якорь для портала) */
-  const [offlineAiPicker, setOfflineAiPicker] = useState<{ index: number; anchor: HTMLElement } | null>(null);
   const yourTurnPromptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const yourTurnPromptIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastCompletedTrickRef = useRef<unknown>(null);
@@ -843,6 +1058,155 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const humanIdx = isOnline || isWaitingInRoom ? 0 : 0;
   const isHumanTurn = state?.phase === 'playing' && state.currentPlayerIndex === humanIdx;
   const isHumanBidding = (state?.phase === 'bidding' || state?.phase === 'dark-bidding') && state.currentPlayerIndex === humanIdx;
+
+  useLayoutEffect(() => {
+    if (!isMobile || !state) return;
+    const len = state.players[humanIdx].hand.length;
+    const arr = mobileOverlapSlotRefs.current;
+    if (arr.length > len) arr.length = len;
+  }, [isMobile, state, humanIdx]);
+
+  useEffect(() => {
+    return () => {
+      const t = mobileOverlapScrubClearPeekTimeoutRef.current;
+      if (t != null) window.clearTimeout(t);
+    };
+  }, []);
+
+  const handleMobileHandRowPointerDownCapture = useCallback(
+    (e: ReactPointerEvent<Element>) => {
+      if (!isMobile || prefersReducedMotion) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      const pointerId = e.pointerId;
+      if (mobileOverlapScrubPointerLockRef.current != null) return;
+      mobileOverlapScrubPointerLockRef.current = pointerId;
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startTime = performance.now();
+      let scrubbing = false;
+      let lastPeek: number | null = null;
+      let finished = false;
+
+      const pickIndex = (cx: number, cy: number): number | null => {
+        if (typeof document !== 'undefined' && document.elementFromPoint) {
+          const hit = document.elementFromPoint(cx, cy);
+          if (hit) {
+            const slot = hit.closest('[data-mobile-hand-slot]');
+            if (slot instanceof HTMLElement) {
+              const raw = slot.getAttribute('data-mobile-hand-slot');
+              const n = raw != null ? Number.parseInt(raw, 10) : NaN;
+              if (Number.isFinite(n)) return n;
+            }
+          }
+        }
+        const slots = mobileOverlapSlotRefs.current;
+        for (let i = slots.length - 1; i >= 0; i--) {
+          const el = slots[i];
+          if (!el) continue;
+          const r = el.getBoundingClientRect();
+          if (cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom) return i;
+        }
+        let best: number | null = null;
+        let bestDx = Infinity;
+        for (let i = 0; i < slots.length; i++) {
+          const el = slots[i];
+          if (!el) continue;
+          const r = el.getBoundingClientRect();
+          if (cy < r.top - 40 || cy > r.bottom + 40) continue;
+          const mx = (r.left + r.right) / 2;
+          const d = Math.abs(cx - mx);
+          if (d < bestDx) {
+            bestDx = d;
+            best = i;
+          }
+        }
+        return best;
+      };
+
+      const applyPeek = (cx: number, cy: number) => {
+        const idx = pickIndex(cx, cy);
+        if (idx == null) return;
+        if (idx !== lastPeek) {
+          lastPeek = idx;
+          setMobileOverlapScrubPeek(idx);
+        }
+      };
+
+      const clearPeek = () => {
+        lastPeek = null;
+        setMobileOverlapScrubPeek(null);
+      };
+
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        const rowEl = mobileOverlapHandRowRef.current;
+        if (rowEl && typeof rowEl.releasePointerCapture === 'function') {
+          try {
+            if (rowEl.hasPointerCapture?.(pointerId)) rowEl.releasePointerCapture(pointerId);
+          } catch {
+            /* release after target detached */
+          }
+        }
+        document.removeEventListener('pointermove', onMove, true);
+        document.removeEventListener('pointerup', onEnd, true);
+        document.removeEventListener('pointercancel', onEnd, true);
+        if (scrubbing && lastPeek != null) {
+          const lingerIdx = lastPeek;
+          mobileOverlapScrubClearPeekTimeoutRef.current = window.setTimeout(() => {
+            mobileOverlapScrubClearPeekTimeoutRef.current = null;
+            setMobileOverlapScrubPeek((cur) => (cur === lingerIdx ? null : cur));
+          }, MOBILE_OVERLAP_SCRUB_LINGER_MS);
+        } else {
+          clearPeek();
+        }
+        if (scrubbing) {
+          suppressMobileOverlapClickRef.current = true;
+          window.setTimeout(() => {
+            suppressMobileOverlapClickRef.current = false;
+          }, 450);
+        }
+        scrubbing = false;
+        mobileOverlapScrubPointerLockRef.current = null;
+      };
+
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId || finished) return;
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        const dist = Math.hypot(dx, dy);
+        const elapsed = performance.now() - startTime;
+        if (!scrubbing) {
+          const activate =
+            dist >= MOBILE_OVERLAP_SCRUB_ACTIVATE_DIST ||
+            Math.abs(dx) >= MOBILE_OVERLAP_SCRUB_ACTIVATE_DX ||
+            (elapsed >= MOBILE_OVERLAP_SCRUB_HOLD_MS && dist >= MOBILE_OVERLAP_SCRUB_HOLD_NUDGE);
+          if (!activate) return;
+          scrubbing = true;
+          const rowEl = mobileOverlapHandRowRef.current;
+          if (rowEl && typeof rowEl.setPointerCapture === 'function') {
+            try {
+              rowEl.setPointerCapture(pointerId);
+            } catch {
+              /* already captured elsewhere */
+            }
+          }
+          applyPeek(ev.clientX, ev.clientY);
+        }
+        applyPeek(ev.clientX, ev.clientY);
+      };
+
+      const onEnd = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return;
+        finish();
+      };
+
+      document.addEventListener('pointermove', onMove, { passive: true, capture: true });
+      document.addEventListener('pointerup', onEnd, { capture: true });
+      document.addEventListener('pointercancel', onEnd, { capture: true });
+    },
+    [isMobile, prefersReducedMotion],
+  );
 
   const isUserActiveTurnForGarland =
     !isMobileOrTablet &&
@@ -1310,10 +1674,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
 
   const displayState = stateToShow as GameState;
   const offlineAiNamePickEnabled = offlineMode && displayState.players[0]?.id === 'human';
-  /** Офлайн: выбор уровня по клику на имя — только ≤1024px; на ПК — в панели по аватарке */
-  const offlineAiPickDifficultyOnNameClick = offlineAiNamePickEnabled && isMobileOrTablet;
+  /** Офлайн-бот: уровень ИИ в той же панели, что и инфо (ПК и мобильная/планшет ≤1024) */
   const playerInfoOfflineAiDifficultyPicker: PlayerInfoPanelProps['offlineAiDifficultyPicker'] =
-    isMobileOrTablet || !offlineAiNamePickEnabled || selectedPlayerForInfo == null
+    !offlineAiNamePickEnabled || selectedPlayerForInfo == null
       ? undefined
       : (() => {
           const idx = selectedPlayerForInfo;
@@ -1465,29 +1828,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
 
   /* Мобильная вёрстка (viewport-mobile при width ≤600px): рука внизу, слоты взятки в сетке 2×2, козырь на колоде; стили в index.css @media (max-width: 1024px) .game-table-root.viewport-mobile */
   return (
-    <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}`} style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}>
-      {offlineAiPicker && offlineAiPickDifficultyOnNameClick && (
-        <OfflineAiDifficultyPopover
-          open
-          anchorEl={offlineAiPicker.anchor}
-          playerName={state.players[offlineAiPicker.index]?.name ?? ''}
-          current={state.players[offlineAiPicker.index]?.aiDifficulty ?? getAiDifficulty()}
-          onClose={() => setOfflineAiPicker(null)}
-          onSelect={(level) => {
-            const idx = offlineAiPicker.index;
-            const botId = state.players[idx]?.id;
-            if (botId === 'ai1' || botId === 'ai2' || botId === 'ai3') persistOfflineAiDifficultyForBotId(botId, level);
-            setLocalState((prev) => {
-              if (!prev) return prev;
-              return {
-                ...prev,
-                players: prev.players.map((p, i) => (i === idx ? { ...p, aiDifficulty: level } : p)),
-              };
-            });
-            setOfflineAiPicker(null);
-          }}
-        />
-      )}
+    <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}`} style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}>
       {isOnline && online.userOnPause && (
         <div
           role="dialog"
@@ -2504,7 +2845,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       {isMobile ? (
         /* Мобильная раскладка: Север+Запад над столом, стол вертикальный, Восток+Юг под столом */
         <>
-          <div className="game-mobile-top-row" style={{ ...gameInfoTopRowStyle, justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div className="game-mobile-upper-board" style={gameMobileUpperBoardStyle}>
             <div className="game-info-left-col" style={gameInfoLeftColumnStyle}>
               {!isWaitingInRoom && (state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') && (
                 <div className="game-info-left-section" style={gameInfoLeftSectionStyle}>
@@ -2525,6 +2866,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 </div>
               )}
             </div>
+            <div className="game-mobile-top-row" style={{ ...gameInfoTopRowStyle, justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
             <div className="game-mobile-slot-west" style={{ display: 'flex', flexShrink: 0 }}>
               <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.avatarDataUrl ?? undefined}
@@ -2539,8 +2881,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 onAvatarClick={setSelectedPlayerForInfo}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
-                offlineAiDifficultyNamePickEnabled={offlineAiPickDifficultyOnNameClick}
-                onOfflineAiDifficultyNameClick={(playerIndex, anchor) => setOfflineAiPicker({ index: playerIndex, anchor })}
               />
             </div>
             <div className="game-mobile-slot-north" style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
@@ -2557,14 +2897,27 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 onAvatarClick={setSelectedPlayerForInfo}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
-                offlineAiDifficultyNamePickEnabled={offlineAiPickDifficultyOnNameClick}
-                onOfflineAiDifficultyNameClick={(playerIndex, anchor) => setOfflineAiPicker({ index: playerIndex, anchor })}
               />
+            </div>
             </div>
           </div>
           <div className="game-center-spacer-top" style={centerAreaSpacerTopStyle} aria-hidden />
           <div className="game-mobile-table-and-hand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0, width: '100%', padding: 0, boxSizing: 'border-box' }}>
-          <div className="game-center-area game-mobile-center" style={{ ...centerAreaStyle, flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'stretch', width: '100%', maxWidth: '100%', gap: 12, marginLeft: 0, marginRight: 0, transform: 'translateX(-28px)', ...(isAITurn ? { cursor: 'pointer' } : {}) }}
+          <div
+            className="game-center-area game-mobile-center"
+            style={{
+              ...centerAreaStyle,
+              flexDirection: 'row',
+              flexWrap: 'nowrap',
+              alignItems: 'flex-start',
+              width: '100%',
+              maxWidth: '100%',
+              gap: 12,
+              marginLeft: 0,
+              marginRight: 0,
+              transform: 'translateX(-28px)',
+              ...(isAITurn ? { cursor: 'pointer' } : {}),
+            }}
             onClick={isAITurn ? accelerateAI : undefined}
             onKeyDown={e => { if (isAITurn && e.key === ' ') { e.preventDefault(); accelerateAI(); } }}
             role={isAITurn ? 'button' : undefined}
@@ -2825,7 +3178,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && !isMobile && (
           <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
         )}
-            <div className="game-center-east game-mobile-east" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', ...(isMobile ? {} : { minWidth: 60 }) }}>
+            <div className="game-center-east game-mobile-east" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.avatarDataUrl ?? undefined}
                 replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.replacedUserId}
@@ -2839,34 +3192,106 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 onAvatarClick={setSelectedPlayerForInfo}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
-                offlineAiDifficultyNamePickEnabled={offlineAiPickDifficultyOnNameClick}
-                onOfflineAiDifficultyNameClick={(playerIndex, anchor) => setOfflineAiPicker({ index: playerIndex, anchor })}
               />
             </div>
-      </div>
-      <div className="game-mobile-hand-attached" style={{ width: '100%', maxWidth: 800, flexShrink: 0, minWidth: 0 }}>
-        <div className={state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : undefined} style={handFrameStyleMobile}>
-          <div style={{ ...handStyle, overflow: 'visible', justifyContent: 'center', paddingLeft: 10, paddingRight: 10, borderRadius: 10 }}>
+          </div>
+      {(() => {
+        const mobileHandLen = state.players[humanIdx].hand.length;
+        const m9 = getMobileNineCardHandLayout(mobileHandLayoutVw, mobileHandLen);
+        const fit = getMobileHandRowFit(
+          mobileHandLayoutVw,
+          mobileHandLen,
+          m9.overlapPx,
+          m9.slotPadding,
+        );
+        const overlapPx = fit.overlapPx;
+        let rowScale = fit.rowScale;
+        const ultra312Class = m9.attachExtraClass === 'game-mobile-hand--9-ultra312';
+        if (ultra312Class && mobileHandLayoutVw > 329) {
+          rowScale *= 0.97;
+        }
+        const rowTransform = rowScale < 0.998 ? `scale(${rowScale})` : undefined;
+        const overlapScrubEnabled = isMobile && overlapPx > 0 && !prefersReducedMotion;
+        return (
+      <div
+        className={[
+          'game-mobile-hand-attached',
+          m9.attachExtraClass,
+          m9.useNarrowAttach ? 'game-mobile-hand--narrow-vw' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        style={{
+          width: '100%',
+          maxWidth: '100%',
+          flexShrink: 0,
+          boxSizing: 'border-box',
+        }}
+      >
+        <div
+          className={['game-mobile-hand-frame', state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : ''].filter(Boolean).join(' ')}
+          style={{
+            ...handFrameStyleMobile,
+            ...m9.frameStyleExtra,
+          }}
+        >
+          <div
+            ref={mobileOverlapHandRowRef}
+            className="game-mobile-hand-row"
+            onPointerDownCapture={overlapScrubEnabled ? handleMobileHandRowPointerDownCapture : undefined}
+            onClickCapture={(e) => {
+              if (suppressMobileOverlapClickRef.current) {
+                suppressMobileOverlapClickRef.current = false;
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            }}
+            style={{
+              ...handStyle,
+              overflow: 'visible',
+              justifyContent: 'center',
+              boxSizing: 'border-box',
+              width: 'max-content',
+              maxWidth: '100%',
+              borderRadius: 10,
+              touchAction: overlapScrubEnabled ? ('none' as const) : undefined,
+              ...(rowTransform
+                ? { transform: rowTransform, transformOrigin: 'center bottom' as const }
+                : {}),
+            }}
+          >
             {state.players[humanIdx].hand
               .slice()
               .sort((a, b) => cardSort(a, b, state.trump))
               .map((card, i) => {
-                const handLen = state.players[humanIdx].hand.length;
-                const overlap = handLen >= 9 ? 5 : handLen >= 7 ? 3 : handLen >= 6 ? 2 : 0;
+                const marginRight = overlapPx > 0 && i < mobileHandLen - 1 ? -overlapPx : 0;
                 const isValidPlay = state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && validPlays.some(c => c.suit === card.suit && c.rank === card.rank);
                 const handCardZ =
                   isMobile && state.currentPlayerIndex === humanIdx ? (isValidPlay ? 3 : 2) : isValidPlay ? 1 : 0;
+                const overlapPeek = overlapScrubEnabled && mobileOverlapScrubPeek === i;
+                const handCardDisabled =
+                  !!state.pendingTrickCompletion || !isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank);
                 return (
                 <div
                   key={`${card.suit}-${card.rank}-${i}`}
+                  data-mobile-hand-slot={overlapScrubEnabled ? i : undefined}
+                  ref={
+                    overlapScrubEnabled
+                      ? (el) => {
+                          const arr = mobileOverlapSlotRefs.current;
+                          while (arr.length <= i) arr.push(null);
+                          arr[i] = el;
+                        }
+                      : undefined
+                  }
                   style={{
-                    marginRight: overlap ? -overlap : 0,
+                    marginRight,
                     flexShrink: 0,
-                    overflow: 'hidden',
+                    overflow: overlapScrubEnabled ? ('visible' as const) : 'hidden',
                     borderRadius: 6,
                     position: 'relative',
-                    zIndex: handCardZ,
-                    padding: 2,
+                    zIndex: handCardZ + (overlapPx > 0 ? i : 0) + (overlapPeek ? 50 : 0),
+                    padding: m9.slotPadding,
                     ...(isMobile && state.currentPlayerIndex === humanIdx
                       ? ({ '--hand-wave-index': i + 1 } as CSSProperties)
                       : {}),
@@ -2888,6 +3313,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   mobileTrumpGlowActive={state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0)}
                   highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
                   mobileTrumpShineBidding={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.trump !== null && card.suit === state.trump}
+                  mobileHandPeekLift={overlapPeek}
+                  mobileOverlapHandPointerPassthrough={overlapScrubEnabled && handCardDisabled}
                   showPipZoneBorders={false}
                   pcCardStyles={false}
                   thinBorder={true}
@@ -2897,27 +3324,37 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       else setLocalState(prev => prev && playCard(prev, humanIdx, card));
                     }
                   }}
-                  disabled={!!state.pendingTrickCompletion || !isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                  disabled={handCardDisabled}
                 />
                 </div>
-              );})}
+              );
+            })}
           </div>
           {trumpHighlightOn && userTurnGarlandReadyMobile && isUserActiveTurnForGarlandMobile ? (
             <UserPanelGarlandOverlay durationMs={USER_PANEL_GARLAND_HAND_DURATION_MS} />
           ) : null}
         </div>
       </div>
+        );
+      })()}
       </div>
       <div className="game-mobile-bottom-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
         <div className="game-mobile-player-wrap game-mobile-player" style={{ flex: 1, minWidth: 0, width: '100%', maxWidth: 800 }}>
-      <div className="game-mobile-player-panel" style={{
-        ...playerStyle,
-        ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')
-          ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
-          : {}),
-      }}>
+      <div
+        className="game-mobile-player-panel"
+        style={{
+          ...(() => {
+            const { padding: _playerShellPadding, ...rest } = playerStyle;
+            return rest;
+          })(),
+          ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')
+            ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
+            : {}),
+        }}
+      >
         <div className={['game-mobile-player-info', 'user-player-panel', userMobilePanelOrderExactGlow ? 'user-player-panel-order-exact' : '', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : ''].filter(Boolean).join(' ')} style={{
           ...playerInfoPanelStyle,
+          padding: '7px 0',
           position: 'relative',
           ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
           ...(dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === humanIdx ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
@@ -3016,6 +3453,14 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         </div>
       </div>
       </div>
+      {showTableChat && online.roomId && user?.id && (
+        <TableChatDock
+          variant="mobile"
+          roomId={online.roomId}
+          userId={user.id}
+          displayName={playerDisplayName?.trim() || 'Игрок'}
+        />
+      )}
       </div>
       <div style={centerAreaSpacerBottomStyle} aria-hidden />
         </>
@@ -3064,8 +3509,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             onAvatarClick={setSelectedPlayerForInfo}
             onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
             offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
-            offlineAiDifficultyNamePickEnabled={offlineAiPickDifficultyOnNameClick}
-            onOfflineAiDifficultyNameClick={(playerIndex, anchor) => setOfflineAiPicker({ index: playerIndex, anchor })}
           />
         </div>
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
@@ -3090,8 +3533,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             onAvatarClick={setSelectedPlayerForInfo}
             onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
             offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
-            offlineAiDifficultyNamePickEnabled={offlineAiPickDifficultyOnNameClick}
-            onOfflineAiDifficultyNameClick={(playerIndex, anchor) => setOfflineAiPicker({ index: playerIndex, anchor })}
           />
         </div>
         <div className="game-center-table" style={centerStyle}>
@@ -3202,8 +3643,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             onAvatarClick={setSelectedPlayerForInfo}
             onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
             offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
-            offlineAiDifficultyNamePickEnabled={offlineAiPickDifficultyOnNameClick}
-            onOfflineAiDifficultyNameClick={(playerIndex, anchor) => setOfflineAiPicker({ index: playerIndex, anchor })}
           />
         </div>
         {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && !isMobile && (
@@ -3217,6 +3656,22 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
 
       {!isMobile && <div style={playerSpacerStyle} aria-hidden />}
       {!isMobile && (
+      <div
+        className={showTableChat ? 'game-pc-table-chat-wrap' : undefined}
+        style={
+          showTableChat
+            ? {
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                gap: 12,
+                width: '100%',
+                flexWrap: 'nowrap',
+              }
+            : undefined
+        }
+      >
       <div style={{
         ...playerStyle,
         ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')
@@ -3503,6 +3958,15 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             </>
           )}
         </div>
+      </div>
+      {showTableChat && online.roomId && user?.id && (
+        <TableChatDock
+          variant="pc"
+          roomId={online.roomId}
+          userId={user.id}
+          displayName={playerDisplayName?.trim() || 'Игрок'}
+        />
+      )}
       </div>
       )}
 
@@ -3831,8 +4295,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     </div>
   );
 }
-
-export default GameTable;
 
 const PLAYER_POSITIONS = [
   { idx: 0, side: 'bottom' as const, name: 'Юг' },
@@ -4460,6 +4922,8 @@ function PcTrickBidTakenFigures({
   tricksLeftInDeal,
   /** Компактная панель: усиленный неон при взятках на руке (см. tricksOnHandHeavyNeon в TrickSlotsDisplay) */
   exactMatchHeavyNeon,
+  /** Мобильная Север/Запад: заказ >6 — цифры в «ушке» столбиком (взято / заказ) */
+  mobileNwEarFigures,
 }: {
   bid: number | null;
   tricksTaken: number;
@@ -4468,6 +4932,7 @@ function PcTrickBidTakenFigures({
   style?: CSSProperties;
   tricksLeftInDeal?: number;
   exactMatchHeavyNeon?: boolean;
+  mobileNwEarFigures?: boolean;
 }) {
   const bidTitle =
     bid == null
@@ -4544,6 +5009,72 @@ function PcTrickBidTakenFigures({
 
   /** ПК-оппонент: взято / заказ; точно — сирень; перебор — болотно-жёлтый; жёсткий недобор — красный (заказ уже невыполним). */
   if (audience === 'opponent') {
+    if (mobileNwEarFigures) {
+      let takenFigStyle: CSSProperties = overBid
+        ? neonOn
+          ? mobileCompactNeonDigitOver
+          : pcTrickOverBidFigureStyle
+        : exactMatch
+          ? neonOn
+            ? mobileCompactNeonDigitExact
+            : pcTrickExactMatchFigureStyle
+          : underBidPenalize
+            ? pcTrickUnderBidFigureStyle
+            : chasingHandNeon
+              ? mobileCompactNeonDigitChasingTaken
+              : pcTrickTakenPlainOpponentStyle;
+      let bidFigStyle: CSSProperties =
+        bid == null
+          ? {
+              ...pcTrickBidFigureStyle,
+              cursor: 'help',
+              color: 'rgba(148, 163, 184, 0.95)',
+              textShadow: '0 1px 2px rgba(0,0,0,0.85)',
+            }
+          : overBid
+            ? neonOn
+              ? mobileCompactNeonDigitOver
+              : pcTrickOverBidFigureStyle
+            : exactMatch
+              ? neonOn
+                ? mobileCompactNeonDigitExact
+                : pcTrickExactMatchFigureStyle
+              : underBidPenalize
+                ? pcTrickUnderBidFigureStyle
+                : chasingHandNeon
+                  ? mobileCompactNeonBidChasing
+                  : pcTrickBidFigureStyle;
+      const earFont = handNeonBold ? Math.min(12, Math.round(fontSize * 1.08)) : Math.min(11, fontSize + 1);
+      return (
+        <span
+          className={mobileNeonFiguresCls}
+          style={{
+            display: 'inline-flex',
+            flexDirection: 'row',
+            alignItems: 'baseline',
+            justifyContent: 'center',
+            gap: 3,
+            fontSize: earFont,
+            fontWeight: neonOn ? 900 : 800,
+            letterSpacing: '0.02em',
+            lineHeight: 1.1,
+            whiteSpace: 'nowrap',
+            ...style,
+          }}
+          aria-hidden
+        >
+          <span title={takenTitle} style={{ ...takenFigStyle, fontVariantNumeric: 'tabular-nums' }}>
+            {tricksTaken}
+          </span>
+          <span style={slashFinal} aria-hidden>
+            /
+          </span>
+          <span title={bidTitle} style={{ ...bidFigStyle, fontVariantNumeric: 'tabular-nums' }}>
+            {bidDisplay}
+          </span>
+        </span>
+      );
+    }
     let takenFigStyle: CSSProperties = overBid
       ? neonOn
         ? mobileCompactNeonDigitOver
@@ -4981,8 +5512,11 @@ function TrickSlotsDisplay({
     }
 
     let scaleDown = variant === 'player' && bid > 6 ? Math.min(1, 6 / bid) : 1;
+    /** Мобильная полоса без «Заказ:» (Север/Запад) — ширина слота; сжатие 5/bid не нужно, масштаб даёт wMax ниже */
     let opponentScaleDown =
-      variant === 'opponent' && !eastMobileTricks && bid > 5 ? Math.min(1, 5 / bid) : 1;
+      variant === 'opponent' && !eastMobileTricks && bid > 5 && !opponentMobileHideOrderLabel
+        ? Math.min(1, 5 / bid)
+        : 1;
     /** Мобильная/компакт: один ряд кружков, без роста панели — ужимаем по ширине и высоте. */
     if (compactMode && bid != null && bid > 0) {
       const gap = 4;
@@ -5012,7 +5546,14 @@ function TrickSlotsDisplay({
         const hSLocal =
           variant === 'player' && playerMobileWideTricks ? 12 / base : hS;
         if (variant === 'opponent' && hideOppOrderWord) {
-          wMax = 100;
+          /**
+           * Ширина под ряд кружков ≈ половина viewport минус зазор между Север/Запад и паддинги.
+           * Раньше 0.44×vw завышал бюджет → opponentScaleDown оставался 1 при узком слоте и кружки не сжимались.
+           */
+          wMax =
+            typeof window !== 'undefined'
+              ? Math.max(88, Math.min(196, Math.floor((window.innerWidth - 16) * 0.5 - 32)))
+              : 132;
         } else if (variant === 'player') {
           wMax = playerMobileWideTricks ? 168 : 140;
         } else {
@@ -5114,6 +5655,8 @@ function TrickSlotsDisplay({
       bidNum !== null && !hideCards && tricksTaken > 0 && !mobileUnderStrict;
     const orderCompleteMobile = bidNum !== null && !hideCards && tricksTaken === bidNum;
     const orderOverMobile = bidNum !== null && !hideCards && tricksTaken > bidNum;
+    const mobileNwHighBidEar =
+      variant === 'opponent' && hideOppOrderWord && !eastMobileTricks && bidNum != null && bidNum > 6;
     const wrapCls = [
       hideCards ? 'trick-slots-collecting' : 'trick-slots-normal',
       eastMobileTricks ? 'trick-slots-east-mobile' : '',
@@ -5121,6 +5664,7 @@ function TrickSlotsDisplay({
       orderOverMobile ? 'trick-slots-order-over' : '',
       mobileUnderStrict ? 'trick-slots-mobile-under-strict' : '',
       playerMobileWideTricks && variant === 'player' ? 'trick-slots-player-mobile-wide' : '',
+      mobileNwHighBidEar ? 'trick-slots-mobile-nw-high-bid-ear' : '',
     ]
       .filter(Boolean)
       .join(' ');
@@ -5158,17 +5702,33 @@ function TrickSlotsDisplay({
         </span>
       ) : null;
     const compactFigFont = variant === 'player' ? 10 : 9;
-    const compactInner = (
+    const figuresCompact = (
+      <PcTrickBidTakenFigures
+        bid={bid}
+        tricksTaken={tricksTaken}
+        audience={variant}
+        fontSize={compactFigFont}
+        tricksLeftInDeal={tricksLeftInDeal}
+        exactMatchHeavyNeon={tricksOnHandHeavyNeon}
+        mobileNwEarFigures={!!mobileNwHighBidEar}
+        style={
+          mobileNwHighBidEar
+            ? { lineHeight: 1.05, marginBottom: 0 }
+            : { lineHeight: 1, marginBottom: 2 }
+        }
+      />
+    );
+    const compactInner = mobileNwHighBidEar ? (
+      <div className="trick-slots-mobile-nw-ear-inner">
+        <span className="trick-slots-mobile-nw-figures-ear">{figuresCompact}</span>
+        <div className="trick-slots-mobile-nw-circles-only" style={rowStyle}>
+          {circlesBlock}
+          {extraPlus}
+        </div>
+      </div>
+    ) : (
       <>
-        <PcTrickBidTakenFigures
-          bid={bid}
-          tricksTaken={tricksTaken}
-          audience={variant}
-          fontSize={compactFigFont}
-          tricksLeftInDeal={tricksLeftInDeal}
-          exactMatchHeavyNeon={tricksOnHandHeavyNeon}
-          style={{ lineHeight: 1, marginBottom: 2 }}
-        />
+        {figuresCompact}
         {variant === 'opponent' && eastMobileTricks ? (
           <div
             className="trick-slots-east-mobile-tricks-row"
@@ -5416,6 +5976,12 @@ function TrickSlotsDisplay({
   );
 }
 
+/** Мобильные С/З/В: цвет «Очки» — только через класс + CSS !important; из инлайна убираем color / -webkit-text-fill-color. */
+function opponentStatStyleWithoutTextColor(style: React.CSSProperties): React.CSSProperties {
+  const { color: _c, WebkitTextFillColor: _w, ...rest } = style as React.CSSProperties & { WebkitTextFillColor?: string };
+  return rest;
+}
+
 /** Бейдж «Ровно» на ПК: только активная игра (розыгрыш / взятка) и все четыре заказа выставлены */
 function shouldShowPcOrderOnHandExactBadge(state: GameState): boolean {
   if (state.phase !== 'playing' && state.phase !== 'trick-complete') return false;
@@ -5441,8 +6007,6 @@ function OpponentSlot({
   onAvatarClick,
   onDealerBadgeClick,
   offlineAiNameStyleByDifficulty,
-  offlineAiDifficultyNamePickEnabled,
-  onOfflineAiDifficultyNameClick,
 }: {
   state: GameState;
   index: number;
@@ -5468,23 +6032,34 @@ function OpponentSlot({
   onAvatarClick?: (playerIndex: number) => void;
   /** По тапу на компактный бейдж «Сдающий» показать подсказку (мобильная) */
   onDealerBadgeClick?: () => void;
-  /** Офлайн: раскрасить имя бота по уровню ИИ (ПК — span; ≤1024px — и кнопка при включённом pick) */
+  /** Офлайн: раскрасить имя бота по уровню ИИ; карточка и смена уровня — по тапу на аватар (PlayerInfoPanel) */
   offlineAiNameStyleByDifficulty?: boolean;
-  /** Офлайн, узкая вёрстка: имя бота — кнопка, открывает выбор уровня */
-  offlineAiDifficultyNamePickEnabled?: boolean;
-  onOfflineAiDifficultyNameClick?: (playerIndex: number, anchor: HTMLElement) => void;
 }) {
+  /** Мобильные С/З/В: бейдж «Очки» по умолчанию только цифра; тап разворачивает подпись */
+  const [mobileOpponentScoreExpanded, setMobileOpponentScoreExpanded] = useState(false);
+  useEffect(() => {
+    if (!mobileOpponentScoreExpanded) return;
+    const id = window.setTimeout(() => setMobileOpponentScoreExpanded(false), 5000);
+    return () => window.clearTimeout(id);
+  }, [mobileOpponentScoreExpanded]);
   const p = state.players[index];
   const scoreLeaderHighlight = isPartyScoreLeader(state, index);
   const isActive = state.currentPlayerIndex === index;
   const isDealer = state.dealerIndex === index;
   const bid = state.bids[index];
+  /** QA/вёрстка: ?debugOpponentBid=9 — все соперники; ?debugOpponentBid1=9&debugOpponentBid2=9 — Север и Запад (индексы 1 и 2) */
   const debugBid = (() => {
     if (typeof window === 'undefined') return null;
-    const v = new URLSearchParams(window.location.search).get('debugOpponentBid');
+    const params = new URLSearchParams(window.location.search);
+    const perIndex = params.get(`debugOpponentBid${index}`);
+    if (perIndex != null) {
+      const n = parseInt(perIndex, 10);
+      if (Number.isFinite(n) && n >= 0 && n <= 9) return n;
+    }
+    const v = params.get('debugOpponentBid');
     if (v == null) return null;
     const n = parseInt(v, 10);
-    return (Number.isFinite(n) && n >= 0 && n <= 9) ? n : null;
+    return Number.isFinite(n) && n >= 0 && n <= 9 ? n : null;
   })();
   const displayBid = debugBid !== null ? debugBid : bid;
   const showPcOrderOnHandExactBadge = shouldShowPcOrderOnHandExactBadge(state);
@@ -5503,7 +6078,15 @@ function OpponentSlot({
       ? 'chasing'
       : null;
   const mobileActiveName = isMobile && isActive;
-  const avatarSizePx = compactMode ? (position === 'right' ? 32 : 32) : 38;
+  /** Мобильный верхний ряд: Запад/Север — особая вёрстка (аватар крупнее, заказ по центру по вертикали). */
+  const mobileNwLayout = Boolean(isMobile && inline && (position === 'left' || position === 'top'));
+  const avatarSizePx = compactMode
+    ? position === 'right'
+      ? 32
+      : mobileNwLayout
+        ? 40
+        : 32
+    : 38;
   const eastMobileOnlyAvatar = position === 'right' && isMobile;
   /** ПК, слот «Север» над столом: аватар и имя слева, взятки и очки справа (мобильная не трогается). */
   const pcNorthSideBySide = position === 'top' && inline && !compactMode && !isMobile;
@@ -5530,13 +6113,17 @@ function OpponentSlot({
     : { right: 20, top: '50%', transform: 'translateY(-50%)' as const };
 
   const frameStyle = mobileActiveName ? undefined : (isActive ? activeTurnPanelFrameStyle : isDealer ? dealerPanelFrameStyle : undefined);
-  const northSlotOverrides = position === 'top' && inline
-    ? {
-        width: 'fit-content' as const,
-        minWidth: (pcNorthSideBySide ? 'min(360px, 94vw)' : 'var(--game-table-opponent-slot-width, 180px)') as React.CSSProperties['minWidth'],
-        maxWidth: 'none' as const,
-      }
-    : {};
+  const northSlotOverrides =
+    position === 'top' && inline && !isMobile
+      ? {
+          width: 'fit-content' as const,
+          minWidth: (pcNorthSideBySide ? 'min(360px, 94vw)' : 'var(--game-table-opponent-slot-width, 180px)') as React.CSSProperties['minWidth'],
+          maxWidth: 'none' as const,
+        }
+      : {};
+  /** Моб. сетка: Запад/Север — равные колонки; слот на 100% ячейки, без инлайна 180px/fit-content. */
+  const mobileGridOpponentSlotStretch: React.CSSProperties | undefined =
+    isMobile && inline ? { width: '100%', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' } : undefined;
   return (
     <div
       className={[
@@ -5552,6 +6139,7 @@ function OpponentSlot({
         ...opponentSlotStyle,
         ...(sideSlotPcGrow ? opponentSlotSidePcGrowStyle : {}),
         ...northSlotOverrides,
+        ...mobileGridOpponentSlotStretch,
         ...posStyle,
         ...frameStyle,
         overflow: 'visible',
@@ -5697,41 +6285,18 @@ function OpponentSlot({
             )}
           </>
         );
-        const namePickOffline =
-          !!offlineAiDifficultyNamePickEnabled && !!onOfflineAiDifficultyNameClick && isAiSlotBot;
         const styleOfflineAiNameByDifficulty = !!offlineAiNameStyleByDifficulty && isAiSlotBot;
-        const offlineAiDifficultyForName =
-          namePickOffline || styleOfflineAiNameByDifficulty ? (p.aiDifficulty ?? 'amateur') : null;
+        const offlineAiDifficultyForName = styleOfflineAiNameByDifficulty ? (p.aiDifficulty ?? 'amateur') : null;
         const nameStyleMerged: React.CSSProperties = {
           ...opponentNameStyle,
-          ...(mobileActiveName && !namePickOffline ? nameActiveMobileStyle : {}),
+          ...(mobileActiveName && !styleOfflineAiNameByDifficulty ? nameActiveMobileStyle : {}),
           minWidth: 0,
           ...(pcNorthSideBySide ? { maxWidth: 200 } : {}),
           ...(eastMobileOnlyAvatar
             ? { overflow: 'visible', whiteSpace: 'normal' as const, wordBreak: 'break-word' as const, overflowWrap: 'break-word' as const }
             : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
         };
-        const nameSpan = namePickOffline ? (
-          <button
-            type="button"
-            className={[
-              'opponent-name-offline-ai-pick',
-              `opponent-name-offline-ai-pick--${offlineAiDifficultyForName}`,
-              eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            style={nameStyleMerged}
-            title={`${p.name} — ${getCompassLabel(index)}. Нажмите, чтобы выбрать уровень ИИ`}
-            aria-label={`Уровень сложности бота ${p.name}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onOfflineAiDifficultyNameClick!(index, e.currentTarget);
-            }}
-          >
-            {nameInner}
-          </button>
-        ) : styleOfflineAiNameByDifficulty && offlineAiDifficultyForName ? (
+        const nameSpan = styleOfflineAiNameByDifficulty && offlineAiDifficultyForName ? (
           <span
             className={[
               'opponent-name-offline-ai-pick',
@@ -5741,7 +6306,7 @@ function OpponentSlot({
               .filter(Boolean)
               .join(' ')}
             style={nameStyleMerged}
-            title={`${p.name} — ${getCompassLabel(index)}. Уровень: в меню по аватарке`}
+            title={`${p.name} — ${getCompassLabel(index)}. Нажмите на аватар: информация и уровень ИИ`}
           >
             {nameInner}
           </span>
@@ -5792,8 +6357,8 @@ function OpponentSlot({
               onAvatarClick(index);
             }}
             style={avatarBtnStyle}
-            title="Информация об игроке"
-            aria-label={`Информация об игроке ${p.name}`}
+            title={isAiSlotBot ? `${p.name} — информация и уровень ИИ` : 'Информация об игроке'}
+            aria-label={isAiSlotBot ? `Карточка игрока и уровень ИИ: ${p.name}` : `Информация об игроке ${p.name}`}
           >
             <PlayerAvatar
               name={p.name}
@@ -5854,9 +6419,23 @@ function OpponentSlot({
             {isActive && !isMobile && !turnBadgeOutsidePc ? <span style={opponentTurnBadgeStyle}>Ходит</span> : null}
           </div>
         );
+        const opponentScoreMobileSlotClass =
+          isMobile && inline
+            ? position === 'top'
+              ? 'opponent-score-badge--slot-north'
+              : position === 'left'
+                ? 'opponent-score-badge--slot-west'
+                : 'opponent-score-badge--slot-east'
+            : undefined;
+        const opponentScoreLabelStyleResolved: React.CSSProperties =
+          isMobile && inline ? opponentStatStyleWithoutTextColor(opponentStatLabelStyle) : opponentStatLabelStyle;
+        const opponentScoreValueStyleResolved: React.CSSProperties =
+          isMobile && inline ? opponentStatStyleWithoutTextColor(opponentStatValueStyle) : opponentStatValueStyle;
         const statsBlock = (
           <div
-            className={sideSlotPcGrow ? 'opponent-stats-west-east-pc' : undefined}
+            className={[sideSlotPcGrow ? 'opponent-stats-west-east-pc' : undefined, mobileNwLayout ? 'opponent-slot-stats-mobile-nw' : undefined]
+              .filter(Boolean)
+              .join(' ') || undefined}
             style={{
               ...opponentStatsRowStyle,
               ...(position === 'top' && inline ? { flexWrap: 'nowrap' as const } : {}),
@@ -5887,15 +6466,62 @@ function OpponentSlot({
               opponentOrderHintSlot={position === 'top' ? 'north' : position === 'left' ? 'west' : 'east'}
               tricksLeftInDeal={tricksRemainingInDeal(state)}
             />
-            {!pcNorthSideBySide && (
-              <div
-                className={['opponent-score-badge', sideSlotPcGrow ? 'opponent-score-badge-side-pc' : '', scoreLeaderHighlight ? 'score-badge-leader' : ''].filter(Boolean).join(' ') || undefined}
-                style={opponentStatBadgeScoreStyle}
-              >
-                <span style={opponentStatLabelStyle}>Очки</span>
-                <span style={opponentStatValueStyle}>{p.score}</span>
-              </div>
-            )}
+            {!pcNorthSideBySide &&
+              (isMobile && inline ? (
+                <button
+                  type="button"
+                  className={
+                    [
+                      'opponent-score-badge',
+                      'opponent-score-badge--mobile-toggle',
+                      sideSlotPcGrow ? 'opponent-score-badge-side-pc' : '',
+                      scoreLeaderHighlight ? 'score-badge-leader' : '',
+                      opponentScoreMobileSlotClass,
+                      mobileOpponentScoreExpanded
+                        ? 'opponent-score-badge--score-expanded'
+                        : 'opponent-score-badge--score-label-collapsed',
+                    ]
+                      .filter(Boolean)
+                      .join(' ') || undefined
+                  }
+                  style={{
+                    ...opponentStatBadgeScoreStyle,
+                    cursor: 'pointer',
+                    font: 'inherit',
+                    margin: 0,
+                    boxSizing: 'border-box',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    setMobileOpponentScoreExpanded(v => !v);
+                  }}
+                  aria-expanded={mobileOpponentScoreExpanded}
+                  title={mobileOpponentScoreExpanded ? 'Скрыть подпись «Очки»' : 'Показать подпись «Очки»'}
+                  aria-label={
+                    mobileOpponentScoreExpanded
+                      ? `Очки игрока ${p.score}, скрыть подпись`
+                      : `${p.score} очков, показать подпись`
+                  }
+                >
+                  {mobileOpponentScoreExpanded ? (
+                    <span style={opponentScoreLabelStyleResolved}>Очки</span>
+                  ) : null}
+                  <span style={opponentScoreValueStyleResolved}>{p.score}</span>
+                </button>
+              ) : (
+                <div
+                  className={
+                    ['opponent-score-badge', sideSlotPcGrow ? 'opponent-score-badge-side-pc' : '', scoreLeaderHighlight ? 'score-badge-leader' : '']
+                      .filter(Boolean)
+                      .join(' ') || undefined
+                  }
+                  style={opponentStatBadgeScoreStyle}
+                >
+                  <span style={opponentStatLabelStyle}>Очки</span>
+                  <span style={opponentStatValueStyle}>{p.score}</span>
+                </div>
+              ))}
           </div>
         );
         if (pcNorthSideBySide) {
@@ -6127,6 +6753,13 @@ const gameInfoTopRowStyle: React.CSSProperties = {
   gap: 16,
   marginBottom: 'var(--game-north-table-gap, 12px)',
   flexShrink: 0,
+  position: 'relative',
+};
+
+const gameMobileUpperBoardStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '100%',
+  boxSizing: 'border-box',
   position: 'relative',
 };
 
@@ -7381,7 +8014,9 @@ const dealResultsValueLeaderStyle: React.CSSProperties = {
 };
 
 const opponentSideWrapStyle: React.CSSProperties = {
-  flex: 1,
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 0,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -8221,10 +8856,16 @@ const handFrameStyle: React.CSSProperties = {
   marginRight: 'auto',
 };
 
-/** Мобильная рука: карты по центру, не обрезать правый край последней карты; relative — гирлянда (absolute inset 0) */
+/** Мобильная рука: рамка shrink-wrap; padding-inline из index.css (--mobile-south-strip-inset-x). */
 const handFrameStyleMobile: React.CSSProperties = {
   ...handFrameStyle,
+  width: 'fit-content',
   maxWidth: '100%',
+  marginLeft: 'auto',
+  marginRight: 'auto',
+  padding: undefined,
+  paddingTop: 6,
+  paddingBottom: 6,
   overflow: 'visible',
   boxSizing: 'border-box',
   position: 'relative',
@@ -8372,3 +9013,4 @@ function DealContractPcSummaryLine({
 }
 
 export { GameTable };
+export default GameTable;

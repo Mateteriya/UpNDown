@@ -29,8 +29,13 @@ export interface PlayerAvatarProps {
   title?: string;
 }
 
+function classNameHasOfflineAiPalette(className?: string): boolean {
+  return !!className && className.includes('player-avatar-ai-offline');
+}
+
 export function PlayerAvatar({ name, avatarDataUrl, sizePx = 28, className, title }: PlayerAvatarProps) {
   const size = Math.max(16, sizePx);
+  const offlineAiPalette = classNameHasOfflineAiPalette(className);
   const style: React.CSSProperties = {
     width: size,
     height: size,
@@ -42,8 +47,8 @@ export function PlayerAvatar({ name, avatarDataUrl, sizePx = 28, className, titl
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    background: avatarDataUrl ? undefined : hashToColor(name),
-    color: avatarDataUrl ? undefined : '#fff',
+    background: avatarDataUrl ? undefined : offlineAiPalette ? undefined : hashToColor(name),
+    color: avatarDataUrl ? undefined : offlineAiPalette ? undefined : '#fff',
     fontSize: Math.round(size * 0.45),
     fontWeight: 700,
     lineHeight: 1,

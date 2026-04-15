@@ -139,6 +139,10 @@ export interface CardViewProps {
   highlightAsValidPlay?: boolean;
   /** true = этап заказа взяток и это козырь в руке — показывать проходящий блеск раз в секунду. */
   mobileTrumpShineBidding?: boolean;
+  /** Моб. рука в нахлёсте: палец ведут по ряду — карта под пальцем чуть ниже и крупнее (без отдельного клика). */
+  mobileHandPeekLift?: boolean;
+  /** Моб. нахлёст + недоступная карта: касания идут на слот под кнопкой (жест «пианино» по ряду). */
+  mobileOverlapHandPointerPassthrough?: boolean;
 }
 
 const suitColorLight: Record<string, string> = {
@@ -167,7 +171,7 @@ const CARD_BG_DARK = 'linear-gradient(145deg, #0f172a 0%, #1e293b 20%, #312e81 4
 const CARD_BG_DARK_TRUMP = 'linear-gradient(145deg, #1e293b 0%, #312e81 25%, #4338ca 50%, #334155 75%, #1e293b 100%)';
 const CARD_BG_DARK_HIGHLIGHT = 'linear-gradient(145deg, #1e293b 0%, #334155 30%, #475569 50%, #334155 70%, #1e293b 100%)';
 
-export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, mobileTrumpShineBidding = false }: CardViewProps) {
+export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, mobileTrumpShineBidding = false, mobileHandPeekLift = false, mobileOverlapHandPointerPassthrough = false }: CardViewProps) {
   const { theme } = useTheme();
   /** Тёмная тема карт — только на мобильной/планшете; на ПК всегда светлый стиль */
   const isDark = theme === 'neon' && !pcCardStyles;
@@ -184,6 +188,11 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
   const baseShadow = doubleBorder ? neon.outline : 'none';
   const isMobileHandTrump = mobileTrumpGlowActive && (forceMobileTrumpGlow || (!pcCardStyles && !!isTrumpInHand));
   const showMobileHandHighlight = isMobileHandTrump || (!!highlightAsValidPlay && !pcCardStyles);
+  /** Торги: обычные карты руки — без «disabled-лаванды» и без неоновой рамки по масти (видно масть для заказа) */
+  const mobileBiddingPlainHand =
+    biddingHighlightMobile && suitIndexInHandMobile && !pcCardStyles && !showMobileHandHighlight;
+  const dimMobileUnplayable =
+    suitIndexInHandMobile && !pcCardStyles && disabled && !biddingHighlightMobile;
   const isNonTrumpWithHighlight = pcCardStyles && doubleBorder && !trumpOnDeck && !(isTrumpOnTable && trumpHighlightOn) && !(isTrumpInHand && trumpHighlightOn);
   const isTableNumericTrump = isTrumpOnTable && compact && showDesktopFaceIndices && !tableCardMobile && isNumericRank(card.rank);
   const isTrumpOnTableDim = pcCardStyles && isTrumpOnTable && !trumpHighlightOn;
@@ -249,8 +258,9 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         ].join(', ');
   }
 
-  /* Мобильная рука при вкл. подсветке: тонкая цветная обводка по масти (в box-shadow, чтобы не обрезалась обёрткой) */
-  const mobileHandHighlightRing = suitIndexInHandMobile && trumpHighlightOn ? `0 0 0 1px ${neon.border}` : '';
+  /* Кольцо в box-shadow только у подсветки «козырь/можно ходить» — иначе дублирует border+outline на обрезанном краю */
+  const mobileHandHighlightRing =
+    suitIndexInHandMobile && trumpHighlightOn && showMobileHandHighlight ? `0 0 0 1px ${neon.border}` : '';
   const baseCardShadow = biddingHighlightPC
     ? `${trumpShadow}, 0 0 12px rgba(255,255,255,0.38)`
     : mobileHandHighlightRing ? (trumpShadow === 'none' ? mobileHandHighlightRing : `${trumpShadow}, ${mobileHandHighlightRing}`) : trumpShadow;
@@ -267,19 +277,30 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         minWidth: w,
         minHeight: h,
         padding: Math.round(4 * scale),
-        margin: compact ? Math.round(2 * scale) : Math.round(4 * scale),
+        margin: suitIndexInHandMobile && !pcCardStyles && compact ? 0 : compact ? Math.round(2 * scale) : Math.round(4 * scale),
         /* В мобильной руке при подсветке: цветная рамка по масти (и для козырей тоже при вкл. подсветки); иначе козырь/доступный ход — белая рамка */
         border: showMobileHandHighlight && thinBorder
           ? (suitIndexInHandMobile && trumpHighlightOn ? `1px solid ${borderColor}` : '1px solid rgba(255,255,255,0.98)')
           : showMobileHandHighlight
           ? '3px solid rgba(255,255,255,0.98)'
-          : (thinBorder ? `1px solid ${borderColor}` : (trumpOnDeck && !trumpDeckHighlightOn ? `2px solid ${borderColor}bb` : (doubleBorder ? (isNonTrumpWithHighlight ? `2px solid ${borderColor}` : `3px solid ${borderColor}`) : `2px solid ${borderColor}`))),
+          : mobileBiddingPlainHand && thinBorder
+            ? (isDark ? '2px solid rgba(203, 213, 225, 0.72)' : '2px solid rgba(100, 116, 139, 0.88)')
+            : (thinBorder ? `1px solid ${borderColor}` : (trumpOnDeck && !trumpDeckHighlightOn ? `2px solid ${borderColor}bb` : (doubleBorder ? (isNonTrumpWithHighlight ? `2px solid ${borderColor}` : `3px solid ${borderColor}`) : `2px solid ${borderColor}`))),
         outline: thinBorder
-          ? (suitIndexInHandMobile && trumpHighlightOn ? `1px solid ${borderColor}cc` : 'none')
+          ? (suitIndexInHandMobile && trumpHighlightOn && showMobileHandHighlight ? `1px solid ${borderColor}cc` : 'none')
           : (trumpOnDeck ? (trumpDeckHighlightOn ? `2px solid ${borderColor}ee` : `1px solid ${borderColor}99`) : (isTrumpOnTable && trumpHighlightOn) ? `2px solid rgba(200,220,160,0.92)` : (doubleBorder ? (isNonTrumpWithHighlight ? `1px solid ${borderColor}cc` : `2px solid ${borderColor}cc`) : 'none')),
         outlineOffset: trumpOnDeck ? 1 : (suitIndexInHandMobile && trumpHighlightOn) ? 1 : (isTrumpOnTable && trumpHighlightOn) ? 2 : 0,
         borderRadius: Math.round(8 * scale),
-        boxShadow: biddingHighlightMobile ? undefined : baseCardShadow,
+        boxShadow:
+          biddingHighlightMobile && suitIndexInHandMobile && !pcCardStyles
+            ? mobileBiddingPlainHand
+              ? isDark
+                ? '0 0 0 1px rgba(226, 232, 240, 0.38), 0 2px 10px rgba(0,0,0,0.42)'
+                : '0 0 0 1px rgba(51, 65, 85, 0.35), 0 2px 8px rgba(0,0,0,0.1)'
+              : baseCardShadow
+            : biddingHighlightMobile
+              ? `${trumpShadow}, 0 0 10px ${neon.border}88, 0 0 16px ${neon.border}44`
+              : baseCardShadow,
         background: isDark
           ? (trumpOnDeck ? CARD_BG_DARK_TRUMP : (trumpHighlightOn && isTrumpOnTable) ? CARD_BG_DARK_HIGHLIGHT : (trumpHighlightOn && isTrumpInHand) ? CARD_BG_DARK_TRUMP : CARD_BG_DARK)
           : trumpOnDeck
@@ -294,28 +315,40 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                   ? `linear-gradient(145deg, ${neon.border}38 0%, #f8fafc 35%, #e2e8f0 100%)`
                   : showMobileHandHighlight
                     ? 'linear-gradient(145deg, #ffffff 0%, #fdfefe 32%, #edf2f7 62%, #d7e0ea 100%)'
-                    : 'linear-gradient(145deg, #f8fafc, #e2e8f0)',
+                    : dimMobileUnplayable
+                      ? 'linear-gradient(145deg, rgb(146, 140, 161), rgb(237, 236, 234))'
+                      : 'linear-gradient(145deg, #f8fafc, #e2e8f0)',
         color,
         fontSize: Math.round((compact ? 12 : 14) * cs),
         fontWeight: 600,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: trumpOnDeck ? 1 : biddingHighlightMobile ? 1 : biddingHighlightPC ? 1 : isMobileHandTrump ? 1 : disabled ? 0.6 : 1,
+        opacity: trumpOnDeck ? 1 : biddingHighlightMobile ? 1 : biddingHighlightPC ? 1 : isMobileHandTrump ? 1 : dimMobileUnplayable ? 1 : disabled ? 0.6 : 1,
         transition: 'transform 0.15s, box-shadow 0.15s',
-        ...(biddingHighlightMobile ? {
-          boxShadow: `${trumpShadow}, 0 0 10px ${neon.border}88, 0 0 16px ${neon.border}44`,
-          transform: 'scale(1.06)',
-          transformOrigin: 'center bottom',
-        } : {}),
+        /* Торги на мобильной руке: без scale; тени — лёгкое кольцо (plain) или baseCardShadow (козырь/подсветка) */
+        ...(biddingHighlightMobile && !(suitIndexInHandMobile && !pcCardStyles)
+          ? { transform: 'scale(1.06)', transformOrigin: 'center bottom' }
+          : {}),
+        ...(mobileHandPeekLift && suitIndexInHandMobile && !pcCardStyles
+          ? {
+              transform: 'translateY(9px) scale(1.065)',
+              transformOrigin: 'center bottom',
+              transition: 'transform 0.05s ease-out, box-shadow 0.15s',
+              willChange: 'transform',
+            }
+          : {}),
         position: 'relative',
+        zIndex: suitIndexInHandMobile ? (mobileHandPeekLift ? 26 : 6) : undefined,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         lineHeight: 1,
         overflow: 'hidden',
+        touchAction: suitIndexInHandMobile ? 'manipulation' : undefined,
+        ...(mobileOverlapHandPointerPassthrough ? { pointerEvents: 'none' as const } : {}),
       }}
       onMouseEnter={e => {
-        if (!disabled) {
+        if (!disabled && !(suitIndexInHandMobile && !pcCardStyles)) {
           const n = suitNeonBorder[card.suit] ?? suitNeonBorder['♠'];
           e.currentTarget.style.transform = 'translateY(-4px)';
           const hoverShadow = isTrumpOnTable
@@ -325,6 +358,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         }
       }}
       onMouseLeave={e => {
+        if (suitIndexInHandMobile && !pcCardStyles) return;
         e.currentTarget.style.transform = '';
         e.currentTarget.style.boxShadow = baseCardShadow;
       }}
@@ -349,6 +383,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
               left: 0,
               width: '40%',
               height: '100%',
+              pointerEvents: 'none',
               background: isDark
                 ? 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 35%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.12) 65%, transparent 100%)'
                 : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.45) 35%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.45) 65%, transparent 100%)',
