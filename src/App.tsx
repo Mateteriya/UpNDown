@@ -43,6 +43,8 @@ function App() {
   const [screen, setScreen] = useState<'menu' | 'game' | 'training'>(() => readInitialScreen())
   const didAutoOpenLobbyRef = useRef(false)
   const hadOnlineRoomRef = useRef(false)
+  /** Уже показывали «Задайте имя для этого аккаунта» этому user.id в сессии — не дёргать setShow снова при повторном срабатывании эффекта. */
+  const newAccountGatePromptedRef = useRef<string | null>(null)
   const [gameId, setGameId] = useState(1)
   const [devMode, setDevMode] = useState(() => typeof sessionStorage !== 'undefined' && sessionStorage.getItem(DEV_MODE_KEY) === '1')
   const [profile, setProfile] = useState<PlayerProfile>(() => getPlayerProfile())
@@ -117,9 +119,14 @@ function App() {
     }
   }, [user?.id])
 
-  // Синхронизация профиля с Supabase при входе (имя/ник жёстко привязаны к аккаунту/почте)
+  // Синхронизация профиля с Supabase при входе (имя/ник жёстко привязаны к аккаунту/почте).
+  // Зависимости [user?.id, user?.email ?? '']: у сессии email иногда кратко undefined → снова строка; без ?? эффект дублируется и модалка «Задайте имя…» всплывает снова.
   useEffect(() => {
-    if (!user?.id) return
+    if (!user?.id) {
+      newAccountGatePromptedRef.current = null
+      return
+    }
+    const userEmailNorm = (user.email ?? '').trim().toLowerCase()
     const PENDING_NAME_KEY_PREFIX = 'updown_pending_name_'
     let cancelled = false
     ;(async () => {
@@ -135,7 +142,7 @@ function App() {
         setProfile(merged)
       } else {
         // Новый пользователь: имя при регистрации по email сохранено в sessionStorage; иначе — запросим в модалке
-        const emailKey = user.email?.toLowerCase().trim()
+        const emailKey = userEmailNorm || undefined
         const pendingName = emailKey && typeof sessionStorage !== 'undefined'
           ? sessionStorage.getItem(PENDING_NAME_KEY_PREFIX + emailKey)
           : null
@@ -154,14 +161,30 @@ function App() {
             /* ignore */
           }
         } else {
+          // Уже есть локальное имя (офлайн / до входа) — отправим в Supabase и не дёргаем модалку повторно
+          const local = getPlayerProfile()
+          const localName = local.displayName?.trim()
+          if (localName && localName !== DEFAULT_DISPLAY_NAME) {
+            const merged: PlayerProfile = {
+              displayName: localName.slice(0, 17),
+              avatarDataUrl: local.avatarDataUrl ?? null,
+              profileId: local.profileId,
+            }
+            await saveProfileToSupabase(user.id, merged)
+            savePlayerProfile(merged)
+            setProfile(merged)
+            return
+          }
           // OAuth или вход без регистрации — имя не задано, показываем модалку «Задайте имя для этого аккаунта»
+          if (newAccountGatePromptedRef.current === user.id) return
+          newAccountGatePromptedRef.current = user.id
           setNameAvatarMode('new-account')
           setShowNameAvatarModal(true)
         }
       }
     })()
     return () => { cancelled = true }
-  }, [user?.id, user?.email])
+  }, [user?.id, user?.email ?? ''])
 
   const enableDevMode = useCallback(() => {
     sessionStorage.setItem(DEV_MODE_KEY, '1')
@@ -204,6 +227,7 @@ function App() {
     savePlayerProfile(next)
     setProfile(next)
     setShowNameAvatarModal(false)
+    newAccountGatePromptedRef.current = null
     if (user?.id) saveProfileToSupabase(user.id, next)
     if (online.roomId && online.syncMySlotAvatar) void online.syncMySlotAvatar()
     if (nameAvatarMode === 'first-run') {

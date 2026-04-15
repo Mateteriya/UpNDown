@@ -6042,6 +6042,8 @@ function OpponentSlot({
     const id = window.setTimeout(() => setMobileOpponentScoreExpanded(false), 5000);
     return () => window.clearTimeout(id);
   }, [mobileOpponentScoreExpanded]);
+  /** Уникальный id градиента SVG звёздочки «ровно в заказ» (несколько слотов на экране). */
+  const exactOrderStarGradientId = useId().replace(/:/g, '');
   const p = state.players[index];
   const scoreLeaderHighlight = isPartyScoreLeader(state, index);
   const isActive = state.currentPlayerIndex === index;
@@ -6299,6 +6301,7 @@ function OpponentSlot({
         const nameSpan = styleOfflineAiNameByDifficulty && offlineAiDifficultyForName ? (
           <span
             className={[
+              'opponent-slot-header-display-name',
               'opponent-name-offline-ai-pick',
               `opponent-name-offline-ai-pick--${offlineAiDifficultyForName}`,
               eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : '',
@@ -6312,13 +6315,58 @@ function OpponentSlot({
           </span>
         ) : (
           <span
-            className={eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : undefined}
+            className={[eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : '', 'opponent-slot-header-display-name'].filter(Boolean).join(' ') || undefined}
             style={nameStyleMerged}
             title={`${p.name} — ${getCompassLabel(index)}`}
           >
             {nameInner}
           </span>
         );
+        const mobileOpponentInline = !!(isMobile && inline && !pcNorthSideBySide);
+        const showMobileExactOrderStar = mobileOpponentInline && avatarOrderRingExact;
+        const exactStarPathD = 'M12 1.35l2.35 7.15h7.6L15.8 14.1l2.35 7.55L12 17.45l-6.15 4.2 2.35-7.55L2.05 8.5h7.6z';
+        const mobileExactOrderStarEl = showMobileExactOrderStar ? (
+          <div className="opponent-exact-order-star-with-flash" aria-hidden>
+            <span className="opponent-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+              <span className="opponent-exact-order-star-badge__enter" aria-hidden>
+                <svg viewBox="0 0 24 24" width="17" height="17" focusable="false" aria-hidden>
+                  <defs>
+                    <linearGradient id={exactOrderStarGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#f5f3ff" />
+                      <stop offset="38%" stopColor="#c4b5fd" />
+                      <stop offset="72%" stopColor="#8b5cf6" />
+                      <stop offset="100%" stopColor="#5b21b6" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    className="opponent-exact-order-star-path"
+                    fill={`url(#${exactOrderStarGradientId})`}
+                    stroke="currentColor"
+                    strokeWidth="0.82"
+                    strokeLinejoin="round"
+                    d={exactStarPathD}
+                  />
+                </svg>
+              </span>
+            </span>
+          </div>
+        ) : null;
+        const nameBlock =
+          mobileOpponentInline ? (
+            <div
+              className={[
+                'opponent-slot-header-name-stack-mobile',
+                eastMobileOnlyAvatar ? 'opponent-slot-header-name-stack-mobile--east' : '',
+              ]
+                .filter(Boolean)
+                .join(' ') || undefined}
+            >
+              {nameSpan}
+              {mobileExactOrderStarEl}
+            </div>
+          ) : (
+            nameSpan
+          );
         const avatarOrderRingInnerCls = avatarOrderRingMode ? 'player-avatar-order-ring-inner' : undefined;
         const avatarOrderRingStyle: React.CSSProperties | undefined = avatarOrderRingMode
           ? {
@@ -6415,7 +6463,7 @@ function OpponentSlot({
         ) : (
           <div className="opponent-slot-header" style={opponentHeaderStyle}>
             {avatarEl}
-            {nameSpan}
+            {nameBlock}
             {isActive && !isMobile && !turnBadgeOutsidePc ? <span style={opponentTurnBadgeStyle}>Ходит</span> : null}
           </div>
         );

@@ -43,6 +43,171 @@
   50% { opacity: 0.74; }
 }
 
+/* Моб.: вспышка — медленнее нарастание, дольше яркий пик, плавное затухание */
+/* Смещение к центроиду контура звезды (viewBox 24×24, path как в GameTable) → в px при иконке 17px */
+@keyframes exact-order-star-flash {
+  0% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(0);
+    filter: brightness(2.6) saturate(1.18) blur(2px);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(0.55);
+    filter: brightness(5.2) saturate(1.45) blur(0.35px);
+  }
+  26% {
+    opacity: 1;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(1);
+    filter: brightness(6.35) saturate(1.58) contrast(1.08) hue-rotate(-10deg) blur(0px);
+  }
+  52% {
+    opacity: 1;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(1.06);
+    filter: brightness(6.35) saturate(1.58) contrast(1.08) hue-rotate(-10deg) blur(0px);
+  }
+  72% {
+    opacity: 0.38;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(1.42);
+    filter: brightness(1.65) saturate(1.12) hue-rotate(0deg) blur(8px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(1.85);
+    filter: brightness(1) saturate(1) hue-rotate(0deg) blur(20px);
+  }
+}
+
+/* Ореол: тот же центроид; компактнее → меньше blur, выше brightness */
+@keyframes exact-order-star-flash-halo {
+  0% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(0.25);
+    filter: blur(11px) brightness(1);
+  }
+  26% {
+    opacity: 0.95;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(1);
+    filter: blur(8px) brightness(1.52);
+  }
+  52% {
+    opacity: 0.9;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(1.08);
+    filter: blur(7px) brightness(1.46);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(2.05);
+    filter: blur(16px) brightness(1);
+  }
+}
+
+/* Моб.: появление звезды — дольше «пролёт» масштабом из центра (без translate) */
+@keyframes exact-order-star-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.04);
+  }
+  18% {
+    opacity: 0.28;
+    transform: scale(0.18);
+  }
+  40% {
+    opacity: 0.65;
+    transform: scale(0.48);
+  }
+  62% {
+    opacity: 0.95;
+    transform: scale(0.82);
+  }
+  78% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  90% {
+    opacity: 1;
+    transform: scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Моб.: обводка звезды — голубо-сиреневый неон, без белых пиков в цикле */
+@keyframes exact-order-star-stroke-shimmer {
+  0%,
+  100% {
+    color: #6d7fe8;
+    stroke-opacity: 0.92;
+  }
+  32% {
+    color: #9aa8ff;
+    stroke-opacity: 1;
+  }
+  64% {
+    color: #7c8ded;
+    stroke-opacity: 0.97;
+  }
+}
+
+/* Моб.: пульсация на SVG — заметнее opacity + brightness (тень остаётся на __enter, без scale — без шатания) */
+@keyframes exact-order-star-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  32% {
+    opacity: 0.52;
+    filter: brightness(1.52);
+  }
+  58% {
+    opacity: 0.68;
+    filter: brightness(1.2);
+  }
+}
+
 /* Подсветка первого ходящего во время заказа — пульсация на всех экранах */
 .game-table-root .first-mover-bidding-panel {
   position: relative !important;
@@ -2300,6 +2465,210 @@
     max-width: 100% !important;
     min-width: 0 !important;
   }
+  /* С/З/В моб.: имя + звёздочка «ровно в заказ» колонкой — не сдвигаем аватар и нижний ряд */
+  .game-table-root.viewport-mobile .opponent-slot-header .opponent-slot-header-name-stack-mobile {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+  }
+  /*
+   * Север/Запад: колонка без --east — тянем по ширине ячейки, иначе при align-items:flex-start
+   * имя получает ширину по контенту и ellipsis не срабатывает (текст вылезает в соседние колонки).
+   */
+  .game-table-root.viewport-mobile .opponent-slot-header .opponent-slot-header-name-stack-mobile:not(.opponent-slot-header-name-stack-mobile--east) {
+    align-items: stretch;
+    max-width: 100%;
+  }
+  .game-table-root.viewport-mobile
+    .opponent-slot-header
+    .opponent-slot-header-name-stack-mobile:not(.opponent-slot-header-name-stack-mobile--east)
+    .opponent-slot-header-display-name {
+    max-width: 100% !important;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-header .opponent-slot-header-name-stack-mobile--east {
+    align-items: center;
+    flex: 0 1 auto;
+    max-width: 100%;
+  }
+  /* Вспышка у звезды / звезда под именем — не обрезать у шапки */
+  .game-table-root.viewport-mobile .opponent-slot-header:has(.opponent-exact-order-star-with-flash),
+  .game-table-root.viewport-mobile .opponent-slot-header:has(.opponent-exact-order-star-badge) {
+    overflow: visible !important;
+  }
+  .game-table-root.viewport-mobile .opponent-slot-header-name-stack-mobile:has(.opponent-exact-order-star-with-flash),
+  .game-table-root.viewport-mobile .opponent-slot-header-name-stack-mobile:has(.opponent-exact-order-star-badge) {
+    overflow: visible !important;
+  }
+  /* Вспышка в точке звезды, затем появление звезды (задержки от --flash / --enter) */
+  .game-table-root.viewport-mobile .opponent-exact-order-star-with-flash {
+    --exact-order-star-flash-dur: 0.88s;
+    --exact-order-star-enter-dur: 1.05s;
+    /*
+     * Смещение вспышки к центру звезды (пересчёт: npm run exact-order-star-offset).
+     * X — центр bbox контура по горизонтали (симметрия); Y — центроид контура (path с двумя парами в одном «l»).
+     */
+    --exact-order-star-flash-optical-x: 0px;
+    --exact-order-star-flash-optical-y: 0.325px;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    line-height: 0;
+    flex-shrink: 0;
+    margin-top: 1px;
+    /* иначе колонка имени (stretch) растягивает блок на всю ширину — left:50% у ::before даёт центр экрана слота, не звезды */
+    align-self: flex-start;
+    width: fit-content;
+    max-width: 100%;
+  }
+  /* Неон: ~½ радиуса прошлого слоя, выше плотность цвета + brightness в keyframes */
+  .game-table-root.viewport-mobile .opponent-exact-order-star-with-flash::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 1;
+    width: 28px;
+    height: 28px;
+    margin: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    background: radial-gradient(
+      circle closest-side,
+      rgba(255, 255, 255, 0.62) 0%,
+      rgba(224, 231, 255, 0.58) 22%,
+      rgba(196, 181, 253, 0.62) 40%,
+      rgba(167, 139, 250, 0.52) 56%,
+      rgba(99, 102, 241, 0.38) 72%,
+      rgba(67, 56, 202, 0.18) 86%,
+      transparent 100%
+    );
+    box-shadow:
+      0 0 22px rgba(196, 181, 253, 0.98),
+      0 0 40px rgba(167, 139, 250, 0.92),
+      0 0 58px rgba(139, 92, 246, 0.78),
+      0 0 74px rgba(99, 102, 241, 0.52);
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(0);
+    animation: exact-order-star-flash-halo var(--exact-order-star-flash-dur) ease-in-out forwards;
+  }
+  /* «Электрическое» ядро: узкий белый ореол + резкий голубой/индиго спад (без box-shadow) */
+  .game-table-root.viewport-mobile .opponent-exact-order-star-with-flash::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 3;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    pointer-events: none;
+    background: radial-gradient(
+      circle closest-side,
+      #ffffff 0%,
+      #f0f9ff 5%,
+      rgba(224, 242, 254, 0.99) 10%,
+      rgba(186, 230, 253, 0.95) 16%,
+      rgba(125, 211, 252, 0.72) 24%,
+      rgba(129, 140, 248, 0.45) 34%,
+      rgba(91, 33, 182, 0.16) 46%,
+      transparent 58%
+    );
+    box-shadow: none;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(0);
+    animation: exact-order-star-flash var(--exact-order-star-flash-dur) ease-in-out forwards;
+  }
+  .game-table-root.viewport-mobile .opponent-exact-order-star-badge {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    line-height: 0;
+    flex-shrink: 0;
+    transform-origin: center center;
+  }
+  .game-table-root.viewport-mobile .opponent-exact-order-star-badge__enter {
+    position: relative;
+    z-index: 1;
+    display: block;
+    line-height: 0;
+    transform-origin: center center;
+    /* тень здесь, не на внешнем бейдже — пульс opacity на SVG не сдвигает размытую «ауру» */
+    filter: drop-shadow(0 0 3px rgba(196, 181, 253, 0.95)) drop-shadow(0 0 7px rgba(139, 92, 246, 0.65))
+      drop-shadow(0 0 12px rgba(91, 33, 182, 0.35));
+    animation: exact-order-star-enter var(--exact-order-star-enter-dur) cubic-bezier(0.2, 0.75, 0.28, 1) forwards;
+    animation-delay: var(--exact-order-star-flash-dur);
+  }
+  .game-table-root.viewport-mobile .opponent-exact-order-star-badge svg {
+    display: block;
+    /* пульс после вспышки и появления звезды */
+    animation: exact-order-star-pulse 2.45s ease-in-out
+      calc(var(--exact-order-star-flash-dur) + var(--exact-order-star-enter-dur)) infinite;
+  }
+  .game-table-root.viewport-mobile .opponent-exact-order-star-badge svg .opponent-exact-order-star-path {
+    color: #8b9dff;
+    stroke-opacity: 0.95;
+    /* обводка поверх заливки — неоновый голубо-лиловый контур */
+    paint-order: fill stroke;
+    /* Лёгкое «электрическое» свечение контура: 2 мягких drop-shadow, без анимации filter (дешево для GPU). */
+    filter: drop-shadow(0 0 1.5px rgba(129, 140, 248, 0.78)) drop-shadow(0 0 4px rgba(99, 102, 241, 0.48));
+    animation: exact-order-star-stroke-shimmer 2.65s ease-in-out infinite;
+    animation-delay: var(--exact-order-star-flash-dur);
+  }
+  .game-table-root.viewport-mobile .opponent-slot-header-name-stack-mobile--east .opponent-exact-order-star-with-flash {
+    align-self: center;
+  }
+  .game-table-root.viewport-mobile .opponent-slot-header-name-stack-mobile--east .opponent-exact-order-star-badge {
+    justify-content: center;
+    align-self: center;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .game-table-root.viewport-mobile .opponent-exact-order-star-badge__enter {
+      animation: none !important;
+      animation-delay: 0s !important;
+    }
+    .game-table-root.viewport-mobile .opponent-exact-order-star-badge svg {
+      animation: none !important;
+      animation-delay: 0s !important;
+      filter: none !important;
+      opacity: 1 !important;
+    }
+    .game-table-root.viewport-mobile .opponent-exact-order-star-badge svg .opponent-exact-order-star-path {
+      animation: none !important;
+      animation-delay: 0s !important;
+      filter: none !important;
+      color: #93a3ff;
+      stroke-opacity: 0.96;
+    }
+    .game-table-root.viewport-mobile .opponent-exact-order-star-with-flash::before,
+    .game-table-root.viewport-mobile .opponent-exact-order-star-with-flash::after {
+      animation: none !important;
+      opacity: 0 !important;
+      transform: translate(
+          calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+          calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+        )
+        scale(0) !important;
+      filter: none !important;
+    }
+    .game-table-root.viewport-mobile .opponent-exact-order-star-badge__enter {
+      opacity: 1;
+      transform: none;
+    }
+  }
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east > div {
     width: 100% !important;
     max-width: 100% !important;
@@ -2616,6 +2985,7 @@
 /* Имена оппонентов: жемчужная расцветка, без лишних эффектов (чёткие буквы) */
 .game-table-root .opponent-slot-header .player-panel-name,
 .game-table-root .opponent-slot-header > span:not([class]),
+.game-table-root .opponent-slot-header .opponent-slot-header-display-name,
 .game-table-root .opponent-slot-header button.opponent-name-offline-ai-pick {
   background: linear-gradient(
     180deg,
@@ -2726,6 +3096,7 @@
 }
 .game-table-root .opponent-slot-header .player-panel-name,
 .game-table-root .opponent-slot-header > span:not([class]),
+.game-table-root .opponent-slot-header .opponent-slot-header-display-name,
 .game-table-root .opponent-slot-header button.opponent-name-offline-ai-pick,
 .game-table-root .opponent-slot-header span.opponent-name-offline-ai-pick {
   white-space: nowrap !important;
@@ -3151,7 +3522,8 @@
 }
 
 /* Мобильная: у оппонента чей ход/заказ — имя зелёным с неоном (как у ИИ-Восток), у всех слотов */
-.game-table-root.viewport-mobile .opponent-slot-current-turn .opponent-slot-header > span {
+.game-table-root.viewport-mobile .opponent-slot-current-turn .opponent-slot-header > span,
+.game-table-root.viewport-mobile .opponent-slot-current-turn .opponent-slot-header .opponent-slot-header-display-name {
   color: #22c55e !important;
   text-shadow: 0 0 10px rgba(34, 197, 94, 0.6), 0 0 4px rgba(34, 197, 94, 0.4) !important;
   background: none !important;
@@ -7126,6 +7498,41 @@ body.deal-results-modal-open-mobile {
   transform: none !important;
   align-items: flex-start !important;
 }
+/* Свернутый бейдж «Очки» (только цифра): фон, блик, чёткое центрирование цифры — Север, Запад, Восток */
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed {
+  background-color: #4617b4f2 !important;
+  background-image: none !important;
+  /* Лёгкая «выпуклость» по верхней кромке */
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 38%) !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center !important;
+  flex-direction: row !important;
+  padding: 3px 8px !important;
+  gap: 0 !important;
+}
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed {
+  flex-direction: column !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed > span:last-child,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed > span:last-child,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed > span:only-child,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed > span:last-child {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  min-height: 1em !important;
+  color: #eb84f7 !important;
+  -webkit-text-fill-color: #eb84f7 !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed.score-badge-leader,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed.score-badge-leader,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed.score-badge-leader {
+  padding: 2px 7px !important;
+}
 .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded {
   left: 50% !important;
   transform: translateX(-50%) !important;
@@ -7146,4 +7553,31 @@ body.deal-results-modal-open-mobile {
     inset 0 1px 0 rgba(255, 240, 255, 0.42),
     0 0 16px rgba(216, 105, 229, 0.3),
     0 0 26px rgba(139, 92, 246, 0.22) !important;
+}
+/* Развёрнутый бейдж «Очки»+цифра: заметнее текст (Север / Запад / Восток) */
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.opponent-score-badge--slot-north > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.opponent-score-badge--slot-north > span:last-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.opponent-score-badge--slot-west > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.opponent-score-badge--slot-west > span:last-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.opponent-score-badge--slot-east > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.opponent-score-badge--slot-east > span:last-child {
+  color: #f2b8ff !important;
+  -webkit-text-fill-color: #f2b8ff !important;
+  text-shadow:
+    0 0 10px rgba(242, 184, 255, 0.65),
+    0 0 18px rgba(235, 132, 247, 0.45),
+    0 1px 0 rgba(15, 23, 42, 0.55) !important;
+}
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.score-badge-leader.opponent-score-badge--slot-north > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.score-badge-leader.opponent-score-badge--slot-north > span:last-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.score-badge-leader.opponent-score-badge--slot-west > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.score-badge-leader.opponent-score-badge--slot-west > span:last-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.score-badge-leader.opponent-score-badge--slot-east > span:first-child,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.score-badge-leader.opponent-score-badge--slot-east > span:last-child {
+  color: #f8d0ff !important;
+  -webkit-text-fill-color: #f8d0ff !important;
+  text-shadow:
+    0 0 12px rgba(248, 208, 255, 0.72),
+    0 0 22px rgba(235, 132, 247, 0.5),
+    0 1px 0 rgba(15, 23, 42, 0.5) !important;
 }

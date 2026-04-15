@@ -9,6 +9,7 @@
     "build": "node scripts/gen-favicon.mjs && tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "exact-order-star-offset": "node tools/exact-order-star-flash-offset.mjs",
     "cap:sync": "npm run build && npx cap sync android",
     "cap:open": "npx cap open android"
   },
