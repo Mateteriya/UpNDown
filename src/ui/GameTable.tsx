@@ -79,14 +79,13 @@ const MOBILE_HAND_9_OVERLAP_ULTRA312_PX = 10;
 const MOBILE_HAND_8_NARROW_MAX_VW = 300;
 /** ≤7 карт: сильный нахлёст при очень узком viewport (<292) */
 const MOBILE_HAND_ULTRA_NARROW_MAX_VW = 292;
-/** Базовый горизонтальный inset (3× от 6px); при vw < 400 — 24px — см. @media (max-width: 399px) в index.css */
-const MOBILE_SOUTH_STRIP_INSET_PX = 18;
-const MOBILE_SOUTH_STRIP_INSET_NARROW_PX = 24;
 /** Сумма горизонтальных отступов обёртки стола (--game-header-padding слева+справа в @media max-width 600px). */
 const MOBILE_TABLE_INNER_PAD_X_PX = 6;
+/** Горизонтальный inset полосы Юга (рука + панель) = --game-table-padding в index.css — одна линия с рамкой стола и панелями С/З/В. */
+const MOBILE_SOUTH_STRIP_INSET_PX = MOBILE_TABLE_INNER_PAD_X_PX;
 
-function mobileSouthStripInsetPx(vw: number): number {
-  return vw < 400 ? MOBILE_SOUTH_STRIP_INSET_NARROW_PX : MOBILE_SOUTH_STRIP_INSET_PX;
+function mobileSouthStripInsetPx(_vw: number): number {
+  return MOBILE_SOUTH_STRIP_INSET_PX;
 }
 /** Компактная карта в руке: CardView bw=52, scale=0.72 */
 const MOBILE_HAND_CARD_BODY_W = Math.round(52 * 0.72);
@@ -3215,6 +3214,19 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               />
             </div>
           </div>
+          <div
+            className="game-mobile-hand-user-stack"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              gap: 3,
+              width: '100%',
+              flexShrink: 0,
+              minWidth: 0,
+              boxSizing: 'border-box',
+            }}
+          >
       {(() => {
         const mobileHandLen = state.players[humanIdx].hand.length;
         const m9 = getMobileNineCardHandLayout(mobileHandLayoutVw, mobileHandLen);
@@ -3357,16 +3369,12 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       </div>
         );
       })()}
-      </div>
-      <div className="game-mobile-bottom-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
-        <div className="game-mobile-player-wrap game-mobile-player" style={{ flex: 1, minWidth: 0, width: '100%', maxWidth: 800 }}>
+      <div className="game-mobile-bottom-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', width: '100%' }}>
+        <div className="game-mobile-player-wrap game-mobile-player" style={{ flex: '0 0 auto', minWidth: 0, width: '100%', maxWidth: '100%' }}>
       <div
         className="game-mobile-player-panel"
         style={{
-          ...(() => {
-            const { padding: _playerShellPadding, ...rest } = playerStyle;
-            return rest;
-          })(),
+          ...playerStyleMobilePanelShell,
           ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')
             ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
             : {}),
@@ -3374,7 +3382,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       >
         <div className={['game-mobile-player-info', 'user-player-panel', userMobilePanelOrderExactGlow ? 'user-player-panel-order-exact' : '', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : ''].filter(Boolean).join(' ')} style={{
           ...playerInfoPanelStyle,
-          padding: '7px 0',
+          ...(isMobile ? playerInfoPanelStyleMobileSouth : {}),
+          ...(isMobile ? { maxWidth: '100%', marginLeft: 0, marginRight: 0 } : {}),
+          padding: isMobile ? `${Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE)}px 0` : '7px 0',
           position: 'relative',
           ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
           ...(dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === humanIdx ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
@@ -3386,13 +3396,14 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             return { boxShadow: [baseShadow, firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', ') };
           })() : {}),
         }}>
-          <div style={playerInfoHeaderStyle}>
-            {renderUserPlayerAvatar(isMobileOrTablet ? 34 : 38)}
-            <span style={playerNameDealerWrapStyle}>
+          <div style={{ ...playerInfoHeaderStyle, ...(isMobile ? playerInfoHeaderStyleMobileSouth : {}) }}>
+            {renderUserPlayerAvatar(isMobile ? Math.round(34 * MOBILE_SOUTH_PLAYER_CARD_SCALE) : isMobileOrTablet ? 34 : 38)}
+            <span style={{ ...playerNameDealerWrapStyle, ...(isMobile ? { gap: Math.round(6 * MOBILE_SOUTH_PLAYER_CARD_SCALE) } : {}) }}>
               <span
                 className={['player-panel-name', isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? 'your-turn-prompt' : ''].filter(Boolean).join(' ')}
                 style={{
                   ...playerNameStyle,
+                  ...(isMobile ? { fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE) } : {}),
                   ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
                   ...(isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? yourTurnPromptStyle : {}),
                 }}
@@ -3420,13 +3431,13 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               )}
             </span>
           </div>
-          <div className="player-mobile-south-tricks-column" style={playerStatsRowStyle}>
+          <div className="player-mobile-south-tricks-column" style={{ ...playerStatsRowStyle, ...(isMobile ? playerStatsRowStyleMobileSouth : {}) }}>
             <div
               className={['player-score-badge', isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : ''].filter(Boolean).join(' ')}
-              style={playerStatBadgeScoreStyle}
+              style={{ ...playerStatBadgeScoreStyle, ...(isMobile ? playerStatBadgeScoreStyleMobileSouth : {}) }}
             >
-              <span style={playerStatLabelStyle}>Очки</span>
-              <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
+              <span style={{ ...playerStatLabelStyle, ...(isMobile ? playerStatLabelStyleMobileSouth : {}) }}>Очки</span>
+              <span style={{ ...playerStatValueStyle, ...(isMobile ? playerStatValueStyleMobileSouth : {}) }}>{state.players[humanIdx].score}</span>
             </div>
             <TrickSlotsDisplay
               bid={state.bids[humanIdx] ?? null}
@@ -3482,7 +3493,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         />
       )}
       </div>
-      <div style={centerAreaSpacerBottomStyle} aria-hidden />
+      </div>
+      </div>
         </>
       ) : (
         <>
@@ -5567,9 +5579,9 @@ function TrickSlotsDisplay({
       } else {
         const naturalW = n * base + Math.max(0, n - 1) * gap + plusW;
         let wMax: number;
-        /** Телефон + панель игрока: жёстче лимит по высоте ряда кружков (base=14), иначе при широком заказе s=1 и кружки выпирают по вертикали */
+        /** Телефон + панель игрока: лимит по высоте ряда кружков (base=14); ×1.5 к прежнему 12/base */
         const hSLocal =
-          variant === 'player' && playerMobileWideTricks ? 12 / base : hS;
+          variant === 'player' && playerMobileWideTricks ? (12 * 1.5) / base : hS;
         if (variant === 'opponent' && hideOppOrderWord) {
           /**
            * Ширина под ряд кружков ≈ половина viewport минус зазор между Север/Запад и паддинги.
@@ -5580,7 +5592,7 @@ function TrickSlotsDisplay({
               ? Math.max(88, Math.min(196, Math.floor((window.innerWidth - 16) * 0.5 - 32)))
               : 132;
         } else if (variant === 'player') {
-          wMax = playerMobileWideTricks ? 168 : 140;
+          wMax = playerMobileWideTricks ? Math.round(168 * 1.5) : 140;
         } else {
           wMax = 400;
         }
@@ -5616,7 +5628,7 @@ function TrickSlotsDisplay({
       ...(variant === 'player' && playerMobileWideTricks ? { gap: 2 } : {}),
       ...(variant === 'player' ? {
         position: 'absolute' as const,
-        right: 14,
+        right: playerMobileWideTricks ? 6 : 14,
         top: '50%',
         padding: scaleDown < 1 ? `${Math.round(2 * scaleDown * playerScale)}px ${Math.round(6 * scaleDown * playerScale)}px` : `${Math.round(2 * playerScale)}px ${Math.round(6 * playerScale)}px`,
         transform: `translateY(-50%) scale(${playerScale * (scaleDown < 1 ? scaleDown : 1)})`,
@@ -6120,6 +6132,8 @@ function OpponentSlot({
   const eastMobileOnlyAvatar = position === 'right' && isMobile;
   /** ПК, слот «Север» над столом: аватар и имя слева, взятки и очки справа (мобильная не трогается). */
   const pcNorthSideBySide = position === 'top' && inline && !compactMode && !isMobile;
+  /** Мобильная колонка Восток: «Очки» между именем и полосой заказа (как по вертикали у Север/Запад). */
+  const eastMobileScoreBetweenHeaderAndTricks = position === 'right' && isMobile && inline && !pcNorthSideBySide;
   /** ПК Запад/Восток: панель растёт по ширине стопки взяток при переборе. */
   const sideSlotPcGrow = inline && !compactMode && (position === 'left' || position === 'right');
   /** ПК Запад/Восток: «Ходит» вынесен над панелью, не в потоке — не раздувает ширину. */
@@ -6501,43 +6515,9 @@ function OpponentSlot({
           isMobile && inline ? opponentStatStyleWithoutTextColor(opponentStatLabelStyle) : opponentStatLabelStyle;
         const opponentScoreValueStyleResolved: React.CSSProperties =
           isMobile && inline ? opponentStatStyleWithoutTextColor(opponentStatValueStyle) : opponentStatValueStyle;
-        const statsBlock = (
-          <div
-            className={[sideSlotPcGrow ? 'opponent-stats-west-east-pc' : undefined, mobileNwLayout ? 'opponent-slot-stats-mobile-nw' : undefined]
-              .filter(Boolean)
-              .join(' ') || undefined}
-            style={{
-              ...opponentStatsRowStyle,
-              ...(position === 'top' && inline ? { flexWrap: 'nowrap' as const } : {}),
-              ...(position === 'left' && inline && !sideSlotPcGrow ? { flexDirection: 'row-reverse' as const } : {}),
-              ...(pcNorthSideBySide
-                ? { flex: 1, minWidth: 0, justifyContent: 'flex-end', alignItems: 'center' }
-                : {}),
-              ...(sideSlotPcGrow
-                ? {
-                    flexDirection: 'column' as const,
-                    alignItems: 'stretch' as const,
-                    gap: 8,
-                    width: '100%',
-                  }
-                : {}),
-            }}
-          >
-            <TrickSlotsDisplay
-              bid={displayBid}
-              tricksTaken={p.tricksTaken}
-              variant="opponent"
-              horizontalOnly={position === 'top' && inline}
-              collectingCards={collectingCards}
-              compactMode={compactMode}
-              eastMobileTricks={position === 'right' && !!isMobile && displayBid !== null && displayBid > 0}
-              opponentMobileHideOrderLabel={!!isMobile}
-              opponentMobileZeroOrderCross={!!isMobile}
-              opponentOrderHintSlot={position === 'top' ? 'north' : position === 'left' ? 'west' : 'east'}
-              tricksLeftInDeal={tricksRemainingInDeal(state)}
-            />
-            {!pcNorthSideBySide &&
-              (isMobile && inline ? (
+        const opponentScoreControl = pcNorthSideBySide
+          ? null
+          : isMobile && inline ? (
                 <button
                   type="button"
                   className={
@@ -6591,7 +6571,49 @@ function OpponentSlot({
                   <span style={opponentStatLabelStyle}>Очки</span>
                   <span style={opponentStatValueStyle}>{p.score}</span>
                 </div>
-              ))}
+              );
+        const statsBlock = (
+          <div
+            className={
+              [
+                sideSlotPcGrow ? 'opponent-stats-west-east-pc' : undefined,
+                mobileNwLayout ? 'opponent-slot-stats-mobile-nw' : undefined,
+                eastMobileScoreBetweenHeaderAndTricks ? 'opponent-slot-stats-mobile-east' : undefined,
+              ]
+                .filter(Boolean)
+                .join(' ') || undefined
+            }
+            style={{
+              ...opponentStatsRowStyle,
+              ...(position === 'top' && inline ? { flexWrap: 'nowrap' as const } : {}),
+              ...(position === 'left' && inline && !sideSlotPcGrow ? { flexDirection: 'row-reverse' as const } : {}),
+              ...(pcNorthSideBySide
+                ? { flex: 1, minWidth: 0, justifyContent: 'flex-end', alignItems: 'center' }
+                : {}),
+              ...(sideSlotPcGrow
+                ? {
+                    flexDirection: 'column' as const,
+                    alignItems: 'stretch' as const,
+                    gap: 8,
+                    width: '100%',
+                  }
+                : {}),
+            }}
+          >
+            <TrickSlotsDisplay
+              bid={displayBid}
+              tricksTaken={p.tricksTaken}
+              variant="opponent"
+              horizontalOnly={position === 'top' && inline}
+              collectingCards={collectingCards}
+              compactMode={compactMode}
+              eastMobileTricks={position === 'right' && !!isMobile && displayBid !== null && displayBid > 0}
+              opponentMobileHideOrderLabel={!!isMobile}
+              opponentMobileZeroOrderCross={!!isMobile}
+              opponentOrderHintSlot={position === 'top' ? 'north' : position === 'left' ? 'west' : 'east'}
+              tricksLeftInDeal={tricksRemainingInDeal(state)}
+            />
+            {!eastMobileScoreBetweenHeaderAndTricks ? opponentScoreControl : null}
           </div>
         );
         if (pcNorthSideBySide) {
@@ -6615,6 +6637,7 @@ function OpponentSlot({
         return (
           <>
             {headerBlock}
+            {eastMobileScoreBetweenHeaderAndTricks ? opponentScoreControl : null}
             {statsBlock}
           </>
         );
@@ -8807,6 +8830,14 @@ const playerStyle: React.CSSProperties = {
   borderTopRightRadius: 18,
 };
 
+/** Мобильная панель Юга: только поток под рукой (без fixed/bottom из playerStyle — они для ПК-полосы внизу экрана). */
+const playerStyleMobilePanelShell: React.CSSProperties = {
+  position: 'relative',
+  width: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
+};
+
 const playerInfoPanelStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -8827,6 +8858,33 @@ const playerInfoPanelStyle: React.CSSProperties = {
   maxWidth: 800,
   marginLeft: 'auto',
   marginRight: 'auto',
+};
+
+/** Телефон (viewport-mobile): внутренняя карточка Юга над подложкой — ×1.5 к базовым размерам playerInfoPanelStyle. ПК не использует. */
+const MOBILE_SOUTH_PLAYER_CARD_SCALE = 1.5;
+const playerInfoPanelStyleMobileSouth: React.CSSProperties = {
+  gap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+  marginBottom: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+  borderRadius: Math.round(14 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+  border: '2px solid rgba(34, 211, 238, 0.6)',
+};
+const playerInfoHeaderStyleMobileSouth: React.CSSProperties = {
+  gap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+};
+const playerStatsRowStyleMobileSouth: React.CSSProperties = {
+  gap: Math.round(10 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+};
+const playerStatBadgeScoreStyleMobileSouth: React.CSSProperties = {
+  minWidth: Math.round(53 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+  padding: `${Math.round(4 * MOBILE_SOUTH_PLAYER_CARD_SCALE)}px ${Math.round(10 * MOBILE_SOUTH_PLAYER_CARD_SCALE)}px`,
+  borderRadius: Math.round(10 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+};
+const playerStatLabelStyleMobileSouth: React.CSSProperties = {
+  fontSize: Math.round(9 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+  marginBottom: Math.round(1 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+};
+const playerStatValueStyleMobileSouth: React.CSSProperties = {
+  fontSize: Math.round(18 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
 };
 
 const playerInfoHeaderStyle: React.CSSProperties = {

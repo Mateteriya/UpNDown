@@ -1285,24 +1285,17 @@
     overflow-x: hidden !important;
     --game-table-surface-height: min(236px, 40.9vh) !important; /* было min(260px, 45vh) */
     /*
-     * Юг (моб.): единый горизонтальный inset — фиксированный px (рамка руки: padding на .game-mobile-hand-attached;
-     * панель: padding-inline на .game-mobile-player-panel). Не clamp/vw — отступы не сжимаются при узком экране.
+     * Юг (моб.): горизонтальный inset = у стола (--game-table-padding), та же линия, что левый/правый край
+     * рамки стола и боковые отступы панелей Запад/Север/Восток (см. padding слотов top-row и .game-center-table outer).
      */
-    --mobile-south-strip-inset-x: 18px;
+    --mobile-south-strip-inset-x: var(--game-table-padding, 6px);
     /* Ряд «стол + ИИ-Восток»: горизонтальный зазор стол|Восток; тот же px — вертикаль: Запад/Север→стол+Восток; стол→полоса карт Юга (.game-mobile-table-and-hand gap). */
     --mobile-table-east-gap: 5px;
     --mobile-east-col-min: 95px;
     --mobile-east-col-max: 125px;
   }
 
-  /* <400px: ещё шире inset (см. mobileSouthStripInsetPx в GameTable.tsx). */
-  @media (max-width: 399px) {
-    .game-table-root.viewport-mobile {
-      --mobile-south-strip-inset-x: 24px;
-    }
-  }
-
-  /* Опустить стол и панель Юга к низу страницы, заполняя экран адаптивно */
+  /* Мобильный основной блок: колонка под шапкой, заполняет доступную высоту (панель Юга в потоке — в .game-mobile-hand-user-stack). */
   .game-table-root.viewport-mobile .game-table-block-mobile {
     display: flex !important;
     flex-direction: column !important;
@@ -1330,7 +1323,7 @@
   .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-bottom-row {
     flex: 0 1 auto !important;
     min-height: 0 !important;
-    max-height: min(42vh, 220px) !important;
+    max-height: min(63vh, 330px) !important;
     overflow: hidden !important;
     margin-top: 0 !important;
     position: relative !important;
@@ -1343,7 +1336,7 @@
   }
   /* Онлайн-чат: чуть больше вертикали под панель юга + док */
   .game-table-root.viewport-mobile.game-mobile-table-chat .game-table-block-mobile .game-mobile-bottom-row {
-    max-height: min(58vh, 340px) !important;
+    max-height: min(87vh, 510px) !important;
   }
   .game-table-root.viewport-mobile .table-chat-dock {
     box-sizing: border-box;
@@ -1485,9 +1478,9 @@
   .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-attached {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
-    /* Зазор стол→рука задаётся gap у .game-mobile-table-and-hand; сверху руки без доп. padding */
+    /* Зазор стол→рука задаётся gap у .game-mobile-table-and-hand; сверху руки без доп. padding; 3px до панели Юга — gap у .game-mobile-hand-user-stack */
     padding-top: 0 !important;
-    padding-bottom: 6px !important;
+    padding-bottom: 0 !important;
     padding-inline: var(--mobile-south-strip-inset-x, 18px) !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -2716,43 +2709,6 @@
     align-items: stretch !important;
     justify-content: flex-start !important;
   }
-  /* Восток: «Очки» — компактно над нижними бейджами, цвет текста #d869e5 */
-  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge {
-    display: inline-flex !important;
-    position: absolute !important;
-    left: 50% !important;
-    right: auto !important;
-    top: auto !important;
-    bottom: 30px !important;
-    transform: translateX(-50%) !important;
-    z-index: 2 !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 0 !important;
-    padding: 1px 4px 2px !important;
-    box-sizing: border-box !important;
-    max-height: 31px !important;
-    min-height: 0 !important;
-    min-width: 0 !important;
-    max-width: calc(100% - 4px) !important;
-    overflow: hidden !important;
-    border-width: 1px !important;
-  }
-  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge > span:first-child {
-    font-size: 8px !important;
-    line-height: 1 !important;
-  }
-  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge > span:last-child {
-    font-size: 10px !important;
-    line-height: 1 !important;
-    font-weight: 800 !important;
-  }
-  .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.score-badge-leader {
-    border-width: 1px !important;
-    padding: 0 3px 1px !important;
-    max-height: 31px !important;
-  }
   /* Бейдж «Сдающий» в панели Восток — полоса на всю ширину панели у нижнего края */
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-east > .dealer-badge {
     top: auto !important;
@@ -2945,17 +2901,26 @@
     bottom: auto !important;
   }
 
-  /* Панель Юга (игрока) — компактно, не уходит за нижнюю границу экрана */
+  /*
+   * Панель Юга: ровно 120px по border-box (без min(57vh, …) — иначе на разных устройствах
+   * срабатывало меньшее из 57vh и 120px и высота «плавала» 84–96px и т.д.).
+   */
   .game-table-root.viewport-mobile .game-mobile-player,
   .game-table-root.viewport-mobile .game-mobile-player-wrap {
-    max-height: min(38vh, 200px) !important;
+    max-height: none !important;
     min-height: 0 !important;
+    flex-shrink: 0 !important;
   }
   .game-table-root.viewport-mobile .game-mobile-player-panel {
-    max-height: min(38vh, 200px) !important;
-    min-height: 0 !important;
-    padding-top: 4px !important;
-    padding-bottom: 3px !important;
+    height: 120px !important;
+    min-height: 120px !important;
+    max-height: 120px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding-top: 6px !important;
+    padding-bottom: 5px !important;
     padding-inline: var(--mobile-south-strip-inset-x, 18px) !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
@@ -2978,8 +2943,8 @@
   .game-table-root.trump-highlight-on.viewport-mobile .user-player-panel.player-info-panel-your-turn::before {
     content: '';
     position: absolute;
-    inset: 3px;
-    border-radius: 11px;
+    inset: 5px;
+    border-radius: 17px;
     pointer-events: none;
     z-index: 0;
     box-shadow:
@@ -2993,10 +2958,10 @@
     z-index: 1;
   }
   .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info {
-    padding-top: 3px !important;
-    padding-bottom: 3px !important;
-    gap: 2px !important;
-    margin-bottom: 2px !important;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+    gap: 3px !important;
+    margin-bottom: 3px !important;
     align-items: flex-start !important;
     text-align: left !important;
   }
@@ -3007,11 +2972,11 @@
   }
   .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info .game-mobile-player-info,
   .game-table-root.viewport-mobile .game-mobile-player-info > div:first-child {
-    font-size: 12px !important;
+    font-size: 18px !important;
   }
   .game-table-root.viewport-mobile .game-mobile-player-info .player-stat-value,
   .game-table-root.viewport-mobile .game-mobile-player-info > div:nth-child(2) > div > span:last-child {
-    font-size: 14px !important;
+    font-size: 27px !important;
   }
 }
 
@@ -3135,6 +3100,28 @@
     0 2px 14px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
 }
+
+/* Мобильный Восток: только полоса заказа (бейдж «Очки» — между шапкой и этим блоком в GameTable). Ровно 3px между «Очки» и панелькой заказа. */
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.opponent-slot-east > button.opponent-score-badge.opponent-score-badge--mobile-toggle {
+  margin-bottom: 0 !important;
+}
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.opponent-slot-east .opponent-slot-stats-mobile-east {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  /* flex-start: заказ сразу под «Очки» (3px margin-top); center раздувал зазор на всю высоту слота */
+  justify-content: flex-start !important;
+  gap: 6px !important;
+  margin-top: 3px !important;
+}
+/* Под «Очки» зазор только margin-top обёртки (3px); общий margin-top:10px у .trick-slots-east-mobile здесь отключаем */
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.opponent-slot-east .opponent-slot-stats-mobile-east .trick-slots-east-mobile {
+  margin-top: 0 !important;
+}
+
 .game-table-root .opponent-slot-header {
   flex-wrap: nowrap !important;
 }
@@ -3779,14 +3766,20 @@
   overflow: visible !important;
 }
 /* Мобильная панель игрока (Юг): слева шапка (аватар+имя), справа колонка — по вертикали центр относительно высоты панели */
+.game-table-root.viewport-mobile .game-mobile-player-panel > .game-mobile-player-info.user-player-panel {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
 .game-table-root.viewport-mobile .game-mobile-player-info.user-player-panel {
   position: relative !important;
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: center !important;
-  gap: 6px !important;
-  padding-right: 6px !important;
+  gap: 9px !important;
+  /* Симметричный внутренний отступ карточки: раньше был только padding-right — аватар прижимался к левому краю */
+  padding-inline: 12px !important;
 }
 .game-table-root.viewport-mobile .game-mobile-player-info.user-player-panel > div:first-child {
   flex: 1 1 0 !important;
@@ -3796,15 +3789,15 @@
   display: flex !important;
   flex-direction: column !important;
   align-items: flex-end !important;
-  gap: 4px !important;
+  gap: 6px !important;
   flex-shrink: 0 !important;
-  max-width: min(50vw, 210px) !important;
+  max-width: min(50vw, 315px) !important;
 }
 .game-table-root.viewport-mobile .user-player-panel .player-mobile-south-tricks-column {
   flex-direction: column !important;
   flex-wrap: nowrap !important;
   align-items: flex-end !important;
-  gap: 4px !important;
+  gap: 6px !important;
   padding-bottom: 0 !important;
   margin-bottom: 0 !important;
   width: auto !important;
