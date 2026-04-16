@@ -553,11 +553,18 @@ function useIsMobileOrTablet() {
   return match;
 }
 
-/** Только мобильная версия (<600px). Планшет и ПК = false. */
+/**
+ * Компактный стол (viewport-mobile): узкий портрет ИЛИ «низкий» ландшафт на телефоне.
+ * Иначе при повороте ширина >600px снимала viewport-mobile, а высота мала — оставалась ПК-вёрстка и ломались карты.
+ */
+const MOBILE_VIEWPORT_MQ = '(max-width: 600px), (max-width: 1024px) and (max-height: 560px)';
+
 function useIsMobile() {
-  const [match, setMatch] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 600px)').matches);
+  const [match, setMatch] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_VIEWPORT_MQ).matches,
+  );
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 600px)');
+    const mq = window.matchMedia(MOBILE_VIEWPORT_MQ);
     const handler = () => setMatch(mq.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
@@ -1704,7 +1711,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     isMobile && (displayState.phase === 'bidding' || displayState.phase === 'dark-bidding')
       ? ' game-phase-bidding'
       : '';
-  /** Бескозырка (раздачи 21–24): цветовая тема в CSS (.deal-type-no-trump) — мобильная и ПК */
+  /** Бескозырка (21–24): класс .deal-type-no-trump — в CSS только фон/перекраска; мобильная вёрстка не меняется (см. index.css комментарий у viewport-mobile.deal-type-no-trump). */
   const dealTypeNoTrump = getDealType(displayState.dealNumber) === 'no-trump';
   const dealTypeDark = getDealType(displayState.dealNumber) === 'dark';
   /** ПК: кликабельный бейдж «Бескозырка» с тултипом, пока идут торги */
@@ -1826,7 +1833,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     );
   };
 
-  /* Мобильная вёрстка (viewport-mobile при width ≤600px): рука внизу, слоты взятки в сетке 2×2, козырь на колоде; стили в index.css @media (max-width: 1024px) .game-table-root.viewport-mobile */
+  /* Мобильная вёрстка (viewport-mobile — см. MOBILE_VIEWPORT_MQ): рука внизу, слоты в сетке 2×2; стили в index.css вместе с @media для компактного вьюпорта */
   return (
     <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}`} style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}>
       {isOnline && online.userOnPause && (
@@ -2902,17 +2909,28 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             </div>
           </div>
           <div className="game-center-spacer-top" style={centerAreaSpacerTopStyle} aria-hidden />
-          <div className="game-mobile-table-and-hand" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0, width: '100%', padding: 0, boxSizing: 'border-box' }}>
+          <div
+            className="game-mobile-table-and-hand"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              gap: 'var(--mobile-table-east-gap, 5px)',
+              width: '100%',
+              padding: 0,
+              boxSizing: 'border-box',
+            }}
+          >
           <div
             className="game-center-area game-mobile-center"
             style={{
               ...centerAreaStyle,
               flexDirection: 'row',
               flexWrap: 'nowrap',
-              alignItems: 'flex-start',
+              alignItems: 'stretch',
               width: '100%',
               maxWidth: '100%',
-              gap: 12,
+              gap: 'var(--mobile-table-east-gap, 5px)',
               marginLeft: 0,
               marginRight: 0,
               ...(isAITurn ? { cursor: 'pointer' } : {}),
@@ -3177,7 +3195,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && !isMobile && (
           <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
         )}
-            <div className="game-center-east game-mobile-east" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div
+              className="game-center-east game-mobile-east"
+              style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', alignSelf: 'stretch' }}
+            >
               <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.avatarDataUrl ?? undefined}
                 replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.replacedUserId}
@@ -5532,7 +5553,12 @@ function TrickSlotsDisplay({
         const naturalH = rows * base + Math.max(0, rows - 1) * gap;
         const eastCapRows = 3;
         const eastCapH = eastCapRows * base + (eastCapRows - 1) * gap;
-        const wMax = 52;
+        /** Ширина колонки Востока ≈ clamp(95px, 22vw, 125px); минус паддинги слота и плашки заказа — бюджет под сетку 3×3 без вылезания */
+        const eastColPx =
+          typeof window !== 'undefined'
+            ? Math.min(125, Math.max(95, Math.round(window.innerWidth * 0.22)))
+            : 100;
+        const wMax = Math.max(44, eastColPx - 26);
         const eastExtraW = extra > 0 && !hideCards ? gap + plusW : 0;
         const wS = wMax / Math.max(naturalW + eastExtraW, 1);
         const hRowS = eastCapH / Math.max(naturalH, 1);
@@ -6048,7 +6074,11 @@ function OpponentSlot({
   const isActive = state.currentPlayerIndex === index;
   const isDealer = state.dealerIndex === index;
   const bid = state.bids[index];
-  /** QA/вёрстка: ?debugOpponentBid=9 — все соперники; ?debugOpponentBid1=9&debugOpponentBid2=9 — Север и Запад (индексы 1 и 2) */
+  /**
+   * QA/вёрстка заказа на панели оппонента (только отображение, не состояние партии):
+   * - ?debugOpponentBid=9 — все слоты OpponentSlot (1–3);
+   * - ?debugOpponentBid3=9 — только ИИ-Восток (канон. индекс 3); 1=Север, 2=Запад.
+   */
   const debugBid = (() => {
     if (typeof window === 'undefined') return null;
     const params = new URLSearchParams(window.location.search);
@@ -6081,12 +6111,11 @@ function OpponentSlot({
   const mobileActiveName = isMobile && isActive;
   /** Мобильный верхний ряд: Запад/Север — особая вёрстка (аватар крупнее, заказ по центру по вертикали). */
   const mobileNwLayout = Boolean(isMobile && inline && (position === 'left' || position === 'top'));
+  /** Мобильная колонка Восток: тот же базовый размер, что у Запад/Север (40), и общие правила кольца заказа */
+  const eastMobileLargeAvatar = Boolean(isMobile && inline && position === 'right');
+  /** Компакт: при кольце заказа (игра, взято/заказ) — лицо ×0.95; без кольца (заказ и т.п.) — полные 40/32 */
   const avatarSizePx = compactMode
-    ? position === 'right'
-      ? 32
-      : mobileNwLayout
-        ? 40
-        : 32
+    ? Math.round((mobileNwLayout || eastMobileLargeAvatar ? 40 : 32) * (avatarOrderRingMode ? 0.95 : 1))
     : 38;
   const eastMobileOnlyAvatar = position === 'right' && isMobile;
   /** ПК, слот «Север» над столом: аватар и имя слева, взятки и очки справа (мобильная не трогается). */
@@ -6373,14 +6402,8 @@ function OpponentSlot({
               alignItems: 'center',
               justifyContent: 'center',
               borderRadius: '50%',
-              padding:
-                avatarOrderRingMode === 'exact'
-                  ? isMobile
-                    ? 1
-                    : 2
-                  : isMobile
-                    ? 2
-                    : 4,
+              /* Мобильная: ободок кольца — padding 6px; ПК: exact 2 / chasing 4 */
+              padding: isMobile ? 6 : avatarOrderRingMode === 'exact' ? 2 : 4,
               boxSizing: 'border-box',
               lineHeight: 0,
               ...(avatarOrderRingMode === 'exact' ? { background: AVATAR_ORDER_RING_GRADIENT_EXACT } : {}),

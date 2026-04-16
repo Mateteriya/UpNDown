@@ -59,10 +59,10 @@
     0 0 56px rgba(99, 102, 241, 0.32) !important;
 }
 
-/* Имена оппонентов и игрока — сплошной цвет */
+/* Имена оппонентов и игрока — сплошной цвет (в т.ч. .opponent-slot-header-display-name у С/З/В) */
 .theme-neon .game-table-root.viewport-mobile .opponent-slot-header .player-panel-name,
 .theme-neon .game-table-root.viewport-mobile .opponent-slot-header > span:not([class]),
-.theme-neon .game-table-root.viewport-mobile .opponent-slot-header .opponent-name-east-mobile {
+.theme-neon .game-table-root.viewport-mobile .opponent-slot-header .opponent-slot-header-display-name {
   background: none !important;
   background-clip: unset !important;
   -webkit-background-clip: unset !important;
