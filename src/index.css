@@ -2234,13 +2234,21 @@
   }
 
   /* Панели Север и Запад в одном ряду — одинаковые по размеру и виду */
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north,
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west {
+  /* Север: карточка по центру своей половины. Запад: влево — общая вертикаль с левым краем стола (.game-center-table align-items). */
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north {
     flex: 1 1 0 !important;
     min-width: 0 !important;
     max-width: none !important;
     display: flex !important;
     justify-content: center !important;
+    align-items: stretch !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    display: flex !important;
+    justify-content: flex-start !important;
     align-items: stretch !important;
   }
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div,
@@ -2425,7 +2433,7 @@
     flex: 1 1 auto !important;
     min-width: 0 !important;
     justify-content: flex-start !important;
-    align-items: center !important;
+    align-items: flex-start !important;
   }
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east {
     width: auto !important;

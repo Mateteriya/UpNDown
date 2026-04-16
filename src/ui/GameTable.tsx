@@ -2866,7 +2866,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 </div>
               )}
             </div>
-            <div className="game-mobile-top-row" style={{ ...gameInfoTopRowStyle, justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div className="game-mobile-top-row" style={{ ...gameInfoTopRowStyle, justifyContent: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
             <div className="game-mobile-slot-west" style={{ display: 'flex', flexShrink: 0 }}>
               <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.avatarDataUrl ?? undefined}
@@ -2915,7 +2915,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               gap: 12,
               marginLeft: 0,
               marginRight: 0,
-              transform: 'translateX(-28px)',
               ...(isAITurn ? { cursor: 'pointer' } : {}),
             }}
             onClick={isAITurn ? accelerateAI : undefined}
