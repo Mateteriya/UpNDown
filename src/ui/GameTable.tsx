@@ -68,7 +68,8 @@ const USER_PANEL_GARLAND_VIOLET_PHASE = 5;
 /** Пороги layout viewport (CSS px) — только при ровно 9 карт в руке (любой режим раздачи). */
 const MOBILE_HAND_9_WIDE412_MIN_VW = 412;
 const MOBILE_HAND_9_WIDE_MIN_VW = 400;
-const MOBILE_HAND_9_MID_MIN_VW = 370;
+/** При 9 картах: ширина ≥360 px — без нахлёста (slotPadding 0); ниже 360 — ступени нахлёста (раньше порог был 370). */
+const MOBILE_HAND_9_MID_MIN_VW = 360;
 const MOBILE_HAND_9_OVERLAP_MIN_VW = 330;
 /** 313–329: средний нахлёст; ≤312 — максимальное сжатие ряда */
 const MOBILE_HAND_9_ULTRA_TIGHT_MAX_VW = 312;
@@ -150,7 +151,7 @@ type MobileNineCardHandLayout = {
 };
 
 /**
- * Раскладка мобильной руки. 9 карт — ступени по vw; 8 при vw≤MOBILE_HAND_8_NARROW_MAX_VW — те же нахлёсты, что у девятки;
+ * Раскладка мобильной руки. 9 карт — ступени по vw (без нахлёста от MOBILE_HAND_9_MID_MIN_VW); 8 при vw≤MOBILE_HAND_8_NARROW_MAX_VW — те же нахлёсты, что у девятки;
  * ≤7 при vw<292 — сжатый ряд с нахлёстом.
  */
 function getMobileNineCardHandLayout(vw: number, handLen: number): MobileNineCardHandLayout {
@@ -855,6 +856,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [userTurnStrongNudgePc, setUserTurnStrongNudgePc] = useState(false);
   /** Мобильная панель юга: та же гирлянда, через USER_PANEL_GARLAND_DELAY_MOBILE_MS, только playing и пока нет pendingTrickCompletion. */
   const [userTurnGarlandReadyMobile, setUserTurnGarlandReadyMobile] = useState(false);
+  /** Мобильная панель Юга: подпись «Очки» у бейджа очков (как у оппонентов, тап переключает). */
+  const [mobileSouthUserScoreExpanded, setMobileSouthUserScoreExpanded] = useState(false);
   const [lastTrickCollectingPhase, setLastTrickCollectingPhase] = useState<'idle' | 'slots' | 'winner' | 'collapsing' | 'button'>('idle');
   const [showDealResultsButton, setShowDealResultsButton] = useState(false);
   const [dealResultsExpanded, setDealResultsExpanded] = useState(false);
@@ -914,6 +917,12 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     const t = setTimeout(() => setShowDealContractHelp(false), 5500);
     return () => clearTimeout(t);
   }, [showDealContractHelp]);
+
+  useEffect(() => {
+    if (!mobileSouthUserScoreExpanded) return;
+    const id = window.setTimeout(() => setMobileSouthUserScoreExpanded(false), 5000);
+    return () => window.clearTimeout(id);
+  }, [mobileSouthUserScoreExpanded]);
 
   useEffect(() => {
     if (!showPcNoTrumpModeTooltip) return;
@@ -1710,7 +1719,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     isMobile && (displayState.phase === 'bidding' || displayState.phase === 'dark-bidding')
       ? ' game-phase-bidding'
       : '';
-  /** Бескозырка (21–24): класс .deal-type-no-trump — в CSS только фон/перекраска; мобильная вёрстка не меняется (см. index.css комментарий у viewport-mobile.deal-type-no-trump). */
+  /** Бескозырка (21–24): класс .deal-type-no-trump — в CSS только фон/перекраска; мобильная вёрстка не меняется (см. index.css у .viewport-mobile.deal-type-no-trump). */
   const dealTypeNoTrump = getDealType(displayState.dealNumber) === 'no-trump';
   const dealTypeDark = getDealType(displayState.dealNumber) === 'dark';
   /** ПК: кликабельный бейдж «Бескозырка» с тултипом, пока идут торги */
@@ -3396,88 +3405,182 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             return { boxShadow: [baseShadow, firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', ') };
           })() : {}),
         }}>
-          <div style={{ ...playerInfoHeaderStyle, ...(isMobile ? playerInfoHeaderStyleMobileSouth : {}) }}>
-            {renderUserPlayerAvatar(isMobile ? Math.round(34 * MOBILE_SOUTH_PLAYER_CARD_SCALE) : isMobileOrTablet ? 34 : 38)}
-            <span style={{ ...playerNameDealerWrapStyle, ...(isMobile ? { gap: Math.round(6 * MOBILE_SOUTH_PLAYER_CARD_SCALE) } : {}) }}>
-              <span
-                className={['player-panel-name', isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? 'your-turn-prompt' : ''].filter(Boolean).join(' ')}
-                style={{
-                  ...playerNameStyle,
-                  ...(isMobile ? { fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE) } : {}),
-                  ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
-                  ...(isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? yourTurnPromptStyle : {}),
-                }}
-                title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
-              >
-                {isMobile && showYourTurnPrompt && (isHumanTurn || isHumanBidding)
-                  ? (state.phase === 'playing' ? 'Ваш ход!' : 'Ваш заказ!')
-                  : displayState.players[humanIdx].name}
-              </span>
-              {state.dealerIndex === humanIdx && (
-                isMobileOrTablet && state.phase === 'playing' ? (
-                  <button type="button" className="dealer-badge-compact-mobile" style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={() => setShowDealerTooltip(true)} title="Сдающий" aria-label="Сдающий">
-                    <span style={dealerLampBulbStyle} /><span className="dealer-badge-text" aria-hidden>Сдающий</span>
-                  </button>
-                ) : (
-                  <span style={dealerLampStyle} title="Сдающий">
-                    <span style={dealerLampBulbStyle} /> Сдающий
-                  </span>
-                )
-              )}
-              {isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx && (
-                <span style={firstBidderLampStyle} title="Первый заказ/ход">
-                  <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
-                </span>
-              )}
-            </span>
-          </div>
-          <div className="player-mobile-south-tricks-column" style={{ ...playerStatsRowStyle, ...(isMobile ? playerStatsRowStyleMobileSouth : {}) }}>
             <div
-              className={['player-score-badge', isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : ''].filter(Boolean).join(' ')}
-              style={{ ...playerStatBadgeScoreStyle, ...(isMobile ? playerStatBadgeScoreStyleMobileSouth : {}) }}
+              className="game-mobile-user-south-main"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'max-content 1fr',
+                gridTemplateRows: 'auto auto',
+                columnGap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                rowGap: Math.round(4 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                alignItems: 'start',
+                width: '100%',
+                flex: '1 1 0',
+                minWidth: 0,
+              }}
             >
-              <span style={{ ...playerStatLabelStyle, ...(isMobile ? playerStatLabelStyleMobileSouth : {}) }}>Очки</span>
-              <span style={{ ...playerStatValueStyle, ...(isMobile ? playerStatValueStyleMobileSouth : {}) }}>{state.players[humanIdx].score}</span>
-            </div>
-            <TrickSlotsDisplay
-              bid={state.bids[humanIdx] ?? null}
-              tricksTaken={state.players[humanIdx].tricksTaken}
-              variant="player"
-              collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
-              compactMode={isMobileOrTablet}
-              playerMobileWideTricks={isMobile}
-              tricksLeftInDeal={tricksRemainingInDeal(state)}
-            />
-            {shouldShowBidPanel && bidPanelVisible && !isMobile && (
-              <div className="bid-panel bid-panel-inline bid-panel-bottom" style={bidPanelInlineStyle} aria-label="Выбор заказа">
-                <span className="bid-panel-title bid-panel-title-inline" style={bidPanelInlineTitleStyle}>
-                  {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
-                </span>
-                <div className="bid-panel-grid" style={bidSidePanelGrid}>
-                  {Array.from({ length: state.tricksInDeal + 1 }, (_, i) => {
-                    const disabled = invalidBid === i;
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        className="bid-panel-btn"
-                        disabled={disabled}
-                        onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
-                        onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
-                        style={{
-                          ...bidSidePanelButtonMobile,
-                          ...(disabled ? bidSidePanelButtonDisabledMobile : {}),
-                        }}
-                        title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
-                      >
-                        {i}
-                      </button>
-                    );
-                  })}
+              <div
+                className="game-mobile-user-south-avatar-stack"
+                style={{
+                  gridColumn: 1,
+                  gridRow: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  flexShrink: 0,
+                  marginTop: 0,
+                }}
+              >
+                {renderUserPlayerAvatar(
+                  Math.round(34 * MOBILE_SOUTH_PLAYER_CARD_SCALE * MOBILE_SOUTH_USER_AVATAR_RELATIVE_SCALE),
+                )}
+              </div>
+              <div
+                className="game-mobile-user-south-score-cell"
+                style={{
+                  gridColumn: 1,
+                  gridRow: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'stretch',
+                  justifyContent: 'center',
+                  minWidth: 0,
+                  alignSelf: 'center',
+                }}
+              >
+                <button
+                  type="button"
+                  className={[
+                    'opponent-score-badge',
+                    'opponent-score-badge--mobile-toggle',
+                    isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : '',
+                    'opponent-score-badge--slot-east',
+                    mobileSouthUserScoreExpanded
+                      ? 'opponent-score-badge--score-expanded'
+                      : 'opponent-score-badge--score-label-collapsed',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  style={{
+                    ...opponentStatBadgeScoreStyle,
+                    cursor: 'pointer',
+                    font: 'inherit',
+                    margin: 0,
+                    boxSizing: 'border-box',
+                    WebkitTapHighlightColor: 'transparent',
+                    width: '100%',
+                  }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    setMobileSouthUserScoreExpanded(v => !v);
+                  }}
+                  aria-expanded={mobileSouthUserScoreExpanded}
+                  title={mobileSouthUserScoreExpanded ? 'Скрыть подпись «Очки»' : 'Показать подпись «Очки»'}
+                  aria-label={
+                    mobileSouthUserScoreExpanded
+                      ? `Очки игрока ${state.players[humanIdx].score}, скрыть подпись`
+                      : `${state.players[humanIdx].score} очков, показать подпись`
+                  }
+                >
+                  {mobileSouthUserScoreExpanded ? (
+                    <span style={opponentStatStyleWithoutTextColor(opponentStatLabelStyle)}>Очки</span>
+                  ) : null}
+                  <span style={opponentStatStyleWithoutTextColor(opponentStatValueStyle)}>
+                    {state.players[humanIdx].score}
+                  </span>
+                </button>
+              </div>
+              <div
+                className="game-mobile-user-south-right-col"
+                style={{
+                  gridColumn: 2,
+                  gridRow: 1,
+                  minWidth: 0,
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'stretch',
+                }}
+              >
+                <div style={{ ...playerInfoHeaderStyle, ...playerInfoHeaderStyleMobileSouth, alignItems: 'flex-start' }}>
+                  <span
+                    style={{
+                      ...playerNameDealerWrapStyle,
+                      gap: Math.round(6 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                      flex: '1 1 0',
+                      width: '100%',
+                      minWidth: 0,
+                    }}
+                  >
+                    <span
+                      className={['player-panel-name', showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? 'your-turn-prompt' : ''].filter(Boolean).join(' ')}
+                      style={{
+                        ...playerNameStyle,
+                        fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                        ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
+                        ...(showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? yourTurnPromptStyle : {}),
+                      }}
+                      title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
+                    >
+                      {showYourTurnPrompt && (isHumanTurn || isHumanBidding)
+                        ? (state.phase === 'playing' ? 'Ваш ход!' : 'Ваш заказ!')
+                        : displayState.players[humanIdx].name}
+                    </span>
+                    {state.dealerIndex === humanIdx &&
+                      (isMobileOrTablet && state.phase === 'playing' ? (
+                        <button
+                          type="button"
+                          className="dealer-badge-compact-mobile"
+                          style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                          onClick={() => setShowDealerTooltip(true)}
+                          title="Сдающий"
+                          aria-label="Сдающий"
+                        >
+                          <span style={dealerLampBulbStyle} />
+                          <span className="dealer-badge-text" aria-hidden>
+                            Сдающий
+                          </span>
+                        </button>
+                      ) : (
+                        <span style={dealerLampStyle} title="Сдающий">
+                          <span style={dealerLampBulbStyle} /> Сдающий
+                        </span>
+                      ))}
+                    {(state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                      state.bids.some(b => b === null) &&
+                      state.trickLeaderIndex === humanIdx && (
+                        <span style={firstBidderLampStyle} title="Первый заказ/ход">
+                          <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
+                        </span>
+                      )}
+                  </span>
                 </div>
               </div>
-            )}
-          </div>
+              <div
+                className="player-mobile-south-tricks-column game-mobile-user-south-tricks-only"
+                style={{
+                  gridColumn: 2,
+                  gridRow: 2,
+                  ...playerStatsRowStyle,
+                  ...playerStatsRowStyleMobileSouth,
+                  position: 'relative',
+                  justifySelf: 'end',
+                  alignSelf: 'center',
+                  minWidth: 0,
+                  width: '100%',
+                }}
+              >
+                <TrickSlotsDisplay
+                  bid={state.bids[humanIdx] ?? null}
+                  tricksTaken={state.players[humanIdx].tricksTaken}
+                  variant="player"
+                  collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
+                  compactMode={isMobileOrTablet}
+                  playerMobileWideTricks={isMobile}
+                  tricksLeftInDeal={tricksRemainingInDeal(state)}
+                />
+              </div>
+            </div>
           {trumpHighlightOn && userTurnGarlandReadyMobile && isUserActiveTurnForGarlandMobile ? (
             <UserPanelGarlandOverlay />
           ) : null}
@@ -5396,9 +5499,26 @@ function TrickSlotsDisplay({
   const slotSize = isCompact ? { w: 44, h: 62 } : { w: 52, h: 76 };
 
   if (bid === null) {
-    const nullWrap = compactMode ? { ...trickCirclesWrapStyle, border: '1px solid rgba(71, 85, 105, 0.5)', background: 'rgba(30, 41, 59, 0.8)', boxShadow: 'none' } : trickSlotsWrapStyle;
+    const nullWrapBase = compactMode
+      ? { ...trickCirclesWrapStyle, border: '1px solid rgba(71, 85, 105, 0.5)', background: 'rgba(30, 41, 59, 0.8)', boxShadow: 'none' as const }
+      : trickSlotsWrapStyle;
+    const sTrick = MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK;
+    const nullWrap =
+      compactMode && variant === 'player' && playerMobileWideTricks
+        ? {
+            ...nullWrapBase,
+            gap: Math.max(2, Math.round((typeof nullWrapBase.gap === 'number' ? nullWrapBase.gap : 3) * sTrick)),
+            padding: `${Math.max(2, Math.round(4 * sTrick))}px ${Math.max(4, Math.round(8 * sTrick))}px`,
+            borderRadius: Math.max(5, Math.round(8 * sTrick)),
+          }
+        : nullWrapBase;
     const nullCls = [collectingCards ? 'trick-slots-collecting' : 'trick-slots-normal', eastMobileTricks ? 'trick-slots-east-mobile' : ''].filter(Boolean).join(' ');
-    const compactNullFigFont = variant === 'player' ? 10 : 9;
+    const compactNullFigFont =
+      variant === 'player'
+        ? playerMobileWideTricks
+          ? Math.max(7, Math.round(10 * MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK))
+          : 10
+        : 9;
     const nullInner = compactMode ? (
       <PcTrickBidTakenFigures
         bid={null}
@@ -5459,6 +5579,11 @@ function TrickSlotsDisplay({
 
   if (compactMode) {
     const bidNum = bid == null || Number.isNaN(Number(bid)) ? null : Number(bid);
+    /** Мобильный Юг: при заказе 0 полоска чуть крупнее (читаемость одного «нулевого» ряда). */
+    const southUserSlotShrink =
+      variant === 'player' && playerMobileWideTricks
+        ? MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK * (bid === 0 ? 1.2 : 1)
+        : MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK;
     /** Мобильная: заказ 0 — фиксированная зона с крестиком «не брать взятки» (+ перебор, если есть). */
     if (variant === 'opponent' && opponentMobileZeroOrderCross && bid === 0) {
       const zeroTone =
@@ -5555,7 +5680,10 @@ function TrickSlotsDisplay({
       const base = 14;
       const plusW = extra > 0 && !hideCards ? 14 : 0;
       const n = orderedSlots;
-      const maxContentH = 17;
+      const maxContentH =
+        variant === 'player' && playerMobileWideTricks
+          ? Math.max(9, Math.round(17 * southUserSlotShrink))
+          : 17;
       const hS = maxContentH / base;
       if (variant === 'opponent' && eastMobileTricks) {
         /** Восток: до 3 кружков в ряду, до 3 рядов (макс. 9 взяток). */
@@ -5581,7 +5709,9 @@ function TrickSlotsDisplay({
         let wMax: number;
         /** Телефон + панель игрока: лимит по высоте ряда кружков (base=14); ×1.5 к прежнему 12/base */
         const hSLocal =
-          variant === 'player' && playerMobileWideTricks ? (12 * 1.5) / base : hS;
+          variant === 'player' && playerMobileWideTricks
+            ? (12 * 1.5 * southUserSlotShrink) / base
+            : hS;
         if (variant === 'opponent' && hideOppOrderWord) {
           /**
            * Ширина под ряд кружков ≈ половина viewport минус зазор между Север/Запад и паддинги.
@@ -5592,7 +5722,7 @@ function TrickSlotsDisplay({
               ? Math.max(88, Math.min(196, Math.floor((window.innerWidth - 16) * 0.5 - 32)))
               : 132;
         } else if (variant === 'player') {
-          wMax = playerMobileWideTricks ? Math.round(168 * 1.5) : 140;
+          wMax = playerMobileWideTricks ? Math.round(168 * 1.5 * southUserSlotShrink) : 140;
         } else {
           wMax = 400;
         }
@@ -5606,7 +5736,13 @@ function TrickSlotsDisplay({
         }
       }
     }
-    const playerScale = variant === 'player' ? (1.3 * 1.1 * 1.1 * 1.15 / 1.7) : 1;
+    const basePlayerScale = variant === 'player' ? (1.3 * 1.1 * 1.1 * 1.15 / 1.7) : 1;
+    const playerScale =
+      variant === 'player' && playerMobileWideTricks
+        ? basePlayerScale * southUserSlotShrink
+        : variant === 'player'
+          ? basePlayerScale
+          : 1;
     const mobileExactOrder = bidNum != null && bidNum > 0 && !hideCards && tricksTaken === bidNum;
     const mobileOverOrder = bidNum != null && !hideCards && tricksTaken > bidNum;
     const mobileUnderStrict =
@@ -5625,12 +5761,28 @@ function TrickSlotsDisplay({
     const wrapStyle = {
       ...trickCirclesWrapStyle,
       ...mobileWrapTone,
-      ...(variant === 'player' && playerMobileWideTricks ? { gap: 2 } : {}),
+      ...(variant === 'player' && playerMobileWideTricks
+        ? { gap: Math.max(1, Math.round(2 * southUserSlotShrink)) }
+        : {}),
       ...(variant === 'player' ? {
         position: 'absolute' as const,
         right: playerMobileWideTricks ? 6 : 14,
         top: '50%',
-        padding: scaleDown < 1 ? `${Math.round(2 * scaleDown * playerScale)}px ${Math.round(6 * scaleDown * playerScale)}px` : `${Math.round(2 * playerScale)}px ${Math.round(6 * playerScale)}px`,
+        padding: (() => {
+          const v =
+            playerMobileWideTricks && scaleDown >= 1
+              ? Math.max(1, Math.round(2 * playerScale * southUserSlotShrink))
+              : scaleDown < 1
+                ? Math.round(2 * scaleDown * playerScale)
+                : Math.round(2 * playerScale);
+          const h =
+            playerMobileWideTricks && scaleDown >= 1
+              ? Math.max(3, Math.round(6 * playerScale * southUserSlotShrink))
+              : scaleDown < 1
+                ? Math.round(6 * scaleDown * playerScale)
+                : Math.round(6 * playerScale);
+          return `${v}px ${h}px`;
+        })(),
         transform: `translateY(-50%) scale(${playerScale * (scaleDown < 1 ? scaleDown : 1)})`,
         transformOrigin: 'right center',
       } : {}),
@@ -5650,7 +5802,7 @@ function TrickSlotsDisplay({
       : opponentScaleDown < 1
         ? { ...trickCirclesRowStyle, gap: Math.max(1, Math.round(4 * opponentScaleDown)) }
         : variant === 'player' && playerMobileWideTricks
-          ? { ...trickCirclesRowStyle, gap: 3 }
+          ? { ...trickCirclesRowStyle, gap: Math.max(2, Math.round(3 * southUserSlotShrink)) }
           : trickCirclesRowStyle;
     const eastGap =
       variant === 'opponent' && eastMobileTricks
@@ -5738,7 +5890,12 @@ function TrickSlotsDisplay({
           +{extra}
         </span>
       ) : null;
-    const compactFigFont = variant === 'player' ? 10 : 9;
+    const compactFigFont =
+      variant === 'player'
+        ? playerMobileWideTricks
+          ? Math.max(7, Math.round(10 * southUserSlotShrink))
+          : 10
+        : 9;
     const figuresCompact = (
       <PcTrickBidTakenFigures
         bid={bid}
@@ -5751,7 +5908,13 @@ function TrickSlotsDisplay({
         style={
           mobileNwHighBidEar
             ? { lineHeight: 1.05, marginBottom: 0 }
-            : { lineHeight: 1, marginBottom: 2 }
+            : variant === 'player' && playerMobileWideTricks
+              ? {
+                  lineHeight: 1,
+                  marginBottom: Math.max(0, Math.round(2 * southUserSlotShrink)),
+                  gap: Math.max(1, Math.round(3 * southUserSlotShrink)),
+                }
+              : { lineHeight: 1, marginBottom: 2 }
         }
       />
     );
@@ -8862,6 +9025,10 @@ const playerInfoPanelStyle: React.CSSProperties = {
 
 /** Телефон (viewport-mobile): внутренняя карточка Юга над подложкой — ×1.5 к базовым размерам playerInfoPanelStyle. ПК не использует. */
 const MOBILE_SOUTH_PLAYER_CARD_SCALE = 1.5;
+/** Аватар Юга на мобиле: ещё −15% к размеру после MOBILE_SOUTH_PLAYER_CARD_SCALE. */
+const MOBILE_SOUTH_USER_AVATAR_RELATIVE_SCALE = 0.85;
+/** Блок trick-slots у Юга на мобиле: множитель к размерам в TrickSlotsDisplay (1 — в тон масштабу панели ×MOBILE_SOUTH_PLAYER_CARD_SCALE; 2/3 делало полоску слишком мелкой). */
+const MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK = 1;
 const playerInfoPanelStyleMobileSouth: React.CSSProperties = {
   gap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
   marginBottom: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
@@ -8872,21 +9039,9 @@ const playerInfoHeaderStyleMobileSouth: React.CSSProperties = {
   gap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
 };
 const playerStatsRowStyleMobileSouth: React.CSSProperties = {
-  gap: Math.round(10 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+  /* Меньше по вертикали между «Очки» и trick-slots (торговля и игра) */
+  gap: Math.round(10 * MOBILE_SOUTH_PLAYER_CARD_SCALE * MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK),
 };
-const playerStatBadgeScoreStyleMobileSouth: React.CSSProperties = {
-  minWidth: Math.round(53 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-  padding: `${Math.round(4 * MOBILE_SOUTH_PLAYER_CARD_SCALE)}px ${Math.round(10 * MOBILE_SOUTH_PLAYER_CARD_SCALE)}px`,
-  borderRadius: Math.round(10 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-};
-const playerStatLabelStyleMobileSouth: React.CSSProperties = {
-  fontSize: Math.round(9 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-  marginBottom: Math.round(1 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-};
-const playerStatValueStyleMobileSouth: React.CSSProperties = {
-  fontSize: Math.round(18 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-};
-
 const playerInfoHeaderStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',

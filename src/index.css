@@ -1539,7 +1539,7 @@
     min-width: auto !important;
     box-sizing: border-box !important;
   }
-  /* 9 карт, vw 370–399: блок на всю ширину колонки, ряд центрируется внутри */
+  /* 9 карт, vw 360–399: блок на всю ширину колонки, ряд центрируется внутри */
   .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-attached.game-mobile-hand--9-mid370 {
     width: 100% !important;
     max-width: 100% !important;
@@ -2421,7 +2421,10 @@
   }
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.score-badge-leader,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.score-badge-leader {
+    /* Двойная рамка лидера (сирень + бирюза), тонкие линии — меньше визуального роста плашки */
     border-width: 1px !important;
+    outline: 1px solid rgba(56, 189, 248, 0.92) !important;
+    outline-offset: 1px !important;
     padding: 1px 5px 2px !important;
     max-height: 31px !important;
   }
@@ -2980,6 +2983,13 @@
   }
 }
 
+/* Юг (viewport-mobile): перебить общее .game-mobile-player-panel .game-mobile-player-info (5px/5px) — см. комментарий у .game-mobile-user-south-main в GameTable */
+/* Верх 6px: кольцо scale(1.2) не вылезает вверх; низ 4px чуть плотнее к бейджу */
+.game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info.user-player-panel {
+  padding-top: 6px !important;
+  padding-bottom: 4px !important;
+}
+
 /* Имя в панели игрока и оппонентов: строго одна строка, обрезка с «...» (не расширяем панель по высоте) */
 .game-table-root .player-panel-name {
   white-space: nowrap !important;
@@ -3150,6 +3160,14 @@
   transform: scale(1.2) !important;
   transform-origin: center center !important;
   vertical-align: middle !important;
+}
+/* Юг, мобилка: кольцо + scale(1.2) чуть ниже layout-бокса — умеренный зазор до бейджа (8px было слишком) */
+.game-table-root.viewport-mobile .user-player-panel .game-mobile-user-south-avatar-stack > .user-player-avatar-order-scale-wrap {
+  margin-bottom: 4px;
+}
+.game-table-root.viewport-mobile .user-player-panel .game-mobile-user-south-score-cell > .opponent-score-badge {
+  position: relative;
+  z-index: 2;
 }
 .game-table-root .user-player-panel .player-panel-name {
   background: linear-gradient(
@@ -3765,7 +3783,7 @@
   max-height: none !important;
   overflow: visible !important;
 }
-/* Мобильная панель игрока (Юг): слева шапка (аватар+имя), справа колонка — по вертикали центр относительно высоты панели */
+/* Мобильная панель игрока (Юг): внутренняя карточка — только прямой потомок подложки (вертикальные padding — блок выше, .user-player-panel) */
 .game-table-root.viewport-mobile .game-mobile-player-panel > .game-mobile-player-info.user-player-panel {
   flex: 1 1 auto !important;
   width: 100% !important;
@@ -3789,7 +3807,7 @@
   display: flex !important;
   flex-direction: column !important;
   align-items: flex-end !important;
-  gap: 6px !important;
+  gap: 4px !important;
   flex-shrink: 0 !important;
   max-width: min(50vw, 315px) !important;
 }
@@ -3797,51 +3815,31 @@
   flex-direction: column !important;
   flex-wrap: nowrap !important;
   align-items: flex-end !important;
-  gap: 6px !important;
+  gap: 4px !important;
   padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
+  /* +2px до нижней кромки карточки панели Юга */
+  margin-bottom: 2px !important;
   width: auto !important;
 }
 .game-table-root.viewport-mobile .user-player-panel .player-mobile-south-tricks-column .trick-slots-normal,
 .game-table-root.viewport-mobile .user-player-panel .player-mobile-south-tricks-column .trick-slots-collecting {
   position: static !important;
   transform: none !important;
-  padding: 2px 5px !important;
+  padding: 1px 3px !important;
   margin: 0 !important;
   margin-left: 0 !important;
   display: flex !important;
   align-items: center !important;
   min-height: 0 !important;
+  line-height: 1 !important;
 }
-/* Только телефон: панель заказа игрока (Юг) — чуть шире; вертикальные отступы + меньше column-gap у подписи «Заказ» */
+/* Только телефон: полоска заказа в панели Юга — в тон масштабу карточки (раньше были 2px/5px под ×2/3) */
 .game-table-root.viewport-mobile .user-player-panel .player-mobile-south-tricks-column .trick-slots-player-mobile-wide.trick-slots-normal,
 .game-table-root.viewport-mobile .user-player-panel .player-mobile-south-tricks-column .trick-slots-player-mobile-wide.trick-slots-collecting {
-  padding: 3px 7px !important;
+  padding: 4px 9px !important;
   gap: 2px !important;
   flex-shrink: 0 !important;
 }
-/* Компактнее плашка «Очки» лидера в панели Юга — чтобы колонка не разъезжалась по высоте */
-.game-table-root.viewport-mobile .game-mobile-player-info.user-player-panel .player-score-badge.score-badge-leader {
-  padding: 1px 5px !important;
-  gap: 2px !important;
-  border-width: 2px !important;
-  box-shadow:
-    inset 0 0 0 1px rgba(233, 213, 255, 0.28),
-    inset 0 0 14px rgba(167, 139, 250, 0.14),
-    0 0 12px rgba(167, 139, 250, 0.28),
-    0 0 22px rgba(139, 92, 246, 0.14),
-    0 2px 10px rgba(0, 0, 0, 0.28) !important;
-}
-.game-table-root.viewport-mobile .game-mobile-player-info.user-player-panel .player-score-badge.score-badge-leader > span:first-child {
-  font-size: 8px !important;
-  letter-spacing: 0.08em !important;
-  line-height: 1.05 !important;
-}
-.game-table-root.viewport-mobile .game-mobile-player-info.user-player-panel .player-score-badge.score-badge-leader > span:last-child {
-  font-size: 13px !important;
-  line-height: 1.05 !important;
-}
-
 /* Мобильная: ровно в заказ — плотный тёмный индиго-фиолет + двойная голубо-фиолетовая рамка */
 .game-table-root.viewport-mobile .trick-slots-order-complete.trick-slots-normal,
 .game-table-root.viewport-mobile .trick-slots-order-complete.trick-slots-collecting,
@@ -4466,10 +4464,6 @@
   outline-offset: 1.5px !important;
   box-sizing: border-box !important;
 }
-.game-table-root.viewport-mobile .user-player-panel .player-score-badge.score-badge-leader {
-  padding: 0 4px !important;
-  box-sizing: border-box !important;
-}
 .game-table-root:not(.viewport-mobile) .opponent-score-badge.opponent-score-badge-side-pc.score-badge-leader {
   padding: 2px 12px !important;
   box-sizing: border-box !important;
@@ -4485,10 +4479,11 @@
   padding: 0 4px !important;
   box-sizing: border-box !important;
 }
-/* Мобильная: одна сиреневая рамка (border); бирюзовый outline отключён — без «второго контура» */
-.game-table-root.viewport-mobile .player-score-badge.score-badge-leader,
-.game-table-root.viewport-mobile .opponent-score-badge.score-badge-leader {
-  border: 3px solid rgba(196, 181, 253, 0.96) !important;
+/* Мобильная панель Юга (игрок): одна сиреневая рамка (тоньше — вровень с уменьшенным бейджем «Очки») */
+.game-table-root.viewport-mobile .user-player-panel .player-score-badge.score-badge-leader {
+  padding: 0 4px !important;
+  box-sizing: border-box !important;
+  border: 1px solid rgba(196, 181, 253, 0.96) !important;
   outline: none !important;
   outline-offset: 0 !important;
   background: linear-gradient(
@@ -4498,11 +4493,33 @@
     rgba(15, 23, 42, 0.94) 100%
   ) !important;
   box-shadow:
+    inset 0 0 0 1px rgba(233, 213, 255, 0.34),
+    inset 0 0 14px rgba(167, 139, 250, 0.16),
+    0 0 12px rgba(167, 139, 250, 0.28),
+    0 0 20px rgba(139, 92, 246, 0.16),
+    0 2px 10px rgba(0, 0, 0, 0.34) !important;
+}
+/* Мобильные оппоненты Север / Запад / Восток — лидер по очкам: двойная рамка (сиренево-фиолетовая + бирюзово-голубая) */
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-north.score-badge-leader,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-west.score-badge-leader,
+.game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-east.score-badge-leader {
+  border: 1px solid rgba(196, 181, 253, 0.98) !important;
+  outline: 1px solid rgba(56, 189, 248, 0.92) !important;
+  outline-offset: 1px !important;
+  background: linear-gradient(
+    165deg,
+    rgba(76, 29, 149, 0.42) 0%,
+    rgba(46, 16, 101, 0.58) 40%,
+    rgba(15, 23, 42, 0.94) 100%
+  ) !important;
+  box-shadow:
     inset 0 0 0 1px rgba(233, 213, 255, 0.38),
-    inset 0 0 22px rgba(167, 139, 250, 0.22),
-    0 0 20px rgba(167, 139, 250, 0.38),
-    0 0 40px rgba(139, 92, 246, 0.22),
-    0 4px 18px rgba(0, 0, 0, 0.4) !important;
+    inset 0 0 18px rgba(167, 139, 250, 0.22),
+    0 0 10px rgba(167, 139, 250, 0.38),
+    0 0 18px rgba(139, 92, 246, 0.24),
+    0 0 14px rgba(34, 211, 238, 0.34),
+    0 0 22px rgba(56, 189, 248, 0.22),
+    0 2px 12px rgba(0, 0, 0, 0.34) !important;
 }
 .game-table-root .player-score-badge.score-badge-leader > span:first-child,
 .game-table-root .opponent-score-badge.score-badge-leader > span:first-child {
@@ -4909,7 +4926,7 @@ body {
 }
 
 /*
- * Узкий экран (<370 CSS px): scale на слоте + box-shadow на кнопке дают «плывущие» тени (субпиксель / композитинг).
+ * Узкий экран (<360 CSS px, нахлёст в руке): scale на слоте + box-shadow на кнопке дают «плывущие» тени (субпиксель / композитинг).
  * Та же фаза волны — только вертикальный сдвиг, без scale.
  */
 @keyframes mobileHandCardWaveLiftNarrow {
@@ -4922,7 +4939,7 @@ body {
   }
 }
 
-@media (max-width: 369px) {
+@media (max-width: 359px) {
   .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn > div > div {
     animation-name: mobileHandCardWaveLiftNarrow;
   }
@@ -6085,22 +6102,12 @@ body {
     inset 0 -1px 0 rgba(0, 0, 0, 0.38) !important;
 }
 
-/* Рука: без пульсирующей box-shadow-анимации (она даёт «ореолы» на цветном фоне) */
-.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn {
-  animation: none !important;
-  box-shadow:
-    0 0 0 1px rgba(186, 170, 240, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
-}
-
-/* Панель юга: убрать размытые неоновые тени, оставить кайму */
-.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-player-panel .game-mobile-player-info.user-player-panel {
+/* Панель юга вне вашего хода: без тяжёлых внешних теней на фоне бескозырки. Ваш ход — инлайн + .trump-highlight-on::before, не глушить */
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .game-mobile-player-panel
+  .game-mobile-player-info.user-player-panel:not(.player-info-panel-your-turn) {
   box-shadow: none !important;
   border: 1px solid rgba(186, 170, 240, 0.42) !important;
-}
-.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-player-panel .game-mobile-player-info.user-player-panel.player-info-panel-your-turn {
-  box-shadow: none !important;
-  border: 1px solid rgba(196, 181, 253, 0.5) !important;
 }
 
 /* Верхняя панель (кнопки): сильнее розовый неон к лаванде */
@@ -7498,7 +7505,8 @@ body.deal-results-modal-open-mobile {
 /* Свернутый бейдж «Очки» (только цифра): фон, блик, чёткое центрирование цифры — Север, Запад, Восток */
 .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed,
 .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed,
-.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed {
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed,
+.game-table-root.viewport-mobile .user-player-panel .game-mobile-user-south-score-cell .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed {
   background-color: #4617b4f2 !important;
   background-image: none !important;
   /* Лёгкая «выпуклость» по верхней кромке */
@@ -7516,7 +7524,9 @@ body.deal-results-modal-open-mobile {
 .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed > span:last-child,
 .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed > span:last-child,
 .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed > span:only-child,
-.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed > span:last-child {
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed > span:last-child,
+.game-table-root.viewport-mobile .user-player-panel .game-mobile-user-south-score-cell .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed > span:only-child,
+.game-table-root.viewport-mobile .user-player-panel .game-mobile-user-south-score-cell .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed > span:last-child {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -7527,7 +7537,8 @@ body.deal-results-modal-open-mobile {
 }
 .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed.score-badge-leader,
 .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed.score-badge-leader,
-.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed.score-badge-leader {
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed.score-badge-leader,
+.game-table-root.viewport-mobile .user-player-panel .game-mobile-user-south-score-cell .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed.score-badge-leader {
   padding: 2px 7px !important;
 }
 .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded {
@@ -7544,12 +7555,17 @@ body.deal-results-modal-open-mobile {
     0 0 14px rgba(216, 105, 229, 0.26) !important;
 }
 .game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.score-badge-leader {
+  border: 1px solid rgba(196, 181, 253, 0.98) !important;
+  outline: 1px solid rgba(56, 189, 248, 0.92) !important;
+  outline-offset: 1px !important;
   box-shadow:
-    inset 0 0 16px rgba(216, 105, 229, 0.34),
-    inset 0 0 36px rgba(167, 139, 250, 0.16),
-    inset 0 1px 0 rgba(255, 240, 255, 0.42),
-    0 0 16px rgba(216, 105, 229, 0.3),
-    0 0 26px rgba(139, 92, 246, 0.22) !important;
+    inset 0 0 14px rgba(216, 105, 229, 0.3),
+    inset 0 0 30px rgba(167, 139, 250, 0.14),
+    inset 0 1px 0 rgba(255, 240, 255, 0.4),
+    0 0 12px rgba(216, 105, 229, 0.26),
+    0 0 20px rgba(139, 92, 246, 0.2),
+    0 0 14px rgba(34, 211, 238, 0.32),
+    0 0 20px rgba(56, 189, 248, 0.2) !important;
 }
 /* Развёрнутый бейдж «Очки»+цифра: заметнее текст (Север / Запад / Восток) */
 .game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.opponent-score-badge--slot-north > span:first-child,
