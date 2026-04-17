@@ -746,6 +746,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const offlineMode = !isOnline && !isWaitingInRoom;
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
+  /** Градиент SVG звезды «ровно в заказ» у юга (моб.) — id уникален относительно оппонентов */
+  const userExactOrderStarGradientId = useId().replace(/:/g, '');
+  /** Вторая звезда (бирюзовая) на панели заказа — отдельный id градиента */
+  const userExactOrderStarOrderPanelGradientId = useId().replace(/:/g, '');
   const [mobileHandLayoutVw, setMobileHandLayoutVw] = useState(readMobileHandLayoutWidthPx);
   useLayoutEffect(() => {
     const upd = () => setMobileHandLayoutVw(readMobileHandLayoutWidthPx());
@@ -3412,7 +3416,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 gridTemplateColumns: 'max-content 1fr',
                 gridTemplateRows: 'auto auto',
                 columnGap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-                rowGap: Math.round(4 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                /* База 5×scale (~8px), −3px: плотнее между шапкой/аватаром и «Очки»/заказом */
+                rowGap: Math.max(2, Math.round(5 * MOBILE_SOUTH_PLAYER_CARD_SCALE) - 3),
                 alignItems: 'start',
                 width: '100%',
                 flex: '1 1 0',
@@ -3428,12 +3433,42 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   flexDirection: 'column',
                   alignItems: 'center',
                   flexShrink: 0,
-                  marginTop: 0,
+                  position: 'relative',
+                  overflow: 'visible',
                 }}
               >
                 {renderUserPlayerAvatar(
                   Math.round(34 * MOBILE_SOUTH_PLAYER_CARD_SCALE * MOBILE_SOUTH_USER_AVATAR_RELATIVE_SCALE),
                 )}
+                {isMobile && userOrderRingExact ? (
+                  <div
+                    className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
+                    aria-hidden
+                  >
+                    <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+                      <span className="user-exact-order-star-badge__enter" aria-hidden>
+                        <svg viewBox="0 0 24 24" width="19" height="19" focusable="false" aria-hidden>
+                          <defs>
+                            <linearGradient id={userExactOrderStarGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor="#faf5ff" />
+                              <stop offset="38%" stopColor="#ddd6fe" />
+                              <stop offset="72%" stopColor="#a78bfa" />
+                              <stop offset="100%" stopColor="#6d28d9" />
+                            </linearGradient>
+                          </defs>
+                          <path
+                            className="user-exact-order-star-path"
+                            fill={`url(#${userExactOrderStarGradientId})`}
+                            stroke="currentColor"
+                            strokeWidth="0.82"
+                            strokeLinejoin="round"
+                            d="M12 1.35l2.35 7.15h7.6L15.8 14.1l2.35 7.55L12 17.45l-6.15 4.2 2.35-7.55L2.05 8.5h7.6z"
+                          />
+                        </svg>
+                      </span>
+                    </span>
+                  </div>
+                ) : null}
               </div>
               <div
                 className="game-mobile-user-south-score-cell"
@@ -3578,6 +3613,43 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   compactMode={isMobileOrTablet}
                   playerMobileWideTricks={isMobile}
                   tricksLeftInDeal={tricksRemainingInDeal(state)}
+                  playerMobileExactOrderCornerStar={
+                    isMobile && userOrderRingExact ? (
+                      <div
+                        className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-order-panel-ne"
+                        aria-hidden
+                      >
+                        <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+                          <span className="user-exact-order-star-badge__enter" aria-hidden>
+                            <svg viewBox="0 0 24 24" width="13" height="13" focusable="false" aria-hidden>
+                              <defs>
+                                <linearGradient
+                                  id={userExactOrderStarOrderPanelGradientId}
+                                  x1="0%"
+                                  y1="0%"
+                                  x2="100%"
+                                  y2="100%"
+                                >
+                                  <stop offset="0%" stopColor="#ecfeff" />
+                                  <stop offset="32%" stopColor="#a5f3fc" />
+                                  <stop offset="68%" stopColor="#22d3ee" />
+                                  <stop offset="100%" stopColor="#0e7490" />
+                                </linearGradient>
+                              </defs>
+                              <path
+                                className="user-exact-order-star-path"
+                                fill={`url(#${userExactOrderStarOrderPanelGradientId})`}
+                                stroke="currentColor"
+                                strokeWidth="0.82"
+                                strokeLinejoin="round"
+                                d="M12 1.35l2.35 7.15h7.6L15.8 14.1l2.35 7.55L12 17.45l-6.15 4.2 2.35-7.55L2.05 8.5h7.6z"
+                              />
+                            </svg>
+                          </span>
+                        </span>
+                      </div>
+                    ) : undefined
+                  }
                 />
               </div>
             </div>
@@ -5474,6 +5546,8 @@ function TrickSlotsDisplay({
   playerMobileWideTricks,
   /** Сколько взяток ещё не сыграно в раздаче (для мягкого недобора на ПК). */
   tricksLeftInDeal,
+  /** Моб. Юг: звезда «ровно в заказ» внутри рамки панели заказа (верхний правый угол). */
+  playerMobileExactOrderCornerStar,
 }: {
   bid: number | null;
   tricksTaken: number;
@@ -5492,6 +5566,7 @@ function TrickSlotsDisplay({
   /** Только телефон (viewport-mobile): чуть шире бюджет под кружки заказа у панели игрока (слот Юг). */
   playerMobileWideTricks?: boolean;
   tricksLeftInDeal?: number;
+  playerMobileExactOrderCornerStar?: React.ReactNode;
 }) {
   const zeroCrossGradId = useId().replace(/:/g, '');
   const isCompact = variant === 'opponent';
@@ -5668,7 +5743,13 @@ function TrickSlotsDisplay({
       );
     }
 
-    let scaleDown = variant === 'player' && bid > 6 ? Math.min(1, 6 / bid) : 1;
+    /** Телефон, панель игрока: один ряд кружков — не сжимаем по «6/bid» и по высоте; только по ширине (wMax). */
+    let scaleDown =
+      variant === 'player' && playerMobileWideTricks
+        ? 1
+        : variant === 'player' && bid > 6
+          ? Math.min(1, 6 / bid)
+          : 1;
     /** Мобильная полоса без «Заказ:» (Север/Запад) — ширина слота; сжатие 5/bid не нужно, масштаб даёт wMax ниже */
     let opponentScaleDown =
       variant === 'opponent' && !eastMobileTricks && bid > 5 && !opponentMobileHideOrderLabel
@@ -5727,7 +5808,10 @@ function TrickSlotsDisplay({
           wMax = 400;
         }
         const wS = wMax / Math.max(naturalW, 1);
-        const s = Math.max(0.22, Math.min(1, wS, hSLocal));
+        const s =
+          variant === 'player' && playerMobileWideTricks
+            ? Math.max(0.22, Math.min(1, wS))
+            : Math.max(0.22, Math.min(1, wS, hSLocal));
         if (variant === 'opponent') {
           opponentScaleDown = Math.min(opponentScaleDown, s);
         }
@@ -5735,6 +5819,15 @@ function TrickSlotsDisplay({
           scaleDown = Math.min(scaleDown, s);
         }
       }
+    }
+    if (
+      compactMode &&
+      variant === 'player' &&
+      playerMobileWideTricks &&
+      typeof window !== 'undefined' &&
+      window.innerWidth < MOBILE_SOUTH_USER_TRICK_PANEL_NARROW_VIEWPORT_PX
+    ) {
+      scaleDown = Math.max(0.22, scaleDown * MOBILE_SOUTH_USER_TRICK_PANEL_NARROW_SCALE_MUL);
     }
     const basePlayerScale = variant === 'player' ? (1.3 * 1.1 * 1.1 * 1.15 / 1.7) : 1;
     const playerScale =
@@ -5797,12 +5890,20 @@ function TrickSlotsDisplay({
     }
     const opponentCircleSize = variant === 'opponent' && opponentScaleDown < 1 ? Math.max(8, Math.round(14 * opponentScaleDown)) : undefined;
     const circleSize = variant === 'player' ? playerCircleSize : opponentCircleSize;
+    const playerWideCirclesRow: CSSProperties | null =
+      variant === 'player' && playerMobileWideTricks
+        ? { ...trickCirclesRowStyle, flexWrap: 'nowrap' }
+        : null;
     const rowStyle = scaleDown < 1
-      ? { ...trickCirclesRowStyle, gap: Math.max(2, Math.round(4 * scaleDown)) }
+      ? {
+          ...trickCirclesRowStyle,
+          ...(playerWideCirclesRow ? { flexWrap: 'nowrap' as const } : {}),
+          gap: Math.max(2, Math.round(4 * scaleDown)),
+        }
       : opponentScaleDown < 1
         ? { ...trickCirclesRowStyle, gap: Math.max(1, Math.round(4 * opponentScaleDown)) }
-        : variant === 'player' && playerMobileWideTricks
-          ? { ...trickCirclesRowStyle, gap: Math.max(2, Math.round(3 * southUserSlotShrink)) }
+        : playerWideCirclesRow
+          ? { ...playerWideCirclesRow, gap: Math.max(2, Math.round(3 * southUserSlotShrink)) }
           : trickCirclesRowStyle;
     const eastGap =
       variant === 'opponent' && eastMobileTricks
@@ -5962,9 +6063,16 @@ function TrickSlotsDisplay({
         </OpponentBidCompactWrap>
       );
     }
+    const playerExactStarHost = Boolean(playerMobileExactOrderCornerStar);
+    const wrapStylePlayerStar =
+      variant === 'player' && playerMobileExactOrderCornerStar
+        ? { ...wrapStyle, overflow: 'visible' as const }
+        : wrapStyle;
+    const wrapClsPlayerStar = playerExactStarHost ? `${wrapCls} trick-slots-south-exact-star-host` : wrapCls;
     return (
-      <div style={wrapStyle} className={wrapCls} role="status">
+      <div style={wrapStylePlayerStar} className={wrapClsPlayerStar} role="status">
         {compactInner}
+        {playerMobileExactOrderCornerStar}
       </div>
     );
   }
@@ -6749,7 +6857,9 @@ function OpponentSlot({
             style={{
               ...opponentStatsRowStyle,
               ...(position === 'top' && inline ? { flexWrap: 'nowrap' as const } : {}),
-              ...(position === 'left' && inline && !sideSlotPcGrow ? { flexDirection: 'row-reverse' as const } : {}),
+              ...(position === 'left' && inline && !sideSlotPcGrow && !mobileNwLayout
+                ? { flexDirection: 'row-reverse' as const }
+                : {}),
               ...(pcNorthSideBySide
                 ? { flex: 1, minWidth: 0, justifyContent: 'flex-end', alignItems: 'center' }
                 : {}),
@@ -9029,6 +9139,9 @@ const MOBILE_SOUTH_PLAYER_CARD_SCALE = 1.5;
 const MOBILE_SOUTH_USER_AVATAR_RELATIVE_SCALE = 0.85;
 /** Блок trick-slots у Юга на мобиле: множитель к размерам в TrickSlotsDisplay (1 — в тон масштабу панели ×MOBILE_SOUTH_PLAYER_CARD_SCALE; 2/3 делало полоску слишком мелкой). */
 const MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK = 1;
+/** Ниже этой ширины viewport (px) — полоска заказа юга ещё на 15% компактнее (множитель к scaleDown). */
+const MOBILE_SOUTH_USER_TRICK_PANEL_NARROW_VIEWPORT_PX = 333;
+const MOBILE_SOUTH_USER_TRICK_PANEL_NARROW_SCALE_MUL = 0.85;
 const playerInfoPanelStyleMobileSouth: React.CSSProperties = {
   gap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
   marginBottom: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),

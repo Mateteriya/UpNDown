@@ -208,6 +208,220 @@
   }
 }
 
+@keyframes exact-order-star-pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.94;
+  }
+}
+
+@keyframes exact-order-star-stroke-shimmer-soft {
+  0%,
+  100% {
+    color: #6d7fe8;
+    stroke-opacity: 0.92;
+  }
+  50% {
+    color: #8494f5;
+    stroke-opacity: 0.96;
+  }
+}
+
+/* Моб. юг: вторая звезда на панели заказа — бирюзовый неон (обводка) */
+@keyframes exact-order-star-stroke-shimmer-cyan {
+  0%,
+  100% {
+    color: #06b6d4;
+    stroke-opacity: 0.92;
+  }
+  32% {
+    color: #cffafe;
+    stroke-opacity: 1;
+  }
+  64% {
+    color: #22d3ee;
+    stroke-opacity: 0.97;
+  }
+}
+@keyframes exact-order-star-stroke-shimmer-soft-cyan {
+  0%,
+  100% {
+    color: #0891b2;
+    stroke-opacity: 0.92;
+  }
+  50% {
+    color: #5eead4;
+    stroke-opacity: 0.98;
+  }
+}
+
+/* Моб. юг: звезда «ровно в заказ» — прилёт справа (translateX), яркая вспышка */
+@keyframes user-exact-order-star-fly-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(44px) scale(0.14) rotate(22deg);
+  }
+  52% {
+    opacity: 1;
+    transform: translateX(-7px) scale(1.14) rotate(-6deg);
+  }
+  76% {
+    transform: translateX(4px) scale(0.96) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1) rotate(0deg);
+  }
+}
+
+/* Прилёт в угол аватарки (снизу-справа к якорю) */
+@keyframes user-exact-order-star-fly-enter-se {
+  0% {
+    opacity: 0;
+    transform: translate(32px, 26px) scale(0.14) rotate(22deg);
+  }
+  52% {
+    opacity: 1;
+    transform: translate(-7px, -6px) scale(1.12) rotate(-6deg);
+  }
+  76% {
+    transform: translate(4px, 3px) scale(0.96) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+}
+
+/* Прилёт в верхний правый угол панели заказа (сверху-снаружи к якорю) */
+@keyframes user-exact-order-star-fly-enter-ne {
+  0% {
+    opacity: 0;
+    transform: translate(26px, -24px) scale(0.14) rotate(-18deg);
+  }
+  52% {
+    opacity: 1;
+    transform: translate(-6px, 6px) scale(1.12) rotate(8deg);
+  }
+  76% {
+    transform: translate(4px, -3px) scale(0.96) rotate(-3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+}
+
+/* Тот же прилёт, короче траектория — под SVG ×13 (≈19/1.5) на панели заказа */
+@keyframes user-exact-order-star-fly-enter-ne-compact {
+  0% {
+    opacity: 0;
+    transform: translate(17px, -16px) scale(0.14) rotate(-18deg);
+  }
+  52% {
+    opacity: 1;
+    transform: translate(-4px, 4px) scale(1.12) rotate(8deg);
+  }
+  76% {
+    transform: translate(3px, -2px) scale(0.96) rotate(-3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes user-exact-order-star-flash {
+  0% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(0);
+    filter: brightness(2.85) saturate(1.22) blur(2px);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(0.55);
+    filter: brightness(5.6) saturate(1.5) blur(0.35px);
+  }
+  26%,
+  52% {
+    opacity: 1;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(1.06);
+    filter: brightness(7.1) saturate(1.68) contrast(1.1) hue-rotate(-10deg) blur(0px);
+  }
+  72% {
+    opacity: 0.4;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(1.42);
+    filter: brightness(1.75) saturate(1.14) hue-rotate(0deg) blur(8px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(1.85);
+    filter: brightness(1) saturate(1) hue-rotate(0deg) blur(20px);
+  }
+}
+
+@keyframes user-exact-order-star-flash-halo {
+  0% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(0.25);
+    filter: blur(12px) brightness(1);
+  }
+  26% {
+    opacity: 0.97;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(1);
+    filter: blur(9px) brightness(1.48);
+  }
+  52% {
+    opacity: 0.9;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(1.08);
+    filter: blur(8px) brightness(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(2.05);
+    filter: blur(18px) brightness(1);
+  }
+}
+
 /* Подсветка первого ходящего во время заказа — пульсация на всех экранах */
 .game-table-root .first-mover-bidding-panel {
   position: relative !important;
@@ -2262,15 +2476,16 @@
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
-    flex: 1 1 0 !important;
+    /* Высота по содержимому — не тянуть на высоту ряда (иначе пустота под «Очки») */
+    flex: 0 0 auto !important;
     position: relative !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
-    /* Меньше сверху под аватар; снизу узкая зона под невысокие бейджи — полоса заказа по центру по вертикали через .opponent-slot-stats-mobile-nw */
-    padding: 3px 6px 32px 6px !important;
+    /* Снизу 2px до нижней границы под «Очки». «Сдающий»/«Первый» — absolute справа внизу */
+    padding: 3px 6px 2px 6px !important;
     border-radius: 8px !important;
-    gap: 2px !important;
+    gap: 4px !important;
   }
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot-header,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot-header {
@@ -2279,13 +2494,13 @@
     gap: 6px !important;
     flex-shrink: 0 !important;
   }
-  /* Бейдж «Сдающий» у Запада и Севера — у нижней границы панели справа, с отступом от угла */
+  /* Бейдж «Сдающий» у Запада и Севера — к правой и нижней границе панели, как «Первый заказ» */
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > .dealer-badge,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div > .dealer-badge {
     top: auto !important;
-    bottom: 2px !important;
+    bottom: 0 !important;
     left: auto !important;
-    right: 4px !important;
+    right: 0 !important;
     transform: none !important;
     border-radius: 6px 0 6px 0 !important;
     z-index: 3 !important;
@@ -2366,34 +2581,10 @@
     display: block !important;
     white-space: nowrap !important;
   }
-  /* Полоса заказа: по вертикали по центру; по горизонтали к левому краю панели (у Запада — flex-end при row-reverse) */
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw {
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    gap: 4px !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-  }
-  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw {
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    flex-direction: row-reverse !important;
-    flex-wrap: nowrap !important;
-    gap: 4px !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-  }
-  /* Очки: третья строка слева; ~×1.4 к прежней компактной высоте — укладывается в padding-bottom панели */
+  /* Север/Запад: «Очки» и полоска — в колонке под шапкой (см. блок .opponent-slot-stats-mobile-nw) */
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge {
     display: inline-flex !important;
-    position: absolute !important;
-    bottom: 3px !important;
-    left: 4px !important;
-    right: auto !important;
-    top: auto !important;
     z-index: 1 !important;
     align-items: center !important;
     justify-content: flex-start !important;
@@ -2701,7 +2892,253 @@
       opacity: 1;
       transform: none;
     }
+    .game-table-root.viewport-mobile .user-exact-order-star-badge__enter {
+      animation: none !important;
+      filter: none !important;
+      transform: none !important;
+      opacity: 1 !important;
+    }
+    .game-table-root.viewport-mobile .user-exact-order-star-badge svg {
+      animation: none !important;
+      filter: none !important;
+      opacity: 1 !important;
+    }
+    .game-table-root.viewport-mobile .user-exact-order-star-badge svg .user-exact-order-star-path {
+      animation: none !important;
+      filter: none !important;
+      color: #93a3ff;
+      stroke-opacity: 0.96;
+    }
+    .game-table-root.viewport-mobile .trick-slots-south-exact-star-host .user-exact-order-star-with-flash--south-order-panel-ne .user-exact-order-star-badge svg .user-exact-order-star-path {
+      color: #2dd4bf !important;
+      stroke-opacity: 0.96 !important;
+    }
+    .game-table-root.viewport-mobile .user-exact-order-star-with-flash::before,
+    .game-table-root.viewport-mobile .user-exact-order-star-with-flash::after {
+      animation: none !important;
+      opacity: 0 !important;
+      transform: translate(
+          calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+          calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+        )
+        scale(0) !important;
+      filter: none !important;
+    }
   }
+
+  /* Юг (моб.): звезда в юго-восточном углу аватарки (абсолют от .game-mobile-user-south-avatar-stack) */
+  .game-table-root.viewport-mobile .game-mobile-user-south-main:has(.user-exact-order-star-with-flash--south-avatar-se) {
+    overflow: visible;
+  }
+  .game-table-root.viewport-mobile .user-exact-order-star-with-flash {
+    --exact-order-star-flash-dur: 1.08s;
+    --exact-order-star-enter-dur: 1.38s;
+    --exact-order-star-flash-optical-x: 0px;
+    --exact-order-star-flash-optical-y: 0.364px;
+    --exact-order-star-pulse-start-delay: calc(var(--exact-order-star-flash-dur) + var(--exact-order-star-enter-dur));
+    --exact-order-star-pulse-bold-phase: 3.6s;
+    --user-exact-star-fly-dur: 1.38s;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+    flex-shrink: 0;
+    align-self: center;
+    overflow: visible;
+  }
+  .game-table-root.viewport-mobile .user-exact-order-star-with-flash--south-avatar-se {
+    position: absolute;
+    right: -7px;
+    bottom: 9px;
+    z-index: 5;
+    pointer-events: none;
+    align-self: auto;
+  }
+  .game-table-root.viewport-mobile .user-exact-order-star-with-flash--south-avatar-se .user-exact-order-star-badge__enter {
+    animation-name: user-exact-order-star-fly-enter-se;
+  }
+  .game-table-root.viewport-mobile .user-exact-order-star-with-flash::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 1;
+    width: 32px;
+    height: 32px;
+    margin: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    background: radial-gradient(
+      circle closest-side,
+      rgba(255, 255, 255, 0.68) 0%,
+      rgba(224, 231, 255, 0.62) 22%,
+      rgba(196, 181, 253, 0.68) 40%,
+      rgba(167, 139, 250, 0.58) 56%,
+      rgba(99, 102, 241, 0.42) 72%,
+      rgba(67, 56, 202, 0.2) 86%,
+      transparent 100%
+    );
+    box-shadow:
+      0 0 26px rgba(196, 181, 253, 1),
+      0 0 48px rgba(167, 139, 250, 0.95),
+      0 0 72px rgba(139, 92, 246, 0.78),
+      0 0 96px rgba(99, 102, 241, 0.52);
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(0);
+    animation: user-exact-order-star-flash-halo var(--exact-order-star-flash-dur) ease-in-out forwards;
+  }
+  .game-table-root.viewport-mobile .user-exact-order-star-with-flash::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 3;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    pointer-events: none;
+    background: radial-gradient(
+      circle closest-side,
+      #ffffff 0%,
+      #f0f9ff 5%,
+      rgba(224, 242, 254, 0.99) 10%,
+      rgba(186, 230, 253, 0.96) 16%,
+      rgba(125, 211, 252, 0.78) 24%,
+      rgba(129, 140, 248, 0.5) 34%,
+      rgba(91, 33, 182, 0.18) 46%,
+      transparent 58%
+    );
+    box-shadow: none;
+    transform: translate(
+        calc(-50% + var(--exact-order-star-flash-optical-x, 0px)),
+        calc(-50% + var(--exact-order-star-flash-optical-y, 0px))
+      )
+      scale(0);
+    animation: user-exact-order-star-flash var(--exact-order-star-flash-dur) ease-in-out forwards;
+  }
+  .game-table-root.viewport-mobile .user-exact-order-star-badge {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+    flex-shrink: 0;
+    transform-origin: center center;
+  }
+  .game-table-root.viewport-mobile .user-exact-order-star-badge__enter {
+    position: relative;
+    z-index: 1;
+    display: block;
+    line-height: 0;
+    transform-origin: center center;
+    filter: drop-shadow(0 0 4px rgba(196, 181, 253, 1)) drop-shadow(0 0 10px rgba(139, 92, 246, 0.8))
+      drop-shadow(0 0 18px rgba(91, 33, 182, 0.5));
+    animation: user-exact-order-star-fly-enter var(--user-exact-star-fly-dur) cubic-bezier(0.18, 0.88, 0.24, 1.05) both;
+    animation-delay: var(--exact-order-star-flash-dur);
+  }
+  .game-table-root.viewport-mobile .user-exact-order-star-badge svg {
+    display: block;
+    animation-name: exact-order-star-pulse, exact-order-star-pulse-soft;
+    animation-duration: var(--exact-order-star-pulse-bold-phase), 6.5s;
+    animation-timing-function: ease-in-out, ease-in-out;
+    animation-delay: var(--exact-order-star-pulse-start-delay), calc(var(--exact-order-star-pulse-start-delay) + var(--exact-order-star-pulse-bold-phase));
+    animation-iteration-count: 1, infinite;
+    animation-fill-mode: forwards, none;
+  }
+  .game-table-root.viewport-mobile .user-exact-order-star-badge svg .user-exact-order-star-path {
+    color: #95a8ff;
+    stroke-opacity: 0.96;
+    paint-order: fill stroke;
+    filter: drop-shadow(0 0 2px rgba(129, 140, 248, 0.9)) drop-shadow(0 0 6px rgba(99, 102, 241, 0.58));
+    animation-name: exact-order-star-stroke-shimmer, exact-order-star-stroke-shimmer-soft;
+    animation-duration: var(--exact-order-star-pulse-bold-phase), 8.5s;
+    animation-timing-function: ease-in-out, ease-in-out;
+    animation-delay: var(--exact-order-star-pulse-start-delay), calc(var(--exact-order-star-pulse-start-delay) + var(--exact-order-star-pulse-bold-phase));
+    animation-iteration-count: 1, infinite;
+    animation-fill-mode: forwards, none;
+  }
+
+  /* Звезда внутри реальной рамки панели заказа (TrickSlotsDisplay): центр на вершине правого верхнего угла */
+  .game-table-root.viewport-mobile .game-mobile-user-south-tricks-only:has(.user-exact-order-star-with-flash--south-order-panel-ne) {
+    overflow: visible;
+  }
+  .game-table-root.viewport-mobile .trick-slots-south-exact-star-host {
+    overflow: visible !important;
+  }
+  .game-table-root.viewport-mobile .trick-slots-south-exact-star-host .user-exact-order-star-with-flash--south-order-panel-ne {
+    position: absolute;
+    box-sizing: border-box;
+    /* Ровно под SVG 13×13: центр bbox ≈ центр фигуры; иначе translate(50%,-50%) даёт «высоко вправо» */
+    width: 13px;
+    height: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Вершина угла padding-box; оптика path: центр массы чуть вниз-влево от геом. центра viewBox */
+    top: 0;
+    right: 0;
+    transform: translate(calc(50% - 2.5px), calc(-50% + 1.5px));
+    overflow: visible;
+    z-index: 8;
+    pointer-events: none;
+    align-self: auto;
+  }
+  /* Ровно в заказ: рамка 2px — вершина внешнего угла */
+  .game-table-root.viewport-mobile .trick-slots-south-exact-star-host.trick-slots-order-complete .user-exact-order-star-with-flash--south-order-panel-ne {
+    top: -1px;
+    right: -1px;
+    transform: translate(calc(50% - 2.5px), calc(-50% + 1.5px));
+  }
+  .game-table-root.viewport-mobile .trick-slots-south-exact-star-host .user-exact-order-star-with-flash--south-order-panel-ne .user-exact-order-star-badge__enter {
+    animation-name: user-exact-order-star-fly-enter-ne-compact;
+    filter: drop-shadow(0 0 3px rgba(34, 211, 238, 0.98)) drop-shadow(0 0 7px rgba(6, 182, 212, 0.82))
+      drop-shadow(0 0 12px rgba(45, 212, 191, 0.48));
+  }
+  .game-table-root.viewport-mobile .trick-slots-south-exact-star-host .user-exact-order-star-with-flash--south-order-panel-ne::after {
+    width: 21px;
+    height: 21px;
+    background: radial-gradient(
+      circle closest-side,
+      rgba(236, 254, 255, 0.78) 0%,
+      rgba(165, 243, 252, 0.66) 20%,
+      rgba(34, 211, 238, 0.64) 38%,
+      rgba(6, 182, 212, 0.52) 54%,
+      rgba(14, 165, 233, 0.36) 70%,
+      rgba(8, 145, 178, 0.16) 84%,
+      transparent 100%
+    );
+    box-shadow:
+      0 0 17px rgba(34, 211, 238, 0.95),
+      0 0 32px rgba(6, 182, 212, 0.88),
+      0 0 48px rgba(34, 211, 238, 0.62),
+      0 0 64px rgba(14, 165, 233, 0.42);
+  }
+  .game-table-root.viewport-mobile .trick-slots-south-exact-star-host .user-exact-order-star-with-flash--south-order-panel-ne::before {
+    width: 7px;
+    height: 7px;
+    background: radial-gradient(
+      circle closest-side,
+      #ffffff 0%,
+      #ecfeff 5%,
+      rgba(207, 250, 254, 0.99) 11%,
+      rgba(165, 243, 252, 0.96) 18%,
+      rgba(45, 212, 191, 0.78) 26%,
+      rgba(6, 182, 212, 0.48) 38%,
+      rgba(8, 145, 178, 0.16) 50%,
+      transparent 60%
+    );
+  }
+  .game-table-root.viewport-mobile .trick-slots-south-exact-star-host .user-exact-order-star-with-flash--south-order-panel-ne .user-exact-order-star-badge svg .user-exact-order-star-path {
+    color: #22d3ee;
+    filter: drop-shadow(0 0 1.5px rgba(34, 211, 238, 0.95)) drop-shadow(0 0 4px rgba(6, 182, 212, 0.62));
+    animation-name: exact-order-star-stroke-shimmer-cyan, exact-order-star-stroke-shimmer-soft-cyan;
+  }
+
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east > div {
     width: 100% !important;
     max-width: 100% !important;
@@ -2984,9 +3421,9 @@
 }
 
 /* Юг (viewport-mobile): перебить общее .game-mobile-player-panel .game-mobile-player-info (5px/5px) — см. комментарий у .game-mobile-user-south-main в GameTable */
-/* Верх 6px: кольцо scale(1.2) не вылезает вверх; низ 4px чуть плотнее к бейджу */
+/* Верх 10px: кольца scale(1.2) + «агрессор»/«собрал руку» не вылезают за внутренний край карточки; низ 4px к руке */
 .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info.user-player-panel {
-  padding-top: 6px !important;
+  padding-top: 10px !important;
   padding-bottom: 4px !important;
 }
 
@@ -3161,9 +3598,12 @@
   transform-origin: center center !important;
   vertical-align: middle !important;
 }
-/* Юг, мобилка: кольцо + scale(1.2) чуть ниже layout-бокса — умеренный зазор до бейджа (8px было слишком) */
+/* Юг, мобилка: аватар чуть ниже (margin-top стека) + компактный зазор до «Очки» (3px под кольцом — −5px к высоте панели vs 8px) */
+.game-table-root.viewport-mobile .user-player-panel .game-mobile-user-south-avatar-stack {
+  margin-top: 5px;
+}
 .game-table-root.viewport-mobile .user-player-panel .game-mobile-user-south-avatar-stack > .user-player-avatar-order-scale-wrap {
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 .game-table-root.viewport-mobile .user-player-panel .game-mobile-user-south-score-cell > .opponent-score-badge {
   position: relative;
@@ -3663,6 +4103,80 @@
   flex: 1 1 auto !important;
   min-width: 0 !important;
 }
+/* Моб. Север/Запад: полоска — gap 6px — «Очки»; margin-top: auto — лишняя высота ряда между шапкой и заказом */
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 6px !important;
+  width: 100% !important;
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin-top: auto !important;
+  padding: 0 6px !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge {
+  position: static !important;
+  align-self: flex-start !important;
+  bottom: auto !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  margin-left: 0 !important;
+  z-index: 1 !important;
+}
+/* Полоска заказа (и компактная высота): в потоке под шапкой, без absolute */
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw > button.trick-slots-normal:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw > button.trick-slots-collecting:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw > div.trick-slots-normal:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw > div.trick-slots-collecting:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw > button.trick-slots-normal:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw > button.trick-slots-collecting:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw > div.trick-slots-normal:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw > div.trick-slots-collecting:not(.trick-slots-mobile-nw-high-bid-ear) {
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  width: 100% !important;
+  top: auto !important;
+  bottom: auto !important;
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+  /* Компактнее общего .game-mobile-top-row button.trick-slots-* (34px / padding 5) — только С/З */
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+}
+/* «Ушко» заказа >6: в потоке (внутренний .trick-slots-mobile-nw-figures-ear — absolute к этой кнопке) */
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw > button.trick-slots-mobile-nw-high-bid-ear,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw > div.trick-slots-mobile-nw-high-bid-ear,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw > button.trick-slots-mobile-nw-high-bid-ear,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw > div.trick-slots-mobile-nw-high-bid-ear {
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  width: 100% !important;
+  top: auto !important;
+  bottom: auto !important;
+  height: auto !important;
+  min-height: 32px !important;
+  max-height: none !important;
+  overflow-y: visible !important;
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+}
 /* Север/Запад, заказ ≤6: цифры взято/заказ слева, ряд кружков прижат к правому краю панели (ушко — отдельная вёрстка) */
 .game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-normal:not(.trick-slots-mobile-nw-high-bid-ear),
 .game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-collecting:not(.trick-slots-mobile-nw-high-bid-ear),
@@ -3769,9 +4283,6 @@
   min-width: 0 !important;
   flex: 1 1 auto !important;
 }
-.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw:has(.trick-slots-mobile-nw-high-bid-ear) {
-  padding-top: 4px !important;
-}
 .game-table-root.viewport-mobile .game-center-east button.trick-slots-normal:not(.trick-slots-east-mobile),
 .game-table-root.viewport-mobile .game-center-east button.trick-slots-collecting:not(.trick-slots-east-mobile) {
   max-width: 100% !important;
@@ -3839,6 +4350,14 @@
   padding: 4px 9px !important;
   gap: 2px !important;
   flex-shrink: 0 !important;
+  /* +2px вправо: общий .trick-slots-normal выше задаёт transform:none — инлайн right из TS не действует */
+  transform: translateX(2px) !important;
+}
+/* Звезда «ровно в заказ»: общее правило выше даёт position:static — якорь уезжает с рамки; relative только для хоста со звездой */
+.game-table-root.viewport-mobile .user-player-panel .player-mobile-south-tricks-column .trick-slots-south-exact-star-host.trick-slots-normal,
+.game-table-root.viewport-mobile .user-player-panel .player-mobile-south-tricks-column .trick-slots-south-exact-star-host.trick-slots-collecting {
+  position: relative !important;
+  overflow: visible !important;
 }
 /* Мобильная: ровно в заказ — плотный тёмный индиго-фиолет + двойная голубо-фиолетовая рамка */
 .game-table-root.viewport-mobile .trick-slots-order-complete.trick-slots-normal,
