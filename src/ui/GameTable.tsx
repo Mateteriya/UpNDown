@@ -3,7 +3,12 @@
  * @see TZ.md раздел 7.3
  */
 
-import type { CSSProperties, PointerEvent as ReactPointerEvent, Ref } from 'react';
+import type {
+  CSSProperties,
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+  Ref,
+} from 'react';
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AIDifficulty, GameState } from '../game/GameEngine';
@@ -98,6 +103,29 @@ const MOBILE_OVERLAP_SCRUB_ACTIVATE_DIST = 7;
 const MOBILE_OVERLAP_SCRUB_ACTIVATE_DX = 5;
 const MOBILE_OVERLAP_SCRUB_HOLD_MS = 220;
 const MOBILE_OVERLAP_SCRUB_HOLD_NUDGE = 3;
+/**
+ * Текст для нативных подсказок браузера (атрибуты title и aria-label у окошка имени) —
+ * на телефоне обычно видно только после долгого удержания; отдельного «пузыря» в интерфейсе нет.
+ */
+const OPPONENT_NAME_WINDOW_SCROLL_HINT =
+  'Тап: неон и плавный просмотр туда-обратно. Без тапа: раз в 15–30 с плавно показать конец имени и вернуться (без неона).';
+/** После тапа по имени — не запускать автопоказ (та же анимация), пока не прошло столько миллисекунд */
+const OPP_NAME_REVEAL_AUTO_IDLE_AFTER_USER_MS = 14000;
+/** Случайная пауза между автопрокрутками имени (мс): 15 000 … 30 000 */
+function oppNameRevealAutoIntervalMs() {
+  return 15000 + Math.floor(Math.random() * 15001);
+}
+/** Кадры sin(π·u) для WAAPI + easing: linear — без rAF, движок сам интерполирует между шагами */
+function buildOppNameRevealSinTranslateKeyframes(maxPx: number, steps = 100): Keyframe[] {
+  const m = Math.round(maxPx);
+  const frames: Keyframe[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const u = i / steps;
+    const x = Math.round(m * Math.sin(Math.PI * u));
+    frames.push({ transform: `translate3d(${-x}px,0,0)` });
+  }
+  return frames;
+}
 const MOBILE_OVERLAP_SCRUB_LINGER_MS = 1000;
 
 /**
@@ -1985,7 +2013,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}
     >
       {isOnline && online.userOnPause && (
@@ -6608,8 +6636,21 @@ function OpponentSlot({
   /** Офлайн: раскрасить имя бота по уровню ИИ; карточка и смена уровня — по тапу на аватар (PlayerInfoPanel) */
   offlineAiNameStyleByDifficulty?: boolean;
 }) {
+  const p = state.players[index];
   /** Мобильные С/З/В: бейдж «Очки» по умолчанию только цифра; тап разворачивает подпись */
   const [mobileOpponentScoreExpanded, setMobileOpponentScoreExpanded] = useState(false);
+  const oppNameWindowRef = useRef<HTMLDivElement | null>(null);
+  /** Внутренняя дорожка имени (моб. С/З): смещение через transform, не scrollLeft — плавнее с backdrop-filter */
+  const oppNameRevealTrackRef = useRef<HTMLDivElement | null>(null);
+  /** Координаты pointerdown по окошку имени — тап vs гориз. жест (игнорируем сдвиг > ~14px) */
+  const oppNameTapPointerStartRef = useRef({ x: 0, y: 0 });
+  const oppNameRevealAnimRafRef = useRef<number | null>(null);
+  /** Web Animations API (transform) — предпочтительно мобилке вместо rAF */
+  const oppNameRevealWaRef = useRef<Animation | null>(null);
+  const oppNameRevealAnimatingRef = useRef(false);
+  /** Момент старта последнего раскрытия по тапу (null — пользователь ещё не тапал по этому окошку в этой «жизни» скролла) */
+  const oppNameLastUserRevealStartRef = useRef<number | null>(null);
+  const [oppNameWindowScrollable, setOppNameWindowScrollable] = useState(false);
   useEffect(() => {
     if (!mobileOpponentScoreExpanded) return;
     const id = window.setTimeout(() => setMobileOpponentScoreExpanded(false), 5000);
@@ -6617,7 +6658,6 @@ function OpponentSlot({
   }, [mobileOpponentScoreExpanded]);
   /** Уникальный id градиента SVG звёздочки «ровно в заказ» (несколько слотов на экране). */
   const exactOrderStarGradientId = useId().replace(/:/g, '');
-  const p = state.players[index];
   const scoreLeaderHighlight = isPartyScoreLeader(state, index);
   const isActive = state.currentPlayerIndex === index;
   const isDealer = state.dealerIndex === index;
@@ -6668,6 +6708,334 @@ function OpponentSlot({
   const eastMobileOnlyAvatar = position === 'right' && isMobile;
   /** ПК, слот «Север» над столом: аватар и имя слева, взятки и очки справа (мобильная не трогается). */
   const pcNorthSideBySide = position === 'top' && inline && !compactMode && !isMobile;
+  /** Мобильные С/З: имя в «окошке», длинное — прокрутка по тапу; Восток — перенос без окошка. */
+  const mobileOpponentInline = !!(isMobile && inline && !pcNorthSideBySide);
+  const mobileOpponentNameWindowHorizScroll = mobileOpponentInline && !eastMobileOnlyAvatar;
+  useLayoutEffect(() => {
+    if (!mobileOpponentNameWindowHorizScroll) {
+      setOppNameWindowScrollable(false);
+      return;
+    }
+    const el = oppNameWindowRef.current;
+    if (!el) {
+      setOppNameWindowScrollable(false);
+      return;
+    }
+    const measure = () => {
+      /* Пока крутится rAF-прокрутка имени, не трогаем layout/React — иначе лишние перерисовки и дрожание */
+      if (oppNameRevealAnimatingRef.current) return;
+      setOppNameWindowScrollable(el.scrollWidth > el.clientWidth + 1);
+    };
+    measure();
+    const ro =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => window.requestAnimationFrame(measure)) : null;
+    ro?.observe(el);
+    const onResize = () => measure();
+    window.addEventListener('resize', onResize);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', onResize);
+    };
+  }, [mobileOpponentNameWindowHorizScroll, p.name, replacedByAi, index]);
+  useEffect(() => {
+    if (!oppNameWindowScrollable) {
+      oppNameRevealAnimatingRef.current = false;
+      oppNameLastUserRevealStartRef.current = null;
+      if (oppNameRevealAnimRafRef.current != null) {
+        window.cancelAnimationFrame(oppNameRevealAnimRafRef.current);
+        oppNameRevealAnimRafRef.current = null;
+      }
+      if (oppNameRevealWaRef.current) {
+        oppNameRevealWaRef.current.onfinish = null;
+        try {
+          oppNameRevealWaRef.current.cancel();
+        } catch {
+          /* ignore */
+        }
+        oppNameRevealWaRef.current = null;
+      }
+      oppNameRevealTrackRef.current && (oppNameRevealTrackRef.current.style.transform = '');
+      oppNameWindowRef.current?.classList.remove('opponent-slot-header-name-window--reveal-compositing');
+      oppNameWindowRef.current?.classList.remove('opponent-slot-header-name-window--reveal-tap-chrome');
+    }
+  }, [oppNameWindowScrollable]);
+  useEffect(() => {
+    return () => {
+      if (oppNameRevealAnimRafRef.current != null) {
+        window.cancelAnimationFrame(oppNameRevealAnimRafRef.current);
+        oppNameRevealAnimRafRef.current = null;
+      }
+      if (oppNameRevealWaRef.current) {
+        oppNameRevealWaRef.current.onfinish = null;
+        try {
+          oppNameRevealWaRef.current.cancel();
+        } catch {
+          /* ignore */
+        }
+        oppNameRevealWaRef.current = null;
+      }
+      oppNameRevealAnimatingRef.current = false;
+      oppNameRevealTrackRef.current && (oppNameRevealTrackRef.current.style.transform = '');
+      oppNameWindowRef.current?.classList.remove('opponent-slot-header-name-window--reveal-compositing');
+      oppNameWindowRef.current?.classList.remove('opponent-slot-header-name-window--reveal-tap-chrome');
+    };
+  }, []);
+  const runMobileOppNameRevealScroll = useCallback((opts?: { source?: 'user' | 'auto' }) => {
+    const source = opts?.source ?? 'user';
+    if (!mobileOpponentNameWindowHorizScroll || !oppNameWindowScrollable) return;
+    if (oppNameRevealAnimatingRef.current) return;
+    const box = oppNameWindowRef.current;
+    if (!box) return;
+    const max = Math.max(0, box.scrollWidth - box.clientWidth);
+    if (max < 2) return;
+
+    if (source === 'user') {
+      oppNameLastUserRevealStartRef.current = Date.now();
+    }
+
+    const reduce =
+      typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      const track = oppNameRevealTrackRef.current;
+      const mx = Math.round(max);
+      if (track) {
+        if (source === 'user') {
+          oppNameWindowRef.current?.classList.add(
+            'opponent-slot-header-name-window--reveal-compositing',
+            'opponent-slot-header-name-window--reveal-tap-chrome',
+          );
+          track.style.transform = `translate3d(${-mx}px,0,0)`;
+          window.requestAnimationFrame(() => {
+            oppNameRevealTrackRef.current && (oppNameRevealTrackRef.current.style.transform = 'translate3d(0,0,0)');
+            window.setTimeout(() => {
+              oppNameWindowRef.current?.classList.remove(
+                'opponent-slot-header-name-window--reveal-compositing',
+                'opponent-slot-header-name-window--reveal-tap-chrome',
+              );
+            }, 400);
+          });
+        } else {
+          track.style.transform = `translate3d(${-mx}px,0,0)`;
+          window.requestAnimationFrame(() => {
+            oppNameRevealTrackRef.current && (oppNameRevealTrackRef.current.style.transform = 'translate3d(0,0,0)');
+          });
+        }
+      } else if (source === 'user') {
+        oppNameWindowRef.current?.classList.add(
+          'opponent-slot-header-name-window--reveal-compositing',
+          'opponent-slot-header-name-window--reveal-tap-chrome',
+        );
+        box.scrollLeft = max;
+        box.scrollLeft = 0;
+        window.setTimeout(() => {
+          oppNameWindowRef.current?.classList.remove(
+            'opponent-slot-header-name-window--reveal-compositing',
+            'opponent-slot-header-name-window--reveal-tap-chrome',
+          );
+        }, 400);
+      } else {
+        box.scrollLeft = max;
+        box.scrollLeft = 0;
+      }
+      return;
+    }
+
+    if (oppNameRevealAnimRafRef.current != null) {
+      window.cancelAnimationFrame(oppNameRevealAnimRafRef.current);
+      oppNameRevealAnimRafRef.current = null;
+    }
+    if (oppNameRevealWaRef.current) {
+      oppNameRevealWaRef.current.onfinish = null;
+      try {
+        oppNameRevealWaRef.current.cancel();
+      } catch {
+        /* ignore */
+      }
+      oppNameRevealWaRef.current = null;
+    }
+
+    const applyRevealOffsetPx = (px: number) => {
+      const track = oppNameRevealTrackRef.current;
+      const outer = oppNameWindowRef.current;
+      const x = Math.round(Math.max(0, px));
+      if (track) {
+        track.style.transform = `translate3d(${-x}px,0,0)`;
+      } else if (outer) {
+        outer.scrollLeft = x;
+      }
+    };
+
+    const finish = () => {
+      if (oppNameRevealAnimRafRef.current != null) {
+        window.cancelAnimationFrame(oppNameRevealAnimRafRef.current);
+        oppNameRevealAnimRafRef.current = null;
+      }
+      const wa = oppNameRevealWaRef.current;
+      oppNameRevealWaRef.current = null;
+      if (wa) {
+        wa.onfinish = null;
+        try {
+          wa.cancel();
+        } catch {
+          /* ignore */
+        }
+      }
+      oppNameRevealAnimatingRef.current = false;
+      const outer = oppNameWindowRef.current;
+      const track = oppNameRevealTrackRef.current;
+      if (track) track.style.transform = '';
+      if (outer) {
+        outer.scrollLeft = 0;
+        outer.classList.remove('opponent-slot-header-name-window--reveal-compositing');
+        outer.classList.remove('opponent-slot-header-name-window--reveal-tap-chrome');
+      }
+    };
+
+    const track = oppNameRevealTrackRef.current;
+    const outerWin = oppNameWindowRef.current;
+    const canWebAnim = Boolean(track && typeof track.animate === 'function');
+
+    /** Авто: sin(π·t) — Web Animations API (композитор); иначе rAF */
+    if (source === 'auto') {
+      const durationAutoBumpMs = 3600;
+      const maxScroll = Math.round(max);
+      oppNameRevealAnimatingRef.current = true;
+      outerWin?.classList.add('opponent-slot-header-name-window--reveal-compositing');
+      if (canWebAnim && track) {
+        const anim = track.animate(buildOppNameRevealSinTranslateKeyframes(maxScroll), {
+          duration: durationAutoBumpMs,
+          easing: 'linear',
+          fill: 'forwards',
+        });
+        oppNameRevealWaRef.current = anim;
+        anim.onfinish = () => finish();
+        return;
+      }
+      let t0Auto = performance.now();
+      const tickAuto = (now: number) => {
+        if (!oppNameWindowRef.current) {
+          finish();
+          return;
+        }
+        const u = Math.min(1, (now - t0Auto) / durationAutoBumpMs);
+        applyRevealOffsetPx(maxScroll * Math.sin(Math.PI * u));
+        if (u >= 1) {
+          finish();
+          return;
+        }
+        oppNameRevealAnimRafRef.current = window.requestAnimationFrame(tickAuto) as unknown as number;
+      };
+      t0Auto = performance.now();
+      oppNameRevealAnimRafRef.current = window.requestAnimationFrame(tickAuto) as unknown as number;
+      return;
+    }
+
+    const easeInOut = (t: number) => 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, t)));
+    /** Спокойный темп прокрутки по тапу */
+    const durationOutMs = 1400;
+    const durationInMs = 1400;
+    const maxScroll = Math.round(max);
+    const easeSeg = 'cubic-bezier(0.42, 0, 0.58, 1)';
+
+    if (canWebAnim && track) {
+      oppNameRevealAnimatingRef.current = true;
+      outerWin?.classList.add('opponent-slot-header-name-window--reveal-compositing');
+      if (source === 'user') {
+        outerWin?.classList.add('opponent-slot-header-name-window--reveal-tap-chrome');
+      }
+      const anim = track.animate(
+        [
+          { transform: 'translate3d(0,0,0)', offset: 0, easing: easeSeg },
+          { transform: `translate3d(${-maxScroll}px,0,0)`, offset: 0.5, easing: easeSeg },
+          { transform: 'translate3d(0,0,0)', offset: 1 },
+        ],
+        { duration: durationOutMs + durationInMs, fill: 'forwards' },
+      );
+      oppNameRevealWaRef.current = anim;
+      anim.onfinish = () => finish();
+      return;
+    }
+
+    let phase: 'out' | 'in' = 'out';
+    let t0 = performance.now();
+
+    const tick = (now: number) => {
+      if (!oppNameWindowRef.current) {
+        finish();
+        return;
+      }
+      if (phase === 'out') {
+        const u = Math.min(1, (now - t0) / durationOutMs);
+        applyRevealOffsetPx(maxScroll * easeInOut(u));
+        if (u >= 1) {
+          phase = 'in';
+          t0 = now;
+        }
+      } else {
+        const u = Math.min(1, (now - t0) / durationInMs);
+        applyRevealOffsetPx(maxScroll * (1 - easeInOut(u)));
+        if (u >= 1) {
+          finish();
+          return;
+        }
+      }
+      oppNameRevealAnimRafRef.current = window.requestAnimationFrame(tick) as unknown as number;
+    };
+
+    oppNameRevealAnimatingRef.current = true;
+    oppNameWindowRef.current?.classList.add('opponent-slot-header-name-window--reveal-compositing');
+    if (source === 'user') {
+      oppNameWindowRef.current?.classList.add('opponent-slot-header-name-window--reveal-tap-chrome');
+    }
+    t0 = performance.now();
+    oppNameRevealAnimRafRef.current = window.requestAnimationFrame(tick) as unknown as number;
+  }, [mobileOpponentNameWindowHorizScroll, oppNameWindowScrollable]);
+
+  /** Авто: одна плавная дуга к концу и обратно (sin), без неона. Пауза 15–30 с */
+  useEffect(() => {
+    if (!mobileOpponentNameWindowHorizScroll || !oppNameWindowScrollable) return;
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: number | undefined;
+
+    const scheduleWait = (ms: number, then: () => void) => {
+      if (cancelled) return;
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+        timeoutId = undefined;
+      }
+      timeoutId = window.setTimeout(() => {
+        timeoutId = undefined;
+        if (!cancelled) then();
+      }, ms) as unknown as number;
+    };
+
+    const tryAutoReveal = () => {
+      if (cancelled) return;
+      if (oppNameRevealAnimatingRef.current) {
+        scheduleWait(500 + Math.floor(Math.random() * 400), tryAutoReveal);
+        return;
+      }
+      const last = oppNameLastUserRevealStartRef.current;
+      if (last != null && Date.now() - last < OPP_NAME_REVEAL_AUTO_IDLE_AFTER_USER_MS) {
+        scheduleWait(400 + Math.floor(Math.random() * 350), tryAutoReveal);
+        return;
+      }
+      runMobileOppNameRevealScroll({ source: 'auto' });
+      scheduleWait(oppNameRevealAutoIntervalMs(), tryAutoReveal);
+    };
+
+    scheduleWait(oppNameRevealAutoIntervalMs(), tryAutoReveal);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, [mobileOpponentNameWindowHorizScroll, oppNameWindowScrollable, p.name, runMobileOppNameRevealScroll]);
+
   /** Мобильная колонка Восток: «Очки» между именем и полосой заказа (как по вертикали у Север/Запад). */
   const eastMobileScoreBetweenHeaderAndTricks = position === 'right' && isMobile && inline && !pcNorthSideBySide;
   /** ПК Запад/Восток: панель растёт по ширине стопки взяток при переборе. */
@@ -6873,8 +7241,23 @@ function OpponentSlot({
           minWidth: 0,
           ...(pcNorthSideBySide ? { maxWidth: 200 } : {}),
           ...(eastMobileOnlyAvatar
-            ? { overflow: 'visible', whiteSpace: 'normal' as const, wordBreak: 'break-word' as const, overflowWrap: 'break-word' as const }
-            : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
+            ? {
+                overflow: 'visible',
+                whiteSpace: 'normal' as const,
+                wordBreak: 'normal' as const,
+                overflowWrap: 'break-word' as const,
+                hyphens: 'auto' as const,
+                WebkitHyphens: 'auto' as const,
+              }
+            : mobileOpponentNameWindowHorizScroll
+              ? {
+                  whiteSpace: 'nowrap' as const,
+                  overflow: 'visible',
+                  display: 'inline-block',
+                  width: 'max-content',
+                  maxWidth: 'none',
+                }
+              : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
         };
         const nameSpan = styleOfflineAiNameByDifficulty && offlineAiDifficultyForName ? (
           <span
@@ -6887,7 +7270,11 @@ function OpponentSlot({
               .filter(Boolean)
               .join(' ')}
             style={nameStyleMerged}
-            title={`${p.name} — ${getCompassLabel(index)}. Нажмите на аватар: информация и уровень ИИ`}
+            title={
+              mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
+                ? undefined
+                : `${p.name} — ${getCompassLabel(index)}. Нажмите на аватар: информация и уровень ИИ`
+            }
           >
             {nameInner}
           </span>
@@ -6895,16 +7282,22 @@ function OpponentSlot({
           <span
             className={[eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : '', 'opponent-slot-header-display-name'].filter(Boolean).join(' ') || undefined}
             style={nameStyleMerged}
-            title={`${p.name} — ${getCompassLabel(index)}`}
+            title={
+              mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
+                ? undefined
+                : `${p.name} — ${getCompassLabel(index)}`
+            }
           >
             {nameInner}
           </span>
         );
-        const mobileOpponentInline = !!(isMobile && inline && !pcNorthSideBySide);
         const showMobileExactOrderStar = mobileOpponentInline && avatarOrderRingExact;
         const exactStarPathD = 'M12 1.35l2.35 7.15h7.6L15.8 14.1l2.35 7.55L12 17.45l-6.15 4.2 2.35-7.55L2.05 8.5h7.6z';
         const mobileExactOrderStarEl = showMobileExactOrderStar ? (
-          <div className="opponent-exact-order-star-with-flash" aria-hidden>
+          <div
+            className="opponent-exact-order-star-with-flash opponent-exact-order-star-with-flash--name-window-ne"
+            aria-hidden
+          >
             <span className="opponent-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
               <span className="opponent-exact-order-star-badge__enter" aria-hidden>
                 <svg viewBox="0 0 24 24" width="17" height="17" focusable="false" aria-hidden>
@@ -6939,8 +7332,74 @@ function OpponentSlot({
                 .filter(Boolean)
                 .join(' ') || undefined}
             >
-              {nameSpan}
-              {mobileExactOrderStarEl}
+              <div
+                className={[
+                  'opponent-slot-header-name-window-wrap',
+                  eastMobileOnlyAvatar ? 'opponent-slot-header-name-window-wrap--east' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ') || undefined}
+              >
+                <div
+                  ref={mobileOpponentNameWindowHorizScroll ? oppNameWindowRef : undefined}
+                  className={[
+                    'opponent-slot-header-name-window',
+                    eastMobileOnlyAvatar ? 'opponent-slot-header-name-window--east' : '',
+                    mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
+                      ? 'opponent-slot-header-name-window--scrollable'
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ') || undefined}
+                  title={
+                    mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
+                      ? `${p.name} — ${getCompassLabel(index)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
+                      : undefined
+                  }
+                  aria-label={
+                    mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
+                      ? `${p.name}, ${getCompassLabel(index)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
+                      : undefined
+                  }
+                  role={mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable ? 'button' : undefined}
+                  tabIndex={mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable ? 0 : undefined}
+                  onPointerDown={
+                    mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
+                      ? (e: ReactPointerEvent) => {
+                          oppNameTapPointerStartRef.current = { x: e.clientX, y: e.clientY };
+                        }
+                      : undefined
+                  }
+                  onPointerUp={
+                    mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
+                      ? (e: ReactPointerEvent) => {
+                          if (e.pointerType === 'mouse' && e.button !== 0) return;
+                          const { x, y } = oppNameTapPointerStartRef.current;
+                          if (Math.hypot(e.clientX - x, e.clientY - y) > 14) return;
+                          runMobileOppNameRevealScroll();
+                        }
+                      : undefined
+                  }
+                  onKeyDown={
+                    mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
+                      ? (e: ReactKeyboardEvent) => {
+                          if (e.key !== 'Enter' && e.key !== ' ') return;
+                          e.preventDefault();
+                          runMobileOppNameRevealScroll();
+                        }
+                      : undefined
+                  }
+                >
+                  {mobileOpponentNameWindowHorizScroll ? (
+                    <div className="opponent-slot-header-name-window-track" ref={oppNameRevealTrackRef}>
+                      {nameSpan}
+                    </div>
+                  ) : (
+                    nameSpan
+                  )}
+                </div>
+                {mobileExactOrderStarEl}
+              </div>
             </div>
           ) : (
             nameSpan

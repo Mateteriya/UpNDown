@@ -37,6 +37,34 @@
   --game-north-slot-bottom: -65px;
 }
 
+/*
+ * Игровой стол (PWA): без выделения текста долгим нажатием и без системного callout —
+ * иначе кнопки и подписи ведут себя как текст в веб-странице.
+ * Исключения: чат (копирование сообщений), поля ввода.
+ */
+.game-table-root,
+.game-table-root * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.game-table-root input:not([readonly]),
+.game-table-root textarea:not([readonly]),
+.game-table-root [contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+.game-table-root .table-chat-messages,
+.game-table-root .table-chat-messages *,
+.game-table-root .table-chat-input,
+.game-table-root .table-chat-empty,
+.game-table-root .table-chat-error {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
 /* Лёгкая пульсация имён (theme-standard): opacity 0.90 → 0.74 */
 @keyframes name-pulse {
   0%, 100% { opacity: 0.9; }
@@ -2389,8 +2417,8 @@
     border-radius: 0 7px 0 7px !important;
     border-style: solid !important;
     border-color: transparent !important;
-    /* Градиентная рамка со всех 4 сторон; 2px — вдвое толще прежних 1px по видимым граням */
-    border-width: 2px !important;
+    /* Градиентная рамка: сверху 1px (в 2× тоньше боков/низа), по остальным сторонам 2px */
+    border-width: 1px 2px 2px 2px !important;
     background-image:
       linear-gradient(135deg, rgba(30, 64, 175, 0.92) 0%, rgba(59, 130, 246, 0.88) 100%),
       linear-gradient(
@@ -3013,16 +3041,27 @@
     align-items: center !important;
     text-align: center !important;
   }
-  /* Имя в колонке 95–125px: перенос вниз, разбиение по символам при необходимости */
+  /*
+   * Имя в колонке 95–125px: перенос вниз; шрифт как у С/З — см. opponentNameStyle в GameTable.tsx.
+   * Не overflow-wrap:anywhere — иначе длинное слово рвётся «в ноль» без дефиса и неотличимо от нового слова.
+   * break-word + hyphens:auto — сначала пробелы, при вынужденном разрыве длинного токена — перенос с дефисом (где поддерживается).
+   */
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-name-east-mobile {
     white-space: normal !important;
-    word-break: break-word !important;
-    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    hyphens: auto !important;
+    -webkit-hyphens: auto !important;
     overflow: visible !important;
     text-align: center !important;
-    font-size: 13px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.2px !important;
     line-height: 1.15 !important;
+    display: block !important;
     margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
     max-width: 100% !important;
     min-width: 0 !important;
   }
@@ -3046,15 +3085,19 @@
   .game-table-root.viewport-mobile
     .opponent-slot-header
     .opponent-slot-header-name-stack-mobile:not(.opponent-slot-header-name-stack-mobile--east)
+    .opponent-slot-header-name-window-wrap
+    .opponent-slot-header-name-window
     .opponent-slot-header-display-name {
-    max-width: 100% !important;
-    width: 100%;
+    /* Ширина по тексту — окошко выше даёт overflow-x: auto */
+    max-width: none !important;
+    width: max-content !important;
     box-sizing: border-box;
   }
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-header .opponent-slot-header-name-stack-mobile--east {
     align-items: center;
     flex: 0 1 auto;
     max-width: 100%;
+    gap: 1px;
   }
   /* Вспышка у звезды / звезда под именем — не обрезать у шапки */
   .game-table-root.viewport-mobile .opponent-slot-header:has(.opponent-exact-order-star-with-flash),
@@ -3062,7 +3105,9 @@
     overflow: visible !important;
   }
   .game-table-root.viewport-mobile .opponent-slot-header-name-stack-mobile:has(.opponent-exact-order-star-with-flash),
-  .game-table-root.viewport-mobile .opponent-slot-header-name-stack-mobile:has(.opponent-exact-order-star-badge) {
+  .game-table-root.viewport-mobile .opponent-slot-header-name-stack-mobile:has(.opponent-exact-order-star-badge),
+  .game-table-root.viewport-mobile .opponent-slot-header-name-window-wrap:has(.opponent-exact-order-star-with-flash),
+  .game-table-root.viewport-mobile .opponent-slot-header-name-window-wrap:has(.opponent-exact-order-star-badge) {
     overflow: visible !important;
   }
   /* Вспышка в точке звезды, затем появление звезды (задержки от --flash / --enter) */
@@ -3189,12 +3234,47 @@
     animation: exact-order-star-stroke-shimmer 2.65s ease-in-out infinite;
     animation-delay: var(--exact-order-star-flash-dur);
   }
-  .game-table-root.viewport-mobile .opponent-slot-header-name-stack-mobile--east .opponent-exact-order-star-with-flash {
-    align-self: center;
+  /*
+   * Звезда «ровно в заказ» у оппонентов: абсолютно на правом верхнем углу окошка имени
+   * (как вторая звезда юга на NE у бейджа заказ/взято). Обёртка .opponent-slot-header-name-window-wrap — position: relative.
+   */
+  .game-table-root.viewport-mobile .opponent-slot-header-name-window-wrap {
+    position: relative;
+    align-self: stretch;
+    width: 100%;
+    min-width: 0;
   }
-  .game-table-root.viewport-mobile .opponent-slot-header-name-stack-mobile--east .opponent-exact-order-star-badge {
-    justify-content: center;
+  .game-table-root.viewport-mobile .opponent-slot-header-name-window-wrap--east {
     align-self: center;
+    width: fit-content;
+    max-width: 100%;
+  }
+  .game-table-root.viewport-mobile
+    .opponent-slot-header-name-window-wrap
+    .opponent-exact-order-star-with-flash.opponent-exact-order-star-with-flash--name-window-ne {
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: 6;
+    pointer-events: none;
+    margin-top: 0;
+    align-self: auto;
+    width: 13px;
+    height: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    /* Вершина правого верхнего угла padding-box окошка — те же оптические поправки, что у юга .--south-order-panel-ne */
+    transform: translate(calc(50% - 2.5px), calc(-50% + 1.5px));
+    overflow: visible;
+  }
+  .game-table-root.viewport-mobile
+    .opponent-slot-header-name-window-wrap
+    .opponent-exact-order-star-with-flash--name-window-ne
+    .opponent-exact-order-star-badge {
+    justify-content: center;
+    align-items: center;
   }
   @media (prefers-reduced-motion: reduce) {
     .game-table-root.viewport-mobile .opponent-exact-order-star-badge__enter {
@@ -3773,6 +3853,414 @@
 .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info.user-player-panel {
   padding-top: 10px !important;
   padding-bottom: 4px !important;
+}
+
+/*
+ * Мобильная: «окошко» только вокруг имени (внутри .opponent-slot-header-name-window).
+ * Звезда «ровно в заказ» — сосед снаружи окошка, в .opponent-slot-header-name-stack-mobile.
+ * Рамка/фон по типу раздачи — блоки ниже (как у .opponent-slot на мобильной); здесь запасной подложечный вид.
+ */
+.game-table-root.viewport-mobile .opponent-slot-header-name-window {
+  position: relative;
+  z-index: 0;
+  box-sizing: border-box;
+  min-width: 0;
+  /* +8 % к горизонтали; вертикаль симметрична (старые 1px сверху / 2px снизу давали больший зазор снизу) */
+  padding: calc(1.5px * 1.08) calc(5px * 1.08);
+  border-radius: 7px;
+  background: rgba(8, 10, 22, 0.78);
+  border: 1px solid rgba(167, 139, 250, 0.38);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.18),
+    0 0 10px rgba(129, 140, 248, 0.2),
+    0 0 16px rgba(34, 211, 238, 0.07),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 0 14px rgba(129, 140, 248, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+/*
+ * Внутренняя подсветка: только светлые края (градиенты), без тяжёлого тёмного inset —
+ * иначе на микро-padding окошка визуально «ничего нет». Слой под текстом (см. > * z-index).
+ */
+.game-table-root.viewport-mobile .opponent-slot-header-name-window::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 130% 85% at 50% 0%, rgba(255, 255, 255, 0.2) 0%, transparent 42%),
+    radial-gradient(ellipse 95% 70% at 0% 50%, rgba(165, 180, 252, 0.22) 0%, transparent 38%),
+    radial-gradient(ellipse 95% 70% at 100% 50%, rgba(165, 180, 252, 0.22) 0%, transparent 38%),
+    radial-gradient(ellipse 100% 90% at 50% 100%, rgba(56, 189, 248, 0.14) 0%, transparent 48%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.game-table-root.viewport-mobile .opponent-slot-header-name-window > * {
+  position: relative;
+  z-index: 1;
+}
+@supports (backdrop-filter: blur(1px)) {
+  .game-table-root.viewport-mobile .opponent-slot-header-name-window {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
+.game-table-root.viewport-mobile .opponent-slot-header-name-window.opponent-slot-header-name-window--reveal-tap-chrome::after {
+  display: none;
+}
+/*
+ * Рамки окошка имени — в духе панели слота, но мягче (меньше альфа / тоньше кольца), чем у целой .opponent-slot.
+ * Фон темнее для читаемости; лёгкий inset по краю — «внутренняя подсветка» без перебора контраста.
+ */
+.game-table-root.viewport-mobile:not(.deal-type-no-trump):not(.deal-type-dark) .opponent-slot-header-name-window {
+  background: linear-gradient(165deg, #12182e 0%, #0c0a1c 52%, #06050f 100%) !important;
+  border: 1px solid rgb(147 51 234 / 34%) !important;
+  box-shadow:
+    rgb(56 189 248 / 22%) 0 0 0 1px,
+    rgb(37 195 220 / 2%) 0 0 12px,
+    rgb(103 205 202 / 10%) 0 3px 14px,
+    rgb(167 139 250 / 22%) 0 1px 0 inset,
+    inset 0 0 0 1px rgba(255, 255, 255, 0.045),
+    inset 0 0 18px rgba(56, 189, 248, 0.07),
+    inset 0 1px 12px rgba(167, 139, 250, 0.06) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.game-table-root.viewport-mobile:not(.deal-type-no-trump):not(.deal-type-dark) .opponent-slot-header-name-window::after {
+  background:
+    radial-gradient(ellipse 125% 80% at 50% 0%, rgba(255, 255, 255, 0.24) 0%, transparent 40%),
+    radial-gradient(ellipse 90% 65% at 0% 50%, rgba(56, 189, 248, 0.2) 0%, transparent 36%),
+    radial-gradient(ellipse 90% 65% at 100% 50%, rgba(167, 139, 250, 0.2) 0%, transparent 36%),
+    radial-gradient(ellipse 100% 85% at 50% 100%, rgba(34, 211, 238, 0.12) 0%, transparent 45%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    inset 0 0 0 1px rgba(186, 230, 253, 0.12),
+    inset 0 0 12px rgba(56, 189, 248, 0.1) !important;
+}
+.game-table-root.viewport-mobile.deal-type-no-trump .opponent-slot .opponent-slot-header-name-window {
+  background:
+    radial-gradient(ellipse 100% 95% at 28% 18%, rgba(210, 200, 255, 0.06) 0%, transparent 48%),
+    radial-gradient(ellipse 75% 70% at 92% 88%, rgba(251, 186, 210, 0.03) 0%, transparent 46%),
+    linear-gradient(168deg, #1a1528 0%, #120f1e 45%, #08060e 100%) !important;
+  border: 1px solid rgba(186, 170, 240, 0.34) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(216, 180, 254, 0.06),
+    inset 0 0 16px rgba(192, 132, 252, 0.08),
+    inset 0 1px 10px rgba(244, 201, 232, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.game-table-root.viewport-mobile.deal-type-no-trump .opponent-slot .opponent-slot-header-name-window::after {
+  background:
+    radial-gradient(ellipse 120% 75% at 50% 0%, rgba(244, 232, 255, 0.22) 0%, transparent 40%),
+    radial-gradient(ellipse 85% 60% at 0% 50%, rgba(216, 180, 254, 0.2) 0%, transparent 34%),
+    radial-gradient(ellipse 85% 60% at 100% 50%, rgba(244, 201, 232, 0.16) 0%, transparent 34%),
+    radial-gradient(ellipse 100% 80% at 50% 100%, rgba(192, 132, 252, 0.12) 0%, transparent 44%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(232, 200, 255, 0.12) !important;
+}
+.game-table-root.viewport-mobile.deal-type-no-trump .opponent-slot.opponent-slot-current-turn .opponent-slot-header-name-window {
+  background:
+    radial-gradient(ellipse 95% 90% at 32% 12%, rgba(254, 215, 170, 0.06) 0%, transparent 44%),
+    radial-gradient(ellipse 80% 72% at 85% 85%, rgba(196, 181, 253, 0.04) 0%, transparent 48%),
+    linear-gradient(168deg, #201830 0%, #161022 42%, #0a0812 100%) !important;
+  border: 1px solid rgba(251, 191, 36, 0.34) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 230, 200, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px rgba(253, 224, 171, 0.07),
+    inset 0 0 18px rgba(251, 191, 36, 0.06),
+    inset 0 1px 12px rgba(254, 215, 170, 0.05) !important;
+}
+.game-table-root.viewport-mobile.deal-type-no-trump .opponent-slot.opponent-slot-current-turn .opponent-slot-header-name-window::after {
+  background:
+    radial-gradient(ellipse 120% 78% at 50% 0%, rgba(255, 250, 235, 0.22) 0%, transparent 40%),
+    radial-gradient(ellipse 88% 62% at 0% 50%, rgba(253, 224, 171, 0.18) 0%, transparent 34%),
+    radial-gradient(ellipse 88% 62% at 100% 50%, rgba(254, 215, 170, 0.14) 0%, transparent 34%),
+    radial-gradient(ellipse 100% 82% at 50% 100%, rgba(251, 191, 36, 0.1) 0%, transparent 44%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 220, 0.18),
+    inset 0 0 0 1px rgba(253, 224, 171, 0.14) !important;
+}
+.game-table-root.viewport-mobile.deal-type-dark .opponent-slot-header-name-window {
+  background: linear-gradient(180deg, #0b1220 0%, #050810 100%) !important;
+  border: 1px solid rgba(34, 211, 238, 0.22) !important;
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.14),
+    inset 0 0 0 1px rgba(45, 212, 191, 0.08),
+    inset 0 0 16px rgba(34, 211, 238, 0.06),
+    inset 0 1px 10px rgba(56, 189, 248, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+.game-table-root.viewport-mobile.deal-type-dark .opponent-slot-header-name-window::after {
+  background:
+    radial-gradient(ellipse 120% 78% at 50% 0%, rgba(207, 250, 254, 0.2) 0%, transparent 40%),
+    radial-gradient(ellipse 88% 62% at 0% 50%, rgba(45, 212, 191, 0.16) 0%, transparent 34%),
+    radial-gradient(ellipse 88% 62% at 100% 50%, rgba(56, 189, 248, 0.14) 0%, transparent 34%),
+    radial-gradient(ellipse 100% 85% at 50% 100%, rgba(34, 211, 238, 0.1) 0%, transparent 46%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(207, 250, 254, 0.2),
+    inset 0 0 0 1px rgba(45, 212, 191, 0.14),
+    inset 0 0 14px rgba(34, 211, 238, 0.12) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-header-name-window--east {
+  align-self: center;
+  width: fit-content;
+  max-width: 100%;
+}
+/* Моб. Восток (слот 3): отступы окошка как у С/З (.opponent-slot-header-name-window); типографика — в блоке .opponent-name-east-mobile выше */
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-header-name-window--east {
+  padding: calc(1.5px * 1.08) calc(5px * 1.08);
+}
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-header-name-window--east
+  .opponent-slot-header-display-name {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.2px !important;
+  line-height: 1.15 !important;
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  hyphens: auto !important;
+  -webkit-hyphens: auto !important;
+}
+/*
+ * Моб. Север/Запад: как у Востока по вертикали внутри окошка — flex убирает лишний зазор от inline-block/.track;
+ * padding как у окошка +8 %
+ */
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .game-mobile-slot-north
+  .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .game-mobile-slot-west
+  .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east) {
+  display: flex;
+  align-items: center;
+  padding: calc(1.5px * 1.08) calc(5px * 1.08);
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .game-mobile-slot-north
+  .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east)
+  .opponent-slot-header-display-name,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .game-mobile-slot-west
+  .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east)
+  .opponent-slot-header-display-name,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .game-mobile-slot-north
+  .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east)
+  span.opponent-name-offline-ai-pick,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .game-mobile-slot-west
+  .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east)
+  span.opponent-name-offline-ai-pick,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .game-mobile-slot-north
+  .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east)
+  button.opponent-name-offline-ai-pick,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .game-mobile-slot-west
+  .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east)
+  button.opponent-name-offline-ai-pick {
+  line-height: 1.15 !important;
+}
+
+/*
+ * Мобильная С/З: длинное имя в окошке — без «…»; прокрутка по тапу (overflow-x: hidden, см. GameTable).
+ * Восток (.name-window--east) — перенос по словам, без окошка-скролла.
+ */
+.game-table-root.viewport-mobile .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east) {
+  /* Только программная прокрутка по тапу (без ручного свайпа по строке) */
+  overflow-x: hidden;
+  overflow-y: hidden;
+  overscroll-behavior-x: none;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+/*
+ * Дорожка имени: flex — без зазора у inline-block.
+ * Нельзя max-width:100% / flex-shrink — иначе дорожка сжимается до окна и длинное имя обрезается при translate.
+ */
+.game-table-root.viewport-mobile .opponent-slot-header-name-window-track {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  width: max-content;
+}
+/*
+ * WebKit/Chromium: у текста с background-clip + предок с transform (WAAPI прокрутка) буквы могут
+ * «вылезать пустыми» — отдельный композитный слой на тексте снимает артефакт.
+ */
+.game-table-root.viewport-mobile .opponent-slot-header-name-window-track .opponent-slot-header-display-name,
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window-track
+  span.opponent-name-offline-ai-pick,
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window-track
+  button.opponent-name-offline-ai-pick {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+@supports (backdrop-filter: blur(1px)) {
+  .game-table-root.viewport-mobile
+    .opponent-slot-header-name-window.opponent-slot-header-name-window--reveal-compositing:not(
+      .opponent-slot-header-name-window--east
+    ) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+/* Автопрокрутка: только --reveal-compositing — фон темнее окошка, без тап-оформления; рамка/тени остаются от режима раздачи */
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window.opponent-slot-header-name-window--reveal-compositing:not(
+    .opponent-slot-header-name-window--east
+  ):not(.opponent-slot-header-name-window--reveal-tap-chrome) {
+  background: rgba(10, 12, 26, 0.78) !important;
+}
+@supports (backdrop-filter: blur(1px)) {
+  .game-table-root.viewport-mobile
+    .opponent-slot-header-name-window.opponent-slot-header-name-window--reveal-compositing:not(
+      .opponent-slot-header-name-window--east
+    ):not(.opponent-slot-header-name-window--reveal-tap-chrome) {
+    background: rgba(10, 12, 26, 0.72) !important;
+  }
+}
+/*
+ * Тап по имени (--reveal-compositing + --reveal-tap-chrome): универсальные цвета (фон / рамка / тени / градиент текста).
+ * Автопрокрутка класс --reveal-tap-chrome не получает.
+ */
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window.opponent-slot-header-name-window--reveal-compositing.opponent-slot-header-name-window--reveal-tap-chrome:not(
+    .opponent-slot-header-name-window--east
+  ) {
+  z-index: 1;
+  background: #285aa3a1 !important;
+  border: 1px solid rgb(110 79 204 / 71%) !important;
+  box-shadow:
+    0 0 0 1px rgb(60 21 191 / 87%),
+    0 0 10px rgb(129 140 248 / 80%),
+    0 0 16px rgb(149 59 220 / 46%),
+    inset 0 1px 0 rgb(54 148 205 / 49%),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 18px rgba(56, 189, 248, 0.08) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window.opponent-slot-header-name-window--reveal-compositing.opponent-slot-header-name-window--reveal-tap-chrome:not(
+    .opponent-slot-header-name-window--east
+  )
+  .opponent-slot-header-name-window-track
+  .opponent-slot-header-display-name,
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window.opponent-slot-header-name-window--reveal-compositing.opponent-slot-header-name-window--reveal-tap-chrome:not(
+    .opponent-slot-header-name-window--east
+  )
+  .opponent-slot-header-name-window-track
+  span.opponent-name-offline-ai-pick,
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window.opponent-slot-header-name-window--reveal-compositing.opponent-slot-header-name-window--reveal-tap-chrome:not(
+    .opponent-slot-header-name-window--east
+  )
+  .opponent-slot-header-name-window-track
+  button.opponent-name-offline-ai-pick {
+  background: linear-gradient(180deg, #c4afd3 0%, #cac7d1 35%, #4bd6e3fc 62%, #d75ce6 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window.opponent-slot-header-name-window--reveal-compositing.opponent-slot-header-name-window--reveal-tap-chrome:not(
+    .opponent-slot-header-name-window--east
+  )
+  .opponent-slot-header-name-window-track
+  .opponent-slot-header-display-name
+  > span {
+  background: linear-gradient(180deg, #c4afd3 0%, #cac7d1 35%, #4bd6e3fc 62%, #d75ce6 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window--reveal-compositing:not(.opponent-slot-header-name-window--east)
+  .opponent-slot-header-name-window-track {
+  will-change: transform;
+}
+/* Имя не помещается: градиент на обёртке (не на скролле) — иначе «затемнение» уезжает вместе с текстом */
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window--scrollable:not(.opponent-slot-header-name-window--east) {
+  cursor: pointer;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window-wrap:has(
+    .opponent-slot-header-name-window--scrollable:not(.opponent-slot-header-name-window--east)
+  )::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  pointer-events: none;
+  z-index: 2;
+  border-radius: 0 5px 5px 0;
+  background: linear-gradient(to left, rgba(15, 23, 42, 0.72), transparent);
+}
+/* Тап по имени: затемнение справа в тон «сценическому» фону */
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window-wrap:has(
+    .opponent-slot-header-name-window.opponent-slot-header-name-window--reveal-tap-chrome:not(
+      .opponent-slot-header-name-window--east
+    )
+  )::after {
+  background: linear-gradient(to left, rgb(24 40 78 / 92%), rgb(40 90 163 / 35%), transparent) !important;
+  box-shadow: inset -1px 0 10px rgb(110 79 204 / 25%) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east)::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.game-table-root.viewport-mobile .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east) .opponent-slot-header-display-name,
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east)
+  span.opponent-name-offline-ai-pick,
+.game-table-root.viewport-mobile
+  .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east)
+  button.opponent-name-offline-ai-pick {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+  width: max-content !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  display: inline-block !important;
 }
 
 /* Имя в панели игрока и оппонентов: строго одна строка, обрезка с «...» (не расширяем панель по высоте) */
@@ -6902,6 +7390,64 @@ body {
 }
 .game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland-dash--violet {
   stroke: #d59aff;
+}
+
+/*
+ * Мобильная обычная раздача (с козырём: не бескозырка, не тёмная): панели оппонентов и Юг — те же подложки/рамки/тени, что на ПК.
+ * Тёмная (.deal-type-dark) — прежний бирюзово-сланцевый мобильный вид; бескозырка — блок .deal-type-no-trump ниже.
+ * Слоты оппонентов без :not(.trump-highlight-on): подсветка козыря по умолчанию включена (класс .trump-highlight-on на корне), иначе стили не срабатывали бы никогда.
+ */
+.game-table-root.viewport-mobile:not(.deal-type-no-trump):not(.deal-type-dark)
+  .game-mobile-top-row
+  .game-mobile-slot-north
+  .opponent-slot,
+.game-table-root.viewport-mobile:not(.deal-type-no-trump):not(.deal-type-dark)
+  .game-mobile-top-row
+  .game-mobile-slot-west
+  .opponent-slot,
+.game-table-root.viewport-mobile:not(.deal-type-no-trump):not(.deal-type-dark)
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot {
+  background: linear-gradient(rgba(60, 86, 204, 0.07) 0%, rgba(44, 10, 138, 0.44) 100%) !important;
+  border-radius: 12px !important;
+  border: 2px solid rgb(147 36 223 / 49%) !important;
+  box-shadow:
+    rgb(47 136 210 / 50%) 0 0 0 1px,
+    rgb(37 195 220 / 2%) 0 0 20px,
+    rgb(103 205 202 / 19%) 0 4px 20px,
+    rgb(167 25 207 / 67%) 0 1px 0 inset !important;
+}
+
+.game-table-root.viewport-mobile:not(.deal-type-no-trump):not(.deal-type-dark):not(.trump-highlight-on)
+  .game-mobile-player-panel:not(:has(.first-mover-bidding-panel)) {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Не трогать .player-info-panel-your-turn — белая рамка/неон с инлайна (activeTurnPanelFrameStyleUser в GameTable). */
+.game-table-root.viewport-mobile:not(.deal-type-no-trump):not(.deal-type-dark)
+  .game-mobile-player-panel
+  .game-mobile-player-info.user-player-panel:not(.player-info-panel-your-turn) {
+  background: linear-gradient(rgba(60, 86, 204, 0.07) 0%, rgba(44, 10, 138, 0.44) 100%) !important;
+  border-radius: 12px !important;
+  border: 2px solid rgb(147 36 223 / 49%) !important;
+  box-shadow:
+    rgb(47 136 210 / 50%) 0 0 0 1px,
+    rgb(37 195 220 / 2%) 0 0 20px,
+    rgb(103 205 202 / 19%) 0 4px 20px,
+    rgb(167 25 207 / 67%) 0 1px 0 inset !important;
+}
+
+.game-table-root.viewport-mobile:not(.deal-type-no-trump):not(.deal-type-dark) .table-chat-dock:not(.table-chat-dock--collapsed) {
+  border: 2px solid rgb(147 36 223 / 49%) !important;
+  background: linear-gradient(rgba(60, 86, 204, 0.07) 0%, rgba(44, 10, 138, 0.44) 100%) !important;
+  box-shadow:
+    rgb(47 136 210 / 50%) 0 0 0 1px,
+    rgb(37 195 220 / 2%) 0 0 20px,
+    rgb(103 205 202 / 19%) 0 4px 20px,
+    rgb(167 25 207 / 67%) 0 1px 0 inset !important;
 }
 
 /*
