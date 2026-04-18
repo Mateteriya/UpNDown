@@ -1976,8 +1976,8 @@
     min-width: auto !important;
     margin-inline: auto !important;
     box-sizing: border-box !important;
-    /* Внутренний зазор карта↔граница рамки (--mobile-south-strip-inset-x / GameTable MOBILE_SOUTH_STRIP_INSET_PX) */
-    padding-inline: var(--mobile-south-strip-inset-x, 18px) !important;
+    /* Внутренний зазор карта↔граница рамки: базовый inset +2px с каждой стороны (см. MOBILE_HAND_FRAME_EXTRA_INLINE_PX в GameTable) */
+    padding-inline: calc(var(--mobile-south-strip-inset-x, 6px) + 2px) !important;
   }
   /* Мобильная зона карт в ваш ход: cyan/violet пульс (playerHandYourTurnGlowPc) */
   .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn {
@@ -3826,6 +3826,17 @@
   -webkit-background-clip: text !important;
   background-clip: text !important;
   color: transparent !important;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 !important;
+}
+/* Моб.: то же «эксперт», но светлее низ; явно clip + transparent — иначе shorthand background сбрасывает clip → «полоса» вместо букв */
+.game-table-root.viewport-mobile .opponent-slot-header button.opponent-name-offline-ai-pick.opponent-name-offline-ai-pick--expert,
+.game-table-root.viewport-mobile .opponent-slot-header span.opponent-name-offline-ai-pick.opponent-name-offline-ai-pick--expert {
+  background: linear-gradient(180deg, #faf5ff 0%, #fae8ff 12%, #f0abfc 34%, #e879f9 55%, #d946ef 74%, #c084fc 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
   -webkit-text-stroke: 0 !important;
 }

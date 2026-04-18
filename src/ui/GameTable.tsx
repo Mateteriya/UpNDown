@@ -85,6 +85,8 @@ const MOBILE_HAND_ULTRA_NARROW_MAX_VW = 292;
 const MOBILE_TABLE_INNER_PAD_X_PX = 6;
 /** Горизонтальный inset полосы Юга (рука + панель) = --game-table-padding в index.css — одна линия с рамкой стола и панелями С/З/В. */
 const MOBILE_SOUTH_STRIP_INSET_PX = MOBILE_TABLE_INNER_PAD_X_PX;
+/** Доп. к padding-inline рамки руки (index.css .game-mobile-hand-frame) — учитывать в getMobileHandRowFit. */
+const MOBILE_HAND_FRAME_EXTRA_INLINE_PX = 2;
 
 function mobileSouthStripInsetPx(_vw: number): number {
   return MOBILE_SOUTH_STRIP_INSET_PX;
@@ -109,8 +111,8 @@ function getMobileHandRowFit(
   slotPadding: number,
 ): { overlapPx: number; rowScale: number } {
   const inset = mobileSouthStripInsetPx(vw);
-  /* Ряд живёт внутри table padding + attached + frame insets + padding-right корня */
-  const gutter = inset * 4 + 2 + MOBILE_TABLE_INNER_PAD_X_PX;
+  /* Ряд живёт внутри table padding + attached + frame insets (+ MOBILE_HAND_FRAME_EXTRA_INLINE_PX с каждой стороны рамки) + padding-right корня */
+  const gutter = inset * 4 + MOBILE_HAND_FRAME_EXTRA_INLINE_PX * 2 + 2 + MOBILE_TABLE_INNER_PAD_X_PX;
   const inner = Math.max(48, vw - gutter);
   const slotOuter = MOBILE_HAND_CARD_BODY_W + 2 * slotPadding;
   if (handLen <= 0) return { overlapPx: 0, rowScale: 1 };
@@ -159,15 +161,15 @@ function getMobileNineCardHandLayout(vw: number, handLen: number): MobileNineCar
   const box = { boxSizing: 'border-box' as const };
   /** Только вертикаль — иначе перетираем padding-inline у моб. рамки (зазор карт от бордера). */
   const pv = (tb: string): CSSProperties => ({ paddingTop: tb, paddingBottom: tb, ...box });
-  /** Минимум вертикали рамки (раньше 2px «съедал» отступы). */
-  const vUltra = '5px';
-  const vTight = vw < 360 ? '6px' : '5px';
+  /** Минимум вертикали рамки (раньше 2px «съедал» отступы). +1px к прежним — чуть больше воздуха у карт по вертикали. */
+  const vUltra = '6px';
+  const vTight = vw < 360 ? '7px' : '6px';
   if (handLen === 8 && vw <= MOBILE_HAND_8_NARROW_MAX_VW) {
     if (vw >= MOBILE_HAND_9_OVERLAP_MIN_VW) {
       return {
         attachExtraClass: 'game-mobile-hand--9-overlap330',
         useNarrowAttach: true,
-        frameStyleExtra: pv('5px'),
+        frameStyleExtra: pv('6px'),
         slotPadding: 0,
         overlapPx: MOBILE_HAND_9_OVERLAP_BASE_PX,
       };
@@ -213,7 +215,7 @@ function getMobileNineCardHandLayout(vw: number, handLen: number): MobileNineCar
     return {
       attachExtraClass: 'game-mobile-hand--9-wide400',
       useNarrowAttach: false,
-      frameStyleExtra: pv('6px'),
+      frameStyleExtra: pv('7px'),
       slotPadding: 2,
       overlapPx: 0,
     };
@@ -222,7 +224,7 @@ function getMobileNineCardHandLayout(vw: number, handLen: number): MobileNineCar
     return {
       attachExtraClass: 'game-mobile-hand--9-wide411',
       useNarrowAttach: false,
-      frameStyleExtra: pv('6px'),
+      frameStyleExtra: pv('7px'),
       slotPadding: 1,
       overlapPx: 0,
     };
@@ -231,7 +233,7 @@ function getMobileNineCardHandLayout(vw: number, handLen: number): MobileNineCar
     return {
       attachExtraClass: 'game-mobile-hand--9-mid370',
       useNarrowAttach: false,
-      frameStyleExtra: pv('5px'),
+      frameStyleExtra: pv('6px'),
       slotPadding: 0,
       overlapPx: 0,
     };
@@ -240,7 +242,7 @@ function getMobileNineCardHandLayout(vw: number, handLen: number): MobileNineCar
     return {
       attachExtraClass: 'game-mobile-hand--9-overlap330',
       useNarrowAttach: true,
-      frameStyleExtra: pv('5px'),
+      frameStyleExtra: pv('6px'),
       slotPadding: 0,
       overlapPx: MOBILE_HAND_9_OVERLAP_BASE_PX,
     };
@@ -9523,7 +9525,7 @@ const handFrameStyle: React.CSSProperties = {
   marginRight: 'auto',
 };
 
-/** Мобильная рука: рамка shrink-wrap; padding-inline из index.css (--mobile-south-strip-inset-x). */
+/** Мобильная рука: рамка shrink-wrap; padding-inline в index.css = calc(inset + MOBILE_HAND_FRAME_EXTRA_INLINE_PX). */
 const handFrameStyleMobile: React.CSSProperties = {
   ...handFrameStyle,
   width: 'fit-content',
@@ -9531,8 +9533,8 @@ const handFrameStyleMobile: React.CSSProperties = {
   marginLeft: 'auto',
   marginRight: 'auto',
   padding: undefined,
-  paddingTop: 6,
-  paddingBottom: 6,
+  paddingTop: 7,
+  paddingBottom: 7,
   overflow: 'visible',
   boxSizing: 'border-box',
   position: 'relative',

@@ -62,7 +62,7 @@
 /* Имена оппонентов и игрока — сплошной цвет (в т.ч. .opponent-slot-header-display-name у С/З/В) */
 .theme-neon .game-table-root.viewport-mobile .opponent-slot-header .player-panel-name,
 .theme-neon .game-table-root.viewport-mobile .opponent-slot-header > span:not([class]),
-.theme-neon .game-table-root.viewport-mobile .opponent-slot-header .opponent-slot-header-display-name {
+.theme-neon .game-table-root.viewport-mobile .opponent-slot-header .opponent-slot-header-display-name:not(.opponent-name-offline-ai-pick) {
   background: none !important;
   background-clip: unset !important;
   -webkit-background-clip: unset !important;
