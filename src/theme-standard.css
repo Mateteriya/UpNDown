@@ -77,6 +77,33 @@
   -webkit-background-clip: unset !important;
 }
 
+/* Номер раздачи в углу: тот же перламутр, перебивает общий голубой блок бейджей */
+.theme-standard .game-table-root.viewport-mobile .deal-number-badge--game-info-corner .deal-num-value {
+  opacity: 1 !important;
+  font-weight: 900 !important;
+  background-image: linear-gradient(
+    180deg,
+    #ede9fe 0%,
+    #ddd6fe 10%,
+    #d4c4fd 22%,
+    #c4b5fd 34%,
+    #b9a3f8 44%,
+    #a78bfa 50%,
+    #8b9cf5 58%,
+    #5ab0f0 70%,
+    #38bdf8 82%,
+    #bae6fd 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-text-stroke: 0.26px rgba(49, 46, 129, 0.3);
+  paint-order: stroke fill;
+}
+
 /* Тултип заказа оппонента — перебить .trick-slots-normal span (4 класса) */
 .theme-standard .game-table-root.viewport-mobile button.trick-slots-normal .opponent-order-hint-popover,
 .theme-standard .game-table-root.viewport-mobile button.trick-slots-collecting .opponent-order-hint-popover {

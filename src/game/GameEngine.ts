@@ -173,13 +173,16 @@ export function createGameOnline(playerNames: [string, string, string, string]):
   };
 }
 
+/** Раздач в одной полной партии (вверх, вниз, бескозырка, тёмная). */
+export const DEALS_PER_MATCH = 28;
+
 /** Карт в раздаче по номеру: вверх 1→9, плато 9×4, вниз 8→1, бескозырка 9×4, тёмная 9×4 */
 export function getTricksInDeal(dealNumber: number): number {
   if (dealNumber <= 9) return dealNumber;
   if (dealNumber <= 12) return 9; // ещё 3 раза по 9 (каждый сдаёт)
   if (dealNumber <= 20) return 21 - dealNumber; // 8,7,6,5,4,3,2,1
   if (dealNumber <= 24) return 9; // бескозырка
-  if (dealNumber <= 28) return 9; // тёмная
+  if (dealNumber <= DEALS_PER_MATCH) return 9; // тёмная
   return 1;
 }
 
@@ -187,7 +190,7 @@ export function getTricksInDeal(dealNumber: number): number {
 export function getDealType(dealNumber: number): 'normal' | 'no-trump' | 'dark' {
   if (dealNumber <= 20) return 'normal';
   if (dealNumber <= 24) return 'no-trump';
-  if (dealNumber <= 28) return 'dark';
+  if (dealNumber <= DEALS_PER_MATCH) return 'dark';
   return 'normal';
 }
 
@@ -293,11 +296,11 @@ export function completeDarkDeal(state: GameState): GameState {
 }
 
 /**
- * Следующая раздача в партии. Возвращает null, если партия завершена (28 раздач).
+ * Следующая раздача в партии. Возвращает null, если партия завершена (после последней раздачи).
  * Сдающий строго по очереди: игрок по левую руку (по часовой) от предыдущего сдающего.
  */
 export function startNextDeal(state: GameState): GameState | null {
-  if (state.dealNumber >= 28) return null;
+  if (state.dealNumber >= DEALS_PER_MATCH) return null;
   const nextDealerIndex = nextPlayerLeft(state.dealerIndex);
   const nextDealNumber = state.dealNumber + 1;
   const prepared = { ...state, dealNumber: nextDealNumber, dealerIndex: nextDealerIndex };

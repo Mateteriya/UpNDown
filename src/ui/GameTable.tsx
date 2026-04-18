@@ -3,7 +3,7 @@
  * @see TZ.md раздел 7.3
  */
 
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
+import type { CSSProperties, PointerEvent as ReactPointerEvent, Ref } from 'react';
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AIDifficulty, GameState } from '../game/GameEngine';
@@ -14,6 +14,7 @@ import {
   startNextDeal,
   getDealType,
   getTricksInDeal,
+  DEALS_PER_MATCH,
   placeBid,
   playCard,
   completeTrick,
@@ -512,10 +513,13 @@ const trickWinnerGlowStyle: CSSProperties = {
   ].join(', '),
 };
 
-/** Дополнительные тени для подсветки первого ходящего во время заказа — добавляются к существующему boxShadow панели */
+/** Дополнительные тени для подсветки первого ходящего во время заказа — в тон бейджу «Первый заказ/ход» (оранжевый неон) */
 const firstMoverBiddingGlowExtraShadow = [
-  'inset 0 0 32px rgba(139, 92, 246, 0.28)',
-  'inset 0 0 0 1px rgba(167, 139, 250, 0.45)',
+  'inset 0 0 28px rgba(251, 146, 60, 0.24)',
+  'inset 0 0 0 1px rgba(251, 146, 60, 0.55)',
+  '0 0 0 1px rgba(251, 146, 60, 0.36)',
+  '0 0 24px rgba(251, 146, 60, 0.42)',
+  '0 0 48px rgba(251, 146, 60, 0.22)',
 ].join(', ');
 
 const trumpHighlightBtnStyle: CSSProperties = {
@@ -746,10 +750,13 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const offlineMode = !isOnline && !isWaitingInRoom;
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
+  const isMobileRef = useRef(isMobile);
+  isMobileRef.current = isMobile;
   /** Градиент SVG звезды «ровно в заказ» у юга (моб.) — id уникален относительно оппонентов */
   const userExactOrderStarGradientId = useId().replace(/:/g, '');
   /** Вторая звезда (бирюзовая) на панели заказа — отдельный id градиента */
   const userExactOrderStarOrderPanelGradientId = useId().replace(/:/g, '');
+  const dealNumberExplainTitleId = useId();
   const [mobileHandLayoutVw, setMobileHandLayoutVw] = useState(readMobileHandLayoutWidthPx);
   useLayoutEffect(() => {
     const upd = () => setMobileHandLayoutVw(readMobileHandLayoutWidthPx());
@@ -864,7 +871,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [mobileSouthUserScoreExpanded, setMobileSouthUserScoreExpanded] = useState(false);
   const [lastTrickCollectingPhase, setLastTrickCollectingPhase] = useState<'idle' | 'slots' | 'winner' | 'collapsing' | 'button'>('idle');
   const [showDealResultsButton, setShowDealResultsButton] = useState(false);
+  /** Σ (моб. угол / ПК шапка): краткое поблескивание после свежей раздачи; сброс при открытии таблицы (таймаут в эффекте результатов). */
+  const [dealResultsCornerHint, setDealResultsCornerHint] = useState(false);
   const [dealResultsExpanded, setDealResultsExpanded] = useState(false);
+  const dealResultsExpandedRef = useRef(dealResultsExpanded);
+  dealResultsExpandedRef.current = dealResultsExpanded;
   const [lastDealResultsSnapshot, setLastDealResultsSnapshot] = useState<GameState | null>(null);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -878,6 +889,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [showDealerTooltip, setShowDealerTooltip] = useState(false);
   const [showFirstMoveTooltip, setShowFirstMoveTooltip] = useState(false);
   const [showDealContractHelp, setShowDealContractHelp] = useState(false);
+  const [showDealNumberExplain, setShowDealNumberExplain] = useState(false);
   /** ПК: пояснение к бейджу «Бескозырка» на торгах */
   const [showPcNoTrumpModeTooltip, setShowPcNoTrumpModeTooltip] = useState(false);
   /** ПК: пояснение к бейджу «Тёмная» на торгах */
@@ -921,6 +933,23 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     const t = setTimeout(() => setShowDealContractHelp(false), 5500);
     return () => clearTimeout(t);
   }, [showDealContractHelp]);
+
+  useEffect(() => {
+    setShowDealNumberExplain(false);
+  }, [state?.dealNumber]);
+
+  useEffect(() => {
+    if (!showDealNumberExplain) return;
+    const t = window.setTimeout(() => setShowDealNumberExplain(false), 3000);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowDealNumberExplain(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [showDealNumberExplain]);
 
   useEffect(() => {
     if (!mobileSouthUserScoreExpanded) return;
@@ -993,6 +1022,16 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const dealResultsTimeoutsRef = useRef<{ main?: number; slots?: number; winner?: number; collapse?: number }>({});
   const dealResultsRunIdRef = useRef(0);
   const dealResultsTimeoutsRunIdRef = useRef(0);
+  /** Мобильная Σ в панели: измерение для схлопывания оверлея в точку кнопки */
+  const dealResultsCornerBtnRef = useRef<HTMLButtonElement>(null);
+  /** ПК: кнопка Σ в шапке — цель анимации схлопывания оверлея результатов раздачи. */
+  const dealResultsHeaderBtnRef = useRef<HTMLButtonElement>(null);
+  /** Длительность ≈ animation-delay 0.6s + 2×итерации dealResultsCornerBtnBlink по 2.8s (как у глобальной .deal-results-btn). */
+  const dealResultsCornerHintTimeoutRef = useRef<number | undefined>(undefined);
+  const mobileDealResultsPortalRootRef = useRef<HTMLDivElement>(null);
+  const mobileDealResultsOverlayAnimRef = useRef<HTMLDivElement>(null);
+  const pcDealResultsOverlayAnimRef = useRef<HTMLDivElement>(null);
+  const gameTableRootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOnline || isWaitingInRoom) return;
@@ -1011,6 +1050,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     setShowLastTrickModal(false);
     setBidPanelVisible(false);
     setShowDealResultsButton(false);
+    setDealResultsCornerHint(false);
+    if (dealResultsCornerHintTimeoutRef.current != null) {
+      window.clearTimeout(dealResultsCornerHintTimeoutRef.current);
+      dealResultsCornerHintTimeoutRef.current = undefined;
+    }
     dealResultsButtonEverShownRef.current = false;
     offlineMatchRecordedRef.current = false;
     lastAnimatedDealNumberRef.current = null;
@@ -1073,6 +1117,23 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       return () => document.body.classList.remove('deal-results-modal-open-mobile');
     }
   }, [dealResultsExpanded, isMobile]);
+
+  useEffect(() => {
+    if (!dealResultsExpanded) return;
+    if (dealResultsCornerHintTimeoutRef.current != null) {
+      window.clearTimeout(dealResultsCornerHintTimeoutRef.current);
+      dealResultsCornerHintTimeoutRef.current = undefined;
+    }
+    setDealResultsCornerHint(false);
+  }, [dealResultsExpanded]);
+
+  useEffect(() => {
+    return () => {
+      if (dealResultsCornerHintTimeoutRef.current != null) {
+        window.clearTimeout(dealResultsCornerHintTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const humanIdx = isOnline || isWaitingInRoom ? 0 : 0;
   const isHumanTurn = state?.phase === 'playing' && state.currentPlayerIndex === humanIdx;
@@ -1313,6 +1374,58 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const dealJustCompleted = !!state?.lastCompletedTrick && state.players.every(p => p.hand.length === 0);
   const shouldShowBidPanel = isHumanBidding && !dealJustCompleted && state?.phase !== 'deal-complete';
 
+  /** Вектор схлопывания оверлея к реальной Σ: моб. — корень портала; ПК — .game-table-root (наследование var() в оверлей). */
+  useLayoutEffect(() => {
+    const clearVars = (el: HTMLElement | null) => {
+      if (!el) return;
+      el.style.removeProperty('--deal-results-collapse-dx');
+      el.style.removeProperty('--deal-results-collapse-dy');
+    };
+    const measureAndApply = (
+      root: HTMLElement | null,
+      btn: HTMLButtonElement | null,
+      overlay: HTMLDivElement | null,
+    ) => {
+      if (!root) return;
+      if (!dealJustCompleted || lastTrickCollectingPhase !== 'collapsing') {
+        clearVars(root);
+        return;
+      }
+      if (!btn) {
+        clearVars(root);
+        return;
+      }
+      const br = btn.getBoundingClientRect();
+      const btnCx = br.left + br.width / 2;
+      const btnCy = br.top + br.height / 2;
+      let ox = window.innerWidth * 0.5;
+      let oy = window.innerHeight * 0.55;
+      if (overlay) {
+        const ob = overlay.getBoundingClientRect();
+        ox = ob.left + ob.width / 2;
+        oy = ob.top + ob.height / 2;
+      }
+      root.style.setProperty('--deal-results-collapse-dx', `${btnCx - ox}px`);
+      root.style.setProperty('--deal-results-collapse-dy', `${btnCy - oy}px`);
+    };
+
+    if (isMobile) {
+      clearVars(gameTableRootRef.current);
+      measureAndApply(
+        mobileDealResultsPortalRootRef.current,
+        dealResultsCornerBtnRef.current,
+        mobileDealResultsOverlayAnimRef.current,
+      );
+    } else {
+      clearVars(mobileDealResultsPortalRootRef.current);
+      measureAndApply(
+        gameTableRootRef.current,
+        dealResultsHeaderBtnRef.current,
+        pcDealResultsOverlayAnimRef.current,
+      );
+    }
+  }, [isMobile, dealJustCompleted, lastTrickCollectingPhase]);
+
   useEffect(() => {
     if (shouldShowBidPanel) {
       const t = setTimeout(() => setBidPanelVisible(true), 140);
@@ -1521,6 +1634,17 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           } else if (snap) {
             setShowDealResultsButton(true);
             dealResultsButtonEverShownRef.current = true;
+            if (!dealResultsExpandedRef.current) {
+              if (dealResultsCornerHintTimeoutRef.current != null) {
+                window.clearTimeout(dealResultsCornerHintTimeoutRef.current);
+                dealResultsCornerHintTimeoutRef.current = undefined;
+              }
+              setDealResultsCornerHint(true);
+              dealResultsCornerHintTimeoutRef.current = window.setTimeout(() => {
+                dealResultsCornerHintTimeoutRef.current = undefined;
+                setDealResultsCornerHint(false);
+              }, 6300);
+            }
             setLastDealResultsSnapshot(
               canonicalSnap && o
                 ? rotateStateForPlayer(snap, o.myServerIndex)
@@ -1845,9 +1969,23 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     );
   };
 
+  const canOpenDealResultsTable =
+    state != null &&
+    !isWaitingInRoom &&
+    (showDealResultsButton || (state.dealHistory && state.dealHistory.length > 0));
+  /** Мобильная полоска «раздача / Σ / …»: всегда в партии, не скрывать между раздачами/фазами (Σ привязана к блоку — иначе дёргает вёрстку). */
+  const mobileShowGameInfoStrip = !isWaitingInRoom && state != null;
+  /** Угловая Σ на мобиле при любой возможности открыть таблицу; на ПК — только кнопка в шапке. */
+  const dealResultsCornerInGameInfoPanel = isMobile && canOpenDealResultsTable;
+  const dealResultsButtonInHeader = !isMobile && canOpenDealResultsTable;
+
   /* Мобильная вёрстка (viewport-mobile — см. MOBILE_VIEWPORT_MQ): рука внизу, слоты в сетке 2×2; стили в index.css вместе с @media для компактного вьюпорта */
   return (
-    <div className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}`} style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}>
+    <div
+      ref={gameTableRootRef}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}`}
+      style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}
+    >
       {isOnline && online.userOnPause && (
         <div
           role="dialog"
@@ -2264,6 +2402,49 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           )}
         </div>
       )}
+      {showDealNumberExplain && (
+        <>
+          {isMobileOrTablet ? (
+            <div
+              className="first-move-tooltip-toast dealer-tooltip-toast toast-with-close deal-number-explain-tooltip"
+              role="dialog"
+              aria-modal="false"
+              aria-labelledby={dealNumberExplainTitleId}
+            >
+              <button
+                type="button"
+                className="toast-close-btn"
+                onClick={() => setShowDealNumberExplain(false)}
+                aria-label="Закрыть подсказку"
+              >
+                ×
+              </button>
+              <div id={dealNumberExplainTitleId} style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.45, color: '#e2e8f0' }}>
+                Текущая раздача — №{state?.dealNumber ?? '—'}. Всего в партии {DEALS_PER_MATCH} раздач.
+              </div>
+            </div>
+          ) : (
+            <div
+              className="dealer-tooltip-toast toast-with-close deal-number-explain-tooltip deal-number-explain-tooltip--pc"
+              role="dialog"
+              aria-modal="false"
+              aria-labelledby={dealNumberExplainTitleId}
+            >
+              <button
+                type="button"
+                className="toast-close-btn"
+                onClick={() => setShowDealNumberExplain(false)}
+                aria-label="Закрыть подсказку"
+              >
+                ×
+              </button>
+              <div id={dealNumberExplainTitleId} className="deal-number-explain-tooltip__text">
+                Текущая раздача — №{state?.dealNumber ?? '—'}. Всего в партии {DEALS_PER_MATCH} раздач.
+              </div>
+            </div>
+          )}
+        </>
+      )}
       <div style={tableStyle}>
       <header className="game-header" style={headerStyle}>
         <div style={headerLeftWrapStyle}>
@@ -2421,26 +2602,21 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         </div>
         <div style={headerRightWrapStyle}>
           <div style={headerRightTopRowStyle}>
-            {!isWaitingInRoom && (showDealResultsButton || (state.dealHistory && state.dealHistory.length > 0)) && (
+            {dealResultsButtonInHeader && (
               <button
+                ref={dealResultsHeaderBtnRef}
                 type="button"
                 onClick={() => {
                   setLastDealResultsSnapshot(state);
                   setDealResultsExpanded(true);
                 }}
                 style={dealResultsButtonStyle}
-                className="deal-results-btn"
+                className={`deal-results-btn${dealResultsCornerHint ? ' deal-results-btn--corner-hint' : ''}`}
                 title="Результаты раздачи"
                 aria-label="Показать результаты раздачи"
               >
                 Σ
               </button>
-            )}
-            {!isWaitingInRoom && (
-            <div style={dealNumberBadgeStyle} className="deal-number-badge">
-              <span style={dealNumberLabelStyle}>Раздача</span>
-              <span style={dealNumberValueStyle}><span className="deal-num-symbol" aria-hidden>№</span><span className="deal-num-value">{state.dealNumber}</span></span>
-            </div>
             )}
             {!isWaitingInRoom && (
             <button
@@ -2866,8 +3042,42 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         <>
           <div className="game-mobile-upper-board" style={gameMobileUpperBoardStyle}>
             <div className="game-info-left-col" style={gameInfoLeftColumnStyle}>
-              {!isWaitingInRoom && (state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') && (
+              {mobileShowGameInfoStrip && (
                 <div className="game-info-left-section" style={gameInfoLeftSectionStyle}>
+            {!isWaitingInRoom && (
+                    <button
+                      type="button"
+                      className="deal-number-badge deal-number-badge--game-info-corner"
+                      style={dealNumberBadgeStyle}
+                      onClick={() => setShowDealNumberExplain(v => !v)}
+                      aria-expanded={showDealNumberExplain}
+                      aria-label={`Раздача ${state.dealNumber}. Нажмите для пояснения`}
+                    >
+                      <span style={dealNumberLabelStyle}>Раздача</span>
+                      <span style={dealNumberValueStyle}>
+                        <span className="deal-num-symbol" aria-hidden>
+                          №
+                        </span>
+                        <span className="deal-num-value">{state.dealNumber}</span>
+                      </span>
+                    </button>
+                  )}
+                  {dealResultsCornerInGameInfoPanel && (
+                    <button
+                      ref={dealResultsCornerBtnRef}
+                      type="button"
+                      onClick={() => {
+                        setLastDealResultsSnapshot(state);
+                        setDealResultsExpanded(true);
+                      }}
+                      style={dealResultsButtonStyle}
+                      className={`deal-results-btn deal-results-btn--game-info-corner${dealResultsCornerHint ? ' deal-results-btn--corner-hint' : ''}`}
+                      title="Таблица текущих результатов"
+                      aria-label="Показать таблицу текущих результатов раздач"
+                    >
+                      Σ
+                    </button>
+                  )}
             {!isWaitingInRoom && state.phase === 'playing' && (
                     <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
                       <span style={gameInfoLabelStyle}>Сейчас ход</span>
@@ -3205,7 +3415,12 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         </div>
         </div>
         {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && !isMobile && (
-          <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
+          <DealResultsScreen
+            state={state}
+            isCollapsing={lastTrickCollectingPhase === 'collapsing'}
+            isMobile={false}
+            overlayAnimRef={pcDealResultsOverlayAnimRef}
+          />
         )}
             <div
               className="game-center-east game-mobile-east"
@@ -3684,6 +3899,24 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             )}
             {(state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') && (
               <div className="game-info-left-section" style={gameInfoLeftSectionStyle}>
+                {!isWaitingInRoom && (
+                  <button
+                    type="button"
+                    className="deal-number-badge deal-number-badge--game-info-corner"
+                    style={dealNumberBadgeStyle}
+                    onClick={() => setShowDealNumberExplain(v => !v)}
+                    aria-expanded={showDealNumberExplain}
+                    aria-label={`Раздача ${state.dealNumber}. Нажмите для пояснения`}
+                  >
+                    <span style={dealNumberLabelStyle}>Раздача</span>
+                    <span style={dealNumberValueStyle}>
+                      <span className="deal-num-symbol" aria-hidden>
+                        №
+                      </span>
+                      <span className="deal-num-value">{state.dealNumber}</span>
+                    </span>
+                  </button>
+                )}
                 {state.phase === 'playing' && (
                   <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
                     <span style={gameInfoLabelStyle}>Сейчас ход</span>
@@ -3853,7 +4086,12 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           />
         </div>
         {dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && !isMobile && (
-          <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={!isMobile ? false : undefined} />
+          <DealResultsScreen
+            state={state}
+            isCollapsing={lastTrickCollectingPhase === 'collapsing'}
+            isMobile={false}
+            overlayAnimRef={pcDealResultsOverlayAnimRef}
+          />
         )}
       </div>
       <div style={centerAreaSpacerBottomStyle} aria-hidden />
@@ -4181,8 +4419,17 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
 
       {/* На мобильной оверлей итогов раздачи рендерим в портал, чтобы position:fixed считался от viewport (нет предка с transform) */}
       {isMobile && dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing') && createPortal(
-        <div className="game-table-root viewport-mobile" style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 15 }}>
-          <DealResultsScreen state={state} isCollapsing={lastTrickCollectingPhase === 'collapsing'} isMobile={true} />
+        <div
+          ref={mobileDealResultsPortalRootRef}
+          className="game-table-root viewport-mobile"
+          style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 15 }}
+        >
+          <DealResultsScreen
+            state={state}
+            isCollapsing={lastTrickCollectingPhase === 'collapsing'}
+            isMobile={true}
+            overlayAnimRef={mobileDealResultsOverlayAnimRef}
+          />
         </div>,
         document.body,
       )}
@@ -4510,7 +4757,22 @@ const PLAYER_POSITIONS = [
   { idx: 3, side: 'right' as const, name: 'Восток' },
 ];
 
-function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay', isMobile = false, onClose }: { state: GameState; isCollapsing?: boolean; variant?: 'overlay' | 'modal'; isMobile?: boolean; onClose?: () => void }) {
+function DealResultsScreen({
+  state,
+  isCollapsing = false,
+  variant = 'overlay',
+  isMobile = false,
+  onClose,
+  overlayAnimRef,
+}: {
+  state: GameState;
+  isCollapsing?: boolean;
+  variant?: 'overlay' | 'modal';
+  isMobile?: boolean;
+  onClose?: () => void;
+  /** Оверлей variant=overlay: ref на анимируемый корень (центр для вектора схлопывания к Σ). */
+  overlayAnimRef?: Ref<HTMLDivElement>;
+}) {
   const [scrollHintVisible, setScrollHintVisible] = useState(variant === 'modal' && isMobile);
   const bids = state.bids as number[];
   const players = state.players;
@@ -4595,10 +4857,11 @@ function DealResultsScreen({ state, isCollapsing = false, variant = 'overlay', i
   const isOverlayPC = variant === 'overlay' && !isMobile;
   return (
     <div
+      ref={variant === 'overlay' ? overlayAnimRef : undefined}
       className={variant === 'overlay' ? 'deal-results-overlay-animation' : undefined}
       style={{
         ...baseStyle,
-        ...(isCollapsing ? dealResultsCollapsingStyle : {}),
+        ...(isCollapsing ? (isMobile ? dealResultsCollapsingStyleMobile : dealResultsCollapsingStyle) : {}),
       }}
       aria-hidden
     >
@@ -7195,8 +7458,9 @@ const dealNumberBadgeStyle: React.CSSProperties = {
   gap: 6,
   padding: '5px 10px',
   borderRadius: 8,
-  border: '1px solid rgba(56, 189, 248, 0.5)',
-  background: 'linear-gradient(135deg, rgba(30, 64, 175, 0.8) 0%, rgba(59, 130, 246, 0.75) 100%)',
+  border: '1px solid rgb(66 18 162)',
+  /* Совпадает с index.css !important у .deal-number-badge--game-info-corner */
+  background: 'linear-gradient(135deg, #8930e4 0%, #411dd891 46%, #2c6ad5de 100%)',
   boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
 };
 
@@ -7235,6 +7499,7 @@ const gameInfoModePanelStyle: React.CSSProperties = {
 };
 
 const gameInfoLeftSectionStyle: React.CSSProperties = {
+  position: 'relative',
   display: 'flex',
   gap: 12,
   flexWrap: 'wrap',
@@ -7719,8 +7984,14 @@ const dealResultsOverlayStyle: React.CSSProperties = {
 };
 
 const dealResultsCollapsingStyle: React.CSSProperties = {
-  animation: 'dealResultsCollapse 0.75s cubic-bezier(0.33, 0, 0.2, 1) forwards',
-  transformOrigin: '50% 100%',
+  animation: 'dealResultsCollapsePC 0.75s cubic-bezier(0.33, 0, 0.2, 1) forwards',
+  transformOrigin: '50% 50%',
+};
+
+/** Мобильный оверлей итогов раздачи: схлопывание к Σ в панели «Заказывает» (не в шапку). */
+const dealResultsCollapsingStyleMobile: React.CSSProperties = {
+  animation: 'dealResultsCollapseMobile 0.75s cubic-bezier(0.33, 0, 0.2, 1) forwards',
+  transformOrigin: '50% 50%',
 };
 
 const dealResultsModalStyle: React.CSSProperties = {
