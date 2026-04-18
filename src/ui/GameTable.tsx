@@ -2475,68 +2475,12 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           )}
         </>
       )}
-      <div style={tableStyle}>
+      <div style={{ ...tableStyle, ...(isMobile ? { overflow: 'hidden' as const } : {}) }}>
       <header className="game-header" style={headerStyle}>
         <div style={headerLeftWrapStyle}>
           <div style={headerMenuButtonsWrapStyle}>
-            {isMobile && !isWaitingInRoom && (state.phase === 'bidding' || state.phase === 'dark-bidding') ? (
-              <div className="first-move-badge-hang-wrap" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
-                <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <button
-                    type="button"
-                    className="header-exit-btn"
-                    onClick={handleHomeClick}
-                    style={exitBtnStyle}
-                    title="В меню"
-                    aria-label="В меню"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                      <polyline points="9 22 9 12 15 12 15 22" />
-                    </svg>
-                  </button>
-                  {(isOnline || isWaitingInRoom) && (
-                    <button
-                      type="button"
-                      className={['header-exit-btn', isMobile ? 'header-room-exit-btn' : ''].filter(Boolean).join(' ')}
-                      onClick={handleLeaveRoomClick}
-                      style={exitBtnStyle}
-                      title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
-                      aria-label="Выйти из комнаты"
-                    >
-                      {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>Выйти</span>}
-                    </button>
-                  )}
-                  {onNewGame && !isOnline && !isWaitingInRoom && (
-                    <button
-                      type="button"
-                      className="header-new-game-btn"
-                      onClick={() => setShowNewGameConfirm(true)}
-                      style={newGameBtnStyle}
-                      title="Обновить — новая партия"
-                      aria-label="Обновить — новая партия"
-                    >
-                      ↻
-                    </button>
-                  )}
-                  <AiDifficultyControl
-                    layout="mobile"
-                    offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="first-move-badge first-move-badge-clickable first-move-badge-below-home"
-                  style={{ ...firstMoveBadgeStyle, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
-                  onClick={() => setShowFirstMoveTooltip(true)}
-                  title={`${displayState.players[state.trickLeaderIndex].name} — у данного игрока будет первый ход в этой раздаче`}
-                  aria-label={`Первый ход: ${displayState.players[state.trickLeaderIndex].name}. Нажмите для подсказки`}
-                >
-                  <span className="first-move-num" style={firstMoveLabelStyle}>I:</span>
-                  <span style={firstMoveValueStyle}>{displayState.players[state.trickLeaderIndex].name}</span>
-                </button>
-              </div>
-            ) : isMobile ? (
+            {isMobile ? (
+              isWaitingInRoom ? (
               <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <button
                   type="button"
@@ -2580,6 +2524,181 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
                 />
               </div>
+            ) : (
+              <div
+                className="first-move-badge-hang-wrap"
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}
+              >
+                <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <button
+                    type="button"
+                    className="header-exit-btn"
+                    onClick={handleHomeClick}
+                    style={exitBtnStyle}
+                    title="В меню"
+                    aria-label="В меню"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                  </button>
+                  {(isOnline || isWaitingInRoom) && (
+                    <button
+                      type="button"
+                      className={['header-exit-btn', isMobile ? 'header-room-exit-btn' : ''].filter(Boolean).join(' ')}
+                      onClick={handleLeaveRoomClick}
+                      style={exitBtnStyle}
+                      title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
+                      aria-label="Выйти из комнаты"
+                    >
+                      {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>Выйти</span>}
+                    </button>
+                  )}
+                  {onNewGame && !isOnline && !isWaitingInRoom && (
+                    <button
+                      type="button"
+                      className="header-new-game-btn"
+                      onClick={() => setShowNewGameConfirm(true)}
+                      style={newGameBtnStyle}
+                      title="Обновить — новая партия"
+                      aria-label="Обновить — новая партия"
+                    >
+                      ↻
+                    </button>
+                  )}
+                  <AiDifficultyControl
+                    layout="mobile"
+                    offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
+                  />
+                </div>
+                {state != null &&
+                  (getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark' ? (
+                    <button
+                      type="button"
+                      className="game-info-deal-contract-panel game-info-cards-panel"
+                      style={gameInfoDealContractPanelStyle}
+                      onClick={() => setShowDealContractHelp(true)}
+                      title={
+                        dealContractStats.allBidsPlaced
+                          ? `Режим: ${getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}. Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности`
+                          : `Режим: ${getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}. В раздаче ${dealContractStats.tricksInDeal} ${dealContractStats.cardsWord} у каждого. Нажмите — подробности`
+                      }
+                      aria-label={
+                        dealContractStats.allBidsPlaced
+                          ? `Режим ${getDealType(state.dealNumber) === 'no-trump' ? 'бескозырка' : 'тёмная'}. Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
+                          : `Режим ${getDealType(state.dealNumber) === 'no-trump' ? 'бескозырка' : 'тёмная'}. В раздаче ${dealContractStats.tricksInDeal} ${dealContractStats.cardsWord} у каждого. Показать по игрокам`
+                      }
+                    >
+                      {prefersReducedMotion ? (
+                        <span
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 2,
+                            width: '100%',
+                            minHeight: 22,
+                          }}
+                        >
+                          <span className="deal-contract-line deal-contract-mobile-mode-alternate" style={dealContractMobileModeAlternateLineStyle}>
+                            {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
+                          </span>
+                          {dealContractStats.allBidsPlaced ? (
+                            <span className="deal-contract-line deal-contract-line-mobile-split" style={dealContractLineMobileSplitOuterStyle}>
+                              <span className="deal-contract-mobile-order" style={dealContractMobileOrderStyle}>
+                                З: {dealContractStats.totalOrders}
+                              </span>
+                              <span className="deal-contract-mobile-sep" style={dealContractMobileSepStyle} aria-hidden="true">
+                                ;{' '}
+                              </span>
+                              <DealContractMobileTricksNumbers taken={dealContractStats.totalTricks} dealTotal={dealContractStats.tricksInDeal} />
+                            </span>
+                          ) : (
+                            <>
+                              <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
+                                Карт
+                              </span>
+                              <span className="deal-contract-value" style={dealContractCardsValueStyle}>
+                                {dealContractStats.tricksInDeal} {dealContractStats.cardsWord}
+                              </span>
+                            </>
+                          )}
+                        </span>
+                      ) : mobileSpecialDealBadgeFace === 0 ? (
+                        <span
+                          className="deal-contract-line deal-contract-mobile-mode-alternate"
+                          style={{ ...dealContractMobileAlternateSlotStyle, ...dealContractMobileModeAlternateLineStyle }}
+                        >
+                          {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
+                        </span>
+                      ) : dealContractStats.allBidsPlaced ? (
+                        <span style={dealContractMobileAlternateSlotStyle}>
+                          <span className="deal-contract-line deal-contract-line-mobile-split" style={dealContractLineMobileSplitOuterStyle}>
+                            <span className="deal-contract-mobile-order" style={dealContractMobileOrderStyle}>
+                              З: {dealContractStats.totalOrders}
+                            </span>
+                            <span className="deal-contract-mobile-sep" style={dealContractMobileSepStyle} aria-hidden="true">
+                              ;{' '}
+                            </span>
+                            <DealContractMobileTricksNumbers taken={dealContractStats.totalTricks} dealTotal={dealContractStats.tricksInDeal} />
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={dealContractMobileAlternateSlotStyle}>
+                          <>
+                            <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
+                              Карт
+                            </span>
+                            <span className="deal-contract-value" style={dealContractCardsValueStyle}>
+                              {dealContractStats.tricksInDeal} {dealContractStats.cardsWord}
+                            </span>
+                          </>
+                        </span>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="game-info-deal-contract-panel game-info-cards-panel"
+                      style={gameInfoDealContractPanelStyle}
+                      onClick={() => setShowDealContractHelp(true)}
+                      title={
+                        dealContractStats.allBidsPlaced
+                          ? `Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности по игрокам`
+                          : 'Сколько карт в раздаче'
+                      }
+                      aria-label={
+                        dealContractStats.allBidsPlaced
+                          ? `Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
+                          : `В раздаче ${dealContractStats.tricksInDeal} ${dealContractStats.cardsWord} у каждого`
+                      }
+                    >
+                      {dealContractStats.allBidsPlaced ? (
+                        <span className="deal-contract-line deal-contract-line-mobile-split" style={dealContractLineMobileSplitOuterStyle}>
+                          <span className="deal-contract-mobile-order" style={dealContractMobileOrderStyle}>
+                            З: {dealContractStats.totalOrders}
+                          </span>
+                          <span className="deal-contract-mobile-sep" style={dealContractMobileSepStyle} aria-hidden="true">
+                            ;{' '}
+                          </span>
+                          <DealContractMobileTricksNumbers taken={dealContractStats.totalTricks} dealTotal={dealContractStats.tricksInDeal} />
+                        </span>
+                      ) : (
+                        <>
+                          <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
+                            Карт
+                          </span>
+                          <span className="deal-contract-value" style={dealContractCardsValueStyle}>
+                            {dealContractStats.tricksInDeal} {dealContractStats.cardsWord}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  ))}
+              </div>
+            )
             ) : (
               <div
                 className="header-menu-buttons-col-pc"
@@ -2648,73 +2767,120 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 Σ
               </button>
             )}
-            {!isWaitingInRoom && (
-            <button
-            type="button"
-            onClick={() => setTrumpHighlightOn(v => !v)}
-          style={{
-            ...trumpHighlightBtnStyle,
-            ...(trumpHighlightOn
-              ? {
-                  border: '1px solid rgba(34, 211, 238, 0.9)',
-                  color: '#5eead4',
-                  boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(94, 234, 212, 0.4), 0 0 18px rgba(34, 211, 238, 0.25)',
-                }
-              : { color: 'rgba(251, 146, 60, 0.7)' }),
-          }}
-          title={trumpHighlightOn ? 'Выключить дополнительную подсветку' : 'Включить дополнительную подсветку'}
-        >
-          <svg
-            width="18"
-            height="20"
-            viewBox="0 0 18 20"
-            fill="currentColor"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={!trumpHighlightOn ? 'trump-btn-lamp-off' : undefined}
-            style={trumpHighlightOn ? { filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.6)) drop-shadow(0 0 8px rgba(94, 234, 212, 0.5))' } : undefined}
-          >
-            <path d="M9 2c-3.3 0-6 2.7-6 6 0 2.2 1.2 4.1 3 5.2v2.3c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-2.3c1.8-1.1 3-3 3-5.2 0-3.3-2.7-6-6-6z" />
-            <path d="M9 15v2" />
-            <path d="M6 19h6" />
-          </svg>
-          {trumpHighlightOn ? 'Выключить' : 'Включить'}
-        </button>
-            )}
-            {isMobile && (
-              <button
-                type="button"
-                className="theme-toggle-btn"
-                onClick={toggleTheme}
-                title={theme === 'neon' ? 'Стандарт' : 'Неоновая'}
-                aria-label={theme === 'neon' ? 'Переключить на стандартную тему' : 'Переключить на неоновую тему'}
+            {isMobile ? (
+              <div
+                className="game-header-mobile-theme-lamp-stack"
                 style={{
-                  width: 32,
-                  height: 28,
-                  padding: 4,
-                  borderRadius: 8,
-                  border: '1px solid rgba(34, 211, 238, 0.55)',
-                  background: 'rgba(15, 23, 42, 0.9)',
-                  color: theme === 'neon' ? '#67e8f9' : '#fbbf24',
-                  cursor: 'pointer',
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.2), 0 0 8px rgba(34, 211, 238, 0.15)',
+                  gap: 6,
+                  flexShrink: 0,
                 }}
               >
-                {theme === 'neon' ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ filter: 'drop-shadow(0 0 2px currentColor)' }}>
-                    <text x="12" y="17" textAnchor="middle" fontSize="14" fontWeight="700" fill="currentColor" fontFamily="system-ui, sans-serif">S</text>
-                  </svg>
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ filter: 'drop-shadow(0 0 4px rgba(34,211,238,0.8))' }}>
-                    <circle cx="12" cy="12" r="6" />
-                  </svg>
+                <button
+                  type="button"
+                  className="theme-toggle-btn"
+                  onClick={toggleTheme}
+                  title={theme === 'neon' ? 'Стандарт' : 'Неоновая'}
+                  aria-label={theme === 'neon' ? 'Переключить на стандартную тему' : 'Переключить на неоновую тему'}
+                  style={{
+                    width: 32,
+                    height: 28,
+                    padding: 4,
+                    borderRadius: 8,
+                    border: '1px solid rgba(34, 211, 238, 0.55)',
+                    background: 'rgba(15, 23, 42, 0.9)',
+                    color: theme === 'neon' ? '#67e8f9' : '#fbbf24',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.2), 0 0 8px rgba(34, 211, 238, 0.15)',
+                  }}
+                >
+                  {theme === 'neon' ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ filter: 'drop-shadow(0 0 2px currentColor)' }}>
+                      <text x="12" y="17" textAnchor="middle" fontSize="14" fontWeight="700" fill="currentColor" fontFamily="system-ui, sans-serif">S</text>
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ filter: 'drop-shadow(0 0 4px rgba(34,211,238,0.8))' }}>
+                      <circle cx="12" cy="12" r="6" />
+                    </svg>
+                  )}
+                </button>
+                {!isWaitingInRoom && (
+                  <button
+                    type="button"
+                    onClick={() => setTrumpHighlightOn(v => !v)}
+                    style={{
+                      ...trumpHighlightBtnStyle,
+                      ...(trumpHighlightOn
+                        ? {
+                            border: '1px solid rgba(34, 211, 238, 0.9)',
+                            color: '#5eead4',
+                            boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(94, 234, 212, 0.4), 0 0 18px rgba(34, 211, 238, 0.25)',
+                          }
+                        : { color: 'rgba(251, 146, 60, 0.7)' }),
+                    }}
+                    title={trumpHighlightOn ? 'Выключить дополнительную подсветку' : 'Включить дополнительную подсветку'}
+                  >
+                    <svg
+                      width="18"
+                      height="20"
+                      viewBox="0 0 18 20"
+                      fill="currentColor"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={!trumpHighlightOn ? 'trump-btn-lamp-off' : undefined}
+                      style={trumpHighlightOn ? { filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.6)) drop-shadow(0 0 8px rgba(94, 234, 212, 0.5))' } : undefined}
+                    >
+                      <path d="M9 2c-3.3 0-6 2.7-6 6 0 2.2 1.2 4.1 3 5.2v2.3c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-2.3c1.8-1.1 3-3 3-5.2 0-3.3-2.7-6-6-6z" />
+                      <path d="M9 15v2" />
+                      <path d="M6 19h6" />
+                    </svg>
+                    {trumpHighlightOn ? 'Выключить' : 'Включить'}
+                  </button>
                 )}
-              </button>
+              </div>
+            ) : (
+              !isWaitingInRoom && (
+                <button
+                  type="button"
+                  onClick={() => setTrumpHighlightOn(v => !v)}
+                  style={{
+                    ...trumpHighlightBtnStyle,
+                    ...(trumpHighlightOn
+                      ? {
+                          border: '1px solid rgba(34, 211, 238, 0.9)',
+                          color: '#5eead4',
+                          boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(94, 234, 212, 0.4), 0 0 18px rgba(34, 211, 238, 0.25)',
+                        }
+                      : { color: 'rgba(251, 146, 60, 0.7)' }),
+                  }}
+                  title={trumpHighlightOn ? 'Выключить дополнительную подсветку' : 'Включить дополнительную подсветку'}
+                >
+                  <svg
+                    width="18"
+                    height="20"
+                    viewBox="0 0 18 20"
+                    fill="currentColor"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={!trumpHighlightOn ? 'trump-btn-lamp-off' : undefined}
+                    style={trumpHighlightOn ? { filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.6)) drop-shadow(0 0 8px rgba(94, 234, 212, 0.5))' } : undefined}
+                  >
+                    <path d="M9 2c-3.3 0-6 2.7-6 6 0 2.2 1.2 4.1 3 5.2v2.3c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-2.3c1.8-1.1 3-3 3-5.2 0-3.3-2.7-6-6-6z" />
+                    <path d="M9 15v2" />
+                    <path d="M6 19h6" />
+                  </svg>
+                  {trumpHighlightOn ? 'Выключить' : 'Включить'}
+                </button>
+              )
             )}
           </div>
           {isOnline && online.myServerIndex === 0 && online.returnSlotToPlayer && online.playerSlots.some((s) => s.replacedUserId) && (
@@ -2742,105 +2908,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               )}
             </div>
           )}
-          {(getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark') ? (
-            isMobile ? (
-              <button
-                type="button"
-                className="game-info-deal-contract-panel game-info-cards-panel"
-                style={gameInfoDealContractPanelStyle}
-                onClick={() => setShowDealContractHelp(true)}
-                title={
-                  dealContractStats.allBidsPlaced
-                    ? `Режим: ${getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}. Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности`
-                    : `Режим: ${getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}. В раздаче ${dealContractStats.tricksInDeal} ${dealContractStats.cardsWord} у каждого. Нажмите — подробности`
-                }
-                aria-label={
-                  dealContractStats.allBidsPlaced
-                    ? `Режим ${getDealType(state.dealNumber) === 'no-trump' ? 'бескозырка' : 'тёмная'}. Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
-                    : `Режим ${getDealType(state.dealNumber) === 'no-trump' ? 'бескозырка' : 'тёмная'}. В раздаче ${dealContractStats.tricksInDeal} ${dealContractStats.cardsWord} у каждого. Показать по игрокам`
-                }
-              >
-                {prefersReducedMotion ? (
-                  <span
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 2,
-                      width: '100%',
-                      minHeight: 28,
-                    }}
-                  >
-                    <span className="deal-contract-line deal-contract-mobile-mode-alternate" style={dealContractMobileModeAlternateLineStyle}>
-                      {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
-                    </span>
-                    {dealContractStats.allBidsPlaced ? (
-                      <span
-                        className="deal-contract-line deal-contract-line-mobile-split"
-                        style={dealContractLineMobileSplitOuterStyle}
-                      >
-                        <span className="deal-contract-mobile-order" style={dealContractMobileOrderStyle}>
-                          З: {dealContractStats.totalOrders}
-                        </span>
-                        <span className="deal-contract-mobile-sep" style={dealContractMobileSepStyle} aria-hidden="true">
-                          ;{' '}
-                        </span>
-                        <DealContractMobileTricksNumbers
-                          taken={dealContractStats.totalTricks}
-                          dealTotal={dealContractStats.tricksInDeal}
-                        />
-                      </span>
-                    ) : (
-                      <>
-                        <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
-                          Карт
-                        </span>
-                        <span className="deal-contract-value" style={dealContractCardsValueStyle}>
-                          {dealContractStats.tricksInDeal} {dealContractStats.cardsWord}
-                        </span>
-                      </>
-                    )}
-                  </span>
-                ) : mobileSpecialDealBadgeFace === 0 ? (
-                  <span
-                    className="deal-contract-line deal-contract-mobile-mode-alternate"
-                    style={{ ...dealContractMobileAlternateSlotStyle, ...dealContractMobileModeAlternateLineStyle }}
-                  >
-                    {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
-                  </span>
-                ) : dealContractStats.allBidsPlaced ? (
-                  <span style={dealContractMobileAlternateSlotStyle}>
-                    <span
-                      className="deal-contract-line deal-contract-line-mobile-split"
-                      style={dealContractLineMobileSplitOuterStyle}
-                    >
-                      <span className="deal-contract-mobile-order" style={dealContractMobileOrderStyle}>
-                        З: {dealContractStats.totalOrders}
-                      </span>
-                      <span className="deal-contract-mobile-sep" style={dealContractMobileSepStyle} aria-hidden="true">
-                        ;{' '}
-                      </span>
-                      <DealContractMobileTricksNumbers
-                        taken={dealContractStats.totalTricks}
-                        dealTotal={dealContractStats.tricksInDeal}
-                      />
-                    </span>
-                  </span>
-                ) : (
-                  <span style={dealContractMobileAlternateSlotStyle}>
-                    <>
-                      <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
-                        Карт
-                      </span>
-                      <span className="deal-contract-value" style={dealContractCardsValueStyle}>
-                        {dealContractStats.tricksInDeal} {dealContractStats.cardsWord}
-                      </span>
-                    </>
-                  </span>
-                )}
-              </button>
-            ) : pcNoTrumpModeBadgeAsButton ? (
+          {!isMobile &&
+            ((getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark') ? (
+            pcNoTrumpModeBadgeAsButton ? (
               <button
                 type="button"
                 className="game-info-mode-panel game-info-mode-panel-pc-no-trump-bidding"
@@ -3010,11 +3080,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               style={gameInfoDealContractPanelStyle}
               onClick={() => setShowDealContractHelp(true)}
               title={
-                dealContractStats.allBidsPlaced
-                  ? isMobile
-                    ? `Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности по игрокам`
-                    : 'Подробности по игрокам'
-                  : 'Сколько карт в раздаче'
+                dealContractStats.allBidsPlaced ? 'Подробности по игрокам' : 'Сколько карт в раздаче'
               }
               aria-label={
                 dealContractStats.allBidsPlaced
@@ -3023,23 +3089,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               }
             >
               {dealContractStats.allBidsPlaced ? (
-                isMobile ? (
-                  <span
-                    className="deal-contract-line deal-contract-line-mobile-split"
-                    style={dealContractLineMobileSplitOuterStyle}
-                  >
-                    <span className="deal-contract-mobile-order" style={dealContractMobileOrderStyle}>
-                      З: {dealContractStats.totalOrders}
-                    </span>
-                    <span className="deal-contract-mobile-sep" style={dealContractMobileSepStyle} aria-hidden="true">
-                      ;{' '}
-                    </span>
-                    <DealContractMobileTricksNumbers
-                      taken={dealContractStats.totalTricks}
-                      dealTotal={dealContractStats.tricksInDeal}
-                    />
-                  </span>
-                ) : dealContractStats.orderCompare != null ? (
+                dealContractStats.orderCompare != null ? (
                   <DealContractPcSummaryLine
                     totalOrders={dealContractStats.totalOrders}
                     totalTricks={dealContractStats.totalTricks}
@@ -3062,7 +3112,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 </>
               )}
             </button>
-          )}
+          ))}
         </div>
       </header>
 
@@ -5986,7 +6036,7 @@ function TrickSlotsDisplay({
             bid={0}
             tricksTaken={tricksTaken}
             audience="opponent"
-            fontSize={9}
+            fontSize={tricksTaken === 0 ? 12 : 9}
             tricksLeftInDeal={tricksLeftInDeal}
             exactMatchHeavyNeon={!hideCards && tricksTaken > 0}
             style={{ lineHeight: 1, marginBottom: 2 }}
@@ -6284,12 +6334,17 @@ function TrickSlotsDisplay({
           +{extra}
         </span>
       ) : null;
-    const compactFigFont =
+    let compactFigFont =
       variant === 'player'
         ? playerMobileWideTricks
           ? Math.max(7, Math.round(10 * southUserSlotShrink))
           : 10
         : 9;
+    /** До первой взятки: «0/заказ» читаемо (раньше 9/10px выглядели как микрошрифт). */
+    if (bid != null && tricksTaken === 0) {
+      compactFigFont =
+        variant === 'player' ? Math.min(14, Math.max(compactFigFont, Math.round(compactFigFont * 1.28) + 1)) : Math.min(13, compactFigFont + 3);
+    }
     const figuresCompact = (
       <PcTrickBidTakenFigures
         bid={bid}

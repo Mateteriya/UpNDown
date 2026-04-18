@@ -2122,6 +2122,7 @@
   .game-table-root.viewport-mobile .game-header > div:first-child > button,
   .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-col .game-info-left-section,
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn),
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack > button:not(.deal-results-btn),
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > div {
     min-height: 24px !important;
     box-sizing: border-box !important;
@@ -2258,7 +2259,8 @@
       0 0 10px rgba(34, 211, 238, 0.28) !important;
   }
   /* Кнопка подсветки козыря: только иконка-лампочка, без надписи */
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn) {
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn),
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack > button:not(.deal-results-btn) {
     width: 32px !important;
     min-width: 32px !important;
     height: 28px !important;
@@ -2266,7 +2268,8 @@
     font-size: 0 !important;
     line-height: 0 !important;
   }
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):not(.theme-toggle-btn) svg {
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):not(.theme-toggle-btn) svg,
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack > button:not(.deal-results-btn):not(.theme-toggle-btn) svg {
     width: 16px !important;
     height: 18px !important;
   }
@@ -2475,8 +2478,9 @@
     width: 16px !important;
     height: 18px !important;
   }
-  /* Кнопка «вкл/выкл подсветку»: без рамки, только иконка лампочки; сдвиг вправо на 7px */
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):not(.theme-toggle-btn) {
+  /* Кнопка «вкл/выкл подсветку»: без рамки, только иконка лампочки */
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):not(.theme-toggle-btn),
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack > button:not(.deal-results-btn):not(.theme-toggle-btn) {
     width: 32px !important;
     min-width: 32px !important;
     height: 28px !important;
@@ -2486,10 +2490,21 @@
     border: none !important;
     background: transparent !important;
     box-shadow: none !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):not(.theme-toggle-btn) {
     transform: translateX(7px) !important;
   }
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):hover {
+  /* В стеке «тема + лампа» — левее прямого ребёнка (7px → 3.5px) */
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack > button:not(.deal-results-btn):not(.theme-toggle-btn) {
+    transform: translateX(3.5px) !important;
+  }
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):not(.theme-toggle-btn):hover,
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack > button:not(.deal-results-btn):not(.theme-toggle-btn):hover {
     background: rgba(255,255,255,0.06) !important;
+  }
+  /* Тема + лампочка: центры кнопок на одной вертикали */
+  .game-table-root.viewport-mobile .game-header .game-header-mobile-theme-lamp-stack {
+    align-items: center !important;
   }
   /* Бейдж «Карт / заказ»: компактно, на мобильной без подписи «Карт» */
   .game-table-root.viewport-mobile .game-header .game-info-deal-contract-panel .deal-contract-label {
@@ -2501,6 +2516,16 @@
     max-width: 100% !important;
     gap: 0 !important;
     border-radius: 6px !important;
+  }
+  /* «Карт / заказ» — как бейдж «I: первый ход» под домиком: тот же градиент, рамка, скругление, тень */
+  .game-table-root.viewport-mobile .game-header .game-info-deal-contract-panel.game-info-cards-panel {
+    padding: 3px 8px !important;
+    min-height: 24px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(167, 139, 250, 0.7) !important;
+    background: linear-gradient(135deg, rgba(88, 28, 135, 0.85) 0%, rgba(67, 56, 202, 0.8) 100%) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+    -webkit-tap-highlight-color: rgba(167, 139, 250, 0.3);
   }
   .game-table-root.viewport-mobile .game-header .game-info-deal-contract-panel .deal-contract-value {
     font-size: 12px !important;
@@ -3779,7 +3804,8 @@
     padding-top: 6px !important;
     padding-bottom: 5px !important;
     padding-inline: var(--mobile-south-strip-inset-x, 18px) !important;
-    overflow-y: auto !important;
+    /* Без внутреннего скролла: 120px фиксированы, auto давал лишний вертикальный скроллбар из-за субпикселей/теней */
+    overflow-y: hidden !important;
     overflow-x: hidden !important;
     border-radius: 14px !important; /* в тон панели .game-mobile-player-info, чтобы контейнер не обрезал подсветку прямоугольником */
     border: 1px solid rgba(34, 211, 238, 0.28) !important;
