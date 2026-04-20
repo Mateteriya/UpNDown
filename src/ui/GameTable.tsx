@@ -4,12 +4,13 @@
  */
 
 import type {
+  ComponentPropsWithoutRef,
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
   Ref,
 } from 'react';
-import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, createElement, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AIDifficulty, GameState } from '../game/GameEngine';
 import {
@@ -138,7 +139,7 @@ function getMobileHandRowFit(
   slotPadding: number,
 ): { overlapPx: number; rowScale: number } {
   const inset = mobileSouthStripInsetPx(vw);
-  /* Ряд живёт внутри table padding + attached + frame insets (+ MOBILE_HAND_FRAME_EXTRA_INLINE_PX с каждой стороны рамки) + padding-right корня */
+  /* Ряд живёт внутри table padding + inset полосы руки + frame insets (+ MOBILE_HAND_FRAME_EXTRA_INLINE_PX с каждой стороны рамки) + padding-right корня */
   const gutter = inset * 4 + MOBILE_HAND_FRAME_EXTRA_INLINE_PX * 2 + 2 + MOBILE_TABLE_INNER_PAD_X_PX;
   const inner = Math.max(48, vw - gutter);
   const slotOuter = MOBILE_HAND_CARD_BODY_W + 2 * slotPadding;
@@ -162,6 +163,24 @@ function readMobileHandLayoutWidthPx(): number {
   return Math.max(0, Math.round(w));
 }
 
+/**
+ * Высота для порога «низкий экран»: max(innerHeight, visualViewport.height).
+ * У одного и того же телефона `visualViewport.height` часто меньше `innerHeight` (адресная строка, UI Chrome),
+ * из‑за этого режим ошибочно включался при «логических» 720px. Берём максимум — ориентир на корпус окна.
+ */
+function readMobileViewportHeightForShortModePx(): number {
+  if (typeof window === 'undefined') return 800;
+  const inner = window.innerHeight;
+  const vv = window.visualViewport;
+  const vvH = vv != null && Number.isFinite(vv.height) && vv.height > 0 ? vv.height : 0;
+  return Math.max(0, Math.round(Math.max(inner, vvH)));
+}
+
+/** Строго меньше этой высоты (по readMobileViewportHeightForShortModePx): рука в сетке юга + прокрутка, шапка ниже по z-index. */
+const MOBILE_SHORT_VIEWPORT_HEIGHT_PX = 652;
+/** Short + узкий экран (ширина как readMobileHandLayoutWidthPx): «Очки» на строке с именем только при заказе >7 взяток (8 или 9). */
+const MOBILE_SHORT_SCORE_ELEVATE_MAX_WIDTH_PX = 355;
+
 /** Нахлёст между соседними картами (px), если карт < 9 — без порогов по ширине экрана */
 function mobileHandOverlapBetweenCardsPx(handLen: number): number {
   if (handLen < 6) return 0;
@@ -171,7 +190,7 @@ function mobileHandOverlapBetweenCardsPx(handLen: number): number {
 }
 
 type MobileNineCardHandLayout = {
-  /** Доп. классы на .game-mobile-hand-attached (кроме narrow). */
+  /** Доп. классы на .game-mobile-hand-strip (кроме narrow). */
   attachExtraClass: string | null;
   /** Сузить блок руки под ряд (fit-content + align-self center). */
   useNarrowAttach: boolean;
@@ -786,8 +805,15 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const userExactOrderStarOrderPanelGradientId = useId().replace(/:/g, '');
   const dealNumberExplainTitleId = useId();
   const [mobileHandLayoutVw, setMobileHandLayoutVw] = useState(readMobileHandLayoutWidthPx);
+  const [mobileViewportShort, setMobileViewportShort] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return readMobileViewportHeightForShortModePx() < MOBILE_SHORT_VIEWPORT_HEIGHT_PX;
+  });
   useLayoutEffect(() => {
-    const upd = () => setMobileHandLayoutVw(readMobileHandLayoutWidthPx());
+    const upd = () => {
+      setMobileHandLayoutVw(readMobileHandLayoutWidthPx());
+      setMobileViewportShort(readMobileViewportHeightForShortModePx() < MOBILE_SHORT_VIEWPORT_HEIGHT_PX);
+    };
     upd();
     window.addEventListener('resize', upd);
     window.visualViewport?.addEventListener('resize', upd);
@@ -1166,6 +1192,62 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const humanIdx = isOnline || isWaitingInRoom ? 0 : 0;
   const isHumanTurn = state?.phase === 'playing' && state.currentPlayerIndex === humanIdx;
   const isHumanBidding = (state?.phase === 'bidding' || state?.phase === 'dark-bidding') && state.currentPlayerIndex === humanIdx;
+
+  const mobileSouthHandLayout = useMemo(() => {
+    if (!isMobile || !state) return null;
+    const mobileHandLen = state.players[humanIdx].hand.length;
+    const m9 = getMobileNineCardHandLayout(mobileHandLayoutVw, mobileHandLen);
+    const fit = getMobileHandRowFit(mobileHandLayoutVw, mobileHandLen, m9.overlapPx, m9.slotPadding);
+    let rowScale = fit.rowScale;
+    const ultra312Class = m9.attachExtraClass === 'game-mobile-hand--9-ultra312';
+    if (ultra312Class && mobileHandLayoutVw > 329) {
+      rowScale *= 0.97;
+    }
+    return {
+      mobileHandLen,
+      m9,
+      overlapPx: fit.overlapPx,
+      rowTransform: rowScale < 0.998 ? (`scale(${rowScale})` as const) : undefined,
+      overlapScrubEnabled: isMobile && fit.overlapPx > 0 && !prefersReducedMotion,
+    };
+  }, [isMobile, state, humanIdx, mobileHandLayoutVw, prefersReducedMotion]);
+
+  /** Низкий экран: подсветки с внешней рамки .user-player-panel — на .game-mobile-user-south-main (рамка панели убирается). */
+  const mobileSouthShortUserPanelChrome = useMemo(() => {
+    if (!isMobile || !mobileViewportShort || !state) {
+      return { southMainChrome: {} as React.CSSProperties };
+    }
+    let southMainChrome: React.CSSProperties = { position: 'relative', borderRadius: 12 };
+    if (state.currentPlayerIndex === humanIdx) {
+      southMainChrome = { ...southMainChrome, ...activeTurnPanelFrameStyleUserShortVh };
+    } else if (state.dealerIndex === humanIdx) {
+      southMainChrome = { ...southMainChrome, ...dealerPanelFrameStyleShortVh };
+    }
+    if (!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === humanIdx) {
+      southMainChrome = { ...southMainChrome, ...trickWinnerGlowStyle };
+    }
+    if (getCurrentTrickLeaderIndex(state) === humanIdx) {
+      southMainChrome = { ...southMainChrome, ...currentTrickLeaderGlowStyle };
+    }
+    if (
+      (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+      state.bids.some((b) => b === null) &&
+      state.trickLeaderIndex === humanIdx
+    ) {
+      const base =
+        state.currentPlayerIndex === humanIdx
+          ? activeTurnPanelFrameStyleUserShortVh
+          : state.dealerIndex === humanIdx
+            ? dealerPanelFrameStyleShortVh
+            : null;
+      const baseShadow = base?.boxShadow ?? playerInfoPanelStyle.boxShadow;
+      southMainChrome = {
+        ...southMainChrome,
+        boxShadow: [baseShadow, firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', '),
+      };
+    }
+    return { southMainChrome };
+  }, [isMobile, mobileViewportShort, state, humanIdx]);
 
   useLayoutEffect(() => {
     if (!isMobile || !state) return;
@@ -1997,6 +2079,117 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     );
   };
 
+  /**
+   * viewport-mobile-short + ширина < MOBILE_SHORT_SCORE_ELEVATE_MAX_WIDTH_PX + заказ юга >7 взяток (8 или 9):
+   * «Очки» снаружи сверху справа над полоской заказа (иначе — под именем в строке с взятками).
+   * Заказ: `bids[i] ?? players[i].bid` (как кольцо заказа на аватаре).
+   */
+  const humanSouthBidRaw = state.bids[humanIdx] ?? state.players[humanIdx]?.bid;
+  const humanSouthBidNumber =
+    humanSouthBidRaw != null && !Number.isNaN(Number(humanSouthBidRaw)) ? Number(humanSouthBidRaw) : null;
+  const mobileSouthShortElevateScoreBadgeLayout =
+    mobileViewportShort &&
+    mobileHandLayoutVw < MOBILE_SHORT_SCORE_ELEVATE_MAX_WIDTH_PX &&
+    humanSouthBidNumber != null &&
+    humanSouthBidNumber > 7 &&
+    (state.phase === 'bidding' ||
+      state.phase === 'dark-bidding' ||
+      state.phase === 'playing' ||
+      state.phase === 'trick-complete');
+
+  const renderMobileSouthShortScoreBadge = (opts?: { southScoreAboveOrderStrip?: boolean }) => {
+    const aboveOrderStrip = !!opts?.southScoreAboveOrderStrip;
+    const southScorePartyLeader = isPartyScoreLeader(displayState, humanIdx);
+    /** Над полоской заказа: инлайн + высокая специфичность в CSS, иначе theme-standard перекрашивает span'ы в голубой/«белый». */
+    const aboveStripExpandedNeon: React.CSSProperties | undefined =
+      aboveOrderStrip && mobileSouthUserScoreExpanded
+        ? {
+            color: southScorePartyLeader ? '#f8d0ff' : '#f2b8ff',
+            WebkitTextFillColor: southScorePartyLeader ? '#f8d0ff' : '#f2b8ff',
+            textShadow: southScorePartyLeader
+              ? '0 0 12px rgba(248, 208, 255, 0.72), 0 0 22px rgba(235, 132, 247, 0.5), 0 1px 0 rgba(15, 23, 42, 0.5)'
+              : '0 0 10px rgba(242, 184, 255, 0.65), 0 0 18px rgba(235, 132, 247, 0.45), 0 1px 0 rgba(15, 23, 42, 0.55)',
+            opacity: 1,
+          }
+        : undefined;
+    return (
+      <div className="game-mobile-user-south-score-cell game-mobile-user-south-short-score-under-name">
+        <button
+          type="button"
+          className={[
+            'opponent-score-badge',
+            'opponent-score-badge--mobile-toggle',
+            southScorePartyLeader ? 'score-badge-leader' : '',
+            'opponent-score-badge--slot-east',
+            mobileSouthUserScoreExpanded
+              ? 'opponent-score-badge--score-expanded'
+              : 'opponent-score-badge--score-label-collapsed',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          style={{
+            ...opponentStatBadgeScoreStyle,
+            ...(mobileSouthUserScoreExpanded
+              ? {
+                  flexDirection: 'row' as const,
+                  alignItems: 'center' as const,
+                  justifyContent: 'center' as const,
+                  gap: 6,
+                  ...(aboveOrderStrip
+                    ? {
+                        display: 'inline-flex' as const,
+                        flexWrap: 'nowrap' as const,
+                        width: 'max-content' as const,
+                        lineHeight: 1.15,
+                      }
+                    : {}),
+                }
+              : {}),
+            cursor: 'pointer',
+            font: 'inherit',
+            margin: 0,
+            boxSizing: 'border-box',
+            WebkitTapHighlightColor: 'transparent',
+            width: 'auto',
+            maxWidth: '100%',
+            alignSelf: 'flex-start',
+          }}
+          onClick={e => {
+            e.stopPropagation();
+            setMobileSouthUserScoreExpanded(v => !v);
+          }}
+          aria-expanded={mobileSouthUserScoreExpanded}
+          title={mobileSouthUserScoreExpanded ? 'Скрыть подпись «Очки»' : 'Показать подпись «Очки»'}
+          aria-label={
+            mobileSouthUserScoreExpanded
+              ? `Очки игрока ${state.players[humanIdx].score}, скрыть подпись`
+              : `${state.players[humanIdx].score} очков, показать подпись`
+          }
+        >
+          {mobileSouthUserScoreExpanded ? (
+            <span
+              style={{
+                ...opponentStatStyleWithoutTextColor(opponentStatLabelStyle),
+                marginBottom: 0,
+                ...(aboveStripExpandedNeon ?? {}),
+              }}
+            >
+              Очки
+            </span>
+          ) : null}
+          <span
+            style={{
+              ...opponentStatStyleWithoutTextColor(opponentStatValueStyle),
+              ...(mobileSouthUserScoreExpanded ? aboveStripExpandedNeon ?? {} : {}),
+            }}
+          >
+            {state.players[humanIdx].score}
+          </span>
+        </button>
+      </div>
+    );
+  };
+
   const canOpenDealResultsTable =
     state != null &&
     !isWaitingInRoom &&
@@ -2011,7 +2204,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}
     >
       {isOnline && online.userOnPause && (
@@ -2085,7 +2278,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'center',
-            padding: '0 16px calc(120px + env(safe-area-inset-bottom, 0px))',
+            padding: '0 16px calc(115px + env(safe-area-inset-bottom, 0px))',
           }}
           onClick={() => setShowAvatarMenu(false)}
         >
@@ -2473,7 +2666,21 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           )}
         </>
       )}
-      <div style={{ ...tableStyle, ...(isMobile ? { overflow: 'hidden' as const } : {}) }}>
+      <div
+        className={isMobile ? 'game-table-main-wrap' + (mobileViewportShort ? ' game-table-main-wrap--short-vh' : '') : undefined}
+        style={{
+          ...tableStyle,
+          ...(isMobile
+            ? mobileViewportShort
+              ? {
+                  /* Явно две оси: иначе из tableStyle остаётся overflow:auto и даёт горизонтальный скролл при тенях/ряде карт */
+                  overflow: 'hidden auto' as const,
+                  WebkitOverflowScrolling: 'touch' as const,
+                }
+              : { overflow: 'hidden' as const }
+            : {}),
+        }}
+      >
       <header className="game-header" style={headerStyle}>
         <div
           style={{
@@ -2492,62 +2699,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           >
             {isMobile ? (
               isWaitingInRoom ? (
-              <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <button
-                  type="button"
-                  className="header-exit-btn"
-                  onClick={handleHomeClick}
-                  style={exitBtnStyle}
-                  title="В меню"
-                  aria-label="В меню"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                </button>
-                {(isOnline || isWaitingInRoom) && (
-                  <button
-                    type="button"
-                    className={['header-exit-btn', isMobile ? 'header-room-exit-btn' : ''].filter(Boolean).join(' ')}
-                    onClick={handleLeaveRoomClick}
-                    style={exitBtnStyle}
-                    title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
-                    aria-label="Выйти из комнаты"
-                  >
-                    {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>Выйти</span>}
-                  </button>
-                )}
-                {onNewGame && !isOnline && !isWaitingInRoom && (
-                  <button
-                    type="button"
-                    className="header-new-game-btn"
-                    onClick={() => setShowNewGameConfirm(true)}
-                    style={newGameBtnStyle}
-                    title="Обновить — новая партия"
-                    aria-label="Обновить — новая партия"
-                  >
-                    ↻
-                  </button>
-                )}
-                <AiDifficultyControl
-                  layout="mobile"
-                  offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
-                />
-              </div>
-            ) : (
-              <div
-                className="first-move-badge-hang-wrap"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  gap: 5,
-                  minWidth: 0,
-                  width: 'max-content',
-                  maxWidth: '100%',
-                }}
-              >
                 <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <button
                     type="button"
@@ -2586,7 +2737,63 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       ↻
                     </button>
                   )}
+                  <AiDifficultyControl
+                    layout="mobile"
+                    offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
+                  />
                 </div>
+            ) : (
+              <div
+                className="first-move-badge-hang-wrap"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: 5,
+                  minWidth: 0,
+                  width: 'max-content',
+                  maxWidth: '100%',
+                }}
+              >
+              <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button
+                  type="button"
+                  className="header-exit-btn"
+                  onClick={handleHomeClick}
+                  style={exitBtnStyle}
+                  title="В меню"
+                  aria-label="В меню"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                  </svg>
+                </button>
+                {(isOnline || isWaitingInRoom) && (
+                  <button
+                    type="button"
+                    className={['header-exit-btn', isMobile ? 'header-room-exit-btn' : ''].filter(Boolean).join(' ')}
+                    onClick={handleLeaveRoomClick}
+                    style={exitBtnStyle}
+                    title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
+                    aria-label="Выйти из комнаты"
+                  >
+                    {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>Выйти</span>}
+                  </button>
+                )}
+                {onNewGame && !isOnline && !isWaitingInRoom && (
+                  <button
+                    type="button"
+                    className="header-new-game-btn"
+                    onClick={() => setShowNewGameConfirm(true)}
+                    style={newGameBtnStyle}
+                    title="Обновить — новая партия"
+                    aria-label="Обновить — новая партия"
+                  >
+                    ↻
+                  </button>
+                )}
+              </div>
                 <div
                   className="game-header-mobile-deal-row"
                   style={{
@@ -2811,50 +3018,50 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                   layout="mobile"
                   offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
                 />
-                <button
-                  type="button"
+            <button
+            type="button"
                   className="game-header-mobile-trump-lamp-btn"
-                  onClick={() => setTrumpHighlightOn(v => !v)}
-                  style={{
-                    ...trumpHighlightBtnStyle,
+            onClick={() => setTrumpHighlightOn(v => !v)}
+          style={{
+            ...trumpHighlightBtnStyle,
                     gap: 0,
-                    ...(trumpHighlightOn
-                      ? {
-                          border: '1px solid rgba(34, 211, 238, 0.9)',
-                          color: '#5eead4',
-                          boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(94, 234, 212, 0.4), 0 0 18px rgba(34, 211, 238, 0.25)',
-                        }
-                      : { color: 'rgba(251, 146, 60, 0.7)' }),
-                  }}
-                  title={trumpHighlightOn ? 'Выключить дополнительную подсветку' : 'Включить дополнительную подсветку'}
+            ...(trumpHighlightOn
+              ? {
+                  border: '1px solid rgba(34, 211, 238, 0.9)',
+                  color: '#5eead4',
+                  boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(94, 234, 212, 0.4), 0 0 18px rgba(34, 211, 238, 0.25)',
+                }
+              : { color: 'rgba(251, 146, 60, 0.7)' }),
+          }}
+          title={trumpHighlightOn ? 'Выключить дополнительную подсветку' : 'Включить дополнительную подсветку'}
                   aria-label={trumpHighlightOn ? 'Выключить дополнительную подсветку' : 'Включить дополнительную подсветку'}
-                >
-                  <svg
-                    width="18"
-                    height="20"
-                    viewBox="0 0 18 20"
-                    fill="currentColor"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className={!trumpHighlightOn ? 'trump-btn-lamp-off' : undefined}
-                    style={trumpHighlightOn ? { filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.6)) drop-shadow(0 0 8px rgba(94, 234, 212, 0.5))' } : undefined}
+        >
+          <svg
+            width="18"
+            height="20"
+            viewBox="0 0 18 20"
+            fill="currentColor"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={!trumpHighlightOn ? 'trump-btn-lamp-off' : undefined}
+            style={trumpHighlightOn ? { filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.6)) drop-shadow(0 0 8px rgba(94, 234, 212, 0.5))' } : undefined}
                     aria-hidden
-                  >
-                    <path d="M9 2c-3.3 0-6 2.7-6 6 0 2.2 1.2 4.1 3 5.2v2.3c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-2.3c1.8-1.1 3-3 3-5.2 0-3.3-2.7-6-6-6z" />
-                    <path d="M9 15v2" />
-                    <path d="M6 19h6" />
-                  </svg>
-                </button>
+          >
+            <path d="M9 2c-3.3 0-6 2.7-6 6 0 2.2 1.2 4.1 3 5.2v2.3c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-2.3c1.8-1.1 3-3 3-5.2 0-3.3-2.7-6-6-6z" />
+            <path d="M9 15v2" />
+            <path d="M6 19h6" />
+          </svg>
+        </button>
               </div>
               ) : null
             ) : (
               !isWaitingInRoom && (
-                <button
-                  type="button"
+              <button
+                type="button"
                   onClick={() => setTrumpHighlightOn(v => !v)}
-                  style={{
+                style={{
                     ...trumpHighlightBtnStyle,
                     ...(trumpHighlightOn
                       ? {
@@ -2883,7 +3090,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                     <path d="M6 19h6" />
                   </svg>
                   {trumpHighlightOn ? 'Выключить' : 'Включить'}
-                </button>
+              </button>
               )
             )}
           </div>
@@ -3525,41 +3732,26 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
               />
             </div>
-          </div>
+      </div>
           <div
             className="game-mobile-hand-user-stack"
             style={{
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'stretch',
-              gap: 3,
+              gap: mobileViewportShort ? 2 : 2,
               width: '100%',
               flexShrink: 0,
               minWidth: 0,
               boxSizing: 'border-box',
             }}
           >
-      {(() => {
-        const mobileHandLen = state.players[humanIdx].hand.length;
-        const m9 = getMobileNineCardHandLayout(mobileHandLayoutVw, mobileHandLen);
-        const fit = getMobileHandRowFit(
-          mobileHandLayoutVw,
-          mobileHandLen,
-          m9.overlapPx,
-          m9.slotPadding,
-        );
-        const overlapPx = fit.overlapPx;
-        let rowScale = fit.rowScale;
-        const ultra312Class = m9.attachExtraClass === 'game-mobile-hand--9-ultra312';
-        if (ultra312Class && mobileHandLayoutVw > 329) {
-          rowScale *= 0.97;
-        }
-        const rowTransform = rowScale < 0.998 ? `scale(${rowScale})` : undefined;
-        const overlapScrubEnabled = isMobile && overlapPx > 0 && !prefersReducedMotion;
+      {mobileSouthHandLayout != null && !mobileViewportShort && (() => {
+        const { mobileHandLen, m9, overlapPx, rowTransform, overlapScrubEnabled } = mobileSouthHandLayout;
         return (
       <div
         className={[
-          'game-mobile-hand-attached',
+          'game-mobile-hand-strip',
           m9.attachExtraClass,
           m9.useNarrowAttach ? 'game-mobile-hand--narrow-vw' : '',
         ]
@@ -3682,262 +3874,279 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         );
       })()}
       <div className="game-mobile-bottom-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', width: '100%' }}>
-        <div className="game-mobile-player-wrap game-mobile-player" style={{ flex: '0 0 auto', minWidth: 0, width: '100%', maxWidth: '100%' }}>
-      <div
-        className="game-mobile-player-panel"
-        style={{
-          ...playerStyleMobilePanelShell,
-          ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')
-            ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
-            : {}),
-        }}
-      >
-        <div className={['game-mobile-player-info', 'user-player-panel', userMobilePanelOrderExactGlow ? 'user-player-panel-order-exact' : '', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : ''].filter(Boolean).join(' ')} style={{
+      {createElement(
+        mobileViewportShort ? Fragment : 'div',
+        (mobileViewportShort
+          ? null
+          : {
+              className: 'game-mobile-player-wrap game-mobile-player',
+              style: { flex: '0 0 auto', minWidth: 0, width: '100%', maxWidth: '100%' } as const,
+            }) as ComponentPropsWithoutRef<'div'> | null,
+        <div
+          className="game-mobile-player-panel"
+          style={{
+            ...playerStyleMobilePanelShell,
+            ...(mobileViewportShort
+              ? { flex: '0 0 auto', minWidth: 0, width: '100%', maxWidth: '100%' }
+              : {}),
+            ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')
+              ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
+              : {}),
+          }}
+        >
+        <div className={['game-mobile-player-info', 'user-player-panel', mobileViewportShort ? 'user-player-panel--short-vh' : '', userMobilePanelOrderExactGlow ? 'user-player-panel-order-exact' : '', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : ''].filter(Boolean).join(' ')} style={{
           ...playerInfoPanelStyle,
-          ...(isMobile ? playerInfoPanelStyleMobileSouth : {}),
+          ...(isMobile && !mobileViewportShort ? playerInfoPanelStyleMobileSouth : {}),
+          ...(isMobile && mobileViewportShort
+            ? {
+                ...playerInfoPanelStyleMobileSouthShort,
+                borderRadius: playerInfoPanelStyleMobileSouth.borderRadius,
+                border: 'none',
+                boxShadow: 'none',
+                /* Одна подложка — на .game-mobile-user-south-main (CSS); иначе градиент + внутренняя «рамка» = два слоя */
+                background: 'transparent',
+              }
+            : {}),
           ...(isMobile ? { maxWidth: '100%', marginLeft: 0, marginRight: 0 } : {}),
-          padding: isMobile ? `${Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE)}px 0` : '7px 0',
+          padding: isMobile
+            ? mobileViewportShort
+              ? '2px 0'
+              : `${Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE)}px 0`
+            : '7px 0',
           position: 'relative',
-          ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
+          ...(!mobileViewportShort && state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : {}),
+          ...(!mobileViewportShort && state.currentPlayerIndex !== humanIdx && state.dealerIndex === humanIdx ? dealerPanelFrameStyle : {}),
           ...(dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === humanIdx ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
-          ...(!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === humanIdx ? trickWinnerGlowStyle : {}),
-          ...(getCurrentTrickLeaderIndex(state) === humanIdx ? currentTrickLeaderGlowStyle : {}),
-          ...((state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? (() => {
+          ...(!mobileViewportShort && !!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === humanIdx ? trickWinnerGlowStyle : {}),
+          ...(!mobileViewportShort && getCurrentTrickLeaderIndex(state) === humanIdx ? currentTrickLeaderGlowStyle : {}),
+          ...(!mobileViewportShort &&
+          (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+          state.bids.some(b => b === null) &&
+          state.trickLeaderIndex === humanIdx
+            ? (() => {
             const base = state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : null;
             const baseShadow = base?.boxShadow ?? playerInfoPanelStyle.boxShadow;
             return { boxShadow: [baseShadow, firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', ') };
-          })() : {}),
+              })()
+            : {}),
         }}>
             <div
               className="game-mobile-user-south-main"
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'max-content 1fr',
-                gridTemplateRows: 'auto auto',
+                gridTemplateRows: mobileViewportShort ? ('auto auto auto' as const) : ('auto auto' as const),
                 columnGap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-                /* База 5×scale (~8px), −3px: плотнее между шапкой/аватаром и «Очки»/заказом */
-                rowGap: Math.max(2, Math.round(5 * MOBILE_SOUTH_PLAYER_CARD_SCALE) - 3),
+                /* База 5×scale (~8px), −3px; в short — ещё плотнее */
+                rowGap: mobileViewportShort
+                  ? Math.max(1, Math.round(4 * MOBILE_SOUTH_PLAYER_CARD_SCALE) - 4)
+                  : Math.max(2, Math.round(5 * MOBILE_SOUTH_PLAYER_CARD_SCALE) - 3),
                 alignItems: 'start',
                 width: '100%',
-                flex: '1 1 0',
+                /* Short: не растягиваем сетку на flex-остаток — иначе лишняя высота и вертикальный скролл у .game-table-main-wrap--short-vh */
+                flex: mobileViewportShort ? ('0 1 auto' as const) : ('1 1 0' as const),
                 minWidth: 0,
+                ...(mobileViewportShort ? mobileSouthShortUserPanelChrome.southMainChrome : {}),
               }}
             >
-              <div
-                className="game-mobile-user-south-avatar-stack"
-                style={{
-                  gridColumn: 1,
-                  gridRow: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  flexShrink: 0,
-                  position: 'relative',
-                  overflow: 'visible',
-                }}
-              >
-                {renderUserPlayerAvatar(
-                  Math.round(34 * MOBILE_SOUTH_PLAYER_CARD_SCALE * MOBILE_SOUTH_USER_AVATAR_RELATIVE_SCALE),
-                )}
-                {isMobile && userOrderRingExact ? (
+              {mobileSouthHandLayout != null && mobileViewportShort && (() => {
+                const { mobileHandLen, m9, overlapPx, rowTransform, overlapScrubEnabled } = mobileSouthHandLayout;
+                return (
                   <div
-                    className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
-                    aria-hidden
-                  >
-                    <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
-                      <span className="user-exact-order-star-badge__enter" aria-hidden>
-                        <svg viewBox="0 0 24 24" width="19" height="19" focusable="false" aria-hidden>
-                          <defs>
-                            <linearGradient id={userExactOrderStarGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stopColor="#faf5ff" />
-                              <stop offset="38%" stopColor="#ddd6fe" />
-                              <stop offset="72%" stopColor="#a78bfa" />
-                              <stop offset="100%" stopColor="#6d28d9" />
-                            </linearGradient>
-                          </defs>
-                          <path
-                            className="user-exact-order-star-path"
-                            fill={`url(#${userExactOrderStarGradientId})`}
-                            stroke="currentColor"
-                            strokeWidth="0.82"
-                            strokeLinejoin="round"
-                            d="M12 1.35l2.35 7.15h7.6L15.8 14.1l2.35 7.55L12 17.45l-6.15 4.2 2.35-7.55L2.05 8.5h7.6z"
-                          />
-                        </svg>
-                      </span>
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-              <div
-                className="game-mobile-user-south-score-cell"
-                style={{
-                  gridColumn: 1,
-                  gridRow: 2,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'stretch',
-                  justifyContent: 'center',
-                  minWidth: 0,
-                  alignSelf: 'center',
-                }}
-              >
-                <button
-                  type="button"
-                  className={[
-                    'opponent-score-badge',
-                    'opponent-score-badge--mobile-toggle',
-                    isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : '',
-                    'opponent-score-badge--slot-east',
-                    mobileSouthUserScoreExpanded
-                      ? 'opponent-score-badge--score-expanded'
-                      : 'opponent-score-badge--score-label-collapsed',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  style={{
-                    ...opponentStatBadgeScoreStyle,
-                    cursor: 'pointer',
-                    font: 'inherit',
-                    margin: 0,
-                    boxSizing: 'border-box',
-                    WebkitTapHighlightColor: 'transparent',
-                    width: '100%',
-                  }}
-                  onClick={e => {
-                    e.stopPropagation();
-                    setMobileSouthUserScoreExpanded(v => !v);
-                  }}
-                  aria-expanded={mobileSouthUserScoreExpanded}
-                  title={mobileSouthUserScoreExpanded ? 'Скрыть подпись «Очки»' : 'Показать подпись «Очки»'}
-                  aria-label={
-                    mobileSouthUserScoreExpanded
-                      ? `Очки игрока ${state.players[humanIdx].score}, скрыть подпись`
-                      : `${state.players[humanIdx].score} очков, показать подпись`
-                  }
-                >
-                  {mobileSouthUserScoreExpanded ? (
-                    <span style={opponentStatStyleWithoutTextColor(opponentStatLabelStyle)}>Очки</span>
-                  ) : null}
-                  <span style={opponentStatStyleWithoutTextColor(opponentStatValueStyle)}>
-                    {state.players[humanIdx].score}
-                  </span>
-                </button>
-              </div>
-              <div
-                className="game-mobile-user-south-right-col"
-                style={{
-                  gridColumn: 2,
-                  gridRow: 1,
-                  minWidth: 0,
-                  width: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'stretch',
-                }}
-              >
-                <div style={{ ...playerInfoHeaderStyle, ...playerInfoHeaderStyleMobileSouth, alignItems: 'flex-start' }}>
-                  <span
+                    role="region"
+                    aria-label="Ваши карты"
+                    className={['game-mobile-south-panel-hand', m9.attachExtraClass, m9.useNarrowAttach ? 'game-mobile-hand--narrow-vw' : '']
+                      .filter(Boolean)
+                      .join(' ')}
                     style={{
-                      ...playerNameDealerWrapStyle,
-                      gap: Math.round(6 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-                      flex: '1 1 0',
-                      width: '100%',
+                      gridColumn: '1 / -1',
+                      gridRow: 1,
+                      justifySelf: 'stretch',
                       minWidth: 0,
+                      ...handFrameStyleMobile,
+                      ...m9.frameStyleExtra,
                     }}
                   >
-                    <span
-                      className={['player-panel-name', showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? 'your-turn-prompt' : ''].filter(Boolean).join(' ')}
-                      style={{
-                        ...playerNameStyle,
-                        fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-                        ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
-                        ...(showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? yourTurnPromptStyle : {}),
-                      }}
-                      title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
-                    >
-                      {showYourTurnPrompt && (isHumanTurn || isHumanBidding)
-                        ? (state.phase === 'playing' ? 'Ваш ход!' : 'Ваш заказ!')
-                        : displayState.players[humanIdx].name}
-                    </span>
-                    {state.dealerIndex === humanIdx &&
-                      (isMobileOrTablet && state.phase === 'playing' ? (
-                        <button
-                          type="button"
-                          className="dealer-badge-compact-mobile"
-                          style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                          onClick={() => setShowDealerTooltip(true)}
-                          title="Сдающий"
-                          aria-label="Сдающий"
-                        >
-                          <span style={dealerLampBulbStyle} />
-                          <span className="dealer-badge-text" aria-hidden>
-                            Сдающий
-                          </span>
-                        </button>
-                      ) : (
-                        <span style={dealerLampStyle} title="Сдающий">
-                          <span style={dealerLampBulbStyle} /> Сдающий
-                        </span>
-                      ))}
-                    {(state.phase === 'bidding' || state.phase === 'dark-bidding') &&
-                      state.bids.some(b => b === null) &&
-                      state.trickLeaderIndex === humanIdx && (
-                        <span style={firstBidderLampStyle} title="Первый заказ/ход">
-                          <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
-                        </span>
-                      )}
-                  </span>
-                </div>
-              </div>
-              <div
-                className="player-mobile-south-tricks-column game-mobile-user-south-tricks-only"
-                style={{
-                  gridColumn: 2,
-                  gridRow: 2,
-                  ...playerStatsRowStyle,
-                  ...playerStatsRowStyleMobileSouth,
-                  position: 'relative',
-                  justifySelf: 'end',
-                  alignSelf: 'center',
-                  minWidth: 0,
-                  width: '100%',
-                }}
-              >
-                <TrickSlotsDisplay
-                  bid={state.bids[humanIdx] ?? null}
-                  tricksTaken={state.players[humanIdx].tricksTaken}
-                  variant="player"
-                  collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')}
-                  compactMode={isMobileOrTablet}
-                  playerMobileWideTricks={isMobile}
-                  tricksLeftInDeal={tricksRemainingInDeal(state)}
-                  playerMobileExactOrderCornerStar={
-                    isMobile && userOrderRingExact ? (
                       <div
-                        className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-order-panel-ne"
+                        ref={mobileOverlapHandRowRef}
+                        className={[
+                          'game-mobile-hand-row',
+                          state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        onPointerDownCapture={overlapScrubEnabled ? handleMobileHandRowPointerDownCapture : undefined}
+                        onClickCapture={(e) => {
+                          if (suppressMobileOverlapClickRef.current) {
+                            suppressMobileOverlapClickRef.current = false;
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }
+                        }}
+                        style={{
+                          ...handStyle,
+                          overflow: 'visible',
+                          justifyContent: 'center',
+                          boxSizing: 'border-box',
+                          width: 'max-content',
+                          maxWidth: '100%',
+                          borderRadius: 10,
+                          touchAction: overlapScrubEnabled ? ('none' as const) : undefined,
+                          ...(rowTransform
+                            ? { transform: rowTransform, transformOrigin: 'center bottom' as const }
+                            : {}),
+                        }}
+                      >
+                        {state.players[humanIdx].hand
+                          .slice()
+                          .sort((a, b) => cardSort(a, b, state.trump))
+                          .map((card, i) => {
+                            const marginRight = overlapPx > 0 && i < mobileHandLen - 1 ? -overlapPx : 0;
+                            const isValidPlay =
+                              state.phase === 'playing' &&
+                              state.currentPlayerIndex === humanIdx &&
+                              state.currentTrick.length > 0 &&
+                              validPlays.some((c) => c.suit === card.suit && c.rank === card.rank);
+                            const handCardZ =
+                              isMobile && state.currentPlayerIndex === humanIdx ? (isValidPlay ? 3 : 2) : isValidPlay ? 1 : 0;
+                            const overlapPeek = overlapScrubEnabled && mobileOverlapScrubPeek === i;
+                            const handCardDisabled =
+                              !!state.pendingTrickCompletion ||
+                              !isHumanTurn ||
+                              !validPlays.some((c) => c.suit === card.suit && c.rank === card.rank);
+                            return (
+                              <div
+                                key={`southgrid-${card.suit}-${card.rank}-${i}`}
+                                data-mobile-hand-slot={overlapScrubEnabled ? i : undefined}
+                                ref={
+                                  overlapScrubEnabled
+                                    ? (el) => {
+                                        const arr = mobileOverlapSlotRefs.current;
+                                        while (arr.length <= i) arr.push(null);
+                                        arr[i] = el;
+                                      }
+                                    : undefined
+                                }
+                                style={{
+                                  marginRight,
+                                  flexShrink: 0,
+                                  overflow: overlapScrubEnabled ? ('visible' as const) : 'hidden',
+                                  borderRadius: 6,
+                                  position: 'relative',
+                                  zIndex: handCardZ + (overlapPx > 0 ? i : 0) + (overlapPeek ? 50 : 0),
+                                  padding: m9.slotPadding,
+                                  ...(isMobile && state.currentPlayerIndex === humanIdx
+                                    ? ({ '--hand-wave-index': i + 1 } as CSSProperties)
+                                    : {}),
+                                }}
+                              >
+                                <CardView
+                                  card={card}
+                                  scale={0.72}
+                                  contentScale={1.5}
+                                  compact
+                                  showDesktopFaceIndices={true}
+                                  suitIndexInHandMobile={true}
+                                  biddingHighlightMobile={isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding')}
+                                  doubleBorder={false}
+                                  isTrumpOnTable={false}
+                                  trumpHighlightOn={trumpHighlightOn}
+                                  isTrumpInHand={state.trump !== null && card.suit === state.trump}
+                                  forceMobileTrumpGlow={
+                                    isMobileOrTablet &&
+                                    state.trump !== null &&
+                                    card.suit === state.trump &&
+                                    (state.phase === 'bidding' ||
+                                      state.phase === 'dark-bidding' ||
+                                      (state.phase === 'playing' &&
+                                        state.currentPlayerIndex === humanIdx &&
+                                        state.currentTrick.length === 0))
+                                  }
+                                  mobileTrumpGlowActive={
+                                    state.phase === 'bidding' ||
+                                    state.phase === 'dark-bidding' ||
+                                    (state.phase === 'playing' &&
+                                      state.currentPlayerIndex === humanIdx &&
+                                      state.currentTrick.length === 0)
+                                  }
+                                  highlightAsValidPlay={
+                                    state.phase === 'playing' &&
+                                    state.currentPlayerIndex === humanIdx &&
+                                    state.currentTrick.length > 0 &&
+                                    validPlays.some((c) => c.suit === card.suit && c.rank === card.rank)
+                                  }
+                                  mobileTrumpShineBidding={
+                                    (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                                    state.trump !== null &&
+                                    card.suit === state.trump
+                                  }
+                                  mobileHandPeekLift={overlapPeek}
+                                  mobileOverlapHandPointerPassthrough={overlapScrubEnabled && handCardDisabled}
+                                  showPipZoneBorders={false}
+                                  pcCardStyles={false}
+                                  thinBorder={true}
+                                  onClick={() => {
+                                    if (
+                                      !state.pendingTrickCompletion &&
+                                      isHumanTurn &&
+                                      validPlays.some((c) => c.suit === card.suit && c.rank === card.rank)
+                                    ) {
+                                      if (isOnline) online.sendPlay(card);
+                                      else setLocalState((prev) => prev && playCard(prev, humanIdx, card));
+                                    }
+                                  }}
+                                  disabled={handCardDisabled}
+                                />
+                              </div>
+                            );
+                          })}
+                      </div>
+                      {trumpHighlightOn && userTurnGarlandReadyMobile && isUserActiveTurnForGarlandMobile ? (
+                        <UserPanelGarlandOverlay durationMs={USER_PANEL_GARLAND_HAND_DURATION_MS} />
+                      ) : null}
+                  </div>
+                );
+              })()}
+              {mobileViewportShort ? (
+                <>
+                  <div
+                    className="game-mobile-user-south-avatar-stack"
+                    style={{
+                      gridColumn: 1,
+                      gridRow: '2 / 4',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                      position: 'relative',
+                      overflow: 'visible',
+                      alignSelf: 'stretch',
+                      minHeight: 0,
+                    }}
+                  >
+                    {renderUserPlayerAvatar(
+                      Math.round(34 * MOBILE_SOUTH_PLAYER_CARD_SCALE * MOBILE_SOUTH_USER_AVATAR_RELATIVE_SCALE),
+                    )}
+                    {isMobile && userOrderRingExact ? (
+                      <div
+                        className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
                         aria-hidden
                       >
                         <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
                           <span className="user-exact-order-star-badge__enter" aria-hidden>
-                            <svg viewBox="0 0 24 24" width="13" height="13" focusable="false" aria-hidden>
+                            <svg viewBox="0 0 24 24" width="19" height="19" focusable="false" aria-hidden>
                               <defs>
-                                <linearGradient
-                                  id={userExactOrderStarOrderPanelGradientId}
-                                  x1="0%"
-                                  y1="0%"
-                                  x2="100%"
-                                  y2="100%"
-                                >
-                                  <stop offset="0%" stopColor="#ecfeff" />
-                                  <stop offset="32%" stopColor="#a5f3fc" />
-                                  <stop offset="68%" stopColor="#22d3ee" />
-                                  <stop offset="100%" stopColor="#0e7490" />
+                                <linearGradient id={userExactOrderStarGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+                                  <stop offset="0%" stopColor="#faf5ff" />
+                                  <stop offset="38%" stopColor="#ddd6fe" />
+                                  <stop offset="72%" stopColor="#a78bfa" />
+                                  <stop offset="100%" stopColor="#6d28d9" />
                                 </linearGradient>
                               </defs>
                               <path
                                 className="user-exact-order-star-path"
-                                fill={`url(#${userExactOrderStarOrderPanelGradientId})`}
+                                fill={`url(#${userExactOrderStarGradientId})`}
                                 stroke="currentColor"
                                 strokeWidth="0.82"
                                 strokeLinejoin="round"
@@ -3947,17 +4156,437 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                           </span>
                         </span>
                       </div>
-                    ) : undefined
-                  }
-                />
-              </div>
-            </div>
-          {trumpHighlightOn && userTurnGarlandReadyMobile && isUserActiveTurnForGarlandMobile ? (
+                    ) : null}
+                  </div>
+                  <div
+                    className="game-mobile-user-south-right-col game-mobile-user-south-short-meta-col"
+                    style={{
+                      gridColumn: 2,
+                      gridRow: '2 / 4',
+                      minWidth: 0,
+                      width: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'stretch',
+                      alignSelf: 'stretch',
+                      justifyContent: 'flex-start',
+                      /* Short: плотнее имя → бейдж «Очки» (было max(2, round(4*scale)-2) ≈ 4px) */
+                      gap: Math.max(1, Math.round(2 * MOBILE_SOUTH_PLAYER_CARD_SCALE) - 2),
+                    }}
+                  >
+                    <div
+                      style={{
+                        ...playerInfoHeaderStyle,
+                        ...playerInfoHeaderStyleMobileSouth,
+                        ...playerInfoHeaderStyleMobileSouthShort,
+                        /* flex-start; «Очки» 8/9 + узкий vw — не в строке с именем, а над полоской заказа (см. .game-mobile-user-south-short-score-above-order) */
+                        alignItems: 'flex-start' as const,
+                      }}
+                    >
+                      <span
+                        style={{
+                          ...playerNameDealerWrapStyle,
+                          gap: Math.round(6 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                          flex: '1 1 0',
+                          minWidth: 0,
+                          width: '100%',
+                        }}
+                      >
+                        <span
+                          className={['player-panel-name', showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? 'your-turn-prompt' : ''].filter(Boolean).join(' ')}
+                          style={{
+                            ...playerNameStyle,
+                            fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                            ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
+                            ...(showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? yourTurnPromptStyle : {}),
+                          }}
+                          title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
+                        >
+                          {showYourTurnPrompt && (isHumanTurn || isHumanBidding)
+                            ? state.phase === 'playing'
+                              ? 'Ваш ход!'
+                              : 'Ваш заказ!'
+                            : displayState.players[humanIdx].name}
+                        </span>
+                        {state.dealerIndex === humanIdx &&
+                          (isMobileOrTablet && state.phase === 'playing' ? (
+                            <button
+                              type="button"
+                              className="dealer-badge-compact-mobile"
+                              style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                              onClick={() => setShowDealerTooltip(true)}
+                              title="Сдающий"
+                              aria-label="Сдающий"
+                            >
+                              <span style={dealerLampBulbStyle} />
+                              <span className="dealer-badge-text" aria-hidden>
+                                Сдающий
+                              </span>
+                            </button>
+                          ) : (
+                            <span style={dealerLampStyle} title="Сдающий">
+                              <span style={dealerLampBulbStyle} /> Сдающий
+                            </span>
+                          ))}
+                        {(state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                          state.bids.some(b => b === null) &&
+                          state.trickLeaderIndex === humanIdx && (
+                            <span style={firstBidderLampStyle} title="Первый заказ/ход">
+                              <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
+                            </span>
+                          )}
+                      </span>
+                    </div>
+                    <div
+                      className="game-mobile-user-south-short-score-tricks-row"
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        /* flex-start: полоска взяток выше бейджа — при center бейдж «тонет» к середине полоски */
+                        alignItems: 'flex-start',
+                        justifyContent: mobileSouthShortElevateScoreBadgeLayout ? 'flex-end' : 'space-between',
+                        width: '100%',
+                        minWidth: 0,
+                        gap: 6,
+                        /* Не flex:1 — колонка тянется по высоте аватара; иначе ряд центрируется по вертикали и «Очки» визуально уезжают вниз от имени */
+                        flex: '0 0 auto',
+                      }}
+                    >
+                      {!mobileSouthShortElevateScoreBadgeLayout ? renderMobileSouthShortScoreBadge() : null}
+                      <div
+                        className="player-mobile-south-tricks-column game-mobile-user-south-tricks-only game-mobile-user-south-short-tricks-inline"
+                        style={{
+                          ...playerStatsRowStyle,
+                          ...playerStatsRowStyleMobileSouth,
+                          ...playerStatsRowStyleMobileSouthShort,
+                          position: 'relative',
+                          display: 'flex',
+                          justifyContent: 'flex-end',
+                          alignItems: 'center',
+                          flexShrink: 0,
+                          minWidth: 0,
+                          marginLeft: 'auto',
+                          maxWidth: 'min(52%, 200px)',
+                        }}
+                      >
+                        {mobileSouthShortElevateScoreBadgeLayout ? (
+                          <div
+                            className="game-mobile-user-south-short-score-above-order"
+                            style={{ transform: 'translateX(-1px)' }}
+                          >
+                            {renderMobileSouthShortScoreBadge({ southScoreAboveOrderStrip: true })}
+                          </div>
+                        ) : null}
+                        <TrickSlotsDisplay
+                          bid={humanSouthBidNumber}
+                          tricksTaken={state.players[humanIdx].tricksTaken}
+                          variant="player"
+                          collectingCards={
+                            dealJustCompleted &&
+                            (lastTrickCollectingPhase === 'slots' ||
+                              lastTrickCollectingPhase === 'winner' ||
+                              lastTrickCollectingPhase === 'collapsing')
+                          }
+                          compactMode={isMobileOrTablet}
+                          playerMobileWideTricks={isMobile}
+                          tricksLeftInDeal={tricksRemainingInDeal(state)}
+                          playerMobileExactOrderCornerStar={
+                            isMobile && userOrderRingExact ? (
+                              <div
+                                className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-order-panel-ne"
+                                aria-hidden
+                              >
+                                <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+                                  <span className="user-exact-order-star-badge__enter" aria-hidden>
+                                    <svg viewBox="0 0 24 24" width="13" height="13" focusable="false" aria-hidden>
+                                      <defs>
+                                        <linearGradient
+                                          id={userExactOrderStarOrderPanelGradientId}
+                                          x1="0%"
+                                          y1="0%"
+                                          x2="100%"
+                                          y2="100%"
+                                        >
+                                          <stop offset="0%" stopColor="#ecfeff" />
+                                          <stop offset="32%" stopColor="#a5f3fc" />
+                                          <stop offset="68%" stopColor="#22d3ee" />
+                                          <stop offset="100%" stopColor="#0e7490" />
+                                        </linearGradient>
+                                      </defs>
+                                      <path
+                                        className="user-exact-order-star-path"
+                                        fill={`url(#${userExactOrderStarOrderPanelGradientId})`}
+                                        stroke="currentColor"
+                                        strokeWidth="0.82"
+                                        strokeLinejoin="round"
+                                        d="M12 1.35l2.35 7.15h7.6L15.8 14.1l2.35 7.55L12 17.45l-6.15 4.2 2.35-7.55L2.05 8.5h7.6z"
+                                      />
+                                    </svg>
+                                  </span>
+                                </span>
+                              </div>
+                            ) : undefined
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="game-mobile-user-south-avatar-stack"
+                    style={{
+                      gridColumn: 1,
+                      gridRow: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      flexShrink: 0,
+                      position: 'relative',
+                      overflow: 'visible',
+                    }}
+                  >
+                    {renderUserPlayerAvatar(
+                      Math.round(34 * MOBILE_SOUTH_PLAYER_CARD_SCALE * MOBILE_SOUTH_USER_AVATAR_RELATIVE_SCALE),
+                    )}
+                    {isMobile && userOrderRingExact ? (
+                      <div
+                        className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
+                        aria-hidden
+                      >
+                        <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+                          <span className="user-exact-order-star-badge__enter" aria-hidden>
+                            <svg viewBox="0 0 24 24" width="19" height="19" focusable="false" aria-hidden>
+                              <defs>
+                                <linearGradient id={userExactOrderStarGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+                                  <stop offset="0%" stopColor="#faf5ff" />
+                                  <stop offset="38%" stopColor="#ddd6fe" />
+                                  <stop offset="72%" stopColor="#a78bfa" />
+                                  <stop offset="100%" stopColor="#6d28d9" />
+                                </linearGradient>
+                              </defs>
+                              <path
+                                className="user-exact-order-star-path"
+                                fill={`url(#${userExactOrderStarGradientId})`}
+                                stroke="currentColor"
+                                strokeWidth="0.82"
+                                strokeLinejoin="round"
+                                d="M12 1.35l2.35 7.15h7.6L15.8 14.1l2.35 7.55L12 17.45l-6.15 4.2 2.35-7.55L2.05 8.5h7.6z"
+                              />
+                            </svg>
+                          </span>
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div
+                    className="game-mobile-user-south-score-cell"
+                    style={{
+                      gridColumn: 1,
+                      gridRow: 2,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'stretch',
+                      justifyContent: 'center',
+                      minWidth: 0,
+                      alignSelf: 'center',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className={[
+                        'opponent-score-badge',
+                        'opponent-score-badge--mobile-toggle',
+                        isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : '',
+                        'opponent-score-badge--slot-east',
+                        mobileSouthUserScoreExpanded
+                          ? 'opponent-score-badge--score-expanded'
+                          : 'opponent-score-badge--score-label-collapsed',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      style={{
+                        ...opponentStatBadgeScoreStyle,
+                        cursor: 'pointer',
+                        font: 'inherit',
+                        margin: 0,
+                        boxSizing: 'border-box',
+                        WebkitTapHighlightColor: 'transparent',
+                        width: '100%',
+                      }}
+                      onClick={e => {
+                        e.stopPropagation();
+                        setMobileSouthUserScoreExpanded(v => !v);
+                      }}
+                      aria-expanded={mobileSouthUserScoreExpanded}
+                      title={mobileSouthUserScoreExpanded ? 'Скрыть подпись «Очки»' : 'Показать подпись «Очки»'}
+                      aria-label={
+                        mobileSouthUserScoreExpanded
+                          ? `Очки игрока ${state.players[humanIdx].score}, скрыть подпись`
+                          : `${state.players[humanIdx].score} очков, показать подпись`
+                      }
+                    >
+                      {mobileSouthUserScoreExpanded ? (
+                        <span style={opponentStatStyleWithoutTextColor(opponentStatLabelStyle)}>Очки</span>
+                      ) : null}
+                      <span style={opponentStatStyleWithoutTextColor(opponentStatValueStyle)}>
+                        {state.players[humanIdx].score}
+                      </span>
+                    </button>
+                  </div>
+                  <div
+                    className="game-mobile-user-south-right-col"
+                    style={{
+                      gridColumn: 2,
+                      gridRow: 1,
+                      minWidth: 0,
+                      width: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'stretch',
+                    }}
+                  >
+                    <div
+                      style={{
+                        ...playerInfoHeaderStyle,
+                        ...playerInfoHeaderStyleMobileSouth,
+                        alignItems: 'flex-start',
+                      }}
+                    >
+                      <span
+                        style={{
+                          ...playerNameDealerWrapStyle,
+                          gap: Math.round(6 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                          flex: '1 1 0',
+                          width: '100%',
+                          minWidth: 0,
+                        }}
+                      >
+                        <span
+                          className={['player-panel-name', showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? 'your-turn-prompt' : ''].filter(Boolean).join(' ')}
+                          style={{
+                            ...playerNameStyle,
+                            fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                            ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
+                            ...(showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? yourTurnPromptStyle : {}),
+                          }}
+                          title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
+                        >
+                          {showYourTurnPrompt && (isHumanTurn || isHumanBidding)
+                            ? state.phase === 'playing'
+                              ? 'Ваш ход!'
+                              : 'Ваш заказ!'
+                            : displayState.players[humanIdx].name}
+                        </span>
+                        {state.dealerIndex === humanIdx &&
+                          (isMobileOrTablet && state.phase === 'playing' ? (
+                            <button
+                              type="button"
+                              className="dealer-badge-compact-mobile"
+                              style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                              onClick={() => setShowDealerTooltip(true)}
+                              title="Сдающий"
+                              aria-label="Сдающий"
+                            >
+                              <span style={dealerLampBulbStyle} />
+                              <span className="dealer-badge-text" aria-hidden>
+                                Сдающий
+                              </span>
+                            </button>
+                          ) : (
+                            <span style={dealerLampStyle} title="Сдающий">
+                              <span style={dealerLampBulbStyle} /> Сдающий
+                            </span>
+                          ))}
+                        {(state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                          state.bids.some(b => b === null) &&
+                          state.trickLeaderIndex === humanIdx && (
+                            <span style={firstBidderLampStyle} title="Первый заказ/ход">
+                              <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
+                            </span>
+                          )}
+                      </span>
+                    </div>
+                  </div>
+                  <div
+                    className="player-mobile-south-tricks-column game-mobile-user-south-tricks-only"
+                    style={{
+                      gridColumn: 2,
+                      gridRow: 2,
+                      ...playerStatsRowStyle,
+                      ...playerStatsRowStyleMobileSouth,
+                      position: 'relative',
+                      justifySelf: 'end',
+                      alignSelf: 'center',
+                      minWidth: 0,
+                      width: '100%',
+                    }}
+                  >
+                    <TrickSlotsDisplay
+                      bid={state.bids[humanIdx] ?? null}
+                      tricksTaken={state.players[humanIdx].tricksTaken}
+                      variant="player"
+                      collectingCards={
+                        dealJustCompleted &&
+                        (lastTrickCollectingPhase === 'slots' ||
+                          lastTrickCollectingPhase === 'winner' ||
+                          lastTrickCollectingPhase === 'collapsing')
+                      }
+                      compactMode={isMobileOrTablet}
+                      playerMobileWideTricks={isMobile}
+                      tricksLeftInDeal={tricksRemainingInDeal(state)}
+                      playerMobileExactOrderCornerStar={
+                        isMobile && userOrderRingExact ? (
+                          <div
+                            className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-order-panel-ne"
+                            aria-hidden
+                          >
+                            <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+                              <span className="user-exact-order-star-badge__enter" aria-hidden>
+                                <svg viewBox="0 0 24 24" width="13" height="13" focusable="false" aria-hidden>
+                                  <defs>
+                                    <linearGradient
+                                      id={userExactOrderStarOrderPanelGradientId}
+                                      x1="0%"
+                                      y1="0%"
+                                      x2="100%"
+                                      y2="100%"
+                                    >
+                                      <stop offset="0%" stopColor="#ecfeff" />
+                                      <stop offset="32%" stopColor="#a5f3fc" />
+                                      <stop offset="68%" stopColor="#22d3ee" />
+                                      <stop offset="100%" stopColor="#0e7490" />
+                                    </linearGradient>
+                                  </defs>
+                                  <path
+                                    className="user-exact-order-star-path"
+                                    fill={`url(#${userExactOrderStarOrderPanelGradientId})`}
+                                    stroke="currentColor"
+                                    strokeWidth="0.82"
+                                    strokeLinejoin="round"
+                                    d="M12 1.35l2.35 7.15h7.6L15.8 14.1l2.35 7.55L12 17.45l-6.15 4.2 2.35-7.55L2.05 8.5h7.6z"
+                                  />
+                                </svg>
+                              </span>
+                            </span>
+                          </div>
+                        ) : undefined
+                      }
+                    />
+                  </div>
+                </>
+              )}
+          </div>
+          {trumpHighlightOn &&
+          userTurnGarlandReadyMobile &&
+          isUserActiveTurnForGarlandMobile &&
+          !mobileViewportShort ? (
             <UserPanelGarlandOverlay />
           ) : null}
-        </div>
       </div>
       </div>
+      )}
       {showTableChat && online.roomId && user?.id && (
         <TableChatDock
           variant="mobile"
@@ -6350,13 +6979,13 @@ function TrickSlotsDisplay({
         variant === 'player' ? Math.min(14, Math.max(compactFigFont, Math.round(compactFigFont * 1.28) + 1)) : Math.min(13, compactFigFont + 3);
     }
     const figuresCompact = (
-      <PcTrickBidTakenFigures
-        bid={bid}
-        tricksTaken={tricksTaken}
-        audience={variant}
-        fontSize={compactFigFont}
-        tricksLeftInDeal={tricksLeftInDeal}
-        exactMatchHeavyNeon={tricksOnHandHeavyNeon}
+        <PcTrickBidTakenFigures
+          bid={bid}
+          tricksTaken={tricksTaken}
+          audience={variant}
+          fontSize={compactFigFont}
+          tricksLeftInDeal={tricksLeftInDeal}
+          exactMatchHeavyNeon={tricksOnHandHeavyNeon}
         mobileNwEarFigures={!!mobileNwHighBidEar}
         style={
           mobileNwHighBidEar
@@ -7122,12 +7751,12 @@ function OpponentSlot({
   const frameStyle = mobileActiveName ? undefined : (isActive ? activeTurnPanelFrameStyle : isDealer ? dealerPanelFrameStyle : undefined);
   const northSlotOverrides =
     position === 'top' && inline && !isMobile
-      ? {
-          width: 'fit-content' as const,
-          minWidth: (pcNorthSideBySide ? 'min(360px, 94vw)' : 'var(--game-table-opponent-slot-width, 180px)') as React.CSSProperties['minWidth'],
-          maxWidth: 'none' as const,
-        }
-      : {};
+    ? {
+        width: 'fit-content' as const,
+        minWidth: (pcNorthSideBySide ? 'min(360px, 94vw)' : 'var(--game-table-opponent-slot-width, 180px)') as React.CSSProperties['minWidth'],
+        maxWidth: 'none' as const,
+      }
+    : {};
   /** Моб. сетка: Запад/Север — равные колонки; слот на 100% ячейки, без инлайна 180px/fit-content. */
   const mobileGridOpponentSlotStretch: React.CSSProperties | undefined =
     isMobile && inline ? { width: '100%', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' } : undefined;
@@ -7316,7 +7945,7 @@ function OpponentSlot({
                   width: 'max-content',
                   maxWidth: 'none',
                 }
-              : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
+            : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
         };
         const nameSpan = styleOfflineAiNameByDifficulty && offlineAiDifficultyForName ? (
           <span
@@ -7462,7 +8091,7 @@ function OpponentSlot({
             </div>
           ) : (
             nameSpan
-          );
+        );
         const avatarOrderRingInnerCls = avatarOrderRingMode ? 'player-avatar-order-ring-inner' : undefined;
         const avatarOrderRingStyle: React.CSSProperties | undefined = avatarOrderRingMode
           ? {
@@ -7624,8 +8253,8 @@ function OpponentSlot({
                 >
                   <span style={opponentStatLabelStyle}>Очки</span>
                   <span style={opponentStatValueStyle}>{p.score}</span>
-                </div>
-              );
+          </div>
+        );
         const statsBlock = (
           <div
             className={
@@ -9264,6 +9893,27 @@ const activeTurnPanelFrameStyleUser: React.CSSProperties = {
   ].join(', '),
 };
 
+/** Низкий экран (viewport-mobile-short): подсветка хода на .game-mobile-user-south-main — без широких внешних теней */
+const activeTurnPanelFrameStyleUserShortVh: React.CSSProperties = {
+  borderRadius: 12,
+  border: '1px solid rgba(255, 255, 255, 0.58)',
+  boxShadow: [
+    '0 0 0 1px rgba(220, 240, 255, 0.32)',
+    'inset 0 0 10px rgba(255, 255, 255, 0.06)',
+    '0 2px 8px rgba(0,0,0,0.18)',
+  ].join(', '),
+};
+
+const dealerPanelFrameStyleShortVh: React.CSSProperties = {
+  borderRadius: 12,
+  border: '1px solid rgba(56, 189, 248, 0.48)',
+  boxShadow: [
+    '0 0 0 1px rgba(34, 211, 238, 0.14)',
+    'inset 0 0 8px rgba(56, 189, 248, 0.06)',
+    '0 2px 8px rgba(0,0,0,0.16)',
+  ].join(', '),
+};
+
 const opponentHeaderStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -9935,16 +10585,27 @@ const MOBILE_SOUTH_USER_TRICK_PANEL_NARROW_VIEWPORT_PX = 333;
 const MOBILE_SOUTH_USER_TRICK_PANEL_NARROW_SCALE_MUL = 0.85;
 const playerInfoPanelStyleMobileSouth: React.CSSProperties = {
   gap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-  marginBottom: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+  marginBottom: Math.round(2 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
   borderRadius: Math.round(14 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
   border: '2px solid rgba(34, 211, 238, 0.6)',
+};
+/** Низкий экран (viewport-mobile-short): плотнее по вертикали внутри карточки Юга */
+const playerInfoPanelStyleMobileSouthShort: React.CSSProperties = {
+  gap: Math.round(4 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+  marginBottom: Math.round(3 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
 };
 const playerInfoHeaderStyleMobileSouth: React.CSSProperties = {
   gap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
 };
+const playerInfoHeaderStyleMobileSouthShort: React.CSSProperties = {
+  gap: Math.round(4 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+};
 const playerStatsRowStyleMobileSouth: React.CSSProperties = {
   /* Меньше по вертикали между «Очки» и trick-slots (торговля и игра) */
   gap: Math.round(10 * MOBILE_SOUTH_PLAYER_CARD_SCALE * MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK),
+};
+const playerStatsRowStyleMobileSouthShort: React.CSSProperties = {
+  gap: Math.round(6 * MOBILE_SOUTH_PLAYER_CARD_SCALE * MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK),
 };
 const playerInfoHeaderStyle: React.CSSProperties = {
   display: 'flex',

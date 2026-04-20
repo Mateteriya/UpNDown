@@ -1721,7 +1721,10 @@
   /* Чтобы контент не выходил за экран и не сдвигался влево; стол и Восток — высота в 1.1 раза меньше */
   .game-table-root.viewport-mobile {
     box-sizing: border-box !important;
-    max-width: 100vw !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    /* 100% вместо 100vw: на части Android при системной полосе прокрутки vw даёт горизонтальный «зазор» страницы */
+    max-width: 100% !important;
     /* Совпадает с фактическим inset контента справа: root + горизонтальный padding обёртки стола (tableStyle в GameTable.tsx = --game-header-padding). */
     --mobile-root-edge-inset-right: 2px;
     padding-right: var(--mobile-root-edge-inset-right) !important;
@@ -1909,6 +1912,17 @@
     margin: 0 !important;
     padding: 0 !important;
   }
+  /*
+   * Низкий экран (<652): минимум между низом стола и блоком Юга.
+   * Зазор стол|Восток задаётся только у .game-mobile-center (inline + правила ниже) — здесь только колонка «стол+Восток» | «рука/панель».
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-table-block-mobile .game-mobile-table-and-hand {
+    gap: 0 !important;
+  }
+  /* Зазор рука → панель Юга (только низкий экран <652): плотнее */
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-hand-user-stack {
+    gap: 2px !important;
+  }
   .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-table-and-hand .game-center-area.game-mobile-center {
     margin-bottom: 0 !important;
     width: 100% !important;
@@ -1918,10 +1932,10 @@
    * Внешний блок руки: фиксированный горизонтальный inset здесь (полоса на всю ширину колонки минус 2×inset).
    * Раньше padding был только на .game-mobile-hand-frame — при fit-content рамка сужалась и «отступы» визуально пропадали.
    */
-  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-attached {
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-strip {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
-    /* Зазор стол→рука задаётся gap у .game-mobile-table-and-hand; сверху руки без доп. padding; 3px до панели Юга — gap у .game-mobile-hand-user-stack */
+    /* Зазор стол→рука задаётся gap у .game-mobile-table-and-hand; сверху руки без доп. padding; зазор до панели Юга — gap у .game-mobile-hand-user-stack (см. правило выше) */
     padding-top: 0 !important;
     padding-bottom: 0 !important;
     padding-inline: var(--mobile-south-strip-inset-x, 18px) !important;
@@ -1941,65 +1955,76 @@
    * иначе при смене брейкпоинтов 9 карт блок то шире колонки (вылезы), то с огромными боковыми зазорами.
    * Нахлёст и плотность ряда остаются в JS (getMobileNineCardHandLayout).
    */
-  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-attached.game-mobile-hand--narrow-vw {
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-strip.game-mobile-hand--narrow-vw,
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-south-panel-hand.game-mobile-hand--narrow-vw {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
     align-self: stretch !important;
   }
-  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-attached.game-mobile-hand--9-wide400 {
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-strip.game-mobile-hand--9-wide400,
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-south-panel-hand.game-mobile-hand--9-wide400 {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
     align-self: stretch !important;
   }
-  .game-table-root.viewport-mobile .game-mobile-hand-attached.game-mobile-hand--9-wide400 .game-mobile-hand-frame {
+  .game-table-root.viewport-mobile .game-mobile-hand-strip.game-mobile-hand--9-wide400 .game-mobile-hand-frame,
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-south-panel-hand.game-mobile-hand--9-wide400 {
     width: fit-content !important;
     max-width: 100% !important;
     min-width: auto !important;
   }
-  .game-table-root.viewport-mobile .game-mobile-hand-attached.game-mobile-hand--9-wide400 .game-mobile-hand-frame > div {
+  .game-table-root.viewport-mobile .game-mobile-hand-strip.game-mobile-hand--9-wide400 .game-mobile-hand-frame > div,
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-south-panel-hand.game-mobile-hand--9-wide400 > div {
     width: max-content !important;
     max-width: 100% !important;
     min-width: auto !important;
   }
-  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-attached.game-mobile-hand--9-wide411 {
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-strip.game-mobile-hand--9-wide411,
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-south-panel-hand.game-mobile-hand--9-wide411 {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
     align-self: stretch !important;
     box-sizing: border-box !important;
   }
-  .game-table-root.viewport-mobile .game-mobile-hand-attached.game-mobile-hand--9-wide411 .game-mobile-hand-frame {
+  .game-table-root.viewport-mobile .game-mobile-hand-strip.game-mobile-hand--9-wide411 .game-mobile-hand-frame,
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-south-panel-hand.game-mobile-hand--9-wide411 {
     width: fit-content !important;
     max-width: 100% !important;
     min-width: auto !important;
     box-sizing: border-box !important;
   }
-  .game-table-root.viewport-mobile .game-mobile-hand-attached.game-mobile-hand--9-wide411 .game-mobile-hand-frame > div {
+  .game-table-root.viewport-mobile .game-mobile-hand-strip.game-mobile-hand--9-wide411 .game-mobile-hand-frame > div,
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-south-panel-hand.game-mobile-hand--9-wide411 > div {
     width: max-content !important;
     max-width: 100% !important;
     min-width: auto !important;
     box-sizing: border-box !important;
   }
   /* 9 карт, vw 360–399: блок на всю ширину колонки, ряд центрируется внутри */
-  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-attached.game-mobile-hand--9-mid370 {
+  .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-hand-strip.game-mobile-hand--9-mid370,
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-south-panel-hand.game-mobile-hand--9-mid370 {
     width: 100% !important;
     max-width: 100% !important;
     align-self: stretch !important;
   }
   /* 9 карт, узкие vw: ширина — процент родителя, не 100vw (скроллбар / эмулятор дают скачки). */
-  .game-table-root.viewport-mobile .game-mobile-hand-attached.game-mobile-hand--9-tight313.game-mobile-hand--narrow-vw {
+  .game-table-root.viewport-mobile .game-mobile-hand-strip.game-mobile-hand--9-tight313.game-mobile-hand--narrow-vw,
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-south-panel-hand.game-mobile-hand--9-tight313.game-mobile-hand--narrow-vw {
     max-width: 100% !important;
   }
-  .game-table-root.viewport-mobile .game-mobile-hand-attached.game-mobile-hand--9-ultra312.game-mobile-hand--narrow-vw {
+  .game-table-root.viewport-mobile .game-mobile-hand-strip.game-mobile-hand--9-ultra312.game-mobile-hand--narrow-vw,
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-south-panel-hand.game-mobile-hand--9-ultra312.game-mobile-hand--narrow-vw {
     max-width: 100% !important;
   }
   /*
-   * Рамка руки: shrink-wrap (fit-content), max 100% контентной ширины .game-mobile-hand-attached (уже с боковым inset).
-   * Горизонтальный inset — только на attached; иначе узкая рамка «съедает» поля.
+   * Рамка руки: shrink-wrap (fit-content), max 100% контентной ширины полосы (strip) или блока руки в панели Юга (.game-mobile-south-panel-hand).
+   * Горизонтальный inset — на полосе / на блоке в short; иначе узкая рамка «съедает» поля.
    */
-  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame {
+  .game-table-root.viewport-mobile .game-mobile-hand-strip .game-mobile-hand-frame,
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-south-panel-hand {
     width: fit-content !important;
     max-width: 100% !important;
     /* min-width:0 давал сжатие рамки уже ряда карт во flex при узком экране (<360) */
@@ -2009,12 +2034,15 @@
     /* Внутренний зазор карта↔граница рамки: базовый inset +2px с каждой стороны (см. MOBILE_HAND_FRAME_EXTRA_INLINE_PX в GameTable) */
     padding-inline: calc(var(--mobile-south-strip-inset-x, 6px) + 2px) !important;
   }
-  /* Мобильная зона карт в ваш ход: cyan/violet пульс (playerHandYourTurnGlowPc) */
-  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn {
+  /* Мобильная зона карт в ваш ход: cyan/violet пульс (playerHandYourTurnGlowPc). Short: класс player-hand-your-turn на ряду, пульс на обёртке через :has */
+  .game-table-root.viewport-mobile .game-mobile-hand-strip .game-mobile-hand-frame.player-hand-your-turn,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-south-panel-hand:has(> .game-mobile-hand-row.player-hand-your-turn) {
     animation: playerHandYourTurnGlowPc 2.85s ease-in-out infinite;
   }
   /* Ряд карт: строго внутри content-box рамки (у рамки padding-inline). */
-  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame > div.game-mobile-hand-row {
+  .game-table-root.viewport-mobile .game-mobile-hand-strip .game-mobile-hand-frame > div.game-mobile-hand-row,
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-south-panel-hand > div.game-mobile-hand-row {
     position: relative;
     width: max-content !important;
     max-width: 100% !important;
@@ -2028,7 +2056,11 @@
   /*
    * Волна по картам: задержка через --hand-wave-index (GameTable). Только transform + opacity (::after) — без mix-blend и без анимации box-shadow.
    */
-  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn > div > div {
+  .game-table-root.viewport-mobile .game-mobile-hand-strip .game-mobile-hand-frame.player-hand-your-turn > div > div,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-south-panel-hand
+    .game-mobile-hand-row.player-hand-your-turn
+    > div {
     transform-origin: center bottom;
     overflow: visible !important;
     animation: mobileHandCardWaveLift 2.85s cubic-bezier(0.42, 0, 0.58, 1) infinite;
@@ -2038,7 +2070,11 @@
    * Блик: ::after должен быть НАД кнопкой (иначе непрозрачный фон CardView полностью скрывает градиент).
    * Не трогаем z-index у button — внутренние слои карты (картинка, z-index 5+) остаются как в CardView.
    */
-  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn > div > div::after {
+  .game-table-root.viewport-mobile .game-mobile-hand-strip .game-mobile-hand-frame.player-hand-your-turn > div > div::after,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-south-panel-hand
+    .game-mobile-hand-row.player-hand-your-turn
+    > div::after {
     content: '';
     position: absolute;
     inset: 1px;
@@ -2061,21 +2097,32 @@
     animation-delay: calc(3.2s + (var(--hand-wave-index, 1) - 1) * 78ms);
   }
   /* <360px: горизонтальный клип bottom-row мог резать ряд карт; по вертикали по-прежнему ограничение max-height */
+  /* Только не short: иначе ряд карт в панели + visible дают горизонтальный вылет страницы */
   @media (max-width: 359px) {
-    .game-table-root.viewport-mobile .game-table-block-mobile .game-mobile-bottom-row {
+    .game-table-root.viewport-mobile:not(.viewport-mobile-short) .game-table-block-mobile .game-mobile-bottom-row {
       overflow-x: visible !important;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn {
+    .game-table-root.viewport-mobile .game-mobile-hand-strip .game-mobile-hand-frame.player-hand-your-turn,
+    .game-table-root.viewport-mobile.viewport-mobile-short
+      .game-mobile-south-panel-hand:has(> .game-mobile-hand-row.player-hand-your-turn) {
       animation: none !important;
     }
-    .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn > div > div {
+    .game-table-root.viewport-mobile .game-mobile-hand-strip .game-mobile-hand-frame.player-hand-your-turn > div > div,
+    .game-table-root.viewport-mobile.viewport-mobile-short
+      .game-mobile-south-panel-hand
+      .game-mobile-hand-row.player-hand-your-turn
+      > div {
       animation: none !important;
       transform: none !important;
     }
-    .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn > div > div::after {
+    .game-table-root.viewport-mobile .game-mobile-hand-strip .game-mobile-hand-frame.player-hand-your-turn > div > div::after,
+    .game-table-root.viewport-mobile.viewport-mobile-short
+      .game-mobile-south-panel-hand
+      .game-mobile-hand-row.player-hand-your-turn
+      > div::after {
       animation: none !important;
       opacity: 0 !important;
     }
@@ -2103,6 +2150,89 @@
     align-items: flex-start !important;
     background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
+  }
+  /* Низкий экран: высота max(innerHeight, visualViewport) строго меньше 652px (GameTable) — блок стола выше шапки */
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-header {
+    z-index: 48 !important;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.72) 100%) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-table-block-mobile {
+    position: relative !important;
+    z-index: 60 !important;
+    padding-bottom: max(96px, 30dvh) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-table-main-wrap.game-table-main-wrap--short-vh {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    /* Полоса прокрутки не нужна, если контент почти влезает (субпиксели/тени); скролл пальцем/колёсиком сохраняется */
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-table-main-wrap.game-table-main-wrap--short-vh::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-bottom-row {
+    max-height: none !important;
+    /* Горизонтально не выпускаем ряд карт/тени; вертикально — как при :has(ваш ход) */
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-table-block-mobile .game-mobile-bottom-row:has(.player-info-panel-your-turn),
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-table-block-mobile .game-mobile-bottom-row:has(.user-player-panel .opponent-avatar-order-ring) {
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-hand-user-stack {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    align-self: stretch !important;
+    overflow-x: hidden !important;
+    /* Подтягиваем блок Юг к столу (gap у .game-mobile-table-and-hand уже 0); −8px давало наложение. */
+    margin-top: -3px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-player-panel {
+    flex-shrink: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin-inline: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    flex-direction: column !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    /* Внешняя подложка без отдельной «широкой» рамки — карточка .user-player-panel и блок контента */
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding-top: 0 !important;
+    /* short: ещё −2px к высоте блока Юга (внутренний padding уже 0 у .user-player-panel снизу) */
+    padding-bottom: 0 !important;
+    padding-inline: 0 !important;
+  }
+  /* Рука в сетке Юга: блок .game-mobile-south-panel-hand (без классов полосы .game-mobile-hand-frame) */
+  .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-user-south-main .game-mobile-south-panel-hand {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    flex-shrink: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    /* width / margin-inline — см. блок «south-user-short-inline-pad» ниже (полоса карт на всю ширину сетки) */
+    box-sizing: border-box !important;
+    border-top: none !important;
+    padding: 0 0 1px !important;
   }
   .game-table-root.viewport-mobile .game-header > div:first-child {
     flex-direction: column !important;
@@ -4062,8 +4192,8 @@
   }
 
   /*
-   * Панель Юга: ровно 120px по border-box (без min(57vh, …) — иначе на разных устройствах
-   * срабатывало меньшее из 57vh и 120px и высота «плавала» 84–96px и т.д.).
+   * Панель Юга (обычная мобила): оболочка .game-mobile-player-wrap + .game-mobile-player-panel с подложкой.
+   * Низкий экран (viewport-mobile-short, <652): без второй подложки — см. блок .viewport-mobile-short .game-mobile-player-panel выше.
    */
   .game-table-root.viewport-mobile .game-mobile-player,
   .game-table-root.viewport-mobile .game-mobile-player-wrap {
@@ -4071,7 +4201,7 @@
     min-height: 0 !important;
     flex-shrink: 0 !important;
   }
-  .game-table-root.viewport-mobile .game-mobile-player-panel {
+  .game-table-root.viewport-mobile:not(.viewport-mobile-short) .game-mobile-player-panel {
     height: 120px !important;
     min-height: 120px !important;
     max-height: 120px !important;
@@ -4085,7 +4215,7 @@
     /* Без внутреннего скролла: 120px фиксированы, auto давал лишний вертикальный скроллбар из-за субпикселей/теней */
     overflow-y: hidden !important;
     overflow-x: hidden !important;
-    border-radius: 14px !important; /* в тон панели .game-mobile-player-info, чтобы контейнер не обрезал подсветку прямоугольником */
+    border-radius: 14px !important;
     border: 1px solid rgba(34, 211, 238, 0.28) !important;
     background: linear-gradient(168deg, rgba(30, 41, 59, 0.55) 0%, rgba(15, 23, 42, 0.88) 48%, rgba(2, 6, 23, 0.92) 100%) !important;
     box-shadow:
@@ -4098,9 +4228,11 @@
   .game-table-root.viewport-mobile .game-mobile-player-panel:has(.first-mover-bidding-panel) {
     overflow: visible !important;
   }
-  /* Юг: вся подложка панели — оранжевый неон «первый заказ/ход» (как бейдж) */
-  .game-table-root.viewport-mobile .game-mobile-player-panel:has(.first-mover-bidding-panel) {
-    border-color: rgba(251, 146, 60, 0.72) !important;
+  /* Юг: вся подложка панели — оранжевый неон «первый заказ/ход» (обычная мобила; short — отдельный блок ниже) */
+  .game-table-root.viewport-mobile:not(.viewport-mobile-short) .game-mobile-player-panel:has(.first-mover-bidding-panel) {
+    border-radius: 16px !important;
+    border: 1px solid rgba(251, 146, 60, 0.72) !important;
+    background: linear-gradient(168deg, rgba(62, 32, 14, 0.42) 0%, rgba(30, 41, 59, 0.82) 48%, rgba(15, 23, 42, 0.92) 100%) !important;
     box-shadow:
       0 2px 14px rgba(0, 0, 0, 0.22),
       inset 0 1px 0 rgba(255, 255, 255, 0.06),
@@ -4133,11 +4265,11 @@
     padding-top: 5px !important;
     padding-bottom: 5px !important;
     gap: 3px !important;
-    margin-bottom: 3px !important;
+    margin-bottom: 1px !important;
     align-items: flex-start !important;
     text-align: left !important;
   }
-  /* Рамка руки теперь в game-mobile-hand-attached; панель содержит только game-mobile-player-info — выравнивание по левому краю */
+  /* Рамка руки теперь в game-mobile-hand-strip; панель содержит только game-mobile-player-info — выравнивание по левому краю */
   .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info > div:first-child,
   .game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info > div:nth-child(2) {
     justify-content: flex-start !important;
@@ -4153,10 +4285,157 @@
 }
 
 /* Юг (viewport-mobile): перебить общее .game-mobile-player-panel .game-mobile-player-info (5px/5px) — см. комментарий у .game-mobile-user-south-main в GameTable */
-/* Верх 10px: кольца scale(1.2) + «агрессор»/«собрал руку» не вылезают за внутренний край карточки; низ 4px к руке */
-.game-table-root.viewport-mobile .game-mobile-player-panel .game-mobile-player-info.user-player-panel {
+/* Верх 10px: кольца scale(1.2) + бейджи; низ 4px к руке (только обычная мобила; short — плотнее ниже) */
+.game-table-root.viewport-mobile:not(.viewport-mobile-short) .game-mobile-player-panel .game-mobile-player-info.user-player-panel {
   padding-top: 10px !important;
   padding-bottom: 4px !important;
+}
+
+/* Низкий экран: плотнее вертикаль внутри карточки Юга (рука в сетке панели — см. GameTable). */
+.game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-player-panel .game-mobile-player-info.user-player-panel {
+  padding-top: 2px !important;
+  /* 0 снизу: на 2px ниже нижняя граница карточки / меньше общая высота панели (short) */
+  padding-bottom: 0 !important;
+  /*
+   * На всю ширину колонки: те же вертикали, что внешние края стола и панелей С/З/В (перебиваем общие 12px у .user-player-panel).
+   */
+  padding-inline: 0 !important;
+}
+
+/* Short VH: без тяжёлой внешней рамки у карточки Юга (подсветки хода/сдающего — на .game-mobile-user-south-main из GameTable). */
+.game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-player-panel .game-mobile-player-info.user-player-panel.user-player-panel--short-vh {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/*
+ * Short Юг: малый горизонтальный inset от краёв панели для всего в .game-mobile-user-south-main,
+ * кроме полосы карт: padding на сетке + «вылет» руки (.game-mobile-south-panel-hand) тем же значением.
+ */
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .user-player-panel.user-player-panel--short-vh
+  .game-mobile-user-south-main {
+  --south-user-short-inline-pad: 6px;
+  padding-inline: var(--south-user-short-inline-pad) !important;
+  box-sizing: border-box !important;
+}
+/*
+ * Полоса карт: симметричный «вылет» из padding сетки.
+ * Раньше width: calc(100% + 2*pad) на grid-ячейке давал ощущение зазора только слева (рост ширины уходил вправо).
+ * 100% ширины ячейки + отрицательные margin-inline + justify-self: stretch + перебой инлайна margin:auto/width:fit-content.
+ */
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-main
+  > .game-mobile-south-panel-hand {
+  justify-self: stretch !important;
+  align-self: stretch !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  margin-left: calc(-1 * var(--south-user-short-inline-pad, 6px)) !important;
+  margin-right: calc(-1 * var(--south-user-short-inline-pad, 6px)) !important;
+  margin-inline: unset !important;
+}
+
+/* Short VH: одна полупрозрачная подложка — только блок контента (:not first-mover — иначе фон даёт внешняя .game-mobile-player-panel). */
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-player-panel:not(:has(.first-mover-bidding-panel))
+  .game-mobile-player-info.user-player-panel.user-player-panel--short-vh
+  .game-mobile-user-south-main {
+  background: linear-gradient(
+    145deg,
+    rgba(51, 65, 85, 0.88) 0%,
+    rgba(30, 41, 59, 0.93) 35%,
+    rgba(15, 23, 42, 0.96) 70%,
+    rgba(30, 41, 59, 0.92) 100%
+  );
+}
+
+/*
+ * Short VH: блок руки в сетке — инлайн handFrameStyle + @keyframes playerHandYourTurnGlowPc дают размытия ~100px+.
+ * У предков overflow-x: hidden — свечение режется по вертикали и выглядит как вторая огромная подложка с «острыми» углами.
+ * Оставляем компактные тени и скругление в тон .game-mobile-user-south-main (12px).
+ */
+.game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-user-south-main .game-mobile-south-panel-hand {
+  border-radius: 12px !important;
+  animation: none !important;
+  border: 1px solid rgba(34, 211, 238, 0.38) !important;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.22),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12) !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-main
+  .game-mobile-south-panel-hand:has(> .game-mobile-hand-row.player-hand-your-turn) {
+  border-color: rgba(34, 211, 238, 0.52) !important;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.35),
+    0 0 12px rgba(34, 211, 238, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.14) !important;
+}
+
+/*
+ * Short VH + козырь: сиреневый inset перенесён на .game-mobile-user-south-main::before.
+ * Не отключаем ::before у .user-player-panel, если висит .first-mover-bidding-panel — там же пульс «первый заказ/ход».
+ */
+.game-table-root.trump-highlight-on.viewport-mobile.viewport-mobile-short
+  .user-player-panel.player-info-panel-your-turn.user-player-panel--short-vh:not(.first-mover-bidding-panel)::before {
+  display: none !important;
+}
+.game-table-root.trump-highlight-on.viewport-mobile.viewport-mobile-short .user-player-panel.player-info-panel-your-turn .game-mobile-user-south-main {
+  position: relative;
+}
+.game-table-root.trump-highlight-on.viewport-mobile.viewport-mobile-short .user-player-panel.player-info-panel-your-turn .game-mobile-user-south-main::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 0;
+  box-shadow:
+    inset 0 0 10px rgba(221, 214, 254, 0.22),
+    inset 0 0 18px rgba(167, 139, 250, 0.16),
+    inset 0 0 26px rgba(139, 92, 246, 0.12);
+}
+.game-table-root.trump-highlight-on.viewport-mobile.viewport-mobile-short .user-player-panel.player-info-panel-your-turn.user-player-panel--short-vh .game-mobile-user-south-main > * {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+ * Short VH + первый заказ/ход: снова яркая оранжевая подсветка всей панели Юг (подложка + карточка),
+ * плюс усиленный inset у .first-mover-bidding-panel::before (пульс — глобальные keyframes).
+ */
+.game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-player-panel:has(.first-mover-bidding-panel) {
+  overflow-x: hidden !important;
+  border: 2px solid rgba(251, 146, 60, 0.92) !important;
+  border-radius: 16px !important;
+  box-shadow:
+    0 0 0 1px rgba(254, 215, 170, 0.45),
+    0 0 14px rgba(251, 146, 60, 0.35),
+    inset 0 0 14px rgba(251, 146, 60, 0.14) !important;
+  background: linear-gradient(168deg, rgba(62, 32, 14, 0.55) 0%, rgba(30, 41, 59, 0.82) 45%, rgba(15, 23, 42, 0.94) 100%) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-player-panel
+  .game-mobile-player-info.user-player-panel.user-player-panel--short-vh.first-mover-bidding-panel {
+  border: 2px solid rgba(253, 186, 116, 0.98) !important;
+  box-shadow:
+    inset 0 0 22px rgba(251, 146, 60, 0.28),
+    inset 0 0 0 1px rgba(254, 243, 199, 0.55),
+    0 0 12px rgba(251, 146, 60, 0.32) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short .user-player-panel.first-mover-bidding-panel::before {
+  box-shadow:
+    inset 0 0 28px rgba(251, 146, 60, 0.32),
+    inset 0 0 0 1px rgba(253, 186, 116, 0.65),
+    inset 0 0 16px rgba(251, 191, 36, 0.18) !important;
 }
 
 /*
@@ -4759,6 +5038,133 @@
 .game-table-root.viewport-mobile .user-player-panel .game-mobile-user-south-score-cell > .opponent-score-badge {
   position: relative;
   z-index: 2;
+}
+
+/*
+ * Short Юг: ряд «Очки + заказ» — одна линия (flex-start).
+ * Только бейдж «Очки» вниз на 2px: transform (не меняет высоту/расклад панели в потоке).
+ */
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-short-score-tricks-row {
+  align-items: flex-start !important;
+}
+/* Short Юг: полоска заказа выше в ряду с «Очки» (−2px + ещё −1px) */
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-short-score-tricks-row
+  > .player-mobile-south-tricks-column.game-mobile-user-south-short-tricks-inline {
+  margin-top: -3px !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-short-score-tricks-row
+  > .game-mobile-user-south-short-score-under-name {
+  transform: translateY(2px);
+}
+/*
+ * Short + заказ 8/9 + узкий vw: «Очки» над полоской заказа, снаружи сверху справа (якорь — .player-mobile-south-tricks-column).
+ */
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .player-mobile-south-tricks-column.game-mobile-user-south-short-tricks-inline
+  .game-mobile-user-south-short-score-above-order {
+  position: absolute !important;
+  right: 1px !important;
+  /* 1px вниз в полоску заказа — визуальное слияние с верхней кромкой */
+  bottom: calc(100% - 1px) !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: 6 !important;
+  /* line-height:0 ломал baseline и давал «столбик» при раскрытии внутри flex-колонки заказа */
+  line-height: normal !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: auto !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .player-mobile-south-tricks-column.game-mobile-user-south-short-tricks-inline
+  .game-mobile-user-south-short-score-above-order
+  .game-mobile-user-south-short-score-under-name {
+  transform: none !important;
+  line-height: normal !important;
+}
+
+/* «Очки» над полоской заказа: без нижней рамки и плоского низа скругления + тени без «пола» снизу */
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-short-score-above-order
+  button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed {
+  border-bottom-width: 0 !important;
+  border-bottom-style: none !important;
+  border-bottom-color: transparent !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-radius: 10px 10px 0 0 !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 38%) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-short-score-above-order
+  button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded {
+  border-bottom-width: 0 !important;
+  border-bottom-style: none !important;
+  border-bottom-color: transparent !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-radius: 10px 10px 0 0 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 232, 255, 0.38),
+    inset 0 0 14px rgba(216, 105, 229, 0.22),
+    inset 0 0 28px rgba(167, 89, 200, 0.1) !important;
+  /* Раскрыто: «Очки» и цифра в ряд влево от якоря справа (перекрывает inline column из badge style) */
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-short-score-above-order
+  button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded
+  > span:first-child {
+  margin-bottom: 0 !important;
+}
+
+/*
+ * Лидер: обычно outline + внешние glow — снизу дают шов. Убираем outline, нижнюю границу; бирюзовый акцент — только inset по верху и бокам.
+ */
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-short-score-above-order
+  button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed.score-badge-leader {
+  border-width: 1px 1px 0 1px !important;
+  border-style: solid !important;
+  border-color: rgba(196, 181, 253, 0.98) rgba(196, 181, 253, 0.98) transparent rgba(196, 181, 253, 0.98) !important;
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(233, 213, 255, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 1px 0 0 0 rgba(56, 189, 248, 0.55),
+    inset -1px 0 0 0 rgba(56, 189, 248, 0.55),
+    inset 0 2px 0 0 rgba(56, 189, 248, 0.32) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-short-score-above-order
+  button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.score-badge-leader {
+  border-width: 1px 1px 0 1px !important;
+  border-style: solid !important;
+  border-color: rgba(196, 181, 253, 0.98) rgba(196, 181, 253, 0.98) transparent rgba(196, 181, 253, 0.98) !important;
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 255, 0.4),
+    inset 0 0 14px rgba(216, 105, 229, 0.22),
+    inset 0 0 26px rgba(167, 139, 250, 0.12),
+    inset 1px 0 0 rgba(56, 189, 248, 0.5),
+    inset -1px 0 0 rgba(56, 189, 248, 0.5),
+    inset 0 2px 0 rgba(56, 189, 248, 0.28) !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+}
+/* Short Юг: мета-колонка чуть выше (как раньше) */
+.game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-user-south-short-meta-col {
+  transform: translateY(-2px);
 }
 .game-table-root .user-player-panel .player-panel-name {
   background: linear-gradient(
@@ -5450,6 +5856,15 @@
   flex: 1 1 auto !important;
   width: 100% !important;
   min-width: 0 !important;
+}
+/* Низкий экран: плотнее margin снизу у карточки (инлайн из GameTable) */
+.game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-player-info.user-player-panel > .game-mobile-user-south-main {
+  flex: 0 1 auto !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-player-panel > .game-mobile-player-info.user-player-panel {
+  margin-bottom: 2px !important;
+  /* Не забираем лишнюю высоту во flex-колонке — иначе появляется вертикальный скролл у .game-table-main-wrap--short-vh */
+  flex: 0 1 auto !important;
 }
 .game-table-root.viewport-mobile .game-mobile-player-info.user-player-panel {
   position: relative !important;
@@ -6387,6 +6802,12 @@ body {
   min-height: 100vh;
 }
 
+/* Мобильный стол short: без горизонтального расширения документа (тени/ряд карт) */
+html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 /* Кнопка «Последняя взятка» — прозрачный фон, на 1% ниже */
 .last-trick-btn {
   bottom: 1% !important;
@@ -6610,7 +7031,11 @@ body {
 }
 
 @media (max-width: 359px) {
-  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn > div > div {
+  .game-table-root.viewport-mobile .game-mobile-hand-strip .game-mobile-hand-frame.player-hand-your-turn > div > div,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-south-panel-hand
+    .game-mobile-hand-row.player-hand-your-turn
+    > div {
     animation-name: mobileHandCardWaveLiftNarrow;
   }
 }
@@ -6620,7 +7045,11 @@ body {
  * Блик ::after (opacity) остаётся.
  */
 @media (max-width: 329px) {
-  .game-table-root.viewport-mobile .game-mobile-hand-attached .game-mobile-hand-frame.player-hand-your-turn > div > div {
+  .game-table-root.viewport-mobile .game-mobile-hand-strip .game-mobile-hand-frame.player-hand-your-turn > div > div,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-south-panel-hand
+    .game-mobile-hand-row.player-hand-your-turn
+    > div {
     animation: none !important;
     transform: none !important;
   }
@@ -7665,10 +8094,12 @@ body {
 }
 
 /* Мобильная зона карт: та же гирлянда по контуру рамки руки (задержка 9 с — в GameTable). Ряд карт — над SVG. */
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame:has(.user-panel-garland) > div {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-strip .game-mobile-hand-frame:has(.user-panel-garland) > div,
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-south-panel-hand:has(.user-panel-garland) > div {
   z-index: 1;
 }
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-strip .game-mobile-hand-frame .user-panel-garland,
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-south-panel-hand .user-panel-garland {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -7679,20 +8110,26 @@ body {
   box-sizing: border-box;
   isolation: isolate;
 }
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland .user-panel-garland-track,
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland .user-panel-garland-dash {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-strip .game-mobile-hand-frame .user-panel-garland .user-panel-garland-track,
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-strip .game-mobile-hand-frame .user-panel-garland .user-panel-garland-dash,
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-south-panel-hand .user-panel-garland .user-panel-garland-track,
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-south-panel-hand .user-panel-garland .user-panel-garland-dash {
   vector-effect: non-scaling-stroke;
 }
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland .user-panel-garland-track {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-strip .game-mobile-hand-frame .user-panel-garland .user-panel-garland-track,
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-south-panel-hand .user-panel-garland .user-panel-garland-track {
   stroke-width: 1.25px;
 }
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland .user-panel-garland-dash {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-strip .game-mobile-hand-frame .user-panel-garland .user-panel-garland-dash,
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-south-panel-hand .user-panel-garland .user-panel-garland-dash {
   stroke-width: 2.25px;
 }
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland-dash--cyan {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-strip .game-mobile-hand-frame .user-panel-garland-dash--cyan,
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-south-panel-hand .user-panel-garland-dash--cyan {
   stroke: #5aebff;
 }
-.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-attached .game-mobile-hand-frame .user-panel-garland-dash--violet {
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-hand-strip .game-mobile-hand-frame .user-panel-garland-dash--violet,
+.game-table-root.viewport-mobile.trump-highlight-on .game-mobile-south-panel-hand .user-panel-garland-dash--violet {
   stroke: #d59aff;
 }
 
@@ -9383,4 +9820,62 @@ body.deal-results-modal-open-mobile {
     0 0 12px rgba(248, 208, 255, 0.72),
     0 0 22px rgba(235, 132, 247, 0.5),
     0 1px 0 rgba(15, 23, 42, 0.5) !important;
+}
+
+/*
+ * «Очки» над полоской заказа Юга: бейдж оказывается внутри .player-mobile-south-tricks-column (flex column).
+ * theme-standard красит .opponent-score-badge span в голубой + opacity — перебиваем только этот якорь.
+ */
+.theme-standard
+  .game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-short-score-above-order
+  .game-mobile-user-south-score-cell
+  button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.opponent-score-badge--slot-east:not(.score-badge-leader)
+  > span:first-child,
+.theme-standard
+  .game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-short-score-above-order
+  .game-mobile-user-south-score-cell
+  button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.opponent-score-badge--slot-east:not(.score-badge-leader)
+  > span:last-child {
+  color: #f2b8ff !important;
+  -webkit-text-fill-color: #f2b8ff !important;
+  opacity: 1 !important;
+  text-shadow:
+    0 0 10px rgba(242, 184, 255, 0.65),
+    0 0 18px rgba(235, 132, 247, 0.45),
+    0 1px 0 rgba(15, 23, 42, 0.55) !important;
+}
+.theme-standard
+  .game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-short-score-above-order
+  .game-mobile-user-south-score-cell
+  button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.opponent-score-badge--slot-east.score-badge-leader
+  > span:first-child,
+.theme-standard
+  .game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-short-score-above-order
+  .game-mobile-user-south-score-cell
+  button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.opponent-score-badge--slot-east.score-badge-leader
+  > span:last-child {
+  color: #f8d0ff !important;
+  -webkit-text-fill-color: #f8d0ff !important;
+  opacity: 1 !important;
+  text-shadow:
+    0 0 12px rgba(248, 208, 255, 0.72),
+    0 0 22px rgba(235, 132, 247, 0.5),
+    0 1px 0 rgba(15, 23, 42, 0.5) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-short-score-above-order
+  .game-mobile-user-south-score-cell
+  > button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: max-content !important;
+  max-width: min(100%, 220px) !important;
+  line-height: 1.15 !important;
 }
