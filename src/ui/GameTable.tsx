@@ -39,7 +39,6 @@ import { getTrickWinner } from '../game/rules';
 import { getCanonicalIndexForDisplay, rotateStateForPlayer } from '../game/rotateState';
 import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
 import { preloadCardImages } from '../cardAssets';
-import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnlineGame } from '../contexts/useOnlineGame';
 import { heartbeatPresence, recordOfflineMatchFinish } from '../lib/onlineGameSupabase';
@@ -759,7 +758,6 @@ function difficultyForAiPlayMove(online: boolean, st: GameState, playerIndex: nu
 }
 
 function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame, onOpenProfileModal }: GameTableProps) {
-  const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
   const userRef = useRef(user);
   userRef.current = user;
@@ -2477,8 +2475,21 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       )}
       <div style={{ ...tableStyle, ...(isMobile ? { overflow: 'hidden' as const } : {}) }}>
       <header className="game-header" style={headerStyle}>
-        <div style={headerLeftWrapStyle}>
-          <div style={headerMenuButtonsWrapStyle}>
+        <div
+          style={{
+            ...headerLeftWrapStyle,
+            ...(isMobile && !isWaitingInRoom && state != null
+              ? { flex: 1, minWidth: 0, alignItems: 'flex-start' as const }
+              : {}),
+          }}
+        >
+          <div
+            className={isMobile && !isWaitingInRoom && state != null ? 'game-header-mobile-left-menu-col' : undefined}
+            style={{
+              ...headerMenuButtonsWrapStyle,
+              ...(isMobile && !isWaitingInRoom && state != null ? { alignItems: 'flex-start' as const } : {}),
+            }}
+          >
             {isMobile ? (
               isWaitingInRoom ? (
               <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -2527,7 +2538,15 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
             ) : (
               <div
                 className="first-move-badge-hang-wrap"
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: 5,
+                  minWidth: 0,
+                  width: 'max-content',
+                  maxWidth: '100%',
+                }}
               >
                 <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <button
@@ -2567,11 +2586,19 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       ↻
                     </button>
                   )}
-                  <AiDifficultyControl
-                    layout="mobile"
-                    offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
-                  />
                 </div>
+                <div
+                  className="game-header-mobile-deal-row"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                    alignSelf: 'flex-start',
+                    minWidth: 0,
+                  }}
+                >
                 {state != null &&
                   (getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark' ? (
                     <button
@@ -2697,6 +2724,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       )}
                     </button>
                   ))}
+                </div>
               </div>
             )
             ) : (
@@ -2768,83 +2796,59 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               </button>
             )}
             {isMobile ? (
+              !isWaitingInRoom ? (
               <div
                 className="game-header-mobile-theme-lamp-stack"
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 6,
+                  alignItems: 'flex-end',
+                  gap: 5,
                   flexShrink: 0,
                 }}
               >
+                <AiDifficultyControl
+                  layout="mobile"
+                  offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
+                />
                 <button
                   type="button"
-                  className="theme-toggle-btn"
-                  onClick={toggleTheme}
-                  title={theme === 'neon' ? 'Стандарт' : 'Неоновая'}
-                  aria-label={theme === 'neon' ? 'Переключить на стандартную тему' : 'Переключить на неоновую тему'}
+                  className="game-header-mobile-trump-lamp-btn"
+                  onClick={() => setTrumpHighlightOn(v => !v)}
                   style={{
-                    width: 32,
-                    height: 28,
-                    padding: 4,
-                    borderRadius: 8,
-                    border: '1px solid rgba(34, 211, 238, 0.55)',
-                    background: 'rgba(15, 23, 42, 0.9)',
-                    color: theme === 'neon' ? '#67e8f9' : '#fbbf24',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.2), 0 0 8px rgba(34, 211, 238, 0.15)',
+                    ...trumpHighlightBtnStyle,
+                    gap: 0,
+                    ...(trumpHighlightOn
+                      ? {
+                          border: '1px solid rgba(34, 211, 238, 0.9)',
+                          color: '#5eead4',
+                          boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(94, 234, 212, 0.4), 0 0 18px rgba(34, 211, 238, 0.25)',
+                        }
+                      : { color: 'rgba(251, 146, 60, 0.7)' }),
                   }}
+                  title={trumpHighlightOn ? 'Выключить дополнительную подсветку' : 'Включить дополнительную подсветку'}
+                  aria-label={trumpHighlightOn ? 'Выключить дополнительную подсветку' : 'Включить дополнительную подсветку'}
                 >
-                  {theme === 'neon' ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ filter: 'drop-shadow(0 0 2px currentColor)' }}>
-                      <text x="12" y="17" textAnchor="middle" fontSize="14" fontWeight="700" fill="currentColor" fontFamily="system-ui, sans-serif">S</text>
-                    </svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ filter: 'drop-shadow(0 0 4px rgba(34,211,238,0.8))' }}>
-                      <circle cx="12" cy="12" r="6" />
-                    </svg>
-                  )}
-                </button>
-                {!isWaitingInRoom && (
-                  <button
-                    type="button"
-                    onClick={() => setTrumpHighlightOn(v => !v)}
-                    style={{
-                      ...trumpHighlightBtnStyle,
-                      ...(trumpHighlightOn
-                        ? {
-                            border: '1px solid rgba(34, 211, 238, 0.9)',
-                            color: '#5eead4',
-                            boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(94, 234, 212, 0.4), 0 0 18px rgba(34, 211, 238, 0.25)',
-                          }
-                        : { color: 'rgba(251, 146, 60, 0.7)' }),
-                    }}
-                    title={trumpHighlightOn ? 'Выключить дополнительную подсветку' : 'Включить дополнительную подсветку'}
+                  <svg
+                    width="18"
+                    height="20"
+                    viewBox="0 0 18 20"
+                    fill="currentColor"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={!trumpHighlightOn ? 'trump-btn-lamp-off' : undefined}
+                    style={trumpHighlightOn ? { filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.6)) drop-shadow(0 0 8px rgba(94, 234, 212, 0.5))' } : undefined}
+                    aria-hidden
                   >
-                    <svg
-                      width="18"
-                      height="20"
-                      viewBox="0 0 18 20"
-                      fill="currentColor"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className={!trumpHighlightOn ? 'trump-btn-lamp-off' : undefined}
-                      style={trumpHighlightOn ? { filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.6)) drop-shadow(0 0 8px rgba(94, 234, 212, 0.5))' } : undefined}
-                    >
-                      <path d="M9 2c-3.3 0-6 2.7-6 6 0 2.2 1.2 4.1 3 5.2v2.3c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-2.3c1.8-1.1 3-3 3-5.2 0-3.3-2.7-6-6-6z" />
-                      <path d="M9 15v2" />
-                      <path d="M6 19h6" />
-                    </svg>
-                    {trumpHighlightOn ? 'Выключить' : 'Включить'}
-                  </button>
-                )}
+                    <path d="M9 2c-3.3 0-6 2.7-6 6 0 2.2 1.2 4.1 3 5.2v2.3c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-2.3c1.8-1.1 3-3 3-5.2 0-3.3-2.7-6-6-6z" />
+                    <path d="M9 15v2" />
+                    <path d="M6 19h6" />
+                  </svg>
+                </button>
               </div>
+              ) : null
             ) : (
               !isWaitingInRoom && (
                 <button

@@ -1722,7 +1722,9 @@
   .game-table-root.viewport-mobile {
     box-sizing: border-box !important;
     max-width: 100vw !important;
-    padding-right: 2px !important;
+    /* Совпадает с фактическим inset контента справа: root + горизонтальный padding обёртки стола (tableStyle в GameTable.tsx = --game-header-padding). */
+    --mobile-root-edge-inset-right: 2px;
+    padding-right: var(--mobile-root-edge-inset-right) !important;
     overflow-x: hidden !important;
     --game-table-surface-height: min(236px, 40.9vh) !important; /* было min(260px, 45vh) */
     /*
@@ -2093,7 +2095,8 @@
     right: 0 !important;
     /* Выше контента стола; центр. бейдж — .game-info-left-col (118); попап ИИ — portal z-index 220 */
     z-index: 110 !important;
-    padding: 2px 4px !important;
+    /* Слева — как визуальный inset панелей (--game-table-padding). Справа — та же вертикаль, что внешний правый край Север/Восток/Юг: root (--mobile-root-edge-inset-right) + padding scroll-обёртки (--game-header-padding), иначе fixed-шапка сидит на 6px от viewport, а панели на 2px+3px. */
+    padding: 1px calc(var(--mobile-root-edge-inset-right, 2px) + var(--game-header-padding, 3px)) 2px var(--game-table-padding, 6px) !important;
     gap: 2px !important;
     margin-bottom: 0 !important;
     flex-wrap: wrap !important;
@@ -2115,14 +2118,18 @@
     align-items: flex-end !important;
   }
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child {
-    align-items: center !important;
+    align-items: flex-start !important;
+    justify-content: flex-end !important;
+    /* Не тянуть ряд на всю ширину колонки — иначе визуально «пустота» справа от узкой лампы под широким ИИ. */
+    width: max-content !important;
+    max-width: 100% !important;
     gap: 1px !important;
   }
   /* Одна высота верхней линии: кнопка меню, бейдж трансляции, кнопка подсветки; бейдж раздачи — на панели «Заказывает» */
   .game-table-root.viewport-mobile .game-header > div:first-child > button,
   .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-col .game-info-left-section,
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn),
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack > button:not(.deal-results-btn),
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack .game-header-mobile-trump-lamp-btn,
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > div {
     min-height: 24px !important;
     box-sizing: border-box !important;
@@ -2260,7 +2267,7 @@
   }
   /* Кнопка подсветки козыря: только иконка-лампочка, без надписи */
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn),
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack > button:not(.deal-results-btn) {
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack .game-header-mobile-trump-lamp-btn {
     width: 32px !important;
     min-width: 32px !important;
     height: 28px !important;
@@ -2269,7 +2276,7 @@
     line-height: 0 !important;
   }
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):not(.theme-toggle-btn) svg,
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack > button:not(.deal-results-btn):not(.theme-toggle-btn) svg {
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack .game-header-mobile-trump-lamp-btn svg {
     width: 16px !important;
     height: 18px !important;
   }
@@ -2282,6 +2289,181 @@
     min-height: 0 !important;
     align-items: center !important;
   }
+  /* В партии: домик/↻ и «Карт/заказ» — одна левая вертикаль (перебивает align-items:center у обёртки) */
+  .game-table-root.viewport-mobile .game-header > div:first-child > div.game-header-mobile-left-menu-col {
+    align-items: flex-start !important;
+  }
+  /* ИИ над лампой: прижатие к правому краю шапки (как отступы стола); правый край кнопок совпадает */
+  .game-table-root.viewport-mobile .game-header .game-header-mobile-theme-lamp-stack {
+    align-self: flex-end !important;
+    align-items: flex-end !important;
+    margin-top: -1px !important;
+    margin-right: 0 !important;
+    width: max-content !important;
+  }
+  .game-table-root.viewport-mobile .game-header .game-header-mobile-theme-lamp-stack .ai-difficulty-root {
+    position: relative !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    min-height: 28px !important;
+    max-height: 28px !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    transform: translateY(-1px) !important;
+    overflow: visible !important;
+    contain: none !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    animation: none !important;
+  }
+  .game-table-root.viewport-mobile .game-header .game-header-mobile-theme-lamp-stack .ai-difficulty-root .header-ai-difficulty-btn {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    position: relative !important;
+    width: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    max-height: 24px !important;
+    margin: 0 auto !important;
+    gap: 2px !important;
+    padding: 0 3px !important;
+    box-sizing: border-box !important;
+    border-radius: 9px !important;
+    border-style: solid !important;
+    border-color: transparent !important;
+    border-width: 1px 2px 2px 2px !important;
+    overflow: visible !important;
+    /* Слой 1 — выпуклость; слой 2 — рамка: меньше лавандово-белого, в «горячей» зоне — бирюза/бирюза как у лампы в активном состоянии (#5eead4, #22d3ee, teal) */
+    background-image:
+      linear-gradient(
+        168deg,
+        rgba(165, 180, 252, 0.36) 0%,
+        rgba(99, 102, 241, 0.55) 18%,
+        rgba(76, 29, 149, 0.92) 52%,
+        rgba(30, 27, 75, 0.98) 100%
+      ),
+      linear-gradient(
+        125deg,
+        #3b0764 0%,
+        #5b21b6 10%,
+        #6d28d9 20%,
+        #7c3aed 30%,
+        #6366f1 38%,
+        #0e7490 44%,
+        #0891b2 48%,
+        #06b6d4 52%,
+        #22d3ee 56%,
+        #2dd4bf 60%,
+        #5eead4 64%,
+        #67e8f9 70%,
+        #22d3ee 78%,
+        #0ea5e9 86%,
+        #38bdf8 94%,
+        #5abbf0 100%
+      ) !important;
+    background-origin: border-box !important;
+    background-clip: padding-box, border-box !important;
+    box-shadow:
+      inset 0 2px 3px rgba(207, 250, 254, 0.2),
+      inset 0 -3px 5px rgba(15, 23, 42, 0.38),
+      inset 0 1px 0 rgba(165, 243, 252, 0.28),
+      inset 0 0 0 0.5px rgba(34, 211, 238, 0.22),
+      inset 0 0 10px rgba(13, 148, 136, 0.12),
+      0 1px 0 rgba(165, 243, 252, 0.18),
+      0 3px 8px rgba(0, 0, 0, 0.22),
+      0 0 0 1px rgba(34, 211, 238, 0.35),
+      0 0 10px rgba(94, 234, 212, 0.28),
+      0 0 14px rgba(34, 211, 238, 0.22) !important;
+    animation: none !important;
+  }
+  .game-table-root.viewport-mobile .game-header .game-header-mobile-theme-lamp-stack .ai-difficulty-root .header-ai-difficulty-btn:hover {
+    background-image:
+      linear-gradient(
+        168deg,
+        rgba(199, 210, 254, 0.4) 0%,
+        rgba(129, 140, 248, 0.58) 22%,
+        rgba(91, 33, 182, 0.94) 50%,
+        rgba(49, 46, 129, 0.99) 100%
+      ),
+      linear-gradient(
+        125deg,
+        #4c1d95 0%,
+        #6d28d9 14%,
+        #7c3aed 26%,
+        #4f46e5 36%,
+        #0e7490 44%,
+        #0891b2 50%,
+        #06b6d4 54%,
+        #22d3ee 58%,
+        #2dd4bf 62%,
+        #5eead4 66%,
+        #67e8f9 72%,
+        #22d3ee 80%,
+        #0ea5e9 88%,
+        #38bdf8 100%
+      ) !important;
+    background-origin: border-box !important;
+    background-clip: padding-box, border-box !important;
+    box-shadow:
+      inset 0 2px 4px rgba(207, 250, 254, 0.22),
+      inset 0 -3px 5px rgba(15, 23, 42, 0.32),
+      inset 0 1px 0 rgba(165, 243, 252, 0.32),
+      inset 0 0 0 0.5px rgba(34, 211, 238, 0.28),
+      inset 0 0 14px rgba(13, 148, 136, 0.14),
+      0 1px 0 rgba(165, 243, 252, 0.2),
+      0 4px 10px rgba(0, 0, 0, 0.24),
+      0 0 0 1px rgba(34, 211, 238, 0.42),
+      0 0 16px rgba(94, 234, 212, 0.32),
+      0 0 18px rgba(34, 211, 238, 0.22) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .game-header-mobile-theme-lamp-stack .ai-difficulty-trigger-label {
+    display: inline-block !important;
+    flex-shrink: 0 !important;
+    font-size: 11px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.02em !important;
+    line-height: 1 !important;
+    text-transform: uppercase !important;
+    background-image: linear-gradient(
+      180deg,
+      #ede9fe 0%,
+      #ddd6fe 10%,
+      #d4c4fd 22%,
+      #c4b5fd 34%,
+      #b9a3f8 44%,
+      #a78bfa 50%,
+      #8b9cf5 58%,
+      #5ab0f0 70%,
+      #38bdf8 82%,
+      #7dd3fc 100%
+    ) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    text-shadow: none !important;
+    filter: none !important;
+    -webkit-text-stroke: 0.14px rgba(49, 46, 129, 0.35) !important;
+    paint-order: stroke fill !important;
+  }
+  .game-table-root.viewport-mobile .game-header .game-header-mobile-theme-lamp-stack .ai-difficulty-trigger-ball {
+    flex-shrink: 0 !important;
+    width: 7px !important;
+    height: 7px !important;
+    box-shadow:
+      0 0 3px rgba(255, 255, 255, 0.5),
+      0 0 8px rgba(167, 139, 250, 0.85),
+      0 0 12px rgba(34, 211, 238, 0.35),
+      0 0 14px rgba(124, 58, 237, 0.4) !important;
+  }
   .game-table-root.viewport-mobile .game-header > div:first-child > div span {
     font-size: 10px !important;
     line-height: 1.2 !important;
@@ -2292,7 +2474,16 @@
   /* Бейдж «I: имя» — висит независимо под кнопками, скруглённая рамка со всех сторон */
   .game-table-root.viewport-mobile .game-header .first-move-badge-hang-wrap {
     align-items: flex-start !important;
-    gap: 6px !important;
+    gap: 5px !important;
+    width: max-content !important;
+    max-width: 100% !important;
+  }
+  /* Ряд «домик / ↻»: ширина только по кнопкам, не растягивается вместе с бейджем «заказ/взятки» под ним */
+  .game-table-root.viewport-mobile .game-header .first-move-badge-hang-wrap > .header-menu-buttons-row {
+    align-self: flex-start !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    flex-shrink: 0 !important;
   }
   .game-table-root.viewport-mobile .game-header .first-move-badge-below-home {
     align-self: flex-start !important;
@@ -2480,7 +2671,7 @@
   }
   /* Кнопка «вкл/выкл подсветку»: без рамки, только иконка лампочки */
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):not(.theme-toggle-btn),
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack > button:not(.deal-results-btn):not(.theme-toggle-btn) {
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack .game-header-mobile-trump-lamp-btn {
     width: 32px !important;
     min-width: 32px !important;
     height: 28px !important;
@@ -2494,17 +2685,15 @@
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):not(.theme-toggle-btn) {
     transform: translateX(7px) !important;
   }
-  /* В стеке «тема + лампа» — левее прямого ребёнка (7px → 3.5px) */
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack > button:not(.deal-results-btn):not(.theme-toggle-btn) {
-    transform: translateX(3.5px) !important;
+  /* Лампа в стеке: без translateX у соседних кнопок; на 1px выше визуально */
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack .game-header-mobile-trump-lamp-btn {
+    transform: translateY(-1px) !important;
+    align-self: flex-end !important;
+    gap: 0 !important;
   }
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):not(.theme-toggle-btn):hover,
-  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack > button:not(.deal-results-btn):not(.theme-toggle-btn):hover {
+  .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack .game-header-mobile-trump-lamp-btn:hover {
     background: rgba(255,255,255,0.06) !important;
-  }
-  /* Тема + лампочка: центры кнопок на одной вертикали */
-  .game-table-root.viewport-mobile .game-header .game-header-mobile-theme-lamp-stack {
-    align-items: center !important;
   }
   /* Бейдж «Карт / заказ»: компактно, на мобильной без подписи «Карт» */
   .game-table-root.viewport-mobile .game-header .game-info-deal-contract-panel .deal-contract-label {
@@ -2583,144 +2772,232 @@
     font-size: 8px !important;
   }
 
-  /* --- Сложность ИИ (мобильная шапка) --- */
-  /* Единый блок: домик / выход / ↻ / ИИ — фиолетовый градиент, справа лёгкий внутренний отступ под кнопку ИИ */
+  /* --- Мобильный ряд: домик / выход из комнаты / ↻ / (в лобби — ИИ) — отдельные «пилюли», призматическая рамка как у Σ и кнопки ИИ --- */
   .game-table-root.viewport-mobile .game-header .header-menu-buttons-row {
+    --menu-row-prismatic-border: linear-gradient(
+      125deg,
+      #3b0764 0%,
+      #5b21b6 10%,
+      #6d28d9 20%,
+      #7c3aed 30%,
+      #6366f1 38%,
+      #0e7490 44%,
+      #0891b2 48%,
+      #06b6d4 52%,
+      #22d3ee 56%,
+      #2dd4bf 60%,
+      #5eead4 64%,
+      #67e8f9 70%,
+      #22d3ee 78%,
+      #0ea5e9 86%,
+      #38bdf8 94%,
+      #5abbf0 100%
+    );
     position: relative !important;
     display: flex !important;
     flex-direction: row !important;
-    align-items: stretch !important;
+    align-items: center !important;
     align-self: center !important;
-    gap: 0 !important;
+    gap: 4px !important;
     flex-wrap: nowrap !important;
-    min-height: 28px !important;
-    height: 28px !important;
+    min-height: 0 !important;
+    height: auto !important;
     padding: 0 !important;
-    margin: 0 !important;
+    /* 1px ниже — верхняя градиентная рамка кнопок не сливается с верхом шапки; в партии вертикаль компенсируем gap до ряда «заказ/взято» (hang-wrap −1px) */
+    margin: 1px 0 0 0 !important;
     box-sizing: border-box !important;
-    background: linear-gradient(
-      152deg,
-      rgba(99, 102, 241, 0.52) 0%,
-      rgba(109, 40, 160, 0.9) 30%,
-      rgba(67, 56, 202, 0.92) 55%,
-      rgba(49, 46, 129, 0.97) 100%
-    ) !important;
-    border: 1px solid rgba(129, 140, 248, 0.82) !important;
-    border-radius: 8px !important;
-    /* Попап ИИ — createPortal(body). Скрываем всё, что рисуется снаружи рамки (тени кнопок, blur, внешние box-shadow) */
-    overflow: hidden !important;
-    contain: paint !important;
-    /* Внутреннее кольцо + верхний блик — индиго/фиолет, без светлой лаванды */
-    box-shadow:
-      inset 0 0 0 1px rgba(99, 102, 241, 0.55),
-      inset 0 1px 0 rgba(165, 180, 252, 0.22) !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    contain: layout style !important;
   }
-  /* Полоска у нижнего края (внутри рамки): индиго к глубокому фиолету */
   .game-table-root.viewport-mobile .game-header .header-menu-buttons-row::after {
-    content: '' !important;
-    position: absolute !important;
-    left: 2px !important;
-    right: 2px !important;
-    bottom: 0 !important;
-    height: 3px !important;
-    pointer-events: none !important;
-    z-index: 2 !important;
-    border-radius: 0 0 5px 5px !important;
-    background: linear-gradient(
-      to top,
-      rgba(99, 102, 241, 0.62) 0%,
-      rgba(79, 70, 229, 0.42) 42%,
-      transparent 100%
-    ) !important;
+    display: none !important;
   }
   .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-exit-btn,
   .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-new-game-btn,
   .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-ai-difficulty-btn {
     border: none !important;
   }
-  /* Скругления сегментов; обрезка снаружи — overflow:hidden на самом ряду */
-  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button {
-    border-radius: 0 !important;
-  }
-  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button:first-child {
-    border-radius: 7px 0 0 7px !important;
-  }
-  /* Обрезаем размытие filter: drop-shadow у SVG и свечение текста — они рисуются снаружи и затемняют нижнюю рамку */
-  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button,
   .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .ai-difficulty-root .header-ai-difficulty-btn {
-    overflow: hidden !important;
+    overflow: visible !important;
   }
-  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-exit-btn svg,
-  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-room-exit-btn svg {
-    filter: none !important;
+  /* Домик и «выйти из комнаты» — базовый размер; ↻ чуть меньше (вторичное действие) */
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button.header-exit-btn {
+    width: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+    padding: 0 !important;
+    border-radius: 10px !important;
+    border-style: solid !important;
+    border-color: transparent !important;
+    border-width: 1px 2px 2px 2px !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    background-origin: border-box !important;
+    background-clip: padding-box, border-box !important;
+    box-shadow:
+      inset 0 2px 3px rgba(207, 250, 254, 0.22),
+      inset 0 -3px 5px rgba(15, 23, 42, 0.38),
+      inset 0 1px 0 rgba(165, 243, 252, 0.3),
+      inset 0 0 0 0.5px rgba(34, 211, 238, 0.22),
+      inset 0 0 10px rgba(13, 148, 136, 0.1),
+      0 1px 0 rgba(165, 243, 252, 0.16),
+      0 3px 8px rgba(0, 0, 0, 0.22),
+      0 0 0 1px rgba(34, 211, 238, 0.32),
+      0 0 10px rgba(94, 234, 212, 0.22),
+      0 0 12px rgba(34, 211, 238, 0.16) !important;
   }
-  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-new-game-btn {
-    text-shadow: none !important;
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button.header-new-game-btn {
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    max-height: 30px !important;
+    padding: 0 !important;
+    border-radius: 9px !important;
+    border-style: solid !important;
+    border-color: transparent !important;
+    border-width: 1px 2px 2px 2px !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    background-origin: border-box !important;
+    background-clip: padding-box, border-box !important;
+    box-shadow:
+      inset 0 2px 3px rgba(207, 250, 254, 0.2),
+      inset 0 -3px 5px rgba(15, 23, 42, 0.38),
+      inset 0 1px 0 rgba(165, 243, 252, 0.28),
+      inset 0 0 0 0.5px rgba(34, 211, 238, 0.2),
+      inset 0 0 10px rgba(13, 148, 136, 0.09),
+      0 1px 0 rgba(165, 243, 252, 0.14),
+      0 3px 7px rgba(0, 0, 0, 0.2),
+      0 0 0 1px rgba(34, 211, 238, 0.28),
+      0 0 9px rgba(94, 234, 212, 0.2),
+      0 0 11px rgba(34, 211, 238, 0.14) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button.header-exit-btn:not(.header-room-exit-btn) {
+    color: rgb(38 227 213 / 50%) !important;
+    background-image:
+      linear-gradient(
+        168deg,
+        rgba(224, 231, 255, 0.44) 0%,
+        rgba(165, 180, 252, 0.52) 16%,
+        rgba(129, 140, 248, 0.62) 36%,
+        rgba(91, 33, 182, 0.88) 68%,
+        rgba(49, 46, 129, 0.97) 100%
+      ),
+      var(--menu-row-prismatic-border) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button.header-room-exit-btn {
+    color: rgba(255, 251, 235, 0.98) !important;
+    background-image:
+      linear-gradient(
+        168deg,
+        rgba(254, 243, 199, 0.42) 0%,
+        rgba(251, 191, 36, 0.5) 28%,
+        rgba(217, 119, 6, 0.75) 55%,
+        rgba(120, 53, 15, 0.92) 100%
+      ),
+      var(--menu-row-prismatic-border) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button.header-new-game-btn {
+    font-size: 18.5px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    color: rgb(255 105 245 / 98%) !important;
+    text-shadow:
+      0 -1px 0 rgba(255, 255, 255, 0.72),
+      0 -2px 3px rgba(255, 255, 255, 0.28),
+      -0.5px -0.5px 0 rgba(255, 255, 255, 0.42),
+      0 1px 0 rgba(15, 23, 42, 0.55),
+      0 2px 3px rgba(15, 23, 42, 0.42),
+      0 0 8px rgba(255, 255, 255, 0.35),
+      0 0 12px rgba(255, 105, 245, 0.55),
+      0 0 20px rgba(244, 114, 182, 0.5),
+      0 0 28px rgba(34, 211, 238, 0.35),
+      0 0 36px rgba(167, 139, 250, 0.28) !important;
+    background-image:
+      linear-gradient(
+        168deg,
+        rgba(199, 210, 254, 0.42) 0%,
+        rgba(99, 102, 241, 0.58) 22%,
+        rgba(67, 56, 202, 0.88) 52%,
+        rgba(30, 27, 75, 0.98) 100%
+      ),
+      var(--menu-row-prismatic-border) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button.header-exit-btn:not(.header-room-exit-btn) svg {
+    width: 21px !important;
+    height: 21px !important;
+    stroke-width: 2.65px !important;
+    filter: brightness(1.08) contrast(1.05)
+      drop-shadow(0 -0.5px 0 rgba(255, 255, 255, 0.75))
+      drop-shadow(0 0.5px 0 rgba(15, 23, 42, 0.35))
+      drop-shadow(0 0 4px rgba(255, 255, 255, 0.5))
+      drop-shadow(0 0 8px rgba(196, 181, 253, 0.95))
+      drop-shadow(0 0 14px rgba(167, 139, 250, 0.85))
+      drop-shadow(0 0 22px rgba(99, 102, 241, 0.55))
+      drop-shadow(0 0 28px rgba(56, 189, 248, 0.4)) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button.header-room-exit-btn svg {
+    width: 19px !important;
+    height: 19px !important;
+    stroke-width: 2.65px !important;
+    filter: brightness(1.08) contrast(1.04)
+      drop-shadow(0 -0.5px 0 rgba(255, 253, 245, 0.8))
+      drop-shadow(0 0.5px 0 rgba(120, 53, 15, 0.4))
+      drop-shadow(0 0 4px rgba(255, 250, 235, 0.55))
+      drop-shadow(0 0 10px rgba(253, 224, 71, 0.9))
+      drop-shadow(0 0 18px rgba(251, 191, 36, 0.65))
+      drop-shadow(0 0 26px rgba(245, 158, 11, 0.4)) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button.header-exit-btn:hover,
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button.header-new-game-btn:hover {
+    box-shadow:
+      inset 0 2px 4px rgba(207, 250, 254, 0.28),
+      inset 0 -2px 4px rgba(15, 23, 42, 0.32),
+      inset 0 1px 0 rgba(248, 250, 252, 0.22),
+      inset 0 0 14px rgba(34, 211, 238, 0.12),
+      0 0 0 1px rgba(34, 211, 238, 0.45),
+      0 0 14px rgba(94, 234, 212, 0.28),
+      0 4px 10px rgba(0, 0, 0, 0.24) !important;
+  }
+  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-ai-difficulty-btn:hover {
+    box-shadow:
+      inset 0 2px 4px rgba(207, 250, 254, 0.22),
+      inset 0 -2px 4px rgba(15, 23, 42, 0.3),
+      inset 0 1px 0 rgba(165, 243, 252, 0.26),
+      0 0 0 1px rgba(34, 211, 238, 0.4),
+      0 0 12px rgba(94, 234, 212, 0.22) !important;
   }
   .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .ai-difficulty-trigger-ball {
     box-shadow: none !important;
-  }
-  /* Выпуклые сегменты: только верхний блик + разделители — без тёмного inset снизу (он тонил нижнюю обводку контейнера) */
-  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button {
-    background: linear-gradient(
-      180deg,
-      rgba(99, 102, 241, 0.3) 0%,
-      rgba(124, 58, 237, 0.28) 40%,
-      rgba(88, 28, 135, 0.4) 78%,
-      rgba(55, 48, 120, 0.48) 100%
-    ) !important;
-    box-shadow:
-      inset 0 1px 0 rgba(199, 210, 254, 0.18),
-      inset -1px 0 0 rgba(129, 140, 248, 0.55),
-      inset -2px 0 0 rgba(79, 70, 229, 0.5) !important;
-  }
-  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-exit-btn:hover,
-  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-new-game-btn:hover,
-  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .header-ai-difficulty-btn:hover {
-    background: linear-gradient(
-      180deg,
-      rgba(129, 140, 248, 0.36) 0%,
-      rgba(139, 92, 246, 0.34) 45%,
-      rgba(91, 33, 182, 0.5) 100%
-    ) !important;
-    box-shadow:
-      inset 0 1px 0 rgba(224, 231, 255, 0.22),
-      inset 0 0 14px rgba(99, 102, 241, 0.35) !important;
-  }
-  .game-table-root.viewport-mobile .game-header .header-menu-buttons-row > button:hover {
-    box-shadow:
-      inset 0 1px 0 rgba(224, 231, 255, 0.22),
-      inset 0 0 14px rgba(99, 102, 241, 0.35),
-      inset -1px 0 0 rgba(129, 140, 248, 0.55),
-      inset -2px 0 0 rgba(79, 70, 229, 0.5) !important;
   }
   .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .ai-difficulty-root {
     display: flex !important;
     align-items: stretch !important;
     flex-shrink: 0 !important;
     justify-content: center !important;
-    overflow: hidden !important;
-    border-radius: 0 7px 7px 0 !important;
-    /* 32px кнопка + бывший правый отступ ряда — шарик и «ИИ» по центру последней ячейки */
-    min-width: 39px !important;
+    overflow: visible !important;
+    border-radius: 10px !important;
+    min-width: 44px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
     box-sizing: border-box !important;
   }
   .game-table-root.viewport-mobile .game-header .header-menu-buttons-row .ai-difficulty-root .header-ai-difficulty-btn {
-    border-radius: 0 !important;
+    border-radius: 10px !important;
     height: 100% !important;
-    min-height: 28px !important;
-    max-height: 28px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
     justify-content: center !important;
     align-items: center !important;
-    background: linear-gradient(
-      180deg,
-      rgba(99, 102, 241, 0.3) 0%,
-      rgba(124, 58, 237, 0.28) 40%,
-      rgba(88, 28, 135, 0.4) 78%,
-      rgba(55, 48, 120, 0.48) 100%
-    ) !important;
-    box-shadow:
-      inset 0 1px 0 rgba(199, 210, 254, 0.18) !important;
   }
   .game-table-root.viewport-mobile .ai-difficulty-root {
     position: relative;
@@ -2782,7 +3059,8 @@
   /* Панель хода игры — зафиксировать вверху по центру, на одной линии с шапкой */
   .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-col {
     position: fixed !important;
-    top: 0 !important;
+    /* С шапкой: на 1px выше прежнего выравнивания с padding-top шапки */
+    top: 1px !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     /* Выше шапки (110), чтобы «Заказывает» не прятался под фоном header; ниже portal-попапа ИИ (220) */
