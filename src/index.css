@@ -2140,10 +2140,14 @@
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    /* Выше контента стола; центр. бейдж — .game-info-left-col (118); попап ИИ — portal z-index 220 */
+    /* Выше контента стола; центр. бейдж — .game-info-left-col (125); попап ИИ — portal z-index 220 */
     z-index: 110 !important;
     /* Слева — как визуальный inset панелей (--game-table-padding). Справа — та же вертикаль, что внешний правый край Север/Восток/Юг: root (--mobile-root-edge-inset-right) + padding scroll-обёртки (--game-header-padding), иначе fixed-шапка сидит на 6px от viewport, а панели на 2px+3px. */
-    padding: 1px calc(var(--mobile-root-edge-inset-right, 2px) + var(--game-header-padding, 3px)) 2px var(--game-table-padding, 6px) !important;
+    /* Верх: как у центр. бейджа — env + 1px, иначе бейдж «уезжает» вниз относительно шапки */
+    padding-top: calc(env(safe-area-inset-top, 0px) + 1px) !important;
+    padding-right: calc(var(--mobile-root-edge-inset-right, 2px) + var(--game-header-padding, 3px)) !important;
+    padding-bottom: 2px !important;
+    padding-left: var(--game-table-padding, 6px) !important;
     gap: 2px !important;
     margin-bottom: 0 !important;
     flex-wrap: wrap !important;
@@ -2151,11 +2155,183 @@
     background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
   }
-  /* Низкий экран: высота max(innerHeight, visualViewport) строго меньше 652px (GameTable) — блок стола выше шапки */
+  /* Short: шапка без подложки — кнопки/текст на фоне стола; z-index как у обычной мобилы (110) */
   .game-table-root.viewport-mobile.viewport-mobile-short .game-header {
-    z-index: 48 !important;
-    background: linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.72) 100%) !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22) !important;
+    z-index: 110 !important;
+    background: linear-gradient(180deg, rgb(15 23 42 / 0%) 0%, rgb(15 23 42 / 0%) 100%) !important;
+    box-shadow: none !important;
+    transition:
+      transform 0.28s ease,
+      opacity 0.22s ease,
+      visibility 0.22s ease;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive .game-header {
+    transform: translateY(calc(-100% - 10px)) !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+  /* Immersive: шапка убрана — ряд С/З не должен иметь верхних отступов «под шапку» */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive .game-mobile-top-row {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-top-row
+    .game-mobile-slot-west,
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-top-row
+    .game-mobile-slot-north {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    align-items: flex-start !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-top-row
+    .game-mobile-slot-west
+    > div,
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-top-row
+    .game-mobile-slot-north
+    > div {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-top-row
+    .game-mobile-slot-west
+    .opponent-slot,
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-top-row
+    .game-mobile-slot-north
+    .opponent-slot {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-top-row
+    .game-mobile-slot-west
+    .opponent-slot-header,
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-top-row
+    .game-mobile-slot-north
+    .opponent-slot-header {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .game-table-root.viewport-mobile.viewport-mobile-short .game-header {
+      transition: none !important;
+    }
+  }
+  /* L-ручка выхода из immersive (short): левый верх, safe-area */
+  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle {
+    position: fixed !important;
+    z-index: 130 !important;
+    /* Только в immersive; совпадает по смыслу с отступом шапки (env + 1px), плюс минимум для тапа */
+    top: max(6px, calc(env(safe-area-inset-top, 0px) + 1px)) !important;
+    left: max(6px, env(safe-area-inset-left, 0px)) !important;
+    width: 30px !important;
+    height: 30px !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: transparent !important;
+    background: linear-gradient(145deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.88)) !important;
+    box-shadow:
+      0 0 0 1px rgba(45, 212, 191, 0.45),
+      0 0 14px rgba(34, 211, 238, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: flex-start !important;
+    padding: 5px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle__stroke {
+    display: block !important;
+    background: linear-gradient(180deg, #5eead4, #22d3ee) !important;
+    border-radius: 1px !important;
+    box-shadow: 0 0 6px rgba(94, 234, 212, 0.65) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle__stroke--v {
+    width: 3px !important;
+    height: 14px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle__stroke--h {
+    width: 10px !important;
+    height: 3px !important;
+    margin-left: -3px !important;
+    margin-bottom: 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle--pulse {
+    animation: mobile-short-immersive-l-pulse 1.1s ease-out 1 !important;
+  }
+  @keyframes mobile-short-immersive-l-pulse {
+    0% {
+      transform: scale(1);
+      box-shadow:
+        0 0 0 1px rgba(45, 212, 191, 0.45),
+        0 0 14px rgba(34, 211, 238, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+    45% {
+      transform: scale(1.06);
+      box-shadow:
+        0 0 0 2px rgba(45, 212, 191, 0.65),
+        0 0 22px rgba(34, 211, 238, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow:
+        0 0 0 1px rgba(45, 212, 191, 0.45),
+        0 0 14px rgba(34, 211, 238, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle--pulse {
+      animation: none !important;
+    }
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle-hint {
+    position: fixed !important;
+    z-index: 131 !important;
+    top: max(40px, calc(env(safe-area-inset-top, 0px) + 34px)) !important;
+    left: max(8px, env(safe-area-inset-left, 0px)) !important;
+    right: max(8px, env(safe-area-inset-right, 0px)) !important;
+    max-width: 280px !important;
+    padding: 8px 10px !important;
+    border-radius: 8px !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+    color: #e2e8f0 !important;
+    background: rgba(15, 23, 42, 0.94) !important;
+    border: 1px solid rgba(45, 212, 191, 0.45) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+    pointer-events: none !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-invite-chip {
+    position: fixed !important;
+    z-index: 125 !important;
+    left: 50% !important;
+    bottom: max(96px, calc(18dvh + env(safe-area-inset-bottom, 0px))) !important;
+    transform: translateX(-50%) !important;
+    padding: 6px 12px !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em !important;
+    color: #ecfeff !important;
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: transparent !important;
+    border: 1px solid rgba(94, 234, 212, 0.55) !important;
+    background: linear-gradient(180deg, rgba(13, 148, 136, 0.55), rgba(15, 23, 42, 0.92)) !important;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), 0 0 14px rgba(34, 211, 238, 0.25) !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-short .game-table-block-mobile {
     position: relative !important;
@@ -3189,15 +3365,18 @@
   /* Панель хода игры — зафиксировать вверху по центру, на одной линии с шапкой */
   .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-col {
     position: fixed !important;
-    /* С шапкой: на 1px выше прежнего выравнивания с padding-top шапки */
-    top: 1px !important;
+    /* Край колонки = край вьюпорта; отступ как у .game-header — иначе бейдж визуально ниже шапки */
+    top: 0 !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
-    /* Выше шапки (110), чтобы «Заказывает» не прятался под фоном header; ниже portal-попапа ИИ (220) */
-    z-index: 118 !important;
+    /* Выше шапки (110): иначе на short фон header визуально ложится поверх центр. бейджа; ниже L-ручки (130) и portal ИИ (220) */
+    z-index: 125 !important;
     width: auto !important;
     max-width: calc(100vw - 24px) !important;
-    padding: 2px 0 !important;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 1px) !important;
+    padding-bottom: 2px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
     min-height: 24px !important;
     display: flex !important;
     align-items: center !important;
@@ -3222,7 +3401,7 @@
     margin-bottom: var(--mobile-table-east-gap, 5px) !important;
   }
   .game-table-root.viewport-mobile > div {
-    padding-top: 30px !important;
+    padding-top: calc(30px + env(safe-area-inset-top, 0px)) !important;
   }
   .game-table-root .game-info-left-col {
     margin-top: 4px !important;
@@ -3465,7 +3644,7 @@
     padding-top: 0 !important;
     overflow: visible !important;
   }
-  /* Панель ИИ-Восток на мобильной: имя под аватаром, с переносом по словам/символам */
+  /* Панель ИИ-Восток на мобильной: имя под аватаром, с переносом по словам/символам; −1.5px — чуть приподнять аватар/шапку для бейджа «Первый заказ» внизу */
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-header {
     margin-bottom: 2px !important;
     gap: 0 !important;
@@ -3473,6 +3652,7 @@
     flex-wrap: wrap !important;
     align-items: center !important;
     text-align: center !important;
+    transform: translateY(-1.5px) !important;
   }
   /*
    * Имя в колонке 95–125px: перенос вниз; шрифт как у С/З — см. opponentNameStyle в GameTable.tsx.
@@ -8197,7 +8377,7 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
  */
 .game-table-root.viewport-mobile.deal-type-no-trump {
   background:
-    radial-gradient(ellipse 120% 90% at 50% -8%, rgba(251, 113, 133, 0.22) 0%, transparent 42%),
+    radial-gradient(ellipse 115% 88% at 50% 6%, rgba(251, 113, 133, 0.2) 0%, transparent 44%),
     radial-gradient(ellipse 90% 70% at 8% 22%, rgba(244, 114, 182, 0.18) 0%, transparent 48%),
     radial-gradient(ellipse 85% 65% at 96% 18%, rgba(217, 70, 239, 0.16) 0%, transparent 46%),
     radial-gradient(ellipse 110% 78% at 50% 4%, rgba(134, 239, 172, 0.38) 0%, rgba(74, 222, 128, 0.12) 38%, transparent 58%),
@@ -8210,6 +8390,14 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 
 .game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-upper-board .game-mobile-top-row {
   background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+}
+
+/*
+ * Short + прозрачная шапка: у .game-mobile-top-row padding-top ~28px под fixed header.
+ * Тот же градиент заливал padding — сквозь шапку был виден тёмный «пояс» на фоне стола.
+ */
+.game-table-root.viewport-mobile.viewport-mobile-short.deal-type-no-trump .game-mobile-upper-board .game-mobile-top-row {
+  background-clip: content-box;
 }
 
 /* Внешняя рамка стола (первый div внутри .game-center-table) — лавандовая оправа, усиленный градиент */
@@ -8275,18 +8463,24 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   border: 1px solid rgba(186, 170, 240, 0.42) !important;
 }
 
-/* Верхняя панель (кнопки): сильнее розовый неон к лаванде */
+/*
+ * Шапка в бескозырке — тот же однослойный фон, что у обычной мобильной (.viewport-mobile .game-header).
+ * Отдельные розовые радиалы здесь давали «второй слой» на всю высоту (просвет корня / неверный композитинг).
+ */
 .game-table-root.viewport-mobile.deal-type-no-trump .game-header {
-  background:
-    radial-gradient(ellipse 140% 100% at 50% -35%, rgba(251, 113, 133, 0.38) 0%, transparent 46%),
-    radial-gradient(ellipse 130% 120% at 50% -30%, rgba(251, 207, 232, 0.48) 0%, transparent 50%),
-    radial-gradient(ellipse 100% 90% at 92% 10%, rgba(244, 114, 182, 0.32) 0%, transparent 48%),
-    radial-gradient(ellipse 100% 90% at 92% 10%, rgba(216, 180, 254, 0.28) 0%, transparent 48%),
-    radial-gradient(ellipse 80% 70% at 8% 20%, rgba(249, 168, 212, 0.26) 0%, transparent 42%),
-    linear-gradient(180deg, rgba(52, 28, 48, 0.98) 0%, rgba(28, 22, 42, 0.98) 45%, rgba(15, 23, 42, 0.97) 100%) !important;
-  box-shadow:
-    0 0 28px rgba(244, 114, 182, 0.12),
-    0 1px 0 rgba(0, 0, 0, 0.4) !important;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Короткий viewport: как у обычной мобилы — без подложки; блок выше идёт позже @media и иначе перебивал прозрачность */
+.game-table-root.viewport-mobile.viewport-mobile-short.deal-type-no-trump .game-header {
+  background: linear-gradient(180deg, rgb(15 23 42 / 0%) 0%, rgb(15 23 42 / 0%) 100%) !important;
+  box-shadow: none !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-short.deal-type-dark .game-header {
+  background: linear-gradient(180deg, rgb(15 23 42 / 0%) 0%, rgb(15 23 42 / 0%) 100%) !important;
+  box-shadow: none !important;
 }
 
 /*

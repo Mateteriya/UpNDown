@@ -178,6 +178,53 @@ function readMobileViewportHeightForShortModePx(): number {
 
 /** Строго меньше этой высоты (по readMobileViewportHeightForShortModePx): рука в сетке юга + прокрутка, шапка ниже по z-index. */
 const MOBILE_SHORT_VIEWPORT_HEIGHT_PX = 652;
+/** sessionStorage: режим «стол на весь экран» (immersive) для short-VH. */
+const MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY = 'upd.gameTable.mobileShortHeaderImmersive.v1';
+/** Макс. высота зоны магнита от низа скролла (px). */
+const SHORT_VH_MAGNET_ZONE_CAP_PX = 120;
+/** Минимальный ход скролла, при котором включаем магнит (иначе на коротком контенте дёргает). */
+const SHORT_VH_MAGNET_MIN_SCROLL_RANGE_PX = 48;
+/** Выход из immersive: scrollTop ниже «прижатого» низа на столько (px) — снова показываем шапку. */
+const SHORT_VH_IMMERSIVE_EXIT_SCROLL_PX = 16;
+/** Сброс shortVhMagnetConsumedRef при прокрутке к верху: порог относительно зоны (px). */
+const SHORT_VH_MAGNET_REARM_THRESHOLD_PX = 8;
+
+/** WebKit/iOS часто оставляет 1–3px до конца скролла без повторного кадра. */
+function commitShortMainWrapScrollToStart(el: HTMLDivElement) {
+  el.scrollTop = 0;
+  window.requestAnimationFrame(() => {
+    el.scrollTop = 0;
+    window.requestAnimationFrame(() => {
+      el.scrollTop = 0;
+    });
+  });
+}
+
+function commitShortMainWrapScrollToEnd(el: HTMLDivElement) {
+  const snap = (): number => {
+    const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
+    el.scrollTop = maxTop;
+    try {
+      el.scrollTo({ top: maxTop, left: 0, behavior: 'auto' });
+    } catch {
+      el.scrollTop = maxTop;
+    }
+    return maxTop;
+  };
+  let prevMax = -1;
+  for (let i = 0; i < 16; i++) {
+    const m = snap();
+    if (m === prevMax) break;
+    prevMax = m;
+  }
+  window.requestAnimationFrame(() => {
+    for (let j = 0; j < 8; j++) snap();
+    window.requestAnimationFrame(() => {
+      for (let k = 0; k < 8; k++) snap();
+    });
+  });
+}
+
 /** Short + узкий экран (ширина как readMobileHandLayoutWidthPx): «Очки» на строке с именем только при заказе >7 взяток (8 или 9). */
 const MOBILE_SHORT_SCORE_ELEVATE_MAX_WIDTH_PX = 355;
 
@@ -953,6 +1000,29 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
+  const mobileShortMainWrapRef = useRef<HTMLDivElement | null>(null);
+  /** Short + immersive: выравнивание верха ряда З/С с верхом бейджа `.game-info-left-section` (getBoundingClientRect). */
+  const mobileGameInfoSectionAlignRef = useRef<HTMLDivElement | null>(null);
+  const mobileNorthWestTopRowRef = useRef<HTMLDivElement | null>(null);
+  const shortVhMagnetConsumedRef = useRef(false);
+  const mobileShortHeaderImmersiveRef = useRef(false);
+  const shortVhScrollRafRef = useRef<number | null>(null);
+  const lHandleLongPressTimerRef = useRef<number | null>(null);
+  const lHandlePointerDownRef = useRef({ x: 0, y: 0 });
+  const [mobileShortHeaderImmersive, setMobileShortHeaderImmersiveState] = useState(false);
+  const setMobileShortHeaderImmersive = useCallback((next: boolean) => {
+    mobileShortHeaderImmersiveRef.current = next;
+    setMobileShortHeaderImmersiveState(next);
+    try {
+      if (next) sessionStorage.setItem(MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY, '1');
+      else sessionStorage.removeItem(MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const [mobileShortImmersiveInviteChip, setMobileShortImmersiveInviteChip] = useState(false);
+  const [immersiveLHandleHint, setImmersiveLHandleHint] = useState<string | null>(null);
+  const [immersiveRevealBtnPulse, setImmersiveRevealBtnPulse] = useState(false);
   const [mobileOverlapScrubPeek, setMobileOverlapScrubPeek] = useState<number | null>(null);
   const mobileOverlapSlotRefs = useRef<(HTMLDivElement | null)[]>([]);
   const suppressMobileOverlapClickRef = useRef(false);
@@ -1054,6 +1124,221 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
   }, []);
+
+  useEffect(() => {
+    if (!mobileViewportShort || isWaitingInRoom) {
+      shortVhMagnetConsumedRef.current = false;
+      setMobileShortHeaderImmersive(false);
+      setMobileShortImmersiveInviteChip(false);
+      setImmersiveLHandleHint(null);
+      try {
+        sessionStorage.removeItem(MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [mobileViewportShort, isWaitingInRoom, setMobileShortHeaderImmersive]);
+
+  useEffect(() => {
+    if (!mobileShortHeaderImmersive || prefersReducedMotion) return;
+    setImmersiveRevealBtnPulse(true);
+    const t = window.setTimeout(() => setImmersiveRevealBtnPulse(false), 1250);
+    return () => window.clearTimeout(t);
+  }, [mobileShortHeaderImmersive, prefersReducedMotion]);
+
+  const updateMobileShortScrollMagnet = useCallback(() => {
+    const el = mobileShortMainWrapRef.current;
+    if (!el || !isMobileRef.current || !mobileViewportShort) return;
+    if (onlineRef.current.userOnPause) return;
+
+    const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
+    if (maxTop < SHORT_VH_MAGNET_MIN_SCROLL_RANGE_PX) {
+      setMobileShortImmersiveInviteChip(false);
+      return;
+    }
+
+    const zone = Math.min(SHORT_VH_MAGNET_ZONE_CAP_PX, Math.round(maxTop * 0.48));
+    const distBottom = maxTop - el.scrollTop;
+    const zoneSlack = 14;
+
+    if (el.scrollTop < zone - SHORT_VH_MAGNET_REARM_THRESHOLD_PX) {
+      shortVhMagnetConsumedRef.current = false;
+    }
+
+    if (mobileShortHeaderImmersiveRef.current && el.scrollTop < maxTop - SHORT_VH_IMMERSIVE_EXIT_SCROLL_PX) {
+      setMobileShortHeaderImmersive(false);
+      shortVhMagnetConsumedRef.current = true;
+    }
+
+    const inInviteBand =
+      !mobileShortHeaderImmersiveRef.current &&
+      el.scrollTop > 12 &&
+      distBottom > SHORT_VH_IMMERSIVE_EXIT_SCROLL_PX &&
+      distBottom <= zone + zoneSlack + 24;
+    setMobileShortImmersiveInviteChip(inInviteBand);
+
+    if (
+      !shortVhMagnetConsumedRef.current &&
+      !mobileShortHeaderImmersiveRef.current &&
+      distBottom <= zone + zoneSlack
+    ) {
+      commitShortMainWrapScrollToEnd(el);
+      shortVhMagnetConsumedRef.current = true;
+      setMobileShortHeaderImmersive(true);
+      setMobileShortImmersiveInviteChip(false);
+      try {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(14);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [mobileViewportShort, setMobileShortHeaderImmersive]);
+
+  const onMobileShortMainWrapScroll = useCallback(() => {
+    if (shortVhScrollRafRef.current != null) return;
+    shortVhScrollRafRef.current = window.requestAnimationFrame(() => {
+      shortVhScrollRafRef.current = null;
+      updateMobileShortScrollMagnet();
+    });
+  }, [updateMobileShortScrollMagnet]);
+
+  useEffect(() => {
+    if (!isMobile || !mobileViewportShort || !state) return;
+    const id = window.requestAnimationFrame(() => updateMobileShortScrollMagnet());
+    return () => window.cancelAnimationFrame(id);
+  }, [isMobile, mobileViewportShort, state, updateMobileShortScrollMagnet, pendingTrickCompletionKey]);
+
+  useLayoutEffect(() => {
+    const el = mobileShortMainWrapRef.current;
+    if (!el || !isMobile || !mobileViewportShort) return;
+    const ro = new ResizeObserver(() => {
+      updateMobileShortScrollMagnet();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isMobile, mobileViewportShort, updateMobileShortScrollMagnet, pendingTrickCompletionKey, state?.dealNumber]);
+
+  /** После immersive CSS уменьшается scrollHeight — прижимаем снова к абсолютному низу. */
+  useLayoutEffect(() => {
+    if (!isMobile || !mobileViewportShort || !mobileShortHeaderImmersive) return;
+    const el = mobileShortMainWrapRef.current;
+    if (!el) return;
+    commitShortMainWrapScrollToEnd(el);
+  }, [isMobile, mobileViewportShort, mobileShortHeaderImmersive, pendingTrickCompletionKey, state?.dealNumber]);
+
+  /** Верх ряда Запад/Север — на одну линию с верхом бейджа `game-info-left-section` (магнит / immersive). */
+  useLayoutEffect(() => {
+    if (!isMobile || !mobileViewportShort) return;
+    const row = mobileNorthWestTopRowRef.current;
+    if (!row) return;
+    const clear = () => {
+      row.style.marginTop = '';
+    };
+    const showStrip = !isWaitingInRoom && state != null;
+    if (!mobileShortHeaderImmersive || !showStrip) {
+      clear();
+      return;
+    }
+    const badge = mobileGameInfoSectionAlignRef.current;
+    if (!badge) {
+      clear();
+      return;
+    }
+    const apply = () => {
+      const bt = badge.getBoundingClientRect().top;
+      const rt = row.getBoundingClientRect().top;
+      const pull = Math.max(0, Math.min(240, Math.round(rt - bt)));
+      row.style.marginTop = pull > 0 ? `-${pull}px` : '';
+    };
+    apply();
+    const raf1 = window.requestAnimationFrame(() => {
+      apply();
+      const wrap = mobileShortMainWrapRef.current;
+      if (wrap) commitShortMainWrapScrollToEnd(wrap);
+      window.requestAnimationFrame(apply);
+    });
+    const vv = window.visualViewport;
+    const onResize = () => apply();
+    vv?.addEventListener('resize', onResize);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      vv?.removeEventListener('resize', onResize);
+      window.removeEventListener('resize', onResize);
+      clear();
+    };
+  }, [
+    isMobile,
+    mobileViewportShort,
+    mobileShortHeaderImmersive,
+    isWaitingInRoom,
+    state,
+    pendingTrickCompletionKey,
+  ]);
+
+  const clearLHandleLongPress = useCallback(() => {
+    if (lHandleLongPressTimerRef.current != null) {
+      window.clearTimeout(lHandleLongPressTimerRef.current);
+      lHandleLongPressTimerRef.current = null;
+    }
+  }, []);
+
+  const exitImmersiveToHeader = useCallback(() => {
+    const el = mobileShortMainWrapRef.current;
+    setMobileShortHeaderImmersive(false);
+    shortVhMagnetConsumedRef.current = true;
+    if (el) commitShortMainWrapScrollToStart(el);
+    setImmersiveLHandleHint(null);
+  }, [setMobileShortHeaderImmersive]);
+
+  const snapShortScrollToImmersive = useCallback(() => {
+    const el = mobileShortMainWrapRef.current;
+    if (!el) return;
+    const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
+    if (maxTop < SHORT_VH_MAGNET_MIN_SCROLL_RANGE_PX) return;
+    commitShortMainWrapScrollToEnd(el);
+    shortVhMagnetConsumedRef.current = true;
+    setMobileShortHeaderImmersive(true);
+    setMobileShortImmersiveInviteChip(false);
+    try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(14);
+    } catch {
+      /* ignore */
+    }
+  }, [setMobileShortHeaderImmersive]);
+
+  const onImmersiveLHandlePointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!mobileShortHeaderImmersive) return;
+      lHandlePointerDownRef.current = { x: e.clientX, y: e.clientY };
+      clearLHandleLongPress();
+      lHandleLongPressTimerRef.current = window.setTimeout(() => {
+        lHandleLongPressTimerRef.current = null;
+        setImmersiveLHandleHint('Потяните страницу вниз от края, чтобы снова увидеть шапку');
+        try {
+          if (!prefersReducedMotion && typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate([8, 40, 8]);
+          }
+        } catch {
+          /* ignore */
+        }
+        window.setTimeout(() => setImmersiveLHandleHint(null), 2200);
+      }, 550);
+    },
+    [mobileShortHeaderImmersive, clearLHandleLongPress, prefersReducedMotion],
+  );
+
+  const onImmersiveLHandlePointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      clearLHandleLongPress();
+      if (!mobileShortHeaderImmersiveRef.current) return;
+      const dx = Math.abs(e.clientX - lHandlePointerDownRef.current.x);
+      const dy = Math.abs(e.clientY - lHandlePointerDownRef.current.y);
+      if (dx > 14 || dy > 14) return;
+      exitImmersiveToHeader();
+    },
+    [clearLHandleLongPress, exitImmersiveToHeader],
+  );
 
   useEffect(() => {
     setMobileSpecialDealBadgeFace(0);
@@ -2204,7 +2489,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}
     >
       {isOnline && online.userOnPause && (
@@ -2666,8 +2951,52 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           )}
         </>
       )}
+      {isMobile && mobileViewportShort && mobileShortHeaderImmersive && !online.userOnPause && (
+        <>
+          <button
+            type="button"
+            className={[
+              'mobile-short-immersive-l-handle',
+              immersiveRevealBtnPulse ? 'mobile-short-immersive-l-handle--pulse' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onPointerDown={onImmersiveLHandlePointerDown}
+            onPointerUp={onImmersiveLHandlePointerUp}
+            onPointerCancel={clearLHandleLongPress}
+            onPointerLeave={clearLHandleLongPress}
+            aria-label="Показать шапку"
+            title="Показать шапку — или потяните страницу вниз от края"
+          >
+            <span className="mobile-short-immersive-l-handle__stroke mobile-short-immersive-l-handle__stroke--v" aria-hidden />
+            <span className="mobile-short-immersive-l-handle__stroke mobile-short-immersive-l-handle__stroke--h" aria-hidden />
+          </button>
+          {immersiveLHandleHint ? (
+            <div className="mobile-short-immersive-l-handle-hint" role="status">
+              {immersiveLHandleHint}
+            </div>
+          ) : null}
+        </>
+      )}
+      {isMobile &&
+        mobileViewportShort &&
+        mobileShortImmersiveInviteChip &&
+        !mobileShortHeaderImmersive &&
+        !isWaitingInRoom &&
+        !online.userOnPause && (
+          <button
+            type="button"
+            className="mobile-short-immersive-invite-chip"
+            onClick={snapShortScrollToImmersive}
+            aria-label="Показать стол на весь экран"
+          >
+            Без шапки ↓
+          </button>
+        )}
       <div
+        ref={mobileViewportShort ? mobileShortMainWrapRef : undefined}
         className={isMobile ? 'game-table-main-wrap' + (mobileViewportShort ? ' game-table-main-wrap--short-vh' : '') : undefined}
+        onScroll={mobileViewportShort ? onMobileShortMainWrapScroll : undefined}
         style={{
           ...tableStyle,
           ...(isMobile
@@ -3334,7 +3663,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           <div className="game-mobile-upper-board" style={gameMobileUpperBoardStyle}>
             <div className="game-info-left-col" style={gameInfoLeftColumnStyle}>
               {mobileShowGameInfoStrip && (
-                <div className="game-info-left-section" style={gameInfoLeftSectionStyle}>
+                <div ref={mobileGameInfoSectionAlignRef} className="game-info-left-section" style={gameInfoLeftSectionStyle}>
             {!isWaitingInRoom && (
                     <button
                       type="button"
@@ -3386,7 +3715,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 </div>
               )}
             </div>
-            <div className="game-mobile-top-row" style={{ ...gameInfoTopRowStyle, justifyContent: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
+            <div
+              ref={mobileNorthWestTopRowRef}
+              className="game-mobile-top-row"
+              style={{ ...gameInfoTopRowStyle, justifyContent: 'flex-start', gap: 8, flexWrap: 'wrap' }}
+            >
             <div className="game-mobile-slot-west" style={{ display: 'flex', flexShrink: 0 }}>
               <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.avatarDataUrl ?? undefined}
