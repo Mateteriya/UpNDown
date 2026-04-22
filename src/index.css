@@ -2167,10 +2167,8 @@
     z-index: 110 !important;
     background: linear-gradient(180deg, rgb(15 23 42 / 0%) 0%, rgb(15 23 42 / 0%) 100%) !important;
     box-shadow: none !important;
-    transition:
-      transform 0.28s ease,
-      opacity 0.22s ease,
-      visibility 0.22s ease;
+    /* Без transition: скрытие/показ шапки в short-VH — мгновенно (как «надевание» слоя), без «тормозной» анимации */
+    transition: none !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive .game-header {
     transform: translateY(calc(-100% - 10px)) !important;
@@ -2178,10 +2176,9 @@
     visibility: hidden !important;
     pointer-events: none !important;
   }
-  /* Immersive: шапка убрана — ряд С/З не должен иметь верхних отступов «под шапку» */
+  /* Immersive: шапка убрана — без отступа «под шапку»; выравнивание по бейджу — margin-top из React (нельзя margin-top:0 !important — перебивает инлайн). */
   .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive .game-mobile-top-row {
     padding-top: 0 !important;
-    margin-top: 0 !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
     .game-mobile-top-row
@@ -2225,11 +2222,6 @@
     .opponent-slot-header {
     margin-top: 0 !important;
     padding-top: 0 !important;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .game-table-root.viewport-mobile.viewport-mobile-short .game-header {
-      transition: none !important;
-    }
   }
   /* Часть кнопки выступает над верхней границей — не обрезать.
      translateZ(0): у .game-info-left-col уже есть transform — иначе absolute у кнопки цепляется к колонке,
@@ -2545,6 +2537,8 @@
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
+    /* Меньше сдвигов контента при смене высоты шапки / immersive */
+    overflow-anchor: none !important;
     /* auto: при scrollTop=0 жест «вниз» уходит в браузер (pull-to-refresh). contain гасил overscroll целиком. */
     overscroll-behavior-y: auto !important;
     /* Полоса прокрутки не нужна, если контент почти влезает (субпиксели/тени); скролл пальцем/колёсиком сохраняется */
@@ -2556,6 +2550,15 @@
     width: 0 !important;
     height: 0 !important;
     background: transparent !important;
+  }
+  /*
+   * Short immersive: перебить `.viewport-mobile > div { padding-top: 30px+safe !important }` у прямого потомка
+   * `.game-table-main-wrap` — иначе ряд С/З физически ниже фикс. бейджа; отрицательный margin-top не «перепрыгивает» padding предка.
+   * Верх: как у `.game-mobile-upper-board .game-info-left-col` (env + 1px), без «полосы под шапку».
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    > .game-table-main-wrap.game-table-main-wrap--short-vh {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 1px) !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-bottom-row {
     max-height: none !important;
