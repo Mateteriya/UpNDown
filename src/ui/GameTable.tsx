@@ -180,6 +180,36 @@ function readMobileViewportHeightForShortModePx(): number {
 const MOBILE_SHORT_VIEWPORT_HEIGHT_PX = 652;
 /** sessionStorage: режим «стол на весь экран» (immersive) для short-VH. */
 const MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY = 'upd.gameTable.mobileShortHeaderImmersive.v1';
+/** sessionStorage: сдвиг бейджа по X в short + immersive (px от центра). */
+const MOBILE_SHORT_IMMERSIVE_BADGE_DRAG_X_KEY = 'upd.gameTable.mobileShortImmersiveBadgeDragX.v1';
+
+function readImmersiveBadgeDragXFromStorage(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = sessionStorage.getItem(MOBILE_SHORT_IMMERSIVE_BADGE_DRAG_X_KEY);
+    if (raw == null || raw === '') return 0;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Центр бейджа = vw/2 + offset; не даём уехать за края с margin. */
+function clampImmersiveBadgeDragX(offset: number, badgeWidthPx: number, viewportWidthPx: number, edgeMarginPx: number): number {
+  const half = viewportWidthPx / 2 - badgeWidthPx / 2 - edgeMarginPx;
+  const max = Math.max(0, half);
+  if (max === 0) return 0;
+  if (offset > max) return max;
+  if (offset < -max) return -max;
+  return offset;
+}
+
+/** Внутри этой зоны по X бейдж «прилипает» к центру (offset 0), пока жест не «сорван» порогом escape. */
+const IMMERSIVE_BADGE_SNAP_ZONE_PX = 16;
+/** Если палец уводит сырой offset дальше — магнит отключается до конца жеста (можно зафиксировать чуть в стороне от центра). */
+const IMMERSIVE_BADGE_MAGNET_ESCAPE_PX = 40;
+
 /** Макс. высота зоны магнита от низа скролла (px). */
 const SHORT_VH_MAGNET_ZONE_CAP_PX = 120;
 /** Минимальный ход скролла, при котором включаем магнит (иначе на коротком контенте дёргает). */
@@ -188,6 +218,15 @@ const SHORT_VH_MAGNET_MIN_SCROLL_RANGE_PX = 48;
 const SHORT_VH_IMMERSIVE_EXIT_SCROLL_PX = 16;
 /** Сброс shortVhMagnetConsumedRef при прокрутке к верху: порог относительно зоны (px). */
 const SHORT_VH_MAGNET_REARM_THRESHOLD_PX = 8;
+
+/** Глиф кнопки «Показать шапку» (immersive, внутри бейджа): один ряд из 5 кружков; цвет в --dot. */
+const MOBILE_IMMERSIVE_HANDLE_DOT_COLORS: readonly string[] = [
+  '#c26cff',
+  '#fff200',
+  '#00ff7a',
+  '#00f0ff',
+  '#e020ff',
+];
 
 /** WebKit/iOS часто оставляет 1–3px до конца скролла без повторного кадра. */
 function commitShortMainWrapScrollToStart(el: HTMLDivElement) {
@@ -1023,6 +1062,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const [mobileShortImmersiveInviteChip, setMobileShortImmersiveInviteChip] = useState(false);
   const [immersiveLHandleHint, setImmersiveLHandleHint] = useState<string | null>(null);
   const [immersiveRevealBtnPulse, setImmersiveRevealBtnPulse] = useState(false);
+  const [immersiveBadgeDragX, setImmersiveBadgeDragX] = useState(() => readImmersiveBadgeDragXFromStorage());
+  const immersiveBadgeDragXRef = useRef(immersiveBadgeDragX);
+  const immersiveBadgeDragCleanupRef = useRef<null | (() => void)>(null);
   const [mobileOverlapScrubPeek, setMobileOverlapScrubPeek] = useState<number | null>(null);
   const mobileOverlapSlotRefs = useRef<(HTMLDivElement | null)[]>([]);
   const suppressMobileOverlapClickRef = useRef(false);
@@ -1126,18 +1168,36 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   }, []);
 
   useEffect(() => {
-    if (!mobileViewportShort || isWaitingInRoom) {
+    if (isWaitingInRoom) {
       shortVhMagnetConsumedRef.current = false;
       setMobileShortHeaderImmersive(false);
       setMobileShortImmersiveInviteChip(false);
       setImmersiveLHandleHint(null);
-      try {
-        sessionStorage.removeItem(MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY);
-      } catch {
-        /* ignore */
-      }
+      return;
+    }
+    if (!mobileViewportShort) {
+      shortVhMagnetConsumedRef.current = false;
+      mobileShortHeaderImmersiveRef.current = false;
+      setMobileShortHeaderImmersiveState(false);
+      setMobileShortImmersiveInviteChip(false);
+      setImmersiveLHandleHint(null);
+      /* sessionStorage не трогаем — флаг переживает перезагрузку и кратковременную смену высоты окна */
     }
   }, [mobileViewportShort, isWaitingInRoom, setMobileShortHeaderImmersive]);
+
+  /** После F5 / pull-to-refresh восстановить immersive из sessionStorage (см. setMobileShortHeaderImmersive). */
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!isMobile || !mobileViewportShort || isWaitingInRoom || state == null) return;
+    let stored = false;
+    try {
+      stored = sessionStorage.getItem(MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY) === '1';
+    } catch {
+      return;
+    }
+    if (!stored || mobileShortHeaderImmersiveRef.current) return;
+    setMobileShortHeaderImmersive(true);
+  }, [isMobile, mobileViewportShort, isWaitingInRoom, state, setMobileShortHeaderImmersive]);
 
   useEffect(() => {
     if (!mobileShortHeaderImmersive || prefersReducedMotion) return;
@@ -1284,12 +1344,129 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   }, []);
 
   const exitImmersiveToHeader = useCallback(() => {
+    immersiveBadgeDragCleanupRef.current?.();
+    immersiveBadgeDragCleanupRef.current = null;
     const el = mobileShortMainWrapRef.current;
     setMobileShortHeaderImmersive(false);
     shortVhMagnetConsumedRef.current = true;
     if (el) commitShortMainWrapScrollToStart(el);
     setImmersiveLHandleHint(null);
   }, [setMobileShortHeaderImmersive]);
+
+  useLayoutEffect(() => {
+    immersiveBadgeDragXRef.current = immersiveBadgeDragX;
+  }, [immersiveBadgeDragX]);
+
+  useEffect(() => {
+    return () => {
+      immersiveBadgeDragCleanupRef.current?.();
+      immersiveBadgeDragCleanupRef.current = null;
+    };
+  }, []);
+
+  /** Short + immersive: горизонтальный сдвиг бейджа пальцем (высота блока не меняется). */
+  const onImmersiveBadgeWrapPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (!mobileViewportShort || !mobileShortHeaderImmersive) return;
+      const t = e.target as HTMLElement;
+      if (t.closest('button') || t.closest('a[href]')) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+      const pointerId = e.pointerId;
+      const startX = e.clientX;
+      const startOffset = immersiveBadgeDragXRef.current;
+      let moved = false;
+      let lastCommitted = startOffset;
+      /** После оттягивания за MAGNET_ESCAPE магнит к центру не действует до pointerup. */
+      let magnetEscaped = false;
+
+      const tearDown = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+        immersiveBadgeDragCleanupRef.current = null;
+      };
+
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return;
+        const dx = ev.clientX - startX;
+        if (!moved) {
+          if (Math.abs(dx) < 8) return;
+          moved = true;
+        }
+        ev.preventDefault();
+        const badge = mobileGameInfoSectionAlignRef.current;
+        if (!badge) return;
+        const w = badge.getBoundingClientRect().width;
+        const vw = window.visualViewport?.width ?? window.innerWidth;
+        const raw = clampImmersiveBadgeDragX(startOffset + dx, w, vw, 10);
+        if (Math.abs(raw) >= IMMERSIVE_BADGE_MAGNET_ESCAPE_PX) {
+          magnetEscaped = true;
+        }
+        const next =
+          !magnetEscaped && Math.abs(raw) <= IMMERSIVE_BADGE_SNAP_ZONE_PX ? 0 : raw;
+        lastCommitted = next;
+        immersiveBadgeDragXRef.current = next;
+        setImmersiveBadgeDragX(next);
+      };
+
+      const onUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return;
+        tearDown();
+        if (moved) {
+          try {
+            sessionStorage.setItem(MOBILE_SHORT_IMMERSIVE_BADGE_DRAG_X_KEY, String(lastCommitted));
+          } catch {
+            /* ignore */
+          }
+        }
+      };
+
+      immersiveBadgeDragCleanupRef.current?.();
+      immersiveBadgeDragCleanupRef.current = tearDown;
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    },
+    [mobileViewportShort, mobileShortHeaderImmersive],
+  );
+
+  useLayoutEffect(() => {
+    if (!isMobile || !mobileViewportShort || !mobileShortHeaderImmersive) return;
+    const badge = mobileGameInfoSectionAlignRef.current;
+    if (!badge) return;
+    const apply = () => {
+      const w = badge.getBoundingClientRect().width;
+      const vw = window.visualViewport?.width ?? window.innerWidth;
+      setImmersiveBadgeDragX(o => {
+        const c = clampImmersiveBadgeDragX(o, w, vw, 10);
+        immersiveBadgeDragXRef.current = c;
+        return c;
+      });
+    };
+    apply();
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', apply);
+    window.addEventListener('resize', apply);
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => apply());
+      ro.observe(badge);
+    }
+    return () => {
+      vv?.removeEventListener('resize', apply);
+      window.removeEventListener('resize', apply);
+      ro?.disconnect();
+    };
+  }, [
+    isMobile,
+    mobileViewportShort,
+    mobileShortHeaderImmersive,
+    state?.phase,
+    isWaitingInRoom,
+    showDealResultsButton,
+    state?.dealHistory?.length,
+  ]);
 
   const snapShortScrollToImmersive = useCallback(() => {
     const el = mobileShortMainWrapRef.current;
@@ -2951,33 +3128,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           )}
         </>
       )}
-      {isMobile && mobileViewportShort && mobileShortHeaderImmersive && !online.userOnPause && (
-        <>
-          <button
-            type="button"
-            className={[
-              'mobile-short-immersive-l-handle',
-              immersiveRevealBtnPulse ? 'mobile-short-immersive-l-handle--pulse' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            onPointerDown={onImmersiveLHandlePointerDown}
-            onPointerUp={onImmersiveLHandlePointerUp}
-            onPointerCancel={clearLHandleLongPress}
-            onPointerLeave={clearLHandleLongPress}
-            aria-label="Показать шапку"
-            title="Показать шапку — или потяните страницу вниз от края"
-          >
-            <span className="mobile-short-immersive-l-handle__stroke mobile-short-immersive-l-handle__stroke--v" aria-hidden />
-            <span className="mobile-short-immersive-l-handle__stroke mobile-short-immersive-l-handle__stroke--h" aria-hidden />
-          </button>
-          {immersiveLHandleHint ? (
-            <div className="mobile-short-immersive-l-handle-hint" role="status">
-              {immersiveLHandleHint}
-            </div>
-          ) : null}
-        </>
-      )}
       {isMobile &&
         mobileViewportShort &&
         mobileShortImmersiveInviteChip &&
@@ -2992,6 +3142,15 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           >
             Без шапки ↓
           </button>
+        )}
+      {isMobile &&
+        mobileViewportShort &&
+        mobileShortHeaderImmersive &&
+        !online.userOnPause &&
+        immersiveLHandleHint && (
+          <div className="mobile-short-immersive-l-handle-hint" role="status">
+            {immersiveLHandleHint}
+          </div>
         )}
       <div
         ref={mobileViewportShort ? mobileShortMainWrapRef : undefined}
@@ -3662,58 +3821,109 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         <>
           <div className="game-mobile-upper-board" style={gameMobileUpperBoardStyle}>
             <div className="game-info-left-col" style={gameInfoLeftColumnStyle}>
-              {mobileShowGameInfoStrip && (
-                <div ref={mobileGameInfoSectionAlignRef} className="game-info-left-section" style={gameInfoLeftSectionStyle}>
-            {!isWaitingInRoom && (
-                    <button
-                      type="button"
-                      className="deal-number-badge deal-number-badge--game-info-corner"
-                      style={dealNumberBadgeStyle}
-                      onClick={() => setShowDealNumberExplain(v => !v)}
-                      aria-expanded={showDealNumberExplain}
-                      aria-label={`Раздача ${state.dealNumber}. Нажмите для пояснения`}
-                    >
-                      <span style={dealNumberLabelStyle}>Раздача</span>
-                      <span style={dealNumberValueStyle}>
-                        <span className="deal-num-symbol" aria-hidden>
-                          №
-                        </span>
-                        <span className="deal-num-value">{state.dealNumber}</span>
-                      </span>
-                    </button>
-                  )}
-                  {dealResultsCornerInGameInfoPanel && (
-                    <button
-                      ref={dealResultsCornerBtnRef}
-                      type="button"
-                      onClick={() => {
-                        setLastDealResultsSnapshot(state);
-                        setDealResultsExpanded(true);
-                      }}
-                      style={dealResultsButtonStyle}
-                      className={`deal-results-btn deal-results-btn--game-info-corner${dealResultsCornerHint ? ' deal-results-btn--corner-hint' : ''}`}
-                      title="Таблица текущих результатов"
-                      aria-label="Показать таблицу текущих результатов раздач"
-                    >
-                      Σ
-                    </button>
-                  )}
-            {!isWaitingInRoom && state.phase === 'playing' && (
-                    <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
-                      <span style={gameInfoLabelStyle}>Сейчас ход</span>
-                      <span style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{displayState.players[state.currentPlayerIndex].name}</span>
+              {mobileShowGameInfoStrip &&
+                (() => {
+                  const stripChildren = (
+                    <>
+                      {!isWaitingInRoom && (
+                        <button
+                          type="button"
+                          className="deal-number-badge deal-number-badge--game-info-corner"
+                          style={dealNumberBadgeStyle}
+                          onClick={() => setShowDealNumberExplain(v => !v)}
+                          aria-expanded={showDealNumberExplain}
+                          aria-label={`Раздача ${state.dealNumber}. Нажмите для пояснения`}
+                        >
+                          <span style={dealNumberLabelStyle}>Раздача</span>
+                          <span style={dealNumberValueStyle}>
+                            <span className="deal-num-symbol" aria-hidden>
+                              №
+                            </span>
+                            <span className="deal-num-value">{state.dealNumber}</span>
+                          </span>
+                        </button>
+                      )}
+                      {dealResultsCornerInGameInfoPanel && (
+                        <button
+                          ref={dealResultsCornerBtnRef}
+                          type="button"
+                          onClick={() => {
+                            setLastDealResultsSnapshot(state);
+                            setDealResultsExpanded(true);
+                          }}
+                          style={dealResultsButtonStyle}
+                          className={`deal-results-btn deal-results-btn--game-info-corner${dealResultsCornerHint ? ' deal-results-btn--corner-hint' : ''}`}
+                          title="Таблица текущих результатов"
+                          aria-label="Показать таблицу текущих результатов раздач"
+                        >
+                          Σ
+                        </button>
+                      )}
+                      {!isWaitingInRoom && state.phase === 'playing' && (
+                        <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
+                          <span style={gameInfoLabelStyle}>Сейчас ход</span>
+                          <span style={{ ...gameInfoValueStyle, color: '#22c55e' }}>
+                            {displayState.players[state.currentPlayerIndex].name}
+                          </span>
+                        </div>
+                      )}
+                      {(state.phase === 'bidding' || state.phase === 'dark-bidding') && (
+                        <div style={{ ...gameInfoBadgeStyle, ...gameInfoBiddingBadgeStyle }}>
+                          <span style={gameInfoLabelStyle}>Заказывает</span>
+                          <span style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
+                            {displayState.players[state.currentPlayerIndex].name}
+                          </span>
+                        </div>
+                      )}
+                      {mobileViewportShort && mobileShortHeaderImmersive && !online.userOnPause && (
+                        <button
+                          type="button"
+                          className={[
+                            'mobile-short-immersive-l-handle',
+                            immersiveRevealBtnPulse ? 'mobile-short-immersive-l-handle--pulse' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                          onPointerDown={onImmersiveLHandlePointerDown}
+                          onPointerUp={onImmersiveLHandlePointerUp}
+                          onPointerCancel={clearLHandleLongPress}
+                          onPointerLeave={clearLHandleLongPress}
+                          aria-label="Показать шапку"
+                          title="Показать шапку — или потяните страницу вниз от края"
+                        >
+                          <span className="mobile-short-immersive-l-handle__glyph" aria-hidden>
+                            {MOBILE_IMMERSIVE_HANDLE_DOT_COLORS.map((color, i) => (
+                              <span
+                                key={i}
+                                className="mobile-short-immersive-l-handle__dot"
+                                style={{ ['--dot' as string]: color }}
+                              />
+                            ))}
+                          </span>
+                        </button>
+                      )}
+                    </>
+                  );
+                  const section = (
+                    <div ref={mobileGameInfoSectionAlignRef} className="game-info-left-section" style={gameInfoLeftSectionStyle}>
+                      {stripChildren}
                     </div>
-                  )}
-                  {(state.phase === 'bidding' || state.phase === 'dark-bidding') && (
-                    <div style={{ ...gameInfoBadgeStyle, ...gameInfoBiddingBadgeStyle }}>
-                      <span style={gameInfoLabelStyle}>Заказывает</span>
-                      <span style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
-                        {displayState.players[state.currentPlayerIndex].name}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
+                  );
+                  if (mobileViewportShort && mobileShortHeaderImmersive) {
+                    return (
+                      <div
+                        className="game-info-left-section-immersive-drag-wrap"
+                        style={{ transform: `translate3d(${immersiveBadgeDragX}px, 0, 0)` }}
+                        onPointerDown={onImmersiveBadgeWrapPointerDown}
+                        role="group"
+                        aria-label="Сдвиг бейджа влево и вправо. Возле центра выравнивается; оттяните заметно в сторону — чтобы закрепить не по центру."
+                      >
+                        {section}
+                      </div>
+                    );
+                  }
+                  return section;
+                })()}
             </div>
             <div
               ref={mobileNorthWestTopRowRef}
@@ -7722,9 +7932,16 @@ function OpponentSlot({
   const mobileNwLayout = Boolean(isMobile && inline && (position === 'left' || position === 'top'));
   /** Мобильная колонка Восток: тот же базовый размер, что у Запад/Север (40), и общие правила кольца заказа */
   const eastMobileLargeAvatar = Boolean(isMobile && inline && position === 'right');
-  /** Компакт: при кольце заказа (игра, взято/заказ) — лицо ×0.95; без кольца (заказ и т.п.) — полные 40/32 */
+  /**
+   * Моб. С/З и Восток: фиксированная ячейка под аватар — max(кнопка minTap 44, лицо 40) + padding кольца 6+6
+   * (кольцо в TS), иначе высота шапки прыгает при появлении/снятии кольца заказа.
+   */
+  const MOBILE_OPP_HEADER_AVATAR_RESERVE_PX = 56;
+  /** Компакт: С/З/В (моб.) — лицо всегда 40, без ×0.95 при кольце; прочие компактные слоты — как раньше */
   const avatarSizePx = compactMode
-    ? Math.round((mobileNwLayout || eastMobileLargeAvatar ? 40 : 32) * (avatarOrderRingMode ? 0.95 : 1))
+    ? mobileNwLayout || eastMobileLargeAvatar
+      ? 40
+      : Math.round(32 * (avatarOrderRingMode ? 0.95 : 1))
     : 38;
   const eastMobileOnlyAvatar = position === 'right' && isMobile;
   /** ПК, слот «Север» над столом: аватар и имя слева, взятки и очки справа (мобильная не трогается). */
@@ -8485,6 +8702,27 @@ function OpponentSlot({
           ) : (
             avatarControl
           );
+        const avatarElForHeader =
+          mobileNwLayout || eastMobileLargeAvatar ? (
+            <span
+              className="opponent-slot-header-avatar-reserve-mobile"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: MOBILE_OPP_HEADER_AVATAR_RESERVE_PX,
+                height: MOBILE_OPP_HEADER_AVATAR_RESERVE_PX,
+                minWidth: MOBILE_OPP_HEADER_AVATAR_RESERVE_PX,
+                minHeight: MOBILE_OPP_HEADER_AVATAR_RESERVE_PX,
+                flexShrink: 0,
+                boxSizing: 'border-box',
+              }}
+            >
+              {avatarEl}
+            </span>
+          ) : (
+            avatarEl
+          );
         const headerBlock = pcNorthSideBySide ? (
           <div
             className="opponent-slot-header opponent-north-pc-header-split"
@@ -8514,7 +8752,7 @@ function OpponentSlot({
           </div>
         ) : (
           <div className="opponent-slot-header" style={opponentHeaderStyle}>
-            {avatarEl}
+            {avatarElForHeader}
             {nameBlock}
             {isActive && !isMobile && !turnBadgeOutsidePc ? <span style={opponentTurnBadgeStyle}>Ходит</span> : null}
           </div>
@@ -9158,16 +9396,16 @@ const gameInfoBiddingBadgeStyle: React.CSSProperties = {
 const gameInfoLabelStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 600,
-  color: '#94a3b8',
+  color: 'rgb(40, 194, 255)',
   textTransform: 'uppercase',
   letterSpacing: '0.6px',
   marginBottom: 5,
 };
 
-/** ПК, бейдж «Тёмная»: «Режим» — после spread, иначе остаётся #94a3b8 из gameInfoLabelStyle */
+/** ПК, бейдж «Тёмная»: «Режим» — тот же цвет подписи, усиленный вес */
 const gameInfoDarkModeTagLabelOverride: React.CSSProperties = {
-  color: '#4bc4ec',
-  WebkitTextFillColor: '#4bc4ec',
+  color: 'rgb(40, 194, 255)',
+  WebkitTextFillColor: 'rgb(40, 194, 255)',
   fontWeight: 700,
 };
 

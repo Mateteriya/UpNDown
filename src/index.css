@@ -938,6 +938,12 @@
   border-radius: 7px;
 }
 
+/* Подпись «Сейчас ход» / «Заказывает» в бейдже — единый цвет (все ширины и режимы стола) */
+.game-table-root .game-info-left-section > div > span:first-of-type {
+  color: rgb(40, 194, 255) !important;
+  -webkit-text-fill-color: rgb(40, 194, 255) !important;
+}
+
 /* Блеск на козырях в руке во время заказа взяток (мобильная и ПК) */
 @keyframes card-trump-shine {
   0% { transform: translateX(-100%); }
@@ -1125,6 +1131,7 @@
     letter-spacing: 0.4px !important;
     margin-bottom: 2px !important;
   }
+
   /* Номер раздачи — вкладка в левом верхнем углу панели, радиус стыкуется с панелью */
   .game-table-root .game-info-row .game-info-left-col .game-info-left-section .deal-number-badge--game-info-corner {
     position: absolute !important;
@@ -2224,48 +2231,227 @@
       transition: none !important;
     }
   }
-  /* L-ручка выхода из immersive (short): левый верх, safe-area */
-  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle {
-    position: fixed !important;
-    z-index: 130 !important;
-    /* Только в immersive; совпадает по смыслу с отступом шапки (env + 1px), плюс минимум для тапа */
-    top: max(6px, calc(env(safe-area-inset-top, 0px) + 1px)) !important;
-    left: max(6px, env(safe-area-inset-left, 0px)) !important;
-    width: 30px !important;
-    height: 30px !important;
+  /* Часть кнопки выступает над верхней границей — не обрезать.
+     translateZ(0): у .game-info-left-col уже есть transform — иначе absolute у кнопки цепляется к колонке,
+     top:0 уезжает к верху экрана, а не к верху бейджа. */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-upper-board
+    .game-info-left-section {
+    overflow: visible !important;
+    transform: translateZ(0) !important;
+    /* Раздача/Σ — absolute: gap секции не двигает «строки»; min-height auto — без вертикального люфта.
+       justify-content: center — окошко с текстом по центру по горизонтали (flex-start давал прижим влево). */
+    align-items: flex-start !important;
+    justify-content: center !important;
+    min-height: auto !important;
+    /* Меньше «пустого» снизу и без лишнего gap — общие 6px/4px раздувают высоту поверх контента */
+    padding: 5px 8px 3px !important;
+    gap: 0 !important;
+    /* Без «радужной» обводки на всю ширину (полосит и спорит с Σ/ИИ): ровная 1px + мягкий ореол в той же гамме */
+    border-radius: 12px !important;
+    border: 1px solid rgba(196, 181, 253, 0.38) !important;
+    box-sizing: border-box !important;
+    background: linear-gradient(
+      135deg,
+      rgba(88, 28, 135, 0.94) 0%,
+      rgba(67, 56, 202, 0.9) 50%,
+      rgba(79, 70, 229, 0.94) 100%
+    ) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.11),
+      inset 0 0 0 1px rgba(34, 211, 238, 0.06),
+      0 2px 14px rgba(0, 0, 0, 0.24),
+      0 0 14px rgba(99, 102, 241, 0.12),
+      0 0 20px rgba(34, 211, 238, 0.06) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-upper-board
+    .game-info-left-section
+    > div {
+    gap: 0 !important;
+    /* Только окошко «Сейчас ход»/«Заказывает» — не внешняя рамка и не углы Раздача/Σ */
+    margin-top: 10px !important;
+  }
+  /* Immersive short: верх кнопки = верх бейджа; по горизонтали по центру (absolute, вёрстку не двигает) */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-info-left-section
+    .mobile-short-immersive-l-handle {
+    position: absolute !important;
+    z-index: 12 !important;
+    top: 0 !important;
+    left: 50% !important;
+    width: 60px !important;
+    min-width: 60px !important;
+    max-width: 60px !important;
     margin: 0 !important;
-    border: none !important;
-    border-radius: 8px !important;
+    /* Равные отступы точек: h − нижняя рамка (2px) − диаметр точки */
+    padding: calc((16px - 2px - 4px) / 2) 3px !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    line-height: 1 !important;
+    /* Без верхней границы; градиент в border-box — в 2× толще исходной 1px-рамки по левому/правому/низу */
+    border-radius: 0 0 10px 10px !important;
+    border-style: solid !important;
+    border-color: transparent !important;
+    border-width: 0 2px 2px 2px !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
     -webkit-tap-highlight-color: transparent !important;
-    background: linear-gradient(145deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.88)) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    background-image:
+      linear-gradient(
+        168deg,
+        rgba(165, 180, 252, 0.36) 0%,
+        rgba(99, 102, 241, 0.55) 18%,
+        rgba(76, 29, 149, 0.92) 52%,
+        rgba(30, 27, 75, 0.98) 100%
+      ),
+      linear-gradient(
+        125deg,
+        #3b0764 0%,
+        #5b21b6 10%,
+        #6d28d9 20%,
+        #7c3aed 30%,
+        #6366f1 38%,
+        #0e7490 44%,
+        #0891b2 48%,
+        #06b6d4 52%,
+        #22d3ee 56%,
+        #2dd4bf 60%,
+        #5eead4 64%,
+        #67e8f9 70%,
+        #22d3ee 78%,
+        #0ea5e9 86%,
+        #38bdf8 94%,
+        #5abbf0 100%
+      ) !important;
+    background-origin: border-box !important;
+    background-clip: padding-box, border-box !important;
+    /* Рельеф + обводка/ореол: в 2× от первоначальной толщины */
     box-shadow:
-      0 0 0 1px rgba(45, 212, 191, 0.45),
-      0 0 14px rgba(34, 211, 238, 0.35),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+      inset 0 -4px 8px rgba(15, 23, 42, 0.34),
+      inset 0 0 0 1px rgba(34, 211, 238, 0.12),
+      inset 0 0 16px rgba(13, 148, 136, 0.08),
+      0 2px 6px rgba(0, 0, 0, 0.2),
+      0 0 0 2px rgba(34, 211, 238, 0.28),
+      0 0 16px rgba(94, 234, 212, 0.18),
+      0 0 24px rgba(34, 211, 238, 0.14) !important;
     backdrop-filter: blur(8px) !important;
     -webkit-backdrop-filter: blur(8px) !important;
+    /* translate отдельно от transform — иначе :active / pulse затирали translateX(-50%) и кнопка уезжала по вертикали */
+    translate: -50% 0 !important;
+    transform: none !important;
+    transform-origin: 50% 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle:hover {
+    background-image:
+      linear-gradient(
+        168deg,
+        rgba(199, 210, 254, 0.4) 0%,
+        rgba(129, 140, 248, 0.58) 22%,
+        rgba(91, 33, 182, 0.94) 50%,
+        rgba(49, 46, 129, 0.99) 100%
+      ),
+      linear-gradient(
+        125deg,
+        #4c1d95 0%,
+        #6d28d9 14%,
+        #7c3aed 26%,
+        #4f46e5 36%,
+        #0e7490 44%,
+        #0891b2 50%,
+        #06b6d4 54%,
+        #22d3ee 58%,
+        #2dd4bf 62%,
+        #5eead4 66%,
+        #67e8f9 72%,
+        #22d3ee 80%,
+        #0ea5e9 88%,
+        #38bdf8 100%
+      ) !important;
+    background-origin: border-box !important;
+    background-clip: padding-box, border-box !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle:active {
+    transform: scale(0.96) !important;
+    box-shadow:
+      inset 0 4px 10px rgba(15, 23, 42, 0.42),
+      inset 0 0 0 1px rgba(34, 211, 238, 0.14),
+      0 1px 3px rgba(0, 0, 0, 0.26),
+      0 0 12px rgba(34, 211, 238, 0.18) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle:focus-visible {
+    outline: 2px solid rgba(94, 234, 212, 0.75) !important;
+    outline-offset: 2px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle__glyph {
     display: flex !important;
-    align-items: flex-end !important;
-    justify-content: flex-start !important;
-    padding: 5px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-evenly !important;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    line-height: 0 !important;
+    font-size: 0 !important;
+    gap: 0 !important;
+    pointer-events: none !important;
   }
-  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle__stroke {
-    display: block !important;
-    background: linear-gradient(180deg, #5eead4, #22d3ee) !important;
-    border-radius: 1px !important;
-    box-shadow: 0 0 6px rgba(94, 234, 212, 0.65) !important;
+  /* Редкое слабое мигание: только opacity, длинный цикл, без will-change (лишние слои не поднимаем) */
+  @keyframes mobile-short-immersive-dot-twinkle {
+    0%,
+    40%,
+    46%,
+    100% {
+      opacity: 1;
+    }
+    42%,
+    44% {
+      opacity: 0.58;
+    }
   }
-  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle__stroke--v {
-    width: 3px !important;
-    height: 14px !important;
+  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle__dot {
+    width: 4px !important;
+    height: 4px !important;
+    border-radius: 50% !important;
+    flex-shrink: 0 !important;
+    --dot: #cbd5e1;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 58%),
+      var(--dot) !important;
+    box-shadow:
+      0 0 6px var(--dot),
+      0 0 2px rgba(255, 255, 255, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.58),
+      inset 0 -1px 0 rgba(15, 23, 42, 0.28) !important;
+    animation: mobile-short-immersive-dot-twinkle 18s ease-in-out infinite !important;
   }
-  .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle__stroke--h {
-    width: 10px !important;
-    height: 3px !important;
-    margin-left: -3px !important;
-    margin-bottom: 0 !important;
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .mobile-short-immersive-l-handle__glyph
+    > .mobile-short-immersive-l-handle__dot:nth-child(1) {
+    animation-delay: 0s !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .mobile-short-immersive-l-handle__glyph
+    > .mobile-short-immersive-l-handle__dot:nth-child(2) {
+    animation-delay: 1.05s !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .mobile-short-immersive-l-handle__glyph
+    > .mobile-short-immersive-l-handle__dot:nth-child(3) {
+    animation-delay: 2.15s !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .mobile-short-immersive-l-handle__glyph
+    > .mobile-short-immersive-l-handle__dot:nth-child(4) {
+    animation-delay: 3.2s !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .mobile-short-immersive-l-handle__glyph
+    > .mobile-short-immersive-l-handle__dot:nth-child(5) {
+    animation-delay: 4.28s !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle--pulse {
     animation: mobile-short-immersive-l-pulse 1.1s ease-out 1 !important;
@@ -2274,27 +2460,42 @@
     0% {
       transform: scale(1);
       box-shadow:
-        0 0 0 1px rgba(45, 212, 191, 0.45),
-        0 0 14px rgba(34, 211, 238, 0.35),
-        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        inset 0 -4px 8px rgba(15, 23, 42, 0.34),
+        inset 0 0 0 1px rgba(34, 211, 238, 0.12),
+        inset 0 0 16px rgba(13, 148, 136, 0.08),
+        0 2px 6px rgba(0, 0, 0, 0.2),
+        0 0 0 2px rgba(34, 211, 238, 0.28),
+        0 0 16px rgba(94, 234, 212, 0.18),
+        0 0 24px rgba(34, 211, 238, 0.14);
     }
     45% {
-      transform: scale(1.06);
+      transform: scale(1.05);
       box-shadow:
-        0 0 0 2px rgba(45, 212, 191, 0.65),
-        0 0 22px rgba(34, 211, 238, 0.55),
-        inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        inset 0 -4px 8px rgba(15, 23, 42, 0.3),
+        inset 0 0 0 1px rgba(34, 211, 238, 0.22),
+        inset 0 0 20px rgba(13, 148, 136, 0.12),
+        0 3px 8px rgba(0, 0, 0, 0.24),
+        0 0 0 4px rgba(167, 139, 250, 0.38),
+        0 0 24px rgba(94, 234, 212, 0.34),
+        0 0 36px rgba(34, 211, 238, 0.28);
     }
     100% {
       transform: scale(1);
       box-shadow:
-        0 0 0 1px rgba(45, 212, 191, 0.45),
-        0 0 14px rgba(34, 211, 238, 0.35),
-        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        inset 0 -4px 8px rgba(15, 23, 42, 0.34),
+        inset 0 0 0 1px rgba(34, 211, 238, 0.12),
+        inset 0 0 16px rgba(13, 148, 136, 0.08),
+        0 2px 6px rgba(0, 0, 0, 0.2),
+        0 0 0 2px rgba(34, 211, 238, 0.28),
+        0 0 16px rgba(94, 234, 212, 0.18),
+        0 0 24px rgba(34, 211, 238, 0.14);
     }
   }
   @media (prefers-reduced-motion: reduce) {
     .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle--pulse {
+      animation: none !important;
+    }
+    .game-table-root.viewport-mobile.viewport-mobile-short .mobile-short-immersive-l-handle__dot {
       animation: none !important;
     }
   }
@@ -2344,7 +2545,8 @@
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior-y: contain !important;
+    /* auto: при scrollTop=0 жест «вниз» уходит в браузер (pull-to-refresh). contain гасил overscroll целиком. */
+    overscroll-behavior-y: auto !important;
     /* Полоса прокрутки не нужна, если контент почти влезает (субпиксели/тени); скролл пальцем/колёсиком сохраняется */
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
@@ -3395,10 +3597,98 @@
     max-width: min(280px, calc(100vw - 24px)) !important;
     box-sizing: border-box !important;
   }
+  /* Short + immersive: обёртка только translateX — высота как у .game-info-left-section */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-upper-board
+    .game-info-left-section-immersive-drag-wrap {
+    /* pan-y: вертикальный жест (в т.ч. pull-to-refresh) не блокируем; горизонтальный сдвиг — по Pointer Events в TS */
+    touch-action: pan-y;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: visible;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-upper-board
+    .game-info-left-section-immersive-drag-wrap:active {
+    cursor: grabbing;
+  }
+  /* Вертикальные насечки: узкая «пилюля», один голубой тон, чуть внутри от края */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-upper-board
+    .game-info-left-section-immersive-drag-wrap
+    .game-info-left-section {
+    position: relative;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-upper-board
+    .game-info-left-section-immersive-drag-wrap
+    .game-info-left-section::before,
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-upper-board
+    .game-info-left-section-immersive-drag-wrap
+    .game-info-left-section::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    transform: translateY(calc(-50% + 6px));
+    width: 2px;
+    height: 16px;
+    border-radius: 1px;
+    pointer-events: none;
+    z-index: 3;
+    opacity: 0.88;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(125, 211, 252, 0.92) 0 2px,
+      transparent 2px 5px
+    );
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-upper-board
+    .game-info-left-section-immersive-drag-wrap
+    .game-info-left-section::before {
+    left: 4px;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-upper-board
+    .game-info-left-section-immersive-drag-wrap
+    .game-info-left-section::after {
+    right: 4px;
+    left: auto;
+  }
+  /* Высота L-ручки: после общих правил бейджа; без appearance: none WebKit часто не даёт кнопке стать ниже системного min-height */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-upper-board
+    .game-info-left-col
+    .game-info-left-section
+    button.mobile-short-immersive-l-handle {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    line-height: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: calc((16px - 2px - 4px) / 2) 3px !important;
+    width: 60px !important;
+    min-width: 60px !important;
+    max-width: 60px !important;
+    height: 16px !important;
+    min-height: 16px !important;
+    max-height: 16px !important;
+    box-sizing: border-box !important;
+  }
   /* Минимальный отступ под фиксированную шапку; снизу — вертикальный зазор до ряда «стол+Восток» (= горизонтальный стол|Восток) */
   .game-table-root.viewport-mobile .game-mobile-top-row {
     padding-top: 28px !important;
     margin-bottom: var(--mobile-table-east-gap, 5px) !important;
+    /* Колонки С/З — по высоте контента (как у Запада), без выравнивания по максимальной высоте соседа */
+    align-items: flex-start !important;
   }
   .game-table-root.viewport-mobile > div {
     padding-top: calc(30px + env(safe-area-inset-top, 0px)) !important;
@@ -3425,6 +3715,48 @@
     gap: 2px !important;
     border-radius: 4px !important;
   }
+  /* Immersive: внутренняя панель — лёгкая «выпуклость» (свет сверху, тень снизу внутри), фаза — только верхний акцент */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-upper-board
+    .game-info-left-section
+    > div {
+    padding: 4px 6px 3px !important;
+    border: none !important;
+    border-top: 1px solid rgba(34, 197, 94, 0.5) !important;
+    border-radius: 9px !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      inset 0 -1px 0 rgba(15, 23, 42, 0.28),
+      inset 0 -10px 18px rgba(15, 23, 42, 0.12),
+      0 1px 2px rgba(0, 0, 0, 0.22) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive.game-phase-bidding
+    .game-mobile-upper-board
+    .game-info-left-section
+    > div {
+    border-top: 1px solid rgba(245, 158, 11, 0.52) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 247, 220, 0.18),
+      inset 0 -1px 0 rgba(15, 23, 42, 0.24),
+      inset 0 -10px 18px rgba(15, 23, 42, 0.1),
+      0 1px 2px rgba(0, 0, 0, 0.2) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-upper-board
+    .game-info-left-section
+    > div
+    > span:first-of-type {
+    margin-bottom: 1px !important;
+    font-size: 11px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .game-mobile-upper-board
+    .game-info-left-section
+    > div
+    > span:last-of-type {
+    font-size: 15px !important;
+    line-height: 1.15 !important;
+  }
   .game-table-root .game-info-left-section {
     padding: 12px 14px !important;
     gap: 8px !important;
@@ -3438,7 +3770,7 @@
     max-width: none !important;
     display: flex !important;
     justify-content: center !important;
-    align-items: stretch !important;
+    align-items: flex-start !important;
   }
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west {
     flex: 1 1 0 !important;
@@ -3446,7 +3778,7 @@
     max-width: none !important;
     display: flex !important;
     justify-content: flex-start !important;
-    align-items: stretch !important;
+    align-items: flex-start !important;
   }
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div {
@@ -3459,8 +3791,8 @@
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
-    /* Снизу 2px до нижней границы под «Очки». «Сдающий»/«Первый» — absolute справа внизу */
-    padding: 3px 6px 2px 6px !important;
+    /* Только горизонтальные поля; вертикаль — 0, высота панели = контент («Сдающий»/«Первый» — absolute внизу) */
+    padding: 0 6px !important;
     border-radius: 8px !important;
     gap: 4px !important;
   }
@@ -4789,7 +5121,7 @@
   .game-center-east
   .opponent-slot-header-name-window--east
   .opponent-slot-header-display-name {
-  font-size: 14px !important;
+    font-size: 14px !important;
   font-weight: 700 !important;
   letter-spacing: 0.2px !important;
   line-height: 1.15 !important;
@@ -4815,7 +5147,7 @@
   .opponent-slot-header-name-window:not(.opponent-slot-header-name-window--east) {
   display: flex;
   align-items: center;
-  padding: calc(1.5px * 1.08) calc(5px * 1.08);
+  padding: 0 calc(5px * 1.08);
 }
 .game-table-root.viewport-mobile
   .game-mobile-top-row
@@ -5840,7 +6172,7 @@
   flex: 1 1 auto !important;
   min-width: 0 !important;
 }
-/* Моб. Север/Запад: полоска — gap 6px — «Очки»; margin-top: auto — лишняя высота ряда между шапкой и заказом */
+/* Моб. Север/Запад: полоска — gap 6px — «Очки»; без margin-top:auto — иначе при растянутой колонке зазор между шапкой и заказом */
 .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw,
 .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot .opponent-slot-stats-mobile-nw {
   display: flex !important;
@@ -5852,7 +6184,7 @@
   min-width: 0 !important;
   height: auto !important;
   min-height: 0 !important;
-  margin-top: auto !important;
+  margin-top: 0 !important;
   padding: 0 6px !important;
   box-sizing: border-box !important;
   overflow: visible !important;
@@ -8579,9 +8911,9 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   .game-info-mode-panel-tag {
   font-size: 11px !important;
   letter-spacing: 0.55px !important;
-  color: rgb(53, 210, 215) !important;
+  color: rgb(40, 194, 255) !important;
   text-transform: uppercase;
-  text-shadow: 0 0 14px rgba(53, 210, 215, 0.65);
+  text-shadow: 0 0 14px rgba(40, 194, 255, 0.55);
 }
 
 .game-table-root.deal-type-no-trump:not(.viewport-mobile)
@@ -8702,8 +9034,8 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   font-size: 11px !important;
   letter-spacing: 0.55px !important;
   font-weight: 700 !important;
-  color: #4bc4ec !important;
-  -webkit-text-fill-color: #4bc4ec !important;
+  color: rgb(40, 194, 255) !important;
+  -webkit-text-fill-color: rgb(40, 194, 255) !important;
   text-transform: uppercase;
   text-shadow: none;
 }
@@ -8716,8 +9048,8 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   .game-header
   .game-info-mode-panel-pc-dark-wrap
   span.game-info-dark-mode-tag {
-  color: #4bc4ec !important;
-  -webkit-text-fill-color: #4bc4ec !important;
+  color: rgb(40, 194, 255) !important;
+  -webkit-text-fill-color: rgb(40, 194, 255) !important;
 }
 
 /* text-shadow ломает заливку при background-clip: text — блик отдельным слоем градиента */
