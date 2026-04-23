@@ -3140,17 +3140,20 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     return () => clearTimeout(t);
   }, [online.playerLeftToast, online.clearPlayerLeftToast]);
 
-  // Онлайн: отправка heartbeat для актуального presence во время партии.
+  // Онлайн: heartbeat в лобби и в партии — держим presence и «прогреваем» канал к Supabase (мобилка в фоне / один Wi‑Fi).
   useEffect(() => {
-    if (!isOnline || !online.roomId || !user?.id) return;
-    const roomId = online.roomId;
-    const userId = user.id;
+    const rid = online.roomId;
+    const uid = user?.id;
+    if (!rid || !uid) return;
+    if (online.status !== 'waiting' && online.status !== 'playing') return;
+    const roomId = rid;
+    const userId = uid;
     heartbeatPresence(roomId, userId);
     const iv = setInterval(() => {
       if (roomId && userId) heartbeatPresence(roomId, userId);
     }, 25_000);
     return () => clearInterval(iv);
-  }, [isOnline, online.roomId, user?.id]);
+  }, [online.roomId, online.status, user?.id]);
 
   const dealJustCompletedKey =
     state?.lastCompletedTrick && state.players.every((p) => p.hand.length === 0)

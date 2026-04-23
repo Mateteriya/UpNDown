@@ -60,6 +60,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     leaveRoom,
     clearError,
     syncMySlotDisplayName,
+    refreshRoom,
   } = useOnlineGame();
 
   const [joinCode, setJoinCode] = useState(initialJoinCode ?? '');
@@ -80,6 +81,23 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
 
   const isHost = myServerIndex === 0;
   const inRoom = status === 'waiting' && roomId;
+
+  /** Возврат на вкладку / сеть: подтянуть слоты с сервера (Realtime на мобилке в одном Wi‑Fi часто отстаёт). */
+  useEffect(() => {
+    if (!inRoom) return;
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void refreshRoom();
+    };
+    const onOnline = () => {
+      void refreshRoom();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('online', onOnline);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [inRoom, refreshRoom]);
 
   /** Сразу после входа хоста sync давал UPDATE player_slots без проверки updated_at — сдвигал штамп и ломал гостевой join (optimistic lock по updated_at). Дебаунс 2 с. */
   useEffect(() => {

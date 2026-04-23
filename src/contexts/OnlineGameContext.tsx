@@ -319,8 +319,13 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     };
   }, [roomId, refreshRoom]);
 
-  // Опрос: чаще в игре — Realtime часто не доставляет ходы второму клиенту; устаревшие ответы отсекаются в applyRoomSnapshot.
-  const ROOM_SYNC_POLL_MS = 280;
+  /**
+   * Опрос: в игре часто — Realtime не всегда доставляет ходы.
+   * В лобби (waiting) тот же 280 ms с нескольких устройств в одном Wi‑Fi даёт лавину запросов к Supabase и обрывы на мобилке;
+   * достаточно реже, пока ждём игроков.
+   */
+  const ROOM_SYNC_POLL_WAITING_MS = 1600;
+  const ROOM_SYNC_POLL_PLAYING_MS = 280;
   const ROOM_SYNC_POLL_SKIP = 0;
   const roomSyncSkipRef = useRef(ROOM_SYNC_POLL_SKIP);
   roomSyncSkipRef.current = ROOM_SYNC_POLL_SKIP;
@@ -337,7 +342,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
-    const period = ROOM_SYNC_POLL_MS;
+    const period = status === 'waiting' ? ROOM_SYNC_POLL_WAITING_MS : ROOM_SYNC_POLL_PLAYING_MS;
     runRoomSyncPollTick();
     // И в лобби, и в игре: Realtime часто «зелёный», но события не доходят до второго устройства — без опроса ходы не синхронизируются.
     const iv = setInterval(() => runRoomSyncPollTick(), period);
@@ -593,9 +598,17 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       return false;
     }
-    const humans = playerSlots.filter((s) => s.userId != null && s.userId !== '');
+    /** Состав с сервера: локальные playerSlots после Realtime/опроса могут отставать (хост «не видит» гостей). */
+    const fresh = await getRoom(roomId);
+    if (!fresh?.id || fresh.id !== roomId) {
+      setError('Нет актуального состава комнаты. Проверьте сеть и нажмите «Начать игру» снова.');
+      return false;
+    }
+    const sourceSlots = ((fresh.player_slots as PlayerSlot[]) || []).slice();
+    const humans = sourceSlots.filter((s) => s.userId != null && s.userId !== '');
     if (humans.length < 1) {
       setError('В комнате нет игроков. Обновите экран или зайдите по коду снова.');
+      applyRoomData(fresh);
       return false;
     }
 
@@ -606,7 +619,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     try {
       const fullSlots: PlayerSlot[] = [];
       for (let i = 0; i < 4; i++) {
-        const existing = playerSlots.find((s) => s.slotIndex === i);
+        const existing = sourceSlots.find((s) => s.slotIndex === i);
         if (existing) {
           fullSlots.push(existing);
         } else {
