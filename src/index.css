@@ -2388,6 +2388,760 @@
     translate: -50% 0 !important;
     transform-origin: 50% 0 !important;
   }
+
+  /* Immersive short: «бегущая строка» на столе — в раздаче N, после заказов — заказано M (без «уже взято») */
+  @keyframes immersive-deal-contract-marquee-scroll {
+    0% {
+      transform: translate3d(0, 0, 0);
+    }
+    100% {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive .immersive-deal-contract-marquee {
+    position: absolute !important;
+    top: 5px !important;
+    right: 6px !important;
+    left: auto !important;
+    z-index: 14 !important;
+    /* чуть короче, чтобы не заходить на колоду; гасим узкий край у колоды */
+    max-width: min(70%, 352px) !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    cursor: pointer !important;
+    text-align: left !important;
+    font-family: 'Orbitron', ui-sans-serif, system-ui, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    font-style: normal !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.04em !important;
+    color: #ecfeff !important;
+    overflow: hidden !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
+  }
+  /* Короткая статика: маска слева съедала «К» у «Карт» — отключаем; чуть шире полоса */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee--compact-static {
+    max-width: min(78%, 368px) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee--compact-static
+    .immersive-deal-contract-marquee__static--compact {
+    padding-inline-start: 3px !important;
+  }
+  /*
+   * Short immersive + статик (все раздачи): без общей полупрозрачной подложки у кнопки/ряда (WebKit tint, overflow-слой).
+   * Собственные плашки режима — только у чипов .mode--no-trump / .mode--dark::before.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    button.immersive-deal-contract-marquee.immersive-deal-contract-marquee--compact-static {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    overflow: visible !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    button.immersive-deal-contract-marquee--compact-static:focus-visible {
+    outline: 2px solid rgba(56, 189, 248, 0.55) !important;
+    outline-offset: 2px !important;
+    background: transparent !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    button.immersive-deal-contract-marquee--compact-static
+    .immersive-deal-contract-marquee__viewport--compact-static {
+    overflow: visible !important;
+    isolation: auto !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    button.immersive-deal-contract-marquee--compact-static
+    .immersive-deal-contract-marquee__static,
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    button.immersive-deal-contract-marquee--compact-static
+    .immersive-deal-contract-marquee__static--compact {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__viewport {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    overflow: hidden !important;
+    line-height: 1.2 !important;
+    isolation: isolate !important;
+  }
+  /* Маска и затемнение только у бегущей строки — иначе перебивают более слабые правила компакта и «К» снова тусклая */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__viewport:not(.immersive-deal-contract-marquee__viewport--compact-static) {
+    /* затухание у левого края — чуть шире зона, чтобы оставить запас от колоды */
+    -webkit-mask-image: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.32) 5%,
+      rgba(255, 255, 255, 0.92) 11%,
+      #fff 18%,
+      #fff 100%
+    ) !important;
+    mask-image: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.32) 5%,
+      rgba(255, 255, 255, 0.92) 11%,
+      #fff 18%,
+      #fff 100%
+    ) !important;
+    -webkit-mask-size: 100% 100% !important;
+    mask-size: 100% 100% !important;
+    -webkit-mask-repeat: no-repeat !important;
+    mask-repeat: no-repeat !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__viewport:not(.immersive-deal-contract-marquee__viewport--compact-static)::after {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 2 !important;
+    pointer-events: none !important;
+    background: linear-gradient(
+      to right,
+      rgba(15, 23, 42, 0.9) 0%,
+      rgba(15, 23, 42, 0.48) 9%,
+      rgba(15, 23, 42, 0.12) 16%,
+      transparent 26%
+    ) !important;
+  }
+  /*
+   * Бескозырка + immersive: стол зеленовато-сланцевый — холодный slate слева у маркиза режет глаз.
+   * Тот же механизм, но в тон сукну: мягкий тёмно-изумруд без «грязной» полосы.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive.deal-type-no-trump
+    .immersive-deal-contract-marquee__viewport:not(.immersive-deal-contract-marquee__viewport--compact-static) {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.22) 4%,
+      rgba(255, 255, 255, 0.88) 10%,
+      #fff 16%,
+      #fff 100%
+    ) !important;
+    mask-image: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.22) 4%,
+      rgba(255, 255, 255, 0.88) 10%,
+      #fff 16%,
+      #fff 100%
+    ) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive.deal-type-no-trump
+    .immersive-deal-contract-marquee__viewport:not(.immersive-deal-contract-marquee__viewport--compact-static)::after {
+    background: linear-gradient(
+      to right,
+      rgba(8, 32, 22, 0.38) 0%,
+      rgba(12, 42, 34, 0.22) 8%,
+      rgba(18, 52, 48, 0.08) 14%,
+      rgba(26, 46, 52, 0.03) 20%,
+      transparent 28%
+    ) !important;
+  }
+  /* Компакт: без тёмного ореола в text-shadow у первой буквы */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee--compact-static
+    .immersive-deal-contract-marquee__neon-label {
+    text-shadow:
+      0 0 8px rgba(56, 189, 248, 0.85),
+      0 0 16px rgba(34, 211, 238, 0.45) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee--compact-static
+    .immersive-deal-contract-marquee__neon-num--deal {
+    text-shadow:
+      0 0 8px rgba(94, 234, 212, 0.95),
+      0 0 18px rgba(34, 211, 238, 0.75),
+      0 0 28px rgba(6, 182, 212, 0.4) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee--compact-static
+    .immersive-deal-contract-marquee__order--pending {
+    text-shadow:
+      0 0 8px rgba(240, 171, 252, 0.9),
+      0 0 18px rgba(217, 70, 239, 0.55) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee--compact-static
+    .immersive-deal-contract-marquee__order--over {
+    text-shadow:
+      0 0 8px rgba(251, 113, 133, 0.95),
+      0 0 20px rgba(244, 63, 94, 0.65),
+      0 0 32px rgba(225, 29, 72, 0.35) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee--compact-static
+    .immersive-deal-contract-marquee__order--under {
+    text-shadow:
+      0 0 8px rgba(252, 211, 77, 0.75),
+      0 0 18px rgba(245, 158, 11, 0.45) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee--compact-static
+    .immersive-deal-contract-marquee__order--equal {
+    text-shadow:
+      0 0 8px rgba(165, 243, 252, 0.95),
+      0 0 20px rgba(34, 211, 238, 0.55),
+      0 0 30px rgba(56, 189, 248, 0.35) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__static {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: baseline !important;
+    gap: 0.38em !important;
+    white-space: nowrap !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__track {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    width: max-content !important;
+    /* Торги: комфортная скорость; после торгов — см. --scroll-after-bids */
+    animation: immersive-deal-contract-marquee-scroll 14s linear infinite !important;
+    will-change: transform !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee--scroll-after-bids
+    .immersive-deal-contract-marquee__track {
+    animation: immersive-deal-contract-marquee-scroll 9s linear infinite !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__pair {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: baseline !important;
+    gap: 0.38em !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    padding-right: 2.75rem !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__static--compact {
+    letter-spacing: 0.03em !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__neon-label--short {
+    letter-spacing: 0.06em !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__neon-label {
+    font-size: 0.78em !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    color: rgba(186, 230, 253, 0.92) !important;
+    text-shadow:
+      0 0 8px rgba(56, 189, 248, 0.85),
+      0 0 16px rgba(34, 211, 238, 0.45),
+      0 0 1px rgba(15, 23, 42, 0.9) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__neon-sep {
+    font-weight: 800 !important;
+    color: rgba(167, 139, 250, 0.75) !important;
+    text-shadow:
+      0 0 10px rgba(192, 132, 252, 0.55),
+      0 0 1px rgba(15, 23, 42, 0.95) !important;
+  }
+  /* Режим раздачи (бескозырка / тёмная) — в бегущей строке и в коротком статике */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__mode {
+    display: inline-block !important;
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: transparent !important;
+    font-family: 'Orbitron', ui-sans-serif, system-ui, sans-serif !important;
+    font-size: 0.78em !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.045em !important;
+    line-height: 1.12 !important;
+    vertical-align: baseline !important;
+    padding: 0.1em 0.4em 0.12em !important;
+    border-radius: 7px !important;
+    box-sizing: border-box !important;
+    border-width: 1px !important;
+    border-style: solid !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__mode--compact {
+    font-size: 0.88em !important;
+    padding: 0.1em 0.38em 0.12em !important;
+    letter-spacing: 0.03em !important;
+    border-radius: 7px !important;
+  }
+  /* Статик: полное слово «Бескозырка» — чуть плотнее глифы, без сокращения; размер задаёт --no-trump */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__mode--compact-no-trump-full {
+    letter-spacing: 0.015em !important;
+    padding-inline: 0.32em !important;
+  }
+  /* Статик: полное «Тёмная» — те же плотные глифы, что у бескозырки в компакте */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__mode--compact-dark-full {
+    letter-spacing: 0.02em !important;
+    padding-inline: 0.3em !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__mode--no-trump {
+    font-size: 1.14em !important;
+    color: #fff7fb !important;
+    background: linear-gradient(
+      158deg,
+      rgba(251, 113, 133, 0.52) 0%,
+      rgba(192, 132, 252, 0.42) 46%,
+      rgba(45, 212, 191, 0.28) 100%
+    ) !important;
+    border-color: rgba(251, 182, 206, 0.72) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      0 0 14px rgba(244, 114, 182, 0.48),
+      0 0 22px rgba(52, 211, 153, 0.22) !important;
+    text-shadow:
+      0 0 10px rgba(253, 230, 138, 0.45),
+      0 0 18px rgba(244, 114, 182, 0.35),
+      0 1px 2px rgba(15, 23, 42, 0.88) !important;
+  }
+  /* Статик: у «Бескозырка» не разносить внешнее свечение на всю строку — как у тёмной в компакте */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee--compact-static
+    .immersive-deal-contract-marquee__mode--no-trump {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      0 0 8px rgba(244, 114, 182, 0.32),
+      0 0 12px rgba(52, 211, 153, 0.14) !important;
+  }
+  /*
+   * «Тёмная» — как на ПК (.game-info-dark-mode-name): радужная заливка букв + «масляный» перелив;
+   * подложка и рамка — ::before, иначе background-clip: text съедает фон плашки.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__mode--dark {
+    position: relative !important;
+    z-index: 0 !important;
+    isolation: isolate !important;
+    transform: translateZ(0) !important;
+    font-size: 1.14em !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.045em !important;
+    line-height: 1.12 !important;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    background-image:
+      linear-gradient(
+        110deg,
+        #0f766e 0%,
+        #22d3ee 8%,
+        #a855f7 16%,
+        #d484b2 24%,
+        #4bc4ec 32%,
+        #34d399 40%,
+        #c084fc 48%,
+        #06b6d4 56%,
+        #a78bfa 64%,
+        #2dd4bf 72%,
+        #38bdf8 80%,
+        #d8b4fe 88%,
+        #14b8a6 96%,
+        #0f766e 100%
+      ),
+      linear-gradient(
+        100deg,
+        transparent 0%,
+        transparent 26%,
+        rgba(255, 255, 255, 0.2) 38%,
+        rgba(186, 230, 253, 0.42) 46%,
+        rgba(244, 200, 230, 0.2) 54%,
+        rgba(255, 255, 255, 0.2) 62%,
+        transparent 74%,
+        transparent 100%
+      ) !important;
+    background-repeat: no-repeat, no-repeat !important;
+    background-size:
+      340% 100%,
+      280% 100% !important;
+    background-position:
+      0% 50%,
+      -60% 50% !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-font-smoothing: antialiased !important;
+    will-change: background-position, filter !important;
+    animation: game-info-dark-mode-name-oil 7s ease-in-out infinite !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__mode--dark::before {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: -1 !important;
+    border-radius: 7px !important;
+    box-sizing: border-box !important;
+    pointer-events: none !important;
+    border: 1px solid rgba(129, 140, 248, 0.62) !important;
+    background: linear-gradient(
+      168deg,
+      rgba(30, 27, 75, 0.95) 0%,
+      rgba(55, 48, 163, 0.62) 42%,
+      rgba(14, 116, 144, 0.42) 100%
+    ) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(165, 180, 253, 0.14),
+      0 0 16px rgba(99, 102, 241, 0.52),
+      0 0 26px rgba(34, 211, 238, 0.22) !important;
+  }
+  /*
+   * Тёмная + статик: без filter-анимации на буквах и без широкого внешнего свечения ::before — иначе «туман» под строкой.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive.deal-type-dark
+    .immersive-deal-contract-marquee--compact-static
+    .immersive-deal-contract-marquee__mode--dark {
+    animation: none !important;
+    filter: none !important;
+    will-change: auto !important;
+    background-position:
+      48% 50%,
+      52% 50% !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive.deal-type-dark
+    .immersive-deal-contract-marquee--compact-static
+    .immersive-deal-contract-marquee__mode--dark::before {
+    box-shadow:
+      inset 0 1px 0 rgba(165, 180, 253, 0.14),
+      0 0 8px rgba(99, 102, 241, 0.3),
+      0 0 12px rgba(34, 211, 238, 0.14) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__mode-sep {
+    font-weight: 700 !important;
+    margin: 0 0.06em !important;
+    color: rgba(148, 163, 184, 0.55) !important;
+    text-shadow: 0 0 8px rgba(99, 102, 241, 0.28) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__neon-num--deal {
+    font-size: 1.12em !important;
+    font-weight: 800 !important;
+    color: #5eead4 !important;
+    text-shadow:
+      0 0 8px rgba(94, 234, 212, 0.95),
+      0 0 18px rgba(34, 211, 238, 0.75),
+      0 0 28px rgba(6, 182, 212, 0.4),
+      0 1px 2px rgba(15, 23, 42, 0.9) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__order {
+    font-size: 1.12em !important;
+    font-weight: 800 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__order--pending {
+    color: #f0abfc !important;
+    text-shadow:
+      0 0 8px rgba(240, 171, 252, 0.9),
+      0 0 18px rgba(217, 70, 239, 0.55),
+      0 1px 2px rgba(15, 23, 42, 0.9) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__order--over {
+    color: #fda4af !important;
+    text-shadow:
+      0 0 8px rgba(251, 113, 133, 0.95),
+      0 0 20px rgba(244, 63, 94, 0.65),
+      0 0 32px rgba(225, 29, 72, 0.35),
+      0 1px 2px rgba(15, 23, 42, 0.9) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__order--under {
+    color: #fcd34d !important;
+    text-shadow:
+      0 0 8px rgba(252, 211, 77, 0.75),
+      0 0 18px rgba(245, 158, 11, 0.45),
+      0 1px 2px rgba(15, 23, 42, 0.9) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    .immersive-deal-contract-marquee__order--equal {
+    color: #a5f3fc !important;
+    text-shadow:
+      0 0 8px rgba(165, 243, 252, 0.95),
+      0 0 20px rgba(34, 211, 238, 0.55),
+      0 0 30px rgba(56, 189, 248, 0.35),
+      0 1px 2px rgba(15, 23, 42, 0.9) !important;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+      .immersive-deal-contract-marquee__track {
+      animation: none !important;
+      transform: none !important;
+      min-width: 0 !important;
+      width: auto !important;
+    }
+    .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+      .immersive-deal-contract-marquee__pair:not(:first-child) {
+      display: none !important;
+    }
+    .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+      .immersive-deal-contract-marquee__pair {
+      padding-right: 0 !important;
+    }
+    .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+      .immersive-deal-contract-marquee__mode--dark {
+      animation: none !important;
+      filter: none !important;
+      will-change: auto !important;
+      background-position:
+        48% 50%,
+        52% 50% !important;
+    }
+  }
+
+  /* Портал на body: пояснение режима (тап по бейджу в immersive-бегущей строке) */
+  .immersive-deal-mode-explain-backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 10050 !important;
+    background: rgba(2, 6, 23, 0.62) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 16px 14px max(22px, env(safe-area-inset-bottom, 0px)) !important;
+    box-sizing: border-box !important;
+    -webkit-tap-highlight-color: transparent !important;
+    animation: immersive-deal-mode-explain-backdrop-in 0.22s ease-out both !important;
+  }
+  @keyframes immersive-deal-mode-explain-backdrop-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  .immersive-deal-mode-explain-toast {
+    position: relative !important;
+    width: 100% !important;
+    max-width: min(440px, calc(100vw - 22px)) !important;
+    box-sizing: border-box !important;
+    padding: 18px 20px 16px !important;
+    padding-top: 48px !important;
+    border-radius: 20px !important;
+    text-align: left !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+    overflow: hidden !important;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.1),
+      0 0 40px rgba(99, 102, 241, 0.22),
+      0 20px 50px rgba(0, 0, 0, 0.55) !important;
+    animation: immersive-deal-mode-explain-toast-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both !important;
+  }
+  .immersive-deal-mode-explain-toast::before {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    border-radius: inherit !important;
+    pointer-events: none !important;
+    opacity: 0.5 !important;
+    background: radial-gradient(ellipse 120% 70% at 50% -10%, rgba(255, 255, 255, 0.14) 0%, transparent 55%) !important;
+  }
+  @keyframes immersive-deal-mode-explain-toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(18px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  .immersive-deal-mode-explain-toast--no-trump {
+    background: linear-gradient(
+      168deg,
+      rgba(30, 27, 75, 0.99) 0%,
+      rgba(107, 33, 168, 0.55) 38%,
+      rgba(15, 23, 42, 0.98) 72%,
+      rgba(6, 78, 59, 0.35) 100%
+    ) !important;
+    border: 1px solid rgba(251, 182, 206, 0.62) !important;
+    box-shadow:
+      0 0 0 1px rgba(244, 114, 182, 0.2),
+      0 0 48px rgba(244, 114, 182, 0.28),
+      0 20px 50px rgba(0, 0, 0, 0.55) !important;
+  }
+  .immersive-deal-mode-explain-toast--dark {
+    background: linear-gradient(
+      168deg,
+      rgba(15, 23, 42, 0.99) 0%,
+      rgba(55, 48, 163, 0.65) 40%,
+      rgba(14, 116, 144, 0.42) 100%
+    ) !important;
+    border: 1px solid rgba(147, 197, 253, 0.55) !important;
+    box-shadow:
+      0 0 0 1px rgba(99, 102, 241, 0.25),
+      0 0 44px rgba(34, 211, 238, 0.22),
+      0 20px 50px rgba(0, 0, 0, 0.55) !important;
+  }
+  .immersive-deal-mode-explain-toast__close {
+    position: absolute !important;
+    top: 10px !important;
+    right: 10px !important;
+    z-index: 3 !important;
+    width: 40px !important;
+    height: 40px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    border-radius: 12px !important;
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.14), rgba(15, 23, 42, 0.55)) !important;
+    color: #f1f5f9 !important;
+    font-size: 24px !important;
+    line-height: 1 !important;
+    font-weight: 300 !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  .immersive-deal-mode-explain-toast__close:active {
+    transform: scale(0.94) !important;
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.22), rgba(15, 23, 42, 0.62)) !important;
+  }
+  .immersive-deal-mode-explain-toast__title {
+    position: relative !important;
+    z-index: 1 !important;
+    margin: 0 0 12px !important;
+    padding: 0 !important;
+    font-family: 'Orbitron', ui-sans-serif, system-ui, sans-serif !important;
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    line-height: 1.22 !important;
+    letter-spacing: 0.02em !important;
+    color: #f8fafc !important;
+  }
+  .immersive-deal-mode-explain-toast--no-trump .immersive-deal-mode-explain-toast__title {
+    color: #fdf4ff !important;
+    text-shadow:
+      0 0 20px rgba(244, 114, 182, 0.55),
+      0 0 36px rgba(52, 211, 153, 0.25),
+      0 1px 2px rgba(15, 23, 42, 0.9) !important;
+  }
+  .immersive-deal-mode-explain-toast--dark .immersive-deal-mode-explain-toast__title {
+    color: #eef2ff !important;
+    text-shadow:
+      0 0 20px rgba(129, 140, 248, 0.65),
+      0 0 32px rgba(34, 211, 238, 0.3),
+      0 1px 2px rgba(15, 23, 42, 0.92) !important;
+  }
+  .immersive-deal-mode-explain-toast__body {
+    position: relative !important;
+    z-index: 1 !important;
+    margin: 0 0 18px !important;
+    padding: 0 !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    line-height: 1.55 !important;
+    color: #e2e8f0 !important;
+    opacity: 0.96 !important;
+  }
+  .immersive-deal-mode-explain-toast__actions {
+    position: relative !important;
+    z-index: 1 !important;
+    display: flex !important;
+    justify-content: stretch !important;
+  }
+  .immersive-deal-mode-explain-toast__btn {
+    flex: 1 1 auto !important;
+    min-height: 46px !important;
+    padding: 0 22px !important;
+    border-radius: 14px !important;
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.04em !important;
+    cursor: pointer !important;
+    border: 1px solid rgba(94, 234, 212, 0.55) !important;
+    background: linear-gradient(
+      168deg,
+      rgba(45, 212, 191, 0.55) 0%,
+      rgba(13, 148, 136, 0.72) 38%,
+      rgba(15, 23, 42, 0.95) 100%
+    ) !important;
+    color: #f0fdfa !important;
+    text-shadow: 0 1px 2px rgba(15, 23, 42, 0.65) !important;
+    box-shadow:
+      0 4px 18px rgba(34, 211, 238, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  .immersive-deal-mode-explain-toast__btn:active {
+    transform: scale(0.98) !important;
+  }
+  .immersive-deal-mode-explain-toast--no-trump .immersive-deal-mode-explain-toast__btn {
+    border-color: rgba(251, 182, 206, 0.5) !important;
+    background: linear-gradient(
+      168deg,
+      rgba(251, 182, 206, 0.35) 0%,
+      rgba(167, 139, 250, 0.55) 45%,
+      rgba(15, 23, 42, 0.96) 100%
+    ) !important;
+    box-shadow:
+      0 4px 20px rgba(244, 114, 182, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+  }
+  .immersive-deal-mode-explain-toast--dark .immersive-deal-mode-explain-toast__btn {
+    border-color: rgba(147, 197, 253, 0.5) !important;
+    background: linear-gradient(
+      168deg,
+      rgba(129, 140, 248, 0.45) 0%,
+      rgba(14, 116, 144, 0.55) 48%,
+      rgba(15, 23, 42, 0.96) 100%
+    ) !important;
+    box-shadow:
+      0 4px 20px rgba(99, 102, 241, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .immersive-deal-mode-explain-backdrop,
+    .immersive-deal-mode-explain-toast {
+      animation: none !important;
+    }
+  }
+
   /*
    * Short-VH ручка прокрутки (магнит): портал на document.body — позиция top/left из GameTable (getBoundingClientRect
    * по .game-mobile-player-panel). Иначе обрезается overflow-y у .game-table-main-wrap--short-vh.
@@ -3110,7 +3864,26 @@
     font-weight: 800 !important;
     line-height: 1.22 !important;
     letter-spacing: -0.02em !important;
-    color: #f1f5f9 !important;
+    color: #e9d5ff !important;
+    text-shadow:
+      0 0 22px rgba(167, 139, 250, 0.45),
+      0 0 1px rgba(15, 23, 42, 0.9) !important;
+  }
+  @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    .mobile-short-immersive-welcome-portal__title {
+      background-image: linear-gradient(
+        102deg,
+        #fde68a 0%,
+        #f9a8d4 22%,
+        #c4b5fd 48%,
+        #67e8f9 72%,
+        #bef264 100%
+      ) !important;
+      -webkit-background-clip: text !important;
+      background-clip: text !important;
+      color: transparent !important;
+      text-shadow: none !important;
+    }
   }
   .mobile-short-immersive-welcome-portal__lead {
     margin: 0 0 12px !important;
@@ -3118,16 +3891,53 @@
     font-size: 14px !important;
     font-weight: 500 !important;
     line-height: 1.45 !important;
-    color: #cbd5e1 !important;
+    color: #c7d2fe !important;
+    text-shadow: 0 0 14px rgba(129, 140, 248, 0.28) !important;
   }
   .mobile-short-immersive-welcome-portal__hl {
     font-weight: 700 !important;
-    color: #a5f3fc !important;
-    text-shadow: 0 0 12px rgba(34, 211, 238, 0.35) !important;
+    color: #5eead4 !important;
+    text-shadow:
+      0 0 14px rgba(45, 212, 191, 0.55),
+      0 0 1px rgba(15, 23, 42, 0.85) !important;
   }
   .mobile-short-immersive-welcome-portal__em {
     font-weight: 700 !important;
-    color: #ddd6fe !important;
+    color: #fcd34d !important;
+    text-shadow:
+      0 0 12px rgba(251, 191, 36, 0.42),
+      0 0 1px rgba(15, 23, 42, 0.8) !important;
+  }
+  .mobile-short-immersive-welcome-portal__skip {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin: 0 0 12px !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: transparent !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    line-height: 1.35 !important;
+    color: #fbcfe8 !important;
+    text-shadow: 0 0 16px rgba(244, 114, 182, 0.35) !important;
+    user-select: none !important;
+  }
+  .mobile-short-immersive-welcome-portal__skip-input {
+    flex: 0 0 auto !important;
+    width: 20px !important;
+    height: 20px !important;
+    margin: 0 !important;
+    accent-color: #2dd4bf !important;
+    cursor: pointer !important;
+  }
+  .mobile-short-immersive-welcome-portal__skip-text {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    color: #fce7f3 !important;
+    text-shadow:
+      0 0 12px rgba(244, 114, 182, 0.4),
+      0 0 1px rgba(15, 23, 42, 0.75) !important;
   }
   .mobile-short-immersive-welcome-portal__dismiss {
     display: block !important;
@@ -3139,7 +3949,10 @@
     font-size: 14px !important;
     font-weight: 700 !important;
     letter-spacing: 0.02em !important;
-    color: #ecfeff !important;
+    color: #fef9c3 !important;
+    text-shadow:
+      0 0 18px rgba(250, 204, 21, 0.45),
+      0 1px 2px rgba(15, 23, 42, 0.65) !important;
     cursor: pointer !important;
     -webkit-tap-highlight-color: transparent !important;
     background: linear-gradient(165deg, rgba(13, 148, 136, 0.55), rgba(15, 23, 42, 0.92)) !important;
@@ -3218,9 +4031,8 @@
     background: transparent !important;
   }
   /*
-   * Short immersive: перебить `.viewport-mobile > div { padding-top: 30px+safe !important }` у прямого потомка
-   * `.game-table-main-wrap` — иначе ряд С/З физически ниже фикс. бейджа.
-   * Верх: только safe-area (без +1px) — иначе с `padding-top: 2px` у .game-table-block-mobile копится заметная «полоса».
+   * Short immersive: верх main-wrap = только safe-area (как у фикс. колонки с бейджем) — без +1px,
+   * чтобы верх панелей З/С после margin-sync совпадал с верхней границей .game-info-left-section.
    */
   .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
     > .game-table-main-wrap.game-table-main-wrap--short-vh {
@@ -4266,7 +5078,7 @@
     .game-info-left-col {
     z-index: 200 !important;
   }
-  /* Short + immersive: верх бейджа = верх скролла main-wrap (только safe-area, без +1px — см. main-wrap выше). */
+  /* Short + immersive: верх бейджа = верх контента main-wrap (только safe-area). */
   .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
     .game-mobile-upper-board
     .game-info-left-col {
@@ -4376,7 +5188,11 @@
     /* Колонки С/З — по высоте контента (как у Запада), без выравнивания по максимальной высоте соседа */
     align-items: flex-start !important;
   }
-  .game-table-root.viewport-mobile > div {
+  /*
+   * Только основной scroll-wrap: иначе `> div` давал 30px+safe каждому прямому div (подсказки иммерсива, тосты…)
+   * и в колонке flex появлялся лишний зазор сверху — срезался низ панели Юга.
+   */
+  .game-table-root.viewport-mobile > .game-table-main-wrap {
     padding-top: calc(30px + env(safe-area-inset-top, 0px)) !important;
   }
   .game-table-root .game-info-left-col {
@@ -6286,24 +7102,72 @@
 }
 
 /*
- * Short Юг: ряд «Очки + заказ» — одна линия (flex-start).
- * Только бейдж «Очки» вниз на 2px: transform (не меняет высоту/расклад панели в потоке).
+ * Short Юг: «Очки» + полоска заказа — одна визуальная линия по центру (капсула и полоска независимы от «плавающего» низа панели).
  */
 .game-table-root.viewport-mobile.viewport-mobile-short
   .game-mobile-user-south-short-score-tricks-row {
-  align-items: flex-start !important;
+  align-items: center !important;
 }
-/* Short Юг: полоска заказа выше в ряду с «Очки» (−2px + ещё −1px) */
+
+/* Short Юг (short-vh): «Очки» — отдельная капсула (овал), не привязка к нижней границе панели */
 .game-table-root.viewport-mobile.viewport-mobile-short
-  .game-mobile-user-south-short-score-tricks-row
-  > .player-mobile-south-tricks-column.game-mobile-user-south-short-tricks-inline {
-  margin-top: -3px !important;
+  .user-player-panel.user-player-panel--short-vh
+  .game-mobile-user-south-short-score-under-name
+  > button.opponent-score-badge.opponent-score-badge--mobile-toggle {
+  border-radius: 9999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
 }
 .game-table-root.viewport-mobile.viewport-mobile-short
-  .game-mobile-user-south-short-score-tricks-row
-  > .game-mobile-user-south-short-score-under-name {
-  transform: translateY(2px);
+  .user-player-panel.user-player-panel--short-vh
+  .game-mobile-user-south-short-score-under-name
+  > button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed {
+  min-height: 26px !important;
+  padding: 2px 11px !important;
 }
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .user-player-panel.user-player-panel--short-vh
+  .game-mobile-user-south-short-score-under-name
+  > button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded {
+  min-height: 26px !important;
+  padding: 3px 11px !important;
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.45),
+    inset 0 0 14px rgba(216, 105, 229, 0.28),
+    inset 0 0 32px rgba(167, 89, 200, 0.14),
+    inset 0 1px 0 rgba(255, 232, 255, 0.38),
+    0 0 14px rgba(216, 105, 229, 0.22) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .user-player-panel.user-player-panel--short-vh
+  .game-mobile-user-south-short-score-under-name
+  > button.opponent-score-badge.opponent-score-badge--mobile-toggle.score-badge-leader.opponent-score-badge--score-label-collapsed {
+  border: 1px solid rgba(196, 181, 253, 0.92) !important;
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(233, 213, 255, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    0 0 12px rgba(34, 211, 238, 0.22) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .user-player-panel.user-player-panel--short-vh
+  .game-mobile-user-south-short-score-under-name
+  > button.opponent-score-badge.opponent-score-badge--mobile-toggle.score-badge-leader.opponent-score-badge--score-expanded {
+  border: 1px solid rgba(196, 181, 253, 0.92) !important;
+  outline: 1px solid rgba(56, 189, 248, 0.88) !important;
+  outline-offset: 1px !important;
+  box-shadow:
+    0 2px 14px rgba(0, 0, 0, 0.42),
+    inset 0 0 14px rgba(216, 105, 229, 0.3),
+    inset 0 0 30px rgba(167, 139, 250, 0.14),
+    inset 0 1px 0 rgba(255, 240, 255, 0.4),
+    0 0 12px rgba(216, 105, 229, 0.22),
+    0 0 20px rgba(139, 92, 246, 0.18),
+    0 0 14px rgba(34, 211, 238, 0.28) !important;
+}
+
 /*
  * Short + заказ 8/9 + узкий vw: «Очки» над полоской заказа, снаружи сверху справа (якорь — .player-mobile-south-tricks-column).
  */
@@ -6312,8 +7176,8 @@
   .game-mobile-user-south-short-score-above-order {
   position: absolute !important;
   right: 1px !important;
-  /* 1px вниз в полоску заказа — визуальное слияние с верхней кромкой */
-  bottom: calc(100% - 1px) !important;
+  /* Чуть выше полоски — капсула «Очки» отдельно от заказа */
+  bottom: calc(100% + 5px) !important;
   left: auto !important;
   top: auto !important;
   z-index: 6 !important;
@@ -6331,32 +7195,30 @@
   line-height: normal !important;
 }
 
-/* «Очки» над полоской заказа: без нижней рамки и плоского низа скругления + тени без «пола» снизу */
+/* «Очки» над полоской заказа: та же капсула, что в ряду (полная овальная рамка + лёгкая тень) */
 .game-table-root.viewport-mobile.viewport-mobile-short
   .game-mobile-user-south-short-score-above-order
   button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed {
-  border-bottom-width: 0 !important;
-  border-bottom-style: none !important;
-  border-bottom-color: transparent !important;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-  border-radius: 10px 10px 0 0 !important;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 38%) !important;
+  border-radius: 9999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  min-height: 26px !important;
+  padding: 2px 11px !important;
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgb(255 255 255 / 38%) !important;
 }
 .game-table-root.viewport-mobile.viewport-mobile-short
   .game-mobile-user-south-short-score-above-order
   button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded {
-  border-bottom-width: 0 !important;
-  border-bottom-style: none !important;
-  border-bottom-color: transparent !important;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-  border-radius: 10px 10px 0 0 !important;
+  border-radius: 9999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  min-height: 26px !important;
+  padding: 3px 11px !important;
   box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.45),
     inset 0 1px 0 rgba(255, 232, 255, 0.38),
     inset 0 0 14px rgba(216, 105, 229, 0.22),
     inset 0 0 28px rgba(167, 89, 200, 0.1) !important;
-  /* Раскрыто: «Очки» и цифра в ряд влево от якоря справа (перекрывает inline column из badge style) */
   flex-direction: row !important;
   align-items: center !important;
   justify-content: center !important;
@@ -6369,18 +7231,16 @@
   margin-bottom: 0 !important;
 }
 
-/*
- * Лидер: обычно outline + внешние glow — снизу дают шов. Убираем outline, нижнюю границу; бирюзовый акцент — только inset по верху и бокам.
- */
+/* Лидер, над полоской: полная капсула + inset-акценты (без «обрубленного» низа) */
 .game-table-root.viewport-mobile.viewport-mobile-short
   .game-mobile-user-south-short-score-above-order
   button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed.score-badge-leader {
-  border-width: 1px 1px 0 1px !important;
-  border-style: solid !important;
-  border-color: rgba(196, 181, 253, 0.98) rgba(196, 181, 253, 0.98) transparent rgba(196, 181, 253, 0.98) !important;
+  border: 1px solid rgba(196, 181, 253, 0.92) !important;
+  border-radius: 9999px !important;
   outline: none !important;
   outline-offset: 0 !important;
   box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.4),
     inset 0 0 0 1px rgba(233, 213, 255, 0.36),
     inset 0 1px 0 rgba(255, 255, 255, 0.42),
     inset 1px 0 0 0 rgba(56, 189, 248, 0.55),
@@ -6390,12 +7250,12 @@
 .game-table-root.viewport-mobile.viewport-mobile-short
   .game-mobile-user-south-short-score-above-order
   button.opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.score-badge-leader {
-  border-width: 1px 1px 0 1px !important;
-  border-style: solid !important;
-  border-color: rgba(196, 181, 253, 0.98) rgba(196, 181, 253, 0.98) transparent rgba(196, 181, 253, 0.98) !important;
-  outline: none !important;
-  outline-offset: 0 !important;
+  border: 1px solid rgba(196, 181, 253, 0.92) !important;
+  border-radius: 9999px !important;
+  outline: 1px solid rgba(56, 189, 248, 0.88) !important;
+  outline-offset: 1px !important;
   box-shadow:
+    0 2px 14px rgba(0, 0, 0, 0.42),
     inset 0 1px 0 rgba(255, 240, 255, 0.4),
     inset 0 0 14px rgba(216, 105, 229, 0.22),
     inset 0 0 26px rgba(167, 139, 250, 0.12),
@@ -6407,9 +7267,9 @@
   justify-content: center !important;
   gap: 5px !important;
 }
-/* Short Юг: мета-колонка чуть выше (как раньше) */
+/* Short Юг: мета-колонка без сдвига вверх — иначе блок «Очки» прижимался к низу карточки */
 .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-user-south-short-meta-col {
-  transform: translateY(-2px);
+  transform: none;
 }
 .game-table-root .user-player-panel .player-panel-name {
   background: linear-gradient(
