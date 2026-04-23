@@ -180,6 +180,10 @@ function readMobileViewportHeightForShortModePx(): number {
 const MOBILE_SHORT_VIEWPORT_HEIGHT_PX = 652;
 /** sessionStorage: режим «стол на весь экран» (immersive) для short-VH. */
 const MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY = 'upd.gameTable.mobileShortHeaderImmersive.v1';
+/** После входа в immersive: подсветка кнопки «шапка» (pulse), мс. */
+const IMMERSIVE_ENTER_REVEAL_PULSE_MS = 3800;
+/** Карточка «режим без шапки» + куда жать на выход, мс. */
+const IMMERSIVE_WELCOME_HINT_MS = 5600;
 /** sessionStorage: сдвиг бейджа по X в short + immersive (px от центра). */
 const MOBILE_SHORT_IMMERSIVE_BADGE_DRAG_X_KEY = 'upd.gameTable.mobileShortImmersiveBadgeDragX.v1';
 
@@ -227,6 +231,11 @@ const SHORT_VH_IMMERSIVE_EXIT_SCROLL_PX = 16;
 const SHORT_VH_MAGNET_REARM_THRESHOLD_PX = 8;
 /** Если !immersive и consumed «залип» после выхода — разрешаем прямой магнит снова, когда палец снова в зоне снизу или ушёл от неё. */
 const SHORT_VH_MAGNET_REARM_LEAVE_BOTTOM_EXTRA_PX = 24;
+/** Удержание ручки с кружочками (short-VH): вход в immersive. Сброс при сдвиге пальца. */
+const SHORT_VH_SOUTH_PULL_TAB_HOLD_MS = 480;
+const SHORT_VH_SOUTH_PULL_TAB_HOLD_CANCEL_MOVE_PX = 14;
+/** После отпускания ручки без удержания — глушим авто-immersive от нижнего магнита (микроскролл от короткого тапа). */
+const SHORT_VH_SOUTH_PULL_TAB_POST_TAP_MAGNET_SUPPRESS_MS = 650;
 function readShortGameHeaderHalfHeightPx(headerEl: HTMLElement | null): number {
   if (headerEl == null) return 44;
   const h = headerEl.offsetHeight > 8 ? headerEl.offsetHeight : headerEl.getBoundingClientRect().height;
@@ -244,6 +253,49 @@ const MOBILE_IMMERSIVE_HANDLE_DOT_COLORS: readonly string[] = [
   '#00ff7a',
   '#00f0ff',
   '#e020ff',
+];
+
+/**
+ * Южная ручка short-VH: 10×3 кружка. Три независимых «радужных» набора: соседи в ряду не повторяют оттенок,
+ * ряды не затухают друг от друга (нет «второй ряд = тусклее»), столбцы специально смещены — без вертикальных пар.
+ */
+const MOBILE_SOUTH_PULL_TAB_DOT_COLORS_ROW1: readonly string[] = [
+  '#ff0080',
+  '#ff9500',
+  '#ffea00',
+  '#7cff00',
+  '#00ffc6',
+  '#00b4ff',
+  '#6366f1',
+  '#c026d3',
+  '#fb2c36',
+  '#14f195',
+];
+
+const MOBILE_SOUTH_PULL_TAB_DOT_COLORS_ROW2: readonly string[] = [
+  '#22d3ee',
+  '#e11d48',
+  '#bef264',
+  '#f97316',
+  '#a855f7',
+  '#2dd4bf',
+  '#facc15',
+  '#ec4899',
+  '#38bdf8',
+  '#ea580c',
+];
+
+const MOBILE_SOUTH_PULL_TAB_DOT_COLORS_ROW3: readonly string[] = [
+  '#f472b6',
+  '#39ff14',
+  '#06b6d4',
+  '#fcd34d',
+  '#8b5cf6',
+  '#fb7185',
+  '#2dd4bf',
+  '#fbbf24',
+  '#d946ef',
+  '#10b981',
 ];
 
 /** Скролл к началу wrap (под шапку). Без лишних кадров — иначе визуальное «пружинение». */
@@ -978,6 +1030,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     return base;
   }, [state, isOnline, isWaitingInRoom, online.playerSlots, online.myServerIndex, playerDisplayName]);
   const stateToShow = stateForRender ?? state;
+  /** Полоска игры в моб. шапке (раздача / Σ / бейдж хода): нужна до хуков short-бейджа. */
+  const mobileShowGameInfoStrip = !isWaitingInRoom && state != null;
   const dealContractStats = useMemo(() => {
     if (!stateToShow) {
       return {
@@ -1066,6 +1120,9 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const mobileShortHeaderMeasureRef = useRef<HTMLElement | null>(null);
   /** Short + immersive: выравнивание верха ряда З/С с верхом бейджа `.game-info-left-section` (getBoundingClientRect). */
   const mobileGameInfoSectionAlignRef = useRef<HTMLDivElement | null>(null);
+  const mobileShortTopRowRef = useRef<HTMLDivElement | null>(null);
+  /** margin-top у `.game-mobile-top-row`: совмещаем верх панелей С/З с верхом `.game-info-left-section` (CSS + translate дают дрейф). */
+  const [shortImmersiveNwRowAlignPx, setShortImmersiveNwRowAlignPx] = useState(0);
   const shortVhMagnetConsumedRef = useRef(false);
   /** Порог обратного магнита (px от низа скролла): запоминаем при видимой шапке, в immersive DOM может не дать высоту. */
   const shortVhReverseMagnetHalfPxCacheRef = useRef(0);
@@ -1076,8 +1133,21 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
   const shortVhScrollRafRef = useRef<number | null>(null);
   const lHandleLongPressTimerRef = useRef<number | null>(null);
   const lHandlePointerDownRef = useRef({ x: 0, y: 0 });
+  const shortVhComfortHintTimeoutRef = useRef<number | null>(null);
+  const comfortHintTapDownRef = useRef({ x: 0, y: 0 });
+  /**
+   * После входа в immersive flushSync может вызвать layout до commitShortMainWrapScrollToEnd —
+   * обратный магнит видел scroll у «верха» и мгновенно вызывал exit. Короткое окно без auto-exit.
+   */
+  const shortVhImmersiveReverseExitSuppressUntilRef = useRef(0);
   const [mobileShortHeaderImmersive, setMobileShortHeaderImmersiveState] = useState(false);
   const setMobileShortHeaderImmersive = useCallback((next: boolean) => {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (next) {
+      shortVhImmersiveReverseExitSuppressUntilRef.current = now + 480;
+    } else {
+      shortVhImmersiveReverseExitSuppressUntilRef.current = 0;
+    }
     mobileShortHeaderImmersiveRef.current = next;
     setMobileShortHeaderImmersiveState(next);
     try {
@@ -1088,8 +1158,18 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     }
   }, []);
   const [mobileShortImmersiveInviteChip, setMobileShortImmersiveInviteChip] = useState(false);
+  /** Подсказка при коротком тапе: низкий экран, стол без шапки (контент — см. портал ниже). */
+  const [mobileShortVhScrollComfortHintOpen, setMobileShortVhScrollComfortHintOpen] = useState(false);
+  /** Пока палец на ручке с кружочками — блокируем нативный скролл main-wrap (не перебивает удержание / перетягивание ручки). */
+  const [shortVhSouthPullMainScrollLocked, setShortVhSouthPullMainScrollLocked] = useState(false);
+  /** pointerover до pointerdown: на таче :hover часто срабатывает позже — дублируем «ховер» классом, чтобы он был до нажатия. */
+  const [shortVhSouthPullTabPointerOver, setShortVhSouthPullTabPointerOver] = useState(false);
   const [immersiveLHandleHint, setImmersiveLHandleHint] = useState<string | null>(null);
   const [immersiveRevealBtnPulse, setImmersiveRevealBtnPulse] = useState(false);
+  /** Однократная карточка при входе в immersive (short-VH). */
+  const [mobileShortImmersiveWelcomeOpen, setMobileShortImmersiveWelcomeOpen] = useState(false);
+  const immersiveWelcomeTimeoutRef = useRef<number | null>(null);
+  const immersiveRevealPulseTimeoutRef = useRef<number | null>(null);
   const [immersiveBadgeDragX, setImmersiveBadgeDragX] = useState(() => readImmersiveBadgeDragXFromStorage());
   const immersiveBadgeDragXRef = useRef(immersiveBadgeDragX);
   const immersiveBadgeDragCleanupRef = useRef<null | (() => void)>(null);
@@ -1214,19 +1294,69 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       setMobileShortHeaderImmersive(false);
       setMobileShortImmersiveInviteChip(false);
       setImmersiveLHandleHint(null);
+      if (shortVhComfortHintTimeoutRef.current != null) {
+        window.clearTimeout(shortVhComfortHintTimeoutRef.current);
+        shortVhComfortHintTimeoutRef.current = null;
+      }
+      setMobileShortVhScrollComfortHintOpen(false);
+      if (immersiveWelcomeTimeoutRef.current != null) {
+        window.clearTimeout(immersiveWelcomeTimeoutRef.current);
+        immersiveWelcomeTimeoutRef.current = null;
+      }
+      if (immersiveRevealPulseTimeoutRef.current != null) {
+        window.clearTimeout(immersiveRevealPulseTimeoutRef.current);
+        immersiveRevealPulseTimeoutRef.current = null;
+      }
+      setMobileShortImmersiveWelcomeOpen(false);
+      setImmersiveRevealBtnPulse(false);
       return;
     }
     if (!mobileViewportShort) {
       cancelShortVhEnterGentleScroll();
       shortVhMagnetConsumedRef.current = false;
       mobileShortHeaderImmersiveRef.current = false;
+      shortVhImmersiveReverseExitSuppressUntilRef.current = 0;
       shortVhReverseMagnetHalfPxCacheRef.current = 0;
       setMobileShortHeaderImmersiveState(false);
       setMobileShortImmersiveInviteChip(false);
       setImmersiveLHandleHint(null);
+      if (shortVhComfortHintTimeoutRef.current != null) {
+        window.clearTimeout(shortVhComfortHintTimeoutRef.current);
+        shortVhComfortHintTimeoutRef.current = null;
+      }
+      setMobileShortVhScrollComfortHintOpen(false);
+      if (immersiveWelcomeTimeoutRef.current != null) {
+        window.clearTimeout(immersiveWelcomeTimeoutRef.current);
+        immersiveWelcomeTimeoutRef.current = null;
+      }
+      if (immersiveRevealPulseTimeoutRef.current != null) {
+        window.clearTimeout(immersiveRevealPulseTimeoutRef.current);
+        immersiveRevealPulseTimeoutRef.current = null;
+      }
+      setMobileShortImmersiveWelcomeOpen(false);
+      setImmersiveRevealBtnPulse(false);
       /* sessionStorage не трогаем — флаг переживает перезагрузку и кратковременную смену высоты окна */
     }
   }, [mobileViewportShort, isWaitingInRoom, setMobileShortHeaderImmersive, cancelShortVhEnterGentleScroll]);
+
+  useEffect(() => {
+    if (mobileShortHeaderImmersive) {
+      if (shortVhComfortHintTimeoutRef.current != null) {
+        window.clearTimeout(shortVhComfortHintTimeoutRef.current);
+        shortVhComfortHintTimeoutRef.current = null;
+      }
+      setMobileShortVhScrollComfortHintOpen(false);
+    }
+  }, [mobileShortHeaderImmersive]);
+
+  useEffect(() => {
+    return () => {
+      if (shortVhComfortHintTimeoutRef.current != null) {
+        window.clearTimeout(shortVhComfortHintTimeoutRef.current);
+        shortVhComfortHintTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   /** После F5 / pull-to-refresh восстановить immersive из sessionStorage (см. setMobileShortHeaderImmersive). */
   useLayoutEffect(() => {
@@ -1242,12 +1372,68 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     setMobileShortHeaderImmersive(true);
   }, [isMobile, mobileViewportShort, isWaitingInRoom, state, setMobileShortHeaderImmersive]);
 
+  /** После скрытия карточки приветствия — подсветка кнопки «шарики» (pulse), чтобы не перекрывалась порталом. */
+  const scheduleImmersiveRevealPulseAfterWelcome = useCallback(() => {
+    if (prefersReducedMotion) return;
+    const run = () => {
+      if (!mobileShortHeaderImmersiveRef.current || onlineRef.current.userOnPause) return;
+      if (immersiveRevealPulseTimeoutRef.current != null) {
+        window.clearTimeout(immersiveRevealPulseTimeoutRef.current);
+        immersiveRevealPulseTimeoutRef.current = null;
+      }
+      setImmersiveRevealBtnPulse(true);
+      immersiveRevealPulseTimeoutRef.current = window.setTimeout(() => {
+        immersiveRevealPulseTimeoutRef.current = null;
+        setImmersiveRevealBtnPulse(false);
+      }, IMMERSIVE_ENTER_REVEAL_PULSE_MS);
+    };
+    requestAnimationFrame(() => {
+      requestAnimationFrame(run);
+    });
+  }, [prefersReducedMotion]);
+
+  /** Вход в immersive: короткая карточка; pulse кнопки выхода — только после её закрытия (таймер или «Понятно»). */
   useEffect(() => {
-    if (!mobileShortHeaderImmersive || prefersReducedMotion) return;
-    setImmersiveRevealBtnPulse(true);
-    const t = window.setTimeout(() => setImmersiveRevealBtnPulse(false), 1250);
-    return () => window.clearTimeout(t);
-  }, [mobileShortHeaderImmersive, prefersReducedMotion]);
+    if (immersiveWelcomeTimeoutRef.current != null) {
+      window.clearTimeout(immersiveWelcomeTimeoutRef.current);
+      immersiveWelcomeTimeoutRef.current = null;
+    }
+    if (immersiveRevealPulseTimeoutRef.current != null) {
+      window.clearTimeout(immersiveRevealPulseTimeoutRef.current);
+      immersiveRevealPulseTimeoutRef.current = null;
+    }
+
+    if (!mobileShortHeaderImmersive || !mobileViewportShort || online.userOnPause || isWaitingInRoom) {
+      setMobileShortImmersiveWelcomeOpen(false);
+      setImmersiveRevealBtnPulse(false);
+      return;
+    }
+
+    setMobileShortImmersiveWelcomeOpen(true);
+    immersiveWelcomeTimeoutRef.current = window.setTimeout(() => {
+      immersiveWelcomeTimeoutRef.current = null;
+      setMobileShortImmersiveWelcomeOpen(false);
+      scheduleImmersiveRevealPulseAfterWelcome();
+    }, IMMERSIVE_WELCOME_HINT_MS);
+
+    return () => {
+      if (immersiveWelcomeTimeoutRef.current != null) {
+        window.clearTimeout(immersiveWelcomeTimeoutRef.current);
+        immersiveWelcomeTimeoutRef.current = null;
+      }
+      if (immersiveRevealPulseTimeoutRef.current != null) {
+        window.clearTimeout(immersiveRevealPulseTimeoutRef.current);
+        immersiveRevealPulseTimeoutRef.current = null;
+      }
+    };
+  }, [
+    mobileShortHeaderImmersive,
+    mobileViewportShort,
+    online.userOnPause,
+    prefersReducedMotion,
+    isWaitingInRoom,
+    scheduleImmersiveRevealPulseAfterWelcome,
+  ]);
 
   /** Выход из short immersive: снимаем immersive синхронно, затем scrollTop=0 — вид «под шапкой» (иначе maxTop/вёрстка расходятся). */
   const exitShortVhImmersiveWithMagnetSnap = useCallback(
@@ -1263,14 +1449,68 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     [setMobileShortHeaderImmersive, cancelShortVhEnterGentleScroll],
   );
 
-  type ShortVhEnterImmersiveMode = 'instant' | 'gentle';
+  type ShortVhEnterImmersiveMode = 'instant' | 'gentle' | 'smoothHold';
 
   /**
    * Вход в immersive: у самого низа — мгновенно (как ручная доводка). Магнит «с середины» —
    * короткая программная доводка scroll, затем immersive (без финального рывка).
+   * `smoothHold` — только с южной ручки (long-press): всегда доводка скролла ease-out, без рывка «уже у низа → instant».
    */
   const enterShortVhImmersiveWithMagnetSnap = useCallback(
     (el: HTMLDivElement, mode: ShortVhEnterImmersiveMode = 'gentle') => {
+      if (mode === 'smoothHold') {
+        if (prefersReducedMotion) {
+          cancelShortVhEnterGentleScroll();
+          flushSync(() => {
+            setMobileShortHeaderImmersive(true);
+          });
+          shortVhMagnetConsumedRef.current = true;
+          commitShortMainWrapScrollToEnd(el);
+          return;
+        }
+        cancelShortVhEnterGentleScroll();
+        if (shortVhEnterMagnetAnimatingRef.current) return;
+        const maxTop0 = Math.max(0, el.scrollHeight - el.clientHeight);
+        const startTop = el.scrollTop;
+        if (maxTop0 <= 0 || Math.abs(maxTop0 - startTop) < 0.5) {
+          flushSync(() => {
+            setMobileShortHeaderImmersive(true);
+          });
+          shortVhMagnetConsumedRef.current = true;
+          commitShortMainWrapScrollToEnd(el);
+          return;
+        }
+        shortVhEnterMagnetAnimatingRef.current = true;
+        shortVhMagnetConsumedRef.current = true;
+        const durationMs = 280;
+        const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
+        const tick = (now: number) => {
+          const wrap = mobileShortMainWrapRef.current;
+          if (wrap !== el || !isMobileRef.current || mobileShortHeaderImmersiveRef.current) {
+            shortVhEnterMagnetAnimatingRef.current = false;
+            shortVhEnterGentleRafRef.current = null;
+            if (!mobileShortHeaderImmersiveRef.current) shortVhMagnetConsumedRef.current = false;
+            return;
+          }
+          const elapsed = typeof performance !== 'undefined' ? now - t0 : durationMs;
+          const p = Math.min(1, elapsed / durationMs);
+          const eased = 1 - (1 - p) ** 4;
+          wrap.scrollTop = Math.round(startTop + (maxTop0 - startTop) * eased);
+          if (p < 1) {
+            shortVhEnterGentleRafRef.current = window.requestAnimationFrame(tick);
+            return;
+          }
+          shortVhEnterGentleRafRef.current = null;
+          shortVhEnterMagnetAnimatingRef.current = false;
+          flushSync(() => {
+            setMobileShortHeaderImmersive(true);
+          });
+          commitShortMainWrapScrollToEnd(wrap);
+        };
+        shortVhEnterGentleRafRef.current = window.requestAnimationFrame(tick);
+        return;
+      }
+
       const useInstant = prefersReducedMotion || mode === 'instant';
       const maxTop0 = Math.max(0, el.scrollHeight - el.clientHeight);
       const distBottom0 = maxTop0 - el.scrollTop;
@@ -1294,7 +1534,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
 
       const startTop = el.scrollTop;
       const targetTop = maxTop0;
-      const durationMs = 95;
+      const durationMs = 150;
       const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
 
       const tick = (now: number) => {
@@ -1307,7 +1547,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         }
         const elapsed = typeof performance !== 'undefined' ? now - t0 : durationMs;
         const p = Math.min(1, elapsed / durationMs);
-        const eased = 1 - (1 - p) ** 3;
+        const eased = 1 - (1 - p) ** 4;
         wrap.scrollTop = Math.round(startTop + (targetTop - startTop) * eased);
         if (p < 1) {
           shortVhEnterGentleRafRef.current = window.requestAnimationFrame(tick);
@@ -1325,6 +1565,29 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     },
     [setMobileShortHeaderImmersive, prefersReducedMotion, cancelShortVhEnterGentleScroll],
   );
+
+  const syncShortImmersiveNwRowWithBadgeTop = useCallback(() => {
+    const wrap = mobileShortMainWrapRef.current;
+    if (!wrap || !isMobileRef.current || !mobileShortHeaderImmersiveRef.current) {
+      setShortImmersiveNwRowAlignPx((p) => (p !== 0 ? 0 : p));
+      return;
+    }
+    const badge = mobileGameInfoSectionAlignRef.current;
+    const row = mobileShortTopRowRef.current;
+    if (!badge || !row) {
+      setShortImmersiveNwRowAlignPx((p) => (p !== 0 ? 0 : p));
+      return;
+    }
+    const maxTop = Math.max(0, wrap.scrollHeight - wrap.clientHeight);
+    if (maxTop - wrap.scrollTop > 4) {
+      setShortImmersiveNwRowAlignPx((p) => (p !== 0 ? 0 : p));
+      return;
+    }
+    const bt = badge.getBoundingClientRect().top;
+    const rt = row.getBoundingClientRect().top;
+    const delta = Math.round(bt - rt);
+    setShortImmersiveNwRowAlignPx((prev) => (prev === delta ? prev : delta));
+  }, []);
 
   const updateMobileShortScrollMagnet = useCallback(() => {
     const el = mobileShortMainWrapRef.current;
@@ -1360,17 +1623,22 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     }
 
     if (mobileShortHeaderImmersiveRef.current) {
-      const measured = readShortGameHeaderHalfHeightPx(mobileShortHeaderMeasureRef.current);
-      const cached = shortVhReverseMagnetHalfPxCacheRef.current;
-      const fromHeaderHalf =
-        cached >= SHORT_VH_REVERSE_MAGNET_HALF_HEADER_MIN_PX && measured < SHORT_VH_REVERSE_MAGNET_HALF_HEADER_MIN_PX + 6
-          ? cached
-          : measured;
-      const fromScrollTravel = Math.max(12, Math.min(46, Math.round(maxTop * 0.042)));
-      /* Не брать слишком малый порог (min раньше давал «щёлчок» скролла и полуоткрытый хедер без жеста снизу). */
-      const reverseTriggerPx = Math.max(42, Math.min(fromHeaderHalf, fromScrollTravel + 22));
-      if (distBottom >= reverseTriggerPx) {
-        exitShortVhImmersiveWithMagnetSnap(el);
+      const nowMag = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (nowMag < shortVhImmersiveReverseExitSuppressUntilRef.current) {
+        /* см. shortVhImmersiveReverseExitSuppressUntilRef */
+      } else {
+        const measured = readShortGameHeaderHalfHeightPx(mobileShortHeaderMeasureRef.current);
+        const cached = shortVhReverseMagnetHalfPxCacheRef.current;
+        const fromHeaderHalf =
+          cached >= SHORT_VH_REVERSE_MAGNET_HALF_HEADER_MIN_PX && measured < SHORT_VH_REVERSE_MAGNET_HALF_HEADER_MIN_PX + 6
+            ? cached
+            : measured;
+        const fromScrollTravel = Math.max(12, Math.min(46, Math.round(maxTop * 0.042)));
+        /* Не брать слишком малый порог (min раньше давал «щёлчок» скролла и полуоткрытый хедер без жеста снизу). */
+        const reverseTriggerPx = Math.max(42, Math.min(fromHeaderHalf, fromScrollTravel + 22));
+        if (distBottom >= reverseTriggerPx) {
+          exitShortVhImmersiveWithMagnetSnap(el);
+        }
       }
     }
 
@@ -1381,7 +1649,14 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       distBottom <= zone + zoneSlack + 24;
     setMobileShortImmersiveInviteChip(inInviteBand);
 
-    if (!shortVhMagnetConsumedRef.current && !mobileShortHeaderImmersiveRef.current && inForwardSnapZone) {
+    const nowForMagnet = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (
+      !shortVhMagnetConsumedRef.current &&
+      !mobileShortHeaderImmersiveRef.current &&
+      inForwardSnapZone &&
+      !shortVhPullTabDragRef.current.active &&
+      nowForMagnet >= shortVhSouthPullTabPostTapSuppressMagnetUntilRef.current
+    ) {
       const nearBottom = distBottom <= 22;
       enterShortVhImmersiveWithMagnetSnap(el, nearBottom ? 'instant' : 'gentle');
       setMobileShortImmersiveInviteChip(false);
@@ -1391,10 +1666,19 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         /* ignore */
       }
     }
+
+    if (mobileShortHeaderImmersiveRef.current) {
+      const distAlign = maxTop - el.scrollTop;
+      if (distAlign <= 4) syncShortImmersiveNwRowWithBadgeTop();
+      else setShortImmersiveNwRowAlignPx((p) => (p !== 0 ? 0 : p));
+    } else {
+      setShortImmersiveNwRowAlignPx((p) => (p !== 0 ? 0 : p));
+    }
   }, [
     mobileViewportShort,
     exitShortVhImmersiveWithMagnetSnap,
     enterShortVhImmersiveWithMagnetSnap,
+    syncShortImmersiveNwRowWithBadgeTop,
   ]);
 
   const onMobileShortMainWrapScroll = useCallback(() => {
@@ -1420,6 +1704,34 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     ro.observe(el);
     return () => ro.disconnect();
   }, [isMobile, mobileViewportShort, updateMobileShortScrollMagnet, pendingTrickCompletionKey, state?.dealNumber]);
+
+  useLayoutEffect(() => {
+    if (!isMobile || !mobileViewportShort || !mobileShortHeaderImmersive) {
+      setShortImmersiveNwRowAlignPx(0);
+      return;
+    }
+    let raf0 = 0;
+    let raf1 = 0;
+    raf0 = window.requestAnimationFrame(() => {
+      raf1 = window.requestAnimationFrame(() => {
+        syncShortImmersiveNwRowWithBadgeTop();
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(raf0);
+      window.cancelAnimationFrame(raf1);
+    };
+  }, [
+    isMobile,
+    mobileViewportShort,
+    mobileShortHeaderImmersive,
+    syncShortImmersiveNwRowWithBadgeTop,
+    state?.phase,
+    state?.dealNumber,
+    mobileShowGameInfoStrip,
+    showDealResultsButton,
+    immersiveBadgeDragX,
+  ]);
 
   const clearLHandleLongPress = useCallback(() => {
     if (lHandleLongPressTimerRef.current != null) {
@@ -1557,10 +1869,10 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     };
   }, []);
 
-  /** Short + immersive: горизонтальный сдвиг бейджа пальцем (высота блока не меняется). */
-  const onImmersiveBadgeWrapPointerDown = useCallback(
+  /** Short + immersive: горизонтальный сдвиг бейджа пальцем (вне immersive не используем). */
+  const onShortBadgeDragWrapPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (!mobileViewportShort || !mobileShortHeaderImmersive) return;
+      if (!mobileViewportShort || !mobileShowGameInfoStrip || !mobileShortHeaderImmersive) return;
       const t = e.target as HTMLElement;
       if (t.closest('button') || t.closest('a[href]')) return;
       if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -1621,7 +1933,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       window.addEventListener('pointerup', onUp);
       window.addEventListener('pointercancel', onUp);
     },
-    [mobileViewportShort, mobileShortHeaderImmersive],
+    [mobileViewportShort, mobileShowGameInfoStrip, mobileShortHeaderImmersive],
   );
 
   useLayoutEffect(() => {
@@ -1661,19 +1973,272 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     state?.dealHistory?.length,
   ]);
 
-  const snapShortScrollToImmersive = useCallback(() => {
-    const el = mobileShortMainWrapRef.current;
-    if (!el) return;
-    const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
-    if (maxTop < SHORT_VH_MAGNET_MIN_SCROLL_RANGE_PX) return;
-    enterShortVhImmersiveWithMagnetSnap(el, 'instant');
-    setMobileShortImmersiveInviteChip(false);
+  const showShortVhScrollComfortHint = useCallback(() => {
+    if (shortVhComfortHintTimeoutRef.current != null) {
+      window.clearTimeout(shortVhComfortHintTimeoutRef.current);
+      shortVhComfortHintTimeoutRef.current = null;
+    }
+    setMobileShortVhScrollComfortHintOpen(true);
+    shortVhComfortHintTimeoutRef.current = window.setTimeout(() => {
+      shortVhComfortHintTimeoutRef.current = null;
+      setMobileShortVhScrollComfortHintOpen(false);
+    }, 6500);
     try {
-      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(14);
+      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
     } catch {
       /* ignore */
     }
-  }, [enterShortVhImmersiveWithMagnetSnap]);
+  }, []);
+
+  const dismissShortVhScrollComfortHint = useCallback(() => {
+    if (shortVhComfortHintTimeoutRef.current != null) {
+      window.clearTimeout(shortVhComfortHintTimeoutRef.current);
+      shortVhComfortHintTimeoutRef.current = null;
+    }
+    setMobileShortVhScrollComfortHintOpen(false);
+  }, []);
+
+  const dismissImmersiveWelcomeHint = useCallback(() => {
+    if (immersiveWelcomeTimeoutRef.current != null) {
+      window.clearTimeout(immersiveWelcomeTimeoutRef.current);
+      immersiveWelcomeTimeoutRef.current = null;
+    }
+    setMobileShortImmersiveWelcomeOpen(false);
+    scheduleImmersiveRevealPulseAfterWelcome();
+  }, [scheduleImmersiveRevealPulseAfterWelcome]);
+
+  const onComfortHintTriggerPointerDown = useCallback((e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    comfortHintTapDownRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  const onComfortHintTriggerPointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      const dx = Math.abs(e.clientX - comfortHintTapDownRef.current.x);
+      const dy = Math.abs(e.clientY - comfortHintTapDownRef.current.y);
+      if (dx > 20 || dy > 20) return;
+      e.stopPropagation();
+      showShortVhScrollComfortHint();
+    },
+    [showShortVhScrollComfortHint],
+  );
+
+  const onComfortHintTriggerPointerCancel = useCallback((_e: ReactPointerEvent<HTMLButtonElement>) => {
+    /* не показываем подсказку при отмене жеста */
+  }, []);
+
+  /** Ручка над рукой short-VH: перетаскивание вверх → scrollTop; удержание → immersive (магнит). */
+  const shortVhPullTabDragRef = useRef<{
+    active: boolean;
+    pointerId: number;
+    startY: number;
+    startX: number;
+    startScrollTop: number;
+  }>({ active: false, pointerId: 0, startY: 0, startX: 0, startScrollTop: 0 });
+  /** performance.now(): не запускать enter immersive от нижнего магнита сразу после тапа по южной ручке (без long-press). */
+  const shortVhSouthPullTabPostTapSuppressMagnetUntilRef = useRef(0);
+  const shortVhPullTabLongPressTimerRef = useRef<number | null>(null);
+  const shortVhPullTabLongPressFiredRef = useRef(false);
+
+  const clearShortVhPullTabLongPressTimer = useCallback(() => {
+    if (shortVhPullTabLongPressTimerRef.current != null) {
+      window.clearTimeout(shortVhPullTabLongPressTimerRef.current);
+      shortVhPullTabLongPressTimerRef.current = null;
+    }
+  }, []);
+
+  const onShortVhSouthPullTabPortalPointerOver = useCallback((e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === 'mouse' && e.buttons !== 0) return;
+    flushSync(() => {
+      setShortVhSouthPullTabPointerOver(true);
+    });
+  }, []);
+
+  const onShortVhSouthPullTabPortalPointerLeave = useCallback(() => {
+    setShortVhSouthPullTabPointerOver(false);
+  }, []);
+
+  /** Touch/pen: после отпускания нет «наведения», но pointerleave часто не приходит — снимаем «hover»-класс. */
+  const clearShortVhSouthPullTabPointerOverIfNotMouse = useCallback((e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType !== 'mouse') {
+      setShortVhSouthPullTabPointerOver(false);
+    }
+  }, []);
+
+  const onShortVhScrollPullTabPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (!mobileViewportShort || mobileShortHeaderImmersiveRef.current || isWaitingInRoom || onlineRef.current.userOnPause) {
+        return;
+      }
+      const wrap = mobileShortMainWrapRef.current;
+      if (!wrap) return;
+      flushSync(() => {
+        setShortVhSouthPullMainScrollLocked(true);
+      });
+      clearShortVhPullTabLongPressTimer();
+      shortVhPullTabLongPressFiredRef.current = false;
+      shortVhPullTabDragRef.current = {
+        active: true,
+        pointerId: e.pointerId,
+        startY: e.clientY,
+        startX: e.clientX,
+        startScrollTop: wrap.scrollTop,
+      };
+      const pointerIdForTimer = e.pointerId;
+      shortVhPullTabLongPressTimerRef.current = window.setTimeout(() => {
+        shortVhPullTabLongPressTimerRef.current = null;
+        const el = mobileShortMainWrapRef.current;
+        const d = shortVhPullTabDragRef.current;
+        if (
+          !el ||
+          !d.active ||
+          d.pointerId !== pointerIdForTimer ||
+          mobileShortHeaderImmersiveRef.current ||
+          onlineRef.current.userOnPause
+        ) {
+          return;
+        }
+        shortVhPullTabLongPressFiredRef.current = true;
+        d.active = false;
+        try {
+          if (!prefersReducedMotion && typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate([8, 40, 8]);
+          }
+        } catch {
+          /* ignore */
+        }
+        enterShortVhImmersiveWithMagnetSnap(el, prefersReducedMotion ? 'instant' : 'smoothHold');
+      }, SHORT_VH_SOUTH_PULL_TAB_HOLD_MS);
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    },
+    [mobileViewportShort, isWaitingInRoom, clearShortVhPullTabLongPressTimer, enterShortVhImmersiveWithMagnetSnap, prefersReducedMotion],
+  );
+
+  const onShortVhScrollPullTabPointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      const d = shortVhPullTabDragRef.current;
+      if (!d.active || e.pointerId !== d.pointerId) return;
+      if (
+        Math.abs(e.clientX - d.startX) > SHORT_VH_SOUTH_PULL_TAB_HOLD_CANCEL_MOVE_PX ||
+        Math.abs(e.clientY - d.startY) > SHORT_VH_SOUTH_PULL_TAB_HOLD_CANCEL_MOVE_PX
+      ) {
+        clearShortVhPullTabLongPressTimer();
+      }
+      const wrap = mobileShortMainWrapRef.current;
+      if (!wrap) return;
+      const dy = d.startY - e.clientY;
+      const maxTop = Math.max(0, wrap.scrollHeight - wrap.clientHeight);
+      let next = d.startScrollTop + dy;
+      if (next < 0) next = 0;
+      if (next > maxTop) next = maxTop;
+      wrap.scrollTop = next;
+      try {
+        e.preventDefault();
+      } catch {
+        /* passive */
+      }
+      updateMobileShortScrollMagnet();
+    },
+    [updateMobileShortScrollMagnet, clearShortVhPullTabLongPressTimer],
+  );
+
+  const onShortVhScrollPullTabPointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      /* До проверки pointerId: touch после тапа иначе залипает, если pointerdown отфильтровали */
+      clearShortVhSouthPullTabPointerOverIfNotMouse(e);
+      const d = shortVhPullTabDragRef.current;
+      if (e.pointerId !== d.pointerId) return;
+      setShortVhSouthPullMainScrollLocked(false);
+      clearShortVhPullTabLongPressTimer();
+      const longPressFired = shortVhPullTabLongPressFiredRef.current;
+      shortVhPullTabLongPressFiredRef.current = false;
+      const startY = d.startY;
+      const wasActive = d.active;
+      d.active = false;
+      if (wasActive || longPressFired) {
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+        if (wasActive && !longPressFired) {
+          shortVhSouthPullTabPostTapSuppressMagnetUntilRef.current =
+            (typeof performance !== 'undefined' ? performance.now() : Date.now()) + SHORT_VH_SOUTH_PULL_TAB_POST_TAP_MAGNET_SUPPRESS_MS;
+        }
+        const wrap = mobileShortMainWrapRef.current;
+        if (wrap) updateMobileShortScrollMagnet();
+        if (!longPressFired && Math.abs(startY - e.clientY) < 14) {
+          showShortVhScrollComfortHint();
+        }
+      }
+    },
+    [
+      updateMobileShortScrollMagnet,
+      showShortVhScrollComfortHint,
+      clearShortVhPullTabLongPressTimer,
+      clearShortVhSouthPullTabPointerOverIfNotMouse,
+    ],
+  );
+
+  const onShortVhScrollPullTabPointerCancel = useCallback((e: ReactPointerEvent<HTMLButtonElement>) => {
+    clearShortVhSouthPullTabPointerOverIfNotMouse(e);
+    const d = shortVhPullTabDragRef.current;
+    if (e.pointerId !== d.pointerId) return;
+    setShortVhSouthPullMainScrollLocked(false);
+    clearShortVhPullTabLongPressTimer();
+    const longPressFired = shortVhPullTabLongPressFiredRef.current;
+    shortVhPullTabLongPressFiredRef.current = false;
+    const wasActive = d.active;
+    d.active = false;
+    if (wasActive && !longPressFired) {
+      shortVhSouthPullTabPostTapSuppressMagnetUntilRef.current =
+        (typeof performance !== 'undefined' ? performance.now() : Date.now()) + SHORT_VH_SOUTH_PULL_TAB_POST_TAP_MAGNET_SUPPRESS_MS;
+    }
+    try {
+      (e.currentTarget as HTMLButtonElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    const wrap = mobileShortMainWrapRef.current;
+    if (wrap) updateMobileShortScrollMagnet();
+  }, [clearShortVhPullTabLongPressTimer, clearShortVhSouthPullTabPointerOverIfNotMouse, updateMobileShortScrollMagnet]);
+
+  useLayoutEffect(() => {
+    if (!shortVhSouthPullMainScrollLocked) return;
+    const wrap = mobileShortMainWrapRef.current;
+    if (!wrap) return;
+    const blockScroll = (ev: TouchEvent) => {
+      ev.preventDefault();
+    };
+    wrap.addEventListener('touchmove', blockScroll, { passive: false, capture: true });
+    /* Если кнопка-портал исчезла или capture сорвался — pointerup не дойдёт до onPointerUp кнопки; снимаем lock по тому же pointerId. */
+    const lockedPointerId = shortVhPullTabDragRef.current.pointerId;
+    const unlockFromWindow = (ev: PointerEvent) => {
+      if (ev.pointerId !== lockedPointerId) return;
+      setShortVhSouthPullMainScrollLocked(false);
+      clearShortVhPullTabLongPressTimer();
+    };
+    window.addEventListener('pointerup', unlockFromWindow, true);
+    window.addEventListener('pointercancel', unlockFromWindow, true);
+    return () => {
+      wrap.removeEventListener('touchmove', blockScroll, { capture: true });
+      window.removeEventListener('pointerup', unlockFromWindow, true);
+      window.removeEventListener('pointercancel', unlockFromWindow, true);
+    };
+  }, [shortVhSouthPullMainScrollLocked, clearShortVhPullTabLongPressTimer]);
+
+  useEffect(() => {
+    if (!mobileViewportShort) {
+      setShortVhSouthPullMainScrollLocked(false);
+      setShortVhSouthPullTabPointerOver(false);
+    }
+  }, [mobileViewportShort]);
 
   const onImmersiveLHandlePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => {
@@ -1866,6 +2431,68 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
       overlapScrubEnabled: isMobile && fit.overlapPx > 0 && !prefersReducedMotion,
     };
   }, [isMobile, state, humanIdx, mobileHandLayoutVw, prefersReducedMotion]);
+
+  const southShortPullTabVisible =
+    mobileSouthHandLayout != null &&
+    mobileViewportShort &&
+    !mobileShortHeaderImmersive &&
+    !isWaitingInRoom &&
+    !online.userOnPause;
+
+  /** Якорь внешней панели Юга для fixed-ручки (портал на body — иначе режется scroll у main-wrap). */
+  const mobileSouthPullTabAnchorRef = useRef<HTMLDivElement | null>(null);
+  const [southPullTabFixedPos, setSouthPullTabFixedPos] = useState<{ top: number; left: number } | null>(null);
+  /** Компактнее ~15% от прежних 150×40 — меньше заходит на якорь панели Юга. */
+  const MOBILE_SHORT_VH_SOUTH_PULL_TAB_W = 140;
+  const MOBILE_SHORT_VH_SOUTH_PULL_TAB_H = 34;
+
+  useLayoutEffect(() => {
+    if (!southShortPullTabVisible) {
+      setSouthPullTabFixedPos(null);
+      setShortVhSouthPullTabPointerOver(false);
+      /* Ручка снята с DOM (immersive / пауза) — pointerup может не прийти; иначе scroll-lock залипает на main-wrap. */
+      setShortVhSouthPullMainScrollLocked(false);
+      clearShortVhPullTabLongPressTimer();
+      shortVhPullTabLongPressFiredRef.current = false;
+      shortVhPullTabDragRef.current = {
+        active: false,
+        pointerId: 0,
+        startY: 0,
+        startX: 0,
+        startScrollTop: 0,
+      };
+      return;
+    }
+    const anchor = mobileSouthPullTabAnchorRef.current;
+    if (!anchor) return;
+    const measure = () => {
+      const r = anchor.getBoundingClientRect();
+      const vw = window.visualViewport?.width ?? window.innerWidth;
+      setSouthPullTabFixedPos((prev) => {
+        const top = r.top - MOBILE_SHORT_VH_SOUTH_PULL_TAB_H;
+        const rawLeft = r.left + r.width / 2 - MOBILE_SHORT_VH_SOUTH_PULL_TAB_W / 2;
+        const left = Math.max(6, Math.min(rawLeft, vw - MOBILE_SHORT_VH_SOUTH_PULL_TAB_W - 6));
+        if (prev && Math.abs(prev.top - top) < 0.5 && Math.abs(prev.left - left) < 0.5) return prev;
+        return { top, left };
+      });
+    };
+    measure();
+    const wrap = mobileShortMainWrapRef.current;
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => measure()) : null;
+    ro?.observe(anchor);
+    wrap?.addEventListener('scroll', measure, { passive: true });
+    window.addEventListener('resize', measure);
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', measure);
+    vv?.addEventListener('scroll', measure);
+    return () => {
+      ro?.disconnect();
+      wrap?.removeEventListener('scroll', measure);
+      window.removeEventListener('resize', measure);
+      vv?.removeEventListener('resize', measure);
+      vv?.removeEventListener('scroll', measure);
+    };
+  }, [southShortPullTabVisible, clearShortVhPullTabLongPressTimer]);
 
   /** Низкий экран: подсветки с внешней рамки .user-player-panel — на .game-mobile-user-south-main (рамка панели убирается). */
   const mobileSouthShortUserPanelChrome = useMemo(() => {
@@ -2849,8 +3476,6 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
     state != null &&
     !isWaitingInRoom &&
     (showDealResultsButton || (state.dealHistory && state.dealHistory.length > 0));
-  /** Мобильная полоска «раздача / Σ / …»: всегда в партии, не скрывать между раздачами/фазами (Σ привязана к блоку — иначе дёргает вёрстку). */
-  const mobileShowGameInfoStrip = !isWaitingInRoom && state != null;
   /** Угловая Σ на мобиле при любой возможности открыть таблицу; на ПК — только кнопка в шапке. */
   const dealResultsCornerInGameInfoPanel = isMobile && canOpenDealResultsTable;
   const dealResultsButtonInHeader = !isMobile && canOpenDealResultsTable;
@@ -3330,11 +3955,178 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           <button
             type="button"
             className="mobile-short-immersive-invite-chip"
-            onClick={snapShortScrollToImmersive}
-            aria-label="Показать стол на весь экран"
+            onPointerDown={onComfortHintTriggerPointerDown}
+            onPointerUp={onComfortHintTriggerPointerUp}
+            onPointerCancel={onComfortHintTriggerPointerCancel}
+            onClick={e => {
+              e.stopPropagation();
+              showShortVhScrollComfortHint();
+            }}
+            aria-label="Подсказка: как развернуть стол без шапки"
           >
             Без шапки ↓
           </button>
+        )}
+      {typeof document !== 'undefined' &&
+        isMobile &&
+        mobileViewportShort &&
+        !mobileShortHeaderImmersive &&
+        !online.userOnPause &&
+        mobileShortVhScrollComfortHintOpen &&
+        createPortal(
+          <div
+            className="mobile-short-immersive-l-handle-hint mobile-short-vh-comfort-hint-portal"
+            role="region"
+            aria-label="Подсказка: стол без шапки на низком экране"
+          >
+            <div className="mobile-short-vh-comfort-hint-portal__main">
+              <p className="mobile-short-vh-comfort-hint-portal__title">
+                <span className="mobile-short-vh-comfort-hint-portal__stol">Стол</span>{' '}
+                <span className="mobile-short-vh-comfort-hint-portal__accent">
+                  <span className="mobile-short-vh-comfort-hint-portal__accent-w1">на </span>
+                  <span className="mobile-short-vh-comfort-hint-portal__accent-w2">весь </span>
+                  <span className="mobile-short-vh-comfort-hint-portal__accent-w3">экран</span>
+                </span>
+                <span className="mobile-short-vh-comfort-hint-portal__title-muted"> — низкий экран</span>
+              </p>
+              <ul className="mobile-short-vh-comfort-hint-portal__list">
+                <li className="mobile-short-vh-comfort-hint-portal__item">
+                  <div className="mobile-short-vh-comfort-hint-portal__key">Вверх по столу</div>
+                  <div className="mobile-short-vh-comfort-hint-portal__val">прокрутка, как у страницы</div>
+                </li>
+                <li className="mobile-short-vh-comfort-hint-portal__item">
+                  <div className="mobile-short-vh-comfort-hint-portal__key">Удержать кнопку с шариками</div>
+                  <div className="mobile-short-vh-comfort-hint-portal__val">без шапки, магнит снизу</div>
+                </li>
+                <li className="mobile-short-vh-comfort-hint-portal__item mobile-short-vh-comfort-hint-portal__item--dim">
+                  <div className="mobile-short-vh-comfort-hint-portal__key">Короткий тап</div>
+                  <div className="mobile-short-vh-comfort-hint-portal__val">только эта подсказка</div>
+                </li>
+              </ul>
+              <p className="mobile-short-vh-comfort-hint-portal__foot">
+                <span className="mobile-short-vh-comfort-hint-portal__foot-label">Шапку назад:</span>{' '}
+                <span className="mobile-short-vh-comfort-hint-portal__foot-strong mobile-short-vh-comfort-hint-portal__foot-strong--sky">
+                  вниз от нижнего края
+                </span>
+                <span className="mobile-short-vh-comfort-hint-portal__foot-or"> или </span>
+                <span className="mobile-short-vh-comfort-hint-portal__foot-strong mobile-short-vh-comfort-hint-portal__foot-strong--lilac">
+                  длинная кнопка с шариками над бейджем хода
+                </span>
+              </p>
+            </div>
+            <button
+              type="button"
+              className="mobile-short-vh-comfort-hint-portal__close"
+              aria-label="Закрыть подсказку"
+              title="Закрыть"
+              onClick={(e) => {
+                e.stopPropagation();
+                dismissShortVhScrollComfortHint();
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" focusable="false" aria-hidden>
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 6l12 12M18 6L6 18"
+                />
+              </svg>
+            </button>
+          </div>,
+          document.body,
+        )}
+      {typeof document !== 'undefined' &&
+        southShortPullTabVisible &&
+        southPullTabFixedPos != null &&
+        createPortal(
+          <button
+            type="button"
+            className={
+              'mobile-short-vh-south-pull-tab' +
+              (shortVhSouthPullTabPointerOver ? ' mobile-short-vh-south-pull-tab--pointer-over' : '')
+            }
+            style={{
+              top: southPullTabFixedPos.top,
+              left: southPullTabFixedPos.left,
+            }}
+            aria-label="Тап — подсказка. Удержать кнопку с шариками — без шапки. Вверх по столу — прокрутка"
+            title="Тап: подсказка · Удержать кнопку с шариками · Вверх по столу: скролл"
+            onPointerOver={onShortVhSouthPullTabPortalPointerOver}
+            onPointerLeave={onShortVhSouthPullTabPortalPointerLeave}
+            onPointerDown={onShortVhScrollPullTabPointerDown}
+            onPointerMove={onShortVhScrollPullTabPointerMove}
+            onPointerUp={onShortVhScrollPullTabPointerUp}
+            onPointerCancel={onShortVhScrollPullTabPointerCancel}
+          >
+            <span className="mobile-short-vh-south-pull-tab__glyphs" aria-hidden>
+              <span className="mobile-short-immersive-l-handle__glyph">
+                {MOBILE_SOUTH_PULL_TAB_DOT_COLORS_ROW1.map((color, i) => (
+                  <span
+                    key={`r1-${i}`}
+                    className="mobile-short-immersive-l-handle__dot"
+                    style={{ ['--dot' as string]: color }}
+                  />
+                ))}
+              </span>
+              <span className="mobile-short-immersive-l-handle__glyph mobile-short-vh-south-pull-tab__glyph-row">
+                {MOBILE_SOUTH_PULL_TAB_DOT_COLORS_ROW2.map((color, i) => (
+                  <span
+                    key={`r2-${i}`}
+                    className="mobile-short-immersive-l-handle__dot"
+                    style={{ ['--dot' as string]: color }}
+                  />
+                ))}
+              </span>
+              <span className="mobile-short-immersive-l-handle__glyph mobile-short-vh-south-pull-tab__glyph-row">
+                {MOBILE_SOUTH_PULL_TAB_DOT_COLORS_ROW3.map((color, i) => (
+                  <span
+                    key={`r3-${i}`}
+                    className="mobile-short-immersive-l-handle__dot"
+                    style={{ ['--dot' as string]: color }}
+                  />
+                ))}
+              </span>
+            </span>
+          </button>,
+          document.body,
+        )}
+      {typeof document !== 'undefined' &&
+        isMobile &&
+        mobileViewportShort &&
+        mobileShortHeaderImmersive &&
+        !online.userOnPause &&
+        mobileShortImmersiveWelcomeOpen &&
+        createPortal(
+          <div
+            className="mobile-short-immersive-welcome-portal"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            aria-label="Иммерсив: выход — кнопка с шариками сверху или жест вниз от края"
+          >
+            <div className="mobile-short-immersive-welcome-portal__card">
+              <p className="mobile-short-immersive-welcome-portal__title">Иммерсив · без шапки</p>
+              <p className="mobile-short-immersive-welcome-portal__lead">
+                <span className="mobile-short-immersive-welcome-portal__hl">Кнопка с шариками</span> сверху — шапку
+                назад. Или <span className="mobile-short-immersive-welcome-portal__em">вниз от нижнего края</span>{' '}
+                экрана.
+              </p>
+              <button
+                type="button"
+                className="mobile-short-immersive-welcome-portal__dismiss"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dismissImmersiveWelcomeHint();
+                }}
+              >
+                Понятно
+              </button>
+            </div>
+          </div>,
+          document.body,
         )}
       {isMobile &&
         mobileViewportShort &&
@@ -3347,7 +4139,13 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
         )}
       <div
         ref={mobileViewportShort ? mobileShortMainWrapRef : undefined}
-        className={isMobile ? 'game-table-main-wrap' + (mobileViewportShort ? ' game-table-main-wrap--short-vh' : '') : undefined}
+        className={
+          isMobile
+            ? 'game-table-main-wrap' +
+              (mobileViewportShort ? ' game-table-main-wrap--short-vh' : '') +
+              (mobileViewportShort && shortVhSouthPullMainScrollLocked ? ' game-table-main-wrap--short-vh-south-pull-scroll-lock' : '')
+            : undefined
+        }
         onScroll={mobileViewportShort ? onMobileShortMainWrapScroll : undefined}
         style={{
           ...tableStyle,
@@ -4085,8 +4883,8 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                           onPointerUp={onImmersiveLHandlePointerUp}
                           onPointerCancel={clearLHandleLongPress}
                           onPointerLeave={clearLHandleLongPress}
-                          aria-label="Показать шапку"
-                          title="Показать шапку — или потяните вниз от края, чтобы вернуть стол под шапку"
+                          aria-label="Показать шапку: длинная кнопка с шариками над бейджем хода. Либо потяните вниз от края экрана"
+                          title="Шапку назад: кнопка с шариками над бейджем или жест вниз от края"
                         >
                           <span className="mobile-short-immersive-l-handle__glyph" aria-hidden>
                             {MOBILE_IMMERSIVE_HANDLE_DOT_COLORS.map((color, i) => (
@@ -4106,12 +4904,12 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                       {stripChildren}
                     </div>
                   );
-                  if (mobileViewportShort && mobileShortHeaderImmersive) {
+                  if (mobileViewportShort && mobileShowGameInfoStrip && mobileShortHeaderImmersive) {
                     return (
                       <div
-                        className="game-info-left-section-immersive-drag-wrap"
+                        className="game-info-left-section-short-drag-wrap"
                         style={{ transform: `translate3d(${immersiveBadgeDragX}px, 0, 0)` }}
-                        onPointerDown={onImmersiveBadgeWrapPointerDown}
+                        onPointerDown={onShortBadgeDragWrapPointerDown}
                         role="group"
                         aria-label="Сдвиг бейджа влево и вправо. Возле центра выравнивается; оттяните заметно в сторону — чтобы закрепить не по центру."
                       >
@@ -4123,8 +4921,15 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                 })()}
             </div>
             <div
+              ref={mobileShortTopRowRef}
               className="game-mobile-top-row"
-              style={{ ...gameInfoTopRowStyle, justifyContent: 'flex-start', gap: 8, flexWrap: 'wrap' }}
+              style={{
+                ...gameInfoTopRowStyle,
+                justifyContent: 'flex-start',
+                gap: 8,
+                flexWrap: 'wrap',
+                ...(mobileViewportShort && mobileShortHeaderImmersive ? { marginTop: shortImmersiveNwRowAlignPx } : {}),
+              }}
             >
             <div className="game-mobile-slot-west" style={{ display: 'flex', flexShrink: 0 }}>
               <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
@@ -4622,6 +5427,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               style: { flex: '0 0 auto', minWidth: 0, width: '100%', maxWidth: '100%' } as const,
             }) as ComponentPropsWithoutRef<'div'> | null,
         <div
+          ref={isMobile && mobileViewportShort ? mobileSouthPullTabAnchorRef : undefined}
           className="game-mobile-player-panel"
           style={{
             ...playerStyleMobilePanelShell,
@@ -4691,51 +5497,54 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
               {mobileSouthHandLayout != null && mobileViewportShort && (() => {
                 const { mobileHandLen, m9, overlapPx, rowTransform, overlapScrubEnabled } = mobileSouthHandLayout;
                 return (
-                  <div
-                    role="region"
-                    aria-label="Ваши карты"
-                    className={['game-mobile-south-panel-hand', m9.attachExtraClass, m9.useNarrowAttach ? 'game-mobile-hand--narrow-vw' : '']
-                      .filter(Boolean)
-                      .join(' ')}
-                    style={{
-                      gridColumn: '1 / -1',
-                      gridRow: 1,
-                      justifySelf: 'stretch',
-                      minWidth: 0,
-                      ...handFrameStyleMobile,
-                      ...m9.frameStyleExtra,
-                    }}
-                  >
-                      <div
-                        ref={mobileOverlapHandRowRef}
-                        className={[
-                          'game-mobile-hand-row',
-                          state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                        onPointerDownCapture={overlapScrubEnabled ? handleMobileHandRowPointerDownCapture : undefined}
-                        onClickCapture={(e) => {
-                          if (suppressMobileOverlapClickRef.current) {
-                            suppressMobileOverlapClickRef.current = false;
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }
-                        }}
-                        style={{
-                          ...handStyle,
-                          overflow: 'visible',
-                          justifyContent: 'center',
-                          boxSizing: 'border-box',
-                          width: 'max-content',
-                          maxWidth: '100%',
-                          borderRadius: 10,
-                          touchAction: overlapScrubEnabled ? ('none' as const) : undefined,
-                          ...(rowTransform
-                            ? { transform: rowTransform, transformOrigin: 'center bottom' as const }
-                            : {}),
-                        }}
-                      >
+                    <div
+                      role="region"
+                      aria-label="Ваши карты"
+                      className={['game-mobile-south-panel-hand', m9.attachExtraClass, m9.useNarrowAttach ? 'game-mobile-hand--narrow-vw' : '']
+                        .filter(Boolean)
+                        .join(' ')}
+                      style={{
+                        gridColumn: '1 / -1',
+                        gridRow: 1,
+                        justifySelf: 'stretch',
+                        width: '100%',
+                        minWidth: 0,
+                        position: 'relative',
+                        overflow: 'visible',
+                        ...handFrameStyleMobile,
+                        ...m9.frameStyleExtra,
+                      }}
+                    >
+                    <div
+                      ref={mobileOverlapHandRowRef}
+                      className={[
+                        'game-mobile-hand-row',
+                        state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      onPointerDownCapture={overlapScrubEnabled ? handleMobileHandRowPointerDownCapture : undefined}
+                      onClickCapture={(e) => {
+                        if (suppressMobileOverlapClickRef.current) {
+                          suppressMobileOverlapClickRef.current = false;
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }
+                      }}
+                      style={{
+                        ...handStyle,
+                        overflow: 'visible',
+                        justifyContent: 'center',
+                        boxSizing: 'border-box',
+                        width: 'max-content',
+                        maxWidth: '100%',
+                        borderRadius: 10,
+                        touchAction: overlapScrubEnabled ? ('none' as const) : undefined,
+                        ...(rowTransform
+                          ? { transform: rowTransform, transformOrigin: 'center bottom' as const }
+                          : {}),
+                      }}
+                    >
                         {state.players[humanIdx].hand
                           .slice()
                           .sort((a, b) => cardSort(a, b, state.trump))
@@ -4839,11 +5648,11 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
                               </div>
                             );
                           })}
-                      </div>
+                    </div>
                       {trumpHighlightOn && userTurnGarlandReadyMobile && isUserActiveTurnForGarlandMobile ? (
                         <UserPanelGarlandOverlay durationMs={USER_PANEL_GARLAND_HAND_DURATION_MS} />
                       ) : null}
-                  </div>
+                    </div>
                 );
               })()}
               {mobileViewportShort ? (
@@ -6192,6 +7001,7 @@ function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onN
           playerIndex={selectedPlayerForInfo}
           playerAvatarDataUrl={selectedPlayerForInfo === 0 ? playerAvatarDataUrl : undefined}
           onClose={() => setSelectedPlayerForInfo(null)}
+          viewportShort={isMobile && mobileViewportShort}
           offlineAiDifficultyPicker={playerInfoOfflineAiDifficultyPicker}
         />,
         document.body
