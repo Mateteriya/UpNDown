@@ -8,6 +8,22 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { GameState } from '../game/GameEngine';
 import { getTakenFromDealPoints } from '../game/scoring';
 
+/** Имена пустых слотов при старте/выходе — как в OnlineGameContext.startGame (0..3). */
+const VACANT_AI_SLOT_NAMES = ['ИИ Север', 'ИИ Восток', 'ИИ Юг', 'ИИ Запад'] as const;
+
+function vacantAiPlayerSlot(slotIndex: number): PlayerSlot {
+  return {
+    slotIndex,
+    displayName: VACANT_AI_SLOT_NAMES[slotIndex] ?? `ИИ ${slotIndex}`,
+    userId: null,
+    replacedUserId: undefined,
+    replacedDisplayName: undefined,
+    pausedByUser: undefined,
+    shortLabel: undefined,
+    avatarDataUrl: undefined,
+  };
+}
+
 export interface PlayerSlot {
   /** Отсутствует или null = слот ИИ */
   userId?: string | null;
@@ -79,6 +95,7 @@ function roomRetryDelayMs(attempt: number): number {
 function isRetryableNetworkMessage(msg: string): boolean {
   const m = msg.toLowerCase();
   return (
+    m.includes('create_room_insert_deadline') ||
     m.includes('failed to fetch') ||
     m.includes('load failed') ||
     m.includes('networkerror') ||
@@ -117,7 +134,7 @@ function isRetryableWriteFailure(error: { message?: string; code?: string; detai
 const ROOM_READ_MAX_ATTEMPTS = 3;
 const ROOM_WRITE_MAX_ATTEMPTS = 2;
 
-const JOIN_WALL_CLOCK_MS = 48_000;
+const JOIN_WALL_CLOCK_MS = 34_000;
 
 /** Первая запись game_state (крупный JSON) на мобильной сети; вторая попытка короче. */
 const GAME_MUTATION_FIRST_MS = 55_000;
@@ -141,10 +158,10 @@ function isAbortLike(err: { message?: string; name?: string; code?: string } | n
 
 /** Тяжёлые read после мутаций (getRoom) — оставляем запас. */
 const LOBBY_REST_TIMEOUT_MS = 20_000;
-/** Создание комнаты, join, быстрые get по id: не держать 20 с на запрос — на телефоне это «минута до лобби». */
-const LOBBY_FAST_TIMEOUT_MS = 8_000;
-/** RPC updown_join_waiting_room: короткий предел — при подвисании быстрее REST-цикл join (без минут ожидания). */
-const LOBBY_JOIN_RPC_TIMEOUT_MS = 9_000;
+/** Создание комнаты, join, быстрые get по id: на моб. сети TLS/переходы часто >8 с — иначе Abort + ложный «failed to fetch». */
+const LOBBY_FAST_TIMEOUT_MS = 16_000;
+/** RPC updown_join_waiting_room: FOR UPDATE может ждать короткую транзакцию хоста — 9 с давали ложный обрыв. */
+const LOBBY_JOIN_RPC_TIMEOUT_MS = 24_000;
 function lobbyRestAbortSignal(): AbortSignal {
   if (
     typeof AbortSignal !== 'undefined' &&
@@ -168,6 +185,63 @@ function lobbyJoinRpcAbortSignal(): AbortSignal {
   return c.signal;
 }
 
+const CHAT_SEND_TIMEOUT_MS = 18_000;
+function chatSendAbortSignal(): AbortSignal {
+  if (
+    typeof AbortSignal !== 'undefined' &&
+    typeof (AbortSignal as unknown as { timeout?: (ms: number) => AbortSignal }).timeout === 'function'
+  ) {
+    return (AbortSignal as unknown as { timeout: (ms: number) => AbortSignal }).timeout(CHAT_SEND_TIMEOUT_MS);
+  }
+  const c = new AbortController();
+  setTimeout(() => c.abort(), CHAT_SEND_TIMEOUT_MS);
+  return c.signal;
+}
+
+function formatChatSendError(msg: string): string {
+  const m = msg.toLowerCase();
+  if (m.includes('row-level security') || m.includes('42501') || m.includes('violates row-level')) {
+    return 'Отправка отклонена: вы не в списке участников этой комнаты. Обновите страницу или войдите по коду ещё раз.';
+  }
+  return msg;
+}
+
+function mapRpcChatErrorCode(code: string): string {
+  const map: Record<string, string> = {
+    not_authenticated: 'Войдите в аккаунт.',
+    not_member: 'Вы не в списке участников этой комнаты. Обновите стол или войдите по коду ещё раз.',
+    bad_body: 'Пустое или слишком длинное сообщение.',
+    save_failed: 'Не удалось сохранить сообщение. Попробуйте ещё раз.',
+  };
+  return map[code] ?? code;
+}
+
+function isRpcChatErrorFatal(code: string): boolean {
+  return code === 'not_authenticated' || code === 'not_member' || code === 'bad_body';
+}
+
+function isPostgrestRpcMissingError(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  const c = err.code ?? '';
+  const m = (err.message ?? '').toLowerCase();
+  return c === 'PGRST202' || c === '42883' || m.includes('could not find the function') || m.includes('schema cache');
+}
+
+/** PostgREST обычно отдаёт jsonb как объект; редко — строку (прокси/старый клиент). */
+function parseRpcJsonObject(data: unknown): Record<string, unknown> | null {
+  if (data == null) return null;
+  if (typeof data === 'object' && !Array.isArray(data)) return data as Record<string, unknown>;
+  if (typeof data === 'string') {
+    try {
+      const v = JSON.parse(data) as unknown;
+      return typeof v === 'object' && v != null && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 function lobbyFastAbortSignal(): AbortSignal {
   if (
     typeof AbortSignal !== 'undefined' &&
@@ -180,8 +254,11 @@ function lobbyFastAbortSignal(): AbortSignal {
   return c.signal;
 }
 
-/** getRoom по id для лобби/join: короткий таймаут, без тройных 20 с ретраев. */
-async function getRoomForLobby(roomId: string): Promise<GameRoomRow | null> {
+/**
+ * Быстрое чтение комнаты (лобби, join, восстановление сессии): ~16 с, 2 попытки.
+ * Не использовать там, где нужны тяжёлые ретраи полного getRoom (20 с × 3).
+ */
+export async function getRoomQuick(roomId: string): Promise<GameRoomRow | null> {
   if (!supabase) return null;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -213,7 +290,7 @@ async function getRoomForLobby(roomId: string): Promise<GameRoomRow | null> {
 /** После успешного RPC слот уже в БД; один облом getRoom не должен уводить в долгий цикл. */
 async function getRoomWithJoinRetries(roomId: string): Promise<GameRoomRow | null> {
   for (let i = 0; i < 12; i++) {
-    const room = await getRoomForLobby(roomId);
+    const room = await getRoomQuick(roomId);
     if (room) return room;
     await sleep(50 + i * 30);
   }
@@ -233,6 +310,9 @@ function syncPollRestAbortSignal(): AbortSignal {
   setTimeout(() => c.abort(), SYNC_POLL_GET_TIMEOUT_MS);
   return c.signal;
 }
+
+/** Запас, если клиент Supabase «висит» без ответа при том же abort (редко на моб. WebView). */
+const CREATE_ROOM_INSERT_DEADLINE_MS = 23_000;
 
 /** Создать комнату. Возвращает roomId и code или ошибку. */
 export async function createRoom(
@@ -262,33 +342,67 @@ export async function createRoom(
       ];
 
       // Без отдельного abortSignal на чтение: глобальный fetch в supabase.ts ограничивает висящие запросы.
-      const { data, error } = await supabase
-        .from(TABLE)
-        .insert({
-          code,
-          host_user_id: hostUserId,
-          status: 'waiting',
-          game_state: null,
-          player_slots: playerSlots,
-        })
-        .select('*')
-        .abortSignal(lobbyFastAbortSignal())
-        .single();
+      let data: GameRoomRow | null = null;
+      let insertError: { message?: string; name?: string; code?: string; details?: string } | null = null;
+      try {
+        const insertPromise = supabase
+          .from(TABLE)
+          .insert({
+            code,
+            host_user_id: hostUserId,
+            status: 'waiting',
+            game_state: null,
+            player_slots: playerSlots,
+          })
+          .select('*')
+          .abortSignal(lobbyFastAbortSignal())
+          .single();
+        const res = await Promise.race([
+          insertPromise,
+          new Promise<{ data: null; error: { message: string } }>((resolve) => {
+            setTimeout(
+              () => resolve({ data: null, error: { message: 'create_room_insert_deadline' } }),
+              CREATE_ROOM_INSERT_DEADLINE_MS,
+            );
+          }),
+        ]);
+        data = (res.data as GameRoomRow | null) ?? null;
+        insertError = res.error;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        lastMessage = msg || lastMessage;
+        if (isRetryableNetworkMessage(msg)) {
+          await sleep(roomRetryDelayMs(attempt));
+          continue;
+        }
+        break;
+      }
 
-      if (error) {
-        if ((error as { code?: string }).code === '23505') continue;
-        if (isAbortLike(error)) {
+      if (insertError) {
+        if ((insertError as { code?: string }).code === '23505') continue;
+        if (isAbortLike(insertError)) {
           await sleep(joinBackoffMs(attempt));
           continue;
         }
-        lastMessage = error.message;
+        if (isRetryableWriteFailure(insertError)) {
+          lastMessage = insertError.message || lastMessage;
+          await sleep(roomRetryDelayMs(attempt));
+          continue;
+        }
+        lastMessage = insertError.message || lastMessage;
         break;
       }
-      if (data) return { room: data as GameRoomRow };
+      if (data) return { room: data };
     }
     if (round < 2) await sleep(150 + round * 100);
   }
 
+  if (/failed to fetch|load failed|networkerror/i.test(lastMessage)) {
+    return {
+      error:
+        'Нет связи с сервером (сеть или блокировка). Проверьте Wi‑Fi/VPN. Игра с телефона не должна открываться на localhost с компьютера — нужен общий HTTPS‑адрес или IP ПК в той же сети, что и телефон.',
+    };
+  }
   return { error: lastMessage };
 }
 
@@ -399,6 +513,10 @@ export async function joinRoom(
         continue;
       }
       if ((fetchError as { code?: string }).code === 'PGRST116') return { error: 'Комната не найдена' };
+      if (isRetryableNetworkMessage(fetchError.message ?? '')) {
+        await sleep(roomRetryDelayMs(attempt));
+        continue;
+      }
       return { error: fetchError.message };
     }
     if (!fullRow) return { error: 'Комната не найдена' };
@@ -449,7 +567,11 @@ export async function joinRoom(
         return { roomId: row.id, mySlotIndex: already.slotIndex, room: row };
       }
 
-      const free = slots.find((s) => s.userId == null && (s.replacedUserId == null || s.replacedUserId === undefined));
+      const free = slots.find(
+        (s) =>
+          (s.userId == null || s.userId === '') &&
+          (s.replacedUserId == null || s.replacedUserId === undefined),
+      );
       if (!free) {
         return {
           error:
@@ -987,22 +1109,47 @@ export async function returnSlotToPlayer(roomId: string, slotIndex: number): Pro
   return error ? { error: error.message } : {};
 }
 
-/** Выйти из комнаты (удалить себя из player_slots). Если хост вышел — комната остаётся. */
+/**
+ * Выйти из комнаты.
+ * В лобби (waiting) — убрать строку игрока и сжать slotIndex.
+ * В игре (playing) — нельзя удалять слоты с userId: null (ИИ): иначе схлопывается стол до 1–2 мест,
+ * ломаются индексы 0–3 и новые игроки не могут зайти, а хост «гоняет» ИИ по game_state.
+ */
 export async function leaveRoom(roomId: string, userId: string): Promise<{ error?: string }> {
   if (!supabase) return { error: 'Supabase не настроен' };
   const room = await getRoom(roomId);
   if (!room) return {};
 
-  const slots = (room.player_slots as PlayerSlot[]) || [];
-  const newSlots = slots
-    .filter((s) => s.userId != null && s.userId !== userId)
-    .map((s, i) => ({ ...s, slotIndex: i }));
-  if (newSlots.length === slots.length) return {};
+  const slotsRaw = (room.player_slots as PlayerSlot[]) || [];
+  if (slotsRaw.length === 0) return {};
 
-  const { error } = await supabase
-    .from(TABLE)
-    .update({ player_slots: newSlots })
-    .eq('id', roomId);
+  if (room.status === 'playing') {
+    const byIdx = new Map<number, PlayerSlot>();
+    for (const s of slotsRaw) {
+      if (typeof s.slotIndex !== 'number' || s.slotIndex < 0 || s.slotIndex > 3) continue;
+      byIdx.set(s.slotIndex, { ...s });
+    }
+    for (let i = 0; i < 4; i++) {
+      if (!byIdx.has(i)) byIdx.set(i, vacantAiPlayerSlot(i));
+    }
+    let touched = false;
+    for (let i = 0; i < 4; i++) {
+      const s = byIdx.get(i)!;
+      if (s.userId === userId || s.replacedUserId === userId) {
+        byIdx.set(i, vacantAiPlayerSlot(i));
+        touched = true;
+      }
+    }
+    if (!touched) return {};
+    const newSlots = [0, 1, 2, 3].map((i) => byIdx.get(i)!);
+    const { error } = await supabase.from(TABLE).update({ player_slots: newSlots }).eq('id', roomId);
+    return error ? { error: error.message } : {};
+  }
+
+  const newSlots = slotsRaw.filter((s) => s.userId !== userId).map((s, i) => ({ ...s, slotIndex: i }));
+  if (newSlots.length === slotsRaw.length) return {};
+
+  const { error } = await supabase.from(TABLE).update({ player_slots: newSlots }).eq('id', roomId);
   return error ? { error: error.message } : {};
 }
 
@@ -1042,37 +1189,103 @@ export interface RoomChatMessageRow {
   created_at: string;
 }
 
-/** История чата комнаты (последние сообщения, по возрастанию времени). */
+/** История чата: последние `limit` сообщений по времени; в ответе — по возрастанию (сверху вниз в ленте). */
 export async function fetchRoomChatMessages(roomId: string, limit = 100): Promise<RoomChatMessageRow[]> {
   if (!supabase || !roomId) return [];
+  const lim = Math.min(200, Math.max(1, limit));
   const { data, error } = await supabase
     .from(CHAT_TABLE)
     .select('id, room_id, user_id, display_name, body, created_at')
     .eq('room_id', roomId)
-    .order('created_at', { ascending: true })
-    .limit(Math.min(200, Math.max(1, limit)));
+    .order('created_at', { ascending: false })
+    .limit(lim);
   if (error || !data) return [];
-  return data as RoomChatMessageRow[];
+  return (data as RoomChatMessageRow[]).slice().reverse();
 }
 
-/** Отправить сообщение в чат комнаты (RLS: только участник слота). */
+/** Отправка чата: сначала RPC (definer, обход RLS на INSERT), иначе REST — для старых БД без миграции. */
 export async function sendRoomChatMessage(
   roomId: string,
   userId: string,
   displayName: string,
   body: string
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; row?: RoomChatMessageRow }> {
   if (!supabase) return { error: 'Supabase не настроен' };
   const trimmed = body.trim();
   if (!trimmed) return { error: 'Пустое сообщение' };
   if (trimmed.length > 500) return { error: 'Не более 500 символов' };
-  const { error } = await supabase.from(CHAT_TABLE).insert({
-    room_id: roomId,
-    user_id: userId,
-    display_name: displayName.trim().slice(0, 40) || 'Игрок',
-    body: trimmed,
-  });
-  return error ? { error: error.message } : {};
+
+  const dn = displayName.trim().slice(0, 40) || 'Игрок';
+  let lastMsg = 'Не удалось отправить сообщение';
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const rpcRes = await supabase
+        .rpc('updown_post_room_chat_message', {
+          p_room_id: roomId,
+          p_display_name: dn,
+          p_body: trimmed,
+        })
+        .abortSignal(chatSendAbortSignal());
+
+      const rpcErr = rpcRes.error as { code?: string; message?: string } | null;
+      if (rpcErr && isPostgrestRpcMissingError(rpcErr)) {
+        /* нет RPC в проекте — сразу REST */
+      } else if (rpcErr) {
+        lastMsg = rpcErr.message ?? lastMsg;
+        if (isAbortLike(rpcErr) || isRetryableWriteFailure(rpcErr)) {
+          await sleep(roomRetryDelayMs(attempt));
+          continue;
+        }
+        return { error: formatChatSendError(rpcErr.message ?? lastMsg) };
+      } else {
+        const payloadRaw = parseRpcJsonObject(rpcRes.data);
+        if (payloadRaw) {
+          const payload = payloadRaw as { ok?: boolean; error?: string; row?: RoomChatMessageRow };
+          if (payload.ok === true && payload.row && typeof (payload.row as { id?: string }).id === 'string') {
+            return { row: payload.row as RoomChatMessageRow };
+          }
+          if (payload.ok === false && payload.error) {
+            const code = payload.error;
+            if (isRpcChatErrorFatal(code)) {
+              return { error: mapRpcChatErrorCode(code) };
+            }
+            lastMsg = mapRpcChatErrorCode(code);
+            await sleep(roomRetryDelayMs(attempt));
+            continue;
+          }
+        }
+      }
+
+      const { data, error } = await supabase
+        .from(CHAT_TABLE)
+        .insert({
+          room_id: roomId,
+          user_id: userId,
+          display_name: dn,
+          body: trimmed,
+        })
+        .select('id, room_id, user_id, display_name, body, created_at')
+        .abortSignal(chatSendAbortSignal())
+        .single();
+      if (!error && data) return { row: data as RoomChatMessageRow };
+      lastMsg = error?.message ?? lastMsg;
+      if (error && (isAbortLike(error) || isRetryableWriteFailure(error))) {
+        await sleep(roomRetryDelayMs(attempt));
+        continue;
+      }
+      if (error) return { error: formatChatSendError(error.message) };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      lastMsg = msg;
+      if (isRetryableNetworkMessage(msg) || isAbortLike(e as { message?: string; name?: string })) {
+        await sleep(roomRetryDelayMs(attempt));
+        continue;
+      }
+      return { error: formatChatSendError(msg) };
+    }
+  }
+  return { error: formatChatSendError(lastMsg) };
 }
 
 /** Подписка на новые сообщения чата (INSERT). */

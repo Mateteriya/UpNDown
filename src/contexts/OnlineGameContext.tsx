@@ -21,6 +21,7 @@ import {
   joinRoom as apiJoinRoom,
   recoverJoinByCode,
   getRoom,
+  getRoomQuick,
   getRoomForSyncPoll,
   updateRoomState,
   updateRoomPlayerSlots,
@@ -33,6 +34,7 @@ import {
   type GameRoomRow,
 } from '../lib/onlineGameSupabase';
 import { saveOnlineSession, clearOnlineSession, loadOnlineSession } from '../lib/onlineSession';
+import { loadLastOnlineParty, clearLastOnlineParty, saveLastOnlineParty } from '../lib/lastOnlineParty';
 
 /** Сообщение при обрыве по таймауту fetch в supabase.ts (~55 с). */
 function formatSupabaseNetworkError(e: unknown): string {
@@ -63,8 +65,6 @@ function getDeviceId(): string {
   }
 }
 
-// --- Управление Сессией (остается без изменений) ---
-const ONLINE_SESSION_KEY = 'updown_online_session';
 type OnlineStatus = 'idle' | 'waiting' | 'playing' | 'left';
 
 type PendingReclaimOffer = {
@@ -114,6 +114,10 @@ export interface OnlineGameContextValue {
   sendStartNextDeal: () => Promise<boolean>;
   sendState: (state: GameState) => Promise<boolean>;
   tryRestoreSession: () => Promise<{ ok: boolean; needReclaim?: boolean; roomFinished?: boolean; error?: string }>;
+  /** Убрать сохранённую подсказку «последняя комната» (меню / лобби), без выхода с сервера. */
+  forgetLastOnlineParty: () => void;
+  /** Меняется при forgetLast — чтобы меню перечитало localStorage. */
+  lastPartyHintVersion: number;
   confirmReclaim: () => Promise<boolean>;
   dismissReclaim: () => void;
   pendingReclaimOffer: PendingReclaimOffer | null;
@@ -127,6 +131,13 @@ export interface OnlineGameContextValue {
   clearError: () => void;
   userLeftTemporarily: boolean;
   setUserLeftTemporarily: (value: boolean) => void;
+  /** Увеличивается при каждом «прикреплении» к комнате (вход, восстановление, heal Realtime) — чтобы чат заново подтянул историю при том же roomId. */
+  roomSessionNonce: number;
+  /**
+   * После первичной проверки sessionStorage/lastOnlineParty + performSessionRestore (или решения «сессии нет»).
+   * Пока false — GameTable не должен поднимать офлайн-стол, иначе после убийства вкладки моб. браузером показывается локальная партия вместо ожидания онлайна.
+   */
+  onlineHydratedFromStorage: boolean;
 }
 // --- Конец интерфейса ---
 
@@ -149,6 +160,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const [canonicalState, setCanonicalState] = useState<GameState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [realtimeHealKey, setRealtimeHealKey] = useState(0);
+  const [roomSessionNonce, setRoomSessionNonce] = useState(0);
+  const [onlineHydratedFromStorage, setOnlineHydratedFromStorage] = useState(false);
+  const onlineHydrateGenRef = useRef(0);
   const [pendingReclaimOffer, setPendingReclaimOffer] = useState<PendingReclaimOffer | null>(null);
   const deviceIdRef = useRef<string>(getDeviceId());
   const unsubRef = useRef<(() => void) | null>(null);
@@ -287,6 +301,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         const idB = window.setTimeout(() => void refreshRoom(), 1000);
         realtimePollBurstTimeoutsRef.current.push(idA, idB);
         setRealtimeHealKey((k) => k + 1);
+        setRoomSessionNonce((n) => n + 1);
       }, 250);
     });
     unsubRef.current = unsub;
@@ -371,22 +386,24 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return latest != null && latest.roomId === saved.roomId;
       };
       let room: GameRoomRow | null = null;
-      const maxAttempts = 5;
+      const maxAttempts = 4;
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
-          room = await getRoom(saved.roomId);
+          room = await getRoomQuick(saved.roomId);
         } catch {
           return { ok: false, error: 'Нет связи с сервером. Проверьте интернет и попробуйте снова.' };
         }
         if (room) break;
-        if (attempt < maxAttempts - 1) await new Promise((r) => setTimeout(r, 350));
+        if (attempt < maxAttempts - 1) await new Promise((r) => setTimeout(r, 280));
       }
       if (!room) {
         if (storageStillThisRoom()) clearOnlineSession();
+        clearLastOnlineParty();
         return { ok: false, error: 'Комната не найдена или сервер не ответил (проверьте вход в аккаунт и RLS в Supabase).' };
       }
       if (room.status === 'finished') {
         if (storageStillThisRoom()) clearOnlineSession();
+        clearLastOnlineParty();
         return { ok: false, roomFinished: true };
       }
       const slots = (room.player_slots || []) as PlayerSlot[];
@@ -398,29 +415,62 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       if (!storageStillThisRoom()) {
         return { ok: false };
       }
-      if (saved.deviceId !== deviceIdRef.current) {
-        saveOnlineSession(saved.roomId, deviceIdRef.current);
-      }
+      saveOnlineSession(saved.roomId, deviceIdRef.current, room.code ?? undefined);
       applyRoomData(room);
       setMyServerIndex(meSlot.slotIndex);
+      setRoomSessionNonce((n) => n + 1);
       return { ok: true };
     },
     [applyRoomData, user?.id]
   );
 
-  // F5 / возврат в приложение: одна точка восстановления из sessionStorage (не дублировать вторым эффектом).
+  // F5 / холодный старт: sessionStorage или lastOnlineParty → performSessionRestore; флаг onlineHydratedFromStorage — чтобы GameTable не поднял офлайн до этого.
   useEffect(() => {
-    if (authLoading || !user?.id) return;
-    const saved = loadOnlineSession();
-    if (!saved) {
-      sessionRestoreOkRef.current = false;
+    if (authLoading) return;
+    if (!user?.id) {
+      setOnlineHydratedFromStorage(true);
       return;
     }
-    if (sessionRestoreOkRef.current) return;
-    void performSessionRestore(saved).then((r) => {
-      if (r.ok || r.roomFinished) sessionRestoreOkRef.current = true;
-    });
+    const gen = ++onlineHydrateGenRef.current;
+    let saved = loadOnlineSession();
+    if (!saved) {
+      const last = loadLastOnlineParty();
+      if (last?.roomId) {
+        saveOnlineSession(last.roomId, deviceIdRef.current, last.code);
+        saved = loadOnlineSession();
+      }
+    }
+    if (!saved) {
+      sessionRestoreOkRef.current = false;
+      setOnlineHydratedFromStorage(true);
+      return;
+    }
+    if (sessionRestoreOkRef.current) {
+      setOnlineHydratedFromStorage(true);
+      return;
+    }
+    setOnlineHydratedFromStorage(false);
+    void performSessionRestore(saved)
+      .then((r) => {
+        if (onlineHydrateGenRef.current !== gen) return;
+        if (r.ok || r.roomFinished) sessionRestoreOkRef.current = true;
+      })
+      .catch(() => {
+        if (onlineHydrateGenRef.current !== gen) return;
+      })
+      .finally(() => {
+        if (onlineHydrateGenRef.current !== gen) return;
+        setOnlineHydratedFromStorage(true);
+      });
   }, [authLoading, user?.id, performSessionRestore]);
+
+  /** Пока вы в слотах — держим подсказку с кодом (на случай обхода saveOnlineSession без code). */
+  useEffect(() => {
+    if (!roomId || !code || !user?.id) return;
+    const inSlots = playerSlots.some((s) => s.userId === user.id || s.replacedUserId === user.id);
+    if (!inSlots) return;
+    saveLastOnlineParty(roomId, code);
+  }, [roomId, code, user?.id, playerSlots]);
 
   // Если в игре есть слот с replacedUserId === наш user.id (ручная пауза) — предложить вернуть слот.
   useEffect(() => {
@@ -452,8 +502,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           return { ok: false, error: result.error };
         }
         applyRoomData(result.room);
-        saveOnlineSession(result.room.id, deviceIdRef.current);
+        saveOnlineSession(result.room.id, deviceIdRef.current, result.room.code);
         setMyServerIndex(0);
+        setRoomSessionNonce((n) => n + 1);
         sessionRestoreOkRef.current = true;
         return { ok: true };
       } catch (e) {
@@ -477,7 +528,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         }
         applyRoomData(result.room);
         setMyServerIndex(result.mySlotIndex);
-        saveOnlineSession(result.roomId, deviceIdRef.current);
+        saveOnlineSession(result.roomId, deviceIdRef.current, result.room.code);
+        setRoomSessionNonce((n) => n + 1);
         sessionRestoreOkRef.current = true;
         return { ok: true };
       } catch (e) {
@@ -497,7 +549,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       setError(null);
       applyRoomData(r.room);
       setMyServerIndex(r.mySlotIndex);
-      saveOnlineSession(r.roomId, deviceIdRef.current);
+      saveOnlineSession(r.roomId, deviceIdRef.current, codeInput.trim().toUpperCase());
+      setRoomSessionNonce((n) => n + 1);
       sessionRestoreOkRef.current = true;
       return true;
     },
@@ -568,6 +621,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
 
   const [userLeftTemporarily, setUserLeftTemporarily] = useState(false);
   const [userOnPause, setUserOnPause] = useState(false);
+  const [lastPartyHintVersion, setLastPartyHintVersion] = useState(0);
 
   const leaveRoom = useCallback(async () => {
     const rid = roomId;
@@ -583,6 +637,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     sessionRestoreOkRef.current = false;
     setUserLeftTemporarily(false);
     setUserOnPause(false);
+    setOnlineHydratedFromStorage(true);
     clearOnlineSession();
     if (rid && user?.id) {
       void apiLeaveRoom(rid, user.id).catch(() => {});
@@ -591,6 +646,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   
   const AI_NAMES = ['ИИ Север', 'ИИ Восток', 'ИИ Юг', 'ИИ Запад'] as const;
 
+  const countHumanSlots = (slots: PlayerSlot[]) =>
+    slots.filter((s) => s.userId != null && s.userId !== '').length;
+  const humanUserIdsKey = (slots: PlayerSlot[]) =>
+    [...new Set(slots.map((s) => s.userId).filter((u): u is string => !!u && u !== ''))].sort().join('|');
+
   const startGame = useCallback(async (): Promise<boolean> => {
     if (!roomId || myServerIndex !== 0) {
       if (roomId && myServerIndex !== 0) {
@@ -598,13 +658,61 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       return false;
     }
-    /** Состав с сервера: локальные playerSlots после Realtime/опроса могут отставать (хост «не видит» гостей). */
-    const fresh = await getRoom(roomId);
-    if (!fresh?.id || fresh.id !== roomId) {
+    /**
+     * Один getRoom может отстать (кэш/сеть): хост записывает player_slots только с собой — гости исчезают из БД,
+     * стол уходит в «все ИИ», хост гоняет sendState. Два чтения + сравнение с UI и отказ при «потере» людей.
+     */
+    const uiHumans = countHumanSlots(playerSlots);
+    const r1 = await getRoom(roomId);
+    if (!r1?.id || r1.id !== roomId) {
       setError('Нет актуального состава комнаты. Проверьте сеть и нажмите «Начать игру» снова.');
       return false;
     }
-    const sourceSlots = ((fresh.player_slots as PlayerSlot[]) || []).slice();
+    await new Promise((r) => setTimeout(r, 110));
+    const r2 = await getRoom(roomId);
+    if (!r2?.id || r2.id !== roomId) {
+      setError('Нет актуального состава комнаты. Проверьте сеть и нажмите «Начать игру» снова.');
+      return false;
+    }
+    const slots1 = ((r1.player_slots as PlayerSlot[]) || []).slice();
+    const slots2 = ((r2.player_slots as PlayerSlot[]) || []).slice();
+    const c1 = countHumanSlots(slots1);
+    const c2 = countHumanSlots(slots2);
+    const k1 = humanUserIdsKey(slots1);
+    const k2 = humanUserIdsKey(slots2);
+    if (c2 < c1) {
+      setError('Сервер вернул устаревший состав (меньше игроков). Подождите секунду и нажмите «Начать игру» снова.');
+      applyRoomData(r1);
+      return false;
+    }
+    let fresh = r2;
+    let sourceSlots = slots2;
+    if (c1 !== c2 || k1 !== k2) {
+      await new Promise((r) => setTimeout(r, 200));
+      const r3 = await getRoom(roomId);
+      if (!r3?.id || r3.id !== roomId) {
+        setError('Состав комнаты меняется. Подождите и нажмите «Начать игру» снова.');
+        return false;
+      }
+      const slots3 = ((r3.player_slots as PlayerSlot[]) || []).slice();
+      const c3 = countHumanSlots(slots3);
+      const k3 = humanUserIdsKey(slots3);
+      if (c3 !== c2 || k3 !== k2) {
+        setError('Состав комнаты ещё синхронизируется. Подождите 1–2 с и нажмите «Начать игру» снова.');
+        applyRoomData(r3);
+        return false;
+      }
+      fresh = r3;
+      sourceSlots = slots3;
+    }
+    const srvHumans = countHumanSlots(sourceSlots);
+    if (uiHumans > srvHumans) {
+      setError(
+        'На сервере сейчас меньше игроков, чем у вас на экране (данные отстают). Подождите 2–3 с и нажмите «Начать игру» снова.',
+      );
+      applyRoomData(fresh);
+      return false;
+    }
     const humans = sourceSlots.filter((s) => s.userId != null && s.userId !== '');
     if (humans.length < 1) {
       setError('В комнате нет игроков. Обновите экран или зайдите по коду снова.');
@@ -761,13 +869,53 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         }
     }, [roomId, canonicalState, myServerIndex, applyRoomData]);
 
+    const forgetLastOnlineParty = useCallback(() => {
+      clearLastOnlineParty();
+      setLastPartyHintVersion((v) => v + 1);
+    }, []);
+
     const tryRestoreSession = useCallback(async (): Promise<{ ok: boolean; needReclaim?: boolean; roomFinished?: boolean; error?: string }> => {
-      const saved = loadOnlineSession();
-      if (!saved) return { ok: false, error: 'Сессия не найдена. Откройте онлайн и войдите по коду.' };
-      const r = await performSessionRestore(saved);
-      if (r.ok || r.roomFinished) sessionRestoreOkRef.current = true;
+      let saved = loadOnlineSession();
+      const last = loadLastOnlineParty();
+      if (!saved && last?.roomId) {
+        saveOnlineSession(last.roomId, deviceIdRef.current, last.code);
+        saved = loadOnlineSession();
+      }
+      if (!saved) {
+        return {
+          ok: false,
+          error:
+            'Нет сохранённой онлайн-сессии. Попросите код у друзей или откройте «Онлайн» — там показывается последняя комната, если вы уже играли.',
+        };
+      }
+      let r = await performSessionRestore(saved);
+      if (r.ok || r.roomFinished) {
+        sessionRestoreOkRef.current = true;
+        return r;
+      }
+      if (!user?.id) return r;
+      if (last?.code) {
+        const recovered = await recoverJoinIfAlreadyInRoom(last.code);
+        if (recovered) {
+          sessionRestoreOkRef.current = true;
+          return { ok: true };
+        }
+        const prof = getPlayerProfile();
+        const name = prof.displayName?.trim() || 'Игрок';
+        const shortLabel = user.email ? user.email.replace(/@.*$/, '').slice(-8) : undefined;
+        const avatarDataUrl = prof.avatarDataUrl ?? undefined;
+        const jr = await apiJoinRoom(last.code, user.id, name, shortLabel, avatarDataUrl);
+        if (!('error' in jr)) {
+          applyRoomData(jr.room);
+          setMyServerIndex(jr.mySlotIndex);
+          saveOnlineSession(jr.roomId, deviceIdRef.current, jr.room.code);
+          setRoomSessionNonce((n) => n + 1);
+          sessionRestoreOkRef.current = true;
+          return { ok: true };
+        }
+      }
       return r;
-    }, [performSessionRestore]);
+    }, [performSessionRestore, user?.id, user?.email, recoverJoinIfAlreadyInRoom, applyRoomData]);
   
     // ... Остальной код, который вы можете скопировать из предыдущей версии, он не должен требовать изменений
     // ... confirmReclaim, dismissReclaim, и т.д.
@@ -942,7 +1090,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
 
 
   const value: OnlineGameContextValue = {
-    status, roomId, code, myServerIndex, playerSlots, canonicalState, displayState, error, createRoom, joinRoom, recoverJoinIfAlreadyInRoom, leaveRoom, refreshRoom, syncMySlotDisplayName, syncMySlotAvatar, startGame, sendBid, sendPlay, sendCompleteTrick, sendStartNextDeal, sendState, tryRestoreSession, confirmReclaim, dismissReclaim, pendingReclaimOffer, returnSlotToPlayer, userOnPause, takePause, returnFromPause, playerLeftToast, clearPlayerLeftToast, clearError, userLeftTemporarily, setUserLeftTemporarily,
+    status, roomId, code, myServerIndex, playerSlots, canonicalState, displayState, error, createRoom, joinRoom, recoverJoinIfAlreadyInRoom, leaveRoom, refreshRoom, syncMySlotDisplayName, syncMySlotAvatar, startGame, sendBid, sendPlay, sendCompleteTrick, sendStartNextDeal, sendState, tryRestoreSession, forgetLastOnlineParty, lastPartyHintVersion, confirmReclaim, dismissReclaim, pendingReclaimOffer, returnSlotToPlayer, userOnPause, takePause, returnFromPause, playerLeftToast, clearPlayerLeftToast, clearError, userLeftTemporarily, setUserLeftTemporarily, roomSessionNonce, onlineHydratedFromStorage,
   };
 
   return (

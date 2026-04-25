@@ -148,6 +148,32 @@ export interface PlayerProfile {
 }
 
 const DEFAULT_DISPLAY_NAME = 'Вы';
+const MAX_DISPLAY_NAME_LENGTH = 17;
+
+/** Выше — JSON.parse на главном потоке «подвешивает» кнопки (лобби createRoom читает профиль). */
+const PLAYER_PROFILE_RAW_PARSE_MAX = 90_000;
+
+/** Только начало файла: profileId и displayName без полного parse мегабайтного data URL. */
+function tryParsePlayerProfileLight(raw: string): PlayerProfile {
+  const head = raw.slice(0, 8000);
+  const profileIdMatch = head.match(/"profileId"\s*:\s*"([0-9a-f-]{36})"/i);
+  const nameMatch = head.match(/"displayName"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  let displayName = DEFAULT_DISPLAY_NAME;
+  if (nameMatch?.[1]) {
+    try {
+      displayName = JSON.parse(`"${nameMatch[1].replace(/\\"/g, '"')}"`) as string;
+    } catch {
+      displayName = nameMatch[1].replace(/\\"/g, '"');
+    }
+    if (!displayName.trim()) displayName = DEFAULT_DISPLAY_NAME;
+  }
+  const profileId = profileIdMatch?.[1] ?? generateProfileId();
+  return {
+    displayName: displayName.trim().slice(0, MAX_DISPLAY_NAME_LENGTH),
+    avatarDataUrl: undefined,
+    profileId,
+  };
+}
 
 function generateProfileId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -161,6 +187,9 @@ export function getPlayerProfile(): PlayerProfile {
   try {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(PLAYER_PROFILE_STORAGE_KEY) : null;
     if (!raw) return { displayName: DEFAULT_DISPLAY_NAME, profileId: generateProfileId() };
+    if (raw.length > PLAYER_PROFILE_RAW_PARSE_MAX) {
+      return tryParsePlayerProfileLight(raw);
+    }
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return { displayName: DEFAULT_DISPLAY_NAME, profileId: generateProfileId() };
     const p = parsed as Record<string, unknown>;
@@ -185,8 +214,6 @@ export function getPlayerProfile(): PlayerProfile {
     return { displayName: DEFAULT_DISPLAY_NAME, profileId: generateProfileId() };
   }
 }
-
-const MAX_DISPLAY_NAME_LENGTH = 17;
 
 export function savePlayerProfile(profile: PlayerProfile): void {
   try {

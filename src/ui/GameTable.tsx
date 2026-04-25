@@ -47,7 +47,8 @@ import { isPersonalAiReplacementEnabled } from '../lib/featureFlags';
 import { CardView } from './CardView';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
-import { TableChatDock } from './TableChatDock';
+import { MobileSouthChatNameTicker } from './MobileSouthChatNameTicker';
+import { TableChatDock, type TableChatDockOwnMessageHandler } from './TableChatDock';
 import type { Card, GamePhase } from '../game/types';
 
 function getCompassLabel(idx: number): 'Юг' | 'Север' | 'Запад' | 'Восток' {
@@ -1051,8 +1052,29 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     };
   }, []);
   const showTableChat = !!(online.roomId && (isOnline || isWaitingInRoom) && user?.id);
+  /** Последнее своё сообщение чата — бегущая строка на месте имени в моб. панели Юга */
+  const [mobileOwnChatTicker, setMobileOwnChatTicker] = useState<{ body: string; key: number } | null>(null);
+  const mobileOwnChatClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onOwnTableChatMessageSent = useCallback<TableChatDockOwnMessageHandler>((row) => {
+    if (mobileOwnChatClearTimerRef.current) clearTimeout(mobileOwnChatClearTimerRef.current);
+    setMobileOwnChatTicker((prev) => ({ body: row.body, key: (prev?.key ?? 0) + 1 }));
+    mobileOwnChatClearTimerRef.current = setTimeout(() => {
+      setMobileOwnChatTicker(null);
+      mobileOwnChatClearTimerRef.current = null;
+    }, 20000);
+  }, []);
+  useEffect(
+    () => () => {
+      if (mobileOwnChatClearTimerRef.current) {
+        clearTimeout(mobileOwnChatClearTimerRef.current);
+        mobileOwnChatClearTimerRef.current = null;
+      }
+    },
+    [],
+  );
   const [localState, setLocalState] = useState<GameState | null>(null);
   const [startingFromWaiting, setStartingFromWaiting] = useState(false);
+  const [onlineRoomCodeCopied, setOnlineRoomCodeCopied] = useState(false);
   const prevOnlineAiDriveKeyRef = useRef<string | null>(null);
   const onlineAiSendFailsRef = useRef(0);
   const [onlineAiDriveRetry, setOnlineAiDriveRetry] = useState(0);
@@ -2506,6 +2528,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
 
   useEffect(() => {
     if (isOnline || isWaitingInRoom) return;
+    /** Пока контекст не решил судьбу сохранённой онлайн-сессии — не поднимать офлайн (иначе после убийства вкладки моб. браузером показывается локальная партия вместо онлайна). */
+    if (!online.onlineHydratedFromStorage) return;
     const prof = getPlayerProfile();
     const humanName = prof.displayName?.trim() && prof.displayName !== 'Вы' ? prof.displayName : 'Вы';
     const restored = loadGameStateFromStorage();
@@ -2533,7 +2557,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     setLastDealResultsSnapshot(null);
     setGameOverSnapshot(null);
     setShowGameOverModal(false);
-  }, [gameId, isOnline, isWaitingInRoom]);
+  }, [gameId, isOnline, isWaitingInRoom, online.onlineHydratedFromStorage]);
 
   useEffect(() => {
     if (isOnline || isWaitingInRoom) return;
@@ -3134,6 +3158,22 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     }
   }, [online]);
 
+  const showOnlineRoomCodeStrip = !!(
+    online.roomId &&
+    online.code &&
+    (online.status === 'waiting' || online.status === 'playing')
+  );
+
+  const copyOnlineRoomCode = useCallback(() => {
+    const c = online.code?.trim();
+    if (!c) return;
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
+    void navigator.clipboard.writeText(c).then(() => {
+      setOnlineRoomCodeCopied(true);
+      window.setTimeout(() => setOnlineRoomCodeCopied(false), 2000);
+    });
+  }, [online.code]);
+
   useEffect(() => {
     if (!online.playerLeftToast) return;
     const t = setTimeout(() => online.clearPlayerLeftToast(), 5000);
@@ -3302,19 +3342,18 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
 
   // Онлайн: ход бота только если в player_slots у текущего места userId пустой, либо слота ещё нет, но имя в game_state — встроенный бот («ИИ …»). Иначе при лаге слотов хост не подменяет ход человека.
   const currentPlayerSlot = online.canonicalState ? online.playerSlots.find((s) => s.slotIndex === online.canonicalState!.currentPlayerIndex) : undefined;
-  const canonicalAiTurn =
-    !!online.canonicalState &&
-    (online.canonicalState.players[online.canonicalState.currentPlayerIndex]?.name ?? '').startsWith('ИИ ');
   const seatIsAiSlot =
     currentPlayerSlot != null && (currentPlayerSlot.userId == null || currentPlayerSlot.userId === '');
+  /** Без fallback по имени в game_state: при рассинхроне слотов хост иначе подменяет ходы людей «ИИ». */
   const isOnlineAiTurn =
     isOnline &&
     !!online.canonicalState &&
+    currentPlayerSlot != null &&
     !online.canonicalState.pendingTrickCompletion &&
     (online.canonicalState.phase === 'bidding' ||
       online.canonicalState.phase === 'dark-bidding' ||
       online.canonicalState.phase === 'playing') &&
-    (seatIsAiSlot || (currentPlayerSlot == null && canonicalAiTurn));
+    seatIsAiSlot;
 
   const isAITurn =
     (isOnline && isOnlineAiTurn) ||
@@ -3381,6 +3420,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       if (currentKey !== scheduleKey) return;
       const playerIdx = current.currentPlayerIndex;
       const slotsNow = onlineRef.current.playerSlots;
+      const slotAtTurn = slotsNow.find((s) => s.slotIndex === playerIdx);
+      if (slotAtTurn?.userId != null && slotAtTurn.userId !== '') {
+        return;
+      }
       const uid = userRef.current?.id;
       const replacedByMe = slotsNow.find((s) => s.slotIndex === playerIdx)?.replacedUserId === uid;
       const personalProfileId =
@@ -5234,6 +5277,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             <div className="game-center-table" style={{ ...centerStyle, flex: 1, minWidth: 0 }}>
         <div style={{ ...tableOuterStyle, ...(trumpHighlightOn ? tableOuterStyleWithHighlight : {}) }}>
           <div style={{ ...tableSurfaceStyle, ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}) }}>
+            {showOnlineRoomCodeStrip && online.code && (
+              <OnlineRoomCodeMarquee
+                code={online.code}
+                prefersReducedMotion={prefersReducedMotion}
+                copied={onlineRoomCodeCopied}
+                onCopy={copyOnlineRoomCode}
+              />
+            )}
             {isMobile &&
               mobileViewportShort &&
               mobileShortHeaderImmersive &&
@@ -5252,8 +5303,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 />
               )}
             {isWaitingInRoom && (
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, zIndex: 10 }}>
-                <p style={{ margin: 0, color: '#94a3b8', fontSize: 14 }}>Код комнаты: <strong style={{ color: '#22d3ee', letterSpacing: 2 }}>{online.code || '—'}</strong></p>
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, zIndex: 8 }}>
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: 12, textAlign: 'center', maxWidth: 280, lineHeight: 1.45 }}>
+                  Код — бегущая строка вверху справа на столе; кнопка копирования там же.
+                </p>
                 {online.error && <p style={{ margin: 0, fontSize: 13, color: '#f87171' }}>{online.error}</p>}
                 {online.myServerIndex === 0 && (
                   <button
@@ -5991,22 +6044,33 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                           width: '100%',
                         }}
                       >
-                        <span
-                          className={['player-panel-name', showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? 'your-turn-prompt' : ''].filter(Boolean).join(' ')}
-                          style={{
-                            ...playerNameStyle,
-                            fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE * 0.9),
-                            ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
-                            ...(showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? yourTurnPromptStyle : {}),
-                          }}
-                          title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
-                        >
-                          {showYourTurnPrompt && (isHumanTurn || isHumanBidding)
-                            ? state.phase === 'playing'
-                              ? 'Ваш ход!'
-                              : 'Ваш заказ!'
-                            : displayState.players[humanIdx].name}
-                        </span>
+                        {showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? (
+                          <span
+                            className={['player-panel-name', 'your-turn-prompt'].join(' ')}
+                            style={{
+                              ...playerNameStyle,
+                              fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE * 0.9),
+                              ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
+                              ...yourTurnPromptStyle,
+                            }}
+                            title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
+                          >
+                            {state.phase === 'playing' ? 'Ваш ход!' : 'Ваш заказ!'}
+                          </span>
+                        ) : (
+                          <MobileSouthChatNameTicker
+                            name={displayState.players[humanIdx].name}
+                            chatBody={mobileOwnChatTicker?.body ?? null}
+                            chatKey={mobileOwnChatTicker?.key ?? 0}
+                            nameClassName="player-panel-name"
+                            nameStyle={{
+                              ...playerNameStyle,
+                              fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE * 0.9),
+                              ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
+                            }}
+                            title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
+                          />
+                        )}
                         {state.dealerIndex === humanIdx &&
                           (isMobileOrTablet && state.phase === 'playing' ? (
                             <button
@@ -6263,22 +6327,33 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                           minWidth: 0,
                         }}
                       >
-                        <span
-                          className={['player-panel-name', showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? 'your-turn-prompt' : ''].filter(Boolean).join(' ')}
-                          style={{
-                            ...playerNameStyle,
-                            fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-                            ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
-                            ...(showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? yourTurnPromptStyle : {}),
-                          }}
-                          title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
-                        >
-                          {showYourTurnPrompt && (isHumanTurn || isHumanBidding)
-                            ? state.phase === 'playing'
-                              ? 'Ваш ход!'
-                              : 'Ваш заказ!'
-                            : displayState.players[humanIdx].name}
-                        </span>
+                        {showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? (
+                          <span
+                            className={['player-panel-name', 'your-turn-prompt'].join(' ')}
+                            style={{
+                              ...playerNameStyle,
+                              fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                              ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
+                              ...yourTurnPromptStyle,
+                            }}
+                            title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
+                          >
+                            {state.phase === 'playing' ? 'Ваш ход!' : 'Ваш заказ!'}
+                          </span>
+                        ) : (
+                          <MobileSouthChatNameTicker
+                            name={displayState.players[humanIdx].name}
+                            chatBody={mobileOwnChatTicker?.body ?? null}
+                            chatKey={mobileOwnChatTicker?.key ?? 0}
+                            nameClassName="player-panel-name"
+                            nameStyle={{
+                              ...playerNameStyle,
+                              fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                              ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
+                            }}
+                            title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
+                          />
+                        )}
                         {state.dealerIndex === humanIdx &&
                           (isMobileOrTablet && state.phase === 'playing' ? (
                             <button
@@ -6393,6 +6468,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           roomId={online.roomId}
           userId={user.id}
           displayName={playerDisplayName?.trim() || 'Игрок'}
+          roomSessionNonce={online.roomSessionNonce}
+          onOwnMessageSent={onOwnTableChatMessageSent}
         />
       )}
       </div>
@@ -6491,9 +6568,19 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         <div className="game-center-table" style={centerStyle}>
         <div style={{ ...tableOuterStyle, ...(trumpHighlightOn ? tableOuterStyleWithHighlight : {}) }}>
           <div style={{ ...tableSurfaceStyle, ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}) }}>
+            {showOnlineRoomCodeStrip && online.code && (
+              <OnlineRoomCodeMarquee
+                code={online.code}
+                prefersReducedMotion={prefersReducedMotion}
+                copied={onlineRoomCodeCopied}
+                onCopy={copyOnlineRoomCode}
+              />
+            )}
             {isWaitingInRoom && (
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, zIndex: 10 }}>
-                <p style={{ margin: 0, color: '#94a3b8', fontSize: 14 }}>Код комнаты: <strong style={{ color: '#22d3ee', letterSpacing: 2 }}>{online.code || '—'}</strong></p>
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, zIndex: 8 }}>
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: 12, textAlign: 'center', maxWidth: 280, lineHeight: 1.45 }}>
+                  Код — бегущая строка вверху справа на столе; кнопка копирования там же.
+                </p>
                 {online.error && <p style={{ margin: 0, fontSize: 13, color: '#f87171' }}>{online.error}</p>}
                 {online.myServerIndex === 0 && (
                   <button
@@ -6917,16 +7004,37 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           )}
         </div>
       </div>
-      {showTableChat && online.roomId && user?.id && (
-        <TableChatDock
-          variant="pc"
-          roomId={online.roomId}
-          userId={user.id}
-          displayName={playerDisplayName?.trim() || 'Игрок'}
-        />
-      )}
       </div>
       )}
+
+      {/* Онлайн-чат ПК: портал на body — иначе fixed внутри предка с transform (gameTableBlockStyle) + overflow:hidden у корня стола обрезает ленту */}
+      {!isMobile &&
+        showTableChat &&
+        online.roomId &&
+        user?.id &&
+        createPortal(
+          <div
+            className="game-table-root table-chat-pc-portal-root"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 12,
+              pointerEvents: 'none',
+              overflow: 'visible',
+              background: 'transparent',
+            }}
+          >
+            <TableChatDock
+              variant="pc"
+              roomId={online.roomId}
+              userId={user.id}
+              displayName={playerDisplayName?.trim() || 'Игрок'}
+              roomSessionNonce={online.roomSessionNonce}
+              onOwnMessageSent={onOwnTableChatMessageSent}
+            />
+          </div>,
+          document.body,
+        )}
 
       {/* Мобильная панель заказа рендерится в потоке под картами (bid-panel-mobile-inline-wrap), не в портале */}
 
@@ -7260,6 +7368,61 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       )}
       </div>
 
+    </div>
+  );
+}
+
+/** Онлайн: код комнаты — бегущая строка в правом верхнем углу поверхности стола (как immersive-marquee по идее). */
+function OnlineRoomCodeMarquee({
+  code,
+  prefersReducedMotion,
+  copied,
+  onCopy,
+}: {
+  code: string;
+  prefersReducedMotion: boolean;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  const chunk = (
+    <>
+      <span className="online-room-code-marquee__lab">Комната</span>
+      <span className="online-room-code-marquee__sep" aria-hidden>
+        ·
+      </span>
+      <span className="online-room-code-marquee__code">{code}</span>
+      <span className="online-room-code-marquee__sep" aria-hidden>
+        ·
+      </span>
+      <span className="online-room-code-marquee__hint">тот же аккаунт → Онлайн или «Продолжить»</span>
+      <span className="online-room-code-marquee__sep" aria-hidden>
+        ·
+      </span>
+    </>
+  );
+  return (
+    <div className="online-room-code-marquee" role="status" aria-live="polite" aria-label={`Код комнаты ${code}`}>
+      <div className="online-room-code-marquee__viewport">
+        {prefersReducedMotion ? (
+          <div className="online-room-code-marquee__static">{chunk}</div>
+        ) : (
+          <span className="online-room-code-marquee__track">
+            <span className="online-room-code-marquee__pair">{chunk}</span>
+            <span className="online-room-code-marquee__pair" aria-hidden>
+              {chunk}
+            </span>
+          </span>
+        )}
+      </div>
+      <button
+        type="button"
+        className="online-room-code-marquee__copy"
+        onClick={onCopy}
+        title="Скопировать код комнаты"
+        aria-label="Скопировать код комнаты"
+      >
+        {copied ? '✓' : '⎘'}
+      </button>
     </div>
   );
 }

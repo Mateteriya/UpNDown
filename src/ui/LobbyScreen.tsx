@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnlineGame } from '../contexts/useOnlineGame';
+import { loadLastOnlineParty } from '../lib/lastOnlineParty';
 
 export interface LobbyScreenProps {
   onBack: () => void;
@@ -45,6 +46,11 @@ const buttonSecondary: React.CSSProperties = {
   color: '#94a3b8',
 };
 
+/** Верхняя граница ожидания createRoom — иначе кнопка «Создание…» без ответа при зависшем fetch. */
+const LOBBY_CREATE_TOTAL_MS = 52_000;
+/** То же для «Присоединиться» (join может крутиться до 48 с внутри клиента). */
+const LOBBY_JOIN_TOTAL_MS = 56_000;
+
 export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }: LobbyScreenProps) {
   const { user } = useAuth();
   const {
@@ -61,11 +67,15 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     clearError,
     syncMySlotDisplayName,
     refreshRoom,
+    tryRestoreSession,
+    forgetLastOnlineParty,
+    lastPartyHintVersion,
   } = useOnlineGame();
 
   const [joinCode, setJoinCode] = useState(initialJoinCode ?? '');
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [resumeLastBusy, setResumeLastBusy] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [leftPlayerToast, setLeftPlayerToast] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
@@ -153,7 +163,18 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     setCreating(true);
     try {
       await leaveRoom();
-      const r = await createRoom(user.id, name, shortLabel);
+      const r = await Promise.race([
+        createRoom(user.id, name, shortLabel),
+        new Promise<{ ok: false; error: string }>((resolve) => {
+          window.setTimeout(() => {
+            resolve({
+              ok: false,
+              error:
+                'Сервер слишком долго не ответил. Проверьте интернет и VPN; в Supabase убедитесь, что проект не на паузе. Откройте игру по HTTPS (не localhost с другого устройства) и нажмите «Создать» снова.',
+            });
+          }, LOBBY_CREATE_TOTAL_MS);
+        }),
+      ]);
       if (!r.ok) setJoinError(r.error ?? 'Не удалось создать комнату.');
     } catch (e) {
       setJoinError(e instanceof Error ? e.message : 'Ошибка при создании комнаты.');
@@ -163,6 +184,24 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
   };
 
   const [joinError, setJoinError] = useState<string | null>(null);
+
+  const handleResumeLastFromLobby = async () => {
+    setResumeLastBusy(true);
+    setJoinError(null);
+    clearError();
+    try {
+      const r = await tryRestoreSession();
+      if (r.needReclaim) return;
+      if (r.roomFinished) {
+        setJoinError('Эта партия уже завершена.');
+        return;
+      }
+      if (!r.ok && r.error) setJoinError(r.error);
+      if (r.ok && onGoToGame) onGoToGame();
+    } finally {
+      setResumeLastBusy(false);
+    }
+  };
 
   const handleJoinRoom = async () => {
     const code = joinCode.trim();
@@ -174,12 +213,27 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
       setJoinError('Войдите в аккаунт, чтобы присоединиться к комнате.');
       return;
     }
+    if (!playerName.trim()) {
+      setJoinError('Укажите имя в профиле перед входом в комнату.');
+      return;
+    }
     clearError();
     setJoinError(null);
     setJoining(true);
     try {
       await leaveRoom();
-      let r = await joinRoom(code, user.id, playerName, shortLabel);
+      let r = await Promise.race([
+        joinRoom(code, user.id, playerName.trim(), shortLabel),
+        new Promise<{ ok: false; error: string }>((resolve) => {
+          window.setTimeout(() => {
+            resolve({
+              ok: false,
+              error:
+                'Вход занял слишком много времени. Проверьте интернет; на сервере должна быть применена последняя миграция (RPC входа). Попробуйте «Присоединиться» снова.',
+            });
+          }, LOBBY_JOIN_TOTAL_MS);
+        }),
+      ]);
       if (!r.ok) {
         const recovered = await recoverJoinIfAlreadyInRoom(code);
         if (recovered) {
@@ -263,6 +317,9 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
               <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, letterSpacing: 4, color: '#22d3ee' }}>
                 {code}
               </p>
+              <p style={{ margin: '8px 0 0', fontSize: 12, color: '#a5f3fc', maxWidth: 300, lineHeight: 1.45 }}>
+                Если обновите страницу, код сохранится в меню и в онлайн-лобби — можно снова нажать «Продолжить онлайн-партию».
+              </p>
               <p style={{ margin: '8px 0 0', fontSize: 12, color: '#64748b' }}>
                 Другие игроки вводят этот код в «Присоединиться»
               </p>
@@ -313,7 +370,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
                 Выйти из комнаты?
               </p>
               <p style={{ margin: '0 0 20px', fontSize: 14, color: '#94a3b8', lineHeight: 1.4 }}>
-                Сессия будет сброшена. Вернуться в эту комнату по кнопке «Продолжить онлайн-партию» будет нельзя.
+                Вы выйдете с сервера. Код комнаты останется в подсказке «последняя комната» в меню — по нему можно зайти снова, пока комната жива.
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
                 <button type="button" onClick={() => setShowLeaveConfirm(false)} style={buttonSecondary}>
@@ -330,12 +387,68 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     );
   }
 
+  const lastPartyBanner =
+    !roomId && status === 'idle'
+      ? (() => {
+          void lastPartyHintVersion;
+          return loadLastOnlineParty();
+        })()
+      : null;
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 24, }} >
       <h1 style={{ margin: 0, fontSize: '1.75rem', color: '#f1f5f9' }}>Онлайн-лобби</h1>
       <p style={{ margin: 0, fontSize: 14, color: '#94a3b8', textAlign: 'center', maxWidth: 320 }}>
         Вы: <strong style={{ color: '#e2e8f0' }}>{playerName}</strong>
       </p>
+      {lastPartyBanner && (
+        <div
+          key={`last-party-${lastPartyHintVersion}`}
+          style={{
+            width: '100%',
+            maxWidth: 320,
+            padding: 14,
+            borderRadius: 10,
+            border: '1px solid rgba(34, 211, 238, 0.4)',
+            background: 'rgba(6, 78, 59, 0.25)',
+            boxSizing: 'border-box',
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>Последняя комната (после обновления страницы)</p>
+          <p
+            style={{
+              margin: '8px 0 12px',
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: 3,
+              color: '#22d3ee',
+              textAlign: 'center',
+            }}
+          >
+            {lastPartyBanner.code}
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button
+              type="button"
+              disabled={resumeLastBusy}
+              onClick={() => void handleResumeLastFromLobby()}
+              style={buttonPrimary}
+            >
+              {resumeLastBusy ? 'Вход…' : 'Вернуться в эту комнату'}
+            </button>
+            <button type="button" onClick={() => setJoinCode(lastPartyBanner.code)} style={{ ...buttonSecondary, fontSize: 14 }}>
+              Подставить код в поле ниже
+            </button>
+            <button
+              type="button"
+              onClick={() => forgetLastOnlineParty()}
+              style={{ ...buttonSecondary, fontSize: 13, borderColor: 'rgba(148, 163, 184, 0.45)' }}
+            >
+              Скрыть подсказку
+            </button>
+          </div>
+        </div>
+      )}
       {(error || joinError) && (
         <p style={{ margin: 0, fontSize: 13, color: '#f87171', textAlign: 'center', maxWidth: 280 }}>
           {joinError || error}

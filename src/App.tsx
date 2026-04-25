@@ -10,6 +10,7 @@ import { useAuth } from './contexts/AuthContext'
 import { useTheme } from './contexts/ThemeContext'
 import { useOnlineGame } from './contexts/useOnlineGame'
 import { loadOnlineSession } from './lib/onlineSession'
+import { loadLastOnlineParty } from './lib/lastOnlineParty'
 import MobileOverlapHint from './ui/MobileOverlapHint'
 import { HistoryModal } from './ui/HistoryModal'
 import { NameAvatarModal } from './ui/NameAvatarModal'
@@ -248,7 +249,7 @@ function App() {
     setScreen('menu')
   }, [online])
 
-  const canResumeOnline = loadOnlineSession() !== null
+  const canResumeOnline = loadOnlineSession() !== null || loadLastOnlineParty() !== null
 
   const handleResumeOffline = useCallback(() => {
     void online.leaveRoom()
@@ -386,6 +387,21 @@ function App() {
                 Продолжить онлайн-партию
               </button>
             )}
+            {(() => {
+              void online.lastPartyHintVersion
+              const lp = loadLastOnlineParty()
+              if (!lp) return null
+              return (
+                <p
+                  key={`menu-last-${online.lastPartyHintVersion}`}
+                  style={{ margin: '-0.25rem 0 0', fontSize: 13, color: '#94a3b8', textAlign: 'center', maxWidth: 340, lineHeight: 1.45 }}
+                >
+                  Последняя комната:{' '}
+                  <strong style={{ color: '#e2e8f0', letterSpacing: 2 }}>{lp.code}</strong>
+                  {' — '}то же, что «Продолжить», плюс подсказка в разделе «Онлайн».
+                </p>
+              )
+            })()}
             {onlineResumeMessage && (
               <p style={{ margin: 0, fontSize: 14, color: '#f87171', maxWidth: 360, lineHeight: 1.4 }} role="alert">
                 {onlineResumeMessage}

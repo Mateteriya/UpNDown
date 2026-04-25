@@ -3,13 +3,18 @@
  * на смешение экспорта хелперов и React-компонентов в OnlineGameContext).
  */
 
+import { saveLastOnlineParty } from './lastOnlineParty';
+
 const ONLINE_SESSION_KEY = 'updown_online_session';
 
-export function saveOnlineSession(roomId: string, deviceId: string) {
+export function saveOnlineSession(roomId: string, deviceId: string, code?: string | null) {
   try {
     sessionStorage.setItem(ONLINE_SESSION_KEY, JSON.stringify({ roomId, deviceId }));
   } catch {
     /* ignore */
+  }
+  if (code != null && String(code).trim() !== '') {
+    saveLastOnlineParty(roomId, String(code).trim());
   }
 }
 
