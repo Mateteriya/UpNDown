@@ -24,9 +24,47 @@ function vacantAiPlayerSlot(slotIndex: number): PlayerSlot {
   };
 }
 
+/** Слот в «родной» форме пустого ИИ (лобби / после leaveRoom): пустой userId, без паузы, имя как у шаблонного бота. */
+export function isNativeVacantAiPlayerSlot(s: PlayerSlot): boolean {
+  if (s.userId != null && s.userId !== '') return false;
+  if (s.replacedUserId != null && String(s.replacedUserId).trim() !== '') return false;
+  const expected = VACANT_AI_SLOT_NAMES[s.slotIndex] ?? `ИИ ${s.slotIndex}`;
+  return (s.displayName?.trim() ?? '') === expected;
+}
+
+/**
+ * Разрешить хосту автоматически отправить ход ИИ за этот слот.
+ * Нельзя подменять человека при гонке слотов: если место хоть раз было с userId игрока,
+ * пустой userId без явной ручной паузы и без «родного» пустого ИИ — не авто-ИИ.
+ */
+export function hostMayAutoDriveOnlineAiForSeat(
+  slot: PlayerSlot | undefined,
+  everHumanOccupiedBySlotIndex: Readonly<Record<number, boolean>>,
+): boolean {
+  if (!slot || typeof slot.slotIndex !== 'number' || slot.slotIndex < 0 || slot.slotIndex > 3) return false;
+  if (slot.absent === true) return false;
+  const vacant = slot.userId == null || slot.userId === '';
+  if (!vacant) return false;
+  const manualPause =
+    slot.pausedByUser === true &&
+    slot.replacedUserId != null &&
+    String(slot.replacedUserId).trim() !== '';
+  if (manualPause) return true;
+  if (isNativeVacantAiPlayerSlot(slot)) return true;
+  if (everHumanOccupiedBySlotIndex[slot.slotIndex] === true) return false;
+  /* Явно видели «родного» ИИ после сброса слота — можно. Иначе пустой userId без сигналов — не подменяем (первый кадр / гонка). */
+  if (everHumanOccupiedBySlotIndex[slot.slotIndex] === false) return true;
+  return false;
+}
+
+/** Фаза комнаты (миграция game_rooms.room_phase). */
+export type GameRoomPhase = 'lobby' | 'playing' | 'waiting_host_action' | 'waiting_return' | 'finished';
+
 export interface PlayerSlot {
   /** Отсутствует или null = слот ИИ */
   userId?: string | null;
+  /** Игрок подтвердил выход из партии — ждём решения хоста (RPC mark absent). */
+  absent?: boolean | null;
   /** Идентификатор устройства — используем для устойчивой идентификации слота на одном и том же девайсе */
   deviceId?: string | null;
   displayName: string;
@@ -56,6 +94,10 @@ export interface GameRoomRow {
   player_slots: PlayerSlot[];
   created_at: string;
   updated_at: string;
+  room_phase?: GameRoomPhase | string | null;
+  absent_until?: string | null;
+  absent_slot_index?: number | null;
+  host_last_seen_at?: string | null;
 }
 
 const TABLE = 'game_rooms';
@@ -353,6 +395,8 @@ export async function createRoom(
             status: 'waiting',
             game_state: null,
             player_slots: playerSlots,
+            room_phase: 'lobby',
+            host_last_seen_at: new Date().toISOString(),
           })
           .select('*')
           .abortSignal(lobbyFastAbortSignal())
@@ -725,6 +769,10 @@ export type UpdateRoomStateOptions = {
    * Если за это время другой клиент уже записал состояние — строка не обновится → conflict.
    */
   expectedRevision?: number;
+  /** Старт партии / синхронизация фазы (миграция room_phase). */
+  roomPhase?: GameRoomPhase;
+  /** Обновить host_last_seen_at (обычно при старте партии хостом). */
+  hostLastSeenAtNow?: boolean;
 };
 
 /** Обновить состояние игры в комнате. Возвращает актуальную строку — чтобы сразу выровнять updated_at и не затирать ходы устаревшим Realtime. */
@@ -737,6 +785,8 @@ export async function updateRoomState(
   if (!supabase) return { error: 'Supabase не настроен' };
   const payload: Record<string, unknown> = { game_state: gameState, status: 'playing' };
   if (playerSlots) payload.player_slots = playerSlots;
+  if (opts?.roomPhase) payload.room_phase = opts.roomPhase;
+  if (opts?.hostLastSeenAtNow) payload.host_last_seen_at = new Date().toISOString();
   /**
    * По умолчанию ВЫКЛ: без миграции game_state_revision UPDATE с .eq(revision) падает или даёт вечные конфликты.
    * Включить после применения supabase/migrations/20250401120000_game_rooms_state_revision.sql:
@@ -1109,6 +1159,129 @@ export async function returnSlotToPlayer(roomId: string, slotIndex: number): Pro
   return error ? { error: error.message } : {};
 }
 
+/** Разбор ответа RPC updown_* с полем room (jsonb). */
+function parseUpdownRpcRoomPayload(
+  raw: unknown,
+): { ok: true; room: GameRoomRow } | { ok: false; error: string } {
+  let o: Record<string, unknown> | null = null;
+  if (raw != null && typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      o =
+        typeof parsed === 'object' && parsed != null && !Array.isArray(parsed)
+          ? (parsed as Record<string, unknown>)
+          : null;
+    } catch {
+      return { ok: false, error: 'bad_response' };
+    }
+  } else if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
+    o = raw as Record<string, unknown>;
+  }
+  if (!o) return { ok: false, error: 'bad_response' };
+  if (o.ok === false) {
+    return { ok: false, error: typeof o.error === 'string' ? o.error : 'rpc_error' };
+  }
+  const room = o.room;
+  if (o.ok === true && room && typeof room === 'object') {
+    return { ok: true, room: room as GameRoomRow };
+  }
+  return { ok: false, error: 'bad_response' };
+}
+
+export function normalizeRoomPhase(room: Pick<GameRoomRow, 'status' | 'room_phase'>): GameRoomPhase {
+  const p = room.room_phase;
+  const allowed: readonly GameRoomPhase[] = [
+    'lobby',
+    'playing',
+    'waiting_host_action',
+    'waiting_return',
+    'finished',
+  ];
+  if (typeof p === 'string' && (allowed as readonly string[]).includes(p)) {
+    return p as GameRoomPhase;
+  }
+  if (room.status === 'finished') return 'finished';
+  if (room.status === 'playing') return 'playing';
+  return 'lobby';
+}
+
+export async function hostPingRoom(roomId: string): Promise<{ error?: string; room?: GameRoomRow }> {
+  if (!supabase) return { error: 'Supabase не настроен' };
+  const { data, error } = await supabase.rpc('updown_host_ping', { p_room_id: roomId });
+  if (error) return { error: error.message };
+  const p = parseUpdownRpcRoomPayload(data);
+  return p.ok ? { room: p.room } : { error: p.error };
+}
+
+export async function markPlayerAbsentConfirmedLeave(
+  roomId: string,
+): Promise<{ error?: string; room?: GameRoomRow }> {
+  if (!supabase) return { error: 'Supabase не настроен' };
+  const { data, error } = await supabase
+    .rpc('updown_mark_player_absent_confirmed_leave', {
+      p_room_id: roomId,
+    })
+    .abortSignal(lobbyJoinRpcAbortSignal());
+  if (error) return { error: error.message };
+  const p = parseUpdownRpcRoomPayload(data);
+  return p.ok ? { room: p.room } : { error: p.error };
+}
+
+/** Выход из слота при ожидании решения хоста (room_phase ≠ playing). Иначе mark_absent вернёт room_not_in_playing_phase. */
+export async function leaveSlotWhileHostResolves(
+  roomId: string,
+): Promise<{ error?: string; room?: GameRoomRow }> {
+  if (!supabase) return { error: 'Supabase не настроен' };
+  const { data, error } = await supabase
+    .rpc('updown_leave_slot_while_host_resolves', {
+      p_room_id: roomId,
+    })
+    .abortSignal(lobbyJoinRpcAbortSignal());
+  if (error) return { error: error.message };
+  const p = parseUpdownRpcRoomPayload(data);
+  return p.ok ? { room: p.room } : { error: p.error };
+}
+
+export async function transferHostRoom(
+  roomId: string,
+  newHostUserId: string,
+): Promise<{ error?: string; room?: GameRoomRow }> {
+  if (!supabase) return { error: 'Supabase не настроен' };
+  const { data, error } = await supabase.rpc('updown_transfer_host', {
+    p_room_id: roomId,
+    p_new_host_user_id: newHostUserId,
+  });
+  if (error) return { error: error.message };
+  const p = parseUpdownRpcRoomPayload(data);
+  return p.ok ? { room: p.room } : { error: p.error };
+}
+
+export type HostResolveAbsentChoice = 'finish' | 'wait' | 'replace_ai';
+
+export async function hostResolveAbsent(
+  roomId: string,
+  choice: HostResolveAbsentChoice,
+): Promise<{ error?: string; room?: GameRoomRow }> {
+  if (!supabase) return { error: 'Supabase не настроен' };
+  const rid = String(roomId ?? '').trim();
+  if (!rid) return { error: 'Нет id комнаты' };
+  const { data, error } = await supabase.rpc('updown_host_resolve_absent', {
+    p_room_id: rid,
+    p_choice: String(choice).trim().toLowerCase(),
+  });
+  if (error) {
+    const e = error as { message?: string; details?: string; hint?: string; code?: string };
+    return {
+      error: [e.message, e.details, e.hint].filter((x) => x && String(x).trim()).join(' — ') || 'Ошибка RPC',
+    };
+  }
+  const p = parseUpdownRpcRoomPayload(data);
+  if (!p.ok) return { error: p.error };
+  if (p.room) return { room: p.room };
+  const fallback = await getRoomQuick(roomId);
+  return fallback ? { room: fallback } : { error: 'no_room_in_response' };
+}
+
 /**
  * Выйти из комнаты.
  * В лобби (waiting) — убрать строку игрока и сжать slotIndex.
@@ -1117,39 +1290,32 @@ export async function returnSlotToPlayer(roomId: string, slotIndex: number): Pro
  */
 export async function leaveRoom(roomId: string, userId: string): Promise<{ error?: string }> {
   if (!supabase) return { error: 'Supabase не настроен' };
-  const room = await getRoom(roomId);
+  /** Быстрее и короче таймаут, чем getRoom (3×20 с) — иначе «Присоединиться» висит на await leaveRoom() до join. */
+  const room = await getRoomQuick(roomId);
   if (!room) return {};
 
   const slotsRaw = (room.player_slots as PlayerSlot[]) || [];
   if (slotsRaw.length === 0) return {};
 
   if (room.status === 'playing') {
-    const byIdx = new Map<number, PlayerSlot>();
-    for (const s of slotsRaw) {
-      if (typeof s.slotIndex !== 'number' || s.slotIndex < 0 || s.slotIndex > 3) continue;
-      byIdx.set(s.slotIndex, { ...s });
+    const phase = normalizeRoomPhase(room);
+    if (phase === 'waiting_host_action' || phase === 'waiting_return') {
+      const { error } = await leaveSlotWhileHostResolves(roomId);
+      return error ? { error } : {};
     }
-    for (let i = 0; i < 4; i++) {
-      if (!byIdx.has(i)) byIdx.set(i, vacantAiPlayerSlot(i));
-    }
-    let touched = false;
-    for (let i = 0; i < 4; i++) {
-      const s = byIdx.get(i)!;
-      if (s.userId === userId || s.replacedUserId === userId) {
-        byIdx.set(i, vacantAiPlayerSlot(i));
-        touched = true;
-      }
-    }
-    if (!touched) return {};
-    const newSlots = [0, 1, 2, 3].map((i) => byIdx.get(i)!);
-    const { error } = await supabase.from(TABLE).update({ player_slots: newSlots }).eq('id', roomId);
-    return error ? { error: error.message } : {};
+    /** Выход из партии в обычной фазе playing: absent + waiting_host_action, без авто-ИИ. */
+    const { error } = await markPlayerAbsentConfirmedLeave(roomId);
+    return error ? { error } : {};
   }
 
   const newSlots = slotsRaw.filter((s) => s.userId !== userId).map((s, i) => ({ ...s, slotIndex: i }));
   if (newSlots.length === slotsRaw.length) return {};
 
-  const { error } = await supabase.from(TABLE).update({ player_slots: newSlots }).eq('id', roomId);
+  const { error } = await supabase
+    .from(TABLE)
+    .update({ player_slots: newSlots })
+    .eq('id', roomId)
+    .abortSignal(lobbyFastAbortSignal());
   return error ? { error: error.message } : {};
 }
 

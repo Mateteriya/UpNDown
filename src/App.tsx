@@ -82,10 +82,22 @@ function App() {
     if (online.userLeftTemporarily === true) return
     if (online.roomId) {
       hadOnlineRoomRef.current = true
-      if (online.status === 'playing') {
+      if (online.status === 'playing' || online.status === 'finished') {
+        // После «Выйти»: leaveRoom может ещё не очистить roomId; handleExit ставит #menu + SUPPRESS.
+        // Иначе этот эффект снова открывает стол — кажется, что «ничего не происходит».
+        try {
+          if (screen === 'menu' && sessionStorage.getItem(SUPPRESS_AUTO_OPEN_KEY) === '1') return
+        } catch {
+          /* ignore */
+        }
         setScreen('game')
       } else if (online.status === 'waiting' && !didAutoOpenLobbyRef.current) {
         didAutoOpenLobbyRef.current = true
+        try {
+          sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
+        } catch {
+          /* ignore */
+        }
         setScreenLobby(true)
       }
       return
@@ -326,9 +338,8 @@ function App() {
     if (window.location.hash !== targetHash) {
       history.pushState({ screen }, '', targetHash)
     }
-    if (screen === 'menu') {
-      try { sessionStorage.setItem(SUPPRESS_AUTO_OPEN_KEY, '1') } catch { /* ignore */ }
-    }
+    /* Не ставить SUPPRESS на каждый показ меню: иначе после «Выйти» флаг остаётся при входе в «Онлайн»
+     * и блокирует setScreen('game') при roomId + playing (кажется, что «нельзя зайти в новую комнату»). */
   }, [screen])
 
   return (
@@ -407,7 +418,18 @@ function App() {
                 {onlineResumeMessage}
               </p>
             )}
-            <button style={buttonStyle} onClick={() => setScreenLobby(true)}>
+            <button
+              type="button"
+              style={buttonStyle}
+              onClick={() => {
+                try {
+                  sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
+                } catch {
+                  /* ignore */
+                }
+                setScreenLobby(true)
+              }}
+            >
               Онлайн
             </button>
             {hasSavedGame() && (
@@ -916,6 +938,11 @@ function App() {
           playerName={profile.displayName}
           initialJoinCode={urlJoinCode ?? undefined}
           onGoToGame={() => {
+            try {
+              sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
+            } catch {
+              /* ignore */
+            }
             setScreenLobby(false);
             setUrlJoinCode(null);
             setScreen('game');

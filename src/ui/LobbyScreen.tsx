@@ -48,8 +48,8 @@ const buttonSecondary: React.CSSProperties = {
 
 /** Верхняя граница ожидания createRoom — иначе кнопка «Создание…» без ответа при зависшем fetch. */
 const LOBBY_CREATE_TOTAL_MS = 52_000;
-/** То же для «Присоединиться» (join может крутиться до 48 с внутри клиента). */
-const LOBBY_JOIN_TOTAL_MS = 56_000;
+/** «Выход из прошлой комнаты» + join — один лимит, иначе спиннер висит на leaveRoom вне Promise.race. */
+const LOBBY_JOIN_TOTAL_MS = 68_000;
 
 export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }: LobbyScreenProps) {
   const { user } = useAuth();
@@ -162,20 +162,24 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     setJoinError(null);
     setCreating(true);
     try {
-      await leaveRoom();
+      type LobbyWall = { __lobbyWall: true };
       const r = await Promise.race([
-        createRoom(user.id, name, shortLabel),
-        new Promise<{ ok: false; error: string }>((resolve) => {
-          window.setTimeout(() => {
-            resolve({
-              ok: false,
-              error:
-                'Сервер слишком долго не ответил. Проверьте интернет и VPN; в Supabase убедитесь, что проект не на паузе. Откройте игру по HTTPS (не localhost с другого устройства) и нажмите «Создать» снова.',
-            });
-          }, LOBBY_CREATE_TOTAL_MS);
+        (async () => {
+          await leaveRoom();
+          return createRoom(user.id, name, shortLabel);
+        })(),
+        new Promise<LobbyWall>((resolve) => {
+          window.setTimeout(() => resolve({ __lobbyWall: true }), LOBBY_CREATE_TOTAL_MS);
         }),
       ]);
-      if (!r.ok) setJoinError(r.error ?? 'Не удалось создать комнату.');
+      if (r && typeof r === 'object' && '__lobbyWall' in r && r.__lobbyWall) {
+        setJoinError(
+          'Слишком долгое ожидание (в том числе выход из прошлой комнаты). Проверьте сеть и VPN и нажмите «Создать» снова.',
+        );
+      } else {
+        const cr = r as Awaited<ReturnType<typeof createRoom>>;
+        if (!cr.ok) setJoinError(cr.error ?? 'Не удалось создать комнату.');
+      }
     } catch (e) {
       setJoinError(e instanceof Error ? e.message : 'Ошибка при создании комнаты.');
     } finally {
@@ -221,29 +225,34 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     setJoinError(null);
     setJoining(true);
     try {
-      await leaveRoom();
-      let r = await Promise.race([
-        joinRoom(code, user.id, playerName.trim(), shortLabel),
-        new Promise<{ ok: false; error: string }>((resolve) => {
-          window.setTimeout(() => {
-            resolve({
-              ok: false,
-              error:
-                'Вход занял слишком много времени. Проверьте интернет; на сервере должна быть применена последняя миграция (RPC входа). Попробуйте «Присоединиться» снова.',
-            });
-          }, LOBBY_JOIN_TOTAL_MS);
+      type LobbyWall = { __lobbyWall: true };
+      type JoinOutcome = Awaited<ReturnType<typeof joinRoom>>;
+      let r: JoinOutcome | LobbyWall = await Promise.race([
+        (async () => {
+          await leaveRoom();
+          return joinRoom(code, user.id, playerName.trim(), shortLabel);
+        })(),
+        new Promise<LobbyWall>((resolve) => {
+          window.setTimeout(() => resolve({ __lobbyWall: true }), LOBBY_JOIN_TOTAL_MS);
         }),
       ]);
-      if (!r.ok) {
-        const recovered = await recoverJoinIfAlreadyInRoom(code);
-        if (recovered) {
-          r = { ok: true };
-        } else {
-          setJoinError(r.error ?? 'Не удалось присоединиться. Проверьте код и подключение.');
+      if (r && typeof r === 'object' && '__lobbyWall' in r && r.__lobbyWall) {
+        setJoinError(
+          'Слишком долгое ожидание (в том числе выход из прошлой комнаты). Проверьте интернет и нажмите «Присоединиться» снова.',
+        );
+      } else {
+        let jr = r as JoinOutcome;
+        if (!jr.ok) {
+          const recovered = await recoverJoinIfAlreadyInRoom(code);
+          if (recovered) {
+            jr = { ok: true };
+          } else {
+            setJoinError(jr.error ?? 'Не удалось присоединиться. Проверьте код и подключение.');
+          }
         }
-      }
-      if (r.ok && onGoToGame && typeof window !== 'undefined' && window.innerWidth <= 1024) {
-        onGoToGame();
+        if (jr.ok && onGoToGame && typeof window !== 'undefined' && window.innerWidth <= 1024) {
+          onGoToGame();
+        }
       }
     } catch (e) {
       setJoinError(e instanceof Error ? e.message : String(e) || 'Ошибка соединения. Проверьте интернет.');

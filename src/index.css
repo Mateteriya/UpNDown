@@ -2526,9 +2526,22 @@
     overflow-y: visible;
   }
   .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-panel--popover {
-    top: calc(100% + 6px);
+    position: relative;
+    left: auto;
+    right: auto;
+    top: auto;
     bottom: auto;
-    max-height: min(50vh, 360px);
+    margin-top: 6px;
+    width: 100%;
+    max-height: min(40vh, 300px);
+    overscroll-behavior: contain;
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.2),
+      0 -14px 34px rgba(2, 6, 23, 0.6);
+  }
+  /* Вкладка "Мои" содержит больше управляющих элементов, ей нужен больший вертикальный бюджет. */
+  .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-panel--mine.table-chat-emoji-panel--popover {
+    max-height: min(54vh, 400px);
   }
   .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-panel__tabs {
     flex-shrink: 0;
@@ -2536,11 +2549,19 @@
     overflow-x: auto;
     overflow-y: hidden;
     padding-bottom: 2px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: rgba(15, 23, 42, 0.97);
+    border-bottom: 1px solid rgba(34, 211, 238, 0.16);
     scrollbar-width: thin;
     scrollbar-color: rgba(34, 211, 238, 0.35) transparent;
   }
   .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-tab {
     flex-shrink: 0;
+    min-height: 32px;
+    padding: 6px 10px;
+    font-size: 12px;
   }
   .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-picker-short-hint {
     font-size: 10px;
@@ -2700,6 +2721,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
     padding: 8px 12px;
     border-bottom: 1px solid rgba(34, 211, 238, 0.18);
     background: linear-gradient(90deg, rgba(34, 211, 238, 0.08), transparent);
@@ -2716,14 +2739,100 @@
     color: #e2e8f0;
     letter-spacing: 0.02em;
   }
+  .game-table-root.viewport-mobile .table-chat-dock-mobile-quick-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
+  .game-table-root.viewport-mobile .table-chat-dock-mobile-quick-btn {
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(34, 211, 238, 0.34);
+    background: rgba(15, 23, 42, 0.72);
+    color: #cbd5e1;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    font: inherit;
+  }
+  .game-table-root.viewport-mobile .table-chat-dock-mobile-quick-btn--active {
+    border-color: rgba(45, 212, 191, 0.7);
+    color: #ecfeff;
+    background: linear-gradient(180deg, rgba(45, 212, 191, 0.3) 0%, rgba(15, 118, 110, 0.42) 100%);
+  }
   .game-table-root.viewport-mobile .table-chat-messages--pro {
-    max-height: min(30vh, 220px);
+    max-height: var(--mobile-chat-messages-height, 188px);
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 10px 10px 8px;
+    padding: 8px 10px 6px;
     scroll-behavior: smooth;
     scrollbar-width: thin;
     scrollbar-color: rgba(34, 211, 238, 0.35) transparent;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-resize-wrap {
+    position: relative;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-resize-handle {
+    width: 100%;
+    height: 22px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: ns-resize;
+    touch-action: none;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-resize-handle > span {
+    font-size: 16px;
+    line-height: 1;
+    letter-spacing: 1px;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-resize-hint {
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translateX(-50%);
+    margin-top: 2px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(34, 211, 238, 0.3);
+    background: rgba(2, 6, 23, 0.88);
+    color: #cbd5e1;
+    font-size: 10px;
+    line-height: 1.2;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .game-table-root.viewport-mobile .table-chat-msg-compact {
+    margin-bottom: 6px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: #e2e8f0;
+    word-break: break-word;
+  }
+  .game-table-root.viewport-mobile .table-chat-msg-compact--self {
+    color: #a5f3fc;
+  }
+  .game-table-root.viewport-mobile .table-chat-msg-compact--pending {
+    opacity: 0.65;
+  }
+  .game-table-root.viewport-mobile .table-chat-msg-compact__name {
+    font-weight: 700;
+    color: #22d3ee;
+  }
+  .game-table-root.viewport-mobile .table-chat-msg-compact--self .table-chat-msg-compact__name {
+    color: #67e8f9;
+  }
+  .game-table-root.viewport-mobile .table-chat-msg-compact__sep {
+    padding: 0 4px 0 2px;
+    color: #64748b;
   }
   .game-table-root.viewport-mobile .table-chat-empty--pro {
     display: flex;
@@ -2878,11 +2987,25 @@
     padding: 8px 10px 10px;
     border-top: 1px solid rgba(34, 211, 238, 0.12);
     background: linear-gradient(0deg, rgba(15, 23, 42, 0.55), transparent);
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
   .game-table-root.viewport-mobile .table-chat-composer__inner {
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+  .game-table-root.viewport-mobile .table-chat-composer__toolbar {
+    display: none;
+  }
+  .game-table-root.viewport-mobile .table-chat-emoji-toggle {
+    width: 40px;
+    height: 34px;
+    border-radius: 12px;
   }
   .game-table-root.viewport-mobile .table-chat-input--pro {
     width: 100%;
@@ -2899,6 +3022,47 @@
     line-height: 1.35;
     box-sizing: border-box;
   }
+  .game-table-root.viewport-mobile .table-chat-mobile-input-shell {
+    position: relative;
+    width: 100%;
+  }
+  .game-table-root.viewport-mobile .table-chat-input--mobile-inline {
+    padding-left: 42px;
+    padding-right: 44px;
+    overflow-y: hidden;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-input-shell__emoji,
+  .game-table-root.viewport-mobile .table-chat-mobile-input-shell__send {
+    position: absolute;
+    top: calc(50% - 16px);
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    border: 1px solid rgba(100, 116, 139, 0.45);
+    background: rgba(15, 23, 42, 0.78);
+    color: #e2e8f0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    z-index: 2;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-input-shell__emoji {
+    left: 7px;
+    font-size: 15px;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-input-shell__send {
+    right: 7px;
+    font-size: 14px;
+    border-color: rgba(34, 211, 238, 0.5);
+    background: linear-gradient(180deg, #0e7490 0%, #155e75 100%);
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-input-shell__send:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
   .game-table-root.viewport-mobile .table-chat-input--pro:focus {
     outline: none;
     border-color: rgba(34, 211, 238, 0.55);
@@ -2914,6 +3078,81 @@
     font-size: 11px;
     color: #64748b;
     font-variant-numeric: tabular-nums;
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__edit-toggle-mobile {
+    width: 100%;
+    min-height: 34px;
+    border-radius: 10px;
+    border: 1px solid rgba(34, 211, 238, 0.38);
+    background: rgba(14, 116, 144, 0.2);
+    color: #cffafe;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    font: inherit;
+  }
+  .game-table-root.viewport-mobile .table-chat-mine {
+    min-height: 0;
+    overflow: hidden;
+    gap: 5px;
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__scroll {
+    min-height: 74px;
+    padding-right: 1px;
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__add-row {
+    flex-shrink: 0;
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__from-msg {
+    flex-shrink: 0;
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__del {
+    width: 36px;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-favorites {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 2px 0 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(34, 211, 238, 0.35) transparent;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-favorites__chip {
+    flex-shrink: 0;
+    max-width: 220px;
+    min-height: 30px;
+    border-radius: 999px;
+    border: 1px solid rgba(34, 211, 238, 0.35);
+    background: rgba(15, 23, 42, 0.75);
+    color: #e2e8f0;
+    font-size: 12px;
+    padding: 0 10px;
+    cursor: pointer;
+    font: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-favorites__chip:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-mine-toast {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(45, 212, 191, 0.45);
+    background: rgba(2, 6, 23, 0.92);
+    color: #ccfbf1;
+    font-size: 12px;
+    line-height: 1.2;
+    pointer-events: none;
+    z-index: 8;
+    box-shadow: 0 8px 24px rgba(2, 6, 23, 0.45);
   }
   .game-table-root.viewport-mobile .table-chat-send--pro {
     padding: 8px 16px;
@@ -2946,6 +3185,25 @@
     .game-table-root.viewport-mobile .table-chat-send__spinner {
       animation: none;
       border-top-color: rgba(248, 250, 252, 0.75);
+    }
+  }
+
+  /* Низкий экран: панель эмодзи/«Мои» — отдельный полноэкранный sheet поверх чата. */
+  @media (max-width: 600px) and (max-height: 670px), (max-width: 1024px) and (max-height: 560px) {
+    .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-panel--mobile-sheet.table-chat-emoji-panel--popover {
+      position: fixed;
+      left: 8px;
+      right: 8px;
+      top: max(8px, env(safe-area-inset-top, 0px));
+      /* Оставляем гарантированный зазор под sticky-композер, чтобы поле ввода не перекрывалось */
+      bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+      margin-top: 0;
+      max-height: none;
+      z-index: 60;
+      border-radius: 12px;
+    }
+    .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-panel--mobile-sheet .table-chat-mine {
+      min-height: 0;
     }
   }
 
@@ -6224,6 +6482,40 @@
    */
   .game-table-root.viewport-mobile > .game-table-main-wrap {
     padding-top: calc(30px + env(safe-area-inset-top, 0px)) !important;
+  }
+  /*
+   * Баннер «ждём решения хоста»: чуть больше базового 30px — под fixed-шапку + одна строка текста,
+   * без «запаса на два баннера» (раньше 118px давали пустоту).
+   */
+  .game-table-root.viewport-mobile > .game-table-main-wrap.game-table-main-wrap--absent-guest-banner {
+    padding-top: calc(76px + env(safe-area-inset-top, 0px)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short > .game-table-main-wrap.game-table-main-wrap--absent-guest-banner {
+    padding-top: calc(72px + env(safe-area-inset-top, 0px)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive
+    > .game-table-main-wrap.game-table-main-wrap--absent-guest-banner {
+    padding-top: calc(26px + env(safe-area-inset-top, 0px)) !important;
+  }
+  .game-table-root.viewport-mobile .online-absent-guest-banner {
+    box-sizing: border-box;
+    width: calc(100% - 2 * var(--game-table-padding, 6px));
+    max-width: 100%;
+    margin: 2px auto 2px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    background: rgba(30, 41, 59, 0.92);
+    color: #fde68a;
+    font-size: 13px;
+    line-height: 1.3;
+  }
+  /*
+   * Баннер «ждём хоста» уже сдвигает ряд З/С вниз; стандартные 28px padding-top у .game-mobile-top-row
+   * (зазор под фикс. бейдж у верха экрана) давали вторую «полосу» пустоты сразу под баннером.
+   */
+  .game-table-root.viewport-mobile .game-table-main-wrap--absent-guest-banner .game-mobile-top-row {
+    padding-top: 4px !important;
   }
   .game-table-root .game-info-left-col {
     margin-top: 4px !important;

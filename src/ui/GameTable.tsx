@@ -42,7 +42,13 @@ import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
 import { preloadCardImages } from '../cardAssets';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnlineGame } from '../contexts/useOnlineGame';
-import { heartbeatPresence, recordOfflineMatchFinish } from '../lib/onlineGameSupabase';
+import {
+  heartbeatPresence,
+  hostPingRoom,
+  hostMayAutoDriveOnlineAiForSeat,
+  isNativeVacantAiPlayerSlot,
+  recordOfflineMatchFinish,
+} from '../lib/onlineGameSupabase';
 import { isPersonalAiReplacementEnabled } from '../lib/featureFlags';
 import { CardView } from './CardView';
 import { PlayerAvatar } from './PlayerAvatar';
@@ -1019,11 +1025,30 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     }) as [string, string, string, string];
     return createGameOnline(names);
   }, [isWaitingInRoom, online.playerSlots]);
-  /** Только комната + статус «идёт игра». Не требовать displayState: иначе краткий null канона после старта даёт isOnline=false и стол берёт localState вместо сервера — рассинхрон и «тормоза». */
-  const isOnline = !!(online.roomId && online.status === 'playing');
+  /** Комната + активная или завершённая партия на сервере (для displayState и чата). */
+  const isOnline = !!(
+    online.roomId &&
+    (online.status === 'playing' || online.status === 'finished')
+  );
+  /** Обычные ходы и запись game_state — только когда фаза комнаты «playing». */
+  const isOnlinePlayPhase =
+    !!online.roomId && online.status === 'playing' && online.roomPhase === 'playing';
   const offlineMode = !isOnline && !isWaitingInRoom;
+  const iAmRoomHost = !!(user?.id && online.hostUserId && online.hostUserId === user.id);
+  const otherOnlineHumansForTransfer = useMemo(() => {
+    if (!online.roomId || online.status !== 'playing') return [];
+    const uid = user?.id;
+    return online.playerSlots.filter((s) => s.userId && s.userId !== '' && s.userId !== uid);
+  }, [online.roomId, online.status, online.playerSlots, user?.id]);
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
+  /** Баннер для гостя при ожидании решения хоста; класс на main-wrap — шапка fixed и без доп. padding перекрывает баннер. */
+  const showAbsentGuestBanner =
+    isMobile &&
+    isOnline &&
+    online.status === 'playing' &&
+    !iAmRoomHost &&
+    (online.roomPhase === 'waiting_host_action' || online.roomPhase === 'waiting_return');
   const isMobileRef = useRef(isMobile);
   isMobileRef.current = isMobile;
   /** Градиент SVG звезды «ровно в заказ» у юга (моб.) — id уникален относительно оппонентов */
@@ -1078,6 +1103,23 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const prevOnlineAiDriveKeyRef = useRef<string | null>(null);
   const onlineAiSendFailsRef = useRef(0);
   const [onlineAiDriveRetry, setOnlineAiDriveRetry] = useState(0);
+  /** Онлайн: слот 0..3 когда-либо видели с непустым userId — при кратковременном «пустом» без паузы не подменяем ход авто-ИИ. */
+  const onlineEverHumanOccupiedSlotRef = useRef<Record<number, boolean>>({});
+  useLayoutEffect(() => {
+    onlineEverHumanOccupiedSlotRef.current = {};
+  }, [online.roomId]);
+  useLayoutEffect(() => {
+    if (!online.roomId) return;
+    const m = onlineEverHumanOccupiedSlotRef.current;
+    for (const s of online.playerSlots) {
+      if (typeof s.slotIndex !== 'number' || s.slotIndex < 0 || s.slotIndex > 3) continue;
+      if (s.userId != null && s.userId !== '') {
+        m[s.slotIndex] = true;
+      } else if (isNativeVacantAiPlayerSlot(s)) {
+        m[s.slotIndex] = false;
+      }
+    }
+  }, [online.roomId, online.playerSlots]);
   const latestCanonicalForAiRef = useRef<GameState | null>(null);
   const latestCanonicalRef = useRef<GameState | null>(null);
   const myServerIndexForLogRef = useRef(0);
@@ -1185,6 +1227,11 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const [lastDealResultsSnapshot, setLastDealResultsSnapshot] = useState<GameState | null>(null);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showTransferHostExit, setShowTransferHostExit] = useState(false);
+  const [transferHostExitPick, setTransferHostExitPick] = useState<string | null>(null);
+  const [transferHostExitBusy, setTransferHostExitBusy] = useState(false);
+  const [transferHostExitError, setTransferHostExitError] = useState<string | null>(null);
+  const [hostAbsentResolveBusy, setHostAbsentResolveBusy] = useState(false);
   const [showHomeConfirm, setShowHomeConfirm] = useState(false);
   const [gameOverSnapshot, setGameOverSnapshot] = useState<GameState | null>(null);
   /** Для онлайна — канонический снимок + слот; иначе dealHistory и players расходятся по индексам. */
@@ -1314,6 +1361,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   useEffect(() => {
     setShowDealNumberExplain(false);
   }, [state?.dealNumber]);
+
+  /** Фаза комнаты не playing — сбрасываем short-immersive margin З/С (иначе после долгой сессии/F5 на мобилке остаётся вертикальная «дыра»). */
+  useEffect(() => {
+    if (!isMobile || !online.roomId) return;
+    if (online.roomPhase !== 'playing') {
+      setShortImmersiveNwRowAlignPx(0);
+    }
+  }, [isMobile, online.roomId, online.roomPhase]);
 
   useEffect(() => {
     if (!showDealNumberExplain) return;
@@ -3108,12 +3163,12 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       : null;
 
   const handleBid = useCallback((bid: number) => {
-    if (isOnline) {
+    if (isOnlinePlayPhase) {
       online.sendBid(bid);
       return;
     }
     setLocalState(prev => prev && placeBid(prev, humanIdx, bid));
-  }, [humanIdx, isOnline, online]);
+  }, [humanIdx, isOnlinePlayPhase, online]);
 
   const handleBidRef = useRef(handleBid);
   handleBidRef.current = handleBid;
@@ -3131,19 +3186,37 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   }, [isOnline, isWaitingInRoom, onExit]);
 
   const handleHomeConfirm = useCallback(async () => {
-    setShowHomeConfirm(false);
-    await online.leaveRoom?.();
-    onExit();
+    try {
+      await online.leaveRoom?.();
+    } finally {
+      setShowHomeConfirm(false);
+      onExit();
+    }
   }, [online, onExit]);
 
   const handleLeaveRoomClick = useCallback(() => {
+    if (
+      isOnline &&
+      online.status === 'playing' &&
+      iAmRoomHost &&
+      otherOnlineHumansForTransfer.length > 0
+    ) {
+      const first = otherOnlineHumansForTransfer[0]?.userId;
+      setTransferHostExitPick(typeof first === 'string' && first ? first : null);
+      setTransferHostExitError(null);
+      setShowTransferHostExit(true);
+      return;
+    }
     setShowExitConfirm(true);
-  }, []);
+  }, [isOnline, online.status, iAmRoomHost, otherOnlineHumansForTransfer]);
 
   const handleExitConfirm = useCallback(async () => {
-    if (isWaitingInRoom || isOnline) await online.leaveRoom();
-    setShowExitConfirm(false);
-    onExit();
+    try {
+      if (isWaitingInRoom || isOnline) await online.leaveRoom();
+    } finally {
+      setShowExitConfirm(false);
+      onExit();
+    }
   }, [isOnline, isWaitingInRoom, online, onExit]);
 
   const handleStartFromWaiting = useCallback(async () => {
@@ -3161,7 +3234,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const showOnlineRoomCodeStrip = !!(
     online.roomId &&
     online.code &&
-    (online.status === 'waiting' || online.status === 'playing')
+    (online.status === 'waiting' || online.status === 'playing' || online.status === 'finished')
   );
 
   const copyOnlineRoomCode = useCallback(() => {
@@ -3188,12 +3261,22 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     if (online.status !== 'waiting' && online.status !== 'playing') return;
     const roomId = rid;
     const userId = uid;
-    heartbeatPresence(roomId, userId);
-    const iv = setInterval(() => {
-      if (roomId && userId) heartbeatPresence(roomId, userId);
-    }, 25_000);
+    const tick = () => {
+      if (!roomId || !userId) return;
+      void heartbeatPresence(roomId, userId);
+      if (
+        online.hostUserId &&
+        userId === online.hostUserId &&
+        online.status === 'playing' &&
+        online.roomPhase === 'playing'
+      ) {
+        void hostPingRoom(roomId);
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 25_000);
     return () => clearInterval(iv);
-  }, [online.roomId, online.status, user?.id]);
+  }, [online.roomId, online.status, online.hostUserId, online.roomPhase, user?.id]);
 
   const dealJustCompletedKey =
     state?.lastCompletedTrick && state.players.every((p) => p.hand.length === 0)
@@ -3233,7 +3316,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       setTrickPauseUntil(0);
       const current = stateRef.current;
       if (current?.phase === 'deal-complete') {
-        if (isOnline) onlineRef.current?.sendStartNextDeal?.();
+        if (isOnlinePlayPhase) onlineRef.current?.sendStartNextDeal?.();
         else
           setLocalState((prev) =>
             prev?.phase === 'deal-complete' ? startNextDeal(prev) ?? prev : prev ?? null
@@ -3326,27 +3409,32 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         clearStoredTimeouts();
       }
     };
-  }, [dealJustCompletedKey, isOnline, playerDisplayName]);
+  }, [dealJustCompletedKey, isOnlinePlayPhase, playerDisplayName]);
 
   useEffect(() => {
     if (pendingTrickCompletionKey == null) return;
     const t = setTimeout(() => {
-      if (isOnline) {
+      if (isOnlinePlayPhase) {
         void online.sendCompleteTrick();
       } else {
         setLocalState(prev => prev && completeTrick(prev));
       }
     }, FOURTH_CARD_SLOT_PAUSE_MS);
     return () => clearTimeout(t);
-  }, [pendingTrickCompletionKey, isOnline, online.sendCompleteTrick]);
+  }, [pendingTrickCompletionKey, isOnlinePlayPhase, online.sendCompleteTrick]);
 
-  // Онлайн: ход бота только если в player_slots у текущего места userId пустой, либо слота ещё нет, но имя в game_state — встроенный бот («ИИ …»). Иначе при лаге слотов хост не подменяет ход человека.
+  // Онлайн: ход авто-ИИ только для «родного» пустого слота или ручной паузы (pausedByUser + replacedUserId).
+  // Если слот хоть раз был с userId человека, кратковременный пустой userId без паузы — не подменяем (гонки/устаревший состав).
   const currentPlayerSlot = online.canonicalState ? online.playerSlots.find((s) => s.slotIndex === online.canonicalState!.currentPlayerIndex) : undefined;
-  const seatIsAiSlot =
+  const seatLooksVacant =
     currentPlayerSlot != null && (currentPlayerSlot.userId == null || currentPlayerSlot.userId === '');
-  /** Без fallback по имени в game_state: при рассинхроне слотов хост иначе подменяет ходы людей «ИИ». */
+  const hostMayDriveOnlineAi = hostMayAutoDriveOnlineAiForSeat(
+    currentPlayerSlot,
+    onlineEverHumanOccupiedSlotRef.current,
+  );
+  const seatIsAiSlot = seatLooksVacant && hostMayDriveOnlineAi;
   const isOnlineAiTurn =
-    isOnline &&
+    isOnlinePlayPhase &&
     !!online.canonicalState &&
     currentPlayerSlot != null &&
     !online.canonicalState.pendingTrickCompletion &&
@@ -3401,11 +3489,19 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     latestCanonicalRef.current = online.canonicalState;
     myServerIndexForLogRef.current = online.myServerIndex ?? 0;
   }
-  // Онлайн: ход бота шлёт только хост (слот 0). Два открытых клиента с одним аккаунтом редки; два разных — оба слали sendState → конфликты ревизий и откаты ходов человека.
+  // Онлайн: ход бота шлёт только **текущий хост комнаты** (host_user_id), не «слот 0 на сервере» — иначе после передачи хоста/замены на ИИ боты не ходят (живые не в myServerIndex===0).
   // Нельзя отменять ход по «ключу уже обработан»: при новой ссылке canonicalState с тем же ключом cleanup снимает таймер, а ранний return не ставил новый — ИИ замирал.
   useEffect(() => {
     if (!isOnlineAiTurn || !online.canonicalState || !online.sendState) return;
-    if (online.myServerIndex !== 0) return;
+    const uid = user?.id;
+    const roomHost = online.hostUserId;
+    if (!uid) return;
+    if (roomHost) {
+      if (uid !== roomHost) return;
+    } else if (online.myServerIndex !== 0) {
+      // Старые комнаты без host_user_id: как раньше — только с «южного» слота
+      return;
+    }
     const c = online.canonicalState;
     const scheduleKey = `${c.dealNumber}-${c.phase}-${c.currentPlayerIndex}-${c.bids?.join(',')}-${c.currentTrick?.length}`;
     if (prevOnlineAiDriveKeyRef.current !== scheduleKey) {
@@ -3414,6 +3510,13 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     }
     const sendStateFn = online.sendState;
     const tid = window.setTimeout(async () => {
+      const my = userRef.current?.id;
+      const h = onlineRef.current?.hostUserId;
+      if (h) {
+        if (my !== h) return;
+      } else if (onlineRef.current?.myServerIndex !== 0) {
+        return;
+      }
       const current = latestCanonicalForAiRef.current;
       if (!current) return;
       const currentKey = `${current.dealNumber}-${current.phase}-${current.currentPlayerIndex}-${current.bids?.join(',')}-${current.currentTrick?.length}`;
@@ -3421,9 +3524,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       const playerIdx = current.currentPlayerIndex;
       const slotsNow = onlineRef.current.playerSlots;
       const slotAtTurn = slotsNow.find((s) => s.slotIndex === playerIdx);
-      if (slotAtTurn?.userId != null && slotAtTurn.userId !== '') {
-        return;
-      }
+      if (!slotAtTurn) return;
+      if (slotAtTurn.userId != null && slotAtTurn.userId !== '') return;
+      if (!hostMayAutoDriveOnlineAiForSeat(slotAtTurn, onlineEverHumanOccupiedSlotRef.current)) return;
       const uid = userRef.current?.id;
       const replacedByMe = slotsNow.find((s) => s.slotIndex === playerIdx)?.replacedUserId === uid;
       const personalProfileId =
@@ -3454,7 +3557,15 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       }
     }, 150);
     return () => window.clearTimeout(tid);
-  }, [isOnlineAiTurn, online.canonicalState, online.sendState, onlineAiDriveRetry]);
+  }, [
+    isOnlineAiTurn,
+    online.canonicalState,
+    online.sendState,
+    onlineAiDriveRetry,
+    user?.id,
+    online.hostUserId,
+    online.myServerIndex,
+  ]);
 
   const showReclaimBar = (isOnline || (online.roomId && online.status === 'playing')) && online.pendingReclaimOffer && online.confirmReclaim;
   if (!state) {
@@ -3925,7 +4036,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               >
                 <span aria-hidden>ℹ️</span> Подробнее об игроке
               </button>
-              {online.status === 'playing' && online.takePause && (
+              {isOnlinePlayPhase && online.takePause && (
                 <button
                   type="button"
                   disabled={takingPause}
@@ -4420,7 +4531,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           isMobile
             ? 'game-table-main-wrap' +
               (mobileViewportShort ? ' game-table-main-wrap--short-vh' : '') +
-              (mobileViewportShort && shortVhSouthPullMainScrollLocked ? ' game-table-main-wrap--short-vh-south-pull-scroll-lock' : '')
+              (mobileViewportShort && shortVhSouthPullMainScrollLocked ? ' game-table-main-wrap--short-vh-south-pull-scroll-lock' : '') +
+              (showAbsentGuestBanner ? ' game-table-main-wrap--absent-guest-banner' : '')
             : undefined
         }
         onScroll={mobileViewportShort ? onMobileShortMainWrapScroll : undefined}
@@ -5087,6 +5199,20 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         </div>
       </header>
 
+      {showAbsentGuestBanner && (
+          <div
+            className="online-absent-guest-banner"
+            role="status"
+            style={{
+              flexShrink: 0,
+            }}
+          >
+            {online.roomPhase === 'waiting_return' && online.absentUntil
+              ? `Ожидаем возврат игрока до ${new Date(online.absentUntil).toLocaleString()}.`
+              : 'Игрок вышел из партии. Хост выбирает, как продолжить.'}
+          </div>
+        )}
+
       <div className={isMobile ? 'game-table-block game-table-block-mobile' : undefined} style={gameTableBlockStyle}>
       {isMobile ? (
         /* Мобильная раскладка: Север+Запад над столом, стол вертикальный, Восток+Юг под столом */
@@ -5704,7 +5830,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   thinBorder={true}
                   onClick={() => {
                     if (!state.pendingTrickCompletion && isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
-                      if (isOnline) online.sendPlay(card);
+                      if (isOnlinePlayPhase) online.sendPlay(card);
                       else setLocalState(prev => prev && playCard(prev, humanIdx, card));
                     }
                   }}
@@ -5943,7 +6069,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                                       isHumanTurn &&
                                       validPlays.some((c) => c.suit === card.suit && c.rank === card.rank)
                                     ) {
-                                      if (isOnline) online.sendPlay(card);
+                                      if (isOnlinePlayPhase) online.sendPlay(card);
                                       else setLocalState((prev) => prev && playCard(prev, humanIdx, card));
                                     }
                                   }}
@@ -6747,7 +6873,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   biddingHighlightPC={!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding')}
                   onClick={() => {
                     if (!state.pendingTrickCompletion && isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
-                      if (isOnline) online.sendPlay(card);
+                      if (isOnlinePlayPhase) online.sendPlay(card);
                       else setLocalState(prev => prev && playCard(prev, humanIdx, card));
                     }
                   }}
@@ -7263,6 +7389,197 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         document.body
       )}
 
+      {showTransferHostExit &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.6)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 20000,
+            }}
+            onClick={() => {
+              if (!transferHostExitBusy) setShowTransferHostExit(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && !transferHostExitBusy) setShowTransferHostExit(false);
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="transfer-host-exit-title"
+          >
+            <div
+              style={{ ...newGameConfirmModalStyle, maxWidth: 400 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p id="transfer-host-exit-title" style={newGameConfirmTextStyle}>
+                Вы хост. Перед выходом лучше передать хоста другому игроку — иначе решение о паузе останется на вас, пока вы в комнате.
+              </p>
+              {transferHostExitError && (
+                <p style={{ margin: '0 0 12px', fontSize: 14, color: '#f87171', lineHeight: 1.4 }} role="alert">
+                  {transferHostExitError}
+                </p>
+              )}
+              <label style={{ display: 'block', marginBottom: 16, color: '#cbd5e1', fontSize: 14 }}>
+                Новый хост
+                <select
+                  value={transferHostExitPick ?? ''}
+                  onChange={(e) => {
+                    setTransferHostExitError(null);
+                    setTransferHostExitPick(e.target.value || null);
+                  }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    marginTop: 8,
+                    padding: 8,
+                    borderRadius: 8,
+                    border: '1px solid #475569',
+                    background: '#0f172a',
+                    color: '#f8fafc',
+                  }}
+                >
+                  {otherOnlineHumansForTransfer.map((s) => (
+                    <option key={String(s.userId)} value={String(s.userId)}>
+                      {s.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div style={{ ...newGameConfirmButtonsStyle, flexWrap: 'wrap', gap: 10 }}>
+                <button
+                  type="button"
+                  disabled={transferHostExitBusy}
+                  onClick={() => {
+                    setShowTransferHostExit(false);
+                    setShowExitConfirm(true);
+                  }}
+                  style={newGameConfirmCancelBtnStyle}
+                >
+                  Выйти без передачи
+                </button>
+                <button
+                  type="button"
+                  disabled={transferHostExitBusy || !transferHostExitPick}
+                  onClick={async () => {
+                    if (!transferHostExitPick) return;
+                    setTransferHostExitError(null);
+                    setTransferHostExitBusy(true);
+                    const r = await online.transferHostTo(transferHostExitPick);
+                    setTransferHostExitBusy(false);
+                    if (r.ok) {
+                      setShowTransferHostExit(false);
+                      setShowExitConfirm(true);
+                    } else {
+                      const c = (r.error ?? '').toLowerCase();
+                      setTransferHostExitError(
+                        c === 'not_host'
+                          ? 'Сервер не считает вас хостом (состояние устарело). Обновите страницу или откройте комнату заново.'
+                          : c === 'new_host_not_in_slots' || c.includes('not_in_slots')
+                            ? 'Выбранный игрок не числится в комнате. Обновите стол.'
+                            : c === 'same_host'
+                              ? 'Нужно выбрать другого игрока, не себя.'
+                              : c === 'not_authenticated'
+                                ? 'Сессия истекла. Войдите снова.'
+                                : c === 'not_found'
+                                  ? 'Комната на сервере не найдена.'
+                                  : r.error ?? 'Не удалось передать хоста. Попробуйте ещё раз.',
+                      );
+                    }
+                  }}
+                  style={newGameConfirmOkBtnStyle}
+                >
+                  Передать и далее
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {iAmRoomHost &&
+        isOnline &&
+        online.status === 'playing' &&
+        online.roomPhase === 'waiting_host_action' &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.65)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 20000,
+              padding: 16,
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="host-absent-title"
+          >
+            <div style={{ ...newGameConfirmModalStyle, maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+              <p id="host-absent-title" style={newGameConfirmTextStyle}>
+                Игрок вышел из партии. Выберите, как продолжить.
+              </p>
+              {online.error && (
+                <p style={{ margin: '0 0 12px', fontSize: 14, color: '#f87171', lineHeight: 1.4 }} role="alert">
+                  {online.error}
+                </p>
+              )}
+              <p style={{ margin: '0 0 14px', fontSize: 13, color: '#94a3b8', lineHeight: 1.45 }}>
+                Можно доиграть с ботами вместо ушедших: партия пойдёт в историю; если у вас включён учёт рейтинга, её
+                можно засчитать в рейтинг (как и обычный онлайн-стол). «Завершить партию» — досрочно закончить для
+                всех, без дальнейшей игры.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <button
+                  type="button"
+                  disabled={hostAbsentResolveBusy}
+                  onClick={async () => {
+                    setHostAbsentResolveBusy(true);
+                    online.clearError?.();
+                    await online.hostResolveAbsentChoice('finish');
+                    setHostAbsentResolveBusy(false);
+                  }}
+                  style={{ ...newGameConfirmOkBtnStyle, background: '#7f1d1d', borderColor: '#b91c1c' }}
+                >
+                  Завершить партию
+                </button>
+                <button
+                  type="button"
+                  disabled={hostAbsentResolveBusy}
+                  onClick={async () => {
+                    setHostAbsentResolveBusy(true);
+                    online.clearError?.();
+                    await online.hostResolveAbsentChoice('wait');
+                    setHostAbsentResolveBusy(false);
+                  }}
+                  style={newGameConfirmOkBtnStyle}
+                >
+                  Ждать возврата (5 мин.)
+                </button>
+                <button
+                  type="button"
+                  disabled={hostAbsentResolveBusy}
+                  onClick={async () => {
+                    setHostAbsentResolveBusy(true);
+                    online.clearError?.();
+                    await online.hostResolveAbsentChoice('replace_ai');
+                    setHostAbsentResolveBusy(false);
+                  }}
+                  style={{ ...newGameConfirmOkBtnStyle, background: '#14532d', borderColor: '#166534' }}
+                >
+                  Заменить слот на ИИ
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
       {showExitConfirm && createPortal(
         <div
           style={{
@@ -7272,7 +7589,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 9999,
+            /* Выше immersive-подсказок (10050) и шапки — иначе на мобиле «Выйти» не получает тапы */
+            zIndex: 20000,
           }}
           onClick={() => setShowExitConfirm(false)}
           onKeyDown={e => { if (e.key === 'Escape') setShowExitConfirm(false); }}
@@ -7319,7 +7637,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 9999,
+            zIndex: 20000,
           }}
           onClick={() => setShowHomeConfirm(false)}
           onKeyDown={e => { if (e.key === 'Escape') setShowHomeConfirm(false); }}

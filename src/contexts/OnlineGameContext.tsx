@@ -30,8 +30,13 @@ import {
   returnSlotToPlayer as apiReturnSlotToPlayer,
   takePauseInRoom as apiTakePause,
   heartbeatPresence,
+  transferHostRoom,
+  hostResolveAbsent,
+  normalizeRoomPhase,
   type PlayerSlot,
   type GameRoomRow,
+  type GameRoomPhase,
+  type HostResolveAbsentChoice,
 } from '../lib/onlineGameSupabase';
 import { saveOnlineSession, clearOnlineSession, loadOnlineSession } from '../lib/onlineSession';
 import { loadLastOnlineParty, clearLastOnlineParty, saveLastOnlineParty } from '../lib/lastOnlineParty';
@@ -65,7 +70,7 @@ function getDeviceId(): string {
   }
 }
 
-type OnlineStatus = 'idle' | 'waiting' | 'playing' | 'left';
+type OnlineStatus = 'idle' | 'waiting' | 'playing' | 'left' | 'finished';
 
 type PendingReclaimOffer = {
   roomId: string;
@@ -85,6 +90,31 @@ function parseGameStateRevision(raw: unknown): number | undefined {
   if (raw == null || raw === '') return undefined;
   const n = typeof raw === 'number' ? raw : Number(raw);
   return Number.isFinite(n) && !Number.isNaN(n) ? n : undefined;
+}
+
+function gameStateJsonEqual(a: GameState | null, b: GameState | null): boolean {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
+function roomRowMetaKey(room: GameRoomRow): string {
+  try {
+    return JSON.stringify({
+      st: room.status,
+      h: room.host_user_id ?? null,
+      p: normalizeRoomPhase(room),
+      au: room.absent_until ?? null,
+      asi: room.absent_slot_index,
+      s: room.player_slots,
+    });
+  } catch {
+    return String(room.updated_at ?? '') + (room.id ?? '');
+  }
 }
 
 // --- Интерфейс Контекста (остается без изменений) ---
@@ -138,6 +168,12 @@ export interface OnlineGameContextValue {
    * Пока false — GameTable не должен поднимать офлайн-стол, иначе после убийства вкладки моб. браузером показывается локальная партия вместо ожидания онлайна.
    */
   onlineHydratedFromStorage: boolean;
+  roomPhase: GameRoomPhase;
+  hostUserId: string | null;
+  absentUntil: string | null;
+  absentSlotIndex: number | null;
+  transferHostTo: (newHostUserId: string) => Promise<{ ok: boolean; error?: string }>;
+  hostResolveAbsentChoice: (choice: HostResolveAbsentChoice) => Promise<boolean>;
 }
 // --- Конец интерфейса ---
 
@@ -159,6 +195,10 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const [playerSlots, setPlayerSlots] = useState<PlayerSlot[]>([]);
   const [canonicalState, setCanonicalState] = useState<GameState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [roomPhase, setRoomPhase] = useState<GameRoomPhase>('lobby');
+  const [hostUserId, setHostUserId] = useState<string | null>(null);
+  const [absentUntil, setAbsentUntil] = useState<string | null>(null);
+  const [absentSlotIndex, setAbsentSlotIndex] = useState<number | null>(null);
   const [realtimeHealKey, setRealtimeHealKey] = useState(0);
   const [roomSessionNonce, setRoomSessionNonce] = useState(0);
   const [onlineHydratedFromStorage, setOnlineHydratedFromStorage] = useState(false);
@@ -180,62 +220,117 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const lastSeenRoomUpdatedAtMsRef = useRef(0);
   /** Последняя применённая game_state_revision с сервера (колонка + триггер в БД); -1 = ещё не было. */
   const lastAppliedGameStateRevisionRef = useRef(-1);
+  /** Версия host/фаз/слотов — чтобы out-of-order ответ (меньше updated_at) не выкидывал смену хоста. */
+  const appliedRowMetaKeyRef = useRef<string>('');
   /** Для одноразового всплеска refresh при входе в playing (старт с лобби — гости быстрее получают game_state). */
   const prevStatusForPlayingBurstRef = useRef<OnlineStatus | undefined>(undefined);
 
-  const applyRoomData = useCallback((room: GameRoomRow) => {
-    if (!room?.id) return;
-    roomIdRef.current = room.id;
-    const incoming = room.game_state ?? null;
-    const isPlayingWithoutState = room.status === 'playing' && incoming == null;
-    // Не двигаем lastSeen на «playing без JSON»: иначе гонка с полной строкой и чуть меньшим updated_at может долго отбрасывать актуальный стол.
-    if (!isPlayingWithoutState) {
+  const syncRoomRowMeta = useCallback((room: GameRoomRow) => {
+    setHostUserId(room.host_user_id ?? null);
+    setRoomPhase(normalizeRoomPhase(room));
+    setAbsentUntil(room.absent_until ?? null);
+    const asi = room.absent_slot_index;
+    if (typeof asi === 'number' && Number.isFinite(asi)) setAbsentSlotIndex(asi);
+    else if (asi != null && `${asi}`.trim() !== '') {
+      const n = Number(asi);
+      setAbsentSlotIndex(Number.isFinite(n) ? n : null);
+    } else {
+      setAbsentSlotIndex(null);
+    }
+  }, []);
+
+  const applyRoomData = useCallback(
+    (room: GameRoomRow) => {
+      if (!room?.id) return;
+      roomIdRef.current = room.id;
+      const incoming = room.game_state ?? null;
+      const isPlayingWithoutState = room.status === 'playing' && incoming == null;
+      // Не двигаем lastSeen на «playing без JSON»: иначе гонка с полной строкой и чуть меньшим updated_at может долго отбрасывать актуальный стол.
+      if (!isPlayingWithoutState) {
+        const ts = Date.parse(room.updated_at);
+        if (Number.isFinite(ts)) {
+          lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
+        }
+      }
+      setRoomId(room.id);
+      setCode(room.code);
+      setPlayerSlots(room.player_slots || []);
+      syncRoomRowMeta(room);
+      // playing без game_state в payload бывает при гонках Realtime/опроса — нельзя сбрасывать статус в waiting (гость «висит» на лобби при старте).
+      if (isPlayingWithoutState) {
+        setStatus('playing');
+        const r = parseGameStateRevision(room.game_state_revision);
+        if (r !== undefined) {
+          lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r);
+        }
+        appliedRowMetaKeyRef.current = roomRowMetaKey(room);
+        return;
+      }
+      const phaseDone = room.status === 'finished' || normalizeRoomPhase(room) === 'finished';
+      if (phaseDone) {
+        setCanonicalState(incoming);
+        setStatus('finished');
+        const rFin = parseGameStateRevision(room.game_state_revision);
+        if (rFin !== undefined) {
+          lastAppliedGameStateRevisionRef.current = Math.max(
+            lastAppliedGameStateRevisionRef.current,
+            rFin,
+          );
+        }
+        appliedRowMetaKeyRef.current = roomRowMetaKey(room);
+        return;
+      }
+      const r2 = parseGameStateRevision(room.game_state_revision);
+      const lastRev = lastAppliedGameStateRevisionRef.current;
+      if (
+        room.status === 'playing' &&
+        incoming != null &&
+        r2 !== undefined &&
+        r2 === lastRev &&
+        gameStateJsonEqual(canonicalStateRef.current, incoming)
+      ) {
+        if (r2 !== undefined) {
+          lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r2);
+        }
+        appliedRowMetaKeyRef.current = roomRowMetaKey(room);
+        return;
+      }
+      setCanonicalState(incoming);
+      if (room.status === 'playing') setStatus('playing');
+      else setStatus('waiting');
+      if (r2 !== undefined) {
+        lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r2);
+      }
+      appliedRowMetaKeyRef.current = roomRowMetaKey(room);
+    },
+    [syncRoomRowMeta],
+  );
+
+  /** Лобби: слоты и код без подмены game_state (updated_at от аватаров не трогает стол). */
+  const mergeLobbyFieldsFromRoom = useCallback(
+    (room: GameRoomRow) => {
+      if (!room?.id) return;
+      // Иначе merge-only оставляет status=playing и пустой стол (висит UI после гонок revision/Realtime).
+      if (room.status === 'playing' && room.game_state && !canonicalStateRef.current) {
+        applyRoomData(room);
+        return;
+      }
+      roomIdRef.current = room.id;
       const ts = Date.parse(room.updated_at);
       if (Number.isFinite(ts)) {
         lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
       }
-    }
-    setRoomId(room.id);
-    setCode(room.code);
-    setPlayerSlots(room.player_slots || []);
-    // playing без game_state в payload бывает при гонках Realtime/опроса — нельзя сбрасывать статус в waiting (гость «висит» на лобби при старте).
-    if (isPlayingWithoutState) {
-      setStatus('playing');
-      const r = parseGameStateRevision(room.game_state_revision);
-      if (r !== undefined) {
-        lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r);
-      }
-      return;
-    }
-    setCanonicalState(incoming);
-    if (room.status === 'playing') setStatus('playing');
-    else setStatus('waiting');
-    const r2 = parseGameStateRevision(room.game_state_revision);
-    if (r2 !== undefined) {
-      lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r2);
-    }
-  }, []);
-
-  /** Лобби: слоты и код без подмены game_state (updated_at от аватаров не трогает стол). */
-  const mergeLobbyFieldsFromRoom = useCallback((room: GameRoomRow) => {
-    if (!room?.id) return;
-    // Иначе merge-only оставляет status=playing и пустой стол (висит UI после гонок revision/Realtime).
-    if (room.status === 'playing' && room.game_state && !canonicalStateRef.current) {
-      applyRoomData(room);
-      return;
-    }
-    roomIdRef.current = room.id;
-    const ts = Date.parse(room.updated_at);
-    if (Number.isFinite(ts)) {
-      lastSeenRoomUpdatedAtMsRef.current = Math.max(lastSeenRoomUpdatedAtMsRef.current, ts);
-    }
-    setRoomId(room.id);
-    setCode(room.code);
-    setPlayerSlots(room.player_slots || []);
-    // Сервер уже playing — UI не должен оставаться в лобби «ждём хоста», даже если JSON стола ещё не пришёл в этом payload.
-    if (room.status === 'playing') setStatus('playing');
-    else setStatus('waiting');
-  }, [applyRoomData]);
+      setRoomId(room.id);
+      setCode(room.code);
+      setPlayerSlots(room.player_slots || []);
+      syncRoomRowMeta(room);
+      // Сервер уже playing — UI не должен оставаться в лобби «ждём хоста», даже если JSON стола ещё не пришёл в этом payload.
+      if (room.status === 'playing') setStatus('playing');
+      else setStatus('waiting');
+      appliedRowMetaKeyRef.current = roomRowMetaKey(room);
+    },
+    [applyRoomData, syncRoomRowMeta],
+  );
 
   /** Одна точка: Realtime + опрос. Устаревшие по updated_at отбрасываем; по ревизии game_state — не откатывать стол из‑за свежего updated_at от слотов без смены state. */
   const applyRoomSnapshot = useCallback(
@@ -255,6 +350,14 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         lastSeenRoomUpdatedAtMsRef.current > 0 &&
         ts < lastSeenRoomUpdatedAtMsRef.current
       ) {
+        const k = roomRowMetaKey(room);
+        if (k !== appliedRowMetaKeyRef.current) {
+          setRoomId(room.id);
+          setCode(room.code);
+          setPlayerSlots(room.player_slots || []);
+          syncRoomRowMeta(room);
+          appliedRowMetaKeyRef.current = k;
+        }
         return;
       }
       if (room.status === 'waiting' && gameWriteInFlightRef.current > 0) {
@@ -494,6 +597,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const createRoom = useCallback(
     async (userId: string, displayName: string, shortLabel?: string): Promise<{ ok: boolean; error?: string }> => {
       try {
+        clearLastOnlineParty();
+        clearOnlineSession();
+        sessionRestoreOkRef.current = false;
         setError(null);
         const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
         const result = await apiCreateRoom(userId, displayName, shortLabel, avatarDataUrl);
@@ -519,6 +625,10 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const joinRoom = useCallback(
     async (codeInput: string, userId: string, displayName: string, shortLabel?: string): Promise<{ ok: boolean; error?: string }> => {
       try {
+        /* Иначе при пустом sessionStorage гидратация подставляет last-party — старый roomId «перебивает» новый код. */
+        clearLastOnlineParty();
+        clearOnlineSession();
+        sessionRestoreOkRef.current = false;
         setError(null);
         const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
         const result = await apiJoinRoom(codeInput, userId, displayName, shortLabel, avatarDataUrl);
@@ -544,6 +654,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const recoverJoinIfAlreadyInRoom = useCallback(
     async (codeInput: string): Promise<boolean> => {
       if (!user?.id) return false;
+      clearLastOnlineParty();
+      clearOnlineSession();
+      sessionRestoreOkRef.current = false;
       const r = await recoverJoinByCode(codeInput, user.id);
       if (!r) return false;
       setError(null);
@@ -623,8 +736,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const [userOnPause, setUserOnPause] = useState(false);
   const [lastPartyHintVersion, setLastPartyHintVersion] = useState(0);
 
-  const leaveRoom = useCallback(async () => {
-    const rid = roomId;
+  /** Локальный сброс + очистка sessionStorage и last-party (иначе гидратация снова подтягивает старую комнату). */
+  const disconnectLocalOnlineState = useCallback(() => {
     if (unsubRef.current) {
       unsubRef.current();
       unsubRef.current = null;
@@ -632,17 +745,60 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     roomIdRef.current = null;
     lastAppliedGameStateRevisionRef.current = -1;
     lastSeenRoomUpdatedAtMsRef.current = 0;
-    setRoomId(null); setCode(null); setCanonicalState(null); setPlayerSlots([]); setStatus('idle'); setError(null);
+    appliedRowMetaKeyRef.current = '';
+    setRoomId(null);
+    setCode(null);
+    setCanonicalState(null);
+    setPlayerSlots([]);
+    setStatus('idle');
+    setError(null);
+    setRoomPhase('lobby');
+    setHostUserId(null);
+    setAbsentUntil(null);
+    setAbsentSlotIndex(null);
     setMyServerIndex(0);
     sessionRestoreOkRef.current = false;
     setUserLeftTemporarily(false);
     setUserOnPause(false);
     setOnlineHydratedFromStorage(true);
     clearOnlineSession();
-    if (rid && user?.id) {
-      void apiLeaveRoom(rid, user.id).catch(() => {});
+    clearLastOnlineParty();
+  }, []);
+
+  const leaveRoom = useCallback(async () => {
+    const rid = roomId;
+    const uid = user?.id;
+    if (rid && uid) {
+      const leaveWallMs = 32_000;
+      try {
+        const timed = await Promise.race([
+          apiLeaveRoom(rid, uid),
+          new Promise<{ error: string }>((resolve) =>
+            setTimeout(
+              () =>
+                resolve({
+                  error:
+                    'Выход из комнаты не завершился вовремя (сеть). Локально сбросили состояние — нажмите «Присоединиться» ещё раз.',
+                }),
+              leaveWallMs,
+            ),
+          ),
+        ]);
+        const leaveErr = timed.error;
+        if (leaveErr) {
+          setError(leaveErr);
+          /* Иначе остаёмся «в комнате» в UI, а localStorage last-party тянет старую игру после входа по новому коду. */
+          disconnectLocalOnlineState();
+          return;
+        }
+      } catch (e) {
+        setError(formatSupabaseNetworkError(e));
+        disconnectLocalOnlineState();
+        return;
+      }
     }
-  }, [roomId, user?.id]);
+    disconnectLocalOnlineState();
+  }, [roomId, user?.id, disconnectLocalOnlineState]);
   
   const AI_NAMES = ['ИИ Север', 'ИИ Восток', 'ИИ Юг', 'ИИ Запад'] as const;
 
@@ -746,6 +902,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         lastAppliedGameStateRevisionRef.current >= 0 ? lastAppliedGameStateRevisionRef.current : undefined;
       const { error: err, room, conflict } = await updateRoomState(roomId, state, fullSlots, {
         expectedRevision: exp,
+        roomPhase: 'playing',
+        hostLastSeenAtNow: true,
       });
       if (conflict) {
         void getRoom(roomId).then((r) => {
@@ -1088,9 +1246,89 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const clearPlayerLeftToast = useCallback(() => setPlayerLeftToast(null), []);
     const clearError = useCallback(() => setError(null), []);
 
+  const transferHostTo = useCallback(
+    async (newHostUserId: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!roomId) return { ok: false, error: 'no_room' };
+      const res = await transferHostRoom(roomId, newHostUserId);
+      if (res.error) {
+        setError(res.error);
+        return { ok: false, error: res.error };
+      }
+      if (res.room) applyRoomData(res.room);
+      return { ok: true };
+    },
+    [roomId, applyRoomData],
+  );
+
+  const hostResolveAbsentChoice = useCallback(
+    async (choice: HostResolveAbsentChoice): Promise<boolean> => {
+      if (!roomId) return false;
+      const res = await hostResolveAbsent(roomId, choice);
+      if (res.error) {
+        const c = res.error.toLowerCase();
+        setError(
+          c === 'not_host' || c.includes('not_host')
+            ? 'Сервер не считает вас хостом (сессия устарела). Обновите страницу.'
+            : c === 'wrong_room_phase' || c.includes('wrong_room')
+              ? 'Решение уже не актуально (фаза комнаты изменилась). Обновите страницу.'
+              : c === 'no_room_in_response' || c === 'bad_response'
+                ? 'Ответ сервера неполный. Нажмите снова или обновите страницу.'
+                : res.error,
+        );
+        return false;
+      }
+      if (res.room) applyRoomData(res.room);
+      void refreshRoom();
+      return true;
+    },
+    [roomId, applyRoomData, refreshRoom],
+  );
 
   const value: OnlineGameContextValue = {
-    status, roomId, code, myServerIndex, playerSlots, canonicalState, displayState, error, createRoom, joinRoom, recoverJoinIfAlreadyInRoom, leaveRoom, refreshRoom, syncMySlotDisplayName, syncMySlotAvatar, startGame, sendBid, sendPlay, sendCompleteTrick, sendStartNextDeal, sendState, tryRestoreSession, forgetLastOnlineParty, lastPartyHintVersion, confirmReclaim, dismissReclaim, pendingReclaimOffer, returnSlotToPlayer, userOnPause, takePause, returnFromPause, playerLeftToast, clearPlayerLeftToast, clearError, userLeftTemporarily, setUserLeftTemporarily, roomSessionNonce, onlineHydratedFromStorage,
+    status,
+    roomId,
+    code,
+    myServerIndex,
+    playerSlots,
+    canonicalState,
+    displayState,
+    error,
+    createRoom,
+    joinRoom,
+    recoverJoinIfAlreadyInRoom,
+    leaveRoom,
+    refreshRoom,
+    syncMySlotDisplayName,
+    syncMySlotAvatar,
+    startGame,
+    sendBid,
+    sendPlay,
+    sendCompleteTrick,
+    sendStartNextDeal,
+    sendState,
+    tryRestoreSession,
+    forgetLastOnlineParty,
+    lastPartyHintVersion,
+    confirmReclaim,
+    dismissReclaim,
+    pendingReclaimOffer,
+    returnSlotToPlayer,
+    userOnPause,
+    takePause,
+    returnFromPause,
+    playerLeftToast,
+    clearPlayerLeftToast,
+    clearError,
+    userLeftTemporarily,
+    setUserLeftTemporarily,
+    roomSessionNonce,
+    onlineHydratedFromStorage,
+    roomPhase,
+    hostUserId,
+    absentUntil,
+    absentSlotIndex,
+    transferHostTo,
+    hostResolveAbsentChoice,
   };
 
   return (

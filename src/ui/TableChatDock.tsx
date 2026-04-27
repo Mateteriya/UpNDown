@@ -34,6 +34,8 @@ const FETCH_LIMIT = 120;
 const LS_PC_CHAT_DRAG = 'upndown.pcChat.drag';
 const LS_PC_CHAT_COLLAPSED = 'upndown.pcChat.collapsed';
 const LS_PC_CHAT_SIZE = 'upndown.pcChat.size';
+const LS_MOBILE_CHAT_HEIGHT = 'upndown.mobileChat.height';
+const LS_MOBILE_CHAT_RESIZE_HINT_SEEN = 'upndown.mobileChat.resizeHintSeen.v1';
 
 const PC_CHAT_MIN_W = 220;
 const PC_CHAT_MAX_W = 720;
@@ -194,6 +196,28 @@ function hasPcDragInLs(): boolean {
 function readPcCollapsedFromLs(): boolean {
   if (typeof localStorage === 'undefined') return false;
   return localStorage.getItem(LS_PC_CHAT_COLLAPSED) === '1';
+}
+
+function readMobileChatHeightFromLs(): number | null {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(LS_MOBILE_CHAT_HEIGHT);
+    if (!raw) return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return null;
+    return n;
+  } catch {
+    return null;
+  }
+}
+
+function readMobileResizeHintSeenFromLs(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  try {
+    return localStorage.getItem(LS_MOBILE_CHAT_RESIZE_HINT_SEEN) === '1';
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -370,6 +394,12 @@ export function TableChatDock({
     startDragX: 0,
     startDragY: 0,
   });
+  const mobileResizeSessionRef = useRef({
+    active: false,
+    pointerId: -1,
+    startY: 0,
+    startHeight: 220,
+  });
 
   const [pcCollapsed, setPcCollapsed] = useState(false);
   const [pcDrag, setPcDrag] = useState(() =>
@@ -387,8 +417,15 @@ export function TableChatDock({
   const [emojiBankExpanded, setEmojiBankExpanded] = useState(false);
   const emojiPanelRef = useRef<HTMLDivElement>(null);
   const emojiToggleRef = useRef<HTMLButtonElement>(null);
+  const emojiQuickRef = useRef<HTMLButtonElement>(null);
+  const mineQuickRef = useRef<HTMLButtonElement>(null);
   const composerInnerRef = useRef<HTMLDivElement>(null);
   const emojiPanelDomId = useId().replace(/:/g, '');
+  const [mobileMessagesHeight, setMobileMessagesHeight] = useState<number>(() => {
+    const ls = readMobileChatHeightFromLs();
+    return Math.round(Math.min(360, Math.max(140, ls ?? 188)));
+  });
+  const [mobileResizeHintVisible, setMobileResizeHintVisible] = useState<boolean>(() => !readMobileResizeHintSeenFromLs());
 
   latestPcDragRef.current = pcDrag;
 
@@ -410,6 +447,13 @@ export function TableChatDock({
     return s;
   }, [variant, pcBaseFloatStyle, pcSize]);
 
+  const mobileDockStyle = useMemo((): CSSProperties | undefined => {
+    if (variant !== 'mobile') return undefined;
+    return {
+      ['--mobile-chat-messages-height' as string]: `${mobileMessagesHeight}px`,
+    };
+  }, [mobileMessagesHeight, variant]);
+
   const displayMessages = useMemo(
     () => (variant === 'mobile' ? [...messages].reverse() : messages),
     [messages, variant],
@@ -417,6 +461,13 @@ export function TableChatDock({
 
   const [mySnippets, setMySnippets] = useState<string[]>(() => loadMySnippetsFromLs());
   const [mineDraft, setMineDraft] = useState('');
+  const [mobileMineEditMode, setMobileMineEditMode] = useState(false);
+  const [mobileMineToast, setMobileMineToast] = useState<string | null>(null);
+  const mobileMineToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressSessionRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean }>({
+    timer: null,
+    fired: false,
+  });
   /** ПК: короткая подсказка «Мои» (кнопка ?) */
   const [minePcHelpOpen, setMinePcHelpOpen] = useState(false);
   /** Ключ ячейки «эмодзи+индекс» для неон-вспышки звезды после добавления в «Мои» */
@@ -439,8 +490,20 @@ export function TableChatDock({
   useEffect(() => {
     return () => {
       if (mineStarFlashTimerRef.current) clearTimeout(mineStarFlashTimerRef.current);
+      if (mobileMineToastTimerRef.current) clearTimeout(mobileMineToastTimerRef.current);
+      if (longPressSessionRef.current.timer) clearTimeout(longPressSessionRef.current.timer);
     };
   }, []);
+
+  const showMobileMineToast = useCallback((message: string) => {
+    if (variant !== 'mobile') return;
+    if (mobileMineToastTimerRef.current) clearTimeout(mobileMineToastTimerRef.current);
+    setMobileMineToast(message);
+    mobileMineToastTimerRef.current = setTimeout(() => {
+      setMobileMineToast(null);
+      mobileMineToastTimerRef.current = null;
+    }, 1100);
+  }, [variant]);
 
   const triggerMineStarFlash = useCallback((key: string) => {
     if (mineStarFlashTimerRef.current) clearTimeout(mineStarFlashTimerRef.current);
@@ -465,9 +528,19 @@ export function TableChatDock({
         if (prev.some((x) => mineSnippetDedupeKey(x) === key)) return prev;
         return dedupeMySnippets([...prev, t]);
       });
+      if (variant === 'mobile') {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          try {
+            navigator.vibrate(12);
+          } catch {
+            /* ignore */
+          }
+        }
+        showMobileMineToast('Добавлено в «Мои»');
+      }
       triggerMineStarFlash(flashKey);
     },
-    [mySnippets.length, triggerMineStarFlash],
+    [mySnippets.length, showMobileMineToast, triggerMineStarFlash, variant],
   );
 
   useEffect(() => {
@@ -478,6 +551,8 @@ export function TableChatDock({
       /* closest надёжнее ref.contains (звёздочка и др. внутри панели) */
       if (t.closest('.table-chat-emoji-panel--popover')) return;
       if (emojiToggleRef.current?.contains(t)) return;
+      if (emojiQuickRef.current?.contains(t)) return;
+      if (mineQuickRef.current?.contains(t)) return;
       if (composerInnerRef.current?.contains(t)) return;
       if (resizeCornerRef.current?.contains(t)) return;
       setEmojiPickerOpen(false);
@@ -521,22 +596,77 @@ export function TableChatDock({
       if (next) setEmojiBankExpanded(false);
       return next;
     });
-  }, []);
+    if (variant === 'mobile') {
+      // На мобильном при открытии панели убираем системную клавиатуру,
+      // чтобы эмодзи/фразы не конкурировали за вертикальное пространство.
+      textareaRef.current?.blur();
+    }
+  }, [variant]);
 
   const onEmojiTab = useCallback((id: TableChatPickerTabId) => {
     setEmojiTab(id);
     setEmojiBankExpanded(false);
   }, []);
 
+  const onMobileQuickEmoji = useCallback(() => {
+    if (variant !== 'mobile') return;
+    setEmojiPickerOpen((open) => {
+      if (open && emojiTab !== 'mine') return false;
+      return true;
+    });
+    if (emojiTab === 'mine') {
+      setEmojiTab('react');
+      setEmojiBankExpanded(false);
+    }
+  }, [emojiTab, variant]);
+
+  const onMobileQuickMine = useCallback(() => {
+    if (variant !== 'mobile') return;
+    setEmojiPickerOpen((open) => !(open && emojiTab === 'mine'));
+    if (emojiTab !== 'mine') {
+      setEmojiTab('mine');
+      setEmojiBankExpanded(false);
+    }
+  }, [emojiTab, variant]);
+
   const addMineSnippet = useCallback((raw: string) => {
     const t = raw.trim().slice(0, MY_SNIPPETS_MAX_LEN);
     if (!t) return;
     const key = mineSnippetDedupeKey(t);
+    let added = false;
     setMySnippets((prev) => {
       if (prev.some((x) => mineSnippetDedupeKey(x) === key)) return prev;
       if (prev.length >= MY_SNIPPETS_MAX) return prev;
+      added = true;
       return dedupeMySnippets([...prev, t]);
     });
+    if (added && variant === 'mobile') {
+      showMobileMineToast('Добавлено в «Мои»');
+    }
+  }, [showMobileMineToast, variant]);
+
+  const startMobileLongPressAddMine = useCallback((value: string, flashKey?: string) => {
+    if (variant !== 'mobile') return;
+    if (longPressSessionRef.current.timer) clearTimeout(longPressSessionRef.current.timer);
+    longPressSessionRef.current.fired = false;
+    longPressSessionRef.current.timer = setTimeout(() => {
+      longPressSessionRef.current.fired = true;
+      if (flashKey) addMineFromEmojiStar(value, flashKey);
+      else addMineSnippet(value);
+    }, 420);
+  }, [addMineFromEmojiStar, addMineSnippet, variant]);
+
+  const clearMobileLongPress = useCallback(() => {
+    if (longPressSessionRef.current.timer) {
+      clearTimeout(longPressSessionRef.current.timer);
+      longPressSessionRef.current.timer = null;
+    }
+  }, []);
+
+  const consumeMobileLongPressFired = useCallback(() => {
+    const fired = longPressSessionRef.current.fired;
+    longPressSessionRef.current.fired = false;
+    return fired;
   }, []);
 
   const addMineFromComposer = useCallback(() => {
@@ -604,6 +734,10 @@ export function TableChatDock({
   }, [variant, mobileOpen]);
 
   useEffect(() => {
+    if (variant !== 'mobile' || emojiTab !== 'mine') setMobileMineEditMode(false);
+  }, [emojiTab, variant]);
+
+  useEffect(() => {
     const el = listRef.current;
     if (!el) return;
     if (variant === 'mobile') {
@@ -626,6 +760,32 @@ export function TableChatDock({
   useLayoutEffect(() => {
     resizeComposer();
   }, [text, resizeComposer, mobileOpen, variant]);
+
+  useEffect(() => {
+    if (variant !== 'mobile' || !emojiPickerOpen) return;
+    const ensureEmojiPanelVisible = () => {
+      const panel = emojiPanelRef.current;
+      if (!panel) return;
+      panel.scrollTop = 0;
+      const nested = panel.querySelectorAll<HTMLElement>(
+        '.table-chat-emoji-panel__grid, .table-chat-phrase-scroll, .table-chat-mine__scroll',
+      );
+      nested.forEach((el) => {
+        el.scrollTop = 0;
+      });
+      try {
+        panel.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'smooth' });
+      } catch {
+        panel.scrollIntoView({ block: 'start', inline: 'nearest' });
+      }
+    };
+    const rafId = requestAnimationFrame(ensureEmojiPanelVisible);
+    const tId = window.setTimeout(ensureEmojiPanelVisible, 120);
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.clearTimeout(tId);
+    };
+  }, [emojiPickerOpen, variant]);
 
   useEffect(() => {
     if (variant !== 'pc' || pcPrefsLoadedRef.current) return;
@@ -798,6 +958,64 @@ export function TableChatDock({
     setPcDrag((prev) => (prev.x === nx && prev.y === ny ? prev : { x: nx, y: ny }));
   }, []);
 
+  const onMobileResizePointerMove = useCallback((e: PointerEvent) => {
+    const s = mobileResizeSessionRef.current;
+    if (!s.active || e.pointerId !== s.pointerId) return;
+    const next = s.startHeight + (s.startY - e.clientY);
+    const clamped = Math.round(Math.min(360, Math.max(140, next)));
+    setMobileMessagesHeight(clamped);
+  }, []);
+
+  const onMobileResizePointerUp = useCallback(
+    (e: PointerEvent) => {
+      const s = mobileResizeSessionRef.current;
+      if (!s.active || e.pointerId !== s.pointerId) return;
+      s.active = false;
+      window.removeEventListener('pointermove', onMobileResizePointerMove, PC_POINTER_MOVE_OPTS);
+      window.removeEventListener('pointerup', onMobileResizePointerUp);
+      window.removeEventListener('pointercancel', onMobileResizePointerUp);
+      const next = s.startHeight + (s.startY - e.clientY);
+      const clamped = Math.round(Math.min(360, Math.max(140, next)));
+      setMobileMessagesHeight(clamped);
+      try {
+        localStorage.setItem(LS_MOBILE_CHAT_HEIGHT, String(clamped));
+      } catch {
+        /* ignore */
+      }
+      setMobileResizeHintVisible(false);
+      try {
+        localStorage.setItem(LS_MOBILE_CHAT_RESIZE_HINT_SEEN, '1');
+      } catch {
+        /* ignore */
+      }
+    },
+    [onMobileResizePointerMove],
+  );
+
+  const startMobileResize = useCallback(
+    (e: ReactPointerEvent) => {
+      if (variant !== 'mobile') return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      mobileResizeSessionRef.current = {
+        active: true,
+        pointerId: e.pointerId,
+        startY: e.clientY,
+        startHeight: mobileMessagesHeight,
+      };
+      window.addEventListener('pointermove', onMobileResizePointerMove, PC_POINTER_MOVE_OPTS);
+      window.addEventListener('pointerup', onMobileResizePointerUp);
+      window.addEventListener('pointercancel', onMobileResizePointerUp);
+      setMobileResizeHintVisible(false);
+      try {
+        localStorage.setItem(LS_MOBILE_CHAT_RESIZE_HINT_SEEN, '1');
+      } catch {
+        /* ignore */
+      }
+      e.preventDefault();
+    },
+    [mobileMessagesHeight, onMobileResizePointerMove, onMobileResizePointerUp, variant],
+  );
+
   const onPcWindowPointerUp = useCallback(
     (e: PointerEvent) => {
       const s = pcDragSessionRef.current;
@@ -841,6 +1059,28 @@ export function TableChatDock({
       dockRef.current?.style.removeProperty('transform');
     };
   }, [onPcWindowPointerMove, onPcWindowPointerUp]);
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('pointermove', onMobileResizePointerMove, PC_POINTER_MOVE_OPTS);
+      window.removeEventListener('pointerup', onMobileResizePointerUp);
+      window.removeEventListener('pointercancel', onMobileResizePointerUp);
+      mobileResizeSessionRef.current.active = false;
+    };
+  }, [onMobileResizePointerMove, onMobileResizePointerUp]);
+
+  useEffect(() => {
+    if (variant !== 'mobile' || !mobileOpen || !mobileResizeHintVisible) return;
+    const t = window.setTimeout(() => {
+      setMobileResizeHintVisible(false);
+      try {
+        localStorage.setItem(LS_MOBILE_CHAT_RESIZE_HINT_SEEN, '1');
+      } catch {
+        /* ignore */
+      }
+    }, 4200);
+    return () => window.clearTimeout(t);
+  }, [mobileOpen, mobileResizeHintVisible, variant]);
 
   const startPcWindowDrag = useCallback(
     (e: ReactPointerEvent) => {
@@ -983,7 +1223,7 @@ export function TableChatDock({
         'table-chat-dock--pro',
         variant === 'mobile' ? 'table-chat-dock--mobile' : 'table-chat-dock--pc',
       ].join(' ')}
-      style={variant === 'pc' ? pcExpandedDockStyle : undefined}
+      style={variant === 'pc' ? pcExpandedDockStyle : mobileDockStyle}
       {...(variant === 'pc'
         ? { 'data-pc-chat-drag-x': String(pcDrag.x), 'data-pc-chat-drag-y': String(pcDrag.y) }
         : {})}
@@ -1004,6 +1244,38 @@ export function TableChatDock({
           >
             Свернуть
           </button>
+          <div className="table-chat-dock-mobile-quick-actions">
+            <button
+              ref={emojiQuickRef}
+              type="button"
+              className={[
+                'table-chat-dock-mobile-quick-btn',
+                emojiPickerOpen && emojiTab !== 'mine' ? 'table-chat-dock-mobile-quick-btn--active' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={onMobileQuickEmoji}
+              aria-pressed={emojiPickerOpen && emojiTab !== 'mine'}
+              aria-label="Эмодзи и фразы"
+            >
+              Эмодзи
+            </button>
+            <button
+              ref={mineQuickRef}
+              type="button"
+              className={[
+                'table-chat-dock-mobile-quick-btn',
+                emojiPickerOpen && emojiTab === 'mine' ? 'table-chat-dock-mobile-quick-btn--active' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={onMobileQuickMine}
+              aria-pressed={emojiPickerOpen && emojiTab === 'mine'}
+              aria-label="Раздел Мои"
+            >
+              Мои
+            </button>
+          </div>
         </div>
       )}
       {variant === 'pc' && (
@@ -1034,6 +1306,24 @@ export function TableChatDock({
           </button>
         </div>
       )}
+      {variant === 'mobile' ? (
+        <div className="table-chat-mobile-resize-wrap">
+          <button
+            type="button"
+            className="table-chat-mobile-resize-handle"
+            onPointerDown={startMobileResize}
+            aria-label="Изменить высоту области сообщений"
+            title="Потяните вверх или вниз"
+          >
+            <span aria-hidden>⋯</span>
+          </button>
+          {mobileResizeHintVisible ? (
+            <div className="table-chat-mobile-resize-hint" role="status" aria-live="polite">
+              Потяните для изменения высоты
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div ref={listRef} className="table-chat-messages table-chat-messages--pro" role="log" aria-live="polite">
         {messages.length === 0 ? (
           <div className="table-chat-empty table-chat-empty--pro">
@@ -1044,6 +1334,24 @@ export function TableChatDock({
           displayMessages.map((m) => {
             const self = m.user_id === userId;
             const pending = m.id.startsWith('opt-');
+            if (variant === 'mobile') {
+              return (
+                <div
+                  key={m.id}
+                  className={[
+                    'table-chat-msg-compact',
+                    self ? 'table-chat-msg-compact--self' : '',
+                    pending ? 'table-chat-msg-compact--pending' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  <span className="table-chat-msg-compact__name">{self ? 'Вы' : (m.display_name || 'Игрок')}</span>
+                  <span className="table-chat-msg-compact__sep">:</span>
+                  <span className="table-chat-msg-compact__body">{m.body}</span>
+                </div>
+              );
+            }
             return (
               <div
                 key={m.id}
@@ -1106,6 +1414,7 @@ export function TableChatDock({
                 className={[
                   'table-chat-emoji-panel',
                   'table-chat-emoji-panel--popover',
+                  variant === 'mobile' ? 'table-chat-emoji-panel--mobile-sheet' : '',
                   emojiTab === 'mine' ? 'table-chat-emoji-panel--mine' : '',
                 ]
                   .filter(Boolean)
@@ -1148,12 +1457,6 @@ export function TableChatDock({
                     </button>
                   ))}
                 </div>
-                {emojiTab !== 'mine' && variant === 'mobile' ? (
-                  <p className="table-chat-picker-short-hint">
-                    <span className="table-chat-picker-short-hint__lead">В банк «Мои»:</span> у фразы — «В Мои»
-                    справа; у эмодзи — Shift (или Alt) и тап по символу.
-                  </p>
-                ) : null}
                 {emojiTab === 'phrases' ? (
                   <div className="table-chat-phrase-scroll">
                     {CHAT_QUICK_PHRASES.map((phrase, idx) => (
@@ -1172,6 +1475,10 @@ export function TableChatDock({
                                 : undefined
                           }
                           onClick={(e) => {
+                            if (variant === 'mobile' && consumeMobileLongPressFired()) {
+                              e.preventDefault();
+                              return;
+                            }
                             if (e.shiftKey || e.altKey) {
                               e.preventDefault();
                               addMineSnippet(phrase);
@@ -1179,6 +1486,18 @@ export function TableChatDock({
                             }
                             if (text.length + phrase.length > MAX_BODY) return;
                             insertSnippet(phrase);
+                          }}
+                          onPointerDown={() => {
+                            if (variant === 'mobile') startMobileLongPressAddMine(phrase);
+                          }}
+                          onPointerUp={() => {
+                            if (variant === 'mobile') clearMobileLongPress();
+                          }}
+                          onPointerCancel={() => {
+                            if (variant === 'mobile') clearMobileLongPress();
+                          }}
+                          onPointerLeave={() => {
+                            if (variant === 'mobile') clearMobileLongPress();
                           }}
                         >
                           {phrase}
@@ -1212,11 +1531,16 @@ export function TableChatDock({
                 ) : emojiTab === 'mine' ? (
                   <div className="table-chat-mine">
                     {variant === 'mobile' ? (
-                      <p className="table-chat-mine__hint">
-                        Только на этом телефоне/планшете. Добавить: поле ниже, «Из поля сообщения», или с вкладок
-                        «Фразы» / эмодзи — кнопка «В Мои» или Shift+тап по символу.
-                      </p>
-                    ) : (
+                      <button
+                        type="button"
+                        className="table-chat-mine__edit-toggle-mobile"
+                        onClick={() => setMobileMineEditMode((v) => !v)}
+                        aria-pressed={mobileMineEditMode}
+                      >
+                        {mobileMineEditMode ? 'Готово' : 'Редактировать'}
+                      </button>
+                    ) : null}
+                    {variant !== 'mobile' ? (
                       <div className="table-chat-mine__hint-wrap table-chat-mine__hint-wrap--pc">
                         <button
                           type="button"
@@ -1234,7 +1558,7 @@ export function TableChatDock({
                           </p>
                         ) : null}
                       </div>
-                    )}
+                    ) : null}
                     <div className="table-chat-mine__scroll">
                       {mySnippets.length === 0 ? (
                         <div className="table-chat-mine__empty">Пока пусто — добавьте первую строку.</div>
@@ -1254,14 +1578,16 @@ export function TableChatDock({
                                   >
                                     {s}
                                   </button>
-                                  <button
-                                    type="button"
-                                    className="table-chat-mine__del"
-                                    aria-label={`Удалить: ${s.slice(0, 40)}`}
-                                    onClick={() => removeMineSnippet(idx)}
-                                  >
-                                    ×
-                                  </button>
+                                  {variant !== 'mobile' || mobileMineEditMode ? (
+                                    <button
+                                      type="button"
+                                      className="table-chat-mine__del"
+                                      aria-label={`Удалить: ${s.slice(0, 40)}`}
+                                      onClick={() => removeMineSnippet(idx)}
+                                    >
+                                      ×
+                                    </button>
+                                  ) : null}
                                 </div>
                               );
                             })}
@@ -1280,14 +1606,16 @@ export function TableChatDock({
                                   >
                                     {s}
                                   </button>
-                                  <button
-                                    type="button"
-                                    className="table-chat-mine__del table-chat-mine__del--emoji"
-                                    aria-label={`Удалить: ${s.slice(0, 40)}`}
-                                    onClick={() => removeMineSnippet(idx)}
-                                  >
-                                    ×
-                                  </button>
+                                  {variant !== 'mobile' || mobileMineEditMode ? (
+                                    <button
+                                      type="button"
+                                      className="table-chat-mine__del table-chat-mine__del--emoji"
+                                      aria-label={`Удалить: ${s.slice(0, 40)}`}
+                                      onClick={() => removeMineSnippet(idx)}
+                                    >
+                                      ×
+                                    </button>
+                                  ) : null}
                                 </div>
                               );
                             })}
@@ -1360,6 +1688,10 @@ export function TableChatDock({
                                 opacity: text.length + emo.length > MAX_BODY ? 0.45 : 1,
                               }}
                               onClick={(e) => {
+                                if (variant === 'mobile' && consumeMobileLongPressFired()) {
+                                  e.preventDefault();
+                                  return;
+                                }
                                 if (e.shiftKey || e.altKey) {
                                   e.preventDefault();
                                   addMineSnippet(emo);
@@ -1368,36 +1700,50 @@ export function TableChatDock({
                                 if (text.length + emo.length > MAX_BODY) return;
                                 insertSnippet(emo);
                               }}
+                              onPointerDown={() => {
+                                if (variant === 'mobile') startMobileLongPressAddMine(emo, starFlashKey);
+                              }}
+                              onPointerUp={() => {
+                                if (variant === 'mobile') clearMobileLongPress();
+                              }}
+                              onPointerCancel={() => {
+                                if (variant === 'mobile') clearMobileLongPress();
+                              }}
+                              onPointerLeave={() => {
+                                if (variant === 'mobile') clearMobileLongPress();
+                              }}
                             >
                               {emo}
                             </button>
-                            <button
-                              type="button"
-                              className={[
-                                'table-chat-emoji-cell-star',
-                                mineStarFlashKey === starFlashKey ? 'table-chat-emoji-cell-star--flash' : '',
-                                mySnippets.length >= MY_SNIPPETS_MAX ? 'table-chat-emoji-cell-star--at-cap' : '',
-                              ]
-                                .filter(Boolean)
-                                .join(' ')}
-                              title={
-                                mySnippets.length >= MY_SNIPPETS_MAX
-                                  ? 'Список «Мои» полон — удалите строку или замените фразу'
-                                  : 'Добавить в «Мои»'
-                              }
-                              aria-label={`Добавить в «Мои»: ${emo}`}
-                              aria-disabled={mySnippets.length >= MY_SNIPPETS_MAX}
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                addMineFromEmojiStar(emo, starFlashKey);
-                              }}
-                            >
-                              <span aria-hidden>★</span>
-                            </button>
+                            {variant !== 'mobile' ? (
+                              <button
+                                type="button"
+                                className={[
+                                  'table-chat-emoji-cell-star',
+                                  mineStarFlashKey === starFlashKey ? 'table-chat-emoji-cell-star--flash' : '',
+                                  mySnippets.length >= MY_SNIPPETS_MAX ? 'table-chat-emoji-cell-star--at-cap' : '',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' ')}
+                                title={
+                                  mySnippets.length >= MY_SNIPPETS_MAX
+                                    ? 'Список «Мои» полон — удалите строку или замените фразу'
+                                    : 'Добавить в «Мои»'
+                                }
+                                aria-label={`Добавить в «Мои»: ${emo}`}
+                                aria-disabled={mySnippets.length >= MY_SNIPPETS_MAX}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  addMineFromEmojiStar(emo, starFlashKey);
+                                }}
+                              >
+                                <span aria-hidden>★</span>
+                              </button>
+                            ) : null}
                           </div>
                         );
                       })}
@@ -1423,37 +1769,104 @@ export function TableChatDock({
               </button>
             </div>
           </div>
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={(e) => setText(e.target.value.slice(0, MAX_BODY))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                void onSend();
-              }
-            }}
-            placeholder="Сообщение…"
-            maxLength={MAX_BODY}
-            rows={1}
-            className="table-chat-input table-chat-input--pro"
-            autoComplete="off"
-            aria-label="Текст сообщения в чат"
-          />
-          <div className="table-chat-composer__footer">
-            <span className="table-chat-composer__counter" aria-live="polite">
-              {text.length}/{MAX_BODY}
-            </span>
-            <button
-              type="button"
-              className="table-chat-send table-chat-send--pro"
-              onClick={() => void onSend()}
-              disabled={sending || !text.trim()}
-              aria-label={sending ? 'Отправка…' : 'Отправить'}
-            >
-              {sending ? <span className="table-chat-send__spinner" aria-hidden /> : 'Отправить'}
-            </button>
-          </div>
+          {variant === 'mobile' ? (
+            <div className="table-chat-mobile-input-shell">
+              <button
+                ref={emojiToggleRef}
+                type="button"
+                className="table-chat-mobile-input-shell__emoji"
+                aria-expanded={emojiPickerOpen}
+                aria-haspopup="dialog"
+                aria-controls={emojiPanelDomId}
+                aria-label={emojiPickerOpen ? 'Закрыть вставку' : 'Эмодзи и фразы'}
+                title="Эмодзи и фразы"
+                onClick={onEmojiToggle}
+              >
+                <span aria-hidden>✨</span>
+              </button>
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value.slice(0, MAX_BODY))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    void onSend();
+                  }
+                }}
+                placeholder="Сообщение…"
+                maxLength={MAX_BODY}
+                rows={1}
+                className="table-chat-input table-chat-input--pro table-chat-input--mobile-inline"
+                autoComplete="off"
+                aria-label="Текст сообщения в чат"
+              />
+              <button
+                type="button"
+                className="table-chat-mobile-input-shell__send"
+                onClick={() => void onSend()}
+                disabled={sending || !text.trim()}
+                aria-label={sending ? 'Отправка…' : 'Отправить'}
+              >
+                {sending ? <span className="table-chat-send__spinner" aria-hidden /> : '➤'}
+              </button>
+            </div>
+          ) : (
+            <>
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value.slice(0, MAX_BODY))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    void onSend();
+                  }
+                }}
+                placeholder="Сообщение…"
+                maxLength={MAX_BODY}
+                rows={1}
+                className="table-chat-input table-chat-input--pro"
+                autoComplete="off"
+                aria-label="Текст сообщения в чат"
+              />
+              <div className="table-chat-composer__footer">
+                <span className="table-chat-composer__counter" aria-live="polite">
+                  {text.length}/{MAX_BODY}
+                </span>
+                <button
+                  type="button"
+                  className="table-chat-send table-chat-send--pro"
+                  onClick={() => void onSend()}
+                  disabled={sending || !text.trim()}
+                  aria-label={sending ? 'Отправка…' : 'Отправить'}
+                >
+                  {sending ? <span className="table-chat-send__spinner" aria-hidden /> : 'Отправить'}
+                </button>
+              </div>
+            </>
+          )}
+          {variant === 'mobile' && mySnippets.length > 0 ? (
+            <div className="table-chat-mobile-favorites" aria-label="Избранные вставки">
+              {mySnippets.slice(0, 10).map((s, idx) => (
+                <button
+                  key={`fav-${idx}-${mineSnippetDedupeKey(s)}`}
+                  type="button"
+                  className="table-chat-mobile-favorites__chip"
+                  disabled={text.length + s.length > MAX_BODY}
+                  onClick={() => insertSnippet(s)}
+                  title={s}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {variant === 'mobile' && mobileMineToast ? (
+            <div className="table-chat-mobile-mine-toast" role="status" aria-live="polite">
+              {mobileMineToast}
+            </div>
+          ) : null}
         </div>
       </div>
       {variant === 'pc' ? (
