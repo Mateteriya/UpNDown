@@ -309,8 +309,9 @@ export async function getRoomQuick(roomId: string): Promise<GameRoomRow | null> 
         .select('*')
         .eq('id', roomId)
         .abortSignal(lobbyFastAbortSignal())
-        .single();
+        .maybeSingle();
       if (data && !error) return data as GameRoomRow;
+      if (!data && !error) return null;
       if (error?.code === 'PGRST116') return null;
       if (attempt === 0 && (isAbortLike(error) || isRetryableReadFailure(error, !!data))) {
         await sleep(120);
@@ -549,7 +550,7 @@ export async function joinRoom(
       .select('*')
       .eq('code', normalizedCode)
       .abortSignal(lobbyFastAbortSignal())
-      .single();
+      .maybeSingle();
 
     if (fetchError) {
       if (isAbortLike(fetchError)) {
@@ -707,8 +708,9 @@ export async function getRoom(roomId: string): Promise<GameRoomRow | null> {
         .select('*')
         .eq('id', roomId)
         .abortSignal(lobbyRestAbortSignal())
-        .single();
+        .maybeSingle();
       if (data && !error) return data as GameRoomRow;
+      if (!data && !error) return null;
       if (error?.code === 'PGRST116') return null;
       if (!isRetryableReadFailure(error, !!data) || attempt === ROOM_READ_MAX_ATTEMPTS - 1) return null;
     } catch (e) {
@@ -732,8 +734,9 @@ export async function getRoomForSyncPoll(roomId: string): Promise<GameRoomRow | 
         .select('*')
         .eq('id', roomId)
         .abortSignal(syncPollRestAbortSignal())
-        .single();
+        .maybeSingle();
       if (data && !error) return data as GameRoomRow;
+      if (!data && !error) return null;
       if (error?.code === 'PGRST116') return null;
       if (attempt === 0 && (isAbortLike(error) || isRetryableReadFailure(error, !!data))) {
         await sleep(200);

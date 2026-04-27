@@ -1255,9 +1255,10 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return { ok: false, error: res.error };
       }
       if (res.room) applyRoomData(res.room);
+      void refreshRoom();
       return { ok: true };
     },
-    [roomId, applyRoomData],
+    [roomId, applyRoomData, refreshRoom],
   );
 
   const hostResolveAbsentChoice = useCallback(

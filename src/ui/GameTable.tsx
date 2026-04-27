@@ -7402,19 +7402,54 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               zIndex: 20000,
             }}
             onClick={() => {
-              if (!transferHostExitBusy) setShowTransferHostExit(false);
+              setTransferHostExitBusy(false);
+              setTransferHostExitError(null);
+              setShowTransferHostExit(false);
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Escape' && !transferHostExitBusy) setShowTransferHostExit(false);
+              if (e.key === 'Escape') {
+                setTransferHostExitBusy(false);
+                setTransferHostExitError(null);
+                setShowTransferHostExit(false);
+              }
             }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="transfer-host-exit-title"
           >
             <div
-              style={{ ...newGameConfirmModalStyle, maxWidth: 400 }}
+              style={{ ...newGameConfirmModalStyle, maxWidth: 400, position: 'relative' }}
               onClick={(e) => e.stopPropagation()}
             >
+              <button
+                type="button"
+                aria-label="Закрыть"
+                title="Закрыть"
+                onClick={() => {
+                  setTransferHostExitBusy(false);
+                  setTransferHostExitError(null);
+                  setShowTransferHostExit(false);
+                }}
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  right: 10,
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  border: '1px solid #475569',
+                  background: '#1e293b',
+                  color: '#e2e8f0',
+                  fontSize: 20,
+                  lineHeight: 1,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                ×
+              </button>
               <p id="transfer-host-exit-title" style={newGameConfirmTextStyle}>
                 Вы хост. Перед выходом лучше передать хоста другому игроку — иначе решение о паузе останется на вас, пока вы в комнате.
               </p>
@@ -7452,8 +7487,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               <div style={{ ...newGameConfirmButtonsStyle, flexWrap: 'wrap', gap: 10 }}>
                 <button
                   type="button"
-                  disabled={transferHostExitBusy}
                   onClick={() => {
+                    setTransferHostExitBusy(false);
+                    setTransferHostExitError(null);
                     setShowTransferHostExit(false);
                     setShowExitConfirm(true);
                   }}
@@ -7468,26 +7504,33 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                     if (!transferHostExitPick) return;
                     setTransferHostExitError(null);
                     setTransferHostExitBusy(true);
-                    const r = await online.transferHostTo(transferHostExitPick);
-                    setTransferHostExitBusy(false);
-                    if (r.ok) {
-                      setShowTransferHostExit(false);
-                      setShowExitConfirm(true);
-                    } else {
-                      const c = (r.error ?? '').toLowerCase();
+                    try {
+                      const r = await online.transferHostTo(transferHostExitPick);
+                      if (r.ok) {
+                        setShowTransferHostExit(false);
+                        setShowExitConfirm(true);
+                      } else {
+                        const c = (r.error ?? '').toLowerCase();
+                        setTransferHostExitError(
+                          c === 'not_host'
+                            ? 'Сервер не считает вас хостом (состояние устарело). Обновите страницу или откройте комнату заново.'
+                            : c === 'new_host_not_in_slots' || c.includes('not_in_slots')
+                              ? 'Выбранный игрок не числится в комнате. Обновите стол.'
+                              : c === 'same_host'
+                                ? 'Нужно выбрать другого игрока, не себя.'
+                                : c === 'not_authenticated'
+                                  ? 'Сессия истекла. Войдите снова и откройте комнату по коду — иначе запросы к столу не проходят.'
+                                  : c === 'not_found'
+                                    ? 'Комната на сервере не найдена.'
+                                    : r.error ?? 'Не удалось передать хоста. Попробуйте ещё раз.',
+                        );
+                      }
+                    } catch {
                       setTransferHostExitError(
-                        c === 'not_host'
-                          ? 'Сервер не считает вас хостом (состояние устарело). Обновите страницу или откройте комнату заново.'
-                          : c === 'new_host_not_in_slots' || c.includes('not_in_slots')
-                            ? 'Выбранный игрок не числится в комнате. Обновите стол.'
-                            : c === 'same_host'
-                              ? 'Нужно выбрать другого игрока, не себя.'
-                              : c === 'not_authenticated'
-                                ? 'Сессия истекла. Войдите снова.'
-                                : c === 'not_found'
-                                  ? 'Комната на сервере не найдена.'
-                                  : r.error ?? 'Не удалось передать хоста. Попробуйте ещё раз.',
+                        'Нет связи с сервером. Попробуйте ещё раз или обновите страницу.',
                       );
+                    } finally {
+                      setTransferHostExitBusy(false);
                     }
                   }}
                   style={newGameConfirmOkBtnStyle}
