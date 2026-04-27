@@ -7504,11 +7504,19 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                     if (!transferHostExitPick) return;
                     setTransferHostExitError(null);
                     setTransferHostExitBusy(true);
+                    let leftTableAfterTransfer = false;
                     try {
-                      const r = await online.transferHostTo(transferHostExitPick);
+                      const r = await online.transferHostTo(transferHostExitPick, online.roomId);
                       if (r.ok) {
                         setShowTransferHostExit(false);
-                        setShowExitConfirm(true);
+                        setTransferHostExitBusy(false);
+                        /* Сразу выход в меню: второе «Выйти?» с тем же z-index часто не замечали; зависший RPC без таймаута держал модалку. */
+                        try {
+                          if (isWaitingInRoom || isOnline) await online.leaveRoom();
+                        } finally {
+                          leftTableAfterTransfer = true;
+                          onExit();
+                        }
                       } else {
                         const c = (r.error ?? '').toLowerCase();
                         setTransferHostExitError(
@@ -7521,8 +7529,12 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                                 : c === 'not_authenticated'
                                   ? 'Сессия истекла. Войдите снова и откройте комнату по коду — иначе запросы к столу не проходят.'
                                   : c === 'not_found'
-                                    ? 'Комната на сервере не найдена.'
-                                    : r.error ?? 'Не удалось передать хоста. Попробуйте ещё раз.',
+                                    ? 'Комната на сервере не найдена (id или доступ). Обновите страницу и откройте стол по коду.'
+                                    : c === 'bad_room_id' || c.includes('bad_room')
+                                      ? 'Неверный id комнаты. Обновите страницу и зайдите в комнату снова.'
+                                      : c === 'bad_new_host'
+                                        ? 'Неверный id нового хоста. Выберите игрока из списка ещё раз.'
+                                        : r.error ?? 'Не удалось передать хоста. Попробуйте ещё раз.',
                         );
                       }
                     } catch {
@@ -7530,7 +7542,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                         'Нет связи с сервером. Попробуйте ещё раз или обновите страницу.',
                       );
                     } finally {
-                      setTransferHostExitBusy(false);
+                      if (!leftTableAfterTransfer) setTransferHostExitBusy(false);
                     }
                   }}
                   style={newGameConfirmOkBtnStyle}

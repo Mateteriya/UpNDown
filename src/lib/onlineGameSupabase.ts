@@ -101,6 +101,20 @@ export interface GameRoomRow {
 }
 
 const TABLE = 'game_rooms';
+
+/** Нормализация uuid для RPC (без пробелов/BOM; иначе PostgREST даёт null → not_found в SQL). */
+const UUID_PARAM_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function trimUuidParam(id: string | null | undefined): string {
+  return String(id ?? '')
+    .trim()
+    .replace(/^\uFEFF/, '');
+}
+function assertUuidParam(id: string | null | undefined): { ok: true; value: string } | { ok: false; error: string } {
+  const s = trimUuidParam(id);
+  if (!s) return { ok: false, error: 'bad_room_id' };
+  if (!UUID_PARAM_RE.test(s)) return { ok: false, error: 'bad_room_id' };
+  return { ok: true, value: s };
+}
 const PRESENCE_TABLE = 'game_room_presence';
 const CHAT_TABLE = 'game_room_chat_messages';
 const CODE_LENGTH = 6;
@@ -1250,10 +1264,16 @@ export async function transferHostRoom(
   newHostUserId: string,
 ): Promise<{ error?: string; room?: GameRoomRow }> {
   if (!supabase) return { error: 'Supabase не настроен' };
-  const { data, error } = await supabase.rpc('updown_transfer_host', {
-    p_room_id: roomId,
-    p_new_host_user_id: newHostUserId,
-  });
+  const rid = assertUuidParam(roomId);
+  if (!rid.ok) return { error: rid.error };
+  const nidRaw = trimUuidParam(newHostUserId);
+  if (!UUID_PARAM_RE.test(nidRaw)) return { error: 'bad_new_host' };
+  const { data, error } = await supabase
+    .rpc('updown_transfer_host', {
+      p_room_id: rid.value,
+      p_new_host_user_id: nidRaw,
+    })
+    .abortSignal(lobbyJoinRpcAbortSignal());
   if (error) return { error: error.message };
   const p = parseUpdownRpcRoomPayload(data);
   return p.ok ? { room: p.room } : { error: p.error };

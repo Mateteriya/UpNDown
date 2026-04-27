@@ -172,7 +172,11 @@ export interface OnlineGameContextValue {
   hostUserId: string | null;
   absentUntil: string | null;
   absentSlotIndex: number | null;
-  transferHostTo: (newHostUserId: string) => Promise<{ ok: boolean; error?: string }>;
+  transferHostTo: (
+    newHostUserId: string,
+    /** Явный id комнаты с экрана (GameTable), чтобы не упереться в устаревший roomId в замыкании. */
+    roomIdForRpc?: string | null,
+  ) => Promise<{ ok: boolean; error?: string }>;
   hostResolveAbsentChoice: (choice: HostResolveAbsentChoice) => Promise<boolean>;
 }
 // --- Конец интерфейса ---
@@ -1247,9 +1251,13 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const clearError = useCallback(() => setError(null), []);
 
   const transferHostTo = useCallback(
-    async (newHostUserId: string): Promise<{ ok: boolean; error?: string }> => {
-      if (!roomId) return { ok: false, error: 'no_room' };
-      const res = await transferHostRoom(roomId, newHostUserId);
+    async (
+      newHostUserId: string,
+      roomIdForRpc?: string | null,
+    ): Promise<{ ok: boolean; error?: string }> => {
+      const rid = String(roomIdForRpc ?? roomIdRef.current ?? '').trim();
+      if (!rid) return { ok: false, error: 'no_room' };
+      const res = await transferHostRoom(rid, newHostUserId);
       if (res.error) {
         setError(res.error);
         return { ok: false, error: res.error };
@@ -1258,7 +1266,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       void refreshRoom();
       return { ok: true };
     },
-    [roomId, applyRoomData, refreshRoom],
+    [applyRoomData, refreshRoom],
   );
 
   const hostResolveAbsentChoice = useCallback(
