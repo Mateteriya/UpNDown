@@ -1287,6 +1287,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const pcHeaderActionGroupRef = useRef<HTMLDivElement | null>(null);
   const pcGameInfoLeftColRef = useRef<HTMLDivElement | null>(null);
   const pcFirstMoveBadgeRef = useRef<HTMLDivElement | null>(null);
+  const pcGameInfoLeftSectionRef = useRef<HTMLDivElement | null>(null);
   const [pcGameInfoLeftAlignPx, setPcGameInfoLeftAlignPx] = useState(0);
   /** margin-top у `.game-mobile-top-row`: совмещаем верх ряда З/С с верхом `.game-info-left-section` (getBoundingClientRect, ±clamp). */
   const [shortImmersiveNwRowAlignPx, setShortImmersiveNwRowAlignPx] = useState(0);
@@ -1458,12 +1459,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   /** ПК: first-move + нижний бейдж как единый блок держим на одной горизонтали с контейнером кнопок (верхняя граница). */
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
-    if (isMobileOrTablet) {
-      setPcGameInfoLeftAlignPx(0);
-      return;
-    }
-    const isFirstMoveBlockShown = state?.phase === 'bidding' || state?.phase === 'dark-bidding';
-    if (!isFirstMoveBlockShown) {
+    if (isMobile) {
       setPcGameInfoLeftAlignPx(0);
       return;
     }
@@ -1475,10 +1471,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         rafId = null;
         const headerGroup = pcHeaderActionGroupRef.current;
         const leftCol = pcGameInfoLeftColRef.current;
-        const firstMoveBadge = pcFirstMoveBadgeRef.current;
-        if (!headerGroup || !leftCol || !firstMoveBadge) return;
+        const anchorBadge = pcFirstMoveBadgeRef.current ?? pcGameInfoLeftSectionRef.current;
+        if (!headerGroup || !leftCol || !anchorBadge) return;
         const targetTop = Math.round(headerGroup.getBoundingClientRect().top);
-        const currentTop = Math.round(firstMoveBadge.getBoundingClientRect().top);
+        const currentTop = Math.round(anchorBadge.getBoundingClientRect().top);
         const delta = targetTop - currentTop;
         if (Math.abs(delta) <= 1) return;
         setPcGameInfoLeftAlignPx((prev) => prev + delta);
@@ -1491,13 +1487,15 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     const ro = new ResizeObserver(scheduleAlign);
     if (pcHeaderActionGroupRef.current) ro.observe(pcHeaderActionGroupRef.current);
     if (pcGameInfoLeftColRef.current) ro.observe(pcGameInfoLeftColRef.current);
+    if (pcFirstMoveBadgeRef.current) ro.observe(pcFirstMoveBadgeRef.current);
+    if (pcGameInfoLeftSectionRef.current) ro.observe(pcGameInfoLeftSectionRef.current);
 
     return () => {
       if (rafId != null) window.cancelAnimationFrame(rafId);
       window.removeEventListener('resize', scheduleAlign);
       ro.disconnect();
     };
-  }, [isMobileOrTablet, state?.phase]);
+  }, [isMobile, state?.phase]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -6743,6 +6741,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             )}
             {(state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') && (
               <div
+                ref={pcGameInfoLeftSectionRef}
                 className={`game-info-left-section pc-info-badge-unified ${
                   state.phase === 'bidding' || state.phase === 'dark-bidding'
                     ? 'pc-info-badge--bidding'
@@ -8340,6 +8339,7 @@ function DealResultsScreen({
           <span style={dealResultsLabelTotalStyle}>Итого</span>
           <span style={{
             ...dealResultsValueStyle,
+            ...(idx === humanIdx ? { color: '#f472b6' } : {}),
             ...(variant === 'modal' && score === maxScore && range > 0 ? dealResultsValueLeaderStyle : {}),
           }}>{score}</span>
         </div>
@@ -8659,24 +8659,27 @@ function DealResultsScreen({
         const score = players[idx].score;
         const panelPos = getDealResultsPanelPosition(side);
         const sideClass = side === 'left' ? 'deal-results-panel-west' : side === 'right' ? 'deal-results-panel-east' : side === 'top' ? 'deal-results-panel-north' : side === 'bottom' ? 'deal-results-panel-south' : undefined;
+        const panelClassName = [sideClass, isOverlayPC && idx === humanIdx ? 'deal-results-panel-human-overlay' : null]
+          .filter(Boolean)
+          .join(' ');
         return (
-          <div key={idx} className={sideClass} style={{ ...dealResultsPanelStyle, ...(isOverlayPC ? dealResultsPanelStyleOverlayPC : {}), ...panelPos }}>
-            <div className={isOverlayPC ? 'deal-results-panel-title-overlay' : undefined} style={{ ...dealResultsPanelTitleStyle, ...(isOverlayPC ? dealResultsPanelTitleStyleOverlayPC : {}) }}>{players[idx].name}</div>
-            <div style={dealResultsRowStyle}>
-              <span style={dealResultsLabelStyle}>Заказ</span>
-              <span style={dealResultsValueStyle}>{bid}</span>
+          <div key={idx} className={panelClassName || undefined} style={{ ...dealResultsPanelStyle, ...(isOverlayPC ? dealResultsPanelStyleOverlayPC : {}), ...panelPos }}>
+            <div className={[isOverlayPC ? 'deal-results-panel-title-overlay' : null, isOverlayPC && idx === humanIdx ? 'deal-results-panel-title-human-overlay' : null].filter(Boolean).join(' ') || undefined} style={{ ...dealResultsPanelTitleStyle, ...(isOverlayPC ? dealResultsPanelTitleStyleOverlayPC : {}) }}>{players[idx].name}</div>
+            <div className={isOverlayPC ? 'deal-results-panel-row-overlay' : undefined} style={dealResultsRowStyle}>
+              <span className={isOverlayPC ? 'deal-results-panel-label-overlay' : undefined} style={dealResultsLabelStyle}>Заказ</span>
+              <span className={isOverlayPC ? 'deal-results-panel-value-overlay' : undefined} style={dealResultsValueStyle}>{bid}</span>
             </div>
-            <div style={dealResultsRowStyle}>
-              <span style={dealResultsLabelStyle}>Взяток</span>
-              <span style={dealResultsValueStyle}>{taken}</span>
+            <div className={isOverlayPC ? 'deal-results-panel-row-overlay' : undefined} style={dealResultsRowStyle}>
+              <span className={isOverlayPC ? 'deal-results-panel-label-overlay' : undefined} style={dealResultsLabelStyle}>Взяток</span>
+              <span className={isOverlayPC ? 'deal-results-panel-value-overlay' : undefined} style={dealResultsValueStyle}>{taken}</span>
             </div>
-            <div style={dealResultsRowStyle}>
-              <span style={dealResultsLabelStyle}>Очки</span>
-              <span style={{ ...dealResultsValueStyle, color: points >= 0 ? '#4ade80' : '#f87171' }}>{points >= 0 ? '+' : ''}{points}</span>
+            <div className={isOverlayPC ? 'deal-results-panel-row-overlay' : undefined} style={dealResultsRowStyle}>
+              <span className={isOverlayPC ? 'deal-results-panel-label-overlay' : undefined} style={dealResultsLabelStyle}>Очки</span>
+              <span className={isOverlayPC ? 'deal-results-panel-value-overlay' : undefined} style={{ ...dealResultsValueStyle, color: points >= 0 ? '#4ade80' : '#f87171' }}>{points >= 0 ? '+' : ''}{points}</span>
             </div>
-            <div style={{ ...dealResultsRowStyle, borderTop: '1px solid rgba(34, 211, 238, 0.3)', marginTop: 4, paddingTop: 4 }}>
-              <span style={dealResultsLabelTotalStyle}>Итого</span>
-              <span style={dealResultsValueStyle}>{score}</span>
+            <div className={isOverlayPC ? 'deal-results-panel-row-overlay deal-results-panel-row-total-overlay' : undefined} style={{ ...dealResultsRowStyle, borderTop: '1px solid rgba(34, 211, 238, 0.3)', marginTop: 4, paddingTop: 4 }}>
+              <span className={isOverlayPC ? 'deal-results-panel-total-label-overlay' : undefined} style={dealResultsLabelTotalStyle}>Итого</span>
+              <span className={isOverlayPC ? 'deal-results-panel-total-value-overlay' : undefined} style={{ ...dealResultsValueStyle, ...(idx === humanIdx ? { color: '#f472b6' } : {}) }}>{score}</span>
             </div>
           </div>
         );

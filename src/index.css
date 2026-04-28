@@ -1506,7 +1506,7 @@
        (max-height: 1000px) {
   :root {
     --game-player-area-height: 260px;
-    --game-player-bottom: 10px;
+    --game-player-bottom: 12px;
     --pc-south-layer-gap: 2px;
     --game-table-surface-height: min(420px, 28vh);
     --deal-results-overlay-top: 132px;
@@ -1527,12 +1527,20 @@
     transform: translateY(var(--deal-results-overlay-shift-y, 0px)) scale(var(--deal-results-overlay-scale, 1));
     transform-origin: center center !important;
     z-index: 120 !important;
-    background: linear-gradient(170deg, #21123f 0%, #2b1c57 42%, #1e1b4b 100%) !important;
-    border: 2px solid rgba(34, 211, 238, 0.55) !important;
+    background: linear-gradient(
+      165deg,
+      rgba(91, 33, 182, 0.62) 0%,
+      rgba(79, 70, 229, 0.52) 42%,
+      rgba(14, 116, 144, 0.46) 100%
+    ) !important;
+    backdrop-filter: blur(4px) saturate(1.14);
+    -webkit-backdrop-filter: blur(4px) saturate(1.14);
+    border: 2px solid rgba(103, 232, 249, 0.74) !important;
     box-shadow:
-      0 20px 52px rgba(0, 0, 0, 0.62),
-      0 0 0 1px rgba(34, 211, 238, 0.28),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+      0 18px 46px rgba(10, 12, 28, 0.48),
+      0 0 0 1px rgba(167, 139, 250, 0.34),
+      0 0 24px rgba(34, 211, 238, 0.26),
+      inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
     gap: 8px !important;
     padding: 10px !important;
     min-height: 300px !important;
@@ -1548,6 +1556,59 @@
   .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-title-overlay {
     font-size: 22px !important;
     line-height: 1.12 !important;
+  }
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-north,
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-east,
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-south,
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-west {
+    background: linear-gradient(160deg, rgba(76, 29, 149, 0.7) 0%, rgba(67, 56, 202, 0.62) 55%, rgba(15, 118, 110, 0.52) 100%) !important;
+    border-color: rgba(196, 181, 253, 0.78) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      inset 0 -10px 18px rgba(30, 27, 75, 0.24),
+      0 10px 24px rgba(7, 10, 26, 0.36),
+      0 0 18px rgba(139, 92, 246, 0.24) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-title-overlay {
+    color: rgba(245, 232, 255, 0.98) !important;
+    text-shadow: 0 0 12px rgba(196, 181, 253, 0.42) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-total-value-overlay {
+    color: rgba(220, 252, 231, 0.99) !important;
+    text-shadow:
+      0 0 10px rgba(45, 212, 191, 0.46),
+      0 0 18px rgba(34, 211, 238, 0.3),
+      0 0 28px rgba(168, 85, 247, 0.24) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay {
+    background: linear-gradient(160deg, rgba(109, 40, 217, 0.78) 0%, rgba(59, 130, 246, 0.68) 56%, rgba(20, 184, 166, 0.58) 100%) !important;
+    border-color: rgba(110, 231, 249, 0.88) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 -12px 20px rgba(30, 27, 75, 0.22),
+      0 0 0 1px rgba(103, 232, 249, 0.42),
+      0 14px 28px rgba(8, 47, 73, 0.32),
+      0 0 26px rgba(34, 211, 238, 0.34),
+      0 0 18px rgba(167, 139, 250, 0.3) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-value-overlay {
+    color: #67e8f9 !important;
+    text-shadow:
+      0 0 10px rgba(34, 211, 238, 0.52),
+      0 0 18px rgba(217, 70, 239, 0.34),
+      0 0 28px rgba(34, 211, 238, 0.28) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-value-overlay {
+    color: #f472b6 !important;
+    text-shadow:
+      0 0 12px rgba(244, 114, 182, 0.55),
+      0 0 22px rgba(217, 70, 239, 0.48),
+      0 0 34px rgba(34, 211, 238, 0.38) !important;
+    filter: saturate(1.22) brightness(1.1);
+  }
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-label-overlay {
+    color: rgba(253, 164, 175, 0.96) !important;
+    text-shadow: 0 0 10px rgba(244, 114, 182, 0.28) !important;
   }
 }
 
@@ -13483,6 +13544,235 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   word-break: break-word !important;
   min-width: 0 !important;
   max-width: 100% !important;
+}
+
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-north,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-east,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-south,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-west {
+  border-radius: 14px !important;
+  border: 1px solid rgba(167, 139, 250, 0.45) !important;
+  background: linear-gradient(165deg, rgba(49, 31, 96, 0.88) 0%, rgba(30, 27, 75, 0.92) 58%, rgba(23, 23, 46, 0.94) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -12px 20px rgba(30, 27, 75, 0.26),
+    0 10px 24px rgba(9, 10, 26, 0.42),
+    0 0 0 1px rgba(139, 92, 246, 0.16) !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-title-overlay {
+  color: rgba(233, 213, 255, 0.94) !important;
+  text-shadow: 0 0 10px rgba(139, 92, 246, 0.25) !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-row-overlay {
+  border-bottom: 1px solid rgba(167, 139, 250, 0.22) !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-row-overlay:last-child {
+  border-bottom: none !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-label-overlay {
+  color: rgba(196, 181, 253, 0.84) !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-value-overlay {
+  color: rgba(243, 232, 255, 0.96) !important;
+  font-weight: 800 !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-row-total-overlay {
+  border-top-color: rgba(45, 212, 191, 0.34) !important;
+  margin-top: 6px !important;
+  padding-top: 7px !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-total-label-overlay {
+  color: rgba(167, 243, 208, 0.92) !important;
+  letter-spacing: 0.04em !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-total-value-overlay {
+  color: rgba(216, 180, 254, 0.9) !important;
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  text-shadow:
+    0 0 8px rgba(168, 85, 247, 0.3),
+    0 0 14px rgba(34, 211, 238, 0.16) !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay {
+  position: relative !important;
+  isolation: isolate !important;
+  border: 1px solid rgba(45, 212, 191, 0.72) !important;
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.015) 22%, rgba(255, 255, 255, 0) 44%),
+    linear-gradient(160deg, rgba(76, 29, 149, 0.95) 0%, rgba(55, 48, 163, 0.86) 44%, rgba(30, 27, 75, 0.92) 74%, rgba(15, 23, 42, 0.96) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -16px 24px rgba(17, 24, 39, 0.44),
+    inset 0 10px 16px rgba(255, 255, 255, 0.02),
+    0 0 0 1px rgba(45, 212, 191, 0.32),
+    0 12px 28px rgba(12, 74, 110, 0.34),
+    0 0 20px rgba(45, 212, 191, 0.28) !important;
+  animation: deal-results-human-panel-double-pulse 1.2s ease-out 1;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-row-total-overlay {
+  background: linear-gradient(180deg, rgba(30, 27, 75, 0.36) 0%, rgba(15, 23, 42, 0.72) 100%) !important;
+  border-top-color: rgba(125, 211, 252, 0.42) !important;
+  border-radius: 8px !important;
+  margin-top: 7px !important;
+  padding: 6px 10px 5px !important;
+  gap: 10px !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 16px;
+  pointer-events: none;
+  border: 1px solid rgba(167, 139, 250, 0.78);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.34),
+    0 0 14px rgba(168, 85, 247, 0.52),
+    0 0 24px rgba(139, 92, 246, 0.44),
+    0 0 34px rgba(34, 211, 238, 0.36);
+  z-index: -1;
+  opacity: 0.82;
+  animation: deal-results-human-outline-double-blink 1.2s ease-out 1;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: 13px;
+  pointer-events: none;
+  background:
+    linear-gradient(132deg, rgba(255, 255, 255, 0.065) 0%, rgba(255, 255, 255, 0.012) 22%, rgba(255, 255, 255, 0) 48%),
+    linear-gradient(306deg, rgba(34, 211, 238, 0.085) 0%, rgba(217, 70, 239, 0.08) 50%, rgba(251, 113, 133, 0.08) 100%);
+  mix-blend-mode: normal;
+  opacity: 0.5;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-title-human-overlay {
+  color: #2af5c8 !important;
+  font-weight: 900 !important;
+  -webkit-text-stroke: 0.8px #7c3aed;
+  paint-order: stroke fill;
+  letter-spacing: 0.04em !important;
+  text-shadow:
+    1px 0 0 #7c3aed,
+    -1px 0 0 #7c3aed,
+    0 1px 0 #7c3aed,
+    0 -1px 0 #7c3aed,
+    1px 1px 0 #7c3aed,
+    -1px 1px 0 #7c3aed,
+    1px -1px 0 #7c3aed,
+    -1px -1px 0 #7c3aed,
+    0 0 7px rgba(124, 58, 237, 0.7),
+    0 0 14px rgba(167, 139, 250, 0.55),
+    0 0 6px rgba(42, 245, 200, 0.35) !important;
+  filter: none !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-value-overlay {
+  color: #22d3ee !important;
+  font-size: 23px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1 !important;
+  padding-left: 4px !important;
+  text-shadow:
+    0 0 6px rgba(34, 211, 238, 0.66),
+    0 0 12px rgba(103, 232, 249, 0.52),
+    0 0 18px rgba(6, 182, 212, 0.4) !important;
+  filter: saturate(1.2) brightness(1.04) contrast(1.08);
+  animation: deal-results-human-score-pulse 0.55s ease-out 1;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-label-overlay {
+  line-height: 1.1 !important;
+  padding-right: 6px !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay {
+    animation: none !important;
+  }
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay::after {
+    animation: none !important;
+  }
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-value-overlay {
+    animation: none !important;
+  }
+}
+@keyframes deal-results-human-panel-double-pulse {
+  0% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 -16px 24px rgba(17, 24, 39, 0.44),
+      inset 0 10px 16px rgba(255, 255, 255, 0.02),
+      0 0 0 1px rgba(45, 212, 191, 0.32),
+      0 12px 28px rgba(12, 74, 110, 0.34),
+      0 0 20px rgba(45, 212, 191, 0.28);
+  }
+  26% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 -16px 24px rgba(17, 24, 39, 0.44),
+      inset 0 10px 16px rgba(255, 255, 255, 0.03),
+      0 0 0 1px rgba(103, 232, 249, 0.5),
+      0 12px 28px rgba(12, 74, 110, 0.38),
+      0 0 34px rgba(34, 211, 238, 0.52),
+      0 0 24px rgba(168, 85, 247, 0.4);
+    filter: brightness(1.12) saturate(1.18);
+  }
+  52% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 -16px 24px rgba(17, 24, 39, 0.44),
+      inset 0 10px 16px rgba(255, 255, 255, 0.02),
+      0 0 0 1px rgba(45, 212, 191, 0.32),
+      0 12px 28px rgba(12, 74, 110, 0.34),
+      0 0 20px rgba(45, 212, 191, 0.28);
+    filter: brightness(1) saturate(1);
+  }
+  78% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 -16px 24px rgba(17, 24, 39, 0.44),
+      inset 0 10px 16px rgba(255, 255, 255, 0.03),
+      0 0 0 1px rgba(103, 232, 249, 0.5),
+      0 12px 28px rgba(12, 74, 110, 0.38),
+      0 0 34px rgba(34, 211, 238, 0.52),
+      0 0 24px rgba(168, 85, 247, 0.4);
+    filter: brightness(1.12) saturate(1.18);
+  }
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 -16px 24px rgba(17, 24, 39, 0.44),
+      inset 0 10px 16px rgba(255, 255, 255, 0.02),
+      0 0 0 1px rgba(45, 212, 191, 0.32),
+      0 12px 28px rgba(12, 74, 110, 0.34),
+      0 0 20px rgba(45, 212, 191, 0.28);
+    filter: brightness(1) saturate(1);
+  }
+}
+@keyframes deal-results-human-outline-double-blink {
+  0%,
+  18%,
+  52%,
+  70%,
+  100% {
+    opacity: 0.84;
+  }
+  30%,
+  82% {
+    opacity: 1;
+  }
+}
+@keyframes deal-results-human-score-pulse {
+  0% {
+    transform: scale(0.96);
+    opacity: 0.86;
+  }
+  55% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* Мобильная версия: итоги раздачи — сетка 2×2 по центру, чуть ниже середины; панель пользователя (Юг) с рамкой */
