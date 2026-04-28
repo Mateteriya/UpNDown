@@ -4656,7 +4656,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   WebkitOverflowScrolling: 'touch' as const,
                 }
               : { overflow: 'hidden' as const }
-            : {}),
+            : { overflow: 'hidden' as const }),
         }}
       >
       <header
@@ -6807,7 +6807,13 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
         </div>
       <div className="game-center-spacer-top" style={centerAreaSpacerTopStyle} aria-hidden />
-      <div className="game-center-area" style={{ ...centerAreaStyle, ...(isAITurn ? { cursor: 'pointer' } : {}) }}
+      <div
+        className="game-center-area"
+        style={{
+          ...centerAreaStyle,
+          ...(isAITurn ? { cursor: 'pointer' } : {}),
+          ...(dealJustCompleted ? { zIndex: 40 } : {}),
+        }}
         onClick={isAITurn ? accelerateAI : undefined}
         onKeyDown={e => { if (isAITurn && e.key === ' ') { e.preventDefault(); accelerateAI(); } }}
         role={isAITurn ? 'button' : undefined}
@@ -6957,7 +6963,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           />
         )}
       </div>
-      <div style={centerAreaSpacerBottomStyle} aria-hidden />
+      <div className="game-center-spacer-bottom" style={centerAreaSpacerBottomStyle} aria-hidden />
         </>
       )}
       </div>
@@ -6980,13 +6986,16 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             : undefined
         }
       >
-      <div style={{
+      <div className="game-pc-user-layer" style={{
         ...playerStyle,
         ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' || lastTrickCollectingPhase === 'collapsing')
           ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
           : {}),
       }}>
-        <div className={state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : undefined} style={handFrameStyle}>
+        <div
+          className={state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : undefined}
+          style={handFrameStyle}
+        >
           <div style={handStyle}>
             {state.players[humanIdx].hand
               .slice()
@@ -11342,7 +11351,7 @@ const centerAreaSpacerBottomStyle: React.CSSProperties = {
 };
 
 const playerSpacerStyle: React.CSSProperties = {
-  height: 'var(--game-player-area-height, 260px)',
+  height: 'calc(var(--game-player-area-height, 260px) + var(--game-player-bottom, 34px) + var(--pc-south-layer-gap, 8px))',
   flexShrink: 0,
 };
 
@@ -13362,7 +13371,7 @@ const lastTrickButtonStyle: React.CSSProperties = {
 
 const playerStyle: React.CSSProperties = {
   position: 'fixed',
-  bottom: 0,
+  bottom: 'var(--game-player-bottom, 34px)',
   left: 0,
   right: 0,
   maxHeight: 'var(--game-player-area-height, 260px)',

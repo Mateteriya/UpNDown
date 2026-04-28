@@ -16,8 +16,12 @@
   --game-table-opponent-side-min: 140px;
   --game-table-opponent-side-max: 180px;
   --game-table-center-margin-top: 80px;
-  /* +20px к подъёму блока (стол, Север, Запад, Восток) — запас по вертикали под руку между столом и панелью Юга */
-  --game-table-up-offset: 149px;
+  /* ПК: поднимаем блок (стол + Запад/Север/Восток) выше, чтобы верх панели Юга совпадал с низом кнопки доп. подсветки */
+  --game-table-up-offset: 200px;
+  /* Базовая высота, на которой зафиксирована позиция левых инфо-бейджей в ПК */
+  --pc-game-table-up-offset-baseline: 200px;
+  /* ПК: явный зазор между верхним слоем (стол/оппоненты) и нижним слоем (Юг-карты+панель) */
+  --pc-south-layer-gap: 8px;
   --game-table-row-height: 130px;
   --game-player-area-height: 260px;
   --game-table-padding: 18px;
@@ -26,7 +30,7 @@
   --deal-results-overlay-height: 320px;
   --game-header-padding: 20px;
   --game-header-padding-top: 7px;
-  --game-player-bottom: 34px;
+  --game-player-bottom: 11px;
   --trick-slot-offset-edge: 17px;
   --trick-slot-offset-west-east: 140px;
   --trick-slot-ns-offset-x: 28px;
@@ -1229,6 +1233,13 @@
     width: fit-content !important;
     max-width: min(280px, 100%) !important;
   }
+  /*
+   * ПК: фиксируем позицию связки "Первый ход/заказ" + game-info-left-section независимо от подъёма стола.
+   * Компенсируем изменение --game-table-up-offset относительно зафиксированного baseline.
+   */
+  .game-table-root:not(.viewport-mobile) .game-info-row .game-info-left-col {
+    transform: translateY(calc(var(--game-table-up-offset, 200px) - var(--pc-game-table-up-offset-baseline, 200px))) scale(1.2);
+  }
   /* Торги: есть «Первый ход» — общая ширина 280px, стык двух бейджей */
   .game-table-root .game-info-row .game-info-left-col:has(.first-move-badge-above-block) {
     align-items: stretch !important;
@@ -1491,13 +1502,52 @@
 }
 
 /* Широкий планшет / ограниченная высота (напр. 2560×1600 с масштабом) */
-@media (min-width: 1025px) and (max-width: 1800px),
+@media (min-width: 900px) and (max-width: 1366px),
        (max-height: 1000px) {
   :root {
-    --game-player-area-height: 360px;
-    --game-table-surface-height: min(458px, 32vh);
-    --deal-results-overlay-top: 200px;
-    --deal-results-overlay-height: 240px;
+    --game-player-area-height: 260px;
+    --game-player-bottom: 10px;
+    --pc-south-layer-gap: 2px;
+    --game-table-surface-height: min(420px, 28vh);
+    --deal-results-overlay-top: 132px;
+    --deal-results-overlay-height: 220px;
+    --deal-results-overlay-scale: 1.3;
+    --deal-results-overlay-shift-y: -50%;
+  }
+  .game-table-root:not(.viewport-mobile) .game-center-spacer-bottom {
+    flex: 0 0 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+  }
+  .game-table-root:not(.viewport-mobile) .game-pc-user-layer {
+    padding-bottom: 6px !important;
+  }
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation {
+    top: 50% !important;
+    transform: translateY(var(--deal-results-overlay-shift-y, 0px)) scale(var(--deal-results-overlay-scale, 1));
+    transform-origin: center center !important;
+    z-index: 120 !important;
+    background: linear-gradient(170deg, #21123f 0%, #2b1c57 42%, #1e1b4b 100%) !important;
+    border: 2px solid rgba(34, 211, 238, 0.55) !important;
+    box-shadow:
+      0 20px 52px rgba(0, 0, 0, 0.62),
+      0 0 0 1px rgba(34, 211, 238, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+    gap: 8px !important;
+    padding: 10px !important;
+    min-height: 300px !important;
+    overflow: visible !important;
+  }
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-north,
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-east,
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-south,
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-west {
+    transform: scale(1.75) !important;
+    transform-origin: center center !important;
+  }
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-title-overlay {
+    font-size: 22px !important;
+    line-height: 1.12 !important;
   }
 }
 
@@ -1693,27 +1743,86 @@
   flex-direction: row;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  min-height: 35px;
+  padding: 6px 12px;
+  position: relative;
+  overflow: hidden;
   border-radius: 10px;
-  border: 1px solid rgba(167, 139, 250, 0.5);
-  background: linear-gradient(135deg, rgba(67, 56, 202, 0.42) 0%, rgba(30, 27, 75, 0.88) 100%);
-  color: #ede9fe;
+  border: 1px solid rgba(94, 234, 212, 0.4);
+  background:
+    linear-gradient(150deg, rgba(196, 181, 253, 0.18) 0%, rgba(139, 92, 246, 0.26) 45%, rgba(79, 70, 229, 0.35) 100%);
+  backdrop-filter: blur(4px) saturate(1.08);
+  -webkit-backdrop-filter: blur(4px) saturate(1.08);
+  color: rgb(38 227 213 / 78%);
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-weight: 800;
+  letter-spacing: 0.03em;
   box-shadow:
-    0 0 0 1px rgba(139, 92, 246, 0.2),
-    0 4px 14px rgba(0, 0, 0, 0.25);
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -8px 16px rgba(67, 56, 202, 0.22),
+    0 0 0 1px rgba(34, 211, 238, 0.16),
+    0 8px 16px rgba(76, 29, 149, 0.24),
+    0 0 12px rgba(94, 234, 212, 0.14);
+  transition:
+    transform 160ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    filter 180ms ease;
+}
+.game-table-root:not(.viewport-mobile) .header-ai-difficulty-btn--pc::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: -65%;
+  width: 38%;
+  height: 140%;
+  pointer-events: none;
+  opacity: 0;
+  transform: rotate(18deg) translateX(0);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(224, 242, 254, 0.52) 52%, rgba(255, 255, 255, 0) 100%);
 }
 .game-table-root:not(.viewport-mobile) .header-ai-difficulty-btn--pc:hover {
-  border-color: rgba(34, 211, 238, 0.55);
+  transform: translateY(-1px);
+  border-color: rgba(94, 234, 212, 0.68);
   box-shadow:
-    0 0 0 1px rgba(34, 211, 238, 0.25),
-    0 0 18px rgba(34, 211, 238, 0.2);
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -10px 20px rgba(67, 56, 202, 0.28),
+    0 0 0 1px rgba(45, 212, 191, 0.3),
+    0 10px 20px rgba(76, 29, 149, 0.3),
+    0 0 16px rgba(94, 234, 212, 0.2),
+    0 0 22px rgba(34, 211, 238, 0.16);
+  filter: saturate(1.04) brightness(1.02);
+}
+.game-table-root:not(.viewport-mobile) .header-ai-difficulty-btn--pc:hover::after {
+  opacity: 0.9;
+  animation: pc-ai-btn-shine-sweep 760ms ease-out 1;
+}
+.game-table-root:not(.viewport-mobile) .header-ai-difficulty-btn--pc:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow:
+    inset 0 2px 7px rgba(30, 27, 75, 0.52),
+    inset 0 -4px 12px rgba(46, 16, 101, 0.36),
+    0 5px 12px rgba(49, 18, 112, 0.38),
+    0 0 14px rgba(94, 234, 212, 0.2);
+}
+.game-table-root:not(.viewport-mobile) .header-ai-difficulty-btn--pc:focus-visible {
+  outline: 2px solid rgba(94, 234, 212, 0.9);
+  outline-offset: 2px;
 }
 .game-table-root:not(.viewport-mobile) .header-ai-difficulty-btn--pc .ai-difficulty-trigger-ball {
   width: 12px;
   height: 12px;
+  box-shadow:
+    0 0 4px rgba(255, 255, 255, 0.28),
+    0 0 9px rgba(94, 234, 212, 0.34);
+}
+@keyframes pc-ai-btn-shine-sweep {
+  from {
+    transform: rotate(18deg) translateX(0);
+  }
+  to {
+    transform: rotate(18deg) translateX(360%);
+  }
 }
 /* Кнопка ИИ слева в шапке: при right:0 меню тянется влево и вылезает за край экрана — якорь слева, рост вправо */
 .game-table-root:not(.viewport-mobile) .ai-difficulty-popover {
@@ -13105,11 +13214,35 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 
 /* ПК: бейдж «Карт / N карт» (не бескозырка и не тёмная, пока не все заказали) */
 .game-table-root:not(.viewport-mobile) .game-header .game-info-deal-contract-panel.game-info-cards-panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(94, 234, 212, 0.44) !important;
+  background: linear-gradient(150deg, rgba(196, 181, 253, 0.16) 0%, rgba(139, 92, 246, 0.24) 46%, rgba(79, 70, 229, 0.34) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -8px 18px rgba(67, 56, 202, 0.24),
+    0 0 0 1px rgba(34, 211, 238, 0.14),
+    0 8px 18px rgba(76, 29, 149, 0.24),
+    0 0 14px rgba(94, 234, 212, 0.16) !important;
   transition:
     border-color 0.22s ease,
     box-shadow 0.22s ease,
     background 0.22s ease,
-    transform 0.22s ease;
+    transform 0.22s ease,
+    filter 0.22s ease;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-deal-contract-panel.game-info-cards-panel::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: -70%;
+  width: 38%;
+  height: 140%;
+  pointer-events: none;
+  opacity: 0;
+  transform: rotate(17deg) translateX(0);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(224, 242, 254, 0.5) 52%, rgba(255, 255, 255, 0) 100%);
 }
 
 .game-table-root:not(.viewport-mobile) .game-header .game-info-cards-panel .deal-contract-label {
@@ -13145,18 +13278,32 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 .game-table-root:not(.viewport-mobile)
   .game-header
   .game-info-deal-contract-panel.game-info-cards-panel:focus-visible {
-  border-color: rgba(56, 189, 248, 0.78) !important;
+  border-color: rgba(94, 234, 212, 0.78) !important;
   box-shadow:
-    0 0 28px rgba(34, 211, 238, 0.38),
-    0 4px 20px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -10px 20px rgba(67, 56, 202, 0.3),
+    0 0 0 1px rgba(45, 212, 191, 0.32),
+    0 10px 22px rgba(76, 29, 149, 0.28),
+    0 0 18px rgba(94, 234, 212, 0.24),
+    0 0 26px rgba(34, 211, 238, 0.18) !important;
   background: linear-gradient(
-    145deg,
-    rgba(13, 148, 136, 0.48) 0%,
-    rgba(37, 99, 235, 0.94) 48%,
-    rgba(59, 130, 246, 0.9) 100%
+    150deg,
+    rgba(196, 181, 253, 0.22) 0%,
+    rgba(139, 92, 246, 0.3) 45%,
+    rgba(79, 70, 229, 0.42) 100%
   ) !important;
   transform: translateY(-1px);
+  filter: saturate(1.06) brightness(1.03);
+}
+
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-deal-contract-panel.game-info-cards-panel:hover::after,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-deal-contract-panel.game-info-cards-panel:focus-visible::after {
+  opacity: 0.9;
+  animation: pc-deal-badge-shine-sweep 780ms ease-out 1;
 }
 
 .game-table-root:not(.viewport-mobile)
@@ -13197,6 +13344,25 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
     .game-header
     .game-info-deal-contract-panel.game-info-cards-panel:focus-visible {
     transform: none;
+    filter: none;
+  }
+  .game-table-root:not(.viewport-mobile)
+    .game-header
+    .game-info-deal-contract-panel.game-info-cards-panel:hover::after,
+  .game-table-root:not(.viewport-mobile)
+    .game-header
+    .game-info-deal-contract-panel.game-info-cards-panel:focus-visible::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+@keyframes pc-deal-badge-shine-sweep {
+  from {
+    transform: rotate(17deg) translateX(0);
+  }
+  to {
+    transform: rotate(17deg) translateX(360%);
   }
 }
 
@@ -13932,21 +14098,26 @@ body.deal-results-modal-open-mobile {
  */
 @keyframes dealResultsCollapsePC {
   0% {
-    transform: translate(0, 0) scale(1);
+    transform: translateY(var(--deal-results-overlay-shift-y, 0px))
+      translate(0, 0)
+      scale(var(--deal-results-overlay-scale, 1));
     border-radius: 20px;
     opacity: 1;
   }
   58% {
-    transform: translate(
+    transform: translateY(var(--deal-results-overlay-shift-y, 0px))
+      translate(
         calc(var(--deal-results-collapse-dx, 0px) * 0.58),
         calc(var(--deal-results-collapse-dy, 0px) * 0.58)
       )
-      scale(0.2);
+      scale(calc(var(--deal-results-overlay-scale, 1) * 0.2));
     border-radius: 50%;
     opacity: 1;
   }
   100% {
-    transform: translate(var(--deal-results-collapse-dx, 0px), var(--deal-results-collapse-dy, 0px)) scale(0.052);
+    transform: translateY(var(--deal-results-overlay-shift-y, 0px))
+      translate(var(--deal-results-collapse-dx, 0px), var(--deal-results-collapse-dy, 0px))
+      scale(calc(var(--deal-results-overlay-scale, 1) * 0.052));
     border-radius: 50%;
     opacity: 0.9;
   }
