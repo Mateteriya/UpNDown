@@ -198,6 +198,15 @@ function readPcCollapsedFromLs(): boolean {
   return localStorage.getItem(LS_PC_CHAT_COLLAPSED) === '1';
 }
 
+function hasPcCollapsedInLs(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  try {
+    return localStorage.getItem(LS_PC_CHAT_COLLAPSED) != null;
+  } catch {
+    return false;
+  }
+}
+
 function readMobileChatHeightFromLs(): number | null {
   if (typeof localStorage === 'undefined') return null;
   try {
@@ -383,6 +392,8 @@ export function TableChatDock({
   });
   const pcPrefsLoadedRef = useRef(false);
   const pcDefaultPlacedRef = useRef(false);
+  const pcForceDefaultPlacementRef = useRef(false);
+  const pcHandledSessionNonceRef = useRef<number | null>(null);
   const liveDragRef = useRef({ x: 0, y: 0 });
   const pcResizeSessionRef = useRef({
     active: false,
@@ -790,10 +801,26 @@ export function TableChatDock({
   useEffect(() => {
     if (variant !== 'pc' || pcPrefsLoadedRef.current) return;
     pcPrefsLoadedRef.current = true;
-    setPcCollapsed(readPcCollapsedFromLs());
+    setPcCollapsed(hasPcCollapsedInLs() ? readPcCollapsedFromLs() : true);
     const sz = readPcSizeFromLs();
     if (sz) setPcSize(clampPcChatSize(sz.w, sz.h));
   }, [variant]);
+
+  useEffect(() => {
+    if (variant !== 'pc') return;
+    if (!Number.isFinite(roomSessionNonce) || roomSessionNonce <= 0) return;
+    if (pcHandledSessionNonceRef.current === roomSessionNonce) return;
+    pcHandledSessionNonceRef.current = roomSessionNonce;
+    /* Каждый новый вход в комнату: стартуем свёрнутыми и заново ставим под Востоком. */
+    setPcCollapsed(true);
+    pcDefaultPlacedRef.current = false;
+    pcForceDefaultPlacementRef.current = true;
+    try {
+      localStorage.setItem(LS_PC_CHAT_COLLAPSED, '1');
+    } catch {
+      /* ignore */
+    }
+  }, [roomSessionNonce, variant]);
 
   useLayoutEffect(() => {
     if (variant !== 'pc') return;
@@ -822,7 +849,7 @@ export function TableChatDock({
     if (!pcCollapsed) return;
     if (!pcPrefsLoadedRef.current) return;
     if (pcDefaultPlacedRef.current) return;
-    if (hasPcDragInLs()) {
+    if (!pcForceDefaultPlacementRef.current && hasPcDragInLs()) {
       pcDefaultPlacedRef.current = true;
       return;
     }
@@ -836,14 +863,15 @@ export function TableChatDock({
     const cur = readPcDragFromDataAttrs(el) ?? latestPcDragRef.current;
     const chatRect = el.getBoundingClientRect();
     const eastRect = east.getBoundingClientRect();
-    const desiredLeft = eastRect.right + 1;
-    const desiredTop = eastRect.bottom + 1;
+    const desiredLeft = eastRect.left + (eastRect.width - chatRect.width) / 2;
+    const desiredTop = eastRect.bottom + 8;
     const nx = cur.x + (desiredLeft - chatRect.left);
     const ny = cur.y + (desiredTop - chatRect.top);
     const final = clampPcChatOffset(el, nx, ny);
     setPcDrag(final);
     latestPcDragRef.current = final;
     pcDefaultPlacedRef.current = true;
+    pcForceDefaultPlacementRef.current = false;
     try {
       localStorage.setItem(LS_PC_CHAT_DRAG, JSON.stringify(final));
     } catch {

@@ -1258,6 +1258,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const transferHostExitInProgress = transferHostExitPhase !== 'pick';
   const [hostAbsentResolveBusy, setHostAbsentResolveBusy] = useState(false);
   const [showHomeConfirm, setShowHomeConfirm] = useState(false);
+  const [exitConfirmPending, setExitConfirmPending] = useState(false);
+  const [homeConfirmPending, setHomeConfirmPending] = useState(false);
   const [gameOverSnapshot, setGameOverSnapshot] = useState<GameState | null>(null);
   /** Для онлайна — канонический снимок + слот; иначе dealHistory и players расходятся по индексам. */
   const [gameOverViewerSlot, setGameOverViewerSlot] = useState<number | null>(null);
@@ -3258,13 +3260,16 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   }, [isOnline, isWaitingInRoom, onExit]);
 
   const handleHomeConfirm = useCallback(async () => {
+    if (homeConfirmPending) return;
+    setHomeConfirmPending(true);
     try {
       await online.leaveRoom?.();
     } finally {
+      setHomeConfirmPending(false);
       setShowHomeConfirm(false);
       onExit();
     }
-  }, [online, onExit]);
+  }, [homeConfirmPending, online, onExit]);
 
   const handleLeaveRoomClick = useCallback(async () => {
     const uid = user?.id;
@@ -3300,13 +3305,16 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   }, [isOnline, online.status, online.roomId, online.hostUserId, otherOnlineHumansForTransfer, user?.id, iAmRoomHost]);
 
   const handleExitConfirm = useCallback(async () => {
+    if (exitConfirmPending) return;
+    setExitConfirmPending(true);
     try {
       if (isWaitingInRoom || isOnline) await online.leaveRoom();
     } finally {
+      setExitConfirmPending(false);
       setShowExitConfirm(false);
       onExit();
     }
-  }, [isOnline, isWaitingInRoom, online, onExit]);
+  }, [exitConfirmPending, isOnline, isWaitingInRoom, online, onExit]);
 
   const handleStartFromWaiting = useCallback(async () => {
     if (startFromWaitingLockRef.current) return;
@@ -7824,8 +7832,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             /* Выше immersive-подсказок (10050) и шапки — иначе на мобиле «Выйти» не получает тапы */
             zIndex: 20000,
           }}
-          onClick={() => setShowExitConfirm(false)}
-          onKeyDown={e => { if (e.key === 'Escape') setShowExitConfirm(false); }}
+          onClick={() => { if (!exitConfirmPending) setShowExitConfirm(false); }}
+          onKeyDown={e => { if (e.key === 'Escape' && !exitConfirmPending) setShowExitConfirm(false); }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="exit-confirm-title"
@@ -7839,12 +7847,19 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 ? 'Выйти из комнаты? Сессия сбросится, вернуться в эту партию будет нельзя.'
                 : 'Выйти из игры? Вы покинете комнату. Вернуться в эту партию будет нельзя.'}
             </p>
+            {exitConfirmPending && (
+              <p style={roomExitPendingHintStyle} role="status" aria-live="polite">
+                <span aria-hidden style={{ marginRight: 8 }}>⏳</span>
+                Выход выполняется. Это может занять несколько секунд при нестабильной сети.
+              </p>
+            )}
             <div style={newGameConfirmButtonsStyle}>
               <button
                 type="button"
                 className="room-exit-confirm-btn room-exit-confirm-btn--cancel"
                 onClick={() => setShowExitConfirm(false)}
                 style={newGameConfirmCancelBtnStyle}
+                disabled={exitConfirmPending}
               >
                 Отмена
               </button>
@@ -7852,9 +7867,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 type="button"
                 className="room-exit-confirm-btn room-exit-confirm-btn--primary"
                 onClick={() => handleExitConfirm()}
-                style={newGameConfirmOkBtnStyle}
+                style={exitConfirmPending ? roomExitPendingBtnStyle : newGameConfirmOkBtnStyle}
+                disabled={exitConfirmPending}
               >
-                Выйти
+                {exitConfirmPending ? 'Выходим…' : 'Выйти'}
               </button>
             </div>
           </div>
@@ -7873,8 +7889,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             justifyContent: 'center',
             zIndex: 20000,
           }}
-          onClick={() => setShowHomeConfirm(false)}
-          onKeyDown={e => { if (e.key === 'Escape') setShowHomeConfirm(false); }}
+          onClick={() => { if (!homeConfirmPending) setShowHomeConfirm(false); }}
+          onKeyDown={e => { if (e.key === 'Escape' && !homeConfirmPending) setShowHomeConfirm(false); }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="home-confirm-title"
@@ -7886,12 +7902,19 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             <p id="home-confirm-title" style={newGameConfirmTextStyle}>
               Выйти в меню? Вы покинете партию. Вернуться в эту партию будет нельзя.
             </p>
+            {homeConfirmPending && (
+              <p style={roomExitPendingHintStyle} role="status" aria-live="polite">
+                <span aria-hidden style={{ marginRight: 8 }}>⏳</span>
+                Выход выполняется. Это может занять несколько секунд при нестабильной сети.
+              </p>
+            )}
             <div style={newGameConfirmButtonsStyle}>
               <button
                 type="button"
                 className="room-exit-confirm-btn room-exit-confirm-btn--cancel"
                 onClick={() => setShowHomeConfirm(false)}
                 style={newGameConfirmCancelBtnStyle}
+                disabled={homeConfirmPending}
               >
                 Остаться
               </button>
@@ -7899,9 +7922,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 type="button"
                 className="room-exit-confirm-btn room-exit-confirm-btn--primary"
                 onClick={() => handleHomeConfirm()}
-                style={newGameConfirmOkBtnStyle}
+                style={homeConfirmPending ? roomExitPendingBtnStyle : newGameConfirmOkBtnStyle}
+                disabled={homeConfirmPending}
               >
-                В меню
+                {homeConfirmPending ? 'Выходим…' : 'В меню'}
               </button>
             </div>
           </div>
@@ -11751,6 +11775,21 @@ const newGameConfirmOkBtnStyle: React.CSSProperties = {
   color: '#93c5fd',
   cursor: 'pointer',
   fontSize: 14,
+};
+
+const roomExitPendingHintStyle: React.CSSProperties = {
+  margin: '-8px 0 16px',
+  color: '#cbd5e1',
+  fontSize: 13,
+  lineHeight: 1.4,
+};
+
+const roomExitPendingBtnStyle: React.CSSProperties = {
+  ...newGameConfirmOkBtnStyle,
+  borderColor: '#0891b2',
+  background: 'linear-gradient(135deg, #0f172a 0%, #083344 100%)',
+  color: '#67e8f9',
+  boxShadow: '0 0 0 1px rgba(34,211,238,0.25), 0 0 14px rgba(34,211,238,0.22)',
 };
 
 const gameOverCelebrationWrapStyle: React.CSSProperties = {

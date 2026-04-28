@@ -951,7 +951,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const rid = roomId;
     const uid = user?.id;
     if (rid && uid) {
-      const leaveWallMs = 32_000;
+      const leaveWallMs = 15_000;
       try {
         const timed = await Promise.race([
           apiLeaveRoom(rid, uid),
