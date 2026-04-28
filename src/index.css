@@ -5529,6 +5529,50 @@
       0 0 12px rgba(56, 189, 248, 0.6),
       0 0 18px rgba(34, 211, 238, 0.4) !important;
   }
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc {
+    background:
+      linear-gradient(145deg, rgba(139, 92, 246, 0.92) 0%, rgba(124, 58, 237, 0.9) 48%, rgba(79, 70, 229, 0.9) 100%) !important;
+    border: 1px solid rgba(196, 181, 253, 0.85) !important;
+    color: #f5f3ff !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.26),
+      inset 0 -10px 20px rgba(46, 16, 101, 0.35),
+      0 0 0 1px rgba(167, 139, 250, 0.3),
+      0 10px 22px rgba(76, 29, 149, 0.42),
+      0 0 24px rgba(139, 92, 246, 0.32) !important;
+    transition:
+      transform 150ms ease,
+      box-shadow 180ms ease,
+      filter 180ms ease,
+      border-color 180ms ease !important;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc svg {
+    color: rgba(245, 243, 255, 0.97) !important;
+    filter: drop-shadow(0 0 6px rgba(216, 180, 254, 0.72)) drop-shadow(0 0 12px rgba(167, 139, 250, 0.5)) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc:hover {
+    transform: translateY(-1px) !important;
+    border-color: rgba(233, 213, 255, 0.95) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.34),
+      inset 0 -12px 22px rgba(46, 16, 101, 0.4),
+      0 0 0 1px rgba(196, 181, 253, 0.4),
+      0 14px 28px rgba(76, 29, 149, 0.52),
+      0 0 32px rgba(167, 139, 250, 0.42) !important;
+    filter: saturate(1.06) brightness(1.04) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc:active {
+    transform: translateY(0) scale(0.98) !important;
+    box-shadow:
+      inset 0 2px 7px rgba(30, 27, 75, 0.5),
+      inset 0 -4px 12px rgba(46, 16, 101, 0.38),
+      0 5px 12px rgba(49, 18, 112, 0.42),
+      0 0 16px rgba(139, 92, 246, 0.26) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc:focus-visible {
+    outline: 2px solid rgba(233, 213, 255, 0.95) !important;
+    outline-offset: 2px !important;
+  }
   .game-table-root.viewport-mobile .game-header .deal-results-btn {
     width: 22px !important;
     height: 24px !important;
@@ -10700,6 +10744,82 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 }
 
 @media (min-width: 1025px) {
+  /* ПК хедер: контейнер для парных action-кнопок */
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-group-pc {
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 7px 6px !important;
+    border-radius: 13px !important;
+    border: 1px solid rgba(94, 234, 212, 0.28) !important;
+    background: linear-gradient(168deg, rgba(30, 27, 75, 0.62) 0%, rgba(49, 46, 129, 0.56) 50%, rgba(30, 41, 59, 0.66) 100%) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      inset 0 -8px 16px rgba(15, 23, 42, 0.34),
+      0 6px 14px rgba(15, 23, 42, 0.32),
+      0 0 18px rgba(45, 212, 191, 0.16) !important;
+  }
+  /* ПК хедер: единый glass-стиль кнопок */
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc {
+    border-radius: 10px !important;
+    border: 1px solid rgba(38, 227, 213, 0.56) !important;
+    color: rgb(38 227 213 / 78%) !important;
+    transition:
+      transform 160ms ease,
+      box-shadow 190ms ease,
+      filter 190ms ease,
+      border-color 190ms ease !important;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc svg {
+    color: rgb(38 227 213 / 86%) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc:hover {
+    transform: translateY(-1px) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc:active {
+    transform: translateY(0) scale(0.98) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc:focus-visible {
+    outline: 2px solid rgba(94, 234, 212, 0.9) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Вариант B (glass): более прозрачный «стеклянный» */
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc--glass {
+    background:
+      linear-gradient(150deg, rgba(196, 181, 253, 0.32) 0%, rgba(139, 92, 246, 0.36) 45%, rgba(79, 70, 229, 0.46) 100%) !important;
+    backdrop-filter: blur(5px) saturate(1.15) !important;
+    -webkit-backdrop-filter: blur(5px) saturate(1.15) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      inset 0 -12px 24px rgba(67, 56, 202, 0.3),
+      inset 0 8px 14px rgba(255, 255, 255, 0.12),
+      0 0 0 1px rgba(34, 211, 238, 0.28),
+      0 12px 22px rgba(76, 29, 149, 0.36),
+      0 0 16px rgba(94, 234, 212, 0.26),
+      0 0 24px rgba(34, 211, 238, 0.2) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc--glass svg {
+    filter: brightness(1.08) contrast(1.05)
+      drop-shadow(0 -0.5px 0 rgba(255, 255, 255, 0.72))
+      drop-shadow(0 0.5px 0 rgba(15, 23, 42, 0.35))
+      drop-shadow(0 0 4px rgba(255, 255, 255, 0.42))
+      drop-shadow(0 0 10px rgba(94, 234, 212, 0.45))
+      drop-shadow(0 0 16px rgba(34, 211, 238, 0.34)) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc--glass:hover {
+    border-color: rgba(94, 234, 212, 0.86) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.48),
+      inset 0 -12px 24px rgba(67, 56, 202, 0.3),
+      0 0 0 1px rgba(45, 212, 191, 0.42),
+      0 14px 26px rgba(76, 29, 149, 0.42),
+      0 0 20px rgba(94, 234, 212, 0.32),
+      0 0 34px rgba(34, 211, 238, 0.26) !important;
+    filter: saturate(1.08) brightness(1.05) !important;
+  }
+
   .game-table-root:not(.viewport-mobile) .game-pc-table-chat-wrap {
     align-items: flex-end;
   }
@@ -14223,4 +14343,37 @@ body.deal-results-modal-open-mobile {
   width: max-content !important;
   max-width: min(100%, 220px) !important;
   line-height: 1.15 !important;
+}
+
+/* Модалки «Выйти из игры» / «В меню»: заметный hover (inline-стили не дают :hover). */
+.room-exit-confirm-btn {
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease,
+    filter 0.14s ease,
+    border-color 0.14s ease,
+    background-color 0.14s ease,
+    color 0.14s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .room-exit-confirm-btn:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.12);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  }
+  .room-exit-confirm-btn--cancel:hover {
+    background-color: #475569 !important;
+    border-color: #94a3b8 !important;
+    color: #fff !important;
+  }
+  .room-exit-confirm-btn--danger:hover {
+    background-color: #991b1b !important;
+    border-color: #f87171 !important;
+    color: #fecaca !important;
+  }
+  .room-exit-confirm-btn--primary:hover {
+    background-color: #2563eb !important;
+    border-color: #60a5fa !important;
+    color: #eff6ff !important;
+  }
 }

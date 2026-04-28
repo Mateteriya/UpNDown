@@ -1,7 +1,7 @@
 /**
  * Контекст онлайн-игры. Принцип: "Я всегда Юг".
  */
-import React, { createContext, useCallback, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import type { Card } from '../game/types';
@@ -100,6 +100,43 @@ function gameStateJsonEqual(a: GameState | null, b: GameState | null): boolean {
   } catch {
     return false;
   }
+}
+
+function playerSlotsJsonEqual(a: PlayerSlot[], b: PlayerSlot[]): boolean {
+  if (a === b) return true;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
+function cardEqual(a: Card, b: Card): boolean {
+  return a.suit === b.suit && a.rank === b.rank;
+}
+
+/**
+ * Опрос вернул тот же номер раздачи, но взятка «короче» — без последних выложенных карт (кэш).
+ * Подмена таким JSON уводит карты с стола обратно в руку.
+ */
+function isStaleShortCurrentTrick(local: GameState | null, incoming: GameState | null): boolean {
+  if (local == null || incoming == null) return false;
+  if (
+    local.phase !== 'playing' ||
+    incoming.phase !== 'playing' ||
+    local.dealNumber !== incoming.dealNumber ||
+    local.pendingTrickCompletion != null ||
+    incoming.pendingTrickCompletion != null
+  ) {
+    return false;
+  }
+  const a = local.currentTrick ?? [];
+  const b = incoming.currentTrick ?? [];
+  if (a.length <= b.length || b.length === 0) return false;
+  for (let i = 0; i < b.length; i++) {
+    if (!cardEqual(a[i]!, b[i]!)) return false;
+  }
+  return true;
 }
 
 function roomRowMetaKey(room: GameRoomRow): string {
@@ -214,12 +251,18 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const realtimePollBurstTimeoutsRef = useRef<number[]>([]);
   
   // Порядок слотов ВЕЗДЕ один и тот же: 0=Юг, 1=Север, 2=Запад, 3=Восток. Не вращаем — только «я» = myServerIndex.
-  const displayState = canonicalState ? rotateStateForPlayer(canonicalState, myServerIndex) : null;
+  /** Без useMemo каждый ререндер провайдера (опрос слотов, heartbeat) создавал новый объект → стол и карты взятки перерисовывались и «мигали». */
+  const displayState = useMemo(
+    () => (canonicalState ? rotateStateForPlayer(canonicalState, myServerIndex) : null),
+    [canonicalState, myServerIndex],
+  );
   const canonicalStateRef = useRef<GameState | null>(null);
   canonicalStateRef.current = canonicalState;
   const lastSendAtRef = useRef(0);
   /** Активный update game_state в Supabase — пока >0, игнорируем устаревшие строки из опроса/Realtime (сброс заказа, откат стола). */
   const gameWriteInFlightRef = useRef(0);
+  /** Сразу после send* опрос иногда отдаёт ту же game_state_revision, но предыдущий JSON — карта на столе мелькает; коротко игнорируем такие снимки. */
+  const gameStateStaleSameRevIgnoreUntilRef = useRef(0);
   /** Время последней строки комнаты с сервера (updated_at), чтобы опрос мог принудительно подтянуть актуальное game_state при «залипании» onlyIfNewer. */
   const lastSeenRoomUpdatedAtMsRef = useRef(0);
   /** Последняя применённая game_state_revision с сервера (колонка + триггер в БД); -1 = ещё не было. */
@@ -248,6 +291,16 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       if (!room?.id) return;
       roomIdRef.current = room.id;
       const incoming = room.game_state ?? null;
+      /** Ответ опроса «ещё лобби» пришёл после снимка playing — не сбрасывать стол в waiting/null (хост на мобилке). */
+      if (room.status === 'waiting' && incoming == null) {
+        const lg = canonicalStateRef.current;
+        if (lg != null && stateHasDealtHands(lg) && lastSeenRoomUpdatedAtMsRef.current > 0) {
+          const rowTs = Date.parse(room.updated_at);
+          if (Number.isFinite(rowTs) && rowTs < lastSeenRoomUpdatedAtMsRef.current) {
+            return;
+          }
+        }
+      }
       const isPlayingWithoutState = room.status === 'playing' && incoming == null;
       // Не двигаем lastSeen на «playing без JSON»: иначе гонка с полной строкой и чуть меньшим updated_at может долго отбрасывать актуальный стол.
       if (!isPlayingWithoutState) {
@@ -258,7 +311,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       setRoomId(room.id);
       setCode(room.code);
-      setPlayerSlots(room.player_slots || []);
+      const nextSlotsApply = (room.player_slots || []) as PlayerSlot[];
+      setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsApply) ? prev : nextSlotsApply));
       syncRoomRowMeta(room);
       // playing без game_state в payload бывает при гонках Realtime/опроса — нельзя сбрасывать статус в waiting (гость «висит» на лобби при старте).
       if (isPlayingWithoutState) {
@@ -299,6 +353,46 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         appliedRowMetaKeyRef.current = roomRowMetaKey(room);
         return;
       }
+      /** Та же ревизия, другой JSON, но строка комнаты по времени старее уже применённого — кэш/порядок ответов. */
+      if (
+        room.status === 'playing' &&
+        incoming != null &&
+        r2 !== undefined &&
+        r2 === lastRev &&
+        !gameStateJsonEqual(canonicalStateRef.current, incoming)
+      ) {
+        const rowTs = Date.parse(room.updated_at);
+        if (
+          Number.isFinite(rowTs) &&
+          lastSeenRoomUpdatedAtMsRef.current > 0 &&
+          rowTs < lastSeenRoomUpdatedAtMsRef.current
+        ) {
+          return;
+        }
+      }
+      if (
+        room.status === 'playing' &&
+        incoming != null &&
+        canonicalStateRef.current != null &&
+        gameStateJsonEqual(canonicalStateRef.current, incoming)
+      ) {
+        if (r2 !== undefined) {
+          lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r2);
+        }
+        appliedRowMetaKeyRef.current = roomRowMetaKey(room);
+        return;
+      }
+      if (
+        room.status === 'playing' &&
+        incoming != null &&
+        isStaleShortCurrentTrick(canonicalStateRef.current, incoming)
+      ) {
+        gameStateStaleSameRevIgnoreUntilRef.current = Math.max(
+          gameStateStaleSameRevIgnoreUntilRef.current,
+          Date.now() + 2400,
+        );
+        return;
+      }
       setCanonicalState(incoming);
       if (room.status === 'playing') setStatus('playing');
       else setStatus('waiting');
@@ -326,7 +420,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       setRoomId(room.id);
       setCode(room.code);
-      setPlayerSlots(room.player_slots || []);
+      const nextSlotsM = (room.player_slots || []) as PlayerSlot[];
+      setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsM) ? prev : nextSlotsM));
       syncRoomRowMeta(room);
       // Сервер уже playing — UI не должен оставаться в лобби «ждём хоста», даже если JSON стола ещё не пришёл в этом payload.
       if (room.status === 'playing') setStatus('playing');
@@ -345,6 +440,32 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       if (rIn !== undefined && lastRev >= 0 && rIn < lastRev) {
         return;
       }
+      /**
+       * Пока летит startGame/send*: опрос/Realtime часто отдают строку **ещё из лобби** (waiting, без JSON) или
+       * playing с тем же revision и старым JSON — на мобилке ответы приходят не по порядку и затирают оптимистичную раздачу
+       * (панель заказа мигает, торги сбрасываются). Принимаем только эхо того же стола или строго более новую ревизию.
+       */
+      if (gameWriteInFlightRef.current > 0) {
+        const localGs = canonicalStateRef.current;
+        if (localGs != null && stateHasDealtHands(localGs)) {
+          /** lastRev < 0 до первого applyRoomData: иначе «первая» ревизия с сервера отбрасывается и хост/ИИ замирают после старта. */
+          const newerOnServer = rIn !== undefined && (lastRev < 0 || rIn > lastRev);
+          if (!newerOnServer) {
+            if (room.status !== 'playing' || room.game_state == null) {
+              return;
+            }
+            const incomingGs = room.game_state as GameState;
+            if (!gameStateJsonEqual(localGs, incomingGs)) {
+              /**
+               * Нельзя подмешивать player_slots из этой же устаревшей строки: при старте партии оптимистичный стол
+               * уже с новыми слотами, а снимок — ещё из лобби → имена/состав слотов откатываются, isNativeVacantAiPlayerSlot
+               * ломается и хост не ведёт ИИ (зависание на первом ходе бота).
+               */
+              return;
+            }
+          }
+        }
+      }
       const revisionIsNewer =
         rIn !== undefined && (lastRev < 0 || rIn > lastRev);
       const ts = Date.parse(room.updated_at);
@@ -354,11 +475,26 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         lastSeenRoomUpdatedAtMsRef.current > 0 &&
         ts < lastSeenRoomUpdatedAtMsRef.current
       ) {
+        /** Пока летит startGame/send*, не подмешивать устаревшую строку (иначе слоты/лобби откатывают оптимистичный стол). */
+        if (gameWriteInFlightRef.current > 0) {
+          const lg = canonicalStateRef.current;
+          if (lg != null && stateHasDealtHands(lg)) {
+            return;
+          }
+        }
+        /** Устаревшее лобби при уже идущей раздаче — не подмешивать слоты (иначе рассинхрон с ПК/гостем). */
+        if (room.status === 'waiting') {
+          const lg = canonicalStateRef.current;
+          if (lg != null && stateHasDealtHands(lg)) {
+            return;
+          }
+        }
         const k = roomRowMetaKey(room);
         if (k !== appliedRowMetaKeyRef.current) {
           setRoomId(room.id);
           setCode(room.code);
-          setPlayerSlots(room.player_slots || []);
+          const nextSlotsS = (room.player_slots || []) as PlayerSlot[];
+          setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsS) ? prev : nextSlotsS));
           syncRoomRowMeta(room);
           appliedRowMetaKeyRef.current = k;
         }
@@ -367,7 +503,47 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       if (room.status === 'waiting' && gameWriteInFlightRef.current > 0) {
         const local = canonicalStateRef.current;
         if (local && stateHasDealtHands(local)) {
-          mergeLobbyFieldsFromRoom(room);
+          /** mergeLobbyFieldsFromRoom вызывал setStatus('waiting') — кнопка «Начать игру» снова активна, стол в ref ещё с картами. */
+          return;
+        }
+      }
+      if (
+        room.status === 'playing' &&
+        room.game_state != null &&
+        Date.now() < gameStateStaleSameRevIgnoreUntilRef.current
+      ) {
+        const rg = parseGameStateRevision(room.game_state_revision);
+        const lr = lastAppliedGameStateRevisionRef.current;
+        if (rg !== undefined && lr >= 0 && rg === lr) {
+          const inc = room.game_state as GameState;
+          const loc = canonicalStateRef.current;
+          if (loc != null && !gameStateJsonEqual(loc, inc)) {
+            gameStateStaleSameRevIgnoreUntilRef.current = Math.max(
+              gameStateStaleSameRevIgnoreUntilRef.current,
+              Date.now() + 2200,
+            );
+            return;
+          }
+        }
+      }
+      /** Та же ревизия, JSON не совпадает, но currentTrick — укороченный префикс кэша; не зовём applyRoomData (там уже успели бы тронуть слоты/lastSeen). */
+      if (room.status === 'playing' && room.game_state != null) {
+        const inc = room.game_state as GameState;
+        const loc = canonicalStateRef.current;
+        const rg = parseGameStateRevision(room.game_state_revision);
+        const lr = lastAppliedGameStateRevisionRef.current;
+        if (
+          loc != null &&
+          rg !== undefined &&
+          lr >= 0 &&
+          rg === lr &&
+          !gameStateJsonEqual(loc, inc) &&
+          isStaleShortCurrentTrick(loc, inc)
+        ) {
+          gameStateStaleSameRevIgnoreUntilRef.current = Math.max(
+            gameStateStaleSameRevIgnoreUntilRef.current,
+            Date.now() + 2400,
+          );
           return;
         }
       }
@@ -732,6 +908,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         else if (!err) setPlayerSlots(slots);
       } finally {
         gameWriteInFlightRef.current -= 1;
+        gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
       }
     }
   }, [roomId, status, playerSlots, myServerIndex, canonicalState, applyRoomData]);
@@ -749,6 +926,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     roomIdRef.current = null;
     lastAppliedGameStateRevisionRef.current = -1;
     lastSeenRoomUpdatedAtMsRef.current = 0;
+    gameStateStaleSameRevIgnoreUntilRef.current = 0;
     appliedRowMetaKeyRef.current = '';
     setRoomId(null);
     setCode(null);
@@ -932,6 +1110,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       return true;
     } finally {
       gameWriteInFlightRef.current -= 1;
+      gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
     }
   }, [roomId, myServerIndex, playerSlots, applyRoomData]);
 
@@ -974,6 +1153,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           return false;
         } finally {
           gameWriteInFlightRef.current -= 1;
+          gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
         }
     }, [roomId, canonicalState, myServerIndex, applyRoomData]);
 
@@ -1028,6 +1208,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           return false;
         } finally {
           gameWriteInFlightRef.current -= 1;
+          gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
         }
     }, [roomId, canonicalState, myServerIndex, applyRoomData]);
 
@@ -1126,6 +1307,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return false;
       } finally {
         gameWriteInFlightRef.current -= 1;
+        gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
       }
     }, [applyRoomData]);
     const sendStartNextDeal = useCallback(async (): Promise<boolean> => {
@@ -1136,6 +1318,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         for (let attempt = 0; attempt < 2; attempt++) {
           const base = canonicalStateRef.current;
           if (!base) return false;
+          /** Иначе повторный таймер/гонка клиентов сделает вторую «сдачу» с новым random — мигание карт в торгах. */
+          if (base.phase !== 'deal-complete') return false;
           const next = startNextDeal(base);
           if (!next) return false;
           canonicalStateRef.current = next;
@@ -1168,11 +1352,15 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return false;
       } finally {
         gameWriteInFlightRef.current -= 1;
+        gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
       }
     }, [roomId, canonicalState, applyRoomData]);
     const sendState = useCallback(async (newState: GameState): Promise<boolean> => {
       if (!roomId) return false;
+      const prev = canonicalStateRef.current;
       canonicalStateRef.current = newState;
+      /** Как sendPlay/sendBid: без этого React-стол отстаёт, latestCanonicalForAiRef в GameTable «застывает» и таймер ИИ шлёт дубликаты/конфликты (на мобильной сети заметнее). */
+      setCanonicalState(newState);
       lastSendAtRef.current = Date.now();
       gameWriteInFlightRef.current += 1;
       try {
@@ -1185,8 +1373,15 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           applyRoomData(room);
           return false;
         }
+        if (conflict) {
+          canonicalStateRef.current = prev;
+          setCanonicalState(prev);
+          return false;
+        }
         if (err) {
           setError(err);
+          canonicalStateRef.current = prev;
+          setCanonicalState(prev);
           return false;
         }
         if (room) applyRoomData(room);
@@ -1197,6 +1392,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return true;
       } finally {
         gameWriteInFlightRef.current -= 1;
+        gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
       }
     }, [roomId, applyRoomData]);
     const confirmReclaim = useCallback(async (): Promise<boolean> => {

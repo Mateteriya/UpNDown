@@ -43,6 +43,7 @@ import { preloadCardImages } from '../cardAssets';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnlineGame } from '../contexts/useOnlineGame';
 import {
+  getRoom,
   heartbeatPresence,
   hostPingRoom,
   hostMayAutoDriveOnlineAiForSeat,
@@ -1131,14 +1132,36 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     ? (waitingState ? rotateStateForPlayer(waitingState, online.myServerIndex) : null)
     : (isOnline ? online.displayState : localState);
   /**
-   * Онлайн: displayState — новый объект при каждом опросе Supabase, хотя взятка та же.
+   * Подпись слотов без зависимости от нового массива на каждом опросе — иначе stateForRender пересобирается и мигают стол / Σ между раздачами.
+   */
+  const onlineSlotsSig = useMemo(() => {
+    try {
+      return JSON.stringify(
+        (online.playerSlots ?? []).map((s) => ({
+          i: s.slotIndex,
+          n: s.displayName,
+          u: s.userId,
+          al: s.avatarDataUrl == null ? 0 : String(s.avatarDataUrl).length,
+          ab: s.absent === true,
+          ps: s.pausedByUser === true,
+          r: s.replacedUserId ?? null,
+        })),
+      );
+    } catch {
+      return String((online.playerSlots ?? []).length);
+    }
+  }, [online.playerSlots]);
+  /**
    * Зависимость useEffect от pendingTrickCompletion по ссылке сбрасывала таймер completeTrick каждые ~280ms → стол «висел» с 4 картами минутами.
    */
   const pendingTrickCompletionKey =
     state?.pendingTrickCompletion == null
       ? null
       : `${state.dealNumber}-${state.pendingTrickCompletion.leaderIndex}-${state.pendingTrickCompletion.winnerIndex}-${state.pendingTrickCompletion.allPlayed}-${state.pendingTrickCompletion.cards.map((c) => `${c.suit}:${c.rank}`).join('|')}`;
-  /** В онлайне и в ожидании: один и тот же порядок «вид из моего места» (0=я внизу) и имена из playerSlots по canonical-индексу. Если слоты ещё не подгрузились — хотя бы «я» из профиля. */
+  /**
+   * В онлайне и в ожидании: один и тот же порядок «вид из моего места» (0=я внизу) и имена из playerSlots по canonical-индексу.
+   * deps: onlineSlotsSig вместо player_slots по ссылке — иначе каждый опрос Supabase пересобирает объект и мигают стол / таблица результатов.
+   */
   const stateForRender = useMemo(() => {
     if (!state) return null;
     const slots = online.playerSlots;
@@ -1158,7 +1181,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       return { ...base, dealerIndex: -1 };
     }
     return base;
-  }, [state, isOnline, isWaitingInRoom, online.playerSlots, online.myServerIndex, playerDisplayName]);
+  }, [state, isOnline, isWaitingInRoom, onlineSlotsSig, online.myServerIndex, playerDisplayName]);
   const stateToShow = stateForRender ?? state;
   /** Полоска игры в моб. шапке (раздача / Σ / бейдж хода): нужна до хуков short-бейджа. */
   const mobileShowGameInfoStrip = !isWaitingInRoom && state != null;
@@ -1229,8 +1252,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showTransferHostExit, setShowTransferHostExit] = useState(false);
   const [transferHostExitPick, setTransferHostExitPick] = useState<string | null>(null);
-  const [transferHostExitBusy, setTransferHostExitBusy] = useState(false);
+  /** pick — выбор игрока; transferring / leaving — ждём RPC, не закрываем окно (иначе «зависание» без текста). */
+  const [transferHostExitPhase, setTransferHostExitPhase] = useState<'pick' | 'transferring' | 'leaving'>('pick');
   const [transferHostExitError, setTransferHostExitError] = useState<string | null>(null);
+  const transferHostExitInProgress = transferHostExitPhase !== 'pick';
   const [hostAbsentResolveBusy, setHostAbsentResolveBusy] = useState(false);
   const [showHomeConfirm, setShowHomeConfirm] = useState(false);
   const [gameOverSnapshot, setGameOverSnapshot] = useState<GameState | null>(null);
@@ -3194,21 +3219,38 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     }
   }, [online, onExit]);
 
-  const handleLeaveRoomClick = useCallback(() => {
-    if (
-      isOnline &&
-      online.status === 'playing' &&
-      iAmRoomHost &&
-      otherOnlineHumansForTransfer.length > 0
-    ) {
+  const handleLeaveRoomClick = useCallback(async () => {
+    const uid = user?.id;
+    const rid = online.roomId;
+    let serverSaysIAmHost = false;
+    /** getRoom() на ПК может занимать десятки секунд — гостю не нужен; только хосту перед модалкой передачи. */
+    if (isOnline && online.status === 'playing' && rid && uid && iAmRoomHost) {
+      try {
+        const row = await getRoom(rid);
+        if (row?.id === rid) {
+          const h = row.host_user_id;
+          serverSaysIAmHost =
+            h != null &&
+            String(h).trim() !== '' &&
+            String(h).toLowerCase() === String(uid).toLowerCase();
+        }
+      } catch {
+        serverSaysIAmHost =
+          !!online.hostUserId &&
+          String(online.hostUserId).trim() !== '' &&
+          String(online.hostUserId).toLowerCase() === String(uid).toLowerCase();
+      }
+    }
+    if (isOnline && online.status === 'playing' && serverSaysIAmHost && otherOnlineHumansForTransfer.length > 0) {
       const first = otherOnlineHumansForTransfer[0]?.userId;
       setTransferHostExitPick(typeof first === 'string' && first ? first : null);
       setTransferHostExitError(null);
+      setTransferHostExitPhase('pick');
       setShowTransferHostExit(true);
       return;
     }
     setShowExitConfirm(true);
-  }, [isOnline, online.status, iAmRoomHost, otherOnlineHumansForTransfer]);
+  }, [isOnline, online.status, online.roomId, online.hostUserId, otherOnlineHumansForTransfer, user?.id, iAmRoomHost]);
 
   const handleExitConfirm = useCallback(async () => {
     try {
@@ -3316,8 +3358,12 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       setTrickPauseUntil(0);
       const current = stateRef.current;
       if (current?.phase === 'deal-complete') {
-        if (isOnlinePlayPhase) onlineRef.current?.sendStartNextDeal?.();
-        else
+        if (isOnlinePlayPhase) {
+          /** Только хост шлёт новую раздачу: иначе каждый клиент мешает колоду у себя (random) и мигают карты. */
+          const o = onlineRef.current;
+          const uid = userRef.current?.id;
+          if (uid && o?.hostUserId && o.hostUserId === uid) void o.sendStartNextDeal();
+        } else
           setLocalState((prev) =>
             prev?.phase === 'deal-complete' ? startNextDeal(prev) ?? prev : prev ?? null
           );
@@ -3443,6 +3489,21 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       online.canonicalState.phase === 'playing') &&
     seatIsAiSlot;
 
+  /**
+   * Онлайн-ИИ: не вешать useEffect на ссылку canonicalState — Supabase-опрос даёт новый объект каждые ~280ms,
+   * cleanup снимает setTimeout(150) до хода (на мобилке плюс visualViewport/клавиатура → ещё больше ререндеров).
+   */
+  const onlineAiDriveScheduleKey = useMemo(() => {
+    const c = online.canonicalState;
+    if (!c) return '';
+    const ptc = c.pendingTrickCompletion;
+    const ptcPart =
+      ptc == null
+        ? ''
+        : `${ptc.leaderIndex}-${ptc.winnerIndex}-${ptc.allPlayed}-${ptc.cards.map((x) => `${x.suit}:${x.rank}`).join('|')}`;
+    return `${c.dealNumber}-${c.phase}-${c.currentPlayerIndex}-${(c.bids ?? []).map((b) => (b == null ? 'n' : String(b))).join(',')}-${(c.currentTrick ?? []).map((x) => `${x.suit}:${x.rank}`).join('|')}-${ptcPart}`;
+  }, [online.canonicalState]);
+
   const isAITurn =
     (isOnline && isOnlineAiTurn) ||
     (!isOnline &&
@@ -3559,7 +3620,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     return () => window.clearTimeout(tid);
   }, [
     isOnlineAiTurn,
-    online.canonicalState,
+    onlineAiDriveScheduleKey,
     online.sendState,
     onlineAiDriveRetry,
     user?.id,
@@ -4811,19 +4872,38 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 className="header-menu-buttons-col-pc"
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}
               >
-                <button
-                  type="button"
-                  className="header-exit-btn"
-                  onClick={handleHomeClick}
-                  style={exitBtnStyle}
-                  title="В меню"
-                  aria-label="В меню"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                </button>
+                <div className="header-action-btn-group-pc">
+                  <button
+                    type="button"
+                    className="header-exit-btn header-action-btn-pc header-action-btn-pc--glass"
+                    onClick={handleHomeClick}
+                    style={exitBtnStyle}
+                    title="В меню"
+                    aria-label="В меню"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                  </button>
+                  {onNewGame && !isOnline && !isWaitingInRoom && (
+                    <button
+                      type="button"
+                      className="header-new-game-btn header-action-btn-pc header-action-btn-pc--glass"
+                      onClick={() => setShowNewGameConfirm(true)}
+                      style={newGameBtnStyle}
+                      title="Перезапуск партии — мгновенно"
+                      aria-label="Перезапуск партии — мгновенно"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <polyline points="23 4 23 10 17 10" />
+                        <polyline points="1 20 1 14 7 14" />
+                        <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10" />
+                        <path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
                 {(isOnline || isWaitingInRoom) && (
                   <button
                     type="button"
@@ -4834,18 +4914,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                     aria-label="Выйти из комнаты"
                   >
                     <span style={{ fontSize: 14 }}>Выйти</span>
-                  </button>
-                )}
-                {onNewGame && !isOnline && !isWaitingInRoom && (
-                  <button
-                    type="button"
-                    className="header-new-game-btn"
-                    onClick={() => setShowNewGameConfirm(true)}
-                    style={newGameBtnStyle}
-                    title="Обновить — новая партия"
-                    aria-label="Обновить — новая партия"
-                  >
-                    ↻
                   </button>
                 )}
                 <AiDifficultyControl
@@ -7402,19 +7470,22 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               zIndex: 20000,
             }}
             onClick={() => {
-              setTransferHostExitBusy(false);
+              if (transferHostExitInProgress) return;
+              setTransferHostExitPhase('pick');
               setTransferHostExitError(null);
               setShowTransferHostExit(false);
             }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
-                setTransferHostExitBusy(false);
+                if (transferHostExitInProgress) return;
+                setTransferHostExitPhase('pick');
                 setTransferHostExitError(null);
                 setShowTransferHostExit(false);
               }
             }}
             role="dialog"
             aria-modal="true"
+            aria-busy={transferHostExitInProgress}
             aria-labelledby="transfer-host-exit-title"
           >
             <div
@@ -7426,7 +7497,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 aria-label="Закрыть"
                 title="Закрыть"
                 onClick={() => {
-                  setTransferHostExitBusy(false);
+                  if (transferHostExitInProgress) return;
+                  setTransferHostExitPhase('pick');
                   setTransferHostExitError(null);
                   setShowTransferHostExit(false);
                 }}
@@ -7442,7 +7514,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   color: '#e2e8f0',
                   fontSize: 20,
                   lineHeight: 1,
-                  cursor: 'pointer',
+                  cursor: transferHostExitInProgress ? 'not-allowed' : 'pointer',
+                  opacity: transferHostExitInProgress ? 0.45 : 1,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -7453,6 +7526,23 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               <p id="transfer-host-exit-title" style={newGameConfirmTextStyle}>
                 Вы хост. Перед выходом лучше передать хоста другому игроку — иначе решение о паузе останется на вас, пока вы в комнате.
               </p>
+              {transferHostExitPhase === 'transferring' ? (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  style={{ margin: '12px 0', fontSize: 15, color: '#94e9ff', lineHeight: 1.45 }}
+                >
+                  Передаём роль хоста выбранному игроку…
+                </p>
+              ) : transferHostExitPhase === 'leaving' ? (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  style={{ margin: '12px 0', fontSize: 15, color: '#94e9ff', lineHeight: 1.45 }}
+                >
+                  Выходим из комнаты…
+                </p>
+              ) : null}
               {transferHostExitError && (
                 <p style={{ margin: '0 0 12px', fontSize: 14, color: '#f87171', lineHeight: 1.4 }} role="alert">
                   {transferHostExitError}
@@ -7462,6 +7552,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 Новый хост
                 <select
                   value={transferHostExitPick ?? ''}
+                  disabled={transferHostExitInProgress}
                   onChange={(e) => {
                     setTransferHostExitError(null);
                     setTransferHostExitPick(e.target.value || null);
@@ -7475,6 +7566,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                     border: '1px solid #475569',
                     background: '#0f172a',
                     color: '#f8fafc',
+                    opacity: transferHostExitInProgress ? 0.65 : 1,
                   }}
                 >
                   {otherOnlineHumansForTransfer.map((s) => (
@@ -7487,67 +7579,75 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               <div style={{ ...newGameConfirmButtonsStyle, flexWrap: 'wrap', gap: 10 }}>
                 <button
                   type="button"
+                  disabled={transferHostExitInProgress}
                   onClick={() => {
-                    setTransferHostExitBusy(false);
+                    setTransferHostExitPhase('pick');
                     setTransferHostExitError(null);
                     setShowTransferHostExit(false);
                     setShowExitConfirm(true);
                   }}
-                  style={newGameConfirmCancelBtnStyle}
+                  style={{
+                    ...newGameConfirmCancelBtnStyle,
+                    opacity: transferHostExitInProgress ? 0.5 : 1,
+                    cursor: transferHostExitInProgress ? 'not-allowed' : 'pointer',
+                  }}
                 >
                   Выйти без передачи
                 </button>
                 <button
                   type="button"
-                  disabled={transferHostExitBusy || !transferHostExitPick}
+                  disabled={transferHostExitInProgress || !transferHostExitPick}
                   onClick={async () => {
                     if (!transferHostExitPick) return;
                     setTransferHostExitError(null);
-                    setTransferHostExitBusy(true);
-                    let leftTableAfterTransfer = false;
+                    setTransferHostExitPhase('transferring');
                     try {
                       const r = await online.transferHostTo(transferHostExitPick, online.roomId);
                       if (r.ok) {
-                        setShowTransferHostExit(false);
-                        setTransferHostExitBusy(false);
-                        /* Сразу выход в меню: второе «Выйти?» с тем же z-index часто не замечали; зависший RPC без таймаута держал модалку. */
+                        setTransferHostExitPhase('leaving');
                         try {
                           if (isWaitingInRoom || isOnline) await online.leaveRoom();
-                        } finally {
-                          leftTableAfterTransfer = true;
-                          onExit();
+                        } catch {
+                          setTransferHostExitError(
+                            'Хост передан, но выйти из комнаты не удалось. Попробуйте выйти из меню ещё раз или обновите страницу.',
+                          );
+                          setTransferHostExitPhase('pick');
+                          return;
                         }
-                      } else {
-                        const c = (r.error ?? '').toLowerCase();
-                        setTransferHostExitError(
-                          c === 'not_host'
-                            ? 'Сервер не считает вас хостом (состояние устарело). Обновите страницу или откройте комнату заново.'
-                            : c === 'new_host_not_in_slots' || c.includes('not_in_slots')
-                              ? 'Выбранный игрок не числится в комнате. Обновите стол.'
-                              : c === 'same_host'
-                                ? 'Нужно выбрать другого игрока, не себя.'
-                                : c === 'not_authenticated'
-                                  ? 'Сессия истекла. Войдите снова и откройте комнату по коду — иначе запросы к столу не проходят.'
-                                  : c === 'not_found'
-                                    ? 'Комната на сервере не найдена (id или доступ). Обновите страницу и откройте стол по коду.'
-                                    : c === 'bad_room_id' || c.includes('bad_room')
-                                      ? 'Неверный id комнаты. Обновите страницу и зайдите в комнату снова.'
-                                      : c === 'bad_new_host'
-                                        ? 'Неверный id нового хоста. Выберите игрока из списка ещё раз.'
-                                        : r.error ?? 'Не удалось передать хоста. Попробуйте ещё раз.',
-                        );
+                        setShowTransferHostExit(false);
+                        setTransferHostExitPhase('pick');
+                        onExit();
+                        return;
                       }
+                      const c = (r.error ?? '').toLowerCase();
+                      setTransferHostExitError(
+                        c === 'not_host'
+                          ? 'Сервер не считает вас хостом (состояние устарело). Обновите страницу или откройте комнату заново.'
+                          : c === 'new_host_not_in_slots' || c.includes('not_in_slots')
+                            ? 'Выбранный игрок не числится в комнате. Обновите стол.'
+                            : c === 'same_host'
+                              ? 'Нужно выбрать другого игрока, не себя.'
+                              : c === 'not_authenticated'
+                                ? 'Сессия истекла. Войдите снова и откройте комнату по коду — иначе запросы к столу не проходят.'
+                                : c === 'not_found'
+                                  ? 'Комната на сервере не найдена (id или доступ). Обновите страницу и откройте стол по коду.'
+                                  : c === 'bad_room_id' || c.includes('bad_room')
+                                    ? 'Неверный id комнаты. Обновите страницу и зайдите в комнату снова.'
+                                    : c === 'bad_new_host'
+                                      ? 'Неверный id нового хоста. Выберите игрока из списка ещё раз.'
+                                      : r.error ?? 'Не удалось передать хоста. Попробуйте ещё раз.',
+                      );
                     } catch {
                       setTransferHostExitError(
                         'Нет связи с сервером. Попробуйте ещё раз или обновите страницу.',
                       );
                     } finally {
-                      if (!leftTableAfterTransfer) setTransferHostExitBusy(false);
+                      setTransferHostExitPhase('pick');
                     }
                   }}
                   style={newGameConfirmOkBtnStyle}
                 >
-                  Передать и далее
+                  {transferHostExitPhase === 'pick' ? 'Передать и далее' : 'Подождите…'}
                 </button>
               </div>
             </div>
@@ -7665,6 +7765,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             <div style={newGameConfirmButtonsStyle}>
               <button
                 type="button"
+                className="room-exit-confirm-btn room-exit-confirm-btn--cancel"
                 onClick={() => setShowExitConfirm(false)}
                 style={newGameConfirmCancelBtnStyle}
               >
@@ -7672,6 +7773,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               </button>
               <button
                 type="button"
+                className="room-exit-confirm-btn room-exit-confirm-btn--primary"
                 onClick={() => handleExitConfirm()}
                 style={newGameConfirmOkBtnStyle}
               >
@@ -7710,6 +7812,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             <div style={newGameConfirmButtonsStyle}>
               <button
                 type="button"
+                className="room-exit-confirm-btn room-exit-confirm-btn--cancel"
                 onClick={() => setShowHomeConfirm(false)}
                 style={newGameConfirmCancelBtnStyle}
               >
@@ -7717,6 +7820,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               </button>
               <button
                 type="button"
+                className="room-exit-confirm-btn room-exit-confirm-btn--primary"
                 onClick={() => handleHomeConfirm()}
                 style={newGameConfirmOkBtnStyle}
               >
