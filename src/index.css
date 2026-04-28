@@ -10,7 +10,8 @@
   background-color: #0f172a;
   /* Размеры для адаптивности (десктоп по умолчанию) */
   --game-table-surface-width: 576px;
-  --game-table-surface-height: 297px;
+  /* ПК: увеличиваем высоту стола, чтобы сократить пустой зазор над панелью Юга */
+  --game-table-surface-height: 344px;
   --game-table-north-slot-width: 420px;
   --game-table-opponent-slot-width: 180px;
   --game-table-opponent-side-min: 140px;
@@ -1609,6 +1610,13 @@
   .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-label-overlay {
     color: rgba(253, 164, 175, 0.96) !important;
     text-shadow: 0 0 10px rgba(244, 114, 182, 0.28) !important;
+  }
+}
+
+/* Широкий ПК: отдельная фиксация высоты стола, без влияния на планшетную модалку результатов. */
+@media (min-width: 1367px) {
+  :root {
+    --game-table-surface-height: 344px;
   }
 }
 
