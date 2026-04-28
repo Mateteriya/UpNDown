@@ -1283,6 +1283,11 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   /** Short + immersive: выравнивание верха ряда З/С с верхом бейджа `.game-info-left-section` (getBoundingClientRect). */
   const mobileGameInfoSectionAlignRef = useRef<HTMLDivElement | null>(null);
   const mobileShortTopRowRef = useRef<HTMLDivElement | null>(null);
+  /** ПК: выравнивание верха связки first-move + game-info-left-section по верхней кромке контейнера action-кнопок. */
+  const pcHeaderActionGroupRef = useRef<HTMLDivElement | null>(null);
+  const pcGameInfoLeftColRef = useRef<HTMLDivElement | null>(null);
+  const pcFirstMoveBadgeRef = useRef<HTMLDivElement | null>(null);
+  const [pcGameInfoLeftAlignPx, setPcGameInfoLeftAlignPx] = useState(0);
   /** margin-top у `.game-mobile-top-row`: совмещаем верх ряда З/С с верхом `.game-info-left-section` (getBoundingClientRect, ±clamp). */
   const [shortImmersiveNwRowAlignPx, setShortImmersiveNwRowAlignPx] = useState(0);
   /** В short immersive недавно были у низа wrap — при небольшом «отрыве» от низа после layout переприжимаем, а не сбрасываем С/З. */
@@ -1449,6 +1454,50 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     const t = setTimeout(() => setShowPcDarkModeTooltip(false), 9000);
     return () => clearTimeout(t);
   }, [showPcDarkModeTooltip]);
+
+  /** ПК: first-move + нижний бейдж как единый блок держим на одной горизонтали с контейнером кнопок (верхняя граница). */
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isMobileOrTablet) {
+      setPcGameInfoLeftAlignPx(0);
+      return;
+    }
+    const isFirstMoveBlockShown = state?.phase === 'bidding' || state?.phase === 'dark-bidding';
+    if (!isFirstMoveBlockShown) {
+      setPcGameInfoLeftAlignPx(0);
+      return;
+    }
+
+    let rafId: number | null = null;
+    const scheduleAlign = () => {
+      if (rafId != null) window.cancelAnimationFrame(rafId);
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        const headerGroup = pcHeaderActionGroupRef.current;
+        const leftCol = pcGameInfoLeftColRef.current;
+        const firstMoveBadge = pcFirstMoveBadgeRef.current;
+        if (!headerGroup || !leftCol || !firstMoveBadge) return;
+        const targetTop = Math.round(headerGroup.getBoundingClientRect().top);
+        const currentTop = Math.round(firstMoveBadge.getBoundingClientRect().top);
+        const delta = targetTop - currentTop;
+        if (Math.abs(delta) <= 1) return;
+        setPcGameInfoLeftAlignPx((prev) => prev + delta);
+      });
+    };
+
+    scheduleAlign();
+    window.addEventListener('resize', scheduleAlign);
+
+    const ro = new ResizeObserver(scheduleAlign);
+    if (pcHeaderActionGroupRef.current) ro.observe(pcHeaderActionGroupRef.current);
+    if (pcGameInfoLeftColRef.current) ro.observe(pcGameInfoLeftColRef.current);
+
+    return () => {
+      if (rafId != null) window.cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', scheduleAlign);
+      ro.disconnect();
+    };
+  }, [isMobileOrTablet, state?.phase]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -4872,7 +4921,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 className="header-menu-buttons-col-pc"
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}
               >
-                <div className="header-action-btn-group-pc">
+                <div ref={pcHeaderActionGroupRef} className="header-action-btn-group-pc">
                   <button
                     type="button"
                     className="header-exit-btn header-action-btn-pc header-action-btn-pc--glass"
@@ -6674,15 +6723,35 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         <>
       {/* z-index выше .game-header (20): иначе из-за translateY у .game-table-block клики по имени Север перехватывает шапка */}
       <div className="game-info-row" style={{ ...gameInfoTopRowStyle, zIndex: 22 }}>
-          <div className="game-info-left-col" style={gameInfoLeftColumnStyle}>
+          <div
+            ref={pcGameInfoLeftColRef}
+            className="game-info-left-col"
+            style={{
+              ...gameInfoLeftColumnStyle,
+              ['--pc-game-info-left-align-px' as string]: `${pcGameInfoLeftAlignPx}px`,
+            }}
+          >
             {!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
-              <div className="first-move-badge first-move-badge-above-block" style={firstMoveBadgeStyle}>
+              <div
+                ref={pcFirstMoveBadgeRef}
+                className="first-move-badge first-move-badge-above-block pc-info-badge-unified pc-info-badge--bidding"
+                style={firstMoveBadgeStyle}
+              >
                 <span className="first-move-num" style={firstMoveLabelStyle}>Первый ход:</span>
                 <span style={firstMoveValueStyle}>{displayState.players[state.trickLeaderIndex].name}</span>
               </div>
             )}
             {(state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') && (
-              <div className="game-info-left-section" style={gameInfoLeftSectionStyle}>
+              <div
+                className={`game-info-left-section pc-info-badge-unified ${
+                  state.phase === 'bidding' || state.phase === 'dark-bidding'
+                    ? 'pc-info-badge--bidding'
+                    : state.phase === 'playing' && state.currentPlayerIndex === 0
+                      ? 'pc-info-badge--user-turn'
+                      : 'pc-info-badge--playing'
+                }`}
+                style={gameInfoLeftSectionStyle}
+              >
                 {!isWaitingInRoom && (
                   <button
                     type="button"
