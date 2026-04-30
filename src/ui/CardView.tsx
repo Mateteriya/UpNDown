@@ -85,6 +85,8 @@ function CardFaceImage({
         src={src}
         alt={alt}
         className={className}
+        loading={(rest as { loading?: HTMLImageElement['loading'] }).loading ?? 'eager'}
+        decoding="async"
         style={{ ...style, width: style?.width ?? '100%', height: style?.height ?? '100%', objectFit: 'contain', opacity: loaded ? 1 : 0, transition: 'opacity 0.2s ease-out' }}
         onLoad={handleLoad}
       />

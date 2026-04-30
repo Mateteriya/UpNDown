@@ -139,6 +139,19 @@ function isStaleShortCurrentTrick(local: GameState | null, incoming: GameState |
   return true;
 }
 
+/** Продления same-rev нельзя откладывать «вечно»: иначе при лавине опросов/кэша стол перестаёт догонять сервер (откаты ходов, залипший ИИ). */
+const STALE_SAME_REV_GRACE_CAP_MS = 4000;
+
+function bumpStaleSameRevGraceCap(ref: { current: number }, extendMs: number) {
+  const now = Date.now();
+  ref.current = Math.min(Math.max(ref.current, now + extendMs), now + STALE_SAME_REV_GRACE_CAP_MS);
+}
+
+function resetStaleSameRevGraceAfterWrite(ref: { current: number }) {
+  const now = Date.now();
+  ref.current = Math.min(now + 2300, now + STALE_SAME_REV_GRACE_CAP_MS);
+}
+
 function roomRowMetaKey(room: GameRoomRow): string {
   try {
     return JSON.stringify({
@@ -171,6 +184,8 @@ export interface OnlineGameContextValue {
   // ... остальной интерфейс без изменений
   leaveRoom: () => Promise<void>;
   refreshRoom: () => Promise<void>;
+  /** Если ход есть у других, а у вас стол «замёрз» без VPN — тянет строку через getRoom и перевешивает Realtime (как переключение VPN). */
+  resyncRoomAggressive: () => Promise<void>;
   syncMySlotDisplayName: (displayName: string) => Promise<void>;
   /** Обновить аватарку в нашем слоте (после смены фото в профиле). */
   syncMySlotAvatar: () => Promise<void>;
@@ -198,8 +213,6 @@ export interface OnlineGameContextValue {
   clearError: () => void;
   userLeftTemporarily: boolean;
   setUserLeftTemporarily: (value: boolean) => void;
-  /** Увеличивается при каждом «прикреплении» к комнате (вход, восстановление, heal Realtime) — чтобы чат заново подтянул историю при том же roomId. */
-  roomSessionNonce: number;
   /**
    * После первичной проверки sessionStorage/lastOnlineParty + performSessionRestore (или решения «сессии нет»).
    * Пока false — GameTable не должен поднимать офлайн-стол, иначе после убийства вкладки моб. браузером показывается локальная партия вместо ожидания онлайна.
@@ -241,7 +254,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const [absentUntil, setAbsentUntil] = useState<string | null>(null);
   const [absentSlotIndex, setAbsentSlotIndex] = useState<number | null>(null);
   const [realtimeHealKey, setRealtimeHealKey] = useState(0);
-  const [roomSessionNonce, setRoomSessionNonce] = useState(0);
   const [onlineHydratedFromStorage, setOnlineHydratedFromStorage] = useState(false);
   const onlineHydrateGenRef = useRef(0);
   const [pendingReclaimOffer, setPendingReclaimOffer] = useState<PendingReclaimOffer | null>(null);
@@ -249,6 +261,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const unsubRef = useRef<(() => void) | null>(null);
   const realtimeErrorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const realtimePollBurstTimeoutsRef = useRef<number[]>([]);
+  /** Чтобы несколько интервалов/кнопок не гоняли getRoom параллельно (ещё один «залипший» канал без VPN). */
+  const roomHardRefreshLockRef = useRef(false);
+  const roomResyncAggressiveLockRef = useRef(false);
+  /** Последняя номер раздачи, для доборного heal при переходе 1→2… без ручного VPN. */
+  const prevHealDealNumberRef = useRef<number | null>(null);
   
   // Порядок слотов ВЕЗДЕ один и тот же: 0=Юг, 1=Север, 2=Запад, 3=Восток. Не вращаем — только «я» = myServerIndex.
   /** Без useMemo каждый ререндер провайдера (опрос слотов, heartbeat) создавал новый объект → стол и карты взятки перерисовывались и «мигали». */
@@ -387,10 +404,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         incoming != null &&
         isStaleShortCurrentTrick(canonicalStateRef.current, incoming)
       ) {
-        gameStateStaleSameRevIgnoreUntilRef.current = Math.max(
-          gameStateStaleSameRevIgnoreUntilRef.current,
-          Date.now() + 2400,
-        );
+        bumpStaleSameRevGraceCap(gameStateStaleSameRevIgnoreUntilRef, 2000);
         return;
       }
       setCanonicalState(incoming);
@@ -518,10 +532,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           const inc = room.game_state as GameState;
           const loc = canonicalStateRef.current;
           if (loc != null && !gameStateJsonEqual(loc, inc)) {
-            gameStateStaleSameRevIgnoreUntilRef.current = Math.max(
-              gameStateStaleSameRevIgnoreUntilRef.current,
-              Date.now() + 2200,
-            );
+            bumpStaleSameRevGraceCap(gameStateStaleSameRevIgnoreUntilRef, 1800);
             return;
           }
         }
@@ -540,10 +551,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           !gameStateJsonEqual(loc, inc) &&
           isStaleShortCurrentTrick(loc, inc)
         ) {
-          gameStateStaleSameRevIgnoreUntilRef.current = Math.max(
-            gameStateStaleSameRevIgnoreUntilRef.current,
-            Date.now() + 2400,
-          );
+          bumpStaleSameRevGraceCap(gameStateStaleSameRevIgnoreUntilRef, 2000);
           return;
         }
       }
@@ -559,6 +567,49 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
     applyRoomSnapshot(room);
   }, [roomId, applyRoomSnapshot]);
+
+  /** Тяжее опросного getRoomForSyncPoll: несколько попыток/таймаут — разруливает «залипшие» без переключения VPN. Одновременный один полёт. */
+  const runHardRoomRefresh = useCallback(async () => {
+    if (!roomId) return;
+    if (roomHardRefreshLockRef.current) return;
+    roomHardRefreshLockRef.current = true;
+    try {
+      await refreshRoom();
+    } finally {
+      roomHardRefreshLockRef.current = false;
+    }
+  }, [roomId, refreshRoom]);
+
+  const resyncRoomAggressive = useCallback(async () => {
+    if (!roomId) return;
+    if (roomResyncAggressiveLockRef.current) return;
+    roomResyncAggressiveLockRef.current = true;
+    try {
+      await runHardRoomRefresh();
+      setRealtimeHealKey((k) => k + 1);
+    } finally {
+      roomResyncAggressiveLockRef.current = false;
+    }
+  }, [roomId, runHardRoomRefresh]);
+
+  /** Новая раздача — узкий случай после deal-complete/startNextDeal: перевешиваем канал + тяжёлый GET. */
+  useEffect(() => {
+    prevHealDealNumberRef.current = null;
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!roomId || status !== 'playing') return;
+    const dn = canonicalState?.dealNumber;
+    if (dn == null || typeof dn !== 'number') return;
+    const prev = prevHealDealNumberRef.current;
+    prevHealDealNumberRef.current = dn;
+    if (prev !== null && dn !== prev) {
+      void runHardRoomRefresh();
+      queueMicrotask(() => {
+        setRealtimeHealKey((k) => k + 1);
+      });
+    }
+  }, [roomId, status, canonicalState?.dealNumber, runHardRoomRefresh]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -584,7 +635,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         const idB = window.setTimeout(() => void refreshRoom(), 1000);
         realtimePollBurstTimeoutsRef.current.push(idA, idB);
         setRealtimeHealKey((k) => k + 1);
-        setRoomSessionNonce((n) => n + 1);
       }, 250);
     });
     unsubRef.current = unsub;
@@ -618,18 +668,70 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   }, [roomId, refreshRoom]);
 
   /**
-   * Опрос: в игре часто — Realtime не всегда доставляет ходы.
-   * В лобби (waiting) тот же 280 ms с нескольких устройств в одном Wi‑Fi даёт лавину запросов к Supabase и обрывы на мобилке;
-   * достаточно реже, пока ждём игроков.
+   * Без реакции только на ошибки канала WS «молча» висит как у вкл/выкл VPN: переподнимаем периодически канал игры и тянем строку через тяжёлый getRoom.
+   */
+  useEffect(() => {
+    if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
+    const HARD_MS = 4600;
+    const REALTIME_SELF_HEAL_MS = 26_000;
+    const ivHard = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      void runHardRoomRefresh();
+    }, HARD_MS);
+    const ivHeal = window.setInterval(() => {
+      setRealtimeHealKey((k) => k + 1);
+    }, REALTIME_SELF_HEAL_MS);
+    return () => {
+      clearInterval(ivHard);
+      clearInterval(ivHeal);
+    };
+  }, [roomId, status, runHardRoomRefresh]);
+
+  useEffect(() => {
+    if (!roomId) return;
+    const raw = (
+      typeof navigator !== 'undefined' ? (navigator as unknown as { connection?: { addEventListener?: (t: string, fn: () => void) => void; removeEventListener?: (t: string, fn: () => void) => void } }).connection : undefined
+    );
+    if (!raw?.addEventListener) return undefined;
+    let deb: number | null = null;
+    const bump = () => {
+      if (deb != null) return;
+      deb = window.setTimeout(() => {
+        deb = null;
+        void runHardRoomRefresh();
+        setRealtimeHealKey((k) => k + 1);
+      }, 600);
+    };
+    raw.addEventListener('change', bump);
+    return () => {
+      if (deb != null) clearTimeout(deb);
+      raw.removeEventListener?.('change', bump);
+    };
+  }, [roomId, runHardRoomRefresh]);
+
+  /**
+   * Опрос: в игре — Realtime не всегда доставляет ходы.
+   * 280 ms × N игроков + VPN давит лимиты/очередь PostgREST → гонки ревизий, конфликты и «залипший» ход ИИ.
    */
   const ROOM_SYNC_POLL_WAITING_MS = 1600;
-  const ROOM_SYNC_POLL_PLAYING_MS = 280;
+  const ROOM_SYNC_POLL_PLAYING_MS = 760;
+  /**
+   * Раньше ~420 ms после любого send* гасили каждый тик опроса — при частых ходах ИИ/живых почти всегда «тишина» после lastSendAt,
+   * а при заблокированном WebSocket Realtime стол на ПК в LAN не обновлялся без VPN. Жёсткие рассылки уже закрывает grace после записи.
+   */
+  const ROOM_SYNC_AFTER_SEND_SILENCE_MS = 0;
   const ROOM_SYNC_POLL_SKIP = 0;
   const roomSyncSkipRef = useRef(ROOM_SYNC_POLL_SKIP);
   roomSyncSkipRef.current = ROOM_SYNC_POLL_SKIP;
 
   const runRoomSyncPollTick = useCallback(() => {
     if (Date.now() - lastSendAtRef.current < roomSyncSkipRef.current) return;
+    if (
+      ROOM_SYNC_AFTER_SEND_SILENCE_MS > 0 &&
+      Date.now() - lastSendAtRef.current < ROOM_SYNC_AFTER_SEND_SILENCE_MS
+    ) {
+      return;
+    }
     const rid = roomIdRef.current;
     if (!rid) return;
     void getRoomForSyncPoll(rid).then((room) => {
@@ -701,7 +803,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       saveOnlineSession(saved.roomId, deviceIdRef.current, room.code ?? undefined);
       applyRoomData(room);
       setMyServerIndex(meSlot.slotIndex);
-      setRoomSessionNonce((n) => n + 1);
       return { ok: true };
     },
     [applyRoomData, user?.id]
@@ -790,7 +891,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         applyRoomData(result.room);
         saveOnlineSession(result.room.id, deviceIdRef.current, result.room.code);
         setMyServerIndex(0);
-        setRoomSessionNonce((n) => n + 1);
         sessionRestoreOkRef.current = true;
         return { ok: true };
       } catch (e) {
@@ -819,7 +919,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         applyRoomData(result.room);
         setMyServerIndex(result.mySlotIndex);
         saveOnlineSession(result.roomId, deviceIdRef.current, result.room.code);
-        setRoomSessionNonce((n) => n + 1);
         sessionRestoreOkRef.current = true;
         return { ok: true };
       } catch (e) {
@@ -843,7 +942,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       applyRoomData(r.room);
       setMyServerIndex(r.mySlotIndex);
       saveOnlineSession(r.roomId, deviceIdRef.current, codeInput.trim().toUpperCase());
-      setRoomSessionNonce((n) => n + 1);
       sessionRestoreOkRef.current = true;
       return true;
     },
@@ -908,7 +1006,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         else if (!err) setPlayerSlots(slots);
       } finally {
         gameWriteInFlightRef.current -= 1;
-        gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
+        resetStaleSameRevGraceAfterWrite(gameStateStaleSameRevIgnoreUntilRef);
       }
     }
   }, [roomId, status, playerSlots, myServerIndex, canonicalState, applyRoomData]);
@@ -943,6 +1041,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setUserLeftTemporarily(false);
     setUserOnPause(false);
     setOnlineHydratedFromStorage(true);
+    prevHealDealNumberRef.current = null;
     clearOnlineSession();
     clearLastOnlineParty();
   }, []);
@@ -1110,7 +1209,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       return true;
     } finally {
       gameWriteInFlightRef.current -= 1;
-      gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
+      resetStaleSameRevGraceAfterWrite(gameStateStaleSameRevIgnoreUntilRef);
     }
   }, [roomId, myServerIndex, playerSlots, applyRoomData]);
 
@@ -1153,7 +1252,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           return false;
         } finally {
           gameWriteInFlightRef.current -= 1;
-          gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
+          resetStaleSameRevGraceAfterWrite(gameStateStaleSameRevIgnoreUntilRef);
         }
     }, [roomId, canonicalState, myServerIndex, applyRoomData]);
 
@@ -1208,7 +1307,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           return false;
         } finally {
           gameWriteInFlightRef.current -= 1;
-          gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
+          resetStaleSameRevGraceAfterWrite(gameStateStaleSameRevIgnoreUntilRef);
         }
     }, [roomId, canonicalState, myServerIndex, applyRoomData]);
 
@@ -1252,7 +1351,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           applyRoomData(jr.room);
           setMyServerIndex(jr.mySlotIndex);
           saveOnlineSession(jr.roomId, deviceIdRef.current, jr.room.code);
-          setRoomSessionNonce((n) => n + 1);
           sessionRestoreOkRef.current = true;
           return { ok: true };
         }
@@ -1307,7 +1405,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return false;
       } finally {
         gameWriteInFlightRef.current -= 1;
-        gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
+        resetStaleSameRevGraceAfterWrite(gameStateStaleSameRevIgnoreUntilRef);
       }
     }, [applyRoomData]);
     const sendStartNextDeal = useCallback(async (): Promise<boolean> => {
@@ -1352,7 +1450,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return false;
       } finally {
         gameWriteInFlightRef.current -= 1;
-        gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
+        resetStaleSameRevGraceAfterWrite(gameStateStaleSameRevIgnoreUntilRef);
       }
     }, [roomId, canonicalState, applyRoomData]);
     const sendState = useCallback(async (newState: GameState): Promise<boolean> => {
@@ -1392,7 +1490,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return true;
       } finally {
         gameWriteInFlightRef.current -= 1;
-        gameStateStaleSameRevIgnoreUntilRef.current = Date.now() + 2800;
+        resetStaleSameRevGraceAfterWrite(gameStateStaleSameRevIgnoreUntilRef);
       }
     }, [roomId, applyRoomData]);
     const confirmReclaim = useCallback(async (): Promise<boolean> => {
@@ -1503,6 +1601,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     recoverJoinIfAlreadyInRoom,
     leaveRoom,
     refreshRoom,
+    resyncRoomAggressive,
     syncMySlotDisplayName,
     syncMySlotAvatar,
     startGame,
@@ -1526,7 +1625,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     clearError,
     userLeftTemporarily,
     setUserLeftTemporarily,
-    roomSessionNonce,
     onlineHydratedFromStorage,
     roomPhase,
     hostUserId,

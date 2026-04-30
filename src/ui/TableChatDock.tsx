@@ -293,8 +293,6 @@ export type TableChatDockProps = {
   userId: string;
   displayName: string;
   variant: 'mobile' | 'pc';
-  /** С контекста: растёт при входе/восстановлении/heal — при том же roomId снова грузим историю. */
-  roomSessionNonce?: number;
   onOwnMessageSent?: TableChatDockOwnMessageHandler;
 };
 
@@ -352,7 +350,7 @@ function loadMySnippetsFromLs(): string[] {
 
 /** Несколько попыток: после входа в комнату SELECT иногда раньше, чем RLS «видит» участника. */
 async function fetchRoomChatHistoryWithRetry(roomId: string, limit: number): Promise<RoomChatMessageRow[]> {
-  const extraWaitsMs = [320, 520, 900];
+  const extraWaitsMs = [200, 380, 680];
   let last = await fetchRoomChatMessages(roomId, limit);
   if (last.length > 0) return last;
   for (const w of extraWaitsMs) {
@@ -368,7 +366,6 @@ export function TableChatDock({
   userId,
   displayName,
   variant,
-  roomSessionNonce = 0,
   onOwnMessageSent,
 }: TableChatDockProps) {
   const [messages, setMessages] = useState<RoomChatMessageRow[]>([]);
@@ -393,7 +390,8 @@ export function TableChatDock({
   const pcPrefsLoadedRef = useRef(false);
   const pcDefaultPlacedRef = useRef(false);
   const pcForceDefaultPlacementRef = useRef(false);
-  const pcHandledSessionNonceRef = useRef<number | null>(null);
+  /** Сворачивать ПК-чат при смене комнаты — не при каждом heal Realtime игры (nonce раньше путали с «перезаходом»). */
+  const lastCollapsedPcChatForRoomIdRef = useRef<string | null>(null);
   const liveDragRef = useRef({ x: 0, y: 0 });
   const pcResizeSessionRef = useRef({
     active: false,
@@ -714,7 +712,7 @@ export function TableChatDock({
       cancelled = true;
       off();
     };
-  }, [roomId, userId, roomSessionNonce]);
+  }, [roomId, userId]);
 
   /** Вкладка/сеть: повторный вход без смены roomId у монтированного дока. */
   useEffect(() => {
@@ -808,10 +806,13 @@ export function TableChatDock({
 
   useEffect(() => {
     if (variant !== 'pc') return;
-    if (!Number.isFinite(roomSessionNonce) || roomSessionNonce <= 0) return;
-    if (pcHandledSessionNonceRef.current === roomSessionNonce) return;
-    pcHandledSessionNonceRef.current = roomSessionNonce;
-    /* Каждый новый вход в комнату: стартуем свёрнутыми и заново ставим под Востоком. */
+    if (!roomId) {
+      lastCollapsedPcChatForRoomIdRef.current = null;
+      return;
+    }
+    if (lastCollapsedPcChatForRoomIdRef.current === roomId) return;
+    lastCollapsedPcChatForRoomIdRef.current = roomId;
+    /* Только другая комната: новый стол — свёрнуто и позиция по умолчанию. heal игры без смены roomId не трогает окно чата. */
     setPcCollapsed(true);
     pcDefaultPlacedRef.current = false;
     pcForceDefaultPlacementRef.current = true;
@@ -820,7 +821,7 @@ export function TableChatDock({
     } catch {
       /* ignore */
     }
-  }, [roomSessionNonce, variant]);
+  }, [roomId, variant]);
 
   useLayoutEffect(() => {
     if (variant !== 'pc') return;

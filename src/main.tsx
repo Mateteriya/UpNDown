@@ -13,17 +13,19 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { OnlineGameProvider } from './contexts/OnlineGameContext'
 import { ErrorBoundary } from './ui/ErrorBoundary'
 import { CardsDemoPage } from './ui/CardsDemoPage'
+import { DealTrackLabPage } from './ui/DealTrackLabPage'
 import './index.css'
 
 const path = typeof window !== 'undefined' ? window.location.pathname : ''
 const isDemo = path === '/demo' || path.startsWith('/demo/')
+const isDealTrackLab = path === '/deal-track-lab' || path.startsWith('/deal-track-lab/')
 const devModeAllowed = typeof window !== 'undefined' && sessionStorage.getItem('updown-devMode') === '1'
 
 function DemoGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    if (isDemo && !devModeAllowed) window.location.href = '/'
+    if ((isDemo || isDealTrackLab) && !devModeAllowed) window.location.href = '/'
   }, [])
-  if (isDemo && !devModeAllowed) return null
+  if ((isDemo || isDealTrackLab) && !devModeAllowed) return null
   return <>{children}</>
 }
 
@@ -34,6 +36,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <DemoGuard>
           <CardsDemoPage onBack={() => (window.location.href = '/')} />
+        </DemoGuard>
+      </ThemeProvider>
+    ) : isDealTrackLab ? (
+      <ThemeProvider>
+        <DemoGuard>
+          <DealTrackLabPage onBack={() => (window.location.href = '/')} />
         </DemoGuard>
       </ThemeProvider>
     ) : (

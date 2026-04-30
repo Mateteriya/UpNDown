@@ -3334,6 +3334,20 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     (online.status === 'waiting' || online.status === 'playing' || online.status === 'finished')
   );
 
+  const [onlineRoomResyncBusy, setOnlineRoomResyncBusy] = useState(false);
+  const onlineRoomResyncBusyRef = useRef(false);
+  const handleOnlineRoomResync = useCallback(async () => {
+    if (onlineRoomResyncBusyRef.current) return;
+    onlineRoomResyncBusyRef.current = true;
+    setOnlineRoomResyncBusy(true);
+    try {
+      await online.resyncRoomAggressive();
+    } finally {
+      onlineRoomResyncBusyRef.current = false;
+      setOnlineRoomResyncBusy(false);
+    }
+  }, [online.resyncRoomAggressive]);
+
   const copyOnlineRoomCode = useCallback(() => {
     const c = online.code?.trim();
     if (!c) return;
@@ -5532,6 +5546,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 prefersReducedMotion={prefersReducedMotion}
                 copied={onlineRoomCodeCopied}
                 onCopy={copyOnlineRoomCode}
+                onResyncOnlineTable={isOnlinePlayPhase ? handleOnlineRoomResync : undefined}
+                onlineResyncBusy={isOnlinePlayPhase ? onlineRoomResyncBusy : false}
               />
             )}
             {isMobile &&
@@ -6717,7 +6733,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           roomId={online.roomId}
           userId={user.id}
           displayName={playerDisplayName?.trim() || 'Игрок'}
-          roomSessionNonce={online.roomSessionNonce}
           onOwnMessageSent={onOwnTableChatMessageSent}
         />
       )}
@@ -6850,6 +6865,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 prefersReducedMotion={prefersReducedMotion}
                 copied={onlineRoomCodeCopied}
                 onCopy={copyOnlineRoomCode}
+                onResyncOnlineTable={isOnlinePlayPhase ? handleOnlineRoomResync : undefined}
+                onlineResyncBusy={isOnlinePlayPhase ? onlineRoomResyncBusy : false}
               />
             )}
             {isWaitingInRoom && (
@@ -7308,7 +7325,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               roomId={online.roomId}
               userId={user.id}
               displayName={playerDisplayName?.trim() || 'Игрок'}
-              roomSessionNonce={online.roomSessionNonce}
               onOwnMessageSent={onOwnTableChatMessageSent}
             />
           </div>,
@@ -7956,11 +7972,16 @@ function OnlineRoomCodeMarquee({
   prefersReducedMotion,
   copied,
   onCopy,
+  onResyncOnlineTable,
+  onlineResyncBusy,
 }: {
   code: string;
   prefersReducedMotion: boolean;
   copied: boolean;
   onCopy: () => void;
+  /** Полный resync + переподключение Realtime без VPN. */
+  onResyncOnlineTable?: () => void | Promise<void>;
+  onlineResyncBusy?: boolean;
 }) {
   const chunk = (
     <>
@@ -7992,6 +8013,18 @@ function OnlineRoomCodeMarquee({
           </span>
         )}
       </div>
+      {onResyncOnlineTable ? (
+        <button
+          type="button"
+          className="online-room-code-marquee__resync"
+          onClick={() => void onResyncOnlineTable()}
+          disabled={!!onlineResyncBusy}
+          title="Обновить стол с сервера, если ход не подтянулся (как переключить VPN)"
+          aria-label="Синхронизировать стол с сервером"
+        >
+          {onlineResyncBusy ? '…' : '⟳'}
+        </button>
+      ) : null}
       <button
         type="button"
         className="online-room-code-marquee__copy"

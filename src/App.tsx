@@ -484,9 +484,14 @@ function App() {
               </button>
             )}
             {devMode && (
-              <a href="/demo" style={{ ...buttonStyle, textDecoration: 'none', textAlign: 'center' }}>
-                Демо карт (для разработчика)
-              </a>
+              <>
+                <a href="/demo" style={{ ...buttonStyle, textDecoration: 'none', textAlign: 'center' }}>
+                  Демо карт (для разработчика)
+                </a>
+                <a href="/deal-track-lab" style={{ ...buttonStyle, textDecoration: 'none', textAlign: 'center' }}>
+                  Лаб: шкала раздач (ПК)
+                </a>
+              </>
             )}
             <button disabled style={buttonStyle}>
               Турниры (скоро)

@@ -1063,6 +1063,42 @@
   outline-offset: 2px;
 }
 
+.game-table-root .online-room-code-marquee__resync {
+  pointer-events: auto;
+  flex-shrink: 0;
+  width: 28px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  background: rgba(120, 53, 15, 0.42);
+  color: #fde68a;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.game-table-root .online-room-code-marquee__resync:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .game-table-root .online-room-code-marquee__resync:hover:not(:disabled) {
+    background: rgba(180, 83, 9, 0.52);
+  }
+}
+
+.game-table-root .online-room-code-marquee__resync:focus-visible {
+  outline: 2px solid rgba(251, 191, 36, 0.7);
+  outline-offset: 2px;
+}
+
 .game-table-root .online-room-code-marquee__viewport {
   flex: 1;
   min-width: 0;
@@ -13594,12 +13630,13 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   letter-spacing: 0.04em !important;
 }
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-total-value-overlay {
-  color: rgba(216, 180, 254, 0.9) !important;
-  font-size: 20px !important;
-  font-weight: 800 !important;
+  color: rgba(251, 146, 60, 0.82) !important;
+  font-size: 19px !important;
+  font-weight: 700 !important;
   text-shadow:
-    0 0 8px rgba(168, 85, 247, 0.3),
-    0 0 14px rgba(34, 211, 238, 0.16) !important;
+    0 0 6px rgba(251, 146, 60, 0.48),
+    0 0 10px rgba(249, 115, 22, 0.34),
+    0 0 14px rgba(234, 88, 12, 0.2) !important;
 }
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay {
   position: relative !important;
@@ -13674,17 +13711,17 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   filter: none !important;
 }
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-value-overlay {
-  color: #22d3ee !important;
-  font-size: 23px !important;
+  color: #fb923c !important;
+  font-size: 24px !important;
   font-weight: 900 !important;
   letter-spacing: 0.02em !important;
   line-height: 1 !important;
   padding-left: 4px !important;
   text-shadow:
-    0 0 6px rgba(34, 211, 238, 0.66),
-    0 0 12px rgba(103, 232, 249, 0.52),
-    0 0 18px rgba(6, 182, 212, 0.4) !important;
-  filter: saturate(1.2) brightness(1.04) contrast(1.08);
+    0 0 8px rgba(251, 146, 60, 0.82),
+    0 0 16px rgba(249, 115, 22, 0.66),
+    0 0 28px rgba(234, 88, 12, 0.48) !important;
+  filter: saturate(1.32) brightness(1.14) contrast(1.1);
   animation: deal-results-human-score-pulse 0.55s ease-out 1;
 }
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-label-overlay {
@@ -14882,4 +14919,1842 @@ body.deal-results-modal-open-mobile {
     border-color: #60a5fa !important;
     color: #eff6ff !important;
   }
+}
+
+/* --- Лаборатория шкалы раздач `/deal-track-lab` (dev): 28 раздач, подписи как у таблицы результатов --- */
+.deal-track-lab {
+  /* Подсветка зоны текущей раздачи (фон под шариком), не сам шарик */
+  --deal-lab-section-active-bg: rgb(218 49 130 / 70%);
+  /* Дублируется из TSX на `<main>` — запасной размер шариков */
+  --deal-lab-point-size: 26px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 50% -20%, rgba(34, 211, 238, 0.14) 0%, transparent 42%),
+    radial-gradient(circle at 84% 18%, rgba(167, 139, 250, 0.16) 0%, transparent 44%),
+    radial-gradient(circle at 14% 68%, rgba(99, 102, 241, 0.12) 0%, transparent 38%),
+    linear-gradient(165deg, #0f172a 0%, #020617 55%, #010409 100%);
+  color: #e2e8f0;
+  padding: clamp(16px, 3vw, 28px);
+}
+.deal-track-lab-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+.deal-track-lab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.deal-track-lab-title {
+  margin: 0 0 6px;
+  font-size: clamp(1.15rem, 2.2vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 40%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.deal-track-lab-sub {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(148, 163, 184, 0.95);
+  max-width: 52ch;
+  line-height: 1.45;
+}
+.deal-track-lab-back {
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(71, 85, 105, 0.85);
+  background: rgba(30, 41, 59, 0.75);
+  color: #e2e8f0;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 12px 32px rgba(0, 0, 0, 0.35);
+  transition:
+    transform 0.14s ease,
+    border-color 0.14s ease,
+    background 0.14s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .deal-track-lab-back:hover {
+    transform: translateY(-1px);
+    border-color: rgba(148, 163, 184, 0.55);
+    background: rgba(51, 65, 85, 0.9);
+  }
+}
+.deal-track-lab-panel {
+  border: 1px solid rgba(71, 85, 105, 0.7);
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(10px);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 18px 48px rgba(2, 6, 23, 0.55);
+}
+.deal-track-lab-panel-text {
+  font-size: 14px;
+  color: #cbd5e1;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+.deal-track-lab-accent {
+  color: #22d3ee;
+  font-weight: 800;
+}
+.deal-track-lab-panel-hint {
+  color: rgba(148, 163, 184, 0.95);
+  font-weight: 500;
+}
+
+.deal-track-lab-range {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  appearance: none;
+  background: linear-gradient(
+    90deg,
+    rgba(51, 65, 85, 0.9) 0%,
+    rgba(30, 41, 59, 0.95) 100%
+  );
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.12) inset;
+}
+.deal-track-lab-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #e0f2fe 0%, #22d3ee 45%, #0369a1 100%);
+  border: 1px solid rgba(226, 232, 240, 0.45);
+  box-shadow:
+    0 0 0 6px rgba(34, 211, 238, 0.2),
+    0 12px 24px rgba(8, 47, 73, 0.55);
+  cursor: grab;
+}
+.deal-track-lab-range:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+.deal-track-lab-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #e0f2fe 0%, #22d3ee 45%, #0369a1 100%);
+  border: 1px solid rgba(226, 232, 240, 0.45);
+  box-shadow:
+    0 0 0 6px rgba(34, 211, 238, 0.2),
+    0 12px 24px rgba(8, 47, 73, 0.55);
+  cursor: grab;
+}
+
+.deal-track-lab-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .deal-track-lab-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.deal-track-lab-card--wide {
+  grid-column: 1 / -1;
+}
+.deal-track-lab-card {
+  border: 1px solid rgba(71, 85, 105, 0.65);
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.7) 0%, rgba(30, 27, 75, 0.35) 100%);
+  backdrop-filter: blur(12px);
+  border-radius: 14px;
+  padding: 16px;
+  min-height: 420px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 22px 50px rgba(2, 6, 23, 0.45);
+}
+.deal-track-lab-h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 750;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+}
+.deal-track-lab-card-lead {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: rgba(148, 163, 184, 0.95);
+  line-height: 1.35;
+}
+
+/*
+ * общие точки: «ячейка» в материале (вмятина) + шар утоплен внутрь —
+ * тёмное скругление сверху, лёгкий изгиб подсветки снизу, контактная тень.
+ */
+.deal-track-lab-point {
+  width: var(--deal-lab-point-size, 26px);
+  height: var(--deal-lab-point-size, 26px);
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(226, 232, 240, 0.32);
+  box-sizing: border-box;
+  isolation: isolate;
+  /* Переменная задаётся по номеру раздачи из TSX */
+  --deal-hue: 220;
+  /* активный шар визуально крупнее базы (явный calc — иначе scale 1.1 на 26px почти не виден) */
+  --deal-lab-point-active-mult: 1.36;
+  /* ямка — глубина без серой «крышки»: тени светлее, чуть больше блику снизу */
+  --deal-crater-inner:
+    inset 0 8px 15px rgb(15 23 42 / 0.34),
+    inset 0 -4px 10px rgb(255 255 255 / 0.095),
+    inset 0 -1px 3px rgb(186 206 229 / 0.16),
+    inset 0 0 0 1px rgb(30 41 59 / 0.78);
+  --deal-crater-outer:
+    0 1px 0 rgb(255 255 255 / 0.07),
+    0 3px 7px rgb(2 6 23 / 0.38),
+    0 5px 11px rgb(2 6 23 / 0.16);
+}
+/*
+ * активный: бирюза в контуре и ореоле фиксированная (hue раздачи к концу партии «уходит»
+ * в индиго — без этого подсветка блекнет); тело светлее, низ без тяжёлой серой массы.
+ */
+.deal-track-lab-point--active {
+  --deal-crater-inner:
+    inset 0 5px 10px rgb(15 23 42 / 0.2),
+    inset 0 -3px 8px rgb(255 255 255 / 0.12),
+    inset 0 -1px 2px rgb(165 243 252 / 0.22),
+    inset 0 0 0 1px rgb(45 212 191 / 0.28);
+  width: calc(var(--deal-lab-point-size, 26px) * var(--deal-lab-point-active-mult));
+  height: calc(var(--deal-lab-point-size, 26px) * var(--deal-lab-point-active-mult));
+  border-width: 2px;
+  border-style: solid;
+  border-color: rgb(94 234 212 / 0.98);
+  background:
+    radial-gradient(ellipse 115% 90% at 50% -10%, rgb(255 255 255 / 0.38) 0%, transparent 42%),
+    radial-gradient(circle at 34% 26%, rgb(255 255 255 / 1) 0%, rgb(204 251 241 / 0.55) 14%, transparent 38%),
+    radial-gradient(ellipse 90% 70% at 50% 108%, rgb(45 212 191 / 0.22) 0%, transparent 48%),
+    conic-gradient(
+      from 210deg at 50% 52%,
+      hsl(calc(var(--deal-hue) - 16) 98% 74%) 0deg,
+      hsl(var(--deal-hue) 97% 71%) 122deg,
+      hsl(calc(var(--deal-hue) + 18) 94% 70%) 248deg,
+      hsl(calc(var(--deal-hue) - 16) 98% 74%) 360deg
+    ),
+    radial-gradient(circle at 56% 82%, hsl(var(--deal-hue) 65% 38% / 0.22) 0%, rgb(15 23 42 / 0.22) 62%);
+  box-shadow:
+    var(--deal-crater-inner),
+    var(--deal-crater-outer),
+    /* бирюза: кольца у обода, не перебивают сирень дальше */
+    0 0 0 1px rgb(103 232 207 / 0.42),
+    0 0 0 3px rgb(34 211 238 / 0.26),
+    0 0 0 6px rgb(45 212 191 / 0.14),
+    /*
+     * сирень ближе к шару (до широкого циана) — те же порядки яркости, что у бирюзы у обода.
+     */
+    0 0 5px rgb(221 214 254 / 0.95),
+    0 0 9px rgb(196 181 253 / 0.92),
+    0 0 14px rgb(167 139 250 / 0.85),
+    0 0 20px rgb(192 169 246 / 0.72),
+    /* бирюзовая дымка снаружи — приглушена, чтобы лиловый не тонул */
+    0 0 12px rgb(34 211 238 / 0.42),
+    0 0 22px rgb(56 189 248 / 0.28),
+    0 0 34px rgb(45 212 191 / 0.18),
+    /* сирень наружное кольцо — всё ещё ярче фона, но уже «ореол», не конкурирует с цианом у края */
+    0 0 28px rgb(167 139 250 / 0.55),
+    0 0 44px rgb(139 92 246 / 0.38),
+    0 0 38px hsl(var(--deal-hue) 92% 62% / 0.16);
+  position: relative;
+  z-index: 1;
+}
+.deal-track-lab-point--future {
+  background:
+    radial-gradient(ellipse 120% 88% at 50% -6%, rgb(255 255 255 / 0.14) 0%, transparent 44%),
+    radial-gradient(circle at 34% 28%, rgb(255 255 255 / 0.55) 0%, transparent 40%),
+    conic-gradient(
+      from 210deg at 50% 52%,
+      hsl(calc(var(--deal-hue) - 10) 52% 44%) 0deg,
+      hsl(var(--deal-hue) 54% 40%) 140deg,
+      hsl(calc(var(--deal-hue) + 14) 56% 36%) 270deg,
+      hsl(calc(var(--deal-hue) - 10) 52% 44%) 360deg
+    );
+  border-color: hsl(var(--deal-hue) 60% 68% / 0.55);
+  box-shadow:
+    var(--deal-crater-inner),
+    var(--deal-crater-outer);
+  opacity: 0.98;
+}
+.deal-track-lab-point--done.deal-track-lab-point--norm {
+  background:
+    radial-gradient(ellipse 118% 90% at 50% -6%, rgb(255 255 255 / 0.18) 0%, transparent 45%),
+    radial-gradient(circle at 34% 26%, rgb(255 255 255 / 0.88) 0%, transparent 38%),
+    conic-gradient(
+      from 210deg at 50% 52%,
+      hsl(calc(var(--deal-hue) - 12) 84% 58%) 0deg,
+      hsl(var(--deal-hue) 86% 54%) 140deg,
+      hsl(calc(var(--deal-hue) + 14) 80% 50%) 270deg,
+      hsl(calc(var(--deal-hue) - 12) 84% 58%) 360deg
+    ),
+    radial-gradient(circle at 58% 78%, hsl(var(--deal-hue) 70% 28% / 0.35) 0%, transparent 58%);
+  border-width: 2px;
+  border-style: solid;
+  border-color: rgb(94 234 212 / 0.98);
+  box-shadow:
+    var(--deal-crater-inner),
+    var(--deal-crater-outer),
+    0 0 0 1px rgb(103 232 207 / 0.42),
+    0 0 0 3px rgb(34 211 238 / 0.26),
+    0 0 18px rgb(34 211 238 / 0.32),
+    0 0 5px rgb(221 214 254 / 0.88),
+    0 0 10px rgb(196 181 253 / 0.82),
+    0 0 16px rgb(167 139 250 / 0.72),
+    0 0 24px rgb(192 169 246 / 0.48),
+    0 0 14px rgb(34 211 238 / 0.26),
+    0 0 28px rgb(56 189 248 / 0.18),
+    0 0 22px rgb(167 139 250 / 0.42),
+    0 0 38px rgb(139 92 246 / 0.28);
+}
+.deal-track-lab-point--done.deal-track-lab-point--nt {
+  background:
+    radial-gradient(ellipse 118% 90% at 50% -6%, rgb(255 255 255 / 0.2) 0%, transparent 44%),
+    radial-gradient(circle at 34% 24%, rgb(236 254 255 / 0.95) 0%, transparent 38%),
+    conic-gradient(
+      from 220deg at 50% 52%,
+      hsl(calc(var(--deal-hue) - 18) 100% 68%) 0deg,
+      hsl(var(--deal-hue) 100% 64%) 130deg,
+      hsl(calc(var(--deal-hue) + 10) 96% 58%) 260deg,
+      hsl(calc(var(--deal-hue) - 18) 100% 68%) 360deg
+    );
+  border-width: 2px;
+  border-style: solid;
+  border-color: rgb(94 234 212 / 0.98);
+  box-shadow:
+    var(--deal-crater-inner),
+    var(--deal-crater-outer),
+    0 0 0 1px rgb(103 232 207 / 0.42),
+    0 0 0 3px rgb(34 211 238 / 0.26),
+    0 0 22px rgb(34 211 238 / 0.34),
+    0 0 5px rgb(221 214 254 / 0.9),
+    0 0 10px rgb(196 181 253 / 0.84),
+    0 0 16px rgb(167 139 250 / 0.76),
+    0 0 26px rgb(192 169 246 / 0.52),
+    0 0 16px rgb(34 211 238 / 0.28),
+    0 0 30px rgb(56 189 248 / 0.2),
+    0 0 26px rgb(167 139 250 / 0.45),
+    0 0 42px rgb(139 92 246 / 0.32);
+}
+.deal-track-lab-point--done.deal-track-lab-point--dark {
+  background:
+    radial-gradient(ellipse 118% 90% at 50% -6%, rgb(255 255 255 / 0.16) 0%, transparent 44%),
+    radial-gradient(circle at 34% 26%, rgb(250 245 255 / 0.92) 0%, transparent 38%),
+    conic-gradient(
+      from 220deg at 50% 52%,
+      hsl(calc(var(--deal-hue) - 6) 90% 70%) 0deg,
+      hsl(calc(var(--deal-hue) + 8) 88% 62%) 140deg,
+      hsl(calc(var(--deal-hue) + 24) 84% 56%) 270deg,
+      hsl(calc(var(--deal-hue) - 6) 90% 70%) 360deg
+    );
+  border-width: 2px;
+  border-style: solid;
+  border-color: rgb(94 234 212 / 0.98);
+  box-shadow:
+    var(--deal-crater-inner),
+    var(--deal-crater-outer),
+    0 0 0 1px rgb(103 232 207 / 0.42),
+    0 0 0 3px rgb(34 211 238 / 0.26),
+    0 0 22px rgb(34 211 238 / 0.34),
+    0 0 5px rgb(221 214 254 / 0.9),
+    0 0 10px rgb(196 181 253 / 0.84),
+    0 0 16px rgb(167 139 250 / 0.76),
+    0 0 26px rgb(192 169 246 / 0.52),
+    0 0 16px rgb(34 211 238 / 0.28),
+    0 0 30px rgb(56 189 248 / 0.2),
+    0 0 26px rgb(167 139 250 / 0.45),
+    0 0 42px rgb(139 92 246 / 0.32);
+}
+
+/* A: вертикаль */
+.deal-track-lab-vertical {
+  position: relative;
+  padding-left: 28px;
+  max-height: min(60vh, 560px);
+  overflow: auto;
+  padding-right: 4px;
+  scrollbar-color: rgba(100, 116, 139, 0.7) rgba(15, 23, 42, 0.5);
+  scrollbar-width: thin;
+}
+.deal-track-lab-vertical-rail {
+  position: absolute;
+  left: 17px;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(34, 211, 238, 0.42) 0%,
+    rgba(129, 140, 248, 0.36) 55%,
+    rgba(167, 139, 250, 0.38) 100%
+  );
+  box-shadow: 0 0 18px rgba(129, 140, 248, 0.2);
+}
+.deal-track-lab-row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto 18px;
+  align-items: center;
+  gap: 3px;
+  width: min(100%, 318px);
+  margin-bottom: 0;
+  padding: 0 5px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+  cursor: pointer;
+  position: relative;
+  isolation: isolate;
+  --deal-row-hue: 210;
+}
+
+/* Цветное «освещение» панели строки от своего шарика (пер-строка hue из TS). */
+.deal-track-lab-row::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  background:
+    radial-gradient(ellipse 96% 150% at 14% 50%, hsl(var(--deal-row-hue) 96% 64% / 0.52) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 130% at 86% 52%, hsl(calc(var(--deal-row-hue) + 26) 92% 66% / 0.34) 0%, transparent 64%),
+    radial-gradient(ellipse 120% 180% at 50% 50%, hsl(var(--deal-row-hue) 90% 58% / 0.18) 0%, transparent 72%);
+  filter: saturate(1.24) blur(0.35px);
+  box-shadow: none;
+}
+.deal-track-lab-row:focus-visible {
+  outline: 2px solid rgba(196, 181, 253, 0.68);
+  outline-offset: 1px;
+}
+.deal-track-lab-row--active {
+  background:
+    radial-gradient(ellipse 95% 130% at 16% 50%, var(--deal-lab-section-active-bg) 0%, transparent 58%),
+    linear-gradient(
+      135deg,
+      rgba(45, 212, 191, 0.16),
+      rgba(99, 102, 241, 0.16),
+      rgba(167, 139, 250, 0.16)
+    );
+  border-color: rgba(167, 139, 250, 0.34);
+  box-shadow: 0 12px 36px rgba(76, 29, 149, 0.22);
+  margin-bottom: 2px;
+}
+.deal-track-lab-row--done:not(.deal-track-lab-row--active) {
+  background: rgba(30, 41, 59, 0.28);
+}
+.deal-track-lab-row--active::before {
+  opacity: 0.72;
+  box-shadow:
+    0 0 16px hsl(var(--deal-row-hue) 98% 66% / 0.46),
+    0 0 34px hsl(calc(var(--deal-row-hue) + 18) 94% 64% / 0.34),
+    0 0 54px hsl(calc(var(--deal-row-hue) + 34) 88% 62% / 0.24);
+}
+.deal-track-lab-row--done:not(.deal-track-lab-row--active)::before {
+  opacity: 0.42;
+  box-shadow:
+    0 0 10px hsl(var(--deal-row-hue) 94% 62% / 0.24),
+    0 0 22px hsl(calc(var(--deal-row-hue) + 18) 90% 64% / 0.2);
+}
+.deal-track-lab-col-label {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.2px;
+  font-weight: 900;
+  color: rgb(236 254 255 / 0.98);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  border: 1px solid hsl(var(--deal-row-hue) 92% 74% / 0.58);
+  background:
+    radial-gradient(circle at 28% 26%, rgb(255 255 255 / 0.42) 0%, transparent 38%),
+    linear-gradient(
+      145deg,
+      hsl(var(--deal-row-hue) 92% 64% / 0.82) 0%,
+      hsl(calc(var(--deal-row-hue) + 18) 88% 60% / 0.8) 52%,
+      hsl(calc(var(--deal-row-hue) + 34) 84% 58% / 0.82) 100%
+    );
+  box-shadow:
+    0 0 0 1px rgb(30 41 59 / 0.55),
+    0 0 10px hsl(var(--deal-row-hue) 92% 60% / 0.34),
+    0 0 16px hsl(calc(var(--deal-row-hue) + 24) 86% 62% / 0.28);
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease,
+    border-color 0.14s ease,
+    filter 0.14s ease;
+}
+.deal-track-lab-row:hover .deal-track-lab-col-label,
+.deal-track-lab-row:focus-within .deal-track-lab-col-label {
+  transform: translateY(-1px) scale(1.08);
+  border-color: hsl(var(--deal-row-hue) 96% 78% / 0.8);
+  box-shadow:
+    0 0 0 1px rgb(30 41 59 / 0.65),
+    0 0 12px hsl(var(--deal-row-hue) 96% 64% / 0.52),
+    0 0 22px hsl(calc(var(--deal-row-hue) + 24) 90% 64% / 0.4),
+    0 0 34px hsl(calc(var(--deal-row-hue) + 36) 84% 62% / 0.26);
+  filter: saturate(1.15);
+}
+.deal-track-lab-row-text {
+  font-size: 11.8px;
+  font-family: "Inter Tight", "Bahnschrift", "Segoe UI Variable Text", "Segoe UI", "Roboto", sans-serif;
+  font-weight: 650;
+  font-stretch: 108%;
+  color: #64748b;
+  line-height: 1.02;
+  letter-spacing: 0.01em;
+  margin-left: 5px;
+}
+.deal-track-lab-row-text--done {
+  color: #cbd5e1;
+}
+.deal-track-lab-row-text--active {
+  color: #c4b5fd;
+  font-weight: 720;
+}
+/* В вертикальной шкале шарик компактнее, чем в круге/горизонтали. */
+.deal-track-lab-row .deal-track-lab-point {
+  width: 16px;
+  height: 16px;
+  justify-self: end;
+}
+.deal-track-lab-row .deal-track-lab-point--active {
+  width: calc(16px * var(--deal-lab-point-active-mult));
+  height: calc(16px * var(--deal-lab-point-active-mult));
+}
+
+.deal-track-lab-row .deal-track-lab-deck-strip--compact {
+  transform: scale(0.92);
+}
+
+/* Реально ужимаем высоту вертикальной строки: компактная полоска карт и мини-рубашки */
+.deal-track-lab-row .deal-track-lab-deck-strip {
+  padding: 2px 5px;
+  gap: 2px;
+}
+.deal-track-lab-row .deal-track-lab-mini-back {
+  width: 8px;
+  height: 12px;
+}
+
+/* Кастомный тултип для вертикальной шкалы (A) */
+.deal-track-lab-vertical-tooltip {
+  z-index: 100000;
+  max-width: min(360px, calc(100vw - 20px));
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 620;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: rgb(236 253 255 / 0.98);
+  pointer-events: none;
+  border: 1px solid rgb(103 232 249 / 0.38);
+  background:
+    linear-gradient(145deg, rgb(15 23 42 / 0.95) 0%, rgb(30 41 59 / 0.96) 46%, rgb(49 46 129 / 0.9) 100%);
+  box-shadow:
+    0 0 0 1px rgb(99 102 241 / 0.22),
+    0 12px 34px rgb(2 6 23 / 0.62),
+    0 0 20px rgb(34 211 238 / 0.22);
+}
+
+/* Вариант C: центрируем фирменный тултип относительно шарика. */
+.deal-track-lab-horizontal-tooltip {
+  text-align: center;
+}
+
+/* Мини-рубашки карт: визуально показывают, сколько карт в раздаче */
+.deal-track-lab-deck-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 5px;
+  border-radius: 999px;
+  border: 1px solid rgba(51, 65, 85, 0.95);
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+.deal-track-lab-deck-strip--compact {
+  transform: scale(0.92);
+  transform-origin: center;
+}
+.deal-track-lab-deck-strip--normal {
+  border-color: rgba(56, 189, 248, 0.35);
+}
+.deal-track-lab-deck-strip--nt {
+  border-color: rgba(34, 211, 238, 0.5);
+  box-shadow:
+    inset 0 0 0 1px rgba(240, 249, 255, 0.08),
+    0 0 10px rgba(34, 211, 238, 0.2);
+}
+.deal-track-lab-deck-strip--dark {
+  border-color: rgba(167, 139, 250, 0.5);
+  box-shadow:
+    inset 0 0 0 1px rgba(250, 245, 255, 0.08),
+    0 0 10px rgba(167, 139, 250, 0.2);
+}
+.deal-track-lab-mini-back {
+  width: 8px;
+  height: 11px;
+  border-radius: 3px;
+  border: 1px solid rgba(186, 230, 253, 0.44);
+  background:
+    radial-gradient(circle at 30% 25%, rgba(224, 242, 254, 0.7) 0%, transparent 32%),
+    linear-gradient(145deg, #1e293b 0%, #334155 38%, #1d4ed8 68%, #4338ca 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 -1px 0 rgba(2, 6, 23, 0.55) inset;
+}
+.deal-track-lab-deck-strip--nt .deal-track-lab-mini-back {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(240, 249, 255, 0.75) 0%, transparent 34%),
+    linear-gradient(145deg, #0f172a 0%, #155e75 45%, #0891b2 72%, #22d3ee 100%);
+}
+.deal-track-lab-deck-strip--dark .deal-track-lab-mini-back {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(250, 245, 255, 0.7) 0%, transparent 34%),
+    linear-gradient(145deg, #111827 0%, #312e81 42%, #4c1d95 70%, #7c3aed 100%);
+}
+
+/* B: круг */
+.deal-track-lab-circle-b-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  min-height: 440px;
+  padding: 8px 12px 4px;
+}
+.deal-track-lab-circle-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 440px;
+  padding: 8px 0 4px;
+}
+.deal-track-lab-circle-wrap--in-row {
+  min-height: 0;
+  padding: 0;
+  flex: 0 0 auto;
+}
+/* Мини-копия диска — тот же 420px-макет, масштаб до ~92px внутри круглой кнопки */
+.deal-track-lab-orbit-replica-btn {
+  flex: 0 0 auto;
+  width: 92px;
+  height: 92px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  background: transparent;
+  box-shadow:
+    0 10px 28px rgb(2 6 23 / 0.55),
+    0 0 0 1px rgb(99 102 241 / 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.deal-track-lab-orbit-replica-btn:hover {
+  transform: scale(1.04);
+  box-shadow:
+    0 12px 32px rgb(2 6 23 / 0.58),
+    0 0 0 1px rgb(129 140 248 / 0.45);
+}
+.deal-track-lab-orbit-replica-btn:focus-visible {
+  outline: 2px solid rgb(129 140 248);
+  outline-offset: 3px;
+}
+.deal-track-lab-orbit-replica-inner {
+  display: block;
+  width: 92px;
+  height: 92px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.deal-track-lab-orbit-replica-inner .deal-track-lab-circle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 420px;
+  height: 420px;
+  transform: translate(-50%, -50%) scale(calc(92 / 420));
+  transform-origin: center center;
+  pointer-events: none;
+}
+/*
+ * Стиль «Ровно» / стол: синий (#3b82f6) → индиго (#6366f1) → фиолет → сирень.
+ * Выбор в DevTools: элемент div.deal-track-lab-circle[data-deal-track-lab-disk] — здесь переменные --dl-*.
+ */
+.deal-track-lab-circle[data-deal-track-lab-disk] {
+  --dl-bg-spot-a: rgb(37 99 235 / 0.32);
+  --dl-bg-spot-b: rgb(124 58 237 / 0.18);
+  --dl-bg-veil: rgb(226 232 254 / 0.12);
+
+  --dl-halo-c1: rgb(59 130 246 / 0.32);
+  --dl-halo-c2: rgb(99 102 241 / 0.34);
+  --dl-halo-c3: rgb(139 92 246 / 0.3);
+  --dl-halo-c4: rgb(217 119 246 / 0.22);
+
+  /* conic-слои: последний STOP = те же значения что и первый (--dl-phase-c0), иначе появится радиальный «шов» */
+  --dl-phase-c0: rgb(59 130 246 / 0.43);
+  --dl-phase-c1: rgb(79 70 229 / 0.41);
+  --dl-phase-c2: rgb(139 92 246 / 84%);
+  --dl-phase-bridge: rgb(60 16 210 / 85%);
+
+  --dl-ring-sheen-t: rgb(24 63 239 / 77%);
+  --dl-ring-sheen-b: rgb(74 17 205 / 98%);
+  --dl-ring-spin-1: #671ce7;
+  --dl-ring-spin-2: rgb(46 19 197 / 90%);
+  --dl-ring-spin-3: rgb(27 5 94);
+  --dl-ring-spin-4: rgb(117 31 184);
+  position: relative;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  /* «Дымка» активной раздачи не вылезает за круг диска */
+  overflow: hidden;
+  /* Внешний диск — снова тёмный (выбеливание только слоями центра внутри .circle-inner / .center-spot). */
+  background:
+    radial-gradient(circle at 50% 52%, var(--dl-bg-spot-a) 0%, rgb(15 11 42 / 0.42) 54%, transparent 76%),
+    radial-gradient(circle at 52% 32%, var(--dl-bg-spot-b) 0%, transparent 44%),
+    radial-gradient(circle at 42% 28%, var(--dl-bg-veil) 0%, transparent 38%),
+    radial-gradient(circle at 50% 54%, rgb(18 10 46 / 0.97) 0%, rgb(12 8 38 / 0.98) 52%, rgb(8 5 32) 88%);
+  filter: drop-shadow(0 30px 52px rgba(2, 6, 23, 0.72))
+    drop-shadow(0 0 44px rgb(76 29 149 / 0.38));
+}
+.deal-track-lab-circle[data-deal-track-lab-disk]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from -88deg,
+    var(--dl-halo-c1) 0deg,
+    var(--dl-halo-c2) 100deg,
+    var(--dl-halo-c3) 215deg,
+    var(--dl-halo-c4) 298deg,
+    var(--dl-halo-c1) 360deg
+  );
+  filter: blur(16px);
+  opacity: 0.48;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/*
+ * Внешнее узкое кольцо (r≈193…210) — те же семейства цветов, что и пончик диска (--dl-ring-spin-*),
+ * темнее прошлого «бейджа», с металлизмом.
+ */
+.deal-track-lab-circle[data-deal-track-lab-disk]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    /* мягкий блик без «белёсых» переворотов по резу маски */
+    radial-gradient(circle at 34% 24%, rgba(255, 255, 255, 0.1) 0%, transparent 32%),
+    radial-gradient(circle at 76% 84%, rgb(37 99 235 / 16%) 0%, transparent 40%),
+    /* тот же конус что у пончика, но плотнее/темнее (соответствует --dl-ring-spin-1…4) */
+    conic-gradient(
+      from -95deg at 50% 50%,
+      #5a15c4 0deg,
+      #3d0fa6 118deg,
+      #2d0b6e 242deg,
+      #7524a8 300deg,
+      #5a15c4 360deg
+    );
+  box-shadow:
+    0 0 14px rgb(103 28 231 / 0.32),
+    0 0 26px rgb(79 70 229 / 0.26),
+    0 0 18px rgb(24 63 239 / 0.16),
+    /* «подворот» торца навнутрь: тени по кольцу, без жёсткого верхнего рёбрышка */
+    inset -2px -3px 10px rgb(2 6 23 / 0.62),
+    inset 2px 2px 8px rgb(147 51 234 / 0.12),
+    inset 0 -1px 6px rgb(241 248 254 / 0.05);
+  /* Широкие «юбки» маски + лёгкий blur — без резкого шва диск / внешнее кольцо */
+  -webkit-mask-image: radial-gradient(
+    circle at 50% 50%,
+    transparent 0 calc(166px),
+    rgb(0 0 0 / 5%) calc(176px),
+    rgb(0 0 0 / 18%) calc(184px),
+    rgb(0 0 0 / 42%) calc(190px),
+    rgb(0 0 0 / 72%) calc(195px),
+    #000 calc(198px) calc(207px),
+    rgb(0 0 0 / 72%) calc(210px),
+    rgb(0 0 0 / 42%) calc(214px),
+    rgb(0 0 0 / 18%) calc(218px),
+    rgb(0 0 0 / 5%) calc(222px),
+    transparent calc(228px)
+  );
+  mask-image: radial-gradient(
+    circle at 50% 50%,
+    transparent 0 calc(166px),
+    rgb(0 0 0 / 5%) calc(176px),
+    rgb(0 0 0 / 18%) calc(184px),
+    rgb(0 0 0 / 42%) calc(190px),
+    rgb(0 0 0 / 72%) calc(195px),
+    #000 calc(198px) calc(207px),
+    rgb(0 0 0 / 72%) calc(210px),
+    rgb(0 0 0 / 42%) calc(214px),
+    rgb(0 0 0 / 18%) calc(218px),
+    rgb(0 0 0 / 5%) calc(222px),
+    transparent calc(228px)
+  );
+  filter: blur(1.05px);
+}
+.deal-track-lab-circle-phase {
+  position: absolute;
+  z-index: 0;
+  inset: 16px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from -90deg,
+    var(--dl-phase-c0) 0deg,
+    var(--dl-phase-c1) calc(var(--norm-deg) / 2),
+    var(--dl-phase-c2) var(--norm-deg),
+    var(--dl-phase-bridge) calc(var(--norm-deg) + var(--nt-deg)),
+    var(--dl-phase-c0) 360deg
+  );
+  opacity: 1;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 48px rgba(30, 58, 138, 0.48),
+    0 0 0 1px rgba(147 197 253 / 0.18) inset,
+    0 8px 18px rgba(0, 0, 0, 0.32);
+}
+
+/* Объёмный «пончик»: только кольцо r=138…194 px — блики + тень борозды (тор) */
+.deal-track-lab-circle-ring-donut {
+  position: absolute;
+  z-index: 1;
+  inset: 16px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.88;
+  -webkit-mask-image: radial-gradient(
+    circle at 50% 50%,
+    transparent calc(130px),
+    rgb(0 0 0 / 28%) calc(134px),
+    #000 calc(138px) calc(194px),
+    rgb(0 0 0 / 28%) calc(198px),
+    transparent calc(202px)
+  );
+  mask-image: radial-gradient(
+    circle at 50% 50%,
+    transparent calc(130px),
+    rgb(0 0 0 / 28%) calc(134px),
+    #000 calc(138px) calc(194px),
+    rgb(0 0 0 / 28%) calc(198px),
+    transparent calc(202px)
+  );
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  background:
+    radial-gradient(ellipse 115% 48% at 50% -4%, var(--dl-ring-sheen-t) 0%, transparent 54%),
+    radial-gradient(ellipse 120% 68% at 50% 108%, var(--dl-ring-sheen-b) 0%, transparent 58%),
+    conic-gradient(
+      from -90deg at 50% 50%,
+      var(--dl-ring-spin-1) 0deg,
+      var(--dl-ring-spin-2) 118deg,
+      var(--dl-ring-spin-3) 245deg,
+      var(--dl-ring-spin-4) 318deg,
+      var(--dl-ring-spin-1) 360deg
+    );
+}
+
+/*
+ * Пятно «текущая раздача»: широкая дымка по диску от шарика, обрезается родителем (круглая маска диска).
+ */
+.deal-track-lab-circle-active-floor {
+  position: absolute;
+  z-index: 2;
+  width: 288px;
+  height: 288px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  transition:
+    opacity 0.22s ease,
+    filter 0.22s ease,
+    left 0.22s cubic-bezier(0.33, 0.92, 0.35, 1),
+    top 0.22s cubic-bezier(0.33, 0.92, 0.35, 1);
+  /* Тай-дай у орбиты: живой sky + violet без «паутино-серых» смесей */
+  background:
+    radial-gradient(
+      circle at 44% 44%,
+      rgb(56 189 248 / 0.48) 0%,
+      rgb(125 211 252 / 0.28) 22%,
+      rgb(186 230 253 / 0.12) 36%,
+      transparent 54%
+    ),
+    radial-gradient(
+      circle at 56% 56%,
+      rgb(192 181 250 / 0.5) 0%,
+      rgb(167 139 250 / 0.28) 28%,
+      rgb(196 181 253 / 0.14) 44%,
+      rgb(139 92 246 / 0.1) 58%,
+      transparent 78%
+    );
+  filter: blur(16px) saturate(1.35);
+  opacity: 0.92;
+}
+/* Текущая раздача: пятно на орбите не гаснет при предпросмотре другой (второй слой рисуется отдельно). */
+.deal-track-lab-circle-active-floor--current {
+  opacity: 0.9;
+  filter: blur(16px) saturate(1.38);
+  z-index: 2;
+}
+/* Предпросмотр: второй орбитальный слой + рыжевато-персиковый акцент к центру */
+.deal-track-lab-circle-active-floor.deal-track-lab-circle-active-floor--hover-preview {
+  opacity: 1;
+  filter: blur(14px) saturate(1.42);
+  z-index: 2;
+  background:
+    radial-gradient(
+      circle at 48% 46%,
+      rgb(255 237 213 / 0.55) 0%,
+      rgb(253 186 116 / 0.38) 18%,
+      rgb(251 146 60 / 0.22) 34%,
+      transparent 52%
+    ),
+    radial-gradient(
+      circle at 44% 44%,
+      rgb(56 189 248 / 0.42) 0%,
+      rgb(125 211 252 / 0.26) 22%,
+      rgb(186 230 253 / 0.1) 36%,
+      transparent 54%
+    ),
+    radial-gradient(
+      circle at 56% 56%,
+      rgb(192 181 250 / 0.48) 0%,
+      rgb(167 139 250 / 0.26) 28%,
+      rgb(196 181 253 / 0.12) 44%,
+      rgb(139 92 246 / 0.08) 58%,
+      transparent 78%
+    );
+}
+
+/* Тёплое пятно от шара под курсором (всегда при data-orbit-preview), усиливает «рыжий» фон */
+.deal-track-lab-circle-warm-orbit-glow {
+  position: absolute;
+  z-index: 2;
+  width: 260px;
+  height: 260px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.88;
+  transition:
+    opacity 0.2s ease,
+    left 0.2s cubic-bezier(0.33, 0.92, 0.35, 1),
+    top 0.2s cubic-bezier(0.33, 0.92, 0.35, 1);
+  background:
+    radial-gradient(
+      circle at 46% 44%,
+      rgb(255 247 237 / 0.5) 0%,
+      rgb(254 215 170 / 0.42) 14%,
+      rgb(251 146 60 / 0.35) 28%,
+      rgb(251 113 133 / 0.22) 42%,
+      transparent 58%
+    ),
+    radial-gradient(
+      circle at 58% 58%,
+      rgb(253 186 116 / 0.28) 0%,
+      rgb(249 115 22 / 0.14) 40%,
+      transparent 62%
+    );
+  filter: blur(18px) saturate(1.45);
+}
+/*
+ * Центр: сирень/фиолет — верхним слоями (голубые иначе «забивают» глаз);
+ * бирюза — вторым акцентом с другой стороны.
+ */
+.deal-track-lab-circle-center-spot {
+  position: absolute;
+  z-index: 4;
+  inset: 76px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.82;
+  transition:
+    opacity 0.26s ease,
+    filter 0.26s ease;
+  background:
+    radial-gradient(
+      ellipse 118% 100% at 74% 40%,
+      rgb(129 100 220 / 0.55) 0%,
+      rgb(99 72 200 / 0.42) 30%,
+      rgb(55 40 120 / 0.32) 48%,
+      transparent 64%
+    ),
+    radial-gradient(
+      ellipse 95% 88% at 58% 78%,
+      rgb(118 80 200 / 0.44) 0%,
+      rgb(76 29 149 / 0.38) 40%,
+      rgb(45 28 95 / 0.34) 58%,
+      transparent 62%
+    ),
+    radial-gradient(
+      ellipse 110% 94% at 26% 40%,
+      rgb(37 99 235 / 0.42) 0%,
+      rgb(59 130 246 / 0.32) 35%,
+      rgb(30 64 120 / 0.3) 50%,
+      transparent 62%
+    );
+  filter: blur(17px) saturate(1.55);
+}
+.deal-track-lab-circle-center-spot--lit {
+  opacity: 1;
+  filter: blur(14px) saturate(1.72);
+}
+.deal-track-lab-circle-ring-donut::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.5;
+  /* лёгкий объём торца без mix-blend (он давал резкую «полосу» по окружности) */
+  box-shadow:
+    inset 0 14px 20px rgba(15, 23, 42, 0.38),
+    inset 0 -8px 16px rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgba(186 217 251 / 0.22);
+}
+
+/* Шарики выше слоя «пончика», но ниже текста центра — центр точки по орбите (inline left/top). */
+.deal-track-lab-circle > button.deal-track-lab-point,
+.deal-track-lab-circle > span.deal-track-lab-point {
+  position: absolute;
+  z-index: 4;
+  transform: translate(-50%, -50%);
+  /* на диске — чуть глубже базы, но так же «светлая» ямка (не тушуем цвет) */
+  --deal-crater-inner:
+    inset 0 9px 17px rgb(15 23 42 / 0.4),
+    inset 0 -5px 11px rgb(255 255 255 / 0.1),
+    inset 0 -1px 3px rgb(186 206 229 / 0.17),
+    inset 0 0 0 1px rgb(30 41 59 / 0.82);
+  --deal-crater-outer:
+    0 1px 0 rgb(255 255 255 / 0.08),
+    0 3px 8px rgb(2 6 23 / 0.42),
+    0 6px 14px rgb(2 6 23 / 0.2);
+}
+.deal-track-lab-circle > button.deal-track-lab-point--active,
+.deal-track-lab-circle > span.deal-track-lab-point--active {
+  transform: translate(-50%, -50%);
+  z-index: 5;
+}
+.deal-track-lab-circle > button.deal-track-lab-point:hover:not(.deal-track-lab-point--active),
+.deal-track-lab-circle > button.deal-track-lab-point:focus-visible:not(.deal-track-lab-point--active) {
+  transform: translate(-50%, calc(-50% - 1px)) scale(var(--deal-lab-point-active-mult));
+}
+.deal-track-lab-circle > button.deal-track-lab-point--active:hover,
+.deal-track-lab-circle > button.deal-track-lab-point--active:focus-visible {
+  transform: translate(-50%, calc(-50% - 1px)) scale(calc(var(--deal-lab-point-active-mult) * 1.06));
+}
+
+/* Стили тултипа орбиты — в `deal-track-lab-orbit-tooltip.css`, импорт из DealTrackLabPage.tsx */
+
+.deal-track-lab-circle-inner {
+  position: absolute;
+  z-index: 3;
+  inset: 72px;
+  border-radius: 50%;
+  /*
+   * Порядок: тай-дай поверх тёмной базы в тон диску (индиго/синий/фиолет), без «бумажного» центра.
+   * Стык с пончиком — через ::after (виньетка + неон снаружи).
+   */
+  background-color: rgb(20 14 48);
+  background-image:
+    radial-gradient(ellipse 112% 98% at 72% 34%, rgb(99 102 241 / 0.44) 0%, rgb(79 70 229 / 0.34) 34%, rgb(49 46 129 / 0.3) 52%, transparent 62%),
+    radial-gradient(ellipse 100% 96% at 38% 70%, rgb(109 40 217 / 0.4) 0%, rgb(76 29 149 / 0.34) 44%, transparent 58%),
+    radial-gradient(ellipse 118% 92% at 24% 38%, rgb(37 99 235 / 0.4) 0%, rgb(59 130 246 / 0.28) 38%, rgb(30 58 138 / 0.24) 52%, transparent 62%),
+    radial-gradient(circle at 56% 58%, rgb(139 92 246 / 0.36) 0%, transparent 50%),
+    radial-gradient(circle at 48% 22%, rgb(67 56 202 / 0.38) 0%, transparent 46%),
+    radial-gradient(
+      circle at 50% 50%,
+      transparent 8%,
+      rgb(36 30 78 / 0.45) 38%,
+      rgb(22 16 52 / 0.82) 64%,
+      rgb(10 8 34 / 0.96) 100%
+    );
+  box-shadow:
+    inset 0 0 28px rgb(15 23 42 / 0.38),
+    inset 0 10px 26px rgb(59 130 246 / 0.14),
+    inset 0 0 22px rgb(99 102 241 / 0.16),
+    inset 0 0 52px 14px rgb(4 3 14 / 0.52);
+  pointer-events: none;
+}
+
+.deal-track-lab-circle[data-orbit-preview] .deal-track-lab-circle-inner {
+  box-shadow:
+    inset 0 0 28px rgb(15 23 42 / 0.38),
+    inset 0 10px 26px rgb(59 130 246 / 0.14),
+    inset 0 0 22px rgb(99 102 241 / 0.16),
+    inset 0 0 52px 14px rgb(4 3 14 / 0.52),
+    inset 0 0 70px rgb(251 146 60 / 0.14),
+    inset 0 -24px 60px rgb(234 88 12 / 0.12),
+    inset 0 20px 50px rgb(254 215 170 / 0.08);
+}
+
+.deal-track-lab-circle-inner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  /* Периметр: чуть темнее к кольцу + мягкий «обод» и неон наружу — смешение с орбитой, не отрезок */
+  box-shadow:
+    inset 0 0 36px 14px rgb(18 10 42 / 0.28),
+    inset 0 0 12px 4px rgb(139 92 246 / 0.18),
+    inset 0 0 2px 1px rgb(186 166 245 / 0.42),
+    0 0 12px 2px rgb(167 139 250 / 0.5),
+    0 0 26px 6px rgb(56 189 248 / 0.32),
+    0 0 42px 10px rgb(76 29 149 / 0.26);
+}
+
+.deal-track-lab-circle[data-orbit-preview] .deal-track-lab-circle-inner::after {
+  box-shadow:
+    inset 0 0 36px 14px rgb(18 10 42 / 0.28),
+    inset 0 0 12px 4px rgb(139 92 246 / 0.18),
+    inset 0 0 2px 1px rgb(186 166 245 / 0.42),
+    0 0 12px 2px rgb(167 139 250 / 0.5),
+    0 0 26px 6px rgb(56 189 248 / 0.32),
+    0 0 42px 10px rgb(76 29 149 / 0.26),
+    0 0 36px 14px rgb(251 146 60 / 0.32),
+    0 0 56px 20px rgb(251 113 133 / 0.18);
+}
+
+.deal-track-lab-circle[data-orbit-preview] .deal-track-lab-circle-center-spot--lit {
+  box-shadow:
+    0 0 40px rgb(251 146 60 / 0.28),
+    0 0 64px rgb(253 186 116 / 0.18);
+}
+
+.deal-track-lab-circle-center {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  pointer-events: none;
+  padding: 0 clamp(12px, 11%, 40px);
+  text-align: center;
+}
+
+.deal-track-lab-circle-center-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -18px;
+  min-height: calc(13px * 1.25 + 2px);
+  /* Иначе при align-items:center у колонки ширина = 0 и min(172px,82%) у полосы превращается в «ничего» */
+  align-self: stretch;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.deal-track-lab-circle-center-label-stack {
+  display: grid;
+  width: 100%;
+  min-height: 46px;
+  place-items: center;
+  align-content: center;
+}
+
+.deal-track-lab-circle-center-label-stack > .deal-track-lab-circle-center-label-lit-wrap,
+.deal-track-lab-circle-center-label-stack > .deal-track-lab-circle-center-preview-wrap {
+  grid-area: 1 / 1;
+  transition:
+    opacity 0.14s ease,
+    visibility 0.14s ease;
+}
+
+/* Свечение «лампа включена» — filter здесь, не на тексте с background-clip:text */
+.deal-track-lab-circle-center-label-lit-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter:
+    drop-shadow(0 0 6px rgb(94 234 212 / 0.86))
+    drop-shadow(0 0 12px rgb(34 211 238 / 0.72))
+    drop-shadow(0 0 20px rgb(99 102 241 / 0.54))
+    drop-shadow(0 0 30px rgb(139 92 246 / 0.46))
+    drop-shadow(0 -6px 24px rgb(192 132 252 / 0.42));
+}
+
+.deal-track-lab-circle-center-stack-dim {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.deal-track-lab-circle-center-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.deal-track-lab-circle-center-label {
+  font-size: 13px;
+  font-weight: 850;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* WebKit: без этого + filter на том же блоке градиентный текст часто превращается в «полоски» */
+  -webkit-text-fill-color: transparent;
+}
+
+/* «Текущая раздача» — равномерная яркость по всей строке + холодно-сиреневый блеск */
+.deal-track-lab-circle-center-label--current-head {
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: 0.17em;
+  line-height: 1.24;
+  background-image:
+    linear-gradient(
+      to bottom,
+      rgb(255 255 255 / 0.98) 0%,
+      rgb(204 251 241 / 0.92) 4%,
+      rgb(94 234 212 / 0.75) 9%,
+      rgb(125 211 252 / 0.5) 14%,
+      rgb(196 181 253 / 0.35) 20%,
+      transparent 30%
+    ),
+    linear-gradient(
+      102deg,
+      #5eead4 0%,
+      #22d3ee 14%,
+      #38bdf8 28%,
+      #60a5fa 42%,
+      #818cf8 56%,
+      #a78bfa 72%,
+      #c084fc 86%,
+      #e9d5ff 100%
+    );
+  text-shadow:
+    0 0 10px rgb(45 212 191 / 0.52),
+    0 0 16px rgb(34 211 238 / 0.44),
+    0 0 20px rgb(99 102 241 / 0.36),
+    0 0 16px rgb(168 85 247 / 0.28),
+    0 1px 0 rgb(15 23 42 / 0.42),
+    0 2px 6px rgb(2 6 23 / 0.2);
+}
+
+/* «Выбрано» — прежний размер; рыжевато-розовый */
+.deal-track-lab-circle-center-label--preview-pick {
+  font-size: 13px;
+  font-weight: 850;
+  letter-spacing: 0.22em;
+  background-image: linear-gradient(
+    108deg,
+    #ffedd5 0%,
+    #fdba74 20%,
+    #fb923c 42%,
+    #fb7185 62%,
+    #f472b6 82%,
+    #fbcfe8 100%
+  );
+  text-shadow:
+    0 0 12px rgb(251 113 133 / 0.62),
+    0 0 22px rgb(244 114 182 / 0.45),
+    0 0 8px rgb(251 146 60 / 0.48),
+    0 1px 0 rgb(15 23 42 / 0.88);
+}
+
+/* Вместо «Выбрано» — сиреневая градиентная полоса при наведении на другую раздачу */
+.deal-track-lab-circle-center-label-bar {
+  flex-shrink: 0;
+  width: min(172px, 82%);
+  min-width: 140px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #ede9fe 0%,
+    #c4b5fd 22%,
+    #a78bfa 48%,
+    #d8b4fe 72%,
+    #e9d5ff 100%
+  );
+  box-shadow:
+    0 0 12px rgb(167 139 250 / 0.65),
+    0 0 22px rgb(192 132 252 / 0.45),
+    0 0 8px rgb(139 92 246 / 0.4),
+    inset 0 1px 0 rgb(255 255 255 / 0.35);
+}
+.deal-track-lab-circle-center-num {
+  display: inline-block;
+  margin-top: -14px;
+  /* WebKit + background-clip:text: без бокового запаса обрезаются 6/8/9/0; отриц. tracking ужимает маску сильнее букв */
+  padding: 0.03em 0.11em 0.05em;
+  font-size: 66px;
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: -0.018em;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(
+    132deg,
+    #f8fafc 0%,
+    #e9d5ff 18%,
+    #d8b4fe 38%,
+    #a855f7 52%,
+    #6366f1 68%,
+    #818cf8 82%,
+    #c084fc 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter:
+    drop-shadow(0 0 22px rgba(167, 139, 250, 0.55))
+    drop-shadow(0 4px 2px rgba(15, 23, 42, 0.55));
+}
+.deal-track-lab-circle-center-cap {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 720;
+  line-height: 1.28;
+  max-width: 24ch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  row-gap: 0.2em;
+  filter: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.65));
+}
+
+.deal-track-lab-circle-center-cap-mode,
+.deal-track-lab-circle-center-cap-hand {
+  background: linear-gradient(
+    95deg,
+    #93c5fd 0%,
+    #bae6fd 18%,
+    #e9d5ff 52%,
+    #d8b4fe 82%,
+    #f5d0fe 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Тонкая «пилюля» бирюза → сирень между режимом и числом карт */
+.deal-track-lab-circle-center-cap-sep {
+  flex: 0 0 auto;
+  width: 3px;
+  height: 1.05em;
+  align-self: center;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #67e8f9 0%, #818cf8 48%, #c084fc 100%);
+  box-shadow:
+    0 0 8px rgb(34 211 238 / 0.45),
+    0 0 12px rgb(167 139 250 / 0.35);
+}
+.deal-track-lab-circle-center .deal-track-lab-deck-strip {
+  margin-top: 2px;
+  pointer-events: auto;
+  /* Масштаб: по умолчанию 2.68; при 5+ картах задаётся `--deal-disk-strip-scale` из TSX */
+  transform: scale(var(--deal-disk-strip-scale, 2.68));
+  transform-origin: center top;
+}
+.deal-track-lab-circle-legend {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 8px;
+}
+.deal-track-lab-legend-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  letter-spacing: 0.02em;
+}
+.deal-track-lab-legend-pill--normal {
+  color: #e9d5ff;
+  border-color: rgba(167, 139, 250, 0.5);
+  background: rgba(76, 29, 149, 0.4);
+}
+.deal-track-lab-legend-pill--nt {
+  color: #a5f3fc;
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(8, 47, 73, 0.55);
+}
+.deal-track-lab-legend-pill--dark {
+  color: #ddd6fe;
+  border-color: rgba(167, 139, 250, 0.52);
+  background: rgba(59, 7, 100, 0.45);
+}
+
+/* C: горизонталь */
+.deal-track-lab-h-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 10px;
+  scrollbar-color: rgba(100, 116, 139, 0.7) rgba(15, 23, 42, 0.55);
+  scrollbar-width: thin;
+}
+.deal-track-lab-h-inner {
+  min-width: min(864px, 100%);
+  padding: 6px;
+  position: relative;
+  display: grid;
+  gap: 14px;
+}
+.deal-track-lab-h-lane {
+  position: relative;
+  width: var(--deal-h-lane-width, 100%);
+  margin-inline: auto;
+}
+.deal-track-lab-h-lane--up {
+  padding-top: 94px;
+}
+.deal-track-lab-h-lane--down {
+  padding-top: 11px;
+  padding-bottom: 90px;
+}
+.deal-track-lab-h-track-bg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 98px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(30, 41, 59, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.75) inset,
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+.deal-track-lab-h-track-fill {
+  position: absolute;
+  left: 0;
+  top: 98px;
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(52, 211, 153, 0.85) 0%,
+    #22d3ee 42%,
+    #818cf8 72%,
+    #a78bfa 100%
+  );
+  box-shadow:
+    0 0 18px rgba(34, 211, 238, 0.45),
+    0 1px 0 rgba(255, 255, 255, 0.12) inset;
+  pointer-events: none;
+}
+.deal-track-lab-h-lane--down .deal-track-lab-h-track-bg,
+.deal-track-lab-h-lane--down .deal-track-lab-h-track-fill {
+  top: 46px;
+}
+.deal-track-lab-h-dots {
+  display: grid;
+  align-items: start;
+  justify-content: start;
+}
+.deal-track-lab-h-cell {
+  position: relative;
+  text-align: center;
+  min-width: 0;
+  overflow: visible;
+}
+.deal-track-lab-h-lane--down .deal-track-lab-h-cell {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+}
+.deal-track-lab-h-point-stack {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.deal-track-lab-h-lane--up .deal-track-lab-h-point-stack {
+  top: -3px;
+}
+.deal-track-lab-h-cell:has(.deal-track-lab-point--active)::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: min(calc(100% + 32px), 144px);
+  height: 70px;
+  transform: translateX(-50%);
+  border-radius: 16px;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 78% 100% at 50% 28%,
+    var(--deal-lab-section-active-bg) 0%,
+    rgb(218 49 130 / 18%) 52%,
+    transparent 74%
+  );
+}
+/* Без filter на кнопке: иначе цифры с background-clip / drop-shadow превращались в градиентные полосы. */
+.deal-track-lab-h-cell .deal-track-lab-point {
+  margin: 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  max-width: 26px;
+  max-height: 26px;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+}
+.deal-track-lab-h-cell .deal-track-lab-point--active {
+  width: calc(26px * var(--deal-lab-point-active-mult));
+  height: calc(26px * var(--deal-lab-point-active-mult));
+  min-width: calc(26px * var(--deal-lab-point-active-mult));
+  min-height: calc(26px * var(--deal-lab-point-active-mult));
+  max-width: calc(26px * var(--deal-lab-point-active-mult));
+  max-height: calc(26px * var(--deal-lab-point-active-mult));
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+}
+
+/*
+ * номер на шарике: только обычный fill + text-shadow — стабильно на Chromium/WebKit.
+ * (градиент + filter на тексте давал полосатые артефакты.)
+ */
+.deal-track-lab-h-point-num {
+  pointer-events: none;
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-family: "Inter Tight", "Bahnschrift", "Segoe UI Variable Text", ui-sans-serif, system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 820;
+  font-variation-settings: "wght" 820;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  padding: 0;
+  letter-spacing: -0.04em;
+  color: hsl(212 92% 98%);
+  paint-order: stroke fill;
+  -webkit-text-fill-color: hsl(212 92% 98%);
+  transform: translateY(0.5px);
+  text-shadow:
+    /* контраст со сферой */
+    0 1px 0 rgb(15 23 42 / 0.75),
+    0 2px 3px rgb(15 23 42 / 0.55),
+    /* «неон»: оттенок раздачи + циан/сирень */
+    0 0 8px hsl(var(--deal-hue) 92% 58% / 0.9),
+    0 0 14px rgb(34 211 238 / 0.65),
+    0 0 22px rgb(167 139 250 / 0.52),
+    0 0 32px hsl(var(--deal-hue) 88% 62% / 0.38),
+    0 0 1px rgb(255 255 255 / 0.55);
+}
+
+.deal-track-lab-h-point-num--two-digits {
+  font-size: 14.25px;
+  letter-spacing: -0.065em;
+}
+
+.deal-track-lab-h-cell .deal-track-lab-point--future .deal-track-lab-h-point-num {
+  color: hsl(214 42% 96%);
+  text-shadow:
+    0 1px 2px rgb(15 23 42 / 0.78),
+    0 0 8px hsl(var(--deal-hue) 72% 50% / 0.72),
+    0 0 16px rgb(56 189 248 / 0.38),
+    0 0 22px rgb(129 140 248 / 0.22),
+    0 0 1px rgb(255 255 255 / 0.35);
+}
+
+.deal-track-lab-h-cell .deal-track-lab-point--done.deal-track-lab-point--norm .deal-track-lab-h-point-num {
+  color: hsl(222 62% 98%);
+  text-shadow:
+    0 1px 2px rgb(15 23 42 / 0.7),
+    0 0 6px hsl(var(--deal-hue) 62% 45% / 0.62),
+    0 0 14px rgb(148 163 184 / 0.42),
+    0 0 22px rgb(99 102 241 / 0.28),
+    0 0 1px rgb(255 255 255 / 0.42);
+}
+
+.deal-track-lab-h-cell .deal-track-lab-point--active .deal-track-lab-h-point-num {
+  font-size: 16px;
+  letter-spacing: -0.05em;
+  color: #fafefe;
+  -webkit-text-fill-color: #fafefe;
+  text-shadow:
+    0 1px 0 rgb(15 23 42 / 0.45),
+    0 0 8px hsl(var(--deal-hue) 100% 70% / 0.98),
+    0 0 16px rgb(34 211 238 / 0.85),
+    0 0 26px rgb(167 139 250 / 0.72),
+    0 0 38px rgb(96 165 250 / 0.45),
+    0 0 2px rgb(255 255 255 / 0.75);
+}
+
+.deal-track-lab-h-cell .deal-track-lab-point--active .deal-track-lab-h-point-num.deal-track-lab-h-point-num--two-digits {
+  font-size: 15.25px;
+  letter-spacing: -0.08em;
+}
+
+/* Hover/focus: без filter на кнопке — иначе цифры снова «ломались». */
+.deal-track-lab-h-cell .deal-track-lab-point:hover:not(.deal-track-lab-point--active),
+.deal-track-lab-h-cell .deal-track-lab-point:focus-visible:not(.deal-track-lab-point--active) {
+  filter: none;
+}
+.deal-track-lab-h-cell .deal-track-lab-point--active:hover,
+.deal-track-lab-h-cell .deal-track-lab-point--active:focus-visible {
+  filter: none;
+}
+.deal-track-lab-h-label {
+  margin-top: 7px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 12px;
+  font-size: 10px;
+  line-height: 1.32;
+  font-family: "Inter Tight", "Bahnschrift", "Segoe UI Variable Text", "Segoe UI", "Roboto", sans-serif;
+  font-weight: 720;
+  font-stretch: 110%;
+  letter-spacing: 0.014em;
+  hyphens: auto;
+  word-break: normal;
+  overflow-wrap: normal;
+  overflow: visible;
+  text-align: center;
+}
+.deal-track-lab-h-label-mode {
+  display: block;
+  white-space: nowrap;
+  margin: 0 auto 1.5px;
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(circle at 50% -20%, rgb(255 255 255 / 0.55) 0%, transparent 45%),
+    linear-gradient(
+      98deg,
+      #f8fbff 0%,
+      #c7dbf5 38%,
+      #a9bfea 62%,
+      #e9f0ff 100%
+    );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgb(129 140 248 / 0.28))
+    drop-shadow(0 0 18px rgb(34 211 238 / 0.18))
+    drop-shadow(0 1px 2px rgb(15 23 42 / 0.45));
+}
+.deal-track-lab-h-label-sep {
+  color: rgb(148 163 184 / 0.92);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  margin: 0 12px;
+}
+.deal-track-lab-h-label-cards {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.26em;
+  margin: 0 auto;
+  font-weight: 730;
+  line-height: 1.02;
+  white-space: nowrap;
+}
+.deal-track-lab-h-label-cards--stacked {
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  line-height: 1;
+}
+.deal-track-lab-h-label-cards-prefix {
+  display: inline;
+  font-size: inherit;
+  font-weight: 780;
+  letter-spacing: 0.045em;
+  white-space: nowrap;
+}
+.deal-track-lab-h-label-cards-num {
+  display: inline;
+  font-size: inherit;
+  font-weight: inherit;
+}
+.deal-track-lab-h-label-cards--stacked .deal-track-lab-h-label-cards-prefix {
+  display: block;
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+}
+.deal-track-lab-h-label-cards--stacked .deal-track-lab-h-label-cards-num {
+  display: block;
+  font-size: 15px;
+  font-weight: 820;
+  letter-spacing: 0.01em;
+  font-variation-settings: "wght" 820;
+  line-height: 1;
+  background: linear-gradient(
+    168deg,
+    #ffffff 0%,
+    #dafeff 28%,
+    #7dd3fc 54%,
+    #c4b5fd 78%,
+    #faf5ff 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  filter:
+    drop-shadow(0 0 4px rgb(34 211 238 / 0.45))
+    drop-shadow(0 0 12px rgb(165 243 252 / 0.28))
+    drop-shadow(0 0 20px rgb(167 139 250 / 0.22))
+    drop-shadow(0 1px 2px rgb(15 23 42 / 0.35));
+}
+.deal-track-lab-h-lane--down .deal-track-lab-h-label {
+  margin-top: 0;
+  margin-bottom: 18px;
+  position: relative;
+  top: -2px;
+}
+.deal-track-lab-h-lane--down .deal-track-lab-h-point-stack {
+  position: relative;
+  top: -18px;
+}
+.deal-track-lab-h-label--done .deal-track-lab-h-label-mode {
+  background: linear-gradient(96deg, #ffffff 0%, #e1ecff 30%, #bfd3ff 62%, #f4f7ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow:
+    0 0 15px rgb(219 234 254 / 0.52),
+    0 0 28px rgb(147 197 253 / 0.42),
+    0 1px 0 rgb(15 23 42 / 0.2);
+}
+.deal-track-lab-h-label--done .deal-track-lab-h-label-cards {
+  filter: brightness(1.14) saturate(1.14);
+}
+.deal-track-lab-h-label--done .deal-track-lab-h-label-sep {
+  color: rgb(226 232 240 / 0.98);
+}
+.deal-track-lab-h-label--active .deal-track-lab-h-label-mode {
+  background: linear-gradient(96deg, #ffffff 0%, #f1f6ff 18%, #d5e4ff 44%, #b8cdfd 72%, #f4f8ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  font-weight: 730;
+  text-shadow:
+    0 0 20px rgb(219 234 254 / 0.72),
+    0 0 40px rgb(96 165 250 / 0.56),
+    0 1px 0 rgb(15 23 42 / 0.14);
+}
+.deal-track-lab-h-label--active .deal-track-lab-h-label-cards {
+  filter: brightness(1.28) saturate(1.22);
+}
+.deal-track-lab-h-label--active {
+  font-weight: 730;
+}
+.deal-track-lab-h-cell .deal-track-lab-deck-strip {
+  margin: 0 auto 8px;
+  padding: 4px 6px;
+}
+.deal-track-lab-h-cell .deal-track-lab-deck-strip--vertical {
+  flex-direction: column-reverse;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 3px 2px;
+  border-radius: 12px;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 3px);
+  transform: translateX(-50%);
+  margin: 0;
+  z-index: 2;
+}
+.deal-track-lab-h-cell .deal-track-lab-deck-strip--vertical-down {
+  flex-direction: column;
+  top: calc(100% + 4px);
+  bottom: auto;
+}
+/* Вариант C: уже пройденные раздачи — неон вокруг столбика мини-карт */
+.deal-track-lab-h-cell .deal-track-lab-deck-strip--h-scale-past {
+  border-color: rgba(34, 211, 238, 0.72);
+  box-shadow:
+    inset 0 0 0 1px rgba(240, 249, 255, 0.1),
+    0 0 0 1px rgba(34, 211, 238, 0.5),
+    0 0 10px rgba(34, 211, 238, 0.38),
+    0 0 20px rgba(129, 140, 248, 0.32),
+    0 0 28px rgba(167, 139, 250, 0.18);
+}
+.deal-track-lab-h-cell .deal-track-lab-deck-strip--vertical .deal-track-lab-mini-back {
+  width: 6px;
+  height: 8px;
+}
+.deal-track-lab-h-cell .deal-track-lab-mini-back {
+  width: 6px;
+  height: 9px;
+}
+.deal-track-lab-point {
+  cursor: pointer;
+  appearance: none;
+  border-style: solid;
+  padding: 0;
+  transition:
+    transform 0.14s ease,
+    width 0.16s ease,
+    height 0.16s ease,
+    filter 0.14s ease,
+    box-shadow 0.14s ease;
+}
+.deal-track-lab-point:hover:not(.deal-track-lab-point--active),
+.deal-track-lab-point:focus-visible:not(.deal-track-lab-point--active) {
+  transform: translateY(-2px) scale(var(--deal-lab-point-active-mult));
+  filter: brightness(1.08);
+}
+.deal-track-lab-point--active:hover,
+.deal-track-lab-point--active:focus-visible {
+  transform: translateY(-2px) scale(calc(var(--deal-lab-point-active-mult) * 1.06));
+  filter: brightness(1.05);
+}
+.deal-track-lab-point:focus-visible {
+  outline: 2px solid rgba(196, 181, 253, 0.72);
+  outline-offset: 2px;
 }

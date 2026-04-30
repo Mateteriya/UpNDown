@@ -354,8 +354,8 @@ async function getRoomWithJoinRetries(roomId: string): Promise<GameRoomRow | nul
   return null;
 }
 
-/** Опрос во время игры: короткий таймаут, чтобы один подвисший GET не держал roomPollInFlight 20+ с и не откладывал все следующие тики. */
-const SYNC_POLL_GET_TIMEOUT_MS = 5_000;
+/** Опрос во время игры: короткий таймаут, чтобы один подвисший GET не держал roomPollInFlight 20+ с и не откладывал все следующие тики. LAN/Wi‑Fi без VPN иногда к концу 5 с — чуть дольше. */
+const SYNC_POLL_GET_TIMEOUT_MS = 8_000;
 function syncPollRestAbortSignal(): AbortSignal {
   if (
     typeof AbortSignal !== 'undefined' &&
@@ -737,11 +737,11 @@ export async function getRoom(roomId: string): Promise<GameRoomRow | null> {
 }
 
 /**
- * Лёгкое чтение для интервального опроса в игре: не цепляет длинные ретраи getRoom — следующий тик придёт через ~1.5 с.
+ * Лёгкое чтение для интервального опроса в игре: не цепляет длинные ретраи getRoom — до 3 попыток на тик для флакающего LAN.
  */
 export async function getRoomForSyncPoll(roomId: string): Promise<GameRoomRow | null> {
   if (!supabase) return null;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const { data, error } = await supabase
         .from(TABLE)
@@ -752,15 +752,18 @@ export async function getRoomForSyncPoll(roomId: string): Promise<GameRoomRow | 
       if (data && !error) return data as GameRoomRow;
       if (!data && !error) return null;
       if (error?.code === 'PGRST116') return null;
-      if (attempt === 0 && (isAbortLike(error) || isRetryableReadFailure(error, !!data))) {
-        await sleep(200);
+      if (attempt < 2 && (isAbortLike(error) || isRetryableReadFailure(error, !!data))) {
+        await sleep(200 + attempt * 120);
         continue;
       }
       return null;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (attempt === 0 && isRetryableNetworkMessage(msg)) {
-        await sleep(200);
+      if (
+        attempt < 2 &&
+        (isRetryableNetworkMessage(msg) || isAbortLike(e as { message?: string; name?: string }))
+      ) {
+        await sleep(200 + attempt * 120);
         continue;
       }
       return null;

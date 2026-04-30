@@ -1,0 +1,97 @@
+/*
+ * Тултип орбиты (портал в document.body) — подключается только с DealTrackLabPage,
+ * чтобы стили гарантированно попадали в сборку и не зависели от хрупкого hsl(var() …).
+ * Цвета рамки/рейки: кастомные свойства задаёт TS (классический hsl(H, S%, L%)).
+ */
+#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip {
+  z-index: 100000;
+  max-width: min(300px, calc(100vw - 24px));
+  width: max-content;
+  pointer-events: none;
+  border-radius: 12px;
+  padding: 1px;
+  isolation: isolate;
+  background: linear-gradient(
+    135deg,
+    var(--orbit-tip-c0, hsl(200, 88%, 62%)) 0%,
+    var(--orbit-tip-c1, hsl(210, 82%, 52%)) 38%,
+    rgb(99 102 241 / 0.42) 62%,
+    var(--orbit-tip-c2, hsl(260, 78%, 48%)) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgb(15 23 42 / 0.55),
+    0 18px 48px rgb(2 6 23 / 0.72),
+    0 0 36px rgb(167 139 250 / 0.12),
+    0 0 80px rgb(56 189 248 / 0.08);
+}
+
+#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__shine {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    120% 80% at 18% -10%,
+    rgb(255 255 255 / 0.16) 0%,
+    rgb(255 255 255 / 0.04) 28%,
+    transparent 52%
+  );
+  pointer-events: none;
+}
+
+#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__inner {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border-radius: 11px;
+  overflow: hidden;
+  /* «Чёрное стекло»: почти чёрный, полупрозрачный + размытие фона под тултипом */
+  background: linear-gradient(
+    168deg,
+    rgb(14 14 18 / 0.62) 0%,
+    rgb(6 6 10 / 0.72) 42%,
+    rgb(2 2 4 / 0.78) 100%
+  );
+  backdrop-filter: blur(16px) saturate(1.12);
+  -webkit-backdrop-filter: blur(16px) saturate(1.12);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.06),
+    inset 0 0 0 1px rgb(255 255 255 / 0.04);
+}
+
+#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__rail {
+  flex: 0 0 4px;
+  background: linear-gradient(
+    180deg,
+    var(--orbit-tip-c0, hsl(200, 92%, 68%)) 0%,
+    var(--orbit-tip-c1, hsl(210, 88%, 58%)) 45%,
+    var(--orbit-tip-c3, hsl(250, 82%, 52%)) 100%
+  );
+  box-shadow:
+    0 0 14px rgb(56 189 248 / 0.35),
+    0 0 22px rgb(167 139 250 / 0.22),
+    inset 0 0 8px rgb(255 255 255 / 0.12);
+}
+
+#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__text {
+  padding: 10px 14px 11px 12px;
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.42;
+  letter-spacing: 0.015em;
+}
+
+#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__main {
+  color: rgb(241 245 249 / 0.98);
+  text-shadow: 0 1px 0 rgb(15 23 42 / 0.85);
+}
+
+#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__dot {
+  color: rgb(148 163 184 / 0.75);
+  font-weight: 500;
+}
+
+#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__sub {
+  color: rgb(186 198 216 / 0.92);
+  font-weight: 580;
+}
