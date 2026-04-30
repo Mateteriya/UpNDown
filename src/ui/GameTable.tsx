@@ -1031,9 +1031,16 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     online.roomId &&
     (online.status === 'playing' || online.status === 'finished')
   );
-  /** Обычные ходы и запись game_state — только когда фаза комнаты «playing». */
+  /**
+   * Обычные ходы и запись game_state — партия идёт, нет паузы absent-host.
+   * Не требуем room_phase === 'playing': в БД бывает lobby при status playing (дефолт колонки / старый UPDATE).
+   */
   const isOnlinePlayPhase =
-    !!online.roomId && online.status === 'playing' && online.roomPhase === 'playing';
+    !!online.roomId &&
+    online.status === 'playing' &&
+    online.roomPhase !== 'waiting_host_action' &&
+    online.roomPhase !== 'waiting_return' &&
+    online.roomPhase !== 'finished';
   const offlineMode = !isOnline && !isWaitingInRoom;
   const iAmRoomHost = !!(user?.id && online.hostUserId && online.hostUserId === user.id);
   const otherOnlineHumansForTransfer = useMemo(() => {

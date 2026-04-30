@@ -1218,7 +1218,13 @@ export function normalizeRoomPhase(room: Pick<GameRoomRow, 'status' | 'room_phas
     'finished',
   ];
   if (typeof p === 'string' && (allowed as readonly string[]).includes(p)) {
-    return p as GameRoomPhase;
+    const parsed = p as GameRoomPhase;
+    /**
+     * Несогласованная строка (status уже playing, room_phase ещё lobby) — иначе клиент
+     * считает isOnlinePlayPhase=false и заказы/ходы не уходят в sendBid/sendPlay.
+     */
+    if (room.status === 'playing' && parsed === 'lobby') return 'playing';
+    return parsed;
   }
   if (room.status === 'finished') return 'finished';
   if (room.status === 'playing') return 'playing';
