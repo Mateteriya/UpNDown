@@ -56,6 +56,7 @@ import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
 import { MobileSouthChatNameTicker } from './MobileSouthChatNameTicker';
 import { TableChatDock, type TableChatDockOwnMessageHandler } from './TableChatDock';
+import { GameDealOrbitDock } from './GameDealOrbitDock';
 import type { Card, GamePhase } from '../game/types';
 
 function getCompassLabel(idx: number): 'Юг' | 'Север' | 'Запад' | 'Восток' {
@@ -1266,6 +1267,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const [hostAbsentResolveBusy, setHostAbsentResolveBusy] = useState(false);
   const [showHomeConfirm, setShowHomeConfirm] = useState(false);
   const [exitConfirmPending, setExitConfirmPending] = useState(false);
+  const [stopRememberWaitingBusy, setStopRememberWaitingBusy] = useState(false);
   const [homeConfirmPending, setHomeConfirmPending] = useState(false);
   const [gameOverSnapshot, setGameOverSnapshot] = useState<GameState | null>(null);
   /** Для онлайна — канонический снимок + слот; иначе dealHistory и players расходятся по индексам. */
@@ -3323,6 +3325,17 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     }
   }, [exitConfirmPending, isOnline, isWaitingInRoom, online, onExit]);
 
+  const handleStopAutoRestoreWaiting = useCallback(async () => {
+    if (stopRememberWaitingBusy || !isWaitingInRoom) return;
+    setStopRememberWaitingBusy(true);
+    try {
+      await online.stopAutoRestoreForCurrentRoom?.();
+      onExit();
+    } finally {
+      setStopRememberWaitingBusy(false);
+    }
+  }, [stopRememberWaitingBusy, isWaitingInRoom, online, onExit]);
+
   const handleStartFromWaiting = useCallback(async () => {
     if (startFromWaitingLockRef.current) return;
     startFromWaitingLockRef.current = true;
@@ -4708,48 +4721,68 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           >
             {isMobile ? (
               isWaitingInRoom ? (
-                <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+                  <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button
+                      type="button"
+                      className="header-exit-btn"
+                      onClick={handleHomeClick}
+                      style={exitBtnStyle}
+                      title="В меню"
+                      aria-label="В меню"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                      </svg>
+                    </button>
+                    {(isOnline || isWaitingInRoom) && (
+                      <button
+                        type="button"
+                        className={['header-exit-btn', isMobile ? 'header-room-exit-btn' : ''].filter(Boolean).join(' ')}
+                        onClick={handleLeaveRoomClick}
+                        style={exitBtnStyle}
+                        title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
+                        aria-label="Выйти из комнаты"
+                      >
+                        {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>Выйти</span>}
+                      </button>
+                    )}
+                    {onNewGame && !isOnline && !isWaitingInRoom && (
+                      <button
+                        type="button"
+                        className="header-new-game-btn"
+                        onClick={() => setShowNewGameConfirm(true)}
+                        style={newGameBtnStyle}
+                        title="Обновить — новая партия"
+                        aria-label="Обновить — новая партия"
+                      >
+                        ↻
+                      </button>
+                    )}
+                    <AiDifficultyControl
+                      layout="mobile"
+                      offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
+                    />
+                  </div>
                   <button
                     type="button"
-                    className="header-exit-btn"
-                    onClick={handleHomeClick}
-                    style={exitBtnStyle}
-                    title="В меню"
-                    aria-label="В меню"
+                    disabled={stopRememberWaitingBusy}
+                    onClick={() => void handleStopAutoRestoreWaiting()}
+                    style={{
+                      padding: 0,
+                      border: 'none',
+                      background: 'none',
+                      color: '#94a3b8',
+                      fontSize: 12,
+                      cursor: stopRememberWaitingBusy ? 'wait' : 'pointer',
+                      textDecoration: 'underline',
+                      textUnderlineOffset: 2,
+                    }}
+                    title="Выйти и не подтягивать эту комнату после обновления страницы (удобно при разработке)"
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                      <polyline points="9 22 9 12 15 12 15 22" />
-                    </svg>
+                    {stopRememberWaitingBusy ? '…' : 'Не возвращать сюда после F5'}
                   </button>
-                  {(isOnline || isWaitingInRoom) && (
-                    <button
-                      type="button"
-                      className={['header-exit-btn', isMobile ? 'header-room-exit-btn' : ''].filter(Boolean).join(' ')}
-                      onClick={handleLeaveRoomClick}
-                      style={exitBtnStyle}
-                      title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
-                      aria-label="Выйти из комнаты"
-                    >
-                      {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>Выйти</span>}
-                    </button>
-                  )}
-                  {onNewGame && !isOnline && !isWaitingInRoom && (
-                    <button
-                      type="button"
-                      className="header-new-game-btn"
-                      onClick={() => setShowNewGameConfirm(true)}
-                      style={newGameBtnStyle}
-                      title="Обновить — новая партия"
-                      aria-label="Обновить — новая партия"
-                    >
-                      ↻
-                    </button>
-                  )}
-                  <AiDifficultyControl
-                    layout="mobile"
-                    offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
-                  />
                 </div>
             ) : (
               <div
@@ -4996,6 +5029,27 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   layout="pc"
                   offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
                 />
+                {isWaitingInRoom && (
+                  <button
+                    type="button"
+                    disabled={stopRememberWaitingBusy}
+                    onClick={() => void handleStopAutoRestoreWaiting()}
+                    style={{
+                      padding: 0,
+                      border: 'none',
+                      background: 'none',
+                      color: '#94a3b8',
+                      fontSize: 12,
+                      cursor: stopRememberWaitingBusy ? 'wait' : 'pointer',
+                      textDecoration: 'underline',
+                      textUnderlineOffset: 2,
+                      alignSelf: 'flex-start',
+                    }}
+                    title="Выйти и не подтягивать эту комнату после обновления страницы"
+                  >
+                    {stopRememberWaitingBusy ? '…' : 'Не возвращать сюда после F5'}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -5135,8 +5189,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               )}
             </div>
           )}
-          {!isMobile &&
-            ((getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark') ? (
+          {state != null && !isMobile && (
+            <div className="game-header-pc-deal-orbit-wrap">
+            {(getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark') ? (
             pcNoTrumpModeBadgeAsButton ? (
               <button
                 type="button"
@@ -5339,7 +5394,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 </>
               )}
             </button>
-          ))}
+          )}
+          </div>
+          )}
         </div>
       </header>
 
@@ -7309,6 +7366,26 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       </div>
       </div>
       )}
+
+      {!isMobile &&
+        state != null &&
+        !isWaitingInRoom &&
+        !(
+          dealJustCompleted &&
+          (lastTrickCollectingPhase === 'slots' ||
+            lastTrickCollectingPhase === 'winner' ||
+            lastTrickCollectingPhase === 'collapsing')
+        ) &&
+        createPortal(
+          <div className="deal-track-lab-root-scope game-pc-deal-orbit-fixed-host game-table-root">
+            <GameDealOrbitDock
+              dealNumber={state.dealNumber}
+              roomIntroKey={isOnline && online.roomId ? online.roomId : 'offline'}
+              prefersReducedMotion={prefersReducedMotion}
+            />
+          </div>,
+          document.body,
+        )}
 
       {/* Онлайн-чат ПК: портал на body — иначе fixed внутри предка с transform (gameTableBlockStyle) + overflow:hidden у корня стола обрезает ленту */}
       {!isMobile &&

@@ -40,6 +40,11 @@ import {
 } from '../lib/onlineGameSupabase';
 import { saveOnlineSession, clearOnlineSession, loadOnlineSession } from '../lib/onlineSession';
 import { loadLastOnlineParty, clearLastOnlineParty, saveLastOnlineParty } from '../lib/lastOnlineParty';
+import {
+  addIgnoredRoomForAutoRestore,
+  isRoomIgnoredForAutoRestore,
+  removeIgnoredRoomForAutoRestore,
+} from '../lib/onlineIgnoredRooms';
 
 /** Сообщение при обрыве по таймауту fetch в supabase.ts (~55 с). */
 function formatSupabaseNetworkError(e: unknown): string {
@@ -200,6 +205,11 @@ export interface OnlineGameContextValue {
   forgetLastOnlineParty: () => void;
   /** Меняется при forgetLast — чтобы меню перечитало localStorage. */
   lastPartyHintVersion: number;
+  /**
+   * Лобби / ожидание: выйти с сервера и не подтягивать эту комнату после F5 (sessionStorage).
+   * Не вызывать во время активной партии (playing).
+   */
+  stopAutoRestoreForCurrentRoom: () => Promise<void>;
   confirmReclaim: () => Promise<boolean>;
   dismissReclaim: () => void;
   pendingReclaimOffer: PendingReclaimOffer | null;
@@ -805,6 +815,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       saveOnlineSession(saved.roomId, deviceIdRef.current, room.code ?? undefined);
       applyRoomData(room);
       setMyServerIndex(meSlot.slotIndex);
+      removeIgnoredRoomForAutoRestore(saved.roomId);
       return { ok: true };
     },
     [applyRoomData, user?.id]
@@ -819,13 +830,14 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     }
     const gen = ++onlineHydrateGenRef.current;
     let saved = loadOnlineSession();
-    if (!saved) {
-      const last = loadLastOnlineParty();
-      if (last?.roomId) {
-        saveOnlineSession(last.roomId, deviceIdRef.current, last.code);
-        saved = loadOnlineSession();
-      }
+    if (saved && isRoomIgnoredForAutoRestore(saved.roomId)) {
+      clearOnlineSession();
+      clearLastOnlineParty();
+      sessionRestoreOkRef.current = false;
+      setOnlineHydratedFromStorage(true);
+      return;
     }
+    /** Не подмешиваем lastOnlineParty молча — иначе после «Скрыть»/частичной очистки снова открывается старое лобби. Явное «Продолжить» в меню вызывает tryRestoreSession. */
     if (!saved) {
       sessionRestoreOkRef.current = false;
       setOnlineHydratedFromStorage(true);
@@ -892,6 +904,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         }
         applyRoomData(result.room);
         saveOnlineSession(result.room.id, deviceIdRef.current, result.room.code);
+        removeIgnoredRoomForAutoRestore(result.room.id);
         setMyServerIndex(0);
         sessionRestoreOkRef.current = true;
         return { ok: true };
@@ -921,6 +934,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         applyRoomData(result.room);
         setMyServerIndex(result.mySlotIndex);
         saveOnlineSession(result.roomId, deviceIdRef.current, result.room.code);
+        removeIgnoredRoomForAutoRestore(result.roomId);
         sessionRestoreOkRef.current = true;
         return { ok: true };
       } catch (e) {
@@ -944,6 +958,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       applyRoomData(r.room);
       setMyServerIndex(r.mySlotIndex);
       saveOnlineSession(r.roomId, deviceIdRef.current, codeInput.trim().toUpperCase());
+      removeIgnoredRoomForAutoRestore(r.roomId);
       sessionRestoreOkRef.current = true;
       return true;
     },
@@ -1082,7 +1097,13 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     }
     disconnectLocalOnlineState();
   }, [roomId, user?.id, disconnectLocalOnlineState]);
-  
+
+  const stopAutoRestoreForCurrentRoom = useCallback(async () => {
+    const rid = roomIdRef.current;
+    if (rid) addIgnoredRoomForAutoRestore(rid);
+    await leaveRoom();
+  }, [leaveRoom]);
+
   const AI_NAMES = ['ИИ Север', 'ИИ Восток', 'ИИ Юг', 'ИИ Запад'] as const;
 
   const countHumanSlots = (slots: PlayerSlot[]) =>
@@ -1321,11 +1342,26 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const tryRestoreSession = useCallback(async (): Promise<{ ok: boolean; needReclaim?: boolean; roomFinished?: boolean; error?: string }> => {
       let saved = loadOnlineSession();
       const last = loadLastOnlineParty();
-      if (!saved && last?.roomId) {
+      if (!saved && last?.roomId && !isRoomIgnoredForAutoRestore(last.roomId)) {
         saveOnlineSession(last.roomId, deviceIdRef.current, last.code);
         saved = loadOnlineSession();
       }
+      if (saved && isRoomIgnoredForAutoRestore(saved.roomId)) {
+        clearOnlineSession();
+        return {
+          ok: false,
+          error:
+            'Эта комната отключена от автопродолжения. Войдите по коду через «Онлайн» или дождитесь приглашения.',
+        };
+      }
       if (!saved) {
+        if (last?.roomId && isRoomIgnoredForAutoRestore(last.roomId)) {
+          return {
+            ok: false,
+            error:
+              'Эта комната отключена от автопродолжения. Введите код вручную в «Онлайн» или создайте новую комнату.',
+          };
+        }
         return {
           ok: false,
           error:
@@ -1614,6 +1650,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     sendState,
     tryRestoreSession,
     forgetLastOnlineParty,
+    stopAutoRestoreForCurrentRoom,
     lastPartyHintVersion,
     confirmReclaim,
     dismissReclaim,

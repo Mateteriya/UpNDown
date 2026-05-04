@@ -70,6 +70,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     tryRestoreSession,
     forgetLastOnlineParty,
     lastPartyHintVersion,
+    stopAutoRestoreForCurrentRoom,
   } = useOnlineGame();
 
   const [joinCode, setJoinCode] = useState(initialJoinCode ?? '');
@@ -79,6 +80,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [leftPlayerToast, setLeftPlayerToast] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [stopRememberBusy, setStopRememberBusy] = useState(false);
   const prevSlotsRef = useRef<typeof playerSlots>([]);
   /** Актуальные слоты для отложенной проверки «ушёл ли игрок» (иначе гонка Realtime/опроса даёт ложный тост). */
   const playerSlotsRef = useRef<typeof playerSlots>(playerSlots);
@@ -268,6 +270,16 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     await leaveRoom();
   };
 
+  const handleStopRememberThisRoom = async () => {
+    if (stopRememberBusy) return;
+    setStopRememberBusy(true);
+    try {
+      await stopAutoRestoreForCurrentRoom();
+    } finally {
+      setStopRememberBusy(false);
+    }
+  };
+
   /** При «Поделиться» и «Скопировать код» отправляем только код комнаты, без ссылки. */
   const handleShare = async () => {
     if (!code) return;
@@ -365,6 +377,21 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
           </button>
           <button type="button" onClick={handleLeaveRoomClick} style={buttonSecondary}>
             Выйти из комнаты
+          </button>
+          <button
+            type="button"
+            disabled={stopRememberBusy}
+            onClick={() => void handleStopRememberThisRoom()}
+            style={{
+              ...buttonSecondary,
+              marginTop: 8,
+              fontSize: 13,
+              borderColor: 'rgba(148, 163, 184, 0.35)',
+              color: '#94a3b8',
+            }}
+            title="После обновления страницы не возвращать вас в эту комнату автоматически"
+          >
+            {stopRememberBusy ? 'Сохраняем…' : 'Не возвращать сюда после F5'}
           </button>
         </div>
         {leftPlayerToast && (
