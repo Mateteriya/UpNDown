@@ -389,9 +389,9 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
               borderColor: 'rgba(148, 163, 184, 0.35)',
               color: '#94a3b8',
             }}
-            title="После обновления страницы не возвращать вас в эту комнату автоматически"
+            title="После выхода или обновления страницы эта комната не будет открываться сама — можно снова войти по коду."
           >
-            {stopRememberBusy ? 'Сохраняем…' : 'Не возвращать сюда после F5'}
+            {stopRememberBusy ? 'Выходим…' : 'Не запоминать эту комнату'}
           </button>
         </div>
         {leftPlayerToast && (

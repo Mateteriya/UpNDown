@@ -206,7 +206,7 @@ export interface OnlineGameContextValue {
   /** Меняется при forgetLast — чтобы меню перечитало localStorage. */
   lastPartyHintVersion: number;
   /**
-   * Лобби / ожидание: выйти с сервера и не подтягивать эту комнату после F5 (sessionStorage).
+   * Лобби / ожидание: выйти с сервера и отключить автопродолжение этой комнаты при следующем открытии вкладки.
    * Не вызывать во время активной партии (playing).
    */
   stopAutoRestoreForCurrentRoom: () => Promise<void>;

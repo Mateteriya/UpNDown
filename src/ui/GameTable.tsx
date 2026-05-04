@@ -4779,9 +4779,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                       textDecoration: 'underline',
                       textUnderlineOffset: 2,
                     }}
-                    title="Выйти и не подтягивать эту комнату после обновления страницы (удобно при разработке)"
+                    title="После выхода или обновления страницы эта комната не будет открываться сама — можно снова войти по коду."
                   >
-                    {stopRememberWaitingBusy ? '…' : 'Не возвращать сюда после F5'}
+                    {stopRememberWaitingBusy ? '…' : 'Не запоминать эту комнату'}
                   </button>
                 </div>
             ) : (
@@ -5045,9 +5045,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                       textUnderlineOffset: 2,
                       alignSelf: 'flex-start',
                     }}
-                    title="Выйти и не подтягивать эту комнату после обновления страницы"
+                    title="После выхода или обновления страницы эта комната не будет открываться сама — можно снова войти по коду."
                   >
-                    {stopRememberWaitingBusy ? '…' : 'Не возвращать сюда после F5'}
+                    {stopRememberWaitingBusy ? '…' : 'Не запоминать эту комнату'}
                   </button>
                 )}
               </div>
