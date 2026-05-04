@@ -15890,6 +15890,52 @@ body.deal-results-modal-open-mobile {
     );
   filter: blur(18px) saturate(1.45);
 }
+
+/* Автопрогон орбиты (шаговый React): без transition на пятнах */
+.deal-track-lab-circle[data-orbit-sweep-instant] .deal-track-lab-circle-active-floor,
+.deal-track-lab-circle[data-orbit-sweep-instant] .deal-track-lab-circle-warm-orbit-glow {
+  transition: none !important;
+}
+
+/* Модалка: один CSS-проход подсветки по орбите — только transform на композиторе */
+.deal-track-lab-orbit-css-sweep {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.deal-track-lab-orbit-css-sweep-rotor {
+  position: absolute;
+  inset: 0;
+  transform-origin: 210px 210px;
+  will-change: transform;
+  animation: deal-track-lab-orbit-css-sweep-rot var(--orbit-css-sweep-ms, 1050ms) cubic-bezier(0.33, 0.92, 0.35, 1)
+    forwards;
+}
+
+.deal-track-lab-orbit-css-sweep-spot {
+  transition: none !important;
+  left: 210px;
+  top: 34px;
+}
+
+@keyframes deal-track-lab-orbit-css-sweep-rot {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(calc(360deg * (var(--orbit-css-sweep-segments) - 1) / var(--orbit-css-sweep-segments)));
+  }
+}
+
+.deal-track-lab-orbit-disk-point-num {
+  position: relative;
+  z-index: 1;
+  font-variant-numeric: tabular-nums;
+}
+
 /*
  * Центр: сирень/фиолет — верхним слоями (голубые иначе «забивают» глаз);
  * бирюза — вторым акцентом с другой стороны.
