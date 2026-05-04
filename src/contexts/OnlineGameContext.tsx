@@ -795,6 +795,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       const meSlot = slots.find((s) => s.userId === user.id || s.replacedUserId === user.id);
       if (!meSlot) {
         if (storageStillThisRoom()) clearOnlineSession();
+        /** Иначе при следующем F5 session пустой, а last-party снова подставляет roomId — вечный возврат в лобби «чужой» комнаты. */
+        clearLastOnlineParty();
         return { ok: false, error: 'В этой комнате нет вашего места. Войдите по коду заново.' };
       }
       if (!storageStillThisRoom()) {

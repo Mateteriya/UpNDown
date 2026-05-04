@@ -1340,8 +1340,16 @@ export async function leaveRoom(roomId: string, userId: string): Promise<{ error
     return error ? { error } : {};
   }
 
-  const newSlots = slotsRaw.filter((s) => s.userId !== userId).map((s, i) => ({ ...s, slotIndex: i }));
-  if (newSlots.length === slotsRaw.length) return {};
+  const uidNorm = String(userId).trim().toLowerCase();
+  const newSlots = slotsRaw
+    .filter((s) => String(s.userId ?? '').trim().toLowerCase() !== uidNorm)
+    .map((s, i) => ({ ...s, slotIndex: i }));
+  if (newSlots.length === slotsRaw.length) {
+    return {
+      error:
+        'Не удалось найти ваш слот в комнате (рассинхрон). Обновите страницу или выйдите по коду заново.',
+    };
+  }
 
   const { error } = await supabase
     .from(TABLE)
