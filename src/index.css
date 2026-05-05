@@ -16262,9 +16262,9 @@ body.deal-results-modal-open-mobile {
   background:
     radial-gradient(
       circle at 48% 46%,
-      rgb(255 237 213 / 0.55) 0%,
-      rgb(253 186 116 / 0.38) 18%,
-      rgb(251 146 60 / 0.22) 34%,
+      rgb(224 242 254 / 0.55) 0%,
+      rgb(125 211 252 / 0.38) 18%,
+      rgb(96 165 250 / 0.22) 34%,
       transparent 52%
     ),
     radial-gradient(
@@ -16302,16 +16302,16 @@ body.deal-results-modal-open-mobile {
   background:
     radial-gradient(
       circle at 46% 44%,
-      rgb(255 247 237 / 0.5) 0%,
-      rgb(254 215 170 / 0.42) 14%,
-      rgb(251 146 60 / 0.35) 28%,
-      rgb(251 113 133 / 0.22) 42%,
+      rgb(224 242 254 / 0.52) 0%,
+      rgb(125 211 252 / 0.44) 14%,
+      rgb(96 165 250 / 0.34) 28%,
+      rgb(167 139 250 / 0.24) 42%,
       transparent 58%
     ),
     radial-gradient(
       circle at 58% 58%,
-      rgb(253 186 116 / 0.28) 0%,
-      rgb(249 115 22 / 0.14) 40%,
+      rgb(196 181 253 / 0.3) 0%,
+      rgb(99 102 241 / 0.16) 40%,
       transparent 62%
     );
   filter: blur(18px) saturate(1.45);
@@ -16321,6 +16321,97 @@ body.deal-results-modal-open-mobile {
 .deal-track-lab-circle[data-orbit-sweep-instant] .deal-track-lab-circle-active-floor,
 .deal-track-lab-circle[data-orbit-sweep-instant] .deal-track-lab-circle-warm-orbit-glow {
   transition: none !important;
+}
+
+/* Мини-диск: быстрый прогон — циклический multicolor glow (cyan/blue/violet). */
+.deal-track-lab-circle[data-orbit-sweep-multicolor] .deal-track-lab-circle-active-floor--current {
+  background:
+    radial-gradient(
+      circle at 46% 44%,
+      hsl(var(--orbit-sweep-hue, 190) 100% 72% / 0.56) 0%,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 10) 100% 70% / 0.3) 24%,
+      transparent 56%
+    ),
+    radial-gradient(
+      circle at 56% 56%,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 28) 96% 70% / 0.44) 0%,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 44) 90% 64% / 0.18) 34%,
+      transparent 76%
+    ) !important;
+  filter: blur(13px) saturate(1.62) !important;
+}
+
+.deal-track-lab-circle[data-orbit-sweep-multicolor]
+  .deal-track-lab-circle-active-floor.deal-track-lab-circle-active-floor--hover-preview {
+  background:
+    radial-gradient(
+      circle at 46% 44%,
+      hsl(var(--orbit-sweep-hue, 190) 100% 72% / 0.6) 0%,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 10) 100% 70% / 0.34) 24%,
+      transparent 56%
+    ),
+    radial-gradient(
+      circle at 56% 56%,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 28) 96% 70% / 0.46) 0%,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 44) 90% 64% / 0.2) 34%,
+      transparent 76%
+    ) !important;
+  filter: blur(13px) saturate(1.66) !important;
+}
+
+.deal-track-lab-circle[data-orbit-sweep-multicolor] .deal-track-lab-circle-warm-orbit-glow {
+  background:
+    radial-gradient(
+      circle at 46% 44%,
+      hsl(var(--orbit-sweep-hue, 190) 100% 74% / 0.38) 0%,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 10) 100% 68% / 0.18) 28%,
+      transparent 58%
+    ),
+    radial-gradient(
+      circle at 58% 58%,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 30) 96% 72% / 0.26) 0%,
+      transparent 72%
+    ) !important;
+  filter: blur(14px) saturate(1.66) !important;
+}
+
+.deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor] .deal-track-lab-circle-center-spot--lit {
+  background:
+    radial-gradient(
+      ellipse 118% 100% at 74% 40%,
+      rgb(129 100 220 / 0.55) 0%,
+      rgb(99 72 200 / 0.42) 30%,
+      rgb(55 40 120 / 0.32) 48%,
+      transparent 64%
+    ),
+    radial-gradient(
+      ellipse 95% 88% at 58% 78%,
+      rgb(118 80 200 / 0.44) 0%,
+      rgb(76 29 149 / 0.38) 40%,
+      rgb(45 28 95 / 0.34) 58%,
+      transparent 62%
+    ),
+    radial-gradient(
+      ellipse 110% 94% at 26% 40%,
+      rgb(37 99 235 / 0.42) 0%,
+      rgb(59 130 246 / 0.32) 35%,
+      rgb(30 64 120 / 0.3) 50%,
+      transparent 62%
+    ) !important;
+  filter: blur(12px) saturate(1.92) !important;
+}
+
+/* Во время sweep скрываем «Выбрано», но оставляем lit-центр (для фонового огня в центре круга). */
+.deal-track-lab-circle[data-orbit-sweep-multicolor]
+  .deal-track-lab-circle-center-preview-wrap {
+  display: none !important;
+}
+
+.deal-track-lab-circle[data-orbit-sweep-multicolor]
+  .deal-track-lab-circle-center-label-lit-wrap.deal-track-lab-circle-center-stack-dim {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: none !important;
 }
 
 /* Модалка: один проход подсветки по орбите — только transform на композиторе (без шагов React). */
@@ -17295,6 +17386,189 @@ body.deal-results-modal-open-mobile {
     0 0 48px rgb(45 212 191 / 0.38);
 }
 
+/* Во время sweep: активный шар мини-диска получает циклический hue (cyan/blue/violet), не только общий фон. */
+.deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--active {
+  border-color: hsl(var(--orbit-sweep-hue, 190) 98% 86% / 0.98);
+  background:
+    radial-gradient(ellipse 120% 92% at 50% -14%, rgb(255 255 255 / 0.54) 0%, transparent 46%),
+    radial-gradient(circle at 32% 22%, rgb(255 255 255 / 1) 0%, rgb(224 242 254 / 0.58) 18%, transparent 42%),
+    radial-gradient(
+      ellipse 95% 72% at 58% 108%,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 12) 88% 46% / 0.42) 0%,
+      transparent 52%
+    ),
+    conic-gradient(
+      from 208deg at 50% 50%,
+      hsl(calc(var(--orbit-sweep-hue, 190) - 8) 100% 78%) 0deg,
+      hsl(var(--orbit-sweep-hue, 190) 98% 74%) 122deg,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 18) 96% 70%) 248deg,
+      hsl(calc(var(--orbit-sweep-hue, 190) - 8) 100% 78%) 360deg
+    ),
+    radial-gradient(
+      circle at 54% 84%,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 20) 62% 30% / 0.32) 0%,
+      rgb(15 23 42 / 0.2) 62%
+    );
+  box-shadow:
+    inset 0 0 20px hsl(var(--orbit-sweep-hue, 190) 92% 64% / 0.5),
+    inset 0 0 36px hsl(calc(var(--orbit-sweep-hue, 190) + 10) 90% 58% / 0.26),
+    inset 0 3px 11px rgb(255 255 255 / 0.28),
+    inset 0 -3px 10px rgb(15 23 42 / 0.14),
+    inset 0 0 0 1px hsl(var(--orbit-sweep-hue, 190) 92% 72% / 0.6),
+    0 1px 0 rgb(255 255 255 / 0.12),
+    0 5px 16px rgb(2 6 23 / 0.44),
+    0 0 0 2px hsl(var(--orbit-sweep-hue, 190) 96% 74% / 0.98),
+    0 0 0 5px hsl(calc(var(--orbit-sweep-hue, 190) + 10) 90% 62% / 0.55),
+    0 0 0 9px hsl(calc(var(--orbit-sweep-hue, 190) + 24) 84% 56% / 0.28),
+    0 0 28px hsl(calc(var(--orbit-sweep-hue, 190) + 8) 92% 62% / 0.6),
+    0 0 50px hsl(calc(var(--orbit-sweep-hue, 190) + 24) 86% 56% / 0.4);
+}
+
+/* Сильный override: в sweep-моде мультицвет не должен перебиваться поздними мини-диск правилами. */
+.deal-track-lab-orbit-replica-btn:not(:hover):not(:has(:focus-visible))
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--active,
+.deal-track-lab-orbit-replica-btn:hover
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--active,
+.deal-track-lab-orbit-replica-btn:has(:focus-visible)
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--active {
+  border-color: hsl(var(--orbit-sweep-hue, 190) 98% 86% / 0.98) !important;
+  background:
+    radial-gradient(ellipse 120% 92% at 50% -14%, rgb(255 255 255 / 0.54) 0%, transparent 46%),
+    radial-gradient(circle at 32% 22%, rgb(255 255 255 / 1) 0%, rgb(224 242 254 / 0.58) 18%, transparent 42%),
+    radial-gradient(
+      ellipse 95% 72% at 58% 108%,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 12) 88% 46% / 0.42) 0%,
+      transparent 52%
+    ),
+    conic-gradient(
+      from 208deg at 50% 50%,
+      hsl(calc(var(--orbit-sweep-hue, 190) - 8) 100% 78%) 0deg,
+      hsl(var(--orbit-sweep-hue, 190) 98% 74%) 122deg,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 18) 96% 70%) 248deg,
+      hsl(calc(var(--orbit-sweep-hue, 190) - 8) 100% 78%) 360deg
+    ),
+    radial-gradient(
+      circle at 54% 84%,
+      hsl(calc(var(--orbit-sweep-hue, 190) + 20) 62% 30% / 0.32) 0%,
+      rgb(15 23 42 / 0.2) 62%
+    ) !important;
+  box-shadow:
+    inset 0 0 20px hsl(var(--orbit-sweep-hue, 190) 92% 64% / 0.5),
+    inset 0 0 36px hsl(calc(var(--orbit-sweep-hue, 190) + 10) 90% 58% / 0.26),
+    inset 0 3px 11px rgb(255 255 255 / 0.28),
+    inset 0 -3px 10px rgb(15 23 42 / 0.14),
+    inset 0 0 0 1px hsl(var(--orbit-sweep-hue, 190) 92% 72% / 0.6),
+    0 1px 0 rgb(255 255 255 / 0.12),
+    0 5px 16px rgb(2 6 23 / 0.44),
+    0 0 0 2px hsl(var(--orbit-sweep-hue, 190) 96% 74% / 0.98),
+    0 0 0 5px hsl(calc(var(--orbit-sweep-hue, 190) + 10) 90% 62% / 0.55),
+    0 0 0 9px hsl(calc(var(--orbit-sweep-hue, 190) + 24) 84% 56% / 0.28),
+    0 0 28px hsl(calc(var(--orbit-sweep-hue, 190) + 8) 92% 62% / 0.6),
+    0 0 50px hsl(calc(var(--orbit-sweep-hue, 190) + 24) 86% 56% / 0.4) !important;
+}
+
+/* Во время sweep: пройденные (done) шарики остаются разноцветными, а не уходят в единый cyan. */
+.deal-track-lab-orbit-replica-btn:not(:hover):not(:has(:focus-visible))
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--done,
+.deal-track-lab-orbit-replica-btn:hover
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--done,
+.deal-track-lab-orbit-replica-btn:has(:focus-visible)
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--done {
+  opacity: 1 !important;
+  transform: translate(-50%, -50%) scale(1.16) !important;
+  filter: saturate(1.45) brightness(1.18) !important;
+  border-color: hsl(calc(var(--orbit-replica-rest-hue, var(--deal-hue)) + 30) 94% 68% / 0.94) !important;
+  background:
+    radial-gradient(ellipse 126% 96% at 50% -16%, rgb(255 255 255 / 0.06) 0%, transparent 36%),
+    radial-gradient(circle at 28% 20%, rgb(255 255 255 / 0.12) 0%, transparent 30%),
+    radial-gradient(
+      ellipse 74% 58% at 82% 86%,
+      hsl(calc(var(--orbit-replica-rest-hue, var(--deal-hue)) + 32) 100% 58% / 0.6) 0%,
+      transparent 60%
+    ),
+    conic-gradient(
+      from 196deg at 50% 46%,
+      hsl(calc(var(--orbit-replica-rest-hue, var(--deal-hue)) + 24) 100% 64%) 0deg,
+      hsl(calc(var(--orbit-replica-rest-hue, var(--deal-hue)) + 34) 100% 58%) 128deg,
+      hsl(calc(var(--orbit-replica-rest-hue, var(--deal-hue)) + 48) 98% 54%) 258deg,
+      hsl(calc(var(--orbit-replica-rest-hue, var(--deal-hue)) + 24) 100% 64%) 360deg
+    ),
+    radial-gradient(
+      circle at 54% 104%,
+      hsl(var(--orbit-replica-rest-hue, var(--deal-hue)) 74% 22% / 0.54) 0%,
+      transparent 56%
+    ) !important;
+  box-shadow:
+    inset 0 4px 10px rgb(255 255 255 / 0.14),
+    inset 0 -8px 14px rgb(15 23 42 / 0.26),
+    inset 0 0 0 1px hsl(var(--orbit-replica-rest-hue, var(--deal-hue)) 98% 82% / 0.42),
+    0 1px 0 rgb(255 255 255 / 0.12),
+    0 4px 12px rgb(2 6 23 / 0.4),
+    0 0 0 1px hsl(calc(var(--orbit-replica-rest-hue, var(--deal-hue)) + 18) 88% 56% / 0.66),
+    0 0 16px hsl(calc(var(--orbit-replica-rest-hue, var(--deal-hue)) + 34) 94% 60% / 0.64),
+    0 0 30px hsl(calc(var(--orbit-replica-rest-hue, var(--deal-hue)) + 48) 90% 56% / 0.46) !important;
+}
+
+/* Доп. дифференциация done-шаров: по их собственному hue без цианового «слипания». */
+.deal-track-lab-orbit-replica-btn:not(:hover):not(:has(:focus-visible))
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--done[data-orbit-replica-tint='violet'],
+.deal-track-lab-orbit-replica-btn:hover
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--done[data-orbit-replica-tint='violet'],
+.deal-track-lab-orbit-replica-btn:has(:focus-visible)
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--done[data-orbit-replica-tint='violet'] {
+  filter: saturate(1.52) brightness(1.2) hue-rotate(16deg) !important;
+}
+
+.deal-track-lab-orbit-replica-btn:not(:hover):not(:has(:focus-visible))
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--done[data-orbit-replica-tint='blue'],
+.deal-track-lab-orbit-replica-btn:hover
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--done[data-orbit-replica-tint='blue'],
+.deal-track-lab-orbit-replica-btn:has(:focus-visible)
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--done[data-orbit-replica-tint='blue'] {
+  filter: saturate(1.5) brightness(1.18) hue-rotate(4deg) !important;
+}
+
+.deal-track-lab-orbit-replica-btn:not(:hover):not(:has(:focus-visible))
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--done[data-orbit-replica-tint='lavender'],
+.deal-track-lab-orbit-replica-btn:hover
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--done[data-orbit-replica-tint='lavender'],
+.deal-track-lab-orbit-replica-btn:has(:focus-visible)
+  .deal-track-lab-orbit-replica-inner
+  .deal-track-lab-circle--orbit-replica[data-orbit-sweep-multicolor]
+  > button.deal-track-lab-point--done[data-orbit-replica-tint='lavender'] {
+  filter: saturate(1.56) brightness(1.22) hue-rotate(24deg) !important;
+}
+
 /* Мини-диск в покое: текущая раздача — ещё крупнее и контрастнее (при hover виджета остаётся базовый размер/яркость выше) */
 .deal-track-lab-orbit-replica-btn:not(:hover):not(:has(:focus-visible))
   .deal-track-lab-orbit-replica-inner
@@ -17842,9 +18116,9 @@ body.deal-results-modal-open-mobile {
     inset 0 10px 26px rgb(59 130 246 / 0.14),
     inset 0 0 22px rgb(99 102 241 / 0.16),
     inset 0 0 52px 14px rgb(4 3 14 / 0.52),
-    inset 0 0 70px rgb(251 146 60 / 0.14),
-    inset 0 -24px 60px rgb(234 88 12 / 0.12),
-    inset 0 20px 50px rgb(254 215 170 / 0.08);
+    inset 0 0 70px rgb(96 165 250 / 0.14),
+    inset 0 -24px 60px rgb(99 102 241 / 0.12),
+    inset 0 20px 50px rgb(196 181 253 / 0.1);
 }
 
 .deal-track-lab-circle-inner::after {
@@ -17871,14 +18145,14 @@ body.deal-results-modal-open-mobile {
     0 0 12px 2px rgb(167 139 250 / 0.5),
     0 0 26px 6px rgb(56 189 248 / 0.32),
     0 0 42px 10px rgb(76 29 149 / 0.26),
-    0 0 36px 14px rgb(251 146 60 / 0.32),
-    0 0 56px 20px rgb(251 113 133 / 0.18);
+    0 0 36px 14px rgb(59 130 246 / 0.28),
+    0 0 56px 20px rgb(192 132 252 / 0.2);
 }
 
 .deal-track-lab-circle[data-orbit-preview] .deal-track-lab-circle-center-spot--lit {
   box-shadow:
-    0 0 40px rgb(251 146 60 / 0.28),
-    0 0 64px rgb(253 186 116 / 0.18);
+    0 0 40px rgb(59 130 246 / 0.28),
+    0 0 64px rgb(192 132 252 / 0.2);
 }
 
 .deal-track-lab-circle-center {

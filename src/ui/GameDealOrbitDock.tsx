@@ -16,7 +16,6 @@ import {
 } from 'react';
 import { DEALS_PER_MATCH } from '../game/GameEngine';
 import {
-  DEAL_TRACK_LAB_CYCLE_STEP_MS,
   DEAL_TRACK_LAB_MODAL_CYCLE_ON_OPEN,
   DEAL_TRACK_LAB_MODAL_SWEEP_DURATION_MS,
   DEAL_TRACK_LAB_ORBIT_HOVER_LEAVE_MS,
@@ -31,12 +30,12 @@ import {
 } from './DealTrackLabPage';
 import './deal-track-lab-orbit-tooltip.css';
 
-const DEAL_ORBIT_INTRO_STORAGE_PREFIX = 'upndown:deal-orbit-intro-v1:';
 
 /** Первый заход в комнату (вкладка): быстрый прогон по орбите у малого диска. */
 const GAME_DEAL_ORBIT_ROOM_INTRO = true;
 const GAME_DEAL_ORBIT_CLICK_PREVIEW_HOLD_MS = 1800;
-const GAME_DEAL_ORBIT_CURRENT_SWEEP_STEP_MS = 26;
+const GAME_DEAL_ORBIT_CURRENT_SWEEP_STEP_MS = 52;
+const GAME_DEAL_ORBIT_SWEEP_NEON_HUES = [190, 260, 218, 286] as const;
 
 type OrbitBallGeom = { left: number; top: number; width: number; height: number };
 
@@ -77,20 +76,6 @@ export function GameDealOrbitDock({
     return Math.min(totalDeals, Math.max(1, n));
   }, [dealNumber, totalDeals]);
 
-  const introStorageKey = `${DEAL_ORBIT_INTRO_STORAGE_PREFIX}${roomIntroKey}`;
-
-  const [introRunning, setIntroRunning] = useState(() => {
-    if (!GAME_DEAL_ORBIT_ROOM_INTRO || prefersReducedMotion) return false;
-    try {
-      if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(introStorageKey))
-        return false;
-    } catch {
-      /* ignore */
-    }
-    return true;
-  });
-  const [orbitSweepDeal, setOrbitSweepDeal] = useState(1);
-
   const [orbitScaleModalOpen, setOrbitScaleModalOpen] = useState(false);
   const [modalIntroRunning, setModalIntroRunning] = useState(false);
   const [currentDealSweepRunning, setCurrentDealSweepRunning] = useState(false);
@@ -110,6 +95,8 @@ export function GameDealOrbitDock({
   const replicaLaunchBtnRef = useRef<HTMLButtonElement | null>(null);
   const orbitModalWasOpenRef = useRef(false);
   const currentDealSweepRafRef = useRef<number | null>(null);
+  const currentDealSweepStartDealRef = useRef(1);
+  const prevDealRef = useRef<number | null>(null);
 
   const cancelOrbitHoverLeaveTimer = useCallback(() => {
     if (orbitHoverLeaveTimerRef.current !== null) {
@@ -134,6 +121,7 @@ export function GameDealOrbitDock({
   const beginOrbitClickPreviewHold = useCallback((d: number, _revertTo: number) => {
     if (d === _revertTo) {
       if (!prefersReducedMotion && !currentDealSweepRunning) {
+        currentDealSweepStartDealRef.current = _revertTo;
         setCurrentDealSweepDeal(_revertTo);
         setCurrentDealSweepRunning(true);
       }
@@ -167,7 +155,8 @@ export function GameDealOrbitDock({
     let lastTs: number | null = null;
     let elapsed = 0;
     let stepsDone = 0;
-    let cursor = currentDeal;
+    const startDeal = currentDealSweepStartDealRef.current;
+    let cursor = startDeal;
 
     const tick = (ts: number) => {
       if (cancelled) return;
@@ -183,7 +172,7 @@ export function GameDealOrbitDock({
       }
 
       if (stepsDone >= totalDeals) {
-        setCurrentDealSweepDeal(currentDeal);
+        setCurrentDealSweepDeal(startDeal);
         setCurrentDealSweepRunning(false);
         return;
       }
@@ -199,73 +188,27 @@ export function GameDealOrbitDock({
         currentDealSweepRafRef.current = null;
       }
     };
-  }, [currentDeal, currentDealSweepRunning, totalDeals]);
+  }, [currentDealSweepRunning, totalDeals]);
 
   useEffect(() => () => cancelOrbitHoverLeaveTimer(), [cancelOrbitHoverLeaveTimer]);
   useEffect(() => () => clearOrbitClickHold(), [clearOrbitClickHold]);
 
-  /** Прогон малого диска при первом показе для данной комнаты (вкладка). */
+  /** Прогон малого диска: на входе и при старте новой партии (когда номер раздачи падает). */
   useEffect(() => {
-    if (!GAME_DEAL_ORBIT_ROOM_INTRO || prefersReducedMotion) {
-      setIntroRunning(false);
+    if (!GAME_DEAL_ORBIT_ROOM_INTRO || prefersReducedMotion || currentDealSweepRunning) {
+      prevDealRef.current = currentDeal;
       return;
     }
 
-    let skip = false;
-    try {
-      if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(introStorageKey)) skip = true;
-    } catch {
-      /* ignore */
-    }
-    if (skip) {
-      setIntroRunning(false);
-      return;
-    }
+    const prev = prevDealRef.current;
+    const shouldRun = prev == null || currentDeal < prev;
+    prevDealRef.current = currentDeal;
+    if (!shouldRun) return;
 
-    setIntroRunning(true);
-    setOrbitSweepDeal(1);
-
-    let rafId = 0;
-    let cancelled = false;
-    let lastTs: number | null = null;
-    let elapsed = 0;
-    let step = 1;
-    const maxStep = Math.max(1, totalDeals);
-
-    const tick = (ts: number) => {
-      if (cancelled) return;
-      if (lastTs == null) lastTs = ts;
-      elapsed += ts - lastTs;
-      lastTs = ts;
-
-      while (elapsed >= DEAL_TRACK_LAB_CYCLE_STEP_MS && step < maxStep) {
-        elapsed -= DEAL_TRACK_LAB_CYCLE_STEP_MS;
-        step += 1;
-      }
-
-      if (step >= maxStep) {
-        if (!cancelled) {
-          setOrbitSweepDeal(maxStep);
-          setIntroRunning(false);
-          try {
-            sessionStorage.setItem(introStorageKey, '1');
-          } catch {
-            /* ignore */
-          }
-        }
-        return;
-      }
-
-      setOrbitSweepDeal(step);
-      rafId = window.requestAnimationFrame(tick);
-    };
-
-    rafId = window.requestAnimationFrame(tick);
-    return () => {
-      cancelled = true;
-      window.cancelAnimationFrame(rafId);
-    };
-  }, [introStorageKey, prefersReducedMotion, totalDeals]);
+    currentDealSweepStartDealRef.current = currentDeal;
+    setCurrentDealSweepDeal(currentDeal);
+    setCurrentDealSweepRunning(true);
+  }, [currentDeal, currentDealSweepRunning, prefersReducedMotion, roomIntroKey]);
 
   useEffect(() => {
     if (!orbitScaleModalOpen || !DEAL_TRACK_LAB_MODAL_CYCLE_ON_OPEN || prefersReducedMotion) {
@@ -389,10 +332,12 @@ export function GameDealOrbitDock({
 
   const visualCurrentDeal = orbitCenterHoldDeal ?? currentDealSweepDeal ?? currentDeal;
   const orbitEffectiveHoveredDeal = orbitHoverPreviewSuppressed ? null : hoveredDeal;
-  const mainOrbitDeal = introRunning ? orbitSweepDeal : visualCurrentDeal;
+  const mainOrbitDeal = visualCurrentDeal;
   const focusedDealMain = orbitCenterHoldDeal ?? orbitEffectiveHoveredDeal ?? mainOrbitDeal;
-  /** Как при hover: подсветка фона и центра во время автопрогона. */
-  const syntheticMiniSweep = introRunning ? mainOrbitDeal : null;
+  const sweepHueDeal = currentDealSweepDeal ?? currentDeal;
+  const sweepHue =
+    GAME_DEAL_ORBIT_SWEEP_NEON_HUES[((sweepHueDeal - 1) % GAME_DEAL_ORBIT_SWEEP_NEON_HUES.length + GAME_DEAL_ORBIT_SWEEP_NEON_HUES.length) %
+      GAME_DEAL_ORBIT_SWEEP_NEON_HUES.length];
 
   const normDeg = (20 / totalDeals) * 360;
   const ntDeg = (4 / totalDeals) * 360;
@@ -407,13 +352,9 @@ export function GameDealOrbitDock({
     circleCy,
     circleRingDotR,
   );
-  const orbitPreviewTargetMini =
-    orbitCenterHoldDeal ?? syntheticMiniSweep ?? orbitEffectiveHoveredDeal ?? null;
+  const orbitPreviewTargetMini = orbitCenterHoldDeal ?? orbitEffectiveHoveredDeal ?? null;
   const orbitPreviewUiActiveMini =
-    orbitCenterHoldDeal !== null ||
-    orbitEffectiveHoveredDeal !== null ||
-    introRunning ||
-    currentDealSweepRunning;
+    orbitCenterHoldDeal !== null || orbitEffectiveHoveredDeal !== null || currentDealSweepRunning;
   const previewOrbitFloorMain =
     orbitPreviewTargetMini != null && orbitPreviewTargetMini !== mainOrbitDeal
       ? orbitSpotPosition(orbitPreviewTargetMini, totalDeals, circleCx, circleCy, circleRingDotR)
@@ -504,7 +445,8 @@ export function GameDealOrbitDock({
             orbitReplicaSpectrum
             orbitReplica
             orbitPointsReadOnly
-            orbitSweepInstant={introRunning}
+            orbitSweepInstant={currentDealSweepRunning}
+            orbitSweepNeonHue={currentDealSweepRunning ? sweepHue : null}
             centerLabelLayoutDeal={focusedDealMain}
           />
         </div>

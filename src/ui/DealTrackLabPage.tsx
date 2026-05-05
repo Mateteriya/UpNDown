@@ -727,6 +727,8 @@ type OrbitTrackDiskProps = {
    * Скрывает обычные React-слои пятен на время анимации.
    */
   orbitCssRingSweep?: { durationMs: number; onEnd: () => void } | null;
+  /** Во время быстрого прогона: подкрашивает floor/glow текущим hue шага. */
+  orbitSweepNeonHue?: number | null;
   /**
    * Раскладка дуговой плашки «Текущая раздача» и второй строки (бескозырка/тёмная): якорь на фактическую раздачу партии.
    * Без этого при автопрогоне тип раздачи в центре мигал бы (1…28) и дёргал margin/placement плашки.
@@ -768,6 +770,7 @@ export function OrbitTrackDisk({
   orbitPointsReadOnly = false,
   orbitSweepInstant = false,
   orbitCssRingSweep = null,
+  orbitSweepNeonHue = null,
   centerLabelLayoutDeal,
 }: OrbitTrackDiskProps) {
   const [launchScaleCenterHot, setLaunchScaleCenterHot] = useState(false);
@@ -813,10 +816,12 @@ export function OrbitTrackDisk({
       data-orbit-hover-suppressed={orbitCssSuppressHover ? '' : undefined}
       data-orbit-preview={warmOrbitGlowPos != null ? '' : undefined}
       data-orbit-sweep-instant={orbitSweepInstant ? '' : undefined}
+      data-orbit-sweep-multicolor={orbitSweepNeonHue != null ? '' : undefined}
       style={
         {
           '--norm-deg': `${normDeg}deg`,
           '--nt-deg': `${ntDeg}deg`,
+          ...(orbitSweepNeonHue != null ? { ['--orbit-sweep-hue' as string]: `${orbitSweepNeonHue}` } : {}),
         } as CSSProperties
       }
       onMouseLeave={(e) => {
