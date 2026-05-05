@@ -172,7 +172,7 @@ export function GameDealOrbitDock({
       }
 
       if (stepsDone >= totalDeals) {
-        setCurrentDealSweepDeal(startDeal);
+        setCurrentDealSweepDeal(null);
         setCurrentDealSweepRunning(false);
         return;
       }
@@ -201,7 +201,7 @@ export function GameDealOrbitDock({
     }
 
     const prev = prevDealRef.current;
-    const shouldRun = prev == null || currentDeal < prev;
+    const shouldRun = (prev == null && currentDeal === 1) || (prev != null && currentDeal < prev && currentDeal === 1);
     prevDealRef.current = currentDeal;
     if (!shouldRun) return;
 
@@ -330,7 +330,8 @@ export function GameDealOrbitDock({
     [totalDeals],
   );
 
-  const visualCurrentDeal = orbitCenterHoldDeal ?? currentDealSweepDeal ?? currentDeal;
+  const sweepVisualDeal = currentDealSweepRunning ? (currentDealSweepDeal ?? currentDeal) : currentDeal;
+  const visualCurrentDeal = orbitCenterHoldDeal ?? sweepVisualDeal;
   const orbitEffectiveHoveredDeal = orbitHoverPreviewSuppressed ? null : hoveredDeal;
   const mainOrbitDeal = visualCurrentDeal;
   const focusedDealMain = orbitCenterHoldDeal ?? orbitEffectiveHoveredDeal ?? mainOrbitDeal;
