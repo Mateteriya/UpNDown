@@ -29,17 +29,35 @@ import {
   getOrbitPointTooltipText,
   type OrbitTooltipState,
 } from './DealTrackLabPage';
+import './deal-track-lab-orbit-tooltip.css';
 
 const DEAL_ORBIT_INTRO_STORAGE_PREFIX = 'upndown:deal-orbit-intro-v1:';
 
 /** Первый заход в комнату (вкладка): быстрый прогон по орбите у малого диска. */
 const GAME_DEAL_ORBIT_ROOM_INTRO = true;
+const GAME_DEAL_ORBIT_CLICK_PREVIEW_HOLD_MS = 1800;
+const GAME_DEAL_ORBIT_CURRENT_SWEEP_STEP_MS = 26;
 
 type OrbitBallGeom = { left: number; top: number; width: number; height: number };
 
 const noSetDeal: Dispatch<SetStateAction<number>> = () => {
   /* орбита только для просмотра */
 };
+
+function renderTooltipWords(text: string, className: string) {
+  return text.split(/(\s+)/).map((chunk, idx) => {
+    if (chunk.trim().length === 0) return <span key={`s-${idx}`}>{chunk}</span>;
+    return (
+      <span
+        key={`w-${idx}-${chunk}`}
+        className={className}
+        style={{ ['--orbit-neon-word-idx' as string]: String(idx % 6) } as CSSProperties}
+      >
+        {chunk}
+      </span>
+    );
+  });
+}
 
 export type GameDealOrbitDockProps = {
   dealNumber: number;
@@ -75,6 +93,8 @@ export function GameDealOrbitDock({
 
   const [orbitScaleModalOpen, setOrbitScaleModalOpen] = useState(false);
   const [modalIntroRunning, setModalIntroRunning] = useState(false);
+  const [currentDealSweepRunning, setCurrentDealSweepRunning] = useState(false);
+  const [currentDealSweepDeal, setCurrentDealSweepDeal] = useState<number | null>(null);
 
   const [hoveredDeal, setHoveredDeal] = useState<number | null>(null);
   const [orbitCenterHoldDeal, setOrbitCenterHoldDeal] = useState<number | null>(null);
@@ -89,6 +109,7 @@ export function GameDealOrbitDock({
   const orbitScaleDialogRef = useRef<HTMLDialogElement | null>(null);
   const replicaLaunchBtnRef = useRef<HTMLButtonElement | null>(null);
   const orbitModalWasOpenRef = useRef(false);
+  const currentDealSweepRafRef = useRef<number | null>(null);
 
   const cancelOrbitHoverLeaveTimer = useCallback(() => {
     if (orbitHoverLeaveTimerRef.current !== null) {
@@ -110,9 +131,75 @@ export function GameDealOrbitDock({
     setOrbitHoverPreviewSuppressed(false);
   }, []);
 
-  const beginOrbitClickPreviewHold = useCallback((_d: number, _revertTo: number) => {
-    /* read-only */
-  }, []);
+  const beginOrbitClickPreviewHold = useCallback((d: number, _revertTo: number) => {
+    if (d === _revertTo) {
+      if (!prefersReducedMotion && !currentDealSweepRunning) {
+        setCurrentDealSweepDeal(_revertTo);
+        setCurrentDealSweepRunning(true);
+      }
+      return;
+    }
+    if (orbitClickHoldTimerRef.current !== null) {
+      clearTimeout(orbitClickHoldTimerRef.current);
+      orbitClickHoldTimerRef.current = null;
+    }
+    setOrbitHoverPreviewSuppressed(false);
+    setOrbitCenterHoldDeal(d);
+    orbitClickHoldTimerRef.current = window.setTimeout(() => {
+      orbitClickHoldTimerRef.current = null;
+      setOrbitCenterHoldDeal(null);
+      setHoveredDeal(null);
+      setOrbitTooltip(null);
+      setOrbitHoverPreviewSuppressed(true);
+    }, GAME_DEAL_ORBIT_CLICK_PREVIEW_HOLD_MS);
+  }, [currentDealSweepRunning, prefersReducedMotion]);
+
+  useEffect(() => {
+    if (!currentDealSweepRunning) {
+      if (currentDealSweepRafRef.current != null) {
+        window.cancelAnimationFrame(currentDealSweepRafRef.current);
+        currentDealSweepRafRef.current = null;
+      }
+      return;
+    }
+
+    let cancelled = false;
+    let lastTs: number | null = null;
+    let elapsed = 0;
+    let stepsDone = 0;
+    let cursor = currentDeal;
+
+    const tick = (ts: number) => {
+      if (cancelled) return;
+      if (lastTs == null) lastTs = ts;
+      elapsed += ts - lastTs;
+      lastTs = ts;
+
+      while (elapsed >= GAME_DEAL_ORBIT_CURRENT_SWEEP_STEP_MS && stepsDone < totalDeals) {
+        elapsed -= GAME_DEAL_ORBIT_CURRENT_SWEEP_STEP_MS;
+        stepsDone += 1;
+        cursor = ((cursor % totalDeals) || 0) + 1;
+        setCurrentDealSweepDeal(cursor);
+      }
+
+      if (stepsDone >= totalDeals) {
+        setCurrentDealSweepDeal(currentDeal);
+        setCurrentDealSweepRunning(false);
+        return;
+      }
+
+      currentDealSweepRafRef.current = window.requestAnimationFrame(tick);
+    };
+
+    currentDealSweepRafRef.current = window.requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      if (currentDealSweepRafRef.current != null) {
+        window.cancelAnimationFrame(currentDealSweepRafRef.current);
+        currentDealSweepRafRef.current = null;
+      }
+    };
+  }, [currentDeal, currentDealSweepRunning, totalDeals]);
 
   useEffect(() => () => cancelOrbitHoverLeaveTimer(), [cancelOrbitHoverLeaveTimer]);
   useEffect(() => () => clearOrbitClickHold(), [clearOrbitClickHold]);
@@ -300,8 +387,9 @@ export function GameDealOrbitDock({
     [totalDeals],
   );
 
+  const visualCurrentDeal = orbitCenterHoldDeal ?? currentDealSweepDeal ?? currentDeal;
   const orbitEffectiveHoveredDeal = orbitHoverPreviewSuppressed ? null : hoveredDeal;
-  const mainOrbitDeal = introRunning ? orbitSweepDeal : currentDeal;
+  const mainOrbitDeal = introRunning ? orbitSweepDeal : visualCurrentDeal;
   const focusedDealMain = orbitCenterHoldDeal ?? orbitEffectiveHoveredDeal ?? mainOrbitDeal;
   /** Как при hover: подсветка фона и центра во время автопрогона. */
   const syntheticMiniSweep = introRunning ? mainOrbitDeal : null;
@@ -322,7 +410,10 @@ export function GameDealOrbitDock({
   const orbitPreviewTargetMini =
     orbitCenterHoldDeal ?? syntheticMiniSweep ?? orbitEffectiveHoveredDeal ?? null;
   const orbitPreviewUiActiveMini =
-    orbitCenterHoldDeal !== null || orbitEffectiveHoveredDeal !== null || introRunning;
+    orbitCenterHoldDeal !== null ||
+    orbitEffectiveHoveredDeal !== null ||
+    introRunning ||
+    currentDealSweepRunning;
   const previewOrbitFloorMain =
     orbitPreviewTargetMini != null && orbitPreviewTargetMini !== mainOrbitDeal
       ? orbitSpotPosition(orbitPreviewTargetMini, totalDeals, circleCx, circleCy, circleRingDotR)
@@ -343,7 +434,7 @@ export function GameDealOrbitDock({
         }
       : null;
 
-  const modalOrbitDeal = currentDeal;
+  const modalOrbitDeal = visualCurrentDeal;
   const focusedDealModal = orbitCenterHoldDeal ?? orbitEffectiveHoveredDeal ?? modalOrbitDeal;
   const orbitPreviewTargetModal =
     orbitCenterHoldDeal ?? orbitEffectiveHoveredDeal ?? null;
@@ -368,6 +459,9 @@ export function GameDealOrbitDock({
       : orbitPreviewTargetModal != null
         ? orbitSpotPosition(orbitPreviewTargetModal, totalDeals, circleCx, circleCy, circleRingDotR)
         : null;
+  const orbitTooltipPortalTarget =
+    orbitTooltipDiskElRef.current?.closest('dialog[open]') ?? document.body;
+  const orbitTooltipOnBigDisk = orbitTooltipDiskElRef.current?.closest('.game-deal-orbit-dock__dialog') != null;
 
   return (
     <div
@@ -402,7 +496,7 @@ export function GameDealOrbitDock({
             beginOrbitClickPreviewHold={beginOrbitClickPreviewHold}
             onOrbitHoverResume={resumeOrbitHoverPreview}
             orbitCssSuppressHover={orbitHoverPreviewSuppressed}
-            orbitHoldPinkAccent={false}
+            orbitHoldPinkAccent={orbitCenterHoldDeal !== null}
             centerNumOpensLargeScale
             onOpenLargeScale={() => setOrbitScaleModalOpen(true)}
             largeScaleModalOpen={orbitScaleModalOpen}
@@ -411,7 +505,7 @@ export function GameDealOrbitDock({
             orbitReplica
             orbitPointsReadOnly
             orbitSweepInstant={introRunning}
-            centerLabelLayoutDeal={currentDeal}
+            centerLabelLayoutDeal={focusedDealMain}
           />
         </div>
       </div>
@@ -460,13 +554,13 @@ export function GameDealOrbitDock({
                 beginOrbitClickPreviewHold={beginOrbitClickPreviewHold}
                 onOrbitHoverResume={resumeOrbitHoverPreview}
                 orbitCssSuppressHover={orbitHoverPreviewSuppressed}
-                orbitHoldPinkAccent={false}
+                orbitHoldPinkAccent={orbitCenterHoldDeal !== null}
                 orbitPointDealNumbers
                 deckStripAboveCap
                 orbitPointsReadOnly
                 orbitCssRingSweep={modalOrbitCssSweepConfig}
                 orbitSweepInstant={modalIntroRunning && modalOrbitCssSweepConfig == null}
-                centerLabelLayoutDeal={currentDeal}
+                centerLabelLayoutDeal={focusedDealModal}
               />
             </div>
           </div>
@@ -484,7 +578,7 @@ export function GameDealOrbitDock({
               <div
                 id={ORBIT_TOOLTIP_ID}
                 role="tooltip"
-                className="deal-track-lab-orbit-tooltip"
+                className="deal-track-lab-orbit-tooltip deal-track-lab-orbit-tooltip--app"
                 style={
                   {
                     position: 'fixed',
@@ -498,15 +592,29 @@ export function GameDealOrbitDock({
                 <span className="deal-track-lab-orbit-tooltip__shine" aria-hidden />
                 <div className="deal-track-lab-orbit-tooltip__inner">
                   <span className="deal-track-lab-orbit-tooltip__rail" aria-hidden />
-                  <div className="deal-track-lab-orbit-tooltip__text">
-                    <span className="deal-track-lab-orbit-tooltip__main">{tipMain}</span>
+                  <div
+                    className={
+                      orbitTooltipOnBigDisk
+                        ? 'deal-track-lab-orbit-tooltip__text deal-track-lab-orbit-tooltip__text--big-neon'
+                        : 'deal-track-lab-orbit-tooltip__text'
+                    }
+                  >
+                    <span className="deal-track-lab-orbit-tooltip__main">
+                      {orbitTooltipOnBigDisk
+                        ? renderTooltipWords(tipMain, 'deal-track-lab-orbit-tooltip__word-neon-main')
+                        : tipMain}
+                    </span>
                     {tipSub != null && (
                       <>
                         <span className="deal-track-lab-orbit-tooltip__dot" aria-hidden>
                           {' '}
                           ·{' '}
                         </span>
-                        <span className="deal-track-lab-orbit-tooltip__sub">{tipSub}</span>
+                        <span className="deal-track-lab-orbit-tooltip__sub">
+                          {orbitTooltipOnBigDisk
+                            ? renderTooltipWords(tipSub, 'deal-track-lab-orbit-tooltip__word-neon-sub')
+                            : tipSub}
+                        </span>
                       </>
                     )}
                   </div>
@@ -514,7 +622,7 @@ export function GameDealOrbitDock({
               </div>
             );
           })(),
-          document.body,
+          orbitTooltipPortalTarget,
         )}
     </div>
   );

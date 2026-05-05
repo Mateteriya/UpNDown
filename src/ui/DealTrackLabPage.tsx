@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -37,10 +38,6 @@ function getDealLabel(dealNumber: number): string {
   return `${dealNumber} (${formatDealCardsCountLabel(tricks)})`;
 }
 
-function formatTricksOnHand(tricks: number): string {
-  return formatDealCardsCountLabel(tricks);
-}
-
 /** Правая подпись в вертикальной шкале: только карты, для БК/Тёмной добавляем режим. */
 function getVerticalRowLabel(dealNumber: number): string {
   const type = getDealType(dealNumber);
@@ -51,27 +48,38 @@ function getVerticalRowLabel(dealNumber: number): string {
   return base;
 }
 
-/** Вторая строка под номером в круге B: режим + разделитель + карт на руках (или только карт). */
+/** «КАРТ:» + число — число красится отдельно (салатовый акцент). */
+function DealCircleCenterCardsLine({ tricks }: { tricks: number }) {
+  return (
+    <span className="deal-track-lab-circle-center-cap-hand">
+      <span className="deal-track-lab-circle-center-cap-hand-prefix">КАРТ:</span>{' '}
+      <span className="deal-track-lab-circle-center-cap-num">{tricks}</span>
+    </span>
+  );
+}
+
+/** Вторая строка под номером в круге B: режим + карт на руках (или только карт). */
 function DealCircleCenterCapContent({ dealNumber }: { dealNumber: number }) {
   const type = getDealType(dealNumber);
   const tricks = getTricksInDeal(dealNumber);
-  const hand = formatTricksOnHand(tricks);
   if (type === 'no-trump' || type === 'dark') {
     const mode = type === 'no-trump' ? 'Бескозырка' : 'Тёмная';
+    const modeClass =
+      'deal-track-lab-circle-center-cap-mode' +
+      (type === 'no-trump' ? ' deal-track-lab-circle-center-cap-mode--no-trump' : '');
     return (
       <>
-        <span className="deal-track-lab-circle-center-cap-mode">{mode}</span>
-        <span className="deal-track-lab-circle-center-cap-sep" aria-hidden />
-        <span className="deal-track-lab-circle-center-cap-hand">{hand}</span>
+        <span className={modeClass}>{mode}</span>
+        <DealCircleCenterCardsLine tricks={tricks} />
       </>
     );
   }
-  return <span className="deal-track-lab-circle-center-cap-hand">{hand}</span>;
+  return <DealCircleCenterCardsLine tricks={tricks} />;
 }
 
 export const ORBIT_TOOLTIP_ID = 'deal-track-lab-orbit-tooltip';
 
-/** Полная расшифровка для `title`, как `getDealCellTitle` у стола */
+/** Полная расшифровка раздачи (`aria-label`, текст кастомных тултипов) — без нативного `title`. */
 function getDealCellTitle(dealNumber: number): string {
   const type = getDealType(dealNumber);
   const tricks = getTricksInDeal(dealNumber);
@@ -82,7 +90,11 @@ function getDealCellTitle(dealNumber: number): string {
 
 /** Текст подсказки для шарика на орбите (круг B) — без нативного `title`, позиция задаётся вручную. */
 export function getOrbitPointTooltipText(dealNumber: number): string {
+  const type = getDealType(dealNumber);
   const tricks = getTricksInDeal(dealNumber);
+  if (type === 'normal') {
+    return `Раздача №${dealNumber} · ${formatDealCardsCountPerPlayer(tricks)}`;
+  }
   return `${getDealCellTitle(dealNumber)} · ${formatDealCardsCountPerPlayer(tricks)}`;
 }
 
@@ -92,8 +104,58 @@ const ORBIT_INNER_INSET_DESIGN_PX = 72;
 const ORBIT_INNER_RADIUS_RATIO =
   (ORBIT_DISK_DESIGN_PX / 2 - ORBIT_INNER_INSET_DESIGN_PX) / ORBIT_DISK_DESIGN_PX;
 
-function getDealHueDegrees(dealNumber: number): number {
-  return 186 + ((dealNumber - 1) / Math.max(1, DEALS_PER_MATCH - 1)) * 84;
+/**
+ * Цвет шарика орбиты: 1–14 — прежняя линейная прогрессия; 15–28 — плавный сдвиг в фиолет (от оттенка 14-й раздачи).
+ */
+function getOrbitBallHueDegrees(dealNumber: number): number {
+  const last = Math.max(1, DEALS_PER_MATCH - 1);
+  const linearHue = (n: number) => 186 + ((n - 1) / last) * 84;
+  if (dealNumber <= 14) return linearHue(dealNumber);
+  const h14 = linearHue(14);
+  const hEnd = 288;
+  const span = DEALS_PER_MATCH - 15;
+  const t = span <= 0 ? 1 : (dealNumber - 15) / span;
+  return h14 + t * (hEnd - h14);
+}
+
+/**
+ * Hue заливки шарика на круге B: после swap 8–14 несут «логику» бывших 1–7, поэтому для фона
+ * подставляем тот же спектр hue, что был у 1–7 (иначе 207–226° при тех же L% выглядят темнее).
+ */
+function getOrbitCirclePointHueDegrees(dealNumber: number): number {
+  if (dealNumber >= 8 && dealNumber <= 14) {
+    return getOrbitBallHueDegrees(dealNumber - 7);
+  }
+  return getOrbitBallHueDegrees(dealNumber);
+}
+
+/**
+ * Мини-диск в покое: четыре цвета по кругу — голубой → фиолет → синий → лаванда.
+ * Синий между фиолетом и сиренью по порядку раздач; hue лаванды ~286° (холодная сирень).
+ */
+/** синий слот — лазурно-электрический (~218°), дальше от фиолета/лаванды, чем ~242° */
+const REPLICA_ORBIT_REST_HUES = [190, 260, 218, 286] as const;
+
+function getReplicaOrbitRestHueDegrees(dealNumber: number): number {
+  const i = ((dealNumber - 1) % 4 + 4) % 4;
+  return REPLICA_ORBIT_REST_HUES[i];
+}
+
+function getOrbitCirclePointStyle(dealNumber: number): CSSProperties {
+  return {
+    '--deal-hue': `${getOrbitCirclePointHueDegrees(dealNumber).toFixed(1)}`,
+  } as CSSProperties;
+}
+
+/** Hue цифры на орбите: 1–14 и 15–28 — разные оттенки (задача дизайна). */
+export function getOrbitDigitHueDegrees(dealNumber: number): number {
+  return dealNumber <= 14 ? 266 : 173;
+}
+
+/** Прошедшие 15–23: голубой глиф (циан / бирюза), не тот же hue что у «будущих» 15–28 (266°). */
+function getOrbitPast1523DigitHueDegrees(dealNumber: number): number {
+  const t = (dealNumber - 15) / (23 - 15);
+  return 187 + t * 26;
 }
 
 /** Классический `hsl(H, S%, L%)` в CSS-переменные — без hsl(var(--x) …), чтобы градиенты не отбрасывались парсером. */
@@ -109,6 +171,11 @@ export function orbitTooltipChromeVars(hue: number): CSSProperties {
     ['--orbit-tip-c3' as string]: `hsl(${h3}, 82%, 52%)`,
   } as CSSProperties;
 }
+
+/** Мин. вынос центра тултипа от центра шарика вдоль радиуса (поверх радиуса шарика), px — дальше от кружка, меньше перекрытий. */
+const ORBIT_TOOLTIP_MIN_GAP_BEYOND_BALL_PX = 36;
+/** Fallback-вынос, если перебор не нашёл позицию. */
+const ORBIT_TOOLTIP_FALLBACK_CENTER_DIST_PX = 148;
 
 /** Центр тултипа в fixed-координатах: сдвиг от центра шарика вдоль радиуса наружу + лёгкий касательный перебор, без заезда во внутреннюю зону диска. */
 export function findOrbitTooltipPosition(
@@ -164,40 +231,57 @@ export function findOrbitTooltipPosition(
     };
   };
 
-  for (let d = ballR + 10; d <= 280; d += 4) {
+  /** Мини-диск (~92 px): общий центр-поиск засовывает подсказку в середину экрана и мешает. */
+  if (diskRect.width < 155) {
+    const pad = 34;
+    let tcx = diskRect.right + pad + tw / 2;
+    const vwLo = typeof window === 'undefined' ? 9999 : window.innerWidth;
+    if (tcx + tw / 2 > vwLo - pad) tcx = diskRect.left - pad - tw / 2;
+    return clamp(tcx, by);
+  }
+
+  for (let d = ballR + ORBIT_TOOLTIP_MIN_GAP_BEYOND_BALL_PX; d <= 280; d += 4) {
     for (const s of [0, -48, 48, -96, 96] as const) {
       const tcx = bx + ux * d + px * s;
       const tcy = by + uy * d + py * s;
       if (clearsCenter(tcx, tcy)) return clamp(tcx, tcy);
     }
   }
-  return clamp(bx + ux * (ballR + 120), by + uy * (ballR + 120));
+  return clamp(
+    bx + ux * (ballR + ORBIT_TOOLTIP_FALLBACK_CENTER_DIST_PX),
+    by + uy * (ballR + ORBIT_TOOLTIP_FALLBACK_CENTER_DIST_PX),
+  );
 }
 
 /** Размер шариков раздачи (px) — общий для вертикали, круга и горизонтали; на круге центр: left/top + translate(-50%,-50%). */
 const DEAL_TRACK_LAB_POINT_SIZE_PX = 26;
 
-/** При каждом открытии экрана: один быстрый прогон подсветки от 1 до последней раздачи. */
+/**
+ * При открытии лаборатории: прогон «текущей» по орбите на основном круге (см. `introRunning` + `orbitSweepDeal`).
+ * Вертикаль/горизонталь/мини-диск на целевой раздаче не гоняются — иначе 4 копии тяжёлых обновлений сразу.
+ */
 const DEAL_TRACK_LAB_CYCLE_HIGHLIGHT_DEMO = true;
 /** Длительность шага автопрогона (мс): меньше = быстрее. */
 export const DEAL_TRACK_LAB_CYCLE_STEP_MS = 95;
+/**
+ * Полный диск в модалке: при каждом открытии — быстрый прогон по орбите (отдельное состояние от страницы).
+ * Выключить, если на слабых устройствах заметны лаги (в игре можно заменить на прогон только при первом открытии за сессию).
+ */
+export const DEAL_TRACK_LAB_MODAL_CYCLE_ON_OPEN = true;
+/** Резерв (раньше — шаг модального прогона в мс); сейчас прогон модалки — одна CSS-анимация `transform` (см. `orbitCssRingSweep`). */
+export const DEAL_TRACK_LAB_MODAL_CYCLE_STEP_MS = 18;
+/** Модалка полного диска: длительность CSS-прогона пятна по орбите (без 28× setState / кадр). */
+export const DEAL_TRACK_LAB_MODAL_SWEEP_DURATION_MS = 1050;
 /** Задержка сброса hover с шарика — без неё при переходе между шарами мигание текст/полоска. */
 export const DEAL_TRACK_LAB_ORBIT_HOVER_LEAVE_MS = 95;
-/** Модалка полного диска: показывать круговой прогон при открытии. */
-export const DEAL_TRACK_LAB_MODAL_CYCLE_ON_OPEN = true;
-/** Длительность одного CSS-прогона по орбите (мс). */
-export const DEAL_TRACK_LAB_MODAL_SWEEP_DURATION_MS = 1050;
-
-/** Hue цифры на орбите (тултипы): как на большом диске 1–14 vs 15–28. */
-export function getOrbitDigitHueDegrees(dealNumber: number): number {
-  return dealNumber <= 14 ? 266 : 173;
-}
+/** После клика по точке орбиты: центр держит превью «Выбрано», затем снова только «текущая раздача». */
+const DEAL_TRACK_LAB_ORBIT_CLICK_PREVIEW_HOLD_MS = 1800;
 
 type EngineDealType = ReturnType<typeof getDealType>;
 
 function getDealPointStyle(dealNumber: number): CSSProperties {
   return {
-    '--deal-hue': `${getDealHueDegrees(dealNumber).toFixed(1)}`,
+    '--deal-hue': `${getOrbitBallHueDegrees(dealNumber).toFixed(1)}`,
   } as CSSProperties;
 }
 
@@ -448,18 +532,159 @@ export type OrbitTooltipState = {
   refine?: boolean;
 };
 
+/** Иконка на мини-диске: «развернуть полную шкалу» (стрелки из углов — как fullscreen / больше экрана). */
+function DealTrackLabLaunchScaleGlyph({ className }: { className?: string }) {
+  return (
+    <span className={className} aria-hidden>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        aria-hidden
+        focusable="false"
+        className="deal-track-lab-circle-center-launch-icon-svg"
+      >
+        <path
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"
+        />
+      </svg>
+    </span>
+  );
+}
+
 /** Радиус орбиты и центр в координатах макета 420×420 (круг B). */
 const ORBIT_DOT_R = 176;
 const ORBIT_DOT_CX = 210;
 const ORBIT_DOT_CY = 210;
 
-export type OrbitTrackDiskProps = {
-  diskRef?: RefObject<HTMLDivElement | null>;
+/**
+ * Плашка «Текущая раздача» на большом диске: дуга (два штриха по одной кривой + textPath).
+ * Прямоугольные ::before/::after для этого варианта отключаются классом `--volume-main-plaque--arc`.
+ */
+function DealTrackLabVolumeMainArcPlaque() {
+  const baseId = `dtl-arc-${useId().replace(/:/g, '')}`;
+  const curveId = `${baseId}-curve`;
+  /* Узкая дуга: «рога» ближе к центру; контрольная точка выше — сильнее закрутка под верх внутреннего круга */
+  const d = 'M 56 52 Q 136 9 216 52';
+
+  return (
+    <svg
+      className="deal-track-lab-volume-main-arc-plaque"
+      viewBox="0 0 272 84"
+      width="100%"
+      style={{ height: 'auto' }}
+      aria-hidden
+      focusable="false"
+      shapeRendering="geometricPrecision"
+    >
+      <defs>
+        <linearGradient
+          id={`${baseId}-neon`}
+          gradientUnits="userSpaceOnUse"
+          x1="20"
+          y1="78"
+          x2="248"
+          y2="2"
+        >
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="11%" stopColor="#5eead4" />
+          <stop offset="28%" stopColor="#06b6d4" />
+          <stop offset="46%" stopColor="#22d3ee" />
+          <stop offset="63%" stopColor="#818cf8" />
+          <stop offset="80%" stopColor="#d946ef" />
+          <stop offset="100%" stopColor="#fdf4ff" />
+        </linearGradient>
+        <linearGradient
+          id={`${baseId}-inner`}
+          gradientUnits="userSpaceOnUse"
+          x1="44"
+          y1="82"
+          x2="220"
+          y2="8"
+        >
+          <stop offset="0%" stopColor="rgb(58, 46, 140)" />
+          <stop offset="28%" stopColor="rgb(42, 32, 115)" />
+          <stop offset="58%" stopColor="rgb(28, 22, 82)" />
+          <stop offset="100%" stopColor="rgb(14, 11, 48)" />
+        </linearGradient>
+        <linearGradient
+          id={`${baseId}-glyph`}
+          gradientUnits="userSpaceOnUse"
+          x1="20"
+          y1="78"
+          x2="248"
+          y2="2"
+        >
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="11%" stopColor="#5eead4" />
+          <stop offset="28%" stopColor="#06b6d4" />
+          <stop offset="46%" stopColor="#22d3ee" />
+          <stop offset="63%" stopColor="#818cf8" />
+          <stop offset="80%" stopColor="#d946ef" />
+          <stop offset="100%" stopColor="#fdf4ff" />
+        </linearGradient>
+        {/* Только размытие — без слияния с исходным штрихом: чёткая рамка сверху */}
+        {/* Чуть слабее blur — меньше «мазни» под правым краем подписи («дача») */}
+        <filter id={`${baseId}-glow`} x="-45%" y="-45%" width="190%" height="190%">
+          <feGaussianBlur stdDeviation="2.25" result="blur" />
+        </filter>
+        <path id={curveId} d={d} fill="none" />
+      </defs>
+      {/* Мягкое свечение под неоном: butt — без круглых «шапок» на концах дуги (они усиливали размытие у «дача») */}
+      <path
+        d={d}
+        fill="none"
+        stroke={`url(#${baseId}-neon)`}
+        strokeWidth={35}
+        strokeLinecap="butt"
+        strokeLinejoin="round"
+        opacity={0.28}
+        filter={`url(#${baseId}-glow)`}
+      />
+      {/* Резкий неоновый обод (заметно тоньше исходных 44/42/30) */}
+      <path
+        d={d}
+        fill="none"
+        stroke={`url(#${baseId}-neon)`}
+        strokeWidth={32}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d={d}
+        fill="none"
+        stroke={`url(#${baseId}-inner)`}
+        strokeWidth={22}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <text
+        className="deal-track-lab-volume-main-arc-plaque__glyph"
+        fill={`url(#${baseId}-glyph)`}
+        dominantBaseline="middle"
+        textAnchor="middle"
+      >
+        <textPath href={`#${curveId}`} startOffset="50%">
+          Текущая раздача
+        </textPath>
+      </text>
+    </svg>
+  );
+}
+
+type OrbitTrackDiskProps = {
+  /** Только основной диск (якорь прокрутки); тултип берёт контейнер с `[data-deal-track-lab-disk]` у цели события. */
+  diskRef?: RefObject<HTMLDivElement>;
   normDeg: number;
   ntDeg: number;
   totalDeals: number;
   deals: readonly number[];
   currentDeal: number;
+  /** Превью в центре («Выбрано»): ход по орбите или удержание после клика. */
   orbitPreviewUiActive: boolean;
   focusedDeal: number;
   currentOrbitFloor: { left: number; top: number };
@@ -472,22 +697,40 @@ export type OrbitTrackDiskProps = {
   showOrbitTooltip: (deal: number, target: HTMLElement) => void;
   setCurrentDeal: React.Dispatch<React.SetStateAction<number>>;
   orbitHoverLeaveTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
+  /** После клика: превью, затем таймер; по окончании — вернуть `currentDeal` к `revertCurrentDealTo`. */
   beginOrbitClickPreviewHold: (deal: number, revertCurrentDealTo: number) => void;
+  /** Снова разрешить превью по hover (новый заход на точку или уход с диска). */
   onOrbitHoverResume: () => void;
+  /** Гасит CSS :hover у точек, пока курсор физически остался над ними. */
   orbitCssSuppressHover: boolean;
+  /** Удержание превью после клика по точке — розовый акцент номера раздачи. */
   orbitHoldPinkAccent: boolean;
+  /** Мини-диск: цифра в центре — кнопка «полная шкала». */
   centerNumOpensLargeScale?: boolean;
   onOpenLargeScale?: () => void;
   largeScaleModalOpen?: boolean;
-  replicaLaunchButtonRef?: RefObject<HTMLButtonElement | null>;
+  replicaLaunchButtonRef?: RefObject<HTMLButtonElement>;
+  /** Номера раздач внутри орбитальных шариков — только у крупного диска (не мини-диск / модалка). */
   orbitPointDealNumbers?: boolean;
+  /** Только большой диск B: полоска рубашек над строкой «КАРТ:»; у реплики порядок прежний. */
   deckStripAboveCap?: boolean;
+  /** Мини-диск: полный спектр hue у орбитальных шаров (не узкий коридор как у большого диска). */
   orbitReplicaSpectrum?: boolean;
+  /** Мини-диск в колонке реплики — отдельный класс круга для CSS (состояния шаров не гасятся при hover на виджет). */
   orbitReplica?: boolean;
-  /** Только просмотр: клик не меняет партию; на реплике без орбиты — неинтерактивные span. */
+  /** Игра: клик по точке не меняет раздачу — только просмотр и тултипы. */
   orbitPointsReadOnly?: boolean;
+  /** Автопрогон по орбите: без transition на пятнах — позиция следует шагу без «догоняющей» анимации. */
   orbitSweepInstant?: boolean;
+  /**
+   * Модалка: один плавный круговой прогон подсветки по орбите (только `transform` в CSS, без смены `currentDeal` на каждом кадре).
+   * Скрывает обычные React-слои пятен на время анимации.
+   */
   orbitCssRingSweep?: { durationMs: number; onEnd: () => void } | null;
+  /**
+   * Раскладка дуговой плашки «Текущая раздача» и второй строки (бескозырка/тёмная): якорь на фактическую раздачу партии.
+   * Без этого при автопрогоне тип раздачи в центре мигал бы (1…28) и дёргал margin/placement плашки.
+   */
   centerLabelLayoutDeal?: number;
 };
 
@@ -508,135 +751,64 @@ export function OrbitTrackDisk({
   setHoveredDeal,
   setOrbitTooltip,
   showOrbitTooltip,
-  setCurrentDeal: _setCurrentDeal,
+  setCurrentDeal,
   orbitHoverLeaveTimerRef,
   beginOrbitClickPreviewHold,
   onOrbitHoverResume,
   orbitCssSuppressHover,
   orbitHoldPinkAccent,
-  centerNumOpensLargeScale = false,
+  centerNumOpensLargeScale,
   onOpenLargeScale,
+  largeScaleModalOpen,
   replicaLaunchButtonRef,
   orbitPointDealNumbers = false,
   deckStripAboveCap = false,
+  orbitReplicaSpectrum = false,
   orbitReplica = false,
   orbitPointsReadOnly = false,
   orbitSweepInstant = false,
   orbitCssRingSweep = null,
   centerLabelLayoutDeal,
-  orbitReplicaSpectrum: _orbitReplicaSpectrum = false,
-  largeScaleModalOpen: _largeScaleModalOpen,
 }: OrbitTrackDiskProps) {
+  const [launchScaleCenterHot, setLaunchScaleCenterHot] = useState(false);
   const cssRingSweepNotifiedRef = useRef(false);
   useEffect(() => {
     cssRingSweepNotifiedRef.current = false;
-  }, [orbitCssRingSweep?.durationMs, Boolean(orbitCssRingSweep)]);
-
+  }, [orbitCssRingSweep?.durationMs, orbitCssRingSweep != null]);
   const suppressOrbitalReactFloors = orbitCssRingSweep != null;
   const centerDealDisplay = orbitPreviewUiActive ? focusedDeal : currentDeal;
-  const layoutDealForCenter = centerLabelLayoutDeal ?? centerDealDisplay;
+  const centerDealType = getDealType(centerDealDisplay);
+  const layoutDealForCenterLabel =
+    centerLabelLayoutDeal !== undefined ? centerLabelLayoutDeal : centerDealDisplay;
+  const centerCapLayoutType = getDealType(layoutDealForCenterLabel);
+  const centerCapTwoRows =
+    centerCapLayoutType === 'no-trump' || centerCapLayoutType === 'dark';
+  const centerNumPinkMod = orbitHoldPinkAccent ? ' deal-track-lab-circle-center-num--orbit-hold-pink' : '';
+  const showArcCurrentDealPlaque =
+    orbitPointDealNumbers && !(centerNumOpensLargeScale && launchScaleCenterHot);
+
+  /** Превью совпадает с «текущей» по орбите (прогон или hover на ту же раздачу): нужен слой --hover-preview, иначе только слабый --current. */
   const sameSpotPreviewMode = orbitPreviewUiActive && previewOrbitFloor == null;
   const sameSpotFloorPos = warmOrbitGlowPos ?? currentOrbitFloor;
-  const centerNumPinkMod = orbitHoldPinkAccent ? ' deal-track-lab-circle-center-num--orbit-hold-pink' : '';
-
-  const rootClass = [
-    orbitPointDealNumbers
-      ? 'deal-track-lab-circle deal-track-lab-circle--orbit-nums deal-track-lab-disk-volume-main'
-      : 'deal-track-lab-circle',
-    orbitReplica ? 'deal-track-lab-circle--orbit-replica' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  const renderOrbitPoint = (d: number) => {
-    const angle = ((d - 1) / totalDeals) * Math.PI * 2 - Math.PI / 2;
-    const x = ORBIT_DOT_CX + Math.cos(angle) * ORBIT_DOT_R;
-    const y = ORBIT_DOT_CY + Math.sin(angle) * ORBIT_DOT_R;
-    const active = d === currentDeal;
-    const done = d < currentDeal;
-    const type = getDealType(d);
-    const tricks = getTricksInDeal(d);
-    const pointClass = pointGlowClass(type, active, done);
-    const pointStyle = {
-      ...getDealPointStyle(d),
-      position: 'absolute' as const,
-      left: x,
-      top: y,
-    };
-    const aria = `${getDealCellTitle(d)}, ${formatDealCardsCountPerPlayer(tricks)}`;
-    const handlers = {
-      onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => {
-        cancelOrbitHoverLeaveTimer();
-        setHoveredDeal(d);
-        showOrbitTooltip(d, e.currentTarget);
-      },
-      onMouseLeave: () => {
-        cancelOrbitHoverLeaveTimer();
-        orbitHoverLeaveTimerRef.current = setTimeout(() => {
-          orbitHoverLeaveTimerRef.current = null;
-          setHoveredDeal((prev) => (prev === d ? null : prev));
-          setOrbitTooltip((t: OrbitTooltipState | null) => (t?.deal === d ? null : t));
-        }, DEAL_TRACK_LAB_ORBIT_HOVER_LEAVE_MS);
-      },
-      onFocus: (e: React.FocusEvent<HTMLButtonElement>) => {
-        cancelOrbitHoverLeaveTimer();
-        setHoveredDeal(d);
-        showOrbitTooltip(d, e.currentTarget);
-      },
-      onBlur: () => {
-        cancelOrbitHoverLeaveTimer();
-        orbitHoverLeaveTimerRef.current = setTimeout(() => {
-          orbitHoverLeaveTimerRef.current = null;
-          setHoveredDeal((prev) => (prev === d ? null : prev));
-          setOrbitTooltip((t: OrbitTooltipState | null) => (t?.deal === d ? null : t));
-        }, DEAL_TRACK_LAB_ORBIT_HOVER_LEAVE_MS);
-      },
-    };
-
-    if (orbitPointsReadOnly && orbitReplica) {
-      return (
-        <span key={`c-${d}`} className={pointClass} style={pointStyle} aria-hidden />
-      );
-    }
-    return (
-      <button
-        key={`c-${d}`}
-        className={pointClass}
-        type="button"
-        onClick={() => beginOrbitClickPreviewHold(d, currentDeal)}
-        {...handlers}
-        aria-label={aria}
-        aria-describedby={orbitTooltipDeal === d ? ORBIT_TOOLTIP_ID : undefined}
-        style={pointStyle}
-      >
-        {orbitPointDealNumbers ? (
-          <span className="deal-track-lab-orbit-disk-point-num">{d}</span>
-        ) : null}
-      </button>
-    );
-  };
-
-  const centerNumEl =
-    centerNumOpensLargeScale && onOpenLargeScale ? (
-      <button
-        type="button"
-        ref={replicaLaunchButtonRef as RefObject<HTMLButtonElement> | undefined}
-        className={`deal-track-lab-circle-center-num${centerNumPinkMod}`}
-        onClick={() => onOpenLargeScale()}
-        aria-label="Открыть полную шкалу раздач"
-      >
-        {focusedDeal}
-      </button>
-    ) : (
-      <div className={`deal-track-lab-circle-center-num${centerNumPinkMod}`}>{focusedDeal}</div>
-    );
 
   return (
     <div
-      ref={diskRef as RefObject<HTMLDivElement> | undefined}
-      className={rootClass}
+      ref={diskRef ?? undefined}
+      className={
+        [
+          orbitPointDealNumbers
+            ? 'deal-track-lab-circle deal-track-lab-circle--orbit-nums deal-track-lab-disk-volume-main'
+            : 'deal-track-lab-circle',
+          orbitReplica ? 'deal-track-lab-circle--orbit-replica' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+      }
       data-deal-track-lab-disk
       data-deal-track-lab-orbit-replica={orbitReplica ? '' : undefined}
+      data-deal-track-lab-center-cap-two-rows={
+        orbitPointDealNumbers && centerCapTwoRows ? '' : undefined
+      }
       data-deal-track-lab-orbit-preview-ui={orbitPreviewUiActive ? '' : undefined}
       data-orbit-hover-suppressed={orbitCssSuppressHover ? '' : undefined}
       data-orbit-preview={warmOrbitGlowPos != null ? '' : undefined}
@@ -659,21 +831,30 @@ export function OrbitTrackDisk({
         <div
           className="deal-track-lab-circle-active-floor deal-track-lab-circle-active-floor--current"
           aria-hidden
-          style={{ left: currentOrbitFloor.left, top: currentOrbitFloor.top }}
+          style={{
+            left: currentOrbitFloor.left,
+            top: currentOrbitFloor.top,
+          }}
         />
       )}
       {previewOrbitFloor != null && !suppressOrbitalReactFloors && (
         <div
           className="deal-track-lab-circle-active-floor deal-track-lab-circle-active-floor--hover-preview"
           aria-hidden
-          style={{ left: previewOrbitFloor.left, top: previewOrbitFloor.top }}
+          style={{
+            left: previewOrbitFloor.left,
+            top: previewOrbitFloor.top,
+          }}
         />
       )}
       {sameSpotPreviewMode && !suppressOrbitalReactFloors && (
         <div
           className="deal-track-lab-circle-active-floor deal-track-lab-circle-active-floor--hover-preview"
           aria-hidden
-          style={{ left: sameSpotFloorPos.left, top: sameSpotFloorPos.top }}
+          style={{
+            left: sameSpotFloorPos.left,
+            top: sameSpotFloorPos.top,
+          }}
         />
       )}
       <div className="deal-track-lab-circle-inner" />
@@ -692,7 +873,10 @@ export function OrbitTrackDisk({
         <div
           className="deal-track-lab-circle-warm-orbit-glow"
           aria-hidden
-          style={{ left: warmOrbitGlowPos.left, top: warmOrbitGlowPos.top }}
+          style={{
+            left: warmOrbitGlowPos.left,
+            top: warmOrbitGlowPos.top,
+          }}
         />
       )}
       {orbitCssRingSweep != null && (
@@ -715,62 +899,288 @@ export function OrbitTrackDisk({
               orbitCssRingSweep.onEnd();
             }}
           >
-            <div
-              className="deal-track-lab-circle-active-floor deal-track-lab-circle-active-floor--current deal-track-lab-orbit-css-sweep-spot"
-              aria-hidden
-            />
+            <div className="deal-track-lab-circle-active-floor deal-track-lab-circle-active-floor--current deal-track-lab-orbit-css-sweep-spot" aria-hidden />
           </div>
         </div>
       )}
-      {deals.map((d) => renderOrbitPoint(d))}
+      {deals.map((d) => {
+        const angle = ((d - 1) / totalDeals) * Math.PI * 2 - Math.PI / 2;
+        const x = ORBIT_DOT_CX + Math.cos(angle) * ORBIT_DOT_R;
+        const y = ORBIT_DOT_CY + Math.sin(angle) * ORBIT_DOT_R;
+        const active = d === currentDeal;
+        const done = d < currentDeal;
+        const type = getDealType(d);
+        const tricks = getTricksInDeal(d);
+        const pointClass = pointGlowClass(type, active, done);
+        /** Прошедшие 15–28: цифра визуально как «будущая» у 1–14 (hue + градиент future). */
+        const orbitPastSecondHalfFutureDigit = done && d >= 15 && d <= 28;
+        /** Лиловый/ранний индиго коридор 15–23: светлее глифа, чем у 24–28 (контраст к шару). */
+        const orbitPastSecondHalfFutureDigitBright = done && d >= 15 && d <= 23;
+        const pointStyle: CSSProperties = {
+          ...getOrbitCirclePointStyle(d),
+          ...(orbitReplicaSpectrum
+            ? { [`--orbit-replica-rest-hue`]: `${getReplicaOrbitRestHueDegrees(d).toFixed(1)}` }
+            : {}),
+          position: 'absolute',
+          left: x,
+          top: y,
+        };
+        return (
+          <button
+            key={`c-${d}`}
+            className={pointClass}
+            type="button"
+            {...(d >= 1 && d <= 7 ? { 'data-orbit-ball-segment': 'mid' } : {})}
+            {...(d >= 15 && d <= 21 ? { 'data-orbit-ball-tone': 'lilac' } : {})}
+            {...(d >= 22 && d <= 28 ? { 'data-orbit-ball-tone': 'indigo' } : {})}
+            {...(orbitPastSecondHalfFutureDigit ? { 'data-orbit-past-second-half-light': '' } : {})}
+            {...(orbitReplicaSpectrum
+              ? {
+                  'data-orbit-replica-tint': (
+                    ['cyan', 'violet', 'blue', 'lavender'] as const
+                  )[((d - 1) % 4 + 4) % 4],
+                }
+              : {})}
+            onClick={(e) => {
+              if (orbitPointsReadOnly) {
+                e.preventDefault();
+                const revertTo = currentDeal;
+                cancelOrbitHoverLeaveTimer();
+                beginOrbitClickPreviewHold(d, revertTo);
+                const el = e.currentTarget;
+                requestAnimationFrame(() => {
+                  if (typeof el.matches === 'function' && !el.matches(':focus-visible')) {
+                    el.blur();
+                  }
+                });
+                return;
+              }
+              const revertTo = currentDeal;
+              setCurrentDeal(d);
+              cancelOrbitHoverLeaveTimer();
+              beginOrbitClickPreviewHold(d, revertTo);
+              const el = e.currentTarget;
+              requestAnimationFrame(() => {
+                if (typeof el.matches === 'function' && !el.matches(':focus-visible')) {
+                  el.blur();
+                }
+              });
+            }}
+            onMouseEnter={(e) => {
+              onOrbitHoverResume();
+              cancelOrbitHoverLeaveTimer();
+              setHoveredDeal(d);
+              showOrbitTooltip(d, e.currentTarget);
+            }}
+            onMouseLeave={() => {
+              cancelOrbitHoverLeaveTimer();
+              orbitHoverLeaveTimerRef.current = setTimeout(() => {
+                orbitHoverLeaveTimerRef.current = null;
+                setHoveredDeal((prev) => (prev === d ? null : prev));
+                setOrbitTooltip((t) => (t?.deal === d ? null : t));
+              }, DEAL_TRACK_LAB_ORBIT_HOVER_LEAVE_MS);
+            }}
+            onFocus={(e) => {
+              cancelOrbitHoverLeaveTimer();
+              const el = e.currentTarget;
+              if (typeof el.matches === 'function' && el.matches(':focus-visible')) {
+                onOrbitHoverResume();
+                setHoveredDeal(d);
+                showOrbitTooltip(d, el);
+              }
+            }}
+            onBlur={() => {
+              cancelOrbitHoverLeaveTimer();
+              orbitHoverLeaveTimerRef.current = setTimeout(() => {
+                orbitHoverLeaveTimerRef.current = null;
+                setHoveredDeal((prev) => (prev === d ? null : prev));
+                setOrbitTooltip((t) => (t?.deal === d ? null : t));
+              }, DEAL_TRACK_LAB_ORBIT_HOVER_LEAVE_MS);
+            }}
+            aria-label={`${getDealCellTitle(d)}, ${formatDealCardsCountPerPlayer(tricks)}`}
+            aria-describedby={orbitTooltipDeal === d ? ORBIT_TOOLTIP_ID : undefined}
+            style={pointStyle}
+          >
+            {orbitPointDealNumbers ? (
+              <span
+                className={
+                  [
+                    d >= 20
+                      ? 'deal-track-lab-orbit-point-num deal-track-lab-orbit-point-num--two deal-track-lab-orbit-point-num--two-late'
+                      : d >= 10
+                        ? 'deal-track-lab-orbit-point-num deal-track-lab-orbit-point-num--two'
+                        : 'deal-track-lab-orbit-point-num',
+                    orbitPastSecondHalfFutureDigit ? 'deal-track-lab-orbit-point-num--past-as-future-pale' : '',
+                    orbitPastSecondHalfFutureDigitBright
+                      ? 'deal-track-lab-orbit-point-num--past-as-future-pale-bright'
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')
+                }
+                style={
+                  {
+                    '--orbit-digit-h': `${
+                      orbitPastSecondHalfFutureDigitBright
+                        ? d >= 18 && d <= 23
+                          ? getOrbitPast1523DigitHueDegrees(15)
+                          : getOrbitPast1523DigitHueDegrees(d)
+                        : orbitPastSecondHalfFutureDigit
+                          ? 266
+                          : getOrbitDigitHueDegrees(d)
+                    }`,
+                  } as CSSProperties
+                }
+                aria-hidden
+              >
+                {d}
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
       <div className="deal-track-lab-circle-center">
-        {deckStripAboveCap && orbitPointDealNumbers ? (
-          <DealCardBackStrip
-            tricks={getTricksInDeal(focusedDeal)}
-            type={getDealType(focusedDeal)}
-            inDiskCenter
-          />
-        ) : null}
-        <div className="deal-track-lab-circle-center-label-row">
-          <div className="deal-track-lab-circle-center-label-stack">
-            <div
-              className={
-                orbitPreviewUiActive
-                  ? 'deal-track-lab-circle-center-label-lit-wrap deal-track-lab-circle-center-stack-dim'
-                  : 'deal-track-lab-circle-center-label-lit-wrap'
-              }
-              aria-hidden={orbitPreviewUiActive}
-            >
-              <div className="deal-track-lab-circle-center-label deal-track-lab-circle-center-label--current-head">
-                Текущая раздача
+        <div className="deal-track-lab-circle-center-label-strip">
+          <div className="deal-track-lab-circle-center-label-row">
+            <div className="deal-track-lab-circle-center-label-stack">
+              <div
+                className={[
+                  'deal-track-lab-circle-center-label-lit-wrap',
+                  orbitPreviewUiActive ? 'deal-track-lab-circle-center-stack-dim' : '',
+                  orbitPointDealNumbers ? 'deal-track-lab-circle-center-label-lit-wrap--volume-main-plaque' : '',
+                  showArcCurrentDealPlaque ? 'deal-track-lab-circle-center-label-lit-wrap--volume-main-plaque--arc' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-hidden={orbitPreviewUiActive}
+              >
+                <div
+                  className={
+                    centerNumOpensLargeScale && launchScaleCenterHot
+                      ? 'deal-track-lab-circle-center-label deal-track-lab-circle-center-label--current-head deal-track-lab-circle-center-label--launch-hint'
+                      : showArcCurrentDealPlaque
+                        ? 'deal-track-lab-circle-center-label deal-track-lab-circle-center-label--current-head deal-track-lab-circle-center-label--volume-arc'
+                        : 'deal-track-lab-circle-center-label deal-track-lab-circle-center-label--current-head'
+                  }
+                  aria-label={showArcCurrentDealPlaque ? 'Текущая раздача' : undefined}
+                >
+                  {centerNumOpensLargeScale && launchScaleCenterHot ? (
+                    <>
+                      <span className="deal-track-lab-circle-center-label--launch-hint-title">
+                        Шкала раздач в партии.
+                      </span>
+                      <span className="deal-track-lab-circle-center-label--launch-hint-cta">Открыть</span>
+                    </>
+                  ) : showArcCurrentDealPlaque ? (
+                    <DealTrackLabVolumeMainArcPlaque />
+                  ) : (
+                    'Текущая раздача'
+                  )}
+                </div>
               </div>
-            </div>
-            <div
-              className={
-                !orbitPreviewUiActive
-                  ? 'deal-track-lab-circle-center-preview-wrap deal-track-lab-circle-center-stack-dim'
-                  : 'deal-track-lab-circle-center-preview-wrap'
-              }
-              aria-hidden={!orbitPreviewUiActive}
-            >
-              <div className="deal-track-lab-circle-center-label deal-track-lab-circle-center-label--preview-pick">
-                Выбрано
+              <div
+                className={
+                  !orbitPreviewUiActive
+                    ? 'deal-track-lab-circle-center-preview-wrap deal-track-lab-circle-center-stack-dim'
+                    : 'deal-track-lab-circle-center-preview-wrap'
+                }
+                aria-hidden={!orbitPreviewUiActive}
+              >
+                <div className="deal-track-lab-circle-center-label deal-track-lab-circle-center-label--preview-pick">
+                  Выбрано
+                </div>
+                <div className="deal-track-lab-circle-center-label-bar" aria-hidden />
               </div>
-              <div className="deal-track-lab-circle-center-label-bar" aria-hidden />
             </div>
           </div>
+          {centerCapTwoRows && (
+            <div className="deal-track-lab-circle-center-label-row deal-track-lab-circle-center-label-row--deal-type-dup">
+              <div
+                className={
+                  'deal-track-lab-circle-center-label-lit-wrap' +
+                  (orbitPointDealNumbers ? ' deal-track-lab-circle-center-label-lit-wrap--volume-main-plaque' : '')
+                }
+                aria-hidden
+              >
+                <div className="deal-track-lab-circle-center-label deal-track-lab-circle-center-label--current-head deal-track-lab-circle-center-label--deal-type-dup">
+                  <span
+                    className={
+                      'deal-track-lab-circle-center-label--deal-type-dup-mode' +
+                      (centerCapLayoutType === 'no-trump'
+                        ? ' deal-track-lab-circle-center-label--deal-type-dup-mode--no-trump'
+                        : '')
+                    }
+                  >
+                    {centerCapLayoutType === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
+                  </span>
+                  <span className="deal-track-lab-circle-center-label--deal-type-dup-kartline">
+                    <span className="deal-track-lab-circle-center-label--deal-type-dup-kart">КАРТ:</span>{' '}
+                    <span className="deal-track-lab-circle-center-label--deal-type-dup-num">
+                      {getTricksInDeal(layoutDealForCenterLabel)}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        {centerNumEl}
-        <div className="deal-track-lab-circle-center-cap">
-          <DealCircleCenterCapContent dealNumber={layoutDealForCenter} />
-        </div>
-        {!(deckStripAboveCap && orbitPointDealNumbers) ? (
-          <DealCardBackStrip
-            tricks={getTricksInDeal(focusedDeal)}
-            type={getDealType(focusedDeal)}
-            inDiskCenter
-          />
-        ) : null}
+        {centerNumOpensLargeScale && onOpenLargeScale ? (
+          <button
+            ref={replicaLaunchButtonRef ?? undefined}
+            type="button"
+            className={`deal-track-lab-circle-center-num deal-track-lab-circle-center-num--launch-scale${centerNumPinkMod}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenLargeScale();
+            }}
+            onMouseEnter={() => {
+              if (centerNumOpensLargeScale) setLaunchScaleCenterHot(true);
+            }}
+            onMouseLeave={() => setLaunchScaleCenterHot(false)}
+            onFocus={() => {
+              if (centerNumOpensLargeScale) setLaunchScaleCenterHot(true);
+            }}
+            onBlur={() => setLaunchScaleCenterHot(false)}
+            aria-label={`Полная круговая шкала порядка раздач в партии. Сейчас выбрана раздача ${centerDealDisplay}.`}
+            aria-haspopup="dialog"
+            aria-expanded={largeScaleModalOpen}
+            aria-controls="deal-track-lab-orbit-scale-dialog"
+          >
+            <span className="deal-track-lab-circle-center-num-glyph deal-track-lab-circle-center-num-glyph--launch-idle">
+              {centerDealDisplay}
+            </span>
+            <DealTrackLabLaunchScaleGlyph className="deal-track-lab-circle-center-launch-icon" />
+          </button>
+        ) : (
+          <div className={`deal-track-lab-circle-center-num${centerNumPinkMod}`}>{centerDealDisplay}</div>
+        )}
+        {deckStripAboveCap ? (
+          <>
+            <DealCardBackStrip
+              tricks={getTricksInDeal(centerDealDisplay)}
+              type={centerDealType}
+              inDiskCenter
+            />
+            <div
+              className={`deal-track-lab-circle-center-cap${centerCapTwoRows ? ' deal-track-lab-circle-center-cap--two-rows' : ''}`}
+            >
+              <DealCircleCenterCapContent dealNumber={centerDealDisplay} />
+            </div>
+          </>
+        ) : (
+          <>
+            <div
+              className={`deal-track-lab-circle-center-cap${centerCapTwoRows ? ' deal-track-lab-circle-center-cap--two-rows' : ''}`}
+            >
+              <DealCircleCenterCapContent dealNumber={centerDealDisplay} />
+            </div>
+            <DealCardBackStrip
+              tricks={getTricksInDeal(centerDealDisplay)}
+              type={centerDealType}
+              inDiskCenter
+            />
+          </>
+        )}
       </div>
     </div>
   );
@@ -797,25 +1207,79 @@ export function DealTrackLabPage({
     [totalDeals],
   );
   const [currentDeal, setCurrentDeal] = useState(() => normalizeDeal(currentDealFromGame));
+  /** Пока true — «огонь» бежит только по основному OrbitTrackDisk; `currentDeal` (слайдер/шкалы/реплика) не дёргается. */
+  const [introRunning, setIntroRunning] = useState(() => DEAL_TRACK_LAB_CYCLE_HIGHLIGHT_DEMO);
+  const [orbitSweepDeal, setOrbitSweepDeal] = useState(1);
+  const [modalIntroRunning, setModalIntroRunning] = useState(false);
   const [hoveredDeal, setHoveredDeal] = useState<number | null>(null);
+  /** После клика по точке: номер для центра в режиме «Выбрано» до истечения таймера. */
+  const [orbitCenterHoldDeal, setOrbitCenterHoldDeal] = useState<number | null>(null);
+  /**
+   * После таймера сброса: курсор всё ещё может стоять над той же точкой без нового mouseenter —
+   * тогда не показываем превью по hover, пока не зайдём на точку снова или не уйдём с диска.
+   */
+  const [orbitHoverPreviewSuppressed, setOrbitHoverPreviewSuppressed] = useState(false);
   const [orbitTooltip, setOrbitTooltip] = useState<OrbitTooltipState | null>(null);
   const [verticalTooltip, setVerticalTooltip] = useState<VerticalTooltipState | null>(null);
   const [horizontalTooltip, setHorizontalTooltip] = useState<HorizontalTooltipState | null>(null);
   const diskRef = useRef<HTMLDivElement | null>(null);
+  /** Диск, с которого вызвали тултип (основной или мини) — для refine и `keepOut` зоны. */
+  const orbitTooltipDiskElRef = useRef<HTMLElement | null>(null);
   const orbitBallGeomRef = useRef<OrbitBallGeom | null>(null);
   const orbitHoverLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Браузер: `setTimeout` → number; без пересечения с NodeJS.Timeout из lib */
+  const orbitClickHoldTimerRef = useRef<number | null>(null);
+  const orbitScaleDialogRef = useRef<HTMLDialogElement | null>(null);
+  const replicaLaunchBtnRef = useRef<HTMLButtonElement | null>(null);
+  const orbitModalWasOpenRef = useRef(false);
+  const [orbitScaleModalOpen, setOrbitScaleModalOpen] = useState(false);
 
-  const cancelOrbitHoverLeaveTimer = () => {
+  const cancelOrbitHoverLeaveTimer = useCallback(() => {
     if (orbitHoverLeaveTimerRef.current !== null) {
       clearTimeout(orbitHoverLeaveTimerRef.current);
       orbitHoverLeaveTimerRef.current = null;
     }
-  };
+  }, []);
 
-  useEffect(() => () => cancelOrbitHoverLeaveTimer(), []);
+  const clearOrbitClickHold = useCallback(() => {
+    if (orbitClickHoldTimerRef.current !== null) {
+      clearTimeout(orbitClickHoldTimerRef.current);
+      orbitClickHoldTimerRef.current = null;
+    }
+    setOrbitCenterHoldDeal(null);
+    setOrbitHoverPreviewSuppressed(false);
+  }, []);
+
+  const resumeOrbitHoverPreview = useCallback(() => {
+    setOrbitHoverPreviewSuppressed(false);
+  }, []);
+
+  const beginOrbitClickPreviewHold = useCallback((d: number, revertCurrentDealTo: number) => {
+    if (orbitClickHoldTimerRef.current !== null) {
+      clearTimeout(orbitClickHoldTimerRef.current);
+      orbitClickHoldTimerRef.current = null;
+    }
+    setOrbitHoverPreviewSuppressed(false);
+    setOrbitCenterHoldDeal(d);
+    orbitClickHoldTimerRef.current = window.setTimeout(() => {
+      orbitClickHoldTimerRef.current = null;
+      setOrbitCenterHoldDeal(null);
+      setHoveredDeal(null);
+      setOrbitTooltip(null);
+      setOrbitHoverPreviewSuppressed(true);
+      setCurrentDeal(revertCurrentDealTo);
+    }, DEAL_TRACK_LAB_ORBIT_CLICK_PREVIEW_HOLD_MS);
+  }, []);
+
+  useEffect(() => () => cancelOrbitHoverLeaveTimer(), [cancelOrbitHoverLeaveTimer]);
+
+  useEffect(() => () => clearOrbitClickHold(), [clearOrbitClickHold]);
 
   useEffect(() => {
-    if (orbitTooltip == null) return;
+    if (orbitTooltip == null) {
+      orbitTooltipDiskElRef.current = null;
+      return;
+    }
     const hide = () => setOrbitTooltip(null);
     window.addEventListener('scroll', hide, true);
     window.addEventListener('resize', hide);
@@ -839,6 +1303,52 @@ export function DealTrackLabPage({
   const clearOrbitTooltip = useCallback(() => setOrbitTooltip(null), []);
   const clearVerticalTooltip = useCallback(() => setVerticalTooltip(null), []);
   const clearHorizontalTooltip = useCallback(() => setHorizontalTooltip(null), []);
+
+  useEffect(() => {
+    const d = orbitScaleDialogRef.current;
+    if (!d) return;
+
+    if (orbitScaleModalOpen) {
+      cancelOrbitHoverLeaveTimer();
+      clearOrbitClickHold();
+      setHoveredDeal(null);
+      clearOrbitTooltip();
+      clearVerticalTooltip();
+      clearHorizontalTooltip();
+      if (!d.open) d.showModal();
+    } else if (d.open) {
+      d.close();
+    }
+
+    /** После showModal фокус уходит на диалог; при закрытии часто возвращается на кнопку цифры → «залипший» focus-within / ховер-слой */
+    let innerRaf = 0;
+    if (orbitModalWasOpenRef.current && !orbitScaleModalOpen) {
+      const outerRaf = window.requestAnimationFrame(() => {
+        innerRaf = window.requestAnimationFrame(() => {
+          replicaLaunchBtnRef.current?.blur();
+          clearOrbitClickHold();
+          setHoveredDeal(null);
+          clearOrbitTooltip();
+          cancelOrbitHoverLeaveTimer();
+        });
+      });
+      orbitModalWasOpenRef.current = orbitScaleModalOpen;
+      return () => {
+        window.cancelAnimationFrame(outerRaf);
+        window.cancelAnimationFrame(innerRaf);
+      };
+    }
+
+    orbitModalWasOpenRef.current = orbitScaleModalOpen;
+    return undefined;
+  }, [
+    orbitScaleModalOpen,
+    cancelOrbitHoverLeaveTimer,
+    clearOrbitClickHold,
+    clearOrbitTooltip,
+    clearVerticalTooltip,
+    clearHorizontalTooltip,
+  ]);
 
   const showVerticalTooltip = useCallback((deal: number, target: HTMLElement) => {
     const r = target.getBoundingClientRect();
@@ -864,9 +1374,10 @@ export function DealTrackLabPage({
   );
 
   const showOrbitTooltip = useCallback((deal: number, target: HTMLElement) => {
-    const disk = diskRef.current;
+    const disk = target.closest<HTMLElement>('[data-deal-track-lab-disk]');
     const diskRect = disk?.getBoundingClientRect();
-    if (!diskRect) return;
+    if (!disk || !diskRect) return;
+    orbitTooltipDiskElRef.current = disk;
     const br = target.getBoundingClientRect();
     orbitBallGeomRef.current = {
       left: br.left,
@@ -887,14 +1398,14 @@ export function DealTrackLabPage({
       text,
       left: pos.left,
       top: pos.top,
-      accentHue: getDealHueDegrees(deal),
+      accentHue: getOrbitDigitHueDegrees(deal),
       refine: true,
     });
   }, []);
 
   useLayoutEffect(() => {
     if (orbitTooltip?.refine !== true) return;
-    const disk = diskRef.current?.getBoundingClientRect();
+    const disk = orbitTooltipDiskElRef.current?.getBoundingClientRect();
     const bg = orbitBallGeomRef.current;
     const el = document.getElementById(ORBIT_TOOLTIP_ID);
     if (!disk || !bg || !el) {
@@ -920,19 +1431,20 @@ export function DealTrackLabPage({
   }, [orbitTooltip]);
 
   useEffect(() => {
-    if (!DEAL_TRACK_LAB_CYCLE_HIGHLIGHT_DEMO) return;
-
-    // После прогона возвращаемся к «текущей» раздаче игрока в живой партии.
-    const targetDeal = normalizeDeal(currentDealFromGame);
-    setCurrentDeal(1);
+    if (!DEAL_TRACK_LAB_CYCLE_HIGHLIGHT_DEMO) {
+      setIntroRunning(false);
+      return;
+    }
 
     let rafId = 0;
+    let cancelled = false;
     let lastTs: number | null = null;
     let elapsed = 0;
     let step = 1;
     const maxStep = Math.max(1, totalDeals);
 
     const tick = (ts: number) => {
+      if (cancelled) return;
       if (lastTs == null) lastTs = ts;
       elapsed += ts - lastTs;
       lastTs = ts;
@@ -943,23 +1455,54 @@ export function DealTrackLabPage({
       }
 
       if (step >= maxStep) {
-        setCurrentDeal(targetDeal);
+        if (!cancelled) {
+          setOrbitSweepDeal(maxStep);
+          setIntroRunning(false);
+        }
         return;
       }
 
-      setCurrentDeal(step);
+      setOrbitSweepDeal(step);
       rafId = window.requestAnimationFrame(tick);
     };
 
+    setOrbitSweepDeal(1);
+    setIntroRunning(true);
     rafId = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(rafId);
-  }, [totalDeals, currentDealFromGame, normalizeDeal]);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [totalDeals]);
+
+  useEffect(() => {
+    if (!orbitScaleModalOpen || !DEAL_TRACK_LAB_MODAL_CYCLE_ON_OPEN) {
+      setModalIntroRunning(false);
+      return;
+    }
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      setModalIntroRunning(false);
+      return;
+    }
+    setModalIntroRunning(true);
+  }, [orbitScaleModalOpen]);
 
   const deals = useMemo(
     () => Array.from({ length: totalDeals }, (_, i) => i + 1),
     [totalDeals],
   );
-  const focusedDeal = hoveredDeal ?? currentDeal;
+  const orbitEffectiveHoveredDeal = orbitHoverPreviewSuppressed ? null : hoveredDeal;
+  const mainOrbitDeal = introRunning ? orbitSweepDeal : currentDeal;
+  const focusedDealMain = orbitCenterHoldDeal ?? orbitEffectiveHoveredDeal ?? mainOrbitDeal;
+  const focusedDealReplica = orbitCenterHoldDeal ?? orbitEffectiveHoveredDeal ?? currentDeal;
+  const syntheticMainSweep = introRunning ? mainOrbitDeal : null;
+  const orbitPreviewUiActiveMain =
+    orbitCenterHoldDeal !== null || orbitEffectiveHoveredDeal !== null || introRunning;
+  const orbitPreviewUiActiveReplica =
+    orbitCenterHoldDeal !== null || orbitEffectiveHoveredDeal !== null;
   const firstLineDeals = useMemo(() => deals.filter((d) => d <= 20), [deals]);
   const secondLineDeals = useMemo(() => deals.filter((d) => d >= 21), [deals]);
   /** Верхняя линия: компактно, но без нахлеста. */
@@ -985,16 +1528,82 @@ export function DealTrackLabPage({
   const circleRingDotR = 176;
   const circleCx = 210;
   const circleCy = 210;
-  const currentOrbitFloor = orbitSpotPosition(currentDeal, totalDeals, circleCx, circleCy, circleRingDotR);
-  const previewOrbitFloor =
-    hoveredDeal != null && hoveredDeal !== currentDeal
-      ? orbitSpotPosition(hoveredDeal, totalDeals, circleCx, circleCy, circleRingDotR)
+  const currentOrbitFloorMain = orbitSpotPosition(
+    mainOrbitDeal,
+    totalDeals,
+    circleCx,
+    circleCy,
+    circleRingDotR,
+  );
+  const currentOrbitFloorReplica = orbitSpotPosition(
+    currentDeal,
+    totalDeals,
+    circleCx,
+    circleCy,
+    circleRingDotR,
+  );
+  const orbitPreviewTargetMain =
+    orbitCenterHoldDeal ?? syntheticMainSweep ?? orbitEffectiveHoveredDeal ?? null;
+  const orbitPreviewTargetReplica =
+    orbitCenterHoldDeal ?? orbitEffectiveHoveredDeal ?? null;
+  const previewOrbitFloorMain =
+    orbitPreviewTargetMain != null && orbitPreviewTargetMain !== mainOrbitDeal
+      ? orbitSpotPosition(orbitPreviewTargetMain, totalDeals, circleCx, circleCy, circleRingDotR)
       : null;
-  /** Рыжевато-оранжевое свечение от шара под курсором (в т.ч. когда это та же раздача, что и «текущая»). */
-  const warmOrbitGlowPos =
-    hoveredDeal != null
-      ? orbitSpotPosition(hoveredDeal, totalDeals, circleCx, circleCy, circleRingDotR)
+  const previewOrbitFloorReplica =
+    orbitPreviewTargetReplica != null && orbitPreviewTargetReplica !== currentDeal
+      ? orbitSpotPosition(orbitPreviewTargetReplica, totalDeals, circleCx, circleCy, circleRingDotR)
       : null;
+
+  const prefersReducedMotionLab =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const modalOrbitCssSweepConfig =
+    orbitScaleModalOpen &&
+    modalIntroRunning &&
+    DEAL_TRACK_LAB_MODAL_CYCLE_ON_OPEN &&
+    !prefersReducedMotionLab
+      ? {
+          durationMs: DEAL_TRACK_LAB_MODAL_SWEEP_DURATION_MS,
+          onEnd: () => setModalIntroRunning(false),
+        }
+      : null;
+
+  const modalOrbitDeal = currentDeal;
+  const focusedDealModal = orbitCenterHoldDeal ?? orbitEffectiveHoveredDeal ?? modalOrbitDeal;
+  const orbitPreviewUiActiveModal =
+    orbitCenterHoldDeal !== null ||
+    orbitEffectiveHoveredDeal !== null ||
+    (orbitScaleModalOpen && modalIntroRunning);
+  const orbitPreviewTargetModal =
+    orbitCenterHoldDeal ?? orbitEffectiveHoveredDeal ?? null;
+  const currentOrbitFloorModal = orbitSpotPosition(
+    modalOrbitDeal,
+    totalDeals,
+    circleCx,
+    circleCy,
+    circleRingDotR,
+  );
+  const previewOrbitFloorModal =
+    orbitPreviewTargetModal != null && orbitPreviewTargetModal !== modalOrbitDeal
+      ? orbitSpotPosition(orbitPreviewTargetModal, totalDeals, circleCx, circleCy, circleRingDotR)
+      : null;
+
+  /** Рыжевато-оранжевое свечение у активной/превью точки (hover, клик, автопрогон). */
+  const warmOrbitGlowPosMain =
+    orbitPreviewTargetMain != null
+      ? orbitSpotPosition(orbitPreviewTargetMain, totalDeals, circleCx, circleCy, circleRingDotR)
+      : null;
+  const warmOrbitGlowPosReplica =
+    orbitPreviewTargetReplica != null
+      ? orbitSpotPosition(orbitPreviewTargetReplica, totalDeals, circleCx, circleCy, circleRingDotR)
+      : null;
+  const warmOrbitGlowPosModal =
+    modalOrbitCssSweepConfig != null
+      ? null
+      : orbitPreviewTargetModal != null
+        ? orbitSpotPosition(orbitPreviewTargetModal, totalDeals, circleCx, circleCy, circleRingDotR)
+        : null;
 
   return (
     <main
@@ -1116,12 +1725,12 @@ export function DealTrackLabPage({
                   ntDeg={ntDeg}
                   totalDeals={totalDeals}
                   deals={deals}
-                  currentDeal={currentDeal}
-                  orbitPreviewUiActive={hoveredDeal != null}
-                  focusedDeal={focusedDeal}
-                  currentOrbitFloor={currentOrbitFloor}
-                  previewOrbitFloor={previewOrbitFloor}
-                  warmOrbitGlowPos={warmOrbitGlowPos}
+                  currentDeal={mainOrbitDeal}
+                  orbitPreviewUiActive={orbitPreviewUiActiveMain}
+                  focusedDeal={focusedDealMain}
+                  currentOrbitFloor={currentOrbitFloorMain}
+                  previewOrbitFloor={previewOrbitFloorMain}
+                  warmOrbitGlowPos={warmOrbitGlowPosMain}
                   orbitTooltipDeal={orbitTooltip?.deal ?? null}
                   cancelOrbitHoverLeaveTimer={cancelOrbitHoverLeaveTimer}
                   setHoveredDeal={setHoveredDeal}
@@ -1129,50 +1738,63 @@ export function DealTrackLabPage({
                   showOrbitTooltip={showOrbitTooltip}
                   setCurrentDeal={setCurrentDeal}
                   orbitHoverLeaveTimerRef={orbitHoverLeaveTimerRef}
-                  beginOrbitClickPreviewHold={(d, _revert) => setCurrentDeal(d)}
-                  onOrbitHoverResume={() => {}}
-                  orbitCssSuppressHover={false}
-                  orbitHoldPinkAccent={false}
+                  beginOrbitClickPreviewHold={beginOrbitClickPreviewHold}
+                  onOrbitHoverResume={resumeOrbitHoverPreview}
+                  orbitCssSuppressHover={orbitHoverPreviewSuppressed}
+                  orbitHoldPinkAccent={orbitCenterHoldDeal !== null}
+                  orbitPointDealNumbers
+                  deckStripAboveCap
+                  orbitSweepInstant={introRunning}
                 />
               </div>
-              <button
-                type="button"
-                className="deal-track-lab-orbit-replica-btn"
-                aria-label="Показать круговую шкалу на экране"
-                onClick={() => {
-                  diskRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }}
-              >
-                <span className="deal-track-lab-orbit-replica-inner" aria-hidden>
-                  <OrbitTrackDisk
-                    normDeg={normDeg}
-                    ntDeg={ntDeg}
-                    totalDeals={totalDeals}
-                    deals={deals}
-                    currentDeal={currentDeal}
-                    orbitPreviewUiActive={hoveredDeal != null}
-                    focusedDeal={focusedDeal}
-                    currentOrbitFloor={currentOrbitFloor}
-                    previewOrbitFloor={previewOrbitFloor}
-                    warmOrbitGlowPos={warmOrbitGlowPos}
-                    orbitTooltipDeal={null}
-                    cancelOrbitHoverLeaveTimer={cancelOrbitHoverLeaveTimer}
-                    setHoveredDeal={setHoveredDeal}
-                    setOrbitTooltip={setOrbitTooltip}
-                    showOrbitTooltip={showOrbitTooltip}
-                    setCurrentDeal={setCurrentDeal}
-                    orbitHoverLeaveTimerRef={orbitHoverLeaveTimerRef}
-                    beginOrbitClickPreviewHold={(_d, _r) => {
-                      /* реплика — точки декоративные */
-                    }}
-                    onOrbitHoverResume={() => {}}
-                    orbitCssSuppressHover={false}
-                    orbitHoldPinkAccent={false}
-                    orbitPointsReadOnly
-                    orbitReplica
-                  />
-                </span>
-              </button>
+              <div className="deal-track-lab-orbit-replica-column">
+                <div
+                  className="deal-track-lab-orbit-replica-btn"
+                  role="group"
+                  aria-label="Компактная круговая шкала раздач"
+                  aria-describedby="deal-track-lab-replica-help"
+                >
+                  <div className="deal-track-lab-orbit-replica-inner">
+                    <OrbitTrackDisk
+                      normDeg={normDeg}
+                      ntDeg={ntDeg}
+                      totalDeals={totalDeals}
+                      deals={deals}
+                      currentDeal={currentDeal}
+                      orbitPreviewUiActive={orbitPreviewUiActiveReplica}
+                      focusedDeal={focusedDealReplica}
+                      currentOrbitFloor={currentOrbitFloorReplica}
+                      previewOrbitFloor={previewOrbitFloorReplica}
+                      warmOrbitGlowPos={warmOrbitGlowPosReplica}
+                      orbitTooltipDeal={orbitTooltip?.deal ?? null}
+                      cancelOrbitHoverLeaveTimer={cancelOrbitHoverLeaveTimer}
+                      setHoveredDeal={setHoveredDeal}
+                      setOrbitTooltip={setOrbitTooltip}
+                      showOrbitTooltip={showOrbitTooltip}
+                      setCurrentDeal={setCurrentDeal}
+                      orbitHoverLeaveTimerRef={orbitHoverLeaveTimerRef}
+                      beginOrbitClickPreviewHold={beginOrbitClickPreviewHold}
+                      onOrbitHoverResume={resumeOrbitHoverPreview}
+                      orbitCssSuppressHover={orbitHoverPreviewSuppressed}
+                      orbitHoldPinkAccent={orbitCenterHoldDeal !== null}
+                      centerNumOpensLargeScale
+                      onOpenLargeScale={() => setOrbitScaleModalOpen(true)}
+                      largeScaleModalOpen={orbitScaleModalOpen}
+                      replicaLaunchButtonRef={replicaLaunchBtnRef}
+                      orbitReplicaSpectrum
+                      orbitReplica
+                    />
+                  </div>
+                </div>
+                <p id="deal-track-lab-replica-help" className="deal-track-lab-orbit-replica-help">
+                  <span className="deal-track-lab-orbit-replica-help-k">Точки на орбите</span> — выбор раздачи и
+                  свои подсказки (не всплывашка браузера).{' '}
+                  В <span className="deal-track-lab-orbit-replica-help-k">центре</span> видна текущая раздача;
+                  при наведении на неё появляется иконка <span className="deal-track-lab-orbit-replica-help-k">развернуть</span>{' '}
+                  — <span className="deal-track-lab-orbit-replica-help-k">клик</span> открывает полную круговую шкалу
+                  порядка раздач.
+                </p>
+              </div>
             </div>
           </section>
 
@@ -1353,6 +1975,61 @@ export function DealTrackLabPage({
           </section>
         </div>
       </div>
+      <dialog
+        ref={orbitScaleDialogRef}
+        id="deal-track-lab-orbit-scale-dialog"
+        className="deal-track-lab-orbit-scale-dialog"
+        aria-labelledby="deal-track-lab-orbit-scale-title"
+        onClose={() => setOrbitScaleModalOpen(false)}
+      >
+        <div className="deal-track-lab-orbit-scale-dialog-surface">
+          <header className="deal-track-lab-orbit-scale-dialog-head">
+            <h2 id="deal-track-lab-orbit-scale-title" className="deal-track-lab-orbit-scale-dialog-title">
+              Круговая шкала · полный размер
+            </h2>
+            <button
+              type="button"
+              className="deal-track-lab-orbit-scale-dialog-close"
+              autoFocus
+              onClick={() => setOrbitScaleModalOpen(false)}
+            >
+              Закрыть
+            </button>
+          </header>
+          <div className="deal-track-lab-orbit-scale-disk">
+            <div className="deal-track-lab-circle-wrap deal-track-lab-circle-wrap--in-row">
+              <OrbitTrackDisk
+                normDeg={normDeg}
+                ntDeg={ntDeg}
+                totalDeals={totalDeals}
+                deals={deals}
+                currentDeal={modalOrbitDeal}
+                orbitPreviewUiActive={orbitPreviewUiActiveModal}
+                focusedDeal={focusedDealModal}
+                currentOrbitFloor={currentOrbitFloorModal}
+                previewOrbitFloor={previewOrbitFloorModal}
+                warmOrbitGlowPos={warmOrbitGlowPosModal}
+                orbitTooltipDeal={orbitTooltip?.deal ?? null}
+                cancelOrbitHoverLeaveTimer={cancelOrbitHoverLeaveTimer}
+                setHoveredDeal={setHoveredDeal}
+                setOrbitTooltip={setOrbitTooltip}
+                showOrbitTooltip={showOrbitTooltip}
+                setCurrentDeal={setCurrentDeal}
+                orbitHoverLeaveTimerRef={orbitHoverLeaveTimerRef}
+                beginOrbitClickPreviewHold={beginOrbitClickPreviewHold}
+                onOrbitHoverResume={resumeOrbitHoverPreview}
+                orbitCssSuppressHover={orbitHoverPreviewSuppressed}
+                orbitHoldPinkAccent={orbitCenterHoldDeal !== null}
+                orbitPointDealNumbers
+                deckStripAboveCap
+                orbitCssRingSweep={modalOrbitCssSweepConfig}
+                orbitSweepInstant={modalIntroRunning && modalOrbitCssSweepConfig == null}
+                centerLabelLayoutDeal={currentDeal}
+              />
+            </div>
+          </div>
+        </div>
+      </dialog>
       {orbitTooltip != null &&
         createPortal(
           (() => {
