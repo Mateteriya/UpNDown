@@ -1,3 +1,63 @@
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(2):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(4):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(6):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(8):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(10):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(12):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(14):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(16):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(2):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(4):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(6):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(8):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(10):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(12):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(14):not(.deal-results-cell-human):not(.deal-results-column-leader),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(16):not(.deal-results-cell-human):not(.deal-results-column-leader) {
+  /* Mobile modal only: subtle tone shift for "Заказ" columns */
+  background-image: linear-gradient(180deg, rgba(56, 189, 248, 0.12) 0%, rgba(30, 64, 175, 0.2) 100%) !important;
+  box-shadow: inset -1px 0 0 rgba(14, 116, 144, 0.2), inset 0 1px 0 rgba(186, 230, 253, 0.08) !important;
+}
+
+/* DevTools-friendly tuning target: mobile results modal opponent names */
+.deal-results-modal-overlay-mobile .deal-results-player-name--mobile-opponent {
+  background-image: linear-gradient(122deg, #611cd7 0%, #1b9efa 20%, #7157d0 42%, #dd4da7e3 66%, #bd902d 100%) !important;
+  -webkit-text-stroke: 0 #00000000 !important;
+  text-shadow: 0 1px 0 rgb(228 208 220 / 0%), 0 0 7px rgb(56 189 248 / 14%), 0 0 11px #c4b5fd24 !important;
+  font-weight: 685 !important;
+}
+
+.deal-results-modal-overlay-mobile .deal-results-player-name--mobile-opponent.deal-results-player-name--leader {
+  background-image: linear-gradient(122deg, #611cd7 0%, #1b9efa 20%, #7157d0 42%, #dd4da7e3 66%, #bd902d 100%) !important;
+  -webkit-text-stroke: 0 #00000000 !important;
+  text-shadow: 0 1px 0 rgb(228 208 220 / 0%), 0 0 7px rgb(56 189 248 / 14%), 0 0 11px #c4b5fd24 !important;
+  font-weight: 685 !important;
+}
+
+@keyframes deal-results-user-number-iridescent-shift {
+  0% {
+    background-position: -120% 50%;
+  }
+  50% {
+    background-position: 220% 50%;
+  }
+  100% {
+    background-position: -120% 50%;
+  }
+}
+
+.deal-results-mobile-user-gloss-number {
+  display: inline-block;
+  background-size: 460% 100% !important;
+  animation-name: deal-results-user-number-iridescent-shift !important;
+  animation-duration: var(--dr-iridescent-dur, 11.5s) !important;
+  /** linear без «залипаний» в участках easing + без will-change: меньше скачков слоёв/мыла у clip:text */
+  animation-timing-function: linear !important;
+  animation-iteration-count: infinite !important;
+  animation-delay: var(--dr-iridescent-delay, 0s) !important;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
 @import './theme-standard.css';
 @import './theme-neon.css';
 
@@ -14264,8 +14324,9 @@ body.deal-results-modal-open-mobile {
   font-size: 1.14em !important;
   font-weight: 700 !important;
   letter-spacing: 0.055em !important;
-  transform: translateY(-0.5px) scale(1.02, 1.14) !important;
+  transform: translate3d(0, -0.5px, 0) scale(1.02, 1.14) !important;
   transform-origin: center center !important;
+  backface-visibility: hidden !important;
   background-image: linear-gradient(
     108deg,
     #f0abfc 0%,
@@ -14288,34 +14349,18 @@ body.deal-results-modal-open-mobile {
   background-clip: text !important;
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
-  -webkit-text-stroke: 0.34px rgba(241, 245, 249, 0.92) !important;
+  -webkit-text-stroke: 0 transparent !important;
+  /** Уже без «тяжёлого» ореола: на clip:text широкий blur воспринимается как туман. */
   text-shadow:
-    0 -1px 0 rgba(255, 255, 255, 0.38),
-    0 1px 0 rgba(15, 23, 42, 0.32),
-    0 2px 4px rgba(15, 23, 42, 0.28),
-    0 0 18px rgba(216, 180, 254, 0.96),
-    0 0 30px rgba(168, 85, 247, 0.84),
-    0 0 44px rgba(34, 211, 238, 0.66),
-    0 0 62px rgba(0, 207, 255, 0.52) !important;
-  animation:
-    deal-results-human-name-shimmer 2.8s ease-in-out infinite,
-    deal-results-human-name-spectrum-flow 7.6s linear infinite !important;
+    0 -1px 0 rgba(255, 255, 255, 0.32),
+    0 1px 0 rgba(15, 23, 42, 0.28),
+    0 0 12px rgba(216, 180, 254, 0.72),
+    0 0 22px rgba(168, 85, 247, 0.55),
+    0 0 34px rgba(34, 211, 238, 0.38) !important;
+  /** Было две параллельные анимации background-position + filter — WebKit давил клип текст в хаос. Один контур движения. */
+  animation: deal-results-human-name-gradient-flow 10.8s linear infinite !important;
 }
-@keyframes deal-results-human-name-shimmer {
-  0% {
-    background-position: 0% 50%;
-    filter: brightness(1) saturate(1);
-  }
-  50% {
-    background-position: 100% 50%;
-    filter: brightness(1.26) saturate(1.34);
-  }
-  100% {
-    background-position: 0% 50%;
-    filter: brightness(1) saturate(1);
-  }
-}
-@keyframes deal-results-human-name-spectrum-flow {
+@keyframes deal-results-human-name-gradient-flow {
   0% {
     background-position: 0% 50%;
   }
@@ -14480,10 +14525,18 @@ body.deal-results-modal-open-mobile {
 }
 .deal-results-modal-overlay-mobile .deal-results-table-window table .deal-results-cell-human {
   box-shadow:
-    inset 0 0 18px 2px rgba(129, 140, 248, 0.12),
-    inset 0 0 28px 2px rgba(67, 56, 202, 0.1),
-    inset 0 0 0 1px rgba(167, 139, 250, 0.38) !important;
-  background-image: linear-gradient(180deg, rgba(147, 51, 234, 0.1) 0%, rgba(99, 102, 241, 0.06) 50%, transparent 72%) !important;
+    inset 0 0 28px 3px rgba(30, 10, 64, 0.62),
+    inset 0 0 0 1px rgba(139, 92, 246, 0.42),
+    inset 0 1px 0 rgba(196, 181, 253, 0.14),
+    inset 2px 0 0 rgba(34, 211, 238, 0.66),
+    inset -2px 0 0 rgba(56, 189, 248, 0.62),
+    -1px 0 10px rgba(34, 211, 238, 0.24),
+    1px 0 10px rgba(56, 189, 248, 0.2) !important;
+  background-image:
+    linear-gradient(168deg, rgba(56, 12, 104, 0.88) 0%, rgba(36, 10, 78, 0.92) 44%, rgba(20, 8, 52, 0.96) 100%),
+    radial-gradient(125% 62% at 50% -14%, rgba(167, 139, 250, 0.18) 0%, rgba(167, 139, 250, 0.04) 36%, rgba(167, 139, 250, 0) 64%) !important;
+  border-left: 2px solid rgba(34, 211, 238, 0.86) !important;
+  border-right: 2px solid rgba(56, 189, 248, 0.8) !important;
 }
 .deal-results-modal-overlay-mobile .deal-results-column-leader {
   box-shadow:
@@ -14513,6 +14566,78 @@ body.deal-results-modal-open-mobile {
     inset 0 0 0 1px rgba(167, 139, 250, 0.52),
     inset 0 0 28px 2px rgba(76, 29, 149, 0.2),
     -2px 0 12px rgba(139, 92, 246, 0.28) !important;
+}
+/* Mobile modal: пользовательские столбцы (Заказ/Очки) — приоритетно, включая случай когда пользователь = лидер. */
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td.deal-results-cell-human:nth-child(even) {
+  /* Заказ пользователя: чуть светлее (как у остальных игроков) */
+  background-image:
+    linear-gradient(168deg, rgba(88, 26, 148, 0.88) 0%, rgba(56, 32, 124, 0.9) 42%, rgba(31, 22, 88, 0.94) 100%),
+    radial-gradient(124% 62% at 50% -14%, rgba(165, 180, 252, 0.2) 0%, rgba(125, 211, 252, 0.08) 34%, rgba(125, 211, 252, 0) 66%) !important;
+  border-left: 2px solid rgba(56, 189, 248, 0.88) !important;
+  border-right: 2px solid rgba(56, 189, 248, 0.88) !important;
+  box-shadow:
+    inset 0 0 26px 3px rgba(26, 10, 62, 0.64),
+    inset 0 0 0 1px rgba(129, 140, 248, 0.44),
+    inset 2px 0 0 rgba(56, 189, 248, 0.72),
+    inset -2px 0 0 rgba(56, 189, 248, 0.72),
+    -1px 0 11px rgba(56, 189, 248, 0.24),
+    1px 0 11px rgba(56, 189, 248, 0.24) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td.deal-results-cell-human:nth-child(odd):not(:first-child),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td.deal-results-cell-human.deal-results-column-leader-r {
+  /* Очки пользователя: чуть темнее (как у остальных игроков) */
+  background-image:
+    linear-gradient(168deg, rgba(52, 10, 102, 0.94) 0%, rgba(30, 8, 70, 0.97) 44%, rgba(14, 6, 44, 0.99) 100%),
+    radial-gradient(120% 58% at 50% -14%, rgba(56, 189, 248, 0.1) 0%, rgba(56, 189, 248, 0.02) 34%, rgba(56, 189, 248, 0) 62%) !important;
+  border-left: 2px solid rgb(55 169 231) !important;
+  border-right: 2px solid rgb(55 169 231) !important;
+  box-shadow:
+    inset 0 18px 24px -16px rgba(255, 255, 255, 0.34),
+    inset 0 -18px 22px -14px rgba(15, 23, 42, 0.56),
+    inset 0 0 28px 3px rgba(33, 13, 77, 0.62),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.5),
+    inset 2px 0 0 rgb(55 169 231 / 0.98),
+    inset 4px 0 0 rgb(167 139 250 / 0.9),
+    inset -2px 0 0 rgb(55 169 231 / 0.98),
+    inset -4px 0 0 rgb(167 139 250 / 0.9),
+    0 1px 0 rgba(255, 255, 255, 0.18),
+    0 8px 14px -10px rgba(30, 41, 59, 0.55),
+    -1px 0 16px rgb(55 169 231 / 0.46),
+    -1px 0 14px rgb(167 139 250 / 0.42),
+    1px 0 16px rgb(55 169 231 / 0.46),
+    1px 0 14px rgb(167 139 250 / 0.42) !important;
+}
+/* Mobile modal header (row З/О): те же пользовательские неон-границы и контраст фонов. */
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th.deal-results-cell-human:nth-child(even) {
+  /* Header "Заказ": светлее */
+  background-image:
+    linear-gradient(168deg, rgba(92, 30, 152, 0.88) 0%, rgba(58, 34, 128, 0.9) 42%, rgba(34, 24, 94, 0.94) 100%),
+    radial-gradient(124% 62% at 50% -14%, rgba(165, 180, 252, 0.22) 0%, rgba(125, 211, 252, 0.09) 34%, rgba(125, 211, 252, 0) 66%) !important;
+  border-left: 2px solid rgba(56, 189, 248, 0.88) !important;
+  border-right: 2px solid rgba(56, 189, 248, 0.88) !important;
+  box-shadow:
+    inset 0 0 18px 2px rgba(26, 10, 62, 0.7),
+    inset 0 0 0 1px rgba(129, 140, 248, 0.48),
+    inset 2px 0 0 rgba(56, 189, 248, 0.72),
+    inset -2px 0 0 rgba(56, 189, 248, 0.72) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th.deal-results-cell-human:nth-child(odd),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th.deal-results-cell-human.deal-results-column-leader-r {
+  /* Header "Очки": темнее */
+  background-image:
+    linear-gradient(168deg, rgba(58, 14, 110, 0.94) 0%, rgba(33, 10, 78, 0.97) 46%, rgba(16, 8, 50, 0.99) 100%),
+    radial-gradient(120% 58% at 50% -14%, rgba(56, 189, 248, 0.12) 0%, rgba(56, 189, 248, 0.03) 36%, rgba(56, 189, 248, 0) 64%) !important;
+  border-left: 2px solid rgb(55 169 231) !important;
+  border-right: 2px solid rgb(55 169 231) !important;
+  box-shadow:
+    inset 0 0 18px 2px rgba(33, 13, 77, 0.66),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.54),
+    inset 2px 0 0 rgb(55 169 231 / 0.96),
+    inset 4px 0 0 rgb(167 139 250 / 0.86),
+    inset -2px 0 0 rgb(55 169 231 / 0.96),
+    inset -4px 0 0 rgb(167 139 250 / 0.86),
+    -1px 0 14px rgb(167 139 250 / 0.36),
+    1px 0 14px rgb(55 169 231 / 0.42) !important;
 }
 /* Без доп. паддингов: бейдж лежит поверх, как наклейка */
 .deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child th.deal-results-name-cell--leader,
@@ -14696,8 +14821,11 @@ body.deal-results-modal-open-mobile {
   height: 14px !important;
   transform: translateX(-50%) !important;
   z-index: 1 !important;
-  background: rgb(56 189 248 / 0.96) !important;
-  filter: drop-shadow(0 0 8px rgb(34 211 238 / 0.55)) !important;
+  background: rgb(34 211 238 / 1) !important;
+  filter:
+    drop-shadow(0 0 12px rgb(34 211 238 / 0.9))
+    drop-shadow(0 0 20px rgb(56 189 248 / 0.72))
+    drop-shadow(0 0 28px rgb(125 211 252 / 0.5)) !important;
 }
 .deal-results-name-rank-badge-tooltip-floating--below::after {
   bottom: calc(100% + 1px) !important;
@@ -14940,9 +15068,7 @@ body.deal-results-modal-open-mobile {
   background-size: 520% 100% !important;
   background-position: 0% 50% !important;
   background-repeat: no-repeat !important;
-  animation:
-    deal-results-human-name-shimmer 2.8s ease-in-out infinite,
-    deal-results-human-name-spectrum-flow 7.6s linear infinite !important;
+  animation: deal-results-human-name-gradient-flow 10.8s linear infinite !important;
 }
 .deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-surface,
 .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-surface {
@@ -21951,4 +22077,41 @@ body.deal-results-modal-open-mobile {
     inset 0 0 88px rgb(251 146 60 / 0.18),
     inset 0 -36px 76px rgb(234 88 12 / 0.15),
     inset 0 28px 62px rgb(254 215 170 / 0.1);
+}
+
+
+/* Mobile results: лёгкая красная подсветка отрицательных ячеек (ослаблена, не спорит с основным неоном таблицы). */
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td.deal-results-cell-negative-mobile {
+  position: relative !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td.deal-results-cell-negative-mobile::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  background:
+    linear-gradient(to bottom, rgb(244 63 94 / 0.07) 0%, rgb(244 63 94 / 0.025) 11%, transparent 24%),
+    linear-gradient(to top, rgb(244 63 94 / 0.07) 0%, rgb(244 63 94 / 0.025) 11%, transparent 24%) !important;
+  box-shadow:
+    inset 0 1px 4px rgb(244 63 94 / 0.06),
+    inset 0 -1px 4px rgb(244 63 94 / 0.06) !important;
+}
+
+/* Mobile modal: 3 central separators between player column groups (thicker x2). */
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(3),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(5),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(7),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(3),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(5),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(7) {
+  border-right-width: 4px !important;
+}
+/* Same 3 seams from the opposite side too (in case one side gets overridden by leader styles). */
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(4),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(6),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(8),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(4),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(6),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(8) {
+  border-left-width: 4px !important;
 }

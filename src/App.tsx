@@ -491,6 +491,9 @@ function App() {
                 <a href="/deal-track-lab" style={{ ...buttonStyle, textDecoration: 'none', textAlign: 'center' }}>
                   Лаб: шкала раздач (ПК)
                 </a>
+                <a href="/total-color-lab" style={{ ...buttonStyle, textDecoration: 'none', textAlign: 'center' }}>
+                  Лаб: цвета ИТОГО (моб)
+                </a>
               </>
             )}
             <button disabled style={buttonStyle}>

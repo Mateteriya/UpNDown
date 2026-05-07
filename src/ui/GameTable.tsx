@@ -51,6 +51,7 @@ import {
   recordOfflineMatchFinish,
 } from '../lib/onlineGameSupabase';
 import { isPersonalAiReplacementEnabled } from '../lib/featureFlags';
+import { getResultsTableFootTotalDigitStyle } from '../lib/mobileResultsTableTotalTone';
 import { CardView } from './CardView';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
@@ -8542,6 +8543,14 @@ function DealResultsScreen({
 }) {
   const [leaderBadgeTooltipOpen, setLeaderBadgeTooltipOpen] = useState(false);
   const [leaderBadgeTooltipPos, setLeaderBadgeTooltipPos] = useState<{ left: number; top: number; placement: 'above' | 'below'; arrowX: number } | null>(null);
+  const [mobileScrollHintVisible, setMobileScrollHintVisible] = useState(true);
+  const [mobileLegendActiveKey, setMobileLegendActiveKey] = useState<'bid' | 'result' | null>(null);
+  const mobileLegendFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerMobileLegendFlash = (key: 'bid' | 'result') => {
+    setMobileLegendActiveKey(key);
+    if (mobileLegendFlashTimerRef.current) window.clearTimeout(mobileLegendFlashTimerRef.current);
+    mobileLegendFlashTimerRef.current = window.setTimeout(() => setMobileLegendActiveKey(null), 780);
+  };
   const bids = state.bids as number[];
   const players = state.players;
   const baseStyle = variant === 'modal'
@@ -8558,6 +8567,9 @@ function DealResultsScreen({
   const panelStyle = compactModal ? { ...dealResultsPanelStyle, ...dealResultsPanelStyleMobile } : dealResultsPanelStyle;
   const panelTitleStyle = compactModal ? { ...dealResultsPanelTitleStyle, ...dealResultsPanelTitleStyleMobile } : dealResultsPanelTitleStyle;
   const rowStyle = compactModal ? { ...dealResultsRowStyle, ...dealResultsRowStyleMobile } : dealResultsRowStyle;
+  useEffect(() => {
+    if (compactModal) setMobileScrollHintVisible(true);
+  }, [compactModal]);
 
   const _renderPanel = (idx: number) => {
     const bid = bids[idx] ?? 0;
@@ -8640,6 +8652,9 @@ function DealResultsScreen({
 
   const dealColumnWidth = !isMobile ? DEAL_COLUMN_WIDTH_PC : DEAL_COLUMN_WIDTH;
   const playerCellWidth = !isMobile ? PLAYER_CELL_WIDTH_PC : PLAYER_CELL_WIDTH;
+  /** Только мобильная модалка: делаем «Заказ» уже и даём больше места столбцу «Очки». */
+  const mobileBidCellWidth = isMobile ? Math.max(28, playerCellWidth - 6) : playerCellWidth;
+  const mobileResultCellWidth = isMobile ? playerCellWidth + 6 : playerCellWidth;
   const latestDealRow =
     dealHistory.find((r) => r.dealNumber === state.dealNumber) ??
     (dealHistory.length > 0 ? dealHistory[dealHistory.length - 1] : undefined);
@@ -9048,32 +9063,14 @@ function DealResultsScreen({
       textShadow: typeof sh === 'string' ? sh : undefined,
     };
   };
-  /** Строка «Итог»: все положительные значения — кислотно-салатовые. */
-  const getFootTotalScoreTypography = (totalScore: number, isWinner: boolean): React.CSSProperties => {
-    const fw = isWinner ? 900 : 780;
-    if (totalScore < 0) {
-      return {
-        color: '#fda4af',
-        WebkitTextFillColor: '#fda4af',
-        fontWeight: fw,
-        textShadow: '0 0 8px rgb(251 113 133 / 0.42)',
-      };
-    }
-    if (totalScore === 0) {
-      return { color: '#94a3b8', WebkitTextFillColor: '#94a3b8', fontWeight: fw };
-    }
-    return {
-      color: '#d9ff6b',
-      WebkitTextFillColor: '#d9ff6b',
-      fontWeight: fw,
-      fontSize: isWinner ? '1.08em' : '1.03em',
-      textShadow:
-        '0 0 12px rgb(190 242 100 / 0.92), 0 0 24px rgb(163 230 53 / 0.62), 0 0 8px rgb(253 224 71 / 0.34)',
-    };
-  };
   /** Чистый тёмно-фиолетовый фон в CSS — только оппонент не-лидер (.deal-results-cell-neutral-opponent). */
   const neutralOpponentCellClass = (playerIndex: number, isLeaderColumn: boolean) =>
     playerIndex !== humanIdx && !isLeaderColumn ? 'deal-results-cell-neutral-opponent' : undefined;
+  /** Прочерки: у юзера/лидера — фиолетовые; у neutral-opponent — цвет из CSS-класса; серебро только для прочих случаев. */
+  const getEmptyDashStyle = (playerIndex: number, isLeaderColumn: boolean): React.CSSProperties | undefined =>
+    playerIndex === humanIdx || isLeaderColumn
+      ? dealResultsEmptyDashAccentStyle
+      : (playerIndex !== humanIdx && !isLeaderColumn ? undefined : dealResultsEmptyDashStyle);
   /** Космический градиент имён в таблице результатов: персональный спектр + аккуратные акценты лидера/игрока. */
   const getDealResultsPlayerNameCosmicStyle = (playerIndex: number, isLeader: boolean): React.CSSProperties => {
     const gradients = [
@@ -9084,10 +9081,37 @@ function DealResultsScreen({
     ] as const;
     const gradient = gradients[playerIndex % gradients.length];
     const isHuman = playerIndex === humanIdx;
+    const mobileOpponentGradients = [
+      'linear-gradient(122deg, #f5f3ff 0%, #ddd6fe 20%, #c4b5fd 42%, #93c5fd 66%, #67e8f9 100%)',
+      'linear-gradient(122deg, #eff6ff 0%, #dbeafe 22%, #bfdbfe 44%, #93c5fd 68%, #c4b5fd 100%)',
+      'linear-gradient(122deg, #ccfbf1 0%, #99f6e4 20%, #67e8f9 42%, #7dd3fc 66%, #c4b5fd 100%)',
+      'linear-gradient(122deg, #f0f9ff 0%, #e0f2fe 20%, #bae6fd 42%, #93c5fd 66%, #ddd6fe 100%)',
+    ] as const;
+    const isMobileOpponent = isMobile && !isHuman;
+    const isMobileHuman = isMobile && isHuman;
     return {
       ...dealResultsPlayerNameTextBaseStyle,
-      backgroundImage: gradient,
-      ...(isLeader
+      backgroundImage: isMobileOpponent ? mobileOpponentGradients[playerIndex % mobileOpponentGradients.length] : gradient,
+      ...(isMobileOpponent
+        ? {
+            fontWeight: isLeader ? 720 : 685,
+            WebkitTextStroke: '0 transparent',
+            textShadow: isLeader
+              ? '0 1px 0 rgb(2 6 23 / 0.48), 0 0 9px rgb(125 211 252 / 0.5), 0 0 14px rgb(167 139 250 / 0.34)'
+              : '0 1px 0 rgb(2 6 23 / 0.44), 0 0 7px rgb(56 189 248 / 0.4), 0 0 11px rgb(96 165 250 / 0.24)',
+          }
+        : {}),
+      ...(isMobileHuman
+        ? {
+            // Keep user's current gradient background, but reset letter effects
+            // and use the same readable baseline as opponents.
+            backgroundImage: 'linear-gradient(122deg, #ffffff 0%, #ecfeff 10%, #a5f3fc 24%, #67e8f9 42%, #22d3ee 56%, #0ea5e9 70%, #7dd3fc 84%, #d8b4fe 100%)',
+            fontWeight: 685,
+            WebkitTextStroke: '0 transparent',
+            textShadow: '0 1px 0 rgb(2 6 23 / 0.44), 0 0 7px rgb(56 189 248 / 0.4), 0 0 11px rgb(96 165 250 / 0.24)',
+          }
+        : {}),
+      ...(!isMobileOpponent && isLeader
         ? {
             fontWeight: 770,
             letterSpacing: '0.014em',
@@ -9095,7 +9119,7 @@ function DealResultsScreen({
               '0 1px 0 rgb(15 23 42 / 0.42), 0 0 16px rgb(125 211 252 / 0.56), 0 0 24px rgb(167 139 250 / 0.4)',
           }
         : {}),
-      ...(isHuman
+      ...(!isMobileHuman && isHuman
         ? {
             backgroundImage: 'linear-gradient(122deg, #ffffff 0%, #ecfeff 10%, #a5f3fc 24%, #67e8f9 42%, #22d3ee 56%, #0ea5e9 70%, #7dd3fc 84%, #d8b4fe 100%)',
             fontWeight: 790,
@@ -9114,6 +9138,77 @@ function DealResultsScreen({
     const inferred = typeof bid === 'number' ? getTakenFromDealPoints(bid, points) : undefined;
     const explicitTaken = row.takens?.[playerIdx];
     return getDealPointsAccentStyle(points, bid, inferred, 'text', explicitTaken);
+  };
+  const getMobileResultNumberCompactStyle = (points: number): React.CSSProperties =>
+    Math.abs(points) >= 10
+      ? dealResultsMobileTableResultNumberCompactStyle
+      : dealResultsMobileTableResultNumberValueStyle;
+  const getMobileUserResultToneStyle = (_points: number, _isLegalZeroZeroFive: boolean): React.CSSProperties => ({});
+  const getMobileUserPositiveSignStyle = (points: number, isLegalZeroZeroFive: boolean): React.CSSProperties => {
+    if (isLegalZeroZeroFive) return dealResultsMobilePositiveSignStyle;
+    if (points >= 10) return dealResultsMobileUserPositiveSignHighStyle;
+    if (points > 0) return dealResultsMobileUserPositiveSignStyle;
+    return dealResultsMobilePositiveSignStyle;
+  };
+  const getMobileUserResultValueGlossStyle = (points: number, isLegalZeroZeroFive: boolean): React.CSSProperties => {
+    if (isLegalZeroZeroFive) {
+      return {
+        backgroundImage:
+          'repeating-linear-gradient(100deg, rgb(216 180 254) 0 10%, rgb(196 181 253) 10% 20%, rgb(233 213 255) 20% 30%, rgb(103 232 249) 30% 40%, rgb(45 212 191) 40% 50%, rgb(132 255 54) 50% 60%, rgb(168 85 247) 60% 70%, rgb(129 140 248) 70% 80%, rgb(147 51 234) 80% 90%)',
+        WebkitBackgroundClip: 'text',
+        backgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundSize: '460% 100%',
+        backgroundPosition: '0% 50%',
+        filter: 'none',
+        textShadow: '0 0 1px rgb(216 180 254 / 0.68), 0 0 2px rgb(147 51 234 / 0.28)',
+      };
+    }
+    if (points >= 10) {
+      return {
+        backgroundImage:
+          'repeating-linear-gradient(100deg, rgb(45 212 191) 0 8%, rgb(20 184 166) 8% 16%, rgb(125 211 252) 16% 24%, rgb(56 189 248) 24% 32%, rgb(163 255 72) 32% 40%, rgb(59 130 246) 40% 48%, rgb(99 102 241) 48% 56%, rgb(147 51 234) 56% 64%, rgb(192 132 252) 64% 72%, rgb(233 213 255) 72% 80%, rgb(16 185 129) 80% 88%, rgb(207 250 254) 88% 96%)',
+        WebkitBackgroundClip: 'text',
+        backgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        filter: 'none',
+        textShadow:
+          '0 0 1px rgb(125 211 252 / 0.88), 0 0 2px rgb(56 189 248 / 0.58), 0 0 4px rgb(147 51 234 / 0.28)',
+      };
+    }
+    if (points > 0) {
+      return {
+        backgroundImage:
+          'repeating-linear-gradient(100deg, rgb(236 253 245) 0 10%, rgb(45 212 191) 10% 20%, rgb(16 185 129) 20% 30%, rgb(163 255 72) 30% 40%, rgb(125 211 252) 40% 50%, rgb(56 189 248) 50% 60%, rgb(14 165 233) 60% 70%, rgb(196 181 253) 70% 80%, rgb(207 250 254) 80% 90%)',
+        WebkitBackgroundClip: 'text',
+        backgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        filter: 'none',
+        textShadow:
+          '0 0 1px rgb(34 211 238 / 0.78), 0 0 2px rgb(14 165 233 / 0.46), 0 0 4px rgb(99 102 241 / 0.24)',
+      };
+    }
+    if (points < 0) {
+      return {
+        backgroundImage:
+          'repeating-linear-gradient(100deg, rgb(255 228 230) 0 14%, rgb(251 207 232) 14% 28%, rgb(244 114 182) 28% 42%, rgb(217 70 239) 42% 56%, rgb(192 132 252) 56% 70%, rgb(244 114 182) 70% 84%)',
+        WebkitBackgroundClip: 'text',
+        backgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        filter: 'none',
+        textShadow:
+          '0 0 1px rgb(244 114 182 / 0.7), 0 0 2px rgb(217 70 239 / 0.4), 0 0 4px rgb(139 92 246 / 0.18)',
+      };
+    }
+    return {
+      backgroundImage:
+        'repeating-linear-gradient(100deg, rgb(236 253 245) 0 16%, rgb(209 250 229) 16% 32%, rgb(167 243 208) 32% 48%, rgb(45 212 191) 48% 64%, rgb(167 243 208) 64% 80%)',
+      WebkitBackgroundClip: 'text',
+      backgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      filter: 'none',
+      textShadow: '0 0 1px rgb(45 212 191 / 0.46), 0 0 3px rgb(20 184 166 / 0.16)',
+    };
   };
 
   /** Оверлей с четырьмя угловыми панелями (ПК и моб.) — классы для фаз deal-points / running-total. */
@@ -9161,6 +9256,9 @@ function DealResultsScreen({
       document.removeEventListener('pointerdown', onPointerDown);
     };
   }, [leaderBadgeTooltipOpen]);
+  useEffect(() => () => {
+    if (mobileLegendFlashTimerRef.current) window.clearTimeout(mobileLegendFlashTimerRef.current);
+  }, []);
   return (
     <div
       ref={variant === 'overlay' ? overlayAnimRef : undefined}
@@ -9221,11 +9319,14 @@ function DealResultsScreen({
                     <>
                       <div className="deal-results-table-glow-top" style={dealResultsTableGlowTopStyleMobile} aria-hidden />
                       <div className="deal-results-mobile-header-table-strip">
-                        <table className="deal-results-table-header-pc" style={{ ...dealResultsTableStyle, minWidth: dealColumnWidth + 8 * playerCellWidth, tableLayout: 'fixed' }}>
+                        <table className="deal-results-table-header-pc" style={{ ...dealResultsTableStyle, minWidth: dealColumnWidth + 4 * (mobileBidCellWidth + mobileResultCellWidth), tableLayout: 'fixed' }}>
                           <colgroup>
                             <col style={{ width: dealColumnWidth, minWidth: dealColumnWidth }} />
-                            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                              <col key={i} style={{ width: playerCellWidth, minWidth: playerCellWidth }} />
+                            {[0, 1, 2, 3].map((i) => (
+                              <Fragment key={i}>
+                                <col style={{ width: mobileBidCellWidth, minWidth: mobileBidCellWidth }} />
+                                <col style={{ width: mobileResultCellWidth, minWidth: mobileResultCellWidth }} />
+                              </Fragment>
                             ))}
                           </colgroup>
                           <thead>
@@ -9271,7 +9372,7 @@ function DealResultsScreen({
                                     </span>
                                   )}
                                   <span
-                                    className={`deal-results-player-name${i === humanIdx ? ' deal-results-player-name--human' : ''}${isLeader ? ' deal-results-player-name--leader' : ''}`}
+                                    className={`deal-results-player-name${i === humanIdx ? ' deal-results-player-name--human' : ''}${isLeader ? ' deal-results-player-name--leader' : ''}${isMobile && i !== humanIdx ? ' deal-results-player-name--mobile-opponent' : ''}`}
                                     style={getDealResultsPlayerNameCosmicStyle(i, isLeader)}
                                   >
                                     {p.name}
@@ -9279,6 +9380,36 @@ function DealResultsScreen({
                                 </th>
                               );
                             })}
+                          </tr>
+                          <tr className="deal-results-table-mobile-header-row" aria-hidden>
+                            <th style={{ ...dealResultsTableThStyleMobile, ...dealResultsTableThDealStyle, minWidth: dealColumnWidth, width: dealColumnWidth }} aria-hidden />
+                            <th
+                              colSpan={players.length * 2}
+                              style={{ ...dealResultsTableThStyleMobile, padding: 0, lineHeight: 1, verticalAlign: 'bottom' }}
+                            >
+                              <div style={dealResultsMobileLegendStripStyle}>
+                                <span
+                                  style={{
+                                    ...dealResultsMobileLegendItemStyle,
+                                    ...dealResultsMobileLegendItemBidIdleStyle,
+                                    ...(mobileLegendActiveKey === 'bid' ? dealResultsMobileLegendItemActiveStyle : {}),
+                                  }}
+                                >
+                                  <span style={{ ...dealResultsMobileLegendKeyStyle, ...dealResultsMobileLegendKeyBidStyle }}>З</span>
+                                  ЗАКАЗАНО
+                                </span>
+                                <span style={dealResultsMobileLegendDotStyle}>•</span>
+                                <span
+                                  style={{
+                                    ...dealResultsMobileLegendItemStyle,
+                                    ...(mobileLegendActiveKey === 'result' ? dealResultsMobileLegendItemActiveStyle : {}),
+                                  }}
+                                >
+                                  <span style={{ ...dealResultsMobileLegendKeyStyle, ...dealResultsMobileLegendKeyResultStyle }}>О</span>
+                                  ОЧКИ
+                                </span>
+                              </div>
+                            </th>
                           </tr>
                           <tr className="deal-results-table-mobile-header-row">
                             <th style={{ ...dealResultsTableThStyleMobile, ...dealResultsTableThDealStyle, minWidth: dealColumnWidth, width: dealColumnWidth }} aria-hidden />
@@ -9296,10 +9427,32 @@ function DealResultsScreen({
                                         .filter(Boolean)
                                         .join(' ') || undefined
                                     }
-                                    style={{ ...dealResultsTableThBidStyleMobile, ...(i === 0 ? dealResultsTableThBidFirstStyle : {}), width: playerCellWidth, minWidth: playerCellWidth }}
+                                    style={{ ...dealResultsTableThBidStyleMobile, ...(i === 0 ? dealResultsTableThBidFirstStyle : {}), width: mobileBidCellWidth, minWidth: mobileBidCellWidth }}
                                     title="Заказ"
                                   >
-                                    З
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      onPointerDown={(e) => {
+                                        e.stopPropagation();
+                                        triggerMobileLegendFlash('bid');
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault();
+                                          triggerMobileLegendFlash('bid');
+                                        }
+                                      }}
+                                      style={{
+                                        ...dealResultsMobileLegendKeyStyle,
+                                        ...dealResultsMobileLegendKeyBidStyle,
+                                        ...dealResultsMobileLegendKeyHeaderTapStyle,
+                                        ...dealResultsMobileHeaderGlyphScaleStyle,
+                                        ...(mobileLegendActiveKey === 'bid' ? dealResultsMobileLegendKeyHeaderTapActiveStyle : {}),
+                                      }}
+                                    >
+                                      З
+                                    </span>
                                   </th>
                                   <th
                                     className={
@@ -9311,10 +9464,32 @@ function DealResultsScreen({
                                         .filter(Boolean)
                                         .join(' ') || undefined
                                     }
-                                    style={{ ...dealResultsTableThResultStyleMobile, width: playerCellWidth, minWidth: playerCellWidth }}
+                                    style={{ ...dealResultsTableThResultStyleMobile, width: mobileResultCellWidth, minWidth: mobileResultCellWidth }}
                                     title="Очки"
                                   >
-                                    О
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      onPointerDown={(e) => {
+                                        e.stopPropagation();
+                                        triggerMobileLegendFlash('result');
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault();
+                                          triggerMobileLegendFlash('result');
+                                        }
+                                      }}
+                                      style={{
+                                        ...dealResultsMobileLegendKeyStyle,
+                                        ...dealResultsMobileLegendKeyResultStyle,
+                                        ...dealResultsMobileLegendKeyHeaderTapStyle,
+                                        ...dealResultsMobileHeaderGlyphScaleStyle,
+                                        ...(mobileLegendActiveKey === 'result' ? dealResultsMobileLegendKeyHeaderTapActiveStyle : {}),
+                                      }}
+                                    >
+                                      О
+                                    </span>
                                   </th>
                                 </Fragment>
                               );
@@ -9323,28 +9498,49 @@ function DealResultsScreen({
                           </thead>
                         </table>
                       </div>
-                      <div className="deal-results-table-body-scroll-pc" style={dealResultsTableBodyScrollMobileStyle}>
-                        <table className="deal-results-table-body-pc" style={{ ...dealResultsTableStyle, minWidth: dealColumnWidth + 8 * playerCellWidth, tableLayout: 'fixed' }}>
+                      <div
+                        className="deal-results-table-body-scroll-pc"
+                        style={dealResultsTableBodyScrollMobileStyle}
+                        onScroll={() => {
+                          if (mobileScrollHintVisible) setMobileScrollHintVisible(false);
+                        }}
+                      >
+                        <table className="deal-results-table-body-pc" style={{ ...dealResultsTableStyle, minWidth: dealColumnWidth + 4 * (mobileBidCellWidth + mobileResultCellWidth), tableLayout: 'fixed' }}>
                           <colgroup>
                             <col style={{ width: dealColumnWidth, minWidth: dealColumnWidth }} />
-                            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                              <col key={i} style={{ width: playerCellWidth, minWidth: playerCellWidth }} />
+                            {[0, 1, 2, 3].map((i) => (
+                              <Fragment key={i}>
+                                <col style={{ width: mobileBidCellWidth, minWidth: mobileBidCellWidth }} />
+                                <col style={{ width: mobileResultCellWidth, minWidth: mobileResultCellWidth }} />
+                              </Fragment>
                             ))}
                           </colgroup>
                           <tbody>
                             {Array.from({ length: 28 }, (_, i) => i + 1).map((dealNum, rowIndex) => {
                               const row = dealHistory.find((r) => r.dealNumber === dealNum);
+                              const isLastBodyDealRow = dealNum === 28;
                               return (
                                 <tr key={dealNum}>
                                   <td
-                                    style={{ ...dealResultsTableTdStyleMobile, ...dealResultsTableTdDealStyle, width: dealColumnWidth, minWidth: dealColumnWidth }}
+                                    style={{
+                                      ...dealResultsTableTdStyleMobile,
+                                      ...dealResultsTableTdDealStyle,
+                                      ...(isLastBodyDealRow ? dealResultsTableTdStyleMobileBodyLastDealRow : {}),
+                                      width: dealColumnWidth,
+                                      minWidth: dealColumnWidth,
+                                    }}
                                     title={getDealCellTitle(dealNum)}
                                   >
-                                    {getDealColumnLabel(rowIndex)}
+                                    <span style={dealResultsMobileDealIndexTextStyle}>{getDealColumnLabel(rowIndex)}</span>
                                   </td>
                                   {row
                                     ? players.map((_, i) => {
                                         const isLeader = players[i].score === maxScore;
+                                        const isHumanCell = i === humanIdx;
+                                        const rowBid = (row as { bids?: number[] }).bids?.[i];
+                                        const rowTaken = (row as { takens?: number[] }).takens?.[i];
+                                        const isLegalZeroZeroFive =
+                                          row.points[i] === 5 && rowBid === 0 && typeof rowTaken === 'number' && rowTaken === 0;
                                         return (
                                           <Fragment key={i}>
                                             <td
@@ -9357,25 +9553,78 @@ function DealResultsScreen({
                                                   .filter(Boolean)
                                                   .join(' ') || undefined
                                               }
-                                              style={{ ...dealResultsTableTdBidStyleMobile, width: playerCellWidth, minWidth: playerCellWidth }}
+                                              style={{
+                                                ...dealResultsTableTdBidStyleMobile,
+                                                ...(isLastBodyDealRow ? dealResultsTableTdStyleMobileBodyLastDealRow : {}),
+                                                width: mobileBidCellWidth,
+                                                minWidth: mobileBidCellWidth,
+                                              }}
                                             >
-                                              {(row as { bids?: number[] }).bids ? (row as { bids: number[] }).bids[i] : '—'}
+                                              {(row as { bids?: number[] }).bids
+                                                ? (
+                                                  <span
+                                                    style={{
+                                                      ...dealResultsMobileTableNumberTextStyle,
+                                                      ...(isHumanCell ? dealResultsMobileUserBidNumberTextStyle : {}),
+                                                    }}
+                                                  >
+                                                    {(row as { bids: number[] }).bids[i]}
+                                                  </span>
+                                                )
+                                                : '—'}
                                             </td>
                                             <td
                                               className={
                                                 [
                                                   neutralOpponentCellClass(i, isLeader),
                                                   i === humanIdx && 'deal-results-cell-human',
+                                                  row.points[i] < 0 && 'deal-results-cell-negative-mobile',
                                                   isLeader && 'deal-results-column-leader deal-results-column-leader-r',
                                                 ]
                                                   .filter(Boolean)
                                                   .join(' ') || undefined
                                               }
-                                              style={{ ...dealResultsTableTdResultStyleMobile, width: playerCellWidth, minWidth: playerCellWidth }}
+                                              style={{
+                                                ...dealResultsTableTdResultStyleMobile,
+                                                ...(isLastBodyDealRow ? dealResultsTableTdStyleMobileBodyLastDealRow : {}),
+                                                width: mobileResultCellWidth,
+                                                minWidth: mobileResultCellWidth,
+                                              }}
                                             >
-                                              <span style={getDealPointsTextSpanStyle(row, i)}>
-                                                {row.points[i] >= 0 && <span style={dealResultsPositiveSignStyle}>+</span>}
-                                                {row.points[i]}
+                                              <span style={{
+                                                ...getDealPointsTextSpanStyle(row, i),
+                                                ...dealResultsMobileTableResultNumberTextStyle,
+                                                ...(isHumanCell ? dealResultsMobileUserResultNumberTextStyle : {}),
+                                                ...(row.points[i] > 0 && !isLegalZeroZeroFive ? dealResultsMobilePositiveResultTextStyle : {}),
+                                                ...(row.points[i] < 0 ? dealResultsMobileNegativeResultTextStyle : {}),
+                                                ...(isHumanCell ? getMobileUserResultToneStyle(row.points[i], isLegalZeroZeroFive) : {}),
+                                              }}>
+                                                {row.points[i] >= 0 && (
+                                                  <span
+                                                    style={
+                                                      isHumanCell
+                                                        ? getMobileUserPositiveSignStyle(row.points[i], isLegalZeroZeroFive)
+                                                        : (row.points[i] > 0 && !isLegalZeroZeroFive ? dealResultsMobilePositiveSignLimeStyle : dealResultsMobilePositiveSignStyle)
+                                                    }
+                                                  >
+                                                    +
+                                                  </span>
+                                                )}
+                                                <span
+                                                  className={isHumanCell ? 'deal-results-mobile-user-gloss-number' : undefined}
+                                                  style={{
+                                                    ...getMobileResultNumberCompactStyle(row.points[i]),
+                                                    ...(isHumanCell ? getMobileUserResultValueGlossStyle(row.points[i], isLegalZeroZeroFive) : {}),
+                                                    ...(isHumanCell
+                                                      ? ({
+                                                          ['--dr-iridescent-delay' as const]: `${-(((dealNum * 37 + i * 19 + Math.abs(row.points[i])) % 41) / 10)}s`,
+                                                          ['--dr-iridescent-dur' as const]: `${9.8 + ((dealNum + i) % 7) * 0.85}s`,
+                                                        } as React.CSSProperties)
+                                                      : {}),
+                                                  }}
+                                                >
+                                                  {row.points[i]}
+                                                </span>
                                               </span>
                                             </td>
                                           </Fragment>
@@ -9395,7 +9644,12 @@ function DealResultsScreen({
                                                   .filter(Boolean)
                                                   .join(' ') || undefined
                                               }
-                                              style={{ ...dealResultsTableTdBidStyleMobile, width: playerCellWidth, minWidth: playerCellWidth }}
+                                              style={{
+                                                ...dealResultsTableTdBidStyleMobile,
+                                                ...(isLastBodyDealRow ? dealResultsTableTdStyleMobileBodyLastDealRow : {}),
+                                                width: mobileBidCellWidth,
+                                                minWidth: mobileBidCellWidth,
+                                              }}
                                             >
                                               —
                                             </td>
@@ -9409,9 +9663,14 @@ function DealResultsScreen({
                                                   .filter(Boolean)
                                                   .join(' ') || undefined
                                               }
-                                              style={{ ...dealResultsTableTdResultStyleMobile, width: playerCellWidth, minWidth: playerCellWidth }}
+                                              style={{
+                                                ...dealResultsTableTdResultStyleMobile,
+                                                ...(isLastBodyDealRow ? dealResultsTableTdStyleMobileBodyLastDealRow : {}),
+                                                width: mobileResultCellWidth,
+                                                minWidth: mobileResultCellWidth,
+                                              }}
                                             >
-                                              —
+                                              <span style={getEmptyDashStyle(i, isLeader)}>—</span>
                                             </td>
                                           </Fragment>
                                         );
@@ -9420,76 +9679,29 @@ function DealResultsScreen({
                               );
                             })}
                           </tbody>
-                          <tfoot>
-                            <tr>
-                              <th
-                                colSpan={2}
-                                className="deal-results-tfoot-total-mobile"
-                                style={{
-                                  ...dealResultsTableThStyleMobile,
-                                  ...dealResultsTableTfootStyleMobile,
-                                  ...dealResultsTableThDealStyle,
-                                  ...dealResultsTableThDealFooterStyle,
-                                  minWidth: dealColumnWidth,
-                                  width: dealColumnWidth,
-                                }}
-                                title="Итого"
-                              >
-                                Итог
-                              </th>
-                              {players.map((p, i) => {
-                                const isWinner = p.score === maxScore;
-                                const isLeader = isWinner;
-                                return (
-                                  <Fragment key={i}>
-                                    {i > 0 && (
-                                      <td
-                                        className={
-                                          [
-                                            neutralOpponentCellClass(i, isWinner),
-                                            isWinner && 'deal-results-cell-winner deal-results-column-leader',
-                                          ]
-                                            .filter(Boolean)
-                                            .join(' ') || undefined
-                                        }
-                                        style={{ ...dealResultsTableTdBidStyleMobile, ...dealResultsTableTfootStyleMobile, width: playerCellWidth, minWidth: playerCellWidth }}
-                                        aria-hidden
-                                      />
-                                    )}
-                                    <td
-                                      className={
-                                        [
-                                          neutralOpponentCellClass(i, isLeader),
-                                          i === humanIdx && 'deal-results-cell-human',
-                                          isLeader && 'deal-results-column-leader deal-results-column-leader-r',
-                                          isWinner && 'deal-results-cell-winner',
-                                        ]
-                                          .filter(Boolean)
-                                          .join(' ') || undefined
-                                      }
-                                      style={{
-                                        ...dealResultsTableTdResultStyleMobile,
-                                        ...dealResultsTableTfootStyleMobile,
-                                        ...getFootTotalScoreTypography(p.score, isWinner),
-                                        ...(isWinner ? dealResultsLeaderTotalValueStyleMobile : {}),
-                                        width: playerCellWidth,
-                                        minWidth: playerCellWidth,
-                                      }}
-                                    >
-                                      {isWinner && <span style={dealResultsLeaderStarStyleMobile}>✦</span>}
-                                      {p.score >= 0 && <span style={dealResultsPositiveSignStyle}>+</span>}
-                                      {p.score}
-                                    </td>
-                                  </Fragment>
-                                );
-                              })}
-                            </tr>
-                          </tfoot>
                         </table>
                       </div>
+                      <div
+                        style={{
+                          ...dealResultsMobileScrollHintStyle,
+                          ...(mobileScrollHintVisible ? dealResultsMobileScrollHintVisibleStyle : dealResultsMobileScrollHintHiddenStyle),
+                        }}
+                        aria-hidden
+                      >
+                        <span style={dealResultsMobileScrollHintArrowsStyle}>↕</span>
+                        <span style={dealResultsMobileScrollHintTextStyle}>Прокрутка</span>
+                      </div>
                       <div style={dealResultsStickyTotalsDockStyle}>
+                        <div style={dealResultsStickyTotalsCaptionStyle} aria-hidden>
+                          <span style={dealResultsStickyTotalsCaptionScanlineStyle} />
+                          <span style={dealResultsStickyTotalsCaptionGhostStyle}>{'\u00A0'}ИТОГ</span>
+                          <span style={dealResultsStickyTotalsCaptionGlitchCyanStyle}>{'\u00A0'}Итог</span>
+                          <span style={dealResultsStickyTotalsCaptionGlitchVioletStyle}>{'\u00A0'}Итог</span>
+                          <span style={dealResultsStickyTotalsCaptionMainStyle}>
+                            <span style={dealResultsStickyTotalsCaptionMainTextStyle}>{'\u00A0'}Итог</span>
+                          </span>
+                        </div>
                         <div style={dealResultsStickyTotalsRowStyle}>
-                          <span style={dealResultsStickyTotalsLabelStyle}>Итог</span>
                           {players.map((p, i) => {
                             const isWinner = p.score === maxScore;
                             return (
@@ -9497,7 +9709,7 @@ function DealResultsScreen({
                                 key={`sticky-total-${i}`}
                                 style={{
                                   ...dealResultsStickyTotalsValueStyle,
-                                  ...getFootTotalScoreTypography(p.score, isWinner),
+                                  ...dealResultsStickyTotalsValueShellMobileStyle,
                                   ...(isWinner ? dealResultsLeaderTotalValueStyleMobile : {}),
                                   ...(i === humanIdx
                                     ? {
@@ -9509,8 +9721,10 @@ function DealResultsScreen({
                                 }}
                               >
                                 {isWinner && <span style={dealResultsLeaderStarStyleMobile}>✦</span>}
-                                {p.score >= 0 && <span style={dealResultsPositiveSignStyle}>+</span>}
-                                {p.score}
+                                <span style={getResultsTableFootTotalDigitStyle(p.score, { variant: 'mobile', isWinner })}>
+                                  {p.score >= 0 ? '+' : ''}
+                                  {p.score}
+                                </span>
                               </span>
                             );
                           })}
@@ -9557,7 +9771,7 @@ function DealResultsScreen({
                                     </span>
                                   )}
                                   <span
-                                    className={`deal-results-player-name${i === humanIdx ? ' deal-results-player-name--human' : ''}${isLeader ? ' deal-results-player-name--leader' : ''}`}
+                                    className={`deal-results-player-name${i === humanIdx ? ' deal-results-player-name--human' : ''}${isLeader ? ' deal-results-player-name--leader' : ''}${isMobile && i !== humanIdx ? ' deal-results-player-name--mobile-opponent' : ''}`}
                                     style={getDealResultsPlayerNameCosmicStyle(i, isLeader)}
                                   >
                                     {p.name}
@@ -9628,7 +9842,7 @@ function DealResultsScreen({
                                       return (
                                         <Fragment key={i}>
                                           <td className={[isLeader && 'deal-results-column-leader', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={dealResultsTableTdBidStyle}>—</td>
-                                          <td className={[isLeader && 'deal-results-column-leader', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={dealResultsTableTdResultStyle}>—</td>
+                                          <td className={[isLeader && 'deal-results-column-leader', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={dealResultsTableTdResultStyle}><span style={getEmptyDashStyle(i, isLeader)}>—</span></td>
                                         </Fragment>
                                       );
                                     })}
@@ -9648,10 +9862,12 @@ function DealResultsScreen({
                                   <td className={[isWinner && 'deal-results-cell-winner deal-results-column-leader deal-results-column-leader-r', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={{
                                     ...dealResultsTableTdResultStyle,
                                     ...dealResultsTableTfootStyle,
-                                    ...getFootTotalScoreTypography(p.score, isWinner),
+                                    ...dealResultsTableTfootTotalShellPcStyle,
                                   }}>
-                                    {p.score >= 0 && <span style={dealResultsPositiveSignStyle}>+</span>}
-                                    {p.score}
+                                    <span style={getResultsTableFootTotalDigitStyle(p.score, { variant: 'desktop', isWinner })}>
+                                      {p.score >= 0 ? '+' : ''}
+                                      {p.score}
+                                    </span>
                                   </td>
                                 </Fragment>
                               );
@@ -10168,6 +10384,14 @@ function PcTrickBidTakenFigures({
                 : chasingHandNeon
                   ? mobileCompactNeonBidChasing
                   : pcTrickBidFigureStyle;
+      if (bid != null && tricksTaken === 0) {
+        takenFigStyle = {
+          ...takenFigStyle,
+          color: 'rgb(103 232 249)',
+          WebkitTextFillColor: 'rgb(103 232 249)',
+          textShadow: '0 0 10px rgb(56 189 248 / 0.78), 0 0 16px rgb(14 165 233 / 0.44)',
+        };
+      }
       const earFont = handNeonBold ? Math.min(12, Math.round(fontSize * 1.08)) : Math.min(11, fontSize + 1);
       return (
         <span
@@ -10233,6 +10457,14 @@ function PcTrickBidTakenFigures({
               : chasingHandNeon
                 ? mobileCompactNeonBidChasing
                 : pcTrickBidFigureStyle;
+    if (bid != null && tricksTaken === 0) {
+      takenFigStyle = {
+        ...takenFigStyle,
+        color: 'rgb(103 232 249)',
+        WebkitTextFillColor: 'rgb(103 232 249)',
+        textShadow: '0 0 10px rgb(56 189 248 / 0.78), 0 0 16px rgb(14 165 233 / 0.44)',
+      };
+    }
 
     return (
       <span
@@ -13319,7 +13551,7 @@ const dealResultsLegalZeroZeroFivePillStyle: React.CSSProperties = {
   fontSize: '1.12em',
   letterSpacing: '0.015em',
   borderRadius: 10,
-  padding: '2px 10px',
+  padding: '2px 9px 2px 10px',
   background: 'linear-gradient(155deg, #a5f3fc 0%, #22d3ee 42%, #06b6d4 100%)',
   border: '1px solid rgb(103 232 249 / 0.92)',
   textShadow: '0 1px 0 rgb(255 255 255 / 0.45)',
@@ -13478,10 +13710,57 @@ const dealResultsTableBodyScrollPCStyle: React.CSSProperties = {
   touchAction: 'pan-y',
   boxSizing: 'border-box',
 };
+/**
+ * Отступ скролла совпадает с высотой дока «Итог» (слегка уплотнили паддинги/подпись).
+ */
+const DEAL_RESULTS_MOBILE_STICKY_TOTALS_BOTTOM_PAD_PX = 102;
+
 /** Мобильная таблица: запас снизу под закреплённую плашку «Итог». */
 const dealResultsTableBodyScrollMobileStyle: React.CSSProperties = {
   ...dealResultsTableBodyScrollPCStyle,
-  paddingBottom: 62,
+  paddingBottom: DEAL_RESULTS_MOBILE_STICKY_TOTALS_BOTTOM_PAD_PX,
+};
+const dealResultsMobileScrollHintStyle: React.CSSProperties = {
+  position: 'absolute',
+  right: 10,
+  bottom: DEAL_RESULTS_MOBILE_STICKY_TOTALS_BOTTOM_PAD_PX,
+  zIndex: 4,
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+  padding: '3px 8px',
+  borderRadius: 999,
+  border: '1px solid rgba(167, 139, 250, 0.5)',
+  background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.78) 0%, rgba(59, 7, 100, 0.66) 100%)',
+  boxShadow: '0 0 12px rgba(168, 85, 247, 0.28), inset 0 1px 0 rgba(233, 213, 255, 0.18)',
+  pointerEvents: 'none',
+  transition: 'opacity 220ms ease, transform 220ms ease, filter 220ms ease',
+};
+const dealResultsMobileScrollHintVisibleStyle: React.CSSProperties = {
+  opacity: 0.92,
+  transform: 'translateY(0)',
+  filter: 'saturate(1)',
+};
+const dealResultsMobileScrollHintHiddenStyle: React.CSSProperties = {
+  opacity: 0,
+  transform: 'translateY(6px)',
+  filter: 'saturate(0.8)',
+};
+const dealResultsMobileScrollHintArrowsStyle: React.CSSProperties = {
+  fontSize: 11,
+  lineHeight: 1,
+  fontWeight: 900,
+  color: '#c4b5fd',
+  textShadow: '0 0 8px rgba(192, 132, 252, 0.58)',
+};
+const dealResultsMobileScrollHintTextStyle: React.CSSProperties = {
+  fontSize: 9,
+  lineHeight: 1,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  fontWeight: 800,
+  color: '#e9d5ff',
+  textShadow: '0 0 6px rgba(192, 132, 252, 0.42)',
 };
 /** Полоса неоновой подсветки сверху — не скроллится, привязана к видимой области */
 const dealResultsTableGlowTopStyle: React.CSSProperties = {
@@ -13503,6 +13782,94 @@ const dealResultsTableGlowTopStyleMobile: React.CSSProperties = {
   background: 'linear-gradient(to bottom, rgba(34, 211, 238, 0.32) 0%, rgba(56, 189, 248, 0.24) 34%, rgba(99, 102, 241, 0.2) 58%, transparent 100%)',
   boxShadow:
     '0 4px 22px rgba(34, 211, 238, 0.34), 0 0 16px rgba(59, 130, 246, 0.26), inset 0 1px 0 rgba(125, 211, 252, 0.44)',
+};
+const dealResultsMobileLegendStripStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  width: 'calc(100% - 2px)',
+  margin: '0 auto',
+  padding: '4px 10px',
+  borderRadius: '999px 999px 0 0',
+  border: '1px solid rgba(125, 211, 252, 0.5)',
+  background:
+    'linear-gradient(180deg, rgba(2, 6, 23, 0.9) 0%, rgba(30, 27, 75, 0.88) 42%, rgba(67, 56, 202, 0.58) 100%)',
+  boxShadow:
+    'inset 0 1px 0 rgba(196, 181, 253, 0.18), inset 0 -1px 0 rgba(15, 23, 42, 0.56), inset 0 -2px 0 rgba(125, 211, 252, 0.16), 0 0 0 2px rgba(147, 51, 234, 0.62), 0 0 14px rgba(139, 92, 246, 0.3), 0 0 8px rgba(56, 189, 248, 0.16)',
+  marginBottom: -8,
+};
+const dealResultsMobileLegendItemStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
+  fontSize: 11,
+  fontWeight: 760,
+  letterSpacing: '0.03em',
+  color: 'rgb(216 180 254)',
+  textShadow: '0 0 7px rgba(192, 132, 252, 0.34), 0 0 10px rgba(56, 189, 248, 0.16)',
+  whiteSpace: 'nowrap',
+};
+const dealResultsMobileLegendItemBidIdleStyle: React.CSSProperties = {
+  color: 'rgb(125 211 252)',
+  textShadow: '0 0 7px rgba(125, 211, 252, 0.3), 0 0 10px rgba(56, 189, 248, 0.2)',
+};
+const dealResultsMobileLegendItemActiveStyle: React.CSSProperties = {
+  color: 'rgb(233 213 255)',
+  textShadow: '0 0 8px rgba(216, 180, 254, 0.56), 0 0 13px rgba(56, 189, 248, 0.24)',
+  background:
+    'linear-gradient(104deg, rgba(56, 189, 248, 0.06) 0%, rgba(168, 85, 247, 0.18) 35%, rgba(233, 213, 255, 0.54) 50%, rgba(16, 185, 129, 0.08) 64%, rgba(56, 189, 248, 0.06) 100%)',
+  backgroundSize: '190% 100%',
+  backgroundPosition: '-45% 50%',
+  animationName: 'deal-results-user-number-iridescent-shift',
+  animationDuration: '1.45s',
+  animationTimingFunction: 'cubic-bezier(0.28, 0.02, 0.2, 1)',
+  animationIterationCount: 1,
+  boxShadow: 'inset 0 1px 0 rgba(196, 181, 253, 0.22), 0 0 10px rgba(168, 85, 247, 0.24), 0 0 7px rgba(56, 189, 248, 0.16)',
+  borderRadius: 999,
+  padding: '1px 5px',
+};
+const dealResultsMobileLegendKeyStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: 16,
+  height: 16,
+  borderRadius: 999,
+  fontSize: 10,
+  fontWeight: 900,
+  lineHeight: 1,
+  border: '1px solid rgba(148, 163, 184, 0.45)',
+};
+const dealResultsMobileLegendKeyHeaderTapStyle: React.CSSProperties = {
+  transition: 'transform 140ms ease, box-shadow 160ms ease, filter 160ms ease',
+  cursor: 'pointer',
+};
+const dealResultsMobileHeaderGlyphScaleStyle: React.CSSProperties = {
+  transform: 'scale(1.12)',
+  transformOrigin: 'center',
+};
+const dealResultsMobileLegendKeyHeaderTapActiveStyle: React.CSSProperties = {
+  transform: 'translateY(-0.5px) scale(1.06)',
+  filter: 'saturate(1.2)',
+  boxShadow: '0 0 10px rgba(168, 85, 247, 0.36), 0 0 14px rgba(56, 189, 248, 0.26)',
+};
+const dealResultsMobileLegendKeyBidStyle: React.CSSProperties = {
+  color: 'rgb(196 181 253)',
+  background: 'linear-gradient(180deg, rgba(76, 29, 149, 0.68) 0%, rgba(91, 33, 182, 0.58) 100%)',
+  borderColor: 'rgba(167, 139, 250, 0.62)',
+  boxShadow: '0 0 7px rgba(168, 85, 247, 0.25)',
+};
+const dealResultsMobileLegendKeyResultStyle: React.CSSProperties = {
+  color: 'rgb(125 211 252)',
+  background: 'linear-gradient(180deg, rgba(8, 47, 73, 0.74) 0%, rgba(14, 116, 144, 0.6) 100%)',
+  borderColor: 'rgba(103, 232, 249, 0.58)',
+  boxShadow: '0 0 7px rgba(56, 189, 248, 0.22)',
+};
+const dealResultsMobileLegendDotStyle: React.CSSProperties = {
+  color: 'rgba(192, 132, 252, 0.72)',
+  fontSize: 10,
+  lineHeight: 1,
 };
 /** Полоса неоновой подсветки снизу — не скроллится, привязана к видимой области */
 const dealResultsTableGlowBottomStyle: React.CSSProperties = {
@@ -13597,18 +13964,18 @@ const dealResultsTableStyle: React.CSSProperties = {
 const dealResultsTableTdDealStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 700,
-  color: '#e2e8f0',
+  color: '#cbd5e1',
   minWidth: DEAL_COLUMN_WIDTH,
   width: DEAL_COLUMN_WIDTH,
   boxSizing: 'border-box',
   background: 'linear-gradient(to right, rgba(99, 102, 241, 0.16) 0%, rgba(76, 29, 149, 0.08) 45%, transparent 72%)',
   boxShadow: 'inset 2px 0 10px rgba(139, 92, 246, 0.22), inset 0 0 12px rgba(67, 56, 202, 0.08)',
-  textShadow: '0 0 1px rgba(255, 255, 255, 0.8), 0 1px 0 rgba(0, 0, 0, 0.15)',
+  textShadow: '0 1px 0 rgba(15, 23, 42, 0.38), 0 0 6px rgba(229, 231, 235, 0.34)',
 };
 /** Заголовки первого столбца (№ и футер Итог): неоновая подсветка по краю, текст — серебристый металл */
 const dealResultsTableThDealStyle: React.CSSProperties = {
-  color: '#e2e8f0',
-  textShadow: '0 0 1px rgba(255, 255, 255, 0.8), 0 1px 0 rgba(0, 0, 0, 0.15)',
+  color: '#cbd5e1',
+  textShadow: '0 1px 0 rgba(15, 23, 42, 0.4), 0 0 6px rgba(229, 231, 235, 0.28)',
   boxShadow: 'inset 2px 0 12px rgba(139, 92, 246, 0.28), inset 0 0 14px rgba(79, 70, 229, 0.1)',
 };
 /** Обёртка ячейки «№»: только центрирует круглый значок */
@@ -13696,6 +14063,10 @@ const dealResultsTableTdStyleMobile: React.CSSProperties = {
   ...dealResultsTableTdStyle,
   borderBottom: '1px solid rgba(56, 189, 248, 0.24)',
 };
+/** Нижняя строка тела (28-я раздача): без яркой горизонтали — визуально ближе к доку «Итог». */
+const dealResultsTableTdStyleMobileBodyLastDealRow: React.CSSProperties = {
+  borderBottom: 'none',
+};
 /** Фон столбца «заказ» (взяток); цифры — в цвете «З» */
 const dealResultsTableTdBidStyle: React.CSSProperties = {
   ...dealResultsTableTdStyle,
@@ -13709,8 +14080,9 @@ const dealResultsTableTdBidStyle: React.CSSProperties = {
 const dealResultsTableTdBidStyleMobile: React.CSSProperties = {
   ...dealResultsTableTdBidStyle,
   ...dealResultsTableTdStyleMobile,
-  background: 'rgba(30, 64, 175, 0.24)',
+  background: 'linear-gradient(180deg, rgba(56, 189, 248, 0.14) 0%, rgba(30, 64, 175, 0.22) 100%)',
   textShadow: `0 0 3px ${DEAL_RESULTS_Z_COLOR}d9`,
+  boxShadow: 'inset -1px 0 0 rgba(14, 116, 144, 0.2), inset 0 1px 0 rgba(186, 230, 253, 0.08)',
 };
 /** Первая ячейка футера: отступ слева под overflow «Итог» из первой колонки */
 const dealResultsTableTdFooterFirstStyle: React.CSSProperties = {
@@ -13729,6 +14101,88 @@ const dealResultsTableTdResultStyleMobile: React.CSSProperties = {
   ...dealResultsTableTdStyleMobile,
   background: 'rgba(30, 58, 138, 0.2)',
 };
+/** Только для мобильной таблицы результатов (модалка): делаем цифры тоньше/изящнее без влияния на ПК и оверлей. */
+const dealResultsMobileDealIndexTextStyle: React.CSSProperties = {
+  fontWeight: 560,
+  letterSpacing: '0.01em',
+};
+const dealResultsMobileTableNumberTextStyle: React.CSSProperties = {
+  fontWeight: 520,
+  letterSpacing: '0.01em',
+};
+const dealResultsMobileUserBidNumberTextStyle: React.CSSProperties = {
+  color: 'rgb(196 181 253)',
+  WebkitTextFillColor: 'rgb(196 181 253)',
+  textShadow: '0 0 8px rgb(167 139 250 / 0.55)',
+};
+const dealResultsMobileTableResultNumberTextStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  whiteSpace: 'nowrap',
+  fontWeight: 560,
+  letterSpacing: '0.01em',
+  WebkitTextStroke: '0 transparent',
+  textShadow: '0 0 6px rgba(125, 211, 252, 0.2)',
+};
+const dealResultsMobileUserResultNumberTextStyle: React.CSSProperties = {
+  fontFamily: '"Inter", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif',
+  fontVariantNumeric: 'tabular-nums lining-nums',
+  fontSize: '1.12em',
+  fontWeight: 610,
+  letterSpacing: '0.012em',
+};
+const dealResultsMobilePositiveSignStyle: React.CSSProperties = {
+  ...dealResultsPositiveSignStyle,
+  color: 'rgb(132 255 54)',
+  WebkitTextFillColor: 'rgb(132 255 54)',
+  fontWeight: 560,
+  marginRight: 2,
+  WebkitTextStroke: '0 transparent',
+  textShadow: '0 0 12px rgb(163 230 53 / 0.98), 0 0 20px rgb(132 204 22 / 0.6)',
+};
+const dealResultsMobilePositiveResultTextStyle: React.CSSProperties = {
+  color: 'rgb(232 174 27)',
+  WebkitTextFillColor: 'rgb(232 174 27)',
+  textShadow: '0 0 10px rgb(245 208 93 / 0.92), 0 0 18px rgb(217 119 6 / 0.56)',
+};
+const dealResultsMobilePositiveSignLimeStyle: React.CSSProperties = {
+  ...dealResultsMobilePositiveSignStyle,
+  color: 'rgb(132 255 54)',
+  WebkitTextFillColor: 'rgb(132 255 54)',
+  textShadow: '0 0 12px rgb(163 230 53 / 0.98), 0 0 20px rgb(132 204 22 / 0.6)',
+};
+const dealResultsMobileUserPositiveSignStyle: React.CSSProperties = {
+  ...dealResultsMobilePositiveSignStyle,
+};
+const dealResultsMobileUserPositiveSignHighStyle: React.CSSProperties = {
+  ...dealResultsMobilePositiveSignStyle,
+};
+const dealResultsMobileNegativeResultTextStyle: React.CSSProperties = {
+  color: 'rgb(255 62 103)',
+  WebkitTextFillColor: 'rgb(255 62 103)',
+  fontWeight: 640,
+  textShadow:
+    '0 0 10px rgb(244 63 94 / 0.92), 0 0 20px rgb(225 29 72 / 0.55), 0 0 30px rgb(190 24 93 / 0.32)',
+};
+const dealResultsMobileTableResultNumberValueStyle: React.CSSProperties = {
+  display: 'inline-block',
+  lineHeight: 1,
+};
+const dealResultsMobileTableResultNumberCompactStyle: React.CSSProperties = {
+  ...dealResultsMobileTableResultNumberValueStyle,
+  letterSpacing: '-0.01em',
+  transform: 'scaleX(0.94)',
+  transformOrigin: 'left center',
+};
+const dealResultsEmptyDashStyle: React.CSSProperties = {
+  color: '#cbd5e1',
+  textShadow: '0 1px 0 rgba(15, 23, 42, 0.38), 0 0 6px rgba(203, 213, 225, 0.24)',
+};
+const dealResultsEmptyDashAccentStyle: React.CSSProperties = {
+  color: '#e9d5ff',
+  WebkitTextFillColor: '#e9d5ff',
+  textShadow: '0 0 12px rgba(216, 180, 254, 0.9), 0 0 18px rgba(167, 139, 250, 0.65), 0 1px 0 rgba(49, 46, 129, 0.55)',
+};
 /** Заголовок столбца «З» (заказ): цвет + эффект «окна» */
 const dealResultsTableThBidStyle: React.CSSProperties = {
   ...dealResultsTableThStyle,
@@ -13746,9 +14200,9 @@ const dealResultsTableThBidStyle: React.CSSProperties = {
 const dealResultsTableThBidStyleMobile: React.CSSProperties = {
   ...dealResultsTableThBidStyle,
   ...dealResultsTableThStyleMobile,
-  background: 'rgba(30, 64, 175, 0.38)',
+  background: 'linear-gradient(180deg, rgba(56, 189, 248, 0.24) 0%, rgba(30, 64, 175, 0.34) 100%)',
   borderRight: '2px solid rgba(56, 189, 248, 0.48)',
-  boxShadow: 'inset 0 0 12px rgba(56, 189, 248, 0.14), inset 0 1px 0 rgba(125, 211, 252, 0.2)',
+  boxShadow: 'inset 0 0 14px rgba(56, 189, 248, 0.18), inset 0 1px 0 rgba(186, 230, 253, 0.24), inset -1px 0 0 rgba(14, 116, 144, 0.28)',
 };
 /** Левый разделитель только у первой ячейки «З» в строке */
 const dealResultsTableThBidFirstStyle: React.CSSProperties = {
@@ -13790,9 +14244,20 @@ const dealResultsTableTfootStyle: React.CSSProperties = {
 };
 const dealResultsTableTfootStyleMobile: React.CSSProperties = {
   ...dealResultsTableTfootStyle,
+  paddingTop: 5,
+  paddingRight: 3,
+  paddingBottom: 5,
+  paddingLeft: 3,
+  fontSize: 13,
   background: 'rgba(15, 23, 42, 0.92)',
   borderTop: '2px solid rgba(56, 189, 248, 0.42)',
   boxShadow: 'inset 0 1px 0 rgba(125, 211, 252, 0.12), 0 -6px 18px rgba(14, 165, 233, 0.12)',
+};
+
+/** ПК: цвет суммы «Итог» задаёт внутренний span (динамическая шкала), без наследования #e0e7ff и тени tfoot у цифр. */
+const dealResultsTableTfootTotalShellPcStyle: React.CSSProperties = {
+  color: 'transparent',
+  textShadow: 'none',
 };
 /** Базовый «дорогой» стиль имени в таблице результатов: тонкий неон + гравировка. */
 const dealResultsPlayerNameTextBaseStyle: React.CSSProperties = {
@@ -13816,59 +14281,175 @@ const dealResultsStickyTotalsDockStyle: React.CSSProperties = {
   left: 1,
   right: 1,
   bottom: 1,
-  zIndex: 5,
+  zIndex: 6,
   pointerEvents: 'none',
-  padding: '8px 6px 6px',
+  padding: '10px 8px 8px',
   borderRadius: '0 0 12px 12px',
-  borderTop: '1px solid rgba(56, 189, 248, 0.46)',
+  borderTop: '2px solid rgba(56, 189, 248, 0.62)',
   background:
-    'linear-gradient(180deg, rgba(2, 6, 23, 0) 0%, rgba(2, 6, 23, 0.68) 26%, rgba(2, 6, 23, 0.9) 60%, rgba(2, 6, 23, 0.96) 100%)',
+    'linear-gradient(180deg, rgba(2, 6, 23, 0.22) 0%, rgba(2, 6, 23, 0.78) 18%, rgba(2, 6, 23, 0.94) 52%, rgb(2 6 23 / 0.99) 100%)',
   boxShadow:
-    '0 -8px 22px rgba(2, 6, 23, 0.62), inset 0 1px 0 rgba(125, 211, 252, 0.16), 0 -2px 14px rgba(14, 165, 233, 0.2)',
-  backdropFilter: 'blur(7px) saturate(1.08)',
-  WebkitBackdropFilter: 'blur(7px) saturate(1.08)',
+    '0 -14px 36px rgb(2 6 23 / 0.75), 0 -4px 20px rgb(76 29 149 / 0.28), inset 0 1px 0 rgba(125, 211, 252, 0.22), 0 -1px 0 rgba(34, 211, 238, 0.35)',
+  backdropFilter: 'blur(11px) saturate(1.12)',
+  WebkitBackdropFilter: 'blur(11px) saturate(1.12)',
+};
+const dealResultsStickyTotalsCaptionStyle: React.CSSProperties = {
+  position: 'relative',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  minHeight: 36,
+  marginBottom: 6,
+  pointerEvents: 'none',
+  overflow: 'visible',
+  /** Чуть светлее дно под «Итог»: меньше «плывучести» рядом с backdrop у дока (не даём таблице просачиваться в пересчёт с clip-text). */
+  paddingTop: 2,
+  paddingBottom: 2,
+  borderRadius: 16,
+  background:
+    'radial-gradient(ellipse 96% 150% at 50% 48%, rgb(15 23 42 / 0.98), rgb(2 6 23 / 0.94) 55%, rgb(2 6 23 / 0))',
+};
+const dealResultsStickyTotalsCaptionScanlineStyle: React.CSSProperties = {
+  position: 'absolute',
+  left: '6%',
+  right: '6%',
+  top: '50%',
+  height: 2,
+  transform: 'translateY(-50%)',
+  borderRadius: 1,
+  background:
+    'linear-gradient(90deg, rgba(167, 139, 250, 0) 0%, rgba(167, 139, 250, 0.72) 24%, rgba(192, 132, 252, 1) 50%, rgba(56, 189, 248, 0.45) 78%, rgba(56, 189, 248, 0) 100%)',
+  boxShadow: '0 0 14px rgba(167, 139, 250, 0.55), 0 0 28px rgba(192, 132, 252, 0.42)',
+};
+const dealResultsStickyTotalsCaptionGhostStyle: React.CSSProperties = {
+  position: 'absolute',
+  inset: '50% auto auto 50%',
+  transform: 'translate3d(-50%, calc(-50% + 1px), 0) scaleX(1.14)',
+  fontSize: 34,
+  lineHeight: 1,
+  letterSpacing: '0.44em',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  color: 'rgba(192, 132, 252, 0.18)',
+  textShadow: '0 0 18px rgba(192, 132, 252, 0.36), 0 0 10px rgba(167, 139, 250, 0.28)',
+  whiteSpace: 'nowrap',
+};
+const dealResultsStickyTotalsCaptionGlitchCyanStyle: React.CSSProperties = {
+  position: 'absolute',
+  inset: '50% auto auto 50%',
+  transform: 'translate3d(calc(-50% - 0.7px), calc(-50% - 0.7px), 0)',
+  fontSize: 12,
+  lineHeight: 1,
+  letterSpacing: '0.24em',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  color: 'rgba(56, 189, 248, 0.42)',
+  textShadow: '0 0 6px rgba(56, 189, 248, 0.32)',
+  clipPath: 'polygon(0 8%, 100% 3%, 100% 46%, 0 54%)',
+  whiteSpace: 'nowrap',
+};
+const dealResultsStickyTotalsCaptionGlitchVioletStyle: React.CSSProperties = {
+  position: 'absolute',
+  inset: '50% auto auto 50%',
+  transform: 'translate3d(calc(-50% + 1.05px), calc(-50% + 1.05px), 0)',
+  fontSize: 12,
+  lineHeight: 1,
+  letterSpacing: '0.24em',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  color: 'rgba(196, 181, 253, 0.9)',
+  textShadow: '0 0 10px rgba(192, 132, 252, 0.78)',
+  clipPath: 'polygon(0 56%, 100% 50%, 100% 98%, 0 90%)',
+  whiteSpace: 'nowrap',
+};
+const dealResultsStickyTotalsCaptionMainStyle: React.CSSProperties = {
+  position: 'absolute',
+  inset: '50% auto auto 50%',
+  transform: 'translate3d(-50%, -50%, 0)',
+  zIndex: 1,
+  display: 'inline-block',
+  textAlign: 'center',
+  fontSize: 13,
+  lineHeight: 1,
+  letterSpacing: '0.26em',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  color: 'transparent',
+  padding: '4px 14px 4px 15px',
+  borderRadius: 999,
+  border: '1px solid rgba(147, 197, 253, 0.72)',
+  background: 'linear-gradient(180deg, rgb(52 14 94 / 0.96) 0%, rgb(76 29 149 / 0.9) 45%, rgb(49 46 129 / 0.88) 100%)',
+  boxShadow:
+    'inset 0 1px 0 rgba(226, 232, 255 / 0.16), inset 0 -1px 0 rgb(67 56 202 / 0.35), 0 0 22px rgb(167 139 250 / 0.55), 0 0 14px rgb(56 189 248 / 0.32)',
+};
+const dealResultsStickyTotalsCaptionMainTextStyle: React.CSSProperties = {
+  display: 'inline-block',
+  backgroundImage:
+    'repeating-linear-gradient(100deg, rgb(45 212 191) 0 8%, rgb(20 184 166) 8% 16%, rgb(125 211 252) 16% 24%, rgb(56 189 248) 24% 32%, rgb(163 255 72) 32% 40%, rgb(59 130 246) 40% 48%, rgb(99 102 241) 48% 56%, rgb(147 51 234) 56% 64%, rgb(192 132 252) 64% 72%, rgb(233 213 255) 72% 80%, rgb(16 185 129) 80% 88%, rgb(207 250 254) 88% 96%)',
+  WebkitBackgroundClip: 'text',
+  backgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+  backgroundSize: '460% 100%',
+  backgroundPosition: '0% 50%',
+  animationName: 'deal-results-user-number-iridescent-shift',
+  animationDuration: '13.5s',
+  /** См. .deal-results-mobile-user-gloss-number: linear уменьшает «залипание» мягких фаз у clip:text. */
+  animationTimingFunction: 'linear',
+  animationIterationCount: 'infinite',
+  /** Узже ореол: на clip-text он даёт «мыло», когда градиент проходит по мягким участкам. */
+  textShadow: '0 0 1px rgb(125 211 252 / 0.55), 0 0 3px rgb(56 189 248 / 0.35), 0 0 6px rgb(147 51 234 / 0.22)',
+  /** Лёгкий контур стабилизирует читаемость между фазами градиента (без второго слоя анимации). */
+  WebkitTextStroke: '0.35px rgba(241, 245, 249, 0.38)',
+  transform: 'translateZ(0)',
+  backfaceVisibility: 'hidden',
 };
 const dealResultsStickyTotalsRowStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'auto repeat(4, minmax(0, 1fr))',
+  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
   alignItems: 'center',
-  gap: 6,
-};
-const dealResultsStickyTotalsLabelStyle: React.CSSProperties = {
-  justifySelf: 'start',
-  color: '#bae6fd',
-  fontSize: 11,
-  fontWeight: 900,
-  letterSpacing: '0.04em',
-  textTransform: 'uppercase',
-  textShadow: '0 0 8px rgba(56, 189, 248, 0.5)',
-  paddingLeft: 2,
+  gap: 8,
 };
 const dealResultsStickyTotalsValueStyle: React.CSSProperties = {
   minWidth: 0,
-  textAlign: 'center',
-  borderRadius: 8,
-  padding: '2px 4px',
-  fontSize: 12,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 4,
+  borderRadius: 10,
+  padding: '4px 7px',
+  fontSize: 15,
   fontWeight: 900,
-  color: '#e2e8f0',
-  background: 'linear-gradient(160deg, rgba(15, 23, 42, 0.72) 0%, rgba(30, 58, 138, 0.24) 54%, rgba(14, 165, 233, 0.18) 100%)',
-  border: '1px solid rgba(56, 189, 248, 0.28)',
-  boxShadow: 'inset 0 1px 0 rgba(186, 230, 253, 0.15), 0 0 10px rgba(56, 189, 248, 0.12)',
-  textShadow: '0 0 8px rgba(56, 189, 248, 0.22)',
+  color: 'rgb(147 197 253)',
+  background: 'linear-gradient(160deg, rgb(39 46 117 / 0.88) 0%, rgb(76 29 149 / 0.48) 50%, rgb(30 58 138 / 0.4) 100%)',
+  border: '1px solid rgba(147, 197, 253, 0.48)',
+  boxShadow:
+    'inset 0 1px 0 rgb(226 232 255 / 0.12), inset 0 -1px 0 rgb(15 23 42 / 0.35), 0 0 14px rgb(168 85 247 / 0.32), 0 0 8px rgb(56 189 248 / 0.2)',
+  textShadow: '0 0 8px rgba(96, 165, 250, 0.34), 0 0 12px rgba(168, 85, 247, 0.24)',
   whiteSpace: 'nowrap',
+  boxSizing: 'border-box',
+};
+
+/** Оболочка ячейки «Итог» на мобилке: цвет суммы задаётся внутренним span (динамическая шкала), не наследуем синий/тень с плашки. */
+const dealResultsStickyTotalsValueShellMobileStyle: React.CSSProperties = {
+  color: 'transparent',
+  textShadow: 'none',
 };
 const dealResultsLeaderTotalValueStyleMobile: React.CSSProperties = {
-  background: 'linear-gradient(160deg, rgba(76, 29, 149, 0.58) 0%, rgba(59, 130, 246, 0.34) 58%, rgba(34, 211, 238, 0.24) 100%)',
-  border: '1px solid rgba(167, 139, 250, 0.72)',
-  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 14px rgba(167, 139, 250, 0.34), 0 0 10px rgba(34, 211, 238, 0.22)',
+  background: 'linear-gradient(160deg, rgb(91 33 182 / 0.62) 0%, rgb(59 130 246 / 0.42) 55%, rgb(34 211 238 / 0.3) 100%)',
+  border: '1px solid rgba(196, 181, 253, 0.78)',
+  boxShadow:
+    'inset 0 1px 0 rgb(255 255 255 / 0.28), inset 0 -1px 0 rgb(49 46 129 / 0.45), 0 0 18px rgb(167 139 250 / 0.45), 0 0 12px rgb(34 211 238 / 0.28)',
 };
 const dealResultsLeaderStarStyleMobile: React.CSSProperties = {
-  marginRight: 2,
+  flexShrink: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  lineHeight: 1,
   color: '#d8b4fe',
   WebkitTextFillColor: '#d8b4fe',
   fontWeight: 900,
-  fontSize: '0.92em',
+  fontSize: '1em',
   textShadow: '0 0 8px rgba(216, 180, 254, 0.92), 0 0 14px rgba(56, 189, 248, 0.48)',
 };
 
