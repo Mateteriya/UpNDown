@@ -3,40 +3,13 @@
  * ПК не затрагивается.
  */
 
-/* Бейдж «I: имя», тосты-подсказки */
+/* Бейдж «I: имя» */
 .theme-neon .game-table-root.viewport-mobile .first-move-badge span {
   color: #38bdf8 !important;
   -webkit-text-fill-color: #38bdf8 !important;
   opacity: 1 !important;
   text-shadow: 0 0 8px rgba(56, 189, 248, 0.6) !important;
 }
-.theme-neon .game-table-root.viewport-mobile .dealer-tooltip-toast {
-  background: linear-gradient(135deg, rgba(30, 64, 175, 0.92) 0%, rgba(59, 130, 246, 0.88) 100%) !important;
-  border: 1px solid rgba(56, 189, 248, 0.6) !important;
-  color: #e0f2fe !important;
-  -webkit-text-fill-color: #e0f2fe !important;
-  opacity: 1 !important;
-  box-shadow: 0 4px 24px rgba(30, 64, 175, 0.35), 0 0 20px rgba(56, 189, 248, 0.25) !important;
-}
-.theme-neon .game-table-root.viewport-mobile .first-move-tooltip-toast {
-  background: linear-gradient(135deg, rgba(88, 28, 135, 0.92) 0%, rgba(67, 56, 202, 0.9) 50%, rgba(30, 64, 175, 0.88) 100%) !important;
-  border: 1px solid rgba(167, 139, 250, 0.65) !important;
-  color: #e9d5ff !important;
-  -webkit-text-fill-color: #e9d5ff !important;
-  opacity: 1 !important;
-  box-shadow: 0 4px 24px rgba(88, 28, 135, 0.4), 0 0 24px rgba(167, 139, 250, 0.3) !important;
-}
-.theme-neon .game-table-root.viewport-mobile .first-move-tooltip-toast .first-move-tooltip-name {
-  color: #67e8f9 !important;
-  -webkit-text-fill-color: #67e8f9 !important;
-  text-shadow: 0 0 12px rgba(34, 211, 238, 0.8), 0 0 4px rgba(34, 211, 238, 0.5) !important;
-}
-.theme-neon .game-table-root.viewport-mobile .first-move-tooltip-toast > div:last-child {
-  color: #c4b5fd !important;
-  -webkit-text-fill-color: #c4b5fd !important;
-  opacity: 1 !important;
-}
-
 /* Оппоненты: неон при доп. подсветке (все мобильные вьюпорты). Юг — отдельно: обычная мобила = внешняя панель, short = ниже. */
 .theme-neon .game-table-root.viewport-mobile.trump-highlight-on .game-mobile-top-row .game-mobile-slot-north > div,
 .theme-neon .game-table-root.viewport-mobile.trump-highlight-on .game-mobile-top-row .game-mobile-slot-west > div,

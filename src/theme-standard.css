@@ -36,10 +36,7 @@
 /* Бейджи, таблички — голубой #38bdf8 */
 .theme-standard .game-table-root.viewport-mobile .game-info-mode-panel,
 .theme-standard .game-table-root.viewport-mobile .game-info-mode-panel span,
-.theme-standard .game-table-root.viewport-mobile .game-info-cards-panel,
-.theme-standard .game-table-root.viewport-mobile .game-info-cards-panel span,
-.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel,
-.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel span,
+/* Бейдж контракта (.game-info-cards-panel / .game-info-deal-contract-panel) — не включать: мегаблок сбрасывает фон и заливает все span голубым; палитру и подложку восстанавливают блоки ниже и инлайны в GameTable. */
 .theme-standard .game-table-root.viewport-mobile .deal-number-badge,
 .theme-standard .game-table-root.viewport-mobile .deal-number-badge span,
 .theme-standard .game-table-root.viewport-mobile .opponent-score-badge,
@@ -179,25 +176,39 @@
     0 2px 12px rgba(0, 0, 0, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
 }
-/* «Карт / заказ» — как first-move-badge (неоновая тема): сиренево-индиго, та же рамка */
+/* «Карт / заказ»: глубокий фиолет; перелив букв — index.css */
 .theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel.game-info-cards-panel {
-  background: linear-gradient(135deg, rgba(88, 28, 135, 0.85) 0%, rgba(67, 56, 202, 0.8) 100%) !important;
-  border: 1px solid rgba(167, 139, 250, 0.7) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  border: 1px solid rgba(91, 33, 182, 0.5) !important;
+  background:
+    radial-gradient(120% 80% at 18% -8%, rgba(139, 92, 246, 0.14) 0%, rgba(0, 0, 0, 0) 52%),
+    linear-gradient(
+      156deg,
+      rgba(10, 4, 32, 0.995) 0%,
+      rgba(18, 8, 58, 0.99) 32%,
+      rgba(30, 14, 88, 0.97) 52%,
+      rgba(16, 8, 56, 0.99) 72%,
+      rgba(5, 2, 20, 1) 100%
+    ) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(167, 139, 250, 0.08),
+    inset 0 -16px 28px rgba(0, 0, 0, 0.38),
+    0 2px 12px rgba(0, 0, 0, 0.42),
+    0 0 40px rgba(49, 26, 120, 0.48),
+    0 0 1px rgba(129, 140, 248, 0.36) !important;
 }
 
-/* «З: N» / «В: M/T» — разные цвета (общий селектор span перекрашивает всё в один голубой) */
-.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel .deal-contract-mobile-order {
+/* «З: N» / «В: M/T» — разные цвета только вне интерактивного бейджа .game-info-cards-panel (там общий перелив с результатов) */
+.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel:not(.game-info-cards-panel) .deal-contract-mobile-order {
   color: #fbbf24 !important;
   -webkit-text-fill-color: #fbbf24 !important;
   text-shadow: none !important;
 }
-.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel .deal-contract-mobile-tricks {
+.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel:not(.game-info-cards-panel) .deal-contract-mobile-tricks {
   color: #22d3ee !important;
   -webkit-text-fill-color: #22d3ee !important;
   text-shadow: none !important;
 }
-.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel .deal-contract-mobile-tricks-taken {
+.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel:not(.game-info-cards-panel) .deal-contract-mobile-tricks-taken {
   color: #cfff3a !important;
   -webkit-text-fill-color: #cfff3a !important;
   text-shadow:
@@ -206,14 +217,14 @@
     0 0 20px rgba(130, 255, 0, 0.5) !important;
   font-weight: 800 !important;
 }
-.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel .deal-contract-mobile-tricks-slash {
+.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel:not(.game-info-cards-panel) .deal-contract-mobile-tricks-slash {
   color: #22d3ee !important;
   -webkit-text-fill-color: #22d3ee !important;
   text-shadow: none !important;
   font-weight: 600 !important;
   opacity: 0.9 !important;
 }
-.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel .deal-contract-mobile-tricks-deal {
+.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel:not(.game-info-cards-panel) .deal-contract-mobile-tricks-deal {
   color: #e0f2fe !important;
   -webkit-text-fill-color: #e0f2fe !important;
   font-weight: 900 !important;
@@ -224,7 +235,7 @@
     0 0 14px rgba(56, 189, 248, 0.45),
     0 1px 2px rgba(0, 0, 0, 0.35) !important;
 }
-.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel .deal-contract-mobile-sep {
+.theme-standard .game-table-root.viewport-mobile .game-info-deal-contract-panel:not(.game-info-cards-panel) .deal-contract-mobile-sep {
   color: rgba(224, 242, 254, 0.4) !important;
   -webkit-text-fill-color: rgba(224, 242, 254, 0.4) !important;
 }
@@ -282,11 +293,7 @@
   -webkit-background-clip: unset !important;
 }
 
-/* Бейдж «I: имя», тосты */
-.theme-standard .game-table-root.viewport-mobile .first-move-tooltip-toast .first-move-tooltip-name {
-  color: #6d28d9 !important;
-  text-shadow: none !important;
-}
+/* Бейдж «I: имя» */
 .theme-standard .game-table-root.viewport-mobile .first-move-badge {
   background: linear-gradient(135deg, rgba(88, 28, 135, 0.9) 0%, rgba(67, 56, 202, 0.85) 100%) !important;
   opacity: 1 !important;
@@ -297,37 +304,11 @@
   opacity: 1 !important;
   text-shadow: 0 0 8px rgba(56, 189, 248, 0.6) !important;
 }
-.theme-standard .game-table-root.viewport-mobile .dealer-tooltip-toast {
-  background: linear-gradient(135deg, rgba(30, 64, 175, 0.92) 0%, rgba(59, 130, 246, 0.88) 100%) !important;
-  border: 1px solid rgba(56, 189, 248, 0.6) !important;
-  color: #e0f2fe !important;
-  -webkit-text-fill-color: #e0f2fe !important;
-  opacity: 1 !important;
-  box-shadow: 0 4px 24px rgba(30, 64, 175, 0.35), 0 0 20px rgba(56, 189, 248, 0.25) !important;
-}
-.theme-standard .game-table-root.viewport-mobile .first-move-tooltip-toast {
-  background: linear-gradient(135deg, rgba(88, 28, 135, 0.92) 0%, rgba(67, 56, 202, 0.9) 50%, rgba(30, 64, 175, 0.88) 100%) !important;
-  border: 1px solid rgba(167, 139, 250, 0.65) !important;
-  color: #e9d5ff !important;
-  -webkit-text-fill-color: #e9d5ff !important;
-  opacity: 1 !important;
-  box-shadow: 0 4px 24px rgba(88, 28, 135, 0.4), 0 0 24px rgba(167, 139, 250, 0.3) !important;
-}
-.theme-standard .game-table-root.viewport-mobile .first-move-tooltip-toast .first-move-tooltip-name {
-  color: #67e8f9 !important;
-  -webkit-text-fill-color: #67e8f9 !important;
-  text-shadow: 0 0 12px rgba(34, 211, 238, 0.8), 0 0 4px rgba(34, 211, 238, 0.5) !important;
-}
-.theme-standard .game-table-root.viewport-mobile .first-move-tooltip-toast > div:last-child {
-  color: #c4b5fd !important;
-  -webkit-text-fill-color: #c4b5fd !important;
-  opacity: 1 !important;
-}
-
-/* «Сколько хотите взять взяток»: голубой текст, мерцание в фиолетовый — без -webkit-text-fill-color, чтобы анимация color работала плавно */
+/* «Сколько хотите взять взяток»: базовый голубой; пульс — index.css bidBadgeTextPulse (там же -webkit-text-fill-color по ключам) */
 .theme-standard .game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel-mobile-badge,
 .theme-standard .game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel-mobile-badge .bid-panel-mobile-badge-text {
   color: #38bdf8;
+  -webkit-text-fill-color: #38bdf8;
 }
 .theme-standard .game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel-mobile-badge .bid-panel-mobile-badge-text {
   animation: bidBadgeTextPulse 6s ease-in-out infinite;
