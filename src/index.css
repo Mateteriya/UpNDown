@@ -19,6 +19,21 @@
   box-shadow: inset -1px 0 0 rgba(14, 116, 144, 0.2), inset 0 1px 0 rgba(186, 230, 253, 0.08) !important;
 }
 
+/* DevTools-friendly tuning target: mobile results modal opponent names */
+.deal-results-modal-overlay-mobile .deal-results-player-name--mobile-opponent {
+  background-image: linear-gradient(122deg, #611cd7 0%, #1b9efa 20%, #7157d0 42%, #dd4da7e3 66%, #bd902d 100%) !important;
+  -webkit-text-stroke: 0 #00000000 !important;
+  text-shadow: 0 1px 0 rgb(228 208 220 / 0%), 0 0 7px rgb(56 189 248 / 14%), 0 0 11px #c4b5fd24 !important;
+  font-weight: 685 !important;
+}
+
+.deal-results-modal-overlay-mobile .deal-results-player-name--mobile-opponent.deal-results-player-name--leader {
+  background-image: linear-gradient(122deg, #611cd7 0%, #1b9efa 20%, #7157d0 42%, #dd4da7e3 66%, #bd902d 100%) !important;
+  -webkit-text-stroke: 0 #00000000 !important;
+  text-shadow: 0 1px 0 rgb(228 208 220 / 0%), 0 0 7px rgb(56 189 248 / 14%), 0 0 11px #c4b5fd24 !important;
+  font-weight: 685 !important;
+}
+
 @keyframes deal-results-user-number-iridescent-shift {
   0% {
     background-position: -120% 50%;
@@ -14331,7 +14346,7 @@ body.deal-results-modal-open-mobile {
   background-clip: text !important;
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
-  -webkit-text-stroke: 0.34px rgba(241, 245, 249, 0.92) !important;
+  -webkit-text-stroke: 0 transparent !important;
   text-shadow:
     0 -1px 0 rgba(255, 255, 255, 0.38),
     0 1px 0 rgba(15, 23, 42, 0.32),

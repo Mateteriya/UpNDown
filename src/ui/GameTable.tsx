@@ -8543,6 +8543,13 @@ function DealResultsScreen({
   const [leaderBadgeTooltipOpen, setLeaderBadgeTooltipOpen] = useState(false);
   const [leaderBadgeTooltipPos, setLeaderBadgeTooltipPos] = useState<{ left: number; top: number; placement: 'above' | 'below'; arrowX: number } | null>(null);
   const [mobileScrollHintVisible, setMobileScrollHintVisible] = useState(true);
+  const [mobileLegendActiveKey, setMobileLegendActiveKey] = useState<'bid' | 'result' | null>(null);
+  const mobileLegendFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerMobileLegendFlash = (key: 'bid' | 'result') => {
+    setMobileLegendActiveKey(key);
+    if (mobileLegendFlashTimerRef.current) window.clearTimeout(mobileLegendFlashTimerRef.current);
+    mobileLegendFlashTimerRef.current = window.setTimeout(() => setMobileLegendActiveKey(null), 780);
+  };
   const bids = state.bids as number[];
   const players = state.players;
   const baseStyle = variant === 'modal'
@@ -9096,10 +9103,37 @@ function DealResultsScreen({
     ] as const;
     const gradient = gradients[playerIndex % gradients.length];
     const isHuman = playerIndex === humanIdx;
+    const mobileOpponentGradients = [
+      'linear-gradient(122deg, #f5f3ff 0%, #ddd6fe 20%, #c4b5fd 42%, #93c5fd 66%, #67e8f9 100%)',
+      'linear-gradient(122deg, #eff6ff 0%, #dbeafe 22%, #bfdbfe 44%, #93c5fd 68%, #c4b5fd 100%)',
+      'linear-gradient(122deg, #ccfbf1 0%, #99f6e4 20%, #67e8f9 42%, #7dd3fc 66%, #c4b5fd 100%)',
+      'linear-gradient(122deg, #f0f9ff 0%, #e0f2fe 20%, #bae6fd 42%, #93c5fd 66%, #ddd6fe 100%)',
+    ] as const;
+    const isMobileOpponent = isMobile && !isHuman;
+    const isMobileHuman = isMobile && isHuman;
     return {
       ...dealResultsPlayerNameTextBaseStyle,
-      backgroundImage: gradient,
-      ...(isLeader
+      backgroundImage: isMobileOpponent ? mobileOpponentGradients[playerIndex % mobileOpponentGradients.length] : gradient,
+      ...(isMobileOpponent
+        ? {
+            fontWeight: isLeader ? 720 : 685,
+            WebkitTextStroke: '0 transparent',
+            textShadow: isLeader
+              ? '0 1px 0 rgb(2 6 23 / 0.48), 0 0 9px rgb(125 211 252 / 0.5), 0 0 14px rgb(167 139 250 / 0.34)'
+              : '0 1px 0 rgb(2 6 23 / 0.44), 0 0 7px rgb(56 189 248 / 0.4), 0 0 11px rgb(96 165 250 / 0.24)',
+          }
+        : {}),
+      ...(isMobileHuman
+        ? {
+            // Keep user's current gradient background, but reset letter effects
+            // and use the same readable baseline as opponents.
+            backgroundImage: 'linear-gradient(122deg, #ffffff 0%, #ecfeff 10%, #a5f3fc 24%, #67e8f9 42%, #22d3ee 56%, #0ea5e9 70%, #7dd3fc 84%, #d8b4fe 100%)',
+            fontWeight: 685,
+            WebkitTextStroke: '0 transparent',
+            textShadow: '0 1px 0 rgb(2 6 23 / 0.44), 0 0 7px rgb(56 189 248 / 0.4), 0 0 11px rgb(96 165 250 / 0.24)',
+          }
+        : {}),
+      ...(!isMobileOpponent && isLeader
         ? {
             fontWeight: 770,
             letterSpacing: '0.014em',
@@ -9107,7 +9141,7 @@ function DealResultsScreen({
               '0 1px 0 rgb(15 23 42 / 0.42), 0 0 16px rgb(125 211 252 / 0.56), 0 0 24px rgb(167 139 250 / 0.4)',
           }
         : {}),
-      ...(isHuman
+      ...(!isMobileHuman && isHuman
         ? {
             backgroundImage: 'linear-gradient(122deg, #ffffff 0%, #ecfeff 10%, #a5f3fc 24%, #67e8f9 42%, #22d3ee 56%, #0ea5e9 70%, #7dd3fc 84%, #d8b4fe 100%)',
             fontWeight: 790,
@@ -9244,6 +9278,9 @@ function DealResultsScreen({
       document.removeEventListener('pointerdown', onPointerDown);
     };
   }, [leaderBadgeTooltipOpen]);
+  useEffect(() => () => {
+    if (mobileLegendFlashTimerRef.current) window.clearTimeout(mobileLegendFlashTimerRef.current);
+  }, []);
   return (
     <div
       ref={variant === 'overlay' ? overlayAnimRef : undefined}
@@ -9357,7 +9394,7 @@ function DealResultsScreen({
                                     </span>
                                   )}
                                   <span
-                                    className={`deal-results-player-name${i === humanIdx ? ' deal-results-player-name--human' : ''}${isLeader ? ' deal-results-player-name--leader' : ''}`}
+                                    className={`deal-results-player-name${i === humanIdx ? ' deal-results-player-name--human' : ''}${isLeader ? ' deal-results-player-name--leader' : ''}${isMobile && i !== humanIdx ? ' deal-results-player-name--mobile-opponent' : ''}`}
                                     style={getDealResultsPlayerNameCosmicStyle(i, isLeader)}
                                   >
                                     {p.name}
@@ -9365,6 +9402,36 @@ function DealResultsScreen({
                                 </th>
                               );
                             })}
+                          </tr>
+                          <tr className="deal-results-table-mobile-header-row" aria-hidden>
+                            <th style={{ ...dealResultsTableThStyleMobile, ...dealResultsTableThDealStyle, minWidth: dealColumnWidth, width: dealColumnWidth }} aria-hidden />
+                            <th
+                              colSpan={players.length * 2}
+                              style={{ ...dealResultsTableThStyleMobile, padding: 0, lineHeight: 1, verticalAlign: 'bottom' }}
+                            >
+                              <div style={dealResultsMobileLegendStripStyle}>
+                                <span
+                                  style={{
+                                    ...dealResultsMobileLegendItemStyle,
+                                    ...dealResultsMobileLegendItemBidIdleStyle,
+                                    ...(mobileLegendActiveKey === 'bid' ? dealResultsMobileLegendItemActiveStyle : {}),
+                                  }}
+                                >
+                                  <span style={{ ...dealResultsMobileLegendKeyStyle, ...dealResultsMobileLegendKeyBidStyle }}>З</span>
+                                  ЗАКАЗАНО
+                                </span>
+                                <span style={dealResultsMobileLegendDotStyle}>•</span>
+                                <span
+                                  style={{
+                                    ...dealResultsMobileLegendItemStyle,
+                                    ...(mobileLegendActiveKey === 'result' ? dealResultsMobileLegendItemActiveStyle : {}),
+                                  }}
+                                >
+                                  <span style={{ ...dealResultsMobileLegendKeyStyle, ...dealResultsMobileLegendKeyResultStyle }}>О</span>
+                                  ОЧКИ
+                                </span>
+                              </div>
+                            </th>
                           </tr>
                           <tr className="deal-results-table-mobile-header-row">
                             <th style={{ ...dealResultsTableThStyleMobile, ...dealResultsTableThDealStyle, minWidth: dealColumnWidth, width: dealColumnWidth }} aria-hidden />
@@ -9385,7 +9452,29 @@ function DealResultsScreen({
                                     style={{ ...dealResultsTableThBidStyleMobile, ...(i === 0 ? dealResultsTableThBidFirstStyle : {}), width: mobileBidCellWidth, minWidth: mobileBidCellWidth }}
                                     title="Заказ"
                                   >
-                                    З
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      onPointerDown={(e) => {
+                                        e.stopPropagation();
+                                        triggerMobileLegendFlash('bid');
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault();
+                                          triggerMobileLegendFlash('bid');
+                                        }
+                                      }}
+                                      style={{
+                                        ...dealResultsMobileLegendKeyStyle,
+                                        ...dealResultsMobileLegendKeyBidStyle,
+                                        ...dealResultsMobileLegendKeyHeaderTapStyle,
+                                        ...dealResultsMobileHeaderGlyphScaleStyle,
+                                        ...(mobileLegendActiveKey === 'bid' ? dealResultsMobileLegendKeyHeaderTapActiveStyle : {}),
+                                      }}
+                                    >
+                                      З
+                                    </span>
                                   </th>
                                   <th
                                     className={
@@ -9400,7 +9489,29 @@ function DealResultsScreen({
                                     style={{ ...dealResultsTableThResultStyleMobile, width: mobileResultCellWidth, minWidth: mobileResultCellWidth }}
                                     title="Очки"
                                   >
-                                    О
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      onPointerDown={(e) => {
+                                        e.stopPropagation();
+                                        triggerMobileLegendFlash('result');
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault();
+                                          triggerMobileLegendFlash('result');
+                                        }
+                                      }}
+                                      style={{
+                                        ...dealResultsMobileLegendKeyStyle,
+                                        ...dealResultsMobileLegendKeyResultStyle,
+                                        ...dealResultsMobileLegendKeyHeaderTapStyle,
+                                        ...dealResultsMobileHeaderGlyphScaleStyle,
+                                        ...(mobileLegendActiveKey === 'result' ? dealResultsMobileLegendKeyHeaderTapActiveStyle : {}),
+                                      }}
+                                    >
+                                      О
+                                    </span>
                                   </th>
                                 </Fragment>
                               );
@@ -9657,7 +9768,7 @@ function DealResultsScreen({
                                     </span>
                                   )}
                                   <span
-                                    className={`deal-results-player-name${i === humanIdx ? ' deal-results-player-name--human' : ''}${isLeader ? ' deal-results-player-name--leader' : ''}`}
+                                    className={`deal-results-player-name${i === humanIdx ? ' deal-results-player-name--human' : ''}${isLeader ? ' deal-results-player-name--leader' : ''}${isMobile && i !== humanIdx ? ' deal-results-player-name--mobile-opponent' : ''}`}
                                     style={getDealResultsPlayerNameCosmicStyle(i, isLeader)}
                                   >
                                     {p.name}
@@ -13662,6 +13773,94 @@ const dealResultsTableGlowTopStyleMobile: React.CSSProperties = {
   background: 'linear-gradient(to bottom, rgba(34, 211, 238, 0.32) 0%, rgba(56, 189, 248, 0.24) 34%, rgba(99, 102, 241, 0.2) 58%, transparent 100%)',
   boxShadow:
     '0 4px 22px rgba(34, 211, 238, 0.34), 0 0 16px rgba(59, 130, 246, 0.26), inset 0 1px 0 rgba(125, 211, 252, 0.44)',
+};
+const dealResultsMobileLegendStripStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  width: 'calc(100% - 2px)',
+  margin: '0 auto',
+  padding: '4px 10px',
+  borderRadius: '999px 999px 0 0',
+  border: '1px solid rgba(125, 211, 252, 0.5)',
+  background:
+    'linear-gradient(180deg, rgba(2, 6, 23, 0.9) 0%, rgba(30, 27, 75, 0.88) 42%, rgba(67, 56, 202, 0.58) 100%)',
+  boxShadow:
+    'inset 0 1px 0 rgba(196, 181, 253, 0.18), inset 0 -1px 0 rgba(15, 23, 42, 0.56), inset 0 -2px 0 rgba(125, 211, 252, 0.16), 0 0 0 2px rgba(147, 51, 234, 0.62), 0 0 14px rgba(139, 92, 246, 0.3), 0 0 8px rgba(56, 189, 248, 0.16)',
+  marginBottom: -8,
+};
+const dealResultsMobileLegendItemStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
+  fontSize: 11,
+  fontWeight: 760,
+  letterSpacing: '0.03em',
+  color: 'rgb(216 180 254)',
+  textShadow: '0 0 7px rgba(192, 132, 252, 0.34), 0 0 10px rgba(56, 189, 248, 0.16)',
+  whiteSpace: 'nowrap',
+};
+const dealResultsMobileLegendItemBidIdleStyle: React.CSSProperties = {
+  color: 'rgb(125 211 252)',
+  textShadow: '0 0 7px rgba(125, 211, 252, 0.3), 0 0 10px rgba(56, 189, 248, 0.2)',
+};
+const dealResultsMobileLegendItemActiveStyle: React.CSSProperties = {
+  color: 'rgb(233 213 255)',
+  textShadow: '0 0 8px rgba(216, 180, 254, 0.56), 0 0 13px rgba(56, 189, 248, 0.24)',
+  background:
+    'linear-gradient(104deg, rgba(56, 189, 248, 0.06) 0%, rgba(168, 85, 247, 0.18) 35%, rgba(233, 213, 255, 0.54) 50%, rgba(16, 185, 129, 0.08) 64%, rgba(56, 189, 248, 0.06) 100%)',
+  backgroundSize: '190% 100%',
+  backgroundPosition: '-45% 50%',
+  animationName: 'deal-results-user-number-iridescent-shift',
+  animationDuration: '1.45s',
+  animationTimingFunction: 'cubic-bezier(0.28, 0.02, 0.2, 1)',
+  animationIterationCount: 1,
+  boxShadow: 'inset 0 1px 0 rgba(196, 181, 253, 0.22), 0 0 10px rgba(168, 85, 247, 0.24), 0 0 7px rgba(56, 189, 248, 0.16)',
+  borderRadius: 999,
+  padding: '1px 5px',
+};
+const dealResultsMobileLegendKeyStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: 16,
+  height: 16,
+  borderRadius: 999,
+  fontSize: 10,
+  fontWeight: 900,
+  lineHeight: 1,
+  border: '1px solid rgba(148, 163, 184, 0.45)',
+};
+const dealResultsMobileLegendKeyHeaderTapStyle: React.CSSProperties = {
+  transition: 'transform 140ms ease, box-shadow 160ms ease, filter 160ms ease',
+  cursor: 'pointer',
+};
+const dealResultsMobileHeaderGlyphScaleStyle: React.CSSProperties = {
+  transform: 'scale(1.12)',
+  transformOrigin: 'center',
+};
+const dealResultsMobileLegendKeyHeaderTapActiveStyle: React.CSSProperties = {
+  transform: 'translateY(-0.5px) scale(1.06)',
+  filter: 'saturate(1.2)',
+  boxShadow: '0 0 10px rgba(168, 85, 247, 0.36), 0 0 14px rgba(56, 189, 248, 0.26)',
+};
+const dealResultsMobileLegendKeyBidStyle: React.CSSProperties = {
+  color: 'rgb(196 181 253)',
+  background: 'linear-gradient(180deg, rgba(76, 29, 149, 0.68) 0%, rgba(91, 33, 182, 0.58) 100%)',
+  borderColor: 'rgba(167, 139, 250, 0.62)',
+  boxShadow: '0 0 7px rgba(168, 85, 247, 0.25)',
+};
+const dealResultsMobileLegendKeyResultStyle: React.CSSProperties = {
+  color: 'rgb(125 211 252)',
+  background: 'linear-gradient(180deg, rgba(8, 47, 73, 0.74) 0%, rgba(14, 116, 144, 0.6) 100%)',
+  borderColor: 'rgba(103, 232, 249, 0.58)',
+  boxShadow: '0 0 7px rgba(56, 189, 248, 0.22)',
+};
+const dealResultsMobileLegendDotStyle: React.CSSProperties = {
+  color: 'rgba(192, 132, 252, 0.72)',
+  fontSize: 10,
+  lineHeight: 1,
 };
 /** Полоса неоновой подсветки снизу — не скроллится, привязана к видимой области */
 const dealResultsTableGlowBottomStyle: React.CSSProperties = {
