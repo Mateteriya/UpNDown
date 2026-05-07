@@ -274,6 +274,10 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   /** Чтобы несколько интервалов/кнопок не гоняли getRoom параллельно (ещё один «залипший» канал без VPN). */
   const roomHardRefreshLockRef = useRef(false);
   const roomResyncAggressiveLockRef = useRef(false);
+  /** Опрос getRoomForSyncPoll не должен наслаиваться: параллельные тики создают гонки snapshot и лишнюю нагрузку. */
+  const roomSyncPollInFlightRef = useRef(false);
+  /** Если тик пришёл во время in-flight — выполнить ещё один сразу после завершения текущего запроса. */
+  const roomSyncPollRepeatRef = useRef(false);
   /** Последняя номер раздачи, для доборного heal при переходе 1→2… без ручного VPN. */
   const prevHealDealNumberRef = useRef<number | null>(null);
   
@@ -682,8 +686,13 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
    */
   useEffect(() => {
     if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
-    const HARD_MS = 4600;
-    const REALTIME_SELF_HEAL_MS = 26_000;
+    /**
+     * Прод: уменьшаем фоновые запросы, особенно у гостей.
+     * Хост опрашивает чаще — он ведёт игру и быстрее тянет актуальный стол.
+     */
+    const isHostInRoom = myServerIndex === 0;
+    const HARD_MS = status === 'playing' ? (isHostInRoom ? 6_500 : 9_000) : 12_000;
+    const REALTIME_SELF_HEAL_MS = status === 'playing' ? 30_000 : 45_000;
     const ivHard = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return;
       void runHardRoomRefresh();
@@ -695,7 +704,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       clearInterval(ivHard);
       clearInterval(ivHeal);
     };
-  }, [roomId, status, runHardRoomRefresh]);
+  }, [roomId, status, myServerIndex, runHardRoomRefresh]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -723,8 +732,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
    * Опрос: в игре — Realtime не всегда доставляет ходы.
    * 280 ms × N игроков + VPN давит лимиты/очередь PostgREST → гонки ревизий, конфликты и «залипший» ход ИИ.
    */
-  const ROOM_SYNC_POLL_WAITING_MS = 1600;
-  const ROOM_SYNC_POLL_PLAYING_MS = 760;
+  const ROOM_SYNC_POLL_WAITING_MS = 2200;
+  const ROOM_SYNC_POLL_PLAYING_HOST_MS = 900;
+  const ROOM_SYNC_POLL_PLAYING_GUEST_MS = 1300;
   /**
    * Раньше ~420 ms после любого send* гасили каждый тик опроса — при частых ходах ИИ/живых почти всегда «тишина» после lastSendAt,
    * а при заблокированном WebSocket Realtime стол на ПК в LAN не обновлялся без VPN. Жёсткие рассылки уже закрывает grace после записи.
@@ -744,20 +754,42 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     }
     const rid = roomIdRef.current;
     if (!rid) return;
+    if (roomSyncPollInFlightRef.current) {
+      roomSyncPollRepeatRef.current = true;
+      return;
+    }
+    roomSyncPollInFlightRef.current = true;
     void getRoomForSyncPoll(rid).then((room) => {
       if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
       applyRoomSnapshot(room);
+    }).finally(() => {
+      roomSyncPollInFlightRef.current = false;
+      if (!roomSyncPollRepeatRef.current) return;
+      roomSyncPollRepeatRef.current = false;
+      queueMicrotask(() => {
+        runRoomSyncPollTick();
+      });
     });
   }, [applyRoomSnapshot]);
 
   useEffect(() => {
+    roomSyncPollInFlightRef.current = false;
+    roomSyncPollRepeatRef.current = false;
+  }, [roomId]);
+
+  useEffect(() => {
     if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
-    const period = status === 'waiting' ? ROOM_SYNC_POLL_WAITING_MS : ROOM_SYNC_POLL_PLAYING_MS;
+    const period =
+      status === 'waiting'
+        ? ROOM_SYNC_POLL_WAITING_MS
+        : myServerIndex === 0
+          ? ROOM_SYNC_POLL_PLAYING_HOST_MS
+          : ROOM_SYNC_POLL_PLAYING_GUEST_MS;
     runRoomSyncPollTick();
     // И в лобби, и в игре: Realtime часто «зелёный», но события не доходят до второго устройства — без опроса ходы не синхронизируются.
     const iv = setInterval(() => runRoomSyncPollTick(), period);
     return () => clearInterval(iv);
-  }, [roomId, status, runRoomSyncPollTick]);
+  }, [roomId, status, myServerIndex, runRoomSyncPollTick]);
 
   useEffect(() => {
     const prev = prevStatusForPlayingBurstRef.current;

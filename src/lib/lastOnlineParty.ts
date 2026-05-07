@@ -4,6 +4,11 @@
  */
 
 const LAST_ONLINE_PARTY_KEY = 'updown_last_online_party';
+/**
+ * Подсказка "последняя комната" нужна только для недавнего возврата.
+ * Старые комнаты не должны предлагаться спустя долгий срок.
+ */
+const LAST_ONLINE_PARTY_MAX_AGE_MS = 30 * 60 * 1000;
 
 export type LastOnlineParty = { roomId: string; code: string; savedAt: number };
 
@@ -36,6 +41,10 @@ export function loadLastOnlineParty(): LastOnlineParty | null {
         typeof (p as { savedAt?: number }).savedAt === 'number' && Number.isFinite((p as { savedAt: number }).savedAt)
           ? (p as { savedAt: number }).savedAt
           : 0;
+      if (savedAt <= 0 || Date.now() - savedAt > LAST_ONLINE_PARTY_MAX_AGE_MS) {
+        clearLastOnlineParty();
+        return null;
+      }
       return { roomId, code, savedAt };
     }
     return null;

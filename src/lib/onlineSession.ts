@@ -6,10 +6,18 @@
 import { saveLastOnlineParty } from './lastOnlineParty';
 
 const ONLINE_SESSION_KEY = 'updown_online_session';
+/**
+ * Автовосстановление только для "свежей" вкладки/девайса.
+ * Старая сессия через дни/недели не должна снова поднимать комнату.
+ */
+const ONLINE_SESSION_MAX_AGE_MS = 30 * 60 * 1000;
 
 export function saveOnlineSession(roomId: string, deviceId: string, code?: string | null) {
   try {
-    sessionStorage.setItem(ONLINE_SESSION_KEY, JSON.stringify({ roomId, deviceId }));
+    sessionStorage.setItem(
+      ONLINE_SESSION_KEY,
+      JSON.stringify({ roomId, deviceId, savedAt: Date.now() }),
+    );
   } catch {
     /* ignore */
   }
@@ -37,6 +45,15 @@ export function loadOnlineSession(): { roomId: string; deviceId: string } | null
       typeof (p as { roomId?: string }).roomId === 'string' &&
       typeof (p as { deviceId?: string }).deviceId === 'string'
     ) {
+      const savedAt = (p as { savedAt?: unknown }).savedAt;
+      if (typeof savedAt !== 'number' || !Number.isFinite(savedAt)) {
+        clearOnlineSession();
+        return null;
+      }
+      if (Date.now() - savedAt > ONLINE_SESSION_MAX_AGE_MS) {
+        clearOnlineSession();
+        return null;
+      }
       return p as { roomId: string; deviceId: string };
     }
     return null;
