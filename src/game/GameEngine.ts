@@ -54,6 +54,8 @@ export interface DealResult {
   dealNumber: number;
   bids: number[];
   points: number[];
+  /** Фактические взятки по игрокам (нужно отличать +5 за 0/0 от +5 при переборе и т.п.) */
+  takens?: number[];
 }
 
 export interface GameState {
@@ -434,11 +436,15 @@ export function completeTrick(state: GameState): GameState {
   if (allPlayed) {
     const bids = state.bids as number[];
     const pointsThisDeal = updatedPlayers.map((p, i) => calculateDealPoints(bids[i], p.tricksTaken));
+    const takensThisDeal = updatedPlayers.map((p) => p.tricksTaken);
     const finalPlayers = updatedPlayers.map((p, i) => ({
       ...p,
       score: p.score + pointsThisDeal[i],
     }));
-    const dealHistory = [...(state.dealHistory || []), { dealNumber: state.dealNumber, bids: [...bids], points: pointsThisDeal }];
+    const dealHistory = [
+      ...(state.dealHistory || []),
+      { dealNumber: state.dealNumber, bids: [...bids], points: pointsThisDeal, takens: takensThisDeal },
+    ];
 
     return {
       ...state,

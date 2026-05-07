@@ -1610,12 +1610,15 @@
     color: rgba(245, 232, 255, 0.98) !important;
     text-shadow: 0 0 12px rgba(196, 181, 253, 0.42) !important;
   }
-  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-total-value-overlay {
-    color: rgba(220, 252, 231, 0.99) !important;
+  .game-table-root:not(.viewport-mobile)
+    .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+    .deal-results-overlay-player-panel
+    .deal-results-panel-total-value-overlay {
+    color: rgba(220, 252, 231, 0.96) !important;
     text-shadow:
-      0 0 10px rgba(45, 212, 191, 0.46),
-      0 0 18px rgba(34, 211, 238, 0.3),
-      0 0 28px rgba(168, 85, 247, 0.24) !important;
+      0 1px 2px rgba(15, 23, 42, 0.5),
+      0 0 10px rgba(45, 212, 191, 0.35),
+      0 0 18px rgba(34, 211, 238, 0.22) !important;
   }
   .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay {
     background: linear-gradient(160deg, rgba(109, 40, 217, 0.78) 0%, rgba(59, 130, 246, 0.68) 56%, rgba(20, 184, 166, 0.58) 100%) !important;
@@ -1635,13 +1638,16 @@
       0 0 18px rgba(217, 70, 239, 0.34),
       0 0 28px rgba(34, 211, 238, 0.28) !important;
   }
-  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-value-overlay {
-    color: #f472b6 !important;
+  .game-table-root:not(.viewport-mobile)
+    .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+    .deal-results-panel-human-overlay
+    .deal-results-panel-total-value-overlay {
+    color: #f9a8d4 !important;
     text-shadow:
       0 0 12px rgba(244, 114, 182, 0.55),
-      0 0 22px rgba(217, 70, 239, 0.48),
-      0 0 34px rgba(34, 211, 238, 0.38) !important;
-    filter: saturate(1.22) brightness(1.1);
+      0 0 22px rgba(217, 70, 239, 0.42),
+      0 0 28px rgba(34, 211, 238, 0.28) !important;
+    filter: saturate(1.12) brightness(1.06);
   }
   .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-label-overlay {
     color: rgba(253, 164, 175, 0.96) !important;
@@ -13740,32 +13746,179 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
     0 0 6px rgba(42, 245, 200, 0.35) !important;
   filter: none !important;
 }
-.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-value-overlay {
-  color: #fb923c !important;
-  font-size: 24px !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.02em !important;
-  line-height: 1 !important;
-  padding-left: 4px !important;
-  text-shadow:
-    0 0 8px rgba(251, 146, 60, 0.82),
-    0 0 16px rgba(249, 115, 22, 0.66),
-    0 0 28px rgba(234, 88, 12, 0.48) !important;
-  filter: saturate(1.32) brightness(1.14) contrast(1.1);
-  animation: deal-results-human-score-pulse 0.55s ease-out 1;
-}
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-label-overlay {
   line-height: 1.1 !important;
   padding-right: 6px !important;
 }
+
+/* Межраздачный оверлей ПК: фаза 1 — «Итого» в нейтральной капсуле; фаза 2 — умные плашки по приросту (vars из GameTable). */
+.game-table-root:not(.viewport-mobile)
+  .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+  .deal-results-overlay-player-panel
+  .deal-results-panel-total-value-overlay {
+  color: rgba(226, 232, 240, 0.96) !important;
+  font-size: 17px !important;
+  font-weight: 780 !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1.1 !important;
+  text-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.55),
+    0 0 12px rgba(148, 163, 184, 0.12) !important;
+  background: linear-gradient(142deg, rgba(71, 85, 105, 0.52) 0%, rgba(51, 65, 85, 0.58) 42%, rgba(30, 41, 59, 0.64) 100%) !important;
+  border: 1px solid rgba(148, 163, 184, 0.45) !important;
+  border-radius: 10px !important;
+  padding: 2px 10px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.35),
+    0 0 0 1px rgba(15, 23, 42, 0.32),
+    0 2px 12px rgba(15, 23, 42, 0.38) !important;
+  filter: none !important;
+  animation: none !important;
+}
+.game-table-root:not(.viewport-mobile)
+  .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+  .deal-results-overlay-player-panel
+  .deal-results-panel-row-total-overlay {
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.42) 0%, rgba(15, 23, 42, 0.58) 100%) !important;
+  border-top-color: rgba(100, 116, 139, 0.48) !important;
+}
+.game-table-root:not(.viewport-mobile)
+  .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+  .deal-results-overlay-player-panel
+  .deal-results-panel-total-label-overlay {
+  color: rgba(148, 163, 184, 0.92) !important;
+  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.42) !important;
+}
+.game-table-root:not(.viewport-mobile)
+  .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+  .deal-results-overlay-player-panel
+  > .deal-results-panel-row-overlay:nth-child(4)
+  .deal-results-panel-value-overlay {
+  transform: scale(1.28) !important;
+  transform-origin: center right !important;
+  transition: transform 0.38s ease !important;
+}
+.game-table-root:not(.viewport-mobile)
+  .deal-results-overlay-animation[data-overlay-accent-phase='running-total']
+  .deal-results-overlay-player-panel
+  > .deal-results-panel-row-overlay:nth-child(4)
+  .deal-results-panel-value-overlay {
+  transform: scale(1) !important;
+  transform-origin: center right !important;
+  transition: transform 0.38s ease !important;
+}
+
+.game-table-root:not(.viewport-mobile)
+  .deal-results-overlay-animation[data-overlay-accent-phase='running-total']
+  .deal-results-overlay-player-panel
+  .deal-results-panel-total-value-overlay {
+  color: var(--dr-player-total-fg, rgba(243, 232, 255, 0.96)) !important;
+  font-size: var(--dr-player-total-fs, 22px) !important;
+  font-weight: var(--dr-player-total-fw, 900) !important;
+  letter-spacing: var(--dr-player-total-ls, 0.02em) !important;
+  line-height: var(--dr-player-total-lh, 1.05) !important;
+  text-shadow: var(--dr-player-total-shadow, none) !important;
+  background: var(--dr-player-total-bg, transparent) !important;
+  border: var(--dr-player-total-border, none) !important;
+  border-radius: var(--dr-player-total-radius, 0) !important;
+  padding: var(--dr-player-total-pad, 0 4px) !important;
+  box-shadow: var(--dr-player-total-box, none) !important;
+  filter: var(--dr-player-total-filter, none) !important;
+  animation: deal-results-human-score-pulse 0.45s ease-out 1;
+}
+
+.game-table-root.viewport-mobile
+  .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+  .deal-results-overlay-player-panel
+  .deal-results-panel-total-value-overlay {
+  color: rgba(226, 232, 240, 0.95) !important;
+  font-size: 15px !important;
+  font-weight: 760 !important;
+  letter-spacing: 0.02em !important;
+  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.5) !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 3px !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile
+  .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+  .deal-results-overlay-player-panel
+  .deal-results-panel-row-total-overlay {
+  border-top-color: rgba(100, 116, 139, 0.42) !important;
+}
+.game-table-root.viewport-mobile
+  .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+  .deal-results-overlay-player-panel
+  .deal-results-panel-total-label-overlay {
+  color: rgba(148, 163, 184, 0.88) !important;
+}
+.game-table-root.viewport-mobile
+  .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+  .deal-results-overlay-player-panel
+  > .deal-results-panel-row-overlay:nth-child(4)
+  .deal-results-panel-value-overlay {
+  transform: scale(1.22) !important;
+  transform-origin: center right !important;
+  transition: transform 0.38s ease !important;
+}
+.game-table-root.viewport-mobile
+  .deal-results-overlay-animation[data-overlay-accent-phase='running-total']
+  .deal-results-overlay-player-panel
+  .deal-results-panel-total-value-overlay {
+  color: var(--dr-player-total-fg, rgba(243, 232, 255, 0.96)) !important;
+  font-size: var(--dr-player-total-fs, 19px) !important;
+  font-weight: var(--dr-player-total-fw, 900) !important;
+  letter-spacing: var(--dr-player-total-ls, 0.02em) !important;
+  line-height: var(--dr-player-total-lh, 1.05) !important;
+  text-shadow: var(--dr-player-total-shadow, none) !important;
+  background: var(--dr-player-total-bg, transparent) !important;
+  border: var(--dr-player-total-border, none) !important;
+  border-radius: var(--dr-player-total-radius, 0) !important;
+  padding: var(--dr-player-total-pad, 0 3px) !important;
+  box-shadow: var(--dr-player-total-box, none) !important;
+  filter: var(--dr-player-total-filter, none) !important;
+  animation: deal-results-human-score-pulse 0.45s ease-out 1;
+}
+.game-table-root.viewport-mobile
+  .deal-results-overlay-animation[data-overlay-accent-phase='running-total']
+  .deal-results-overlay-player-panel
+  > .deal-results-panel-row-overlay:nth-child(4)
+  .deal-results-panel-value-overlay {
+  transform: scale(1) !important;
+  transform-origin: center right !important;
+  transition: transform 0.38s ease !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+    .deal-results-overlay-player-panel
+    > .deal-results-panel-row-overlay:nth-child(4)
+    .deal-results-panel-value-overlay,
+  .deal-results-overlay-animation[data-overlay-accent-phase='running-total']
+    .deal-results-overlay-player-panel
+    > .deal-results-panel-row-overlay:nth-child(4)
+    .deal-results-panel-value-overlay {
+    transition: none !important;
+  }
   .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay {
     animation: none !important;
   }
   .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay::after {
     animation: none !important;
   }
-  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-value-overlay {
+  .game-table-root:not(.viewport-mobile)
+    .deal-results-overlay-animation
+    .deal-results-overlay-player-panel
+    .deal-results-panel-total-value-overlay {
+    animation: none !important;
+  }
+  .game-table-root.viewport-mobile
+    .deal-results-overlay-animation
+    .deal-results-overlay-player-panel
+    .deal-results-panel-total-value-overlay {
     animation: none !important;
   }
 }
@@ -13936,23 +14089,29 @@ body.deal-results-modal-open-mobile {
   height: 0 !important;
 }
 
-/* Мобильная: первый столбец — всё по центру (надпись «Раздача», цифры раздач, «Итог»), высота строк заголовков чуть увеличена */
+/* Мобильная модалка «Результаты»: перенос имён, колонки человека/лидера, разделители и «окно» таблицы */
 .deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr.deal-results-table-mobile-header-row th {
   padding-top: 8px !important;
   padding-bottom: 8px !important;
 }
-/* Мобильная: статичные вертикальные линии между именами игроков в первой строке шапки */
 .deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th {
   position: relative !important;
 }
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:nth-child(n+2)::before {
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:nth-child(n + 2)::before {
   content: '' !important;
   position: absolute !important;
   left: 0 !important;
   top: 0 !important;
   bottom: 0 !important;
   width: 2px !important;
-  background: linear-gradient(180deg, transparent 0%, rgba(167, 139, 250, 0.7) 15%, rgba(167, 139, 250, 0.85) 50%, rgba(167, 139, 250, 0.7) 85%, transparent 100%) !important;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(167, 139, 250, 0.45) 14%,
+    rgba(129, 140, 248, 0.78) 50%,
+    rgba(99, 102, 241, 0.55) 86%,
+    transparent 100%
+  ) !important;
   pointer-events: none !important;
 }
 .deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:last-child::after {
@@ -13962,10 +14121,16 @@ body.deal-results-modal-open-mobile {
   top: 0 !important;
   bottom: 0 !important;
   width: 2px !important;
-  background: linear-gradient(180deg, transparent 0%, rgba(167, 139, 250, 0.7) 15%, rgba(167, 139, 250, 0.85) 50%, rgba(167, 139, 250, 0.7) 85%, transparent 100%) !important;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(167, 139, 250, 0.45) 14%,
+    rgba(129, 140, 248, 0.78) 50%,
+    rgba(99, 102, 241, 0.55) 86%,
+    transparent 100%
+  ) !important;
   pointer-events: none !important;
 }
-/* Мобильная: в ячейках с именами до 3 строк, длинные слова переносим/разбиваем (только внутренний span) */
 .deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:not(:first-child) > span {
   -webkit-line-clamp: 3 !important;
   line-clamp: 3 !important;
@@ -13973,7 +14138,257 @@ body.deal-results-modal-open-mobile {
   word-break: break-word !important;
   min-width: 0 !important;
 }
-/* Первый столбец: принудительный сдвиг контента влево */
+/* Ячейка имени пользователя: неонные рамки без скругления — в общий стан сетке таблицы. */
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human,
+.deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human {
+  position: relative !important;
+  isolation: isolate !important;
+  overflow: visible !important;
+  z-index: 10 !important;
+  border-radius: 0 !important;
+  background:
+    radial-gradient(120% 72% at 50% -10%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 52%),
+    linear-gradient(165deg, rgb(88 28 135 / 0.96) 0%, rgb(76 29 149 / 0.94) 36%, rgb(67 56 202 / 0.9) 66%, rgb(49 46 129 / 0.94) 100%) !important;
+  box-shadow:
+    inset 0 0 22px 3px rgba(124, 58, 237, 0.18),
+    inset 0 0 34px 2px rgba(76, 29, 149, 0.12),
+    inset 0 0 0 1px rgba(192, 132, 252, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human > span.deal-results-player-name,
+.deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human > span.deal-results-player-name {
+  position: absolute !important;
+  inset: 1px !important;
+  z-index: 3 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: calc(100% - 2px) !important;
+  min-height: auto !important;
+  padding: 0 6px !important;
+  border-radius: 0 !important;
+  box-sizing: border-box !important;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.24),
+    0 0 10px rgba(125, 211, 252, 0.3),
+    0 0 16px rgba(167, 139, 250, 0.24) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human > span.deal-results-player-name {
+  padding: 0 10px !important;
+  text-align: center !important;
+  min-width: 0 !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human::after,
+.deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: 0 !important;
+  z-index: 9 !important;
+  pointer-events: none !important;
+  border: 3px solid rgba(45, 212, 191, 0.94) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(224, 242, 254, 0.44),
+    inset 0 0 16px rgba(45, 212, 191, 0.32),
+    inset 0 1px 0 rgba(226, 254, 255, 0.16) !important;
+  background: radial-gradient(115% 58% at 50% 8%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 55%) !important;
+}
+/* Вторая рамка: ультра-яркий фиолетовый LED-контур. */
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human > span.deal-results-player-name::before,
+.deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human > span.deal-results-player-name::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: 0 !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+  border: 1px solid transparent !important;
+  box-shadow:
+    0 0 14px rgba(192, 132, 252, 0.32),
+    0 0 22px rgba(139, 92, 246, 0.2) !important;
+}
+/* Зеркало левой сиреневой «колоночной» полоски: внутри ячейки, у правого внутреннего края бирюзовой рамки. */
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human > span.deal-results-player-name::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  /* Зазор от бирюзовой кромки меньше на 1px относительно прежних 5px */
+  right: 4px !important;
+  width: 2px !important;
+  border-radius: 0 !important;
+  z-index: 0 !important;
+  pointer-events: none !important;
+  background: linear-gradient(
+    180deg,
+    rgba(167, 139, 250, 0.22) 0%,
+    rgba(167, 139, 250, 0.58) 12%,
+    rgba(167, 139, 250, 0.78) 24%,
+    rgba(139, 92, 246, 0.92) 50%,
+    rgba(129, 140, 248, 0.88) 76%,
+    rgba(99, 102, 241, 0.72) 88%,
+    rgba(99, 102, 241, 0.28) 100%
+  ) !important;
+  box-shadow: 0 0 6px rgba(167, 139, 250, 0.32) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human::before,
+.deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 1px !important;
+  border-radius: 0 !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+  border: 1px solid rgba(216, 180, 254, 0.9) !important;
+  background:
+    linear-gradient(90deg, rgba(233, 213, 255, 0.18) 0%, rgba(216, 180, 254, 0.12) 20%, rgba(168, 85, 247, 0.1) 48%, rgba(56, 189, 248, 0.1) 78%, rgba(0, 207, 255, 0.14) 100%) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(233, 213, 255, 0.26),
+    inset 0 0 12px rgba(216, 180, 254, 0.16),
+    inset 0 0 22px rgba(168, 85, 247, 0.09) !important;
+}
+/* Имена игроков в таблице результатов: принудительно не обрезать glow/градиент. */
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th > span.deal-results-player-name,
+.deal-results-table-header-pc thead tr:first-child th > span.deal-results-player-name {
+  display: inline-block !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  -webkit-box-orient: initial !important;
+}
+/* Акцент имени пользователя: заметный неон без прямоугольного композитного «шлейфа». */
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th > span.deal-results-player-name--human,
+.deal-results-table-header-pc thead tr:first-child th > span.deal-results-player-name--human {
+  font-family: "Plus Jakarta Sans", "Manrope", "Inter", "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif !important;
+  font-size: 1.14em !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.055em !important;
+  transform: translateY(-0.5px) scale(1.02, 1.14) !important;
+  transform-origin: center center !important;
+  background-image: linear-gradient(
+    108deg,
+    #f0abfc 0%,
+    #e879f9 8%,
+    #c084fc 16%,
+    #a855f7 24%,
+    #7c3aed 32%,
+    #60a5fa 40%,
+    #38bdf8 48%,
+    #22d3ee 56%,
+    #00cfff 64%,
+    #d8b4fe 72%,
+    #f0abfc 80%,
+    #e879f9 88%,
+    #22d3ee 96%,
+    #00cfff 100%
+  ) !important;
+  background-size: 520% 100% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  -webkit-text-stroke: 0.34px rgba(241, 245, 249, 0.92) !important;
+  text-shadow:
+    0 -1px 0 rgba(255, 255, 255, 0.38),
+    0 1px 0 rgba(15, 23, 42, 0.32),
+    0 2px 4px rgba(15, 23, 42, 0.28),
+    0 0 18px rgba(216, 180, 254, 0.96),
+    0 0 30px rgba(168, 85, 247, 0.84),
+    0 0 44px rgba(34, 211, 238, 0.66),
+    0 0 62px rgba(0, 207, 255, 0.52) !important;
+  animation:
+    deal-results-human-name-shimmer 2.8s ease-in-out infinite,
+    deal-results-human-name-spectrum-flow 7.6s linear infinite !important;
+}
+@keyframes deal-results-human-name-shimmer {
+  0% {
+    background-position: 0% 50%;
+    filter: brightness(1) saturate(1);
+  }
+  50% {
+    background-position: 100% 50%;
+    filter: brightness(1.26) saturate(1.34);
+  }
+  100% {
+    background-position: 0% 50%;
+    filter: brightness(1) saturate(1);
+  }
+}
+@keyframes deal-results-human-name-spectrum-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 400% 50%;
+  }
+}
+/* Цифра бейджа: на мобильном WebKit один background-position над clip:text часто «замирает». Как у .game-info-dark-mode-name-oil — два слоя + filter. */
+/* Нежное «нижнее положение» ≈ как сейчас; середина цикла — сильная вспышка насыщения/яркости и обратно */
+@keyframes deal-results-name-rank-digit-oil {
+  /* Широкий цикл по спектру: красный→оранжевый→желтый→зеленый→бирюза→синий→фиолет→розовый */
+  0%,
+  100% {
+    background-position:
+      0% 50%,
+      -52% 50%;
+    filter:
+      hue-rotate(-8deg)
+      saturate(1.52)
+      brightness(1.06)
+      contrast(1.06);
+  }
+  16% {
+    background-position:
+      20% 50%,
+      10% 50%;
+    filter:
+      hue-rotate(8deg)
+      saturate(2.35)
+      brightness(1.22)
+      contrast(1.12);
+  }
+  32% {
+    background-position:
+      40% 50%,
+      28% 50%;
+    filter:
+      hue-rotate(52deg)
+      saturate(2.75)
+      brightness(1.28)
+      contrast(1.14);
+  }
+  48% {
+    background-position:
+      56% 50%,
+      44% 50%;
+    filter:
+      hue-rotate(-52deg)
+      saturate(3.12)
+      brightness(1.5)
+      contrast(1.14);
+  }
+  64% {
+    background-position:
+      78% 50%,
+      62% 50%;
+    filter:
+      hue-rotate(-82deg)
+      saturate(2.95)
+      brightness(1.34)
+      contrast(1.16);
+  }
+  82% {
+    background-position:
+      88% 50%,
+      70% 50%;
+    filter:
+      hue-rotate(58deg)
+      saturate(3.42)
+      brightness(1.58)
+      contrast(1.16);
+  }
+}
 .deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr th:first-child,
 .deal-results-modal-overlay-mobile .deal-results-table-body-pc tbody tr td:first-child,
 .deal-results-modal-overlay-mobile .deal-results-table-body-pc tfoot tr th:first-child {
@@ -13981,99 +14396,765 @@ body.deal-results-modal-open-mobile {
   padding-left: 5px !important;
   padding-right: 5px !important;
   box-sizing: border-box !important;
-  transform: translateX(-3px) !important;
+  transform: translateX(-2px) !important;
 }
-/* Итог: объединённая ячейка (Раздача + Заказано) — без сдвига, по центру */
 .deal-results-modal-overlay-mobile .deal-results-table-body-pc tfoot tr th.deal-results-tfoot-total-mobile {
   transform: none !important;
   min-width: auto !important;
   width: auto !important;
 }
-/* Ячейка с «Раздача» — флекс по центру */
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:first-child {
-  vertical-align: middle !important;
-  display: flex !important;
-  justify-content: center !important;
-  align-items: center !important;
-  flex-direction: column !important;
-}
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:first-child .deal-results-table-vertical-label {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  font-size: 11px;
-  font-weight: 700;
-  color: #e2e8f0;
-  text-shadow: 0 0 1px rgba(255, 255, 255, 0.8), 0 1px 0 rgba(0, 0, 0, 0.15);
-  letter-spacing: 0.02em;
-}
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:first-child .deal-results-table-vertical-label > span {
-  display: block !important;
-  text-align: center !important;
-}
-
-/* Разделители столбцов */
-/* 1) Между игроками (полная граница между блоком «Заказ+Очки» одного игрока и следующего) */
-/* Слева: между столбцом № и первым игроком — тоньше и прозрачнее */
 .deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(1) th:nth-child(1),
 .deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(1),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(1),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr th:nth-child(1) {
-  border-right: 1px solid rgba(34, 211, 238, 0.4) !important;
+  border-right: 1px solid rgba(129, 140, 248, 0.42) !important;
 }
-/* Между игроками */
 .deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(3),
 .deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(5),
 .deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(7),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(9),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(11),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(13),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(15),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(17),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(3),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(5),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(7),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(2),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(4),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(6),
-/* Справа: после последнего игрока */
-.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(9),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(9),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(8) {
-  border-right: 2px solid rgba(34, 211, 238, 0.75) !important;
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(11),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(13),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(15),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(17),
+/* Итог: у P0 только ячейка очков → границы «между игроками» на чётных td (2,4,6…) */
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(2),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(4),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(6),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(8),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(10),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(12),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(14),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(16) {
+  border-right: 2px solid rgba(147, 51, 234, 0.48) !important;
 }
-/* Подсветка только шапки столбца с именем игрока-пользователя: белая неоновая */
-.deal-results-modal-overlay-mobile .deal-results-table-window table .deal-results-cell-human {
-  box-shadow: inset 0 0 18px 2px rgba(255, 255, 255, 0.14), inset 0 0 36px 4px rgba(255, 255, 255, 0.07) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%) !important;
-}
-/* Разделитель между игроком-пользователем и следующим игроком — поярче, сиреневый */
-.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(3),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(3),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(2) {
-  border-right: 2px solid rgba(192, 132, 252, 0.9) !important;
-}
-
-/* 2) Внутри игрока (между столбцами «Заказ» и «Очки») */
 .deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(2),
 .deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(4),
 .deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(6),
 .deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(8),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(10),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(12),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(14),
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(16),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(2),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(4),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(6),
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(8),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(3),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(5),
-.deal-results-modal-overlay-mobile .deal-results-table-window table tfoot tr td:nth-child(7) {
-  border-right: 1px solid rgba(255, 255, 255, 0.35) !important;
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(10),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(12),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(14),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(16),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(3),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(5),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(7),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(9),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(11),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(13),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(15) {
+  border-right: 1px solid rgba(196, 181, 253, 0.26) !important;
 }
-
-/* «Окно» таблицы: неоновая внутренняя подсветка сверху и снизу — эффект глубины, будто таблица внутри настоящего окна */
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:nth-child(2) th:nth-child(3),
+.deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td:nth-child(3),
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc table tfoot tr td:nth-child(2) {
+  border-right: 2px solid rgba(167, 139, 250, 0.52) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window table .deal-results-cell-neutral-opponent {
+  background-color: rgb(14, 5, 36) !important;
+  background-image: linear-gradient(
+    168deg,
+    rgba(38, 12, 72, 0.99) 0%,
+    rgba(20, 6, 48, 1) 48%,
+    rgba(10, 3, 30, 1) 100%
+  ) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(91, 33, 182, 0.35),
+    inset 0 1px 0 0 rgba(167, 139, 250, 0.06) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window table .deal-results-cell-human {
+  box-shadow:
+    inset 0 0 18px 2px rgba(129, 140, 248, 0.12),
+    inset 0 0 28px 2px rgba(67, 56, 202, 0.1),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.38) !important;
+  background-image: linear-gradient(180deg, rgba(147, 51, 234, 0.1) 0%, rgba(99, 102, 241, 0.06) 50%, transparent 72%) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-column-leader {
+  box-shadow:
+    inset 0 0 22px 3px rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.52),
+    inset 0 0 28px 2px rgba(76, 29, 149, 0.2) !important;
+  background-image: linear-gradient(180deg, rgba(124, 58, 237, 0.1) 0%, rgba(55, 48, 163, 0.08) 48%, transparent 78%) !important;
+  border-left: 3px solid rgba(192, 132, 252, 0.9) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-column-leader.deal-results-column-leader-r {
+  border-right: none !important;
+  background-image: linear-gradient(180deg, rgba(124, 58, 237, 0.1) 0%, rgba(55, 48, 163, 0.08) 48%, transparent 78%),
+    linear-gradient(to left, rgba(192, 132, 252, 0.95) 0px, rgba(192, 132, 252, 0.95) 3px, transparent 3px) !important;
+  background-size: 100% 100%, 3px 100% !important;
+  background-position: 0 0, right top !important;
+  background-repeat: no-repeat !important;
+  box-shadow:
+    inset 0 0 22px 3px rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.52),
+    inset 0 0 28px 2px rgba(76, 29, 149, 0.2),
+    -2px 0 14px rgba(139, 92, 246, 0.32),
+    2px 0 14px rgba(99, 102, 241, 0.26) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-column-leader:not(.deal-results-column-leader-r) {
+  box-shadow:
+    inset 0 0 22px 3px rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.52),
+    inset 0 0 28px 2px rgba(76, 29, 149, 0.2),
+    -2px 0 12px rgba(139, 92, 246, 0.28) !important;
+}
+/* Без доп. паддингов: бейдж лежит поверх, как наклейка */
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child th.deal-results-name-cell--leader,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child th.deal-results-name-cell--leader {
+  position: relative !important;
+  vertical-align: top !important;
+}
+/*
+ * Медаль лида: выпуклая звезда — filter/drop-shadow только на .surface, иначе вся группа фильтруется и цифра тускнеет.
+ * Кольцо-перелив: ::before — та же звезда чуть крупнее (.surface сверху закрывает центр — видна только окантовка).
+ * Дублируем селектор с .deal-results-table-window без overlay — стили точно находят узел таблицы.
+ */
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 50% !important;
+  right: auto !important;
+  top: auto !important;
+  transform: translate(-50%, 38%) !important;
+  z-index: 12 !important;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  isolation: isolate !important;
+  pointer-events: auto !important;
+  user-select: none !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-tooltip,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-tooltip {
+  position: absolute !important;
+  left: 50% !important;
+  bottom: calc(100% + 10px) !important;
+  top: auto !important;
+  transform: translate(-50%, 8px) scale(0.96) !important;
+  transform-origin: bottom center !important;
+  min-width: 170px !important;
+  max-width: 220px !important;
+  padding: 8px 30px 8px 10px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgb(167 139 250 / 0.7) !important;
+  background:
+    radial-gradient(120% 90% at 20% 0%, rgb(56 189 248 / 0.22) 0%, transparent 55%),
+    radial-gradient(100% 90% at 85% 100%, rgb(217 70 239 / 0.2) 0%, transparent 62%),
+    linear-gradient(158deg, rgb(30 27 75 / 0.96) 0%, rgb(49 46 129 / 0.93) 42%, rgb(15 23 42 / 0.96) 100%) !important;
+  box-shadow:
+    0 8px 26px rgb(2 6 23 / 0.62),
+    0 0 16px rgb(34 211 238 / 0.24),
+    0 0 24px rgb(168 85 247 / 0.2) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  z-index: 25 !important;
+  transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge:hover .deal-results-name-rank-badge-tooltip,
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge:focus-visible .deal-results-name-rank-badge-tooltip,
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge:focus .deal-results-name-rank-badge-tooltip,
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge:active .deal-results-name-rank-badge-tooltip,
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge.deal-results-name-rank-badge--tooltip-open .deal-results-name-rank-badge-tooltip,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge:hover .deal-results-name-rank-badge-tooltip,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge:focus-visible .deal-results-name-rank-badge-tooltip,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge:focus .deal-results-name-rank-badge-tooltip,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge:active .deal-results-name-rank-badge-tooltip,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge.deal-results-name-rank-badge--tooltip-open .deal-results-name-rank-badge-tooltip {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translate(-50%, 0) scale(1) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-tooltip::after,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-tooltip::after {
+  content: '' !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: calc(100% - 1px) !important;
+  bottom: auto !important;
+  width: 10px !important;
+  height: 10px !important;
+  transform: translateX(-50%) rotate(45deg) !important;
+  border-right: 1px solid rgb(167 139 250 / 0.58) !important;
+  border-bottom: 1px solid rgb(167 139 250 / 0.58) !important;
+  border-left: none !important;
+  border-top: none !important;
+  background: linear-gradient(145deg, rgb(49 46 129 / 0.94), rgb(15 23 42 / 0.94)) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-tooltip-title,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-tooltip-title {
+  display: block !important;
+  margin-bottom: 3px !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.02em !important;
+  background-image: linear-gradient(100deg, #f472b6 0%, #c084fc 34%, #22d3ee 68%, #a3e635 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-tooltip-text,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-tooltip-text {
+  display: block !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.25 !important;
+  color: rgb(226 232 240 / 0.96) !important;
+  text-shadow: 0 0 8px rgb(56 189 248 / 0.2) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-tooltip-close,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-tooltip-close {
+  position: absolute !important;
+  top: 5px !important;
+  right: 6px !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid rgb(167 139 250 / 0.6) !important;
+  border-radius: 50% !important;
+  background: rgb(15 23 42 / 0.72) !important;
+  color: rgb(233 213 255 / 0.95) !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+.deal-results-name-rank-badge-tooltip-floating {
+  position: fixed !important;
+  z-index: 12050 !important;
+  width: 220px !important;
+  max-width: min(220px, calc(100vw - 24px)) !important;
+  padding: 8px 30px 8px 10px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgb(167 139 250 / 0.7) !important;
+  background:
+    radial-gradient(120% 90% at 20% 0%, rgb(56 189 248 / 0.22) 0%, transparent 55%),
+    radial-gradient(100% 90% at 85% 100%, rgb(217 70 239 / 0.2) 0%, transparent 62%),
+    linear-gradient(158deg, rgb(30 27 75 / 0.97) 0%, rgb(49 46 129 / 0.94) 42%, rgb(15 23 42 / 0.96) 100%) !important;
+  box-shadow:
+    0 12px 30px rgb(2 6 23 / 0.66),
+    0 0 16px rgb(34 211 238 / 0.22),
+    0 0 24px rgb(168 85 247 / 0.2) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.deal-results-name-rank-badge-tooltip-floating::after {
+  content: '' !important;
+  position: absolute !important;
+  left: var(--badge-tooltip-arrow-x, 50%) !important;
+  width: 16px !important;
+  height: 10px !important;
+  transform: translateX(-50%) !important;
+  z-index: 2 !important;
+  background: linear-gradient(155deg, #22d3ee 0%, #a855f7 58%, #f472b6 100%) !important;
+  filter:
+    drop-shadow(0 0 12px rgb(34 211 238 / 0.72))
+    drop-shadow(0 0 18px rgb(168 85 247 / 0.56))
+    drop-shadow(0 0 24px rgb(244 114 182 / 0.38))
+    drop-shadow(0 1px 0 rgb(2 6 23 / 0.82));
+  animation: deal-results-tooltip-arrow-garland 1.35s ease-in-out infinite !important;
+}
+.deal-results-name-rank-badge-tooltip-floating::before {
+  content: '' !important;
+  position: absolute !important;
+  left: var(--badge-tooltip-arrow-x, 50%) !important;
+  width: 20px !important;
+  height: 14px !important;
+  transform: translateX(-50%) !important;
+  z-index: 1 !important;
+  background: rgb(56 189 248 / 0.96) !important;
+  filter: drop-shadow(0 0 8px rgb(34 211 238 / 0.55)) !important;
+}
+.deal-results-name-rank-badge-tooltip-floating--below::after {
+  bottom: calc(100% + 1px) !important;
+  top: auto !important;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%) !important;
+}
+.deal-results-name-rank-badge-tooltip-floating--above::after {
+  top: calc(100% + 1px) !important;
+  bottom: auto !important;
+  clip-path: polygon(0 0, 100% 0, 50% 100%) !important;
+}
+.deal-results-name-rank-badge-tooltip-floating--below::before {
+  bottom: calc(100% - 1px) !important;
+  top: auto !important;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%) !important;
+}
+.deal-results-name-rank-badge-tooltip-floating--above::before {
+  top: calc(100% - 1px) !important;
+  bottom: auto !important;
+  clip-path: polygon(0 0, 100% 0, 50% 100%) !important;
+}
+.deal-results-name-rank-badge-tooltip-floating span.deal-results-name-rank-badge-tooltip-arrow-core {
+  display: none !important;
+}
+@keyframes deal-results-tooltip-arrow-garland {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 6px rgb(34 211 238 / 0.9))
+      drop-shadow(0 0 10px rgb(56 189 248 / 0.8))
+      drop-shadow(0 0 14px rgb(168 85 247 / 0.7))
+      drop-shadow(0 0 18px rgb(244 114 182 / 0.58))
+      drop-shadow(0 0 20px rgb(250 204 21 / 0.48));
+  }
+  25% {
+    filter:
+      drop-shadow(0 0 6px rgb(250 204 21 / 0.9))
+      drop-shadow(0 0 10px rgb(244 114 182 / 0.8))
+      drop-shadow(0 0 14px rgb(236 72 153 / 0.72))
+      drop-shadow(0 0 18px rgb(168 85 247 / 0.6))
+      drop-shadow(0 0 20px rgb(34 211 238 / 0.52));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 6px rgb(74 222 128 / 0.92))
+      drop-shadow(0 0 10px rgb(45 212 191 / 0.84))
+      drop-shadow(0 0 14px rgb(34 211 238 / 0.74))
+      drop-shadow(0 0 18px rgb(99 102 241 / 0.64))
+      drop-shadow(0 0 20px rgb(217 70 239 / 0.52));
+  }
+  75% {
+    filter:
+      drop-shadow(0 0 6px rgb(244 114 182 / 0.9))
+      drop-shadow(0 0 10px rgb(217 70 239 / 0.82))
+      drop-shadow(0 0 14px rgb(192 38 211 / 0.74))
+      drop-shadow(0 0 18px rgb(56 189 248 / 0.62))
+      drop-shadow(0 0 20px rgb(250 204 21 / 0.48));
+  }
+}
+.deal-results-name-rank-badge-tooltip-floating .deal-results-name-rank-badge-tooltip-title-wrap {
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  margin-bottom: 3px !important;
+}
+.deal-results-name-rank-badge-tooltip-floating .deal-results-name-rank-badge-tooltip-badge-mini {
+  width: 17px !important;
+  height: 17px !important;
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+  background: conic-gradient(from 15deg, #f472b6 0deg, #c084fc 90deg, #22d3ee 170deg, #a3e635 250deg, #f472b6 360deg) !important;
+  box-shadow: 0 0 8px rgb(34 211 238 / 0.35), 0 0 10px rgb(192 38 211 / 0.25) !important;
+  -webkit-clip-path: polygon(
+    50% 6%,
+    58% 28%,
+    80% 10%,
+    66% 39%,
+    84% 40%,
+    73% 52%,
+    86% 66%,
+    64% 63%,
+    79% 90%,
+    56% 72%,
+    50% 92%,
+    42% 73%,
+    20% 90%,
+    36% 63%,
+    14% 66%,
+    27% 52%,
+    16% 40%,
+    34% 39%,
+    20% 10%,
+    42% 28%
+  ) !important;
+  clip-path: polygon(
+    50% 6%,
+    58% 28%,
+    80% 10%,
+    66% 39%,
+    84% 40%,
+    73% 52%,
+    86% 66%,
+    64% 63%,
+    79% 90%,
+    56% 72%,
+    50% 92%,
+    42% 73%,
+    20% 90%,
+    36% 63%,
+    14% 66%,
+    27% 52%,
+    16% 40%,
+    34% 39%,
+    20% 10%,
+    42% 28%
+  ) !important;
+}
+.deal-results-name-rank-badge-tooltip-floating .deal-results-name-rank-badge-tooltip-title {
+  display: block !important;
+  margin-bottom: 0 !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.03em !important;
+  text-transform: uppercase !important;
+  background-image: linear-gradient(100deg, #f472b6 0%, #c084fc 24%, #22d3ee 50%, #facc15 74%, #a3e635 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: 0 0 14px rgb(34 211 238 / 0.28), 0 0 8px rgb(168 85 247 / 0.26) !important;
+}
+.deal-results-name-rank-badge-tooltip-floating .deal-results-name-rank-badge-tooltip-text {
+  display: block !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.25 !important;
+  background-image: linear-gradient(104deg, #fbcfe8 0%, #ddd6fe 22%, #bfdbfe 44%, #99f6e4 62%, #fde68a 78%, #f9a8d4 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: 0 0 8px rgb(147 197 253 / 0.2) !important;
+}
+.deal-results-name-rank-badge-tooltip-floating .deal-results-name-rank-badge-tooltip-close {
+  position: absolute !important;
+  top: 5px !important;
+  right: 6px !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid rgb(167 139 250 / 0.6) !important;
+  border-radius: 50% !important;
+  background: rgb(15 23 42 / 0.72) !important;
+  color: rgb(233 213 255 / 0.95) !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge::before,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  width: 100% !important;
+  height: 100% !important;
+  transform: translate(-50%, -50%) scale(1.26) !important;
+  transform-origin: center center !important;
+  z-index: 0 !important;
+  /* 10 лучей: каждый вынос своей длины + впадины «рваные» — силуэт «взрыва» */
+  -webkit-clip-path: polygon(
+    50% 9.84%,
+    56.63% 29.6%,
+    78.92% 10.2%,
+    63.71% 40.04%,
+    79.96% 40.27%,
+    72.8% 50%,
+    83.36% 60.84%,
+    65.5% 61.26%,
+    78.97% 89.88%,
+    55.68% 67.47%,
+    50% 89.6%,
+    42.86% 71.98%,
+    31.43% 75.56%,
+    36% 60.17%,
+    10.77% 62.75%,
+    29.36% 50%,
+    3.04% 34.74%,
+    32.36% 37.18%,
+    31.38% 24.37%,
+    44.79% 33.98%
+  ) !important;
+  clip-path: polygon(
+    50% 9.84%,
+    56.63% 29.6%,
+    78.92% 10.2%,
+    63.71% 40.04%,
+    79.96% 40.27%,
+    72.8% 50%,
+    83.36% 60.84%,
+    65.5% 61.26%,
+    78.97% 89.88%,
+    55.68% 67.47%,
+    50% 89.6%,
+    42.86% 71.98%,
+    31.43% 75.56%,
+    36% 60.17%,
+    10.77% 62.75%,
+    29.36% 50%,
+    3.04% 34.74%,
+    32.36% 37.18%,
+    31.38% 24.37%,
+    44.79% 33.98%
+  ) !important;
+  pointer-events: none !important;
+  box-sizing: border-box !important;
+  background-image: linear-gradient(
+    108deg,
+    #f0abfc 0%,
+    #e879f9 8%,
+    #c084fc 16%,
+    #a855f7 24%,
+    #7c3aed 32%,
+    #60a5fa 40%,
+    #38bdf8 48%,
+    #22d3ee 56%,
+    #00cfff 64%,
+    #d8b4fe 72%,
+    #f0abfc 80%,
+    #e879f9 88%,
+    #22d3ee 96%,
+    #00cfff 100%
+  ) !important;
+  background-size: 520% 100% !important;
+  background-position: 0% 50% !important;
+  background-repeat: no-repeat !important;
+  animation:
+    deal-results-human-name-shimmer 2.8s ease-in-out infinite,
+    deal-results-human-name-spectrum-flow 7.6s linear infinite !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-surface,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-surface {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  /* 10 лучей: каждый вынос своей длины + впадины «рваные» — силуэт «взрыва» */
+  -webkit-clip-path: polygon(
+    50% 9.84%,
+    56.63% 29.6%,
+    78.92% 10.2%,
+    63.71% 40.04%,
+    79.96% 40.27%,
+    72.8% 50%,
+    83.36% 60.84%,
+    65.5% 61.26%,
+    78.97% 89.88%,
+    55.68% 67.47%,
+    50% 89.6%,
+    42.86% 71.98%,
+    31.43% 75.56%,
+    36% 60.17%,
+    10.77% 62.75%,
+    29.36% 50%,
+    3.04% 34.74%,
+    32.36% 37.18%,
+    31.38% 24.37%,
+    44.79% 33.98%
+  ) !important;
+  clip-path: polygon(
+    50% 9.84%,
+    56.63% 29.6%,
+    78.92% 10.2%,
+    63.71% 40.04%,
+    79.96% 40.27%,
+    72.8% 50%,
+    83.36% 60.84%,
+    65.5% 61.26%,
+    78.97% 89.88%,
+    55.68% 67.47%,
+    50% 89.6%,
+    42.86% 71.98%,
+    31.43% 75.56%,
+    36% 60.17%,
+    10.77% 62.75%,
+    29.36% 50%,
+    3.04% 34.74%,
+    32.36% 37.18%,
+    31.38% 24.37%,
+    44.79% 33.98%
+  ) !important;
+  background-color: #6d28d9 !important;
+  /* Тот же спектр, что у цифры — без анимации (один «кадр»), перелив только на цифре и кольце */
+  background-image: linear-gradient(
+    108deg,
+    #f0abfc 0%,
+    #e879f9 8%,
+    #c084fc 16%,
+    #a855f7 24%,
+    #7c3aed 32%,
+    #60a5fa 40%,
+    #38bdf8 48%,
+    #22d3ee 56%,
+    #00cfff 64%,
+    #d8b4fe 72%,
+    #f472b6 80%,
+    #e879f9 88%,
+    #22d3ee 96%,
+    #00ffff 100%
+  ) !important;
+  background-size: 560% 100% !important;
+  background-position: 36% 50% !important;
+  background-repeat: no-repeat !important;
+  background-origin: border-box !important;
+  /* Яркая «электро» голубая кайма — несколько жёстких inset-слоёв (clip-path их не обрезает снаружи) */
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 1),
+    inset 0 0 0 2px rgb(103 232 249 / 0.98),
+    inset 0 0 0 3px rgb(34 211 238 / 0.94),
+    inset 0 0 0 3.75px rgb(244 114 182 / 0.45),
+    inset 0 0 16px 4px rgb(56 189 248 / 0.4),
+    inset 0 0 22px 2px rgb(232 121 249 / 0.22),
+    inset 0 5px 12px rgb(255 255 255 / 1),
+    inset 0 -2px 7px rgb(207 250 254 / 0.52),
+    inset 0 -9px 17px rgb(76 29 149 / 0.18),
+    inset 5px 3px 11px rgb(255 255 255 / 0.42),
+    inset -5px -4px 13px rgb(37 99 235 / 0.22) !important;
+  filter: saturate(1.28) contrast(1.06) drop-shadow(0 0 1px rgb(255 255 255))
+    drop-shadow(0 0 3px rgb(232 121 249 / 0.85)) drop-shadow(0 0 5px rgb(186 230 253))
+    drop-shadow(0 0 8px rgb(56 189 248 / 0.95)) drop-shadow(0 0 14px rgb(14 165 233))
+    drop-shadow(0 0 22px rgb(34 211 238 / 0.82)) drop-shadow(0 0 32px rgb(168 85 247 / 0.5)) !important;
+  pointer-events: none !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-surface::after,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-surface::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  clip-path: inherit !important;
+  -webkit-clip-path: inherit !important;
+  border-radius: 0 !important;
+  pointer-events: none !important;
+  opacity: 0.78 !important;
+  mix-blend-mode: soft-light !important;
+  background:
+    radial-gradient(ellipse 78% 70% at 28% 16%, rgb(255 255 255 / 0.95) 0%, rgb(253 242 248 / 0.28) 36%, transparent 58%),
+    radial-gradient(120% 90% at 16% -8%, rgb(255 255 255 / 0.75) 0%, rgb(207 250 254 / 0.4) 32%, transparent 56%),
+    radial-gradient(ellipse 118% 100% at 55% 100%, rgb(34 211 238 / 0.35) 0%, rgb(168 85 247 / 0.12) 42%, transparent 62%) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-digit,
+.deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-digit {
+  position: absolute !important;
+  left: 50% !important;
+  top: calc(50% + 3px) !important;
+  /* translate3d: слой для GPU; −1px вверх как просили */
+  transform: translate3d(-50%, calc(-50% - 1px), 0) !important;
+  transform-origin: center center !important;
+  z-index: 2 !important;
+  display: inline-block !important;
+  overflow: visible !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family:
+    'Plus Jakarta Sans',
+    Manrope,
+    Inter,
+    'SF Pro Text',
+    'Segoe UI Variable Text',
+    'Segoe UI',
+    system-ui,
+    sans-serif !important;
+  font-size: 17px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  letter-spacing: -0.03em !important;
+  -webkit-font-smoothing: antialiased !important;
+  /* Мало остановок + крупный background-size — без «зебры»; перелив даёт анимация и мягкий второй слой */
+  /* Цвет и перелив — только в заливке глифа; без внешних ореолов */
+  background-image:
+    linear-gradient(
+      106deg,
+      #ff2d55 0%,
+      #ff5e00 7%,
+      #ffb300 14%,
+      #ffe100 21%,
+      #98ff00 28%,
+      #25d366 35%,
+      #00d4ff 42%,
+      #0088ff 49%,
+      #4f46e5 56%,
+      #9333ea 63%,
+      #d946ef 70%,
+      #ff1493 77%,
+      #ff3b30 84%,
+      #ff7a00 91%,
+      #ffd60a 96%,
+      #f0abfc 100%
+    ),
+    linear-gradient(
+      98deg,
+      transparent 0%,
+      rgba(255, 62, 62, 0.42) 18%,
+      rgba(255, 154, 0, 0.52) 28%,
+      rgba(255, 224, 102, 0.5) 38%,
+      rgba(45, 212, 191, 0.5) 48%,
+      rgba(56, 189, 248, 0.58) 58%,
+      rgba(99, 102, 241, 0.54) 68%,
+      rgba(217, 70, 239, 0.52) 78%,
+      rgba(244, 114, 182, 0.44) 88%,
+      transparent 100%
+    ) !important;
+  background-size:
+    400% 100%,
+    320% 100% !important;
+  background-position:
+    0% 50%,
+    -52% 50% !important;
+  background-repeat: no-repeat, no-repeat !important;
+  will-change: background-position, filter !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  /* Тонкий ободок: толстый stroke + копии контура через text-shadow заливают клип-текст белым */
+  -webkit-text-stroke: 0.34px rgb(255 255 255 / 0.78) !important;
+  paint-order: stroke fill !important;
+  text-shadow:
+    0 0 1px rgb(255 255 255 / 0.44),
+    0 1px 0 rgb(15 23 42 / 0.42) !important;
+  animation: deal-results-name-rank-digit-oil 5.2s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-digit,
+  .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child .deal-results-name-rank-badge-digit {
+    animation: none !important;
+    filter: none !important;
+    background-position:
+      18% 50%,
+      0% 50% !important;
+    will-change: auto !important;
+  }
+}
 .deal-results-modal-overlay-mobile .deal-results-table-window {
   position: relative !important;
   box-shadow:
-    inset 0 -20px 28px -8px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(34, 211, 238, 0.2),
-    0 4px 20px rgba(0, 0, 0, 0.2),
-    inset 0 16px 24px -8px rgba(34, 211, 238, 0.18),
-    inset 0 -20px 28px -8px rgba(34, 211, 238, 0.28),
-    inset 0 0 40px -8px rgba(34, 211, 238, 0.12) !important;
+    inset 0 -20px 28px -8px rgba(10, 4, 30, 0.55),
+    0 0 0 1px rgba(120, 80, 200, 0.22),
+    0 4px 26px rgba(8, 2, 28, 0.5),
+    inset 0 14px 22px -8px rgba(88, 28, 135, 0.12),
+    inset 0 -18px 24px -8px rgba(49, 46, 129, 0.16),
+    inset 0 0 40px -8px rgba(91, 33, 182, 0.1) !important;
 }
 /* Мобильная: та же схема — шапка фиксирована, скролл только по строкам результатов и «Итог» */
 .deal-results-modal-overlay-mobile .deal-results-table-scroll {
@@ -14092,10 +15173,27 @@ body.deal-results-modal-open-mobile {
 .deal-results-modal-overlay-mobile .deal-results-table-window:has(.deal-results-table-header-pc) > div:first-child {
   flex-shrink: 0 !important;
 }
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc {
+.deal-results-modal-overlay-mobile .deal-results-mobile-header-table-strip {
+  position: relative !important;
+  z-index: 30 !important;
   flex-shrink: 0 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.deal-results-modal-overlay-mobile .deal-results-mobile-header-table-strip::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 .deal-results-modal-overlay-mobile .deal-results-table-body-scroll-pc {
+  position: relative !important;
+  z-index: 1 !important;
   flex: 1 !important;
   min-height: 0 !important;
   overflow-y: auto !important;
@@ -14103,6 +15201,13 @@ body.deal-results-modal-open-mobile {
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-y;
   overscroll-behavior-y: contain;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-body-scroll-pc::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* ПК-модалка: таблица результатов — скролл и адаптация */
@@ -14189,7 +15294,7 @@ body.deal-results-modal-open-mobile {
   box-shadow: 0 0 24px rgba(100, 116, 139, 0.1), 0 4px 24px rgba(0, 0, 0, 0.2) !important;
   background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%) !important;
 }
-/* ПК: одна неоновая линия по верхней границе таблицы — насыщенный голубой */
+/* ПК: линия по верхней границе — сиренево-индиговый неон */
 .deal-results-table-outer-pc .deal-results-table-window::before {
   content: '';
   position: absolute;
@@ -14197,24 +15302,37 @@ body.deal-results-modal-open-mobile {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, transparent 0%, rgba(100, 180, 255, 1) 15%, rgba(140, 200, 255, 1) 50%, rgba(100, 180, 255, 1) 85%, transparent 100%);
-  box-shadow: 0 0 10px rgba(140, 200, 255, 0.95), 0 0 22px rgba(100, 180, 255, 0.9), 0 0 32px rgba(70, 150, 255, 0.85), 0 0 28px rgba(50, 130, 255, 0.8);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(147, 51, 234, 0.95) 14%,
+    rgba(167, 139, 250, 0.92) 50%,
+    rgba(129, 140, 248, 0.95) 86%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 10px rgba(192, 132, 252, 0.75),
+    0 0 22px rgba(139, 92, 246, 0.55),
+    0 0 32px rgba(99, 102, 241, 0.45);
   z-index: 2;
   pointer-events: none;
 }
 .deal-results-table-outer-pc .deal-results-table-window table .deal-results-cell-human {
-  box-shadow: inset 0 0 20px 2px rgba(129, 140, 248, 0.12), inset 0 0 0 1px rgba(167, 139, 250, 0.2) !important;
-  background-image: linear-gradient(180deg, rgba(129, 140, 248, 0.08) 0%, transparent 55%) !important;
+  box-shadow:
+    inset 0 0 18px 2px rgba(129, 140, 248, 0.12),
+    inset 0 0 26px 2px rgba(76, 29, 149, 0.1),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.32) !important;
+  background-image: linear-gradient(180deg, rgba(147, 51, 234, 0.1) 0%, rgba(99, 102, 241, 0.06) 52%, transparent 78%) !important;
 }
 .deal-results-table-outer-pc .deal-results-table-window table thead tr:first-child th.deal-results-cell-human {
-  color: rgba(224, 231, 255, 0.95) !important;
-  text-shadow: 0 0 12px rgba(167, 139, 250, 0.4) !important;
+  color: rgba(237, 233, 254, 0.97) !important;
+  text-shadow: 0 0 14px rgba(167, 139, 250, 0.5) !important;
 }
 
 /* ПК: первый столбец — подсветка слева и справа, серебристый градиент текста */
 .deal-results-table-outer-pc .deal-results-table-window table .deal-results-deal-column-pc {
-  background: linear-gradient(to right, rgba(34, 211, 238, 0.14) 0%, transparent 35%, transparent 65%, rgba(34, 211, 238, 0.14) 100%) !important;
-  box-shadow: inset 2px 0 10px rgba(34, 211, 238, 0.22), inset -2px 0 10px rgba(34, 211, 238, 0.22), inset 0 0 12px rgba(34, 211, 238, 0.06) !important;
+  background: linear-gradient(to right, rgba(99, 102, 241, 0.16) 0%, transparent 35%, transparent 65%, rgba(139, 92, 246, 0.12) 100%) !important;
+  box-shadow: inset 2px 0 12px rgba(91, 33, 182, 0.25), inset -2px 0 12px rgba(76, 29, 149, 0.2), inset 0 0 12px rgba(49, 46, 129, 0.1) !important;
 }
 .deal-results-table-outer-pc .deal-results-table-window table .deal-results-deal-cell-label {
   background: linear-gradient(180deg, #f1f5f9 0%, #cbd5e1 45%, #94a3b8 55%, #e2e8f0 100%);
@@ -14250,7 +15368,14 @@ body.deal-results-modal-open-mobile {
   top: 0 !important;
   bottom: 0 !important;
   width: 2px !important;
-  background: linear-gradient(180deg, transparent 0%, rgba(167, 139, 250, 0.7) 15%, rgba(167, 139, 250, 0.85) 50%, rgba(167, 139, 250, 0.7) 85%, transparent 100%) !important;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(167, 139, 250, 0.45) 14%,
+    rgba(129, 140, 248, 0.78) 50%,
+    rgba(99, 102, 241, 0.55) 86%,
+    transparent 100%
+  ) !important;
   pointer-events: none !important;
 }
 .deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th:last-child::after {
@@ -14260,7 +15385,14 @@ body.deal-results-modal-open-mobile {
   top: 0 !important;
   bottom: 0 !important;
   width: 2px !important;
-  background: linear-gradient(180deg, transparent 0%, rgba(167, 139, 250, 0.7) 15%, rgba(167, 139, 250, 0.85) 50%, rgba(167, 139, 250, 0.7) 85%, transparent 100%) !important;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(167, 139, 250, 0.45) 14%,
+    rgba(129, 140, 248, 0.78) 50%,
+    rgba(99, 102, 241, 0.55) 86%,
+    transparent 100%
+  ) !important;
   pointer-events: none !important;
 }
 /* ПК: ячейки шапки («Заказ»/«Очки») — ширина из колонки */
@@ -14279,17 +15411,18 @@ body.deal-results-modal-open-mobile {
 }
 /* ПК: остальные игроки (не пользователь, не лидер) — нейтральный фон, без «стекла» */
 .deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th:nth-child(n+2):not(.deal-results-cell-human):not(.deal-results-column-leader) {
-  background: rgba(30, 41, 59, 0.6) !important;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+  background: linear-gradient(180deg, rgba(55, 20, 100, 0.58) 0%, rgba(32, 10, 58, 0.72) 100%) !important;
+  box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.14) !important;
 }
 .deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:nth-child(2) th:not(:first-child):not(.deal-results-cell-human):not(.deal-results-column-leader),
 .deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:not(:first-child):not(.deal-results-cell-human):not(.deal-results-column-leader),
 .deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td:not(.deal-results-cell-winner):not(.deal-results-cell-human):not(.deal-results-column-leader) {
-  background: linear-gradient(145deg, rgba(51, 65, 85, 0.5) 0%, rgba(30, 41, 59, 0.6) 50%, rgba(51, 65, 85, 0.4) 100%) !important;
+  background: radial-gradient(ellipse 90% 45% at 50% -10%, rgba(109, 40, 217, 0.18) 0%, transparent 60%),
+    linear-gradient(152deg, rgba(57, 8, 99, 0.92) 0%, rgba(36, 4, 66, 0.96) 48%, rgba(22, 2, 48, 0.98) 100%) !important;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
-    inset 0 -1px 0 0 rgba(0, 0, 0, 0.08) !important;
+    inset 0 0 0 1px rgba(167, 139, 250, 0.1),
+    inset 0 0 22px rgba(15, 3, 40, 0.45),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.03) !important;
 }
 /* ПК: лёгкое размытие цифр только у пользователя и лидера (у остальных не применяем) */
 .deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td:not(:first-child).deal-results-cell-human,
@@ -14321,33 +15454,15 @@ body.deal-results-modal-open-mobile {
 .deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td.deal-results-cell-winner {
   box-sizing: border-box !important;
   padding: 6px 5px !important;
+  background: linear-gradient(145deg, rgba(124, 58, 237, 0.28) 0%, rgba(99, 102, 241, 0.14) 50%, rgba(55, 48, 163, 0.14) 100%) !important;
   box-shadow:
-    inset 0 0 16px 2px rgba(251, 191, 36, 0.2),
-    inset 0 0 0 1px rgba(251, 191, 36, 0.35),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 16px 2px rgba(91, 33, 182, 0.2),
+    inset 0 0 0 1px rgba(196, 181, 253, 0.38),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.26),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.06) !important;
   border-radius: 3px !important;
-}
-
-/* Мобильная: столбец лидера — свет в ячейках + все границы (левая столбца, разделитель Заказ/Очки, правая столбца) */
-.deal-results-modal-overlay-mobile .deal-results-column-leader {
-  box-shadow: inset 0 0 24px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.9) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, transparent 50%) !important;
-  border-left: 3px solid rgba(167, 139, 250, 1) !important;
-}
-/* Мобильная: правая граница столбца «Очки» — рисуем внутри ячейки (градиент), чтобы не перекрывалась */
-.deal-results-modal-overlay-mobile .deal-results-column-leader.deal-results-column-leader-r {
-  border-right: none !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, transparent 50%),
-    linear-gradient(to left, rgba(167, 139, 250, 1) 0px, rgba(167, 139, 250, 1) 3px, transparent 3px) !important;
-  background-size: 100% 100%, 3px 100% !important;
-  background-position: 0 0, right top !important;
-  background-repeat: no-repeat !important;
-  box-shadow: inset 0 0 24px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.9), -2px 0 12px rgba(167, 139, 250, 0.55), 2px 0 12px rgba(167, 139, 250, 0.55) !important;
-}
-.deal-results-modal-overlay-mobile .deal-results-column-leader:not(.deal-results-column-leader-r) {
-  box-shadow: inset 0 0 24px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.9), -2px 0 12px rgba(167, 139, 250, 0.55) !important;
+  /* Цвет суммы задаётся inline (лестница по очкам), не переопределять !important */
 }
 
 /* ПК: столбец лидера — только свет в ячейках, без границ столбца */
@@ -14356,11 +15471,12 @@ body.deal-results-modal-open-mobile {
 .deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td.deal-results-column-leader {
   box-sizing: border-box !important;
   padding: 6px 5px !important;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.28) 0%, rgba(210, 195, 255, 0.12) 45%, rgba(255, 255, 255, 0.2) 100%) !important;
+  background: linear-gradient(145deg, rgba(124, 58, 237, 0.16) 0%, rgba(99, 102, 241, 0.09) 45%, rgba(49, 46, 129, 0.12) 100%) !important;
   box-shadow:
-    inset 0 0 26px 4px rgba(255, 255, 255, 0.22),
-    inset 0 0 0 1px rgba(167, 139, 250, 0.95),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.4),
+    inset 0 0 24px 4px rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(192, 132, 252, 0.55),
+    inset 0 0 26px 2px rgba(76, 29, 149, 0.14),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.26),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.06) !important;
   border-radius: 3px !important;
 }
@@ -14369,65 +15485,88 @@ body.deal-results-modal-open-mobile {
 .deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td.deal-results-column-leader.deal-results-column-leader-r,
 .deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td.deal-results-column-leader.deal-results-column-leader-r {
   box-shadow:
-    inset 3px 0 0 0 rgba(167, 139, 250, 1),
-    inset 0 0 26px 4px rgba(255, 255, 255, 0.22),
-    inset 0 0 0 1px rgba(167, 139, 250, 0.95),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.4),
+    inset 3px 0 0 0 rgba(196, 181, 253, 0.88),
+    inset 0 0 24px 4px rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(192, 132, 252, 0.55),
+    inset 0 0 26px 2px rgba(76, 29, 149, 0.14),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.26),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.06),
-    -2px 0 14px rgba(167, 139, 250, 0.55) !important;
+    -2px 0 14px rgba(139, 92, 246, 0.34) !important;
 }
 /* ПК: первая строка (имена) лидера — только свет, без границ */
 .deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th.deal-results-column-leader {
-  box-shadow: inset 0 0 26px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.95) !important;
+  box-shadow:
+    inset 0 0 24px 4px rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(192, 132, 252, 0.5),
+    inset 0 0 22px 3px rgba(91, 33, 182, 0.12) !important;
 }
 .deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th.deal-results-column-leader.deal-results-column-leader-r {
-  box-shadow: inset 0 0 26px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.95) !important;
+  box-shadow:
+    inset 0 0 24px 4px rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(192, 132, 252, 0.5),
+    inset 0 0 22px 3px rgba(91, 33, 182, 0.12) !important;
 }
-/* ПК: ячейка с именем лидера — лёгкий зеленоватый неон фона (только ПК) */
+/* ПК: имя лидера — сиренево-синий неон */
 .deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th.deal-results-column-leader {
-  background: linear-gradient(145deg, rgba(74, 222, 128, 0.12) 0%, rgba(34, 197, 94, 0.06) 40%, rgba(22, 163, 74, 0.08) 100%) !important;
-  box-shadow: inset 0 0 26px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.95), inset 0 0 20px 4px rgba(74, 222, 128, 0.15) !important;
+  background: linear-gradient(145deg, rgba(109, 40, 217, 0.16) 0%, rgba(79, 70, 229, 0.1) 40%, rgba(55, 48, 163, 0.12) 100%) !important;
+  box-shadow:
+    inset 0 0 24px 4px rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(192, 132, 252, 0.5),
+    inset 0 0 26px 3px rgba(124, 58, 237, 0.1) !important;
 }
 
-/* ПК: ячейки пользователя (имя + столбец Заказ/Очки) — лёгкий зеленоватый неон, только ПК */
+/* ПК: колонка пользователя — лилово-голубое свечение без бирюзы */
 .deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:first-child th.deal-results-cell-human {
-  background: linear-gradient(145deg, rgba(74, 222, 128, 0.14) 0%, rgba(34, 197, 94, 0.08) 40%, rgba(22, 163, 74, 0.1) 100%) !important;
-  box-shadow: inset 0 0 26px 4px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(167, 139, 250, 0.95), inset 0 0 22px 4px rgba(74, 222, 128, 0.18) !important;
-  color: rgba(224, 231, 255, 0.98) !important;
-  text-shadow: 0 0 12px rgba(74, 222, 128, 0.35) !important;
+  background: linear-gradient(145deg, rgba(129, 140, 248, 0.14) 0%, rgba(99, 102, 241, 0.1) 38%, rgba(76, 29, 149, 0.1) 100%) !important;
+  box-shadow:
+    inset 0 0 24px 4px rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(196, 181, 253, 0.45),
+    inset 0 0 26px 3px rgba(124, 58, 237, 0.1) !important;
+  color: rgba(237, 233, 254, 0.98) !important;
+  text-shadow: 0 0 14px rgba(167, 139, 250, 0.48) !important;
 }
 .deal-results-table-outer-pc .deal-results-table-unified-pc thead tr:nth-child(2) th.deal-results-cell-human,
 .deal-results-table-outer-pc .deal-results-table-unified-pc tbody tr td.deal-results-cell-human,
 .deal-results-table-outer-pc .deal-results-table-unified-pc tfoot tr td.deal-results-cell-human {
-  background: linear-gradient(145deg, rgba(74, 222, 128, 0.12) 0%, rgba(34, 197, 94, 0.06) 45%, rgba(22, 163, 74, 0.08) 100%) !important;
+  background: linear-gradient(145deg, rgba(109, 40, 217, 0.12) 0%, rgba(99, 102, 241, 0.08) 46%, rgba(46, 16, 101, 0.1) 100%) !important;
   box-shadow:
-    inset 0 0 22px 4px rgba(74, 222, 128, 0.12),
-    inset 0 0 0 1px rgba(167, 139, 250, 0.25),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 20px 3px rgba(124, 58, 237, 0.1),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.36),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.06) !important;
 }
 
 /* ПК: ровно одна неоновая полоса сверху и одна снизу; верхняя чуть заходит на таблицу (2–3%) */
 .deal-results-table-outer-pc .deal-results-table-glow-top.deal-results-table-glow-pc {
-  background: linear-gradient(to bottom, rgba(167, 139, 250, 0.9) 0%, rgba(139, 92, 246, 0.35) 35%, rgba(30, 41, 59, 0.98) 100%) !important;
-  box-shadow: 0 4px 14px rgba(167, 139, 250, 0.35) !important;
+  background: linear-gradient(to bottom, rgba(124, 58, 237, 0.55) 0%, rgba(76, 29, 149, 0.35) 40%, rgba(30, 41, 59, 0.98) 100%) !important;
+  box-shadow:
+    0 4px 20px rgba(109, 40, 217, 0.28),
+    0 0 22px rgba(91, 33, 182, 0.22) !important;
   height: 26px !important;
   margin-bottom: -1px !important;
   position: relative !important;
   z-index: 1 !important;
 }
 .deal-results-table-outer-pc .deal-results-table-glow-bottom.deal-results-table-glow-pc {
-  background: linear-gradient(to top, rgba(167, 139, 250, 0.9) 0%, rgba(139, 92, 246, 0.35) 35%, rgba(30, 41, 59, 0.98) 100%) !important;
-  box-shadow: 0 -4px 14px rgba(167, 139, 250, 0.35) !important;
+  background: linear-gradient(to top, rgba(124, 58, 237, 0.55) 0%, rgba(76, 29, 149, 0.35) 40%, rgba(30, 41, 59, 0.98) 100%) !important;
+  box-shadow:
+    0 -4px 20px rgba(109, 40, 217, 0.28),
+    0 0 22px rgba(91, 33, 182, 0.22) !important;
   height: 26px !important;
 }
 
 /* Итоги победителя в футере таблицы */
 .deal-results-table-window table tfoot td.deal-results-cell-winner {
-  background: linear-gradient(180deg, rgba(251, 191, 36, 0.25) 0%, rgba(245, 158, 11, 0.15) 100%) !important;
-  box-shadow: inset 0 0 16px 2px rgba(251, 191, 36, 0.2), inset 0 0 0 1px rgba(251, 191, 36, 0.35) !important;
-  color: #fde047 !important;
-  text-shadow: 0 0 8px rgba(251, 191, 36, 0.5) !important;
+  background: linear-gradient(
+    160deg,
+    rgba(124, 58, 237, 0.32) 0%,
+    rgba(91, 33, 182, 0.2) 45%,
+    rgba(49, 46, 129, 0.16) 100%
+  ) !important;
+  box-shadow:
+    inset 0 0 16px 2px rgba(76, 29, 149, 0.22),
+    inset 0 0 0 1px rgba(196, 181, 253, 0.42),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12) !important;
 }
 
 /* Индикатор «можно прокрутить»: стрелка вниз, лёгкая анимация */

@@ -60,15 +60,7 @@
 .theme-standard .game-table-root.viewport-mobile .trick-slots-label-east-mobile,
 .theme-standard .game-table-root.viewport-mobile .trick-slots-east-mobile span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *),
 .theme-standard .game-table-root.viewport-mobile .player-stats-row > span,
-.theme-standard .game-table-root.viewport-mobile .user-player-panel:not(.player-info-panel-your-turn) .player-panel-name,
-.theme-standard .game-table-root.viewport-mobile .deal-results-table-window,
-.theme-standard .game-table-root.viewport-mobile .deal-results-table-window th,
-.theme-standard .game-table-root.viewport-mobile .deal-results-table-window td,
-.theme-standard .game-table-root.viewport-mobile .deal-results-table-window caption,
-.theme-standard .deal-results-modal-overlay-mobile .deal-results-table-window,
-.theme-standard .deal-results-modal-overlay-mobile .deal-results-table-window th,
-.theme-standard .deal-results-modal-overlay-mobile .deal-results-table-window td,
-.theme-standard .deal-results-modal-overlay-mobile .deal-results-table-window caption {
+.theme-standard .game-table-root.viewport-mobile .user-player-panel:not(.player-info-panel-your-turn) .player-panel-name {
   color: #38bdf8 !important;
   -webkit-text-fill-color: #38bdf8 !important;
   opacity: 0.94 !important;
@@ -76,6 +68,11 @@
   background-clip: unset !important;
   -webkit-background-clip: unset !important;
 }
+
+/*
+ * Таблица «Результаты» не входит сюда: там цвет задаёт умная логика (React inline).
+ * Прежнее правило с !important делало все цифры одним голубым и ломало фоны ячеек.
+ */
 
 /* Номер раздачи в углу: тот же перламутр, перебивает общий голубой блок бейджей */
 .theme-standard .game-table-root.viewport-mobile .deal-number-badge--game-info-corner .deal-num-value {

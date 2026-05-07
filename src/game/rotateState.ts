@@ -46,6 +46,9 @@ export function rotateStateForPlayer(state: GameState, myServerIndex: number): G
     ...deal,
     bids: [deal.bids[d0], deal.bids[d1], deal.bids[d2], deal.bids[d3]],
     points: [deal.points[d0], deal.points[d1], deal.points[d2], deal.points[d3]],
+    ...(deal.takens
+      ? { takens: [deal.takens[d0], deal.takens[d1], deal.takens[d2], deal.takens[d3]] }
+      : {}),
   });
   return {
     ...state,
@@ -75,6 +78,9 @@ export function unrotateStateToCanonical(state: GameState, myServerIndex: number
     ...deal,
     bids: [deal.bids[c0], deal.bids[c1], deal.bids[c2], deal.bids[c3]],
     points: [deal.points[c0], deal.points[c1], deal.points[c2], deal.points[c3]],
+    ...(deal.takens
+      ? { takens: [deal.takens[c0], deal.takens[c1], deal.takens[c2], deal.takens[c3]] }
+      : {}),
   });
   return {
     ...state,
