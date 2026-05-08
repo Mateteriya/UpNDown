@@ -22464,7 +22464,7 @@ body.deal-results-modal-open-mobile {
 }
 
 
-/* Mobile results: лёгкая красная подсветка отрицательных ячеек (ослаблена, не спорит с основным неоном таблицы). */
+/* Mobile results: negative score cells — красная кромка (полировка моб. модалки). */
 .deal-results-modal-overlay-mobile .deal-results-table-window table tbody tr td.deal-results-cell-negative-mobile {
   position: relative !important;
 }
@@ -22474,11 +22474,11 @@ body.deal-results-modal-open-mobile {
   inset: 0 !important;
   pointer-events: none !important;
   background:
-    linear-gradient(to bottom, rgb(244 63 94 / 0.07) 0%, rgb(244 63 94 / 0.025) 11%, transparent 24%),
-    linear-gradient(to top, rgb(244 63 94 / 0.07) 0%, rgb(244 63 94 / 0.025) 11%, transparent 24%) !important;
+    linear-gradient(to bottom, rgb(244 63 94 / 0.16) 0%, rgb(244 63 94 / 0.06) 10%, transparent 22%),
+    linear-gradient(to top, rgb(244 63 94 / 0.16) 0%, rgb(244 63 94 / 0.06) 10%, transparent 22%) !important;
   box-shadow:
-    inset 0 1px 4px rgb(244 63 94 / 0.06),
-    inset 0 -1px 4px rgb(244 63 94 / 0.06) !important;
+    inset 0 1px 5px rgb(244 63 94 / 0.16),
+    inset 0 -1px 5px rgb(244 63 94 / 0.16) !important;
 }
 
 /* Mobile modal: 3 central separators between player column groups (thicker x2). */
@@ -22535,3 +22535,4 @@ html.theme-standard
   background-clip: unset !important;
   -webkit-background-clip: unset !important;
 }
+

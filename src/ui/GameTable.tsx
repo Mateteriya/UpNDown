@@ -8546,7 +8546,7 @@ function DealResultsScreen({
   const [leaderBadgeTooltipPos, setLeaderBadgeTooltipPos] = useState<{ left: number; top: number; placement: 'above' | 'below'; arrowX: number } | null>(null);
   const [mobileScrollHintVisible, setMobileScrollHintVisible] = useState(true);
   const [mobileLegendActiveKey, setMobileLegendActiveKey] = useState<'bid' | 'result' | null>(null);
-  const mobileLegendFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mobileLegendFlashTimerRef = useRef<number | null>(null);
   const triggerMobileLegendFlash = (key: 'bid' | 'result') => {
     setMobileLegendActiveKey(key);
     if (mobileLegendFlashTimerRef.current) window.clearTimeout(mobileLegendFlashTimerRef.current);
@@ -9039,7 +9039,7 @@ function DealResultsScreen({
                   ? '21px'
                   : delta >= 60 && delta <= 90
                     ? '21px'
-                    : (digits['--dr-player-total-fs'] as string),
+                    : ((digits as Record<string, string>)['--dr-player-total-fs'] as string),
     } as React.CSSProperties;
   };
 
@@ -10007,7 +10007,13 @@ function DealResultsScreen({
         <div
           className={`deal-results-name-rank-badge-tooltip-floating${leaderBadgeTooltipPos.placement === 'above' ? ' deal-results-name-rank-badge-tooltip-floating--above' : ' deal-results-name-rank-badge-tooltip-floating--below'}`}
           role="tooltip"
-          style={{ left: leaderBadgeTooltipPos.left, top: leaderBadgeTooltipPos.top, ['--badge-tooltip-arrow-x' as const]: `${leaderBadgeTooltipPos.arrowX}px` }}
+          style={
+            {
+              left: leaderBadgeTooltipPos.left,
+              top: leaderBadgeTooltipPos.top,
+              ['--badge-tooltip-arrow-x']: `${leaderBadgeTooltipPos.arrowX}px`,
+            } as React.CSSProperties
+          }
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
@@ -13720,6 +13726,7 @@ const DEAL_RESULTS_MOBILE_STICKY_TOTALS_BOTTOM_PAD_PX = 102;
 /** Мобильная таблица: запас снизу под закреплённую плашку «Итог». */
 const dealResultsTableBodyScrollMobileStyle: React.CSSProperties = {
   ...dealResultsTableBodyScrollPCStyle,
+  /** Запас снизу под sticky-плашку «Итог» (скролл до последних строк без хвоста). */
   paddingBottom: DEAL_RESULTS_MOBILE_STICKY_TOTALS_BOTTOM_PAD_PX,
 };
 const dealResultsMobileScrollHintStyle: React.CSSProperties = {
@@ -14160,11 +14167,10 @@ const dealResultsMobileUserPositiveSignHighStyle: React.CSSProperties = {
   ...dealResultsMobilePositiveSignStyle,
 };
 const dealResultsMobileNegativeResultTextStyle: React.CSSProperties = {
-  color: 'rgb(255 62 103)',
-  WebkitTextFillColor: 'rgb(255 62 103)',
-  fontWeight: 640,
-  textShadow:
-    '0 0 10px rgb(244 63 94 / 0.92), 0 0 20px rgb(225 29 72 / 0.55), 0 0 30px rgb(190 24 93 / 0.32)',
+  color: 'rgb(255 72 104)',
+  WebkitTextFillColor: 'rgb(255 72 104)',
+  fontWeight: 620,
+  textShadow: '0 0 12px rgb(244 63 94 / 0.95), 0 0 24px rgb(225 29 72 / 0.62), 0 0 32px rgb(157 23 77 / 0.34)',
 };
 const dealResultsMobileTableResultNumberValueStyle: React.CSSProperties = {
   display: 'inline-block',
@@ -14409,23 +14415,19 @@ const dealResultsStickyTotalsRowStyle: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
   alignItems: 'center',
-  gap: 8,
+  gap: 6,
 };
 const dealResultsStickyTotalsValueStyle: React.CSSProperties = {
   minWidth: 0,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 4,
-  borderRadius: 10,
-  padding: '4px 7px',
-  fontSize: 15,
+  textAlign: 'center',
+  borderRadius: 8,
+  padding: '1px 2px',
+  fontSize: 11,
   fontWeight: 900,
   color: 'rgb(147 197 253)',
-  background: 'linear-gradient(160deg, rgb(39 46 117 / 0.88) 0%, rgb(76 29 149 / 0.48) 50%, rgb(30 58 138 / 0.4) 100%)',
-  border: '1px solid rgba(147, 197, 253, 0.48)',
-  boxShadow:
-    'inset 0 1px 0 rgb(226 232 255 / 0.12), inset 0 -1px 0 rgb(15 23 42 / 0.35), 0 0 14px rgb(168 85 247 / 0.32), 0 0 8px rgb(56 189 248 / 0.2)',
+  background: 'linear-gradient(160deg, rgba(30, 27, 75, 0.74) 0%, rgba(76, 29, 149, 0.34) 54%, rgba(37, 99, 235, 0.22) 100%)',
+  border: '1px solid rgba(147, 197, 253, 0.34)',
+  boxShadow: 'inset 0 1px 0 rgba(196, 181, 253, 0.16), 0 0 10px rgba(168, 85, 247, 0.18)',
   textShadow: '0 0 8px rgba(96, 165, 250, 0.34), 0 0 12px rgba(168, 85, 247, 0.24)',
   whiteSpace: 'nowrap',
   boxSizing: 'border-box',
