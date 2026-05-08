@@ -557,8 +557,28 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
               const topLeftTable = !useMobileLayout ? 0 : 2;
               const topLeftFinal = useMobileLayout ? topLeftTable - 1 : topLeftTable;
               const isMobileHandOrTable = suitIndexInHandMobile || tableCardMobile;
-              /* Туз крестей в тёмной теме на мобильной: центральный рисунок чуть выше */
-              const aceClubsDarkMobileLift = card.rank === 'A' && card.suit === '♣' && isDark && useMobileLayout;
+              /* Туз крестей в мобильной руке: фиксированное смещение вне зависимости от темы */
+              const aceClubsMobileHandLift = card.rank === 'A' && card.suit === '♣' && suitIndexInHandMobile && useMobileLayout;
+              /*
+               * Явные оффсеты центра фигур/тузов по режимам.
+               * Значения и приоритеты сохранены как были:
+               * 1) A♣ в мобильной руке
+               * 2) любая карта в мобильной руке
+               * 3) мобильный стол / мобильная раскладка
+               * 4) ПК-раскладка (с масштабом)
+               */
+              const centerFaceTransformDesktop = 'scale(1.44) translateY(3px)';
+              const centerFaceOffsetMobileHand = 4;
+              const centerFaceOffsetMobileLayout = 2;
+              const centerFaceOffsetAceClubsMobileHand = -2;
+              const centerFaceTransform =
+                aceClubsMobileHandLift
+                  ? `translateY(${centerFaceOffsetAceClubsMobileHand}px)`
+                  : suitIndexInHandMobile
+                    ? `translateY(${centerFaceOffsetMobileHand}px)`
+                    : useMobileLayout
+                      ? `translateY(${centerFaceOffsetMobileLayout}px)`
+                      : centerFaceTransformDesktop;
               return (
             <>
               <span className="card-face-value-index" style={{ position: 'absolute', top: topLeftFinal, left: 3, zIndex: 2, fontSize: Math.round(rankSize * indexScaleTable), fontWeight: 900, lineHeight: 1.1 }}>
@@ -572,11 +592,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
               </span>
               <span style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto', position: 'relative', zIndex: 1,
-                /* ПК стол: центральный рисунок чуть ниже — строго по центру */
-                ...(!useMobileLayout ? { transform: 'scale(1.44) translateY(3px)' } : {}),
-                /* Мобильная рука: 4px вниз; мобильный стол (и козырь на колоде): 2px вниз — по центру */
-                /* Туз крестей в тёмной теме на мобильной: приподнять центральный рисунок */
-                ...(aceClubsDarkMobileLift ? { transform: 'translateY(-2px)' } : suitIndexInHandMobile ? { transform: 'translateY(4px)' } : useMobileLayout ? { transform: 'translateY(2px)' } : {}),
+                transform: centerFaceTransform,
               }}>
                 {card.rank === 'A' ? (
                   <span

@@ -2779,6 +2779,19 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const humanIdx = isOnline || isWaitingInRoom ? 0 : 0;
   const isHumanTurn = state?.phase === 'playing' && state.currentPlayerIndex === humanIdx;
   const isHumanBidding = (state?.phase === 'bidding' || state?.phase === 'dark-bidding') && state.currentPlayerIndex === humanIdx;
+  const [mobileTurnEdgeGlowReady, setMobileTurnEdgeGlowReady] = useState(false);
+  const isHumanActionPhase = isHumanTurn || isHumanBidding;
+  const showMobileTurnEdgeGlow = isMobile && isHumanActionPhase && mobileTurnEdgeGlowReady;
+
+  useEffect(() => {
+    if (!isMobile || !isHumanActionPhase) {
+      setMobileTurnEdgeGlowReady(false);
+      return;
+    }
+    setMobileTurnEdgeGlowReady(false);
+    const id = window.setTimeout(() => setMobileTurnEdgeGlowReady(true), 3800);
+    return () => window.clearTimeout(id);
+  }, [isMobile, isHumanActionPhase, state?.phase, state?.currentPlayerIndex, state?.currentTrick.length]);
 
   /**
    * Short immersive: на вашем ходе/заказе выше панель Юга — scrollTop остаётся старым «у низа», dist до низа резко > slack,
@@ -4047,6 +4060,12 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}
     >
+      {showMobileTurnEdgeGlow ? (
+        <div className="mobile-turn-edge-glow" aria-hidden="true">
+          <span className="mobile-turn-edge-glow__rail mobile-turn-edge-glow__rail--left" />
+          <span className="mobile-turn-edge-glow__rail mobile-turn-edge-glow__rail--right" />
+        </div>
+      ) : null}
       {isOnline && online.userOnPause && (
         <div
           role="dialog"
@@ -6034,12 +6053,23 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               .sort((a, b) => cardSort(a, b, state.trump))
               .map((card, i) => {
                 const marginRight = overlapPx > 0 && i < mobileHandLen - 1 ? -overlapPx : 0;
-                const isValidPlay = state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && validPlays.some(c => c.suit === card.suit && c.rank === card.rank);
+                const humanAlreadyPlayedCurrentTrick =
+                  state.phase === 'playing' &&
+                  state.currentTrick.some((_, trickCardIndex) => getTrickPlayerIndex(state.trickLeaderIndex, trickCardIndex) === humanIdx);
+                const isValidPlay =
+                  state.phase === 'playing' &&
+                  state.currentPlayerIndex === humanIdx &&
+                  state.currentTrick.length > 0 &&
+                  !humanAlreadyPlayedCurrentTrick &&
+                  validPlays.some(c => c.suit === card.suit && c.rank === card.rank);
                 const handCardZ =
                   isMobile && state.currentPlayerIndex === humanIdx ? (isValidPlay ? 3 : 2) : isValidPlay ? 1 : 0;
                 const overlapPeek = overlapScrubEnabled && mobileOverlapScrubPeek === i;
                 const handCardDisabled =
-                  !!state.pendingTrickCompletion || !isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank);
+                  !!state.pendingTrickCompletion ||
+                  !isHumanTurn ||
+                  humanAlreadyPlayedCurrentTrick ||
+                  !validPlays.some(c => c.suit === card.suit && c.rank === card.rank);
                 return (
                 <div
                   key={`${card.suit}-${card.rank}-${i}`}
@@ -6080,7 +6110,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   isTrumpInHand={state.trump !== null && card.suit === state.trump}
                   forceMobileTrumpGlow={isMobileOrTablet && state.trump !== null && card.suit === state.trump && (state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0))}
                   mobileTrumpGlowActive={state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0)}
-                  highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                  highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && !humanAlreadyPlayedCurrentTrick && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
                   mobileTrumpShineBidding={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.trump !== null && card.suit === state.trump}
                   mobileHandPeekLift={overlapPeek}
                   mobileOverlapHandPointerPassthrough={overlapScrubEnabled && handCardDisabled}
@@ -6088,7 +6118,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   pcCardStyles={false}
                   thinBorder={true}
                   onClick={() => {
-                    if (!state.pendingTrickCompletion && isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
+                    if (!state.pendingTrickCompletion && isHumanTurn && !humanAlreadyPlayedCurrentTrick && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
                       if (isOnlinePlayPhase) online.sendPlay(card);
                       else setLocalState(prev => prev && playCard(prev, humanIdx, card));
                     }
@@ -6242,10 +6272,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                           .sort((a, b) => cardSort(a, b, state.trump))
                           .map((card, i) => {
                             const marginRight = overlapPx > 0 && i < mobileHandLen - 1 ? -overlapPx : 0;
+                            const humanAlreadyPlayedCurrentTrick =
+                              state.phase === 'playing' &&
+                              state.currentTrick.some((_, trickCardIndex) => getTrickPlayerIndex(state.trickLeaderIndex, trickCardIndex) === humanIdx);
                             const isValidPlay =
                               state.phase === 'playing' &&
                               state.currentPlayerIndex === humanIdx &&
                               state.currentTrick.length > 0 &&
+                              !humanAlreadyPlayedCurrentTrick &&
                               validPlays.some((c) => c.suit === card.suit && c.rank === card.rank);
                             const handCardZ =
                               isMobile && state.currentPlayerIndex === humanIdx ? (isValidPlay ? 3 : 2) : isValidPlay ? 1 : 0;
@@ -6253,6 +6287,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                             const handCardDisabled =
                               !!state.pendingTrickCompletion ||
                               !isHumanTurn ||
+                              humanAlreadyPlayedCurrentTrick ||
                               !validPlays.some((c) => c.suit === card.suit && c.rank === card.rank);
                             return (
                               <div
@@ -6313,6 +6348,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                                     state.phase === 'playing' &&
                                     state.currentPlayerIndex === humanIdx &&
                                     state.currentTrick.length > 0 &&
+                                    !humanAlreadyPlayedCurrentTrick &&
                                     validPlays.some((c) => c.suit === card.suit && c.rank === card.rank)
                                   }
                                   mobileTrumpShineBidding={
@@ -6329,6 +6365,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                                     if (
                                       !state.pendingTrickCompletion &&
                                       isHumanTurn &&
+                                      !humanAlreadyPlayedCurrentTrick &&
                                       validPlays.some((c) => c.suit === card.suit && c.rank === card.rank)
                                     ) {
                                       if (isOnlinePlayPhase) online.sendPlay(card);
@@ -7171,10 +7208,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           style={handFrameStyle}
         >
           <div style={handStyle}>
-            {state.players[humanIdx].hand
-              .slice()
-              .sort((a, b) => cardSort(a, b, state.trump))
-              .map((card, i) => (
+            {(() => {
+              const humanAlreadyPlayedCurrentTrick =
+                state.phase === 'playing' &&
+                state.currentTrick.some((_, trickCardIndex) => getTrickPlayerIndex(state.trickLeaderIndex, trickCardIndex) === humanIdx);
+              return state.players[humanIdx].hand
+                .slice()
+                .sort((a, b) => cardSort(a, b, state.trump))
+                .map((card, i) => (
                 <CardView
                   key={`${card.suit}-${card.rank}-${i}`}
                   card={card}
@@ -7186,20 +7227,21 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   isTrumpInHand={state.trump !== null && card.suit === state.trump}
                   forceMobileTrumpGlow={isMobileOrTablet && state.trump !== null && card.suit === state.trump && (state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0))}
                   mobileTrumpGlowActive={state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0)}
-                  highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                  highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && !humanAlreadyPlayedCurrentTrick && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
                   mobileTrumpShineBidding={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.trump !== null && card.suit === state.trump}
                   showPipZoneBorders={trumpHighlightOn}
                   pcCardStyles={!isMobileOrTablet}
                   biddingHighlightPC={!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding')}
                   onClick={() => {
-                    if (!state.pendingTrickCompletion && isHumanTurn && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
+                    if (!state.pendingTrickCompletion && isHumanTurn && !humanAlreadyPlayedCurrentTrick && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
                       if (isOnlinePlayPhase) online.sendPlay(card);
                       else setLocalState(prev => prev && playCard(prev, humanIdx, card));
                     }
                   }}
-                  disabled={!!state.pendingTrickCompletion || !isHumanTurn || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                  disabled={!!state.pendingTrickCompletion || !isHumanTurn || humanAlreadyPlayedCurrentTrick || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
                 />
-              ))}
+              ));
+            })()}
           </div>
         </div>
         <div className={['user-player-panel', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : '', !isMobileOrTablet && userTurnStrongNudgePc ? 'user-player-panel-idle-turn-nudge-pc' : ''].filter(Boolean).join(' ') || undefined} style={{
@@ -9104,12 +9146,9 @@ function DealResultsScreen({
         : {}),
       ...(isMobileHuman
         ? {
-            // Keep user's current gradient background, but reset letter effects
-            // and use the same readable baseline as opponents.
+            // Keep only gradient basis; mobile human typography is controlled in CSS
+            // to avoid conflicts between inline and stylesheet rules.
             backgroundImage: 'linear-gradient(122deg, #ffffff 0%, #ecfeff 10%, #a5f3fc 24%, #67e8f9 42%, #22d3ee 56%, #0ea5e9 70%, #7dd3fc 84%, #d8b4fe 100%)',
-            fontWeight: 685,
-            WebkitTextStroke: '0 transparent',
-            textShadow: '0 1px 0 rgb(2 6 23 / 0.44), 0 0 7px rgb(56 189 248 / 0.4), 0 0 11px rgb(96 165 250 / 0.24)',
           }
         : {}),
       ...(!isMobileOpponent && isLeader
@@ -14393,22 +14432,22 @@ const dealResultsStickyTotalsCaptionMainStyle: React.CSSProperties = {
 const dealResultsStickyTotalsCaptionMainTextStyle: React.CSSProperties = {
   display: 'inline-block',
   backgroundImage:
-    'repeating-linear-gradient(100deg, rgb(45 212 191) 0 8%, rgb(20 184 166) 8% 16%, rgb(125 211 252) 16% 24%, rgb(56 189 248) 24% 32%, rgb(163 255 72) 32% 40%, rgb(59 130 246) 40% 48%, rgb(99 102 241) 48% 56%, rgb(147 51 234) 56% 64%, rgb(192 132 252) 64% 72%, rgb(233 213 255) 72% 80%, rgb(16 185 129) 80% 88%, rgb(207 250 254) 88% 96%)',
+    'repeating-linear-gradient(100deg, rgb(45 212 191) 0 8%, rgb(20 184 166) 8% 16%, rgb(56 189 248) 16% 24%, rgb(14 165 233) 24% 32%, rgb(163 255 72) 32% 40%, rgb(59 130 246) 40% 48%, rgb(99 102 241) 48% 56%, rgb(147 51 234) 56% 64%, rgb(192 132 252) 64% 72%, rgb(168 85 247) 72% 80%, rgb(16 185 129) 80% 88%, rgb(34 211 238) 88% 96%)',
   WebkitBackgroundClip: 'text',
   backgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
   backgroundSize: '460% 100%',
   backgroundPosition: '0% 50%',
   animationName: 'deal-results-user-number-iridescent-shift',
-  animationDuration: '13.5s',
+  animationDuration: '17.5s',
   /** См. .deal-results-mobile-user-gloss-number: linear уменьшает «залипание» мягких фаз у clip:text. */
   animationTimingFunction: 'linear',
   animationIterationCount: 'infinite',
-  /** Узже ореол: на clip-text он даёт «мыло», когда градиент проходит по мягким участкам. */
-  textShadow: '0 0 1px rgb(125 211 252 / 0.55), 0 0 3px rgb(56 189 248 / 0.35), 0 0 6px rgb(147 51 234 / 0.22)',
-  /** Лёгкий контур стабилизирует читаемость между фазами градиента (без второго слоя анимации). */
-  WebkitTextStroke: '0.35px rgba(241, 245, 249, 0.38)',
-  transform: 'translateZ(0)',
+  /** clip:text + размытые тени/обводка → периодический «туман» в Safari/WebKit; контур даёт капсула main. */
+  textShadow: 'none',
+  WebkitTextStroke: '0 transparent',
+  /** Чуть выше внутри капсулы: поднимаем текст на 1px относительно прежней позиции. */
+  transform: 'translate3d(0, 1px, 0)',
   backfaceVisibility: 'hidden',
 };
 const dealResultsStickyTotalsRowStyle: React.CSSProperties = {

@@ -65,7 +65,7 @@
   font-family: system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: light dark;
+  color-scheme: light;
   color: rgba(255, 255, 255, 0.87);
   background-color: #0f172a;
   /* Размеры для адаптивности (десктоп по умолчанию) */
@@ -14529,7 +14529,7 @@ body.deal-results-modal-open-mobile {
 .deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th {
   position: relative !important;
 }
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:nth-child(n + 2)::before {
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:nth-child(n + 2):not(.deal-results-cell-human)::before {
   content: '' !important;
   position: absolute !important;
   left: 0 !important;
@@ -14563,15 +14563,14 @@ body.deal-results-modal-open-mobile {
   ) !important;
   pointer-events: none !important;
 }
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:not(:first-child) > span {
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:not(:first-child):not(.deal-results-cell-human) > span {
   -webkit-line-clamp: 3 !important;
   line-clamp: 3 !important;
   overflow-wrap: anywhere !important;
   word-break: break-word !important;
   min-width: 0 !important;
 }
-/* Ячейка имени пользователя: неонные рамки без скругления — в общий стан сетке таблицы. */
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human,
+/* Ячейка имени пользователя: неонные рамки (ПК / не мобильная модалка результатов). */
 .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human {
   position: relative !important;
   isolation: isolate !important;
@@ -14579,15 +14578,21 @@ body.deal-results-modal-open-mobile {
   z-index: 10 !important;
   border-radius: 0 !important;
   background:
-    radial-gradient(120% 72% at 50% -10%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 52%),
-    linear-gradient(165deg, rgb(88 28 135 / 0.96) 0%, rgb(76 29 149 / 0.94) 36%, rgb(67 56 202 / 0.9) 66%, rgb(49 46 129 / 0.94) 100%) !important;
+    radial-gradient(120% 72% at 50% -10%, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0) 52%),
+    linear-gradient(
+      165deg,
+      rgb(38 16 62 / 0.98) 0%,
+      rgb(44 20 78 / 0.96) 26%,
+      rgb(36 24 86 / 0.95) 52%,
+      rgb(30 27 75 / 0.96) 78%,
+      rgb(15 23 42 / 0.97) 100%
+    ) !important;
   box-shadow:
-    inset 0 0 22px 3px rgba(124, 58, 237, 0.18),
-    inset 0 0 34px 2px rgba(76, 29, 149, 0.12),
-    inset 0 0 0 1px rgba(192, 132, 252, 0.48),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+    inset 0 0 26px 4px rgba(76, 29, 149, 0.22),
+    inset 0 0 38px 2px rgba(49, 46, 129, 0.16),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
 }
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human > span.deal-results-player-name,
 .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human > span.deal-results-player-name {
   position: absolute !important;
   inset: 1px !important;
@@ -14605,12 +14610,6 @@ body.deal-results-modal-open-mobile {
     0 0 10px rgba(125, 211, 252, 0.3),
     0 0 16px rgba(167, 139, 250, 0.24) !important;
 }
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human > span.deal-results-player-name {
-  padding: 0 10px !important;
-  text-align: center !important;
-  min-width: 0 !important;
-}
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human::after,
 .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human::after {
   content: '' !important;
   position: absolute !important;
@@ -14626,7 +14625,6 @@ body.deal-results-modal-open-mobile {
   background: radial-gradient(115% 58% at 50% 8%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 55%) !important;
 }
 /* Вторая рамка: ультра-яркий фиолетовый LED-контур. */
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human > span.deal-results-player-name::before,
 .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human > span.deal-results-player-name::before {
   content: '' !important;
   position: absolute !important;
@@ -14640,30 +14638,6 @@ body.deal-results-modal-open-mobile {
     0 0 22px rgba(139, 92, 246, 0.2) !important;
 }
 /* Зеркало левой сиреневой «колоночной» полоски: внутри ячейки, у правого внутреннего края бирюзовой рамки. */
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human > span.deal-results-player-name::after {
-  content: '' !important;
-  position: absolute !important;
-  top: 0 !important;
-  bottom: 0 !important;
-  /* Зазор от бирюзовой кромки меньше на 1px относительно прежних 5px */
-  right: 4px !important;
-  width: 2px !important;
-  border-radius: 0 !important;
-  z-index: 0 !important;
-  pointer-events: none !important;
-  background: linear-gradient(
-    180deg,
-    rgba(167, 139, 250, 0.22) 0%,
-    rgba(167, 139, 250, 0.58) 12%,
-    rgba(167, 139, 250, 0.78) 24%,
-    rgba(139, 92, 246, 0.92) 50%,
-    rgba(129, 140, 248, 0.88) 76%,
-    rgba(99, 102, 241, 0.72) 88%,
-    rgba(99, 102, 241, 0.28) 100%
-  ) !important;
-  box-shadow: 0 0 6px rgba(167, 139, 250, 0.32) !important;
-}
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human::before,
 .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human::before {
   content: '' !important;
   position: absolute !important;
@@ -14671,17 +14645,23 @@ body.deal-results-modal-open-mobile {
   border-radius: 0 !important;
   pointer-events: none !important;
   z-index: 2 !important;
-  border: 1px solid rgba(216, 180, 254, 0.9) !important;
+  border: 1px solid rgba(196, 181, 253, 0.72) !important;
   background:
-    linear-gradient(90deg, rgba(233, 213, 255, 0.18) 0%, rgba(216, 180, 254, 0.12) 20%, rgba(168, 85, 247, 0.1) 48%, rgba(56, 189, 248, 0.1) 78%, rgba(0, 207, 255, 0.14) 100%) !important;
+    linear-gradient(
+      90deg,
+      rgba(139, 92, 246, 0.1) 0%,
+      rgba(76, 29, 149, 0.09) 38%,
+      rgba(49, 46, 129, 0.12) 72%,
+      rgba(30, 27, 75, 0.14) 100%
+    ) !important;
   box-shadow:
-    inset 0 0 0 1px rgba(233, 213, 255, 0.26),
-    inset 0 0 12px rgba(216, 180, 254, 0.16),
-    inset 0 0 22px rgba(168, 85, 247, 0.09) !important;
+    inset 0 0 0 1px rgba(167, 139, 250, 0.18),
+    inset 0 0 14px rgba(76, 29, 149, 0.14),
+    inset 0 0 24px rgba(30, 27, 75, 0.12) !important;
 }
 /* Имена игроков в таблице результатов: принудительно не обрезать glow/градиент. */
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th > span.deal-results-player-name,
-.deal-results-table-header-pc thead tr:first-child th > span.deal-results-player-name {
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th:not(:first-child) > span.deal-results-player-name,
+.deal-results-table-header-pc thead tr:first-child th:not(.deal-results-cell-human) > span.deal-results-player-name {
   display: inline-block !important;
   -webkit-line-clamp: unset !important;
   line-clamp: unset !important;
@@ -14689,8 +14669,7 @@ body.deal-results-modal-open-mobile {
   text-overflow: clip !important;
   -webkit-box-orient: initial !important;
 }
-/* Акцент имени пользователя: заметный неон без прямоугольного композитного «шлейфа». */
-.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th > span.deal-results-player-name--human,
+/* Акцент имени пользователя: перелив текста (общий для таблицы результатов). */
 .deal-results-table-header-pc thead tr:first-child th > span.deal-results-player-name--human {
   font-family: "Plus Jakarta Sans", "Manrope", "Inter", "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif !important;
   font-size: 1.14em !important;
@@ -14722,14 +14701,7 @@ body.deal-results-modal-open-mobile {
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
   -webkit-text-stroke: 0 transparent !important;
-  /** Уже без «тяжёлого» ореола: на clip:text широкий blur воспринимается как туман. */
-  text-shadow:
-    0 -1px 0 rgba(255, 255, 255, 0.32),
-    0 1px 0 rgba(15, 23, 42, 0.28),
-    0 0 12px rgba(216, 180, 254, 0.72),
-    0 0 22px rgba(168, 85, 247, 0.55),
-    0 0 34px rgba(34, 211, 238, 0.38) !important;
-  /** Было две параллельные анимации background-position + filter — WebKit давил клип текст в хаос. Один контур движения. */
+  text-shadow: none !important;
   animation: deal-results-human-name-gradient-flow 10.8s linear infinite !important;
 }
 @keyframes deal-results-human-name-gradient-flow {
@@ -14739,6 +14711,66 @@ body.deal-results-modal-open-mobile {
   100% {
     background-position: 400% 50%;
   }
+}
+
+/*
+ * Мобильная модалка: колонка пользователя в шапке — без ПК-псевдо th (::before рамка, ::after).
+ * Псевдо у span имени отключены ниже.
+ */
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human::before,
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human::after {
+  display: none !important;
+  content: none !important;
+}
+
+.deal-results-modal-overlay-mobile
+  .deal-results-table-header-pc
+  thead
+  tr:first-child
+  th.deal-results-cell-human
+  > span.deal-results-player-name::before,
+.deal-results-modal-overlay-mobile
+  .deal-results-table-header-pc
+  thead
+  tr:first-child
+  th.deal-results-cell-human
+  > span.deal-results-player-name::after {
+  display: none !important;
+  content: none !important;
+}
+
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th.deal-results-cell-human > span.deal-results-player-name {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 3 !important;
+  line-clamp: 3 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  padding: 0 5px !important;
+  text-align: center !important;
+  line-height: 1.28 !important;
+  text-shadow: none !important;
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.deal-results-modal-overlay-mobile .deal-results-table-header-pc thead tr:first-child th > span.deal-results-player-name--human {
+  box-shadow: none !important;
+  outline: none !important;
+  transform: translate3d(0, -0.25px, 0) scale(1.02, 1.08) !important;
+  transform-origin: center center !important;
+  font-family: "Plus Jakarta Sans", "Manrope", "Inter", "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif !important;
+  font-size: 1.18em !important;
+  font-weight: 760 !important;
+  letter-spacing: 0.055em !important;
+  line-height: 1.18 !important;
+  font-kerning: normal !important;
 }
 /*
  * Цифра в моб. бейдже «КАРТ: N»: узкий пробег + медленный цикл снимают «голографию»
@@ -14922,6 +14954,39 @@ body.deal-results-modal-open-mobile {
   border-left: 2px solid rgba(34, 211, 238, 0.86) !important;
   border-right: 2px solid rgba(56, 189, 248, 0.8) !important;
 }
+
+/*
+ * Шапка модалки, строка имён: колонка пользователя — свой фон/рамка, без верхнего inset из общего .deal-results-cell-human.
+ */
+.deal-results-modal-overlay-mobile .deal-results-table-window table thead tr:first-child th.deal-results-cell-human {
+  position: relative !important;
+  vertical-align: middle !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  min-width: 0 !important;
+  border-top: none !important;
+  border-bottom: 1px solid rgba(129, 140, 248, 0.48) !important;
+  border-left: 2px solid rgba(34, 211, 238, 0.92) !important;
+  border-right: 2px solid rgba(56, 189, 248, 0.88) !important;
+  background:
+    radial-gradient(118% 78% at 50% -10%, rgba(196, 181, 253, 0.34) 0%, rgba(34, 211, 238, 0.14) 32%, transparent 62%),
+    linear-gradient(
+      172deg,
+      rgb(54 22 92 / 0.99) 0%,
+      rgb(40 26 104 / 0.98) 40%,
+      rgb(22 30 82 / 1) 100%
+    ) !important;
+  box-shadow:
+    inset 0 14px 28px -14px rgba(34, 211, 238, 0.48),
+    inset 0 0 26px rgba(76, 29, 149, 0.24),
+    inset 0 0 0 1px rgba(196, 181, 253, 0.38),
+    inset 2px 0 1px rgba(34, 211, 238, 0.38),
+    inset -2px 0 1px rgba(125, 211, 252, 0.32),
+    inset 0 -1px 0 rgba(167, 139, 250, 0.36),
+    0 0 0 1px rgba(45, 212, 191, 0.12),
+    -2px 0 18px rgba(34, 211, 238, 0.32),
+    2px 0 18px rgba(125, 211, 252, 0.28) !important;
+}
 .deal-results-modal-overlay-mobile .deal-results-column-leader {
   box-shadow:
     inset 0 0 22px 3px rgba(255, 255, 255, 0.1),
@@ -15028,6 +15093,10 @@ body.deal-results-modal-open-mobile {
 .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child th.deal-results-name-cell--leader {
   position: relative !important;
   vertical-align: top !important;
+}
+/* Колонка игрока-человека: середина по высоте, как у колонок с именами оппонентов (бейдж лидера — position:absolute и не задаёт высоту ряду). */
+.deal-results-modal-overlay-mobile .deal-results-table-window :is(.deal-results-table-header-pc, .deal-results-table-unified-pc) thead tr:first-child th.deal-results-cell-human.deal-results-name-cell--leader {
+  vertical-align: middle !important;
 }
 /*
  * Медаль лида: выпуклая звезда — filter/drop-shadow только на .surface, иначе вся группа фильтруется и цифра тускнеет.
@@ -17259,13 +17328,231 @@ body.deal-results-modal-open-mobile {
   max-width: calc(100vw - 28px);
   width: min(520px, 100vw - 28px);
   background: transparent;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 .deal-track-lab-orbit-scale-dialog::backdrop {
   background: rgb(2 6 23 / 0.74);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+}
+
+/* Мобильный активный ход пользователя: космические боковые "гирлянды" по ободу экрана */
+@media (max-width: 1024px) {
+  .game-table-root.viewport-mobile .mobile-turn-edge-glow {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 130;
+    /* Небольшая подрезка снизу: не заходим в область южной панели с округлением */
+    --mobile-turn-edge-cut-bottom: clamp(58px, 9vh, 92px);
+  }
+
+  .game-table-root.viewport-mobile .mobile-turn-edge-glow__rail {
+    position: absolute;
+    top: calc(max(10px, env(safe-area-inset-top)) + 50px);
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + var(--mobile-turn-edge-cut-bottom));
+    width: clamp(5px, 1.2vw, 9px);
+    border-radius: 999px;
+    overflow: hidden;
+    opacity: 0;
+    box-shadow:
+      0 0 0 1px rgb(186 230 253 / 0.2),
+      0 0 12px rgb(34 211 238 / 0.34),
+      0 0 20px rgb(125 211 252 / 0.3),
+      0 0 34px rgb(139 92 246 / 0.2);
+    background:
+      linear-gradient(
+        180deg,
+        rgb(236 254 255 / 0.85) 0%,
+        rgb(34 211 238 / 0.92) 20%,
+        rgb(56 189 248 / 0.9) 40%,
+        rgb(99 102 241 / 0.86) 62%,
+        rgb(147 51 234 / 0.86) 80%,
+        rgb(216 180 254 / 0.88) 100%
+      );
+    background-size: 100% 250%;
+    /* Мягко растворяем нижнюю часть вместо резкого обрыва */
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      rgb(0 0 0 / 0) 0%,
+      rgb(0 0 0 / 1) 5%,
+      rgb(0 0 0 / 1) 72%,
+      rgb(0 0 0 / 0.68) 86%,
+      rgb(0 0 0 / 0) 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      rgb(0 0 0 / 0) 0%,
+      rgb(0 0 0 / 1) 5%,
+      rgb(0 0 0 / 1) 72%,
+      rgb(0 0 0 / 0.68) 86%,
+      rgb(0 0 0 / 0) 100%
+    );
+    transform: translateZ(0) scaleX(0.45);
+    transform-origin: center center;
+    animation:
+      mobile-turn-edge-rail-enter 760ms cubic-bezier(0.2, 0.82, 0.24, 1) forwards,
+      mobile-turn-edge-rail-flow 3.1s linear 420ms infinite;
+    will-change: background-position, filter;
+  }
+
+  .game-table-root.viewport-mobile .mobile-turn-edge-glow__rail::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+      radial-gradient(ellipse at 50% 5%, rgb(255 255 255 / 1) 0%, rgb(255 255 255 / 0.88) 10%, rgb(255 255 255 / 0.46) 22%, rgb(255 255 255 / 0) 48%),
+      linear-gradient(
+        180deg,
+        rgb(255 255 255 / 0.78) 0%,
+        rgb(224 242 254 / 0.38) 12%,
+        rgb(255 255 255 / 0.14) 24%,
+        rgb(255 255 255 / 0) 42%
+      ),
+      repeating-linear-gradient(
+        180deg,
+        rgb(255 255 255 / 0.52) 0 6px,
+        rgb(255 255 255 / 0.08) 6px 14px
+      );
+    mix-blend-mode: screen;
+    backdrop-filter: blur(0.4px) saturate(1.14) brightness(1.1);
+    -webkit-backdrop-filter: blur(0.4px) saturate(1.14) brightness(1.1);
+    animation:
+      mobile-turn-edge-spark 1.15s ease-in-out infinite alternate,
+      mobile-turn-edge-top-flash 1.75s ease-in-out infinite;
+  }
+
+  .game-table-root.viewport-mobile .mobile-turn-edge-glow__rail::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -14%;
+    width: 340%;
+    height: 44%;
+    border-radius: 999px;
+    transform: translateX(-50%);
+    background:
+      radial-gradient(ellipse at 50% 26%, rgb(216 180 254 / 0.34) 0%, rgb(125 211 252 / 0.24) 28%, rgb(34 211 238 / 0.14) 46%, rgb(34 211 238 / 0) 82%),
+      radial-gradient(ellipse at 50% 64%, rgb(255 255 255 / 0.24) 0%, rgb(255 255 255 / 0) 62%);
+    filter: blur(2.4px);
+    opacity: 0.76;
+    animation: mobile-turn-edge-nebula-tail 3.6s ease-in-out infinite;
+  }
+
+  .game-table-root.viewport-mobile .mobile-turn-edge-glow__rail--left {
+    left: max(4px, env(safe-area-inset-left));
+  }
+
+  .game-table-root.viewport-mobile .mobile-turn-edge-glow__rail--right {
+    right: max(4px, env(safe-area-inset-right));
+  }
+
+  .game-table-root.viewport-mobile .mobile-turn-edge-glow__rail--right::before {
+    animation-delay: 0s;
+  }
+
+  .game-table-root.viewport-mobile .mobile-turn-edge-glow__rail--right::after {
+    animation-delay: 0s;
+  }
+
+}
+
+@keyframes mobile-turn-edge-rail-flow {
+  0% {
+    background-position: 50% 0%;
+    filter: saturate(1) brightness(0.94);
+  }
+  50% {
+    background-position: 50% 45%;
+    filter: saturate(1.24) brightness(1.06);
+  }
+  100% {
+    background-position: 50% 100%;
+    filter: saturate(1.08) brightness(0.96);
+  }
+}
+
+@keyframes mobile-turn-edge-rail-enter {
+  0% {
+    opacity: 0;
+    transform: translateZ(0) scaleX(0.34);
+    filter: saturate(0.9) brightness(0.9);
+  }
+  55% {
+    opacity: 0.72;
+    transform: translateZ(0) scaleX(0.86);
+    filter: saturate(1.08) brightness(1.02);
+  }
+  100% {
+    opacity: 0.9;
+    transform: translateZ(0) scaleX(1);
+    filter: saturate(1) brightness(0.98);
+  }
+}
+
+@keyframes mobile-turn-edge-spark {
+  0% {
+    opacity: 0.42;
+    transform: scaleY(0.985);
+  }
+  100% {
+    opacity: 0.86;
+    transform: scaleY(1.02);
+  }
+}
+
+@keyframes mobile-turn-edge-comet {
+  0% {
+    top: -32%;
+    opacity: 0.3;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  100% {
+    top: 106%;
+    opacity: 0.15;
+  }
+}
+
+@keyframes mobile-turn-edge-nebula-tail {
+  0% {
+    opacity: 0.45;
+    transform: translateX(-50%) scale(0.88, 0.84);
+    filter: blur(2.8px) saturate(0.95);
+  }
+  50% {
+    opacity: 0.88;
+    transform: translateX(-50%) scale(1.04, 1.08);
+    filter: blur(2.1px) saturate(1.12);
+  }
+  100% {
+    opacity: 0.52;
+    transform: translateX(-50%) scale(0.92, 0.9);
+    filter: blur(3px) saturate(0.98);
+  }
+}
+
+@keyframes mobile-turn-edge-top-flash {
+  0%,
+  100% {
+    filter: brightness(1) saturate(1);
+    opacity: 0.9;
+  }
+  42% {
+    filter: brightness(1.28) saturate(1.18);
+    opacity: 1;
+  }
+  56% {
+    filter: brightness(1.42) saturate(1.26);
+    opacity: 1;
+  }
+  72% {
+    filter: brightness(1.12) saturate(1.08);
+    opacity: 0.96;
+  }
 }
 
 .deal-track-lab-orbit-scale-dialog-surface {
