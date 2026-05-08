@@ -11992,6 +11992,7 @@ function OpponentSlot({
         'opponent-slot',
         position === 'right' ? 'opponent-slot-east' : '',
         firstMoverBiddingHighlight ? 'first-mover-bidding-panel' : '',
+        firstMoverBiddingHighlight && isMobile ? 'first-mover-bidding-panel-mobile-opponent' : '',
         isActive ? 'opponent-slot-current-turn' : '',
         northPcFusedOrderBadge ? 'opponent-slot--north-pc-fused-order-badge' : '',
       ]
@@ -12025,7 +12026,20 @@ function OpponentSlot({
         )
       )}
       {firstBidderBadge && (
-        <span className={`opponent-badge first-bidder-badge${position === 'top' || position === 'left' ? ' first-bidder-badge-two-lines' : ''}`} style={firstBidderLampExternalStyle} title="Первый заказ/ход">
+        <span
+          className={[
+            'opponent-badge',
+            'first-bidder-badge',
+            position === 'top' || position === 'left' ? 'first-bidder-badge-two-lines' : '',
+            position === 'right' && isMobile && typeof displayBid === 'number' && displayBid > 6
+              ? 'first-bidder-badge-east-high-bid-soft-top'
+              : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          style={firstBidderLampExternalStyle}
+          title="Первый заказ/ход"
+        >
           {(position === 'top' || position === 'left') ? (
             <>
               <span className="first-bidder-line1">

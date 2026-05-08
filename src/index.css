@@ -531,6 +531,30 @@
     inset 0 0 18px rgba(251, 191, 36, 0.12);
   animation: first-mover-bidding-pulse 2.2s ease-in-out infinite;
 }
+/* Мобильные панели оппонентов: более яркий рыжий неон для «Первый заказ/ход». */
+.game-table-root.viewport-mobile .opponent-slot.first-mover-bidding-panel-mobile-opponent::before {
+  box-shadow:
+    inset 0 0 0 1px rgba(254, 215, 170, 0.98),
+    inset 0 0 0 2px rgba(15, 23, 42, 0.78),
+    inset 0 0 0 4px rgba(251, 146, 60, 0.68),
+    inset 0 0 56px rgba(251, 146, 60, 0.56),
+    inset 0 0 30px rgba(249, 115, 22, 0.26),
+    0 0 26px rgba(251, 146, 60, 0.52),
+    0 0 44px rgba(251, 146, 60, 0.28);
+  filter: brightness(1.14) saturate(1.08);
+  animation: first-mover-bidding-pulse-mobile-opponent 3.4s ease-in-out infinite;
+}
+@keyframes first-mover-bidding-pulse-mobile-opponent {
+  0%,
+  100% {
+    opacity: 0.78;
+    filter: brightness(0.74) saturate(0.92);
+  }
+  50% {
+    opacity: 0.94;
+    filter: brightness(1.06) saturate(1.03);
+  }
+}
 @keyframes first-mover-bidding-pulse {
   0%,
   100% {
@@ -7332,23 +7356,44 @@
   }
   /*
    * Запад/Север: «Первый заказ» перекрывает слоты — мигание всегда пока бейдж есть (только торги).
-   * «Сдающий» — мигание только в фазе торгов (.game-phase-bidding); в розыгрыше остаётся компактный кружок без анимации.
+   * «Сдающий» в mobile не мигает: статичный бейдж и на торгах, и в розыгрыше.
    */
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > .first-bidder-badge,
   .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div > .first-bidder-badge {
     filter: opacity(1);
     animation: mobileNorthWestOpponentBadgeBlink 4s ease-in-out infinite !important;
   }
-  .game-table-root.viewport-mobile.game-phase-bidding .game-mobile-top-row .game-mobile-slot-north > div > .dealer-badge,
-  .game-table-root.viewport-mobile.game-phase-bidding .game-mobile-top-row .game-mobile-slot-west > div > .dealer-badge {
-    filter: opacity(1);
-    animation: mobileNorthWestOpponentBadgeBlink 4s ease-in-out infinite !important;
+  /* Mobile: суперяркая точка-глиф у «Первый заказ/ход» во всех панелях игроков. */
+  .game-table-root.viewport-mobile .first-bidder-badge > span:first-child,
+  .game-table-root.viewport-mobile .first-bidder-badge .first-bidder-line1 > span:first-child {
+    flex-shrink: 0 !important;
+    width: 6px !important;
+    height: 6px !important;
+    background: #fdba74 !important;
+    box-shadow:
+      0 0 2px 1px rgba(255, 255, 255, 0.38),
+      0 0 4px 1px rgba(251, 146, 60, 0.68),
+      0 0 7px 2px rgba(249, 115, 22, 0.38) !important;
+    filter: brightness(1.08) saturate(1.12) !important;
   }
-  .game-table-root.viewport-mobile:not(.game-phase-bidding) .game-mobile-top-row .game-mobile-slot-north > div > .dealer-badge,
-  .game-table-root.viewport-mobile:not(.game-phase-bidding) .game-mobile-top-row .game-mobile-slot-west > div > .dealer-badge {
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > .dealer-badge,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div > .dealer-badge {
     animation: none !important;
     filter: none !important;
     pointer-events: auto !important;
+  }
+  /* Север/Запад: лампочка «Сдающий» — такая же суперяркая, как в Востоке, но без пульсации бейджа. */
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > .dealer-badge > span:first-child,
+  .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west > div > .dealer-badge > span:first-child {
+    width: 8px !important;
+    height: 8px !important;
+    background: #bae6fd !important;
+    box-shadow:
+      0 0 3px 1px rgba(255, 255, 255, 0.45),
+      0 0 8px 2px rgba(56, 189, 248, 0.75),
+      0 0 14px 4px rgba(34, 211, 238, 0.45) !important;
+    animation: none !important;
+    filter: brightness(1.06) saturate(1.12) !important;
   }
   @media (prefers-reduced-motion: reduce) {
     .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north > div > .dealer-badge,
@@ -8022,25 +8067,53 @@
     transform: none !important;
     margin: 0 !important;
     width: 100% !important;
-    min-height: 36px !important;
+    min-height: 30px !important;
     display: inline-flex !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 2px !important;
+    gap: 1px !important;
     writing-mode: horizontal-tb !important;
     text-orientation: mixed !important;
     white-space: nowrap !important;
     letter-spacing: normal !important;
-    padding: 4px 6px !important;
-    font-size: 9px !important;
-    line-height: 1.2 !important;
+    padding: 2px 5px !important;
+    font-size: 10px !important;
+    line-height: 1.1 !important;
     border-radius: 0 0 6px 6px !important;
+  }
+  /* Восток, моб., заказ >6: мягкое растворение верхней границы бейджа «Первый заказ/ход» в фон. */
+  .game-table-root.viewport-mobile
+    .game-center-area.game-mobile-center
+    .game-center-east
+    .opponent-slot-east
+    > .first-bidder-badge.first-bidder-badge-east-high-bid-soft-top {
+    position: absolute !important;
+    overflow: hidden !important;
+    border-top-width: 1px !important;
+    border-top-style: solid !important;
+    border-left-color: rgba(251, 146, 60, 0.42) !important;
+    border-right-color: rgba(251, 146, 60, 0.42) !important;
+    border-bottom-color: rgba(251, 146, 60, 0.5) !important;
+    border-top-color: rgba(251, 146, 60, 0.45) !important;
+    background: linear-gradient(
+      180deg,
+      rgb(180 113 30 / 89%) 0%,
+      rgb(113 53 177 / 60%) 38%,
+      rgb(230 26 26 / 80%) 72%,
+      #7c3aed 100%
+    ) !important;
+    box-shadow:
+      0 2px 10px rgba(0, 0, 0, 0.45),
+      0 8px 16px rgba(249, 115, 22, 0.16),
+      inset 0 -1px 0 rgba(251, 146, 60, 0.22) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.025em !important;
   }
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-east > .first-bidder-badge > span:first-child {
     flex-shrink: 0 !important;
-    width: 10px !important;
-    height: 10px !important;
+    width: 5px !important;
+    height: 5px !important;
   }
   /* Кружок у бейджа «Сдающий» в Востоке — над текстом, лёгкая пульсация */
   .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot-east > .dealer-badge > span:first-child {
