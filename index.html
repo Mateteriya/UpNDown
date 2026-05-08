@@ -2,11 +2,11 @@
 <html lang="ru">
   <head>
     <script>
-      (function(){var d=document,v=localStorage.getItem('updown-theme'),t=(v==='light'||v==='dark')?v:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');var sysDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;d.documentElement.classList.add('theme-'+t);d.documentElement.classList.add(sysDark?'system-dark':'system-light');d.documentElement.setAttribute('data-theme',t);var m=d.querySelector('meta[name="color-scheme"]');if(m)m.setAttribute('content',t==='light'?'only light':'dark');})();
+      (function(){var d=document;d.documentElement.classList.remove('theme-neon');d.documentElement.classList.add('theme-standard');d.documentElement.classList.remove('system-dark');d.documentElement.classList.add('system-light');d.documentElement.setAttribute('data-theme','standard');try{localStorage.setItem('updown-theme','standard')}catch(e){}var m=d.querySelector('meta[name="color-scheme"]');if(m)m.setAttribute('content','only light');})();
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="only light" />
     <meta name="theme-color" content="#0f172a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
