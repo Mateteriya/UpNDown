@@ -4,13 +4,13 @@
  */
 
 import type {
-  ComponentPropsWithoutRef,
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
+  TouchEvent as ReactTouchEvent,
   Ref,
 } from 'react';
-import { Fragment, createElement, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import type { AIDifficulty, DealResult, GameState } from '../game/GameEngine';
 import {
@@ -139,13 +139,17 @@ function buildOppNameRevealSinTranslateKeyframes(maxPx: number, steps = 100): Ke
 const MOBILE_OVERLAP_SCRUB_LINGER_MS = 1000;
 
 /**
- * Подгонка ряда под ширину колонки: сначала увеличиваем нахлёст, иначе scale<1.
+ * Подгонка ряда под ширину колонки: подбираем нахлёст, иначе scale<1.
  * Без overflow:hidden — карты остаются видимыми.
+ *
+ * Берём минимальный захлёст o ≥ 0 при котором ряд помещается — тогда при свободном месте по бокам
+ * карты максимально расползаются по ширине (ступени getMobileNineCardHandLayout задают «типичный»
+ * захлёст на узком экране, но не должны форсировать лишний нахлёст, если inner ещё позволяет).
  */
 function getMobileHandRowFit(
   vw: number,
   handLen: number,
-  baseOverlap: number,
+  tierTypicalOverlapPx: number,
   slotPadding: number,
 ): { overlapPx: number; rowScale: number } {
   const inset = mobileSouthStripInsetPx(vw);
@@ -155,8 +159,8 @@ function getMobileHandRowFit(
   const slotOuter = MOBILE_HAND_CARD_BODY_W + 2 * slotPadding;
   if (handLen <= 0) return { overlapPx: 0, rowScale: 1 };
   if (handLen === 1) return { overlapPx: 0, rowScale: 1 };
-  const maxO = Math.max(baseOverlap, slotOuter - 4);
-  for (let o = Math.max(0, baseOverlap); o <= maxO; o++) {
+  const maxO = Math.max(0, Math.max(tierTypicalOverlapPx, slotOuter - 4));
+  for (let o = 0; o <= maxO; o++) {
     const w = handLen * slotOuter - (handLen - 1) * o;
     if (w <= inner) return { overlapPx: o, rowScale: 1 };
   }
@@ -188,6 +192,53 @@ function readMobileViewportHeightForShortModePx(): number {
 
 /** Строго меньше этой высоты (по readMobileViewportHeightForShortModePx): рука в сетке юга + прокрутка, шапка ниже по z-index. */
 const MOBILE_SHORT_VIEWPORT_HEIGHT_PX = 652;
+/** sessionStorage: пользователь отключил short-VH-раскладку на эту вкладку (ложный порог браузера). */
+const MOBILE_SHORT_VH_LAYOUT_OPT_OUT_SESSION_KEY = 'upd.gameTable.mobileShortVhLayoutOptOut.v1';
+/** sessionStorage: южная ручка short-VH свернута до одной полосы шариков. */
+const MOBILE_SHORT_VH_SOUTH_PULL_TAB_COLLAPSED_SESSION_KEY = 'upd.gameTable.shortVhSouthPullTabCollapsed.v1';
+
+function readSouthPullTabCollapsedSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(MOBILE_SHORT_VH_SOUTH_PULL_TAB_COLLAPSED_SESSION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function readShortVhLayoutOptOutSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(MOBILE_SHORT_VH_LAYOUT_OPT_OUT_SESSION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Верхняя граница ручной растяжки Юга (short предиммерсив). Начальное значение всегда 0 — пользователь сам поднимает, если нужно. */
+function computeShortVhSouthStretchMaxPx(): number {
+  if (typeof window === 'undefined') return 110;
+  try {
+    const h = window.visualViewport?.height ?? window.innerHeight;
+    if (!Number.isFinite(h) || h < 1) return 96;
+    return Math.min(140, Math.max(44, Math.round(h * 0.19)));
+  } catch {
+    return 110;
+  }
+}
+
+/** Пропорциональное увеличение панели Юга: заметный диапазон (раньше был слабее из‑за zoom в части браузеров). */
+const SHORT_VH_SOUTH_STRETCH_UI_SCALE_RANGE = 0.22;
+
+function shortVhSouthUiScaleFromStretch(stretchPx: number, maxPx: number, enabled: boolean): number {
+  if (!enabled || maxPx <= 0 || stretchPx <= 0) return 1;
+  const t = Math.min(1, Math.max(0, stretchPx / maxPx));
+  return 1 + t * SHORT_VH_SOUTH_STRETCH_UI_SCALE_RANGE;
+}
+
+/** Ручка только под панелью: без translate вверх — иначе полоска заходит на карточку Юга. */
+const MOBILE_SHORT_SOUTH_RESIZE_LIFT_PX = 0;
+
 /** sessionStorage: режим «стол на весь экран» (immersive) для short-VH. */
 const MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY = 'upd.gameTable.mobileShortHeaderImmersive.v1';
 
@@ -256,6 +307,12 @@ const IMMERSIVE_BADGE_MAGNET_ESCAPE_PX = 40;
 
 /** Макс. высота зоны магнита от низа скролла (px). Шире — доводка срабатывает выше по странице, доходит до immersive без «недотяга». */
 const SHORT_VH_MAGNET_ZONE_CAP_PX = 188;
+/**
+ * Если включена ручная растяжка Юга (shortVhSouthStretchPx), контент выше — без сужения зоны
+ * immersive срабатывает за сотни px до реального низа: не докрутить до нижней границы панели/ручки.
+ */
+const SHORT_VH_MAGNET_ZONE_WHEN_SOUTH_STRETCH_SCALE = 0.22;
+const SHORT_VH_MAGNET_ZONE_WHEN_SOUTH_STRETCH_CAP_PX = 56;
 /** Минимальный ход скролла, при котором включаем магнит (иначе на коротком контенте дёргает). */
 const SHORT_VH_MAGNET_MIN_SCROLL_RANGE_PX = 48;
 /**
@@ -285,9 +342,8 @@ const SHORT_VH_IMMERSIVE_NW_ALIGN_MARGIN_ABS_MAX_PX = 40;
  * Тогда переприжимаем scroll к низу, а не сбрасываем выравнивание С/З (иначе зазор сверху и обрез низа панели Юга).
  */
 const SHORT_VH_IMMERSIVE_REPIN_AFTER_GROW_MAX_DIST_PX = 240;
-/** Удержание ручки с кружочками (short-VH): вход в immersive. Сброс при сдвиге пальца. */
-const SHORT_VH_SOUTH_PULL_TAB_HOLD_MS = 480;
-const SHORT_VH_SOUTH_PULL_TAB_HOLD_CANCEL_MOVE_PX = 14;
+/** Южная ручка short-VH: сдвиг меньше этого (по Y) — тап → меню режимов; иначе перетаскивание → прокрутка столика. */
+const SHORT_VH_SOUTH_PULL_TAB_TAP_MAX_MOVE_PX = 14;
 /** После отпускания ручки без удержания — глушим авто-immersive от нижнего магнита (микроскролл от короткого тапа). */
 const SHORT_VH_SOUTH_PULL_TAB_POST_TAP_MAGNET_SUPPRESS_MS = 650;
 function readShortGameHeaderHalfHeightPx(headerEl: HTMLElement | null): number {
@@ -808,6 +864,13 @@ const firstMoverBiddingGlowExtraShadow = [
   '0 0 48px rgba(251, 146, 60, 0.22)',
 ].join(', ');
 
+/** Низкий экран: без внешних размытых теней — иначе прямоугольный слой под капсулой масштаба */
+const firstMoverBiddingGlowExtraShadowShortVh = [
+  'inset 0 0 28px rgba(251, 146, 60, 0.24)',
+  'inset 0 0 0 1px rgba(251, 146, 60, 0.55)',
+  '0 0 0 1px rgba(251, 146, 60, 0.36)',
+].join(', ');
+
 const trumpHighlightBtnStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
@@ -1069,14 +1132,18 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const userExactOrderStarOrderPanelGradientId = useId().replace(/:/g, '');
   const dealNumberExplainTitleId = useId();
   const [mobileHandLayoutVw, setMobileHandLayoutVw] = useState(readMobileHandLayoutWidthPx);
-  const [mobileViewportShort, setMobileViewportShort] = useState(() => {
+  const [rawMobileViewportShort, setRawMobileViewportShort] = useState(() => {
     if (typeof window === 'undefined') return false;
     return readMobileViewportHeightForShortModePx() < MOBILE_SHORT_VIEWPORT_HEIGHT_PX;
   });
+  const [shortVhLayoutOptOutSession, setShortVhLayoutOptOutSession] = useState(() => readShortVhLayoutOptOutSession());
+  /** Инкремент при выходе в «стандарт» из short/иммерсив — три вспышки на чипе возврата (key + data-star-pulse). */
+  const [shortVhRestoreChipIntroPulseTick, setShortVhRestoreChipIntroPulseTick] = useState(0);
+  const mobileViewportShort = rawMobileViewportShort && !shortVhLayoutOptOutSession;
   useLayoutEffect(() => {
     const upd = () => {
       setMobileHandLayoutVw(readMobileHandLayoutWidthPx());
-      setMobileViewportShort(readMobileViewportHeightForShortModePx() < MOBILE_SHORT_VIEWPORT_HEIGHT_PX);
+      setRawMobileViewportShort(readMobileViewportHeightForShortModePx() < MOBILE_SHORT_VIEWPORT_HEIGHT_PX);
     };
     upd();
     window.addEventListener('resize', upd);
@@ -1321,8 +1388,15 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const shortVhScrollRafRef = useRef<number | null>(null);
   const lHandleLongPressTimerRef = useRef<number | null>(null);
   const lHandlePointerDownRef = useRef({ x: 0, y: 0 });
-  const shortVhComfortHintTimeoutRef = useRef<number | null>(null);
   const comfortHintTapDownRef = useRef({ x: 0, y: 0 });
+  /**
+   * После pointerup на южной ручке браузер шлёт синтетический click по тем же координатам: меню уже внизу экрана,
+   * «призрак» попадает на пункт «Обычный» — перехват на document (capture) одним кликом + таймаут на случай long-press без click.
+   */
+  const shortVhSouthPullTabSuppressNextDocClickRef = useRef(false);
+  const shortVhSouthPullTabSuppressNextDocClickTimerRef = useRef<number | null>(null);
+  /** Синхронно с открытием меню режимов (document-capture «призрака»). */
+  const shortVhSouthPullModeMenuOpenRef = useRef(false);
   /**
    * После входа в immersive flushSync может вызвать layout до commitShortMainWrapScrollToEnd —
    * обратный магнит видел scroll у «верха» и мгновенно вызывал exit. Короткое окно без auto-exit.
@@ -1353,12 +1427,30 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     }
   }, []);
   const [mobileShortImmersiveInviteChip, setMobileShortImmersiveInviteChip] = useState(false);
-  /** Подсказка при коротком тапе: низкий экран, стол без шапки (контент — см. портал ниже). */
-  const [mobileShortVhScrollComfortHintOpen, setMobileShortVhScrollComfortHintOpen] = useState(false);
-  /** Пока палец на ручке с кружочками — блокируем нативный скролл main-wrap (не перебивает удержание / перетягивание ручки). */
-  const [shortVhSouthPullMainScrollLocked, setShortVhSouthPullMainScrollLocked] = useState(false);
+  /** Меню режима short-VH (иммерсив / стандарт / свернуть ручку) — портал на body. */
+  const [shortVhSouthPullModeMenuOpen, setShortVhSouthPullModeMenuOpen] = useState(false);
+  /** Южная ручка: только нижняя полоса шариков (~⅓ высоты) — sessionStorage. */
+  const [shortVhSouthPullTabCollapsed, setShortVhSouthPullTabCollapsed] = useState(readSouthPullTabCollapsedSession);
   /** pointerover до pointerdown: на таче :hover часто срабатывает позже — дублируем «ховер» классом, чтобы он был до нажатия. */
   const [shortVhSouthPullTabPointerOver, setShortVhSouthPullTabPointerOver] = useState(false);
+  /** Short предиммерсив: доп. зазор над рядом карт (px), перетаскивание нижней кромки; sessionStorage. */
+  const [shortVhSouthStretchMaxPx, setShortVhSouthStretchMaxPx] = useState(computeShortVhSouthStretchMaxPx);
+  const [shortVhSouthStretchPx, setShortVhSouthStretchPx] = useState(0);
+  const shortVhSouthResizeDragRef = useRef<{ startY: number; startStretch: number } | null>(null);
+  /** Снять pointermove/up с document (иначе на коротком экране скролл main-wrap съедает жест). */
+  const shortVhSouthResizeDocCleanupRef = useRef<(() => void) | null>(null);
+  const shortVhSouthResizeHandleRef = useRef<HTMLButtonElement | null>(null);
+  const shortVhSouthStretchPxRef = useRef(shortVhSouthStretchPx);
+  shortVhSouthStretchPxRef.current = shortVhSouthStretchPx;
+  const shortVhSouthStretchMaxPxRef = useRef(shortVhSouthStretchMaxPx);
+  shortVhSouthStretchMaxPxRef.current = shortVhSouthStretchMaxPx;
+  /** Нативный pointer+touch: один жест на iOS даёт и pointerdown, и touchstart — не запускать два resize. */
+  const shortVhSouthResizeGestureActiveRef = useRef(false);
+  /** Актуальность видимости ручки в beginShortVhSouthResize (после смены short/стандарт замыкание иначе «ломает» жест). */
+  const shortVhSouthResizeHandleVisibleRef = useRef(false);
+  /** Короткий тап — краткое усиление неона на капсуле ручки (текст всегда на капсуле). */
+  const [southResizeTapGlow, setSouthResizeTapGlow] = useState(false);
+  const southResizeTapGlowTimerRef = useRef<number | null>(null);
   const [immersiveLHandleHint, setImmersiveLHandleHint] = useState<string | null>(null);
   const [immersiveRevealBtnPulse, setImmersiveRevealBtnPulse] = useState(false);
   /** Однократная карточка при входе в immersive (short-VH). */
@@ -1540,11 +1632,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       setMobileShortHeaderImmersive(false);
       setMobileShortImmersiveInviteChip(false);
       setImmersiveLHandleHint(null);
-      if (shortVhComfortHintTimeoutRef.current != null) {
-        window.clearTimeout(shortVhComfortHintTimeoutRef.current);
-        shortVhComfortHintTimeoutRef.current = null;
-      }
-      setMobileShortVhScrollComfortHintOpen(false);
+      setShortVhSouthPullModeMenuOpen(false);
       if (immersiveWelcomeTimeoutRef.current != null) {
         window.clearTimeout(immersiveWelcomeTimeoutRef.current);
         immersiveWelcomeTimeoutRef.current = null;
@@ -1566,11 +1654,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       setMobileShortHeaderImmersiveState(false);
       setMobileShortImmersiveInviteChip(false);
       setImmersiveLHandleHint(null);
-      if (shortVhComfortHintTimeoutRef.current != null) {
-        window.clearTimeout(shortVhComfortHintTimeoutRef.current);
-        shortVhComfortHintTimeoutRef.current = null;
-      }
-      setMobileShortVhScrollComfortHintOpen(false);
+      setShortVhSouthPullModeMenuOpen(false);
       if (immersiveWelcomeTimeoutRef.current != null) {
         window.clearTimeout(immersiveWelcomeTimeoutRef.current);
         immersiveWelcomeTimeoutRef.current = null;
@@ -1587,22 +1671,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
 
   useEffect(() => {
     if (mobileShortHeaderImmersive) {
-      if (shortVhComfortHintTimeoutRef.current != null) {
-        window.clearTimeout(shortVhComfortHintTimeoutRef.current);
-        shortVhComfortHintTimeoutRef.current = null;
-      }
-      setMobileShortVhScrollComfortHintOpen(false);
+      setShortVhSouthPullModeMenuOpen(false);
     }
   }, [mobileShortHeaderImmersive]);
-
-  useEffect(() => {
-    return () => {
-      if (shortVhComfortHintTimeoutRef.current != null) {
-        window.clearTimeout(shortVhComfortHintTimeoutRef.current);
-        shortVhComfortHintTimeoutRef.current = null;
-      }
-    };
-  }, []);
 
   /**
    * Досинхронизация после F5: state уже из sessionStorage.
@@ -1805,7 +1876,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
 
   /**
    * Вход в immersive: у самого низа — мгновенно. Магнит «с середины» — короткая доводка scroll, затем immersive.
-   * Южная ручка (long-press) снаружи приравнивается к магниту: см. onShortVhScrollPullTabPointerDown.
+   * Точка входа из меню южной ручки: см. onShortVhSouthPullMenuChooseImmersive.
    */
   const enterShortVhImmersiveWithMagnetSnap = useCallback(
     (el: HTMLDivElement, mode: ShortVhEnterImmersiveMode = 'gentle') => {
@@ -1883,7 +1954,15 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       return;
     }
 
-    const zone = Math.min(SHORT_VH_MAGNET_ZONE_CAP_PX, Math.round(maxTop * 0.58));
+    const baseZone = Math.min(SHORT_VH_MAGNET_ZONE_CAP_PX, Math.round(maxTop * 0.58));
+    const southStretchPx = shortVhSouthStretchPxRef.current;
+    const zone =
+      southStretchPx > 0
+        ? Math.min(
+            SHORT_VH_MAGNET_ZONE_WHEN_SOUTH_STRETCH_CAP_PX,
+            Math.max(28, Math.round(baseZone * SHORT_VH_MAGNET_ZONE_WHEN_SOUTH_STRETCH_SCALE)),
+          )
+        : baseZone;
     const distBottom = maxTop - el.scrollTop;
     const zoneSlack = 22;
     const inForwardSnapZone = distBottom <= zone + zoneSlack;
@@ -1937,7 +2016,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       !shortVhMagnetConsumedRef.current &&
       !mobileShortHeaderImmersiveRef.current &&
       inForwardSnapZone &&
-      !shortVhPullTabDragRef.current.active &&
       nowForMagnet >= shortVhSouthPullTabPostTapSuppressMagnetUntilRef.current
     ) {
       const nearBottom = distBottom <= 22;
@@ -2331,16 +2409,23 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     state?.dealHistory?.length,
   ]);
 
-  const showShortVhScrollComfortHint = useCallback(() => {
-    if (shortVhComfortHintTimeoutRef.current != null) {
-      window.clearTimeout(shortVhComfortHintTimeoutRef.current);
-      shortVhComfortHintTimeoutRef.current = null;
+  const dismissShortVhSouthPullModeMenu = useCallback(() => {
+    setShortVhSouthPullModeMenuOpen(false);
+  }, []);
+
+  const openShortVhSouthPullModeMenu = useCallback((options?: { suppressNextDocumentClick?: boolean }) => {
+    if (options?.suppressNextDocumentClick) {
+      shortVhSouthPullTabSuppressNextDocClickRef.current = true;
+      if (shortVhSouthPullTabSuppressNextDocClickTimerRef.current !== null) {
+        window.clearTimeout(shortVhSouthPullTabSuppressNextDocClickTimerRef.current);
+      }
+      shortVhSouthPullTabSuppressNextDocClickTimerRef.current = window.setTimeout(() => {
+        shortVhSouthPullTabSuppressNextDocClickTimerRef.current = null;
+        shortVhSouthPullTabSuppressNextDocClickRef.current = false;
+      }, 550);
     }
-    setMobileShortVhScrollComfortHintOpen(true);
-    shortVhComfortHintTimeoutRef.current = window.setTimeout(() => {
-      shortVhComfortHintTimeoutRef.current = null;
-      setMobileShortVhScrollComfortHintOpen(false);
-    }, 6500);
+    shortVhSouthPullModeMenuOpenRef.current = true;
+    setShortVhSouthPullModeMenuOpen(true);
     try {
       if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
     } catch {
@@ -2348,13 +2433,106 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     }
   }, []);
 
-  const dismissShortVhScrollComfortHint = useCallback(() => {
-    if (shortVhComfortHintTimeoutRef.current != null) {
-      window.clearTimeout(shortVhComfortHintTimeoutRef.current);
-      shortVhComfortHintTimeoutRef.current = null;
+  useLayoutEffect(() => {
+    shortVhSouthPullModeMenuOpenRef.current = shortVhSouthPullModeMenuOpen;
+    if (shortVhSouthPullModeMenuOpen) return;
+    shortVhSouthPullTabSuppressNextDocClickRef.current = false;
+    if (shortVhSouthPullTabSuppressNextDocClickTimerRef.current !== null) {
+      window.clearTimeout(shortVhSouthPullTabSuppressNextDocClickTimerRef.current);
+      shortVhSouthPullTabSuppressNextDocClickTimerRef.current = null;
     }
-    setMobileShortVhScrollComfortHintOpen(false);
+  }, [shortVhSouthPullModeMenuOpen]);
+
+  useEffect(() => {
+    const onDocClickCapture = (e: MouseEvent) => {
+      if (!shortVhSouthPullTabSuppressNextDocClickRef.current) return;
+      shortVhSouthPullTabSuppressNextDocClickRef.current = false;
+      if (shortVhSouthPullTabSuppressNextDocClickTimerRef.current !== null) {
+        window.clearTimeout(shortVhSouthPullTabSuppressNextDocClickTimerRef.current);
+        shortVhSouthPullTabSuppressNextDocClickTimerRef.current = null;
+      }
+      /* Меню уже закрыто — только сняли «охоту» на синтетический click; реальный клик пусть дойдёт до цели (Σ, бейдж и т.д.). */
+      if (!shortVhSouthPullModeMenuOpenRef.current) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    };
+    document.addEventListener('click', onDocClickCapture, true);
+    return () => {
+      document.removeEventListener('click', onDocClickCapture, true);
+      if (shortVhSouthPullTabSuppressNextDocClickTimerRef.current !== null) {
+        window.clearTimeout(shortVhSouthPullTabSuppressNextDocClickTimerRef.current);
+      }
+    };
   }, []);
+
+  /** Принудительно выйти из short-VH-раскладки на текущую сессию вкладки (ложный порог браузера, например Яндекс). */
+  const exitShortVhLowScreenLayoutForSession = useCallback(() => {
+    setShortVhLayoutOptOutSession(true);
+    try {
+      sessionStorage.setItem(MOBILE_SHORT_VH_LAYOUT_OPT_OUT_SESSION_KEY, '1');
+      sessionStorage.removeItem(MOBILE_SHORT_VH_SOUTH_PULL_TAB_COLLAPSED_SESSION_KEY);
+    } catch {
+      /* ignore */
+    }
+    setShortVhSouthPullTabCollapsed(false);
+    setMobileShortImmersiveInviteChip(false);
+    dismissShortVhSouthPullModeMenu();
+    cancelShortVhEnterGentleScroll();
+    flushSync(() => {
+      setMobileShortHeaderImmersive(false);
+    });
+    shortVhMagnetConsumedRef.current = false;
+    shortVhEnterMagnetAnimatingRef.current = false;
+    setShortVhSouthPullTabPointerOver(false);
+    try {
+      const wrap = mobileShortMainWrapRef.current;
+      if (wrap) wrap.scrollTop = 0;
+    } catch {
+      /* ignore */
+    }
+    if (!prefersReducedMotion) {
+      setShortVhRestoreChipIntroPulseTick((t) => t + 1);
+    }
+  }, [dismissShortVhSouthPullModeMenu, cancelShortVhEnterGentleScroll, setMobileShortHeaderImmersive, prefersReducedMotion]);
+
+  const restoreShortVhLowScreenLayoutForSession = useCallback(() => {
+    setShortVhLayoutOptOutSession(false);
+    try {
+      sessionStorage.removeItem(MOBILE_SHORT_VH_LAYOUT_OPT_OUT_SESSION_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const onShortVhSouthPullMenuChooseImmersive = useCallback(() => {
+    dismissShortVhSouthPullModeMenu();
+    const el = mobileShortMainWrapRef.current;
+    if (!el) return;
+    commitShortMainWrapScrollToEnd(el);
+    enterShortVhImmersiveWithMagnetSnap(el, prefersReducedMotion ? 'instant' : 'instant');
+  }, [dismissShortVhSouthPullModeMenu, enterShortVhImmersiveWithMagnetSnap, prefersReducedMotion]);
+
+  const onShortVhSouthPullMenuChooseStandard = useCallback(() => {
+    dismissShortVhSouthPullModeMenu();
+    exitShortVhLowScreenLayoutForSession();
+  }, [dismissShortVhSouthPullModeMenu, exitShortVhLowScreenLayoutForSession]);
+
+  const onShortVhSouthPullMenuChooseStayOrToggleCollapse = useCallback(() => {
+    dismissShortVhSouthPullModeMenu();
+    setShortVhSouthPullTabCollapsed((prev) => {
+      const next = !prev;
+      try {
+        if (next) sessionStorage.setItem(MOBILE_SHORT_VH_SOUTH_PULL_TAB_COLLAPSED_SESSION_KEY, '1');
+        else sessionStorage.removeItem(MOBILE_SHORT_VH_SOUTH_PULL_TAB_COLLAPSED_SESSION_KEY);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, [dismissShortVhSouthPullModeMenu]);
 
   const dismissImmersiveWelcomeHint = useCallback(() => {
     if (immersiveWelcomeTimeoutRef.current != null) {
@@ -2380,34 +2558,19 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       const dy = Math.abs(e.clientY - comfortHintTapDownRef.current.y);
       if (dx > 20 || dy > 20) return;
       e.stopPropagation();
-      showShortVhScrollComfortHint();
+      openShortVhSouthPullModeMenu();
     },
-    [showShortVhScrollComfortHint],
+    [openShortVhSouthPullModeMenu],
   );
 
   const onComfortHintTriggerPointerCancel = useCallback((_e: ReactPointerEvent<HTMLButtonElement>) => {
     /* не показываем подсказку при отмене жеста */
   }, []);
 
-  /** Ручка над рукой short-VH: перетаскивание вверх → scrollTop; удержание → immersive (магнит). */
-  const shortVhPullTabDragRef = useRef<{
-    active: boolean;
-    pointerId: number;
-    startY: number;
-    startX: number;
-    startScrollTop: number;
-  }>({ active: false, pointerId: 0, startY: 0, startX: 0, startScrollTop: 0 });
+  /** Южная ручка short-VH: только тап → меню (без перетягивания скролла). */
+  const shortVhSouthPullTabTapRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   /** performance.now(): не запускать enter immersive от нижнего магнита сразу после тапа по южной ручке (без long-press). */
   const shortVhSouthPullTabPostTapSuppressMagnetUntilRef = useRef(0);
-  const shortVhPullTabLongPressTimerRef = useRef<number | null>(null);
-  const shortVhPullTabLongPressFiredRef = useRef(false);
-
-  const clearShortVhPullTabLongPressTimer = useCallback(() => {
-    if (shortVhPullTabLongPressTimerRef.current != null) {
-      window.clearTimeout(shortVhPullTabLongPressTimerRef.current);
-      shortVhPullTabLongPressTimerRef.current = null;
-    }
-  }, []);
 
   const onShortVhSouthPullTabPortalPointerOver = useCallback((e: ReactPointerEvent<HTMLButtonElement>) => {
     if (e.pointerType === 'mouse' && e.buttons !== 0) return;
@@ -2427,180 +2590,297 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     }
   }, []);
 
-  const onShortVhScrollPullTabPointerDown = useCallback(
+  const onShortVhSouthPullTabPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       if (!mobileViewportShort || mobileShortHeaderImmersiveRef.current || isWaitingInRoom || onlineRef.current.userOnPause) {
         return;
       }
-      const wrap = mobileShortMainWrapRef.current;
-      if (!wrap) return;
-      flushSync(() => {
-        setShortVhSouthPullMainScrollLocked(true);
-      });
-      clearShortVhPullTabLongPressTimer();
-      shortVhPullTabLongPressFiredRef.current = false;
-      shortVhPullTabDragRef.current = {
-        active: true,
+      shortVhSouthPullTabTapRef.current = {
         pointerId: e.pointerId,
-        startY: e.clientY,
-        startX: e.clientX,
-        startScrollTop: wrap.scrollTop,
+        x: e.clientX,
+        y: e.clientY,
       };
-      const pointerIdForTimer = e.pointerId;
-      shortVhPullTabLongPressTimerRef.current = window.setTimeout(() => {
-        shortVhPullTabLongPressTimerRef.current = null;
-        const el = mobileShortMainWrapRef.current;
-        const d = shortVhPullTabDragRef.current;
-        if (
-          !el ||
-          !d.active ||
-          d.pointerId !== pointerIdForTimer ||
-          mobileShortHeaderImmersiveRef.current ||
-          onlineRef.current.userOnPause
-        ) {
-          return;
-        }
-        shortVhPullTabLongPressFiredRef.current = true;
-        d.active = false;
-        try {
-          if (!prefersReducedMotion && typeof navigator !== 'undefined' && navigator.vibrate) {
-            navigator.vibrate([8, 40, 8]);
-          }
-        } catch {
-          /* ignore */
-        }
-        commitShortMainWrapScrollToEnd(el);
-        enterShortVhImmersiveWithMagnetSnap(el, prefersReducedMotion ? 'instant' : 'instant');
-      }, SHORT_VH_SOUTH_PULL_TAB_HOLD_MS);
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId);
-      } catch {
-        /* ignore */
-      }
     },
-    [mobileViewportShort, isWaitingInRoom, clearShortVhPullTabLongPressTimer, enterShortVhImmersiveWithMagnetSnap, prefersReducedMotion],
+    [mobileViewportShort, isWaitingInRoom],
   );
 
-  const onShortVhScrollPullTabPointerMove = useCallback(
+  const onShortVhSouthPullTabPointerUp = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => {
-      const d = shortVhPullTabDragRef.current;
-      if (!d.active || e.pointerId !== d.pointerId) return;
-      if (
-        Math.abs(e.clientX - d.startX) > SHORT_VH_SOUTH_PULL_TAB_HOLD_CANCEL_MOVE_PX ||
-        Math.abs(e.clientY - d.startY) > SHORT_VH_SOUTH_PULL_TAB_HOLD_CANCEL_MOVE_PX
-      ) {
-        clearShortVhPullTabLongPressTimer();
-      }
-      const wrap = mobileShortMainWrapRef.current;
-      if (!wrap) return;
-      const dy = d.startY - e.clientY;
-      const maxTop = Math.max(0, wrap.scrollHeight - wrap.clientHeight);
-      let next = d.startScrollTop + dy;
-      if (next < 0) next = 0;
-      if (next > maxTop) next = maxTop;
-      wrap.scrollTop = next;
-      try {
-        e.preventDefault();
-      } catch {
-        /* passive */
-      }
-      updateMobileShortScrollMagnet();
-    },
-    [updateMobileShortScrollMagnet, clearShortVhPullTabLongPressTimer],
-  );
-
-  const onShortVhScrollPullTabPointerUp = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>) => {
-      /* До проверки pointerId: touch после тапа иначе залипает, если pointerdown отфильтровали */
       clearShortVhSouthPullTabPointerOverIfNotMouse(e);
-      const d = shortVhPullTabDragRef.current;
-      if (e.pointerId !== d.pointerId) return;
-      setShortVhSouthPullMainScrollLocked(false);
-      clearShortVhPullTabLongPressTimer();
-      const longPressFired = shortVhPullTabLongPressFiredRef.current;
-      shortVhPullTabLongPressFiredRef.current = false;
-      const startY = d.startY;
-      const wasActive = d.active;
-      d.active = false;
-      if (wasActive || longPressFired) {
-        try {
-          e.currentTarget.releasePointerCapture(e.pointerId);
-        } catch {
-          /* ignore */
-        }
-        if (wasActive && !longPressFired) {
-          shortVhSouthPullTabPostTapSuppressMagnetUntilRef.current =
-            (typeof performance !== 'undefined' ? performance.now() : Date.now()) + SHORT_VH_SOUTH_PULL_TAB_POST_TAP_MAGNET_SUPPRESS_MS;
-        }
-        const wrap = mobileShortMainWrapRef.current;
-        if (wrap) updateMobileShortScrollMagnet();
-        if (!longPressFired && Math.abs(startY - e.clientY) < 14) {
-          showShortVhScrollComfortHint();
-        }
-      }
-    },
-    [
-      updateMobileShortScrollMagnet,
-      showShortVhScrollComfortHint,
-      clearShortVhPullTabLongPressTimer,
-      clearShortVhSouthPullTabPointerOverIfNotMouse,
-    ],
-  );
-
-  const onShortVhScrollPullTabPointerCancel = useCallback((e: ReactPointerEvent<HTMLButtonElement>) => {
-    clearShortVhSouthPullTabPointerOverIfNotMouse(e);
-    const d = shortVhPullTabDragRef.current;
-    if (e.pointerId !== d.pointerId) return;
-    setShortVhSouthPullMainScrollLocked(false);
-    clearShortVhPullTabLongPressTimer();
-    const longPressFired = shortVhPullTabLongPressFiredRef.current;
-    shortVhPullTabLongPressFiredRef.current = false;
-    const wasActive = d.active;
-    d.active = false;
-    if (wasActive && !longPressFired) {
+      const t = shortVhSouthPullTabTapRef.current;
+      shortVhSouthPullTabTapRef.current = null;
+      if (t == null || e.pointerId !== t.pointerId) return;
       shortVhSouthPullTabPostTapSuppressMagnetUntilRef.current =
         (typeof performance !== 'undefined' ? performance.now() : Date.now()) + SHORT_VH_SOUTH_PULL_TAB_POST_TAP_MAGNET_SUPPRESS_MS;
-    }
-    try {
-      (e.currentTarget as HTMLButtonElement).releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
-    const wrap = mobileShortMainWrapRef.current;
-    if (wrap) updateMobileShortScrollMagnet();
-  }, [clearShortVhPullTabLongPressTimer, clearShortVhSouthPullTabPointerOverIfNotMouse, updateMobileShortScrollMagnet]);
+      const wrap = mobileShortMainWrapRef.current;
+      if (wrap) updateMobileShortScrollMagnet();
+      const dx = e.clientX - t.x;
+      const dy = e.clientY - t.y;
+      if (Math.hypot(dx, dy) < SHORT_VH_SOUTH_PULL_TAB_TAP_MAX_MOVE_PX) {
+        openShortVhSouthPullModeMenu({ suppressNextDocumentClick: true });
+      }
+    },
+    [updateMobileShortScrollMagnet, openShortVhSouthPullModeMenu, clearShortVhSouthPullTabPointerOverIfNotMouse],
+  );
 
-  useLayoutEffect(() => {
-    if (!shortVhSouthPullMainScrollLocked) return;
-    const wrap = mobileShortMainWrapRef.current;
-    if (!wrap) return;
-    const blockScroll = (ev: TouchEvent) => {
-      ev.preventDefault();
-    };
-    wrap.addEventListener('touchmove', blockScroll, { passive: false, capture: true });
-    /* Если кнопка-портал исчезла или capture сорвался — pointerup не дойдёт до onPointerUp кнопки; снимаем lock по тому же pointerId. */
-    const lockedPointerId = shortVhPullTabDragRef.current.pointerId;
-    const unlockFromWindow = (ev: PointerEvent) => {
-      if (ev.pointerId !== lockedPointerId) return;
-      setShortVhSouthPullMainScrollLocked(false);
-      clearShortVhPullTabLongPressTimer();
-    };
-    window.addEventListener('pointerup', unlockFromWindow, true);
-    window.addEventListener('pointercancel', unlockFromWindow, true);
-    return () => {
-      wrap.removeEventListener('touchmove', blockScroll, { capture: true });
-      window.removeEventListener('pointerup', unlockFromWindow, true);
-      window.removeEventListener('pointercancel', unlockFromWindow, true);
-    };
-  }, [shortVhSouthPullMainScrollLocked, clearShortVhPullTabLongPressTimer]);
+  const onShortVhSouthPullTabPointerCancel = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      clearShortVhSouthPullTabPointerOverIfNotMouse(e);
+      const t = shortVhSouthPullTabTapRef.current;
+      if (t != null && e.pointerId === t.pointerId) {
+        shortVhSouthPullTabTapRef.current = null;
+        shortVhSouthPullTabPostTapSuppressMagnetUntilRef.current =
+          (typeof performance !== 'undefined' ? performance.now() : Date.now()) + SHORT_VH_SOUTH_PULL_TAB_POST_TAP_MAGNET_SUPPRESS_MS;
+      }
+      const wrap = mobileShortMainWrapRef.current;
+      if (wrap) updateMobileShortScrollMagnet();
+    },
+    [clearShortVhSouthPullTabPointerOverIfNotMouse, updateMobileShortScrollMagnet],
+  );
 
   useEffect(() => {
     if (!mobileViewportShort) {
-      setShortVhSouthPullMainScrollLocked(false);
       setShortVhSouthPullTabPointerOver(false);
     }
   }, [mobileViewportShort]);
+
+  useEffect(() => {
+    const sync = () => setShortVhSouthStretchMaxPx(computeShortVhSouthStretchMaxPx());
+    sync();
+    window.addEventListener('resize', sync);
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', sync);
+    vv?.addEventListener('scroll', sync);
+    return () => {
+      window.removeEventListener('resize', sync);
+      vv?.removeEventListener('resize', sync);
+      vv?.removeEventListener('scroll', sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    setShortVhSouthStretchPx((p) => (p > shortVhSouthStretchMaxPx ? shortVhSouthStretchMaxPx : p));
+  }, [shortVhSouthStretchMaxPx]);
+
+  const dealJustCompleted = !!state?.lastCompletedTrick && state.players.every((p) => p.hand.length === 0);
+  const mobileDealResultsInterstitialOverlayActive =
+    isMobile &&
+    dealJustCompleted &&
+    (lastTrickCollectingPhase === 'slots' ||
+      lastTrickCollectingPhase === 'winner' ||
+      lastTrickCollectingPhase === 'totals-accent' ||
+      lastTrickCollectingPhase === 'collapsing');
+
+  const shortVhSouthResizeHandleVisible =
+    mobileViewportShort &&
+    !mobileShortHeaderImmersive &&
+    !isWaitingInRoom &&
+    !online.userOnPause &&
+    !mobileDealResultsInterstitialOverlayActive &&
+    !(isMobile && dealResultsExpanded);
+  shortVhSouthResizeHandleVisibleRef.current = shortVhSouthResizeHandleVisible;
+
+  useEffect(
+    () => () => {
+      shortVhSouthResizeDocCleanupRef.current?.();
+      shortVhSouthResizeDocCleanupRef.current = null;
+      shortVhSouthResizeDragRef.current = null;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!shortVhSouthResizeHandleVisible) {
+      shortVhSouthResizeGestureActiveRef.current = false;
+      shortVhSouthResizeDocCleanupRef.current?.();
+      shortVhSouthResizeDocCleanupRef.current = null;
+      shortVhSouthResizeDragRef.current = null;
+    }
+  }, [shortVhSouthResizeHandleVisible]);
+
+  /** Неон включается при захвате жеста; таймер гашения только после отпускания — во время тяги не «мигает». */
+  const engageSouthResizeCapsuleGlow = useCallback(() => {
+    if (southResizeTapGlowTimerRef.current !== null) {
+      window.clearTimeout(southResizeTapGlowTimerRef.current);
+      southResizeTapGlowTimerRef.current = null;
+    }
+    setSouthResizeTapGlow(true);
+  }, []);
+
+  const scheduleSouthResizeCapsuleGlowOff = useCallback(() => {
+    if (southResizeTapGlowTimerRef.current !== null) {
+      window.clearTimeout(southResizeTapGlowTimerRef.current);
+      southResizeTapGlowTimerRef.current = null;
+    }
+    southResizeTapGlowTimerRef.current = window.setTimeout(() => {
+      southResizeTapGlowTimerRef.current = null;
+      setSouthResizeTapGlow(false);
+    }, 1400);
+  }, []);
+
+  const beginShortVhSouthResize = useCallback(
+    (
+      el: HTMLElement,
+      clientY: number,
+      nativeEvent: Event,
+      mode: { type: 'pointer'; pointerId: number } | { type: 'touch'; touchId: number },
+    ) => {
+      if (!shortVhSouthResizeHandleVisibleRef.current || shortVhSouthResizeGestureActiveRef.current) return;
+      nativeEvent.preventDefault();
+      nativeEvent.stopPropagation();
+
+      shortVhSouthResizeDocCleanupRef.current?.();
+      shortVhSouthResizeDocCleanupRef.current = null;
+
+      shortVhSouthResizeGestureActiveRef.current = true;
+      engageSouthResizeCapsuleGlow();
+      const startStretch = shortVhSouthStretchPxRef.current;
+      shortVhSouthResizeDragRef.current = { startY: clientY, startStretch };
+
+      const docOpts: AddEventListenerOptions = { capture: true, passive: false };
+
+      const applyDy = (cy: number) => {
+        const d = shortVhSouthResizeDragRef.current;
+        if (!d) return;
+        const dy = cy - d.startY;
+        const next = Math.max(0, Math.min(shortVhSouthStretchMaxPxRef.current, d.startStretch + dy));
+        setShortVhSouthStretchPx(Math.round(next));
+      };
+
+      const finishGesture = () => {
+        shortVhSouthResizeGestureActiveRef.current = false;
+        scheduleSouthResizeCapsuleGlowOff();
+      };
+
+      if (mode.type === 'pointer') {
+        const { pointerId } = mode;
+        const move = (ev: PointerEvent) => {
+          if (ev.pointerId !== pointerId) return;
+          ev.preventDefault();
+          applyDy(ev.clientY);
+        };
+        const up = (ev: PointerEvent) => {
+          if (ev.pointerId !== pointerId) return;
+          ev.preventDefault();
+          document.removeEventListener('pointermove', move, docOpts);
+          document.removeEventListener('pointerup', up, docOpts);
+          document.removeEventListener('pointercancel', up, docOpts);
+          shortVhSouthResizeDocCleanupRef.current = null;
+          shortVhSouthResizeDragRef.current = null;
+          finishGesture();
+          try {
+            el.releasePointerCapture(pointerId);
+          } catch {
+            /* ignore */
+          }
+        };
+        document.addEventListener('pointermove', move, docOpts);
+        document.addEventListener('pointerup', up, docOpts);
+        document.addEventListener('pointercancel', up, docOpts);
+        shortVhSouthResizeDocCleanupRef.current = () => {
+          document.removeEventListener('pointermove', move, docOpts);
+          document.removeEventListener('pointerup', up, docOpts);
+          document.removeEventListener('pointercancel', up, docOpts);
+          finishGesture();
+        };
+        try {
+          el.setPointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+
+      const { touchId } = mode;
+      const move = (ev: TouchEvent) => {
+        const t = Array.from(ev.touches).find((x) => x.identifier === touchId);
+        if (!t) return;
+        if (ev.cancelable) ev.preventDefault();
+        applyDy(t.clientY);
+      };
+      const end = (ev: TouchEvent) => {
+        for (let i = 0; i < ev.changedTouches.length; i++) {
+          if (ev.changedTouches[i].identifier === touchId) {
+            if (ev.cancelable) ev.preventDefault();
+            document.removeEventListener('touchmove', move, docOpts);
+            document.removeEventListener('touchend', end, docOpts);
+            document.removeEventListener('touchcancel', end, docOpts);
+            shortVhSouthResizeDocCleanupRef.current = null;
+            shortVhSouthResizeDragRef.current = null;
+            finishGesture();
+            return;
+          }
+        }
+      };
+      document.addEventListener('touchmove', move, docOpts);
+      document.addEventListener('touchend', end, docOpts);
+      document.addEventListener('touchcancel', end, docOpts);
+      shortVhSouthResizeDocCleanupRef.current = () => {
+        document.removeEventListener('touchmove', move, docOpts);
+        document.removeEventListener('touchend', end, docOpts);
+        document.removeEventListener('touchcancel', end, docOpts);
+        finishGesture();
+      };
+    },
+    [engageSouthResizeCapsuleGlow, scheduleSouthResizeCapsuleGlowOff],
+  );
+
+  /** Synthetic capture: надёжнее addEventListener в WebView и не конфликтует с пассивными touch на документе. */
+  const onShortVhSouthResizePointerDownCapture = useCallback(
+    (e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!shortVhSouthResizeHandleVisibleRef.current) return;
+      if (shortVhSouthResizeGestureActiveRef.current) {
+        e.preventDefault();
+        return;
+      }
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      beginShortVhSouthResize(e.currentTarget, e.clientY, e.nativeEvent, {
+        type: 'pointer',
+        pointerId: e.pointerId,
+      });
+    },
+    [beginShortVhSouthResize],
+  );
+
+  useEffect(() => {
+    if (!shortVhSouthResizeHandleVisible) {
+      setSouthResizeTapGlow(false);
+      if (southResizeTapGlowTimerRef.current !== null) {
+        window.clearTimeout(southResizeTapGlowTimerRef.current);
+        southResizeTapGlowTimerRef.current = null;
+      }
+    }
+  }, [shortVhSouthResizeHandleVisible]);
+
+  useEffect(
+    () => () => {
+      if (southResizeTapGlowTimerRef.current !== null) window.clearTimeout(southResizeTapGlowTimerRef.current);
+    },
+    [],
+  );
+
+  useLayoutEffect(() => {
+    const el = shortVhSouthResizeHandleRef.current;
+    if (!el || !shortVhSouthResizeHandleVisible) return;
+
+    const opts: AddEventListenerOptions = { capture: true, passive: false };
+    const onTouchStart = (e: TouchEvent) => {
+      if (!shortVhSouthResizeHandleVisibleRef.current) return;
+      if (shortVhSouthResizeGestureActiveRef.current) {
+        if (e.cancelable) e.preventDefault();
+        return;
+      }
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      beginShortVhSouthResize(el, t.clientY, e, { type: 'touch', touchId: t.identifier });
+    };
+
+    el.addEventListener('touchstart', onTouchStart, opts);
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart, opts);
+    };
+  }, [shortVhSouthResizeHandleVisible, beginShortVhSouthResize]);
 
   const onImmersiveLHandlePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => {
@@ -2641,13 +2921,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     setMobileSpecialDealBadgeFace(0);
   }, [state?.dealNumber]);
 
+  /** Чередование «режим» / «карт или заказ» — и при prefers-reduced-motion (без CSS-анимаций на тексте). */
   useEffect(() => {
-    if (!isMobile || prefersReducedMotion || !state) return;
+    if (!isMobile || !state) return;
     const k = getDealType(state.dealNumber);
     if (k !== 'no-trump' && k !== 'dark') return;
     const id = window.setInterval(() => setMobileSpecialDealBadgeFace((f) => 1 - f), 3200);
     return () => window.clearInterval(id);
-  }, [isMobile, prefersReducedMotion, state?.dealNumber]);
+  }, [isMobile, state?.dealNumber]);
   /** После первого появления кнопка «Результаты» больше не скрывается до конца партии */
   const dealResultsButtonEverShownRef = useRef(false);
   /** Одна отправка завершённой офлайн-партии на сервер за монтаж игры (история аккаунта). */
@@ -2815,14 +3096,27 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     requestShortVhImmersiveLayoutFlush,
   ]);
 
+  /** Ползунок short-VH → zoom на сетке Юга; см. mobileSouthHandLayout (подгонка руки должна учитывать тот же масштаб). */
+  const shortVhSouthUiScale = useMemo(
+    () =>
+      shortVhSouthUiScaleFromStretch(shortVhSouthStretchPx, shortVhSouthStretchMaxPx, mobileViewportShort && !mobileShortHeaderImmersive),
+    [shortVhSouthStretchPx, shortVhSouthStretchMaxPx, mobileViewportShort, mobileShortHeaderImmersive],
+  );
+
   const mobileSouthHandLayout = useMemo(() => {
     if (!isMobile || !state) return null;
     const mobileHandLen = state.players[humanIdx].hand.length;
-    const m9 = getMobileNineCardHandLayout(mobileHandLayoutVw, mobileHandLen);
-    const fit = getMobileHandRowFit(mobileHandLayoutVw, mobileHandLen, m9.overlapPx, m9.slotPadding);
+    /*
+     * При zoom>1 на .game-mobile-user-south-main карты визуально крупнее того же layout в CSS px —
+     * если считать нахлёст/scale по сыроу vw, ряд выпирает из .game-mobile-south-panel-hand.
+     */
+    const layoutVwForHand =
+      shortVhSouthUiScale > 1.0001 ? mobileHandLayoutVw / shortVhSouthUiScale : mobileHandLayoutVw;
+    const m9 = getMobileNineCardHandLayout(layoutVwForHand, mobileHandLen);
+    const fit = getMobileHandRowFit(layoutVwForHand, mobileHandLen, m9.overlapPx, m9.slotPadding);
     let rowScale = fit.rowScale;
     const ultra312Class = m9.attachExtraClass === 'game-mobile-hand--9-ultra312';
-    if (ultra312Class && mobileHandLayoutVw > 329) {
+    if (ultra312Class && layoutVwForHand > 329) {
       rowScale *= 0.97;
     }
     return {
@@ -2832,7 +3126,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       rowTransform: rowScale < 0.998 ? (`scale(${rowScale})` as const) : undefined,
       overlapScrubEnabled: isMobile && fit.overlapPx > 0 && !prefersReducedMotion,
     };
-  }, [isMobile, state, humanIdx, mobileHandLayoutVw, prefersReducedMotion]);
+  }, [
+    isMobile,
+    state,
+    humanIdx,
+    mobileHandLayoutVw,
+    prefersReducedMotion,
+    shortVhSouthUiScale,
+  ]);
 
   const southShortPullTabVisible =
     mobileSouthHandLayout != null &&
@@ -2846,23 +3147,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const [southPullTabFixedPos, setSouthPullTabFixedPos] = useState<{ top: number; left: number } | null>(null);
   /** Компактнее ~15% от прежних 150×40 — меньше заходит на якорь панели Юга. */
   const MOBILE_SHORT_VH_SOUTH_PULL_TAB_W = 140;
-  const MOBILE_SHORT_VH_SOUTH_PULL_TAB_H = 34;
+  const MOBILE_SHORT_VH_SOUTH_PULL_TAB_H_FULL = 34;
+  const MOBILE_SHORT_VH_SOUTH_PULL_TAB_H_COLLAPSED = 12;
 
   useLayoutEffect(() => {
     if (!southShortPullTabVisible) {
       setSouthPullTabFixedPos(null);
       setShortVhSouthPullTabPointerOver(false);
-      /* Ручка снята с DOM (immersive / пауза) — pointerup может не прийти; иначе scroll-lock залипает на main-wrap. */
-      setShortVhSouthPullMainScrollLocked(false);
-      clearShortVhPullTabLongPressTimer();
-      shortVhPullTabLongPressFiredRef.current = false;
-      shortVhPullTabDragRef.current = {
-        active: false,
-        pointerId: 0,
-        startY: 0,
-        startX: 0,
-        startScrollTop: 0,
-      };
+      shortVhSouthPullTabTapRef.current = null;
       return;
     }
     const anchor = mobileSouthPullTabAnchorRef.current;
@@ -2870,8 +3162,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     const measure = () => {
       const r = anchor.getBoundingClientRect();
       const vw = window.visualViewport?.width ?? window.innerWidth;
+      const tabH = shortVhSouthPullTabCollapsed ? MOBILE_SHORT_VH_SOUTH_PULL_TAB_H_COLLAPSED : MOBILE_SHORT_VH_SOUTH_PULL_TAB_H_FULL;
       setSouthPullTabFixedPos((prev) => {
-        const top = r.top - MOBILE_SHORT_VH_SOUTH_PULL_TAB_H;
+        const top = r.top - tabH;
         const rawLeft = r.left + r.width / 2 - MOBILE_SHORT_VH_SOUTH_PULL_TAB_W / 2;
         const left = Math.max(6, Math.min(rawLeft, vw - MOBILE_SHORT_VH_SOUTH_PULL_TAB_W - 6));
         if (prev && Math.abs(prev.top - top) < 0.5 && Math.abs(prev.left - left) < 0.5) return prev;
@@ -2894,7 +3187,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       vv?.removeEventListener('resize', measure);
       vv?.removeEventListener('scroll', measure);
     };
-  }, [southShortPullTabVisible, clearShortVhPullTabLongPressTimer]);
+  }, [southShortPullTabVisible, shortVhSouthPullTabCollapsed]);
 
   /** Низкий экран: подсветки с внешней рамки .user-player-panel — на .game-mobile-user-south-main (рамка панели убирается). */
   const mobileSouthShortUserPanelChrome = useMemo(() => {
@@ -2924,10 +3217,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           : state.dealerIndex === humanIdx
             ? dealerPanelFrameStyleShortVh
             : null;
-      const baseShadow = base?.boxShadow ?? playerInfoPanelStyle.boxShadow;
+      const baseShadow = base?.boxShadow;
       southMainChrome = {
         ...southMainChrome,
-        boxShadow: [baseShadow, firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', '),
+        boxShadow: [baseShadow, firstMoverBiddingGlowExtraShadowShortVh].filter(Boolean).join(', '),
       };
     }
     return { southMainChrome };
@@ -3165,7 +3458,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     return () => window.clearTimeout(id);
   }, [isUserActiveTurnForGarlandMobile]);
 
-  const dealJustCompleted = !!state?.lastCompletedTrick && state.players.every(p => p.hand.length === 0);
   const shouldShowBidPanel = isHumanBidding && !dealJustCompleted && state?.phase !== 'deal-complete';
 
   /** Вектор схлопывания оверлея к реальной Σ: моб. — корень портала; ПК — .game-table-root (наследование var() в оверлей). */
@@ -4427,67 +4719,79 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           </div>
         </div>
       )}
-      {showDealContractHelp && state && (
-        <div
-          className={`game-table-tooltip-cosmic ${isMobile ? 'game-table-tooltip-cosmic--mobile-footer' : 'game-table-tooltip-cosmic--pc-tr'} deal-contract-tooltip-toast toast-with-close`}
-          role="status"
-          aria-live="polite"
-        >
-          <button
-            type="button"
-            className="toast-close-btn"
-            onClick={() => setShowDealContractHelp(false)}
-            aria-label="Закрыть подсказку"
-          >
-            ×
-          </button>
-          {dealContractStats.allBidsPlaced ? (
-            <>
-              <div className="deal-contract-tooltip-heading" style={{ fontWeight: 700, marginBottom: 8 }}>
-                Текущая раздача
-              </div>
-              {isMobile ? (
-                <div
-                  className="deal-contract-tooltip-mobile-summary"
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 700,
-                    marginBottom: 10,
-                    color: '#f8fafc',
-                    fontVariantNumeric: 'tabular-nums',
-                    lineHeight: 1.35,
-                  }}
-                >
-                  Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}/{dealContractStats.tricksInDeal}
-                </div>
-              ) : null}
-              {displayState.players.map((p, i) => (
-                <div key={i} className="deal-contract-tooltip-player" style={{ fontSize: 13, opacity: 0.95, marginBottom: 4 }}>
-                  {p.name}: заказ {displayState.bids[i] ?? '—'}, взяток {p.tricksTaken}
-                </div>
-              ))}
-              <div
-                className="deal-contract-tooltip-footer"
-                style={{ marginTop: 10, fontSize: 12, opacity: 0.88, lineHeight: 1.45 }}
+      {showDealContractHelp &&
+        state &&
+        (() => {
+          const dealContractHelpToast = (
+            <div
+              className={`game-table-tooltip-cosmic ${isMobile ? 'game-table-tooltip-cosmic--mobile-footer' : 'game-table-tooltip-cosmic--pc-tr'} deal-contract-tooltip-toast toast-with-close`}
+              role="status"
+              aria-live="polite"
+            >
+              <button
+                type="button"
+                className="toast-close-btn"
+                onClick={() => setShowDealContractHelp(false)}
+                aria-label="Закрыть подсказку"
               >
-                Сумма заказов — {dealContractStats.totalOrders}, сыграно взяток — {dealContractStats.totalTricks} из {dealContractStats.tricksInDeal}. Сумма заказов может не совпадать с числом взяток — это нормально.
-                {getDealType(state.dealNumber) !== 'no-trump' && getDealType(state.dealNumber) !== 'dark' ? (
-                  <> Карт у каждого: {dealContractStats.tricksInDeal} ({dealContractStats.cardsWord}).</>
-                ) : null}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="deal-contract-tooltip-heading" style={{ fontWeight: 700, marginBottom: 6 }}>
-                Размер раздачи
-              </div>
-              <div className="deal-contract-tooltip-body" style={{ fontSize: 13, opacity: 0.95, lineHeight: 1.45 }}>
-                В этой раздаче у каждого по {dealContractStats.tricksInDeal} {dealContractStats.cardsWord} на руке (всего {dealContractStats.tricksInDeal * 4} карт). Когда все игроки сделают заказы, бейдж покажет сумму заказов и взятых взяток — нажмите снова для списка по игрокам.
-              </div>
-            </>
-          )}
-        </div>
-      )}
+                ×
+              </button>
+              {dealContractStats.allBidsPlaced ? (
+                <>
+                  <div className="deal-contract-tooltip-heading" style={{ fontWeight: 700, marginBottom: 8 }}>
+                    Текущая раздача
+                  </div>
+                  {isMobile ? (
+                    <div
+                      className="deal-contract-tooltip-mobile-summary"
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 700,
+                        marginBottom: 10,
+                        color: '#f8fafc',
+                        fontVariantNumeric: 'tabular-nums',
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}/{dealContractStats.tricksInDeal}
+                    </div>
+                  ) : null}
+                  {displayState.players.map((p, i) => (
+                    <div key={i} className="deal-contract-tooltip-player" style={{ fontSize: 13, opacity: 0.95, marginBottom: 4 }}>
+                      {p.name}: заказ {displayState.bids[i] ?? '—'}, взяток {p.tricksTaken}
+                    </div>
+                  ))}
+                  <div
+                    className="deal-contract-tooltip-footer"
+                    style={{ marginTop: 10, fontSize: 12, opacity: 0.88, lineHeight: 1.45 }}
+                  >
+                    Сумма заказов — {dealContractStats.totalOrders}, сыграно взяток — {dealContractStats.totalTricks} из {dealContractStats.tricksInDeal}. Сумма заказов может не совпадать с числом взяток — это нормально.
+                    {getDealType(state.dealNumber) !== 'no-trump' && getDealType(state.dealNumber) !== 'dark' ? (
+                      <> Карт у каждого: {dealContractStats.tricksInDeal} ({dealContractStats.cardsWord}).</>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="deal-contract-tooltip-heading" style={{ fontWeight: 700, marginBottom: 6 }}>
+                    Размер раздачи
+                  </div>
+                  <div className="deal-contract-tooltip-body" style={{ fontSize: 13, opacity: 0.95, lineHeight: 1.45 }}>
+                    В этой раздаче у каждого по {dealContractStats.tricksInDeal} {dealContractStats.cardsWord} на руке (всего {dealContractStats.tricksInDeal * 4} карт). Когда все игроки сделают заказы, бейдж покажет сумму заказов и взятых взяток — нажмите снова для списка по игрокам.
+                  </div>
+                </>
+              )}
+            </div>
+          );
+          /* Short-VH: тот же fixed-тост, но на document.body — иначе южная ручка (портал, z-index) визуально перекрывает карточку. */
+          if (typeof document !== 'undefined' && isMobile && mobileViewportShort) {
+            return createPortal(
+              <div className="game-table-root viewport-mobile viewport-mobile-short">{dealContractHelpToast}</div>,
+              document.body,
+            );
+          }
+          return dealContractHelpToast;
+        })()}
       {showDealNumberExplain && (
         <>
           {isMobileOrTablet ? (
@@ -4545,9 +4849,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             onPointerCancel={onComfortHintTriggerPointerCancel}
             onClick={e => {
               e.stopPropagation();
-              showShortVhScrollComfortHint();
+              openShortVhSouthPullModeMenu();
             }}
-            aria-label="Подсказка: как развернуть стол без шапки"
+            aria-label="Меню режимов: компактный иммерсив, обычный вид, свернуть ручку"
           >
             Без шапки ↓
           </button>
@@ -4557,69 +4861,101 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         mobileViewportShort &&
         !mobileShortHeaderImmersive &&
         !online.userOnPause &&
-        mobileShortVhScrollComfortHintOpen &&
+        shortVhSouthPullModeMenuOpen &&
         createPortal(
           <div
-            className="mobile-short-immersive-l-handle-hint mobile-short-vh-comfort-hint-portal"
-            role="region"
-            aria-label="Подсказка: стол без шапки на низком экране"
+            className="short-vh-south-pull-menu-portal-backdrop"
+            role="presentation"
+            onClick={(e) => {
+              e.stopPropagation();
+              dismissShortVhSouthPullModeMenu();
+            }}
           >
-            <div className="mobile-short-vh-comfort-hint-portal__main">
-              <p className="mobile-short-vh-comfort-hint-portal__title">
-                <span className="mobile-short-vh-comfort-hint-portal__stol">Стол</span>{' '}
-                <span className="mobile-short-vh-comfort-hint-portal__accent">
-                  <span className="mobile-short-vh-comfort-hint-portal__accent-w1">на </span>
-                  <span className="mobile-short-vh-comfort-hint-portal__accent-w2">весь </span>
-                  <span className="mobile-short-vh-comfort-hint-portal__accent-w3">экран</span>
-                </span>
-                <span className="mobile-short-vh-comfort-hint-portal__title-muted"> — низкий экран</span>
-              </p>
-              <ul className="mobile-short-vh-comfort-hint-portal__list">
-                <li className="mobile-short-vh-comfort-hint-portal__item">
-                  <div className="mobile-short-vh-comfort-hint-portal__key">Вверх по столу</div>
-                  <div className="mobile-short-vh-comfort-hint-portal__val">прокрутка, как у страницы</div>
-                </li>
-                <li className="mobile-short-vh-comfort-hint-portal__item">
-                  <div className="mobile-short-vh-comfort-hint-portal__key">Удержать кнопку с шариками</div>
-                  <div className="mobile-short-vh-comfort-hint-portal__val">без шапки, магнит снизу</div>
-                </li>
-                <li className="mobile-short-vh-comfort-hint-portal__item mobile-short-vh-comfort-hint-portal__item--dim">
-                  <div className="mobile-short-vh-comfort-hint-portal__key">Короткий тап</div>
-                  <div className="mobile-short-vh-comfort-hint-portal__val">только эта подсказка</div>
-                </li>
-              </ul>
-              <p className="mobile-short-vh-comfort-hint-portal__foot">
-                <span className="mobile-short-vh-comfort-hint-portal__foot-label">Шапку назад:</span>{' '}
-                <span className="mobile-short-vh-comfort-hint-portal__foot-strong mobile-short-vh-comfort-hint-portal__foot-strong--sky">
-                  вниз от нижнего края
-                </span>
-                <span className="mobile-short-vh-comfort-hint-portal__foot-or"> или </span>
-                <span className="mobile-short-vh-comfort-hint-portal__foot-strong mobile-short-vh-comfort-hint-portal__foot-strong--lilac">
-                  длинная кнопка с шариками над бейджем хода
-                </span>
-              </p>
-            </div>
-            <button
-              type="button"
-              className="mobile-short-vh-comfort-hint-portal__close"
-              aria-label="Закрыть подсказку"
-              title="Закрыть"
-              onClick={(e) => {
-                e.stopPropagation();
-                dismissShortVhScrollComfortHint();
-              }}
+            <div
+              className="short-vh-south-pull-menu-portal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="short-vh-south-pull-menu-title"
+              onClick={(e) => e.stopPropagation()}
             >
-              <svg viewBox="0 0 24 24" width="15" height="15" focusable="false" aria-hidden>
-                <path
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 6l12 12M18 6L6 18"
-                />
-              </svg>
-            </button>
+              <div className="short-vh-south-pull-menu-portal__aurora" aria-hidden />
+              <div className="short-vh-south-pull-menu-portal__stars" aria-hidden />
+              <div className="short-vh-south-pull-menu-portal__orbit" aria-hidden>
+                <span className="short-vh-south-pull-menu-portal__orb" />
+              </div>
+              <h2 id="short-vh-south-pull-menu-title" className="short-vh-south-pull-menu-portal__title">
+                <span className="short-vh-south-pull-menu-portal__title-w1">Режим</span>{' '}
+                <span className="short-vh-south-pull-menu-portal__title-w2">низкого</span>{' '}
+                <span className="short-vh-south-pull-menu-portal__title-w3">экрана</span>
+              </h2>
+              <p className="short-vh-south-pull-menu-portal__lead">Как показать стол и панель на этом экране</p>
+              <div className="short-vh-south-pull-menu-portal__opts">
+                <button
+                  type="button"
+                  className="short-vh-south-pull-menu-portal__opt short-vh-south-pull-menu-portal__opt--immersive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onShortVhSouthPullMenuChooseImmersive();
+                  }}
+                >
+                  <span className="short-vh-south-pull-menu-portal__opt-ico" aria-hidden>
+                    ✦
+                  </span>
+                  <span className="short-vh-south-pull-menu-portal__opt-body">
+                    <span className="short-vh-south-pull-menu-portal__opt-k">Самый компактный</span>
+                    <span className="short-vh-south-pull-menu-portal__opt-d">Без шапки, стол на весь экран</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="short-vh-south-pull-menu-portal__opt short-vh-south-pull-menu-portal__opt--standard"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onShortVhSouthPullMenuChooseStandard();
+                  }}
+                >
+                  <span className="short-vh-south-pull-menu-portal__opt-ico" aria-hidden>
+                    ◇
+                  </span>
+                  <span className="short-vh-south-pull-menu-portal__opt-body">
+                    <span className="short-vh-south-pull-menu-portal__opt-k">Обычный (стандарт)</span>
+                    <span className="short-vh-south-pull-menu-portal__opt-d">Как на обычной мобильной высоте, без «низкого экрана»</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="short-vh-south-pull-menu-portal__opt short-vh-south-pull-menu-portal__opt--stay"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onShortVhSouthPullMenuChooseStayOrToggleCollapse();
+                  }}
+                >
+                  <span className="short-vh-south-pull-menu-portal__opt-ico" aria-hidden>
+                    ✧
+                  </span>
+                  <span className="short-vh-south-pull-menu-portal__opt-body">
+                    <span className="short-vh-south-pull-menu-portal__opt-k">
+                      {shortVhSouthPullTabCollapsed ? 'Развернуть ручку' : 'Остаться здесь и свернуть ручку'}
+                    </span>
+                    <span className="short-vh-south-pull-menu-portal__opt-d">
+                      {shortVhSouthPullTabCollapsed
+                        ? 'Снова полная кнопка с тремя рядами шариков'
+                        : 'Только узкая полоска шариков — больше места для стола'}
+                    </span>
+                  </span>
+                </button>
+              </div>
+              <button
+                type="button"
+                className="short-vh-south-pull-menu-portal__dismiss"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dismissShortVhSouthPullModeMenu();
+                }}
+              >
+                Закрыть
+              </button>
+            </div>
           </div>,
           document.body,
         )}
@@ -4631,20 +4967,20 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             type="button"
             className={
               'mobile-short-vh-south-pull-tab' +
-              (shortVhSouthPullTabPointerOver ? ' mobile-short-vh-south-pull-tab--pointer-over' : '')
+              (shortVhSouthPullTabPointerOver ? ' mobile-short-vh-south-pull-tab--pointer-over' : '') +
+              (shortVhSouthPullTabCollapsed ? ' mobile-short-vh-south-pull-tab--collapsed' : '')
             }
             style={{
               top: southPullTabFixedPos.top,
               left: southPullTabFixedPos.left,
             }}
-            aria-label="Тап — подсказка. Удержать кнопку с шариками — без шапки. Вверх по столу — прокрутка"
-            title="Тап: подсказка · Удержать кнопку с шариками · Вверх по столу: скролл"
+            aria-label="Меню режимов низкого экрана"
+            title="Нажать — меню режимов"
             onPointerOver={onShortVhSouthPullTabPortalPointerOver}
             onPointerLeave={onShortVhSouthPullTabPortalPointerLeave}
-            onPointerDown={onShortVhScrollPullTabPointerDown}
-            onPointerMove={onShortVhScrollPullTabPointerMove}
-            onPointerUp={onShortVhScrollPullTabPointerUp}
-            onPointerCancel={onShortVhScrollPullTabPointerCancel}
+            onPointerDown={onShortVhSouthPullTabPointerDown}
+            onPointerUp={onShortVhSouthPullTabPointerUp}
+            onPointerCancel={onShortVhSouthPullTabPointerCancel}
           >
             <span className="mobile-short-vh-south-pull-tab__glyphs" aria-hidden>
               <span className="mobile-short-immersive-l-handle__glyph">
@@ -4656,24 +4992,28 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   />
                 ))}
               </span>
-              <span className="mobile-short-immersive-l-handle__glyph mobile-short-vh-south-pull-tab__glyph-row">
-                {MOBILE_SOUTH_PULL_TAB_DOT_COLORS_ROW2.map((color, i) => (
-                  <span
-                    key={`r2-${i}`}
-                    className="mobile-short-immersive-l-handle__dot"
-                    style={{ ['--dot' as string]: color }}
-                  />
-                ))}
-              </span>
-              <span className="mobile-short-immersive-l-handle__glyph mobile-short-vh-south-pull-tab__glyph-row">
-                {MOBILE_SOUTH_PULL_TAB_DOT_COLORS_ROW3.map((color, i) => (
-                  <span
-                    key={`r3-${i}`}
-                    className="mobile-short-immersive-l-handle__dot"
-                    style={{ ['--dot' as string]: color }}
-                  />
-                ))}
-              </span>
+              {!shortVhSouthPullTabCollapsed ? (
+                <>
+                  <span className="mobile-short-immersive-l-handle__glyph mobile-short-vh-south-pull-tab__glyph-row">
+                    {MOBILE_SOUTH_PULL_TAB_DOT_COLORS_ROW2.map((color, i) => (
+                      <span
+                        key={`r2-${i}`}
+                        className="mobile-short-immersive-l-handle__dot"
+                        style={{ ['--dot' as string]: color }}
+                      />
+                    ))}
+                  </span>
+                  <span className="mobile-short-immersive-l-handle__glyph mobile-short-vh-south-pull-tab__glyph-row">
+                    {MOBILE_SOUTH_PULL_TAB_DOT_COLORS_ROW3.map((color, i) => (
+                      <span
+                        key={`r3-${i}`}
+                        className="mobile-short-immersive-l-handle__dot"
+                        style={{ ['--dot' as string]: color }}
+                      />
+                    ))}
+                  </span>
+                </>
+              ) : null}
             </span>
           </button>,
           document.body,
@@ -4741,7 +5081,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           isMobile
             ? 'game-table-main-wrap' +
               (mobileViewportShort ? ' game-table-main-wrap--short-vh' : '') +
-              (mobileViewportShort && shortVhSouthPullMainScrollLocked ? ' game-table-main-wrap--short-vh-south-pull-scroll-lock' : '') +
               (showAbsentGuestBanner ? ' game-table-main-wrap--absent-guest-banner' : '')
             : undefined
         }
@@ -4915,7 +5254,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                       className="game-info-deal-contract-panel game-info-cards-panel"
                       data-deal-contract-phase={dealContractStats.allBidsPlaced ? 'orders' : 'bidding'}
                       data-order-compare={dealContractStats.orderCompare ?? undefined}
-                      style={gameInfoDealContractPanelStyle}
+                      style={gameInfoDealContractPanelNoTrumpDarkMobileStyle}
                       onClick={() => setShowDealContractHelp(true)}
                       title={
                         dealContractStats.allBidsPlaced
@@ -4928,39 +5267,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                           : `Режим ${getDealType(state.dealNumber) === 'no-trump' ? 'бескозырка' : 'тёмная'}. КАРТ: ${dealContractStats.tricksInDeal} у каждого. Показать по игрокам`
                       }
                     >
-                      {prefersReducedMotion ? (
-                        <span
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 2,
-                            width: '100%',
-                            minHeight: 22,
-                          }}
-                        >
-                          <span className="deal-contract-line deal-contract-mobile-mode-alternate" style={dealContractMobileModeAlternateLineStyle}>
-                            {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
-                          </span>
-                          {dealContractStats.allBidsPlaced ? (
-                            <span className="deal-contract-line deal-contract-line-mobile-split" style={dealContractLineMobileSplitOuterStyle}>
-                              <DealContractMobileOrderZAndNum totalOrders={dealContractStats.totalOrders} orderCompare={dealContractStats.orderCompare!} />
-                              <span className="deal-contract-mobile-sep deal-contract-mobile-sep--pearl" aria-hidden="true" />
-                              <DealContractMobileTricksNumbers taken={dealContractStats.totalTricks} dealTotal={dealContractStats.tricksInDeal} />
-                            </span>
-                          ) : (
-                            <>
-                              <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
-                                КАРТ:
-                              </span>
-                              <span className="deal-contract-value" style={dealContractCardsValueStyle}>
-                                {dealContractStats.tricksInDeal}
-                              </span>
-                            </>
-                          )}
-                        </span>
-                      ) : mobileSpecialDealBadgeFace === 0 ? (
+                      {mobileSpecialDealBadgeFace === 0 ? (
                         <span
                           className="deal-contract-line deal-contract-mobile-mode-alternate"
                           style={{ ...dealContractMobileAlternateSlotStyle, ...dealContractMobileModeAlternateLineStyle }}
@@ -5554,6 +5861,44 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                           </span>
                         </button>
                       )}
+                      {rawMobileViewportShort &&
+                        shortVhLayoutOptOutSession &&
+                        !mobileShortHeaderImmersive &&
+                        !isWaitingInRoom &&
+                        !online.userOnPause && (
+                          <button
+                            key={shortVhRestoreChipIntroPulseTick}
+                            type="button"
+                            className="mobile-short-vh-layout-restore-chip mobile-short-vh-layout-restore-chip--game-info-corner"
+                            {...(shortVhRestoreChipIntroPulseTick > 0
+                              ? ({ 'data-star-pulse': '1' } as const)
+                              : {})}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              restoreShortVhLowScreenLayoutForSession();
+                            }}
+                            aria-label="Снова режим низкого экрана: вернуть раскладку и магнит"
+                            title="Вернуть раскладку «низкого экрана» и южную ручку"
+                          >
+                            <svg
+                              className="mobile-short-vh-layout-restore-chip__icon"
+                              width="14"
+                              height="13"
+                              viewBox="0 0 16 16"
+                              focusable="false"
+                              aria-hidden
+                            >
+                              <path
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.45"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M3.75 11.75L8 7.55l4.24 4.2M3.75 7.68L8 3.5l4.24 4.17"
+                              />
+                            </svg>
+                          </button>
+                        )}
                     </>
                   );
                   const section = (
@@ -6136,15 +6481,25 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       </div>
         );
       })()}
-      <div className="game-mobile-bottom-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', width: '100%' }}>
-      {createElement(
-        mobileViewportShort ? Fragment : 'div',
-        (mobileViewportShort
-          ? null
-          : {
-              className: 'game-mobile-player-wrap game-mobile-player',
-              style: { flex: '0 0 auto', minWidth: 0, width: '100%', maxWidth: '100%' } as const,
-            }) as ComponentPropsWithoutRef<'div'> | null,
+      <div
+        className="game-mobile-bottom-row"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          /* Short: центрируем ручку масштаба; панель Юга — отдельным alignSelf: stretch на оболочке */
+          alignItems: mobileViewportShort ? ('center' as const) : ('stretch' as const),
+          justifyContent: 'flex-start',
+          width: '100%',
+        }}
+      >
+      <div
+        className={mobileViewportShort ? undefined : 'game-mobile-player-wrap game-mobile-player'}
+        style={
+          mobileViewportShort
+            ? ({ alignSelf: 'stretch', width: '100%', minWidth: 0 } as const)
+            : ({ flex: '0 0 auto', minWidth: 0, width: '100%', maxWidth: '100%' } as const)
+        }
+      >
         <div
           ref={isMobile && mobileViewportShort ? mobileSouthPullTabAnchorRef : undefined}
           className="game-mobile-player-panel"
@@ -6213,6 +6568,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 /* Short: не растягиваем сетку на flex-остаток — иначе лишняя высота и вертикальный скролл у .game-table-main-wrap--short-vh */
                 flex: mobileViewportShort ? ('0 1 auto' as const) : ('1 1 0' as const),
                 minWidth: 0,
+                /* zoom: масштабирует блок в компоновке без «роста вверх» как у transform scale + origin */
+                ...(mobileViewportShort && !mobileShortHeaderImmersive && shortVhSouthStretchPx > 0
+                  ? ({ zoom: shortVhSouthUiScale } as CSSProperties)
+                  : {}),
                 ...(mobileViewportShort ? mobileSouthShortUserPanelChrome.southMainChrome : {}),
               }}
             >
@@ -6403,7 +6762,12 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                     }}
                   >
                     {renderUserPlayerAvatar(
-                      Math.round(34 * MOBILE_SOUTH_PLAYER_CARD_SCALE * MOBILE_SOUTH_USER_AVATAR_RELATIVE_SCALE),
+                      Math.round(
+                        34 *
+                          MOBILE_SOUTH_PLAYER_CARD_SCALE *
+                          MOBILE_SOUTH_USER_AVATAR_RELATIVE_SCALE *
+                          MOBILE_SOUTH_USER_AVATAR_SHORT_EXTRA_SCALE,
+                      ),
                     )}
                     {isMobile && userOrderRingExact ? (
                       <div
@@ -6888,7 +7252,76 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           ) : null}
       </div>
       </div>
-      )}
+      {shortVhSouthResizeHandleVisible && (() => {
+        const southResizeStretchHint =
+          shortVhSouthStretchMaxPx <= 0
+            ? ('none' as const)
+            : shortVhSouthStretchPx <= 0
+              ? ('down-only' as const)
+              : shortVhSouthStretchPx >= shortVhSouthStretchMaxPx
+                ? ('up-only' as const)
+                : ('both' as const);
+        const southResizeHintClass =
+          southResizeStretchHint === 'down-only'
+            ? 'game-mobile-short-south-resize-handle--hint-down-only'
+            : southResizeStretchHint === 'up-only'
+              ? 'game-mobile-short-south-resize-handle--hint-up-only'
+              : southResizeStretchHint === 'both'
+                ? 'game-mobile-short-south-resize-handle--hint-both'
+                : '';
+        const southResizeAriaHint =
+          southResizeStretchHint === 'down-only'
+            ? 'Можно потянуть только вниз, чтобы опустить панель'
+            : southResizeStretchHint === 'up-only'
+              ? 'Можно потянуть только вверх, чтобы поднять панель'
+              : southResizeStretchHint === 'both'
+                ? 'Потяните вверх или вниз, чтобы изменить высоту панели'
+                : 'Масштаб панели Юга';
+        return (
+        <div className="game-mobile-short-south-resize-wrap">
+          <button
+            type="button"
+            ref={shortVhSouthResizeHandleRef}
+            className={[
+              'game-mobile-short-south-resize-handle',
+              southResizeHintClass,
+              southResizeTapGlow ? 'game-mobile-short-south-resize-handle--tap-glow' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            aria-orientation="horizontal"
+            aria-label={southResizeAriaHint}
+            aria-valuemin={0}
+            aria-valuemax={shortVhSouthStretchMaxPx}
+            aria-valuenow={shortVhSouthStretchPx}
+            title={isMobile ? `${southResizeAriaHint} · Down'n'Up` : undefined}
+            onPointerDownCapture={onShortVhSouthResizePointerDownCapture}
+            style={{
+              touchAction: 'none' as const,
+              ...(MOBILE_SHORT_SOUTH_RESIZE_LIFT_PX !== 0
+                ? { transform: `translateY(-${MOBILE_SHORT_SOUTH_RESIZE_LIFT_PX}px)` }
+                : {}),
+            }}
+          >
+            <span className="game-mobile-short-south-resize-handle__capsule" aria-hidden>
+              <span className="game-mobile-short-south-resize-handle__label">
+                <span className="game-mobile-short-south-resize-handle__arrow game-mobile-short-south-resize-handle__arrow--down">
+                  ↓
+                </span>
+                <span className="game-mobile-short-south-resize-handle__arrow-gap"> </span>
+                <span className="game-mobile-short-south-resize-handle__arrow game-mobile-short-south-resize-handle__arrow--up">
+                  ↑
+                </span>
+                <span className="game-mobile-short-south-resize-handle__label-suffix">
+                  {' \u2014 '}Down&apos;n&apos;Up
+                </span>
+              </span>
+            </span>
+          </button>
+        </div>
+        );
+      })()}
+      </div>
       {showTableChat && online.roomId && user?.id && (
         <TableChatDock
           variant="mobile"
@@ -12983,6 +13416,13 @@ const gameInfoDealContractPanelStyle: React.CSSProperties = {
   transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
 };
 
+/** Бескозырка/тёмная на мобиле: одна строка — без wrap от узкой шапки short-VH. */
+const gameInfoDealContractPanelNoTrumpDarkMobileStyle: React.CSSProperties = {
+  ...gameInfoDealContractPanelStyle,
+  flexWrap: 'nowrap',
+  whiteSpace: 'nowrap',
+};
+
 /** Подпись бейджа «сколько карт в раздаче» в шапке: формат как deal-track-lab — «КАРТ: n» без склонения. */
 const dealContractCardsLabelStyle: React.CSSProperties = {
   fontSize: 10,
@@ -13012,16 +13452,20 @@ const dealContractLineTextStyle: React.CSSProperties = {
 const dealContractMobileAlternateSlotStyle: React.CSSProperties = {
   minHeight: 18,
   display: 'flex',
+  flexDirection: 'row',
+  flexWrap: 'nowrap',
   alignItems: 'center',
   justifyContent: 'center',
   width: '100%',
   gap: 10,
+  whiteSpace: 'nowrap',
 };
 
 const dealContractMobileModeAlternateLineStyle: React.CSSProperties = {
   fontWeight: 700,
   fontVariantNumeric: 'tabular-nums',
   lineHeight: 1.25,
+  whiteSpace: 'nowrap',
 };
 
 /** Мобильная строка «З: N; В: M/T» (M — сыграно взяток, T — всего в раздаче); размер — index.css .deal-contract-line */
@@ -14770,24 +15214,18 @@ const activeTurnPanelFrameStyleUser: React.CSSProperties = {
   ].join(', '),
 };
 
-/** Низкий экран (viewport-mobile-short): подсветка хода на .game-mobile-user-south-main — без широких внешних теней */
+/** Низкий экран (viewport-mobile-short): скругление + поэтапная подсветка хода в index.css (@keyframes, иначе инлайн бьёт анимацию) */
 const activeTurnPanelFrameStyleUserShortVh: React.CSSProperties = {
   borderRadius: 12,
-  border: '1px solid rgba(255, 255, 255, 0.58)',
-  boxShadow: [
-    '0 0 0 1px rgba(220, 240, 255, 0.32)',
-    'inset 0 0 10px rgba(255, 255, 255, 0.06)',
-    '0 2px 8px rgba(0,0,0,0.18)',
-  ].join(', '),
 };
 
 const dealerPanelFrameStyleShortVh: React.CSSProperties = {
   borderRadius: 12,
-  border: '1px solid rgba(56, 189, 248, 0.48)',
+  border: '1px solid rgba(167, 139, 250, 0.52)',
   boxShadow: [
-    '0 0 0 1px rgba(34, 211, 238, 0.14)',
-    'inset 0 0 8px rgba(56, 189, 248, 0.06)',
-    '0 2px 8px rgba(0,0,0,0.16)',
+    '0 0 0 1px rgba(167, 139, 250, 0.18)',
+    'inset 0 0 8px rgba(167, 139, 250, 0.08)',
+    'inset 0 -2px 6px rgba(0, 0, 0, 0.18)',
   ].join(', '),
 };
 
@@ -15455,6 +15893,8 @@ const playerInfoPanelStyle: React.CSSProperties = {
 const MOBILE_SOUTH_PLAYER_CARD_SCALE = 1.5;
 /** Аватар Юга на мобиле: ещё −15% к размеру после MOBILE_SOUTH_PLAYER_CARD_SCALE. */
 const MOBILE_SOUTH_USER_AVATAR_RELATIVE_SCALE = 0.85;
+/** Только для short-мобилы: дополнительно уменьшаем аватар, чтобы не торчал из карточки панели Юга. */
+const MOBILE_SOUTH_USER_AVATAR_SHORT_EXTRA_SCALE = 0.9;
 /** Блок trick-slots у Юга на мобиле: множитель к размерам в TrickSlotsDisplay (1 — в тон масштабу панели ×MOBILE_SOUTH_PLAYER_CARD_SCALE; 2/3 делало полоску слишком мелкой). */
 const MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK = 1;
 /** Ниже этой ширины viewport (px) — полоска заказа юга ещё на 15% компактнее (множитель к scaleDown). */
