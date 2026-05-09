@@ -6006,6 +6006,21 @@
     overflow-y: visible !important;
   }
   /*
+   * Short-VH «Юг» / шарики: три РАЗНЫХ кнопки, взаимно исключающие по режиму (GameTable.tsx).
+   *
+   * (A) viewport-mobile-short-header-immersive: только button.mobile-short-immersive-l-handle (шарики сверху).
+   *     CSS ~3922+ в этом файле. При этом (B) и (C) не рендерятся (!mobileShortHeaderImmersive в условиях).
+   *
+   * (B) Не immersive: button.mobile-short-vh-south-pull-tab — портал на document.body, стили ~5075+.
+   *     Условие southShortPullTabVisible (~3138): тоже требует !mobileShortHeaderImmersive.
+   *
+   * (C) Не immersive: капсула Down'n'Up — game-mobile-short-south-resize-handle*, блок ниже; условие
+   *     shortVhSouthResizeHandleVisible (~2675): снова !mobileShortHeaderImmersive (+ оверлеи/пауза и т.д.).
+   *
+   * Логика жестов: GameTable.tsx (southResize*, pull-tab pointers, immersive L-handle).
+   * Темы theme-neon.css / theme-standard.css — без этих классов.
+   * Глобальные стили: main.tsx → ./index.css
+   *
    * Short-VH капсула масштаба: градиент + внутренние блики; внешнее свечение/tint отключено —
    * blur+box-shadow давали гигантский невидимый «контейнер» в слое композитинга.
    */
@@ -6053,8 +6068,7 @@
     max-width: min(92vw, 300px) !important;
     min-width: 0 !important;
     margin-inline: auto !important;
-    /* покой: вертикаль в 2× уже базового 7 / 9 px; не-покой — см. блок ниже */
-    padding: 3.5px 18px 4.5px !important;
+    padding: 0 18px 1px !important;
     border-radius: 0 0 999px 999px !important;
     /*
      * Без подъёма в потоке: верхнюю линию/кольца не режем reposition — только смягчаем видимость стыка
@@ -6123,26 +6137,7 @@
     transition:
       transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
       box-shadow 0.35s ease,
-      filter 0.35s ease,
       padding 0.28s ease !important;
-  }
-  @media (hover: hover) and (pointer: fine) {
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle:not(.game-mobile-short-south-resize-handle--tap-glow):hover
-      .game-mobile-short-south-resize-handle__capsule {
-      padding: 7px 18px 9px !important;
-    }
-  }
-  .game-table-root.viewport-mobile.viewport-mobile-short
-    .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--tap-glow
-    .game-mobile-short-south-resize-handle__capsule,
-  .game-table-root.viewport-mobile.viewport-mobile-short
-    .game-mobile-short-south-resize-handle:active
-    .game-mobile-short-south-resize-handle__capsule,
-  .game-table-root.viewport-mobile.viewport-mobile-short
-    .game-mobile-short-south-resize-handle:focus-visible
-    .game-mobile-short-south-resize-handle__capsule {
-    padding: 7px 18px 9px !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-short
     .game-mobile-short-south-resize-handle__capsule::before {
@@ -6173,80 +6168,36 @@
    * Без -webkit-text-stroke и без смещённых text-shadow (0 1px / 2px) — иначе WebKit рисует «вторую» белую стрелку.
    * Только размытые ореолы 0 0 Npx; тап/подсказки — отдельные @keyframes.
    */
+  /*
+   * Иридесценция тапа: только transform. Если анимировать text-shadow в keyframes,
+   * оно перебивает тени из правил ниже — к 100% стрелки становятся бледнее покоя.
+   */
   @keyframes short-vh-south-resize-arrow-iridescent-tap-down {
     0% {
       transform: scale(1.14);
-      text-shadow:
-        0 0 4px rgba(186, 230, 253, 1),
-        0 0 14px rgba(56, 189, 248, 1),
-        0 0 28px rgba(14, 165, 233, 1),
-        0 0 44px rgba(2, 132, 199, 0.95),
-        0 0 62px rgba(3, 105, 161, 0.82),
-        0 0 80px rgba(12, 74, 110, 0.52);
     }
     35% {
       transform: scale(1.19);
-      text-shadow:
-        0 0 6px rgba(224, 242, 254, 1),
-        0 0 18px rgba(56, 189, 248, 1),
-        0 0 34px rgba(14, 165, 233, 1),
-        0 0 50px rgba(2, 132, 199, 0.98),
-        0 0 68px rgba(3, 105, 161, 0.85),
-        0 0 88px rgba(14, 116, 144, 0.58);
     }
     70% {
       transform: scale(1.17);
-      text-shadow:
-        0 0 6px rgba(207, 250, 254, 1),
-        0 0 20px rgba(34, 211, 238, 1),
-        0 0 38px rgba(14, 165, 233, 0.98),
-        0 0 56px rgba(2, 132, 199, 0.88),
-        0 0 74px rgba(56, 189, 248, 0.62);
     }
     100% {
       transform: scale(1);
-      text-shadow:
-        0 0 12px rgba(56, 189, 248, 0.92),
-        0 0 26px rgba(14, 165, 233, 0.88),
-        0 0 38px rgba(2, 132, 199, 0.65);
     }
   }
   @keyframes short-vh-south-resize-arrow-iridescent-tap-up {
     0% {
       transform: scale(1.14);
-      text-shadow:
-        0 0 4px rgba(237, 233, 254, 1),
-        0 0 14px rgba(196, 181, 253, 1),
-        0 0 28px rgba(167, 139, 250, 1),
-        0 0 44px rgba(139, 92, 246, 0.98),
-        0 0 60px rgba(124, 58, 237, 0.9),
-        0 0 78px rgba(109, 40, 217, 0.62);
     }
     35% {
       transform: scale(1.19);
-      text-shadow:
-        0 0 6px rgba(245, 243, 255, 1),
-        0 0 18px rgba(167, 139, 250, 1),
-        0 0 34px rgba(139, 92, 246, 1),
-        0 0 52px rgba(124, 58, 237, 1),
-        0 0 72px rgba(109, 40, 217, 0.88),
-        0 0 90px rgba(91, 33, 182, 0.62);
     }
     70% {
       transform: scale(1.17);
-      text-shadow:
-        0 0 6px rgba(250, 245, 255, 1),
-        0 0 20px rgba(192, 132, 252, 1),
-        0 0 38px rgba(168, 85, 247, 0.98),
-        0 0 56px rgba(147, 51, 234, 0.92),
-        0 0 74px rgba(124, 58, 237, 0.72);
     }
     100% {
       transform: scale(1);
-      text-shadow:
-        0 0 12px rgba(167, 139, 250, 0.92),
-        0 0 26px rgba(139, 92, 246, 0.88),
-        0 0 38px rgba(124, 58, 237, 0.72);
     }
   }
   @keyframes short-vh-south-resize-arrow-blink-down {
@@ -6276,19 +6227,19 @@
       transform: scale(1);
       filter: brightness(1.06) saturate(1.12);
       text-shadow:
-        0 0 14px rgba(167, 139, 250, 0.94),
-        0 0 26px rgba(139, 92, 246, 0.85),
-        0 0 40px rgba(124, 58, 237, 0.68);
+        0 0 14px rgba(71, 226, 90, 0.85),
+        0 0 26px rgba(52, 175, 70, 0.78),
+        0 0 40px rgba(38, 128, 54, 0.62);
     }
     50% {
       transform: scale(1.12);
       filter: brightness(1.18) saturate(1.28);
       text-shadow:
-        0 0 20px rgba(221, 214, 254, 1),
-        0 0 38px rgba(167, 139, 250, 1),
-        0 0 56px rgba(139, 92, 246, 0.98),
-        0 0 74px rgba(124, 58, 237, 0.9),
-        0 0 92px rgba(109, 40, 217, 0.72);
+        0 0 20px rgba(185, 248, 194, 1),
+        0 0 38px rgba(71, 226, 90, 1),
+        0 0 56px rgba(48, 165, 68, 0.98),
+        0 0 74px rgba(34, 120, 52, 0.9),
+        0 0 92px rgba(24, 88, 40, 0.72);
     }
   }
   @keyframes short-vh-south-resize-arrow-active-pulse-down {
@@ -6318,19 +6269,19 @@
       transform: scale(1.04);
       filter: brightness(1.1) saturate(1.18);
       text-shadow:
-        0 0 16px rgba(167, 139, 250, 0.96),
-        0 0 32px rgba(139, 92, 246, 0.92),
-        0 0 48px rgba(124, 58, 237, 0.8);
+        0 0 16px rgba(71, 226, 90, 0.92),
+        0 0 32px rgba(52, 175, 70, 0.88),
+        0 0 48px rgba(38, 128, 54, 0.75);
     }
     50% {
       transform: scale(1.14);
       filter: brightness(1.22) saturate(1.32);
       text-shadow:
-        0 0 22px rgba(237, 233, 254, 1),
-        0 0 42px rgba(167, 139, 250, 1),
-        0 0 62px rgba(139, 92, 246, 1),
-        0 0 80px rgba(124, 58, 237, 0.94),
-        0 0 96px rgba(109, 40, 217, 0.76);
+        0 0 22px rgba(210, 248, 218, 1),
+        0 0 42px rgba(71, 226, 90, 1),
+        0 0 62px rgba(52, 175, 70, 1),
+        0 0 80px rgba(38, 130, 56, 0.94),
+        0 0 96px rgba(28, 95, 44, 0.76);
     }
   }
   .game-table-root.viewport-mobile.viewport-mobile-short
@@ -6349,22 +6300,26 @@
       ui-monospace,
       system-ui,
       sans-serif !important;
-    font-size: clamp(9px, 2.6vw, 11px) !important;
+    font-size: clamp(9.5px, 2.68vw, 11.5px) !important;
     font-weight: 800 !important;
     letter-spacing: 0.12em !important;
     text-transform: none !important;
-    line-height: 1.15 !important;
+    line-height: 1.1 !important;
     white-space: nowrap !important;
     -webkit-font-smoothing: antialiased !important;
+    transition:
+      font-size 0.28s ease,
+      line-height 0.28s ease !important;
   }
   /*
-   * Только суффикс «— Down'n'Up»: крупнее в покое; стрелки и паддинги капсулы не трогаем.
+   * Суффикс «— Down'n'Up» в покое: сиренево-фиолетовый градиент + лёгкий неон (не полная радуга тапа — см. ниже).
+   * background-image + clip — без shorthand background, чтобы не сбить clip.
    */
   .game-table-root.viewport-mobile.viewport-mobile-short
     .game-mobile-short-south-resize-handle__label-suffix {
     margin-left: 0.28em !important;
-    font-size: 1.065em !important;
-    background: linear-gradient(
+    font-size: 1em !important;
+    background-image: linear-gradient(
       185deg,
       rgba(254, 252, 232, 0.82) 0%,
       rgba(245, 208, 254, 0.78) 22%,
@@ -6381,27 +6336,14 @@
     -webkit-text-stroke: 0.35px rgba(49, 46, 129, 0.35) !important;
     paint-order: stroke fill !important;
     letter-spacing: 0.14em !important;
+    text-shadow:
+      0 0 10px rgba(192, 167, 252, 0.55),
+      0 0 18px rgba(139, 92, 246, 0.35),
+      0 0 26px rgba(99, 102, 241, 0.22) !important;
     transition:
       font-size 0.28s ease,
-      background-position 0.35s ease !important;
-  }
-  @media (hover: hover) and (pointer: fine) {
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle:not(.game-mobile-short-south-resize-handle--tap-glow):hover
-      .game-mobile-short-south-resize-handle__label-suffix {
-      font-size: 1em !important;
-    }
-  }
-  .game-table-root.viewport-mobile.viewport-mobile-short
-    .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--tap-glow
-    .game-mobile-short-south-resize-handle__label-suffix,
-  .game-table-root.viewport-mobile.viewport-mobile-short
-    .game-mobile-short-south-resize-handle:active
-    .game-mobile-short-south-resize-handle__label-suffix,
-  .game-table-root.viewport-mobile.viewport-mobile-short
-    .game-mobile-short-south-resize-handle:focus-visible
-    .game-mobile-short-south-resize-handle__label-suffix {
-    font-size: 1em !important;
+      text-shadow 0.28s ease,
+      -webkit-text-stroke 0.28s ease !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-short
     .game-mobile-short-south-resize-handle__arrow {
@@ -6449,29 +6391,27 @@
       0 0 42px rgba(2, 132, 199, 0.78),
       0 0 58px rgba(3, 105, 161, 0.55) !important;
   }
-  /* ↑ насыщенная сирень / фиолет */
+  /*
+   * ↑ зелёная ось «поднять» (~rgb(71 226 90) при покое). Только непрозрачные hex в градиенте —
+   * иначе WebKit + background-clip:text даёт «белую» стрелку; filter на капсуле тоже убран ниже.
+   */
   .game-table-root.viewport-mobile.viewport-mobile-short
     .game-mobile-short-south-resize-handle__arrow--up {
-    -webkit-text-stroke: 0.88px rgba(237, 233, 254, 0.58) !important;
+    -webkit-text-stroke: 0.88px rgba(170, 235, 182, 0.52) !important;
     paint-order: stroke fill !important;
     background-image: linear-gradient(
       172deg,
-      #f5f3ff 0%,
-      #ddd6fe 10%,
-      #c4b5fd 26%,
-      #a78bfa 42%,
-      #8b5cf6 56%,
-      #7c3aed 70%,
-      #6d28d9 86%,
-      #5b21b6 100%
+      #c8f5d2 0%,
+      #6edc7e 18%,
+      #47e25a 40%,
+      #2ea848 65%,
+      #166528 100%
     ) !important;
     text-shadow:
-      0 0 1px rgba(255, 255, 255, 0.32),
-      0 0 12px rgba(167, 139, 250, 0.96),
-      0 0 26px rgba(139, 92, 246, 0.9),
-      0 0 42px rgba(124, 58, 237, 0.8),
-      0 0 58px rgba(109, 40, 217, 0.58),
-      0 0 72px rgba(91, 33, 182, 0.42) !important;
+      0 0 1px rgba(210, 248, 218, 0.45),
+      0 0 12px rgba(71, 226, 90, 0.58),
+      0 0 26px rgba(46, 168, 62, 0.42),
+      0 0 42px rgba(30, 120, 48, 0.28) !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-short
     .game-mobile-short-south-resize-handle__arrow-gap {
@@ -6484,13 +6424,24 @@
     .game-mobile-short-south-resize-handle__arrow--down {
     animation: short-vh-south-resize-arrow-active-pulse-down 2.1s ease-in-out infinite !important;
   }
+  /* Растягивание недоступно (max 0): ↑ остаётся в разметке только здесь — приглушить без filter (он даёт артефакт «белый»). */
   .game-table-root.viewport-mobile.viewport-mobile-short
-    .game-mobile-short-south-resize-handle--hint-down-only
+    .game-mobile-short-south-resize-handle:not(
+        .game-mobile-short-south-resize-handle--hint-down-only
+      ):not(.game-mobile-short-south-resize-handle--hint-up-only):not(
+        .game-mobile-short-south-resize-handle--hint-both
+      )
     .game-mobile-short-south-resize-handle__arrow--up {
-    opacity: 0.34 !important;
-    filter: none !important;
+    opacity: 0.32 !important;
     text-shadow: none !important;
-    -webkit-text-stroke: 0 transparent !important;
+    -webkit-text-stroke: 0.4px rgba(35, 85, 44, 0.42) !important;
+    paint-order: stroke fill !important;
+    background-image: linear-gradient(
+      172deg,
+      #5a8f62 0%,
+      #35663d 48%,
+      #1a3820 100%
+    ) !important;
   }
   /* Доступно только вверх: ярко ↑ */
   .game-table-root.viewport-mobile.viewport-mobile-short
@@ -6517,7 +6468,7 @@
     .game-mobile-short-south-resize-handle__arrow--up {
     animation: short-vh-south-resize-arrow-blink-up 1.05s ease-in-out infinite !important;
   }
-  /* Тап: переливы — отдельная палитра ↓ / ↑ */
+  /* Тап: переливы — отдельная палитра ↓ / ↑ (↑ только если вверх доступен) */
   .game-table-root.viewport-mobile.viewport-mobile-short
     .game-mobile-short-south-resize-handle--tap-glow
     .game-mobile-short-south-resize-handle__arrow--down {
@@ -6525,7 +6476,10 @@
     animation: short-vh-south-resize-arrow-iridescent-tap-down 1.35s cubic-bezier(0.22, 1, 0.36, 1) 1 both !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-short
-    .game-mobile-short-south-resize-handle--tap-glow
+    .game-mobile-short-south-resize-handle--hint-up-only.game-mobile-short-south-resize-handle--tap-glow
+    .game-mobile-short-south-resize-handle__arrow--up,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle--hint-both.game-mobile-short-south-resize-handle--tap-glow
     .game-mobile-short-south-resize-handle__arrow--up {
     filter: none !important;
     animation: short-vh-south-resize-arrow-iridescent-tap-up 1.35s cubic-bezier(0.22, 1, 0.36, 1) 1 both !important;
@@ -6539,10 +6493,82 @@
     .game-mobile-short-south-resize-handle__arrow--up {
     opacity: 1 !important;
   }
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--tap-glow:not(
+        .game-mobile-short-south-resize-handle--hint-down-only
+      ):not(.game-mobile-short-south-resize-handle--hint-up-only):not(
+        .game-mobile-short-south-resize-handle--hint-both
+      )
+    .game-mobile-short-south-resize-handle__arrow--up {
+    opacity: 0.32 !important;
+    animation: none !important;
+  }
+  /*
+   * ↑ тап/active: максимально сочный зелёный (лайм → изумруд), плотное неоновое свечение.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle--hint-up-only.game-mobile-short-south-resize-handle--tap-glow
+    .game-mobile-short-south-resize-handle__arrow--up,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle--hint-both.game-mobile-short-south-resize-handle--tap-glow
+    .game-mobile-short-south-resize-handle__arrow--up,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle--hint-up-only:active
+    .game-mobile-short-south-resize-handle__arrow--up,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle--hint-both:active
+    .game-mobile-short-south-resize-handle__arrow--up {
+    -webkit-text-stroke: 0.88px rgba(200, 255, 170, 0.92) !important;
+    background-image: linear-gradient(
+      172deg,
+      #7dff9f 0%,
+      #39ff7a 14%,
+      #00f067 32%,
+      #00c853 52%,
+      #00a040 72%,
+      #006b2b 100%
+    ) !important;
+    text-shadow:
+      0 0 4px rgba(0, 255, 120, 0.95),
+      0 0 8px rgba(0, 240, 100, 1),
+      0 0 18px rgba(0, 220, 90, 1),
+      0 0 32px rgba(0, 200, 80, 0.98),
+      0 0 50px rgba(0, 170, 70, 0.9),
+      0 0 70px rgba(0, 130, 55, 0.7),
+      0 0 92px rgba(0, 100, 45, 0.48) !important;
+  }
+  /*
+   * ↓ тап/active: электрический циан / аквамарин, ярче лазурного покоя.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle--tap-glow
+    .game-mobile-short-south-resize-handle__arrow--down,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle:active
+    .game-mobile-short-south-resize-handle__arrow--down {
+    -webkit-text-stroke: 0.88px rgba(150, 240, 255, 0.92) !important;
+    background-image: linear-gradient(
+      172deg,
+      #5ce5ff 0%,
+      #1ad4ff 16%,
+      #00b8ff 36%,
+      #0090f0 58%,
+      #0068d6 80%,
+      #004080 100%
+    ) !important;
+    text-shadow:
+      0 0 4px rgba(0, 230, 255, 0.98),
+      0 0 8px rgba(0, 210, 255, 1),
+      0 0 18px rgba(0, 190, 255, 1),
+      0 0 32px rgba(0, 165, 245, 0.98),
+      0 0 50px rgba(0, 140, 230, 0.92),
+      0 0 70px rgba(0, 110, 200, 0.72),
+      0 0 92px rgba(0, 85, 160, 0.48) !important;
+  }
+  /* Без filter: иначе весь текст капсулы (clip:text) «выгорает» в белый при тапе. */
   @keyframes short-vh-south-resize-tap-glow {
     0% {
       transform: scale(1.065);
-      filter: brightness(1.42) saturate(1.48);
       box-shadow:
         inset 0 0 0 1px rgba(255, 255, 255, 0.42),
         inset 0 1px 0 rgba(255, 255, 255, 0.22),
@@ -6552,7 +6578,6 @@
     }
     28% {
       transform: scale(1.095);
-      filter: brightness(1.52) saturate(1.62);
       box-shadow:
         inset 0 0 0 1px rgba(255, 255, 255, 0.52),
         inset 0 2px 0 rgba(253, 244, 255, 0.28),
@@ -6563,7 +6588,6 @@
     /* Удерживаем пик до снятия --tap-glow (длинная тяга дольше 1.35s — иначе капсула «гаснет» на 100%) */
     100% {
       transform: scale(1.095);
-      filter: brightness(1.52) saturate(1.62);
       box-shadow:
         inset 0 0 0 1px rgba(255, 255, 255, 0.52),
         inset 0 2px 0 rgba(253, 244, 255, 0.28),
@@ -6577,13 +6601,9 @@
     .game-mobile-short-south-resize-handle__capsule {
     animation: short-vh-south-resize-tap-glow 1.35s cubic-bezier(0.22, 1, 0.36, 1) 1 both !important;
     transform-origin: 50% 100% !important;
-    will-change: transform, filter !important;
+    will-change: transform !important;
   }
   @media (prefers-reduced-motion: reduce) {
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle__capsule::before {
-      display: none !important;
-    }
     .game-table-root.viewport-mobile.viewport-mobile-short
       .game-mobile-short-south-resize-handle__arrow {
       animation: none !important;
@@ -6593,19 +6613,26 @@
       .game-mobile-short-south-resize-handle__arrow--down {
       filter: none !important;
       text-shadow:
-        0 0 14px rgba(125, 211, 252, 1),
-        0 0 30px rgba(14, 165, 233, 0.92),
-        0 0 48px rgba(2, 132, 199, 0.78) !important;
+        0 0 6px rgba(0, 230, 255, 1),
+        0 0 16px rgba(0, 200, 255, 1),
+        0 0 34px rgba(0, 170, 245, 0.96),
+        0 0 54px rgba(0, 130, 220, 0.82),
+        0 0 78px rgba(0, 95, 185, 0.58) !important;
       transform: scale(1.12) !important;
     }
     .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--tap-glow
+      .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--hint-up-only.game-mobile-short-south-resize-handle--tap-glow
+      .game-mobile-short-south-resize-handle__arrow--up,
+    .game-table-root.viewport-mobile.viewport-mobile-short
+      .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--hint-both.game-mobile-short-south-resize-handle--tap-glow
       .game-mobile-short-south-resize-handle__arrow--up {
       filter: none !important;
       text-shadow:
-        0 0 14px rgba(221, 214, 254, 1),
-        0 0 30px rgba(139, 92, 246, 0.92),
-        0 0 48px rgba(124, 58, 237, 0.82) !important;
+        0 0 6px rgba(0, 255, 130, 1),
+        0 0 16px rgba(0, 235, 105, 1),
+        0 0 34px rgba(0, 210, 88, 0.96),
+        0 0 54px rgba(0, 175, 72, 0.82),
+        0 0 78px rgba(0, 130, 55, 0.58) !important;
       transform: scale(1.12) !important;
     }
     .game-table-root.viewport-mobile.viewport-mobile-short
@@ -6614,7 +6641,15 @@
       animation: none !important;
       transform: scale(1.045) !important;
       transform-origin: 50% 100% !important;
-      filter: brightness(1.14) saturate(1.18) !important;
+    }
+    .game-table-root.viewport-mobile.viewport-mobile-short
+      .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--tap-glow
+      .game-mobile-short-south-resize-handle__capsule::before,
+    .game-table-root.viewport-mobile.viewport-mobile-short
+      .game-mobile-short-south-resize-handle:active
+      .game-mobile-short-south-resize-handle__capsule::before {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
     }
   }
   .game-table-root.viewport-mobile.viewport-mobile-short
@@ -6633,174 +6668,6 @@
     flex-direction: column !important;
     align-items: center !important;
   }
-  /*
-   * Short-VH южная ручка — яркий hover: только здесь, только CSS (:hover), без JS/атрибутов.
-   * (hover:hover) и (pointer:fine) отсекают тач — без «липкого» hover после тапа.
-   */
-  @media (hover: hover) and (pointer: fine) {
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle:not(.game-mobile-short-south-resize-handle--tap-glow):hover:not(
-        .game-mobile-short-south-resize-handle--hint-down-only
-      ):not(.game-mobile-short-south-resize-handle--hint-up-only)
-      .game-mobile-short-south-resize-handle__capsule {
-      filter: brightness(1.1) saturate(1.18) !important;
-      transform: scale(1.035) !important;
-      box-shadow:
-        inset 0 0.5px 0 rgba(255, 255, 255, 0.11),
-        inset 0 0 0 0.5px rgba(139, 92, 246, 0.14),
-        inset 0 0 10px rgba(139, 92, 246, 0.075),
-        inset 0 0 10px rgba(34, 211, 238, 0.06),
-        inset 0 -2px 0 0 rgba(0, 0, 0, 0.42),
-        0 0 0 0.5px rgba(167, 139, 250, 0.26),
-        0 0 5px rgba(124, 58, 237, 0.15),
-        0 0 6px rgba(34, 211, 238, 0.14),
-        0 1px 5px rgba(0, 0, 0, 0.16) !important;
-    }
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--hint-down-only:not(
-        .game-mobile-short-south-resize-handle--tap-glow
-      ):hover
-      .game-mobile-short-south-resize-handle__capsule,
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--hint-up-only:not(
-        .game-mobile-short-south-resize-handle--tap-glow
-      ):hover
-      .game-mobile-short-south-resize-handle__capsule {
-      filter: none !important;
-      transform: scale(1.035) !important;
-      box-shadow:
-        inset 0 0.5px 0 rgba(255, 255, 255, 0.11),
-        inset 0 0 0 0.5px rgba(139, 92, 246, 0.14),
-        inset 0 0 10px rgba(139, 92, 246, 0.075),
-        inset 0 0 10px rgba(34, 211, 238, 0.06),
-        inset 0 -2px 0 0 rgba(0, 0, 0, 0.42),
-        0 0 0 0.5px rgba(167, 139, 250, 0.26),
-        0 0 5px rgba(124, 58, 237, 0.15),
-        0 0 6px rgba(34, 211, 238, 0.14),
-        0 1px 5px rgba(0, 0, 0, 0.16) !important;
-    }
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle:not(.game-mobile-short-south-resize-handle--tap-glow):hover
-      .game-mobile-short-south-resize-handle__label-suffix {
-      background-position: 50% 100% !important;
-    }
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle:not(.game-mobile-short-south-resize-handle--tap-glow):hover:not(
-        .game-mobile-short-south-resize-handle--hint-down-only
-      ):not(.game-mobile-short-south-resize-handle--hint-up-only)
-      .game-mobile-short-south-resize-handle__arrow--down {
-      animation: none !important;
-      -webkit-text-stroke: 1.08px rgba(224, 242, 254, 0.85) !important;
-      paint-order: stroke fill !important;
-      filter: brightness(1.52) saturate(1.55) contrast(1.1) !important;
-      text-shadow:
-        0 0 2px rgba(224, 242, 254, 1),
-        0 0 5px rgba(56, 189, 248, 1),
-        0 0 12px rgba(56, 189, 248, 1),
-        0 0 22px rgba(14, 165, 233, 0.98),
-        0 0 38px rgba(2, 132, 199, 0.95),
-        0 0 56px rgba(3, 105, 161, 0.88),
-        0 0 78px rgba(14, 116, 144, 0.68),
-        0 0 102px rgba(8, 145, 178, 0.45) !important;
-      background-position: 52% 76% !important;
-      background-size: 165% 220% !important;
-      transform: scale(1.34) !important;
-    }
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle:not(.game-mobile-short-south-resize-handle--tap-glow):hover:not(
-        .game-mobile-short-south-resize-handle--hint-down-only
-      ):not(.game-mobile-short-south-resize-handle--hint-up-only)
-      .game-mobile-short-south-resize-handle__arrow--up {
-      animation: none !important;
-      -webkit-text-stroke: 1.08px rgba(245, 243, 255, 0.82) !important;
-      paint-order: stroke fill !important;
-      filter: brightness(1.52) saturate(1.55) contrast(1.1) !important;
-      text-shadow:
-        0 0 2px rgba(250, 245, 255, 1),
-        0 0 5px rgba(167, 139, 250, 1),
-        0 0 12px rgba(167, 139, 250, 1),
-        0 0 22px rgba(139, 92, 246, 0.98),
-        0 0 38px rgba(124, 58, 237, 0.96),
-        0 0 56px rgba(109, 40, 217, 0.9),
-        0 0 78px rgba(91, 33, 182, 0.72),
-        0 0 102px rgba(76, 29, 149, 0.48) !important;
-      background-position: 48% 70% !important;
-      background-size: 165% 220% !important;
-      transform: scale(1.34) !important;
-    }
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--hint-down-only:not(
-        .game-mobile-short-south-resize-handle--tap-glow
-      ):hover
-      .game-mobile-short-south-resize-handle__arrow--up {
-      opacity: 0.34 !important;
-      filter: none !important;
-      text-shadow: none !important;
-      transform: scale(1) !important;
-      background-position: 48% 72% !important;
-      -webkit-text-stroke: 0 transparent !important;
-    }
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--hint-down-only:not(
-        .game-mobile-short-south-resize-handle--tap-glow
-      ):hover
-      .game-mobile-short-south-resize-handle__arrow--down {
-      animation: none !important;
-      -webkit-text-stroke: 1.12px rgba(224, 242, 254, 0.9) !important;
-      paint-order: stroke fill !important;
-      filter: brightness(1.58) saturate(1.58) contrast(1.12) !important;
-      text-shadow:
-        0 0 2px rgba(224, 242, 254, 1),
-        0 0 6px rgba(56, 189, 248, 1),
-        0 0 14px rgba(56, 189, 248, 1),
-        0 0 26px rgba(14, 165, 233, 1),
-        0 0 42px rgba(2, 132, 199, 0.98),
-        0 0 62px rgba(3, 105, 161, 0.92),
-        0 0 88px rgba(14, 116, 144, 0.75),
-        0 0 110px rgba(8, 145, 178, 0.52) !important;
-      background-position: 52% 74% !important;
-      background-size: 170% 230% !important;
-      transform: scale(1.42) !important;
-    }
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--hint-up-only:not(
-        .game-mobile-short-south-resize-handle--tap-glow
-      ):hover
-      .game-mobile-short-south-resize-handle__arrow--down {
-      opacity: 0.34 !important;
-      filter: none !important;
-      text-shadow: none !important;
-      transform: scale(1) !important;
-      background-position: 52% 78% !important;
-      -webkit-text-stroke: 0 transparent !important;
-    }
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--hint-up-only:not(
-        .game-mobile-short-south-resize-handle--tap-glow
-      ):hover
-      .game-mobile-short-south-resize-handle__arrow--up {
-      animation: none !important;
-      -webkit-text-stroke: 1.12px rgba(250, 245, 255, 0.88) !important;
-      paint-order: stroke fill !important;
-      filter: brightness(1.58) saturate(1.58) contrast(1.12) !important;
-      text-shadow:
-        0 0 2px rgba(254, 249, 255, 1),
-        0 0 6px rgba(167, 139, 250, 1),
-        0 0 14px rgba(167, 139, 250, 1),
-        0 0 26px rgba(139, 92, 246, 1),
-        0 0 42px rgba(124, 58, 237, 0.98),
-        0 0 62px rgba(109, 40, 217, 0.94),
-        0 0 88px rgba(91, 33, 182, 0.78),
-        0 0 110px rgba(76, 29, 149, 0.52) !important;
-      background-position: 48% 68% !important;
-      background-size: 170% 230% !important;
-      transform: scale(1.42) !important;
-    }
-    .game-table-root.viewport-mobile.viewport-mobile-short
-      .game-mobile-short-south-resize-handle:not(.game-mobile-short-south-resize-handle--tap-glow):hover {
-      cursor: ns-resize !important;
-    }
-  }
   .game-table-root.viewport-mobile.viewport-mobile-short
     .game-mobile-short-south-resize-handle:focus-visible {
     outline: 2px solid rgba(196, 181, 253, 0.85) !important;
@@ -6809,13 +6676,129 @@
     box-shadow: none !important;
   }
   /*
+   * Тап / перетаскивание: укрупнённая подпись и без лишнего :hover (мобила).
+   * Маска капсулы снимается — иначе крупный текст клипуется при overflow:clip в покое.
+   * Верхнюю градиентную линию обводки прячем clip-path (≈1px сверху): без маски она снова видна.
+   * Тап: вертикальные inset заметно меньше покоя — компактнее строка при укрупнённом шрифте.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--tap-glow
+    .game-mobile-short-south-resize-handle__capsule,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle:active
+    .game-mobile-short-south-resize-handle__capsule {
+    padding: 3px 18px 3px !important;
+    overflow: visible !important;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+    -webkit-clip-path: inset(1px 0 0 0) !important;
+    clip-path: inset(1px 0 0 0) !important;
+  }
+  /*
+   * Тап/active: «под стеклом» — backdrop-filter + тёмный градиент поверх (без него фон высветляется),
+   * без inset-света сверху (белая полоска у clip-path); подпись выше слоёв.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--tap-glow
+    .game-mobile-short-south-resize-handle__capsule::before,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle:active
+    .game-mobile-short-south-resize-handle__capsule::before {
+    display: block !important;
+    content: '' !important;
+    position: absolute !important;
+    inset: 1px 2px 2px 2px !important;
+    border-radius: 0 0 999px 999px !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+    /* Тёмный «дым» поверх блюра — компенсирует высветление от полупрозрачности + backdrop. */
+    background: linear-gradient(
+      168deg,
+      rgba(6, 10, 22, 0.42) 0%,
+      rgba(15, 23, 42, 0.22) 28%,
+      rgba(15, 23, 42, 0.06) 52%,
+      rgba(0, 0, 0, 0.22) 100%
+    ) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(1.12) brightness(0.88) !important;
+    backdrop-filter: blur(12px) saturate(1.12) brightness(0.88) !important;
+    /* Без inset сверху — иначе видна «белая кромка» у верхнего реза (маска/clip-path). */
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.26) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--tap-glow
+    .game-mobile-short-south-resize-handle__capsule::after,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle:active
+    .game-mobile-short-south-resize-handle__capsule::after {
+    z-index: 1 !important;
+    inset: 2px 3px 3px 3px !important;
+    box-shadow:
+      inset 0 -2px 10px rgba(0, 0, 0, 0.22),
+      inset 0 0 0 1px rgba(224, 231, 255, 0.12) !important;
+    background: linear-gradient(
+      185deg,
+      rgba(30, 41, 59, 0.14) 0%,
+      rgba(15, 23, 42, 0.06) 34%,
+      rgba(255, 255, 255, 0) 52%,
+      rgba(0, 0, 0, 0.18) 100%
+    ) !important;
+    mix-blend-mode: soft-light !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--tap-glow
+    .game-mobile-short-south-resize-handle__label,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle:active
+    .game-mobile-short-south-resize-handle__label {
+    font-size: clamp(12.3px, 3.53vw, 14.7px) !important;
+    line-height: 1.05 !important;
+    font-weight: 900 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 2 !important;
+  }
+  /* Тап/active: градиент «как у имён в таблице результатов» + clip:text; background-size как до ужимания. */
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle.game-mobile-short-south-resize-handle--tap-glow
+    .game-mobile-short-south-resize-handle__label-suffix,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-short-south-resize-handle:active
+    .game-mobile-short-south-resize-handle__label-suffix {
+    background-image: linear-gradient(
+      122deg,
+      #611cd7 0%,
+      #2563eb 10%,
+      #1b9efa 18%,
+      #06b6d4 26%,
+      #7157d0 36%,
+      #a855f7 44%,
+      #dd4da7 52%,
+      #f472b6 60%,
+      #fb923c 70%,
+      #bd902d 82%,
+      #fde047 92%,
+      #fef9c3 100%
+    ) !important;
+    background-size: 108% 155% !important;
+    background-position: 52% 48% !important;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-stroke: 0 transparent !important;
+    paint-order: stroke fill !important;
+    text-shadow: none !important;
+    transition:
+      font-size 0.28s ease,
+      -webkit-text-stroke 0.28s ease !important;
+  }
+  /*
    * Не давить капсулу в :active пока включён неон тапа/тяги — иначе !important перебивает анимацию,
    * и при удержании видны только яркие стрелки.
    */
   .game-table-root.viewport-mobile.viewport-mobile-short
     .game-mobile-short-south-resize-handle:not(.game-mobile-short-south-resize-handle--tap-glow):active
     .game-mobile-short-south-resize-handle__capsule {
-    filter: brightness(1.06) saturate(1.12) !important;
     transform: scale(0.98) !important;
     box-shadow:
       inset 0 0 0 0.5px rgba(255, 255, 255, 0.07),
@@ -9769,8 +9752,9 @@
 }
 
 /*
- * Short VH + ход пользователя: 2 c — сиреневая → голубая → белая (без внешнего blur).
- * Инлайн border/boxShadow сняты в GameTable, чтобы не перебивать этапы.
+ * Short VH + ход пользователя: 2 c — сиреневая → голубая → финал (без внешнего blur).
+ * Применяется к полосе карт (.game-mobile-south-panel-hand), не ко всей сетке Юга — имя/аватар остаются в «спокойной» капсуле.
+ * Инлайн border/boxShadow сняты в GameTable (short-VH), чтобы не перебивать этапы.
  */
 @keyframes short-vh-south-your-turn-panel {
   0%,
@@ -9867,19 +9851,20 @@
       0 0 6px rgba(34, 211, 238, 0.14),
       0 1px 5px rgba(0, 0, 0, 0.14);
   }
+  /* Третий этап: ярче «белый» акцент (холодный ореол + верхний блик) */
   100% {
-    background-color: rgba(5, 3, 20, 0.55);
+    background-color: rgba(18, 16, 48, 0.62);
     background-image:
-      radial-gradient(ellipse 95% 72% at 50% -6%, rgba(221, 214, 254, 0.22) 0%, transparent 54%),
-      radial-gradient(ellipse 58% 46% at 100% 18%, rgba(56, 189, 248, 0.14) 0%, transparent 52%),
-      radial-gradient(circle at 10% 96%, rgba(167, 139, 250, 0.18) 0%, transparent 44%),
-      radial-gradient(circle at 92% 86%, rgba(99, 102, 241, 0.12) 0%, transparent 38%),
+      radial-gradient(ellipse 98% 78% at 50% -8%, rgba(255, 255, 255, 0.42) 0%, rgba(237, 233, 254, 0.22) 22%, transparent 58%),
+      radial-gradient(ellipse 62% 48% at 100% 16%, rgba(186, 230, 253, 0.32) 0%, transparent 54%),
+      radial-gradient(circle at 10% 96%, rgba(196, 181, 253, 0.28) 0%, transparent 46%),
+      radial-gradient(circle at 92% 86%, rgba(129, 140, 248, 0.2) 0%, transparent 40%),
       linear-gradient(
         168deg,
-        rgba(76, 29, 149, 0.4) 0%,
-        rgba(42, 40, 95, 0.78) 36%,
-        rgba(22, 28, 58, 0.9) 64%,
-        rgba(8, 12, 32, 0.94) 100%
+        rgba(88, 42, 158, 0.46) 0%,
+        rgba(52, 48, 112, 0.82) 34%,
+        rgba(28, 32, 72, 0.92) 64%,
+        rgba(12, 14, 42, 0.96) 100%
       ),
       linear-gradient(
         125deg,
@@ -9903,16 +9888,17 @@
     background-size: 100% 100%;
     background-repeat: no-repeat;
     box-shadow:
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
-      inset 0 0 0 0.5px rgba(139, 92, 246, 0.1),
-      inset 0 1px 0 rgba(221, 214, 254, 0.1),
-      inset 0 0 26px rgba(167, 139, 250, 0.06),
-      inset 0 0 20px rgba(34, 211, 238, 0.05),
-      inset 0 -4px 14px rgba(0, 0, 0, 0.22),
-      0 0 0 0.5px rgba(167, 139, 250, 0.22),
-      0 0 4px rgba(124, 58, 237, 0.12),
-      0 0 5px rgba(34, 211, 238, 0.12),
-      0 1px 4px rgba(0, 0, 0, 0.14);
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 0 0 0.5px rgba(245, 243, 255, 0.35),
+      inset 0 2px 0 rgba(224, 242, 254, 0.18),
+      inset 0 0 28px rgba(167, 139, 250, 0.12),
+      inset 0 0 24px rgba(34, 211, 238, 0.08),
+      inset 0 -4px 14px rgba(0, 0, 0, 0.2),
+      0 0 0 0.5px rgba(214, 211, 255, 0.38),
+      0 0 8px rgba(255, 255, 255, 0.16),
+      0 0 14px rgba(125, 211, 252, 0.22),
+      0 0 10px rgba(167, 139, 250, 0.18),
+      0 1px 5px rgba(0, 0, 0, 0.12);
   }
 }
 
@@ -9945,36 +9931,206 @@
   }
   100% {
     box-shadow:
-      inset 0 1px 0 rgba(221, 214, 254, 0.2),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.28),
-      inset 0 0 0 0.5px rgba(167, 139, 250, 0.16);
+      inset 0 1px 0 rgba(255, 255, 255, 0.38),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.26),
+      inset 0 0 0 1px rgba(243, 244, 255, 0.42),
+      inset 0 0 12px rgba(255, 255, 255, 0.14);
     background: linear-gradient(
       175deg,
-      rgba(196, 181, 253, 0.09) 0%,
-      rgba(255, 255, 255, 0) 38%,
-      rgba(0, 0, 0, 0.08) 100%
+      rgba(250, 250, 255, 0.26) 0%,
+      rgba(224, 242, 254, 0.14) 28%,
+      rgba(255, 255, 255, 0) 42%,
+      rgba(0, 0, 0, 0.06) 100%
     );
   }
 }
 
+/* Short VH: нижняя полоска рамки (4px) — горизонтальный перелив поверх статичного градиента */
+@keyframes south-short-user-bottom-rim-shimmer {
+  0% {
+    background-position: right center, 0% 50%;
+  }
+  100% {
+    background-position: right center, 100% 50%;
+  }
+}
+
+/*
+ * Short VH + ваш ход: подложка сетки как в покое (без пульсации на имени/аватаре).
+ * Перелив short-vh-south-your-turn-panel — только на .game-mobile-south-panel-hand (см. блок ниже).
+ */
 .game-table-root.viewport-mobile.viewport-mobile-short
   .game-mobile-player-panel:not(:has(.first-mover-bidding-panel))
   .game-mobile-player-info.user-player-panel.user-player-panel--short-vh.player-info-panel-your-turn
   .game-mobile-user-south-main {
   border-style: solid !important;
   border-color: transparent !important;
-  border-width: 1px !important;
-  animation: short-vh-south-your-turn-panel 2s linear forwards !important;
+  /* Градиентная рамка (125deg на border-box): низ 4px, прочие стороны 3px + неон */
+  border-width: 3px 3px 4px 3px !important;
+  animation: none !important;
+  filter: none !important;
+  background-color: rgba(5, 3, 20, 0.55) !important;
+  background-image:
+    radial-gradient(ellipse 95% 70% at 50% -5%, rgba(221, 214, 254, 0.2) 0%, transparent 52%),
+    radial-gradient(ellipse 60% 45% at 100% 20%, rgba(34, 211, 238, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 8% 95%, rgba(139, 92, 246, 0.22) 0%, transparent 42%),
+    radial-gradient(circle at 92% 88%, rgba(99, 102, 241, 0.12) 0%, transparent 36%),
+    linear-gradient(
+      168deg,
+      rgba(76, 29, 149, 0.42) 0%,
+      rgba(30, 27, 75, 0.82) 38%,
+      rgba(15, 23, 42, 0.94) 62%,
+      rgba(2, 6, 23, 0.96) 100%
+    ),
+    linear-gradient(
+      125deg,
+      #3b0764 0%,
+      #5b21b6 9%,
+      #6d28d9 20%,
+      #7c3aed 30%,
+      #8b5cf6 40%,
+      #a78bfa 48%,
+      #b8a3f6 56%,
+      #c9b8f8 62%,
+      #d4c4fd 66%,
+      #6ee7f0 73%,
+      #5ad4e8 78%,
+      #22d3ee 84%,
+      #38bdf8 91%,
+      #5abbf0 100%
+    ) !important;
+  background-origin: border-box !important;
+  background-clip: padding-box, padding-box, padding-box, padding-box, padding-box, border-box !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 0.5px rgba(139, 92, 246, 0.1),
+    inset 0 0 8px rgba(139, 92, 246, 0.06),
+    inset 0 0 8px rgba(34, 211, 238, 0.05),
+    inset 0 -4px 12px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(221, 214, 254, 0.05),
+    0 0 0 1px rgba(196, 181, 253, 0.22),
+    0 0 8px rgba(167, 139, 250, 0.22),
+    0 0 16px rgba(129, 140, 248, 0.14),
+    0 0 22px rgba(34, 211, 238, 0.11),
+    0 1px 5px rgba(0, 0, 0, 0.12) !important;
+}
+
+/*
+ * Утолщённая нижняя кромка (4px): перелив по горизонтали.
+ * Слой на весь border-box (inset по толщине рамки 3/3/4/3) + border-radius 14px; mask оставляет только нижние 4px — скругление как у внешнего контура карточки.
+ */
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-player-panel:not(:has(.first-mover-bidding-panel))
+  .game-mobile-player-info.user-player-panel.user-player-panel--short-vh.player-info-panel-your-turn
+  .game-mobile-user-south-main::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: -3px -3px -4px -3px !important;
+  border-radius: 14px !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+  background-color: transparent !important;
+  /*
+   * Два слоя: (1) правое голубое перо; (2) перелив 200% (анимируется только он).
+   */
+  background-image:
+    linear-gradient(
+      to left,
+      rgba(56, 189, 248, 0.92) 0%,
+      rgba(34, 211, 238, 0.78) 8%,
+      rgba(14, 165, 233, 0.58) 20%,
+      rgba(6, 182, 212, 0.38) 36%,
+      rgba(34, 211, 238, 0.2) 54%,
+      rgba(125, 211, 252, 0.09) 72%,
+      transparent 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(76, 29, 149, 0.94) 0%,
+      rgba(91, 33, 182, 0.93) 6%,
+      rgba(76, 29, 149, 0.94) 13%,
+      rgba(109, 40, 217, 0.95) 22%,
+      rgba(124, 58, 237, 0.96) 30%,
+      rgba(167, 139, 250, 0.9) 37%,
+      rgba(124, 58, 237, 0.95) 44%,
+      rgba(99, 102, 241, 0.93) 52%,
+      rgba(91, 33, 182, 0.94) 60%,
+      rgba(76, 29, 149, 0.94) 68%,
+      rgba(88, 28, 135, 0.93) 74%,
+      rgba(99, 102, 241, 0.92) 80%,
+      rgba(56, 189, 248, 0.86) 88%,
+      rgba(34, 211, 238, 0.82) 94%,
+      rgba(56, 189, 248, 0.84) 100%
+    ) !important;
+  background-size: min(40%, 168px) 100%, 200% 100% !important;
+  /* без !important — иначе @keyframes не перебивают статичное значение и перелив не идёт */
+  background-position: right center, 0% 50%;
+  background-repeat: no-repeat !important;
+  /*
+   * Две маски (intersect): нижние 4px + мягкое нарастание слева — без обрезки inset’ом (линия полной длины)
+   * и без вертикального шва: перелив у кончика растворяется в рамке карточки.
+   */
+  -webkit-mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(100% - 4px),
+      #000 calc(100% - 4px),
+      #000 100%
+    ),
+    linear-gradient(
+      to right,
+      transparent 0,
+      transparent 2px,
+      rgba(0, 0, 0, 0.18) 7px,
+      rgba(0, 0, 0, 0.55) 12px,
+      rgba(0, 0, 0, 0.88) 17px,
+      #000 22px
+    ) !important;
+  mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(100% - 4px),
+      #000 calc(100% - 4px),
+      #000 100%
+    ),
+    linear-gradient(
+      to right,
+      transparent 0,
+      transparent 2px,
+      rgba(0, 0, 0, 0.18) 7px,
+      rgba(0, 0, 0, 0.55) 12px,
+      rgba(0, 0, 0, 0.88) 17px,
+      #000 22px
+    ) !important;
+  mask-composite: intersect !important;
+  -webkit-mask-size: 100% 100%, 100% 100% !important;
+  mask-size: 100% 100%, 100% 100% !important;
+  -webkit-mask-repeat: no-repeat, no-repeat !important;
+  mask-repeat: no-repeat, no-repeat !important;
+  animation: south-short-user-bottom-rim-shimmer 9s ease-in-out infinite alternate !important;
+  filter: drop-shadow(0 2px 8px rgba(91, 33, 182, 0.4)) drop-shadow(0 0 12px rgba(124, 58, 237, 0.35)) !important;
+}
+
+/* Глянец этапов хода — на полосе карт, не на всей карточке Юга */
+.game-table-root.viewport-mobile.viewport-mobile-short:not(.trump-highlight-on)
+  .game-mobile-player-panel:not(:has(.first-mover-bidding-panel))
+  .game-mobile-player-info.user-player-panel.user-player-panel--short-vh.player-info-panel-your-turn
+  .game-mobile-user-south-main::before {
+  display: none !important;
 }
 
 .game-table-root.viewport-mobile.viewport-mobile-short:not(.trump-highlight-on)
   .game-mobile-player-panel:not(:has(.first-mover-bidding-panel))
   .game-mobile-player-info.user-player-panel.user-player-panel--short-vh.player-info-panel-your-turn
-  .game-mobile-user-south-main::before {
+  .game-mobile-south-panel-hand:has(> .game-mobile-hand-row.player-hand-your-turn)::before {
   content: '' !important;
   position: absolute !important;
   inset: 0 !important;
-  border-radius: inherit !important;
+  border-radius: 12px !important;
   pointer-events: none !important;
   z-index: 0 !important;
   mix-blend-mode: soft-light !important;
@@ -10016,10 +10172,76 @@
     animation: none !important;
     filter: none !important;
   }
+  /* Ваш ход: сетка как в покое; «живой» финал кадра перенесён на полосу карт */
   .game-table-root.viewport-mobile.viewport-mobile-short
     .game-mobile-player-panel:not(:has(.first-mover-bidding-panel))
     .game-mobile-player-info.user-player-panel.user-player-panel--short-vh.player-info-panel-your-turn
     .game-mobile-user-south-main {
+    border-style: solid !important;
+    border-color: transparent !important;
+    border-width: 3px 3px 4px 3px !important;
+    background-color: rgba(5, 3, 20, 0.55) !important;
+    background-image:
+      radial-gradient(ellipse 95% 70% at 50% -5%, rgba(221, 214, 254, 0.2) 0%, transparent 52%),
+      radial-gradient(ellipse 60% 45% at 100% 20%, rgba(34, 211, 238, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 8% 95%, rgba(139, 92, 246, 0.22) 0%, transparent 42%),
+      radial-gradient(circle at 92% 88%, rgba(99, 102, 241, 0.12) 0%, transparent 36%),
+      linear-gradient(
+        168deg,
+        rgba(76, 29, 149, 0.42) 0%,
+        rgba(30, 27, 75, 0.82) 38%,
+        rgba(15, 23, 42, 0.94) 62%,
+        rgba(2, 6, 23, 0.96) 100%
+      ),
+      linear-gradient(
+        125deg,
+        #3b0764 0%,
+        #5b21b6 9%,
+        #6d28d9 20%,
+        #7c3aed 30%,
+        #8b5cf6 40%,
+        #a78bfa 48%,
+        #b8a3f6 56%,
+        #c9b8f8 62%,
+        #d4c4fd 66%,
+        #6ee7f0 73%,
+        #5ad4e8 78%,
+        #22d3ee 84%,
+        #38bdf8 91%,
+        #5abbf0 100%
+      ) !important;
+    background-origin: border-box !important;
+    background-clip: padding-box, padding-box, padding-box, padding-box, padding-box, border-box !important;
+    background-size: 100% 100% !important;
+    background-repeat: no-repeat !important;
+    box-shadow:
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
+      inset 0 0 0 0.5px rgba(139, 92, 246, 0.1),
+      inset 0 0 8px rgba(139, 92, 246, 0.06),
+      inset 0 0 8px rgba(34, 211, 238, 0.05),
+      inset 0 -4px 12px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0 rgba(221, 214, 254, 0.05),
+      0 0 0 1px rgba(196, 181, 253, 0.22),
+      0 0 8px rgba(167, 139, 250, 0.22),
+      0 0 16px rgba(129, 140, 248, 0.14),
+      0 0 22px rgba(34, 211, 238, 0.11),
+      0 1px 5px rgba(0, 0, 0, 0.12) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-player-panel:not(:has(.first-mover-bidding-panel))
+    .game-mobile-player-info.user-player-panel.user-player-panel--short-vh.player-info-panel-your-turn
+    .game-mobile-user-south-main::after {
+    animation: none !important;
+    background-position: right center, 40% 50% !important;
+    box-shadow:
+      0 0 8px rgba(167, 139, 250, 0.28),
+      0 0 14px rgba(34, 211, 238, 0.16) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-player-panel:not(:has(.first-mover-bidding-panel))
+    .game-mobile-player-info.user-player-panel.user-player-panel--short-vh.player-info-panel-your-turn
+    .game-mobile-south-panel-hand:has(> .game-mobile-hand-row.player-hand-your-turn) {
+    animation: none !important;
     border-style: solid !important;
     border-color: transparent !important;
     border-width: 1px !important;
@@ -10072,7 +10294,7 @@
   .game-table-root.viewport-mobile.viewport-mobile-short:not(.trump-highlight-on)
     .game-mobile-player-panel:not(:has(.first-mover-bidding-panel))
     .game-mobile-player-info.user-player-panel.user-player-panel--short-vh.player-info-panel-your-turn
-    .game-mobile-user-south-main::before {
+    .game-mobile-south-panel-hand:has(> .game-mobile-hand-row.player-hand-your-turn)::before {
     animation: none !important;
     box-shadow:
       inset 0 1px 0 rgba(221, 214, 254, 0.2),
@@ -10088,12 +10310,11 @@
 }
 
 /*
- * Short VH: блок руки в сетке — инлайн handFrameStyle + @keyframes playerHandYourTurnGlowPc дают размытия ~100px+.
- * У предков overflow-x: hidden — свечение режется по вертикали и выглядит как вторая огромная подложка с «острыми» углами.
- * Оставляем компактные тени и скругление в тон карточке Юга (внешняя 14px, рука 12px).
- * Градиентную рамку как у .game-mobile-user-south-main сюда не переносим: подложка + внешние blur давали лишнюю «подсветку» под картами.
+ * Short VH: полоса карт — компактная рамка в покое; перелив «ваш ход» только здесь (@keyframes short-vh-south-your-turn-panel).
  */
-.game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-user-south-main .game-mobile-south-panel-hand {
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .game-mobile-user-south-main
+  .game-mobile-south-panel-hand:not(:has(> .game-mobile-hand-row.player-hand-your-turn)) {
   border-radius: 12px !important;
   animation: none !important;
   border: 1px solid rgba(196, 181, 253, 0.55) !important;
@@ -10108,15 +10329,85 @@
 .game-table-root.viewport-mobile.viewport-mobile-short
   .game-mobile-user-south-main
   .game-mobile-south-panel-hand:has(> .game-mobile-hand-row.player-hand-your-turn) {
-  border-color: rgba(212, 196, 255, 0.72) !important;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    inset 0 1px 0 rgba(221, 214, 254, 0.14),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.15) !important;
+  border-radius: 12px !important;
+  border-style: solid !important;
+  border-color: transparent !important;
+  border-width: 1px !important;
+  animation: short-vh-south-your-turn-panel 2s linear forwards !important;
 }
 
 /*
- * Short VH + козырь: сиреневый inset перенесён на .game-mobile-user-south-main::before.
+ * Торги / заказ (game-phase-bidding на корне): без перелива на полосе карт — тот же «спокойный» слой, что и у блока имени/аватара.
+ */
+.game-table-root.game-phase-bidding.viewport-mobile.viewport-mobile-short
+  .game-mobile-player-panel:not(:has(.first-mover-bidding-panel))
+  .game-mobile-player-info.user-player-panel.user-player-panel--short-vh.player-info-panel-your-turn
+  .game-mobile-user-south-main
+  .game-mobile-south-panel-hand:has(> .game-mobile-hand-row.player-hand-your-turn) {
+  animation: none !important;
+  filter: none !important;
+  background-color: rgba(5, 3, 20, 0.55) !important;
+  background-image:
+    radial-gradient(ellipse 95% 70% at 50% -5%, rgba(221, 214, 254, 0.2) 0%, transparent 52%),
+    radial-gradient(ellipse 60% 45% at 100% 20%, rgba(34, 211, 238, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 8% 95%, rgba(139, 92, 246, 0.22) 0%, transparent 42%),
+    radial-gradient(circle at 92% 88%, rgba(99, 102, 241, 0.12) 0%, transparent 36%),
+    linear-gradient(
+      168deg,
+      rgba(76, 29, 149, 0.42) 0%,
+      rgba(30, 27, 75, 0.82) 38%,
+      rgba(15, 23, 42, 0.94) 62%,
+      rgba(2, 6, 23, 0.96) 100%
+    ),
+    linear-gradient(
+      125deg,
+      #3b0764 0%,
+      #5b21b6 9%,
+      #6d28d9 20%,
+      #7c3aed 30%,
+      #8b5cf6 40%,
+      #a78bfa 48%,
+      #b8a3f6 56%,
+      #c9b8f8 62%,
+      #d4c4fd 66%,
+      #6ee7f0 73%,
+      #5ad4e8 78%,
+      #22d3ee 84%,
+      #38bdf8 91%,
+      #5abbf0 100%
+    ) !important;
+  background-origin: border-box !important;
+  background-clip: padding-box, padding-box, padding-box, padding-box, padding-box, border-box !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 0.5px rgba(139, 92, 246, 0.1),
+    inset 0 0 8px rgba(139, 92, 246, 0.06),
+    inset 0 0 8px rgba(34, 211, 238, 0.05),
+    inset 0 -4px 12px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(221, 214, 254, 0.05),
+    0 0 0 0.5px rgba(167, 139, 250, 0.2),
+    0 0 4px rgba(124, 58, 237, 0.12),
+    0 0 5px rgba(34, 211, 238, 0.1),
+    0 1px 4px rgba(0, 0, 0, 0.14) !important;
+}
+
+.game-table-root.game-phase-bidding.viewport-mobile.viewport-mobile-short:not(.trump-highlight-on)
+  .game-mobile-player-panel:not(:has(.first-mover-bidding-panel))
+  .game-mobile-player-info.user-player-panel.user-player-panel--short-vh.player-info-panel-your-turn
+  .game-mobile-south-panel-hand:has(> .game-mobile-hand-row.player-hand-your-turn)::before {
+  display: none !important;
+}
+
+.game-table-root.game-phase-bidding.trump-highlight-on.viewport-mobile.viewport-mobile-short
+  .user-player-panel.player-info-panel-your-turn
+  .game-mobile-south-panel-hand:has(> .game-mobile-hand-row.player-hand-your-turn)::after {
+  display: none !important;
+}
+
+/*
+ * Short VH + козырь + ваш ход: сиреневый inset только на полосе карт (::after).
  * Не отключаем ::before у .user-player-panel, если висит .first-mover-bidding-panel — там же пульс «первый заказ/ход».
  */
 .game-table-root.trump-highlight-on.viewport-mobile.viewport-mobile-short
@@ -10126,11 +10417,18 @@
 .game-table-root.trump-highlight-on.viewport-mobile.viewport-mobile-short .user-player-panel.player-info-panel-your-turn .game-mobile-user-south-main {
   position: relative;
 }
-.game-table-root.trump-highlight-on.viewport-mobile.viewport-mobile-short .user-player-panel.player-info-panel-your-turn .game-mobile-user-south-main::before {
+.game-table-root.trump-highlight-on.viewport-mobile.viewport-mobile-short
+  .user-player-panel.player-info-panel-your-turn
+  .game-mobile-user-south-main::before {
+  display: none !important;
+}
+.game-table-root.trump-highlight-on.viewport-mobile.viewport-mobile-short
+  .user-player-panel.player-info-panel-your-turn
+  .game-mobile-south-panel-hand:has(> .game-mobile-hand-row.player-hand-your-turn)::after {
   content: '';
   position: absolute;
-  inset: 3px;
-  border-radius: calc(14px - 3px);
+  inset: 0;
+  border-radius: 12px;
   pointer-events: none;
   z-index: 0;
   box-shadow:

@@ -7277,6 +7277,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               : southResizeStretchHint === 'both'
                 ? 'Потяните вверх или вниз, чтобы изменить высоту панели'
                 : 'Масштаб панели Юга';
+        const southResizeShowDownArrow = southResizeStretchHint !== 'up-only';
+        const southResizeShowUpArrow = southResizeStretchHint !== 'down-only';
+        const southResizeShowArrowGap = southResizeShowDownArrow && southResizeShowUpArrow;
         return (
         <div className="game-mobile-short-south-resize-wrap">
           <button
@@ -7305,15 +7308,22 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           >
             <span className="game-mobile-short-south-resize-handle__capsule" aria-hidden>
               <span className="game-mobile-short-south-resize-handle__label">
-                <span className="game-mobile-short-south-resize-handle__arrow game-mobile-short-south-resize-handle__arrow--down">
-                  ↓
-                </span>
-                <span className="game-mobile-short-south-resize-handle__arrow-gap"> </span>
-                <span className="game-mobile-short-south-resize-handle__arrow game-mobile-short-south-resize-handle__arrow--up">
-                  ↑
-                </span>
+                {southResizeShowDownArrow ? (
+                  <span className="game-mobile-short-south-resize-handle__arrow game-mobile-short-south-resize-handle__arrow--down">
+                    ↓
+                  </span>
+                ) : null}
+                {southResizeShowArrowGap ? (
+                  <span className="game-mobile-short-south-resize-handle__arrow-gap"> </span>
+                ) : null}
+                {southResizeShowUpArrow ? (
+                  <span className="game-mobile-short-south-resize-handle__arrow game-mobile-short-south-resize-handle__arrow--up">
+                    ↑
+                  </span>
+                ) : null}
                 <span className="game-mobile-short-south-resize-handle__label-suffix">
-                  {' \u2014 '}Down&apos;n&apos;Up
+                  {' \u2014 '}
+                  Down&apos;n&apos;Up
                 </span>
               </span>
             </span>
