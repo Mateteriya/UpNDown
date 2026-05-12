@@ -2,7 +2,7 @@
 <html lang="ru">
   <head>
     <script>
-      (function(){var d=document;d.documentElement.classList.remove('theme-neon');d.documentElement.classList.add('theme-standard');d.documentElement.classList.remove('system-dark');d.documentElement.classList.add('system-light');d.documentElement.setAttribute('data-theme','standard');try{localStorage.setItem('updown-theme','standard')}catch(e){}var m=d.querySelector('meta[name="color-scheme"]');if(m)m.setAttribute('content','only light');})();
+      (function(){var d=document,h=d.documentElement;h.classList.remove('theme-neon');h.classList.add('theme-standard');h.classList.remove('system-dark');h.classList.add('system-light');h.setAttribute('data-theme','standard');try{localStorage.setItem('updown-theme','standard')}catch(e){}var m=d.querySelector('meta[name="color-scheme"]');if(m)m.setAttribute('content','only light');try{var lk=localStorage.getItem('updown-card-palette-lock');if(lk==='1')h.classList.add('updown-card-palette-lock');else h.classList.remove('updown-card-palette-lock')}catch(e2){}})();
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600;700;800&family=Orbitron:wght@600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600;700;800&family=Manrope:wght@500;600;700&family=Orbitron:wght@600;700;800&family=Outfit:wght@600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
     <title>Up&Down — Карточная игра на взятки</title>

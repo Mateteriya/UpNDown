@@ -61,6 +61,25 @@
 @import './theme-standard.css';
 @import './theme-neon.css';
 
+/*
+ * «Замок» палитры карт (класс на html от cardPaletteLock): не трогаем #root и весь UI —
+ * только сами карты, чтобы WebView не перекрашивал фон и масти.
+ */
+html.updown-card-palette-lock .theme-standard button.card-view-root,
+html.updown-card-palette-lock .theme-standard button.card-view-root img {
+  color-scheme: only light !important;
+  -webkit-forced-color-adjust: none !important;
+  forced-color-adjust: none !important;
+  -webkit-filter: none !important;
+  filter: none !important;
+}
+
+/* ПК: лампа — тонкое кольцо, если включён замок палитры карт */
+.game-table-root:not(.viewport-mobile) .game-header button.trump-lamp-card-palette-lock-on {
+  outline: 2px solid rgba(251, 191, 36, 0.82);
+  outline-offset: 2px;
+}
+
 :root {
   font-family: system-ui, -apple-system, sans-serif;
   line-height: 1.5;
@@ -7592,6 +7611,14 @@
     transform: translateY(-1px) !important;
     align-self: flex-end !important;
     gap: 0 !important;
+  }
+  /* Лампа: включён «замок» палитры карт (долгое нажатие) — тонкое кольцо-индикатор */
+  .game-table-root.viewport-mobile
+    .game-header
+    .game-header-mobile-theme-lamp-stack
+    .game-header-mobile-trump-lamp-btn.trump-lamp-card-palette-lock-on {
+    outline: 2px solid rgba(251, 191, 36, 0.82) !important;
+    outline-offset: 1px !important;
   }
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child > button:not(.deal-results-btn):not(.theme-toggle-btn):hover,
   .game-table-root.viewport-mobile .game-header > div:last-child > div:first-child .game-header-mobile-theme-lamp-stack .game-header-mobile-trump-lamp-btn:hover {

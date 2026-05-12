@@ -6,6 +6,7 @@
 import type {
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
   TouchEvent as ReactTouchEvent,
   Ref,
@@ -41,6 +42,7 @@ import { getCanonicalIndexForDisplay, rotateStateForPlayer } from '../game/rotat
 import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
 import { preloadCardImages } from '../cardAssets';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useOnlineGame } from '../contexts/useOnlineGame';
 import {
   getRoom,
@@ -888,6 +890,9 @@ const trumpHighlightBtnStyle: CSSProperties = {
   transition: 'box-shadow 0.2s, border-color 0.2s, color 0.2s',
 };
 
+/** Удержание лампы «доп. подсветка»: переключить компенсацию внешней инверсии цветов */
+const TRUMP_LAMP_LONGPRESS_MS = 620;
+
 /** Градиент кольца аватара оппонента: заказ на руке выполнен ровно (кольцо без пульса) */
 const AVATAR_ORDER_RING_GRADIENT_EXACT =
   'linear-gradient(145deg, #f5e6ff 0%, #d8b4fe 22%, #a78bfa 45%, #818cf8 68%, #38bdf8 100%)';
@@ -1079,6 +1084,7 @@ function difficultyForAiPlayMove(online: boolean, st: GameState, playerIndex: nu
 
 export default function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame, onOpenProfileModal }: GameTableProps) {
   const { user } = useAuth();
+  const { cardPaletteLock, toggleCardPaletteLock } = useTheme();
   const userRef = useRef(user);
   userRef.current = user;
   const online = useOnlineGame();
@@ -1140,6 +1146,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   /** Инкремент при выходе в «стандарт» из short/иммерсив — три вспышки на чипе возврата (key + data-star-pulse). */
   const [shortVhRestoreChipIntroPulseTick, setShortVhRestoreChipIntroPulseTick] = useState(0);
   const mobileViewportShort = rawMobileViewportShort && !shortVhLayoutOptOutSession;
+  /** Физически низкий экран (<652), но выбрана «обычная» вёрстка (opt-out из short) — панель Юга чуть компактнее (index.css). */
+  const mobileStandardLayoutOnShortViewport =
+    isMobile && !mobileViewportShort && rawMobileViewportShort;
   useLayoutEffect(() => {
     const upd = () => {
       setMobileHandLayoutVw(readMobileHandLayoutWidthPx());
@@ -1310,6 +1319,41 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const [showLastTrickModal, setShowLastTrickModal] = useState(false);
   const [bidPanelVisible, setBidPanelVisible] = useState(false);
   const [trumpHighlightOn, setTrumpHighlightOn] = useState(true);
+  const trumpLampLongPressTimerRef = useRef<number | null>(null);
+  const trumpLampLongPressConsumedRef = useRef(false);
+  const clearTrumpLampLongPressTimer = useCallback(() => {
+    if (trumpLampLongPressTimerRef.current != null) {
+      window.clearTimeout(trumpLampLongPressTimerRef.current);
+      trumpLampLongPressTimerRef.current = null;
+    }
+  }, []);
+  const onTrumpLampPointerDown = useCallback(() => {
+    trumpLampLongPressConsumedRef.current = false;
+    clearTrumpLampLongPressTimer();
+    trumpLampLongPressTimerRef.current = window.setTimeout(() => {
+      trumpLampLongPressConsumedRef.current = true;
+      toggleCardPaletteLock();
+      try {
+        void navigator.vibrate?.(14);
+      } catch {
+        /* ignore */
+      }
+    }, TRUMP_LAMP_LONGPRESS_MS);
+  }, [clearTrumpLampLongPressTimer, toggleCardPaletteLock]);
+  const onTrumpLampPointerUpOrCancel = useCallback(() => {
+    clearTrumpLampLongPressTimer();
+  }, [clearTrumpLampLongPressTimer]);
+  const onTrumpLampClick = useCallback((e: ReactMouseEvent<HTMLButtonElement>) => {
+    if (trumpLampLongPressConsumedRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      trumpLampLongPressConsumedRef.current = false;
+      return;
+    }
+    setTrumpHighlightOn((v) => !v);
+  }, []);
+  const trumpLampHintTitle =
+    'Короткое нажатие — доп. подсветка козыря и стола. Удержание ~0,6 с — если карты на столе и в руке перекрашены браузером: включить или выключить жёсткую фиксацию палитры только для карт (остальной интерфейс не меняется).';
   /** ПК: гирлянда — через USER_PANEL_GARLAND_IDLE_PC_MS бездействия (pointer/key), не с начала хода мгновенно */
   const [userTurnGarlandReady, setUserTurnGarlandReady] = useState(false);
   /** ПК: усиленный сигнал «пора ходить» после USER_PANEL_STRONG_NUDGE_IDLE_PC_MS простоя */
@@ -4349,7 +4393,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}
     >
       {showMobileTurnEdgeGlow ? (
@@ -5081,6 +5125,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           isMobile
             ? 'game-table-main-wrap' +
               (mobileViewportShort ? ' game-table-main-wrap--short-vh' : '') +
+              (mobileStandardLayoutOnShortViewport ? ' game-table-main-wrap--standard-from-short-vh' : '') +
               (showAbsentGuestBanner ? ' game-table-main-wrap--absent-guest-banner' : '')
             : undefined
         }
@@ -5088,9 +5133,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         style={{
           ...tableStyle,
           ...(isMobile
-            ? mobileViewportShort
+            ? mobileViewportShort || mobileStandardLayoutOnShortViewport
               ? {
-                  /* Явно две оси: иначе из tableStyle остаётся overflow:auto и даёт горизонтальный скролл при тенях/ряде карт */
+                  /* Явно две оси: иначе из tableStyle остаётся overflow:auto и даёт горизонтальный скролл при тенях/ряде карт.
+                   * standard-from-short-vh: вертикальный скролл до свёрнутого чата под южной панелью (онлайн). */
                   overflow: 'hidden auto' as const,
                   WebkitOverflowScrolling: 'touch' as const,
                 }
@@ -5448,8 +5494,12 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 />
             <button
             type="button"
-                  className="game-header-mobile-trump-lamp-btn"
-            onClick={() => setTrumpHighlightOn(v => !v)}
+                  className={`game-header-mobile-trump-lamp-btn${cardPaletteLock ? ' trump-lamp-card-palette-lock-on' : ''}`}
+            onPointerDown={onTrumpLampPointerDown}
+            onPointerUp={onTrumpLampPointerUpOrCancel}
+            onPointerCancel={onTrumpLampPointerUpOrCancel}
+            onPointerLeave={onTrumpLampPointerUpOrCancel}
+            onClick={onTrumpLampClick}
           style={{
             ...trumpHighlightBtnStyle,
                     gap: 0,
@@ -5461,8 +5511,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 }
               : { color: 'rgba(251, 146, 60, 0.7)' }),
           }}
-          title={trumpHighlightOn ? 'Выключить дополнительную подсветку' : 'Включить дополнительную подсветку'}
-                  aria-label={trumpHighlightOn ? 'Выключить дополнительную подсветку' : 'Включить дополнительную подсветку'}
+          title={trumpLampHintTitle}
+                  aria-label={trumpLampHintTitle}
         >
           <svg
             width="18"
@@ -5488,7 +5538,12 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               !isWaitingInRoom && (
               <button
                 type="button"
-                  onClick={() => setTrumpHighlightOn(v => !v)}
+                  className={cardPaletteLock ? 'trump-lamp-card-palette-lock-on' : undefined}
+                  onPointerDown={onTrumpLampPointerDown}
+                  onPointerUp={onTrumpLampPointerUpOrCancel}
+                  onPointerCancel={onTrumpLampPointerUpOrCancel}
+                  onPointerLeave={onTrumpLampPointerUpOrCancel}
+                  onClick={onTrumpLampClick}
                 style={{
                     ...trumpHighlightBtnStyle,
                     ...(trumpHighlightOn
@@ -5499,7 +5554,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                         }
                       : { color: 'rgba(251, 146, 60, 0.7)' }),
                   }}
-                  title={trumpHighlightOn ? 'Выключить дополнительную подсветку' : 'Включить дополнительную подсветку'}
+                  title={trumpLampHintTitle}
+                  aria-label={trumpLampHintTitle}
                 >
                   <svg
                     width="18"
@@ -7339,6 +7395,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           userId={user.id}
           displayName={playerDisplayName?.trim() || 'Игрок'}
           onOwnMessageSent={onOwnTableChatMessageSent}
+          standardAfterShortVh={mobileStandardLayoutOnShortViewport}
         />
       )}
       </div>

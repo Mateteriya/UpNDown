@@ -272,7 +272,17 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={trumpOnDeck ? (trumpDeckHighlightOn ? 'trump-on-deck trump-on-deck--full' : 'trump-on-deck trump-on-deck--dim') : pcCardStyles && (isTrumpInHand || isTrumpOnTableDim) && !trumpHighlightOn ? 'trump-in-hand-dim' : undefined}
+      className={[
+        'card-view-root',
+        trumpOnDeck
+          ? trumpDeckHighlightOn
+            ? 'trump-on-deck trump-on-deck--full'
+            : 'trump-on-deck trump-on-deck--dim'
+          : null,
+        pcCardStyles && (isTrumpInHand || isTrumpOnTableDim) && !trumpHighlightOn ? 'trump-in-hand-dim' : null,
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={{
         width: w,
         height: h,
