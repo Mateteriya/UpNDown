@@ -15,19 +15,23 @@ import { ErrorBoundary } from './ui/ErrorBoundary'
 import { CardsDemoPage } from './ui/CardsDemoPage'
 import { DealTrackLabPage } from './ui/DealTrackLabPage'
 import { TotalColorLabPage } from './ui/TotalColorLabPage'
+import { OnlineUiLabPage } from './ui/OnlineUiLabPage'
 import './index.css'
+/* Ушко/рельса/фантом чата: отдельный файл — @import в index.css после других правил не попадает в бандл. */
+import './styles/tableChatSideEarMobile.css'
 
 const path = typeof window !== 'undefined' ? window.location.pathname : ''
 const isDemo = path === '/demo' || path.startsWith('/demo/')
 const isDealTrackLab = path === '/deal-track-lab' || path.startsWith('/deal-track-lab/')
 const isTotalColorLab = path === '/total-color-lab' || path.startsWith('/total-color-lab/')
+const isOnlineUiLab = path === '/online-ui-lab' || path.startsWith('/online-ui-lab/')
 const devModeAllowed = typeof window !== 'undefined' && sessionStorage.getItem('updown-devMode') === '1'
 
 function DemoGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    if ((isDemo || isDealTrackLab || isTotalColorLab) && !devModeAllowed) window.location.href = '/'
+    if ((isDemo || isDealTrackLab || isTotalColorLab || isOnlineUiLab) && !devModeAllowed) window.location.href = '/'
   }, [])
-  if ((isDemo || isDealTrackLab || isTotalColorLab) && !devModeAllowed) return null
+  if ((isDemo || isDealTrackLab || isTotalColorLab || isOnlineUiLab) && !devModeAllowed) return null
   return <>{children}</>
 }
 
@@ -50,6 +54,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <DemoGuard>
           <TotalColorLabPage onBack={() => (window.location.href = '/')} />
+        </DemoGuard>
+      </ThemeProvider>
+    ) : isOnlineUiLab ? (
+      <ThemeProvider>
+        <DemoGuard>
+          <OnlineUiLabPage onBack={() => (window.location.href = '/')} />
         </DemoGuard>
       </ThemeProvider>
     ) : (

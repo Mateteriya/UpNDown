@@ -467,6 +467,9 @@ function App() {
                 <a href="/total-color-lab" style={{ ...buttonStyle, textDecoration: 'none', textAlign: 'center' }}>
                   Лаб: цвета ИТОГО (моб)
                 </a>
+                <a href="/online-ui-lab" style={{ ...buttonStyle, textDecoration: 'none', textAlign: 'center' }}>
+                  Лаб: онлайн-UI «Стандарт после short»
+                </a>
               </>
             )}
             <button disabled style={buttonStyle}>
