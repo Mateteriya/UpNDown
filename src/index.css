@@ -62,18 +62,25 @@
 @import './theme-neon.css';
 
 /*
- * Замок палитры карт (класс updown-card-palette-lock на html): только кнопки карт и их img.
- * Класс theme-standard задан на том же элементе html, поэтому в селекторе подряд:
- * html.theme-standard.updown-card-palette-lock (не «html … .theme-standard» с пробелом).
+ * Замок палитры карт: на html — класс updown-card-palette-lock (долгое нажатие на лампу),
+ * на корне стола — card-palette-lock-active (см. GameTable).
+ * — Подсказки движку на самих картах (color-scheme, forced-color-adjust). Без filter:none на картах:
+ *   иначе ломается компенсация ниже.
+ * — Компенсация полноэкранной инверсии ОС/Яндекса: invert только на .game-table-root, не на весь #root.
+ *   Если инверсии нет, а стол «улетел» по цветам — снова удержание лампы, выключите замок.
  */
-/* Не использовать селектор с пробелом: html.updown-card-palette-lock .theme-standard ... — он не матчится. */
+/* Не использовать: html.updown-card-palette-lock .theme-standard ... (пробел) — не матчится. */
 html.theme-standard.updown-card-palette-lock button.card-view-root,
 html.theme-standard.updown-card-palette-lock button.card-view-root img {
   color-scheme: only light !important;
   -webkit-forced-color-adjust: none !important;
   forced-color-adjust: none !important;
-  -webkit-filter: none !important;
-  filter: none !important;
+}
+
+html.theme-standard.updown-card-palette-lock .game-table-root.card-palette-lock-active {
+  isolation: isolate;
+  -webkit-filter: invert(1) hue-rotate(180deg);
+  filter: invert(1) hue-rotate(180deg);
 }
 
 /* ПК: лампа — тонкое кольцо, если включён замок палитры карт */

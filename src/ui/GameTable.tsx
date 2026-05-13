@@ -1353,7 +1353,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     setTrumpHighlightOn((v) => !v);
   }, []);
   const trumpLampHintTitle =
-    'Короткое нажатие — доп. подсветка козыря и стола. Удержание ~0,6 с — если карты на столе и в руке перекрашены браузером: включить или выключить жёсткую фиксацию палитры только для карт (остальной интерфейс не меняется).';
+    'Короткое нажатие — доп. подсветка козыря и стола. Удержание ~0,6 с — если экран или карты «перевёрнуты» (инверсия ОС/браузера): включить или выключить режим компенсации для игрового стола. Если без инверсии стол стал неправильных цветов — снова удержание, выключите.';
   /** ПК: гирлянда — через USER_PANEL_GARLAND_IDLE_PC_MS бездействия (pointer/key), не с начала хода мгновенно */
   const [userTurnGarlandReady, setUserTurnGarlandReady] = useState(false);
   /** ПК: усиленный сигнал «пора ходить» после USER_PANEL_STRONG_NUDGE_IDLE_PC_MS простоя */
@@ -4393,7 +4393,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}${cardPaletteLock ? ' card-palette-lock-active' : ''}`}
       style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}
     >
       {showMobileTurnEdgeGlow ? (
