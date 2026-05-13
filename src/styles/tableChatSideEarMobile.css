@@ -1,0 +1,1095 @@
+/*
+ * Мобильное «ушко» чата, рельса, фантом-превью и тост настроек превью.
+ * Разметка: TableChatDock.tsx (variant mobile, collapsed + standardAfterShortVh).
+ */
+
+/* —— collapsed dock: подсказка + компактная кнопка (короткий viewport) —— */
+.game-table-root.viewport-mobile .table-chat-dock--mobile.table-chat-dock--collapsed.table-chat-dock--standard-after-short-vh {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px 12px 12px;
+}
+
+.game-table-root.viewport-mobile .table-chat-collapsed-strip-hint {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #cbd5e1;
+  text-align: center;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 41, 59, 0.82) 100%);
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.45);
+}
+
+.game-table-root.viewport-mobile .table-chat-collapsed-strip-hint-text {
+  display: inline;
+}
+
+.game-table-root.viewport-mobile .table-chat-collapsed-strip-hint-arrow-inline {
+  display: inline;
+  color: #22d3ee;
+  font-weight: 700;
+}
+
+.game-table-root.viewport-mobile .table-chat-toggle--compact {
+  width: 100%;
+  padding: 9px 16px;
+  font-size: 13px;
+}
+
+/* —— shell: fixed у правого края, дети в ряд (ушко справа) —— */
+.table-chat-side-ear-shell {
+  position: fixed;
+  right: 0;
+  z-index: 88;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 0;
+  max-width: min(96vw, 440px);
+  pointer-events: auto;
+  touch-action: none;
+  filter: drop-shadow(-6px 10px 28px rgba(2, 6, 23, 0.55));
+}
+
+.table-chat-side-ear-shell--activity-typing .table-chat-side-ear {
+  box-shadow:
+    inset 0 1px 0 #7c3aed,
+    -1px 0 0 rgb(20 46 201),
+    0 0 0 1px rgba(56, 189, 248, 0.55),
+    0 0 18px rgba(34, 211, 238, 0.35);
+}
+
+.table-chat-side-ear-shell--activity-unread .table-chat-side-ear {
+  box-shadow:
+    inset 0 1px 0 #7c3aed,
+    -1px 0 0 rgb(20 46 201),
+    0 0 0 1px rgba(244, 114, 182, 0.45),
+    0 0 20px rgba(244, 114, 182, 0.25);
+}
+
+.table-chat-side-ear-shell--preview-suppressed .table-chat-side-ear {
+  opacity: 0.92;
+}
+
+.table-chat-side-ear-shell--phantom-unread-expanded {
+  z-index: 90;
+}
+
+/* —— ушко —— */
+.table-chat-side-ear {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 44px;
+  padding: 10px 5px 19px;
+  margin: 0;
+  border: none;
+  border-radius: 14px 0 0 14px;
+  cursor: pointer;
+  color: #e2e8f0;
+  background: linear-gradient(
+    200deg,
+    rgb(37 9 135 / 89%) 0%,
+    rgb(39 14 95 / 94%) 55%,
+    rgb(47 30 137 / 98%) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 #7c3aed,
+    -1px 0 0 rgb(20 46 201);
+  -webkit-tap-highlight-color: transparent;
+  overflow: visible;
+}
+
+.table-chat-side-ear:active {
+  transform: scale(0.98);
+}
+
+/* Стрелки на верхней/нижней границе ушка, смещены наружу; градиент «хрусталь / космос» как у иконки чата */
+.table-chat-side-ear__chevron {
+  position: absolute;
+  left: 50%;
+  z-index: 2;
+  font-size: 12px;
+  line-height: 1;
+  width: 1em;
+  text-align: center;
+  pointer-events: none;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background: linear-gradient(
+    168deg,
+    #faf5ff 0%,
+    #e9d5ff 14%,
+    #c4b5fd 28%,
+    #a78bfa 42%,
+    #818cf8 56%,
+    #38bdf8 72%,
+    #22d3ee 86%,
+    #5eead4 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter:
+    drop-shadow(0 0 5px rgba(167, 139, 250, 0.55))
+    drop-shadow(0 0 8px rgba(56, 189, 248, 0.4))
+    drop-shadow(0 1px 2px rgba(2, 6, 23, 0.7));
+}
+
+.table-chat-side-ear__chevron--up {
+  top: 0;
+  transform: translate(-50%, -72%);
+}
+
+.table-chat-side-ear__chevron--down {
+  bottom: 0;
+  transform: translate(-50%, 72%);
+}
+
+.table-chat-side-ear__glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.table-chat-side-ear__glyph-svg {
+  display: block;
+}
+
+.table-chat-side-ear__label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #7d3bf2;
+  transition: color 0.2s ease;
+}
+
+.table-chat-side-ear__label--unread {
+  color: #30dfa9;
+}
+
+/* Рельса слева от ушка, общая высота с ушком (flex stretch), без «уезда» в центр */
+.table-chat-side-ear-cluster {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.table-chat-side-ear-rail-wrap {
+  box-sizing: border-box;
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-cluster .table-chat-side-ear-rail-wrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: stretch;
+  /* Полоска прижата к ушку (к правому краю колонки рельсы = стык с ушком) */
+  align-items: flex-end;
+  flex: 0 0 auto;
+  align-self: stretch;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-bundle {
+  position: relative;
+  flex: 0 0 auto;
+  align-self: stretch;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-cluster .table-chat-side-ear {
+  align-self: stretch;
+  min-width: 52px;
+}
+
+/* Индикатор + вертикальная капсула — правый бок ушка (к экрану), не над иконкой */
+.game-table-root.viewport-mobile .table-chat-side-ear-bundle__stack {
+  pointer-events: none;
+  position: absolute;
+  right: 5px;
+  left: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-bundle__stack > * {
+  pointer-events: auto;
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-bundle__stack .table-chat-side-ear-rail__unread-hit {
+  width: 21px;
+  height: 21px;
+  box-shadow:
+    0 0 0 1.5px rgba(15, 23, 42, 0.92),
+    0 2px 10px rgba(244, 114, 182, 0.4);
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-bundle__stack .table-chat-side-ear-rail__unread-dot {
+  width: 8px;
+  height: 8px;
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-preview-settings--ear-vertical {
+  flex-direction: column;
+  width: 22px;
+  min-height: 50px;
+  height: auto;
+  padding: 7px 0 8px;
+  border-radius: 999px;
+  color: #3730a3;
+  background:
+    radial-gradient(130% 70% at 50% 0%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0) 52%),
+    linear-gradient(
+      195deg,
+      rgba(255, 251, 254, 0.98) 0%,
+      rgba(224, 231, 255, 0.94) 26%,
+      rgba(199, 210, 254, 0.9) 52%,
+      rgba(165, 180, 252, 0.88) 74%,
+      rgba(125, 211, 252, 0.92) 100%
+    );
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(99, 102, 241, 0.12),
+    0 0 0 1px rgba(167, 139, 250, 0.28),
+    0 4px 16px rgba(79, 70, 229, 0.2),
+    0 0 22px rgba(56, 189, 248, 0.28);
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-preview-settings--ear-vertical:active {
+  transform: scale(0.96);
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-preview-settings--ear-vertical .table-chat-side-ear-preview-settings__disc {
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-preview-settings--ear-vertical .table-chat-side-ear-preview-settings__glyph {
+  width: 10px;
+  height: 10px;
+  transform: rotate(90deg);
+}
+
+/*
+ * Рельса: широкая зона тапа; визуал — толще, прижат к левому боку ушка (перекрытие стыка).
+ */
+.game-table-root.viewport-mobile .table-chat-side-ear-cluster .table-chat-side-ear-rail {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  align-self: stretch;
+  width: calc(28px * 1.1);
+  min-width: calc(28px * 1.1);
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  /* Въезжаем на ушко: полоска лежит на скруглении, без щели */
+  margin-right: calc(-8px * 1.1);
+  box-sizing: border-box;
+  display: block;
+  border: none;
+  cursor: pointer;
+  touch-action: none;
+  color: transparent;
+  font-size: 0;
+  line-height: 0;
+  -webkit-tap-highlight-color: transparent;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-cluster .table-chat-side-ear-rail::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: calc(12px * 1.1);
+  box-sizing: border-box;
+  pointer-events: none;
+  border-style: solid;
+  border-color: transparent;
+  border-width: 1px 0 1px 2px;
+  border-radius: 14px 0 0 14px;
+  background-image:
+    linear-gradient(180deg, rgba(30, 64, 175, 0.72) 0%, rgba(59, 130, 246, 0.65) 100%),
+    linear-gradient(
+      125deg,
+      #3b0764 0%,
+      #5b21b6 9%,
+      #6d28d9 20%,
+      #7c3aed 30%,
+      #8b5cf6 40%,
+      #a78bfa 48%,
+      #b8a3f6 56%,
+      #c9b8f8 62%,
+      #d4c4fd 66%,
+      #6ee7f0 73%,
+      #5ad4e8 78%,
+      #22d3ee 84%,
+      #38bdf8 91%,
+      #5abbf0 100%
+    );
+  background-size: 100% 100%, 100% 100%;
+  background-position: 0 0, 0 0;
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 0.5px rgba(139, 92, 246, 0.14),
+    inset 0 0 10px rgba(139, 92, 246, 0.08),
+    inset 0 0 10px rgba(34, 211, 238, 0.07),
+    -1px 0 8px rgba(124, 58, 237, 0.18),
+    0 0 0 1px rgba(167, 139, 250, 0.22),
+    0 2px 8px rgba(0, 0, 0, 0.16);
+  /* Слева (к ушку) — плотно; справа — мягкий срез у края экрана */
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    #000 0%,
+    #000 62%,
+    rgba(0, 0, 0, 0.92) 78%,
+    rgba(0, 0, 0, 0.45) 90%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    #000 0%,
+    #000 62%,
+    rgba(0, 0, 0, 0.92) 78%,
+    rgba(0, 0, 0, 0.45) 90%,
+    transparent 100%
+  );
+}
+
+/* Вертикальные «серебристые» линии по центру полоски, высота следует ушку */
+.game-table-root.viewport-mobile
+  .table-chat-side-ear-shell:not(.table-chat-side-ear-shell--rail-collapsed)
+  .table-chat-side-ear-cluster
+  .table-chat-side-ear-rail::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: calc(100% - (12px * 1.1 / 2));
+  transform: translate(-50%, -50%);
+  width: calc(6px * 1.1);
+  height: calc(100% - 20px);
+  min-height: 34px;
+  max-height: 72px;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0.9;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 8%, #000 92%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 8%, #000 92%, transparent 100%);
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 calc(1.1px * 1.1),
+    rgba(252, 252, 254, 0.82) calc(1.1px * 1.1) calc(1.85px * 1.1),
+    rgba(203, 213, 225, 0.4) calc(1.85px * 1.1) calc(2.35px * 1.1),
+    transparent calc(2.35px * 1.1) calc(4.6px * 1.1)
+  );
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-shell--rail-collapsed .table-chat-side-ear-cluster .table-chat-side-ear-rail {
+  margin: 0;
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-shell--rail-collapsed .table-chat-side-ear-cluster .table-chat-side-ear-rail-wrap {
+  margin: 0;
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-shell--rail-collapsed .table-chat-side-ear-cluster .table-chat-side-ear-rail::after {
+  content: none;
+}
+
+/* ▲/▼ на рельсе при свёрнутом ушке — градиентный текст как у ушка */
+.game-table-root.viewport-mobile .table-chat-side-ear-rail__chevron {
+  display: block;
+  line-height: 1;
+  font-size: 7px;
+  font-weight: 900;
+  position: absolute;
+  left: calc(100% - 8px * 1.1);
+  width: max-content;
+  max-width: 13px;
+  text-align: center;
+  z-index: 3;
+  background-image:
+    radial-gradient(ellipse 140% 95% at 50% 0%, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.18) 28%, transparent 58%),
+    linear-gradient(168deg, #f5f3ff 0%, #e0e7ff 12%, #a5b4fc 32%, #6366f1 58%, #38bdf8 82%, #0ea5e9 100%);
+  background-size: 100% 100%, 100% 100%;
+  background-position: center top, center;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 0.35px rgba(255, 255, 255, 0.22);
+  paint-order: stroke fill;
+  pointer-events: none;
+  user-select: none;
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-rail__chevron--up {
+  top: 0;
+  transform: translate(-50%, -50%);
+  filter:
+    drop-shadow(0 -0.5px 0 rgba(255, 255, 255, 0.55)) drop-shadow(0 1px 1.5px rgba(2, 6, 23, 0.42))
+    drop-shadow(0 0 4px rgba(129, 140, 248, 0.38));
+}
+
+.game-table-root.viewport-mobile .table-chat-side-ear-rail__chevron--down {
+  bottom: 0;
+  transform: translate(-50%, 50%);
+  background-image:
+    radial-gradient(ellipse 140% 95% at 50% 100%, rgba(255, 255, 255, 0.55) 0%, rgba(224, 242, 254, 0.2) 32%, transparent 58%),
+    linear-gradient(168deg, #f5f3ff 0%, #e0e7ff 12%, #a5b4fc 32%, #6366f1 58%, #38bdf8 82%, #0ea5e9 100%);
+  background-size: 100% 100%, 100% 100%;
+  background-position: center bottom, center;
+  filter:
+    drop-shadow(0 0.5px 0 rgba(186, 230, 253, 0.5)) drop-shadow(0 -1px 1.2px rgba(2, 6, 23, 0.38))
+    drop-shadow(0 0 4px rgba(56, 189, 248, 0.35));
+}
+
+/* Стык с ушком: левая обводка у рельсы, у ушка левый border не конкурирует (если задан border) */
+.game-table-root.viewport-mobile
+  .table-chat-side-ear-shell:has(.table-chat-side-ear-rail):not(.table-chat-side-ear-shell--rail-collapsed)
+  .table-chat-side-ear {
+  border-left-color: transparent;
+}
+
+.table-chat-side-ear-rail__unread-hit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  background: radial-gradient(circle at 30% 25%, rgba(251, 207, 232, 0.95) 0%, rgba(244, 114, 182, 0.55) 45%, rgba(99, 102, 241, 0.35) 100%);
+  box-shadow:
+    0 0 0 2px rgba(15, 23, 42, 0.9),
+    0 4px 14px rgba(244, 114, 182, 0.35);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.table-chat-side-ear-rail__unread-dot {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+}
+
+/* —— шестерёнка превью —— */
+.table-chat-side-ear-preview-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #e0f2fe;
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 27, 75, 0.88) 100%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.28),
+    0 4px 14px rgba(2, 6, 23, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.table-chat-side-ear-preview-settings--off {
+  opacity: 0.55;
+}
+
+.table-chat-side-ear-preview-settings__disc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: linear-gradient(145deg, rgba(56, 189, 248, 0.25), rgba(167, 139, 250, 0.2));
+}
+
+.table-chat-side-ear-preview-settings__glyph {
+  display: block;
+  opacity: 0.95;
+}
+
+/* —— фантом —— */
+.table-chat-side-ear-phantom {
+  position: relative;
+  align-self: center;
+  max-width: min(78vw, 300px);
+  margin-right: 4px;
+  padding: 10px 12px 12px;
+  border-radius: 14px;
+  color: #e2e8f0;
+  background: linear-gradient(165deg, rgba(15, 23, 42, 0.97) 0%, rgba(30, 27, 75, 0.94) 100%);
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(99, 102, 241, 0.12),
+    0 16px 40px rgba(2, 6, 23, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.table-chat-side-ear-phantom--unread-expanded {
+  max-width: min(92vw, 360px);
+  max-height: min(70vh, 520px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.table-chat-side-ear-phantom--reply-open.table-chat-side-ear-phantom--unread-expanded {
+  max-height: min(82vh, 620px);
+}
+
+.table-chat-side-ear-phantom__grad-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.table-chat-side-ear-phantom__dismiss {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #94a3b8;
+  background: rgba(15, 23, 42, 0.65);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.table-chat-side-ear-phantom__dismiss-icon {
+  display: block;
+}
+
+.table-chat-side-ear-phantom__typing {
+  display: block;
+  padding: 22px 28px 6px 4px;
+  font-size: 12px;
+  font-style: italic;
+  color: #a5f3fc;
+}
+
+.table-chat-side-ear-phantom__lines-stack-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding-top: 22px;
+  padding-right: 28px;
+}
+
+.table-chat-side-ear-phantom__lines-stack-wrap--fresh-on-top {
+  flex-direction: column-reverse;
+}
+
+.table-chat-side-ear-phantom__preview-stack {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.table-chat-side-ear-phantom__preview-stack-btn {
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #cbd5e1;
+  background: rgba(15, 23, 42, 0.55);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.table-chat-side-ear-phantom__preview-stack-btn--active {
+  border-color: rgba(34, 211, 238, 0.55);
+  color: #f0fdfa;
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.2), rgba(129, 140, 248, 0.18));
+}
+
+.table-chat-side-ear-phantom__lines {
+  font-size: 12px;
+  line-height: 1.45;
+  max-height: min(28vh, 200px);
+  overflow-y: auto;
+  padding: 2px 2px 4px;
+  word-break: break-word;
+  touch-action: pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34, 211, 238, 0.45) rgba(15, 23, 42, 0.35);
+}
+
+.table-chat-side-ear-phantom__lines::-webkit-scrollbar {
+  width: 6px;
+}
+
+.table-chat-side-ear-phantom__lines::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.55), rgba(129, 140, 248, 0.45));
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.6);
+}
+
+.table-chat-side-ear-phantom__lines::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 999px;
+}
+
+.table-chat-side-ear-phantom--unread-expanded .table-chat-side-ear-phantom__lines {
+  max-height: min(42vh, 320px);
+}
+
+.table-chat-side-ear-phantom__author {
+  font-weight: 800;
+  color: #22d3ee;
+}
+
+.table-chat-side-ear-phantom__sep {
+  color: #64748b;
+}
+
+.table-chat-side-ear-phantom__body {
+  color: #e2e8f0;
+}
+
+.table-chat-side-ear-phantom__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(51, 65, 85, 0.65);
+}
+
+.table-chat-side-ear-phantom__tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  cursor: pointer;
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.6);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.table-chat-side-ear-phantom__tool-glyph {
+  display: block;
+}
+
+.table-chat-side-ear-phantom__tool-char {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.table-chat-side-ear-phantom__tool-char--grad {
+  background: linear-gradient(120deg, #22d3ee, #a78bfa, #fb7185);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* —— блок ответа —— */
+.table-chat-side-ear-phantom__reply-box {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.table-chat-side-ear-phantom__reply-quote-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.table-chat-side-ear-phantom__reply-quote-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  cursor: pointer;
+  text-align: left;
+  font-size: 11px;
+  color: #cbd5e1;
+  background: rgba(2, 6, 23, 0.35);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.table-chat-side-ear-phantom__reply-quote-toggle--on {
+  border-style: solid;
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(34, 211, 238, 0.08);
+}
+
+.table-chat-side-ear-phantom__reply-quote-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.table-chat-side-ear-phantom__reply-quote-toggle__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.table-chat-side-ear-phantom__reply-quote-toggle__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 12px;
+  color: #64748b;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(100, 116, 139, 0.4);
+}
+
+.table-chat-side-ear-phantom__reply-quote-toggle__mark--active {
+  color: #0f172a;
+  background: linear-gradient(135deg, #22d3ee, #818cf8);
+  border-color: transparent;
+}
+
+.table-chat-side-ear-phantom__reply-quote-toggle__main {
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.table-chat-side-ear-phantom__reply-quote-toggle__micro {
+  font-size: 10px;
+  color: #64748b;
+  padding-left: 30px;
+}
+
+.table-chat-side-ear-phantom__reply-anchor-wrap {
+  width: 100%;
+}
+
+.table-chat-side-ear-phantom__reply-anchor-flip-btn {
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #e0e7ff;
+  background: rgba(49, 46, 129, 0.35);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.table-chat-side-ear-phantom__reply-anchor-flip-btn--on {
+  border-color: rgba(34, 211, 238, 0.5);
+  background: rgba(34, 211, 238, 0.1);
+}
+
+.table-chat-side-ear-phantom__reply-anchor-flip-btn__text {
+  display: block;
+}
+
+.table-chat-side-ear-phantom__reply-anchor-flip-btn__ot {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #22d3ee;
+}
+
+.table-chat-side-ear-phantom__reply-anchor-flip-btn__name {
+  font-weight: 800;
+  color: #fae8ff;
+}
+
+.table-chat-side-ear-phantom__reply-input-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.table-chat-side-ear-phantom__reply-input-wrap--quoted {
+  gap: 10px;
+}
+
+.table-chat-side-ear-phantom__reply-input-wrap--quoted .table-chat-side-ear-phantom__reply-input {
+  min-height: 80px;
+}
+
+.table-chat-side-ear-phantom__reply-quote-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  background: rgba(15, 23, 42, 0.75);
+}
+
+.table-chat-side-ear-phantom__reply-quote-card__accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #22d3ee, #a78bfa);
+}
+
+.table-chat-side-ear-phantom__reply-quote-card__body {
+  padding: 8px 10px 8px 14px;
+}
+
+.table-chat-side-ear-phantom__reply-quote-card__kicker {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.table-chat-side-ear-phantom__reply-quote-card__author {
+  font-size: 12px;
+  font-weight: 800;
+  color: #a5f3fc;
+  margin: 2px 0 4px;
+}
+
+.table-chat-side-ear-phantom__reply-quote-card__excerpt {
+  margin: 0;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #cbd5e1;
+  border: none;
+}
+
+.table-chat-side-ear-phantom__reply-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 72px;
+  resize: vertical;
+  padding: 10px 12px 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(100, 116, 139, 0.45);
+  font-size: 13px;
+  line-height: 1.35;
+  color: #f8fafc;
+  background: rgba(2, 6, 23, 0.55);
+  font-family: inherit;
+  touch-action: manipulation;
+}
+
+.table-chat-side-ear-phantom__reply-input:focus {
+  outline: none;
+  border-color: rgba(34, 211, 238, 0.55);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25);
+}
+
+.table-chat-side-ear-phantom__reply-input:disabled {
+  opacity: 0.55;
+}
+
+.table-chat-side-ear-phantom__reply-send-float {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #0f172a;
+  background: linear-gradient(135deg, #5eead4 0%, #22d3ee 45%, #818cf8 100%);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.table-chat-side-ear-phantom__reply-send-float:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.table-chat-side-ear-phantom__reply-send-float__dot {
+  letter-spacing: 2px;
+  font-weight: 900;
+}
+
+/* —— тост настроек превью (портал на body) —— */
+.table-chat-ear-preview-toast-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(2, 6, 23, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.table-chat-ear-preview-toast {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 121;
+  width: min(92vw, 360px);
+  padding: 16px 18px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background: linear-gradient(165deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.95) 100%);
+  box-shadow: 0 24px 60px rgba(2, 6, 23, 0.65);
+  color: #e2e8f0;
+}
+
+.table-chat-ear-preview-toast__title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #f1f5f9;
+}
+
+.table-chat-ear-preview-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.35;
+  color: #cbd5e1;
+}
+
+.table-chat-ear-preview-switch__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.table-chat-ear-preview-switch__visual {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+}
+
+.table-chat-ear-preview-switch__track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(51, 65, 85, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.35);
+}
+
+.table-chat-ear-preview-switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #f8fafc;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: transform 0.18s ease;
+}
+
+.table-chat-ear-preview-switch__input:checked + .table-chat-ear-preview-switch__visual .table-chat-ear-preview-switch__track {
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.55), rgba(129, 140, 248, 0.5));
+}
+
+.table-chat-ear-preview-switch__input:checked + .table-chat-ear-preview-switch__visual .table-chat-ear-preview-switch__knob {
+  transform: translateX(20px);
+}
+
+.table-chat-ear-preview-switch__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.table-chat-ear-preview-toast__done {
+  margin-top: 14px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #0f172a;
+  background: linear-gradient(135deg, #5eead4, #22d3ee);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table-chat-ear-preview-switch__knob {
+    transition: none;
+  }
+}
+
+/*
+ * «Обычная» вёрстка при низком экране с opt-out из short-VH (GameTable: viewport-mobile-standard-from-short-vh).
+ * Раньше жило в index.css и не попало в git — здесь только нижний воздух под свёрнутый чат + ушко.
+ */
+.game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.game-mobile-table-chat
+  .game-table-main-wrap.game-table-main-wrap--standard-from-short-vh {
+  scroll-padding-bottom: max(112px, 22dvh);
+  padding-bottom: max(96px, 18dvh);
+  box-sizing: border-box;
+}
