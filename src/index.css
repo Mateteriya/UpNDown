@@ -62,9 +62,9 @@
 @import './theme-neon.css';
 
 /*
- * «Замок» палитры карт (класс на html от cardPaletteLock): не трогаем #root и весь UI —
- * только сами карты, чтобы WebView не перекрашивал фон и масти.
- * Класс theme-standard на самом <html>, поэтому без пробела: иначе селектор не матчится.
+ * Замок палитры карт (класс updown-card-palette-lock на html): только кнопки карт и их img.
+ * Класс theme-standard задан на том же элементе html, поэтому в селекторе подряд:
+ * html.theme-standard.updown-card-palette-lock (не «html … .theme-standard» с пробелом).
  */
 html.theme-standard.updown-card-palette-lock button.card-view-root,
 html.theme-standard.updown-card-palette-lock button.card-view-root img {
