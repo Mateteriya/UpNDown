@@ -64,9 +64,10 @@
 /*
  * «Замок» палитры карт (класс на html от cardPaletteLock): не трогаем #root и весь UI —
  * только сами карты, чтобы WebView не перекрашивал фон и масти.
+ * Класс theme-standard на самом <html>, поэтому без пробела: иначе селектор не матчится.
  */
-html.updown-card-palette-lock .theme-standard button.card-view-root,
-html.updown-card-palette-lock .theme-standard button.card-view-root img {
+html.theme-standard.updown-card-palette-lock button.card-view-root,
+html.theme-standard.updown-card-palette-lock button.card-view-root img {
   color-scheme: only light !important;
   -webkit-forced-color-adjust: none !important;
   forced-color-adjust: none !important;
