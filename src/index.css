@@ -66,6 +66,7 @@
  * Класс theme-standard задан на том же элементе html, поэтому в селекторе подряд:
  * html.theme-standard.updown-card-palette-lock (не «html … .theme-standard» с пробелом).
  */
+/* Не использовать селектор с пробелом: html.updown-card-palette-lock .theme-standard ... — он не матчится. */
 html.theme-standard.updown-card-palette-lock button.card-view-root,
 html.theme-standard.updown-card-palette-lock button.card-view-root img {
   color-scheme: only light !important;
