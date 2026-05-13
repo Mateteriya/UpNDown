@@ -64,10 +64,11 @@
 /*
  * Замок палитры карт: на html — класс updown-card-palette-lock (долгое нажатие на лампу),
  * на корне стола — card-palette-lock-active (см. GameTable).
- * — Подсказки движку на самих картах (color-scheme, forced-color-adjust). Без filter:none на картах:
- *   иначе ломается компенсация ниже.
- * — Компенсация полноэкранной инверсии ОС/Яндекса: invert только на .game-table-root, не на весь #root.
- *   Если инверсии нет, а стол «улетел» по цветам — снова удержание лампы, выключите замок.
+ * — Подсказки движку на самих картах (color-scheme, forced-color-adjust).
+ * — Компенсация инверсии ОС/Яндекса: invert на игровом корне (не на #root).
+ * — viewport-mobile-short: в WebKit слой стола часто уезжает в .game-table-main-wrap — invert переносим туда,
+ *   у корня в short сбрасываем filter, иначе ОС может крутить цвета только во внутреннем композитном слое.
+ *   Если без инверсии цвета «улетели» — снова удержание лампы, выключите замок.
  */
 /* Не использовать: html.updown-card-palette-lock .theme-standard ... (пробел) — не матчится. */
 html.theme-standard.updown-card-palette-lock button.card-view-root,
@@ -77,10 +78,23 @@ html.theme-standard.updown-card-palette-lock button.card-view-root img {
   forced-color-adjust: none !important;
 }
 
-html.theme-standard.updown-card-palette-lock .game-table-root.card-palette-lock-active {
+html.theme-standard.updown-card-palette-lock .game-table-root.card-palette-lock-active:not(.viewport-mobile-short) {
   isolation: isolate;
   -webkit-filter: invert(1) hue-rotate(180deg);
   filter: invert(1) hue-rotate(180deg);
+}
+
+html.theme-standard.updown-card-palette-lock .game-table-root.viewport-mobile-short.card-palette-lock-active {
+  -webkit-filter: none !important;
+  filter: none !important;
+}
+
+html.theme-standard.updown-card-palette-lock
+  .game-table-root.viewport-mobile-short.card-palette-lock-active
+  .game-table-main-wrap {
+  isolation: isolate;
+  -webkit-filter: invert(1) hue-rotate(180deg) !important;
+  filter: invert(1) hue-rotate(180deg) !important;
 }
 
 /* ПК: лампа — тонкое кольцо, если включён замок палитры карт */
