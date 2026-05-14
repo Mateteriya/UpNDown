@@ -63,22 +63,15 @@
 
 /*
  * Замок палитры карт: класс updown-card-palette-lock на html (долгое нажатие на лампу).
- * — Карты: color-scheme + forced-color-adjust.
- * — Компенсация инверсии WebView/ОС: invert на самом html (весь вывод страницы), иначе на части
- *   дерева эффект часто не виден (отдельные композитные слои, short, Яндекс).
- * — В theme-standard.css у .theme-standard стоит filter:none !important — поэтому здесь тоже !important
- *   и селектор html.theme-standard.updown-card-palette-lock (выше специфичность).
- * — Если инверсии снаружи нет, экран станет «негативом» — снова удержание лампы, выключите.
+ * — Только сами карты (кнопки .card-view-root): color-scheme, forced-color-adjust.
+ * — Компенсация инверсии WebView/ОС: invert+hue-rotate только на кнопке карты, не на всём приложении.
+ * — Если инверсии снаружи нет, сами карты станут «негативом» — снова удержание лампы, выключите.
  */
 /* Не использовать: html.updown-card-palette-lock .theme-standard ... (пробел) — не матчится. */
-html.theme-standard.updown-card-palette-lock button.card-view-root,
-html.theme-standard.updown-card-palette-lock button.card-view-root img {
+html.theme-standard.updown-card-palette-lock button.card-view-root {
   color-scheme: only light !important;
   -webkit-forced-color-adjust: none !important;
   forced-color-adjust: none !important;
-}
-
-html.theme-standard.updown-card-palette-lock {
   isolation: isolate !important;
   -webkit-filter: invert(1) hue-rotate(180deg) !important;
   filter: invert(1) hue-rotate(180deg) !important;
