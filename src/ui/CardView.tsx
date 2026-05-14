@@ -145,6 +145,8 @@ export interface CardViewProps {
   mobileHandPeekLift?: boolean;
   /** Моб. нахлёст + недоступная карта: касания идут на слот под кнопкой (жест «пианино» по ряду). */
   mobileOverlapHandPointerPassthrough?: boolean;
+  /** Лаборатория / демо: принудительно тёмный лист карты (как моб. «неон»), без смены глобальной темы. */
+  labDarkCardFace?: boolean;
 }
 
 const suitColorLight: Record<string, string> = {
@@ -173,10 +175,11 @@ const CARD_BG_DARK = 'linear-gradient(145deg, #0f172a 0%, #1e293b 20%, #312e81 4
 const CARD_BG_DARK_TRUMP = 'linear-gradient(145deg, #1e293b 0%, #312e81 25%, #4338ca 50%, #334155 75%, #1e293b 100%)';
 const CARD_BG_DARK_HIGHLIGHT = 'linear-gradient(145deg, #1e293b 0%, #334155 30%, #475569 50%, #334155 70%, #1e293b 100%)';
 
-export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, mobileTrumpShineBidding = false, mobileHandPeekLift = false, mobileOverlapHandPointerPassthrough = false }: CardViewProps) {
-  const { theme } = useTheme();
-  /** Тёмная тема карт — только на мобильной/планшете; на ПК всегда светлый стиль */
-  const isDark = theme === 'neon' && !pcCardStyles;
+export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, mobileTrumpShineBidding = false, mobileHandPeekLift = false, mobileOverlapHandPointerPassthrough = false, labDarkCardFace = false }: CardViewProps) {
+  const { theme, cardPaletteLock } = useTheme();
+  /** Тёмный лист: лаборатория, старый neon+мобила, или «замок» в игре только когда не ПК-стили карты */
+  const isDark =
+    labDarkCardFace || (theme === 'neon' && !pcCardStyles) || (!!cardPaletteLock && !pcCardStyles);
   const cs = contentScale ?? scale;
   const suitColor = isDark ? suitColorDark : suitColorLight;
   const color = suitColor[card.suit];

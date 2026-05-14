@@ -62,20 +62,10 @@
 @import './theme-neon.css';
 
 /*
- * Замок палитры карт: класс updown-card-palette-lock на html (долгое нажатие на лампу).
- * — Только сами карты (кнопки .card-view-root): color-scheme, forced-color-adjust.
- * — Компенсация инверсии WebView/ОС: invert+hue-rotate только на кнопке карты, не на всём приложении.
- * — Если инверсии снаружи нет, сами карты станут «негативом» — снова удержание лампы, выключите.
+ * Замок палитры (updown-card-palette-lock на html): без CSS invert — оформление карт в игре
+ * задаётся в CardView по cardPaletteLock (см. ThemeContext). Класс на html остаётся для localStorage
+ * при первой отрисовке и возможных будущих глобальных подсказках.
  */
-/* Не использовать: html.updown-card-palette-lock .theme-standard ... (пробел) — не матчится. */
-html.theme-standard.updown-card-palette-lock button.card-view-root {
-  color-scheme: only light !important;
-  -webkit-forced-color-adjust: none !important;
-  forced-color-adjust: none !important;
-  isolation: isolate !important;
-  -webkit-filter: invert(1) hue-rotate(180deg) !important;
-  filter: invert(1) hue-rotate(180deg) !important;
-}
 
 /* ПК: лампа — тонкое кольцо, если включён замок палитры карт */
 .game-table-root:not(.viewport-mobile) .game-header button.trump-lamp-card-palette-lock-on {

@@ -1353,7 +1353,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     setTrumpHighlightOn((v) => !v);
   }, []);
   const trumpLampHintTitle =
-    'Короткое нажатие — доп. подсветка козыря и стола. Удержание ~0,6 с — если только карты перекрашены (тёмный фон вместо белого): компенсация только на картах. Если и так всё нормально — сами карты станут негативом; снова удержание, выключите.';
+    'Короткое нажатие — доп. подсветка козыря и стола. Удержание ~0,6 с — тёмный лист карт на телефоне/планшете (как в лаборатории /demo/cards-dark); снова удержание — выключить. Стол ПК не меняется.';
   /** ПК: гирлянда — через USER_PANEL_GARLAND_IDLE_PC_MS бездействия (pointer/key), не с начала хода мгновенно */
   const [userTurnGarlandReady, setUserTurnGarlandReady] = useState(false);
   /** ПК: усиленный сигнал «пора ходить» после USER_PANEL_STRONG_NUDGE_IDLE_PC_MS простоя */
