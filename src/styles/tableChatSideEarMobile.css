@@ -40,19 +40,28 @@
   font-size: 13px;
 }
 
-/* —— shell: fixed у правого края, дети в ряд (ушко справа) —— */
+/* —— shell: fixed у правого края; центр — translateY(-50%) только здесь (высота не должна прыгать во время drag — lock в JS). —— */
 .table-chat-side-ear-shell {
   position: fixed;
   right: 0;
   z-index: 88;
+  pointer-events: auto;
+  touch-action: none;
+  /* filter на всём shell ломает overflow/scroll у потомков во WebKit — тень только у кнопки «Чат», не у всего кластера (иначе «полоска» слева от рельсы). */
+  filter: none;
+  /* translateZ(0): стабильный композитный слой — иначе над верхней каймой кластера иногда виден субпиксельный «волосок» до первого движения/drag */
+  transform: translateY(-50%) translateZ(0);
+}
+
+/* Контент + смещение при drag только в px (без % в transform) — React не трогает этот узел, переменная не сбрасывается при ре-рендерах чата. */
+.table-chat-side-ear-shell__drag-shift {
   display: flex;
   flex-direction: row-reverse;
   align-items: center;
   gap: 0;
   max-width: min(96vw, 440px);
-  pointer-events: auto;
-  touch-action: none;
-  filter: drop-shadow(-6px 10px 28px rgba(2, 6, 23, 0.55));
+  transform: translate3d(0, var(--side-ear-drag-y, 0px), 0.01px);
+  backface-visibility: hidden;
 }
 
 .table-chat-side-ear-shell--activity-typing .table-chat-side-ear {
@@ -60,7 +69,8 @@
     inset 0 1px 0 #7c3aed,
     -1px 0 0 rgb(20 46 201),
     0 0 0 1px rgba(56, 189, 248, 0.55),
-    0 0 18px rgba(34, 211, 238, 0.35);
+    0 0 18px rgba(34, 211, 238, 0.35),
+    0 10px 26px rgba(2, 6, 23, 0.38);
 }
 
 .table-chat-side-ear-shell--activity-unread .table-chat-side-ear {
@@ -68,7 +78,8 @@
     inset 0 1px 0 #7c3aed,
     -1px 0 0 rgb(20 46 201),
     0 0 0 1px rgba(244, 114, 182, 0.45),
-    0 0 20px rgba(244, 114, 182, 0.25);
+    0 0 20px rgba(244, 114, 182, 0.25),
+    0 10px 26px rgba(2, 6, 23, 0.38);
 }
 
 .table-chat-side-ear-shell--preview-suppressed .table-chat-side-ear {
@@ -77,6 +88,14 @@
 
 .table-chat-side-ear-shell--phantom-unread-expanded {
   z-index: 90;
+}
+
+/*
+ * Раскрытый фантом: вертикальный pan на shell, иначе touch-action:none у предка
+ * пересекается с pan-y у .phantom__lines и скролл текста не стартует (Chromium/WebKit).
+ */
+.table-chat-side-ear-shell.table-chat-side-ear-shell--phantom-unread-expanded {
+  touch-action: pan-y;
 }
 
 /* —— ушко —— */
@@ -92,7 +111,7 @@
   padding: 10px 5px 19px;
   margin: 0;
   border: none;
-  border-radius: 14px 0 0 14px;
+  border-radius: 0;
   cursor: pointer;
   color: #e2e8f0;
   background: linear-gradient(
@@ -103,7 +122,8 @@
   );
   box-shadow:
     inset 0 1px 0 #7c3aed,
-    -1px 0 0 rgb(20 46 201);
+    -1px 0 0 rgb(20 46 201),
+    0 10px 26px rgba(2, 6, 23, 0.42);
   -webkit-tap-highlight-color: transparent;
   overflow: visible;
 }
@@ -112,45 +132,47 @@
   transform: scale(0.98);
 }
 
-/* Стрелки на верхней/нижней границе ушка, смещены наружу; градиент «хрусталь / космос» как у иконки чата */
+/* Стрелки у границ ушка: SVG + градиент; без filter — иначе тонкая кромка у каймы при композите */
+.table-chat-side-ear__chevron-grad-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .table-chat-side-ear__chevron {
   position: absolute;
   left: 50%;
   z-index: 2;
-  font-size: 12px;
-  line-height: 1;
-  width: 1em;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--ear-chevron-visual-w, calc(14px * 1.15));
+  height: auto;
+  margin: 0;
+  padding: 0;
   pointer-events: none;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  background: linear-gradient(
-    168deg,
-    #faf5ff 0%,
-    #e9d5ff 14%,
-    #c4b5fd 28%,
-    #a78bfa 42%,
-    #818cf8 56%,
-    #38bdf8 72%,
-    #22d3ee 86%,
-    #5eead4 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  filter:
-    drop-shadow(0 0 5px rgba(167, 139, 250, 0.55))
-    drop-shadow(0 0 8px rgba(56, 189, 248, 0.4))
-    drop-shadow(0 1px 2px rgba(2, 6, 23, 0.7));
+  border: none;
+  background: none;
+}
+
+.table-chat-side-ear__chevron-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  shape-rendering: geometricPrecision;
 }
 
 .table-chat-side-ear__chevron--up {
   top: 0;
-  transform: translate(-50%, -72%);
+  transform: translate(-50%, calc(-100% - 3px));
 }
 
 .table-chat-side-ear__chevron--down {
   bottom: 0;
-  transform: translate(-50%, 72%);
+  transform: translate(-50%, calc(100% + 3px));
 }
 
 .table-chat-side-ear__glyph {
@@ -177,33 +199,90 @@
 
 /* Рельса слева от ушка, общая высота с ушком (flex stretch), без «уезда» в центр */
 .table-chat-side-ear-cluster {
+  /* hit — ширина колонки тапа; bar — визуальная полоска. Шире под крупные ▲▼ и палец */
+  --ear-rail-bar: 22px;
+  --ear-rail-hit: 44px;
+  /*
+   * Перекрытие ушка на колонку рельсы: margin-left у .table-chat-side-ear-bundle.
+   * Формула −(hit − bar): левый край ушка совпадает с началом полоски; без экстремальных значений
+   * вроде −hit+3px (они ломали flex и визуально «уносили» рельсу на середину ушка).
+   * Слева от полоски — только прозрачная тап-зона; фон рельсы — .table-chat-side-ear-rail::before; две узкие полоски — span внутри кнопки.
+   */
+  --ear-rail-bundle-overlap: calc(-1 * var(--ear-rail-hit) + var(--ear-rail-bar));
+  /* Ушко заезжает под рельсу на (hit − bar); центр flex по полной ширине визуально уезжает влево — сдвигаем контент вправо на половину этой зоны. */
+  --ear-rail-visual-overlap: calc(var(--ear-rail-hit) - var(--ear-rail-bar));
+  --ear-rail-ear-content-shift-x: calc(var(--ear-rail-visual-overlap) / 2);
+  /* Кристальная обводка рельса (span): верх/низ — rim; слева толще на 1px (rim-left), стык с горизонталями кластера */
+  --ear-rail-crystal-rim: 3px;
+  --ear-rail-crystal-rim-left: 4px;
+  /* Кристалл заезжает в тап-колонку на N px; inset дыры по X += N, иначе кайма не толще — только сдвиг. */
+  --ear-rail-crystal-bleed-x: 2px;
+  /* Внутренняя кайма слева толще — центр контента смещён на половину rim-left */
+  --ear-rail-content-center-offset: calc(var(--ear-rail-crystal-rim-left) / 2);
+  /* Один цикл conic-перелива на кайме */
+  --ear-rail-shimmer-cycle: 2.75s;
+  /* Лицевая заливка каймы (один градиент на весь контур) */
+  --ear-rail-rim-face-grad: linear-gradient(
+    125deg,
+    #5b21b6 0%,
+    #6d28d9 10%,
+    #7c3aed 20%,
+    #a855f7 32%,
+    #c026d3 44%,
+    #7c3aed 52%,
+    #22d3ee 64%,
+    #14b8a6 76%,
+    #eab308 88%,
+    #fef9c3 100%
+  );
+  /* Компакт по высоте ушко+рельса (~−13%, в диапазоне −12…−14%). Потомки наследуют scale для calc(). */
+  --ear-cluster-v-scale: 0.87;
+  --ear-cluster-min-h: calc(120px * var(--ear-cluster-v-scale));
+  /* Ширина ▲/▼ (SVG): масштаб с кластером */
+  --ear-chevron-visual-w: calc(14px * 1.15 * 1.173 * var(--ear-cluster-v-scale));
   display: flex;
   flex-direction: row;
   align-items: stretch;
   flex-shrink: 0;
   position: relative;
+  /* Слой композита вместе с shell/drag-shift — меньше субпиксельных швов у верхней каймы */
+  transform: translateZ(0);
 }
 
 .table-chat-side-ear-rail-wrap {
   box-sizing: border-box;
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-cluster .table-chat-side-ear-rail-wrap {
+.table-chat-side-ear-cluster .table-chat-side-ear-rail-wrap {
   display: flex;
   flex-direction: column;
   justify-content: stretch;
   /* Полоска прижата к ушку (к правому краю колонки рельсы = стык с ушком) */
   align-items: flex-end;
   flex: 0 0 auto;
+  flex-basis: var(--ear-rail-hit);
+  width: var(--ear-rail-hit);
+  min-width: var(--ear-rail-hit);
+  max-width: var(--ear-rail-hit);
   align-self: stretch;
   padding: 0;
   margin: 0;
   min-height: 0;
   position: relative;
   z-index: 2;
+  overflow: visible;
+  /* Две полоски внутри кнопки рельсы: зазор от кружка сверху и от капсулы снизу */
+  --ear-rail-stripe-gap: calc(8px * var(--ear-cluster-v-scale));
+  --ear-rail-unread-top: calc(5px * var(--ear-cluster-v-scale));
+  --ear-rail-unread-hit-h: calc(15px * var(--ear-cluster-v-scale));
+  --ear-rail-preview-bottom: calc(6px * var(--ear-cluster-v-scale));
+  --ear-rail-capsule-h: calc(42px * var(--ear-cluster-v-scale));
+  /* Чёткий зазор между полосками = дырка в flex, виден только ::before рельсы (без полупрозрачных наслоений) */
+  --ear-rail-twin-stripe-w: max(3.5px, calc(var(--ear-rail-bar) * 0.2));
+  --ear-rail-twin-gap: calc(5px * var(--ear-cluster-v-scale));
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-bundle {
+.table-chat-side-ear-bundle {
   position: relative;
   flex: 0 0 auto;
   align-self: stretch;
@@ -211,51 +290,129 @@
   display: flex;
   flex-direction: column;
   z-index: 1;
+  /* Ушко заезжает под колонку рельсы (rail-wrap выше по z-index) — единая «левая» грань с полоской */
+  margin-left: var(--ear-rail-bundle-overlap);
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-cluster .table-chat-side-ear {
+.table-chat-side-ear-cluster--rail-collapsed {
+  position: relative;
+  /* visible — стрелки ▲▼ вылезают за высоту рельсы (как у основного ушка); ушко всё равно absolute и уехало вправо */
+  overflow: visible;
+  width: var(--ear-rail-hit);
+  min-width: var(--ear-rail-hit);
+  max-width: var(--ear-rail-hit);
+  /*
+   * Ушко убрано из потока (absolute) — высоту колонке больше не задаёт flex-дочерний bundle.
+   * Иначе height:100% у .table-chat-side-ear-rail схлопывается в 0 и рельса «пропадает».
+   */
+  min-height: var(--ear-cluster-min-h);
+}
+
+.table-chat-side-ear-cluster.table-chat-side-ear-cluster--rail-collapsed
+  .table-chat-side-ear-rail-wrap {
+  flex: 1 1 auto;
+  min-height: var(--ear-cluster-min-h);
   align-self: stretch;
-  min-width: 52px;
+  --ear-rail-unread-top: calc(7px * var(--ear-cluster-v-scale));
+  --ear-rail-preview-bottom: calc(8px * var(--ear-cluster-v-scale));
+  --ear-rail-capsule-h: calc(36px * var(--ear-cluster-v-scale));
 }
 
-/* Индикатор + вертикальная капсула — правый бок ушка (к экрану), не над иконкой */
-.game-table-root.viewport-mobile .table-chat-side-ear-bundle__stack {
-  pointer-events: none;
+.table-chat-side-ear-cluster--rail-collapsed .table-chat-side-ear-rail {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: var(--ear-cluster-min-h);
+  background: transparent;
+}
+
+.table-chat-side-ear-cluster--rail-collapsed .table-chat-side-ear-bundle {
+  margin-left: 0;
   position: absolute;
-  right: 5px;
+  top: 0;
+  right: 0;
+  bottom: 0;
   left: auto;
-  top: 50%;
-  transform: translateY(-50%);
+  width: max-content;
+  transform: translate3d(100%, 0, 0);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* У края экрана — скругления справа минимальные; маска снята */
+.table-chat-side-ear-cluster--rail-collapsed .table-chat-side-ear-rail::before {
+  border-radius: 0 max(1px, 1%) max(1px, 1%) 0;
+  border-width: 1px 2px 1px 0;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.table-chat-side-ear-cluster .table-chat-side-ear {
+  align-self: stretch;
+  min-width: 48px;
+  /* ~×2 по вертикали относительно базового ушка: больше места под иконку, «Чат», стрелки и контролы на рельсе */
+  padding: calc(20px * var(--ear-cluster-v-scale)) 6px calc(38px * var(--ear-cluster-v-scale));
+  gap: calc(14px * var(--ear-cluster-v-scale));
+  border-radius: 0;
+  transform: translateX(var(--ear-rail-ear-content-shift-x));
+}
+
+.table-chat-side-ear-cluster:not(.table-chat-side-ear-cluster--rail-collapsed) .table-chat-side-ear:active {
+  transform: translateX(var(--ear-rail-ear-content-shift-x)) scale(0.98);
+}
+
+.table-chat-side-ear-cluster .table-chat-side-ear__chevron {
+  width: var(--ear-chevron-visual-w);
+}
+
+.table-chat-side-ear-cluster .table-chat-side-ear__glyph-svg {
+  width: calc(28px * var(--ear-cluster-v-scale));
+  height: calc(28px * var(--ear-cluster-v-scale));
+}
+
+.table-chat-side-ear-cluster .table-chat-side-ear__label {
+  font-size: calc(13px * var(--ear-cluster-v-scale));
+}
+
+/*
+ * Индикатор и капсула — по центру внутренней визуальной полоски (учёт каймы кристалла слева),
+ * а не по центру всей ширины тап-зоны: иначе left:50% смещает их влево от полоски и на ушко.
+ */
+.table-chat-side-ear-rail__unread-hit--on-rail {
+  position: absolute;
+  top: calc(5px * var(--ear-cluster-v-scale));
+  left: calc(100% - var(--ear-rail-bar) / 2 + var(--ear-rail-content-center-offset));
+  right: auto;
+  transform: translateX(-50%);
   z-index: 6;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  padding: 0;
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-bundle__stack > * {
-  pointer-events: auto;
+.table-chat-side-ear-rail__unread-hit--on-rail .table-chat-side-ear-rail__unread-dot {
+  width: 6px;
+  height: 6px;
+  box-shadow: 0 0 7px rgba(255, 255, 255, 0.9);
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-bundle__stack .table-chat-side-ear-rail__unread-hit {
-  width: 21px;
-  height: 21px;
-  box-shadow:
-    0 0 0 1.5px rgba(15, 23, 42, 0.92),
-    0 2px 10px rgba(244, 114, 182, 0.4);
+.table-chat-side-ear-rail__preview-on-rail {
+  position: absolute;
+  bottom: var(--ear-rail-preview-bottom);
+  left: calc(100% - var(--ear-rail-bar) / 2 + var(--ear-rail-content-center-offset) - 1.5px);
+  right: auto;
+  transform: translateX(-50%);
+  z-index: 6;
+  margin: 0;
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-bundle__stack .table-chat-side-ear-rail__unread-dot {
-  width: 8px;
-  height: 8px;
-}
-
-.game-table-root.viewport-mobile .table-chat-side-ear-preview-settings--ear-vertical {
+.table-chat-side-ear-preview-settings--ear-vertical {
   flex-direction: column;
   width: 22px;
-  min-height: 50px;
+  min-height: calc(96px * var(--ear-cluster-v-scale));
   height: auto;
-  padding: 7px 0 8px;
+  padding: calc(12px * var(--ear-cluster-v-scale)) 0 calc(14px * var(--ear-cluster-v-scale));
   border-radius: 999px;
   color: #3730a3;
   background:
@@ -277,11 +434,36 @@
     0 0 22px rgba(56, 189, 248, 0.28);
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-preview-settings--ear-vertical:active {
-  transform: scale(0.96);
+.table-chat-side-ear-rail__preview-on-rail.table-chat-side-ear-preview-settings--ear-vertical {
+  width: 14px;
+  min-height: calc(35px * var(--ear-cluster-v-scale));
+  max-height: calc(40px * var(--ear-cluster-v-scale));
+  padding: calc(3px * var(--ear-cluster-v-scale)) 0 calc(4px * var(--ear-cluster-v-scale));
+  color: #312e81;
+  background:
+    radial-gradient(120% 55% at 50% 0%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 55%),
+    linear-gradient(
+      188deg,
+      rgba(255, 255, 255, 0.98) 0%,
+      rgba(238, 242, 255, 0.96) 22%,
+      rgba(199, 210, 254, 0.92) 48%,
+      rgba(165, 243, 252, 0.94) 78%,
+      rgba(125, 211, 252, 0.98) 100%
+    );
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -2px 6px rgba(99, 102, 241, 0.08),
+    0 0 0 1px rgba(129, 140, 248, 0.35),
+    0 3px 14px rgba(79, 70, 229, 0.22),
+    0 0 24px rgba(56, 189, 248, 0.32);
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-preview-settings--ear-vertical .table-chat-side-ear-preview-settings__disc {
+.table-chat-side-ear-rail__preview-on-rail.table-chat-side-ear-preview-settings--ear-vertical:active {
+  transform: translateX(-50%) scale(0.94);
+}
+
+.table-chat-side-ear-preview-settings--ear-vertical .table-chat-side-ear-preview-settings__disc {
   width: 16px;
   height: 16px;
   border-radius: 8px;
@@ -289,28 +471,49 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-preview-settings--ear-vertical .table-chat-side-ear-preview-settings__glyph {
+.table-chat-side-ear-rail__preview-on-rail .table-chat-side-ear-preview-settings__disc {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+}
+
+.table-chat-side-ear-preview-settings--ear-vertical .table-chat-side-ear-preview-settings__glyph {
   width: 10px;
   height: 10px;
   transform: rotate(90deg);
 }
 
+.table-chat-side-ear-rail__preview-on-rail .table-chat-side-ear-preview-settings__glyph {
+  width: 5px;
+  height: 5px;
+}
+
+/* Свёрнутая рельса: ближе к ▲/▼ — дальше от центральных полосок */
+.table-chat-side-ear-shell--rail-collapsed .table-chat-side-ear-rail__unread-hit--on-rail {
+  top: calc(7px * var(--ear-cluster-v-scale));
+}
+
+.table-chat-side-ear-shell--rail-collapsed
+  .table-chat-side-ear-rail__preview-on-rail.table-chat-side-ear-preview-settings--ear-vertical {
+  min-height: calc(32px * var(--ear-cluster-v-scale));
+  padding: calc(2px * var(--ear-cluster-v-scale)) 0 calc(3px * var(--ear-cluster-v-scale));
+}
+
 /*
  * Рельса: широкая зона тапа; визуал — толще, прижат к левому боку ушка (перекрытие стыка).
  */
-.game-table-root.viewport-mobile .table-chat-side-ear-cluster .table-chat-side-ear-rail {
+.table-chat-side-ear-cluster .table-chat-side-ear-rail {
   position: relative;
   z-index: 2;
   flex: 1 1 auto;
   align-self: stretch;
-  width: calc(28px * 1.1);
-  min-width: calc(28px * 1.1);
+  width: var(--ear-rail-hit);
+  min-width: var(--ear-rail-hit);
   min-height: 0;
   height: 100%;
   padding: 0;
   margin: 0;
-  /* Въезжаем на ушко: полоска лежит на скруглении, без щели */
-  margin-right: calc(-8px * 1.1);
+  /* Перекрытие задаётся margin-left у .table-chat-side-ear-bundle, не margin-right здесь */
   box-sizing: border-box;
   display: block;
   border: none;
@@ -320,24 +523,26 @@
   font-size: 0;
   line-height: 0;
   -webkit-tap-highlight-color: transparent;
-  background: none;
+  background: transparent;
   box-shadow: none;
   overflow: visible;
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-cluster .table-chat-side-ear-rail::before {
+.table-chat-side-ear-cluster .table-chat-side-ear-rail::before {
   content: '';
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  width: calc(12px * 1.1);
+  width: var(--ear-rail-bar);
+  z-index: 1;
   box-sizing: border-box;
   pointer-events: none;
   border-style: solid;
   border-color: transparent;
-  border-width: 1px 0 1px 2px;
-  border-radius: 14px 0 0 14px;
+  border-width: 1px 0 1px 0;
+  /* Минимальное скругление со стороны ушка (левые углы полоски) — ~1% */
+  border-radius: max(1px, 1%) 0 0 max(1px, 1%);
   background-image:
     linear-gradient(180deg, rgba(30, 64, 175, 0.72) 0%, rgba(59, 130, 246, 0.65) 100%),
     linear-gradient(
@@ -366,8 +571,6 @@
     inset 0 0 0 0.5px rgba(139, 92, 246, 0.14),
     inset 0 0 10px rgba(139, 92, 246, 0.08),
     inset 0 0 10px rgba(34, 211, 238, 0.07),
-    -1px 0 8px rgba(124, 58, 237, 0.18),
-    0 0 0 1px rgba(167, 139, 250, 0.22),
     0 2px 8px rgba(0, 0, 0, 0.16);
   /* Слева (к ушку) — плотно; справа — мягкий срез у края экрана */
   -webkit-mask-image: linear-gradient(
@@ -388,99 +591,231 @@
   );
 }
 
-/* Вертикальные «серебристые» линии по центру полоски, высота следует ушку */
-.game-table-root.viewport-mobile
-  .table-chat-side-ear-shell:not(.table-chat-side-ear-shell--rail-collapsed)
-  .table-chat-side-ear-cluster
-  .table-chat-side-ear-rail::after {
+/* Один вращающийся conic под clip-path рамки — одна фаза перелива на U-образном контуре */
+@keyframes table-chat-side-ear-rail-crystal-orbit {
+  from {
+    transform: rotate(0deg) translateZ(0);
+  }
+  to {
+    transform: rotate(360deg) translateZ(0);
+  }
+}
+
+/*
+ * Кристалл — прямой потомок кластера: одна кайма (clip-path) на рельс + ушко.
+ * Верх/низ каймы — rim; inset дыры по X: rim-left + bleed (без лишнего +1px — иначе «лом» ~на ширине
+ * угла на стыке верхней горизонтали с заливкой 125deg).
+ * Подсветка верха: только linear 180deg (одинаково по X), без radial слева — иначе ступень у внутреннего угла.
+ * Conic чуть слабее — меньше «полос» на тонкой кайме. top/bottom −1px — наращивание по вертикали.
+ */
+.table-chat-side-ear-cluster > .table-chat-side-ear-rail__crystal {
+  position: absolute;
+  top: -1px;
+  right: 0;
+  bottom: -1px;
+  left: calc(var(--ear-rail-hit) - var(--ear-rail-bar) - var(--ear-rail-crystal-bleed-x));
+  z-index: 4;
+  pointer-events: none;
+  box-sizing: border-box;
+  isolation: isolate;
+  clip-path: polygon(
+    evenodd,
+    0% 0%,
+    100% 0%,
+    100% 100%,
+    0% 100%,
+    calc(var(--ear-rail-crystal-rim-left) + var(--ear-rail-crystal-bleed-x)) var(--ear-rail-crystal-rim),
+    100% var(--ear-rail-crystal-rim),
+    100% calc(100% - var(--ear-rail-crystal-rim)),
+    calc(var(--ear-rail-crystal-rim-left) + var(--ear-rail-crystal-bleed-x)) calc(100% - var(--ear-rail-crystal-rim))
+  );
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(252, 250, 255, 0.14) 0px,
+      rgba(252, 250, 255, 0.05) 5px,
+      rgba(252, 250, 255, 0) 11px
+    ),
+    var(--ear-rail-rim-face-grad);
+  background-size: 100% 100%, 100% 100%;
+  background-position: 0 0, 0 0;
+  background-repeat: no-repeat;
+}
+
+.table-chat-side-ear-cluster > .table-chat-side-ear-rail__crystal::before {
   content: '';
   position: absolute;
-  top: 50%;
-  left: calc(100% - (12px * 1.1 / 2));
-  transform: translate(-50%, -50%);
-  width: calc(6px * 1.1);
-  height: calc(100% - 20px);
-  min-height: 34px;
-  max-height: 72px;
+  z-index: 0;
+  inset: -48%;
+  background: conic-gradient(
+    from -42deg at 42% 50%,
+    transparent 0deg,
+    transparent 178deg,
+    #6d28d9 188deg,
+    #c026d3 198deg,
+    #f472b6 208deg,
+    #fbbf24 218deg,
+    #4ade80 228deg,
+    #22d3ee 238deg,
+    #38bdf8 248deg,
+    #818cf8 258deg,
+    #e879f9 268deg,
+    #a855f7 278deg,
+    transparent 292deg,
+    transparent 360deg
+  );
+  opacity: 0.68;
+  transform-origin: 42% 50%;
+  will-change: transform;
+  animation: table-chat-side-ear-rail-crystal-orbit var(--ear-rail-shimmer-cycle) linear infinite;
+}
+
+.table-chat-side-ear-shell:not(.table-chat-side-ear-shell--rail-collapsed)
+  .table-chat-side-ear-cluster
+  .table-chat-side-ear-rail
+  .table-chat-side-ear-rail__twin-stripes {
+  position: absolute;
+  top: calc(var(--ear-rail-unread-top) + var(--ear-rail-unread-hit-h) + var(--ear-rail-stripe-gap) - 1px);
+  bottom: calc(var(--ear-rail-preview-bottom) + var(--ear-rail-capsule-h) + var(--ear-rail-stripe-gap) - 4px);
+  right: calc(var(--ear-rail-bar) / 2 - var(--ear-rail-content-center-offset));
+  left: auto;
+  transform: translateX(50%);
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--ear-rail-twin-gap);
+  width: calc(var(--ear-rail-twin-stripe-w) * 2 + var(--ear-rail-twin-gap));
+  box-sizing: border-box;
   pointer-events: none;
   z-index: 3;
-  opacity: 0.9;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 6%, #000 94%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 6%, #000 94%, transparent 100%);
+}
+
+.table-chat-side-ear-shell.table-chat-side-ear-shell--rail-collapsed
+  .table-chat-side-ear-cluster
+  .table-chat-side-ear-rail
+  .table-chat-side-ear-rail__twin-stripes {
+  position: absolute;
+  top: calc(var(--ear-rail-unread-top) + var(--ear-rail-unread-hit-h) + var(--ear-rail-stripe-gap) - 1px);
+  bottom: calc(var(--ear-rail-preview-bottom) + var(--ear-rail-capsule-h) + var(--ear-rail-stripe-gap) - 4px);
+  right: calc(var(--ear-rail-bar) / 2 - var(--ear-rail-content-center-offset));
+  left: auto;
+  transform: translateX(50%);
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--ear-rail-twin-gap);
+  width: calc(var(--ear-rail-twin-stripe-w) * 2 + var(--ear-rail-twin-gap));
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 3;
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 8%, #000 92%, transparent 100%);
   mask-image: linear-gradient(180deg, transparent 0%, #000 8%, #000 92%, transparent 100%);
-  background: repeating-linear-gradient(
-    90deg,
-    transparent 0 calc(1.1px * 1.1),
-    rgba(252, 252, 254, 0.82) calc(1.1px * 1.1) calc(1.85px * 1.1),
-    rgba(203, 213, 225, 0.4) calc(1.85px * 1.1) calc(2.35px * 1.1),
-    transparent calc(2.35px * 1.1) calc(4.6px * 1.1)
-  );
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-shell--rail-collapsed .table-chat-side-ear-cluster .table-chat-side-ear-rail {
+.table-chat-side-ear-cluster .table-chat-side-ear-rail .table-chat-side-ear-rail__twin-stripe {
+  flex: 0 0 var(--ear-rail-twin-stripe-w);
+  width: var(--ear-rail-twin-stripe-w);
+  min-width: var(--ear-rail-twin-stripe-w);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+.table-chat-side-ear-cluster .table-chat-side-ear-rail .table-chat-side-ear-rail__twin-stripe--left {
+  background: linear-gradient(180deg, #3b0764 0%, #5b21b6 18%, #7c3aed 42%, #a78bfa 68%, #6366f1 100%);
+}
+
+.table-chat-side-ear-cluster .table-chat-side-ear-rail .table-chat-side-ear-rail__twin-stripe--right {
+  background: linear-gradient(180deg, #0f172a 0%, #0e7490 22%, #0891b2 48%, #22d3ee 72%, #38bdf8 100%);
+}
+
+.table-chat-side-ear-shell--rail-collapsed .table-chat-side-ear-cluster .table-chat-side-ear-rail {
   margin: 0;
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-shell--rail-collapsed .table-chat-side-ear-cluster .table-chat-side-ear-rail-wrap {
+/* Тень только у кнопки «Чат» — не у всего кластера: иначе размытая тень даёт «фантом-полоску» слева от рельсы. */
+.table-chat-side-ear-shell--rail-collapsed .table-chat-side-ear-cluster {
+  box-shadow: none;
+}
+
+.table-chat-side-ear-shell--rail-collapsed .table-chat-side-ear-cluster .table-chat-side-ear-rail-wrap {
   margin: 0;
+  filter: none;
+  box-shadow: 0 8px 20px -6px rgba(2, 6, 23, 0.38);
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-shell--rail-collapsed .table-chat-side-ear-cluster .table-chat-side-ear-rail::after {
-  content: none;
-}
-
-/* ▲/▼ на рельсе при свёрнутом ушке — градиентный текст как у ушка */
-.game-table-root.viewport-mobile .table-chat-side-ear-rail__chevron {
-  display: block;
-  line-height: 1;
-  font-size: 7px;
-  font-weight: 900;
+/* ▲/▼ на рельсе (свёрнутое ушко) — SVG; ширина из --ear-chevron-visual-w кластера; без filter */
+.table-chat-side-ear-rail__chevron-grad-defs {
   position: absolute;
-  left: calc(100% - 8px * 1.1);
-  width: max-content;
-  max-width: 13px;
-  text-align: center;
-  z-index: 3;
-  background-image:
-    radial-gradient(ellipse 140% 95% at 50% 0%, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.18) 28%, transparent 58%),
-    linear-gradient(168deg, #f5f3ff 0%, #e0e7ff 12%, #a5b4fc 32%, #6366f1 58%, #38bdf8 82%, #0ea5e9 100%);
-  background-size: 100% 100%, 100% 100%;
-  background-position: center top, center;
-  color: transparent;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  -webkit-text-stroke: 0.35px rgba(255, 255, 255, 0.22);
-  paint-order: stroke fill;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.table-chat-side-ear-rail__chevron {
+  position: absolute;
+  left: calc(100% - var(--ear-rail-bar) / 2 + var(--ear-rail-content-center-offset));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--ear-chevron-visual-w, calc(14px * 1.15));
+  height: auto;
+  margin: 0;
+  padding: 0;
   pointer-events: none;
   user-select: none;
+  border: none;
+  background: none;
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-rail__chevron--up {
+.table-chat-side-ear-rail__chevron-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  shape-rendering: geometricPrecision;
+}
+
+.table-chat-side-ear-rail__chevron--up {
   top: 0;
-  transform: translate(-50%, -50%);
-  filter:
-    drop-shadow(0 -0.5px 0 rgba(255, 255, 255, 0.55)) drop-shadow(0 1px 1.5px rgba(2, 6, 23, 0.42))
-    drop-shadow(0 0 4px rgba(129, 140, 248, 0.38));
+  transform: translate(-50%, calc(-100% - 3px));
 }
 
-.game-table-root.viewport-mobile .table-chat-side-ear-rail__chevron--down {
+.table-chat-side-ear-rail__chevron--down {
   bottom: 0;
-  transform: translate(-50%, 50%);
-  background-image:
-    radial-gradient(ellipse 140% 95% at 50% 100%, rgba(255, 255, 255, 0.55) 0%, rgba(224, 242, 254, 0.2) 32%, transparent 58%),
-    linear-gradient(168deg, #f5f3ff 0%, #e0e7ff 12%, #a5b4fc 32%, #6366f1 58%, #38bdf8 82%, #0ea5e9 100%);
-  background-size: 100% 100%, 100% 100%;
-  background-position: center bottom, center;
-  filter:
-    drop-shadow(0 0.5px 0 rgba(186, 230, 253, 0.5)) drop-shadow(0 -1px 1.2px rgba(2, 6, 23, 0.38))
-    drop-shadow(0 0 4px rgba(56, 189, 248, 0.35));
+  transform: translate(-50%, calc(100% + 3px));
 }
 
-/* Стык с ушком: левая обводка у рельсы, у ушка левый border не конкурирует (если задан border) */
-.game-table-root.viewport-mobile
-  .table-chat-side-ear-shell:has(.table-chat-side-ear-rail):not(.table-chat-side-ear-shell--rail-collapsed)
+/* Стык с рельсой: без второй левой линии у ушка — её даёт один кристалл-кластер */
+.table-chat-side-ear-shell:has(.table-chat-side-ear-rail):not(.table-chat-side-ear-shell--rail-collapsed)
   .table-chat-side-ear {
   border-left-color: transparent;
+  box-shadow: 0 10px 26px rgba(2, 6, 23, 0.42);
+}
+
+.table-chat-side-ear-shell.table-chat-side-ear-shell--activity-typing:has(.table-chat-side-ear-rail):not(
+    .table-chat-side-ear-shell--rail-collapsed
+  )
+  .table-chat-side-ear {
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.55),
+    0 0 18px rgba(34, 211, 238, 0.35),
+    0 10px 26px rgba(2, 6, 23, 0.38);
+}
+
+.table-chat-side-ear-shell.table-chat-side-ear-shell--activity-unread:has(.table-chat-side-ear-rail):not(
+    .table-chat-side-ear-shell--rail-collapsed
+  )
+  .table-chat-side-ear {
+  box-shadow:
+    0 0 0 1px rgba(244, 114, 182, 0.45),
+    0 0 20px rgba(244, 114, 182, 0.25),
+    0 10px 26px rgba(2, 6, 23, 0.38);
 }
 
 .table-chat-side-ear-rail__unread-hit {
@@ -508,6 +843,20 @@
   border-radius: 999px;
   background: #fff;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+}
+
+/* Компактнее базового .table-chat-side-ear-rail__unread-hit (28×28 ниже по файлу): иначе каскад даёт огромный круг на рельсе. */
+.table-chat-side-ear-rail__unread-hit.table-chat-side-ear-rail__unread-hit--on-rail {
+  width: 15px;
+  height: 15px;
+  min-width: 15px;
+  min-height: 15px;
+  max-width: 15px;
+  max-height: 15px;
+  box-sizing: border-box;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.9),
+    0 3px 10px rgba(244, 114, 182, 0.33);
 }
 
 /* —— шестерёнка превью —— */
@@ -579,6 +928,62 @@
 
 .table-chat-side-ear-phantom--reply-open.table-chat-side-ear-phantom--unread-expanded {
   max-height: min(82vh, 620px);
+}
+
+/* Мобильный фантом: «стекло», flex-цепочка под полный скролл текста в режиме «весь текст» */
+.table-chat-side-ear-phantom {
+  background-color: rgba(15, 23, 42, 0.52);
+  background-image:
+    linear-gradient(125deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.02) 36%, transparent 55%),
+    linear-gradient(165deg, rgba(129, 140, 248, 0.18) 0%, rgba(15, 23, 42, 0.42) 45%, rgba(30, 27, 75, 0.72) 100%),
+    radial-gradient(120% 90% at 100% 0%, rgba(34, 211, 238, 0.12) 0%, transparent 55%);
+  border: 1px solid rgba(186, 230, 253, 0.38);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 0 0 1px rgba(167, 139, 250, 0.12),
+    0 0 0 1px rgba(34, 211, 238, 0.25),
+    0 18px 48px rgba(2, 6, 23, 0.58),
+    0 0 60px rgba(124, 58, 237, 0.18);
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+}
+
+.table-chat-side-ear-phantom--unread-expanded {
+  isolation: isolate;
+  transform: translateZ(0);
+}
+
+.table-chat-side-ear-phantom--unread-expanded .table-chat-side-ear-phantom__lines-stack-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.table-chat-side-ear-phantom--unread-expanded .table-chat-side-ear-phantom__lines {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-chat-side-ear-phantom--unread-expanded .table-chat-side-ear-phantom__toolbar {
+  flex-shrink: 0;
+}
+
+.table-chat-side-ear-phantom--unread-expanded .table-chat-side-ear-phantom__reply-box {
+  flex-shrink: 0;
+  min-height: 0;
+}
+
+.table-chat-side-ear-phantom--reply-open.table-chat-side-ear-phantom--unread-expanded
+  .table-chat-side-ear-phantom__lines-stack-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.table-chat-side-ear-phantom--unread-expanded .table-chat-side-ear-phantom__preview-stack {
+  flex-shrink: 0;
 }
 
 .table-chat-side-ear-phantom__grad-defs {
@@ -685,7 +1090,7 @@
 }
 
 .table-chat-side-ear-phantom--unread-expanded .table-chat-side-ear-phantom__lines {
-  max-height: min(42vh, 320px);
+  max-height: min(48vh, 340px);
 }
 
 .table-chat-side-ear-phantom__author {
@@ -1081,6 +1486,10 @@
   .table-chat-ear-preview-switch__knob {
     transition: none;
   }
+
+  .table-chat-side-ear-cluster > .table-chat-side-ear-rail__crystal::before {
+    animation: none;
+  }
 }
 
 /*
@@ -1089,7 +1498,7 @@
  */
 .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.game-mobile-table-chat
   .game-table-main-wrap.game-table-main-wrap--standard-from-short-vh {
-  scroll-padding-bottom: max(112px, 22dvh);
-  padding-bottom: max(96px, 18dvh);
+  scroll-padding-bottom: max(98px, 22dvh);
+  padding-bottom: max(84px, 18dvh);
   box-sizing: border-box;
 }
