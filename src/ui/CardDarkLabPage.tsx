@@ -8,7 +8,7 @@ import type { CSSProperties } from 'react';
 import type { Card } from '../game/types';
 import { CardView } from './CardView';
 
-const SAMPLE: Card[] = [
+const HAND_BY_SUIT: Card[] = [
   { suit: '♠', rank: '10' },
   { suit: '♥', rank: 'K' },
   { suit: '♦', rank: '8' },
@@ -71,8 +71,8 @@ export function CardDarkLabPage({ onBack }: CardDarkLabPageProps) {
       <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.55, marginBottom: 24 }}>
         Сравнение светлого и тёмного листа при тех же размерах, что в мобильной игре (<code>compact</code>, без{' '}
         <code>pcCardStyles</code>). В игре тёмный лист включается удержанием лампы «доп. подсветка»; здесь — через
-        проп <code>labDarkCardFace</code> или переключатель ниже. Константы градиентов — в <code>CardView.tsx</code> (
-        <code>CARD_BG_DARK*</code>).
+        проп <code>labDarkCardFace</code> + <code>suitIndexInHandMobile</code>. Палитра руки по мастям —{' '}
+        <code>MOBILE_DARK_SUIT_FACE_BY_SUIT</code> в <code>CardView.tsx</code> (рука и стол, кроме козырей); козыри — <code>CARD_BG_DARK*</code>.
       </p>
 
       <section style={{ ...sectionStyle, marginBottom: 20 }}>
@@ -100,9 +100,11 @@ export function CardDarkLabPage({ onBack }: CardDarkLabPageProps) {
         <h2 style={{ fontSize: 16, color: '#94a3b8', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
           Рука (мобильный вид)
         </h2>
-        <p style={{ color: '#64748b', fontSize: 12, marginBottom: 14 }}>Слева — светлый лист, справа — labDarkCardFace</p>
+        <p style={{ color: '#64748b', fontSize: 12, marginBottom: 14 }}>
+          Сверху — светлый лист; снизу — тёмный лист по мастям (♠ ♥ ♦ ♣)
+        </p>
         <div style={{ ...rowStyle, marginBottom: 20 }}>
-          {SAMPLE.map((card, i) => (
+          {HAND_BY_SUIT.map((card, i) => (
             <CardView
               key={`hand-light-${i}`}
               card={card}
@@ -117,7 +119,7 @@ export function CardDarkLabPage({ onBack }: CardDarkLabPageProps) {
           ))}
         </div>
         <div style={rowStyle}>
-          {SAMPLE.map((card, i) => (
+          {HAND_BY_SUIT.map((card, i) => (
             <CardView
               key={`hand-dark-${i}`}
               card={card}
@@ -138,7 +140,7 @@ export function CardDarkLabPage({ onBack }: CardDarkLabPageProps) {
           Стол (мобильный вид)
         </h2>
         <div style={rowStyle}>
-          {SAMPLE.map((card, i) => (
+          {HAND_BY_SUIT.map((card, i) => (
             <CardView
               key={`table-light-${i}`}
               card={card}
@@ -154,9 +156,11 @@ export function CardDarkLabPage({ onBack }: CardDarkLabPageProps) {
             />
           ))}
         </div>
-        <p style={{ color: '#64748b', fontSize: 12, margin: '16px 0 10px' }}>Тёмный лист</p>
+        <p style={{ color: '#64748b', fontSize: 12, margin: '16px 0 10px' }}>
+          Тёмный лист (♠ — козырь на столе с лёгким акцентом; остальные — как в руке)
+        </p>
         <div style={rowStyle}>
-          {SAMPLE.map((card, i) => (
+          {HAND_BY_SUIT.map((card, i) => (
             <CardView
               key={`table-dark-${i}`}
               card={card}
@@ -167,7 +171,7 @@ export function CardDarkLabPage({ onBack }: CardDarkLabPageProps) {
               pcCardStyles={false}
               doubleBorder={highlightOn}
               trumpHighlightOn={highlightOn}
-              isTrumpOnTable={card.suit === '♠'}
+              isTrumpOnTable={highlightOn && card.suit === '♠'}
               labDarkCardFace
             />
           ))}
