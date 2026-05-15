@@ -53,7 +53,7 @@
   transform: translateY(-50%) translateZ(0);
 }
 
-/* Контент + смещение при drag только в px (без % в transform) — React не трогает этот узел, переменная не сбрасывается при ре-рендерах чата. */
+/* Контент + смещение по вертикали: при drag — inline translate3d из JS; иначе — var (React не трогает узел). */
 .table-chat-side-ear-shell__drag-shift {
   display: flex;
   flex-direction: row-reverse;
@@ -62,6 +62,24 @@
   max-width: min(96vw, 440px);
   transform: translate3d(0, var(--side-ear-drag-y, 0px), 0.01px);
   backface-visibility: hidden;
+}
+
+/* Вертикальный drag: тяжёлые анимации и :active scale конкурируют с compositor; класс вешает TableChatDock. */
+.table-chat-side-ear-shell--vertical-drag .table-chat-side-ear:active {
+  transform: none;
+}
+
+.table-chat-side-ear-shell--vertical-drag.table-chat-side-ear-shell--crystal-shimmer
+  .table-chat-side-ear-cluster
+  > .table-chat-side-ear-rail__crystal::before {
+  animation: none;
+  will-change: auto;
+  opacity: 0.68;
+}
+
+.table-chat-side-ear-shell--vertical-drag .table-chat-side-ear-rail__unread-hit--on-rail::before,
+.table-chat-side-ear-shell--vertical-drag .table-chat-side-ear-rail__unread-hit--on-rail .table-chat-side-ear-rail__unread-dot {
+  animation: none;
 }
 
 .table-chat-side-ear-shell--activity-typing .table-chat-side-ear {
@@ -100,6 +118,15 @@
 
 /* —— ушко —— */
 .table-chat-side-ear {
+  /* Фон: 7 ступеней — цвета и угол правьте в DevTools на этом элементе (или задайте те же vars выше по дереву). */
+  --ear-bg-angle: 200deg;
+  --ear-bg-1: #108de5e6;
+  --ear-bg-2: rgb(65 16 207 / 85%);
+  --ear-bg-3: rgb(79 22 228 / 74%);
+  --ear-bg-4: #2e0d7aed;
+  --ear-bg-5: rgb(57 26 163 / 88%);
+  --ear-bg-6: rgb(64 25 226 / 82%);
+  --ear-bg-7: rgb(184 32 210 / 98%);
   position: relative;
   z-index: 1;
   display: flex;
@@ -115,10 +142,14 @@
   cursor: pointer;
   color: #e2e8f0;
   background: linear-gradient(
-    200deg,
-    rgb(37 9 135 / 89%) 0%,
-    rgb(39 14 95 / 94%) 55%,
-    rgb(47 30 137 / 98%) 100%
+    var(--ear-bg-angle),
+    var(--ear-bg-1) 0%,
+    var(--ear-bg-2) 16.67%,
+    var(--ear-bg-3) 33.33%,
+    var(--ear-bg-4) 50%,
+    var(--ear-bg-5) 66.67%,
+    var(--ear-bg-6) 83.33%,
+    var(--ear-bg-7) 100%
   );
   box-shadow:
     inset 0 1px 0 #7c3aed,
@@ -201,6 +232,8 @@
 .table-chat-side-ear-cluster {
   /* hit — ширина колонки тапа; bar — визуальная полоска. Шире под крупные ▲▼ и палец */
   --ear-rail-bar: 22px;
+  /* Визуальная полоска на 1px в зону перекрытия с ушком (без смены hit — иначе margin bundle «съедает» пиксель). */
+  --ear-rail-bar-into-ear: 1px;
   --ear-rail-hit: 44px;
   /*
    * Перекрытие ушка на колонку рельсы: margin-left у .table-chat-side-ear-bundle.
@@ -217,6 +250,8 @@
   --ear-rail-crystal-rim-left: 4px;
   /* Кристалл заезжает в тап-колонку на N px; inset дыры по X += N, иначе кайма не толще — только сдвиг. */
   --ear-rail-crystal-bleed-x: 2px;
+  /* Левый край полоски рельсы и внешний левый контур кристалла: слегка скруглённые TL/BL */
+  --ear-rail-left-corner-r: 3px;
   /* Внутренняя кайма слева толще — центр контента смещён на половину rim-left */
   --ear-rail-content-center-offset: calc(var(--ear-rail-crystal-rim-left) / 2);
   /* Один цикл conic-перелива на кайме */
@@ -339,9 +374,9 @@
   pointer-events: none;
 }
 
-/* У края экрана — скругления справа минимальные; маска снята */
+/* У края экрана — скругления справа минимальные + лёгкие слева у полоски */
 .table-chat-side-ear-cluster--rail-collapsed .table-chat-side-ear-rail::before {
-  border-radius: 0 max(1px, 1%) max(1px, 1%) 0;
+  border-radius: var(--ear-rail-left-corner-r) max(1px, 1%) max(1px, 1%) var(--ear-rail-left-corner-r);
   border-width: 1px 2px 1px 0;
   -webkit-mask-image: none;
   mask-image: none;
@@ -383,18 +418,58 @@
   top: calc(5px * var(--ear-cluster-v-scale));
   left: calc(100% - var(--ear-rail-bar) / 2 + var(--ear-rail-content-center-offset));
   right: auto;
-  transform: translateX(-50%);
+  transform: translateX(calc(-50% - 1px));
   z-index: 6;
   width: 15px;
   height: 15px;
   margin: 0;
   padding: 0;
+  overflow: visible;
+}
+
+.table-chat-side-ear-rail__unread-hit--on-rail::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 0;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    #ec4899,
+    #f472b6,
+    #c026d3,
+    #a855f7,
+    #6366f1,
+    #22d3ee,
+    #38bdf8,
+    #22d3ee,
+    #ec4899
+  );
+  opacity: 0.9;
+  animation: table-chat-side-ear-rail-unread-dot-orbit 2.4s linear infinite;
+  transform-origin: 50% 50%;
+  pointer-events: none;
 }
 
 .table-chat-side-ear-rail__unread-hit--on-rail .table-chat-side-ear-rail__unread-dot {
+  position: relative;
+  z-index: 1;
+  display: block;
   width: 6px;
   height: 6px;
-  box-shadow: 0 0 7px rgba(255, 255, 255, 0.9);
+  margin: 0;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 38% 32%, #fffbeb 0%, rgba(255, 255, 255, 0.92) 22%, rgba(253, 186, 116, 0.35) 48%, transparent 62%);
+  box-shadow:
+    0 0 4px rgba(244, 114, 182, 0.8),
+    0 0 8px rgba(34, 211, 238, 0.45),
+    inset 0 0 1px rgba(255, 255, 255, 0.55);
+  animation: table-chat-side-ear-rail-unread-dot-pulse 1.75s ease-in-out infinite;
 }
 
 .table-chat-side-ear-rail__preview-on-rail {
@@ -402,7 +477,7 @@
   bottom: var(--ear-rail-preview-bottom);
   left: calc(100% - var(--ear-rail-bar) / 2 + var(--ear-rail-content-center-offset) - 1.5px);
   right: auto;
-  transform: translateX(-50%);
+  transform: translateX(calc(-50% - 0.5px));
   z-index: 6;
   margin: 0;
 }
@@ -414,24 +489,28 @@
   height: auto;
   padding: calc(12px * var(--ear-cluster-v-scale)) 0 calc(14px * var(--ear-cluster-v-scale));
   border-radius: 999px;
-  color: #3730a3;
+  color: #ede9fe;
   background:
-    radial-gradient(130% 70% at 50% 0%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0) 52%),
+    radial-gradient(125% 55% at 50% 0%, rgba(255, 255, 255, 0.42) 0%, rgba(196, 181, 253, 0.12) 42%, transparent 62%),
     linear-gradient(
-      195deg,
-      rgba(255, 251, 254, 0.98) 0%,
-      rgba(224, 231, 255, 0.94) 26%,
-      rgba(199, 210, 254, 0.9) 52%,
-      rgba(165, 180, 252, 0.88) 74%,
-      rgba(125, 211, 252, 0.92) 100%
+      168deg,
+      #4c1d95 0%,
+      #5b21b6 14%,
+      #6d28d9 32%,
+      #7c3aed 50%,
+      #4f46e5 62%,
+      #0e7490 78%,
+      #0891b2 90%,
+      #22d3ee 100%
     );
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(186, 230, 253, 0.42);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    inset 0 -1px 0 rgba(99, 102, 241, 0.12),
-    0 0 0 1px rgba(167, 139, 250, 0.28),
-    0 4px 16px rgba(79, 70, 229, 0.2),
-    0 0 22px rgba(56, 189, 248, 0.28);
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -3px 8px rgba(15, 23, 42, 0.38),
+    inset 0 0 0 0.5px rgba(167, 139, 250, 0.25),
+    0 0 0 1px rgba(99, 102, 241, 0.35),
+    0 4px 18px rgba(67, 56, 202, 0.42),
+    0 0 24px rgba(34, 211, 238, 0.32);
 }
 
 .table-chat-side-ear-rail__preview-on-rail.table-chat-side-ear-preview-settings--ear-vertical {
@@ -439,42 +518,69 @@
   min-height: calc(35px * var(--ear-cluster-v-scale));
   max-height: calc(40px * var(--ear-cluster-v-scale));
   padding: calc(3px * var(--ear-cluster-v-scale)) 0 calc(4px * var(--ear-cluster-v-scale));
-  color: #312e81;
+  /* Не применена опция — на 2px выше, чем с --off; оба состояния сдвинуты на 2px вниз от первоначальной схемы */
+  bottom: var(--ear-rail-preview-bottom);
+  /* color: глиф (currentColor); яркий бирюзовый — когда опция «не показывать фантомы» не включена */
+  color: #5eead4;
   background:
-    radial-gradient(120% 55% at 50% 0%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 55%),
+    radial-gradient(110% 72% at 50% 0%, rgba(255, 255, 255, 0.42) 0%, rgba(167, 139, 250, 0.2) 40%, rgba(99, 102, 241, 0.08) 52%, transparent 62%),
     linear-gradient(
-      188deg,
-      rgba(255, 255, 255, 0.98) 0%,
-      rgba(238, 242, 255, 0.96) 22%,
-      rgba(199, 210, 254, 0.92) 48%,
-      rgba(165, 243, 252, 0.94) 78%,
-      rgba(125, 211, 252, 0.98) 100%
+      168deg,
+      #3b0764 0%,
+      #4c1d95 14%,
+      #5b21b6 28%,
+      #6d28d9 40%,
+      #7c3aed 50%,
+      #6366f1 60%,
+      #3b82f6 72%,
+      #0ea5e9 84%,
+      #38bdf8 94%,
+      #7dd3fc 100%
     );
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(165, 243, 252, 0.38);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.85),
-    inset 0 -2px 6px rgba(99, 102, 241, 0.08),
-    0 0 0 1px rgba(129, 140, 248, 0.35),
-    0 3px 14px rgba(79, 70, 229, 0.22),
-    0 0 24px rgba(56, 189, 248, 0.32);
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -2px 6px rgba(15, 23, 42, 0.36),
+    inset 0 0 0 0.5px rgba(196, 181, 253, 0.22),
+    0 0 0 1px rgba(129, 140, 248, 0.4),
+    0 2px 12px rgba(79, 70, 229, 0.48),
+    0 0 16px rgba(34, 211, 238, 0.35);
+}
+
+/* Опция в модалке включена — глиф бледно-сиреневый; капсула ещё на 2px ниже (чем без --off) */
+.table-chat-side-ear-rail__preview-on-rail.table-chat-side-ear-preview-settings--ear-vertical.table-chat-side-ear-preview-settings--off {
+  bottom: calc(var(--ear-rail-preview-bottom) - 2px);
+  opacity: 1;
+  color: #c4b5fd;
+}
+
+.table-chat-side-ear-rail__preview-on-rail.table-chat-side-ear-preview-settings--ear-vertical.table-chat-side-ear-preview-settings--off
+  .table-chat-side-ear-preview-settings__glyph {
+  opacity: 0.72;
 }
 
 .table-chat-side-ear-rail__preview-on-rail.table-chat-side-ear-preview-settings--ear-vertical:active {
-  transform: translateX(-50%) scale(0.94);
+  transform: translateX(calc(-50% - 0.5px)) scale(0.94);
 }
 
 .table-chat-side-ear-preview-settings--ear-vertical .table-chat-side-ear-preview-settings__disc {
   width: 16px;
   height: 16px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.28);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.28) 0%, rgba(167, 139, 250, 0.22) 55%, rgba(14, 116, 144, 0.2) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.28);
 }
 
 .table-chat-side-ear-rail__preview-on-rail .table-chat-side-ear-preview-settings__disc {
-  width: 8px;
-  height: 8px;
-  border-radius: 4px;
+  width: 11px;
+  height: 11px;
+  border-radius: 5px;
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.32) 0%, rgba(167, 139, 250, 0.28) 50%, rgba(8, 145, 178, 0.22) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.3);
 }
 
 .table-chat-side-ear-preview-settings--ear-vertical .table-chat-side-ear-preview-settings__glyph {
@@ -483,9 +589,12 @@
   transform: rotate(90deg);
 }
 
+/* Капсула на рельсе: крупнее «бегунки», иначе 5px и цвет не читаются */
 .table-chat-side-ear-rail__preview-on-rail .table-chat-side-ear-preview-settings__glyph {
-  width: 5px;
-  height: 5px;
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  shape-rendering: geometricPrecision;
 }
 
 /* Свёрнутая рельса: ближе к ▲/▼ — дальше от центральных полосок */
@@ -532,17 +641,19 @@
   content: '';
   position: absolute;
   top: 0;
-  right: 0;
   bottom: 0;
-  width: var(--ear-rail-bar);
+  /* Левый край как у bar с right:0 + width:bar; +into-ear только в сторону ушка */
+  left: calc(100% - var(--ear-rail-bar));
+  right: auto;
+  width: calc(var(--ear-rail-bar) + var(--ear-rail-bar-into-ear));
   z-index: 1;
   box-sizing: border-box;
   pointer-events: none;
   border-style: solid;
   border-color: transparent;
   border-width: 1px 0 1px 0;
-  /* Минимальное скругление со стороны ушка (левые углы полоски) — ~1% */
-  border-radius: max(1px, 1%) 0 0 max(1px, 1%);
+  /* Левый край полоски (к тап-зоне): слегка скруглённые TL/BL */
+  border-radius: var(--ear-rail-left-corner-r) 0 0 var(--ear-rail-left-corner-r);
   background-image:
     linear-gradient(180deg, rgba(30, 64, 175, 0.72) 0%, rgba(59, 130, 246, 0.65) 100%),
     linear-gradient(
@@ -601,12 +712,40 @@
   }
 }
 
+@keyframes table-chat-side-ear-rail-unread-dot-pulse {
+  0%,
+  100% {
+    filter: brightness(1);
+    box-shadow:
+      0 0 4px rgba(244, 114, 182, 0.8),
+      0 0 8px rgba(34, 211, 238, 0.45),
+      inset 0 0 1px rgba(255, 255, 255, 0.55);
+  }
+  50% {
+    filter: brightness(1.2);
+    box-shadow:
+      0 0 7px rgba(244, 114, 182, 1),
+      0 0 14px rgba(167, 139, 250, 0.7),
+      0 0 9px rgba(34, 211, 238, 0.7),
+      inset 0 0 2px rgba(255, 255, 255, 0.9);
+  }
+}
+
+@keyframes table-chat-side-ear-rail-unread-dot-orbit {
+  from {
+    transform: rotate(0deg) translateZ(0);
+  }
+  to {
+    transform: rotate(360deg) translateZ(0);
+  }
+}
+
 /*
  * Кристалл — прямой потомок кластера: одна кайма (clip-path) на рельс + ушко.
- * Верх/низ каймы — rim; inset дыры по X: rim-left + bleed (без лишнего +1px — иначе «лом» ~на ширине
- * угла на стыке верхней горизонтали с заливкой 125deg).
- * Подсветка верха: только linear 180deg (одинаково по X), без radial слева — иначе ступень у внутреннего угла.
- * Conic чуть слабее — меньше «полос» на тонкой кайме. top/bottom −1px — наращивание по вертикали.
+ * Перелив (::before conic) только при .table-chat-side-ear-shell--crystal-shimmer (см. TableChatDock: непрочитанное,
+ * не «печатает», и не закрыт фантом крестиком по тому же messageId без нового превью).
+ * Иначе ::before скрыт, кайма — статичный градиент + лёгкая «выпуклость» (inset + нижний контраст).
+ * Верх/низ каймы — rim; inset дыры по X: rim-left + bleed. top/bottom −1px — наращивание по вертикали.
  */
 .table-chat-side-ear-cluster > .table-chat-side-ear-rail__crystal {
   position: absolute;
@@ -620,10 +759,12 @@
   isolation: isolate;
   clip-path: polygon(
     evenodd,
-    0% 0%,
+    0% var(--ear-rail-left-corner-r),
+    var(--ear-rail-left-corner-r) 0%,
     100% 0%,
     100% 100%,
-    0% 100%,
+    var(--ear-rail-left-corner-r) 100%,
+    0% calc(100% - var(--ear-rail-left-corner-r)),
     calc(var(--ear-rail-crystal-rim-left) + var(--ear-rail-crystal-bleed-x)) var(--ear-rail-crystal-rim),
     100% var(--ear-rail-crystal-rim),
     100% calc(100% - var(--ear-rail-crystal-rim)),
@@ -632,14 +773,19 @@
   background-image:
     linear-gradient(
       180deg,
-      rgba(252, 250, 255, 0.14) 0px,
-      rgba(252, 250, 255, 0.05) 5px,
-      rgba(252, 250, 255, 0) 11px
+      rgba(255, 255, 255, 0.22) 0px,
+      rgba(255, 255, 255, 0.09) 6px,
+      transparent 14px
     ),
+    linear-gradient(180deg, transparent 0%, transparent 58%, rgba(2, 6, 23, 0.2) 100%),
     var(--ear-rail-rim-face-grad);
-  background-size: 100% 100%, 100% 100%;
-  background-position: 0 0, 0 0;
+  background-size: 100% 100%, 100% 100%, 100% 100%;
+  background-position: 0 0, 0 0, 0 0;
   background-repeat: no-repeat;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.42),
+    inset 0 -10px 18px -8px rgba(2, 6, 23, 0.26);
 }
 
 .table-chat-side-ear-cluster > .table-chat-side-ear-rail__crystal::before {
@@ -664,8 +810,16 @@
     transparent 292deg,
     transparent 360deg
   );
-  opacity: 0.68;
+  opacity: 0;
   transform-origin: 42% 50%;
+  will-change: auto;
+  animation: none;
+}
+
+.table-chat-side-ear-shell.table-chat-side-ear-shell--crystal-shimmer
+  .table-chat-side-ear-cluster
+  > .table-chat-side-ear-rail__crystal::before {
+  opacity: 0.68;
   will-change: transform;
   animation: table-chat-side-ear-rail-crystal-orbit var(--ear-rail-shimmer-cycle) linear infinite;
 }
@@ -676,10 +830,11 @@
   .table-chat-side-ear-rail__twin-stripes {
   position: absolute;
   top: calc(var(--ear-rail-unread-top) + var(--ear-rail-unread-hit-h) + var(--ear-rail-stripe-gap) - 1px);
-  bottom: calc(var(--ear-rail-preview-bottom) + var(--ear-rail-capsule-h) + var(--ear-rail-stripe-gap) - 4px);
+  /* +5px к высоте полосок только снизу (уменьшен inset bottom) */
+  bottom: calc(var(--ear-rail-preview-bottom) + var(--ear-rail-capsule-h) + var(--ear-rail-stripe-gap) - 4px - 5px);
   right: calc(var(--ear-rail-bar) / 2 - var(--ear-rail-content-center-offset));
   left: auto;
-  transform: translateX(50%);
+  transform: translateX(calc(50% - 2px));
   display: flex;
   flex-direction: row;
   align-items: stretch;
@@ -699,10 +854,11 @@
   .table-chat-side-ear-rail__twin-stripes {
   position: absolute;
   top: calc(var(--ear-rail-unread-top) + var(--ear-rail-unread-hit-h) + var(--ear-rail-stripe-gap) - 1px);
-  bottom: calc(var(--ear-rail-preview-bottom) + var(--ear-rail-capsule-h) + var(--ear-rail-stripe-gap) - 4px);
+  /* +5px к высоте полосок только снизу (уменьшен inset bottom) */
+  bottom: calc(var(--ear-rail-preview-bottom) + var(--ear-rail-capsule-h) + var(--ear-rail-stripe-gap) - 4px - 5px);
   right: calc(var(--ear-rail-bar) / 2 - var(--ear-rail-content-center-offset));
   left: auto;
-  transform: translateX(50%);
+  transform: translateX(calc(50% - 2px));
   display: flex;
   flex-direction: row;
   align-items: stretch;
@@ -721,15 +877,18 @@
   width: var(--ear-rail-twin-stripe-w);
   min-width: var(--ear-rail-twin-stripe-w);
   border-radius: 2px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  /* Тонкие «стопперы» только сверху и снизу полоски (без боковых линий) */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.42);
 }
 
 .table-chat-side-ear-cluster .table-chat-side-ear-rail .table-chat-side-ear-rail__twin-stripe--left {
-  background: linear-gradient(180deg, #3b0764 0%, #5b21b6 18%, #7c3aed 42%, #a78bfa 68%, #6366f1 100%);
+  background: linear-gradient(180deg, #0f172a 0%, #0e7490 22%, #0891b2 48%, #22d3ee 72%, #38bdf8 100%);
 }
 
 .table-chat-side-ear-cluster .table-chat-side-ear-rail .table-chat-side-ear-rail__twin-stripe--right {
-  background: linear-gradient(180deg, #0f172a 0%, #0e7490 22%, #0891b2 48%, #22d3ee 72%, #38bdf8 100%);
+  background: linear-gradient(180deg, #3b0764 0%, #5b21b6 18%, #7c3aed 42%, #a78bfa 68%, #6366f1 100%);
 }
 
 .table-chat-side-ear-shell--rail-collapsed .table-chat-side-ear-cluster .table-chat-side-ear-rail {
@@ -789,6 +948,19 @@
 .table-chat-side-ear-rail__chevron--down {
   bottom: 0;
   transform: translate(-50%, calc(100% + 3px));
+}
+
+/*
+ * Свёрнутое ушко: горизонтальный центр ▲/▼ по видимой полосе «кристалл + рельса»
+ * (левый край каймы ≈ hit − bar − bleed, правый — край колонки). +доля --ear-rail-left-corner-r —
+ * лёгкая фаска/скругление TL/BL смещает визуальную левую грань вправо от острого угла.
+ */
+.table-chat-side-ear-shell--rail-collapsed
+  .table-chat-side-ear-cluster
+  .table-chat-side-ear-rail__chevron {
+  left: calc(
+    100% - var(--ear-rail-bar) / 2 - var(--ear-rail-crystal-bleed-x) / 2 + var(--ear-rail-left-corner-r) * 0.55
+  );
 }
 
 /* Стык с рельсой: без второй левой линии у ушка — её даёт один кристалл-кластер */
@@ -854,9 +1026,16 @@
   max-width: 15px;
   max-height: 15px;
   box-sizing: border-box;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.38) 0%, transparent 42%),
+    radial-gradient(circle at 50% 100%, rgba(34, 211, 238, 0.28) 0%, transparent 55%),
+    linear-gradient(148deg, rgba(88, 28, 135, 0.96) 0%, rgba(109, 40, 217, 0.92) 38%, rgba(59, 130, 246, 0.55) 72%, rgba(34, 211, 238, 0.48) 100%);
   box-shadow:
-    0 0 0 1px rgba(15, 23, 42, 0.9),
-    0 3px 10px rgba(244, 114, 182, 0.33);
+    0 0 0 1px rgba(15, 23, 42, 0.92),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 10px rgba(79, 70, 229, 0.42),
+    0 0 12px rgba(244, 114, 182, 0.38),
+    0 0 10px rgba(34, 211, 238, 0.28);
 }
 
 /* —— шестерёнка превью —— */
@@ -1488,6 +1667,17 @@
   }
 
   .table-chat-side-ear-cluster > .table-chat-side-ear-rail__crystal::before {
+    animation: none;
+  }
+
+  .table-chat-side-ear-shell.table-chat-side-ear-shell--crystal-shimmer
+    .table-chat-side-ear-cluster
+    > .table-chat-side-ear-rail__crystal::before {
+    animation: none;
+  }
+
+  .table-chat-side-ear-rail__unread-hit--on-rail::before,
+  .table-chat-side-ear-rail__unread-hit--on-rail .table-chat-side-ear-rail__unread-dot {
     animation: none;
   }
 }

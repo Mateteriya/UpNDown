@@ -299,20 +299,10 @@ function clampPcChatOffsetAfterResize(el: HTMLElement, nx: number, ny: number): 
 }
 
 const PC_POINTER_MOVE_OPTS: AddEventListenerOptions = { passive: true };
-/** Ушко: preventDefault при перетаскивании — иначе scroll у предка (main-wrap) съедает pointermove на тачскрине. */
-const SIDE_EAR_POINTER_MOVE_OPTS: AddEventListenerOptions = { passive: false };
-const SIDE_EAR_POINTER_RAW_OPTS: AddEventListenerOptions = { passive: false };
+/** Ушко: passive: false — preventDefault; capture: true — раньше остальных слушателей (меньше «съедания» move). */
+const SIDE_EAR_POINTER_MOVE_OPTS: AddEventListenerOptions = { passive: false, capture: true };
 
-function sideEarPointerRawUpdateSupported(): boolean {
-  if (typeof document === 'undefined') return false;
-  try {
-    return 'onpointerrawupdate' in document.createElement('div');
-  } catch {
-    return false;
-  }
-}
-
-/** Coalesced + финальный ev — для порога «уже тянем»; позицию берём только с `ev` (актуальная точка). */
+/** Coalesced + финальный ev — порог «уже тянем»; позицию — синхронно по финальному ev.clientY. */
 function sideEarDragThresholdSamples(ev: PointerEvent): PointerEvent[] {
   if (typeof ev.getCoalescedEvents === 'function') {
     try {
@@ -717,17 +707,17 @@ function TableChatDock({
     earHalfClampPx: SIDE_EAR_SHELL_HALF_HEIGHT_ESTIMATE_PX,
     /** Смещение центра по Y относительно точки старта drag (px), последнее по pointer (для up). */
     lastDragOffsetPx: 0,
-    /** Один rAF на кадр: запись --side-ear-drag-y синхронно с отрисовкой, без лишних style-write. */
-    dragVisualRafId: 0,
     dragWillChangeSet: false,
     /** На время drag фиксируем высоту shell — иначе -50% и контент (печатает/непрочитано) дают микропрыжки. */
     dragLayoutLocked: false,
+    /** Снимок на pointerdown — стабильная геометрия на весь жест (меньше дрожания от скачков innerHeight/%). */
+    innerHSnap: 0,
+    startCenterPxSnap: 0,
   });
   /** Снятие window-listeners при up или размонтировании (те же ссылки, что в addEventListener). */
   const sideEarDragWindowHandlersRef = useRef<{
     move: (e: PointerEvent) => void;
     up: (e: PointerEvent) => void;
-    raw?: (e: Event) => void;
   } | null>(null);
 
   latestPcDragRef.current = pcDrag;
@@ -1704,10 +1694,19 @@ function TableChatDock({
   useEffect(() => {
     if (!standardAfterShortVh || typeof window === 'undefined') return;
     const onResize = () => {
+      const d = sideEarDragRef.current;
+      if (d.active) return;
       setSideEarCenterPct((p) => clampSideEarY(p));
     };
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener('resize', onResize);
+    }
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (vv) vv.removeEventListener('resize', onResize);
+    };
   }, [standardAfterShortVh, clampSideEarY]);
 
   useEffect(() => {
@@ -1717,21 +1716,16 @@ function TableChatDock({
       window.removeEventListener('pointermove', h.move, SIDE_EAR_POINTER_MOVE_OPTS);
       window.removeEventListener('pointerup', h.up);
       window.removeEventListener('pointercancel', h.up);
-      if (h.raw) {
-        window.removeEventListener('pointerrawupdate', h.raw, SIDE_EAR_POINTER_RAW_OPTS);
-      }
       sideEarDragWindowHandlersRef.current = null;
       const d = sideEarDragRef.current;
       d.active = false;
       d.lastDragOffsetPx = 0;
-      if (d.dragVisualRafId !== 0 && typeof cancelAnimationFrame !== 'undefined') {
-        cancelAnimationFrame(d.dragVisualRafId);
-        d.dragVisualRafId = 0;
-      }
       const shellEl = sideEarShellRef.current;
       const shiftEl = sideEarDragShiftRef.current;
+      shellEl?.classList.remove('table-chat-side-ear-shell--vertical-drag');
       if (shiftEl) {
         shiftEl.style.removeProperty('--side-ear-drag-y');
+        shiftEl.style.removeProperty('transform');
         shiftEl.style.removeProperty('will-change');
       }
       if (shellEl) {
@@ -1751,9 +1745,6 @@ function TableChatDock({
           window.removeEventListener('pointermove', prev.move, SIDE_EAR_POINTER_MOVE_OPTS);
           window.removeEventListener('pointerup', prev.up);
           window.removeEventListener('pointercancel', prev.up);
-          if (prev.raw) {
-            window.removeEventListener('pointerrawupdate', prev.raw, SIDE_EAR_POINTER_RAW_OPTS);
-          }
           sideEarDragWindowHandlersRef.current = null;
         }
       }
@@ -1764,107 +1755,91 @@ function TableChatDock({
       shell.style.removeProperty('height');
       shell.style.removeProperty('box-sizing');
       sideEarDragShiftRef.current?.style.removeProperty('--side-ear-drag-y');
+      sideEarDragShiftRef.current?.style.removeProperty('transform');
       sideEarDragShiftRef.current?.style.removeProperty('will-change');
-      const prevDrag = sideEarDragRef.current;
-      if (prevDrag.dragVisualRafId !== 0 && typeof cancelAnimationFrame !== 'undefined') {
-        cancelAnimationFrame(prevDrag.dragVisualRafId);
-      }
+      sideEarShellRef.current?.classList.remove('table-chat-side-ear-shell--vertical-drag');
+      const ihSnap = typeof window !== 'undefined' ? window.innerHeight : 0;
+      const pct0 = sideEarCenterPctRef.current;
+      const startCenterPxSnap = (pct0 / 100) * ihSnap;
       sideEarDragRef.current = {
         active: true,
         pointerId: e.pointerId,
         startClientY: e.clientY,
-        startCenterPct: sideEarCenterPctRef.current,
+        startCenterPct: pct0,
         dragging: false,
         earHalfClampPx,
         lastDragOffsetPx: 0,
-        dragVisualRafId: 0,
         dragWillChangeSet: false,
         dragLayoutLocked: false,
+        innerHSnap: ihSnap,
+        startCenterPxSnap,
       };
-      const usePointerRawUpdate = typeof window !== 'undefined' && sideEarPointerRawUpdateSupported();
-      const flushDragVisual = () => {
+      const paintSideEarDragTransform = (yPx: number) => {
         const st = sideEarDragRef.current;
-        st.dragVisualRafId = 0;
-        if (!st.active || !st.dragging) return;
-        const elFlush = sideEarDragShiftRef.current;
-        if (!elFlush) return;
-        let y = st.lastDragOffsetPx;
-        if (typeof window !== 'undefined') {
-          const dpr = window.devicePixelRatio;
-          if (typeof dpr === 'number' && dpr > 0 && Number.isFinite(dpr)) {
-            y = Math.round(y * dpr) / dpr;
-          }
-        }
-        elFlush.style.setProperty('--side-ear-drag-y', `${y}px`);
-      };
-      const scheduleDragVisual = () => {
-        const st = sideEarDragRef.current;
-        const elSch = sideEarDragShiftRef.current;
-        if (elSch && st.dragging && !st.dragWillChangeSet) {
-          elSch.style.willChange = 'transform';
+        const el = sideEarDragShiftRef.current;
+        if (!el || !st.dragging) return;
+        if (!st.dragWillChangeSet) {
+          el.style.willChange = 'transform';
           st.dragWillChangeSet = true;
         }
-        if (st.dragVisualRafId !== 0) return;
-        st.dragVisualRafId = requestAnimationFrame(flushDragVisual);
+        el.style.transform = `translate3d(0, ${yPx}px, 0)`;
       };
-      const applySideEarDragFromPointer = (ev: PointerEvent, useCoalescedThreshold: boolean) => {
+      const ensureSideEarDragChrome = (wasDragging: boolean) => {
         const s = sideEarDragRef.current;
-        if (!s.active || ev.pointerId !== s.pointerId) return;
-        if (useCoalescedThreshold) {
-          const samples = sideEarDragThresholdSamples(ev);
-          for (const cev of samples) {
-            const dy0 = cev.clientY - s.startClientY;
-            if (!s.dragging && Math.abs(dy0) >= SIDE_EAR_DRAG_THRESHOLD_PX) {
-              s.dragging = true;
-            }
-          }
-        } else {
-          const dy0 = ev.clientY - s.startClientY;
-          if (!s.dragging && Math.abs(dy0) >= SIDE_EAR_DRAG_THRESHOLD_PX) {
-            s.dragging = true;
-          }
+        if (!wasDragging && s.dragging) {
+          sideEarShellRef.current?.classList.add('table-chat-side-ear-shell--vertical-drag');
         }
-        if (!s.dragging) return;
         if (!s.dragLayoutLocked) {
           const shellLock = sideEarShellRef.current;
           if (shellLock) {
-            const h = Math.max(8, Math.ceil(shellLock.getBoundingClientRect().height));
-            shellLock.style.height = `${h}px`;
+            const hLock = Math.max(8, Math.ceil(shellLock.getBoundingClientRect().height));
+            shellLock.style.height = `${hLock}px`;
             shellLock.style.boxSizing = 'border-box';
             s.dragLayoutLocked = true;
           }
         }
-        const dy = ev.clientY - s.startClientY;
-        ev.preventDefault();
-        const ih = window.innerHeight;
-        const startPx = (s.startCenterPct / 100) * ih;
-        const nextPct = ((startPx + dy) / ih) * 100;
+      };
+      const applySideEarDragPosition = (clientY: number, ev: PointerEvent | null) => {
+        const s = sideEarDragRef.current;
+        if (!s.active || !s.dragging) return;
+        const ih = s.innerHSnap;
+        if (ih <= 0) return;
+        const dy = clientY - s.startClientY;
+        ev?.preventDefault();
+        const nextPct = ((s.startCenterPxSnap + dy) / ih) * 100;
         const clamped = clampSideEarCenterPct(nextPct, ih, s.earHalfClampPx);
         const clampedCenterPx = (clamped / 100) * ih;
-        s.lastDragOffsetPx = clampedCenterPx - startPx;
-        scheduleDragVisual();
+        s.lastDragOffsetPx = clampedCenterPx - s.startCenterPxSnap;
+        paintSideEarDragTransform(s.lastDragOffsetPx);
       };
       const onMove = (ev: PointerEvent) => {
-        applySideEarDragFromPointer(ev, true);
-      };
-      const onRaw = (ev: Event) => {
-        applySideEarDragFromPointer(ev as PointerEvent, false);
+        const s = sideEarDragRef.current;
+        if (!s.active || ev.pointerId !== s.pointerId) return;
+        const wasDragging = s.dragging;
+        if (!s.dragging) {
+          for (const cev of sideEarDragThresholdSamples(ev)) {
+            const dy0 = cev.clientY - s.startClientY;
+            if (Math.abs(dy0) >= SIDE_EAR_DRAG_THRESHOLD_PX) {
+              s.dragging = true;
+              break;
+            }
+          }
+        }
+        if (!s.dragging) return;
+        ensureSideEarDragChrome(wasDragging);
+        applySideEarDragPosition(ev.clientY, ev);
       };
       const onUp = (ev: PointerEvent) => {
         const s = sideEarDragRef.current;
         if (!s.active || ev.pointerId !== s.pointerId) return;
         const wasDragging = s.dragging;
-        if (s.dragVisualRafId !== 0 && typeof cancelAnimationFrame !== 'undefined') {
-          cancelAnimationFrame(s.dragVisualRafId);
-          s.dragVisualRafId = 0;
+        if (wasDragging) {
+          applySideEarDragPosition(ev.clientY, null);
         }
         s.active = false;
         s.dragging = false;
         if (typeof window !== 'undefined') {
           window.removeEventListener('pointermove', onMove, SIDE_EAR_POINTER_MOVE_OPTS);
-          if (usePointerRawUpdate) {
-            window.removeEventListener('pointerrawupdate', onRaw, SIDE_EAR_POINTER_RAW_OPTS);
-          }
           window.removeEventListener('pointerup', onUp);
           window.removeEventListener('pointercancel', onUp);
           sideEarDragWindowHandlersRef.current = null;
@@ -1876,9 +1851,11 @@ function TableChatDock({
         }
         const el = sideEarShellRef.current;
         const viz = sideEarDragShiftRef.current;
+        el?.classList.remove('table-chat-side-ear-shell--vertical-drag');
         /* Не трогаем el.style.top — его задаёт React; removeProperty('top') ломал fixed-позицию до следующего коммита (рельса/ушко «пропадали» после тапа). */
         if (viz) {
           viz.style.removeProperty('--side-ear-drag-y');
+          viz.style.removeProperty('transform');
           viz.style.removeProperty('will-change');
         }
         if (el && s.dragLayoutLocked) {
@@ -1887,9 +1864,8 @@ function TableChatDock({
         }
         if (wasDragging) {
           sideEarSuppressClickRef.current = true;
-          const ih = window.innerHeight;
-          const startPx = (s.startCenterPct / 100) * ih;
-          const seed = ((startPx + s.lastDragOffsetPx) / ih) * 100;
+          const ih = s.innerHSnap > 0 ? s.innerHSnap : window.innerHeight;
+          const seed = ((s.startCenterPxSnap + s.lastDragOffsetPx) / ih) * 100;
           setSideEarCenterPct(() => {
             const clamped = clampSideEarY(seed);
             sideEarCenterPctRef.current = clamped;
@@ -1905,13 +1881,9 @@ function TableChatDock({
       sideEarDragWindowHandlersRef.current = {
         move: onMove,
         up: onUp,
-        ...(usePointerRawUpdate ? { raw: onRaw } : {}),
       };
       if (typeof window !== 'undefined') {
         window.addEventListener('pointermove', onMove, SIDE_EAR_POINTER_MOVE_OPTS);
-        if (usePointerRawUpdate) {
-          window.addEventListener('pointerrawupdate', onRaw, SIDE_EAR_POINTER_RAW_OPTS);
-        }
         window.addEventListener('pointerup', onUp);
         window.addEventListener('pointercancel', onUp);
       }
@@ -2269,6 +2241,26 @@ function TableChatDock({
     sideEarPhantomDismissed,
   ]);
 
+  /** Перелив кристалла: непрочитанное + не «печатает», но не после закрытия фантома крестиком по тому же сообщению (пока нет нового). */
+  const sideEarCrystalShimmerEnabled = useMemo(() => {
+    if (!earUnread || earTypingShown) return false;
+    if (
+      sideEarPhantomDismissed?.kind === 'unread' &&
+      !sideEarPhantomCardVisible &&
+      sideEarPhantomUnread != null &&
+      sideEarPhantomDismissed.messageId === sideEarPhantomUnread.messageId
+    ) {
+      return false;
+    }
+    return true;
+  }, [
+    earUnread,
+    earTypingShown,
+    sideEarPhantomDismissed,
+    sideEarPhantomUnread,
+    sideEarPhantomCardVisible,
+  ]);
+
   const onPhantomDismissPointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
     e.stopPropagation();
   }, []);
@@ -2413,6 +2405,7 @@ function TableChatDock({
               sideEarRailCollapsed ? 'table-chat-side-ear-shell--rail-collapsed' : '',
               earTypingShown ? 'table-chat-side-ear-shell--activity-typing' : '',
               earUnread && !earTypingShown ? 'table-chat-side-ear-shell--activity-unread' : '',
+              sideEarCrystalShimmerEnabled ? 'table-chat-side-ear-shell--crystal-shimmer' : '',
               hideUnreadEarPhantomPreview &&
               earUnread &&
               !earTypingShown &&
@@ -2561,15 +2554,20 @@ function TableChatDock({
                       className="table-chat-side-ear-preview-settings__glyph"
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
-                      width={5}
-                      height={5}
+                      fill="none"
                       focusable="false"
                     >
-                      {/* «Бегунки» — не спутать с круглым индикатором нового сообщения */}
+                      {/* Глаз: «видимость превью»; читается лучше бегунков на микро-размере */}
                       <path
-                        fill="currentColor"
-                        d="M3 17v2h6v-2H3zm0-6v2h10v-2H3zm0-6v2h14V5H3zm14 16v-2h4v2h-4zm0-10v2h8v-2h-8zm0-6v2h6V5h-6z"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2.25}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        vectorEffect="non-scaling-stroke"
+                        d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"
                       />
+                      <circle cx="12" cy="12" r="3" fill="currentColor" />
                     </svg>
                   </span>
                 </button>
