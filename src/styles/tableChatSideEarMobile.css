@@ -2038,6 +2038,7 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
+  transform: translateY(-1px);
 }
 
 .table-chat-side-ear-phantom__typing {
