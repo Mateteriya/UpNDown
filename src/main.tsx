@@ -13,6 +13,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { OnlineGameProvider } from './contexts/OnlineGameContext'
 import { ErrorBoundary } from './ui/ErrorBoundary'
 import { CardsDemoPage } from './ui/CardsDemoPage'
+import { CardDarkLabPage } from './ui/CardDarkLabPage'
 import { DealTrackLabPage } from './ui/DealTrackLabPage'
 import { TotalColorLabPage } from './ui/TotalColorLabPage'
 import { OnlineUiLabPage } from './ui/OnlineUiLabPage'
@@ -22,6 +23,7 @@ import './styles/tableChatSideEarMobile.css'
 
 const path = typeof window !== 'undefined' ? window.location.pathname : ''
 const isDemo = path === '/demo' || path.startsWith('/demo/')
+const isCardDarkLab = path === '/demo/cards-dark' || path.startsWith('/demo/cards-dark/')
 const isDealTrackLab = path === '/deal-track-lab' || path.startsWith('/deal-track-lab/')
 const isTotalColorLab = path === '/total-color-lab' || path.startsWith('/total-color-lab/')
 const isOnlineUiLab = path === '/online-ui-lab' || path.startsWith('/online-ui-lab/')
@@ -41,7 +43,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     {isDemo ? (
       <ThemeProvider>
         <DemoGuard>
-          <CardsDemoPage onBack={() => (window.location.href = '/')} />
+          {isCardDarkLab ? (
+            <CardDarkLabPage onBack={() => (window.location.href = '/demo')} />
+          ) : (
+            <CardsDemoPage onBack={() => (window.location.href = '/')} />
+          )}
         </DemoGuard>
       </ThemeProvider>
     ) : isDealTrackLab ? (

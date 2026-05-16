@@ -97,6 +97,21 @@ export function CardsDemoPage({ onBack }: CardsDemoPageProps) {
           ← В меню
         </button>
         <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Демо карт (ПК)</h1>
+        <a
+          href="/demo/cards-dark"
+          style={{
+            padding: '8px 14px',
+            fontSize: 14,
+            borderRadius: 8,
+            border: '1px solid rgba(34, 211, 238, 0.45)',
+            background: 'rgba(34, 211, 238, 0.08)',
+            color: '#22d3ee',
+            textDecoration: 'none',
+            fontWeight: 600,
+          }}
+        >
+          Лаборатория тёмного листа карт →
+        </a>
         <span style={{ color: '#64748b', fontSize: 14 }}>
           Подбор стилей для рук, стола, анимации и козыря. Мобильная версия не затрагивается.
         </span>

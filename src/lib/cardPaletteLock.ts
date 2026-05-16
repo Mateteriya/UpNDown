@@ -1,8 +1,7 @@
 /**
- * Ручной «замок» палитры карт: под авто-темизацию WebView (Samsung Force Dark,
- * ночные режимы браузера и т.п.) масти/фон карт могут искажаться.
- * Включается только по жесту пользователя. Компенсация — invert на элементе html
- * (см. index.css), иначе на части дерева в некоторых WebView эффект не виден.
+ * Режим тёмного листа карт (долгое нажатие на лампу в игре): флаг в localStorage + класс на html.
+ * Визуал карт — в CardView (cardPaletteLock из ThemeContext), без CSS filter/invert.
+ * Лаборатория вариантов: /demo/cards-dark
  */
 
 export const CARD_PALETTE_LOCK_STORAGE_KEY = 'updown-card-palette-lock';

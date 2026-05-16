@@ -237,10 +237,12 @@ export function OnlineUiLabPage({ onBack }: OnlineUiLabPageProps) {
       >
         {chatCollapsed ? (
           <>
-            <strong style={{ color: '#7dd3fc' }}>Сейчас: чат свёрнут.</strong> Справа должно быть узкое «ушко» 💬 (на макете — у правого края
-            экрана). Внизу — серая полоска с текстом и кнопкой «Открыть чат».
+            <strong style={{ color: '#7dd3fc' }}>Сейчас: чат свёрнут.</strong> Справа — «ушко» 💬; крестик под «Чат» — космический шарик (можно таскать по экрану, у края
+            прилипает); в фантоме — «В ЧАТ» к панели внизу.
             <br />
-            <span style={{ opacity: 0.9 }}>Нажмите ушко или кнопку — откроется панель чата (ушко при этом пропадёт — это нормально).</span>
+            <span style={{ opacity: 0.9 }}>
+              Нажмите глиф или «Чат» на ушке — прокрутка к панели внизу и сворачивание ушка в рельсу (ушко остаётся у края).
+            </span>
           </>
         ) : (
           <>
@@ -248,7 +250,7 @@ export function OnlineUiLabPage({ onBack }: OnlineUiLabPageProps) {
             развёрнут, видна только панель «Чат стола».
             <br />
             <span style={{ fontWeight: 600 }}>
-              Чтобы снова увидеть ушко и свёрнутую полоску — нажмите «Свернуть» в правом верхнем углу серой панели чата (рядом с заголовком «Чат
+              Чтобы снова увидеть ушко и кнопку «Чат» внизу — нажмите «Свернуть» в правом верхнем углу серой панели чата (рядом с заголовком «Чат
               стола»).
             </span>
           </>
@@ -274,8 +276,8 @@ export function OnlineUiLabPage({ onBack }: OnlineUiLabPageProps) {
             Ниже — тот же HTML/CSS-класс, что у онлайн-стола в режиме «Стандарт после short»: можно проверить скролл к чату и боковую кнопку.
           </li>
           <li>
-            «Ушко» — закреплённая справа кнопка 💬; она дублирует вход в чат, чтобы не листать вниз. После открытия чата ушко не показывают — иначе
-            оно перекрывало бы панель.
+            «Ушко» — закреплённая справа кнопка 💬; глиф и «Чат» прокручивают к панели внизу и сворачивают ушко в рельсу. Полный чат — кнопка «Чат» внизу
+            или «Свернуть» в развёрнутой панели.
           </li>
         </ol>
       </details>
@@ -373,8 +375,8 @@ export function OnlineUiLabPage({ onBack }: OnlineUiLabPageProps) {
                   Зона стола (листайте ↓)
                 </div>
                 <p style={{ margin: '28px 0 8px', maxWidth: '34em' }}>
-                  Прокрутите <strong style={{ color: '#e2e8f0' }}>эту рамку внутри макета</strong> вниз — под серой «панелью игрока» будут полоска
-                  чата и боковое ушко (если включён режим выше и чат свёрнут).
+                  Прокрутите <strong style={{ color: '#e2e8f0' }}>эту рамку внутри макета</strong> вниз — под серой «панелью игрока» будут кнопка
+                  «Чат» и боковое ушко (если включён режим выше и чат свёрнут).
                 </p>
               </div>
 
@@ -412,7 +414,7 @@ export function OnlineUiLabPage({ onBack }: OnlineUiLabPageProps) {
                   roomId={LAB_ROOM_ID}
                   userId={LAB_USER_ID}
                   displayName="Лаборатория"
-                  standardAfterShortVh={standardAfterShort}
+                  mobileSideEarEnabled={standardAfterShort}
                   offlineUiLab
                   offlineUiLabEarMock={offlineUiLabEarMock}
                   offlineUiLabIncomingSeq={labIncomingSeq}
