@@ -1470,6 +1470,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       /* ignore */
     }
   }, []);
+  /** Ушко/рельса/фантомы/космическая закладка: везде на мобиле, кроме short immersive. */
+  const mobileSideEarEnabled =
+    isMobile && !(mobileViewportShort && mobileShortHeaderImmersive);
   const [mobileShortImmersiveInviteChip, setMobileShortImmersiveInviteChip] = useState(false);
   /** Меню режима short-VH (иммерсив / стандарт / свернуть ручку) — портал на body. */
   const [shortVhSouthPullModeMenuOpen, setShortVhSouthPullModeMenuOpen] = useState(false);
@@ -7395,7 +7398,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           userId={user.id}
           displayName={playerDisplayName?.trim() || 'Игрок'}
           onOwnMessageSent={onOwnTableChatMessageSent}
-          standardAfterShortVh={mobileStandardLayoutOnShortViewport}
+          mobileSideEarEnabled={mobileSideEarEnabled}
         />
       )}
       </div>
