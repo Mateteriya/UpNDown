@@ -62,27 +62,10 @@
 @import './theme-neon.css';
 
 /*
- * Замок палитры карт: класс updown-card-palette-lock на html (долгое нажатие на лампу).
- * — Карты: color-scheme + forced-color-adjust.
- * — Компенсация инверсии WebView/ОС: invert на самом html (весь вывод страницы), иначе на части
- *   дерева эффект часто не виден (отдельные композитные слои, short, Яндекс).
- * — В theme-standard.css у .theme-standard стоит filter:none !important — поэтому здесь тоже !important
- *   и селектор html.theme-standard.updown-card-palette-lock (выше специфичность).
- * — Если инверсии снаружи нет, экран станет «негативом» — снова удержание лампы, выключите.
+ * Замок палитры (updown-card-palette-lock на html): без CSS invert — оформление карт в игре
+ * задаётся в CardView по cardPaletteLock (см. ThemeContext). Класс на html остаётся для localStorage
+ * при первой отрисовке и возможных будущих глобальных подсказках.
  */
-/* Не использовать: html.updown-card-palette-lock .theme-standard ... (пробел) — не матчится. */
-html.theme-standard.updown-card-palette-lock button.card-view-root,
-html.theme-standard.updown-card-palette-lock button.card-view-root img {
-  color-scheme: only light !important;
-  -webkit-forced-color-adjust: none !important;
-  forced-color-adjust: none !important;
-}
-
-html.theme-standard.updown-card-palette-lock {
-  isolation: isolate !important;
-  -webkit-filter: invert(1) hue-rotate(180deg) !important;
-  filter: invert(1) hue-rotate(180deg) !important;
-}
 
 /* ПК: лампа — тонкое кольцо, если включён замок палитры карт */
 .game-table-root:not(.viewport-mobile) .game-header button.trump-lamp-card-palette-lock-on {
@@ -157,6 +140,57 @@ html.theme-standard.updown-card-palette-lock {
   -webkit-user-select: text;
   user-select: text;
   -webkit-touch-callout: default;
+}
+
+/* Цитата в сообщении чата (ответ из фантома с «Добавить цитирование»). */
+.game-table-root .table-chat-msg__quote-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background: rgba(8, 15, 30, 0.88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.game-table-root .table-chat-msg__quote-card__accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #22d3ee, #a78bfa);
+}
+.game-table-root .table-chat-msg__quote-card__body {
+  padding: 7px 9px 7px 12px;
+}
+.game-table-root .table-chat-msg__quote-card__kicker {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.game-table-root .table-chat-msg__quote-card__author {
+  font-size: 12px;
+  font-weight: 800;
+  color: #a5f3fc;
+  margin: 2px 0 3px;
+}
+.game-table-root .table-chat-msg__quote-card__excerpt {
+  margin: 0;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #cbd5e1;
+  border: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.game-table-root .table-chat-msg--self .table-chat-msg__quote-card {
+  border-color: rgba(196, 181, 253, 0.35);
+  background: rgba(15, 10, 35, 0.9);
+}
+.game-table-root .table-chat-msg--self .table-chat-msg__quote-card__author {
+  color: #e9d5ff;
 }
 
 /* Лёгкая пульсация имён (theme-standard): opacity 0.90 → 0.74 */
@@ -3018,7 +3052,7 @@ html.theme-standard.updown-card-palette-lock {
     border-radius: 8px;
     border: 1px solid rgba(100, 116, 139, 0.45);
     background: rgba(15, 23, 42, 0.9);
-    color: #f1f5f9;
+    color: #a5f3fc;
     font-size: 13px;
   }
   .game-table-root.viewport-mobile .table-chat-send {
@@ -3028,7 +3062,7 @@ html.theme-standard.updown-card-palette-lock {
     border-radius: 8px;
     border: 1px solid rgba(34, 211, 238, 0.45);
     background: linear-gradient(180deg, #0e7490 0%, #155e75 100%);
-    color: #f8fafc;
+    color: #cffafe;
     font-size: 18px;
     cursor: pointer;
   }
@@ -3145,7 +3179,7 @@ html.theme-standard.updown-card-palette-lock {
     margin-bottom: 6px;
     font-size: 12px;
     line-height: 1.35;
-    color: #e2e8f0;
+    color: #94a3b8;
     word-break: break-word;
   }
   .game-table-root.viewport-mobile .table-chat-msg-compact--self {
@@ -3164,6 +3198,18 @@ html.theme-standard.updown-card-palette-lock {
   .game-table-root.viewport-mobile .table-chat-msg-compact__sep {
     padding: 0 4px 0 2px;
     color: #64748b;
+  }
+  .game-table-root.viewport-mobile .table-chat-msg-compact--has-quote .table-chat-msg-compact__sep {
+    display: inline;
+  }
+  .game-table-root.viewport-mobile .table-chat-msg-compact__quoted {
+    display: block;
+    margin-top: 4px;
+  }
+  .game-table-root.viewport-mobile .table-chat-msg-compact__reply {
+    display: block;
+    margin-top: 6px;
+    color: inherit;
   }
   .game-table-root.viewport-mobile .table-chat-empty--pro {
     display: flex;
@@ -3253,7 +3299,7 @@ html.theme-standard.updown-card-palette-lock {
     border-radius: 14px 14px 14px 6px;
     background: linear-gradient(180deg, rgba(51, 65, 85, 0.95) 0%, rgba(30, 41, 59, 0.98) 100%);
     border: 1px solid rgba(100, 116, 139, 0.35);
-    color: #f1f5f9;
+    color: #bae6fd;
     font-size: 13px;
     line-height: 1.4;
     word-break: break-word;
@@ -3268,6 +3314,16 @@ html.theme-standard.updown-card-palette-lock {
   }
   .game-table-root.viewport-mobile .table-chat-msg__body {
     margin: 0;
+  }
+  .game-table-root.viewport-mobile .table-chat-msg__body--quoted {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .game-table-root.viewport-mobile .table-chat-msg__reply-text {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
   .game-table-root.viewport-mobile .table-chat-msg__copy {
     position: absolute;
@@ -3347,7 +3403,7 @@ html.theme-standard.updown-card-palette-lock {
     border-radius: 12px;
     border: 1px solid rgba(100, 116, 139, 0.45);
     background: rgba(15, 23, 42, 0.75);
-    color: #f8fafc;
+    color: #a5f3fc;
     font-size: 14px;
     font-family: inherit;
     line-height: 1.35;
@@ -3491,7 +3547,7 @@ html.theme-standard.updown-card-palette-lock {
     border-radius: 10px;
     border: 1px solid rgba(34, 211, 238, 0.5);
     background: linear-gradient(180deg, #0e7490 0%, #155e75 100%);
-    color: #f8fafc;
+    color: #cffafe;
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
@@ -3507,15 +3563,15 @@ html.theme-standard.updown-card-palette-lock {
   .game-table-root.viewport-mobile .table-chat-send__spinner {
     width: 16px;
     height: 16px;
-    border: 2px solid rgba(248, 250, 252, 0.35);
-    border-top-color: #f8fafc;
+    border: 2px solid rgba(103, 232, 249, 0.28);
+    border-top-color: #67e8f9;
     border-radius: 50%;
     animation: table-chat-send-spin 0.65s linear infinite;
   }
   @media (prefers-reduced-motion: reduce) {
     .game-table-root.viewport-mobile .table-chat-send__spinner {
       animation: none;
-      border-top-color: rgba(248, 250, 252, 0.75);
+      border-top-color: rgba(103, 232, 249, 0.75);
     }
   }
 
@@ -14117,6 +14173,16 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-msg__body {
     margin: 0;
   }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-msg__body--quoted {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-msg__reply-text {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
   .game-table-root:not(.viewport-mobile) .table-chat-dock--pc .table-chat-msg__copy {
     position: absolute;
     right: 3px;
@@ -18470,6 +18536,12 @@ body.deal-results-modal-open-mobile {
 }
 .trump-on-deck--dim {
   animation: trumpShimmerDim 3s ease-in-out infinite;
+}
+/* Тёмный лист: козырь — цветное кольцо из box-shadow, без белого shimmer поверх */
+.card-view-root.card-dark-suit-trump.trump-on-deck--full,
+.card-view-root.card-dark-suit-trump.trump-on-deck--dim {
+  animation: none;
+  filter: none;
 }
 @keyframes trumpShimmer {
   0%, 100% { filter: brightness(1) drop-shadow(0 0 4px rgba(255,255,255,0.28)); }

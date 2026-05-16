@@ -1353,7 +1353,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     setTrumpHighlightOn((v) => !v);
   }, []);
   const trumpLampHintTitle =
-    'Короткое нажатие — доп. подсветка козыря и стола. Удержание ~0,6 с — если цвета «перевёрнуты» (Яндекс/телефон): компенсация на весь экран приложения. Если у вас и так всё нормально — экран станет негативом; снова удержание, выключите.';
+    'Короткое нажатие — доп. подсветка козыря и стола. Удержание ~0,6 с — тёмный лист карт на телефоне/планшете (как в лаборатории /demo/cards-dark); снова удержание — выключить. Стол ПК не меняется.';
   /** ПК: гирлянда — через USER_PANEL_GARLAND_IDLE_PC_MS бездействия (pointer/key), не с начала хода мгновенно */
   const [userTurnGarlandReady, setUserTurnGarlandReady] = useState(false);
   /** ПК: усиленный сигнал «пора ходить» после USER_PANEL_STRONG_NUDGE_IDLE_PC_MS простоя */
@@ -1470,6 +1470,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       /* ignore */
     }
   }, []);
+  /** Ушко/рельса/фантомы/космическая закладка: везде на мобиле, кроме short immersive. */
+  const mobileSideEarEnabled =
+    isMobile && !(mobileViewportShort && mobileShortHeaderImmersive);
   const [mobileShortImmersiveInviteChip, setMobileShortImmersiveInviteChip] = useState(false);
   /** Меню режима short-VH (иммерсив / стандарт / свернуть ручку) — портал на body. */
   const [shortVhSouthPullModeMenuOpen, setShortVhSouthPullModeMenuOpen] = useState(false);
@@ -4393,7 +4396,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}${cardPaletteLock ? ' card-palette-lock-active' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}
     >
       {showMobileTurnEdgeGlow ? (
@@ -7395,7 +7398,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           userId={user.id}
           displayName={playerDisplayName?.trim() || 'Игрок'}
           onOwnMessageSent={onOwnTableChatMessageSent}
-          standardAfterShortVh={mobileStandardLayoutOnShortViewport}
+          mobileSideEarEnabled={mobileSideEarEnabled}
         />
       )}
       </div>

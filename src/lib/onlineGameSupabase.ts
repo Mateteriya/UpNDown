@@ -1494,14 +1494,33 @@ export async function sendRoomChatMessage(
   return { error: formatChatSendError(lastMsg) };
 }
 
-/** Подписка на новые сообщения чата (INSERT). */
+/** Эфемерное «печатает» по broadcast на том же канале, что и INSERT чата (без таблицы в БД). */
+export type RoomChatTypingBroadcastPayload = {
+  user_id: string;
+  display_name?: string;
+};
+
+export type RoomChatSubscriptionHandle = {
+  unsubscribe: () => void;
+  broadcastTyping: (payload: RoomChatTypingBroadcastPayload) => void;
+};
+
+/** Подписка на новые сообщения чата (INSERT) и опционально broadcast «typing». */
 export function subscribeRoomChat(
   roomId: string,
   onInsert: (row: RoomChatMessageRow) => void,
-  onSubscribeStatus?: (status: string) => void
-): () => void {
+  options?: {
+    onSubscribeStatus?: (status: string) => void;
+    onTypingBroadcast?: (payload: RoomChatTypingBroadcastPayload) => void;
+  },
+): RoomChatSubscriptionHandle {
   const client = supabase;
-  if (!client || !roomId) return () => {};
+  if (!client || !roomId) {
+    return {
+      unsubscribe: () => {},
+      broadcastTyping: () => {},
+    };
+  }
 
   const channel = client
     .channel(`room-chat:${roomId}`)
@@ -1511,12 +1530,33 @@ export function subscribeRoomChat(
       (payload) => {
         const row = payload.new as RoomChatMessageRow;
         if (row?.id) onInsert(row);
-      }
+      },
     )
-    .subscribe((status) => onSubscribeStatus?.(status));
+    .on('broadcast', { event: 'typing' }, (evt) => {
+      const raw = (evt as { payload?: unknown }).payload;
+      if (!raw || typeof raw !== 'object') return;
+      const p = raw as Record<string, unknown>;
+      const uid = p.user_id;
+      if (typeof uid !== 'string' || uid.length === 0) return;
+      const dn = p.display_name;
+      options?.onTypingBroadcast?.({
+        user_id: uid,
+        display_name: typeof dn === 'string' ? dn : undefined,
+      });
+    })
+    .subscribe((status) => options?.onSubscribeStatus?.(status));
 
-  return () => {
-    client.removeChannel(channel);
+  return {
+    unsubscribe: () => {
+      client.removeChannel(channel);
+    },
+    broadcastTyping: (payload: RoomChatTypingBroadcastPayload) => {
+      void channel.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload,
+      });
+    },
   };
 }
 
