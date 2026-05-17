@@ -178,42 +178,42 @@ const suitColorDark: Record<string, string> = {
   '♣': 'rgb(34, 17, 3)',
 };
 
-/** Тёмный лист: мобильная рука и стол (некозыри) — градиент, рамка и кольцо по масти. */
-const MOBILE_DARK_SUIT_FACE_BY_SUIT: Record<
+/** Тёмный лист (моб. рука, стол, колода): палитра по масти — одна на все зоны. */
+const MOBILE_DARK_SUIT_PALETTE_BY_SUIT: Record<
   Card['suit'],
   { border: string; boxShadow: string; ringColor: string; background: string; color: string }
 > = {
   '♠': {
-    border: '1px solid rgb(148, 163, 184)',
-    ringColor: '#3222ee',
-    boxShadow: '#3222ee 0 0 0 2px',
+    border: '1px solid rgb(75, 11, 238)',
+    ringColor: '#4b0bee',
+    boxShadow: 'rgb(75, 11, 238) 0 0 0 2px',
     background:
-      'linear-gradient(145deg, rgb(15, 23, 42) 0%, rgb(30, 41, 59) 20%, rgb(49, 46, 129) 40%, rgb(74, 30, 108) 60%, rgb(30, 41, 59) 80%, rgb(15, 23, 42) 100%)',
-    color: 'rgb(136, 33, 200)',
+      'linear-gradient(145deg, #0c041f 0%, rgb(3, 12, 28) 20%, rgb(20, 17, 102) 40%, rgb(39, 10, 79) 60%, rgb(6, 21, 45) 80%, rgb(15, 23, 42) 100%)',
+    color: 'rgb(75, 11, 238)',
   },
   '♥': {
-    border: '1px solid rgb(114, 14, 14)',
-    ringColor: '#b028ab',
-    boxShadow: '#b028ab 0 0 0 2px',
+    border: '1px solid #dd2aa899',
+    ringColor: '#dd2aa8',
+    boxShadow: '#dd2aa899 0 0 0 2px',
     background:
-      'linear-gradient(145deg, rgb(124, 61, 201) 0%, rgba(116, 40, 175, 0.7) 20%, rgb(74, 42, 185) 40%, rgba(227, 75, 131, 0.51) 60%, rgb(77, 45, 124) 80%, rgb(128, 48, 156) 100%)',
-    color: 'rgb(227, 33, 33)',
+      'linear-gradient(145deg, rgb(66, 16, 127) 0%, rgba(34, 5, 57, 0.7) 20%, rgb(29, 10, 95) 40%, rgba(79, 7, 33, 0.51) 60%, rgb(29, 10, 57) 80%, rgb(53, 9, 68) 100%)',
+    color: '#f131b8b0',
   },
   '♦': {
-    border: '1px solid rgb(155, 86, 14)',
-    ringColor: '#b06121',
-    boxShadow: '#b06121 0 0 0 2px',
+    border: '1px solid rgb(128, 66, 15)',
+    ringColor: '#80420f',
+    boxShadow: 'rgb(128, 66, 15) 0 0 0 2px',
     background:
-      'linear-gradient(145deg, rgb(72, 92, 20) 0%, rgb(97, 38, 23) 20%, rgba(100, 76, 25, 0.83) 40%, rgb(77, 78, 21) 60%, rgba(171, 85, 63, 0.68) 80%, rgb(122, 72, 14) 100%)',
-    color: 'rgb(237, 182, 27)',
+      'linear-gradient(145deg, rgb(1, 18, 3) 0%, rgb(100, 32, 11) 20%, rgba(39, 27, 3, 0.83) 40%, rgb(65, 44, 7) 60%, rgba(55, 15, 4, 0.68) 80%, rgb(71, 32, 7) 100%)',
+    color: 'rgba(203, 130, 25, 0.91)',
   },
   '♣': {
-    border: '1px solid #5a270c',
-    ringColor: '#5b21b6',
-    boxShadow: '#5b21b6 0 0 0 2px',
+    border: '1px solid rgb(8, 94, 86)',
+    ringColor: '#085e56',
+    boxShadow: 'rgb(8, 94, 86) 0 0 0 2px',
     background:
-      'linear-gradient(145deg, rgb(98, 41, 15) 0%, rgb(81, 74, 15) 20%, rgb(49, 46, 129) 40%, rgb(87, 40, 10) 60%, rgb(82, 57, 19) 80%, #724d07 100%)',
-    color: 'rgb(34, 17, 3)',
+      'linear-gradient(145deg, rgb(47, 17, 4) 0%, rgb(32, 6, 63) 20%, rgb(9, 7, 66) 40%, rgb(57, 28, 9) 60%, rgb(31, 17, 90) 80%, rgb(6, 87, 58) 100%)',
+    color: '#16995e',
   },
 };
 
@@ -244,6 +244,70 @@ function darkSuitTrumpAccent(baseRing: string, ringColor: string, strength: 'off
   ].join(', ');
 }
 
+/** Тёмная рука: карта доступна для хода (не козырь) — заметное кольцо масти, слабее козыря. */
+function darkSuitValidPlayAccent(baseRing: string, ringColor: string) {
+  return [
+    baseRing,
+    `0 0 0 3px ${ringColor}`,
+    `0 0 8px ${hexWithAlpha(ringColor, 0.88)}`,
+    `0 0 16px ${hexWithAlpha(ringColor, 0.58)}`,
+    `inset 0 0 14px ${hexWithAlpha(ringColor, 0.28)}`,
+    '0 2px 10px rgba(0,0,0,0.32)',
+  ].join(', ');
+}
+
+/** Козырь + доступный ход: кольцо козыря и акцент «можно играть» вместе. */
+function darkSuitTrumpValidPlayAccent(baseRing: string, ringColor: string) {
+  return [
+    baseRing,
+    `0 0 0 4px ${ringColor}`,
+    `0 0 10px ${hexWithAlpha(ringColor, 0.95)}`,
+    `0 0 20px ${hexWithAlpha(ringColor, 0.68)}`,
+    `inset 0 0 16px ${hexWithAlpha(ringColor, 0.34)}`,
+    '0 2px 12px rgba(0,0,0,0.36)',
+  ].join(', ');
+}
+
+/** Моб. рука: кольца на 1px уже (база 1px, доступный ход 2px, козырь+ход 3px) — ряд влезает по ширине. */
+function darkSuitHandRing(ringColor: string, spreadPx = 1) {
+  return `${ringColor} 0 0 0 ${spreadPx}px`;
+}
+
+function darkSuitTrumpAccentHand(baseRing: string, ringColor: string, strength: 'off' | 'soft' | 'on') {
+  if (strength === 'off') return `${baseRing}, 0 2px 8px rgba(0,0,0,0.24)`;
+  const o = strength === 'on' ? 1 : 0.65;
+  const spreadPx = strength === 'on' ? 2 : 1;
+  return [
+    baseRing,
+    `0 0 0 ${spreadPx}px ${ringColor}`,
+    `0 0 5px ${hexWithAlpha(ringColor, 0.58 * o)}`,
+    `0 0 9px ${hexWithAlpha(ringColor, 0.42 * o)}`,
+    '0 2px 8px rgba(0,0,0,0.28)',
+  ].join(', ');
+}
+
+function darkSuitValidPlayAccentHand(baseRing: string, ringColor: string) {
+  return [
+    baseRing,
+    `0 0 0 2px ${ringColor}`,
+    `0 0 7px ${hexWithAlpha(ringColor, 0.88)}`,
+    `0 0 14px ${hexWithAlpha(ringColor, 0.58)}`,
+    `inset 0 0 12px ${hexWithAlpha(ringColor, 0.28)}`,
+    '0 2px 10px rgba(0,0,0,0.32)',
+  ].join(', ');
+}
+
+function darkSuitTrumpValidPlayAccentHand(baseRing: string, ringColor: string) {
+  return [
+    baseRing,
+    `0 0 0 3px ${ringColor}`,
+    `0 0 9px ${hexWithAlpha(ringColor, 0.95)}`,
+    `0 0 18px ${hexWithAlpha(ringColor, 0.68)}`,
+    `inset 0 0 14px ${hexWithAlpha(ringColor, 0.34)}`,
+    '0 2px 12px rgba(0,0,0,0.36)',
+  ].join(', ');
+}
+
 export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, mobileTrumpShineBidding = false, mobileHandPeekLift = false, mobileOverlapHandPointerPassthrough = false, labDarkCardFace = false }: CardViewProps) {
   const { theme, cardPaletteLock } = useTheme();
   /** Тёмный лист: лаборатория, старый neon+мобила, или «замок» в игре только когда не ПК-стили карты */
@@ -254,7 +318,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
   const mobileDarkHand = mobileDarkSuitFace && suitIndexInHandMobile;
   const mobileDarkTable = mobileDarkSuitFace && tableCardMobile;
   const mobileDarkDeck = mobileDarkSuitFace && !!trumpOnDeck;
-  const darkSuitFace = mobileDarkSuitFace ? MOBILE_DARK_SUIT_FACE_BY_SUIT[card.suit] : null;
+  const darkSuitFace = mobileDarkSuitFace ? MOBILE_DARK_SUIT_PALETTE_BY_SUIT[card.suit] : null;
   const isMobileDarkTrump =
     !!darkSuitFace &&
     ((mobileDarkTable && !!isTrumpOnTable) ||
@@ -272,7 +336,11 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
   const h = Math.round(bh * scale);
   const baseShadow = doubleBorder ? neon.outline : 'none';
   const isMobileHandTrump = mobileTrumpGlowActive && (forceMobileTrumpGlow || (!pcCardStyles && !!isTrumpInHand));
-  const showMobileHandHighlight = isMobileHandTrump || (!!highlightAsValidPlay && !pcCardStyles);
+  /** Допустимый ход на руке (в тёмном листе — акцент цветом кольца масти, без белого перелива). */
+  const showValidPlayHandHighlight = !!highlightAsValidPlay && !pcCardStyles;
+  const darkHandValidPlayHighlight = mobileDarkHand && showValidPlayHandHighlight;
+  const darkHandValidPlayTrump = darkHandValidPlayHighlight && !!isTrumpInHand;
+  const showMobileHandHighlight = isMobileHandTrump || showValidPlayHandHighlight;
   /** Торги: обычные карты руки — без «disabled-лаванды» и без неоновой рамки по масти (видно масть для заказа) */
   const mobileBiddingPlainHand =
     biddingHighlightMobile && suitIndexInHandMobile && !pcCardStyles && !showMobileHandHighlight;
@@ -355,11 +423,15 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
     ? `${trumpShadow}, 0 0 12px rgba(255,255,255,0.38)`
     : mobileHandHighlightRing ? (trumpShadow === 'none' ? mobileHandHighlightRing : `${trumpShadow}, ${mobileHandHighlightRing}`) : trumpShadow;
 
+  const mobileDarkHandTrumpAccentOn =
+    mobileTrumpShineBidding ||
+    forceMobileTrumpGlow ||
+    (!!isTrumpInHand && (isMobileHandTrump || showValidPlayHandHighlight));
   const mobileDarkTrumpLit =
     isMobileDarkTrump &&
     ((mobileDarkDeck && trumpDeckHighlightOn) ||
       (mobileDarkTable && trumpHighlightOn) ||
-      (mobileDarkHand && showMobileHandHighlight));
+      (mobileDarkHand && !!isTrumpInHand));
 
   const darkSuitBoxShadow = darkSuitFace
     ? (() => {
@@ -380,20 +452,21 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
           );
         }
         if (mobileDarkHand && isMobileDarkTrump) {
-          return darkSuitTrumpAccent(
-            ring,
-            darkSuitFace.ringColor,
-            showMobileHandHighlight ? 'on' : 'off',
-          );
+          const handRing = darkSuitHandRing(ringHex, 1);
+          if (darkHandValidPlayTrump) {
+            return darkSuitTrumpValidPlayAccentHand(handRing, ringHex);
+          }
+          return darkSuitTrumpAccentHand(handRing, ringHex, mobileDarkHandTrumpAccentOn ? 'on' : 'soft');
         }
         if (mobileDarkHand) {
-          if (showMobileHandHighlight && !isTrumpInHand) {
-            return `${ring}, 0 0 0 1px rgba(255,255,255,0.3), 0 0 10px ${hexWithAlpha(ringHex, 0.4)}, 0 2px 8px rgba(0,0,0,0.2)`;
+          const handRing = darkSuitHandRing(ringHex, 1);
+          if (darkHandValidPlayHighlight) {
+            return darkSuitValidPlayAccentHand(handRing, ringHex);
           }
           if (mobileBiddingPlainHand) {
-            return `${ring}, 0 2px 10px rgba(0,0,0,0.42)`;
+            return `${handRing}, 0 2px 10px rgba(0,0,0,0.42)`;
           }
-          return ring;
+          return handRing;
         }
         /* стол, некозырь */
         return trumpHighlightOn && doubleBorder
@@ -409,6 +482,9 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
       disabled={disabled}
       className={[
         'card-view-root',
+        mobileDarkHand ? 'card-dark-mobile-hand' : null,
+        darkHandValidPlayHighlight ? 'card-dark-hand-playable' : null,
+        darkHandValidPlayTrump ? 'card-dark-hand-playable-trump' : null,
         mobileDarkSuitFace && isMobileDarkTrump ? 'card-dark-suit-trump' : null,
         trumpOnDeck
           ? trumpDeckHighlightOn
@@ -428,7 +504,9 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         margin: suitIndexInHandMobile && !pcCardStyles && compact ? 0 : compact ? Math.round(2 * scale) : Math.round(4 * scale),
         /* В мобильной руке при подсветке: цветная рамка по масти (и для козырей тоже при вкл. подсветки); иначе козырь/доступный ход — белая рамка */
         border: darkSuitFace
-          ? darkSuitFace.border
+          ? mobileDarkHand && (darkHandValidPlayTrump || darkHandValidPlayHighlight)
+            ? `1px solid ${darkSuitFace.ringColor}`
+            : darkSuitFace.border
           : showMobileHandHighlight && thinBorder
           ? (suitIndexInHandMobile && trumpHighlightOn ? `1px solid ${borderColor}` : '1px solid rgba(255,255,255,0.98)')
           : showMobileHandHighlight
@@ -437,14 +515,28 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
             ? (isDark ? '2px solid rgba(203, 213, 225, 0.72)' : '2px solid rgba(100, 116, 139, 0.88)')
             : (thinBorder ? `1px solid ${borderColor}` : (trumpOnDeck && !trumpDeckHighlightOn ? `2px solid ${borderColor}bb` : (doubleBorder ? (isNonTrumpWithHighlight ? `2px solid ${borderColor}` : `3px solid ${borderColor}`) : `2px solid ${borderColor}`))),
         outline: darkSuitFace
-          ? mobileDarkTrumpLit
-            ? `2px solid ${darkSuitFace.ringColor}`
-            : 'none'
+          ? mobileDarkHand
+            ? darkHandValidPlayTrump
+              ? `2px solid ${darkSuitFace.ringColor}`
+              : mobileDarkTrumpLit
+                ? `1px solid ${darkSuitFace.ringColor}`
+                : darkHandValidPlayHighlight
+                  ? `1px solid ${darkSuitFace.ringColor}`
+                  : 'none'
+            : darkHandValidPlayTrump
+              ? `3px solid ${darkSuitFace.ringColor}`
+              : mobileDarkTrumpLit
+                ? `2px solid ${darkSuitFace.ringColor}`
+                : darkHandValidPlayHighlight
+                  ? `2px solid ${darkSuitFace.ringColor}`
+                  : 'none'
           : thinBorder
           ? (suitIndexInHandMobile && trumpHighlightOn && showMobileHandHighlight ? `1px solid ${borderColor}cc` : 'none')
           : (trumpOnDeck ? (trumpDeckHighlightOn ? `2px solid ${borderColor}ee` : `1px solid ${borderColor}99`) : (isTrumpOnTable && trumpHighlightOn && !mobileDarkSuitFace) ? `2px solid rgba(200,220,160,0.92)` : (doubleBorder ? (isNonTrumpWithHighlight ? `1px solid ${borderColor}cc` : `2px solid ${borderColor}cc`) : 'none')),
         outlineOffset: darkSuitFace ? 1 : trumpOnDeck ? 1 : (suitIndexInHandMobile && trumpHighlightOn) ? 1 : (isTrumpOnTable && trumpHighlightOn) ? 2 : 0,
-        borderRadius: darkSuitFace ? Math.round(7 * scale) : Math.round(8 * scale),
+        borderRadius: mobileDarkSuitFace
+          ? Math.round(6 * scale)
+          : Math.round(8 * scale),
         boxShadow:
           darkSuitBoxShadow ??
           (biddingHighlightMobile && suitIndexInHandMobile && !pcCardStyles
@@ -485,12 +577,20 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         ...(biddingHighlightMobile && !(suitIndexInHandMobile && !pcCardStyles)
           ? { transform: 'scale(1.06)', transformOrigin: 'center bottom' }
           : {}),
+        ...(darkHandValidPlayHighlight
+          ? {
+              transform: 'translateY(-4px) scale(1.05)',
+              transformOrigin: 'center bottom',
+              zIndex: 12,
+            }
+          : {}),
         ...(mobileHandPeekLift && suitIndexInHandMobile && !pcCardStyles
           ? {
               transform: 'translateY(9px) scale(1.065)',
               transformOrigin: 'center bottom',
               transition: 'transform 0.05s ease-out, box-shadow 0.15s',
               willChange: 'transform',
+              zIndex: 26,
             }
           : {}),
         position: 'relative',
@@ -521,7 +621,8 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
       }}
     >
       {/* Блеск-отблеск: козыри в руке при заказе (раз в ~4 с) и доступные для хода карты при нашем ходе (раз в ~5 с) */}
-      {(mobileTrumpShineBidding || (highlightAsValidPlay && !pcCardStyles && !!isTrumpInHand)) && (
+      {(!mobileDarkHand || !!isTrumpInHand) &&
+        (mobileTrumpShineBidding || (highlightAsValidPlay && !pcCardStyles && !!isTrumpInHand)) && (
         <span
           aria-hidden
           style={{
@@ -754,7 +855,9 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                     className={useMobileLayout ? 'card-ace-central-drawing' : undefined}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center', width: suitIndexInHandMobile ? '96%' : useMobileLayout ? '94%' : '92%', height: suitIndexInHandMobile ? '76%' : useMobileLayout ? '74%' : '72%', minHeight: suitIndexInHandMobile ? '76%' : useMobileLayout ? '74%' : '72%',
-                      ...(card.suit === '♥' && !useMobileLayout ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' } : {}),
+                      ...(card.suit === '♥' && !useMobileLayout && !mobileDarkHand
+                        ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' }
+                        : {}),
                     }}
                   >
                     <CardFaceImage
@@ -813,7 +916,9 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
               </span>
               <span style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', width: '95%', height: '85%', minHeight: '85%', marginTop: 'auto', marginBottom: 'auto',
-                ...(card.suit === '♥' ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' } : {}),
+                ...(card.suit === '♥' && !mobileDarkHand
+                  ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' }
+                  : {}),
               }}>
                 <CardFaceImage className={card.suit === '♣' && pcCardStyles ? 'card-ace-clubs-img' : undefined} src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`} alt="Т" style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }} />
               </span>
@@ -1075,7 +1180,9 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
             ) : card.rank === 'A' && ACE_IMAGE_BY_SUIT[card.suit] ? (
               <span style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', width: '98%', height: '78%', minHeight: '78%',
-                ...(card.suit === '♥' ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' } : {}),
+                ...(card.suit === '♥' && !mobileDarkHand
+                  ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' }
+                  : {}),
               }}>
                 <CardFaceImage
                   className={card.suit === '♣' && pcCardStyles ? 'card-ace-clubs-img' : undefined}

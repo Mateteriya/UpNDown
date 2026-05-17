@@ -61,6 +61,7 @@ import { MobileSouthChatNameTicker } from './MobileSouthChatNameTicker';
 import { TableChatDock, type TableChatDockOwnMessageHandler } from './TableChatDock';
 import { GameDealOrbitDock } from './GameDealOrbitDock';
 import type { Card, GamePhase } from '../game/types';
+import { getDeckCardsUnderTrump, getDeckStackLayerCount } from '../game/deck';
 
 function getCompassLabel(idx: number): 'Юг' | 'Север' | 'Запад' | 'Восток' {
   switch (idx) {
@@ -6126,12 +6127,12 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 {online.myServerIndex !== 0 && <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>Ожидание старта от хоста…</p>}
               </div>
             )}
-            {state.trumpCard && (
+            {displayState.trumpCard && (
               <DeckWithTrump
-                tricksInDeal={state.tricksInDeal}
-                trumpCard={state.trumpCard}
+                tricksInDeal={displayState.tricksInDeal}
+                trumpCard={displayState.trumpCard}
                 trumpHighlightOn={trumpHighlightOn}
-                dealerIndex={state.dealerIndex}
+                dealerIndex={displayState.dealerIndex}
                 compactTable={isMobileOrTablet}
                 forceDeckTopLeft={isMobile}
                 pcCardStyles={!isMobileOrTablet}
@@ -6514,7 +6515,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   isTrumpInHand={state.trump !== null && card.suit === state.trump}
                   forceMobileTrumpGlow={isMobileOrTablet && state.trump !== null && card.suit === state.trump && (state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0))}
                   mobileTrumpGlowActive={state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0)}
-                  highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && !humanAlreadyPlayedCurrentTrick && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                  highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && !humanAlreadyPlayedCurrentTrick && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
                   mobileTrumpShineBidding={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.trump !== null && card.suit === state.trump}
                   mobileHandPeekLift={overlapPeek}
                   mobileOverlapHandPointerPassthrough={overlapScrubEnabled && handCardDisabled}
@@ -6765,7 +6766,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                                   highlightAsValidPlay={
                                     state.phase === 'playing' &&
                                     state.currentPlayerIndex === humanIdx &&
-                                    state.currentTrick.length > 0 &&
                                     !humanAlreadyPlayedCurrentTrick &&
                                     validPlays.some((c) => c.suit === card.suit && c.rank === card.rank)
                                   }
@@ -7572,8 +7572,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 {online.myServerIndex !== 0 && <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>Ожидание старта от хоста…</p>}
               </div>
             )}
-            {state.trumpCard && (
-              <DeckWithTrump tricksInDeal={state.tricksInDeal} trumpCard={state.trumpCard} trumpHighlightOn={trumpHighlightOn} dealerIndex={state.dealerIndex} compactTable={isMobileOrTablet} pcCardStyles={!isMobileOrTablet} />
+            {displayState.trumpCard && (
+              <DeckWithTrump tricksInDeal={displayState.tricksInDeal} trumpCard={displayState.trumpCard} trumpHighlightOn={trumpHighlightOn} dealerIndex={displayState.dealerIndex} compactTable={isMobileOrTablet} pcCardStyles={!isMobileOrTablet} />
             )}
             <div style={trickStyle}>
               {state.currentTrick.length > 0 ? (
@@ -7730,7 +7730,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   isTrumpInHand={state.trump !== null && card.suit === state.trump}
                   forceMobileTrumpGlow={isMobileOrTablet && state.trump !== null && card.suit === state.trump && (state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0))}
                   mobileTrumpGlowActive={state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0)}
-                  highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length > 0 && !humanAlreadyPlayedCurrentTrick && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                  highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && !humanAlreadyPlayedCurrentTrick && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
                   mobileTrumpShineBidding={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.trump !== null && card.suit === state.trump}
                   showPipZoneBorders={trumpHighlightOn}
                   pcCardStyles={!isMobileOrTablet}
@@ -13099,7 +13099,7 @@ function DeckWithTrump({
   tricksInDeal,
   trumpCard,
   trumpHighlightOn,
-  dealerIndex,
+  dealerIndex: _dealerIndex,
   compactTable,
   forceDeckTopLeft,
   pcCardStyles,
@@ -13112,29 +13112,33 @@ function DeckWithTrump({
   forceDeckTopLeft?: boolean;
   pcCardStyles?: boolean;
 }) {
-  const cardsDealt = tricksInDeal * 4;
-  const cardsUnderTrump = Math.max(0, 36 - cardsDealt - 1);
-  const numLayers = cardsUnderTrump === 0 ? 1 : Math.min(5, 2 + Math.floor(cardsUnderTrump / 8));
+  const cardsUnderTrump = getDeckCardsUnderTrump(tricksInDeal);
+  const numLayers = getDeckStackLayerCount(cardsUnderTrump);
+  const trumpOnly = numLayers === 0;
 
-  const cornerStyle: React.CSSProperties = (() => {
-    const base = 20;
-    if (forceDeckTopLeft) return { top: base, left: base };
-    switch (dealerIndex % 4) {
-      case 0: return { left: base, bottom: base };   // Юг — левый нижний
-      case 1: return { top: base, right: base };     // Север — правый верхний
-      case 2: return { top: base, left: base };      // Запад — левый верхний
-      case 3: return { bottom: base, right: base };  // Восток — правый нижний
-      default: return { left: base, bottom: base };
-    }
-  })();
+  const cornerInset = forceDeckTopLeft ? 6 : 20;
+  const cornerStyle: React.CSSProperties = {
+    top: cornerInset,
+    left: cornerInset,
+    right: 'auto',
+    bottom: 'auto',
+  };
 
   const deckScale = compactTable ? 1.18 / 1.2 : 1.18;
   const cardBackW = Math.round(52 * deckScale);
   const cardBackH = Math.round(76 * deckScale);
   const stackOffset = Math.round(2 * deckScale);
+  const stackDepth = numLayers > 0 ? (numLayers - 1) * stackOffset : 0;
+  const wrapW = cardBackW + stackDepth;
+  const wrapH = cardBackH + stackDepth + Math.round(22 * deckScale);
 
   return (
-    <div className="deck-with-trump-wrap" style={{ ...deckStackWrapStyle, width: Math.round(64 * deckScale), height: Math.round(96 * deckScale), ...cornerStyle }}>
+    <div
+      className={['deck-with-trump-wrap', trumpOnly ? 'deck-with-trump-wrap--trump-only' : '']
+        .filter(Boolean)
+        .join(' ')}
+      style={{ ...deckStackWrapStyle, width: wrapW, height: wrapH, ...cornerStyle }}
+    >
       {Array.from({ length: numLayers }, (_, i) => (
         <div
           key={i}
@@ -13155,8 +13159,8 @@ function DeckWithTrump({
         style={{
           ...trumpStyle,
           position: 'absolute',
-          top: (numLayers - 1) * stackOffset,
-          left: (numLayers - 1) * stackOffset,
+          top: stackDepth,
+          left: stackDepth,
           zIndex: numLayers + 1,
         }}
       >
