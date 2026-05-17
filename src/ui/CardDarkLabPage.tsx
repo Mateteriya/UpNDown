@@ -72,7 +72,7 @@ export function CardDarkLabPage({ onBack }: CardDarkLabPageProps) {
         Сравнение светлого и тёмного листа при тех же размерах, что в мобильной игре (<code>compact</code>, без{' '}
         <code>pcCardStyles</code>). В игре тёмный лист включается удержанием лампы «доп. подсветка»; здесь — через
         проп <code>labDarkCardFace</code> + <code>suitIndexInHandMobile</code>. Палитра руки по мастям —{' '}
-        <code>MOBILE_DARK_SUIT_FACE_BY_SUIT</code> в <code>CardView.tsx</code> (рука и стол, кроме козырей); козыри — <code>CARD_BG_DARK*</code>.
+        <code>MOBILE_DARK_SUIT_PALETTE_BY_SUIT</code> в <code>CardView.tsx</code> (рука и стол; козыри — акцент поверх палитры).
       </p>
 
       <section style={{ ...sectionStyle, marginBottom: 20 }}>

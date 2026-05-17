@@ -1563,9 +1563,30 @@
 
 /* Только мобильная версия: индекс масти у тузов (рука, стол, козырь) — чуть мельче + пульсация света */
 @media (max-width: 1024px) {
-  /* Красные масти: пульсация яркости и лёгкий glow */
+  /* Красные масти: пульсация яркости и лёгкий glow (не на тёмном листе руки — там как у ♠/♣) */
   .game-table-root .card-ace-suit-index-mobile:not(.card-ace-suit-black) {
     animation: ace-suit-index-pulse 2s ease-in-out infinite;
+  }
+  .game-table-root .card-view-root.card-dark-mobile-hand .card-ace-suit-index-mobile:not(.card-ace-suit-black) {
+    animation: none;
+    text-shadow: none;
+    filter: none;
+  }
+  /* Доступный ход: пульсация яркости (в т.ч. козырь — класс card-dark-hand-playable-trump) */
+  .game-table-root .card-view-root.card-dark-hand-playable {
+    animation: dark-hand-playable-pulse 1.5s ease-in-out infinite;
+  }
+  .game-table-root .card-view-root.card-dark-hand-playable-trump {
+    animation: dark-hand-playable-pulse 1.35s ease-in-out infinite;
+  }
+  @keyframes dark-hand-playable-pulse {
+    0%,
+    100% {
+      filter: brightness(1);
+    }
+    50% {
+      filter: brightness(1.18);
+    }
   }
   /* Черные масти (пики, крести): без мерцания у правого нижнего индекса */
   .game-table-root .card-ace-suit-index-mobile.card-ace-suit-black {
@@ -3791,6 +3812,19 @@
     will-change: opacity;
     animation: mobileHandCardWaveGloss 2.85s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
     animation-delay: calc(3.2s + (var(--hand-wave-index, 1) - 1) * 78ms);
+  }
+  /* Тёмный лист руки: без волнового блика у некозырей; козырь (.card-dark-suit-trump) — блик остаётся */
+  .game-table-root.viewport-mobile
+    .game-mobile-hand-strip
+    .game-mobile-hand-frame.player-hand-your-turn
+    > div
+    > div:has(.card-dark-mobile-hand:not(.card-dark-suit-trump))::after,
+  .game-table-root.viewport-mobile.viewport-mobile-short
+    .game-mobile-south-panel-hand
+    .game-mobile-hand-row.player-hand-your-turn
+    > div:has(.card-dark-mobile-hand:not(.card-dark-suit-trump))::after {
+    animation: none !important;
+    opacity: 0 !important;
   }
   /* <360px: горизонтальный клип bottom-row мог резать ряд карт; по вертикали по-прежнему ограничение max-height */
   /* Только не short: иначе ряд карт в панели + visible дают горизонтальный вылет страницы */
@@ -9615,8 +9649,16 @@
   .game-table-root.viewport-mobile .game-center-table {
     flex: 0 0 auto !important;
   }
-  /* Колода с козырем на мобильных — всегда строго в левом верхнем углу стола */
+  /* Колода с козырем на мобильных — левый верхний угол стола (есть остаток колоды) */
   .game-table-root.viewport-mobile .game-center-table .deck-with-trump-wrap {
+    top: 6px !important;
+    left: 6px !important;
+    right: auto !important;
+    bottom: auto !important;
+  }
+
+  /* Козырь без колоды — то же место, что колода с козырем (левый верх стола) */
+  .game-table-root.viewport-mobile .game-center-table .deck-with-trump-wrap--trump-only {
     top: 6px !important;
     left: 6px !important;
     right: auto !important;
