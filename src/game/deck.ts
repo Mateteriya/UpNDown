@@ -18,6 +18,22 @@ export function createDeck(): Card[] {
   return deck;
 }
 
+/**
+ * Карт в «теле» колоды под козырем на столе (козырь и розданные игрокам не входят).
+ * При tricksInDeal×4 = 36 колода пуста — козырь только у сдающего.
+ */
+export function getDeckCardsUnderTrump(tricksInDeal: number): number {
+  const cardsDealt = tricksInDeal * 4;
+  return Math.max(0, 36 - cardsDealt - 1);
+}
+
+/** Визуальных слоёв-задников (1–8); 0 — колоды на столе нет. */
+export function getDeckStackLayerCount(cardsUnderTrump: number): number {
+  if (cardsUnderTrump <= 0) return 0;
+  if (cardsUnderTrump === 1) return 1;
+  return Math.max(1, Math.min(8, Math.round(1 + ((cardsUnderTrump - 1) * 7) / 34)));
+}
+
 /** Перемешивает колоду (Fisher-Yates) */
 export function shuffleDeck(deck: Card[]): Card[] {
   const result = [...deck];
