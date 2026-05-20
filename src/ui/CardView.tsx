@@ -6,6 +6,8 @@ import { useState } from 'react';
 import type { ImgHTMLAttributes } from 'react';
 import type { Card } from '../game/types';
 import { useTheme } from '../contexts/ThemeContext';
+import type { CardTheme } from '../lib/cardPaletteLock';
+import { getCardThemeV3Variant } from '../lib/cardThemeSpec';
 import { JACK_CAT_BY_SUIT, QUEEN_IMAGE_BY_SUIT, KING_IMAGE_BY_SUIT, ACE_IMAGE_BY_SUIT, isCardImageCached, markCardImageLoaded } from '../cardAssets';
 
 /** Ранги: 6–10 числовые, J/Q/K/A фигуры */
@@ -145,8 +147,22 @@ export interface CardViewProps {
   mobileHandPeekLift?: boolean;
   /** Моб. нахлёст + недоступная карта: касания идут на слот под кнопкой (жест «пианино» по ряду). */
   mobileOverlapHandPointerPassthrough?: boolean;
-  /** Лаборатория / демо: принудительно тёмный лист карты (как моб. «неон»), без смены глобальной темы. */
+  /** Лаборатория / демо: принудительно тёмный лист (устар.; лучше labCardTheme). */
   labDarkCardFace?: boolean;
+  /** Лаборатория: тема карт как в игре (standard / dark / legacy / neo), без смены глобального контекста. */
+  labCardTheme?: CardTheme;
+  /** Лаборатория: палитра варианта III по масти (сравнение колонок). */
+  labDarkSuitVariant?:
+    | 'default'
+    | 'clubs-v3'
+    | 'clubs-v3-gray'
+    | 'spades-v3'
+    | 'spades-v3-deep'
+    | 'spades-v3-gray'
+    | 'hearts-v3'
+    | 'hearts-v3-deep'
+    | 'diamonds-v3-gray'
+    | 'diamonds-v3-deep';
 }
 
 /** #RRGGBB + альфа для box-shadow (к rgb(...) суффикс не применяется — тень молча пропадает). */
@@ -230,6 +246,321 @@ const CARD_BG_DARK = 'linear-gradient(145deg, #0f172a 0%, #1e293b 20%, #312e81 4
 const CARD_BG_DARK_TRUMP = 'linear-gradient(145deg, #1e293b 0%, #312e81 25%, #4338ca 50%, #334155 75%, #1e293b 100%)';
 const CARD_BG_DARK_HIGHLIGHT = 'linear-gradient(145deg, #1e293b 0%, #334155 30%, #475569 50%, #334155 70%, #1e293b 100%)';
 
+/** Глубокий фиолет ♣: рамка и глифы (тёмный, но с читаемым фиолетовым тоном). */
+const LEGACY_CLUBS_V3_INK = '#221040';
+
+const LEGACY_CLUBS_V3_BG =
+  'linear-gradient(145deg, #4a3470 0%, #5e4890 18%, #7260a8 36%, #8c7ac0 52%, #7260a8 68%, #5e4890 84%, #4a3470 100%)';
+
+const LEGACY_CLUBS_V3_BG_INSET =
+  'inset 0 0 14px rgba(167, 139, 250, 0.16), inset 0 1px 6px rgba(248, 244, 255, 0.58)';
+
+/** Легаси ♣ III: воздушный фиолетовый градиент + глубокие фиолетовые глифы. */
+export const MOBILE_DARK_SUIT_PALETTE_CLUBS_V3: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♣'] = {
+  border: `3px solid ${LEGACY_CLUBS_V3_INK}`,
+  ringColor: '#5b21b6',
+  boxShadow: [
+    '0 0 0 2px #5b21b6',
+    '0 0 0 1px rgba(255,255,255,0.85)',
+    '0 0 18px rgba(255,255,255,0.52)',
+    '0 0 12px #5b21b6bb',
+    '0 0 20px #5b21b666',
+    LEGACY_CLUBS_V3_BG_INSET,
+  ].join(', '),
+  background: LEGACY_CLUBS_V3_BG,
+  color: LEGACY_CLUBS_V3_INK,
+};
+
+/** Обводка козыря ♣ на столе (легаси III). */
+export const MOBILE_DARK_CLUBS_V3_TRUMP_OUTLINE = '2px solid rgba(210, 190, 255, 0.94)';
+
+/** Некозырные ♣ III: тот же лёгкий фон и inset; снаружи тоньше. */
+export const MOBILE_DARK_SUIT_PALETTE_CLUBS_V3_PLAIN: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♣'] = {
+  border: `1px solid ${LEGACY_CLUBS_V3_INK}`,
+  ringColor: '#5b21b6',
+  boxShadow: [
+    '0 0 0 1px #5b21b6',
+    '0 0 6px rgba(91, 33, 182, 0.35)',
+    '0 2px 8px rgba(0,0,0,0.28)',
+    LEGACY_CLUBS_V3_BG_INSET,
+  ].join(', '),
+  background: MOBILE_DARK_SUIT_PALETTE_CLUBS_V3.background,
+  color: MOBILE_DARK_SUIT_PALETTE_CLUBS_V3.color,
+};
+
+/** Нео ♣ III: серый лист, те же глифы и неон, что легаси. */
+const CLUBS_V3_GRAY_BG_INSET =
+  'inset 0 0 14px #5b21b633, inset 0 1px 6px rgba(255,255,255,0.52)';
+
+export const MOBILE_DARK_SUIT_PALETTE_CLUBS_V3_GRAY: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♣'] = {
+  border: `3px solid ${LEGACY_CLUBS_V3_INK}`,
+  ringColor: '#5b21b6',
+  boxShadow: [
+    '0 0 0 2px #5b21b6',
+    '0 0 0 1px rgba(255,255,255,0.85)',
+    '0 0 18px rgba(255,255,255,0.52)',
+    '0 0 12px #5b21b6bb',
+    '0 0 20px #5b21b666',
+    CLUBS_V3_GRAY_BG_INSET,
+  ].join(', '),
+  background: CARD_BG_DARK_HIGHLIGHT,
+  color: LEGACY_CLUBS_V3_INK,
+};
+
+export const MOBILE_DARK_CLUBS_V3_GRAY_TRUMP_OUTLINE = '2px solid rgba(200, 220, 160, 0.92)';
+
+export const MOBILE_DARK_SUIT_PALETTE_CLUBS_V3_GRAY_PLAIN: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♣'] = {
+  border: `1px solid ${LEGACY_CLUBS_V3_INK}`,
+  ringColor: '#5b21b6',
+  boxShadow: [
+    '0 0 0 1px #5b21b6',
+    '0 0 6px rgba(91, 33, 182, 0.35)',
+    '0 2px 8px rgba(0,0,0,0.28)',
+    CLUBS_V3_GRAY_BG_INSET,
+  ].join(', '),
+  background: MOBILE_DARK_SUIT_PALETTE_CLUBS_V3_GRAY.background,
+  color: MOBILE_DARK_SUIT_PALETTE_CLUBS_V3_GRAY.color,
+};
+
+/** Глубокий красный ♥: рамка и глифы (насыщеннее, читаемо на розовом листе). */
+const LEGACY_HEARTS_V3_INK = '#5c1018';
+
+const LEGACY_HEARTS_V3_BG =
+  'linear-gradient(145deg, #64304a 0%, #884468 18%, #a85c84 36%, #c878a0 52%, #a85c84 68%, #884468 84%, #64304a 100%)';
+
+const LEGACY_HEARTS_V3_BG_INSET =
+  'inset 0 0 14px rgba(244, 88, 152, 0.26), inset 0 1px 6px rgba(255, 232, 240, 0.62)';
+
+/** Легаси ♥ III: воздушный розово-красно-малиновый градиент + тёмно-красные глифы. */
+export const MOBILE_DARK_SUIT_PALETTE_HEARTS_V3: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♥'] = {
+  border: `3px solid ${LEGACY_HEARTS_V3_INK}`,
+  ringColor: '#dd2aa8',
+  boxShadow: [
+    '0 0 0 2px #dd2aa8',
+    '0 0 0 1px rgba(255,255,255,0.85)',
+    '0 0 18px rgba(255,255,255,0.52)',
+    '0 0 12px #dd2aa8bb',
+    '0 0 20px #dd2aa866',
+    LEGACY_HEARTS_V3_BG_INSET,
+  ].join(', '),
+  background: LEGACY_HEARTS_V3_BG,
+  color: LEGACY_HEARTS_V3_INK,
+};
+
+/** Обводка козыря ♥ на столе (легаси III). */
+export const MOBILE_DARK_HEARTS_V3_TRUMP_OUTLINE = '2px solid rgba(255, 170, 190, 0.92)';
+
+export const MOBILE_DARK_SUIT_PALETTE_HEARTS_V3_PLAIN: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♥'] = {
+  border: `1px solid ${LEGACY_HEARTS_V3_INK}`,
+  ringColor: '#dd2aa8',
+  boxShadow: [
+    '0 0 0 1px #dd2aa8',
+    '0 0 6px rgba(221, 42, 168, 0.36)',
+    '0 2px 8px rgba(0,0,0,0.28)',
+    LEGACY_HEARTS_V3_BG_INSET,
+  ].join(', '),
+  background: MOBILE_DARK_SUIT_PALETTE_HEARTS_V3.background,
+  color: MOBILE_DARK_SUIT_PALETTE_HEARTS_V3.color,
+};
+
+/** ♥ III-deep (Нео): как ♠ — тёмный красный градиент, светлые глифы. */
+const LEGACY_HEARTS_V3_DEEP_BG =
+  'linear-gradient(145deg, #140208 0%, #28040c 18%, #4a0818 36%, #6b1028 52%, #4a0c20 68%, #2a0814 84%, #180408 100%)';
+
+const LEGACY_HEARTS_V3_DEEP_BG_INSET =
+  'inset 0 0 14px rgba(221, 42, 168, 0.26), inset 0 1px 6px rgba(255, 180, 200, 0.36)';
+
+export const MOBILE_DARK_SUIT_PALETTE_HEARTS_V3_DEEP: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♥'] = {
+  border: '3px solid rgb(40, 10, 22)',
+  ringColor: '#dd2aa8',
+  boxShadow: [
+    '0 0 0 2px #dd2aa8',
+    '0 0 0 1px rgba(255,255,255,0.85)',
+    '0 0 18px rgba(255,255,255,0.48)',
+    '0 0 12px #dd2aa8bb',
+    '0 0 20px #dd2aa866',
+    LEGACY_HEARTS_V3_DEEP_BG_INSET,
+  ].join(', '),
+  background: LEGACY_HEARTS_V3_DEEP_BG,
+  color: 'rgb(220, 150, 168)',
+};
+
+export const MOBILE_DARK_HEARTS_V3_DEEP_TRUMP_OUTLINE = '2px solid rgba(255, 210, 220, 0.9)';
+
+export const MOBILE_DARK_SUIT_PALETTE_HEARTS_V3_DEEP_PLAIN: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♥'] = {
+  border: '1px solid rgb(40, 10, 22)',
+  ringColor: '#dd2aa8',
+  boxShadow: [
+    '0 0 0 1px #dd2aa8',
+    '0 0 6px rgba(221, 42, 168, 0.38)',
+    '0 2px 8px rgba(0,0,0,0.28)',
+    LEGACY_HEARTS_V3_DEEP_BG_INSET,
+  ].join(', '),
+  background: MOBILE_DARK_SUIT_PALETTE_HEARTS_V3_DEEP.background,
+  color: MOBILE_DARK_SUIT_PALETTE_HEARTS_V3_DEEP.color,
+};
+
+/**
+ * Легаси ♠ III: серебристый воздушный лист + глубоко-чёрные глифы (без золота/янтаря ♦).
+ */
+const SPADES_V3_GRAY_INK = '#0a0a0c';
+
+const SPADES_V3_GRAY_RING = '#6a7280';
+
+const SPADES_V3_GRAY_BG =
+  'linear-gradient(145deg, #36363c 0%, #484850 18%, #5a5a64 36%, #72727e 52%, #5a5a64 68%, #484850 84%, #36363c 100%)';
+
+const SPADES_V3_GRAY_BG_INSET =
+  'inset 0 0 14px rgba(160, 168, 184, 0.18), inset 0 1px 6px rgba(248, 250, 252, 0.52)';
+
+export const MOBILE_DARK_SUIT_PALETTE_SPADES_V3_GRAY: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♠'] = {
+  border: `3px solid ${SPADES_V3_GRAY_INK}`,
+  ringColor: SPADES_V3_GRAY_RING,
+  boxShadow: [
+    `0 0 0 2px ${SPADES_V3_GRAY_RING}`,
+    '0 0 0 1px rgba(255,255,255,0.75)',
+    '0 0 18px rgba(255,255,255,0.4)',
+    '0 0 12px #6a7280aa',
+    '0 0 20px #6a728066',
+    SPADES_V3_GRAY_BG_INSET,
+  ].join(', '),
+  background: SPADES_V3_GRAY_BG,
+  color: SPADES_V3_GRAY_INK,
+};
+
+export const MOBILE_DARK_SPADES_V3_GRAY_TRUMP_OUTLINE = '2px solid rgba(52, 56, 64, 0.9)';
+
+export const MOBILE_DARK_SUIT_PALETTE_SPADES_V3_GRAY_PLAIN: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♠'] = {
+  border: `1px solid ${SPADES_V3_GRAY_INK}`,
+  ringColor: SPADES_V3_GRAY_RING,
+  boxShadow: [
+    `0 0 0 1px ${SPADES_V3_GRAY_RING}`,
+    '0 0 6px rgba(106, 114, 128, 0.32)',
+    '0 2px 8px rgba(0,0,0,0.28)',
+    SPADES_V3_GRAY_BG_INSET,
+  ].join(', '),
+  background: MOBILE_DARK_SUIT_PALETTE_SPADES_V3_GRAY.background,
+  color: MOBILE_DARK_SUIT_PALETTE_SPADES_V3_GRAY.color,
+};
+
+/** Нео ♠ III: тёмный фиолетово-индиго градиент (не чёрно-синий лист II), светлые глифы. */
+const SPADES_V3_DEEP_BG =
+  'linear-gradient(145deg, #0c0818 0%, #16102c 18%, #241848 36%, #342a88 52%, #281e70 68%, #160e2c 84%, #0c0818 100%)';
+
+const SPADES_V3_DEEP_BG_INSET =
+  'inset 0 0 14px rgba(109, 63, 238, 0.28), inset 0 1px 6px rgba(200, 188, 255, 0.38)';
+
+const SPADES_V3_DEEP_BORDER = '#4b0bee';
+
+export const MOBILE_DARK_SUIT_PALETTE_SPADES_V3: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♠'] = {
+  border: `3px solid ${SPADES_V3_DEEP_BORDER}`,
+  ringColor: '#4b0bee',
+  boxShadow: [
+    '0 0 0 2px #4b0bee',
+    '0 0 0 1px rgba(255,255,255,0.85)',
+    '0 0 18px rgba(255,255,255,0.48)',
+    '0 0 12px #4b0beebb',
+    '0 0 20px #4b0bee66',
+    SPADES_V3_DEEP_BG_INSET,
+  ].join(', '),
+  background: SPADES_V3_DEEP_BG,
+  color: 'rgb(167, 139, 250)',
+};
+
+/** Обводка козыря ♠ на столе (нео, градиент). */
+export const MOBILE_DARK_SPADES_V3_TRUMP_OUTLINE = '2px solid rgba(103, 232, 249, 0.88)';
+
+export const MOBILE_DARK_SUIT_PALETTE_SPADES_V3_PLAIN: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♠'] = {
+  border: `1px solid ${SPADES_V3_DEEP_BORDER}`,
+  ringColor: '#4b0bee',
+  boxShadow: [
+    '0 0 0 1px #4b0bee',
+    '0 0 6px rgba(75, 11, 238, 0.38)',
+    '0 2px 8px rgba(0,0,0,0.28)',
+    SPADES_V3_DEEP_BG_INSET,
+  ].join(', '),
+  background: MOBILE_DARK_SUIT_PALETTE_SPADES_V3.background,
+  color: MOBILE_DARK_SUIT_PALETTE_SPADES_V3.color,
+};
+
+/** Легаси ♦ III: светлый жёлто-серый градиент + сочные рыже-красные глифы. */
+const DIAMONDS_V3_GRAY_INK = '#6e1a10';
+
+const DIAMONDS_V3_GRAY_RING = '#d85848';
+
+const DIAMONDS_V3_GRAY_BG =
+  'linear-gradient(145deg, #64562e 0%, #82743e 18%, #a09050 36%, #c0b078 52%, #a09050 68%, #82743e 84%, #64562e 100%)';
+
+const DIAMONDS_V3_GRAY_BG_INSET =
+  'inset 0 0 14px rgba(252, 210, 110, 0.24), inset 0 1px 6px rgba(255, 253, 245, 0.65)';
+
+export const MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_GRAY: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♦'] = {
+  border: `3px solid ${DIAMONDS_V3_GRAY_INK}`,
+  ringColor: DIAMONDS_V3_GRAY_RING,
+  boxShadow: [
+    `0 0 0 2px ${DIAMONDS_V3_GRAY_RING}`,
+    '0 0 0 1px rgba(255,255,255,0.85)',
+    '0 0 18px rgba(255,255,255,0.52)',
+    '0 0 12px #d85848bb',
+    '0 0 20px #d8584866',
+    DIAMONDS_V3_GRAY_BG_INSET,
+  ].join(', '),
+  background: DIAMONDS_V3_GRAY_BG,
+  color: DIAMONDS_V3_GRAY_INK,
+};
+
+export const MOBILE_DARK_DIAMONDS_V3_GRAY_TRUMP_OUTLINE = '2px solid rgba(236, 168, 148, 0.94)';
+
+export const MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_GRAY_PLAIN: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♦'] = {
+  border: `1px solid ${DIAMONDS_V3_GRAY_INK}`,
+  ringColor: DIAMONDS_V3_GRAY_RING,
+  boxShadow: [
+    `0 0 0 1px ${DIAMONDS_V3_GRAY_RING}`,
+    '0 0 6px rgba(216, 88, 72, 0.42)',
+    '0 2px 8px rgba(0,0,0,0.28)',
+    DIAMONDS_V3_GRAY_BG_INSET,
+  ].join(', '),
+  background: MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_GRAY.background,
+  color: MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_GRAY.color,
+};
+
+/** Нео ♦ III: как ♠ — тёмный янтарный градиент, светлые глифы. */
+const DIAMONDS_V3_DEEP_BG =
+  'linear-gradient(145deg, #140804 0%, #281004 18%, #4a2810 36%, #6b4018 52%, #4a3010 68%, #2a1808 84%, #180c04 100%)';
+
+const DIAMONDS_V3_DEEP_BG_INSET =
+  'inset 0 0 14px rgba(234, 88, 12, 0.26), inset 0 1px 6px rgba(255, 210, 160, 0.36)';
+
+export const MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_DEEP: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♦'] = {
+  border: '3px solid rgb(48, 20, 8)',
+  ringColor: '#ea580c',
+  boxShadow: [
+    '0 0 0 2px #ea580c',
+    '0 0 0 1px rgba(255,255,255,0.85)',
+    '0 0 18px rgba(255,255,255,0.48)',
+    '0 0 12px #ea580cbb',
+    '0 0 20px #ea580c66',
+    DIAMONDS_V3_DEEP_BG_INSET,
+  ].join(', '),
+  background: DIAMONDS_V3_DEEP_BG,
+  color: 'rgb(255, 195, 130)',
+};
+
+export const MOBILE_DARK_DIAMONDS_V3_DEEP_TRUMP_OUTLINE = '2px solid rgba(255, 210, 160, 0.9)';
+
+export const MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_DEEP_PLAIN: (typeof MOBILE_DARK_SUIT_PALETTE_BY_SUIT)['♦'] = {
+  border: '1px solid rgb(48, 20, 8)',
+  ringColor: '#ea580c',
+  boxShadow: [
+    '0 0 0 1px #ea580c',
+    '0 0 6px rgba(234, 88, 12, 0.38)',
+    '0 2px 8px rgba(0,0,0,0.28)',
+    DIAMONDS_V3_DEEP_BG_INSET,
+  ].join(', '),
+  background: MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_DEEP.background,
+  color: MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_DEEP.color,
+};
+
 /** Козырь: усиление цветного кольца (ringColor — hex), короткий ореол через hexWithAlpha. */
 function darkSuitTrumpAccent(baseRing: string, ringColor: string, strength: 'off' | 'soft' | 'on') {
   if (strength === 'off') return `${baseRing}, 0 2px 8px rgba(0,0,0,0.24)`;
@@ -268,15 +599,19 @@ function darkSuitTrumpValidPlayAccent(baseRing: string, ringColor: string) {
   ].join(', ');
 }
 
-/** Моб. рука: кольца на 1px уже (база 1px, доступный ход 2px, козырь+ход 3px) — ряд влезает по ширине. */
-function darkSuitHandRing(ringColor: string, spreadPx = 1) {
+/** Моб. рука: кольца тоньше стола (0.5px база; акценты хода/козыря — на 1px уже, чем на столе). */
+function darkSuitHandBorder(ringColor: string) {
+  return `0.5px solid ${ringColor}`;
+}
+
+function darkSuitHandRing(ringColor: string, spreadPx = 0.5) {
   return `${ringColor} 0 0 0 ${spreadPx}px`;
 }
 
 function darkSuitTrumpAccentHand(baseRing: string, ringColor: string, strength: 'off' | 'soft' | 'on') {
   if (strength === 'off') return `${baseRing}, 0 2px 8px rgba(0,0,0,0.24)`;
   const o = strength === 'on' ? 1 : 0.65;
-  const spreadPx = strength === 'on' ? 2 : 1;
+  const spreadPx = strength === 'on' ? 1 : 0.5;
   return [
     baseRing,
     `0 0 0 ${spreadPx}px ${ringColor}`,
@@ -286,13 +621,14 @@ function darkSuitTrumpAccentHand(baseRing: string, ringColor: string, strength: 
   ].join(', ');
 }
 
+/** Доступный ход в руке: нейтральная база + лёгкий тон масти (♦ ♥ не ярче ♠ ♣). */
 function darkSuitValidPlayAccentHand(baseRing: string, ringColor: string) {
   return [
     baseRing,
-    `0 0 0 2px ${ringColor}`,
-    `0 0 7px ${hexWithAlpha(ringColor, 0.88)}`,
-    `0 0 14px ${hexWithAlpha(ringColor, 0.58)}`,
-    `inset 0 0 12px ${hexWithAlpha(ringColor, 0.28)}`,
+    '0 0 0 1px rgba(255, 255, 255, 0.58)',
+    `0 0 7px ${hexWithAlpha(ringColor, 0.38)}`,
+    `0 0 14px ${hexWithAlpha(ringColor, 0.22)}`,
+    'inset 0 0 12px rgba(255, 255, 255, 0.16)',
     '0 2px 10px rgba(0,0,0,0.32)',
   ].join(', ');
 }
@@ -300,30 +636,132 @@ function darkSuitValidPlayAccentHand(baseRing: string, ringColor: string) {
 function darkSuitTrumpValidPlayAccentHand(baseRing: string, ringColor: string) {
   return [
     baseRing,
-    `0 0 0 3px ${ringColor}`,
-    `0 0 9px ${hexWithAlpha(ringColor, 0.95)}`,
-    `0 0 18px ${hexWithAlpha(ringColor, 0.68)}`,
-    `inset 0 0 14px ${hexWithAlpha(ringColor, 0.34)}`,
+    '0 0 0 2px rgba(255, 255, 255, 0.62)',
+    `0 0 9px ${hexWithAlpha(ringColor, 0.48)}`,
+    `0 0 18px ${hexWithAlpha(ringColor, 0.28)}`,
+    'inset 0 0 14px rgba(255, 255, 255, 0.18)',
     '0 2px 12px rgba(0,0,0,0.36)',
   ].join(', ');
 }
 
-export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, mobileTrumpShineBidding = false, mobileHandPeekLift = false, mobileOverlapHandPointerPassthrough = false, labDarkCardFace = false }: CardViewProps) {
-  const { theme, cardPaletteLock } = useTheme();
-  /** Тёмный лист: лаборатория, старый neon+мобила, или «замок» в игре только когда не ПК-стили карты */
+export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, mobileTrumpShineBidding = false, mobileHandPeekLift = false, mobileOverlapHandPointerPassthrough = false, labDarkCardFace = false, labCardTheme, labDarkSuitVariant = 'default' }: CardViewProps) {
+  const { theme, cardTheme } = useTheme();
+  const inLab = labDarkCardFace || labCardTheme !== undefined;
+  const effectiveCardTheme: CardTheme = labCardTheme ?? (labDarkCardFace ? 'dark' : cardTheme);
+  const mobileFace = !pcCardStyles;
+  /** Тёмный лист: темы dark/legacy/neo, старый neon+мобила */
   const isDark =
-    labDarkCardFace || (theme === 'neon' && !pcCardStyles) || (!!cardPaletteLock && !pcCardStyles);
+    (effectiveCardTheme !== 'standard' && mobileFace) || (theme === 'neon' && mobileFace);
+  const themeV3FromGame =
+    effectiveCardTheme === 'legacy' || effectiveCardTheme === 'neo'
+      ? getCardThemeV3Variant(effectiveCardTheme, card.suit)
+      : null;
+  const activeV3 =
+    inLab && labDarkSuitVariant !== 'default' ? labDarkSuitVariant : themeV3FromGame;
+  const suitClubsV3 = mobileFace && activeV3 === 'clubs-v3';
+  const clubsV3Gray = mobileFace && activeV3 === 'clubs-v3-gray';
+  const spadesV3Gray = mobileFace && activeV3 === 'spades-v3-gray';
+  const spadesV3Deep =
+    mobileFace && (activeV3 === 'spades-v3-deep' || activeV3 === 'spades-v3');
+  const diamondsV3Gray = mobileFace && activeV3 === 'diamonds-v3-gray';
+  const diamondsV3Deep = mobileFace && activeV3 === 'diamonds-v3-deep';
+  const legacyHeartsV3 = mobileFace && activeV3 === 'hearts-v3';
+  const legacyHeartsV3Deep = mobileFace && activeV3 === 'hearts-v3-deep';
+  const legacyClubsV3 = suitClubsV3 || clubsV3Gray;
+  const legacySuitV3 =
+    suitClubsV3 ||
+    clubsV3Gray ||
+    spadesV3Gray ||
+    spadesV3Deep ||
+    diamondsV3Gray ||
+    diamondsV3Deep ||
+    legacyHeartsV3 ||
+    legacyHeartsV3Deep;
   const mobileDarkSuitFace =
-    isDark && !pcCardStyles && (suitIndexInHandMobile || tableCardMobile || trumpOnDeck);
+    isDark &&
+    !pcCardStyles &&
+    (suitIndexInHandMobile || tableCardMobile || trumpOnDeck);
   const mobileDarkHand = mobileDarkSuitFace && suitIndexInHandMobile;
   const mobileDarkTable = mobileDarkSuitFace && tableCardMobile;
   const mobileDarkDeck = mobileDarkSuitFace && !!trumpOnDeck;
-  const darkSuitFace = mobileDarkSuitFace ? MOBILE_DARK_SUIT_PALETTE_BY_SUIT[card.suit] : null;
+  const legacySuitV3TrumpFace =
+    legacySuitV3 &&
+    ((mobileDarkTable && !!isTrumpOnTable) ||
+      (mobileDarkHand && !!isTrumpInHand) ||
+      mobileDarkDeck);
+  const legacyClubsV3TrumpLit =
+    suitClubsV3 && mobileDarkTable && !!isTrumpOnTable && trumpHighlightOn;
+  const clubsV3GrayTrumpLit =
+    clubsV3Gray && mobileDarkTable && !!isTrumpOnTable && trumpHighlightOn;
+  const spadesV3GrayTrumpLit =
+    spadesV3Gray && mobileDarkTable && !!isTrumpOnTable && trumpHighlightOn;
+  const spadesV3DeepTrumpLit =
+    spadesV3Deep && mobileDarkTable && !!isTrumpOnTable && trumpHighlightOn;
+  const legacyHeartsV3TrumpLit =
+    legacyHeartsV3 && mobileDarkTable && !!isTrumpOnTable && trumpHighlightOn;
+  const legacyHeartsV3DeepTrumpLit =
+    legacyHeartsV3Deep && mobileDarkTable && !!isTrumpOnTable && trumpHighlightOn;
+  const diamondsV3GrayTrumpLit =
+    diamondsV3Gray && mobileDarkTable && !!isTrumpOnTable && trumpHighlightOn;
+  const diamondsV3DeepTrumpLit =
+    diamondsV3Deep && mobileDarkTable && !!isTrumpOnTable && trumpHighlightOn;
+  const legacySuitV3TrumpLit =
+    legacyClubsV3TrumpLit ||
+    clubsV3GrayTrumpLit ||
+    spadesV3GrayTrumpLit ||
+    spadesV3DeepTrumpLit ||
+    legacyHeartsV3TrumpLit ||
+    legacyHeartsV3DeepTrumpLit ||
+    diamondsV3GrayTrumpLit ||
+    diamondsV3DeepTrumpLit;
+  /** Нео: все IV масти III — одна «полная» рамка (как у пик), не только козырь. */
+  const neoV3FullPalette =
+    effectiveCardTheme === 'neo' &&
+    (spadesV3Deep || diamondsV3Deep || legacyHeartsV3Deep || clubsV3Gray);
+  const useSuitV3FullFace = legacySuitV3TrumpFace || neoV3FullPalette;
+  const darkSuitFace = mobileDarkSuitFace
+    ? suitClubsV3
+      ? useSuitV3FullFace
+        ? MOBILE_DARK_SUIT_PALETTE_CLUBS_V3
+        : MOBILE_DARK_SUIT_PALETTE_CLUBS_V3_PLAIN
+      : clubsV3Gray
+        ? useSuitV3FullFace
+          ? MOBILE_DARK_SUIT_PALETTE_CLUBS_V3_GRAY
+          : MOBILE_DARK_SUIT_PALETTE_CLUBS_V3_GRAY_PLAIN
+        : spadesV3Gray
+        ? useSuitV3FullFace
+          ? MOBILE_DARK_SUIT_PALETTE_SPADES_V3_GRAY
+          : MOBILE_DARK_SUIT_PALETTE_SPADES_V3_GRAY_PLAIN
+        : spadesV3Deep
+          ? useSuitV3FullFace
+            ? MOBILE_DARK_SUIT_PALETTE_SPADES_V3
+            : MOBILE_DARK_SUIT_PALETTE_SPADES_V3_PLAIN
+          : diamondsV3Gray
+          ? useSuitV3FullFace
+            ? MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_GRAY
+            : MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_GRAY_PLAIN
+          : diamondsV3Deep
+            ? useSuitV3FullFace
+              ? MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_DEEP
+              : MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_DEEP_PLAIN
+            : legacyHeartsV3Deep
+              ? useSuitV3FullFace
+                ? MOBILE_DARK_SUIT_PALETTE_HEARTS_V3_DEEP
+                : MOBILE_DARK_SUIT_PALETTE_HEARTS_V3_DEEP_PLAIN
+              : legacyHeartsV3
+                ? useSuitV3FullFace
+                  ? MOBILE_DARK_SUIT_PALETTE_HEARTS_V3
+                  : MOBILE_DARK_SUIT_PALETTE_HEARTS_V3_PLAIN
+                : MOBILE_DARK_SUIT_PALETTE_BY_SUIT[card.suit]
+    : null;
   const isMobileDarkTrump =
     !!darkSuitFace &&
     ((mobileDarkTable && !!isTrumpOnTable) ||
       (mobileDarkHand && !!isTrumpInHand) ||
       mobileDarkDeck);
+  /** Тёмный лист: дама ♠ — лёгкий контур центрального PNG (тёмный рисунок на тёмном фоне) */
+  const darkQueenSpadesFaceGlow =
+    mobileDarkSuitFace && card.rank === 'Q' && card.suit === '♠' && spadesV3Deep;
   const cs = contentScale ?? scale;
   const suitColor = isDark ? suitColorDark : suitColorLight;
   const color = darkSuitFace?.color ?? suitColor[card.suit];
@@ -452,14 +890,30 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
           );
         }
         if (mobileDarkHand && isMobileDarkTrump) {
-          const handRing = darkSuitHandRing(ringHex, 1);
+          if (legacySuitV3) {
+            if (darkHandValidPlayTrump) {
+              return darkSuitTrumpValidPlayAccentHand(ring, ringHex);
+            }
+            return darkSuitTrumpAccentHand(ring, ringHex, mobileDarkHandTrumpAccentOn ? 'on' : 'soft');
+          }
+          const handRing = darkSuitHandRing(ringHex);
           if (darkHandValidPlayTrump) {
             return darkSuitTrumpValidPlayAccentHand(handRing, ringHex);
           }
           return darkSuitTrumpAccentHand(handRing, ringHex, mobileDarkHandTrumpAccentOn ? 'on' : 'soft');
         }
         if (mobileDarkHand) {
-          const handRing = darkSuitHandRing(ringHex, 1);
+          /* Легаси/нео III на руке: тот же «воздушный» лист, что в лабе на столе (не только 0.5px кольцо). */
+          if (legacySuitV3) {
+            if (darkHandValidPlayHighlight) {
+              return darkSuitValidPlayAccentHand(ring, ringHex);
+            }
+            if (mobileBiddingPlainHand) {
+              return `${ring}, 0 2px 10px rgba(0,0,0,0.42)`;
+            }
+            return ring;
+          }
+          const handRing = darkSuitHandRing(ringHex);
           if (darkHandValidPlayHighlight) {
             return darkSuitValidPlayAccentHand(handRing, ringHex);
           }
@@ -468,7 +922,10 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
           }
           return handRing;
         }
-        /* стол, некозырь */
+        /* стол, некозырь; легаси ♣ III — только палитра, без лишнего «утолщения» тени */
+        if (legacySuitV3 && mobileDarkTable && !isMobileDarkTrump) {
+          return ring;
+        }
         return trumpHighlightOn && doubleBorder
           ? `${ring}, 0 0 8px ${hexWithAlpha(ringHex, 0.28)}, 0 2px 8px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08)`
           : `${ring}, 0 2px 8px rgba(0,0,0,0.24)`;
@@ -505,8 +962,14 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         /* В мобильной руке при подсветке: цветная рамка по масти (и для козырей тоже при вкл. подсветки); иначе козырь/доступный ход — белая рамка */
         border: darkSuitFace
           ? mobileDarkHand && (darkHandValidPlayTrump || darkHandValidPlayHighlight)
-            ? `1px solid ${darkSuitFace.ringColor}`
-            : darkSuitFace.border
+            ? `1px solid rgba(255, 255, 255, 0.58)`
+            : mobileDarkHand
+              ? legacySuitV3
+                ? useSuitV3FullFace
+                  ? `1px solid ${darkSuitFace.ringColor}`
+                  : darkSuitFace.border
+                : darkSuitHandBorder(darkSuitFace.ringColor)
+              : darkSuitFace.border
           : showMobileHandHighlight && thinBorder
           ? (suitIndexInHandMobile && trumpHighlightOn ? `1px solid ${borderColor}` : '1px solid rgba(255,255,255,0.98)')
           : showMobileHandHighlight
@@ -517,23 +980,39 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         outline: darkSuitFace
           ? mobileDarkHand
             ? darkHandValidPlayTrump
-              ? `2px solid ${darkSuitFace.ringColor}`
+              ? `1px solid ${darkSuitFace.ringColor}`
               : mobileDarkTrumpLit
-                ? `1px solid ${darkSuitFace.ringColor}`
+                ? `0.5px solid ${darkSuitFace.ringColor}`
                 : darkHandValidPlayHighlight
-                  ? `1px solid ${darkSuitFace.ringColor}`
+                  ? '0.5px solid rgba(255, 255, 255, 0.5)'
                   : 'none'
-            : darkHandValidPlayTrump
-              ? `3px solid ${darkSuitFace.ringColor}`
-              : mobileDarkTrumpLit
-                ? `2px solid ${darkSuitFace.ringColor}`
-                : darkHandValidPlayHighlight
+            : legacyClubsV3TrumpLit
+              ? MOBILE_DARK_CLUBS_V3_TRUMP_OUTLINE
+              : clubsV3GrayTrumpLit
+                ? MOBILE_DARK_CLUBS_V3_GRAY_TRUMP_OUTLINE
+                : spadesV3GrayTrumpLit
+                ? MOBILE_DARK_SPADES_V3_GRAY_TRUMP_OUTLINE
+                : spadesV3DeepTrumpLit
+                  ? MOBILE_DARK_SPADES_V3_TRUMP_OUTLINE
+                  : diamondsV3GrayTrumpLit
+                  ? MOBILE_DARK_DIAMONDS_V3_GRAY_TRUMP_OUTLINE
+                  : diamondsV3DeepTrumpLit
+                    ? MOBILE_DARK_DIAMONDS_V3_DEEP_TRUMP_OUTLINE
+                    : legacyHeartsV3TrumpLit
+                      ? MOBILE_DARK_HEARTS_V3_TRUMP_OUTLINE
+                      : legacyHeartsV3DeepTrumpLit
+                        ? MOBILE_DARK_HEARTS_V3_DEEP_TRUMP_OUTLINE
+              : darkHandValidPlayTrump
+                ? `3px solid ${darkSuitFace.ringColor}`
+                : mobileDarkTrumpLit
                   ? `2px solid ${darkSuitFace.ringColor}`
-                  : 'none'
+                  : darkHandValidPlayHighlight
+                    ? `2px solid ${darkSuitFace.ringColor}`
+                    : 'none'
           : thinBorder
           ? (suitIndexInHandMobile && trumpHighlightOn && showMobileHandHighlight ? `1px solid ${borderColor}cc` : 'none')
           : (trumpOnDeck ? (trumpDeckHighlightOn ? `2px solid ${borderColor}ee` : `1px solid ${borderColor}99`) : (isTrumpOnTable && trumpHighlightOn && !mobileDarkSuitFace) ? `2px solid rgba(200,220,160,0.92)` : (doubleBorder ? (isNonTrumpWithHighlight ? `1px solid ${borderColor}cc` : `2px solid ${borderColor}cc`) : 'none')),
-        outlineOffset: darkSuitFace ? 1 : trumpOnDeck ? 1 : (suitIndexInHandMobile && trumpHighlightOn) ? 1 : (isTrumpOnTable && trumpHighlightOn) ? 2 : 0,
+        outlineOffset: legacySuitV3TrumpLit ? 2 : darkSuitFace ? 1 : trumpOnDeck ? 1 : (suitIndexInHandMobile && trumpHighlightOn) ? 1 : (isTrumpOnTable && trumpHighlightOn) ? 2 : 0,
         borderRadius: mobileDarkSuitFace
           ? Math.round(6 * scale)
           : Math.round(8 * scale),
@@ -549,7 +1028,23 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
               ? `${trumpShadow}, 0 0 10px ${neon.border}88, 0 0 16px ${neon.border}44`
               : baseCardShadow),
         background: darkSuitFace
-          ? darkSuitFace.background
+          ? suitClubsV3
+            ? MOBILE_DARK_SUIT_PALETTE_CLUBS_V3.background
+            : clubsV3Gray
+              ? MOBILE_DARK_SUIT_PALETTE_CLUBS_V3_GRAY.background
+              : spadesV3Gray
+              ? MOBILE_DARK_SUIT_PALETTE_SPADES_V3_GRAY.background
+              : spadesV3Deep
+                ? MOBILE_DARK_SUIT_PALETTE_SPADES_V3.background
+                : diamondsV3Gray
+                ? MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_GRAY.background
+                : diamondsV3Deep
+                  ? MOBILE_DARK_SUIT_PALETTE_DIAMONDS_V3_DEEP.background
+                  : legacyHeartsV3Deep
+                    ? MOBILE_DARK_SUIT_PALETTE_HEARTS_V3_DEEP.background
+                    : legacyHeartsV3
+                      ? MOBILE_DARK_SUIT_PALETTE_HEARTS_V3.background
+                      : darkSuitFace.background
           : isDark
           ? (trumpOnDeck ? CARD_BG_DARK_TRUMP : (trumpHighlightOn && isTrumpOnTable) ? CARD_BG_DARK_HIGHLIGHT : (trumpHighlightOn && isTrumpInHand) ? CARD_BG_DARK_TRUMP : CARD_BG_DARK)
           : trumpOnDeck
@@ -748,6 +1243,9 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
             const topSuitScaleTableMobile = tableCardMobile ? 1.15 : 1; /* мобильный стол 6–10: верхний индекс масти немного крупнее */
             const topLeftTable = 2; /* как у фигур: верхний левый индекс */
             const topLeftFinal = (trumpOnDeck && !pcCardStyles) ? topLeftTable - 2 : topLeftTable - 1; /* козырь на колоде мобильный: верхний индекс повыше */
+            /* Легаси ♣ 6–10: верхний левый глиф — чуть выше и левее (не neo clubs-v3-gray) */
+            const topLeftSuitTop = suitClubsV3 ? topLeftFinal - 2 : topLeftFinal;
+            const topLeftSuitLeft = suitClubsV3 ? 2 : 3;
             /* Позиция нижнего правого индекса масти — та же формула, что у фигурных карт в мобильной версии */
             const suitBottom = suitIndexInHandMobile ? -2.5 : -3;
             const suitBottomFinal = suitBottom - 1.5;
@@ -756,7 +1254,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
             const rankCenterSize = Math.round((28 / 1.3 / 1.1) * (suitIndexInHandMobile ? 1 / 1.1 / 1.1 : 1) * cs);
             return (
               <>
-                <span style={{ position: 'absolute', top: topLeftFinal, left: 3, zIndex: 2, fontSize: Math.round((suitSizeFinal / 1.4 / 1.1) * suitIndexScaleTrumpDeckMobile * topSuitScaleTableMobile), fontWeight: 700, lineHeight: 1.1 }}>
+                <span style={{ position: 'absolute', top: topLeftSuitTop, left: topLeftSuitLeft, zIndex: 2, fontSize: Math.round((suitSizeFinal / 1.4 / 1.1) * suitIndexScaleTrumpDeckMobile * topSuitScaleTableMobile), fontWeight: 700, lineHeight: 1.1 }}>
                   {card.suit}
                 </span>
                 <span style={{ position: 'absolute', bottom: bottomRightLift, right: 3, zIndex: 2, fontSize: Math.round((suitSizeFinal / 1.1) * suitIndexScaleTrumpDeckMobile), fontWeight: 700, lineHeight: 1 }}>
@@ -869,6 +1367,9 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                   </span>
                 ) : (
                   <CardFaceImage
+                    className={
+                      card.rank === 'Q' && darkQueenSpadesFaceGlow ? 'card-queen-spades-dark-face' : undefined
+                    }
                     src={card.rank === 'J' ? `/cards/${JACK_CAT_BY_SUIT[card.suit]}` : card.rank === 'Q' ? `/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}` : `/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`}
                     alt={FACE_LABEL[card.rank] ?? card.rank}
                     style={{ maxWidth: suitIndexInHandMobile ? '96%' : useMobileLayout ? '94%' : '92%', maxHeight: suitIndexInHandMobile ? '76%' : useMobileLayout ? '74%' : '72%', objectFit: 'contain' }}
@@ -895,7 +1396,12 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                 <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
               </span>
               <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto' }}>
-                <CardFaceImage src={`/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}`} alt="Д" style={{ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' }} />
+                <CardFaceImage
+                  className={darkQueenSpadesFaceGlow ? 'card-queen-spades-dark-face' : undefined}
+                  src={`/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}`}
+                  alt="Д"
+                  style={{ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' }}
+                />
               </span>
             </>
           ) : card.rank === 'K' ? (
