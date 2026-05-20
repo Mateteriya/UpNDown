@@ -1,14 +1,15 @@
 /**
- * Контекст темы — зафиксирован на «Стандарт».
- * Не допускаем авто-переключение по системной тёмной теме и не используем неоновую тему.
- * Отдельно: ручной «замок» палитры карт под кривые WebView (см. cardPaletteLock).
+ * Контекст темы приложения и темы карт (моб./планшет).
+ * UI-тема зафиксирована на «Стандарт»; карты — 4 режима (лампа, удержание).
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
-  applyCardPaletteLockToDocument,
-  readCardPaletteLockEnabled,
-  toggleCardPaletteLockStored,
+  applyCardThemeToDocument,
+  cycleCardThemeStored,
+  readCardTheme,
+  type CardTheme,
+  CARD_THEME_LABEL,
 } from '../lib/cardPaletteLock';
 
 export type Theme = 'standard' | 'neon';
@@ -33,8 +34,13 @@ interface ThemeContextValue {
   theme: Theme;
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
-  /** Тёмный «лист» карт на мобильной/планшете (долгое нажатие на лампу). ПК-стол не меняется. Проработка — /demo/cards-dark. */
+  /** Тема карт: стандарт / тёмная / легаси / нео (см. cardThemeSpec). Моб. и планшет; ПК-стол без смены листа. */
+  cardTheme: CardTheme;
+  cardThemeLabel: string;
+  /** true, если не «Стандарт» — подсветка лампы */
   cardPaletteLock: boolean;
+  cycleCardTheme: () => CardTheme;
+  /** @deprecated используйте cycleCardTheme */
   toggleCardPaletteLock: () => boolean;
 }
 
@@ -42,9 +48,10 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('standard');
-  const [cardPaletteLock, setCardPaletteLock] = useState(() =>
-    typeof window === 'undefined' ? false : readCardPaletteLockEnabled(),
+  const [cardTheme, setCardTheme] = useState<CardTheme>(() =>
+    typeof window === 'undefined' ? 'standard' : readCardTheme(),
   );
+  const cardPaletteLock = cardTheme !== 'standard';
 
   useEffect(() => {
     applyThemeToDocument();
@@ -52,17 +59,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [theme]);
 
   useEffect(() => {
-    const on = readCardPaletteLockEnabled();
-    setCardPaletteLock(on);
-    applyCardPaletteLockToDocument(on);
+    const initial = readCardTheme();
+    setCardTheme(initial);
+    applyCardThemeToDocument(initial);
   }, []);
 
-  const toggleCardPaletteLock = useCallback(() => {
-    const next = toggleCardPaletteLockStored();
-    setCardPaletteLock(next);
+  const cycleCardTheme = useCallback(() => {
+    const next = cycleCardThemeStored();
+    setCardTheme(next);
     applyThemeToDocument();
     return next;
   }, []);
+
+  const toggleCardPaletteLock = useCallback(() => {
+    const next = cycleCardTheme();
+    return next !== 'standard';
+  }, [cycleCardTheme]);
 
   const setTheme = useCallback((next: Theme) => {
     void next;
@@ -84,7 +96,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         theme,
         toggleTheme,
         setTheme,
+        cardTheme,
+        cardThemeLabel: CARD_THEME_LABEL[cardTheme],
         cardPaletteLock,
+        cycleCardTheme,
         toggleCardPaletteLock,
       }}
     >
@@ -98,4 +113,5 @@ export function useTheme(): ThemeContextValue {
   if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
   return ctx;
 }
-
+
+export type { CardTheme };

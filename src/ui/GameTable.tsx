@@ -1085,7 +1085,7 @@ function difficultyForAiPlayMove(online: boolean, st: GameState, playerIndex: nu
 
 export default function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame, onOpenProfileModal }: GameTableProps) {
   const { user } = useAuth();
-  const { cardPaletteLock, toggleCardPaletteLock } = useTheme();
+  const { cardPaletteLock, cardThemeLabel, cycleCardTheme } = useTheme();
   const userRef = useRef(user);
   userRef.current = user;
   const online = useOnlineGame();
@@ -1333,14 +1333,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     clearTrumpLampLongPressTimer();
     trumpLampLongPressTimerRef.current = window.setTimeout(() => {
       trumpLampLongPressConsumedRef.current = true;
-      toggleCardPaletteLock();
+      cycleCardTheme();
       try {
         void navigator.vibrate?.(14);
       } catch {
         /* ignore */
       }
     }, TRUMP_LAMP_LONGPRESS_MS);
-  }, [clearTrumpLampLongPressTimer, toggleCardPaletteLock]);
+  }, [clearTrumpLampLongPressTimer, cycleCardTheme]);
   const onTrumpLampPointerUpOrCancel = useCallback(() => {
     clearTrumpLampLongPressTimer();
   }, [clearTrumpLampLongPressTimer]);
@@ -1353,8 +1353,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     }
     setTrumpHighlightOn((v) => !v);
   }, []);
-  const trumpLampHintTitle =
-    'Короткое нажатие — доп. подсветка козыря и стола. Удержание ~0,6 с — тёмный лист карт на телефоне/планшете (как в лаборатории /demo/cards-dark); снова удержание — выключить. Стол ПК не меняется.';
+  const trumpLampHintTitle = `Короткое нажатие — доп. подсветка козыря и стола. Удержание ~0,6 с — тема карт (сейчас: ${cardThemeLabel}): Стандарт → Тёмная → Легаси → Нео → снова Стандарт. Только телефон/планшет; стол ПК без смены листа.`;
   /** ПК: гирлянда — через USER_PANEL_GARLAND_IDLE_PC_MS бездействия (pointer/key), не с начала хода мгновенно */
   const [userTurnGarlandReady, setUserTurnGarlandReady] = useState(false);
   /** ПК: усиленный сигнал «пора ходить» после USER_PANEL_STRONG_NUDGE_IDLE_PC_MS простоя */
@@ -4129,6 +4128,13 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     isMobile && (displayState.phase === 'bidding' || displayState.phase === 'dark-bidding')
       ? ' game-phase-bidding'
       : '';
+  /** «Стандарт после short» + активная раздача: компактнее панель Юга (index.css, класс на корне). */
+  const mobileStandardSouthPanelInDeal =
+    mobileStandardLayoutOnShortViewport &&
+    (displayState.phase === 'bidding' ||
+      displayState.phase === 'dark-bidding' ||
+      displayState.phase === 'playing' ||
+      displayState.phase === 'trick-complete');
   /** Бескозырка (21–24): класс .deal-type-no-trump — в CSS только фон/перекраска; мобильная вёрстка не меняется (см. index.css у .viewport-mobile.deal-type-no-trump). */
   const dealTypeNoTrump = getDealType(displayState.dealNumber) === 'no-trump';
   const dealTypeDark = getDealType(displayState.dealNumber) === 'dark';
@@ -4397,7 +4403,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}
     >
       {showMobileTurnEdgeGlow ? (
@@ -13203,18 +13209,28 @@ function LastTrickModal({
         <h3>Последняя взятка</h3>
         <p style={{ color: '#94a3b8', marginBottom: 16 }}>Взял: {winnerName}</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 16 }}>
-          {trick.cards.map((card, i) => (
-            <CardView
-              key={`${card.suit}-${card.rank}-${i}`}
-              card={card}
-              compact
-              showDesktopFaceIndices={showDesktopFaceIndices}
-              doubleBorder={doubleBorder}
-              isTrumpOnTable={pcCardStyles ? (trump !== null && card.suit === trump) : (trumpHighlightOn && trump !== null && card.suit === trump)}
-              trumpHighlightOn={trumpHighlightOn}
-              pcCardStyles={pcCardStyles}
-            />
-          ))}
+          {trick.cards.map((card, i) => {
+            const mobile = !pcCardStyles;
+            return (
+              <CardView
+                key={`${card.suit}-${card.rank}-${i}`}
+                card={card}
+                compact
+                showDesktopFaceIndices={showDesktopFaceIndices}
+                tableCardMobile={mobile}
+                scale={mobile ? 0.98 : 1.18}
+                contentScale={mobile ? 1.5 : undefined}
+                doubleBorder={doubleBorder}
+                isTrumpOnTable={
+                  mobile
+                    ? trumpHighlightOn && trump !== null && card.suit === trump
+                    : trump !== null && card.suit === trump
+                }
+                trumpHighlightOn={trumpHighlightOn}
+                pcCardStyles={pcCardStyles}
+              />
+            );
+          })}
         </div>
         <button type="button" onClick={onClose} style={buttonStyle}>Закрыть</button>
       </div>

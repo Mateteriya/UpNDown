@@ -62,8 +62,8 @@
 @import './theme-neon.css';
 
 /*
- * Замок палитры (updown-card-palette-lock на html): без CSS invert — оформление карт в игре
- * задаётся в CardView по cardPaletteLock (см. ThemeContext). Класс на html остаётся для localStorage
+ * Тема карт (updown-card-palette-lock на html при не «Стандарт»): без CSS invert — оформление в CardView
+ * (cardTheme: standard | dark | legacy | neo). Класс на html — ранняя отрисовка и лампа в игре.
  * при первой отрисовке и возможных будущих глобальных подсказках.
  */
 
@@ -1585,7 +1585,7 @@
       filter: brightness(1);
     }
     50% {
-      filter: brightness(1.18);
+      filter: brightness(1.1);
     }
   }
   /* Черные масти (пики, крести): без мерцания у правого нижнего индекса */
@@ -1624,6 +1624,14 @@
       drop-shadow(0 5px 14px rgba(0, 0, 0, 0.45))
       drop-shadow(0 -3px 6px rgba(255, 255, 255, 0.25));
   }
+}
+
+/* Тёмный лист: дама пик — едва заметный контур центрального рисунка (без заливки карты) */
+.card-view-root .card-queen-spades-dark-face {
+  filter:
+    drop-shadow(0 0 1px rgba(255, 255, 255, 0.4))
+    drop-shadow(0 0 4px rgba(186, 210, 255, 0.2))
+    drop-shadow(0 0 7px rgba(148, 175, 255, 0.1));
 }
 
 /* Туз крестей: обводка голубая + лёгкое свечение, глубокий ультрафиолет + свечение (без мерцания) */
@@ -9695,6 +9703,358 @@
     box-shadow:
       0 2px 14px rgba(0, 0, 0, 0.22),
       inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  }
+  /*
+   * «Стандарт после short» (низкий viewport, opt-out из short-VH): только этот режим.
+   * Панель Юга ~30% ниже обычной мобилы (120→84px); «Очки» и полоска заказа прижаты к низу.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short) {
+    --mobile-south-standard-after-short-panel-h: 84px;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .game-mobile-player-panel {
+    height: var(--mobile-south-standard-after-short-panel-h) !important;
+    min-height: var(--mobile-south-standard-after-short-panel-h) !important;
+    max-height: var(--mobile-south-standard-after-short-panel-h) !important;
+    padding-top: 4px !important;
+    padding-bottom: 2px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .game-mobile-player-panel:has(.first-mover-bidding-panel) {
+    border-radius: 12px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .game-mobile-player-panel
+    .game-mobile-player-info.user-player-panel {
+    padding-top: 6px !important;
+    padding-bottom: 1px !important;
+    padding-inline: 9px !important;
+    gap: 6px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .game-mobile-user-south-main {
+    column-gap: 8px !important;
+    row-gap: 0 !important;
+    align-items: end !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .game-mobile-user-south-avatar-stack {
+    margin-top: 1px !important;
+    align-self: start !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .game-mobile-user-south-right-col {
+    align-self: start !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .game-mobile-user-south-avatar-stack
+    > .user-player-avatar-order-scale-wrap {
+    margin-bottom: 1px !important;
+    transform: scale(1) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .game-mobile-user-south-right-col
+    .player-panel-name,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .game-mobile-user-south-right-col
+    .your-turn-prompt {
+    font-size: 19px !important;
+    line-height: 1.06 !important;
+  }
+  /* «Очки»: прижать к низу ячейки; перебить глобальные 3px×8px у свёрнутого бейджа (≈18962) */
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .game-mobile-user-south-score-cell {
+    align-self: end !important;
+    justify-content: flex-end !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .game-mobile-user-south-score-cell
+    > .opponent-score-badge,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .game-mobile-user-south-score-cell
+    .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .game-mobile-user-south-score-cell
+    .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed.score-badge-leader,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .game-mobile-user-south-score-cell
+    .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .game-mobile-user-south-score-cell
+    .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded.score-badge-leader {
+    padding: 1px 5px !important;
+    gap: 1px !important;
+    min-height: 0 !important;
+    line-height: 1 !important;
+    font-size: 0.88em !important;
+    margin-bottom: 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .game-mobile-user-south-score-cell
+    .opponent-score-badge--score-label-collapsed
+    > span:only-child,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .game-mobile-user-south-score-cell
+    .opponent-score-badge--score-label-collapsed
+    > span:last-child {
+    min-height: 0 !important;
+    line-height: 1 !important;
+  }
+  /* Полоска заказа: к низу панели, без лишнего margin снизу */
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .player-mobile-south-tricks-column {
+    align-self: end !important;
+    gap: 1px !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .player-mobile-south-tricks-column
+    .trick-slots-normal,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .player-mobile-south-tricks-column
+    .trick-slots-collecting {
+    padding: 0 3px !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    line-height: 1 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .player-mobile-south-tricks-column
+    .trick-slots-player-mobile-wide.trick-slots-normal,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .player-mobile-south-tricks-column
+    .trick-slots-player-mobile-wide.trick-slots-collecting {
+    padding: 1px 6px !important;
+    gap: 1px !important;
+    min-height: 0 !important;
+    max-height: 26px !important;
+    box-sizing: border-box !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .player-mobile-south-tricks-column
+    .trick-slots-order-complete.trick-slots-normal,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .player-mobile-south-tricks-column
+    .trick-slots-order-complete.trick-slots-collecting {
+    border-width: 1px !important;
+    box-shadow:
+      0 0 0 1px rgba(196, 181, 253, 0.28),
+      0 0 6px rgba(34, 211, 238, 0.18),
+      inset 0 0 8px rgba(139, 92, 246, 0.1),
+      inset 0 0 0 1px rgba(110, 231, 183, 0.45) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .player-mobile-south-tricks-column
+    .trick-bid-taken-figures-neon--player {
+    font-size: 10px !important;
+    line-height: 1 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel
+    .player-mobile-south-tricks-column
+    .trick-bid-taken-figures-neon--hand-bold.trick-bid-taken-figures-neon--player {
+    font-size: 10.5px !important;
+  }
+  .game-table-root.trump-highlight-on.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel.player-info-panel-your-turn::before {
+    inset: 3px !important;
+    border-radius: 12px !important;
+  }
+  /*
+   * «Стандарт после short» + партия (торги / бейджи / полоска заказа): не раздувать панель —
+   * обычная мобила включает overflow:visible при ходе/кольце/first-mover; здесь держим 84px.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .game-mobile-player-panel:has(.player-info-panel-your-turn),
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .game-mobile-player-panel:has(.opponent-avatar-order-ring),
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .game-mobile-player-panel:has(.first-mover-bidding-panel) {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .game-table-block-mobile
+    .game-mobile-bottom-row:has(.player-info-panel-your-turn),
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .game-table-block-mobile
+    .game-mobile-bottom-row:has(.user-player-panel .opponent-avatar-order-ring) {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+  }
+  .game-table-root.trump-highlight-on.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-short)
+    .user-player-panel.player-info-panel-your-turn {
+    overflow: hidden !important;
+  }
+  /* Активная раздача (класс на корне из GameTable): ещё плотнее padding и бейджи, без уменьшения аватара */
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .game-mobile-player-panel {
+    padding-top: 2px !important;
+    padding-bottom: 1px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .game-mobile-player-panel
+    .game-mobile-player-info.user-player-panel {
+    padding-top: 4px !important;
+    padding-bottom: 0 !important;
+    gap: 4px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .game-mobile-user-south-main {
+    row-gap: 0 !important;
+    column-gap: 7px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .user-player-panel
+    .game-mobile-user-south-avatar-stack {
+    margin-top: 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .game-mobile-user-south-right-col
+    > div:first-child {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .game-mobile-user-south-right-col
+    .player-panel-name,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .game-mobile-user-south-right-col
+    .your-turn-prompt {
+    font-size: 17px !important;
+    line-height: 1.06 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .game-mobile-user-south-right-col
+    [title='Сдающий'],
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .game-mobile-user-south-right-col
+    [title='Первый заказ/ход'] {
+    flex-shrink: 0 !important;
+    padding: 2px 6px !important;
+    gap: 4px !important;
+    font-size: 9px !important;
+    line-height: 1.1 !important;
+    border-radius: 10px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .game-mobile-user-south-right-col
+    [title='Сдающий']
+    > span:first-child,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .game-mobile-user-south-right-col
+    [title='Первый заказ/ход']
+    > span:first-child {
+    width: 6px !important;
+    height: 6px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .user-player-panel
+    .game-mobile-user-south-score-cell
+    > .opponent-score-badge,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .user-player-panel
+    .game-mobile-user-south-score-cell
+    .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .user-player-panel
+    .game-mobile-user-south-score-cell
+    .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded {
+    padding: 0 4px !important;
+    gap: 1px !important;
+    font-size: 0.84em !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .user-player-panel
+    .player-mobile-south-tricks-column {
+    gap: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .user-player-panel
+    .player-mobile-south-tricks-column
+    .trick-slots-player-mobile-wide.trick-slots-normal,
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .user-player-panel
+    .player-mobile-south-tricks-column
+    .trick-slots-player-mobile-wide.trick-slots-collecting {
+    padding: 0 5px !important;
+    gap: 0 !important;
+    max-height: 24px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh.viewport-mobile-standard-from-short-vh-in-deal:not(
+      .viewport-mobile-short
+    )
+    .user-player-panel.first-mover-bidding-panel::before {
+    box-shadow:
+      inset 0 0 22px rgba(251, 146, 60, 0.22),
+      inset 0 0 0 1px rgba(253, 186, 116, 0.48),
+      inset 0 0 12px rgba(251, 191, 36, 0.1) !important;
   }
   /* Свечение и кольцо заказа на аватаре: при «ваш ход» или при показе кольца (заказ на руке) — иначе overflow-x/y режут градиент */
   .game-table-root.viewport-mobile .game-mobile-player-panel:has(.player-info-panel-your-turn),
