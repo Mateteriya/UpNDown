@@ -1,20 +1,41 @@
 /**
- * Режим тёмного листа карт (долгое нажатие на лампу в игре): флаг в localStorage + класс на html.
- * Визуал карт — в CardView (cardPaletteLock из ThemeContext), без CSS filter/invert.
- * Лаборатория вариантов: /demo/cards-dark
+ * Тема оформления карт на мобильной/планшете: standard | dark | legacy | neo.
+ * Визуал — в CardView; класс на html для ранней отрисовки и подсветки лампы.
+ * Лаборатория: /demo/cards-dark
  */
 
+export type CardTheme = 'standard' | 'dark' | 'legacy' | 'neo';
+
+export const CARD_THEME_STORAGE_KEY = 'updown-card-theme';
+
+/** @deprecated миграция с булева замка */
 export const CARD_PALETTE_LOCK_STORAGE_KEY = 'updown-card-palette-lock';
 
 const HTML_CLASS = 'updown-card-palette-lock';
 
-export function readCardPaletteLockEnabled(): boolean {
-  if (typeof window === 'undefined') return false;
+export const CARD_THEME_CYCLE: CardTheme[] = ['standard', 'dark', 'legacy', 'neo'];
+
+export const CARD_THEME_LABEL: Record<CardTheme, string> = {
+  standard: 'Стандарт',
+  dark: 'Тёмная',
+  legacy: 'Легаси',
+  neo: 'Нео',
+};
+
+function isCardTheme(v: string | null): v is CardTheme {
+  return v === 'standard' || v === 'dark' || v === 'legacy' || v === 'neo';
+}
+
+export function readCardTheme(): CardTheme {
+  if (typeof window === 'undefined') return 'standard';
   try {
-    return localStorage.getItem(CARD_PALETTE_LOCK_STORAGE_KEY) === '1';
+    const stored = localStorage.getItem(CARD_THEME_STORAGE_KEY);
+    if (isCardTheme(stored)) return stored;
+    if (localStorage.getItem(CARD_PALETTE_LOCK_STORAGE_KEY) === '1') return 'dark';
   } catch {
-    return false;
+    /* ignore */
   }
+  return 'standard';
 }
 
 export function setCardPaletteLockEnabled(enabled: boolean): void {
@@ -29,12 +50,34 @@ export function setCardPaletteLockEnabled(enabled: boolean): void {
   }
 }
 
-export function applyCardPaletteLockToDocument(enabled: boolean): void {
-  setCardPaletteLockEnabled(enabled);
+export function applyCardThemeToDocument(theme: CardTheme): void {
+  setCardPaletteLockEnabled(theme !== 'standard');
+  try {
+    localStorage.setItem(CARD_THEME_STORAGE_KEY, theme);
+  } catch {
+    /* ignore */
+  }
 }
 
-export function toggleCardPaletteLockStored(): boolean {
-  const next = !readCardPaletteLockEnabled();
-  setCardPaletteLockEnabled(next);
+export function applyCardPaletteLockToDocument(enabled: boolean): void {
+  applyCardThemeToDocument(enabled ? 'dark' : 'standard');
+}
+
+/** @deprecated используйте readCardTheme() !== 'standard' */
+export function readCardPaletteLockEnabled(): boolean {
+  return readCardTheme() !== 'standard';
+}
+
+export function cycleCardThemeStored(): CardTheme {
+  const current = readCardTheme();
+  const i = CARD_THEME_CYCLE.indexOf(current);
+  const next = CARD_THEME_CYCLE[(i + 1) % CARD_THEME_CYCLE.length];
+  applyCardThemeToDocument(next);
   return next;
+}
+
+/** @deprecated используйте cycleCardThemeStored */
+export function toggleCardPaletteLockStored(): boolean {
+  cycleCardThemeStored();
+  return readCardTheme() !== 'standard';
 }
