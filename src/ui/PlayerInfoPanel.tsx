@@ -5,7 +5,7 @@
 
 import { useEffect } from 'react';
 import type { AIDifficulty, GameState } from '../game/GameEngine';
-import { getTakenFromDealPoints } from '../game/scoring';
+import { getBidAccuracyInGame } from '../game/playerBidAccuracy';
 import { getLocalRating } from '../game/persistence';
 import { PlayerAvatar } from './PlayerAvatar';
 import { OfflineAiDifficultyOptionList } from './OfflineAiDifficultyOptionList';
@@ -22,19 +22,6 @@ export interface PlayerInfoPanelProps {
     current: AIDifficulty;
     onSelect: (level: AIDifficulty) => void;
   };
-}
-
-function getBidAccuracyInGame(dealHistory: GameState['dealHistory'], playerIndex: number): number {
-  if (!dealHistory?.length) return 0;
-  let met = 0;
-  for (const deal of dealHistory) {
-    const bid = deal.bids[playerIndex];
-    const points = deal.points[playerIndex];
-    if (bid == null) continue;
-    const taken = getTakenFromDealPoints(bid, points);
-    if (bid === taken) met++;
-  }
-  return Math.round((met / dealHistory.length) * 100);
 }
 
 export function PlayerInfoPanel({

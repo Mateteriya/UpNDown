@@ -57,6 +57,7 @@ import { getResultsTableFootTotalDigitStyle } from '../lib/mobileResultsTableTot
 import { CardView } from './CardView';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
+import { UserAvatarMenuSheet } from './UserAvatarMenuSheet';
 import { MobileSouthChatNameTicker } from './MobileSouthChatNameTicker';
 import { TableChatDock, type TableChatDockOwnMessageHandler } from './TableChatDock';
 import { GameDealOrbitDock } from './GameDealOrbitDock';
@@ -750,6 +751,10 @@ interface GameTableProps {
   onNewGame?: () => void;
   /** Открыть модалку профиля (имя и фото) — для кнопки «Сменить фото» в меню аватара. */
   onOpenProfileModal?: () => void;
+  /** Сохранить аватарку из редактора (тап по крупному аватару в меню). */
+  onSaveAvatar?: (avatarDataUrl: string | null) => void;
+  /** Сохранить имя из меню аватарки (inline, без модалки профиля). */
+  onSaveDisplayName?: (displayName: string) => void;
 }
 
 /** Сколько мс карты остаются на столе после 4‑го хода, чтобы все успели увидеть (прогрузка, онлайн). */
@@ -1083,7 +1088,7 @@ function difficultyForAiPlayMove(online: boolean, st: GameState, playerIndex: nu
   return st.players[playerIndex]?.aiDifficulty ?? getAiDifficulty();
 }
 
-export default function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame, onOpenProfileModal }: GameTableProps) {
+export default function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame, onOpenProfileModal, onSaveAvatar, onSaveDisplayName }: GameTableProps) {
   const { user } = useAuth();
   const { cardPaletteLock, cardThemeLabel, cycleCardTheme } = useTheme();
   const userRef = useRef(user);
@@ -4199,8 +4204,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       display: 'inline-flex',
       lineHeight: 0,
     };
-    const title = online.roomId ? 'Меню (пауза, информация)' : 'Информация об игроке';
-    const ariaLabel = online.roomId ? `Меню ${p.name}` : `Информация об игроке ${p.name}`;
+    const title = online.roomId ? 'Меню (пауза, информация)' : 'Меню профиля';
+    const ariaLabel = online.roomId ? `Меню ${p.name}` : `Профиль ${p.name}`;
     const face = (
       <PlayerAvatar
         name={displayState.players[humanIdx].name}
@@ -4214,7 +4219,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       <button
         type="button"
         className={avatarRootCls}
-        onClick={() => (online.roomId ? setShowAvatarMenu(true) : setSelectedPlayerForInfo(0))}
+        onClick={() => {
+          setShowAvatarMenu(true);
+        }}
         style={avatarBtnStyle}
         title={title}
         aria-label={ariaLabel}
@@ -4470,166 +4477,25 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           </div>
         </div>
       )}
-      {online.roomId && showAvatarMenu && !online.userOnPause && createPortal(
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Меню игрока"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            zIndex: 10003,
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            padding: '0 16px calc(115px + env(safe-area-inset-bottom, 0px))',
+      {showAvatarMenu && state && (!online.roomId || !online.userOnPause) && createPortal(
+        <UserAvatarMenuSheet
+          displayName={playerDisplayName || state.players[0]?.name || 'Вы'}
+          avatarDataUrl={playerAvatarDataUrl}
+          state={state}
+          offlineMode={offlineMode}
+          showPause={isOnlinePlayPhase && !!online.takePause}
+          takingPause={takingPause}
+          onClose={() => setShowAvatarMenu(false)}
+          onOpenProfileModal={onOpenProfileModal}
+          onSaveAvatar={onSaveAvatar}
+          onSaveDisplayName={onSaveDisplayName}
+          onTakePause={async () => {
+            setTakingPause(true);
+            await online.takePause?.();
+            setTakingPause(false);
+            setShowAvatarMenu(false);
           }}
-          onClick={() => setShowAvatarMenu(false)}
-        >
-          <div
-            style={{
-              background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-              borderRadius: 16,
-              border: '1px solid rgba(34, 211, 238, 0.35)',
-              boxShadow: '0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
-              minWidth: 280,
-              maxWidth: 320,
-              maxHeight: 'min(85vh, 420px)',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <PlayerAvatar name={playerDisplayName || state?.players[0]?.name || 'Вы'} avatarDataUrl={playerAvatarDataUrl} sizePx={52} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 17, fontWeight: 600, color: '#f8fafc', marginBottom: 2 }}>
-                    {playerDisplayName || state?.players[0]?.name || 'Вы'}
-                  </div>
-                  {state && (
-                    <div style={{ fontSize: 13, color: '#94a3b8' }}>
-                      Очки: <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{state.players[0].score}</span>
-                      {state.bids[0] != null && (
-                        <> · Текущий заказ: <span style={{ color: '#e2e8f0' }}>{state.bids[0]}</span></>
-                      )}
-                      {state.phase === 'playing' && (
-                        <> · Взяток: <span style={{ color: '#e2e8f0' }}>{state.players[0].tricksTaken}</span></>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div style={{ padding: '12px 12px 16px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', WebkitOverflowScrolling: 'touch' as const, flex: '1 1 auto', minHeight: 0 }}>
-              {onOpenProfileModal && (
-                <button
-                  type="button"
-                  onClick={() => { onOpenProfileModal(); setShowAvatarMenu(false); }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    width: '100%',
-                    padding: '12px 16px',
-                    borderRadius: 10,
-                    border: '1px solid rgba(34,211,238,0.4)',
-                    background: 'rgba(34,211,238,0.12)',
-                    color: '#67e8f9',
-                    fontSize: 15,
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    transition: 'background 0.2s, border-color 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(34,211,238,0.2)';
-                    e.currentTarget.style.borderColor = 'rgba(34,211,238,0.6)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(34,211,238,0.12)';
-                    e.currentTarget.style.borderColor = 'rgba(34,211,238,0.4)';
-                  }}
-                >
-                  <span aria-hidden>📷</span> Сменить фото
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => { setSelectedPlayerForInfo(0); setShowAvatarMenu(false); }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  width: '100%',
-                  padding: '12px 16px',
-                  borderRadius: 10,
-                  border: '1px solid rgba(148,163,184,0.3)',
-                  background: 'rgba(51,65,85,0.6)',
-                  color: '#e2e8f0',
-                  fontSize: 15,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  transition: 'background 0.2s, border-color 0.2s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(71,85,105,0.8)';
-                  e.currentTarget.style.borderColor = 'rgba(148,163,184,0.5)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(51,65,85,0.6)';
-                  e.currentTarget.style.borderColor = 'rgba(148,163,184,0.3)';
-                }}
-              >
-                <span aria-hidden>ℹ️</span> Подробнее об игроке
-              </button>
-              {isOnlinePlayPhase && online.takePause && (
-                <button
-                  type="button"
-                  disabled={takingPause}
-                  onClick={async () => {
-                    setTakingPause(true);
-                    await online.takePause?.();
-                    setTakingPause(false);
-                    setShowAvatarMenu(false);
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    width: '100%',
-                    padding: '12px 16px',
-                    borderRadius: 10,
-                    border: '1px solid rgba(251,146,60,0.4)',
-                    background: takingPause ? 'rgba(251,146,60,0.2)' : 'rgba(251,146,60,0.15)',
-                    color: '#fb923c',
-                    fontSize: 15,
-                    fontWeight: 500,
-                    cursor: takingPause ? 'wait' : 'pointer',
-                    opacity: takingPause ? 0.8 : 1,
-                    transition: 'background 0.2s, border-color 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!takingPause) {
-                      e.currentTarget.style.background = 'rgba(251,146,60,0.25)';
-                      e.currentTarget.style.borderColor = 'rgba(251,146,60,0.6)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = takingPause ? 'rgba(251,146,60,0.2)' : 'rgba(251,146,60,0.15)';
-                    e.currentTarget.style.borderColor = 'rgba(251,146,60,0.4)';
-                  }}
-                >
-                  <span aria-hidden>⏸</span> {takingPause ? 'Пауза…' : 'Взять паузу'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>,
+        />,
         document.body
       )}
       {isOnline && online.playerLeftToast && (

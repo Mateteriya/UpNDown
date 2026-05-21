@@ -787,9 +787,22 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
   const isNonTrumpWithHighlight = pcCardStyles && doubleBorder && !trumpOnDeck && !(isTrumpOnTable && trumpHighlightOn) && !(isTrumpInHand && trumpHighlightOn);
   const isTableNumericTrump = isTrumpOnTable && compact && showDesktopFaceIndices && !tableCardMobile && isNumericRank(card.rank);
   const isTrumpOnTableDim = pcCardStyles && isTrumpOnTable && !trumpHighlightOn;
+  const isPcTableAceClubs =
+    pcCardStyles &&
+    compact &&
+    showDesktopFaceIndices &&
+    !tableCardMobile &&
+    card.rank === 'A' &&
+    card.suit === '♣';
+  const aceClubsImgClass =
+    card.suit === '♣' && pcCardStyles
+      ? `card-ace-clubs-img${isPcTableAceClubs ? ' card-ace-clubs-img--pc-table' : ''}`
+      : undefined;
   let trumpShadow =
     isTrumpOnTable && trumpHighlightOn && !mobileDarkTable
-      ? `${baseShadow}, 0 0 0 1px rgba(255,255,255,0.85), 0 0 18px rgba(255,255,255,0.52), 0 0 12px ${neon.border}bb, 0 0 20px ${neon.border}66, inset 0 0 14px ${neon.border}33, inset 0 1px 6px rgba(255,255,255,0.52)`
+      ? isPcTableAceClubs
+        ? `${baseShadow}, 0 0 0 1px rgba(255,255,255,0.72), 0 0 8px ${neon.border}55, 0 2px 6px rgba(0,0,0,0.12)`
+        : `${baseShadow}, 0 0 0 1px rgba(255,255,255,0.85), 0 0 18px rgba(255,255,255,0.52), 0 0 12px ${neon.border}bb, 0 0 20px ${neon.border}66, inset 0 0 14px ${neon.border}33, inset 0 1px 6px rgba(255,255,255,0.52)`
       : baseShadow;
   if (trumpOnDeck && mobileDarkDeck) {
     trumpShadow = 'none';
@@ -810,12 +823,14 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
   } else if (pcCardStyles && ((isTrumpInHand || isTrumpOnTableDim) && !trumpHighlightOn)) {
     const q = 0.35;
     const whiteMult = 0.8;
-    trumpShadow = [
-      `0 0 0 1px rgba(255,255,255,${(0.25 * q + 0.15) * whiteMult})`,
-      `0 4px ${18 * q}px rgba(0,0,0,${0.28 + 0.08 * q})`,
-      `inset 0 2px ${10 * q}px rgba(255,255,255,${(0.18 + 0.12 * q) * whiteMult})`,
-      `inset 0 -1px ${4 * q}px rgba(0,0,0,${0.08 + 0.06 * q})`,
-    ].join(', ');
+    trumpShadow = isPcTableAceClubs && isTrumpOnTableDim
+      ? `0 0 0 1px rgba(255,255,255,0.55), 0 2px 6px rgba(0,0,0,0.1)`
+      : [
+          `0 0 0 1px rgba(255,255,255,${(0.25 * q + 0.15) * whiteMult})`,
+          `0 4px ${18 * q}px rgba(0,0,0,${0.28 + 0.08 * q})`,
+          `inset 0 2px ${10 * q}px rgba(255,255,255,${(0.18 + 0.12 * q) * whiteMult})`,
+          `inset 0 -1px ${4 * q}px rgba(0,0,0,${0.08 + 0.06 * q})`,
+        ].join(', ');
   } else if (isTableNumericTrump) {
     trumpShadow = [
       baseShadow,
@@ -1359,7 +1374,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                     }}
                   >
                     <CardFaceImage
-                      className={useMobileLayout ? `card-ace-central-img${card.suit === '♣' && pcCardStyles ? ' card-ace-clubs-img' : ''}` : card.suit === '♣' && pcCardStyles ? 'card-ace-clubs-img' : undefined}
+                      className={useMobileLayout ? `card-ace-central-img${aceClubsImgClass ? ` ${aceClubsImgClass}` : ''}` : aceClubsImgClass}
                       src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`}
                       alt="Т"
                       style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }}
@@ -1426,7 +1441,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                   ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' }
                   : {}),
               }}>
-                <CardFaceImage className={card.suit === '♣' && pcCardStyles ? 'card-ace-clubs-img' : undefined} src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`} alt="Т" style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }} />
+                <CardFaceImage className={aceClubsImgClass} src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`} alt="Т" style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }} />
               </span>
             </>
           )
@@ -1691,7 +1706,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                   : {}),
               }}>
                 <CardFaceImage
-                  className={card.suit === '♣' && pcCardStyles ? 'card-ace-clubs-img' : undefined}
+                  className={aceClubsImgClass}
                   src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`}
                   alt="Т"
                   style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }}

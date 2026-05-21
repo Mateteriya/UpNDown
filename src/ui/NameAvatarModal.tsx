@@ -4,41 +4,12 @@
  */
 
 import React, { useState, useRef } from 'react';
+import { compressImageToDataUrl, MAX_AVATAR_IMAGE_SIZE_BYTES } from '../lib/avatarImage';
 import { PlayerAvatar } from './PlayerAvatar';
 
-const MAX_NAME_LENGTH = 17;
-/** Принимаем фото до 5 МБ; при загрузке сжимаем до 512px и JPEG, чтобы не переполнять localStorage. */
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
-const AVATAR_MAX_PX = 512;
-const AVATAR_JPEG_QUALITY = 0.88;
-
-function compressImageToDataUrl(dataUrl: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const w = img.width;
-      const h = img.height;
-      const scale = Math.min(1, AVATAR_MAX_PX / Math.max(w, h));
-      const cw = Math.round(w * scale);
-      const ch = Math.round(h * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = cw;
-      canvas.height = ch;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { resolve(dataUrl); return; }
-      ctx.drawImage(img, 0, 0, cw, ch);
-      try {
-        const out = canvas.toDataURL('image/jpeg', AVATAR_JPEG_QUALITY);
-        resolve(out);
-      } catch {
-        resolve(dataUrl);
-      }
-    };
-    img.onerror = () => reject(new Error('Не удалось загрузить изображение'));
-    img.src = dataUrl;
-  });
-}
+export const MAX_DISPLAY_NAME_LENGTH = 17;
+const MAX_NAME_LENGTH = MAX_DISPLAY_NAME_LENGTH;
+const MAX_IMAGE_SIZE_BYTES = MAX_AVATAR_IMAGE_SIZE_BYTES;
 
 export interface NameAvatarModalProps {
   initialDisplayName?: string;

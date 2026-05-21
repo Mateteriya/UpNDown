@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="gold" x1="128" y1="96" x2="384" y2="416" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fde68a"/>
+      <stop offset="0.35" stop-color="#fbbf24"/>
+      <stop offset="0.7" stop-color="#d97706"/>
+      <stop offset="1" stop-color="#fef3c7"/>
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="240" stroke="url(#gold)" stroke-width="16"/>
+  <circle cx="256" cy="256" r="222" stroke="rgba(255,251,235,0.5)" stroke-width="4"/>
+  <path d="M256 28 L262 52 L256 46 L250 52 Z" fill="#fde68a" transform="rotate(0 256 256)"/>
+  <path d="M256 28 L262 52 L256 46 L250 52 Z" fill="#fbbf24" transform="rotate(45 256 256)"/>
+  <path d="M256 28 L262 52 L256 46 L250 52 Z" fill="#fde68a" transform="rotate(90 256 256)"/>
+  <path d="M256 28 L262 52 L256 46 L250 52 Z" fill="#fbbf24" transform="rotate(135 256 256)"/>
+  <path d="M256 28 L262 52 L256 46 L250 52 Z" fill="#fde68a" transform="rotate(180 256 256)"/>
+  <path d="M256 28 L262 52 L256 46 L250 52 Z" fill="#fbbf24" transform="rotate(225 256 256)"/>
+  <path d="M256 28 L262 52 L256 46 L250 52 Z" fill="#fde68a" transform="rotate(270 256 256)"/>
+  <path d="M256 28 L262 52 L256 46 L250 52 Z" fill="#fbbf24" transform="rotate(315 256 256)"/>
+</svg>
