@@ -17,8 +17,10 @@ import { CardDarkLabPage } from './ui/CardDarkLabPage'
 import { DealTrackLabPage } from './ui/DealTrackLabPage'
 import { TotalColorLabPage } from './ui/TotalColorLabPage'
 import { OnlineUiLabPage } from './ui/OnlineUiLabPage'
+import { ScoringDemoPage } from './ui/ScoringDemoPage'
+import './theme-standard.css'
+import './theme-neon.css'
 import './index.css'
-/* Ушко/рельса/фантом чата: отдельный файл — @import в index.css после других правил не попадает в бандл. */
 import './styles/tableChatSideEarMobile.css'
 
 const path = typeof window !== 'undefined' ? window.location.pathname : ''
@@ -27,6 +29,7 @@ const isCardDarkLab = path === '/demo/cards-dark' || path.startsWith('/demo/card
 const isDealTrackLab = path === '/deal-track-lab' || path.startsWith('/deal-track-lab/')
 const isTotalColorLab = path === '/total-color-lab' || path.startsWith('/total-color-lab/')
 const isOnlineUiLab = path === '/online-ui-lab' || path.startsWith('/online-ui-lab/')
+const isScoringDemo = path === '/scoring-demo' || path.startsWith('/scoring-demo/')
 const devModeAllowed = typeof window !== 'undefined' && sessionStorage.getItem('updown-devMode') === '1'
 
 function DemoGuard({ children }: { children: React.ReactNode }) {
@@ -67,6 +70,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <DemoGuard>
           <OnlineUiLabPage onBack={() => (window.location.href = '/')} />
         </DemoGuard>
+      </ThemeProvider>
+    ) : isScoringDemo ? (
+      <ThemeProvider>
+        <ScoringDemoPage onBack={() => (window.location.href = '/')} />
       </ThemeProvider>
     ) : (
       <AuthProvider>

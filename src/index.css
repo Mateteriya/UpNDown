@@ -58,8 +58,6 @@
   backface-visibility: hidden;
   transform: translateZ(0);
 }
-@import './theme-standard.css';
-@import './theme-neon.css';
 
 /*
  * Тема карт (updown-card-palette-lock на html при не «Стандарт»): без CSS invert — оформление в CardView
@@ -1700,9 +1698,6 @@
     flex: 0 0 0 !important;
     min-height: 0 !important;
     max-height: 0 !important;
-  }
-  .game-table-root:not(.viewport-mobile) .game-pc-user-layer {
-    padding-bottom: 6px !important;
   }
   .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation {
     top: 50% !important;
@@ -12710,8 +12705,147 @@
   letter-spacing: 0.02em !important;
 }
 
-/* ПК: панель пользователя Юга — inline padding; планшет без viewport-mobile сохраняет те же отступы */
+/* ПК, торги: лимит высоты полосы Юга (рука + панель + кнопки заказа) */
+.game-table-root:not(.viewport-mobile).game-phase-bidding .game-pc-user-layer {
+  max-height: min(360px, 46dvh) !important;
+}
+
+/* ПК: простой на торгах (2 с) — крупный пульс панели цифр (scale + glow, без роста layout панели Юга) */
+@keyframes pc-bid-panel-idle-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 2px rgba(34, 211, 238, 0.55),
+      0 0 22px rgba(34, 197, 94, 0.38),
+      0 0 36px rgba(34, 211, 238, 0.22);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.16);
+    box-shadow:
+      0 0 0 3px rgba(34, 211, 238, 0.95),
+      0 0 0 7px rgba(34, 197, 94, 0.45),
+      0 0 34px rgba(34, 197, 94, 0.62),
+      0 0 56px rgba(34, 211, 238, 0.42),
+      0 0 78px rgba(139, 92, 246, 0.28);
+    filter: brightness(1.12);
+  }
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .bid-panel-pc-under-score.pc-bid-panel-idle-pulse {
+  position: relative;
+  z-index: 12;
+  transform-origin: center center;
+  animation: pc-bid-panel-idle-pulse 1.25s ease-in-out infinite;
+  will-change: transform, box-shadow, filter;
+  pointer-events: auto;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel:has(.pc-bid-panel-idle-pulse) {
+  overflow: visible !important;
+}
+
+/* ПК: простой в игре (3 с) — пульс руки масштабом (низ закреплён, без сдвига по вертикали) */
+@keyframes pc-player-hand-idle-pulse-scale {
+  0%,
+  100% {
+    transform: translateY(3px) scale(1);
+  }
+  50% {
+    transform: translateY(3px) scale(1.04);
+  }
+}
+.game-table-root:not(.viewport-mobile) .player-hand-your-turn.pc-player-hand-idle-pulse {
+  position: relative;
+  z-index: 10;
+  transform-origin: 50% 100%;
+  animation: pc-player-hand-idle-pulse-scale 1.3s ease-in-out infinite !important;
+  will-change: transform;
+}
+.game-table-root:not(.viewport-mobile) .game-pc-user-layer:has(.pc-player-hand-idle-pulse) {
+  overflow: visible !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root:not(.viewport-mobile) .bid-panel-pc-under-score.pc-bid-panel-idle-pulse,
+  .game-table-root:not(.viewport-mobile) .player-hand-your-turn.pc-player-hand-idle-pulse {
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .game-table-root:not(.viewport-mobile) .player-hand-your-turn.pc-player-hand-idle-pulse {
+    transform: translateY(3px) !important;
+  }
+}
+
+/* ПК: «Ваш заказ» / «Ваш ход» — портал + position:fixed (не в layout панели Юга) */
+@keyframes pc-turn-roaming-pulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.06);
+  }
+}
+.pc-turn-roaming-badge-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 24;
+  overflow: visible;
+}
+.pc-turn-roaming-badge--fixed {
+  z-index: 1;
+  transition:
+    left 0.55s cubic-bezier(0.45, 0.05, 0.2, 1),
+    top 0.55s cubic-bezier(0.45, 0.05, 0.2, 1),
+    transform 0.55s cubic-bezier(0.45, 0.05, 0.2, 1);
+  will-change: left, top, transform;
+}
+.pc-turn-roaming-badge {
+  margin: 0;
+  padding: 10px 22px;
+  border-radius: 16px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.12;
+  white-space: nowrap;
+  color: #fff;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  box-shadow:
+    0 4px 16px rgba(34, 197, 94, 0.5),
+    0 0 28px rgba(34, 197, 94, 0.35);
+  animation: pc-turn-roaming-pulse 2.8s ease-in-out infinite;
+}
+.pc-turn-roaming-badge--strong {
+  font-size: clamp(18px, 1.45vw, 24px);
+  font-weight: 800;
+  padding: 12px 28px;
+  letter-spacing: 0.08em;
+  background: linear-gradient(135deg, #22d3ee 0%, rgb(114 23 175) 100%);
+  color: #e8f4fc;
+  outline: 2px solid rgb(33 5 73 / 88%);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 2px rgb(85 168 227 / 70%),
+    0 0 0 4px rgb(41 158 201 / 90%),
+    0 6px 20px rgb(58 179 224 / 50%),
+    0 0 26px rgb(103 77 216 / 45%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-turn-roaming-badge--fixed {
+    transition: none;
+  }
+  .pc-turn-roaming-badge {
+    animation: none;
+  }
+}
+
+/* ПК: панель пользователя Юга — по ширине контента (как maxWidth в playerInfoPanelStyle), не на всю полосу */
 .game-table-root:not(.viewport-mobile) .user-player-panel {
+  width: auto !important;
+  max-width: 800px !important;
+  box-sizing: border-box !important;
   padding-top: 7px !important;
   padding-bottom: 7px !important;
   padding-left: 14px !important;
@@ -12727,7 +12861,8 @@
   flex-direction: row !important;
   align-items: stretch !important;
   gap: 10px !important;
-  width: 100% !important;
+  width: auto !important;
+  max-width: 100% !important;
   min-width: 0 !important;
 }
 /* Левая колонка на всю высоту панели; кластер «аватар + взятки» по вертикали по центру — не привязан к высоте блока заказа справа */
@@ -12793,8 +12928,37 @@
   gap: 7px !important;
   flex: 1 1 0 !important;
   min-width: 0 !important;
+  overflow: visible !important;
 }
-/* ПК, торговля: бейджи слева (в ряд), «Очки» справа — без лишней высоты столбца */
+/* ПК, торги + видимый заказ: в одной строке с бейджами/очками — не добавляем высоту второй строкой */
+.game-table-root:not(.viewport-mobile).game-phase-bidding
+  .user-player-panel
+  .user-player-panel-pc-main:has(.bid-panel-pc-under-score) {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'head bid';
+  column-gap: 10px !important;
+  row-gap: 0 !important;
+  align-items: center !important;
+}
+.game-table-root:not(.viewport-mobile).game-phase-bidding
+  .user-player-panel
+  .user-player-panel-pc-main:has(.bid-panel-pc-under-score)
+  .user-player-panel-pc-bidding-top-row {
+  grid-area: head !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+.game-table-root:not(.viewport-mobile).game-phase-bidding
+  .user-player-panel
+  .user-player-panel-pc-main:has(.bid-panel-pc-under-score)
+  .user-player-panel-pc-stats-stack {
+  grid-area: bid !important;
+  width: auto !important;
+  min-width: 0 !important;
+  align-self: center !important;
+}
+/* ПК, торговля: одна фиксированная строка — бейдж «Ваш заказ» вне потока, без роста высоты */
 .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-bidding-top-row {
   display: flex !important;
   flex-direction: row !important;
@@ -12803,29 +12967,38 @@
   gap: 12px !important;
   width: 100% !important;
   min-width: 0 !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  box-sizing: border-box !important;
 }
 .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-bidding-badges {
   display: flex !important;
   flex-direction: row !important;
-  flex-wrap: wrap !important;
+  flex-wrap: nowrap !important;
   align-items: center !important;
-  gap: 7px !important;
+  gap: 6px !important;
   flex: 1 1 0 !important;
   min-width: 0 !important;
-}
-.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-bidding-badges:has(.user-player-panel-pc-turn-badge-nudge) {
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  position: relative !important;
   overflow: visible !important;
+  box-sizing: border-box !important;
 }
 .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-bidding-badges .first-bidder-lamp-user-pc {
   align-self: center !important;
-  /* Чуть ближе к верху панели (перебивает общий margin-top: -6px у лампы — для строки торгов) */
-  margin-top: -8px !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
 }
 .game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-bidding-row-end {
   align-self: center !important;
   flex-shrink: 0 !important;
-  margin-top: 5px !important;
-  /* Торговля: чуть дальше от правого края панели */
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
   margin-right: 6px !important;
 }
 /* ПК, игра: только «Очки» справа; «Ваш ход» — над взятками слева */
@@ -12906,13 +13079,14 @@
     user-panel-idle-nudge-pc-hue 5.6s ease-in-out infinite !important;
   will-change: transform, opacity, filter !important;
 }
-.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-turn-badge-nudge {
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-your-turn-above-tricks.user-player-panel-pc-turn-badge-nudge {
   display: inline-block !important;
   position: relative !important;
   z-index: 3 !important;
+  margin-bottom: 2px !important;
   font-size: clamp(13px, 1.15vw, 15px) !important;
   font-weight: 800 !important;
-  padding: 5px 16px !important;
+  padding: 2px 10px !important;
   border-radius: 16px !important;
   letter-spacing: 0.08em !important;
   background: linear-gradient(135deg, #22d3ee 0%, rgb(114 23 175) 100%) !important;
@@ -12929,9 +13103,6 @@
   animation: user-panel-pc-turn-badge-nudge 2.8s ease-in-out infinite alternate !important;
   will-change: transform !important;
 }
-.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-your-turn-above-tricks.user-player-panel-pc-turn-badge-nudge {
-  margin-bottom: 2px !important;
-}
 @media (prefers-reduced-motion: reduce) {
   .game-table-root:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn.user-player-panel-idle-turn-nudge-pc::after {
     animation: none !important;
@@ -12940,18 +13111,9 @@
     filter: none !important;
     will-change: auto !important;
   }
-  .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-turn-badge-nudge {
+  .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-your-turn-above-tricks.user-player-panel-pc-turn-badge-nudge {
     animation: none !important;
     transform: scale(1.28) !important;
-    background: linear-gradient(135deg, #22d3ee 0%, rgb(114 23 175) 100%) !important;
-    color: #9ad0cdeb !important;
-    text-shadow: 0 1px 2px rgb(33 5 73), 0 0 14px rgb(88 186 204 / 58%) !important;
-    box-shadow:
-      0 0 0 2px rgb(85 168 227 / 75%),
-      0 0 0 4px rgb(41 158 201 / 98%),
-      0 0 0 7px rgb(84 20 164),
-      0 6px 18px rgb(58 179 224 / 55%),
-      0 0 28px rgb(103 77 216 / 57%) !important;
     will-change: auto !important;
   }
 }
@@ -12959,9 +13121,12 @@
   display: flex !important;
   flex-direction: column !important;
   align-items: flex-end !important;
-  gap: 8px !important;
-  width: 100% !important;
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+  width: auto !important;
   min-width: 0 !important;
+  gap: 8px !important;
+  overflow: visible !important;
 }
 /* Панель взяток в колонке рядом с аватаром+именем */
 .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-tricks-column .trick-slots-normal,
@@ -13004,12 +13169,29 @@
 .game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid > span:last-child {
   line-height: 1 !important;
 }
-/* По ширине контента (подпись + кнопки), не на всю колонку — как плашка «Очки» выше */
+/* ПК: панель заказа — в потоке, компактнее кнопки на торгах */
 .game-table-root:not(.viewport-mobile) .user-player-panel .bid-panel-pc-under-score {
   width: fit-content !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
   align-self: flex-end !important;
+  flex-shrink: 0 !important;
+}
+.game-table-root:not(.viewport-mobile).game-phase-bidding .user-player-panel .bid-panel-pc-under-score.bid-panel {
+  padding: 3px 6px !important;
+  gap: 5px !important;
+}
+/* ПК/планшет: подпись у кнопок заказа скрыта — «Ваш заказ» только в роуминг-табличке (в бескозырке совпадало с зелёным бейджем) */
+.game-table-root:not(.viewport-mobile).game-phase-bidding
+  .user-player-panel
+  .bid-panel-inline
+  .bid-panel-title-inline {
+  display: none !important;
+}
+.game-table-root:not(.viewport-mobile).game-phase-bidding .user-player-panel .bid-panel-pc-under-score .bid-panel-btn {
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 14px !important;
 }
 
 /* ПК: плашка очков (только вертикальный вариант — планшет в нижней панели) — две строки */
@@ -13623,6 +13805,33 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
       0 0 128px rgba(99, 102, 241, 0.2),
       0 6px 24px rgba(0, 0, 0, 0.35),
       inset 0 2px 4px rgba(255, 255, 255, 0.1),
+      inset 0 -2px 6px rgba(0, 0, 0, 0.18);
+  }
+}
+
+/* ПК, торги: та же подсветка руки, но слабее (~половина свечения) */
+@keyframes playerHandYourTurnGlowPcBidding {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.34),
+      0 0 0 2px rgba(139, 92, 246, 0.22),
+      0 0 12px rgba(34, 211, 238, 0.3),
+      0 0 22px rgba(34, 211, 238, 0.18),
+      0 0 36px rgba(167, 139, 250, 0.12),
+      0 6px 24px rgba(0, 0, 0, 0.35),
+      inset 0 2px 4px rgba(255, 255, 255, 0.07),
+      inset 0 -2px 6px rgba(0, 0, 0, 0.18);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.44),
+      0 0 0 3px rgba(192, 132, 252, 0.28),
+      0 0 18px rgba(34, 211, 238, 0.36),
+      0 0 30px rgba(34, 211, 238, 0.22),
+      0 0 44px rgba(192, 132, 252, 0.16),
+      0 6px 24px rgba(0, 0, 0, 0.35),
+      inset 0 2px 4px rgba(255, 255, 255, 0.07),
       inset 0 -2px 6px rgba(0, 0, 0, 0.18);
   }
 }
@@ -14785,6 +14994,11 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
     animation-timing-function: ease-in-out;
     animation-iteration-count: infinite;
   }
+  .game-table-root:not(.viewport-mobile).game-phase-bidding
+    .player-hand-your-turn:not(.pc-player-hand-idle-pulse) {
+    animation-name: playerHandYourTurnGlowPcBidding;
+    animation-duration: 2s;
+  }
 
   /* Внутреннее сиренево-фиолетовое свечение + гирлянда панели пользователя — только при вкл. «доп. подсветке» (.trump-highlight-on на корне) */
   .game-table-root.trump-highlight-on:not(.viewport-mobile) .user-player-panel.player-info-panel-your-turn {
@@ -15123,15 +15337,22 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
       0 0 0 1px rgba(206, 128, 61, 0.4),
       0 6px 22px rgba(0, 0, 0, 0.3),
       inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+    /* Как в обычной/тёмной: без лишних 9+8px и padding у аватар-колонки */
+    padding-top: 7px !important;
+    padding-bottom: 7px !important;
   }
 
-  /* ПК: небольшой отступ аватарки от верхнего края панели (+чуть выше панель за счёт padding) */
-  .game-table-root:not(.viewport-mobile) .user-player-panel {
+  /* ПК: небольшой отступ аватарки от верхнего края панели (только не бескозырка) */
+  .game-table-root:not(.viewport-mobile):not(.deal-type-no-trump) .user-player-panel {
     padding-top: 9px !important;
     padding-bottom: 8px !important;
   }
-  .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-avatar-col {
+  .game-table-root:not(.viewport-mobile):not(.deal-type-no-trump) .user-player-panel .user-player-panel-pc-avatar-col {
     padding-top: 3px !important;
+    box-sizing: border-box !important;
+  }
+  .game-table-root.deal-type-no-trump:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-avatar-col {
+    padding-top: 0 !important;
     box-sizing: border-box !important;
   }
 
@@ -15976,20 +16197,429 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 
 /* ПК панель Юга в бескозырке — см. @media (min-width: 1025px) (те же цвета, что у оппонентов) */
 
+/*
+ * ПК: режимная панель — HUD / приборная вывеска (палитра без изменений).
+ * Базовые rgba из gameInfoModePanelStyle: indigo 99,102,241; варианты — свои !important ниже.
+ */
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  backdrop-filter: blur(8px) saturate(1.1);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  border-radius: 9px !important;
+  padding: 5px 8px 6px !important;
+  gap: 4px !important;
+  --gip-chrome-accent: rgba(99, 102, 241, 0.65);
+  --gip-chrome-rail: rgba(129, 140, 248, 0.85);
+  --gip-chrome-rail-dim: rgba(99, 102, 241, 0.35);
+  --gip-chrome-inset: rgba(99, 102, 241, 0.12);
+  --gip-corner-arm: 10px;
+  --gip-corner-thick: 1px;
+  --gip-corner-inset: 4px;
+  --gip-led-tl: #22d3ee;
+  --gip-led-tr: #a78bfa;
+  --gip-led-bl: #6366f1;
+  --gip-led-br: #f472b6;
+  box-shadow:
+    inset 1px 0 0 var(--gip-chrome-rail-dim),
+    inset -1px 0 0 var(--gip-chrome-rail-dim),
+    inset 0 -1px 0 var(--gip-chrome-rail-dim),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* L-скобы + лёгкий верхний блик; LED — отдельные элементы ниже */
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, var(--gip-chrome-rail) 0 var(--gip-corner-arm), transparent) var(--gip-corner-inset) var(--gip-corner-inset) /
+      var(--gip-corner-arm) var(--gip-corner-thick) no-repeat,
+    linear-gradient(180deg, var(--gip-chrome-rail) 0 var(--gip-corner-arm), transparent) var(--gip-corner-inset) var(--gip-corner-inset) /
+      var(--gip-corner-thick) var(--gip-corner-arm) no-repeat,
+    linear-gradient(270deg, var(--gip-chrome-rail) 0 var(--gip-corner-arm), transparent) calc(100% - var(--gip-corner-inset))
+      var(--gip-corner-inset) / var(--gip-corner-arm) var(--gip-corner-thick) no-repeat,
+    linear-gradient(180deg, var(--gip-chrome-rail) 0 var(--gip-corner-arm), transparent) calc(100% - var(--gip-corner-inset))
+      var(--gip-corner-inset) / var(--gip-corner-thick) var(--gip-corner-arm) no-repeat,
+    linear-gradient(90deg, var(--gip-chrome-rail) 0 var(--gip-corner-arm), transparent) var(--gip-corner-inset)
+      calc(100% - var(--gip-corner-inset)) / var(--gip-corner-arm) var(--gip-corner-thick) no-repeat,
+    linear-gradient(0deg, var(--gip-chrome-rail) 0 var(--gip-corner-arm), transparent) var(--gip-corner-inset)
+      calc(100% - var(--gip-corner-inset)) / var(--gip-corner-thick) var(--gip-corner-arm) no-repeat,
+    linear-gradient(270deg, var(--gip-chrome-rail) 0 var(--gip-corner-arm), transparent) calc(100% - var(--gip-corner-inset))
+      calc(100% - var(--gip-corner-inset)) / var(--gip-corner-arm) var(--gip-corner-thick) no-repeat,
+    linear-gradient(0deg, var(--gip-chrome-rail) 0 var(--gip-corner-arm), transparent) calc(100% - var(--gip-corner-inset))
+      calc(100% - var(--gip-corner-inset)) / var(--gip-corner-thick) var(--gip-corner-arm) no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 42%);
+  opacity: 0.9;
+}
+
+/* Верхняя неоновая рейка */
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 0;
+  z-index: 1;
+  height: 1px;
+  border-radius: 0 0 2px 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--gip-chrome-rail-dim) 18%,
+    var(--gip-chrome-rail) 50%,
+    var(--gip-chrome-rail-dim) 82%,
+    transparent 100%
+  );
+  box-shadow: 0 0 6px var(--gip-chrome-accent);
+  opacity: 0.95;
+}
+
+/* Угловые LED: 4 цвета, на вершине L-скоб, без белых точек */
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel__led {
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 38% 32%,
+    rgba(255, 255, 255, 0.92) 0%,
+    var(--gip-led-color) 38%,
+    color-mix(in srgb, var(--gip-led-color) 88%, #0f172a) 100%
+  );
+  box-shadow:
+    0 0 2px color-mix(in srgb, var(--gip-led-color) 90%, #fff),
+    0 0 7px var(--gip-led-color),
+    0 0 14px color-mix(in srgb, var(--gip-led-color) 55%, transparent);
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel__led--tl {
+  top: calc(var(--gip-corner-inset) + var(--gip-corner-thick));
+  left: calc(var(--gip-corner-inset) + var(--gip-corner-thick));
+  --gip-led-color: var(--gip-led-tl);
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel__led--tr {
+  top: calc(var(--gip-corner-inset) + var(--gip-corner-thick));
+  right: calc(var(--gip-corner-inset) + var(--gip-corner-thick));
+  margin: -2.5px -2.5px 0 0;
+  --gip-led-color: var(--gip-led-tr);
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel__led--bl {
+  bottom: calc(var(--gip-corner-inset) + var(--gip-corner-thick));
+  left: calc(var(--gip-corner-inset) + var(--gip-corner-thick));
+  margin: 0 0 -2.5px -2.5px;
+  --gip-led-color: var(--gip-led-bl);
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel__led--br {
+  right: calc(var(--gip-corner-inset) + var(--gip-corner-thick));
+  bottom: calc(var(--gip-corner-inset) + var(--gip-corner-thick));
+  margin: 0 -2.5px -2.5px 0;
+  --gip-led-color: var(--gip-led-br);
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome .game-info-mode-panel-head {
+  position: relative;
+  z-index: 3;
+  padding: 0 6px 4px;
+  margin: 0 0 2px;
+  border-bottom: 1px solid var(--gip-chrome-rail-dim);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+  align-items: center;
+  gap: 8px !important;
+}
+
+/* «Режим» / «Контракт» — подпись с экранным свечением (без рамки) */
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome .game-info-mode-panel-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: auto;
+  padding: 0 1px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase;
+  color: rgb(40, 194, 255) !important;
+  -webkit-text-fill-color: rgb(40, 194, 255) !important;
+  opacity: 0.95;
+  text-shadow:
+    0 0 6px rgba(40, 194, 255, 0.75),
+    0 0 14px rgba(129, 140, 248, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+/* Название режима — «свет от экрана»: блик за текстом, без рамок */
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome .game-info-mode-panel-name {
+  position: relative;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0 4px 2px;
+  margin: 0;
+  font-size: clamp(16px, 1.1vw, 19px) !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  line-height: 1.12;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  text-shadow:
+    0 0 1px rgba(255, 255, 255, 0.95),
+    0 0 10px var(--gip-chrome-rail),
+    0 0 22px var(--gip-chrome-accent),
+    0 0 36px color-mix(in srgb, var(--gip-led-tr) 40%, transparent),
+    0 2px 6px rgba(0, 0, 0, 0.55);
+}
+
+/* Мягкое «свечение экрана» за словом */
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome .game-info-mode-panel-name::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: calc(100% + 32px);
+  height: calc(100% + 20px);
+  transform: translate(-50%, -50%);
+  z-index: -1;
+  border: none;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse 100% 72% at 50% 50%,
+    color-mix(in srgb, var(--gip-chrome-accent) 58%, transparent) 0%,
+    color-mix(in srgb, var(--gip-led-tr) 28%, transparent) 42%,
+    transparent 72%
+  );
+  filter: blur(7px);
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+/* Тонкая линия-блик снизу (как от сегментного индикатора) */
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome .game-info-mode-panel-name::after {
+  content: '';
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 0;
+  height: 1px;
+  z-index: -1;
+  border-radius: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--gip-chrome-rail) 70%, transparent) 22%,
+    var(--gip-chrome-rail) 50%,
+    color-mix(in srgb, var(--gip-chrome-rail) 70%, transparent) 78%,
+    transparent 100%
+  );
+  box-shadow: 0 0 10px var(--gip-chrome-accent);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome .game-info-deal-contract-panel--in-mode {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  margin-top: 0;
+  padding: 4px 8px !important;
+  min-height: 26px !important;
+  border-radius: 6px !important;
+  box-shadow:
+    inset 0 1px 6px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 10px var(--gip-chrome-inset) !important;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome .game-info-deal-contract-panel--in-mode:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 2px 10px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 20px var(--gip-chrome-inset) !important;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-no-trump-wrap.game-info-mode-panel--pc-chrome,
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-no-trump-bidding.game-info-mode-panel--pc-chrome {
+  --gip-chrome-accent: rgba(230, 68, 233, 0.55);
+  --gip-chrome-rail: rgba(53, 210, 215, 0.75);
+  --gip-chrome-rail-dim: rgba(230, 68, 233, 0.32);
+  --gip-chrome-inset: rgba(90, 24, 236, 0.35);
+  --gip-led-tl: #35d2d7;
+  --gip-led-tr: #e879f9;
+  --gip-led-bl: #c084fc;
+  --gip-led-br: #fbbf24;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-wrap.game-info-mode-panel--pc-chrome,
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-bidding.game-info-mode-panel--pc-chrome {
+  --gip-chrome-accent: rgba(129, 140, 248, 0.78);
+  --gip-chrome-rail: rgba(224, 231, 255, 0.55);
+  --gip-chrome-rail-dim: rgba(129, 140, 248, 0.38);
+  --gip-chrome-inset: rgba(56, 189, 248, 0.22);
+  --gip-led-tl: #38bdf8;
+  --gip-led-tr: #818cf8;
+  --gip-led-bl: #4f46e5;
+  --gip-led-br: #2dd4bf;
+}
+
+/* ПК: обычная раздача — «КАРТ: n» / заказ (индиго-палитра gameInfoModePanelStyle) */
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-standard-wrap.game-info-mode-panel--pc-chrome {
+  border: 1px solid rgba(99, 102, 241, 0.6) !important;
+  background: rgba(99, 102, 241, 0.25) !important;
+  box-shadow:
+    0 0 18px rgba(99, 102, 241, 0.32),
+    0 3px 14px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(99, 102, 241, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.16) !important;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-standard-wrap .game-info-mode-panel-head {
+  justify-content: center;
+  padding-bottom: 3px;
+  margin-bottom: 1px;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-standard-wrap .game-info-mode-panel-tag {
+  font-size: 10px !important;
+  letter-spacing: 0.18em !important;
+  color: rgb(40, 194, 255) !important;
+  -webkit-text-fill-color: rgb(40, 194, 255) !important;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 6px rgba(40, 194, 255, 0.75),
+    0 0 14px rgba(99, 102, 241, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-standard-wrap
+  .game-info-deal-contract-panel.game-info-cards-panel.game-info-deal-contract-panel--in-mode {
+  border: 1px solid rgba(99, 102, 241, 0.52) !important;
+  background: linear-gradient(
+    155deg,
+    rgba(30, 27, 75, 0.72) 0%,
+    rgba(67, 56, 202, 0.48) 48%,
+    rgba(79, 70, 229, 0.4) 100%
+  ) !important;
+  box-shadow:
+    inset 0 2px 10px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 14px rgba(99, 102, 241, 0.18) !important;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-standard-wrap .game-info-cards-panel .deal-contract-label {
+  color: #c7d2fe !important;
+  text-shadow: 0 0 8px rgba(99, 102, 241, 0.35);
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-standard-wrap .game-info-cards-panel .deal-contract-value {
+  font-size: clamp(15px, 1.15vw, 18px) !important;
+  font-weight: 700 !important;
+  color: #eef2ff !important;
+  text-shadow:
+    0 0 14px rgba(129, 140, 248, 0.55),
+    0 1px 2px rgba(15, 23, 42, 0.65);
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-standard-wrap .game-info-cards-panel .deal-contract-line {
+  font-size: clamp(14px, 1.1vw, 16px) !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-no-trump-wrap.game-info-mode-panel--pc-chrome,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-no-trump-bidding.game-info-mode-panel--pc-chrome {
+  padding: 5px 9px 6px !important;
+  gap: 4px !important;
+  border-radius: 9px !important;
+  border-width: 2px !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-no-trump-wrap.game-info-mode-panel--pc-chrome {
+  box-shadow:
+    0 0 20px rgba(90, 24, 236, 0.38),
+    0 0 36px rgba(230, 68, 233, 0.22),
+    0 3px 14px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(53, 210, 215, 0.18),
+    inset 0 -1px 0 rgba(230, 68, 233, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.18) !important;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-wrap.game-info-mode-panel--pc-chrome,
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-bidding.game-info-mode-panel--pc-chrome {
+  padding: 5px 9px 6px !important;
+  gap: 4px !important;
+  border-radius: 9px !important;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-wrap.game-info-mode-panel--pc-chrome {
+  box-shadow:
+    0 0 22px rgba(129, 140, 248, 0.42),
+    0 0 40px rgba(56, 189, 248, 0.18),
+    0 3px 14px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(224, 231, 255, 0.2),
+    inset 0 -1px 0 rgba(129, 140, 248, 0.32),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.18) !important;
+}
+
+/* Базовая индиго-палитра (gameInfoModePanelStyle), если без варианта wrap */
+.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome:not(.game-info-mode-panel-pc-no-trump-wrap):not(.game-info-mode-panel-pc-dark-wrap):not(.game-info-mode-panel-pc-no-trump-bidding):not(.game-info-mode-panel-pc-dark-bidding) {
+  box-shadow:
+    0 0 20px rgba(99, 102, 241, 0.35),
+    0 4px 22px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 -14px 28px rgba(0, 0, 0, 0.18) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome .game-info-deal-contract-panel--in-mode:hover {
+    transform: none;
+  }
+}
+
 /* ПК: крупный неоновый бейдж «Бескозырка», пока не все сделали заказы */
 @keyframes game-info-no-trump-bidding-pulse {
   0%,
   100% {
+    background: rgb(58 12 118 / 38%) !important;
     box-shadow:
-      0 0 22px rgba(90, 24, 236, 0.5),
-      0 0 40px rgba(230, 68, 233, 0.28),
-      inset 0 1px 0 rgba(53, 210, 215, 0.2);
+      0 0 8px rgba(90, 24, 236, 0.14),
+      0 0 14px rgba(230, 68, 233, 0.06),
+      inset 0 1px 0 rgba(53, 210, 215, 0.05),
+      inset 0 -14px 26px rgba(0, 0, 0, 0.48);
   }
   50% {
+    background: rgb(90 24 236 / 36%) !important;
     box-shadow:
-      0 0 30px rgba(230, 68, 233, 0.45),
-      0 0 52px rgba(53, 210, 215, 0.22),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      0 0 20px rgba(230, 68, 233, 0.3),
+      0 0 34px rgba(53, 210, 215, 0.14),
+      inset 0 1px 0 rgba(53, 210, 215, 0.14);
   }
 }
 
@@ -16001,19 +16631,20 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 .game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-no-trump-bidding {
   flex-direction: column !important;
   align-items: stretch !important;
-  gap: 6px !important;
-  padding: 12px 22px 14px !important;
-  border-radius: 14px !important;
+  gap: 4px !important;
+  padding: 5px 9px 6px !important;
+  border-radius: 9px !important;
   border: 2px solid rgba(230, 68, 233, 0.55) !important;
   background: rgb(90 24 236 / 47%) !important;
-  animation: game-info-no-trump-bidding-pulse 2.6s ease-in-out infinite;
+  animation: game-info-no-trump-bidding-pulse 3.5s ease-in-out infinite;
 }
 
 /* Та же палитра после торгов (div), пока раздача бескозырковая — раньше стили были только у кнопки на торгах */
 .game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-no-trump-wrap {
   border: 2px solid rgba(230, 68, 233, 0.55) !important;
   background: rgb(90 24 236 / 47%) !important;
-  border-radius: 14px !important;
+  border-radius: 9px !important;
+  animation: game-info-no-trump-bidding-pulse 3.5s ease-in-out infinite;
   box-shadow:
     0 0 24px rgba(90, 24, 236, 0.4),
     0 0 44px rgba(230, 68, 233, 0.25),
@@ -16028,50 +16659,530 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   .game-header
   .game-info-mode-panel-pc-no-trump-wrap
   .game-info-mode-panel-head {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
   justify-content: center;
-  gap: 10px;
+  gap: 5px;
+}
+
+/* «Режим» по центру высоты «Бескозырка» */
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-tag--screen,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-tag--screen {
+  align-self: center;
+  margin: 0;
+  padding: 0 1px;
+  line-height: 1.15;
+  transform: translateY(1px);
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap.game-info-mode-panel--pc-play
+  .game-info-mode-panel-tag--screen {
+  transform: translateY(2px);
 }
 
 .game-table-root.deal-type-no-trump:not(.viewport-mobile)
   .game-header
   .game-info-mode-panel-pc-no-trump-bidding
-  .game-info-mode-panel-tag,
+  .game-info-mode-panel-name--screen,
 .game-table-root.deal-type-no-trump:not(.viewport-mobile)
   .game-header
   .game-info-mode-panel-pc-no-trump-wrap
-  .game-info-mode-panel-tag {
-  font-size: 11px !important;
-  letter-spacing: 0.55px !important;
-  color: rgb(40, 194, 255) !important;
-  text-transform: uppercase;
-  text-shadow: 0 0 14px rgba(40, 194, 255, 0.55);
+  .game-info-mode-panel-name--screen {
+  align-self: center;
+  padding: 0 4px 1px;
+  margin-bottom: -1px;
+  line-height: 1.1;
+  overflow: visible;
 }
 
+/* Бескозырка: два слоя — неон/туман сзади, чёткие буквы спереди */
 .game-table-root.deal-type-no-trump:not(.viewport-mobile)
   .game-header
   .game-info-mode-panel-pc-no-trump-bidding
-  .game-info-mode-panel-name,
+  .game-info-mode-panel-name--screen,
 .game-table-root.deal-type-no-trump:not(.viewport-mobile)
   .game-header
   .game-info-mode-panel-pc-no-trump-wrap
-  .game-info-mode-panel-name {
-  font-size: clamp(17px, 1.35vw, 21px) !important;
+  .game-info-mode-panel-name--screen {
+  position: relative;
+  z-index: 4;
+  display: inline-grid;
+  align-items: center;
+  justify-items: center;
+  flex-shrink: 0;
+  padding: 0 4px 1px;
+  margin: 0 0 -1px 0;
+  overflow: visible;
+  font-size: clamp(14px, 1.1vw, 17px) !important;
   font-weight: 700 !important;
   letter-spacing: 0.05em !important;
+  line-height: 1.1;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  background: none !important;
+  filter: none;
+  text-shadow: none !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-name__glow,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-name__sharp,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-name__glow,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-name__sharp {
+  grid-area: 1 / 1;
+  font: inherit;
+  letter-spacing: inherit;
+  white-space: nowrap;
+}
+
+/* Слой неона — слабый, без «мыла» на буквах */
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-name__glow,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-name__glow,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-name__glow,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-name__glow {
+  position: relative;
+  z-index: 0;
   color: #ed6bef !important;
-  -webkit-font-smoothing: antialiased;
+  -webkit-text-fill-color: #ed6bef !important;
+  pointer-events: none;
+  user-select: none;
+  filter: blur(1.8px) saturate(1.1);
+  opacity: 0.52;
   text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.22),
-    0 1px 2px rgba(12, 4, 28, 0.65);
+    0 0 8px rgba(237, 107, 239, 0.55),
+    0 0 14px rgba(244, 114, 182, 0.38);
+}
+
+/* Туман — минимум */
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-name__glow::before,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-name__glow::before,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-name__glow::before,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-name__glow::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: calc(100% + 6px);
+  height: calc(100% + 2px);
+  transform: translate(-50%, -50%);
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 2px;
+  background: radial-gradient(
+    ellipse 78% 30% at 50% 54%,
+    rgba(237, 107, 239, 0.14) 0%,
+    rgba(192, 132, 252, 0.08) 42%,
+    transparent 72%
+  );
+  filter: blur(2px);
+  opacity: 0.38;
+  animation: game-info-no-trump-name-screen 4s ease-in-out infinite;
+}
+
+@keyframes game-info-no-trump-name-screen {
+  0%,
+  100% {
+    opacity: 0.34;
+    filter: blur(2px) brightness(1);
+  }
+  50% {
+    opacity: 0.44;
+    filter: blur(2.2px) brightness(1.03);
+  }
+}
+
+/* Стеклянный глянец — передний слой (#ed6bef в центре) */
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-name__sharp,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-name__sharp,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-no-trump-mode-name-glass,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-no-trump-mode-name-glass {
+  position: relative;
+  z-index: 2;
+  -webkit-font-smoothing: antialiased;
+  filter: saturate(1.14) brightness(1.07);
+  opacity: 1;
+  color: transparent !important;
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    #fdf4ff 8%,
+    #fae8ff 16%,
+    #f5d0fe 26%,
+    #f0abfc 36%,
+    #ed6bef 48%,
+    #f472b6 62%,
+    #ec4899 78%,
+    #e879f9 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  -webkit-text-stroke: 0 transparent !important;
+  text-shadow:
+    0 0 1px rgba(244, 114, 182, 0.35),
+    0 1px 0 rgba(237, 107, 239, 0.55),
+    0 2px 5px rgba(12, 4, 28, 0.5) !important;
+}
+
+/* Маленькие блики на «стекле» */
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-no-trump-mode-name-glass::after,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-no-trump-mode-name-glass::after,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-no-trump-mode-name-glass::after,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-no-trump-mode-name-glass::after {
+  content: '';
+  position: absolute;
+  left: 7%;
+  top: 6%;
+  width: 34%;
+  height: 38%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: linear-gradient(
+    128deg,
+    rgba(255, 255, 255, 0.82) 0%,
+    rgba(255, 255, 255, 0.22) 42%,
+    transparent 72%
+  );
+  opacity: 0.5;
+  mix-blend-mode: soft-light;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-no-trump-mode-name-glass::before,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-no-trump-mode-name-glass::before,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-no-trump-mode-name-glass::before,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-no-trump-mode-name-glass::before {
+  content: '';
+  position: absolute;
+  right: 14%;
+  bottom: 10%;
+  width: 18%;
+  height: 22%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.35) 0%, transparent 72%);
+  opacity: 0.35;
+  mix-blend-mode: soft-light;
+}
+
+/* Игра (после торгов): главный блик слабее и правее — не смазывает буквы */
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap.game-info-mode-panel--pc-play
+  .game-info-no-trump-mode-name-glass::after {
+  left: 24%;
+  top: 10%;
+  width: 22%;
+  height: 28%;
+  opacity: 0.22;
+  background: linear-gradient(
+    128deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.12) 45%,
+    transparent 72%
+  );
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap.game-info-mode-panel--pc-play
+  .game-info-no-trump-mode-name-glass::before {
+  right: 6%;
+  bottom: 14%;
+  width: 14%;
+  height: 18%;
+  opacity: 0.18;
+}
+
+/* Игра: без тумана и размытого неона под «Бескозырка» и «Режим» */
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap.game-info-mode-panel--pc-play
+  .game-info-mode-panel-name__glow,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap.game-info-mode-panel--pc-play
+  .game-info-mode-panel-tag__glow {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  filter: none !important;
+  text-shadow: none !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap.game-info-mode-panel--pc-play
+  .game-info-mode-panel-name__glow::before {
+  display: none !important;
+  animation: none !important;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap.game-info-mode-panel--pc-play
+  .game-info-mode-panel-tag--screen::before {
+  display: none !important;
+}
+
+/* Линия-индикатор экрана под «Бескозырка» */
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-name--screen::after,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-name--screen::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  height: 2.5px;
+  z-index: 6;
+  pointer-events: none;
+  opacity: 1;
+  filter: none;
+  border-radius: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(53, 210, 215, 0.95) 14%,
+    rgba(233, 213, 255, 0.55) 30%,
+    rgba(237, 107, 239, 1) 50%,
+    rgba(233, 213, 255, 0.55) 70%,
+    rgba(53, 210, 215, 0.95) 86%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 2px rgba(255, 255, 255, 0.35),
+    0 0 8px rgba(230, 68, 233, 0.85),
+    0 0 14px rgba(53, 210, 215, 0.55);
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-head,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-head {
+  overflow: visible;
+  padding: 0 6px 2px !important;
+  margin-bottom: 2px !important;
+}
+
+/* «Режим» — тот же приём: неон сзади, чёткий циан спереди */
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-tag--screen,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-tag--screen {
+  position: relative;
+  display: inline-grid;
+  align-items: center;
+  justify-items: center;
+  padding: 0 1px;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+}
+
+/* Деликатный белый «источник» над подписью */
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-tag--screen::before,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-tag--screen::before {
+  content: '';
+  position: absolute;
+  left: 8%;
+  top: -5px;
+  width: 14px;
+  height: 10px;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.22) 0%, rgba(224, 242, 254, 0.08) 42%, transparent 72%);
+  filter: blur(2px);
+  opacity: 0.85;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-tag__glow,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-tag__sharp,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-tag__glow,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-tag__sharp {
+  grid-area: 1 / 1;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-tag__glow,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-tag__glow {
+  z-index: 0;
+  color: rgb(40, 194, 255) !important;
+  -webkit-text-fill-color: rgb(40, 194, 255) !important;
+  pointer-events: none;
+  user-select: none;
+  filter: none;
+  opacity: 0.68;
+  text-shadow:
+    0 0 3px rgba(255, 255, 255, 0.18),
+    0 0 6px rgba(53, 210, 215, 0.58),
+    0 0 10px rgba(40, 194, 255, 0.38);
+}
+
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-bidding
+  .game-info-mode-panel-tag__sharp,
+.game-table-root.deal-type-no-trump:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel-pc-no-trump-wrap
+  .game-info-mode-panel-tag__sharp {
+  z-index: 2;
+  color: rgb(40, 194, 255) !important;
+  -webkit-text-fill-color: rgb(40, 194, 255) !important;
+  -webkit-font-smoothing: antialiased;
+  filter: none;
+  opacity: 1;
+  text-shadow:
+    0 -0.5px 0 rgba(255, 255, 255, 0.32),
+    0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 3px rgba(186, 230, 253, 0.42),
+    0 1px 1px rgba(0, 0, 0, 0.5);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-no-trump-bidding {
+  .game-table-root.deal-type-no-trump:not(.viewport-mobile)
+    .game-header
+    .game-info-mode-panel-pc-no-trump-bidding
+    .game-info-mode-panel-name__glow::before,
+  .game-table-root.deal-type-no-trump:not(.viewport-mobile)
+    .game-header
+    .game-info-mode-panel-pc-no-trump-wrap
+    .game-info-mode-panel-name__glow::before {
     animation: none;
+    opacity: 0.36;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-no-trump-bidding,
+  .game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-no-trump-wrap {
+    animation: none;
+    background: rgb(90 24 236 / 36%) !important;
     box-shadow:
-      0 0 24px rgba(90, 24, 236, 0.4),
-      0 0 44px rgba(230, 68, 233, 0.25),
-      inset 0 1px 0 rgba(53, 210, 215, 0.18);
+      0 0 20px rgba(230, 68, 233, 0.3),
+      0 0 34px rgba(53, 210, 215, 0.14),
+      inset 0 1px 0 rgba(53, 210, 215, 0.14);
   }
 }
 
@@ -16127,9 +17238,9 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 .game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-bidding {
   flex-direction: column !important;
   align-items: stretch !important;
-  gap: 6px !important;
-  padding: 12px 22px 14px !important;
-  border-radius: 14px !important;
+  gap: 4px !important;
+  padding: 5px 9px 6px !important;
+  border-radius: 9px !important;
   border: 2px solid rgba(129, 140, 248, 0.78) !important;
   background:
     radial-gradient(ellipse 120% 95% at 50% -25%, rgba(56, 189, 248, 0.28) 0%, transparent 52%),
@@ -16140,7 +17251,7 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 
 .game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-wrap {
   border: 2px solid rgba(129, 140, 248, 0.78) !important;
-  border-radius: 14px !important;
+  border-radius: 9px !important;
   background:
     radial-gradient(ellipse 120% 95% at 50% -25%, rgba(56, 189, 248, 0.28) 0%, transparent 52%),
     radial-gradient(ellipse 90% 80% at 90% 40%, rgba(167, 139, 250, 0.22) 0%, transparent 48%),
@@ -16162,13 +17273,16 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 
 /* Классы вешаются в GameTable — короткий селектор надёжнее цепочки .pc-dark-bidding … */
 .game-table-root:not(.viewport-mobile) .game-header .game-info-dark-mode-tag {
-  font-size: 11px !important;
-  letter-spacing: 0.55px !important;
-  font-weight: 700 !important;
+  font-size: 10px !important;
+  letter-spacing: 0.18em !important;
+  font-weight: 600 !important;
   color: rgb(40, 194, 255) !important;
   -webkit-text-fill-color: rgb(40, 194, 255) !important;
   text-transform: uppercase;
-  text-shadow: none;
+  text-shadow:
+    0 0 8px rgba(56, 189, 248, 0.7),
+    0 0 16px rgba(129, 140, 248, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .game-table-root:not(.viewport-mobile)
@@ -16185,12 +17299,15 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 
 /* text-shadow ломает заливку при background-clip: text — блик отдельным слоем градиента */
 .game-table-root:not(.viewport-mobile) .game-header .game-info-dark-mode-name {
-  display: inline-block !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
   position: relative;
   isolation: isolate;
   transform: translateZ(0);
-  font-size: clamp(17px, 1.35vw, 21px) !important;
-  font-weight: 700 !important;
+  padding: 0 4px 2px !important;
+  font-size: clamp(16px, 1.1vw, 19px) !important;
+  font-weight: 800 !important;
   letter-spacing: 0.05em !important;
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
@@ -16239,6 +17356,29 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   animation: game-info-dark-mode-name-oil 7s ease-in-out infinite;
 }
 
+.game-table-root:not(.viewport-mobile) .game-header .game-info-dark-mode-name::before {
+  background: radial-gradient(
+    ellipse 100% 72% at 50% 50%,
+    rgba(129, 140, 248, 0.48) 0%,
+    rgba(56, 189, 248, 0.24) 44%,
+    transparent 72%
+  );
+  filter: blur(8px);
+  opacity: 0.9;
+}
+
+.game-table-root:not(.viewport-mobile) .game-header .game-info-dark-mode-name::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(56, 189, 248, 0.5) 22%,
+    rgba(167, 139, 250, 0.95) 50%,
+    rgba(56, 189, 248, 0.5) 78%,
+    transparent 100%
+  );
+  box-shadow: 0 0 12px rgba(129, 140, 248, 0.55);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-bidding {
     animation: none;
@@ -16284,7 +17424,7 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 5px;
   max-width: 100%;
 }
 
