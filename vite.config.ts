@@ -54,4 +54,7 @@ export default defineConfig({
   server: {
     host: true, // слушать на всех интерфейсах — доступ с других устройств по IP ноутбука
   },
+  preview: {
+    host: true, // npm run preview:host — готовый бандл для телефона по Wi‑Fi (быстрее dev)
+  },
 })

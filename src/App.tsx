@@ -479,6 +479,18 @@ function App() {
             <button style={buttonStyle} onClick={() => setScreen('training')}>
               Обучение
             </button>
+            <a
+              href="/scoring-demo"
+              style={{
+                ...buttonStyle,
+                textDecoration: 'none',
+                textAlign: 'center',
+                borderColor: 'rgba(167, 139, 250, 0.55)',
+                background: 'rgba(139, 92, 246, 0.12)',
+              }}
+            >
+              Демо: фишки и победитель
+            </a>
           </nav>
         </main>
       )}

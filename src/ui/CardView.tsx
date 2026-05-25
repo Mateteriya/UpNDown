@@ -843,9 +843,13 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
       'inset 0 -1px 2px rgba(0,0,0,0.1)',
     ].join(', ');
   } else if (pcCardStyles && isTrumpInHand && trumpHighlightOn) {
-    trumpShadow = isDark
-      ? `${baseShadow}, 0 0 0 1px rgba(255,255,255,0.25), 0 0 12px ${borderColor}66, 0 0 16px ${borderColor}44, inset 0 0 8px ${borderColor}22`
-      : `${baseShadow}, 0 0 0 1px rgba(255,255,255,0.85), 0 0 18px rgba(255,255,255,0.52), 0 0 12px ${neon.border}bb, 0 0 20px ${neon.border}66, inset 0 0 14px ${neon.border}33, inset 0 1px 6px rgba(255,255,255,0.52)`;
+    trumpShadow = biddingHighlightPC
+      ? isDark
+        ? `${baseShadow}, 0 0 0 1px rgba(255,255,255,0.18), 0 0 6px ${borderColor}44, 0 0 8px ${borderColor}33`
+        : `${baseShadow}, 0 0 0 1px rgba(255,255,255,0.42), 0 0 8px rgba(255,255,255,0.28), 0 0 6px ${neon.border}77, 0 0 10px ${neon.border}44`
+      : isDark
+        ? `${baseShadow}, 0 0 0 1px rgba(255,255,255,0.25), 0 0 12px ${borderColor}66, 0 0 16px ${borderColor}44, inset 0 0 8px ${borderColor}22`
+        : `${baseShadow}, 0 0 0 1px rgba(255,255,255,0.85), 0 0 18px rgba(255,255,255,0.52), 0 0 12px ${neon.border}bb, 0 0 20px ${neon.border}66, inset 0 0 14px ${neon.border}33, inset 0 1px 6px rgba(255,255,255,0.52)`;
   } else if (isNonTrumpWithHighlight) {
     trumpShadow = `0 0 0 1px ${neon.border}`;
   } else if (showMobileHandHighlight && !mobileDarkHand) {
@@ -873,7 +877,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
       ? `0 0 0 1px ${neon.border}`
       : '';
   const baseCardShadow = biddingHighlightPC
-    ? `${trumpShadow}, 0 0 12px rgba(255,255,255,0.38)`
+    ? `${trumpShadow}, 0 0 6px rgba(255,255,255,0.2)`
     : mobileHandHighlightRing ? (trumpShadow === 'none' ? mobileHandHighlightRing : `${trumpShadow}, ${mobileHandHighlightRing}`) : trumpShadow;
 
   const mobileDarkHandTrumpAccentOn =

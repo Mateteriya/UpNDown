@@ -8,6 +8,7 @@
     "dev:host": "vite --host",
     "build": "node scripts/gen-favicon.mjs && tsc && vite build",
     "preview": "vite preview",
+    "preview:host": "vite preview --host",
     "test": "vitest",
     "exact-order-star-offset": "node tools/exact-order-star-flash-offset.mjs",
     "cap:sync": "npm run build && npx cap sync android",

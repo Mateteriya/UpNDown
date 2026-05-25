@@ -40,6 +40,14 @@ import { AiDifficultyControl, HeaderRoomExitIcon } from './AiDifficultyControl';
 import { getTrickWinner } from '../game/rules';
 import { getCanonicalIndexForDisplay, rotateStateForPlayer } from '../game/rotateState';
 import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
+import {
+  chipColor,
+  DealResultsChipToggle,
+  settlementFootnote,
+  usePartySettlement,
+  useResultsChipView,
+} from './DealResultsSettlement';
+import { SETTLEMENT_MODE_LABELS } from '../game/partySettlement';
 import { preloadCardImages } from '../cardAssets';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -81,6 +89,15 @@ const USER_PANEL_GARLAND_HAND_DURATION_MS = 36000;
 const USER_PANEL_GARLAND_IDLE_PC_MS = 7500;
 /** ПК: усиленное напоминание о ходе после длительного простоя (тот же сброс по активности, что и гирлянда) */
 const USER_PANEL_STRONG_NUDGE_IDLE_PC_MS = 12500;
+/** ПК: табличка «Ваш заказ»/«Ваш ход» — только в простое; панель Юга ↔ стол (2 зоны) */
+const PC_TURN_ROAM_IDLE_MS = USER_PANEL_GARLAND_IDLE_PC_MS;
+const PC_TURN_ROAM_INTERVAL_MS = 9000;
+const PC_TURN_ROAM_SLOT_COUNT = 2;
+const PC_TURN_ROAM_MOUSE_CLEAR_PX = 12;
+/** ПК: простой на торгах — пульс панели цифр заказа */
+const PC_BID_PANEL_IDLE_PULSE_MS = 2000;
+/** ПК: простой в розыгрыше — пульс блока карт в руке */
+const PC_HAND_IDLE_PULSE_MS = 3000;
 const USER_PANEL_GARLAND_DELAY_MOBILE_MS = 9000;
 const USER_PANEL_GARLAND_PATH_UNITS = 100;
 /** Половина периода штриха (2.3 + 7.7), чередование голубой / сиреневый */
@@ -956,8 +973,14 @@ function GameOverModal({
   viewerCanonicalSlotIndex?: number | null;
 }) {
   const [showExpanded, setShowExpanded] = useState(false);
+  const [chipView, setChipView] = useResultsChipView();
   const humanIdx = viewerCanonicalSlotIndex ?? 0;
   const players = snapshot.players;
+  const dealHistory = snapshot.dealHistory ?? [];
+  const settlement = usePartySettlement(dealHistory, players.length, chipView);
+  const chipForPlayer = (idx: number) =>
+    settlement.rows.find((r) => r.playerIndex === idx)?.chips ?? 0;
+  const footnote = settlementFootnote(settlement.mode, settlement.sumChips);
   const sorted = [...players]
     .map((p, i) => ({ ...p, idx: i }))
     .sort((a, b) => b.score - a.score);
@@ -967,7 +990,6 @@ function GameOverModal({
   const humanPlace = sorted.findIndex(p => p.idx === humanIdx) + 1;
   const localRating = getLocalRating();
 
-  const dealHistory = snapshot.dealHistory ?? [];
   /** Для каждого игрока — доля раздач (0..1), где заказ совпал с взятками (точное попадание) */
   const bidAccuracyPerPlayer = [0, 1, 2, 3].map(pi => {
     let metCount = 0;
@@ -1012,6 +1034,14 @@ function GameOverModal({
     <div style={gameOverExpandedWrapStyle}>
       <h2 style={gameOverExpandedTitleStyle} id="game-over-title">Итоги партии</h2>
       <p style={gameOverPartyIdStyle}>Партия №{gameId}</p>
+      {dealHistory.length > 0 && (
+        <>
+          <DealResultsChipToggle chipView={chipView} onChange={setChipView} compact />
+          <p style={{ margin: '0 0 8px', fontSize: 13, color: '#94a3b8', textAlign: 'center' }}>
+            Рейтинг — по очкам; фишки — {SETTLEMENT_MODE_LABELS[chipView].toLowerCase()}
+          </p>
+        </>
+      )}
       <div style={gameOverTableWrapStyle}>
         <table style={gameOverTableStyle}>
           <thead>
@@ -1019,6 +1049,7 @@ function GameOverModal({
               <th style={gameOverThStyle}>Место</th>
               <th style={gameOverThStyle}>Игрок</th>
               <th style={gameOverThStyle}>Очки</th>
+              {dealHistory.length > 0 && <th style={gameOverThStyle}>Фишки</th>}
             </tr>
           </thead>
           <tbody>
@@ -1027,11 +1058,22 @@ function GameOverModal({
                 <td style={gameOverTdStyle}>{rank + 1}</td>
                 <td style={gameOverTdStyle}>{p.name}</td>
                 <td style={gameOverTdStyle}>{p.score >= 0 ? '+' : ''}{p.score}</td>
+                {dealHistory.length > 0 && (
+                  <td style={{ ...gameOverTdStyle, color: chipColor(chipForPlayer(p.idx)), fontWeight: 700 }}>
+                    {chipForPlayer(p.idx) >= 0 ? '+' : ''}
+                    {chipForPlayer(p.idx)}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {footnote && (
+        <p style={{ margin: '8px 0 0', fontSize: 12, color: '#94a3b8', textAlign: 'center', lineHeight: 1.45 }}>
+          {footnote}
+        </p>
+      )}
       <div style={gameOverStatsWrapStyle}>
         <div style={gameOverStatsTitleStyle}>Точность заказов</div>
         <div style={gameOverStatsHintStyle}>доля раздач, где заказ совпал с результатом (взяток взято ровно столько, сколько заказано)</div>
@@ -1363,6 +1405,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const [userTurnGarlandReady, setUserTurnGarlandReady] = useState(false);
   /** ПК: усиленный сигнал «пора ходить» после USER_PANEL_STRONG_NUDGE_IDLE_PC_MS простоя */
   const [userTurnStrongNudgePc, setUserTurnStrongNudgePc] = useState(false);
+  /** ПК: пульс панели заказа (2 с простоя на торгах) / руки (3 с простоя в игре) */
+  const [pcBidPanelIdlePulsePc, setPcBidPanelIdlePulsePc] = useState(false);
+  const [pcHandIdlePulsePc, setPcHandIdlePulsePc] = useState(false);
   /** Мобильная панель юга: та же гирлянда, через USER_PANEL_GARLAND_DELAY_MOBILE_MS, только playing и пока нет pendingTrickCompletion. */
   const [userTurnGarlandReadyMobile, setUserTurnGarlandReadyMobile] = useState(false);
   /** Мобильная панель Юга: подпись «Очки» у бейджа очков (как у оппонентов, тап переключает). */
@@ -3011,6 +3056,11 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   /** Закрытие backdrop: arm только если pointer down стартовал именно на фоне модалки. */
   const dealResultsBackdropPressArmedRef = useRef(false);
   const gameTableRootRef = useRef<HTMLDivElement>(null);
+  /** ПК: якоря для роуминг-бейджа — вне DOM панели, чтобы не раздувать layout Юга */
+  const pcUserPanelRef = useRef<HTMLDivElement>(null);
+  const pcUserPanelLeftClusterRef = useRef<HTMLDivElement>(null);
+  const pcBidPanelRef = useRef<HTMLDivElement>(null);
+  const pcTableSurfaceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOnline || isWaitingInRoom) return;
@@ -3109,8 +3159,34 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     };
   }, []);
 
+  const forceCloseDealResultsModal = useCallback(() => {
+    dealResultsBackdropPressArmedRef.current = false;
+    setDealResultsExpanded(false);
+  }, []);
+  const closeDealResultsModal = useCallback(() => {
+    // На мобильном click может прилетать с задержкой ~300ms после tap: даём запас, чтобы не ловить ghost-click.
+    if (isMobile && Date.now() - dealResultsOpenedAtRef.current < 520) return;
+    forceCloseDealResultsModal();
+  }, [forceCloseDealResultsModal, isMobile]);
+
+  useEffect(() => {
+    if (!isMobile || !dealResultsExpanded) return;
+    document.body.classList.add('deal-results-modal-open-mobile');
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') forceCloseDealResultsModal();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.classList.remove('deal-results-modal-open-mobile');
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [isMobile, dealResultsExpanded, forceCloseDealResultsModal]);
+
   const humanIdx = isOnline || isWaitingInRoom ? 0 : 0;
   const isHumanTurn = state?.phase === 'playing' && state.currentPlayerIndex === humanIdx;
+  const humanAlreadyPlayedCurrentTrick =
+    state?.phase === 'playing' &&
+    !!state.currentTrick.some((_, trickCardIndex) => getTrickPlayerIndex(state.trickLeaderIndex, trickCardIndex) === humanIdx);
   const isHumanBidding = (state?.phase === 'bidding' || state?.phase === 'dark-bidding') && state.currentPlayerIndex === humanIdx;
   const [mobileTurnEdgeGlowReady, setMobileTurnEdgeGlowReady] = useState(false);
   const isHumanActionPhase = isHumanTurn || isHumanBidding;
@@ -3511,6 +3587,259 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   }, [isUserActiveTurnForGarlandMobile]);
 
   const shouldShowBidPanel = isHumanBidding && !dealJustCompleted && state?.phase !== 'deal-complete';
+  /** ПК и планшет (>600px): табличка в портале; внутри панели — только на узкой мобиле */
+  const showPcYourOrderRoamingBadge =
+    !isMobile &&
+    isHumanBidding &&
+    !dealJustCompleted &&
+    state?.phase !== 'deal-complete';
+  const showPcYourTurnRoamingBadge =
+    !isMobile &&
+    isHumanTurn &&
+    !humanAlreadyPlayedCurrentTrick &&
+    !dealJustCompleted &&
+    state?.phase !== 'deal-complete' &&
+    !state?.pendingTrickCompletion;
+  const showPcTurnRoamingBadge = showPcYourOrderRoamingBadge || showPcYourTurnRoamingBadge;
+  const [pcTurnRoamVisible, setPcTurnRoamVisible] = useState(false);
+  const [pcTurnRoamSlot, setPcTurnRoamSlot] = useState(0);
+  const isPcBidPanelIdlePulseEligible =
+    !isMobile &&
+    shouldShowBidPanel &&
+    bidPanelVisible &&
+    isHumanBidding &&
+    !dealJustCompleted &&
+    state?.phase !== 'deal-complete';
+  const isPcHandIdlePulseEligible =
+    !isMobile &&
+    isHumanTurn &&
+    !humanAlreadyPlayedCurrentTrick &&
+    !dealJustCompleted &&
+    state?.phase !== 'deal-complete' &&
+    !state?.pendingTrickCompletion;
+
+  /** ПК: пульс панели заказа (2 с) / руки (3 с) при простое; сброс по активности */
+  useEffect(() => {
+    if (!isPcBidPanelIdlePulseEligible && !isPcHandIdlePulseEligible) {
+      setPcBidPanelIdlePulsePc(false);
+      setPcHandIdlePulsePc(false);
+      return;
+    }
+    setPcBidPanelIdlePulsePc(false);
+    setPcHandIdlePulsePc(false);
+    let bidPulseTimeoutId: number | undefined;
+    let handPulseTimeoutId: number | undefined;
+    let lastMoveX = -1;
+    let lastMoveY = -1;
+    const clearPulseTimeouts = () => {
+      if (bidPulseTimeoutId !== undefined) window.clearTimeout(bidPulseTimeoutId);
+      if (handPulseTimeoutId !== undefined) window.clearTimeout(handPulseTimeoutId);
+      bidPulseTimeoutId = undefined;
+      handPulseTimeoutId = undefined;
+    };
+    const armPulseTimeouts = () => {
+      clearPulseTimeouts();
+      if (isPcBidPanelIdlePulseEligible) {
+        bidPulseTimeoutId = window.setTimeout(() => setPcBidPanelIdlePulsePc(true), PC_BID_PANEL_IDLE_PULSE_MS);
+      }
+      if (isPcHandIdlePulseEligible) {
+        handPulseTimeoutId = window.setTimeout(() => setPcHandIdlePulsePc(true), PC_HAND_IDLE_PULSE_MS);
+      }
+    };
+    const dismissPulseAndRearm = () => {
+      lastMoveX = -1;
+      lastMoveY = -1;
+      setPcBidPanelIdlePulsePc(false);
+      setPcHandIdlePulsePc(false);
+      armPulseTimeouts();
+    };
+    const onMouseMove = (e: MouseEvent) => {
+      if (lastMoveX < 0) {
+        lastMoveX = e.clientX;
+        lastMoveY = e.clientY;
+        return;
+      }
+      const dx = e.clientX - lastMoveX;
+      const dy = e.clientY - lastMoveY;
+      const thresh = PC_TURN_ROAM_MOUSE_CLEAR_PX;
+      if (dx * dx + dy * dy < thresh * thresh) return;
+      lastMoveX = e.clientX;
+      lastMoveY = e.clientY;
+      dismissPulseAndRearm();
+    };
+    armPulseTimeouts();
+    const moveListenerOpts: AddEventListenerOptions = { capture: true, passive: true };
+    window.addEventListener('pointerdown', dismissPulseAndRearm, true);
+    window.addEventListener('keydown', dismissPulseAndRearm, true);
+    window.addEventListener('mousemove', onMouseMove, moveListenerOpts);
+    return () => {
+      window.removeEventListener('pointerdown', dismissPulseAndRearm, true);
+      window.removeEventListener('keydown', dismissPulseAndRearm, true);
+      window.removeEventListener('mousemove', onMouseMove, moveListenerOpts);
+      clearPulseTimeouts();
+    };
+  }, [isPcBidPanelIdlePulseEligible, isPcHandIdlePulseEligible]);
+
+  /** ПК: табличка только после простоя; любое движение мыши / клик / клавиша — скрыть и снова ждать простоя */
+  useEffect(() => {
+    if (!showPcTurnRoamingBadge) {
+      setPcTurnRoamVisible(false);
+      setPcTurnRoamSlot(0);
+      return;
+    }
+    setPcTurnRoamVisible(false);
+    setPcTurnRoamSlot(0);
+    let idleTimeoutId: number | undefined;
+    let lastMoveX = -1;
+    let lastMoveY = -1;
+    const hideAndRearmIdle = () => {
+      setPcTurnRoamVisible(false);
+      if (idleTimeoutId !== undefined) window.clearTimeout(idleTimeoutId);
+      idleTimeoutId = window.setTimeout(() => setPcTurnRoamVisible(true), PC_TURN_ROAM_IDLE_MS);
+    };
+    const onPointerOrKey = () => {
+      lastMoveX = -1;
+      lastMoveY = -1;
+      hideAndRearmIdle();
+    };
+    const onMouseMove = (e: MouseEvent) => {
+      if (lastMoveX < 0) {
+        lastMoveX = e.clientX;
+        lastMoveY = e.clientY;
+        return;
+      }
+      const dx = e.clientX - lastMoveX;
+      const dy = e.clientY - lastMoveY;
+      const thresh = PC_TURN_ROAM_MOUSE_CLEAR_PX;
+      if (dx * dx + dy * dy < thresh * thresh) return;
+      lastMoveX = e.clientX;
+      lastMoveY = e.clientY;
+      hideAndRearmIdle();
+    };
+    hideAndRearmIdle();
+    const moveListenerOpts: AddEventListenerOptions = { capture: true, passive: true };
+    window.addEventListener('pointerdown', onPointerOrKey, true);
+    window.addEventListener('keydown', onPointerOrKey, true);
+    window.addEventListener('mousemove', onMouseMove, moveListenerOpts);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerOrKey, true);
+      window.removeEventListener('keydown', onPointerOrKey, true);
+      window.removeEventListener('mousemove', onMouseMove, moveListenerOpts);
+      if (idleTimeoutId !== undefined) window.clearTimeout(idleTimeoutId);
+    };
+  }, [showPcTurnRoamingBadge]);
+
+  useEffect(() => {
+    if (!pcTurnRoamVisible) {
+      setPcTurnRoamSlot(0);
+      return;
+    }
+    const id = window.setInterval(() => {
+      setPcTurnRoamSlot((s) => (s + 1) % PC_TURN_ROAM_SLOT_COUNT);
+    }, PC_TURN_ROAM_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [pcTurnRoamVisible]);
+
+  const pcTurnRoamBadgeLabel = showPcYourTurnRoamingBadge
+    ? 'Ваш ход'
+    : state?.phase === 'dark-bidding'
+      ? 'Заказ в тёмную'
+      : 'Ваш заказ';
+  const pcTurnRoamBadgeClassName = [
+    'pc-turn-roaming-badge',
+    'pc-turn-roaming-badge--fixed',
+    showPcYourTurnRoamingBadge ? 'pc-turn-roaming-badge--your-turn' : 'pc-turn-roaming-badge--your-order',
+    userTurnStrongNudgePc ? 'pc-turn-roaming-badge--strong' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const [pcTurnRoamFixedStyle, setPcTurnRoamFixedStyle] = useState<React.CSSProperties | null>(null);
+
+  useLayoutEffect(() => {
+    if (!showPcTurnRoamingBadge || !pcTurnRoamVisible) {
+      setPcTurnRoamFixedStyle(null);
+      return;
+    }
+    const update = () => {
+      const panelEl = pcUserPanelRef.current;
+      const tableEl = pcTableSurfaceRef.current;
+      if (!panelEl || !tableEl) {
+        setPcTurnRoamFixedStyle(null);
+        return;
+      }
+      const panel = panelEl.getBoundingClientRect();
+      const table = tableEl.getBoundingClientRect();
+      if (pcTurnRoamSlot === 0) {
+        /** Торги: не по центру панели — там сетка цифр заказа; якорь — левый кластер (аватар/имя) */
+        if (showPcYourOrderRoamingBadge) {
+          const clusterEl = pcUserPanelLeftClusterRef.current;
+          const cluster = clusterEl?.getBoundingClientRect();
+          if (cluster) {
+            const bid = pcBidPanelRef.current?.getBoundingClientRect();
+            /** ~половина ширины таблички — не заходить на кнопки заказа справа */
+            const badgeHalfW = userTurnStrongNudgePc ? 88 : 72;
+            let left = cluster.left + cluster.width / 2;
+            if (bid) {
+              left = Math.min(left, bid.left - badgeHalfW - 10);
+            }
+            setPcTurnRoamFixedStyle({
+              position: 'fixed',
+              left,
+              top: cluster.top - 8,
+              transform: 'translate(-50%, -100%)',
+              margin: 0,
+            });
+            return;
+          }
+        }
+        setPcTurnRoamFixedStyle({
+          position: 'fixed',
+          left: panel.left + panel.width / 2,
+          top: panel.top + panel.height / 2,
+          transform: 'translate(-50%, -50%)',
+          margin: 0,
+        });
+      } else {
+        setPcTurnRoamFixedStyle({
+          position: 'fixed',
+          left: table.left + table.width / 2,
+          top: table.top + 12,
+          transform: 'translateX(-50%)',
+          margin: 0,
+        });
+      }
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => update())
+        : null;
+    const panelEl = pcUserPanelRef.current;
+    const clusterEl = pcUserPanelLeftClusterRef.current;
+    const bidPanelEl = pcBidPanelRef.current;
+    const tableEl = pcTableSurfaceRef.current;
+    if (panelEl) resizeObserver?.observe(panelEl);
+    if (clusterEl) resizeObserver?.observe(clusterEl);
+    if (bidPanelEl) resizeObserver?.observe(bidPanelEl);
+    if (tableEl) resizeObserver?.observe(tableEl);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+      resizeObserver?.disconnect();
+    };
+  }, [
+    showPcTurnRoamingBadge,
+    showPcYourOrderRoamingBadge,
+    pcTurnRoamVisible,
+    pcTurnRoamSlot,
+    userTurnStrongNudgePc,
+    shouldShowBidPanel,
+    bidPanelVisible,
+    state?.phase,
+    state?.currentPlayerIndex,
+  ]);
 
   /** Вектор схлопывания оверлея к реальной Σ: моб. — корень портала; ПК — .game-table-root (наследование var() в оверлей). */
   useLayoutEffect(() => {
@@ -3626,6 +3955,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   }, [onExit]);
 
   const handleHomeClick = useCallback(() => {
+    dealResultsBackdropPressArmedRef.current = false;
+    setDealResultsExpanded(false);
     if (isOnline || isWaitingInRoom) {
       setShowHomeConfirm(true);
     } else {
@@ -4129,8 +4460,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             },
           };
         })();
-  const biddingPhaseMobileClass =
-    isMobile && (displayState.phase === 'bidding' || displayState.phase === 'dark-bidding')
+  const biddingPhaseClass =
+    displayState.phase === 'bidding' || displayState.phase === 'dark-bidding'
       ? ' game-phase-bidding'
       : '';
   /** «Стандарт после short» + активная раздача: компактнее панель Юга (index.css, класс на корне). */
@@ -4387,14 +4718,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     setLastDealResultsSnapshot(snapshot);
     setDealResultsExpanded(true);
   };
-  const closeDealResultsModal = () => {
-    // На мобильном click может прилетать с задержкой ~300ms после tap: даём запас, чтобы не ловить ghost-click.
-    if (isMobile && Date.now() - dealResultsOpenedAtRef.current < 520) return;
-    setDealResultsExpanded(false);
-  };
   const onDealResultsBackdropPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
-    const isBackdrop = e.target === e.currentTarget;
-    dealResultsBackdropPressArmedRef.current = isBackdrop;
+    if (e.target === e.currentTarget) {
+      dealResultsBackdropPressArmedRef.current = true;
+    }
   };
   const onDealResultsBackdropPointerUp: React.PointerEventHandler<HTMLDivElement> = (e) => {
     const isBackdrop = e.target === e.currentTarget;
@@ -4410,7 +4737,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseMobileClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}
     >
       {showMobileTurnEdgeGlow ? (
@@ -5485,7 +5812,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             pcNoTrumpModeBadgeAsButton ? (
               <button
                 type="button"
-                className="game-info-mode-panel game-info-mode-panel-pc-no-trump-bidding"
+                className="game-info-mode-panel game-info-mode-panel-pc-no-trump-bidding game-info-mode-panel--pc-chrome"
                 style={{
                   ...gameInfoModePanelStyle,
                   flexDirection: 'row',
@@ -5507,9 +5834,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 title="Что значит бескозырка в этой партии"
                 aria-label="Пояснение: четыре раздачи подряд без козыря (номера 21–24)"
               >
+                <PcModePanelCornerLeds />
                 <div className="game-info-mode-panel-head" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <span
-                    className="game-info-mode-panel-tag"
+                  <PcModePanelScreenTag
                     style={{
                       ...gameInfoLabelStyle,
                       marginBottom: 0,
@@ -5518,9 +5845,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                     }}
                   >
                     Режим
-                  </span>
-                  <span
-                    className="game-info-mode-panel-name"
+                  </PcModePanelScreenTag>
+                  <PcModePanelScreenName
                     style={{
                       ...gameInfoValueStyle,
                       fontSize: 14,
@@ -5528,13 +5854,13 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                     }}
                   >
                     Бескозырка
-                  </span>
+                  </PcModePanelScreenName>
                 </div>
               </button>
             ) : pcDarkModeBadgeAsButton ? (
               <button
                 type="button"
-                className="game-info-mode-panel game-info-mode-panel-pc-dark-bidding"
+                className="game-info-mode-panel game-info-mode-panel-pc-dark-bidding game-info-mode-panel--pc-chrome"
                 style={{
                   ...gameInfoModePanelStyle,
                   flexDirection: 'row',
@@ -5556,6 +5882,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 title="Что значит тёмная раздача в этой партии"
                 aria-label="Пояснение: четыре раздачи с заказом до раздачи карт (номера 25–28)"
               >
+                <PcModePanelCornerLeds />
                 <div className="game-info-mode-panel-head" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   <span
                     className="game-info-mode-panel-tag game-info-dark-mode-tag"
@@ -5583,49 +5910,73 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               </button>
             ) : (
               <div
-                className={`game-info-mode-panel${
+                className={`game-info-mode-panel game-info-mode-panel--pc-chrome${
                   getDealType(state.dealNumber) === 'no-trump'
                     ? ' game-info-mode-panel-pc-no-trump-wrap'
                     : ' game-info-mode-panel-pc-dark-wrap'
-                }`}
+                }${dealContractStats.allBidsPlaced ? ' game-info-mode-panel--pc-play' : ''}`}
                 style={{
                   ...gameInfoModePanelStyle,
                   flexDirection: dealContractStats.allBidsPlaced ? 'column' : 'row',
                   alignItems: dealContractStats.allBidsPlaced ? 'stretch' : 'center',
-                  gap: dealContractStats.allBidsPlaced ? 8 : 6,
-                  padding: dealContractStats.allBidsPlaced ? '8px 12px' : '6px 12px',
                 }}
               >
-                <div className="game-info-mode-panel-head" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <span
-                    className={`game-info-mode-panel-tag${getDealType(state.dealNumber) === 'dark' ? ' game-info-dark-mode-tag' : ''}`}
-                    style={{
-                      ...gameInfoLabelStyle,
-                      marginBottom: 0,
-                      fontSize: 11,
-                      lineHeight: 1,
-                      ...(getDealType(state.dealNumber) === 'dark' ? gameInfoDarkModeTagLabelOverride : {}),
-                    }}
-                  >
-                    Режим
-                  </span>
-                  <span
-                    className={`game-info-mode-panel-name${getDealType(state.dealNumber) === 'dark' ? ' game-info-dark-mode-name' : ''}`}
-                    style={{
-                      ...gameInfoValueStyle,
-                      fontSize: 14,
-                      lineHeight: 1,
-                    }}
-                  >
-                    {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
-                  </span>
+                <PcModePanelCornerLeds />
+                <div className="game-info-mode-panel-head" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                  {getDealType(state.dealNumber) === 'no-trump' ? (
+                    <PcModePanelScreenTag
+                      style={{
+                        ...gameInfoLabelStyle,
+                        marginBottom: 0,
+                        fontSize: 10,
+                        lineHeight: 1,
+                      }}
+                    >
+                      Режим
+                    </PcModePanelScreenTag>
+                  ) : (
+                    <span
+                      className="game-info-mode-panel-tag game-info-dark-mode-tag"
+                      style={{
+                        ...gameInfoLabelStyle,
+                        marginBottom: 0,
+                        fontSize: 10,
+                        lineHeight: 1,
+                        ...gameInfoDarkModeTagLabelOverride,
+                      }}
+                    >
+                      Режим
+                    </span>
+                  )}
+                  {getDealType(state.dealNumber) === 'no-trump' ? (
+                    <PcModePanelScreenName
+                      style={{
+                        ...gameInfoValueStyle,
+                        fontSize: 13,
+                        lineHeight: 1,
+                      }}
+                    >
+                      Бескозырка
+                    </PcModePanelScreenName>
+                  ) : (
+                    <span
+                      className="game-info-mode-panel-name game-info-dark-mode-name"
+                      style={{
+                        ...gameInfoValueStyle,
+                        fontSize: 13,
+                        lineHeight: 1,
+                      }}
+                    >
+                      Тёмная
+                    </span>
+                  )}
                 </div>
                 {dealContractStats.allBidsPlaced ? (
                   <button
                     type="button"
                     className="game-info-deal-contract-panel game-info-deal-contract-panel--in-mode"
                     data-order-compare={dealContractStats.orderCompare ?? undefined}
-                    style={{ ...gameInfoDealContractPanelStyle, padding: '5px 10px', minHeight: 30 }}
+                    style={{ ...gameInfoDealContractPanelStyle }}
                     onClick={() => setShowDealContractHelp(true)}
                     title="Подробности по игрокам"
                     aria-label={`Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`}
@@ -5647,46 +5998,73 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               </div>
             )
           ) : (
-            <button
-              type="button"
-              className="game-info-deal-contract-panel game-info-cards-panel"
-              data-deal-contract-phase={dealContractStats.allBidsPlaced ? 'orders' : 'bidding'}
-              data-order-compare={dealContractStats.orderCompare ?? undefined}
-              style={gameInfoDealContractPanelStyle}
-              onClick={() => setShowDealContractHelp(true)}
-              title={
-                dealContractStats.allBidsPlaced ? 'Подробности по игрокам' : 'Сколько карт в раздаче'
-              }
-              aria-label={
-                dealContractStats.allBidsPlaced
-                  ? `Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
-                  : `КАРТ: ${dealContractStats.tricksInDeal} у каждого`
-              }
+            <div
+              className="game-info-mode-panel game-info-mode-panel--pc-chrome game-info-mode-panel-pc-standard-wrap"
+              style={{
+                ...gameInfoModePanelStyle,
+                flexDirection: 'column',
+                alignItems: 'stretch',
+              }}
             >
+              <PcModePanelCornerLeds />
               {dealContractStats.allBidsPlaced ? (
-                dealContractStats.orderCompare != null ? (
-                  <DealContractPcSummaryLine
-                    totalOrders={dealContractStats.totalOrders}
-                    totalTricks={dealContractStats.totalTricks}
-                    tricksInDeal={dealContractStats.tricksInDeal}
-                    orderCompare={dealContractStats.orderCompare}
-                  />
+                <div
+                  className="game-info-mode-panel-head"
+                  style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
+                >
+                  <span
+                    className="game-info-mode-panel-tag"
+                    style={{ ...gameInfoLabelStyle, marginBottom: 0, fontSize: 11, lineHeight: 1 }}
+                  >
+                    Контракт
+                  </span>
+                </div>
+              ) : null}
+              <button
+                type="button"
+                className="game-info-deal-contract-panel game-info-cards-panel game-info-deal-contract-panel--in-mode"
+                data-deal-contract-phase={dealContractStats.allBidsPlaced ? 'orders' : 'bidding'}
+                data-order-compare={dealContractStats.orderCompare ?? undefined}
+                style={{
+                  ...gameInfoDealContractPanelStyle,
+                  width: '100%',
+                }}
+                onClick={() => setShowDealContractHelp(true)}
+                title={
+                  dealContractStats.allBidsPlaced ? 'Подробности по игрокам' : 'Сколько карт в раздаче'
+                }
+                aria-label={
+                  dealContractStats.allBidsPlaced
+                    ? `Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
+                    : `КАРТ: ${dealContractStats.tricksInDeal} у каждого`
+                }
+              >
+                {dealContractStats.allBidsPlaced ? (
+                  dealContractStats.orderCompare != null ? (
+                    <DealContractPcSummaryLine
+                      totalOrders={dealContractStats.totalOrders}
+                      totalTricks={dealContractStats.totalTricks}
+                      tricksInDeal={dealContractStats.tricksInDeal}
+                      orderCompare={dealContractStats.orderCompare}
+                    />
+                  ) : (
+                    <span className="deal-contract-line" style={dealContractLineTextStyle}>
+                      Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}/
+                      {dealContractStats.tricksInDeal}
+                    </span>
+                  )
                 ) : (
-                  <span className="deal-contract-line" style={dealContractLineTextStyle}>
-                    Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}/{dealContractStats.tricksInDeal}
-                  </span>
-                )
-              ) : (
-                <>
-                  <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
-                    КАРТ:
-                  </span>
-                  <span className="deal-contract-value" style={dealContractCardsValueStyle}>
-                    {dealContractStats.tricksInDeal}
-                  </span>
-                </>
-              )}
-            </button>
+                  <>
+                    <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
+                      КАРТ:
+                    </span>
+                    <span className="deal-contract-value" style={dealContractCardsValueStyle}>
+                      {dealContractStats.tricksInDeal}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
           )}
           </div>
           )}
@@ -7401,7 +7779,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         </div>
         <div className="game-center-table" style={centerStyle}>
         <div style={{ ...tableOuterStyle, ...(trumpHighlightOn ? tableOuterStyleWithHighlight : {}) }}>
-          <div style={{ ...tableSurfaceStyle, ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}) }}>
+          <div
+            ref={pcTableSurfaceRef}
+            style={{ ...tableSurfaceStyle, ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}) }}
+          >
             {showOnlineRoomCodeStrip && online.code && (
               <OnlineRoomCodeMarquee
                 code={online.code}
@@ -7579,7 +7960,12 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           : {}),
       }}>
         <div
-          className={state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : undefined}
+          className={[
+            state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : '',
+            !isMobile && pcHandIdlePulsePc && isHumanTurn ? 'pc-player-hand-idle-pulse' : '',
+          ]
+            .filter(Boolean)
+            .join(' ') || undefined}
           style={handFrameStyle}
         >
           <div style={handStyle}>
@@ -7619,7 +8005,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             })()}
           </div>
         </div>
-        <div className={['user-player-panel', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : '', !isMobileOrTablet && userTurnStrongNudgePc ? 'user-player-panel-idle-turn-nudge-pc' : ''].filter(Boolean).join(' ') || undefined} style={{
+        <div
+          ref={pcUserPanelRef}
+          className={['user-player-panel', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : '', !isMobileOrTablet && userTurnStrongNudgePc ? 'user-player-panel-idle-turn-nudge-pc' : ''].filter(Boolean).join(' ') || undefined}
+          style={{
           ...playerInfoPanelStyle,
           position: 'relative',
           ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
@@ -7684,7 +8073,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           {!isMobileOrTablet ? (
             <div className="user-player-panel-pc-layout">
               <div className="user-player-panel-pc-avatar-col">
-                <div className="user-player-panel-pc-left-cluster">
+                <div ref={pcUserPanelLeftClusterRef} className="user-player-panel-pc-left-cluster">
                   <div className="user-player-panel-pc-avatar-name-stack">
                     {renderUserPlayerAvatar(38)}
                     <div className="user-player-panel-pc-name-under-avatar">
@@ -7700,14 +8089,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   </div>
                   {state.phase !== 'bidding' && state.phase !== 'dark-bidding' && (
                     <div className="user-player-panel-pc-tricks-column">
-                      {state.currentPlayerIndex === humanIdx && (
-                        <span
-                          className={['user-player-panel-pc-your-turn-above-tricks', userTurnStrongNudgePc ? 'user-player-panel-pc-turn-badge-nudge' : ''].filter(Boolean).join(' ')}
-                          style={yourTurnBadgeStyle}
-                        >
-                          Ваш ход
-                        </span>
-                      )}
                       <TrickSlotsDisplay
                         bid={state.bids[humanIdx] ?? null}
                         tricksTaken={state.players[humanIdx].tricksTaken}
@@ -7734,9 +8115,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                             <span className="first-bidder-lamp-user-pc-bulb" style={firstBidderLampBulbStyle} /> Первый заказ/ход
                           </span>
                         )}
-                      {state.currentPlayerIndex === humanIdx && (
-                        <span className={userTurnStrongNudgePc ? 'user-player-panel-pc-turn-badge-nudge' : undefined} style={yourTurnBadgeStyle}>Ваш заказ</span>
-                      )}
                       {state.dealerIndex === humanIdx && (
                         <span style={dealerLampStyle} title="Сдающий">
                           <span style={dealerLampBulbStyle} /> Сдающий
@@ -7764,10 +8142,25 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 )}
                 <div className="user-player-panel-pc-stats-stack">
                   {shouldShowBidPanel && bidPanelVisible && (
-                    <div className="bid-panel bid-panel-inline bid-panel-bottom bid-panel-pc-under-score" style={bidPanelInlineStyle} aria-label="Выбор заказа">
-                      <span className="bid-panel-title bid-panel-title-inline" style={bidPanelInlineTitleStyle}>
-                        {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
-                      </span>
+                    <div
+                      ref={pcBidPanelRef}
+                      className={[
+                        'bid-panel',
+                        'bid-panel-inline',
+                        'bid-panel-bottom',
+                        'bid-panel-pc-under-score',
+                        pcBidPanelIdlePulsePc ? 'pc-bid-panel-idle-pulse' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      style={bidPanelInlineStyle}
+                      aria-label="Выбор заказа"
+                    >
+                      {!showPcYourOrderRoamingBadge ? (
+                        <span className="bid-panel-title bid-panel-title-inline" style={bidPanelInlineTitleStyle}>
+                          {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
+                        </span>
+                      ) : null}
                       <div className="bid-panel-grid" style={bidSidePanelGrid}>
                         {Array.from({ length: state.tricksInDeal + 1 }, (_, i) => {
                           const disabled = invalidBid === i;
@@ -7813,7 +8206,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                     )
                   )}
                 </span>
-                {state.currentPlayerIndex === humanIdx && (
+                {isMobile && state.currentPlayerIndex === humanIdx && (
                   <span style={yourTurnBadgeStyle}>
                     {(state.phase === 'bidding' || state.phase === 'dark-bidding') ? 'Ваш заказ' : 'Ваш ход'}
                   </span>
@@ -7841,9 +8234,11 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 />
                 {shouldShowBidPanel && bidPanelVisible && (
                   <div className="bid-panel bid-panel-inline bid-panel-bottom" style={bidPanelInlineStyle} aria-label="Выбор заказа">
-                    <span className="bid-panel-title bid-panel-title-inline" style={bidPanelInlineTitleStyle}>
-                      {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
-                    </span>
+                    {!showPcYourOrderRoamingBadge ? (
+                      <span className="bid-panel-title bid-panel-title-inline" style={bidPanelInlineTitleStyle}>
+                        {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
+                      </span>
+                    ) : null}
                     <div className="bid-panel-grid" style={bidSidePanelGrid}>
                       {Array.from({ length: state.tricksInDeal + 1 }, (_, i) => {
                         const disabled = invalidBid === i;
@@ -7893,6 +8288,25 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               roomIntroKey={isOnline && online.roomId ? online.roomId : 'offline'}
               prefersReducedMotion={prefersReducedMotion}
             />
+          </div>,
+          document.body,
+        )}
+
+      {/* ПК: «Ваш заказ» / «Ваш ход» — fixed-портал по координатам панели/стола (не в DOM панели Юга) */}
+      {!isMobile &&
+        showPcTurnRoamingBadge &&
+        pcTurnRoamVisible &&
+        pcTurnRoamFixedStyle &&
+        createPortal(
+          <div className="pc-turn-roaming-badge-layer" aria-hidden={false}>
+            <span
+              className={pcTurnRoamBadgeClassName}
+              style={pcTurnRoamFixedStyle}
+              role="status"
+              aria-live="polite"
+            >
+              {pcTurnRoamBadgeLabel}
+            </span>
           </div>,
           document.body,
         )}
@@ -7953,27 +8367,35 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       {dealResultsExpanded && lastDealResultsSnapshot && createPortal(
         <div
           className={isMobile ? 'deal-results-modal-overlay-mobile' : undefined}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Результаты раздач"
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            alignItems: isMobile ? 'flex-start' : 'center',
-            justifyContent: 'center',
             zIndex: 9999,
+            display: 'flex',
+            flexDirection: 'column',
             overflow: isMobile ? 'hidden' : 'auto',
+            pointerEvents: 'auto',
           }}
-          onPointerDown={onDealResultsBackdropPointerDown}
-          onPointerUp={onDealResultsBackdropPointerUp}
-          onClick={(e) => { e.preventDefault(); }}
-          onKeyDown={e => { if (e.key === 'Escape') closeDealResultsModal(); }}
-          role="button"
-          tabIndex={0}
-          aria-label="Закрыть"
+          onKeyDown={e => { if (e.key === 'Escape') forceCloseDealResultsModal(); }}
         >
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(0,0,0,0.6)',
+              touchAction: 'manipulation',
+            }}
+            onPointerDown={onDealResultsBackdropPointerDown}
+            onPointerUp={onDealResultsBackdropPointerUp}
+          />
           <div
             style={{
               position: 'relative',
+              zIndex: 1,
               width: isMobile ? '100%' : 'min(96vw, 800px)',
               minWidth: isMobile ? 0 : 500,
               maxWidth: isMobile ? '100%' : undefined,
@@ -7986,10 +8408,12 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               padding: isMobile ? 12 : 20,
               minHeight: isMobile ? '100%' : undefined,
               height: isMobile ? '100%' : undefined,
+              margin: isMobile ? 0 : 'auto',
+              flex: isMobile ? 1 : undefined,
+              touchAction: 'manipulation',
             }}
             onPointerDown={(e) => e.stopPropagation()}
             onPointerUp={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
           >
             <div style={{
               transform: isMobile ? 'none' : 'scale(1.35)',
@@ -8002,7 +8426,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               flexDirection: isMobile ? 'column' : undefined,
               minHeight: 0,
             }}>
-              <DealResultsScreen state={lastDealResultsSnapshot} variant="modal" isMobile={isMobile} onClose={closeDealResultsModal} />
+              <DealResultsScreen state={lastDealResultsSnapshot} variant="modal" isMobile={isMobile} onClose={forceCloseDealResultsModal} />
             </div>
           </div>
         </div>,
@@ -8980,6 +9404,13 @@ function DealResultsScreen({
   const range = maxScore - minScore;
   const humanIdx = 0;
   const dealHistory = state.dealHistory || [];
+  const [chipView, setChipView] = useResultsChipView();
+  const playerCount = players.length;
+  const settlement = usePartySettlement(dealHistory, playerCount, chipView);
+  const showSettlementRow = variant === 'modal' && dealHistory.length > 0;
+  const chipForPlayer = (idx: number) =>
+    settlement.rows.find((r) => r.playerIndex === idx)?.chips ?? 0;
+  const isChipLeader = (idx: number) => settlement.chipWinnerIndices.includes(idx);
   const _sorted = [...players].map((p, i) => ({ ...p, idx: i })).sort((a, b) => b.score - a.score);
   const compactModal = variant === 'modal' && isMobile;
   const panelStyle = compactModal ? { ...dealResultsPanelStyle, ...dealResultsPanelStyleMobile } : dealResultsPanelStyle;
@@ -9683,7 +10114,7 @@ function DealResultsScreen({
         ...baseStyle,
         ...(isCollapsing ? (isMobile ? dealResultsCollapsingStyleMobile : dealResultsCollapsingStyle) : {}),
       }}
-      aria-hidden
+      {...(variant === 'overlay' ? { 'aria-hidden': true as const } : {})}
     >
       {variant === 'modal' ? (
         <>
@@ -9721,6 +10152,9 @@ function DealResultsScreen({
                 </button>
               </div>
             </div>
+          )}
+          {showSettlementRow && (
+            <DealResultsChipToggle chipView={chipView} onChange={setChipView} compact={isMobile} />
           )}
         <div className={!isMobile ? 'deal-results-table-outer-pc' : undefined} style={isMobile ? dealResultsTableOuterMobileStyle : dealResultsTableOuterPCStyle}>
             <div className="deal-results-table-scroll-wrap" style={dealResultsTableScrollWrapStyle}>
@@ -10144,6 +10578,34 @@ function DealResultsScreen({
                             );
                           })}
                         </div>
+                        {showSettlementRow && (
+                          <>
+                            <div style={{ ...dealResultsStickyTotalsCaptionStyle, marginTop: 6 }} aria-hidden>
+                              <span style={dealResultsStickyTotalsCaptionMainTextStyle}>Фишки</span>
+                            </div>
+                            <div style={dealResultsStickyTotalsRowStyle}>
+                              {players.map((_, i) => {
+                                const chips = chipForPlayer(i);
+                                const chipWin = isChipLeader(i);
+                                return (
+                                  <span
+                                    key={`sticky-chip-${i}`}
+                                    style={{
+                                      ...dealResultsStickyTotalsValueStyle,
+                                      ...dealResultsStickyTotalsValueShellMobileStyle,
+                                      color: chipColor(chips),
+                                      fontWeight: 700,
+                                      ...(chipWin ? dealResultsLeaderTotalValueStyleMobile : {}),
+                                    }}
+                                  >
+                                    {chips >= 0 ? '+' : ''}
+                                    {chips}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
                       </div>
                       <div className="deal-results-table-glow-bottom" style={dealResultsTableGlowBottomStyleMobile} aria-hidden />
                     </>
@@ -10288,6 +10750,50 @@ function DealResultsScreen({
                               );
                             })}
                           </tr>
+                          {showSettlementRow && (
+                            <tr>
+                              <th
+                                className="deal-results-deal-column-pc"
+                                style={{
+                                  ...dealResultsTableThStyle,
+                                  ...dealResultsTableTfootStyle,
+                                  ...dealResultsTableThDealStyle,
+                                  ...dealResultsTableThDealFooterStyle,
+                                  minWidth: dealColumnWidth,
+                                  width: dealColumnWidth,
+                                }}
+                                title="Фишки"
+                              >
+                                <span className="deal-results-deal-cell-label">Фишки</span>
+                              </th>
+                              {players.map((_, i) => {
+                                const chips = chipForPlayer(i);
+                                const chipWin = isChipLeader(i);
+                                const isHuman = i === humanIdx;
+                                return (
+                                  <Fragment key={`chip-${i}`}>
+                                    <td
+                                      className={[chipWin && 'deal-results-cell-winner', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined}
+                                      style={{ ...(i === 0 ? dealResultsTableTdFooterFirstStyle : dealResultsTableTdBidStyle), ...dealResultsTableTfootStyle }}
+                                    />
+                                    <td
+                                      className={[chipWin && 'deal-results-cell-winner deal-results-column-leader-r', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined}
+                                      style={{
+                                        ...dealResultsTableTdResultStyle,
+                                        ...dealResultsTableTfootStyle,
+                                        ...dealResultsTableTfootTotalShellPcStyle,
+                                      }}
+                                    >
+                                      <span style={{ color: chipColor(chips), fontWeight: 700 }}>
+                                        {chips >= 0 ? '+' : ''}
+                                        {chips}
+                                      </span>
+                                    </td>
+                                  </Fragment>
+                                );
+                              })}
+                            </tr>
+                          )}
                         </tfoot>
                       </table>
                     </div>
@@ -13290,8 +13796,8 @@ const gameInfoModePanelStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  padding: '8px 14px',
-  borderRadius: 10,
+  padding: '6px 10px',
+  borderRadius: 9,
   border: '1px solid rgba(99, 102, 241, 0.6)',
   background: 'rgba(99, 102, 241, 0.25)',
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
@@ -16105,6 +16611,61 @@ const buttonStyle: React.CSSProperties = {
   cursor: 'pointer',
   fontSize: 14,
 };
+
+/** ПК HUD: подпись «Режим» — неон сзади, чёткий текст спереди. */
+function PcModePanelScreenTag({
+  children,
+  className = '',
+  style,
+}: {
+  children: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <span className={`game-info-mode-panel-tag game-info-mode-panel-tag--screen${className ? ` ${className}` : ''}`} style={style}>
+      <span className="game-info-mode-panel-tag__glow" aria-hidden>
+        {children}
+      </span>
+      <span className="game-info-mode-panel-tag__sharp">{children}</span>
+    </span>
+  );
+}
+
+/** ПК HUD: название режима — радужный туман/неон сзади, чёткие буквы спереди. */
+function PcModePanelScreenName({
+  children,
+  className = '',
+  style,
+}: {
+  children: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <span
+      className={`game-info-mode-panel-name game-info-mode-panel-name--screen${className ? ` ${className}` : ''}`}
+      style={style}
+    >
+      <span className="game-info-mode-panel-name__glow" aria-hidden>
+        {children}
+      </span>
+      <span className="game-info-mode-panel-name__sharp game-info-no-trump-mode-name-glass">{children}</span>
+    </span>
+  );
+}
+
+/** ПК HUD: 4 угловых LED (цвета — CSS-переменные по типу раздачи). */
+function PcModePanelCornerLeds() {
+  return (
+    <>
+      <span className="game-info-mode-panel__led game-info-mode-panel__led--tl" aria-hidden />
+      <span className="game-info-mode-panel__led game-info-mode-panel__led--tr" aria-hidden />
+      <span className="game-info-mode-panel__led game-info-mode-panel__led--bl" aria-hidden />
+      <span className="game-info-mode-panel__led game-info-mode-panel__led--br" aria-hidden />
+    </>
+  );
+}
 
 function DealContractPcSummaryLine({
   totalOrders,
