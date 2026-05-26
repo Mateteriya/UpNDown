@@ -29,6 +29,7 @@ import {
   isHumanPlayer,
 } from '../game/GameEngine';
 import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating, getPlayerProfile } from '../game/persistence';
+import { appendPartyHistoryRecord, buildPartyHistoryRecord } from '../game/partyHistory';
 import { logDealOutcome } from '../game/aiLearning';
 import { aiBid, aiPlay } from '../game/ai';
 import {
@@ -48,6 +49,19 @@ import {
   useResultsChipView,
 } from './DealResultsSettlement';
 import { SETTLEMENT_MODE_LABELS } from '../game/partySettlement';
+import { CosmicCockpit, CosmicGlassButton, CosmicGlassClose, type GameOverCloudSave } from './CosmicCockpit';
+import {
+  BridgeAccuracyDeck,
+  BridgeChipReel,
+  BridgeDock,
+  BridgeTelemetryDashboard,
+  BridgeViewport,
+  bridgePlayerNeonClass,
+  GameOverBridgeScenery,
+  GameOverCelebrationHero,
+  GameOverCelebrationMiniTable,
+  GameOverCloudStatus,
+} from './CosmicBridgeControls';
 import { preloadCardImages } from '../cardAssets';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -963,6 +977,8 @@ function GameOverModal({
   hideNewGame,
   /** Онлайн: индекс места на сервере (0–3); офлайн не передавать — «человек» в snapshot на месте 0. */
   viewerCanonicalSlotIndex,
+  cloudSave = 'none',
+  isOfflineEnd = true,
 }: {
   snapshot: GameState;
   gameId: number;
@@ -971,6 +987,8 @@ function GameOverModal({
   onOpenTable: () => void;
   hideNewGame?: boolean;
   viewerCanonicalSlotIndex?: number | null;
+  cloudSave?: GameOverCloudSave;
+  isOfflineEnd?: boolean;
 }) {
   const [showExpanded, setShowExpanded] = useState(false);
   const [chipView, setChipView] = useResultsChipView();
@@ -1002,121 +1020,167 @@ function GameOverModal({
     return dealHistory.length > 0 ? Math.round((metCount / dealHistory.length) * 100) : 0;
   });
   const bestAccuracy = bidAccuracyPerPlayer.length > 0 ? Math.max(...bidAccuracyPerPlayer) : 0;
+  const isMobileLayout = useIsMobileOrTablet();
+  const humanChips = chipForPlayer(humanIdx);
 
   if (!showExpanded) {
+    const celebrationRootClass = isMobileLayout
+      ? 'game-over-root game-over-root--celebration game-over-root--celebration-mobile'
+      : 'game-over-root game-over-root--celebration';
+    const miniRows = sorted.map((p) => ({
+      idx: p.idx,
+      name: p.name,
+      score: p.score,
+      chips: chipForPlayer(p.idx),
+    }));
+
     return (
-      <div style={gameOverCelebrationWrapStyle}>
-        <div className="game-over-celebration-glow" style={gameOverCelebrationInnerStyle}>
-          <h2 style={gameOverCelebrationTitleStyle}>Партия завершена</h2>
-          {isTie ? (
-            <p style={gameOverCelebrationWinnerStyle}>
-              Ничья между {winners.map(w => w.name).join(' и ')}
-            </p>
-          ) : (
-            <>
-              <p style={gameOverCelebrationWinnerStyle}>Победитель: {winners[0]?.name}</p>
-              {winners[0]?.idx === humanIdx && <p style={gameOverCelebrationSuperStyle}>Супер!</p>}
-            </>
-          )}
-          <button
-            type="button"
-            onClick={() => setShowExpanded(true)}
-            style={gameOverButtonPrimaryStyle}
-          >
-            Подробнее
-          </button>
+      <div className={celebrationRootClass}>
+        <div className="game-over-celebration">
+          <div className="game-over-celebration__card">
+            <GameOverCelebrationHero
+              hideKicker={isMobileLayout}
+              winnerStar={isMobileLayout && !isTie}
+              isTie={isTie}
+              winnerNames={isTie ? winners.map((w) => w.name).join(' · ') : undefined}
+              winnerName={!isTie ? winners[0]?.name : undefined}
+              isHumanWinner={!isTie && winners[0]?.idx === humanIdx}
+            />
+            {isMobileLayout ? (
+              <>
+                <GameOverCelebrationMiniTable
+                  rows={miniRows}
+                  humanIdx={humanIdx}
+                  showChips={dealHistory.length > 0}
+                />
+                <CosmicGlassButton className="game-over-celebration__more" onClick={() => setShowExpanded(true)}>
+                  Подробнее
+                </CosmicGlassButton>
+                <GameOverCloudStatus cloudSave={cloudSave} isOfflineEnd={isOfflineEnd} compact />
+              </>
+            ) : (
+              <>
+                <GameOverCloudStatus cloudSave={cloudSave} isOfflineEnd={isOfflineEnd} />
+                {dealHistory.length > 0 && (
+                  <p className="game-over-celebration__teaser">
+                    Ваши фишки:{' '}
+                    <strong className={humanChips >= 0 ? 'game-over-num--plus' : 'game-over-num--minus'}>
+                      {humanChips >= 0 ? '+' : ''}
+                      {humanChips}
+                    </strong>
+                    <span className="game-over-celebration__teaser-sub">
+                      Переключатель режимов — в «Подробнее»
+                    </span>
+                  </p>
+                )}
+                <CosmicGlassButton className="game-over-celebration__more" onClick={() => setShowExpanded(true)}>
+                  Подробнее
+                </CosmicGlassButton>
+              </>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
+  const expandedRootClass = isMobileLayout
+    ? 'game-over-root game-over-root--expanded'
+    : 'game-over-root game-over-root--expanded game-over-root--desktop';
+
   return (
-    <div style={gameOverExpandedWrapStyle}>
-      <h2 style={gameOverExpandedTitleStyle} id="game-over-title">Итоги партии</h2>
-      <p style={gameOverPartyIdStyle}>Партия №{gameId}</p>
-      {dealHistory.length > 0 && (
-        <>
-          <DealResultsChipToggle chipView={chipView} onChange={setChipView} compact />
-          <p style={{ margin: '0 0 8px', fontSize: 13, color: '#94a3b8', textAlign: 'center' }}>
-            Рейтинг — по очкам; фишки — {SETTLEMENT_MODE_LABELS[chipView].toLowerCase()}
-          </p>
-        </>
-      )}
-      <div style={gameOverTableWrapStyle}>
-        <table style={gameOverTableStyle}>
-          <thead>
-            <tr>
-              <th style={gameOverThStyle}>Место</th>
-              <th style={gameOverThStyle}>Игрок</th>
-              <th style={gameOverThStyle}>Очки</th>
-              {dealHistory.length > 0 && <th style={gameOverThStyle}>Фишки</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((p, rank) => (
-              <tr key={p.idx} style={p.idx === humanIdx ? gameOverTrHumanStyle : undefined}>
-                <td style={gameOverTdStyle}>{rank + 1}</td>
-                <td style={gameOverTdStyle}>{p.name}</td>
-                <td style={gameOverTdStyle}>{p.score >= 0 ? '+' : ''}{p.score}</td>
-                {dealHistory.length > 0 && (
-                  <td style={{ ...gameOverTdStyle, color: chipColor(chipForPlayer(p.idx)), fontWeight: 700 }}>
-                    {chipForPlayer(p.idx) >= 0 ? '+' : ''}
-                    {chipForPlayer(p.idx)}
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {footnote && (
-        <p style={{ margin: '8px 0 0', fontSize: 12, color: '#94a3b8', textAlign: 'center', lineHeight: 1.45 }}>
-          {footnote}
-        </p>
-      )}
-      <div style={gameOverStatsWrapStyle}>
-        <div style={gameOverStatsTitleStyle}>Точность заказов</div>
-        <div style={gameOverStatsHintStyle}>доля раздач, где заказ совпал с результатом (взяток взято ровно столько, сколько заказано)</div>
-        {players.map((p, i) => (
-          <div key={i} style={gameOverStatsRowWithBarStyle}>
-            <span style={{ flexShrink: 0, ...(i === humanIdx ? gameOverStatsNameHumanStyle : undefined) }}>{p.name}</span>
-            <div style={gameOverProgressTrackStyle} role="progressbar" aria-valuenow={bidAccuracyPerPlayer[i]} aria-valuemin={0} aria-valuemax={100} aria-label={`Точность заказов: ${bidAccuracyPerPlayer[i]}%`}>
-              <div style={{ ...(bidAccuracyPerPlayer[i] === bestAccuracy ? gameOverProgressFillBestStyle : gameOverProgressFillStyle), width: `${bidAccuracyPerPlayer[i]}%` }} />
+    <div className={`${expandedRootClass} game-over-bridge${isMobileLayout ? ' game-over-bridge--mobile' : ''}`}>
+      <GameOverBridgeScenery />
+      <div className="game-over-bridge__hud">
+        <header className="game-over-expanded-header">
+          <div className="game-over-expanded-header__top">
+            <h2 className="game-over-expanded-header__title cosmic-iridescent-text" id="game-over-title">
+              Итоги партии
+            </h2>
+            <span className="game-over-expanded-header__meta">№{gameId}</span>
+          </div>
+          <GameOverCelebrationHero
+            compact
+            minimal={isMobileLayout}
+            isTie={isTie}
+            winnerNames={isTie ? winners.map((w) => w.name).join(' · ') : undefined}
+            winnerName={!isTie ? winners[0]?.name : undefined}
+            isHumanWinner={!isTie && winners[0]?.idx === humanIdx}
+          />
+          <GameOverCloudStatus cloudSave={cloudSave} isOfflineEnd={isOfflineEnd} />
+          {dealHistory.length > 0 && (
+            <div className="game-over-chip-bar">
+              <span className="game-over-chip-bar__label">Подсчёт фишек</span>
+              <DealResultsChipToggle chipView={chipView} onChange={setChipView} compact />
+              <span className="game-over-chip-bar__hint">Рейтинг — по очкам</span>
             </div>
-            <span style={{ ...gameOverStatsValueStyle, flexShrink: 0 }}>{bidAccuracyPerPlayer[i]}%</span>
-          </div>
-        ))}
-      </div>
-      <div style={gameOverRatingWrapStyle}>
-        <div style={gameOverStatsTitleStyle}>Ваш рейтинг</div>
-        <div style={gameOverStatsRowStyle}>
-          <span style={gameOverStatsValueStyle}>Место в этой партии: {humanPlace}</span>
+          )}
+        </header>
+        <div className="game-over-bridge__body">
+        <div className="game-over-bridge__grid">
+          <section className="game-over-bridge__main-col">
+            {dealHistory.length > 0 && (
+              <BridgeChipReel chips={humanChips} modeLabel={SETTLEMENT_MODE_LABELS[chipView]} />
+            )}
+            <BridgeViewport>
+              <table className="game-over-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Игрок</th>
+                    <th>Очки</th>
+                    {dealHistory.length > 0 && <th>Фишки</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((p, rank) => (
+                    <tr
+                      key={p.idx}
+                      className={[
+                        'game-over-table__row',
+                        bridgePlayerNeonClass(p.idx),
+                        p.idx === humanIdx ? 'game-over-table__row--human' : '',
+                        rank === 0 ? 'game-over-table__row--leader' : '',
+                      ].filter(Boolean).join(' ')}
+                    >
+                      <td><span className="game-over-table__rank">{rank + 1}</span></td>
+                      <td><span className="game-over-table__name">{p.name}</span></td>
+                      <td className="game-over-table__score">{p.score >= 0 ? '+' : ''}{p.score}</td>
+                      {dealHistory.length > 0 && (
+                        <td className={`game-over-table__chips${chipForPlayer(p.idx) >= 0 ? ' game-over-num--plus' : chipForPlayer(p.idx) < 0 ? ' game-over-num--minus' : ''}`}>
+                          {chipForPlayer(p.idx) >= 0 ? '+' : ''}
+                          {chipForPlayer(p.idx)}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </BridgeViewport>
+            {footnote && <p className="game-over-expanded-footnote">{footnote}</p>}
+          </section>
+          <aside className="game-over-bridge__telemetry">
+            <BridgeAccuracyDeck
+              players={players}
+              bidAccuracyPerPlayer={bidAccuracyPerPlayer}
+              humanIdx={humanIdx}
+              bestAccuracy={bestAccuracy}
+              neonByIndex={(i) => (['cyan', 'magenta', 'amber', 'lime'] as const)[i] ?? 'violet'}
+            />
+            <BridgeTelemetryDashboard
+              humanPlace={humanPlace}
+              gamesPlayed={localRating.gamesPlayed}
+              wins={localRating.wins}
+              accuracyPct={
+                localRating.bidAccuracyCount > 0
+                  ? Math.round(localRating.bidAccuracySum / localRating.bidAccuracyCount)
+                  : null
+              }
+            />
+          </aside>
         </div>
-        <div style={gameOverStatsRowStyle}>
-          <span style={gameOverStatsValueStyle}>Игр сыграно: {localRating.gamesPlayed}</span>
         </div>
-        <div style={gameOverStatsRowStyle}>
-          <span style={gameOverStatsValueStyle}>Побед: {localRating.wins}{localRating.gamesPlayed > 0 ? ` (${Math.round((localRating.wins / localRating.gamesPlayed) * 100)}%)` : ''}</span>
-        </div>
-        {localRating.bidAccuracyCount > 0 && (
-          <div style={gameOverStatsRowStyle}>
-            <span style={gameOverStatsValueStyle}>Средняя точность заказов: {Math.round(localRating.bidAccuracySum / localRating.bidAccuracyCount)}%</span>
-          </div>
-        )}
-        <div style={gameOverRatingPlaceholderStyle}>Глобальный рейтинг — скоро</div>
-      </div>
-      <div style={gameOverButtonsWrapStyle}>
-        <button type="button" onClick={onExit} style={gameOverButtonSecondaryStyle}>
-          В меню
-        </button>
-        <button type="button" onClick={onOpenTable} style={gameOverButtonSecondaryStyle} title="Таблица результатов по раздачам">
-          Открыть таблицу
-        </button>
-        {!hideNewGame && (
-          <button type="button" onClick={onNewGame} style={gameOverButtonPrimaryStyle}>
-            Новая партия
-          </button>
-        )}
+        <BridgeDock onExit={onExit} onOpenTable={onOpenTable} onNewGame={onNewGame} hideNewGame={hideNewGame} />
       </div>
     </div>
   );
@@ -1436,6 +1500,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const [stopRememberWaitingBusy, setStopRememberWaitingBusy] = useState(false);
   const [homeConfirmPending, setHomeConfirmPending] = useState(false);
   const [gameOverSnapshot, setGameOverSnapshot] = useState<GameState | null>(null);
+  const [gameOverCloudSave, setGameOverCloudSave] = useState<'none' | 'pending' | 'ok' | 'fail' | 'no-auth'>('none');
   /** Для онлайна — канонический снимок + слот; иначе dealHistory и players расходятся по индексам. */
   const [gameOverViewerSlot, setGameOverViewerSlot] = useState<number | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
@@ -3030,6 +3095,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const dealResultsButtonEverShownRef = useRef(false);
   /** Одна отправка завершённой офлайн-партии на сервер за монтаж игры (история аккаунта). */
   const offlineMatchRecordedRef = useRef(false);
+  const partyHistoryRecordedRef = useRef(false);
   /** Номер раздачи, для которой уже запущена анимация результатов (один раз на раздачу, без повторов при опросе). */
   const lastAnimatedDealNumberRef = useRef<number | null>(null);
   /** Таймеры анимации результатов; очищаем только в том запуске эффекта, который их создал. */
@@ -3088,11 +3154,13 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     }
     dealResultsButtonEverShownRef.current = false;
     offlineMatchRecordedRef.current = false;
+    partyHistoryRecordedRef.current = false;
     lastAnimatedDealNumberRef.current = null;
     setDealResultsExpanded(false);
     setLastDealResultsSnapshot(null);
     setGameOverSnapshot(null);
     setShowGameOverModal(false);
+    setGameOverCloudSave('none');
   }, [gameId, isOnline, isWaitingInRoom, online.onlineHydratedFromStorage]);
 
   useEffect(() => {
@@ -4177,6 +4245,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               setGameOverViewerSlot(canonicalSnap != null ? o.myServerIndex : null);
               setShowGameOverModal(true);
               if (!canonicalSnap && snap) {
+                setGameOverCloudSave(userRef.current?.id ? 'pending' : 'no-auth');
                 const maxScore = Math.max(...snap.players.map((p) => p.score));
                 const humanWon = snap.players[0].score === maxScore;
                 let bidAccuracy = 0;
@@ -4192,6 +4261,11 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   bidAccuracy = Math.round((met / snap.dealHistory.length) * 100);
                 }
                 updateLocalRating(humanWon, undefined, bidAccuracy);
+                if (!partyHistoryRecordedRef.current) {
+                  partyHistoryRecordedRef.current = true;
+                  const hist = buildPartyHistoryRecord(snap, { gameId });
+                  if (hist) appendPartyHistoryRecord(hist);
+                }
                 if (userRef.current?.id && !offlineMatchRecordedRef.current) {
                   offlineMatchRecordedRef.current = true;
                   const name =
@@ -4199,8 +4273,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                       ? playerDisplayName
                       : getPlayerProfile().displayName?.trim() || 'Вы';
                   void recordOfflineMatchFinish(snap, name).then((r) => {
-                    if (!r.ok) offlineMatchRecordedRef.current = false;
+                    if (r.ok) setGameOverCloudSave('ok');
+                    else {
+                      offlineMatchRecordedRef.current = false;
+                      setGameOverCloudSave('fail');
+                    }
                   });
+                } else if (!userRef.current?.id) {
+                  setGameOverCloudSave('no-auth');
                 }
               }
             } else if (snap) {
@@ -8448,66 +8528,28 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
 
       {showGameOverModal && gameOverSnapshot && createPortal(
         <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.75)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            padding: 16,
-          }}
+          className="game-over-dialog"
           onClick={e => e.stopPropagation()}
           onKeyDown={e => { if (e.key === 'Escape') { setShowGameOverModal(false); setGameOverSnapshot(null); setGameOverViewerSlot(null); } }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="game-over-title"
         >
-          <div
-            style={{
-              position: 'relative',
-              background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-              borderRadius: 16,
-              border: '1px solid rgba(34, 211, 238, 0.35)',
-              boxShadow: '0 24px 48px rgba(0,0,0,0.5), 0 0 60px rgba(34, 211, 238, 0.15)',
-              maxHeight: '95vh',
-              overflow: 'auto',
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              aria-label="Закрыть"
+          <div className="game-over-dialog__card" onClick={e => e.stopPropagation()}>
+            <CosmicGlassClose
+              className="game-over-dialog__close"
               onClick={() => {
                 setShowGameOverModal(false);
                 setGameOverSnapshot(null);
                 setGameOverViewerSlot(null);
               }}
-              style={{
-                position: 'absolute',
-                top: 10,
-                right: 10,
-                zIndex: 2,
-                width: 36,
-                height: 36,
-                border: 'none',
-                borderRadius: 8,
-                background: 'rgba(15, 23, 42, 0.65)',
-                color: '#94a3b8',
-                fontSize: 22,
-                lineHeight: 1,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              ×
-            </button>
+            />
+            <CosmicCockpit>
             <GameOverModal
               snapshot={gameOverSnapshot}
               gameId={gameId}
+              cloudSave={gameOverCloudSave}
+              isOfflineEnd={!isOnline}
               viewerCanonicalSlotIndex={gameOverViewerSlot}
               onNewGame={async () => {
                 setShowGameOverModal(false);
@@ -8533,6 +8575,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 /* панель «Итоги партии» не закрываем — после закрытия таблицы пользователь снова её увидит */
               }}
             />
+            </CosmicCockpit>
           </div>
         </div>,
         document.body,
@@ -14101,14 +14144,6 @@ const gameOverCelebrationWrapStyle: React.CSSProperties = {
   minHeight: 280,
   padding: '36px 24px 24px',
 };
-const gameOverCelebrationInnerStyle: React.CSSProperties = {
-  textAlign: 'center',
-  padding: '32px 40px',
-  borderRadius: 16,
-  border: '1px solid rgba(34, 211, 238, 0.4)',
-  background: 'linear-gradient(180deg, rgba(30, 58, 138, 0.25) 0%, rgba(15, 23, 42, 0.95) 100%)',
-  boxShadow: '0 0 40px rgba(34, 211, 238, 0.2), inset 0 0 60px rgba(255, 255, 255, 0.04)',
-};
 const gameOverCelebrationTitleStyle: React.CSSProperties = {
   margin: '0 0 16px',
   color: '#e2e8f0',
@@ -14142,10 +14177,10 @@ const gameOverButtonPrimaryStyle: React.CSSProperties = {
 };
 const gameOverExpandedWrapStyle: React.CSSProperties = {
   padding: '44px 20px 24px 24px',
-  maxWidth: 420,
   width: '100%',
   maxHeight: '90vh',
   overflowY: 'auto',
+  boxSizing: 'border-box',
 };
 const gameOverExpandedTitleStyle: React.CSSProperties = {
   margin: '0 0 16px',

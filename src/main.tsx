@@ -18,6 +18,7 @@ import { DealTrackLabPage } from './ui/DealTrackLabPage'
 import { TotalColorLabPage } from './ui/TotalColorLabPage'
 import { OnlineUiLabPage } from './ui/OnlineUiLabPage'
 import { ScoringDemoPage } from './ui/ScoringDemoPage'
+import { AccountLkPage } from './ui/AccountLkPage'
 import './theme-standard.css'
 import './theme-neon.css'
 import './index.css'
@@ -30,6 +31,7 @@ const isDealTrackLab = path === '/deal-track-lab' || path.startsWith('/deal-trac
 const isTotalColorLab = path === '/total-color-lab' || path.startsWith('/total-color-lab/')
 const isOnlineUiLab = path === '/online-ui-lab' || path.startsWith('/online-ui-lab/')
 const isScoringDemo = path === '/scoring-demo' || path.startsWith('/scoring-demo/')
+const isAccountLk = path === '/lk' || path.startsWith('/lk/')
 const devModeAllowed = typeof window !== 'undefined' && sessionStorage.getItem('updown-devMode') === '1'
 
 function DemoGuard({ children }: { children: React.ReactNode }) {
@@ -75,6 +77,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <ScoringDemoPage onBack={() => (window.location.href = '/')} />
       </ThemeProvider>
+    ) : isAccountLk ? (
+      <AuthProvider>
+        <ThemeProvider>
+          <AccountLkPage />
+        </ThemeProvider>
+      </AuthProvider>
     ) : (
       <AuthProvider>
         <OnlineGameProvider>
