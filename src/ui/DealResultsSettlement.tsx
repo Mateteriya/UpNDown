@@ -9,20 +9,13 @@ import {
   SETTLEMENT_MODE_LABELS,
   type SettlementMode,
 } from '../game/partySettlement';
+import {
+  readResultsChipView,
+  writeResultsChipView,
+  type ResultsChipView,
+} from '../game/resultsChipView';
 
-const LS_CHIP_VIEW = 'updown_results_chip_view';
-
-export type ResultsChipView = 'accuracy_bonus' | 'vs_average';
-
-function readStoredChipView(): ResultsChipView {
-  try {
-    const v = localStorage.getItem(LS_CHIP_VIEW);
-    if (v === 'vs_average' || v === 'accuracy_bonus') return v;
-  } catch {
-    /* ignore */
-  }
-  return 'accuracy_bonus';
-}
+export type { ResultsChipView };
 
 const toggleWrapStyle: React.CSSProperties = {
   display: 'flex',
@@ -34,27 +27,11 @@ const toggleWrapStyle: React.CSSProperties = {
   marginBottom: 4,
 };
 
-const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
-  fontSize: 12,
-  fontWeight: 600,
-  padding: '6px 12px',
-  borderRadius: 8,
-  border: active ? '1px solid rgba(167, 139, 250, 0.7)' : '1px solid rgba(148, 163, 184, 0.35)',
-  background: active ? 'rgba(139, 92, 246, 0.22)' : 'rgba(30, 41, 59, 0.5)',
-  color: active ? '#e9d5ff' : '#94a3b8',
-  cursor: 'pointer',
-  touchAction: 'manipulation',
-});
-
 export function useResultsChipView(): [ResultsChipView, (v: ResultsChipView) => void] {
-  const [view, setView] = useState<ResultsChipView>(() => readStoredChipView());
+  const [view, setView] = useState<ResultsChipView>(() => readResultsChipView());
   const set = useCallback((v: ResultsChipView) => {
     setView(v);
-    try {
-      localStorage.setItem(LS_CHIP_VIEW, v);
-    } catch {
-      /* ignore */
-    }
+    writeResultsChipView(v);
   }, []);
   return [view, set];
 }
@@ -80,15 +57,14 @@ interface DealResultsChipToggleProps {
   chipView: ResultsChipView;
   onChange: (v: ResultsChipView) => void;
   compact?: boolean;
+  className?: string;
 }
 
-export function DealResultsChipToggle({ chipView, onChange, compact }: DealResultsChipToggleProps) {
+export function DealResultsChipToggle({ chipView, onChange, compact, className }: DealResultsChipToggleProps) {
   return (
     <div
-      style={{
-        ...toggleWrapStyle,
-        ...(compact ? { marginTop: 4, marginBottom: 2 } : {}),
-      }}
+      className={['cosmic-chip-toggle', 'cosmic-chip-toggle--phys', className].filter(Boolean).join(' ')}
+      style={compact ? { marginTop: 0, marginBottom: 0 } : toggleWrapStyle}
       role="tablist"
       aria-label="Способ подсчёта фишек"
     >
@@ -96,7 +72,7 @@ export function DealResultsChipToggle({ chipView, onChange, compact }: DealResul
         type="button"
         role="tab"
         aria-selected={chipView === 'accuracy_bonus'}
-        style={toggleBtnStyle(chipView === 'accuracy_bonus')}
+        className={`cosmic-chip-toggle__btn${chipView === 'accuracy_bonus' ? ' cosmic-chip-toggle__btn--active' : ''}`}
         onClick={() => onChange('accuracy_bonus')}
       >
         {SETTLEMENT_MODE_LABELS.accuracy_bonus}
@@ -105,7 +81,7 @@ export function DealResultsChipToggle({ chipView, onChange, compact }: DealResul
         type="button"
         role="tab"
         aria-selected={chipView === 'vs_average'}
-        style={toggleBtnStyle(chipView === 'vs_average')}
+        className={`cosmic-chip-toggle__btn${chipView === 'vs_average' ? ' cosmic-chip-toggle__btn--active' : ''}`}
         onClick={() => onChange('vs_average')}
       >
         {SETTLEMENT_MODE_LABELS.vs_average}

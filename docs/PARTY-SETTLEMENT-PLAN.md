@@ -20,8 +20,10 @@
 | Очки за раздачу | `src/game/scoring.ts` | ✅ |
 | История раздач | `GameState.dealHistory`, `DealResult` | ✅ |
 | Демо расчётов | `src/game/partyMoneyScoring.ts`, `/scoring-demo` | ✅ |
-| Экран «Партия завершена» | `GameOverModal` в `GameTable.tsx` | только очки |
-| Таблица раздач | `DealResultsScreen` | только очки по раздачам |
+| Экран «Партия завершена» | `GameOverModal` в `GameTable.tsx` | ✅ очки + фишки + переключатель |
+| Таблица раздач | `DealResultsScreen` | ✅ очки по раздачам + строка фишек |
+| Локальная история | `partyHistory.ts`, `RatingModal` | ✅ офлайн, до 40 записей |
+| ТЗ | `TZ.md` §2.1.4 | ✅ |
 | Онлайн комната | `createRoom` в `onlineGameSupabase.ts` | без режима итога |
 | 3 игрока | — | 🔜 отдельная задача |
 
@@ -44,16 +46,16 @@
 
 ## 3. Фазы внедрения
 
-### Фаза A — Ядро (без UI) ✅ начать сразу
+### Фаза A — Ядро (без UI) ✅
 
-**Файлы:** `src/game/partySettlement.ts` (или расширить `partyMoneyScoring.ts`)
+**Файлы:** `src/game/partySettlement.ts`
 
-- [ ] Тип `SettlementMode`: `points_only` | `vs_average` | `accuracy_bonus` | `prize_pool`
-- [ ] `computePartySettlement(deals, playerCount, mode, opts?)`
-- [ ] Доли банка: **4 игрока** 50/30/15/5; **3 игрока** 60/30/10 (настраиваемо)
-- [ ] Поля результата: `chips`, `inProfit`, `chipWinners[]`, `middleLine`, `modeLabel`
-- [ ] Unit-тесты на демо-партии и на 3 игроков
-- [ ] Экспорт из `src/game/index.ts`
+- [x] Тип `SettlementMode`: `points_only` | `vs_average` | `accuracy_bonus` | `prize_pool`
+- [x] `computePartySettlement(deals, playerCount, mode, opts?)`
+- [x] Доли банка: **4 игрока** 50/30/15/5; **3 игрока** 60/30/10
+- [x] Поля результата: `chips`, `inProfit`, `chipWinnerIndices`, `middleLine`, `modeLabel`
+- [x] Unit-тесты (`partySettlement.test.ts`); тесты на 3 игроков — [ ] отдельно
+- [x] Экспорт из `src/game/index.ts`
 
 **Не трогаем:** мобильные стили стола, логику взяток.
 
@@ -76,16 +78,16 @@
 
 ---
 
-### Фаза C — Итоги партии (главный UX)
+### Фаза C — Итоги партии (главный UX) ✅ (основное)
 
 **Файлы:** `GameTable.tsx` → `GameOverModal`
 
-| Элемент | Изменение |
-|---------|-----------|
-| Праздничный экран | «Победитель» — по **очкам** (рейтинг); опционально строка «Фишки: +72» |
-| Таблица «Подробнее» | Колонка **«Фишки»**; подзаголовок режима |
-| Пояснение | 1 строка: «В плюсе: …» / «★ по фишкам: …» (как на демо) |
-| Турнир | Строки: взнос, из банка, чистыми |
+| Элемент | Изменение | Статус |
+|---------|-----------|--------|
+| Праздничный экран | «Победитель» — по **очкам**; строка «Ваши фишки» | ✅ |
+| Таблица «Подробнее» | Колонка **«Фишки»**; подзаголовок режима | ✅ |
+| Пояснение | `settlementFootnote` | ✅ |
+| Турнир | Строки: взнос, из банка, чистыми | 🔜 режим `prize_pool` в UI |
 
 **Рейтинг / localRating** — победа по **очкам**, не по фишкам (без изменения контракта рейтинга).
 
@@ -122,12 +124,14 @@
 
 ---
 
-### Фаза F — История и архив
+### Фаза F — История и архив (офлайн — начато)
 
-**Файлы:** `HistoryModal.tsx`, `onlineGameSupabase.ts` (match results)
+**Файлы:** `partyHistory.ts`, `RatingModal.tsx`; позже `HistoryModal`, Supabase
 
-- [ ] В архив партии: `settlement_mode`, `chips` по игрокам
-- [ ] Карточка истории: очки + фишки + режим
+- [x] Офлайн: `appendPartyHistoryRecord` при `game-complete` (по `profileId`)
+- [x] «Ваш рейтинг»: последние партии (очки, место, фишки, режим)
+- [ ] Полный архив с `dealHistory` / отдельный экран «Мои партии»
+- [ ] Онлайн: `settlement_mode`, `chips` в match results
 
 ---
 
