@@ -9580,12 +9580,12 @@ function DealResultsScreen({
     if (points < 0) {
       if (surface === 'text') {
         return {
-          color: '#fb7185',
-          WebkitTextFillColor: '#fb7185',
+          color: '#ff7ad8',
+          WebkitTextFillColor: '#ff7ad8',
           fontWeight: 800,
           fontSize: '1.04em',
           textShadow:
-            '0 0 8px rgb(239 68 68 / 0.55), 0 0 16px rgb(248 113 113 / 0.45), 0 0 24px rgb(244 63 94 / 0.28)',
+            '0 1px 0 rgb(176 58 122), 1px 0 0 rgb(176 58 122), -1px 0 0 rgb(176 58 122), 0 -1px 0 rgb(134 42 115)',
         };
       }
       return {
@@ -9605,9 +9605,10 @@ function DealResultsScreen({
     if (surface === 'text') {
       if (points === 0) {
         return {
-          color: '#94a3b8',
-          WebkitTextFillColor: '#94a3b8',
-          fontWeight: 670,
+          color: '#a5b4fc',
+          WebkitTextFillColor: '#a5b4fc',
+          fontWeight: 700,
+          textShadow: '0 0 8px rgba(129, 140, 248, 0.45)',
         };
       }
       if (isLegalZeroZeroFive) {
@@ -9631,15 +9632,15 @@ function DealResultsScreen({
     if (surface === 'pill') {
       if (points === 0) {
         return {
-          color: '#cbd5e1',
-          WebkitTextFillColor: '#cbd5e1',
+          color: '#c4b5fd',
+          WebkitTextFillColor: '#c4b5fd',
           fontWeight: 800,
           fontSize: '1.02em',
           borderRadius: 9,
           padding: '1px 8px',
-          background: 'linear-gradient(135deg, rgb(30 41 59 / 0.65) 0%, rgb(15 23 42 / 0.75) 100%)',
-          border: '1px solid rgb(100 116 139 / 0.45)',
-          boxShadow: 'inset 0 1px 0 rgb(255 255 255 / 0.06)',
+          background: 'linear-gradient(135deg, rgb(76 29 149 / 0.55) 0%, rgb(49 46 129 / 0.62) 100%)',
+          border: '1px solid rgb(167 139 250 / 0.55)',
+          boxShadow: 'inset 0 0 10px rgb(139 92 246 / 0.22)',
         };
       }
       if (isLegalZeroZeroFive) {
@@ -9767,7 +9768,7 @@ function DealResultsScreen({
     }
     if (delta >= 60 && delta <= 90) {
       return {
-        '--dr-player-total-fg': '#f0fdfa',
+        '--dr-player-total-fg': '#5eead4',
         '--dr-player-total-fs': '25px',
         '--dr-player-total-fw': '900',
         '--dr-player-total-ls': '0.035em',
@@ -9780,7 +9781,7 @@ function DealResultsScreen({
     }
     if (delta > 90) {
       return {
-        '--dr-player-total-fg': '#ffffff',
+        '--dr-player-total-fg': '#f0abfc',
         '--dr-player-total-fs': '26px',
         '--dr-player-total-fw': '900',
         '--dr-player-total-ls': '0.04em',
@@ -9791,7 +9792,7 @@ function DealResultsScreen({
       } as React.CSSProperties;
     }
     return {
-      '--dr-player-total-fg': 'rgba(226, 232, 240, 0.92)',
+      '--dr-player-total-fg': '#c4b5fd',
       '--dr-player-total-fs': '19px',
       '--dr-player-total-fw': '760',
       '--dr-player-total-ls': '0.02em',
@@ -9905,32 +9906,115 @@ function DealResultsScreen({
     '--dr-player-total-lh': '1.05',
   } as React.CSSProperties;
 
+  /** Мобильный оверлей: неон «Итого» только гравировкой (blur-radius 0), без ореолов. */
+  const mobileTotalCrispEngrave = (stroke: string, under = stroke): string =>
+    `0 1px 0 ${stroke}, 1px 0 0 ${stroke}, -1px 0 0 ${stroke}, 0 -1px 0 ${under}`;
+
+  const getRunningTotalSmartDigitVarsMobileSharp = (delta: number): React.CSSProperties => {
+    const base = getRunningTotalSmartDigitVars(delta) as Record<string, string | number | undefined>;
+    const sharp: Record<string, string | number | undefined> = {
+      '--dr-player-total-fs': base['--dr-player-total-fs'],
+      '--dr-player-total-fw': base['--dr-player-total-fw'] ?? '900',
+      '--dr-player-total-ls': base['--dr-player-total-ls'] ?? '0.02em',
+      '--dr-player-total-lh': base['--dr-player-total-lh'] ?? '1.05',
+      '--dr-player-total-filter': 'none',
+      '--dr-player-total-bg': 'transparent',
+      '--dr-player-total-border': 'none',
+      '--dr-player-total-box': 'none',
+    };
+    if (delta < 0) {
+      sharp['--dr-player-total-fg'] = '#ff7ad8';
+      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(176 58 122)', 'rgb(134 42 115)');
+      return sharp as React.CSSProperties;
+    }
+    if (delta >= 1 && delta <= 9) {
+      sharp['--dr-player-total-fg'] = '#d9ff6a';
+      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(21 128 61)', 'rgb(20 83 45)');
+      return sharp as React.CSSProperties;
+    }
+    if (delta >= 10 && delta <= 29) {
+      sharp['--dr-player-total-fg'] = '#45ffe8';
+      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(15 118 110)', 'rgb(13 94 99)');
+      return sharp as React.CSSProperties;
+    }
+    if (delta >= 30 && delta <= 39) {
+      sharp['--dr-player-total-fg'] = '#70f8ff';
+      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(14 116 144)', 'rgb(12 74 110)');
+      return sharp as React.CSSProperties;
+    }
+    if (delta >= 40 && delta <= 59) {
+      sharp['--dr-player-total-fg'] = '#a0ecff';
+      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(30 64 175)', 'rgb(30 58 138)');
+      return sharp as React.CSSProperties;
+    }
+    if (delta >= 60 && delta <= 90) {
+      sharp['--dr-player-total-fg'] = '#45ffe8';
+      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(15 118 110)', 'rgb(13 148 136)');
+      return sharp as React.CSSProperties;
+    }
+    if (delta > 90) {
+      sharp['--dr-player-total-fg'] = '#f8c0ff';
+      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(88 28 135)', 'rgb(59 7 100)');
+      return sharp as React.CSSProperties;
+    }
+    sharp['--dr-player-total-fg'] = '#f3e8ff';
+    sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(46 16 101)', 'rgb(30 27 75)');
+    return sharp as React.CSSProperties;
+  };
+
+  const getMobileOverlayTotalDealPointsVars = (): React.CSSProperties =>
+    ({
+      ...mobileTotalTextOnly,
+      '--dr-player-total-fg': '#f3e8ff',
+      '--dr-player-total-fs': 'clamp(15px, 4vw, 18px)',
+      '--dr-player-total-fw': '880',
+      '--dr-player-total-ls': '0.02em',
+      '--dr-player-total-lh': '1.05',
+      '--dr-player-total-shadow': mobileTotalCrispEngrave('rgb(46 16 101)', 'rgb(30 27 75)'),
+      '--dr-player-total-filter': 'none',
+    }) as React.CSSProperties;
+
+  /** Мобильный оверлей: умные «Итого» ×1.5 к базовому размеру цифр. */
+  const scaleMobileOverlayTotalFontSize = (fs: string, scale = 1.5): string => {
+    const px = fs.match(/^([\d.]+)px$/);
+    if (px) return `${Math.round(Number(px[1]) * scale)}px`;
+    const clampMatch = fs.match(/^clamp\(\s*([\d.]+)px\s*,\s*([\d.]+)vw\s*,\s*([\d.]+)px\s*\)$/i);
+    if (clampMatch) {
+      const [, min, mid, max] = clampMatch;
+      return `clamp(${Math.round(Number(min) * scale)}px, ${(Number(mid) * scale).toFixed(2)}vw, ${Math.round(Number(max) * scale)}px)`;
+    }
+    return fs;
+  };
+
   /** Мобильный межраздачный оверлей: те же умные цифры, что на ПК; без плашки кроме delta > 90. */
   const getRunningTotalOverlayCssVarsMobile = (delta: number): React.CSSProperties => {
-    const digits = getRunningTotalSmartDigitVars(delta);
+    const digits = getRunningTotalSmartDigitVarsMobileSharp(delta) as Record<string, string | number | undefined>;
+    const scaledFs = scaleMobileOverlayTotalFontSize(String(digits['--dr-player-total-fs'] ?? '19px'));
+    const scaledDigits = { ...digits, '--dr-player-total-fs': scaledFs };
     if (delta > 90) {
       return {
-        ...digits,
-        ...getRunningTotalPcPillVars(delta),
+        ...mobileTotalTextOnly,
+        ...scaledDigits,
       } as React.CSSProperties;
     }
+    const baseFs =
+      delta < 0
+        ? 'clamp(17px, 4.4vw, 21px)'
+        : delta >= 1 && delta <= 9
+          ? 'clamp(16px, 4.2vw, 20px)'
+          : delta >= 10 && delta <= 29
+            ? 'clamp(17px, 4.4vw, 21px)'
+            : delta >= 30 && delta <= 39
+              ? 'clamp(17px, 4.4vw, 21px)'
+              : delta >= 40 && delta <= 59
+                ? 'clamp(18px, 4.6vw, 22px)'
+                : delta >= 60 && delta <= 90
+                  ? 'clamp(18px, 4.6vw, 22px)'
+                  : 'clamp(16px, 4vw, 19px)';
     return {
       ...mobileTotalTextOnly,
-      ...digits,
-      '--dr-player-total-fs':
-        delta < 0
-          ? '20px'
-          : delta >= 1 && delta <= 9
-            ? '19px'
-            : delta >= 10 && delta <= 29
-              ? '20px'
-              : delta >= 30 && delta <= 39
-                ? '20px'
-                : delta >= 40 && delta <= 59
-                  ? '21px'
-                  : delta >= 60 && delta <= 90
-                    ? '21px'
-                    : ((digits as Record<string, string>)['--dr-player-total-fs'] as string),
+      ...scaledDigits,
+      '--dr-player-total-fs': scaleMobileOverlayTotalFontSize(baseFs),
     } as React.CSSProperties;
   };
 
@@ -10105,7 +10189,15 @@ function DealResultsScreen({
   /** Только ПК: сетка 2×2 и узкие стили панели из dealResultsPanelStyleOverlayPC. */
   const isOverlayPCLayout = variant === 'overlay' && !isMobile;
   const overlayDealRowStyle: React.CSSProperties =
-    isMobile && isOverlayPanels ? { ...dealResultsRowStyle, ...dealResultsRowStyleMobile } : dealResultsRowStyle;
+    isMobile && isOverlayPanels
+      ? { ...dealResultsRowStyle, ...dealResultsRowStyleMobileOverlay }
+      : dealResultsRowStyle;
+  const overlayLabelStyle: React.CSSProperties =
+    isMobile && isOverlayPanels ? dealResultsLabelStyleMobileOverlay : dealResultsLabelStyle;
+  const overlayLabelTotalStyle: React.CSSProperties =
+    isMobile && isOverlayPanels ? dealResultsLabelTotalStyleMobileOverlay : dealResultsLabelTotalStyle;
+  const overlayValueStyle: React.CSSProperties =
+    isMobile && isOverlayPanels ? dealResultsValueStyleMobileOverlay : dealResultsValueStyle;
   const toggleLeaderBadgeTooltip = (anchorEl?: HTMLElement) => {
     if (leaderBadgeTooltipOpen) {
       setLeaderBadgeTooltipOpen(false);
@@ -10148,6 +10240,59 @@ function DealResultsScreen({
   useEffect(() => () => {
     if (mobileLegendFlashTimerRef.current) window.clearTimeout(mobileLegendFlashTimerRef.current);
   }, []);
+  const playerNamesKey = players.map((p) => p.name).join('\0');
+  const [humanPanelFlashOn, setHumanPanelFlashOn] = useState(false);
+  useEffect(() => {
+    if (!isMobile || variant !== 'overlay') return;
+    setHumanPanelFlashOn(false);
+    const t = window.setTimeout(() => setHumanPanelFlashOn(true), 580);
+    return () => {
+      window.clearTimeout(t);
+      setHumanPanelFlashOn(false);
+    };
+  }, [isMobile, variant, state.dealNumber]);
+  useLayoutEffect(() => {
+    if (!isMobile || variant !== 'overlay') return;
+    const root =
+      overlayAnimRef && typeof overlayAnimRef === 'object' && 'current' in overlayAnimRef
+        ? overlayAnimRef.current
+        : null;
+    if (!root) return;
+
+    const equalizeNamePlateHeights = () => {
+      const plates = root.querySelectorAll<HTMLElement>('.deal-results-panel-name-plate');
+      if (plates.length === 0) return;
+      plates.forEach((el) => {
+        el.style.minHeight = '';
+        el.style.height = '';
+      });
+      let maxH = 0;
+      plates.forEach((el) => {
+        maxH = Math.max(maxH, el.getBoundingClientRect().height);
+      });
+      if (maxH <= 0) return;
+      const fixed = `${Math.ceil(maxH)}px`;
+      plates.forEach((el) => {
+        el.style.minHeight = fixed;
+        el.style.height = fixed;
+      });
+    };
+
+    equalizeNamePlateHeights();
+    const raf = window.requestAnimationFrame(equalizeNamePlateHeights);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(equalizeNamePlateHeights) : null;
+    ro?.observe(root);
+    window.addEventListener('resize', equalizeNamePlateHeights);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      ro?.disconnect();
+      window.removeEventListener('resize', equalizeNamePlateHeights);
+      root.querySelectorAll<HTMLElement>('.deal-results-panel-name-plate').forEach((el) => {
+        el.style.minHeight = '';
+        el.style.height = '';
+      });
+    };
+  }, [isMobile, variant, playerNamesKey, overlayAccentPhase, overlayAnimRef]);
   return (
     <div
       ref={variant === 'overlay' ? overlayAnimRef : undefined}
@@ -10863,27 +11008,44 @@ function DealResultsScreen({
         const panelClassName = [
           sideClass,
           isOverlayPanels && isHumanPlayer ? 'deal-results-panel-human-overlay' : null,
+          isOverlayPanels && isHumanPlayer && humanPanelFlashOn ? 'deal-results-panel-human-flash-on' : null,
           isOverlayPanels && accentPh ? 'deal-results-overlay-player-panel' : null,
         ]
           .filter(Boolean)
           .join(' ');
 
+        const dealPointsSurface: 'pill' | 'text' = isMobile && isOverlayPanels ? 'text' : 'pill';
         const pointsValueStyle: React.CSSProperties = {
-          ...dealResultsValueStyle,
-          ...getDealPointsAccentStyle(points, bid, taken, 'pill', taken),
+          ...overlayValueStyle,
+          ...getDealPointsAccentStyle(points, bid, taken, dealPointsSurface, taken),
+        };
+
+        const stripOverlayTotalFog = (): React.CSSProperties => {
+          const { color: _c, textShadow: _ts, WebkitTextFillColor: _w, ...overlayBase } = overlayValueStyle;
+          return overlayBase;
         };
 
         let totalSpanStyle: React.CSSProperties;
         if (accentPh === 'deal-points') {
-          totalSpanStyle = { ...dealResultsValueStyle };
+          totalSpanStyle =
+            isMobile && isOverlayPanels
+              ? { ...stripOverlayTotalFog(), ...getMobileOverlayTotalDealPointsVars() }
+              : { ...overlayValueStyle };
         } else if (accentPh === 'running-total') {
-          totalSpanStyle = { ...dealResultsValueStyle, ...getRunningTotalOverlayCssVars(delta) };
+          const runningTotalVars = getRunningTotalOverlayCssVars(delta);
+          totalSpanStyle =
+            isMobile && isOverlayPanels
+              ? { ...stripOverlayTotalFog(), ...runningTotalVars }
+              : { ...overlayValueStyle, ...runningTotalVars };
         } else {
-          totalSpanStyle = {
-            ...dealResultsValueStyle,
-            ...(isHumanPlayer ? { color: '#7dd3fc' } : {}),
-            ...getHumanTotalSmartStyle(delta),
-          };
+          totalSpanStyle =
+            isMobile && isOverlayPanels
+              ? { ...stripOverlayTotalFog(), ...getRunningTotalOverlayCssVars(delta) }
+              : {
+                  ...overlayValueStyle,
+                  ...(isHumanPlayer ? { color: '#7dd3fc' } : {}),
+                  ...getHumanTotalSmartStyle(delta),
+                };
         }
 
         const ultraTotalStar = accentPh !== 'deal-points' && delta >= 40;
@@ -10896,43 +11058,60 @@ function DealResultsScreen({
             className={panelClassName || undefined}
             style={{
               ...dealResultsPanelStyle,
-              ...(isMobile && isOverlayPanels ? dealResultsPanelStyleMobile : {}),
+              ...(isMobile && isOverlayPanels ? dealResultsPanelStyleMobileOverlay : {}),
               ...(isOverlayPCLayout ? dealResultsPanelStyleOverlayPC : {}),
               ...panelPos,
             }}
           >
-            <div
-              className={
-                [isOverlayPanels ? 'deal-results-panel-title-overlay' : null, isOverlayPanels && isHumanPlayer ? 'deal-results-panel-title-human-overlay' : null]
+            {isMobile && isOverlayPanels ? (
+              <div
+                className={[
+                  'deal-results-panel-name-plate',
+                  'deal-results-panel-title-overlay',
+                  isHumanPlayer ? 'deal-results-panel-name-plate--human deal-results-panel-title-human-overlay' : '',
+                ]
                   .filter(Boolean)
-                  .join(' ') || undefined
-              }
-              style={{
-                ...dealResultsPanelTitleStyle,
-                ...(isMobile && isOverlayPanels ? dealResultsPanelTitleStyleMobile : {}),
-                ...(isOverlayPCLayout ? dealResultsPanelTitleStyleOverlayPC : {}),
-              }}
-            >
-              {players[idx].name}
-            </div>
+                  .join(' ')}
+                style={{
+                  ...dealResultsPanelTitleStyle,
+                  ...dealResultsPanelTitleStyleMobileOverlay,
+                }}
+              >
+                {players[idx].name}
+              </div>
+            ) : (
+              <div
+                className={
+                  [isOverlayPanels ? 'deal-results-panel-title-overlay' : null, isOverlayPanels && isHumanPlayer ? 'deal-results-panel-title-human-overlay' : null]
+                    .filter(Boolean)
+                    .join(' ') || undefined
+                }
+                style={{
+                  ...dealResultsPanelTitleStyle,
+                  ...(isOverlayPCLayout ? dealResultsPanelTitleStyleOverlayPC : {}),
+                }}
+              >
+                {players[idx].name}
+              </div>
+            )}
             <div className={isOverlayPanels ? 'deal-results-panel-row-overlay' : undefined} style={overlayDealRowStyle}>
-              <span className={isOverlayPanels ? 'deal-results-panel-label-overlay' : undefined} style={dealResultsLabelStyle}>
+              <span className={isOverlayPanels ? 'deal-results-panel-label-overlay' : undefined} style={overlayLabelStyle}>
                 Заказ
               </span>
-              <span className={isOverlayPanels ? 'deal-results-panel-value-overlay' : undefined} style={dealResultsValueStyle}>
+              <span className={isOverlayPanels ? 'deal-results-panel-value-overlay' : undefined} style={overlayValueStyle}>
                 {bid}
               </span>
             </div>
             <div className={isOverlayPanels ? 'deal-results-panel-row-overlay' : undefined} style={overlayDealRowStyle}>
-              <span className={isOverlayPanels ? 'deal-results-panel-label-overlay' : undefined} style={dealResultsLabelStyle}>
+              <span className={isOverlayPanels ? 'deal-results-panel-label-overlay' : undefined} style={overlayLabelStyle}>
                 Взяток
               </span>
-              <span className={isOverlayPanels ? 'deal-results-panel-value-overlay' : undefined} style={dealResultsValueStyle}>
+              <span className={isOverlayPanels ? 'deal-results-panel-value-overlay' : undefined} style={overlayValueStyle}>
                 {taken}
               </span>
             </div>
             <div className={isOverlayPanels ? 'deal-results-panel-row-overlay' : undefined} style={overlayDealRowStyle}>
-              <span className={isOverlayPanels ? 'deal-results-panel-label-overlay' : undefined} style={dealResultsLabelStyle}>
+              <span className={isOverlayPanels ? 'deal-results-panel-label-overlay' : undefined} style={overlayLabelStyle}>
                 Очки
               </span>
               <span className={isOverlayPanels ? 'deal-results-panel-value-overlay' : undefined} style={pointsValueStyle}>
@@ -10953,7 +11132,7 @@ function DealResultsScreen({
               className={isOverlayPanels ? 'deal-results-panel-row-overlay deal-results-panel-row-total-overlay' : undefined}
               style={{ ...overlayDealRowStyle, borderTop: '1px solid rgba(129, 140, 248, 0.28)', marginTop: 4, paddingTop: 4 }}
             >
-              <span className={isOverlayPanels ? 'deal-results-panel-total-label-overlay' : undefined} style={dealResultsLabelTotalStyle}>
+              <span className={isOverlayPanels ? 'deal-results-panel-total-label-overlay' : undefined} style={overlayLabelTotalStyle}>
                 Итого
               </span>
               <span className={isOverlayPanels ? 'deal-results-panel-total-value-overlay' : undefined} style={totalSpanStyle}>
@@ -15545,6 +15724,20 @@ const dealResultsPanelStyleMobile: React.CSSProperties = {
   borderRadius: 10,
 };
 
+/** Мобильный оверлей после раздачи: крупнее, на всю ширину ячейки сетки */
+const dealResultsPanelStyleMobileOverlay: React.CSSProperties = {
+  padding: 0,
+  paddingBottom: 'clamp(6px, 1.8vw, 9px)',
+  minWidth: 0,
+  width: '100%',
+  maxWidth: '100%',
+  boxSizing: 'border-box',
+  borderRadius: 12,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 0,
+};
+
 const dealResultsPanelTitleStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 700,
@@ -15557,6 +15750,20 @@ const dealResultsPanelTitleStyle: React.CSSProperties = {
 const dealResultsPanelTitleStyleMobile: React.CSSProperties = {
   fontSize: 10,
   marginBottom: 4,
+};
+
+const dealResultsPanelTitleStyleMobileOverlay: React.CSSProperties = {
+  fontSize: 'clamp(15px, 4.5vw, 21px)',
+  marginBottom: 0,
+  lineHeight: 1.22,
+  whiteSpace: 'normal',
+  wordBreak: 'break-word',
+  overflowWrap: 'anywhere',
+  hyphens: 'auto',
+  minWidth: 0,
+  maxWidth: '100%',
+  fontWeight: 800,
+  letterSpacing: '0.03em',
 };
 
 /** ПК-оверлей результатов раздачи: только ограничение макс. ширины и перенос длинного имени (короткие имена — компактно) */
@@ -15587,11 +15794,26 @@ const dealResultsRowStyleMobile: React.CSSProperties = {
   fontSize: 10,
 };
 
+const dealResultsRowStyleMobileOverlay: React.CSSProperties = {
+  gap: 'clamp(7px, 2.2vw, 11px)',
+  fontSize: 'clamp(13px, 3.6vw, 15px)',
+};
+
 const dealResultsLabelStyle: React.CSSProperties = {
   color: '#94a3b8',
   fontWeight: 600,
   textTransform: 'uppercase',
   letterSpacing: '0.4px',
+};
+
+/** Подписи строк в мобильном оверлее раздачи — без серого/белого */
+const dealResultsLabelStyleMobileOverlay: React.CSSProperties = {
+  color: '#c4b5fd',
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+  fontSize: 'clamp(11px, 3vw, 13px)',
+  textShadow: '0 0 10px rgba(139, 92, 246, 0.38)',
 };
 
 const dealResultsLabelTotalStyle: React.CSSProperties = {
@@ -15600,10 +15822,24 @@ const dealResultsLabelTotalStyle: React.CSSProperties = {
   fontWeight: 800,
 };
 
+const dealResultsLabelTotalStyleMobileOverlay: React.CSSProperties = {
+  ...dealResultsLabelStyleMobileOverlay,
+  color: '#fde047',
+  fontWeight: 800,
+  textShadow: '0 0 12px rgba(251, 191, 36, 0.42)',
+};
+
 const dealResultsValueStyle: React.CSSProperties = {
   color: '#f8fafc',
   fontWeight: 700,
   fontSize: 12,
+};
+
+const dealResultsValueStyleMobileOverlay: React.CSSProperties = {
+  color: '#ddd6fe',
+  fontWeight: 800,
+  fontSize: 'clamp(14px, 3.8vw, 17px)',
+  textShadow: '0 0 8px rgba(167, 139, 250, 0.32)',
 };
 
 const dealResultsValueLeaderStyle: React.CSSProperties = {
