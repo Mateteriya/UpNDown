@@ -599,9 +599,11 @@ export function GameOverCelebrationHero({
                   ✦
                 </span>
               )}
-              <HeroHeading glass={glass} className="game-over-hero__winner-name-text">
-                {winnerName ?? ''}
-              </HeroHeading>
+              <span className="game-over-hero__winner-name-text-wrap">
+                <HeroHeading glass={glass} className="game-over-hero__winner-name-text">
+                  {winnerName ?? ''}
+                </HeroHeading>
+              </span>
             </span>
           </span>
           {isHumanWinner && (

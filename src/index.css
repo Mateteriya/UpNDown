@@ -20561,49 +20561,79 @@ body.deal-results-modal-open-mobile {
   max-width: 100%;
   padding: 10px 18px 11px;
   border-radius: 8px;
-  border: 1px solid rgba(14, 202, 155, 0.55);
-  background: linear-gradient(
-    180deg,
-    rgba(14, 202, 155, 0.14) 0%,
-    rgba(6, 78, 59, 0.35) 45%,
-    rgba(8, 12, 28, 0.55) 100%
-  );
+  border: 1px solid rgba(251, 191, 36, 0.32);
+  background:
+    radial-gradient(ellipse 88% 70% at 50% 0%, rgba(88, 28, 135, 0.42) 0%, transparent 56%),
+    radial-gradient(ellipse 72% 55% at 18% 72%, rgba(37, 99, 235, 0.22) 0%, transparent 52%),
+    radial-gradient(ellipse 78% 58% at 82% 100%, rgba(30, 27, 75, 0.58) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 50% at 12% 90%, rgba(49, 10, 80, 0.38) 0%, transparent 48%),
+    linear-gradient(
+      180deg,
+      rgba(6, 5, 102, 0.92) 0%,
+      rgba(21, 5, 106, 0.95) 38%,
+      rgba(30, 27, 75, 0.94) 62%,
+      rgba(12, 6, 32, 0.97) 82%,
+      rgba(4, 2, 18, 0.99) 100%
+    );
   box-shadow:
-    0 0 24px rgba(14, 202, 155, 0.35),
-    inset 0 0 18px rgba(14, 202, 155, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    0 0 28px rgba(88, 28, 135, 0.38),
+    inset 0 0 32px rgba(6, 5, 102, 0.55),
+    inset 0 0 48px rgba(21, 5, 106, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   overflow: hidden;
 }
 .game-over-root--celebration-mobile .game-over-hero__winner-name-frame-glow {
   position: absolute;
   inset: -1px;
+  z-index: 0;
   border-radius: inherit;
   pointer-events: none;
   background: linear-gradient(
     105deg,
     transparent 0%,
-    rgba(14, 202, 155, 0.15) 35%,
-    rgba(110, 231, 183, 0.55) 50%,
-    rgba(14, 202, 155, 0.15) 65%,
+    rgba(251, 191, 36, 0.18) 18%,
+    rgba(103, 232, 249, 0.28) 32%,
+    rgba(236, 72, 153, 0.26) 48%,
+    rgba(163, 230, 53, 0.22) 62%,
+    rgba(167, 139, 250, 0.24) 78%,
+    rgba(251, 191, 36, 0.16) 90%,
     transparent 100%
   );
-  background-size: 220% 100%;
-  animation: game-over-winner-frame-beam 2.8s ease-in-out infinite;
+  background-size: 280% 100%;
+  animation: game-over-winner-frame-beam 7.1s ease-in-out infinite;
+}
+.game-over-root--celebration-mobile .game-over-hero__winner-name-frame > *:not(.game-over-hero__winner-name-frame-glow) {
+  position: relative;
+  z-index: 1;
 }
 @keyframes game-over-winner-frame-beam {
-  0%, 100% { background-position: 120% 0; opacity: 0.65; }
-  50% { background-position: -20% 0; opacity: 1; }
+  0%, 32%, 68%, 100% {
+    background-position: 130% 0;
+    opacity: 0.38;
+  }
+  50% {
+    background-position: -30% 0;
+    opacity: 0.9;
+  }
 }
 .game-over-root--celebration-mobile .game-over-hero__winner-name-frame::before,
 .game-over-root--celebration-mobile .game-over-hero__winner-name-frame::after {
   content: '';
   position: absolute;
-  left: 8%;
-  right: 8%;
+  left: 6%;
+  right: 6%;
   height: 1px;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(110, 231, 183, 0.85), transparent);
-  box-shadow: 0 0 8px rgba(52, 211, 153, 0.65);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(251, 191, 36, 0.65),
+    rgba(103, 232, 249, 0.55),
+    rgba(236, 72, 153, 0.45),
+    rgba(251, 191, 36, 0.65),
+    transparent
+  );
+  box-shadow: 0 0 10px rgba(167, 139, 250, 0.35);
 }
 .game-over-root--celebration-mobile .game-over-hero__winner-name-frame::before {
   top: 0;
@@ -20623,52 +20653,77 @@ body.deal-results-modal-open-mobile {
   animation: game-over-winner-star-sparkle 2.2s ease-in-out infinite;
 }
 @keyframes game-over-winner-star-sparkle {
-  0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); filter: brightness(1); }
-  50% { opacity: 0.88; transform: scale(1.12) rotate(12deg); filter: brightness(1.35); }
+  0%, 100% {
+    filter: brightness(1);
+    text-shadow:
+      0 0 6px #fde047,
+      0 0 14px #facc15,
+      0 0 22px rgba(250, 204, 21, 0.65);
+  }
+  50% {
+    filter: brightness(1.28);
+    text-shadow:
+      0 0 8px #fde047,
+      0 0 18px #facc15,
+      0 0 28px rgba(250, 204, 21, 0.8);
+  }
+}
+.game-over-root--celebration-mobile .game-over-hero__winner-name-text-wrap {
+  display: inline-block;
+  max-width: 100%;
+  transform-origin: center center;
+  animation: game-over-winner-name-breathe 5.8s ease-in-out infinite;
+  will-change: transform, filter;
 }
 .game-over-root--celebration-mobile .game-over-hero__winner-name-text.game-over-glass-text {
+  display: inline;
+  max-width: 100%;
+  padding: 0 0.02em;
   background: linear-gradient(
-    180deg,
-    #ecd81dcf 0%,
-    #fff7c2 18%,
-    #fde68a 38%,
+    102deg,
+    #fff7c2 0%,
+    #fde047 22%,
+    #fcd34d 42%,
     #fbbf24 58%,
-    #d97706 78%,
-    #fcd34d 100%
+    #fde68a 78%,
+    #fff7c2 100%
   ) !important;
-  background-size: 100% 220%;
+  background-size: 220% 100% !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   color: transparent !important;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 1px 0 rgba(120, 53, 15, 0.55)) drop-shadow(0 0 18px rgba(251, 191, 36, 0.5));
-  animation: game-over-winner-gold-shine 7s ease-in-out infinite;
+  -webkit-text-fill-color: transparent !important;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  filter: none;
+  text-shadow:
+    0 1px 0 rgba(120, 53, 15, 0.45),
+    0 0 14px rgba(251, 191, 36, 0.35);
+  animation: game-over-winner-gold-shine 9s ease-in-out infinite;
 }
 .game-over-root--celebration-mobile .game-over-hero__winner-name-text.game-over-glass-text .game-over-emboss__face {
-  background: linear-gradient(
-    180deg,
-    #ecd81dcf 0%,
-    #fff7c2 18%,
-    #fde68a 38%,
-    #fbbf24 58%,
-    #d97706 78%,
-    #fcd34d 100%
-  );
-  background-size: 100% 220%;
+  background: inherit;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
 }
 .game-over-root--celebration-mobile .game-over-hero__winner-name-text.game-over-glass-text .game-over-emboss__depth {
-  text-shadow:
-    0 1px 0 rgba(120, 53, 15, 0.7),
-    0 2px 0 rgba(69, 26, 3, 0.85),
-    0 3px 6px rgba(0, 0, 0, 0.45);
+  display: none;
 }
 @keyframes game-over-winner-gold-shine {
-  0%, 100% { background-position: 0% 40%; filter: drop-shadow(0 1px 0 rgba(120, 53, 15, 0.55)) drop-shadow(0 0 16px rgba(251, 191, 36, 0.45)); }
-  50% { background-position: 0% 85%; filter: drop-shadow(0 1px 0 rgba(120, 53, 15, 0.55)) drop-shadow(0 0 24px rgba(252, 211, 77, 0.65)); }
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@keyframes game-over-winner-name-breathe {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.014);
+    filter: brightness(1.07);
+  }
 }
 .game-over-root--celebration-mobile .game-over-hero__super.game-over-hero__super--crystal {
   color: #d433e7f7;
