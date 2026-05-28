@@ -18531,6 +18531,821 @@ body.deal-results-modal-open-mobile {
   overflow: hidden !important;
 }
 
+/* Мобильная модалка: подписи раздач (№, Б, Т) — сразу, без отложенной отрисовки (Android Chrome) */
+.deal-results-modal-overlay-mobile .deal-results-table-body-scroll-pc--mobile-modal {
+  contain: none !important;
+  overflow-anchor: none;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc tbody tr {
+  content-visibility: visible !important;
+  contain: none !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc tbody tr,
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc tbody td.deal-results-mobile-deal-label-cell {
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  content-visibility: visible !important;
+  contain: none !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-body-pc tbody td.deal-results-mobile-deal-label-cell {
+  isolation: isolate;
+}
+.deal-results-modal-overlay-mobile .deal-results-mobile-deal-label {
+  display: inline-block !important;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  opacity: 1 !important;
+  visibility: visible !important;
+  animation: none !important;
+  transition: none !important;
+  contain: paint !important;
+  font-family: "Segoe UI Variable Text", "Segoe UI", "Inter", system-ui, sans-serif !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" 1, "lnum" 1 !important;
+  color: #cbd5e1 !important;
+  text-shadow: 0 1px 0 rgba(15, 23, 42, 0.38), 0 0 6px rgba(229, 231, 235, 0.34) !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Док итогов: не обрезать свечение под «Итог» / «Выигрыш» */
+.deal-results-sticky-totals-dock {
+  overflow: visible;
+}
+
+/* Подпись «Выигрыш» — как «Итог»: полная ширина + радиальное свечение отдельным слоем */
+.deal-results-sticky-payout-caption {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 36px;
+  margin-top: 4px;
+  margin-bottom: 6px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  border-radius: 16px;
+  overflow: visible;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+.deal-results-sticky-payout-caption__glow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 16px;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 96% 150% at 50% 48%,
+    rgb(20 30 18 / 0.98),
+    rgb(2 6 23 / 0.94) 55%,
+    rgb(2 6 23 / 0)
+  );
+}
+
+/* Блок «Выигрыш» в доке: занавеска, пока в истории < 28 раздач (предварительный расчёт) */
+.deal-results-sticky-payout-wrap--provisional {
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  border-radius: 0;
+  overflow: hidden;
+  width: 100%;
+  margin-top: 1.5px;
+  margin-bottom: 0;
+  padding-bottom: 8px;
+}
+/* Развёрнуто: строго внутри дока, без отрицательных margin (модалка overflow:hidden) */
+.deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--expanded {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  overflow: visible;
+  padding-bottom: 2px;
+}
+.deal-results-sticky-payout-wrap--expanded {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+.deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--help-open {
+  overflow: visible;
+}
+/* Верхняя граница-разделитель (единственная видимая линия) */
+.deal-results-sticky-payout-wrap--provisional::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 1.5px;
+  z-index: 51;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgb(49 46 129 / 0) 0%,
+    rgb(129 140 248 / 0.55) 12%,
+    rgb(167 139 250 / 0.95) 32%,
+    rgb(56 189 248 / 0.72) 50%,
+    rgb(167 139 250 / 0.95) 68%,
+    rgb(129 140 248 / 0.55) 88%,
+    rgb(49 46 129 / 0) 100%
+  );
+  box-shadow:
+    0 0 14px rgb(139 92 246 / 0.42),
+    0 1px 0 rgb(30 27 75 / 0.65);
+}
+.deal-results-sticky-payout-wrap--provisional::after {
+  content: '';
+  position: absolute;
+  top: 1.5px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  pointer-events: none;
+  border-radius: 0;
+  background-color: rgb(15 23 42 / 0.52);
+  background-image:
+    repeating-linear-gradient(
+      -32deg,
+      rgb(2 6 23 / 0) 0,
+      rgb(2 6 23 / 0) 9px,
+      rgb(129 140 248 / 0.07) 9px,
+      rgb(129 140 248 / 0.07) 10px
+    ),
+    linear-gradient(
+      168deg,
+      rgb(49 46 129 / 0.5) 0%,
+      rgb(30 27 75 / 0.62) 48%,
+      rgb(2 6 23 / 0.66) 100%
+    );
+  box-shadow: inset 0 12px 24px -8px rgb(30 27 75 / 0.4);
+}
+/* Развёрнуто: занавеска только на сетке цифр (не на «Выигрыш» / режим) */
+.deal-results-sticky-payout-wrap--provisional:not(.deal-results-sticky-payout-wrap--collapsed)::after {
+  display: none;
+}
+
+.deal-results-sticky-payout-body {
+  overflow: visible;
+  max-height: 160px;
+  opacity: 1;
+  transition:
+    max-height 0.52s cubic-bezier(0.33, 1, 0.38, 1),
+    opacity 0.38s ease;
+}
+.deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--expanded .deal-results-sticky-payout-body {
+  position: relative;
+  z-index: 51;
+  padding-top: 17px;
+}
+.deal-results-sticky-payout-wrap--expanded:not(.deal-results-sticky-payout-wrap--provisional) {
+  width: 100%;
+  overflow: visible;
+}
+/* Строка: [капсула + фон] | разделитель | [режим справа] */
+.deal-results-sticky-payout-win-row {
+  position: relative;
+  z-index: 53;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: flex-start;
+  padding: 0 10px 0;
+  margin: 6px 0 24px;
+  overflow: visible;
+  pointer-events: none;
+}
+.deal-results-sticky-payout-win-row-marquee {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: calc(100% - 5px);
+  transform: perspective(760px) rotateX(0deg) scaleY(0.96);
+  transform-origin: center center;
+  z-index: 57;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.deal-results-sticky-payout-win-row-marquee::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(140% 100% at 50% 50%, rgb(56 189 248 / 0.1) 0%, rgb(30 27 75 / 0.04) 52%, rgb(2 6 23 / 0) 86%),
+    linear-gradient(180deg, rgb(2 6 23 / 0.26) 0%, rgb(2 6 23 / 0.02) 26%, rgb(2 6 23 / 0.02) 74%, rgb(2 6 23 / 0.3) 100%),
+    repeating-linear-gradient(
+      180deg,
+      rgb(148 163 184 / 0.08) 0 1px,
+      rgb(15 23 42 / 0) 1px 3px
+    );
+  mix-blend-mode: screen;
+}
+.deal-results-sticky-payout-win-row-marquee::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  z-index: 2;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 rgb(56 189 248 / 0.1), inset 0 -1px 0 rgb(15 23 42 / 0.48), 0 0 10px rgb(56 189 248 / 0.14);
+}
+.deal-results-sticky-payout-caption--in-row {
+  position: relative;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: auto;
+  min-width: 116px;
+  min-height: 36px;
+  margin: 0;
+  padding: 2px 12px;
+  overflow: visible;
+  z-index: 55;
+}
+.deal-results-sticky-payout-caption--in-row .deal-results-sticky-payout-caption__glow {
+  inset: 0;
+  border-radius: 16px;
+  z-index: -1;
+}
+.deal-results-sticky-payout-caption__ghost-marquee {
+  position: relative;
+  display: inline-block;
+  min-width: max-content;
+  white-space: nowrap;
+  font-size: 27.1px;
+  line-height: 1;
+  font-weight: 900;
+  font-family: "Orbitron", "Rajdhani", "Exo 2", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image:
+    repeating-linear-gradient(
+      100deg,
+      rgb(13 148 136) 0 8%,
+      rgb(20 83 45) 8% 16%,
+      rgb(29 78 216) 16% 24%,
+      rgb(255 45 160) 24% 32%,
+      rgb(67 56 202) 32% 40%,
+      rgb(124 58 237) 40% 48%,
+      rgb(236 72 153) 48% 56%,
+      rgb(8 145 178) 56% 64%,
+      rgb(147 51 234) 64% 72%,
+      rgb(14 116 144) 72% 80%,
+      rgb(37 99 235) 80% 88%,
+      rgb(21 128 61) 88% 96%
+    );
+  background-size: 460% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: none;
+  -webkit-mask-image: radial-gradient(ellipse 115% 88% at 50% 50%, #000 38%, rgb(0 0 0 / 0.42) 100%);
+  mask-image: radial-gradient(ellipse 115% 88% at 50% 50%, #000 38%, rgb(0 0 0 / 0.42) 100%);
+  filter:
+    drop-shadow(0 1px 0 rgb(15 23 42 / 0.55))
+    drop-shadow(0 -1px 0 rgb(56 189 248 / 0.12))
+    drop-shadow(0 0 8px rgb(99 102 241 / 0.26))
+    saturate(0.92)
+    contrast(1.02);
+  opacity: 0.82;
+  will-change: transform;
+  animation:
+    deal-results-payout-ghost-marquee 18.5s linear infinite,
+    deal-results-user-number-iridescent-shift 14s linear infinite;
+  transform: scaleY(0.93);
+  transform-origin: center center;
+}
+.deal-results-sticky-payout-caption__ghost-marquee--finished {
+  background-image: linear-gradient(
+    100deg,
+    rgb(34 197 94) 0%,
+    rgb(74 222 128) 10%,
+    rgb(34 197 94) 20%,
+    rgb(109 40 217) 20%,
+    rgb(167 139 250) 30%,
+    rgb(147 51 234) 40%,
+    rgb(49 46 129) 40%,
+    rgb(67 56 202) 50%,
+    rgb(37 99 235) 60%,
+    rgb(251 146 60) 60%,
+    rgb(255 45 160) 70%,
+    rgb(244 63 94) 80%,
+    rgb(252 211 77) 80%,
+    rgb(180 83 9) 90%,
+    rgb(120 53 15) 100%
+  );
+  background-size: 500% 100%;
+  animation:
+    deal-results-payout-finished-iridescent 32s linear infinite,
+    deal-results-payout-finished-pulse 2.8s ease-in-out infinite;
+}
+.deal-results-modal-overlay-mobile .deal-results-sticky-payout-wrap--party-finished .deal-results-sticky-payout-win-row {
+  margin-bottom: 20px;
+}
+.deal-results-modal-overlay-mobile .deal-results-sticky-payout-wrap--party-finished .deal-results-sticky-payout-values {
+  margin-top: 4px;
+}
+.deal-results-sticky-payout-win-row-marquee--finished {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  perspective: 520px;
+  transform: perspective(520px) rotateX(5deg);
+  transform-origin: center center;
+}
+.deal-results-sticky-payout-caption__ghost-marquee--spread {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding-inline: 8px;
+  text-align: center;
+  letter-spacing: 0.56em;
+  text-indent: 0.28em;
+  font-size: clamp(23px, 5.1vw, 29px);
+  font-family: "Arial Black", "Impact", "Orbitron", "Rajdhani", "Exo 2", system-ui, sans-serif;
+  font-weight: 900;
+  font-stretch: expanded;
+  -webkit-text-stroke: 0.45px rgb(56 189 248 / 0.38);
+  transform: scaleY(0.9) scaleX(1.06);
+  transform-origin: center center;
+  -webkit-mask-image: radial-gradient(ellipse 92% 72% at 50% 50%, #000 28%, rgb(0 0 0 / 0.34) 100%);
+  mask-image: radial-gradient(ellipse 92% 72% at 50% 50%, #000 28%, rgb(0 0 0 / 0.34) 100%);
+}
+.deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--expanded
+  .deal-results-sticky-payout-values {
+  margin-top: 14px;
+}
+@keyframes deal-results-payout-ghost-marquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+@keyframes deal-results-payout-finished-iridescent {
+  0%,
+  17% {
+    background-position: 0% 50%;
+  }
+  18%,
+  42% {
+    background-position: 25% 50%;
+  }
+  43%,
+  70% {
+    background-position: 50% 50%;
+  }
+  71%,
+  85% {
+    background-position: 75% 50%;
+  }
+  86%,
+  100% {
+    background-position: 100% 50%;
+  }
+}
+@keyframes deal-results-payout-finished-pulse {
+  0%,
+  100% {
+    opacity: 0.76;
+    filter:
+      drop-shadow(0 1px 0 rgb(15 23 42 / 0.55))
+      drop-shadow(0 0 8px rgb(99 102 241 / 0.22))
+      saturate(0.94)
+      contrast(1);
+  }
+  50% {
+    opacity: 1;
+    filter:
+      drop-shadow(0 1px 0 rgb(15 23 42 / 0.55))
+      drop-shadow(0 -1px 0 rgb(74 222 128 / 0.24))
+      drop-shadow(0 0 14px rgb(56 189 248 / 0.42))
+      drop-shadow(0 0 18px rgb(147 51 234 / 0.34))
+      saturate(1.14)
+      contrast(1.08);
+  }
+}
+.deal-results-sticky-payout-win-controls {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  pointer-events: auto;
+  position: relative;
+  z-index: 56;
+}
+.deal-results-sticky-payout-win-controls .deal-results-sticky-payout-veil-help {
+  left: auto;
+  right: 0;
+}
+.deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed {
+  min-height: 28px;
+  margin-left: -9px;
+  margin-right: -9px;
+  width: calc(100% + 18px);
+  margin-bottom: -2px;
+  padding-bottom: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed .deal-results-sticky-payout-body {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed::before {
+  top: 0;
+  height: 4px;
+  box-shadow:
+    0 0 16px rgb(139 92 246 / 0.48),
+    0 1px 0 rgb(30 27 75 / 0.72);
+}
+.deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed::after {
+  top: 0;
+  opacity: 0.72;
+}
+.deal-results-sticky-payout-collapsed-hint {
+  position: relative;
+  z-index: 52;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 10px 5px;
+  pointer-events: none;
+}
+.deal-results-sticky-payout-collapsed-hint__label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(253 224 71 / 0.92);
+  text-shadow: 0 0 10px rgb(251 191 36 / 0.38);
+}
+.deal-results-sticky-payout-collapsed-hint__label--iridescent {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image:
+    repeating-linear-gradient(100deg, rgb(45 212 191) 0 8%, rgb(20 184 166) 8% 16%, rgb(56 189 248) 16% 24%, rgb(14 165 233) 24% 32%, rgb(163 255 72) 32% 40%, rgb(59 130 246) 40% 48%, rgb(99 102 241) 48% 56%, rgb(147 51 234) 56% 64%, rgb(192 132 252) 64% 72%, rgb(168 85 247) 72% 80%, rgb(16 185 129) 80% 88%, rgb(34 211 238) 88% 96%);
+  background-size: 460% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: deal-results-user-number-iridescent-shift 14s linear infinite;
+  text-shadow: none;
+}
+.deal-results-sticky-payout-collapsed-hint__chev {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 900;
+  color: rgb(196 181 253 / 0.98);
+  text-shadow: 0 0 12px rgb(167 139 250 / 0.72), 0 0 20px rgb(56 189 248 / 0.42);
+  transform: translateY(0);
+}
+.deal-results-sticky-payout-veil-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  z-index: 52;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  padding: 0 10px;
+  pointer-events: none;
+  text-align: center;
+}
+.deal-results-sticky-payout-veil-caption__main {
+  display: block;
+  width: 100%;
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  line-height: 1.25;
+  text-transform: uppercase;
+  color: rgb(196 181 253 / 0.96);
+  text-shadow:
+    0 0 12px rgb(167 139 250 / 0.55),
+    0 1px 0 rgb(15 23 42 / 0.65);
+}
+.deal-results-sticky-payout-veil-caption__main--iridescent {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  background-image:
+    repeating-linear-gradient(100deg, rgb(45 212 191) 0 8%, rgb(20 184 166) 8% 16%, rgb(56 189 248) 16% 24%, rgb(14 165 233) 24% 32%, rgb(163 255 72) 32% 40%, rgb(59 130 246) 40% 48%, rgb(99 102 241) 48% 56%, rgb(147 51 234) 56% 64%, rgb(192 132 252) 64% 72%, rgb(168 85 247) 72% 80%, rgb(16 185 129) 80% 88%, rgb(34 211 238) 88% 96%);
+  background-size: 460% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: deal-results-user-number-iridescent-shift 14s linear infinite;
+  filter: drop-shadow(0 0 8px rgb(167 139 250 / 0.42));
+}
+.deal-results-sticky-payout-veil-caption__sep {
+  display: block;
+  width: min(72%, 168px);
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgb(49 46 129 / 0) 0%,
+    rgb(167 139 250 / 0.75) 50%,
+    rgb(49 46 129 / 0) 100%
+  );
+  box-shadow: 0 0 8px rgb(139 92 246 / 0.35);
+}
+.deal-results-sticky-payout-veil-caption__mode {
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  color: rgb(253 224 71 / 0.96);
+  text-shadow: 0 0 10px rgb(251 191 36 / 0.42);
+}
+.deal-results-sticky-payout-veil-caption__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  align-self: stretch;
+}
+.deal-results-sticky-payout-veil-caption__header .deal-results-sticky-payout-veil-caption__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+}
+.deal-results-sticky-payout-veil-caption__header .deal-results-sticky-payout-collapse-btn {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.deal-results-sticky-payout-veil-caption__mode-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid rgba(56, 189, 248, 0.52);
+  border-radius: 999px;
+  background: linear-gradient(
+    165deg,
+    rgba(30, 64, 175, 0.88) 0%,
+    rgba(49, 46, 129, 0.94) 42%,
+    rgba(30, 27, 75, 0.92) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(186, 230, 253, 0.22),
+    0 0 12px rgba(56, 189, 248, 0.28),
+    0 0 8px rgba(139, 92, 246, 0.22);
+  font: inherit;
+  line-height: 1;
+  padding: 4px 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.deal-results-sticky-payout-mode-btn__label {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(
+    100deg,
+    rgb(254 240 138) 0%,
+    rgb(251 191 36) 34%,
+    rgb(249 115 22) 66%,
+    rgb(252 211 77) 100%
+  );
+  background-size: 280% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: deal-results-user-number-iridescent-shift 10.5s linear infinite;
+}
+.deal-results-sticky-payout-veil-caption__help-btn {
+  pointer-events: auto;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(167, 139, 250, 0.72);
+  background: linear-gradient(180deg, rgb(30 27 75 / 0.94) 0%, rgb(49 46 129 / 0.92) 100%);
+  color: rgb(216 180 254 / 0.98);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 8px rgb(139 92 246 / 0.36), inset 0 1px 0 rgb(196 181 253 / 0.2);
+}
+.deal-results-sticky-payout-veil-help {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(100% + 10px);
+  margin-top: 0;
+  max-width: min(88vw, 340px);
+  pointer-events: auto;
+  border-radius: 10px;
+  border: 1px solid rgb(167 139 250 / 0.5);
+  background: linear-gradient(180deg, rgb(15 23 42 / 0.96) 0%, rgb(30 27 75 / 0.94) 100%);
+  box-shadow: 0 6px 20px rgb(2 6 23 / 0.5), 0 0 16px rgb(139 92 246 / 0.2);
+  padding: 8px 10px;
+  z-index: 80;
+}
+.deal-results-sticky-payout-veil-help__text {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.34;
+  color: rgb(226 232 240 / 0.95);
+}
+.deal-results-sticky-payout-veil-help__ok {
+  margin-top: 7px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgb(125 211 252 / 0.54);
+  background: linear-gradient(180deg, rgb(30 64 175 / 0.85) 0%, rgb(30 58 138 / 0.85) 100%);
+  color: rgb(186 230 253);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.deal-results-sticky-payout-collapse-btn {
+  position: static;
+  z-index: 1;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  pointer-events: auto;
+  border: none;
+  border-radius: 0;
+  padding: 2px 2px 2px 4px;
+  min-height: 0;
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.deal-results-sticky-payout-collapse-btn__chev {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  color: rgb(56 189 248 / 0.95);
+  text-shadow: 0 0 10px rgb(56 189 248 / 0.55);
+  transform: translateY(-0.5px);
+}
+.deal-results-sticky-payout-collapse-btn__label {
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: rgb(186 230 253 / 0.92);
+  text-decoration: underline;
+  text-decoration-color: rgb(56 189 248 / 0.42);
+  text-underline-offset: 2px;
+  text-shadow: 0 0 10px rgb(56 189 248 / 0.35);
+}
+/* Пульс яркости: плавное «дыхание» только у цифр, ячейки статичны */
+.deal-results-sticky-payout-wrap--provisional:not(.deal-results-sticky-payout-wrap--collapsed)
+  .deal-results-sticky-payout-values__cell {
+  filter: none !important;
+  transition: none !important;
+  opacity: 1 !important;
+}
+.deal-results-sticky-payout-values__digit {
+  transform-origin: center center;
+}
+/* Цифры: тускло ↔ как после 28 раздач (цвета только в CSS, без keyframes) */
+.deal-results-sticky-payout-values__digit--veil-pulse.deal-results-sticky-payout-values__digit--pos {
+  color: #b45309;
+  -webkit-text-fill-color: #b45309;
+  text-shadow: 0 0 6px rgb(251 191 36 / 0.22);
+  transition:
+    color 0.7s cubic-bezier(0.55, 0, 0.95, 0.2),
+    -webkit-text-fill-color 0.7s cubic-bezier(0.55, 0, 0.95, 0.2),
+    text-shadow 0.7s cubic-bezier(0.55, 0, 0.95, 0.2);
+}
+.deal-results-sticky-payout-values__digit--veil-pulse.deal-results-sticky-payout-values__digit--pos.deal-results-sticky-payout-values__digit--pulse-bright {
+  color: #fde047;
+  -webkit-text-fill-color: #fde047;
+  text-shadow: 0 0 9px rgb(251 191 36 / 0.62), 0 0 18px rgb(251 191 36 / 0.62);
+  transition:
+    color 4s cubic-bezier(0.22, 0.61, 0.36, 1),
+    -webkit-text-fill-color 4s cubic-bezier(0.22, 0.61, 0.36, 1),
+    text-shadow 4s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+/* Лидер по фишкам: зелёно-золотистые цифры (пульс и итог после 28 раздач) */
+.deal-results-sticky-payout-values__digit--chip-leader.deal-results-sticky-payout-values__digit--veil-pulse.deal-results-sticky-payout-values__digit--pos {
+  color: #4d7c0f;
+  -webkit-text-fill-color: #4d7c0f;
+  text-shadow: 0 0 7px rgb(74 222 128 / 0.3), 0 0 9px rgb(250 204 21 / 0.22);
+}
+.deal-results-sticky-payout-values__digit--chip-leader.deal-results-sticky-payout-values__digit--veil-pulse.deal-results-sticky-payout-values__digit--pos.deal-results-sticky-payout-values__digit--pulse-bright {
+  color: #ecfccb;
+  -webkit-text-fill-color: #ecfccb;
+  text-shadow: 0 0 10px rgb(74 222 128 / 0.72), 0 0 18px rgb(250 204 21 / 0.55);
+}
+.deal-results-sticky-payout-values__digit--chip-leader:not(.deal-results-sticky-payout-values__digit--veil-pulse) {
+  color: #a3e635;
+  -webkit-text-fill-color: #a3e635;
+  text-shadow: 0 0 10px rgb(74 222 128 / 0.52), 0 0 16px rgb(250 204 21 / 0.38);
+}
+.deal-results-sticky-payout-wrap--provisional:not(.deal-results-sticky-payout-wrap--collapsed)
+  .deal-results-sticky-payout-values__cell:has(.deal-results-sticky-payout-values__digit--chip-leader) {
+  border-color: rgba(74, 222, 128, 0.42) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(220, 252, 231, 0.16),
+    0 0 10px rgba(74, 222, 128, 0.22),
+    0 0 8px rgba(250, 204, 21, 0.14) !important;
+}
+.deal-results-sticky-payout-values__digit--veil-pulse.deal-results-sticky-payout-values__digit--neg {
+  color: #9f1239;
+  -webkit-text-fill-color: #9f1239;
+  text-shadow: 0 0 6px rgb(248 113 113 / 0.2);
+  transition:
+    color 0.7s cubic-bezier(0.55, 0, 0.95, 0.2),
+    -webkit-text-fill-color 0.7s cubic-bezier(0.55, 0, 0.95, 0.2),
+    text-shadow 0.7s cubic-bezier(0.55, 0, 0.95, 0.2);
+}
+.deal-results-sticky-payout-values__digit--veil-pulse.deal-results-sticky-payout-values__digit--neg.deal-results-sticky-payout-values__digit--pulse-bright {
+  color: #fda4af;
+  -webkit-text-fill-color: #fda4af;
+  text-shadow: 0 0 9px rgb(248 113 113 / 0.58), 0 0 18px rgb(248 113 113 / 0.58);
+  transition:
+    color 4s cubic-bezier(0.22, 0.61, 0.36, 1),
+    -webkit-text-fill-color 4s cubic-bezier(0.22, 0.61, 0.36, 1),
+    text-shadow 4s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.deal-results-sticky-payout-values__digit--veil-pulse.deal-results-sticky-payout-values__digit--zero {
+  color: #64748b;
+  -webkit-text-fill-color: #64748b;
+  text-shadow: none;
+  transition:
+    color 0.7s cubic-bezier(0.55, 0, 0.95, 0.2),
+    -webkit-text-fill-color 0.7s cubic-bezier(0.55, 0, 0.95, 0.2),
+    text-shadow 0.7s cubic-bezier(0.55, 0, 0.95, 0.2);
+}
+.deal-results-sticky-payout-values__digit--veil-pulse.deal-results-sticky-payout-values__digit--zero.deal-results-sticky-payout-values__digit--pulse-bright {
+  color: #cbd5e1;
+  -webkit-text-fill-color: #cbd5e1;
+  text-shadow: 0 0 8px rgb(148 163 184 / 0.35);
+  transition:
+    color 4s cubic-bezier(0.22, 0.61, 0.36, 1),
+    -webkit-text-fill-color 4s cubic-bezier(0.22, 0.61, 0.36, 1),
+    text-shadow 4s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .deal-results-sticky-payout-caption__ghost-marquee {
+    animation: none !important;
+    transform: translate3d(0, 0, 0) !important;
+  }
+  .deal-results-sticky-payout-values__digit--veil-pulse {
+    transition: none !important;
+  }
+}
+
 /* В мобильной модалке у всех элементов убираем полосу прокрутки — только пальцевая прокрутка */
 .deal-results-modal-overlay-mobile,
 .deal-results-modal-overlay-mobile * {
@@ -21449,6 +22264,62 @@ body.deal-results-modal-open-mobile {
 .game-over-root--celebration-mobile .game-over-celebration-mini .game-over-num--minus {
   color: rgb(252 165 165 / 90%);
   text-shadow: 0 0 8px rgba(248, 113, 113, 0.2);
+}
+/* Моб. праздник: цифры победителя (очки + фишки) — чуть крупнее и ярче остальных */
+.game-over-root--celebration-mobile
+  .game-over-celebration-mini__row--tier0
+  td.game-over-celebration-mini__score,
+.game-over-root--celebration-mobile
+  .game-over-celebration-mini__row--tier0
+  td.game-over-celebration-mini__chips {
+  font-size: 0.96rem !important;
+  font-weight: 850 !important;
+  color: #fff8dc !important;
+  text-shadow:
+    0 0 14px rgba(251, 191, 36, 0.62),
+    0 0 6px rgba(255, 255, 255, 0.38),
+    0 1px 0 rgba(120, 53, 15, 0.35) !important;
+}
+.game-over-root--celebration-mobile
+  .game-over-celebration-mini__row--tier0
+  td.game-over-celebration-mini__chips.game-over-num--plus {
+  color: #d9ff6a !important;
+  text-shadow:
+    0 0 12px rgba(163, 230, 53, 0.55),
+    0 0 6px rgba(255, 255, 255, 0.28) !important;
+}
+.game-over-root--celebration-mobile
+  .game-over-celebration-mini__row--tier0
+  td.game-over-celebration-mini__chips.game-over-num--minus {
+  color: #ffb4c8 !important;
+  text-shadow:
+    0 0 12px rgba(244, 114, 182, 0.45),
+    0 0 6px rgba(255, 255, 255, 0.22) !important;
+}
+.game-over-root--celebration-mobile
+  .game-over-celebration-mini__row--winners-split
+  .game-over-celebration-mini__winner-pane-score,
+.game-over-root--celebration-mobile
+  .game-over-celebration-mini__row--winners-split
+  .game-over-celebration-mini__winner-pane-chips {
+  font-size: 1.02em !important;
+  font-weight: 850 !important;
+  color: #fff8dc !important;
+  text-shadow:
+    0 0 12px rgba(251, 191, 36, 0.58),
+    0 0 5px rgba(255, 255, 255, 0.32) !important;
+}
+.game-over-root--celebration-mobile
+  .game-over-celebration-mini__row--winners-split
+  .game-over-celebration-mini__winner-pane-chips.game-over-num--plus {
+  color: #d9ff6a !important;
+  text-shadow: 0 0 10px rgba(163, 230, 53, 0.5) !important;
+}
+.game-over-root--celebration-mobile
+  .game-over-celebration-mini__row--winners-split
+  .game-over-celebration-mini__winner-pane-chips.game-over-num--minus {
+  color: #ffb4c8 !important;
+  text-shadow: 0 0 10px rgba(244, 114, 182, 0.42) !important;
 }
 .game-over-root--celebration-mobile .game-over-celebration__more {
   margin-bottom: 10px;

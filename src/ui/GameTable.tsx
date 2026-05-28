@@ -41,14 +41,16 @@ import { AiDifficultyControl, HeaderRoomExitIcon } from './AiDifficultyControl';
 import { getTrickWinner } from '../game/rules';
 import { getCanonicalIndexForDisplay, rotateStateForPlayer } from '../game/rotateState';
 import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
+import { SETTLEMENT_MODE_LABELS } from '../game/partySettlement';
 import {
   chipColor,
   DealResultsChipToggle,
   settlementFootnote,
   usePartySettlement,
   useResultsChipView,
+  cycleResultsChipView,
+  RESULTS_CHIP_MODE_HELP,
 } from './DealResultsSettlement';
-import { SETTLEMENT_MODE_LABELS } from '../game/partySettlement';
 import { CosmicCockpit, CosmicGlassButton, CosmicGlassClose, type GameOverCloudSave } from './CosmicCockpit';
 import {
   BridgeAccuracyDeck,
@@ -1485,6 +1487,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const [dealResultsExpanded, setDealResultsExpanded] = useState(false);
   const dealResultsExpandedRef = useRef(dealResultsExpanded);
   dealResultsExpandedRef.current = dealResultsExpanded;
+  /** Моб. модалка: один раз за партию показать «Выигрыш», затем по умолчанию свёрнут. */
+  const mobileDealResultsPayoutPeekDoneRef = useRef(false);
   const [lastDealResultsSnapshot, setLastDealResultsSnapshot] = useState<GameState | null>(null);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -3162,6 +3166,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     setShowGameOverModal(false);
     setGameOverCloudSave('none');
   }, [gameId, isOnline, isWaitingInRoom, online.onlineHydratedFromStorage]);
+
+  useEffect(() => {
+    mobileDealResultsPayoutPeekDoneRef.current = false;
+  }, [gameId]);
 
   useEffect(() => {
     if (isOnline || isWaitingInRoom) return;
@@ -8506,7 +8514,16 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               flexDirection: isMobile ? 'column' : undefined,
               minHeight: 0,
             }}>
-              <DealResultsScreen state={lastDealResultsSnapshot} variant="modal" isMobile={isMobile} onClose={forceCloseDealResultsModal} />
+              <DealResultsScreen
+                state={lastDealResultsSnapshot}
+                variant="modal"
+                isMobile={isMobile}
+                onClose={forceCloseDealResultsModal}
+                mobilePayoutPeekOnOpen={isMobile && !mobileDealResultsPayoutPeekDoneRef.current}
+                onMobilePayoutPeekComplete={() => {
+                  mobileDealResultsPayoutPeekDoneRef.current = true;
+                }}
+              />
             </div>
           </div>
         </div>,
@@ -9407,6 +9424,8 @@ const PLAYER_POSITIONS = [
   { idx: 3, side: 'right' as const, name: 'Восток' },
 ];
 
+const DEAL_RESULTS_MOBILE_PAYOUT_PEEK_MS = 2800;
+
 function DealResultsScreen({
   state,
   isCollapsing = false,
@@ -9416,6 +9435,9 @@ function DealResultsScreen({
   overlayAnimRef,
   /** Оверлей между раздачами: акцент сначала на «Очки» раздачи, затем на «Итого» (фаза схлопывания). */
   overlayAccentPhase,
+  /** Моб. модалка, партия не завершена: при первом открытии показать «Выигрыш», затем свернуть. */
+  mobilePayoutPeekOnOpen = false,
+  onMobilePayoutPeekComplete,
 }: {
   state: GameState;
   isCollapsing?: boolean;
@@ -9425,6 +9447,8 @@ function DealResultsScreen({
   /** Оверлей variant=overlay: ref на анимируемый корень (центр для вектора схлопывания к Σ). */
   overlayAnimRef?: Ref<HTMLDivElement>;
   overlayAccentPhase?: 'deal-points' | 'running-total';
+  mobilePayoutPeekOnOpen?: boolean;
+  onMobilePayoutPeekComplete?: () => void;
 }) {
   const [leaderBadgeTooltipOpen, setLeaderBadgeTooltipOpen] = useState(false);
   const [leaderBadgeTooltipPos, setLeaderBadgeTooltipPos] = useState<{ left: number; top: number; placement: 'above' | 'below'; arrowX: number } | null>(null);
@@ -9447,6 +9471,8 @@ function DealResultsScreen({
   const range = maxScore - minScore;
   const humanIdx = 0;
   const dealHistory = state.dealHistory || [];
+  /** Каждая завершённая раздача добавляет одну запись; 28 — полная партия (см. GameEngine). */
+  const isPartyFinished = dealHistory.length >= 28;
   const [chipView, setChipView] = useResultsChipView();
   const playerCount = players.length;
   const settlement = usePartySettlement(dealHistory, playerCount, chipView);
@@ -9456,12 +9482,209 @@ function DealResultsScreen({
   const isChipLeader = (idx: number) => settlement.chipWinnerIndices.includes(idx);
   const _sorted = [...players].map((p, i) => ({ ...p, idx: i })).sort((a, b) => b.score - a.score);
   const compactModal = variant === 'modal' && isMobile;
+  const mobilePayoutPeekEligible =
+    compactModal && showSettlementRow && !isPartyFinished && mobilePayoutPeekOnOpen;
+  const mobilePayoutCollapseEligible = compactModal && showSettlementRow && !isPartyFinished;
+  const [mobilePayoutDockCollapsed, setMobilePayoutDockCollapsed] = useState(
+    () => mobilePayoutCollapseEligible && !mobilePayoutPeekEligible,
+  );
+  const [mobilePayoutModeHelpOpen, setMobilePayoutModeHelpOpen] = useState(false);
+  const [veilPayoutPulseBright, setVeilPayoutPulseBright] = useState(false);
+  const mobileStickyDockRef = useRef<HTMLDivElement>(null);
+  const mobileBodyScrollRef = useRef<HTMLDivElement>(null);
+  const [mobileScrollPadPx, setMobileScrollPadPx] = useState(DEAL_RESULTS_MOBILE_STICKY_TOTALS_BOTTOM_PAD_PX);
   const panelStyle = compactModal ? { ...dealResultsPanelStyle, ...dealResultsPanelStyleMobile } : dealResultsPanelStyle;
   const panelTitleStyle = compactModal ? { ...dealResultsPanelTitleStyle, ...dealResultsPanelTitleStyleMobile } : dealResultsPanelTitleStyle;
   const rowStyle = compactModal ? { ...dealResultsRowStyle, ...dealResultsRowStyleMobile } : dealResultsRowStyle;
   useEffect(() => {
     if (compactModal) setMobileScrollHintVisible(true);
   }, [compactModal]);
+  useEffect(() => {
+    if (!mobilePayoutPeekEligible) return;
+    setMobilePayoutDockCollapsed(false);
+    const t = window.setTimeout(() => {
+      setMobilePayoutDockCollapsed(true);
+      onMobilePayoutPeekComplete?.();
+    }, DEAL_RESULTS_MOBILE_PAYOUT_PEEK_MS);
+    return () => window.clearTimeout(t);
+  }, [mobilePayoutPeekEligible, onMobilePayoutPeekComplete]);
+  useEffect(() => {
+    if (isPartyFinished) setMobilePayoutDockCollapsed(false);
+  }, [isPartyFinished]);
+  useEffect(() => {
+    if (mobilePayoutDockCollapsed) setMobilePayoutModeHelpOpen(false);
+  }, [mobilePayoutDockCollapsed]);
+  useEffect(() => {
+    if (!mobilePayoutCollapseEligible || mobilePayoutDockCollapsed) {
+      setVeilPayoutPulseBright(false);
+      return;
+    }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setVeilPayoutPulseBright(false);
+      return;
+    }
+    const CYCLE_MS = 12_000;
+    const RISE_START_MS = 80;
+    const RISE_DURATION_MS = 4_000;
+    const PEAK_HOLD_MS = 300;
+    const BRIGHT_END_MS = RISE_START_MS + RISE_DURATION_MS + PEAK_HOLD_MS;
+    const timers: ReturnType<typeof window.setTimeout>[] = [];
+    const runCycle = () => {
+      setVeilPayoutPulseBright(false);
+      timers.push(
+        window.setTimeout(() => {
+          setVeilPayoutPulseBright(true);
+        }, RISE_START_MS),
+      );
+      timers.push(
+        window.setTimeout(() => {
+          setVeilPayoutPulseBright(false);
+        }, BRIGHT_END_MS),
+      );
+    };
+    runCycle();
+    const interval = window.setInterval(runCycle, CYCLE_MS);
+    return () => {
+      window.clearInterval(interval);
+      timers.forEach((t) => window.clearTimeout(t));
+      setVeilPayoutPulseBright(false);
+    };
+  }, [mobilePayoutCollapseEligible, mobilePayoutDockCollapsed]);
+  const mobilePayoutModeLabel =
+    chipView === 'vs_average' || chipView === 'accuracy_bonus'
+      ? SETTLEMENT_MODE_LABELS[chipView]
+      : settlement.modeLabel;
+  const mobilePayoutDockUi = compactModal && showSettlementRow;
+  const mobilePayoutExpanded = mobilePayoutCollapseEligible && !mobilePayoutDockCollapsed;
+  const mobilePayoutUnderVeil = false;
+  const payoutGhostLabel = isPartyFinished ? 'ВЫИГРЫШ' : 'ПРЕДВАРИТЕЛЬНЫЙ РАСЧЕТ ВЫИГРЫША';
+  const payoutGhostMarqueeText = `\u00A0${payoutGhostLabel}\u00A0\u00A0`;
+  const renderMobileStickyPayoutCaption = () => (
+    <div className="deal-results-sticky-payout-caption deal-results-sticky-payout-caption--in-row" aria-hidden>
+      <span className="deal-results-sticky-payout-caption__glow" aria-hidden />
+      <span style={dealResultsStickyTotalsCaptionPayoutScanlineStyle} />
+      <span style={dealResultsStickyTotalsCaptionPayoutGlitchLimeStyle}>Выигрыш</span>
+      <span style={dealResultsStickyTotalsCaptionPayoutGlitchAmberStyle}>Выигрыш</span>
+      <span
+        style={{
+          ...dealResultsStickyTotalsCaptionPayoutMainStyle,
+          ...(isPartyFinished ? {} : dealResultsStickyTotalsCaptionPayoutMainStyleSoftDuringParty),
+        }}
+      >
+        <span
+          style={{
+            ...dealResultsStickyTotalsCaptionPayoutMainTextStyle,
+            ...(isPartyFinished ? {} : dealResultsStickyTotalsCaptionPayoutMainTextStyleSoftDuringParty),
+          }}
+        >
+          {'\u00A0'}Выигрыш
+        </span>
+      </span>
+    </div>
+  );
+  const mobileStickyPayoutValues = (
+    <div
+      className={
+        [
+          'deal-results-sticky-payout-values',
+          mobilePayoutUnderVeil && 'deal-results-sticky-payout-values--under-veil',
+        ]
+          .filter(Boolean)
+          .join(' ') || undefined
+      }
+      style={dealResultsStickyTotalsRowStyle}
+    >
+      {players.map((_, i) => {
+        const chips = chipForPlayer(i);
+        const chipWin = isChipLeader(i);
+        return (
+          <span
+            key={`sticky-chip-${i}`}
+            className="deal-results-sticky-payout-values__cell"
+            style={{
+              ...dealResultsStickyTotalsValueStyle,
+              ...dealResultsStickyTotalsValuePayoutShellMobileStyle,
+              ...(isPartyFinished
+                ? {}
+                : mobilePayoutExpanded
+                  ? dealResultsStickyTotalsValuePayoutShellMobileStyleVeilStatic
+                  : dealResultsStickyTotalsValuePayoutShellMobileStyleSoftDuringParty),
+              ...(chipWin ? dealResultsLeaderTotalValuePayoutStyleMobile : {}),
+            }}
+          >
+            <span
+              className={[
+                'deal-results-sticky-payout-values__digit',
+                mobilePayoutExpanded && !isPartyFinished ? 'deal-results-sticky-payout-values__digit--veil-pulse' : '',
+                mobilePayoutExpanded && !isPartyFinished && veilPayoutPulseBright
+                  ? 'deal-results-sticky-payout-values__digit--pulse-bright'
+                  : '',
+                chips > 0
+                  ? 'deal-results-sticky-payout-values__digit--pos'
+                  : chips < 0
+                    ? 'deal-results-sticky-payout-values__digit--neg'
+                    : 'deal-results-sticky-payout-values__digit--zero',
+                chipWin ? 'deal-results-sticky-payout-values__digit--chip-leader' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              style={getDealResultsPayoutDigitStyle(
+                chips,
+                chipWin,
+                isPartyFinished,
+                Boolean(mobilePayoutExpanded && !isPartyFinished),
+              )}
+            >
+              {chips >= 0 ? '+' : ''}
+              {chips}
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+  useLayoutEffect(() => {
+    if (!compactModal) return;
+    const dock = mobileStickyDockRef.current;
+    if (!dock) return;
+    const syncPad = () => {
+      const h = Math.ceil(dock.getBoundingClientRect().height);
+      if (h > 0) setMobileScrollPadPx((prev) => (Math.abs(prev - h) <= 1 ? prev : h));
+    };
+    syncPad();
+    const ro = new ResizeObserver(syncPad);
+    ro.observe(dock);
+    return () => ro.disconnect();
+  }, [
+    compactModal,
+    showSettlementRow,
+    chipView,
+    settlement.mode,
+    maxScore,
+    players.map((p) => p.score).join('|'),
+    mobilePayoutDockCollapsed,
+    isPartyFinished,
+    mobilePayoutModeHelpOpen,
+  ]);
+
+  /** Android Chrome: принудительная полная раскладка tbody (иначе Б/Т внизу «всплывают» при скролле). */
+  useLayoutEffect(() => {
+    if (!compactModal) return;
+    const el = mobileBodyScrollRef.current;
+    if (!el) return;
+    const warmScrollPaint = () => {
+      const prev = el.scrollTop;
+      const max = Math.max(0, el.scrollHeight - el.clientHeight);
+      if (max <= 0) return;
+      el.scrollTop = max;
+      el.scrollTop = prev;
+    };
+    warmScrollPaint();
+    requestAnimationFrame(() => {
+      warmScrollPaint();
+      requestAnimationFrame(warmScrollPaint);
+    });
+  }, [compactModal, mobileScrollPadPx, dealHistory.length]);
 
   const _renderPanel = (idx: number) => {
     const bid = bids[idx] ?? 0;
@@ -10341,9 +10564,6 @@ function DealResultsScreen({
               </div>
             </div>
           )}
-          {showSettlementRow && (
-            <DealResultsChipToggle chipView={chipView} onChange={setChipView} compact={isMobile} />
-          )}
         <div className={!isMobile ? 'deal-results-table-outer-pc' : undefined} style={isMobile ? dealResultsTableOuterMobileStyle : dealResultsTableOuterPCStyle}>
             <div className="deal-results-table-scroll-wrap" style={dealResultsTableScrollWrapStyle}>
               {!isMobile && <div className="deal-results-table-glow-top deal-results-table-glow-pc" style={dealResultsTableGlowPCStripInFlowStyle} aria-hidden />}
@@ -10536,8 +10756,13 @@ function DealResultsScreen({
                         </table>
                       </div>
                       <div
-                        className="deal-results-table-body-scroll-pc"
-                        style={dealResultsTableBodyScrollMobileStyle}
+                        ref={mobileBodyScrollRef}
+                        className="deal-results-table-body-scroll-pc deal-results-table-body-scroll-pc--mobile-modal"
+                        style={{
+                          ...dealResultsTableBodyScrollMobileStyle,
+                          paddingBottom: mobileScrollPadPx,
+                          scrollPaddingBottom: mobileScrollPadPx,
+                        }}
                         onScroll={() => {
                           if (mobileScrollHintVisible) setMobileScrollHintVisible(false);
                         }}
@@ -10559,6 +10784,7 @@ function DealResultsScreen({
                               return (
                                 <tr key={dealNum}>
                                   <td
+                                    className="deal-results-mobile-deal-label-cell"
                                     style={{
                                       ...dealResultsTableTdStyleMobile,
                                       ...dealResultsTableTdDealStyle,
@@ -10568,7 +10794,9 @@ function DealResultsScreen({
                                     }}
                                     title={getDealCellTitle(dealNum)}
                                   >
-                                    <span style={dealResultsMobileDealIndexTextStyle}>{getDealColumnLabel(rowIndex)}</span>
+                                    <span className="deal-results-mobile-deal-label" style={dealResultsMobileDealIndexTextStyle}>
+                                      {getDealColumnLabel(rowIndex)}
+                                    </span>
                                   </td>
                                   {row
                                     ? players.map((_, i) => {
@@ -10721,6 +10949,7 @@ function DealResultsScreen({
                       <div
                         style={{
                           ...dealResultsMobileScrollHintStyle,
+                          bottom: mobileScrollPadPx,
                           ...(mobileScrollHintVisible ? dealResultsMobileScrollHintVisibleStyle : dealResultsMobileScrollHintHiddenStyle),
                         }}
                         aria-hidden
@@ -10728,7 +10957,7 @@ function DealResultsScreen({
                         <span style={dealResultsMobileScrollHintArrowsStyle}>↕</span>
                         <span style={dealResultsMobileScrollHintTextStyle}>Прокрутка</span>
                       </div>
-                      <div style={dealResultsStickyTotalsDockStyle}>
+                      <div ref={mobileStickyDockRef} className="deal-results-sticky-totals-dock" style={dealResultsStickyTotalsDockStyle}>
                         <div style={dealResultsStickyTotalsCaptionStyle} aria-hidden>
                           <span style={dealResultsStickyTotalsCaptionScanlineStyle} />
                           <span style={dealResultsStickyTotalsCaptionGhostStyle}>{'\u00A0'}ИТОГ</span>
@@ -10766,33 +10995,160 @@ function DealResultsScreen({
                             );
                           })}
                         </div>
-                        {showSettlementRow && (
-                          <>
-                            <div style={{ ...dealResultsStickyTotalsCaptionStyle, marginTop: 6 }} aria-hidden>
-                              <span style={dealResultsStickyTotalsCaptionMainTextStyle}>Фишки</span>
+                        {mobilePayoutDockUi && (
+                          <div
+                            className={
+                              [
+                                'deal-results-sticky-payout-wrap',
+                                !isPartyFinished && 'deal-results-sticky-payout-wrap--provisional',
+                                mobilePayoutModeHelpOpen && 'deal-results-sticky-payout-wrap--help-open',
+                                mobilePayoutCollapseEligible &&
+                                  mobilePayoutDockCollapsed &&
+                                  'deal-results-sticky-payout-wrap--collapsed',
+                                (mobilePayoutExpanded || isPartyFinished) &&
+                                  'deal-results-sticky-payout-wrap--expanded',
+                                isPartyFinished && 'deal-results-sticky-payout-wrap--party-finished',
+                                mobilePayoutExpanded &&
+                                  veilPayoutPulseBright &&
+                                  'deal-results-sticky-payout-wrap--pulse-bright',
+                              ]
+                                .filter(Boolean)
+                                .join(' ') || undefined
+                            }
+                            data-payout-provisional={isPartyFinished ? undefined : '1'}
+                            role={mobilePayoutCollapseEligible && mobilePayoutDockCollapsed ? 'button' : undefined}
+                            tabIndex={mobilePayoutCollapseEligible && mobilePayoutDockCollapsed ? 0 : undefined}
+                            aria-expanded={mobilePayoutCollapseEligible ? !mobilePayoutDockCollapsed : undefined}
+                            aria-label={
+                              mobilePayoutCollapseEligible && mobilePayoutDockCollapsed
+                                ? 'Выигрыш: предварительный расчёт, развернуть'
+                                : undefined
+                            }
+                            onClick={
+                              mobilePayoutCollapseEligible && mobilePayoutDockCollapsed
+                                ? () => setMobilePayoutDockCollapsed(false)
+                                : undefined
+                            }
+                            onKeyDown={
+                              mobilePayoutCollapseEligible && mobilePayoutDockCollapsed
+                                ? (e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      setMobilePayoutDockCollapsed(false);
+                                    }
+                                  }
+                                : undefined
+                            }
+                          >
+                            {mobilePayoutCollapseEligible && mobilePayoutDockCollapsed ? (
+                              <div className="deal-results-sticky-payout-collapsed-hint" aria-hidden>
+                                <span className="deal-results-sticky-payout-collapsed-hint__label deal-results-sticky-payout-collapsed-hint__label--iridescent">
+                                  Выигрыш
+                                </span>
+                                <span className="deal-results-sticky-payout-collapsed-hint__chev" aria-hidden>
+                                  ▾
+                                </span>
+                              </div>
+                            ) : null}
+                            {mobilePayoutCollapseEligible && !mobilePayoutDockCollapsed ? (
+                              <>
+                                <div className="deal-results-sticky-payout-veil-caption">
+                                  <div className="deal-results-sticky-payout-veil-caption__header">
+                                    <button
+                                      type="button"
+                                      className="deal-results-sticky-payout-collapse-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setMobilePayoutModeHelpOpen(false);
+                                        setMobilePayoutDockCollapsed(true);
+                                      }}
+                                    >
+                                      <span className="deal-results-sticky-payout-collapse-btn__chev" aria-hidden>
+                                        ▴
+                                      </span>
+                                      <span className="deal-results-sticky-payout-collapse-btn__label">Свернуть</span>
+                                    </button>
+                                  </div>
+                                  <span className="deal-results-sticky-payout-veil-caption__sep" aria-hidden />
+                                </div>
+                              </>
+                            ) : null}
+                            <div className="deal-results-sticky-payout-body">
+                              <div className="deal-results-sticky-payout-win-row">
+                                <span
+                                  className={[
+                                    'deal-results-sticky-payout-win-row-marquee',
+                                    isPartyFinished && 'deal-results-sticky-payout-win-row-marquee--finished',
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                                  aria-hidden
+                                >
+                                  {isPartyFinished ? (
+                                    <span className="deal-results-sticky-payout-caption__ghost-marquee deal-results-sticky-payout-caption__ghost-marquee--finished deal-results-sticky-payout-caption__ghost-marquee--spread">
+                                      {payoutGhostLabel}
+                                    </span>
+                                  ) : (
+                                    <span className="deal-results-sticky-payout-caption__ghost-marquee">
+                                      {payoutGhostMarqueeText}
+                                      {payoutGhostMarqueeText}
+                                    </span>
+                                  )}
+                                </span>
+                                {renderMobileStickyPayoutCaption()}
+                                <div className="deal-results-sticky-payout-win-controls">
+                                    <button
+                                      type="button"
+                                      className="deal-results-sticky-payout-veil-caption__mode-btn"
+                                      aria-label={`Режим подсчёта: ${mobilePayoutModeLabel}. Нажмите, чтобы переключить`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setChipView(cycleResultsChipView(chipView));
+                                      }}
+                                    >
+                                      <span className="deal-results-sticky-payout-mode-btn__label">
+                                        {mobilePayoutModeLabel}
+                                      </span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="deal-results-sticky-payout-veil-caption__help-btn"
+                                      aria-label="Пояснение режимов подсчёта выигрыша"
+                                      aria-expanded={mobilePayoutModeHelpOpen}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setMobilePayoutModeHelpOpen((open) => !open);
+                                      }}
+                                    >
+                                      ?
+                                    </button>
+                                    {mobilePayoutModeHelpOpen ? (
+                                      <div
+                                        className="deal-results-sticky-payout-veil-help"
+                                        role="dialog"
+                                        aria-label="Пояснение режима"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <p className="deal-results-sticky-payout-veil-help__text">
+                                          {RESULTS_CHIP_MODE_HELP[chipView]}
+                                        </p>
+                                        <button
+                                          type="button"
+                                          className="deal-results-sticky-payout-veil-help__ok"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setMobilePayoutModeHelpOpen(false);
+                                          }}
+                                        >
+                                          Понятно
+                                        </button>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                              </div>
+                              {mobileStickyPayoutValues}
                             </div>
-                            <div style={dealResultsStickyTotalsRowStyle}>
-                              {players.map((_, i) => {
-                                const chips = chipForPlayer(i);
-                                const chipWin = isChipLeader(i);
-                                return (
-                                  <span
-                                    key={`sticky-chip-${i}`}
-                                    style={{
-                                      ...dealResultsStickyTotalsValueStyle,
-                                      ...dealResultsStickyTotalsValueShellMobileStyle,
-                                      color: chipColor(chips),
-                                      fontWeight: 700,
-                                      ...(chipWin ? dealResultsLeaderTotalValueStyleMobile : {}),
-                                    }}
-                                  >
-                                    {chips >= 0 ? '+' : ''}
-                                    {chips}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          </>
+                          </div>
                         )}
                       </div>
                       <div className="deal-results-table-glow-bottom" style={dealResultsTableGlowBottomStyleMobile} aria-hidden />
@@ -14891,16 +15247,12 @@ const dealResultsTableBodyScrollPCStyle: React.CSSProperties = {
   touchAction: 'pan-y',
   boxSizing: 'border-box',
 };
-/**
- * Отступ скролла совпадает с высотой дока «Итог» (слегка уплотнили паддинги/подпись).
- */
+/** Стартовый отступ скролла под док «Итог» до замера ResizeObserver. */
 const DEAL_RESULTS_MOBILE_STICKY_TOTALS_BOTTOM_PAD_PX = 102;
 
-/** Мобильная таблица: запас снизу под закреплённую плашку «Итог». */
+/** Мобильная таблица: padding-bottom задаётся по высоте дока (см. mobileScrollPadPx). */
 const dealResultsTableBodyScrollMobileStyle: React.CSSProperties = {
   ...dealResultsTableBodyScrollPCStyle,
-  /** Запас снизу под sticky-плашку «Итог» (скролл до последних строк без хвоста). */
-  paddingBottom: DEAL_RESULTS_MOBILE_STICKY_TOTALS_BOTTOM_PAD_PX,
 };
 const dealResultsMobileScrollHintStyle: React.CSSProperties = {
   position: 'absolute',
@@ -15287,6 +15639,10 @@ const dealResultsTableTdResultStyleMobile: React.CSSProperties = {
 const dealResultsMobileDealIndexTextStyle: React.CSSProperties = {
   fontWeight: 560,
   letterSpacing: '0.01em',
+  fontFamily: '"Segoe UI Variable Text", "Segoe UI", "Inter", system-ui, sans-serif',
+  fontVariantNumeric: 'tabular-nums',
+  fontFeatureSettings: '"tnum" 1, "lnum" 1',
+  WebkitFontSmoothing: 'antialiased',
 };
 const dealResultsMobileTableNumberTextStyle: React.CSSProperties = {
   fontWeight: 520,
@@ -15461,7 +15817,7 @@ const dealResultsStickyTotalsDockStyle: React.CSSProperties = {
   position: 'absolute',
   left: 1,
   right: 1,
-  bottom: 1,
+  bottom: 0,
   zIndex: 6,
   pointerEvents: 'none',
   padding: '10px 8px 8px',
@@ -15584,6 +15940,151 @@ const dealResultsStickyTotalsCaptionMainTextStyle: React.CSSProperties = {
   transform: 'translate3d(0, 1px, 0)',
   backfaceVisibility: 'hidden',
 };
+/** Глитч-блок «Выигрыш» (золото/изумруд) — тот же масштаб и заметность, что у «Итог». */
+const dealResultsStickyTotalsCaptionPayoutScanlineStyle: React.CSSProperties = {
+  ...dealResultsStickyTotalsCaptionScanlineStyle,
+  background:
+    'linear-gradient(90deg, rgba(250, 204, 21, 0) 0%, rgba(250, 204, 21, 0.72) 24%, rgba(74, 222, 128, 1) 50%, rgba(45, 212, 191, 0.45) 78%, rgba(45, 212, 191, 0) 100%)',
+  boxShadow: '0 0 14px rgba(250, 204, 21, 0.5), 0 0 22px rgba(74, 222, 128, 0.38)',
+};
+const dealResultsStickyTotalsCaptionPayoutGlitchLimeStyle: React.CSSProperties = {
+  ...dealResultsStickyTotalsCaptionGlitchCyanStyle,
+  color: 'rgba(74, 222, 128, 0.42)',
+  textShadow: '0 0 6px rgba(74, 222, 128, 0.32)',
+};
+const dealResultsStickyTotalsCaptionPayoutGlitchAmberStyle: React.CSSProperties = {
+  ...dealResultsStickyTotalsCaptionGlitchVioletStyle,
+  color: 'rgba(251, 191, 36, 0.9)',
+  textShadow: '0 0 10px rgba(251, 191, 36, 0.78)',
+};
+const dealResultsStickyTotalsCaptionPayoutMainStyle: React.CSSProperties = {
+  ...dealResultsStickyTotalsCaptionMainStyle,
+  fontSize: 12,
+  letterSpacing: '0.1em',
+  padding: '5px 10px 4px 11px',
+  borderRadius: 10,
+  border: '1px solid rgba(251, 191, 36, 0.74)',
+  background:
+    'linear-gradient(180deg, rgb(120 53 15 / 0.98) 0%, rgb(153 27 27 / 0.92) 40%, rgb(127 29 29 / 0.92) 100%)',
+  boxShadow:
+    'inset 0 1px 0 rgba(254, 243, 199 / 0.3), inset 0 -1px 0 rgb(127 29 29 / 0.48), 0 0 18px rgb(251 191 36 / 0.42), 0 0 10px rgb(248 113 113 / 0.28)',
+};
+const dealResultsStickyTotalsCaptionPayoutMainTextStyle: React.CSSProperties = {
+  display: 'inline-block',
+  backgroundImage:
+    'linear-gradient(100deg, rgb(254 240 138) 0%, rgb(251 191 36) 34%, rgb(249 115 22) 66%, rgb(252 211 77) 100%)',
+  WebkitBackgroundClip: 'text',
+  backgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+  backgroundSize: '100% 100%',
+  backgroundPosition: '0% 50%',
+  textShadow: 'none',
+  WebkitTextStroke: '0 transparent',
+  transform: 'translate3d(0, 1px, 0)',
+  backfaceVisibility: 'hidden',
+};
+const dealResultsStickyTotalsCaptionPayoutMainStyleSoftDuringParty: React.CSSProperties = {
+  borderColor: 'rgba(251, 191, 36, 0.62)',
+  boxShadow: 'inset 0 1px 0 rgba(254, 243, 199, 0.26), inset 0 -1px 0 rgb(127 29 29 / 0.38), 0 0 14px rgb(251 191 36 / 0.36)',
+  filter: 'saturate(0.92) brightness(0.96)',
+};
+const dealResultsStickyTotalsCaptionPayoutMainTextStyleSoftDuringParty: React.CSSProperties = {
+  opacity: 0.96,
+  backgroundSize: '210% 100%',
+};
+const dealResultsStickyTotalsValuePayoutShellMobileStyle: React.CSSProperties = {
+  color: 'transparent',
+  textShadow: 'none',
+  borderColor: 'rgba(251, 191, 36, 0.42)',
+  background: 'linear-gradient(165deg, rgba(120, 53, 15, 0.7) 0%, rgba(127, 29, 29, 0.48) 52%, rgba(124, 45, 18, 0.44) 100%)',
+  boxShadow: 'inset 0 1px 0 rgba(254, 243, 199, 0.14), 0 0 10px rgba(251, 191, 36, 0.2)',
+};
+const dealResultsStickyTotalsValuePayoutShellMobileStyleSoftDuringParty: React.CSSProperties = {
+  borderColor: 'rgba(251, 191, 36, 0.44)',
+  boxShadow: 'inset 0 1px 0 rgba(254, 243, 199, 0.2), 0 0 12px rgba(251, 191, 36, 0.28)',
+  filter: 'saturate(0.96) brightness(1.08)',
+};
+/** Ячейки под занавеской: без filter/transition — пульс только у цифр. */
+const dealResultsStickyTotalsValuePayoutShellMobileStyleVeilStatic: React.CSSProperties = {
+  borderColor: 'rgba(251, 191, 36, 0.34)',
+  boxShadow: 'inset 0 1px 0 rgba(254, 243, 199, 0.14), 0 0 8px rgba(251, 191, 36, 0.16)',
+  filter: 'none',
+};
+const dealResultsLeaderTotalValuePayoutStyleMobile: React.CSSProperties = {
+  borderColor: 'rgba(74, 222, 128, 0.52)',
+  background:
+    'linear-gradient(160deg, rgb(20 83 45 / 0.78) 0%, rgb(77 124 15 / 0.52) 48%, rgb(120 53 15 / 0.44) 100%)',
+  boxShadow:
+    'inset 0 1px 0 rgb(220 252 231 / 0.22), inset 0 -1px 0 rgb(20 83 45 / 0.42), 0 0 12px rgb(74 222 128 / 0.32), 0 0 10px rgb(250 204 21 / 0.24)',
+};
+function getDealResultsPayoutDigitStyle(
+  value: number,
+  isWinner: boolean,
+  isPartyFinished: boolean,
+  veilPulseCss = false,
+): React.CSSProperties {
+  const digitBase: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '25px',
+    height: '25px',
+    lineHeight: '17px',
+    fontFamily: '"JetBrains Mono", "Cascadia Code", "Segoe UI Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+    fontSize: '17px',
+    letterSpacing: '0.01em',
+    fontVariantNumeric: 'tabular-nums',
+    fontFeatureSettings: '"tnum" 1, "lnum" 1',
+    WebkitFontSmoothing: 'antialiased',
+    position: 'relative',
+    zIndex: 2,
+  };
+  if (veilPulseCss) {
+    return {
+      ...digitBase,
+      fontWeight: isWinner ? 900 : 780,
+    };
+  }
+  if (value === 0) {
+    return {
+      ...digitBase,
+      fontWeight: isWinner ? 860 : 760,
+      color: '#cbd5e1',
+      WebkitTextFillColor: '#cbd5e1',
+      textShadow: 'none',
+      opacity: isPartyFinished ? 1 : 0.94,
+    };
+  }
+  const positive = value > 0;
+  if (isWinner && positive) {
+    const color = isPartyFinished ? '#d9f99d' : '#a3e635';
+    const textShadow = isPartyFinished
+      ? '0 0 10px rgba(74, 222, 128, 0.68), 0 0 18px rgba(250, 204, 21, 0.52)'
+      : '0 0 10px rgba(74, 222, 128, 0.52), 0 0 18px rgba(250, 204, 21, 0.38), 0 1px 0 rgb(15 23 42 / 0.32)';
+    return {
+      ...digitBase,
+      fontWeight: 900,
+      color,
+      WebkitTextFillColor: color,
+      textShadow,
+      opacity: 1,
+    };
+  }
+  const color = positive ? (isPartyFinished ? '#fde047' : '#fde68a') : isPartyFinished ? '#fda4af' : '#fecaca';
+  const accent = positive
+    ? isPartyFinished ? 'rgba(251, 191, 36, 0.62)' : 'rgba(251, 191, 36, 0.52)'
+    : isPartyFinished ? 'rgba(248, 113, 113, 0.58)' : 'rgba(248, 113, 113, 0.48)';
+  return {
+    ...digitBase,
+    fontWeight: isWinner ? 900 : 780,
+    color,
+    WebkitTextFillColor: color,
+    textShadow: isPartyFinished
+      ? `0 0 9px ${accent}, 0 0 18px ${accent}`
+      : `0 0 10px ${accent}, 0 0 20px ${accent}, 0 1px 0 rgb(15 23 42 / 0.35)`,
+    opacity: 1,
+  };
+}
 const dealResultsStickyTotalsRowStyle: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',

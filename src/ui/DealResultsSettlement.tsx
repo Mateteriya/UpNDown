@@ -17,6 +17,17 @@ import {
 
 export type { ResultsChipView };
 
+export const RESULTS_CHIP_MODE_HELP: Record<ResultsChipView, string> = {
+  vs_average:
+    'Выбор режима подсчёта выигрыша.\n\n«Середина стола»: считаем среднее итоговых очков по всем игрокам и сравниваем каждого с этим средним. Кто выше — в плюсе, кто ниже — в минусе. Сумма фишек по столу = 0 (это перераспределение, без «приза сверху»).',
+  accuracy_bonus:
+    'Выбор режима подсчёта выигрыша.\n\n«Точный заказ»: сначала считаем как «Середина стола», затем добавляем +10 фишек за каждую раздачу, где заказ = взял. Это небольшой бонус за точность, поэтому сумма фишек по столу может быть не нулевой.',
+};
+
+export function cycleResultsChipView(view: ResultsChipView): ResultsChipView {
+  return view === 'accuracy_bonus' ? 'vs_average' : 'accuracy_bonus';
+}
+
 const toggleWrapStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
