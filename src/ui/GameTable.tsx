@@ -11,7 +11,7 @@ import type {
   TouchEvent as ReactTouchEvent,
   Ref,
 } from 'react';
-import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import type { AIDifficulty, DealResult, GameState } from '../game/GameEngine';
 import {
@@ -51,6 +51,13 @@ import {
   cycleResultsChipView,
   RESULTS_CHIP_MODE_HELP,
 } from './DealResultsSettlement';
+import { DealResultsMobileModalOverlay } from './DealResultsMobileModal';
+import {
+  applyDealResultsStretchPx,
+  computeDealResultsMobileStretchMaxPx,
+  computeDealResultsModalStackMaxPx,
+  dealResultsModalResizingRef,
+} from './dealResultsModalStretch';
 import { CosmicCockpit, CosmicGlassButton, CosmicGlassClose, type GameOverCloudSave } from './CosmicCockpit';
 import {
   BridgeAccuracyDeck,
@@ -263,6 +270,12 @@ function computeShortVhSouthStretchMaxPx(): number {
     return 110;
   }
 }
+
+/** Резерв снизу под капсулу Down'n'Up (моб. модалка «Результаты»), до замера. */
+const DEAL_RESULTS_MOBILE_RESIZE_HANDLE_RESERVE_PX = 44;
+/** До замера: шапка модалки + шапка таблицы + док «Итог/Выигрыш» (примерно). */
+const DEAL_RESULTS_MOBILE_MODAL_CHROME_ESTIMATE_PX = 132;
+const DEAL_RESULTS_MOBILE_MODAL_CHROME_MIN_PX = 96;
 
 /** Пропорциональное увеличение панели Юга: заметный диапазон (раньше был слабее из‑за zoom в части браузеров). */
 const SHORT_VH_SOUTH_STRETCH_UI_SCALE_RANGE = 0.22;
@@ -1487,6 +1500,19 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const [dealResultsExpanded, setDealResultsExpanded] = useState(false);
   const dealResultsExpandedRef = useRef(dealResultsExpanded);
   dealResultsExpandedRef.current = dealResultsExpanded;
+  const [dealResultsMobileStretchPx, setDealResultsMobileStretchPx] = useState(0);
+  const [dealResultsMobileStretchMaxPx, setDealResultsMobileStretchMaxPx] = useState(0);
+  const [dealResultsMobileStretchModalBasePx, setDealResultsMobileStretchModalBasePx] = useState(0);
+  const dealResultsMobileStretchModalBaseLockedRef = useRef(0);
+  const dealResultsMobileStretchHandleHRef = useRef(DEAL_RESULTS_MOBILE_RESIZE_HANDLE_RESERVE_PX);
+  const dealResultsMobileStretchChromePxRef = useRef(0);
+  const dealResultsMobileStretchChromeMeasuredRef = useRef(false);
+  const dealResultsMobileStretchTableBodyMaxLockedRef = useRef(0);
+  const dealResultsMobileStretchPxRef = useRef(0);
+  dealResultsMobileStretchPxRef.current = dealResultsMobileStretchPx;
+  /** Стек модалки (лист + капсула). */
+  const dealResultsModalStackRef = useRef<HTMLDivElement>(null);
+  const dealResultsModalColumnRef = useRef<HTMLDivElement>(null);
   /** Моб. модалка: один раз за партию показать «Выигрыш», затем по умолчанию свёрнут. */
   const mobileDealResultsPayoutPeekDoneRef = useRef(false);
   const [lastDealResultsSnapshot, setLastDealResultsSnapshot] = useState<GameState | null>(null);
@@ -3235,9 +3261,22 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     };
   }, []);
 
+  const onMobileDealResultsPayoutPeekComplete = useCallback(() => {
+    mobileDealResultsPayoutPeekDoneRef.current = true;
+  }, []);
+
   const forceCloseDealResultsModal = useCallback(() => {
     dealResultsBackdropPressArmedRef.current = false;
+    dealResultsModalResizingRef.current = false;
     setDealResultsExpanded(false);
+    setDealResultsMobileStretchPx(0);
+    dealResultsMobileStretchModalBaseLockedRef.current = 0;
+    dealResultsMobileStretchHandleHRef.current = DEAL_RESULTS_MOBILE_RESIZE_HANDLE_RESERVE_PX;
+    dealResultsMobileStretchChromePxRef.current = 0;
+    dealResultsMobileStretchChromeMeasuredRef.current = false;
+    dealResultsMobileStretchTableBodyMaxLockedRef.current = 0;
+    setDealResultsMobileStretchModalBasePx(0);
+    setDealResultsMobileStretchMaxPx(0);
   }, []);
   const closeDealResultsModal = useCallback(() => {
     // На мобильном click может прилетать с задержкой ~300ms после tap: даём запас, чтобы не ловить ghost-click.
@@ -3257,6 +3296,112 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       window.removeEventListener('keydown', onKey);
     };
   }, [isMobile, dealResultsExpanded, forceCloseDealResultsModal]);
+
+  useLayoutEffect(() => {
+    if (!isMobile || !dealResultsExpanded) {
+      dealResultsModalResizingRef.current = false;
+      setDealResultsMobileStretchPx(0);
+      dealResultsMobileStretchModalBaseLockedRef.current = 0;
+      dealResultsMobileStretchHandleHRef.current = DEAL_RESULTS_MOBILE_RESIZE_HANDLE_RESERVE_PX;
+      dealResultsMobileStretchChromePxRef.current = 0;
+      dealResultsMobileStretchChromeMeasuredRef.current = false;
+      dealResultsMobileStretchTableBodyMaxLockedRef.current = 0;
+      setDealResultsMobileStretchModalBasePx(0);
+      setDealResultsMobileStretchMaxPx(0);
+      return;
+    }
+    const measure = () => {
+      if (dealResultsModalResizingRef.current) return;
+      const stack = dealResultsModalStackRef.current;
+      if (!stack) return;
+      const vh = window.visualViewport?.height ?? window.innerHeight;
+      const viewportCapPx = computeDealResultsModalStackMaxPx(vh);
+      const stackMaxPx = viewportCapPx;
+      const handleEl = stack.querySelector('.game-mobile-short-south-resize-wrap');
+      const measuredHandleH = Math.round(handleEl?.getBoundingClientRect().height ?? 0);
+      const baseLocked = dealResultsMobileStretchModalBaseLockedRef.current > 0;
+      /* Высоту капсулы фиксируем при первом замере — иначе тап/анимация меняют handleH и скачет tbody */
+      if (!baseLocked && measuredHandleH > 0) {
+        dealResultsMobileStretchHandleHRef.current = measuredHandleH;
+      }
+      const handleH = dealResultsMobileStretchHandleHRef.current;
+      const scrollEl = stack.querySelector(
+        '.deal-results-table-body-scroll-pc--mobile-modal',
+      ) as HTMLElement | null;
+      if (!scrollEl) return;
+      if (dealResultsMobileStretchModalBaseLockedRef.current === 0) {
+        const tableBodyMaxAllowedPx = Math.max(
+          72,
+          stackMaxPx - handleH - DEAL_RESULTS_MOBILE_MODAL_CHROME_ESTIMATE_PX,
+        );
+        const initialBodyCapPx = Math.min(
+          tableBodyMaxAllowedPx,
+          Math.max(160, Math.round(viewportCapPx * 0.5)),
+        );
+        if (initialBodyCapPx < 72) return;
+        /* База = стартовая высота tbody, не clientHeight «на весь стек» — иначе stretchMax ≈ 0 */
+        dealResultsMobileStretchChromePxRef.current = DEAL_RESULTS_MOBILE_MODAL_CHROME_ESTIMATE_PX;
+        dealResultsMobileStretchModalBaseLockedRef.current = initialBodyCapPx;
+        setDealResultsMobileStretchModalBasePx(initialBodyCapPx);
+      }
+      if (
+        !dealResultsMobileStretchChromeMeasuredRef.current &&
+        dealResultsMobileStretchModalBaseLockedRef.current > 0 &&
+        dealResultsMobileStretchPxRef.current <= 0
+      ) {
+        const panelEl = stack.querySelector('.deal-results-modal-panel') as HTMLElement | null;
+        const panelH = Math.round(panelEl?.getBoundingClientRect().height ?? 0);
+        const bodyH = Math.round(scrollEl.clientHeight);
+        if (panelH > 0 && bodyH > 0) {
+          const chromeMeasured = panelH - bodyH - handleH;
+          if (chromeMeasured >= DEAL_RESULTS_MOBILE_MODAL_CHROME_MIN_PX) {
+            dealResultsMobileStretchChromePxRef.current = chromeMeasured;
+            dealResultsMobileStretchChromeMeasuredRef.current = true;
+          }
+        }
+      }
+      const chromePx =
+        dealResultsMobileStretchChromePxRef.current || DEAL_RESULTS_MOBILE_MODAL_CHROME_ESTIMATE_PX;
+      const tableBodyMaxPx = Math.max(72, stackMaxPx - handleH - chromePx);
+      if (dealResultsMobileStretchTableBodyMaxLockedRef.current === 0) {
+        dealResultsMobileStretchTableBodyMaxLockedRef.current = tableBodyMaxPx;
+      }
+      const maxPx = computeDealResultsMobileStretchMaxPx(
+        dealResultsMobileStretchModalBaseLockedRef.current,
+        dealResultsMobileStretchTableBodyMaxLockedRef.current,
+      );
+      setDealResultsMobileStretchMaxPx((prev) => (prev === maxPx ? prev : maxPx));
+      setDealResultsMobileStretchPx((p) => (p > maxPx ? maxPx : p));
+    };
+    measure();
+    const raf = window.requestAnimationFrame(measure);
+    let measureDebounceTimer: number | null = null;
+    const scheduleMeasure = () => {
+      if (dealResultsModalResizingRef.current) return;
+      if (measureDebounceTimer !== null) window.clearTimeout(measureDebounceTimer);
+      measureDebounceTimer = window.setTimeout(() => {
+        measureDebounceTimer = null;
+        measure();
+      }, 160);
+    };
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', scheduleMeasure);
+    window.addEventListener('resize', scheduleMeasure);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      if (measureDebounceTimer !== null) window.clearTimeout(measureDebounceTimer);
+      vv?.removeEventListener('resize', scheduleMeasure);
+      window.removeEventListener('resize', scheduleMeasure);
+    };
+  }, [isMobile, dealResultsExpanded]);
+
+  /** Синх stretch в CSS-var (не во время тяги и не из React style — иначе затирает imperative). */
+  useLayoutEffect(() => {
+    if (!isMobile || !dealResultsExpanded || dealResultsModalResizingRef.current) return;
+    const stack = dealResultsModalStackRef.current;
+    if (!stack) return;
+    applyDealResultsStretchPx(stack, dealResultsMobileStretchPx);
+  }, [isMobile, dealResultsExpanded, dealResultsMobileStretchPx]);
 
   const humanIdx = isOnline || isWaitingInRoom ? 0 : 0;
   const isHumanTurn = state?.phase === 'playing' && state.currentPlayerIndex === humanIdx;
@@ -4505,6 +4650,68 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   ]);
 
   const showReclaimBar = (isOnline || (online.roomId && online.status === 'playing')) && online.pendingReclaimOffer && online.confirmReclaim;
+
+  const dealResultsMobileModalLayout = useMemo(() => {
+    if (!isMobile) return null;
+    const vh =
+      typeof window !== 'undefined'
+        ? window.visualViewport?.height ?? window.innerHeight
+        : 800;
+    const stackMaxPx = computeDealResultsModalStackMaxPx(vh);
+    const viewportCapPx = stackMaxPx;
+    const handleH = dealResultsMobileStretchHandleHRef.current;
+    const chromePx =
+      dealResultsMobileStretchChromePxRef.current ||
+      DEAL_RESULTS_MOBILE_MODAL_CHROME_ESTIMATE_PX;
+    const tableBodyMaxAllowedPx =
+      dealResultsMobileStretchTableBodyMaxLockedRef.current > 0
+        ? dealResultsMobileStretchTableBodyMaxLockedRef.current
+        : Math.max(72, stackMaxPx - handleH - chromePx);
+    const lockedTableBodyBase =
+      dealResultsMobileStretchModalBaseLockedRef.current ||
+      dealResultsMobileStretchModalBasePx;
+    const hasLockedBase = lockedTableBodyBase > 0;
+    const stretchMaxPx =
+      dealResultsMobileStretchMaxPx > 0
+        ? dealResultsMobileStretchMaxPx
+        : hasLockedBase
+          ? computeDealResultsMobileStretchMaxPx(lockedTableBodyBase, tableBodyMaxAllowedPx)
+          : 0;
+    const stretchPx = Math.min(dealResultsMobileStretchPx, stretchMaxPx);
+    const initialBodyCapPx = Math.min(
+      tableBodyMaxAllowedPx,
+      Math.max(160, Math.round(viewportCapPx * 0.5)),
+    );
+    const bodyBasePx = hasLockedBase ? lockedTableBodyBase : initialBodyCapPx;
+    return {
+      stackMaxPx,
+      bodyBasePx,
+      tableBodyMaxAllowedPx,
+      stretchPx,
+      stretchMaxPx,
+    };
+  }, [
+    isMobile,
+    dealResultsMobileStretchPx,
+    dealResultsMobileStretchMaxPx,
+    dealResultsMobileStretchModalBasePx,
+  ]);
+
+  const dealResultsMobileTableContent = useMemo(
+    () =>
+      lastDealResultsSnapshot ? (
+        <DealResultsScreenMemo
+          state={lastDealResultsSnapshot}
+          variant="modal"
+          isMobile
+          onClose={forceCloseDealResultsModal}
+          mobilePayoutPeekOnOpen={!mobileDealResultsPayoutPeekDoneRef.current}
+          onMobilePayoutPeekComplete={onMobileDealResultsPayoutPeekComplete}
+        />
+      ) : null,
+    [lastDealResultsSnapshot, forceCloseDealResultsModal, onMobileDealResultsPayoutPeekComplete],
+  );
+
   if (!state) {
     return (
       <>
@@ -8452,83 +8659,92 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         document.body,
       )}
 
-      {dealResultsExpanded && lastDealResultsSnapshot && createPortal(
-        <div
-          className={isMobile ? 'deal-results-modal-overlay-mobile' : undefined}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Результаты раздач"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: isMobile ? 'hidden' : 'auto',
-            pointerEvents: 'auto',
-          }}
-          onKeyDown={e => { if (e.key === 'Escape') forceCloseDealResultsModal(); }}
-        >
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(0,0,0,0.6)',
-              touchAction: 'manipulation',
-            }}
-            onPointerDown={onDealResultsBackdropPointerDown}
-            onPointerUp={onDealResultsBackdropPointerUp}
-          />
-          <div
-            style={{
-              position: 'relative',
-              zIndex: 1,
-              width: isMobile ? '100%' : 'min(96vw, 800px)',
-              minWidth: isMobile ? 0 : 500,
-              maxWidth: isMobile ? '100%' : undefined,
-              maxHeight: isMobile ? '100%' : '98vh',
-              overflow: isMobile ? 'hidden' : 'visible',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: isMobile ? 'stretch' : 'center',
-              justifyContent: 'center',
-              padding: isMobile ? 12 : 20,
-              minHeight: isMobile ? '100%' : undefined,
-              height: isMobile ? '100%' : undefined,
-              margin: isMobile ? 0 : 'auto',
-              flex: isMobile ? 1 : undefined,
-              touchAction: 'manipulation',
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-            onPointerUp={(e) => e.stopPropagation()}
-          >
-            <div style={{
-              transform: isMobile ? 'none' : 'scale(1.35)',
-              transformOrigin: 'center center',
-              flexShrink: 0,
-              width: isMobile ? '100%' : undefined,
-              maxWidth: isMobile ? '100%' : undefined,
-              height: isMobile ? '100%' : undefined,
-              display: isMobile ? 'flex' : undefined,
-              flexDirection: isMobile ? 'column' : undefined,
-              minHeight: 0,
-            }}>
-              <DealResultsScreen
-                state={lastDealResultsSnapshot}
-                variant="modal"
-                isMobile={isMobile}
-                onClose={forceCloseDealResultsModal}
-                mobilePayoutPeekOnOpen={isMobile && !mobileDealResultsPayoutPeekDoneRef.current}
-                onMobilePayoutPeekComplete={() => {
-                  mobileDealResultsPayoutPeekDoneRef.current = true;
-                }}
+      {dealResultsExpanded &&
+        lastDealResultsSnapshot &&
+        createPortal(
+          isMobile && dealResultsMobileModalLayout && dealResultsMobileTableContent ? (
+            <DealResultsMobileModalOverlay
+              stackRef={dealResultsModalStackRef}
+              columnRef={dealResultsModalColumnRef}
+              stackMaxPx={dealResultsMobileModalLayout.stackMaxPx}
+              bodyBasePx={dealResultsMobileModalLayout.bodyBasePx}
+              tableBodyMaxAllowedPx={dealResultsMobileModalLayout.tableBodyMaxAllowedPx}
+              stretchPx={dealResultsMobileModalLayout.stretchPx}
+              stretchMaxPx={dealResultsMobileModalLayout.stretchMaxPx}
+              onStretchPxChange={setDealResultsMobileStretchPx}
+              onClose={forceCloseDealResultsModal}
+              onEscape={forceCloseDealResultsModal}
+              onBackdropPointerDown={onDealResultsBackdropPointerDown}
+              onBackdropPointerUp={onDealResultsBackdropPointerUp}
+              tableContent={dealResultsMobileTableContent}
+            />
+          ) : (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Результаты раздач"
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 9999,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'auto',
+                pointerEvents: 'auto',
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') forceCloseDealResultsModal();
+              }}
+            >
+              <div
+                aria-hidden
+                className="deal-results-modal-backdrop"
+                onPointerDown={onDealResultsBackdropPointerDown}
+                onPointerUp={onDealResultsBackdropPointerUp}
               />
+              <div
+                style={{
+                  position: 'relative',
+                  zIndex: 1,
+                  width: 'min(96vw, 800px)',
+                  minWidth: 500,
+                  maxHeight: '98vh',
+                  overflow: 'visible',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 20,
+                  margin: 'auto',
+                  touchAction: 'manipulation',
+                  boxSizing: 'border-box',
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                onPointerUp={(e) => e.stopPropagation()}
+              >
+                <div
+                  style={{
+                    transform: 'scale(1.35)',
+                    transformOrigin: 'center center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <DealResultsScreenMemo
+                    state={lastDealResultsSnapshot}
+                    variant="modal"
+                    isMobile={isMobile}
+                    onClose={forceCloseDealResultsModal}
+                    mobilePayoutPeekOnOpen={false}
+                    onMobilePayoutPeekComplete={() => {
+                      mobileDealResultsPayoutPeekDoneRef.current = true;
+                    }}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+          ),
+          document.body,
+        )}
       {showLastTrickModal && state.lastCompletedTrick && createPortal(
         <LastTrickModal
           trick={state.lastCompletedTrick}
@@ -9463,7 +9679,9 @@ function DealResultsScreen({
   const bids = state.bids as number[];
   const players = state.players;
   const baseStyle = variant === 'modal'
-    ? { ...dealResultsModalStyle, ...(isMobile ? dealResultsModalStyleMobile : {}) }
+    ? isMobile
+      ? dealResultsModalStyleMobile
+      : dealResultsModalStyle
     : dealResultsOverlayStyle;
   const scores = players.map(p => p.score);
   const minScore = Math.min(...scores);
@@ -9644,17 +9862,11 @@ function DealResultsScreen({
     </div>
   );
   useLayoutEffect(() => {
-    if (!compactModal) return;
+    if (!compactModal || dealResultsModalResizingRef.current) return;
     const dock = mobileStickyDockRef.current;
     if (!dock) return;
-    const syncPad = () => {
-      const h = Math.ceil(dock.getBoundingClientRect().height);
-      if (h > 0) setMobileScrollPadPx((prev) => (Math.abs(prev - h) <= 1 ? prev : h));
-    };
-    syncPad();
-    const ro = new ResizeObserver(syncPad);
-    ro.observe(dock);
-    return () => ro.disconnect();
+    const h = Math.ceil(dock.getBoundingClientRect().height);
+    if (h > 0) setMobileScrollPadPx((prev) => (Math.abs(prev - h) <= 1 ? prev : h));
   }, [
     compactModal,
     showSettlementRow,
@@ -9673,6 +9885,7 @@ function DealResultsScreen({
     const el = mobileBodyScrollRef.current;
     if (!el) return;
     const warmScrollPaint = () => {
+      if (dealResultsModalResizingRef.current) return;
       const prev = el.scrollTop;
       const max = Math.max(0, el.scrollHeight - el.clientHeight);
       if (max <= 0) return;
@@ -9684,7 +9897,7 @@ function DealResultsScreen({
       warmScrollPaint();
       requestAnimationFrame(warmScrollPaint);
     });
-  }, [compactModal, mobileScrollPadPx, dealHistory.length]);
+  }, [compactModal, dealHistory.length]);
 
   const _renderPanel = (idx: number) => {
     const bid = bids[idx] ?? 0;
@@ -10529,7 +10742,14 @@ function DealResultsScreen({
     >
       {variant === 'modal' ? (
         <>
-          {onClose && (
+        <div
+          className={[
+            !isMobile ? 'deal-results-table-outer-pc' : undefined,
+            compactModal ? 'deal-results-table-outer-mobile-modal' : undefined,
+          ].filter(Boolean).join(' ') || undefined}
+          style={isMobile ? dealResultsTableOuterMobileStyle : dealResultsTableOuterPCStyle}
+        >
+          {onClose && !compactModal ? (
             <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 0, paddingTop: 4, gap: 12 }}>
               <div style={{ flex: 1 }} />
               <span style={{
@@ -10563,8 +10783,7 @@ function DealResultsScreen({
                 </button>
               </div>
             </div>
-          )}
-        <div className={!isMobile ? 'deal-results-table-outer-pc' : undefined} style={isMobile ? dealResultsTableOuterMobileStyle : dealResultsTableOuterPCStyle}>
+          ) : null}
             <div className="deal-results-table-scroll-wrap" style={dealResultsTableScrollWrapStyle}>
               {!isMobile && <div className="deal-results-table-glow-top deal-results-table-glow-pc" style={dealResultsTableGlowPCStripInFlowStyle} aria-hidden />}
               <div
@@ -10574,7 +10793,57 @@ function DealResultsScreen({
                 <div className="deal-results-table-window" style={isMobile ? dealResultsTableWindowStyleMobile : dealResultsTableWindowStylePC}>
                   {isMobile ? (
                     <>
-                      <div className="deal-results-table-glow-top" style={dealResultsTableGlowTopStyleMobile} aria-hidden />
+                      {onClose && compactModal ? (
+                        <div
+                          className="deal-results-modal-title-bar"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            flexShrink: 0,
+                            marginBottom: 0,
+                            padding: '2px 6px 0',
+                            gap: 10,
+                            position: 'relative',
+                            zIndex: 5,
+                            minHeight: 34,
+                          }}
+                        >
+                          <div style={{ flex: 1 }} />
+                          <span style={{
+                            fontSize: 18,
+                            fontWeight: 600,
+                            fontFamily: 'Georgia, "Times New Roman", serif',
+                            letterSpacing: '0.06em',
+                            color: 'rgba(199, 210, 254, 0.96)',
+                            textShadow: '0 0 14px rgba(139, 92, 246, 0.42), 0 0 28px rgba(99, 102, 241, 0.25), 0 1px 0 rgba(0,0,0,0.35)',
+                          }}>Результаты</span>
+                          <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                              type="button"
+                              onClick={onClose}
+                              style={{
+                                width: 30,
+                                height: 30,
+                                borderRadius: '50%',
+                                border: '2px solid rgba(139, 92, 246, 0.65)',
+                                background: 'rgba(15, 23, 42, 0.95)',
+                                color: '#c4b5fd',
+                                cursor: 'pointer',
+                                fontSize: 20,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                              aria-label="Закрыть"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                      {!(onClose && compactModal) ? (
+                        <div className="deal-results-table-glow-top" style={dealResultsTableGlowTopStyleMobile} aria-hidden />
+                      ) : null}
                       <div className="deal-results-mobile-header-table-strip">
                         <table className="deal-results-table-header-pc" style={{ ...dealResultsTableStyle, minWidth: dealColumnWidth + 4 * (mobileBidCellWidth + mobileResultCellWidth), tableLayout: 'fixed' }}>
                           <colgroup>
@@ -10762,6 +11031,7 @@ function DealResultsScreen({
                           ...dealResultsTableBodyScrollMobileStyle,
                           paddingBottom: mobileScrollPadPx,
                           scrollPaddingBottom: mobileScrollPadPx,
+                          ...(compactModal ? { flex: '1 1 auto' as const } : {}),
                         }}
                         onScroll={() => {
                           if (mobileScrollHintVisible) setMobileScrollHintVisible(false);
@@ -11537,6 +11807,25 @@ function DealResultsScreen({
     </div>
   );
 }
+
+function dealResultsScreenPropsAreEqual(
+  prev: Parameters<typeof DealResultsScreen>[0],
+  next: Parameters<typeof DealResultsScreen>[0],
+): boolean {
+  return (
+    prev.state === next.state &&
+    prev.variant === next.variant &&
+    prev.isMobile === next.isMobile &&
+    prev.isCollapsing === next.isCollapsing &&
+    prev.onClose === next.onClose &&
+    prev.overlayAnimRef === next.overlayAnimRef &&
+    prev.overlayAccentPhase === next.overlayAccentPhase &&
+    prev.mobilePayoutPeekOnOpen === next.mobilePayoutPeekOnOpen &&
+    prev.onMobilePayoutPeekComplete === next.onMobilePayoutPeekComplete
+  );
+}
+
+const DealResultsScreenMemo = memo(DealResultsScreen, dealResultsScreenPropsAreEqual);
 
 function getDealResultsPanelPosition(side: 'top' | 'bottom' | 'left' | 'right'): React.CSSProperties {
   const base: React.CSSProperties = { position: 'absolute' };
@@ -14915,7 +15204,7 @@ const dealResultsModalStyle: React.CSSProperties = {
 };
 
 
-/** Мобильная версия модалки: корень на всю высоту, скролл только у таблицы */
+/** Мобильная версия модалки: колонка под лист; скролл только у tbody. */
 const dealResultsModalStyleMobile: React.CSSProperties = {
   minWidth: 0,
   width: '100%',
@@ -14926,6 +15215,7 @@ const dealResultsModalStyleMobile: React.CSSProperties = {
   flexDirection: 'column',
   animation: 'none',
   overflow: 'hidden',
+  boxSizing: 'border-box',
 };
 
 const MODAL_GAP = 8;
