@@ -20002,15 +20002,22 @@ body.deal-results-modal-open-mobile #root {
   right: 0;
 }
 .deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed {
-  min-height: 28px;
+  min-height: 37px;
   margin-left: -9px;
   margin-right: -9px;
   width: calc(100% + 18px);
-  margin-bottom: -2px;
-  padding-bottom: 0;
+  margin-bottom: 0;
+  padding-bottom: 7px;
+  overflow: visible;
   pointer-events: auto;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  --curtain-neon-glow-top:
+    -78px -2px 14px rgb(8 205 242 / 0.52),
+    -39px -2px 10px rgb(8 205 242 / 0.34),
+    0 -2px 16px rgb(237 9 118 / 0.46),
+    39px -2px 10px rgb(167 139 250 / 0.34),
+    78px -2px 14px rgb(139 92 246 / 0.52);
 }
 .deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed .deal-results-sticky-payout-body {
   overflow: hidden;
@@ -20021,13 +20028,122 @@ body.deal-results-modal-open-mobile #root {
 .deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed::before {
   top: 0;
   height: 4px;
+  clip-path: inset(-48px -100vw 0 -100vw);
   box-shadow:
-    0 0 16px rgb(139 92 246 / 0.48),
-    0 1px 0 rgb(30 27 75 / 0.72);
+    0 1px 0 rgb(30 27 75 / 0.72),
+    var(--curtain-neon-glow-top);
 }
 .deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed::after {
   top: 0;
-  opacity: 0.72;
+  bottom: 0;
+  height: auto;
+  opacity: 1;
+  box-shadow:
+    inset 0 1px 0 rgb(34 211 238 / 0.1),
+    inset 0 -10px 22px rgb(2 6 23 / 0.52),
+    inset 0 -2px 6px rgb(12 3 45 / 0.38);
+  background-image:
+    repeating-linear-gradient(
+      -32deg,
+      rgb(12 3 45) 0,
+      rgb(30 3 66 / 76%) 9px,
+      rgb(3 7 50) 9px,
+      rgb(27 8 66) 10px
+    ),
+    linear-gradient(
+      168deg,
+      rgb(224 18 102) 0%,
+      rgb(19 4 55 / 0%) 48%,
+      rgb(10 232 185) 100%
+    );
+}
+/* Свёрнутая занавеска: док без нижнего padding — кромка не нависает на капсулу */
+.deal-results-modal-overlay-mobile
+  .deal-results-sticky-totals-dock:has(.deal-results-sticky-payout-wrap--collapsed) {
+  padding-bottom: 0;
+}
+.deal-results-modal-overlay-mobile
+  .deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed {
+  margin-bottom: 0;
+}
+.deal-results-modal-overlay-mobile
+  .deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed::after {
+  bottom: -7px;
+}
+/* Стеклянная выпуклость поверх градиентной занавески (collapsed) */
+.deal-results-sticky-payout-collapsed-glass {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3px;
+  bottom: 0;
+  z-index: 51;
+  pointer-events: none;
+  overflow: hidden;
+  background-image:
+    radial-gradient(ellipse 92% 68% at 50% -6%, rgb(34 211 238 / 0.28) 0%, rgb(124 58 237 / 0.12) 34%, transparent 58%),
+    radial-gradient(ellipse 38% 58% at 20% 22%, rgb(59 130 246 / 0.18) 0%, transparent 66%),
+    radial-gradient(ellipse 34% 52% at 80% 26%, rgb(236 72 153 / 0.2) 0%, transparent 68%),
+    radial-gradient(ellipse 78% 62% at 50% 38%, rgb(109 40 217 / 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 118% 96% at 50% 50%, transparent 34%, rgb(2 6 23 / 0.52) 100%),
+    radial-gradient(ellipse 130% 88% at 50% 112%, rgb(2 6 23 / 0.42) 0%, transparent 62%),
+    linear-gradient(180deg, rgb(56 189 248 / 0.1) 0%, transparent 18%, transparent 68%, rgb(12 3 45 / 0.58) 100%),
+    linear-gradient(90deg, rgb(49 46 129 / 0.42) 0%, transparent 10%, transparent 90%, rgb(76 29 149 / 0.38) 100%);
+  box-shadow:
+    inset 0 2px 5px rgb(34 211 238 / 0.22),
+    inset 0 -14px 28px rgb(2 6 23 / 0.68),
+    inset 0 -4px 10px rgb(12 3 45 / 0.48),
+    inset 0 0 0 1px rgb(109 40 217 / 0.2),
+    inset 6px 0 20px rgb(2 6 23 / 0.32),
+    inset -6px 0 20px rgb(2 6 23 / 0.32);
+}
+.deal-results-sticky-payout-collapsed-glass::before {
+  content: '';
+  position: absolute;
+  top: -55%;
+  left: -35%;
+  width: 52%;
+  height: 210%;
+  background: radial-gradient(
+    ellipse 100% 42% at 50% 50%,
+    rgb(34 211 238 / 0.42) 0%,
+    rgb(236 72 153 / 0.26) 28%,
+    rgb(109 40 217 / 0.16) 44%,
+    rgb(59 130 246 / 0.08) 58%,
+    transparent 72%
+  );
+  mix-blend-mode: soft-light;
+  opacity: 0.48;
+  transform: rotate(-14deg);
+  animation: deal-results-curtain-glass-glint-sweep 9.5s ease-in-out infinite;
+}
+.deal-results-sticky-payout-collapsed-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 66% 88% at 50% 32%, rgb(109 40 217 / 0.12) 0%, rgb(34 211 238 / 0.04) 38%, transparent 56%),
+    radial-gradient(ellipse 140% 55% at 50% 108%, rgb(2 6 23 / 0.46) 0%, transparent 58%),
+    radial-gradient(ellipse 88% 120% at 0% 50%, rgb(2 6 23 / 0.28) 0%, transparent 58%),
+    radial-gradient(ellipse 88% 120% at 100% 50%, rgb(2 6 23 / 0.28) 0%, transparent 58%);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+@keyframes deal-results-curtain-glass-glint-sweep {
+  0%,
+  100% {
+    transform: translateX(-8%) rotate(-14deg);
+    opacity: 0.32;
+  }
+  48% {
+    transform: translateX(168%) rotate(-14deg);
+    opacity: 0.58;
+  }
+}
+.deal-results-modal-overlay-mobile
+  .deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed
+  .deal-results-sticky-payout-collapsed-glass {
+  bottom: -7px;
 }
 .deal-results-sticky-payout-collapsed-hint {
   position: relative;
@@ -20036,8 +20152,110 @@ body.deal-results-modal-open-mobile #root {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 6px 10px 5px;
+  padding: 5px 10px 4px;
   pointer-events: none;
+}
+.deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed
+  .deal-results-sticky-payout-collapsed-hint {
+  position: absolute;
+  inset: 0;
+  gap: 5px;
+  padding: 0 10px;
+  transform: translateX(12px);
+  font-family: "Manrope", "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+  font-feature-settings: "ss01" 1, "ss02" 1;
+}
+.deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed
+  .deal-results-sticky-payout-collapsed-hint__label--iridescent {
+  position: relative;
+  z-index: 0;
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  padding-right: 0.08em;
+  transform: translateY(-0.5px) scaleX(1.28);
+  transform-origin: center center;
+  -webkit-text-stroke: 0.32px rgb(34 211 238 / 0.68);
+  paint-order: stroke fill;
+  filter:
+    drop-shadow(0 0 0.55px rgb(236 72 153 / 0.48))
+    drop-shadow(0 0 0.85px rgb(190 24 93 / 0.38))
+    drop-shadow(0 0 1.2px rgb(34 211 238 / 0.42))
+    drop-shadow(0 0 1.6px rgb(109 40 217 / 0.46))
+    drop-shadow(0 0 2.2px rgb(59 130 246 / 0.38));
+}
+.deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed
+  .deal-results-sticky-payout-collapsed-hint__label--iridescent::before {
+  content: 'Выигрыш';
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -2;
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  transform: translate(0, 2px);
+  color: rgb(2 6 23 / 0.98);
+  -webkit-text-fill-color: rgb(2 6 23 / 0.98);
+  -webkit-text-stroke: 0.32px rgb(2 6 23 / 0.98);
+  background: none;
+  background-image: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  animation: none;
+  pointer-events: none;
+}
+.deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed
+  .deal-results-sticky-payout-collapsed-hint__label--iridescent::after {
+  content: 'Выигрыш';
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  transform: translate(0, 1px);
+  color: rgb(49 46 129 / 0.95);
+  -webkit-text-fill-color: rgb(76 29 149 / 0.9);
+  -webkit-text-stroke: 0.32px rgb(30 27 75 / 0.95);
+  background: none;
+  background-image: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  animation: none;
+  pointer-events: none;
+}
+.deal-results-sticky-payout-wrap--provisional.deal-results-sticky-payout-wrap--collapsed
+  .deal-results-sticky-payout-collapsed-hint__chev {
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1;
+  flex-shrink: 0;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image:
+    repeating-linear-gradient(100deg, rgb(45 212 191) 0 8%, rgb(20 184 166) 8% 16%, rgb(56 189 248) 16% 24%, rgb(14 165 233) 24% 32%, rgb(190 24 93) 32% 40%, rgb(59 130 246) 40% 48%, rgb(99 102 241) 48% 56%, rgb(147 51 234) 56% 64%, rgb(192 132 252) 64% 72%, rgb(109 40 217) 72% 80%, rgb(16 185 129) 80% 88%, rgb(34 211 238) 88% 96%);
+  background-size: 460% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: deal-results-user-number-iridescent-shift 14s linear infinite;
+  margin-left: 14px;
+  transform: translateY(-0.5px);
+  -webkit-text-stroke: 0.28px rgb(34 211 238 / 0.62);
+  paint-order: stroke fill;
+  filter:
+    drop-shadow(0 0 0.55px rgb(236 72 153 / 0.48))
+    drop-shadow(0 0 0.85px rgb(190 24 93 / 0.38))
+    drop-shadow(0 0 1.2px rgb(34 211 238 / 0.42))
+    drop-shadow(0 0 1.6px rgb(109 40 217 / 0.46))
+    drop-shadow(0 0 2.2px rgb(59 130 246 / 0.38));
+  text-shadow: none;
 }
 .deal-results-sticky-payout-collapsed-hint__label {
   font-size: 10px;
@@ -20051,7 +20269,7 @@ body.deal-results-modal-open-mobile #root {
   color: transparent;
   -webkit-text-fill-color: transparent;
   background-image:
-    repeating-linear-gradient(100deg, rgb(45 212 191) 0 8%, rgb(20 184 166) 8% 16%, rgb(56 189 248) 16% 24%, rgb(14 165 233) 24% 32%, rgb(163 255 72) 32% 40%, rgb(59 130 246) 40% 48%, rgb(99 102 241) 48% 56%, rgb(147 51 234) 56% 64%, rgb(192 132 252) 64% 72%, rgb(168 85 247) 72% 80%, rgb(16 185 129) 80% 88%, rgb(34 211 238) 88% 96%);
+    repeating-linear-gradient(100deg, rgb(45 212 191) 0 8%, rgb(20 184 166) 8% 16%, rgb(56 189 248) 16% 24%, rgb(14 165 233) 24% 32%, rgb(190 24 93) 32% 40%, rgb(59 130 246) 40% 48%, rgb(99 102 241) 48% 56%, rgb(147 51 234) 56% 64%, rgb(192 132 252) 64% 72%, rgb(109 40 217) 72% 80%, rgb(16 185 129) 80% 88%, rgb(34 211 238) 88% 96%);
   background-size: 460% 100%;
   background-position: 0% 50%;
   -webkit-background-clip: text;
@@ -20135,7 +20353,7 @@ body.deal-results-modal-open-mobile #root {
 .deal-results-sticky-payout-veil-caption__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 8px;
   width: 100%;
   align-self: stretch;
@@ -20146,8 +20364,10 @@ body.deal-results-modal-open-mobile #root {
   text-align: center;
 }
 .deal-results-sticky-payout-veil-caption__header .deal-results-sticky-payout-collapse-btn {
-  flex-shrink: 0;
-  margin-left: auto;
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  margin-left: 0;
 }
 .deal-results-sticky-payout-veil-caption__mode-btn {
   pointer-events: auto;
@@ -20252,44 +20472,124 @@ body.deal-results-modal-open-mobile #root {
 .deal-results-sticky-payout-collapse-btn {
   position: static;
   z-index: 1;
-  flex-shrink: 0;
-  display: inline-flex;
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 6px;
   pointer-events: auto;
   border: none;
   border-radius: 0;
-  padding: 2px 2px 2px 4px;
+  padding: 2px 0;
   min-height: 0;
   background: transparent;
   box-shadow: none;
   font: inherit;
   line-height: 1;
   -webkit-tap-highlight-color: transparent;
+  --collapse-btn-row-h: 10px;
+}
+.deal-results-sticky-payout-collapse-btn__chev-rail {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  overflow: hidden;
+}
+.deal-results-sticky-payout-collapse-btn__chev-rail--left {
+  justify-content: flex-end;
+  padding-right: 3px;
+}
+.deal-results-sticky-payout-collapse-btn__chev-rail--right {
+  justify-content: flex-start;
+  padding-left: 3px;
+}
+.deal-results-sticky-payout-collapse-btn__sep {
+  flex: 0 0 auto;
+  width: 1px;
+  height: var(--collapse-btn-row-h);
+  margin: 0 6px;
+  background: linear-gradient(
+    180deg,
+    rgb(49 46 129 / 0) 0%,
+    rgb(34 211 238 / 0.82) 32%,
+    rgb(167 139 250 / 0.95) 50%,
+    rgb(34 211 238 / 0.82) 68%,
+    rgb(49 46 129 / 0) 100%
+  );
+  box-shadow:
+    0 0 5px rgb(56 189 248 / 0.42),
+    0 0 9px rgb(139 92 246 / 0.34);
+  opacity: 0.92;
 }
 .deal-results-sticky-payout-collapse-btn__chev {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 var(--collapse-btn-row-h);
+  width: var(--collapse-btn-row-h);
+  height: var(--collapse-btn-row-h);
   font-size: 9px;
   font-weight: 900;
   line-height: 1;
-  color: rgb(56 189 248 / 0.95);
-  text-shadow: 0 0 10px rgb(56 189 248 / 0.55);
-  transform: translateY(-0.5px);
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image:
+    repeating-linear-gradient(100deg, rgb(45 212 191) 0 8%, rgb(20 184 166) 8% 16%, rgb(56 189 248) 16% 24%, rgb(14 165 233) 24% 32%, rgb(190 24 93) 32% 40%, rgb(59 130 246) 40% 48%, rgb(99 102 241) 48% 56%, rgb(147 51 234) 56% 64%, rgb(192 132 252) 64% 72%, rgb(109 40 217) 72% 80%, rgb(16 185 129) 80% 88%, rgb(34 211 238) 88% 96%);
+  background-size: 460% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: deal-results-user-number-iridescent-shift 28s linear infinite;
+  -webkit-text-stroke: 0.24px rgb(34 211 238 / 0.62);
+  paint-order: stroke fill;
+  filter:
+    drop-shadow(0 0 0.55px rgb(236 72 153 / 0.48))
+    drop-shadow(0 0 0.85px rgb(190 24 93 / 0.38))
+    drop-shadow(0 0 1.2px rgb(34 211 238 / 0.42))
+    drop-shadow(0 0 1.6px rgb(109 40 217 / 0.46))
+    drop-shadow(0 0 2.2px rgb(59 130 246 / 0.38));
+  transform: scale(1.68);
+  transform-origin: center center;
 }
 .deal-results-sticky-payout-collapse-btn__label {
+  flex: 0 0 auto;
+  display: inline-block;
+  height: var(--collapse-btn-row-h);
   font-size: 9px;
   font-weight: 750;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  line-height: 1;
-  color: rgb(186 230 253 / 0.92);
+  line-height: var(--collapse-btn-row-h);
+  vertical-align: middle;
+  margin-right: -0.22em;
+  padding: 0 7px;
+  transform: scaleX(1.2);
+  transform-origin: center center;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image:
+    repeating-linear-gradient(100deg, rgb(45 212 191) 0 8%, rgb(20 184 166) 8% 16%, rgb(56 189 248) 16% 24%, rgb(14 165 233) 24% 32%, rgb(37 99 235) 32% 40%, rgb(59 130 246) 40% 48%, rgb(99 102 241) 48% 56%, rgb(147 51 234) 56% 64%, rgb(192 132 252) 64% 72%, rgb(109 40 217) 72% 80%, rgb(16 185 129) 80% 88%, rgb(34 211 238) 88% 96%);
+  background-size: 460% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: deal-results-user-number-iridescent-shift 56s linear infinite;
+  -webkit-text-stroke: 0.24px rgb(34 211 238 / 0.62);
+  paint-order: stroke fill;
+  filter:
+    drop-shadow(0 0 0.55px rgb(59 130 246 / 0.48))
+    drop-shadow(0 0 0.85px rgb(34 211 238 / 0.38))
+    drop-shadow(0 0 1.2px rgb(34 211 238 / 0.42))
+    drop-shadow(0 0 1.6px rgb(109 40 217 / 0.46))
+    drop-shadow(0 0 2.2px rgb(59 130 246 / 0.38));
   text-decoration: underline;
-  text-decoration-color: rgb(56 189 248 / 0.42);
+  text-decoration-color: rgb(34 211 238 / 0.42);
   text-underline-offset: 2px;
-  text-shadow: 0 0 10px rgb(56 189 248 / 0.35);
+  text-shadow: none;
 }
 /* Пульс яркости: плавное «дыхание» только у цифр, ячейки статичны */
 .deal-results-sticky-payout-wrap--provisional:not(.deal-results-sticky-payout-wrap--collapsed)

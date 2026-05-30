@@ -105,6 +105,7 @@ function getCompassLabel(idx: number): 'Юг' | 'Север' | 'Запад' | '�
   }
 }
 
+const MOBILE_PAYOUT_COLLAPSE_CHEV_SLOTS = 5;
 const USER_PANEL_GARLAND_DURATION_MS = 18000;
 /** Мобильная рамка карт — медленнее базовой (меньше «скорость» огоньков) */
 const USER_PANEL_GARLAND_HAND_DURATION_MS = 36000;
@@ -11311,7 +11312,12 @@ function DealResultsScreen({
                             }
                           >
                             {mobilePayoutCollapseEligible && mobilePayoutDockCollapsed ? (
-                              <div className="deal-results-sticky-payout-collapsed-hint" aria-hidden>
+                              <>
+                                <div
+                                  className="deal-results-sticky-payout-collapsed-glass"
+                                  aria-hidden
+                                />
+                                <div className="deal-results-sticky-payout-collapsed-hint" aria-hidden>
                                 <span className="deal-results-sticky-payout-collapsed-hint__label deal-results-sticky-payout-collapsed-hint__label--iridescent">
                                   Выигрыш
                                 </span>
@@ -11319,6 +11325,7 @@ function DealResultsScreen({
                                   ▾
                                 </span>
                               </div>
+                              </>
                             ) : null}
                             {mobilePayoutCollapseEligible && !mobilePayoutDockCollapsed ? (
                               <>
@@ -11333,10 +11340,41 @@ function DealResultsScreen({
                                         setMobilePayoutDockCollapsed(true);
                                       }}
                                     >
-                                      <span className="deal-results-sticky-payout-collapse-btn__chev" aria-hidden>
-                                        ▴
+                                      <span
+                                        className="deal-results-sticky-payout-collapse-btn__chev-rail deal-results-sticky-payout-collapse-btn__chev-rail--left"
+                                        aria-hidden
+                                      >
+                                        {Array.from({ length: MOBILE_PAYOUT_COLLAPSE_CHEV_SLOTS }, (_, i) => (
+                                          <span
+                                            key={`collapse-chev-l-${i}`}
+                                            className="deal-results-sticky-payout-collapse-btn__chev"
+                                          >
+                                            ▴
+                                          </span>
+                                        ))}
                                       </span>
+                                      <span
+                                        className="deal-results-sticky-payout-collapse-btn__sep"
+                                        aria-hidden
+                                      />
                                       <span className="deal-results-sticky-payout-collapse-btn__label">Свернуть</span>
+                                      <span
+                                        className="deal-results-sticky-payout-collapse-btn__sep"
+                                        aria-hidden
+                                      />
+                                      <span
+                                        className="deal-results-sticky-payout-collapse-btn__chev-rail deal-results-sticky-payout-collapse-btn__chev-rail--right"
+                                        aria-hidden
+                                      >
+                                        {Array.from({ length: MOBILE_PAYOUT_COLLAPSE_CHEV_SLOTS }, (_, i) => (
+                                          <span
+                                            key={`collapse-chev-r-${i}`}
+                                            className="deal-results-sticky-payout-collapse-btn__chev"
+                                          >
+                                            ▴
+                                          </span>
+                                        ))}
+                                      </span>
                                     </button>
                                   </div>
                                   <span className="deal-results-sticky-payout-veil-caption__sep" aria-hidden />
