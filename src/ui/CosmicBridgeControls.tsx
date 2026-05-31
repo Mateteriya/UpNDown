@@ -2,7 +2,8 @@
  * Элементы «мостика» корабля: декор, кнопки-поды, ссылка на ЛК.
  */
 
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, ReactNode, RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GameOverCloudSave } from './CosmicCockpit';
 
 export function GameOverBridgeScenery() {
@@ -105,6 +106,127 @@ export function GameOverCloudStatus({
   return null;
 }
 
+/** Моб. модалка «Итоги»: есть ли ещё контент ниже (скроллбар скрыт). */
+export function useGameOverBridgeScrollMore(
+  bodyRef: RefObject<HTMLDivElement | null>,
+  active = true,
+) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!active) {
+      setVisible(false);
+      return;
+    }
+
+    let el = bodyRef.current;
+    let ro: ResizeObserver | null = null;
+    let raf = 0;
+
+    const sync = () => {
+      if (!el) return;
+      const overflow = el.scrollHeight - el.clientHeight > 12;
+      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+      const next = overflow && !atBottom;
+      setVisible(next);
+      el.classList.toggle('game-over-bridge__body--more-below', next);
+    };
+
+    const bind = (node: HTMLDivElement) => {
+      el = node;
+      sync();
+      node.addEventListener('scroll', sync, { passive: true });
+      ro = new ResizeObserver(sync);
+      ro.observe(node);
+      const grid = node.querySelector('.game-over-bridge__grid');
+      if (grid) ro.observe(grid);
+    };
+
+    const unbind = () => {
+      if (!el) return;
+      el.removeEventListener('scroll', sync);
+      el.classList.remove('game-over-bridge__body--more-below');
+    };
+
+    if (el) {
+      bind(el);
+    } else {
+      raf = requestAnimationFrame(() => {
+        if (bodyRef.current) bind(bodyRef.current);
+      });
+    }
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro?.disconnect();
+      unbind();
+    };
+  }, [bodyRef, active]);
+
+  return visible;
+}
+
+const SCROLL_RAIL_CHEVRON_COUNT = 4;
+
+function GameOverBridgeScrollRail({ side }: { side: 'left' | 'right' }) {
+  return (
+    <div
+      className={`game-over-bridge__scroll-rail game-over-bridge__scroll-rail--${side}`}
+      aria-hidden
+    >
+      {Array.from({ length: SCROLL_RAIL_CHEVRON_COUNT }, (_, i) => (
+        <span
+          key={i}
+          className="game-over-bridge__scroll-rail-chevron"
+          style={{ animationDelay: `${i * 0.16}s` }}
+        >
+          ↓
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Боковые «космические» стрелки прокрутки вниз. */
+export function GameOverBridgeScrollRails({ visible }: { visible: boolean }) {
+  if (!visible) return null;
+
+  return (
+    <>
+      <GameOverBridgeScrollRail side="left" />
+      <GameOverBridgeScrollRail side="right" />
+    </>
+  );
+}
+
+/** Одна боковая колонка со стрелками (для gutter-сетки модалки). */
+export function GameOverBridgeScrollGutter({
+  side,
+  visible,
+}: {
+  side: 'left' | 'right';
+  visible: boolean;
+}) {
+  if (!visible) return <div className="game-over-bridge__scroll-gutter" aria-hidden />;
+  return (
+    <div className={`game-over-bridge__scroll-gutter game-over-bridge__scroll-gutter--${side}`}>
+      <GameOverBridgeScrollRail side={side} />
+    </div>
+  );
+}
+
+/** Центральная подсказка «Статистика». */
+export function GameOverBridgeScrollHint({ visible }: { visible: boolean }) {
+  if (!visible) return null;
+
+  return (
+    <div className="game-over-bridge__scroll-hint" aria-hidden>
+      <span className="game-over-bridge__scroll-hint-chevron">↓</span>
+      <span className="game-over-bridge__scroll-hint-text">Статистика</span>
+    </div>
+  );
+}
+
 export function BridgeDock({
   onExit,
   onOpenTable,
@@ -119,32 +241,35 @@ export function BridgeDock({
   return (
     <nav className="bridge-dock" aria-label="Управление после партии">
       <button type="button" className="bridge-pod bridge-pod--helm" onClick={onExit}>
-        <span className="bridge-pod__halo" aria-hidden />
-        <span className="bridge-pod__bezel" aria-hidden />
-        <span className="bridge-pod__glyph" aria-hidden>
-          ◈
+        <span className="bridge-pod__shine" aria-hidden />
+        <span className="bridge-pod__icon" aria-hidden>
+          ◁
         </span>
-        <span className="bridge-pod__label">Шлюз</span>
-        <span className="bridge-pod__sublabel">в меню</span>
+        <span className="bridge-pod__text">
+          <span className="bridge-pod__label">Меню</span>
+          <span className="bridge-pod__sublabel">на главную</span>
+        </span>
       </button>
       <button type="button" className="bridge-pod bridge-pod--sigma" onClick={onOpenTable} title="Таблица раздач">
-        <span className="bridge-pod__halo" aria-hidden />
-        <span className="bridge-pod__bezel" aria-hidden />
-        <span className="bridge-pod__glyph bridge-pod__glyph--sigma" aria-hidden>
-          Σ
+        <span className="bridge-pod__shine" aria-hidden />
+        <span className="bridge-pod__icon" aria-hidden>
+          ▦
         </span>
-        <span className="bridge-pod__label">Архив</span>
-        <span className="bridge-pod__sublabel">раздачи</span>
+        <span className="bridge-pod__text">
+          <span className="bridge-pod__label">Раздачи</span>
+          <span className="bridge-pod__sublabel">таблица</span>
+        </span>
       </button>
       {!hideNewGame && onNewGame && (
         <button type="button" className="bridge-pod bridge-pod--launch" onClick={onNewGame}>
-          <span className="bridge-pod__halo" aria-hidden />
-          <span className="bridge-pod__bezel" aria-hidden />
-          <span className="bridge-pod__glyph bridge-pod__glyph--launch" aria-hidden>
+          <span className="bridge-pod__shine" aria-hidden />
+          <span className="bridge-pod__icon" aria-hidden>
             ▶
           </span>
-          <span className="bridge-pod__label">Старт</span>
-          <span className="bridge-pod__sublabel">новая партия</span>
+          <span className="bridge-pod__text">
+            <span className="bridge-pod__label">Старт</span>
+            <span className="bridge-pod__sublabel">новая партия</span>
+          </span>
         </button>
       )}
     </nav>
@@ -155,19 +280,40 @@ export function BridgeDock({
 export function BridgeChipReel({
   chips,
   modeLabel,
+  compact,
 }: {
   chips: number;
   modeLabel: string;
+  compact?: boolean;
 }) {
   const tone = chips >= 0 ? 'plus' : 'minus';
   return (
-    <div className={`bridge-chip-reel bridge-chip-reel--${tone}`} aria-label={`Фишки: ${chips}`}>
-      <span className="bridge-chip-reel__tag">Бортовой счёт</span>
+    <div
+      className={[
+        'bridge-chip-reel',
+        `bridge-chip-reel--${tone}`,
+        compact ? 'bridge-chip-reel--compact' : '',
+      ].filter(Boolean).join(' ')}
+      aria-label={`Фишки: ${chips}`}
+    >
+      <span className="bridge-chip-reel__tag">Ваши фишки</span>
       <span className="bridge-chip-reel__value">
         {chips >= 0 ? '+' : ''}
         {chips}
       </span>
-      <span className="bridge-chip-reel__mode">{modeLabel}</span>
+      <span
+        className={[
+          'bridge-chip-reel__mode',
+          compact ? 'bridge-chip-reel__mode--active-pick' : '',
+        ].filter(Boolean).join(' ')}
+      >
+        {compact && (
+          <span className="bridge-chip-reel__mode-mark" aria-hidden>
+            ✓
+          </span>
+        )}
+        <span className="bridge-chip-reel__mode-label">{modeLabel}</span>
+      </span>
       <span className="bridge-chip-reel__ticks" aria-hidden />
     </div>
   );
@@ -238,21 +384,23 @@ export function BridgeTelemetryDashboard({
   gamesPlayed,
   wins,
   accuracyPct,
+  compact,
 }: {
   humanPlace: number;
   gamesPlayed: number;
   wins: number;
   accuracyPct: number | null;
+  compact?: boolean;
 }) {
   const winPct = gamesPlayed > 0 ? Math.round((wins / gamesPlayed) * 100) : 0;
   const diodeCount = 5;
   const litDiodes = gamesPlayed > 0 ? Math.min(diodeCount, Math.ceil((wins / gamesPlayed) * diodeCount)) : 0;
 
   return (
-    <div className="bridge-dash bridge-dash--interactive">
+    <div className={['bridge-dash', 'bridge-dash--interactive', compact ? 'bridge-dash--compact' : ''].filter(Boolean).join(' ')}>
       <div className="bridge-dash__header">
         <span className="bridge-dash__header-led bridge-dash__header-led--pulse" aria-hidden />
-        <span className="bridge-dash__header-text">Телеметрия борта</span>
+        <span className="bridge-dash__header-text">{compact ? 'Статистика' : 'Телеметрия борта'}</span>
       </div>
       <div className="bridge-dash__gauges">
         <BridgeGauge
@@ -317,20 +465,28 @@ export function BridgeAccuracyDeck({
   humanIdx,
   bestAccuracy,
   neonByIndex,
+  compact,
 }: {
   players: { name: string }[];
   bidAccuracyPerPlayer: number[];
   humanIdx: number;
   bestAccuracy: number;
   neonByIndex: (i: number) => BridgePlayerNeon;
+  compact?: boolean;
 }) {
+  const rowOrder = [
+    humanIdx,
+    ...players.map((_, i) => i).filter((i) => i !== humanIdx),
+  ];
+
   return (
-    <div className="bridge-accuracy bridge-accuracy--interactive">
+    <div className={['bridge-accuracy', 'bridge-accuracy--interactive', compact ? 'bridge-accuracy--compact' : ''].filter(Boolean).join(' ')}>
       <div className="bridge-dash__header">
         <span className="bridge-dash__header-led" aria-hidden />
         <span className="bridge-dash__header-text">Точность заказов</span>
       </div>
-      {players.map((p, i) => {
+      {rowOrder.map((i) => {
+        const p = players[i];
         const pct = bidAccuracyPerPlayer[i];
         const tone = neonByIndex(i);
         const isBest = pct === bestAccuracy && pct > 0;
@@ -385,19 +541,169 @@ function HeroHeading({
   );
 }
 
+function buildGameOverNameRevealKeyframes(maxPx: number, steps = 80): Keyframe[] {
+  const max = Math.round(maxPx);
+  const frames: Keyframe[] = [];
+  for (let i = 0; i <= steps; i += 1) {
+    const u = i / steps;
+    const x = Math.round(max * Math.sin(Math.PI * u));
+    frames.push({ transform: `translate3d(${-x}px, 0, 0)` });
+  }
+  return frames;
+}
+
+function GameOverTableNameMarquee({
+  name,
+  className,
+}: {
+  name: string;
+  className?: string;
+}) {
+  const viewportRef = useRef<HTMLSpanElement>(null);
+  const labelRef = useRef<HTMLSpanElement>(null);
+  const trackRef = useRef<HTMLSpanElement>(null);
+  const animRef = useRef<Animation | null>(null);
+  const revealingRef = useRef(false);
+  const [overflows, setOverflows] = useState(false);
+  const [revealing, setRevealing] = useState(false);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    const label = labelRef.current;
+    if (!viewport || !label) return;
+    const check = () => setOverflows(label.scrollWidth > viewport.clientWidth + 2);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(viewport);
+    ro.observe(label);
+    return () => ro.disconnect();
+  }, [name]);
+
+  useEffect(
+    () => () => {
+      animRef.current?.cancel();
+      animRef.current = null;
+    },
+    [],
+  );
+
+  const runReveal = useCallback(() => {
+    const viewport = viewportRef.current;
+    const label = labelRef.current;
+    const track = trackRef.current;
+    if (!viewport || !label || !track || revealingRef.current) return;
+    const maxScroll = label.scrollWidth - viewport.clientWidth;
+    if (maxScroll < 2) return;
+
+    animRef.current?.cancel();
+    track.style.transform = '';
+
+    const reduce =
+      typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      track.style.transform = `translate3d(${-Math.round(maxScroll)}px, 0, 0)`;
+      window.requestAnimationFrame(() => {
+        track.style.transform = '';
+      });
+      return;
+    }
+
+    const durationMs = Math.max(2000, Math.min(4200, Math.round(maxScroll * 38)));
+    revealingRef.current = true;
+    setRevealing(true);
+    const anim = track.animate(buildGameOverNameRevealKeyframes(maxScroll), {
+      duration: durationMs,
+      easing: 'linear',
+      fill: 'none',
+    });
+    animRef.current = anim;
+    anim.onfinish = () => {
+      track.style.transform = '';
+      animRef.current = null;
+      revealingRef.current = false;
+      setRevealing(false);
+    };
+  }, [name]);
+
+  const labelClass = ['game-over-name-marquee__label', className].filter(Boolean).join(' ');
+  const tapHint = overflows ? `${name} — нажмите, чтобы прокрутить` : name;
+
+  return (
+    <span
+      className={[
+        'game-over-name-marquee',
+        overflows ? 'game-over-name-marquee--tappable' : '',
+        revealing ? 'game-over-name-marquee--revealing' : '',
+      ].filter(Boolean).join(' ')}
+      title={tapHint}
+      role={overflows ? 'button' : undefined}
+      tabIndex={overflows ? 0 : undefined}
+      aria-label={overflows ? tapHint : undefined}
+      onClick={
+        overflows
+          ? (e) => {
+              e.stopPropagation();
+              runReveal();
+            }
+          : undefined
+      }
+      onKeyDown={
+        overflows
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                runReveal();
+              }
+            }
+          : undefined
+      }
+    >
+      <span className="game-over-name-marquee__viewport" ref={viewportRef}>
+        <span className="game-over-name-marquee__track" ref={trackRef}>
+          <span className={labelClass} ref={labelRef}>
+            {name}
+          </span>
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function celebrationMiniNameClass(tier: number, leaderIridescent: boolean): string {
+  return [
+    'game-over-celebration-mini__name',
+    tier === 0 && leaderIridescent ? 'cosmic-iridescent-text' : '',
+  ].filter(Boolean).join(' ');
+}
+
+const CELEBRATION_MINI_RESULT_NUM = 'game-over-celebration-mini__result-num';
+
+function CelebrationMiniResultNum({ children }: { children: ReactNode }) {
+  return <span className={CELEBRATION_MINI_RESULT_NUM}>{children}</span>;
+}
+
 function CelebrationMiniRow({
   p,
   place,
   tier,
   humanIdx,
   showChips,
+  nameMarquee,
+  leaderIridescent,
+  plainNameWrap,
 }: {
   p: { idx: number; name: string; score: number; chips: number };
   place: number;
   tier: number;
   humanIdx: number;
   showChips: boolean;
+  nameMarquee?: boolean;
+  leaderIridescent?: boolean;
+  /** Без рамки/фона у обёртки имени (модалка «Итоги») */
+  plainNameWrap?: boolean;
 }) {
+  const nameClass = celebrationMiniNameClass(tier, !!leaderIridescent);
   return (
     <tr
       className={[
@@ -408,30 +714,40 @@ function CelebrationMiniRow({
         tier === 0 ? 'game-over-celebration-mini__row--leader' : '',
       ].filter(Boolean).join(' ')}
     >
-      <td className="game-over-celebration-mini__place">{place}</td>
+      <td className="game-over-celebration-mini__place">
+        <CelebrationMiniResultNum>{place}</CelebrationMiniResultNum>
+      </td>
       <td className="game-over-celebration-mini__name-cell">
         <span
           className={[
             'game-over-celebration-mini__name-wrap',
             tier === 0 ? 'game-over-celebration-mini__name-wrap--leader' : '',
-            p.idx === humanIdx ? 'game-over-celebration-mini__name-wrap--human' : '',
+            !plainNameWrap && p.idx === humanIdx ? 'game-over-celebration-mini__name-wrap--human' : '',
           ].filter(Boolean).join(' ')}
         >
-          <span className="game-over-celebration-mini__name" title={p.name}>
-            {p.name}
-          </span>
+          {nameMarquee ? (
+            <GameOverTableNameMarquee name={p.name} className={nameClass} />
+          ) : (
+            <span className={nameClass} title={p.name}>
+              {p.name}
+            </span>
+          )}
         </span>
       </td>
       <td className="game-over-celebration-mini__score">
-        {p.score >= 0 ? '+' : ''}
-        {p.score}
+        <CelebrationMiniResultNum>
+          {p.score >= 0 ? '+' : ''}
+          {p.score}
+        </CelebrationMiniResultNum>
       </td>
       {showChips && (
         <td
           className={`game-over-celebration-mini__chips${p.chips >= 0 ? ' game-over-num--plus' : p.chips < 0 ? ' game-over-num--minus' : ''}`}
         >
-          {p.chips >= 0 ? '+' : ''}
-          {p.chips}
+          <CelebrationMiniResultNum>
+            {p.chips >= 0 ? '+' : ''}
+            {p.chips}
+          </CelebrationMiniResultNum>
         </td>
       )}
     </tr>
@@ -443,18 +759,35 @@ export function GameOverCelebrationMiniTable({
   rows,
   humanIdx,
   showChips,
+  tone = 'celebration',
+  nameMarquee = false,
 }: {
   rows: { idx: number; name: string; score: number; chips: number }[];
   humanIdx: number;
   showChips: boolean;
+  /** Праздничное золото (экран 1) или неон мостика (экран «Итоги») */
+  tone?: 'celebration' | 'bridge';
+  /** Бегущая строка для длинных имён */
+  nameMarquee?: boolean;
 }) {
   const topScore = rows[0]?.score ?? 0;
   const winners = rows.filter((r) => r.score === topScore);
   const rest = rows.filter((r) => r.score < topScore);
   const colCount = showChips ? 4 : 3;
+  const leaderIridescent = tone === 'bridge';
+  const plainNameWrap = tone === 'bridge';
+  const winnerNameClass = [
+    'game-over-celebration-mini__winner-pane-name',
+    leaderIridescent ? 'cosmic-iridescent-text' : '',
+  ].filter(Boolean).join(' ');
 
   return (
-    <div className="game-over-celebration-mini">
+    <div
+      className={[
+        'game-over-celebration-mini',
+        tone === 'bridge' ? 'game-over-celebration-mini--bridge-tone' : '',
+      ].filter(Boolean).join(' ')}
+    >
       <table className="game-over-celebration-mini__table">
         <thead>
           <tr>
@@ -472,6 +805,9 @@ export function GameOverCelebrationMiniTable({
               tier={0}
               humanIdx={humanIdx}
               showChips={showChips}
+              nameMarquee={nameMarquee}
+              leaderIridescent={leaderIridescent}
+              plainNameWrap={plainNameWrap}
             />
           ) : (
             <tr className="game-over-celebration-mini__row game-over-celebration-mini__row--tier0 game-over-celebration-mini__row--winners-split">
@@ -488,28 +824,38 @@ export function GameOverCelebrationMiniTable({
                         w.idx === humanIdx ? 'game-over-celebration-mini__winner-pane--human' : '',
                       ].filter(Boolean).join(' ')}
                     >
-                      <span className="game-over-celebration-mini__winner-pane-rank">1</span>
+                      <span className="game-over-celebration-mini__winner-pane-rank">
+                        <CelebrationMiniResultNum>1</CelebrationMiniResultNum>
+                      </span>
                       <span
                         className={[
                           'game-over-celebration-mini__winner-pane-name-wrap',
                           'game-over-celebration-mini__name-wrap--leader',
-                          w.idx === humanIdx ? 'game-over-celebration-mini__name-wrap--human' : '',
+                          !plainNameWrap && w.idx === humanIdx ? 'game-over-celebration-mini__name-wrap--human' : '',
                         ].filter(Boolean).join(' ')}
                       >
-                        <span className="game-over-celebration-mini__winner-pane-name" title={w.name}>
-                          {w.name}
-                        </span>
+                        {nameMarquee ? (
+                          <GameOverTableNameMarquee name={w.name} className={winnerNameClass} />
+                        ) : (
+                          <span className={winnerNameClass} title={w.name}>
+                            {w.name}
+                          </span>
+                        )}
                       </span>
                       <span className="game-over-celebration-mini__winner-pane-score">
-                        {w.score >= 0 ? '+' : ''}
-                        {w.score}
+                        <CelebrationMiniResultNum>
+                          {w.score >= 0 ? '+' : ''}
+                          {w.score}
+                        </CelebrationMiniResultNum>
                       </span>
                       {showChips && (
                         <span
                           className={`game-over-celebration-mini__winner-pane-chips${w.chips >= 0 ? ' game-over-num--plus' : w.chips < 0 ? ' game-over-num--minus' : ''}`}
                         >
-                          {w.chips >= 0 ? '+' : ''}
-                          {w.chips}
+                          <CelebrationMiniResultNum>
+                            {w.chips >= 0 ? '+' : ''}
+                            {w.chips}
+                          </CelebrationMiniResultNum>
                         </span>
                       )}
                     </div>
@@ -528,6 +874,9 @@ export function GameOverCelebrationMiniTable({
                 tier={i + 1}
                 humanIdx={humanIdx}
                 showChips={showChips}
+                nameMarquee={nameMarquee}
+                leaderIridescent={leaderIridescent}
+                plainNameWrap={plainNameWrap}
               />
             );
           })}

@@ -10,6 +10,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   TouchEvent as ReactTouchEvent,
   Ref,
+  RefObject,
 } from 'react';
 import { Fragment, memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal, flushSync } from 'react-dom';
@@ -45,11 +46,12 @@ import { SETTLEMENT_MODE_LABELS } from '../game/partySettlement';
 import {
   chipColor,
   DealResultsChipToggle,
+  ResultsChipModeHelpButton,
+  ResultsChipModeHelpOverlay,
   settlementFootnote,
   usePartySettlement,
   useResultsChipView,
   cycleResultsChipView,
-  RESULTS_CHIP_MODE_HELP,
 } from './DealResultsSettlement';
 import { DealResultsMobileModalOverlay } from './DealResultsMobileModal';
 import {
@@ -67,6 +69,9 @@ import {
   BridgeViewport,
   bridgePlayerNeonClass,
   GameOverBridgeScenery,
+  GameOverBridgeScrollGutter,
+  GameOverBridgeScrollHint,
+  useGameOverBridgeScrollMore,
   GameOverCelebrationHero,
   GameOverCelebrationMiniTable,
   GameOverCloudStatus,
@@ -995,6 +1000,7 @@ function GameOverModal({
   viewerCanonicalSlotIndex,
   cloudSave = 'none',
   isOfflineEnd = true,
+  topbarSlotRef,
 }: {
   snapshot: GameState;
   gameId: number;
@@ -1005,6 +1011,7 @@ function GameOverModal({
   viewerCanonicalSlotIndex?: number | null;
   cloudSave?: GameOverCloudSave;
   isOfflineEnd?: boolean;
+  topbarSlotRef?: RefObject<HTMLDivElement | null>;
 }) {
   const [showExpanded, setShowExpanded] = useState(false);
   const [chipView, setChipView] = useResultsChipView();
@@ -1037,18 +1044,20 @@ function GameOverModal({
   });
   const bestAccuracy = bidAccuracyPerPlayer.length > 0 ? Math.max(...bidAccuracyPerPlayer) : 0;
   const isMobileLayout = useIsMobileOrTablet();
+  const bridgeBodyRef = useRef<HTMLDivElement>(null);
+  const showBridgeScrollMore = useGameOverBridgeScrollMore(bridgeBodyRef, showExpanded && isMobileLayout);
   const humanChips = chipForPlayer(humanIdx);
+  const miniRows = sorted.map((p) => ({
+    idx: p.idx,
+    name: p.name,
+    score: p.score,
+    chips: chipForPlayer(p.idx),
+  }));
 
   if (!showExpanded) {
     const celebrationRootClass = isMobileLayout
       ? 'game-over-root game-over-root--celebration game-over-root--celebration-mobile'
       : 'game-over-root game-over-root--celebration';
-    const miniRows = sorted.map((p) => ({
-      idx: p.idx,
-      name: p.name,
-      score: p.score,
-      chips: chipForPlayer(p.idx),
-    }));
 
     return (
       <div className={celebrationRootClass}>
@@ -1104,84 +1113,145 @@ function GameOverModal({
     ? 'game-over-root game-over-root--expanded'
     : 'game-over-root game-over-root--expanded game-over-root--desktop';
 
+  const mobileTopbar =
+    isMobileLayout && topbarSlotRef?.current
+      ? createPortal(
+          <h2 className="game-over-dialog__topbar-title" id="game-over-title">
+            <span className="game-over-dialog__topbar-title-text cosmic-iridescent-text">Итоги партии</span>
+            <span className="game-over-dialog__topbar-meta">№{gameId}</span>
+          </h2>,
+          topbarSlotRef.current,
+        )
+      : null;
+
   return (
-    <div className={`${expandedRootClass} game-over-bridge${isMobileLayout ? ' game-over-bridge--mobile' : ''}`}>
+    <>
+      {mobileTopbar}
+      <div className={`${expandedRootClass} game-over-bridge${isMobileLayout ? ' game-over-bridge--mobile' : ''}`}>
       <GameOverBridgeScenery />
+      {isMobileLayout && <GameOverBridgeScrollGutter side="left" visible={showBridgeScrollMore} />}
+      <div className={isMobileLayout ? 'game-over-bridge__chrome' : undefined}>
+        <div className={isMobileLayout ? 'game-over-bridge__chrome-main' : undefined}>
       <div className="game-over-bridge__hud">
         <header className="game-over-expanded-header">
-          <div className="game-over-expanded-header__top">
-            <h2 className="game-over-expanded-header__title cosmic-iridescent-text" id="game-over-title">
-              Итоги партии
-            </h2>
-            <span className="game-over-expanded-header__meta">№{gameId}</span>
-          </div>
-          <GameOverCelebrationHero
-            compact
-            minimal={isMobileLayout}
-            isTie={isTie}
-            winnerNames={isTie ? winners.map((w) => w.name).join(' · ') : undefined}
-            winnerName={!isTie ? winners[0]?.name : undefined}
-            isHumanWinner={!isTie && winners[0]?.idx === humanIdx}
-          />
-          <GameOverCloudStatus cloudSave={cloudSave} isOfflineEnd={isOfflineEnd} />
-          {dealHistory.length > 0 && (
+          {!isMobileLayout && (
+            <div className="game-over-expanded-header__top">
+              <h2 className="game-over-expanded-header__title cosmic-iridescent-text" id="game-over-title">
+                Итоги партии
+              </h2>
+              <span className="game-over-expanded-header__meta">№{gameId}</span>
+            </div>
+          )}
+          {!isMobileLayout && (
+            <GameOverCelebrationHero
+              compact
+              isTie={isTie}
+              winnerNames={isTie ? winners.map((w) => w.name).join(' · ') : undefined}
+              winnerName={!isTie ? winners[0]?.name : undefined}
+              isHumanWinner={!isTie && winners[0]?.idx === humanIdx}
+            />
+          )}
+          {!isMobileLayout && (
+            <GameOverCloudStatus cloudSave={cloudSave} isOfflineEnd={isOfflineEnd} />
+          )}
+          {dealHistory.length > 0 && !isMobileLayout && (
             <div className="game-over-chip-bar">
               <span className="game-over-chip-bar__label">Подсчёт фишек</span>
-              <DealResultsChipToggle chipView={chipView} onChange={setChipView} compact />
+              <div className="game-over-chip-bar__controls">
+                <DealResultsChipToggle chipView={chipView} onChange={setChipView} compact />
+              </div>
               <span className="game-over-chip-bar__hint">Рейтинг — по очкам</span>
             </div>
           )}
         </header>
-        <div className="game-over-bridge__body">
+        <div className="game-over-bridge__body-wrap">
+        <div ref={bridgeBodyRef} className="game-over-bridge__body">
         <div className="game-over-bridge__grid">
           <section className="game-over-bridge__main-col">
-            {dealHistory.length > 0 && (
-              <BridgeChipReel chips={humanChips} modeLabel={SETTLEMENT_MODE_LABELS[chipView]} />
+            {dealHistory.length > 0 && isMobileLayout && (
+              <div className="game-over-chip-panel game-over-chip-panel--mobile">
+                <div className="game-over-chip-panel__top">
+                  <div className="game-over-chip-bar__controls">
+                    <DealResultsChipToggle
+                      chipView={chipView}
+                      onChange={setChipView}
+                      compact
+                      className="cosmic-chip-toggle--game-over-mobile"
+                    />
+                    <ResultsChipModeHelpButton chipView={chipView} portalled />
+                  </div>
+                </div>
+                <div className="game-over-chip-panel__divider" role="separator" aria-hidden />
+                <BridgeChipReel
+                  chips={humanChips}
+                  modeLabel={SETTLEMENT_MODE_LABELS[chipView]}
+                  compact
+                />
+              </div>
+            )}
+            {dealHistory.length > 0 && !isMobileLayout && (
+              <BridgeChipReel
+                chips={humanChips}
+                modeLabel={SETTLEMENT_MODE_LABELS[chipView]}
+              />
             )}
             <BridgeViewport>
-              <table className="game-over-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Игрок</th>
-                    <th>Очки</th>
-                    {dealHistory.length > 0 && <th>Фишки</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map((p, rank) => (
-                    <tr
-                      key={p.idx}
-                      className={[
-                        'game-over-table__row',
-                        bridgePlayerNeonClass(p.idx),
-                        p.idx === humanIdx ? 'game-over-table__row--human' : '',
-                        rank === 0 ? 'game-over-table__row--leader' : '',
-                      ].filter(Boolean).join(' ')}
-                    >
-                      <td><span className="game-over-table__rank">{rank + 1}</span></td>
-                      <td><span className="game-over-table__name">{p.name}</span></td>
-                      <td className="game-over-table__score">{p.score >= 0 ? '+' : ''}{p.score}</td>
-                      {dealHistory.length > 0 && (
-                        <td className={`game-over-table__chips${chipForPlayer(p.idx) >= 0 ? ' game-over-num--plus' : chipForPlayer(p.idx) < 0 ? ' game-over-num--minus' : ''}`}>
-                          {chipForPlayer(p.idx) >= 0 ? '+' : ''}
-                          {chipForPlayer(p.idx)}
-                        </td>
-                      )}
+              {isMobileLayout ? (
+                <GameOverCelebrationMiniTable
+                  rows={miniRows}
+                  humanIdx={humanIdx}
+                  showChips={dealHistory.length > 0}
+                  tone="bridge"
+                  nameMarquee
+                />
+              ) : (
+                <table className="game-over-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Игрок</th>
+                      <th>Очки</th>
+                      {dealHistory.length > 0 && <th>Фишки</th>}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {sorted.map((p, rank) => (
+                      <tr
+                        key={p.idx}
+                        className={[
+                          'game-over-table__row',
+                          bridgePlayerNeonClass(p.idx),
+                          p.idx === humanIdx ? 'game-over-table__row--human' : '',
+                          rank === 0 ? 'game-over-table__row--leader' : '',
+                        ].filter(Boolean).join(' ')}
+                      >
+                        <td><span className="game-over-table__rank">{rank + 1}</span></td>
+                        <td><span className="game-over-table__name">{p.name}</span></td>
+                        <td className="game-over-table__score">{p.score >= 0 ? '+' : ''}{p.score}</td>
+                        {dealHistory.length > 0 && (
+                          <td className={`game-over-table__chips${chipForPlayer(p.idx) >= 0 ? ' game-over-num--plus' : chipForPlayer(p.idx) < 0 ? ' game-over-num--minus' : ''}`}>
+                            {chipForPlayer(p.idx) >= 0 ? '+' : ''}
+                            {chipForPlayer(p.idx)}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </BridgeViewport>
-            {footnote && <p className="game-over-expanded-footnote">{footnote}</p>}
+            {footnote && !(isMobileLayout && chipView === 'accuracy_bonus') && (
+              <p className="game-over-expanded-footnote">{footnote}</p>
+            )}
           </section>
-          <aside className="game-over-bridge__telemetry">
+          <aside className={`game-over-bridge__telemetry${isMobileLayout ? ' game-over-bridge__telemetry--mobile' : ''}`}>
             <BridgeAccuracyDeck
               players={players}
               bidAccuracyPerPlayer={bidAccuracyPerPlayer}
               humanIdx={humanIdx}
               bestAccuracy={bestAccuracy}
               neonByIndex={(i) => (['cyan', 'magenta', 'amber', 'lime'] as const)[i] ?? 'violet'}
+              compact={isMobileLayout}
             />
             <BridgeTelemetryDashboard
               humanPlace={humanPlace}
@@ -1192,13 +1262,25 @@ function GameOverModal({
                   ? Math.round(localRating.bidAccuracySum / localRating.bidAccuracyCount)
                   : null
               }
+              compact={isMobileLayout}
             />
           </aside>
         </div>
+        {isMobileLayout && <GameOverBridgeScrollHint visible={showBridgeScrollMore} />}
+        </div>
         </div>
         <BridgeDock onExit={onExit} onOpenTable={onOpenTable} onNewGame={onNewGame} hideNewGame={hideNewGame} />
+        {isMobileLayout && (
+          <div className="game-over-bridge__cloud-footer">
+            <GameOverCloudStatus cloudSave={cloudSave} isOfflineEnd={isOfflineEnd} />
+          </div>
+        )}
       </div>
+        </div>
+      </div>
+      {isMobileLayout && <GameOverBridgeScrollGutter side="right" visible={showBridgeScrollMore} />}
     </div>
+    </>
   );
 }
 
@@ -1535,6 +1617,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   /** Для онлайна — канонический снимок + слот; иначе dealHistory и players расходятся по индексам. */
   const [gameOverViewerSlot, setGameOverViewerSlot] = useState<number | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const gameOverTopbarRef = useRef<HTMLDivElement>(null);
   const startFromWaitingLockRef = useRef(false);
   const [selectedPlayerForInfo, setSelectedPlayerForInfo] = useState<number | null>(null);
   const [showDealerTooltip, setShowDealerTooltip] = useState(false);
@@ -8770,6 +8853,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           aria-labelledby="game-over-title"
         >
           <div className="game-over-dialog__card" onClick={e => e.stopPropagation()}>
+            <div ref={gameOverTopbarRef} className="game-over-dialog__topbar" />
             <CosmicGlassClose
               className="game-over-dialog__close"
               onClick={() => {
@@ -8782,6 +8866,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             <GameOverModal
               snapshot={gameOverSnapshot}
               gameId={gameId}
+              topbarSlotRef={gameOverTopbarRef}
               cloudSave={gameOverCloudSave}
               isOfflineEnd={!isOnline}
               viewerCanonicalSlotIndex={gameOverViewerSlot}
@@ -9866,8 +9951,34 @@ function DealResultsScreen({
     if (!compactModal || dealResultsModalResizingRef.current) return;
     const dock = mobileStickyDockRef.current;
     if (!dock) return;
-    const h = Math.ceil(dock.getBoundingClientRect().height);
-    if (h > 0) setMobileScrollPadPx((prev) => (Math.abs(prev - h) <= 1 ? prev : h));
+
+    const syncPad = () => {
+      if (dealResultsModalResizingRef.current) return;
+      const h = Math.ceil(dock.getBoundingClientRect().height);
+      if (h > 0) {
+        setMobileScrollPadPx((prev) => (Math.abs(prev - h) <= 1 ? prev : h));
+      }
+    };
+
+    syncPad();
+
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => syncPad()) : null;
+    ro?.observe(dock);
+
+    const payoutBody = dock.querySelector('.deal-results-sticky-payout-body');
+    const onTransitionEnd = (event: Event) => {
+      const te = event as TransitionEvent;
+      if (te.propertyName === 'max-height' || te.propertyName === 'opacity') syncPad();
+    };
+    payoutBody?.addEventListener('transitionend', onTransitionEnd);
+
+    const settleTimer = window.setTimeout(syncPad, 580);
+
+    return () => {
+      ro?.disconnect();
+      payoutBody?.removeEventListener('transitionend', onTransitionEnd);
+      window.clearTimeout(settleTimer);
+    };
   }, [
     compactModal,
     showSettlementRow,
@@ -9879,6 +9990,14 @@ function DealResultsScreen({
     isPartyFinished,
     mobilePayoutModeHelpOpen,
   ]);
+
+  useLayoutEffect(() => {
+    if (!compactModal) return;
+    const el = mobileBodyScrollRef.current;
+    if (!el) return;
+    const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
+    if (el.scrollTop > maxScroll) el.scrollTop = maxScroll;
+  }, [compactModal, mobileScrollPadPx, mobilePayoutDockCollapsed]);
 
   /** Android Chrome: принудительная полная раскладка tbody (иначе Б/Т внизу «всплывают» при скролле). */
   useLayoutEffect(() => {
@@ -9898,7 +10017,7 @@ function DealResultsScreen({
       warmScrollPaint();
       requestAnimationFrame(warmScrollPaint);
     });
-  }, [compactModal, dealHistory.length]);
+  }, [compactModal, dealHistory.length, mobileScrollPadPx, mobilePayoutDockCollapsed]);
 
   const _renderPanel = (idx: number) => {
     const bid = bids[idx] ?? 0;
@@ -9977,6 +10096,11 @@ function DealResultsScreen({
       if (rowIndex >= 24 && rowIndex <= 27) return 'Тёмная';
     }
     return DEAL_COLUMN_LABELS[rowIndex];
+  };
+  const getMobileDealLabelKind = (rowIndex: number): 'num' | 'bid' | 'dark' => {
+    if (rowIndex >= 20 && rowIndex <= 23) return 'bid';
+    if (rowIndex >= 24 && rowIndex <= 27) return 'dark';
+    return 'num';
   };
 
   const dealColumnWidth = !isMobile ? DEAL_COLUMN_WIDTH_PC : DEAL_COLUMN_WIDTH;
@@ -10753,14 +10877,7 @@ function DealResultsScreen({
           {onClose && !compactModal ? (
             <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 0, paddingTop: 4, gap: 12 }}>
               <div style={{ flex: 1 }} />
-              <span style={{
-                fontSize: 20,
-                fontWeight: 600,
-                fontFamily: 'Georgia, "Times New Roman", serif',
-                letterSpacing: '0.06em',
-                color: 'rgba(199, 210, 254, 0.96)',
-                textShadow: '0 0 14px rgba(139, 92, 246, 0.42), 0 0 28px rgba(99, 102, 241, 0.25), 0 1px 0 rgba(0,0,0,0.35)',
-              }}>Результаты</span>
+              <span className="deal-results-modal-title deal-results-modal-title--roomy">Результаты</span>
               <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
@@ -10810,14 +10927,7 @@ function DealResultsScreen({
                           }}
                         >
                           <div style={{ flex: 1 }} />
-                          <span style={{
-                            fontSize: 18,
-                            fontWeight: 600,
-                            fontFamily: 'Georgia, "Times New Roman", serif',
-                            letterSpacing: '0.06em',
-                            color: 'rgba(199, 210, 254, 0.96)',
-                            textShadow: '0 0 14px rgba(139, 92, 246, 0.42), 0 0 28px rgba(99, 102, 241, 0.25), 0 1px 0 rgba(0,0,0,0.35)',
-                          }}>Результаты</span>
+                          <span className="deal-results-modal-title">Результаты</span>
                           <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
                             <button
                               type="button"
@@ -10863,7 +10973,9 @@ function DealResultsScreen({
                               style={{ ...dealResultsTableThStyleMobile, ...dealResultsTableThDealStyle, minWidth: dealColumnWidth, width: dealColumnWidth }}
                               title="Раздача"
                             >
-                              №
+                              <span className="deal-results-mobile-deal-th-badge" aria-hidden>
+                                <span className="deal-results-mobile-deal-th-badge__symbol">№</span>
+                              </span>
                             </th>
                             {players.map((p, i) => {
                               const isLeader = p.score === maxScore;
@@ -11065,7 +11177,13 @@ function DealResultsScreen({
                                     }}
                                     title={getDealCellTitle(dealNum)}
                                   >
-                                    <span className="deal-results-mobile-deal-label" style={dealResultsMobileDealIndexTextStyle}>
+                                    <span
+                                      className={`deal-results-mobile-deal-label deal-results-mobile-deal-label--${getMobileDealLabelKind(rowIndex)}`}
+                                      style={{
+                                        ...dealResultsMobileDealIndexTextStyle,
+                                        ['--dr-deal-label-pulse-delay' as const]: `${-((rowIndex * 17 + dealNum) % 23) * 0.12}s`,
+                                      }}
+                                    >
                                       {getDealColumnLabel(rowIndex)}
                                     </span>
                                   </td>
@@ -11430,28 +11548,12 @@ function DealResultsScreen({
                                     >
                                       ?
                                     </button>
-                                    {mobilePayoutModeHelpOpen ? (
-                                      <div
-                                        className="deal-results-sticky-payout-veil-help"
-                                        role="dialog"
-                                        aria-label="Пояснение режима"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <p className="deal-results-sticky-payout-veil-help__text">
-                                          {RESULTS_CHIP_MODE_HELP[chipView]}
-                                        </p>
-                                        <button
-                                          type="button"
-                                          className="deal-results-sticky-payout-veil-help__ok"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setMobilePayoutModeHelpOpen(false);
-                                          }}
-                                        >
-                                          Понятно
-                                        </button>
-                                      </div>
-                                    ) : null}
+                                    <ResultsChipModeHelpOverlay
+                                      chipView={chipView}
+                                      open={mobilePayoutModeHelpOpen}
+                                      portalled="results-mobile"
+                                      onClose={() => setMobilePayoutModeHelpOpen(false)}
+                                    />
                                   </div>
                               </div>
                               {mobileStickyPayoutValues}
@@ -15805,7 +15907,7 @@ const dealResultsTableWindowStylePC: React.CSSProperties = {
   padding: 1,
 };
 /** Узкая ширина первого столбца (мобильная) */
-const DEAL_COLUMN_WIDTH = 14;
+const DEAL_COLUMN_WIDTH = 18;
 /** Ширина первого столбца на ПК — чтобы вместить «№ Раздача» */
 const DEAL_COLUMN_WIDTH_PC = 82;
 /** Ширина ячейки заказ/очки (мобильная) */
