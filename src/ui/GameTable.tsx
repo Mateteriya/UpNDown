@@ -42,7 +42,7 @@ import { AiDifficultyControl, HeaderRoomExitIcon } from './AiDifficultyControl';
 import { getTrickWinner } from '../game/rules';
 import { getCanonicalIndexForDisplay, rotateStateForPlayer } from '../game/rotateState';
 import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
-import { SETTLEMENT_MODE_LABELS } from '../game/partySettlement';
+import { SETTLEMENT_MODE_LABELS, type SettlementMode } from '../game/partySettlement';
 import {
   chipColor,
   DealResultsChipToggle,
@@ -50,15 +50,20 @@ import {
   ResultsChipModeHelpOverlay,
   settlementFootnote,
   usePartySettlement,
+  usePartySettlementWithMode,
+  prizePoolRowExtra,
   useResultsChipView,
   cycleResultsChipView,
 } from './DealResultsSettlement';
+import { settlementModeBadgeLabel } from '../lib/roomSettlement';
 import { DealResultsMobileModalOverlay } from './DealResultsMobileModal';
 import {
   applyDealResultsStretchPx,
   computeDealResultsMobileStretchMaxPx,
   computeDealResultsModalStackMaxPx,
+  computeMobileDealResultsTableLayout,
   dealResultsModalResizingRef,
+  readDealResultsLayoutViewportWidthPx,
 } from './dealResultsModalStretch';
 import { CosmicCockpit, CosmicGlassButton, CosmicGlassClose, type GameOverCloudSave } from './CosmicCockpit';
 import {
@@ -1001,6 +1006,8 @@ function GameOverModal({
   cloudSave = 'none',
   isOfflineEnd = true,
   topbarSlotRef,
+  fixedSettlementMode,
+  fixedBuyIn,
 }: {
   snapshot: GameState;
   gameId: number;
@@ -1012,13 +1019,30 @@ function GameOverModal({
   cloudSave?: GameOverCloudSave;
   isOfflineEnd?: boolean;
   topbarSlotRef?: RefObject<HTMLDivElement | null>;
+  /** Онлайн: режим из комнаты — без переключателя localStorage */
+  fixedSettlementMode?: SettlementMode;
+  fixedBuyIn?: number | null;
 }) {
   const [showExpanded, setShowExpanded] = useState(false);
   const [chipView, setChipView] = useResultsChipView();
   const humanIdx = viewerCanonicalSlotIndex ?? 0;
   const players = snapshot.players;
   const dealHistory = snapshot.dealHistory ?? [];
-  const settlement = usePartySettlement(dealHistory, players.length, chipView);
+  const resolvedMode: SettlementMode =
+    fixedSettlementMode ?? snapshot.settlementMode ?? chipView;
+  const lockChipToggle = !isOfflineEnd || fixedSettlementMode != null || snapshot.settlementMode != null;
+  const settlementOpts =
+    resolvedMode === 'prize_pool'
+      ? { buyIn: fixedBuyIn ?? snapshot.buyIn ?? undefined }
+      : undefined;
+  const settlementFixed = usePartySettlementWithMode(
+    dealHistory,
+    players.length,
+    resolvedMode,
+    settlementOpts,
+  );
+  const settlementCasual = usePartySettlement(dealHistory, players.length, chipView);
+  const settlement = lockChipToggle ? settlementFixed : settlementCasual;
   const chipForPlayer = (idx: number) =>
     settlement.rows.find((r) => r.playerIndex === idx)?.chips ?? 0;
   const footnote = settlementFootnote(settlement.mode, settlement.sumChips);
@@ -1156,12 +1180,23 @@ function GameOverModal({
           )}
           {dealHistory.length > 0 && !isMobileLayout && (
             <div className="game-over-chip-bar">
-              <span className="game-over-chip-bar__label">Подсчёт фишек</span>
-              <div className="game-over-chip-bar__controls">
-                <DealResultsChipToggle chipView={chipView} onChange={setChipView} compact />
-              </div>
+              <span className="game-over-chip-bar__label">
+                {lockChipToggle
+                  ? settlementModeBadgeLabel(resolvedMode, fixedBuyIn ?? snapshot.buyIn ?? null)
+                  : 'Подсчёт фишек'}
+              </span>
+              {!lockChipToggle && (
+                <div className="game-over-chip-bar__controls">
+                  <DealResultsChipToggle chipView={chipView} onChange={setChipView} compact />
+                </div>
+              )}
               <span className="game-over-chip-bar__hint">Рейтинг — по очкам</span>
             </div>
+          )}
+          {resolvedMode === 'prize_pool' && settlement.middleLine && !isMobileLayout && (
+            <p className="game-over-celebration__teaser" style={{ marginTop: 8 }}>
+              {settlement.middleLine}
+            </p>
           )}
         </header>
         <div className="game-over-bridge__body-wrap">
@@ -1171,20 +1206,26 @@ function GameOverModal({
             {dealHistory.length > 0 && isMobileLayout && (
               <div className="game-over-chip-panel game-over-chip-panel--mobile">
                 <div className="game-over-chip-panel__top">
-                  <div className="game-over-chip-bar__controls">
-                    <DealResultsChipToggle
-                      chipView={chipView}
-                      onChange={setChipView}
-                      compact
-                      className="cosmic-chip-toggle--game-over-mobile"
-                    />
-                    <ResultsChipModeHelpButton chipView={chipView} portalled />
-                  </div>
+                  {!lockChipToggle ? (
+                    <div className="game-over-chip-bar__controls">
+                      <DealResultsChipToggle
+                        chipView={chipView}
+                        onChange={setChipView}
+                        compact
+                        className="cosmic-chip-toggle--game-over-mobile"
+                      />
+                      <ResultsChipModeHelpButton chipView={chipView} portalled />
+                    </div>
+                  ) : (
+                    <span className="game-over-chip-bar__label">
+                      {settlementModeBadgeLabel(resolvedMode, fixedBuyIn ?? snapshot.buyIn ?? null)}
+                    </span>
+                  )}
                 </div>
                 <div className="game-over-chip-panel__divider" role="separator" aria-hidden />
                 <BridgeChipReel
                   chips={humanChips}
-                  modeLabel={SETTLEMENT_MODE_LABELS[chipView]}
+                  modeLabel={SETTLEMENT_MODE_LABELS[resolvedMode]}
                   compact
                 />
               </div>
@@ -1192,7 +1233,7 @@ function GameOverModal({
             {dealHistory.length > 0 && !isMobileLayout && (
               <BridgeChipReel
                 chips={humanChips}
-                modeLabel={SETTLEMENT_MODE_LABELS[chipView]}
+                modeLabel={SETTLEMENT_MODE_LABELS[resolvedMode]}
               />
             )}
             <BridgeViewport>
@@ -8869,6 +8910,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               topbarSlotRef={gameOverTopbarRef}
               cloudSave={gameOverCloudSave}
               isOfflineEnd={!isOnline}
+              fixedSettlementMode={
+                isOnline ? online.settlementMode ?? gameOverSnapshot.settlementMode : undefined
+              }
+              fixedBuyIn={isOnline ? online.buyIn ?? gameOverSnapshot.buyIn ?? null : undefined}
               viewerCanonicalSlotIndex={gameOverViewerSlot}
               onNewGame={async () => {
                 setShowGameOverModal(false);
@@ -9779,7 +9824,19 @@ function DealResultsScreen({
   const isPartyFinished = dealHistory.length >= 28;
   const [chipView, setChipView] = useResultsChipView();
   const playerCount = players.length;
-  const settlement = usePartySettlement(dealHistory, playerCount, chipView);
+  const fixedMode = state.settlementMode;
+  const lockChipToggle = fixedMode != null;
+  const resolvedMode = fixedMode ?? chipView;
+  const settlementOpts =
+    resolvedMode === 'prize_pool' ? { buyIn: state.buyIn ?? undefined } : undefined;
+  const settlementFixed = usePartySettlementWithMode(
+    dealHistory,
+    playerCount,
+    resolvedMode,
+    settlementOpts,
+  );
+  const settlementCasual = usePartySettlement(dealHistory, playerCount, chipView);
+  const settlement = lockChipToggle ? settlementFixed : settlementCasual;
   const showSettlementRow = variant === 'modal' && dealHistory.length > 0;
   const chipForPlayer = (idx: number) =>
     settlement.rows.find((r) => r.playerIndex === idx)?.chips ?? 0;
@@ -9797,11 +9854,26 @@ function DealResultsScreen({
   const mobileStickyDockRef = useRef<HTMLDivElement>(null);
   const mobileBodyScrollRef = useRef<HTMLDivElement>(null);
   const [mobileScrollPadPx, setMobileScrollPadPx] = useState(DEAL_RESULTS_MOBILE_STICKY_TOTALS_BOTTOM_PAD_PX);
+  const [mobileTableLayout, setMobileTableLayout] = useState(() =>
+    computeMobileDealResultsTableLayout(readDealResultsLayoutViewportWidthPx()),
+  );
   const panelStyle = compactModal ? { ...dealResultsPanelStyle, ...dealResultsPanelStyleMobile } : dealResultsPanelStyle;
   const panelTitleStyle = compactModal ? { ...dealResultsPanelTitleStyle, ...dealResultsPanelTitleStyleMobile } : dealResultsPanelTitleStyle;
   const rowStyle = compactModal ? { ...dealResultsRowStyle, ...dealResultsRowStyleMobile } : dealResultsRowStyle;
   useEffect(() => {
     if (compactModal) setMobileScrollHintVisible(true);
+  }, [compactModal]);
+  useEffect(() => {
+    if (!compactModal) return;
+    const upd = () =>
+      setMobileTableLayout(computeMobileDealResultsTableLayout(readDealResultsLayoutViewportWidthPx()));
+    upd();
+    window.addEventListener('resize', upd);
+    window.visualViewport?.addEventListener('resize', upd);
+    return () => {
+      window.removeEventListener('resize', upd);
+      window.visualViewport?.removeEventListener('resize', upd);
+    };
   }, [compactModal]);
   useEffect(() => {
     if (!mobilePayoutPeekEligible) return;
@@ -9855,9 +9927,11 @@ function DealResultsScreen({
     };
   }, [mobilePayoutCollapseEligible, mobilePayoutDockCollapsed]);
   const mobilePayoutModeLabel =
-    chipView === 'vs_average' || chipView === 'accuracy_bonus'
-      ? SETTLEMENT_MODE_LABELS[chipView]
-      : settlement.modeLabel;
+    lockChipToggle
+      ? SETTLEMENT_MODE_LABELS[resolvedMode]
+      : chipView === 'vs_average' || chipView === 'accuracy_bonus'
+        ? SETTLEMENT_MODE_LABELS[chipView]
+        : settlement.modeLabel;
   const mobilePayoutDockUi = compactModal && showSettlementRow;
   const mobilePayoutExpanded = mobilePayoutCollapseEligible && !mobilePayoutDockCollapsed;
   const mobilePayoutUnderVeil = false;
@@ -10103,11 +10177,46 @@ function DealResultsScreen({
     return 'num';
   };
 
-  const dealColumnWidth = !isMobile ? DEAL_COLUMN_WIDTH_PC : DEAL_COLUMN_WIDTH;
+  const dealColumnWidth = !isMobile
+    ? DEAL_COLUMN_WIDTH_PC
+    : compactModal
+      ? mobileTableLayout.dealCol
+      : DEAL_COLUMN_WIDTH;
   const playerCellWidth = !isMobile ? PLAYER_CELL_WIDTH_PC : PLAYER_CELL_WIDTH;
   /** Только мобильная модалка: делаем «Заказ» уже и даём больше места столбцу «Очки». */
-  const mobileBidCellWidth = isMobile ? Math.max(28, playerCellWidth - 6) : playerCellWidth;
-  const mobileResultCellWidth = isMobile ? playerCellWidth + 6 : playerCellWidth;
+  const mobileBidCellWidth = isMobile
+    ? compactModal
+      ? mobileTableLayout.mobileBidCellWidth
+      : Math.max(28, playerCellWidth - 6)
+    : playerCellWidth;
+  const mobileResultCellWidth = isMobile
+    ? compactModal
+      ? mobileTableLayout.mobileResultCellWidth
+      : playerCellWidth + 6
+    : playerCellWidth;
+  const mobileTableMinWidth = compactModal
+    ? mobileTableLayout.tableMinWidth
+    : dealColumnWidth + 4 * (mobileBidCellWidth + mobileResultCellWidth);
+  const mobileTableStyle = compactModal
+    ? mobileTableLayout.isNarrow
+      ? {
+          ...dealResultsTableStyle,
+          minWidth: mobileTableMinWidth,
+          maxWidth: '100%',
+          width: '100%',
+          fontSize: Math.round(14 * mobileTableLayout.fontScale),
+          tableLayout: 'fixed' as const,
+        }
+      : {
+          ...dealResultsTableStyle,
+          minWidth: mobileTableMinWidth,
+          tableLayout: 'fixed' as const,
+        }
+    : {
+        ...dealResultsTableStyle,
+        minWidth: mobileTableMinWidth,
+        tableLayout: 'fixed' as const,
+      };
   const latestDealRow =
     dealHistory.find((r) => r.dealNumber === state.dealNumber) ??
     (dealHistory.length > 0 ? dealHistory[dealHistory.length - 1] : undefined);
@@ -10871,8 +10980,20 @@ function DealResultsScreen({
           className={[
             !isMobile ? 'deal-results-table-outer-pc' : undefined,
             compactModal ? 'deal-results-table-outer-mobile-modal' : undefined,
-          ].filter(Boolean).join(' ') || undefined}
-          style={isMobile ? dealResultsTableOuterMobileStyle : dealResultsTableOuterPCStyle}
+            compactModal && mobileTableLayout.isNarrow
+              ? 'deal-results-table-outer-mobile-modal--narrow'
+              : undefined,
+          ]
+            .filter(Boolean)
+            .join(' ') || undefined}
+          style={{
+            ...(isMobile ? dealResultsTableOuterMobileStyle : dealResultsTableOuterPCStyle),
+            ...(compactModal && mobileTableLayout.isNarrow
+              ? ({
+                  ['--deal-results-mobile-font-scale' as string]: String(mobileTableLayout.fontScale),
+                } as React.CSSProperties)
+              : {}),
+          }}
         >
           {onClose && !compactModal ? (
             <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 0, paddingTop: 4, gap: 12 }}>
@@ -10956,7 +11077,7 @@ function DealResultsScreen({
                         <div className="deal-results-table-glow-top" style={dealResultsTableGlowTopStyleMobile} aria-hidden />
                       ) : null}
                       <div className="deal-results-mobile-header-table-strip">
-                        <table className="deal-results-table-header-pc" style={{ ...dealResultsTableStyle, minWidth: dealColumnWidth + 4 * (mobileBidCellWidth + mobileResultCellWidth), tableLayout: 'fixed' }}>
+                        <table className="deal-results-table-header-pc" style={mobileTableStyle}>
                           <colgroup>
                             <col style={{ width: dealColumnWidth, minWidth: dealColumnWidth }} />
                             {[0, 1, 2, 3].map((i) => (
@@ -11150,7 +11271,7 @@ function DealResultsScreen({
                           if (mobileScrollHintVisible) setMobileScrollHintVisible(false);
                         }}
                       >
-                        <table className="deal-results-table-body-pc" style={{ ...dealResultsTableStyle, minWidth: dealColumnWidth + 4 * (mobileBidCellWidth + mobileResultCellWidth), tableLayout: 'fixed' }}>
+                        <table className="deal-results-table-body-pc" style={mobileTableStyle}>
                           <colgroup>
                             <col style={{ width: dealColumnWidth, minWidth: dealColumnWidth }} />
                             {[0, 1, 2, 3].map((i) => (
@@ -11523,6 +11644,8 @@ function DealResultsScreen({
                                 </span>
                                 {renderMobileStickyPayoutCaption()}
                                 <div className="deal-results-sticky-payout-win-controls">
+                                    {!lockChipToggle ? (
+                                      <>
                                     <button
                                       type="button"
                                       className="deal-results-sticky-payout-veil-caption__mode-btn"
@@ -11554,6 +11677,12 @@ function DealResultsScreen({
                                       portalled="results-mobile"
                                       onClose={() => setMobilePayoutModeHelpOpen(false)}
                                     />
+                                      </>
+                                    ) : (
+                                      <span className="deal-results-sticky-payout-mode-btn__label">
+                                        {settlementModeBadgeLabel(resolvedMode, state.buyIn ?? null)}
+                                      </span>
+                                    )}
                                   </div>
                               </div>
                               {mobileStickyPayoutValues}

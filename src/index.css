@@ -18657,6 +18657,71 @@ body.deal-results-modal-open-mobile #root {
 .deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal {
   padding-bottom: 0 !important;
 }
+/* Узкий экран (≤342px): сжатие колонок и шрифтов; при 343+ — без изменений */
+.deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow {
+  --deal-results-mobile-font-scale: 1;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-table-header-pc,
+.deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-table-body-pc {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  font-size: calc(14px * var(--deal-results-mobile-font-scale, 1));
+}
+.deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-table-header-pc thead tr:first-child th:not(:first-child) {
+  padding-top: calc(4px * var(--deal-results-mobile-font-scale, 1)) !important;
+  padding-bottom: calc(3px * var(--deal-results-mobile-font-scale, 1)) !important;
+  padding-left: calc(2px * var(--deal-results-mobile-font-scale, 1)) !important;
+  padding-right: calc(2px * var(--deal-results-mobile-font-scale, 1)) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-table-header-pc thead tr:nth-child(2) th,
+.deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-table-header-pc thead tr:nth-child(3) th {
+  padding-top: calc(2px * var(--deal-results-mobile-font-scale, 1)) !important;
+  padding-bottom: calc(2px * var(--deal-results-mobile-font-scale, 1)) !important;
+  font-size: calc(0.62rem * var(--deal-results-mobile-font-scale, 1)) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-table-body-pc tbody td {
+  padding: calc(2px * var(--deal-results-mobile-font-scale, 1)) !important;
+  font-size: calc(0.72rem * var(--deal-results-mobile-font-scale, 1));
+}
+.deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-mobile-deal-label {
+  font-size: calc(0.68rem * var(--deal-results-mobile-font-scale, 1)) !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-table-header-pc thead tr:first-child th > span.deal-results-player-name--human {
+  font-size: calc(1.08em * var(--deal-results-mobile-font-scale, 1)) !important;
+  line-height: 1.16 !important;
+}
+.deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-player-name--mobile-opponent {
+  font-size: calc(0.68rem * var(--deal-results-mobile-font-scale, 1)) !important;
+  line-height: 1.14 !important;
+}
+@media (max-width: 342px) {
+  .deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow {
+    padding-left: 2px !important;
+    padding-right: 4px !important;
+  }
+  .deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-table-window {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  .deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-modal-title-bar {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    min-height: 30px !important;
+  }
+  .deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-modal-title-bar .deal-results-modal-title {
+    font-size: 0.92rem !important;
+  }
+}
+@media (max-width: 320px) {
+  .deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-mobile-deal-th-badge {
+    width: 10px !important;
+    height: 12px !important;
+  }
+  .deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal--narrow .deal-results-mobile-deal-th-badge__symbol {
+    font-size: 6px !important;
+  }
+}
 /* Нижняя грань: концы линий — --deal-results-line-*-px (ResizeObserver в MobileSouthResizeHandle) */
 .deal-results-modal-overlay-mobile .deal-results-table-outer-mobile-modal .deal-results-table-window {
   --deal-results-line-left-end-px: 45%;

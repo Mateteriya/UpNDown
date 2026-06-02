@@ -9,6 +9,7 @@ import {
   computePartySettlement,
   SETTLEMENT_MODE_LABELS,
   type SettlementMode,
+  type SettlementOptions,
 } from '../game/partySettlement';
 import {
   readResultsChipView,
@@ -414,5 +415,28 @@ export function settlementFootnote(mode: SettlementMode, sumChips?: number): str
   if (mode === 'accuracy_bonus') {
     return 'Бонус +10 за каждую раздачу с точным заказом.';
   }
+  if (mode === 'prize_pool') {
+    return 'Банк делится по местам (очки). Взнос демо — без списания баланса.';
+  }
   return null;
+}
+
+export function prizePoolRowExtra(buyIn: number | undefined, chips: number): string | undefined {
+  if (buyIn == null) return undefined;
+  const gross = Math.round((chips + buyIn) * 10) / 10;
+  if (chips > 0) return `взнос ${buyIn} → из банка ${gross} → +${chips}`;
+  if (chips < 0) return `взнос ${buyIn} → ${chips}`;
+  return `взнос ${buyIn} → 0`;
+}
+
+export function usePartySettlementWithMode(
+  dealHistory: DealResult[],
+  playerCount: number,
+  mode: SettlementMode,
+  opts?: SettlementOptions,
+) {
+  return useMemo(
+    () => computePartySettlement(dealHistory, playerCount as 3 | 4, mode, opts),
+    [dealHistory, playerCount, mode, opts?.buyIn, opts?.stake, opts?.accuracyBonus],
+  );
 }

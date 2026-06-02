@@ -5,6 +5,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnlineGame } from '../contexts/useOnlineGame';
 import { loadLastOnlineParty } from '../lib/lastOnlineParty';
+import { peekRoomByCode } from '../lib/onlineGameSupabase';
+import { settlementModeBadgeLabel, type RoomPeekResult } from '../lib/roomSettlement';
+import { PUBLIC_HALL_ENABLED } from '../lib/productFlags';
+import { OnlineHallScreen } from './OnlineHallScreen';
 
 export interface LobbyScreenProps {
   onBack: () => void;
@@ -71,7 +75,14 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     forgetLastOnlineParty,
     lastPartyHintVersion,
     stopAutoRestoreForCurrentRoom,
+    settlementMode,
+    buyIn,
   } = useOnlineGame();
+
+  const [createBankRoom, setCreateBankRoom] = useState(false);
+  const [createPublicRoom, setCreatePublicRoom] = useState(false);
+  const [roomPeek, setRoomPeek] = useState<RoomPeekResult | null>(null);
+  const [showHall, setShowHall] = useState(false);
 
   const [joinCode, setJoinCode] = useState(initialJoinCode ?? '');
   const [creating, setCreating] = useState(false);
@@ -146,6 +157,24 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     return () => clearTimeout(t);
   }, [leftPlayerToast]);
 
+  useEffect(() => {
+    const code = joinCode.trim();
+    if (code.length < 4) {
+      setRoomPeek(null);
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      void peekRoomByCode(code).then((r) => {
+        if (!cancelled) setRoomPeek(r.ok ? r : null);
+      });
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [joinCode]);
+
   const shortLabel = user?.email
     ? user.email.replace(/@.*$/, '').slice(-8)
     : undefined;
@@ -168,7 +197,10 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
       const r = await Promise.race([
         (async () => {
           await leaveRoom();
-          return createRoom(user.id, name, shortLabel);
+          return createRoom(user.id, name, shortLabel, {
+            settlementMode: createBankRoom ? 'prize_pool' : 'accuracy_bonus',
+            roomKind: createPublicRoom ? 'public' : 'private',
+          });
         })(),
         new Promise<LobbyWall>((resolve) => {
           window.setTimeout(() => resolve({ __lobbyWall: true }), LOBBY_CREATE_TOTAL_MS);
@@ -324,6 +356,16 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     );
   }
 
+  if (showHall && PUBLIC_HALL_ENABLED) {
+    return (
+      <OnlineHallScreen
+        onBack={() => setShowHall(false)}
+        playerName={playerName}
+        onGoToGame={onGoToGame}
+      />
+    );
+  }
+
   if (inRoom) {
     return (
       <>
@@ -331,6 +373,17 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
           <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#f1f5f9' }}>Комната</h1>
           <p style={{ margin: '0 0 12px', fontSize: 14, color: '#94a3b8' }}>
             Вы в комнате. Дождитесь игроков или поделитесь кодом.
+          </p>
+          <p
+            style={{
+              margin: '0 0 12px',
+              fontSize: 13,
+              color: '#a5f3fc',
+              textAlign: 'center',
+              maxWidth: 300,
+            }}
+          >
+            {settlementModeBadgeLabel(settlementMode, buyIn)}
           </p>
           {code && (
             <div style={{ textAlign: 'center' }}>
@@ -491,8 +544,31 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
         </p>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 280 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#cbd5e1', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={createBankRoom}
+            onChange={(e) => setCreateBankRoom(e.target.checked)}
+          />
+          Банк (демо) — взнос 100 с каждого
+        </label>
+        {PUBLIC_HALL_ENABLED && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#cbd5e1', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={createPublicRoom}
+              onChange={(e) => setCreatePublicRoom(e.target.checked)}
+            />
+            Показать в зале столов
+          </label>
+        )}
+        {PUBLIC_HALL_ENABLED && (
+          <button type="button" onClick={() => setShowHall(true)} style={buttonSecondary}>
+            Зал столов
+          </button>
+        )}
         <button type="button" disabled={creating} onClick={handleCreateRoom} style={buttonPrimary} >
-          {creating ? 'Создание…' : 'Создать комнату'}
+          {creating ? 'Создание…' : createBankRoom ? 'Создать банковую комнату' : 'Создать комнату'}
         </button>
         <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 280, flexWrap: 'wrap' }}>
           <input type="text" placeholder="Код комнаты" value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setJoinError(null); }} maxLength={CODE_LENGTH} style={inputStyle} aria-label="Код комнаты" />
@@ -500,6 +576,12 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
             {joining ? 'Вход…' : 'Присоединиться'}
           </button>
         </div>
+        {roomPeek?.settlement_mode && (
+          <p style={{ margin: 0, fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>
+            Комната: {settlementModeBadgeLabel(roomPeek.settlement_mode, roomPeek.buy_in ?? null)}
+            {roomPeek.human_count != null ? ` · игроков ${roomPeek.human_count}/4` : ''}
+          </p>
+        )}
         {(joining || creating) && (
           <p style={{ margin: 0, fontSize: 12, color: '#64748b', textAlign: 'center', maxWidth: 300, lineHeight: 1.4 }}>
             Связь с сервером обычно до ~30 с. Если долго — проверьте сеть; при разработке избегайте частых сохранений файлов (Vite перезагружает страницу).

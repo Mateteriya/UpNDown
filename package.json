@@ -12,7 +12,10 @@
     "test": "vitest",
     "exact-order-star-offset": "node tools/exact-order-star-flash-offset.mjs",
     "cap:sync": "npm run build && npx cap sync android",
-    "cap:open": "npx cap open android"
+    "cap:open": "npx cap open android",
+    "handbook:dev": "npm run dev --prefix docs-site",
+    "handbook:build": "npm run build --prefix docs-site",
+    "handbook:preview": "npm run preview --prefix docs-site"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",

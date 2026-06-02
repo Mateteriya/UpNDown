@@ -37,7 +37,11 @@ import {
   type GameRoomRow,
   type GameRoomPhase,
   type HostResolveAbsentChoice,
+  type CreateRoomOptions,
 } from '../lib/onlineGameSupabase';
+import type { SettlementMode } from '../game/partySettlement';
+import { DEFAULT_CASUAL_SETTLEMENT } from '../lib/roomSettlement';
+import type { RoomKind } from '../lib/roomSettlement';
 import { saveOnlineSession, clearOnlineSession, loadOnlineSession } from '../lib/onlineSession';
 import { loadLastOnlineParty, clearLastOnlineParty, saveLastOnlineParty } from '../lib/lastOnlineParty';
 import {
@@ -182,7 +186,12 @@ export interface OnlineGameContextValue {
   canonicalState: GameState | null;
   displayState: GameState | null;
   error: string | null;
-  createRoom: (userId: string, displayName: string, shortLabel?: string) => Promise<{ ok: boolean; error?: string }>;
+  createRoom: (
+    userId: string,
+    displayName: string,
+    shortLabel?: string,
+    roomOpts?: CreateRoomOptions,
+  ) => Promise<{ ok: boolean; error?: string }>;
   joinRoom: (code: string, userId: string, displayName: string, shortLabel?: string) => Promise<{ ok: boolean; error?: string }>;
   /** Если «Вход…» оборвался, а на сервере вы уже в слотах — подтянуть комнату по коду */
   recoverJoinIfAlreadyInRoom: (code: string) => Promise<boolean>;
@@ -238,6 +247,9 @@ export interface OnlineGameContextValue {
     roomIdForRpc?: string | null,
   ) => Promise<{ ok: boolean; error?: string }>;
   hostResolveAbsentChoice: (choice: HostResolveAbsentChoice) => Promise<boolean>;
+  settlementMode: SettlementMode;
+  buyIn: number | null;
+  roomKind: RoomKind;
 }
 // --- Конец интерфейса ---
 
@@ -263,6 +275,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const [hostUserId, setHostUserId] = useState<string | null>(null);
   const [absentUntil, setAbsentUntil] = useState<string | null>(null);
   const [absentSlotIndex, setAbsentSlotIndex] = useState<number | null>(null);
+  const [settlementMode, setSettlementMode] = useState<SettlementMode>(DEFAULT_CASUAL_SETTLEMENT);
+  const [buyIn, setBuyIn] = useState<number | null>(null);
+  const [roomKind, setRoomKind] = useState<RoomKind>('private');
   const [realtimeHealKey, setRealtimeHealKey] = useState(0);
   const [onlineHydratedFromStorage, setOnlineHydratedFromStorage] = useState(false);
   const onlineHydrateGenRef = useRef(0);
@@ -303,6 +318,21 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setHostUserId(room.host_user_id ?? null);
     setRoomPhase(normalizeRoomPhase(room));
     setAbsentUntil(room.absent_until ?? null);
+    const mode = room.settlement_mode;
+    if (
+      mode === 'points_only' ||
+      mode === 'vs_average' ||
+      mode === 'accuracy_bonus' ||
+      mode === 'prize_pool'
+    ) {
+      setSettlementMode(mode);
+    } else if (room.game_state?.settlementMode) {
+      setSettlementMode(room.game_state.settlementMode);
+    }
+    const bi = room.buy_in ?? room.game_state?.buyIn ?? null;
+    setBuyIn(typeof bi === 'number' && Number.isFinite(bi) ? bi : null);
+    const rk = room.room_kind;
+    setRoomKind(rk === 'public' ? 'public' : 'private');
     const asi = room.absent_slot_index;
     if (typeof asi === 'number' && Number.isFinite(asi)) setAbsentSlotIndex(asi);
     else if (asi != null && `${asi}`.trim() !== '') {
@@ -890,14 +920,19 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   }, [status, roomId, code, user?.id, playerSlots]);
 
   const createRoom = useCallback(
-    async (userId: string, displayName: string, shortLabel?: string): Promise<{ ok: boolean; error?: string }> => {
+    async (
+      userId: string,
+      displayName: string,
+      shortLabel?: string,
+      roomOpts?: CreateRoomOptions,
+    ): Promise<{ ok: boolean; error?: string }> => {
       try {
         clearLastOnlineParty();
         clearOnlineSession();
         sessionRestoreOkRef.current = false;
         setError(null);
         const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
-        const result = await apiCreateRoom(userId, displayName, shortLabel, avatarDataUrl);
+        const result = await apiCreateRoom(userId, displayName, shortLabel, avatarDataUrl, roomOpts);
         if ('error' in result) {
           setError(result.error);
           return { ok: false, error: result.error };
@@ -1053,6 +1088,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setHostUserId(null);
     setAbsentUntil(null);
     setAbsentSlotIndex(null);
+    setSettlementMode(DEFAULT_CASUAL_SETTLEMENT);
+    setBuyIn(null);
+    setRoomKind('private');
     setMyServerIndex(0);
     sessionRestoreOkRef.current = false;
     setUserLeftTemporarily(false);
@@ -1196,6 +1234,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       const names: [string, string, string, string] = [ fullSlots[0].displayName, fullSlots[1].displayName, fullSlots[2].displayName, fullSlots[3].displayName, ];
       let state = createGameOnline(names);
+      state = {
+        ...state,
+        settlementMode,
+        buyIn: buyIn ?? undefined,
+      };
       state = startDeal(state);
       canonicalStateRef.current = state;
       setPlayerSlots(fullSlots);
@@ -1234,7 +1277,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       gameWriteInFlightRef.current -= 1;
       resetStaleSameRevGraceAfterWrite(gameStateStaleSameRevIgnoreUntilRef);
     }
-  }, [roomId, myServerIndex, playerSlots, applyRoomData]);
+  }, [roomId, myServerIndex, playerSlots, applyRoomData, settlementMode, buyIn]);
 
     const sendBid = useCallback(async (bid: number): Promise<boolean> => {
         if (!roomId || !canonicalState) return false;
@@ -1671,6 +1714,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     absentSlotIndex,
     transferHostTo,
     hostResolveAbsentChoice,
+    settlementMode,
+    buyIn,
+    roomKind,
   };
 
   return (

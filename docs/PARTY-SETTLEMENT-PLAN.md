@@ -111,14 +111,13 @@
 
 **Файлы:** `onlineGameSupabase.ts`, `LobbyScreen.tsx`, `OnlineGameContext.tsx`, Supabase migration
 
-- [ ] Колонки `rooms`: `settlement_mode`, `buy_in` (nullable, для банка)
-- [ ] При **создании комнаты**:
+- [x] Колонки `rooms`: `settlement_mode`, `buy_in` (nullable, для банка)
+- [x] При **создании комнаты**:
   - **Обычная** → `accuracy_bonus`
-  - **Точный заказ** (явно) → то же
-  - **Турнир** → `prize_pool` + `buy_in` (пока виртуально, без списания)
-- [ ] Гость видит режим в лобби до старта
-- [ ] `game_state` JSON: дублировать `settlementMode` для восстановления
-- [ ] Итоги: тот же `GameOverModal` + синхронизация `final_score` (очки) в Supabase; опционально `chips_json`
+  - **Банк (демо)** → `prize_pool` + `buy_in` (без списания)
+- [x] Гость видит режим в лобби до старта (`updown_peek_room_by_code`)
+- [x] `game_state` JSON: дублировать `settlementMode` для восстановления
+- [x] Итоги: `GameOverModal` + `finish_game` с `chips_by_slot`
 
 **Деньги:** на этой фазе только **отображение** фишек, без реальных платежей.
 

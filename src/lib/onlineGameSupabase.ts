@@ -7,6 +7,14 @@ import { supabase } from './supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { GameState } from '../game/GameEngine';
 import { getTakenFromDealPoints } from '../game/scoring';
+import type { SettlementMode } from '../game/partySettlement';
+import {
+  normalizeCreateRoomOptions,
+  type CreateRoomOptions,
+  type PublicWaitingRoomRow,
+  type RoomKind,
+  type RoomPeekResult,
+} from './roomSettlement';
 
 /** Имена пустых слотов при старте/выходе — как в OnlineGameContext.startGame (0..3). */
 const VACANT_AI_SLOT_NAMES = ['ИИ Север', 'ИИ Восток', 'ИИ Юг', 'ИИ Запад'] as const;
@@ -98,7 +106,12 @@ export interface GameRoomRow {
   absent_until?: string | null;
   absent_slot_index?: number | null;
   host_last_seen_at?: string | null;
+  settlement_mode?: SettlementMode | string | null;
+  buy_in?: number | null;
+  room_kind?: RoomKind | string | null;
 }
+
+export type { CreateRoomOptions, PublicWaitingRoomRow, RoomPeekResult, RoomKind };
 
 const TABLE = 'game_rooms';
 
@@ -376,11 +389,13 @@ export async function createRoom(
   hostUserId: string,
   hostDisplayName: string,
   hostShortLabel?: string,
-  hostAvatarDataUrl?: string | null
+  hostAvatarDataUrl?: string | null,
+  roomOpts?: CreateRoomOptions,
 ): Promise<{ room: GameRoomRow } | { error: string }> {
   if (!supabase) return { error: 'Supabase не настроен' };
 
   const avatar = capAvatarDataUrl(hostAvatarDataUrl ?? undefined);
+  const normalized = normalizeCreateRoomOptions(roomOpts);
 
   let lastMessage = 'Не удалось создать комнату';
   for (let round = 0; round < 3; round++) {
@@ -412,6 +427,9 @@ export async function createRoom(
             player_slots: playerSlots,
             room_phase: 'lobby',
             host_last_seen_at: new Date().toISOString(),
+            settlement_mode: normalized.settlementMode,
+            buy_in: normalized.buyIn,
+            room_kind: normalized.roomKind,
           })
           .select('*')
           .abortSignal(lobbyFastAbortSignal())
@@ -938,6 +956,44 @@ export async function finishMatch(
   } as any);
   if (rpc.error) return { ok: false, error: rpc.error.message };
   return { ok: true };
+}
+
+/** Подсказка режима комнаты по коду до входа. */
+export async function peekRoomByCode(code: string): Promise<RoomPeekResult> {
+  if (!supabase) return { ok: false, error: 'Supabase не настроен' };
+  const { data, error } = await supabase.rpc('updown_peek_room_by_code', {
+    p_code: code.trim().toUpperCase(),
+  });
+  if (error) return { ok: false, error: error.message };
+  const row = data as Record<string, unknown> | null;
+  if (!row || row.ok !== true) {
+    return { ok: false, error: (row?.error as string) ?? 'not_found' };
+  }
+  return {
+    ok: true,
+    code: row.code as string,
+    status: row.status as string,
+    settlement_mode: row.settlement_mode as SettlementMode,
+    buy_in: (row.buy_in as number | null) ?? null,
+    room_kind: row.room_kind as RoomKind,
+    human_count: row.human_count as number,
+  };
+}
+
+/** Публичные waiting-комнаты для зала столов (волна 2). */
+export async function listPublicWaitingRooms(limit = 40): Promise<{
+  ok: boolean;
+  rooms: PublicWaitingRoomRow[];
+  error?: string;
+}> {
+  if (!supabase) return { ok: false, rooms: [], error: 'Supabase не настроен' };
+  const { data, error } = await supabase.rpc('updown_list_public_waiting_rooms', {
+    p_limit: limit,
+  });
+  if (error) return { ok: false, rooms: [], error: error.message };
+  const row = data as { ok?: boolean; rooms?: PublicWaitingRoomRow[]; error?: string } | null;
+  if (!row?.ok) return { ok: false, rooms: [], error: row?.error ?? 'list_failed' };
+  return { ok: true, rooms: row.rooms ?? [] };
 }
 
 /** Завершённая офлайн-партия в истории аккаунта (без влияния на рейтинговую сводку — is_rated=false на сервере). */

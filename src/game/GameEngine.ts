@@ -29,6 +29,7 @@ export function absoluteTrickWinnerPlayerIndex(
 }
 
 import type { AIDifficulty, Card, GamePhase, Player, Suit } from './types';
+import type { SettlementMode } from './partySettlement';
 import { offlineAiDifficultyForNewBotId } from './aiSettings';
 import { createDeck, shuffleDeck, dealCards } from './deck';
 import { calculateDealPoints } from './scoring';
@@ -77,6 +78,10 @@ export interface GameState {
   pendingTrickCompletion: PendingTrickCompletion | null;
   /** История завершённых раздач для таблицы результатов (мобильная модалка) */
   dealHistory: DealResult[];
+  /** Онлайн: режим итога из комнаты (дублируется в game_state для restore) */
+  settlementMode?: SettlementMode;
+  /** Онлайн: взнос в банк (prize_pool) */
+  buyIn?: number;
 }
 
 export type GameMode = 'classical' | 'extended';
