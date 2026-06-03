@@ -121,9 +121,9 @@ export function OnlineHallScreen({ onBack, playerName, onGoToGame }: OnlineHallS
         </p>
       )}
       <div style={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {rooms.length === 0 && !loading && (
+        {rooms.length === 0 && !loading && !error && (
           <p style={{ color: '#64748b', textAlign: 'center', fontSize: 14 }}>
-            Пока нет публичных столов. Создайте комнату и отметьте её public (скоро в UI).
+            Пока нет открытых столов. В лобби создайте комнату и включите «Показать в зале столов».
           </p>
         )}
         {rooms.map((room) => (

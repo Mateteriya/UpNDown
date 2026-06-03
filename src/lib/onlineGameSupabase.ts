@@ -980,6 +980,36 @@ export async function peekRoomByCode(code: string): Promise<RoomPeekResult> {
   };
 }
 
+/** Сообщение для UI зала при ошибке RPC / RLS. */
+export function formatPublicHallListError(message: string, rpcError?: string): string {
+  const m = message.toLowerCase();
+  if (
+    rpcError === 'not_authenticated' ||
+    m.includes('not_authenticated') ||
+    m.includes('jwt')
+  ) {
+    return 'Войдите в аккаунт — зал столов доступен только авторизованным.';
+  }
+  if (
+    m.includes('updown_list_public_waiting_rooms') ||
+    m.includes('could not find the function') ||
+    (m.includes('function') && m.includes('does not exist')) ||
+    m.includes('42883')
+  ) {
+    return (
+      'На Supabase не применена миграция зала столов. ' +
+      'Dashboard → SQL Editor → выполните файл supabase/scripts/APPLY-PUBLIC-HALL-PROD.sql (или migrations/20260529130000_game_rooms_rls_public_hall.sql).'
+    );
+  }
+  if (m.includes('room_kind') && (m.includes('column') || m.includes('does not exist'))) {
+    return (
+      'В таблице game_rooms нет колонки room_kind. ' +
+      'Сначала примените миграцию 20260529120000_settlement_mode_finish_game.sql.'
+    );
+  }
+  return message;
+}
+
 /** Публичные waiting-комнаты для зала столов (волна 2). */
 export async function listPublicWaitingRooms(limit = 40): Promise<{
   ok: boolean;
@@ -990,9 +1020,14 @@ export async function listPublicWaitingRooms(limit = 40): Promise<{
   const { data, error } = await supabase.rpc('updown_list_public_waiting_rooms', {
     p_limit: limit,
   });
-  if (error) return { ok: false, rooms: [], error: error.message };
+  if (error) {
+    return { ok: false, rooms: [], error: formatPublicHallListError(error.message) };
+  }
   const row = data as { ok?: boolean; rooms?: PublicWaitingRoomRow[]; error?: string } | null;
-  if (!row?.ok) return { ok: false, rooms: [], error: row?.error ?? 'list_failed' };
+  if (!row?.ok) {
+    const raw = row?.error ?? 'list_failed';
+    return { ok: false, rooms: [], error: formatPublicHallListError(raw, raw) };
+  }
   return { ok: true, rooms: row.rooms ?? [] };
 }
 

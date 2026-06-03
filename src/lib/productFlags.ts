@@ -19,8 +19,8 @@ export const GEO_RU_CC_ONLY = envBool('VITE_GEO_RU_CC_ONLY', true);
 /** CC ledger (hold/settle) — волна 3+ */
 export const CC_LEDGER_ENABLED = envBool('VITE_CC_LEDGER_ENABLED', false);
 
-/** Публичный зал столов — волна 2+ */
-export const PUBLIC_HALL_ENABLED = envBool('VITE_PUBLIC_HALL_ENABLED', false);
+/** Публичный зал столов — волна 2+ (в проде включён; выключить: VITE_PUBLIC_HALL_ENABLED=false) */
+export const PUBLIC_HALL_ENABLED = envBool('VITE_PUBLIC_HALL_ENABLED', true);
 
 /** Sit-n-go турниры на CC — волна 4+ */
 export const CC_TOURNAMENTS_ENABLED = envBool('VITE_CC_TOURNAMENTS_ENABLED', false);
