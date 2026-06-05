@@ -3,7 +3,13 @@ node_modules/
 
 # Build
 dist/
+dist-host/
 build/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+host-desktop/bundle/
+host-desktop/src-tauri/target/
 *.local
 
 # IDE

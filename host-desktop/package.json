@@ -1,0 +1,17 @@
+{
+  "name": "updown-host-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Up&Down — сервер игры в вашей Wi‑Fi (окно + ярлык)",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.4.0"
+  },
+  "dependencies": {
+    "up-down": "file:.."
+  }
+}

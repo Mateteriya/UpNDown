@@ -1,0 +1,19 @@
+[package]
+name = "updown-host-desktop"
+version = "0.1.0"
+description = "Up&Down — игра в вашей Wi‑Fi"
+authors = ["Up&Down"]
+edition = "2021"
+
+[lib]
+name = "updown_host_desktop_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
