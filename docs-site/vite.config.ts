@@ -60,5 +60,11 @@ export default defineConfig({
   build: {
     outDir: resolve(root, 'dist'),
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: resolve(root, 'index.html'),
+        authCallback: resolve(root, 'auth-callback.html'),
+      },
+    },
   },
 });

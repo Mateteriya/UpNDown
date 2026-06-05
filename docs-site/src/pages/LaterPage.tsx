@@ -1,23 +1,23 @@
+import { PageHero } from '../components/PageHero';
 import { TaskList } from '../components/TaskList';
 import { DIRECTIONS, TASK_GROUPS } from '../portal/data';
+import type { TaskWorkApi } from '../portal/useTaskWork';
 
 type Props = {
-  checked: Set<string>;
-  onToggle: (id: string) => void;
+  work: TaskWorkApi;
 };
 
-export function LaterPage({ checked, onToggle }: Props) {
+export function LaterPage({ work }: Props) {
   const phase2 = DIRECTIONS.filter((d) => d.phase === 2);
 
   return (
     <div className="page">
-      <header className="page-hero">
-        <p className="eyebrow">Вторая очередь</p>
-        <h1>Online-деньги и лицензии</h1>
-        <p className="lead">
-          Только после стабильных слоёв 1–3, метрик и офлайн-кейса. Не смешивать с CC и IAP.
-        </p>
-      </header>
+      <PageHero
+        eyebrow="Вторая очередь"
+        title="Online-деньги и лицензии"
+        lead="Только после стабильных слоёв 1–3, метрик и офлайн-кейса. Не смешивать с CC и IAP."
+        emblemSize="lg"
+      />
 
       {phase2.map((d) => (
         <section key={d.id} className="panel">
@@ -31,9 +31,7 @@ export function LaterPage({ checked, onToggle }: Props) {
           {d.groupIds.map((gid) => {
             const group = TASK_GROUPS[gid];
             if (!group) return null;
-            return (
-              <TaskList key={gid} group={group} checked={checked} onToggle={onToggle} />
-            );
+            return <TaskList key={gid} group={group} work={work} />;
           })}
         </section>
       ))}

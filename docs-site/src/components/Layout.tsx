@@ -3,10 +3,14 @@ import { NavLink } from 'react-router-dom';
 import { PortalUrlCopy } from './PortalUrlCopy';
 import { REPO_URL } from '../portal/resources';
 import { portalShareUrl } from '../portal/site';
+import { BrandEmblem } from './BrandEmblem';
 import { BrandLogo } from './BrandLogo';
+
+import { PortalAuthBar } from './PortalAuthBar';
 
 const NAV = [
   { to: '/', label: 'Дашборд', end: true },
+  { to: '/work', label: 'Работа' },
   { to: '/concept', label: 'Концепция' },
   { to: '/roadmap', label: 'Roadmap' },
   { to: '/app', label: 'Приложение' },
@@ -18,19 +22,22 @@ const NAV = [
 type Props = {
   children: ReactNode;
   tools?: ReactNode;
+  syncBanner?: ReactNode;
 };
 
-export function Layout({ children, tools }: Props) {
+export function Layout({ children, tools, syncBanner }: Props) {
   return (
     <div className="portal">
       <header className="portal-header">
         <div className="portal-header-row">
           <BrandLogo />
           <div className="portal-tools">
+            <PortalAuthBar />
             <PortalUrlCopy compact />
             {tools}
           </div>
         </div>
+        {syncBanner}
         <nav className="portal-nav" aria-label="Разделы">
           {NAV.map((item) => (
             <NavLink
@@ -46,7 +53,11 @@ export function Layout({ children, tools }: Props) {
       </header>
       <main className="portal-main">{children}</main>
       <footer className="portal-footer">
-        <span>Прогресс сохраняется в браузере (localStorage)</span>
+        <div className="portal-footer-brand">
+          <BrandEmblem size="xs" embossed />
+          <span>Up&Down · Program Portal</span>
+        </div>
+        <span>Прогресс: localStorage + Supabase после входа</span>
         <span className="portal-footer-links">
           <a href={portalShareUrl('/')}>Портал</a>
           <span aria-hidden>·</span>

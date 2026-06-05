@@ -1,13 +1,17 @@
-export type RingTone = 'gold' | 'cyan' | 'green' | 'violet';
+import { progressToAccent, type ProgressAccent } from '../portal/progressAccent';
+
+export type RingTone = ProgressAccent;
 
 type Props = {
   value: number;
   size?: number;
   label?: string;
+  /** Если не задан — цвет кольца от % (умная подсветка) */
   tone?: RingTone;
 };
 
-export function RingProgress({ value, size = 120, label, tone = 'gold' }: Props) {
+export function RingProgress({ value, size = 120, label, tone }: Props) {
+  const resolved = tone ?? progressToAccent(value);
   const clamped = Math.min(100, Math.max(0, value));
   const stroke = 8;
   const r = (size - stroke) / 2;
@@ -15,7 +19,7 @@ export function RingProgress({ value, size = 120, label, tone = 'gold' }: Props)
   const offset = c - (clamped / 100) * c;
 
   return (
-    <div className={`ring-progress ring-progress--${tone}`} style={{ width: size, height: size }}>
+    <div className={`ring-progress ring-progress--${resolved}`} style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <circle
           className="ring-bg"
@@ -39,7 +43,7 @@ export function RingProgress({ value, size = 120, label, tone = 'gold' }: Props)
         />
       </svg>
       <div className="ring-center">
-        <span className="ring-pct">{clamped}%</span>
+        <span className="ring-pct">{Math.round(clamped)}%</span>
         {label && <span className="ring-label">{label}</span>}
       </div>
     </div>

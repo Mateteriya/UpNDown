@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { BrandEmblem } from '../components/BrandEmblem';
 import { DirectionGrid } from '../components/DirectionGrid';
 import { KpiSection } from '../components/KpiSection';
 import { ProgressBar } from '../components/ProgressBar';
@@ -18,33 +19,47 @@ import {
   progressForGroupIds,
   progressStats,
 } from '../portal/data';
+import { progressToAccent } from '../portal/progressAccent';
+import { taskCatalogById } from '../portal/taskCatalog';
+import type { TaskWorkApi } from '../portal/useTaskWork';
 
-const DIRECTION_ACCENTS = ['cyan', 'green', 'gold', 'violet', 'cyan'] as const;
 const TRACK_META = [
-  { key: 'ws', label: 'WebSocket', to: '/app/ws', accent: 'cyan' as const },
-  { key: 'iap', label: 'IAP', to: '/app/iap', accent: 'green' as const },
-  { key: 'cc', label: 'Cosmic Credits', to: '/app/cc', accent: 'violet' as const },
-  { key: 'overview', label: 'Платформа', to: '/app', accent: 'gold' as const },
+  { key: 'ws' as const, label: 'WebSocket', to: '/app/ws' },
+  { key: 'iap' as const, label: 'IAP', to: '/app/iap' },
+  { key: 'cc' as const, label: 'Cosmic Credits', to: '/app/cc' },
+  { key: 'overview' as const, label: 'Платформа', to: '/app' },
 ];
 
 type Props = {
-  checked: Set<string>;
+  work: TaskWorkApi;
 };
 
-export function DashboardPage({ checked }: Props) {
+export function DashboardPage({ work }: Props) {
   const phase1 = DIRECTIONS.filter((d) => d.phase === 1);
-  const program = progressStats(PHASE1_GROUP_IDS, checked);
-  const phase2 = progressStats(PHASE2_GROUP_IDS, checked);
+  const program = progressStats(PHASE1_GROUP_IDS, work.checked);
+  const phase2 = progressStats(PHASE2_GROUP_IDS, work.checked);
 
   const milestonesDone = MILESTONES.filter(
-    (m) => progressForGroupIds(m.groupIds, checked) >= 100,
+    (m) => progressForGroupIds(m.groupIds, work.checked) >= 100,
   ).length;
-  const nextMilestone = MILESTONES.find((m) => progressForGroupIds(m.groupIds, checked) < 100);
+  const nextMilestone = MILESTONES.find((m) => progressForGroupIds(m.groupIds, work.checked) < 100);
+  const milestonesPct = MILESTONES.length
+    ? Math.round((milestonesDone / MILESTONES.length) * 100)
+    : 0;
+  const nextMilestonePct = nextMilestone ? progressForGroupIds(nextMilestone.groupIds, work.checked) : 100;
+  const dirsAvg =
+    phase1.length > 0
+      ? phase1.reduce((s, d) => s + progressForGroupIds(d.groupIds, work.checked), 0) / phase1.length
+      : 0;
+  const inProgress = work.inProgressTasks;
+  const catalog = taskCatalogById();
 
   return (
     <div className="page dashboard">
-      <header className="dashboard-hero dashboard-hero--neon">
-        <div className="dashboard-hero-text">
+      <header className="dashboard-hero dashboard-hero--neon page-hero--branded">
+        <div className="page-hero-main">
+          <BrandEmblem size="hero" embossed glow />
+          <div className="dashboard-hero-text">
           <p className="eyebrow eyebrow--neon">Program overview</p>
           <h1>Up&Down — дорожная карта</h1>
           <p className="lead">{CONCEPT_TAGLINE}</p>
@@ -62,38 +77,77 @@ export function DashboardPage({ checked }: Props) {
               Концепция
             </Link>
           </div>
+          </div>
         </div>
         <div className="dashboard-hero-ring">
-          <RingProgress value={program.pct} label="Фаза 1" tone="gold" />
+          <RingProgress value={program.pct} label="Фаза 1" />
         </div>
       </header>
 
-      <KpiSection title="Программа" hint="Общий прогресс фазы 1 и волны 2">
+      <KpiSection
+        title="Программа"
+        hint="Общий прогресс фазы 1 и волны 2 · подсветка: ≥76% зелёный · 51–75% циан · 26–50% золото · ≤25% сирень"
+      >
         <div className="stat-row stat-row--neon">
           <StatCard
             label="Фаза 1"
             value={`${program.done}/${program.total}`}
             sub={`${program.remaining} шагов осталось`}
-            accent="cyan"
+            progressPct={program.pct}
             to="/roadmap"
           />
-          <StatCard label="Выполнено" value={`${program.pct}%`} sub="все треки Q2–Q4" accent="green" to="/roadmap" />
-          <StatCard label="Фаза 2" value={`${phase2.pct}%`} sub="entity + лицензии" accent="violet" to="/later" />
-          <StatCard label="Направлений" value={phase1.length} sub="параллельно а–г + платформа" accent="gold" />
+          <StatCard
+            label="Выполнено"
+            value={`${program.pct}%`}
+            sub="все треки Q2–Q4"
+            progressPct={program.pct}
+            to="/roadmap"
+          />
+          <StatCard
+            label="Фаза 2"
+            value={`${phase2.pct}%`}
+            sub="entity + лицензии"
+            progressPct={phase2.pct}
+            to="/later"
+          />
+          <StatCard
+            label="Направлений"
+            value={phase1.length}
+            sub="параллельно а–г + платформа"
+            progressPct={dirsAvg}
+          />
         </div>
       </KpiSection>
+
+      {inProgress.length > 0 && (
+        <KpiSection title="Сейчас в работе" hint="Видно всей команде после входа через Google">
+          <div className="in-progress-list">
+            {inProgress.map((row) => (
+              <Link key={row.task_id} to="/work" className="in-progress-item">
+                <span className="in-progress-label">
+                  {catalog.get(row.task_id)?.task.label ?? row.task_id}
+                </span>
+                <span className="in-progress-who">{row.assignee_display ?? 'Участник'}</span>
+              </Link>
+            ))}
+          </div>
+          <p className="panel-intro">
+            <Link to="/work">Открыть раздел «Работа» →</Link>
+          </p>
+        </KpiSection>
+      )}
 
       <KpiSection title="Треки в репозитории" hint="WS · IAP · CC · платформа — клик открывает чеклист">
         <div className="stat-row stat-row--neon">
           {TRACK_META.map((t) => {
-            const st = progressStats(APP_TRACKS[t.key], checked);
+            const st = progressStats(APP_TRACKS[t.key], work.checked);
             return (
               <StatCard
                 key={t.key}
                 label={t.label}
                 value={`${st.pct}%`}
                 sub={`${st.done}/${st.total} шагов`}
-                accent={t.accent}
+                progressPct={st.pct}
                 to={t.to}
               />
             );
@@ -103,8 +157,8 @@ export function DashboardPage({ checked }: Props) {
 
       <KpiSection title="Направления а–г" hint="Прогресс по каждому вектору работ">
         <div className="stat-row stat-row--neon">
-          {phase1.map((d, i) => {
-            const st = progressStats(d.groupIds, checked);
+          {phase1.map((d) => {
+            const st = progressStats(d.groupIds, work.checked);
             const link = d.link?.startsWith('/roadmap') ? '/roadmap' : d.link ?? '/roadmap';
             return (
               <StatCard
@@ -112,7 +166,7 @@ export function DashboardPage({ checked }: Props) {
                 label={`${d.code.toUpperCase()} · ${d.title}`}
                 value={`${st.pct}%`}
                 sub={`${st.done}/${st.total} · ${d.owner}`}
-                accent={DIRECTION_ACCENTS[i % DIRECTION_ACCENTS.length]}
+                progressPct={st.pct}
                 to={link}
               />
             );
@@ -122,17 +176,16 @@ export function DashboardPage({ checked }: Props) {
 
       <KpiSection title="Кварталы 2026" hint="Фокус года по кварталам">
         <div className="stat-row stat-row--neon">
-          {QUARTERS.map((q, i) => {
+          {QUARTERS.map((q) => {
             const gids = QUARTER_GROUPS[q.progressKey] ?? [];
-            const st = progressStats(gids, checked);
-            const accents = ['cyan', 'green', 'gold'] as const;
+            const st = progressStats(gids, work.checked);
             return (
               <StatCard
                 key={q.id}
                 label={q.label}
                 value={`${st.pct}%`}
                 sub={q.theme}
-                accent={accents[i % accents.length]}
+                progressPct={st.pct}
                 to="/roadmap"
               />
             );
@@ -146,25 +199,25 @@ export function DashboardPage({ checked }: Props) {
             label="Вех закрыто"
             value={`${milestonesDone}/${MILESTONES.length}`}
             sub="все шаги вехи отмечены"
-            accent="green"
+            progressPct={milestonesPct}
             to="/roadmap"
           />
           <StatCard
             label="Следующая веха"
             value={nextMilestone ? nextMilestone.quarter : '—'}
             sub={nextMilestone?.title ?? 'Все вехи закрыты'}
-            accent="gold"
+            progressPct={nextMilestonePct}
             to="/roadmap"
           />
-          {MILESTONES.slice(0, 2).map((m, i) => {
-            const pct = progressForGroupIds(m.groupIds, checked);
+          {MILESTONES.slice(0, 2).map((m) => {
+            const pct = progressForGroupIds(m.groupIds, work.checked);
             return (
               <StatCard
                 key={m.id}
                 label={m.title}
                 value={`${pct}%`}
                 sub={`Цель · ${m.quarter}`}
-                accent={i === 0 ? 'cyan' : 'violet'}
+                progressPct={pct}
                 to="/roadmap"
               />
             );
@@ -183,19 +236,19 @@ export function DashboardPage({ checked }: Props) {
           <h2>Направления — карточки</h2>
           <span className="muted">Кратко + ссылка на план</span>
         </div>
-        <DirectionGrid directions={phase1} checked={checked} />
+        <DirectionGrid directions={phase1} work={work} />
       </section>
 
       <section className="panel">
         <h2>Детали по кварталам</h2>
         <p className="panel-intro">Прогресс-бары по группам задач</p>
         <div className="quarter-grid">
-          {QUARTERS.map((q, i) => {
+          {QUARTERS.map((q) => {
             const gids = QUARTER_GROUPS[q.progressKey] ?? [];
-            const st = progressStats(gids, checked);
-            const accent = ['cyan', 'green', 'gold', 'violet'][i % 4];
+            const st = progressStats(gids, work.checked);
+            const accent = progressToAccent(st.pct);
             return (
-              <article key={q.id} className={`quarter-card quarter-card--${accent}`}>
+              <article key={q.id} className={`quarter-card accent-${accent}`}>
                 <header>
                   <h3>{q.label}</h3>
                   <span className="quarter-pct">{st.pct}%</span>
@@ -215,9 +268,13 @@ export function DashboardPage({ checked }: Props) {
         <h2>Ключевые вехи — прогресс</h2>
         <ul className="milestone-list">
           {MILESTONES.map((m) => {
-            const pct = progressForGroupIds(m.groupIds, checked);
+            const pct = progressForGroupIds(m.groupIds, work.checked);
+            const accent = progressToAccent(pct);
             return (
-              <li key={m.id} className={pct >= 100 ? 'milestone done' : 'milestone'}>
+              <li
+                key={m.id}
+                className={`milestone accent-${accent}${pct >= 100 ? ' done' : ''}`}
+              >
                 <span className="milestone-q">{m.quarter}</span>
                 <div className="milestone-body">
                   <strong>{m.title}</strong>

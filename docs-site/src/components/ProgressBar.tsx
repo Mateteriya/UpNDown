@@ -1,34 +1,28 @@
+import { progressToAccent } from '../portal/progressAccent';
+
 type Props = {
   value: number;
   label?: string;
   size?: 'sm' | 'md' | 'lg';
   showPct?: boolean;
-  variant?: 'default' | 'success' | 'warn';
 };
 
-export function ProgressBar({
-  value,
-  label,
-  size = 'md',
-  showPct = true,
-  variant = 'default',
-}: Props) {
+export function ProgressBar({ value, label, size = 'md', showPct = true }: Props) {
   const clamped = Math.min(100, Math.max(0, value));
-  const variantClass =
-    clamped >= 100 ? 'success' : clamped >= 60 ? 'default' : clamped >= 25 ? 'warn' : 'low';
+  const accent = progressToAccent(clamped);
 
   return (
-    <div className={`progress-wrap progress-${size} progress-variant-${variant === 'default' ? variantClass : variant}`}>
+    <div className={`progress-wrap progress-${size} progress-accent-${accent}`}>
       {(label || showPct) && (
         <div className="progress-header">
           {label && <span className="progress-label">{label}</span>}
-          {showPct && <span className="progress-pct">{clamped}%</span>}
+          {showPct && <span className={`progress-pct progress-pct--${accent}`}>{Math.round(clamped)}%</span>}
         </div>
       )}
       <div
         className="progress-track"
         role="progressbar"
-        aria-valuenow={clamped}
+        aria-valuenow={Math.round(clamped)}
         aria-valuemin={0}
         aria-valuemax={100}
       >

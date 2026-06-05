@@ -1,15 +1,15 @@
+import { Link } from 'react-router-dom';
 import { allTaskIds } from '../portal/data';
 import { exportProgress, importProgress } from '../portal/storage';
+import type { TaskWorkApi } from '../portal/useTaskWork';
 
 type Props = {
-  checked: Set<string>;
-  onReset: () => void;
-  onImport: (set: Set<string>) => void;
+  work: TaskWorkApi;
 };
 
-export function ProgressTools({ checked, onReset, onImport }: Props) {
+export function ProgressTools({ work }: Props) {
   const handleExport = () => {
-    const blob = new Blob([exportProgress(checked)], { type: 'application/json' });
+    const blob = new Blob([exportProgress(work.checked)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -22,32 +22,37 @@ export function ProgressTools({ checked, onReset, onImport }: Props) {
     const raw = window.prompt('Вставьте JSON прогресса:');
     if (!raw?.trim()) return;
     try {
-      onImport(importProgress(raw));
-      alert('Прогресс импортирован');
+      work.setAll(importProgress(raw));
+      alert('Прогресс импортирован (локальные галочки)');
     } catch {
       alert('Не удалось прочитать файл');
     }
   };
 
   const total = allTaskIds().length;
-  const done = checked.size;
+  const done = work.checked.size;
 
   return (
     <div className="progress-tools">
       <span className="tools-count" title="Отмечено задач">
         {done}/{total}
       </span>
-      <button type="button" className="btn ghost" onClick={handleExport}>
+      <button type="button" className="btn ghost btn-sm" onClick={handleExport}>
         Экспорт
       </button>
-      <button type="button" className="btn ghost" onClick={handleImport}>
+      <button type="button" className="btn ghost btn-sm" onClick={handleImport}>
         Импорт
       </button>
+      {work.syncEnabled && (
+        <button type="button" className="btn ghost btn-sm" onClick={() => void work.refreshRemote()}>
+          Обновить
+        </button>
+      )}
       <button
         type="button"
-        className="btn ghost danger"
+        className="btn ghost btn-sm danger"
         onClick={() => {
-          if (window.confirm('Сбросить прогресс к значениям по умолчанию?')) onReset();
+          if (window.confirm('Сбросить локальный прогресс к значениям по умолчанию?')) work.reset();
         }}
       >
         Сброс

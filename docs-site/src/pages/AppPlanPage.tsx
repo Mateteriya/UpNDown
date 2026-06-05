@@ -1,30 +1,23 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import { PageHero } from '../components/PageHero';
 import { TaskList } from '../components/TaskList';
 import { ProgressBar } from '../components/ProgressBar';
 import { RingProgress } from '../components/RingProgress';
 import { StatusBadge } from '../components/StatusBadge';
 import { TableShell } from '../components/TableShell';
 import { APP_TABS, APP_TRACKS, TASK_GROUPS, progressStats } from '../portal/data';
+import type { TaskWorkApi } from '../portal/useTaskWork';
 
 type Props = {
-  checked: Set<string>;
-  onToggle: (id: string) => void;
+  work: TaskWorkApi;
 };
 
-function TrackPanel({
-  groupIds,
-  checked,
-  onToggle,
-}: {
-  groupIds: string[];
-  checked: Set<string>;
-  onToggle: (id: string) => void;
-}) {
-  const st = progressStats(groupIds, checked);
+function TrackPanel({ groupIds, work }: { groupIds: string[]; work: TaskWorkApi }) {
+  const st = progressStats(groupIds, work.checked);
   return (
     <>
       <div className="track-header">
-        <RingProgress value={st.pct} size={88} tone="cyan" />
+        <RingProgress value={st.pct} size={88} />
         <div>
           <p className="track-stat">
             <strong>{st.done}</strong> / {st.total} шагов
@@ -35,13 +28,13 @@ function TrackPanel({
       {groupIds.map((gid) => {
         const group = TASK_GROUPS[gid];
         if (!group) return null;
-        return <TaskList key={gid} group={group} checked={checked} onToggle={onToggle} />;
+        return <TaskList key={gid} group={group} work={work} />;
       })}
     </>
   );
 }
 
-function OverviewTab({ checked, onToggle }: Props) {
+function OverviewTab({ work }: Props) {
   const rows: { label: string; ids: string[]; status: string; tone: 'ok' | 'warn' | 'todo' }[] = [
     { label: 'Онлайн Supabase', ids: ['done-foundation'], status: 'Работает', tone: 'ok' },
     { label: 'WebSocket', ids: ['ws-server', 'ws-client'], status: 'В разработке', tone: 'todo' },
@@ -66,7 +59,7 @@ function OverviewTab({ checked, onToggle }: Props) {
           </thead>
           <tbody>
             {rows.map((r) => {
-              const st = progressStats(r.ids, checked);
+              const st = progressStats(r.ids, work.checked);
               return (
                 <tr key={r.label}>
                   <th scope="row">{r.label}</th>
@@ -83,29 +76,25 @@ function OverviewTab({ checked, onToggle }: Props) {
         </table>
       </TableShell>
       <h2>Платформа и beta-gate</h2>
-      <TrackPanel
-        groupIds={APP_TRACKS.overview}
-        checked={checked}
-        onToggle={onToggle}
-      />
+      <TrackPanel groupIds={APP_TRACKS.overview} work={work} />
     </div>
   );
 }
 
-export function AppPlanPage({ checked, onToggle }: Props) {
+export function AppPlanPage({ work }: Props) {
   const allApp = [...APP_TRACKS.ws, ...APP_TRACKS.iap, ...APP_TRACKS.cc, ...APP_TRACKS.overview];
-  const total = progressStats(allApp, checked);
+  const total = progressStats(allApp, work.checked);
 
   return (
     <div className="page">
-      <header className="page-hero split">
-        <div>
-          <p className="eyebrow">Приложение · репозиторий</p>
-          <h1>WS · IAP · CC</h1>
-          <p className="lead">Конкретные шаги с владельцем, приоритетом и сроком</p>
-        </div>
-        <RingProgress value={total.pct} size={100} label="App" tone="green" />
-      </header>
+      <PageHero
+        eyebrow="Приложение · репозиторий"
+        title="WS · IAP · CC"
+        lead="Конкретные шаги с владельцем, приоритетом и сроком"
+        aside={<RingProgress value={total.pct} size={100} label="App" />}
+        neon
+        emblemSize="xl"
+      />
 
       <div className="subtabs">
         {APP_TABS.map((tab) => (
@@ -122,25 +111,10 @@ export function AppPlanPage({ checked, onToggle }: Props) {
 
       <section className="panel panel-flush">
         <Routes>
-          <Route index element={<OverviewTab checked={checked} onToggle={onToggle} />} />
-          <Route
-            path="ws"
-            element={
-              <TrackPanel groupIds={APP_TRACKS.ws} checked={checked} onToggle={onToggle} />
-            }
-          />
-          <Route
-            path="iap"
-            element={
-              <TrackPanel groupIds={APP_TRACKS.iap} checked={checked} onToggle={onToggle} />
-            }
-          />
-          <Route
-            path="cc"
-            element={
-              <TrackPanel groupIds={APP_TRACKS.cc} checked={checked} onToggle={onToggle} />
-            }
-          />
+          <Route index element={<OverviewTab work={work} />} />
+          <Route path="ws" element={<TrackPanel groupIds={APP_TRACKS.ws} work={work} />} />
+          <Route path="iap" element={<TrackPanel groupIds={APP_TRACKS.iap} work={work} />} />
+          <Route path="cc" element={<TrackPanel groupIds={APP_TRACKS.cc} work={work} />} />
           <Route path="*" element={<Navigate to="/app" replace />} />
         </Routes>
       </section>

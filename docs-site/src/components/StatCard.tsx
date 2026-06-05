@@ -1,19 +1,24 @@
 import { Link } from 'react-router-dom';
+import { progressToAccent, type ProgressAccent } from '../portal/progressAccent';
 
-export type StatAccent = 'cyan' | 'green' | 'gold' | 'violet';
+export type StatAccent = ProgressAccent;
 
 type Props = {
   label: string;
   value: string | number;
   sub?: string;
+  /** Фиксированный цвет (если нет progressPct) */
   accent?: StatAccent;
-  /** Кликабельная карточка → раздел портала */
+  /** % → умная подсветка верхней границы */
+  progressPct?: number;
   to?: string;
 };
 
-export function StatCard({ label, value, sub, accent = 'cyan', to }: Props) {
+export function StatCard({ label, value, sub, accent = 'cyan', progressPct, to }: Props) {
+  const resolved = progressPct !== undefined ? progressToAccent(progressPct) : accent;
+
   const card = (
-    <article className={`stat-card stat-card--neon accent-${accent}`}>
+    <article className={`stat-card stat-card--neon accent-${resolved}`}>
       <p className="stat-label">{label}</p>
       <p className="stat-value">{value}</p>
       {sub && <p className="stat-sub">{sub}</p>}

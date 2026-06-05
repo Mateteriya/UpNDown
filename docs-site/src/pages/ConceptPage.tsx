@@ -1,17 +1,17 @@
 import { Link } from 'react-router-dom';
+import { PageHero } from '../components/PageHero';
 import { ResourceHub } from '../components/ResourceHub';
 import { NOT_DOING, PRODUCT_LAYERS } from '../portal/data';
 
 export function ConceptPage() {
   return (
     <div className="page">
-      <header className="page-hero">
-        <p className="eyebrow">Концепция продукта</p>
-        <h1>Четыре слоя — одна стратегия</h1>
-        <p className="lead">
-          Слои 1–3 строим сейчас. Слой 4 — только после юриста и метрик (волна 2).
-        </p>
-      </header>
+      <PageHero
+        eyebrow="Концепция продукта"
+        title="Четыре слоя — одна стратегия"
+        lead="Слои 1–3 строим сейчас. Слой 4 — только после юриста и метрик (волна 2)."
+        emblemSize="xl"
+      />
 
       <div className="layer-grid">
         {PRODUCT_LAYERS.map((layer) => (

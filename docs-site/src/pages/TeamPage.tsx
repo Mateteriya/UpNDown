@@ -1,14 +1,17 @@
+import { PageHero } from '../components/PageHero';
 import { TableShell } from '../components/TableShell';
 import { ROLES } from '../portal/data';
 
 export function TeamPage() {
   return (
     <div className="page">
-      <header className="page-hero">
-        <p className="eyebrow eyebrow--neon">Команда</p>
-        <h1>Роли троих</h1>
-        <p className="lead">Кто за что отвечает — без дублирования зон</p>
-      </header>
+      <PageHero
+        eyebrow="Команда"
+        title="Роли троих"
+        lead="Кто за что отвечает — без дублирования зон"
+        neon
+        emblemSize="lg"
+      />
 
       <section className="panel">
         <TableShell caption="Матрица ролей" hint="Одна зона — один ответственный">

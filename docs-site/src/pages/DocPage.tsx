@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { BrandEmblem } from '../components/BrandEmblem';
 import { SimpleMarkdown } from '../lib/simpleMarkdown';
 import { docAssetUrl, repoFileUrl } from '../portal/resources';
 
@@ -46,13 +47,18 @@ export function DocPage() {
 
   return (
     <div className="page doc-page">
-      <header className="doc-page-header">
+      <header className="doc-page-header page-hero--branded">
         <Link to="/resources" className="doc-back">
           ← Ресурсы
         </Link>
-        <p className="eyebrow eyebrow--neon">Документ</p>
-        <h1>{title.replace(/-/g, ' ')}</h1>
-        <code className="doc-path-badge">{path}</code>
+        <div className="doc-page-header-top">
+          <BrandEmblem size="lg" embossed glow />
+          <div className="doc-page-header-copy">
+            <p className="eyebrow eyebrow--neon">Документ</p>
+            <h1>{title.replace(/-/g, ' ')}</h1>
+            <code className="doc-path-badge">{path}</code>
+          </div>
+        </div>
         <div className="doc-page-actions">
           <a
             href={repoFileUrl(path)}

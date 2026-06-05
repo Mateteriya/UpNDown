@@ -1,3 +1,4 @@
+import { PageHero } from '../components/PageHero';
 import { ResourceHub } from '../components/ResourceHub';
 import { TaskList } from '../components/TaskList';
 import { ProgressBar } from '../components/ProgressBar';
@@ -11,10 +12,11 @@ import {
   progressForGroupIds,
   progressStats,
 } from '../portal/data';
+import { progressToAccent } from '../portal/progressAccent';
+import type { TaskWorkApi } from '../portal/useTaskWork';
 
 type Props = {
-  checked: Set<string>;
-  onToggle: (id: string) => void;
+  work: TaskWorkApi;
 };
 
 const ROADMAP_SECTIONS = [
@@ -25,22 +27,19 @@ const ROADMAP_SECTIONS = [
   { id: 'ws', title: 'WebSocket (в)', groups: ['ws-server', 'ws-client', 'ws-migrate'] },
 ] as const;
 
-export function RoadmapPage({ checked, onToggle }: Props) {
-  const program = progressStats(PHASE1_GROUP_IDS, checked);
+export function RoadmapPage({ work }: Props) {
+  const program = progressStats(PHASE1_GROUP_IDS, work.checked);
   const phase1Dirs = DIRECTIONS.filter((d) => d.phase === 1);
 
   return (
     <div className="page">
-      <header className="page-hero split">
-        <div>
-          <p className="eyebrow">Roadmap · фаза 1</p>
-          <h1>Чеклисты и вехи</h1>
-          <p className="lead">
-            {program.done} из {program.total} шагов выполнено · отмечайте по мере готовности
-          </p>
-        </div>
-        <RingProgress value={program.pct} size={100} label="Всего" />
-      </header>
+      <PageHero
+        eyebrow="Roadmap · фаза 1"
+        title="Чеклисты и вехи"
+        lead={`${program.done} из ${program.total} шагов выполнено · «Взять в работу» — после входа через Google`}
+        aside={<RingProgress value={program.pct} size={100} label="Всего" />}
+        emblemSize="xl"
+      />
 
       <section className="panel panel--resources">
         <ResourceHub variant="compact" />
@@ -54,7 +53,7 @@ export function RoadmapPage({ checked, onToggle }: Props) {
               <a href={`#${d.id}`} className="progress-row-label">
                 <strong>{d.code}</strong> {d.title}
               </a>
-              <ProgressBar value={progressForGroupIds(d.groupIds, checked)} size="sm" />
+              <ProgressBar value={progressForGroupIds(d.groupIds, work.checked)} size="sm" />
             </div>
           ))}
         </div>
@@ -64,9 +63,9 @@ export function RoadmapPage({ checked, onToggle }: Props) {
         <h2>Календарь Q2–Q4</h2>
         <div className="quarter-grid compact">
           {QUARTERS.map((q) => {
-            const st = progressStats(QUARTER_GROUPS[q.progressKey] ?? [], checked);
+            const st = progressStats(QUARTER_GROUPS[q.progressKey] ?? [], work.checked);
             return (
-              <article key={q.id} className="quarter-card">
+              <article key={q.id} className={`quarter-card accent-${progressToAccent(st.pct)}`}>
                 <h3>{q.label}</h3>
                 <p className="quarter-theme">{q.theme}</p>
                 <ProgressBar value={st.pct} label={`${st.done}/${st.total} шагов`} size="sm" />
@@ -86,8 +85,7 @@ export function RoadmapPage({ checked, onToggle }: Props) {
               <TaskList
                 key={gid}
                 group={group}
-                checked={checked}
-                onToggle={onToggle}
+                work={work}
                 defaultOpen={gid !== 'done-foundation'}
               />
             );

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { BrandEmblem } from './BrandEmblem';
 
 type Props = {
   compact?: boolean;
@@ -7,7 +8,7 @@ type Props = {
 export function BrandLogo({ compact }: Props) {
   return (
     <Link to="/" className="brand-link">
-      <img src="/brand/icon-192.png" alt="" className="brand-icon" width={compact ? 36 : 44} height={compact ? 36 : 44} />
+      <BrandEmblem size={compact ? 'sm' : 'md'} embossed glow />
       <div className="brand-text">
         <strong>Up&Down</strong>
         {!compact && <span>Program Portal</span>}
