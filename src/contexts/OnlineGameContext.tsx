@@ -38,7 +38,7 @@ import {
   type GameRoomPhase,
   type HostResolveAbsentChoice,
   type CreateRoomOptions,
-} from '../lib/onlineGameSupabase';
+} from '../lib/onlineGameApi';
 import type { SettlementMode } from '../game/partySettlement';
 import { DEFAULT_CASUAL_SETTLEMENT } from '../lib/roomSettlement';
 import type { RoomKind } from '../lib/roomSettlement';
@@ -49,6 +49,8 @@ import {
   isRoomIgnoredForAutoRestore,
   removeIgnoredRoomForAutoRestore,
 } from '../lib/onlineIgnoredRooms';
+import { getOnlinePlayerId } from '../lib/deviceId';
+import { isWsOnlineConfigured } from '../lib/onlineTransport';
 
 /** Сообщение при обрыве по таймауту fetch в supabase.ts (~55 с). */
 function formatSupabaseNetworkError(e: unknown): string {
@@ -118,6 +120,20 @@ function playerSlotsJsonEqual(a: PlayerSlot[], b: PlayerSlot[]): boolean {
   } catch {
     return false;
   }
+}
+
+/** Имена в game_state и displayName в слотах должны совпадать у всех клиентов. */
+function patchGameStateNamesFromSlots(gs: GameState, slots: PlayerSlot[]): GameState {
+  let changed = false;
+  const players = gs.players.map((p, i) => {
+    const dn = slots.find((s) => s.slotIndex === i)?.displayName?.trim();
+    if (dn && dn !== p.name) {
+      changed = true;
+      return { ...p, name: dn };
+    }
+    return p;
+  });
+  return changed ? { ...gs, players } : gs;
 }
 
 function cardEqual(a: Card, b: Card): boolean {
@@ -250,6 +266,8 @@ export interface OnlineGameContextValue {
   settlementMode: SettlementMode;
   buyIn: number | null;
   roomKind: RoomKind;
+  /** Id для онлайн-комнаты: Supabase user id или device id в LAN (ws). */
+  onlinePlayerId: string;
 }
 // --- Конец интерфейса ---
 
@@ -257,6 +275,8 @@ export const OnlineGameContext = createContext<OnlineGameContextValue | null>(nu
 
 export function OnlineGameProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
+  const onlinePlayerId = useMemo(() => getOnlinePlayerId(user?.id), [user?.id]);
+  const lanWs = isWsOnlineConfigured();
   const [status, setStatus] = useState<OnlineStatus>('idle');
   const [roomId, setRoomId] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
@@ -298,6 +318,25 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     () => (canonicalState ? rotateStateForPlayer(canonicalState, myServerIndex) : null),
     [canonicalState, myServerIndex],
   );
+
+  const playerSlotsNameSig = useMemo(
+    () =>
+      JSON.stringify(
+        (playerSlots ?? []).map((s) => [s.slotIndex, s.displayName ?? '', s.userId ?? '']),
+      ),
+    [playerSlots],
+  );
+
+  useEffect(() => {
+    if (status !== 'playing' && status !== 'finished') return;
+    setCanonicalState((prev) => {
+      if (!prev) return prev;
+      const next = patchGameStateNamesFromSlots(prev, playerSlots);
+      if (next === prev) return prev;
+      canonicalStateRef.current = next;
+      return next;
+    });
+  }, [playerSlotsNameSig, status, playerSlots]);
   const canonicalStateRef = useRef<GameState | null>(null);
   canonicalStateRef.current = canonicalState;
   const lastSendAtRef = useRef(0);
@@ -404,6 +443,13 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         r2 === lastRev &&
         gameStateJsonEqual(canonicalStateRef.current, incoming)
       ) {
+        const nextSlotsEq = (room.player_slots || []) as PlayerSlot[];
+        setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsEq) ? prev : nextSlotsEq));
+        const patched = patchGameStateNamesFromSlots(incoming, nextSlotsEq);
+        if (patched !== incoming) {
+          setCanonicalState(patched);
+          canonicalStateRef.current = patched;
+        }
         if (r2 !== undefined) {
           lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r2);
         }
@@ -433,6 +479,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         canonicalStateRef.current != null &&
         gameStateJsonEqual(canonicalStateRef.current, incoming)
       ) {
+        const nextSlotsEq = (room.player_slots || []) as PlayerSlot[];
+        setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsEq) ? prev : nextSlotsEq));
         if (r2 !== undefined) {
           lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r2);
         }
@@ -489,6 +537,10 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const applyRoomSnapshot = useCallback(
     (room: GameRoomRow) => {
       if (!room?.id) return;
+      if (room.status === 'waiting' && room.game_state == null) {
+        mergeLobbyFieldsFromRoom(room);
+        return;
+      }
       const rIn = parseGameStateRevision(room.game_state_revision);
       const lastRev = lastAppliedGameStateRevisionRef.current;
       if (rIn !== undefined && lastRev >= 0 && rIn < lastRev) {
@@ -712,8 +764,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
    */
   useEffect(() => {
     if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
-    const HARD_MS = 4600;
-    const REALTIME_SELF_HEAL_MS = 26_000;
+    const HARD_MS = lanWs ? 28_000 : 4600;
+    const REALTIME_SELF_HEAL_MS = lanWs ? 60_000 : 26_000;
     const ivHard = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return;
       void runHardRoomRefresh();
@@ -725,7 +777,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       clearInterval(ivHard);
       clearInterval(ivHeal);
     };
-  }, [roomId, status, runHardRoomRefresh]);
+  }, [roomId, status, lanWs, runHardRoomRefresh]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -753,8 +805,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
    * Опрос: в игре — Realtime не всегда доставляет ходы.
    * 280 ms × N игроков + VPN давит лимиты/очередь PostgREST → гонки ревизий, конфликты и «залипший» ход ИИ.
    */
-  const ROOM_SYNC_POLL_WAITING_MS = 1600;
-  const ROOM_SYNC_POLL_PLAYING_MS = 760;
+  /** LAN (ws): push room_snapshot + редкий опрос; Supabase: чаще из‑за Realtime/VPN. */
+  const ROOM_SYNC_POLL_WAITING_MS = lanWs ? 1200 : 1600;
+  const ROOM_SYNC_POLL_PLAYING_MS = lanWs ? 1600 : 760;
   /**
    * Раньше ~420 ms после любого send* гасили каждый тик опроса — при частых ходах ИИ/живых почти всегда «тишина» после lastSendAt,
    * а при заблокированном WebSocket Realtime стол на ПК в LAN не обновлялся без VPN. Жёсткие рассылки уже закрывает grace после записи.
@@ -804,7 +857,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
 
   const performSessionRestore = useCallback(
     async (saved: { roomId: string; deviceId: string }): Promise<{ ok: boolean; roomFinished?: boolean; error?: string }> => {
-      if (!user?.id) return { ok: false, error: 'Войдите в аккаунт, чтобы продолжить онлайн-партию.' };
+      if (!onlinePlayerId && !lanWs) return { ok: false, error: 'Войдите в аккаунт, чтобы продолжить онлайн-партию.' };
       /** Сессия в storage уже не та (успели выйти/войти в другую комнату) — не трогаем UI и не затираем новую сессию. */
       const storageStillThisRoom = (): boolean => {
         const latest = loadOnlineSession();
@@ -832,7 +885,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return { ok: false, roomFinished: true };
       }
       const slots = (room.player_slots || []) as PlayerSlot[];
-      const meSlot = slots.find((s) => s.userId === user.id || s.replacedUserId === user.id);
+      const meSlot = slots.find((s) => s.userId === onlinePlayerId || s.replacedUserId === onlinePlayerId);
       if (!meSlot) {
         if (storageStillThisRoom()) clearOnlineSession();
         /** Иначе при следующем F5 session пустой, а last-party снова подставляет roomId — вечный возврат в лобби «чужой» комнаты. */
@@ -848,13 +901,13 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       removeIgnoredRoomForAutoRestore(saved.roomId);
       return { ok: true };
     },
-    [applyRoomData, user?.id]
+    [applyRoomData, onlinePlayerId, lanWs]
   );
 
   // F5 / холодный старт: sessionStorage или lastOnlineParty → performSessionRestore; флаг onlineHydratedFromStorage — чтобы GameTable не поднял офлайн до этого.
   useEffect(() => {
-    if (authLoading) return;
-    if (!user?.id) {
+    if (authLoading && !lanWs) return;
+    if (!onlinePlayerId && !lanWs) {
       setOnlineHydratedFromStorage(true);
       return;
     }
@@ -890,23 +943,23 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         if (onlineHydrateGenRef.current !== gen) return;
         setOnlineHydratedFromStorage(true);
       });
-  }, [authLoading, user?.id, performSessionRestore]);
+  }, [authLoading, onlinePlayerId, lanWs, performSessionRestore]);
 
   /** Пока вы в слотах — держим подсказку с кодом (на случай обхода saveOnlineSession без code). */
   useEffect(() => {
-    if (!roomId || !code || !user?.id) return;
-    const inSlots = playerSlots.some((s) => s.userId === user.id || s.replacedUserId === user.id);
+    if (!roomId || !code || !onlinePlayerId) return;
+    const inSlots = playerSlots.some((s) => s.userId === onlinePlayerId || s.replacedUserId === onlinePlayerId);
     if (!inSlots) return;
     saveLastOnlineParty(roomId, code);
-  }, [roomId, code, user?.id, playerSlots]);
+  }, [roomId, code, onlinePlayerId, playerSlots]);
 
   // Если в игре есть слот с replacedUserId === наш user.id (ручная пауза) — предложить вернуть слот.
   useEffect(() => {
-    if (status !== 'playing' || !roomId || !user?.id) {
+    if (status !== 'playing' || !roomId || !onlinePlayerId) {
       setPendingReclaimOffer(null);
       return;
     }
-    const slot = playerSlots.find((s) => s.replacedUserId === user.id);
+    const slot = playerSlots.find((s) => s.replacedUserId === onlinePlayerId);
     if (slot) {
       setPendingReclaimOffer({
         roomId,
@@ -917,7 +970,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     } else {
       setPendingReclaimOffer(null);
     }
-  }, [status, roomId, code, user?.id, playerSlots]);
+  }, [status, roomId, code, onlinePlayerId, playerSlots]);
 
   const createRoom = useCallback(
     async (
@@ -971,6 +1024,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         saveOnlineSession(result.roomId, deviceIdRef.current, result.room.code);
         removeIgnoredRoomForAutoRestore(result.roomId);
         sessionRestoreOkRef.current = true;
+        void getRoom(result.roomId).then((r) => {
+          if (r?.id === result.roomId) applyRoomSnapshot(r);
+        });
         return { ok: true };
       } catch (e) {
         const msg = formatSupabaseNetworkError(e) || 'Ошибка при входе в комнату.';
@@ -978,16 +1034,16 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         return { ok: false, error: msg };
       }
     },
-    [applyRoomData]
+    [applyRoomData, applyRoomSnapshot]
   );
 
   const recoverJoinIfAlreadyInRoom = useCallback(
     async (codeInput: string): Promise<boolean> => {
-      if (!user?.id) return false;
+      if (!onlinePlayerId) return false;
       clearLastOnlineParty();
       clearOnlineSession();
       sessionRestoreOkRef.current = false;
-      const r = await recoverJoinByCode(codeInput, user.id);
+      const r = await recoverJoinByCode(codeInput, onlinePlayerId);
       if (!r) return false;
       setError(null);
       applyRoomData(r.room);
@@ -997,33 +1053,78 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       sessionRestoreOkRef.current = true;
       return true;
     },
-    [user?.id, applyRoomData]
+    [onlinePlayerId, applyRoomData]
   );
   
   // --- Остальной код в основном без изменений, просто использует myServerIndex ---
   // ... (leaveRoom, startGame, sendBid, sendPlay и т.д.)
   // ... (Я включу его полностью для простоты копирования)
 
+  /** Тот же канал, что и аватар: update_slots / update_state — у гостей имена доходят стабильнее, чем отдельный RPC. */
   const syncMySlotDisplayName = useCallback(
     async (displayName: string) => {
-      if (!roomId || status !== 'waiting' || !displayName.trim()) return;
-      // Всегда мержим в актуальный список с сервера — иначе локальный [только хост] затирает гостей при гонке с Realtime.
-      const fresh = await getRoom(roomId);
-      if (!fresh?.id || fresh.id !== roomId) return;
-      const slots = ((fresh.player_slots as PlayerSlot[]) || []).slice();
-      const idx = slots.findIndex((s) => s.slotIndex === myServerIndex);
-      if (idx === -1) return;
+      if (!roomId || !displayName.trim()) return;
+      const trimmed = displayName.trim().slice(0, 17);
       const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
-      slots[idx] = {
-        ...slots[idx],
-        displayName: displayName.trim().slice(0, 17),
-        ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : {}),
-      };
-      const { error: err } = await updateRoomPlayerSlots(roomId, slots);
-      if (err) setError(err);
-      else applyRoomData({ ...fresh, player_slots: slots });
+
+      if (status === 'waiting') {
+        const fresh = await getRoom(roomId);
+        if (!fresh?.id || fresh.id !== roomId) return;
+        const slots = ((fresh.player_slots as PlayerSlot[]) || []).slice();
+        const idx = slots.findIndex((s) => s.slotIndex === myServerIndex);
+        if (idx === -1) return;
+        slots[idx] = {
+          ...slots[idx],
+          displayName: trimmed,
+          ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : {}),
+        };
+        setPlayerSlots(slots);
+        const { error: err } = await updateRoomPlayerSlots(roomId, slots);
+        if (err) setError(err);
+        else applyRoomData({ ...fresh, player_slots: slots });
+        return;
+      }
+
+      if (status === 'playing' && canonicalState) {
+        const slots = playerSlots.slice();
+        const idx = slots.findIndex((s) => s.slotIndex === myServerIndex);
+        if (idx === -1) return;
+        slots[idx] = {
+          ...slots[idx],
+          displayName: trimmed,
+          ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : {}),
+        };
+        const nextState: GameState = {
+          ...canonicalState,
+          players: canonicalState.players.map((p, i) =>
+            i === myServerIndex ? { ...p, name: trimmed } : p,
+          ),
+        };
+        setPlayerSlots(slots);
+        setCanonicalState(nextState);
+        canonicalStateRef.current = nextState;
+        gameWriteInFlightRef.current += 1;
+        try {
+          const exp =
+            lastAppliedGameStateRevisionRef.current >= 0
+              ? lastAppliedGameStateRevisionRef.current
+              : undefined;
+          const { error: err, room, conflict } = await updateRoomState(roomId, nextState, slots, {
+            expectedRevision: exp,
+          });
+          if (conflict && room) applyRoomData(room);
+          else if (!err && room) applyRoomData(room);
+          else if (!err) {
+            setPlayerSlots(slots);
+            setCanonicalState(nextState);
+          } else if (err) setError(err);
+        } finally {
+          gameWriteInFlightRef.current -= 1;
+          resetStaleSameRevGraceAfterWrite(gameStateStaleSameRevIgnoreUntilRef);
+        }
+      }
     },
-    [roomId, status, myServerIndex, applyRoomData]
+    [roomId, status, myServerIndex, playerSlots, canonicalState, applyRoomData]
   );
 
   const syncMySlotAvatar = useCallback(async () => {
@@ -1062,6 +1163,16 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
     }
   }, [roomId, status, playerSlots, myServerIndex, canonicalState, applyRoomData]);
+
+  const profileSyncedRoomRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!roomId || status !== 'waiting') return;
+    if (profileSyncedRoomRef.current === roomId) return;
+    profileSyncedRoomRef.current = roomId;
+    const name = getPlayerProfile().displayName?.trim();
+    if (name) void syncMySlotDisplayName(name);
+    void syncMySlotAvatar();
+  }, [roomId, status, syncMySlotDisplayName, syncMySlotAvatar]);
 
   const [userLeftTemporarily, setUserLeftTemporarily] = useState(false);
   const [userOnPause, setUserOnPause] = useState(false);
@@ -1103,7 +1214,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
 
   const leaveRoom = useCallback(async () => {
     const rid = roomId;
-    const uid = user?.id;
+    const uid = onlinePlayerId;
     if (rid && uid) {
       const leaveWallMs = 15_000;
       try {
@@ -1134,7 +1245,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
     }
     disconnectLocalOnlineState();
-  }, [roomId, user?.id, disconnectLocalOnlineState]);
+  }, [roomId, onlinePlayerId, disconnectLocalOnlineState]);
 
   const stopAutoRestoreForCurrentRoom = useCallback(async () => {
     const rid = roomIdRef.current;
@@ -1224,10 +1335,15 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     gameWriteInFlightRef.current += 1;
     try {
       const fullSlots: PlayerSlot[] = [];
+      const myAvatar = getPlayerProfile().avatarDataUrl ?? undefined;
       for (let i = 0; i < 4; i++) {
         const existing = sourceSlots.find((s) => s.slotIndex === i);
         if (existing) {
-          fullSlots.push(existing);
+          const slot =
+            existing.userId === onlinePlayerId && myAvatar
+              ? { ...existing, avatarDataUrl: myAvatar }
+              : existing;
+          fullSlots.push(slot);
         } else {
           fullSlots.push({ slotIndex: i, displayName: AI_NAMES[i], userId: null });
         }
@@ -1277,7 +1393,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       gameWriteInFlightRef.current -= 1;
       resetStaleSameRevGraceAfterWrite(gameStateStaleSameRevIgnoreUntilRef);
     }
-  }, [roomId, myServerIndex, playerSlots, applyRoomData, settlementMode, buyIn]);
+  }, [roomId, myServerIndex, playerSlots, applyRoomData, settlementMode, buyIn, onlinePlayerId]);
 
     const sendBid = useCallback(async (bid: number): Promise<boolean> => {
         if (!roomId || !canonicalState) return false;
@@ -1416,7 +1532,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         sessionRestoreOkRef.current = true;
         return r;
       }
-      if (!user?.id) return r;
+      if (!onlinePlayerId) return r;
       if (last?.code) {
         const recovered = await recoverJoinIfAlreadyInRoom(last.code);
         if (recovered) {
@@ -1425,9 +1541,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         }
         const prof = getPlayerProfile();
         const name = prof.displayName?.trim() || 'Игрок';
-        const shortLabel = user.email ? user.email.replace(/@.*$/, '').slice(-8) : undefined;
+        const shortLabel = user?.email ? user.email.replace(/@.*$/, '').slice(-8) : undefined;
         const avatarDataUrl = prof.avatarDataUrl ?? undefined;
-        const jr = await apiJoinRoom(last.code, user.id, name, shortLabel, avatarDataUrl);
+        const jr = await apiJoinRoom(last.code, onlinePlayerId, name, shortLabel, avatarDataUrl);
         if (!('error' in jr)) {
           applyRoomData(jr.room);
           setMyServerIndex(jr.mySlotIndex);
@@ -1437,7 +1553,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         }
       }
       return r;
-    }, [performSessionRestore, user?.id, user?.email, recoverJoinIfAlreadyInRoom, applyRoomData]);
+    }, [performSessionRestore, onlinePlayerId, user?.email, recoverJoinIfAlreadyInRoom, applyRoomData]);
   
     // ... Остальной код, который вы можете скопировать из предыдущей версии, он не должен требовать изменений
     // ... confirmReclaim, dismissReclaim, и т.д.
@@ -1575,15 +1691,15 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
     }, [roomId, applyRoomData]);
     const confirmReclaim = useCallback(async (): Promise<boolean> => {
-      if (!roomId || !pendingReclaimOffer || pendingReclaimOffer.roomId !== roomId || !user?.id) return false;
+      if (!roomId || !pendingReclaimOffer || pendingReclaimOffer.roomId !== roomId || !onlinePlayerId) return false;
       const { error: err } = await apiReturnSlotToPlayer(roomId, pendingReclaimOffer.slotIndex);
       if (err) { setError(err); return false; }
       setPendingReclaimOffer(null);
-      await heartbeatPresence(roomId, user.id);
+      await heartbeatPresence(roomId, onlinePlayerId);
       const room = await getRoom(roomId);
       if (room) applyRoomData(room);
       return true;
-    }, [roomId, pendingReclaimOffer, user?.id, applyRoomData]);
+    }, [roomId, pendingReclaimOffer, onlinePlayerId, applyRoomData]);
     const dismissReclaim = useCallback(() => { /* не сбрасываем offer — кнопка «Вернуть игру в свои руки» остаётся доступной */ }, []);
     const returnSlotToPlayer = useCallback(async (slotIndex: number): Promise<boolean> => {
       if (!roomId) return false;
@@ -1594,34 +1710,34 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       return true;
     }, [roomId, applyRoomData]);
     const takePause = useCallback(async (): Promise<boolean> => {
-      if (!roomId || !user?.id) return false;
-      const displayName = playerSlots.find((s) => s.slotIndex === myServerIndex)?.displayName ?? user.email?.split('@')[0] ?? 'Игрок';
-      const shortLabel = user.email ? user.email.replace(/@.*$/, '').slice(-8) : undefined;
-      const { error: err } = await apiTakePause(roomId, user.id, displayName.slice(0, 17), shortLabel);
+      if (!roomId || !onlinePlayerId) return false;
+      const displayName = playerSlots.find((s) => s.slotIndex === myServerIndex)?.displayName ?? user?.email?.split('@')[0] ?? 'Игрок';
+      const shortLabel = user?.email ? user.email.replace(/@.*$/, '').slice(-8) : undefined;
+      const { error: err } = await apiTakePause(roomId, onlinePlayerId, displayName.slice(0, 17), shortLabel);
       if (err) { setError(err); return false; }
       setUserOnPause(true);
       const room = await getRoom(roomId);
       if (room) applyRoomData(room);
       return true;
-    }, [roomId, user?.id, user?.email, myServerIndex, playerSlots]);
+    }, [roomId, onlinePlayerId, user?.email, myServerIndex, playerSlots]);
     const returnFromPause = useCallback(async (): Promise<boolean> => {
-      if (!roomId || !user?.id) {
+      if (!roomId || !onlinePlayerId) {
         setUserOnPause(false);
         return false;
       }
-      const slot = playerSlots.find((s) => s.replacedUserId === user.id);
+      const slot = playerSlots.find((s) => s.replacedUserId === onlinePlayerId);
       const slotIndex = slot != null ? slot.slotIndex : myServerIndex;
       const ok = await returnSlotToPlayer(slotIndex);
       setUserOnPause(false);
       if (ok) {
-        await heartbeatPresence(roomId, user.id);
+        await heartbeatPresence(roomId, onlinePlayerId);
         const room = await getRoom(roomId);
         if (room) applyRoomData(room);
       } else {
         setError('Не удалось вернуть управление. Попробуйте ещё раз или обновите страницу.');
       }
       return ok;
-    }, [roomId, user?.id, myServerIndex, playerSlots, returnSlotToPlayer, getRoom, applyRoomData]);
+    }, [roomId, onlinePlayerId, myServerIndex, playerSlots, returnSlotToPlayer, getRoom, applyRoomData]);
     const clearPlayerLeftToast = useCallback(() => setPlayerLeftToast(null), []);
     const clearError = useCallback(() => setError(null), []);
 
@@ -1717,6 +1833,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     settlementMode,
     buyIn,
     roomKind,
+    onlinePlayerId,
   };
 
   return (

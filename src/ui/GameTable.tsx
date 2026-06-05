@@ -89,6 +89,8 @@ import {
   getRoom,
   heartbeatPresence,
   hostPingRoom,
+} from '../lib/onlineGameApi';
+import {
   hostMayAutoDriveOnlineAiForSeat,
   isNativeVacantAiPlayerSlot,
   recordOfflineMatchFinish,
@@ -99,6 +101,7 @@ import { CardView } from './CardView';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
 import { UserAvatarMenuSheet } from './UserAvatarMenuSheet';
+import { canDriveOnlineRoomHost, isLanWsOnline } from '../lib/onlineHost';
 import { MobileSouthChatNameTicker } from './MobileSouthChatNameTicker';
 import { TableChatDock, type TableChatDockOwnMessageHandler } from './TableChatDock';
 import { GameDealOrbitDock } from './GameDealOrbitDock';
@@ -4491,10 +4494,12 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       const current = stateRef.current;
       if (current?.phase === 'deal-complete') {
         if (isOnlinePlayPhase) {
-          /** Только хост шлёт новую раздачу: иначе каждый клиент мешает колоду у себя (random) и мигают карты. */
+          /** Только хост (onlinePlayerId / host_user_id) шлёт новую раздачу — не user?.id из Google. */
           const o = onlineRef.current;
-          const uid = userRef.current?.id;
-          if (uid && o?.hostUserId && o.hostUserId === uid) void o.sendStartNextDeal();
+          const my = o?.onlinePlayerId;
+          if (canDriveOnlineRoomHost({ onlinePlayerId: my, hostUserId: o?.hostUserId, myServerIndex: o?.myServerIndex })) {
+            void o?.sendStartNextDeal?.();
+          }
         } else
           setLocalState((prev) =>
             prev?.phase === 'deal-complete' ? startNextDeal(prev) ?? prev : prev ?? null
@@ -4620,10 +4625,19 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const currentPlayerSlot = online.canonicalState ? online.playerSlots.find((s) => s.slotIndex === online.canonicalState!.currentPlayerIndex) : undefined;
   const seatLooksVacant =
     currentPlayerSlot != null && (currentPlayerSlot.userId == null || currentPlayerSlot.userId === '');
+  const lanWsAiDrive = isLanWsOnline();
+  const onlineAiSeatOpts = lanWsAiDrive ? { lanRelaxed: true as const } : undefined;
   const hostMayDriveOnlineAi = hostMayAutoDriveOnlineAiForSeat(
     currentPlayerSlot,
     onlineEverHumanOccupiedSlotRef.current,
+    onlineAiSeatOpts,
   );
+  const hostCanDriveOnlineAi = (uid: string | undefined, roomHost: string | null | undefined) =>
+    canDriveOnlineRoomHost({
+      onlinePlayerId: uid,
+      hostUserId: roomHost,
+      myServerIndex: online.myServerIndex,
+    });
   const seatIsAiSlot = seatLooksVacant && hostMayDriveOnlineAi;
   const isOnlineAiTurn =
     isOnlinePlayPhase &&
@@ -4700,15 +4714,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   // Нельзя отменять ход по «ключу уже обработан»: при новой ссылке canonicalState с тем же ключом cleanup снимает таймер, а ранний return не ставил новый — ИИ замирал.
   useEffect(() => {
     if (!isOnlineAiTurn || !online.canonicalState || !online.sendState) return;
-    const uid = user?.id;
+    const uid = online.onlinePlayerId;
     const roomHost = online.hostUserId;
-    if (!uid) return;
-    if (roomHost) {
-      if (uid !== roomHost) return;
-    } else if (online.myServerIndex !== 0) {
-      // Старые комнаты без host_user_id: как раньше — только с «южного» слота
-      return;
-    }
+    if (!hostCanDriveOnlineAi(uid, roomHost)) return;
     const c = online.canonicalState;
     const scheduleKey = `${c.dealNumber}-${c.phase}-${c.currentPlayerIndex}-${c.bids?.join(',')}-${c.currentTrick?.length}`;
     if (prevOnlineAiDriveKeyRef.current !== scheduleKey) {
@@ -4717,13 +4725,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     }
     const sendStateFn = online.sendState;
     const tid = window.setTimeout(async () => {
-      const my = userRef.current?.id;
+      const my = onlineRef.current?.onlinePlayerId;
       const h = onlineRef.current?.hostUserId;
-      if (h) {
-        if (my !== h) return;
-      } else if (onlineRef.current?.myServerIndex !== 0) {
-        return;
-      }
+      if (!hostCanDriveOnlineAi(my, h ?? null)) return;
       const current = latestCanonicalForAiRef.current;
       if (!current) return;
       const currentKey = `${current.dealNumber}-${current.phase}-${current.currentPlayerIndex}-${current.bids?.join(',')}-${current.currentTrick?.length}`;
@@ -4733,8 +4737,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       const slotAtTurn = slotsNow.find((s) => s.slotIndex === playerIdx);
       if (!slotAtTurn) return;
       if (slotAtTurn.userId != null && slotAtTurn.userId !== '') return;
-      if (!hostMayAutoDriveOnlineAiForSeat(slotAtTurn, onlineEverHumanOccupiedSlotRef.current)) return;
-      const uid = userRef.current?.id;
+      if (!hostMayAutoDriveOnlineAiForSeat(slotAtTurn, onlineEverHumanOccupiedSlotRef.current, onlineAiSeatOpts))
+        return;
+      const uid = onlineRef.current?.onlinePlayerId;
       const replacedByMe = slotsNow.find((s) => s.slotIndex === playerIdx)?.replacedUserId === uid;
       const personalProfileId =
         replacedByMe && isPersonalAiReplacementEnabled(uid) ? (getPlayerProfile().profileId ?? undefined) : undefined;
@@ -4769,7 +4774,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     onlineAiDriveScheduleKey,
     online.sendState,
     onlineAiDriveRetry,
-    user?.id,
+    online.onlinePlayerId,
     online.hostUserId,
     online.myServerIndex,
   ]);
@@ -4853,6 +4858,33 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   }
 
   const displayState = stateToShow as GameState;
+
+  const resolveDisplayPlayerAvatar = (displayIdx: number): string | undefined => {
+    if (displayIdx === 0) return playerAvatarDataUrl ?? undefined;
+    if (online.roomId) {
+      const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex);
+      return online.playerSlots.find((s) => s.slotIndex === canon)?.avatarDataUrl ?? undefined;
+    }
+    return undefined;
+  };
+
+  const resolveDisplayPlayerName = (displayIdx: number): string => {
+    if (displayIdx === 0) return playerDisplayName?.trim() || displayState.players[0]?.name || 'Игрок';
+    if (online.roomId) {
+      const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex);
+      return (
+        online.playerSlots.find((s) => s.slotIndex === canon)?.displayName?.trim() ||
+        displayState.players[displayIdx]?.name ||
+        'Игрок'
+      );
+    }
+    return displayState.players[displayIdx]?.name || 'Игрок';
+  };
+
+  const handleOpponentAvatarClick = (displayIdx: number) => {
+    setSelectedPlayerForInfo(displayIdx);
+  };
+
   const offlineAiNamePickEnabled = offlineMode && displayState.players[0]?.id === 'human';
   /** Офлайн-бот: уровень ИИ в той же панели, что и инфо (ПК и мобильная/планшет ≤1024) */
   const playerInfoOfflineAiDifficultyPicker: PlayerInfoPanelProps['offlineAiDifficultyPicker'] =
@@ -6677,7 +6709,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
                 isMobile={true}
-                onAvatarClick={setSelectedPlayerForInfo}
+                onAvatarClick={handleOpponentAvatarClick}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
               />
@@ -6696,7 +6728,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
                 isMobile={true}
-                onAvatarClick={setSelectedPlayerForInfo}
+                onAvatarClick={handleOpponentAvatarClick}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
               />
@@ -7054,7 +7086,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
                 isMobile={true}
-                onAvatarClick={setSelectedPlayerForInfo}
+                onAvatarClick={handleOpponentAvatarClick}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
               />
@@ -8159,7 +8191,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
             firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
             firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
-            onAvatarClick={setSelectedPlayerForInfo}
+            onAvatarClick={handleOpponentAvatarClick}
             onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
             offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
           />
@@ -8192,7 +8224,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
             firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
             firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
-            onAvatarClick={setSelectedPlayerForInfo}
+            onAvatarClick={handleOpponentAvatarClick}
             onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
             offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
           />
@@ -8327,7 +8359,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
             firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
             firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
-            onAvatarClick={setSelectedPlayerForInfo}
+            onAvatarClick={handleOpponentAvatarClick}
             onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
             offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
           />
@@ -9387,7 +9419,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         <PlayerInfoPanel
           state={displayState}
           playerIndex={selectedPlayerForInfo}
-          playerAvatarDataUrl={selectedPlayerForInfo === 0 ? playerAvatarDataUrl : undefined}
+          playerDisplayName={resolveDisplayPlayerName(selectedPlayerForInfo)}
+          playerAvatarDataUrl={resolveDisplayPlayerAvatar(selectedPlayerForInfo) ?? undefined}
           onClose={() => setSelectedPlayerForInfo(null)}
           viewportShort={isMobile && mobileViewportShort}
           offlineAiDifficultyPicker={playerInfoOfflineAiDifficultyPicker}
@@ -9904,7 +9937,7 @@ function DealResultsScreen({
     const RISE_DURATION_MS = 4_000;
     const PEAK_HOLD_MS = 300;
     const BRIGHT_END_MS = RISE_START_MS + RISE_DURATION_MS + PEAK_HOLD_MS;
-    const timers: ReturnType<typeof window.setTimeout>[] = [];
+    const timers: number[] = [];
     const runCycle = () => {
       setVeilPayoutPulseBright(false);
       timers.push(
@@ -11302,8 +11335,8 @@ function DealResultsScreen({
                                       className={`deal-results-mobile-deal-label deal-results-mobile-deal-label--${getMobileDealLabelKind(rowIndex)}`}
                                       style={{
                                         ...dealResultsMobileDealIndexTextStyle,
-                                        ['--dr-deal-label-pulse-delay' as const]: `${-((rowIndex * 17 + dealNum) % 23) * 0.12}s`,
-                                      }}
+                                        ['--dr-deal-label-pulse-delay' as string]: `${-((rowIndex * 17 + dealNum) % 23) * 0.12}s`,
+                                      } as React.CSSProperties}
                                     >
                                       {getDealColumnLabel(rowIndex)}
                                     </span>

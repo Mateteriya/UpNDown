@@ -48,6 +48,7 @@ export function isNativeVacantAiPlayerSlot(s: PlayerSlot): boolean {
 export function hostMayAutoDriveOnlineAiForSeat(
   slot: PlayerSlot | undefined,
   everHumanOccupiedBySlotIndex: Readonly<Record<number, boolean>>,
+  opts?: { lanRelaxed?: boolean },
 ): boolean {
   if (!slot || typeof slot.slotIndex !== 'number' || slot.slotIndex < 0 || slot.slotIndex > 3) return false;
   if (slot.absent === true) return false;
@@ -57,6 +58,7 @@ export function hostMayAutoDriveOnlineAiForSeat(
     slot.pausedByUser === true &&
     slot.replacedUserId != null &&
     String(slot.replacedUserId).trim() !== '';
+  if (opts?.lanRelaxed && !manualPause) return true;
   if (manualPause) return true;
   if (isNativeVacantAiPlayerSlot(slot)) return true;
   if (everHumanOccupiedBySlotIndex[slot.slotIndex] === true) return false;

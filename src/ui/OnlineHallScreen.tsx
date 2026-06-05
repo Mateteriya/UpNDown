@@ -5,9 +5,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnlineGame } from '../contexts/useOnlineGame';
-import { listPublicWaitingRooms } from '../lib/onlineGameSupabase';
+import { listPublicWaitingRooms } from '../lib/onlineGameApi';
 import { settlementModeBadgeLabel, type PublicWaitingRoomRow } from '../lib/roomSettlement';
 import { PUBLIC_HALL_ENABLED } from '../lib/productFlags';
+import { getOnlinePlayerId } from '../lib/deviceId';
 
 const shell: React.CSSProperties = {
   position: 'fixed',
@@ -52,11 +53,23 @@ export interface OnlineHallScreenProps {
   onBack: () => void;
   playerName: string;
   onGoToGame?: () => void;
+  roomCode?: string | null;
+  roomId?: string | null;
+  recoverJoinIfAlreadyInRoom?: (code: string) => Promise<boolean>;
+  leaveRoom?: () => Promise<void>;
 }
 
-export function OnlineHallScreen({ onBack, playerName, onGoToGame }: OnlineHallScreenProps) {
+export function OnlineHallScreen({
+  onBack,
+  playerName,
+  onGoToGame,
+  roomCode,
+  roomId,
+  recoverJoinIfAlreadyInRoom,
+  leaveRoom,
+}: OnlineHallScreenProps) {
   const { user } = useAuth();
-  const { joinRoom, leaveRoom, status } = useOnlineGame();
+  const { joinRoom, status } = useOnlineGame();
   const [rooms, setRooms] = useState<PublicWaitingRoomRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +87,7 @@ export function OnlineHallScreen({ onBack, playerName, onGoToGame }: OnlineHallS
 
   useEffect(() => {
     void refresh();
-    const id = window.setInterval(() => void refresh(), 8000);
+    const id = window.setInterval(() => void refresh(), 3500);
     return () => window.clearInterval(id);
   }, [refresh]);
 
@@ -83,12 +96,26 @@ export function OnlineHallScreen({ onBack, playerName, onGoToGame }: OnlineHallS
   }, [status, onGoToGame]);
 
   const handleJoin = async (code: string) => {
-    if (!user?.id || !playerName.trim()) return;
+    const playerId = getOnlinePlayerId(user?.id);
+    if (!playerId || !playerName.trim()) return;
     setJoinBusy(code);
     setError(null);
     try {
-      await leaveRoom();
-      const jr = await joinRoom(code, user.id, playerName.trim());
+      const target = code.trim().toUpperCase();
+      const cur = (roomCode ?? '').trim().toUpperCase();
+      const sameRoom = !!(roomId && cur && target === cur);
+      if (sameRoom && recoverJoinIfAlreadyInRoom) {
+        const back = await recoverJoinIfAlreadyInRoom(code);
+        if (back) return;
+      }
+      if (!sameRoom && roomId && leaveRoom) {
+        await leaveRoom();
+      }
+      if (recoverJoinIfAlreadyInRoom) {
+        const recovered = await recoverJoinIfAlreadyInRoom(code);
+        if (recovered) return;
+      }
+      const jr = await joinRoom(code, playerId, playerName.trim());
       if (!jr.ok) setError(jr.error ?? 'Не удалось войти');
     } finally {
       setJoinBusy(null);

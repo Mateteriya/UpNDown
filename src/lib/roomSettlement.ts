@@ -11,6 +11,8 @@ export interface CreateRoomOptions {
   settlementMode?: SettlementMode;
   buyIn?: number;
   roomKind?: RoomKind;
+  /** WS: хост только на панели / отдельном ПК, без слота за столом. */
+  hostDedicated?: boolean;
 }
 
 export const DEFAULT_CASUAL_SETTLEMENT: SettlementMode = 'accuracy_bonus';

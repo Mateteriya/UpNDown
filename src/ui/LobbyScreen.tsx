@@ -5,7 +5,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnlineGame } from '../contexts/useOnlineGame';
 import { loadLastOnlineParty } from '../lib/lastOnlineParty';
-import { peekRoomByCode } from '../lib/onlineGameSupabase';
+import { peekRoomByCode } from '../lib/onlineGameApi';
+import { getOnlinePlayerId } from '../lib/deviceId';
+import { hostPanelUrlFromWsUrl, isLanGuestInvite } from '../lib/lanJoinLink';
+import { getWsUrl, isWsOnlineTransport, isWsOnlineConfigured } from '../lib/onlineTransport';
 import { settlementModeBadgeLabel, type RoomPeekResult } from '../lib/roomSettlement';
 import { PUBLIC_HALL_ENABLED } from '../lib/productFlags';
 import { OnlineHallScreen } from './OnlineHallScreen';
@@ -16,6 +19,10 @@ export interface LobbyScreenProps {
   onGoToGame?: () => void;
   /** Код комнаты из URL (?code=XXX) — подставляется в поле «Присоединиться» */
   initialJoinCode?: string;
+  /** Ссылка с панели хоста — упрощённый экран входа */
+  lanGuestInvite?: boolean;
+  /** Автовход по ссылке (?autojoin=1) */
+  lanAutoJoinFromLink?: boolean;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -55,11 +62,18 @@ const LOBBY_CREATE_TOTAL_MS = 52_000;
 /** «Выход из прошлой комнаты» + join — один лимит, иначе спиннер висит на leaveRoom вне Promise.race. */
 const LOBBY_JOIN_TOTAL_MS = 68_000;
 
-export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }: LobbyScreenProps) {
+export function LobbyScreen({
+  onBack,
+  playerName,
+  onGoToGame,
+  initialJoinCode,
+  lanGuestInvite,
+  lanAutoJoinFromLink,
+}: LobbyScreenProps) {
   const { user } = useAuth();
   const {
     status,
-    code,
+    code: roomCode,
     roomId,
     myServerIndex,
     playerSlots,
@@ -80,9 +94,11 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
   } = useOnlineGame();
 
   const [createBankRoom, setCreateBankRoom] = useState(false);
-  const [createPublicRoom, setCreatePublicRoom] = useState(false);
+  const [createPublicRoom, setCreatePublicRoom] = useState(() => isWsOnlineConfigured());
   const [roomPeek, setRoomPeek] = useState<RoomPeekResult | null>(null);
   const [showHall, setShowHall] = useState(false);
+  const [autoJoining, setAutoJoining] = useState(false);
+  const autoJoinStartedRef = useRef(false);
 
   const [joinCode, setJoinCode] = useState(initialJoinCode ?? '');
   const [creating, setCreating] = useState(false);
@@ -105,6 +121,11 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
   const isHost = myServerIndex === 0;
   const inRoom = status === 'waiting' && roomId;
 
+  /** Вошли из зала — показать экран «Комната», а не список столов поверх. */
+  useEffect(() => {
+    if (inRoom) setShowHall(false);
+  }, [inRoom]);
+
   /** Возврат на вкладку / сеть: подтянуть слоты с сервера (Realtime на мобилке в одном Wi‑Fi часто отстаёт). */
   useEffect(() => {
     if (!inRoom) return;
@@ -122,14 +143,14 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     };
   }, [inRoom, refreshRoom]);
 
-  /** Сразу после входа хоста sync давал UPDATE player_slots без проверки updated_at — сдвигал штамп и ломал гостевой join (optimistic lock по updated_at). Дебаунс 2 с. */
+  /** Синхронизация имени в слот для всех игроков (не только хост). Дебаунс — не спамить WS при наборе. */
   useEffect(() => {
-    if (!inRoom || !isHost || !playerName.trim() || !syncMySlotDisplayName) return;
+    if (!inRoom || !playerName.trim() || !syncMySlotDisplayName) return;
     const t = window.setTimeout(() => {
       void syncMySlotDisplayName(playerName);
-    }, 2000);
+    }, 600);
     return () => clearTimeout(t);
-  }, [inRoom, isHost, playerName, syncMySlotDisplayName]);
+  }, [inRoom, playerName, syncMySlotDisplayName]);
 
   useEffect(() => {
     if (!inRoom || playerSlots.length >= prevSlotsRef.current.length) {
@@ -179,9 +200,24 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     ? user.email.replace(/@.*$/, '').slice(-8)
     : undefined;
 
+  const lanWs = isWsOnlineConfigured();
+  const guestFromHostLink =
+    lanGuestInvite === true || (Boolean(initialJoinCode) && isLanGuestInvite());
+  const tryAutoJoin = lanAutoJoinFromLink === true;
+  const isHostPcBrowser =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const hostPanelUrl =
+    lanWs && isHostPcBrowser && !guestFromHostLink ? hostPanelUrlFromWsUrl(getWsUrl() ?? '') : null;
+  const playerId = getOnlinePlayerId(user?.id);
+
   const handleCreateRoom = async () => {
-    if (!user?.id) {
+    if (!lanWs && !user?.id) {
       setJoinError('Войдите в аккаунт, чтобы создать комнату.');
+      return;
+    }
+    if (isWsOnlineTransport() && !isWsOnlineConfigured()) {
+      setJoinError('Задайте VITE_WS_URL (например ws://192.168.1.5:3001) и перезапустите dev.');
       return;
     }
     const name = playerName.trim();
@@ -197,7 +233,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
       const r = await Promise.race([
         (async () => {
           await leaveRoom();
-          return createRoom(user.id, name, shortLabel, {
+          return createRoom(playerId, name, shortLabel, {
             settlementMode: createBankRoom ? 'prize_pool' : 'accuracy_bonus',
             roomKind: createPublicRoom ? 'public' : 'private',
           });
@@ -223,6 +259,88 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
 
   const [joinError, setJoinError] = useState<string | null>(null);
 
+  const runJoinRoom = async () => {
+    const typedCode = joinCode.trim();
+    if (!typedCode) {
+      setJoinError('Введите код комнаты.');
+      return;
+    }
+    if (!lanWs && !user?.id) {
+      setJoinError('Войдите в аккаунт, чтобы присоединиться к комнате.');
+      return;
+    }
+    if (isWsOnlineTransport() && !isWsOnlineConfigured()) {
+      setJoinError('Задайте VITE_WS_URL и перезапустите dev.');
+      return;
+    }
+    if (!playerName.trim()) {
+      setJoinError('Укажите имя в профиле перед входом в комнату.');
+      return;
+    }
+    clearError();
+    setJoinError(null);
+    setJoining(true);
+    try {
+      type LobbyWall = { __lobbyWall: true };
+      type JoinOutcome = Awaited<ReturnType<typeof joinRoom>>;
+      const targetCode = typedCode.toUpperCase();
+      const currentCode = (roomCode ?? '').trim().toUpperCase();
+      const alreadyInThisRoom = !!(roomId && currentCode && targetCode === currentCode);
+
+      let r: JoinOutcome | LobbyWall = await Promise.race([
+        (async () => {
+          if (alreadyInThisRoom) {
+            const back = await recoverJoinIfAlreadyInRoom(typedCode);
+            if (back) return { ok: true as const };
+          }
+          if (!alreadyInThisRoom && roomId) {
+            await leaveRoom();
+          }
+          const recovered = await recoverJoinIfAlreadyInRoom(typedCode);
+          if (recovered) return { ok: true as const };
+          return joinRoom(typedCode, playerId, playerName.trim(), shortLabel);
+        })(),
+        new Promise<LobbyWall>((resolve) => {
+          window.setTimeout(() => resolve({ __lobbyWall: true }), LOBBY_JOIN_TOTAL_MS);
+        }),
+      ]);
+      if (r && typeof r === 'object' && '__lobbyWall' in r && r.__lobbyWall) {
+        setJoinError(
+          'Слишком долгое ожидание (в том числе выход из прошлой комнаты). Проверьте интернет и нажмите «Присоединиться» снова.',
+        );
+      } else {
+        let jr = r as JoinOutcome;
+        if (!jr.ok) {
+          const recovered = await recoverJoinIfAlreadyInRoom(typedCode);
+          if (recovered) {
+            jr = { ok: true };
+          } else {
+            setJoinError(jr.error ?? 'Не удалось присоединиться. Проверьте код и подключение.');
+          }
+        }
+        if (jr.ok && onGoToGame && typeof window !== 'undefined' && window.innerWidth <= 1024) {
+          onGoToGame();
+        }
+      }
+    } catch (e) {
+      setJoinError(e instanceof Error ? e.message : String(e) || 'Ошибка соединения. Проверьте интернет.');
+    } finally {
+      setJoining(false);
+      setAutoJoining(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!guestFromHostLink || !tryAutoJoin || !initialJoinCode?.trim()) return;
+    if (!playerName.trim() || inRoom || autoJoinStartedRef.current) return;
+    autoJoinStartedRef.current = true;
+    setAutoJoining(true);
+    const t = window.setTimeout(() => {
+      void runJoinRoom();
+    }, 700);
+    return () => window.clearTimeout(t);
+  }, [guestFromHostLink, tryAutoJoin, initialJoinCode, playerName, inRoom]);
+
   const handleResumeLastFromLobby = async () => {
     setResumeLastBusy(true);
     setJoinError(null);
@@ -241,59 +359,7 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     }
   };
 
-  const handleJoinRoom = async () => {
-    const code = joinCode.trim();
-    if (!code) {
-      setJoinError('Введите код комнаты.');
-      return;
-    }
-    if (!user?.id) {
-      setJoinError('Войдите в аккаунт, чтобы присоединиться к комнате.');
-      return;
-    }
-    if (!playerName.trim()) {
-      setJoinError('Укажите имя в профиле перед входом в комнату.');
-      return;
-    }
-    clearError();
-    setJoinError(null);
-    setJoining(true);
-    try {
-      type LobbyWall = { __lobbyWall: true };
-      type JoinOutcome = Awaited<ReturnType<typeof joinRoom>>;
-      let r: JoinOutcome | LobbyWall = await Promise.race([
-        (async () => {
-          await leaveRoom();
-          return joinRoom(code, user.id, playerName.trim(), shortLabel);
-        })(),
-        new Promise<LobbyWall>((resolve) => {
-          window.setTimeout(() => resolve({ __lobbyWall: true }), LOBBY_JOIN_TOTAL_MS);
-        }),
-      ]);
-      if (r && typeof r === 'object' && '__lobbyWall' in r && r.__lobbyWall) {
-        setJoinError(
-          'Слишком долгое ожидание (в том числе выход из прошлой комнаты). Проверьте интернет и нажмите «Присоединиться» снова.',
-        );
-      } else {
-        let jr = r as JoinOutcome;
-        if (!jr.ok) {
-          const recovered = await recoverJoinIfAlreadyInRoom(code);
-          if (recovered) {
-            jr = { ok: true };
-          } else {
-            setJoinError(jr.error ?? 'Не удалось присоединиться. Проверьте код и подключение.');
-          }
-        }
-        if (jr.ok && onGoToGame && typeof window !== 'undefined' && window.innerWidth <= 1024) {
-          onGoToGame();
-        }
-      }
-    } catch (e) {
-      setJoinError(e instanceof Error ? e.message : String(e) || 'Ошибка соединения. Проверьте интернет.');
-    } finally {
-      setJoining(false);
-    }
-  };
+  const handleJoinRoom = () => void runJoinRoom();
 
   const handleLeaveRoomClick = () => setShowLeaveConfirm(true);
 
@@ -314,12 +380,12 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
 
   /** При «Поделиться» и «Скопировать код» отправляем только код комнаты, без ссылки. */
   const handleShare = async () => {
-    if (!code) return;
+    if (!roomCode) return;
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
           title: 'Up&Down — код комнаты',
-          text: code,
+          text: roomCode,
         });
       } catch (e) {
         if ((e as Error).name !== 'AbortError') copyCodeToClipboard();
@@ -330,24 +396,21 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
   };
 
   function copyCodeToClipboard() {
-    if (!code) return;
+    if (!roomCode) return;
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(code).then(() => {
+      navigator.clipboard.writeText(roomCode).then(() => {
         setShareCopied(true);
         setTimeout(() => setShareCopied(false), 2000);
       });
     }
   }
 
-    // ... (Вся JSX разметка остается без изменений)
-    // ... (Просто скопируйте весь остальной код из вашего оригинального файла `LobbyScreen.tsx` сюда)
-    //--- Начало неизмененной части ---
-  if (!user) {
+  if (!user && !lanWs) {
     return (
       <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 24, }} >
         <h1 style={{ margin: 0, fontSize: '1.75rem', color: '#f1f5f9' }}>Онлайн-лобби</h1>
         <p style={{ margin: 0, fontSize: 14, color: '#94a3b8', textAlign: 'center', maxWidth: 320 }}>
-          Войдите в аккаунт, чтобы создавать комнаты и играть онлайн.
+          Войдите в аккаунт, чтобы создавать комнаты и играть онлайн. Либо включите LAN: VITE_ONLINE_TRANSPORT=ws и VITE_WS_URL.
         </p>
         <button type="button" onClick={onBack} style={buttonSecondary}>
           ← Назад в меню
@@ -356,12 +419,16 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
     );
   }
 
-  if (showHall && PUBLIC_HALL_ENABLED) {
+  if (showHall && PUBLIC_HALL_ENABLED && !inRoom) {
     return (
       <OnlineHallScreen
         onBack={() => setShowHall(false)}
         playerName={playerName}
         onGoToGame={onGoToGame}
+        roomCode={roomCode}
+        roomId={roomId}
+        recoverJoinIfAlreadyInRoom={recoverJoinIfAlreadyInRoom}
+        leaveRoom={leaveRoom}
       />
     );
   }
@@ -385,11 +452,11 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
           >
             {settlementModeBadgeLabel(settlementMode, buyIn)}
           </p>
-          {code && (
+          {roomCode && (
             <div style={{ textAlign: 'center' }}>
               <p style={{ margin: '0 0 4px', fontSize: 12, color: '#94a3b8' }}>Код комнаты</p>
               <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, letterSpacing: 4, color: '#22d3ee' }}>
-                {code}
+                {roomCode}
               </p>
               <p style={{ margin: '8px 0 0', fontSize: 12, color: '#a5f3fc', maxWidth: 300, lineHeight: 1.45 }}>
                 Если обновите страницу, код сохранится в меню и в онлайн-лобби — можно снова нажать «Продолжить онлайн-партию».
@@ -484,9 +551,38 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
         })()
       : null;
 
+  const inviteCode = (initialJoinCode ?? joinCode).trim().toUpperCase();
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 24, }} >
-      <h1 style={{ margin: 0, fontSize: '1.75rem', color: '#f1f5f9' }}>Онлайн-лобби</h1>
+      <h1 style={{ margin: 0, fontSize: '1.75rem', color: '#f1f5f9' }}>
+        {guestFromHostLink ? 'Вход в комнату' : 'Онлайн-лобби'}
+      </h1>
+      {guestFromHostLink ? (
+        <p style={{ margin: 0, fontSize: 15, color: '#e2e8f0', textAlign: 'center', maxWidth: 340, lineHeight: 1.45 }}>
+          Вас пригласили в игру Up&amp;Down.
+          {inviteCode ? (
+            <>
+              {' '}
+              Код комнаты:{' '}
+              <strong style={{ color: '#22d3ee', letterSpacing: 2 }}>{inviteCode}</strong>
+            </>
+          ) : null}
+        </p>
+      ) : (
+        lanWs && (
+          <p style={{ margin: 0, fontSize: 13, color: '#22d3ee', textAlign: 'center', maxWidth: 320 }}>
+            Игра в вашей Wi‑Fi (без интернета и аккаунта)
+          </p>
+        )
+      )}
+      {guestFromHostLink && (
+        <p style={{ margin: 0, fontSize: 13, color: '#94a3b8', textAlign: 'center', maxWidth: 340, lineHeight: 1.4 }}>
+          {autoJoining || joining
+            ? 'Подключаем к комнате…'
+            : 'Нажмите «Войти в комнату» — откроется лобби этой партии, не общий зал.'}
+        </p>
+      )}
       <p style={{ margin: 0, fontSize: 14, color: '#94a3b8', textAlign: 'center', maxWidth: 320 }}>
         Вы: <strong style={{ color: '#e2e8f0' }}>{playerName}</strong>
       </p>
@@ -544,38 +640,88 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
         </p>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 280 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#cbd5e1', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={createBankRoom}
-            onChange={(e) => setCreateBankRoom(e.target.checked)}
-          />
-          Банк (демо) — взнос 100 с каждого
-        </label>
-        {PUBLIC_HALL_ENABLED && (
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#cbd5e1', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={createPublicRoom}
-              onChange={(e) => setCreatePublicRoom(e.target.checked)}
-            />
-            Показать в зале столов
-          </label>
+        {!guestFromHostLink && (
+          <>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#cbd5e1', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={createBankRoom}
+                onChange={(e) => setCreateBankRoom(e.target.checked)}
+              />
+              Банк (демо) — взнос 100 с каждого
+            </label>
+            {PUBLIC_HALL_ENABLED && lanWs && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#cbd5e1', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={createPublicRoom}
+                  onChange={(e) => setCreatePublicRoom(e.target.checked)}
+                />
+                Показать в зале столов
+              </label>
+            )}
+            {PUBLIC_HALL_ENABLED && (
+              <button type="button" onClick={() => setShowHall(true)} style={buttonSecondary}>
+                Зал столов
+              </button>
+            )}
+            <button type="button" disabled={creating} onClick={handleCreateRoom} style={buttonPrimary} >
+              {creating ? 'Создание…' : createBankRoom ? 'Создать банковую комнату' : 'Создать комнату'}
+            </button>
+            {hostPanelUrl && (
+              <a
+                href={hostPanelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  ...buttonSecondary,
+                  display: 'block',
+                  textAlign: 'center',
+                  textDecoration: 'none',
+                  fontSize: 14,
+                }}
+              >
+                Панель хоста на этом ПК
+              </a>
+            )}
+          </>
         )}
-        {PUBLIC_HALL_ENABLED && (
-          <button type="button" onClick={() => setShowHall(true)} style={buttonSecondary}>
-            Зал столов
-          </button>
-        )}
-        <button type="button" disabled={creating} onClick={handleCreateRoom} style={buttonPrimary} >
-          {creating ? 'Создание…' : createBankRoom ? 'Создать банковую комнату' : 'Создать комнату'}
-        </button>
         <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 280, flexWrap: 'wrap' }}>
-          <input type="text" placeholder="Код комнаты" value={joinCode} onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setJoinError(null); }} maxLength={CODE_LENGTH} style={inputStyle} aria-label="Код комнаты" />
-          <button type="button" disabled={joining} onClick={handleJoinRoom} style={{ ...buttonPrimary, flex: 1, minWidth: 120 }} >
-            {joining ? 'Вход…' : 'Присоединиться'}
+          <input
+            type="text"
+            placeholder="Код комнаты"
+            value={joinCode}
+            onChange={(e) => {
+              setJoinCode(e.target.value.toUpperCase());
+              setJoinError(null);
+            }}
+            maxLength={CODE_LENGTH}
+            style={{ ...inputStyle, display: guestFromHostLink ? 'none' : undefined }}
+            aria-label="Код комнаты"
+          />
+          <button
+            type="button"
+            disabled={joining || autoJoining}
+            onClick={handleJoinRoom}
+            style={{
+              ...buttonPrimary,
+              flex: 1,
+              minWidth: guestFromHostLink ? 200 : 120,
+              fontSize: guestFromHostLink ? 17 : 16,
+            }}
+          >
+            {joining || autoJoining
+              ? 'Вход…'
+              : guestFromHostLink
+                ? 'Войти в комнату'
+                : 'Присоединиться'}
           </button>
         </div>
+        {guestFromHostLink && PUBLIC_HALL_ENABLED && lanWs && (
+          <button type="button" onClick={() => setShowHall(true)} style={{ ...buttonSecondary, fontSize: 13 }}>
+            Или найти стол в зале
+          </button>
+        )}
         {roomPeek?.settlement_mode && (
           <p style={{ margin: 0, fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>
             Комната: {settlementModeBadgeLabel(roomPeek.settlement_mode, roomPeek.buy_in ?? null)}
@@ -593,7 +739,6 @@ export function LobbyScreen({ onBack, playerName, onGoToGame, initialJoinCode }:
       </button>
     </div>
   );
-    //--- Конец неизмененной части ---
 }
 
 const CODE_LENGTH = 6;

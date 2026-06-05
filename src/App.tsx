@@ -16,6 +16,7 @@ import { NameAvatarModal } from './ui/NameAvatarModal'
 import TrainingScreen from './ui/TrainingScreen'
 import { RatingModal } from './ui/RatingModal'
 import { AuthModal } from './ui/AuthModal'
+import { applyLanJoinParamsFromUrl } from './lib/lanJoinLink'
 import { LobbyScreen } from './ui/LobbyScreen'
 import { OfflineResumeChoiceModal } from './ui/OfflineResumeChoiceModal'
 
@@ -57,12 +58,17 @@ function App() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [screenLobby, setScreenLobby] = useState(() => {
     if (typeof window === 'undefined') return false
-    const code = new URLSearchParams(window.location.search).get('code')?.trim()
+    const { code } = applyLanJoinParamsFromUrl()
     return !!code
   })
   const [urlJoinCode, setUrlJoinCode] = useState(() => {
     if (typeof window === 'undefined') return null
-    return new URLSearchParams(window.location.search).get('code')?.trim() ?? null
+    const { code } = applyLanJoinParamsFromUrl()
+    return code
+  })
+  const [urlLanAutojoin] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return applyLanJoinParamsFromUrl().autojoin === true
   })
   const [showRegistrationSuccessModal, setShowRegistrationSuccessModal] = useState(false)
   const [showOAuthSuccessModal, setShowOAuthSuccessModal] = useState(false)
@@ -241,13 +247,16 @@ function App() {
     setShowNameAvatarModal(false)
     newAccountGatePromptedRef.current = null
     if (user?.id) saveProfileToSupabase(user.id, next)
-    if (online.roomId && online.syncMySlotAvatar) void online.syncMySlotAvatar()
+    if (online.roomId) {
+      if (online.syncMySlotDisplayName) void online.syncMySlotDisplayName(next.displayName)
+      if (online.syncMySlotAvatar) void online.syncMySlotAvatar()
+    }
     if (nameAvatarMode === 'first-run') {
       void online.leaveRoom()
       startGame()
     }
     if (nameAvatarMode === 'new-account') setNameAvatarMode('profile')
-  }, [nameAvatarMode, user?.id, online.roomId, online.syncMySlotAvatar, online.leaveRoom])
+  }, [nameAvatarMode, user?.id, online.roomId, online.syncMySlotDisplayName, online.syncMySlotAvatar, online.leaveRoom])
 
   const handleExit = useCallback(() => {
     if (loadOnlineSession()) online.leaveRoom()
@@ -859,6 +868,8 @@ function App() {
           onBack={() => { setScreenLobby(false); setUrlJoinCode(null) }}
           playerName={profile.displayName}
           initialJoinCode={urlJoinCode ?? undefined}
+          lanGuestInvite={Boolean(urlJoinCode)}
+          lanAutoJoinFromLink={urlLanAutojoin}
           onGoToGame={() => {
             try {
               sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
