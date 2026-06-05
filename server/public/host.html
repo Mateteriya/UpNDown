@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Up&amp;Down · игра в сети</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #120e08;
+      --card: #1c160f;
+      --edge: rgba(215, 151, 55, 0.35);
+      --gold: #e8b84a;
+      --bronze: #a88468;
+      --cyan: #3dd9f0;
+      --green: #5ee89a;
+      --rose: #f07167;
+      --inset: #140f0a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: radial-gradient(ellipse 85% 45% at 0% 0%, rgba(139, 69, 19, 0.28), transparent 55%), var(--bg);
+      padding: 18px 16px 28px;
+      color: var(--gold);
+    }
+    .wrap { max-width: 420px; margin: 0 auto; }
+    .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+    .head h1 { margin: 0; font-size: 1.05rem; font-weight: 800; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px;
+      border-radius: 999px; border: 1px solid rgba(34, 211, 238, 0.35);
+      background: rgba(34, 211, 238, 0.08); font-size: 0.72rem; font-weight: 700; color: var(--cyan);
+    }
+    .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bronze); }
+    .pill.ok { border-color: rgba(94, 232, 154, 0.45); color: var(--green); background: rgba(94, 232, 154, 0.1); }
+    .pill.ok .dot { background: var(--green); }
+    .pill.err { border-color: rgba(240, 113, 103, 0.45); color: var(--rose); }
+    .pill.err .dot { background: var(--rose); }
+    .pill.busy .dot { animation: pulse 1s infinite; }
+    @keyframes pulse { 50% { opacity: 0.35; } }
+    .card {
+      border: 1px solid var(--edge); border-radius: 14px;
+      background: linear-gradient(165deg, rgba(42, 32, 22, 0.95), var(--card));
+      padding: 14px; margin-bottom: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+    .hint { margin: 0 0 12px; font-size: 0.88rem; font-weight: 600; line-height: 1.45; color: var(--bronze); text-align: left; }
+    .hall-opt {
+      display: flex; align-items: flex-start; gap: 10px; margin: 0 0 12px;
+      padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(94, 232, 154, 0.3);
+      background: rgba(94, 232, 154, 0.06); font-size: 0.82rem; font-weight: 600;
+      color: var(--green); text-align: left; cursor: pointer;
+    }
+    .hall-opt input { margin-top: 3px; accent-color: var(--green); }
+    .cta {
+      width: 100%; padding: 15px; border: none; border-radius: 12px;
+      font: 800 0.95rem Inter, system-ui, sans-serif; color: #1a1008;
+      background: linear-gradient(180deg, #f0c96a, #9a6b1f); box-shadow: 0 4px 0 #6b4518; cursor: pointer;
+    }
+    .cta:disabled { opacity: 0.5; cursor: wait; }
+    #roomBlock[hidden] { display: none !important; }
+    #roomBlock { text-align: center; }
+    #qrImg { display: block; width: min(100%, 240px); margin: 0 auto 12px; border-radius: 12px; background: #e8b84a; }
+    .code { font-size: 2rem; font-weight: 800; letter-spacing: 0.22em; color: var(--cyan); margin-bottom: 6px; }
+    .meta { font-size: 0.8rem; font-weight: 600; color: var(--bronze); margin-bottom: 14px; }
+    .copy-row { display: flex; gap: 10px; margin-bottom: 12px; }
+    .copy-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 10px; border-radius: 11px; border: 1px solid rgba(168, 132, 104, 0.35);
+      background: var(--inset); cursor: pointer; font: 700 0.82rem Inter, system-ui, sans-serif;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .copy-btn:hover { border-color: var(--gold); box-shadow: 0 0 18px rgba(232, 184, 74, 0.15); }
+    .copy-btn.cyan { color: var(--cyan); border-color: rgba(61, 217, 240, 0.4); }
+    .copy-btn.gold { color: var(--gold); border-color: rgba(232, 184, 74, 0.45); }
+    .copy-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .cta-share {
+      width: 100%; padding: 14px; border: none; border-radius: 12px;
+      font: 800 0.95rem Inter, system-ui, sans-serif; color: #0a1628;
+      background: linear-gradient(180deg, #5ee89a, #22b8cf); box-shadow: 0 4px 0 #0d6e7a;
+      cursor: pointer; margin-bottom: 10px;
+    }
+    .btn-line {
+      width: 100%; padding: 11px; border-radius: 10px; border: 1px solid rgba(240, 113, 103, 0.4);
+      background: transparent; color: var(--rose); font: 700 0.85rem Inter, system-ui, sans-serif; cursor: pointer;
+    }
+    .sheet-backdrop {
+      position: fixed; inset: 0; background: rgba(0, 0, 0, 0.62); z-index: 40;
+      opacity: 0; pointer-events: none; transition: opacity 0.22s;
+    }
+    .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+    .share-sheet {
+      position: fixed; left: 50%; bottom: 0; z-index: 50;
+      width: min(520px, 100%);
+      max-height: 92dvh;
+      transform: translate(-50%, 108%);
+      transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+      background: linear-gradient(180deg, #221a12 0%, #140f0a 100%);
+      border: 1px solid var(--edge);
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.55);
+      display: flex; flex-direction: column;
+    }
+    .share-sheet.open { transform: translate(-50%, 0); }
+    @media (min-width: 560px) {
+      .share-sheet {
+        bottom: 50%; max-height: 85vh; border-radius: 18px;
+        transform: translate(-50%, 50%) scale(0.94); opacity: 0;
+      }
+      .share-sheet.open { transform: translate(-50%, 50%) scale(1); opacity: 1; }
+    }
+    .sheet-head {
+      padding: 14px 18px 10px; border-bottom: 1px solid rgba(168, 132, 104, 0.2);
+      flex-shrink: 0;
+    }
+    .sheet-handle { width: 44px; height: 4px; border-radius: 2px; background: var(--bronze); margin: 0 auto 12px; }
+    .sheet-title { margin: 0; font-size: 1.15rem; font-weight: 800; text-align: center; color: var(--gold); }
+    .sheet-sub { margin: 6px 0 0; font-size: 0.82rem; font-weight: 600; color: var(--bronze); text-align: center; }
+    .sheet-body { overflow-y: auto; padding: 12px 14px 20px; flex: 1; }
+    .share-native {
+      width: 100%; padding: 14px; margin-bottom: 14px; border: none; border-radius: 12px;
+      font: 800 0.92rem Inter, system-ui, sans-serif; color: #1a1008;
+      background: linear-gradient(180deg, #f0c96a, #c9922e); cursor: pointer;
+    }
+    .share-group { margin-bottom: 16px; }
+    .share-group-title {
+      margin: 0 0 8px 4px; font-size: 0.72rem; font-weight: 800;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--bronze);
+    }
+    .share-row {
+      width: 100%; display: flex; align-items: center; gap: 14px;
+      padding: 12px 14px; margin-bottom: 6px; border: 1px solid rgba(168, 132, 104, 0.22);
+      border-radius: 12px; background: var(--inset); cursor: pointer; text-align: left;
+      font-family: inherit; color: var(--gold);
+      transition: background 0.12s, border-color 0.12s, transform 0.1s;
+    }
+    .share-row:hover { background: #241c14; border-color: rgba(232, 184, 74, 0.35); transform: translateY(-1px); }
+    .share-row:active { transform: translateY(0); }
+    .share-row .ico {
+      width: 48px; height: 48px; border-radius: 13px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .share-row .ico svg { width: 26px; height: 26px; }
+    .share-row .txt { flex: 1; min-width: 0; }
+    .share-row .name { display: block; font-size: 0.95rem; font-weight: 700; color: var(--gold); }
+    .share-row .desc { display: block; font-size: 0.75rem; font-weight: 600; color: var(--bronze); margin-top: 2px; }
+    .share-row .arr { color: var(--bronze); font-size: 1.1rem; flex-shrink: 0; }
+    .ico-wa { background: #25d366; }
+    .ico-tg { background: #2aabee; }
+    .ico-vb { background: #7360f2; }
+    .ico-dc { background: #5865f2; }
+    .ico-vk { background: #0077ff; }
+    .ico-li { background: #0a66c2; }
+    .ico-gmail { background: #ea4335; }
+    .ico-yandex { background: #fc3f1d; }
+    .ico-mail { background: #8b6914; }
+    .ico-sms { background: #3d5a80; }
+    .ico-link { background: #1a4a5c; }
+    .ico-code { background: #4a3828; }
+    .ico-qr { background: #2d4a3e; }
+    .ico-os { background: linear-gradient(135deg, #5ee89a, #22b8cf); }
+    .sheet-foot {
+      padding: 0 14px 16px; flex-shrink: 0;
+    }
+    .sheet-close {
+      width: 100%; padding: 12px; border: none; border-radius: 11px;
+      background: rgba(168, 132, 104, 0.12); color: var(--bronze);
+      font: 700 0.88rem Inter, system-ui, sans-serif; cursor: pointer;
+    }
+    .flash {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      padding: 8px 14px; border-radius: 8px; background: #2a1f14; border: 1px solid var(--edge);
+      font-size: 0.8rem; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 80;
+    }
+    .flash.on { opacity: 1; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="head">
+      <h1>Игра в сети</h1>
+      <div class="pill" id="statusPill"><span class="dot"></span><span id="statusText">…</span></div>
+    </header>
+    <section class="card" id="setupCard">
+      <p class="hint" id="netHint">Подключите телефоны к той же Wi‑Fi, что и этот компьютер.</p>
+      <label class="hall-opt" id="hallOptWrap">
+        <input type="checkbox" id="chkShowHall" checked />
+        <span>Показывать стол в «Зале столов»</span>
+      </label>
+      <button type="button" class="cta" id="btnCreate">Создать комнату</button>
+    </section>
+    <section class="card" id="roomBlock" hidden>
+      <img id="qrImg" width="240" height="240" alt="QR для входа" />
+      <div class="code" id="roomCode"></div>
+      <p class="meta" id="roomMeta"></p>
+      <div class="copy-row">
+        <button type="button" class="copy-btn cyan" id="btnCopyLink">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07L11 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M14 11a5 5 0 0 0-7.07 0L4.81 13.12a5 5 0 0 0 7.07 7.07L13 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Ссылка
+        </button>
+        <button type="button" class="copy-btn gold" id="btnCopyCode">
+          <svg viewBox="0 0 24 24" fill="none"><rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.8"/></svg>
+          Код
+        </button>
+      </div>
+      <button type="button" class="cta-share" id="btnShare">Поделиться</button>
+      <button type="button" class="btn-line" id="btnClose">Закрыть комнату</button>
+    </section>
+  </div>
+
+  <div class="sheet-backdrop" id="shareBackdrop" hidden></div>
+  <aside class="share-sheet" id="shareSheet" role="dialog" aria-labelledby="shareTitle" hidden>
+    <div class="sheet-head">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 class="sheet-title" id="shareTitle">Куда отправить приглашение</h2>
+      <p class="sheet-sub">Выберите приложение или скопируйте</p>
+    </div>
+    <div class="sheet-body" id="shareBody"></div>
+    <div class="sheet-foot">
+      <button type="button" class="sheet-close" id="btnShareClose">Закрыть</button>
+    </div>
+  </aside>
+  <div class="flash" id="flash"></div>
+
+  <script>
+    const hostId = localStorage.getItem('updown_host_id') || (() => {
+      const id = 'host-' + crypto.randomUUID();
+      localStorage.setItem('updown_host_id', id);
+      return id;
+    })();
+
+    let ws = null, pending = new Map(), network = null, currentRoom = null;
+
+    const statusPill = document.getElementById('statusPill');
+    const statusText = document.getElementById('statusText');
+    const netHint = document.getElementById('netHint');
+    const roomBlock = document.getElementById('roomBlock');
+    const setupCard = document.getElementById('setupCard');
+    const shareBackdrop = document.getElementById('shareBackdrop');
+    const shareSheet = document.getElementById('shareSheet');
+    const shareBody = document.getElementById('shareBody');
+    const roomMetaEl = document.getElementById('roomMeta');
+    const flashEl = document.getElementById('flash');
+
+    function flash(t) {
+      flashEl.textContent = t;
+      flashEl.classList.add('on');
+      setTimeout(() => flashEl.classList.remove('on'), 1800);
+    }
+
+    function setStatus(text, ok) {
+      statusText.textContent = text;
+      statusPill.classList.remove('ok', 'busy', 'err');
+      if (ok === true) statusPill.classList.add('ok');
+      else if (ok === false) statusPill.classList.add('err');
+      else statusPill.classList.add('busy');
+    }
+
+    function wsBase() {
+      return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host;
+    }
+
+    function joinLink(code) {
+      const base = (network?.gameAppUrlLan || '').trim();
+      if (!base || !code) return '';
+      const u = new URL(base);
+      u.searchParams.set('code', code);
+      u.searchParams.set('ws', (network?.wsUrlLan || wsBase()).trim());
+      u.searchParams.set('transport', 'ws');
+      u.searchParams.set('autojoin', '1');
+      return u.toString();
+    }
+
+    function sharePayload() {
+      const code = currentRoom?.code || '';
+      const link = joinLink(code);
+      const text =
+        (link ? link + '\n\n' : '') +
+        'Up&Down — код комнаты: ' + code +
+        '\n(откройте ссылку в браузере телефона, та же Wi‑Fi)';
+      return { code, link, text, title: 'Up&Down — комната ' + code };
+    }
+
+    function syncNetHint() {
+      const ip = network?.lanIps?.[0];
+      if (currentRoom?.code) {
+        netHint.textContent = 'Покажите QR, скопируйте код или ссылку — или «Поделиться». Одна Wi‑Fi.';
+        return;
+      }
+      netHint.textContent = ip
+        ? 'Телефоны и этот компьютер — в одной Wi‑Fi (' + ip + '). Создайте комнату.'
+        : 'Подключите компьютер к Wi‑Fi, затем создайте комнату.';
+    }
+
+    function updateRoomMeta(room) {
+      const n = (room.player_slots || []).filter((s) => s.userId).length;
+      roomMetaEl.textContent = room.status === 'playing'
+        ? 'Идёт игра · ' + n + ' в сети'
+        : n ? 'В лобби: ' + n : 'Ждём игроков';
+    }
+
+    function showRoom(room) {
+      document.getElementById('qrImg').src = '/api/qr?code=' + encodeURIComponent(room.code) + '&_=' + Date.now();
+      document.getElementById('roomCode').textContent = room.code;
+      updateRoomMeta(room);
+      roomBlock.hidden = false;
+      setupCard.querySelector('.cta').hidden = true;
+      setStatus(room.code, true);
+      syncNetHint();
+    }
+
+    function hideRoom() {
+      roomBlock.hidden = true;
+      setupCard.querySelector('.cta').hidden = false;
+      currentRoom = null;
+      setStatus('Готово', true);
+      syncNetHint();
+    }
+
+    function openShareSheet() {
+      shareBackdrop.hidden = false;
+      shareSheet.hidden = false;
+      requestAnimationFrame(() => {
+        shareBackdrop.classList.add('open');
+        shareSheet.classList.add('open');
+      });
+    }
+
+    function closeShareSheet() {
+      shareBackdrop.classList.remove('open');
+      shareSheet.classList.remove('open');
+      setTimeout(() => { shareBackdrop.hidden = true; shareSheet.hidden = true; }, 300);
+    }
+
+    async function copyText(text, label) {
+      try {
+        await navigator.clipboard.writeText(text);
+        flash(label);
+      } catch { flash('Не удалось скопировать'); }
+    }
+
+    function openUrl(url) { window.open(url, '_blank', 'noopener,noreferrer'); }
+
+    async function nativeShare() {
+      const { title, text, link, code } = sharePayload();
+      if (!code) return;
+      const payload = { title, text };
+      if (link) payload.url = link;
+      try {
+        if (navigator.share) {
+          if (navigator.canShare) {
+            try {
+              const blob = await (await fetch('/api/qr?code=' + encodeURIComponent(code))).blob();
+              const file = new File([blob], 'updown-' + code + '.png', { type: 'image/png' });
+              const withFile = { ...payload, files: [file] };
+              if (navigator.canShare(withFile)) {
+                await navigator.share(withFile);
+                closeShareSheet();
+                return;
+              }
+            } catch { /* no file */ }
+          }
+          await navigator.share(payload);
+          closeShareSheet();
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') flash('Выберите способ из списка');
+      }
+    }
+
+    const SVG = {
+      wa: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.8 4.9-1.3A10 10 0 1 0 12 2z"/></svg>',
+      tg: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M9.7 15.6l-.3 4.2 4.2 3.1 2.7-12.6L3.7 10.4l10.4-6.6z"/></svg>',
+      dc: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M18.9 5.1A16 16 0 0 0 3.2 16.8l-1.1 4 4-1.1A16 16 0 1 0 18.9 5.1zm-4.2 6.4-2.6 2.8-4.9-4.6 6.7 3.9 2.7-2.9 4.8 4.5-6.7-4.7z"/></svg>',
+      vk: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm4.8 11.2h-1.4c-.5 0-.7.4-1.2 1-.5.6-1 .9-1.2.9-.3 0-.5-.2-1-1.2-.7-1.2-1-1.7-1.4-1.7-.3 0-.8.3-1.8 1.4-1.1 1.1-1.6 1.5-2 1.5-.3 0-.5-.2-.8-.7V12c0-.5.2-.8.7-1.3.5-.5 1.1-1.1 1.5-1.5.4-.4.6-.7.6-1 0-.2-.1-.4-.5-.4z"/></svg>',
+      li: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M6 4h3v16H6V4zm5 0h3v16h-3V4zm5 0h3v16h-3V4z"/></svg>',
+      gmail: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M4 4h16v16H4V4zm2 2v12h12V8l-6 4-6-4z"/></svg>',
+      yandex: '<svg viewBox="0 0 24 24" fill="#fff"><text x="5" y="17" font-size="14" font-weight="bold">Я</text></svg>',
+      mail: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
+      link: '<svg viewBox="0 0 24 24" fill="none" stroke="#3dd9f0" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07L11 5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.81 13.12a5 5 0 0 0 7.07 7.07L13 19"/></svg>',
+      code: '<svg viewBox="0 0 24 24" fill="none" stroke="#e8b84a" stroke-width="1.8"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+      qr: '<svg viewBox="0 0 24 24" fill="none" stroke="#5ee89a" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM17 17h3v3h-3z"/></svg>',
+      os: '<svg viewBox="0 0 24 24" fill="none" stroke="#0a1628" stroke-width="2"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M5 19h14"/></svg>',
+      sms: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M4 6h16v10H8l-4 4V6z"/></svg>',
+      vb: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 0 1 10 10 10 10 0 0 1-10 10A10 10 0 0 1 2 12 10 10 0 0 1 12 2z"/></svg>',
+    };
+
+    const SHARE_SECTIONS = [
+      {
+        title: 'Быстро',
+        items: [
+          { id: 'native', ico: 'ico-os', svg: 'os', name: 'Поделиться через систему', desc: 'Меню Windows / Android / iPhone', run: nativeShare },
+        ],
+      },
+      {
+        title: 'Мессенджеры',
+        items: [
+          { id: 'whatsapp', ico: 'ico-wa', svg: 'wa', name: 'WhatsApp', desc: 'Отправить текст и ссылку', run: () => openUrl('https://wa.me/?text=' + encodeURIComponent(sharePayload().text)) },
+          { id: 'telegram', ico: 'ico-tg', svg: 'tg', name: 'Telegram', desc: 'Чат или канал', run: () => {
+            const { link, text } = sharePayload();
+            openUrl(link ? 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent('Up&Down · код ' + sharePayload().code) : 'https://t.me/share/url?text=' + encodeURIComponent(text));
+          }},
+          { id: 'viber', ico: 'ico-vb', svg: 'vb', name: 'Viber', desc: 'Переслать контакту', run: () => openUrl('viber://forward?text=' + encodeURIComponent(sharePayload().text)) },
+          { id: 'discord', ico: 'ico-dc', svg: 'dc', name: 'Discord', desc: 'Скопировать и открыть Discord', run: async () => {
+            await copyText(sharePayload().text, 'Вставьте в Discord (Ctrl+V)');
+            openUrl('https://discord.com/channels/@me');
+          }},
+        ],
+      },
+      {
+        title: 'Соцсети',
+        items: [
+          { id: 'vk', ico: 'ico-vk', svg: 'vk', name: 'ВКонтакте', desc: 'Запись или сообщения', run: () => {
+            const { link, title } = sharePayload();
+            if (link) openUrl('https://vk.com/share.php?url=' + encodeURIComponent(link) + '&title=' + encodeURIComponent(title));
+            else copyText(sharePayload().text, 'Скопировано');
+          }},
+          { id: 'linkedin', ico: 'ico-li', svg: 'li', name: 'LinkedIn', desc: 'Публикация или личное сообщение', run: () => {
+            const { link } = sharePayload();
+            if (link) openUrl('https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(link));
+            else copyText(sharePayload().text, 'Скопировано');
+          }},
+        ],
+      },
+      {
+        title: 'Почта',
+        items: [
+          { id: 'gmail', ico: 'ico-gmail', svg: 'gmail', name: 'Gmail', desc: 'Новое письмо в браузере', run: () => {
+            const { text, title } = sharePayload();
+            openUrl('https://mail.google.com/mail/?view=cm&fs=1&su=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(text));
+          }},
+          { id: 'yandex', ico: 'ico-yandex', svg: 'yandex', name: 'Яндекс Почта', desc: 'Новое письмо', run: () => {
+            const { text, title } = sharePayload();
+            openUrl('https://mail.yandex.ru/compose?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(text));
+          }},
+          { id: 'mailto', ico: 'ico-mail', svg: 'mail', name: 'Другая почта', desc: 'Программа по умолчанию', run: () => {
+            const { text, title } = sharePayload();
+            openUrl('mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(text));
+          }},
+        ],
+      },
+      {
+        title: 'Ещё',
+        items: [
+          { id: 'sms', ico: 'ico-sms', svg: 'sms', name: 'СМС', desc: 'Сообщение на телефон', run: () => openUrl('sms:?body=' + encodeURIComponent(sharePayload().text)) },
+          { id: 'qrfile', ico: 'ico-qr', svg: 'qr', name: 'Сохранить QR', desc: 'Картинка для чата', run: () => {
+            const code = sharePayload().code;
+            const a = document.createElement('a');
+            a.href = '/api/qr?code=' + encodeURIComponent(code);
+            a.download = 'updown-' + code + '.png';
+            a.click();
+            flash('QR сохранён');
+          }},
+        ],
+      },
+    ];
+
+    function buildShareSheet() {
+      shareBody.innerHTML = '';
+      for (const section of SHARE_SECTIONS) {
+        const wrap = document.createElement('div');
+        wrap.className = 'share-group';
+        const h = document.createElement('p');
+        h.className = 'share-group-title';
+        h.textContent = section.title;
+        wrap.appendChild(h);
+        for (const item of section.items) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'share-row';
+          btn.innerHTML =
+            '<span class="ico ' + item.ico + '">' + (SVG[item.svg] || '') + '</span>' +
+            '<span class="txt"><span class="name">' + item.name + '</span><span class="desc">' + item.desc + '</span></span>' +
+            '<span class="arr" aria-hidden="true">›</span>';
+          btn.onclick = async () => {
+            await item.run();
+            if (item.id !== 'native') closeShareSheet();
+          };
+          wrap.appendChild(btn);
+        }
+        shareBody.appendChild(wrap);
+      }
+    }
+
+    function onSocketMessage(ev) {
+      let msg;
+      try { msg = JSON.parse(ev.data); } catch { return; }
+      if (msg.type === 'room_snapshot' && msg.room) { currentRoom = msg.room; showRoom(msg.room); }
+      if (msg.requestId && pending.has(msg.requestId)) {
+        const p = pending.get(msg.requestId);
+        clearTimeout(p.timer);
+        pending.delete(msg.requestId);
+        p.resolve(msg);
+      }
+    }
+
+    function connect() {
+      return new Promise((resolve, reject) => {
+        const s = new WebSocket(wsBase());
+        ws = s;
+        s.onmessage = onSocketMessage;
+        s.onclose = () => { ws = null; setStatus('Связь…', null); };
+        const t = setTimeout(() => reject(new Error('Нет связи')), 12000);
+        s.onopen = () => { clearTimeout(t); resolve(); };
+        s.onerror = () => { clearTimeout(t); reject(new Error('Нет связи')); };
+      });
+    }
+
+    async function ensureSocket() {
+      if (ws?.readyState === WebSocket.OPEN) return;
+      setStatus('Связь…', null);
+      await connect();
+      setStatus('Готово', true);
+    }
+
+    async function sendRequest(payload) {
+      await ensureSocket();
+      return new Promise((resolve, reject) => {
+        const id = crypto.randomUUID();
+        const timer = setTimeout(() => { pending.delete(id); reject(new Error('Таймаут')); }, 25000);
+        pending.set(id, { resolve, reject, timer });
+        ws.send(JSON.stringify({ ...payload, requestId: id }));
+      });
+    }
+
+    async function refreshNetwork() {
+      try {
+        network = await fetch('/api/network/status', { cache: 'no-store' }).then((r) => r.json());
+        syncNetHint();
+      } catch { /* ignore */ }
+    }
+
+    document.getElementById('btnCreate').onclick = async () => {
+      const btn = document.getElementById('btnCreate');
+      btn.disabled = true;
+      setStatus('Создаём…', null);
+      try {
+        await refreshNetwork();
+        if (!network?.gameReady) { setStatus('Перезапуск', false); flash('Перезапустите программу'); return; }
+        const inHall = document.getElementById('chkShowHall').checked;
+        const res = await sendRequest({
+          type: 'create_room',
+          playerId: hostId,
+          displayName: 'Сервер',
+          hostDedicated: true,
+          roomKind: inHall ? 'public' : 'private',
+        });
+        if (!res.ok || !res.room) throw new Error('Не вышло');
+        currentRoom = res.room;
+        await sendRequest({ type: 'subscribe_room', roomId: res.room.id });
+        showRoom(res.room);
+        flash('Комната создана');
+      } catch (e) { setStatus('Ошибка', false); flash(e.message || 'Ошибка'); }
+      finally { btn.disabled = false; }
+    };
+
+    document.getElementById('btnCopyLink').onclick = () => {
+      const link = joinLink(currentRoom?.code || '');
+      if (link) copyText(link, 'Ссылка скопирована');
+    };
+    document.getElementById('btnCopyCode').onclick = () => {
+      if (currentRoom?.code) copyText(currentRoom.code, 'Код скопирован');
+    };
+    document.getElementById('btnShare').onclick = () => openShareSheet();
+    document.getElementById('btnShareClose').onclick = closeShareSheet;
+    shareBackdrop.onclick = closeShareSheet;
+    document.getElementById('btnClose').onclick = async () => {
+      if (!currentRoom) return hideRoom();
+      try { await sendRequest({ type: 'leave_room', roomId: currentRoom.id, playerId: hostId }); } catch { /* */ }
+      hideRoom();
+      flash('Комната закрыта');
+    };
+
+    buildShareSheet();
+
+    (async () => {
+      setStatus('Связь…', null);
+      await refreshNetwork();
+      setInterval(refreshNetwork, 4000);
+      try { await connect(); setStatus('Готово', true); }
+      catch { setStatus('Нет связи', false); flash('Перезапустите программу'); }
+    })();
+  </script>
+</body>
+</html>

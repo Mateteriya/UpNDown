@@ -1,0 +1,19 @@
+{
+  "name": "updown-game-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "nat-upnp": "^1.1.1",
+    "qrcode": "^1.5.4",
+    "up-down": "file:..",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2"
+  }
+}
