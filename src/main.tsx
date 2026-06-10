@@ -18,19 +18,32 @@ import { DealTrackLabPage } from './ui/DealTrackLabPage'
 import { TotalColorLabPage } from './ui/TotalColorLabPage'
 import { OnlineUiLabPage } from './ui/OnlineUiLabPage'
 import { ScoringDemoPage } from './ui/ScoringDemoPage'
+import { CosmogenesisDemoPage } from './ui/CosmogenesisDemoPage'
 import { AccountLkPage } from './ui/AccountLkPage'
 import './theme-standard.css'
 import './theme-neon.css'
 import './index.css'
 import './styles/tableChatSideEarMobile.css'
+import { bootstrapLanPlayFromServer } from './lib/lanJoinLink'
+
+// LAN: /play/ с порта сервера — WS + v2 до инициализации контекста
+bootstrapLanPlayFromServer()
 
 const path = typeof window !== 'undefined' ? window.location.pathname : ''
+const hashRoute =
+  typeof window !== 'undefined' ? (window.location.hash || '').replace(/^#/, '').toLowerCase() : ''
 const isDemo = path === '/demo' || path.startsWith('/demo/')
 const isCardDarkLab = path === '/demo/cards-dark' || path.startsWith('/demo/cards-dark/')
 const isDealTrackLab = path === '/deal-track-lab' || path.startsWith('/deal-track-lab/')
 const isTotalColorLab = path === '/total-color-lab' || path.startsWith('/total-color-lab/')
 const isOnlineUiLab = path === '/online-ui-lab' || path.startsWith('/online-ui-lab/')
 const isScoringDemo = path === '/scoring-demo' || path.startsWith('/scoring-demo/')
+const isCosmogenesisDemo =
+  path === '/cosmogenesis-demo' ||
+  path.startsWith('/cosmogenesis-demo/') ||
+  path.endsWith('/cosmogenesis-demo.html') ||
+  hashRoute === 'cosmogenesis-demo' ||
+  hashRoute === 'cosmo'
 const isAccountLk = path === '/lk' || path.startsWith('/lk/')
 const devModeAllowed = typeof window !== 'undefined' && sessionStorage.getItem('updown-devMode') === '1'
 
@@ -76,6 +89,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     ) : isScoringDemo ? (
       <ThemeProvider>
         <ScoringDemoPage onBack={() => (window.location.href = '/')} />
+      </ThemeProvider>
+    ) : isCosmogenesisDemo ? (
+      <ThemeProvider>
+        <CosmogenesisDemoPage onBack={() => (window.location.href = '/')} />
       </ThemeProvider>
     ) : isAccountLk ? (
       <AuthProvider>

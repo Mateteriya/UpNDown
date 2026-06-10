@@ -9,6 +9,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         'auth-callback': resolve(__dirname, 'auth-callback.html'),
+        'cosmogenesis-demo': resolve(__dirname, 'cosmogenesis-demo.html'),
       },
     },
   },

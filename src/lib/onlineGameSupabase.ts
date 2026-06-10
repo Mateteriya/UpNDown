@@ -97,6 +97,8 @@ export interface GameRoomRow {
   id: string;
   code: string;
   host_user_id: string | null;
+  /** 2 = server-authoritative (команды play_card / place_bid, не update_state). */
+  protocol_version?: 1 | 2;
   status: 'waiting' | 'playing' | 'finished';
   game_state: GameState | null;
   /** С сервера (триггер): растёт только при изменении game_state, не при правках только слотов. */

@@ -19,6 +19,8 @@ export interface GameRoomRow {
   id: string;
   code: string;
   host_user_id: string | null;
+  /** 2 = server-authoritative v2 (команды вместо update_state). */
+  protocol_version?: 1 | 2;
   /** Хост только управляет сервером, не занимает слот за столом (панель Up&Down Host). */
   host_dedicated?: boolean;
   status: 'waiting' | 'playing' | 'finished';
@@ -52,6 +54,13 @@ export interface ClientMessage {
   roomPhase?: GameRoomPhase;
   hostLastSeenAtNow?: boolean;
   expectedRevision?: number;
+  protocolVersion?: number;
+  seat?: number;
+  bid?: number;
+  card?: { suit: string; rank: string };
+  hostId?: string;
+  newHostUserId?: string;
+  choice?: 'finish' | 'wait' | 'replace_ai';
 }
 
 export interface ServerMessage {
@@ -64,4 +73,8 @@ export interface ServerMessage {
   mySlotIndex?: number;
   conflict?: boolean;
   rooms?: GameRoomRow[];
+  revision?: number;
+  state?: unknown;
+  playerSlots?: PlayerSlot[];
+  roomPhase?: string | null;
 }

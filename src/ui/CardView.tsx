@@ -778,6 +778,9 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
   const showValidPlayHandHighlight = !!highlightAsValidPlay && !pcCardStyles;
   const darkHandValidPlayHighlight = mobileDarkHand && showValidPlayHandHighlight;
   const darkHandValidPlayTrump = darkHandValidPlayHighlight && !!isTrumpInHand;
+  /** Standard (белые карты): подъём как в legacy — и моб., и ПК. */
+  const standardHandPlayableLift =
+    !!highlightAsValidPlay && !darkHandValidPlayHighlight && !mobileHandPeekLift && !disabled;
   const showMobileHandHighlight = isMobileHandTrump || showValidPlayHandHighlight;
   /** Торги: обычные карты руки — без «disabled-лаванды» и без неоновой рамки по масти (видно масть для заказа) */
   const mobileBiddingPlainHand =
@@ -961,6 +964,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         mobileDarkHand ? 'card-dark-mobile-hand' : null,
         darkHandValidPlayHighlight ? 'card-dark-hand-playable' : null,
         darkHandValidPlayTrump ? 'card-dark-hand-playable-trump' : null,
+        standardHandPlayableLift ? 'card-hand-playable-lift' : null,
         mobileDarkSuitFace && isMobileDarkTrump ? 'card-dark-suit-trump' : null,
         trumpOnDeck
           ? trumpDeckHighlightOn
@@ -1091,7 +1095,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         ...(biddingHighlightMobile && !(suitIndexInHandMobile && !pcCardStyles)
           ? { transform: 'scale(1.06)', transformOrigin: 'center bottom' }
           : {}),
-        ...(darkHandValidPlayHighlight
+        ...(darkHandValidPlayHighlight || standardHandPlayableLift
           ? {
               transform: 'translateY(-4px) scale(1.05)',
               transformOrigin: 'center bottom',

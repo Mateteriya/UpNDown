@@ -89,6 +89,10 @@ export class RoomStore {
     return id ? this.rooms.get(id) ?? null : null;
   }
 
+  listAll(): GameRoomRow[] {
+    return [...this.rooms.values()];
+  }
+
   createRoom(opts: {
     hostUserId: string;
     displayName: string;
@@ -98,6 +102,7 @@ export class RoomStore {
     buyIn?: number | null;
     roomKind?: string;
     hostDedicated?: boolean;
+    protocolVersion?: 1 | 2;
   }): GameRoomRow {
     const codes = new Set(this.codeToId.keys());
     const code = generateCode(codes);
@@ -115,6 +120,7 @@ export class RoomStore {
       id,
       code,
       host_user_id: opts.hostUserId,
+      protocol_version: opts.protocolVersion === 2 ? 2 : 1,
       host_dedicated: dedicated,
       status: 'waiting',
       game_state: null,
@@ -193,6 +199,11 @@ export class RoomStore {
     const humans = slots.filter((s) => s.userId != null && s.userId !== '');
     if (humans.length >= 4) return { error: 'Все места заняты людьми' };
 
+    /** Комната с панели ПК (host_dedicated): первый живой игрок — ведущий (слот 0), не «Сервер» на ПК. */
+    if (room.host_dedicated && humans.length === 0) {
+      room.host_user_id = opts.userId;
+    }
+
     const slotIndex = this.firstVacantSlotIndex(slots);
     if (slotIndex < 0) return { error: 'Нет свободных мест за столом' };
 
@@ -258,6 +269,119 @@ export class RoomStore {
     return room;
   }
 
+  /** v2: сервер пишет state без expectedRevision от клиента. */
+  commitGameStateV2(
+    roomId: string,
+    gameState: unknown,
+    playerSlots?: PlayerSlot[],
+    roomPhase?: string,
+  ): { room?: GameRoomRow; error?: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) return { error: 'Комната не найдена' };
+    if (room.protocol_version !== 2) return { error: 'room_not_v2' };
+
+    const rev = room.game_state_revision ?? 0;
+    room.game_state = gameState;
+    room.status = 'playing';
+    if (playerSlots) room.player_slots = fullSlotsFromPartial(playerSlots);
+    if (roomPhase) room.room_phase = roomPhase;
+    room.game_state_revision = rev + 1;
+    room.updated_at = nowIso();
+    return { room };
+  }
+
+  takePauseV2(roomId: string, userId: string): GameRoomRow | { error: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) return { error: 'Комната не найдена' };
+    const slots = fullSlotsFromPartial(room.player_slots ?? []);
+    const idx = slots.findIndex((s) => s.userId === userId);
+    if (idx < 0) return { error: 'Слот не найден' };
+    const left = slots[idx];
+    slots[idx] = {
+      ...vacantAiSlot(left.slotIndex),
+      replacedUserId: userId,
+      replacedDisplayName: left.displayName,
+      pausedByUser: true,
+    };
+    room.player_slots = slots;
+    room.updated_at = nowIso();
+    return room;
+  }
+
+  returnFromPauseV2(roomId: string, userId: string): GameRoomRow | { error: string } {
+    const recovered = this.recoverJoin(room.code, userId);
+    if (!recovered) return { error: 'Слот не найден' };
+    return recovered.room;
+  }
+
+  hostReturnSlotV2(roomId: string, hostId: string, seat: number): GameRoomRow | { error: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) return { error: 'Комната не найдена' };
+    if (room.host_user_id !== hostId) return { error: 'not_host' };
+    const slots = fullSlotsFromPartial(room.player_slots ?? []);
+    const idx = slots.findIndex((s) => s.slotIndex === seat);
+    if (idx < 0) return { error: 'Слот не найден' };
+    const s = slots[idx];
+    if (!s.replacedUserId) return { error: 'Слот не на паузе' };
+    slots[idx] = {
+      ...s,
+      userId: s.replacedUserId,
+      displayName: (s.replacedDisplayName ?? s.displayName).slice(0, 17),
+      replacedUserId: undefined,
+      replacedDisplayName: undefined,
+      pausedByUser: false,
+      absent: false,
+    };
+    room.player_slots = slots;
+    room.updated_at = nowIso();
+    return room;
+  }
+
+  transferHostV2(
+    roomId: string,
+    hostId: string,
+    newHostUserId: string,
+  ): GameRoomRow | { error: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) return { error: 'Комната не найдена' };
+    if (room.host_user_id !== hostId) return { error: 'not_host' };
+    const slots = fullSlotsFromPartial(room.player_slots ?? []);
+    if (!slots.some((s) => s.userId === newHostUserId)) {
+      return { error: 'Игрок не в комнате' };
+    }
+    room.host_user_id = newHostUserId;
+    room.updated_at = nowIso();
+    return room;
+  }
+
+  hostResolveAbsentV2(
+    roomId: string,
+    hostId: string,
+    choice: 'finish' | 'wait' | 'replace_ai',
+  ): GameRoomRow | { error: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) return { error: 'Комната не найдена' };
+    if (room.host_user_id !== hostId) return { error: 'not_host' };
+    if (choice === 'finish') {
+      room.status = 'finished';
+      room.room_phase = 'finished';
+    } else if (choice === 'replace_ai') {
+      const slots = fullSlotsFromPartial(room.player_slots ?? []);
+      for (let i = 0; i < slots.length; i++) {
+        if (slots[i].absent) {
+          slots[i] = {
+            ...vacantAiSlot(slots[i].slotIndex),
+            replacedUserId: slots[i].userId ?? undefined,
+            replacedDisplayName: slots[i].displayName,
+          };
+        }
+      }
+      room.player_slots = slots;
+    }
+    room.updated_at = nowIso();
+    return room;
+  }
+
   updateRoomState(
     roomId: string,
     gameState: unknown,
@@ -266,6 +390,10 @@ export class RoomStore {
   ): { room?: GameRoomRow; conflict?: boolean; error?: string } {
     const room = this.rooms.get(roomId);
     if (!room) return { error: 'Комната не найдена' };
+
+    if (room.protocol_version === 2) {
+      return { error: 'protocol_v2_use_commands', conflict: false };
+    }
 
     const rev = room.game_state_revision ?? 0;
     const exp = opts?.expectedRevision;

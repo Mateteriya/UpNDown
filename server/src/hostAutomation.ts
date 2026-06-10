@@ -92,6 +92,7 @@ export class HostAutomation {
   }
 
   private tickRoom(room: GameRoomRow): void {
+    if (room.protocol_version === 2) return;
     if (room.status !== 'playing' || !room.game_state) return;
     const state = room.game_state as GameState;
     const slots = fullSlots(room.player_slots ?? []);

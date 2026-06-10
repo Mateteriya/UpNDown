@@ -8,8 +8,14 @@ import { hasSavedGame, clearGameStateFromStorage, getPlayerProfile, savePlayerPr
 import { loadProfileFromSupabase, saveProfileToSupabase } from './lib/profileSync'
 import { useAuth } from './contexts/AuthContext'
 import { useOnlineGame } from './contexts/useOnlineGame'
-import { loadOnlineSession } from './lib/onlineSession'
+import { loadOnlineSession, markLobbyUiOpen, wasLobbyUiOpen } from './lib/onlineSession'
 import { loadLastOnlineParty } from './lib/lastOnlineParty'
+import { isWsOnlineTransport } from './lib/onlineTransport'
+import {
+  consumeAvatarCameraPending,
+  consumePendingAvatarDraft,
+  mergeStoredAvatarIntoProfile,
+} from './lib/profileAvatarSave'
 import MobileOverlapHint from './ui/MobileOverlapHint'
 import { HistoryModal } from './ui/HistoryModal'
 import { NameAvatarModal } from './ui/NameAvatarModal'
@@ -81,6 +87,22 @@ function App() {
     setProfile(getPlayerProfile())
   }, [screen])
 
+  /** После нативной камеры вкладка часто перезагружается — подтянуть аватар и комнату. */
+  useEffect(() => {
+    mergeStoredAvatarIntoProfile()
+    const pendingAvatar = consumePendingAvatarDraft()
+    if (pendingAvatar) {
+      setProfile((p) => ({ ...p, avatarDataUrl: pendingAvatar }))
+    } else {
+      setProfile(getPlayerProfile())
+    }
+    if (consumeAvatarCameraPending()) {
+      if (isWsOnlineTransport()) void online.tryRestoreSession()
+      setNameAvatarMode('profile')
+      setShowNameAvatarModal(true)
+    }
+  }, [])
+
   // После обновления: восстановить экран (игра или лобби); в меню — только если вышли из онлайн (не сбрасывать при открытии офлайн-игры).
   // Не сбрасывать didAutoOpenLobbyRef при каждом тике с roomId — иначе waiting снова открывает лобби и перекрывает стол после «Войти в игру» / восстановления.
   useEffect(() => {
@@ -96,7 +118,12 @@ function App() {
           /* ignore */
         }
         setScreen('game')
-      } else if (online.status === 'waiting' && !didAutoOpenLobbyRef.current) {
+      } else if (
+        online.status === 'waiting' &&
+        screen !== 'game' &&
+        !screenLobby &&
+        !didAutoOpenLobbyRef.current
+      ) {
         didAutoOpenLobbyRef.current = true
         try {
           sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
@@ -104,11 +131,21 @@ function App() {
           /* ignore */
         }
         setScreenLobby(true)
+      } else if (online.status === 'waiting' && wasLobbyUiOpen() && screen !== 'game' && !screenLobby) {
+        setScreenLobby(true)
       }
       return
     }
     didAutoOpenLobbyRef.current = false
-    if (online.status === 'idle' && screen === 'game' && !loadOnlineSession() && hadOnlineRoomRef.current) {
+    const mayStillRestore =
+      isWsOnlineTransport() && (loadOnlineSession() !== null || loadLastOnlineParty() !== null)
+    if (
+      online.status === 'idle' &&
+      screen === 'game' &&
+      !loadOnlineSession() &&
+      !mayStillRestore &&
+      hadOnlineRoomRef.current
+    ) {
       setScreen('menu')
     }
     hadOnlineRoomRef.current = false
@@ -257,6 +294,14 @@ function App() {
     }
     if (nameAvatarMode === 'new-account') setNameAvatarMode('profile')
   }, [nameAvatarMode, user?.id, online.roomId, online.syncMySlotDisplayName, online.syncMySlotAvatar, online.leaveRoom])
+
+  /** Селфи на телефоне часто перезагружает вкладку — пишем аватар и слот сразу, не дожидаясь «Сохранить». */
+  const handlePhotoCaptured = useCallback((avatarDataUrl: string) => {
+    const next = { ...getPlayerProfile(), avatarDataUrl };
+    setProfile(next);
+    if (user?.id) void saveProfileToSupabase(user.id, next);
+    if (online.roomId && online.syncMySlotAvatar) void online.syncMySlotAvatar();
+  }, [user?.id, online.roomId, online.syncMySlotAvatar])
 
   const handleExit = useCallback(() => {
     if (loadOnlineSession()) online.leaveRoom()
@@ -499,6 +544,18 @@ function App() {
               }}
             >
               Демо: фишки и победитель
+            </a>
+            <a
+              href="/cosmogenesis-demo.html"
+              style={{
+                ...buttonStyle,
+                textDecoration: 'none',
+                textAlign: 'center',
+                borderColor: 'rgba(34, 211, 238, 0.45)',
+                background: 'rgba(34, 211, 238, 0.1)',
+              }}
+            >
+              Космогенез: Galaxy (демо)
             </a>
           </nav>
         </main>
@@ -867,6 +924,7 @@ function App() {
         <LobbyScreen
           onBack={() => { setScreenLobby(false); setUrlJoinCode(null) }}
           playerName={profile.displayName}
+          onEditProfile={() => { setNameAvatarMode('profile'); setShowNameAvatarModal(true) }}
           initialJoinCode={urlJoinCode ?? undefined}
           lanGuestInvite={Boolean(urlJoinCode)}
           lanAutoJoinFromLink={urlLanAutojoin}
@@ -876,6 +934,7 @@ function App() {
             } catch {
               /* ignore */
             }
+            markLobbyUiOpen(false)
             setScreenLobby(false);
             setUrlJoinCode(null);
             setScreen('game');
@@ -895,6 +954,7 @@ function App() {
           }
           confirmLabel="Сохранить"
           onConfirm={handleNameAvatarConfirm}
+          onPhotoCaptured={handlePhotoCaptured}
           onCancel={nameAvatarMode === 'profile' ? () => setShowNameAvatarModal(false) : undefined}
         />
       )}
@@ -918,6 +978,7 @@ function App() {
               onSaveAvatar={(avatarDataUrl) => {
                 handleNameAvatarConfirm({ displayName: profile.displayName, avatarDataUrl });
               }}
+              onPhotoCaptured={handlePhotoCaptured}
               onSaveDisplayName={(displayName) => {
                 handleNameAvatarConfirm({ displayName, avatarDataUrl: profile.avatarDataUrl });
               }}

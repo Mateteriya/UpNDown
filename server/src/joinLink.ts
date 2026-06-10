@@ -16,6 +16,7 @@ export function buildGuestJoinLink(
     u.searchParams.set('code', code.trim().toUpperCase());
     u.searchParams.set('ws', ws);
     u.searchParams.set('transport', 'ws');
+    u.searchParams.set('wsProtocol', 'v2');
     return u.toString();
   } catch {
     return null;

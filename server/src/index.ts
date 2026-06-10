@@ -17,6 +17,9 @@ import { listLanIPv4 } from './networkInfo.js';
 import { RoomStore } from './rooms.js';
 import { TunnelManager } from './tunnelManager.js';
 import type { ClientMessage, GameRoomRow, ServerMessage } from './protocol.js';
+import { GameSessionManager } from './v2/GameSessionManager.js';
+import { handleV2GameMessage, isV2GameCommand } from './v2/handlers.js';
+import type { GameStatePush } from './v2/protocol.js';
 
 const GAME_APP_PORT = Number(process.env.GAME_APP_PORT ?? 5173);
 
@@ -25,6 +28,17 @@ const HOST = process.env.HOST ?? '0.0.0.0';
 
 const store = new RoomStore();
 const roomSubscribers = new Map<string, Set<WebSocket>>();
+
+function broadcastGameStateV2(push: GameStatePush): void {
+  const subs = roomSubscribers.get(push.roomId);
+  if (!subs) return;
+  for (const client of subs) {
+    send(client, push);
+  }
+}
+
+const sessionManager = new GameSessionManager(store, broadcastGameStateV2);
+sessionManager.start();
 
 const hostAutomation = new HostAutomation(store, (room) => broadcastRoom(room));
 hostAutomation.start();
@@ -43,6 +57,15 @@ function broadcastRoom(room: GameRoomRow): void {
   const subs = roomSubscribers.get(room.id);
   if (!subs) return;
   const payload: ServerMessage = { type: 'room_snapshot', room };
+  for (const client of subs) {
+    send(client, payload);
+  }
+}
+
+function broadcastRoomMeta(room: GameRoomRow): void {
+  const subs = roomSubscribers.get(room.id);
+  if (!subs) return;
+  const payload: ServerMessage = { type: 'room_meta', room };
   for (const client of subs) {
     send(client, payload);
   }
@@ -72,6 +95,21 @@ function reply(ws: WebSocket, requestId: string | undefined, body: ServerMessage
   send(ws, { ...body, requestId });
 }
 
+const v2Deps = {
+  store,
+  sessionManager,
+  send,
+  reply,
+  broadcastGameState: (subs: Set<WebSocket> | undefined, push: GameStatePush) => {
+    if (!subs) return;
+    for (const client of subs) {
+      send(client, push);
+    }
+  },
+  broadcastRoomMeta,
+  getSubscribers: (roomId: string) => roomSubscribers.get(roomId),
+};
+
 function handleMessage(ws: WebSocket, raw: string): void {
   let msg: ClientMessage;
   try {
@@ -82,6 +120,11 @@ function handleMessage(ws: WebSocket, raw: string): void {
   }
 
   const { requestId } = msg;
+
+  if (isV2GameCommand(msg.type)) {
+    handleV2GameMessage(ws, msg, v2Deps);
+    return;
+  }
 
   switch (msg.type) {
     case 'ping': {
@@ -138,6 +181,8 @@ function handleMessage(ws: WebSocket, raw: string): void {
         reply(ws, requestId, { type: 'error', ok: false, error: 'player_required' });
         return;
       }
+      /** LAN: по умолчанию v2 (server-authoritative). Явно protocolVersion: 1 — откат. */
+      const protocolVersion = msg.protocolVersion === 1 ? 1 : 2;
       const room = store.createRoom({
         hostUserId: msg.playerId,
         displayName: msg.displayName,
@@ -147,6 +192,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
         buyIn: msg.buyIn,
         roomKind: msg.roomKind,
         hostDedicated: msg.hostDedicated === true,
+        protocolVersion,
       });
       subscribe(ws, room.id);
       broadcastRoom(room);
@@ -268,6 +314,15 @@ function handleMessage(ws: WebSocket, raw: string): void {
     case 'update_state': {
       if (!msg.roomId || msg.gameState == null) {
         reply(ws, requestId, { type: 'error', ok: false, error: 'state_required' });
+        return;
+      }
+      const roomForProto = store.getById(msg.roomId);
+      if (roomForProto?.protocol_version === 2) {
+        reply(ws, requestId, {
+          type: 'update_state_result',
+          ok: false,
+          error: 'protocol_v2_use_commands',
+        });
         return;
       }
       const result = store.updateRoomState(msg.roomId, msg.gameState, msg.playerSlots, {

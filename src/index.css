@@ -1109,189 +1109,300 @@
 /* ПК: кнопка «обновить» под кнопкой «домой»; бейдж «I:» закреплён НАД блоком «Заказывает / Сейчас ход», нижняя грань бейджа — к верхней грани блока.
    Чтобы правки карт на ПК НЕ ЗАДЕВАЛИ мобильную: все стили карт для ПК — только здесь и с селектором .game-table-root:not(.viewport-mobile).
    См. docs/PC-CARDS-PROTECT-MOBILE.md */
-/* Онлайн: код комнаты — бегущая строка, правый верх поверхности стола (моб. и ПК) */
-@keyframes online-room-code-marquee-scroll {
-  0% {
-    transform: translate3d(0, 0, 0);
-  }
-  100% {
-    transform: translate3d(-50%, 0, 0);
-  }
-}
-
-.game-table-root .online-room-code-marquee {
+/* Онлайн: код комнаты — правый верх поверхности стола (моб. и ПК) */
+.game-table-root .online-room-code-badge-wrap {
   position: absolute;
   top: 7px;
-  right: 8px;
+  right: 28px;
   left: auto;
   z-index: 20;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  max-width: min(70%, 380px);
-  min-width: 0;
-  pointer-events: none;
-  font-family: 'Orbitron', ui-sans-serif, system-ui, sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  line-height: 1.2;
-  color: #ecfeff;
-  text-shadow:
-    0 0 8px rgba(56, 189, 248, 0.75),
-    0 0 14px rgba(34, 211, 238, 0.4),
-    0 0 1px rgba(15, 23, 42, 0.95);
+  display: inline-flex;
+  align-items: stretch;
+  max-width: calc(100% - 36px);
+  pointer-events: auto;
 }
 
-.game-table-root .online-room-code-marquee__copy {
-  pointer-events: auto;
-  flex-shrink: 0;
-  width: 28px;
-  height: 26px;
+.game-table-root .online-room-code-badge-wrap--open {
+  border: 2px solid rgba(129, 140, 248, 0.82);
+  border-radius: 3px;
+  background: rgba(8, 10, 28, 0.9);
+  box-shadow:
+    0 0 14px rgba(99, 102, 241, 0.32),
+    0 0 22px rgba(56, 189, 248, 0.14),
+    inset 0 0 0 1px rgba(165, 180, 252, 0.22);
+  overflow: hidden;
+}
+
+.game-table-root .online-room-code-badge-wrap--collapsed {
+  border: 2px solid rgba(99, 102, 241, 0.78);
+  border-radius: 3px;
+  background: rgba(8, 10, 28, 0.9);
+  box-shadow:
+    0 0 12px rgba(99, 102, 241, 0.28),
+    0 0 18px rgba(56, 189, 248, 0.12),
+    inset 0 0 0 1px rgba(165, 180, 252, 0.2);
+  overflow: hidden;
+}
+
+.game-table-root .online-room-code-badge-wrap--elevated {
+  z-index: 32;
+}
+
+.game-table-root .online-room-code-badge {
+  position: relative;
+  top: auto;
+  right: auto;
   margin: 0;
   padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  border: 1px solid rgba(34, 211, 238, 0.45);
-  background: rgba(14, 116, 144, 0.45);
-  color: #e0f2fe;
-  font-size: 14px;
-  line-height: 1;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  line-height: 1;
+  flex-shrink: 0;
+  box-shadow: none;
 }
 
-.game-table-root .online-room-code-marquee__copy:focus-visible {
+.game-table-root .online-room-code-badge--collapsed {
+  display: block;
+  width: 100%;
+}
+
+.game-table-root .online-room-code-badge:focus-visible {
   outline: 2px solid rgba(56, 189, 248, 0.65);
   outline-offset: 2px;
 }
 
-.game-table-root .online-room-code-marquee__resync {
-  pointer-events: auto;
-  flex-shrink: 0;
-  width: 28px;
-  height: 26px;
-  margin: 0;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  border: 1px solid rgba(251, 191, 36, 0.55);
-  background: rgba(120, 53, 15, 0.42);
-  color: #fde68a;
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+.game-table-root .online-room-code-badge__screen {
+  position: relative;
+  display: block;
+  padding: 2px 6px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(139, 92, 246, 0.07) 0%, rgba(56, 189, 248, 0.03) 40%, transparent 72%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(30, 27, 75, 0.34) 2px,
+      rgba(30, 27, 75, 0.34) 4px
+    );
 }
 
-.game-table-root .online-room-code-marquee__resync:disabled {
-  opacity: 0.65;
-  cursor: wait;
+.game-table-root .online-room-code-badge__screen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(118deg, rgba(255, 255, 255, 0.07) 0%, transparent 38%, transparent 100%);
+  pointer-events: none;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .game-table-root .online-room-code-marquee__resync:hover:not(:disabled) {
-    background: rgba(180, 83, 9, 0.52);
+@keyframes online-room-code-badge-iridescent {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
   }
 }
 
-.game-table-root .online-room-code-marquee__resync:focus-visible {
-  outline: 2px solid rgba(251, 191, 36, 0.7);
-  outline-offset: 2px;
-}
-
-.game-table-root .online-room-code-marquee__viewport {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  /* Справа — к колоде/козырю: длиннее гасим текст, чтобы не лез к картам */
-  mask-image: linear-gradient(
-    90deg,
-    transparent 0,
-    #000 8px,
-    #000 calc(100% - 52px),
-    transparent 100%
+.game-table-root .online-room-code-badge-iridescent-text {
+  background-image: linear-gradient(
+    100deg,
+    #38bdf8 0%,
+    #7dd3fc 14%,
+    #a5b4fc 32%,
+    #c4b5fd 50%,
+    #818cf8 68%,
+    #22d3ee 84%,
+    #38bdf8 100%
   );
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    transparent 0,
-    #000 8px,
-    #000 calc(100% - 52px),
-    transparent 100%
-  );
-}
-
-.game-table-root .online-room-code-marquee__track {
-  display: inline-flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  width: max-content;
-  animation: online-room-code-marquee-scroll 22s linear infinite;
-  will-change: transform;
-}
-
-.game-table-root .online-room-code-marquee__pair {
-  display: inline-flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: baseline;
-  gap: 0.32em;
-  flex-shrink: 0;
-  white-space: nowrap;
-  padding-right: 2.25rem;
-}
-
-.game-table-root .online-room-code-marquee__lab {
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 0.92em;
-  letter-spacing: 0.08em;
-  color: rgba(186, 230, 253, 0.95);
-}
-
-.game-table-root .online-room-code-marquee__code {
-  letter-spacing: 0.2em;
-  font-weight: 800;
-  font-size: 1.05em;
-  color: #67e8f9;
-}
-
-.game-table-root .online-room-code-marquee__hint {
-  font-weight: 600;
-  font-size: 0.88em;
-  color: rgba(226, 232, 240, 0.88);
-}
-
-.game-table-root .online-room-code-marquee__sep {
-  opacity: 0.55;
-  font-weight: 700;
-}
-
-.game-table-root .online-room-code-marquee__static {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.32em;
-  white-space: normal;
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter:
+    drop-shadow(0 0 3px rgba(56, 189, 248, 0.55))
+    drop-shadow(0 0 7px rgba(129, 140, 248, 0.38));
+  animation: online-room-code-badge-iridescent 9s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .game-table-root .online-room-code-marquee__track {
-    animation: none !important;
+  .game-table-root .online-room-code-badge-iridescent-text {
+    animation: none;
+    background-position: 42% 50%;
   }
 }
 
+.game-table-root .online-room-code-badge__code {
+  position: relative;
+  z-index: 1;
+  display: block;
+  font-family: 'Share Tech Mono', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+}
+
+.game-table-root .online-room-code-badge__screen--collapsed-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  box-sizing: border-box;
+}
+
+.game-table-root .online-room-code-badge__collapsed-glyphs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.game-table-root .online-room-code-badge-icon {
+  display: block;
+  flex-shrink: 0;
+  filter:
+    drop-shadow(0 0 3px rgba(56, 189, 248, 0.55))
+    drop-shadow(0 0 7px rgba(129, 140, 248, 0.38));
+}
+
+.game-table-root .online-room-code-badge-icon--collapse {
+  width: 13px;
+  height: 13px;
+}
+
+.game-table-root .online-room-code-badge-icon--stack {
+  width: 8px;
+  height: 13px;
+}
+
+.game-table-root .online-room-code-badge-icon--expand {
+  width: 11px;
+  height: 11px;
+}
+
+.game-table-root .online-room-code-badge--collapsed .online-room-code-badge-icon--expand {
+  width: 10px;
+  height: 10px;
+}
+
+.game-table-root .online-room-code-badge-fold-btn {
+  margin: 0;
+  padding: 0 6px;
+  border: none;
+  border-left: 1px solid rgba(129, 140, 248, 0.38);
+  background: rgba(15, 18, 42, 0.55);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  line-height: 1;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+}
+
+.game-table-root .online-room-code-badge-fold-btn--collapse {
+  padding: 0 5px;
+}
+
+.game-table-root .online-room-code-badge-fold-btn:focus-visible {
+  outline: 2px solid rgba(167, 139, 250, 0.72);
+  outline-offset: -2px;
+}
+
+.game-table-root .online-room-code-badge-fold-btn:hover .online-room-code-badge-icon,
+.game-table-root .online-room-code-badge-fold-btn:focus-visible .online-room-code-badge-icon,
+.game-table-root .online-room-code-badge--collapsed:hover .online-room-code-badge-icon,
+.game-table-root .online-room-code-badge--collapsed:focus-visible .online-room-code-badge-icon {
+  filter:
+    drop-shadow(0 0 4px rgba(56, 189, 248, 0.78))
+    drop-shadow(0 0 9px rgba(167, 139, 250, 0.52));
+}
+
+.game-table-root.viewport-mobile .online-room-code-badge__screen--collapsed-chip {
+  padding: 2px 10px;
+}
+
+.game-table-root.viewport-mobile .online-room-code-badge-icon--collapse {
+  width: 14px;
+  height: 14px;
+}
+
+.game-table-root.viewport-mobile .online-room-code-badge-icon--stack {
+  width: 9px;
+  height: 14px;
+}
+
+.game-table-root.viewport-mobile .online-room-code-badge--collapsed .online-room-code-badge-icon--expand {
+  width: 12px;
+  height: 12px;
+}
+
+.game-table-root.viewport-mobile .online-room-code-badge-fold-btn--collapse {
+  min-width: 30px;
+  padding: 0 7px;
+}
+
+.game-table-root .online-room-code-tooltip {
+  min-width: 168px;
+  max-width: min(280px, calc(100vw - 24px));
+  padding-top: 38px !important;
+  text-align: center;
+  align-items: center !important;
+  z-index: 20050 !important;
+}
+
+/* Код комнаты: тост вверху экрана (не внизу — там системная плашка «Изменить / Поделиться») */
+.game-table-root .online-room-code-tooltip.game-table-tooltip-cosmic--mobile-footer {
+  top: max(18%, calc(env(safe-area-inset-top, 0px) + 76px)) !important;
+  bottom: auto !important;
+  transform: translate(-50%, 0) !important;
+  animation: game-table-tooltip-cosmic-pop-room-code 0.24s ease-out !important;
+}
+
+@keyframes game-table-tooltip-cosmic-pop-room-code {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.game-table-root .online-room-code-tooltip__code {
+  font-family: 'Share Tech Mono', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  margin-bottom: 8px;
+  color: #e9d5ff;
+  text-shadow:
+    0 0 10px rgba(167, 139, 250, 0.8),
+    0 0 22px rgba(56, 189, 248, 0.42),
+    0 0 32px rgba(99, 102, 241, 0.28);
+}
+
 @media (min-width: 1025px) {
-  .game-table-root:not(.viewport-mobile) .online-room-code-marquee {
-    font-size: 12px;
+  .game-table-root:not(.viewport-mobile) .online-room-code-badge-wrap {
     top: 9px;
-    right: 12px;
-    max-width: min(62%, 400px);
+    right: 32px;
+  }
+  .game-table-root:not(.viewport-mobile) .online-room-code-badge__screen {
+    padding: 3px 8px;
+  }
+  .game-table-root:not(.viewport-mobile) .online-room-code-badge__code {
+    font-size: 13px;
+    letter-spacing: 0.15em;
+  }
+  .game-table-root:not(.viewport-mobile) .online-room-code-badge__screen--collapsed-chip {
+    padding: 3px 8px;
   }
   /*
    * Шапка: z-index 20 и растягивание на всю ширину — «пустая» полоса перехватывала клики по центру экрана,
@@ -1576,6 +1687,18 @@
   }
   .game-table-root .card-view-root.card-dark-hand-playable-trump {
     animation: dark-hand-playable-pulse 1.35s ease-in-out infinite;
+  }
+  .game-table-root .card-view-root.card-hand-playable-lift {
+    animation: standard-hand-playable-pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes standard-hand-playable-pulse {
+    0%,
+    100% {
+      filter: brightness(1);
+    }
+    50% {
+      filter: brightness(1.07);
+    }
   }
   @keyframes dark-hand-playable-pulse {
     0%,
@@ -35605,6 +35728,34 @@ html.theme-standard
   background: rgba(2, 6, 23, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+.avatar-editor-inpage-camera {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 4px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.avatar-editor-inpage-camera__video {
+  width: min(220px, 72vw);
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid rgba(34, 211, 238, 0.45);
+  background: #020617;
+}
+
+.avatar-editor-inpage-camera__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  width: 100%;
 }
 
 .avatar-editor-modal-card {

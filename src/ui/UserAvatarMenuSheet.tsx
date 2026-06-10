@@ -23,6 +23,8 @@ export interface UserAvatarMenuSheetProps {
   onOpenProfileModal?: () => void;
   /** Сохранить новую аватарку (фото / рисунок) в профиль. */
   onSaveAvatar?: (avatarDataUrl: string | null) => void;
+  /** Сразу после снимка — синхронизация слота, если вкладка перезагрузится. */
+  onPhotoCaptured?: (avatarDataUrl: string) => void;
   /** Сохранить имя без отдельной модалки профиля. */
   onSaveDisplayName?: (displayName: string) => void;
   onTakePause?: () => void | Promise<void>;
@@ -137,6 +139,7 @@ export function UserAvatarMenuSheet({
   onClose,
   onOpenProfileModal,
   onSaveAvatar,
+  onPhotoCaptured,
   onSaveDisplayName,
   onTakePause,
 }: UserAvatarMenuSheetProps) {
@@ -438,7 +441,10 @@ export function UserAvatarMenuSheet({
               <button
                 type="button"
                 className="avatar-menu-sheet-btn avatar-menu-sheet-btn--photo"
-                onClick={openProfile}
+                onClick={() => {
+                  if (onSaveAvatar) setAvatarEditorOpen(true);
+                  else openProfile();
+                }}
               >
                 <AvatarMenuBtnIcon>
                   <AvatarMenuIconPhoto gradId={iconGradPrefix} />
@@ -477,6 +483,7 @@ export function UserAvatarMenuSheet({
       <AvatarEditorModal
         displayName={displayName}
         initialAvatarDataUrl={avatarDataUrl}
+        onPhotoCaptured={onPhotoCaptured}
         onSave={(url) => {
           onSaveAvatar(url);
           setAvatarEditorOpen(false);

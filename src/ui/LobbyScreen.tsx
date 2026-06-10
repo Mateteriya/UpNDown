@@ -8,6 +8,7 @@ import { loadLastOnlineParty } from '../lib/lastOnlineParty';
 import { peekRoomByCode } from '../lib/onlineGameApi';
 import { getOnlinePlayerId } from '../lib/deviceId';
 import { hostPanelUrlFromWsUrl, isLanGuestInvite } from '../lib/lanJoinLink';
+import { canStartOnlineRoom } from '../lib/onlineHost';
 import { getWsUrl, isWsOnlineTransport, isWsOnlineConfigured } from '../lib/onlineTransport';
 import { settlementModeBadgeLabel, type RoomPeekResult } from '../lib/roomSettlement';
 import { PUBLIC_HALL_ENABLED } from '../lib/productFlags';
@@ -16,6 +17,7 @@ import { OnlineHallScreen } from './OnlineHallScreen';
 export interface LobbyScreenProps {
   onBack: () => void;
   playerName: string;
+  onEditProfile?: () => void;
   onGoToGame?: () => void;
   /** Код комнаты из URL (?code=XXX) — подставляется в поле «Присоединиться» */
   initialJoinCode?: string;
@@ -65,6 +67,7 @@ const LOBBY_JOIN_TOTAL_MS = 68_000;
 export function LobbyScreen({
   onBack,
   playerName,
+  onEditProfile,
   onGoToGame,
   initialJoinCode,
   lanGuestInvite,
@@ -91,6 +94,7 @@ export function LobbyScreen({
     stopAutoRestoreForCurrentRoom,
     settlementMode,
     buyIn,
+    startGame,
   } = useOnlineGame();
 
   const [createBankRoom, setCreateBankRoom] = useState(false);
@@ -108,6 +112,7 @@ export function LobbyScreen({
   const [leftPlayerToast, setLeftPlayerToast] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [stopRememberBusy, setStopRememberBusy] = useState(false);
+  const [startingGame, setStartingGame] = useState(false);
   const prevSlotsRef = useRef<typeof playerSlots>([]);
   /** Актуальные слоты для отложенной проверки «ушёл ли игрок» (иначе гонка Realtime/опроса даёт ложный тост). */
   const playerSlotsRef = useRef<typeof playerSlots>(playerSlots);
@@ -118,8 +123,21 @@ export function LobbyScreen({
     if (status === 'playing' && onGoToGame) onGoToGame();
   }, [status, onGoToGame]);
 
-  const isHost = myServerIndex === 0;
+  const isCaptain = canStartOnlineRoom({ myServerIndex });
+  const humanSlots = playerSlots.filter((s) => s.userId != null && s.userId !== '');
+  const captainSlot = playerSlots.find((s) => s.slotIndex === 0 && s.userId);
   const inRoom = status === 'waiting' && roomId;
+
+  const handleStartGameFromLobby = async () => {
+    if (!isCaptain || startingGame) return;
+    setStartingGame(true);
+    try {
+      const ok = await startGame();
+      if (ok && onGoToGame) onGoToGame();
+    } finally {
+      setStartingGame(false);
+    }
+  };
 
   /** Вошли из зала — показать экран «Комната», а не список столов поверх. */
   useEffect(() => {
@@ -438,8 +456,14 @@ export function LobbyScreen({
       <>
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 20, }} >
           <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#f1f5f9' }}>Комната</h1>
-          <p style={{ margin: '0 0 12px', fontSize: 14, color: '#94a3b8' }}>
-            Вы в комнате. Дождитесь игроков или поделитесь кодом.
+          <p style={{ margin: '0 0 12px', fontSize: 14, color: '#94a3b8', textAlign: 'center', maxWidth: 320, lineHeight: 1.45 }}>
+            {isCaptain
+              ? lanWs
+                ? 'Вы ведущий (первый в комнате). Когда все готовы — нажмите «Начать игру».'
+                : 'Вы создатель комнаты. Когда все готовы — «Начать игру».'
+              : captainSlot?.displayName
+                ? `Ждём старт от ${captainSlot.displayName} (ведущий).`
+                : 'Дождитесь игроков или поделитесь кодом.'}
           </p>
           <p
             style={{
@@ -476,15 +500,15 @@ export function LobbyScreen({
           )}
           <div style={{ width: '100%', maxWidth: 280 }}>
             <p style={{ margin: '0 0 8px', fontSize: 14, color: '#94a3b8' }}>
-              В комнате: {playerSlots.length} из 4
+              Игроков: {humanSlots.length} из 4
             </p>
             <ul style={{ margin: 0, paddingLeft: 20, color: '#e2e8f0', fontSize: 14 }}>
-              {playerSlots.map((s, i) => (
+              {humanSlots.map((s) => (
                 <li key={s.slotIndex}>
                   {s.displayName}
                   {s.shortLabel ? ` (${s.shortLabel})` : ''}
-                  {i === myServerIndex && ' (вы)'}
-                  {isHost && i === 0 && ' — хост'}
+                  {s.slotIndex === myServerIndex && ' (вы)'}
+                  {s.slotIndex === 0 && ' — ведущий'}
                 </li>
               ))}
             </ul>
@@ -492,9 +516,32 @@ export function LobbyScreen({
           {error && (
             <p style={{ margin: 0, fontSize: 13, color: '#f87171' }}>{error}</p>
           )}
-          <button type="button" onClick={onGoToGame} style={buttonPrimary}>
-            Войти в игру
+          {isCaptain && (
+            <button
+              type="button"
+              disabled={startingGame || humanSlots.length < 1}
+              onClick={() => void handleStartGameFromLobby()}
+              style={{
+                ...buttonPrimary,
+                fontSize: 17,
+                boxShadow: '0 0 20px rgba(34, 211, 238, 0.25)',
+              }}
+            >
+              {startingGame
+                ? 'Запуск…'
+                : humanSlots.length >= 4
+                  ? 'Начать игру'
+                  : 'Начать игру с ИИ'}
+            </button>
+          )}
+          <button type="button" onClick={onGoToGame} style={isCaptain ? buttonSecondary : buttonPrimary}>
+            {isCaptain ? 'Открыть стол заранее' : 'Войти в игру'}
           </button>
+          {onEditProfile && (
+            <button type="button" onClick={onEditProfile} style={buttonSecondary}>
+              Селфи / редактор профиля
+            </button>
+          )}
           <button type="button" onClick={handleLeaveRoomClick} style={buttonSecondary}>
             Выйти из комнаты
           </button>

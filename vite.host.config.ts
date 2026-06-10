@@ -7,6 +7,10 @@ import { resolve } from 'path';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_WS_PROTOCOL': JSON.stringify('v2'),
+    'import.meta.env.VITE_ONLINE_TRANSPORT': JSON.stringify('ws'),
+  },
   base: '/play/',
   build: {
     outDir: 'dist-host',

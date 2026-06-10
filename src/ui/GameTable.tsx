@@ -102,6 +102,7 @@ import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
 import { UserAvatarMenuSheet } from './UserAvatarMenuSheet';
 import { canDriveOnlineRoomHost, isLanWsOnline } from '../lib/onlineHost';
+import { isServerAuthoritativeOnline } from '../lib/onlineTransport';
 import { MobileSouthChatNameTicker } from './MobileSouthChatNameTicker';
 import { TableChatDock, type TableChatDockOwnMessageHandler } from './TableChatDock';
 import { GameDealOrbitDock } from './GameDealOrbitDock';
@@ -813,6 +814,8 @@ interface GameTableProps {
   onOpenProfileModal?: () => void;
   /** Сохранить аватарку из редактора (тап по крупному аватару в меню). */
   onSaveAvatar?: (avatarDataUrl: string | null) => void;
+  /** Сразу после снимка — до «Сохранить» в редакторе. */
+  onPhotoCaptured?: (avatarDataUrl: string) => void;
   /** Сохранить имя из меню аватарки (inline, без модалки профиля). */
   onSaveDisplayName?: (displayName: string) => void;
 }
@@ -1336,7 +1339,7 @@ function difficultyForAiPlayMove(online: boolean, st: GameState, playerIndex: nu
   return st.players[playerIndex]?.aiDifficulty ?? getAiDifficulty();
 }
 
-export default function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame, onOpenProfileModal, onSaveAvatar, onSaveDisplayName }: GameTableProps) {
+export default function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame, onOpenProfileModal, onSaveAvatar, onPhotoCaptured, onSaveDisplayName }: GameTableProps) {
   const { user } = useAuth();
   const { cardPaletteLock, cardThemeLabel, cycleCardTheme } = useTheme();
   const userRef = useRef(user);
@@ -1441,7 +1444,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   );
   const [localState, setLocalState] = useState<GameState | null>(null);
   const [startingFromWaiting, setStartingFromWaiting] = useState(false);
-  const [onlineRoomCodeCopied, setOnlineRoomCodeCopied] = useState(false);
   const prevOnlineAiDriveKeyRef = useRef<string | null>(null);
   const onlineAiSendFailsRef = useRef(0);
   const [onlineAiDriveRetry, setOnlineAiDriveRetry] = useState(0);
@@ -4416,11 +4418,22 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const copyOnlineRoomCode = useCallback(() => {
     const c = online.code?.trim();
     if (!c) return;
-    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
-    void navigator.clipboard.writeText(c).then(() => {
-      setOnlineRoomCodeCopied(true);
-      window.setTimeout(() => setOnlineRoomCodeCopied(false), 2000);
-    });
+    const fallbackCopy = () => {
+      const ta = document.createElement('textarea');
+      ta.value = c;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    };
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(c).catch(fallbackCopy);
+      return;
+    }
+    fallbackCopy();
   }, [online.code]);
 
   useEffect(() => {
@@ -4493,14 +4506,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       setTrickPauseUntil(0);
       const current = stateRef.current;
       if (current?.phase === 'deal-complete') {
-        if (isOnlinePlayPhase) {
+        if (isOnlinePlayPhase && !isServerAuthoritativeOnline()) {
           /** Только хост (onlinePlayerId / host_user_id) шлёт новую раздачу — не user?.id из Google. */
           const o = onlineRef.current;
           const my = o?.onlinePlayerId;
           if (canDriveOnlineRoomHost({ onlinePlayerId: my, hostUserId: o?.hostUserId, myServerIndex: o?.myServerIndex })) {
             void o?.sendStartNextDeal?.();
           }
-        } else
+        } else if (!isOnlinePlayPhase)
           setLocalState((prev) =>
             prev?.phase === 'deal-complete' ? startNextDeal(prev) ?? prev : prev ?? null
           );
@@ -4610,6 +4623,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
 
   useEffect(() => {
     if (pendingTrickCompletionKey == null) return;
+    if (isOnlinePlayPhase && isServerAuthoritativeOnline()) return;
     const t = setTimeout(() => {
       if (isOnlinePlayPhase) {
         void online.sendCompleteTrick();
@@ -4713,6 +4727,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   // Онлайн: ход бота шлёт только **текущий хост комнаты** (host_user_id), не «слот 0 на сервере» — иначе после передачи хоста/замены на ИИ боты не ходят (живые не в myServerIndex===0).
   // Нельзя отменять ход по «ключу уже обработан»: при новой ссылке canonicalState с тем же ключом cleanup снимает таймер, а ранний return не ставил новый — ИИ замирал.
   useEffect(() => {
+    if (isServerAuthoritativeOnline()) return;
     if (!isOnlineAiTurn || !online.canonicalState || !online.sendState) return;
     const uid = online.onlinePlayerId;
     const roomHost = online.hostUserId;
@@ -5267,6 +5282,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           onClose={() => setShowAvatarMenu(false)}
           onOpenProfileModal={onOpenProfileModal}
           onSaveAvatar={onSaveAvatar}
+          onPhotoCaptured={onPhotoCaptured}
           onSaveDisplayName={onSaveDisplayName}
           onTakePause={async () => {
             setTakingPause(true);
@@ -6770,16 +6786,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             <div className="game-center-table" style={{ ...centerStyle, flex: 1, minWidth: 0 }}>
         <div style={{ ...tableOuterStyle, ...(trumpHighlightOn ? tableOuterStyleWithHighlight : {}) }}>
           <div style={{ ...tableSurfaceStyle, ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}) }}>
-            {showOnlineRoomCodeStrip && online.code && (
-              <OnlineRoomCodeMarquee
-                code={online.code}
-                prefersReducedMotion={prefersReducedMotion}
-                copied={onlineRoomCodeCopied}
-                onCopy={copyOnlineRoomCode}
-                onResyncOnlineTable={isOnlinePlayPhase ? handleOnlineRoomResync : undefined}
-                onlineResyncBusy={isOnlinePlayPhase ? onlineRoomResyncBusy : false}
-              />
-            )}
             {isMobile &&
               mobileViewportShort &&
               mobileShortHeaderImmersive &&
@@ -6798,9 +6804,12 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 />
               )}
             {isWaitingInRoom && (
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, zIndex: 8 }}>
+              <div
+                className="waiting-room-table-overlay"
+                style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, zIndex: 8, pointerEvents: 'none' }}
+              >
                 <p style={{ margin: 0, color: '#94a3b8', fontSize: 12, textAlign: 'center', maxWidth: 280, lineHeight: 1.45 }}>
-                  Код — бегущая строка вверху справа на столе; кнопка копирования там же.
+                  Код комнаты — вверху справа на столе; нажмите, чтобы скопировать.
                 </p>
                 {online.error && <p style={{ margin: 0, fontSize: 13, color: '#f87171' }}>{online.error}</p>}
                 {online.myServerIndex === 0 && (
@@ -6821,13 +6830,31 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                       color: '#f8fafc',
                       cursor: 'pointer',
                       opacity: online.playerSlots.some((s) => s.userId != null && s.userId !== '') ? 1 : 0.6,
+                      pointerEvents: 'auto',
                     }}
                   >
                     {startingFromWaiting ? 'Запуск…' : online.playerSlots.length >= 4 ? 'Начать игру' : 'Начать игру с ИИ'}
                   </button>
                 )}
-                {online.myServerIndex !== 0 && <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>Ожидание старта от хоста…</p>}
+                {online.myServerIndex !== 0 && (
+                  <p style={{ margin: 0, fontSize: 13, color: '#94a3b8', textAlign: 'center', maxWidth: 280, lineHeight: 1.45 }}>
+                    {(() => {
+                      const cap = online.playerSlots.find((s) => s.slotIndex === 0 && s.userId);
+                      return cap?.displayName
+                        ? `Ждём, пока ${cap.displayName} нажмёт «Начать игру»…`
+                        : 'Ожидание старта от ведущего (первый в комнате)…';
+                    })()}
+                  </p>
+                )}
               </div>
+            )}
+            {showOnlineRoomCodeStrip && online.code && (
+              <OnlineRoomCodeBadge
+                code={online.code}
+                onCopy={copyOnlineRoomCode}
+                isMobile={isMobileOrTablet}
+                elevated={isWaitingInRoom}
+              />
             )}
             {displayState.trumpCard && (
               <DeckWithTrump
@@ -8235,20 +8262,13 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             ref={pcTableSurfaceRef}
             style={{ ...tableSurfaceStyle, ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}) }}
           >
-            {showOnlineRoomCodeStrip && online.code && (
-              <OnlineRoomCodeMarquee
-                code={online.code}
-                prefersReducedMotion={prefersReducedMotion}
-                copied={onlineRoomCodeCopied}
-                onCopy={copyOnlineRoomCode}
-                onResyncOnlineTable={isOnlinePlayPhase ? handleOnlineRoomResync : undefined}
-                onlineResyncBusy={isOnlinePlayPhase ? onlineRoomResyncBusy : false}
-              />
-            )}
             {isWaitingInRoom && (
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, zIndex: 8 }}>
+              <div
+                className="waiting-room-table-overlay"
+                style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, zIndex: 8, pointerEvents: 'none' }}
+              >
                 <p style={{ margin: 0, color: '#94a3b8', fontSize: 12, textAlign: 'center', maxWidth: 280, lineHeight: 1.45 }}>
-                  Код — бегущая строка вверху справа на столе; кнопка копирования там же.
+                  Код комнаты — вверху справа на столе; нажмите, чтобы скопировать.
                 </p>
                 {online.error && <p style={{ margin: 0, fontSize: 13, color: '#f87171' }}>{online.error}</p>}
                 {online.myServerIndex === 0 && (
@@ -8269,13 +8289,31 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                       color: '#f8fafc',
                       cursor: 'pointer',
                       opacity: online.playerSlots.some((s) => s.userId != null && s.userId !== '') ? 1 : 0.6,
+                      pointerEvents: 'auto',
                     }}
                   >
                     {startingFromWaiting ? 'Запуск…' : online.playerSlots.length >= 4 ? 'Начать игру' : 'Начать игру с ИИ'}
                   </button>
                 )}
-                {online.myServerIndex !== 0 && <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>Ожидание старта от хоста…</p>}
+                {online.myServerIndex !== 0 && (
+                  <p style={{ margin: 0, fontSize: 13, color: '#94a3b8', textAlign: 'center', maxWidth: 280, lineHeight: 1.45 }}>
+                    {(() => {
+                      const cap = online.playerSlots.find((s) => s.slotIndex === 0 && s.userId);
+                      return cap?.displayName
+                        ? `Ждём, пока ${cap.displayName} нажмёт «Начать игру»…`
+                        : 'Ожидание старта от ведущего (первый в комнате)…';
+                    })()}
+                  </p>
+                )}
               </div>
+            )}
+            {showOnlineRoomCodeStrip && online.code && (
+              <OnlineRoomCodeBadge
+                code={online.code}
+                onCopy={copyOnlineRoomCode}
+                isMobile={isMobileOrTablet}
+                elevated={isWaitingInRoom}
+              />
             )}
             {displayState.trumpCard && (
               <DeckWithTrump tricksInDeal={displayState.tricksInDeal} trumpCard={displayState.trumpCard} trumpHighlightOn={trumpHighlightOn} dealerIndex={displayState.dealerIndex} compactTable={isMobileOrTablet} pcCardStyles={!isMobileOrTablet} />
@@ -9433,75 +9471,167 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   );
 }
 
-/** Онлайн: код комнаты — бегущая строка в правом верхнем углу поверхности стола (как immersive-marquee по идее). */
-function OnlineRoomCodeMarquee({
+const ONLINE_ROOM_CODE_TIP_TEXT = 'Скопировано. Код комнаты / стола.';
+
+function RoomCodeBadgeIcon({ kind }: { kind: 'collapse' | 'expand' | 'stack' }) {
+  const gradId = `room-code-badge-grad-${kind}`;
+  const gradient = (
+    <defs>
+      <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#38bdf8" />
+        <stop offset="34%" stopColor="#a5b4fc" />
+        <stop offset="68%" stopColor="#c4b5fd" />
+        <stop offset="100%" stopColor="#22d3ee" />
+      </linearGradient>
+    </defs>
+  );
+
+  if (kind === 'stack') {
+    return (
+      <svg className="online-room-code-badge-icon online-room-code-badge-icon--stack" viewBox="0 0 10 16" aria-hidden>
+        {gradient}
+        <path d="M2.25 1.75h5.5v5.25H2.25z" fill={`url(#${gradId})`} opacity="0.95" />
+        <path d="M2.25 9h5.5v5.25H2.25z" fill={`url(#${gradId})`} opacity="0.95" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className={`online-room-code-badge-icon online-room-code-badge-icon--${kind}`} viewBox="0 0 16 16" aria-hidden>
+      {gradient}
+      {kind === 'collapse' ? (
+        <>
+          <path d="M2.5 2.5h4.5v4.5H2.5z" fill={`url(#${gradId})`} opacity="0.95" />
+          <path d="M9 2.5h4.5v4.5H9z" fill={`url(#${gradId})`} opacity="0.95" />
+          <path d="M2.5 9h4.5v4.5H2.5z" fill={`url(#${gradId})`} opacity="0.95" />
+          <path d="M9 9h4.5v4.5H9z" fill={`url(#${gradId})`} opacity="0.95" />
+        </>
+      ) : (
+        <path
+          d="M10.5 3.5L5.5 8l5 4.5"
+          fill="none"
+          stroke={`url(#${gradId})`}
+          strokeWidth="2.1"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+    </svg>
+  );
+}
+
+/** Онлайн: пиксельный космический код комнаты (6 символов); тап — тултип + копирование. */
+function OnlineRoomCodeBadge({
   code,
-  prefersReducedMotion,
-  copied,
   onCopy,
-  onResyncOnlineTable,
-  onlineResyncBusy,
+  isMobile,
+  elevated = false,
 }: {
   code: string;
-  prefersReducedMotion: boolean;
-  copied: boolean;
   onCopy: () => void;
-  /** Полный resync + переподключение Realtime без VPN. */
-  onResyncOnlineTable?: () => void | Promise<void>;
-  onlineResyncBusy?: boolean;
+  isMobile: boolean;
+  elevated?: boolean;
 }) {
-  const chunk = (
-    <>
-      <span className="online-room-code-marquee__lab">Комната</span>
-      <span className="online-room-code-marquee__sep" aria-hidden>
-        ·
-      </span>
-      <span className="online-room-code-marquee__code">{code}</span>
-      <span className="online-room-code-marquee__sep" aria-hidden>
-        ·
-      </span>
-      <span className="online-room-code-marquee__hint">тот же аккаунт → Онлайн или «Продолжить»</span>
-      <span className="online-room-code-marquee__sep" aria-hidden>
-        ·
-      </span>
-    </>
+  const [tipOpen, setTipOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const tipTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (tipTimerRef.current != null) window.clearTimeout(tipTimerRef.current);
+    },
+    [],
   );
+
+  const handleTap = () => {
+    setTipOpen(true);
+    onCopy();
+    if (tipTimerRef.current != null) window.clearTimeout(tipTimerRef.current);
+    tipTimerRef.current = window.setTimeout(() => setTipOpen(false), 3600);
+  };
+
   return (
-    <div className="online-room-code-marquee" role="status" aria-live="polite" aria-label={`Код комнаты ${code}`}>
-      <div className="online-room-code-marquee__viewport">
-        {prefersReducedMotion ? (
-          <div className="online-room-code-marquee__static">{chunk}</div>
-        ) : (
-          <span className="online-room-code-marquee__track">
-            <span className="online-room-code-marquee__pair">{chunk}</span>
-            <span className="online-room-code-marquee__pair" aria-hidden>
-              {chunk}
+    <>
+      <div
+        className={[
+          'online-room-code-badge-wrap',
+          collapsed ? 'online-room-code-badge-wrap--collapsed' : 'online-room-code-badge-wrap--open',
+          elevated ? 'online-room-code-badge-wrap--elevated' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {collapsed ? (
+          <button
+            type="button"
+            className="online-room-code-badge online-room-code-badge--collapsed"
+            aria-label="Развернуть код комнаты"
+            title="Развернуть код"
+            onClick={() => setCollapsed(false)}
+          >
+            <span className="online-room-code-badge__screen online-room-code-badge__screen--collapsed-chip">
+              <span className="online-room-code-badge__collapsed-glyphs">
+                <RoomCodeBadgeIcon kind="stack" />
+                <RoomCodeBadgeIcon kind="expand" />
+              </span>
             </span>
-          </span>
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="online-room-code-badge"
+              onClick={handleTap}
+              aria-label={`Код комнаты ${code}. Нажмите, чтобы скопировать.`}
+              title="Код комнаты — нажмите, чтобы скопировать"
+            >
+              <span className="online-room-code-badge__screen" aria-hidden="true">
+                <span className="online-room-code-badge-iridescent-text online-room-code-badge__code">{code}</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="online-room-code-badge-fold-btn online-room-code-badge-fold-btn--collapse"
+              aria-label="Свернуть код комнаты"
+              title="Свернуть"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCollapsed(true);
+              }}
+            >
+              <RoomCodeBadgeIcon kind="collapse" />
+            </button>
+          </>
         )}
       </div>
-      {onResyncOnlineTable ? (
-        <button
-          type="button"
-          className="online-room-code-marquee__resync"
-          onClick={() => void onResyncOnlineTable()}
-          disabled={!!onlineResyncBusy}
-          title="Обновить стол с сервера, если ход не подтянулся (как переключить VPN)"
-          aria-label="Синхронизировать стол с сервером"
-        >
-          {onlineResyncBusy ? '…' : '⟳'}
-        </button>
-      ) : null}
-      <button
-        type="button"
-        className="online-room-code-marquee__copy"
-        onClick={onCopy}
-        title="Скопировать код комнаты"
-        aria-label="Скопировать код комнаты"
-      >
-        {copied ? '✓' : '⎘'}
-      </button>
-    </div>
+      {tipOpen &&
+        createPortal(
+          <div className={['game-table-root', isMobile ? 'viewport-mobile' : ''].filter(Boolean).join(' ')}>
+            <div
+              className={[
+                'game-table-tooltip-cosmic',
+                'online-room-code-tooltip',
+                'toast-with-close',
+                isMobile ? 'game-table-tooltip-cosmic--mobile-footer' : 'game-table-tooltip-cosmic--pc-tr',
+              ].join(' ')}
+              role="status"
+              aria-live="polite"
+            >
+              <button
+                type="button"
+                className="toast-close-btn"
+                aria-label="Закрыть"
+                onClick={() => setTipOpen(false)}
+              >
+                ×
+              </button>
+              <div className="online-room-code-tooltip__code">{code}</div>
+              <div className="game-table-tooltip-cosmic-body-text">{ONLINE_ROOM_CODE_TIP_TEXT}</div>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 

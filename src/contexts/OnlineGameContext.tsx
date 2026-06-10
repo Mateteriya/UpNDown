@@ -42,7 +42,12 @@ import {
 import type { SettlementMode } from '../game/partySettlement';
 import { DEFAULT_CASUAL_SETTLEMENT } from '../lib/roomSettlement';
 import type { RoomKind } from '../lib/roomSettlement';
-import { saveOnlineSession, clearOnlineSession, loadOnlineSession } from '../lib/onlineSession';
+import {
+  saveOnlineSession,
+  clearOnlineSession,
+  loadOnlineSession,
+  markLobbyUiOpen,
+} from '../lib/onlineSession';
 import { loadLastOnlineParty, clearLastOnlineParty, saveLastOnlineParty } from '../lib/lastOnlineParty';
 import {
   addIgnoredRoomForAutoRestore,
@@ -50,7 +55,9 @@ import {
   removeIgnoredRoomForAutoRestore,
 } from '../lib/onlineIgnoredRooms';
 import { getOnlinePlayerId } from '../lib/deviceId';
-import { isWsOnlineConfigured } from '../lib/onlineTransport';
+import { isServerAuthoritativeOnline } from '../lib/onlineTransport';
+import { wsV2StartGame } from '../lib/onlineGameWs';
+import { OnlineGameProviderV2 } from './OnlineGameContextV2';
 
 /** Сообщение при обрыве по таймауту fetch в supabase.ts (~55 с). */
 function formatSupabaseNetworkError(e: unknown): string {
@@ -81,7 +88,7 @@ function getDeviceId(): string {
   }
 }
 
-type OnlineStatus = 'idle' | 'waiting' | 'playing' | 'left' | 'finished';
+export type OnlineStatus = 'idle' | 'waiting' | 'playing' | 'left' | 'finished';
 
 type PendingReclaimOffer = {
   roomId: string;
@@ -144,6 +151,18 @@ function cardEqual(a: Card, b: Card): boolean {
  * Опрос вернул тот же номер раздачи, но взятка «короче» — без последних выложенных карт (кэш).
  * Подмена таким JSON уводит карты с стола обратно в руку.
  */
+function tricksTakenEqual(a: GameState, b: GameState): boolean {
+  try {
+    return JSON.stringify(a.tricksTaken) === JSON.stringify(b.tricksTaken);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Опрос/кэш вернул тот же номер раздачи, но взятка «короче» — без последних выложенных карт.
+ * Включая currentTrick=[] при картах на столе (типичный откат после 2–3 ходов в LAN).
+ */
 function isStaleShortCurrentTrick(local: GameState | null, incoming: GameState | null): boolean {
   if (local == null || incoming == null) return false;
   if (
@@ -157,7 +176,11 @@ function isStaleShortCurrentTrick(local: GameState | null, incoming: GameState |
   }
   const a = local.currentTrick ?? [];
   const b = incoming.currentTrick ?? [];
-  if (a.length <= b.length || b.length === 0) return false;
+  if (b.length >= a.length) return false;
+  if (b.length === 0 && a.length > 0) {
+    /** Первый ход раздачи: stale часто с пустой взяткой, но другим currentPlayerIndex — тоже откат. */
+    return local.tricksInDeal === incoming.tricksInDeal && tricksTakenEqual(local, incoming);
+  }
   for (let i = 0; i < b.length; i++) {
     if (!cardEqual(a[i]!, b[i]!)) return false;
   }
@@ -274,6 +297,10 @@ export interface OnlineGameContextValue {
 export const OnlineGameContext = createContext<OnlineGameContextValue | null>(null);
 
 export function OnlineGameProvider({ children }: { children: React.ReactNode }) {
+  if (isServerAuthoritativeOnline()) {
+    return <OnlineGameProviderV2>{children}</OnlineGameProviderV2>;
+  }
+
   const { user, loading: authLoading } = useAuth();
   const onlinePlayerId = useMemo(() => getOnlinePlayerId(user?.id), [user?.id]);
   const lanWs = isWsOnlineConfigured();
@@ -635,6 +662,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         const loc = canonicalStateRef.current;
         const rg = parseGameStateRevision(room.game_state_revision);
         const lr = lastAppliedGameStateRevisionRef.current;
+        if (loc != null && inc.dealNumber < loc.dealNumber) {
+          return;
+        }
         if (
           loc != null &&
           rg !== undefined &&
@@ -696,12 +726,17 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     const prev = prevHealDealNumberRef.current;
     prevHealDealNumberRef.current = dn;
     if (prev !== null && dn !== prev) {
-      void runHardRoomRefresh();
-      queueMicrotask(() => {
-        setRealtimeHealKey((k) => k + 1);
-      });
+      /** LAN: push room_snapshot уже приходит; resubscribe + hard GET давали мигание раздачи. */
+      if (lanWs) {
+        void refreshRoom();
+      } else {
+        void runHardRoomRefresh();
+        queueMicrotask(() => {
+          setRealtimeHealKey((k) => k + 1);
+        });
+      }
     }
-  }, [roomId, status, canonicalState?.dealNumber, runHardRoomRefresh]);
+  }, [roomId, status, canonicalState?.dealNumber, lanWs, refreshRoom, runHardRoomRefresh]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -742,22 +777,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       unsub();
     };
   }, [roomId, applyRoomSnapshot, refreshRoom, realtimeHealKey]);
-
-  useEffect(() => {
-    if (!roomId) return;
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') void refreshRoom();
-    };
-    const onOnline = () => {
-      void refreshRoom();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('online', onOnline);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('online', onOnline);
-    };
-  }, [roomId, refreshRoom]);
 
   /**
    * Без реакции только на ошибки канала WS «молча» висит как у вкл/выкл VPN: переподнимаем периодически канал игры и тянем строку через тяжёлый getRoom.
@@ -807,7 +826,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
    */
   /** LAN (ws): push room_snapshot + редкий опрос; Supabase: чаще из‑за Realtime/VPN. */
   const ROOM_SYNC_POLL_WAITING_MS = lanWs ? 1200 : 1600;
-  const ROOM_SYNC_POLL_PLAYING_MS = lanWs ? 1600 : 760;
+  const ROOM_SYNC_POLL_PLAYING_MS = lanWs ? 2400 : 760;
   /**
    * Раньше ~420 ms после любого send* гасили каждый тик опроса — при частых ходах ИИ/живых почти всегда «тишина» после lastSendAt,
    * а при заблокированном WebSocket Realtime стол на ПК в LAN не обновлялся без VPN. Жёсткие рассылки уже закрывает grace после записи.
@@ -825,13 +844,14 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     ) {
       return;
     }
+    if (lanWs && gameWriteInFlightRef.current > 0) return;
     const rid = roomIdRef.current;
     if (!rid) return;
     void getRoomForSyncPoll(rid).then((room) => {
       if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
       applyRoomSnapshot(room);
     });
-  }, [applyRoomSnapshot]);
+  }, [applyRoomSnapshot, lanWs]);
 
   useEffect(() => {
     if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
@@ -920,7 +940,17 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       setOnlineHydratedFromStorage(true);
       return;
     }
-    /** Не подмешиваем lastOnlineParty молча — иначе после «Скрыть»/частичной очистки снова открывается старое лобби. Явное «Продолжить» в меню вызывает tryRestoreSession. */
+    /** Облако: без sessionStorage не подмешиваем last-party молча. LAN: камера часто убивает вкладку — восстанавливаем по last-party. */
+    if (!saved && lanWs) {
+      const last = loadLastOnlineParty();
+      if (last?.roomId && !isRoomIgnoredForAutoRestore(last.roomId)) {
+        const age = last.savedAt > 0 ? Date.now() - last.savedAt : 0;
+        if (age < 4 * 60 * 60 * 1000) {
+          saveOnlineSession(last.roomId, deviceIdRef.current, last.code);
+          saved = loadOnlineSession();
+        }
+      }
+    }
     if (!saved) {
       sessionRestoreOkRef.current = false;
       setOnlineHydratedFromStorage(true);
@@ -1055,7 +1085,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     },
     [onlinePlayerId, applyRoomData]
   );
-  
+
   // --- Остальной код в основном без изменений, просто использует myServerIndex ---
   // ... (leaveRoom, startGame, sendBid, sendPlay и т.д.)
   // ... (Я включу его полностью для простоты копирования)
@@ -1210,6 +1240,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     prevHealDealNumberRef.current = null;
     clearOnlineSession();
     clearLastOnlineParty();
+    markLobbyUiOpen(false);
   }, []);
 
   const leaveRoom = useCallback(async () => {
@@ -1263,7 +1294,13 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const startGame = useCallback(async (): Promise<boolean> => {
     if (!roomId || myServerIndex !== 0) {
       if (roomId && myServerIndex !== 0) {
-        setError('Начать игру может только хост (создатель комнаты).');
+        const captain = playerSlots.find((s) => s.slotIndex === 0 && s.userId);
+        const who = captain?.displayName?.trim();
+        setError(
+          who
+            ? `Начать игру может ${who} (первый в комнате, слот ведущего).`
+            : 'Начать игру может ведущий — первый вошедший в комнату (слот 0).',
+        );
       }
       return false;
     }
@@ -1276,6 +1313,18 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (!r1?.id || r1.id !== roomId) {
       setError('Нет актуального состава комнаты. Проверьте сеть и нажмите «Начать игру» снова.');
       return false;
+    }
+    /** Комната v2 с панели хоста — нельзя update_state; только start_game на сервере. */
+    if (r1.protocol_version === 2) {
+      const res = await wsV2StartGame(roomId, onlinePlayerId);
+      if (!res.ok) {
+        setError(res.error ?? 'Не удалось начать игру (протокол v2)');
+        return false;
+      }
+      const row = await getRoom(roomId);
+      if (row) applyRoomData(row);
+      setStatus('playing');
+      return true;
     }
     await new Promise((r) => setTimeout(r, 110));
     const r2 = await getRoom(roomId);
@@ -1554,7 +1603,32 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       return r;
     }, [performSessionRestore, onlinePlayerId, user?.email, recoverJoinIfAlreadyInRoom, applyRoomData]);
-  
+
+  /** Камера на телефоне уводит вкладку в фон или перезагружает её — подтягиваем комнату при возврате. */
+  useEffect(() => {
+    const tryRestoreAfterBackground = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (roomIdRef.current) {
+        void refreshRoom();
+        return;
+      }
+      if (!onlinePlayerId && !lanWs) return;
+      void tryRestoreSession();
+    };
+    document.addEventListener('visibilitychange', tryRestoreAfterBackground);
+    window.addEventListener('pageshow', tryRestoreAfterBackground);
+    window.addEventListener('online', tryRestoreAfterBackground);
+    return () => {
+      document.removeEventListener('visibilitychange', tryRestoreAfterBackground);
+      window.removeEventListener('pageshow', tryRestoreAfterBackground);
+      window.removeEventListener('online', tryRestoreAfterBackground);
+    };
+  }, [refreshRoom, onlinePlayerId, lanWs, tryRestoreSession]);
+
+  useEffect(() => {
+    if (roomId && status === 'waiting') markLobbyUiOpen(true);
+  }, [roomId, status]);
+
     // ... Остальной код, который вы можете скопировать из предыдущей версии, он не должен требовать изменений
     // ... confirmReclaim, dismissReclaim, и т.д.
     

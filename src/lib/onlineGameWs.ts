@@ -3,7 +3,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { getWsUrl } from './onlineTransport';
+import { getWsUrl, isServerAuthoritativeOnline, isWsProtocolV2 } from './onlineTransport';
 import type { GameState } from '../game/GameEngine';
 import type {
   CreateRoomOptions,
@@ -19,6 +19,16 @@ import { normalizeCreateRoomOptions } from './roomSettlement';
 type RoomListener = (row: GameRoomRow) => void;
 type SubscribeStatusListener = (status: string) => void;
 
+export type GameStatePush = {
+  roomId: string;
+  revision: number;
+  state: GameState;
+  playerSlots?: PlayerSlot[];
+  roomPhase?: string | null;
+};
+
+type GameStateListener = (push: GameStatePush) => void;
+
 const REQUEST_TIMEOUT_MS = 25_000;
 
 let socket: WebSocket | null = null;
@@ -28,6 +38,25 @@ const pending = new Map<
   { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }
 >();
 const roomListeners = new Map<string, Set<RoomListener>>();
+const roomStatusListeners = new Map<string, Set<SubscribeStatusListener>>();
+const gameStateListeners = new Map<string, Set<GameStateListener>>();
+
+function notifyRoomStatus(roomId: string, status: string): void {
+  const set = roomStatusListeners.get(roomId);
+  if (!set) return;
+  for (const fn of set) fn(status);
+}
+
+function resubscribeAllRooms(ws: WebSocket): void {
+  for (const roomId of roomListeners.keys()) {
+    try {
+      ws.send(JSON.stringify({ type: 'subscribe_room', roomId }));
+      notifyRoomStatus(roomId, 'SUBSCRIBED');
+    } catch {
+      notifyRoomStatus(roomId, 'CHANNEL_ERROR');
+    }
+  }
+}
 
 function wsBaseUrl(): string {
   const u = getWsUrl();
@@ -47,6 +76,24 @@ function onSocketMessage(ev: MessageEvent): void {
     const room = msg.room as GameRoomRow;
     const set = roomListeners.get(room.id);
     if (set) for (const fn of set) fn(room);
+  }
+
+  if (msg.type === 'room_meta' && msg.room && typeof msg.room === 'object') {
+    const room = msg.room as GameRoomRow;
+    const set = roomListeners.get(room.id);
+    if (set) for (const fn of set) fn(room);
+  }
+
+  if (msg.type === 'game_state' && typeof msg.roomId === 'string' && msg.state) {
+    const push: GameStatePush = {
+      roomId: msg.roomId,
+      revision: typeof msg.revision === 'number' ? msg.revision : 0,
+      state: msg.state as GameState,
+      playerSlots: msg.playerSlots as PlayerSlot[] | undefined,
+      roomPhase: (msg.roomPhase as string | null) ?? null,
+    };
+    const set = gameStateListeners.get(push.roomId);
+    if (set) for (const fn of set) fn(push);
   }
 
   const requestId = msg.requestId as string | undefined;
@@ -99,6 +146,7 @@ function openNewSocket(): Promise<WebSocket> {
       clearTimeout(failTimer);
       socket = ws;
       connectPromise = null;
+      if (roomListeners.size > 0) resubscribeAllRooms(ws);
       resolve(ws);
     };
     ws.onerror = () => {
@@ -115,6 +163,9 @@ function openNewSocket(): Promise<WebSocket> {
         p.reject(new Error('Соединение с игровым сервером закрыто'));
       }
       pending.clear();
+      for (const roomId of roomListeners.keys()) {
+        notifyRoomStatus(roomId, 'TIMED_OUT');
+      }
     };
     ws.onmessage = onSocketMessage;
   });
@@ -206,6 +257,8 @@ export async function wsCreateRoom(
     buyIn: normalized.buyIn,
     roomKind: normalized.roomKind,
     hostDedicated: roomOpts?.hostDedicated === true,
+  /** LAN WS: только server-authoritative v2. */
+    ...(isServerAuthoritativeOnline() ? { protocolVersion: 2 } : {}),
   });
   if (!res.ok || !res.room) return { error: res.error ?? 'Не удалось создать комнату' };
   return { room: res.room };
@@ -336,6 +389,22 @@ export async function wsLeaveRoom(roomId: string, userId: string): Promise<{ err
   return res.ok ? {} : { error: res.error ?? 'leave_failed' };
 }
 
+export function wsSubscribeToGameState(
+  roomId: string,
+  onUpdate: GameStateListener,
+): () => void {
+  let set = gameStateListeners.get(roomId);
+  if (!set) {
+    set = new Set();
+    gameStateListeners.set(roomId, set);
+  }
+  set.add(onUpdate);
+  return () => {
+    set?.delete(onUpdate);
+    if (set?.size === 0) gameStateListeners.delete(roomId);
+  };
+}
+
 export function wsSubscribeToRoom(
   roomId: string,
   onUpdate: (row: GameRoomRow) => void,
@@ -347,7 +416,15 @@ export function wsSubscribeToRoom(
     roomListeners.set(roomId, set);
   }
   set.add(onUpdate);
-  onSubscribeStatus?.('SUBSCRIBED');
+  if (onSubscribeStatus) {
+    let statusSet = roomStatusListeners.get(roomId);
+    if (!statusSet) {
+      statusSet = new Set();
+      roomStatusListeners.set(roomId, statusSet);
+    }
+    statusSet.add(onSubscribeStatus);
+    onSubscribeStatus('SUBSCRIBED');
+  }
 
   void ensureSocket()
     .then((ws) => {
@@ -358,6 +435,10 @@ export function wsSubscribeToRoom(
   return () => {
     set?.delete(onUpdate);
     if (set?.size === 0) roomListeners.delete(roomId);
+    if (onSubscribeStatus) {
+      roomStatusListeners.get(roomId)?.delete(onSubscribeStatus);
+      if (roomStatusListeners.get(roomId)?.size === 0) roomStatusListeners.delete(roomId);
+    }
   };
 }
 
@@ -416,32 +497,150 @@ export async function wsHostPingRoom(roomId: string): Promise<{ error?: string; 
   return room ? { room } : { error: 'not_found' };
 }
 
+export async function wsV2StartGame(roomId: string, playerId: string): Promise<{ ok: boolean; error?: string; revision?: number }> {
+  const res = await sendRequest<{ ok?: boolean; error?: string; revision?: number }>({
+    type: 'start_game',
+    roomId,
+    playerId,
+  });
+  return { ok: !!res.ok, error: res.error, revision: res.revision };
+}
+
+export async function wsV2PlaceBid(
+  roomId: string,
+  seat: number,
+  bid: number,
+  playerId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await sendRequest<{ ok?: boolean; error?: string }>({
+    type: 'place_bid',
+    roomId,
+    seat,
+    bid,
+    playerId,
+  });
+  return { ok: !!res.ok, error: res.error };
+}
+
+export async function wsV2PlayCard(
+  roomId: string,
+  seat: number,
+  card: import('../game/types').Card,
+  playerId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await sendRequest<{ ok?: boolean; error?: string }>({
+    type: 'play_card',
+    roomId,
+    seat,
+    card,
+    playerId,
+  });
+  return { ok: !!res.ok, error: res.error };
+}
+
+export async function wsV2TakePause(roomId: string, playerId: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await sendRequest<{ ok?: boolean; error?: string }>({
+    type: 'take_pause',
+    roomId,
+    playerId,
+  });
+  return { ok: !!res.ok, error: res.error };
+}
+
+export async function wsV2ReturnFromPause(roomId: string, playerId: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await sendRequest<{ ok?: boolean; error?: string }>({
+    type: 'return_from_pause',
+    roomId,
+    playerId,
+  });
+  return { ok: !!res.ok, error: res.error };
+}
+
+export async function wsV2HostReturnSlot(
+  roomId: string,
+  hostId: string,
+  seat: number,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await sendRequest<{ ok?: boolean; error?: string }>({
+    type: 'host_return_slot',
+    roomId,
+    hostId,
+    seat,
+  });
+  return { ok: !!res.ok, error: res.error };
+}
+
+export async function wsV2TransferHost(
+  roomId: string,
+  hostId: string,
+  newHostUserId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await sendRequest<{ ok?: boolean; error?: string }>({
+    type: 'transfer_host',
+    roomId,
+    hostId,
+    newHostUserId,
+  });
+  return { ok: !!res.ok, error: res.error };
+}
+
+export async function wsV2HostResolveAbsent(
+  roomId: string,
+  hostId: string,
+  choice: HostResolveAbsentChoice,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await sendRequest<{ ok?: boolean; error?: string }>({
+    type: 'host_resolve_absent',
+    roomId,
+    playerId: hostId,
+    choice,
+  });
+  return { ok: !!res.ok, error: res.error };
+}
+
 export async function wsReturnSlotToPlayer(
-  _roomId: string,
-  _slotIndex: number,
+  roomId: string,
+  slotIndex: number,
+  hostId?: string,
 ): Promise<{ error?: string }> {
+  if (isWsProtocolV2() && hostId) {
+    const r = await wsV2HostReturnSlot(roomId, hostId, slotIndex);
+    return r.ok ? {} : { error: r.error };
+  }
   return { error: 'На LAN-сервере возврат слота пока не поддерживается' };
 }
 
 export async function wsTakePauseInRoom(
-  _roomId: string,
-  _userId: string,
+  roomId: string,
+  userId: string,
   _displayName: string,
   _shortLabel?: string,
 ): Promise<{ error?: string }> {
+  if (isWsProtocolV2()) {
+    const r = await wsV2TakePause(roomId, userId);
+    return r.ok ? {} : { error: r.error };
+  }
   return { error: 'На LAN-сервере пауза пока не поддерживается' };
 }
 
 export async function wsTransferHostRoom(
-  _roomId: string,
-  _newHostUserId: string,
+  roomId: string,
+  newHostUserId: string,
+  hostId?: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  if (isWsProtocolV2() && hostId) {
+    return wsV2TransferHost(roomId, hostId, newHostUserId);
+  }
   return { ok: false, error: 'На LAN-сервере смена хоста пока не поддерживается' };
 }
 
 export async function wsHostResolveAbsent(
-  _roomId: string,
-  _choice: HostResolveAbsentChoice,
+  roomId: string,
+  choice: HostResolveAbsentChoice,
+  hostId?: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  if (isWsProtocolV2() && hostId) {
+    return wsV2HostResolveAbsent(roomId, hostId, choice);
+  }
   return { ok: false, error: 'На LAN-сервере решение по absent пока не поддерживается' };
 }

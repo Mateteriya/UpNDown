@@ -466,7 +466,34 @@ Health:
 
 ---
 
-## 16. Связанные документы
+## 16. Протокол v2 (server-authoritative)
+
+С **2026-06** LAN и облачный VPS используют **протокол v2** для игровых ходов.
+
+| v1 (устаревает) | v2 (актуально) |
+|-----------------|----------------|
+| `update_state` — весь JSON стола | `play_card`, `place_bid`, `start_game` — команды |
+| Клиент вызывает `completeTrick` | Сервер: таймер 2 с → `completeTrick` |
+| Клиент шлёт `startNextDeal` | Сервер: таймер 4.5 с после `deal-complete` |
+| Опрос + merge на клиенте | Push `game_state@revision` |
+
+**Комната:** `protocol_version: 2` в `GameRoomRow`.
+
+**Клиент → сервер (игра):** `start_game`, `place_bid`, `play_card`, `take_pause`, `return_from_pause`, `host_return_slot`, `transfer_host`, `host_resolve_absent`.
+
+**Сервер → клиент:** `game_state` (revision, state), `room_meta` (слоты без смены игры), `command_result`.
+
+**Лобби без изменений:** `create_room`, `join_room`, `subscribe_room`, …
+
+Полная спецификация: [LAN-SERVER-V2-RFC.md](./LAN-SERVER-V2-RFC.md).
+
+На VPS: тот же бинарь `server/`, без `/host` и `/play/` (фронт на Vercel). `HostAutomation` (v1) **не** трогает комнаты v2 — ИИ и таймеры в `server/src/v2/`.
+
+Фронт LAN-сборки: `VITE_WS_PROTOCOL=v2` (`vite.host.config.ts`). Откат: `?wsProtocol=v1` в URL.
+
+---
+
+## 17. Связанные документы
 
 | Документ | Зачем |
 |----------|--------|

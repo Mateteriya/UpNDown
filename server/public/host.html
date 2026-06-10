@@ -270,6 +270,7 @@
       u.searchParams.set('code', code);
       u.searchParams.set('ws', (network?.wsUrlLan || wsBase()).trim());
       u.searchParams.set('transport', 'ws');
+      u.searchParams.set('wsProtocol', 'v2');
       u.searchParams.set('autojoin', '1');
       return u.toString();
     }
@@ -547,6 +548,7 @@
           displayName: 'Сервер',
           hostDedicated: true,
           roomKind: inHall ? 'public' : 'private',
+          protocolVersion: 2,
         });
         if (!res.ok || !res.room) throw new Error('Не вышло');
         currentRoom = res.room;

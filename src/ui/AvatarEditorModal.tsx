@@ -29,6 +29,15 @@ import {
   MAX_AVATAR_IMAGE_SIZE_BYTES,
 } from '../lib/avatarImage';
 import { paintNeonBrushStroke } from '../lib/avatarNeonBrush';
+import {
+  canUseInPageCamera,
+  captureSelfieDataUrl,
+  captureVideoElementDataUrl,
+  openGalleryPicker,
+  openNativeCameraPicker,
+  preferNativeCameraPicker,
+} from '../lib/avatarCamera';
+import { persistAvatarToProfile } from '../lib/profileAvatarSave';
 import { AvatarEditorChipRail } from './avatarEditor/AvatarEditorChipRail';
 import { AvatarPolishGlyph } from './icons/AvatarPolishGlyph';
 import { AvatarNeonColorPicker, BRUSH_QUICK_COLORS } from './AvatarNeonColorPicker';
@@ -72,6 +81,8 @@ export interface AvatarEditorModalProps {
   initialAvatarDataUrl?: string | null;
   onSave: (avatarDataUrl: string | null) => void;
   onCancel: () => void;
+  /** Сразу после выбора/селфи — до «Сохранить» (камера на телефоне часто перезагружает вкладку). */
+  onPhotoCaptured?: (avatarDataUrl: string) => void;
 }
 
 export function AvatarEditorModal({
@@ -79,6 +90,7 @@ export function AvatarEditorModal({
   initialAvatarDataUrl = null,
   onSave,
   onCancel,
+  onPhotoCaptured,
 }: AvatarEditorModalProps) {
   const isDesktopProfileUi = useDesktopProfileUi();
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -86,7 +98,10 @@ export function AvatarEditorModal({
   const drawCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const undoStackRef = useRef<UndoEntry[]>([]);
   const redoStackRef = useRef<UndoEntry[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const selfieInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
   const drawingRef = useRef(false);
   const undoPushedForStrokeRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -112,6 +127,8 @@ export function AvatarEditorModal({
   const [polishApplied, setPolishApplied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [selfieBusy, setSelfieBusy] = useState(false);
+  const [inPageCameraOpen, setInPageCameraOpen] = useState(false);
 
   const ensureBuffers = useCallback(() => {
     if (!baseCanvasRef.current) {
@@ -507,6 +524,105 @@ export function AvatarEditorModal({
     if (p) strokeTo(p.x, p.y);
   };
 
+  const applyPhotoDataUrl = (dataUrl: string) => {
+    pushUndoAll();
+    setError(null);
+    setPolishApplied(false);
+    photoImageCacheRef.current = null;
+    setPhotoDataUrl(dataUrl);
+    setBaseMode('photo');
+    setPhotoScale(1);
+    setPhotoOffsetX(0);
+    setPhotoOffsetY(0);
+    setTool('photo');
+    void persistAvatarToProfile(dataUrl)
+      .then((compressed) => {
+        onPhotoCaptured?.(compressed);
+      })
+      .catch(() => {
+        onPhotoCaptured?.(dataUrl);
+      });
+  };
+
+  const stopInPageCamera = useCallback(() => {
+    for (const t of cameraStreamRef.current?.getTracks() ?? []) t.stop();
+    cameraStreamRef.current = null;
+    setInPageCameraOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!inPageCameraOpen) return undefined;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 1280 } },
+          audio: false,
+        });
+        if (cancelled) {
+          for (const t of stream.getTracks()) t.stop();
+          return;
+        }
+        cameraStreamRef.current = stream;
+        const video = cameraVideoRef.current;
+        if (video) {
+          video.srcObject = stream;
+          await video.play();
+        }
+      } catch (e) {
+        setInPageCameraOpen(false);
+        if (preferNativeCameraPicker()) {
+          openNativeCameraPicker(selfieInputRef.current);
+        } else {
+          setError(e instanceof Error ? e.message : 'Не удалось открыть камеру');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      for (const t of cameraStreamRef.current?.getTracks() ?? []) t.stop();
+      cameraStreamRef.current = null;
+    };
+  }, [inPageCameraOpen]);
+
+  const handleSelfie = async () => {
+    if (selfieBusy || saving || inPageCameraOpen) return;
+    if (canUseInPageCamera()) {
+      setError(null);
+      setInPageCameraOpen(true);
+      return;
+    }
+    if (preferNativeCameraPicker()) {
+      openNativeCameraPicker(selfieInputRef.current);
+      return;
+    }
+    setSelfieBusy(true);
+    setError(null);
+    try {
+      const dataUrl = await captureSelfieDataUrl();
+      applyPhotoDataUrl(dataUrl);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось открыть камеру');
+    } finally {
+      setSelfieBusy(false);
+    }
+  };
+
+  const handleInPageCameraCapture = async () => {
+    const video = cameraVideoRef.current;
+    if (!video) return;
+    setSelfieBusy(true);
+    setError(null);
+    try {
+      applyPhotoDataUrl(await captureVideoElementDataUrl(video));
+      stopInPageCamera();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось снять кадр');
+    } finally {
+      setSelfieBusy(false);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -518,18 +634,9 @@ export function AvatarEditorModal({
       setError(`Файл не больше ${Math.round(MAX_AVATAR_IMAGE_SIZE_BYTES / 1024 / 1024)} МБ`);
       return;
     }
-    pushUndoAll();
-    setError(null);
-    setPolishApplied(false);
     const reader = new FileReader();
     reader.onload = () => {
-      photoImageCacheRef.current = null;
-      setPhotoDataUrl(reader.result as string);
-      setBaseMode('photo');
-      setPhotoScale(1);
-      setPhotoOffsetX(0);
-      setPhotoOffsetY(0);
-      setTool('photo');
+      applyPhotoDataUrl(reader.result as string);
     };
     reader.onerror = () => setError('Не удалось прочитать файл');
     reader.readAsDataURL(file);
@@ -834,10 +941,41 @@ export function AvatarEditorModal({
         {error && <p className="avatar-editor-error avatar-editor-modal-body__error">{error}</p>}
         </div>
 
+        {inPageCameraOpen && (
+          <div className="avatar-editor-inpage-camera" role="region" aria-label="Селфи">
+            <video ref={cameraVideoRef} className="avatar-editor-inpage-camera__video" playsInline muted autoPlay />
+            <div className="avatar-editor-inpage-camera__actions">
+              <button type="button" className="avatar-editor-modal-btn avatar-editor-modal-btn--ghost avatar-editor-modal-btn--compact" onClick={stopInPageCamera}>
+                Отмена
+              </button>
+              <button type="button" className="avatar-editor-modal-btn avatar-editor-modal-btn--primary avatar-editor-modal-btn--compact" disabled={selfieBusy} onClick={() => void handleInPageCameraCapture()}>
+                {selfieBusy ? '…' : 'Снять'}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="avatar-editor-modal-footer">
-          <input ref={fileInputRef} type="file" accept="image/*" className="avatar-editor-file-input" onChange={handleFileChange} />
-          <button type="button" className="avatar-editor-modal-btn avatar-editor-modal-btn--secondary avatar-editor-modal-btn--compact" onClick={() => fileInputRef.current?.click()}>
-            Фото
+          <input
+            ref={selfieInputRef}
+            type="file"
+            accept="image/*"
+            capture="user"
+            className="avatar-editor-file-input"
+            onChange={handleFileChange}
+          />
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            className="avatar-editor-file-input"
+            onChange={handleFileChange}
+          />
+          <button type="button" className="avatar-editor-modal-btn avatar-editor-modal-btn--primary avatar-editor-modal-btn--compact" disabled={selfieBusy || saving || inPageCameraOpen} onClick={() => void handleSelfie()}>
+            {selfieBusy ? 'Камера…' : inPageCameraOpen ? 'Снимаем…' : 'Селфи'}
+          </button>
+          <button type="button" className="avatar-editor-modal-btn avatar-editor-modal-btn--secondary avatar-editor-modal-btn--compact" disabled={saving || inPageCameraOpen} onClick={() => openGalleryPicker(galleryInputRef.current)}>
+            Галерея
           </button>
           {photoDataUrl ? (
             <button type="button" className="avatar-editor-modal-btn avatar-editor-modal-btn--ghost avatar-editor-modal-btn--compact" onClick={handleRemovePhoto}>
