@@ -1,6 +1,7 @@
 # LAN Server V2 — RFC
 
-Server-authoritative протокол для Up&Down (LAN и будущий VPS).
+Server-authoritative протокол для Up&Down (LAN и VPS альфа).  
+**Ветка:** `feat/lan-server-v2`. Workflow: [LAN-SERVER-V2-WORKFLOW.md](./LAN-SERVER-V2-WORKFLOW.md).
 
 ## Принципы
 
@@ -12,10 +13,14 @@ Server-authoritative протокол для Up&Down (LAN и будущий VPS)
 ## Комната
 
 ```ts
-protocol_version?: 1 | 2  // default 1
+protocol_version?: 1 | 2
 ```
 
-Новые LAN-комнаты с `VITE_WS_PROTOCOL=v2` создаются с `protocol_version: 2`.
+**Сервер (ветка v2):** новые комнаты — **`protocol_version: 2`** по умолчанию.  
+Явный откат: `create_room` с `protocolVersion: 1`.
+
+**Клиент:** при `VITE_ONLINE_TRANSPORT=ws` на `feat/lan-server-v2` все игровые команды идут через v2 (`OnlineGameContextV2`).  
+LAN-сборка QR (`npm run build:host-game`) зашивает v2 в `vite.host.config.ts`.
 
 ## Клиент → сервер
 

@@ -1,91 +1,154 @@
-# Игровой сервер Up&Down (WebSocket)
+# Игровой сервер Up&Down (WebSocket, протокол v2)
 
-Локальная партия **без Supabase** во время игры — удобно, когда облако доступно только через VPN.
+Server-authoritative синхронизация партии: клиент шлёт **команды**, сервер применяет `GameEngine` и рассылает `game_state`.
 
-## Панель хоста (ПК без игры за столом)
+**Ветка разработки:** `feat/lan-server-v2`. На `main` без merge — старый облачный путь (Supabase).
 
-После запуска сервера откройте **http://localhost:3001/host** — создание комнаты, QR и ссылка для гостей. Подробнее: [docs/HOST-UTILITY.md](../docs/HOST-UTILITY.md).
+Общий workflow: [docs/LAN-SERVER-V2-WORKFLOW.md](../docs/LAN-SERVER-V2-WORKFLOW.md).  
+Протокол: [docs/LAN-SERVER-V2-RFC.md](../docs/LAN-SERVER-V2-RFC.md).
+
+---
+
+## Панель хоста (LAN на ПК)
+
+После запуска: **http://localhost:3001/host** — комната, QR, ссылка `/play/`.  
+Один порт: `npm run host:app` (сервер + статика игры).  
+Подробнее: [docs/HOST-UTILITY.md](../docs/HOST-UTILITY.md).
+
+---
 
 ## Быстрый старт (Wi‑Fi, 3–4 игрока)
 
-### 1. Установка (один раз)
+### 1. Ветка и установка (один раз)
 
 ```bash
+git checkout feat/lan-server-v2
 npm run server:install
 ```
 
-**Windows: `EPERM` на `esbuild.exe`** — файл занят. Закройте другой терминал с `server:dev` / `tsx`, в Диспетчере задач завершите лишние `node.exe`, затем снова `npm run server:install`. Или в PowerShell:
+**Windows: `EPERM` на `esbuild.exe`** — закройте лишние `node.exe` / `server:dev`, затем снова `npm run server:install`.
 
-```powershell
-cd server
-Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
-npm install
-```
-
-### 2. Запуск сервера на ПК-хосте
+### 2. Сервер
 
 ```bash
 npm run server:dev
 ```
 
-В консоли: `ws://localhost:3001`. Для телефонов нужен **IP ПК в Wi‑Fi** (`ipconfig` → IPv4).
+В консоли: `ws://0.0.0.0:3001`. Для телефонов — **IPv4 ПК в Wi‑Fi** (`ipconfig`).
 
-### 3. Настройка фронта (`.env.local` в корне репо)
+### 3. Фронт (`.env.local` в корне репо)
 
 ```env
 VITE_ONLINE_TRANSPORT=ws
 VITE_WS_URL=ws://192.168.1.5:3001
 ```
 
-Подставьте свой IP. **Не** `localhost` на телефонах — только IP ПК.
+Подставьте свой IP. На телефонах — не `localhost`.
 
-### 4. Запуск приложения с доступом по сети
+### 4. Приложение по сети
 
 ```bash
 npm run dev:host
 ```
 
-На ПК: `http://localhost:5173`  
-На телефонах в той же Wi‑Fi: `http://192.168.1.5:5173`
+ПК: `http://localhost:5173`  
+Телефоны: `http://192.168.1.5:5173`
+
+Или одной командой: `npm run host:app` (сервер + `dist-host` на `:3001/play/`).
 
 ### 5. Игра
 
-1. Задайте имя в профиле (модалка).
-2. Онлайн-лобби → создать комнату / войти по коду.
-3. Вход в Google **не обязателен** в режиме `ws` (идентификатор — device id в браузере).
+1. Имя в профиле.
+2. Онлайн-лобби → создать / войти по коду.
+3. Google **не обязателен** в режиме `ws`.
 
-Партия (ходы, заказы) идёт **только** через WebSocket на ПК. Supabase не нужен для синхронизации стола (VPN можно выключить после открытия страницы, если не используете вход через Google).
+Партия идёт **только** через WebSocket. Supabase не нужен для синхронизации стола.
 
-## Вернуться на Supabase (прод)
+---
 
-Уберите или закомментируйте в `.env.local`:
+## Протокол v2 (кратко)
+
+### Лобби (клиент → сервер)
+
+`create_room`, `join_room`, `leave_room`, `subscribe_room`, `get_room`, `update_slots`, `update_display_name`, `list_public_waiting`, `peek_room`, `recover_join`
+
+Новые комнаты: **`protocol_version: 2`** по умолчанию. Откат: `create_room` с `protocolVersion: 1`.
+
+### Игра (клиент → сервер)
+
+| type | Назначение |
+|------|------------|
+| `start_game` | Старт партии (хост) |
+| `place_bid` | Заказ |
+| `play_card` | Ход |
+| `take_pause` / `return_from_pause` | Пауза |
+| `host_return_slot` | Хост занимает слот |
+| `transfer_host` | Смена хоста |
+| `host_resolve_absent` | Absent host |
+
+**Запрещено в v2:** `update_state`.
+
+### Сервер → клиент
+
+| type | Назначение |
+|------|------------|
+| `hello` | Подключение OK |
+| `game_state` | `revision`, полный `state` |
+| `room_snapshot` / `room_meta` | Лобби, слоты |
+| `command_result` | Ответ на команду |
+| `error` | Ошибка |
+
+Таймеры на сервере: взятка ~2 с, следующая раздача ~4.5 с после `deal-complete`.  
+ИИ: `server/src/v2/AiDriver.ts` (пустые слоты), не на клиенте.
+
+Код: `server/src/v2/`, типы — `server/src/protocol.ts`.
+
+---
+
+## Порт и переменные
+
+| Переменная | По умолчанию | Назначение |
+|------------|--------------|------------|
+| `PORT` | `3001` | HTTP + WebSocket |
+| `HOST` | `0.0.0.0` | Слушать все интерфейсы |
+| `PUBLIC_WS_URL` | — | `wss://…` для ссылок в API (VPS) |
+| `GAME_DIST` | — | Путь к `dist-host` (LAN `/play/`) |
+| `NODE_ENV` | — | `production` на VPS |
+
+```bash
+PORT=3002 npm run start --prefix server
+```
+
+---
+
+## Тесты
+
+```bash
+npm test --prefix server
+```
+
+Unit-тесты: `server/src/v2/GameSession.test.ts`.
+
+---
+
+## Ограничения (альфа)
+
+- Комнаты **в памяти** — рестарт сбрасывает столы.
+- Рейтинг / `finish_game` после партии — пока через Supabase на клиенте.
+- Чат комнаты — Supabase, не WS.
+- Один процесс Node; без персистентности и кластера.
+
+Облачный деплой (VPS): [docs/TECH-DIRECTOR-ONLINE-SERVER.md](../docs/TECH-DIRECTOR-ONLINE-SERVER.md).
+
+---
+
+## Вернуться на Supabase (облако на main)
+
+В `.env.local` уберите или закомментируйте:
 
 ```env
 # VITE_ONLINE_TRANSPORT=ws
 # VITE_WS_URL=...
 ```
 
-По умолчанию `VITE_ONLINE_TRANSPORT` не задан → облачный режим.
-
-## Порт и хост
-
-- `PORT` — по умолчанию `3001`
-- `HOST` — по умолчанию `0.0.0.0` (слушает все интерфейсы)
-
-```bash
-PORT=3002 npm run start --prefix server
-```
-
-## Синхронизация
-
-- После входа в комнату сервер шлёт `room_snapshot` всем подписчикам.
-- `game_state_revision` растёт **только** при ходах (`update_state`), не при смене имени/аватара в лобби.
-- Хост (создатель комнаты) автоматически запускает следующую раздачу после итогов.
-
-## Ограничения MVP
-
-- Комнаты **в памяти** — перезапуск сервера сбрасывает столы.
-- Нет паузы / absent host / смены хоста (как в Supabase-RPC).
-- Рейтинг и архив матчей в конце партии — пока только через Supabase-режим.
-
-Подробный план прод-сервера: `docs/ONLINE-SERVER-INSTRUCTIONS.md`.
+Без `VITE_ONLINE_TRANSPORT=ws` клиент использует Supabase Realtime.

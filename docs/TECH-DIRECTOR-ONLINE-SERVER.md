@@ -1,9 +1,13 @@
 # Инструкция для технического директора: игровой WebSocket-сервер Up&Down
 
-**Только для техдиректора.** Деплой облачного онлайна (игра через интернет).  
-Не путать с **LAN-утилитой** на домашнем ПК — она отдельная, для одной Wi‑Fi; на VPS её не ставим.
+**Только для техдиректора.** Поднятие **альфа-VPS** для тестов нового server-authoritative сервера (протокол **v2**).  
+**Не прод:** Vercel Production на `main` пока на Supabase; фронт v2 тестирует владелец отдельно ([LAN-SERVER-V2-WORKFLOW.md](./LAN-SERVER-V2-WORKFLOW.md)).
 
-Владелец продукта после вашей работы: [OWNER-AFTER-WS-READY.md](./OWNER-AFTER-WS-READY.md).
+Не путать с **LAN-утилитой** на домашнем ПК (`host:app`, `/host`) — на облачном VPS панель `/host` не обязательна.
+
+**Ветка кода:** `feat/lan-server-v2` (до merge в `main`).
+
+Владелец после вашего `wss://`: [OWNER-AFTER-WS-READY.md](./OWNER-AFTER-WS-READY.md).
 
 ---
 
@@ -51,7 +55,7 @@
        └── комнаты в RAM, протокол JSON
 ```
 
-**Supabase** остаётся для входа и профилей; **синхронизация стола во время партии** — только через ваш WS.
+**Supabase** остаётся для входа и профилей (и рейтинга после партии на клиенте); **синхронизация стола во время партии** — только через ваш WS (протокол v2).
 
 ---
 
@@ -79,16 +83,19 @@
 ```bash
 git clone <URL-репозитория-UpNDown> /opt/updown
 cd /opt/updown
+git fetch origin
+git checkout feat/lan-server-v2
 ```
 
-Владелец выдаёт read-доступ к GitHub/GitLab или архив.
+Владелец выдаёт read-доступ к GitHub/GitLab или архив **с этой ветки**.  
+После merge v2 в `main` можно перейти на `main` / `staging` — владелец сообщит.
 
 ### Вариант B — архив от владельца
 
 Распаковать в `/opt/updown` так, чтобы были:
 
 - `server/`
-- `src/game/` (и зависимости, которые тянет `server/src/hostAutomation.ts`)
+- `src/game/` (движок и ИИ; импортируется из `server/src/v2/` и `server/src/hostAutomation.ts`)
 
 ### Установка зависимостей
 
@@ -381,25 +388,49 @@ wscat -c wss://game.example.com
 
 ---
 
-## 11. Протокол WebSocket (кратко)
+## 11. Протокол WebSocket v2 (кратко)
 
-Полные типы: `server/src/protocol.ts`, клиент: `src/lib/onlineGameWs.ts`.
+Полная спецификация: [LAN-SERVER-V2-RFC.md](./LAN-SERVER-V2-RFC.md).  
+Типы: `server/src/protocol.ts`, `server/src/v2/`, клиент: `src/lib/onlineGameWs.ts`, `OnlineGameContextV2`.
 
-| Клиент → сервер | Назначение |
-|-----------------|------------|
-| `create_room` | Создать комнату, код |
+**Принцип:** клиент шлёт **команды**, сервер рассылает `game_state@revision`.  
+`update_state` **запрещён** для комнат `protocol_version: 2`.
+
+### Лобби (клиент → сервер)
+
+| type | Назначение |
+|------|------------|
+| `create_room` | Создать комнату (по умолчанию v2; откат: `protocolVersion: 1`) |
 | `join_room` | Войти по коду |
 | `leave_room` | Выйти |
-| `subscribe_room` | Подписка на обновления |
-| `update_state` | Ход / заказ / фаза |
-| `list_public_waiting` | Зал столов (публичные комнаты) |
+| `subscribe_room` / `get_room` / `recover_join` | Подписка и восстановление |
+| `update_slots` / `update_display_name` | Слоты и имена в лобби |
+| `list_public_waiting` | Зал столов |
 | `peek_room` | Подсказка по коду |
 
-| Сервер → клиент | Назначение |
-|-----------------|------------|
+### Игра v2 (клиент → сервер)
+
+| type | Назначение |
+|------|------------|
+| `start_game` | Старт партии (хост) |
+| `place_bid` | Заказ |
+| `play_card` | Ход |
+| `take_pause` / `return_from_pause` | Пауза |
+| `host_return_slot` | Хост занимает слот |
+| `transfer_host` | Смена хоста |
+| `host_resolve_absent` | Absent host |
+
+Таймеры **на сервере:** взятка ~2 с, следующая раздача ~4.5 с. ИИ на пустых слотах — `server/src/v2/AiDriver.ts`.
+
+### Сервер → клиент
+
+| type | Назначение |
+|------|------------|
 | `hello` | Подключение OK |
-| `room_snapshot` | Состояние комнаты |
-| `create_room_result` / `join_room_result` | Ответ на запрос |
+| `game_state` | `revision`, полный `state` |
+| `room_snapshot` / `room_meta` | Лобби |
+| `command_result` | Ответ на команду (`requestId`, `ok`, `error`) |
+| `create_room_result` / `join_room_result` | Ответ на лобби-RPC |
 | `error` | Ошибка |
 
 Формат: JSON, опционально `requestId` для RPC.
@@ -410,6 +441,8 @@ wscat -c wss://game.example.com
 
 ```bash
 cd /opt/updown
+git fetch origin
+git checkout feat/lan-server-v2   # пока v2 не в main
 git pull
 npm install
 npm run server:install
@@ -417,23 +450,26 @@ sudo systemctl restart updown-ws
 curl -s https://game.example.com/api/version
 ```
 
-**Активные комнаты пропадут** при рестарте — предупредите владельца, если деплой в прайм-тайм.
+**Активные комнаты пропадут** при рестарте — предупредите владельца.
 
 ---
 
-## 13. Ограничения MVP (знать заранее)
+## 13. Ограничения альфы (знать заранее)
 
-- Комнаты **только в памяти**;
-- нет полного parity с Supabase-RPC (absent host, пауза, смена хоста — урезано);
-- **рейтинг / `finish_game`** в конце партии может ещё идти через Supabase на клиенте — согласовать с владельцем;
-- панель `/host` на VPS **не обязательна** для облачного сценария.
+- Комнаты **только в памяти** — рестарт процесса сбрасывает столы.
+- **Пауза, смена хоста, absent host** — есть в v2 по WS; полный parity с Supabase-RPC не гарантирован.
+- **Рейтинг / `finish_game`** после партии — пока через Supabase на клиенте, не на WS-сервере.
+- **Чат комнаты** — Supabase, не WS.
+- Панель `/host` на VPS **не обязательна** — гости входят по коду в PWA владельца.
+- Один процесс Node; без кластера и персистентности.
+- Код и фронт v2 — ветка **`feat/lan-server-v2`** до merge в `main`.
 
 ---
 
 ## 14. Чеклист техдиректора
 
 - [ ] VPS Linux, Node 18+ или Docker
-- [ ] Клонирован полный репозиторий (`server/` + `src/game/`)
+- [ ] Клонирован полный репозиторий, ветка **`feat/lan-server-v2`** (`server/` + `src/game/`)
 - [ ] `npm install` + `npm run server:install`
 - [ ] Процесс под systemd / pm2 / Docker с `Restart`
 - [ ] `PUBLIC_WS_URL=wss://…` в окружении
@@ -466,38 +502,13 @@ Health:
 
 ---
 
-## 16. Протокол v2 (server-authoritative)
-
-С **2026-06** LAN и облачный VPS используют **протокол v2** для игровых ходов.
-
-| v1 (устаревает) | v2 (актуально) |
-|-----------------|----------------|
-| `update_state` — весь JSON стола | `play_card`, `place_bid`, `start_game` — команды |
-| Клиент вызывает `completeTrick` | Сервер: таймер 2 с → `completeTrick` |
-| Клиент шлёт `startNextDeal` | Сервер: таймер 4.5 с после `deal-complete` |
-| Опрос + merge на клиенте | Push `game_state@revision` |
-
-**Комната:** `protocol_version: 2` в `GameRoomRow`.
-
-**Клиент → сервер (игра):** `start_game`, `place_bid`, `play_card`, `take_pause`, `return_from_pause`, `host_return_slot`, `transfer_host`, `host_resolve_absent`.
-
-**Сервер → клиент:** `game_state` (revision, state), `room_meta` (слоты без смены игры), `command_result`.
-
-**Лобби без изменений:** `create_room`, `join_room`, `subscribe_room`, …
-
-Полная спецификация: [LAN-SERVER-V2-RFC.md](./LAN-SERVER-V2-RFC.md).
-
-На VPS: тот же бинарь `server/`, без `/host` и `/play/` (фронт на Vercel). `HostAutomation` (v1) **не** трогает комнаты v2 — ИИ и таймеры в `server/src/v2/`.
-
-Фронт LAN-сборки: `VITE_WS_PROTOCOL=v2` (`vite.host.config.ts`). Откат: `?wsProtocol=v1` в URL.
-
----
-
-## 17. Связанные документы
+## 16. Связанные документы
 
 | Документ | Зачем |
 |----------|--------|
-| [OWNER-AFTER-WS-READY.md](./OWNER-AFTER-WS-READY.md) | Шаги владельца после вашего URL |
+| [LAN-SERVER-V2-WORKFLOW.md](./LAN-SERVER-V2-WORKFLOW.md) | Ветка, локально, VPS, порядок до merge в main |
+| [LAN-SERVER-V2-RFC.md](./LAN-SERVER-V2-RFC.md) | Полная спецификация протокола v2 |
+| [OWNER-AFTER-WS-READY.md](./OWNER-AFTER-WS-READY.md) | Шаги владельца после вашего URL (альфа) |
 | [server/README.md](../server/README.md) | Локальный запуск, порты |
-| [ONLINE-SERVER-INSTRUCTIONS.md](./ONLINE-SERVER-INSTRUCTIONS.md) | Общая архитектура (устаревшие чеклисты «WS не реализован» игнорировать) |
+| [ONLINE-SERVER-INSTRUCTIONS.md](./ONLINE-SERVER-INSTRUCTIONS.md) | Историческая архитектура |
 | [HOST-LAN-PUBLISH.md](./HOST-LAN-PUBLISH.md) | LAN на домашнем ПК — **не этот деплой** |

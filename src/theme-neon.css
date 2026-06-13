@@ -54,14 +54,14 @@
 /* Имена оппонентов и игрока — сплошной цвет (в т.ч. .opponent-slot-header-display-name у С/З/В) */
 .theme-neon .game-table-root.viewport-mobile .opponent-slot-header .player-panel-name,
 .theme-neon .game-table-root.viewport-mobile .opponent-slot-header > span:not([class]),
-.theme-neon .game-table-root.viewport-mobile .opponent-slot-header .opponent-slot-header-display-name:not(.opponent-name-offline-ai-pick) {
+.theme-neon .game-table-root.viewport-mobile .opponent-slot-header .opponent-slot-header-display-name:not(.opponent-name-offline-ai-pick):not(.opponent-slot-header-display-name--premium-human) {
   background: none !important;
   background-clip: unset !important;
   -webkit-background-clip: unset !important;
   color: #e2e8f0 !important;
   -webkit-text-fill-color: #e2e8f0 !important;
 }
-.theme-neon .game-table-root.viewport-mobile .user-player-panel .player-panel-name {
+.theme-neon .game-table-root.viewport-mobile .user-player-panel .player-panel-name:not(.player-panel-name--premium-user) {
   background: none !important;
   background-clip: unset !important;
   -webkit-background-clip: unset !important;
@@ -72,7 +72,7 @@
     0 1px 0 rgba(0, 0, 0, 0.15),
     0 0 8px rgba(251, 146, 60, 0.3) !important;
 }
-.theme-neon .game-table-root.viewport-mobile .player-info-panel-your-turn .player-panel-name:not(.your-turn-prompt) {
+.theme-neon .game-table-root.viewport-mobile .player-info-panel-your-turn .player-panel-name:not(.your-turn-prompt):not(.player-panel-name--premium-user) {
   color: #c4b5fd !important;
   -webkit-text-fill-color: #c4b5fd !important;
 }

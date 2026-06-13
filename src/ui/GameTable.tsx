@@ -926,6 +926,22 @@ const trickWinnerGlowStyle: CSSProperties = {
   ].join(', '),
 };
 
+/** Моб. сдающий оппонент: голубой неон панели (торги — ярче, игра — слабее; основной вид в CSS). */
+const dealerOpponentPanelGlowBidding = [
+  'inset 0 0 24px rgba(56, 189, 248, 0.18)',
+  'inset 0 0 0 1px rgba(125, 211, 252, 0.45)',
+  '0 0 0 1px rgba(34, 211, 238, 0.32)',
+  '0 0 20px rgba(56, 189, 248, 0.36)',
+  '0 0 36px rgba(34, 211, 238, 0.18)',
+].join(', ');
+const dealerOpponentPanelGlowPlaying = [
+  'inset 0 0 16px rgba(56, 189, 248, 0.1)',
+  'inset 0 0 0 1px rgba(125, 211, 252, 0.28)',
+  '0 0 0 1px rgba(34, 211, 238, 0.2)',
+  '0 0 12px rgba(56, 189, 248, 0.22)',
+  '0 0 22px rgba(34, 211, 238, 0.1)',
+].join(', ');
+
 /** Дополнительные тени для подсветки первого ходящего во время заказа — в тон бейджу «Первый заказ/ход» (оранжевый неон) */
 const firstMoverBiddingGlowExtraShadow = [
   'inset 0 0 28px rgba(251, 146, 60, 0.24)',
@@ -3539,6 +3555,21 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     state?.phase === 'playing' &&
     !!state.currentTrick.some((_, trickCardIndex) => getTrickPlayerIndex(state.trickLeaderIndex, trickCardIndex) === humanIdx);
   const isHumanBidding = (state?.phase === 'bidding' || state?.phase === 'dark-bidding') && state.currentPlayerIndex === humanIdx;
+  /** Премиум-градиент имени Юга: всегда на мобиле; «Ваш ход!/заказ!» — отдельный span без класса. */
+  const mobileSouthUsePremiumNameClass = isMobile && !!state;
+  const mobileSouthPlayerNameClassName = [
+    'player-panel-name',
+    mobileSouthUsePremiumNameClass ? MOBILE_SOUTH_PREMIUM_PLAYER_NAME_CLASS : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const dealerSouthMobilePanelHighlight = isMobile && !!state && state.dealerIndex === humanIdx;
+  const dealerSouthMobilePanelBidding =
+    dealerSouthMobilePanelHighlight &&
+    (state.phase === 'bidding' || state.phase === 'dark-bidding');
+  const dealerSouthMobilePanelPlaying =
+    dealerSouthMobilePanelHighlight &&
+    (state.phase === 'playing' || state.phase === 'trick-complete');
   const [mobileTurnEdgeGlowReady, setMobileTurnEdgeGlowReady] = useState(false);
   const isHumanActionPhase = isHumanTurn || isHumanBidding;
   const showMobileTurnEdgeGlow = isMobile && isHumanActionPhase && mobileTurnEdgeGlowReady;
@@ -7305,7 +7336,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               : {}),
           }}
         >
-        <div className={['game-mobile-player-info', 'user-player-panel', mobileViewportShort ? 'user-player-panel--short-vh' : '', userMobilePanelOrderExactGlow ? 'user-player-panel-order-exact' : '', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : ''].filter(Boolean).join(' ')} style={{
+        <div className={['game-mobile-player-info', 'user-player-panel', mobileViewportShort ? 'user-player-panel--short-vh' : '', userMobilePanelOrderExactGlow ? 'user-player-panel-order-exact' : '', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : '', dealerSouthMobilePanelHighlight ? 'dealer-opponent-panel' : '', dealerSouthMobilePanelBidding ? 'dealer-opponent-panel-mobile--bidding' : '', dealerSouthMobilePanelPlaying ? 'dealer-opponent-panel-mobile--playing' : '', dealerSouthMobilePanelBidding || dealerSouthMobilePanelPlaying ? 'dealer-panel-stars-live' : ''].filter(Boolean).join(' ')} style={{
           ...playerInfoPanelStyle,
           ...(isMobile && !mobileViewportShort ? playerInfoPanelStyleMobileSouth : {}),
           ...(isMobile && mobileViewportShort
@@ -7342,28 +7373,37 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             : {}),
         }}>
             <div
-              className="game-mobile-user-south-main"
+              className="user-player-panel-south-stars-host"
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'max-content 1fr',
-                gridTemplateRows: mobileViewportShort ? ('auto auto auto' as const) : ('auto auto' as const),
-                columnGap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-                /* База 5×scale (~8px), −3px; в short — ещё плотнее */
-                rowGap: mobileViewportShort
-                  ? Math.max(1, Math.round(4 * MOBILE_SOUTH_PLAYER_CARD_SCALE) - 4)
-                  : Math.max(2, Math.round(5 * MOBILE_SOUTH_PLAYER_CARD_SCALE) - 3),
-                alignItems: 'start',
+                position: 'relative',
                 width: '100%',
-                /* Short: не растягиваем сетку на flex-остаток — иначе лишняя высота и вертикальный скролл у .game-table-main-wrap--short-vh */
-                flex: mobileViewportShort ? ('0 1 auto' as const) : ('1 1 0' as const),
                 minWidth: 0,
-                /* zoom: масштабирует блок в компоновке без «роста вверх» как у transform scale + origin */
-                ...(mobileViewportShort && !mobileShortHeaderImmersive && shortVhSouthStretchPx > 0
-                  ? ({ zoom: shortVhSouthUiScale } as CSSProperties)
-                  : {}),
-                ...(mobileViewportShort ? mobileSouthShortUserPanelChrome.southMainChrome : {}),
+                flex: mobileViewportShort ? ('0 1 auto' as const) : ('1 1 0' as const),
               }}
             >
+              {dealerSouthMobilePanelHighlight ? <DealerMobilePanelStars layout="south" /> : null}
+              <div
+                className="game-mobile-user-south-main"
+                style={{
+                  position: 'relative',
+                  display: 'grid',
+                  gridTemplateColumns: 'max-content 1fr',
+                  gridTemplateRows: mobileViewportShort ? ('auto auto auto' as const) : ('auto auto' as const),
+                  columnGap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                  /* База 5×scale (~8px), −3px; в short — ещё плотнее */
+                  rowGap: mobileViewportShort
+                    ? Math.max(1, Math.round(4 * MOBILE_SOUTH_PLAYER_CARD_SCALE) - 4)
+                    : Math.max(2, Math.round(5 * MOBILE_SOUTH_PLAYER_CARD_SCALE) - 3),
+                  alignItems: 'start',
+                  width: '100%',
+                  minWidth: 0,
+                  /* zoom: масштабирует блок в компоновке без «роста вверх» как у transform scale + origin */
+                  ...(mobileViewportShort && !mobileShortHeaderImmersive && shortVhSouthStretchPx > 0
+                    ? ({ zoom: shortVhSouthUiScale } as CSSProperties)
+                    : {}),
+                  ...(mobileViewportShort ? mobileSouthShortUserPanelChrome.southMainChrome : {}),
+                }}
+              >
               {mobileSouthHandLayout != null && mobileViewportShort && (() => {
                 const { mobileHandLen, m9, overlapPx, rowTransform, overlapScrubEnabled } = mobileSouthHandLayout;
                 return (
@@ -7625,9 +7665,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                           <span
                             className={['player-panel-name', 'your-turn-prompt'].join(' ')}
                             style={{
-                              ...playerNameStyle,
-                              fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE * 0.9),
-                              ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
+                              ...buildMobileSouthPlayerNameStyle(
+                                Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE * 0.9),
+                                false,
+                              ),
                               ...yourTurnPromptStyle,
                             }}
                             title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
@@ -7639,12 +7680,11 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                             name={displayState.players[humanIdx].name}
                             chatBody={mobileOwnChatTicker?.body ?? null}
                             chatKey={mobileOwnChatTicker?.key ?? 0}
-                            nameClassName="player-panel-name"
-                            nameStyle={{
-                              ...playerNameStyle,
-                              fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE * 0.9),
-                              ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
-                            }}
+                            nameClassName={mobileSouthPlayerNameClassName}
+                            nameStyle={buildMobileSouthPlayerNameStyle(
+                              Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE * 0.9),
+                              mobileSouthUsePremiumNameClass,
+                            )}
                             title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
                           />
                         )}
@@ -7909,9 +7949,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                           <span
                             className={['player-panel-name', 'your-turn-prompt'].join(' ')}
                             style={{
-                              ...playerNameStyle,
-                              fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-                              ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
+                              ...buildMobileSouthPlayerNameStyle(
+                                Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                                false,
+                              ),
                               ...yourTurnPromptStyle,
                             }}
                             title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
@@ -7923,12 +7964,11 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                             name={displayState.players[humanIdx].name}
                             chatBody={mobileOwnChatTicker?.body ?? null}
                             chatKey={mobileOwnChatTicker?.key ?? 0}
-                            nameClassName="player-panel-name"
-                            nameStyle={{
-                              ...playerNameStyle,
-                              fontSize: Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-                              ...(state.currentPlayerIndex === humanIdx && !showYourTurnPrompt ? nameActiveMobileStyle : {}),
-                            }}
+                            nameClassName={mobileSouthPlayerNameClassName}
+                            nameStyle={buildMobileSouthPlayerNameStyle(
+                              Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                              mobileSouthUsePremiumNameClass,
+                            )}
                             title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
                           />
                         )}
@@ -8031,7 +8071,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   </div>
                 </>
               )}
-          </div>
+              </div>
+            </div>
           {trumpHighlightOn &&
           userTurnGarlandReadyMobile &&
           isUserActiveTurnForGarlandMobile &&
@@ -13670,6 +13711,291 @@ function opponentStatStyleWithoutTextColor(style: React.CSSProperties): React.CS
   return rest;
 }
 
+const DEALER_SOUTH_SATURN_SPOTS: {
+  left: string;
+  top: string;
+  rot: number;
+  variant: 'gold' | 'lavender' | 'ice';
+  sizePx: number;
+}[] = [
+  { left: '87%', top: '7%', rot: -16, variant: 'gold', sizePx: 7.5 },
+  { left: '30%', top: '58%', rot: 11, variant: 'lavender', sizePx: 9.5 },
+  { left: '28%', top: '6%', rot: -9, variant: 'ice', sizePx: 8.5 },
+];
+
+const DEALER_SOUTH_SATURN_PALETTES = {
+  gold: {
+    body: ['#fffbeb', '#fbbf24', '#b45309'] as const,
+    ringOuter: '#a5f3fc',
+    ringInner: '#fde68a',
+    glow: 'rgba(251, 191, 36, 0.62)',
+  },
+  lavender: {
+    body: ['#faf5ff', '#c084fc', '#6d28d9'] as const,
+    ringOuter: '#f0abfc',
+    ringInner: '#ddd6fe',
+    glow: 'rgba(192, 132, 252, 0.65)',
+  },
+  ice: {
+    body: ['#ecfeff', '#5eead4', '#0f766e'] as const,
+    ringOuter: '#bae6fd',
+    ringInner: '#a5f3fc',
+    glow: 'rgba(94, 234, 212, 0.6)',
+  },
+} as const;
+
+/** Крошечный Сатурн с кольцами — редкий акцент на панели Юга. */
+function DealerSouthPanelSaturn({
+  bodyGradientId,
+  rot,
+  variant,
+}: {
+  bodyGradientId: string;
+  rot: number;
+  variant: keyof typeof DEALER_SOUTH_SATURN_PALETTES;
+}) {
+  const palette = DEALER_SOUTH_SATURN_PALETTES[variant];
+  return (
+    <span
+      className={`dealer-south-panel-saturn dealer-south-panel-saturn--${variant}`}
+      style={{
+        ['--saturn-rot' as string]: `${rot}deg`,
+        ['--saturn-glow' as string]: palette.glow,
+      }}
+      aria-hidden
+    >
+      <svg viewBox="0 0 24 24" width="100%" height="100%" focusable="false" aria-hidden>
+        <defs>
+          <radialGradient id={bodyGradientId} cx="34%" cy="28%" r="68%">
+            <stop offset="0%" stopColor={palette.body[0]} />
+            <stop offset="38%" stopColor={palette.body[1]} />
+            <stop offset="100%" stopColor={palette.body[2]} />
+          </radialGradient>
+        </defs>
+        <ellipse
+          cx="12"
+          cy="12.6"
+          rx="9.6"
+          ry="2.35"
+          fill="none"
+          stroke={palette.ringOuter}
+          strokeWidth="1.05"
+          opacity="0.92"
+          transform="rotate(-17 12 12.6)"
+        />
+        <ellipse
+          cx="12"
+          cy="12.6"
+          rx="9.6"
+          ry="2.35"
+          fill="none"
+          stroke={palette.ringInner}
+          strokeWidth="0.55"
+          opacity="0.78"
+          transform="rotate(-17 12 12.6)"
+        />
+        <circle cx="12" cy="11.8" r="4.2" fill={`url(#${bodyGradientId})`} />
+      </svg>
+    </span>
+  );
+}
+
+/** Север/Запад: одиночная звёзда поверх UI (угол / слева от заказа). */
+function DealerNwPanelAccentStar({
+  gradientId,
+  tone = 'cyan',
+}: {
+  gradientId: string;
+  tone?: 'cyan' | 'violet';
+}) {
+  const mid = tone === 'violet' ? '#c084fc' : '#22d3ee';
+  const outer = tone === 'violet' ? '#8b5cf6' : '#06b6d4';
+  const fade = tone === 'violet' ? '#5b21b6' : '#0e7490';
+
+  return (
+    <span className="dealer-nw-panel-accent-star" aria-hidden>
+      <svg viewBox="0 0 12 12" width="100%" height="100%" focusable="false" aria-hidden>
+        <defs>
+          <radialGradient id={gradientId} cx="32%" cy="28%" r="68%">
+            <stop offset="0%" stopColor="#fff" stopOpacity="0.96" />
+            <stop offset="22%" stopColor={mid} />
+            <stop offset="58%" stopColor={outer} />
+            <stop offset="100%" stopColor={fade} stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx="6" cy="6" r="2.85" fill={`url(#${gradientId})`} />
+      </svg>
+    </span>
+  );
+}
+
+/** Мини-НЛО — акцент на панели Востока. */
+function DealerEastPanelUfo({ domeGradientId }: { domeGradientId: string }) {
+  return (
+    <span className="dealer-east-panel-ufo" aria-hidden>
+      <svg viewBox="0 0 24 24" width="100%" height="100%" focusable="false" aria-hidden>
+        <defs>
+          <radialGradient id={domeGradientId} cx="50%" cy="35%" r="65%">
+            <stop offset="0%" stopColor="#ecfeff" />
+            <stop offset="45%" stopColor="#67e8f9" />
+            <stop offset="100%" stopColor="#0891b2" />
+          </radialGradient>
+        </defs>
+        <ellipse cx="12" cy="13.4" rx="7.8" ry="2" fill="#22d3ee" opacity="0.9" />
+        <ellipse cx="12" cy="10.8" rx="4.6" ry="2.7" fill={`url(#${domeGradientId})`} />
+        <ellipse cx="12" cy="13.2" rx="8.8" ry="0.85" fill="none" stroke="#c4b5fd" strokeWidth="0.7" opacity="0.88" />
+        <circle cx="8.2" cy="13.8" r="0.65" fill="#f0abfc" opacity="0.95" />
+        <circle cx="12" cy="14.1" r="0.7" fill="#a5f3fc" />
+        <circle cx="15.8" cy="13.8" r="0.65" fill="#f0abfc" opacity="0.95" />
+      </svg>
+    </span>
+  );
+}
+
+const dealerEastStarLayers = (
+  <>
+    <div className="dealer-opponent-panel-stars__layer dealer-opponent-panel-stars__layer--a" />
+    <div className="dealer-opponent-panel-stars__layer dealer-opponent-panel-stars__layer--b" />
+    <div className="dealer-opponent-panel-stars__layer dealer-opponent-panel-stars__layer--c" />
+  </>
+);
+
+const dealerEastLowerStarLayerEls = (
+  <>
+    <div className="dealer-east-lower-panel-stars__layer dealer-east-lower-panel-stars__layer--a" />
+    <div className="dealer-east-lower-panel-stars__layer dealer-east-lower-panel-stars__layer--b" />
+    <div className="dealer-east-lower-panel-stars__layer dealer-east-lower-panel-stars__layer--c" />
+  </>
+);
+
+const dealerEastMidStarLayerEls = (
+  <>
+    <div className="dealer-east-mid-panel-stars__layer dealer-east-mid-panel-stars__layer--a" />
+    <div className="dealer-east-mid-panel-stars__layer dealer-east-mid-panel-stars__layer--b" />
+    <div className="dealer-east-mid-panel-stars__layer dealer-east-mid-panel-stars__layer--c" />
+  </>
+);
+
+type DealerOpponentPanelStarLayerPrefix = 'dealer-east-avatar-ring-stars' | 'dealer-east-name-panel-stars';
+
+const dealerOpponentPanelStarLayerEls = (layerClassPrefix: DealerOpponentPanelStarLayerPrefix) => (
+  <>
+    <div className={`${layerClassPrefix}__layer ${layerClassPrefix}__layer--a`} />
+    <div className={`${layerClassPrefix}__layer ${layerClassPrefix}__layer--b`} />
+    <div className={`${layerClassPrefix}__layer ${layerClassPrefix}__layer--c`} />
+  </>
+);
+
+/** Восток: кольцо звёзд вокруг аватарки (квадратная привязка к ячейке 56×56). */
+function DealerEastAvatarRingStars() {
+  return (
+    <span className="dealer-east-avatar-ring-stars" aria-hidden>
+      {dealerOpponentPanelStarLayerEls('dealer-east-avatar-ring-stars')}
+    </span>
+  );
+}
+
+/** Восток: рассыпание в окошке имени (привязка к wrap имени). */
+function DealerEastNamePanelStars() {
+  return (
+    <span className="dealer-east-name-panel-stars" aria-hidden>
+      {dealerOpponentPanelStarLayerEls('dealer-east-name-panel-stars')}
+    </span>
+  );
+}
+
+/** Моб. сдающий: декоративные звёздочки (3 слоя, разный дрейф). */
+function DealerMobilePanelStars({ layout = 'default' }: { layout?: 'default' | 'east' | 'south' | 'north-west' }) {
+  const saturnBodyGradientId = useId().replace(/:/g, '');
+  const ufoDomeGradientId = useId().replace(/:/g, '');
+  const nwCornerStarGradientId = useId().replace(/:/g, '');
+  const nwOrderStarGradientId = useId().replace(/:/g, '');
+  const nwRightTopStarGradientId = useId().replace(/:/g, '');
+  const nwRightOrderStarGradientId = useId().replace(/:/g, '');
+  const nwRightGapStarGradientId = useId().replace(/:/g, '');
+
+  if (layout === 'east') {
+    return (
+      <>
+        <div className="dealer-opponent-panel-stars dealer-opponent-panel-stars--east" aria-hidden>
+          <div className="dealer-east-stars-zone dealer-east-stars-zone--mid">
+            <span className="dealer-east-mid-panel-stars" aria-hidden>
+              {dealerEastMidStarLayerEls}
+            </span>
+          </div>
+          <div className="dealer-east-stars-zone dealer-east-stars-zone--lower">
+            <span className="dealer-east-lower-panel-stars" aria-hidden>
+              {dealerEastLowerStarLayerEls}
+            </span>
+          </div>
+        </div>
+        <span className="dealer-east-panel-ufo-host" aria-hidden>
+          <DealerEastPanelUfo domeGradientId={ufoDomeGradientId} />
+        </span>
+      </>
+    );
+  }
+
+  if (layout === 'north-west') {
+    return (
+      <>
+        <div className="dealer-opponent-panel-stars dealer-opponent-panel-stars--north-west" aria-hidden>
+          {dealerEastStarLayers}
+        </div>
+        <span className="dealer-nw-panel-accent-star-host dealer-nw-panel-accent-star-host--corner" aria-hidden>
+          <DealerNwPanelAccentStar gradientId={nwCornerStarGradientId} tone="violet" />
+        </span>
+        <span className="dealer-nw-panel-accent-star-host dealer-nw-panel-accent-star-host--order" aria-hidden>
+          <DealerNwPanelAccentStar gradientId={nwOrderStarGradientId} />
+        </span>
+        <span className="dealer-nw-panel-accent-star-host dealer-nw-panel-accent-star-host--right-top" aria-hidden>
+          <DealerNwPanelAccentStar gradientId={nwRightTopStarGradientId} />
+        </span>
+        <span className="dealer-nw-panel-accent-star-host dealer-nw-panel-accent-star-host--right-order" aria-hidden>
+          <DealerNwPanelAccentStar gradientId={nwRightOrderStarGradientId} tone="violet" />
+        </span>
+        <span className="dealer-nw-panel-accent-star-host dealer-nw-panel-accent-star-host--right-gap" aria-hidden>
+          <DealerNwPanelAccentStar gradientId={nwRightGapStarGradientId} tone="violet" />
+        </span>
+        <span className="dealer-nw-panel-ufo-host" aria-hidden>
+          <span className="dealer-nw-panel-ufo-flight" aria-hidden>
+            <DealerEastPanelUfo domeGradientId={ufoDomeGradientId} />
+          </span>
+        </span>
+      </>
+    );
+  }
+
+  return (
+    <div
+      className={[
+        'dealer-opponent-panel-stars',
+        layout === 'south' ? 'dealer-opponent-panel-stars--south' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-hidden
+    >
+      {dealerEastStarLayers}
+      {layout === 'south'
+        ? DEALER_SOUTH_SATURN_SPOTS.map((spot, i) => (
+            <span
+              key={i}
+              className="dealer-south-panel-saturn-host"
+              style={{ left: spot.left, top: spot.top, width: spot.sizePx, height: spot.sizePx }}
+            >
+              <DealerSouthPanelSaturn
+                bodyGradientId={`${saturnBodyGradientId}-${i}`}
+                rot={spot.rot}
+                variant={spot.variant}
+              />
+            </span>
+          ))
+        : null}
+    </div>
+  );
+}
+
 /** Бейдж «Ровно» на ПК: только активная игра (розыгрыш / взятка) и все четыре заказа выставлены */
 function shouldShowPcOrderOnHandExactBadge(state: GameState): boolean {
   if (state.phase !== 'playing' && state.phase !== 'trick-complete') return false;
@@ -13724,6 +14050,7 @@ function OpponentSlot({
   offlineAiNameStyleByDifficulty?: boolean;
 }) {
   const p = state.players[index];
+  const displayName = p.name;
   /** Мобильные С/З/В: бейдж «Очки» по умолчанию только цифра; тап разворачивает подпись */
   const [mobileOpponentScoreExpanded, setMobileOpponentScoreExpanded] = useState(false);
   const oppNameWindowRef = useRef<HTMLDivElement | null>(null);
@@ -13830,7 +14157,7 @@ function OpponentSlot({
       ro?.disconnect();
       window.removeEventListener('resize', onResize);
     };
-  }, [mobileOpponentNameWindowHorizScroll, p.name, replacedByAi, index]);
+  }, [mobileOpponentNameWindowHorizScroll, displayName, replacedByAi, index]);
   useEffect(() => {
     if (!oppNameWindowScrollable) {
       oppNameRevealAnimatingRef.current = false;
@@ -14128,7 +14455,7 @@ function OpponentSlot({
       cancelled = true;
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
     };
-  }, [mobileOpponentNameWindowHorizScroll, oppNameWindowScrollable, p.name, runMobileOppNameRevealScroll]);
+  }, [mobileOpponentNameWindowHorizScroll, oppNameWindowScrollable, displayName, runMobileOppNameRevealScroll]);
 
   /** Мобильная колонка Восток: «Очки» между именем и полосой заказа (как по вертикали у Север/Запад). */
   const eastMobileScoreBetweenHeaderAndTricks = position === 'right' && isMobile && inline && !pcNorthSideBySide;
@@ -14154,7 +14481,28 @@ function OpponentSlot({
     ? { left: 20, top: '50%', transform: 'translateY(-50%)' as const }
     : { right: 20, top: '50%', transform: 'translateY(-50%)' as const };
 
-  const frameStyle = mobileActiveName ? undefined : (isActive ? activeTurnPanelFrameStyle : isDealer ? dealerPanelFrameStyle : undefined);
+  /** Моб. оппонент-сдающий: неон, звёзды, НЛО. */
+  const dealerOpponentMobilePanelHighlight = isMobile && isDealer && !hideDealerBadge;
+  const dealerOpponentMobilePanelBidding =
+    dealerOpponentMobilePanelHighlight &&
+    (state.phase === 'bidding' || state.phase === 'dark-bidding');
+  const dealerOpponentMobilePanelPlaying =
+    dealerOpponentMobilePanelHighlight &&
+    (state.phase === 'playing' || state.phase === 'trick-complete');
+  /** Торги и игра: подсветка окошка имени сдающего (люди/онлайн — неон; офлайн ИИ — по уровню). */
+  const dealerOpponentMobileNameWindowHighlight =
+    dealerOpponentMobilePanelHighlight &&
+    (dealerOpponentMobilePanelBidding || dealerOpponentMobilePanelPlaying);
+  const dealerNwMobilePanelStars = dealerOpponentMobilePanelHighlight && mobileNwLayout;
+
+  const frameStyle =
+    mobileActiveName || (isMobile && isDealer)
+      ? undefined
+      : isActive
+        ? activeTurnPanelFrameStyle
+        : isDealer
+          ? dealerPanelFrameStyle
+          : undefined;
   const northSlotOverrides =
     position === 'top' && inline && !isMobile
     ? {
@@ -14171,8 +14519,14 @@ function OpponentSlot({
       className={[
         'opponent-slot',
         position === 'right' ? 'opponent-slot-east' : '',
+        position === 'top' ? 'opponent-slot-north' : '',
+        position === 'left' ? 'opponent-slot-west' : '',
         firstMoverBiddingHighlight ? 'first-mover-bidding-panel' : '',
         firstMoverBiddingHighlight && isMobile ? 'first-mover-bidding-panel-mobile-opponent' : '',
+        dealerOpponentMobilePanelHighlight ? 'dealer-opponent-panel' : '',
+        dealerOpponentMobilePanelBidding ? 'dealer-opponent-panel-mobile--bidding' : '',
+        dealerOpponentMobilePanelPlaying ? 'dealer-opponent-panel-mobile--playing' : '',
+        dealerOpponentMobilePanelBidding || dealerOpponentMobilePanelPlaying ? 'dealer-panel-stars-live' : '',
         isActive ? 'opponent-slot-current-turn' : '',
         northPcFusedOrderBadge ? 'opponent-slot--north-pc-fused-order-badge' : '',
       ]
@@ -14190,8 +14544,33 @@ function OpponentSlot({
         ...(trickWinnerHighlight ? trickWinnerGlowStyle : {}),
         ...(currentTrickLeaderHighlight ? currentTrickLeaderGlowStyle : {}),
         ...(firstMoverBiddingHighlight ? { boxShadow: [(frameStyle?.boxShadow ?? opponentSlotStyle.boxShadow), firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', ') } : {}),
+        ...(dealerOpponentMobilePanelBidding
+          ? {
+              boxShadow: [
+                frameStyle?.boxShadow ?? opponentSlotStyle.boxShadow,
+                dealerOpponentPanelGlowBidding,
+              ]
+                .filter(Boolean)
+                .join(', '),
+            }
+          : {}),
+        ...(dealerOpponentMobilePanelPlaying
+          ? {
+              boxShadow: [
+                frameStyle?.boxShadow ?? opponentSlotStyle.boxShadow,
+                dealerOpponentPanelGlowPlaying,
+              ]
+                .filter(Boolean)
+                .join(', '),
+            }
+          : {}),
       }}
     >
+      {dealerOpponentMobilePanelHighlight ? (
+        <DealerMobilePanelStars
+          layout={position === 'right' ? 'east' : mobileNwLayout ? 'north-west' : 'default'}
+        />
+      ) : null}
       {isDealer && !hideDealerBadge && (
         isMobile && state.phase === 'playing' && onDealerBadgeClick ? (
           <button type="button" className={['opponent-badge', 'dealer-badge', 'dealer-badge-compact-mobile'].join(' ')} style={{ ...dealerLampExternalStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={onDealerBadgeClick} title="Сдающий" aria-label="Сдающий">
@@ -14333,7 +14712,7 @@ function OpponentSlot({
         const isAiSlotBot = p.id === 'ai1' || p.id === 'ai2' || p.id === 'ai3';
         const nameInner = (
           <>
-            {p.name}
+            {displayName}
             {replacedByAi && (
               <span style={{ marginLeft: 4, fontSize: '0.85em', color: '#94a3b8', fontWeight: 500 }} title="Игрок вышел, за него играет ИИ">
                 (ИИ)
@@ -14343,8 +14722,19 @@ function OpponentSlot({
         );
         const styleOfflineAiNameByDifficulty = !!offlineAiNameStyleByDifficulty && isAiSlotBot;
         const offlineAiDifficultyForName = styleOfflineAiNameByDifficulty ? (p.aiDifficulty ?? 'amateur') : null;
+        const mobileHumanPremiumNameClass =
+          isMobile && !isAiSlotBot ? 'opponent-slot-header-display-name--premium-human' : '';
+        const dealerPlayingNameWindowClass = dealerOpponentMobileNameWindowHighlight
+          ? styleOfflineAiNameByDifficulty && isAiSlotBot
+            ? `opponent-slot-header-name-window--dealer-playing-ai-${offlineAiDifficultyForName ?? 'amateur'}`
+            : 'opponent-slot-header-name-window--dealer-playing'
+          : '';
+        const usePremiumHumanNameGradient =
+          !!mobileHumanPremiumNameClass && !(mobileActiveName && !styleOfflineAiNameByDifficulty);
         const nameStyleMerged: React.CSSProperties = {
-          ...opponentNameStyle,
+          ...(usePremiumHumanNameGradient
+            ? { fontSize: opponentNameStyle.fontSize, fontWeight: opponentNameStyle.fontWeight, letterSpacing: opponentNameStyle.letterSpacing }
+            : opponentNameStyle),
           ...(mobileActiveName && !styleOfflineAiNameByDifficulty ? nameActiveMobileStyle : {}),
           minWidth: 0,
           ...(pcNorthSideBySide ? { maxWidth: 200 } : {}),
@@ -14381,19 +14771,27 @@ function OpponentSlot({
             title={
               mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
                 ? undefined
-                : `${p.name} — ${getCompassLabel(index)}. Нажмите на аватар: информация и уровень ИИ`
+                : `${displayName} — ${getCompassLabel(index)}. Нажмите на аватар: информация и уровень ИИ`
             }
           >
             {nameInner}
           </span>
         ) : (
           <span
-            className={[eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : '', 'opponent-slot-header-display-name'].filter(Boolean).join(' ') || undefined}
+            className={
+              [
+                eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : '',
+                'opponent-slot-header-display-name',
+                mobileHumanPremiumNameClass,
+              ]
+                .filter(Boolean)
+                .join(' ') || undefined
+            }
             style={nameStyleMerged}
             title={
               mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
                 ? undefined
-                : `${p.name} — ${getCompassLabel(index)}`
+                : `${displayName} — ${getCompassLabel(index)}`
             }
           >
             {nameInner}
@@ -14436,6 +14834,7 @@ function OpponentSlot({
               className={[
                 'opponent-slot-header-name-stack-mobile',
                 eastMobileOnlyAvatar ? 'opponent-slot-header-name-stack-mobile--east' : '',
+                dealerNwMobilePanelStars ? 'opponent-slot-header-name-stack-mobile--nw-dealer' : '',
               ]
                 .filter(Boolean)
                 .join(' ') || undefined}
@@ -14444,6 +14843,7 @@ function OpponentSlot({
                 className={[
                   'opponent-slot-header-name-window-wrap',
                   eastMobileOnlyAvatar ? 'opponent-slot-header-name-window-wrap--east' : '',
+                  dealerNwMobilePanelStars ? 'opponent-slot-header-name-window-wrap--nw-dealer' : '',
                 ]
                   .filter(Boolean)
                   .join(' ') || undefined}
@@ -14453,6 +14853,8 @@ function OpponentSlot({
                   className={[
                     'opponent-slot-header-name-window',
                     eastMobileOnlyAvatar ? 'opponent-slot-header-name-window--east' : '',
+                    dealerNwMobilePanelStars ? 'opponent-slot-header-name-window--nw-dealer' : '',
+                    dealerPlayingNameWindowClass,
                     mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
                       ? 'opponent-slot-header-name-window--scrollable'
                       : '',
@@ -14461,12 +14863,12 @@ function OpponentSlot({
                     .join(' ') || undefined}
                   title={
                     mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
-                      ? `${p.name} — ${getCompassLabel(index)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
+                      ? `${displayName} — ${getCompassLabel(index)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
                       : undefined
                   }
                   aria-label={
                     mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
-                      ? `${p.name}, ${getCompassLabel(index)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
+                      ? `${displayName}, ${getCompassLabel(index)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
                       : undefined
                   }
                   role={mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable ? 'button' : undefined}
@@ -14498,6 +14900,9 @@ function OpponentSlot({
                       : undefined
                   }
                 >
+                  {dealerOpponentMobilePanelHighlight && eastMobileOnlyAvatar ? (
+                    <DealerEastNamePanelStars />
+                  ) : null}
                   {mobileOpponentNameWindowHorizScroll ? (
                     <div className="opponent-slot-header-name-window-track" ref={oppNameRevealTrackRef}>
                       {nameSpan}
@@ -14544,23 +14949,23 @@ function OpponentSlot({
               onAvatarClick(index);
             }}
             style={avatarBtnStyle}
-            title={isAiSlotBot ? `${p.name} — информация и уровень ИИ` : 'Информация об игроке'}
-            aria-label={isAiSlotBot ? `Карточка игрока и уровень ИИ: ${p.name}` : `Информация об игроке ${p.name}`}
+            title={isAiSlotBot ? `${displayName} — информация и уровень ИИ` : 'Информация об игроке'}
+            aria-label={isAiSlotBot ? `Карточка игрока и уровень ИИ: ${displayName}` : `Информация об игроке ${displayName}`}
           >
             <PlayerAvatar
-              name={p.name}
+              name={displayName}
               avatarDataUrl={avatarDataUrl}
               sizePx={avatarSizePx}
-              title={`${p.name} — ${getCompassLabel(index)}`}
+              title={`${displayName} — ${getCompassLabel(index)}`}
               className={playerAvatarMergedCls}
             />
           </button>
         ) : (
           <PlayerAvatar
-            name={p.name}
+            name={displayName}
             avatarDataUrl={avatarDataUrl}
             sizePx={avatarSizePx}
-            title={`${p.name} — ${getCompassLabel(index)}`}
+            title={`${displayName} — ${getCompassLabel(index)}`}
             className={playerAvatarMergedCls}
           />
         );
@@ -14589,6 +14994,9 @@ function OpponentSlot({
               }}
             >
               {avatarEl}
+              {dealerOpponentMobilePanelHighlight && eastMobileOnlyAvatar ? (
+                <DealerEastAvatarRingStars />
+              ) : null}
             </span>
           ) : (
             avatarEl
@@ -17901,6 +18309,21 @@ const playerNameStyle: React.CSSProperties = {
   color: '#f8fafc',
   letterSpacing: '0.3px',
 };
+
+const MOBILE_SOUTH_PREMIUM_PLAYER_NAME_CLASS = 'player-panel-name--premium-user';
+
+function buildMobileSouthPlayerNameStyle(
+  fontSizePx: number,
+  usePremiumGradient: boolean,
+): React.CSSProperties {
+  return usePremiumGradient
+    ? {
+        fontSize: fontSizePx,
+        fontWeight: playerNameStyle.fontWeight,
+        letterSpacing: playerNameStyle.letterSpacing,
+      }
+    : { ...playerNameStyle, fontSize: fontSizePx };
+}
 
 const yourTurnBadgeStyle: React.CSSProperties = {
   padding: '2px 10px',

@@ -628,6 +628,2058 @@
   }
 }
 
+/* Моб. оппонент-сдающий: голубо-серебристый неон панели (слабее «первый заказ/ход»). */
+.game-table-root .dealer-opponent-panel {
+  position: relative !important;
+}
+.game-table-root.viewport-mobile .dealer-opponent-panel.dealer-opponent-panel-mobile--bidding::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 95% 75% at 50% 14%, rgba(224, 242, 254, 0.32) 0%, transparent 58%),
+    radial-gradient(ellipse 85% 65% at 50% 100%, rgba(56, 189, 248, 0.18) 0%, transparent 52%) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(186, 230, 253, 0.82),
+    inset 0 0 0 2px rgba(15, 23, 42, 0.58),
+    inset 0 0 0 3px rgba(56, 189, 248, 0.42),
+    inset 0 0 48px rgba(56, 189, 248, 0.34),
+    inset 0 0 24px rgba(148, 163, 184, 0.14),
+    0 0 22px rgba(56, 189, 248, 0.44),
+    0 0 38px rgba(34, 211, 238, 0.24) !important;
+  filter: brightness(1.08) saturate(1.06);
+  animation: dealer-opponent-panel-pulse-mobile-bidding 3.6s ease-in-out infinite;
+}
+.game-table-root.viewport-mobile .dealer-opponent-panel.dealer-opponent-panel-mobile--playing::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 92% 72% at 50% 16%, rgba(224, 242, 254, 0.16) 0%, transparent 56%),
+    radial-gradient(ellipse 80% 58% at 50% 100%, rgba(56, 189, 248, 0.1) 0%, transparent 50%) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(125, 211, 252, 0.52),
+    inset 0 0 0 2px rgba(15, 23, 42, 0.48),
+    inset 0 0 32px rgba(56, 189, 248, 0.18),
+    inset 0 0 16px rgba(148, 163, 184, 0.08),
+    0 0 14px rgba(56, 189, 248, 0.26),
+    0 0 26px rgba(34, 211, 238, 0.12) !important;
+  filter: brightness(1.04);
+  animation: dealer-opponent-panel-pulse-mobile-playing 4.4s ease-in-out infinite;
+}
+@keyframes dealer-opponent-panel-pulse-mobile-bidding {
+  0%,
+  100% {
+    opacity: 0.88;
+    filter: brightness(0.9) saturate(0.96);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.08) saturate(1.06);
+  }
+}
+@keyframes dealer-opponent-panel-pulse-mobile-playing {
+  0%,
+  100% {
+    opacity: 0.86;
+    filter: brightness(0.94) saturate(0.98);
+  }
+  50% {
+    opacity: 0.94;
+    filter: brightness(1.03) saturate(1.02);
+  }
+}
+@keyframes dealer-opponent-panel-stars-twinkle {
+  0%,
+  100% {
+    opacity: 0.56;
+    filter: brightness(0.9);
+  }
+  50% {
+    opacity: 0.9;
+    filter: brightness(1.1);
+  }
+}
+@keyframes dealer-opponent-panel-stars-drift-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  33% {
+    transform: translate3d(5px, -4px, 0);
+  }
+  66% {
+    transform: translate3d(-3px, 3px, 0);
+  }
+}
+@keyframes dealer-opponent-panel-stars-drift-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  33% {
+    transform: translate3d(-5px, 3px, 0);
+  }
+  66% {
+    transform: translate3d(3px, -4px, 0);
+  }
+}
+@keyframes dealer-opponent-panel-stars-drift-c {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  33% {
+    transform: translate3d(4px, 4px, 0);
+  }
+  66% {
+    transform: translate3d(-4px, -2px, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root.viewport-mobile .dealer-opponent-panel.dealer-opponent-panel-mobile--bidding::before,
+  .game-table-root.viewport-mobile .dealer-opponent-panel.dealer-opponent-panel-mobile--playing::before {
+    animation: none !important;
+    opacity: 0.94 !important;
+    filter: none !important;
+  }
+  .game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-opponent-panel-stars__layer,
+  .game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-lower-panel-stars__layer,
+  .game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-mid-panel-stars__layer {
+    animation: none !important;
+    transform: none !important;
+    opacity: 0.92 !important;
+  }
+  .game-table-root.viewport-mobile .dealer-panel-stars-live .opponent-slot-east.dealer-opponent-panel > .dealer-east-panel-ufo-host,
+  .game-table-root.viewport-mobile .dealer-panel-stars-live .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel > .dealer-east-panel-ufo-host {
+    animation: none !important;
+    left: 50%;
+    top: 58%;
+    opacity: 0.88 !important;
+    transform: translate(-50%, -50%) rotate(0deg) scale(1) !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel.dealer-panel-stars-live > .dealer-nw-panel-ufo-host,
+  .game-table-root.viewport-mobile .dealer-panel-stars-live .game-center-north .opponent-slot-dealer-stars-nw-layout.dealer-opponent-panel > .dealer-nw-panel-ufo-host {
+    animation: none !important;
+  }
+  .game-table-root.viewport-mobile
+    .game-mobile-top-row
+    .opponent-slot.dealer-opponent-panel.dealer-panel-stars-live
+    > .dealer-nw-panel-ufo-host
+    .dealer-nw-panel-ufo-flight {
+    animation: none !important;
+    left: 50%;
+    top: 58%;
+    opacity: 0.88 !important;
+    transform: translate(-50%, -50%) rotate(0deg) scale(1) !important;
+  }
+  .game-table-root.viewport-mobile .dealer-panel-stars-live .opponent-slot-east.dealer-opponent-panel > .dealer-east-panel-ufo-host .dealer-east-panel-ufo,
+  .game-table-root.viewport-mobile .dealer-panel-stars-live .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel > .dealer-east-panel-ufo-host .dealer-east-panel-ufo {
+    animation: none !important;
+    transform: none !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel.dealer-panel-stars-live > .dealer-nw-panel-ufo-host .dealer-east-panel-ufo {
+    animation: none !important;
+    transform: none !important;
+  }
+  .game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-nw-panel-accent-star-host .dealer-nw-panel-accent-star {
+    animation: none !important;
+    opacity: 0.88 !important;
+    transform: none !important;
+  }
+}
+/* Моб. сдающий: 20 SVG-кружков в 3 слоях (разный дрейф + мерцание на слоях) */
+/* Юг: звёзды на всю карточку — оверлей в .user-player-panel-south-stars-host (не ломает flex) */
+.game-table-root.viewport-mobile .user-player-panel-south-stars-host {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+  overflow: visible;
+}
+.game-table-root.viewport-mobile .game-mobile-player-info.user-player-panel:has(.dealer-opponent-panel-stars--south) {
+  overflow: visible;
+}
+.game-table-root.viewport-mobile .user-player-panel.user-player-panel {
+  --south-stars-bleed-top: 10px;
+  --south-stars-bleed-bottom: 4px;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-player-panel .game-mobile-player-info.user-player-panel {
+  --south-stars-bleed-top: 2px;
+  --south-stars-bleed-bottom: 0px;
+}
+.game-table-root.viewport-mobile .user-player-panel-south-stars-host .dealer-opponent-panel-stars {
+  position: absolute;
+  top: calc(-1 * var(--south-stars-bleed-top, 10px));
+  right: 0;
+  bottom: calc(-1 * var(--south-stars-bleed-bottom, 4px));
+  left: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  overflow: visible;
+}
+.game-table-root.viewport-mobile .user-player-panel-south-stars-host .game-mobile-user-south-main {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short .user-player-panel-south-stars-host {
+  flex: 0 1 auto;
+}
+.game-table-root.viewport-mobile .dealer-opponent-panel-stars {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  overflow: hidden;
+}
+/* Восток сдающий: дрейфующие звёзды под UI; «окна» прозрачные, рамки — непрозрачная маска */
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel .dealer-opponent-panel-stars--east, .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel .dealer-opponent-panel-stars--east {
+  z-index: 1;
+  overflow: visible;
+}
+/* Север/Запад сдающий: горизонтальная панель — звёзды внутри границ, чуть заходят к правому краю */
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel .dealer-opponent-panel-stars--north-west {
+  z-index: 1;
+  overflow: hidden;
+  right: -5px;
+  width: calc(100% + 5px);
+}
+/* Север/Запад: рассыпание по панели (разные размеры), без зоны аватарки слева и бейджа «Очки» */
+.game-table-root.viewport-mobile .dealer-opponent-panel-stars--north-west .dealer-opponent-panel-stars__layer--a {
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Cdefs%3E%3CradialGradient%20id%3D'c'%20cx%3D'32%25'%20cy%3D'28%25'%20r%3D'68%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23fff'%20stop-opacity%3D'.58'%2F%3E%3Cstop%20offset%3D'22%25'%20stop-color%3D'%2322d3ee'%20stop-opacity%3D'.97'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%2306b6d4'%20stop-opacity%3D'.82'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%230e7490'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D'v'%20cx%3D'32%25'%20cy%3D'28%25'%20r%3D'68%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23fff'%20stop-opacity%3D'.54'%2F%3E%3Cstop%20offset%3D'22%25'%20stop-color%3D'%23c084fc'%20stop-opacity%3D'.96'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%238b5cf6'%20stop-opacity%3D'.8'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%235b21b6'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D's'%20cx%3D'32%25'%20cy%3D'28%25'%20r%3D'68%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23fff'%20stop-opacity%3D'.56'%2F%3E%3Cstop%20offset%3D'22%25'%20stop-color%3D'%2338bdf8'%20stop-opacity%3D'.95'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%230ea5e9'%20stop-opacity%3D'.8'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%230369a1'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D'i'%20cx%3D'32%25'%20cy%3D'28%25'%20r%3D'68%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23fff'%20stop-opacity%3D'.52'%2F%3E%3Cstop%20offset%3D'22%25'%20stop-color%3D'%23a78bfa'%20stop-opacity%3D'.94'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%236366f1'%20stop-opacity%3D'.78'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%234338ca'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D'b'%20cx%3D'30%25'%20cy%3D'25%25'%20r%3D'72%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23ffffff'%20stop-opacity%3D'1'%2F%3E%3Cstop%20offset%3D'14%25'%20stop-color%3D'%23f0f9ff'%20stop-opacity%3D'1'%2F%3E%3Cstop%20offset%3D'34%25'%20stop-color%3D'%2367e8f9'%20stop-opacity%3D'1'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%2322d3ee'%20stop-opacity%3D'.98'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%2306b6d4'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3C%2Fdefs%3E%3Ccircle%20cx%3D'78'%20cy%3D'12'%20r%3D'1.46'%20fill%3D'url(%23b)'%2F%3E%3Ccircle%20cx%3D'58'%20cy%3D'24'%20r%3D'0.9'%20fill%3D'url(%23c)'%2F%3E%3Ccircle%20cx%3D'91'%20cy%3D'18'%20r%3D'1.18'%20fill%3D'url(%23v)'%2F%3E%3Ccircle%20cx%3D'38'%20cy%3D'10'%20r%3D'1.03'%20fill%3D'url(%23s)'%2F%3E%3Ccircle%20cx%3D'72'%20cy%3D'32'%20r%3D'1.33'%20fill%3D'url(%23i)'%2F%3E%3Ccircle%20cx%3D'48'%20cy%3D'28'%20r%3D'0.82'%20fill%3D'url(%23c)'%2F%3E%3Ccircle%20cx%3D'95'%20cy%3D'34'%20r%3D'0.97'%20fill%3D'url(%23s)'%2F%3E%3Ccircle%20cx%3D'85'%20cy%3D'8'%20r%3D'0.86'%20fill%3D'url(%23i)'%2F%3E%3Ccircle%20cx%3D'64'%20cy%3D'36'%20r%3D'1.07'%20fill%3D'url(%23b)'%2F%3E%3Ccircle%20cx%3D'52'%20cy%3D'14'%20r%3D'0.95'%20fill%3D'url(%23v)'%2F%3E%3Ccircle%20cx%3D'76'%20cy%3D'26'%20r%3D'1.25'%20fill%3D'url(%23i)'%2F%3E%3Ccircle%20cx%3D'28'%20cy%3D'14'%20r%3D'1.12'%20fill%3D'url(%23c)'%2F%3E%3Ccircle%20cx%3D'32'%20cy%3D'30'%20r%3D'0.99'%20fill%3D'url(%23v)'%2F%3E%3Ccircle%20cx%3D'24'%20cy%3D'8'%20r%3D'0.86'%20fill%3D'url(%23s)'%2F%3E%3Ccircle%20cx%3D'42'%20cy%3D'22'%20r%3D'1.18'%20fill%3D'url(%23i)'%2F%3E%3Ccircle%20cx%3D'26'%20cy%3D'34'%20r%3D'0.9'%20fill%3D'url(%23b)'%2F%3E%3Ccircle%20cx%3D'5'%20cy%3D'5'%20r%3D'1.15'%20fill%3D'url(%23b)'%2F%3E%3C%2Fsvg%3E");
+}
+.game-table-root.viewport-mobile .dealer-opponent-panel-stars--north-west .dealer-opponent-panel-stars__layer--b {
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Cdefs%3E%3CradialGradient%20id%3D'c'%20cx%3D'32%25'%20cy%3D'28%25'%20r%3D'68%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23fff'%20stop-opacity%3D'.58'%2F%3E%3Cstop%20offset%3D'22%25'%20stop-color%3D'%2322d3ee'%20stop-opacity%3D'.97'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%2306b6d4'%20stop-opacity%3D'.82'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%230e7490'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D'v'%20cx%3D'32%25'%20cy%3D'28%25'%20r%3D'68%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23fff'%20stop-opacity%3D'.54'%2F%3E%3Cstop%20offset%3D'22%25'%20stop-color%3D'%23c084fc'%20stop-opacity%3D'.96'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%238b5cf6'%20stop-opacity%3D'.8'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%235b21b6'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D's'%20cx%3D'32%25'%20cy%3D'28%25'%20r%3D'68%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23fff'%20stop-opacity%3D'.56'%2F%3E%3Cstop%20offset%3D'22%25'%20stop-color%3D'%2338bdf8'%20stop-opacity%3D'.95'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%230ea5e9'%20stop-opacity%3D'.8'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%230369a1'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D'i'%20cx%3D'32%25'%20cy%3D'28%25'%20r%3D'68%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23fff'%20stop-opacity%3D'.52'%2F%3E%3Cstop%20offset%3D'22%25'%20stop-color%3D'%23a78bfa'%20stop-opacity%3D'.94'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%236366f1'%20stop-opacity%3D'.78'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%234338ca'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D'b'%20cx%3D'30%25'%20cy%3D'25%25'%20r%3D'72%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23ffffff'%20stop-opacity%3D'1'%2F%3E%3Cstop%20offset%3D'14%25'%20stop-color%3D'%23f0f9ff'%20stop-opacity%3D'1'%2F%3E%3Cstop%20offset%3D'34%25'%20stop-color%3D'%2367e8f9'%20stop-opacity%3D'1'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%2322d3ee'%20stop-opacity%3D'.98'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%2306b6d4'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3C%2Fdefs%3E%3Ccircle%20cx%3D'72'%20cy%3D'48'%20r%3D'1.25'%20fill%3D'url(%23c)'%2F%3E%3Ccircle%20cx%3D'88'%20cy%3D'52'%20r%3D'0.97'%20fill%3D'url(%23v)'%2F%3E%3Ccircle%20cx%3D'54'%20cy%3D'44'%20r%3D'1.33'%20fill%3D'url(%23s)'%2F%3E%3Ccircle%20cx%3D'96'%20cy%3D'46'%20r%3D'0.86'%20fill%3D'url(%23i)'%2F%3E%3Ccircle%20cx%3D'78'%20cy%3D'56'%20r%3D'1.18'%20fill%3D'url(%23c)'%2F%3E%3Ccircle%20cx%3D'62'%20cy%3D'42'%20r%3D'0.82'%20fill%3D'url(%23v)'%2F%3E%3Ccircle%20cx%3D'84'%20cy%3D'38'%20r%3D'1.12'%20fill%3D'url(%23i)'%2F%3E%3Ccircle%20cx%3D'46'%20cy%3D'54'%20r%3D'0.9'%20fill%3D'url(%23s)'%2F%3E%3Ccircle%20cx%3D'68'%20cy%3D'50'%20r%3D'1.4'%20fill%3D'url(%23b)'%2F%3E%3Ccircle%20cx%3D'58'%20cy%3D'58'%20r%3D'1.03'%20fill%3D'url(%23c)'%2F%3E%3Ccircle%20cx%3D'34'%20cy%3D'46'%20r%3D'1.07'%20fill%3D'url(%23v)'%2F%3E%3Ccircle%20cx%3D'28'%20cy%3D'52'%20r%3D'0.95'%20fill%3D'url(%23c)'%2F%3E%3Ccircle%20cx%3D'40'%20cy%3D'56'%20r%3D'1.2'%20fill%3D'url(%23s)'%2F%3E%3Ccircle%20cx%3D'22'%20cy%3D'44'%20r%3D'0.86'%20fill%3D'url(%23i)'%2F%3E%3Ccircle%20cx%3D'36'%20cy%3D'38'%20r%3D'1.03'%20fill%3D'url(%23b)'%2F%3E%3Ccircle%20cx%3D'48'%20cy%3D'48'%20r%3D'1.12'%20fill%3D'url(%23v)'%2F%3E%3Ccircle%20cx%3D'6'%20cy%3D'51'%20r%3D'1.12'%20fill%3D'url(%23b)'%2F%3E%3C%2Fsvg%3E");
+}
+.game-table-root.viewport-mobile .dealer-opponent-panel-stars--north-west .dealer-opponent-panel-stars__layer--c {
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Cdefs%3E%3CradialGradient%20id%3D'c'%20cx%3D'32%25'%20cy%3D'28%25'%20r%3D'68%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23fff'%20stop-opacity%3D'.58'%2F%3E%3Cstop%20offset%3D'22%25'%20stop-color%3D'%2322d3ee'%20stop-opacity%3D'.97'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%2306b6d4'%20stop-opacity%3D'.82'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%230e7490'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D'v'%20cx%3D'32%25'%20cy%3D'28%25'%20r%3D'68%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23fff'%20stop-opacity%3D'.54'%2F%3E%3Cstop%20offset%3D'22%25'%20stop-color%3D'%23c084fc'%20stop-opacity%3D'.96'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%238b5cf6'%20stop-opacity%3D'.8'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%235b21b6'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D's'%20cx%3D'32%25'%20cy%3D'28%25'%20r%3D'68%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23fff'%20stop-opacity%3D'.56'%2F%3E%3Cstop%20offset%3D'22%25'%20stop-color%3D'%2338bdf8'%20stop-opacity%3D'.95'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%230ea5e9'%20stop-opacity%3D'.8'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%230369a1'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D'i'%20cx%3D'32%25'%20cy%3D'28%25'%20r%3D'68%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23fff'%20stop-opacity%3D'.52'%2F%3E%3Cstop%20offset%3D'22%25'%20stop-color%3D'%23a78bfa'%20stop-opacity%3D'.94'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%236366f1'%20stop-opacity%3D'.78'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%234338ca'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D'b'%20cx%3D'30%25'%20cy%3D'25%25'%20r%3D'72%25'%3E%3Cstop%20offset%3D'0%25'%20stop-color%3D'%23ffffff'%20stop-opacity%3D'1'%2F%3E%3Cstop%20offset%3D'14%25'%20stop-color%3D'%23f0f9ff'%20stop-opacity%3D'1'%2F%3E%3Cstop%20offset%3D'34%25'%20stop-color%3D'%2367e8f9'%20stop-opacity%3D'1'%2F%3E%3Cstop%20offset%3D'58%25'%20stop-color%3D'%2322d3ee'%20stop-opacity%3D'.98'%2F%3E%3Cstop%20offset%3D'100%25'%20stop-color%3D'%2306b6d4'%20stop-opacity%3D'0'%2F%3E%3C%2FradialGradient%3E%3C%2Fdefs%3E%3Ccircle%20cx%3D'45'%20cy%3D'68'%20r%3D'1.5'%20fill%3D'url(%23b)'%2F%3E%3Ccircle%20cx%3D'58'%20cy%3D'92'%20r%3D'1.03'%20fill%3D'url(%23v)'%2F%3E%3Ccircle%20cx%3D'74'%20cy%3D'76'%20r%3D'1.12'%20fill%3D'url(%23i)'%2F%3E%3Ccircle%20cx%3D'88'%20cy%3D'84'%20r%3D'1.29'%20fill%3D'url(%23s)'%2F%3E%3Ccircle%20cx%3D'96'%20cy%3D'70'%20r%3D'0.82'%20fill%3D'url(%23c)'%2F%3E%3Ccircle%20cx%3D'52'%20cy%3D'78'%20r%3D'0.95'%20fill%3D'url(%23i)'%2F%3E%3Ccircle%20cx%3D'67'%20cy%3D'86'%20r%3D'1.2'%20fill%3D'url(%23c)'%2F%3E%3Ccircle%20cx%3D'82'%20cy%3D'72'%20r%3D'1.07'%20fill%3D'url(%23v)'%2F%3E%3Ccircle%20cx%3D'14'%20cy%3D'74'%20r%3D'1.16'%20fill%3D'url(%23s)'%2F%3E%3Ccircle%20cx%3D'22'%20cy%3D'86'%20r%3D'0.99'%20fill%3D'url(%23c)'%2F%3E%3Ccircle%20cx%3D'34'%20cy%3D'68'%20r%3D'1.33'%20fill%3D'url(%23v)'%2F%3E%3Ccircle%20cx%3D'18'%20cy%3D'92'%20r%3D'0.86'%20fill%3D'url(%23i)'%2F%3E%3Ccircle%20cx%3D'42'%20cy%3D'82'%20r%3D'1.25'%20fill%3D'url(%23b)'%2F%3E%3Ccircle%20cx%3D'8'%20cy%3D'80'%20r%3D'0.95'%20fill%3D'url(%23v)'%2F%3E%3Ccircle%20cx%3D'28'%20cy%3D'76'%20r%3D'1.07'%20fill%3D'url(%23s)'%2F%3E%3Ccircle%20cx%3D'36'%20cy%3D'94'%20r%3D'1.03'%20fill%3D'url(%23c)'%2F%3E%3C%2Fsvg%3E");
+}
+/* Север/Запад: акцентные звёзды — под блоком заказа, в верхней половине панели */
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-nw-panel-accent-star-host {
+  position: absolute;
+  z-index: 2;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 0 4px rgba(34, 211, 238, 0.88))
+    drop-shadow(0 0 7px rgba(192, 132, 252, 0.55));
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-nw-panel-accent-star-host--corner {
+  left: 2px;
+  top: 2px;
+  width: 9px;
+  height: 9px;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 0 4px rgba(192, 132, 252, 0.9))
+    drop-shadow(0 0 8px rgba(139, 92, 246, 0.72));
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-nw-panel-accent-star-host--order {
+  left: 6%;
+  top: 28%;
+  width: 8px;
+  height: 8px;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-nw-panel-accent-star-host--right-top {
+  right: 12%;
+  top: 7%;
+  width: 9px;
+  height: 9px;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-nw-panel-accent-star-host--right-order {
+  right: 20%;
+  top: 20%;
+  width: 8px;
+  height: 8px;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 0 4px rgba(192, 132, 252, 0.88))
+    drop-shadow(0 0 7px rgba(139, 92, 246, 0.58));
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-nw-panel-accent-star-host--right-gap {
+  right: 10%;
+  top: 33%;
+  width: 9px;
+  height: 9px;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.92))
+    drop-shadow(0 0 5px rgba(192, 132, 252, 0.85))
+    drop-shadow(0 0 8px rgba(139, 92, 246, 0.62));
+}
+.game-table-root.viewport-mobile .dealer-nw-panel-accent-star {
+  display: block;
+  width: 100%;
+  height: 100%;
+  will-change: transform, opacity;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-nw-panel-accent-star-host--corner .dealer-nw-panel-accent-star {
+  animation: dealer-nw-panel-accent-star-twinkle-drift-a 5.2s ease-in-out infinite;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-nw-panel-accent-star-host--order .dealer-nw-panel-accent-star {
+  animation: dealer-nw-panel-accent-star-twinkle-drift-b 6.4s ease-in-out infinite;
+  animation-delay: -1.8s;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-nw-panel-accent-star-host--right-top .dealer-nw-panel-accent-star {
+  animation: dealer-nw-panel-accent-star-twinkle-drift-c 5.8s ease-in-out infinite;
+  animation-delay: -0.6s;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-nw-panel-accent-star-host--right-order .dealer-nw-panel-accent-star {
+  animation: dealer-nw-panel-accent-star-twinkle-drift-a 6.8s ease-in-out infinite;
+  animation-delay: -2.6s;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-nw-panel-accent-star-host--right-gap .dealer-nw-panel-accent-star {
+  animation: dealer-nw-panel-accent-star-twinkle-drift-b 7.2s ease-in-out infinite;
+  animation-delay: -3.4s;
+}
+/* Заказ/очки С/З — поверх декоративных звёзд и НЛО; рамки не перекрываются */
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel .opponent-slot-stats-mobile-nw {
+  position: relative;
+  z-index: 4;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel .opponent-slot-header {
+  position: relative;
+  z-index: 5;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-badge,
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .first-bidder-badge {
+  z-index: 6 !important;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  .opponent-score-badge {
+  position: relative;
+  z-index: 5;
+}
+@keyframes dealer-nw-panel-accent-star-twinkle-drift-a {
+  0%,
+  100% {
+    opacity: 0.68;
+    transform: translate3d(0, 0, 0) scale(0.9);
+  }
+  33% {
+    opacity: 0.92;
+    transform: translate3d(2px, -2px, 0) scale(1.04);
+  }
+  66% {
+    opacity: 0.78;
+    transform: translate3d(-1px, 2px, 0) scale(0.96);
+  }
+}
+@keyframes dealer-nw-panel-accent-star-twinkle-drift-b {
+  0%,
+  100% {
+    opacity: 0.64;
+    transform: translate3d(0, 0, 0) scale(0.88);
+  }
+  40% {
+    opacity: 0.94;
+    transform: translate3d(-2px, 1px, 0) scale(1.06);
+  }
+  70% {
+    opacity: 0.76;
+    transform: translate3d(1px, -2px, 0) scale(0.94);
+  }
+}
+@keyframes dealer-nw-panel-accent-star-twinkle-drift-c {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: translate3d(0, 0, 0) scale(0.92);
+  }
+  45% {
+    opacity: 0.96;
+    transform: translate3d(1px, 2px, 0) scale(1.05);
+  }
+  80% {
+    opacity: 0.74;
+    transform: translate3d(-2px, -1px, 0) scale(0.93);
+  }
+}
+@keyframes dealer-nw-panel-accent-star-twinkle {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+/*
+ * Север/Запад сдающий: НЛО (z-index 2) летает по всей панели поверх звёзд;
+ * шапка/очки/бейдж/рамки заказа (z-index 4–6) перекрывают — не наоборот.
+ */
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel > .dealer-nw-panel-ufo-host {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: visible;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  > .dealer-nw-panel-ufo-host
+  .dealer-nw-panel-ufo-flight {
+  position: absolute;
+  left: 62%;
+  top: 22%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%) rotate(-8deg);
+  will-change: left, top, transform, opacity;
+  animation: dealer-nw-panel-ufo-flight 150s linear infinite;
+  animation-delay: -24s;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  > .dealer-nw-panel-ufo-host
+  .dealer-east-panel-ufo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0.94;
+  filter: drop-shadow(0 0 4px rgba(192, 132, 252, 0.75));
+  animation: dealer-east-panel-ufo-tilt 60s steps(5, end) infinite;
+  animation-delay: -18s;
+}
+@keyframes dealer-nw-panel-ufo-flight {
+  0%,
+  12% {
+    left: 62%;
+    top: 22%;
+    opacity: 0.82;
+    transform: translate(-50%, -50%) rotate(-10deg) scale(0.96);
+  }
+  13% {
+    left: 88%;
+    top: 18%;
+    opacity: 0.92;
+    transform: translate(-50%, -50%) rotate(10deg) scale(1);
+  }
+  14%,
+  26% {
+    left: 90%;
+    top: 20%;
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(12deg) scale(0.98);
+  }
+  27% {
+    left: 84%;
+    top: 52%;
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(14deg) scale(1);
+  }
+  28%,
+  40% {
+    left: 82%;
+    top: 54%;
+    opacity: 0.88;
+    transform: translate(-50%, -50%) rotate(12deg) scale(0.98);
+  }
+  41% {
+    left: 58%;
+    top: 58%;
+    opacity: 0.92;
+    transform: translate(-50%, -50%) rotate(-4deg) scale(1.02);
+  }
+  42%,
+  54% {
+    left: 56%;
+    top: 56%;
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(-6deg) scale(1);
+  }
+  55% {
+    left: 38%;
+    top: 52%;
+    opacity: 0.88;
+    transform: translate(-50%, -50%) rotate(-12deg) scale(0.98);
+  }
+  56%,
+  66% {
+    left: 36%;
+    top: 50%;
+    opacity: 0.88;
+    transform: translate(-50%, -50%) rotate(-10deg) scale(0.97);
+  }
+  67% {
+    left: 48%;
+    top: 42%;
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(8deg) scale(1.01);
+  }
+  68%,
+  78% {
+    left: 50%;
+    top: 44%;
+    opacity: 0.88;
+    transform: translate(-50%, -50%) rotate(6deg) scale(1);
+  }
+  79% {
+    left: 74%;
+    top: 34%;
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(-8deg) scale(1);
+  }
+  80%,
+  92% {
+    left: 72%;
+    top: 36%;
+    opacity: 0.86;
+    transform: translate(-50%, -50%) rotate(-6deg) scale(0.99);
+  }
+  93% {
+    left: 66%;
+    top: 26%;
+    opacity: 0.84;
+    transform: translate(-50%, -50%) rotate(4deg) scale(0.98);
+  }
+  94%,
+  100% {
+    left: 62%;
+    top: 22%;
+    opacity: 0.82;
+    transform: translate(-50%, -50%) rotate(-10deg) scale(0.96);
+  }
+}
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel > .dealer-east-panel-ufo-host, .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel > .dealer-east-panel-ufo-host {
+  position: absolute;
+  left: 18%;
+  top: 20%;
+  z-index: 4;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+  transform: translate(-50%, -50%) rotate(-8deg);
+  will-change: left, top, transform, opacity;
+}
+/* Окно имени: прозрачная серединка — сквозь неё видны звёзды оверлея; ::before — непрозрачное кольцо рамки */
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel .opponent-slot-header-name-window--east, .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel .opponent-slot-header-name-window--east {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--east,
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--east,
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--east[class*='--dealer-playing'],
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--east[class*='--dealer-playing'] {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel .opponent-slot-header-name-window--east::before, .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel .opponent-slot-header-name-window--east::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(165deg, #2a3270 0%, #1a2048 42%, #12182e 100%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  box-shadow:
+    0 0 0 1px rgb(147 51 234 / 44%),
+    0 0 12px rgb(56 189 248 / 26%),
+    0 0 10px rgb(167 139 250 / 22%);
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--east::before,
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--east::before,
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel
+  .opponent-slot-header-name-window--east[class*='--dealer-playing']::before {
+  background: linear-gradient(
+    165deg,
+    rgba(56, 120, 200, 0.96) 0%,
+    rgba(88, 100, 210, 0.94) 38%,
+    rgba(120, 80, 190, 0.96) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.42),
+    0 0 14px rgba(56, 189, 248, 0.36),
+    0 0 10px rgba(167, 139, 250, 0.26);
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel
+  .opponent-slot-header-name-window--east[class*='--dealer-playing-ai-novice']::before {
+  background: linear-gradient(165deg, rgba(34, 160, 90, 0.94) 0%, rgba(22, 120, 68, 0.92) 100%);
+  box-shadow:
+    0 0 0 1px rgba(74, 222, 128, 0.32),
+    0 0 12px rgba(34, 197, 94, 0.24);
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel
+  .opponent-slot-header-name-window--east[class*='--dealer-playing-ai-amateur']::before {
+  background: linear-gradient(165deg, rgba(220, 160, 40, 0.94) 0%, rgba(180, 120, 20, 0.92) 100%);
+  box-shadow:
+    0 0 0 1px rgba(250, 204, 21, 0.28),
+    0 0 10px rgba(234, 179, 8, 0.22);
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel
+  .opponent-slot-header-name-window--east[class*='--dealer-playing-ai-expert']::before {
+  background: linear-gradient(165deg, rgba(180, 70, 230, 0.95) 0%, rgba(130, 40, 190, 0.94) 100%);
+  box-shadow:
+    0 0 0 1px rgba(232, 121, 250, 0.38),
+    0 0 16px rgba(168, 85, 247, 0.32),
+    0 0 10px rgba(192, 132, 252, 0.22);
+}
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel .opponent-slot-header-name-window--east::after, .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel .opponent-slot-header-name-window--east::after {
+  opacity: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel .opponent-slot-header-name-window--east .dealer-east-name-panel-stars, .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel .opponent-slot-header-name-window--east .dealer-east-name-panel-stars {
+  z-index: 0 !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel .opponent-slot-header-name-window--east > *:not(.dealer-east-name-panel-stars), .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel .opponent-slot-header-name-window--east > *:not(.dealer-east-name-panel-stars) {
+  position: relative;
+  z-index: 2;
+}
+/* Полоска заказа: то же «окно» — прозрачный центр, непрозрачная рамка */
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel button.trick-slots-east-mobile, .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel button.trick-slots-east-mobile {
+  position: relative;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel button.trick-slots-east-mobile::before, .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel button.trick-slots-east-mobile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    rgba(251, 191, 36, 0.92) 0%,
+    rgba(245, 158, 11, 0.88) 48%,
+    rgba(251, 146, 60, 0.9) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.55),
+    0 0 10px rgba(251, 191, 36, 0.28),
+    0 0 6px rgba(251, 146, 60, 0.18);
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-order-over::before,
+.game-table-root.viewport-mobile
+  .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-order-over::before {
+  background: linear-gradient(180deg, rgba(140, 145, 85, 0.9) 0%, rgba(110, 115, 68, 0.88) 100%);
+  box-shadow:
+    0 0 0 1px rgba(130, 135, 78, 0.42),
+    0 0 10px rgba(140, 145, 85, 0.18);
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-mobile-under-strict::before,
+.game-table-root.viewport-mobile
+  .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-mobile-under-strict::before {
+  background: linear-gradient(180deg, rgba(190, 80, 88, 0.9) 0%, rgba(165, 65, 75, 0.88) 100%);
+  box-shadow:
+    0 0 0 1px rgba(190, 80, 88, 0.38),
+    0 0 8px rgba(165, 65, 75, 0.16);
+}
+/* Восток сдающий · ровно в заказ: градиентно-неоновая рамка (центр прозрачный) */
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-order-complete,
+.game-table-root.viewport-mobile
+  .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-order-complete,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-order-complete {
+  overflow: visible !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-order-complete::before,
+.game-table-root.viewport-mobile
+  .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-order-complete::before,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-order-complete::before {
+  padding: 3px;
+  z-index: 3;
+  background: linear-gradient(
+    180deg,
+    rgb(87 67 160 / 98%) 0%,
+    #3e06b2f5 14%,
+    #e879f9 28%,
+    rgb(33 239 176) 48%,
+    rgb(129 29 223) 68%,
+    rgb(52 5 167) 84%,
+    rgb(12 204 98 / 98%) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgb(232 121 250 / 50%),
+    0 0 10px rgb(33 239 176 / 34%),
+    0 0 18px rgb(129 29 223 / 38%),
+    0 0 28px rgb(87 67 160 / 28%),
+    0 0 14px rgb(12 204 98 / 24%);
+}
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-order-complete::after,
+.game-table-root.viewport-mobile
+  .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-order-complete::after,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-order-complete::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  box-shadow:
+    inset 0 0 12px rgb(129 29 223 / 20%);
+}
+/* Восток сдающий · торги: рамка полоски заказа — голубо-фиолетовый градиент */
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  button.trick-slots-east-mobile.trick-slots-normal:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  button.trick-slots-east-mobile.trick-slots-collecting:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  button.trick-slots-east-mobile.trick-slots-normal:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  button.trick-slots-east-mobile.trick-slots-collecting:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  button.trick-slots-east-mobile.trick-slots-normal:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  button.trick-slots-east-mobile.trick-slots-collecting:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before {
+  background: linear-gradient(
+    180deg,
+    rgb(36 172 251 / 92%) 0%,
+    rgb(244 11 245 / 88%) 48%,
+    rgb(74 16 213) 100%
+  ) !important;
+  box-shadow:
+    0 0 0 1px rgb(36 172 251 / 55%),
+    0 0 10px rgb(244 11 245 / 28%),
+    0 0 14px rgb(74 16 213 / 22%) !important;
+}
+/* Восток сдающий · розыгрыш: базовая рамка заказа — фиолетово-зелёный градиент */
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  button.trick-slots-east-mobile.trick-slots-normal:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  button.trick-slots-east-mobile.trick-slots-collecting:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  button.trick-slots-east-mobile.trick-slots-normal:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  button.trick-slots-east-mobile.trick-slots-collecting:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  button.trick-slots-east-mobile.trick-slots-normal:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  button.trick-slots-east-mobile.trick-slots-collecting:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before {
+  background: linear-gradient(180deg, rgb(62 12 207) 0%, rgb(11 189 104) 48%, #6215e9 100%) !important;
+  box-shadow:
+    0 0 0 1px rgb(62 12 207 / 55%),
+    0 0 10px rgb(11 189 104 / 28%),
+    0 0 14px rgb(98 21 233 / 22%) !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel button.trick-slots-east-mobile > *, .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel button.trick-slots-east-mobile > * {
+  position: relative;
+  z-index: 2;
+}
+/* Север/Запад сдающий: «окно» имени и полоска заказа (прозрачный центр, непрозрачная рамка) */
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel .opponent-slot-header-name-window--nw-dealer {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--nw-dealer,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--nw-dealer,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--nw-dealer[class*='--dealer-playing'],
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--nw-dealer[class*='--dealer-playing'] {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel .opponent-slot-header-name-window--nw-dealer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(165deg, #2a3270 0%, #1a2048 42%, #12182e 100%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  box-shadow:
+    0 0 0 1px rgb(147 51 234 / 44%),
+    0 0 12px rgb(56 189 248 / 26%),
+    0 0 10px rgb(167 139 250 / 22%);
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-header-name-window--nw-dealer[class*='--dealer-playing']::before {
+  background: linear-gradient(
+    165deg,
+    rgba(56, 120, 200, 0.96) 0%,
+    rgba(88, 100, 210, 0.94) 38%,
+    rgba(120, 80, 190, 0.96) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.42),
+    0 0 14px rgba(56, 189, 248, 0.36),
+    0 0 10px rgba(167, 139, 250, 0.26);
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-header-name-window--nw-dealer[class*='--dealer-playing-ai-novice']::before {
+  background: linear-gradient(165deg, rgba(34, 160, 90, 0.94) 0%, rgba(22, 120, 68, 0.92) 100%);
+  box-shadow:
+    0 0 0 1px rgba(74, 222, 128, 0.32),
+    0 0 12px rgba(34, 197, 94, 0.24);
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-header-name-window--nw-dealer[class*='--dealer-playing-ai-amateur']::before {
+  background: linear-gradient(165deg, rgba(220, 160, 40, 0.94) 0%, rgba(180, 120, 20, 0.92) 100%);
+  box-shadow:
+    0 0 0 1px rgba(250, 204, 21, 0.28),
+    0 0 10px rgba(234, 179, 8, 0.22);
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-header-name-window--nw-dealer[class*='--dealer-playing-ai-expert']::before {
+  background: linear-gradient(165deg, rgba(180, 70, 230, 0.95) 0%, rgba(130, 40, 190, 0.94) 100%);
+  box-shadow:
+    0 0 0 1px rgba(232, 121, 250, 0.38),
+    0 0 16px rgba(168, 85, 247, 0.32),
+    0 0 10px rgba(192, 132, 252, 0.22);
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel .opponent-slot-header-name-window--nw-dealer::after {
+  opacity: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot.dealer-opponent-panel .opponent-slot-header-name-window--nw-dealer > * {
+  position: relative;
+  z-index: 2;
+}
+/* Север/Запад сдающий: полоска заказа — «окно» (прозрачный центр, непрозрачная рамка) */
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting:not(.trick-slots-east-mobile) {
+  position: relative !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting:not(.trick-slots-east-mobile)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(
+    180deg,
+    rgba(251, 191, 36, 0.92) 0%,
+    rgba(245, 158, 11, 0.88) 48%,
+    rgba(251, 146, 60, 0.9) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.55),
+    0 0 10px rgba(251, 191, 36, 0.28),
+    0 0 6px rgba(251, 146, 60, 0.18);
+}
+/* Север/Запад сдающий · ровно в заказ: двойная градиентно-неоновая рамка (центр прозрачный — как у обычной моб. полоски) */
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-order-complete:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-order-complete:not(.trick-slots-east-mobile) {
+  overflow: visible !important;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-order-complete:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-order-complete:not(.trick-slots-east-mobile)::before {
+  padding: 3px;
+  background: linear-gradient(
+    180deg,
+    rgb(87 67 160 / 98%) 0%,
+    #3e06b2f5 14%,
+    #e879f9 28%,
+    rgb(33 239 176) 48%,
+    rgb(129 29 223) 68%,
+    rgb(52 5 167) 84%,
+    rgb(12 204 98 / 98%) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgb(232 121 250 / 50%),
+    0 0 10px rgb(33 239 176 / 34%),
+    0 0 18px rgb(129 29 223 / 38%),
+    0 0 28px rgb(87 67 160 / 28%),
+    0 0 14px rgb(12 204 98 / 24%);
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-order-complete:not(.trick-slots-east-mobile)::after,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-order-complete:not(.trick-slots-east-mobile)::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  box-shadow:
+    inset 0 0 12px rgb(129 29 223 / 20%);
+}
+/* Заказ >6 · ровно в заказ: та же «стеклянная» рамка (базовый ::before только у normal/collecting) */
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-complete:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-complete:not(.trick-slots-east-mobile) {
+  position: relative !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-complete:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-complete:not(.trick-slots-east-mobile)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 3px;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(
+    180deg,
+    rgb(87 67 160 / 98%) 0%,
+    #3e06b2f5 14%,
+    #e879f9 28%,
+    rgb(33 239 176) 48%,
+    rgb(129 29 223) 68%,
+    rgb(52 5 167) 84%,
+    rgb(12 204 98 / 98%) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  box-shadow:
+    0 0 0 1px rgb(232 121 250 / 50%),
+    0 0 10px rgb(33 239 176 / 34%),
+    0 0 18px rgb(129 29 223 / 38%),
+    0 0 28px rgb(87 67 160 / 28%),
+    0 0 14px rgb(12 204 98 / 24%);
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-complete:not(.trick-slots-east-mobile)::after,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-complete:not(.trick-slots-east-mobile)::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  box-shadow:
+    inset 0 0 12px rgb(129 29 223 / 20%);
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-order-over:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-order-over:not(.trick-slots-east-mobile)::before {
+  background: linear-gradient(180deg, rgba(140, 145, 85, 0.9) 0%, rgba(110, 115, 68, 0.88) 100%);
+  box-shadow:
+    0 0 0 1px rgba(130, 135, 78, 0.42),
+    0 0 10px rgba(140, 145, 85, 0.18);
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-under-strict:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-under-strict:not(.trick-slots-east-mobile)::before {
+  background: linear-gradient(180deg, rgba(190, 80, 88, 0.9) 0%, rgba(165, 65, 75, 0.88) 100%);
+  box-shadow:
+    0 0 0 1px rgba(190, 80, 88, 0.38),
+    0 0 8px rgba(165, 65, 75, 0.16);
+}
+/* Север/Запад сдающий · торги: рамка полоски заказа — голубо-фиолетовый градиент (в розыгрыше — динамика выше) */
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-order-over:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-under-strict:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-nw-high-bid-ear:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-order-over:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-under-strict:not(.trick-slots-east-mobile)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-nw-high-bid-ear:not(.trick-slots-east-mobile)::before {
+  background: linear-gradient(
+    180deg,
+    rgb(36 172 251 / 92%) 0%,
+    rgb(244 11 245 / 88%) 48%,
+    rgb(74 16 213) 100%
+  ) !important;
+  box-shadow:
+    0 0 0 1px rgb(36 172 251 / 55%),
+    0 0 10px rgb(244 11 245 / 28%),
+    0 0 14px rgb(74 16 213 / 22%) !important;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-nw-high-bid-ear
+  .trick-slots-mobile-nw-figures-ear,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-nw-high-bid-ear
+  .trick-slots-mobile-nw-figures-ear {
+  border-color: rgb(36 172 251 / 72%) !important;
+}
+/* Север/Запад сдающий · розыгрыш: базовая рамка заказа — фиолетово-зелёный градиент (состояния exact/over/strict — выше) */
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal:not(.trick-slots-east-mobile):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting:not(.trick-slots-east-mobile):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-nw-high-bid-ear:not(.trick-slots-east-mobile):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal:not(.trick-slots-east-mobile):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting:not(.trick-slots-east-mobile):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-nw-high-bid-ear:not(.trick-slots-east-mobile):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before {
+  background: linear-gradient(180deg, rgb(62 12 207) 0%, rgb(11 189 104) 48%, #6215e9 100%) !important;
+  box-shadow:
+    0 0 0 1px rgb(62 12 207 / 55%),
+    0 0 10px rgb(11 189 104 / 28%),
+    0 0 14px rgb(98 21 233 / 22%) !important;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-nw-high-bid-ear:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)
+  .trick-slots-mobile-nw-figures-ear,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-nw-high-bid-ear:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)
+  .trick-slots-mobile-nw-figures-ear {
+  border-color: rgb(62 12 207 / 72%) !important;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal:not(.trick-slots-east-mobile)
+  > *,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting:not(.trick-slots-east-mobile)
+  > *,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal:not(.trick-slots-east-mobile)
+  > *,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting:not(.trick-slots-east-mobile)
+  > * {
+  position: relative;
+  z-index: 2;
+}
+/* Восток: зоны звёзд (аватар+имя — в DOM); mid — по бокам от «Очки», lower — заказ и низ */
+.game-table-root.viewport-mobile .dealer-east-stars-zone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.game-table-root.viewport-mobile .dealer-east-stars-zone--mid {
+  top: 20%;
+  bottom: 38%;
+}
+.game-table-root.viewport-mobile .dealer-east-stars-zone--lower {
+  top: 40%;
+  bottom: 0;
+}
+/* Восток: кольцо вокруг аватарки — квадрат 56×56, не на всю ширину колонки */
+.game-table-root.viewport-mobile .opponent-slot-header-avatar-reserve-mobile {
+  position: relative !important;
+  overflow: visible !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel .dealer-east-avatar-ring-stars, .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel .dealer-east-avatar-ring-stars {
+  z-index: 0;
+}
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel .opponent-slot-header-avatar-reserve-mobile > *:not(.dealer-east-avatar-ring-stars), .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel .opponent-slot-header-avatar-reserve-mobile > *:not(.dealer-east-avatar-ring-stars), .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel .opponent-slot-header-avatar-reserve-pc-east > *:not(.dealer-east-avatar-ring-stars) {
+  position: relative;
+  z-index: 1;
+}
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel .opponent-slot-header-name-window-wrap--east, .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel .opponent-slot-header-name-window-wrap--east {
+  position: relative;
+  z-index: 4;
+}
+.game-table-root.viewport-mobile .dealer-east-avatar-ring-stars {
+  position: absolute;
+  top: -5px;
+  right: -18px;
+  bottom: -18px;
+  left: -18px;
+  z-index: 3;
+  pointer-events: none;
+  overflow: visible;
+}
+.game-table-root.viewport-mobile .dealer-east-avatar-ring-stars__layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  filter:
+    drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.98))
+    drop-shadow(0 0 3.5px rgba(34, 211, 238, 0.92))
+    drop-shadow(0 0 6px rgba(192, 132, 252, 0.62));
+}
+.game-table-root.viewport-mobile .dealer-east-avatar-ring-stars__layer--a {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.62'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.98'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.88'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.6'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.85'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b' cx='30%25' cy='25%25' r='72%25'%3E%3Cstop offset='0%25' stop-color='%23ffffff' stop-opacity='1'/%3E%3Cstop offset='14%25' stop-color='%23f0f9ff' stop-opacity='1'/%3E%3Cstop offset='34%25' stop-color='%2367e8f9' stop-opacity='1'/%3E%3Cstop offset='58%25' stop-color='%2322d3ee' stop-opacity='.98'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='10' cy='18' r='2.85' fill='url(%23b)'/%3E%3Ccircle cx='88' cy='10' r='1.75' fill='url(%23c)'/%3E%3Ccircle cx='93' cy='41' r='2.25' fill='url(%23v)'/%3E%3Ccircle cx='81' cy='89' r='2.85' fill='url(%23s)'/%3E%3Ccircle cx='17' cy='93' r='1.75' fill='url(%23c)'/%3E%3Ccircle cx='5' cy='58' r='2.25' fill='url(%23v)'/%3E%3Ccircle cx='46' cy='9' r='2.85' fill='url(%23b)'/%3E%3Ccircle cx='73' cy='9' r='1.75' fill='url(%23s)'/%3E%3Ccircle cx='31' cy='95' r='2.25' fill='url(%23c)'/%3E%3Ccircle cx='7' cy='27' r='1.75' fill='url(%23v)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-east-avatar-ring-stars__layer--b {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.62'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.98'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.88'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.6'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.85'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='26' cy='22' r='2.25' fill='url(%23c)'/%3E%3Ccircle cx='77' cy='17' r='1.75' fill='url(%23v)'/%3E%3Ccircle cx='90' cy='56' r='2.25' fill='url(%23s)'/%3E%3Ccircle cx='64' cy='84' r='1.75' fill='url(%23c)'/%3E%3Ccircle cx='18' cy='76' r='2.25' fill='url(%23v)'/%3E%3Ccircle cx='39' cy='13' r='1.75' fill='url(%23s)'/%3E%3Ccircle cx='13' cy='47' r='2.25' fill='url(%23c)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-east-avatar-ring-stars__layer--c {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='b' cx='30%25' cy='25%25' r='72%25'%3E%3Cstop offset='0%25' stop-color='%23ffffff' stop-opacity='1'/%3E%3Cstop offset='14%25' stop-color='%23f0f9ff' stop-opacity='1'/%3E%3Cstop offset='34%25' stop-color='%2367e8f9' stop-opacity='1'/%3E%3Cstop offset='58%25' stop-color='%2322d3ee' stop-opacity='.98'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='94' cy='71' r='2.85' fill='url(%23b)'/%3E%3Ccircle cx='6' cy='43' r='1.75' fill='url(%23b)'/%3E%3Ccircle cx='57' cy='97' r='2.25' fill='url(%23b)'/%3E%3Ccircle cx='43' cy='8' r='1.75' fill='url(%23b)'/%3E%3C/svg%3E");
+}
+/* Восток: рассыпание в окошке имени (на wrap, отдельные слои — не общие С/З) */
+.game-table-root.viewport-mobile .opponent-slot-header-name-window-wrap--east {
+  overflow: visible !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-header-name-window--east {
+  overflow: visible !important;
+}
+.game-table-root.viewport-mobile .opponent-slot-header-name-window--east .dealer-east-name-panel-stars {
+  position: absolute;
+  inset: 0 -14px;
+  z-index: 0 !important;
+  pointer-events: none;
+  overflow: visible;
+}
+.game-table-root.viewport-mobile .opponent-slot-header-name-window--east > *:not(.dealer-east-name-panel-stars) {
+  position: relative;
+  z-index: 1;
+}
+.game-table-root.viewport-mobile .dealer-east-name-panel-stars__layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  filter:
+    drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.92))
+    drop-shadow(0 0 3px rgba(34, 211, 238, 0.82))
+    drop-shadow(0 0 5px rgba(192, 132, 252, 0.5));
+}
+.game-table-root.viewport-mobile .dealer-east-name-panel-stars__layer--a {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.54'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.84'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.56'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.83'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b' cx='30%25' cy='25%25' r='72%25'%3E%3Cstop offset='0%25' stop-color='%23ffffff' stop-opacity='1'/%3E%3Cstop offset='14%25' stop-color='%23f0f9ff' stop-opacity='1'/%3E%3Cstop offset='34%25' stop-color='%2367e8f9' stop-opacity='1'/%3E%3Cstop offset='58%25' stop-color='%2322d3ee' stop-opacity='.98'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='2' cy='20' r='1.95' fill='url(%23c)'/%3E%3Ccircle cx='98' cy='24' r='1.88' fill='url(%23b)'/%3E%3Ccircle cx='3' cy='56' r='2.02' fill='url(%23v)'/%3E%3Ccircle cx='97' cy='62' r='1.92' fill='url(%23s)'/%3E%3Ccircle cx='6' cy='88' r='1.88' fill='url(%23c)'/%3E%3Ccircle cx='94' cy='86' r='1.95' fill='url(%23v)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-east-name-panel-stars__layer--b {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.54'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.84'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.56'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.83'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='i' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.52'/%3E%3Cstop offset='26%25' stop-color='%23a78bfa' stop-opacity='.94'/%3E%3Cstop offset='62%25' stop-color='%236366f1' stop-opacity='.82'/%3E%3Cstop offset='100%25' stop-color='%234338ca' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='1' cy='38' r='1.98' fill='url(%23v)'/%3E%3Ccircle cx='99' cy='44' r='1.95' fill='url(%23s)'/%3E%3Ccircle cx='4' cy='14' r='1.85' fill='url(%23c)'/%3E%3Ccircle cx='96' cy='18' r='1.88' fill='url(%23i)'/%3E%3Ccircle cx='7' cy='72' r='1.9' fill='url(%23c)'/%3E%3Ccircle cx='93' cy='78' r='1.88' fill='url(%23i)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-east-name-panel-stars__layer--c {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.54'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.84'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.56'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.83'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='2' cy='30' r='1.92' fill='url(%23c)'/%3E%3Ccircle cx='98' cy='34' r='2' fill='url(%23v)'/%3E%3Ccircle cx='3' cy='68' r='1.95' fill='url(%23s)'/%3E%3Ccircle cx='97' cy='74' r='1.9' fill='url(%23c)'/%3E%3Ccircle cx='50' cy='94' r='1.82' fill='url(%23v)'/%3E%3C/svg%3E");
+}
+/* Восток: кольцо аватарки — чуть медленнее дрейф, чем у имени */
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-avatar-ring-stars__layer--a {
+  animation-name: dealer-opponent-panel-stars-drift-a, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 17s, 7s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: 0s, -1.2s;
+  will-change: transform, opacity, filter;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-avatar-ring-stars__layer--b {
+  animation-name: dealer-opponent-panel-stars-drift-b, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 22s, 8.2s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: -5s, -2.4s;
+  will-change: transform, opacity, filter;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-avatar-ring-stars__layer--c {
+  animation-name: dealer-opponent-panel-stars-drift-c, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 20s, 8.8s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: -9s, -3.1s;
+  will-change: transform, opacity, filter;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-name-panel-stars__layer--a {
+  animation-name: dealer-opponent-panel-stars-drift-a, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 14s, 5.8s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: 0s, -1.2s;
+  will-change: transform, opacity, filter;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-name-panel-stars__layer--b {
+  animation-name: dealer-opponent-panel-stars-drift-b, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 18s, 6.6s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: -5s, -2.4s;
+  will-change: transform, opacity, filter;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-name-panel-stars__layer--c {
+  animation-name: dealer-opponent-panel-stars-drift-c, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 16s, 7.2s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: -9s, -3.1s;
+  will-change: transform, opacity, filter;
+}
+.game-table-root.viewport-mobile .opponent-slot-east.dealer-opponent-panel > .dealer-east-panel-ufo-host .dealer-east-panel-ufo, .game-table-root.viewport-mobile .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel > .dealer-east-panel-ufo-host .dealer-east-panel-ufo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0.94;
+  filter: drop-shadow(0 0 4px rgba(192, 132, 252, 0.75));
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .opponent-slot-east.dealer-opponent-panel > .dealer-east-panel-ufo-host, .game-table-root.viewport-mobile .dealer-panel-stars-live .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel > .dealer-east-panel-ufo-host {
+  animation: dealer-east-panel-ufo-flight 195s linear infinite;
+  animation-delay: -68s;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .opponent-slot-east.dealer-opponent-panel > .dealer-east-panel-ufo-host .dealer-east-panel-ufo, .game-table-root.viewport-mobile .dealer-panel-stars-live .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel > .dealer-east-panel-ufo-host .dealer-east-panel-ufo {
+  animation: dealer-east-panel-ufo-tilt 60s steps(5, end) infinite;
+  animation-delay: -18s;
+}
+@keyframes dealer-east-panel-ufo-flight {
+  0%,
+  11% {
+    left: 16%;
+    top: 14%;
+    opacity: 0.76;
+    transform: translate(-50%, -50%) rotate(-14deg) scale(0.94);
+  }
+  12% {
+    left: 82%;
+    top: 22%;
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(10deg) scale(1);
+  }
+  13%,
+  24% {
+    left: 83%;
+    top: 21%;
+    opacity: 0.88;
+    transform: translate(-50%, -50%) rotate(12deg) scale(0.98);
+  }
+  25% {
+    left: 88%;
+    top: 48%;
+    opacity: 0.88;
+    transform: translate(-50%, -50%) rotate(18deg) scale(0.98);
+  }
+  26%,
+  38% {
+    left: 86%;
+    top: 50%;
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(14deg) scale(1);
+  }
+  39% {
+    left: 58%;
+    top: 72%;
+    opacity: 0.94;
+    transform: translate(-50%, -50%) rotate(-6deg) scale(1.04);
+  }
+  40%,
+  52% {
+    left: 56%;
+    top: 74%;
+    opacity: 0.92;
+    transform: translate(-50%, -50%) rotate(-8deg) scale(1.02);
+  }
+  53% {
+    left: 22%;
+    top: 84%;
+    opacity: 0.86;
+    transform: translate(-50%, -50%) rotate(-20deg) scale(0.96);
+  }
+  54%,
+  64% {
+    left: 20%;
+    top: 82%;
+    opacity: 0.88;
+    transform: translate(-50%, -50%) rotate(-18deg) scale(0.97);
+  }
+  65% {
+    left: 10%;
+    top: 58%;
+    opacity: 0.92;
+    transform: translate(-50%, -50%) rotate(4deg) scale(1.02);
+  }
+  66%,
+  76% {
+    left: 12%;
+    top: 56%;
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(2deg) scale(1);
+  }
+  77% {
+    left: 34%;
+    top: 38%;
+    opacity: 0.88;
+    transform: translate(-50%, -50%) rotate(16deg) scale(0.97);
+  }
+  78%,
+  86% {
+    left: 36%;
+    top: 40%;
+    opacity: 0.86;
+    transform: translate(-50%, -50%) rotate(12deg) scale(0.98);
+  }
+  87% {
+    left: 68%;
+    top: 30%;
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(-10deg) scale(1.01);
+  }
+  88%,
+  94% {
+    left: 66%;
+    top: 32%;
+    opacity: 0.88;
+    transform: translate(-50%, -50%) rotate(-8deg) scale(1);
+  }
+  95% {
+    left: 44%;
+    top: 52%;
+    opacity: 0.84;
+    transform: translate(-50%, -50%) rotate(6deg) scale(0.99);
+  }
+  96%,
+  100% {
+    left: 16%;
+    top: 14%;
+    opacity: 0.76;
+    transform: translate(-50%, -50%) rotate(-14deg) scale(0.94);
+  }
+}
+@keyframes dealer-east-panel-ufo-tilt {
+  0%,
+  18% {
+    transform: rotate(-4deg);
+  }
+  22%,
+  42% {
+    transform: rotate(5deg);
+  }
+  46%,
+  68% {
+    transform: rotate(-2deg);
+  }
+  72%,
+  100% {
+    transform: rotate(3deg);
+  }
+}
+/* Юг: 3 размера (100% / 110% / 125%), равномерно верх·середина·низ в каждом слое */
+.game-table-root.viewport-mobile .dealer-opponent-panel-stars--south .dealer-opponent-panel-stars__layer--a {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 30'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='22%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='58%25' stop-color='%2306b6d4' stop-opacity='.82'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.54'/%3E%3Cstop offset='22%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='58%25' stop-color='%238b5cf6' stop-opacity='.8'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.56'/%3E%3Cstop offset='22%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='58%25' stop-color='%230ea5e9' stop-opacity='.8'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='i' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.52'/%3E%3Cstop offset='22%25' stop-color='%23a78bfa' stop-opacity='.94'/%3E%3Cstop offset='58%25' stop-color='%236366f1' stop-opacity='.78'/%3E%3Cstop offset='100%25' stop-color='%234338ca' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b' cx='30%25' cy='25%25' r='72%25'%3E%3Cstop offset='0%25' stop-color='%23ffffff' stop-opacity='1'/%3E%3Cstop offset='14%25' stop-color='%23f0f9ff' stop-opacity='1'/%3E%3Cstop offset='34%25' stop-color='%2367e8f9' stop-opacity='1'/%3E%3Cstop offset='58%25' stop-color='%2322d3ee' stop-opacity='.98'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='5' cy='2.2' r='0.5' fill='url(%23c)'/%3E%3Ccircle cx='28' cy='1.8' r='0.68' fill='url(%23b)'/%3E%3Ccircle cx='64' cy='2.4' r='0.55' fill='url(%23s)'/%3E%3Ccircle cx='10' cy='14' r='0.55' fill='url(%23i)'/%3E%3Ccircle cx='38' cy='15.2' r='0.5' fill='url(%23c)'/%3E%3Ccircle cx='93' cy='13.8' r='0.625' fill='url(%23v)'/%3E%3Ccircle cx='8' cy='27.6' r='0.5' fill='url(%23s)'/%3E%3Ccircle cx='34' cy='28.2' r='0.625' fill='url(%23i)'/%3E%3Ccircle cx='96' cy='27' r='0.55' fill='url(%23c)'/%3E%3Ccircle cx='63' cy='1.7' r='0.5' fill='url(%23v)'/%3E%3Ccircle cx='72' cy='14.8' r='0.55' fill='url(%23s)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-opponent-panel-stars--south .dealer-opponent-panel-stars__layer--b {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 30'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='22%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='58%25' stop-color='%2306b6d4' stop-opacity='.82'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.54'/%3E%3Cstop offset='22%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='58%25' stop-color='%238b5cf6' stop-opacity='.8'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.56'/%3E%3Cstop offset='22%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='58%25' stop-color='%230ea5e9' stop-opacity='.8'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='i' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.52'/%3E%3Cstop offset='22%25' stop-color='%23a78bfa' stop-opacity='.94'/%3E%3Cstop offset='58%25' stop-color='%236366f1' stop-opacity='.78'/%3E%3Cstop offset='100%25' stop-color='%234338ca' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b' cx='30%25' cy='25%25' r='72%25'%3E%3Cstop offset='0%25' stop-color='%23ffffff' stop-opacity='1'/%3E%3Cstop offset='14%25' stop-color='%23f0f9ff' stop-opacity='1'/%3E%3Cstop offset='34%25' stop-color='%2367e8f9' stop-opacity='1'/%3E%3Cstop offset='58%25' stop-color='%2322d3ee' stop-opacity='.98'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='18' cy='2.8' r='0.625' fill='url(%23c)'/%3E%3Ccircle cx='44' cy='1.9' r='0.5' fill='url(%23v)'/%3E%3Ccircle cx='98' cy='2.2' r='0.55' fill='url(%23s)'/%3E%3Ccircle cx='6' cy='12.5' r='0.5' fill='url(%23i)'/%3E%3Ccircle cx='50' cy='14.5' r='0.68' fill='url(%23b)'/%3E%3Ccircle cx='99' cy='15' r='0.55' fill='url(%23v)'/%3E%3Ccircle cx='20' cy='26.5' r='0.55' fill='url(%23s)'/%3E%3Ccircle cx='48' cy='28.5' r='0.5' fill='url(%23i)'/%3E%3Ccircle cx='99' cy='27.2' r='0.625' fill='url(%23c)'/%3E%3Ccircle cx='68' cy='3.1' r='0.625' fill='url(%23i)'/%3E%3Ccircle cx='77' cy='26.6' r='0.5' fill='url(%23v)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-opponent-panel-stars--south .dealer-opponent-panel-stars__layer--c {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 30'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='22%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='58%25' stop-color='%2306b6d4' stop-opacity='.82'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.54'/%3E%3Cstop offset='22%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='58%25' stop-color='%238b5cf6' stop-opacity='.8'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.56'/%3E%3Cstop offset='22%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='58%25' stop-color='%230ea5e9' stop-opacity='.8'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='i' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.52'/%3E%3Cstop offset='22%25' stop-color='%23a78bfa' stop-opacity='.94'/%3E%3Cstop offset='58%25' stop-color='%236366f1' stop-opacity='.78'/%3E%3Cstop offset='100%25' stop-color='%234338ca' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b' cx='30%25' cy='25%25' r='72%25'%3E%3Cstop offset='0%25' stop-color='%23ffffff' stop-opacity='1'/%3E%3Cstop offset='14%25' stop-color='%23f0f9ff' stop-opacity='1'/%3E%3Cstop offset='34%25' stop-color='%2367e8f9' stop-opacity='1'/%3E%3Cstop offset='58%25' stop-color='%2322d3ee' stop-opacity='.98'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='78' cy='3.2' r='0.5' fill='url(%23c)'/%3E%3Ccircle cx='99' cy='1.7' r='0.625' fill='url(%23v)'/%3E%3Ccircle cx='8' cy='3.5' r='0.55' fill='url(%23s)'/%3E%3Ccircle cx='22' cy='16.5' r='0.68' fill='url(%23b)'/%3E%3Ccircle cx='54' cy='12.8' r='0.5' fill='url(%23c)'/%3E%3Ccircle cx='94' cy='16' r='0.55' fill='url(%23v)'/%3E%3Ccircle cx='4' cy='28.5' r='0.625' fill='url(%23s)'/%3E%3Ccircle cx='42' cy='26.8' r='0.5' fill='url(%23i)'/%3E%3Ccircle cx='98' cy='28' r='0.55' fill='url(%23c)'/%3E%3Ccircle cx='75' cy='15.1' r='0.55' fill='url(%23s)'/%3E%3C/svg%3E");
+}
+/* Юг: крошечные Сатурны с кольцами (редкий акцент) */
+.game-table-root.viewport-mobile .dealer-opponent-panel-stars--south .dealer-south-panel-saturn-host {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+.game-table-root.viewport-mobile .dealer-south-panel-saturn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0.9;
+  filter: drop-shadow(0 0 2px var(--saturn-glow, rgba(103, 232, 249, 0.7)));
+  transform: rotate(var(--saturn-rot, 0deg));
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-south-panel-saturn-host {
+  animation: dealer-south-panel-saturn-float 11s ease-in-out infinite;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-opponent-panel-stars--south .dealer-south-panel-saturn-host:nth-child(4) {
+  animation-delay: -3.8s;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-opponent-panel-stars--south .dealer-south-panel-saturn-host:nth-child(5) {
+  animation-delay: -7.4s;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-opponent-panel-stars--south .dealer-south-panel-saturn-host:nth-child(6) {
+  animation-delay: -5.2s;
+}
+@keyframes dealer-south-panel-saturn-float {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.96;
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+}
+.game-table-root.viewport-mobile .dealer-opponent-panel-stars__layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+}
+/* Север/Запад: горизонтальная полоска заказа снизу — звёзды по ширине, не в нижней центральной зоне */
+.game-table-root.viewport-mobile .dealer-opponent-panel-stars__layer--a {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.52'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.48'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.84'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.5'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.83'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='i' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.46'/%3E%3Cstop offset='26%25' stop-color='%23a78bfa' stop-opacity='.94'/%3E%3Cstop offset='62%25' stop-color='%236366f1' stop-opacity='.82'/%3E%3Cstop offset='100%25' stop-color='%234338ca' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='8' cy='10' r='1.35' fill='url(%23c)'/%3E%3Ccircle cx='24' cy='8' r='1.1' fill='url(%23v)'/%3E%3Ccircle cx='40' cy='14' r='1.4' fill='url(%23s)'/%3E%3Ccircle cx='56' cy='9' r='1.05' fill='url(%23i)'/%3E%3Ccircle cx='72' cy='12' r='1.3' fill='url(%23c)'/%3E%3Ccircle cx='88' cy='10' r='1' fill='url(%23v)'/%3E%3Ccircle cx='46' cy='24' r='1.2' fill='url(%23s)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-opponent-panel-stars__layer--b {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.52'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.48'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.84'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.5'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.83'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='i' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.46'/%3E%3Cstop offset='26%25' stop-color='%23a78bfa' stop-opacity='.94'/%3E%3Cstop offset='62%25' stop-color='%236366f1' stop-opacity='.82'/%3E%3Cstop offset='100%25' stop-color='%234338ca' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='6' cy='28' r='1.1' fill='url(%23c)'/%3E%3Ccircle cx='22' cy='32' r='1.05' fill='url(%23v)'/%3E%3Ccircle cx='38' cy='26' r='1.2' fill='url(%23s)'/%3E%3Ccircle cx='54' cy='34' r='1.1' fill='url(%23i)'/%3E%3Ccircle cx='70' cy='28' r='1.15' fill='url(%23c)'/%3E%3Ccircle cx='86' cy='32' r='1' fill='url(%23v)'/%3E%3Ccircle cx='48' cy='18' r='1.1' fill='url(%23s)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-opponent-panel-stars__layer--c {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.52'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.48'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.84'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.5'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.83'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='i' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.46'/%3E%3Cstop offset='26%25' stop-color='%23a78bfa' stop-opacity='.94'/%3E%3Cstop offset='62%25' stop-color='%236366f1' stop-opacity='.82'/%3E%3Cstop offset='100%25' stop-color='%234338ca' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='8' cy='68' r='1.15' fill='url(%23c)'/%3E%3Ccircle cx='92' cy='72' r='1.2' fill='url(%23v)'/%3E%3Ccircle cx='10' cy='84' r='1.1' fill='url(%23s)'/%3E%3Ccircle cx='88' cy='80' r='1.05' fill='url(%23i)'/%3E%3Ccircle cx='6' cy='58' r='1' fill='url(%23c)'/%3E%3Ccircle cx='94' cy='62' r='1.1' fill='url(%23v)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-opponent-panel-stars__layer--a {
+  animation-name: dealer-opponent-panel-stars-drift-a, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 14s, 5.8s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: 0s, -1.2s;
+  will-change: transform, opacity, filter;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-opponent-panel-stars__layer--b {
+  animation-name: dealer-opponent-panel-stars-drift-b, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 18s, 6.6s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: -5s, -2.4s;
+  will-change: transform, opacity, filter;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-opponent-panel-stars__layer--c {
+  animation-name: dealer-opponent-panel-stars-drift-c, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 16s, 7.2s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: -9s, -3.1s;
+  will-change: transform, opacity, filter;
+}
+/* Восток: нижняя зона — отдельные слои (3 размера звёзд, как у кольца аватара) */
+.game-table-root.viewport-mobile .dealer-east-stars-zone--lower .dealer-east-lower-panel-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.game-table-root.viewport-mobile .dealer-east-lower-panel-stars__layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  filter:
+    drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.92))
+    drop-shadow(0 0 3px rgba(34, 211, 238, 0.82))
+    drop-shadow(0 0 5px rgba(192, 132, 252, 0.5));
+}
+.game-table-root.viewport-mobile .dealer-east-lower-panel-stars__layer--a {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.54'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.84'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.56'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.83'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b' cx='30%25' cy='25%25' r='72%25'%3E%3Cstop offset='0%25' stop-color='%23ffffff' stop-opacity='1'/%3E%3Cstop offset='14%25' stop-color='%23f0f9ff' stop-opacity='1'/%3E%3Cstop offset='34%25' stop-color='%2367e8f9' stop-opacity='1'/%3E%3Cstop offset='58%25' stop-color='%2322d3ee' stop-opacity='.98'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='22' cy='52' r='0.72' fill='url(%23c)'/%3E%3Ccircle cx='50' cy='62' r='1.78' fill='url(%23b)'/%3E%3Ccircle cx='78' cy='56' r='1.08' fill='url(%23s)'/%3E%3Ccircle cx='36' cy='78' r='0.68' fill='url(%23c)'/%3E%3Ccircle cx='64' cy='81' r='1.22' fill='url(%23v)'/%3E%3Ccircle cx='24' cy='91' r='1.58' fill='url(%23s)'/%3E%3Ccircle cx='76' cy='92' r='0.75' fill='url(%23c)'/%3E%3Ccircle cx='4' cy='97' r='0.62' fill='url(%23v)'/%3E%3Ccircle cx='96' cy='98' r='1.42' fill='url(%23s)'/%3E%3Ccircle cx='44' cy='87' r='1.02' fill='url(%23c)'/%3E%3Ccircle cx='56' cy='89' r='1.68' fill='url(%23v)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-east-lower-panel-stars__layer--b {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.54'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.84'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.56'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.83'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='i' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.52'/%3E%3Cstop offset='26%25' stop-color='%23a78bfa' stop-opacity='.94'/%3E%3Cstop offset='62%25' stop-color='%236366f1' stop-opacity='.82'/%3E%3Cstop offset='100%25' stop-color='%234338ca' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='68' r='1.72' fill='url(%23i)'/%3E%3Ccircle cx='20' cy='85' r='0.65' fill='url(%23c)'/%3E%3Ccircle cx='80' cy='86' r='1.12' fill='url(%23v)'/%3E%3Ccircle cx='22' cy='94' r='1.48' fill='url(%23s)'/%3E%3Ccircle cx='78' cy='96' r='0.78' fill='url(%23c)'/%3E%3Ccircle cx='50' cy='99' r='1.88' fill='url(%23i)'/%3E%3Ccircle cx='46' cy='78' r='0.98' fill='url(%23v)'/%3E%3Ccircle cx='54' cy='82' r='0.7' fill='url(%23s)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-east-lower-panel-stars__layer--c {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.54'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.84'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.56'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.83'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='20' cy='95' r='1.38' fill='url(%23s)'/%3E%3Ccircle cx='80' cy='97' r='0.6' fill='url(%23v)'/%3E%3Ccircle cx='16' cy='75' r='0.92' fill='url(%23c)'/%3E%3Ccircle cx='84' cy='77' r='1.62' fill='url(%23v)'/%3E%3Ccircle cx='50' cy='84' r='1.14' fill='url(%23s)'/%3E%3Ccircle cx='48' cy='93' r='0.72' fill='url(%23c)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-lower-panel-stars__layer--a {
+  animation-name: dealer-opponent-panel-stars-drift-a, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 14s, 5.8s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: 0s, -1.2s;
+  will-change: transform, opacity, filter;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-lower-panel-stars__layer--b {
+  animation-name: dealer-opponent-panel-stars-drift-b, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 18s, 6.6s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: -5s, -2.4s;
+  will-change: transform, opacity, filter;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-lower-panel-stars__layer--c {
+  animation-name: dealer-opponent-panel-stars-drift-c, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 16s, 7.2s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: -9s, -3.1s;
+  will-change: transform, opacity, filter;
+}
+/* Восток: средняя зона — ~10 звёзд по бокам от бейджа «Очки» (центр пустой) */
+.game-table-root.viewport-mobile .dealer-east-stars-zone--mid .dealer-east-mid-panel-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.game-table-root.viewport-mobile .dealer-east-mid-panel-stars__layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  filter:
+    drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.92))
+    drop-shadow(0 0 3px rgba(34, 211, 238, 0.82))
+    drop-shadow(0 0 5px rgba(192, 132, 252, 0.5));
+}
+.game-table-root.viewport-mobile .dealer-east-mid-panel-stars__layer--a {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.54'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.84'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.56'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.83'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='b' cx='30%25' cy='25%25' r='72%25'%3E%3Cstop offset='0%25' stop-color='%23ffffff' stop-opacity='1'/%3E%3Cstop offset='14%25' stop-color='%23f0f9ff' stop-opacity='1'/%3E%3Cstop offset='34%25' stop-color='%2367e8f9' stop-opacity='1'/%3E%3Cstop offset='58%25' stop-color='%2322d3ee' stop-opacity='.98'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='9' cy='28' r='0.82' fill='url(%23c)'/%3E%3Ccircle cx='11' cy='56' r='1.42' fill='url(%23b)'/%3E%3Ccircle cx='89' cy='54' r='1.35' fill='url(%23v)'/%3E%3Ccircle cx='87' cy='76' r='0.9' fill='url(%23s)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-east-mid-panel-stars__layer--b {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.54'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.84'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.56'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.83'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='i' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.52'/%3E%3Cstop offset='26%25' stop-color='%23a78bfa' stop-opacity='.94'/%3E%3Cstop offset='62%25' stop-color='%236366f1' stop-opacity='.82'/%3E%3Cstop offset='100%25' stop-color='%234338ca' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='13' cy='18' r='1.08' fill='url(%23i)'/%3E%3Ccircle cx='85' cy='34' r='0.72' fill='url(%23c)'/%3E%3Ccircle cx='7' cy='82' r='1.22' fill='url(%23v)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-east-mid-panel-stars__layer--c {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='c' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.58'/%3E%3Cstop offset='26%25' stop-color='%2322d3ee' stop-opacity='.97'/%3E%3Cstop offset='62%25' stop-color='%2306b6d4' stop-opacity='.86'/%3E%3Cstop offset='100%25' stop-color='%230e7490' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='v' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.54'/%3E%3Cstop offset='26%25' stop-color='%23c084fc' stop-opacity='.96'/%3E%3Cstop offset='62%25' stop-color='%238b5cf6' stop-opacity='.84'/%3E%3Cstop offset='100%25' stop-color='%235b21b6' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='s' cx='32%25' cy='28%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23fff' stop-opacity='.56'/%3E%3Cstop offset='26%25' stop-color='%2338bdf8' stop-opacity='.95'/%3E%3Cstop offset='62%25' stop-color='%230ea5e9' stop-opacity='.83'/%3E%3Cstop offset='100%25' stop-color='%230369a1' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='91' cy='70' r='0.88' fill='url(%23s)'/%3E%3Ccircle cx='15' cy='44' r='1.02' fill='url(%23c)'/%3E%3Ccircle cx='83' cy='14' r='1.16' fill='url(%23v)'/%3E%3C/svg%3E");
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-mid-panel-stars__layer--a {
+  animation-name: dealer-opponent-panel-stars-drift-a, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 15s, 6.2s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: -2s, -0.8s;
+  will-change: transform, opacity, filter;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-mid-panel-stars__layer--b {
+  animation-name: dealer-opponent-panel-stars-drift-b, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 19s, 6.8s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: -6s, -2.1s;
+  will-change: transform, opacity, filter;
+}
+.game-table-root.viewport-mobile .dealer-panel-stars-live .dealer-east-mid-panel-stars__layer--c {
+  animation-name: dealer-opponent-panel-stars-drift-c, dealer-opponent-panel-stars-twinkle;
+  animation-duration: 17s, 7.4s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: -10s, -3.4s;
+  will-change: transform, opacity, filter;
+}
+.game-table-root.viewport-mobile .opponent-slot.dealer-opponent-panel > *:not(.dealer-opponent-panel-stars):not(.dealer-east-panel-ufo-host):not(.dealer-nw-panel-ufo-host):not(.dealer-nw-panel-accent-star-host) {
+  position: relative;
+  z-index: 2;
+}
+.game-table-root.viewport-mobile .game-mobile-user-south-main > *:not(.dealer-opponent-panel-stars) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Моб.: «дорогие» имена людей (онлайн/офлайн) — голубо-серебристо-сиреневый градиент */
+.game-table-root.viewport-mobile .opponent-slot-header .opponent-slot-header-display-name--premium-human {
+  background: linear-gradient(
+    168deg,
+    #f8fcff 0%,
+    #e8f6ff 14%,
+    #bae6fd 32%,
+    #a5b4fc 52%,
+    #c4b5fd 72%,
+    #ddd6fe 88%,
+    #eef2ff 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+  filter: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.35));
+}
+.theme-neon .game-table-root.viewport-mobile .opponent-slot-header .opponent-slot-header-display-name--premium-human,
+.theme-standard .game-table-root.viewport-mobile .opponent-slot-header .opponent-slot-header-display-name--premium-human {
+  background: linear-gradient(
+    168deg,
+    #f8fcff 0%,
+    #e8f6ff 14%,
+    #bae6fd 32%,
+    #a5b4fc 52%,
+    #c4b5fd 72%,
+    #ddd6fe 88%,
+    #eef2ff 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+/* Моб. Юг: как у оппонентов + лёгкий «шампань»-блик и сиреневое свечение */
+.game-table-root.viewport-mobile .user-player-panel .player-panel-name--premium-user {
+  background: linear-gradient(
+    168deg,
+    #f8fcff 0%,
+    #e8f6ff 14%,
+    #bae6fd 32%,
+    #a5b4fc 48%,
+    #d8cef8 54%,
+    #c4b5fd 62%,
+    #ddd6fe 78%,
+    #eef2ff 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+  filter:
+    drop-shadow(0 1px 0 rgba(15, 23, 42, 0.35))
+    drop-shadow(0 0 11px rgba(186, 230, 253, 0.24))
+    drop-shadow(0 0 8px rgba(196, 181, 253, 0.2));
+}
+.theme-neon .game-table-root.viewport-mobile .user-player-panel .player-panel-name--premium-user,
+.theme-standard .game-table-root.viewport-mobile .user-player-panel .player-panel-name--premium-user {
+  background: linear-gradient(
+    168deg,
+    #f8fcff 0%,
+    #e8f6ff 14%,
+    #bae6fd 32%,
+    #a5b4fc 48%,
+    #d8cef8 54%,
+    #c4b5fd 62%,
+    #ddd6fe 78%,
+    #eef2ff 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+  filter:
+    drop-shadow(0 1px 0 rgba(15, 23, 42, 0.35))
+    drop-shadow(0 0 11px rgba(186, 230, 253, 0.24))
+    drop-shadow(0 0 8px rgba(196, 181, 253, 0.2));
+}
+/* Сдающий: единое окошко имени — голубо-сиреневый неон (онлайн и офлайн) */
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: rgba(129, 140, 248, 0.58) !important;
+  background: linear-gradient(
+    165deg,
+    rgba(16, 32, 68, 0.97) 0%,
+    rgba(24, 44, 82, 0.94) 42%,
+    rgba(32, 22, 62, 0.96) 100%
+  ) !important;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.4),
+    0 0 14px rgba(56, 189, 248, 0.36),
+    0 0 10px rgba(167, 139, 250, 0.26),
+    inset 0 0 18px rgba(56, 189, 248, 0.15),
+    inset 0 0 12px rgba(129, 140, 248, 0.12) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing::after,
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing::after {
+  background:
+    radial-gradient(ellipse 120% 90% at 50% 0%, rgba(56, 189, 248, 0.2) 0%, transparent 52%),
+    radial-gradient(ellipse 80% 60% at 50% 100%, rgba(167, 139, 250, 0.12) 0%, transparent 48%) !important;
+  box-shadow: inset 0 1px 0 rgba(186, 230, 253, 0.14) !important;
+}
+/* Офлайн ИИ-сдающий: контрастный фон окошка имени по уровню */
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-novice,
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-novice {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: rgba(34, 197, 94, 0.42) !important;
+  background: linear-gradient(
+    165deg,
+    rgba(8, 24, 16, 0.97) 0%,
+    rgba(10, 36, 24, 0.95) 48%,
+    rgba(6, 20, 14, 0.96) 100%
+  ) !important;
+  box-shadow:
+    0 0 0 1px rgba(74, 222, 128, 0.24),
+    0 0 12px rgba(34, 197, 94, 0.22),
+    inset 0 0 14px rgba(34, 197, 94, 0.1) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-amateur,
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-amateur {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: rgba(234, 179, 8, 0.4) !important;
+  background: linear-gradient(
+    165deg,
+    rgba(28, 18, 6, 0.97) 0%,
+    rgba(42, 28, 8, 0.95) 48%,
+    rgba(24, 14, 4, 0.96) 100%
+  ) !important;
+  box-shadow:
+    0 0 0 1px rgba(250, 204, 21, 0.2),
+    0 0 10px rgba(234, 179, 8, 0.18),
+    inset 0 0 12px rgba(234, 179, 8, 0.08) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-expert,
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-expert {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: rgba(217, 70, 239, 0.55) !important;
+  background: linear-gradient(
+    165deg,
+    rgba(44, 10, 72, 0.98) 0%,
+    rgba(62, 16, 96, 0.96) 40%,
+    rgba(30, 6, 52, 0.98) 100%
+  ) !important;
+  box-shadow:
+    0 0 0 1px rgba(232, 121, 250, 0.38),
+    0 0 16px rgba(168, 85, 247, 0.36),
+    0 0 10px rgba(192, 132, 252, 0.22),
+    inset 0 0 22px rgba(107, 33, 168, 0.28),
+    inset 0 0 14px rgba(0, 0, 0, 0.32) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-novice::after,
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-novice::after {
+  background: radial-gradient(ellipse 120% 90% at 50% 0%, rgba(74, 222, 128, 0.16) 0%, transparent 52%) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-amateur::after,
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-amateur::after {
+  background: radial-gradient(ellipse 120% 90% at 50% 0%, rgba(250, 204, 21, 0.14) 0%, transparent 52%) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-expert::after,
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-expert::after {
+  background: radial-gradient(ellipse 120% 90% at 50% 0%, rgba(232, 121, 250, 0.2) 0%, transparent 50%) !important;
+  box-shadow: inset 0 1px 0 rgba(244, 114, 182, 0.14) !important;
+}
 /*
  * Тосты шапки — как тултип «ЛИДЕР»: радужная обводка (conic) + разноцветный текст
  */
@@ -8860,7 +10912,7 @@
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
-    /* Только горизонтальные поля; вертикаль — 0, высота панели = контент («Сдающий»/«Первый» — absolute внизу) */
+    /* Симметричные поля 6px — контент ровно между левой и правой рамкой панели */
     padding: 0 6px !important;
     border-radius: 8px !important;
     gap: 4px !important;
@@ -8881,7 +10933,7 @@
     right: 0 !important;
     transform: none !important;
     border-radius: 6px 0 6px 0 !important;
-    z-index: 3 !important;
+    z-index: 6 !important;
     padding: 2px 6px !important;
     gap: 4px !important;
     min-height: 0 !important;
@@ -10308,7 +12360,7 @@
   overflow: visible !important;
 }
 /* Контент и рука поверх внутреннего глянца (::before у козырь+ход — свой inset на ::before) */
-.game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-user-south-main > * {
+.game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-user-south-main > *:not(.dealer-opponent-panel-stars) {
   position: relative !important;
   z-index: 1 !important;
 }
@@ -11079,7 +13131,7 @@
     inset 0 0 18px rgba(167, 139, 250, 0.16),
     inset 0 0 26px rgba(139, 92, 246, 0.12);
 }
-.game-table-root.trump-highlight-on.viewport-mobile.viewport-mobile-short .user-player-panel.player-info-panel-your-turn.user-player-panel--short-vh .game-mobile-user-south-main > * {
+.game-table-root.trump-highlight-on.viewport-mobile.viewport-mobile-short .user-player-panel.player-info-panel-your-turn.user-player-panel--short-vh .game-mobile-user-south-main > *:not(.dealer-opponent-panel-stars) {
   position: relative;
   z-index: 1;
 }
@@ -11395,14 +13447,14 @@
 .game-table-root.viewport-mobile
   .opponent-slot-header-name-window.opponent-slot-header-name-window--reveal-compositing:not(
     .opponent-slot-header-name-window--east
-  ):not(.opponent-slot-header-name-window--reveal-tap-chrome) {
+  ):not(.opponent-slot-header-name-window--reveal-tap-chrome):not([class*='--dealer-playing']) {
   background: rgba(10, 12, 26, 0.78) !important;
 }
 @supports (backdrop-filter: blur(1px)) {
   .game-table-root.viewport-mobile
     .opponent-slot-header-name-window.opponent-slot-header-name-window--reveal-compositing:not(
       .opponent-slot-header-name-window--east
-    ):not(.opponent-slot-header-name-window--reveal-tap-chrome) {
+    ):not(.opponent-slot-header-name-window--reveal-tap-chrome):not([class*='--dealer-playing']) {
     background: rgba(10, 12, 26, 0.72) !important;
   }
 }
@@ -11531,7 +13583,7 @@
 /* Имена оппонентов: жемчужная расцветка, без лишних эффектов (чёткие буквы) */
 .game-table-root .opponent-slot-header .player-panel-name,
 .game-table-root .opponent-slot-header > span:not([class]),
-.game-table-root .opponent-slot-header .opponent-slot-header-display-name,
+.game-table-root .opponent-slot-header .opponent-slot-header-display-name:not(.opponent-slot-header-display-name--premium-human),
 .game-table-root .opponent-slot-header button.opponent-name-offline-ai-pick {
   background: linear-gradient(
     180deg,
@@ -11657,6 +13709,17 @@
 /* Мобильный Восток: только полоса заказа (бейдж «Очки» — между шапкой и этим блоком в GameTable). Ровно 3px между «Очки» и панелькой заказа. */
 .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.opponent-slot-east > button.opponent-score-badge.opponent-score-badge--mobile-toggle {
   margin-bottom: 0 !important;
+  width: auto !important;
+  min-width: 50% !important;
+  max-width: 58% !important;
+  align-self: center !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  box-sizing: border-box !important;
+  text-align: center !important;
+}
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.opponent-slot-east > button.opponent-score-badge.opponent-score-badge--mobile-toggle > span:last-child {
+  font-variant-numeric: tabular-nums !important;
 }
 .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.opponent-slot-east .opponent-slot-stats-mobile-east {
   flex: 1 1 auto !important;
@@ -11886,7 +13949,7 @@
 .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-user-south-short-meta-col {
   transform: none;
 }
-.game-table-root .user-player-panel .player-panel-name {
+.game-table-root .user-player-panel .player-panel-name:not(.player-panel-name--premium-user) {
   background: linear-gradient(
     180deg,
     rgba(255, 235, 215, 0.98) 0%,
@@ -11905,6 +13968,33 @@
     -1px -1px 0 rgba(255, 255, 255, 0.4),
     1px 1px 0 rgba(0, 0, 0, 0.12),
     2px 2px 1px rgba(0, 0, 0, 0.05) !important;
+}
+/* ФИНАЛ: премиум-имя Юга — перебивает theme-standard / тёплый градиент / your-turn */
+.theme-standard .game-table-root.viewport-mobile .user-player-panel .player-panel-name--premium-user,
+.theme-neon .game-table-root.viewport-mobile .user-player-panel .player-panel-name--premium-user,
+.game-table-root.viewport-mobile .user-player-panel .player-panel-name--premium-user,
+.game-table-root.viewport-mobile .player-info-panel-your-turn .player-panel-name--premium-user {
+  background: linear-gradient(
+    168deg,
+    #f8fcff 0%,
+    #e8f6ff 14%,
+    #bae6fd 32%,
+    #a5b4fc 48%,
+    #d8cef8 54%,
+    #c4b5fd 62%,
+    #ddd6fe 78%,
+    #eef2ff 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  filter:
+    drop-shadow(0 1px 0 rgba(15, 23, 42, 0.35))
+    drop-shadow(0 0 11px rgba(186, 230, 253, 0.24))
+    drop-shadow(0 0 8px rgba(196, 181, 253, 0.2));
 }
 
 /* Аватарка (ПК и мобильная): эффект выпуклости и серебристо-бирюзовая рамка */
@@ -12296,8 +14386,8 @@
   -webkit-background-clip: unset !important;
   background-clip: unset !important;
 }
-/* Мобильная: у пользователя при его ходе/заказе — имя фиолетовым, чётко без размытия */
-.game-table-root.viewport-mobile .player-info-panel-your-turn .player-panel-name:not(.your-turn-prompt) {
+/* Мобильная: у пользователя при его ходе/заказе — имя фиолетовым (кроме премиум-градиента и подсказки) */
+.game-table-root.viewport-mobile .player-info-panel-your-turn .player-panel-name:not(.your-turn-prompt):not(.player-panel-name--premium-user) {
   color: #a78bfa !important;
   -webkit-font-smoothing: antialiased !important;
   font-smoothing: antialiased !important;
@@ -12374,15 +14464,19 @@
   overflow: hidden !important;
   min-width: 0 !important;
 }
-/* Север/Запад: полоса заказа на всю ширину панели слота (внешние поля 6px у .game-mobile-slot-* > div + внутренние 6px у кнопки — симметрично слева/справа) */
+/* Север/Запад: полоса заказа — на всю ширину контента панели (симметричные 6px у .opponent-slot) */
 .game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-normal,
 .game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-collecting,
 .game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-normal,
 .game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-collecting {
   width: 100% !important;
   max-width: 100% !important;
-  flex: 1 1 auto !important;
+  flex: 0 0 auto !important;
   min-width: 0 !important;
+  align-self: stretch !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  box-sizing: border-box !important;
 }
 /* Моб. Север/Запад: полоска — gap 6px — «Очки»; без margin-top:auto — иначе при растянутой колонке зазор между шапкой и заказом */
 .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw,
@@ -12397,7 +14491,7 @@
   height: auto !important;
   min-height: 0 !important;
   margin-top: 0 !important;
-  padding: 0 6px !important;
+  padding: 0 !important;
   box-sizing: border-box !important;
   overflow: visible !important;
 }
@@ -12459,9 +14553,12 @@
   left: auto !important;
   right: auto !important;
   width: 100% !important;
+  max-width: 100% !important;
   top: auto !important;
   bottom: auto !important;
-  margin: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  align-self: stretch !important;
   flex: 0 0 auto !important;
   box-sizing: border-box !important;
   /* Компактнее общего .game-mobile-top-row button.trick-slots-* (34px / padding 5) — только С/З */
@@ -12482,13 +14579,16 @@
   left: auto !important;
   right: auto !important;
   width: 100% !important;
+  max-width: 100% !important;
+  align-self: stretch !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
   top: auto !important;
   bottom: auto !important;
   height: auto !important;
   min-height: 32px !important;
   max-height: none !important;
   overflow-y: visible !important;
-  margin: 0 !important;
   flex: 0 0 auto !important;
   box-sizing: border-box !important;
 }
@@ -12578,6 +14678,30 @@
 .game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-complete .trick-slots-mobile-nw-figures-ear {
   border-width: 2px !important;
   border-color: rgba(129, 140, 248, 0.68) !important;
+  box-shadow:
+    0 0 0 1px rgba(196, 181, 253, 0.32),
+    0 0 8px rgba(34, 211, 238, 0.22),
+    inset 0 0 0 1px rgba(110, 231, 183, 0.45) !important;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-complete
+  .trick-slots-mobile-nw-figures-ear,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-complete
+  .trick-slots-mobile-nw-figures-ear {
+  border-width: 3px !important;
+  border-color: rgba(129, 140, 248, 0.78) !important;
+  box-shadow:
+    0 0 0 1px rgba(196, 181, 253, 0.38),
+    0 0 10px rgba(34, 211, 238, 0.26),
+    0 0 14px rgba(129, 140, 248, 0.22),
+    inset 0 0 0 1px rgba(110, 231, 183, 0.52) !important;
 }
 .game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > button.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-over .trick-slots-mobile-nw-figures-ear,
 .game-table-root.viewport-mobile .game-mobile-top-row .opponent-slot-stats-mobile-nw > div.trick-slots-mobile-nw-high-bid-ear.trick-slots-order-over .trick-slots-mobile-nw-figures-ear {
@@ -12616,7 +14740,7 @@
   min-width: 0 !important;
 }
 /* Низкий экран: плотнее margin снизу у карточки (инлайн из GameTable) */
-.game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-player-info.user-player-panel > .game-mobile-user-south-main {
+.game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-player-info.user-player-panel > .user-player-panel-south-stars-host {
   flex: 0 1 auto !important;
 }
 .game-table-root.viewport-mobile.viewport-mobile-short .game-mobile-player-panel > .game-mobile-player-info.user-player-panel {
@@ -12683,21 +14807,33 @@
   position: relative !important;
   overflow: visible !important;
 }
-/* Мобильная: ровно в заказ — плотный тёмный индиго-фиолет + двойная голубо-фиолетовая рамка */
+/* Мобильная: ровно в заказ — тёмный центр + градиентная неоновая обводка (сдающий С/З/В — стекло через ::before выше) */
 .game-table-root.viewport-mobile .trick-slots-order-complete.trick-slots-normal,
 .game-table-root.viewport-mobile .trick-slots-order-complete.trick-slots-collecting,
 .game-table-root.viewport-mobile button.trick-slots-order-complete.trick-slots-normal,
 .game-table-root.viewport-mobile button.trick-slots-order-complete.trick-slots-collecting {
-  border: 2px solid rgba(129, 140, 248, 0.68) !important;
-  background: linear-gradient(180deg, #1e1540 0%, #140d2e 42%, #0a061c 100%) !important;
+  border: 3px solid transparent !important;
+  background:
+    linear-gradient(180deg, #1e1540 0%, #140d2e 42%, #0a061c 100%) padding-box,
+    linear-gradient(
+      180deg,
+      rgb(87 67 160 / 98%) 0%,
+      #3e06b2f5 14%,
+      #e879f9 28%,
+      rgb(33 239 176) 48%,
+      rgb(129 29 223) 68%,
+      rgb(52 5 167) 84%,
+      rgb(12 204 98 / 98%) 100%
+    )
+    border-box !important;
+  background-clip: padding-box, border-box !important;
   overflow: visible !important;
   box-shadow:
-    0 0 0 1px rgba(196, 181, 253, 0.32),
-    0 0 9px rgba(34, 211, 238, 0.22),
-    0 0 16px rgba(129, 140, 248, 0.28),
-    0 0 26px rgba(167, 139, 250, 0.18),
-    inset 0 0 12px rgba(139, 92, 246, 0.12),
-    inset 0 0 0 2px rgba(110, 231, 183, 0.52) !important;
+    0 0 0 1px rgb(232 121 250 / 32%),
+    0 0 9px rgb(33 239 176 / 24%),
+    0 0 16px rgb(129 29 223 / 28%),
+    0 0 26px rgb(87 67 160 / 18%),
+    inset 0 0 12px rgb(129 29 223 / 12%) !important;
 }
 
 /* Компактные кружки взяток (≤1024px): «взято/заказ» при ровно в заказ — без .viewport-mobile: планшет 601–1024 тоже compactMode, но класс viewport-mobile только ≤600 */
@@ -16270,6 +18406,526 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.07),
     inset 0 -1px 0 rgba(0, 0, 0, 0.35) !important;
+}
+
+/*
+ * Сдающий оппонент (mobile): финальный слой — перебивает flat/no-trump тени панели.
+ * Торги — ярче; розыгрыш — ~55% интенсивности, но заметно.
+ */
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding,
+.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-top-row .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding,
+.game-table-root.viewport-mobile.deal-type-no-trump .game-center-east .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding {
+  border-color: rgba(56, 189, 248, 0.72) !important;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.48),
+    0 0 24px rgba(56, 189, 248, 0.48),
+    0 0 42px rgba(34, 211, 238, 0.26),
+    inset 0 0 34px rgba(56, 189, 248, 0.22),
+    inset 0 0 0 1px rgba(186, 230, 253, 0.55),
+    0 2px 14px rgba(0, 0, 0, 0.22) !important;
+}
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing,
+.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-top-row .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing,
+.game-table-root.viewport-mobile.deal-type-no-trump .game-center-east .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing,
+.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-top-row .opponent-slot.opponent-slot-current-turn.dealer-opponent-panel.dealer-opponent-panel-mobile--playing,
+.game-table-root.viewport-mobile.deal-type-no-trump .game-center-east .opponent-slot.opponent-slot-current-turn.dealer-opponent-panel.dealer-opponent-panel-mobile--playing {
+  border-color: rgba(56, 189, 248, 0.48) !important;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.32),
+    0 0 16px rgba(56, 189, 248, 0.28),
+    0 0 28px rgba(34, 211, 238, 0.14),
+    inset 0 0 22px rgba(56, 189, 248, 0.12),
+    inset 0 0 0 1px rgba(186, 230, 253, 0.34),
+    0 2px 14px rgba(0, 0, 0, 0.22) !important;
+}
+.game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-top-row .opponent-slot.opponent-slot-current-turn.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding,
+.game-table-root.viewport-mobile.deal-type-no-trump .game-center-east .opponent-slot.opponent-slot-current-turn.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding {
+  border-color: rgba(56, 189, 248, 0.72) !important;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.48),
+    0 0 24px rgba(56, 189, 248, 0.48),
+    0 0 42px rgba(34, 211, 238, 0.26),
+    inset 0 0 34px rgba(56, 189, 248, 0.22),
+    inset 0 0 0 1px rgba(186, 230, 253, 0.55),
+    0 2px 14px rgba(0, 0, 0, 0.22) !important;
+}
+/* ═══ ФИНАЛ: окошко имени сдающего — единый голубо-сиреневый неон (торги + игра) ═══ */
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile:not(.deal-type-no-trump):not(.deal-type-dark)
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile:not(.deal-type-no-trump):not(.deal-type-dark)
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile.deal-type-dark
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile.deal-type-dark
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .opponent-slot.opponent-slot-current-turn.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .opponent-slot.opponent-slot-current-turn.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding .opponent-slot-header-name-window--dealer-playing,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing .opponent-slot-header-name-window--dealer-playing {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: rgba(129, 140, 248, 0.58) !important;
+  background: linear-gradient(
+    165deg,
+    rgba(16, 32, 68, 0.97) 0%,
+    rgba(24, 44, 82, 0.94) 42%,
+    rgba(32, 22, 62, 0.96) 100%
+  ) !important;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.4),
+    0 0 14px rgba(56, 189, 248, 0.36),
+    0 0 10px rgba(167, 139, 250, 0.26),
+    inset 0 0 18px rgba(56, 189, 248, 0.15),
+    inset 0 0 12px rgba(129, 140, 248, 0.12) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing::after,
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing::after,
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing::after,
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing::after,
+.game-table-root.viewport-mobile.deal-type-dark
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing::after,
+.game-table-root.viewport-mobile.deal-type-dark
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing::after {
+  background:
+    radial-gradient(ellipse 120% 90% at 50% 0%, rgba(56, 189, 248, 0.2) 0%, transparent 52%),
+    radial-gradient(ellipse 80% 60% at 50% 100%, rgba(167, 139, 250, 0.12) 0%, transparent 48%) !important;
+  box-shadow: inset 0 1px 0 rgba(186, 230, 253, 0.14) !important;
+}
+/* ФИНАЛ: офлайн ИИ — фон окошка имени сдающего по уровню */
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-novice,
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-novice,
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-novice,
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-novice,
+.game-table-root.viewport-mobile.deal-type-dark
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-novice,
+.game-table-root.viewport-mobile.deal-type-dark
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-novice,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding .opponent-slot-header-name-window--dealer-playing-ai-novice,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing .opponent-slot-header-name-window--dealer-playing-ai-novice,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding .opponent-slot-header-name-window--dealer-playing-ai-novice,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing .opponent-slot-header-name-window--dealer-playing-ai-novice,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding .opponent-slot-header-name-window--dealer-playing-ai-novice,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing .opponent-slot-header-name-window--dealer-playing-ai-novice {
+  border-color: rgba(34, 197, 94, 0.42) !important;
+  background: linear-gradient(
+    165deg,
+    rgba(8, 24, 16, 0.97) 0%,
+    rgba(10, 36, 24, 0.95) 48%,
+    rgba(6, 20, 14, 0.96) 100%
+  ) !important;
+  box-shadow:
+    0 0 0 1px rgba(74, 222, 128, 0.24),
+    0 0 12px rgba(34, 197, 94, 0.22),
+    inset 0 0 14px rgba(34, 197, 94, 0.1) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-amateur,
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-amateur,
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-amateur,
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-amateur,
+.game-table-root.viewport-mobile.deal-type-dark
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-amateur,
+.game-table-root.viewport-mobile.deal-type-dark
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-amateur,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding .opponent-slot-header-name-window--dealer-playing-ai-amateur,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing .opponent-slot-header-name-window--dealer-playing-ai-amateur,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding .opponent-slot-header-name-window--dealer-playing-ai-amateur,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing .opponent-slot-header-name-window--dealer-playing-ai-amateur,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding .opponent-slot-header-name-window--dealer-playing-ai-amateur,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing .opponent-slot-header-name-window--dealer-playing-ai-amateur {
+  border-color: rgba(234, 179, 8, 0.4) !important;
+  background: linear-gradient(
+    165deg,
+    rgba(28, 18, 6, 0.97) 0%,
+    rgba(42, 28, 8, 0.95) 48%,
+    rgba(24, 14, 4, 0.96) 100%
+  ) !important;
+  box-shadow:
+    0 0 0 1px rgba(250, 204, 21, 0.2),
+    0 0 10px rgba(234, 179, 8, 0.18),
+    inset 0 0 12px rgba(234, 179, 8, 0.08) !important;
+}
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-expert,
+.game-table-root.viewport-mobile
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-expert,
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-expert,
+.game-table-root.viewport-mobile.deal-type-no-trump
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-expert,
+.game-table-root.viewport-mobile.deal-type-dark
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--dealer-playing-ai-expert,
+.game-table-root.viewport-mobile.deal-type-dark
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--dealer-playing-ai-expert,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding .opponent-slot-header-name-window--dealer-playing-ai-expert,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing .opponent-slot-header-name-window--dealer-playing-ai-expert,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding .opponent-slot-header-name-window--dealer-playing-ai-expert,
+.game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-west .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing .opponent-slot-header-name-window--dealer-playing-ai-expert,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding .opponent-slot-header-name-window--dealer-playing-ai-expert,
+.game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing .opponent-slot-header-name-window--dealer-playing-ai-expert {
+  border-color: rgba(217, 70, 239, 0.55) !important;
+  background: linear-gradient(
+    165deg,
+    rgba(44, 10, 72, 0.98) 0%,
+    rgba(62, 16, 96, 0.96) 40%,
+    rgba(30, 6, 52, 0.98) 100%
+  ) !important;
+  box-shadow:
+    0 0 0 1px rgba(232, 121, 250, 0.38),
+    0 0 16px rgba(168, 85, 247, 0.36),
+    0 0 10px rgba(192, 132, 252, 0.22),
+    inset 0 0 22px rgba(107, 33, 168, 0.28),
+    inset 0 0 14px rgba(0, 0, 0, 0.32) !important;
+}
+
+/*
+ * ФИНАЛ · Восток сдающий: только прозрачный центр (перебивает --dealer-playing / inline-фоны).
+ * Вид рамок — в блоке выше (::before с маской); здесь не дублируем цвета.
+ */
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  .opponent-slot-header-name-window--east,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--east,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--east,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  .opponent-slot-header-name-window--east[class*='--dealer-playing'],
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  .opponent-slot-header-name-window--east[class*='--dealer-playing-ai-novice'],
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  .opponent-slot-header-name-window--east[class*='--dealer-playing-ai-amateur'],
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  .opponent-slot-header-name-window--east[class*='--dealer-playing-ai-expert'] {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  .opponent-slot-header-name-window--east::after {
+  opacity: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  .opponent-slot-header-name-window--east
+  .dealer-east-name-panel-stars {
+  z-index: 0 !important;
+}
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  .opponent-slot-header-name-window--east
+  > *:not(.dealer-east-name-panel-stars) {
+  position: relative;
+  z-index: 2;
+}
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-order-complete,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-order-over,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-mobile-under-strict,
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.trick-slots-collecting {
+  position: relative;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile
+  > * {
+  position: relative;
+  z-index: 2;
+}
+
+/*
+ * ФИНАЛ · Север/Запад сдающий: только прозрачный центр (перебивает --dealer-playing / inline-фоны).
+ * Вид рамок — в блоке выше (::before с маской); здесь не дублируем цвета.
+ */
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-header-name-window--nw-dealer,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-header-name-window--nw-dealer,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-header-name-window--nw-dealer,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-header-name-window--nw-dealer[class*='--dealer-playing'],
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-header-name-window--nw-dealer[class*='--dealer-playing-ai-novice'],
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-header-name-window--nw-dealer[class*='--dealer-playing-ai-amateur'],
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-header-name-window--nw-dealer[class*='--dealer-playing-ai-expert'] {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-header-name-window--nw-dealer::after {
+  opacity: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-header-name-window--nw-dealer
+  > * {
+  position: relative;
+  z-index: 2;
+}
+/*
+ * ФИНАЛ · Север/Запад сдающий: полоска заказа — только прозрачный центр
+ * (перебивает inline-фоны и состояния order-complete / over / under-strict).
+ */
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-order-complete:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-order-over:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-under-strict:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-order-complete:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-order-over:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-under-strict:not(.trick-slots-east-mobile) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal:not(.trick-slots-east-mobile)
+  > *,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting:not(.trick-slots-east-mobile)
+  > *,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-order-complete:not(.trick-slots-east-mobile)
+  > *,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-order-over:not(.trick-slots-east-mobile)
+  > *,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-under-strict:not(.trick-slots-east-mobile)
+  > *,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal:not(.trick-slots-east-mobile)
+  > *,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting:not(.trick-slots-east-mobile)
+  > *,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-order-complete:not(.trick-slots-east-mobile)
+  > *,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-order-over:not(.trick-slots-east-mobile)
+  > *,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-under-strict:not(.trick-slots-east-mobile)
+  > * {
+  position: relative;
+  z-index: 2;
 }
 
 .game-table-root.viewport-mobile.deal-type-no-trump .game-mobile-top-row .opponent-slot.opponent-slot-current-turn,
@@ -28086,10 +30742,11 @@ body.deal-results-modal-open-mobile #root {
   gap: 0 !important;
 }
 .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed {
-  left: 3px !important;
+  left: auto !important;
   right: auto !important;
   transform: none !important;
-  align-items: flex-start !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 /* Свернутый бейдж «Очки» (только цифра): фон, блик, чёткое центрирование цифры — Север, Запад, Восток */
 .game-table-root.viewport-mobile .game-mobile-top-row .game-mobile-slot-north .opponent-slot .opponent-slot-stats-mobile-nw .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-label-collapsed,
@@ -28131,9 +30788,13 @@ body.deal-results-modal-open-mobile #root {
   padding: 2px 7px !important;
 }
 .game-table-root.viewport-mobile .game-center-area.game-mobile-center .game-center-east .opponent-slot .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded {
-  left: 50% !important;
-  transform: translateX(-50%) !important;
+  left: auto !important;
+  right: auto !important;
+  transform: none !important;
   align-items: center !important;
+  justify-content: center !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 /* Развёрнутый бейдж «Очки»: внутренняя неоновая подсветка */
 .game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--mobile-toggle.opponent-score-badge--score-expanded {
@@ -37275,7 +39936,7 @@ html.theme-standard
   justify-content: center;
   width: 40px;
   height: 40px;
-  padding: 2px;
+  padding: 3px;
   border-radius: 10px;
   border: 1px solid rgba(148, 163, 184, 0.35);
   background: rgba(15, 23, 42, 0.55);
