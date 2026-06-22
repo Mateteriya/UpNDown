@@ -52,8 +52,8 @@
 .theme-standard .game-table-root.viewport-mobile .bid-panel-title-inline,
 .theme-standard .game-table-root.viewport-mobile .bid-panel-subtitle,
 /* Не заливать бирюзовым цифры «взято/заказ» с классом .trick-bid-taken-figures-neon (inline-неон сильнее перебивается этим блоком) */
-.theme-standard .game-table-root.viewport-mobile .trick-slots-normal span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *, .trick-slots-mobile-nw-figures-ear *),
-.theme-standard .game-table-root.viewport-mobile .trick-slots-collecting span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *, .trick-slots-mobile-nw-figures-ear *),
+.theme-standard .game-table-root.viewport-mobile .trick-slots-normal span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *, .trick-slots-mobile-nw-figures-ear *, .opponent-slot-stats-mobile-nw--landscape-north .trick-slots-bid-taken-figures *),
+.theme-standard .game-table-root.viewport-mobile .trick-slots-collecting span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *, .trick-slots-mobile-nw-figures-ear *, .opponent-slot-stats-mobile-nw--landscape-north .trick-slots-bid-taken-figures *),
 .theme-standard .game-table-root.viewport-mobile .trick-slots-label-east-mobile,
 .theme-standard .game-table-root.viewport-mobile .trick-slots-east-mobile span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *),
 .theme-standard .game-table-root.viewport-mobile .player-stats-row > span,
@@ -137,9 +137,9 @@
   background-clip: padding-box !important;
   -webkit-background-clip: padding-box !important;
 }
-.theme-standard .game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-north.score-badge-leader,
-.theme-standard .game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-west.score-badge-leader,
-.theme-standard .game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-east.score-badge-leader {
+.theme-standard .game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-north.score-badge-leader:not(.opponent-score-badge--landscape-we-ear),
+.theme-standard .game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-west.score-badge-leader:not(.opponent-score-badge--landscape-we-ear),
+.theme-standard .game-table-root.viewport-mobile .opponent-score-badge.opponent-score-badge--slot-east.score-badge-leader:not(.opponent-score-badge--landscape-we-ear) {
   opacity: 1 !important;
   background: linear-gradient(165deg, rgba(76, 29, 149, 0.42) 0%, rgba(46, 16, 101, 0.58) 42%, rgba(15, 23, 42, 0.94) 100%) !important;
   border: 1px solid rgba(196, 181, 253, 0.98) !important;

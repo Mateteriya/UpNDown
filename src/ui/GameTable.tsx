@@ -104,6 +104,17 @@ import { UserAvatarMenuSheet } from './UserAvatarMenuSheet';
 import { canDriveOnlineRoomHost, isLanWsOnline } from '../lib/onlineHost';
 import { isServerAuthoritativeOnline } from '../lib/onlineTransport';
 import { MobileSouthChatNameTicker } from './MobileSouthChatNameTicker';
+import {
+  formatPlayerNameForDisplay,
+  getPlayerDisplayNameFontScale,
+} from '../lib/playerDisplayNameFormat';
+import { MobileSouthLandscapePlayerName } from './MobileSouthLandscapePlayerName';
+import { MOBILE_SOUTH_LANDSCAPE_NAME_BASE_FONT_PX } from './mobileSouthLandscapeNameLayout';
+import {
+  mobileLandscapeSouthPanelFixedWidthPxWhenTuned,
+  readMobileLandscapeSouthLayoutViewportPx,
+  useMobileLandscapeSouthLayoutTuned,
+} from './mobileLandscapeSouthLayout';
 import { TableChatDock, type TableChatDockOwnMessageHandler } from './TableChatDock';
 import { GameDealOrbitDock } from './GameDealOrbitDock';
 import type { Card, GamePhase } from '../game/types';
@@ -226,6 +237,37 @@ function getMobileHandRowFit(
   const wFull = handLen * slotOuter - (handLen - 1) * maxO;
   const rowScale = wFull > 0 ? Math.min(1, inner / wFull) : 1;
   return { overlapPx: maxO, rowScale };
+}
+
+/** Моб. landscape · Юг: ширина колонки руки при 9 картах (рамка + ряд). */
+function estimateMobileLandscapeHandStripOuterWidthPx(vw: number): number {
+  const m9 = getMobileNineCardHandLayout(vw, 9);
+  const fit = getMobileHandRowFit(vw, 9, m9.overlapPx, m9.slotPadding);
+  const slotOuter = MOBILE_HAND_CARD_BODY_W + 2 * m9.slotPadding;
+  let rowW = 9 * slotOuter - 8 * fit.overlapPx;
+  if (fit.rowScale < 0.998) rowW *= fit.rowScale;
+  const frameInlinePad = MOBILE_SOUTH_STRIP_INSET_PX + MOBILE_HAND_FRAME_EXTRA_INLINE_PX;
+  return Math.ceil(rowW + frameInlinePad * 2);
+}
+
+function estimateMobileLandscapeSouthPanelFixedWidthPx(containerWidth: number): number {
+  const hand9W = estimateMobileLandscapeHandStripOuterWidthPx(containerWidth);
+  return Math.max(
+    MOBILE_LANDSCAPE_SOUTH_PANEL_MIN_W_PX,
+    Math.floor(containerWidth - hand9W),
+  );
+}
+
+/** Моб. landscape: одна ширина для панели Юга (низ) и Севера (верх) — tuned-константа или оценка под 9 карт. */
+function resolveMobileLandscapePanelFixedWidthPx(
+  containerWidth: number,
+  measuredPanelW: number | null,
+): number {
+  return (
+    measuredPanelW ??
+    mobileLandscapeSouthPanelFixedWidthPxWhenTuned(readMobileLandscapeSouthLayoutViewportPx()) ??
+    estimateMobileLandscapeSouthPanelFixedWidthPx(containerWidth)
+  );
 }
 
 function readMobileHandLayoutWidthPx(): number {
@@ -1002,6 +1044,23 @@ function useIsMobileOrTablet() {
  */
 const MOBILE_VIEWPORT_MQ = '(max-width: 600px), (max-width: 1024px) and (max-height: 560px)';
 
+/** Телефон в landscape: широкий низкий экран — отдельная раскладка (Север над столом, Запад слева). */
+const MOBILE_LANDSCAPE_MQ = '(max-width: 1024px) and (max-height: 560px) and (orientation: landscape)';
+/** Юг · landscape: калибровка панели/руки — не ниже 660×330, см. mobileLandscapeSouthLayout.ts */
+
+function useIsMobileLandscape() {
+  const [match, setMatch] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_LANDSCAPE_MQ).matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_LANDSCAPE_MQ);
+    const handler = () => setMatch(mq.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return match;
+}
+
 function useIsMobile() {
   const [match, setMatch] = useState(
     () => typeof window !== 'undefined' && window.matchMedia(MOBILE_VIEWPORT_MQ).matches,
@@ -1396,6 +1455,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   }, [online.roomId, online.status, online.playerSlots, user?.id]);
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
+  const isMobileLandscape = useIsMobileLandscape() && isMobile;
+  const mobileLandscapeSouthLayoutTuned = useMobileLandscapeSouthLayoutTuned();
   /** Баннер для гостя при ожидании решения хоста; класс на main-wrap — шапка fixed и без доп. padding перекрывает баннер. */
   const showAbsentGuestBanner =
     isMobile &&
@@ -1418,10 +1479,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const [shortVhLayoutOptOutSession, setShortVhLayoutOptOutSession] = useState(() => readShortVhLayoutOptOutSession());
   /** Инкремент при выходе в «стандарт» из short/иммерсив — три вспышки на чипе возврата (key + data-star-pulse). */
   const [shortVhRestoreChipIntroPulseTick, setShortVhRestoreChipIntroPulseTick] = useState(0);
-  const mobileViewportShort = rawMobileViewportShort && !shortVhLayoutOptOutSession;
+  const mobileViewportShort = rawMobileViewportShort && !shortVhLayoutOptOutSession && !isMobileLandscape;
   /** Физически низкий экран (<652), но выбрана «обычная» вёрстка (opt-out из short) — панель Юга чуть компактнее (index.css). */
   const mobileStandardLayoutOnShortViewport =
-    isMobile && !mobileViewportShort && rawMobileViewportShort;
+    isMobile && !isMobileLandscape && !mobileViewportShort && rawMobileViewportShort;
   useLayoutEffect(() => {
     const upd = () => {
       setMobileHandLayoutVw(readMobileHandLayoutWidthPx());
@@ -1805,6 +1866,11 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const suppressMobileOverlapClickRef = useRef(false);
   const mobileOverlapScrubPointerLockRef = useRef<number | null>(null);
   const mobileOverlapHandRowRef = useRef<HTMLDivElement | null>(null);
+  const mobileLandscapeHandUserStackRef = useRef<HTMLDivElement | null>(null);
+  const mobileLandscapeHandStripRef = useRef<HTMLDivElement | null>(null);
+  const [mobileLandscapePanelFixedWidthPx, setMobileLandscapePanelFixedWidthPx] = useState<number | null>(
+    null,
+  );
   const mobileOverlapScrubClearPeekTimeoutRef = useRef<number | null>(null);
   const [showYourTurnPrompt, setShowYourTurnPrompt] = useState(false);
   /** Офлайн, ≤1024px: клик по имени бота — попап уровня (якорь для портала) */
@@ -3645,6 +3711,51 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     shortVhSouthUiScale,
   ]);
 
+  /** Landscape · Юг: фиксированная ширина панели как при 9 картах (калибровка ≥660×330). */
+  useLayoutEffect(() => {
+    if (!isMobileLandscape) {
+      setMobileLandscapePanelFixedWidthPx(null);
+      return;
+    }
+
+    const applyPanelWidth = () => {
+      const tunedPanelW = mobileLandscapeSouthPanelFixedWidthPxWhenTuned(
+        readMobileLandscapeSouthLayoutViewportPx(),
+      );
+      if (tunedPanelW != null) {
+        setMobileLandscapePanelFixedWidthPx(prev => (prev === tunedPanelW ? prev : tunedPanelW));
+        return;
+      }
+
+      const stack = mobileLandscapeHandUserStackRef.current;
+      if (!stack) return;
+
+      const stackW = stack.getBoundingClientRect().width;
+      if (!Number.isFinite(stackW) || stackW <= 0) return;
+
+      const hand9W = estimateMobileLandscapeHandStripOuterWidthPx(mobileHandLayoutVw);
+      const panelW = Math.max(
+        MOBILE_LANDSCAPE_SOUTH_PANEL_MIN_W_PX,
+        Math.floor(stackW - hand9W),
+      );
+      setMobileLandscapePanelFixedWidthPx(prev => (prev === panelW ? prev : panelW));
+    };
+
+    applyPanelWidth();
+    const ro =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(applyPanelWidth) : null;
+    const stack = mobileLandscapeHandUserStackRef.current;
+    if (stack) ro?.observe(stack);
+    window.addEventListener('resize', applyPanelWidth);
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', applyPanelWidth);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', applyPanelWidth);
+      vv?.removeEventListener('resize', applyPanelWidth);
+    };
+  }, [isMobileLandscape, mobileHandLayoutVw]);
+
   const southShortPullTabVisible =
     mobileSouthHandLayout != null &&
     mobileViewportShort &&
@@ -4927,6 +5038,32 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     return displayState.players[displayIdx]?.name || 'Игрок';
   };
 
+  const humanLandscapeNameRaw = resolveDisplayPlayerName(humanIdx);
+  const humanLandscapeNameFormatted = isMobileLandscape
+    ? formatPlayerNameForDisplay(humanLandscapeNameRaw)
+    : humanLandscapeNameRaw;
+  const humanLandscapeNameFontScale = isMobileLandscape
+    ? getPlayerDisplayNameFontScale(humanLandscapeNameRaw)
+    : 1;
+
+  const resolveMobileGameInfoPlayerNamePresentation = (playerIdx: number) => {
+    if (!isMobileLandscape || playerIdx !== humanIdx) {
+      return {
+        name: displayState.players[playerIdx].name,
+        valueStyle: gameInfoValueStyle,
+      };
+    }
+    const raw = resolveDisplayPlayerName(playerIdx);
+    const fontScale = getPlayerDisplayNameFontScale(raw);
+    return {
+      name: formatPlayerNameForDisplay(raw),
+      valueStyle: {
+        ...gameInfoValueStyle,
+        fontSize: gameInfoValueStyle.fontSize! * fontScale,
+      },
+    };
+  };
+
   const handleOpponentAvatarClick = (displayIdx: number) => {
     setSelectedPlayerForInfo(displayIdx);
   };
@@ -5112,9 +5249,21 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       state.phase === 'playing' ||
       state.phase === 'trick-complete');
 
-  const renderMobileSouthShortScoreBadge = (opts?: { southScoreAboveOrderStrip?: boolean }) => {
-    const aboveOrderStrip = !!opts?.southScoreAboveOrderStrip;
+  const renderMobileSouthScoreToggleBadge = (opts?: {
+    scoreSlot?: 'north' | 'east';
+    aboveOrderStrip?: boolean;
+    /** Landscape · Юг: угол внутренней карточки — отдельные классы/CSS, без slot-north и инлайн-рамки. */
+    landscapeCorner?: boolean;
+  }) => {
+    const scoreSlot = opts?.scoreSlot ?? 'east';
+    const aboveOrderStrip = !!opts?.aboveOrderStrip;
+    const landscapeCorner = !!opts?.landscapeCorner;
     const southScorePartyLeader = isPartyScoreLeader(displayState, humanIdx);
+    const slotClass = landscapeCorner
+      ? ''
+      : scoreSlot === 'north'
+        ? 'opponent-score-badge--slot-north'
+        : 'opponent-score-badge--slot-east';
     /** Над полоской заказа: инлайн + высокая специфичность в CSS, иначе theme-standard перекрашивает span'ы в голубой/«белый». */
     const aboveStripExpandedNeon: React.CSSProperties | undefined =
       aboveOrderStrip && mobileSouthUserScoreExpanded
@@ -5128,81 +5277,349 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           }
         : undefined;
     return (
-      <div className="game-mobile-user-south-score-cell game-mobile-user-south-short-score-under-name">
-        <button
-          type="button"
-          className={[
-            'opponent-score-badge',
-            'opponent-score-badge--mobile-toggle',
-            southScorePartyLeader ? 'score-badge-leader' : '',
-            'opponent-score-badge--slot-east',
-            mobileSouthUserScoreExpanded
-              ? 'opponent-score-badge--score-expanded'
-              : 'opponent-score-badge--score-label-collapsed',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          style={{
-            ...opponentStatBadgeScoreStyle,
-            ...(mobileSouthUserScoreExpanded
-              ? {
-                  flexDirection: 'row' as const,
-                  alignItems: 'center' as const,
-                  justifyContent: 'center' as const,
-                  gap: 6,
-                  ...(aboveOrderStrip
-                    ? {
-                        display: 'inline-flex' as const,
-                        flexWrap: 'nowrap' as const,
-                        width: 'max-content' as const,
-                        lineHeight: 1.15,
-                      }
-                    : {}),
-                }
-              : {}),
-            cursor: 'pointer',
-            font: 'inherit',
-            margin: 0,
-            boxSizing: 'border-box',
-            WebkitTapHighlightColor: 'transparent',
-            width: 'auto',
-            maxWidth: '100%',
-          }}
-          onClick={e => {
-            e.stopPropagation();
-            setMobileSouthUserScoreExpanded(v => !v);
-          }}
-          aria-expanded={mobileSouthUserScoreExpanded}
-          title={mobileSouthUserScoreExpanded ? 'Скрыть подпись «Очки»' : 'Показать подпись «Очки»'}
-          aria-label={
-            mobileSouthUserScoreExpanded
-              ? `Очки игрока ${state.players[humanIdx].score}, скрыть подпись`
-              : `${state.players[humanIdx].score} очков, показать подпись`
-          }
-        >
-          {mobileSouthUserScoreExpanded ? (
-            <span
-              style={{
-                ...opponentStatStyleWithoutTextColor(opponentStatLabelStyle),
-                marginBottom: 0,
-                ...(aboveStripExpandedNeon ?? {}),
-              }}
-            >
-              Очки
-            </span>
-          ) : null}
+      <button
+        type="button"
+        className={[
+          'opponent-score-badge',
+          'opponent-score-badge--mobile-toggle',
+          landscapeCorner ? 'opponent-score-badge--south-landscape-corner' : '',
+          southScorePartyLeader ? 'score-badge-leader' : '',
+          slotClass,
+          mobileSouthUserScoreExpanded
+            ? 'opponent-score-badge--score-expanded'
+            : 'opponent-score-badge--score-label-collapsed',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        style={
+          landscapeCorner
+            ? {
+                cursor: 'pointer',
+                font: 'inherit',
+                margin: 0,
+                boxSizing: 'border-box',
+                WebkitTapHighlightColor: 'transparent',
+                width: 'auto',
+                maxWidth: '100%',
+                ...(mobileSouthUserScoreExpanded
+                  ? {
+                      display: 'inline-flex' as const,
+                      flexDirection: 'row' as const,
+                      alignItems: 'center' as const,
+                      justifyContent: 'center' as const,
+                      gap: 6,
+                    }
+                  : {}),
+              }
+            : {
+                ...opponentStatBadgeScoreStyle,
+                ...(mobileSouthUserScoreExpanded
+                  ? {
+                      flexDirection: 'row' as const,
+                      alignItems: 'center' as const,
+                      justifyContent: 'center' as const,
+                      gap: 6,
+                      ...(aboveOrderStrip
+                        ? {
+                            display: 'inline-flex' as const,
+                            flexWrap: 'nowrap' as const,
+                            width: 'max-content' as const,
+                            lineHeight: 1.15,
+                          }
+                        : {}),
+                    }
+                  : {}),
+                cursor: 'pointer',
+                font: 'inherit',
+                margin: 0,
+                boxSizing: 'border-box',
+                WebkitTapHighlightColor: 'transparent',
+                width: scoreSlot === 'north' ? 'auto' : aboveOrderStrip ? 'auto' : '100%',
+                maxWidth: '100%',
+              }
+        }
+        onClick={e => {
+          e.stopPropagation();
+          setMobileSouthUserScoreExpanded(v => !v);
+        }}
+        aria-expanded={mobileSouthUserScoreExpanded}
+        title={mobileSouthUserScoreExpanded ? 'Скрыть подпись «Очки»' : 'Показать подпись «Очки»'}
+        aria-label={
+          mobileSouthUserScoreExpanded
+            ? `Очки игрока ${state.players[humanIdx].score}, скрыть подпись`
+            : `${state.players[humanIdx].score} очков, показать подпись`
+        }
+      >
+        {mobileSouthUserScoreExpanded ? (
           <span
             style={{
-              ...opponentStatStyleWithoutTextColor(opponentStatValueStyle),
-              ...(mobileSouthUserScoreExpanded ? aboveStripExpandedNeon ?? {} : {}),
+              ...opponentStatStyleWithoutTextColor(opponentStatLabelStyle),
+              marginBottom: 0,
+              ...(aboveStripExpandedNeon ?? {}),
             }}
           >
-            {state.players[humanIdx].score}
+            Очки
           </span>
-        </button>
+        ) : null}
+        <span
+          style={{
+            ...opponentStatStyleWithoutTextColor(opponentStatValueStyle),
+            ...(mobileSouthUserScoreExpanded ? aboveStripExpandedNeon ?? {} : {}),
+          }}
+        >
+          {state.players[humanIdx].score}
+        </span>
+      </button>
+    );
+  };
+
+  const renderMobileSouthShortScoreBadge = (opts?: { southScoreAboveOrderStrip?: boolean }) => {
+    const aboveOrderStrip = !!opts?.southScoreAboveOrderStrip;
+    return (
+      <div className="game-mobile-user-south-score-cell game-mobile-user-south-short-score-under-name">
+        {renderMobileSouthScoreToggleBadge({ scoreSlot: 'east', aboveOrderStrip })}
       </div>
     );
   };
+
+  const southLandscapeBiddingEmpty =
+    (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids[humanIdx] === null;
+  const southLandscapeBottomRowHasOrder = state.bids[humanIdx] !== null;
+  const showSouthLandscapeDealerBottomRowBadge =
+    state.dealerIndex === humanIdx && state.phase !== 'playing';
+  const showSouthLandscapeDealerPlayingCorner =
+    state.dealerIndex === humanIdx && state.phase === 'playing';
+  const showSouthLandscapeFirstBidBadge =
+    southLandscapeBiddingEmpty &&
+    state.bids.some(b => b === null) &&
+    state.trickLeaderIndex === humanIdx;
+
+  const renderMobileSouthLandscapeOrderCorner = () => (
+    <div
+      className={[
+        'user-player-panel-south-landscape-order-corner',
+        southLandscapeBiddingEmpty ? 'user-player-panel-south-landscape-order-corner--bidding-empty' : '',
+        southLandscapeBottomRowHasOrder ? 'user-player-panel-south-landscape-order-corner--has-order' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <div className="opponent-slot-mobile-landscape-north-order opponent-slot-stats-mobile-nw opponent-slot-stats-mobile-nw--landscape-north user-player-panel-south-landscape-order">
+        <TrickSlotsDisplay
+          bid={state.bids[humanIdx] ?? null}
+          tricksTaken={state.players[humanIdx].tricksTaken}
+          variant="player"
+          horizontalOnly
+          collectingCards={
+            dealJustCompleted &&
+            (lastTrickCollectingPhase === 'slots' ||
+              lastTrickCollectingPhase === 'winner' ||
+              lastTrickCollectingPhase === 'totals-accent' ||
+              lastTrickCollectingPhase === 'collapsing')
+          }
+          compactMode={isMobileOrTablet}
+          playerMobileWideTricks={isMobile}
+          playerMobileLandscapeTricks={isMobileLandscape}
+          opponentMobileHideOrderLabel={!!isMobile}
+          opponentMobileZeroOrderCross={!!isMobile}
+          tricksLeftInDeal={tricksRemainingInDeal(state)}
+          playerMobileExactOrderCornerStar={
+            isMobile && userOrderRingExact ? (
+              <div
+                className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-order-panel-ne"
+                aria-hidden
+              >
+                <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+                  <span className="user-exact-order-star-badge__enter" aria-hidden>
+                    <svg viewBox="0 0 24 24" width="13" height="13" focusable="false" aria-hidden>
+                      <defs>
+                        <linearGradient
+                          id={userExactOrderStarOrderPanelGradientId}
+                          x1="0%"
+                          y1="0%"
+                          x2="100%"
+                          y2="100%"
+                        >
+                          <stop offset="0%" stopColor="#ecfeff" />
+                          <stop offset="32%" stopColor="#a5f3fc" />
+                          <stop offset="68%" stopColor="#22d3ee" />
+                          <stop offset="100%" stopColor="#0e7490" />
+                        </linearGradient>
+                      </defs>
+                      <path
+                        className="user-exact-order-star-path"
+                        fill={`url(#${userExactOrderStarOrderPanelGradientId})`}
+                        stroke="currentColor"
+                        strokeWidth="0.82"
+                        strokeLinejoin="round"
+                        d="M12 1.35l2.35 7.15h7.6L15.8 14.1l2.35 7.55L12 17.45l-6.15 4.2 2.35-7.55L2.05 8.5h7.6z"
+                      />
+                    </svg>
+                  </span>
+                </span>
+              </div>
+            ) : undefined
+          }
+        />
+      </div>
+    </div>
+  );
+
+  const renderMobileSouthLandscapePanel = () => (
+    <div className="user-player-panel-south-landscape-main">
+      <div
+        className="opponent-slot-mobile-landscape-north-row"
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          gap: 3,
+          width: '100%',
+          minWidth: 0,
+          boxSizing: 'border-box',
+        }}
+      >
+        <div className="opponent-slot-mobile-landscape-north-avatar-col">
+          <span
+            className="opponent-slot-header-avatar-reserve-mobile"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+              height: MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+              minWidth: MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+              minHeight: MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+              flexShrink: 0,
+              boxSizing: 'border-box',
+              position: 'relative',
+              overflow: 'visible',
+            }}
+          >
+            {renderUserPlayerAvatar(40)}
+            {isMobile && userOrderRingExact ? (
+              <div
+                className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
+                aria-hidden
+              >
+                <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+                  <span className="user-exact-order-star-badge__enter" aria-hidden>
+                    <svg viewBox="0 0 24 24" width="19" height="19" focusable="false" aria-hidden>
+                      <defs>
+                        <linearGradient id={userExactOrderStarGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#faf5ff" />
+                          <stop offset="38%" stopColor="#ddd6fe" />
+                          <stop offset="72%" stopColor="#a78bfa" />
+                          <stop offset="100%" stopColor="#6d28d9" />
+                        </linearGradient>
+                      </defs>
+                      <path
+                        className="user-exact-order-star-path"
+                        fill={`url(#${userExactOrderStarGradientId})`}
+                        stroke="currentColor"
+                        strokeWidth="0.82"
+                        strokeLinejoin="round"
+                        d="M12 1.35l2.35 7.15h7.6L15.8 14.1l2.35 7.55L12 17.45l-6.15 4.2 2.35-7.55L2.05 8.5h7.6z"
+                      />
+                    </svg>
+                  </span>
+                </span>
+              </div>
+            ) : null}
+            {showSouthLandscapeDealerPlayingCorner ? (
+              <div className="user-player-panel-south-landscape-dealer-corner user-player-panel-south-landscape-dealer-corner--avatar-ring-nw">
+                <button
+                  type="button"
+                  className="dealer-badge-compact-mobile user-player-panel-south-landscape-dealer-corner-badge"
+                  style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                  onClick={() => setShowDealerTooltip(true)}
+                  title="Сдающий"
+                  aria-label="Сдающий"
+                >
+                  <span className="user-south-landscape-dealer-lamp-cosmic" style={dealerLampBulbStyle} />
+                  <span className="dealer-badge-text" aria-hidden>
+                    Сдающий
+                  </span>
+                </button>
+              </div>
+            ) : null}
+          </span>
+        </div>
+        <div
+          className="opponent-slot-mobile-landscape-north-body"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            justifyContent: 'flex-start',
+            gap: 2,
+            flex: '1 1 auto',
+            minWidth: 0,
+            boxSizing: 'border-box',
+            ['--south-landscape-order-rail-h' as string]: `${MOBILE_LANDSCAPE_SOUTH_ORDER_RAIL_H_PX}px`,
+            ['--south-landscape-order-rail-inset-bottom' as string]: `${MOBILE_LANDSCAPE_SOUTH_ORDER_RAIL_INSET_BOTTOM_PX}px`,
+            ['--south-landscape-order-panel-h' as string]: `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX}px`,
+          }}
+        >
+          <div
+            className="opponent-slot-mobile-landscape-north-top user-player-panel-south-landscape-top user-player-panel-south-landscape-top--name-two-line"
+          >
+            <div
+              className="opponent-slot-header"
+              style={{
+                ...opponentHeaderStyle,
+                marginBottom: 0,
+                flexWrap: 'nowrap',
+                flex: '0 1 auto',
+                minWidth: 0,
+              }}
+            >
+              <MobileSouthLandscapePlayerName
+                name={humanLandscapeNameFormatted}
+                chatBody={mobileOwnChatTicker?.body ?? null}
+                chatKey={mobileOwnChatTicker?.key ?? 0}
+                nameClassName={mobileSouthPlayerNameClassName}
+                baseNameStyle={buildMobileSouthLandscapePlayerNameStyle(mobileSouthUsePremiumNameClass)}
+                title={`${humanLandscapeNameRaw} — ${getCompassLabel(humanIdx)}`}
+                twoLine
+                fontScale={humanLandscapeNameFontScale}
+              />
+            </div>
+          </div>
+          <div
+            className={[
+              'user-player-panel-south-landscape-bottom-row',
+              'user-player-panel-south-landscape-order-rail',
+              southLandscapeBiddingEmpty
+                ? 'user-player-panel-south-landscape-bottom-row--bidding-empty'
+                : '',
+              southLandscapeBottomRowHasOrder
+                ? 'user-player-panel-south-landscape-bottom-row--has-order'
+                : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            {renderMobileSouthLandscapeOrderCorner()}
+            {showSouthLandscapeFirstBidBadge ? (
+              <span
+                className="user-player-panel-south-landscape-first-bid-badge"
+                style={firstBidderLampStyle}
+                title="Первый заказ/ход"
+              >
+                <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
+              </span>
+            ) : null}
+            {showSouthLandscapeDealerBottomRowBadge ? (
+              <span className="user-player-panel-south-landscape-role-badge" style={dealerLampStyle} title="Сдающий">
+                <span style={dealerLampBulbStyle} /> Сдающий
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const canOpenDealResultsTable =
     state != null &&
@@ -5231,12 +5648,514 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     closeDealResultsModal();
   };
 
+  const renderMobileHeaderMenuButtonsRow = () => (
+    <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <button
+        type="button"
+        className="header-exit-btn"
+        onClick={handleHomeClick}
+        style={exitBtnStyle}
+        title="В меню"
+        aria-label="В меню"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
+        </svg>
+      </button>
+      {(isOnline || isWaitingInRoom) && (
+        <button
+          type="button"
+          className={['header-exit-btn', isMobile ? 'header-room-exit-btn' : ''].filter(Boolean).join(' ')}
+          onClick={handleLeaveRoomClick}
+          style={exitBtnStyle}
+          title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
+          aria-label="Выйти из комнаты"
+        >
+          {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>Выйти</span>}
+        </button>
+      )}
+      {onNewGame && !isOnline && !isWaitingInRoom && (
+        <button
+          type="button"
+          className="header-new-game-btn"
+          onClick={() => setShowNewGameConfirm(true)}
+          style={newGameBtnStyle}
+          title="Обновить — новая партия"
+          aria-label="Обновить — новая партия"
+        >
+          ↻
+        </button>
+      )}
+    </div>
+  );
+
+  const renderMobileDealContractPanelButton = (opts?: { landscapeToolbar?: boolean }) => {
+    if (state == null) return null;
+    const landscapeDealCls = opts?.landscapeToolbar
+      ? ' game-mobile-landscape-toolbar-deal-screen'
+      : '';
+    const panelStyle = opts?.landscapeToolbar ? undefined : gameInfoDealContractPanelNoTrumpDarkMobileStyle;
+    const panelStyleNormal = opts?.landscapeToolbar ? undefined : gameInfoDealContractPanelStyle;
+    return getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark' ? (
+      <button
+        type="button"
+        className={`game-info-deal-contract-panel game-info-cards-panel${landscapeDealCls}`}
+        data-deal-contract-phase={dealContractStats.allBidsPlaced ? 'orders' : 'bidding'}
+        data-order-compare={dealContractStats.orderCompare ?? undefined}
+        style={panelStyle}
+        onClick={() => setShowDealContractHelp(true)}
+        title={
+          dealContractStats.allBidsPlaced
+            ? `Режим: ${getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}. Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности`
+            : `Режим: ${getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}. КАРТ: ${dealContractStats.tricksInDeal} у каждого. Нажмите — подробности`
+        }
+        aria-label={
+          dealContractStats.allBidsPlaced
+            ? `Режим ${getDealType(state.dealNumber) === 'no-trump' ? 'бескозырка' : 'тёмная'}. Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
+            : `Режим ${getDealType(state.dealNumber) === 'no-trump' ? 'бескозырка' : 'тёмная'}. КАРТ: ${dealContractStats.tricksInDeal} у каждого. Показать по игрокам`
+        }
+      >
+        {mobileSpecialDealBadgeFace === 0 ? (
+          <span
+            className="deal-contract-line deal-contract-mobile-mode-alternate"
+            style={{ ...dealContractMobileAlternateSlotStyle, ...dealContractMobileModeAlternateLineStyle }}
+          >
+            {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
+          </span>
+        ) : dealContractStats.allBidsPlaced ? (
+          <span style={dealContractMobileAlternateSlotStyle}>
+            <span className="deal-contract-line deal-contract-line-mobile-split" style={dealContractLineMobileSplitOuterStyle}>
+              <DealContractMobileOrderZAndNum totalOrders={dealContractStats.totalOrders} orderCompare={dealContractStats.orderCompare!} />
+              <span className="deal-contract-mobile-sep deal-contract-mobile-sep--pearl" aria-hidden="true" />
+              <DealContractMobileTricksNumbers taken={dealContractStats.totalTricks} dealTotal={dealContractStats.tricksInDeal} />
+            </span>
+          </span>
+        ) : (
+          <span style={dealContractMobileAlternateSlotStyle}>
+            <>
+              <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
+                КАРТ:
+              </span>
+              <span className="deal-contract-value" style={dealContractCardsValueStyle}>
+                {dealContractStats.tricksInDeal}
+              </span>
+            </>
+          </span>
+        )}
+      </button>
+    ) : (
+      <button
+        type="button"
+        className={`game-info-deal-contract-panel game-info-cards-panel${landscapeDealCls}`}
+        data-deal-contract-phase={dealContractStats.allBidsPlaced ? 'orders' : 'bidding'}
+        data-order-compare={dealContractStats.orderCompare ?? undefined}
+        style={panelStyleNormal}
+        onClick={() => setShowDealContractHelp(true)}
+        title={
+          dealContractStats.allBidsPlaced
+            ? `Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности по игрокам`
+            : 'Сколько карт в раздаче'
+        }
+        aria-label={
+          dealContractStats.allBidsPlaced
+            ? `Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
+            : `КАРТ: ${dealContractStats.tricksInDeal} у каждого`
+        }
+      >
+        {dealContractStats.allBidsPlaced ? (
+          <span className="deal-contract-line deal-contract-line-mobile-split" style={dealContractLineMobileSplitOuterStyle}>
+            <DealContractMobileOrderZAndNum totalOrders={dealContractStats.totalOrders} orderCompare={dealContractStats.orderCompare!} />
+            <span className="deal-contract-mobile-sep deal-contract-mobile-sep--pearl" aria-hidden="true" />
+            <DealContractMobileTricksNumbers taken={dealContractStats.totalTricks} dealTotal={dealContractStats.tricksInDeal} />
+          </span>
+        ) : (
+          <>
+            <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
+              КАРТ:
+            </span>
+            <span className="deal-contract-value" style={dealContractCardsValueStyle}>
+              {dealContractStats.tricksInDeal}
+            </span>
+          </>
+        )}
+      </button>
+    );
+  };
+
+  const renderMobileTrumpLampButton = (opts?: { landscapeToolbar?: boolean }) => (
+    <button
+      type="button"
+      className={[
+        'game-header-mobile-trump-lamp-btn',
+        cardPaletteLock ? 'trump-lamp-card-palette-lock-on' : '',
+        opts?.landscapeToolbar ? 'game-header-mobile-trump-lamp-btn--landscape-toolbar game-mobile-landscape-toolbar-panel__lamp-btn' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      onPointerDown={onTrumpLampPointerDown}
+      onPointerUp={onTrumpLampPointerUpOrCancel}
+      onPointerCancel={onTrumpLampPointerUpOrCancel}
+      onPointerLeave={onTrumpLampPointerUpOrCancel}
+      onClick={onTrumpLampClick}
+      style={
+        opts?.landscapeToolbar
+          ? undefined
+          : {
+              ...trumpHighlightBtnStyle,
+              gap: 0,
+              ...(trumpHighlightOn
+                ? {
+                    border: '1px solid rgba(34, 211, 238, 0.9)',
+                    color: '#5eead4',
+                    boxShadow:
+                      '0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(94, 234, 212, 0.4), 0 0 18px rgba(34, 211, 238, 0.25)',
+                  }
+                : { color: 'rgba(251, 146, 60, 0.7)' }),
+            }
+      }
+      title={trumpLampHintTitle}
+      aria-label={trumpLampHintTitle}
+    >
+      <svg
+        width={opts?.landscapeToolbar ? 15 : 18}
+        height={opts?.landscapeToolbar ? 16 : 20}
+        viewBox="0 0 18 20"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={[
+          !trumpHighlightOn ? 'trump-btn-lamp-off' : '',
+          opts?.landscapeToolbar ? 'game-mobile-landscape-toolbar-panel__lamp-glyph' : '',
+        ]
+          .filter(Boolean)
+          .join(' ') || undefined}
+        style={
+          opts?.landscapeToolbar
+            ? undefined
+            : trumpHighlightOn
+              ? { filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.6)) drop-shadow(0 0 8px rgba(94, 234, 212, 0.5))' }
+              : undefined
+        }
+        aria-hidden
+      >
+        <path d="M9 2c-3.3 0-6 2.7-6 6 0 2.2 1.2 4.1 3 5.2v2.3c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-2.3c1.8-1.1 3-3 3-5.2 0-3.3-2.7-6-6-6z" />
+        <path d="M9 15v2" />
+        <path d="M6 19h6" />
+      </svg>
+    </button>
+  );
+
+  const renderMobileGameInfoLeftSection = () => {
+    if (!mobileShowGameInfoStrip) return null;
+    const mobileGameInfoTurnPresentation =
+      !isWaitingInRoom && state.phase === 'playing'
+        ? resolveMobileGameInfoPlayerNamePresentation(state.currentPlayerIndex)
+        : null;
+    const mobileGameInfoBidPresentation =
+      state.phase === 'bidding' || state.phase === 'dark-bidding'
+        ? resolveMobileGameInfoPlayerNamePresentation(state.currentPlayerIndex)
+        : null;
+    const stripChildren = (
+      <>
+        {!isWaitingInRoom && (
+          <button
+            type="button"
+            className="deal-number-badge deal-number-badge--game-info-corner"
+            style={dealNumberBadgeStyle}
+            onClick={() => setShowDealNumberExplain(v => !v)}
+            aria-expanded={showDealNumberExplain}
+            aria-label={`Раздача ${state.dealNumber}. Нажмите для пояснения`}
+          >
+            <span style={dealNumberLabelStyle}>Раздача</span>
+            <span style={dealNumberValueStyle}>
+              <span className="deal-num-symbol" aria-hidden>
+                №
+              </span>
+              <span className="deal-num-value">{state.dealNumber}</span>
+            </span>
+          </button>
+        )}
+        {dealResultsCornerInGameInfoPanel && (
+          <button
+            ref={dealResultsCornerBtnRef}
+            type="button"
+            onClick={() => {
+              openDealResultsModal(state);
+            }}
+            style={dealResultsButtonStyle}
+            className={`deal-results-btn deal-results-btn--game-info-corner${dealResultsCornerHint ? ' deal-results-btn--corner-hint' : ''}`}
+            title="Таблица текущих результатов"
+            aria-label="Показать таблицу текущих результатов раздач"
+          >
+            Σ
+          </button>
+        )}
+        {mobileGameInfoTurnPresentation && (
+          <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
+            <span style={gameInfoLabelStyle}>Сейчас ход</span>
+            <span style={{ ...mobileGameInfoTurnPresentation.valueStyle, color: '#22c55e' }}>
+              {mobileGameInfoTurnPresentation.name}
+            </span>
+          </div>
+        )}
+        {mobileGameInfoBidPresentation && (
+          <div style={{ ...gameInfoBadgeStyle, ...gameInfoBiddingBadgeStyle }}>
+            <span style={gameInfoLabelStyle}>Заказывает</span>
+            <span style={{ ...mobileGameInfoBidPresentation.valueStyle, color: '#f59e0b' }}>
+              {mobileGameInfoBidPresentation.name}
+            </span>
+          </div>
+        )}
+        {mobileViewportShort && mobileShortHeaderImmersive && !online.userOnPause && (
+          <button
+            type="button"
+            className={[
+              'mobile-short-immersive-l-handle',
+              immersiveRevealBtnPulse ? 'mobile-short-immersive-l-handle--pulse' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onPointerDown={onImmersiveLHandlePointerDown}
+            onPointerUp={onImmersiveLHandlePointerUp}
+            onPointerCancel={clearLHandleLongPress}
+            onPointerLeave={clearLHandleLongPress}
+            aria-label="Показать шапку: длинная кнопка с шариками над бейджем хода. Либо потяните вниз от края экрана"
+            title="Шапку назад: кнопка с шариками над бейджем или жест вниз от края"
+          >
+            <span className="mobile-short-immersive-l-handle__glyph" aria-hidden>
+              {MOBILE_IMMERSIVE_HANDLE_DOT_COLORS.map((color, i) => (
+                <span
+                  key={i}
+                  className="mobile-short-immersive-l-handle__dot"
+                  style={{ ['--dot' as string]: color }}
+                />
+              ))}
+            </span>
+          </button>
+        )}
+        {rawMobileViewportShort &&
+          shortVhLayoutOptOutSession &&
+          !mobileShortHeaderImmersive &&
+          !isWaitingInRoom &&
+          !online.userOnPause && (
+            <button
+              key={shortVhRestoreChipIntroPulseTick}
+              type="button"
+              className="mobile-short-vh-layout-restore-chip mobile-short-vh-layout-restore-chip--game-info-corner"
+              {...(shortVhRestoreChipIntroPulseTick > 0 ? ({ 'data-star-pulse': '1' } as const) : {})}
+              onClick={(e) => {
+                e.stopPropagation();
+                restoreShortVhLowScreenLayoutForSession();
+              }}
+              aria-label="Снова режим низкого экрана: вернуть раскладку и магнит"
+              title="Вернуть раскладку «низкого экрана» и южную ручку"
+            >
+              <svg
+                className="mobile-short-vh-layout-restore-chip__icon"
+                width="14"
+                height="13"
+                viewBox="0 0 16 16"
+                focusable="false"
+                aria-hidden
+              >
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.45"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 11.75L8 7.55l4.24 4.2M3.75 7.68L8 3.5l4.24 4.17"
+                />
+              </svg>
+            </button>
+          )}
+      </>
+    );
+    const section = (
+      <div ref={mobileGameInfoSectionAlignRef} className="game-info-left-section" style={gameInfoLeftSectionStyle}>
+        {stripChildren}
+      </div>
+    );
+    if (mobileViewportShort && mobileShowGameInfoStrip && mobileShortHeaderImmersive) {
+      return (
+        <div
+          className="game-info-left-section-short-drag-wrap"
+          style={{ transform: `translate3d(${immersiveBadgeDragX}px, 0, 0)` }}
+          onPointerDown={onShortBadgeDragWrapPointerDown}
+          role="group"
+          aria-label="Сдвиг бейджа влево и вправо. Возле центра выравнивается; оттяните заметно в сторону — чтобы закрепить не по центру."
+        >
+          {section}
+        </div>
+      );
+    }
+    return section;
+  };
+
+  const renderMobileLandscapeToolbarActionsRow = () => (
+    <div className="game-mobile-landscape-toolbar-panel__row game-mobile-landscape-toolbar-panel__row-actions">
+      <button
+        type="button"
+        className="header-exit-btn game-mobile-landscape-toolbar-panel__icon-btn"
+        onClick={handleHomeClick}
+        title="В меню"
+        aria-label="В меню"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
+        </svg>
+      </button>
+      {onNewGame && !isOnline && !isWaitingInRoom ? (
+        <button
+          type="button"
+          className="header-new-game-btn game-mobile-landscape-toolbar-panel__icon-btn"
+          onClick={() => setShowNewGameConfirm(true)}
+          title="Обновить — новая партия"
+          aria-label="Обновить — новая партия"
+        >
+          ↻
+        </button>
+      ) : (isOnline || isWaitingInRoom) ? (
+        <button
+          type="button"
+          className="header-exit-btn header-room-exit-btn game-mobile-landscape-toolbar-panel__icon-btn"
+          onClick={handleLeaveRoomClick}
+          title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
+          aria-label="Выйти из комнаты"
+        >
+          {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>Выйти</span>}
+        </button>
+      ) : null}
+      <AiDifficultyControl
+        layout="mobile"
+        triggerStyle="landscape-stack"
+        offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
+      />
+      {!isWaitingInRoom ? renderMobileTrumpLampButton({ landscapeToolbar: true }) : null}
+    </div>
+  );
+
+  const renderMobileLandscapeToolbarPanel = () => (
+    <div className="game-mobile-landscape-toolbar-panel" role="toolbar" aria-label="Управление игрой">
+      <div className="game-mobile-landscape-toolbar-panel__inner">
+        {renderMobileLandscapeToolbarActionsRow()}
+        {!isWaitingInRoom && state != null ? (
+          <div className="game-mobile-landscape-toolbar-panel__row game-mobile-landscape-toolbar-panel__row-deal">
+            {renderMobileDealContractPanelButton({ landscapeToolbar: true })}
+          </div>
+        ) : isWaitingInRoom ? (
+          <div className="game-mobile-landscape-toolbar-panel__row game-mobile-landscape-toolbar-panel__row-deal">
+            <button
+              type="button"
+              className="game-mobile-landscape-toolbar-panel__forget-room"
+              disabled={stopRememberWaitingBusy}
+              onClick={() => void handleStopAutoRestoreWaiting()}
+              title="После выхода или обновления страницы эта комната не будет открываться сама — можно снова войти по коду."
+            >
+              {stopRememberWaitingBusy ? '…' : 'Не запоминать'}
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  const mobileLandscapeSharedPanelW = isMobileLandscape
+    ? resolveMobileLandscapePanelFixedWidthPx(mobileHandLayoutVw, mobileLandscapePanelFixedWidthPx)
+    : null;
+  const mobileLandscapeNorthPanelW =
+    mobileLandscapeSharedPanelW != null
+      ? mobileLandscapeSharedPanelW + MOBILE_LANDSCAPE_NORTH_PANEL_EXTRA_W_PX
+      : null;
+
+  const renderMobileNorthSlot = () => (
+    <div
+      className="game-mobile-slot-north"
+      style={{
+        position: 'relative',
+        display: 'flex',
+        flexShrink: 0,
+        ...(isMobileLandscape && mobileLandscapeNorthPanelW != null
+          ? {
+              flex: '0 0 auto',
+              width: `${mobileLandscapeNorthPanelW}px`,
+              maxWidth: `${mobileLandscapeNorthPanelW}px`,
+              minWidth: 0,
+              justifyContent: 'flex-start',
+            }
+          : isMobileLandscape
+            ? {
+                flex: '0 0 auto',
+                width: 'var(--game-table-north-slot-width, min(341px, 46.4vw))',
+                maxWidth: 'var(--game-table-north-slot-width, min(341px, 46.4vw))',
+                minWidth: 0,
+                justifyContent: 'flex-start',
+              }
+            : {}),
+      }}
+    >
+      <OpponentSlot
+        state={displayState}
+        index={1}
+        position="top"
+        inline
+        compactMode={isMobileOrTablet}
+        avatarDataUrl={
+          online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.avatarDataUrl ??
+          undefined
+        }
+        replacedByAi={
+          !!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.replacedUserId
+        }
+        collectingCards={
+          dealJustCompleted &&
+          (lastTrickCollectingPhase === 'slots' ||
+            lastTrickCollectingPhase === 'winner' ||
+            lastTrickCollectingPhase === 'totals-accent' ||
+            lastTrickCollectingPhase === 'collapsing')
+        }
+        winnerPanelBlink={
+          dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1
+        }
+        trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 1}
+        currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
+        firstBidderBadge={
+          (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+          state.bids.some(b => b === null) &&
+          state.trickLeaderIndex === 1
+        }
+        firstMoverBiddingHighlight={
+          (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+          state.bids.some(b => b === null) &&
+          state.trickLeaderIndex === 1
+        }
+        isMobile={true}
+        mobileLandscapeLayout={isMobileLandscape}
+        onAvatarClick={handleOpponentAvatarClick}
+        onDealerBadgeClick={() => setShowDealerTooltip(true)}
+        offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
+      />
+    </div>
+  );
+
   /* Мобильная вёрстка (viewport-mobile — см. MOBILE_VIEWPORT_MQ): рука внизу, слоты в сетке 2×2; стили в index.css вместе с @media для компактного вьюпорта */
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
-      style={{ ...tableLayoutStyle, ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}) }}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      style={{
+        ...tableLayoutStyle,
+        ...(isOnline && online.pendingReclaimOffer ? { paddingBottom: 80 } : {}),
+        ...(mobileLandscapeNorthPanelW != null
+          ? ({
+              ['--game-table-north-slot-width' as string]: `${mobileLandscapeNorthPanelW}px`,
+            } as const)
+          : {}),
+      }}
     >
       {showMobileTurnEdgeGlow ? (
         <div className="mobile-turn-edge-glow" aria-hidden="true">
@@ -5846,6 +6765,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             : { overflow: 'hidden' as const }),
         }}
       >
+      {!(isMobile && isMobileLandscape) && (
       <header
         ref={isMobile && mobileViewportShort ? mobileShortHeaderMeasureRef : undefined}
         className="game-header"
@@ -5869,44 +6789,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             {isMobile ? (
               isWaitingInRoom ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
-                  <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <button
-                      type="button"
-                      className="header-exit-btn"
-                      onClick={handleHomeClick}
-                      style={exitBtnStyle}
-                      title="В меню"
-                      aria-label="В меню"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                        <polyline points="9 22 9 12 15 12 15 22" />
-                      </svg>
-                    </button>
-                    {(isOnline || isWaitingInRoom) && (
-                      <button
-                        type="button"
-                        className={['header-exit-btn', isMobile ? 'header-room-exit-btn' : ''].filter(Boolean).join(' ')}
-                        onClick={handleLeaveRoomClick}
-                        style={exitBtnStyle}
-                        title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
-                        aria-label="Выйти из комнаты"
-                      >
-                        {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>Выйти</span>}
-                      </button>
-                    )}
-                    {onNewGame && !isOnline && !isWaitingInRoom && (
-                      <button
-                        type="button"
-                        className="header-new-game-btn"
-                        onClick={() => setShowNewGameConfirm(true)}
-                        style={newGameBtnStyle}
-                        title="Обновить — новая партия"
-                        aria-label="Обновить — новая партия"
-                      >
-                        ↻
-                      </button>
-                    )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                    {renderMobileHeaderMenuButtonsRow()}
                     <AiDifficultyControl
                       layout="mobile"
                       offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
@@ -5944,45 +6828,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   maxWidth: '100%',
                 }}
               >
-              <div className="header-menu-buttons-row" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <button
-                  type="button"
-                  className="header-exit-btn"
-                  onClick={handleHomeClick}
-                  style={exitBtnStyle}
-                  title="В меню"
-                  aria-label="В меню"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                </button>
-                {(isOnline || isWaitingInRoom) && (
-                  <button
-                    type="button"
-                    className={['header-exit-btn', isMobile ? 'header-room-exit-btn' : ''].filter(Boolean).join(' ')}
-                    onClick={handleLeaveRoomClick}
-                    style={exitBtnStyle}
-                    title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
-                    aria-label="Выйти из комнаты"
-                  >
-                    {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>Выйти</span>}
-                  </button>
-                )}
-                {onNewGame && !isOnline && !isWaitingInRoom && (
-                  <button
-                    type="button"
-                    className="header-new-game-btn"
-                    onClick={() => setShowNewGameConfirm(true)}
-                    style={newGameBtnStyle}
-                    title="Обновить — новая партия"
-                    aria-label="Обновить — новая партия"
-                  >
-                    ↻
-                  </button>
-                )}
-              </div>
+              {renderMobileHeaderMenuButtonsRow()}
                 <div
                   className="game-header-mobile-deal-row"
                   style={{
@@ -5995,91 +6841,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                     minWidth: 0,
                   }}
                 >
-                {state != null &&
-                  (getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark' ? (
-                    <button
-                      type="button"
-                      className="game-info-deal-contract-panel game-info-cards-panel"
-                      data-deal-contract-phase={dealContractStats.allBidsPlaced ? 'orders' : 'bidding'}
-                      data-order-compare={dealContractStats.orderCompare ?? undefined}
-                      style={gameInfoDealContractPanelNoTrumpDarkMobileStyle}
-                      onClick={() => setShowDealContractHelp(true)}
-                      title={
-                        dealContractStats.allBidsPlaced
-                          ? `Режим: ${getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}. Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности`
-                          : `Режим: ${getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}. КАРТ: ${dealContractStats.tricksInDeal} у каждого. Нажмите — подробности`
-                      }
-                      aria-label={
-                        dealContractStats.allBidsPlaced
-                          ? `Режим ${getDealType(state.dealNumber) === 'no-trump' ? 'бескозырка' : 'тёмная'}. Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
-                          : `Режим ${getDealType(state.dealNumber) === 'no-trump' ? 'бескозырка' : 'тёмная'}. КАРТ: ${dealContractStats.tricksInDeal} у каждого. Показать по игрокам`
-                      }
-                    >
-                      {mobileSpecialDealBadgeFace === 0 ? (
-                        <span
-                          className="deal-contract-line deal-contract-mobile-mode-alternate"
-                          style={{ ...dealContractMobileAlternateSlotStyle, ...dealContractMobileModeAlternateLineStyle }}
-                        >
-                          {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
-                        </span>
-                      ) : dealContractStats.allBidsPlaced ? (
-                        <span style={dealContractMobileAlternateSlotStyle}>
-                          <span className="deal-contract-line deal-contract-line-mobile-split" style={dealContractLineMobileSplitOuterStyle}>
-                            <DealContractMobileOrderZAndNum totalOrders={dealContractStats.totalOrders} orderCompare={dealContractStats.orderCompare!} />
-                            <span className="deal-contract-mobile-sep deal-contract-mobile-sep--pearl" aria-hidden="true" />
-                            <DealContractMobileTricksNumbers taken={dealContractStats.totalTricks} dealTotal={dealContractStats.tricksInDeal} />
-                          </span>
-                        </span>
-                      ) : (
-                        <span style={dealContractMobileAlternateSlotStyle}>
-                          <>
-                            <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
-                              КАРТ:
-                            </span>
-                            <span className="deal-contract-value" style={dealContractCardsValueStyle}>
-                              {dealContractStats.tricksInDeal}
-                            </span>
-                          </>
-                        </span>
-                      )}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="game-info-deal-contract-panel game-info-cards-panel"
-                      data-deal-contract-phase={dealContractStats.allBidsPlaced ? 'orders' : 'bidding'}
-                      data-order-compare={dealContractStats.orderCompare ?? undefined}
-                      style={gameInfoDealContractPanelStyle}
-                      onClick={() => setShowDealContractHelp(true)}
-                      title={
-                        dealContractStats.allBidsPlaced
-                          ? `Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности по игрокам`
-                          : 'Сколько карт в раздаче'
-                      }
-                      aria-label={
-                        dealContractStats.allBidsPlaced
-                          ? `Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
-                          : `КАРТ: ${dealContractStats.tricksInDeal} у каждого`
-                      }
-                    >
-                      {dealContractStats.allBidsPlaced ? (
-                        <span className="deal-contract-line deal-contract-line-mobile-split" style={dealContractLineMobileSplitOuterStyle}>
-                          <DealContractMobileOrderZAndNum totalOrders={dealContractStats.totalOrders} orderCompare={dealContractStats.orderCompare!} />
-                          <span className="deal-contract-mobile-sep deal-contract-mobile-sep--pearl" aria-hidden="true" />
-                          <DealContractMobileTricksNumbers taken={dealContractStats.totalTricks} dealTotal={dealContractStats.tricksInDeal} />
-                        </span>
-                      ) : (
-                        <>
-                          <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
-                            КАРТ:
-                          </span>
-                          <span className="deal-contract-value" style={dealContractCardsValueStyle}>
-                            {dealContractStats.tricksInDeal}
-                          </span>
-                        </>
-                      )}
-                    </button>
-                  ))}
+                {renderMobileDealContractPanelButton()}
                 </div>
               </div>
             )
@@ -6194,46 +6956,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   layout="mobile"
                   offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
                 />
-            <button
-            type="button"
-                  className={`game-header-mobile-trump-lamp-btn${cardPaletteLock ? ' trump-lamp-card-palette-lock-on' : ''}`}
-            onPointerDown={onTrumpLampPointerDown}
-            onPointerUp={onTrumpLampPointerUpOrCancel}
-            onPointerCancel={onTrumpLampPointerUpOrCancel}
-            onPointerLeave={onTrumpLampPointerUpOrCancel}
-            onClick={onTrumpLampClick}
-          style={{
-            ...trumpHighlightBtnStyle,
-                    gap: 0,
-            ...(trumpHighlightOn
-              ? {
-                  border: '1px solid rgba(34, 211, 238, 0.9)',
-                  color: '#5eead4',
-                  boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(94, 234, 212, 0.4), 0 0 18px rgba(34, 211, 238, 0.25)',
-                }
-              : { color: 'rgba(251, 146, 60, 0.7)' }),
-          }}
-          title={trumpLampHintTitle}
-                  aria-label={trumpLampHintTitle}
-        >
-          <svg
-            width="18"
-            height="20"
-            viewBox="0 0 18 20"
-            fill="currentColor"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={!trumpHighlightOn ? 'trump-btn-lamp-off' : undefined}
-            style={trumpHighlightOn ? { filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.6)) drop-shadow(0 0 8px rgba(94, 234, 212, 0.5))' } : undefined}
-                    aria-hidden
-          >
-            <path d="M9 2c-3.3 0-6 2.7-6 6 0 2.2 1.2 4.1 3 5.2v2.3c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-2.3c1.8-1.1 3-3 3-5.2 0-3.3-2.7-6-6-6z" />
-            <path d="M9 15v2" />
-            <path d="M6 19h6" />
-          </svg>
-        </button>
+            {renderMobileTrumpLampButton()}
               </div>
               ) : null
             ) : (
@@ -6569,6 +7292,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           )}
         </div>
       </header>
+      )}
 
       {showAbsentGuestBanner && (
           <div
@@ -6588,161 +7312,130 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       {isMobile ? (
         /* Мобильная раскладка: Север+Запад над столом, стол вертикальный, Восток+Юг под столом */
         <>
-          <div className="game-mobile-upper-board" style={gameMobileUpperBoardStyle}>
-            <div className="game-info-left-col" style={gameInfoLeftColumnStyle}>
-              {mobileShowGameInfoStrip &&
-                (() => {
-                  const stripChildren = (
-                    <>
-                      {!isWaitingInRoom && (
-                        <button
-                          type="button"
-                          className="deal-number-badge deal-number-badge--game-info-corner"
-                          style={dealNumberBadgeStyle}
-                          onClick={() => setShowDealNumberExplain(v => !v)}
-                          aria-expanded={showDealNumberExplain}
-                          aria-label={`Раздача ${state.dealNumber}. Нажмите для пояснения`}
-                        >
-                          <span style={dealNumberLabelStyle}>Раздача</span>
-                          <span style={dealNumberValueStyle}>
-                            <span className="deal-num-symbol" aria-hidden>
-                              №
-                            </span>
-                            <span className="deal-num-value">{state.dealNumber}</span>
-                          </span>
-                        </button>
-                      )}
-                      {dealResultsCornerInGameInfoPanel && (
-                        <button
-                          ref={dealResultsCornerBtnRef}
-                          type="button"
-                          onClick={() => {
-                            openDealResultsModal(state);
-                          }}
-                          style={dealResultsButtonStyle}
-                          className={`deal-results-btn deal-results-btn--game-info-corner${dealResultsCornerHint ? ' deal-results-btn--corner-hint' : ''}`}
-                          title="Таблица текущих результатов"
-                          aria-label="Показать таблицу текущих результатов раздач"
-                        >
-                          Σ
-                        </button>
-                      )}
-                      {!isWaitingInRoom && state.phase === 'playing' && (
-                        <div style={{ ...gameInfoBadgeStyle, ...gameInfoActiveBadgeStyle }}>
-                          <span style={gameInfoLabelStyle}>Сейчас ход</span>
-                          <span style={{ ...gameInfoValueStyle, color: '#22c55e' }}>
-                            {displayState.players[state.currentPlayerIndex].name}
-                          </span>
-                        </div>
-                      )}
-                      {(state.phase === 'bidding' || state.phase === 'dark-bidding') && (
-                        <div style={{ ...gameInfoBadgeStyle, ...gameInfoBiddingBadgeStyle }}>
-                          <span style={gameInfoLabelStyle}>Заказывает</span>
-                          <span style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
-                            {displayState.players[state.currentPlayerIndex].name}
-                          </span>
-                        </div>
-                      )}
-                      {mobileViewportShort && mobileShortHeaderImmersive && !online.userOnPause && (
-                        <button
-                          type="button"
-                          className={[
-                            'mobile-short-immersive-l-handle',
-                            immersiveRevealBtnPulse ? 'mobile-short-immersive-l-handle--pulse' : '',
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                          onPointerDown={onImmersiveLHandlePointerDown}
-                          onPointerUp={onImmersiveLHandlePointerUp}
-                          onPointerCancel={clearLHandleLongPress}
-                          onPointerLeave={clearLHandleLongPress}
-                          aria-label="Показать шапку: длинная кнопка с шариками над бейджем хода. Либо потяните вниз от края экрана"
-                          title="Шапку назад: кнопка с шариками над бейджем или жест вниз от края"
-                        >
-                          <span className="mobile-short-immersive-l-handle__glyph" aria-hidden>
-                            {MOBILE_IMMERSIVE_HANDLE_DOT_COLORS.map((color, i) => (
-                              <span
-                                key={i}
-                                className="mobile-short-immersive-l-handle__dot"
-                                style={{ ['--dot' as string]: color }}
-                              />
-                            ))}
-                          </span>
-                        </button>
-                      )}
-                      {rawMobileViewportShort &&
-                        shortVhLayoutOptOutSession &&
-                        !mobileShortHeaderImmersive &&
-                        !isWaitingInRoom &&
-                        !online.userOnPause && (
-                          <button
-                            key={shortVhRestoreChipIntroPulseTick}
-                            type="button"
-                            className="mobile-short-vh-layout-restore-chip mobile-short-vh-layout-restore-chip--game-info-corner"
-                            {...(shortVhRestoreChipIntroPulseTick > 0
-                              ? ({ 'data-star-pulse': '1' } as const)
-                              : {})}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              restoreShortVhLowScreenLayoutForSession();
-                            }}
-                            aria-label="Снова режим низкого экрана: вернуть раскладку и магнит"
-                            title="Вернуть раскладку «низкого экрана» и южную ручку"
-                          >
-                            <svg
-                              className="mobile-short-vh-layout-restore-chip__icon"
-                              width="14"
-                              height="13"
-                              viewBox="0 0 16 16"
-                              focusable="false"
-                              aria-hidden
-                            >
-                              <path
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.45"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M3.75 11.75L8 7.55l4.24 4.2M3.75 7.68L8 3.5l4.24 4.17"
-                              />
-                            </svg>
-                          </button>
-                        )}
-                    </>
-                  );
-                  const section = (
-                    <div ref={mobileGameInfoSectionAlignRef} className="game-info-left-section" style={gameInfoLeftSectionStyle}>
-                      {stripChildren}
-                    </div>
-                  );
-                  if (mobileViewportShort && mobileShowGameInfoStrip && mobileShortHeaderImmersive) {
-                    return (
-                      <div
-                        className="game-info-left-section-short-drag-wrap"
-                        style={{ transform: `translate3d(${immersiveBadgeDragX}px, 0, 0)` }}
-                        onPointerDown={onShortBadgeDragWrapPointerDown}
-                        role="group"
-                        aria-label="Сдвиг бейджа влево и вправо. Возле центра выравнивается; оттяните заметно в сторону — чтобы закрепить не по центру."
-                      >
-                        {section}
-                      </div>
-                    );
+          <div
+            className={['game-mobile-upper-board', isMobileLandscape ? 'game-mobile-upper-board--landscape' : '']
+              .filter(Boolean)
+              .join(' ')}
+            style={gameMobileUpperBoardStyle}
+          >
+            {isMobileLandscape ? (
+              <div className="game-mobile-landscape-upper-row game-mobile-landscape-upper-row--board-aligned">
+                <div className="game-mobile-landscape-upper-west-rail">
+                  {renderMobileLandscapeToolbarPanel()}
+                </div>
+                <div className="game-mobile-landscape-north-col">
+                  <div
+                    ref={mobileShortTopRowRef}
+                    className="game-mobile-top-row game-mobile-top-row--landscape"
+                    style={{
+                      ...gameInfoTopRowStyle,
+                      height: 'auto',
+                      minHeight: 0,
+                      marginBottom: 2,
+                      justifyContent: 'flex-start',
+                      gap: 8,
+                      flexWrap: 'nowrap',
+                    }}
+                  >
+                    {renderMobileNorthSlot()}
+                  </div>
+                </div>
+                <div className="game-mobile-landscape-upper-east-rail game-info-left-col game-info-left-col--landscape-right">
+                  {renderMobileGameInfoLeftSection()}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="game-info-left-col" style={gameInfoLeftColumnStyle}>
+                  {renderMobileGameInfoLeftSection()}
+                </div>
+                <div
+                  ref={mobileShortTopRowRef}
+                  className="game-mobile-top-row"
+                  style={{
+                    ...gameInfoTopRowStyle,
+                    justifyContent: 'flex-start',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                    ...(mobileViewportShort && mobileShortHeaderImmersive ? { marginTop: shortImmersiveNwRowAlignPx } : {}),
+                  }}
+                >
+                  <div className="game-mobile-slot-west" style={{ display: 'flex', flexShrink: 0 }}>
+                    <OpponentSlot
+                      state={displayState}
+                      index={2}
+                      position="left"
+                      inline
+                      compactMode={isMobileOrTablet}
+                      avatarDataUrl={
+                        online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))
+                          ?.avatarDataUrl ?? undefined
+                      }
+                      replacedByAi={
+                        !!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))
+                          ?.replacedUserId
+                      }
+                      collectingCards={
+                        dealJustCompleted &&
+                        (lastTrickCollectingPhase === 'slots' ||
+                          lastTrickCollectingPhase === 'winner' ||
+                          lastTrickCollectingPhase === 'totals-accent' ||
+                          lastTrickCollectingPhase === 'collapsing')
+                      }
+                      winnerPanelBlink={
+                        dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2
+                      }
+                      trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 2}
+                      currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
+                      firstBidderBadge={
+                        (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                        state.bids.some(b => b === null) &&
+                        state.trickLeaderIndex === 2
+                      }
+                      firstMoverBiddingHighlight={
+                        (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                        state.bids.some(b => b === null) &&
+                        state.trickLeaderIndex === 2
+                      }
+                      isMobile={true}
+                      mobileLandscapeLayout={isMobileLandscape}
+                      onAvatarClick={handleOpponentAvatarClick}
+                      onDealerBadgeClick={() => setShowDealerTooltip(true)}
+                      offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
+                    />
+                  </div>
+                  {renderMobileNorthSlot()}
+                </div>
+              </>
+            )}
+          </div>
+          <div className="game-center-spacer-top" style={centerAreaSpacerTopStyle} aria-hidden />
+          <div
+            className={['game-mobile-table-and-hand', isMobileLandscape ? 'game-mobile-table-and-hand--landscape' : ''].filter(Boolean).join(' ')}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              gap: 'var(--mobile-table-east-gap, 5px)',
+              width: '100%',
+              padding: 0,
+              boxSizing: 'border-box',
+            }}
+          >
+          <div
+            className={['game-mobile-landscape-board-row', isMobileLandscape ? 'game-mobile-landscape-board-row--active' : ''].filter(Boolean).join(' ')}
+            style={
+              isMobileLandscape
+                ? {
+                    width: '100%',
+                    minWidth: 0,
+                    boxSizing: 'border-box',
                   }
-                  return section;
-                })()}
-            </div>
-            <div
-              ref={mobileShortTopRowRef}
-              className="game-mobile-top-row"
-              style={{
-                ...gameInfoTopRowStyle,
-                justifyContent: 'flex-start',
-                gap: 8,
-                flexWrap: 'wrap',
-                ...(mobileViewportShort && mobileShortHeaderImmersive ? { marginTop: shortImmersiveNwRowAlignPx } : {}),
-              }}
-            >
-            <div className="game-mobile-slot-west" style={{ display: 'flex', flexShrink: 0 }}>
+                : undefined
+            }
+          >
+          {isMobileLandscape ? (
+            <div className="game-mobile-slot-west game-mobile-west-landscape-col" style={{ display: 'flex', flex: '1 1 0', flexShrink: 1, minWidth: 0 }}>
               <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.avatarDataUrl ?? undefined}
                 replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.replacedUserId}
@@ -6756,45 +7449,13 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
                 isMobile={true}
+                mobileLandscapeLayout={isMobileLandscape}
                 onAvatarClick={handleOpponentAvatarClick}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
               />
             </div>
-            <div className="game-mobile-slot-north" style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
-              <OpponentSlot state={displayState} index={1} position="top" inline compactMode={isMobileOrTablet}
-                avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.avatarDataUrl ?? undefined}
-                replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.replacedUserId}
-                collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing')}
-                winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1}
-                trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 1}
-                currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
-                firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
-                firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
-                isMobile={true}
-                onAvatarClick={handleOpponentAvatarClick}
-                onDealerBadgeClick={() => setShowDealerTooltip(true)}
-                offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
-              />
-            </div>
-            </div>
-          </div>
-          <div className="game-center-spacer-top" style={centerAreaSpacerTopStyle} aria-hidden />
-          <div
-            className="game-mobile-table-and-hand"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'stretch',
-              gap: 'var(--mobile-table-east-gap, 5px)',
-              width: '100%',
-              padding: 0,
-              boxSizing: 'border-box',
-            }}
-          >
+          ) : null}
           <div
             className="game-center-area game-mobile-center"
             style={{
@@ -6802,9 +7463,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               flexDirection: 'row',
               flexWrap: 'nowrap',
               alignItems: 'stretch',
-              width: '100%',
-              maxWidth: '100%',
-              gap: 'var(--mobile-table-east-gap, 5px)',
+              width: isMobileLandscape ? 'auto' : '100%',
+              maxWidth: isMobileLandscape ? undefined : '100%',
+              gap: isMobileLandscape ? 0 : 'var(--mobile-table-east-gap, 5px)',
               marginLeft: 0,
               marginRight: 0,
               ...(isAITurn ? { cursor: 'pointer' } : {}),
@@ -6814,7 +7475,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             role={isAITurn ? 'button' : undefined}
             tabIndex={isAITurn ? 0 : undefined}
             title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}>
-            <div className="game-center-table" style={{ ...centerStyle, flex: 1, minWidth: 0 }}>
+            <div className="game-center-table" style={{ ...centerStyle, ...(isMobileLandscape ? { flex: '0 0 auto', flexShrink: 0, alignItems: 'stretch' as const, width: 'var(--game-table-landscape-table-col-width)', maxWidth: 'var(--game-table-landscape-table-col-width)', minWidth: 0 } : { flex: 1, minWidth: 0 }) }}>
         <div style={{ ...tableOuterStyle, ...(trumpHighlightOn ? tableOuterStyleWithHighlight : {}) }}>
           <div style={{ ...tableSurfaceStyle, ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}) }}>
             {isMobile &&
@@ -7129,7 +7790,17 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         )}
             <div
               className="game-center-east game-mobile-east"
-              style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', alignSelf: 'stretch' }}
+              style={{
+                flex: isMobileLandscape ? '1 1 0' : undefined,
+                flexShrink: isMobileLandscape ? 1 : 0,
+                minWidth: isMobileLandscape ? 0 : undefined,
+                width: isMobileLandscape ? 'auto' : '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                justifyContent: 'flex-start',
+                alignSelf: 'stretch',
+              }}
             >
               <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.avatarDataUrl ?? undefined}
@@ -7144,14 +7815,23 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
                 isMobile={true}
+                mobileLandscapeLayout={isMobileLandscape}
                 onAvatarClick={handleOpponentAvatarClick}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
               />
             </div>
       </div>
+          </div>
           <div
-            className="game-mobile-hand-user-stack"
+            ref={mobileLandscapeHandUserStackRef}
+            className={[
+              'game-mobile-hand-user-stack',
+              isMobileLandscape ? 'game-mobile-hand-user-stack--landscape' : '',
+              isMobileLandscape ? 'game-mobile-hand-user-stack--landscape-panel-fixed' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -7161,12 +7841,18 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               flexShrink: 0,
               minWidth: 0,
               boxSizing: 'border-box',
+              ...(isMobileLandscape && mobileLandscapeSharedPanelW != null
+                ? ({
+                    ['--south-landscape-panel-fixed-w' as string]: `${mobileLandscapeSharedPanelW}px`,
+                  } as const)
+                : {}),
             }}
           >
       {mobileSouthHandLayout != null && !mobileViewportShort && (() => {
         const { mobileHandLen, m9, overlapPx, rowTransform, overlapScrubEnabled } = mobileSouthHandLayout;
         return (
       <div
+        ref={mobileLandscapeHandStripRef}
         className={[
           'game-mobile-hand-strip',
           m9.attachExtraClass,
@@ -7202,7 +7888,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             style={{
               ...handStyle,
               overflow: 'visible',
-              justifyContent: 'center',
+              justifyContent: isMobileLandscape ? 'flex-start' : 'center',
               boxSizing: 'border-box',
               width: 'max-content',
               maxWidth: '100%',
@@ -7302,7 +7988,12 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         );
       })()}
       <div
-        className="game-mobile-bottom-row"
+        className={[
+          'game-mobile-bottom-row',
+          isMobileLandscape ? 'game-mobile-bottom-row--landscape' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -7317,7 +8008,16 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         style={
           mobileViewportShort
             ? ({ alignSelf: 'stretch', width: '100%', minWidth: 0 } as const)
-            : ({ flex: '0 0 auto', minWidth: 0, width: '100%', maxWidth: '100%' } as const)
+            : isMobileLandscape
+              ? ({
+                  flex: '1 1 auto',
+                  minWidth: 0,
+                  width: '100%',
+                  maxWidth: '100%',
+                  height: '100%',
+                  alignSelf: 'stretch',
+                } as const)
+              : ({ flex: '0 0 auto', minWidth: 0, width: '100%', maxWidth: '100%' } as const)
         }
       >
         <div
@@ -7336,7 +8036,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               : {}),
           }}
         >
-        <div className={['game-mobile-player-info', 'user-player-panel', mobileViewportShort ? 'user-player-panel--short-vh' : '', userMobilePanelOrderExactGlow ? 'user-player-panel-order-exact' : '', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : '', dealerSouthMobilePanelHighlight ? 'dealer-opponent-panel' : '', dealerSouthMobilePanelBidding ? 'dealer-opponent-panel-mobile--bidding' : '', dealerSouthMobilePanelPlaying ? 'dealer-opponent-panel-mobile--playing' : '', dealerSouthMobilePanelBidding || dealerSouthMobilePanelPlaying ? 'dealer-panel-stars-live' : ''].filter(Boolean).join(' ')} style={{
+        <div className={['game-mobile-player-info', 'user-player-panel', isMobileLandscape ? 'user-player-panel--mobile-landscape-south mobile-landscape-panel-north-layout' : '', mobileViewportShort ? 'user-player-panel--short-vh' : '', userMobilePanelOrderExactGlow ? 'user-player-panel-order-exact' : '', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : '', dealerSouthMobilePanelHighlight ? 'dealer-opponent-panel' : '', dealerSouthMobilePanelBidding ? 'dealer-opponent-panel-mobile--bidding' : '', dealerSouthMobilePanelPlaying ? 'dealer-opponent-panel-mobile--playing' : '', dealerSouthMobilePanelBidding || dealerSouthMobilePanelPlaying ? 'dealer-panel-stars-live' : ''].filter(Boolean).join(' ')} style={{
           ...playerInfoPanelStyle,
           ...(isMobile && !mobileViewportShort ? playerInfoPanelStyleMobileSouth : {}),
           ...(isMobile && mobileViewportShort
@@ -7350,10 +8050,13 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               }
             : {}),
           ...(isMobile ? { maxWidth: '100%', marginLeft: 0, marginRight: 0 } : {}),
+          ...(isMobile && isMobileLandscape ? { marginBottom: 0, flex: '1 1 auto', width: '100%', alignSelf: 'stretch' } : {}),
           padding: isMobile
             ? mobileViewportShort
               ? '2px 0'
-              : `${Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE)}px 0`
+              : isMobileLandscape
+                ? undefined
+                : `${Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE)}px 0`
             : '7px 0',
           position: 'relative',
           ...(!mobileViewportShort && state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : {}),
@@ -7372,13 +8075,22 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               })()
             : {}),
         }}>
+            {isMobileLandscape ? (
+              <div className="user-player-panel-south-landscape-score-corner">
+                {renderMobileSouthScoreToggleBadge({ landscapeCorner: true })}
+              </div>
+            ) : null}
             <div
               className="user-player-panel-south-stars-host"
               style={{
                 position: 'relative',
                 width: '100%',
                 minWidth: 0,
-                flex: mobileViewportShort ? ('0 1 auto' as const) : ('1 1 0' as const),
+                flex: isMobileLandscape
+                  ? ('1 1 auto' as const)
+                  : mobileViewportShort
+                    ? ('0 1 auto' as const)
+                    : ('1 1 0' as const),
               }}
             >
               {dealerSouthMobilePanelHighlight ? <DealerMobilePanelStars layout="south" /> : null}
@@ -7386,18 +8098,30 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 className="game-mobile-user-south-main"
                 style={{
                   position: 'relative',
-                  display: 'grid',
-                  gridTemplateColumns: 'max-content 1fr',
-                  gridTemplateRows: mobileViewportShort ? ('auto auto auto' as const) : ('auto auto' as const),
-                  columnGap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-                  /* База 5×scale (~8px), −3px; в short — ещё плотнее */
-                  rowGap: mobileViewportShort
-                    ? Math.max(1, Math.round(4 * MOBILE_SOUTH_PLAYER_CARD_SCALE) - 4)
-                    : Math.max(2, Math.round(5 * MOBILE_SOUTH_PLAYER_CARD_SCALE) - 3),
-                  alignItems: 'start',
-                  width: '100%',
-                  minWidth: 0,
-                  /* zoom: масштабирует блок в компоновке без «роста вверх» как у transform scale + origin */
+                  ...(isMobileLandscape
+                    ? {
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'stretch',
+                        justifyContent: 'flex-start',
+                        width: '100%',
+                        minWidth: 0,
+                        flex: '1 1 auto',
+                        height: '100%',
+                        minHeight: 0,
+                      }
+                    : {
+                        display: 'grid',
+                        gridTemplateColumns: 'max-content 1fr',
+                        gridTemplateRows: mobileViewportShort ? ('auto auto auto' as const) : ('auto auto' as const),
+                        columnGap: Math.round(7 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                        rowGap: mobileViewportShort
+                          ? Math.max(1, Math.round(4 * MOBILE_SOUTH_PLAYER_CARD_SCALE) - 4)
+                          : Math.max(2, Math.round(5 * MOBILE_SOUTH_PLAYER_CARD_SCALE) - 3),
+                        alignItems: 'start',
+                        width: '100%',
+                        minWidth: 0,
+                      }),
                   ...(mobileViewportShort && !mobileShortHeaderImmersive && shortVhSouthStretchPx > 0
                     ? ({ zoom: shortVhSouthUiScale } as CSSProperties)
                     : {}),
@@ -7571,7 +8295,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                     </div>
                 );
               })()}
-              {mobileViewportShort ? (
+              {isMobileLandscape ? (
+                renderMobileSouthLandscapePanel()
+              ) : mobileViewportShort ? (
                 <>
                   <div
                     className="game-mobile-user-south-avatar-stack"
@@ -7875,47 +8601,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                       alignSelf: 'center',
                     }}
                   >
-                    <button
-                      type="button"
-                      className={[
-                        'opponent-score-badge',
-                        'opponent-score-badge--mobile-toggle',
-                        isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : '',
-                        'opponent-score-badge--slot-east',
-                        mobileSouthUserScoreExpanded
-                          ? 'opponent-score-badge--score-expanded'
-                          : 'opponent-score-badge--score-label-collapsed',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      style={{
-                        ...opponentStatBadgeScoreStyle,
-                        cursor: 'pointer',
-                        font: 'inherit',
-                        margin: 0,
-                        boxSizing: 'border-box',
-                        WebkitTapHighlightColor: 'transparent',
-                        width: '100%',
-                      }}
-                      onClick={e => {
-                        e.stopPropagation();
-                        setMobileSouthUserScoreExpanded(v => !v);
-                      }}
-                      aria-expanded={mobileSouthUserScoreExpanded}
-                      title={mobileSouthUserScoreExpanded ? 'Скрыть подпись «Очки»' : 'Показать подпись «Очки»'}
-                      aria-label={
-                        mobileSouthUserScoreExpanded
-                          ? `Очки игрока ${state.players[humanIdx].score}, скрыть подпись`
-                          : `${state.players[humanIdx].score} очков, показать подпись`
-                      }
-                    >
-                      {mobileSouthUserScoreExpanded ? (
-                        <span style={opponentStatStyleWithoutTextColor(opponentStatLabelStyle)}>Очки</span>
-                      ) : null}
-                      <span style={opponentStatStyleWithoutTextColor(opponentStatValueStyle)}>
-                        {state.players[humanIdx].score}
-                      </span>
-                    </button>
+                    {renderMobileSouthScoreToggleBadge({ scoreSlot: 'east' })}
                   </div>
                   <div
                     className="game-mobile-user-south-right-col"
@@ -12493,16 +13179,74 @@ const mobileCompactNeonBidChasing: React.CSSProperties = {
     '0 0 10px rgba(34,211,238,0.96), 0 0 18px rgba(6,182,212,0.82), 0 0 14px rgba(45,212,191,0.58), 0 2px 4px rgba(0,0,0,0.9)',
 };
 
-/** ПК: недобор — приглушённый красный (минус по очкам; не кричащий) */
+/** ПК: недобор — яркий красный (заказ уже невыполним) */
 const pcTrickUnderBidFigureStyle: React.CSSProperties = {
   cursor: 'help',
-  color: '#fecaca',
+  color: '#fca5a5',
+  WebkitTextFillColor: '#fca5a5',
+  fontWeight: 900,
+  WebkitTextStroke: '0.55px rgba(127, 29, 29, 0.85)',
   textShadow: [
-    '0 0 4px rgba(248, 113, 113, 0.38)',
-    '0 0 10px rgba(185, 70, 80, 0.28)',
+    '0 0 8px rgba(248, 113, 113, 0.78)',
+    '0 0 16px rgba(239, 68, 68, 0.55)',
+    '0 0 12px rgba(220, 38, 38, 0.38)',
     '0 1px 2px rgba(0,0,0,0.9)',
   ].join(', '),
 };
+
+/** Редкий заказ 8/9: яркая читаемая цифра заказа (inline надёжнее background-clip в WebView). */
+const rareBidFigure8Style: React.CSSProperties = {
+  color: '#fef08a',
+  WebkitTextFillColor: '#fef08a',
+  fontWeight: 900,
+  WebkitTextStroke: '0.68px rgba(120, 53, 15, 0.92)',
+  textShadow: [
+    '0 0 11px rgba(251, 191, 36, 0.98)',
+    '0 0 20px rgba(245, 158, 11, 0.82)',
+    '0 2px 5px rgba(0, 0, 0, 0.94)',
+  ].join(', '),
+};
+const rareBidFigure9Style: React.CSSProperties = {
+  color: '#fff7c2',
+  WebkitTextFillColor: '#fff7c2',
+  fontWeight: 900,
+  WebkitTextStroke: '0.72px rgba(120, 53, 15, 0.94)',
+  textShadow: [
+    '0 0 13px rgba(251, 191, 36, 1)',
+    '0 0 24px rgba(245, 158, 11, 0.92)',
+    '0 0 18px rgba(192, 132, 252, 0.62)',
+    '0 2px 5px rgba(0, 0, 0, 0.94)',
+  ].join(', '),
+};
+const rareBidFigure8UnderStrictStyle: React.CSSProperties = {
+  color: '#fde68a',
+  WebkitTextFillColor: '#fde68a',
+  fontWeight: 900,
+  WebkitTextStroke: '0.7px rgba(127, 29, 29, 0.9)',
+  textShadow: [
+    '0 0 10px rgba(248, 113, 113, 0.78)',
+    '0 0 18px rgba(251, 191, 36, 0.68)',
+    '0 2px 4px rgba(0, 0, 0, 0.92)',
+  ].join(', '),
+};
+const rareBidFigure9UnderStrictStyle: React.CSSProperties = {
+  color: '#fff1c2',
+  WebkitTextFillColor: '#fff1c2',
+  fontWeight: 900,
+  WebkitTextStroke: '0.72px rgba(127, 29, 29, 0.92)',
+  textShadow: [
+    '0 0 12px rgba(248, 113, 113, 0.85)',
+    '0 0 20px rgba(251, 191, 36, 0.72)',
+    '0 0 14px rgba(239, 68, 68, 0.48)',
+    '0 2px 5px rgba(0, 0, 0, 0.94)',
+  ].join(', '),
+};
+
+function rareBidFigureAccentStyle(bid: number | null, underStrict: boolean): CSSProperties | undefined {
+  if (bid === 9) return underStrict ? rareBidFigure9UnderStrictStyle : rareBidFigure9Style;
+  if (bid === 8) return underStrict ? rareBidFigure8UnderStrictStyle : rareBidFigure8Style;
+  return undefined;
+}
 
 /** ПК: перебор — тусклый болотно-жёлтый (без минуса в зачёте) */
 const pcTrickOverBidFigureStyle: React.CSSProperties = {
@@ -12579,6 +13323,7 @@ function PcTrickBidTakenFigures({
   };
 
   const bidN = bid == null || Number.isNaN(Number(bid)) ? null : Number(bid);
+  const rareBidFigureCls = trickBidFigureRareClass(bidN);
   const exactMatch = bidN !== null && tricksTaken === bidN;
   const overBid = bidN !== null && tricksTaken > bidN;
   const underBid = bidN !== null && tricksTaken < bidN;
@@ -12684,7 +13429,15 @@ function PcTrickBidTakenFigures({
           <span style={slashFinal} aria-hidden>
             /
           </span>
-          <span title={bidTitle} style={{ ...bidFigStyle, fontVariantNumeric: 'tabular-nums' }}>
+          <span
+            className={rareBidFigureCls || undefined}
+            title={bidTitle}
+            style={{
+              ...bidFigStyle,
+              ...rareBidFigureAccentStyle(bidN, underBidPenalize),
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
             {bidDisplay}
           </span>
         </span>
@@ -12755,7 +13508,11 @@ function PcTrickBidTakenFigures({
         <span style={slashFinal} aria-hidden>
           /
         </span>
-        <span title={bidTitle} style={bidFigStyle}>
+        <span
+          className={rareBidFigureCls || undefined}
+          title={bidTitle}
+          style={{ ...bidFigStyle, ...rareBidFigureAccentStyle(bidN, underBidPenalize) }}
+        >
           {bidDisplay}
         </span>
       </span>
@@ -12793,6 +13550,47 @@ function PcTrickBidTakenFigures({
           : pcTrickTakenFigureStyle;
 
   /** Как у оппонентов: сначала взято, затем заказ. */
+  if (mobileNwEarFigures) {
+    const earFont = handNeonBold ? Math.min(12, Math.round(fontSize * 1.08)) : Math.min(11, fontSize + 1);
+    return (
+      <span
+        className={[mobileNeonFiguresCls, 'trick-slots-bid-taken-figures'].filter(Boolean).join(' ')}
+        style={{
+          display: 'inline-flex',
+          flexDirection: 'row',
+          alignItems: 'baseline',
+          justifyContent: 'center',
+          gap: 3,
+          fontSize: earFont,
+          fontWeight: neonOn ? 900 : 800,
+          letterSpacing: '0.02em',
+          lineHeight: 1.1,
+          whiteSpace: 'nowrap',
+          ...style,
+        }}
+        aria-hidden
+      >
+        <span title={takenTitle} style={{ ...takenFigPlayer, fontVariantNumeric: 'tabular-nums' }}>
+          {tricksTaken}
+        </span>
+        <span style={slashFinal} aria-hidden>
+          /
+        </span>
+        <span
+          className={rareBidFigureCls || undefined}
+          title={bidTitle}
+          style={{
+            ...bidFigPlayer,
+            ...rareBidFigureAccentStyle(bidN, underBidPenalize),
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          {bidDisplay}
+        </span>
+      </span>
+    );
+  }
+
   return (
     <span
       className={[mobileNeonFiguresCls, 'trick-slots-bid-taken-figures'].filter(Boolean).join(' ')}
@@ -12815,7 +13613,11 @@ function PcTrickBidTakenFigures({
       <span style={slashFinal} aria-hidden>
         /
       </span>
-      <span title={bidTitle} style={bidFigPlayer}>
+      <span
+        className={rareBidFigureCls || undefined}
+        title={bidTitle}
+        style={{ ...bidFigPlayer, ...rareBidFigureAccentStyle(bidN, underBidPenalize) }}
+      >
         {bidDisplay}
       </span>
     </span>
@@ -12897,11 +13699,16 @@ function OpponentBidCompactWrap({
           margin: 0,
           borderRadius: mergedStyle.borderRadius,
           boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
+          display: mergedStyle.display ?? 'flex',
+          flexDirection: mergedStyle.flexDirection ?? 'column',
+          alignItems: mergedStyle.alignItems ?? 'center',
+          justifyContent: mergedStyle.justifyContent,
           gap: mergedStyle.gap ?? 3,
-          maxWidth: '100%',
+          maxWidth: mergedStyle.maxWidth ?? '100%',
+          width: mergedStyle.width,
+          minHeight: mergedStyle.minHeight,
+          maxHeight: mergedStyle.maxHeight,
+          height: mergedStyle.height,
         }}
         title={title}
         aria-label={ariaLabel ?? title}
@@ -12948,6 +13755,31 @@ function OpponentBidCompactWrap({
   );
 }
 
+/** Моб. landscape · Юг: масштаб цифр/кружков внутри фиксированной полоски (высота MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX). */
+function wrapMobileSouthLandscapeOrderInner(
+  inner: React.ReactNode,
+  enabled: boolean,
+  innerScale: number = MOBILE_LANDSCAPE_SOUTH_TRICK_INNER_CONTENT_SCALE,
+): React.ReactNode {
+  if (!enabled) return inner;
+  return (
+    <div
+      className="user-player-panel-south-landscape-order-inner-scale"
+      style={
+        {
+          ['--south-landscape-order-inner-scale' as string]: String(innerScale),
+          display: 'inline-flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 3,
+        } as React.CSSProperties
+      }
+    >
+      {inner}
+    </div>
+  );
+}
+
 function TrickSlotsDisplay({
   bid,
   tricksTaken,
@@ -12960,6 +13792,12 @@ function TrickSlotsDisplay({
   opponentMobileZeroOrderCross,
   opponentOrderHintSlot,
   playerMobileWideTricks,
+  /** Моб. landscape · Юг: ужатая полоска заказа под узкую колонку панели. */
+  playerMobileLandscapeTricks,
+  /** Моб. landscape · Запад/Восток: горизонтальная полоска как у С/З (без east-mobile сетки и без «ушка» при заказе >6). */
+  opponentMobileLandscapeWeTricks,
+  /** Моб. landscape · Север (оппонент): компактная полоска заказа (×1.5 меньше). */
+  opponentMobileLandscapeNorthTricks,
   /** Сколько взяток ещё не сыграно в раздаче (для мягкого недобора на ПК). */
   tricksLeftInDeal,
   /** Моб. Юг: звезда «ровно в заказ» внутри рамки панели заказа (верхний правый угол). */
@@ -12981,12 +13819,20 @@ function TrickSlotsDisplay({
   opponentOrderHintSlot?: 'north' | 'west' | 'east';
   /** Только телефон (viewport-mobile): чуть шире бюджет под кружки заказа у панели игрока (слот Юг). */
   playerMobileWideTricks?: boolean;
+  opponentMobileLandscapeWeTricks?: boolean;
+  opponentMobileLandscapeNorthTricks?: boolean;
+  /** Только моб. landscape · Юг: компактная полоска заказа по ширине колонки панели. */
+  playerMobileLandscapeTricks?: boolean;
   tricksLeftInDeal?: number;
   playerMobileExactOrderCornerStar?: React.ReactNode;
 }) {
   const zeroCrossGradId = useId().replace(/:/g, '');
   const isCompact = variant === 'opponent';
   const hideOppOrderWord = Boolean(compactMode && variant === 'opponent' && opponentMobileHideOrderLabel);
+  /** Моб. landscape · Север/Запад/Восток: единая компактная капсула заказа оппонента. */
+  const opponentMobileLandscapeNwOrderStrip =
+    variant === 'opponent' &&
+    !!(opponentMobileLandscapeNorthTricks || opponentMobileLandscapeWeTricks);
   const slotSize = isCompact ? { w: 44, h: 62 } : { w: 52, h: 76 };
 
   if (bid === null) {
@@ -12995,20 +13841,50 @@ function TrickSlotsDisplay({
       : trickSlotsWrapStyle;
     const sTrick = MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK;
     const nullWrap =
-      compactMode && variant === 'player' && playerMobileWideTricks
-        ? {
+      compactMode && variant === 'player' && playerMobileLandscapeTricks
+        ? (() => {
+            const nullPanelW = MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_EMPTY_BIDDING_W;
+            return {
             ...nullWrapBase,
-            gap: Math.max(2, Math.round((typeof nullWrapBase.gap === 'number' ? nullWrapBase.gap : 3) * sTrick)),
-            padding: `${Math.max(2, Math.round(4 * sTrick))}px ${Math.max(4, Math.round(8 * sTrick))}px`,
-            borderRadius: Math.max(5, Math.round(8 * sTrick)),
-          }
-        : nullWrapBase;
+            position: 'static' as const,
+            display: 'flex' as const,
+            flexDirection: 'row' as const,
+            flexWrap: 'nowrap' as const,
+            alignItems: 'center' as const,
+            justifyContent: 'flex-start' as const,
+            gap: 2,
+            padding: '0 3px',
+            borderTopLeftRadius: Math.max(5, Math.round(8 * MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_SHRINK)),
+            borderTopRightRadius: Math.max(5, Math.round(8 * MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_SHRINK)),
+            borderBottomLeftRadius: 0,
+            borderBottomRightRadius: 0,
+            minHeight: 22,
+            maxHeight: 22,
+            height: 22,
+            overflow: 'visible' as const,
+            width: nullPanelW,
+            maxWidth: nullPanelW,
+            minWidth: nullPanelW,
+            ['--south-landscape-order-panel-w' as string]: `${nullPanelW}px`,
+            transform: 'none' as const,
+          };
+          })()
+        : compactMode && variant === 'player' && playerMobileWideTricks
+          ? {
+              ...nullWrapBase,
+              gap: Math.max(2, Math.round((typeof nullWrapBase.gap === 'number' ? nullWrapBase.gap : 3) * sTrick)),
+              padding: `${Math.max(2, Math.round(4 * sTrick))}px ${Math.max(4, Math.round(8 * sTrick))}px`,
+              borderRadius: Math.max(5, Math.round(8 * sTrick)),
+            }
+          : nullWrapBase;
     const nullCls = [collectingCards ? 'trick-slots-collecting' : 'trick-slots-normal', eastMobileTricks ? 'trick-slots-east-mobile' : ''].filter(Boolean).join(' ');
     const compactNullFigFont =
       variant === 'player'
-        ? playerMobileWideTricks
-          ? Math.max(7, Math.round(10 * MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK))
-          : 10
+        ? playerMobileLandscapeTricks
+          ? MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURE_FONT_PX
+          : playerMobileWideTricks
+            ? Math.max(7, Math.round(10 * MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK))
+            : 10
         : 9;
     const nullInner = compactMode ? (
       <PcTrickBidTakenFigures
@@ -13058,7 +13934,11 @@ function TrickSlotsDisplay({
     }
     return (
       <div style={nullWrap} className={nullCls} role="status" aria-label={hideOppOrderWord ? 'Заказ ещё не сделан' : undefined}>
-        {nullInner}
+        {wrapMobileSouthLandscapeOrderInner(
+          nullInner,
+          variant === 'player' && !!playerMobileLandscapeTricks,
+          MOBILE_LANDSCAPE_SOUTH_TRICK_EMPTY_BIDDING_INNER_SCALE,
+        )}
       </div>
     );
   }
@@ -13070,11 +13950,26 @@ function TrickSlotsDisplay({
 
   if (compactMode) {
     const bidNum = bid == null || Number.isNaN(Number(bid)) ? null : Number(bid);
+    /** Landscape З/В: при заказе >6 цифры в «ушке» — иначе узкая колонка режет текст (overflow). */
+    const opponentLandscapeWeHighBidEar =
+      variant === 'opponent' &&
+      hideOppOrderWord &&
+      !!opponentMobileLandscapeWeTricks &&
+      bidNum != null &&
+      bidNum > 6;
+    const southLandscapeHighBidEar =
+      variant === 'player' &&
+      Boolean(playerMobileLandscapeTricks) &&
+      bidNum != null &&
+      bidNum >= MOBILE_LANDSCAPE_SOUTH_TRICK_HIGH_BID_EAR_AFTER;
     /** Мобильный Юг: при заказе 0 полоска чуть крупнее (читаемость одного «нулевого» ряда). */
+    const landscapeSouthTrickShrink = 1;
     const southUserSlotShrink =
-      variant === 'player' && playerMobileWideTricks
+      variant === 'player' && playerMobileLandscapeTricks
         ? MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK * (bid === 0 ? 1.2 : 1)
-        : MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK;
+        : variant === 'player' && playerMobileWideTricks
+          ? MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK * (bid === 0 ? 1.2 : 1) * landscapeSouthTrickShrink
+          : MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK;
     /** Мобильная: заказ 0 — фиксированная зона с крестиком «не брать взятки» (+ перебор, если есть). */
     if (variant === 'opponent' && opponentMobileZeroOrderCross && bid === 0) {
       const zeroTone =
@@ -13180,9 +14075,48 @@ function TrickSlotsDisplay({
       const maxContentH =
         variant === 'player' && playerMobileWideTricks
           ? Math.max(9, Math.round(17 * southUserSlotShrink))
-          : 17;
+          : variant === 'opponent' && opponentMobileLandscapeNwOrderStrip
+            ? Math.max(
+                8,
+                MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX - MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX * 2,
+              )
+            : 17;
       const hS = maxContentH / base;
-      if (variant === 'opponent' && eastMobileTricks) {
+      if (variant === 'opponent' && opponentMobileLandscapeNwOrderStrip) {
+        const wMax = opponentMobileLandscapeWeTricks
+          ? getMobileLandscapeWeOrderStripMaxWidthPx()
+          : opponentMobileLandscapeNorthTricks
+            ? getMobileLandscapeNorthOrderStripMaxWidthPx()
+            : getMobileLandscapeOpponentOrderStripMaxWidthPx();
+        const figFontEst =
+          tricksTaken === 0
+            ? Math.min(13, 10 + 3)
+            : Math.max(8, Math.round(10));
+        const landscapeOppS = mobileLandscapeOpponentOrderScaleDown(
+          bid,
+          tricksTaken,
+          extra,
+          wMax,
+          MOBILE_LANDSCAPE_OPPONENT_ORDER_CIRCLE_BASE_PX,
+          figFontEst,
+          hideCards,
+          opponentLandscapeWeHighBidEar,
+          opponentMobileLandscapeWeTricks
+            ? MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX
+            : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
+          opponentMobileLandscapeWeTricks
+            ? MOBILE_LANDSCAPE_WE_ORDER_GAP_PX
+            : MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX,
+        );
+        const hCap =
+          MOBILE_LANDSCAPE_OPPONENT_ORDER_CIRCLE_BASE_PX > 0
+            ? maxContentH / MOBILE_LANDSCAPE_OPPONENT_ORDER_CIRCLE_BASE_PX
+            : 1;
+        opponentScaleDown = Math.min(
+          opponentScaleDown,
+          Math.max(0.22, Math.min(1, landscapeOppS, hCap)),
+        );
+      } else if (variant === 'opponent' && eastMobileTricks) {
         /** Восток: до 3 кружков в ряду, до 3 рядов (макс. 9 взяток). */
         const perRow = 3;
         const rows = Math.ceil(n / perRow);
@@ -13212,20 +14146,47 @@ function TrickSlotsDisplay({
         if (variant === 'opponent' && hideOppOrderWord) {
           /**
            * Ширина под ряд кружков ≈ половина viewport минус зазор между Север/Запад и паддинги.
-           * Раньше 0.44×vw завышал бюджет → opponentScaleDown оставался 1 при узком слоте и кружки не сжимались.
+           * Landscape С/З/В — отдельный расчёт выше (getMobileLandscapeOpponentOrderStripMaxWidthPx).
            */
           wMax =
             typeof window !== 'undefined'
               ? Math.max(88, Math.min(196, Math.floor((window.innerWidth - 16) * 0.5 - 32)))
               : 132;
         } else if (variant === 'player') {
-          wMax = playerMobileWideTricks ? Math.round(168 * 1.5 * southUserSlotShrink) : 140;
+          wMax = playerMobileLandscapeTricks
+            ? getMobileLandscapeSouthTrickPanelMaxWidthPx()
+            : playerMobileWideTricks
+              ? Math.round(168 * 1.5 * southUserSlotShrink)
+              : 140;
         } else {
           wMax = 400;
         }
+        if (variant === 'player' && playerMobileLandscapeTricks && bid != null && bid > 0) {
+          const figFont = mobileLandscapeSouthFigFontPx(bid, tricksTaken);
+          const basePlayerScaleEst = (1.3 * 1.1 * 1.1 * 1.15) / 1.7;
+          const circleEst = Math.max(
+            5,
+            Math.round(
+              18 * basePlayerScaleEst * southUserSlotShrink * MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_SHRINK,
+            ),
+          );
+          const landscapeS = mobileLandscapeSouthOrderScaleDown(
+            bid,
+            tricksTaken,
+            extra,
+            wMax,
+            circleEst,
+            figFont,
+            hideCards,
+            southLandscapeHighBidEar,
+          );
+          scaleDown = Math.min(scaleDown, landscapeS);
+        } else {
         const wS = wMax / Math.max(naturalW, 1);
         const s =
-          variant === 'player' && playerMobileWideTricks
+          variant === 'player' && playerMobileLandscapeTricks
+            ? Math.max(0.22, Math.min(1, wS, hSLocal))
+            : variant === 'player' && playerMobileWideTricks
             ? Math.max(0.22, Math.min(1, wS))
             : Math.max(0.22, Math.min(1, wS, hSLocal));
         if (variant === 'opponent') {
@@ -13234,12 +14195,14 @@ function TrickSlotsDisplay({
         if (variant === 'player') {
           scaleDown = Math.min(scaleDown, s);
         }
+        }
       }
     }
     if (
       compactMode &&
       variant === 'player' &&
       playerMobileWideTricks &&
+      !playerMobileLandscapeTricks &&
       typeof window !== 'undefined' &&
       window.innerWidth < MOBILE_SOUTH_USER_TRICK_PANEL_NARROW_VIEWPORT_PX
     ) {
@@ -13247,11 +14210,13 @@ function TrickSlotsDisplay({
     }
     const basePlayerScale = variant === 'player' ? (1.3 * 1.1 * 1.1 * 1.15 / 1.7) : 1;
     const playerScale =
-      variant === 'player' && playerMobileWideTricks
-        ? basePlayerScale * southUserSlotShrink
-        : variant === 'player'
-          ? basePlayerScale
-          : 1;
+      variant === 'player' && playerMobileLandscapeTricks
+        ? basePlayerScale
+        : variant === 'player' && playerMobileWideTricks
+          ? basePlayerScale * southUserSlotShrink
+          : variant === 'player'
+            ? basePlayerScale
+            : 1;
     const mobileExactOrder = bidNum != null && bidNum > 0 && !hideCards && tricksTaken === bidNum;
     const mobileOverOrder = bidNum != null && !hideCards && tricksTaken > bidNum;
     const mobileUnderStrict =
@@ -13267,60 +14232,218 @@ function TrickSlotsDisplay({
         : mobileUnderStrict
           ? trickCirclesWrapMobileUnderStrictStyle
           : trickCirclesWrapPendingStyle;
+    const landscapeSouthPlayerWrapPadding = `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px 5px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px 3px`;
+    const landscapeSouthPanelHeightCss = {
+      ['--south-landscape-order-panel-h' as string]: `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX}px`,
+    };
     const wrapStyle = {
       ...trickCirclesWrapStyle,
       ...mobileWrapTone,
       ...(variant === 'player' && playerMobileWideTricks
         ? { gap: Math.max(1, Math.round(2 * southUserSlotShrink)) }
         : {}),
-      ...(variant === 'player' ? {
-        position: 'absolute' as const,
-        right: playerMobileWideTricks ? 6 : 14,
-        top: '50%',
-        padding: (() => {
-          const v =
-            playerMobileWideTricks && scaleDown >= 1
-              ? Math.max(1, Math.round(2 * playerScale * southUserSlotShrink))
-              : scaleDown < 1
-                ? Math.round(2 * scaleDown * playerScale)
-                : Math.round(2 * playerScale);
-          const h =
-            playerMobileWideTricks && scaleDown >= 1
-              ? Math.max(3, Math.round(6 * playerScale * southUserSlotShrink))
-              : scaleDown < 1
-                ? Math.round(6 * scaleDown * playerScale)
-                : Math.round(6 * playerScale);
-          return `${v}px ${h}px`;
-        })(),
-        transform: `translateY(-50%) scale(${playerScale * (scaleDown < 1 ? scaleDown : 1)})`,
-        transformOrigin: 'right center',
-      } : {}),
-      ...(variant === 'opponent' && opponentScaleDown < 1 ? {
+      ...(variant === 'player' && playerMobileLandscapeTricks
+        ? {
+            position: 'static' as const,
+            right: 'auto' as const,
+            top: 'auto' as const,
+            left: 'auto' as const,
+            display: 'flex' as const,
+            flexDirection: southLandscapeHighBidEar ? ('column' as const) : ('row' as const),
+            flexWrap: 'nowrap' as const,
+            alignItems: 'center' as const,
+            justifyContent: 'flex-start' as const,
+            alignSelf: 'flex-start' as const,
+            gap: 1,
+            padding: landscapeSouthPlayerWrapPadding,
+            ...landscapeSouthPanelHeightCss,
+            transform: 'none' as const,
+            transformOrigin: 'initial' as const,
+            minHeight: MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX,
+            maxHeight: MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX,
+            height: MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX,
+            overflow: 'visible' as const,
+            width: 'auto' as const,
+            maxWidth: 'max-content' as const,
+          }
+        : variant === 'player'
+          ? {
+              position: 'absolute' as const,
+              right: playerMobileWideTricks ? 6 : 14,
+              top: '50%',
+              padding: (() => {
+                const v =
+                  playerMobileWideTricks && scaleDown >= 1
+                    ? Math.max(1, Math.round(2 * playerScale * southUserSlotShrink))
+                    : scaleDown < 1
+                      ? Math.round(2 * scaleDown * playerScale)
+                      : Math.round(2 * playerScale);
+                const h =
+                  playerMobileWideTricks && scaleDown >= 1
+                    ? Math.max(3, Math.round(6 * playerScale * southUserSlotShrink))
+                    : scaleDown < 1
+                      ? Math.round(6 * scaleDown * playerScale)
+                      : Math.round(6 * playerScale);
+                return `${v}px ${h}px`;
+              })(),
+              transform: `translateY(-50%) scale(${playerScale * (scaleDown < 1 ? scaleDown : 1)})`,
+              transformOrigin: 'right center',
+            }
+          : {}),
+      ...(variant === 'opponent' && opponentMobileLandscapeNwOrderStrip
+        ? opponentLandscapeWeHighBidEar
+          ? {
+              display: 'flex' as const,
+              flexDirection: 'column' as const,
+              flexWrap: 'nowrap' as const,
+              alignItems: 'stretch' as const,
+              justifyContent: 'center' as const,
+              alignSelf: 'center' as const,
+              position: 'relative' as const,
+              width: opponentMobileLandscapeWeTricks ? ('auto' as const) : ('100%' as const),
+              maxWidth: opponentMobileLandscapeWeTricks ? ('max-content' as const) : ('100%' as const),
+              minHeight: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
+              maxHeight: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
+              height: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
+              borderRadius: MOBILE_LANDSCAPE_OPPONENT_ORDER_RADIUS_PX,
+              paddingTop: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
+              paddingBottom: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
+              paddingLeft: opponentMobileLandscapeWeTricks
+                ? MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX
+                : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
+              paddingRight: opponentMobileLandscapeWeTricks
+                ? MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX
+                : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
+              gap: opponentMobileLandscapeWeTricks
+                ? MOBILE_LANDSCAPE_WE_ORDER_GAP_PX
+                : MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX,
+              overflow: 'visible' as const,
+            }
+          : {
+              display: 'flex' as const,
+              flexDirection: 'row' as const,
+              flexWrap: 'nowrap' as const,
+              alignItems: 'center' as const,
+              justifyContent: 'flex-start' as const,
+              alignSelf: 'center' as const,
+              width: 'auto' as const,
+              maxWidth: 'max-content' as const,
+              minHeight: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
+              maxHeight: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
+              height: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
+              borderRadius: MOBILE_LANDSCAPE_OPPONENT_ORDER_RADIUS_PX,
+              paddingTop: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
+              paddingBottom: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
+              paddingLeft: opponentMobileLandscapeWeTricks
+                ? MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX
+                : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
+              paddingRight: opponentMobileLandscapeWeTricks
+                ? MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX
+                : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
+              gap: opponentMobileLandscapeWeTricks
+                ? MOBILE_LANDSCAPE_WE_ORDER_GAP_PX
+                : MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX,
+            }
+        : {}),
+      ...(variant === 'opponent' && opponentScaleDown < 1 && !opponentMobileLandscapeNwOrderStrip ? {
         padding: `${Math.max(1, Math.round(4 * opponentScaleDown))}px ${Math.max(2, Math.round(8 * opponentScaleDown))}px`,
       } : {}),
     };
-    const baseCircle = variant === 'player' ? Math.round(18 * playerScale) : undefined;
-    let playerCircleSize = variant === 'player' ? (scaleDown < 1 ? Math.max(6, Math.round((baseCircle ?? 18) * scaleDown)) : baseCircle ?? 11) : undefined;
-    if (variant === 'player' && playerMobileWideTricks && playerCircleSize != null) {
+    const baseCircle =
+      variant === 'player'
+        ? playerMobileLandscapeTricks
+          ? Math.max(
+              5,
+              Math.round(18 * playerScale * southUserSlotShrink * MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_SHRINK),
+            )
+          : Math.round(18 * playerScale)
+        : undefined;
+    let playerCircleSize =
+      variant === 'player'
+        ? scaleDown < 1
+          ? Math.max(playerMobileLandscapeTricks ? 5 : 6, Math.round((baseCircle ?? 18) * scaleDown))
+          : baseCircle ?? 11
+        : undefined;
+    if (variant === 'player' && playerMobileWideTricks && !playerMobileLandscapeTricks && playerCircleSize != null) {
       playerCircleSize = Math.max(6, Math.round(playerCircleSize * 0.94));
     }
-    const opponentCircleSize = variant === 'opponent' && opponentScaleDown < 1 ? Math.max(8, Math.round(14 * opponentScaleDown)) : undefined;
+  /** Юг · landscape: если полоска шире колонки панели — ужимаем кружки (не обрезаем). */
+    if (
+      variant === 'player' &&
+      playerMobileLandscapeTricks &&
+      bidNum != null &&
+      bidNum > 0 &&
+      playerCircleSize != null
+    ) {
+      const figFontLand = mobileLandscapeSouthFigFontPx(bid, tricksTaken);
+      const wCap = getMobileLandscapeSouthTrickPanelMaxWidthPx();
+      const panelNatural = estimateMobileLandscapeSouthOrderPanelWidthPx(
+        bidNum,
+        tricksTaken,
+        playerCircleSize,
+        figFontLand,
+        extra,
+        hideCards,
+        southLandscapeHighBidEar,
+      );
+      if (panelNatural > wCap) {
+        const extraFit = mobileLandscapeSouthOrderScaleDown(
+          bidNum,
+          tricksTaken,
+          extra,
+          wCap,
+          playerCircleSize,
+          figFontLand,
+          hideCards,
+          southLandscapeHighBidEar,
+        );
+        playerCircleSize = Math.max(5, Math.round(playerCircleSize * extraFit));
+      }
+    }
+    const opponentCircleSize =
+      variant === 'opponent' && opponentMobileLandscapeNwOrderStrip
+        ? Math.max(
+            8,
+            Math.round(MOBILE_LANDSCAPE_OPPONENT_ORDER_CIRCLE_BASE_PX * opponentScaleDown),
+          )
+        : variant === 'opponent' && opponentScaleDown < 1
+          ? Math.max(8, Math.round(14 * opponentScaleDown))
+          : undefined;
     const circleSize = variant === 'player' ? playerCircleSize : opponentCircleSize;
     const playerWideCirclesRow: CSSProperties | null =
       variant === 'player' && playerMobileWideTricks
         ? { ...trickCirclesRowStyle, flexWrap: 'nowrap' }
         : null;
-    const rowStyle = scaleDown < 1
-      ? {
-          ...trickCirclesRowStyle,
-          ...(playerWideCirclesRow ? { flexWrap: 'nowrap' as const } : {}),
-          gap: Math.max(2, Math.round(4 * scaleDown)),
-        }
-      : opponentScaleDown < 1
-        ? { ...trickCirclesRowStyle, gap: Math.max(1, Math.round(4 * opponentScaleDown)) }
-        : playerWideCirclesRow
-          ? { ...playerWideCirclesRow, gap: Math.max(2, Math.round(3 * southUserSlotShrink)) }
-          : trickCirclesRowStyle;
+    const rowStyle =
+      variant === 'player' && playerMobileLandscapeTricks
+        ? {
+            ...trickCirclesRowStyle,
+            flexWrap: 'nowrap' as const,
+            gap: 1,
+            alignItems: 'center' as const,
+            ...(southLandscapeHighBidEar
+              ? { justifyContent: 'center' as const, width: '100%' as const }
+              : {}),
+          }
+        : variant === 'opponent' && opponentMobileLandscapeNwOrderStrip
+          ? {
+              ...trickCirclesRowStyle,
+              flexWrap: 'nowrap' as const,
+              gap: opponentMobileLandscapeWeTricks
+                ? MOBILE_LANDSCAPE_WE_ORDER_GAP_PX
+                : MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX,
+            }
+        : scaleDown < 1
+          ? {
+              ...trickCirclesRowStyle,
+              ...(playerWideCirclesRow ? { flexWrap: 'nowrap' as const } : {}),
+              gap: Math.max(2, Math.round(4 * scaleDown)),
+            }
+          : opponentScaleDown < 1
+            ? { ...trickCirclesRowStyle, gap: Math.max(1, Math.round(4 * opponentScaleDown)) }
+            : playerWideCirclesRow
+              ? { ...playerWideCirclesRow, gap: Math.max(2, Math.round(3 * southUserSlotShrink)) }
+              : trickCirclesRowStyle;
     const eastGap =
       variant === 'opponent' && eastMobileTricks
         ? opponentScaleDown < 1
@@ -13362,15 +14485,24 @@ function TrickSlotsDisplay({
     const orderCompleteMobile = bidNum !== null && !hideCards && tricksTaken === bidNum;
     const orderOverMobile = bidNum !== null && !hideCards && tricksTaken > bidNum;
     const mobileNwHighBidEar =
-      variant === 'opponent' && hideOppOrderWord && !eastMobileTricks && bidNum != null && bidNum > 6;
+      variant === 'opponent' &&
+      hideOppOrderWord &&
+      !eastMobileTricks &&
+      bidNum != null &&
+      bidNum > 6 &&
+      (opponentLandscapeWeHighBidEar ||
+        (!opponentMobileLandscapeWeTricks && !opponentMobileLandscapeNorthTricks));
+    const mobileHighBidEar = mobileNwHighBidEar || southLandscapeHighBidEar;
     const wrapCls = [
       hideCards ? 'trick-slots-collecting' : 'trick-slots-normal',
       eastMobileTricks ? 'trick-slots-east-mobile' : '',
       orderCompleteMobile ? 'trick-slots-order-complete' : '',
       orderOverMobile ? 'trick-slots-order-over' : '',
       mobileUnderStrict ? 'trick-slots-mobile-under-strict' : '',
+      trickSlotsRareBidClass(bidNum),
       playerMobileWideTricks && variant === 'player' ? 'trick-slots-player-mobile-wide' : '',
-      mobileNwHighBidEar ? 'trick-slots-mobile-nw-high-bid-ear' : '',
+      playerMobileLandscapeTricks && variant === 'player' ? 'trick-slots-player-mobile-landscape' : '',
+      mobileHighBidEar ? 'trick-slots-mobile-nw-high-bid-ear' : '',
     ]
       .filter(Boolean)
       .join(' ');
@@ -13379,7 +14511,12 @@ function TrickSlotsDisplay({
         {Array.from({ length: orderedSlots }, (_, i) => {
           const filled = i < Math.min(totalFilled, bid) && !hideCards;
           const circleStyle = variant === 'player'
-            ? { ...trickCircleBaseStyle, width: circleSize ?? 18, height: circleSize ?? 18 }
+            ? {
+                ...trickCircleBaseStyle,
+                width: circleSize ?? 18,
+                height: circleSize ?? 18,
+                ...(playerMobileLandscapeTricks ? { boxSizing: 'border-box' as const } : {}),
+              }
             : { ...trickCircleBaseStyle, width: circleSize ?? 14, height: circleSize ?? 14 };
           return (
             <div
@@ -13409,15 +14546,67 @@ function TrickSlotsDisplay({
       ) : null;
     let compactFigFont =
       variant === 'player'
-        ? playerMobileWideTricks
-          ? Math.max(7, Math.round(10 * southUserSlotShrink))
-          : 10
-        : 9;
+        ? playerMobileLandscapeTricks
+          ? MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURE_FONT_PX
+          : playerMobileWideTricks
+            ? Math.max(7, Math.round(10 * southUserSlotShrink))
+            : 10
+        : opponentMobileLandscapeNwOrderStrip
+            ? Math.max(10, Math.round(10))
+            : 9;
     /** До первой взятки: «0/заказ» читаемо (раньше 9/10px выглядели как микрошрифт). */
     if (bid != null && tricksTaken === 0) {
       compactFigFont =
-        variant === 'player' ? Math.min(14, Math.max(compactFigFont, Math.round(compactFigFont * 1.28) + 1)) : Math.min(13, compactFigFont + 3);
+        variant === 'player'
+          ? playerMobileLandscapeTricks
+            ? MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURE_FONT_PENDING_PX
+            : Math.min(14, Math.max(compactFigFont, Math.round(compactFigFont * 1.28) + 1))
+          : Math.min(13, compactFigFont + 3);
     }
+    if (variant === 'player' && playerMobileLandscapeTricks && scaleDown < 1) {
+      compactFigFont = Math.max(8, Math.round(compactFigFont * scaleDown));
+    }
+    if (
+      variant === 'opponent' &&
+      opponentMobileLandscapeNwOrderStrip &&
+      !opponentLandscapeWeHighBidEar &&
+      opponentScaleDown < 1
+    ) {
+      compactFigFont = Math.max(8, Math.round(compactFigFont * opponentScaleDown));
+    }
+    const landscapeSouthPanelNatural =
+      variant === 'player' && playerMobileLandscapeTricks && bidNum != null
+        ? estimateMobileLandscapeSouthOrderPanelWidthPx(
+            bidNum,
+            tricksTaken,
+            circleSize ?? 12,
+            compactFigFont,
+            extra,
+            hideCards,
+            southLandscapeHighBidEar,
+          ) + MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_W_BONUS_PX
+        : undefined;
+    const landscapeSouthWMax =
+      variant === 'player' && playerMobileLandscapeTricks
+        ? getMobileLandscapeSouthTrickPanelMaxWidthPx()
+        : null;
+    const landscapeSouthPanelWidthPx =
+      landscapeSouthPanelNatural != null && landscapeSouthWMax != null
+        ? Math.min(landscapeSouthWMax, Math.ceil(landscapeSouthPanelNatural))
+        : landscapeSouthPanelNatural ?? landscapeSouthWMax ?? undefined;
+    const wrapStylePlayer =
+      landscapeSouthPanelWidthPx != null
+        ? {
+            ...wrapStyle,
+            overflow: southLandscapeHighBidEar ? ('visible' as const) : wrapStyle.overflow,
+            position: southLandscapeHighBidEar ? ('relative' as const) : wrapStyle.position,
+            width: 'auto' as const,
+            maxWidth: landscapeSouthPanelWidthPx,
+            minWidth: 0,
+            ...landscapeSouthPanelHeightCss,
+            ['--south-landscape-order-panel-w' as string]: `${landscapeSouthPanelWidthPx}px`,
+          }
+        : { ...wrapStyle, ...landscapeSouthPanelHeightCss };
     const figuresCompact = (
         <PcTrickBidTakenFigures
           bid={bid}
@@ -13426,21 +14615,29 @@ function TrickSlotsDisplay({
           fontSize={compactFigFont}
           tricksLeftInDeal={tricksLeftInDeal}
           exactMatchHeavyNeon={tricksOnHandHeavyNeon}
-        mobileNwEarFigures={!!mobileNwHighBidEar}
+        mobileNwEarFigures={!!mobileHighBidEar}
         style={
-          mobileNwHighBidEar
+          mobileHighBidEar
             ? { lineHeight: 1.05, marginBottom: 0 }
-            : variant === 'player' && playerMobileWideTricks
+            : variant === 'player' && playerMobileLandscapeTricks
               ? {
                   lineHeight: 1,
-                  marginBottom: Math.max(0, Math.round(2 * southUserSlotShrink)),
+                  marginBottom: 0,
                   gap: Math.max(1, Math.round(3 * southUserSlotShrink)),
                 }
-              : { lineHeight: 1, marginBottom: 2 }
+              : variant === 'player' && playerMobileWideTricks
+                ? {
+                    lineHeight: 1,
+                    marginBottom: Math.max(0, Math.round(2 * southUserSlotShrink)),
+                    gap: Math.max(1, Math.round(3 * southUserSlotShrink)),
+                  }
+                : variant === 'opponent' && opponentMobileLandscapeNwOrderStrip
+                  ? { lineHeight: 1, marginBottom: 0, marginRight: 0 }
+                : { lineHeight: 1, marginBottom: 2 }
         }
       />
     );
-    const compactInner = mobileNwHighBidEar ? (
+    const compactInner = mobileHighBidEar ? (
       <div className="trick-slots-mobile-nw-ear-inner">
         <span className="trick-slots-mobile-nw-figures-ear">{figuresCompact}</span>
         <div className="trick-slots-mobile-nw-circles-only" style={rowStyle}>
@@ -13487,12 +14684,15 @@ function TrickSlotsDisplay({
     const playerExactStarHost = Boolean(playerMobileExactOrderCornerStar);
     const wrapStylePlayerStar =
       variant === 'player' && playerMobileExactOrderCornerStar
-        ? { ...wrapStyle, overflow: 'visible' as const }
-        : wrapStyle;
+        ? { ...wrapStylePlayer, overflow: 'visible' as const }
+        : wrapStylePlayer;
     const wrapClsPlayerStar = playerExactStarHost ? `${wrapCls} trick-slots-south-exact-star-host` : wrapCls;
     return (
       <div style={wrapStylePlayerStar} className={wrapClsPlayerStar} role="status">
-        {compactInner}
+        {wrapMobileSouthLandscapeOrderInner(
+          compactInner,
+          variant === 'player' && !!playerMobileLandscapeTricks && !southLandscapeHighBidEar,
+        )}
         {playerMobileExactOrderCornerStar}
       </div>
     );
@@ -13522,6 +14722,8 @@ function TrickSlotsDisplay({
   const pcTrickPanelUnderOrderStrict =
     tricksTaken < bid &&
     (tricksLeftInDeal === undefined || tricksTaken + tricksLeftInDeal < bid);
+  const pcBidNum = Number.isNaN(Number(bid)) ? null : Number(bid);
+  const pcRareBidCls = trickSlotsRareBidClass(pcBidNum);
   const wrapStyle = {
     ...trickSlotsWrapStyle,
     ...(pcTrickPanelExactOrder
@@ -13555,6 +14757,7 @@ function TrickSlotsDisplay({
           pcTrickPanelExactOrder ? 'trick-slots-pc-exact' : '',
           pcTrickPanelOverOrder ? 'trick-slots-pc-over' : '',
           pcTrickPanelUnderOrderStrict ? 'trick-slots-pc-under' : '',
+          pcRareBidCls,
         ]
           .filter(Boolean)
           .join(' ')}
@@ -13653,6 +14856,7 @@ function TrickSlotsDisplay({
         pcTrickPanelExactOrder ? 'trick-slots-pc-exact' : '',
         pcTrickPanelOverOrder ? 'trick-slots-pc-over' : '',
         pcTrickPanelUnderOrderStrict ? 'trick-slots-pc-under' : '',
+        pcRareBidCls,
       ]
         .filter(Boolean)
         .join(' ')}
@@ -13930,7 +15134,9 @@ function DealerMobilePanelStars({ layout = 'default' }: { layout?: 'default' | '
           </div>
         </div>
         <span className="dealer-east-panel-ufo-host" aria-hidden>
-          <DealerEastPanelUfo domeGradientId={ufoDomeGradientId} />
+          <span className="dealer-east-panel-ufo-flight" aria-hidden>
+            <DealerEastPanelUfo domeGradientId={ufoDomeGradientId} />
+          </span>
         </span>
       </>
     );
@@ -14016,6 +15222,7 @@ function OpponentSlot({
   firstMoverBiddingHighlight,
   isMobile,
   hideDealerBadge,
+  mobileLandscapeLayout,
   avatarDataUrl,
   replacedByAi,
   onAvatarClick,
@@ -14036,6 +15243,8 @@ function OpponentSlot({
   firstMoverBiddingHighlight?: boolean;
   /** Только мобильная версия: при ходе ИИ не показывать бейдж «Ходит», выделять имя зелёной неоновой рамкой */
   isMobile?: boolean;
+  /** Мобильный landscape: Север — одна горизонтальная полоска над столом; Запад — колонка слева */
+  mobileLandscapeLayout?: boolean;
   /** Скрыть бейдж «Сдающий» (в режиме ожидания) */
   hideDealerBadge?: boolean;
   /** Фото игрока (Data URL), только для человеческого игрока */
@@ -14111,8 +15320,14 @@ function OpponentSlot({
       ? 'chasing'
       : null;
   const mobileActiveName = isMobile && isActive;
+  /** Моб. landscape: Запад/Восток — колонка: аватар|очки, имя, заказ. */
+  const mobileWestEastLandscapeCol = Boolean(
+    isMobile && mobileLandscapeLayout && inline && (position === 'left' || position === 'right'),
+  );
   /** Мобильный верхний ряд: Запад/Север — особая вёрстка (аватар крупнее, заказ по центру по вертикали). */
-  const mobileNwLayout = Boolean(isMobile && inline && (position === 'left' || position === 'top'));
+  const mobileNwLayout = Boolean(
+    isMobile && inline && (position === 'left' || position === 'top') && !mobileWestEastLandscapeCol,
+  );
   /** Мобильная колонка Восток: тот же базовый размер, что у Запад/Север (40), и общие правила кольца заказа */
   const eastMobileLargeAvatar = Boolean(isMobile && inline && position === 'right');
   /**
@@ -14122,16 +15337,21 @@ function OpponentSlot({
   const MOBILE_OPP_HEADER_AVATAR_RESERVE_PX = 56;
   /** Компакт: С/З/В (моб.) — лицо всегда 40, без ×0.95 при кольце; прочие компактные слоты — как раньше */
   const avatarSizePx = compactMode
-    ? mobileNwLayout || eastMobileLargeAvatar
+    ? mobileNwLayout || eastMobileLargeAvatar || mobileWestEastLandscapeCol
       ? 40
       : Math.round(32 * (avatarOrderRingMode ? 0.95 : 1))
     : 38;
   const eastMobileOnlyAvatar = position === 'right' && isMobile;
+  /** Landscape З/В и моб. Восток: east-mobile стили; landscape З/В — одна строка + скролл как у С/З. */
+  const useEastMobileNameStyle = eastMobileOnlyAvatar || mobileWestEastLandscapeCol;
   /** ПК, слот «Север» над столом: аватар и имя слева, взятки и очки справа (мобильная не трогается). */
   const pcNorthSideBySide = position === 'top' && inline && !compactMode && !isMobile;
-  /** Мобильные С/З: имя в «окошке», длинное — прокрутка по тапу; Восток — перенос без окошка. */
+  /** Моб. landscape: Север — одна низкая полоска над столом (контент в строку). */
+  const mobileNorthLandscapeRow = Boolean(isMobile && mobileLandscapeLayout && inline && position === 'top');
+  /** Моб. С/З и landscape З/В: имя в «окошке», длинное — обрезка + прокрутка по тапу; portrait Восток — перенос. */
   const mobileOpponentInline = !!(isMobile && inline && !pcNorthSideBySide);
-  const mobileOpponentNameWindowHorizScroll = mobileOpponentInline && !eastMobileOnlyAvatar;
+  const mobileOpponentNameWindowHorizScroll =
+    mobileOpponentInline && (!useEastMobileNameStyle || mobileWestEastLandscapeCol);
   useLayoutEffect(() => {
     if (!mobileOpponentNameWindowHorizScroll) {
       setOppNameWindowScrollable(false);
@@ -14494,6 +15714,19 @@ function OpponentSlot({
     dealerOpponentMobilePanelHighlight &&
     (dealerOpponentMobilePanelBidding || dealerOpponentMobilePanelPlaying);
   const dealerNwMobilePanelStars = dealerOpponentMobilePanelHighlight && mobileNwLayout;
+  /** Моб. landscape Запад: те же звёзды/НЛО, что у Востока (не north-west). */
+  const dealerWestLandscapeEastPanelStars = Boolean(
+    dealerOpponentMobilePanelHighlight && mobileWestEastLandscapeCol && position === 'left',
+  );
+  /** Моб. landscape С/З/В: после торгов «Сдающий» — кружок на аватаре (как у Юга, проще). */
+  const opponentLandscapePlayingDealerOnAvatar = Boolean(
+    isMobile &&
+      mobileLandscapeLayout &&
+      isDealer &&
+      !hideDealerBadge &&
+      state.phase === 'playing' &&
+      (mobileWestEastLandscapeCol || mobileNorthLandscapeRow),
+  );
 
   const frameStyle =
     mobileActiveName || (isMobile && isDealer)
@@ -14527,6 +15760,9 @@ function OpponentSlot({
         dealerOpponentMobilePanelBidding ? 'dealer-opponent-panel-mobile--bidding' : '',
         dealerOpponentMobilePanelPlaying ? 'dealer-opponent-panel-mobile--playing' : '',
         dealerOpponentMobilePanelBidding || dealerOpponentMobilePanelPlaying ? 'dealer-panel-stars-live' : '',
+        mobileNorthLandscapeRow ? 'opponent-slot--mobile-landscape-north mobile-landscape-panel-north-layout' : '',
+        mobileWestEastLandscapeCol ? 'opponent-slot--mobile-landscape-we' : '',
+        dealerWestLandscapeEastPanelStars ? 'opponent-slot-dealer-stars-east-layout' : '',
         isActive ? 'opponent-slot-current-turn' : '',
         northPcFusedOrderBadge ? 'opponent-slot--north-pc-fused-order-badge' : '',
       ]
@@ -14568,10 +15804,16 @@ function OpponentSlot({
     >
       {dealerOpponentMobilePanelHighlight ? (
         <DealerMobilePanelStars
-          layout={position === 'right' ? 'east' : mobileNwLayout ? 'north-west' : 'default'}
+          layout={
+            position === 'right' || (mobileWestEastLandscapeCol && position === 'left')
+              ? 'east'
+              : mobileNwLayout
+                ? 'north-west'
+                : 'default'
+          }
         />
       ) : null}
-      {isDealer && !hideDealerBadge && (
+      {isDealer && !hideDealerBadge && !opponentLandscapePlayingDealerOnAvatar && (
         isMobile && state.phase === 'playing' && onDealerBadgeClick ? (
           <button type="button" className={['opponent-badge', 'dealer-badge', 'dealer-badge-compact-mobile'].join(' ')} style={{ ...dealerLampExternalStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={onDealerBadgeClick} title="Сдающий" aria-label="Сдающий">
             <span style={dealerLampBulbStyle} />
@@ -14738,7 +15980,7 @@ function OpponentSlot({
           ...(mobileActiveName && !styleOfflineAiNameByDifficulty ? nameActiveMobileStyle : {}),
           minWidth: 0,
           ...(pcNorthSideBySide ? { maxWidth: 200 } : {}),
-          ...(eastMobileOnlyAvatar
+          ...(useEastMobileNameStyle && !mobileWestEastLandscapeCol
             ? {
                 overflow: 'visible',
                 whiteSpace: 'normal' as const,
@@ -14763,7 +16005,7 @@ function OpponentSlot({
               'opponent-slot-header-display-name',
               'opponent-name-offline-ai-pick',
               `opponent-name-offline-ai-pick--${offlineAiDifficultyForName}`,
-              eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : '',
+              useEastMobileNameStyle ? 'opponent-name-east-mobile' : '',
             ]
               .filter(Boolean)
               .join(' ')}
@@ -14780,7 +16022,7 @@ function OpponentSlot({
           <span
             className={
               [
-                eastMobileOnlyAvatar ? 'opponent-name-east-mobile' : '',
+                useEastMobileNameStyle ? 'opponent-name-east-mobile' : '',
                 'opponent-slot-header-display-name',
                 mobileHumanPremiumNameClass,
               ]
@@ -14828,12 +16070,85 @@ function OpponentSlot({
             </span>
           </div>
         ) : null;
+        const opponentScoreMobileSlotClass =
+          isMobile && inline
+            ? mobileWestEastLandscapeCol
+              ? 'opponent-score-badge--slot-east'
+              : position === 'top'
+                ? 'opponent-score-badge--slot-north'
+                : position === 'left'
+                  ? 'opponent-score-badge--slot-west'
+                  : 'opponent-score-badge--slot-east'
+            : undefined;
+        const opponentScoreLabelStyleResolved: React.CSSProperties =
+          isMobile && inline ? opponentStatStyleWithoutTextColor(opponentStatLabelStyle) : opponentStatLabelStyle;
+        const opponentScoreValueStyleResolved: React.CSSProperties =
+          isMobile && inline ? opponentStatStyleWithoutTextColor(opponentStatValueStyle) : opponentStatValueStyle;
+        const opponentScoreControl = pcNorthSideBySide
+          ? null
+          : isMobile && inline ? (
+                <button
+                  type="button"
+                  className={
+                    [
+                      'opponent-score-badge',
+                      'opponent-score-badge--mobile-toggle',
+                      sideSlotPcGrow ? 'opponent-score-badge-side-pc' : '',
+                      scoreLeaderHighlight ? 'score-badge-leader' : '',
+                      opponentScoreMobileSlotClass,
+                      mobileWestEastLandscapeCol ? 'opponent-score-badge--landscape-we-ear' : '',
+                      mobileNorthLandscapeRow ? 'opponent-score-badge--landscape-north-corner' : '',
+                      mobileOpponentScoreExpanded
+                        ? 'opponent-score-badge--score-expanded'
+                        : 'opponent-score-badge--score-label-collapsed',
+                    ]
+                      .filter(Boolean)
+                      .join(' ') || undefined
+                  }
+                  style={{
+                    ...opponentStatBadgeScoreStyle,
+                    cursor: 'pointer',
+                    font: 'inherit',
+                    margin: 0,
+                    boxSizing: 'border-box',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    setMobileOpponentScoreExpanded(v => !v);
+                  }}
+                  aria-expanded={mobileOpponentScoreExpanded}
+                  title={mobileOpponentScoreExpanded ? 'Скрыть подпись «Очки»' : 'Показать подпись «Очки»'}
+                  aria-label={
+                    mobileOpponentScoreExpanded
+                      ? `Очки игрока ${p.score}, скрыть подпись`
+                      : `${p.score} очков, показать подпись`
+                  }
+                >
+                  {mobileOpponentScoreExpanded ? (
+                    <span style={opponentScoreLabelStyleResolved}>Очки</span>
+                  ) : null}
+                  <span style={opponentScoreValueStyleResolved}>{p.score}</span>
+                </button>
+              ) : (
+                <div
+                  className={
+                    ['opponent-score-badge', sideSlotPcGrow ? 'opponent-score-badge-side-pc' : '', scoreLeaderHighlight ? 'score-badge-leader' : '']
+                      .filter(Boolean)
+                      .join(' ') || undefined
+                  }
+                  style={opponentStatBadgeScoreStyle}
+                >
+                  <span style={opponentStatLabelStyle}>Очки</span>
+                  <span style={opponentStatValueStyle}>{p.score}</span>
+          </div>
+        );
         const nameBlock =
           mobileOpponentInline ? (
             <div
               className={[
                 'opponent-slot-header-name-stack-mobile',
-                eastMobileOnlyAvatar ? 'opponent-slot-header-name-stack-mobile--east' : '',
+                useEastMobileNameStyle ? 'opponent-slot-header-name-stack-mobile--east' : '',
                 dealerNwMobilePanelStars ? 'opponent-slot-header-name-stack-mobile--nw-dealer' : '',
               ]
                 .filter(Boolean)
@@ -14842,7 +16157,7 @@ function OpponentSlot({
               <div
                 className={[
                   'opponent-slot-header-name-window-wrap',
-                  eastMobileOnlyAvatar ? 'opponent-slot-header-name-window-wrap--east' : '',
+                  useEastMobileNameStyle ? 'opponent-slot-header-name-window-wrap--east' : '',
                   dealerNwMobilePanelStars ? 'opponent-slot-header-name-window-wrap--nw-dealer' : '',
                 ]
                   .filter(Boolean)
@@ -14852,7 +16167,7 @@ function OpponentSlot({
                   ref={mobileOpponentNameWindowHorizScroll ? oppNameWindowRef : undefined}
                   className={[
                     'opponent-slot-header-name-window',
-                    eastMobileOnlyAvatar ? 'opponent-slot-header-name-window--east' : '',
+                    useEastMobileNameStyle ? 'opponent-slot-header-name-window--east' : '',
                     dealerNwMobilePanelStars ? 'opponent-slot-header-name-window--nw-dealer' : '',
                     dealerPlayingNameWindowClass,
                     mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
@@ -14900,7 +16215,7 @@ function OpponentSlot({
                       : undefined
                   }
                 >
-                  {dealerOpponentMobilePanelHighlight && eastMobileOnlyAvatar ? (
+                  {dealerOpponentMobilePanelHighlight && useEastMobileNameStyle ? (
                     <DealerEastNamePanelStars />
                   ) : null}
                   {mobileOpponentNameWindowHorizScroll ? (
@@ -14912,6 +16227,9 @@ function OpponentSlot({
                   )}
                 </div>
                 {mobileExactOrderStarEl}
+                {mobileWestEastLandscapeCol ? (
+                  <div className="opponent-slot-mobile-landscape-we-score-ear">{opponentScoreControl}</div>
+                ) : null}
               </div>
             </div>
           ) : (
@@ -14977,8 +16295,34 @@ function OpponentSlot({
           ) : (
             avatarControl
           );
+        const opponentLandscapeDealerAvatarCorner = opponentLandscapePlayingDealerOnAvatar ? (
+          <div className="opponent-landscape-dealer-corner opponent-landscape-dealer-corner--avatar-ring-nw">
+            {onDealerBadgeClick ? (
+              <button
+                type="button"
+                className="dealer-badge-compact-mobile opponent-landscape-dealer-corner-badge"
+                style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                onClick={onDealerBadgeClick}
+                title="Сдающий"
+                aria-label="Сдающий"
+              >
+                <span className="opponent-landscape-dealer-lamp-cosmic" aria-hidden />
+                <span className="dealer-badge-text" aria-hidden>
+                  Сдающий
+                </span>
+              </button>
+            ) : (
+              <span className="dealer-badge-compact-mobile opponent-landscape-dealer-corner-badge" title="Сдающий">
+                <span className="opponent-landscape-dealer-lamp-cosmic" aria-hidden />
+                <span className="dealer-badge-text" aria-hidden>
+                  Сдающий
+                </span>
+              </span>
+            )}
+          </div>
+        ) : null;
         const avatarElForHeader =
-          mobileNwLayout || eastMobileLargeAvatar ? (
+          mobileNwLayout || eastMobileLargeAvatar || mobileWestEastLandscapeCol ? (
             <span
               className="opponent-slot-header-avatar-reserve-mobile"
               style={{
@@ -14994,7 +16338,8 @@ function OpponentSlot({
               }}
             >
               {avatarEl}
-              {dealerOpponentMobilePanelHighlight && eastMobileOnlyAvatar ? (
+              {opponentLandscapeDealerAvatarCorner}
+              {dealerOpponentMobilePanelHighlight && useEastMobileNameStyle ? (
                 <DealerEastAvatarRingStars />
               ) : null}
             </span>
@@ -15035,81 +16380,13 @@ function OpponentSlot({
             {isActive && !isMobile && !turnBadgeOutsidePc ? <span style={opponentTurnBadgeStyle}>Ходит</span> : null}
           </div>
         );
-        const opponentScoreMobileSlotClass =
-          isMobile && inline
-            ? position === 'top'
-              ? 'opponent-score-badge--slot-north'
-              : position === 'left'
-                ? 'opponent-score-badge--slot-west'
-                : 'opponent-score-badge--slot-east'
-            : undefined;
-        const opponentScoreLabelStyleResolved: React.CSSProperties =
-          isMobile && inline ? opponentStatStyleWithoutTextColor(opponentStatLabelStyle) : opponentStatLabelStyle;
-        const opponentScoreValueStyleResolved: React.CSSProperties =
-          isMobile && inline ? opponentStatStyleWithoutTextColor(opponentStatValueStyle) : opponentStatValueStyle;
-        const opponentScoreControl = pcNorthSideBySide
-          ? null
-          : isMobile && inline ? (
-                <button
-                  type="button"
-                  className={
-                    [
-                      'opponent-score-badge',
-                      'opponent-score-badge--mobile-toggle',
-                      sideSlotPcGrow ? 'opponent-score-badge-side-pc' : '',
-                      scoreLeaderHighlight ? 'score-badge-leader' : '',
-                      opponentScoreMobileSlotClass,
-                      mobileOpponentScoreExpanded
-                        ? 'opponent-score-badge--score-expanded'
-                        : 'opponent-score-badge--score-label-collapsed',
-                    ]
-                      .filter(Boolean)
-                      .join(' ') || undefined
-                  }
-                  style={{
-                    ...opponentStatBadgeScoreStyle,
-                    cursor: 'pointer',
-                    font: 'inherit',
-                    margin: 0,
-                    boxSizing: 'border-box',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                  onClick={e => {
-                    e.stopPropagation();
-                    setMobileOpponentScoreExpanded(v => !v);
-                  }}
-                  aria-expanded={mobileOpponentScoreExpanded}
-                  title={mobileOpponentScoreExpanded ? 'Скрыть подпись «Очки»' : 'Показать подпись «Очки»'}
-                  aria-label={
-                    mobileOpponentScoreExpanded
-                      ? `Очки игрока ${p.score}, скрыть подпись`
-                      : `${p.score} очков, показать подпись`
-                  }
-                >
-                  {mobileOpponentScoreExpanded ? (
-                    <span style={opponentScoreLabelStyleResolved}>Очки</span>
-                  ) : null}
-                  <span style={opponentScoreValueStyleResolved}>{p.score}</span>
-                </button>
-              ) : (
-                <div
-                  className={
-                    ['opponent-score-badge', sideSlotPcGrow ? 'opponent-score-badge-side-pc' : '', scoreLeaderHighlight ? 'score-badge-leader' : '']
-                      .filter(Boolean)
-                      .join(' ') || undefined
-                  }
-                  style={opponentStatBadgeScoreStyle}
-                >
-                  <span style={opponentStatLabelStyle}>Очки</span>
-                  <span style={opponentStatValueStyle}>{p.score}</span>
-          </div>
-        );
         const statsBlock = (
           <div
             className={
               [
                 sideSlotPcGrow ? 'opponent-stats-west-east-pc' : undefined,
                 mobileNwLayout ? 'opponent-slot-stats-mobile-nw' : undefined,
+                mobileNorthLandscapeRow ? 'opponent-slot-stats-mobile-nw--landscape-north' : undefined,
                 eastMobileScoreBetweenHeaderAndTricks ? 'opponent-slot-stats-mobile-east' : undefined,
               ]
                 .filter(Boolean)
@@ -15150,6 +16427,171 @@ function OpponentSlot({
             {!eastMobileScoreBetweenHeaderAndTricks ? opponentScoreControl : null}
           </div>
         );
+        if (mobileNorthLandscapeRow) {
+          const orderStripLandscape = (
+            <div className="opponent-slot-mobile-landscape-north-order opponent-slot-stats-mobile-nw opponent-slot-stats-mobile-nw--landscape-north">
+              <TrickSlotsDisplay
+                bid={displayBid}
+                tricksTaken={p.tricksTaken}
+                variant="opponent"
+                horizontalOnly
+                collectingCards={collectingCards}
+                compactMode={compactMode}
+                opponentMobileLandscapeNorthTricks={mobileNorthLandscapeRow}
+                opponentMobileHideOrderLabel={!!isMobile}
+                opponentMobileZeroOrderCross={!!isMobile}
+                opponentOrderHintSlot="north"
+                tricksLeftInDeal={tricksRemainingInDeal(state)}
+              />
+            </div>
+          );
+          return (
+            <>
+              <div className="opponent-slot-mobile-landscape-north-score-corner">{opponentScoreControl}</div>
+              <div
+                className="opponent-slot-mobile-landscape-north-row"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'stretch',
+                  gap: 3,
+                  width: '100%',
+                  minWidth: 0,
+                  boxSizing: 'border-box',
+                }}
+              >
+                <div
+                  className="opponent-slot-mobile-landscape-north-avatar-col"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    alignSelf: 'stretch',
+                  }}
+                >
+                  {avatarElForHeader}
+                </div>
+                <div
+                  className="opponent-slot-mobile-landscape-north-body"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    justifyContent: 'center',
+                    gap: 2,
+                    flex: '1 1 auto',
+                    minWidth: 0,
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <div
+                    className="opponent-slot-mobile-landscape-north-top"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'flex-start',
+                      gap: 8,
+                      width: '100%',
+                      minWidth: 0,
+                      flexWrap: 'nowrap',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <div
+                      className="opponent-slot-header"
+                      style={{
+                        ...opponentHeaderStyle,
+                        marginBottom: 0,
+                        flexWrap: 'nowrap',
+                        flex: '0 1 auto',
+                        minWidth: 0,
+                      }}
+                    >
+                      {nameBlock}
+                    </div>
+                  </div>
+                  {orderStripLandscape}
+                </div>
+              </div>
+            </>
+          );
+        }
+        if (mobileWestEastLandscapeCol) {
+          const orderStripLandscapeWe = (
+            <div className="opponent-slot-mobile-landscape-we-order opponent-slot-stats-mobile-nw opponent-slot-stats-mobile-nw--landscape-we">
+              <TrickSlotsDisplay
+                bid={displayBid}
+                tricksTaken={p.tricksTaken}
+                variant="opponent"
+                collectingCards={collectingCards}
+                compactMode={compactMode}
+                opponentMobileLandscapeWeTricks={mobileWestEastLandscapeCol}
+                opponentMobileHideOrderLabel={!!isMobile}
+                opponentMobileZeroOrderCross={!!isMobile}
+                opponentOrderHintSlot={position === 'left' ? 'west' : 'east'}
+                tricksLeftInDeal={tricksRemainingInDeal(state)}
+              />
+            </div>
+          );
+          return (
+            <div
+              className="opponent-slot-mobile-landscape-we-stack"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                justifyContent: 'flex-start',
+                gap: 2,
+                width: '100%',
+                minWidth: 0,
+                boxSizing: 'border-box',
+              }}
+            >
+              <div
+                className={[
+                  'opponent-slot-mobile-landscape-we-name opponent-slot-mobile-landscape-we-name--top',
+                  dealerOpponentMobilePanelHighlight ? 'opponent-slot-mobile-landscape-we-name--dealer' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                <div
+                  className="opponent-slot-header opponent-slot-header--landscape-we-name"
+                  style={{
+                    display: 'flex',
+                    marginBottom: 0,
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    justifyContent: 'center',
+                    width: '100%',
+                    gap: 0,
+                  }}
+                >
+                  {nameBlock}
+                </div>
+              </div>
+              <div
+                className="opponent-slot-mobile-landscape-we-top"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  gap: 4,
+                  width: '100%',
+                  minWidth: 0,
+                  boxSizing: 'border-box',
+                }}
+              >
+                <div className="opponent-slot-mobile-landscape-we-avatar">{avatarElForHeader}</div>
+              </div>
+              {orderStripLandscapeWe}
+            </div>
+          );
+        }
         if (pcNorthSideBySide) {
           return (
             <div
@@ -18024,12 +19466,15 @@ const trickCirclesWrapMobileOverBidStyle: React.CSSProperties = {
 
 /** Мобильные кружочки: жёсткий недобор (заказ невыполним) */
 const trickCirclesWrapMobileUnderStrictStyle: React.CSSProperties = {
-  border: '1px solid rgba(190, 80, 88, 0.38)',
+  border: '2px solid rgba(239, 68, 68, 0.68)',
   background:
-    'linear-gradient(180deg, rgba(160, 55, 65, 0.1) 0%, rgba(110, 45, 52, 0.09) 48%, rgba(30, 41, 59, 0.9) 100%)',
+    'linear-gradient(180deg, rgba(220, 38, 38, 0.2) 0%, rgba(153, 27, 27, 0.16) 42%, rgba(30, 41, 59, 0.9) 100%)',
   boxShadow: [
-    '0 0 0 1px rgba(165, 65, 75, 0.18)',
-    'inset 0 0 12px rgba(130, 50, 58, 0.07)',
+    '0 0 0 1px rgba(248, 113, 113, 0.42)',
+    '0 0 14px rgba(239, 68, 68, 0.32)',
+    '0 0 22px rgba(220, 38, 38, 0.18)',
+    'inset 0 0 16px rgba(239, 68, 68, 0.12)',
+    'inset 0 0 0 1px rgba(248, 113, 113, 0.22)',
   ].join(', '),
 };
 const trickCirclesRowStyle: React.CSSProperties = {
@@ -18086,14 +19531,16 @@ const trickSlotsWrapPcOverBidStyle: React.CSSProperties = {
   ].join(', '),
 };
 
-/** ПК: недобор — тусклый «штрафной» красный (минус по очкам), слабее старого pending */
+/** ПК: недобор — яркий «штрафной» красный (заказ уже невыполним) */
 const trickSlotsWrapPcUnderBidStyle: React.CSSProperties = {
-  border: '1px solid rgba(190, 80, 88, 0.38)',
+  border: '2px solid rgba(239, 68, 68, 0.62)',
   background:
-    'linear-gradient(180deg, rgba(160, 55, 65, 0.1) 0%, rgba(110, 45, 52, 0.09) 48%, rgba(30, 41, 59, 0.9) 100%)',
+    'linear-gradient(180deg, rgba(220, 38, 38, 0.18) 0%, rgba(127, 29, 29, 0.14) 48%, rgba(30, 41, 59, 0.9) 100%)',
   boxShadow: [
-    '0 0 0 1px rgba(165, 65, 75, 0.18)',
-    'inset 0 0 12px rgba(130, 50, 58, 0.07)',
+    '0 0 0 1px rgba(248, 113, 113, 0.38)',
+    '0 0 14px rgba(239, 68, 68, 0.28)',
+    '0 0 22px rgba(220, 38, 38, 0.16)',
+    'inset 0 0 14px rgba(239, 68, 68, 0.1)',
   ].join(', '),
 };
 
@@ -18261,6 +19708,280 @@ const MOBILE_SOUTH_USER_AVATAR_RELATIVE_SCALE = 0.85;
 const MOBILE_SOUTH_USER_AVATAR_SHORT_EXTRA_SCALE = 0.9;
 /** Блок trick-slots у Юга на мобиле: множитель к размерам в TrickSlotsDisplay (1 — в тон масштабу панели ×MOBILE_SOUTH_PLAYER_CARD_SCALE; 2/3 делало полоску слишком мелкой). */
 const MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK = 1;
+/** Моб. landscape · С/З/В (оппонент): единая капсула заказа. */
+const MOBILE_LANDSCAPE_NORTH_PANEL_EXTRA_W_PX = 7;
+const MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX = 26;
+const MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX = 2;
+const MOBILE_LANDSCAPE_OPPONENT_ORDER_RADIUS_PX = 5;
+const MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX = 4;
+const MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX = 4;
+const MOBILE_LANDSCAPE_OPPONENT_ORDER_CIRCLE_BASE_PX = 14;
+const MOBILE_LANDSCAPE_OPPONENT_ORDER_FIT_SAFETY_PX = 2;
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_SHRINK = 0.78;
+/** Моб. landscape · Юг: кегль «взято/заказ» внутри полоски заказа. */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURE_FONT_PX = 12;
+const MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURE_FONT_PENDING_PX = 13;
+/** Моб. landscape · Юг: высота полоски заказа после выбора взяток (торги — 22px, см. CSS --bidding-empty). */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX = 22;
+/** Моб. landscape · Юг: высота нижней рельсы (полоска + бейджи торгов в одном ряду). */
+const MOBILE_LANDSCAPE_SOUTH_ORDER_RAIL_H_PX = 24;
+/** Моб. landscape · Юг: зазор рельсы от внутренней нижней кромки панели. */
+const MOBILE_LANDSCAPE_SOUTH_ORDER_RAIL_INSET_BOTTOM_PX = 5;
+/** Моб. landscape · Юг: доп. ширина полоски заказа после выбора взяток. */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_W_BONUS_PX = 0;
+/** Моб. landscape · Юг: без CSS transform — масштаб только через circleSize/scaleDown. */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_INNER_CONTENT_SCALE = 1;
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_LEFT_PX = 3;
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_RIGHT_PX = 5;
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_H_PX =
+  MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_LEFT_PX + MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_RIGHT_PX;
+/** Моб. landscape · Юг: при заказе > N цифры «взято/заказ» — в «ушке» над полоской (как Север/Запад на мобиле). */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_HIGH_BID_EAR_AFTER = 8;
+/** Редкий заказ 8 взяток — заметная подсветка полоски для всех игроков. */
+const RARE_BID_HIGHLIGHT_8 = 8;
+/** Исключительный заказ 9 взяток — усиленная «легендарная» подсветка. */
+const RARE_BID_HIGHLIGHT_9 = 9;
+
+function trickSlotsRareBidClass(bidNum: number | null): string {
+  if (bidNum === RARE_BID_HIGHLIGHT_9) return 'trick-slots-rare-bid-9';
+  if (bidNum === RARE_BID_HIGHLIGHT_8) return 'trick-slots-rare-bid-8';
+  return '';
+}
+
+function trickBidFigureRareClass(bidNum: number | null): string {
+  if (bidNum === RARE_BID_HIGHLIGHT_9) return 'trick-bid-figure-rare-9';
+  if (bidNum === RARE_BID_HIGHLIGHT_8) return 'trick-bid-figure-rare-8';
+  return '';
+}
+/** Моб. landscape · Юг: кружки компактнее (ещё −2% к текущему масштабу). */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_SHRINK = 0.75;
+/** Моб. landscape · Юг: симметричный внутренний отступ кружков сверху/снизу (px). */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX = 2;
+/** Запас при подгонке кружков под ширину колонки (px). */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_FIT_SAFETY_PX = 4;
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_EMPTY_BIDDING_W = 46;
+/** Моб. landscape · Юг · торги: scale() пустой полоски (компактнее, чем в игре). */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_EMPTY_BIDDING_INNER_SCALE = 1.05;
+/** Моб. landscape · Юг: минимальная ширина панели при фиксации под 9 карт. */
+const MOBILE_LANDSCAPE_SOUTH_PANEL_MIN_W_PX = 120;
+
+function mobileLandscapeSouthFigFontPx(bid: number | null, tricksTaken: number): number {
+  if (bid != null && tricksTaken === 0) return MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURE_FONT_PENDING_PX;
+  return MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURE_FONT_PX;
+}
+
+function estimateMobileLandscapeOpponentOrderInnerWidthPx(
+  bid: number,
+  tricksTaken: number,
+  circleSize: number,
+  figFont: number,
+  extra: number,
+  hideCards: boolean,
+  figuresInEar = false,
+  gapPx: number = MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX,
+): number {
+  const bidDigits = String(bid).length;
+  const takenDigits = String(tricksTaken).length;
+  const figuresW = figuresInEar
+    ? 0
+    : Math.max(
+        26,
+        Math.round(figFont * (2.2 + Math.max(bidDigits, takenDigits) * 0.35)),
+      );
+  const plusW = extra > 0 && !hideCards ? 14 : 0;
+  return (
+    figuresW +
+    gapPx +
+    bid * circleSize +
+    Math.max(0, bid - 1) * gapPx +
+    plusW
+  );
+}
+
+function getMobileLandscapeNorthOrderStripMaxWidthPx(): number {
+  if (typeof window === 'undefined') return 156;
+  const iw = readMobileHandLayoutWidthPx();
+  const panelFixed = resolveMobileLandscapePanelFixedWidthPx(iw, null);
+  const northBody = panelFixed - MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX - 3;
+  return Math.max(96, northBody - 4);
+}
+
+/** Горизонтальный padding панели З/В в landscape — синхрон с --landscape-we-panel-pad-h в index.css */
+const MOBILE_LANDSCAPE_WE_PANEL_PAD_H_PX = 0;
+/** З/В: компактная полоска заказа — синхрон с --landscape-opponent-order-pad-h в index.css */
+const MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX = 2;
+const MOBILE_LANDSCAPE_WE_ORDER_GAP_PX = 3;
+/** Зазор панели З/В со столом (margin-right З / margin-left В) */
+const MOBILE_LANDSCAPE_WE_TABLE_GAP_PX = 3;
+
+function getMobileLandscapeWeOrderStripMaxWidthPx(): number {
+  if (typeof window === 'undefined') return 88;
+  const iw = readMobileHandLayoutWidthPx();
+  const boardGap = 1;
+  const sideRef = 128;
+  const tableW = Math.round((iw - 2 * sideRef - 2 * boardGap) * 0.8);
+  const sideCol = Math.max(72, Math.floor((iw - tableW - 2 * boardGap) / 2));
+  return Math.max(
+    88,
+    sideCol -
+      MOBILE_LANDSCAPE_WE_PANEL_PAD_H_PX * 2 -
+      MOBILE_LANDSCAPE_WE_TABLE_GAP_PX -
+      MOBILE_LANDSCAPE_OPPONENT_ORDER_FIT_SAFETY_PX,
+  );
+}
+
+function getMobileLandscapeOpponentOrderStripMaxWidthPx(): number {
+  /** @deprecated Используйте getMobileLandscapeNorthOrderStripMaxWidthPx / getMobileLandscapeWeOrderStripMaxWidthPx */
+  return Math.min(
+    getMobileLandscapeNorthOrderStripMaxWidthPx(),
+    getMobileLandscapeWeOrderStripMaxWidthPx(),
+  );
+}
+
+function mobileLandscapeOpponentOrderScaleDown(
+  bid: number,
+  tricksTaken: number,
+  extra: number,
+  wMax: number,
+  baseCircle: number,
+  figFont: number,
+  hideCards: boolean,
+  figuresInEar = false,
+  padHPx: number = MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
+  gapPx: number = MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX,
+): number {
+  const innerBudget = Math.max(
+    1,
+    wMax - padHPx * 2 - MOBILE_LANDSCAPE_OPPONENT_ORDER_FIT_SAFETY_PX,
+  );
+  const innerAt1 = estimateMobileLandscapeOpponentOrderInnerWidthPx(
+    bid,
+    tricksTaken,
+    baseCircle,
+    figFont,
+    extra,
+    hideCards,
+    figuresInEar,
+    gapPx,
+  );
+  if (innerAt1 <= innerBudget) return 1;
+  const bidDigits = String(bid).length;
+  const takenDigits = String(tricksTaken).length;
+  const figuresW = figuresInEar
+    ? 0
+    : Math.max(
+        26,
+        Math.round(figFont * (2.2 + Math.max(bidDigits, takenDigits) * 0.35)),
+      );
+  const plusW = extra > 0 && !hideCards ? 14 : 0;
+  const fixedPart = figuresW + gapPx + plusW;
+  const circlePart = bid * baseCircle + Math.max(0, bid - 1) * gapPx;
+  const circleBudget = Math.max(1, innerBudget - fixedPart);
+  if (circlePart <= 0) return 1;
+  return Math.max(0.22, Math.min(1, circleBudget / circlePart));
+}
+
+function estimateMobileLandscapeSouthOrderInnerWidthPx(
+  bid: number,
+  tricksTaken: number,
+  circleSize: number,
+  figFont: number,
+  extra: number,
+  hideCards: boolean,
+  figuresInEar = false,
+): number {
+  const bidDigits = String(bid).length;
+  const takenDigits = String(tricksTaken).length;
+  const figuresW = figuresInEar
+    ? 0
+    : Math.max(24, Math.round(figFont * (2.4 + Math.max(bidDigits, takenDigits) * 0.35)));
+  const figuresGap = figuresInEar ? 0 : 4;
+  const plusW = extra > 0 && !hideCards ? 14 : 0;
+  return (
+    figuresW +
+    figuresGap +
+    bid * circleSize +
+    Math.max(0, bid - 1) * 1 +
+    plusW
+  );
+}
+
+function estimateMobileLandscapeSouthOrderPanelWidthPx(
+  bid: number,
+  tricksTaken: number,
+  circleSize: number,
+  figFont: number,
+  extra: number,
+  hideCards: boolean,
+  figuresInEar = false,
+): number {
+  const innerW = estimateMobileLandscapeSouthOrderInnerWidthPx(
+    bid,
+    tricksTaken,
+    circleSize,
+    figFont,
+    extra,
+    hideCards,
+    figuresInEar,
+  );
+  return Math.ceil(innerW + MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_H_PX);
+}
+
+function mobileLandscapeSouthOrderScaleDown(
+  bid: number,
+  tricksTaken: number,
+  extra: number,
+  wMax: number,
+  baseCircle: number,
+  figFont: number,
+  hideCards: boolean,
+  figuresInEar = false,
+): number {
+  const innerBudget = Math.max(
+    1,
+    wMax - MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_H_PX - MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_FIT_SAFETY_PX,
+  );
+  const innerAt1 = estimateMobileLandscapeSouthOrderInnerWidthPx(
+    bid,
+    tricksTaken,
+    baseCircle,
+    figFont,
+    extra,
+    hideCards,
+    figuresInEar,
+  );
+  if (innerAt1 <= innerBudget) return 1;
+  const bidDigits = String(bid).length;
+  const takenDigits = String(tricksTaken).length;
+  const figuresW = figuresInEar
+    ? 0
+    : Math.max(24, Math.round(figFont * (2.4 + Math.max(bidDigits, takenDigits) * 0.35)));
+  const plusW = extra > 0 && !hideCards ? 14 : 0;
+  const fixedPart = figuresW + (figuresInEar ? 0 : 4) + plusW;
+  const circleGap = 1;
+  const circlePart = bid * baseCircle + Math.max(0, bid - 1) * circleGap;
+  const circleBudget = Math.max(1, innerBudget - fixedPart);
+  if (circlePart <= 0) return 1;
+  return Math.max(0.22, Math.min(1, circleBudget / circlePart));
+}
+
+function getMobileLandscapeSouthTrickPanelMaxWidthPx(): number {
+  if (typeof window === 'undefined') return 140;
+  const iw = window.innerWidth;
+  /**
+   * Колонка панели Юга = viewport − рука (auto, часто 55–68% ширины).
+   * Завышенный бюджет → scaleDown=1 → полоска длиннее колонки и вылезает вправо.
+   */
+  const handEst = Math.round(iw * 0.65);
+  const panelEst = Math.max(80, iw - handEst);
+  const northBody =
+    panelEst -
+    MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX -
+    3 - // avatar ↔ body gap
+    3 - // bottom-row padding-left
+    3; // --has-order margin-left
+  return Math.max(88, Math.min(240, northBody));
+}
 /** Ниже этой ширины viewport (px) — полоска заказа юга ещё на 15% компактнее (множитель к scaleDown). */
 const MOBILE_SOUTH_USER_TRICK_PANEL_NARROW_VIEWPORT_PX = 333;
 const MOBILE_SOUTH_USER_TRICK_PANEL_NARROW_SCALE_MUL = 0.85;
@@ -18311,6 +20032,18 @@ const playerNameStyle: React.CSSProperties = {
 };
 
 const MOBILE_SOUTH_PREMIUM_PLAYER_NAME_CLASS = 'player-panel-name--premium-user';
+/** Моб. landscape · Юг: резерв под аватар как у Севера (OpponentSlot MOBILE_OPP_HEADER_AVATAR_RESERVE_PX). */
+const MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX = 56;
+
+function buildMobileSouthLandscapePlayerNameStyle(
+  usePremiumGradient: boolean,
+  fontSizePx: number = MOBILE_SOUTH_LANDSCAPE_NAME_BASE_FONT_PX,
+): React.CSSProperties {
+  return {
+    ...buildMobileSouthPlayerNameStyle(fontSizePx, usePremiumGradient),
+    lineHeight: 1,
+  };
+}
 
 function buildMobileSouthPlayerNameStyle(
   fontSizePx: number,
