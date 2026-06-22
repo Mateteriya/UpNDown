@@ -155,6 +155,8 @@ const DealResultsMobileModalStack = memo(function DealResultsMobileModalStack({
 
 export type DealResultsMobileModalOverlayProps = {
 
+  portalRootClass: string;
+
   stackRef: Ref<HTMLDivElement | null>;
 
   columnRef: Ref<HTMLDivElement | null>;
@@ -215,7 +217,9 @@ function overlayPropsEqual(
 
     prev.onBackdropPointerDown === next.onBackdropPointerDown &&
 
-    prev.onBackdropPointerUp === next.onBackdropPointerUp
+    prev.onBackdropPointerUp === next.onBackdropPointerUp &&
+
+    prev.portalRootClass === next.portalRootClass
 
   );
 
@@ -226,6 +230,8 @@ function overlayPropsEqual(
 /** Оверлей модалки «Результаты» (моб.): изолирован от ре-рендеров игрового стола. */
 
 export const DealResultsMobileModalOverlay = memo(function DealResultsMobileModalOverlay({
+
+  portalRootClass,
 
   stackRef,
 
@@ -257,7 +263,7 @@ export const DealResultsMobileModalOverlay = memo(function DealResultsMobileModa
 
     <div
 
-      className="deal-results-modal-overlay-mobile game-table-root viewport-mobile"
+      className={`deal-results-modal-overlay-mobile ${portalRootClass}`}
 
       role="dialog"
 

@@ -8,6 +8,8 @@ const MOBILE_DEAL_RESULTS_TABLE_HPAD_PX = 18;
 /** С 343px — прежняя вёрстка; ≤342px — компактный режим. */
 const MOBILE_DEAL_RESULTS_NARROW_MAX_VW = 342;
 const MOBILE_DEAL_RESULTS_REFERENCE_VW = MOBILE_DEAL_RESULTS_NARROW_MAX_VW + 1;
+/** Эталон landscape (см. mobileLandscapeSouthLayout.ts). */
+const MOBILE_DEAL_RESULTS_LANDSCAPE_REFERENCE_MIN_PX = 330;
 
 export type MobileDealResultsTableLayout = {
   dealCol: number;
@@ -19,20 +21,57 @@ export type MobileDealResultsTableLayout = {
   isNarrow: boolean;
 };
 
-export function readDealResultsLayoutViewportWidthPx(): number {
-  if (typeof window === 'undefined') return MOBILE_DEAL_RESULTS_REFERENCE_VW;
+export type DealResultsLayoutViewport = {
+  width: number;
+  height: number;
+  isLandscape: boolean;
+};
+
+export function readDealResultsLayoutViewport(): DealResultsLayoutViewport {
+  if (typeof window === 'undefined') {
+    return { width: MOBILE_DEAL_RESULTS_REFERENCE_VW, height: 700, isLandscape: false };
+  }
   const vv = window.visualViewport;
-  const w =
+  const width =
     vv != null && Number.isFinite(vv.width) && vv.width > 0 ? vv.width : window.innerWidth;
-  return Math.max(280, Math.round(w));
+  const height =
+    vv != null && Number.isFinite(vv.height) && vv.height > 0 ? vv.height : window.innerHeight;
+  const w = Math.max(280, Math.round(width));
+  const h = Math.max(200, Math.round(height));
+  return { width: w, height: h, isLandscape: w > h };
 }
 
-/** Подгонка колонок моб. таблицы «Результаты» под ширину экрана (≈342…300px). */
+export function readDealResultsLayoutViewportWidthPx(): number {
+  return readDealResultsLayoutViewport().width;
+}
+
+/** Подгонка колонок моб. таблицы «Результаты» под ширину экрана (≈342…300px) и landscape. */
 export function computeMobileDealResultsTableLayout(
-  viewportWidthPx: number,
+  viewportInput: number | DealResultsLayoutViewport = readDealResultsLayoutViewport(),
 ): MobileDealResultsTableLayout {
-  const vw = Math.max(280, Math.round(viewportWidthPx));
+  const viewport =
+    typeof viewportInput === 'number'
+      ? { width: viewportInput, height: 700, isLandscape: false }
+      : viewportInput;
+  const vw = Math.max(280, Math.round(viewport.width));
+  const vmin = Math.min(vw, Math.max(200, Math.round(viewport.height)));
   const available = Math.max(252, vw - MOBILE_DEAL_RESULTS_TABLE_HPAD_PX);
+
+  if (viewport.isLandscape && vmin >= MOBILE_DEAL_RESULTS_LANDSCAPE_REFERENCE_MIN_PX - 1) {
+    const mobileBidCellWidth = Math.max(24, MOBILE_DEAL_RESULTS_PLAYER_CELL_DEFAULT - 10);
+    const mobileResultCellWidth = MOBILE_DEAL_RESULTS_PLAYER_CELL_DEFAULT + 2;
+    const fontScale = Math.max(0.86, Math.min(1, vmin / MOBILE_DEAL_RESULTS_LANDSCAPE_REFERENCE_MIN_PX));
+    return {
+      dealCol: MOBILE_DEAL_RESULTS_DEAL_COL_DEFAULT,
+      mobileBidCellWidth,
+      mobileResultCellWidth,
+      tableMinWidth:
+        MOBILE_DEAL_RESULTS_DEAL_COL_DEFAULT +
+        4 * (mobileBidCellWidth + mobileResultCellWidth),
+      fontScale,
+      isNarrow: false,
+    };
+  }
 
   if (vw >= MOBILE_DEAL_RESULTS_REFERENCE_VW) {
     const mobileBidCellWidth = Math.max(28, MOBILE_DEAL_RESULTS_PLAYER_CELL_DEFAULT - 6);
@@ -82,6 +121,16 @@ export function computeDealResultsMobileStretchMaxPx(
 
 export function computeDealResultsModalStackMaxPx(viewportHeightPx: number): number {
   return Math.max(1, Math.round(viewportHeightPx - 6));
+}
+
+export function computeDealResultsModalBodyCapPx(
+  viewportHeightPx: number,
+  isLandscape: boolean,
+  tableBodyMaxAllowedPx: number,
+): number {
+  const ratio = isLandscape ? 0.62 : 0.5;
+  const floorPx = isLandscape ? 140 : 160;
+  return Math.min(tableBodyMaxAllowedPx, Math.max(floorPx, Math.round(viewportHeightPx * ratio)));
 }
 
 export function findDealResultsModalScroll(stack: HTMLElement | null): HTMLElement | null {
@@ -143,4 +192,3 @@ export function updateDealResultsResizeHintClass(
   );
   handle.classList.add(dealResultsResizeHintClassName(stretchPx, stretchMaxPx));
 }
-

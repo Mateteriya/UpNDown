@@ -22,6 +22,8 @@ export interface PlayerInfoPanelProps {
     current: AIDifficulty;
     onSelect: (level: AIDifficulty) => void;
   };
+  /** Классы landscape-портала (совпадают с корнем стола). */
+  portalRootClass?: string;
 }
 
 export function PlayerInfoPanel({
@@ -32,6 +34,7 @@ export function PlayerInfoPanel({
   onClose,
   viewportShort = false,
   offlineAiDifficultyPicker,
+  portalRootClass,
 }: PlayerInfoPanelProps) {
   const p = state.players[playerIndex];
   const shownName = playerDisplayName?.trim() || p.name;
@@ -53,7 +56,7 @@ export function PlayerInfoPanel({
 
   return (
     <div
-      className={['player-info-panel-root', viewportShort ? 'player-info-panel-root--short-vh' : '']
+      className={['player-info-panel-root', viewportShort ? 'player-info-panel-root--short-vh' : '', portalRootClass]
         .filter(Boolean)
         .join(' ')}
       style={{

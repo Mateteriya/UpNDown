@@ -5156,6 +5156,8 @@
     .game-table-root.viewport-mobile.viewport-mobile-landscape {
       --mobile-landscape-south-tuned-min-w: 660px;
       --mobile-landscape-south-tuned-min-h: 330px;
+      --mobile-landscape-modal-pad: 8px;
+      --mobile-landscape-modal-max-h: 92dvh;
       --game-table-surface-height: min(226px, 49.5vh) !important;
       --game-table-landscape-block-height: calc(
         var(--game-table-surface-height) + 2 * var(--game-table-padding, 6px) + 4px
@@ -25454,6 +25456,48 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   grid-row: 2;
 }
 
+/* Моб. landscape · оверлей итогов раздачи между раздачами (эталон 660×330) */
+.game-table-root.viewport-mobile.viewport-mobile-landscape .deal-results-overlay-animation {
+  top: 50% !important;
+  width: min(92vw, 58vmin, 380px) !important;
+  min-height: unset !important;
+  max-height: min(72dvh, 240px) !important;
+  gap: clamp(6px, 1.8vmin, 10px) !important;
+  padding: clamp(8px, 2.2vmin, 12px) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation
+  .deal-results-panel-name-plate {
+  margin: 0 0 clamp(3px, 1vmin, 5px) !important;
+  padding: clamp(6px, 1.8vmin, 9px) clamp(6px, 1.6vmin, 8px) !important;
+  font-size: clamp(12px, 3.6vmin, 16px) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation
+  .deal-results-panel-name-plate--human {
+  font-size: clamp(14px, 4.2vmin, 18px) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation
+  .deal-results-panel-title-overlay:not(.deal-results-panel-name-plate) {
+  font-size: clamp(11px, 3.2vmin, 14px) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation
+  .deal-results-panel-row-overlay {
+  padding-left: clamp(6px, 1.8vmin, 9px) !important;
+  padding-right: clamp(6px, 1.8vmin, 9px) !important;
+  font-size: clamp(11px, 3.1vmin, 13px) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation
+  .deal-results-panel-value-overlay,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation
+  .deal-results-panel-total-value-overlay {
+  font-size: clamp(12px, 3.4vmin, 15px) !important;
+}
+
 /* Мобильная модалка открыта: блокируем прокрутку + тёмный фон (иначе «молния» от стола) */
 body.deal-results-modal-open-mobile {
   overflow: hidden !important;
@@ -25524,6 +25568,72 @@ body.deal-results-modal-open-mobile #root {
   max-height: none !important;
   overflow: hidden !important;
   box-sizing: border-box !important;
+}
+/* Моб. landscape · модалка «Результаты» (Σ) */
+.game-table-root.viewport-mobile.viewport-mobile-landscape.deal-results-modal-overlay-mobile
+  .deal-results-modal-mobile-stack,
+.deal-results-modal-overlay-mobile.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-modal-mobile-stack {
+  --deal-results-body-base-px: min(50dvh, 220px);
+  --deal-results-body-max-px: min(78dvh, 280px);
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape.deal-results-modal-overlay-mobile
+  .deal-results-modal-panel,
+.deal-results-modal-overlay-mobile.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-modal-panel {
+  padding-left: var(--mobile-landscape-modal-pad, 8px) !important;
+  padding-right: var(--mobile-landscape-modal-pad, 8px) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape.deal-results-modal-overlay-mobile
+  .deal-results-sticky-payout-dock--mobile,
+.deal-results-modal-overlay-mobile.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-sticky-payout-dock--mobile {
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+
+/* Моб. landscape · прочие модалки стола */
+.game-table-root.viewport-mobile.viewport-mobile-landscape.game-over-dialog .game-over-dialog__card {
+  max-height: var(--mobile-landscape-modal-max-h, 92dvh) !important;
+  width: min(96vw, 520px) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape.game-over-dialog .game-over-bridge--mobile {
+  max-height: calc(var(--mobile-landscape-modal-max-h, 92dvh) - 48px) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape .last-trick-modal-card {
+  max-width: min(92vw, 400px) !important;
+  max-height: var(--mobile-landscape-modal-max-h, 92dvh) !important;
+  overflow-y: auto !important;
+  padding: var(--mobile-landscape-modal-pad, 8px) 14px 14px !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape .last-trick-modal-overlay {
+  padding: var(--mobile-landscape-modal-pad, 8px) !important;
+  align-items: flex-start !important;
+  overflow-y: auto !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape[role='dialog'] > div {
+  max-width: min(92vw, 380px) !important;
+  max-height: var(--mobile-landscape-modal-max-h, 92dvh) !important;
+  overflow-y: auto !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape.player-info-panel-root {
+  padding: var(--mobile-landscape-modal-pad, 8px) !important;
+  align-items: flex-start !important;
+  overflow-y: auto !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape.player-info-panel-root .player-info-panel-card {
+  max-width: min(92vw, 320px) !important;
+  max-height: var(--mobile-landscape-modal-max-h, 92dvh) !important;
+  overflow-y: auto !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape .avatar-menu-sheet-card {
+  max-height: var(--mobile-landscape-modal-max-h, 92dvh) !important;
+  overflow-y: auto !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape .immersive-deal-mode-explain-toast {
+  max-width: min(92vw, 400px) !important;
+  max-height: var(--mobile-landscape-modal-max-h, 92dvh) !important;
+  overflow-y: auto !important;
 }
 /* Высота tbody: база + stretch, не больше лимита (base/max — vars на .deal-results-modal-mobile-stack) */
 .deal-results-modal-overlay-mobile .deal-results-table-body-scroll-pc--mobile-modal {

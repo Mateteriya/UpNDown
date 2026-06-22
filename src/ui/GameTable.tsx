@@ -60,10 +60,11 @@ import { DealResultsMobileModalOverlay } from './DealResultsMobileModal';
 import {
   applyDealResultsStretchPx,
   computeDealResultsMobileStretchMaxPx,
+  computeDealResultsModalBodyCapPx,
   computeDealResultsModalStackMaxPx,
   computeMobileDealResultsTableLayout,
   dealResultsModalResizingRef,
-  readDealResultsLayoutViewportWidthPx,
+  readDealResultsLayoutViewport,
 } from './dealResultsModalStretch';
 import { CosmicCockpit, CosmicGlassButton, CosmicGlassClose, type GameOverCloudSave } from './CosmicCockpit';
 import {
@@ -115,6 +116,7 @@ import {
   readMobileLandscapeSouthLayoutViewportPx,
   useMobileLandscapeSouthLayoutTuned,
 } from './mobileLandscapeSouthLayout';
+import { buildMobileGamePortalRootClass } from './mobileLandscapePortalRoot';
 import { TableChatDock, type TableChatDockOwnMessageHandler } from './TableChatDock';
 import { GameDealOrbitDock } from './GameDealOrbitDock';
 import type { Card, GamePhase } from '../game/types';
@@ -1483,6 +1485,16 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   /** Физически низкий экран (<652), но выбрана «обычная» вёрстка (opt-out из short) — панель Юга чуть компактнее (index.css). */
   const mobileStandardLayoutOnShortViewport =
     isMobile && !isMobileLandscape && !mobileViewportShort && rawMobileViewportShort;
+  const mobilePortalRootClass = useMemo(
+    () =>
+      buildMobileGamePortalRootClass({
+        isMobile,
+        isMobileLandscape,
+        southTuned: mobileLandscapeSouthLayoutTuned,
+        mobileViewportShort,
+      }),
+    [isMobile, isMobileLandscape, mobileLandscapeSouthLayoutTuned, mobileViewportShort],
+  );
   useLayoutEffect(() => {
     const upd = () => {
       setMobileHandLayoutVw(readMobileHandLayoutWidthPx());
@@ -3527,6 +3539,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       const stack = dealResultsModalStackRef.current;
       if (!stack) return;
       const vh = window.visualViewport?.height ?? window.innerHeight;
+      const layoutViewport = readDealResultsLayoutViewport();
       const viewportCapPx = computeDealResultsModalStackMaxPx(vh);
       const stackMaxPx = viewportCapPx;
       const handleEl = stack.querySelector('.game-mobile-short-south-resize-wrap');
@@ -3546,9 +3559,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           72,
           stackMaxPx - handleH - DEAL_RESULTS_MOBILE_MODAL_CHROME_ESTIMATE_PX,
         );
-        const initialBodyCapPx = Math.min(
+        const initialBodyCapPx = computeDealResultsModalBodyCapPx(
+          viewportCapPx,
+          layoutViewport.isLandscape,
           tableBodyMaxAllowedPx,
-          Math.max(160, Math.round(viewportCapPx * 0.5)),
         );
         if (initialBodyCapPx < 72) return;
         /* База = стартовая высота tbody, не clientHeight «на весь стек» — иначе stretchMax ≈ 0 */
@@ -4359,7 +4373,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       const btnCx = br.left + br.width / 2;
       const btnCy = br.top + br.height / 2;
       let ox = window.innerWidth * 0.5;
-      let oy = window.innerHeight * 0.55;
+      let oy = window.innerHeight * (isMobileLandscape ? 0.5 : 0.55);
       if (overlay) {
         const ob = overlay.getBoundingClientRect();
         ox = ob.left + ob.width / 2;
@@ -4384,7 +4398,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         pcDealResultsOverlayAnimRef.current,
       );
     }
-  }, [isMobile, dealJustCompleted, lastTrickCollectingPhase]);
+  }, [isMobile, isMobileLandscape, dealJustCompleted, lastTrickCollectingPhase]);
 
   useEffect(() => {
     if (shouldShowBidPanel) {
@@ -6222,6 +6236,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         </div>
       )}
       {showAvatarMenu && state && (!online.roomId || !online.userOnPause) && createPortal(
+        <div className={isMobile ? mobilePortalRootClass : undefined}>
         <UserAvatarMenuSheet
           displayName={playerDisplayName || state.players[0]?.name || 'Вы'}
           avatarDataUrl={playerAvatarDataUrl}
@@ -6240,7 +6255,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             setTakingPause(false);
             setShowAvatarMenu(false);
           }}
-        />,
+        />
+        </div>,
         document.body
       )}
       {isOnline && online.playerLeftToast && (
@@ -6451,7 +6467,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           /* Short-VH: тот же fixed-тост, но на document.body — иначе южная ручка (портал, z-index) визуально перекрывает карточку. */
           if (typeof document !== 'undefined' && isMobile && mobileViewportShort) {
             return createPortal(
-              <div className="game-table-root viewport-mobile viewport-mobile-short">{dealContractHelpToast}</div>,
+              <div className={mobilePortalRootClass}>{dealContractHelpToast}</div>,
               document.body,
             );
           }
@@ -6528,6 +6544,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         !online.userOnPause &&
         shortVhSouthPullModeMenuOpen &&
         createPortal(
+          <div
+            className={mobilePortalRootClass}
+            style={{ position: 'fixed', inset: 0, zIndex: 10060 }}
+          >
           <div
             className="short-vh-south-pull-menu-portal-backdrop"
             role="presentation"
@@ -6621,6 +6641,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 Закрыть
               </button>
             </div>
+          </div>
           </div>,
           document.body,
         )}
@@ -6690,6 +6711,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         !online.userOnPause &&
         mobileShortImmersiveWelcomeOpen &&
         createPortal(
+          <div className={mobilePortalRootClass}>
           <div
             className="mobile-short-immersive-welcome-portal"
             role="status"
@@ -6728,6 +6750,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 Понятно
               </button>
             </div>
+          </div>
           </div>,
           document.body,
         )}
@@ -7545,6 +7568,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 code={online.code}
                 onCopy={copyOnlineRoomCode}
                 isMobile={isMobileOrTablet}
+                portalRootClass={isMobile ? mobilePortalRootClass : undefined}
                 elevated={isWaitingInRoom}
               />
             )}
@@ -9039,6 +9063,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 code={online.code}
                 onCopy={copyOnlineRoomCode}
                 isMobile={isMobileOrTablet}
+                portalRootClass={isMobile ? mobilePortalRootClass : undefined}
                 elevated={isWaitingInRoom}
               />
             )}
@@ -9565,7 +9590,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       lastTrickCollectingPhase === 'collapsing') && createPortal(
         <div
           ref={mobileDealResultsPortalRootRef}
-          className="game-table-root viewport-mobile"
+          className={mobilePortalRootClass}
           style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 15 }}
         >
           <DealResultsScreen
@@ -9586,6 +9611,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         createPortal(
           isMobile && dealResultsMobileModalLayout && dealResultsMobileTableContent ? (
             <DealResultsMobileModalOverlay
+              portalRootClass={mobilePortalRootClass}
               stackRef={dealResultsModalStackRef}
               columnRef={dealResultsModalColumnRef}
               stackMaxPx={dealResultsMobileModalLayout.stackMaxPx}
@@ -9668,6 +9694,20 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           document.body,
         )}
       {showLastTrickModal && state.lastCompletedTrick && createPortal(
+        isMobile ? (
+          <div className={mobilePortalRootClass}>
+            <LastTrickModal
+              trick={state.lastCompletedTrick}
+              players={state.players}
+              trump={state.trump}
+              trumpHighlightOn={trumpHighlightOn}
+              doubleBorder={trumpHighlightOn}
+              showDesktopFaceIndices={true}
+              pcCardStyles={!isMobileOrTablet}
+              onClose={() => setShowLastTrickModal(false)}
+            />
+          </div>
+        ) : (
         <LastTrickModal
           trick={state.lastCompletedTrick}
           players={state.players}
@@ -9677,13 +9717,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           showDesktopFaceIndices={true}
           pcCardStyles={!isMobileOrTablet}
           onClose={() => setShowLastTrickModal(false)}
-        />,
+        />
+        ),
         document.body
       )}
 
       {showGameOverModal && gameOverSnapshot && createPortal(
         <div
-          className="game-over-dialog"
+          className={['game-over-dialog', isMobile ? mobilePortalRootClass : ''].filter(Boolean).join(' ')}
           onClick={e => e.stopPropagation()}
           onKeyDown={e => { if (e.key === 'Escape') { setShowGameOverModal(false); setGameOverSnapshot(null); setGameOverViewerSlot(null); } }}
           role="dialog"
@@ -9743,6 +9784,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       )}
       {showNewGameConfirm && onNewGame && createPortal(
         <div
+          className={isMobile ? mobilePortalRootClass : undefined}
           style={{
             position: 'fixed',
             inset: 0,
@@ -9792,6 +9834,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       {showTransferHostExit &&
         createPortal(
           <div
+            className={isMobile ? mobilePortalRootClass : undefined}
             style={{
               position: 'fixed',
               inset: 0,
@@ -9993,6 +10036,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         online.roomPhase === 'waiting_host_action' &&
         createPortal(
           <div
+            className={isMobile ? mobilePortalRootClass : undefined}
             style={{
               position: 'fixed',
               inset: 0,
@@ -10069,6 +10113,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
 
       {showExitConfirm && createPortal(
         <div
+          className={isMobile ? mobilePortalRootClass : undefined}
           style={{
             position: 'fixed',
             inset: 0,
@@ -10127,6 +10172,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
 
       {showHomeConfirm && createPortal(
         <div
+          className={isMobile ? mobilePortalRootClass : undefined}
           style={{
             position: 'fixed',
             inset: 0,
@@ -10188,6 +10234,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           playerAvatarDataUrl={resolveDisplayPlayerAvatar(selectedPlayerForInfo) ?? undefined}
           onClose={() => setSelectedPlayerForInfo(null)}
           viewportShort={isMobile && mobileViewportShort}
+          portalRootClass={isMobile ? mobilePortalRootClass : undefined}
           offlineAiDifficultyPicker={playerInfoOfflineAiDifficultyPicker}
         />,
         document.body
@@ -10252,11 +10299,13 @@ function OnlineRoomCodeBadge({
   code,
   onCopy,
   isMobile,
+  portalRootClass,
   elevated = false,
 }: {
   code: string;
   onCopy: () => void;
   isMobile: boolean;
+  portalRootClass?: string;
   elevated?: boolean;
 }) {
   const [tipOpen, setTipOpen] = useState(false);
@@ -10333,7 +10382,7 @@ function OnlineRoomCodeBadge({
       </div>
       {tipOpen &&
         createPortal(
-          <div className={['game-table-root', isMobile ? 'viewport-mobile' : ''].filter(Boolean).join(' ')}>
+          <div className={portalRootClass ?? buildMobileGamePortalRootClass({ isMobile: true })}>
             <div
               className={[
                 'game-table-tooltip-cosmic',
@@ -10745,7 +10794,7 @@ function DealResultsScreen({
   const mobileBodyScrollRef = useRef<HTMLDivElement>(null);
   const [mobileScrollPadPx, setMobileScrollPadPx] = useState(DEAL_RESULTS_MOBILE_STICKY_TOTALS_BOTTOM_PAD_PX);
   const [mobileTableLayout, setMobileTableLayout] = useState(() =>
-    computeMobileDealResultsTableLayout(readDealResultsLayoutViewportWidthPx()),
+    computeMobileDealResultsTableLayout(readDealResultsLayoutViewport()),
   );
   const panelStyle = compactModal ? { ...dealResultsPanelStyle, ...dealResultsPanelStyleMobile } : dealResultsPanelStyle;
   const panelTitleStyle = compactModal ? { ...dealResultsPanelTitleStyle, ...dealResultsPanelTitleStyleMobile } : dealResultsPanelTitleStyle;
@@ -10756,7 +10805,7 @@ function DealResultsScreen({
   useEffect(() => {
     if (!compactModal) return;
     const upd = () =>
-      setMobileTableLayout(computeMobileDealResultsTableLayout(readDealResultsLayoutViewportWidthPx()));
+      setMobileTableLayout(computeMobileDealResultsTableLayout(readDealResultsLayoutViewport()));
     upd();
     window.addEventListener('resize', upd);
     window.visualViewport?.addEventListener('resize', upd);
@@ -16720,13 +16769,14 @@ function LastTrickModal({
   const winnerName = players[trick.winnerIndex]?.name ?? '';
   return (
     <div
+      className="last-trick-modal-overlay"
       style={modalOverlay}
       onClick={onClose}
       role="button"
       tabIndex={0}
       onKeyDown={e => e.key === 'Escape' && onClose()}
     >
-      <div style={modalContent} onClick={e => e.stopPropagation()} role="presentation">
+      <div className="last-trick-modal-card" style={modalContent} onClick={e => e.stopPropagation()} role="presentation">
         <h3>Последняя взятка</h3>
         <p style={{ color: '#94a3b8', marginBottom: 16 }}>Взял: {winnerName}</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 16 }}>
