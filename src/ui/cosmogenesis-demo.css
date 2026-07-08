@@ -1,0 +1,1188 @@
+/* Космогенез — только неон, без белого/серого текста */
+
+.cosmo-demo {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 100% 60% at 50% -10%, rgba(88, 28, 135, 0.45) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 50% at 10% 80%, rgba(14, 165, 233, 0.2) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 40% at 90% 70%, rgba(236, 72, 153, 0.18) 0%, transparent 45%),
+    #030014;
+  color: #22d3ee;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.cosmo-demo * {
+  box-sizing: border-box;
+}
+
+.cosmo-neon-text {
+  background: linear-gradient(92deg, #22d3ee, #e879f9, #fb923c);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.cosmo-neon-text--cyan { color: #22d3ee; background: none; -webkit-text-fill-color: #22d3ee; }
+.cosmo-neon-text--pink { color: #f472b6; background: none; -webkit-text-fill-color: #f472b6; }
+.cosmo-neon-text--lime { color: #a3e635; background: none; -webkit-text-fill-color: #a3e635; }
+.cosmo-neon-text--amber { color: #fbbf24; background: none; -webkit-text-fill-color: #fbbf24; }
+.cosmo-neon-text--coral { color: #fb923c; background: none; -webkit-text-fill-color: #fb923c; }
+.cosmo-neon-text--violet { color: #c084fc; background: none; -webkit-text-fill-color: #c084fc; }
+
+.cosmo-demo__header,
+.cosmo-demo__hud {
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid rgba(129, 140, 248, 0.22);
+  flex-wrap: wrap;
+  background: rgba(8, 6, 32, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+}
+
+.cosmo-demo__hud-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.cosmo-demo__hud-center .cosmo-demo__title {
+  font-size: 0.95rem;
+}
+
+.cosmo-demo__hud-center .cosmo-deal-strip {
+  padding: 0;
+}
+
+.cosmo-demo__title--hero {
+  font-size: 1.65rem;
+  margin-top: 20px;
+}
+
+.cosmo-demo__intro-special {
+  font-size: 0.88rem;
+  color: #c4b5fd;
+  line-height: 1.5;
+}
+
+.cosmo-demo__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, #22d3ee, #e879f9, #f472b6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.cosmo-demo__badge {
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 121, 249, 0.5);
+  color: #f0abfc;
+  background: rgba(217, 70, 239, 0.12);
+  text-shadow: 0 0 12px rgba(232, 121, 249, 0.5);
+}
+
+.cosmo-demo__layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr min(196px, 24vw);
+  gap: 10px;
+  min-height: 0;
+  padding: 10px 10px 10px 12px;
+}
+
+@media (max-width: 860px) {
+  .cosmo-demo__layout {
+    grid-template-columns: 1fr;
+    padding: 8px;
+  }
+
+  .cosmo-demo__sidebar {
+    position: static;
+    order: -1;
+  }
+}
+
+.cosmo-demo__arena {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  min-height: 0;
+  min-width: 0;
+}
+
+.cosmo-demo__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cosmo-demo__status-chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  color: #67e8f9;
+  background: rgba(8, 47, 73, 0.55);
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.45);
+}
+
+.cosmo-demo__status-chip--trump {
+  border-color: rgba(251, 146, 60, 0.5);
+  color: #fdba74;
+  background: rgba(124, 45, 18, 0.35);
+  text-shadow: 0 0 10px rgba(251, 146, 60, 0.5);
+}
+
+.cosmo-demo__status-chip--void {
+  border-color: rgba(192, 132, 252, 0.5);
+  color: #d8b4fe;
+  background: rgba(76, 29, 149, 0.35);
+}
+
+.cosmo-demo__status-chip--bonus {
+  border-color: rgba(251, 191, 36, 0.55);
+  color: #fde68a;
+  background: rgba(120, 53, 15, 0.35);
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+}
+
+.cosmo-demo__table {
+  flex: 1;
+  position: relative;
+  min-height: min(52vh, 480px);
+  border-radius: 28px;
+  border: 1px solid rgba(129, 140, 248, 0.4);
+  background:
+    radial-gradient(circle at 20% 30%, rgba(34, 211, 238, 0.1) 0%, transparent 28%),
+    radial-gradient(circle at 80% 70%, rgba(236, 72, 153, 0.1) 0%, transparent 28%),
+    radial-gradient(circle at 50% 45%, rgba(79, 70, 229, 0.28) 0%, transparent 48%),
+    rgba(6, 4, 28, 0.78);
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 80px rgba(34, 211, 238, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 60px rgba(129, 140, 248, 0.18),
+    0 16px 48px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.cosmo-demo__stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, #22d3ee 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 80%, #f472b6 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 70% 15%, #a3e635 0%, transparent 100%),
+    radial-gradient(1px 1px at 85% 60%, #e879f9 0%, transparent 100%),
+    radial-gradient(1px 1px at 50% 50%, #fbbf24 0%, transparent 100%),
+    radial-gradient(1px 1px at 15% 55%, #38bdf8 0%, transparent 100%);
+  animation: cosmo-stars-twinkle 4s ease-in-out infinite alternate;
+}
+
+@keyframes cosmo-stars-twinkle {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
+}
+
+.cosmo-demo__well {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  width: min(240px, 44vw);
+  height: min(240px, 44vw);
+  border-radius: 50%;
+}
+
+.cosmo-demo__well-core {
+  position: absolute;
+  inset: 18%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.5) 0%, rgba(168, 85, 247, 0.35) 40%, transparent 70%);
+  animation: cosmo-well-pulse 2.8s ease-in-out infinite;
+  box-shadow: 0 0 50px rgba(34, 211, 238, 0.35);
+}
+
+.cosmo-demo__well-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(232, 121, 249, 0.45);
+  animation: cosmo-well-spin 12s linear infinite;
+}
+
+.cosmo-demo__well-ring--b {
+  inset: 8%;
+  border-color: rgba(34, 211, 238, 0.35);
+  animation-duration: 18s;
+  animation-direction: reverse;
+}
+
+@keyframes cosmo-well-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes cosmo-well-spin {
+  to { transform: rotate(360deg); }
+}
+
+.cosmo-demo__well-label {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, calc(-50% + min(138px, 28vw)));
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #e879f9;
+  text-shadow: 0 0 18px rgba(232, 121, 249, 0.8);
+}
+
+.cosmo-demo__trick-slot {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.cosmo-demo__trick-slot--n { left: 50%; top: 10%; transform: translateX(-50%); }
+.cosmo-demo__trick-slot--w { left: 10%; top: 44%; transform: translateY(-50%); }
+.cosmo-demo__trick-slot--s { left: 50%; bottom: 16%; transform: translateX(-50%); }
+
+.cosmo-demo__player-tag {
+  position: absolute;
+  text-align: center;
+  max-width: 132px;
+  z-index: 3;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(8, 6, 32, 0.62);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid color-mix(in srgb, var(--pt-color) 55%, rgba(129, 140, 248, 0.35));
+  box-shadow:
+    0 0 22px color-mix(in srgb, var(--pt-color) 35%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.cosmo-demo__player-tag--n { left: 50%; top: 2%; transform: translateX(-50%); }
+.cosmo-demo__player-tag--w { left: 2%; top: 44%; transform: translateY(-50%); }
+.cosmo-demo__player-tag--s { left: 50%; bottom: 2%; transform: translateX(-50%); }
+
+.cosmo-demo__player-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--pt-color);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--pt-color) 55%, transparent);
+}
+
+.cosmo-demo__player-bid {
+  font-size: 0.74rem;
+  margin-top: 4px;
+  color: #f0abfc;
+}
+
+.cosmo-demo__player-taken {
+  margin-top: 4px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ——— Кристалл-квант ——— */
+.cosmo-crystal {
+  position: relative;
+  width: 96px;
+  min-height: 142px;
+  padding: 10px 8px 8px;
+  border-radius: 16px 16px 20px 20px;
+  border: 2px solid var(--c-color);
+  background:
+    linear-gradient(165deg, color-mix(in srgb, var(--c-color) 28%, transparent) 0%, rgba(3, 0, 20, 0.88) 55%),
+    radial-gradient(circle at 50% 0%, var(--c-glow), transparent 65%);
+  box-shadow:
+    0 0 28px var(--c-glow),
+    inset 0 -10px 20px color-mix(in srgb, var(--c-color) 22%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: default;
+  user-select: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cosmo-crystal--compact {
+  width: 76px;
+  min-height: 112px;
+  padding: 8px 6px 6px;
+  border-radius: 14px;
+}
+
+.cosmo-crystal--clickable {
+  cursor: pointer;
+  border: none;
+  font: inherit;
+  color: inherit;
+}
+
+.cosmo-crystal--clickable:hover {
+  transform: translateY(-6px) scale(1.04);
+  box-shadow: 0 0 28px var(--c-glow), 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.cosmo-crystal--playable {
+  outline: 2px solid #22d3ee;
+  outline-offset: 3px;
+  animation: cosmo-playable-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes cosmo-playable-pulse {
+  0%, 100% { outline-color: #22d3ee; }
+  50% { outline-color: #e879f9; }
+}
+
+.cosmo-crystal--chaos {
+  border-style: dashed;
+  animation: cosmo-chaos-hue 3s linear infinite;
+}
+
+@keyframes cosmo-chaos-hue {
+  to { filter: hue-rotate(360deg); }
+}
+
+.cosmo-crystal__aura {
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 30%, var(--c-glow), transparent 70%);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.cosmo-crystal__chaos-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  border: 2px dashed;
+  border-image: linear-gradient(45deg, #22d3ee, #e879f9, #fb923c, #a3e635) 1;
+  animation: cosmo-well-spin 5s linear infinite;
+  pointer-events: none;
+}
+
+.cosmo-crystal__element {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--c-accent);
+  text-shadow: 0 0 10px var(--c-glow);
+}
+
+.cosmo-crystal__tier {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--c-color);
+  text-shadow: 0 0 12px var(--c-glow);
+  text-align: center;
+  line-height: 1.15;
+}
+
+/* Иконки стихий */
+.cosmo-icon {
+  display: block;
+  width: 34px;
+  height: 34px;
+  position: relative;
+}
+
+.cosmo-icon--large {
+  width: 42px;
+  height: 42px;
+}
+
+.cosmo-icon--fire::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 22px solid var(--icon-color);
+  filter: drop-shadow(0 0 8px var(--icon-glow));
+}
+
+.cosmo-icon--fire::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 12px solid #ffeb3b;
+  filter: drop-shadow(0 0 6px #fbbf24);
+}
+
+.cosmo-icon--water::before {
+  content: '';
+  position: absolute;
+  inset: 4px 8px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: linear-gradient(135deg, var(--icon-color), #7df9ff);
+  box-shadow: 0 0 12px var(--icon-glow);
+}
+
+.cosmo-icon--earth::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(145deg, var(--icon-color), #65a30d);
+  box-shadow: 0 0 12px var(--icon-glow);
+  clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+}
+
+.cosmo-icon--air::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f0abfc, var(--icon-color) 45%, #581c87 90%);
+  box-shadow: 0 0 14px var(--icon-glow);
+}
+
+.cosmo-icon--air::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(45deg);
+  width: 26px;
+  height: 8px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--icon-color) 80%, #fde68a);
+  box-shadow: 0 0 10px var(--icon-glow);
+  opacity: 0.85;
+}
+
+/* Заряд силы — 9 огоньков */
+.cosmo-charge {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.cosmo-charge--compact {
+  gap: 2px;
+  padding: 0 2px;
+}
+
+.cosmo-charge__pip {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(3, 0, 20, 0.8);
+  border: 1px solid color-mix(in srgb, var(--charge-color) 25%, transparent);
+}
+
+.cosmo-charge__pip--lit {
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--charge-color) 55%, #fde68a), var(--charge-color));
+  border-color: var(--charge-color);
+  box-shadow: 0 0 8px var(--charge-glow);
+}
+
+/* Рука */
+.cosmo-demo__hand {
+  margin-top: 12px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: rgba(8, 7, 32, 0.58);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(129, 140, 248, 0.38);
+  box-shadow:
+    inset 0 0 40px rgba(34, 211, 238, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.cosmo-demo__hand-hint {
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  text-align: center;
+  color: #67e8f9;
+  text-shadow: 0 0 14px rgba(34, 211, 238, 0.45);
+}
+
+.cosmo-demo__hand-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: center;
+  min-height: 150px;
+  align-items: flex-end;
+}
+
+/* Заказ */
+.cosmo-demo__bid-panel {
+  margin-top: 12px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(46, 16, 101, 0.42);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(232, 121, 249, 0.42);
+  text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.cosmo-demo__bid-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #e879f9;
+  text-shadow: 0 0 14px rgba(232, 121, 249, 0.55);
+  margin-bottom: 12px;
+}
+
+.cosmo-demo__bid-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.cosmo-bid-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  min-width: 72px;
+  border-radius: 14px;
+  border: 1px solid rgba(34, 211, 238, 0.38);
+  background: rgba(8, 47, 73, 0.45);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.cosmo-bid-choice:hover {
+  transform: scale(1.06);
+  border-color: #e879f9;
+  box-shadow: 0 0 20px rgba(232, 121, 249, 0.35);
+}
+
+.cosmo-bid-choice__wells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  justify-content: center;
+  min-height: 22px;
+  min-width: 40px;
+  align-items: center;
+}
+
+.cosmo-bid-choice__mini-well {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #67e8f9, #0891b2);
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.7);
+}
+
+.cosmo-bid-choice__void {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px dashed #f472b6;
+  box-shadow: 0 0 10px rgba(244, 114, 182, 0.4);
+}
+
+.cosmo-bid-choice__word {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #a5f3fc;
+  text-shadow: 0 0 8px rgba(34, 211, 238, 0.4);
+}
+
+/* Сайдбар — компактный glass HUD */
+.cosmo-demo__sidebar {
+  padding: 0;
+  overflow-y: auto;
+  align-self: start;
+  position: sticky;
+  top: 10px;
+}
+
+.cosmo-demo__glass-card {
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(8, 6, 32, 0.58);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(129, 140, 248, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.cosmo-demo__glass-section {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(129, 140, 248, 0.15);
+}
+
+.cosmo-demo__glass-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.cosmo-demo__glass-section:first-child {
+  padding-top: 0;
+}
+
+.cosmo-demo__glass-label {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c084fc;
+  margin-bottom: 6px;
+  text-shadow: 0 0 8px rgba(192, 132, 252, 0.4);
+}
+
+.cosmo-demo__glass-rules {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #67e8f9;
+  letter-spacing: 0.06em;
+}
+
+.cosmo-demo__glass-section--scores {
+  padding-top: 6px;
+}
+
+.cosmo-demo__panel {
+  margin-bottom: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(8, 7, 32, 0.7);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+}
+
+.cosmo-demo__panel h3 {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #e879f9;
+  text-shadow: 0 0 10px rgba(232, 121, 249, 0.45);
+}
+
+.cosmo-demo__score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.72rem;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(129, 140, 248, 0.12);
+}
+
+.cosmo-demo__score-row:last-child {
+  border-bottom: none;
+}
+
+.cosmo-demo__score-row--you .cosmo-demo__score-name {
+  color: #22d3ee;
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+.cosmo-demo__score-name {
+  font-weight: 700;
+  color: #f0abfc;
+}
+
+.cosmo-demo__constellation {
+  padding: 8px 10px;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  border: 1px solid rgba(129, 140, 248, 0.25);
+  opacity: 0.45;
+  color: #818cf8;
+}
+
+.cosmo-demo__constellation--unlocked {
+  opacity: 1;
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(251, 191, 36, 0.08);
+  color: #fbbf24;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.35);
+}
+
+.cosmo-demo__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cosmo-demo__btn {
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(129, 140, 248, 0.45);
+  background: rgba(46, 16, 101, 0.45);
+  backdrop-filter: blur(6px);
+  color: #c084fc;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-shadow: 0 0 8px rgba(192, 132, 252, 0.4);
+}
+
+.cosmo-demo__btn--icon {
+  min-width: 36px;
+  padding: 6px 10px;
+}
+
+.cosmo-demo__btn--primary {
+  border-color: rgba(34, 211, 238, 0.55);
+  background: rgba(8, 47, 73, 0.65);
+  color: #67e8f9;
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+.cosmo-demo__intro {
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.cosmo-demo__intro p {
+  color: #a5f3fc;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  text-shadow: 0 0 20px rgba(34, 211, 238, 0.15);
+}
+
+.cosmo-demo__intro strong {
+  color: #f0abfc;
+}
+
+.cosmo-demo__intro-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.cosmo-showcase {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  max-width: 360px;
+}
+
+.cosmo-demo__toast {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: rgba(8, 7, 32, 0.95);
+  border: 1px solid rgba(34, 211, 238, 0.5);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #67e8f9;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.5);
+  z-index: 20;
+  animation: cosmo-toast-in 0.25s ease-out;
+}
+
+@keyframes cosmo-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Осколки */
+.cosmo-shards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cosmo-shards__star {
+  width: 14px;
+  height: 14px;
+  background: #fbbf24;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.8));
+}
+
+.cosmo-shards__more {
+  color: #fb923c;
+  font-weight: 800;
+  text-shadow: 0 0 8px rgba(251, 146, 60, 0.6);
+}
+
+/* Очки — gem-визуал */
+.cosmo-score-gems {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.cosmo-score-gems__big {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--gem-color);
+  box-shadow: 0 0 8px var(--gem-color);
+  transform: rotate(45deg);
+}
+
+.cosmo-score-gems__small {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gem-color);
+  box-shadow: 0 0 6px var(--gem-color);
+}
+
+.cosmo-score-gems__zero {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px dashed var(--gem-color);
+  opacity: 0.6;
+}
+
+.cosmo-score-gems__minus {
+  color: #f472b6;
+  font-weight: 800;
+  margin-right: 2px;
+  text-shadow: 0 0 8px rgba(244, 114, 182, 0.6);
+}
+
+.cosmo-score-gems__burst {
+  color: #fbbf24;
+  font-size: 0.85rem;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.7);
+}
+
+.cosmo-score-gems--neg .cosmo-score-gems__big,
+.cosmo-score-gems--neg .cosmo-score-gems__small {
+  background: #f472b6;
+  box-shadow: 0 0 8px rgba(244, 114, 182, 0.7);
+}
+
+/* Счётчик колодцев */
+.cosmo-well-counter {
+  display: inline-flex;
+  gap: 2px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 56px;
+}
+
+.cosmo-well-counter__drop {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--wc-color);
+  box-shadow: 0 0 6px var(--wc-color);
+}
+
+.cosmo-well-counter__burst {
+  color: #fbbf24;
+  font-size: 0.7rem;
+}
+
+.cosmo-demo__phase-msg {
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e879f9;
+  margin-top: 8px;
+  text-shadow: 0 0 12px rgba(232, 121, 249, 0.45);
+  animation: cosmo-playable-pulse 1.5s ease-in-out infinite;
+}
+
+.cosmo-demo__dominant {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cosmo-demo__dominant .cosmo-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.cosmo-chaos-hint {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px dashed rgba(251, 191, 36, 0.45);
+  background: rgba(88, 28, 135, 0.25);
+  max-width: 380px;
+  text-align: left;
+}
+
+.cosmo-chaos-hint__title {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #fbbf24;
+  text-shadow: 0 0 12px rgba(251, 191, 36, 0.55);
+  margin-bottom: 6px;
+}
+
+.cosmo-chaos-hint__body {
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #f0abfc;
+}
+
+.cosmo-chaos-hint__body strong {
+  color: #fb923c;
+}
+
+.cosmo-legend {
+  position: relative;
+  margin-bottom: 12px;
+  padding: 16px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  background: rgba(8, 7, 32, 0.92);
+  box-shadow: 0 0 40px rgba(34, 211, 238, 0.12);
+  overflow: hidden;
+}
+
+.cosmo-legend__glow {
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(circle, rgba(232, 121, 249, 0.15), transparent 55%);
+  pointer-events: none;
+}
+
+.cosmo-legend__title {
+  position: relative;
+  margin: 0 0 12px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #e879f9;
+  text-shadow: 0 0 14px rgba(232, 121, 249, 0.5);
+  text-align: center;
+}
+
+.cosmo-legend__grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 420px) {
+  .cosmo-legend__grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.cosmo-legend__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: rgba(3, 0, 20, 0.6);
+  border: 1px solid rgba(129, 140, 248, 0.25);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.cosmo-legend__line {
+  position: relative;
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.cosmo-legend__btn {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.cosmo-fly-crystal {
+  position: absolute;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.cosmo-fly-crystal--from-s {
+  left: 50%;
+  bottom: 14%;
+  transform: translate(-50%, 0);
+  animation: cosmo-fly-from-s 0.58s cubic-bezier(0.25, 0.9, 0.35, 1) forwards;
+}
+
+.cosmo-fly-crystal--from-n {
+  left: 50%;
+  top: 8%;
+  transform: translate(-50%, 0);
+  animation: cosmo-fly-from-n 0.58s cubic-bezier(0.25, 0.9, 0.35, 1) forwards;
+}
+
+.cosmo-fly-crystal--from-w {
+  left: 8%;
+  top: 44%;
+  transform: translate(0, -50%);
+  animation: cosmo-fly-from-w 0.58s cubic-bezier(0.25, 0.9, 0.35, 1) forwards;
+}
+
+.cosmo-fly-crystal--from-e {
+  right: 8%;
+  top: 44%;
+  left: auto;
+  transform: translate(0, -50%);
+  animation: cosmo-fly-from-e 0.58s cubic-bezier(0.25, 0.9, 0.35, 1) forwards;
+}
+
+.cosmo-fly-crystal__trail {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 3px;
+  height: 36px;
+  transform: translateX(-50%);
+  background: linear-gradient(to bottom, #e879f9, transparent);
+  opacity: 0.7;
+  filter: blur(1px);
+}
+
+@keyframes cosmo-fly-from-s {
+  to { left: 50%; top: 44%; bottom: auto; transform: translate(-50%, -50%) scale(0.7); opacity: 0.15; }
+}
+
+@keyframes cosmo-fly-from-n {
+  to { left: 50%; top: 44%; transform: translate(-50%, -50%) scale(0.7); opacity: 0.15; }
+}
+
+@keyframes cosmo-fly-from-w {
+  to { left: 50%; top: 44%; transform: translate(-50%, -50%) scale(0.7); opacity: 0.15; }
+}
+
+@keyframes cosmo-fly-from-e {
+  to { left: 50%; top: 44%; right: auto; transform: translate(-50%, -50%) scale(0.7); opacity: 0.15; }
+}
+
+.cosmo-demo__well--catch .cosmo-demo__well-core {
+  animation: cosmo-well-catch 0.4s ease-out;
+}
+
+@keyframes cosmo-well-catch {
+  0% { transform: scale(1); filter: brightness(1); }
+  45% { transform: scale(1.25); filter: brightness(1.8); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+.cosmo-charge__pip--strong.cosmo-charge__pip--lit {
+  box-shadow: 0 0 10px var(--charge-glow), 0 0 4px #fbbf24;
+  border-color: color-mix(in srgb, var(--charge-color) 70%, #fbbf24);
+}
+
+.cosmo-deal-strip {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 6px 0 10px;
+}
+
+.cosmo-deal-strip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  background: rgba(3, 0, 20, 0.8);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.cosmo-deal-strip__dot--special {
+  border-color: rgba(251, 191, 36, 0.55);
+}
+
+.cosmo-deal-strip__dot--done {
+  background: radial-gradient(circle, #67e8f9, #0891b2);
+  border-color: #22d3ee;
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
+}
+
+.cosmo-deal-strip__dot--active {
+  transform: scale(1.35);
+  background: radial-gradient(circle, #f0abfc, #d946ef);
+  border-color: #e879f9;
+  box-shadow: 0 0 12px rgba(232, 121, 249, 0.7);
+  animation: cosmo-deal-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes cosmo-deal-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(232, 121, 249, 0.7); }
+  50% { box-shadow: 0 0 18px rgba(251, 191, 36, 0.8); }
+}
+
+.cosmo-demo__well--lead-fire .cosmo-demo__well-core { filter: hue-rotate(-20deg) saturate(1.3); }
+.cosmo-demo__well--lead-water .cosmo-demo__well-core { filter: hue-rotate(180deg) saturate(1.2); }
+.cosmo-demo__well--lead-earth .cosmo-demo__well-core { filter: hue-rotate(60deg) saturate(1.2); }
+.cosmo-demo__well--lead-air .cosmo-demo__well-core { filter: hue-rotate(280deg) saturate(1.3); }
+
+.cosmo-crystal--strong-tier .cosmo-crystal__tier {
+  color: #fbbf24;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.6);
+}
+

@@ -47,6 +47,7 @@ import {
   clearOnlineSession,
   loadOnlineSession,
   markLobbyUiOpen,
+  isOnlineAutoRestoreSuppressed,
 } from '../lib/onlineSession';
 import { loadLastOnlineParty, clearLastOnlineParty, saveLastOnlineParty } from '../lib/lastOnlineParty';
 import {
@@ -89,13 +90,6 @@ function getDeviceId(): string {
 }
 
 export type OnlineStatus = 'idle' | 'waiting' | 'playing' | 'left' | 'finished';
-
-type PendingReclaimOffer = {
-  roomId: string;
-  code: string;
-  slotIndex: number;
-  replacedDisplayName: string;
-};
 
 /** Хотя бы у одного игрока есть карты на руке (раздача уже в состоянии). */
 function stateHasDealtHands(state: GameState | null): boolean {
@@ -248,7 +242,7 @@ export interface OnlineGameContextValue {
   sendCompleteTrick: () => Promise<boolean>;
   sendStartNextDeal: () => Promise<boolean>;
   sendState: (state: GameState) => Promise<boolean>;
-  tryRestoreSession: () => Promise<{ ok: boolean; needReclaim?: boolean; roomFinished?: boolean; error?: string }>;
+  tryRestoreSession: () => Promise<{ ok: boolean; roomFinished?: boolean; error?: string }>;
   /** Убрать сохранённую подсказку «последняя комната» (меню / лобби), без выхода с сервера. */
   forgetLastOnlineParty: () => void;
   /** Меняется при forgetLast — чтобы меню перечитало localStorage. */
@@ -258,9 +252,6 @@ export interface OnlineGameContextValue {
    * Не вызывать во время активной партии (playing).
    */
   stopAutoRestoreForCurrentRoom: () => Promise<void>;
-  confirmReclaim: () => Promise<boolean>;
-  dismissReclaim: () => void;
-  pendingReclaimOffer: PendingReclaimOffer | null;
   returnSlotToPlayer: (slotIndex: number) => Promise<boolean>;
   /** Игрок сам вручную взял паузу (передал слот ИИ), может вернуть управление. */
   userOnPause: boolean;
@@ -328,7 +319,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const [realtimeHealKey, setRealtimeHealKey] = useState(0);
   const [onlineHydratedFromStorage, setOnlineHydratedFromStorage] = useState(false);
   const onlineHydrateGenRef = useRef(0);
-  const [pendingReclaimOffer, setPendingReclaimOffer] = useState<PendingReclaimOffer | null>(null);
   const deviceIdRef = useRef<string>(getDeviceId());
   const unsubRef = useRef<(() => void) | null>(null);
   const realtimeErrorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -956,6 +946,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       setOnlineHydratedFromStorage(true);
       return;
     }
+    if (isOnlineAutoRestoreSuppressed()) {
+      sessionRestoreOkRef.current = false;
+      setOnlineHydratedFromStorage(true);
+      return;
+    }
     if (sessionRestoreOkRef.current) {
       setOnlineHydratedFromStorage(true);
       return;
@@ -983,24 +978,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     saveLastOnlineParty(roomId, code);
   }, [roomId, code, onlinePlayerId, playerSlots]);
 
-  // Если в игре есть слот с replacedUserId === наш user.id (ручная пауза) — предложить вернуть слот.
   useEffect(() => {
-    if (status !== 'playing' || !roomId || !onlinePlayerId) {
-      setPendingReclaimOffer(null);
-      return;
+    if (status !== 'playing' || !roomId) {
+      setUserOnPause(false);
     }
-    const slot = playerSlots.find((s) => s.replacedUserId === onlinePlayerId);
-    if (slot) {
-      setPendingReclaimOffer({
-        roomId,
-        code: code ?? '',
-        slotIndex: slot.slotIndex,
-        replacedDisplayName: slot.replacedDisplayName ?? slot.displayName ?? 'Игрок',
-      });
-    } else {
-      setPendingReclaimOffer(null);
-    }
-  }, [status, roomId, code, onlinePlayerId, playerSlots]);
+  }, [status, roomId]);
 
   const createRoom = useCallback(
     async (
@@ -1246,36 +1228,29 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const leaveRoom = useCallback(async () => {
     const rid = roomId;
     const uid = onlinePlayerId;
-    if (rid && uid) {
-      const leaveWallMs = 15_000;
-      try {
-        const timed = await Promise.race([
-          apiLeaveRoom(rid, uid),
-          new Promise<{ error: string }>((resolve) =>
-            setTimeout(
-              () =>
-                resolve({
-                  error:
-                    'Выход из комнаты не завершился вовремя (сеть). Локально сбросили состояние — нажмите «Присоединиться» ещё раз.',
-                }),
-              leaveWallMs,
-            ),
-          ),
-        ]);
-        const leaveErr = timed.error;
-        if (leaveErr) {
-          setError(leaveErr);
-          /* Иначе остаёмся «в комнате» в UI, а localStorage last-party тянет старую игру после входа по новому коду. */
-          disconnectLocalOnlineState();
-          return;
-        }
-      } catch (e) {
-        setError(formatSupabaseNetworkError(e));
-        disconnectLocalOnlineState();
-        return;
-      }
-    }
     disconnectLocalOnlineState();
+    if (!rid || !uid) return;
+    const leaveWallMs = 15_000;
+    try {
+      const timed = await Promise.race([
+        apiLeaveRoom(rid, uid),
+        new Promise<{ error: string }>((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                error:
+                  'Выход из комнаты не завершился вовремя (сеть). Локально сбросили состояние — нажмите «Присоединиться» ещё раз.',
+              }),
+            leaveWallMs,
+          ),
+        ),
+      ]);
+      if (timed.error) {
+        setError(timed.error);
+      }
+    } catch (e) {
+      setError(formatSupabaseNetworkError(e));
+    }
   }, [roomId, onlinePlayerId, disconnectLocalOnlineState]);
 
   const stopAutoRestoreForCurrentRoom = useCallback(async () => {
@@ -1547,7 +1522,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       setLastPartyHintVersion((v) => v + 1);
     }, []);
 
-    const tryRestoreSession = useCallback(async (): Promise<{ ok: boolean; needReclaim?: boolean; roomFinished?: boolean; error?: string }> => {
+    const tryRestoreSession = useCallback(async (): Promise<{ ok: boolean; roomFinished?: boolean; error?: string }> => {
       let saved = loadOnlineSession();
       const last = loadLastOnlineParty();
       if (!saved && last?.roomId && !isRoomIgnoredForAutoRestore(last.roomId)) {
@@ -1608,6 +1583,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const tryRestoreAfterBackground = () => {
       if (document.visibilityState !== 'visible') return;
+      if (isOnlineAutoRestoreSuppressed()) return;
       if (roomIdRef.current) {
         void refreshRoom();
         return;
@@ -1764,17 +1740,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         resetStaleSameRevGraceAfterWrite(gameStateStaleSameRevIgnoreUntilRef);
       }
     }, [roomId, applyRoomData]);
-    const confirmReclaim = useCallback(async (): Promise<boolean> => {
-      if (!roomId || !pendingReclaimOffer || pendingReclaimOffer.roomId !== roomId || !onlinePlayerId) return false;
-      const { error: err } = await apiReturnSlotToPlayer(roomId, pendingReclaimOffer.slotIndex);
-      if (err) { setError(err); return false; }
-      setPendingReclaimOffer(null);
-      await heartbeatPresence(roomId, onlinePlayerId);
-      const room = await getRoom(roomId);
-      if (room) applyRoomData(room);
-      return true;
-    }, [roomId, pendingReclaimOffer, onlinePlayerId, applyRoomData]);
-    const dismissReclaim = useCallback(() => { /* не сбрасываем offer — кнопка «Вернуть игру в свои руки» остаётся доступной */ }, []);
     const returnSlotToPlayer = useCallback(async (slotIndex: number): Promise<boolean> => {
       if (!roomId) return false;
       const { error: err } = await apiReturnSlotToPlayer(roomId, slotIndex);
@@ -1885,9 +1850,6 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     forgetLastOnlineParty,
     stopAutoRestoreForCurrentRoom,
     lastPartyHintVersion,
-    confirmReclaim,
-    dismissReclaim,
-    pendingReclaimOffer,
     returnSlotToPlayer,
     userOnPause,
     takePause,

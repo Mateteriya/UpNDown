@@ -53,6 +53,41 @@ export function markCardImageLoaded(src: string): void {
   if (src) loadedImageUrls.add(src);
 }
 
+/** Русские буквы фигур: J→В, Q→Д, K→К, A→Т */
+export const FACE_RANK_LABEL: Record<string, string> = {
+  J: 'В',
+  Q: 'Д',
+  K: 'К',
+  A: 'Т',
+};
+
+const FACE_RANKS = new Set(['J', 'Q', 'K', 'A']);
+
+export function isFaceRank(rank: string): rank is 'J' | 'Q' | 'K' | 'A' {
+  return FACE_RANKS.has(rank);
+}
+
+export function getFaceRankLabel(rank: string): string {
+  return FACE_RANK_LABEL[rank] ?? rank;
+}
+
+/** PNG фигурной карты для мини-иллюстрации рядом с козырем. */
+export function getFaceCardImageSrc(rank: string, suit: string): string | null {
+  if (rank === 'J' && JACK_CAT_BY_SUIT[suit]) {
+    return `/cards/${JACK_CAT_BY_SUIT[suit]}`;
+  }
+  if (rank === 'Q' && QUEEN_IMAGE_BY_SUIT[suit]) {
+    return `/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[suit])}`;
+  }
+  if (rank === 'K' && KING_IMAGE_BY_SUIT[suit]) {
+    return `/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[suit])}`;
+  }
+  if (rank === 'A' && ACE_IMAGE_BY_SUIT[suit]) {
+    return `/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[suit])}`;
+  }
+  return null;
+}
+
 /**
  * Предзагрузка всех картинок фигурных карт в фоне.
  * Вызывать при монтировании экрана игры (GameTable).

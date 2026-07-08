@@ -38,12 +38,40 @@ function triggerBallClass(id: AIDifficulty): string {
 }
 
 export type AiDifficultyControlLayout = 'mobile' | 'pc';
+export type AiDifficultyTriggerStyle = 'default' | 'landscape-stack';
+
+/** Робот без фона — SVG на всю кнопку toolbar (portrait strip / landscape stack). */
+function AiRobotToolbarGlyph() {
+  return (
+    <svg
+      className="ai-difficulty-trigger-cosmic-glyph"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <path d="M12 2.5v2.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <rect x="4.5" y="6.5" width="15" height="14" rx="3.2" stroke="currentColor" strokeWidth="2" />
+      <circle cx="9.2" cy="11.5" r="1.65" fill="#67e8f9" />
+      <circle cx="14.8" cy="11.5" r="1.65" fill="#67e8f9" />
+      <rect x="8.3" y="15.2" width="1.35" height="3.2" rx="0.45" fill="#f472b6" />
+      <rect x="11.32" y="15.2" width="1.35" height="3.2" rx="0.45" fill="#22d3ee" />
+      <rect x="14.35" y="15.2" width="1.35" height="3.2" rx="0.45" fill="#c4b5fd" />
+    </svg>
+  );
+}
+
+function AiDifficultyLandscapeGlyph() {
+  return <AiRobotToolbarGlyph />;
+}
 
 export function AiDifficultyControl({
   layout,
+  triggerStyle = 'default',
   offlineApplyDifficultyToAllBots,
 }: {
   layout: AiDifficultyControlLayout;
+  triggerStyle?: AiDifficultyTriggerStyle;
   /** Офлайн: выбор в шапке — один уровень для всех ботов и для новых партий (ai1–ai3 в storage) */
   offlineApplyDifficultyToAllBots?: (level: AIDifficulty) => void;
 }) {
@@ -57,6 +85,7 @@ export function AiDifficultyControl({
   const close = useCallback(() => setOpen(false), []);
 
   const isMobile = layout === 'mobile';
+  const landscapeStack = isMobile && triggerStyle === 'landscape-stack';
 
   const updatePopoverPosition = useCallback(() => {
     if (!isMobile || !open) return;
@@ -191,7 +220,13 @@ export function AiDifficultyControl({
   return (
     <div
       ref={rootRef}
-      className={['ai-difficulty-root', isMobile ? 'ai-difficulty-root--mobile' : 'ai-difficulty-root--pc'].join(' ')}
+      className={[
+        'ai-difficulty-root',
+        isMobile ? 'ai-difficulty-root--mobile' : 'ai-difficulty-root--pc',
+        landscapeStack ? 'ai-difficulty-root--landscape-stack' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
       <button
         ref={buttonRef}
@@ -199,7 +234,10 @@ export function AiDifficultyControl({
         className={[
           'header-ai-difficulty-btn',
           isMobile ? 'header-nav-compact-btn' : 'header-ai-difficulty-btn--pc',
-        ].join(' ')}
+          landscapeStack ? 'game-mobile-landscape-toolbar-panel__icon-btn' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         onClick={(e) => {
           e.stopPropagation();
           setOpen((o) => !o);
@@ -209,8 +247,14 @@ export function AiDifficultyControl({
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        <span className={['ai-difficulty-trigger-ball', triggerBallExtra].join(' ')} aria-hidden />
-        <span className="ai-difficulty-trigger-label">ИИ</span>
+        {landscapeStack ? (
+          <AiDifficultyLandscapeGlyph />
+        ) : (
+          <>
+            <span className={['ai-difficulty-trigger-ball', triggerBallExtra].join(' ')} aria-hidden />
+            <span className="ai-difficulty-trigger-label">ИИ</span>
+          </>
+        )}
       </button>
       {popover}
     </div>

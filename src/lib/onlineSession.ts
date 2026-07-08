@@ -10,6 +10,17 @@ const ONLINE_SESSION_KEY = 'updown_online_session';
 const ONLINE_SESSION_BACKUP_KEY = 'updown_online_session_backup';
 export const LOBBY_UI_OPEN_KEY = 'updown_lobby_ui_open';
 
+/** Пока `'1'` — не автоподнимать онлайн-комнату (офлайн-игра или выход в меню). */
+export const SUPPRESS_AUTO_OPEN_KEY = 'updown_suppress_auto_open';
+
+export function isOnlineAutoRestoreSuppressed(): boolean {
+  try {
+    return sessionStorage.getItem(SUPPRESS_AUTO_OPEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export type OnlineSession = { roomId: string; deviceId: string };
 
 function parseSession(raw: string | null): OnlineSession | null {

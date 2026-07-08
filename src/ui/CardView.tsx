@@ -241,6 +241,29 @@ const suitNeonBorder: Record<string, { border: string; outline: string }> = {
   '♣': { border: '#5b21b6', outline: '0 0 0 2px #5b21b6' },   /* крести: ультрафиолетовый глубокий космический тёмный */
 };
 
+/** Цвет глифа масти на индикаторе — канонические цвета мастей (как suitColorLight). */
+export function getSuitGlyphColor(suit: Card['suit']): string {
+  return suitColorLight[suit];
+}
+
+/** Ярче на тёмном фоне индикатора колоды (не зелёные крести из mobile-dark рамки). */
+export function getSuitGlyphColorOnDarkBg(suit: Card['suit']): string {
+  return suitNeonBorder[suit].border;
+}
+
+type TrumpIndicatorSuitColorVariant = 'bidding' | 'chip' | 'default';
+
+/** Цвет масти на индикаторе «козырь у сдающего» по режиму chip / торги. */
+export function getSuitGlyphColorOnIndicatorTrump(
+  suit: Card['suit'],
+  variant: TrumpIndicatorSuitColorVariant = 'default',
+): string {
+  if (variant === 'chip' && suit === '♣') {
+    return MOBILE_DARK_SUIT_PALETTE_BY_SUIT[suit].color;
+  }
+  return suitNeonBorder[suit].border;
+}
+
 /** Тёмная тема (ПК / запасной фон): общий градиент без палитры по масти */
 const CARD_BG_DARK = 'linear-gradient(145deg, #0f172a 0%, #1e293b 20%, #312e81 40%, #334155 60%, #1e293b 80%, #0f172a 100%)';
 const CARD_BG_DARK_TRUMP = 'linear-gradient(145deg, #1e293b 0%, #312e81 25%, #4338ca 50%, #334155 75%, #1e293b 100%)';

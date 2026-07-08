@@ -27,37 +27,12 @@ export interface LobbyScreenProps {
   lanAutoJoinFromLink?: boolean;
 }
 
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  maxWidth: 280,
-  padding: '12px 16px',
-  fontSize: 16,
-  borderRadius: 8,
-  border: '1px solid #334155',
-  background: '#1e293b',
-  color: '#f8fafc',
-  boxSizing: 'border-box',
-};
-
-const buttonPrimary: React.CSSProperties = {
-  padding: '14px 24px',
-  fontSize: 16,
-  fontWeight: 600,
-  borderRadius: 8,
-  border: '1px solid rgba(34, 211, 238, 0.5)',
-  background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
-  color: '#f8fafc',
-  cursor: 'pointer',
-  width: '100%',
-  maxWidth: 280,
-};
-
-const buttonSecondary: React.CSSProperties = {
-  ...buttonPrimary,
-  background: 'transparent',
-  border: '1px solid #334155',
-  color: '#94a3b8',
-};
+function lobbyBtnClass(
+  variant: 'primary' | 'secondary' | 'ghost',
+  extra?: string,
+): string {
+  return ['lobby-btn', `lobby-btn--${variant}`, extra].filter(Boolean).join(' ');
+}
 
 /** Верхняя граница ожидания createRoom — иначе кнопка «Создание…» без ответа при зависшем fetch. */
 const LOBBY_CREATE_TOTAL_MS = 52_000;
@@ -365,7 +340,6 @@ export function LobbyScreen({
     clearError();
     try {
       const r = await tryRestoreSession();
-      if (r.needReclaim) return;
       if (r.roomFinished) {
         setJoinError('Эта партия уже завершена.');
         return;
@@ -425,14 +399,16 @@ export function LobbyScreen({
 
   if (!user && !lanWs) {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 24, }} >
+      <div className="lobby-screen">
+        <div className="lobby-screen__stack">
         <h1 style={{ margin: 0, fontSize: '1.75rem', color: '#f1f5f9' }}>Онлайн-лобби</h1>
         <p style={{ margin: 0, fontSize: 14, color: '#94a3b8', textAlign: 'center', maxWidth: 320 }}>
           Войдите в аккаунт, чтобы создавать комнаты и играть онлайн. Либо включите LAN: VITE_ONLINE_TRANSPORT=ws и VITE_WS_URL.
         </p>
-        <button type="button" onClick={onBack} style={buttonSecondary}>
+        <button type="button" className={lobbyBtnClass('ghost')} onClick={onBack}>
           ← Назад в меню
         </button>
+        </div>
       </div>
     );
   }
@@ -454,7 +430,8 @@ export function LobbyScreen({
   if (inRoom) {
     return (
       <>
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 20, }} >
+        <div className="lobby-screen">
+          <div className="lobby-screen__stack">
           <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#f1f5f9' }}>Комната</h1>
           <p style={{ margin: '0 0 12px', fontSize: 14, color: '#94a3b8', textAlign: 'center', maxWidth: 320, lineHeight: 1.45 }}>
             {isCaptain
@@ -488,11 +465,11 @@ export function LobbyScreen({
               <p style={{ margin: '8px 0 0', fontSize: 12, color: '#64748b' }}>
                 Другие игроки вводят этот код в «Присоединиться»
               </p>
-              <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 280 }}>
-                <button type="button" onClick={copyCodeToClipboard} style={{ ...buttonSecondary, flex: 1, minWidth: 140 }}>
+              <div className="lobby-btn-row" style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 280 }}>
+                <button type="button" className={lobbyBtnClass('secondary', 'lobby-btn--grow')} onClick={copyCodeToClipboard}>
                   {shareCopied ? 'Скопировано!' : 'Скопировать код'}
                 </button>
-                <button type="button" onClick={handleShare} style={{ ...buttonPrimary, flex: 1, minWidth: 140 }} >
+                <button type="button" className={lobbyBtnClass('primary', 'lobby-btn--grow')} onClick={handleShare}>
                   Поделиться кодом
                 </button>
               </div>
@@ -521,11 +498,7 @@ export function LobbyScreen({
               type="button"
               disabled={startingGame || humanSlots.length < 1}
               onClick={() => void handleStartGameFromLobby()}
-              style={{
-                ...buttonPrimary,
-                fontSize: 17,
-                boxShadow: '0 0 20px rgba(34, 211, 238, 0.25)',
-              }}
+              className={lobbyBtnClass('primary', 'lobby-btn--lg')}
             >
               {startingGame
                 ? 'Запуск…'
@@ -534,32 +507,31 @@ export function LobbyScreen({
                   : 'Начать игру с ИИ'}
             </button>
           )}
-          <button type="button" onClick={onGoToGame} style={isCaptain ? buttonSecondary : buttonPrimary}>
+          <button
+            type="button"
+            className={lobbyBtnClass(isCaptain ? 'secondary' : 'primary')}
+            onClick={onGoToGame}
+          >
             {isCaptain ? 'Открыть стол заранее' : 'Войти в игру'}
           </button>
           {onEditProfile && (
-            <button type="button" onClick={onEditProfile} style={buttonSecondary}>
+            <button type="button" className={lobbyBtnClass('secondary')} onClick={onEditProfile}>
               Селфи / редактор профиля
             </button>
           )}
-          <button type="button" onClick={handleLeaveRoomClick} style={buttonSecondary}>
+          <button type="button" className={lobbyBtnClass('secondary')} onClick={handleLeaveRoomClick}>
             Выйти из комнаты
           </button>
           <button
             type="button"
             disabled={stopRememberBusy}
             onClick={() => void handleStopRememberThisRoom()}
-            style={{
-              ...buttonSecondary,
-              marginTop: 8,
-              fontSize: 13,
-              borderColor: 'rgba(148, 163, 184, 0.35)',
-              color: '#94a3b8',
-            }}
+            className={lobbyBtnClass('ghost', 'lobby-btn--sm')}
             title="После выхода или обновления страницы эта комната не будет открываться сама — можно снова войти по коду."
           >
             {stopRememberBusy ? 'Выходим…' : 'Не запоминать эту комнату'}
           </button>
+          </div>
         </div>
         {leftPlayerToast && (
           <div role="status" style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', padding: '10px 16px', borderRadius: 8, background: '#1e293b', border: '1px solid rgba(34,211,238,0.3)', color: '#f8fafc', zIndex: 1001, fontSize: 14, }} >
@@ -568,7 +540,7 @@ export function LobbyScreen({
         )}
         {showLeaveConfirm && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24, }} role="dialog" aria-modal="true" aria-labelledby="leave-room-title" >
-            <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 24, maxWidth: 320, textAlign: 'center', }} >
+            <div className="lobby-dialog" style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 24, maxWidth: 320, textAlign: 'center', }} >
               <p id="leave-room-title" style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 600, color: '#f1f5f9' }}>
                 Выйти из комнаты?
               </p>
@@ -576,10 +548,10 @@ export function LobbyScreen({
                 Вы выйдете с сервера. Код комнаты останется в подсказке «последняя комната» в меню — по нему можно зайти снова, пока комната жива.
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-                <button type="button" onClick={() => setShowLeaveConfirm(false)} style={buttonSecondary}>
+                <button type="button" className={lobbyBtnClass('secondary', 'lobby-btn--dialog')} onClick={() => setShowLeaveConfirm(false)}>
                   Отмена
                 </button>
-                <button type="button" onClick={handleLeaveRoomConfirm} style={buttonPrimary}>
+                <button type="button" className={lobbyBtnClass('primary', 'lobby-btn--dialog')} onClick={handleLeaveRoomConfirm}>
                   Выйти
                 </button>
               </div>
@@ -601,7 +573,8 @@ export function LobbyScreen({
   const inviteCode = (initialJoinCode ?? joinCode).trim().toUpperCase();
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 24, }} >
+    <div className="lobby-screen">
+      <div className="lobby-screen__stack">
       <h1 style={{ margin: 0, fontSize: '1.75rem', color: '#f1f5f9' }}>
         {guestFromHostLink ? 'Вход в комнату' : 'Онлайн-лобби'}
       </h1>
@@ -636,13 +609,12 @@ export function LobbyScreen({
       {lastPartyBanner && (
         <div
           key={`last-party-${lastPartyHintVersion}`}
+          className="lobby-last-party-card"
           style={{
             width: '100%',
             maxWidth: 320,
             padding: 14,
             borderRadius: 10,
-            border: '1px solid rgba(34, 211, 238, 0.4)',
-            background: 'rgba(6, 78, 59, 0.25)',
             boxSizing: 'border-box',
           }}
         >
@@ -664,18 +636,14 @@ export function LobbyScreen({
               type="button"
               disabled={resumeLastBusy}
               onClick={() => void handleResumeLastFromLobby()}
-              style={buttonPrimary}
+              className={lobbyBtnClass('primary')}
             >
               {resumeLastBusy ? 'Вход…' : 'Вернуться в эту комнату'}
             </button>
-            <button type="button" onClick={() => setJoinCode(lastPartyBanner.code)} style={{ ...buttonSecondary, fontSize: 14 }}>
+            <button type="button" className={lobbyBtnClass('secondary', 'lobby-btn--sm')} onClick={() => setJoinCode(lastPartyBanner.code)}>
               Подставить код в поле ниже
             </button>
-            <button
-              type="button"
-              onClick={() => forgetLastOnlineParty()}
-              style={{ ...buttonSecondary, fontSize: 13, borderColor: 'rgba(148, 163, 184, 0.45)' }}
-            >
+            <button type="button" className={lobbyBtnClass('ghost', 'lobby-btn--sm')} onClick={() => forgetLastOnlineParty()}>
               Скрыть подсказку
             </button>
           </div>
@@ -708,11 +676,11 @@ export function LobbyScreen({
               </label>
             )}
             {PUBLIC_HALL_ENABLED && (
-              <button type="button" onClick={() => setShowHall(true)} style={buttonSecondary}>
+              <button type="button" className="lobby-hall-entry-btn" onClick={() => setShowHall(true)}>
                 Зал столов
               </button>
             )}
-            <button type="button" disabled={creating} onClick={handleCreateRoom} style={buttonPrimary} >
+            <button type="button" disabled={creating} onClick={handleCreateRoom} className={lobbyBtnClass('primary')}>
               {creating ? 'Создание…' : createBankRoom ? 'Создать банковую комнату' : 'Создать комнату'}
             </button>
             {hostPanelUrl && (
@@ -720,20 +688,14 @@ export function LobbyScreen({
                 href={hostPanelUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{
-                  ...buttonSecondary,
-                  display: 'block',
-                  textAlign: 'center',
-                  textDecoration: 'none',
-                  fontSize: 14,
-                }}
+                className={lobbyBtnClass('secondary', 'lobby-btn--link lobby-btn--sm')}
               >
                 Панель хоста на этом ПК
               </a>
             )}
           </>
         )}
-        <div style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 280, flexWrap: 'wrap' }}>
+        <div className="lobby-join-row" style={{ display: 'flex', gap: 8, width: '100%', maxWidth: 280, flexWrap: 'wrap' }}>
           <input
             type="text"
             placeholder="Код комнаты"
@@ -743,19 +705,15 @@ export function LobbyScreen({
               setJoinError(null);
             }}
             maxLength={CODE_LENGTH}
-            style={{ ...inputStyle, display: guestFromHostLink ? 'none' : undefined }}
+            className="lobby-input"
+            style={{ display: guestFromHostLink ? 'none' : undefined }}
             aria-label="Код комнаты"
           />
           <button
             type="button"
             disabled={joining || autoJoining}
             onClick={handleJoinRoom}
-            style={{
-              ...buttonPrimary,
-              flex: 1,
-              minWidth: guestFromHostLink ? 200 : 120,
-              fontSize: guestFromHostLink ? 17 : 16,
-            }}
+            className={lobbyBtnClass('primary', guestFromHostLink ? 'lobby-btn--grow lobby-btn--lg' : 'lobby-btn--grow')}
           >
             {joining || autoJoining
               ? 'Вход…'
@@ -765,7 +723,7 @@ export function LobbyScreen({
           </button>
         </div>
         {guestFromHostLink && PUBLIC_HALL_ENABLED && lanWs && (
-          <button type="button" onClick={() => setShowHall(true)} style={{ ...buttonSecondary, fontSize: 13 }}>
+          <button type="button" className={lobbyBtnClass('secondary', 'lobby-btn--sm')} onClick={() => setShowHall(true)}>
             Или найти стол в зале
           </button>
         )}
@@ -781,9 +739,10 @@ export function LobbyScreen({
           </p>
         )}
       </div>
-      <button type="button" onClick={onBack} style={buttonSecondary}>
+      <button type="button" className={lobbyBtnClass('ghost')} onClick={onBack}>
         ← Назад в меню
       </button>
+      </div>
     </div>
   );
 }

@@ -31,6 +31,7 @@ import {
   clearOnlineSession,
   loadOnlineSession,
   markLobbyUiOpen,
+  isOnlineAutoRestoreSuppressed,
 } from '../lib/onlineSession';
 import { loadLastOnlineParty, clearLastOnlineParty, saveLastOnlineParty } from '../lib/lastOnlineParty';
 import {
@@ -56,13 +57,6 @@ import {
   type OnlineGameContextValue,
   type OnlineStatus,
 } from './OnlineGameContext';
-
-type PendingReclaimOffer = {
-  roomId: string;
-  code: string;
-  slotIndex: number;
-  replacedDisplayName: string;
-};
 
 function applyRoomRow(
   row: GameRoomRow,
@@ -119,7 +113,6 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
   const [buyIn, setBuyIn] = useState<number | null>(null);
   const [roomKind, setRoomKind] = useState<RoomKind>('private');
   const [onlineHydratedFromStorage, setOnlineHydratedFromStorage] = useState(false);
-  const [pendingReclaimOffer, setPendingReclaimOffer] = useState<PendingReclaimOffer | null>(null);
   const [userOnPause, setUserOnPause] = useState(false);
   const [playerLeftToast, setPlayerLeftToast] = useState<string | null>(null);
   const [userLeftTemporarily, setUserLeftTemporarily] = useState(false);
@@ -201,6 +194,10 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
       setOnlineHydratedFromStorage(true);
       return;
     }
+    if (isOnlineAutoRestoreSuppressed()) {
+      setOnlineHydratedFromStorage(true);
+      return;
+    }
     void getRoom(saved.roomId).then((room) => {
       if (!room) {
         clearOnlineSession();
@@ -226,22 +223,10 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
   }, [roomId, code, onlinePlayerId]);
 
   useEffect(() => {
-    if (status !== 'playing' || !roomId || !onlinePlayerId) {
-      setPendingReclaimOffer(null);
-      return;
+    if (status !== 'playing' || !roomId) {
+      setUserOnPause(false);
     }
-    const slot = playerSlots.find((s) => s.replacedUserId === onlinePlayerId);
-    if (slot) {
-      setPendingReclaimOffer({
-        roomId,
-        code: code ?? '',
-        slotIndex: slot.slotIndex,
-        replacedDisplayName: slot.replacedDisplayName ?? slot.displayName ?? 'Игрок',
-      });
-    } else {
-      setPendingReclaimOffer(null);
-    }
-  }, [status, roomId, code, onlinePlayerId, playerSlots]);
+  }, [status, roomId]);
 
   const createRoom = useCallback(
     async (
@@ -294,13 +279,20 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     setCanonicalState(null);
     setPlayerSlots([]);
     setError(null);
+    setUserOnPause(false);
     clearOnlineSession();
   }, []);
 
   const leaveRoom = useCallback(async () => {
-    if (!roomId) return;
-    await apiLeaveRoom(roomId, onlinePlayerId);
+    const rid = roomId;
+    const uid = onlinePlayerId;
     disconnectLocal();
+    if (!rid || !uid) return;
+    try {
+      await apiLeaveRoom(rid, uid);
+    } catch {
+      /* локально уже вышли */
+    }
   }, [roomId, onlinePlayerId, disconnectLocal]);
 
   const refreshRoom = useCallback(async () => {
@@ -450,12 +442,6 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     return true;
   }, [roomId, onlinePlayerId, refreshRoom]);
 
-  const confirmReclaim = useCallback(async () => {
-    return returnFromPause();
-  }, [returnFromPause]);
-
-  const dismissReclaim = useCallback(() => setPendingReclaimOffer(null), []);
-
   const transferHostTo = useCallback(
     async (newHostUserId: string, roomIdForRpc?: string | null) => {
       const rid = roomIdForRpc ?? roomId;
@@ -509,9 +495,6 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     forgetLastOnlineParty,
     stopAutoRestoreForCurrentRoom,
     lastPartyHintVersion,
-    confirmReclaim,
-    dismissReclaim,
-    pendingReclaimOffer,
     returnSlotToPlayer,
     userOnPause,
     takePause,

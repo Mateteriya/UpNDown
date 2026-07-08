@@ -8,7 +8,7 @@ import { hasSavedGame, clearGameStateFromStorage, getPlayerProfile, savePlayerPr
 import { loadProfileFromSupabase, saveProfileToSupabase } from './lib/profileSync'
 import { useAuth } from './contexts/AuthContext'
 import { useOnlineGame } from './contexts/useOnlineGame'
-import { loadOnlineSession, markLobbyUiOpen, wasLobbyUiOpen } from './lib/onlineSession'
+import { loadOnlineSession, markLobbyUiOpen, wasLobbyUiOpen, SUPPRESS_AUTO_OPEN_KEY } from './lib/onlineSession'
 import { loadLastOnlineParty } from './lib/lastOnlineParty'
 import { isWsOnlineTransport } from './lib/onlineTransport'
 import {
@@ -30,8 +30,14 @@ import { OfflineResumeChoiceModal } from './ui/OfflineResumeChoiceModal'
 const GameTable = lazy(() => import('./ui/GameTable'))
 
 const DEV_MODE_KEY = 'updown-devMode'
-const SUPPRESS_AUTO_OPEN_KEY = 'updown_suppress_auto_open'
 const DEFAULT_DISPLAY_NAME = 'Вы'
+
+function menuBtnClass(
+  variant: 'hero' | 'featured' | 'play' | 'primary' | 'secondary' | 'ghost' | 'link' | 'disabled',
+  extra?: string,
+): string {
+  return ['menu-btn', `menu-btn--${variant}`, extra].filter(Boolean).join(' ')
+}
 
 function readInitialScreen(): 'menu' | 'game' | 'training' {
   if (typeof window === 'undefined') return 'menu'
@@ -80,8 +86,6 @@ function App() {
   const [showOAuthSuccessModal, setShowOAuthSuccessModal] = useState(false)
   const [roomFinishedMessage, setRoomFinishedMessage] = useState<string | null>(null)
   const [onlineResumeMessage, setOnlineResumeMessage] = useState<string | null>(null)
-  const [showReturnReclaimDialog, setShowReturnReclaimDialog] = useState(false)
-  const [showReclaimModal, setShowReclaimModal] = useState(true)
 
   useEffect(() => {
     setProfile(getPlayerProfile())
@@ -150,10 +154,6 @@ function App() {
     }
     hadOnlineRoomRef.current = false
   }, [online.status, online.roomId, screen, online.userLeftTemporarily])
-
-  useEffect(() => {
-    if (online.pendingReclaimOffer) setShowReclaimModal(true)
-  }, [online.pendingReclaimOffer])
 
   useEffect(() => {
     if (!roomFinishedMessage) return
@@ -246,13 +246,23 @@ function App() {
     setDevMode(true)
   }, [])
 
+  /** Не автоподнимать онлайн-комнату, пока играет офлайн-партия. */
+  const suppressOnlineAutoRestore = useCallback(() => {
+    try {
+      sessionStorage.setItem(SUPPRESS_AUTO_OPEN_KEY, '1')
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
   const startGame = () => {
     setGameId(id => id + 1)
     setScreen('game')
   }
 
-  /** Офлайн-стол: сбросить онлайн-сессию, иначе GameTable не поднимет локальную партию (guard по sessionStorage). */
+  /** Офлайн-стол: сразу отключить автоподъём онлайна и сбросить комнату локально. */
   const startOfflineGame = () => {
+    suppressOnlineAutoRestore()
     void online.leaveRoom()
     startGame()
   }
@@ -289,11 +299,12 @@ function App() {
       if (online.syncMySlotAvatar) void online.syncMySlotAvatar()
     }
     if (nameAvatarMode === 'first-run') {
+      suppressOnlineAutoRestore()
       void online.leaveRoom()
       startGame()
     }
     if (nameAvatarMode === 'new-account') setNameAvatarMode('profile')
-  }, [nameAvatarMode, user?.id, online.roomId, online.syncMySlotDisplayName, online.syncMySlotAvatar, online.leaveRoom])
+  }, [nameAvatarMode, user?.id, online.roomId, online.syncMySlotDisplayName, online.syncMySlotAvatar, online.leaveRoom, suppressOnlineAutoRestore])
 
   /** Селфи на телефоне часто перезагружает вкладку — пишем аватар и слот сразу, не дожидаясь «Сохранить». */
   const handlePhotoCaptured = useCallback((avatarDataUrl: string) => {
@@ -317,9 +328,10 @@ function App() {
   const canResumeOnline = loadOnlineSession() !== null || loadLastOnlineParty() !== null
 
   const handleResumeOffline = useCallback(() => {
+    suppressOnlineAutoRestore()
     void online.leaveRoom()
     setScreen('game')
-  }, [online])
+  }, [online, suppressOnlineAutoRestore])
 
   const handleResumeOnline = useCallback(async () => {
     setOnlineResumeMessage(null)
@@ -341,27 +353,13 @@ function App() {
       setRoomFinishedMessage('Партия уже завершена.')
       return
     }
-    if (r.needReclaim) {
-      return
-    }
     if (r.ok) {
-      const wasTemporary = online.userLeftTemporarily === true
       online.setUserLeftTemporarily?.(false)
       setScreen('game')
-      if (wasTemporary) setShowReturnReclaimDialog(true)
       return
     }
     if (r.error) setOnlineResumeMessage(r.error)
   }, [user, online, authLoading])
-
-  const handleConfirmReclaim = useCallback(async () => {
-    const ok = await online.confirmReclaim()
-    if (ok) setScreen('game')
-  }, [online])
-
-  const handleDismissReclaim = useCallback(() => {
-    online.dismissReclaim()
-  }, [online])
 
   const handleNewGame = () => {
     clearGameStateFromStorage()
@@ -398,9 +396,11 @@ function App() {
   return (
     <>
       {screen === 'menu' && !screenLobby && (
-        <main style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto', position: 'relative' }}>
+        <main className="menu-screen">
+          <div className="menu-screen__stack">
+          <header className="menu-screen__header">
           <h1
-            style={{ fontSize: '2rem', marginBottom: '0.5rem', userSelect: 'none' }}
+            className="menu-screen__title"
             onContextMenu={(e) => e.preventDefault()}
             onPointerDown={(e) => {
               if (e.button !== 0) return
@@ -413,14 +413,15 @@ function App() {
           >
             Up&Down
           </h1>
-          <p style={{ color: '#94a3b8', marginBottom: '2rem' }}>
+          <p className="menu-screen__tagline">
             Карточная игра на взятки
           </p>
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          </header>
+          <nav className="menu-screen__nav">
             {canResumeOnline && (
               <button
                 type="button"
-                style={{ ...buttonStyle, borderColor: 'rgba(34,211,238,0.6)', background: 'rgba(34,211,238,0.15)' }}
+                className={menuBtnClass('featured')}
                 onClick={() => { void handleResumeOnline() }}
               >
                 Продолжить онлайн-партию
@@ -448,7 +449,7 @@ function App() {
             )}
             <button
               type="button"
-              style={buttonStyle}
+              className={menuBtnClass('hero')}
               onClick={() => {
                 try {
                   sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
@@ -463,7 +464,7 @@ function App() {
             {hasSavedGame() && (
               <button
                 type="button"
-                style={{ ...buttonStyle, borderColor: 'rgba(34,211,238,0.45)', background: 'rgba(34,211,238,0.08)' }}
+                className={menuBtnClass('featured')}
                 onClick={() => { void handleResumeOffline() }}
               >
                 Продолжить офлайн-партию
@@ -471,24 +472,35 @@ function App() {
             )}
             <button
               type="button"
-              style={{ ...buttonStyle, background: 'transparent', borderColor: 'rgba(148,163,184,0.5)' }}
-              onClick={() => setShowHistoryModal(true)}
+              className={menuBtnClass('play')}
+              onClick={handleOfflineClick}
             >
-              История
-            </button>
-            <button style={buttonStyle} onClick={handleOfflineClick}>
               Офлайн против ИИ
             </button>
             <button
               type="button"
-              style={{ ...buttonStyle, background: 'transparent', borderColor: 'rgba(148,163,184,0.5)' }}
+              className={menuBtnClass('secondary')}
+              onClick={() => setShowHistoryModal(true)}
+            >
+              История
+            </button>
+            <button
+              type="button"
+              className={menuBtnClass('primary')}
+              onClick={() => setScreen('training')}
+            >
+              Обучение
+            </button>
+            <button
+              type="button"
+              className={menuBtnClass('secondary')}
               onClick={() => { setNameAvatarMode('profile'); setShowNameAvatarModal(true) }}
             >
               Изменить профиль (имя и фото)
             </button>
             <button
               type="button"
-              style={{ ...buttonStyle, background: 'transparent', borderColor: 'rgba(148,163,184,0.5)' }}
+              className={menuBtnClass('secondary')}
               onClick={() => setShowRatingModal(true)}
             >
               Ваш рейтинг
@@ -496,7 +508,7 @@ function App() {
             {user ? (
               <button
                 type="button"
-                style={{ ...buttonStyle, background: 'transparent', borderColor: 'rgba(148,163,184,0.5)' }}
+                className={menuBtnClass('ghost')}
                 onClick={() => signOut()}
                 title={user.email ?? undefined}
               >
@@ -505,7 +517,7 @@ function App() {
             ) : (
               <button
                 type="button"
-                style={{ ...buttonStyle, background: 'transparent', borderColor: 'rgba(148,163,184,0.5)' }}
+                className={menuBtnClass('ghost')}
                 onClick={() => { setAuthMode('login'); setShowAuthModal(true) }}
               >
                 Вход
@@ -513,51 +525,31 @@ function App() {
             )}
             {devMode && (
               <>
-                <a href="/demo" style={{ ...buttonStyle, textDecoration: 'none', textAlign: 'center' }}>
+                <a href="/demo" className={menuBtnClass('link')}>
                   Демо карт (для разработчика)
                 </a>
-                <a href="/deal-track-lab" style={{ ...buttonStyle, textDecoration: 'none', textAlign: 'center' }}>
+                <a href="/deal-track-lab" className={menuBtnClass('link')}>
                   Лаб: шкала раздач (ПК)
                 </a>
-                <a href="/total-color-lab" style={{ ...buttonStyle, textDecoration: 'none', textAlign: 'center' }}>
+                <a href="/total-color-lab" className={menuBtnClass('link')}>
                   Лаб: цвета ИТОГО (моб)
                 </a>
-                <a href="/online-ui-lab" style={{ ...buttonStyle, textDecoration: 'none', textAlign: 'center' }}>
+                <a href="/online-ui-lab" className={menuBtnClass('link')}>
                   Лаб: онлайн-UI «Стандарт после short»
                 </a>
               </>
             )}
-            <button disabled style={buttonStyle}>
+            <button disabled className={menuBtnClass('disabled')}>
               Турниры (скоро)
             </button>
-            <button style={buttonStyle} onClick={() => setScreen('training')}>
-              Обучение
-            </button>
-            <a
-              href="/scoring-demo"
-              style={{
-                ...buttonStyle,
-                textDecoration: 'none',
-                textAlign: 'center',
-                borderColor: 'rgba(167, 139, 250, 0.55)',
-                background: 'rgba(139, 92, 246, 0.12)',
-              }}
-            >
+            <a href="/scoring-demo" className={menuBtnClass('link', 'menu-btn--lab')}>
               Демо: фишки и победитель
             </a>
-            <a
-              href="/cosmogenesis-demo.html"
-              style={{
-                ...buttonStyle,
-                textDecoration: 'none',
-                textAlign: 'center',
-                borderColor: 'rgba(34, 211, 238, 0.45)',
-                background: 'rgba(34, 211, 238, 0.1)',
-              }}
-            >
+            <a href="/cosmogenesis-demo.html" className={menuBtnClass('link', 'menu-btn--lab')}>
               Космогенез: Galaxy (демо)
             </a>
           </nav>
+          </div>
         </main>
       )}
       {showOfflineChoiceModal && (
@@ -565,6 +557,7 @@ function App() {
           onCancel={() => setShowOfflineChoiceModal(false)}
           onContinue={() => {
             setShowOfflineChoiceModal(false)
+            suppressOnlineAutoRestore()
             if (online.status !== 'idle') {
               online.leaveRoom().finally(() => setScreen('game'))
             } else {
@@ -580,6 +573,7 @@ function App() {
               import('./ui/GameTable')
             } else {
               const startNew = () => {
+                suppressOnlineAutoRestore()
                 setGameId((id) => id + 1)
                 setScreen('game')
               }
@@ -724,145 +718,6 @@ function App() {
           </div>
         </div>
       )}
-      {online.pendingReclaimOffer && showReclaimModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            padding: 20,
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="reclaim-title"
-        >
-          <div
-            style={{
-              background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-              borderRadius: 16,
-              border: '1px solid rgba(34,211,238,0.3)',
-              padding: 32,
-              maxWidth: 400,
-              textAlign: 'center',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p id="reclaim-title" style={{ margin: '0 0 12px', fontSize: 20, fontWeight: 600, color: '#22d3ee' }}>
-              Вернуться в партию?
-            </p>
-            <p style={{ margin: '0 0 24px', fontSize: 15, color: '#94a3b8', lineHeight: 1.5 }}>
-              Пока вы отсутствовали, за вас играл ИИ. Если вы вернётесь, ваши результаты будут включать и ходы ИИ.
-              Если откажетесь — партия не будет учитываться в вашем личном рейтинге, но сохранится в истории как незавершённая.
-            </p>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={handleConfirmReclaim}
-                style={{
-                  padding: '12px 24px',
-                  fontSize: 16,
-                  fontWeight: 600,
-                  borderRadius: 8,
-                  border: '1px solid #22d3ee',
-                  background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
-                  color: '#f8fafc',
-                  cursor: 'pointer',
-                }}
-              >
-                Продолжить игру
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowReclaimModal(false)}
-                style={{
-                  padding: '12px 24px',
-                  fontSize: 16,
-                  borderRadius: 8,
-                  border: '1px solid #64748b',
-                  background: 'transparent',
-                  color: '#94a3b8',
-                  cursor: 'pointer',
-                }}
-              >
-                Не сейчас
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showReturnReclaimDialog && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            padding: 20,
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="return-reclaim-title"
-        >
-          <div
-            style={{
-              background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-              borderRadius: 16,
-              border: '1px solid rgba(34,211,238,0.3)',
-              padding: 32,
-              maxWidth: 400,
-              textAlign: 'center',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p id="return-reclaim-title" style={{ margin: '0 0 12px', fontSize: 20, fontWeight: 600, color: '#22d3ee' }}>
-              Продолжить играть сами?
-            </p>
-            <p style={{ margin: '0 0 24px', fontSize: 15, color: '#94a3b8', lineHeight: 1.5 }}>
-              За вас уже сделал ход ИИ. Если вы согласны — вы снова будете делать ходы сами. Нажмите «Да, играю сам», чтобы вернуть управление.
-            </p>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => setShowReturnReclaimDialog(false)}
-                style={{
-                  padding: '12px 24px',
-                  fontSize: 16,
-                  fontWeight: 600,
-                  borderRadius: 8,
-                  border: '1px solid #22d3ee',
-                  background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
-                  color: '#f8fafc',
-                  cursor: 'pointer',
-                }}
-              >
-                Да, играю сам
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowReturnReclaimDialog(false)}
-                style={{
-                  padding: '12px 24px',
-                  fontSize: 16,
-                  borderRadius: 8,
-                  border: '1px solid #64748b',
-                  background: 'transparent',
-                  color: '#94a3b8',
-                  cursor: 'pointer',
-                }}
-              >
-                Нет
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {roomFinishedMessage && (
         <div
           role="status"
@@ -882,42 +737,6 @@ function App() {
           }}
         >
           {roomFinishedMessage}
-        </div>
-      )}
-      {screen === 'game' && online.pendingReclaimOffer && online.confirmReclaim && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 9999,
-            padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
-            background: 'linear-gradient(180deg, rgba(15,23,42,0.98) 0%, rgba(15,23,42,1) 100%)',
-            borderTop: '2px solid rgba(34, 211, 238, 0.6)',
-            boxShadow: '0 -4px 24px rgba(0,0,0,0.4)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-        >
-          <button
-            type="button"
-            onClick={async () => { await online.confirmReclaim?.(); }}
-            style={{
-              padding: '14px 24px',
-              fontSize: 16,
-              fontWeight: 600,
-              borderRadius: 10,
-              border: '2px solid rgba(34, 211, 238, 0.6)',
-              background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
-              color: '#f8fafc',
-              cursor: 'pointer',
-              boxShadow: '0 0 16px rgba(34, 211, 238, 0.3)',
-            }}
-          >
-            Вернуть игру в свои руки
-          </button>
         </div>
       )}
       {screenLobby && (
@@ -989,17 +808,6 @@ function App() {
       )}
     </>
   )
-}
-
-const buttonStyle: React.CSSProperties = {
-  padding: '1rem 1.5rem',
-  fontSize: '1rem',
-  borderRadius: '8px',
-  border: '1px solid #334155',
-  background: '#1e293b',
-  color: '#f8fafc',
-  cursor: 'pointer',
-  transition: 'background 0.2s',
 }
 
 export default App

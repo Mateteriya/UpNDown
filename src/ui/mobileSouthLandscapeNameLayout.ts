@@ -1,5 +1,5 @@
-/** Моб. landscape · Юг: базовый размер имени ×1.8 (14×1.8). */
-export const MOBILE_SOUTH_LANDSCAPE_NAME_BASE_FONT_PX = Math.round(14 * 1.8);
+/** Моб. landscape · Юг: макс. размер имени (было 14×1.8≈25, −3px → 22). */
+export const MOBILE_SOUTH_LANDSCAPE_NAME_BASE_FONT_PX = Math.round(14 * 1.8) - 3;
 
 /** С этой длины — минимальный шрифт (символы 14…17). */
 export const MOBILE_SOUTH_LANDSCAPE_NAME_LONG_MIN_CHARS = 14;

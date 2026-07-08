@@ -5,6 +5,8 @@ const MOBILE_DEAL_RESULTS_DEAL_COL_DEFAULT = 18;
 const MOBILE_DEAL_RESULTS_PLAYER_CELL_DEFAULT = 38;
 /** Горизонтальные отступы модалки + рамка окна таблицы (px). */
 const MOBILE_DEAL_RESULTS_TABLE_HPAD_PX = 18;
+/** Landscape: узкие боковые поля — таблица почти во всю ширину экрана. */
+const MOBILE_DEAL_RESULTS_LANDSCAPE_TABLE_HPAD_PX = 12;
 /** С 343px — прежняя вёрстка; ≤342px — компактный режим. */
 const MOBILE_DEAL_RESULTS_NARROW_MAX_VW = 342;
 const MOBILE_DEAL_RESULTS_REFERENCE_VW = MOBILE_DEAL_RESULTS_NARROW_MAX_VW + 1;
@@ -19,6 +21,8 @@ export type MobileDealResultsTableLayout = {
   fontScale: number;
   /** true только при ширине viewport 342px и меньше */
   isNarrow: boolean;
+  /** true в моб. landscape (660×330 и аналоги) — таблица на всю ширину */
+  isLandscapeTuned?: boolean;
 };
 
 export type DealResultsLayoutViewport = {
@@ -58,18 +62,20 @@ export function computeMobileDealResultsTableLayout(
   const available = Math.max(252, vw - MOBILE_DEAL_RESULTS_TABLE_HPAD_PX);
 
   if (viewport.isLandscape && vmin >= MOBILE_DEAL_RESULTS_LANDSCAPE_REFERENCE_MIN_PX - 1) {
-    const mobileBidCellWidth = Math.max(24, MOBILE_DEAL_RESULTS_PLAYER_CELL_DEFAULT - 10);
-    const mobileResultCellWidth = MOBILE_DEAL_RESULTS_PLAYER_CELL_DEFAULT + 2;
+    const available = Math.max(320, vw - MOBILE_DEAL_RESULTS_LANDSCAPE_TABLE_HPAD_PX);
+    const dealCol = MOBILE_DEAL_RESULTS_DEAL_COL_DEFAULT;
+    const perPlayerPair = Math.floor((available - dealCol) / 4);
+    const mobileBidCellWidth = Math.max(28, Math.floor(perPlayerPair * 0.4));
+    const mobileResultCellWidth = Math.max(34, perPlayerPair - mobileBidCellWidth);
     const fontScale = Math.max(0.86, Math.min(1, vmin / MOBILE_DEAL_RESULTS_LANDSCAPE_REFERENCE_MIN_PX));
     return {
-      dealCol: MOBILE_DEAL_RESULTS_DEAL_COL_DEFAULT,
+      dealCol,
       mobileBidCellWidth,
       mobileResultCellWidth,
-      tableMinWidth:
-        MOBILE_DEAL_RESULTS_DEAL_COL_DEFAULT +
-        4 * (mobileBidCellWidth + mobileResultCellWidth),
+      tableMinWidth: dealCol + 4 * (mobileBidCellWidth + mobileResultCellWidth),
       fontScale,
       isNarrow: false,
+      isLandscapeTuned: true,
     };
   }
 
@@ -128,8 +134,8 @@ export function computeDealResultsModalBodyCapPx(
   isLandscape: boolean,
   tableBodyMaxAllowedPx: number,
 ): number {
-  const ratio = isLandscape ? 0.62 : 0.5;
-  const floorPx = isLandscape ? 140 : 160;
+  const ratio = isLandscape ? 0.52 : 0.5;
+  const floorPx = isLandscape ? 120 : 160;
   return Math.min(tableBodyMaxAllowedPx, Math.max(floorPx, Math.round(viewportHeightPx * ratio)));
 }
 
