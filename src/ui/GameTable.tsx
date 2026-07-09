@@ -108,6 +108,8 @@ import { isPersonalAiReplacementEnabled } from '../lib/featureFlags';
 import { getResultsTableFootTotalDigitStyle } from '../lib/mobileResultsTableTotalTone';
 import { CardView } from './CardView';
 import { TrumpDealerHeldIndicator } from './TrumpDealerHeldIndicator';
+import { GameInfoPlasmaTurnBlock } from './GameInfoPlasmaTurnBlock';
+import { getMobileDealContractMetaTooltip, resolveMobileDealContractBadgeFace } from '../lib/mobileDealContractBadgeFace';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
 import { UserAvatarMenuSheet } from './UserAvatarMenuSheet';
@@ -1750,6 +1752,16 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         : 'under';
     return { allBidsPlaced, totalOrders, ordersSumSoFar, totalTricks, tricksInDeal, cardsWord, orderCompare };
   }, [stateToShow]);
+  const plasmaDealMetaTooltip = useMemo(() => {
+    if (!stateToShow) return null;
+    return getMobileDealContractMetaTooltip({
+      dealNumber: stateToShow.dealNumber,
+      tricksInDeal: dealContractStats.tricksInDeal,
+      totalOrders: dealContractStats.totalOrders,
+      totalTricks: dealContractStats.totalTricks,
+      allBidsPlaced: dealContractStats.allBidsPlaced,
+    });
+  }, [stateToShow, dealContractStats]);
   const setState = useCallback((updater: React.SetStateAction<GameState | null>) => {
     if (typeof updater === 'function') setLocalState(prev => updater(prev));
     else setLocalState(updater);
@@ -5905,86 +5917,86 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     const landscapeDealCls = opts?.landscapeToolbar
       ? ' game-mobile-landscape-toolbar-deal-screen'
       : '';
-    return getDealType(state.dealNumber) === 'no-trump' || getDealType(state.dealNumber) === 'dark' ? (
+    const dealType = getDealType(state.dealNumber);
+    const isSpecialDeal = dealType === 'no-trump' || dealType === 'dark';
+    const badgeFace = resolveMobileDealContractBadgeFace({
+      dealNumber: state.dealNumber,
+      phase: state.phase,
+      allBidsPlaced: dealContractStats.allBidsPlaced,
+      alternateFace: mobileSpecialDealBadgeFace,
+    });
+    const modeLabel = dealType === 'no-trump' ? 'Бескозырка' : 'Тёмная';
+
+    const ordersBlock = (
+      <span
+        className="deal-contract-line deal-contract-line-mobile-split"
+        style={dealContractLineMobileSplitOuterStyle}
+      >
+        <DealContractMobileOrderZAndNum totalOrders={dealContractStats.totalOrders} orderCompare={dealContractStats.orderCompare!} />
+        <span className="deal-contract-mobile-sep deal-contract-mobile-sep--pearl" aria-hidden="true" />
+        <DealContractMobileTricksNumbers taken={dealContractStats.totalTricks} dealTotal={dealContractStats.tricksInDeal} />
+      </span>
+    );
+
+    const cardsBlock = (
+      <>
+        <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
+          КАРТ:
+        </span>
+        <span className="deal-contract-value" style={dealContractCardsValueStyle}>
+          {dealContractStats.tricksInDeal}
+        </span>
+      </>
+    );
+
+    const modeBlock = (
+      <span
+        className="deal-contract-line deal-contract-mobile-mode-alternate"
+        style={{ ...dealContractMobileAlternateSlotStyle, ...dealContractMobileModeAlternateLineStyle }}
+      >
+        {modeLabel}
+      </span>
+    );
+
+    const panelBody =
+      badgeFace === 'orders' ? (
+        isSpecialDeal ? (
+          <span style={dealContractMobileAlternateSlotStyle}>{ordersBlock}</span>
+        ) : (
+          ordersBlock
+        )
+      ) : badgeFace === 'mode' ? (
+        modeBlock
+      ) : isSpecialDeal ? (
+        <span style={dealContractMobileAlternateSlotStyle}>{cardsBlock}</span>
+      ) : (
+        cardsBlock
+      );
+
+    const biddingTitle = isSpecialDeal
+      ? `Режим: ${modeLabel}. КАРТ: ${dealContractStats.tricksInDeal} у каждого. Нажмите — подробности`
+      : 'Сколько карт в раздаче';
+    const ordersTitle = isSpecialDeal
+      ? `Режим: ${modeLabel}. Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности`
+      : `Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности по игрокам`;
+    const biddingAria = isSpecialDeal
+      ? `Режим ${modeLabel.toLowerCase()}. КАРТ: ${dealContractStats.tricksInDeal} у каждого. Показать по игрокам`
+      : `КАРТ: ${dealContractStats.tricksInDeal} у каждого`;
+    const ordersAria = isSpecialDeal
+      ? `Режим ${modeLabel.toLowerCase()}. Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
+      : `Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`;
+
+    return (
       <button
         type="button"
         className={`game-info-deal-contract-panel game-info-cards-panel${dealScreenCls}${landscapeDealCls}`}
         data-deal-contract-phase={dealContractStats.allBidsPlaced ? 'orders' : 'bidding'}
         data-order-compare={dealContractStats.orderCompare ?? undefined}
         onClick={() => setShowDealContractHelp(true)}
-        title={
-          dealContractStats.allBidsPlaced
-            ? `Режим: ${getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}. Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности`
-            : `Режим: ${getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}. КАРТ: ${dealContractStats.tricksInDeal} у каждого. Нажмите — подробности`
-        }
-        aria-label={
-          dealContractStats.allBidsPlaced
-            ? `Режим ${getDealType(state.dealNumber) === 'no-trump' ? 'бескозырка' : 'тёмная'}. Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
-            : `Режим ${getDealType(state.dealNumber) === 'no-trump' ? 'бескозырка' : 'тёмная'}. КАРТ: ${dealContractStats.tricksInDeal} у каждого. Показать по игрокам`
-        }
+        title={badgeFace === 'orders' ? ordersTitle : biddingTitle}
+        aria-label={badgeFace === 'orders' ? ordersAria : biddingAria}
       >
-        {mobileSpecialDealBadgeFace === 0 ? (
-          <span
-            className="deal-contract-line deal-contract-mobile-mode-alternate"
-            style={{ ...dealContractMobileAlternateSlotStyle, ...dealContractMobileModeAlternateLineStyle }}
-          >
-            {getDealType(state.dealNumber) === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
-          </span>
-        ) : dealContractStats.allBidsPlaced ? (
-          <span style={dealContractMobileAlternateSlotStyle}>
-            <span className="deal-contract-line deal-contract-line-mobile-split" style={dealContractLineMobileSplitOuterStyle}>
-              <DealContractMobileOrderZAndNum totalOrders={dealContractStats.totalOrders} orderCompare={dealContractStats.orderCompare!} />
-              <span className="deal-contract-mobile-sep deal-contract-mobile-sep--pearl" aria-hidden="true" />
-              <DealContractMobileTricksNumbers taken={dealContractStats.totalTricks} dealTotal={dealContractStats.tricksInDeal} />
-            </span>
-          </span>
-        ) : (
-          <span style={dealContractMobileAlternateSlotStyle}>
-            <>
-              <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
-                КАРТ:
-              </span>
-              <span className="deal-contract-value" style={dealContractCardsValueStyle}>
-                {dealContractStats.tricksInDeal}
-              </span>
-            </>
-          </span>
-        )}
-      </button>
-    ) : (
-      <button
-        type="button"
-        className={`game-info-deal-contract-panel game-info-cards-panel${dealScreenCls}${landscapeDealCls}`}
-        data-deal-contract-phase={dealContractStats.allBidsPlaced ? 'orders' : 'bidding'}
-        data-order-compare={dealContractStats.orderCompare ?? undefined}
-        onClick={() => setShowDealContractHelp(true)}
-        title={
-          dealContractStats.allBidsPlaced
-            ? `Заказ: ${dealContractStats.totalOrders}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности по игрокам`
-            : 'Сколько карт в раздаче'
-        }
-        aria-label={
-          dealContractStats.allBidsPlaced
-            ? `Заказ ${dealContractStats.totalOrders}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
-            : `КАРТ: ${dealContractStats.tricksInDeal} у каждого`
-        }
-      >
-        {dealContractStats.allBidsPlaced ? (
-          <span className="deal-contract-line deal-contract-line-mobile-split" style={dealContractLineMobileSplitOuterStyle}>
-            <DealContractMobileOrderZAndNum totalOrders={dealContractStats.totalOrders} orderCompare={dealContractStats.orderCompare!} />
-            <span className="deal-contract-mobile-sep deal-contract-mobile-sep--pearl" aria-hidden="true" />
-            <DealContractMobileTricksNumbers taken={dealContractStats.totalTricks} dealTotal={dealContractStats.tricksInDeal} />
-          </span>
-        ) : (
-          <>
-            <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
-              КАРТ:
-            </span>
-            <span className="deal-contract-value" style={dealContractCardsValueStyle}>
-              {dealContractStats.tricksInDeal}
-            </span>
-          </>
-        )}
+        {panelBody}
       </button>
     );
   };
@@ -6100,20 +6112,38 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           </button>
         )}
         {mobileGameInfoTurnPresentation && (
-          <div {...resolveGameInfoScreenDivProps(gameInfoBadgeSkin, gameInfoActiveBadgeStyle)}>
+          <GameInfoPlasmaTurnBlock
+            skin={gameInfoBadgeSkin}
+            phaseStyle={gameInfoActiveBadgeStyle}
+            dealNumber={state.dealNumber}
+            tricksInDeal={dealContractStats.tricksInDeal}
+            showDealMeta={gameInfoBadgeSkin === 'plasma'}
+            metaTitle={plasmaDealMetaTooltip?.title}
+            metaAriaLabel={plasmaDealMetaTooltip?.ariaLabel}
+            onMetaClick={() => setShowDealContractHelp(true)}
+          >
             <span style={gameInfoLabelStyle}>Сейчас ход</span>
             <span style={{ ...mobileGameInfoTurnPresentation.valueStyle, color: '#22c55e' }} className="game-info-value-name game-info-turn-player-name">
               {mobileGameInfoTurnPresentation.name}
             </span>
-          </div>
+          </GameInfoPlasmaTurnBlock>
         )}
         {mobileGameInfoBidPresentation && (
-          <div {...resolveGameInfoScreenDivProps(gameInfoBadgeSkin, gameInfoBiddingBadgeStyle)}>
+          <GameInfoPlasmaTurnBlock
+            skin={gameInfoBadgeSkin}
+            phaseStyle={gameInfoBiddingBadgeStyle}
+            dealNumber={state.dealNumber}
+            tricksInDeal={dealContractStats.tricksInDeal}
+            showDealMeta={gameInfoBadgeSkin === 'plasma'}
+            metaTitle={plasmaDealMetaTooltip?.title}
+            metaAriaLabel={plasmaDealMetaTooltip?.ariaLabel}
+            onMetaClick={() => setShowDealContractHelp(true)}
+          >
             <span style={gameInfoLabelStyle}>Заказывает</span>
             <span style={{ ...mobileGameInfoBidPresentation.valueStyle, color: '#f59e0b' }}>
               {mobileGameInfoBidPresentation.name}
             </span>
-          </div>
+          </GameInfoPlasmaTurnBlock>
         )}
         {mobileViewportShort && mobileShortHeaderImmersive && !online.userOnPause && (
           <button
@@ -9102,18 +9132,36 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   </button>
                 )}
                 {state.phase === 'playing' && (
-                  <div {...resolveGameInfoScreenDivProps(gameInfoBadgeSkin, gameInfoActiveBadgeStyle)}>
+                  <GameInfoPlasmaTurnBlock
+                    skin={gameInfoBadgeSkin}
+                    phaseStyle={gameInfoActiveBadgeStyle}
+                    dealNumber={state.dealNumber}
+                    tricksInDeal={dealContractStats.tricksInDeal}
+                    showDealMeta={gameInfoBadgeSkin === 'plasma'}
+            metaTitle={plasmaDealMetaTooltip?.title}
+            metaAriaLabel={plasmaDealMetaTooltip?.ariaLabel}
+            onMetaClick={() => setShowDealContractHelp(true)}
+                  >
                     <span style={gameInfoLabelStyle}>Сейчас ход</span>
                     <span className="game-info-value-name game-info-turn-player-name" style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{displayState.players[state.currentPlayerIndex].name}</span>
-                  </div>
+                  </GameInfoPlasmaTurnBlock>
                 )}
                 {!isWaitingInRoom && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
-                  <div {...resolveGameInfoScreenDivProps(gameInfoBadgeSkin, gameInfoBiddingBadgeStyle)}>
+                  <GameInfoPlasmaTurnBlock
+                    skin={gameInfoBadgeSkin}
+                    phaseStyle={gameInfoBiddingBadgeStyle}
+                    dealNumber={state.dealNumber}
+                    tricksInDeal={dealContractStats.tricksInDeal}
+                    showDealMeta={gameInfoBadgeSkin === 'plasma'}
+            metaTitle={plasmaDealMetaTooltip?.title}
+            metaAriaLabel={plasmaDealMetaTooltip?.ariaLabel}
+            onMetaClick={() => setShowDealContractHelp(true)}
+                  >
                     <span style={gameInfoLabelStyle}>Заказывает</span>
                     <span className="game-info-value-name" style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
                       {displayState.players[state.currentPlayerIndex].name}
                     </span>
-                  </div>
+                  </GameInfoPlasmaTurnBlock>
                 )}
               </div>
             )}
@@ -17744,24 +17792,6 @@ const gameInfoBadgeStyle: React.CSSProperties = {
   minWidth: 120,
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
 };
-
-/** Только layout — визуал «экрана» в plasma задаёт CSS (.game-info-plasma-screen). */
-const gameInfoPlasmaScreenLayoutStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  minWidth: 120,
-};
-
-function resolveGameInfoScreenDivProps(
-  skin: GameInfoBadgeStyle,
-  phaseStyle?: React.CSSProperties,
-): { className?: string; style: React.CSSProperties } {
-  if (skin === 'plasma') {
-    return { className: 'game-info-plasma-screen', style: gameInfoPlasmaScreenLayoutStyle };
-  }
-  return { style: { ...gameInfoBadgeStyle, ...phaseStyle } };
-}
 
 const gameInfoActiveBadgeStyle: React.CSSProperties = {
   background: 'rgba(34, 197, 94, 0.15)',

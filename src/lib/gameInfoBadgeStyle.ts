@@ -1,4 +1,4 @@
-/** Стиль бейджа «Сейчас ход / Заказывает» (.game-info-left-section). Classic — дефолт. */
+/** Стиль бейджа «Сейчас ход / Заказывает» (.game-info-left-section). Plasma — дефолт. */
 export type GameInfoBadgeStyle = 'classic' | 'plasma';
 
 const STORAGE_KEY = 'updown_game_info_badge_style';
@@ -8,11 +8,11 @@ export const GAME_INFO_BADGE_LONGPRESS_MS = 720;
 export function loadGameInfoBadgeStyle(): GameInfoBadgeStyle {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === 'plasma') return 'plasma';
+    if (raw === 'classic') return 'classic';
   } catch {
     /* ignore */
   }
-  return 'classic';
+  return 'plasma';
 }
 
 export function saveGameInfoBadgeStyle(style: GameInfoBadgeStyle): void {
