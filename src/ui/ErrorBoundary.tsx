@@ -3,6 +3,7 @@
  */
 
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
+import { resetPwaCacheAndReload } from '../lib/pwaStaleRecovery';
 
 interface Props {
   children: ReactNode;
@@ -48,21 +49,38 @@ export class ErrorBoundary extends Component<Props, State> {
               Возможно, ошибка при возврате после входа. Попробуйте обновить страницу.
             </p>
           )}
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            style={{
-              padding: '12px 24px',
-              fontSize: 16,
-              borderRadius: 8,
-              border: '1px solid #334155',
-              background: '#1e293b',
-              color: '#22d3ee',
-              cursor: 'pointer',
-            }}
-          >
-            Обновить страницу
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              style={{
+                padding: '12px 24px',
+                fontSize: 16,
+                borderRadius: 8,
+                border: '1px solid #334155',
+                background: '#1e293b',
+                color: '#22d3ee',
+                cursor: 'pointer',
+              }}
+            >
+              Обновить страницу
+            </button>
+            <button
+              type="button"
+              onClick={() => void resetPwaCacheAndReload()}
+              style={{
+                padding: '10px 20px',
+                fontSize: 14,
+                borderRadius: 8,
+                border: '1px solid #334155',
+                background: 'transparent',
+                color: '#94a3b8',
+                cursor: 'pointer',
+              }}
+            >
+              Сбросить кэш приложения
+            </button>
+          </div>
         </div>
       );
     }
