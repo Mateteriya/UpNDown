@@ -11347,7 +11347,8 @@
   .game-table-root.viewport-mobile .game-info-left-section .deal-number-badge--game-info-corner {
     position: absolute !important;
     top: 0 !important;
-    left: 0 !important;
+    left: var(--deal-number-game-info-corner-inset-start, 4px) !important;
+    inset-inline-start: var(--deal-number-game-info-corner-inset-start, 4px) !important;
     z-index: 3 !important;
     margin: 0 !important;
     width: 24px !important;
@@ -11359,39 +11360,64 @@
     flex-direction: row !important;
     align-items: center !important;
     justify-content: center !important;
-    border-top: none !important;
-    border-left: none !important;
     border-radius: 8px 0 8px 0 !important;
-    background: linear-gradient(135deg, #8930e4 0%, #411dd891 46%, #2c6ad5de 100%) !important;
+    border-style: solid !important;
+    border-color: transparent !important;
+    /* Обводка справа и снизу: 1px, иридесцентный градиент (тоньше чем у Σ) */
+    border-width: 0 1px 1px 0 !important;
+    background-image:
+      linear-gradient(135deg, #8930e4 0%, #411dd891 46%, #2c6ad5de 100%),
+      linear-gradient(
+        125deg,
+        #3b0764 0%,
+        #5b21b6 9%,
+        #6d28d9 20%,
+        #7c3aed 30%,
+        #8b5cf6 40%,
+        #a78bfa 48%,
+        #b8a3f6 56%,
+        #c9b8f8 62%,
+        #d4c4fd 66%,
+        #6ee7f0 73%,
+        #5ad4e8 78%,
+        #22d3ee 84%,
+        #38bdf8 91%,
+        #5abbf0 100%
+      ) !important;
+    background-origin: border-box !important;
+    background-clip: padding-box, border-box !important;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.14),
       inset 0 0 0 0.5px rgb(27 17 147),
       inset 0 0 16px rgba(68, 63, 203, 0.24),
-      0 0 0 1px rgb(66 18 162),
-      0 0 12px rgba(66, 18, 162, 0.38),
-      0 0 14px rgba(68, 63, 203, 0.16),
-      0 0 16px rgba(34, 211, 238, 0.2),
+      0 0 10px rgba(66, 18, 162, 0.28),
+      0 0 12px rgba(68, 63, 203, 0.14),
+      0 0 14px rgba(34, 211, 238, 0.16),
       0 2px 8px rgba(0, 0, 0, 0.2) !important;
   }
   .game-table-root.viewport-mobile .game-info-left-section .deal-number-badge--game-info-corner .deal-num-symbol {
     display: none !important;
   }
   .game-table-root.viewport-mobile .game-info-left-section .deal-number-badge--game-info-corner .deal-num-value {
-    font-size: 13px !important;
+    display: inline-block !important;
+    font-size: var(--deal-number-game-info-corner-value-size, 14px) !important;
     font-weight: 900 !important;
     letter-spacing: 0.02em !important;
+    line-height: 1 !important;
+    transform: translateY(var(--deal-number-game-info-corner-value-shift-y, 1px)) !important;
     background-image: linear-gradient(
       180deg,
-      #ede9fe 0%,
-      #ddd6fe 10%,
-      #d4c4fd 22%,
-      #c4b5fd 34%,
-      #b9a3f8 44%,
-      #a78bfa 50%,
-      #8b9cf5 58%,
-      #5ab0f0 70%,
-      #38bdf8 82%,
-      #7dd3fc 100%
+      #f5f3ff 0%,
+      #ede9fe 8%,
+      #e9d5ff 16%,
+      #ddd6fe 26%,
+      #d4c4fd 36%,
+      #c4b5fd 46%,
+      #b9a3f8 54%,
+      #a5b4fc 64%,
+      #6ee7f0 76%,
+      #38bdf8 88%,
+      #e0f2fe 100%
     ) !important;
     -webkit-background-clip: text !important;
     background-clip: text !important;
@@ -11399,7 +11425,7 @@
     -webkit-text-fill-color: transparent !important;
     text-shadow: none !important;
     filter: none !important;
-    -webkit-text-stroke: 0.28px rgba(49, 46, 129, 0.32);
+    -webkit-text-stroke: 0.24px rgba(49, 46, 129, 0.22);
     paint-order: stroke fill;
   }
   .game-table-root.viewport-mobile .game-info-left-section .deal-number-badge--game-info-corner > span:first-child {
@@ -11411,7 +11437,10 @@
   .game-table-root.viewport-mobile .game-info-left-section .deal-results-btn--game-info-corner {
     position: absolute !important;
     top: 0 !important;
-    right: 0 !important;
+    right: 3px !important;
+    left: auto !important;
+    inset-inline-end: 3px !important;
+    inset-inline-start: auto !important;
     z-index: 4 !important;
     margin: 0 !important;
     width: auto !important;
@@ -11424,7 +11453,7 @@
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 10px !important;
+    font-size: var(--deal-results-corner-glyph-size, 14px) !important;
     font-weight: 800 !important;
     line-height: 1 !important;
     color: #22d3ee !important;
@@ -12936,12 +12965,12 @@
     padding: 6px 8px !important;
     gap: 4px !important;
   }
-  .game-table-root.viewport-mobile .game-info-left-section span,
-  .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-section span {
+  .game-table-root.viewport-mobile .game-info-left-section span:not(.game-info-plasma-deal-meta__label):not(.game-info-plasma-deal-meta__value):not(.game-info-plasma-deal-meta__mode),
+  .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-section span:not(.game-info-plasma-deal-meta__label):not(.game-info-plasma-deal-meta__value):not(.game-info-plasma-deal-meta__mode) {
     font-size: 10px !important;
   }
-  .game-table-root.viewport-mobile .game-info-left-section span:last-child,
-  .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-section span:last-child {
+  .game-table-root.viewport-mobile .game-info-left-section span:last-child:not(.game-info-plasma-deal-meta__value):not(.game-info-plasma-deal-meta__mode),
+  .game-table-root.viewport-mobile .game-mobile-upper-board .game-info-left-section span:last-child:not(.game-info-plasma-deal-meta__value):not(.game-info-plasma-deal-meta__mode) {
     font-size: 12px !important;
   }
   .game-table-root.viewport-mobile .game-info-left-section > div,
@@ -51068,10 +51097,14 @@ html.theme-standard
   --plasma-deal-meta-pad-y: 1px;
   --plasma-deal-meta-gap-screen: 2px;
   --plasma-deal-meta-pad-top: 3px;
-  --plasma-deal-meta-row-h: 13px;
+  --plasma-deal-meta-row-h: 14px;
   --plasma-deal-meta-font-size: 10px;
-  --plasma-deal-meta-value-font-size: 11px;
-  --plasma-deal-meta-mode-font-size: 10px;
+  --plasma-deal-meta-label-font-size: 12px;
+  --plasma-deal-meta-value-font-size: 14px;
+  --plasma-deal-meta-value-scale-x: 1.14;
+  --plasma-deal-meta-mode-font-size: 12px;
+  --plasma-deal-meta-mode-shift-y-portrait: 0px;
+  --plasma-deal-meta-mode-shift-y-landscape: 3px;
   --plasma-deal-meta-shift-y: 2px;
   --plasma-screen-radius-bottom-meta: 12px;
   /* +3px к высоте внешнего бейджа (.game-info-left-section) */
@@ -51543,7 +51576,10 @@ html.theme-standard
   transform: translateY(var(--plasma-deal-meta-shift-y)) !important;
 }
 
-.game-table-root.game-info-badge-plasma .game-info-plasma-deal-meta__label {
+.game-table-root.game-info-badge-plasma .game-info-left-section .game-info-plasma-deal-meta .game-info-plasma-deal-meta__label {
+  font-size: var(--plasma-deal-meta-label-font-size) !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.1em !important;
   line-height: 1 !important;
   color: rgba(167, 139, 250, 0.92) !important;
   -webkit-text-fill-color: rgba(167, 139, 250, 0.92) !important;
@@ -51561,12 +51597,15 @@ html.theme-standard
   filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.28)) !important;
 }
 
-.game-table-root.game-info-badge-plasma .game-info-plasma-deal-meta__value {
+.game-table-root.game-info-badge-plasma .game-info-left-section .game-info-plasma-deal-meta .game-info-plasma-deal-meta__value {
   font-size: var(--plasma-deal-meta-value-font-size) !important;
   line-height: 1 !important;
   font-weight: 800 !important;
   font-variant-numeric: tabular-nums !important;
-  letter-spacing: 0.06em !important;
+  letter-spacing: 0.1em !important;
+  display: inline-block !important;
+  transform: scaleX(var(--plasma-deal-meta-value-scale-x)) !important;
+  transform-origin: center center !important;
   background-image: linear-gradient(
     118deg,
     #67e8f9 0%,
@@ -51583,11 +51622,13 @@ html.theme-standard
   animation: plasma-deal-meta-value-glow 3.4s ease-in-out infinite !important;
 }
 
-.game-table-root.game-info-badge-plasma .game-info-plasma-deal-meta__mode {
+.game-table-root.game-info-badge-plasma .game-info-left-section .game-info-plasma-deal-meta .game-info-plasma-deal-meta__mode {
   font-size: var(--plasma-deal-meta-mode-font-size) !important;
   line-height: 1 !important;
   font-weight: 800 !important;
   letter-spacing: 0.1em !important;
+  display: inline-block !important;
+  transform: translateY(var(--plasma-deal-meta-mode-shift-y-portrait)) !important;
   background-image: linear-gradient(
     115deg,
     #fde68a 0%,
@@ -52407,6 +52448,14 @@ html.theme-standard
  * Landscape: восточная рельса растягивается до правого края; З|Север остаются по центру кластера.
  */
 @media (max-width: 1024px) {
+  .game-table-root.viewport-mobile {
+    --deal-results-game-info-corner-inset-end: 3px;
+    --deal-results-corner-glyph-size: 14px;
+    --deal-number-game-info-corner-inset-start: 4px;
+    --deal-number-game-info-corner-value-size: 14px;
+    --deal-number-game-info-corner-value-shift-y: 1px;
+  }
+
   .game-table-root.game-info-badge-plasma.viewport-mobile:not(.viewport-mobile-landscape)
     .game-mobile-upper-board
     .game-info-left-col {
@@ -52749,6 +52798,192 @@ html.theme-standard
     .game-info-left-col.game-info-left-col--landscape-right
     .game-info-left-section:has(.game-info-plasma-deal-meta) {
     padding-top: 3px !important;
+  }
+
+  /* Σ на бейдже: финальный сдвиг влево (перебивает inline position:relative и общие span-стили) */
+  .game-table-root.viewport-mobile
+    .game-info-left-section
+    > button.deal-results-btn.deal-results-btn--game-info-corner,
+  .game-table-root.viewport-mobile
+    .game-mobile-upper-board
+    .game-info-left-section
+    > button.deal-results-btn.deal-results-btn--game-info-corner,
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-info-left-section
+    > button.deal-results-btn.deal-results-btn--game-info-corner,
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-mobile-upper-board
+    .game-info-left-section
+    > button.deal-results-btn.deal-results-btn--game-info-corner {
+    position: absolute !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: auto !important;
+    inset-inline-end: 0 !important;
+    inset-inline-start: auto !important;
+    translate: -3px 0 !important;
+    margin: 0 !important;
+    font-size: var(--deal-results-corner-glyph-size, 14px) !important;
+  }
+
+  /* № раздачи: сдвиг вправо от левого угла бейджа + обводка справа/снизу */
+  .game-table-root.viewport-mobile
+    .game-info-left-section
+    > button.deal-number-badge.deal-number-badge--game-info-corner,
+  .game-table-root.viewport-mobile
+    .game-mobile-upper-board
+    .game-info-left-section
+    > button.deal-number-badge.deal-number-badge--game-info-corner,
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-info-left-section
+    > button.deal-number-badge.deal-number-badge--game-info-corner,
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-mobile-upper-board
+    .game-info-left-section
+    > button.deal-number-badge.deal-number-badge--game-info-corner {
+    left: var(--deal-number-game-info-corner-inset-start, 4px) !important;
+    inset-inline-start: var(--deal-number-game-info-corner-inset-start, 4px) !important;
+    margin: 0 !important;
+    border-style: solid !important;
+    border-color: transparent !important;
+    border-width: 0 1px 1px 0 !important;
+    background-image:
+      linear-gradient(135deg, #8930e4 0%, #411dd891 46%, #2c6ad5de 100%),
+      linear-gradient(
+        125deg,
+        #3b0764 0%,
+        #5b21b6 9%,
+        #6d28d9 20%,
+        #7c3aed 30%,
+        #8b5cf6 40%,
+        #a78bfa 48%,
+        #b8a3f6 56%,
+        #c9b8f8 62%,
+        #d4c4fd 66%,
+        #6ee7f0 73%,
+        #5ad4e8 78%,
+        #22d3ee 84%,
+        #38bdf8 91%,
+        #5abbf0 100%
+      ) !important;
+    background-origin: border-box !important;
+    background-clip: padding-box, border-box !important;
+  }
+
+  /* № раздачи: цифра крупнее/ярче и на 1px ниже — без смены габаритов кнопки */
+  .game-table-root.viewport-mobile
+    .game-info-left-section
+    .deal-number-badge--game-info-corner
+    .deal-num-value,
+  .game-table-root.viewport-mobile
+    .game-mobile-upper-board
+    .game-info-left-section
+    .deal-number-badge--game-info-corner
+    .deal-num-value,
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-info-left-section
+    .deal-number-badge--game-info-corner
+    .deal-num-value,
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-mobile-upper-board
+    .game-info-left-section
+    .deal-number-badge--game-info-corner
+    .deal-num-value {
+    display: inline-block !important;
+    font-size: var(--deal-number-game-info-corner-value-size, 14px) !important;
+    line-height: 1 !important;
+    transform: translateY(var(--deal-number-game-info-corner-value-shift-y, 1px)) !important;
+    background-image: linear-gradient(
+      180deg,
+      #f5f3ff 0%,
+      #ede9fe 8%,
+      #e9d5ff 16%,
+      #ddd6fe 26%,
+      #d4c4fd 36%,
+      #c4b5fd 46%,
+      #b9a3f8 54%,
+      #a5b4fc 64%,
+      #6ee7f0 76%,
+      #38bdf8 88%,
+      #e0f2fe 100%
+    ) !important;
+    -webkit-text-stroke: 0.24px rgba(49, 46, 129, 0.22) !important;
+  }
+
+  .game-table-root.game-info-badge-plasma.viewport-mobile:not(.viewport-mobile-landscape)
+    .game-info-left-section
+    .game-info-plasma-deal-meta
+    .game-info-plasma-deal-meta__mode,
+  .game-table-root.game-info-badge-plasma.viewport-mobile:not(.viewport-mobile-landscape)
+    .game-mobile-upper-board
+    .game-info-left-section
+    .game-info-plasma-deal-meta
+    .game-info-plasma-deal-meta__mode {
+    display: inline-block !important;
+    transform: translateY(var(--plasma-deal-meta-mode-shift-y-portrait)) !important;
+  }
+
+  .game-table-root.game-info-badge-plasma.viewport-mobile.viewport-mobile-landscape
+    .game-info-left-section
+    .game-info-plasma-deal-meta
+    .game-info-plasma-deal-meta__mode,
+  .game-table-root.game-info-badge-plasma.viewport-mobile.viewport-mobile-landscape
+    .game-mobile-upper-board
+    .game-info-left-section
+    .game-info-plasma-deal-meta
+    .game-info-plasma-deal-meta__mode {
+    display: inline-block !important;
+    transform: translateY(var(--plasma-deal-meta-mode-shift-y-landscape)) !important;
+  }
+
+  /* «КАРТ:» — как «Бескозырка»/«Тёмная», не общий span 10px/700 с §12939 */
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-info-left-section
+    .game-info-plasma-deal-meta
+    .game-info-plasma-deal-meta__label,
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-mobile-upper-board
+    .game-info-left-section
+    .game-info-plasma-deal-meta
+    .game-info-plasma-deal-meta__label,
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-info-left-section
+    .game-info-plasma-deal-meta
+    .game-info-plasma-deal-meta__mode,
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-mobile-upper-board
+    .game-info-left-section
+    .game-info-plasma-deal-meta
+    .game-info-plasma-deal-meta__mode,
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-info-left-section
+    .game-info-plasma-deal-meta
+    .game-info-plasma-deal-meta__value,
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-mobile-upper-board
+    .game-info-left-section
+    .game-info-plasma-deal-meta
+    .game-info-plasma-deal-meta__value {
+    font-size: var(--plasma-deal-meta-label-font-size) !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.1em !important;
+    line-height: 1 !important;
+  }
+
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-info-left-section
+    .game-info-plasma-deal-meta
+    .game-info-plasma-deal-meta__value,
+  .game-table-root.game-info-badge-plasma.viewport-mobile
+    .game-mobile-upper-board
+    .game-info-left-section
+    .game-info-plasma-deal-meta
+    .game-info-plasma-deal-meta__value {
+    font-size: var(--plasma-deal-meta-value-font-size) !important;
+    letter-spacing: 0.1em !important;
+    display: inline-block !important;
+    transform: scaleX(var(--plasma-deal-meta-value-scale-x)) !important;
+    transform-origin: center center !important;
   }
 }
 
