@@ -6,6 +6,7 @@ import {
 
 const POS_STORAGE_ENTER = 'upd.mobileShortFullscreenBtnPos.enter.v1';
 const POS_STORAGE_EXIT = 'upd.mobileShortFullscreenBtnPos.exit.v1';
+const DRAG_HINT_SEEN_KEY = 'upd.mobileShortFullscreenBtnDragHintSeen.v1';
 const DRAG_THRESHOLD_PX = 10;
 /** Запас над видимым низом при авто-подъёме (px). */
 const OVERLAP_CLEARANCE_PX = 10;
@@ -33,6 +34,23 @@ function readStoredPos(mode: Mode): StoredPos | null {
 function writeStoredPos(mode: Mode, pos: StoredPos): void {
   try {
     localStorage.setItem(storageKeyForMode(mode), JSON.stringify(pos));
+  } catch {
+    /* ignore */
+  }
+}
+
+function readDragHintSeen(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(DRAG_HINT_SEEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markDragHintSeen(): void {
+  try {
+    localStorage.setItem(DRAG_HINT_SEEN_KEY, '1');
   } catch {
     /* ignore */
   }
@@ -100,6 +118,7 @@ type Props = {
 export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDisplay = false }: Props) {
   const [pos, setPos] = useState<StoredPos>(() => resolveInitialPos(mode, standaloneDisplay));
   const [dragging, setDragging] = useState(false);
+  const [showDragHint, setShowDragHint] = useState(() => !readDragHintSeen());
   const hasCustomPosRef = useRef(readStoredPos(mode) != null);
   const modeRef = useRef(mode);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -207,6 +226,8 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
       }
       if (d.moved) {
         hasCustomPosRef.current = true;
+        markDragHintSeen();
+        setShowDragHint(false);
         setPos((current) => {
           const next = liftPosIfOverlappingBottom(clampPos(current.x, current.y), btnRef.current);
           writeStoredPos(modeRef.current, next);
@@ -227,6 +248,7 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
   }, []);
 
   const isExit = mode === 'exit';
+  const hintVisible = showDragHint && !dragging;
 
   return (
     <button
@@ -236,6 +258,7 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
         'mobile-short-fullscreen-entry-btn',
         isExit ? 'mobile-short-fullscreen-entry-btn--exit' : 'mobile-short-fullscreen-entry-btn--enter',
         'mobile-short-fullscreen-entry-btn--floating',
+        hintVisible ? 'mobile-short-fullscreen-entry-btn--with-hint' : '',
         dragging ? 'mobile-short-fullscreen-entry-btn--dragging' : '',
       ]
         .filter(Boolean)
@@ -256,19 +279,31 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
       }
       title={isExit ? 'Выйти (перетащите)' : 'На весь экран (перетащите)'}
     >
-      <span className="mobile-short-fullscreen-entry-btn__icon" aria-hidden>
-        {isExit ? '×' : '⛶'}
+      <span className="mobile-short-fullscreen-entry-btn__main">
+        <span className="mobile-short-fullscreen-entry-btn__grip" aria-hidden>
+          ⠿
+        </span>
+        <span className="mobile-short-fullscreen-entry-btn__icon" aria-hidden>
+          {isExit ? '×' : '⛶'}
+        </span>
+        <span
+          className={[
+            'mobile-short-fullscreen-entry-btn__label',
+            !isExit
+              ? 'mobile-short-fullscreen-entry-btn__label--shimmer'
+              : 'mobile-short-fullscreen-entry-btn__label--exit-shimmer',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {isExit ? 'Выйти' : 'На весь экран'}
+        </span>
       </span>
-      <span
-        className={[
-          'mobile-short-fullscreen-entry-btn__label',
-          !isExit ? 'mobile-short-fullscreen-entry-btn__label--shimmer' : 'mobile-short-fullscreen-entry-btn__label--exit',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-      >
-        {isExit ? 'Выйти' : 'На весь экран'}
-      </span>
+      {hintVisible && (
+        <span className="mobile-short-fullscreen-entry-btn__drag-hint" aria-hidden>
+          удержите · перетащите
+        </span>
+      )}
     </button>
   );
 }

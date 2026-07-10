@@ -9758,6 +9758,17 @@
         0 0 30px rgba(139, 92, 246, 0.32);
     }
   }
+  @keyframes short-fullscreen-drag-hint-pulse {
+    0%,
+    100% {
+      opacity: 0.72;
+      color: #94a3b8;
+    }
+    50% {
+      opacity: 1;
+      color: #c4b5fd;
+    }
+  }
   /* Short и «Стандарт после short»: плавающая кнопка fullscreen — позиция задаётся в JS (перетаскивание) */
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--floating {
     position: fixed !important;
@@ -9766,8 +9777,10 @@
     bottom: auto !important;
     margin: 0 !important;
     display: inline-flex !important;
+    flex-direction: column !important;
     align-items: center !important;
-    gap: 6px !important;
+    justify-content: center !important;
+    gap: 3px !important;
     padding: 7px 14px 7px 11px !important;
     border-radius: 999px !important;
     font-size: 12px !important;
@@ -9781,6 +9794,42 @@
     isolation: isolate !important;
     user-select: none !important;
     -webkit-user-select: none !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
+    .mobile-short-fullscreen-entry-btn--floating.mobile-short-fullscreen-entry-btn--with-hint {
+    padding-bottom: 6px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn__main {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    line-height: 1 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn__grip {
+    font-size: 11px !important;
+    line-height: 1 !important;
+    letter-spacing: -0.12em !important;
+    color: #67e8f9 !important;
+    opacity: 0.82 !important;
+    text-shadow: 0 0 8px rgba(34, 211, 238, 0.45) !important;
+    transform: translateY(-0.5px) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
+    .mobile-short-fullscreen-entry-btn--exit
+    .mobile-short-fullscreen-entry-btn__grip {
+    color: #c4b5fd !important;
+    text-shadow: 0 0 8px rgba(167, 139, 250, 0.5) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn__drag-hint {
+    display: block !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.06em !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+    color: #94a3b8 !important;
+    animation: short-fullscreen-drag-hint-pulse 2.6s ease-in-out infinite !important;
+    text-shadow: 0 0 10px rgba(139, 92, 246, 0.35) !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
     .mobile-short-fullscreen-entry-btn--floating.mobile-short-fullscreen-entry-btn--dragging {
@@ -9848,56 +9897,65 @@
   }
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--exit {
     padding: 8px 16px 8px 12px !important;
-    gap: 6px !important;
-    color: #fff1f2 !important;
+    color: #ecfeff !important;
     border: 1.5px solid transparent !important;
     background:
-      linear-gradient(168deg, rgba(69, 10, 10, 0.88) 0%, rgba(15, 23, 42, 0.96) 55%, rgba(76, 29, 29, 0.9) 100%) padding-box,
-      linear-gradient(125deg, #f87171 0%, #fb923c 35%, #f43f5e 65%, #fda4af 100%) border-box !important;
+      linear-gradient(168deg, rgba(30, 27, 75, 0.94) 0%, rgba(15, 23, 42, 0.97) 48%, rgba(49, 46, 129, 0.92) 100%) padding-box,
+      linear-gradient(
+        125deg,
+        #6366f1 0%,
+        #a78bfa 22%,
+        #e879f9 42%,
+        #22d3ee 62%,
+        #818cf8 82%,
+        #c084fc 100%
+      )
+      border-box !important;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      0 0 0 1px rgba(248, 113, 113, 0.35),
-      0 4px 20px rgba(0, 0, 0, 0.42),
-      0 0 18px rgba(248, 113, 113, 0.28),
-      0 0 28px rgba(251, 146, 60, 0.14) !important;
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 0 18px rgba(167, 139, 250, 0.14),
+      0 0 0 1px rgba(129, 140, 248, 0.38),
+      0 4px 20px rgba(0, 0, 0, 0.4),
+      0 0 16px rgba(139, 92, 246, 0.32),
+      0 0 26px rgba(34, 211, 238, 0.16) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
-    animation: short-fullscreen-exit-glow 3s ease-in-out infinite !important;
+    animation: short-fullscreen-entry-enter-glow 3.4s ease-in-out infinite !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
     .mobile-short-fullscreen-entry-btn--exit
-    .mobile-short-fullscreen-entry-btn__label--exit {
-    font-size: 13px !important;
+    .mobile-short-fullscreen-entry-btn__label--exit-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      #c4b5fd 0%,
+      #e9d5ff 14%,
+      #f0abfc 28%,
+      #a5f3fc 44%,
+      #818cf8 58%,
+      #e879f9 72%,
+      #67e8f9 86%,
+      #c4b5fd 100%
+    ) !important;
+    background-size: 200% auto !important;
+    background-clip: text !important;
+    -webkit-background-clip: text !important;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    animation: short-fullscreen-entry-label-shimmer 4.2s linear infinite !important;
+    font-size: 12px !important;
     font-weight: 800 !important;
-    letter-spacing: 0.05em !important;
-    text-transform: uppercase !important;
-    color: #fecdd3 !important;
-    text-shadow: 0 0 12px rgba(248, 113, 113, 0.55), 0 0 4px rgba(251, 146, 60, 0.35) !important;
-  }
-  @keyframes short-fullscreen-exit-glow {
-    0%,
-    100% {
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.12),
-        0 0 0 1px rgba(248, 113, 113, 0.35),
-        0 4px 20px rgba(0, 0, 0, 0.42),
-        0 0 14px rgba(248, 113, 113, 0.22),
-        0 0 22px rgba(251, 146, 60, 0.1);
-    }
-    50% {
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.14),
-        0 0 0 1px rgba(251, 146, 60, 0.45),
-        0 4px 22px rgba(0, 0, 0, 0.45),
-        0 0 22px rgba(248, 113, 113, 0.38),
-        0 0 32px rgba(251, 146, 60, 0.2);
-    }
+    letter-spacing: 0.04em !important;
+    filter: drop-shadow(0 0 6px rgba(167, 139, 250, 0.5)) drop-shadow(0 0 10px rgba(34, 211, 238, 0.28)) !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--exit .mobile-short-fullscreen-entry-btn__icon {
-    font-size: 18px !important;
+    font-size: 17px !important;
     font-weight: 800 !important;
     line-height: 0.9 !important;
-    text-shadow: none !important;
+    color: #e9d5ff !important;
+    text-shadow:
+      0 0 12px rgba(167, 139, 250, 0.7),
+      0 0 6px rgba(34, 211, 238, 0.45),
+      0 0 2px rgba(244, 114, 182, 0.35) !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--exit:active {
     opacity: 0.92 !important;
@@ -9917,6 +9975,18 @@
       color: #a5f3fc !important;
       -webkit-text-fill-color: #a5f3fc !important;
       filter: none !important;
+    }
+    .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
+      .mobile-short-fullscreen-entry-btn--exit
+      .mobile-short-fullscreen-entry-btn__label--exit-shimmer {
+      animation: none !important;
+      background-image: none !important;
+      color: #c4b5fd !important;
+      -webkit-text-fill-color: #c4b5fd !important;
+      filter: none !important;
+    }
+    .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn__drag-hint {
+      animation: none !important;
     }
   }
   /* Подсказка short-VH: портал на body — компактная карточка, акценты + крестик */
