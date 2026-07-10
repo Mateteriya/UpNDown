@@ -9763,7 +9763,9 @@
     position: fixed !important;
     z-index: 235 !important;
     top: auto !important;
-    bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(
+      max(10px, env(safe-area-inset-bottom, 0px)) + var(--mobile-viewport-bottom-gap, 0px)
+    ) !important;
     display: inline-flex !important;
     align-items: center !important;
     gap: 6px !important;
@@ -9845,6 +9847,9 @@
     left: 50% !important;
     right: auto !important;
     transform: translateX(-50%) !important;
+    bottom: calc(
+      max(72px, env(safe-area-inset-bottom, 0px)) + var(--mobile-viewport-bottom-gap, 0px)
+    ) !important;
     padding: 6px 12px 6px 10px !important;
     gap: 5px !important;
     color: #ecfeff !important;
@@ -9863,6 +9868,16 @@
   }
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--exit:active {
     transform: translateX(-50%) scale(0.97) !important;
+  }
+  /* Полноэкран браузера: поднять панель Юга над системной шторкой Android */
+  .game-table-root.viewport-mobile.viewport-mobile-browser-fullscreen.viewport-mobile-short
+    .game-mobile-player-wrap,
+  .game-table-root.viewport-mobile.viewport-mobile-browser-fullscreen.viewport-mobile-standard-from-short-vh
+    .game-mobile-player-wrap {
+    padding-bottom: calc(
+      var(--mobile-viewport-bottom-gap, 0px) + max(4px, env(safe-area-inset-bottom, 0px))
+    ) !important;
+    box-sizing: border-box !important;
   }
   @media (prefers-reduced-motion: reduce) {
     .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--enter {

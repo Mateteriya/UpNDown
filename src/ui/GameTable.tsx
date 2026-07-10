@@ -117,9 +117,13 @@ import { canDriveOnlineRoomHost, isLanWsOnline } from '../lib/onlineHost';
 import { isServerAuthoritativeOnline, isWsOnlineTransport } from '../lib/onlineTransport';
 import {
   exitMobileBrowserFullscreen,
+  installMobileBrowserFullscreenResume,
+  installMobileViewportBottomInsetTracking,
   isAppStandaloneDisplayMode,
   isMobileBrowserFullscreenActive,
   requestMobileBrowserFullscreen,
+  setMobileBrowserFullscreenPreference,
+  syncMobileViewportBottomInsetCssVar,
 } from '../lib/mobileBrowserChrome';
 import { MobileSouthChatNameTicker } from './MobileSouthChatNameTicker';
 import {
@@ -1643,7 +1647,13 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   }, []);
   const [browserFullscreenActive, setBrowserFullscreenActive] = useState(() => isMobileBrowserFullscreenActive());
   useEffect(() => {
-    const upd = () => setBrowserFullscreenActive(isMobileBrowserFullscreenActive());
+    const upd = () => {
+      const active = isMobileBrowserFullscreenActive();
+      setBrowserFullscreenActive(active);
+      setMobileBrowserFullscreenPreference(active);
+      syncMobileViewportBottomInsetCssVar();
+    };
+    upd();
     document.addEventListener('fullscreenchange', upd);
     document.addEventListener('webkitfullscreenchange', upd as EventListener);
     return () => {
@@ -1651,6 +1661,15 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       document.removeEventListener('webkitfullscreenchange', upd as EventListener);
     };
   }, []);
+  useEffect(() => {
+    if (!isMobile) return;
+    const stopInset = installMobileViewportBottomInsetTracking();
+    const stopResume = installMobileBrowserFullscreenResume();
+    return () => {
+      stopInset();
+      stopResume();
+    };
+  }, [isMobile]);
   /** LAN/локальный WS: чат в Supabase — не показываем (иначе у вошедших в аккаунт ломается вёрстка vs гостей). */
   const showTableChat = !!(online.roomId && (isOnline || isWaitingInRoom) && user?.id && !isWsOnlineTransport());
   /** Последнее своё сообщение чата — бегущая строка на месте имени в моб. панели Юга */
@@ -3158,8 +3177,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     async (e: React.MouseEvent<HTMLButtonElement> | React.PointerEvent<HTMLButtonElement>) => {
       e.stopPropagation();
       if (isMobileBrowserFullscreenActive()) {
+        setMobileBrowserFullscreenPreference(false);
         await exitMobileBrowserFullscreen();
       } else {
+        setMobileBrowserFullscreenPreference(true);
         await requestMobileBrowserFullscreen();
       }
     },
@@ -6471,7 +6492,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{
         ...tableLayoutStyle,
         ...(mobileLandscapeNorthPanelFixedW != null
