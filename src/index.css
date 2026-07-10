@@ -9758,14 +9758,13 @@
         0 0 30px rgba(139, 92, 246, 0.32);
     }
   }
-  /* Short и «Стандарт после short»: «На весь экран» справа внизу; «Выйти» — по центру внизу */
-  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn {
+  /* Short и «Стандарт после short»: плавающая кнопка fullscreen — позиция задаётся в JS (перетаскивание) */
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--floating {
     position: fixed !important;
     z-index: 235 !important;
-    top: auto !important;
-    bottom: calc(
-      max(10px, env(safe-area-inset-bottom, 0px)) + var(--mobile-viewport-bottom-gap, 0px)
-    ) !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin: 0 !important;
     display: inline-flex !important;
     align-items: center !important;
     gap: 6px !important;
@@ -9774,16 +9773,21 @@
     font-size: 12px !important;
     font-weight: 700 !important;
     letter-spacing: 0.03em !important;
-    cursor: pointer !important;
+    cursor: grab !important;
+    touch-action: none !important;
     -webkit-tap-highlight-color: transparent !important;
     pointer-events: auto !important;
     border: none !important;
     isolation: isolate !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
+    .mobile-short-fullscreen-entry-btn--floating.mobile-short-fullscreen-entry-btn--dragging {
+    cursor: grabbing !important;
+    z-index: 240 !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--enter {
-    right: max(10px, env(safe-area-inset-right, 0px)) !important;
-    left: auto !important;
-    transform: none !important;
     color: #ecfeff !important;
     background:
       linear-gradient(168deg, rgba(8, 47, 73, 0.92) 0%, rgba(15, 23, 42, 0.96) 52%, rgba(30, 27, 75, 0.94) 100%) padding-box,
@@ -9840,16 +9844,9 @@
     filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.45)) drop-shadow(0 0 10px rgba(167, 139, 250, 0.28)) !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--enter:active {
-    transform: scale(0.97) !important;
     animation: none !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--exit {
-    left: 50% !important;
-    right: auto !important;
-    transform: translateX(-50%) !important;
-    bottom: calc(
-      max(72px, env(safe-area-inset-bottom, 0px)) + var(--mobile-viewport-bottom-gap, 0px)
-    ) !important;
     padding: 6px 12px 6px 10px !important;
     gap: 5px !important;
     color: #ecfeff !important;
@@ -9867,17 +9864,7 @@
     text-shadow: none !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--exit:active {
-    transform: translateX(-50%) scale(0.97) !important;
-  }
-  /* Полноэкран браузера: поднять панель Юга над системной шторкой Android */
-  .game-table-root.viewport-mobile.viewport-mobile-browser-fullscreen.viewport-mobile-short
-    .game-mobile-player-wrap,
-  .game-table-root.viewport-mobile.viewport-mobile-browser-fullscreen.viewport-mobile-standard-from-short-vh
-    .game-mobile-player-wrap {
-    padding-bottom: calc(
-      var(--mobile-viewport-bottom-gap, 0px) + max(4px, env(safe-area-inset-bottom, 0px))
-    ) !important;
-    box-sizing: border-box !important;
+    opacity: 0.92 !important;
   }
   @media (prefers-reduced-motion: reduce) {
     .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--enter {

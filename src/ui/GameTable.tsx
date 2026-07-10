@@ -125,6 +125,7 @@ import {
   setMobileBrowserFullscreenPreference,
   syncMobileViewportBottomInsetCssVar,
 } from '../lib/mobileBrowserChrome';
+import { MobileShortFullscreenFloatingBtn } from './MobileShortFullscreenFloatingBtn';
 import { MobileSouthChatNameTicker } from './MobileSouthChatNameTicker';
 import {
   formatPlayerNameForDisplay,
@@ -1631,7 +1632,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       window.visualViewport?.removeEventListener('scroll', upd);
     };
   }, []);
-  /** PWA / «на главный экран» — шапки браузера нет, кнопку «На весь экран» не показываем. */
+  /** Полноэкран браузера / PWA: отслеживаем display-mode standalone. */
   const [appStandaloneDisplay, setAppStandaloneDisplay] = useState(() => isAppStandaloneDisplayMode());
   useEffect(() => {
     const upd = () => setAppStandaloneDisplay(isAppStandaloneDisplayMode());
@@ -3173,27 +3174,22 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   }, [dismissShortVhSouthPullModeMenu, enterShortVhImmersiveWithMagnetSnap, prefersReducedMotion]);
 
   /** Short: только полноэкранный режим браузера — без иммерсива. */
-  const onShortVhFullscreenEntryTap = useCallback(
-    async (e: React.MouseEvent<HTMLButtonElement> | React.PointerEvent<HTMLButtonElement>) => {
-      e.stopPropagation();
-      if (isMobileBrowserFullscreenActive()) {
-        setMobileBrowserFullscreenPreference(false);
-        await exitMobileBrowserFullscreen();
-      } else {
-        setMobileBrowserFullscreenPreference(true);
-        await requestMobileBrowserFullscreen();
-      }
-    },
-    [],
-  );
+  const onShortVhFullscreenEntryTap = useCallback(async () => {
+    if (isMobileBrowserFullscreenActive()) {
+      setMobileBrowserFullscreenPreference(false);
+      await exitMobileBrowserFullscreen();
+    } else {
+      setMobileBrowserFullscreenPreference(true);
+      await requestMobileBrowserFullscreen();
+    }
+  }, []);
 
   const showShortFullscreenEntryBtn =
     isMobile &&
     !isMobileLandscape &&
     (mobileViewportShort || mobileStandardLayoutOnShortViewport) &&
     !isWaitingInRoom &&
-    !online.userOnPause &&
-    !appStandaloneDisplay;
+    !online.userOnPause;
 
   const onShortVhSouthPullMenuChooseStandard = useCallback(() => {
     dismissShortVhSouthPullModeMenu();
@@ -6762,41 +6758,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         </>
       )}
       {showShortFullscreenEntryBtn && (
-          <button
-            type="button"
-            className={[
-              'mobile-short-fullscreen-entry-btn',
-              browserFullscreenActive
-                ? 'mobile-short-fullscreen-entry-btn--exit'
-                : 'mobile-short-fullscreen-entry-btn--enter',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            onClick={(e) => {
-              void onShortVhFullscreenEntryTap(e);
-            }}
-            aria-label={
-              browserFullscreenActive
-                ? 'Выйти из полноэкранного режима'
-                : 'На весь экран: скрыть шапку браузера'
-            }
-            title={browserFullscreenActive ? 'Выйти из полноэкрана' : 'На весь экран'}
-          >
-            <span className="mobile-short-fullscreen-entry-btn__icon" aria-hidden>
-              {browserFullscreenActive ? '×' : '⛶'}
-            </span>
-            <span
-              className={[
-                'mobile-short-fullscreen-entry-btn__label',
-                !browserFullscreenActive ? 'mobile-short-fullscreen-entry-btn__label--shimmer' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-            >
-              {browserFullscreenActive ? 'Выйти' : 'На весь экран'}
-            </span>
-          </button>
-        )}
+        <MobileShortFullscreenFloatingBtn
+          mode={browserFullscreenActive ? 'exit' : 'enter'}
+          standaloneDisplay={appStandaloneDisplay}
+          onTap={() => {
+            void onShortVhFullscreenEntryTap();
+          }}
+        />
+      )}
       {isMobile &&
         mobileViewportShort &&
         mobileShortImmersiveInviteChip &&
