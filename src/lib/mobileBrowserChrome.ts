@@ -24,6 +24,49 @@ export function computeMobileViewportBottomGapPx(): number {
   return Math.max(0, Math.round(gap));
 }
 
+let safeAreaBottomProbe: HTMLDivElement | null = null;
+
+/** env(safe-area-inset-bottom) — home indicator iOS и часть Android. */
+export function readSafeAreaInsetBottomPx(): number {
+  if (typeof document === 'undefined') return 0;
+  try {
+    if (!safeAreaBottomProbe) {
+      const el = document.createElement('div');
+      el.style.cssText =
+        'position:fixed;left:0;bottom:0;width:0;height:0;padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none;';
+      safeAreaBottomProbe = el;
+    }
+    if (!safeAreaBottomProbe.isConnected) document.documentElement.appendChild(safeAreaBottomProbe);
+    return safeAreaBottomProbe.offsetHeight || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Суммарный отступ снизу: перекрытие visualViewport + safe-area + эвристика для PWA,
+ * где шторка Android иногда не отражается в gap.
+ */
+export function computeMobileBottomObstructionInsetPx(options?: {
+  standaloneDisplay?: boolean;
+  /** Доп. запас над краем (px). */
+  marginPx?: number;
+}): number {
+  const standalone = options?.standaloneDisplay ?? isAppStandaloneDisplayMode();
+  const margin = options?.marginPx ?? 12;
+  const vvGap = computeMobileViewportBottomGapPx();
+  const safeBottom = readSafeAreaInsetBottomPx();
+  /** Sony/Samsung PWA: gap=0, но 3-кнопочная панель ~48–56px. */
+  const heuristicNav = standalone ? 52 : vvGap > 0 ? 0 : 28;
+  return margin + Math.max(vvGap, safeBottom, heuristicNav);
+}
+
+export function readMobileVisibleViewportBottomPx(): number {
+  const vv = window.visualViewport;
+  if (vv != null) return vv.offsetTop + vv.height;
+  return window.innerHeight;
+}
+
 export function syncMobileViewportBottomInsetCssVar(): void {
   if (typeof document === 'undefined') return;
   const gap = computeMobileViewportBottomGapPx();
