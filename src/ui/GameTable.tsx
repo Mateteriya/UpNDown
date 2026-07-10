@@ -125,6 +125,10 @@ import {
   setMobileBrowserFullscreenPreference,
   syncMobileViewportBottomInsetCssVar,
 } from '../lib/mobileBrowserChrome';
+import {
+  MOBILE_SHORT_IMMERSIVE_ENABLED,
+  purgeDisabledMobileShortImmersiveStorage,
+} from '../lib/mobileViewportModes';
 import { MobileShortFullscreenFloatingBtn } from './MobileShortFullscreenFloatingBtn';
 import { MobileSouthChatNameTicker } from './MobileSouthChatNameTicker';
 import {
@@ -380,6 +384,7 @@ const MOBILE_SHORT_SOUTH_RESIZE_LIFT_PX = 0;
 const MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY = 'upd.gameTable.mobileShortHeaderImmersive.v1';
 
 function readStoredShortHeaderImmersive(): boolean {
+  if (!MOBILE_SHORT_IMMERSIVE_ENABLED) return false;
   if (typeof window === 'undefined') return false;
   try {
     return sessionStorage.getItem(MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY) === '1';
@@ -2053,6 +2058,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   /** Сразу из sessionStorage — иначе после F5 первый кадр false, а layout-effect ждёт state и может не восстановить. */
   const [mobileShortHeaderImmersive, setMobileShortHeaderImmersiveState] = useState(() => readStoredShortHeaderImmersive());
   const setMobileShortHeaderImmersive = useCallback((next: boolean) => {
+    if (next && !MOBILE_SHORT_IMMERSIVE_ENABLED) return;
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     if (next) {
       shortVhImmersiveReverseExitSuppressUntilRef.current = now + 480;
@@ -2070,6 +2076,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       else sessionStorage.removeItem(MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY);
     } catch {
       /* ignore */
+    }
+  }, []);
+  useEffect(() => {
+    purgeDisabledMobileShortImmersiveStorage();
+    if (!MOBILE_SHORT_IMMERSIVE_ENABLED) {
+      mobileShortHeaderImmersiveRef.current = false;
+      setMobileShortHeaderImmersiveState(false);
+      setMobileShortImmersiveInviteChip(false);
     }
   }, []);
   /** Ушко/рельса/фантомы/космическая закладка: везде на мобиле, кроме short immersive. */
@@ -2534,6 +2548,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
    */
   const enterShortVhImmersiveWithMagnetSnap = useCallback(
     (el: HTMLDivElement, mode: ShortVhEnterImmersiveMode = 'gentle') => {
+      if (!MOBILE_SHORT_IMMERSIVE_ENABLED) return;
       const nearBottomPx = 22;
 
       const useInstant = prefersReducedMotion || mode === 'instant';
@@ -2601,6 +2616,13 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     const el = mobileShortMainWrapRef.current;
     if (!el || !isMobileRef.current || !mobileViewportShort) return;
     if (onlineRef.current.userOnPause) return;
+
+    if (!MOBILE_SHORT_IMMERSIVE_ENABLED) {
+      setMobileShortImmersiveInviteChip(false);
+      shortVhImmersivePinnedToEndRef.current = false;
+      setShortImmersiveNwRowAlignPx((p) => (p !== 0 ? 0 : p));
+      return;
+    }
 
     const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
     if (maxTop < SHORT_VH_MAGNET_MIN_SCROLL_RANGE_PX) {
@@ -3164,14 +3186,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       /* ignore */
     }
   }, []);
-
-  const onShortVhSouthPullMenuChooseImmersive = useCallback(() => {
-    dismissShortVhSouthPullModeMenu();
-    const el = mobileShortMainWrapRef.current;
-    if (!el) return;
-    commitShortMainWrapScrollToEnd(el);
-    enterShortVhImmersiveWithMagnetSnap(el, prefersReducedMotion ? 'instant' : 'instant');
-  }, [dismissShortVhSouthPullModeMenu, enterShortVhImmersiveWithMagnetSnap, prefersReducedMotion]);
 
   /** Short: только полноэкранный режим браузера — без иммерсива. */
   const onShortVhFullscreenEntryTap = useCallback(async () => {
@@ -6767,6 +6781,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         />
       )}
       {isMobile &&
+        MOBILE_SHORT_IMMERSIVE_ENABLED &&
         mobileViewportShort &&
         mobileShortImmersiveInviteChip &&
         !mobileShortHeaderImmersive &&
@@ -6782,7 +6797,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               e.stopPropagation();
               openShortVhSouthPullModeMenu();
             }}
-            aria-label="Меню режимов: компактный иммерсив, обычный вид, свернуть ручку"
+            aria-label="Меню режимов низкого экрана: обычный вид, свернуть ручку"
           >
             Без шапки ↓
           </button>
@@ -6824,25 +6839,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 <span className="short-vh-south-pull-menu-portal__title-w3">экрана</span>
               </h2>
               <p className="short-vh-south-pull-menu-portal__lead">
-                Как показать стол и панель на этом экране. Или кнопка «На весь экран» справа внизу.
+                Обычный вид на низком экране или свёрнутая ручка. Полный экран браузера — кнопка «На весь экран».
               </p>
               <div className="short-vh-south-pull-menu-portal__opts">
-                <button
-                  type="button"
-                  className="short-vh-south-pull-menu-portal__opt short-vh-south-pull-menu-portal__opt--immersive"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onShortVhSouthPullMenuChooseImmersive();
-                  }}
-                >
-                  <span className="short-vh-south-pull-menu-portal__opt-ico" aria-hidden>
-                    ✦
-                  </span>
-                  <span className="short-vh-south-pull-menu-portal__opt-body">
-                    <span className="short-vh-south-pull-menu-portal__opt-k">Самый компактный</span>
-                    <span className="short-vh-south-pull-menu-portal__opt-d">Без шапки, стол на весь экран</span>
-                  </span>
-                </button>
                 <button
                   type="button"
                   className="short-vh-south-pull-menu-portal__opt short-vh-south-pull-menu-portal__opt--standard"

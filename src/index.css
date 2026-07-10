@@ -9847,15 +9847,51 @@
     animation: none !important;
   }
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--exit {
-    padding: 6px 12px 6px 10px !important;
-    gap: 5px !important;
-    color: #ecfeff !important;
-    border: 1px solid rgba(248, 113, 113, 0.55) !important;
-    background: linear-gradient(180deg, rgba(127, 29, 29, 0.55), rgba(15, 23, 42, 0.94)) !important;
+    padding: 8px 16px 8px 12px !important;
+    gap: 6px !important;
+    color: #fff1f2 !important;
+    border: 1.5px solid transparent !important;
+    background:
+      linear-gradient(168deg, rgba(69, 10, 10, 0.88) 0%, rgba(15, 23, 42, 0.96) 55%, rgba(76, 29, 29, 0.9) 100%) padding-box,
+      linear-gradient(125deg, #f87171 0%, #fb923c 35%, #f43f5e 65%, #fda4af 100%) border-box !important;
     box-shadow:
-      0 4px 16px rgba(0, 0, 0, 0.38),
-      0 0 10px rgba(248, 113, 113, 0.22) !important;
-    animation: none !important;
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 0 0 1px rgba(248, 113, 113, 0.35),
+      0 4px 20px rgba(0, 0, 0, 0.42),
+      0 0 18px rgba(248, 113, 113, 0.28),
+      0 0 28px rgba(251, 146, 60, 0.14) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    animation: short-fullscreen-exit-glow 3s ease-in-out infinite !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
+    .mobile-short-fullscreen-entry-btn--exit
+    .mobile-short-fullscreen-entry-btn__label--exit {
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    color: #fecdd3 !important;
+    text-shadow: 0 0 12px rgba(248, 113, 113, 0.55), 0 0 4px rgba(251, 146, 60, 0.35) !important;
+  }
+  @keyframes short-fullscreen-exit-glow {
+    0%,
+    100% {
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 0 0 1px rgba(248, 113, 113, 0.35),
+        0 4px 20px rgba(0, 0, 0, 0.42),
+        0 0 14px rgba(248, 113, 113, 0.22),
+        0 0 22px rgba(251, 146, 60, 0.1);
+    }
+    50% {
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        0 0 0 1px rgba(251, 146, 60, 0.45),
+        0 4px 22px rgba(0, 0, 0, 0.45),
+        0 0 22px rgba(248, 113, 113, 0.38),
+        0 0 32px rgba(251, 146, 60, 0.2);
+    }
   }
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--exit .mobile-short-fullscreen-entry-btn__icon {
     font-size: 18px !important;
@@ -9868,6 +9904,9 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--enter {
+      animation: none !important;
+    }
+    .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--exit {
       animation: none !important;
     }
     .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn

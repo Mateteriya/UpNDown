@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { computeMobileViewportBottomGapPx } from '../lib/mobileBrowserChrome';
 
-const POS_STORAGE_KEY = 'upd.mobileShortFullscreenBtnPos.v1';
+const POS_STORAGE_ENTER = 'upd.mobileShortFullscreenBtnPos.enter.v1';
+const POS_STORAGE_EXIT = 'upd.mobileShortFullscreenBtnPos.exit.v1';
 const DRAG_THRESHOLD_PX = 10;
 
 type StoredPos = { x: number; y: number };
 type Mode = 'enter' | 'exit';
 
-function readStoredPos(): StoredPos | null {
+function storageKeyForMode(mode: Mode): string {
+  return mode === 'exit' ? POS_STORAGE_EXIT : POS_STORAGE_ENTER;
+}
+
+function readStoredPos(mode: Mode): StoredPos | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = localStorage.getItem(POS_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKeyForMode(mode));
     if (!raw) return null;
     const p = JSON.parse(raw) as StoredPos;
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return null;
@@ -20,9 +25,9 @@ function readStoredPos(): StoredPos | null {
   }
 }
 
-function writeStoredPos(pos: StoredPos): void {
+function writeStoredPos(mode: Mode, pos: StoredPos): void {
   try {
-    localStorage.setItem(POS_STORAGE_KEY, JSON.stringify(pos));
+    localStorage.setItem(storageKeyForMode(mode), JSON.stringify(pos));
   } catch {
     /* ignore */
   }
@@ -53,10 +58,11 @@ function clampPos(x: number, y: number, pad = 10): StoredPos {
   };
 }
 
+/** Стартовая позиция: enter — справа внизу; exit — по центру у самого низа. */
 function defaultPosForMode(mode: Mode, standaloneDisplay = false): StoredPos {
   const box = readViewportBox();
   const gap = computeMobileViewportBottomGapPx();
-  const bottomInset = 12 + gap + (standaloneDisplay ? 52 : 0);
+  const bottomInset = mode === 'exit' ? 10 + gap + (standaloneDisplay ? 40 : 0) : 12 + gap + (standaloneDisplay ? 52 : 0);
   const y = box.top + box.height - bottomInset;
   if (mode === 'enter') {
     return clampPos(box.left + box.width - 72, y);
@@ -65,20 +71,21 @@ function defaultPosForMode(mode: Mode, standaloneDisplay = false): StoredPos {
 }
 
 function resolveInitialPos(mode: Mode, standaloneDisplay = false): StoredPos {
-  return readStoredPos() ?? defaultPosForMode(mode, standaloneDisplay);
+  return readStoredPos(mode) ?? defaultPosForMode(mode, standaloneDisplay);
 }
 
 type Props = {
   mode: Mode;
   onTap: () => void;
-  /** PWA: системная шторка Android чаще перекрывает низ — стартовая позиция выше. */
   standaloneDisplay?: boolean;
 };
 
 export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDisplay = false }: Props) {
   const [pos, setPos] = useState<StoredPos>(() => resolveInitialPos(mode, standaloneDisplay));
   const [dragging, setDragging] = useState(false);
-  const hasCustomPosRef = useRef(readStoredPos() != null);
+  const hasCustomPosRef = useRef(readStoredPos(mode) != null);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -89,10 +96,13 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
   } | null>(null);
 
   useEffect(() => {
-    if (hasCustomPosRef.current) {
-      setPos((p) => clampPos(p.x, p.y));
+    const saved = readStoredPos(mode);
+    if (saved) {
+      hasCustomPosRef.current = true;
+      setPos(clampPos(saved.x, saved.y));
       return;
     }
+    hasCustomPosRef.current = false;
     setPos(defaultPosForMode(mode, standaloneDisplay));
   }, [mode, standaloneDisplay]);
 
@@ -134,8 +144,7 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
     if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
     d.moved = true;
     setDragging(true);
-    const next = clampPos(d.originX + dx, d.originY + dy);
-    setPos(next);
+    setPos(clampPos(d.originX + dx, d.originY + dy));
   }, []);
 
   const onPointerUp = useCallback(
@@ -153,7 +162,7 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
         hasCustomPosRef.current = true;
         setPos((current) => {
           const next = clampPos(current.x, current.y);
-          writeStoredPos(next);
+          writeStoredPos(modeRef.current, next);
           return next;
         });
         return;
@@ -193,9 +202,11 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
       aria-label={
-        isExit ? 'Выйти из полноэкранного режима. Перетащите, чтобы сменить место.' : 'На весь экран. Перетащите, чтобы сменить место.'
+        isExit
+          ? 'Выйти из полноэкранного режима. Удерживайте и перетащите, чтобы сменить место.'
+          : 'На весь экран. Удерживайте и перетащите, чтобы сменить место.'
       }
-      title={isExit ? 'Выйти (перетащите кнопку)' : 'На весь экран (перетащите кнопку)'}
+      title={isExit ? 'Выйти (перетащите)' : 'На весь экран (перетащите)'}
     >
       <span className="mobile-short-fullscreen-entry-btn__icon" aria-hidden>
         {isExit ? '×' : '⛶'}
@@ -203,7 +214,7 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
       <span
         className={[
           'mobile-short-fullscreen-entry-btn__label',
-          !isExit ? 'mobile-short-fullscreen-entry-btn__label--shimmer' : '',
+          !isExit ? 'mobile-short-fullscreen-entry-btn__label--shimmer' : 'mobile-short-fullscreen-entry-btn__label--exit',
         ]
           .filter(Boolean)
           .join(' ')}
