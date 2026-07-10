@@ -376,7 +376,7 @@ export function AvatarEditorModal({
     setPhotoOffsetY(0);
     setBaseMode('template');
     setPolishApplied(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (selfieInputRef.current) selfieInputRef.current.value = '';
   };
 
   const changePhotoScale = (delta: number) => {

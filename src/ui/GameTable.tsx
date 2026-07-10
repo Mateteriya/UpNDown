@@ -114,7 +114,22 @@ import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
 import { UserAvatarMenuSheet } from './UserAvatarMenuSheet';
 import { canDriveOnlineRoomHost, isLanWsOnline } from '../lib/onlineHost';
-import { isServerAuthoritativeOnline } from '../lib/onlineTransport';
+import { isServerAuthoritativeOnline, isWsOnlineTransport } from '../lib/onlineTransport';
+import {
+  exitMobileBrowserFullscreen,
+  installMobileBrowserFullscreenResume,
+  installMobileViewportBottomInsetTracking,
+  isAppStandaloneDisplayMode,
+  isMobileBrowserFullscreenActive,
+  requestMobileBrowserFullscreen,
+  setMobileBrowserFullscreenPreference,
+  syncMobileViewportBottomInsetCssVar,
+} from '../lib/mobileBrowserChrome';
+import {
+  MOBILE_SHORT_IMMERSIVE_ENABLED,
+  purgeDisabledMobileShortImmersiveStorage,
+} from '../lib/mobileViewportModes';
+import { MobileShortFullscreenFloatingBtn } from './MobileShortFullscreenFloatingBtn';
 import { MobileSouthChatNameTicker } from './MobileSouthChatNameTicker';
 import {
   formatPlayerNameForDisplay,
@@ -369,6 +384,7 @@ const MOBILE_SHORT_SOUTH_RESIZE_LIFT_PX = 0;
 const MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY = 'upd.gameTable.mobileShortHeaderImmersive.v1';
 
 function readStoredShortHeaderImmersive(): boolean {
+  if (!MOBILE_SHORT_IMMERSIVE_ENABLED) return false;
   if (typeof window === 'undefined') return false;
   try {
     return sessionStorage.getItem(MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY) === '1';
@@ -1621,7 +1637,47 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       window.visualViewport?.removeEventListener('scroll', upd);
     };
   }, []);
-  const showTableChat = !!(online.roomId && (isOnline || isWaitingInRoom) && user?.id);
+  /** Полноэкран браузера / PWA: отслеживаем display-mode standalone. */
+  const [appStandaloneDisplay, setAppStandaloneDisplay] = useState(() => isAppStandaloneDisplayMode());
+  useEffect(() => {
+    const upd = () => setAppStandaloneDisplay(isAppStandaloneDisplayMode());
+    upd();
+    const mqStandalone = window.matchMedia('(display-mode: standalone)');
+    const mqFullscreen = window.matchMedia('(display-mode: fullscreen)');
+    mqStandalone.addEventListener('change', upd);
+    mqFullscreen.addEventListener('change', upd);
+    return () => {
+      mqStandalone.removeEventListener('change', upd);
+      mqFullscreen.removeEventListener('change', upd);
+    };
+  }, []);
+  const [browserFullscreenActive, setBrowserFullscreenActive] = useState(() => isMobileBrowserFullscreenActive());
+  useEffect(() => {
+    const upd = () => {
+      const active = isMobileBrowserFullscreenActive();
+      setBrowserFullscreenActive(active);
+      setMobileBrowserFullscreenPreference(active);
+      syncMobileViewportBottomInsetCssVar();
+    };
+    upd();
+    document.addEventListener('fullscreenchange', upd);
+    document.addEventListener('webkitfullscreenchange', upd as EventListener);
+    return () => {
+      document.removeEventListener('fullscreenchange', upd);
+      document.removeEventListener('webkitfullscreenchange', upd as EventListener);
+    };
+  }, []);
+  useEffect(() => {
+    if (!isMobile) return;
+    const stopInset = installMobileViewportBottomInsetTracking();
+    const stopResume = installMobileBrowserFullscreenResume();
+    return () => {
+      stopInset();
+      stopResume();
+    };
+  }, [isMobile]);
+  /** LAN/локальный WS: чат в Supabase — не показываем (иначе у вошедших в аккаунт ломается вёрстка vs гостей). */
+  const showTableChat = !!(online.roomId && (isOnline || isWaitingInRoom) && user?.id && !isWsOnlineTransport());
   /** Последнее своё сообщение чата — бегущая строка на месте имени в моб. панели Юга */
   const [mobileOwnChatTicker, setMobileOwnChatTicker] = useState<{ body: string; key: number } | null>(null);
   const mobileOwnChatClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2002,6 +2058,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   /** Сразу из sessionStorage — иначе после F5 первый кадр false, а layout-effect ждёт state и может не восстановить. */
   const [mobileShortHeaderImmersive, setMobileShortHeaderImmersiveState] = useState(() => readStoredShortHeaderImmersive());
   const setMobileShortHeaderImmersive = useCallback((next: boolean) => {
+    if (next && !MOBILE_SHORT_IMMERSIVE_ENABLED) return;
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     if (next) {
       shortVhImmersiveReverseExitSuppressUntilRef.current = now + 480;
@@ -2019,6 +2076,14 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       else sessionStorage.removeItem(MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY);
     } catch {
       /* ignore */
+    }
+  }, []);
+  useEffect(() => {
+    purgeDisabledMobileShortImmersiveStorage();
+    if (!MOBILE_SHORT_IMMERSIVE_ENABLED) {
+      mobileShortHeaderImmersiveRef.current = false;
+      setMobileShortHeaderImmersiveState(false);
+      setMobileShortImmersiveInviteChip(false);
     }
   }, []);
   /** Ушко/рельса/фантомы/космическая закладка: везде на мобиле, кроме short immersive. */
@@ -2483,6 +2548,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
    */
   const enterShortVhImmersiveWithMagnetSnap = useCallback(
     (el: HTMLDivElement, mode: ShortVhEnterImmersiveMode = 'gentle') => {
+      if (!MOBILE_SHORT_IMMERSIVE_ENABLED) return;
       const nearBottomPx = 22;
 
       const useInstant = prefersReducedMotion || mode === 'instant';
@@ -2550,6 +2616,13 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     const el = mobileShortMainWrapRef.current;
     if (!el || !isMobileRef.current || !mobileViewportShort) return;
     if (onlineRef.current.userOnPause) return;
+
+    if (!MOBILE_SHORT_IMMERSIVE_ENABLED) {
+      setMobileShortImmersiveInviteChip(false);
+      shortVhImmersivePinnedToEndRef.current = false;
+      setShortImmersiveNwRowAlignPx((p) => (p !== 0 ? 0 : p));
+      return;
+    }
 
     const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
     if (maxTop < SHORT_VH_MAGNET_MIN_SCROLL_RANGE_PX) {
@@ -3114,13 +3187,23 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     }
   }, []);
 
-  const onShortVhSouthPullMenuChooseImmersive = useCallback(() => {
-    dismissShortVhSouthPullModeMenu();
-    const el = mobileShortMainWrapRef.current;
-    if (!el) return;
-    commitShortMainWrapScrollToEnd(el);
-    enterShortVhImmersiveWithMagnetSnap(el, prefersReducedMotion ? 'instant' : 'instant');
-  }, [dismissShortVhSouthPullModeMenu, enterShortVhImmersiveWithMagnetSnap, prefersReducedMotion]);
+  /** Short: только полноэкранный режим браузера — без иммерсива. */
+  const onShortVhFullscreenEntryTap = useCallback(async () => {
+    if (isMobileBrowserFullscreenActive()) {
+      setMobileBrowserFullscreenPreference(false);
+      await exitMobileBrowserFullscreen();
+    } else {
+      setMobileBrowserFullscreenPreference(true);
+      await requestMobileBrowserFullscreen();
+    }
+  }, []);
+
+  const showShortFullscreenEntryBtn =
+    isMobile &&
+    !isMobileLandscape &&
+    (mobileViewportShort || mobileStandardLayoutOnShortViewport) &&
+    !isWaitingInRoom &&
+    !online.userOnPause;
 
   const onShortVhSouthPullMenuChooseStandard = useCallback(() => {
     dismissShortVhSouthPullModeMenu();
@@ -6419,7 +6502,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{
         ...tableLayoutStyle,
         ...(mobileLandscapeNorthPanelFixedW != null
@@ -6688,7 +6771,17 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           )}
         </>
       )}
+      {showShortFullscreenEntryBtn && (
+        <MobileShortFullscreenFloatingBtn
+          mode={browserFullscreenActive ? 'exit' : 'enter'}
+          standaloneDisplay={appStandaloneDisplay}
+          onTap={() => {
+            void onShortVhFullscreenEntryTap();
+          }}
+        />
+      )}
       {isMobile &&
+        MOBILE_SHORT_IMMERSIVE_ENABLED &&
         mobileViewportShort &&
         mobileShortImmersiveInviteChip &&
         !mobileShortHeaderImmersive &&
@@ -6704,7 +6797,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               e.stopPropagation();
               openShortVhSouthPullModeMenu();
             }}
-            aria-label="Меню режимов: компактный иммерсив, обычный вид, свернуть ручку"
+            aria-label="Меню режимов низкого экрана: обычный вид, свернуть ручку"
           >
             Без шапки ↓
           </button>
@@ -6745,24 +6838,10 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 <span className="short-vh-south-pull-menu-portal__title-w2">низкого</span>{' '}
                 <span className="short-vh-south-pull-menu-portal__title-w3">экрана</span>
               </h2>
-              <p className="short-vh-south-pull-menu-portal__lead">Как показать стол и панель на этом экране</p>
+              <p className="short-vh-south-pull-menu-portal__lead">
+                Обычный вид на низком экране или свёрнутая ручка. Полный экран браузера — кнопка «На весь экран».
+              </p>
               <div className="short-vh-south-pull-menu-portal__opts">
-                <button
-                  type="button"
-                  className="short-vh-south-pull-menu-portal__opt short-vh-south-pull-menu-portal__opt--immersive"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onShortVhSouthPullMenuChooseImmersive();
-                  }}
-                >
-                  <span className="short-vh-south-pull-menu-portal__opt-ico" aria-hidden>
-                    ✦
-                  </span>
-                  <span className="short-vh-south-pull-menu-portal__opt-body">
-                    <span className="short-vh-south-pull-menu-portal__opt-k">Самый компактный</span>
-                    <span className="short-vh-south-pull-menu-portal__opt-d">Без шапки, стол на весь экран</span>
-                  </span>
-                </button>
                 <button
                   type="button"
                   className="short-vh-south-pull-menu-portal__opt short-vh-south-pull-menu-portal__opt--standard"
@@ -7893,23 +7972,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   className="bid-panel-mobile-on-table-stack"
                   style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}
                 >
-                  <span
-                    className="bid-panel-mobile-badge"
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      padding: '2px 6px',
-                      fontSize: 14,
-                      fontWeight: 600,
-                      background: 'transparent',
-                      whiteSpace: 'nowrap',
-                      zIndex: 1,
-                      border: '1px solid rgba(34, 211, 238, 0.85)',
-                      borderRadius: 10,
-                    }}
-                  >
+                  <span className="bid-panel-mobile-badge">
                     <span className="bid-panel-mobile-badge-text">
                       {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Сколько хотите взять взяток:'}
                     </span>
@@ -7918,8 +7981,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                     className="bid-panel bid-panel-inline bid-panel-bottom bid-panel-mobile-inline"
                     style={{
                       ...bidPanelInlineStyle,
-                      padding: '10px 14px',
-                      gap: 8,
                       pointerEvents: 'auto',
                     }}
                     aria-label="Выбор заказа"

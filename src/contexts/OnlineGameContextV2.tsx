@@ -79,7 +79,7 @@ function applyRoomRow(
   setters.setStatus(row.status === 'playing' ? 'playing' : row.status === 'finished' ? 'finished' : 'waiting');
   setters.setPlayerSlots((row.player_slots as PlayerSlot[]) ?? []);
   setters.setHostUserId(row.host_user_id ?? null);
-  setters.setRoomPhase(normalizeRoomPhase(row.room_phase));
+  setters.setRoomPhase(normalizeRoomPhase(row));
   setters.setSettlementMode((row.settlement_mode as SettlementMode) ?? DEFAULT_CASUAL_SETTLEMENT);
   setters.setBuyIn(row.buy_in ?? null);
   setters.setRoomKind((row.room_kind as RoomKind) ?? 'private');
@@ -154,7 +154,9 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     revisionRef.current = push.revision;
     setCanonicalState(push.state);
     if (push.playerSlots) setPlayerSlots(push.playerSlots);
-    if (push.roomPhase) setRoomPhase(normalizeRoomPhase(push.roomPhase));
+    if (push.roomPhase) {
+      setRoomPhase(normalizeRoomPhase({ status: 'playing', room_phase: push.roomPhase }));
+    }
     setStatus('playing');
   }, []);
 
@@ -395,14 +397,26 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
   );
 
   const syncMySlotAvatar = useCallback(async () => {
-    if (!roomId || status !== 'waiting') return;
+    if (!roomId) return;
     const avatar = getPlayerProfile().avatarDataUrl ?? undefined;
     const slots = playerSlots.map((s) =>
-      s.userId === onlinePlayerId ? { ...s, avatarDataUrl: avatar } : s,
+      s.userId === onlinePlayerId
+        ? { ...s, ...(avatar != null && avatar !== '' ? { avatarDataUrl: avatar } : { avatarDataUrl: null }) }
+        : s,
     );
     await updateRoomPlayerSlots(roomId, slots);
     await refreshRoom();
-  }, [roomId, status, playerSlots, onlinePlayerId, refreshRoom]);
+  }, [roomId, playerSlots, onlinePlayerId, refreshRoom]);
+
+  const profileSyncedRoomRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!roomId || status !== 'waiting') return;
+    if (profileSyncedRoomRef.current === roomId) return;
+    profileSyncedRoomRef.current = roomId;
+    const name = getPlayerProfile().displayName?.trim();
+    if (name) void syncMySlotDisplayName(name);
+    void syncMySlotAvatar();
+  }, [roomId, status, syncMySlotDisplayName, syncMySlotAvatar]);
 
   const takePause = useCallback(async () => {
     if (!roomId) return false;

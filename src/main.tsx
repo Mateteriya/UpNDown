@@ -25,9 +25,10 @@ import './theme-neon.css'
 import './index.css'
 import './styles/tableChatSideEarMobile.css'
 import { bootstrapLanPlayFromServer } from './lib/lanJoinLink'
-import { installPwaStaleRecovery } from './lib/pwaStaleRecovery'
+import { installPwaStaleRecovery, stripRecoveryQueryFromUrl } from './lib/pwaStaleRecovery'
 
 installPwaStaleRecovery()
+stripRecoveryQueryFromUrl()
 
 // LAN: /play/ с порта сервера — WS + v2 до инициализации контекста
 bootstrapLanPlayFromServer()
