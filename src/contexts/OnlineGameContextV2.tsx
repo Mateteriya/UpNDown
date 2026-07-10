@@ -79,7 +79,7 @@ function applyRoomRow(
   setters.setStatus(row.status === 'playing' ? 'playing' : row.status === 'finished' ? 'finished' : 'waiting');
   setters.setPlayerSlots((row.player_slots as PlayerSlot[]) ?? []);
   setters.setHostUserId(row.host_user_id ?? null);
-  setters.setRoomPhase(normalizeRoomPhase(row.room_phase));
+  setters.setRoomPhase(normalizeRoomPhase(row));
   setters.setSettlementMode((row.settlement_mode as SettlementMode) ?? DEFAULT_CASUAL_SETTLEMENT);
   setters.setBuyIn(row.buy_in ?? null);
   setters.setRoomKind((row.room_kind as RoomKind) ?? 'private');
@@ -154,7 +154,9 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     revisionRef.current = push.revision;
     setCanonicalState(push.state);
     if (push.playerSlots) setPlayerSlots(push.playerSlots);
-    if (push.roomPhase) setRoomPhase(normalizeRoomPhase(push.roomPhase));
+    if (push.roomPhase) {
+      setRoomPhase(normalizeRoomPhase({ status: 'playing', room_phase: push.roomPhase }));
+    }
     setStatus('playing');
   }, []);
 

@@ -56,7 +56,7 @@ import {
   removeIgnoredRoomForAutoRestore,
 } from '../lib/onlineIgnoredRooms';
 import { getOnlinePlayerId } from '../lib/deviceId';
-import { isServerAuthoritativeOnline } from '../lib/onlineTransport';
+import { isServerAuthoritativeOnline, isWsOnlineConfigured } from '../lib/onlineTransport';
 import { wsV2StartGame } from '../lib/onlineGameWs';
 import { OnlineGameProviderV2 } from './OnlineGameContextV2';
 
@@ -147,7 +147,8 @@ function cardEqual(a: Card, b: Card): boolean {
  */
 function tricksTakenEqual(a: GameState, b: GameState): boolean {
   try {
-    return JSON.stringify(a.tricksTaken) === JSON.stringify(b.tricksTaken);
+    const taken = (s: GameState) => s.players.map((p) => p.tricksTaken ?? 0);
+    return JSON.stringify(taken(a)) === JSON.stringify(taken(b));
   } catch {
     return false;
   }

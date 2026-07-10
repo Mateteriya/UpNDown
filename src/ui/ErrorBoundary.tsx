@@ -3,7 +3,7 @@
  */
 
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
-import { resetPwaCacheAndReload } from '../lib/pwaStaleRecovery';
+import { hardReloadPage, resetPwaCacheAndReload } from '../lib/pwaStaleRecovery';
 
 interface Props {
   children: ReactNode;
@@ -12,12 +12,24 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  busy: 'reload' | 'reset' | null;
+}
+
+function runHardReload(clearCache: boolean): void {
+  if (clearCache) {
+    void resetPwaCacheAndReload().catch(() => {
+      window.__updownHardReload?.(true);
+      hardReloadPage();
+    });
+    return;
+  }
+  hardReloadPage();
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, error: null };
+  state: State = { hasError: false, error: null, busy: null };
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
@@ -28,6 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       const isAuthReturn = typeof window !== 'undefined' && window.location.hash?.includes('access_token');
+      const busy = this.state.busy;
       return (
         <div
           style={{
@@ -49,10 +62,17 @@ export class ErrorBoundary extends Component<Props, State> {
               Возможно, ошибка при возврате после входа. Попробуйте обновить страницу.
             </p>
           )}
+          <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16, maxWidth: 360, lineHeight: 1.45 }}>
+            Если после деплоя приложение «застряло», нажмите сброс кэша — это снимет старый Service Worker.
+          </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              disabled={busy !== null}
+              onClick={() => {
+                this.setState({ busy: 'reload' });
+                runHardReload(false);
+              }}
               style={{
                 padding: '12px 24px',
                 fontSize: 16,
@@ -60,14 +80,19 @@ export class ErrorBoundary extends Component<Props, State> {
                 border: '1px solid #334155',
                 background: '#1e293b',
                 color: '#22d3ee',
-                cursor: 'pointer',
+                cursor: busy ? 'wait' : 'pointer',
+                opacity: busy && busy !== 'reload' ? 0.6 : 1,
               }}
             >
-              Обновить страницу
+              {busy === 'reload' ? 'Обновляем…' : 'Обновить страницу'}
             </button>
             <button
               type="button"
-              onClick={() => void resetPwaCacheAndReload()}
+              disabled={busy !== null}
+              onClick={() => {
+                this.setState({ busy: 'reset' });
+                runHardReload(true);
+              }}
               style={{
                 padding: '10px 20px',
                 fontSize: 14,
@@ -75,10 +100,11 @@ export class ErrorBoundary extends Component<Props, State> {
                 border: '1px solid #334155',
                 background: 'transparent',
                 color: '#94a3b8',
-                cursor: 'pointer',
+                cursor: busy ? 'wait' : 'pointer',
+                opacity: busy && busy !== 'reset' ? 0.6 : 1,
               }}
             >
-              Сбросить кэш приложения
+              {busy === 'reset' ? 'Сбрасываем кэш…' : 'Сбросить кэш приложения'}
             </button>
           </div>
         </div>
