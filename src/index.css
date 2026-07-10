@@ -7527,6 +7527,105 @@
     padding: 0 !important;
   }
   /*
+   * Short без immersive (~6% компактнее по вертикали): стол, С/З/В, зазоры и рука Юга —
+   * чтобы нижняя обводка панели пользователя помещалась на экране без обрезки.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive) {
+    --short-vh-y-compact: 0.94;
+    --game-table-surface-height: min(calc(236px * var(--short-vh-y-compact)), calc(40.9vh * var(--short-vh-y-compact))) !important;
+    --game-table-row-height: calc(64px * var(--short-vh-y-compact)) !important;
+    --game-table-center-margin-top: calc(3px * var(--short-vh-y-compact)) !important;
+    --mobile-table-east-gap: calc(5px * var(--short-vh-y-compact)) !important;
+    --game-table-block-margin-top: calc(8px * var(--short-vh-y-compact)) !important;
+    --game-north-slot-bottom: calc(-7px * var(--short-vh-y-compact)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short.viewport-mobile-short-header-immersive {
+    --short-vh-y-compact: 0.94;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    > .game-table-main-wrap.game-table-main-wrap--short-vh {
+    padding-top: calc(28px * var(--short-vh-y-compact, 0.94) + env(safe-area-inset-top, 0px)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive) .game-mobile-top-row {
+    padding-top: calc(28px * var(--short-vh-y-compact, 0.94)) !important;
+    margin-bottom: var(--mobile-table-east-gap, 4.7px) !important;
+    gap: calc(4px * var(--short-vh-y-compact, 0.94)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    .game-mobile-top-row
+    .game-mobile-slot-north
+    > div,
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    .game-mobile-top-row
+    .game-mobile-slot-west
+    > div {
+    gap: calc(4px * var(--short-vh-y-compact, 0.94)) !important;
+    padding-bottom: calc(4px * var(--short-vh-y-compact, 0.94)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    .game-mobile-top-row
+    .opponent-slot {
+    zoom: var(--short-vh-y-compact, 0.94);
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    .game-center-area.game-mobile-center
+    .game-center-east
+    .opponent-slot-east {
+    zoom: var(--short-vh-y-compact, 0.94);
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    .game-mobile-hand-user-stack {
+    gap: calc(2px * var(--short-vh-y-compact, 0.94)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    .user-player-panel.user-player-panel--short-vh
+    .game-mobile-user-south-main {
+    --south-user-short-inline-pad: calc(6px * var(--short-vh-y-compact, 0.94));
+    padding-bottom: calc(2px * var(--short-vh-y-compact, 0.94)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    .game-mobile-user-south-main
+    .game-mobile-south-panel-hand {
+    padding-top: calc(2px * var(--short-vh-y-compact, 0.94)) !important;
+    padding-bottom: calc(2px * var(--short-vh-y-compact, 0.94)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    .game-mobile-south-panel-hand
+    > div.game-mobile-hand-row {
+    zoom: var(--short-vh-y-compact, 0.94);
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    .game-mobile-bottom-row {
+    padding-bottom: calc(6px * var(--short-vh-y-compact, 0.94)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    .game-mobile-upper-board
+    .game-info-left-section {
+    padding: calc(3px * var(--short-vh-y-compact, 0.94)) calc(8px * var(--short-vh-y-compact, 0.94))
+      calc(5px * var(--short-vh-y-compact, 0.94)) !important;
+    min-height: calc(40px * var(--short-vh-y-compact, 0.94)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    .game-mobile-upper-board
+    .game-info-left-section
+    > div {
+    margin-bottom: calc(10px * var(--short-vh-y-compact, 0.94)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    .game-mobile-upper-board
+    .game-info-left-section
+    > div
+    > span:first-of-type {
+    font-size: calc(11px * var(--short-vh-y-compact, 0.94)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-short-header-immersive)
+    .game-mobile-upper-board
+    .game-info-left-section
+    > div
+    > span:last-of-type {
+    font-size: calc(15px * var(--short-vh-y-compact, 0.94)) !important;
+  }
+  /*
    * Низкий экран (<652): минимум между низом стола и блоком Юга.
    * Зазор стол|Восток задаётся только у .game-mobile-center (inline + правила ниже) — здесь только колонка «стол+Восток» | «рука/панель».
    */
@@ -9629,6 +9728,155 @@
     border: 1px solid rgba(94, 234, 212, 0.55) !important;
     background: linear-gradient(180deg, rgba(13, 148, 136, 0.55), rgba(15, 23, 42, 0.92)) !important;
     box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), 0 0 14px rgba(34, 211, 238, 0.25) !important;
+  }
+  @keyframes short-fullscreen-entry-label-shimmer {
+    0% {
+      background-position: 0% 50%;
+    }
+    100% {
+      background-position: 200% 50%;
+    }
+  }
+  @keyframes short-fullscreen-entry-enter-glow {
+    0%,
+    100% {
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        inset 0 0 16px rgba(34, 211, 238, 0.12),
+        0 0 0 1px rgba(34, 211, 238, 0.35),
+        0 4px 18px rgba(0, 0, 0, 0.38),
+        0 0 14px rgba(34, 211, 238, 0.28),
+        0 0 22px rgba(139, 92, 246, 0.18);
+    }
+    50% {
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        inset 0 0 22px rgba(167, 139, 250, 0.18),
+        0 0 0 1px rgba(167, 139, 250, 0.5),
+        0 4px 20px rgba(0, 0, 0, 0.4),
+        0 0 20px rgba(34, 211, 238, 0.42),
+        0 0 30px rgba(139, 92, 246, 0.32);
+    }
+  }
+  /* Short и «Стандарт после short»: «На весь экран» справа внизу; «Выйти» — по центру внизу */
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn {
+    position: fixed !important;
+    z-index: 235 !important;
+    top: auto !important;
+    bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 7px 14px 7px 11px !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.03em !important;
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: transparent !important;
+    pointer-events: auto !important;
+    border: none !important;
+    isolation: isolate !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--enter {
+    right: max(10px, env(safe-area-inset-right, 0px)) !important;
+    left: auto !important;
+    transform: none !important;
+    color: #ecfeff !important;
+    background:
+      linear-gradient(168deg, rgba(8, 47, 73, 0.92) 0%, rgba(15, 23, 42, 0.96) 52%, rgba(30, 27, 75, 0.94) 100%) padding-box,
+      linear-gradient(
+        125deg,
+        #0e7490 0%,
+        #22d3ee 22%,
+        #38bdf8 38%,
+        #a78bfa 56%,
+        #c4b5fd 68%,
+        #22d3ee 84%,
+        #0891b2 100%
+      )
+      border-box !important;
+    border: 1.5px solid transparent !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 0 16px rgba(34, 211, 238, 0.12),
+      0 0 0 1px rgba(34, 211, 238, 0.35),
+      0 4px 18px rgba(0, 0, 0, 0.38),
+      0 0 14px rgba(34, 211, 238, 0.28),
+      0 0 22px rgba(139, 92, 246, 0.18) !important;
+    animation: short-fullscreen-entry-enter-glow 3.2s ease-in-out infinite !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--enter .mobile-short-fullscreen-entry-btn__icon {
+    font-size: 15px !important;
+    line-height: 1 !important;
+    color: #a5f3fc !important;
+    text-shadow: 0 0 10px rgba(34, 211, 238, 0.65), 0 0 4px rgba(167, 139, 250, 0.45) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
+    .mobile-short-fullscreen-entry-btn--enter
+    .mobile-short-fullscreen-entry-btn__label--shimmer {
+    background-image: linear-gradient(
+      90deg,
+      #67e8f9 0%,
+      #bae6fd 12%,
+      #c4b5fd 28%,
+      #e9d5ff 42%,
+      #a78bfa 56%,
+      #38bdf8 72%,
+      #22d3ee 86%,
+      #67e8f9 100%
+    ) !important;
+    background-size: 200% auto !important;
+    background-clip: text !important;
+    -webkit-background-clip: text !important;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    animation: short-fullscreen-entry-label-shimmer 4.5s linear infinite !important;
+    text-shadow: none !important;
+    filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.45)) drop-shadow(0 0 10px rgba(167, 139, 250, 0.28)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--enter:active {
+    transform: scale(0.97) !important;
+    animation: none !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--exit {
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    padding: 6px 12px 6px 10px !important;
+    gap: 5px !important;
+    color: #ecfeff !important;
+    border: 1px solid rgba(248, 113, 113, 0.55) !important;
+    background: linear-gradient(180deg, rgba(127, 29, 29, 0.55), rgba(15, 23, 42, 0.94)) !important;
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.38),
+      0 0 10px rgba(248, 113, 113, 0.22) !important;
+    animation: none !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--exit .mobile-short-fullscreen-entry-btn__icon {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    line-height: 0.9 !important;
+    text-shadow: none !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--exit:active {
+    transform: translateX(-50%) scale(0.97) !important;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn .mobile-short-fullscreen-entry-btn--enter {
+      animation: none !important;
+    }
+    .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
+      .mobile-short-fullscreen-entry-btn--enter
+      .mobile-short-fullscreen-entry-btn__label--shimmer {
+      animation: none !important;
+      background-image: none !important;
+      color: #a5f3fc !important;
+      -webkit-text-fill-color: #a5f3fc !important;
+      filter: none !important;
+    }
   }
   /* Подсказка short-VH: портал на body — компактная карточка, акценты + крестик */
   .mobile-short-vh-comfort-hint-portal.mobile-short-immersive-l-handle-hint {
@@ -20609,7 +20857,19 @@ html.theme-standard
 }
 /* Надпись «Сколько хотите взять взяток»: внутреннее свечение, мягкое внешнее, скруглённая рамка */
 .game-table-root.viewport-mobile .bid-panel-mobile-on-table-wrap .bid-panel-mobile-badge {
+  position: absolute !important;
+  top: 100% !important;
+  left: 50% !important;
+  /* translate, не transform — иначе inline/позиция ломают bidBadgeBreathe (см. immersive chip) */
+  translate: -50% -50% !important;
+  white-space: nowrap !important;
+  z-index: 1 !important;
   border-radius: 10px !important;
+  border: 1px solid rgba(34, 211, 238, 0.85) !important;
+  padding: 2px 6px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  background: transparent !important;
   box-shadow: 0 0 4px rgba(34, 211, 238, 0.25), inset 0 0 14px rgba(34, 211, 238, 0.2), inset 0 1px 0 rgba(34, 211, 238, 0.35);
   animation: bidBadgeFramePulse 5s linear infinite, bidBadgeBreathe 3.5s ease-in-out infinite;
 }
@@ -20620,8 +20880,8 @@ html.theme-standard
   animation: bidBadgeTextPulse 6s ease-in-out infinite;
 }
 @keyframes bidBadgeBreathe {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  50% { transform: translate(-50%, -50%) scale(1.04); }
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
 }
 @keyframes bidBadgeFramePulse {
   0%, 100% {
@@ -20748,6 +21008,42 @@ html.theme-standard
 }
 .game-table-root.viewport-mobile.viewport-mobile-landscape .bid-panel-mobile-on-table-wrap .bid-panel-mobile-inline .bid-panel-mobile-grid {
   justify-content: flex-start !important;
+}
+
+/*
+ * Short (включая immersive): панель заказа на столе — тот же неон/пульс, что на обычной мобиле;
+ * zoom ~6% компактнее; сукно не обрезает бейдж под кнопками.
+ */
+.game-table-root.viewport-mobile.viewport-mobile-short.game-phase-bidding
+  .game-center-area.game-mobile-center
+  .game-center-table
+  > div:first-child,
+.game-table-root.viewport-mobile.viewport-mobile-short.game-phase-bidding
+  .game-center-area.game-mobile-center
+  .game-center-table
+  > div:first-child
+  > div:first-child {
+  overflow: visible !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short .bid-panel-mobile-on-table-wrap {
+  zoom: var(--short-vh-y-compact, 0.94);
+}
+.game-table-root.viewport-mobile.viewport-mobile-short .bid-panel-mobile-on-table-wrap .bid-panel-mobile-badge {
+  border: 1px solid rgba(34, 211, 238, 0.85) !important;
+  box-shadow:
+    0 0 4px rgba(34, 211, 238, 0.25),
+    inset 0 0 14px rgba(34, 211, 238, 0.2),
+    inset 0 1px 0 rgba(34, 211, 238, 0.35) !important;
+  animation: bidBadgeFramePulse 5s linear infinite, bidBadgeBreathe 3.5s ease-in-out infinite !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-short
+  .bid-panel-mobile-on-table-wrap
+  .bid-panel-mobile-badge
+  .bid-panel-mobile-badge-text {
+  color: #38bdf8 !important;
+  -webkit-text-fill-color: #38bdf8 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 8px rgba(34, 211, 238, 0.5) !important;
+  animation: bidBadgeTextPulse 6s ease-in-out infinite !important;
 }
 
 * {

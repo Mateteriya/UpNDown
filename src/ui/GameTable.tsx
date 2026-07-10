@@ -114,7 +114,13 @@ import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
 import { UserAvatarMenuSheet } from './UserAvatarMenuSheet';
 import { canDriveOnlineRoomHost, isLanWsOnline } from '../lib/onlineHost';
-import { isServerAuthoritativeOnline } from '../lib/onlineTransport';
+import { isServerAuthoritativeOnline, isWsOnlineTransport } from '../lib/onlineTransport';
+import {
+  exitMobileBrowserFullscreen,
+  isAppStandaloneDisplayMode,
+  isMobileBrowserFullscreenActive,
+  requestMobileBrowserFullscreen,
+} from '../lib/mobileBrowserChrome';
 import { MobileSouthChatNameTicker } from './MobileSouthChatNameTicker';
 import {
   formatPlayerNameForDisplay,
@@ -1621,7 +1627,32 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       window.visualViewport?.removeEventListener('scroll', upd);
     };
   }, []);
-  const showTableChat = !!(online.roomId && (isOnline || isWaitingInRoom) && user?.id);
+  /** PWA / «на главный экран» — шапки браузера нет, кнопку «На весь экран» не показываем. */
+  const [appStandaloneDisplay, setAppStandaloneDisplay] = useState(() => isAppStandaloneDisplayMode());
+  useEffect(() => {
+    const upd = () => setAppStandaloneDisplay(isAppStandaloneDisplayMode());
+    upd();
+    const mqStandalone = window.matchMedia('(display-mode: standalone)');
+    const mqFullscreen = window.matchMedia('(display-mode: fullscreen)');
+    mqStandalone.addEventListener('change', upd);
+    mqFullscreen.addEventListener('change', upd);
+    return () => {
+      mqStandalone.removeEventListener('change', upd);
+      mqFullscreen.removeEventListener('change', upd);
+    };
+  }, []);
+  const [browserFullscreenActive, setBrowserFullscreenActive] = useState(() => isMobileBrowserFullscreenActive());
+  useEffect(() => {
+    const upd = () => setBrowserFullscreenActive(isMobileBrowserFullscreenActive());
+    document.addEventListener('fullscreenchange', upd);
+    document.addEventListener('webkitfullscreenchange', upd as EventListener);
+    return () => {
+      document.removeEventListener('fullscreenchange', upd);
+      document.removeEventListener('webkitfullscreenchange', upd as EventListener);
+    };
+  }, []);
+  /** LAN/локальный WS: чат в Supabase — не показываем (иначе у вошедших в аккаунт ломается вёрстка vs гостей). */
+  const showTableChat = !!(online.roomId && (isOnline || isWaitingInRoom) && user?.id && !isWsOnlineTransport());
   /** Последнее своё сообщение чата — бегущая строка на месте имени в моб. панели Юга */
   const [mobileOwnChatTicker, setMobileOwnChatTicker] = useState<{ body: string; key: number } | null>(null);
   const mobileOwnChatClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -3121,6 +3152,27 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     commitShortMainWrapScrollToEnd(el);
     enterShortVhImmersiveWithMagnetSnap(el, prefersReducedMotion ? 'instant' : 'instant');
   }, [dismissShortVhSouthPullModeMenu, enterShortVhImmersiveWithMagnetSnap, prefersReducedMotion]);
+
+  /** Short: только полноэкранный режим браузера — без иммерсива. */
+  const onShortVhFullscreenEntryTap = useCallback(
+    async (e: React.MouseEvent<HTMLButtonElement> | React.PointerEvent<HTMLButtonElement>) => {
+      e.stopPropagation();
+      if (isMobileBrowserFullscreenActive()) {
+        await exitMobileBrowserFullscreen();
+      } else {
+        await requestMobileBrowserFullscreen();
+      }
+    },
+    [],
+  );
+
+  const showShortFullscreenEntryBtn =
+    isMobile &&
+    !isMobileLandscape &&
+    (mobileViewportShort || mobileStandardLayoutOnShortViewport) &&
+    !isWaitingInRoom &&
+    !online.userOnPause &&
+    !appStandaloneDisplay;
 
   const onShortVhSouthPullMenuChooseStandard = useCallback(() => {
     dismissShortVhSouthPullModeMenu();
@@ -6419,7 +6471,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{
         ...tableLayoutStyle,
         ...(mobileLandscapeNorthPanelFixedW != null
@@ -6688,6 +6740,42 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           )}
         </>
       )}
+      {showShortFullscreenEntryBtn && (
+          <button
+            type="button"
+            className={[
+              'mobile-short-fullscreen-entry-btn',
+              browserFullscreenActive
+                ? 'mobile-short-fullscreen-entry-btn--exit'
+                : 'mobile-short-fullscreen-entry-btn--enter',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={(e) => {
+              void onShortVhFullscreenEntryTap(e);
+            }}
+            aria-label={
+              browserFullscreenActive
+                ? 'Выйти из полноэкранного режима'
+                : 'На весь экран: скрыть шапку браузера'
+            }
+            title={browserFullscreenActive ? 'Выйти из полноэкрана' : 'На весь экран'}
+          >
+            <span className="mobile-short-fullscreen-entry-btn__icon" aria-hidden>
+              {browserFullscreenActive ? '×' : '⛶'}
+            </span>
+            <span
+              className={[
+                'mobile-short-fullscreen-entry-btn__label',
+                !browserFullscreenActive ? 'mobile-short-fullscreen-entry-btn__label--shimmer' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {browserFullscreenActive ? 'Выйти' : 'На весь экран'}
+            </span>
+          </button>
+        )}
       {isMobile &&
         mobileViewportShort &&
         mobileShortImmersiveInviteChip &&
@@ -6745,7 +6833,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                 <span className="short-vh-south-pull-menu-portal__title-w2">низкого</span>{' '}
                 <span className="short-vh-south-pull-menu-portal__title-w3">экрана</span>
               </h2>
-              <p className="short-vh-south-pull-menu-portal__lead">Как показать стол и панель на этом экране</p>
+              <p className="short-vh-south-pull-menu-portal__lead">
+                Как показать стол и панель на этом экране. Или кнопка «На весь экран» справа внизу.
+              </p>
               <div className="short-vh-south-pull-menu-portal__opts">
                 <button
                   type="button"
@@ -7893,23 +7983,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                   className="bid-panel-mobile-on-table-stack"
                   style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}
                 >
-                  <span
-                    className="bid-panel-mobile-badge"
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      padding: '2px 6px',
-                      fontSize: 14,
-                      fontWeight: 600,
-                      background: 'transparent',
-                      whiteSpace: 'nowrap',
-                      zIndex: 1,
-                      border: '1px solid rgba(34, 211, 238, 0.85)',
-                      borderRadius: 10,
-                    }}
-                  >
+                  <span className="bid-panel-mobile-badge">
                     <span className="bid-panel-mobile-badge-text">
                       {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Сколько хотите взять взяток:'}
                     </span>
@@ -7918,8 +7992,6 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                     className="bid-panel bid-panel-inline bid-panel-bottom bid-panel-mobile-inline"
                     style={{
                       ...bidPanelInlineStyle,
-                      padding: '10px 14px',
-                      gap: 8,
                       pointerEvents: 'auto',
                     }}
                     aria-label="Выбор заказа"
