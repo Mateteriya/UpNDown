@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  capMobileLandscapeNorthPanelWidthPx,
+  estimateMobileLandscapeNorthColumnWidthPx,
   isMobileLandscapeSouthLayoutTuned,
   MOBILE_LANDSCAPE_SOUTH_PANEL_FIXED_REFERENCE_W_PX,
   MOBILE_LANDSCAPE_SOUTH_TUNED_MIN_HEIGHT_PX,
@@ -66,5 +68,25 @@ describe('mobileLandscapeSouthPanelFixedWidthPxWhenTuned', () => {
         height: 330,
       }),
     ).toBeNull();
+  });
+});
+
+describe('estimateMobileLandscapeNorthColumnWidthPx', () => {
+  it('matches landscape table-col formula (660px wide)', () => {
+    expect(estimateMobileLandscapeNorthColumnWidthPx(660)).toBe(322);
+  });
+
+  it('narrows on short-VH landscape width (540px)', () => {
+    expect(estimateMobileLandscapeNorthColumnWidthPx(540)).toBe(226);
+  });
+});
+
+describe('capMobileLandscapeNorthPanelWidthPx', () => {
+  it('keeps ideal width when column is wide enough', () => {
+    expect(capMobileLandscapeNorthPanelWidthPx(660, 248)).toBe(248);
+  });
+
+  it('caps panel to column on narrow landscape', () => {
+    expect(capMobileLandscapeNorthPanelWidthPx(540, 248)).toBe(224);
   });
 });

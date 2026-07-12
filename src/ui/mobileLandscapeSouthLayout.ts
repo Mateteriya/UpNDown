@@ -65,6 +65,35 @@ export function mobileLandscapeSouthPanelFixedWidthPxWhenTuned(
     : null;
 }
 
+/** Синхрон с --game-table-landscape-table-col-width в index.css (landscape · колонка Севера). */
+export const MOBILE_LANDSCAPE_NORTH_COL_SIDE_REF_PX = 128;
+export const MOBILE_LANDSCAPE_BOARD_GAP_PX = 1;
+
+export function estimateMobileLandscapeNorthColumnWidthPx(viewportWidth: number): number {
+  return Math.max(
+    0,
+    Math.round(
+      (viewportWidth -
+        2 * MOBILE_LANDSCAPE_NORTH_COL_SIDE_REF_PX -
+        2 * MOBILE_LANDSCAPE_BOARD_GAP_PX) *
+        0.8,
+    ),
+  );
+}
+
+/** Узкий landscape (short-VH телефон): панель Севера не шире колонки — иначе бейдж хода наезжает. */
+export function capMobileLandscapeNorthPanelWidthPx(
+  viewportWidth: number,
+  idealPanelWidthPx: number,
+  minPanelWidthPx = 120,
+  safetyPx = 2,
+): number {
+  const columnW = estimateMobileLandscapeNorthColumnWidthPx(viewportWidth);
+  if (columnW <= 0) return idealPanelWidthPx;
+  const capped = Math.min(idealPanelWidthPx, columnW - safetyPx);
+  return Math.max(minPanelWidthPx, capped);
+}
+
 /** Подписка на visualViewport / resize для класса viewport-mobile-landscape-south-tuned. */
 export function useMobileLandscapeSouthLayoutTuned(): boolean {
   const [tuned, setTuned] = useState(() =>

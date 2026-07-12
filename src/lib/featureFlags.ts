@@ -9,3 +9,9 @@ export function isPersonalAiReplacementEnabled(_userId?: string | null): boolean
   return true;
   // В продакшне: return !!userSubscription?.isPremium;
 }
+
+/** Выбор аватарок ИИ за столом — премиум; пока для тестов доступно всем. */
+export function isPremiumAiAvatarCustomizationEnabled(_userId?: string | null): boolean {
+  return true;
+  // В продакшне: return !!userSubscription?.isPremium;
+}

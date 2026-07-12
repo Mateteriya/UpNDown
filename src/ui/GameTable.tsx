@@ -38,6 +38,23 @@ import {
   persistAllOfflineAiDifficulties,
   persistOfflineAiDifficultyForBotId,
 } from '../game/aiSettings';
+import {
+  aiBotSortOrderForServerSlot,
+  aiBotVariantIndexForOfflineBotId,
+  assignUniqueAiBotVariantsForTable,
+  getAiBotAvatarUrl,
+  getOfflineAiBotAvatarPick,
+  getOnlineAiBotAvatarPick,
+  isOfflineAiBotId,
+  isOnlineAiControlledSlot,
+  offlineAiBotAvatarKey,
+  onlineAiBotAvatarKey,
+  resolveAiBotAvatarVariantIndex,
+  setOfflineAiBotAvatarPick,
+  setOnlineAiBotAvatarPick,
+  type AiBotTableSeat,
+} from '../lib/aiBotAvatars';
+import { isPremiumAiAvatarCustomizationEnabled } from '../lib/featureFlags';
 import { AiDifficultyControl, HeaderRoomExitIcon } from './AiDifficultyControl';
 import { getTrickWinner } from '../game/rules';
 import { getCanonicalIndexForDisplay, rotateStateForPlayer } from '../game/rotateState';
@@ -138,6 +155,8 @@ import {
 import { MobileSouthLandscapePlayerName } from './MobileSouthLandscapePlayerName';
 import { MOBILE_SOUTH_LANDSCAPE_NAME_BASE_FONT_PX } from './mobileSouthLandscapeNameLayout';
 import {
+  capMobileLandscapeNorthPanelWidthPx,
+  estimateMobileLandscapeNorthColumnWidthPx,
   mobileLandscapeSouthPanelFixedWidthPxWhenTuned,
   readMobileLandscapeSouthLayoutViewportPx,
   useMobileLandscapeSouthLayoutTuned,
@@ -1998,6 +2017,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const gameOverTopbarRef = useRef<HTMLDivElement>(null);
   const startFromWaitingLockRef = useRef(false);
   const [selectedPlayerForInfo, setSelectedPlayerForInfo] = useState<number | null>(null);
+  const [aiAvatarPickNonce, setAiAvatarPickNonce] = useState(0);
   const [showDealerTooltip, setShowDealerTooltip] = useState(false);
   const [showFirstMoveTooltip, setShowFirstMoveTooltip] = useState(false);
   const [showDealContractHelp, setShowDealContractHelp] = useState(false);
@@ -5307,6 +5327,48 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     ],
   );
 
+  const premiumAiAvatarCustomization = isPremiumAiAvatarCustomizationEnabled(user?.id);
+
+  const tableAiBotSeats = useMemo((): AiBotTableSeat[] => {
+    const seats: AiBotTableSeat[] = [];
+    if (online.roomId) {
+      for (let displayIdx = 1; displayIdx <= 3; displayIdx += 1) {
+        const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex);
+        const slot = online.playerSlots.find((s) => s.slotIndex === canon);
+        if (!slot || !isOnlineAiControlledSlot(slot)) continue;
+        seats.push({
+          key: onlineAiBotAvatarKey(canon),
+          difficulty: getAiDifficulty(),
+          sortOrder: aiBotSortOrderForServerSlot(canon),
+        });
+      }
+      return seats;
+    }
+    const players = stateToShow?.players;
+    if (!players) return seats;
+    for (let displayIdx = 1; displayIdx <= 3; displayIdx += 1) {
+      const player = players[displayIdx];
+      if (!isOfflineAiBotId(player?.id)) continue;
+      seats.push({
+        key: offlineAiBotAvatarKey(player.id),
+        difficulty: player.aiDifficulty ?? getAiDifficulty(),
+        sortOrder: aiBotVariantIndexForOfflineBotId(player.id),
+      });
+    }
+    return seats;
+  }, [
+    aiAvatarPickNonce,
+    stateToShow?.players,
+    online.myServerIndex,
+    online.playerSlots,
+    online.roomId,
+  ]);
+
+  const tableAiBotVariantAssignments = useMemo(
+    () => assignUniqueAiBotVariantsForTable(tableAiBotSeats),
+    [tableAiBotSeats],
+  );
+
   if (!state) {
     return (
       <>
@@ -5321,9 +5383,72 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
     if (displayIdx === 0) return playerAvatarDataUrl ?? undefined;
     if (online.roomId) {
       const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex);
-      return online.playerSlots.find((s) => s.slotIndex === canon)?.avatarDataUrl ?? undefined;
+      const slot = online.playerSlots.find((s) => s.slotIndex === canon);
+      if (slot && !isOnlineAiControlledSlot(slot)) {
+        return slot.avatarDataUrl ?? undefined;
+      }
+      if (slot && isOnlineAiControlledSlot(slot)) {
+        const seatKey = onlineAiBotAvatarKey(canon);
+        const difficulty = getAiDifficulty();
+        const customPick = premiumAiAvatarCustomization ? getOnlineAiBotAvatarPick(canon) : null;
+        const variant = resolveAiBotAvatarVariantIndex({
+          seatKey,
+          tableAssignments: tableAiBotVariantAssignments,
+          customPick,
+          fallbackVariant: aiBotSortOrderForServerSlot(canon),
+        });
+        return getAiBotAvatarUrl(difficulty, variant);
+      }
+      return slot?.avatarDataUrl ?? undefined;
+    }
+    const player = displayState.players[displayIdx];
+    if (isOfflineAiBotId(player?.id)) {
+      const seatKey = offlineAiBotAvatarKey(player.id);
+      const difficulty = player.aiDifficulty ?? getAiDifficulty();
+      const customPick = premiumAiAvatarCustomization ? getOfflineAiBotAvatarPick(player.id) : null;
+      const variant = resolveAiBotAvatarVariantIndex({
+        seatKey,
+        tableAssignments: tableAiBotVariantAssignments,
+        customPick,
+        fallbackVariant: aiBotVariantIndexForOfflineBotId(player.id),
+      });
+      return getAiBotAvatarUrl(difficulty, variant);
     }
     return undefined;
+  };
+
+  const isDisplayIndexAiPlayer = (displayIdx: number): boolean => {
+    if (displayIdx === 0) return false;
+    if (online.roomId) {
+      const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex);
+      const slot = online.playerSlots.find((s) => s.slotIndex === canon);
+      return isOnlineAiControlledSlot(slot);
+    }
+    return isOfflineAiBotId(displayState.players[displayIdx]?.id);
+  };
+
+  const resolveAiAvatarVariantForDisplayIndex = (displayIdx: number): number => {
+    if (online.roomId) {
+      const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex);
+      const seatKey = onlineAiBotAvatarKey(canon);
+      const customPick = premiumAiAvatarCustomization ? getOnlineAiBotAvatarPick(canon) : null;
+      return resolveAiBotAvatarVariantIndex({
+        seatKey,
+        tableAssignments: tableAiBotVariantAssignments,
+        customPick,
+        fallbackVariant: aiBotSortOrderForServerSlot(canon),
+      });
+    }
+    const player = displayState.players[displayIdx];
+    if (!isOfflineAiBotId(player?.id)) return 0;
+    const seatKey = offlineAiBotAvatarKey(player.id);
+    const customPick = premiumAiAvatarCustomization ? getOfflineAiBotAvatarPick(player.id) : null;
+    return resolveAiBotAvatarVariantIndex({
+      seatKey,
+      tableAssignments: tableAiBotVariantAssignments,
+      customPick,
+      fallbackVariant: aiBotVariantIndexForOfflineBotId(player.id),
+    });
   };
 
   const resolveDisplayPlayerName = (displayIdx: number): string => {
@@ -5399,6 +5524,32 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             },
           };
         })();
+
+  const playerInfoAiAvatarPicker: PlayerInfoPanelProps['aiAvatarPicker'] =
+    !premiumAiAvatarCustomization || selectedPlayerForInfo == null || !isDisplayIndexAiPlayer(selectedPlayerForInfo)
+      ? undefined
+      : (() => {
+          const idx = selectedPlayerForInfo;
+          const difficulty =
+            online.roomId || !isOfflineAiBotId(displayState.players[idx]?.id)
+              ? getAiDifficulty()
+              : displayState.players[idx]?.aiDifficulty ?? getAiDifficulty();
+          return {
+            difficulty,
+            currentVariant: resolveAiAvatarVariantForDisplayIndex(idx),
+            onSelect: (variantIndex: number) => {
+              if (online.roomId) {
+                const canon = getCanonicalIndexForDisplay(idx, online.myServerIndex);
+                setOnlineAiBotAvatarPick(canon, variantIndex);
+              } else {
+                const botId = displayState.players[idx]?.id;
+                if (isOfflineAiBotId(botId)) setOfflineAiBotAvatarPick(botId, variantIndex);
+              }
+              setAiAvatarPickNonce((n) => n + 1);
+            },
+          };
+        })();
+
   const biddingPhaseClass =
     displayState.phase === 'bidding' || displayState.phase === 'dark-bidding'
       ? ' game-phase-bidding'
@@ -6421,12 +6572,28 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
   const mobileLandscapeSharedPanelW = isMobileLandscape
     ? resolveMobileLandscapePanelFixedWidthPx(mobileHandLayoutVw, mobileLandscapePanelFixedWidthPx)
     : null;
-  const mobileLandscapeNorthPanelFixedW = isMobileLandscape
+  const mobileLandscapeNorthPanelIdealW = isMobileLandscape
     ? estimateMobileLandscapeNorthPanelFixedWidthPx()
     : null;
+  const mobileLandscapeNorthPanelFixedW =
+    isMobileLandscape && mobileLandscapeNorthPanelIdealW != null
+      ? capMobileLandscapeNorthPanelWidthPx(mobileHandLayoutVw, mobileLandscapeNorthPanelIdealW)
+      : null;
   const mobileLandscapeWePanelFixedW = isMobileLandscape
     ? estimateMobileLandscapeWePanelFixedWidthPx()
     : null;
+  const mobileLandscapeEastBadgeMaxW =
+    isMobileLandscape &&
+    (mobileViewportShort || mobileStandardLayoutOnShortViewport) &&
+    mobileLandscapeWePanelFixedW != null
+      ? Math.max(
+          96,
+          mobileHandLayoutVw -
+            mobileLandscapeWePanelFixedW -
+            estimateMobileLandscapeNorthColumnWidthPx(mobileHandLayoutVw) -
+            14,
+        )
+      : null;
 
   const renderMobileNorthSlot = () => (
     <div
@@ -6460,10 +6627,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         position="top"
         inline
         compactMode={isMobileOrTablet}
-        avatarDataUrl={
-          online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.avatarDataUrl ??
-          undefined
-        }
+        avatarDataUrl={resolveDisplayPlayerAvatar(1)}
         replacedByAi={
           !!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.replacedUserId
         }
@@ -6514,6 +6678,11 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         ...(mobileLandscapeWePanelFixedW != null
           ? ({
               ['--landscape-we-panel-fixed-w' as string]: `${mobileLandscapeWePanelFixedW}px`,
+            } as const)
+          : {}),
+        ...(mobileLandscapeEastBadgeMaxW != null
+          ? ({
+              ['--landscape-upper-east-badge-max-w' as string]: `${mobileLandscapeEastBadgeMaxW}px`,
             } as const)
           : {}),
       }}
@@ -7598,10 +7767,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                       position="left"
                       inline
                       compactMode={isMobileOrTablet}
-                      avatarDataUrl={
-                        online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))
-                          ?.avatarDataUrl ?? undefined
-                      }
+                      avatarDataUrl={resolveDisplayPlayerAvatar(2)}
                       replacedByAi={
                         !!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))
                           ?.replacedUserId
@@ -7682,7 +7848,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               }}
             >
               <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
-                avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.avatarDataUrl ?? undefined}
+                avatarDataUrl={resolveDisplayPlayerAvatar(2)}
                 replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.replacedUserId}
                 collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
       lastTrickCollectingPhase === 'winner' ||
@@ -8076,7 +8242,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
               }}
             >
               <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
-                avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.avatarDataUrl ?? undefined}
+                avatarDataUrl={resolveDisplayPlayerAvatar(3)}
                 replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.replacedUserId}
                 collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
       lastTrickCollectingPhase === 'winner' ||
@@ -9231,7 +9397,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         <div style={gameInfoNorthSlotWrapper} aria-hidden />
         <div className="game-center-north" style={gameInfoNorthSlotWrapperAbsolute}>
           <OpponentSlot state={displayState} index={1} position="top" inline compactMode={isMobileOrTablet}
-            avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.avatarDataUrl ?? undefined}
+            avatarDataUrl={resolveDisplayPlayerAvatar(1)}
             replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.replacedUserId}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
       lastTrickCollectingPhase === 'winner' ||
@@ -9264,7 +9430,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}>
         <div className="game-center-west" style={{ ...opponentSideWrapWestStyle, ...(!isMobileOrTablet ? opponentSideWrapPcGrowStyle : {}) }}>
           <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
-            avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.avatarDataUrl ?? undefined}
+            avatarDataUrl={resolveDisplayPlayerAvatar(2)}
             replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.replacedUserId}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
       lastTrickCollectingPhase === 'winner' ||
@@ -9429,7 +9595,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         </div>
         <div className="game-center-east" style={{ ...opponentSideWrapEastStyle, ...(!isMobileOrTablet ? opponentSideWrapPcGrowStyle : {}) }}>
           <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
-            avatarDataUrl={online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.avatarDataUrl ?? undefined}
+            avatarDataUrl={resolveDisplayPlayerAvatar(3)}
             replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.replacedUserId}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
       lastTrickCollectingPhase === 'winner' ||
@@ -10525,8 +10691,11 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
           playerAvatarDataUrl={resolveDisplayPlayerAvatar(selectedPlayerForInfo) ?? undefined}
           onClose={() => setSelectedPlayerForInfo(null)}
           viewportShort={isMobile && mobileViewportShort}
+          layoutMobile={isMobileOrTablet}
           portalRootClass={isMobile ? mobilePortalRootClass : undefined}
           offlineAiDifficultyPicker={playerInfoOfflineAiDifficultyPicker}
+          aiAvatarPicker={playerInfoAiAvatarPicker}
+          isAiPlayer={selectedPlayerForInfo != null ? isDisplayIndexAiPlayer(selectedPlayerForInfo) : false}
         />,
         document.body
       )}
@@ -20531,8 +20700,12 @@ function estimateMobileLandscapeOpponentOrderInnerWidthPx(
   );
 }
 
-function getMobileLandscapeNorthOrderStripMaxWidthPx(): number {
-  const panelW = estimateMobileLandscapeNorthPanelFixedWidthPx();
+function getMobileLandscapeNorthOrderStripMaxWidthPx(viewportW?: number): number {
+  const vw = viewportW ?? readMobileHandLayoutWidthPx();
+  const panelW = capMobileLandscapeNorthPanelWidthPx(
+    vw,
+    estimateMobileLandscapeNorthPanelFixedWidthPx(),
+  );
   const northBody =
     panelW -
     MOBILE_LANDSCAPE_NORTH_PANEL_SLOT_PAD_H_PX * 2 -
