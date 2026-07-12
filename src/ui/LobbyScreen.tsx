@@ -13,7 +13,7 @@ import { getWsUrl, isWsOnlineTransport, isWsOnlineConfigured } from '../lib/onli
 import { settlementModeBadgeLabel, type RoomPeekResult } from '../lib/roomSettlement';
 import { PUBLIC_HALL_ENABLED } from '../lib/productFlags';
 import { ONLINE_LOBBY_MASCOT_URL } from '../lib/lobbyAssets';
-import { LobbyCapsuleButton, LobbyCreatePanel } from './LobbyEntryActions';
+import { LobbyCapsuleButton, LobbyCreatePanel, LobbyLastPartyToggle, LobbyBackButton, LobbyPasteCodeButton } from './LobbyEntryActions';
 import { OnlineHallScreen } from './OnlineHallScreen';
 
 export interface LobbyScreenProps {
@@ -40,6 +40,11 @@ function lobbyBtnClass(
 const LOBBY_CREATE_TOTAL_MS = 52_000;
 /** «Выход из прошлой комнаты» + join — один лимит, иначе спиннер висит на leaveRoom вне Promise.race. */
 const LOBBY_JOIN_TOTAL_MS = 68_000;
+const CODE_LENGTH = 6;
+
+function normalizeJoinCode(raw: string): string {
+  return raw.replace(/\s+/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LENGTH);
+}
 
 export function LobbyScreen({
   onBack,
@@ -92,6 +97,7 @@ export function LobbyScreen({
   const [stopRememberBusy, setStopRememberBusy] = useState(false);
   const [startingGame, setStartingGame] = useState(false);
   const [showLastPartyPanel, setShowLastPartyPanel] = useState(false);
+  const [pasteJoinOk, setPasteJoinOk] = useState(false);
   const prevSlotsRef = useRef<typeof playerSlots>([]);
   /** Актуальные слоты для отложенной проверки «ушёл ли игрок» (иначе гонка Realtime/опроса даёт ложный тост). */
   const playerSlotsRef = useRef<typeof playerSlots>(playerSlots);
@@ -256,6 +262,35 @@ export function LobbyScreen({
   };
 
   const [joinError, setJoinError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pasteJoinOk) return;
+    const t = window.setTimeout(() => setPasteJoinOk(false), 1600);
+    return () => window.clearTimeout(t);
+  }, [pasteJoinOk]);
+
+  const handlePasteJoinCode = async () => {
+    try {
+      if (typeof navigator === 'undefined' || !navigator.clipboard?.readText) {
+        setJoinError('Вставка недоступна в этом браузере.');
+        return;
+      }
+      const text = await navigator.clipboard.readText();
+      const cleaned = normalizeJoinCode(text);
+      if (!cleaned) {
+        setJoinError('В буфере нет подходящего кода комнаты.');
+        return;
+      }
+      setJoinCode(cleaned);
+      setJoinError(null);
+      setPasteJoinOk(true);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    } catch {
+      setJoinError('Не удалось вставить из буфера. Разрешите доступ к буферу обмена.');
+    }
+  };
 
   const runJoinRoom = async () => {
     const typedCode = joinCode.trim();
@@ -453,9 +488,7 @@ export function LobbyScreen({
           {roomCode && (
             <div style={{ textAlign: 'center' }}>
               <p className="lobby-screen__code-label">Код комнаты</p>
-              <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, letterSpacing: 4, color: '#22d3ee' }}>
-                {roomCode}
-              </p>
+              <p className="lobby-screen__code-value">{roomCode}</p>
               <p className="lobby-screen__code-hint">
                 Если обновите страницу, код сохранится в меню и в онлайн-лобби — можно снова нажать «Продолжить онлайн-партию».
               </p>
@@ -576,7 +609,11 @@ export function LobbyScreen({
         <div className="lobby-screen__aura-glow" />
         <div className="lobby-screen__aura-scrim" />
       </div>
-      <div className="lobby-screen__layout">
+      <div className="lobby-screen__layout lobby-screen__layout--entry">
+        <header className="lobby-screen__top-bar">
+          <LobbyBackButton onClick={onBack} />
+        </header>
+        <div className="lobby-screen__entry-main">
         <div className="lobby-screen__hero-col">
           <div className="lobby-screen__hero">
             <img src={ONLINE_LOBBY_MASCOT_URL} alt="" aria-hidden="true" decoding="async" loading="eager" />
@@ -593,7 +630,7 @@ export function LobbyScreen({
             <>
               {' '}
               Код комнаты:{' '}
-              <strong style={{ color: '#22d3ee', letterSpacing: 2 }}>{inviteCode}</strong>
+              <strong className="lobby-screen__code-value lobby-screen__code-value--inline">{inviteCode}</strong>
             </>
           ) : null}
         </p>
@@ -659,18 +696,26 @@ export function LobbyScreen({
               <span />
               <span />
             </div>
-            <input
-              type="text"
-              placeholder="· · · · · ·"
-              value={joinCode}
-              onChange={(e) => {
-                setJoinCode(e.target.value.toUpperCase());
-                setJoinError(null);
-              }}
-              maxLength={CODE_LENGTH}
-              className="lobby-entry-input"
-              aria-label="Код комнаты"
-            />
+            <div className="lobby-entry-code-row">
+              <input
+                type="text"
+                placeholder="· · · · · ·"
+                value={joinCode}
+                onChange={(e) => {
+                  setJoinCode(normalizeJoinCode(e.target.value));
+                  setJoinError(null);
+                }}
+                maxLength={CODE_LENGTH}
+                className="lobby-entry-input"
+                aria-label="Код комнаты"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                enterKeyHint="go"
+              />
+              <LobbyPasteCodeButton ok={pasteJoinOk} onClick={() => void handlePasteJoinCode()} />
+            </div>
             <LobbyCapsuleButton
               variant="join"
               title={joining || autoJoining ? 'Вход…' : 'Присоединиться'}
@@ -724,18 +769,11 @@ export function LobbyScreen({
       )}
       {lastPartyBanner && (
         <div key={`last-party-${lastPartyHintVersion}`} className="lobby-last-party-fold">
-          <button
-            type="button"
-            className="lobby-last-party-toggle"
-            aria-expanded={showLastPartyPanel}
+          <LobbyLastPartyToggle
+            code={lastPartyBanner.code}
+            expanded={showLastPartyPanel}
             onClick={() => setShowLastPartyPanel((open) => !open)}
-          >
-            <span className="lobby-last-party-toggle__label">Предыдущая комната</span>
-            <span className="lobby-last-party-toggle__code">{lastPartyBanner.code}</span>
-            <span className="lobby-last-party-toggle__chev" aria-hidden="true">
-              {showLastPartyPanel ? '▾' : '▸'}
-            </span>
-          </button>
+          />
           {showLastPartyPanel && (
             <div className="lobby-last-party-panel">
               <LobbyCapsuleButton
@@ -773,15 +811,9 @@ export function LobbyScreen({
           )}
         </div>
       )}
-      <button type="button" className="lobby-capsule lobby-capsule--ghost lobby-capsule--back" onClick={onBack}>
-        <span className="lobby-capsule__body">
-          <span className="lobby-capsule__title">← Назад в меню</span>
-        </span>
-      </button>
+        </div>
         </div>
       </div>
     </div>
   );
 }
-
-const CODE_LENGTH = 6;

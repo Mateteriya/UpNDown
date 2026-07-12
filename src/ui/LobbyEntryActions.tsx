@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-type CapsuleVariant = 'hall' | 'create' | 'join' | 'launch' | 'ghost';
+type CapsuleVariant = 'hall' | 'create' | 'join' | 'launch' | 'ghost' | 'back' | 'lastParty';
 
 function GlyphHall() {
   return (
@@ -53,12 +53,87 @@ function GlyphLaunch() {
   );
 }
 
+function GlyphBack() {
+  return (
+    <svg className="lobby-capsule-glyph-svg" viewBox="0 0 44 44" aria-hidden="true">
+      <path
+        d="M28 8c-6 2-10 7-10 14s4 12 10 14"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        opacity="0.55"
+      />
+      <path d="M12 22h16" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M18 16l-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="30" cy="22" r="3" fill="currentColor" opacity="0.75" />
+    </svg>
+  );
+}
+
+function GlyphBackNav() {
+  return (
+    <svg className="lobby-nav-back__svg" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M17 5.5c-3.4 1.1-5.8 3.8-5.8 6.5s2.4 5.4 5.8 6.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        opacity="0.55"
+      />
+      <path d="M7 12h8.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M10.5 9.2 7 12l3.5 2.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="18.5" cy="12" r="1.4" fill="currentColor" opacity="0.85" />
+    </svg>
+  );
+}
+
+function GlyphPaste() {
+  return (
+    <svg className="lobby-entry-paste__svg" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="10" y="2.5" width="10" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.42" />
+      <rect x="4" y="6.5" width="10" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="1.45" />
+      <path d="M7.5 10.5h5.5M7.5 13h7M7.5 15.5h4" stroke="currentColor" strokeWidth="1.15" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function GlyphPasteOk() {
+  return (
+    <svg className="lobby-entry-paste__svg" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4" y="6.5" width="10" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="1.45" opacity="0.55" />
+      <path d="M7.5 13.2 9.8 15.5 14.5 10.8" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function GlyphLastParty() {
+  return (
+    <svg className="lobby-capsule-glyph-svg" viewBox="0 0 44 44" aria-hidden="true">
+      <path
+        d="M30 14a12 12 0 1 0 2.4 7.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity="0.75"
+      />
+      <path d="M30 8v6h-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="22" cy="22" r="4" fill="currentColor" opacity="0.9" />
+      <path d="M22 18v4l2.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.65" />
+    </svg>
+  );
+}
+
 const GLYPHS: Record<CapsuleVariant, ReactNode> = {
   hall: <GlyphHall />,
   create: <GlyphCreate />,
   join: <GlyphJoin />,
   launch: <GlyphLaunch />,
   ghost: null,
+  back: <GlyphBack />,
+  lastParty: <GlyphLastParty />,
 };
 
 export type LobbyCapsuleButtonProps = {
@@ -108,6 +183,73 @@ export function LobbyCapsuleButton({
           {expanded ? '▾' : '▸'}
         </span>
       ) : null}
+    </button>
+  );
+}
+
+export type LobbyLastPartyToggleProps = {
+  code: string;
+  expanded: boolean;
+  onClick: () => void;
+};
+
+export function LobbyLastPartyToggle({ code, expanded, onClick }: LobbyLastPartyToggleProps) {
+  return (
+    <button
+      type="button"
+      className={[
+        'lobby-capsule',
+        'lobby-capsule--last-party',
+        expanded ? 'lobby-capsule--expanded' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-expanded={expanded}
+      onClick={onClick}
+    >
+      <span className="lobby-capsule__glyph">{GLYPHS.lastParty}</span>
+      <span className="lobby-capsule__body">
+        <span className="lobby-capsule__title">Предыдущая комната</span>
+        <span className="lobby-capsule__hint">быстрый возврат</span>
+      </span>
+      <span className="lobby-capsule__code-badge">{code}</span>
+      <span className="lobby-capsule__chev" aria-hidden="true">
+        {expanded ? '▾' : '▸'}
+      </span>
+    </button>
+  );
+}
+
+export type LobbyBackButtonProps = {
+  onClick: () => void;
+};
+
+export function LobbyBackButton({ onClick }: LobbyBackButtonProps) {
+  return (
+    <button type="button" className="lobby-nav-back" onClick={onClick} aria-label="Назад в меню">
+      <span className="lobby-nav-back__glyph">
+        <GlyphBackNav />
+      </span>
+      <span className="lobby-nav-back__beam" aria-hidden="true" />
+      <span className="lobby-nav-back__label">Меню</span>
+    </button>
+  );
+}
+
+export type LobbyPasteCodeButtonProps = {
+  ok?: boolean;
+  onClick: () => void;
+};
+
+export function LobbyPasteCodeButton({ ok, onClick }: LobbyPasteCodeButtonProps) {
+  return (
+    <button
+      type="button"
+      className={['lobby-entry-paste', ok ? 'lobby-entry-paste--ok' : ''].filter(Boolean).join(' ')}
+      onClick={onClick}
+      aria-label="Вставить код комнаты из буфера обмена"
+    >
+      {ok ? <GlyphPasteOk /> : <GlyphPaste />}
     </button>
   );
 }
