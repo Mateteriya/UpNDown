@@ -20,6 +20,7 @@ export interface LobbyScreenProps {
   onBack: () => void;
   playerName: string;
   onEditProfile?: () => void;
+  onOpenAccount?: () => void;
   onGoToGame?: () => void;
   /** Код комнаты из URL (?code=XXX) — подставляется в поле «Присоединиться» */
   initialJoinCode?: string;
@@ -30,7 +31,7 @@ export interface LobbyScreenProps {
 }
 
 function lobbyBtnClass(
-  variant: 'primary' | 'secondary' | 'ghost',
+  variant: 'primary' | 'secondary' | 'ghost' | 'danger',
   extra?: string,
 ): string {
   return ['lobby-btn', `lobby-btn--${variant}`, extra].filter(Boolean).join(' ');
@@ -50,6 +51,7 @@ export function LobbyScreen({
   onBack,
   playerName,
   onEditProfile,
+  onOpenAccount,
   onGoToGame,
   initialJoinCode,
   lanGuestInvite,
@@ -562,32 +564,45 @@ export function LobbyScreen({
             {stopRememberBusy ? 'Выходим…' : 'Не запоминать эту комнату'}
           </button>
           </div>
-        </div>
         {leftPlayerToast && (
           <div role="status" className="lobby-screen__toast">
             Игрок {leftPlayerToast} покинул комнату.
           </div>
         )}
         {showLeaveConfirm && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24, }} role="dialog" aria-modal="true" aria-labelledby="leave-room-title" >
-            <div className="lobby-dialog" style={{ background: '#1e293b', borderRadius: 12, border: '1px solid rgba(129,140,248,0.35)', padding: 24, maxWidth: 320, textAlign: 'center', }} >
+          <div
+            className="lobby-dialog-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="leave-room-title"
+          >
+            <div className="lobby-dialog lobby-dialog--leave">
               <p id="leave-room-title" className="lobby-dialog__title">
                 Выйти из комнаты?
               </p>
               <p className="lobby-dialog__text">
                 Вы выйдете с сервера. Код комнаты останется в подсказке «последняя комната» в меню — по нему можно зайти снова, пока комната жива.
               </p>
-              <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-                <button type="button" className={lobbyBtnClass('secondary', 'lobby-btn--dialog')} onClick={() => setShowLeaveConfirm(false)}>
+              <div className="lobby-dialog__actions">
+                <button
+                  type="button"
+                  className={lobbyBtnClass('secondary', 'lobby-btn--dialog')}
+                  onClick={() => setShowLeaveConfirm(false)}
+                >
                   Отмена
                 </button>
-                <button type="button" className={lobbyBtnClass('primary', 'lobby-btn--dialog')} onClick={handleLeaveRoomConfirm}>
+                <button
+                  type="button"
+                  className={lobbyBtnClass('danger', 'lobby-btn--dialog')}
+                  onClick={() => void handleLeaveRoomConfirm()}
+                >
                   Выйти
                 </button>
               </div>
             </div>
           </div>
         )}
+        </div>
       </>
     );
   }
@@ -648,9 +663,15 @@ export function LobbyScreen({
             : 'Нажмите «Войти в комнату» — откроется лобби этой партии, не общий зал.'}
         </p>
       )}
-      <p className="lobby-entry-player">
+      <button
+        type="button"
+        className="lobby-entry-player lobby-entry-player--account"
+        onClick={() => onOpenAccount?.()}
+        disabled={!onOpenAccount}
+        aria-label="Открыть личный кабинет"
+      >
         Вы: <strong>{playerName}</strong>
-      </p>
+      </button>
       {(error || joinError) && (
         <p className="lobby-entry-error">{joinError || error}</p>
       )}

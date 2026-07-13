@@ -25,6 +25,9 @@ import { AuthModal } from './ui/AuthModal'
 import { applyLanJoinParamsFromUrl } from './lib/lanJoinLink'
 import { LobbyScreen } from './ui/LobbyScreen'
 import { OfflineResumeChoiceModal } from './ui/OfflineResumeChoiceModal'
+import { AccountLkPage } from './ui/AccountLkPage'
+import { MainMenuScreen } from './ui/MainMenuScreen'
+import { ACCOUNT_ROUTE_HASH, isAccountRouteHash } from './lib/accountRoute'
 
 /** Ленивая загрузка экрана игры: уменьшает начальный бандл и ускоряет первый показ меню; экран игры подгружается при переходе. */
 const GameTable = lazy(() => import('./ui/GameTable'))
@@ -32,18 +35,12 @@ const GameTable = lazy(() => import('./ui/GameTable'))
 const DEV_MODE_KEY = 'updown-devMode'
 const DEFAULT_DISPLAY_NAME = 'Вы'
 
-function menuBtnClass(
-  variant: 'hero' | 'featured' | 'play' | 'primary' | 'secondary' | 'ghost' | 'link' | 'disabled',
-  extra?: string,
-): string {
-  return ['menu-btn', `menu-btn--${variant}`, extra].filter(Boolean).join(' ')
-}
-
-function readInitialScreen(): 'menu' | 'game' | 'training' {
+function readInitialScreen(): 'menu' | 'game' | 'training' | 'account' {
   if (typeof window === 'undefined') return 'menu'
   const h = (window.location.hash || '#menu').trim().toLowerCase()
   if (h === '#game') return 'game'
   if (h === '#training') return 'training'
+  if (isAccountRouteHash(h)) return 'account'
   return 'menu'
 }
 
@@ -53,7 +50,7 @@ function App() {
   // Не открывать стол по одному лишь sessionStorage: до applyRoomData roomId пустой —
   // GameTable успевал поднять офлайн-партию с ИИ и перекрывал лобби (fixed без z-index).
   // После F5 с #game не затирать хеш в меню: начальный экран совпадает с location.hash.
-  const [screen, setScreen] = useState<'menu' | 'game' | 'training'>(() => readInitialScreen())
+  const [screen, setScreen] = useState<'menu' | 'game' | 'training' | 'account'>(() => readInitialScreen())
   const didAutoOpenLobbyRef = useRef(false)
   const hadOnlineRoomRef = useRef(false)
   /** Уже показывали «Задайте имя для этого аккаунта» этому user.id в сессии — не дёргать setShow снова при повторном срабатывании эффекта. */
@@ -366,6 +363,12 @@ function App() {
     setGameId(id => id + 1)
   }
 
+  const openAccountCabinet = useCallback(() => {
+    setScreenLobby(false)
+    setUrlJoinCode(null)
+    setScreen('account')
+  }, [])
+
   // Управление историей браузера: #menu ↔ #game и popstate
   useEffect(() => {
     const applyHash = () => {
@@ -378,6 +381,8 @@ function App() {
         setScreen('game')
       } else if (h === '#training') {
         setScreen('training')
+      } else if (isAccountRouteHash(h)) {
+        setScreen('account')
       }
     }
     window.addEventListener('popstate', applyHash)
@@ -385,7 +390,13 @@ function App() {
   }, [])
   useEffect(() => {
     const targetHash =
-      screen === 'game' ? '#game' : screen === 'training' ? '#training' : '#menu'
+      screen === 'game'
+        ? '#game'
+        : screen === 'training'
+          ? '#training'
+          : screen === 'account'
+            ? ACCOUNT_ROUTE_HASH
+            : '#menu'
     if (window.location.hash !== targetHash) {
       history.pushState({ screen }, '', targetHash)
     }
@@ -396,161 +407,44 @@ function App() {
   return (
     <>
       {screen === 'menu' && !screenLobby && (
-        <main className="menu-screen">
-          <div className="menu-screen__stack">
-          <header className="menu-screen__header">
-          <h1
-            className="menu-screen__title"
-            onContextMenu={(e) => e.preventDefault()}
-            onPointerDown={(e) => {
-              if (e.button !== 0) return
-              const target = e.currentTarget
-              const t = window.setTimeout?.(() => { enableDevMode() }, 1200)
-              const clear = () => { window.clearTimeout?.(t) }
-              target.addEventListener('pointerup', clear, { once: true })
-              target.addEventListener('pointerleave', clear, { once: true })
-            }}
-          >
-            Up&Down
-          </h1>
-          <p className="menu-screen__tagline">
-            Карточная игра на взятки
-          </p>
-          </header>
-          <nav className="menu-screen__nav">
-            {canResumeOnline && (
-              <button
-                type="button"
-                className={menuBtnClass('featured')}
-                onClick={() => { void handleResumeOnline() }}
-              >
-                Продолжить онлайн-партию
-              </button>
-            )}
-            {(() => {
-              void online.lastPartyHintVersion
-              const lp = loadLastOnlineParty()
-              if (!lp) return null
-              return (
-                <p
-                  key={`menu-last-${online.lastPartyHintVersion}`}
-                  style={{ margin: '-0.25rem 0 0', fontSize: 13, color: '#94a3b8', textAlign: 'center', maxWidth: 340, lineHeight: 1.45 }}
-                >
-                  Последняя комната:{' '}
-                  <strong style={{ color: '#e2e8f0', letterSpacing: 2 }}>{lp.code}</strong>
-                  {' — '}то же, что «Продолжить», плюс подсказка в разделе «Онлайн».
-                </p>
-              )
-            })()}
-            {onlineResumeMessage && (
-              <p style={{ margin: 0, fontSize: 14, color: '#f87171', maxWidth: 360, lineHeight: 1.4 }} role="alert">
-                {onlineResumeMessage}
-              </p>
-            )}
-            <button
-              type="button"
-              className={menuBtnClass('hero')}
-              onClick={() => {
-                try {
-                  sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
-                } catch {
-                  /* ignore */
-                }
-                setScreenLobby(true)
-              }}
-            >
-              Онлайн
-            </button>
-            {hasSavedGame() && (
-              <button
-                type="button"
-                className={menuBtnClass('featured')}
-                onClick={() => { void handleResumeOffline() }}
-              >
-                Продолжить офлайн-партию
-              </button>
-            )}
-            <button
-              type="button"
-              className={menuBtnClass('play')}
-              onClick={handleOfflineClick}
-            >
-              Офлайн против ИИ
-            </button>
-            <button
-              type="button"
-              className={menuBtnClass('secondary')}
-              onClick={() => setShowHistoryModal(true)}
-            >
-              История
-            </button>
-            <button
-              type="button"
-              className={menuBtnClass('primary')}
-              onClick={() => setScreen('training')}
-            >
-              Обучение
-            </button>
-            <button
-              type="button"
-              className={menuBtnClass('secondary')}
-              onClick={() => { setNameAvatarMode('profile'); setShowNameAvatarModal(true) }}
-            >
-              Изменить профиль (имя и фото)
-            </button>
-            <button
-              type="button"
-              className={menuBtnClass('secondary')}
-              onClick={() => setShowRatingModal(true)}
-            >
-              Ваш рейтинг
-            </button>
-            {user ? (
-              <button
-                type="button"
-                className={menuBtnClass('ghost')}
-                onClick={() => signOut()}
-                title={user.email ?? undefined}
-              >
-                Выйти ({user.email?.split('@')[0] ?? 'аккаунт'})
-              </button>
-            ) : (
-              <button
-                type="button"
-                className={menuBtnClass('ghost')}
-                onClick={() => { setAuthMode('login'); setShowAuthModal(true) }}
-              >
-                Вход
-              </button>
-            )}
-            {devMode && (
-              <>
-                <a href="/demo" className={menuBtnClass('link')}>
-                  Демо карт (для разработчика)
-                </a>
-                <a href="/deal-track-lab" className={menuBtnClass('link')}>
-                  Лаб: шкала раздач (ПК)
-                </a>
-                <a href="/total-color-lab" className={menuBtnClass('link')}>
-                  Лаб: цвета ИТОГО (моб)
-                </a>
-                <a href="/online-ui-lab" className={menuBtnClass('link')}>
-                  Лаб: онлайн-UI «Стандарт после short»
-                </a>
-              </>
-            )}
-            <button disabled className={menuBtnClass('disabled')}>
-              Турниры (скоро)
-            </button>
-            <a href="/scoring-demo" className={menuBtnClass('link', 'menu-btn--lab')}>
-              Демо: фишки и победитель
-            </a>
-            <a href="/cosmogenesis-demo.html" className={menuBtnClass('link', 'menu-btn--lab')}>
-              Космогенез: Galaxy (демо)
-            </a>
-          </nav>
-          </div>
-        </main>
+        <MainMenuScreen
+          displayName={profile.displayName}
+          avatarDataUrl={profile.avatarDataUrl}
+          userEmail={user?.email ?? null}
+          devMode={devMode}
+          canResumeOnline={canResumeOnline}
+          hasSavedOffline={hasSavedGame()}
+          lastPartyCode={(() => {
+            void online.lastPartyHintVersion
+            return loadLastOnlineParty()?.code ?? null
+          })()}
+          onlineResumeMessage={onlineResumeMessage}
+          onTitleDevMode={enableDevMode}
+          onOpenAccount={openAccountCabinet}
+          onResumeOnline={() => { void handleResumeOnline() }}
+          onOpenOnline={() => {
+            try {
+              sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
+            } catch {
+              /* ignore */
+            }
+            setScreenLobby(true)
+          }}
+          onResumeOffline={() => { void handleResumeOffline() }}
+          onOfflinePlay={handleOfflineClick}
+          onTraining={() => setScreen('training')}
+          onEditProfile={() => {
+            setNameAvatarMode('profile')
+            setShowNameAvatarModal(true)
+          }}
+          onOpenRating={() => setShowRatingModal(true)}
+          onOpenHistory={() => setShowHistoryModal(true)}
+          onSignIn={() => {
+            setAuthMode('login')
+            setShowAuthModal(true)
+          }}
+          onSignOut={() => signOut()}
+        />
       )}
       {showOfflineChoiceModal && (
         <OfflineResumeChoiceModal
@@ -739,11 +633,29 @@ function App() {
           {roomFinishedMessage}
         </div>
       )}
+      {screen === 'account' && (
+        <AccountLkPage
+          displayName={profile.displayName}
+          avatarDataUrl={profile.avatarDataUrl}
+          onBack={() => setScreen('menu')}
+          onEditProfile={() => {
+            setNameAvatarMode('profile')
+            setShowNameAvatarModal(true)
+          }}
+          onOpenRating={() => setShowRatingModal(true)}
+          onOpenHistory={() => setShowHistoryModal(true)}
+          onSignIn={() => {
+            setAuthMode('login')
+            setShowAuthModal(true)
+          }}
+        />
+      )}
       {screenLobby && (
         <LobbyScreen
           onBack={() => { setScreenLobby(false); setUrlJoinCode(null) }}
           playerName={profile.displayName}
           onEditProfile={() => { setNameAvatarMode('profile'); setShowNameAvatarModal(true) }}
+          onOpenAccount={openAccountCabinet}
           initialJoinCode={urlJoinCode ?? undefined}
           lanGuestInvite={Boolean(urlJoinCode)}
           lanAutoJoinFromLink={urlLanAutojoin}

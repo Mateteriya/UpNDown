@@ -19,7 +19,6 @@ import { TotalColorLabPage } from './ui/TotalColorLabPage'
 import { OnlineUiLabPage } from './ui/OnlineUiLabPage'
 import { ScoringDemoPage } from './ui/ScoringDemoPage'
 import { CosmogenesisDemoPage } from './ui/CosmogenesisDemoPage'
-import { AccountLkPage } from './ui/AccountLkPage'
 import './theme-standard.css'
 import './theme-neon.css'
 import './index.css'
@@ -34,6 +33,9 @@ stripRecoveryQueryFromUrl()
 bootstrapLanPlayFromServer()
 
 const path = typeof window !== 'undefined' ? window.location.pathname : ''
+if (typeof window !== 'undefined' && (path === '/lk' || path.startsWith('/lk/'))) {
+  window.location.replace('/#account')
+}
 const hashRoute =
   typeof window !== 'undefined' ? (window.location.hash || '').replace(/^#/, '').toLowerCase() : ''
 const isDemo = path === '/demo' || path.startsWith('/demo/')
@@ -48,7 +50,6 @@ const isCosmogenesisDemo =
   path.endsWith('/cosmogenesis-demo.html') ||
   hashRoute === 'cosmogenesis-demo' ||
   hashRoute === 'cosmo'
-const isAccountLk = path === '/lk' || path.startsWith('/lk/')
 const devModeAllowed = typeof window !== 'undefined' && sessionStorage.getItem('updown-devMode') === '1'
 
 function DemoGuard({ children }: { children: React.ReactNode }) {
@@ -98,12 +99,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <CosmogenesisDemoPage onBack={() => (window.location.href = '/')} />
       </ThemeProvider>
-    ) : isAccountLk ? (
-      <AuthProvider>
-        <ThemeProvider>
-          <AccountLkPage />
-        </ThemeProvider>
-      </AuthProvider>
     ) : (
       <AuthProvider>
         <OnlineGameProvider>

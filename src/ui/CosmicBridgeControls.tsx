@@ -4,6 +4,7 @@
 
 import type { CSSProperties, ReactNode, RefObject } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { accountRouteHref } from '../lib/accountRoute';
 import type { GameOverCloudSave } from './CosmicCockpit';
 
 export function GameOverBridgeScenery() {
@@ -47,7 +48,7 @@ export function GameOverCloudStatus({
       (isOfflineEnd && cloudSave === 'none')
     ) {
       return (
-        <a href="/lk" className="game-over-lk-compact">
+        <a href={accountRouteHref()} className="game-over-lk-compact">
           В Личный Кабинет
         </a>
       );
@@ -60,7 +61,7 @@ export function GameOverCloudStatus({
         <span className="game-over-cloud-status__lamp" aria-hidden />
         <span className="game-over-cloud-status__text">
           Сохранено в аккаунт ·{' '}
-          <a href="/lk" className="game-over-lk-link">
+          <a href={accountRouteHref()} className="game-over-lk-link">
             личный кабинет
           </a>
         </span>
@@ -81,7 +82,7 @@ export function GameOverCloudStatus({
         <span className="game-over-cloud-status__lamp" aria-hidden />
         <span className="game-over-cloud-status__text">
           Облако недоступно — проверьте вход и{' '}
-          <a href="/lk" className="game-over-lk-link">
+          <a href={accountRouteHref()} className="game-over-lk-link">
             личный кабинет
           </a>
         </span>
@@ -94,11 +95,11 @@ export function GameOverCloudStatus({
         <span className="game-over-cloud-status__lamp" aria-hidden />
         <span className="game-over-cloud-status__text">
           История на всех устройствах —{' '}
-          <a href="/lk" className="game-over-lk-link">
+          <a href={accountRouteHref()} className="game-over-lk-link">
             личный кабинет
           </a>
           {' '}
-          <span className="game-over-cloud-status__sub">(вход в аккаунт, раздел готовится)</span>
+          <span className="game-over-cloud-status__sub">(вход в аккаунт для синхронизации)</span>
         </span>
       </div>
     );
