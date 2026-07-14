@@ -10,6 +10,7 @@ import { useAuth } from './contexts/AuthContext'
 import { useOnlineGame } from './contexts/useOnlineGame'
 import { loadOnlineSession, markLobbyUiOpen, wasLobbyUiOpen, SUPPRESS_AUTO_OPEN_KEY } from './lib/onlineSession'
 import { loadLastOnlineParty } from './lib/lastOnlineParty'
+import { canShowOnlineContinue } from './lib/onlineContinue'
 import { isWsOnlineTransport } from './lib/onlineTransport'
 import {
   consumeAvatarCameraPending,
@@ -322,7 +323,11 @@ function App() {
     setScreen('menu')
   }, [online])
 
-  const canResumeOnline = loadOnlineSession() !== null || loadLastOnlineParty() !== null
+  /** Пересчёт при leave / forget: lastPartyHintVersion и auth. */
+  const canResumeOnline = (() => {
+    void online.lastPartyHintVersion
+    return canShowOnlineContinue({ loggedIn: Boolean(user) })
+  })()
 
   const handleResumeOffline = useCallback(() => {
     suppressOnlineAutoRestore()
@@ -337,11 +342,11 @@ function App() {
     } catch {
       /* ignore */
     }
-    if (authLoading) {
+    if (authLoading && !isWsOnlineTransport()) {
       setOnlineResumeMessage('Подождите, восстанавливается сессия входа…')
       return
     }
-    if (!user) {
+    if (!isWsOnlineTransport() && !user) {
       setOnlineResumeMessage('Войдите в аккаунт, затем снова нажмите «Продолжить онлайн-партию».')
       return
     }

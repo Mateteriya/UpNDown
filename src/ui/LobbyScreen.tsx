@@ -492,7 +492,7 @@ export function LobbyScreen({
               <p className="lobby-screen__code-label">Код комнаты</p>
               <p className="lobby-screen__code-value">{roomCode}</p>
               <p className="lobby-screen__code-hint">
-                Если обновите страницу, код сохранится в меню и в онлайн-лобби — можно снова нажать «Продолжить онлайн-партию».
+                Пока вы в комнате, после обновления страницы можно быстро вернуться кнопкой «Продолжить» в главном меню. После выхода из комнаты вход только по коду здесь.
               </p>
               <p className="lobby-screen__code-hint lobby-screen__code-hint--dim">
                 Другие игроки вводят этот код в «Присоединиться»

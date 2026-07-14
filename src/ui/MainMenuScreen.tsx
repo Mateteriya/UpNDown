@@ -100,19 +100,19 @@ export function MainMenuScreen({
         ) : null}
 
         <div className="menu-screen__sections">
-          <MenuSection label="Играть">
+          <MenuSection sectionId="play" label="Играть">
+            <MenuPlaySplitCapsule
+              mode="offline"
+              canResume={hasSavedOffline}
+              onResume={onResumeOffline}
+              onMain={onOfflinePlay}
+            />
             <MenuPlaySplitCapsule
               mode="online"
               canResume={canResumeOnline}
               satelliteCode={lastPartyCode}
               onResume={onResumeOnline}
               onMain={onOpenOnline}
-            />
-            <MenuPlaySplitCapsule
-              mode="offline"
-              canResume={hasSavedOffline}
-              onResume={onResumeOffline}
-              onMain={onOfflinePlay}
             />
             <MenuCapsuleButton
               variant="training"
@@ -122,7 +122,7 @@ export function MainMenuScreen({
             />
           </MenuSection>
 
-          <MenuSection label="Профиль и статистика" compact>
+          <MenuSection sectionId="profile" label="Профиль и статистика" compact>
             <div className="menu-screen__grid">
               <MenuCapsuleButton
                 variant="account"
@@ -155,7 +155,7 @@ export function MainMenuScreen({
             </div>
           </MenuSection>
 
-          <MenuSection label="Ещё" compact>
+          <MenuSection sectionId="more" label="Ещё" compact>
             <MenuCapsuleButton
               variant="auth"
               title={signedIn ? `Выйти · ${userEmail?.split('@')[0] ?? 'аккаунт'}` : 'Вход'}

@@ -1,8 +1,36 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import {
+  getMenuSectionGlyphsOnly,
+  setMenuSectionGlyphsOnly,
+  type MenuSectionId,
+} from '../lib/menuSectionPrefs';
 import { MENU_OFFLINE_LEGEND_ART_URL, MENU_ONLINE_LEGEND_ART_URL } from '../lib/menuAssets';
 
-const MODE_LEGEND_AUTO_CLOSE_MS = 25000;
+const MODE_LEGEND_AUTO_CLOSE_MS = 20000;
+/** Длительность плавного сворачивания (fade → height → снятие класса). */
+const MODE_LEGEND_CLOSE_ANIM_MS = 300;
 const MODE_LEGEND_ART_COMPACT_DELAY_MS = 2600;
+
+/** Solo-офлайн каплюля: короткие ролики CTA (только без Continue). */
+const OFFLINE_SOLO_PILL_LABELS = ['Офлайн', 'с ИИ', 'Играть'] as const;
+const OFFLINE_SOLO_PILL_LABEL_MS = 2600;
+
+function useCyclingLabel(labels: readonly string[], enabled: boolean, intervalMs: number): string {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (!enabled || labels.length < 2) {
+      setIndex(0);
+      return;
+    }
+    const id = setInterval(() => {
+      setIndex((i) => (i + 1) % labels.length);
+    }, intervalMs);
+    return () => clearInterval(id);
+  }, [enabled, labels, intervalMs]);
+
+  return labels[enabled ? index % labels.length : 0] ?? labels[0];
+}
 
 const MODE_LEGENDS = {
   online: {
@@ -21,42 +49,71 @@ const MODE_LEGENDS = {
 
 function useModeLegendAutoClose() {
   const [legendOpen, setLegendOpen] = useState(false);
+  const [legendClosing, setLegendClosing] = useState(false);
+  const legendOpenRef = useRef(false);
+  const legendClosingRef = useRef(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const closeLegend = useCallback(() => {
-    setLegendOpen(false);
+  legendOpenRef.current = legendOpen;
+  legendClosingRef.current = legendClosing;
+
+  const clearCloseTimer = useCallback(() => {
     if (closeTimerRef.current) {
       clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
     }
   }, []);
 
-  const toggleLegend = useCallback(() => {
-    setLegendOpen((open) => {
-      if (open) {
-        if (closeTimerRef.current) {
-          clearTimeout(closeTimerRef.current);
-          closeTimerRef.current = null;
-        }
-        return false;
-      }
-      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = setTimeout(() => {
-        setLegendOpen(false);
-        closeTimerRef.current = null;
-      }, MODE_LEGEND_AUTO_CLOSE_MS);
-      return true;
-    });
+  const clearAnimTimer = useCallback(() => {
+    if (animTimerRef.current) {
+      clearTimeout(animTimerRef.current);
+      animTimerRef.current = null;
+    }
   }, []);
+
+  const closeLegend = useCallback(() => {
+    clearCloseTimer();
+    if (!legendOpenRef.current || legendClosingRef.current) return;
+
+    setLegendClosing(true);
+    clearAnimTimer();
+    const closeMs =
+      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 0
+        : MODE_LEGEND_CLOSE_ANIM_MS;
+    animTimerRef.current = setTimeout(() => {
+      setLegendOpen(false);
+      setLegendClosing(false);
+      animTimerRef.current = null;
+    }, closeMs);
+  }, [clearAnimTimer, clearCloseTimer]);
+
+  const toggleLegend = useCallback(() => {
+    if (legendClosingRef.current) return;
+
+    if (legendOpenRef.current) {
+      closeLegend();
+      return;
+    }
+
+    setLegendOpen(true);
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      closeLegend();
+    }, MODE_LEGEND_AUTO_CLOSE_MS);
+  }, [clearCloseTimer, closeLegend]);
 
   useEffect(
     () => () => {
-      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      clearCloseTimer();
+      clearAnimTimer();
     },
-    [],
+    [clearAnimTimer, clearCloseTimer],
   );
 
-  return { legendOpen, toggleLegend, closeLegend };
+  return { legendOpen, legendClosing, toggleLegend, closeLegend };
 }
 
 function useLegendArtCompact(open: boolean) {
@@ -128,10 +185,10 @@ function GlyphMenuOnline() {
     <svg className="menu-capsule-glyph-svg menu-capsule-glyph-svg--online" viewBox="0 0 44 44" aria-hidden="true">
       <defs>
         <radialGradient id={coreFillId} cx="38%" cy="32%" r="68%">
-          <stop offset="0%" stopColor="#fef9c3" />
-          <stop offset="28%" stopColor="#67e8f9" />
-          <stop offset="62%" stopColor="#c084fc" />
-          <stop offset="100%" stopColor="#6d28d9" />
+          <stop offset="0%" stopColor="#f3e8ff" />
+          <stop offset="28%" stopColor="#d8b4fe" />
+          <stop offset="62%" stopColor="#a855f7" />
+          <stop offset="100%" stopColor="#5b21b6" />
         </radialGradient>
       </defs>
       <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.35" />
@@ -148,8 +205,9 @@ function GlyphMenuOnline() {
 
 function GlyphMenuResume() {
   return (
-    <svg className="menu-capsule-glyph-svg" viewBox="0 0 44 44" aria-hidden="true">
+    <svg className="menu-capsule-glyph-svg menu-capsule-glyph-svg--resume" viewBox="0 0 44 44" aria-hidden="true">
       <path
+        className="menu-glyph-accent menu-glyph-accent--arc"
         d="M30 14a12 12 0 1 0 2.4 7.2"
         fill="none"
         stroke="currentColor"
@@ -157,52 +215,132 @@ function GlyphMenuResume() {
         strokeLinecap="round"
         opacity="0.75"
       />
-      <path d="M30 8v6h-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <polygon points="14,22 22,16 22,20 28,20 28,24 22,24 22,28" fill="currentColor" opacity="0.9" />
+      <path
+        className="menu-glyph-accent menu-glyph-accent--arrow"
+        d="M30 8v6h-6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <polygon
+        className="menu-glyph-accent menu-glyph-accent--play"
+        points="14,22 22,16 22,20 28,20 28,24 22,24 22,28"
+        fill="currentColor"
+        opacity="0.9"
+      />
     </svg>
   );
 }
 
 function GlyphMenuNewSession() {
   return (
-    <svg className="menu-capsule-glyph-svg" viewBox="0 0 44 44" aria-hidden="true">
+    <svg className="menu-capsule-glyph-svg menu-capsule-glyph-svg--new-session" viewBox="0 0 44 44" aria-hidden="true">
       <path
+        className="menu-glyph-accent menu-glyph-accent--frame"
         d="M10 28 V16 a4 4 0 0 1 4-4 h16 a4 4 0 0 1 4 4 v12"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.3"
         opacity="0.55"
       />
-      <path d="M8 28 h28" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity="0.45" />
-      <circle cx="22" cy="20" r="7" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.75" />
-      <path d="M22 16 v8 M18 20 h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
       <path
-        className="menu-capsule-glyph-orbit menu-capsule-glyph-orbit--a"
+        className="menu-glyph-accent menu-glyph-accent--base"
+        d="M8 28 h28"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        opacity="0.45"
+      />
+      <circle
+        className="menu-glyph-accent menu-glyph-accent--ring"
+        cx="22"
+        cy="20"
+        r="7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        opacity="0.75"
+      />
+      <path
+        className="menu-glyph-accent menu-glyph-accent--plus"
+        d="M22 16 v8 M18 20 h8"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        className="menu-capsule-glyph-orbit menu-capsule-glyph-orbit--a menu-glyph-accent menu-glyph-accent--beam"
         d="M22 8 v4"
         stroke="currentColor"
         strokeWidth="1.3"
         strokeLinecap="round"
         opacity="0.85"
       />
-      <path d="M17 10 l5-3 5 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.65" />
-      <circle cx="30" cy="12" r="1.8" fill="currentColor" opacity="0.7" />
+      <path
+        className="menu-glyph-accent menu-glyph-accent--roof"
+        d="M17 10 l5-3 5 3"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        opacity="0.65"
+      />
+      <circle className="menu-glyph-accent menu-glyph-accent--sat" cx="30" cy="12" r="1.8" fill="currentColor" opacity="0.7" />
     </svg>
   );
 }
 
 function GlyphMenuNewParty() {
   return (
-    <svg className="menu-capsule-glyph-svg" viewBox="0 0 44 44" aria-hidden="true">
-      <rect x="11" y="14" width="12" height="16" rx="2" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.55" transform="rotate(-12 17 22)" />
-      <rect x="21" y="12" width="12" height="16" rx="2" fill="none" stroke="currentColor" strokeWidth="1.3" transform="rotate(10 27 20)" />
-      <path d="M15 18 h4 M26 17 h4" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.55" />
+    <svg className="menu-capsule-glyph-svg menu-capsule-glyph-svg--new-party" viewBox="0 0 44 44" aria-hidden="true">
+      <rect
+        className="menu-glyph-accent menu-glyph-accent--card-a"
+        x="11"
+        y="14"
+        width="12"
+        height="16"
+        rx="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        opacity="0.55"
+        transform="rotate(-12 17 22)"
+      />
+      <rect
+        className="menu-glyph-accent menu-glyph-accent--card-b"
+        x="21"
+        y="12"
+        width="12"
+        height="16"
+        rx="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        transform="rotate(10 27 20)"
+      />
       <path
+        className="menu-glyph-accent menu-glyph-accent--marks"
+        d="M15 18 h4 M26 17 h4"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+        opacity="0.55"
+      />
+      <path
+        className="menu-glyph-accent menu-glyph-accent--star"
         d="M22 7 l1.6 4.8 4.9.4-3.7 3.2 1.1 4.8-3.9-2.3-3.9 2.3 1.1-4.8-3.7-3.2 4.9-.4z"
         fill="currentColor"
         opacity="0.88"
       />
-      <circle cx="22" cy="30" r="2.2" fill="currentColor" opacity="0.75" />
-      <path d="M22 32 v3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.5" />
+      <circle className="menu-glyph-accent menu-glyph-accent--pip" cx="22" cy="30" r="2.2" fill="currentColor" opacity="0.75" />
+      <path
+        className="menu-glyph-accent menu-glyph-accent--stem"
+        d="M22 32 v3"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        opacity="0.5"
+      />
     </svg>
   );
 }
@@ -445,6 +583,92 @@ export type MenuPlaySplitCapsuleProps = {
 
 type SplitCapsuleTone = 'resumeOnline' | 'resumeOffline' | 'actionOnline' | 'actionOffline';
 
+function MenuOnlineCosmicUfo({ domeGradientId }: { domeGradientId: string }) {
+  return (
+    <span className="menu-online-cosmic-ufo" aria-hidden>
+      <svg viewBox="0 0 24 24" width="100%" height="100%" focusable="false" aria-hidden>
+        <defs>
+          <radialGradient id={domeGradientId} cx="50%" cy="35%" r="65%">
+            <stop offset="0%" stopColor="#ecfeff" />
+            <stop offset="45%" stopColor="#67e8f9" />
+            <stop offset="100%" stopColor="#0891b2" />
+          </radialGradient>
+        </defs>
+        <ellipse cx="12" cy="13.4" rx="7.8" ry="2" fill="#22d3ee" opacity="0.9" />
+        <ellipse cx="12" cy="10.8" rx="4.6" ry="2.7" fill={`url(#${domeGradientId})`} />
+        <ellipse cx="12" cy="13.2" rx="8.8" ry="0.85" fill="none" stroke="#c4b5fd" strokeWidth="0.7" opacity="0.88" />
+        <circle cx="8.2" cy="13.8" r="0.65" fill="#f0abfc" opacity="0.95" />
+        <circle cx="12" cy="14.1" r="0.7" fill="#a5f3fc" />
+        <circle cx="15.8" cy="13.8" r="0.65" fill="#f0abfc" opacity="0.95" />
+      </svg>
+    </span>
+  );
+}
+
+function MenuOnlineCosmicSatellite({ bodyGradientId }: { bodyGradientId: string }) {
+  return (
+    <span className="menu-online-cosmic-satellite" aria-hidden>
+      <svg viewBox="0 0 24 24" width="100%" height="100%" focusable="false" aria-hidden>
+        <defs>
+          <radialGradient id={bodyGradientId} cx="34%" cy="28%" r="68%">
+            <stop offset="0%" stopColor="#f3e8ff" />
+            <stop offset="38%" stopColor="#c084fc" />
+            <stop offset="100%" stopColor="#6b21a8" />
+          </radialGradient>
+        </defs>
+        <ellipse
+          cx="12"
+          cy="12.6"
+          rx="9.6"
+          ry="2.35"
+          fill="none"
+          stroke="#67e8f9"
+          strokeWidth="1.05"
+          opacity="0.92"
+          transform="rotate(-17 12 12.6)"
+        />
+        <ellipse
+          cx="12"
+          cy="12.6"
+          rx="9.6"
+          ry="2.35"
+          fill="none"
+          stroke="#c084fc"
+          strokeWidth="0.55"
+          opacity="0.78"
+          transform="rotate(-17 12 12.6)"
+        />
+        <circle cx="12" cy="11.8" r="4.2" fill={`url(#${bodyGradientId})`} />
+      </svg>
+    </span>
+  );
+}
+
+function MenuOnlineCosmicDecor() {
+  const ufoDomeGradientId = useId().replace(/:/g, '');
+  const satelliteBodyGradientId = useId().replace(/:/g, '');
+
+  return (
+    <>
+      <div className="menu-online-cosmic-stars" aria-hidden="true">
+        <div className="menu-online-cosmic-stars__layer menu-online-cosmic-stars__layer--a" />
+        <div className="menu-online-cosmic-stars__layer menu-online-cosmic-stars__layer--b" />
+        <div className="menu-online-cosmic-stars__layer menu-online-cosmic-stars__layer--c" />
+      </div>
+      <span className="menu-online-cosmic-ufo-host" aria-hidden="true">
+        <span className="menu-online-cosmic-ufo-flight">
+          <MenuOnlineCosmicUfo domeGradientId={ufoDomeGradientId} />
+        </span>
+      </span>
+      <span className="menu-online-cosmic-satellite-host" aria-hidden="true">
+        <span className="menu-online-cosmic-satellite-flight">
+          <MenuOnlineCosmicSatellite bodyGradientId={satelliteBodyGradientId} />
+        </span>
+      </span>
+    </>
+  );
+}
+
 function SplitCapsuleHalf({
   side,
   tone,
@@ -502,54 +726,84 @@ function SplitCapsuleHalf({
   );
 }
 
-function ModeLabelSmileArc({ mode, modeLabel }: { mode: 'online' | 'offline'; modeLabel: string }) {
-  const uid = useId().replace(/:/g, '');
-  const pathId = `${uid}-path`;
-  const fillId = `${uid}-fill`;
-  const label = modeLabel.toLocaleUpperCase('ru-RU');
+function ModeLabelSplitFlat({ mode }: { mode: 'online' | 'offline' }) {
+  const keyLetter = mode === 'online' ? 'Н' : 'Ф';
 
   return (
-    <svg
-      className={`menu-split-capsule__mode-arc menu-split-capsule__mode-arc--${mode}`}
-      viewBox="0 21 100 11"
-      preserveAspectRatio="xMidYMin meet"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <defs>
-        <path id={pathId} d="M 14,22 A 34,34 0 0,0 86,22" fill="none" />
-        {mode === 'online' ? (
-          <linearGradient id={fillId} x1="8%" y1="0%" x2="92%" y2="0%">
-            <stop offset="0%" stopColor="#7dd3fc" />
-            <stop offset="14%" stopColor="#e0f2fe" />
-            <stop offset="28%" stopColor="#67e8f9" />
-            <stop offset="42%" stopColor="#e9d5ff" />
-            <stop offset="54%" stopColor="#ffffff" stopOpacity="0.95" />
-            <stop offset="66%" stopColor="#f472b6" />
-            <stop offset="80%" stopColor="#fcd34d" />
-            <stop offset="100%" stopColor="#fef08a" />
-          </linearGradient>
-        ) : (
-          <linearGradient id={fillId} x1="8%" y1="0%" x2="92%" y2="0%">
-            <stop offset="0%" stopColor="#6ee7b7" />
-            <stop offset="16%" stopColor="#ccfbf1" />
-            <stop offset="32%" stopColor="#2dd4bf" />
-            <stop offset="48%" stopColor="#ffffff" stopOpacity="0.92" />
-            <stop offset="62%" stopColor="#22d3ee" />
-            <stop offset="78%" stopColor="#34d399" />
-            <stop offset="100%" stopColor="#a7f3d0" />
-          </linearGradient>
-        )}
-      </defs>
-      <text
-        className={`menu-split-capsule__mode-arc-text menu-split-capsule__mode-arc-text--${mode}`}
-        fill={`url(#${fillId})`}
+    <>
+      <span className="menu-mode-label__chip-o">О</span>
+      <span className={`menu-mode-label__key menu-mode-label__key--${mode}`}>{keyLetter}</span>
+      <span className={`menu-mode-label__sep menu-mode-label__sep--${mode}`} aria-hidden="true">
+        ·
+      </span>
+      <span className={`menu-mode-label__tail menu-mode-label__tail--${mode}`}>ЛАЙН</span>
+    </>
+  );
+}
+
+function ModeLabelSmileArc({ mode }: { mode: 'online' | 'offline' }) {
+  const uid = useId().replace(/:/g, '');
+  const pathId = `${uid}-path`;
+  const fillKeyId = `${uid}-fill-key`;
+  const keyLetter = mode === 'online' ? 'Н' : 'Ф';
+
+  return (
+    <>
+      <svg
+        className={`menu-split-capsule__mode-arc menu-split-capsule__mode-arc--${mode}`}
+        viewBox="0 21 100 11"
+        preserveAspectRatio="xMidYMin meet"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
       >
-        <textPath href={`#${pathId}`} xlinkHref={`#${pathId}`} startOffset="50%" textAnchor="middle">
-          {label}
-        </textPath>
-      </text>
-    </svg>
+        <defs>
+          <path id={pathId} d="M 14,22 A 34,34 0 0,0 86,22" fill="none" />
+          {mode === 'online' ? (
+            <linearGradient id={fillKeyId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#22d3ee" />
+              <stop offset="22%" stopColor="#67e8f9" />
+              <stop offset="48%" stopColor="#fbbf24" />
+              <stop offset="72%" stopColor="#f472b6" />
+              <stop offset="100%" stopColor="#e879f9" />
+              <animate attributeName="x1" values="-35%;0%;-35%" dur="3.4s" repeatCount="indefinite" />
+              <animate attributeName="x2" values="65%;100%;65%" dur="3.4s" repeatCount="indefinite" />
+            </linearGradient>
+          ) : (
+            <linearGradient id={fillKeyId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#6ee7b7" />
+              <stop offset="38%" stopColor="#22d3ee" />
+              <stop offset="72%" stopColor="#34d399" />
+              <stop offset="100%" stopColor="#14b8a6" />
+              <animate attributeName="x1" values="-30%;0%;-30%" dur="3.4s" repeatCount="indefinite" />
+              <animate attributeName="x2" values="70%;100%;70%" dur="3.4s" repeatCount="indefinite" />
+            </linearGradient>
+          )}
+        </defs>
+        <text className={`menu-split-capsule__mode-arc-text menu-split-capsule__mode-arc-text--${mode}`}>
+          <textPath href={`#${pathId}`} xlinkHref={`#${pathId}`} startOffset="50%" textAnchor="middle">
+            <tspan className="menu-split-capsule__mode-arc-chip-o">О</tspan>
+            <tspan
+              className={`menu-split-capsule__mode-arc-key menu-split-capsule__mode-arc-key--${mode}`}
+              fill={`url(#${fillKeyId})`}
+            >
+              {keyLetter}
+            </tspan>
+            <tspan className={`menu-split-capsule__mode-arc-sep menu-split-capsule__mode-arc-sep--${mode}`} dx="0.14em">
+              ·
+            </tspan>
+            <tspan className={`menu-split-capsule__mode-arc-tail menu-split-capsule__mode-arc-tail--${mode}`} dx="0.1em">
+              ЛАЙН
+            </tspan>
+          </textPath>
+        </text>
+      </svg>
+      <span
+        className={`menu-split-capsule__mode-label-flat menu-split-capsule__mode-label-flat--${mode} menu-split-capsule__mode-label-flat--split`}
+        aria-hidden="true"
+      >
+        <ModeLabelSplitFlat mode={mode} />
+      </span>
+    </>
   );
 }
 
@@ -558,14 +812,18 @@ function ModeLegendPanel({
   panelId,
   legendOpen,
   onClose,
+  onPlay,
 }: {
   mode: 'online' | 'offline';
   panelId: string;
   legendOpen: boolean;
   onClose: () => void;
+  /** Solo: быстрый переход в лобби / офлайн-игру из легенды. */
+  onPlay?: () => void;
 }) {
   const legend = MODE_LEGENDS[mode];
   const { artExpanded, expandArt } = useLegendArtCompact(legendOpen);
+  const playLabel = mode === 'online' ? 'В лобби' : 'Играть';
 
   return (
     <div className={`menu-split-capsule__legend menu-split-capsule__legend--${mode}`} id={panelId}>
@@ -603,13 +861,23 @@ function ModeLegendPanel({
           <h3 className="menu-split-capsule__legend-title">{legend.title}</h3>
         </div>
         <p className="menu-split-capsule__legend-body">{legend.body}</p>
-        <button
-          type="button"
-          className="menu-split-capsule__legend-collapse"
-          onClick={onClose}
-        >
-          Свернуть
-        </button>
+        <div className="menu-split-capsule__legend-actions">
+          {onPlay ? (
+            <button
+              type="button"
+              className="menu-split-capsule__legend-play"
+              onClick={() => {
+                onClose();
+                onPlay();
+              }}
+            >
+              {playLabel}
+            </button>
+          ) : null}
+          <button type="button" className="menu-split-capsule__legend-collapse" onClick={onClose}>
+            Свернуть
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -622,6 +890,7 @@ function SplitCapsuleModeCrest({
   legendOpen,
   onGlyphClick,
   legendPanelId,
+  showModeLabel = true,
 }: {
   mode: 'online' | 'offline';
   modeLabel: string;
@@ -629,7 +898,13 @@ function SplitCapsuleModeCrest({
   legendOpen: boolean;
   onGlyphClick: () => void;
   legendPanelId: string;
+  /** Smile-arc под глифом (в solo скрываем — там каплюля-watermark). */
+  showModeLabel?: boolean;
 }) {
+  const glyphAria = legendOpen
+    ? `Свернуть легенду «${modeLabel}»`
+    : `Что такое «${modeLabel}»`;
+
   return (
     <div className="menu-split-capsule__mode-crest-anchor" aria-label={modeLabel}>
       <span className="menu-split-capsule__mode-crest-beam" aria-hidden="true" />
@@ -643,11 +918,11 @@ function SplitCapsuleModeCrest({
               onClick={onGlyphClick}
               aria-expanded={legendOpen}
               aria-controls={legendPanelId}
-              aria-label={legendOpen ? `Свернуть легенду «${modeLabel}»` : `Что такое «${modeLabel}»`}
+              aria-label={glyphAria}
             >
               {glyph}
             </button>
-            <ModeLabelSmileArc mode={mode} modeLabel={modeLabel} />
+            {showModeLabel ? <ModeLabelSmileArc mode={mode} /> : null}
           </div>
         </div>
       </div>
@@ -665,35 +940,75 @@ export function MenuPlaySplitCapsule({
   const mainVariant: MenuCapsuleVariant = mode === 'online' ? 'online' : 'offline';
   const resumeVariant: MenuCapsuleVariant = mode === 'online' ? 'resumeOnline' : 'resumeOffline';
   const modeLabel = mode === 'online' ? 'Онлайн' : 'Офлайн';
-  const { legendOpen, toggleLegend, closeLegend } = useModeLegendAutoClose();
+  const { legendOpen, legendClosing, toggleLegend, closeLegend } = useModeLegendAutoClose();
   const legendPanelId = useId();
+  const soloOfflinePillLabel = useCyclingLabel(
+    OFFLINE_SOLO_PILL_LABELS,
+    !canResume && mode === 'offline',
+    OFFLINE_SOLO_PILL_LABEL_MS,
+  );
 
   const rootClassName = [
     'menu-split-capsule',
     'menu-split-capsule--b4',
     `menu-split-capsule--${mode}`,
     legendOpen ? 'menu-split-capsule--legend-open' : '',
+    legendClosing ? 'menu-split-capsule--legend-closing' : '',
     canResume ? '' : 'menu-split-capsule--solo',
   ]
     .filter(Boolean)
     .join(' ');
 
   if (!canResume) {
-    const soloTitle = mode === 'online' ? 'Онлайн' : 'Офлайн против ИИ';
-    const soloHint = mode === 'online' ? 'комнаты и зал столов' : 'быстрый старт';
-
+    const pillLabel = mode === 'online' ? 'Онлайн' : soloOfflinePillLabel;
+    const pillAria =
+      mode === 'online' ? 'Открыть онлайн-лобби' : 'Начать офлайн-игру';
     return (
-      <div className={rootClassName}>
+      <div className={`${rootClassName} menu-split-capsule--solo-glyph`}>
         <div className="menu-split-capsule__shell">
-          <button type="button" className="menu-split-capsule__solo-action" onClick={onMain}>
-            <span className="menu-split-capsule__solo-spacer" aria-hidden="true" />
-            <span className="menu-split-capsule__solo-body">
-              <span className="menu-split-capsule__title">{soloTitle}</span>
-              <span className="menu-split-capsule__hint">{soloHint}</span>
+          {mode === 'online' ? <MenuOnlineCosmicDecor /> : null}
+          <div className="menu-split-capsule__solo-glyph-slot" aria-hidden="true" />
+          <div
+            className={`menu-split-capsule__solo-watermark menu-split-capsule__solo-watermark--${mode}`}
+            aria-hidden="true"
+          >
+            <span className="menu-split-capsule__solo-watermark-scan" />
+            <span className="menu-split-capsule__solo-watermark-ghost">
+              {mode === 'online' ? 'ОНЛАЙН' : 'ОФЛАЙН'}
             </span>
-            <span className="menu-split-capsule__solo-spacer" aria-hidden="true" />
+            <span className="menu-split-capsule__solo-watermark-glitch menu-split-capsule__solo-watermark-glitch--a">
+              {mode === 'online' ? 'Онлайн' : 'Офлайн'}
+            </span>
+            <span className="menu-split-capsule__solo-watermark-glitch menu-split-capsule__solo-watermark-glitch--b">
+              {mode === 'online' ? 'Онлайн' : 'Офлайн'}
+            </span>
+          </div>
+          <button
+            type="button"
+            className={`menu-split-capsule__solo-watermark-main menu-split-capsule__solo-watermark-main--${mode}`}
+            onClick={onMain}
+            aria-label={pillAria}
+          >
+            <span
+              key={pillLabel}
+              className={[
+                'menu-split-capsule__solo-watermark-main-text',
+                mode === 'offline' ? 'menu-split-capsule__solo-watermark-main-text--swap' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              aria-hidden="true"
+            >
+              {pillLabel}
+            </span>
           </button>
-          <ModeLegendPanel mode={mode} panelId={legendPanelId} legendOpen={legendOpen} onClose={closeLegend} />
+          <ModeLegendPanel
+            mode={mode}
+            panelId={legendPanelId}
+            legendOpen={legendOpen}
+            onClose={closeLegend}
+            onPlay={onMain}
+          />
           <SplitCapsuleModeCrest
             mode={mode}
             modeLabel={modeLabel}
@@ -701,6 +1016,7 @@ export function MenuPlaySplitCapsule({
             legendOpen={legendOpen}
             onGlyphClick={toggleLegend}
             legendPanelId={legendPanelId}
+            showModeLabel={false}
           />
         </div>
       </div>
@@ -721,6 +1037,7 @@ export function MenuPlaySplitCapsule({
         .join(' ')}
     >
       <div className="menu-split-capsule__shell">
+        {mode === 'online' ? <MenuOnlineCosmicDecor /> : null}
         <div className="menu-split-capsule__actions">
           <SplitCapsuleHalf
             side="main"
@@ -756,19 +1073,50 @@ export function MenuPlaySplitCapsule({
 }
 
 export type MenuSectionProps = {
+  sectionId: MenuSectionId;
   label: string;
   children: ReactNode;
   compact?: boolean;
 };
 
-export function MenuSection({ label, children, compact }: MenuSectionProps) {
+export function MenuSection({ sectionId, label, children, compact }: MenuSectionProps) {
+  const [glyphsOnly, setGlyphsOnly] = useState(() => getMenuSectionGlyphsOnly(sectionId));
+  const sectionLabelId = useId();
+  const glyphsToggleId = useId();
+
+  const toggleGlyphsOnly = useCallback(() => {
+    setGlyphsOnly((on) => {
+      const next = !on;
+      setMenuSectionGlyphsOnly(sectionId, next);
+      return next;
+    });
+  }, [sectionId]);
+
   return (
     <section
-      className={['menu-screen__section', compact ? 'menu-screen__section--compact' : '']
+      className={[
+        'menu-screen__section',
+        compact ? 'menu-screen__section--compact' : '',
+        glyphsOnly ? 'menu-screen__section--glyphs-only' : '',
+      ]
         .filter(Boolean)
         .join(' ')}
     >
-      <h2 className="menu-screen__section-label">{label}</h2>
+      <div className="menu-screen__section-head">
+        <h2 className="menu-screen__section-label" id={sectionLabelId}>
+          {label}
+        </h2>
+        <button
+          type="button"
+          id={glyphsToggleId}
+          className="menu-screen__section-glyphs-toggle"
+          aria-pressed={glyphsOnly}
+          aria-labelledby={`${sectionLabelId} ${glyphsToggleId}`}
+          onClick={toggleGlyphsOnly}
+        >
+          {glyphsOnly ? 'полный вид' : 'без слов'}
+        </button>
+      </div>
       <div className="menu-screen__section-body">{children}</div>
     </section>
   );

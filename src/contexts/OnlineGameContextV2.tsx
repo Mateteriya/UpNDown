@@ -37,6 +37,7 @@ import { loadLastOnlineParty, clearLastOnlineParty, saveLastOnlineParty } from '
 import {
   addIgnoredRoomForAutoRestore,
   isRoomIgnoredForAutoRestore,
+  removeIgnoredRoomForAutoRestore,
 } from '../lib/onlineIgnoredRooms';
 import { getOnlinePlayerId } from '../lib/deviceId';
 import { isWsOnlineConfigured } from '../lib/onlineTransport';
@@ -203,6 +204,8 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     void getRoom(saved.roomId).then((room) => {
       if (!room) {
         clearOnlineSession();
+        clearLastOnlineParty();
+        setLastPartyHintVersion((v) => v + 1);
         setOnlineHydratedFromStorage(true);
         return;
       }
@@ -210,6 +213,8 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
       const me = slots.find((s) => s.userId === onlinePlayerId || s.replacedUserId === onlinePlayerId);
       if (!me) {
         clearOnlineSession();
+        clearLastOnlineParty();
+        setLastPartyHintVersion((v) => v + 1);
         setOnlineHydratedFromStorage(true);
         return;
       }
@@ -282,7 +287,12 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     setPlayerSlots([]);
     setError(null);
     setUserOnPause(false);
+    setUserLeftTemporarily(false);
+    setOnlineHydratedFromStorage(true);
     clearOnlineSession();
+    clearLastOnlineParty();
+    setLastPartyHintVersion((v) => v + 1);
+    markLobbyUiOpen(false);
   }, []);
 
   const leaveRoom = useCallback(async () => {
@@ -362,20 +372,84 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
   const sendStartNextDeal = useCallback(async () => true, []);
   const sendState = useCallback(async () => false, []);
 
-  const tryRestoreSession = useCallback(async () => {
-    const saved = loadOnlineSession();
-    if (!saved) return { ok: false as const };
+  const tryRestoreSession = useCallback(async (): Promise<{ ok: boolean; roomFinished?: boolean; error?: string }> => {
+    let saved = loadOnlineSession();
+    const last = loadLastOnlineParty();
+    if (!saved && last?.roomId && !isRoomIgnoredForAutoRestore(last.roomId)) {
+      saveOnlineSession(last.roomId, deviceIdRef.current, last.code);
+      saved = loadOnlineSession();
+    }
+    if (saved && isRoomIgnoredForAutoRestore(saved.roomId)) {
+      clearOnlineSession();
+      return {
+        ok: false,
+        error:
+          'Эта комната отключена от автопродолжения. Войдите по коду через «Онлайн» или дождитесь приглашения.',
+      };
+    }
+    if (!saved) {
+      if (last?.roomId && isRoomIgnoredForAutoRestore(last.roomId)) {
+        return {
+          ok: false,
+          error:
+            'Эта комната отключена от автопродолжения. Введите код вручную в «Онлайн» или создайте новую комнату.',
+        };
+      }
+      return {
+        ok: false,
+        error:
+          'Нет сохранённой онлайн-сессии. Откройте «Онлайн» и войдите по коду или создайте комнату.',
+      };
+    }
+
+    const wipeAnchors = () => {
+      clearOnlineSession();
+      clearLastOnlineParty();
+      setLastPartyHintVersion((v) => v + 1);
+    };
+
     const room = await getRoom(saved.roomId);
-    if (!room) return { ok: false as const, error: 'Комната не найдена' };
-    if (room.status === 'finished') return { ok: false as const, roomFinished: true };
-    applyRoom(room);
+    if (!room) {
+      wipeAnchors();
+      return { ok: false, error: 'Комната не найдена' };
+    }
+    if (room.status === 'finished') {
+      wipeAnchors();
+      return { ok: false, roomFinished: true };
+    }
     const me = (room.player_slots ?? []).find(
       (s) => s.userId === onlinePlayerId || s.replacedUserId === onlinePlayerId,
     );
-    if (!me) return { ok: false as const, error: 'Нет вашего слота' };
-    setMyServerIndex(me.slotIndex);
-    return { ok: true as const };
-  }, [onlinePlayerId, applyRoom]);
+    if (me) {
+      applyRoom(room);
+      setMyServerIndex(me.slotIndex);
+      saveOnlineSession(saved.roomId, deviceIdRef.current, room.code ?? last?.code);
+      removeIgnoredRoomForAutoRestore(saved.roomId);
+      return { ok: true };
+    }
+
+    if (last?.code) {
+      const recovered = await recoverJoinIfAlreadyInRoom(last.code);
+      if (recovered) {
+        removeIgnoredRoomForAutoRestore(saved.roomId);
+        return { ok: true };
+      }
+      const prof = getPlayerProfile();
+      const name = prof.displayName?.trim() || 'Игрок';
+      const shortLabel = user?.email ? user.email.replace(/@.*$/, '').slice(-8) : undefined;
+      const jr = await apiJoinRoom(last.code, onlinePlayerId, name, shortLabel, prof.avatarDataUrl ?? undefined);
+      if (!('error' in jr)) {
+        applyRoom(jr.room);
+        setMyServerIndex(jr.mySlotIndex);
+        saveOnlineSession(jr.roomId, deviceIdRef.current, jr.room.code);
+        removeIgnoredRoomForAutoRestore(jr.roomId);
+        return { ok: true };
+      }
+    }
+
+    wipeAnchors();
+    return { ok: false, error: 'В этой комнате нет вашего места. Войдите по коду заново через «Онлайн».' };
+  }, [onlinePlayerId, applyRoom, recoverJoinIfAlreadyInRoom, user?.email]);
 
   const forgetLastOnlineParty = useCallback(() => {
     clearLastOnlineParty();
