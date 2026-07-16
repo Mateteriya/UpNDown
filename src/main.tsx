@@ -22,12 +22,15 @@ import { CosmogenesisDemoPage } from './ui/CosmogenesisDemoPage'
 import './theme-standard.css'
 import './theme-neon.css'
 import './index.css'
+import './styles/menu-pc.css'
 import './styles/tableChatSideEarMobile.css'
 import { bootstrapLanPlayFromServer } from './lib/lanJoinLink'
+import { installCssDevGuard } from './lib/cssDevGuard'
 import { installPwaStaleRecovery, stripRecoveryQueryFromUrl } from './lib/pwaStaleRecovery'
 
 installPwaStaleRecovery()
 stripRecoveryQueryFromUrl()
+installCssDevGuard()
 
 // LAN: /play/ с порта сервера — WS + v2 до инициализации контекста
 bootstrapLanPlayFromServer()

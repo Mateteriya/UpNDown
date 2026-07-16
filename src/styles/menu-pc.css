@@ -1,0 +1,1254 @@
+/*
+ * ПК главное меню (cinematic cast/stars/drift + solo labels).
+ * Вынесено из index.css: HMR огромного файла иногда отдавал __vite__css = ""
+ * и страница оставалась с одним кастом. Правки меню — лучше здесь.
+ */
+
+/* ПК-декор главного меню: скрыт на мобилке */
+.menu-screen__pc-cast,
+.menu-screen__pc-hero,
+.menu-screen__pc-stars,
+.menu-screen__pc-ufos {
+  display: none;
+  pointer-events: none;
+}
+/*
+ * Важно: pointer-events НЕ наследуется. В Chrome img/layer с mix-blend/mask
+ * иначе ловят hover у верхней зоны (капсулы у верха «мертвые» по центру глифа).
+ */
+.menu-screen__pc-cast *,
+.menu-screen__pc-hero *,
+.menu-screen__pc-stars *,
+.menu-screen__pc-ufos *,
+.menu-screen__aura,
+.menu-screen__aura * {
+  pointer-events: none !important;
+}
+/* Мобилка: topbar не меняет поток — дети как прямые в стеке */
+.menu-screen__pc-topbar {
+  display: contents;
+}
+
+/* ПК: cinematic constellation — рассеянный HUD, арт вплавлен в сцену */
+@media (min-width: 1025px) {
+  .menu-screen--pc-cinematic {
+    overflow-x: hidden;
+    overflow-y: auto;
+    /* Богатый космос — один токен, чтобы каст слился с ним без шва */
+    --menu-pc-cosmos-bg:
+      radial-gradient(ellipse 90% 70% at 12% 18%, rgba(139, 92, 246, 0.28) 0%, transparent 55%),
+      radial-gradient(ellipse 80% 65% at 88% 78%, rgba(79, 70, 229, 0.32) 0%, transparent 52%),
+      radial-gradient(ellipse 70% 55% at 55% 8%, rgba(196, 181, 253, 0.14) 0%, transparent 48%),
+      radial-gradient(ellipse 60% 50% at 70% 35%, rgba(99, 102, 241, 0.2) 0%, transparent 50%),
+      linear-gradient(
+        148deg,
+        rgb(12 4 36) 0%,
+        rgb(18 4 42) 22%,
+        rgb(28 12 72) 48%,
+        rgb(15 8 48) 72%,
+        rgb(6 2 20) 100%
+      );
+    /* Звёзды/НЛО — по краям космоса, меньше на касте */
+    --menu-pc-sky-deco-mask:
+      radial-gradient(
+        ellipse 58% 64% at 50% 54%,
+        transparent 0%,
+        transparent 40%,
+        rgba(0, 0, 0, 0.08) 52%,
+        rgba(0, 0, 0, 0.45) 68%,
+        #000 86%,
+        #000 100%
+      ),
+      linear-gradient(
+        90deg,
+        #000 0%,
+        #000 14%,
+        rgba(0, 0, 0, 0.35) 26%,
+        transparent 38%,
+        transparent 62%,
+        rgba(0, 0, 0, 0.35) 74%,
+        #000 86%,
+        #000 100%
+      );
+    background: var(--menu-pc-cosmos-bg);
+  }
+  /* Отключаем лишний «светлый» слой звёзд-точек страницы на ПК */
+  .menu-screen--pc-cinematic::before {
+    opacity: 0;
+  }
+  .menu-screen__pc-cast {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background: transparent;
+    pointer-events: none !important;
+  }
+  .menu-screen__pc-cast-img {
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 20%;
+    bottom: auto;
+    width: min(92%, 1280px);
+    height: min(92%, 980px);
+    margin: 0 auto;
+    object-fit: contain;
+    object-position: center center;
+    mix-blend-mode: soft-light;
+    opacity: 0.46;
+    filter: saturate(0.82) contrast(0.96) brightness(0.78);
+    transform: none;
+    pointer-events: none !important;
+    /* Растушёвка: бока сильнее */
+    -webkit-mask-image:
+      linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.25) 12%, #000 34%, #000 66%, rgba(0, 0, 0, 0.25) 88%, transparent 100%),
+      linear-gradient(0deg, transparent 0%, #000 10%, #000 90%, transparent 100%),
+      radial-gradient(
+        ellipse 60% 72% at 50% 48%,
+        #000 0%,
+        #000 42%,
+        rgba(0, 0, 0, 0.7) 62%,
+        rgba(0, 0, 0, 0.2) 80%,
+        transparent 95%
+      );
+    mask-image:
+      linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.25) 12%, #000 34%, #000 66%, rgba(0, 0, 0, 0.25) 88%, transparent 100%),
+      linear-gradient(0deg, transparent 0%, #000 10%, #000 90%, transparent 100%),
+      radial-gradient(
+        ellipse 60% 72% at 50% 48%,
+        #000 0%,
+        #000 42%,
+        rgba(0, 0, 0, 0.7) 62%,
+        rgba(0, 0, 0, 0.2) 80%,
+        transparent 95%
+      );
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+  /*
+   * Ключ к идеальному шву: поверх краёв каста — тот же фон страницы.
+   */
+  .menu-screen__pc-cast-meld {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: var(--menu-pc-cosmos-bg);
+    -webkit-mask-image:
+      linear-gradient(90deg, #000 0%, #000 24%, transparent 40%, transparent 60%, #000 76%, #000 100%),
+      linear-gradient(0deg, #000 0%, #000 12%, transparent 30%, transparent 90%, #000 98%, #000 100%),
+      radial-gradient(
+        ellipse 42% 58% at 50% 58%,
+        transparent 0%,
+        transparent 36%,
+        rgba(0, 0, 0, 0.28) 56%,
+        rgba(0, 0, 0, 0.9) 78%,
+        #000 92%,
+        #000 100%
+      );
+    mask-image:
+      linear-gradient(90deg, #000 0%, #000 24%, transparent 40%, transparent 60%, #000 76%, #000 100%),
+      linear-gradient(0deg, #000 0%, #000 12%, transparent 30%, transparent 90%, #000 98%, #000 100%),
+      radial-gradient(
+        ellipse 42% 58% at 50% 58%,
+        transparent 0%,
+        transparent 36%,
+        rgba(0, 0, 0, 0.28) 56%,
+        rgba(0, 0, 0, 0.9) 78%,
+        #000 92%,
+        #000 100%
+      );
+    -webkit-mask-composite: source-over;
+    mask-composite: add;
+  }
+  .menu-screen__pc-stars {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    border-radius: 0;
+    overflow: hidden;
+    perspective: 1200px;
+    perspective-origin: 50% 42%;
+    transform-style: preserve-3d;
+    -webkit-mask-image: var(--menu-pc-sky-deco-mask);
+    mask-image: var(--menu-pc-sky-deco-mask);
+    -webkit-mask-composite: source-over;
+    mask-composite: add;
+    pointer-events: none !important;
+  }
+  .menu-screen__pc-stars__layer,
+  .menu-screen__pc-ufos,
+  .menu-screen__pc-ufo {
+    pointer-events: none !important;
+  }
+  .menu-screen__pc-stars__layer {
+    position: absolute;
+    inset: -8%;
+    display: block;
+    background-repeat: repeat;
+    background-position: 0 0;
+    will-change: transform, opacity;
+    transform-style: preserve-3d;
+  }
+  /* Дальний план — мельче, тусклее, медленнее */
+  .menu-screen__pc-stars__layer--far {
+    opacity: 0.55;
+    background-size: 62% auto;
+    transform: translateZ(-160px) scale(1.12);
+    animation:
+      menu-pc-stars-drift-far 48s ease-in-out infinite,
+      menu-pc-stars-twinkle-soft 7.5s ease-in-out infinite;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20200%2040'%3E%3Ccircle%20cx%3D'18'%20cy%3D'5.5'%20r%3D'0.19'%20fill%3D'%23e0f2fe'%2F%3E%3Ccircle%20cx%3D'42'%20cy%3D'4.2'%20r%3D'0.16'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'66'%20cy%3D'6'%20r%3D'0.18'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'92'%20cy%3D'4.8'%20r%3D'0.16'%20fill%3D'%2338bdf8'%2F%3E%3Ccircle%20cx%3D'118'%20cy%3D'5.2'%20r%3D'0.17'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'142'%20cy%3D'4.5'%20r%3D'0.18'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'166'%20cy%3D'6.2'%20r%3D'0.17'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'186'%20cy%3D'5'%20r%3D'0.18'%20fill%3D'%23e0f2fe'%2F%3E%3Ccircle%20cx%3D'28'%20cy%3D'14'%20r%3D'0.16'%20fill%3D'%2338bdf8'%2F%3E%3Ccircle%20cx%3D'54'%20cy%3D'16.5'%20r%3D'0.15'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'80'%20cy%3D'13.5'%20r%3D'0.16'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'104'%20cy%3D'15'%20r%3D'0.15'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'128'%20cy%3D'14.2'%20r%3D'0.16'%20fill%3D'%2338bdf8'%2F%3E%3Ccircle%20cx%3D'152'%20cy%3D'16'%20r%3D'0.15'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'176'%20cy%3D'13.8'%20r%3D'0.15'%20fill%3D'%2367e8f9'%2F%3E%3C%2Fsvg%3E");
+  }
+  .menu-screen__pc-stars__layer--mid-a {
+    opacity: 0.78;
+    background-size: 56.5% auto;
+    transform: translateZ(-55px) scale(1.04);
+    animation:
+      menu-pc-stars-drift-mid 32s ease-in-out infinite,
+      menu-pc-stars-twinkle 5.2s ease-in-out infinite;
+    animation-delay: 0s, -1.2s;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20200%2040'%3E%3Ccircle%20cx%3D'14'%20cy%3D'34.5'%20r%3D'0.18'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'38'%20cy%3D'35.8'%20r%3D'0.16'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'62'%20cy%3D'34'%20r%3D'0.17'%20fill%3D'%2338bdf8'%2F%3E%3Ccircle%20cx%3D'88'%20cy%3D'36'%20r%3D'0.16'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'112'%20cy%3D'35.2'%20r%3D'0.16'%20fill%3D'%23e0f2fe'%2F%3E%3Ccircle%20cx%3D'136'%20cy%3D'34.6'%20r%3D'0.16'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'160'%20cy%3D'35.5'%20r%3D'0.17'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'184'%20cy%3D'34.2'%20r%3D'0.18'%20fill%3D'%23e0f2fe'%2F%3E%3Ccircle%20cx%3D'24'%20cy%3D'26'%20r%3D'0.15'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'50'%20cy%3D'28.5'%20r%3D'0.14'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'76'%20cy%3D'27'%20r%3D'0.15'%20fill%3D'%2338bdf8'%2F%3E%3Ccircle%20cx%3D'100'%20cy%3D'29'%20r%3D'0.15'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'124'%20cy%3D'27.5'%20r%3D'0.15'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'148'%20cy%3D'28.8'%20r%3D'0.14'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'172'%20cy%3D'26.5'%20r%3D'0.15'%20fill%3D'%2338bdf8'%2F%3E%3C%2Fsvg%3E");
+  }
+  .menu-screen__pc-stars__layer--mid-b {
+    opacity: 0.72;
+    background-size: 56.5% auto;
+    transform: translateZ(-28px) scale(1.025);
+    animation:
+      menu-pc-stars-drift-mid-b 38s ease-in-out infinite,
+      menu-pc-stars-twinkle 6.4s ease-in-out infinite;
+    animation-delay: -6s, -2.8s;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20200%2040'%3E%3Ccircle%20cx%3D'34'%20cy%3D'22'%20r%3D'0.16'%20fill%3D'%23e0f2fe'%2F%3E%3Ccircle%20cx%3D'58'%20cy%3D'20.5'%20r%3D'0.15'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'82'%20cy%3D'23'%20r%3D'0.15'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'106'%20cy%3D'21'%20r%3D'0.16'%20fill%3D'%2338bdf8'%2F%3E%3Ccircle%20cx%3D'130'%20cy%3D'22.5'%20r%3D'0.15'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'154'%20cy%3D'20.8'%20r%3D'0.15'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'46'%20cy%3D'10.5'%20r%3D'0.14'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'70'%20cy%3D'18'%20r%3D'0.15'%20fill%3D'%2338bdf8'%2F%3E%3Ccircle%20cx%3D'94'%20cy%3D'11.5'%20r%3D'0.14'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'118'%20cy%3D'19'%20r%3D'0.15'%20fill%3D'%23e0f2fe'%2F%3E%3Ccircle%20cx%3D'142'%20cy%3D'11'%20r%3D'0.14'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'166'%20cy%3D'18.5'%20r%3D'0.15'%20fill%3D'%2338bdf8'%2F%3E%3Ccircle%20cx%3D'52'%20cy%3D'31.5'%20r%3D'0.14'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'98'%20cy%3D'32.5'%20r%3D'0.14'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'144'%20cy%3D'31'%20r%3D'0.15'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'178'%20cy%3D'30'%20r%3D'0.14'%20fill%3D'%2338bdf8'%2F%3E%3C%2Fsvg%3E");
+  }
+  /* Ближний план — ярче и чуть крупнее, сильнее мерцание */
+  .menu-screen__pc-stars__layer--near {
+    opacity: 0.95;
+    background-size: 48% auto;
+    transform: translateZ(48px) scale(0.96);
+    filter: drop-shadow(0 0 2px rgba(165, 243, 252, 0.35));
+    animation:
+      menu-pc-stars-drift-near 22s ease-in-out infinite,
+      menu-pc-stars-twinkle-bright 3.6s ease-in-out infinite;
+    animation-delay: -2s, -0.6s;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20200%2040'%3E%3Ccircle%20cx%3D'24'%20cy%3D'8'%20r%3D'0.55'%20fill%3D'%23ecfeff'%2F%3E%3Ccircle%20cx%3D'68'%20cy%3D'12'%20r%3D'0.48'%20fill%3D'%23a5f3fc'%2F%3E%3Ccircle%20cx%3D'112'%20cy%3D'6'%20r%3D'0.62'%20fill%3D'%23f5d0fe'%2F%3E%3Ccircle%20cx%3D'156'%20cy%3D'14'%20r%3D'0.52'%20fill%3D'%23fef08a'%2F%3E%3Ccircle%20cx%3D'40'%20cy%3D'28'%20r%3D'0.46'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'90'%20cy%3D'30'%20r%3D'0.58'%20fill%3D'%23e0f2fe'%2F%3E%3Ccircle%20cx%3D'138'%20cy%3D'24'%20r%3D'0.44'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'178'%20cy%3D'32'%20r%3D'0.5'%20fill%3D'%23ecfeff'%2F%3E%3Ccircle%20cx%3D'52'%20cy%3D'18'%20r%3D'0.36'%20fill%3D'%23fff'%20opacity%3D'.95'%2F%3E%3Ccircle%20cx%3D'124'%20cy%3D'20'%20r%3D'0.38'%20fill%3D'%23fff'%20opacity%3D'.9'%2F%3E%3C%2Fsvg%3E");
+  }
+  @keyframes menu-pc-stars-twinkle-soft {
+    0%,
+    100% {
+      opacity: 0.48;
+    }
+    50% {
+      opacity: 0.62;
+    }
+  }
+  @keyframes menu-pc-stars-twinkle {
+    0%,
+    100% {
+      opacity: 0.68;
+    }
+    40% {
+      opacity: 0.9;
+    }
+    70% {
+      opacity: 0.74;
+    }
+  }
+  @keyframes menu-pc-stars-twinkle-bright {
+    0%,
+    100% {
+      opacity: 0.72;
+      filter: drop-shadow(0 0 1px rgba(165, 243, 252, 0.25));
+    }
+    35% {
+      opacity: 1;
+      filter: drop-shadow(0 0 4px rgba(236, 254, 255, 0.55));
+    }
+    65% {
+      opacity: 0.8;
+      filter: drop-shadow(0 0 2px rgba(245, 208, 254, 0.4));
+    }
+  }
+  @keyframes menu-pc-stars-drift-far {
+    0%,
+    100% {
+      transform: translateZ(-160px) scale(1.12) translate3d(0, 0, 0);
+    }
+    50% {
+      transform: translateZ(-160px) scale(1.12) translate3d(14px, -8px, 0);
+    }
+  }
+  @keyframes menu-pc-stars-drift-mid {
+    0%,
+    100% {
+      transform: translateZ(-55px) scale(1.04) translate3d(0, 0, 0);
+    }
+    50% {
+      transform: translateZ(-55px) scale(1.04) translate3d(-22px, 12px, 0);
+    }
+  }
+  @keyframes menu-pc-stars-drift-mid-b {
+    0%,
+    100% {
+      transform: translateZ(-28px) scale(1.025) translate3d(0, 0, 0);
+    }
+    50% {
+      transform: translateZ(-28px) scale(1.025) translate3d(18px, 14px, 0);
+    }
+  }
+  @keyframes menu-pc-stars-drift-near {
+    0%,
+    100% {
+      transform: translateZ(48px) scale(0.96) translate3d(0, 0, 0);
+    }
+    50% {
+      transform: translateZ(48px) scale(0.96) translate3d(-28px, -18px, 0);
+    }
+  }
+  /* Три НЛО — по краям космоса; в окошке онлайн — клоны (см. .menu-online-porthole-ufos) */
+  .menu-screen__pc-ufos {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+    pointer-events: none;
+    perspective: 900px;
+    perspective-origin: 50% 40%;
+    -webkit-mask-image: var(--menu-pc-sky-deco-mask);
+    mask-image: var(--menu-pc-sky-deco-mask);
+    -webkit-mask-composite: source-over;
+    mask-composite: add;
+  }
+  .menu-screen__pc-ufo {
+    position: absolute;
+    display: block;
+    width: clamp(40px, 3.6vw, 58px);
+    height: auto;
+    aspect-ratio: 48 / 28;
+    filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.35));
+    will-change: transform, opacity;
+    transform-style: preserve-3d;
+  }
+  .menu-screen__pc-ufo--cyan {
+    left: 2%;
+    top: 14%;
+    filter: drop-shadow(0 0 12px rgba(34, 211, 238, 0.55));
+    animation: menu-pc-ufo-fly-cyan 56s linear infinite;
+  }
+  .menu-screen__pc-ufo--magenta {
+    left: 86%;
+    top: 72%;
+    width: clamp(48px, 4.2vw, 68px);
+    filter: drop-shadow(0 0 12px rgba(232, 121, 249, 0.55));
+    animation: menu-pc-ufo-fly-magenta 68s linear infinite;
+    animation-delay: -18s;
+  }
+  .menu-screen__pc-ufo--gold {
+    left: 8%;
+    top: 78%;
+    width: clamp(34px, 3.1vw, 50px);
+    filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.5));
+    animation: menu-pc-ufo-fly-gold 74s linear infinite;
+    animation-delay: -36s;
+  }
+  @keyframes menu-pc-ufo-fly-cyan {
+    0% {
+      transform: translate3d(0, 0, 60px) rotate(-8deg) scale(0.72);
+      opacity: 0;
+    }
+    6% {
+      opacity: 0.95;
+    }
+    /* ~середина маршрута проходит через зону онлайн-капсулы (центр / верх) */
+    50% {
+      transform: translate3d(46vw, 2vh, 10px) rotate(5deg) scale(1.08);
+      opacity: 1;
+    }
+    94% {
+      opacity: 0.9;
+    }
+    100% {
+      transform: translate3d(8vw, 76vh, 70px) rotate(12deg) scale(0.7);
+      opacity: 0;
+    }
+  }
+  @keyframes menu-pc-ufo-fly-magenta {
+    0% {
+      transform: translate3d(0, 0, -20px) rotate(10deg) scale(0.78);
+      opacity: 0;
+    }
+    8% {
+      opacity: 0.95;
+    }
+    50% {
+      transform: translate3d(-32vw, -58vh, 40px) rotate(-12deg) scale(1.18);
+      opacity: 1;
+    }
+    100% {
+      transform: translate3d(-4vw, -76vh, -10px) rotate(-18deg) scale(0.74);
+      opacity: 0;
+    }
+  }
+  @keyframes menu-pc-ufo-fly-gold {
+    0% {
+      transform: translate3d(0, 0, 80px) rotate(-4deg) scale(0.68);
+      opacity: 0;
+    }
+    10% {
+      opacity: 0.98;
+    }
+    38% {
+      transform: translate3d(40vw, -62vh, 20px) rotate(10deg) scale(1.18);
+      opacity: 1;
+    }
+    62% {
+      transform: translate3d(70vw, -20vh, 40px) rotate(14deg) scale(1.1);
+      opacity: 1;
+    }
+    100% {
+      transform: translate3d(86vw, -60vh, 90px) rotate(-10deg) scale(0.66);
+      opacity: 0;
+    }
+  }
+  .menu-screen__aura {
+    z-index: 0;
+  }
+  .menu-screen__aura-glow {
+    opacity: 0;
+  }
+  /* Виньетка в тон градиенту — без плоского пятна */
+  .menu-screen__aura-scrim {
+    background:
+      radial-gradient(ellipse 100% 90% at 50% 48%, transparent 30%, rgba(8, 2, 24, 0.35) 72%, rgba(4, 1, 16, 0.62) 100%),
+      linear-gradient(180deg, rgba(18, 10, 48, 0.18) 0%, transparent 22%, transparent 70%, rgba(6, 2, 20, 0.4) 100%);
+  }
+  /* Герой временно выключен */
+  .menu-screen__pc-hero {
+    display: none !important;
+  }
+  .menu-screen__stack {
+    z-index: 4;
+    max-width: none;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    align-items: stretch;
+    padding:
+      max(24px, env(safe-area-inset-top, 0px) + 12px)
+      clamp(20px, 3.5vw, 56px)
+      max(28px, env(safe-area-inset-bottom, 0px) + 16px)
+      clamp(20px, 3.5vw, 56px);
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .menu-screen__pc-topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    width: 100%;
+    margin-bottom: 0;
+    z-index: 3;
+    /*
+     * Пустая полоса topbar на всю ширину перехватывала hover/клик капсул,
+     * если их поднимали к верху экрана (симптом: жив только «кончик» глифа).
+     * Клики оставляем только на реальных контролах шапки.
+     */
+    pointer-events: none;
+  }
+  /* Только реальные контролы: title (long-press dev) и кабинет.
+   * header/brand на всю левую ширину иначе перекрывают «Новая партия». */
+  .menu-screen__pc-topbar .menu-screen__title,
+  .menu-screen__pc-topbar .menu-screen__player {
+    pointer-events: auto;
+  }
+  .menu-screen__header {
+    width: auto;
+    max-width: min(60vw, 640px);
+    margin-bottom: 0;
+    text-align: left;
+  }
+  .menu-screen__brand {
+    justify-content: flex-start;
+    gap: 14px;
+  }
+  .menu-screen__brand-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+  }
+  .menu-screen__brand-text {
+    align-items: flex-start;
+  }
+  .menu-screen__title {
+    font-size: clamp(2.4rem, 3.6vw, 3.25rem);
+    letter-spacing: -0.03em;
+    filter: drop-shadow(0 0 24px rgba(34, 211, 238, 0.2)) drop-shadow(0 2px 18px rgba(8, 4, 24, 0.55));
+  }
+  .menu-screen__tagline {
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+    opacity: 0.92;
+  }
+  .menu-screen__player {
+    flex-shrink: 0;
+    width: auto;
+    min-width: 200px;
+    max-width: 280px;
+    margin: 0 0 0 auto;
+    background: rgba(10, 12, 28, 0.42);
+    border-color: rgba(167, 139, 250, 0.28);
+    box-shadow: 0 8px 28px rgba(4, 2, 16, 0.35);
+  }
+  .menu-screen__alert {
+    position: absolute;
+    top: 88px;
+    right: clamp(20px, 3.5vw, 56px);
+    width: min(100%, 360px);
+    z-index: 4;
+  }
+  /*
+   * Freeform-режим: стартовые absolute-слоты (без сжатия), все movable.
+   * Пользователь расставляет → скрин → закрепим координаты.
+   */
+  .menu-screen__constellation {
+    position: relative;
+    align-self: stretch;
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none;
+    min-height: calc(100vh - 110px);
+    min-height: calc(100dvh - 110px);
+    margin-top: 8px;
+    padding: 0;
+    isolation: auto;
+    display: block;
+  }
+  .menu-screen__constellation::before {
+    display: none;
+  }
+  .menu-screen__constellation.menu-screen__sections {
+    display: block;
+  }
+  .menu-screen__constellation .menu-screen__section,
+  .menu-screen__constellation .menu-screen__section-body,
+  .menu-screen__constellation .menu-screen__grid {
+    display: contents;
+  }
+  .menu-screen__constellation .menu-screen__section-head {
+    display: none;
+  }
+  /* ПК: всегда полный вид с подписями (не «без слов») */
+  .menu-screen--pc-cinematic .menu-screen__section--glyphs-only .menu-capsule__body,
+  .menu-screen--pc-cinematic .menu-screen__section--glyphs-only .menu-split-capsule__half .menu-split-capsule__body,
+  .menu-screen--pc-cinematic .menu-screen__section--glyphs-only .menu-split-capsule__solo-body {
+    display: flex !important;
+  }
+  .menu-screen--pc-cinematic .menu-screen__section--glyphs-only .menu-split-capsule__mode-arc {
+    display: block !important;
+  }
+  .menu-screen--pc-cinematic .menu-screen__section--glyphs-only .menu-split-capsule__mode-label-flat {
+    display: none !important;
+  }
+  /* На ПК compact-кнопки профиля — обычный читаемый размер */
+  .menu-screen--pc-cinematic .menu-screen__constellation .menu-capsule--compact {
+    min-height: 64px;
+  }
+  .menu-screen--pc-cinematic .menu-screen__constellation .menu-capsule--compact .menu-capsule__title {
+    font-size: 14px;
+  }
+  .menu-screen--pc-cinematic .menu-screen__constellation .menu-capsule--compact .menu-capsule__hint {
+    font-size: 11px;
+  }
+  .menu-screen__constellation .menu-screen__dev {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    transform: translateX(-50%);
+    z-index: 5;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    width: min(92%, 720px);
+  }
+  .menu-screen__drift {
+    position: absolute;
+    z-index: 2;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    /* translate (не transform) — чтобы bob/drag не ломали hit-test */
+    translate: var(--menu-drift-x, 0px) var(--menu-drift-y, 0px);
+    will-change: translate;
+  }
+  .menu-screen__drift .menu-split-capsule,
+  .menu-screen__drift .menu-capsule {
+    width: 100%;
+  }
+  .menu-screen__drift-bob {
+    width: 100%;
+  }
+  /*
+   * ПК-капсулы (offline/online): нативный размер ≈ ×1.2 к базе
+   * (без zoom/scale — иначе Chrome смещает hit-area глифов).
+   * beam = тонкий шов 1px (НЕ ширина crest — иначе «разрыв» посередине).
+   * crest ПОВЕРХ половинок узкой колонкой — центр кликабелен,
+   * боковые глифы целиком в hit-area своих половинок.
+   */
+  .menu-screen__drift--offline .menu-split-capsule,
+  .menu-screen__drift--online .menu-split-capsule {
+    /* +15% к предыдущим 66/60/110 — crest, svg, высота shell/solo */
+    --menu-mode-glyph-size: 76px;
+    --menu-mode-glyph-svg-size: 69px;
+    --menu-mode-stack-y: 38%;
+    --menu-mode-arc-band: 34px;
+    --menu-mode-arc-lift: 14px;
+    --menu-pc-capsule-h: 126px;
+  }
+  .menu-screen__drift--offline .menu-split-capsule__half .menu-split-capsule__glyph--stack,
+  .menu-screen__drift--online .menu-split-capsule__half .menu-split-capsule__glyph--stack {
+    width: 64px;
+    height: 64px;
+  }
+  .menu-screen__drift--offline .menu-split-capsule__half .menu-split-capsule__glyph--stack .menu-capsule-glyph-svg,
+  .menu-screen__drift--online .menu-split-capsule__half .menu-split-capsule__glyph--stack .menu-capsule-glyph-svg {
+    width: 60px;
+    height: 60px;
+    pointer-events: none;
+  }
+  .menu-screen__drift--offline .menu-split-capsule__actions,
+  .menu-screen__drift--online .menu-split-capsule__actions {
+    position: relative;
+    z-index: 2;
+    min-height: var(--menu-pc-capsule-h);
+  }
+  .menu-screen__drift--offline .menu-split-capsule--b4 .menu-split-capsule__shell,
+  .menu-screen__drift--online .menu-split-capsule--b4 .menu-split-capsule__shell {
+    min-height: var(--menu-pc-capsule-h);
+  }
+  /* Solo: та же высота, что и split */
+  .menu-screen__drift--offline .menu-split-capsule--solo-glyph .menu-split-capsule__shell,
+  .menu-screen__drift--online .menu-split-capsule--solo-glyph .menu-split-capsule__shell,
+  .menu-screen__drift--offline .menu-split-capsule__solo-glyph-slot,
+  .menu-screen__drift--online .menu-split-capsule__solo-glyph-slot,
+  .menu-screen__drift--offline .menu-split-capsule--solo-glyph .menu-split-capsule__solo-watermark,
+  .menu-screen__drift--online .menu-split-capsule--solo-glyph .menu-split-capsule__solo-watermark {
+    min-height: var(--menu-pc-capsule-h);
+    height: var(--menu-pc-capsule-h);
+  }
+  .menu-screen__drift--offline .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open .menu-split-capsule__mode-crest-anchor,
+  .menu-screen__drift--online .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open .menu-split-capsule__mode-crest-anchor {
+    height: var(--menu-pc-capsule-h);
+  }
+  /* Тонкий шов 1px — без визуального разрыва */
+  .menu-screen__drift--offline .menu-split-capsule__beam,
+  .menu-screen__drift--online .menu-split-capsule__beam {
+    flex-shrink: 0;
+    align-self: stretch;
+    width: 1px;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+    pointer-events: none !important;
+  }
+  /*
+   * Crest поверх для визуала; ловит только mode-glyph-btn.
+   * (Корневой баг hover у верха экрана — каст/stars img с pointer-events:auto.)
+   */
+  .menu-screen__drift--offline .menu-split-capsule__half,
+  .menu-screen__drift--online .menu-split-capsule__half {
+    pointer-events: auto;
+  }
+  .menu-screen__drift--offline .menu-split-capsule__half .menu-split-capsule__glyph--stack .menu-capsule-glyph-svg,
+  .menu-screen__drift--online .menu-split-capsule__half .menu-split-capsule__glyph--stack .menu-capsule-glyph-svg {
+    pointer-events: none;
+  }
+  .menu-screen__drift--offline .menu-split-capsule__mode-crest-anchor,
+  .menu-screen__drift--online .menu-split-capsule__mode-crest-anchor {
+    /* выше actions — иначе центральный глиф прячется под половинками */
+    z-index: 6;
+    pointer-events: none !important;
+  }
+  .menu-screen__drift--offline .menu-split-capsule__mode-crest-stack,
+  .menu-screen__drift--online .menu-split-capsule__mode-crest-stack,
+  .menu-screen__drift--offline .menu-split-capsule__mode-crest-head,
+  .menu-screen__drift--online .menu-split-capsule__mode-crest-head,
+  .menu-screen__drift--offline .menu-split-capsule__mode-glyph-cluster,
+  .menu-screen__drift--online .menu-split-capsule__mode-glyph-cluster,
+  .menu-screen__drift--offline .menu-split-capsule__mode-crest-beam,
+  .menu-screen__drift--online .menu-split-capsule__mode-crest-beam,
+  .menu-screen__drift--offline .menu-split-capsule__mode-dot,
+  .menu-screen__drift--online .menu-split-capsule__mode-dot,
+  .menu-screen__drift--offline .menu-split-capsule__mode-arc,
+  .menu-screen__drift--online .menu-split-capsule__mode-arc,
+  .menu-screen__drift--offline .menu-split-capsule__mode-label-flat,
+  .menu-screen__drift--online .menu-split-capsule__mode-label-flat {
+    pointer-events: none !important;
+  }
+  .menu-screen__drift--offline .menu-split-capsule__mode-crest-head,
+  .menu-screen__drift--online .menu-split-capsule__mode-crest-head {
+    width: var(--menu-mode-glyph-size);
+  }
+  .menu-screen__drift--offline .menu-split-capsule__mode-glyph-btn,
+  .menu-screen__drift--online .menu-split-capsule__mode-glyph-btn {
+    pointer-events: auto !important;
+  }
+  .menu-screen__drift--offline .menu-split-capsule__mode-glyph-btn .menu-capsule-glyph-svg,
+  .menu-screen__drift--online .menu-split-capsule__mode-glyph-btn .menu-capsule-glyph-svg,
+  .menu-screen__drift--offline .menu-split-capsule__mode-arc *,
+  .menu-screen__drift--online .menu-split-capsule__mode-arc * {
+    pointer-events: none !important;
+  }
+  /* Спокойный hover: тот же X, лёгкий подъём + scale (без скачка в стороны) */
+  .menu-screen__drift--offline .menu-split-capsule__half--main .menu-split-capsule__glyph--stack,
+  .menu-screen__drift--online .menu-split-capsule__half--main .menu-split-capsule__glyph--stack {
+    transform: translateX(-8px);
+  }
+  .menu-screen__drift--offline .menu-split-capsule__half--resume .menu-split-capsule__glyph--stack,
+  .menu-screen__drift--online .menu-split-capsule__half--resume .menu-split-capsule__glyph--stack {
+    transform: translateX(8px);
+  }
+  .menu-screen__drift--offline .menu-split-capsule__half--main .menu-split-capsule__body,
+  .menu-screen__drift--online .menu-split-capsule__half--main .menu-split-capsule__body {
+    transform: translateX(-8px);
+  }
+  .menu-screen__drift--offline .menu-split-capsule__half--resume .menu-split-capsule__body,
+  .menu-screen__drift--online .menu-split-capsule__half--resume .menu-split-capsule__body {
+    transform: translateX(8px);
+  }
+  .menu-screen__drift--offline .menu-split-capsule__half--main:hover .menu-split-capsule__glyph--stack,
+  .menu-screen__drift--online .menu-split-capsule__half--main:hover .menu-split-capsule__glyph--stack {
+    transform: translateX(-8px) translateY(-2px) scale(1.06);
+  }
+  .menu-screen__drift--offline .menu-split-capsule__half--resume:hover .menu-split-capsule__glyph--stack,
+  .menu-screen__drift--online .menu-split-capsule__half--resume:hover .menu-split-capsule__glyph--stack {
+    transform: translateX(8px) translateY(-2px) scale(1.06);
+  }
+  /* Подписи половинок — крупнее на ПК */
+  .menu-screen__drift--offline .menu-split-capsule__half .menu-split-capsule__title,
+  .menu-screen__drift--online .menu-split-capsule__half .menu-split-capsule__title {
+    font-size: 14px;
+    letter-spacing: 0.1em;
+  }
+  .menu-screen__drift--offline .menu-split-capsule__half--main .menu-split-capsule__title--new,
+  .menu-screen__drift--online .menu-split-capsule__half--main .menu-split-capsule__title--new {
+    font-size: 14px;
+    letter-spacing: 0.12em;
+  }
+  .menu-screen__drift--offline .menu-split-capsule__half .menu-split-capsule__hint,
+  .menu-screen__drift--online .menu-split-capsule__half .menu-split-capsule__hint {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+  }
+  .menu-screen__drift--offline .menu-split-capsule__mode-arc,
+  .menu-screen__drift--online .menu-split-capsule__mode-arc {
+    display: block !important;
+    max-width: calc(var(--menu-mode-glyph-size) + 56px);
+    pointer-events: none !important;
+  }
+  .menu-screen__drift--offline .menu-split-capsule__mode-arc *,
+  .menu-screen__drift--online .menu-split-capsule__mode-arc * {
+    pointer-events: none !important;
+  }
+  .menu-screen__drift--online .menu-split-capsule__mode-arc-text,
+  .menu-screen__drift--offline .menu-split-capsule__mode-arc-text {
+    font-size: 13.5px;
+    letter-spacing: 0.08em;
+  }
+  .menu-screen__drift--online .menu-split-capsule__mode-arc-chip-o,
+  .menu-screen__drift--offline .menu-split-capsule__mode-arc-chip-o {
+    font-size: 13px;
+    letter-spacing: 0.04em;
+  }
+  .menu-screen__drift--online .menu-split-capsule__mode-arc-key,
+  .menu-screen__drift--offline .menu-split-capsule__mode-arc-key {
+    font-size: 16px;
+    letter-spacing: 0.02em;
+  }
+  .menu-screen__drift--online .menu-split-capsule__mode-arc-tail--online,
+  .menu-screen__drift--offline .menu-split-capsule__mode-arc-tail--offline {
+    font-size: 12.5px;
+    letter-spacing: 0.1em;
+  }
+  /* Solo-watermark «ОНЛАЙН»: не обрезать последнюю букву */
+  .menu-screen__drift--online .menu-split-capsule__solo-watermark-ghost,
+  .menu-screen__drift--offline .menu-split-capsule__solo-watermark-ghost {
+    width: 100%;
+    max-width: 100%;
+    letter-spacing: 0.28em;
+    text-indent: 0.28em;
+    overflow: visible;
+    transform: translate3d(-50%, calc(-50% + 1px), 0) scaleX(1.08);
+  }
+  .menu-screen__drift--online .menu-split-capsule__solo-watermark,
+  .menu-screen__drift--offline .menu-split-capsule__solo-watermark {
+    overflow: visible;
+  }
+  /* Стартовые позиции: ~−15% к прежнему 640/520 */
+  .menu-screen__drift--offline {
+    left: 2%;
+    top: 8%;
+    width: min(556px, 48vw);
+    min-width: 450px;
+  }
+  .menu-screen__drift--offline > .menu-screen__drift-bob {
+    animation: menu-pc-bob-a 7.2s ease-in-out infinite;
+  }
+  .menu-screen__drift--online {
+    left: 50%;
+    top: 10%;
+    width: min(556px, 48vw);
+    min-width: 450px;
+    z-index: 3;
+    translate: calc(-50% + var(--menu-drift-x, 0px)) var(--menu-drift-y, 0px);
+  }
+  .menu-screen__drift--online > .menu-screen__drift-bob {
+    animation: menu-pc-bob-b 8s ease-in-out infinite;
+  }
+  .menu-screen__drift--training {
+    right: 3%;
+    left: auto;
+    top: 10%;
+    width: min(320px, 28vw);
+    min-width: 260px;
+  }
+  .menu-screen__drift--training > .menu-screen__drift-bob {
+    animation: menu-pc-bob-c 6.4s ease-in-out infinite;
+  }
+  .menu-screen__drift--account {
+    left: 6%;
+    top: 48%;
+    width: min(240px, 20vw);
+    min-width: 200px;
+  }
+  .menu-screen__drift--account > .menu-screen__drift-bob {
+    animation: menu-pc-bob-c 7.8s ease-in-out infinite;
+    animation-delay: -1.2s;
+  }
+  .menu-screen__drift--profile {
+    left: 28%;
+    top: 48%;
+    width: min(240px, 20vw);
+    min-width: 200px;
+  }
+  .menu-screen__drift--profile > .menu-screen__drift-bob {
+    animation: menu-pc-bob-a 6.6s ease-in-out infinite;
+    animation-delay: -2.4s;
+  }
+  .menu-screen__drift--rating {
+    left: 50%;
+    top: 48%;
+    width: min(240px, 20vw);
+    min-width: 200px;
+  }
+  .menu-screen__drift--rating > .menu-screen__drift-bob {
+    animation: menu-pc-bob-b 7s ease-in-out infinite;
+    animation-delay: -0.8s;
+  }
+  .menu-screen__drift--history {
+    left: 72%;
+    top: 48%;
+    width: min(240px, 20vw);
+    min-width: 200px;
+  }
+  .menu-screen__drift--history > .menu-screen__drift-bob {
+    animation: menu-pc-bob-c 8.2s ease-in-out infinite;
+    animation-delay: -3.1s;
+  }
+  .menu-screen__drift--auth {
+    left: 28%;
+    top: 72%;
+    width: min(300px, 26vw);
+    min-width: 240px;
+  }
+  .menu-screen__drift--auth > .menu-screen__drift-bob {
+    animation: menu-pc-bob-a 7.5s ease-in-out infinite;
+    animation-delay: -1.8s;
+  }
+  .menu-screen__drift--soon {
+    right: 3%;
+    left: auto;
+    top: 42%;
+    width: min(280px, 24vw);
+    min-width: 220px;
+  }
+  .menu-screen__drift--soon > .menu-screen__drift-bob {
+    animation: menu-pc-bob-b 6.8s ease-in-out infinite;
+    animation-delay: -2.6s;
+  }
+  .menu-screen__drift--movable {
+    cursor: grab;
+    touch-action: none;
+  }
+  .menu-screen__drift--movable:active,
+  .menu-screen__drift--dragging {
+    cursor: grabbing;
+    animation: none;
+    z-index: 6;
+  }
+  .menu-screen__drift--dragging {
+    filter: brightness(1.08);
+  }
+  /*
+   * Bob через CSS translate (НЕ transform) — иначе Chrome смещает
+   * hit-area относительно глифов у верхнего края viewport.
+   */
+  @keyframes menu-pc-bob-a {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+    50% {
+      translate: 0 -7px;
+    }
+  }
+  @keyframes menu-pc-bob-b {
+    0%,
+    100% {
+      translate: 0 0;
+      --menu-online-bob-y: 0px;
+    }
+    50% {
+      translate: 0 -10px;
+      --menu-online-bob-y: -10px;
+    }
+  }
+  @keyframes menu-pc-bob-c {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+    50% {
+      translate: 0 -6px;
+    }
+  }
+}
+@media (min-width: 1025px) and (max-width: 1280px) {
+  .menu-screen__drift--offline,
+  .menu-screen__drift--online {
+    min-width: 400px;
+    width: min(500px, 52vw);
+  }
+  .menu-screen__title {
+    font-size: clamp(2.05rem, 3vw, 2.55rem);
+  }
+  .menu-screen__brand-icon {
+    width: 48px;
+    height: 48px;
+  }
+}
+@media (min-width: 1600px) {
+  .menu-screen__pc-cast-img {
+    opacity: 0.5;
+  }
+  .menu-screen__stack {
+    padding-left: clamp(28px, 4vw, 72px);
+    padding-right: clamp(28px, 4vw, 72px);
+  }
+}
+
+/* ПК: одиночные капсулы — пилюля ниже глифа; онлайн — выше кромки рамок */
+@media (min-width: 1025px) {
+  @keyframes menu-solo-watermark-pill-pulse-pc {
+    0%,
+    100% {
+      transform: translate3d(-50%, calc(-50% + 51px), 0) scale(0.94);
+      opacity: 0.88;
+      filter: brightness(1);
+    }
+    50% {
+      transform: translate3d(-50%, calc(-50% + 51px), 0) scale(1.06);
+      opacity: 1;
+      filter: brightness(1.08);
+    }
+  }
+  /* Онлайн: ближе к центру + без пульса opacity (иначе просвечивает бегущая рамка) */
+  @keyframes menu-solo-watermark-pill-pulse-pc-online {
+    0%,
+    100% {
+      transform: translate3d(-50%, calc(-50% + 42px), 0) scale(0.96);
+      filter: brightness(1);
+    }
+    50% {
+      transform: translate3d(-50%, calc(-50% + 42px), 0) scale(1.04);
+      filter: brightness(1.05);
+    }
+  }
+  .menu-screen--pc-cinematic .menu-split-capsule--solo-glyph .menu-split-capsule__solo-watermark-main--offline {
+    animation: menu-solo-watermark-pill-pulse-pc 3.4s ease-in-out infinite;
+  }
+  .menu-screen--pc-cinematic
+    .menu-screen__drift--online
+    .menu-split-capsule--solo-glyph
+    .menu-split-capsule__solo-watermark-main--online {
+    z-index: 10;
+    isolation: isolate;
+    opacity: 1;
+    /* плотный фон — рамка не «трясётся» сквозь пилюлю */
+    background: linear-gradient(
+      180deg,
+      rgb(48 18 92 / 0.96) 0%,
+      rgb(28 10 62 / 0.97) 45%,
+      rgb(12 6 32 / 0.96) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 rgba(226, 232, 255, 0.14),
+      0 0 0 1px rgba(76, 29, 149, 0.55),
+      0 4px 14px rgba(4, 2, 16, 0.55),
+      0 0 16px rgba(91, 33, 182, 0.28);
+    animation: menu-solo-watermark-pill-pulse-pc-online 3.4s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .menu-screen--pc-cinematic .menu-split-capsule--solo-glyph .menu-split-capsule__solo-watermark-main--offline {
+      animation: none !important;
+      transform: translate3d(-50%, calc(-50% + 51px), 0) scale(1);
+      opacity: 0.92;
+    }
+    .menu-screen--pc-cinematic
+      .menu-screen__drift--online
+      .menu-split-capsule--solo-glyph
+      .menu-split-capsule__solo-watermark-main--online {
+      animation: none !important;
+      transform: translate3d(-50%, calc(-50% + 42px), 0) scale(1);
+      opacity: 1;
+    }
+  }
+}
+
+/*
+ * ПК · онлайн: двойная рамка-иллюминатор.
+ * База каждой рамки — фиолет; cyan — «бегущий свет» по контуру (~7 с), затем снова фиолет.
+ * Статичный dual-tone (фиолет+голубой одновременно) убран.
+ */
+@property --menu-online-rim-a {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@property --menu-online-rim-b {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes menu-online-rim-run-a {
+  to {
+    --menu-online-rim-a: 360deg;
+  }
+}
+/* Внутренняя — в обратную сторону */
+@keyframes menu-online-rim-run-b {
+  to {
+    --menu-online-rim-b: -360deg;
+  }
+}
+
+@media (min-width: 1025px) {
+  .menu-screen__drift--online .menu-split-capsule--online > .menu-split-capsule__shell {
+    border: 1.5px solid transparent;
+    background:
+      linear-gradient(
+          105deg,
+          rgba(28, 8, 58, 0.97) 0%,
+          rgba(18, 4, 42, 0.98) 42%,
+          rgba(10, 3, 28, 1) 100%
+        )
+        padding-box,
+      linear-gradient(118deg, #4c1d95, #6d28d9, #7c3aed, #5b21b6) border-box;
+    box-shadow:
+      inset 0 1px 0 rgba(196, 181, 253, 0.22),
+      inset 0 -3px 10px rgba(8, 2, 24, 0.45),
+      0 2px 16px rgba(0, 0, 0, 0.42),
+      0 0 22px rgba(91, 33, 182, 0.3),
+      0 0 14px rgba(34, 211, 238, 0.1);
+  }
+
+  /* Внешний обод: фиолет + бегущий cyan (выше звёзд — иначе «просвечивают» сквозь рамку) */
+  .menu-screen__drift--online .menu-split-capsule--online > .menu-split-capsule__shell::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    border-radius: inherit;
+    pointer-events: none;
+    padding: 4.5px;
+    --menu-online-rim-a: 0deg;
+    background: conic-gradient(
+      from var(--menu-online-rim-a),
+      #2a0650 0deg,
+      #4a1a8a 55deg,
+      #5b21b6 110deg,
+      #0891b2 155deg,
+      #22d3ee 175deg,
+      #0891b2 195deg,
+      #5b21b6 240deg,
+      #3b0764 300deg,
+      #2a0650 360deg
+    );
+    animation: menu-online-rim-run-a 7.2s linear infinite;
+    box-shadow:
+      inset 0 1px 1px rgba(255, 255, 255, 0.36),
+      inset 0 -2px 4px rgba(0, 0, 0, 0.72),
+      inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+    -webkit-mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
+    -webkit-mask-clip: content-box, border-box;
+    -webkit-mask-composite: xor;
+    mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
+    mask-clip: content-box, border-box;
+    mask-composite: exclude;
+  }
+
+  /* Внутренний обод: тот же бег, со сдвигом фазы */
+  .menu-screen__drift--online .menu-split-capsule--online > .menu-split-capsule__shell::after {
+    content: '';
+    position: absolute;
+    inset: 5.5px;
+    z-index: 4;
+    border-radius: inherit;
+    pointer-events: none;
+    padding: 3px;
+    --menu-online-rim-b: 0deg;
+    background: conic-gradient(
+      from var(--menu-online-rim-b),
+      #2a0650 0deg,
+      #4a1a8a 50deg,
+      #5b21b6 105deg,
+      #0891b2 150deg,
+      #22d3ee 170deg,
+      #0891b2 190deg,
+      #5b21b6 245deg,
+      #3b0764 305deg,
+      #2a0650 360deg
+    );
+    animation: menu-online-rim-run-b 7.2s linear infinite;
+    box-shadow:
+      inset 0 1px 1px rgba(226, 232, 255, 0.3),
+      inset 0 -1.5px 3px rgba(0, 0, 0, 0.55),
+      inset 0 0 0 1px rgba(12, 4, 32, 0.4),
+      0 0 8px rgba(91, 33, 182, 0.18);
+    -webkit-mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
+    -webkit-mask-clip: content-box, border-box;
+    -webkit-mask-composite: xor;
+    mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
+    mask-clip: content-box, border-box;
+    mask-composite: exclude;
+  }
+
+  .menu-screen__drift--online
+    .menu-split-capsule--online.menu-split-capsule--legend-open
+    > .menu-split-capsule__shell {
+    box-shadow:
+      inset 0 1px 0 rgba(196, 181, 253, 0.2),
+      inset 0 -3px 10px rgba(8, 2, 24, 0.42),
+      0 4px 22px rgba(0, 0, 0, 0.42),
+      0 0 32px rgba(124, 58, 237, 0.38),
+      0 0 14px rgba(34, 211, 238, 0.12);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .menu-screen__drift--online .menu-split-capsule--online > .menu-split-capsule__shell::before,
+    .menu-screen__drift--online .menu-split-capsule--online > .menu-split-capsule__shell::after {
+      animation: none;
+      background: linear-gradient(148deg, #5b21b6 0%, #4c1d95 45%, #3b0764 100%);
+    }
+  }
+}
+
+/*
+ * ПК: звёзды онлайн-капсулы — «окно в космос».
+ * Клип (.stars) едет с капсулой; небо (.__sky) читает --menu-online-bob-y
+ * с .drift-bob и компенсирует его — без второй анимации, без рассинхрона.
+ */
+@property --menu-online-bob-y {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+@media (min-width: 1025px) {
+  .menu-screen__drift--online > .menu-screen__drift-bob {
+    --menu-online-bob-y: 0px;
+  }
+  .menu-screen__drift--online .menu-online-cosmic-stars {
+    /* внутри двойного обода (~outer 4.5 + gap + inner 3 → ~8.5px), чтобы не светить сквозь рамку */
+    inset: 9px;
+    z-index: 1;
+    overflow: hidden;
+    border-radius: inherit;
+  }
+  /*
+   * Клоны фоновых НЛО: позиция = getBoundingClientRect источника.
+   * Клип — .stars (под рамкой z4 и глифами z2–6); снаружи капсулы не рисуются.
+   */
+  .menu-screen__drift--online .menu-online-porthole-ufos {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .menu-screen__drift--online .menu-online-porthole-ufos__craft {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: block;
+    margin: 0;
+    transform-origin: 0 0;
+    will-change: transform, opacity;
+    opacity: 0;
+  }
+  .menu-screen__drift--online .menu-online-porthole-ufos__craft svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .menu-screen__drift--online .menu-online-cosmic-stars__sky {
+    position: absolute;
+    /* запас, чтобы при компенсации ±10px не мигал пустой край */
+    inset: -14px;
+    translate: 0 calc(var(--menu-online-bob-y) * -1);
+    will-change: translate;
+  }
+  .menu-screen__drift--online .menu-online-cosmic-stars__layer {
+    inset: 0;
+    width: auto;
+    height: auto;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 100% 100%;
+    /* только мерцание — без drift из index.css */
+    animation: menu-online-cosmic-stars-twinkle 5.2s ease-in-out infinite !important;
+    will-change: opacity;
+  }
+  .menu-screen__drift--online .menu-online-cosmic-stars__layer--a {
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%20110%22%3E%3Cdefs%3E%3CradialGradient%20id%3D%22c%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2252%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23fff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2238%25%22%20stop-color%3D%22%2322d3ee%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2272%25%22%20stop-color%3D%22%2306b6d4%22%20stop-opacity%3D%22.9%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%2306b6d4%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22v%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2252%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23fff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2238%25%22%20stop-color%3D%22%23c084fc%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2272%25%22%20stop-color%3D%22%238b5cf6%22%20stop-opacity%3D%22.9%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%238b5cf6%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22s%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2252%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23fff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2238%25%22%20stop-color%3D%22%2338bdf8%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2272%25%22%20stop-color%3D%22%230ea5e9%22%20stop-opacity%3D%22.9%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%230ea5e9%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22i%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2252%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23fff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2238%25%22%20stop-color%3D%22%23a78bfa%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2272%25%22%20stop-color%3D%22%236366f1%22%20stop-opacity%3D%22.88%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%236366f1%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22b%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2250%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23ffffff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2232%25%22%20stop-color%3D%22%23e0f2fe%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2258%25%22%20stop-color%3D%22%2367e8f9%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%2322d3ee%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3C%2Fdefs%3E%3Ccircle%20cx%3D%22105.3%22%20cy%3D%2257.5%22%20r%3D%220.58%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%22152.5%22%20cy%3D%22104.3%22%20r%3D%220.66%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22175.4%22%20cy%3D%2226.6%22%20r%3D%220.66%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%22216.3%22%20cy%3D%2230%22%20r%3D%220.62%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%2272.7%22%20cy%3D%2254.2%22%20r%3D%221.17%22%20fill%3D%22url(%23s)%22%2F%3E%3Ccircle%20cx%3D%22127%22%20cy%3D%2284.2%22%20r%3D%220.53%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%2226.5%22%20cy%3D%2232.6%22%20r%3D%220.91%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%22122.6%22%20cy%3D%2235.8%22%20r%3D%220.96%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%22132.5%22%20cy%3D%2250.7%22%20r%3D%220.81%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%22112.5%22%20cy%3D%2232.8%22%20r%3D%220.81%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%2290.2%22%20cy%3D%2289%22%20r%3D%220.87%22%20fill%3D%22url(%23s)%22%2F%3E%3Ccircle%20cx%3D%22225.6%22%20cy%3D%2245.5%22%20r%3D%221.32%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%224.4%22%20cy%3D%2281.2%22%20r%3D%220.42%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%2274.1%22%20cy%3D%2260.6%22%20r%3D%221.22%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22137%22%20cy%3D%2275.3%22%20r%3D%220.67%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22160.5%22%20cy%3D%2294%22%20r%3D%220.67%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%22178.5%22%20cy%3D%2221%22%20r%3D%220.72%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%22168.4%22%20cy%3D%2261.4%22%20r%3D%220.85%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%22109.4%22%20cy%3D%2282.1%22%20r%3D%220.46%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%2283.5%22%20cy%3D%2210.7%22%20r%3D%220.7%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%2233%22%20cy%3D%2265.2%22%20r%3D%220.71%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%2220.8%22%20cy%3D%2252.7%22%20r%3D%220.7%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%22223%22%20cy%3D%2231.5%22%20r%3D%220.93%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22218.1%22%20cy%3D%2285.8%22%20r%3D%220.78%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%22104.5%22%20cy%3D%226.3%22%20r%3D%221.04%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%2210.6%22%20cy%3D%226.8%22%20r%3D%220.75%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22131.3%22%20cy%3D%2259%22%20r%3D%220.64%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%22146.6%22%20cy%3D%2286.9%22%20r%3D%220.52%22%20fill%3D%22url(%23s)%22%2F%3E%3Ccircle%20cx%3D%22231.6%22%20cy%3D%2277.7%22%20r%3D%220.81%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%229.1%22%20cy%3D%2286.8%22%20r%3D%220.92%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22221.8%22%20cy%3D%2255.5%22%20r%3D%220.92%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%2228.7%22%20cy%3D%225.6%22%20r%3D%220.97%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%2220.6%22%20cy%3D%2247.3%22%20r%3D%220.86%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%22133.2%22%20cy%3D%2243.3%22%20r%3D%220.76%22%20fill%3D%22url(%23b)%22%2F%3E%3C%2Fsvg%3E");
+    opacity: 0.92;
+    animation-duration: 5.2s !important;
+    animation-delay: -1.2s !important;
+  }
+  .menu-screen__drift--online .menu-online-cosmic-stars__layer--b {
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%20110%22%3E%3Cdefs%3E%3CradialGradient%20id%3D%22c%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2252%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23fff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2238%25%22%20stop-color%3D%22%2322d3ee%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2272%25%22%20stop-color%3D%22%2306b6d4%22%20stop-opacity%3D%22.9%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%2306b6d4%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22v%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2252%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23fff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2238%25%22%20stop-color%3D%22%23c084fc%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2272%25%22%20stop-color%3D%22%238b5cf6%22%20stop-opacity%3D%22.9%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%238b5cf6%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22s%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2252%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23fff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2238%25%22%20stop-color%3D%22%2338bdf8%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2272%25%22%20stop-color%3D%22%230ea5e9%22%20stop-opacity%3D%22.9%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%230ea5e9%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22i%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2252%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23fff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2238%25%22%20stop-color%3D%22%23a78bfa%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2272%25%22%20stop-color%3D%22%236366f1%22%20stop-opacity%3D%22.88%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%236366f1%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22b%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2250%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23ffffff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2232%25%22%20stop-color%3D%22%23e0f2fe%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2258%25%22%20stop-color%3D%22%2367e8f9%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%2322d3ee%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3C%2Fdefs%3E%3Ccircle%20cx%3D%228.9%22%20cy%3D%2271.9%22%20r%3D%220.85%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22120.2%22%20cy%3D%2218.9%22%20r%3D%220.62%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%2295.7%22%20cy%3D%229.1%22%20r%3D%220.89%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%2284.3%22%20cy%3D%2256.4%22%20r%3D%220.84%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%22129.6%22%20cy%3D%2285.1%22%20r%3D%220.65%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%2215.6%22%20cy%3D%2271.7%22%20r%3D%220.57%22%20fill%3D%22url(%23s)%22%2F%3E%3Ccircle%20cx%3D%2228.8%22%20cy%3D%2224.9%22%20r%3D%220.57%22%20fill%3D%22url(%23s)%22%2F%3E%3Ccircle%20cx%3D%22115.4%22%20cy%3D%2266.4%22%20r%3D%220.43%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%2267.2%22%20cy%3D%2245.4%22%20r%3D%220.74%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%22101.8%22%20cy%3D%22100.6%22%20r%3D%221.18%22%20fill%3D%22url(%23s)%22%2F%3E%3Ccircle%20cx%3D%22117.6%22%20cy%3D%2231.3%22%20r%3D%220.93%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%2241.8%22%20cy%3D%2215.6%22%20r%3D%220.66%22%20fill%3D%22url(%23s)%22%2F%3E%3Ccircle%20cx%3D%2278.7%22%20cy%3D%2269%22%20r%3D%220.57%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%2240.4%22%20cy%3D%2245.4%22%20r%3D%221.02%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%22201.8%22%20cy%3D%2221.2%22%20r%3D%220.7%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%2218.5%22%20cy%3D%2230.1%22%20r%3D%220.89%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%22191.9%22%20cy%3D%2252.9%22%20r%3D%221.2%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%2262.8%22%20cy%3D%2231.5%22%20r%3D%221.27%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%2243.2%22%20cy%3D%2256.2%22%20r%3D%220.79%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%2236.4%22%20cy%3D%2234.6%22%20r%3D%220.91%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%2246.5%22%20cy%3D%2229.9%22%20r%3D%220.84%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%226.1%22%20cy%3D%2293.1%22%20r%3D%220.43%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22148.6%22%20cy%3D%2294.8%22%20r%3D%220.72%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%22229.3%22%20cy%3D%226.2%22%20r%3D%220.61%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%2253.8%22%20cy%3D%2232.2%22%20r%3D%220.56%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22221.1%22%20cy%3D%2235.6%22%20r%3D%220.96%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22126.1%22%20cy%3D%2261.8%22%20r%3D%220.51%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%22176.4%22%20cy%3D%2216.1%22%20r%3D%220.64%22%20fill%3D%22url(%23v)%22%2F%3E%3C%2Fsvg%3E");
+    opacity: 0.86;
+    animation-duration: 6.2s !important;
+    animation-delay: -2.4s !important;
+  }
+  .menu-screen__drift--online .menu-online-cosmic-stars__layer--c {
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%20110%22%3E%3Cdefs%3E%3CradialGradient%20id%3D%22c%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2252%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23fff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2238%25%22%20stop-color%3D%22%2322d3ee%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2272%25%22%20stop-color%3D%22%2306b6d4%22%20stop-opacity%3D%22.9%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%2306b6d4%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22v%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2252%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23fff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2238%25%22%20stop-color%3D%22%23c084fc%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2272%25%22%20stop-color%3D%22%238b5cf6%22%20stop-opacity%3D%22.9%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%238b5cf6%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22s%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2252%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23fff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2238%25%22%20stop-color%3D%22%2338bdf8%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2272%25%22%20stop-color%3D%22%230ea5e9%22%20stop-opacity%3D%22.9%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%230ea5e9%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22i%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2252%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23fff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2238%25%22%20stop-color%3D%22%23a78bfa%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2272%25%22%20stop-color%3D%22%236366f1%22%20stop-opacity%3D%22.88%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%236366f1%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3CradialGradient%20id%3D%22b%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2250%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23ffffff%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2232%25%22%20stop-color%3D%22%23e0f2fe%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%2258%25%22%20stop-color%3D%22%2367e8f9%22%20stop-opacity%3D%221%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%2322d3ee%22%20stop-opacity%3D%220%22%2F%3E%3C%2FradialGradient%3E%3C%2Fdefs%3E%3Ccircle%20cx%3D%22170.2%22%20cy%3D%22105.2%22%20r%3D%220.89%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%2285.9%22%20cy%3D%2291.1%22%20r%3D%220.7%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%22141.1%22%20cy%3D%22105.9%22%20r%3D%221.09%22%20fill%3D%22url(%23s)%22%2F%3E%3Ccircle%20cx%3D%22182.4%22%20cy%3D%2291.2%22%20r%3D%221.31%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%22111.1%22%20cy%3D%22101.1%22%20r%3D%220.87%22%20fill%3D%22url(%23s)%22%2F%3E%3Ccircle%20cx%3D%22162.4%22%20cy%3D%2296%22%20r%3D%220.66%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22235.4%22%20cy%3D%2255.7%22%20r%3D%220.5%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%224.8%22%20cy%3D%228.7%22%20r%3D%220.87%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%22118.4%22%20cy%3D%2234.2%22%20r%3D%221.15%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%22194%22%20cy%3D%2232.4%22%20r%3D%220.57%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22195.6%22%20cy%3D%225.5%22%20r%3D%220.55%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22129.4%22%20cy%3D%2237.9%22%20r%3D%220.63%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22148.6%22%20cy%3D%2247.5%22%20r%3D%220.79%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%2230.9%22%20cy%3D%2292.4%22%20r%3D%220.81%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%22141.7%22%20cy%3D%2283.9%22%20r%3D%220.89%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%2238.4%22%20cy%3D%227.4%22%20r%3D%220.77%22%20fill%3D%22url(%23s)%22%2F%3E%3Ccircle%20cx%3D%22104.2%22%20cy%3D%2210%22%20r%3D%220.59%22%20fill%3D%22url(%23c)%22%2F%3E%3Ccircle%20cx%3D%22127.8%22%20cy%3D%2243.7%22%20r%3D%220.68%22%20fill%3D%22url(%23b)%22%2F%3E%3Ccircle%20cx%3D%22202.9%22%20cy%3D%22100.9%22%20r%3D%220.92%22%20fill%3D%22url(%23v)%22%2F%3E%3Ccircle%20cx%3D%2215.3%22%20cy%3D%2223.4%22%20r%3D%220.86%22%20fill%3D%22url(%23i)%22%2F%3E%3Ccircle%20cx%3D%22126.8%22%20cy%3D%2275.6%22%20r%3D%220.69%22%20fill%3D%22url(%23s)%22%2F%3E%3Ccircle%20cx%3D%2232.4%22%20cy%3D%2258.1%22%20r%3D%220.87%22%20fill%3D%22url(%23s)%22%2F%3E%3C%2Fsvg%3E");
+    opacity: 0.8;
+    animation-duration: 6.8s !important;
+    animation-delay: -3.6s !important;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .menu-screen__drift--online .menu-online-cosmic-stars__sky {
+      translate: 0 0;
+    }
+  }
+}
