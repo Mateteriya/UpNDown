@@ -1,0 +1,534 @@
+/* ROLLBACK: Offline split-capsule theme — Amber / bronze
+ *
+ * Snapshot taken before switching active theme to Indigo / slate (option D).
+ * Restore: replace matching *offline / *Offline color blocks in src/index.css
+ * with the rules below (search by selector). Do NOT import this file in the app.
+ *
+ * ALSO restore ModeLabelSmileArc offline gradients in MenuEntryActions.tsx:
+ *   pill: rgb(69 26 3) → rgb(120 53 15) → rgb(15 23 42)
+ *   text: #facc15, #fbbf24, #4ade80, #2dd4bf, #fde047, #eab308, #34d399, #fb923c
+ */
+
+.menu-screen__section--glyphs-only .menu-split-capsule__mode-label-flat--split.menu-split-capsule__mode-label-flat--offline {
+  border: 1px solid rgba(253, 230, 138, 0.4);
+  background: linear-gradient(
+    180deg,
+    rgb(69 26 3 / 0.55) 0%,
+    rgb(120 53 15 / 0.4) 45%,
+    rgb(15 23 42 / 0.35) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(254, 243, 199 / 0.12),
+    0 0 12px rgb(251 191 36 / 0.28),
+    0 0 8px rgb(74 222 128 / 0.14);
+}
+
+.menu-screen__section--glyphs-only .menu-split-capsule__mode-label-flat--offline .menu-mode-label__chip-o {
+  color: #fbbf24;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.55);
+}
+
+.menu-screen__section--glyphs-only .menu-mode-label__tail--offline {
+  color: #d97706;
+  text-shadow: 0 0 8px rgba(217, 119, 6, 0.5);
+}
+
+.menu-screen__section--glyphs-only .menu-mode-label__sep--offline {
+  color: #f59e0b;
+  font-size: 1.22em;
+  font-weight: 900;
+  text-shadow:
+    0 0 6px rgba(245, 158, 11, 1),
+    0 0 12px rgba(217, 119, 6, 0.68);
+}
+
+.menu-screen__section--glyphs-only .menu-mode-label__key--offline {
+  background: linear-gradient(100deg, #fbbf24 0%, #f59e0b 38%, #d97706 72%, #b45309 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 0 6px rgba(251, 191, 36, 0.62))
+    drop-shadow(0 0 10px rgba(217, 119, 6, 0.35));
+  animation: menu-online-mode-label-shimmer 3.4s ease-in-out infinite;
+}
+
+.menu-screen__section--glyphs-only .menu-split-capsule__mode-label-flat--offline {
+  opacity: 0.94;
+  filter: none;
+}
+
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--card-a {
+  stroke: #a16207;
+  opacity: 0.8;
+}
+
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--card-b {
+  stroke: #fbbf24;
+  opacity: 0.95;
+}
+
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--marks {
+  stroke: #f59e0b;
+  opacity: 0.75;
+}
+
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--star {
+  fill: #fcd34d;
+  filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.7));
+}
+
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--pip {
+  fill: #d97706;
+  filter: drop-shadow(0 0 2px rgba(217, 119, 6, 0.55));
+}
+
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--stem {
+  stroke: #92400e;
+}
+
+.menu-split-capsule__half--resumeOffline .menu-glyph-accent--arc {
+  stroke: #f59e0b;
+  opacity: 0.9;
+}
+
+.menu-split-capsule__half--resumeOffline .menu-glyph-accent--arrow {
+  stroke: #fbbf24;
+}
+
+.menu-split-capsule__half--resumeOffline .menu-glyph-accent--play {
+  fill: #f59e0b;
+  filter: drop-shadow(0 0 3px rgba(245, 158, 11, 0.65));
+}
+
+.menu-capsule--resumeOffline {
+  border-color: rgba(34, 211, 238, 0.42);
+  background: linear-gradient(102deg, rgba(8, 51, 68, 0.95) 0%, rgba(4, 24, 38, 1) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(186, 230, 253, 0.1),
+    0 2px 14px rgba(0, 0, 0, 0.34),
+    0 0 16px rgba(14, 116, 144, 0.22);
+}
+
+.menu-capsule--resumeOffline .menu-capsule__title {
+  color: var(--lobby-laser-emerald);
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.45);
+}
+
+.menu-capsule--resumeOffline .menu-capsule__hint {
+  color: var(--lobby-laser-emerald);
+  text-shadow: 0 0 8px rgba(52, 211, 153, 0.35);
+}
+
+.menu-capsule--resumeOffline .menu-capsule__glyph {
+  color: #6ee7b7;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(52, 211, 153, 0.22), rgba(4, 32, 28, 0.9) 68%);
+  box-shadow:
+    inset 0 0 0 1px rgba(52, 211, 153, 0.35),
+    0 0 12px rgba(16, 185, 129, 0.2);
+}
+
+.menu-split-capsule--offline .menu-split-capsule__shell {
+  border: 1.5px solid rgba(245, 158, 11, 0.42);
+  background: linear-gradient(102deg, rgba(48, 28, 10, 0.97) 0%, rgba(18, 10, 4, 1) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(251, 191, 36, 0.1),
+    0 2px 14px rgba(0, 0, 0, 0.36),
+    0 0 16px rgba(217, 119, 6, 0.2);
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__ring {
+  stroke: rgba(245, 158, 11, 0.45);
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__orbit--a {
+  fill: #fbbf24;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__orbit--b {
+  fill: #a16207;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__orbit--c {
+  fill: #f59e0b;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__mast {
+  stroke: #d97706;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__mast-tip {
+  fill: #fbbf24;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__helmet {
+  fill: rgba(40, 22, 6, 0.72);
+  stroke: #b45309;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__visor {
+  fill: rgba(20, 10, 2, 0.94);
+  stroke: #d97706;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__scan {
+  stroke: #fbbf24;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__cheek {
+  stroke: rgba(146, 64, 14, 0.75);
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__collar {
+  fill: rgba(60, 32, 8, 0.85);
+  stroke: #92400e;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__torso {
+  stroke: rgba(146, 64, 14, 0.7);
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__shoulder {
+  stroke: #a16207;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__core-ring {
+  stroke: #d97706;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__core {
+  fill: #fbbf24;
+}
+
+.menu-split-capsule--offline .menu-split-capsule__mode-glyph--legend-open {
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 191, 36, 0.5),
+    0 0 16px rgba(245, 158, 11, 0.35);
+}
+
+.menu-split-capsule--legend-open.menu-split-capsule--offline .menu-split-capsule__shell {
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.38),
+    0 0 24px rgba(217, 119, 6, 0.28);
+}
+
+.menu-split-capsule__solo-watermark--offline .menu-split-capsule__solo-watermark-scan {
+  background: linear-gradient(
+    90deg,
+    rgba(250, 204, 21, 0) 0%,
+    rgba(250, 204, 21, 0.7) 22%,
+    rgba(74, 222, 128, 1) 50%,
+    rgba(245, 158, 11, 0.55) 78%,
+    rgba(45, 212, 191, 0) 100%
+  );
+  box-shadow:
+    0 0 12px rgba(251, 191, 36, 0.48),
+    0 0 22px rgba(74, 222, 128, 0.28);
+}
+
+.menu-split-capsule__solo-watermark--offline .menu-split-capsule__solo-watermark-ghost {
+  color: rgba(251, 191, 36, 0.22);
+  text-shadow:
+    0 0 18px rgba(251, 191, 36, 0.36),
+    0 0 10px rgba(74, 222, 128, 0.22);
+}
+
+.menu-split-capsule__solo-watermark--offline .menu-split-capsule__solo-watermark-glitch--a {
+  color: rgba(74, 222, 128, 0.45);
+  text-shadow: 0 0 6px rgba(74, 222, 128, 0.3);
+}
+
+.menu-split-capsule__solo-watermark--offline .menu-split-capsule__solo-watermark-glitch--b {
+  color: rgba(253, 230, 138, 0.9);
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.65);
+}
+
+.menu-split-capsule__solo-watermark-main--offline {
+  border: 1px solid rgba(253, 230, 138, 0.4);
+  background: linear-gradient(
+    180deg,
+    rgb(69 26 3 / 0.55) 0%,
+    rgb(120 53 15 / 0.4) 45%,
+    rgb(15 23 42 / 0.35) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(254, 243, 199 / 0.12),
+    0 0 16px rgb(251 191 36 / 0.28),
+    0 0 10px rgb(74 222 128 / 0.14);
+  z-index: 8;
+  animation: menu-solo-watermark-pill-pulse 3.4s ease-in-out infinite;
+  /* ширина под самую длинную из трёх подписей (Офлайн / с ИИ / Играть) */
+  width: max-content;
+  min-width: 9.4em;
+  max-width: calc(100% - 16px);
+  box-sizing: border-box;
+  padding: 3px 14px;
+}
+
+.menu-screen__section--glyphs-only .menu-split-capsule__solo-watermark-main--offline {
+  animation: menu-solo-watermark-pill-up 7.2s ease-in-out infinite;
+}
+
+.menu-split-capsule__solo-watermark-main--offline .menu-split-capsule__solo-watermark-main-text {
+  white-space: nowrap;
+  background-image: repeating-linear-gradient(
+    100deg,
+    rgb(250 204 21) 0 10%,
+    rgb(251 191 36) 10% 20%,
+    rgb(74 222 128) 20% 32%,
+    rgb(45 212 191) 32% 44%,
+    rgb(253 224 71) 44% 56%,
+    rgb(234 179 8) 56% 68%,
+    rgb(52 211 153) 68% 82%,
+    rgb(251 146 60) 82% 100%
+  );
+}
+
+.menu-split-capsule__solo-watermark-main--offline .menu-split-capsule__solo-watermark-main-text--swap {
+  animation:
+    deal-results-user-number-iridescent-shift 17.5s linear infinite,
+    menu-solo-pill-label-in 0.4s ease-out;
+}
+
+.menu-split-capsule--offline .menu-split-capsule__mode-crest-beam {
+  background: linear-gradient(
+    180deg,
+    rgba(251, 191, 36, 0.55) 0%,
+    rgba(245, 158, 11, 0.45) 55%,
+    rgba(180, 83, 9, 0.32) 100%
+  );
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.32);
+}
+
+.menu-split-capsule__mode-arc--offline {
+  filter:
+    drop-shadow(0 0 10px rgba(251, 191, 36, 0.3))
+    drop-shadow(0 0 6px rgba(74, 222, 128, 0.16));
+}
+
+.menu-split-capsule__mode-arc-pill-rim--offline {
+  stroke: rgba(253, 230, 138, 0.48);
+}
+
+.menu-split-capsule__mode-arc-pill--offline {
+  filter: drop-shadow(0 0 1px rgba(254, 243, 199, 0.16));
+}
+
+.menu-split-capsule__mode-arc-text--offline {
+  stroke: rgba(254, 243, 199, 0.32);
+}
+
+.menu-split-capsule__mode-arc-sep--offline {
+  font-size: 12px;
+  opacity: 0.95;
+}
+
+.menu-split-capsule__mode-arc-tail--offline {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  font-weight: 800;
+}
+
+.menu-split-capsule__mode-label-flat--split.menu-split-capsule__mode-label-flat--offline {
+  filter: none;
+}
+
+.menu-split-capsule__mode-label-flat--offline .menu-mode-label__chip-o {
+  color: rgba(251, 191, 36, 0.88);
+}
+
+.menu-mode-label__key--offline {
+  background: linear-gradient(100deg, #fbbf24 0%, #f59e0b 42%, #d97706 78%, #b45309 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 0 6px rgba(251, 191, 36, 0.62))
+    drop-shadow(0 0 10px rgba(217, 119, 6, 0.35));
+  animation: menu-online-mode-label-shimmer 3.4s ease-in-out infinite;
+}
+
+.menu-mode-label__sep--offline {
+  color: #f59e0b;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+}
+
+.menu-mode-label__tail--offline {
+  color: rgba(217, 119, 6, 0.9);
+}
+
+.menu-split-capsule__mode-label-flat--offline:not(.menu-split-capsule__mode-label-flat--split) {
+  background: linear-gradient(92deg, #fbbf24 0%, #fcd34d 16%, #f59e0b 36%, #d97706 62%, #b45309 82%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.35));
+}
+
+.menu-split-capsule__mode-glyph--offline {
+  color: #fbbf24;
+  background:
+    radial-gradient(circle at 28% 20%, rgba(253, 230, 138, 0.28), transparent 38%),
+    radial-gradient(circle at 38% 32%, rgba(245, 158, 11, 0.24), transparent 54%),
+    radial-gradient(circle at 70% 70%, rgba(180, 83, 9, 0.18), transparent 50%),
+    linear-gradient(165deg, rgba(42, 24, 8, 0.96) 0%, rgba(14, 8, 2, 0.98) 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(253, 230, 138, 0.26),
+    inset 0 -3px 8px rgba(8, 4, 0, 0.55),
+    inset 0 0 0 1.5px rgba(251, 191, 36, 0.42),
+    0 0 0 1px rgba(217, 119, 6, 0.22),
+    0 0 14px rgba(245, 158, 11, 0.28),
+    0 0 18px rgba(180, 83, 9, 0.16);
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.35));
+}
+
+.menu-split-capsule__mode-dot--offline {
+  background: radial-gradient(circle at 35% 30%, #fcd34d 0%, #f59e0b 45%, #b45309 100%);
+  box-shadow:
+    0 0 4px #fbbf24,
+    0 0 10px #f59e0b,
+    0 0 18px rgba(217, 119, 6, 0.55);
+  animation: menu-new-dot-pulse-green 2.2s ease-in-out infinite;
+}
+
+.menu-split-capsule__mode-dot--offline::after {
+  border-color: rgba(251, 191, 36, 0.55);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.35);
+}
+
+.menu-split-capsule__title--new-offline {
+  color: #fbbf24;
+  text-shadow:
+    0 0 10px rgba(251, 191, 36, 0.95),
+    0 0 20px rgba(245, 158, 11, 0.65),
+    0 0 28px rgba(180, 83, 9, 0.35);
+}
+
+.menu-split-capsule__half--resumeOffline {
+  background: linear-gradient(
+    168deg,
+    rgba(146, 64, 14, 0.96) 0%,
+    rgba(92, 40, 8, 0.94) 42%,
+    rgba(42, 18, 4, 0.92) 100%
+  );
+  box-shadow:
+    inset 0 2px 0 rgba(253, 230, 138, 0.22),
+    inset 0 -6px 14px rgba(20, 8, 0, 0.55),
+    inset 1px 0 0 rgba(251, 191, 36, 0.18),
+    0 4px 16px rgba(217, 119, 6, 0.34),
+    0 1px 0 rgba(245, 158, 11, 0.22);
+}
+
+.menu-split-capsule__half--resumeOffline .menu-split-capsule__title {
+  color: #fbbf24;
+  text-shadow:
+    0 0 10px rgba(251, 191, 36, 0.75),
+    0 0 18px rgba(217, 119, 6, 0.45);
+}
+
+.menu-split-capsule__half--resumeOffline .menu-split-capsule__hint {
+  color: #d97706;
+  text-shadow: 0 0 8px rgba(217, 119, 6, 0.5);
+}
+
+.menu-split-capsule__half--resumeOffline .menu-split-capsule__glyph {
+  color: #fbbf24;
+  background:
+    radial-gradient(circle at 28% 18%, rgba(253, 230, 138, 0.32), transparent 36%),
+    radial-gradient(circle at 50% 48%, rgba(245, 158, 11, 0.24), transparent 58%),
+    radial-gradient(circle at 70% 72%, rgba(180, 83, 9, 0.18), transparent 50%),
+    linear-gradient(165deg, rgba(40, 22, 6, 0.96) 0%, rgba(12, 6, 2, 0.98) 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(253, 230, 138, 0.28),
+    inset 0 -4px 10px rgba(8, 4, 0, 0.58),
+    inset 0 0 0 1.5px rgba(251, 191, 36, 0.42),
+    0 0 0 1px rgba(217, 119, 6, 0.2),
+    0 0 14px rgba(245, 158, 11, 0.3);
+  filter: none;
+}
+
+.menu-split-capsule__half--actionOffline {
+  background: linear-gradient(
+    168deg,
+    rgba(168, 74, 12, 0.98) 0%,
+    rgba(110, 48, 8, 0.95) 40%,
+    rgba(48, 22, 4, 0.92) 100%
+  );
+  box-shadow:
+    inset 0 2px 0 rgba(253, 230, 138, 0.26),
+    inset 0 -6px 14px rgba(20, 8, 0, 0.58),
+    inset -1px 0 0 rgba(251, 191, 36, 0.16),
+    0 4px 18px rgba(217, 119, 6, 0.38),
+    0 1px 0 rgba(245, 158, 11, 0.22);
+}
+
+.menu-split-capsule__half--actionOffline .menu-split-capsule__title:not(.menu-split-capsule__title--new) {
+  color: #fbbf24;
+  text-shadow:
+    0 0 10px rgba(251, 191, 36, 0.75),
+    0 0 18px rgba(217, 119, 6, 0.45);
+}
+
+.menu-split-capsule__half--actionOffline .menu-split-capsule__hint {
+  color: #d97706;
+  text-shadow: 0 0 8px rgba(217, 119, 6, 0.5);
+}
+
+.menu-split-capsule__half--actionOffline .menu-split-capsule__glyph {
+  color: #fbbf24;
+  background:
+    radial-gradient(circle at 26% 16%, rgba(253, 230, 138, 0.34), transparent 34%),
+    radial-gradient(circle at 48% 42%, rgba(245, 158, 11, 0.26), transparent 56%),
+    radial-gradient(circle at 70% 70%, rgba(180, 83, 9, 0.16), transparent 50%),
+    linear-gradient(165deg, rgba(44, 24, 6, 0.96) 0%, rgba(12, 6, 2, 0.98) 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(253, 230, 138, 0.3),
+    inset 0 -4px 10px rgba(8, 4, 0, 0.6),
+    inset 0 0 0 1.5px rgba(251, 191, 36, 0.45),
+    0 0 0 1px rgba(217, 119, 6, 0.22),
+    0 0 14px rgba(245, 158, 11, 0.32),
+    0 0 18px rgba(180, 83, 9, 0.14);
+  filter: none;
+}
+
+.menu-split-capsule__half--actionOffline:hover {
+  box-shadow:
+    inset 0 2px 0 rgba(253, 230, 138, 0.32),
+    inset 0 -4px 10px rgba(20, 8, 0, 0.42),
+    0 8px 24px rgba(217, 119, 6, 0.46),
+    0 2px 0 rgba(245, 158, 11, 0.28);
+}
+
+.menu-split-capsule__half--actionOffline:active {
+  box-shadow:
+    inset 0 2px 6px rgba(20, 8, 0, 0.5),
+    inset 0 1px 0 rgba(253, 230, 138, 0.16),
+    0 1px 6px rgba(217, 119, 6, 0.28);
+}
+
+.menu-split-capsule--offline .menu-split-capsule__beam {
+  background: linear-gradient(
+    180deg,
+    rgba(251, 191, 36, 0.55) 0%,
+    rgba(245, 158, 11, 0.48) 55%,
+    rgba(180, 83, 9, 0.32) 100%
+  );
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.32);
+}
+
+.menu-split-capsule__half--resumeOffline .menu-split-capsule__glyph::after {
+  border-color: rgba(251, 191, 36, 0.55);
+  box-shadow:
+    0 0 8px rgba(245, 158, 11, 0.42),
+    0 0 14px rgba(217, 119, 6, 0.22);
+}
+
+.menu-split-capsule__mode-glyph--offline::after {
+  border-color: rgba(251, 191, 36, 0.58);
+  box-shadow:
+    0 0 10px rgba(245, 158, 11, 0.45),
+    0 0 16px rgba(217, 119, 6, 0.22);
+}

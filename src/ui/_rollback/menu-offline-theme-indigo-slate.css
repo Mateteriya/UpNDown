@@ -1,0 +1,535 @@
+/* ROLLBACK: Offline split-capsule theme — Indigo / slate (full-capsule)
+ *
+ * Snapshot before hybrid D+: body = slate-navy/steel-teal, glyphs keep indigo.
+ * Restore: paste matching *offline / *Offline blocks into src/index.css.
+ * ALSO ModeLabelSmileArc offline in MenuEntryActions.tsx:
+ *   pill: rgb(30 27 58) → rgb(49 46 129) → rgb(15 23 42)
+ *   text: #c4b5fd #a78bfa #818cf8 #6366f1 #94a3b8 #a5b4fc #8b5cf6 #64748b
+ * Do NOT import this file in the app.
+ *
+ * Active after this snapshot: hybrid D+ (steel-teal body + indigo glyphs).
+ */
+
+.menu-screen__section--glyphs-only .menu-split-capsule__mode-label-flat--split.menu-split-capsule__mode-label-flat--offline {
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  background: linear-gradient(
+    180deg,
+    rgb(30 27 58 / 0.55) 0%,
+    rgb(49 46 129 / 0.4) 45%,
+    rgb(15 23 42 / 0.35) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(196, 181, 253 / 0.12),
+    0 0 12px rgb(129 140 248 / 0.28),
+    0 0 8px rgb(99 102 241 / 0.14);
+}
+
+.menu-screen__section--glyphs-only .menu-split-capsule__mode-label-flat--offline .menu-mode-label__chip-o {
+  color: #a78bfa;
+  text-shadow: 0 0 8px rgba(167, 139, 250, 0.55);
+}
+
+.menu-screen__section--glyphs-only .menu-mode-label__tail--offline {
+  color: #818cf8;
+  text-shadow: 0 0 8px rgba(129, 140, 248, 0.5);
+}
+
+.menu-screen__section--glyphs-only .menu-mode-label__sep--offline {
+  color: #94a3b8;
+  font-size: 1.22em;
+  font-weight: 900;
+  text-shadow:
+    0 0 6px rgba(148, 163, 184, 0.9),
+    0 0 12px rgba(129, 140, 248, 0.55);
+}
+
+.menu-screen__section--glyphs-only .menu-mode-label__key--offline {
+  background: linear-gradient(100deg, #c4b5fd 0%, #a78bfa 38%, #818cf8 72%, #6366f1 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 0 6px rgba(167, 139, 250, 0.55))
+    drop-shadow(0 0 10px rgba(99, 102, 241, 0.32));
+  animation: menu-online-mode-label-shimmer 3.4s ease-in-out infinite;
+}
+
+.menu-screen__section--glyphs-only .menu-split-capsule__mode-label-flat--offline {
+  opacity: 0.94;
+  filter: none;
+}
+
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--card-a {
+  stroke: #64748b;
+  opacity: 0.8;
+}
+
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--card-b {
+  stroke: #a78bfa;
+  opacity: 0.95;
+}
+
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--marks {
+  stroke: #818cf8;
+  opacity: 0.75;
+}
+
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--star {
+  fill: #c4b5fd;
+  filter: drop-shadow(0 0 3px rgba(167, 139, 250, 0.65));
+}
+
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--pip {
+  fill: #818cf8;
+  filter: drop-shadow(0 0 2px rgba(129, 140, 248, 0.55));
+}
+
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--stem {
+  stroke: #475569;
+}
+
+.menu-split-capsule__half--resumeOffline .menu-glyph-accent--arc {
+  stroke: #818cf8;
+  opacity: 0.9;
+}
+
+.menu-split-capsule__half--resumeOffline .menu-glyph-accent--arrow {
+  stroke: #a78bfa;
+}
+
+.menu-split-capsule__half--resumeOffline .menu-glyph-accent--play {
+  fill: #6366f1;
+  filter: drop-shadow(0 0 3px rgba(99, 102, 241, 0.65));
+}
+
+.menu-capsule--resumeOffline {
+  border-color: rgba(34, 211, 238, 0.42);
+  background: linear-gradient(102deg, rgba(8, 51, 68, 0.95) 0%, rgba(4, 24, 38, 1) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(186, 230, 253, 0.1),
+    0 2px 14px rgba(0, 0, 0, 0.34),
+    0 0 16px rgba(14, 116, 144, 0.22);
+}
+
+.menu-capsule--resumeOffline .menu-capsule__title {
+  color: var(--lobby-laser-emerald);
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.45);
+}
+
+.menu-capsule--resumeOffline .menu-capsule__hint {
+  color: var(--lobby-laser-emerald);
+  text-shadow: 0 0 8px rgba(52, 211, 153, 0.35);
+}
+
+.menu-capsule--resumeOffline .menu-capsule__glyph {
+  color: #6ee7b7;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(52, 211, 153, 0.22), rgba(4, 32, 28, 0.9) 68%);
+  box-shadow:
+    inset 0 0 0 1px rgba(52, 211, 153, 0.35),
+    0 0 12px rgba(16, 185, 129, 0.2);
+}
+
+.menu-split-capsule--offline .menu-split-capsule__shell {
+  border: 1.5px solid rgba(129, 140, 248, 0.4);
+  background: linear-gradient(102deg, rgba(24, 22, 44, 0.97) 0%, rgba(10, 10, 22, 1) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(167, 139, 250, 0.1),
+    0 2px 14px rgba(0, 0, 0, 0.36),
+    0 0 16px rgba(99, 102, 241, 0.2);
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__ring {
+  stroke: rgba(129, 140, 248, 0.45);
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__orbit--a {
+  fill: #a78bfa;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__orbit--b {
+  fill: #64748b;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__orbit--c {
+  fill: #818cf8;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__mast {
+  stroke: #94a3b8;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__mast-tip {
+  fill: #a78bfa;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__helmet {
+  fill: rgba(15, 18, 32, 0.72);
+  stroke: #64748b;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__visor {
+  fill: rgba(8, 10, 20, 0.94);
+  stroke: #6366f1;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__scan {
+  stroke: #a78bfa;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__cheek {
+  stroke: rgba(100, 116, 139, 0.75);
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__collar {
+  fill: rgba(30, 32, 48, 0.85);
+  stroke: #475569;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__torso {
+  stroke: rgba(100, 116, 139, 0.7);
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__shoulder {
+  stroke: #64748b;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__core-ring {
+  stroke: #6366f1;
+}
+
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__core {
+  fill: #a78bfa;
+}
+
+.menu-split-capsule--offline .menu-split-capsule__mode-glyph--legend-open {
+  box-shadow:
+    inset 0 0 0 1px rgba(167, 139, 250, 0.5),
+    0 0 16px rgba(129, 140, 248, 0.35);
+}
+
+.menu-split-capsule--legend-open.menu-split-capsule--offline .menu-split-capsule__shell {
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.38),
+    0 0 24px rgba(99, 102, 241, 0.28);
+}
+
+.menu-split-capsule__solo-watermark--offline .menu-split-capsule__solo-watermark-scan {
+  background: linear-gradient(
+    90deg,
+    rgba(129, 140, 248, 0) 0%,
+    rgba(129, 140, 248, 0.7) 22%,
+    rgba(167, 139, 250, 1) 50%,
+    rgba(100, 116, 139, 0.55) 78%,
+    rgba(99, 102, 241, 0) 100%
+  );
+  box-shadow:
+    0 0 12px rgba(129, 140, 248, 0.48),
+    0 0 22px rgba(99, 102, 241, 0.28);
+}
+
+.menu-split-capsule__solo-watermark--offline .menu-split-capsule__solo-watermark-ghost {
+  color: rgba(167, 139, 250, 0.22);
+  text-shadow:
+    0 0 18px rgba(167, 139, 250, 0.36),
+    0 0 10px rgba(129, 140, 248, 0.22);
+}
+
+.menu-split-capsule__solo-watermark--offline .menu-split-capsule__solo-watermark-glitch--a {
+  color: rgba(129, 140, 248, 0.45);
+  text-shadow: 0 0 6px rgba(129, 140, 248, 0.3);
+}
+
+.menu-split-capsule__solo-watermark--offline .menu-split-capsule__solo-watermark-glitch--b {
+  color: rgba(196, 181, 253, 0.9);
+  text-shadow: 0 0 10px rgba(167, 139, 250, 0.65);
+}
+
+.menu-split-capsule__solo-watermark-main--offline {
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  background: linear-gradient(
+    180deg,
+    rgb(30 27 58 / 0.55) 0%,
+    rgb(49 46 129 / 0.4) 45%,
+    rgb(15 23 42 / 0.35) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(196, 181, 253 / 0.12),
+    0 0 16px rgb(129 140 248 / 0.28),
+    0 0 10px rgb(99 102 241 / 0.14);
+  z-index: 8;
+  animation: menu-solo-watermark-pill-pulse 3.4s ease-in-out infinite;
+  /* ширина под самую длинную из трёх подписей (Офлайн / с ИИ / Играть) */
+  width: max-content;
+  min-width: 9.4em;
+  max-width: calc(100% - 16px);
+  box-sizing: border-box;
+  padding: 3px 14px;
+}
+
+.menu-screen__section--glyphs-only .menu-split-capsule__solo-watermark-main--offline {
+  animation: menu-solo-watermark-pill-up 7.2s ease-in-out infinite;
+}
+
+.menu-split-capsule__solo-watermark-main--offline .menu-split-capsule__solo-watermark-main-text {
+  white-space: nowrap;
+  background-image: repeating-linear-gradient(
+    100deg,
+    rgb(196 181 253) 0 10%,
+    rgb(167 139 250) 10% 20%,
+    rgb(129 140 248) 20% 32%,
+    rgb(99 102 241) 32% 44%,
+    rgb(148 163 184) 44% 56%,
+    rgb(165 180 252) 56% 68%,
+    rgb(139 92 246) 68% 82%,
+    rgb(100 116 139) 82% 100%
+  );
+}
+
+.menu-split-capsule__solo-watermark-main--offline .menu-split-capsule__solo-watermark-main-text--swap {
+  animation:
+    deal-results-user-number-iridescent-shift 17.5s linear infinite,
+    menu-solo-pill-label-in 0.4s ease-out;
+}
+
+.menu-split-capsule--offline .menu-split-capsule__mode-crest-beam {
+  background: linear-gradient(
+    180deg,
+    rgba(167, 139, 250, 0.55) 0%,
+    rgba(129, 140, 248, 0.45) 55%,
+    rgba(99, 102, 241, 0.32) 100%
+  );
+  box-shadow: 0 0 8px rgba(129, 140, 248, 0.32);
+}
+
+.menu-split-capsule__mode-arc--offline {
+  filter:
+    drop-shadow(0 0 10px rgba(167, 139, 250, 0.28))
+    drop-shadow(0 0 6px rgba(100, 116, 139, 0.2));
+}
+
+.menu-split-capsule__mode-arc-pill-rim--offline {
+  stroke: rgba(165, 180, 252, 0.48);
+}
+
+.menu-split-capsule__mode-arc-pill--offline {
+  filter: drop-shadow(0 0 1px rgba(196, 181, 253, 0.16));
+}
+
+.menu-split-capsule__mode-arc-text--offline {
+  stroke: rgba(196, 181, 253, 0.32);
+}
+
+.menu-split-capsule__mode-arc-sep--offline {
+  font-size: 12px;
+  opacity: 0.95;
+}
+
+.menu-split-capsule__mode-arc-tail--offline {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  font-weight: 800;
+}
+
+.menu-split-capsule__mode-label-flat--split.menu-split-capsule__mode-label-flat--offline {
+  filter: none;
+}
+
+.menu-split-capsule__mode-label-flat--offline .menu-mode-label__chip-o {
+  color: rgba(167, 139, 250, 0.88);
+}
+
+.menu-mode-label__key--offline {
+  background: linear-gradient(100deg, #c4b5fd 0%, #a78bfa 42%, #818cf8 78%, #6366f1 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 0 6px rgba(167, 139, 250, 0.55))
+    drop-shadow(0 0 10px rgba(99, 102, 241, 0.32));
+  animation: menu-online-mode-label-shimmer 3.4s ease-in-out infinite;
+}
+
+.menu-mode-label__sep--offline {
+  color: #94a3b8;
+  text-shadow: 0 0 8px rgba(148, 163, 184, 0.5);
+}
+
+.menu-mode-label__tail--offline {
+  color: rgba(129, 140, 248, 0.9);
+}
+
+.menu-split-capsule__mode-label-flat--offline:not(.menu-split-capsule__mode-label-flat--split) {
+  background: linear-gradient(92deg, #c4b5fd 0%, #a78bfa 16%, #818cf8 36%, #6366f1 62%, #4f46e5 82%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 6px rgba(129, 140, 248, 0.35));
+}
+
+.menu-split-capsule__mode-glyph--offline {
+  color: #a78bfa;
+  background:
+    radial-gradient(circle at 28% 20%, rgba(196, 181, 253, 0.28), transparent 38%),
+    radial-gradient(circle at 38% 32%, rgba(129, 140, 248, 0.24), transparent 54%),
+    radial-gradient(circle at 70% 70%, rgba(100, 116, 139, 0.18), transparent 50%),
+    linear-gradient(165deg, rgba(22, 20, 40, 0.96) 0%, rgba(10, 10, 22, 0.98) 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(196, 181, 253, 0.26),
+    inset 0 -3px 8px rgba(4, 4, 12, 0.55),
+    inset 0 0 0 1.5px rgba(167, 139, 250, 0.42),
+    0 0 0 1px rgba(99, 102, 241, 0.22),
+    0 0 14px rgba(129, 140, 248, 0.28),
+    0 0 18px rgba(99, 102, 241, 0.16);
+  filter: drop-shadow(0 0 4px rgba(167, 139, 250, 0.35));
+}
+
+.menu-split-capsule__mode-dot--offline {
+  background: radial-gradient(circle at 35% 30%, #c4b5fd 0%, #818cf8 45%, #4f46e5 100%);
+  box-shadow:
+    0 0 4px #a78bfa,
+    0 0 10px #818cf8,
+    0 0 18px rgba(99, 102, 241, 0.55);
+  animation: menu-new-dot-pulse-green 2.2s ease-in-out infinite;
+}
+
+.menu-split-capsule__mode-dot--offline::after {
+  border-color: rgba(167, 139, 250, 0.55);
+  box-shadow: 0 0 8px rgba(129, 140, 248, 0.35);
+}
+
+.menu-split-capsule__title--new-offline {
+  color: #a78bfa;
+  text-shadow:
+    0 0 10px rgba(167, 139, 250, 0.9),
+    0 0 20px rgba(129, 140, 248, 0.6),
+    0 0 28px rgba(99, 102, 241, 0.35);
+}
+
+.menu-split-capsule__half--resumeOffline {
+  background: linear-gradient(
+    168deg,
+    rgba(55, 48, 98, 0.96) 0%,
+    rgba(36, 32, 68, 0.94) 42%,
+    rgba(16, 14, 32, 0.92) 100%
+  );
+  box-shadow:
+    inset 0 2px 0 rgba(196, 181, 253, 0.22),
+    inset 0 -6px 14px rgba(6, 6, 16, 0.55),
+    inset 1px 0 0 rgba(167, 139, 250, 0.18),
+    0 4px 16px rgba(99, 102, 241, 0.3),
+    0 1px 0 rgba(129, 140, 248, 0.2);
+}
+
+.menu-split-capsule__half--resumeOffline .menu-split-capsule__title {
+  color: #a78bfa;
+  text-shadow:
+    0 0 10px rgba(167, 139, 250, 0.7),
+    0 0 18px rgba(99, 102, 241, 0.4);
+}
+
+.menu-split-capsule__half--resumeOffline .menu-split-capsule__hint {
+  color: #818cf8;
+  text-shadow: 0 0 8px rgba(129, 140, 248, 0.45);
+}
+
+.menu-split-capsule__half--resumeOffline .menu-split-capsule__glyph {
+  color: #a78bfa;
+  background:
+    radial-gradient(circle at 28% 18%, rgba(196, 181, 253, 0.32), transparent 36%),
+    radial-gradient(circle at 50% 48%, rgba(129, 140, 248, 0.24), transparent 58%),
+    radial-gradient(circle at 70% 72%, rgba(100, 116, 139, 0.18), transparent 50%),
+    linear-gradient(165deg, rgba(22, 20, 40, 0.96) 0%, rgba(10, 10, 22, 0.98) 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(196, 181, 253, 0.28),
+    inset 0 -4px 10px rgba(4, 4, 12, 0.58),
+    inset 0 0 0 1.5px rgba(167, 139, 250, 0.42),
+    0 0 0 1px rgba(99, 102, 241, 0.2),
+    0 0 14px rgba(129, 140, 248, 0.28);
+  filter: none;
+}
+
+.menu-split-capsule__half--actionOffline {
+  background: linear-gradient(
+    168deg,
+    rgba(67, 56, 120, 0.97) 0%,
+    rgba(42, 36, 78, 0.95) 40%,
+    rgba(18, 16, 36, 0.92) 100%
+  );
+  box-shadow:
+    inset 0 2px 0 rgba(196, 181, 253, 0.26),
+    inset 0 -6px 14px rgba(6, 6, 16, 0.58),
+    inset -1px 0 0 rgba(167, 139, 250, 0.16),
+    0 4px 18px rgba(99, 102, 241, 0.34),
+    0 1px 0 rgba(129, 140, 248, 0.2);
+}
+
+.menu-split-capsule__half--actionOffline .menu-split-capsule__title:not(.menu-split-capsule__title--new) {
+  color: #a78bfa;
+  text-shadow:
+    0 0 10px rgba(167, 139, 250, 0.7),
+    0 0 18px rgba(99, 102, 241, 0.4);
+}
+
+.menu-split-capsule__half--actionOffline .menu-split-capsule__hint {
+  color: #818cf8;
+  text-shadow: 0 0 8px rgba(129, 140, 248, 0.45);
+}
+
+.menu-split-capsule__half--actionOffline .menu-split-capsule__glyph {
+  color: #a78bfa;
+  background:
+    radial-gradient(circle at 26% 16%, rgba(196, 181, 253, 0.34), transparent 34%),
+    radial-gradient(circle at 48% 42%, rgba(129, 140, 248, 0.26), transparent 56%),
+    radial-gradient(circle at 70% 70%, rgba(100, 116, 139, 0.16), transparent 50%),
+    linear-gradient(165deg, rgba(24, 22, 44, 0.96) 0%, rgba(10, 10, 22, 0.98) 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(196, 181, 253, 0.3),
+    inset 0 -4px 10px rgba(4, 4, 12, 0.6),
+    inset 0 0 0 1.5px rgba(167, 139, 250, 0.45),
+    0 0 0 1px rgba(99, 102, 241, 0.22),
+    0 0 14px rgba(129, 140, 248, 0.3),
+    0 0 18px rgba(99, 102, 241, 0.14);
+  filter: none;
+}
+
+.menu-split-capsule__half--actionOffline:hover {
+  box-shadow:
+    inset 0 2px 0 rgba(196, 181, 253, 0.32),
+    inset 0 -4px 10px rgba(6, 6, 16, 0.42),
+    0 8px 24px rgba(99, 102, 241, 0.42),
+    0 2px 0 rgba(129, 140, 248, 0.26);
+}
+
+.menu-split-capsule__half--actionOffline:active {
+  box-shadow:
+    inset 0 2px 6px rgba(6, 6, 16, 0.5),
+    inset 0 1px 0 rgba(196, 181, 253, 0.16),
+    0 1px 6px rgba(99, 102, 241, 0.28);
+}
+
+.menu-split-capsule--offline .menu-split-capsule__beam {
+  background: linear-gradient(
+    180deg,
+    rgba(167, 139, 250, 0.55) 0%,
+    rgba(129, 140, 248, 0.48) 55%,
+    rgba(99, 102, 241, 0.32) 100%
+  );
+  box-shadow: 0 0 8px rgba(129, 140, 248, 0.32);
+}
+
+.menu-split-capsule__half--resumeOffline .menu-split-capsule__glyph::after {
+  border-color: rgba(167, 139, 250, 0.55);
+  box-shadow:
+    0 0 8px rgba(129, 140, 248, 0.4),
+    0 0 14px rgba(99, 102, 241, 0.22);
+}
+
+.menu-split-capsule__mode-glyph--offline::after {
+  border-color: rgba(167, 139, 250, 0.58);
+  box-shadow:
+    0 0 10px rgba(129, 140, 248, 0.42),
+    0 0 16px rgba(99, 102, 241, 0.22);
+}

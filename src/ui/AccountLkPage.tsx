@@ -1,5 +1,5 @@
 /**
- * Личный кабинет: профиль, вход, рейтинг и история партий.
+ * Личный кабинет: профиль (локально), аккаунт (облако), рейтинг и история.
  */
 
 import { useEffect, useState } from 'react';
@@ -134,30 +134,59 @@ export function AccountLkPage({
               {loggedIn && user?.email ? (
                 <p className="lk-page__profile-email">{user.email}</p>
               ) : (
-                <p className="lk-page__profile-email lk-page__profile-email--guest">Гость · войдите для облака</p>
+                <p className="lk-page__profile-email lk-page__profile-email--guest">Без аккаунта · только это устройство</p>
               )}
             </div>
           </div>
 
-          <div className="lk-page__actions">
-            <CosmicPhysButton variant="primary" onClick={onEditProfile}>
-              Профиль и фото
-            </CosmicPhysButton>
-            {loggedIn ? (
-              <CosmicPhysButton
-                variant="secondary"
-                onClick={() => {
-                  void signOut();
-                }}
-              >
-                Выйти
+          <section className="lk-page__section lk-page__section--identity" aria-labelledby="lk-profile-title">
+            <div className="lk-page__section-head">
+              <h2 id="lk-profile-title" className="lk-page__section-title">
+                Профиль
+              </h2>
+              <span className="lk-page__badge lk-page__badge--local">на устройстве</span>
+            </div>
+            <p className="lk-page__explain">
+              Имя и фото для офлайн-партий и локальных игр. Работает без входа и остаётся на этом устройстве.
+            </p>
+            <div className="lk-page__actions lk-page__actions--in-section">
+              <CosmicPhysButton variant="primary" onClick={onEditProfile}>
+                Изменить имя и фото
               </CosmicPhysButton>
-            ) : (
-              <CosmicPhysButton variant="secondary" onClick={onSignIn}>
-                {authLoading ? 'Проверка…' : 'Войти в аккаунт'}
-              </CosmicPhysButton>
-            )}
-          </div>
+            </div>
+          </section>
+
+          <section className="lk-page__section lk-page__section--account" aria-labelledby="lk-account-title">
+            <div className="lk-page__section-head">
+              <h2 id="lk-account-title" className="lk-page__section-title">
+                Аккаунт
+              </h2>
+              <span className={`lk-page__badge ${loggedIn ? 'lk-page__badge--online' : 'lk-page__badge--guest'}`}>
+                {loggedIn ? 'облако' : 'не выполнен вход'}
+              </span>
+            </div>
+            <p className="lk-page__explain">
+              {loggedIn
+                ? 'Вы вошли: доступны онлайн-игры, облачный рейтинг и история партий на всех устройствах.'
+                : 'Вход нужен для онлайн-игр и сохранения рейтинга и истории в облаке. Без аккаунта можно играть офлайн под своим профилем.'}
+            </p>
+            <div className="lk-page__actions lk-page__actions--in-section">
+              {loggedIn ? (
+                <CosmicPhysButton
+                  variant="secondary"
+                  onClick={() => {
+                    void signOut();
+                  }}
+                >
+                  Выйти из аккаунта
+                </CosmicPhysButton>
+              ) : (
+                <CosmicPhysButton variant="secondary" onClick={onSignIn}>
+                  {authLoading ? 'Проверка…' : 'Войти в аккаунт'}
+                </CosmicPhysButton>
+              )}
+            </div>
+          </section>
 
           <section className="lk-page__section" aria-labelledby="lk-stats-title">
             <h2 id="lk-stats-title" className="lk-page__section-title">
@@ -228,7 +257,7 @@ export function AccountLkPage({
               <p className="lk-page__empty">
                 {loggedIn
                   ? 'Пока нет сохранённых партий. Завершите офлайн- или онлайн-игру — запись появится здесь.'
-                  : 'Войдите в аккаунт, чтобы история синхронизировалась между устройствами.'}
+                  : 'Локальная история появится после офлайн-партий. Войдите в аккаунт, чтобы синхронизировать её между устройствами.'}
               </p>
             )}
           </section>

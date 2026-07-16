@@ -438,17 +438,6 @@ function App() {
           onResumeOffline={() => { void handleResumeOffline() }}
           onOfflinePlay={handleOfflineClick}
           onTraining={() => setScreen('training')}
-          onEditProfile={() => {
-            setNameAvatarMode('profile')
-            setShowNameAvatarModal(true)
-          }}
-          onOpenRating={() => setShowRatingModal(true)}
-          onOpenHistory={() => setShowHistoryModal(true)}
-          onSignIn={() => {
-            setAuthMode('login')
-            setShowAuthModal(true)
-          }}
-          onSignOut={() => signOut()}
         />
       )}
       {showOfflineChoiceModal && (
