@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import {
   getMenuSectionGlyphsOnly,
   setMenuSectionGlyphsOnly,
@@ -14,6 +14,13 @@ const MODE_LEGEND_ART_COMPACT_DELAY_MS = 2600;
 /** Solo-офлайн каплюля: короткие ролики CTA (только без Continue). */
 const OFFLINE_SOLO_PILL_LABELS = ['Офлайн', 'с ИИ', 'Играть'] as const;
 const OFFLINE_SOLO_PILL_LABEL_MS = 2600;
+
+/** Снять focus после touch — иначе WebKit рисует серый tap/focus-квадрат (часто сверху страницы). */
+function blurAfterTouch(e: PointerEvent<HTMLElement>) {
+  if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+    e.currentTarget.blur();
+  }
+}
 
 function useCyclingLabel(labels: readonly string[], enabled: boolean, intervalMs: number): string {
   const [index, setIndex] = useState(0);
@@ -560,14 +567,14 @@ export function MenuCapsuleButton({
 
   if (href && !disabled) {
     return (
-      <a className={className} href={href}>
+      <a className={className} href={href} onPointerUp={blurAfterTouch}>
         {body}
       </a>
     );
   }
 
   return (
-    <button type="button" className={className} disabled={disabled} onClick={onClick}>
+    <button type="button" className={className} disabled={disabled} onClick={onClick} onPointerUp={blurAfterTouch}>
       {body}
     </button>
   );
@@ -644,6 +651,99 @@ function MenuOnlineCosmicSatellite({ bodyGradientId }: { bodyGradientId: string 
   );
 }
 
+/** Клоны фоновых ПК-НЛО внутри окошка: совпадают с полётом, клип рамкой/глифами. */
+function MenuOnlinePortholeUfos() {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const craftRefs = useRef<(HTMLSpanElement | null)[]>([]);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    let raf = 0;
+    const tick = () => {
+      if (!document.hidden) {
+        const sources = document.querySelectorAll<HTMLElement>(
+          '.menu-screen__pc-ufos > .menu-screen__pc-ufo',
+        );
+        const hostRect = host.getBoundingClientRect();
+        sources.forEach((src, i) => {
+          const craft = craftRefs.current[i];
+          if (!craft) return;
+          const r = src.getBoundingClientRect();
+          const cs = getComputedStyle(src);
+          craft.style.width = `${Math.max(0, r.width)}px`;
+          craft.style.height = `${Math.max(0, r.height)}px`;
+          craft.style.opacity = cs.opacity;
+          craft.style.filter = cs.filter;
+          craft.style.transform = `translate3d(${r.left - hostRect.left}px, ${r.top - hostRect.top}px, 0)`;
+        });
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return (
+    <div className="menu-online-porthole-ufos" ref={hostRef} aria-hidden="true">
+      <span
+        className="menu-online-porthole-ufos__craft menu-online-porthole-ufos__craft--cyan"
+        ref={(el) => {
+          craftRefs.current[0] = el;
+        }}
+      >
+        <svg viewBox="0 0 48 28" width="100%" height="100%" focusable="false" aria-hidden>
+          <ellipse cx="24" cy="18" rx="16" ry="4" fill="#22d3ee" opacity="0.85" />
+          <ellipse cx="24" cy="13" rx="10" ry="6" fill="#a5f3fc" />
+          <ellipse
+            cx="24"
+            cy="17.5"
+            rx="18"
+            ry="1.6"
+            fill="none"
+            stroke="#c4b5fd"
+            strokeWidth="1.2"
+            opacity="0.9"
+          />
+          <circle cx="16" cy="19" r="1.4" fill="#f0abfc" />
+          <circle cx="24" cy="20" r="1.5" fill="#ecfeff" />
+          <circle cx="32" cy="19" r="1.4" fill="#f0abfc" />
+        </svg>
+      </span>
+      <span
+        className="menu-online-porthole-ufos__craft menu-online-porthole-ufos__craft--magenta"
+        ref={(el) => {
+          craftRefs.current[1] = el;
+        }}
+      >
+        <svg viewBox="0 0 48 28" width="100%" height="100%" focusable="false" aria-hidden>
+          <ellipse cx="24" cy="16" rx="18" ry="5" fill="#a855f7" opacity="0.75" />
+          <ellipse cx="24" cy="12" rx="8" ry="5.5" fill="#f5d0fe" />
+          <path d="M6 16 Q24 22 42 16" fill="none" stroke="#67e8f9" strokeWidth="1.1" opacity="0.85" />
+          <circle cx="14" cy="17.5" r="1.2" fill="#22d3ee" />
+          <circle cx="24" cy="18.5" r="1.3" fill="#fef08a" />
+          <circle cx="34" cy="17.5" r="1.2" fill="#22d3ee" />
+        </svg>
+      </span>
+      <span
+        className="menu-online-porthole-ufos__craft menu-online-porthole-ufos__craft--gold"
+        ref={(el) => {
+          craftRefs.current[2] = el;
+        }}
+      >
+        <svg viewBox="0 0 48 28" width="100%" height="100%" focusable="false" aria-hidden>
+          <path d="M8 18 L24 6 L40 18 L32 20 L24 10 L16 20 Z" fill="#fbbf24" opacity="0.92" />
+          <ellipse cx="24" cy="19" rx="14" ry="3.2" fill="#f59e0b" opacity="0.8" />
+          <circle cx="18" cy="19.5" r="1.1" fill="#ecfeff" />
+          <circle cx="24" cy="20.2" r="1.2" fill="#a5f3fc" />
+          <circle cx="30" cy="19.5" r="1.1" fill="#ecfeff" />
+        </svg>
+      </span>
+    </div>
+  );
+}
+
 function MenuOnlineCosmicDecor() {
   const ufoDomeGradientId = useId().replace(/:/g, '');
   const satelliteBodyGradientId = useId().replace(/:/g, '');
@@ -651,9 +751,16 @@ function MenuOnlineCosmicDecor() {
   return (
     <>
       <div className="menu-online-cosmic-stars" aria-hidden="true">
-        <div className="menu-online-cosmic-stars__layer menu-online-cosmic-stars__layer--a" />
-        <div className="menu-online-cosmic-stars__layer menu-online-cosmic-stars__layer--b" />
-        <div className="menu-online-cosmic-stars__layer menu-online-cosmic-stars__layer--c" />
+        {/*
+          Клип — в .stars (едет с капсулой); «небо» — в .__sky
+          (компенсирует bob, чтобы звёзды оставались в мировых координатах).
+        */}
+        <div className="menu-online-cosmic-stars__sky">
+          <div className="menu-online-cosmic-stars__layer menu-online-cosmic-stars__layer--a" />
+          <div className="menu-online-cosmic-stars__layer menu-online-cosmic-stars__layer--b" />
+          <div className="menu-online-cosmic-stars__layer menu-online-cosmic-stars__layer--c" />
+        </div>
+        <MenuOnlinePortholeUfos />
       </div>
       <span className="menu-online-cosmic-ufo-host" aria-hidden="true">
         <span className="menu-online-cosmic-ufo-flight">
@@ -696,6 +803,7 @@ function SplitCapsuleHalf({
         `menu-split-capsule__half--${tone}`,
       ].join(' ')}
       onClick={onClick}
+      onPointerUp={blurAfterTouch}
       aria-label={showSatellite ? `Продолжить, комната ${satelliteCode}` : undefined}
     >
       {showSatellite ? (
@@ -744,58 +852,121 @@ function ModeLabelSplitFlat({ mode }: { mode: 'online' | 'offline' }) {
 function ModeLabelSmileArc({ mode }: { mode: 'online' | 'offline' }) {
   const uid = useId().replace(/:/g, '');
   const pathId = `${uid}-path`;
-  const fillKeyId = `${uid}-fill-key`;
+  const fillTextId = `${uid}-fill-text`;
+  const fillPillId = `${uid}-fill-pill`;
+  const fillRimId = `${uid}-fill-rim`;
   const keyLetter = mode === 'online' ? 'Н' : 'Ф';
+  /** Одна дуга для pill и текста; буквы в центр stroke — через translate у <g>. */
+  const arcPathD = 'M 16,24 A 36,36 0 0,0 84,24';
+  const pillPathD = 'M 22,24 A 36,36 0 0,0 78,24';
 
   return (
     <>
       <svg
         className={`menu-split-capsule__mode-arc menu-split-capsule__mode-arc--${mode}`}
-        viewBox="0 21 100 11"
+        viewBox="0 10 100 28"
         preserveAspectRatio="xMidYMin meet"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
+        pointerEvents="none"
       >
         <defs>
-          <path id={pathId} d="M 14,22 A 34,34 0 0,0 86,22" fill="none" />
+          <path id={pathId} d={arcPathD} fill="none" />
           {mode === 'online' ? (
-            <linearGradient id={fillKeyId} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#22d3ee" />
-              <stop offset="22%" stopColor="#67e8f9" />
-              <stop offset="48%" stopColor="#fbbf24" />
-              <stop offset="72%" stopColor="#f472b6" />
-              <stop offset="100%" stopColor="#e879f9" />
-              <animate attributeName="x1" values="-35%;0%;-35%" dur="3.4s" repeatCount="indefinite" />
-              <animate attributeName="x2" values="65%;100%;65%" dur="3.4s" repeatCount="indefinite" />
-            </linearGradient>
+            <>
+              <linearGradient id={fillPillId} x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="rgb(48 22 88)" stopOpacity="0.94" />
+                <stop offset="45%" stopColor="rgb(36 14 72)" stopOpacity="0.96" />
+                <stop offset="100%" stopColor="rgb(18 8 42)" stopOpacity="0.97" />
+              </linearGradient>
+              <linearGradient id={fillTextId} x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#2dd4bf" />
+                <stop offset="12%" stopColor="#14b8a6" />
+                <stop offset="24%" stopColor="#38bdf8" />
+                <stop offset="36%" stopColor="#0ea5e9" />
+                <stop offset="48%" stopColor="#a3ff48" />
+                <stop offset="58%" stopColor="#3b82f6" />
+                <stop offset="68%" stopColor="#6366f1" />
+                <stop offset="78%" stopColor="#9333ea" />
+                <stop offset="88%" stopColor="#c084fc" />
+                <stop offset="100%" stopColor="#22d3ee" />
+                <animate attributeName="x1" values="-40%;0%;-40%" dur="17.5s" repeatCount="indefinite" />
+                <animate attributeName="x2" values="60%;100%;60%" dur="17.5s" repeatCount="indefinite" />
+              </linearGradient>
+            </>
           ) : (
-            <linearGradient id={fillKeyId} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#6ee7b7" />
-              <stop offset="38%" stopColor="#22d3ee" />
-              <stop offset="72%" stopColor="#34d399" />
-              <stop offset="100%" stopColor="#14b8a6" />
-              <animate attributeName="x1" values="-30%;0%;-30%" dur="3.4s" repeatCount="indefinite" />
-              <animate attributeName="x2" values="70%;100%;70%" dur="3.4s" repeatCount="indefinite" />
-            </linearGradient>
+            <>
+              <linearGradient id={fillPillId} x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="rgb(72 48 124)" stopOpacity="0.96" />
+                <stop offset="45%" stopColor="rgb(60 40 108)" stopOpacity="0.97" />
+                <stop offset="100%" stopColor="rgb(44 28 88)" stopOpacity="0.98" />
+              </linearGradient>
+              <linearGradient
+                id={fillRimId}
+                gradientUnits="userSpaceOnUse"
+                x1="-50"
+                y1="24"
+                x2="50"
+                y2="24"
+                spreadMethod="repeat"
+              >
+                <stop offset="0%" stopColor="#4c1d95" />
+                <stop offset="20%" stopColor="#6366f1" />
+                <stop offset="40%" stopColor="#7c6af0" />
+                <stop offset="55%" stopColor="#8b5cf6" />
+                <stop offset="75%" stopColor="#6d28d9" />
+                <stop offset="100%" stopColor="#4c1d95" />
+                <animate attributeName="x1" values="-50;50;-50" dur="3.4s" repeatCount="indefinite" />
+                <animate attributeName="x2" values="50;150;50" dur="3.4s" repeatCount="indefinite" />
+              </linearGradient>
+              <linearGradient id={fillTextId} x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#ff5cbf" />
+                <stop offset="14%" stopColor="#ff3d9a" />
+                <stop offset="28%" stopColor="#f0abfc" />
+                <stop offset="44%" stopColor="#ff4db8" />
+                <stop offset="58%" stopColor="#e879f9" />
+                <stop offset="72%" stopColor="#ff2d6f" />
+                <stop offset="86%" stopColor="#ff7ac8" />
+                <stop offset="100%" stopColor="#d946ef" />
+                <animate attributeName="x1" values="-35%;0%;-35%" dur="17.5s" repeatCount="indefinite" />
+                <animate attributeName="x2" values="65%;100%;65%" dur="17.5s" repeatCount="indefinite" />
+              </linearGradient>
+            </>
           )}
         </defs>
-        <text className={`menu-split-capsule__mode-arc-text menu-split-capsule__mode-arc-text--${mode}`}>
-          <textPath href={`#${pathId}`} xlinkHref={`#${pathId}`} startOffset="50%" textAnchor="middle">
-            <tspan className="menu-split-capsule__mode-arc-chip-o">О</tspan>
-            <tspan
-              className={`menu-split-capsule__mode-arc-key menu-split-capsule__mode-arc-key--${mode}`}
-              fill={`url(#${fillKeyId})`}
-            >
-              {keyLetter}
-            </tspan>
-            <tspan className={`menu-split-capsule__mode-arc-sep menu-split-capsule__mode-arc-sep--${mode}`} dx="0.14em">
-              ·
-            </tspan>
-            <tspan className={`menu-split-capsule__mode-arc-tail menu-split-capsule__mode-arc-tail--${mode}`} dx="0.1em">
-              ЛАЙН
-            </tspan>
-          </textPath>
-        </text>
+        <path
+          className={`menu-split-capsule__mode-arc-pill-rim menu-split-capsule__mode-arc-pill-rim--${mode}`}
+          d={pillPathD}
+          fill="none"
+          stroke={mode === 'offline' ? `url(#${fillRimId})` : undefined}
+          strokeWidth={mode === 'offline' ? 14.8 : undefined}
+        />
+        <path
+          className={`menu-split-capsule__mode-arc-pill menu-split-capsule__mode-arc-pill--${mode}`}
+          d={pillPathD}
+          fill="none"
+          stroke={`url(#${fillPillId})`}
+        />
+        {/* textPath сажает baseline на путь; буквы визуально ниже — поднимаем в центр stroke */}
+        <g transform="translate(0 -6.5)">
+          <text
+            className={`menu-split-capsule__mode-arc-text menu-split-capsule__mode-arc-text--${mode}`}
+            fill={`url(#${fillTextId})`}
+          >
+            <textPath href={`#${pathId}`} xlinkHref={`#${pathId}`} startOffset="50%" textAnchor="middle">
+              <tspan className="menu-split-capsule__mode-arc-chip-o">О</tspan>
+              <tspan className={`menu-split-capsule__mode-arc-key menu-split-capsule__mode-arc-key--${mode}`}>
+                {keyLetter}
+              </tspan>
+              <tspan className={`menu-split-capsule__mode-arc-sep menu-split-capsule__mode-arc-sep--${mode}`} dx="0.12em">
+                ·
+              </tspan>
+              <tspan className={`menu-split-capsule__mode-arc-tail menu-split-capsule__mode-arc-tail--${mode}`} dx="0.08em">
+                ЛАЙН
+              </tspan>
+            </textPath>
+          </text>
+        </g>
       </svg>
       <span
         className={`menu-split-capsule__mode-label-flat menu-split-capsule__mode-label-flat--${mode} menu-split-capsule__mode-label-flat--split`}
@@ -916,6 +1087,7 @@ function SplitCapsuleModeCrest({
               type="button"
               className={`menu-split-capsule__mode-glyph-btn menu-split-capsule__mode-glyph menu-split-capsule__mode-glyph--${mode}${legendOpen ? ' menu-split-capsule__mode-glyph--legend-open' : ''}`}
               onClick={onGlyphClick}
+              onPointerUp={blurAfterTouch}
               aria-expanded={legendOpen}
               aria-controls={legendPanelId}
               aria-label={glyphAria}
@@ -987,6 +1159,7 @@ export function MenuPlaySplitCapsule({
             type="button"
             className={`menu-split-capsule__solo-watermark-main menu-split-capsule__solo-watermark-main--${mode}`}
             onClick={onMain}
+            onPointerUp={blurAfterTouch}
             aria-label={pillAria}
           >
             <span
