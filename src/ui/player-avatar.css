@@ -1,0 +1,40 @@
+/* Инициалы на аватаре — радужный перелив */
+
+.player-avatar__initials {
+  display: inline-block;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background-image: linear-gradient(
+    110deg,
+    #22d3ee 0%,
+    #a78bfa 16%,
+    #f472b6 32%,
+    #fb923c 48%,
+    #a3e635 64%,
+    #38bdf8 80%,
+    #e879f9 100%
+  );
+  background-size: 220% 220%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.35));
+  animation: player-avatar-iridescent 2.8s linear infinite;
+}
+
+@keyframes player-avatar-iridescent {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-avatar__initials {
+    animation: none;
+    background-position: 40% 50%;
+  }
+}

@@ -12,6 +12,9 @@
   display: none;
   pointer-events: none;
 }
+.menu-screen__pc-cast-nav {
+  display: none;
+}
 /*
  * Важно: pointer-events НЕ наследуется. В Chrome img/layer с mix-blend/mask
  * иначе ловят hover у верхней зоны (капсулы у верха «мертвые» по центру глифа).
@@ -24,9 +27,41 @@
 .menu-screen__aura * {
   pointer-events: none !important;
 }
+/* Ушки drag: только ПК; на мобилке скрыты */
+.menu-screen__drift-ear {
+  display: none;
+}
+
+/* Клоны фоновых НЛО в окошке онлайн — только ПК (на мобилке SVG давали белое пятно) */
+.menu-online-porthole-ufos {
+  display: none !important;
+}
+
+/* Мобилка: кабинет в шапке; капсула ЛК только на ПК */
+.menu-screen__drift--account {
+  display: none;
+}
+
 /* Мобилка: topbar не меняет поток — дети как прямые в стеке */
 .menu-screen__pc-topbar {
   display: contents;
+}
+
+/* Общий космос меню (ПК + мобилка) — один токен для слияния каста */
+.menu-screen--pc-cinematic {
+  --menu-pc-cosmos-bg:
+    radial-gradient(ellipse 90% 70% at 12% 18%, rgba(139, 92, 246, 0.28) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 65% at 88% 78%, rgba(79, 70, 229, 0.32) 0%, transparent 52%),
+    radial-gradient(ellipse 70% 55% at 55% 8%, rgba(196, 181, 253, 0.14) 0%, transparent 48%),
+    radial-gradient(ellipse 60% 50% at 70% 35%, rgba(99, 102, 241, 0.2) 0%, transparent 50%),
+    linear-gradient(
+      148deg,
+      rgb(12 4 36) 0%,
+      rgb(18 4 42) 22%,
+      rgb(28 12 72) 48%,
+      rgb(15 8 48) 72%,
+      rgb(6 2 20) 100%
+    );
 }
 
 /* ПК: cinematic constellation — рассеянный HUD, арт вплавлен в сцену */
@@ -34,20 +69,6 @@
   .menu-screen--pc-cinematic {
     overflow-x: hidden;
     overflow-y: auto;
-    /* Богатый космос — один токен, чтобы каст слился с ним без шва */
-    --menu-pc-cosmos-bg:
-      radial-gradient(ellipse 90% 70% at 12% 18%, rgba(139, 92, 246, 0.28) 0%, transparent 55%),
-      radial-gradient(ellipse 80% 65% at 88% 78%, rgba(79, 70, 229, 0.32) 0%, transparent 52%),
-      radial-gradient(ellipse 70% 55% at 55% 8%, rgba(196, 181, 253, 0.14) 0%, transparent 48%),
-      radial-gradient(ellipse 60% 50% at 70% 35%, rgba(99, 102, 241, 0.2) 0%, transparent 50%),
-      linear-gradient(
-        148deg,
-        rgb(12 4 36) 0%,
-        rgb(18 4 42) 22%,
-        rgb(28 12 72) 48%,
-        rgb(15 8 48) 72%,
-        rgb(6 2 20) 100%
-      );
     /* Звёзды/НЛО — по краям космоса, меньше на касте */
     --menu-pc-sky-deco-mask:
       radial-gradient(
@@ -98,35 +119,363 @@
     object-fit: contain;
     object-position: center center;
     mix-blend-mode: soft-light;
-    opacity: 0.46;
+    --menu-pc-cast-opacity: 0.46;
+    opacity: var(--menu-pc-cast-opacity);
     filter: saturate(0.82) contrast(0.96) brightness(0.78);
     transform: none;
     pointer-events: none !important;
-    /* Растушёвка: бока сильнее */
+    transition: opacity 0.9s ease;
+    /* Растушёвка: бока мягкие, центр шире — больше рисунка видно */
     -webkit-mask-image:
-      linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.25) 12%, #000 34%, #000 66%, rgba(0, 0, 0, 0.25) 88%, transparent 100%),
+      linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(0, 0, 0, 0.2) 10%,
+        #000 26%,
+        #000 74%,
+        rgba(0, 0, 0, 0.2) 90%,
+        transparent 100%
+      ),
       linear-gradient(0deg, transparent 0%, #000 10%, #000 90%, transparent 100%),
       radial-gradient(
-        ellipse 60% 72% at 50% 48%,
+        ellipse 64% 74% at 50% 48%,
         #000 0%,
-        #000 42%,
-        rgba(0, 0, 0, 0.7) 62%,
-        rgba(0, 0, 0, 0.2) 80%,
+        #000 48%,
+        rgba(0, 0, 0, 0.7) 66%,
+        rgba(0, 0, 0, 0.2) 82%,
         transparent 95%
       );
     mask-image:
-      linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.25) 12%, #000 34%, #000 66%, rgba(0, 0, 0, 0.25) 88%, transparent 100%),
+      linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(0, 0, 0, 0.2) 10%,
+        #000 26%,
+        #000 74%,
+        rgba(0, 0, 0, 0.2) 90%,
+        transparent 100%
+      ),
       linear-gradient(0deg, transparent 0%, #000 10%, #000 90%, transparent 100%),
       radial-gradient(
-        ellipse 60% 72% at 50% 48%,
+        ellipse 64% 74% at 50% 48%,
         #000 0%,
-        #000 42%,
-        rgba(0, 0, 0, 0.7) 62%,
-        rgba(0, 0, 0, 0.2) 80%,
+        #000 48%,
+        rgba(0, 0, 0, 0.7) 66%,
+        rgba(0, 0, 0, 0.2) 82%,
         transparent 95%
       );
     -webkit-mask-composite: source-in;
     mask-composite: intersect;
+  }
+  .menu-screen__pc-cast-img--outgoing {
+    opacity: 0;
+    z-index: 0;
+  }
+  .menu-screen__pc-cast-img--incoming {
+    animation: menu-pc-cast-fade-in 0.9s ease forwards;
+  }
+  @keyframes menu-pc-cast-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: var(--menu-pc-cast-opacity);
+    }
+  }
+  /* Только стрелки у нижней кромки — без рамки, неоновое свечение */
+  .menu-screen__pc-cast-nav {
+    display: flex;
+    position: fixed;
+    left: 50%;
+    top: auto;
+    bottom: max(18px, calc(env(safe-area-inset-bottom, 0px) + 16px));
+    translate: -50% 0;
+    z-index: 7;
+    align-items: center;
+    gap: 32px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    pointer-events: none;
+  }
+  .menu-screen__pc-cast-nav-btn {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    translate: none;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #7c3aed;
+    cursor: pointer;
+    pointer-events: auto;
+    filter:
+      drop-shadow(0 0 4px rgba(109, 40, 217, 0.85))
+      drop-shadow(0 0 12px rgba(91, 33, 182, 0.6));
+    opacity: 0.78;
+    transition:
+      color 0.2s ease,
+      opacity 0.2s ease,
+      filter 0.2s ease,
+      transform 0.2s ease;
+  }
+  .menu-screen__pc-cast-nav-icon {
+    display: block;
+  }
+  .menu-screen__pc-cast-nav-btn:hover,
+  .menu-screen__pc-cast-nav-btn:focus-visible {
+    color: #a78bfa;
+    opacity: 1;
+    outline: none;
+    filter:
+      drop-shadow(0 0 5px rgba(124, 58, 237, 0.95))
+      drop-shadow(0 0 14px rgba(109, 40, 217, 0.75))
+      drop-shadow(0 0 22px rgba(76, 29, 149, 0.5));
+    transform: scale(1.08);
+  }
+  .menu-screen__pc-cast-nav-btn:focus-visible {
+    box-shadow: none;
+  }
+  .menu-screen__pc-cast-nav-btn:active {
+    opacity: 0.9;
+    transform: scale(0.96);
+  }
+  .menu-screen__pc-cast-nav-btn--prev,
+  .menu-screen__pc-cast-nav-btn--next {
+    left: auto;
+    right: auto;
+  }
+  .menu-screen__pc-cast-nav-pin-wrap {
+    position: relative;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+  }
+  .menu-screen__pc-cast-nav-pin-wrap > .menu-screen__pc-cast-nav-btn--pin {
+    pointer-events: auto;
+  }
+  .menu-screen__pc-cast-nav-btn--pin {
+    width: 36px;
+    height: 36px;
+    color: #6d28d9;
+    opacity: 0.7;
+  }
+  .menu-screen__pc-cast-nav-btn--pin-on {
+    color: #a78bfa;
+    opacity: 1;
+    filter:
+      drop-shadow(0 0 5px rgba(167, 139, 250, 0.95))
+      drop-shadow(0 0 14px rgba(124, 58, 237, 0.75));
+  }
+  .menu-screen__pc-cast-nav-btn--pin-open {
+    opacity: 1;
+    color: #c4b5fd;
+  }
+  .menu-screen__pc-cast-pin-popover {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 14px);
+    translate: -50% 0;
+    z-index: 8;
+    width: min(300px, calc(100vw - 32px));
+    box-sizing: border-box;
+    padding: 16px 16px 14px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    background:
+      radial-gradient(120% 90% at 20% 0%, rgb(56 189 248 / 0.14) 0%, transparent 55%),
+      radial-gradient(100% 90% at 85% 100%, rgb(217 70 239 / 0.14) 0%, transparent 62%),
+      linear-gradient(158deg, rgb(14 12 42 / 0.995) 0%, rgb(22 18 58 / 0.99) 42%, rgb(3 6 18 / 0.998) 100%),
+      conic-gradient(
+        from 225deg,
+        #22d3ee 0%,
+        #c084fc 18%,
+        #e879f9 34%,
+        #f472b6 50%,
+        #fbbf24 66%,
+        #4ade80 82%,
+        #22d3ee 100%
+      );
+    background-clip: padding-box, padding-box, padding-box, border-box;
+    background-origin: padding-box, padding-box, padding-box, border-box;
+    box-shadow:
+      0 0 0 1px rgb(34 211 238 / 0.55),
+      0 0 28px rgb(34 211 238 / 0.38),
+      0 0 44px rgb(168 85 247 / 0.34),
+      0 0 58px rgb(244 114 182 / 0.22),
+      0 12px 34px rgb(2 6 23 / 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    overflow: visible;
+    pointer-events: auto;
+    text-align: center;
+  }
+  .menu-screen__pc-cast-pin-popover::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -6px;
+    width: 12px;
+    height: 12px;
+    translate: -50% 0;
+    rotate: 45deg;
+    background: linear-gradient(135deg, transparent 42%, rgb(14 12 42 / 0.995) 42%);
+    border-right: 1px solid rgb(34 211 238 / 0.55);
+    border-bottom: 1px solid rgb(192 132 252 / 0.55);
+    box-shadow: 2px 2px 12px rgb(34 211 238 / 0.2);
+  }
+  .menu-screen__pc-cast-pin-popover__glow {
+    pointer-events: none;
+    position: absolute;
+    inset: -36% -18% auto;
+    height: 68%;
+    border-radius: inherit;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgb(167 139 250 / 0.22) 0%, transparent 68%);
+    z-index: 0;
+  }
+  .menu-screen__pc-cast-pin-popover__lock {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 8px;
+    color: #a78bfa;
+    filter:
+      drop-shadow(0 0 6px rgba(34, 211, 238, 0.65))
+      drop-shadow(0 0 14px rgba(168, 85, 247, 0.55));
+  }
+  .menu-screen__pc-cast-pin-popover__lock .menu-screen__pc-cast-nav-icon {
+    width: 26px;
+    height: 26px;
+  }
+  .menu-screen__pc-cast-pin-popover__eyebrow {
+    position: relative;
+    z-index: 1;
+    margin: 0 0 4px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(165, 243, 252, 0.92);
+    text-shadow: 0 0 12px rgba(34, 211, 238, 0.45);
+  }
+  .menu-screen__pc-cast-pin-popover__title {
+    position: relative;
+    z-index: 1;
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+    background-image: linear-gradient(100deg, #f472b6 0%, #c084fc 34%, #22d3ee 68%, #a3e635 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+  .menu-screen__pc-cast-pin-popover__lead {
+    position: relative;
+    z-index: 1;
+    margin: 0 0 14px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+    background-image: linear-gradient(
+      104deg,
+      #fbcfe8 0%,
+      #ddd6fe 18%,
+      #bfdbfe 36%,
+      #99f6e4 54%,
+      #fde68a 72%,
+      #f9a8d4 88%,
+      #a5f3fc 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+  .menu-screen__pc-cast-pin-popover__actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .menu-screen__pc-cast-pin-popover__btn {
+    margin: 0;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition:
+      background-color 0.18s ease,
+      border-color 0.18s ease,
+      color 0.18s ease,
+      box-shadow 0.18s ease,
+      filter 0.18s ease;
+  }
+  .menu-screen__pc-cast-pin-popover__btn--primary {
+    border-color: rgba(34, 211, 238, 0.65);
+    background: linear-gradient(180deg, rgba(91, 33, 182, 0.92) 0%, rgba(49, 16, 110, 0.96) 100%);
+    color: #a5f3fc;
+    text-shadow: 0 0 10px rgba(34, 211, 238, 0.45);
+    box-shadow:
+      0 0 14px rgba(34, 211, 238, 0.28),
+      0 0 22px rgba(168, 85, 247, 0.28);
+  }
+  .menu-screen__pc-cast-pin-popover__btn--primary:hover,
+  .menu-screen__pc-cast-pin-popover__btn--primary:focus-visible {
+    border-color: rgba(192, 132, 252, 0.85);
+    color: #e9d5ff;
+    box-shadow:
+      0 0 18px rgba(34, 211, 238, 0.4),
+      0 0 28px rgba(192, 132, 252, 0.4);
+    outline: none;
+  }
+  .menu-screen__pc-cast-pin-popover__btn--ghost {
+    border-color: rgba(125, 211, 252, 0.35);
+    background: rgba(15, 23, 42, 0.35);
+    color: #c4b5fd;
+    text-shadow: 0 0 10px rgba(167, 139, 250, 0.35);
+  }
+  .menu-screen__pc-cast-pin-popover__btn--ghost:hover,
+  .menu-screen__pc-cast-pin-popover__btn--ghost:focus-visible {
+    color: #a5f3fc;
+    border-color: rgba(167, 139, 250, 0.55);
+    outline: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .menu-screen__pc-cast-img {
+      transition: none;
+    }
+    .menu-screen__pc-cast-img--incoming {
+      animation: none;
+      opacity: var(--menu-pc-cast-opacity);
+    }
+    .menu-screen__pc-cast-nav-btn {
+      transition: none;
+    }
+    .menu-screen__pc-cast-nav-btn:hover,
+    .menu-screen__pc-cast-nav-btn:focus-visible,
+    .menu-screen__pc-cast-nav-btn:active {
+      transform: none;
+    }
   }
   /*
    * Ключ к идеальному шву: поверх краёв каста — тот же фон страницы.
@@ -452,11 +801,12 @@
   .menu-screen__pc-topbar {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 24px;
     width: 100%;
     margin-bottom: 0;
     z-index: 3;
+    position: relative;
     /*
      * Пустая полоса topbar на всю ширину перехватывала hover/клик капсул,
      * если их поднимали к верху экрана (симптом: жив только «кончик» глифа).
@@ -465,19 +815,28 @@
     pointer-events: none;
   }
   /* Только реальные контролы: title (long-press dev) и кабинет.
-   * header/brand на всю левую ширину иначе перекрывают «Новая партия». */
+   * header/brand иначе перекрывают капсулы под шапкой. */
   .menu-screen__pc-topbar .menu-screen__title,
   .menu-screen__pc-topbar .menu-screen__player {
     pointer-events: auto;
   }
+  /* ПК: кабинет — капсула внизу слева, не в шапке */
+  .menu-screen__pc-topbar .menu-screen__player {
+    display: none;
+  }
+  /* Бренд (иконка + Up&Down) — по центру страницы, та же высота */
   .menu-screen__header {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
     width: auto;
-    max-width: min(60vw, 640px);
+    max-width: min(70vw, 720px);
     margin-bottom: 0;
-    text-align: left;
+    text-align: center;
   }
   .menu-screen__brand {
-    justify-content: flex-start;
+    justify-content: center;
     gap: 14px;
   }
   .menu-screen__brand-icon {
@@ -486,7 +845,7 @@
     border-radius: 14px;
   }
   .menu-screen__brand-text {
-    align-items: flex-start;
+    align-items: center;
   }
   .menu-screen__title {
     font-size: clamp(2.4rem, 3.6vw, 3.25rem);
@@ -540,7 +899,8 @@
   }
   .menu-screen__constellation .menu-screen__section,
   .menu-screen__constellation .menu-screen__section-body,
-  .menu-screen__constellation .menu-screen__grid {
+  .menu-screen__constellation .menu-screen__grid,
+  .menu-screen__constellation .menu-screen__online-with-glyphs {
     display: contents;
   }
   .menu-screen__constellation .menu-screen__section-head {
@@ -589,12 +949,24 @@
     /* translate (не transform) — чтобы bob/drag не ломали hit-test */
     translate: var(--menu-drift-x, 0px) var(--menu-drift-y, 0px);
     will-change: translate;
+    user-select: none;
+    -webkit-user-select: none;
+    caret-color: transparent;
+  }
+  .menu-screen__drift .menu-split-capsule,
+  .menu-screen__drift .menu-capsule,
+  .menu-screen__drift button,
+  .menu-screen__drift a {
+    user-select: none;
+    -webkit-user-select: none;
+    caret-color: transparent;
   }
   .menu-screen__drift .menu-split-capsule,
   .menu-screen__drift .menu-capsule {
     width: 100%;
   }
   .menu-screen__drift-bob {
+    position: relative;
     width: 100%;
   }
   /*
@@ -645,6 +1017,16 @@
     min-height: var(--menu-pc-capsule-h);
     height: var(--menu-pc-capsule-h);
   }
+  /* Одиночный Онлайн — чуть шире базового solo (258px) */
+  .menu-screen__drift--online .menu-split-capsule--solo-glyph {
+    width: 88%;
+    max-width: 340px;
+  }
+  .menu-screen__drift--online
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open.menu-split-capsule--legend-closing {
+    width: 88%;
+    max-width: 340px;
+  }
   .menu-screen__drift--offline .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open .menu-split-capsule__mode-crest-anchor,
   .menu-screen__drift--online .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open .menu-split-capsule__mode-crest-anchor {
     height: var(--menu-pc-capsule-h);
@@ -667,6 +1049,14 @@
   .menu-screen__drift--offline .menu-split-capsule__half,
   .menu-screen__drift--online .menu-split-capsule__half {
     pointer-events: auto;
+    cursor: pointer;
+  }
+  .menu-screen__drift--movable .menu-split-capsule__solo-watermark-main,
+  .menu-screen__drift--movable .menu-capsule {
+    cursor: pointer;
+  }
+  .menu-screen__drift--movable .menu-split-capsule__mode-glyph-btn {
+    cursor: pointer;
   }
   .menu-screen__drift--offline .menu-split-capsule__half .menu-split-capsule__glyph--stack .menu-capsule-glyph-svg,
   .menu-screen__drift--online .menu-split-capsule__half .menu-split-capsule__glyph--stack .menu-capsule-glyph-svg {
@@ -793,46 +1183,72 @@
   .menu-screen__drift--offline .menu-split-capsule__solo-watermark {
     overflow: visible;
   }
-  /* Стартовые позиции: ~−15% к прежнему 640/520 */
+  /* Стартовые позиции (первый заход / после сброса drift v5):
+   * ряд под шапкой — Офлайн слева, Онлайн справа;
+   * низ — Кабинет слева, Обучение справа. */
   .menu-screen__drift--offline {
-    left: 2%;
-    top: 8%;
-    width: min(556px, 48vw);
-    min-width: 450px;
+    left: 3%;
+    right: auto;
+    top: 12%;
+    bottom: auto;
+    width: min(520px, 44vw);
+    min-width: 400px;
   }
   .menu-screen__drift--offline > .menu-screen__drift-bob {
     animation: menu-pc-bob-a 7.2s ease-in-out infinite;
   }
   .menu-screen__drift--online {
-    left: 50%;
-    top: 10%;
-    width: min(556px, 48vw);
-    min-width: 450px;
+    left: auto;
+    right: 3%;
+    top: 12%;
+    bottom: auto;
+    width: min(520px, 44vw);
+    min-width: 400px;
     z-index: 3;
-    translate: calc(-50% + var(--menu-drift-x, 0px)) var(--menu-drift-y, 0px);
+    --menu-online-bob-y: 0px;
+    translate: calc(var(--menu-drift-x, 0px)) calc(var(--menu-drift-y, 0px) + var(--menu-online-bob-y, 0px));
+    animation: menu-pc-bob-online-y 8s ease-in-out infinite;
+    backface-visibility: hidden;
+    will-change: translate;
   }
   .menu-screen__drift--online > .menu-screen__drift-bob {
-    animation: menu-pc-bob-b 8s ease-in-out infinite;
-  }
-  .menu-screen__drift--training {
-    right: 3%;
-    left: auto;
-    top: 10%;
-    width: min(320px, 28vw);
-    min-width: 260px;
-  }
-  .menu-screen__drift--training > .menu-screen__drift-bob {
-    animation: menu-pc-bob-c 6.4s ease-in-out infinite;
+    animation: none;
   }
   .menu-screen__drift--account {
-    left: 6%;
-    top: 48%;
-    width: min(240px, 20vw);
-    min-width: 200px;
+    display: block;
+    left: 4%;
+    right: auto;
+    top: auto;
+    bottom: max(28px, 5vh);
+    width: min(300px, 28vw);
+    min-width: 240px;
+    z-index: 4;
   }
   .menu-screen__drift--account > .menu-screen__drift-bob {
     animation: menu-pc-bob-c 7.8s ease-in-out infinite;
     animation-delay: -1.2s;
+  }
+  .menu-screen__drift--training {
+    left: auto;
+    right: 4%;
+    top: auto;
+    bottom: max(28px, 5vh);
+    width: min(320px, 28vw);
+    min-width: 260px;
+    z-index: 4;
+  }
+  .menu-screen__drift--training:has(.menu-capsule-shell--glyph-only) {
+    width: auto;
+    min-width: 0;
+  }
+  .menu-screen__drift--account .menu-capsule--with-avatar {
+    min-height: 64px;
+  }
+  .menu-screen__drift--account .menu-capsule__eyebrow {
+    color: rgba(251, 113, 133, 0.9);
+  }
+  .menu-screen__drift--training > .menu-screen__drift-bob {
+    animation: menu-pc-bob-c 6.4s ease-in-out infinite;
   }
   .menu-screen__drift--profile {
     left: 28%;
@@ -885,22 +1301,168 @@
     animation: menu-pc-bob-b 6.8s ease-in-out infinite;
     animation-delay: -2.6s;
   }
+  /* Drag только за ушко — по центру нижней кромки, в стиле капсулы */
   .menu-screen__drift--movable {
+    cursor: default;
+    touch-action: none;
+  }
+  .menu-screen__drift--movable .menu-screen__drift-ear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    bottom: auto;
+    translate: -50% 0;
+    z-index: 9;
+    width: 36px;
+    height: 14px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 6px 6px 999px 999px;
     cursor: grab;
     touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      border-color 0.18s ease,
+      box-shadow 0.18s ease,
+      filter 0.18s ease,
+      transform 0.18s ease;
+  }
+  .menu-screen__drift-ear__grip {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    pointer-events: none;
+  }
+  .menu-screen__drift-ear__grip > span {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+  }
+  /* Офлайн — кислотно-малиновый */
+  .menu-screen__drift--offline .menu-screen__drift-ear {
+    border-color: rgba(255, 45, 155, 0.75);
+    background: linear-gradient(180deg, rgba(72, 12, 48, 0.98) 0%, rgba(28, 4, 20, 1) 100%);
+    box-shadow:
+      0 0 8px rgba(255, 45, 155, 0.45),
+      0 0 16px rgba(255, 20, 147, 0.28),
+      inset 0 1px 0 rgba(255, 180, 220, 0.28);
+  }
+  .menu-screen__drift--offline .menu-screen__drift-ear__grip > span {
+    background: #ff6bb8;
+    box-shadow: 0 0 5px rgba(255, 45, 155, 0.7);
+  }
+  .menu-screen__drift--offline .menu-screen__drift-ear:hover,
+  .menu-screen__drift--offline .menu-screen__drift-ear:focus-visible {
+    border-color: rgba(255, 94, 200, 0.95);
+    filter: brightness(1.1);
+    box-shadow:
+      0 0 12px rgba(255, 45, 155, 0.55),
+      0 0 20px rgba(255, 20, 147, 0.35),
+      inset 0 1px 0 rgba(255, 200, 230, 0.35);
+    outline: none;
+  }
+  /* Онлайн — сине-фиолет металла */
+  .menu-screen__drift--online .menu-screen__drift-ear {
+    border-color: rgba(110, 100, 210, 0.7);
+    background: linear-gradient(180deg, rgba(50, 42, 120, 0.98) 0%, rgba(22, 16, 64, 1) 100%);
+    box-shadow:
+      0 0 8px rgba(90, 80, 200, 0.4),
+      0 0 14px rgba(70, 60, 180, 0.25),
+      inset 0 1px 0 rgba(200, 195, 255, 0.28);
+  }
+  .menu-screen__drift--online .menu-screen__drift-ear__grip > span {
+    background: #a5a0f0;
+    box-shadow: 0 0 5px rgba(120, 110, 230, 0.65);
+  }
+  .menu-screen__drift--online .menu-screen__drift-ear:hover,
+  .menu-screen__drift--online .menu-screen__drift-ear:focus-visible {
+    border-color: rgba(150, 140, 240, 0.9);
+    filter: brightness(1.1);
+    box-shadow:
+      0 0 12px rgba(110, 100, 220, 0.5),
+      0 0 18px rgba(90, 80, 200, 0.32),
+      inset 0 1px 0 rgba(220, 215, 255, 0.35);
+    outline: none;
+  }
+  /* Кабинет — розово-магента */
+  .menu-screen__drift--account .menu-screen__drift-ear {
+    border-color: rgba(244, 114, 182, 0.65);
+    background: linear-gradient(180deg, rgba(72, 24, 56, 0.98) 0%, rgba(28, 8, 28, 1) 100%);
+    box-shadow:
+      0 0 8px rgba(244, 114, 182, 0.4),
+      0 0 14px rgba(232, 121, 249, 0.22),
+      inset 0 1px 0 rgba(251, 207, 232, 0.25);
+  }
+  .menu-screen__drift--account .menu-screen__drift-ear__grip > span {
+    background: #f9a8d4;
+    box-shadow: 0 0 5px rgba(244, 114, 182, 0.65);
+  }
+  .menu-screen__drift--account .menu-screen__drift-ear:hover,
+  .menu-screen__drift--account .menu-screen__drift-ear:focus-visible {
+    border-color: rgba(251, 146, 200, 0.9);
+    filter: brightness(1.1);
+    box-shadow:
+      0 0 12px rgba(244, 114, 182, 0.5),
+      0 0 18px rgba(232, 121, 249, 0.3),
+      inset 0 1px 0 rgba(252, 231, 243, 0.35);
+    outline: none;
+  }
+  /* Обучение — мягкий индиго */
+  .menu-screen__drift--training .menu-screen__drift-ear {
+    border-color: rgba(129, 140, 248, 0.65);
+    background: linear-gradient(180deg, rgba(40, 36, 88, 0.98) 0%, rgba(16, 14, 40, 1) 100%);
+    box-shadow:
+      0 0 8px rgba(129, 140, 248, 0.38),
+      0 0 14px rgba(99, 102, 241, 0.22),
+      inset 0 1px 0 rgba(199, 210, 254, 0.25);
+  }
+  .menu-screen__drift--training .menu-screen__drift-ear__grip > span {
+    background: #c7d2fe;
+    box-shadow: 0 0 5px rgba(129, 140, 248, 0.6);
+  }
+  .menu-screen__drift--training .menu-screen__drift-ear:hover,
+  .menu-screen__drift--training .menu-screen__drift-ear:focus-visible {
+    border-color: rgba(165, 180, 252, 0.9);
+    filter: brightness(1.1);
+    box-shadow:
+      0 0 12px rgba(129, 140, 248, 0.48),
+      0 0 18px rgba(99, 102, 241, 0.3),
+      inset 0 1px 0 rgba(224, 231, 255, 0.35);
+    outline: none;
+  }
+  .menu-screen__drift--movable .menu-screen__drift-ear:active,
+  .menu-screen__drift--dragging .menu-screen__drift-ear {
+    cursor: grabbing;
+    transform: scale(0.96);
   }
   .menu-screen__drift--movable:active,
   .menu-screen__drift--dragging {
-    cursor: grabbing;
-    animation: none;
     z-index: 6;
   }
+  /* Bob у остальных — на drift-bob; у online — на самом drift, не гасим на :active. */
+  .menu-screen__drift--dragging:not(.menu-screen__drift--online) {
+    animation: none;
+  }
+  .menu-screen__drift--dragging > .menu-screen__drift-bob {
+    animation: none !important;
+    translate: 0 0;
+  }
+  .menu-screen__drift--dragging.menu-screen__drift--online {
+    animation: none !important;
+    --menu-online-bob-y: 0px;
+  }
   .menu-screen__drift--dragging {
-    filter: brightness(1.08);
+    filter: brightness(1.06);
   }
   /*
-   * Bob через CSS translate (НЕ transform) — иначе Chrome смещает
-   * hit-area относительно глифов у верхнего края viewport.
+   * Bob на drift-bob (translate); drag-translate — на внешнем drift.
+   * Capture drag откладывается до порога — клики по половинкам не ломаются.
    */
   @keyframes menu-pc-bob-a {
     0%,
@@ -915,10 +1477,18 @@
     0%,
     100% {
       translate: 0 0;
-      --menu-online-bob-y: 0px;
     }
     50% {
       translate: 0 -10px;
+    }
+  }
+  /* Онлайн: bob на внешнем drift — shell, обода и звёзды едут одним слоем без мерцания низа. */
+  @keyframes menu-pc-bob-online-y {
+    0%,
+    100% {
+      --menu-online-bob-y: 0px;
+    }
+    50% {
       --menu-online-bob-y: -10px;
     }
   }
@@ -935,8 +1505,13 @@
 @media (min-width: 1025px) and (max-width: 1280px) {
   .menu-screen__drift--offline,
   .menu-screen__drift--online {
-    min-width: 400px;
-    width: min(500px, 52vw);
+    min-width: 360px;
+    width: min(440px, 46vw);
+  }
+  .menu-screen__drift--account,
+  .menu-screen__drift--training {
+    min-width: 220px;
+    width: min(260px, 26vw);
   }
   .menu-screen__title {
     font-size: clamp(2.05rem, 3vw, 2.55rem);
@@ -946,9 +1521,100 @@
     height: 48px;
   }
 }
+
+/* Узкий ПК / планшет: каст ≈ −20%, без поломки боковых швов */
+@media (min-width: 1025px) and (max-width: 1300px) {
+  .menu-screen__pc-cast-nav {
+    bottom: max(14px, calc(env(safe-area-inset-bottom, 0px) + 12px));
+  }
+  .menu-screen__pc-cast-img {
+    /* Тот же бокс и mask-логика — компакт через scale; чуть приподнят */
+    width: min(92%, 1280px);
+    height: min(92%, 980px);
+    top: 18%;
+    /* компакт ≈ −20% от полного бокса (без доп. −10% — ломало швы) */
+    transform: scale(0.8);
+    transform-origin: 50% 48%;
+    /* Центр шире (как на полном ПК), бока всё ещё мягко гаснут */
+    -webkit-mask-image:
+      linear-gradient(
+        90deg,
+        transparent 0%,
+        transparent 6%,
+        rgba(0, 0, 0, 0.18) 16%,
+        rgba(0, 0, 0, 0.55) 24%,
+        #000 32%,
+        #000 68%,
+        rgba(0, 0, 0, 0.55) 76%,
+        rgba(0, 0, 0, 0.18) 86%,
+        transparent 95%,
+        transparent 100%
+      ),
+      linear-gradient(0deg, transparent 0%, #000 10%, #000 90%, transparent 100%),
+      radial-gradient(
+        ellipse 60% 72% at 50% 48%,
+        #000 0%,
+        #000 44%,
+        rgba(0, 0, 0, 0.65) 62%,
+        rgba(0, 0, 0, 0.15) 80%,
+        transparent 94%
+      );
+    mask-image:
+      linear-gradient(
+        90deg,
+        transparent 0%,
+        transparent 6%,
+        rgba(0, 0, 0, 0.18) 16%,
+        rgba(0, 0, 0, 0.55) 24%,
+        #000 32%,
+        #000 68%,
+        rgba(0, 0, 0, 0.55) 76%,
+        rgba(0, 0, 0, 0.18) 86%,
+        transparent 95%,
+        transparent 100%
+      ),
+      linear-gradient(0deg, transparent 0%, #000 10%, #000 90%, transparent 100%),
+      radial-gradient(
+        ellipse 60% 72% at 50% 48%,
+        #000 0%,
+        #000 44%,
+        rgba(0, 0, 0, 0.65) 62%,
+        rgba(0, 0, 0, 0.15) 80%,
+        transparent 94%
+      );
+  }
+
+  /* Meld шире и плотнее по бокам — космос перекрывает кромку каста */
+  .menu-screen__pc-cast-meld {
+    -webkit-mask-image:
+      linear-gradient(90deg, #000 0%, #000 32%, transparent 46%, transparent 54%, #000 68%, #000 100%),
+      linear-gradient(0deg, #000 0%, #000 12%, transparent 30%, transparent 90%, #000 98%, #000 100%),
+      radial-gradient(
+        ellipse 52% 64% at 50% 56%,
+        transparent 0%,
+        transparent 28%,
+        rgba(0, 0, 0, 0.35) 50%,
+        rgba(0, 0, 0, 0.92) 72%,
+        #000 88%,
+        #000 100%
+      );
+    mask-image:
+      linear-gradient(90deg, #000 0%, #000 32%, transparent 46%, transparent 54%, #000 68%, #000 100%),
+      linear-gradient(0deg, #000 0%, #000 12%, transparent 30%, transparent 90%, #000 98%, #000 100%),
+      radial-gradient(
+        ellipse 52% 64% at 50% 56%,
+        transparent 0%,
+        transparent 28%,
+        rgba(0, 0, 0, 0.35) 50%,
+        rgba(0, 0, 0, 0.92) 72%,
+        #000 88%,
+        #000 100%
+      );
+  }
+}
 @media (min-width: 1600px) {
   .menu-screen__pc-cast-img {
-    opacity: 0.5;
+    --menu-pc-cast-opacity: 0.5;
   }
   .menu-screen__stack {
     padding-left: clamp(28px, 4vw, 72px);
@@ -1025,54 +1691,26 @@
 }
 
 /*
- * ПК · онлайн: двойная рамка-иллюминатор.
- * База каждой рамки — фиолет; cyan — «бегущий свет» по контуру (~7 с), затем снова фиолет.
- * Статичный dual-tone (фиолет+голубой одновременно) убран.
+ * ПК · онлайн: сине-фиолетовый металлический обод,
+ * тонкая 3D-фаска — без яркого хрома и неона.
  */
-@property --menu-online-rim-a {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-@property --menu-online-rim-b {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-
-@keyframes menu-online-rim-run-a {
-  to {
-    --menu-online-rim-a: 360deg;
-  }
-}
-/* Внутренняя — в обратную сторону */
-@keyframes menu-online-rim-run-b {
-  to {
-    --menu-online-rim-b: -360deg;
-  }
-}
-
 @media (min-width: 1025px) {
   .menu-screen__drift--online .menu-split-capsule--online > .menu-split-capsule__shell {
-    border: 1.5px solid transparent;
-    background:
-      linear-gradient(
-          105deg,
-          rgba(28, 8, 58, 0.97) 0%,
-          rgba(18, 4, 42, 0.98) 42%,
-          rgba(10, 3, 28, 1) 100%
-        )
-        padding-box,
-      linear-gradient(118deg, #4c1d95, #6d28d9, #7c3aed, #5b21b6) border-box;
+    border: none;
+    background: linear-gradient(
+      165deg,
+      rgba(10, 10, 18, 0.99) 0%,
+      rgba(6, 6, 14, 1) 50%,
+      rgba(3, 3, 10, 1) 100%
+    );
     box-shadow:
-      inset 0 1px 0 rgba(196, 181, 253, 0.22),
-      inset 0 -3px 10px rgba(8, 2, 24, 0.45),
-      0 2px 16px rgba(0, 0, 0, 0.42),
-      0 0 22px rgba(91, 33, 182, 0.3),
-      0 0 14px rgba(34, 211, 238, 0.1);
+      0 8px 22px rgba(0, 0, 0, 0.62),
+      0 2px 6px rgba(0, 0, 0, 0.5);
+    backface-visibility: hidden;
+    transform: translateZ(0);
   }
 
-  /* Внешний обод: фиолет + бегущий cyan (выше звёзд — иначе «просвечивают» сквозь рамку) */
+  /* Внешний обод: сине-фиолетовый металл (не слишком тёмный) */
   .menu-screen__drift--online .menu-split-capsule--online > .menu-split-capsule__shell::before {
     content: '';
     position: absolute;
@@ -1080,25 +1718,22 @@
     z-index: 4;
     border-radius: inherit;
     pointer-events: none;
-    padding: 4.5px;
-    --menu-online-rim-a: 0deg;
-    background: conic-gradient(
-      from var(--menu-online-rim-a),
-      #2a0650 0deg,
-      #4a1a8a 55deg,
-      #5b21b6 110deg,
-      #0891b2 155deg,
-      #22d3ee 175deg,
-      #0891b2 195deg,
-      #5b21b6 240deg,
-      #3b0764 300deg,
-      #2a0650 360deg
+    padding: 5.5px;
+    background: linear-gradient(
+      145deg,
+      #9b8fd4 0%,
+      #5b4db8 16%,
+      #3d35a0 32%,
+      #7c6fd0 46%,
+      #2a2480 60%,
+      #5648c0 76%,
+      #3830a0 100%
     );
-    animation: menu-online-rim-run-a 7.2s linear infinite;
     box-shadow:
-      inset 0 1px 1px rgba(255, 255, 255, 0.36),
-      inset 0 -2px 4px rgba(0, 0, 0, 0.72),
-      inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+      inset 0 1px 1px rgba(210, 205, 255, 0.42),
+      inset 0 -2px 3px rgba(20, 16, 60, 0.55),
+      inset 1px 0 1px rgba(180, 175, 255, 0.16),
+      inset -1px 0 2px rgba(16, 12, 48, 0.4);
     -webkit-mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
     -webkit-mask-clip: content-box, border-box;
     -webkit-mask-composite: xor;
@@ -1107,66 +1742,108 @@
     mask-composite: exclude;
   }
 
-  /* Внутренний обод: тот же бег, со сдвигом фазы */
+  /* Внутренняя узкая фаска — чуть темнее, всё ещё сине-фиолет */
   .menu-screen__drift--online .menu-split-capsule--online > .menu-split-capsule__shell::after {
     content: '';
     position: absolute;
-    inset: 5.5px;
+    inset: 5px;
     z-index: 4;
     border-radius: inherit;
     pointer-events: none;
-    padding: 3px;
-    --menu-online-rim-b: 0deg;
-    background: conic-gradient(
-      from var(--menu-online-rim-b),
-      #2a0650 0deg,
-      #4a1a8a 50deg,
-      #5b21b6 105deg,
-      #0891b2 150deg,
-      #22d3ee 170deg,
-      #0891b2 190deg,
-      #5b21b6 245deg,
-      #3b0764 305deg,
-      #2a0650 360deg
+    padding: 1.75px;
+    background: linear-gradient(
+      145deg,
+      #6a5ec8 0%,
+      #2a2488 38%,
+      #4038b0 68%,
+      #1e1a70 100%
     );
-    animation: menu-online-rim-run-b 7.2s linear infinite;
     box-shadow:
-      inset 0 1px 1px rgba(226, 232, 255, 0.3),
-      inset 0 -1.5px 3px rgba(0, 0, 0, 0.55),
-      inset 0 0 0 1px rgba(12, 4, 32, 0.4),
-      0 0 8px rgba(91, 33, 182, 0.18);
+      inset 0 1px 1px rgba(200, 195, 255, 0.22),
+      inset 0 -1px 2px rgba(12, 8, 40, 0.7);
     -webkit-mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
     -webkit-mask-clip: content-box, border-box;
     -webkit-mask-composite: xor;
     mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
     mask-clip: content-box, border-box;
     mask-composite: exclude;
+  }
+
+  /* Без белой/бордовой верхней кромки на половинках */
+  .menu-screen__drift--online .menu-split-capsule--online .menu-split-capsule__half::before {
+    background: none;
+    opacity: 0;
+  }
+  .menu-screen__drift--online .menu-split-capsule--online .menu-split-capsule__half--actionOnline,
+  .menu-screen__drift--online .menu-split-capsule--online .menu-split-capsule__half--resumeOnline {
+    background: linear-gradient(
+      168deg,
+      rgba(20, 22, 48, 0.55) 0%,
+      rgba(12, 14, 32, 0.48) 42%,
+      rgba(6, 8, 20, 0.42) 100%
+    );
+    box-shadow: inset 0 -6px 14px rgba(0, 0, 0, 0.5);
   }
 
   .menu-screen__drift--online
     .menu-split-capsule--online.menu-split-capsule--legend-open
     > .menu-split-capsule__shell {
     box-shadow:
-      inset 0 1px 0 rgba(196, 181, 253, 0.2),
-      inset 0 -3px 10px rgba(8, 2, 24, 0.42),
-      0 4px 22px rgba(0, 0, 0, 0.42),
-      0 0 32px rgba(124, 58, 237, 0.38),
-      0 0 14px rgba(34, 211, 238, 0.12);
+      0 10px 26px rgba(0, 0, 0, 0.65),
+      0 3px 8px rgba(0, 0, 0, 0.5);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .menu-screen__drift--online .menu-split-capsule--online > .menu-split-capsule__shell::before,
-    .menu-screen__drift--online .menu-split-capsule--online > .menu-split-capsule__shell::after {
+    .menu-screen__drift--online {
       animation: none;
-      background: linear-gradient(148deg, #5b21b6 0%, #4c1d95 45%, #3b0764 100%);
+      --menu-online-bob-y: 0px;
     }
+  }
+
+  /*
+   * ПК · офлайн: одна утолщённая неоновая рамка (кислотно-малиновая).
+   * Двойной обод убран — смотрелся неаккуратно.
+   */
+  .menu-screen__drift--offline .menu-split-capsule--offline > .menu-split-capsule__shell {
+    border: 3.5px solid #ff2d9b;
+    background: linear-gradient(
+      165deg,
+      rgba(42, 8, 36, 0.98) 0%,
+      rgba(22, 4, 28, 0.99) 48%,
+      rgba(10, 2, 16, 1) 100%
+    );
+    box-shadow:
+      0 0 10px rgba(255, 45, 155, 0.65),
+      0 0 24px rgba(255, 20, 147, 0.4),
+      0 0 40px rgba(232, 64, 180, 0.22),
+      inset 0 1px 0 rgba(255, 180, 220, 0.22),
+      inset 0 -2px 0 rgba(8, 2, 14, 0.9),
+      0 3px 16px rgba(0, 0, 0, 0.48);
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  }
+
+  .menu-screen__drift--offline .menu-split-capsule--offline > .menu-split-capsule__shell::before,
+  .menu-screen__drift--offline .menu-split-capsule--offline > .menu-split-capsule__shell::after {
+    content: none;
+    display: none;
+  }
+
+  .menu-screen__drift--offline
+    .menu-split-capsule--offline.menu-split-capsule--legend-open
+    > .menu-split-capsule__shell {
+    box-shadow:
+      0 0 12px rgba(255, 45, 155, 0.7),
+      0 0 28px rgba(255, 20, 147, 0.45),
+      inset 0 1px 0 rgba(255, 180, 220, 0.2),
+      inset 0 -3px 12px rgba(8, 2, 16, 0.5),
+      0 4px 22px rgba(0, 0, 0, 0.5);
   }
 }
 
 /*
  * ПК: звёзды онлайн-капсулы — «окно в космос».
- * Клип (.stars) едет с капсулой; небо (.__sky) читает --menu-online-bob-y
- * с .drift-bob и компенсирует его — без второй анимации, без рассинхрона.
+ * Bob на внешнем drift: звёзды движутся вместе с капсулой (без контр-translate у нижнего края).
  */
 @property --menu-online-bob-y {
   syntax: '<length>';
@@ -1174,12 +1851,9 @@
   initial-value: 0px;
 }
 @media (min-width: 1025px) {
-  .menu-screen__drift--online > .menu-screen__drift-bob {
-    --menu-online-bob-y: 0px;
-  }
   .menu-screen__drift--online .menu-online-cosmic-stars {
     /* внутри двойного обода (~outer 4.5 + gap + inner 3 → ~8.5px), чтобы не светить сквозь рамку */
-    inset: 9px;
+    inset: 9px 9px 12px;
     z-index: 1;
     overflow: hidden;
     border-radius: inherit;
@@ -1189,6 +1863,7 @@
    * Клип — .stars (под рамкой z4 и глифами z2–6); снаружи капсулы не рисуются.
    */
   .menu-screen__drift--online .menu-online-porthole-ufos {
+    display: block !important;
     position: absolute;
     inset: 0;
     z-index: 2;
@@ -1212,10 +1887,7 @@
   }
   .menu-screen__drift--online .menu-online-cosmic-stars__sky {
     position: absolute;
-    /* запас, чтобы при компенсации ±10px не мигал пустой край */
     inset: -14px;
-    translate: 0 calc(var(--menu-online-bob-y) * -1);
-    will-change: translate;
   }
   .menu-screen__drift--online .menu-online-cosmic-stars__layer {
     inset: 0;
@@ -1246,9 +1918,974 @@
     animation-duration: 6.8s !important;
     animation-delay: -3.6s !important;
   }
+}
+
+/*
+ * Мобилка ≤1024:
+ * — космос как на ПК (чтобы soft-light каста сливался);
+ * — двойной офлайн эталон не перекрашиваем;
+ * — у одинарного офлайна прячем широкую фоновую «ОФЛАЙН»;
+ * — обе play-капсулы (online/offline) чуть крупнее (~+8%), пропорционально.
+ */
+@media (max-width: 1024px) {
+  .menu-screen--pc-cinematic {
+    /* Тот же космос + богаче верх (фиолетовые «окна») */
+    background:
+      radial-gradient(ellipse 130% 78% at 50% -12%, rgba(196, 181, 253, 0.38) 0%, transparent 48%),
+      radial-gradient(ellipse 95% 60% at 12% 4%, rgba(139, 92, 246, 0.36) 0%, transparent 52%),
+      radial-gradient(ellipse 90% 55% at 90% 8%, rgba(99, 102, 241, 0.3) 0%, transparent 50%),
+      radial-gradient(ellipse 70% 45% at 50% 18%, rgba(167, 139, 250, 0.16) 0%, transparent 55%),
+      var(--menu-pc-cosmos-bg);
+  }
+  /* Как на ПК: без «холодного» slate-фона и яркого cyan/pink glow */
+  .menu-screen--pc-cinematic::before {
+    opacity: 0.14;
+  }
+  .menu-screen--pc-cinematic .menu-screen__aura-glow {
+    opacity: 0;
+  }
+  /* DEBUG: scrim выключен — его linear давал тёмную полосу сверху поверх каста */
+  .menu-screen--pc-cinematic .menu-screen__aura-scrim {
+    display: none !important;
+  }
+
+  /* «без слов» — только при раздвоенных капсулах, под онлайн справа */
+  .menu-screen .menu-screen__brand {
+    width: 100%;
+    justify-content: flex-start;
+    /* scale(1.28) съедает ~6px справа — 22 даёт заметный воздух */
+    gap: 22px;
+  }
+  .menu-screen .menu-screen__brand-text {
+    flex: 1 1 auto;
+    align-items: stretch;
+    min-width: 0;
+    /* Место под аватар кабинета справа */
+    padding-right: 64px;
+  }
+  /* Крупнее визуально, layout-box 40×40 — контент ниже не едет */
+  .menu-screen .menu-screen__brand-icon {
+    transform: scale(1.28);
+    transform-origin: left center;
+  }
+  .menu-screen .menu-screen__title {
+    text-align: left;
+  }
+  .menu-screen .menu-screen__tagline-row {
+    justify-content: flex-start;
+  }
+  .menu-screen .menu-screen__tagline-row .menu-screen__tagline {
+    text-align: left;
+  }
+  .menu-screen .menu-screen__online-with-glyphs {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 7px;
+    width: 100%;
+    /* лишний отступ кнопки компенсируем — контент ниже не едет */
+    margin-bottom: -5px;
+  }
+  .menu-screen .menu-screen__glyphs-toggle-row {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin: 0;
+  }
+  .menu-screen .menu-screen__glyphs-toggle-row .menu-screen__section-glyphs-toggle {
+    flex-shrink: 0;
+    border-color: rgba(192, 132, 252, 0.45);
+    color: #7dd3fc;
+    background: linear-gradient(
+      155deg,
+      rgba(34, 211, 238, 0.22) 0%,
+      rgba(124, 58, 237, 0.28) 48%,
+      rgba(244, 114, 182, 0.28) 100%
+    );
+    box-shadow:
+      0 0 0 1px rgba(103, 232, 249, 0.18),
+      0 0 12px rgba(168, 85, 247, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    text-shadow:
+      0 0 8px rgba(125, 211, 252, 0.65),
+      0 0 14px rgba(34, 211, 238, 0.4);
+  }
+  .menu-screen .menu-screen__glyphs-toggle-row .menu-screen__section-glyphs-toggle:hover {
+    border-color: rgba(244, 114, 182, 0.55);
+    color: #a5e8ff;
+    background: linear-gradient(
+      155deg,
+      rgba(34, 211, 238, 0.3) 0%,
+      rgba(167, 139, 250, 0.32) 48%,
+      rgba(244, 114, 182, 0.36) 100%
+    );
+    box-shadow:
+      0 0 0 1px rgba(192, 132, 252, 0.28),
+      0 0 16px rgba(244, 114, 182, 0.35);
+  }
+  .menu-screen .menu-screen__glyphs-toggle-row .menu-screen__section-glyphs-toggle[aria-pressed='true'] {
+    border-color: rgba(103, 232, 249, 0.55);
+    color: #67e8f9;
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.28),
+      0 0 14px rgba(34, 211, 238, 0.35);
+  }
+
+  /* Кабинет: правый верх, свёрнут до аватарки; раскрытие вниз столбиком букв */
+  .menu-screen .menu-screen__player {
+    position: absolute;
+    top: max(12px, env(safe-area-inset-top, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+    z-index: 8;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 4px;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    pointer-events: auto;
+    border: 1px solid transparent;
+    background:
+      linear-gradient(145deg, rgba(18, 10, 40, 0.92), rgba(8, 6, 24, 0.88)) padding-box,
+      linear-gradient(135deg, rgba(34, 211, 238, 0.75), rgba(192, 132, 252, 0.85), rgba(244, 114, 182, 0.7))
+        border-box;
+    box-shadow:
+      0 0 0 1px rgba(167, 139, 250, 0.22),
+      0 0 18px rgba(168, 85, 247, 0.35),
+      0 0 28px rgba(34, 211, 238, 0.18),
+      0 8px 20px rgba(4, 2, 16, 0.45);
+    transition:
+      border-color 0.16s ease,
+      box-shadow 0.18s ease,
+      padding 0.18s ease,
+      border-radius 0.18s ease,
+      background 0.18s ease;
+  }
+  .menu-screen .menu-screen__player:hover {
+    transform: none;
+  }
+  .menu-screen .menu-screen__player-avatar-ring {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    padding: 3px;
+    border-radius: 50%;
+    background: linear-gradient(
+      135deg,
+      #67e8f9 0%,
+      #c084fc 42%,
+      #f472b6 72%,
+      #fbbf24 100%
+    );
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.18),
+      0 0 14px rgba(244, 114, 182, 0.55),
+      0 0 26px rgba(34, 211, 238, 0.35),
+      0 6px 14px rgba(4, 2, 16, 0.4);
+  }
+  .menu-screen .menu-screen__player-avatar-ring::before {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border-radius: 50%;
+    background: linear-gradient(160deg, rgba(24, 12, 52, 0.95), rgba(8, 4, 28, 0.98));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    pointer-events: none;
+  }
+  .menu-screen .menu-screen__player-avatar-ring::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1px solid rgba(192, 132, 252, 0.35);
+    box-shadow:
+      0 0 10px rgba(168, 85, 247, 0.35),
+      inset 0 0 8px rgba(34, 211, 238, 0.12);
+    pointer-events: none;
+  }
+  .menu-screen .menu-screen__player-avatar {
+    position: relative;
+    z-index: 1;
+    box-shadow:
+      0 0 0 1.5px rgba(12, 6, 32, 0.95),
+      inset 0 0 10px rgba(0, 0, 0, 0.25) !important;
+  }
+  .menu-screen .menu-screen__player--collapsed {
+    padding: 4px;
+  }
+  .menu-screen .menu-screen__player--collapsed .menu-screen__player-avatar-ring {
+    padding: 3.5px;
+  }
+  .menu-screen .menu-screen__player--collapsed .menu-screen__player-text,
+  .menu-screen .menu-screen__player--collapsed .menu-screen__player-chev {
+    display: none;
+  }
+  .menu-screen .menu-screen__player--expanded {
+    min-width: 84px;
+    padding: 10px 16px 16px;
+    border-radius: 28px;
+    gap: 10px;
+    background:
+      linear-gradient(165deg, rgba(22, 12, 48, 0.94), rgba(8, 4, 28, 0.9)) padding-box,
+      linear-gradient(150deg, rgba(34, 211, 238, 0.7), rgba(167, 139, 250, 0.9), rgba(244, 114, 182, 0.65))
+        border-box;
+    box-shadow:
+      0 0 0 1px rgba(192, 132, 252, 0.35),
+      0 0 22px rgba(168, 85, 247, 0.4),
+      0 12px 32px rgba(4, 2, 16, 0.55);
+  }
+  .menu-screen .menu-screen__player--expanded .menu-screen__player-chev {
+    display: none;
+  }
+  .menu-screen .menu-screen__player-text {
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+    width: 100%;
+    min-width: 64px;
+  }
+  .menu-screen .menu-screen__player-label {
+    letter-spacing: 0;
+    text-transform: none;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .menu-screen .menu-screen__player-name {
+    font-size: 15px;
+    font-weight: 800;
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+  .menu-screen .menu-screen__player-sub {
+    font-size: 11px;
+    font-weight: 600;
+    max-width: none;
+    white-space: normal;
+    opacity: 0.9;
+  }
+  .menu-screen .menu-screen__player-sub--inline {
+    display: inline-block;
+    width: auto;
+    align-self: center;
+    margin-top: 5px;
+    padding: 5px 12px 6px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: lowercase;
+    white-space: nowrap;
+    line-height: 1.15;
+    border-radius: 999px;
+    border: 1px solid rgba(244, 114, 182, 0.5);
+    color: #fff1f8;
+    background: linear-gradient(
+      155deg,
+      rgba(244, 114, 182, 0.38) 0%,
+      rgba(124, 58, 237, 0.28) 48%,
+      rgba(34, 211, 238, 0.22) 100%
+    );
+    text-shadow:
+      0 0 8px rgba(255, 255, 255, 0.35),
+      0 0 12px rgba(244, 114, 182, 0.9),
+      0 0 20px rgba(34, 211, 238, 0.45);
+    box-shadow:
+      0 0 0 1px rgba(167, 139, 250, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 0 18px rgba(244, 114, 182, 0.4),
+      0 6px 14px rgba(4, 2, 16, 0.35);
+  }
+  .menu-screen .menu-screen__player-stack {
+    gap: 1px;
+  }
+  .menu-screen .menu-screen__player-stack-char {
+    line-height: 1.14;
+  }
+  .menu-screen .menu-screen__player-stack-duo {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-watermark-scan,
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-watermark-ghost,
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-watermark-glitch {
+    display: none !important;
+  }
+
+  /* Solo офлайн: без капсулы — только глиф + пилюля */
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    > .menu-split-capsule__shell {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    overflow: visible;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__mode-crest-beam,
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-glyph-slot,
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-watermark {
+    display: none !important;
+  }
+
+  /* Solo офлайн: без точки над глифом; глиф выше; пилюля крупнее */
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__mode-dot {
+    display: none !important;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__mode-crest-stack {
+    top: calc(50% - 32px);
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-watermark-main--offline {
+    font-size: clamp(17.6px, 4.64vw, 20.8px);
+    padding: 5px 14px;
+    min-width: 6.6em;
+    letter-spacing: 0;
+    animation: menu-solo-watermark-pill-pulse-mobile-offline 3.4s ease-in-out infinite;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-watermark-main-text {
+    letter-spacing: 0.18em;
+    margin-inline-end: -0.18em;
+    padding-inline-end: 0.18em;
+  }
+  @keyframes menu-solo-watermark-pill-pulse-mobile-offline {
+    0%,
+    100% {
+      transform: translate3d(-50%, calc(-50% + 29px), 0) scale(0.94);
+      opacity: 0.88;
+      filter: brightness(1);
+    }
+    50% {
+      transform: translate3d(-50%, calc(-50% + 29px), 0) scale(1.06);
+      opacity: 1;
+      filter: brightness(1.08);
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
-    .menu-screen__drift--online .menu-online-cosmic-stars__sky {
-      translate: 0 0;
+    .menu-screen
+      .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+      .menu-split-capsule__solo-watermark-main--offline {
+      animation: none !important;
+      transform: translate3d(-50%, calc(-50% + 29px), 0) scale(1);
+      opacity: 0.92;
+    }
+  }
+
+  /*
+   * Solo офлайн · мобилка: «карта» — пунктир от глифа с поворотом 90° и хинтом.
+   */
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint {
+    position: absolute;
+    left: calc(50% + 4px);
+    top: calc(50% - 54px);
+    z-index: 20;
+    width: 168px;
+    height: 78px;
+    pointer-events: none;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint__svg {
+    display: block;
+    overflow: visible;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint__path {
+    stroke-width: 2.55;
+    stroke-linecap: round;
+    stroke-dasharray: 0 7.2;
+    filter: drop-shadow(0 0 2.5px rgba(167, 139, 250, 0.45));
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint__path--h,
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint__path--v {
+    /* одна точечная линия: жирные точки и по горизонту, и по вертикали */
+    stroke-dasharray: 0 7.2;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint__hit {
+    position: absolute;
+    left: 88px;
+    top: 42px;
+    width: 40px;
+    height: 36px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-tip.game-table-tooltip-cosmic {
+    position: absolute;
+    left: 96px;
+    top: 72px;
+    right: auto;
+    bottom: auto;
+    z-index: 24;
+    display: flex;
+    flex-direction: column;
+    width: max-content;
+    max-width: min(210px, 62vw);
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    pointer-events: none;
+    transform: translate(-100%, 0);
+    background:
+      radial-gradient(120% 90% at 20% 0%, rgb(56 189 248 / 0.14) 0%, transparent 55%),
+      radial-gradient(100% 90% at 85% 100%, rgb(217 70 239 / 0.14) 0%, transparent 62%),
+      linear-gradient(158deg, rgb(14 12 42 / 0.995) 0%, rgb(22 18 58 / 0.99) 42%, rgb(3 6 18 / 0.998) 100%),
+      conic-gradient(
+        from 225deg,
+        #22d3ee 0%,
+        #c084fc 18%,
+        #e879f9 34%,
+        #f472b6 50%,
+        #fbbf24 66%,
+        #4ade80 82%,
+        #22d3ee 100%
+      );
+    background-clip: padding-box, padding-box, padding-box, border-box;
+    background-origin: padding-box, padding-box, padding-box, border-box;
+    box-shadow:
+      0 0 0 1px rgb(34 211 238 / 0.55),
+      0 0 28px rgb(34 211 238 / 0.38),
+      0 0 42px rgb(168 85 247 / 0.32),
+      0 10px 28px rgb(2 6 23 / 0.62);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    animation: menu-solo-map-tip-pop 0.22s ease-out both;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-tip__text.game-table-tooltip-cosmic-body-text {
+    margin: 0;
+    font-weight: 600;
+    line-height: 1.4;
+    background-image: linear-gradient(
+      104deg,
+      #fbcfe8 0%,
+      #ddd6fe 18%,
+      #bfdbfe 36%,
+      #99f6e4 54%,
+      #fde68a 72%,
+      #f9a8d4 88%,
+      #a5f3fc 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+  @keyframes menu-solo-map-tip-pop {
+    from {
+      opacity: 0;
+      transform: translate(-100%, 6px);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-100%, 0);
+    }
+  }
+  /* Пока тултип открыт — офлайн-блок выше онлайн-капсулы (DOM-соседи) */
+  .menu-screen .menu-screen__drift--offline:has(.menu-split-capsule--map-tip-open) {
+    position: relative;
+    z-index: 40;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint__origin,
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint__corner {
+    filter: drop-shadow(0 0 2.5px rgba(167, 139, 250, 0.45));
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint__origin--pill {
+    filter: drop-shadow(0 0 3px rgba(251, 146, 60, 0.4));
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint__tri {
+    filter: drop-shadow(0 0 5px rgba(244, 114, 182, 0.35));
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint__q {
+    font-family: 'Exo 2', 'Segoe UI', sans-serif;
+    font-size: 8.5px;
+    font-weight: 800;
+    fill: #22f0ff;
+    paint-order: stroke fill;
+    stroke: rgba(12, 4, 28, 0.5);
+    stroke-width: 0.35px;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint__q--pill {
+    fill: #ff8a1f;
+  }
+  /* От пилюли офлайн: влево → вверх (пилюля на 50%+29px) */
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint--pill {
+    /* origin SVG (140,58) ≈ левый край пилюли */
+    left: calc(50% - 198px);
+    top: calc(50% - 29px);
+    width: 148px;
+    height: 92px;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint__hit--pill {
+    left: 62px;
+    top: 0;
+    width: 32px;
+    height: 28px;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-hint__dot {
+    filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.4));
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline
+    .menu-split-capsule__solo-map-tip--pill.game-table-tooltip-cosmic {
+    left: 90px;
+    top: 28px;
+    transform: none;
+    animation: menu-solo-map-tip-pop-pill 0.22s ease-out both;
+  }
+  @keyframes menu-solo-map-tip-pop-pill {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .menu-screen .menu-split-capsule {
+    --menu-mode-glyph-size: 67px;
+    --menu-mode-glyph-svg-size: 63px;
+    --menu-mode-arc-band: 30px;
+    --menu-mode-arc-lift: 13px;
+  }
+  .menu-screen .menu-split-capsule__shell {
+    min-height: 82px;
+  }
+  .menu-screen .menu-split-capsule--b4 .menu-split-capsule__shell,
+  .menu-screen .menu-split-capsule--solo-glyph .menu-split-capsule__shell {
+    min-height: 95px;
+  }
+  .menu-screen .menu-split-capsule__actions {
+    min-height: 95px;
+  }
+  .menu-screen .menu-split-capsule__half {
+    padding: 9px 7px;
+    gap: 5px;
+  }
+  .menu-screen .menu-split-capsule__glyph {
+    width: 55px;
+    height: 55px;
+  }
+  /* Подписи боковых глифов чуть ниже */
+  .menu-screen .menu-split-capsule__half .menu-split-capsule__body {
+    margin-top: 3px;
+  }
+  .menu-screen .menu-split-capsule__half--main .menu-split-capsule__title--new,
+  .menu-screen .menu-split-capsule__half--resume .menu-split-capsule__title {
+    font-size: 11.5px;
+  }
+  .menu-screen .menu-split-capsule__half--main .menu-split-capsule__hint,
+  .menu-screen .menu-split-capsule__half--resume .menu-split-capsule__hint {
+    font-size: 7.5px;
+  }
+  /* Боковые подписи чуть дальше от центрального глифа */
+  .menu-screen .menu-split-capsule__half--main .menu-split-capsule__glyph--stack,
+  .menu-screen .menu-split-capsule__half--main .menu-split-capsule__body {
+    transform: translateX(-11px);
+  }
+  .menu-screen .menu-split-capsule__half--resume .menu-split-capsule__glyph--stack,
+  .menu-screen .menu-split-capsule__half--resume .menu-split-capsule__body {
+    transform: translateX(11px);
+  }
+  /* Чуть шире колонка play-капсул */
+  .menu-screen .menu-screen__stack {
+    max-width: 376px;
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+  }
+  .menu-screen .menu-screen__sections {
+    max-width: 356px;
+  }
+  /*
+   * Легенда на мобилке: верхние углы как у «шапки» капсулы (~половина высоты pill),
+   * но НЕ 999px — иначе овал съедает текст и перекрывает crest.
+   * Легенда (мобилка): вернуть нормальную карточку (не овал!).
+   */
+  .menu-screen .menu-split-capsule--legend-open > .menu-split-capsule__shell,
+  .menu-screen
+    .menu-split-capsule--legend-open.menu-split-capsule--legend-closing
+    > .menu-split-capsule__shell {
+    border-radius: 48px;
+    overflow: hidden;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open:not(.menu-split-capsule--legend-closing)
+    .menu-split-capsule__legend-inner {
+    /* Скругление даёт shell; свой радиус не заостряет углы */
+    border-radius: 0;
+  }
+  .menu-screen .menu-split-capsule--solo-glyph {
+    width: 82%;
+    max-width: 278px;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open.menu-split-capsule--legend-closing {
+    width: 82%;
+    max-width: 278px;
+  }
+  .menu-screen .menu-split-capsule__solo-glyph-slot {
+    min-height: 95px;
+  }
+  .menu-screen .menu-split-capsule--solo-glyph .menu-split-capsule__solo-watermark {
+    height: 95px;
+  }
+  .menu-screen .menu-split-capsule--legend-open .menu-split-capsule__mode-crest-anchor,
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open
+    .menu-split-capsule__mode-crest-anchor {
+    height: 95px;
+  }
+
+  /*
+   * Мобильный каст: область видимости + затухание краёв (логика как на ПК),
+   * но БЕЗ soft-light/filter — они давали полосы на GPU телефона.
+   * Картинка растворяется в космос через mask → прозрачность.
+   */
+  .menu-screen__mobile-cast {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 4px;
+  }
+  /* Обучение — самый низ мобильного меню, под кастом */
+  .menu-screen__mobile-training {
+    width: 100%;
+    max-width: 356px;
+    margin: 0 auto;
+    padding-bottom: max(14px, env(safe-area-inset-bottom, 0px) + 10px);
+  }
+  .menu-screen__mobile-cast__stage {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    height: min(52vw, 200px);
+    overflow: hidden;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  /* Нижняя кромка: ровно на стыке stage / ниже картинки */
+  .menu-screen__mobile-cast__vignette {
+    position: relative;
+    z-index: 5;
+    width: 76%;
+    max-width: 100%;
+    height: 1px;
+    /* компенсируем gap: 8px у .mobile-cast — линия ровно на низу stage */
+    margin: -8px auto 0;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(34, 211, 238, 0.15) 12%,
+      rgba(34, 211, 238, 0.55) 32%,
+      rgba(192, 132, 252, 0.85) 50%,
+      rgba(244, 114, 182, 0.5) 68%,
+      rgba(244, 114, 182, 0.15) 88%,
+      transparent 100%
+    );
+    box-shadow:
+      0 0 8px rgba(167, 139, 250, 0.55),
+      0 0 16px rgba(34, 211, 238, 0.28),
+      0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+  .menu-screen__mobile-cast__vignette::before,
+  .menu-screen__mobile-cast__vignette::after {
+    content: '';
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    pointer-events: none;
+  }
+  .menu-screen__mobile-cast__vignette::before {
+    top: -6px;
+    height: 6px;
+    background: linear-gradient(180deg, transparent 0%, rgba(124, 58, 237, 0.12) 100%);
+  }
+  .menu-screen__mobile-cast__vignette::after {
+    top: 0;
+    height: 8px;
+    background: radial-gradient(
+      ellipse 70% 100% at 50% 0%,
+      rgba(167, 139, 250, 0.28) 0%,
+      transparent 72%
+    );
+  }
+  .menu-screen__mobile-cast__img {
+    display: block;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 106%;
+    height: 114%;
+    translate: -50% -50%;
+    object-fit: cover;
+    object-position: center 30%;
+    mix-blend-mode: normal;
+    --menu-mobile-cast-opacity: 0.82;
+    opacity: var(--menu-mobile-cast-opacity);
+    z-index: 1;
+    filter: none;
+    transition: opacity 0.9s ease;
+    pointer-events: none;
+    /* Шире центр (лица), мягкие края.
+       Верх — мягкий fade; низ — короче, чтобы была видна стильная кромка. */
+    -webkit-mask-image:
+      linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(0, 0, 0, 0.2) 10%,
+        rgba(0, 0, 0, 0.7) 20%,
+        #000 30%,
+        #000 70%,
+        rgba(0, 0, 0, 0.7) 80%,
+        rgba(0, 0, 0, 0.2) 90%,
+        transparent 100%
+      ),
+      linear-gradient(
+        180deg,
+        transparent 0%,
+        rgba(0, 0, 0, 0.12) 6%,
+        rgba(0, 0, 0, 0.4) 14%,
+        rgba(0, 0, 0, 0.78) 22%,
+        #000 30%,
+        #000 82%,
+        rgba(0, 0, 0, 0.72) 90%,
+        rgba(0, 0, 0, 0.28) 96%,
+        transparent 100%
+      ),
+      radial-gradient(
+        ellipse 78% 86% at 50% 48%,
+        #000 0%,
+        #000 44%,
+        rgba(0, 0, 0, 0.72) 62%,
+        rgba(0, 0, 0, 0.26) 82%,
+        transparent 100%
+      );
+    mask-image:
+      linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(0, 0, 0, 0.2) 10%,
+        rgba(0, 0, 0, 0.7) 20%,
+        #000 30%,
+        #000 70%,
+        rgba(0, 0, 0, 0.7) 80%,
+        rgba(0, 0, 0, 0.2) 90%,
+        transparent 100%
+      ),
+      linear-gradient(
+        180deg,
+        transparent 0%,
+        rgba(0, 0, 0, 0.12) 6%,
+        rgba(0, 0, 0, 0.4) 14%,
+        rgba(0, 0, 0, 0.78) 22%,
+        #000 30%,
+        #000 82%,
+        rgba(0, 0, 0, 0.72) 90%,
+        rgba(0, 0, 0, 0.28) 96%,
+        transparent 100%
+      ),
+      radial-gradient(
+        ellipse 78% 86% at 50% 48%,
+        #000 0%,
+        #000 44%,
+        rgba(0, 0, 0, 0.72) 62%,
+        rgba(0, 0, 0, 0.26) 82%,
+        transparent 100%
+      );
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+  .menu-screen__mobile-cast__img--outgoing {
+    opacity: 0;
+    z-index: 0;
+  }
+  .menu-screen__mobile-cast__img--incoming {
+    animation: menu-mobile-cast-fade-in 0.9s ease forwards;
+  }
+  @keyframes menu-mobile-cast-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: var(--menu-mobile-cast-opacity);
+    }
+  }
+  .menu-screen__mobile-cast__nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    position: relative;
+    z-index: 3;
+    margin-top: -2px;
+    translate: 0 -8px;
+  }
+  .menu-screen__mobile-cast .menu-screen__pc-cast-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #c4b5fd;
+    cursor: pointer;
+    filter: drop-shadow(0 0 6px rgba(167, 139, 250, 0.65)) drop-shadow(0 0 14px rgba(124, 58, 237, 0.45));
+    transition: color 0.18s ease, filter 0.18s ease, transform 0.18s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .menu-screen__mobile-cast .menu-screen__pc-cast-nav-btn:active {
+    transform: scale(0.94);
+  }
+  .menu-screen__mobile-cast .menu-screen__pc-cast-nav-btn--pin-on {
+    color: #f0abfc;
+    filter: drop-shadow(0 0 8px rgba(232, 121, 249, 0.75)) drop-shadow(0 0 16px rgba(192, 132, 252, 0.5));
+  }
+  .menu-screen__mobile-cast .menu-screen__pc-cast-nav-pin-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .menu-screen__pc-cast-pin-popover--mobile {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 12px);
+    top: auto;
+    translate: -50% 0;
+    z-index: 8;
+    width: min(86vw, 300px);
+    padding: 14px 14px 12px;
+    border-radius: 16px;
+    background: linear-gradient(165deg, rgba(28, 12, 62, 0.96) 0%, rgba(10, 4, 28, 0.98) 100%);
+    box-shadow:
+      0 0 0 1px rgba(167, 139, 250, 0.35),
+      0 12px 28px rgba(0, 0, 0, 0.5);
+    color: #e9d5ff;
+  }
+  .menu-screen__pc-cast-pin-popover--mobile .menu-screen__pc-cast-pin-popover__eyebrow {
+    margin: 0 0 4px;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #a78bfa;
+  }
+  .menu-screen__pc-cast-pin-popover--mobile .menu-screen__pc-cast-pin-popover__title {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 700;
+    background: linear-gradient(100deg, #f472b6 0%, #c084fc 40%, #22d3ee 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .menu-screen__pc-cast-pin-popover--mobile .menu-screen__pc-cast-pin-popover__lead {
+    margin: 0 0 12px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: rgba(221, 214, 254, 0.88);
+  }
+  .menu-screen__pc-cast-pin-popover--mobile .menu-screen__pc-cast-pin-popover__actions {
+    display: flex;
+    gap: 8px;
+  }
+  .menu-screen__pc-cast-pin-popover--mobile .menu-screen__pc-cast-pin-popover__btn {
+    flex: 1 1 0;
+    min-height: 36px;
+    border-radius: 999px;
+    border: none;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .menu-screen__pc-cast-pin-popover--mobile .menu-screen__pc-cast-pin-popover__btn--primary {
+    background: linear-gradient(102deg, #7c3aed 0%, #a855f7 100%);
+    color: #fff;
+  }
+  .menu-screen__pc-cast-pin-popover--mobile .menu-screen__pc-cast-pin-popover__btn--ghost {
+    background: rgba(255, 255, 255, 0.06);
+    color: #ddd6fe;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .menu-screen__mobile-cast__img--incoming {
+      animation: none;
+      opacity: var(--menu-mobile-cast-opacity);
     }
   }
 }

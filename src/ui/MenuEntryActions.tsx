@@ -1,19 +1,32 @@
-import { useCallback, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import {
-  getMenuSectionGlyphsOnly,
-  setMenuSectionGlyphsOnly,
+  getMenuCapsuleGlyphOnly,
+  setMenuCapsuleGlyphOnly,
+  hasSeenSoloMapHint,
+  markSoloMapHintSeen,
   type MenuSectionId,
 } from '../lib/menuSectionPrefs';
 import { MENU_OFFLINE_LEGEND_ART_URL, MENU_ONLINE_LEGEND_ART_URL } from '../lib/menuAssets';
+import {
+  ModeLabelHoloOrbitHybridRings,
+  ModeLabelHoloWedge,
+} from './mode-label-lab/ModeLabelLabVariants';
+import { PlayerAvatar } from './PlayerAvatar';
+
+const PC_MENU_MQ = '(min-width: 1025px)';
 
 const MODE_LEGEND_AUTO_CLOSE_MS = 20000;
 /** Длительность плавного сворачивания (fade → height → снятие класса). */
 const MODE_LEGEND_CLOSE_ANIM_MS = 300;
 const MODE_LEGEND_ART_COMPACT_DELAY_MS = 2600;
+const SOLO_MAP_TIP_AUTO_MS = 4200;
 
 /** Solo-офлайн каплюля: короткие ролики CTA (только без Continue). */
 const OFFLINE_SOLO_PILL_LABELS = ['Офлайн', 'с ИИ', 'Играть'] as const;
 const OFFLINE_SOLO_PILL_LABEL_MS = 2600;
+const SOLO_MAP_TIP_TEXT =
+  'Нажмите на робота — откроется информация о режиме «Офлайн».';
+const SOLO_PILL_MAP_TIP_TEXT = 'Нажмите, чтобы начать игру с ИИ.';
 
 /** Снять focus после touch — иначе WebKit рисует серый tap/focus-квадрат (часто сверху страницы). */
 function blurAfterTouch(e: PointerEvent<HTMLElement>) {
@@ -339,14 +352,22 @@ function GlyphMenuNewParty() {
         fill="currentColor"
         opacity="0.88"
       />
-      <circle className="menu-glyph-accent menu-glyph-accent--pip" cx="22" cy="30" r="2.2" fill="currentColor" opacity="0.75" />
-      <path
-        className="menu-glyph-accent menu-glyph-accent--stem"
-        d="M22 32 v3"
+      <circle
+        className="menu-glyph-accent menu-glyph-accent--plus-ring"
+        cx="22"
+        cy="34"
+        r="5.2"
+        fill="none"
         stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-        opacity="0.5"
+        strokeWidth="1.2"
+        opacity="0.88"
+      />
+      {/* Швейцарский крест: равные толстые перекладины */}
+      <path
+        className="menu-glyph-accent menu-glyph-accent--plus"
+        d="M20.2 30.2h3.6v2h2v3.6h-2v2h-3.6v-2h-2v-3.6h2z"
+        fill="currentColor"
+        stroke="none"
       />
     </svg>
   );
@@ -531,52 +552,115 @@ export type MenuCapsuleButtonProps = {
   variant: MenuCapsuleVariant;
   title: string;
   hint?: string;
+  /** Мелкая подпись над title (напр. «Кабинет»). */
+  eyebrow?: string;
   disabled?: boolean;
   href?: string;
   onClick?: () => void;
   compact?: boolean;
+  /** Вместо глифа — аватар профиля. */
+  avatarName?: string;
+  avatarDataUrl?: string | null;
+  /** Стрелки на капсуле: свернуть до глифа / развернуть. */
+  collapsible?: boolean;
+  /** Ключ localStorage для свёртки (обязателен при collapsible). */
+  collapseId?: string;
 };
 
 export function MenuCapsuleButton({
   variant,
   title,
   hint,
+  eyebrow,
   disabled,
   href,
   onClick,
   compact,
+  avatarName,
+  avatarDataUrl,
+  collapsible,
+  collapseId,
 }: MenuCapsuleButtonProps) {
+  const [glyphOnly, setGlyphOnly] = useState(() =>
+    collapsible && collapseId ? getMenuCapsuleGlyphOnly(collapseId) : false,
+  );
+
+  const toggleGlyphOnly = useCallback(
+    (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!collapseId) return;
+      setGlyphOnly((on) => {
+        const next = !on;
+        setMenuCapsuleGlyphOnly(collapseId, next);
+        return next;
+      });
+    },
+    [collapseId],
+  );
+
   const className = [
     'menu-capsule',
     `menu-capsule--${variant}`,
     compact ? 'menu-capsule--compact' : '',
     disabled ? 'menu-capsule--disabled' : '',
+    avatarName ? 'menu-capsule--with-avatar' : '',
+    glyphOnly ? 'menu-capsule--glyph-only' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
   const body = (
     <>
-      <span className="menu-capsule__glyph">{GLYPHS[variant]}</span>
+      <span className={['menu-capsule__glyph', avatarName ? 'menu-capsule__glyph--avatar' : ''].filter(Boolean).join(' ')}>
+        {avatarName ? (
+          <PlayerAvatar name={avatarName} avatarDataUrl={avatarDataUrl} sizePx={compact ? 36 : 42} />
+        ) : (
+          GLYPHS[variant]
+        )}
+      </span>
       <span className="menu-capsule__body">
+        {eyebrow ? <span className="menu-capsule__eyebrow">{eyebrow}</span> : null}
         <span className="menu-capsule__title">{title}</span>
         {hint ? <span className="menu-capsule__hint">{hint}</span> : null}
       </span>
     </>
   );
 
-  if (href && !disabled) {
-    return (
+  const main =
+    href && !disabled ? (
       <a className={className} href={href} onPointerUp={blurAfterTouch}>
         {body}
       </a>
+    ) : (
+      <button type="button" className={className} disabled={disabled} onClick={onClick} onPointerUp={blurAfterTouch}>
+        {body}
+      </button>
     );
-  }
+
+  if (!collapsible || !collapseId) return main;
 
   return (
-    <button type="button" className={className} disabled={disabled} onClick={onClick} onPointerUp={blurAfterTouch}>
-      {body}
-    </button>
+    <div
+      className={['menu-capsule-shell', glyphOnly ? 'menu-capsule-shell--glyph-only' : '']
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {main}
+      <button
+        type="button"
+        className="menu-capsule__fold"
+        aria-label={glyphOnly ? 'Развернуть капсулу' : 'Свернуть капсулу до значка'}
+        aria-pressed={glyphOnly}
+        onClick={toggleGlyphOnly}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={blurAfterTouch}
+      >
+        <span className="menu-capsule__fold-arrows" aria-hidden="true">
+          {glyphOnly ? '››' : '‹‹'}
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -586,6 +670,18 @@ export type MenuPlaySplitCapsuleProps = {
   satelliteCode?: string | null;
   onResume: () => void;
   onMain: () => void;
+  /**
+   * Слот вместо smile-arc под глифом.
+   * `false` — скрыть дугу; ReactNode — заменить; `undefined` — дуга / ПК-дефолт.
+   */
+  modeLabelSlot?: ReactNode | false;
+  /** Доп. слой внутри shell (клин / watermark). */
+  shellDecor?: ReactNode;
+  /**
+   * ПК (≥1025): авто-надписи режима (онлайн = симбиоз 2+3, офлайн = клин).
+   * Лаб отключает (`false`) и задаёт слоты сама.
+   */
+  pcModeLabels?: boolean;
 };
 
 type SplitCapsuleTone = 'resumeOnline' | 'resumeOffline' | 'actionOnline' | 'actionOffline';
@@ -744,7 +840,7 @@ function MenuOnlinePortholeUfos() {
   );
 }
 
-function MenuOnlineCosmicDecor() {
+function MenuOnlineCosmicDecor({ portholeUfos = false }: { portholeUfos?: boolean }) {
   const ufoDomeGradientId = useId().replace(/:/g, '');
   const satelliteBodyGradientId = useId().replace(/:/g, '');
 
@@ -760,7 +856,7 @@ function MenuOnlineCosmicDecor() {
           <div className="menu-online-cosmic-stars__layer menu-online-cosmic-stars__layer--b" />
           <div className="menu-online-cosmic-stars__layer menu-online-cosmic-stars__layer--c" />
         </div>
-        <MenuOnlinePortholeUfos />
+        {portholeUfos ? <MenuOnlinePortholeUfos /> : null}
       </div>
       <span className="menu-online-cosmic-ufo-host" aria-hidden="true">
         <span className="menu-online-cosmic-ufo-flight">
@@ -1062,6 +1158,7 @@ function SplitCapsuleModeCrest({
   onGlyphClick,
   legendPanelId,
   showModeLabel = true,
+  modeLabelSlot,
 }: {
   mode: 'online' | 'offline';
   modeLabel: string;
@@ -1071,10 +1168,21 @@ function SplitCapsuleModeCrest({
   legendPanelId: string;
   /** Smile-arc под глифом (в solo скрываем — там каплюля-watermark). */
   showModeLabel?: boolean;
+  /** Лаб: заменить дугу. `false` — ничего; ReactNode — кастом. */
+  modeLabelSlot?: ReactNode | false;
 }) {
   const glyphAria = legendOpen
     ? `Свернуть легенду «${modeLabel}»`
     : `Что такое «${modeLabel}»`;
+
+  let labelNode: ReactNode = null;
+  if (modeLabelSlot === false) {
+    labelNode = null;
+  } else if (modeLabelSlot !== undefined) {
+    labelNode = modeLabelSlot;
+  } else if (showModeLabel) {
+    labelNode = <ModeLabelSmileArc mode={mode} />;
+  }
 
   return (
     <div className="menu-split-capsule__mode-crest-anchor" aria-label={modeLabel}>
@@ -1094,7 +1202,7 @@ function SplitCapsuleModeCrest({
             >
               {glyph}
             </button>
-            {showModeLabel ? <ModeLabelSmileArc mode={mode} /> : null}
+            {labelNode}
           </div>
         </div>
       </div>
@@ -1108,22 +1216,152 @@ export function MenuPlaySplitCapsule({
   satelliteCode,
   onResume,
   onMain,
+  modeLabelSlot,
+  shellDecor,
+  pcModeLabels = true,
 }: MenuPlaySplitCapsuleProps) {
   const mainVariant: MenuCapsuleVariant = mode === 'online' ? 'online' : 'offline';
   const resumeVariant: MenuCapsuleVariant = mode === 'online' ? 'resumeOnline' : 'resumeOffline';
   const modeLabel = mode === 'online' ? 'Онлайн' : 'Офлайн';
   const { legendOpen, legendClosing, toggleLegend, closeLegend } = useModeLegendAutoClose();
   const legendPanelId = useId();
+  const mapTipId = useId();
+  const pillMapTipId = useId();
+  const [mapTipOpen, setMapTipOpen] = useState(false);
+  const [pillMapTipOpen, setPillMapTipOpen] = useState(false);
+  const [showGlyphMapHint, setShowGlyphMapHint] = useState(() => !hasSeenSoloMapHint('glyph'));
+  const [showPillMapHint, setShowPillMapHint] = useState(() => !hasSeenSoloMapHint('pill'));
+  const mapTipTimerRef = useRef<number | null>(null);
+  const pillMapTipTimerRef = useRef<number | null>(null);
   const soloOfflinePillLabel = useCyclingLabel(
     OFFLINE_SOLO_PILL_LABELS,
     !canResume && mode === 'offline',
     OFFLINE_SOLO_PILL_LABEL_MS,
   );
 
+  const dismissGlyphMapHint = useCallback(() => {
+    if (!showGlyphMapHint) return;
+    markSoloMapHintSeen('glyph');
+    setShowGlyphMapHint(false);
+    setMapTipOpen(false);
+    if (mapTipTimerRef.current != null) {
+      window.clearTimeout(mapTipTimerRef.current);
+      mapTipTimerRef.current = null;
+    }
+  }, [showGlyphMapHint]);
+
+  const dismissPillMapHint = useCallback(() => {
+    if (!showPillMapHint) return;
+    markSoloMapHintSeen('pill');
+    setShowPillMapHint(false);
+    setPillMapTipOpen(false);
+    if (pillMapTipTimerRef.current != null) {
+      window.clearTimeout(pillMapTipTimerRef.current);
+      pillMapTipTimerRef.current = null;
+    }
+  }, [showPillMapHint]);
+
+  const handleSoloGlyphClick = useCallback(() => {
+    dismissGlyphMapHint();
+    toggleLegend();
+  }, [dismissGlyphMapHint, toggleLegend]);
+
+  const handleSoloPillClick = useCallback(() => {
+    dismissPillMapHint();
+    onMain();
+  }, [dismissPillMapHint, onMain]);
+
+  const clearMapTipTimer = useCallback(() => {
+    if (mapTipTimerRef.current != null) {
+      window.clearTimeout(mapTipTimerRef.current);
+      mapTipTimerRef.current = null;
+    }
+  }, []);
+
+  const clearPillMapTipTimer = useCallback(() => {
+    if (pillMapTipTimerRef.current != null) {
+      window.clearTimeout(pillMapTipTimerRef.current);
+      pillMapTipTimerRef.current = null;
+    }
+  }, []);
+
+  const closeMapTip = useCallback(() => {
+    setMapTipOpen(false);
+    clearMapTipTimer();
+  }, [clearMapTipTimer]);
+
+  const closePillMapTip = useCallback(() => {
+    setPillMapTipOpen(false);
+    clearPillMapTipTimer();
+  }, [clearPillMapTipTimer]);
+
+  const openMapTip = useCallback(() => {
+    setPillMapTipOpen(false);
+    clearPillMapTipTimer();
+    setMapTipOpen(true);
+    clearMapTipTimer();
+    mapTipTimerRef.current = window.setTimeout(() => {
+      setMapTipOpen(false);
+      mapTipTimerRef.current = null;
+    }, SOLO_MAP_TIP_AUTO_MS);
+  }, [clearMapTipTimer, clearPillMapTipTimer]);
+
+  const openPillMapTip = useCallback(() => {
+    setMapTipOpen(false);
+    clearMapTipTimer();
+    setPillMapTipOpen(true);
+    clearPillMapTipTimer();
+    pillMapTipTimerRef.current = window.setTimeout(() => {
+      setPillMapTipOpen(false);
+      pillMapTipTimerRef.current = null;
+    }, SOLO_MAP_TIP_AUTO_MS);
+  }, [clearMapTipTimer, clearPillMapTipTimer]);
+
+  useEffect(
+    () => () => {
+      clearMapTipTimer();
+      clearPillMapTipTimer();
+    },
+    [clearMapTipTimer, clearPillMapTipTimer],
+  );
+
+  useEffect(() => {
+    if (legendOpen) {
+      closeMapTip();
+      closePillMapTip();
+    }
+  }, [legendOpen, closeMapTip, closePillMapTip]);
+
+  const [isPcMenu, setIsPcMenu] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(PC_MENU_MQ);
+    const sync = () => setIsPcMenu(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  /** ПК split: онлайн = клин+кольца; офлайн = только клин. Мобилка — smile-arc. */
+  const usePcModeDecor = pcModeLabels && isPcMenu && canResume;
+  const resolvedModeLabelSlot: ReactNode | false | undefined = usePcModeDecor
+    ? mode === 'online'
+      ? <ModeLabelHoloOrbitHybridRings mode="online" />
+      : false
+    : modeLabelSlot;
+  const resolvedShellDecor: ReactNode | undefined = usePcModeDecor
+    ? <ModeLabelHoloWedge mode={mode} />
+    : shellDecor;
+  const pcModeClass = usePcModeDecor
+    ? mode === 'online'
+      ? 'menu-split-capsule--pc-mode-hybrid'
+      : 'menu-split-capsule--pc-mode-holo'
+    : '';
+
   const rootClassName = [
     'menu-split-capsule',
     'menu-split-capsule--b4',
     `menu-split-capsule--${mode}`,
+    pcModeClass,
     legendOpen ? 'menu-split-capsule--legend-open' : '',
     legendClosing ? 'menu-split-capsule--legend-closing' : '',
     canResume ? '' : 'menu-split-capsule--solo',
@@ -1136,9 +1374,17 @@ export function MenuPlaySplitCapsule({
     const pillAria =
       mode === 'online' ? 'Открыть онлайн-лобби' : 'Начать офлайн-игру';
     return (
-      <div className={`${rootClassName} menu-split-capsule--solo-glyph`}>
+      <div
+        className={[
+          rootClassName,
+          'menu-split-capsule--solo-glyph',
+          mapTipOpen || pillMapTipOpen ? 'menu-split-capsule--map-tip-open' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
         <div className="menu-split-capsule__shell">
-          {mode === 'online' ? <MenuOnlineCosmicDecor /> : null}
+          {mode === 'online' ? <MenuOnlineCosmicDecor portholeUfos={isPcMenu} /> : null}
           <div className="menu-split-capsule__solo-glyph-slot" aria-hidden="true" />
           <div
             className={`menu-split-capsule__solo-watermark menu-split-capsule__solo-watermark--${mode}`}
@@ -1158,7 +1404,7 @@ export function MenuPlaySplitCapsule({
           <button
             type="button"
             className={`menu-split-capsule__solo-watermark-main menu-split-capsule__solo-watermark-main--${mode}`}
-            onClick={onMain}
+            onClick={mode === 'offline' ? handleSoloPillClick : onMain}
             onPointerUp={blurAfterTouch}
             aria-label={pillAria}
           >
@@ -1187,10 +1433,292 @@ export function MenuPlaySplitCapsule({
             modeLabel={modeLabel}
             glyph={GLYPHS[mainVariant]}
             legendOpen={legendOpen}
-            onGlyphClick={toggleLegend}
+            onGlyphClick={mode === 'offline' ? handleSoloGlyphClick : toggleLegend}
             legendPanelId={legendPanelId}
             showModeLabel={false}
           />
+          {mode === 'offline' && !isPcMenu && !legendOpen && showGlyphMapHint ? (
+            <div className="menu-split-capsule__solo-map-hint">
+              <svg
+                className="menu-split-capsule__solo-map-hint__svg"
+                viewBox="0 0 168 78"
+                width="168"
+                height="78"
+                focusable="false"
+                aria-hidden="true"
+              >
+                <defs>
+                  {/*
+                    Перелив строго по L: горизонт L→R, вертикаль сверху вниз.
+                    Градиент двигаем ВПРАВО / ВНИЗ (иначе визуально кажется наоборот).
+                    period = длина тайла + spreadMethod=repeat → без дёрганого сброса.
+                  */}
+                  <linearGradient
+                    id="solo-map-hint-flow-h"
+                    gradientUnits="userSpaceOnUse"
+                    x1="0"
+                    y1="16"
+                    x2="120"
+                    y2="16"
+                    spreadMethod="repeat"
+                  >
+                    <stop offset="0%" stopColor="#a78bfa" />
+                    <stop offset="16%" stopColor="#e879f9" />
+                    <stop offset="32%" stopColor="#38bdf8" />
+                    <stop offset="48%" stopColor="#2563eb" />
+                    <stop offset="64%" stopColor="#f472b6" />
+                    <stop offset="80%" stopColor="#fb7185" />
+                    <stop offset="100%" stopColor="#a78bfa" />
+                    <animateTransform
+                      attributeName="gradientTransform"
+                      type="translate"
+                      from="0 0"
+                      to="120 0"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      calcMode="linear"
+                    />
+                  </linearGradient>
+                  <linearGradient
+                    id="solo-map-hint-flow-v"
+                    gradientUnits="userSpaceOnUse"
+                    x1="108"
+                    y1="0"
+                    x2="108"
+                    y2="120"
+                    spreadMethod="repeat"
+                  >
+                    <stop offset="0%" stopColor="#a78bfa" />
+                    <stop offset="16%" stopColor="#e879f9" />
+                    <stop offset="32%" stopColor="#38bdf8" />
+                    <stop offset="48%" stopColor="#2563eb" />
+                    <stop offset="64%" stopColor="#f472b6" />
+                    <stop offset="80%" stopColor="#fb7185" />
+                    <stop offset="100%" stopColor="#a78bfa" />
+                    <animateTransform
+                      attributeName="gradientTransform"
+                      type="translate"
+                      from="0 0"
+                      to="0 120"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      calcMode="linear"
+                    />
+                  </linearGradient>
+                </defs>
+                <path
+                  className="menu-split-capsule__solo-map-hint__path menu-split-capsule__solo-map-hint__path--h"
+                  d="M8 16 H100"
+                  fill="none"
+                  stroke="url(#solo-map-hint-flow-h)"
+                  strokeLinecap="round"
+                />
+                {/* Угловая точка отдельно — без Q и без стыка двух stroke в одной координате */}
+                <circle
+                  className="menu-split-capsule__solo-map-hint__corner"
+                  cx="108"
+                  cy="16"
+                  r="1.3"
+                  fill="url(#solo-map-hint-flow-h)"
+                />
+                <path
+                  className="menu-split-capsule__solo-map-hint__path menu-split-capsule__solo-map-hint__path--v"
+                  d="M108 24 V46.5"
+                  fill="none"
+                  stroke="url(#solo-map-hint-flow-v)"
+                  strokeLinecap="round"
+                />
+                <circle
+                  className="menu-split-capsule__solo-map-hint__origin"
+                  cx="8"
+                  cy="16"
+                  r="1.3"
+                  fill="url(#solo-map-hint-flow-h)"
+                />
+                <polygon
+                  className="menu-split-capsule__solo-map-hint__tri"
+                  points="108,46.5 120.8,69.8 95.2,69.8"
+                  fill="rgba(12, 4, 28, 0.72)"
+                  stroke="url(#solo-map-hint-flow-v)"
+                  strokeWidth="1.45"
+                  strokeLinejoin="round"
+                />
+                <text
+                  className="menu-split-capsule__solo-map-hint__q"
+                  x="108"
+                  y="63.1"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                >
+                  ?
+                </text>
+              </svg>
+              <button
+                type="button"
+                className="menu-split-capsule__solo-map-hint__hit"
+                aria-expanded={mapTipOpen}
+                aria-controls={mapTipId}
+                aria-label="Подсказка: как открыть информацию о режиме Офлайн"
+                onPointerUp={blurAfterTouch}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (mapTipOpen) closeMapTip();
+                  else openMapTip();
+                }}
+              />
+              {mapTipOpen ? (
+                <div
+                  id={mapTipId}
+                  className="menu-split-capsule__solo-map-tip game-table-tooltip-cosmic"
+                  role="tooltip"
+                >
+                  <p className="game-table-tooltip-cosmic-body-text menu-split-capsule__solo-map-tip__text">
+                    {SOLO_MAP_TIP_TEXT}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {mode === 'offline' && !isPcMenu && !legendOpen && showPillMapHint ? (
+            <div className="menu-split-capsule__solo-map-hint menu-split-capsule__solo-map-hint--pill">
+              <svg
+                className="menu-split-capsule__solo-map-hint__svg"
+                viewBox="0 0 148 92"
+                width="148"
+                height="92"
+                focusable="false"
+                aria-hidden="true"
+              >
+                <defs>
+                  {/* От пилюли: влево, затем вверх */}
+                  <linearGradient
+                    id="solo-map-pill-flow-h"
+                    gradientUnits="userSpaceOnUse"
+                    x1="0"
+                    y1="58"
+                    x2="120"
+                    y2="58"
+                    spreadMethod="repeat"
+                  >
+                    <stop offset="0%" stopColor="#a78bfa" />
+                    <stop offset="16%" stopColor="#e879f9" />
+                    <stop offset="32%" stopColor="#38bdf8" />
+                    <stop offset="48%" stopColor="#2563eb" />
+                    <stop offset="64%" stopColor="#f472b6" />
+                    <stop offset="80%" stopColor="#fb7185" />
+                    <stop offset="100%" stopColor="#a78bfa" />
+                    <animateTransform
+                      attributeName="gradientTransform"
+                      type="translate"
+                      from="0 0"
+                      to="-120 0"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      calcMode="linear"
+                    />
+                  </linearGradient>
+                  <linearGradient
+                    id="solo-map-pill-flow-v"
+                    gradientUnits="userSpaceOnUse"
+                    x1="78"
+                    y1="0"
+                    x2="78"
+                    y2="120"
+                    spreadMethod="repeat"
+                  >
+                    <stop offset="0%" stopColor="#a78bfa" />
+                    <stop offset="16%" stopColor="#e879f9" />
+                    <stop offset="32%" stopColor="#38bdf8" />
+                    <stop offset="48%" stopColor="#2563eb" />
+                    <stop offset="64%" stopColor="#f472b6" />
+                    <stop offset="80%" stopColor="#fb7185" />
+                    <stop offset="100%" stopColor="#a78bfa" />
+                    <animateTransform
+                      attributeName="gradientTransform"
+                      type="translate"
+                      from="0 0"
+                      to="0 -120"
+                      dur="4s"
+                      repeatCount="indefinite"
+                      calcMode="linear"
+                    />
+                  </linearGradient>
+                </defs>
+                <path
+                  className="menu-split-capsule__solo-map-hint__path menu-split-capsule__solo-map-hint__path--h"
+                  d="M132 58 H86"
+                  fill="none"
+                  stroke="url(#solo-map-pill-flow-h)"
+                  strokeLinecap="round"
+                />
+                <circle
+                  className="menu-split-capsule__solo-map-hint__corner"
+                  cx="78"
+                  cy="58"
+                  r="1.3"
+                  fill="url(#solo-map-pill-flow-h)"
+                />
+                <path
+                  className="menu-split-capsule__solo-map-hint__path menu-split-capsule__solo-map-hint__path--v"
+                  d="M78 50 V22"
+                  fill="none"
+                  stroke="url(#solo-map-pill-flow-v)"
+                  strokeLinecap="round"
+                />
+                <circle
+                  className="menu-split-capsule__solo-map-hint__origin menu-split-capsule__solo-map-hint__origin--pill"
+                  cx="140"
+                  cy="58"
+                  r="2.15"
+                  fill="none"
+                  stroke="url(#solo-map-pill-flow-h)"
+                  strokeWidth="1.35"
+                />
+                <circle
+                  className="menu-split-capsule__solo-map-hint__dot"
+                  cx="78"
+                  cy="12"
+                  r="10.5"
+                  fill="rgba(12, 4, 28, 0.72)"
+                  stroke="url(#solo-map-pill-flow-v)"
+                  strokeWidth="1.45"
+                />
+                <text
+                  className="menu-split-capsule__solo-map-hint__q menu-split-capsule__solo-map-hint__q--pill"
+                  x="78"
+                  y="13.2"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                >
+                  ?
+                </text>
+              </svg>
+              <button
+                type="button"
+                className="menu-split-capsule__solo-map-hint__hit menu-split-capsule__solo-map-hint__hit--pill"
+                aria-expanded={pillMapTipOpen}
+                aria-controls={pillMapTipId}
+                aria-label="Подсказка: как начать офлайн-игру"
+                onPointerUp={blurAfterTouch}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (pillMapTipOpen) closePillMapTip();
+                  else openPillMapTip();
+                }}
+              />
+              {pillMapTipOpen ? (
+                <div
+                  id={pillMapTipId}
+                  className="menu-split-capsule__solo-map-tip menu-split-capsule__solo-map-tip--pill game-table-tooltip-cosmic"
+                  role="tooltip"
+                >
+                  <p className="game-table-tooltip-cosmic-body-text menu-split-capsule__solo-map-tip__text">
+                    {SOLO_PILL_MAP_TIP_TEXT}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
     );
@@ -1210,7 +1738,8 @@ export function MenuPlaySplitCapsule({
         .join(' ')}
     >
       <div className="menu-split-capsule__shell">
-        {mode === 'online' ? <MenuOnlineCosmicDecor /> : null}
+        {mode === 'online' ? <MenuOnlineCosmicDecor portholeUfos={isPcMenu} /> : null}
+        {resolvedShellDecor}
         <div className="menu-split-capsule__actions">
           <SplitCapsuleHalf
             side="main"
@@ -1239,6 +1768,7 @@ export function MenuPlaySplitCapsule({
           legendOpen={legendOpen}
           onGlyphClick={toggleLegend}
           legendPanelId={legendPanelId}
+          modeLabelSlot={resolvedModeLabelSlot}
         />
       </div>
     </div>
@@ -1247,24 +1777,13 @@ export function MenuPlaySplitCapsule({
 
 export type MenuSectionProps = {
   sectionId: MenuSectionId;
-  label: string;
   children: ReactNode;
   compact?: boolean;
+  /** Режим «без слов» — кнопка под онлайн-капсулой (мобилка, при раздвоении). */
+  glyphsOnly: boolean;
 };
 
-export function MenuSection({ sectionId, label, children, compact }: MenuSectionProps) {
-  const [glyphsOnly, setGlyphsOnly] = useState(() => getMenuSectionGlyphsOnly(sectionId));
-  const sectionLabelId = useId();
-  const glyphsToggleId = useId();
-
-  const toggleGlyphsOnly = useCallback(() => {
-    setGlyphsOnly((on) => {
-      const next = !on;
-      setMenuSectionGlyphsOnly(sectionId, next);
-      return next;
-    });
-  }, [sectionId]);
-
+export function MenuSection({ children, compact, glyphsOnly }: MenuSectionProps) {
   return (
     <section
       className={[
@@ -1274,22 +1793,8 @@ export function MenuSection({ sectionId, label, children, compact }: MenuSection
       ]
         .filter(Boolean)
         .join(' ')}
+      aria-label="Играть"
     >
-      <div className="menu-screen__section-head">
-        <h2 className="menu-screen__section-label" id={sectionLabelId}>
-          {label}
-        </h2>
-        <button
-          type="button"
-          id={glyphsToggleId}
-          className="menu-screen__section-glyphs-toggle"
-          aria-pressed={glyphsOnly}
-          aria-labelledby={`${sectionLabelId} ${glyphsToggleId}`}
-          onClick={toggleGlyphsOnly}
-        >
-          {glyphsOnly ? 'полный вид' : 'без слов'}
-        </button>
-      </div>
       <div className="menu-screen__section-body">{children}</div>
     </section>
   );

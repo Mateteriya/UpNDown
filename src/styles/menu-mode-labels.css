@@ -1,0 +1,672 @@
+﻿/* ПК-надписи режима на split-капсулах (клин + орбита) — прод + лаб */
+
+/* ── Вариант 2: голографический клин (в слоте дуги под глифом) ── */
+.mode-label-lab-holo {
+  position: absolute;
+  top: calc(100% - 2px);
+  left: 50%;
+  z-index: 7;
+  width: 200px;
+  transform: translateX(-50%);
+  /* none на корне недостаточно: дети снова auto и ловят драг */
+  pointer-events: none !important;
+}
+
+.mode-label-lab-holo *,
+.mode-label-lab-orbit * {
+  pointer-events: none !important;
+}
+
+.mode-label-lab-holo__panel {
+  position: relative;
+  clip-path: polygon(12% 0%, 88% 0%, 100% 100%, 0% 100%);
+  padding: 9px 14px 12px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.mode-label-lab-holo--online .mode-label-lab-holo__panel {
+  background:
+    linear-gradient(180deg, rgba(8, 47, 73, 0.92) 0%, rgba(30, 10, 60, 0.96) 100%);
+  /* Без нижней кромки — на низу капсулы даёт мерцание с ободом */
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  border-bottom: none;
+  box-shadow:
+    0 -2px 16px rgba(34, 211, 238, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.mode-label-lab-holo--online .mode-label-lab-holo__corner--br {
+  display: none;
+}
+
+.mode-label-lab-holo--offline .mode-label-lab-holo__panel {
+  background:
+    linear-gradient(180deg, rgba(59, 7, 100, 0.92) 0%, rgba(24, 8, 48, 0.96) 100%);
+  /* Без нижней кромки — на рамке капсулы не мерцает и не «двоится» */
+  border: 1px solid rgba(232, 121, 249, 0.42);
+  border-bottom: none;
+  box-shadow:
+    0 -2px 16px rgba(192, 132, 252, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.mode-label-lab-holo--offline .mode-label-lab-holo__corner--br {
+  display: none;
+}
+
+.mode-label-lab-holo__scan {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 48%,
+    transparent 52%,
+    transparent 100%
+  );
+  background-size: 100% 220%;
+  background-repeat: no-repeat;
+  animation: mode-label-lab-holo-scan 4.2s linear infinite;
+  pointer-events: none;
+}
+
+/* Офлайн: scan оставляем (перелив), no-repeat — без лишних полос */
+.mode-label-lab-holo--offline .mode-label-lab-holo__scan {
+  display: block;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 48%,
+    transparent 52%,
+    transparent 100%
+  );
+  background-size: 100% 220%;
+  background-repeat: no-repeat;
+  opacity: 0.85;
+}
+
+.mode-label-lab-holo__grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.16;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 7px 7px;
+  mask-image: linear-gradient(180deg, black 0%, transparent 90%);
+  pointer-events: none;
+}
+
+/* Одна тонкая полоса неона; ширина как у трапеции: снизу шире → сверху уже */
+.mode-label-lab-holo__neon-rise {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  height: 2px;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 999px;
+  opacity: 0;
+  transform-origin: center center;
+  will-change: transform, opacity;
+  animation: mode-label-lab-holo-neon-rise 5.5s linear infinite;
+}
+
+.mode-label-lab-holo--offline .mode-label-lab-holo__neon-rise {
+  background: #ff2d9b;
+  box-shadow:
+    0 0 6px 1px rgba(255, 45, 155, 0.95),
+    0 0 12px 2px rgba(255, 45, 155, 0.45);
+}
+
+.mode-label-lab-holo--online .mode-label-lab-holo__neon-rise {
+  background: #22d3ee;
+  box-shadow:
+    0 0 6px 1px rgba(34, 211, 238, 0.95),
+    0 0 12px 2px rgba(103, 232, 249, 0.5),
+    0 0 18px 1px rgba(168, 85, 247, 0.28);
+  animation: mode-label-lab-holo-neon-rise-online 7.2s linear infinite;
+}
+
+.mode-label-lab-holo__title,
+.mode-label-lab-holo__kicker,
+.mode-label-lab-holo__corner {
+  position: relative;
+  z-index: 2;
+}
+
+.mode-label-lab-holo__title {
+  position: relative;
+  display: block;
+  font-family: 'Orbitron', ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-indent: 0.2em;
+  line-height: 1.15;
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: mode-label-lab-iridescent 5.5s ease-in-out infinite;
+}
+
+.mode-label-lab-holo--online .mode-label-lab-holo__title {
+  background-image: linear-gradient(
+    90deg,
+    #2dd4bf 0%,
+    #38bdf8 18%,
+    #a3ff48 36%,
+    #67e8f9 52%,
+    #c084fc 70%,
+    #22d3ee 88%,
+    #2dd4bf 100%
+  );
+  filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.55)) drop-shadow(0 0 16px rgba(168, 85, 247, 0.3));
+}
+
+.mode-label-lab-holo--offline .mode-label-lab-holo__title {
+  background-image: linear-gradient(
+    90deg,
+    #f0abfc 0%,
+    #fb7185 22%,
+    #e879f9 44%,
+    #c084fc 66%,
+    #a78bfa 84%,
+    #f0abfc 100%
+  );
+  filter: drop-shadow(0 0 8px rgba(232, 121, 249, 0.5)) drop-shadow(0 0 14px rgba(244, 114, 182, 0.28));
+}
+
+.mode-label-lab-holo__kicker {
+  position: relative;
+  display: block;
+  margin-top: 4px;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.mode-label-lab-holo--online .mode-label-lab-holo__kicker {
+  color: rgba(103, 232, 249, 0.78);
+}
+
+.mode-label-lab-holo--offline .mode-label-lab-holo__kicker {
+  color: rgba(240, 171, 252, 0.78);
+}
+
+@keyframes mode-label-lab-iridescent {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.mode-label-lab-holo__corner {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-color: currentColor;
+  opacity: 0.6;
+}
+
+.mode-label-lab-holo__corner--tl {
+  top: 3px;
+  left: 16%;
+  border-top: 1px solid;
+  border-left: 1px solid;
+}
+
+.mode-label-lab-holo__corner--br {
+  right: 16%;
+  bottom: 3px;
+  border-right: 1px solid;
+  border-bottom: 1px solid;
+}
+
+.mode-label-lab-holo--online .mode-label-lab-holo__corner {
+  color: #22d3ee;
+}
+
+.mode-label-lab-holo--offline .mode-label-lab-holo__corner {
+  color: #e879f9;
+}
+
+@keyframes mode-label-lab-holo-scan {
+  0% {
+    background-position: 0 -120%;
+  }
+  100% {
+    background-position: 0 220%;
+  }
+}
+
+@keyframes mode-label-lab-holo-neon-rise {
+  /*
+   * Трапеция клина: polygon(12% 0, 88% 0, 100% 100%, 0 100%)
+   * снизу scaleX(1), сверху scaleX(0.76) — линия сужается вместе с формой.
+   */
+  0% {
+    opacity: 0;
+    transform: translateY(0) scaleX(1);
+  }
+  3% {
+    opacity: 1;
+    transform: translateY(0) scaleX(1);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-52px) scaleX(0.76);
+  }
+  23%,
+  100% {
+    opacity: 0;
+    transform: translateY(-52px) scaleX(0.76);
+  }
+}
+
+/* Онлайн: по очереди cyan → фиолетово-сиреневый */
+@keyframes mode-label-lab-holo-neon-rise-online {
+  /* 1-й пробег: cyan */
+  0% {
+    opacity: 0;
+    transform: translateY(0) scaleX(1);
+    background: #22d3ee;
+    box-shadow:
+      0 0 6px 1px rgba(34, 211, 238, 0.95),
+      0 0 12px 2px rgba(103, 232, 249, 0.5),
+      0 0 18px 1px rgba(168, 85, 247, 0.28);
+  }
+  2% {
+    opacity: 1;
+    transform: translateY(0) scaleX(1);
+    background: #22d3ee;
+    box-shadow:
+      0 0 6px 1px rgba(34, 211, 238, 0.95),
+      0 0 12px 2px rgba(103, 232, 249, 0.5),
+      0 0 18px 1px rgba(168, 85, 247, 0.28);
+  }
+  16% {
+    opacity: 1;
+    transform: translateY(-52px) scaleX(0.76);
+    background: #22d3ee;
+    box-shadow:
+      0 0 6px 1px rgba(34, 211, 238, 0.95),
+      0 0 12px 2px rgba(103, 232, 249, 0.5);
+  }
+  18%,
+  48% {
+    opacity: 0;
+    transform: translateY(-52px) scaleX(0.76);
+    background: #22d3ee;
+  }
+  /* 2-й пробег: фиолет (без светлой сирени) */
+  50% {
+    opacity: 0;
+    transform: translateY(0) scaleX(1);
+    background: #8b5cf6;
+    box-shadow:
+      0 0 6px 1px rgba(139, 92, 246, 0.95),
+      0 0 12px 2px rgba(124, 58, 237, 0.6),
+      0 0 18px 1px rgba(91, 33, 182, 0.4);
+  }
+  52% {
+    opacity: 1;
+    transform: translateY(0) scaleX(1);
+    background: #8b5cf6;
+    box-shadow:
+      0 0 6px 1px rgba(139, 92, 246, 0.95),
+      0 0 12px 2px rgba(124, 58, 237, 0.6),
+      0 0 18px 1px rgba(91, 33, 182, 0.4);
+  }
+  66% {
+    opacity: 1;
+    transform: translateY(-52px) scaleX(0.76);
+    background: #7c3aed;
+    box-shadow:
+      0 0 6px 1px rgba(124, 58, 237, 0.95),
+      0 0 12px 2px rgba(139, 92, 246, 0.55);
+  }
+  68%,
+  100% {
+    opacity: 0;
+    transform: translateY(-52px) scaleX(0.76);
+    background: #7c3aed;
+  }
+}
+
+/* ── Вариант 3: орбита — центр = центр глифа ── */
+.mode-label-lab-orbit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 196px;
+  height: 196px;
+  /* +2px — как у .menu-split-capsule__mode-glyph (translateY(2px)) */
+  transform: translate(-50%, calc(-50% + 2px));
+  pointer-events: none !important;
+}
+
+.mode-label-lab-orbit__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.35));
+}
+
+.mode-label-lab-orbit__halo {
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 1;
+}
+
+.mode-label-lab-orbit--online .mode-label-lab-orbit__track {
+  stroke: rgba(34, 211, 238, 0.28);
+  stroke-width: 1.15;
+  stroke-dasharray: 4 6;
+}
+
+.mode-label-lab-orbit--offline .mode-label-lab-orbit__track {
+  stroke: rgba(232, 121, 249, 0.28);
+  stroke-width: 1.15;
+  stroke-dasharray: 4 6;
+}
+
+.mode-label-lab-orbit__sweep {
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  opacity: 0.8;
+  animation: mode-label-lab-orbit-sweep 5.5s linear infinite;
+}
+
+.mode-label-lab-orbit--online .mode-label-lab-orbit__sweep {
+  stroke: #22d3ee;
+  filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.85));
+}
+
+.mode-label-lab-orbit--offline .mode-label-lab-orbit__sweep {
+  stroke: #e879f9;
+  filter: drop-shadow(0 0 4px rgba(232, 121, 249, 0.8));
+}
+
+.mode-label-lab-orbit__text {
+  font-family: 'Orbitron', ui-sans-serif, system-ui, sans-serif;
+  font-size: 18.5px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.mode-label-lab-orbit__node {
+  fill: rgba(255, 255, 255, 0.7);
+  animation: mode-label-lab-orbit-pulse 2.8s ease-in-out infinite;
+}
+
+.mode-label-lab-orbit--online .mode-label-lab-orbit__node {
+  fill: #67e8f9;
+}
+
+.mode-label-lab-orbit--offline .mode-label-lab-orbit__node {
+  fill: #f0abfc;
+}
+
+.mode-label-lab-orbit__node--b {
+  animation-delay: -0.9s;
+}
+
+.mode-label-lab-orbit__node--c {
+  animation-delay: -1.8s;
+}
+
+/* Глиф поверх кольца */
+.mode-label-lab__slot--orbit .menu-split-capsule__mode-glyph-btn {
+  position: relative;
+  z-index: 3;
+}
+
+@keyframes mode-label-lab-orbit-sweep {
+  0% {
+    opacity: 0.25;
+    stroke-dasharray: 0 140;
+    stroke-dashoffset: 0;
+  }
+  40% {
+    opacity: 0.95;
+    stroke-dasharray: 32 140;
+    stroke-dashoffset: -20;
+  }
+  100% {
+    opacity: 0.25;
+    stroke-dasharray: 0 140;
+    stroke-dashoffset: -70;
+  }
+}
+
+@keyframes mode-label-lab-orbit-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ── Прод ПК: онлайн = симбиоз 2+3, офлайн = вариант 2 ── */
+@media (min-width: 1025px) {
+  .menu-screen__drift--online .menu-split-capsule--pc-mode-hybrid,
+  .menu-screen__drift--offline .menu-split-capsule--pc-mode-holo {
+    --menu-pc-capsule-h: 156px;
+    --menu-mode-stack-y: 34%;
+  }
+
+  .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__mode-glyph-cluster,
+  .menu-split-capsule--pc-mode-holo .menu-split-capsule__mode-glyph-cluster,
+  .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__mode-crest-head,
+  .menu-split-capsule--pc-mode-holo .menu-split-capsule__mode-crest-head,
+  .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__shell,
+  .menu-split-capsule--pc-mode-holo .menu-split-capsule__shell {
+    overflow: visible;
+  }
+
+  .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__mode-crest-head,
+  .menu-split-capsule--pc-mode-holo .menu-split-capsule__mode-crest-head {
+    width: calc(var(--menu-mode-glyph-size) + 80px);
+  }
+
+  /* Онлайн симбиоз: клин у низа shell */
+  .menu-split-capsule--pc-mode-hybrid .mode-label-lab-holo {
+    position: absolute;
+    left: 50%;
+    top: auto;
+    bottom: 5px;
+    z-index: 8;
+    width: 192px;
+    transform: translateX(-50%);
+    pointer-events: none !important;
+  }
+
+  /* Офлайн в симбиозе (режим планшет): ближе к рамке */
+  .menu-split-capsule--pc-mode-hybrid.menu-split-capsule--offline .mode-label-lab-holo {
+    bottom: 2px;
+  }
+
+  .menu-split-capsule--pc-mode-hybrid .mode-label-lab-holo__panel {
+    padding: 8px 13px 10px;
+  }
+
+  .menu-split-capsule--pc-mode-hybrid .mode-label-lab-holo__title {
+    font-size: 15px;
+    letter-spacing: 0.18em;
+    text-indent: 0.18em;
+  }
+
+  .menu-split-capsule--pc-mode-hybrid .mode-label-lab-holo__kicker {
+    margin-top: 3px;
+    font-size: 8px;
+    letter-spacing: 0.14em;
+  }
+
+  .menu-split-capsule--pc-mode-hybrid .mode-label-lab-orbit {
+    z-index: 1;
+    width: 148px;
+    height: 148px;
+  }
+
+  .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__mode-glyph-btn {
+    position: relative;
+    z-index: 3;
+  }
+
+  .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__actions {
+    position: relative;
+    z-index: 2;
+  }
+
+  .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__mode-crest-anchor {
+    z-index: 6;
+  }
+
+  /* Симбиоз: beam не режет клин у низа (как в лабе) */
+  .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__mode-crest-beam {
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 52%, transparent 78%);
+    mask-image: linear-gradient(180deg, #000 0%, #000 52%, transparent 78%);
+  }
+
+  /* Офлайн вариант 2: клин у нижней границы */
+  .menu-split-capsule--pc-mode-holo .mode-label-lab-holo {
+    position: absolute;
+    left: 50%;
+    top: auto;
+    bottom: 0;
+    z-index: 8;
+    width: 200px;
+    transform: translateX(-50%);
+    pointer-events: none !important;
+  }
+
+  /* Как у smile-arc: декор режима не участвует в hit-test / drag */
+  .menu-screen__drift--offline .mode-label-lab-holo,
+  .menu-screen__drift--online .mode-label-lab-holo,
+  .menu-screen__drift--offline .mode-label-lab-holo *,
+  .menu-screen__drift--online .mode-label-lab-holo *,
+  .menu-screen__drift--offline .mode-label-lab-orbit,
+  .menu-screen__drift--online .mode-label-lab-orbit,
+  .menu-screen__drift--offline .mode-label-lab-orbit *,
+  .menu-screen__drift--online .mode-label-lab-orbit * {
+    pointer-events: none !important;
+  }
+}
+
+/*
+ * Компакт капсул при CSS-ширине ≤1300 (планшет / узкий landscape).
+ * ≥1301 — полный размер (типичный 16″ при 100–125% масштабе).
+ * Онлайн = симбиоз; офлайн = вариант 2 (клин) — оба компактнее.
+ */
+@media (min-width: 1025px) and (max-width: 1300px) {
+  .menu-screen__drift--online .menu-split-capsule--pc-mode-hybrid,
+  .menu-screen__drift--offline .menu-split-capsule--pc-mode-holo {
+    --menu-mode-glyph-size: 60px;
+    --menu-mode-glyph-svg-size: 54px;
+    --menu-mode-arc-band: 26px;
+    --menu-mode-arc-lift: 10px;
+    --menu-pc-capsule-h: 122px;
+    --menu-mode-stack-y: 34%;
+  }
+
+  .menu-screen__drift--online .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__mode-crest-head,
+  .menu-screen__drift--offline .menu-split-capsule--pc-mode-holo .menu-split-capsule__mode-crest-head {
+    width: calc(var(--menu-mode-glyph-size) + 56px);
+  }
+
+  .menu-screen__drift--online .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__half .menu-split-capsule__glyph--stack,
+  .menu-screen__drift--offline .menu-split-capsule--pc-mode-holo .menu-split-capsule__half .menu-split-capsule__glyph--stack {
+    width: 50px;
+    height: 50px;
+  }
+
+  .menu-screen__drift--online
+    .menu-split-capsule--pc-mode-hybrid
+    .menu-split-capsule__half
+    .menu-split-capsule__glyph--stack
+    .menu-capsule-glyph-svg,
+  .menu-screen__drift--offline
+    .menu-split-capsule--pc-mode-holo
+    .menu-split-capsule__half
+    .menu-split-capsule__glyph--stack
+    .menu-capsule-glyph-svg {
+    width: 46px;
+    height: 46px;
+  }
+
+  .menu-screen__drift--online .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__half .menu-split-capsule__title,
+  .menu-screen__drift--offline .menu-split-capsule--pc-mode-holo .menu-split-capsule__half .menu-split-capsule__title,
+  .menu-screen__drift--online
+    .menu-split-capsule--pc-mode-hybrid
+    .menu-split-capsule__half--main
+    .menu-split-capsule__title--new,
+  .menu-screen__drift--offline
+    .menu-split-capsule--pc-mode-holo
+    .menu-split-capsule__half--main
+    .menu-split-capsule__title--new {
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+  }
+
+  .menu-screen__drift--online .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__half .menu-split-capsule__hint,
+  .menu-screen__drift--offline .menu-split-capsule--pc-mode-holo .menu-split-capsule__half .menu-split-capsule__hint {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+
+  .menu-screen__drift--online .menu-split-capsule--pc-mode-hybrid .mode-label-lab-holo {
+    bottom: 4px;
+    z-index: 8;
+    width: 150px;
+  }
+
+  .menu-screen__drift--online .menu-split-capsule--pc-mode-hybrid .mode-label-lab-holo__panel,
+  .menu-screen__drift--offline .menu-split-capsule--pc-mode-holo .mode-label-lab-holo__panel {
+    padding: 5px 10px 7px;
+  }
+
+  .menu-screen__drift--online .menu-split-capsule--pc-mode-hybrid .mode-label-lab-holo__title,
+  .menu-screen__drift--offline .menu-split-capsule--pc-mode-holo .mode-label-lab-holo__title {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-indent: 0.14em;
+  }
+
+  .menu-screen__drift--online .menu-split-capsule--pc-mode-hybrid .mode-label-lab-holo__kicker,
+  .menu-screen__drift--offline .menu-split-capsule--pc-mode-holo .mode-label-lab-holo__kicker {
+    margin-top: 2px;
+    font-size: 7px;
+    letter-spacing: 0.1em;
+  }
+
+  .menu-screen__drift--online .menu-split-capsule--pc-mode-hybrid .mode-label-lab-orbit {
+    width: 116px;
+    height: 116px;
+  }
+
+  .menu-screen__drift--offline .menu-split-capsule--pc-mode-holo .mode-label-lab-holo {
+    width: 156px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-label-lab-holo__scan,
+  .mode-label-lab-holo__neon-rise,
+  .mode-label-lab-holo__title,
+  .mode-label-lab-orbit__sweep,
+  .mode-label-lab-orbit__node {
+    animation: none !important;
+  }
+}

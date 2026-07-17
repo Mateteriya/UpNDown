@@ -904,6 +904,7 @@ interface GameTableProps {
   gameId: number;
   playerDisplayName?: string;
   playerAvatarDataUrl?: string | null;
+  playerAvatarBgColor?: string | null;
   onExit: () => void;
   onNewGame?: () => void;
   /** Открыть модалку профиля (имя и фото) — для кнопки «Сменить фото» в меню аватара. */
@@ -1560,7 +1561,7 @@ function difficultyForAiPlayMove(online: boolean, st: GameState, playerIndex: nu
   return st.players[playerIndex]?.aiDifficulty ?? getAiDifficulty();
 }
 
-export default function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, onExit, onNewGame, onOpenProfileModal, onSaveAvatar, onPhotoCaptured, onSaveDisplayName }: GameTableProps) {
+export default function GameTable({ gameId, playerDisplayName, playerAvatarDataUrl, playerAvatarBgColor, onExit, onNewGame, onOpenProfileModal, onSaveAvatar, onPhotoCaptured, onSaveDisplayName }: GameTableProps) {
   const { user } = useAuth();
   const { cardPaletteLock, cardThemeLabel, cycleCardTheme } = useTheme();
   const userRef = useRef(user);
@@ -5631,6 +5632,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       <PlayerAvatar
         name={displayState.players[humanIdx].name}
         avatarDataUrl={playerAvatarDataUrl}
+        avatarBgColor={playerAvatarBgColor}
         sizePx={avatarFaceSizePx}
         className={innerCls}
       />
@@ -6698,6 +6700,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         <UserAvatarMenuSheet
           displayName={playerDisplayName || state.players[0]?.name || 'Вы'}
           avatarDataUrl={playerAvatarDataUrl}
+          avatarBgColor={playerAvatarBgColor}
           state={state}
           offlineMode={offlineMode}
           showPause={isOnlinePlayPhase && !!online.takePause}

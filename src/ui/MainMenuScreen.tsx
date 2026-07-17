@@ -2,17 +2,109 @@
  * Главное меню — космические капсулы в стиле онлайн-лобби.
  */
 
-import { useEffect, useState } from 'react';
-import { getMenuPcCastArtUrlForSession } from '../lib/menuAssets';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  advanceMenuPcCast,
+  getMenuPcCastUrlAt,
+  isMenuPcCastPinned,
+  preloadMenuPcCastUrl,
+  setMenuPcCastPinned,
+  takeMenuPcCastForMenuVisit,
+  type MenuPcCastPick,
+} from '../lib/menuAssets';
+import { getMenuSectionGlyphsOnly, setMenuSectionGlyphsOnly } from '../lib/menuSectionPrefs';
 import { MenuCapsuleButton, MenuPlaySplitCapsule, MenuSection } from './MenuEntryActions';
 import { MenuPcDrift } from './MenuPcDrift';
 import { PlayerAvatar } from './PlayerAvatar';
 
 const PC_MENU_MQ = '(min-width: 1025px)';
+/** Редкий автосвайп каста, пока сидят на главной. */
+const PC_CAST_AUTO_MS = 75_000;
+const PC_CAST_FADE_MS = 900;
+
+/** Буквы столбиком, без поворота на 90° (остаются вертикально читаемыми). */
+function StackedChars({ text, labelled = true }: { text: string; labelled?: boolean }) {
+  return (
+    <span
+      className="menu-screen__player-stack"
+      {...(labelled ? { 'aria-label': text } : { 'aria-hidden': true as const })}
+    >
+      {Array.from(text).map((ch, i) => (
+        <span key={`${i}-${ch}`} className="menu-screen__player-stack-char" aria-hidden="true">
+          {ch === ' ' ? '\u00a0' : ch}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Два коротких столбика букв вместо одного длинного. */
+function DualColumnStack({ text }: { text: string }) {
+  const chars = Array.from(text);
+  if (chars.length <= 2) return <StackedChars text={text} />;
+  const mid = Math.ceil(chars.length / 2);
+  return (
+    <span className="menu-screen__player-stack-duo" aria-label={text}>
+      <StackedChars text={chars.slice(0, mid).join('')} labelled={false} />
+      <StackedChars text={chars.slice(mid).join('')} labelled={false} />
+    </span>
+  );
+}
+
+function CastLockGlyph({ locked }: { locked: boolean }) {
+  return (
+    <svg className="menu-screen__pc-cast-nav-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden focusable="false">
+      {locked ? (
+        <>
+          <path
+            d="M8 11V8.2A4 4 0 0 1 12 4a4 4 0 0 1 4 4.2V11"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+          />
+          <rect
+            x="6"
+            y="11"
+            width="12"
+            height="9"
+            rx="2.2"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+          />
+          <circle cx="12" cy="15.2" r="1.15" fill="currentColor" />
+        </>
+      ) : (
+        <>
+          <path
+            d="M8 11V8.2A4 4 0 0 1 12 4a4 4 0 0 1 3.85 3.1"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+          />
+          <rect
+            x="6"
+            y="11"
+            width="12"
+            height="9"
+            rx="2.2"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+          />
+          <circle cx="12" cy="15.2" r="1.15" fill="currentColor" />
+        </>
+      )}
+    </svg>
+  );
+}
 
 export type MainMenuScreenProps = {
   displayName: string;
   avatarDataUrl?: string | null;
+  avatarBgColor?: string | null;
   userEmail?: string | null;
   devMode: boolean;
   canResumeOnline: boolean;
@@ -31,6 +123,7 @@ export type MainMenuScreenProps = {
 export function MainMenuScreen({
   displayName,
   avatarDataUrl,
+  avatarBgColor,
   userEmail,
   devMode,
   canResumeOnline,
@@ -46,30 +139,300 @@ export function MainMenuScreen({
   onTraining,
 }: MainMenuScreenProps) {
   const signedIn = Boolean(userEmail);
-  /** Только ПК: один JPG за сессию, на мобилке не качаем. */
+  /** ПК vs мобилка (layout); каст грузится на обеих. */
   const [isPcMenu, setIsPcMenu] = useState(false);
+  const [playGlyphsOnly, setPlayGlyphsOnly] = useState(() => getMenuSectionGlyphsOnly('play'));
+  const [accountExpanded, setAccountExpanded] = useState(false);
   const [pcCastUrl, setPcCastUrl] = useState<string | null>(null);
+  const [pcCastPrevUrl, setPcCastPrevUrl] = useState<string | null>(null);
+  const [pcCastFading, setPcCastFading] = useState(false);
+  const [castPinned, setCastPinned] = useState(() => isMenuPcCastPinned());
+  const [castPinConfirmOpen, setCastPinConfirmOpen] = useState(false);
+  const pcCastUrlRef = useRef<string | null>(null);
+  const castFadeTimerRef = useRef<number | null>(null);
+  const castPinConfirmRef = useRef<HTMLDivElement | null>(null);
+  const castPinBtnRef = useRef<HTMLButtonElement | null>(null);
+  const accountBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  const clearCastFadeTimer = useCallback(() => {
+    if (castFadeTimerRef.current != null) {
+      window.clearTimeout(castFadeTimerRef.current);
+      castFadeTimerRef.current = null;
+    }
+  }, []);
+
+  const togglePlayGlyphsOnly = useCallback(() => {
+    setPlayGlyphsOnly((on) => {
+      const next = !on;
+      setMenuSectionGlyphsOnly('play', next);
+      return next;
+    });
+  }, []);
+
+  const onAccountChipClick = useCallback(() => {
+    if (!accountExpanded) {
+      setAccountExpanded(true);
+      return;
+    }
+    onOpenAccount();
+  }, [accountExpanded, onOpenAccount]);
+
+  useEffect(() => {
+    if (!accountExpanded || isPcMenu) return;
+    const onDocPointer = (e: PointerEvent) => {
+      const el = accountBtnRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && el.contains(e.target)) return;
+      setAccountExpanded(false);
+    };
+    document.addEventListener('pointerdown', onDocPointer);
+    return () => document.removeEventListener('pointerdown', onDocPointer);
+  }, [accountExpanded, isPcMenu]);
+
+  const applyCast = useCallback(
+    (pick: MenuPcCastPick, withFade: boolean) => {
+      const cur = pcCastUrlRef.current;
+      if (withFade && cur && cur !== pick.url) {
+        setPcCastPrevUrl(cur);
+        setPcCastFading(true);
+        clearCastFadeTimer();
+        castFadeTimerRef.current = window.setTimeout(() => {
+          setPcCastPrevUrl(null);
+          setPcCastFading(false);
+          castFadeTimerRef.current = null;
+        }, PC_CAST_FADE_MS);
+      }
+      pcCastUrlRef.current = pick.url;
+      setPcCastUrl(pick.url);
+      preloadMenuPcCastUrl(getMenuPcCastUrlAt(pick.index + 1));
+    },
+    [clearCastFadeTimer],
+  );
 
   useEffect(() => {
     const mq = window.matchMedia(PC_MENU_MQ);
     const sync = () => {
       const pc = mq.matches;
       setIsPcMenu(pc);
-      if (pc) setPcCastUrl(getMenuPcCastArtUrlForSession());
-      else setPcCastUrl(null);
+      if (pc) setAccountExpanded(false);
     };
     sync();
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
   }, []);
 
+  useEffect(() => {
+    const pick = takeMenuPcCastForMenuVisit();
+    pcCastUrlRef.current = pick.url;
+    setPcCastUrl(pick.url);
+    setPcCastPrevUrl(null);
+    setPcCastFading(false);
+    preloadMenuPcCastUrl(getMenuPcCastUrlAt(pick.index + 1));
+    return () => clearCastFadeTimer();
+  }, [clearCastFadeTimer]);
+
+  /* Редкий автосвайп: пауза на скрытой вкладке; без reduced-motion; выкл. при закрепе. */
+  useEffect(() => {
+    if (!pcCastUrl || castPinned) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    let timeoutId: number | null = null;
+    const clear = () => {
+      if (timeoutId != null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+    const arm = () => {
+      clear();
+      if (document.hidden) return;
+      timeoutId = window.setTimeout(() => {
+        timeoutId = null;
+        applyCast(advanceMenuPcCast(1), true);
+      }, PC_CAST_AUTO_MS);
+    };
+    const onVis = () => {
+      if (document.hidden) clear();
+      else arm();
+    };
+
+    arm();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clear();
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [applyCast, castPinned, pcCastUrl]);
+
+  useEffect(() => {
+    if (!castPinConfirmOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCastPinConfirmOpen(false);
+    };
+    const onPointer = (e: PointerEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (castPinConfirmRef.current?.contains(t)) return;
+      if (castPinBtnRef.current?.contains(t)) return;
+      setCastPinConfirmOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, [castPinConfirmOpen]);
+
+  const onCastPrev = useCallback(() => {
+    setCastPinConfirmOpen(false);
+    applyCast(advanceMenuPcCast(-1), true);
+  }, [applyCast]);
+
+  const onCastNext = useCallback(() => {
+    setCastPinConfirmOpen(false);
+    applyCast(advanceMenuPcCast(1), true);
+  }, [applyCast]);
+
+  const onCastPinClick = useCallback(() => {
+    if (castPinned) {
+      setMenuPcCastPinned(false);
+      setCastPinned(false);
+      setCastPinConfirmOpen(false);
+      return;
+    }
+    setCastPinConfirmOpen((open) => !open);
+  }, [castPinned]);
+
+  const onConfirmCastPin = useCallback(() => {
+    setMenuPcCastPinned(true);
+    setCastPinned(true);
+    setCastPinConfirmOpen(false);
+  }, []);
+
   return (
     <main className="menu-screen menu-screen--pc-cinematic">
-      {pcCastUrl ? (
-        <div className="menu-screen__pc-cast" aria-hidden="true">
-          <img className="menu-screen__pc-cast-img" src={pcCastUrl} alt="" draggable={false} />
-          <div className="menu-screen__pc-cast-meld" />
-        </div>
+      {pcCastUrl && isPcMenu ? (
+        <>
+          <div className="menu-screen__pc-cast" aria-hidden="true">
+            {pcCastPrevUrl ? (
+              <img
+                className="menu-screen__pc-cast-img menu-screen__pc-cast-img--outgoing"
+                src={pcCastPrevUrl}
+                alt=""
+                draggable={false}
+              />
+            ) : null}
+            <img
+              className={
+                pcCastFading
+                  ? 'menu-screen__pc-cast-img menu-screen__pc-cast-img--incoming'
+                  : 'menu-screen__pc-cast-img'
+              }
+              src={pcCastUrl}
+              alt=""
+              draggable={false}
+            />
+            <div className="menu-screen__pc-cast-meld" />
+          </div>
+          <div className="menu-screen__pc-cast-nav" role="group" aria-label="Сменить фон меню">
+            <button
+              type="button"
+              className="menu-screen__pc-cast-nav-btn menu-screen__pc-cast-nav-btn--prev"
+              aria-label="Предыдущий фон"
+              onClick={onCastPrev}
+            >
+              <svg className="menu-screen__pc-cast-nav-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden focusable="false">
+                <path
+                  d="M14.5 5.5 8 12l6.5 6.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.85"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+
+            <div className="menu-screen__pc-cast-nav-pin-wrap">
+              <button
+                ref={castPinBtnRef}
+                type="button"
+                className={[
+                  'menu-screen__pc-cast-nav-btn',
+                  'menu-screen__pc-cast-nav-btn--pin',
+                  castPinned ? 'menu-screen__pc-cast-nav-btn--pin-on' : '',
+                  castPinConfirmOpen ? 'menu-screen__pc-cast-nav-btn--pin-open' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label={castPinned ? 'Открепить фон меню' : 'Закрепить фон меню'}
+                aria-expanded={castPinConfirmOpen}
+                aria-haspopup="dialog"
+                onClick={onCastPinClick}
+              >
+                <CastLockGlyph locked={castPinned} />
+              </button>
+
+              {castPinConfirmOpen ? (
+                <div
+                  ref={castPinConfirmRef}
+                  className="menu-screen__pc-cast-pin-popover"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="pc-cast-pin-title"
+                  aria-describedby="pc-cast-pin-desc"
+                >
+                  <div className="menu-screen__pc-cast-pin-popover__glow" aria-hidden />
+                  <div className="menu-screen__pc-cast-pin-popover__lock" aria-hidden>
+                    <CastLockGlyph locked />
+                  </div>
+                  <p className="menu-screen__pc-cast-pin-popover__eyebrow">Фон меню</p>
+                  <h2 id="pc-cast-pin-title" className="menu-screen__pc-cast-pin-popover__title">
+                    Закрепить этот кадр?
+                  </h2>
+                  <p id="pc-cast-pin-desc" className="menu-screen__pc-cast-pin-popover__lead">
+                    Автосмена и смена при входе на меню отключатся. Стрелки по-прежнему можно листать вручную.
+                  </p>
+                  <div className="menu-screen__pc-cast-pin-popover__actions">
+                    <button
+                      type="button"
+                      className="menu-screen__pc-cast-pin-popover__btn menu-screen__pc-cast-pin-popover__btn--primary"
+                      onClick={onConfirmCastPin}
+                    >
+                      Закрепить
+                    </button>
+                    <button
+                      type="button"
+                      className="menu-screen__pc-cast-pin-popover__btn menu-screen__pc-cast-pin-popover__btn--ghost"
+                      onClick={() => setCastPinConfirmOpen(false)}
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <button
+              type="button"
+              className="menu-screen__pc-cast-nav-btn menu-screen__pc-cast-nav-btn--next"
+              aria-label="Следующий фон"
+              onClick={onCastNext}
+            >
+              <svg className="menu-screen__pc-cast-nav-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden focusable="false">
+                <path
+                  d="M9.5 5.5 16 12l-6.5 6.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.85"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </>
       ) : null}
       {isPcMenu ? (
         <>
@@ -95,18 +458,19 @@ export function MainMenuScreen({
                 <ellipse cx="24" cy="16" rx="18" ry="5" fill="#a855f7" opacity="0.75" />
                 <ellipse cx="24" cy="12" rx="8" ry="5.5" fill="#f5d0fe" />
                 <path d="M6 16 Q24 22 42 16" fill="none" stroke="#67e8f9" strokeWidth="1.1" opacity="0.85" />
-                <circle cx="14" cy="17.5" r="1.2" fill="#22d3ee" />
-                <circle cx="24" cy="18.5" r="1.3" fill="#fef08a" />
-                <circle cx="34" cy="17.5" r="1.2" fill="#22d3ee" />
+                <circle cx="14" cy="17" r="1.3" fill="#22d3ee" />
+                <circle cx="24" cy="18" r="1.4" fill="#e9d5ff" />
+                <circle cx="34" cy="17" r="1.3" fill="#22d3ee" />
               </svg>
             </span>
-            <span className="menu-screen__pc-ufo menu-screen__pc-ufo--gold">
+            <span className="menu-screen__pc-ufo menu-screen__pc-ufo--violet">
               <svg viewBox="0 0 48 28" width="100%" height="100%" focusable="false" aria-hidden>
-                <path d="M8 18 L24 6 L40 18 L32 20 L24 10 L16 20 Z" fill="#fbbf24" opacity="0.92" />
-                <ellipse cx="24" cy="19" rx="14" ry="3.2" fill="#f59e0b" opacity="0.8" />
-                <circle cx="18" cy="19.5" r="1.1" fill="#ecfeff" />
-                <circle cx="24" cy="20.2" r="1.2" fill="#a5f3fc" />
-                <circle cx="30" cy="19.5" r="1.1" fill="#ecfeff" />
+                <ellipse cx="24" cy="17" rx="15" ry="3.8" fill="#7c3aed" opacity="0.8" />
+                <ellipse cx="24" cy="12.5" rx="9" ry="5.2" fill="#ddd6fe" />
+                <ellipse cx="24" cy="16.5" rx="17" ry="1.4" fill="none" stroke="#22d3ee" strokeWidth="1" opacity="0.75" />
+                <circle cx="17" cy="18" r="1.2" fill="#a5f3fc" />
+                <circle cx="24" cy="18.5" r="1.3" fill="#f5d0fe" />
+                <circle cx="31" cy="18" r="1.2" fill="#a5f3fc" />
               </svg>
             </span>
           </div>
@@ -143,24 +507,54 @@ export function MainMenuScreen({
                 >
                   Up&Down
                 </h1>
-                <p className="menu-screen__tagline">Карточная игра на взятки</p>
+                <div className="menu-screen__tagline-row">
+                  <p className="menu-screen__tagline">Карточная игра на взятки</p>
+                </div>
               </div>
             </div>
           </header>
 
           <button
+            ref={accountBtnRef}
             type="button"
-            className="menu-screen__player"
-            onClick={onOpenAccount}
-            aria-label="Открыть личный кабинет"
+            className={[
+              'menu-screen__player',
+              accountExpanded ? 'menu-screen__player--expanded' : 'menu-screen__player--collapsed',
+            ].join(' ')}
+            onClick={onAccountChipClick}
+            aria-label={
+              accountExpanded
+                ? 'Открыть личный кабинет'
+                : 'Показать кабинет'
+            }
+            aria-expanded={accountExpanded}
           >
-            <PlayerAvatar name={displayName} avatarDataUrl={avatarDataUrl} sizePx={36} />
+            <span className="menu-screen__player-avatar-ring">
+              <PlayerAvatar
+                name={displayName}
+                avatarDataUrl={avatarDataUrl}
+                avatarBgColor={avatarBgColor}
+                sizePx={44}
+                className="menu-screen__player-avatar"
+              />
+            </span>
             <span className="menu-screen__player-text">
-              <span className="menu-screen__player-label">Кабинет</span>
-              <strong className="menu-screen__player-name">{displayName}</strong>
-              <span className="menu-screen__player-sub">
-                {signedIn ? 'профиль + аккаунт' : 'профиль · войти в аккаунт'}
-              </span>
+              {isPcMenu ? (
+                <>
+                  <span className="menu-screen__player-label">Кабинет</span>
+                  <strong className="menu-screen__player-name">{displayName}</strong>
+                  <span className="menu-screen__player-sub">
+                    {signedIn ? 'профиль + аккаунт' : 'профиль · войти в аккаунт'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <strong className="menu-screen__player-name">
+                    <DualColumnStack text={displayName} />
+                  </strong>
+                  <span className="menu-screen__player-sub menu-screen__player-sub--inline">войти</span>
+                </>
+              )}
             </span>
             <span className="menu-screen__player-chev" aria-hidden="true">
               ▸
@@ -175,7 +569,7 @@ export function MainMenuScreen({
         ) : null}
 
         <div className="menu-screen__sections menu-screen__constellation">
-          <MenuSection sectionId="play" label="Играть">
+          <MenuSection sectionId="play" glyphsOnly={playGlyphsOnly}>
             <MenuPcDrift id="offline" className="menu-screen__drift--offline" movable>
               <MenuPlaySplitCapsule
                 mode="offline"
@@ -184,26 +578,53 @@ export function MainMenuScreen({
                 onMain={onOfflinePlay}
               />
             </MenuPcDrift>
-            <MenuPcDrift id="online" className="menu-screen__drift--online" movable>
-              <MenuPlaySplitCapsule
-                mode="online"
-                canResume={canResumeOnline}
-                satelliteCode={lastPartyCode}
-                onResume={onResumeOnline}
-                onMain={onOpenOnline}
-              />
-            </MenuPcDrift>
-            <MenuPcDrift id="training" className="menu-screen__drift--training" movable>
+            <div className="menu-screen__online-with-glyphs">
+              <MenuPcDrift id="online" className="menu-screen__drift--online" movable>
+                <MenuPlaySplitCapsule
+                  mode="online"
+                  canResume={canResumeOnline}
+                  satelliteCode={lastPartyCode}
+                  onResume={onResumeOnline}
+                  onMain={onOpenOnline}
+                />
+              </MenuPcDrift>
+              {!isPcMenu && (hasSavedOffline || canResumeOnline) ? (
+                <div className="menu-screen__glyphs-toggle-row">
+                  <button
+                    type="button"
+                    className="menu-screen__section-glyphs-toggle"
+                    aria-pressed={playGlyphsOnly}
+                    aria-label={playGlyphsOnly ? 'Показать подписи капсул' : 'Скрыть подписи капсул'}
+                    onClick={togglePlayGlyphsOnly}
+                  >
+                    {playGlyphsOnly ? 'полный вид' : 'без слов'}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <MenuPcDrift id="account" className="menu-screen__drift--account" movable>
               <MenuCapsuleButton
-                variant="training"
-                title="Обучение"
-                hint="правила и практика"
-                onClick={onTraining}
+                variant="account"
+                eyebrow="Кабинет"
+                title={displayName}
+                hint={signedIn ? 'профиль + аккаунт' : 'профиль · войти в аккаунт'}
+                avatarName={displayName}
+                avatarDataUrl={avatarDataUrl}
+                onClick={onOpenAccount}
               />
             </MenuPcDrift>
-            <MenuPcDrift id="soon" className="menu-screen__drift--soon" movable>
-              <MenuCapsuleButton variant="soon" title="Турниры" hint="скоро" disabled />
-            </MenuPcDrift>
+            {isPcMenu ? (
+              <MenuPcDrift id="training-v2" className="menu-screen__drift--training" movable>
+                <MenuCapsuleButton
+                  variant="training"
+                  title="Обучение"
+                  hint="правила и практика"
+                  collapsible
+                  collapseId="training"
+                  onClick={onTraining}
+                />
+              </MenuPcDrift>
+            ) : null}
           </MenuSection>
 
           {devMode ? (
@@ -217,6 +638,139 @@ export function MainMenuScreen({
             </div>
           ) : null}
         </div>
+
+          {pcCastUrl && !isPcMenu ? (
+            <div className="menu-screen__mobile-cast">
+              <div className="menu-screen__mobile-cast__stage" aria-hidden="true">
+                {pcCastPrevUrl ? (
+                  <img
+                    className="menu-screen__mobile-cast__img menu-screen__mobile-cast__img--outgoing"
+                    src={pcCastPrevUrl}
+                    alt=""
+                    draggable={false}
+                  />
+                ) : null}
+                <img
+                  className={
+                    pcCastFading
+                      ? 'menu-screen__mobile-cast__img menu-screen__mobile-cast__img--incoming'
+                      : 'menu-screen__mobile-cast__img'
+                  }
+                  src={pcCastUrl}
+                  alt=""
+                  draggable={false}
+                />
+              </div>
+              <div className="menu-screen__mobile-cast__vignette" aria-hidden="true" />
+              <div className="menu-screen__mobile-cast__nav" role="group" aria-label="Сменить фон меню">
+                <button
+                  type="button"
+                  className="menu-screen__pc-cast-nav-btn menu-screen__pc-cast-nav-btn--prev"
+                  aria-label="Предыдущий фон"
+                  onClick={onCastPrev}
+                >
+                  <svg className="menu-screen__pc-cast-nav-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden focusable="false">
+                    <path
+                      d="M14.5 5.5 8 12l6.5 6.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.85"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                <div className="menu-screen__pc-cast-nav-pin-wrap">
+                  <button
+                    ref={castPinBtnRef}
+                    type="button"
+                    className={[
+                      'menu-screen__pc-cast-nav-btn',
+                      'menu-screen__pc-cast-nav-btn--pin',
+                      castPinned ? 'menu-screen__pc-cast-nav-btn--pin-on' : '',
+                      castPinConfirmOpen ? 'menu-screen__pc-cast-nav-btn--pin-open' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-label={castPinned ? 'Открепить фон меню' : 'Закрепить фон меню'}
+                    aria-expanded={castPinConfirmOpen}
+                    aria-haspopup="dialog"
+                    onClick={onCastPinClick}
+                  >
+                    <CastLockGlyph locked={castPinned} />
+                  </button>
+                  {castPinConfirmOpen ? (
+                    <div
+                      ref={castPinConfirmRef}
+                      className="menu-screen__pc-cast-pin-popover menu-screen__pc-cast-pin-popover--mobile"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="mobile-cast-pin-title"
+                      aria-describedby="mobile-cast-pin-desc"
+                    >
+                      <div className="menu-screen__pc-cast-pin-popover__glow" aria-hidden />
+                      <div className="menu-screen__pc-cast-pin-popover__lock" aria-hidden>
+                        <CastLockGlyph locked />
+                      </div>
+                      <p className="menu-screen__pc-cast-pin-popover__eyebrow">Фон меню</p>
+                      <h2 id="mobile-cast-pin-title" className="menu-screen__pc-cast-pin-popover__title">
+                        Закрепить этот кадр?
+                      </h2>
+                      <p id="mobile-cast-pin-desc" className="menu-screen__pc-cast-pin-popover__lead">
+                        Автосмена и смена при входе на меню отключатся. Стрелки по-прежнему можно листать вручную.
+                      </p>
+                      <div className="menu-screen__pc-cast-pin-popover__actions">
+                        <button
+                          type="button"
+                          className="menu-screen__pc-cast-pin-popover__btn menu-screen__pc-cast-pin-popover__btn--primary"
+                          onClick={onConfirmCastPin}
+                        >
+                          Закрепить
+                        </button>
+                        <button
+                          type="button"
+                          className="menu-screen__pc-cast-pin-popover__btn menu-screen__pc-cast-pin-popover__btn--ghost"
+                          onClick={() => setCastPinConfirmOpen(false)}
+                        >
+                          Отмена
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  className="menu-screen__pc-cast-nav-btn menu-screen__pc-cast-nav-btn--next"
+                  aria-label="Следующий фон"
+                  onClick={onCastNext}
+                >
+                  <svg className="menu-screen__pc-cast-nav-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden focusable="false">
+                    <path
+                      d="M9.5 5.5 16 12l-6.5 6.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.85"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {!isPcMenu ? (
+            <div className="menu-screen__mobile-training">
+              <MenuCapsuleButton
+                variant="training"
+                title="Обучение"
+                hint="правила и практика"
+                collapsible
+                collapseId="training"
+                onClick={onTraining}
+              />
+            </div>
+          ) : null}
       </div>
     </main>
   );

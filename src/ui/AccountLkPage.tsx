@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { getLocalRating } from '../game/persistence';
+import { getLocalRating, getPlayerProfile } from '../game/persistence';
 import { getPartyHistory, type PartyHistoryRecord } from '../game/partyHistory';
 import { useAuth } from '../contexts/AuthContext';
 import { getMyMatchHistory, getMyRatingSummary, type MatchHistoryItem } from '../lib/onlineGameSupabase';
@@ -128,7 +128,12 @@ export function AccountLkPage({
           <h1 className="lk-page__title cosmic-iridescent-text">Личный кабинет</h1>
 
           <div className="lk-page__profile">
-            <PlayerAvatar name={displayName} avatarDataUrl={avatarDataUrl} sizePx={72} />
+            <PlayerAvatar
+              name={displayName}
+              avatarDataUrl={avatarDataUrl}
+              avatarBgColor={getPlayerProfile().avatarBgColor}
+              sizePx={72}
+            />
             <div className="lk-page__profile-text">
               <p className="lk-page__profile-name">{displayName}</p>
               {loggedIn && user?.email ? (

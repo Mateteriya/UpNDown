@@ -133,7 +133,12 @@ export function RatingModal({ onClose, playerAvatarDataUrl }: RatingModalProps) 
             Ваш рейтинг
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-            <PlayerAvatar name={profile.displayName} avatarDataUrl={playerAvatarDataUrl} sizePx={64} />
+            <PlayerAvatar
+              name={profile.displayName}
+              avatarDataUrl={playerAvatarDataUrl}
+              avatarBgColor={profile.avatarBgColor}
+              sizePx={64}
+            />
             <span className="rating-modal__name">{profile.displayName}</span>
 
             <p className="rating-modal__note">

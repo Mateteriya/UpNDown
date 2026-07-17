@@ -2,7 +2,7 @@ import { type CSSProperties, type PointerEvent, type ReactNode, useCallback, use
 
 const PC_MQ = '(min-width: 1025px)';
 /* v4: freeform — все слоты подвижны, сброс старых смещений */
-const LS_PREFIX = 'upnd-menu-pc-drift:v4:';
+const LS_PREFIX = 'upnd-menu-pc-drift:v5:';
 const DRAG_THRESHOLD_PX = 7;
 
 type DriftPos = { x: number; y: number };
@@ -35,25 +35,30 @@ type MenuPcDriftProps = {
   children: ReactNode;
 };
 
+type DragState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  originX: number;
+  originY: number;
+  moved: boolean;
+};
+
 /**
  * Обёртка элемента меню: на мобилке — обычный блок;
- * на ПК — слот созвездия; movable — drag с порогом и запоминанием позиции.
+ * на ПК — слот созвездия; movable — drag только за «ушко».
  */
 export function MenuPcDrift({ id, className, movable = false, children }: MenuPcDriftProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [offset, setOffset] = useState<DriftPos>(() =>
     movable ? (readPos(id) ?? { x: 0, y: 0 }) : { x: 0, y: 0 },
   );
-  const dragRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    originX: number;
-    originY: number;
-    moved: boolean;
-  } | null>(null);
+  const dragRef = useRef<DragState | null>(null);
   const [dragging, setDragging] = useState(false);
   const suppressClickRef = useRef(false);
+  const offsetRef = useRef(offset);
+  offsetRef.current = offset;
+  const unbindDocRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!movable) return;
@@ -81,68 +86,135 @@ export function MenuPcDrift({ id, className, movable = false, children }: MenuPc
     return () => el.removeEventListener('click', onClickCapture, true);
   }, [movable]);
 
-  const onPointerDown = useCallback(
-    (e: PointerEvent<HTMLDivElement>) => {
+  useEffect(() => {
+    return () => {
+      unbindDocRef.current?.();
+      unbindDocRef.current = null;
+    };
+  }, []);
+
+  const finishDrag = useCallback((opts: { save: boolean; pointerId: number }) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== opts.pointerId) return;
+    const didMove = d.moved;
+    dragRef.current = null;
+    unbindDocRef.current?.();
+    unbindDocRef.current = null;
+    if (opts.save && didMove) {
+      suppressClickRef.current = true;
+      setOffset((pos) => {
+        writePos(id, pos);
+        return pos;
+      });
+    }
+    setDragging(false);
+    try {
+      if (rootRef.current?.hasPointerCapture(opts.pointerId)) {
+        rootRef.current.releasePointerCapture(opts.pointerId);
+      }
+    } catch {
+      /* ignore */
+    }
+    if (didMove) {
+      const ae = document.activeElement;
+      if (ae instanceof HTMLElement && rootRef.current?.contains(ae)) {
+        ae.blur();
+      }
+      try {
+        window.getSelection()?.removeAllRanges();
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [id]);
+
+  const bindDocListeners = useCallback(
+    (pointerId: number) => {
+      unbindDocRef.current?.();
+
+      const onMove = (e: globalThis.PointerEvent) => {
+        if (e.pointerId !== pointerId) return;
+        const d = dragRef.current;
+        if (!d || d.pointerId !== pointerId) return;
+        if (e.buttons === 0) {
+          finishDrag({ save: d.moved, pointerId });
+          return;
+        }
+        const dx = e.clientX - d.startX;
+        const dy = e.clientY - d.startY;
+        if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+        if (!d.moved) {
+          d.moved = true;
+          setDragging(true);
+          try {
+            rootRef.current?.setPointerCapture(pointerId);
+          } catch {
+            /* ignore */
+          }
+          const ae = document.activeElement;
+          if (ae instanceof HTMLElement && rootRef.current?.contains(ae)) {
+            ae.blur();
+          }
+          try {
+            window.getSelection()?.removeAllRanges();
+          } catch {
+            /* ignore */
+          }
+        }
+        setOffset({
+          x: d.originX + dx,
+          y: d.originY + dy,
+        });
+      };
+
+      const onUp = (e: globalThis.PointerEvent) => {
+        if (e.pointerId !== pointerId) return;
+        finishDrag({ save: true, pointerId });
+      };
+
+      const onAbort = () => finishDrag({ save: false, pointerId });
+
+      document.addEventListener('pointermove', onMove, true);
+      document.addEventListener('pointerup', onUp, true);
+      document.addEventListener('pointercancel', onUp, true);
+      window.addEventListener('blur', onAbort);
+      document.addEventListener('visibilitychange', onAbort);
+
+      unbindDocRef.current = () => {
+        document.removeEventListener('pointermove', onMove, true);
+        document.removeEventListener('pointerup', onUp, true);
+        document.removeEventListener('pointercancel', onUp, true);
+        window.removeEventListener('blur', onAbort);
+        document.removeEventListener('visibilitychange', onAbort);
+      };
+    },
+    [finishDrag],
+  );
+
+  /** Drag только с ушка — сама капсула остаётся для кликов. */
+  const onEarPointerDown = useCallback(
+    (e: PointerEvent<HTMLButtonElement>) => {
       if (!movable || e.button !== 0) return;
       if (!window.matchMedia(PC_MQ).matches) return;
-      const target = e.target as HTMLElement;
-      /* Drag с фона капсулы; половинки/глифы/легенда — только клик/hover */
-      if (
-        target.closest(
-          '.menu-split-capsule__half, .menu-capsule, .menu-split-capsule__mode-glyph-btn, .menu-split-capsule__legend, a, input, textarea, select, [role="button"]',
-        )
-      ) {
-        return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (dragRef.current) {
+        finishDrag({ save: false, pointerId: dragRef.current.pointerId });
       }
+
+      const origin = offsetRef.current;
       dragRef.current = {
         pointerId: e.pointerId,
         startX: e.clientX,
         startY: e.clientY,
-        originX: offset.x,
-        originY: offset.y,
+        originX: origin.x,
+        originY: origin.y,
         moved: false,
       };
-      rootRef.current?.setPointerCapture(e.pointerId);
+      bindDocListeners(e.pointerId);
     },
-    [movable, offset.x, offset.y],
-  );
-
-  const onPointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
-    const d = dragRef.current;
-    if (!d || d.pointerId !== e.pointerId) return;
-    const dx = e.clientX - d.startX;
-    const dy = e.clientY - d.startY;
-    if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
-    if (!d.moved) {
-      d.moved = true;
-      setDragging(true);
-    }
-    setOffset({
-      x: d.originX + dx,
-      y: d.originY + dy,
-    });
-  }, []);
-
-  const endDrag = useCallback(
-    (e: PointerEvent<HTMLDivElement>) => {
-      const d = dragRef.current;
-      if (!d || d.pointerId !== e.pointerId) return;
-      dragRef.current = null;
-      if (d.moved) {
-        suppressClickRef.current = true;
-        setOffset((pos) => {
-          writePos(id, pos);
-          return pos;
-        });
-      }
-      setDragging(false);
-      try {
-        rootRef.current?.releasePointerCapture(e.pointerId);
-      } catch {
-        /* ignore */
-      }
-    },
-    [id],
+    [movable, finishDrag, bindDocListeners],
   );
 
   const style: CSSProperties | undefined =
@@ -165,14 +237,27 @@ export function MenuPcDrift({ id, className, movable = false, children }: MenuPc
         .filter(Boolean)
         .join(' ')}
       style={style}
-      onPointerDown={movable ? onPointerDown : undefined}
-      onPointerMove={movable ? onPointerMove : undefined}
-      onPointerUp={movable ? endDrag : undefined}
-      onPointerCancel={movable ? endDrag : undefined}
       data-menu-drift={id}
     >
       {/* Bob на внутренней оболочке; drag translate — на внешнем drift. */}
-      <div className="menu-screen__drift-bob">{children}</div>
+      <div className="menu-screen__drift-bob">
+        {children}
+        {movable ? (
+          <button
+            type="button"
+            className="menu-screen__drift-ear"
+            aria-label="Переместить капсулу"
+            title="Переместить"
+            onPointerDown={onEarPointerDown}
+          >
+            <span className="menu-screen__drift-ear__grip" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

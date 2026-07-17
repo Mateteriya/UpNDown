@@ -6,8 +6,8 @@ export const MENU_OFFLINE_LEGEND_ART_URL = encodeURI('/МЕНЮ/офлайн.jpg
 export const MENU_PC_HERO_ART_URL = encodeURI('/МЕНЮ/для меню ПК.jpg');
 
 /**
- * Ротация каста ПК: 7 кадров.
- * За сессию грузится только ОДИН файл (~200–400 KB), не все сразу.
+ * Ротация каста меню (ПК + мобилка): 7 кадров.
+ * За раз грузится один файл (~200–400 KB); следующий — prefetch по желанию.
  */
 export const MENU_PC_CAST_ART_URLS = [
   encodeURI('/МЕНЮ/для меню ПК 7.jpg'),
@@ -20,38 +20,116 @@ export const MENU_PC_CAST_ART_URLS = [
 ] as const;
 
 const CAST_IDX_LS = 'upnd-menu-pc-cast-idx';
-const CAST_URL_SESSION = 'upnd-menu-pc-cast-url';
+const CAST_PINNED_LS = 'upnd-menu-pc-cast-pinned';
 
-/** URL каста на текущую сессию вкладки; при новом открытии приложения — следующий по кругу. */
-export function getMenuPcCastArtUrlForSession(): string {
-  try {
-    const cached = sessionStorage.getItem(CAST_URL_SESSION);
-    if (cached && (MENU_PC_CAST_ART_URLS as readonly string[]).includes(cached)) {
-      return cached;
-    }
-  } catch {
-    /* ignore */
-  }
+/** Антидребезг: React Strict Mode дважды монтирует меню в dev. */
+let lastMenuCastAdvanceAt = 0;
+const MENU_CAST_ADVANCE_GUARD_MS = 500;
 
+export type MenuPcCastPick = { index: number; url: string };
+
+export function getMenuPcCastCount(): number {
+  return MENU_PC_CAST_ART_URLS.length;
+}
+
+export function getMenuPcCastUrlAt(index: number): string {
   const n = MENU_PC_CAST_ART_URLS.length;
-  let idx = 0;
+  const i = ((index % n) + n) % n;
+  return MENU_PC_CAST_ART_URLS[i]!;
+}
+
+function readStoredCastIndex(): number {
+  const n = MENU_PC_CAST_ART_URLS.length;
   try {
     const raw = localStorage.getItem(CAST_IDX_LS);
     const parsed = raw != null ? Number.parseInt(raw, 10) : 0;
-    if (Number.isFinite(parsed) && parsed >= 0) idx = parsed % n;
+    if (Number.isFinite(parsed) && parsed >= 0) return parsed % n;
   } catch {
     /* ignore */
   }
-
-  const url = MENU_PC_CAST_ART_URLS[idx]!;
-  try {
-    localStorage.setItem(CAST_IDX_LS, String((idx + 1) % n));
-    sessionStorage.setItem(CAST_URL_SESSION, url);
-  } catch {
-    /* ignore */
-  }
-  return url;
+  return 0;
 }
 
-/** @deprecated один кадр — используйте getMenuPcCastArtUrlForSession */
+function writeStoredCastIndex(index: number): void {
+  const n = MENU_PC_CAST_ART_URLS.length;
+  try {
+    localStorage.setItem(CAST_IDX_LS, String(((index % n) + n) % n));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Закреплён ли текущий кадр (без автосмены и смены при заходе). */
+export function isMenuPcCastPinned(): boolean {
+  try {
+    return localStorage.getItem(CAST_PINNED_LS) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setMenuPcCastPinned(pinned: boolean): void {
+  try {
+    if (pinned) localStorage.setItem(CAST_PINNED_LS, '1');
+    else localStorage.removeItem(CAST_PINNED_LS);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Текущий кадр по localStorage (без сдвига). */
+export function getMenuPcCastCurrent(): MenuPcCastPick {
+  const index = readStoredCastIndex();
+  return { index, url: getMenuPcCastUrlAt(index) };
+}
+
+/** Поставить конкретный кадр (стрелки / автосвайп). */
+export function setMenuPcCastIndex(index: number): MenuPcCastPick {
+  const n = MENU_PC_CAST_ART_URLS.length;
+  const next = ((index % n) + n) % n;
+  writeStoredCastIndex(next);
+  return { index: next, url: getMenuPcCastUrlAt(next) };
+}
+
+/** Сдвиг на delta кадров по кругу. */
+export function advanceMenuPcCast(delta = 1): MenuPcCastPick {
+  const cur = readStoredCastIndex();
+  return setMenuPcCastIndex(cur + delta);
+}
+
+/**
+ * Кадр при заходе на главное меню: следующий по кругу.
+ * Если фон закреплён — без сдвига. Не дергает индекс повторно при двойном mount Strict Mode.
+ */
+export function takeMenuPcCastForMenuVisit(): MenuPcCastPick {
+  if (isMenuPcCastPinned()) return getMenuPcCastCurrent();
+  const now = Date.now();
+  if (now - lastMenuCastAdvanceAt < MENU_CAST_ADVANCE_GUARD_MS) {
+    return getMenuPcCastCurrent();
+  }
+  lastMenuCastAdvanceAt = now;
+  return advanceMenuPcCast(1);
+}
+
+/** Тихий prefetch следующего JPG (не блокирует UI). */
+export function preloadMenuPcCastUrl(url: string): void {
+  if (typeof Image === 'undefined') return;
+  try {
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = url;
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * @deprecated используйте takeMenuPcCastForMenuVisit / getMenuPcCastCurrent
+ * Оставлено для совместимости: поведение как «новый визит меню».
+ */
+export function getMenuPcCastArtUrlForSession(): string {
+  return takeMenuPcCastForMenuVisit().url;
+}
+
+/** @deprecated один кадр — используйте ротацию */
 export const MENU_PC_CAST_ART_URL = MENU_PC_CAST_ART_URLS[0];

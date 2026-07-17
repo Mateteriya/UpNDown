@@ -1,23 +1,38 @@
 /**
  * Модалка «Имя и фото»: ввод имени и опциональная загрузка фото (Data URL).
- * Селфи → полный редактор; галерея → отдельный picker без capture.
+ * Селфи → системная камера; галерея → picker без capture.
+ * Полный редактор аватарок — в онлайне / ЛК, не здесь.
+ * Космический компактный UI; без autofocus — клавиатура только по тапу.
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { MAX_AVATAR_IMAGE_SIZE_BYTES } from '../lib/avatarImage';
-import { openGalleryPicker } from '../lib/avatarCamera';
-import { persistAvatarToProfile } from '../lib/profileAvatarSave';
+import { openGalleryPicker, openNativeCameraPicker } from '../lib/avatarCamera';
+import {
+  clearNameAvatarModalOpen,
+  markNameAvatarModalOpen,
+  persistAvatarToProfile,
+} from '../lib/profileAvatarSave';
 import { PlayerAvatar } from './PlayerAvatar';
-import { AvatarEditorModal } from './AvatarEditorModal';
+import { AvatarNeonColorPicker } from './AvatarNeonColorPicker';
+import '../styles/name-avatar-modal.css';
 
 export const MAX_DISPLAY_NAME_LENGTH = 17;
 const MAX_NAME_LENGTH = MAX_DISPLAY_NAME_LENGTH;
 const MAX_IMAGE_SIZE_BYTES = MAX_AVATAR_IMAGE_SIZE_BYTES;
+const DEFAULT_AVATAR_BG = '#1a0033';
 
 export interface NameAvatarModalProps {
   initialDisplayName?: string;
   initialAvatarDataUrl?: string | null;
-  onConfirm: (profile: { displayName: string; avatarDataUrl?: string | null }) => void;
+  initialAvatarBgColor?: string | null;
+  /** Чтобы после камеры/перезагрузки вернуть ту же модалку (first-run / profile / …). */
+  resumeMode?: 'first-run' | 'profile' | 'new-account';
+  onConfirm: (profile: {
+    displayName: string;
+    avatarDataUrl?: string | null;
+    avatarBgColor?: string | null;
+  }) => void;
   onCancel?: () => void;
   title?: string;
   confirmLabel?: string;
@@ -28,6 +43,8 @@ export interface NameAvatarModalProps {
 export function NameAvatarModal({
   initialDisplayName = '',
   initialAvatarDataUrl = null,
+  initialAvatarBgColor = null,
+  resumeMode = 'profile',
   onConfirm,
   onCancel,
   title = 'Как к вам обращаться?',
@@ -36,9 +53,47 @@ export function NameAvatarModal({
 }: NameAvatarModalProps) {
   const [displayName, setDisplayName] = useState(initialDisplayName.trim() || '');
   const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(initialAvatarDataUrl ?? null);
+  const [avatarBgColor, setAvatarBgColor] = useState<string>(
+    initialAvatarBgColor && /^#[0-9A-Fa-f]{3,8}$/.test(initialAvatarBgColor.trim())
+      ? initialAvatarBgColor.trim()
+      : DEFAULT_AVATAR_BG,
+  );
+  const [bgNeon, setBgNeon] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const syncVisualViewport = useCallback(() => {
+    const vv = window.visualViewport;
+    const root = rootRef.current;
+    if (!root) return;
+    const h = vv?.height ?? window.innerHeight;
+    root.style.setProperty('--nam-vvh', `${Math.round(h)}px`);
+  }, []);
+
+  useEffect(() => {
+    syncVisualViewport();
+    const vv = window.visualViewport;
+    if (!vv) return;
+    vv.addEventListener('resize', syncVisualViewport);
+    vv.addEventListener('scroll', syncVisualViewport);
+    return () => {
+      vv.removeEventListener('resize', syncVisualViewport);
+      vv.removeEventListener('scroll', syncVisualViewport);
+    };
+  }, [syncVisualViewport]);
+
+  useEffect(() => {
+    if (!inputFocused) return;
+    syncVisualViewport();
+    const id = window.setTimeout(() => {
+      panelRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 80);
+    return () => window.clearTimeout(id);
+  }, [inputFocused, syncVisualViewport]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,13 +103,15 @@ export function NameAvatarModal({
       return;
     }
     setError(null);
+    clearNameAvatarModalOpen();
     onConfirm({
       displayName: name.slice(0, MAX_NAME_LENGTH),
       avatarDataUrl: avatarDataUrl ?? null,
+      avatarBgColor,
     });
   };
 
-  const handleGalleryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
@@ -73,6 +130,8 @@ export function NameAvatarModal({
         dataUrl = await persistAvatarToProfile(dataUrl);
         setAvatarDataUrl(dataUrl);
         onPhotoCaptured?.(dataUrl);
+        /* Не снимаем флаги здесь: на телефоне часто идёт перезагрузка ПОСЛЕ
+           onChange — иначе модалка не откроется снова. Сброс только на Сохранить/Отмена. */
       } catch {
         setError('Не удалось обработать фото');
       }
@@ -85,177 +144,148 @@ export function NameAvatarModal({
   const removePhoto = () => {
     setAvatarDataUrl(null);
     if (galleryInputRef.current) galleryInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
+
+  const nameLen = displayName.length;
 
   return (
     <>
       <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000,
-          padding: 16,
-        }}
-        onClick={(e) => e.target === e.currentTarget && !editorOpen && onCancel?.()}
+        ref={rootRef}
+        className={['name-avatar-modal', inputFocused ? 'name-avatar-modal--input-focus' : '']
+          .filter(Boolean)
+          .join(' ')}
+        onClick={(e) => e.target === e.currentTarget && onCancel?.()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="name-avatar-modal-title"
       >
         <div
-          style={{
-            background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-            borderRadius: 16,
-            border: '1px solid rgba(148, 163, 184, 0.3)',
-            boxShadow: '0 24px 48px rgba(0,0,0,0.4)',
-            maxWidth: 360,
-            width: '100%',
-            padding: 24,
-          }}
+          ref={panelRef}
+          className="name-avatar-modal__panel"
           onClick={(e) => e.stopPropagation()}
         >
-          <h2 id="name-avatar-modal-title" style={{ margin: '0 0 20px', fontSize: 20, color: '#f1f5f9' }}>
+          <h2 id="name-avatar-modal-title" className="name-avatar-modal__title">
             {title}
           </h2>
-          <form onSubmit={handleSubmit}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <PlayerAvatar name={displayName || '?'} avatarDataUrl={avatarDataUrl} sizePx={64} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <label htmlFor="name-avatar-input" style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>
-                    Имя (до {MAX_NAME_LENGTH} символов)
-                  </label>
-                  <input
-                    id="name-avatar-input"
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value.slice(0, MAX_NAME_LENGTH))}
-                    maxLength={MAX_NAME_LENGTH}
-                    placeholder="Как к вам обращаться?"
-                    autoFocus
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      fontSize: 16,
-                      borderRadius: 8,
-                      border: '1px solid #475569',
-                      background: '#0f172a',
-                      color: '#f8fafc',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8, width: '100%', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <input
-                  ref={galleryInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleGalleryFileChange}
-                  style={{ display: 'none' }}
+          <form className="name-avatar-modal__form" onSubmit={handleSubmit}>
+            <div className="name-avatar-modal__identity">
+              <div className="name-avatar-modal__avatar-col">
+                <PlayerAvatar
+                  name={displayName || '?'}
+                  avatarDataUrl={avatarDataUrl}
+                  avatarBgColor={avatarBgColor}
+                  sizePx={52}
                 />
-                <button
-                  type="button"
-                  onClick={() => setEditorOpen(true)}
-                  style={{
-                    padding: '8px 16px',
-                    fontSize: 14,
-                    borderRadius: 8,
-                    border: '1px solid rgba(34, 211, 238, 0.45)',
-                    background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
-                    color: '#f8fafc',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Селфи / редактор
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openGalleryPicker(galleryInputRef.current)}
-                  style={{
-                    padding: '8px 16px',
-                    fontSize: 14,
-                    borderRadius: 8,
-                    border: '1px solid #475569',
-                    background: '#334155',
-                    color: '#e2e8f0',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {avatarDataUrl ? 'Из галереи' : 'Галерея'}
-                </button>
-                {avatarDataUrl && (
-                  <button
-                    type="button"
-                    onClick={removePhoto}
-                    style={{
-                      padding: '8px 16px',
-                      fontSize: 14,
-                      borderRadius: 8,
-                      border: '1px solid #475569',
-                      background: 'transparent',
-                      color: '#94a3b8',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Удалить фото
-                  </button>
+                {!avatarDataUrl ? (
+                  <div className="name-avatar-modal__bg-palette" aria-label="Цвет фона аватара">
+                    <AvatarNeonColorPicker
+                      color={avatarBgColor}
+                      onChange={setAvatarBgColor}
+                      neonBrush={bgNeon}
+                      onNeonBrushChange={setBgNeon}
+                      hideExternalModeToggle
+                      className="name-avatar-modal__color-picker"
+                    />
+                  </div>
+                ) : (
+                  <p className="name-avatar-modal__bg-note">Фон виден без фото</p>
                 )}
               </div>
-              <span style={{ display: 'block', fontSize: 12, color: '#64748b', marginTop: 6, textAlign: 'center', lineHeight: 1.45 }}>
-                «Селфи / редактор» — полный редактор с рамками и рисованием. «Галерея» — фото с телефона.
-              </span>
+              <div className="name-avatar-modal__name-block">
+                <div className="name-avatar-modal__name-meta">
+                  <span className="name-avatar-modal__hint">Имя в игре</span>
+                  <span className="name-avatar-modal__count" aria-live="polite">
+                    {nameLen}/{MAX_NAME_LENGTH}
+                  </span>
+                </div>
+                <input
+                  id="name-avatar-input"
+                  className="name-avatar-modal__input"
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value.slice(0, MAX_NAME_LENGTH))}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => setInputFocused(false)}
+                  maxLength={MAX_NAME_LENGTH}
+                  placeholder="Коснитесь, чтобы ввести"
+                  enterKeyHint="done"
+                  autoComplete="nickname"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+              </div>
             </div>
-            {error && <p style={{ margin: 0, fontSize: 14, color: '#f87171' }}>{error}</p>}
-            <div style={{ display: 'flex', gap: 12, width: '100%', justifyContent: 'flex-end', marginTop: 8 }}>
-              {onCancel && (
-                <button type="button" onClick={onCancel} style={secondaryBtnStyle}>
+
+            <div className="name-avatar-modal__photo-row">
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageFileChange}
+                style={{ display: 'none' }}
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="user"
+                onChange={handleImageFileChange}
+                style={{ display: 'none' }}
+              />
+              <button
+                type="button"
+                className="name-avatar-modal__chip name-avatar-modal__chip--selfie"
+                onClick={() => {
+                  markNameAvatarModalOpen(resumeMode);
+                  openNativeCameraPicker(cameraInputRef.current);
+                }}
+                title="Сделать селфи"
+              >
+                Селфи
+              </button>
+              <button
+                type="button"
+                className="name-avatar-modal__chip name-avatar-modal__chip--gallery"
+                onClick={() => openGalleryPicker(galleryInputRef.current)}
+                title="Фото с устройства"
+              >
+                Галерея
+              </button>
+              {avatarDataUrl ? (
+                <button
+                  type="button"
+                  className="name-avatar-modal__chip name-avatar-modal__chip--remove"
+                  onClick={removePhoto}
+                >
+                  Убрать
+                </button>
+              ) : null}
+            </div>
+
+            {error ? <p className="name-avatar-modal__error">{error}</p> : null}
+
+            <div className="name-avatar-modal__actions">
+              {onCancel ? (
+                <button
+                  type="button"
+                  className="name-avatar-modal__btn name-avatar-modal__btn--ghost"
+                  onClick={() => {
+                    clearNameAvatarModalOpen();
+                    onCancel();
+                  }}
+                >
                   Отмена
                 </button>
-              )}
-              <button type="submit" style={primaryBtnStyle}>
+              ) : null}
+              <button type="submit" className="name-avatar-modal__btn name-avatar-modal__btn--primary">
                 {confirmLabel}
               </button>
             </div>
           </form>
         </div>
       </div>
-      {editorOpen && (
-        <AvatarEditorModal
-          displayName={displayName || '?'}
-          initialAvatarDataUrl={avatarDataUrl}
-          onPhotoCaptured={onPhotoCaptured}
-          onSave={(url) => {
-            setAvatarDataUrl(url);
-            if (url) onPhotoCaptured?.(url);
-            setEditorOpen(false);
-          }}
-          onCancel={() => setEditorOpen(false)}
-        />
-      )}
     </>
   );
 }
-
-const primaryBtnStyle: React.CSSProperties = {
-  padding: '10px 20px',
-  fontSize: 16,
-  fontWeight: 600,
-  borderRadius: 8,
-  border: 'none',
-  background: '#6366f1',
-  color: '#fff',
-  cursor: 'pointer',
-};
-const secondaryBtnStyle: React.CSSProperties = {
-  padding: '10px 20px',
-  fontSize: 16,
-  borderRadius: 8,
-  border: '1px solid #475569',
-  background: 'transparent',
-  color: '#94a3b8',
-  cursor: 'pointer',
-};

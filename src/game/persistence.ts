@@ -143,6 +143,8 @@ export const PLAYER_PROFILE_STORAGE_KEY = 'updown_player_profile';
 export interface PlayerProfile {
   displayName: string;
   avatarDataUrl?: string | null;
+  /** Цвет фона плейсхолдера инициалов (hex), когда нет фото */
+  avatarBgColor?: string | null;
   /** Стабильный id профиля (uuid) — не меняется при смене имени; рейтинг привязан к нему */
   profileId?: string;
 }
@@ -199,17 +201,21 @@ export function getPlayerProfile(): PlayerProfile {
     const avatarDataUrl = p.avatarDataUrl === null || p.avatarDataUrl === undefined
       ? undefined
       : typeof p.avatarDataUrl === 'string' ? p.avatarDataUrl : undefined;
+    const avatarBgColor =
+      typeof p.avatarBgColor === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(p.avatarBgColor.trim())
+        ? p.avatarBgColor.trim()
+        : null;
     let profileId = typeof p.profileId === 'string' && p.profileId.length > 0 ? p.profileId : undefined;
     if (!profileId) {
       profileId = generateProfileId();
       try {
-        const payload = { displayName, avatarDataUrl: avatarDataUrl ?? null, profileId };
+        const payload = { displayName, avatarDataUrl: avatarDataUrl ?? null, avatarBgColor, profileId };
         localStorage.setItem(PLAYER_PROFILE_STORAGE_KEY, JSON.stringify(payload));
       } catch {
         /* ignore */
       }
     }
-    return { displayName, avatarDataUrl: avatarDataUrl ?? null, profileId };
+    return { displayName, avatarDataUrl: avatarDataUrl ?? null, avatarBgColor, profileId };
   } catch {
     return { displayName: DEFAULT_DISPLAY_NAME, profileId: generateProfileId() };
   }
@@ -227,6 +233,12 @@ export function savePlayerProfile(profile: PlayerProfile): void {
     const payload: PlayerProfile = {
       displayName,
       avatarDataUrl: profile.avatarDataUrl ?? null,
+      avatarBgColor:
+        typeof profile.avatarBgColor === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(profile.avatarBgColor.trim())
+          ? profile.avatarBgColor.trim()
+          : profile.avatarBgColor === null
+            ? null
+            : existing.avatarBgColor ?? null,
       profileId,
     };
     localStorage.setItem(PLAYER_PROFILE_STORAGE_KEY, JSON.stringify(payload));

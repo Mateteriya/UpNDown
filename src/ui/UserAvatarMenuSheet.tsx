@@ -15,6 +15,7 @@ import { useDesktopProfileUi } from './useDesktopProfileUi';
 export interface UserAvatarMenuSheetProps {
   displayName: string;
   avatarDataUrl?: string | null;
+  avatarBgColor?: string | null;
   state: GameState;
   offlineMode: boolean;
   showPause: boolean;
@@ -132,6 +133,7 @@ function AvatarMenuIconPause({ gradId }: { gradId: string }) {
 export function UserAvatarMenuSheet({
   displayName,
   avatarDataUrl,
+  avatarBgColor,
   state,
   offlineMode,
   showPause,
@@ -366,8 +368,9 @@ export function UserAvatarMenuSheet({
                   <PlayerAvatar
                     name={displayName}
                     avatarDataUrl={avatarDataUrl}
-                  sizePx={menuAvatarSizePx}
-                  className="avatar-menu-sheet-avatar-face"
+                    avatarBgColor={avatarBgColor}
+                    sizePx={menuAvatarSizePx}
+                    className="avatar-menu-sheet-avatar-face"
                   />
                 </div>
               </button>

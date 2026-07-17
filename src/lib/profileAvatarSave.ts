@@ -4,8 +4,14 @@ import { compressImageToDataUrl } from './avatarImage';
 const PENDING_AVATAR_KEY = 'updown_avatar_pending';
 const AVATAR_ONLY_KEY = 'updown_avatar_data_url';
 export const AVATAR_CAMERA_PENDING_KEY = 'updown_avatar_camera_pending';
+/** localStorage: переживает уход в системную камеру (sessionStorage на части телефонов сбрасывается). */
+const NAME_AVATAR_MODAL_OPEN_KEY = 'updown_name_avatar_modal_open';
 
-/** Пользователь ушёл в нативную камеру — после возврата/перезагрузки открыть профиль снова. */
+export type NameAvatarModalResumeMode = 'first-run' | 'profile' | 'new-account';
+
+const RESUME_TTL_MS = 15 * 60 * 1000;
+
+/** Пользователь ушёл в нативную камеру — после возврата/перезагрузки открыть модалку снова. */
 export function markAvatarCameraPending(): void {
   try {
     localStorage.setItem(AVATAR_CAMERA_PENDING_KEY, String(Date.now()));
@@ -14,13 +20,72 @@ export function markAvatarCameraPending(): void {
   }
 }
 
-export function consumeAvatarCameraPending(): boolean {
+/**
+ * Модалка имени открыта — держим до «Сохранить» / «Отмена».
+ * Нужно при перезагрузке вкладки после системной камеры.
+ */
+export function markNameAvatarModalOpen(mode: NameAvatarModalResumeMode): void {
+  try {
+    localStorage.setItem(
+      NAME_AVATAR_MODAL_OPEN_KEY,
+      JSON.stringify({ mode, at: Date.now() }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/** @deprecated alias — то же, что markNameAvatarModalOpen */
+export function markNameAvatarModalResume(mode: NameAvatarModalResumeMode): void {
+  markNameAvatarModalOpen(mode);
+}
+
+export function peekNameAvatarModalOpen(): NameAvatarModalResumeMode | null {
+  try {
+    const raw = localStorage.getItem(NAME_AVATAR_MODAL_OPEN_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { mode?: string; at?: number };
+    const at = typeof parsed.at === 'number' ? parsed.at : 0;
+    if (!Number.isFinite(at) || Date.now() - at > RESUME_TTL_MS) {
+      localStorage.removeItem(NAME_AVATAR_MODAL_OPEN_KEY);
+      return null;
+    }
+    if (parsed.mode === 'first-run' || parsed.mode === 'profile' || parsed.mode === 'new-account') {
+      return parsed.mode;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearNameAvatarModalOpen(): void {
+  try {
+    localStorage.removeItem(NAME_AVATAR_MODAL_OPEN_KEY);
+  } catch {
+    /* ignore */
+  }
+  clearAvatarCameraPending();
+}
+
+export function clearAvatarCameraPending(): void {
+  try {
+    localStorage.removeItem(AVATAR_CAMERA_PENDING_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Не снимает флаг — только смотрит (снимаем при закрытии модалки). */
+export function peekAvatarCameraPending(): boolean {
   try {
     const v = localStorage.getItem(AVATAR_CAMERA_PENDING_KEY);
     if (!v) return false;
-    localStorage.removeItem(AVATAR_CAMERA_PENDING_KEY);
     const ts = Number(v);
-    if (!Number.isFinite(ts) || Date.now() - ts > 15 * 60 * 1000) return false;
+    if (!Number.isFinite(ts) || Date.now() - ts > RESUME_TTL_MS) {
+      localStorage.removeItem(AVATAR_CAMERA_PENDING_KEY);
+      return false;
+    }
     return true;
   } catch {
     return false;
@@ -39,7 +104,8 @@ export async function persistAvatarToProfile(avatarDataUrl: string): Promise<str
   savePlayerProfile({ ...cur, avatarDataUrl: compressed });
   try {
     sessionStorage.setItem(PENDING_AVATAR_KEY, compressed);
-    localStorage.removeItem(AVATAR_CAMERA_PENDING_KEY);
+    /* Не снимаем флаги модалки/камеры здесь: после камеры страница часто
+       перезагружается — флаги нужны, чтобы снова открыть модалку имени. */
   } catch {
     /* ignore */
   }

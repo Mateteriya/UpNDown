@@ -41,6 +41,7 @@ import { persistAvatarToProfile } from '../lib/profileAvatarSave';
 import { AvatarEditorChipRail } from './avatarEditor/AvatarEditorChipRail';
 import { AvatarPolishGlyph } from './icons/AvatarPolishGlyph';
 import { AvatarNeonColorPicker, BRUSH_QUICK_COLORS } from './AvatarNeonColorPicker';
+import { getPlayerAvatarInitials } from './PlayerAvatar';
 import { useDesktopProfileUi } from './useDesktopProfileUi';
 
 const CANVAS_SIZE = 512;
@@ -68,12 +69,7 @@ const PHOTO_SCALE_MIN = 0.35;
 const PHOTO_SCALE_MAX = 2.8;
 
 function getInitials(name: string): string {
-  const t = name.trim();
-  if (!t) return '?';
-  const parts = t.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase().slice(0, 2);
-  if (t.length >= 2) return t.slice(0, 2).toUpperCase();
-  return t[0].toUpperCase();
+  return getPlayerAvatarInitials(name);
 }
 
 export interface AvatarEditorModalProps {

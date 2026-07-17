@@ -52914,6 +52914,18 @@ body:has(.menu-screen) {
   letter-spacing: 0.04em;
   text-shadow: 0 0 8px rgba(232, 121, 249, 0.28);
 }
+.menu-screen__tagline-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.menu-screen__tagline-row .menu-screen__tagline {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .menu-screen__player {
   display: flex;
   align-items: center;
@@ -52982,6 +52994,22 @@ body:has(.menu-screen) {
   font-size: 11px;
   color: var(--lobby-laser-amber);
   text-shadow: 0 0 8px rgba(251, 191, 36, 0.45);
+}
+.menu-screen__player-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.05;
+}
+.menu-screen__player-stack-char {
+  display: block;
+}
+.menu-screen__player-stack-duo {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
 }
 .menu-screen__alert {
   margin: 0 0 8px;
@@ -53478,17 +53506,46 @@ body:has(.menu-screen) {
 .menu-split-capsule__half--actionOffline .menu-glyph-accent--stem {
   stroke: #475569;
 }
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--plus-ring {
+  stroke: #f59e0b;
+  opacity: 0.9;
+  filter: drop-shadow(0 0 3px rgba(245, 158, 11, 0.55));
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: menu-new-party-plus-pulse 2.4s ease-in-out infinite;
+}
+.menu-split-capsule__half--actionOffline .menu-glyph-accent--plus {
+  fill: #fbbf24;
+  filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.7)) drop-shadow(0 0 6px rgba(245, 158, 11, 0.4));
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: menu-new-party-plus-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes menu-new-party-plus-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.92;
+  }
+  50% {
+    transform: scale(1.14);
+    opacity: 1;
+  }
+}
 
 .menu-split-capsule__half--resumeOffline .menu-glyph-accent--arc {
-  stroke: #a78bfa;
-  opacity: 0.9;
+  stroke: #ea4cbf;
+  opacity: 0.95;
+  filter: drop-shadow(0 0 2px rgba(234, 76, 191, 0.45));
 }
 .menu-split-capsule__half--resumeOffline .menu-glyph-accent--arrow {
-  stroke: #c4b5fd;
+  stroke: #27bcbe;
+  filter: drop-shadow(0 0 2px rgba(39, 188, 190, 0.4));
 }
 .menu-split-capsule__half--resumeOffline .menu-glyph-accent--play {
-  fill: #818cf8;
-  filter: drop-shadow(0 0 3px rgba(129, 140, 248, 0.6));
+  fill: #e8a50e;
+  filter: drop-shadow(0 0 3px rgba(232, 165, 14, 0.45));
 }
 
 .menu-split-capsule__mode-glyph--online .menu-capsule-glyph-svg--online {
@@ -53508,6 +53565,15 @@ body:has(.menu-screen) {
   flex-direction: column;
   gap: 1px;
 }
+.menu-capsule__eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  color: rgba(244, 114, 182, 0.88);
+  text-shadow: 0 0 8px rgba(244, 114, 182, 0.35);
+}
 .menu-capsule__title {
   font-size: 14px;
   font-weight: 700;
@@ -53519,6 +53585,110 @@ body:has(.menu-screen) {
   font-weight: 500;
   letter-spacing: 0.02em;
   line-height: 1.2;
+}
+.menu-capsule__glyph--avatar {
+  overflow: hidden;
+  padding: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.menu-capsule__glyph--avatar .player-avatar {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+}
+.menu-capsule--with-avatar .menu-capsule__title {
+  font-size: 15px;
+  letter-spacing: 0.01em;
+}
+.menu-capsule-shell {
+  position: relative;
+  width: 100%;
+}
+.menu-capsule-shell .menu-capsule {
+  width: 100%;
+  padding-right: 34px;
+}
+.menu-capsule__fold {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  translate: 0 -50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 34px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #a78bfa;
+  cursor: pointer;
+  filter:
+    drop-shadow(0 0 4px rgba(124, 58, 237, 0.75))
+    drop-shadow(0 0 10px rgba(91, 33, 182, 0.45));
+  opacity: 0.78;
+  transition:
+    color 0.18s ease,
+    opacity 0.18s ease,
+    filter 0.18s ease,
+    transform 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.menu-capsule__fold-arrows {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.12em;
+}
+.menu-capsule__fold:hover,
+.menu-capsule__fold:focus-visible {
+  opacity: 1;
+  color: #c4b5fd;
+  outline: none;
+  filter:
+    drop-shadow(0 0 5px rgba(167, 139, 250, 0.9))
+    drop-shadow(0 0 12px rgba(124, 58, 237, 0.55));
+}
+.menu-capsule--glyph-only {
+  width: auto;
+  min-width: 0;
+  justify-content: center;
+  gap: 0;
+  padding: 6px !important;
+  min-height: 58px;
+}
+.menu-capsule--glyph-only .menu-capsule__body {
+  display: none;
+}
+.menu-capsule--glyph-only .menu-capsule__glyph {
+  width: 54px;
+  height: 54px;
+}
+.menu-capsule--glyph-only .menu-capsule-glyph-svg {
+  width: 50px;
+  height: 50px;
+}
+.menu-capsule-shell--glyph-only {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.menu-capsule-shell--glyph-only .menu-capsule {
+  width: auto;
+  padding-right: 6px !important;
+}
+.menu-capsule-shell--glyph-only .menu-capsule__fold {
+  position: relative;
+  top: auto;
+  right: auto;
+  translate: none;
+  width: 28px;
+  height: 40px;
 }
 .menu-capsule--compact {
   padding: 5px 10px 5px 5px;
@@ -53936,7 +54106,7 @@ body:has(.menu-screen) {
     translate: var(--menu-drift-x, 0px) var(--menu-drift-y, 0px);
   }
   .menu-screen__drift--online {
-    translate: calc(-50% + var(--menu-drift-x, 0px)) var(--menu-drift-y, 0px);
+    translate: calc(var(--menu-drift-x, 0px)) var(--menu-drift-y, 0px);
   }
   .menu-screen__drift-bob {
     transform: none;
@@ -54029,6 +54199,12 @@ body:has(.menu-screen) {
   z-index: 1;
   border-radius: inherit;
   overflow: hidden;
+  pointer-events: none;
+}
+/* Обёртка слоёв звёзд (ПК использует для bob); на мобилке — просто заполняет shell */
+.menu-online-cosmic-stars__sky {
+  position: absolute;
+  inset: 0;
   pointer-events: none;
 }
 .menu-online-cosmic-stars__layer {
@@ -54392,53 +54568,146 @@ body:has(.menu-screen) {
     inset 0 0 0 1px rgba(192, 132, 252, 0.48),
     0 0 18px rgba(168, 85, 247, 0.4);
 }
+/* Offline crest glyph: розовый → сиреневый → фиолет → сине-голубой */
+@keyframes menu-offline-glyph-chroma-fill {
+  0%,
+  100% {
+    fill: #ff5ec8;
+  }
+  25% {
+    fill: #c4b5fd;
+  }
+  50% {
+    fill: #a78bfa;
+  }
+  75% {
+    fill: #38bdf8;
+  }
+}
+@keyframes menu-offline-glyph-chroma-stroke {
+  0%,
+  100% {
+    stroke: #ff5ec8;
+  }
+  25% {
+    stroke: #c4b5fd;
+  }
+  50% {
+    stroke: #a78bfa;
+  }
+  75% {
+    stroke: #38bdf8;
+  }
+}
+@keyframes menu-offline-glyph-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 5px rgba(255, 94, 200, 0.5));
+    box-shadow:
+      inset 0 2px 0 rgba(255, 180, 220, 0.28),
+      inset 0 -3px 8px rgba(8, 2, 14, 0.55),
+      inset 0 0 0 1.5px rgba(255, 94, 200, 0.5),
+      0 0 0 1px rgba(244, 114, 182, 0.25),
+      0 0 14px rgba(255, 94, 200, 0.38),
+      0 0 20px rgba(192, 132, 252, 0.2);
+  }
+  25% {
+    filter: drop-shadow(0 0 5px rgba(196, 181, 253, 0.5));
+    box-shadow:
+      inset 0 2px 0 rgba(221, 214, 254, 0.3),
+      inset 0 -3px 8px rgba(8, 2, 14, 0.55),
+      inset 0 0 0 1.5px rgba(196, 181, 253, 0.55),
+      0 0 0 1px rgba(167, 139, 250, 0.28),
+      0 0 14px rgba(196, 181, 253, 0.4),
+      0 0 20px rgba(139, 92, 246, 0.22);
+  }
+  50% {
+    filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.5));
+    box-shadow:
+      inset 0 2px 0 rgba(196, 181, 253, 0.28),
+      inset 0 -3px 8px rgba(8, 2, 14, 0.55),
+      inset 0 0 0 1.5px rgba(139, 92, 246, 0.55),
+      0 0 0 1px rgba(124, 58, 237, 0.3),
+      0 0 14px rgba(167, 139, 250, 0.42),
+      0 0 20px rgba(99, 102, 241, 0.24);
+  }
+  75% {
+    filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.5));
+    box-shadow:
+      inset 0 2px 0 rgba(186, 230, 253, 0.3),
+      inset 0 -3px 8px rgba(8, 2, 14, 0.55),
+      inset 0 0 0 1.5px rgba(56, 189, 248, 0.55),
+      0 0 0 1px rgba(34, 211, 238, 0.28),
+      0 0 14px rgba(56, 189, 248, 0.4),
+      0 0 20px rgba(99, 102, 241, 0.2);
+  }
+}
+
 .menu-split-capsule__mode-glyph--offline .menu-offline-bot__ring {
-  stroke: rgba(129, 140, 248, 0.45);
+  stroke: rgba(167, 139, 250, 0.55);
+  animation: menu-offline-glyph-chroma-stroke 8s ease-in-out infinite;
 }
 .menu-split-capsule__mode-glyph--offline .menu-offline-bot__orbit--a {
-  fill: #a78bfa;
+  fill: #ff5ec8;
+  animation:
+    lobby-orbit-spin 9s linear infinite,
+    menu-offline-orbit-pulse 2.3s ease-in-out infinite,
+    menu-offline-glyph-chroma-fill 8s ease-in-out infinite;
 }
 .menu-split-capsule__mode-glyph--offline .menu-offline-bot__orbit--b {
-  fill: #64748b;
+  fill: #c4b5fd;
+  animation:
+    lobby-orbit-spin 12s linear infinite reverse,
+    menu-offline-orbit-pulse 2.7s ease-in-out infinite 0.4s,
+    menu-offline-glyph-chroma-fill 8s ease-in-out infinite 2s;
 }
 .menu-split-capsule__mode-glyph--offline .menu-offline-bot__orbit--c {
-  fill: #818cf8;
+  fill: #38bdf8;
+  animation:
+    lobby-orbit-spin 15s linear infinite,
+    menu-offline-orbit-pulse 2s ease-in-out infinite 0.75s,
+    menu-offline-glyph-chroma-fill 8s ease-in-out infinite 4s;
 }
 .menu-split-capsule__mode-glyph--offline .menu-offline-bot__mast {
-  stroke: #94a3b8;
+  stroke: #c4b5fd;
 }
 .menu-split-capsule__mode-glyph--offline .menu-offline-bot__mast-tip {
-  fill: #a78bfa;
+  fill: #ff5ec8;
+  animation: menu-offline-glyph-chroma-fill 8s ease-in-out infinite 1s;
 }
 .menu-split-capsule__mode-glyph--offline .menu-offline-bot__helmet {
-  fill: rgba(15, 18, 32, 0.72);
-  stroke: #64748b;
-}
-.menu-split-capsule__mode-glyph--offline .menu-offline-bot__visor {
-  fill: rgba(8, 10, 20, 0.94);
-  stroke: #6366f1;
-}
-.menu-split-capsule__mode-glyph--offline .menu-offline-bot__scan {
+  fill: rgba(24, 10, 40, 0.82);
   stroke: #a78bfa;
 }
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__visor {
+  fill: rgba(12, 8, 28, 0.95);
+  stroke: #38bdf8;
+  animation: menu-offline-glyph-chroma-stroke 8s ease-in-out infinite 0.5s;
+}
+.menu-split-capsule__mode-glyph--offline .menu-offline-bot__scan {
+  stroke: #c4b5fd;
+  animation: menu-offline-glyph-chroma-stroke 8s ease-in-out infinite 1.5s;
+}
 .menu-split-capsule__mode-glyph--offline .menu-offline-bot__cheek {
-  stroke: rgba(100, 116, 139, 0.75);
+  stroke: rgba(167, 139, 250, 0.65);
 }
 .menu-split-capsule__mode-glyph--offline .menu-offline-bot__collar {
-  fill: rgba(30, 32, 48, 0.85);
-  stroke: #475569;
+  fill: rgba(36, 16, 56, 0.9);
+  stroke: #8b5cf6;
 }
 .menu-split-capsule__mode-glyph--offline .menu-offline-bot__torso {
-  stroke: rgba(100, 116, 139, 0.7);
+  stroke: rgba(56, 189, 248, 0.55);
 }
 .menu-split-capsule__mode-glyph--offline .menu-offline-bot__shoulder {
-  stroke: #64748b;
+  stroke: #a78bfa;
 }
 .menu-split-capsule__mode-glyph--offline .menu-offline-bot__core-ring {
-  stroke: #6366f1;
+  stroke: #a78bfa;
+  animation: menu-offline-glyph-chroma-stroke 8s ease-in-out infinite;
 }
 .menu-split-capsule__mode-glyph--offline .menu-offline-bot__core {
-  fill: #a78bfa;
+  fill: #ff5ec8;
+  animation: menu-offline-glyph-chroma-fill 8s ease-in-out infinite;
 }
 
 .menu-split-capsule--offline .menu-split-capsule__mode-glyph--legend-open {
@@ -54838,7 +55107,8 @@ body:has(.menu-screen) {
     rgba(8, 6, 22, 0.94) 0%,
     rgba(12, 10, 28, 0.92) 100%
   );
-  border-radius: 16px;
+  /* На мобилке скругление задаёт shell; здесь не заостряем углы */
+  border-radius: 26px;
 }
 .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open:not(.menu-split-capsule--legend-closing).menu-split-capsule--online
   .menu-split-capsule__legend-inner {
@@ -55613,20 +55883,13 @@ body:has(.menu-screen) {
   filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.35));
 }
 .menu-split-capsule__mode-glyph--offline {
-  color: #a78bfa;
+  color: #c4b5fd;
   background:
-    radial-gradient(circle at 28% 20%, rgba(196, 181, 253, 0.28), transparent 38%),
-    radial-gradient(circle at 38% 32%, rgba(129, 140, 248, 0.24), transparent 54%),
-    radial-gradient(circle at 70% 70%, rgba(100, 116, 139, 0.18), transparent 50%),
-    linear-gradient(165deg, rgba(22, 20, 40, 0.96) 0%, rgba(10, 10, 22, 0.98) 100%);
-  box-shadow:
-    inset 0 2px 0 rgba(196, 181, 253, 0.26),
-    inset 0 -3px 8px rgba(4, 4, 12, 0.55),
-    inset 0 0 0 1.5px rgba(167, 139, 250, 0.42),
-    0 0 0 1px rgba(99, 102, 241, 0.22),
-    0 0 14px rgba(129, 140, 248, 0.28),
-    0 0 18px rgba(99, 102, 241, 0.16);
-  filter: drop-shadow(0 0 4px rgba(167, 139, 250, 0.35));
+    radial-gradient(circle at 28% 20%, rgba(255, 180, 220, 0.28), transparent 38%),
+    radial-gradient(circle at 42% 36%, rgba(167, 139, 250, 0.28), transparent 52%),
+    radial-gradient(circle at 72% 68%, rgba(56, 189, 248, 0.2), transparent 50%),
+    linear-gradient(165deg, rgba(28, 12, 40, 0.96) 0%, rgba(10, 6, 22, 0.98) 100%);
+  animation: menu-offline-glyph-glow 8s ease-in-out infinite;
 }
 .menu-split-capsule__mode-dot::after {
   content: '';
@@ -55990,18 +56253,19 @@ body:has(.menu-screen) {
   text-shadow: 0 0 8px rgba(249, 103, 242, 0.4);
 }
 .menu-split-capsule__half--resumeOffline .menu-split-capsule__glyph {
-  color: #a78bfa;
+  color: #ea4cbf;
   background:
-    radial-gradient(circle at 28% 18%, rgba(196, 181, 253, 0.32), transparent 36%),
-    radial-gradient(circle at 50% 48%, rgba(129, 140, 248, 0.24), transparent 58%),
-    radial-gradient(circle at 70% 72%, rgba(100, 116, 139, 0.18), transparent 50%),
-    linear-gradient(165deg, rgba(22, 20, 40, 0.96) 0%, rgba(10, 10, 22, 0.98) 100%);
+    radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.16), transparent 36%),
+    radial-gradient(circle at 70% 78%, rgba(0, 0, 0, 0.55), transparent 48%),
+    linear-gradient(165deg, rgba(10, 8, 16, 0.98) 0%, rgba(2, 2, 6, 1) 100%);
   box-shadow:
-    inset 0 2px 0 rgba(196, 181, 253, 0.28),
-    inset 0 -4px 10px rgba(4, 4, 12, 0.58),
-    inset 0 0 0 1.5px rgba(167, 139, 250, 0.42),
-    0 0 0 1px rgba(99, 102, 241, 0.2),
-    0 0 14px rgba(129, 140, 248, 0.28);
+    /* 3D: мягкий верхний блик + нижняя тень (без белой «обводки») */
+    inset 0 2px 3px rgba(255, 255, 255, 0.14),
+    inset 0 10px 18px rgba(255, 255, 255, 0.04),
+    inset 0 -6px 14px rgba(0, 0, 0, 0.78),
+    inset 0 0 0 1.5px rgba(167, 139, 250, 0.28),
+    0 0 0 1px rgba(99, 102, 241, 0.14),
+    0 0 12px rgba(129, 140, 248, 0.16);
   filter: none;
 }
 .menu-split-capsule__half--actionOffline {
@@ -56035,17 +56299,16 @@ body:has(.menu-screen) {
 .menu-split-capsule__half--actionOffline .menu-split-capsule__glyph {
   color: #a78bfa;
   background:
-    radial-gradient(circle at 26% 16%, rgba(196, 181, 253, 0.34), transparent 34%),
-    radial-gradient(circle at 48% 42%, rgba(129, 140, 248, 0.26), transparent 56%),
-    radial-gradient(circle at 70% 70%, rgba(100, 116, 139, 0.16), transparent 50%),
-    linear-gradient(165deg, rgba(24, 22, 44, 0.96) 0%, rgba(10, 10, 22, 0.98) 100%);
+    radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.16), transparent 36%),
+    radial-gradient(circle at 70% 78%, rgba(0, 0, 0, 0.55), transparent 48%),
+    linear-gradient(165deg, rgba(10, 8, 16, 0.98) 0%, rgba(2, 2, 6, 1) 100%);
   box-shadow:
-    inset 0 2px 0 rgba(196, 181, 253, 0.3),
-    inset 0 -4px 10px rgba(4, 4, 12, 0.6),
-    inset 0 0 0 1.5px rgba(167, 139, 250, 0.45),
-    0 0 0 1px rgba(99, 102, 241, 0.22),
-    0 0 14px rgba(129, 140, 248, 0.3),
-    0 0 18px rgba(99, 102, 241, 0.14);
+    inset 0 2px 3px rgba(255, 255, 255, 0.14),
+    inset 0 10px 18px rgba(255, 255, 255, 0.04),
+    inset 0 -6px 14px rgba(0, 0, 0, 0.78),
+    inset 0 0 0 1.5px rgba(167, 139, 250, 0.28),
+    0 0 0 1px rgba(99, 102, 241, 0.14),
+    0 0 12px rgba(129, 140, 248, 0.16);
   filter: none;
 }
 .menu-split-capsule__half:hover {
@@ -56184,12 +56447,17 @@ body:has(.menu-screen) {
     0 0 8px rgba(168, 85, 247, 0.42),
     0 0 14px rgba(34, 211, 238, 0.22);
 }
-.menu-split-capsule__half--actionOffline .menu-split-capsule__glyph::after,
-.menu-split-capsule__half--resumeOffline .menu-split-capsule__glyph::after {
+.menu-split-capsule__half--actionOffline .menu-split-capsule__glyph::after {
   border-color: rgba(167, 139, 250, 0.55);
   box-shadow:
     0 0 8px rgba(129, 140, 248, 0.4),
     0 0 14px rgba(99, 102, 241, 0.22);
+}
+.menu-split-capsule__half--resumeOffline .menu-split-capsule__glyph::after {
+  border-color: rgba(234, 76, 191, 0.4);
+  box-shadow:
+    0 0 6px rgba(234, 76, 191, 0.28),
+    0 0 10px rgba(39, 188, 190, 0.18);
 }
 .menu-split-capsule__mode-glyph::after {
   content: '';

@@ -76,6 +76,8 @@ export interface AvatarNeonColorPickerProps {
   neonBrush: boolean;
   onNeonBrushChange: (neon: boolean) => void;
   className?: string;
+  /** Скрыть внешний переключатель Неон/Обыч (он остаётся внутри панели). */
+  hideExternalModeToggle?: boolean;
 }
 
 function normalizeHex(raw: string): string {
@@ -96,6 +98,7 @@ export function AvatarNeonColorPicker({
   neonBrush,
   onNeonBrushChange,
   className,
+  hideExternalModeToggle = false,
 }: AvatarNeonColorPickerProps) {
   const [open, setOpen] = useState(false);
   const [panelPos, setPanelPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -300,24 +303,26 @@ export function AvatarNeonColorPicker({
 
   return (
     <div className={['avatar-neon-picker', className].filter(Boolean).join(' ')}>
-      <div className="avatar-neon-picker__brush-mode" role="group" aria-label="Режим кисти">
-        <button
-          type="button"
-          className={['avatar-neon-picker__brush-mode-btn', neonBrush ? 'avatar-neon-picker__brush-mode-btn--active' : ''].join(' ')}
-          onClick={() => onNeonBrushChange(true)}
-          title="Кисть со свечением"
-        >
-          Неон
-        </button>
-        <button
-          type="button"
-          className={['avatar-neon-picker__brush-mode-btn', !neonBrush ? 'avatar-neon-picker__brush-mode-btn--active' : ''].join(' ')}
-          onClick={() => onNeonBrushChange(false)}
-          title="Обычная кисть"
-        >
-          Обыч
-        </button>
-      </div>
+      {!hideExternalModeToggle ? (
+        <div className="avatar-neon-picker__brush-mode" role="group" aria-label="Режим кисти">
+          <button
+            type="button"
+            className={['avatar-neon-picker__brush-mode-btn', neonBrush ? 'avatar-neon-picker__brush-mode-btn--active' : ''].join(' ')}
+            onClick={() => onNeonBrushChange(true)}
+            title="Кисть со свечением"
+          >
+            Неон
+          </button>
+          <button
+            type="button"
+            className={['avatar-neon-picker__brush-mode-btn', !neonBrush ? 'avatar-neon-picker__brush-mode-btn--active' : ''].join(' ')}
+            onClick={() => onNeonBrushChange(false)}
+            title="Обычная кисть"
+          >
+            Обыч
+          </button>
+        </div>
+      ) : null}
       <button
         ref={triggerRef}
         type="button"

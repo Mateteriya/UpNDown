@@ -13,9 +13,13 @@ import { loadLastOnlineParty } from './lib/lastOnlineParty'
 import { canShowOnlineContinue } from './lib/onlineContinue'
 import { isWsOnlineTransport } from './lib/onlineTransport'
 import {
-  consumeAvatarCameraPending,
+  clearNameAvatarModalOpen,
   consumePendingAvatarDraft,
+  markNameAvatarModalOpen,
   mergeStoredAvatarIntoProfile,
+  peekAvatarCameraPending,
+  peekNameAvatarModalOpen,
+  type NameAvatarModalResumeMode,
 } from './lib/profileAvatarSave'
 import MobileOverlapHint from './ui/MobileOverlapHint'
 import { HistoryModal } from './ui/HistoryModal'
@@ -59,8 +63,23 @@ function App() {
   const [gameId, setGameId] = useState(1)
   const [devMode, setDevMode] = useState(() => typeof sessionStorage !== 'undefined' && sessionStorage.getItem(DEV_MODE_KEY) === '1')
   const [profile, setProfile] = useState<PlayerProfile>(() => getPlayerProfile())
-  const [showNameAvatarModal, setShowNameAvatarModal] = useState(false)
-  const [nameAvatarMode, setNameAvatarMode] = useState<'first-run' | 'profile' | 'new-account'>('profile')
+  const [nameAvatarMode, setNameAvatarMode] = useState<NameAvatarModalResumeMode>(
+    () => peekNameAvatarModalOpen() ?? 'profile',
+  )
+  const [showNameAvatarModal, setShowNameAvatarModal] = useState(
+    () => peekNameAvatarModalOpen() != null || peekAvatarCameraPending(),
+  )
+
+  const openNameAvatarModal = useCallback((mode: NameAvatarModalResumeMode) => {
+    markNameAvatarModalOpen(mode)
+    setNameAvatarMode(mode)
+    setShowNameAvatarModal(true)
+  }, [])
+
+  const closeNameAvatarModal = useCallback(() => {
+    clearNameAvatarModalOpen()
+    setShowNameAvatarModal(false)
+  }, [])
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [showOfflineChoiceModal, setShowOfflineChoiceModal] = useState(false)
@@ -98,9 +117,13 @@ function App() {
     } else {
       setProfile(getPlayerProfile())
     }
-    if (consumeAvatarCameraPending()) {
+    const resumeMode = peekNameAvatarModalOpen()
+    const cameraPending = peekAvatarCameraPending()
+    if (resumeMode || cameraPending) {
       if (isWsOnlineTransport()) void online.tryRestoreSession()
-      setNameAvatarMode('profile')
+      const mode = resumeMode ?? 'profile'
+      markNameAvatarModalOpen(mode)
+      setNameAvatarMode(mode)
       setShowNameAvatarModal(true)
     }
   }, [])
@@ -231,13 +254,12 @@ function App() {
           // OAuth или вход без регистрации — имя не задано, показываем модалку «Задайте имя для этого аккаунта»
           if (newAccountGatePromptedRef.current === user.id) return
           newAccountGatePromptedRef.current = user.id
-          setNameAvatarMode('new-account')
-          setShowNameAvatarModal(true)
+          openNameAvatarModal('new-account')
         }
       }
     })()
     return () => { cancelled = true }
-  }, [user?.id, user?.email ?? ''])
+  }, [user?.id, user?.email ?? '', openNameAvatarModal])
 
   const enableDevMode = useCallback(() => {
     sessionStorage.setItem(DEV_MODE_KEY, '1')
@@ -271,8 +293,7 @@ function App() {
       return
     }
     if (profile.displayName === DEFAULT_DISPLAY_NAME) {
-      setNameAvatarMode('first-run')
-      setShowNameAvatarModal(true)
+      openNameAvatarModal('first-run')
       // Пока пользователь вводит имя — подгружаем чанк игры, чтобы к моменту «Сохранить» экран открылся быстрее
       import('./ui/GameTable')
     } else {
@@ -280,16 +301,17 @@ function App() {
     }
   }
 
-  const handleNameAvatarConfirm = useCallback((data: { displayName: string; avatarDataUrl?: string | null }) => {
+  const handleNameAvatarConfirm = useCallback((data: { displayName: string; avatarDataUrl?: string | null; avatarBgColor?: string | null }) => {
     const current = getPlayerProfile()
     const next: PlayerProfile = {
       displayName: data.displayName,
       avatarDataUrl: data.avatarDataUrl ?? null,
+      avatarBgColor: data.avatarBgColor ?? current.avatarBgColor ?? null,
       profileId: current.profileId,
     }
     savePlayerProfile(next)
     setProfile(next)
-    setShowNameAvatarModal(false)
+    closeNameAvatarModal()
     newAccountGatePromptedRef.current = null
     if (user?.id) saveProfileToSupabase(user.id, next)
     if (online.roomId) {
@@ -302,7 +324,7 @@ function App() {
       startGame()
     }
     if (nameAvatarMode === 'new-account') setNameAvatarMode('profile')
-  }, [nameAvatarMode, user?.id, online.roomId, online.syncMySlotDisplayName, online.syncMySlotAvatar, online.leaveRoom, suppressOnlineAutoRestore])
+  }, [nameAvatarMode, user?.id, online.roomId, online.syncMySlotDisplayName, online.syncMySlotAvatar, online.leaveRoom, suppressOnlineAutoRestore, closeNameAvatarModal])
 
   /** Селфи на телефоне часто перезагружает вкладку — пишем аватар и слот сразу, не дожидаясь «Сохранить». */
   const handlePhotoCaptured = useCallback((avatarDataUrl: string) => {
@@ -415,6 +437,7 @@ function App() {
         <MainMenuScreen
           displayName={profile.displayName}
           avatarDataUrl={profile.avatarDataUrl}
+          avatarBgColor={profile.avatarBgColor}
           userEmail={user?.email ?? null}
           devMode={devMode}
           canResumeOnline={canResumeOnline}
@@ -456,8 +479,7 @@ function App() {
             setShowOfflineChoiceModal(false)
             clearGameStateFromStorage()
             if (profile.displayName === DEFAULT_DISPLAY_NAME) {
-              setNameAvatarMode('first-run')
-              setShowNameAvatarModal(true)
+              openNameAvatarModal('first-run')
               import('./ui/GameTable')
             } else {
               const startNew = () => {
@@ -633,8 +655,7 @@ function App() {
           avatarDataUrl={profile.avatarDataUrl}
           onBack={() => setScreen('menu')}
           onEditProfile={() => {
-            setNameAvatarMode('profile')
-            setShowNameAvatarModal(true)
+            openNameAvatarModal('profile')
           }}
           onOpenRating={() => setShowRatingModal(true)}
           onOpenHistory={() => setShowHistoryModal(true)}
@@ -648,7 +669,7 @@ function App() {
         <LobbyScreen
           onBack={() => { setScreenLobby(false); setUrlJoinCode(null) }}
           playerName={profile.displayName}
-          onEditProfile={() => { setNameAvatarMode('profile'); setShowNameAvatarModal(true) }}
+          onEditProfile={() => openNameAvatarModal('profile')}
           onOpenAccount={openAccountCabinet}
           initialJoinCode={urlJoinCode ?? undefined}
           lanGuestInvite={Boolean(urlJoinCode)}
@@ -670,6 +691,8 @@ function App() {
         <NameAvatarModal
           initialDisplayName={nameAvatarMode === 'new-account' ? (user?.email?.split('@')[0] ?? '') : profile.displayName}
           initialAvatarDataUrl={profile.avatarDataUrl}
+          initialAvatarBgColor={profile.avatarBgColor}
+          resumeMode={nameAvatarMode}
           title={
             nameAvatarMode === 'first-run'
               ? 'Как к вам обращаться?'
@@ -680,7 +703,7 @@ function App() {
           confirmLabel="Сохранить"
           onConfirm={handleNameAvatarConfirm}
           onPhotoCaptured={handlePhotoCaptured}
-          onCancel={nameAvatarMode === 'profile' ? () => setShowNameAvatarModal(false) : undefined}
+          onCancel={nameAvatarMode === 'profile' ? closeNameAvatarModal : undefined}
         />
       )}
       {/* Только на экране игры: порталы итогов раздачи иначе попадают в document.body и видны поверх меню/лобби */}
@@ -697,9 +720,10 @@ function App() {
               gameId={gameId}
               playerDisplayName={profile.displayName}
               playerAvatarDataUrl={profile.avatarDataUrl}
+              playerAvatarBgColor={profile.avatarBgColor}
               onExit={handleExit}
               onNewGame={handleNewGame}
-              onOpenProfileModal={() => { setNameAvatarMode('profile'); setShowNameAvatarModal(true) }}
+              onOpenProfileModal={() => openNameAvatarModal('profile')}
               onSaveAvatar={(avatarDataUrl) => {
                 handleNameAvatarConfirm({ displayName: profile.displayName, avatarDataUrl });
               }}
