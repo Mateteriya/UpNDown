@@ -1,0 +1,500 @@
+/**
+ * Signed identity (profile / account) на главном меню — WAVE × online stamp × twin stars.
+ */
+
+.menu-signed-id {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.menu-signed-id__ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  padding: 3px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+.menu-signed-id__ring::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: linear-gradient(160deg, rgba(24, 12, 52, 0.95), rgba(8, 4, 28, 0.98));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.menu-signed-id__face {
+  position: relative;
+  z-index: 1;
+  box-shadow:
+    0 0 0 1.5px rgba(12, 6, 32, 0.95),
+    inset 0 0 10px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Profile: приглушённый ободок */
+.menu-signed-id--profile .menu-signed-id__ring {
+  background: linear-gradient(
+    145deg,
+    rgba(148, 163, 184, 0.55) 0%,
+    rgba(100, 116, 139, 0.7) 40%,
+    rgba(167, 139, 250, 0.45) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(148, 163, 184, 0.28),
+    0 0 12px rgba(148, 163, 184, 0.14);
+}
+
+/* Account: яркий ободок */
+.menu-signed-id--account .menu-signed-id__ring {
+  background: linear-gradient(135deg, #67e8f9 0%, #c084fc 42%, #f472b6 72%, #fbbf24 100%);
+  box-shadow:
+    0 0 0 1px rgba(103, 232, 249, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 0 16px rgba(34, 211, 238, 0.35),
+    0 0 22px rgba(168, 85, 247, 0.28),
+    0 6px 14px rgba(4, 2, 16, 0.4);
+}
+
+.menu-signed-id__face--pop {
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.4));
+}
+
+/* Убираем старый контейнер чипа меню — signed-id сам себе кольцо */
+.menu-screen .menu-screen__player--signed.menu-screen__player--collapsed {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.menu-screen .menu-screen__player--signed {
+  overflow: visible;
+}
+
+.menu-screen .menu-screen__player--signed:has(.menu-signed-id__wave--tip-open) {
+  z-index: 60 !important;
+}
+
+/* ── WAVE antenna (profile) ── */
+.menu-signed-id__wave {
+  position: absolute;
+  right: -5px;
+  bottom: -12px;
+  z-index: 6;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  font: inherit;
+  color: #e879f9;
+  background: linear-gradient(160deg, rgba(76, 29, 149, 0.92), rgba(30, 10, 58, 0.98));
+  box-shadow:
+    0 0 0 1px rgba(232, 121, 249, 0.55),
+    0 0 12px rgba(217, 70, 239, 0.55),
+    0 4px 10px rgba(2, 6, 23, 0.45);
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease,
+    filter 0.14s ease;
+}
+
+.menu-signed-id__wave:hover,
+.menu-signed-id__wave:focus-visible {
+  transform: scale(1.08);
+  filter: brightness(1.12);
+  box-shadow:
+    0 0 0 1px rgba(240, 171, 252, 0.75),
+    0 0 16px rgba(232, 121, 249, 0.7),
+    0 4px 10px rgba(2, 6, 23, 0.45);
+  outline: none;
+}
+
+.menu-signed-id__wave--tip-open {
+  box-shadow:
+    0 0 0 1.5px rgba(250, 204, 21, 0.65),
+    0 0 16px rgba(232, 121, 249, 0.65),
+    0 4px 10px rgba(2, 6, 23, 0.45);
+}
+
+.menu-signed-id__wave-svg {
+  width: 20px;
+  height: 20px;
+  overflow: visible;
+  filter: drop-shadow(0 0 3px rgba(232, 121, 249, 0.85));
+}
+
+.menu-signed-id__wave-arc {
+  stroke: #f0abfc;
+}
+
+.menu-signed-id__wave-arc--a {
+  opacity: 0.7;
+  animation: menu-signed-wave-ping 2.8s ease-in-out infinite;
+}
+
+.menu-signed-id__wave-arc--b {
+  opacity: 0.4;
+  animation: menu-signed-wave-ping 2.8s ease-in-out infinite 0.55s;
+}
+
+@keyframes menu-signed-wave-ping {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  35% {
+    opacity: 0.75;
+  }
+  55% {
+    opacity: 0.2;
+  }
+}
+
+/* ── Twin stars (account) ── */
+.menu-signed-id__stars {
+  position: absolute;
+  top: -4px;
+  right: -5px;
+  z-index: 6;
+  width: 18px;
+  height: 16px;
+  pointer-events: none;
+  color: #67e8f9;
+  filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.75));
+}
+
+.menu-signed-id__star {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+}
+
+.menu-signed-id__star--a {
+  top: 0;
+  left: 0;
+  color: #f0abfc;
+}
+
+.menu-signed-id__star--b {
+  width: 7px;
+  height: 7px;
+  top: 7px;
+  left: 9px;
+  color: #67e8f9;
+}
+
+/* ── Online stamp ── */
+.menu-signed-id__online {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 3px 9px 4px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  background: linear-gradient(
+    155deg,
+    rgba(8, 145, 178, 0.42) 0%,
+    rgba(22, 101, 52, 0.35) 55%,
+    rgba(76, 29, 149, 0.38) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(74, 222, 128, 0.18),
+    0 0 12px rgba(34, 211, 238, 0.28),
+    0 0 16px rgba(74, 222, 128, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+  user-select: none;
+}
+
+.menu-signed-id__online-dot {
+  position: relative;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: radial-gradient(circle at 35% 30%, #bbf7d0, #22c55e 62%, #166534 100%);
+  box-shadow:
+    0 0 0 1.5px rgba(187, 247, 208, 0.45),
+    0 0 8px rgba(74, 222, 128, 0.85);
+  animation: menu-signed-online-dot 2.2s ease-in-out infinite;
+}
+
+.menu-signed-id__online-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid rgba(74, 222, 128, 0.45);
+  animation: menu-signed-online-ring 2.2s ease-out infinite;
+}
+
+.menu-signed-id__online-text {
+  font-family: 'Exo 2', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  line-height: 1;
+  color: #ecfeff;
+  text-shadow:
+    0 0 8px rgba(34, 211, 238, 0.45),
+    0 0 12px rgba(74, 222, 128, 0.3);
+}
+
+@keyframes menu-signed-online-dot {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes menu-signed-online-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+
+/* ── Cosmic tip ── */
+.menu-signed-id__tip.game-table-tooltip-cosmic {
+  position: fixed;
+  z-index: 2147483000;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: max-content;
+  max-width: min(260px, calc(100vw - 20px));
+  padding: 12px 28px 12px 12px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  pointer-events: auto;
+  overflow: hidden;
+  background-color: #0e0c2a;
+  background-image:
+    radial-gradient(120% 90% at 20% 0%, rgb(56 189 248 / 0.14) 0%, rgb(14, 12, 42) 55%),
+    radial-gradient(100% 90% at 85% 100%, rgb(217 70 239 / 0.14) 0%, rgb(14, 12, 42) 62%),
+    linear-gradient(158deg, rgb(14, 12, 42) 0%, rgb(22, 18, 58) 42%, rgb(3, 6, 18) 100%),
+    conic-gradient(
+      from 225deg,
+      #22d3ee 0%,
+      #c084fc 18%,
+      #e879f9 34%,
+      #f472b6 50%,
+      #fbbf24 66%,
+      #4ade80 82%,
+      #22d3ee 100%
+    );
+  background-clip: padding-box, padding-box, padding-box, border-box;
+  background-origin: padding-box, padding-box, padding-box, border-box;
+  box-shadow:
+    0 0 0 1px rgb(34 211 238 / 0.55),
+    0 0 28px rgb(34 211 238 / 0.38),
+    0 0 42px rgb(168 85 247 / 0.32),
+    0 10px 28px rgb(2 6 23 / 0.62);
+  animation: menu-signed-tip-pop 0.22s ease-out both;
+}
+
+.menu-signed-id__tip-text.game-table-tooltip-cosmic-body-text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  background-image: linear-gradient(
+    104deg,
+    #fbcfe8 0%,
+    #ddd6fe 18%,
+    #bfdbfe 36%,
+    #99f6e4 54%,
+    #fde68a 72%,
+    #f9a8d4 88%,
+    #a5f3fc 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.menu-signed-id__tip-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  color: #e9d5ff;
+  background: rgba(76, 29, 149, 0.45);
+  box-shadow: 0 0 0 1px rgba(232, 121, 249, 0.35);
+  transition:
+    background 0.14s ease,
+    color 0.14s ease,
+    filter 0.14s ease;
+}
+
+.menu-signed-id__tip-close:hover,
+.menu-signed-id__tip-close:focus-visible {
+  color: #fff;
+  background: rgba(168, 85, 247, 0.55);
+  filter: brightness(1.08);
+  outline: none;
+}
+
+.menu-signed-id__tip-close:active {
+  transform: scale(0.94);
+}
+
+.menu-signed-id__tip-cta {
+  align-self: stretch;
+  width: 100%;
+  margin: 0;
+  padding: 7px 12px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  text-align: center;
+  background:
+    linear-gradient(160deg, rgba(18, 12, 42, 0.95), rgba(8, 6, 24, 0.98)) padding-box,
+    linear-gradient(120deg, #22d3ee, #c084fc, #f472b6, #fbbf24) border-box;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.28),
+    0 0 14px rgba(168, 85, 247, 0.4);
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease,
+    filter 0.14s ease;
+}
+
+.menu-signed-id__tip-cta:hover,
+.menu-signed-id__tip-cta:focus-visible {
+  filter: brightness(1.08);
+  outline: none;
+}
+
+.menu-signed-id__tip-cta:active {
+  transform: scale(0.97);
+}
+
+.menu-signed-id__tip-cta__label {
+  font-family: 'Exo 2', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  background-image: linear-gradient(100deg, #67e8f9 0%, #e9d5ff 42%, #f9a8d4 78%, #fde68a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes menu-signed-tip-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ПК-капсула: без своего толстого кольца — аватар как глиф капсулы */
+.menu-signed-id--capsule .menu-signed-id__ring {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.menu-signed-id--capsule .menu-signed-id__ring::before {
+  display: none;
+}
+
+.menu-signed-id--capsule .menu-signed-id__face {
+  box-shadow: none !important;
+}
+
+.menu-signed-id--capsule .menu-signed-id__wave {
+  width: 22px;
+  height: 22px;
+  right: -4px;
+  bottom: -10px;
+}
+
+.menu-signed-id--capsule .menu-signed-id__wave-svg {
+  width: 17px;
+  height: 17px;
+}
+
+.menu-signed-id--capsule .menu-signed-id__online {
+  margin-top: 5px;
+  padding: 2px 8px 3px 6px;
+}
+
+.menu-signed-id--capsule .menu-signed-id__online-text {
+  font-size: 9px;
+}
+
+.menu-capsule__glyph--avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-signed-id__wave-arc--a,
+  .menu-signed-id__wave-arc--b,
+  .menu-signed-id__online-dot,
+  .menu-signed-id__online-dot::after {
+    animation: none;
+  }
+
+  .menu-signed-id__wave-arc--a,
+  .menu-signed-id__wave-arc--b {
+    opacity: 0.45;
+  }
+}

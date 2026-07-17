@@ -1,10 +1,13 @@
 /**
- * Лаборатория: варианты ПК-надписей «Онлайн / Офлайн» на split-капсулах.
+ * Лаборатория: варианты ПК-надписей «Онлайн / Офлайн» на split-капсулах
+ * + песочница статусов аватарки главной.
  * URL: /mode-label-lab — только локальные тесты, не прод-меню.
  */
 
 import { useState, type ReactNode } from 'react';
+import { accountRouteHref } from '../lib/accountRoute';
 import { MenuPlaySplitCapsule } from './MenuEntryActions';
+import { AvatarStatusLabSection } from './mode-label-lab/AvatarStatusLab';
 import {
   ModeLabelCenterWatermarkCaption,
   ModeLabelCenterWatermarkGhost,
@@ -13,6 +16,7 @@ import {
   ModeLabelOrbitalRing,
 } from './mode-label-lab/ModeLabelLabVariants';
 import '../styles/mode-label-lab.css';
+import '../styles/avatar-status-lab.css';
 
 type LabelVariant = 'current' | 'hybrid' | 'holo' | 'orbit' | 'watermark';
 /** Полный = как на 16″+; компакт ≈ −22% под планшет / узкий ПК. */
@@ -128,10 +132,10 @@ export function ModeLabelLabPage({ onBack }: ModeLabelLabPageProps) {
           ← В приложение
         </button>
         <div>
-          <h1 className="mode-label-lab__title">Лаб: надписи режима на split-капсулах (ПК)</h1>
+          <h1 className="mode-label-lab__title">Лаб: меню — надписи и статус аватарки</h1>
           <p className="mode-label-lab__hint">
-            Локальная песочница (`/mode-label-lab`). Прод не меняется — сначала отрабатываем
-            плотность здесь.
+            Локальная песочница (`/mode-label-lab`). Сверху — аватарка profile / account; ниже —
+            надписи режима на split-капсулах. Прод не меняется.
           </p>
         </div>
         <div className="mode-label-lab__density" role="group" aria-label="Плотность капсул">
@@ -169,18 +173,18 @@ export function ModeLabelLabPage({ onBack }: ModeLabelLabPageProps) {
       </header>
 
       <div className="mode-label-lab__body">
+        <AvatarStatusLabSection onOpenCabinet={() => (window.location.href = accountRouteHref())} />
+
         <p className="mode-label-lab__density-note">
           {density === 'full' ? (
             <>
-              Сейчас: <strong>полный</strong> размер (эталон с 16″). Переключи на «Компакт», чтобы
-              проверить планшет / узкий ПК — клинья, орбиты и подписи половинок масштабируются
-              вместе.
+              Ниже — лаб надписей режима. Сейчас: <strong>полный</strong> размер (эталон с 16″).
+              Переключи на «Компакт», чтобы проверить планшет / узкий ПК.
             </>
           ) : (
             <>
               Сейчас: <strong>компакт ≈ −22%</strong>. Цель — читаемые «Новая партия» / hint без
-              наезда клина; глиф и декор пропорционально мельче. Когда ок — вынесем в прод по
-              breakpoint.
+              наезда клина; глиф и декор пропорционально мельче.
             </>
           )}
         </p>

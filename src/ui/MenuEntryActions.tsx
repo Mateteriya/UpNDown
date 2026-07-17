@@ -12,6 +12,8 @@ import {
   ModeLabelHoloWedge,
 } from './mode-label-lab/ModeLabelLabVariants';
 import { PlayerAvatar } from './PlayerAvatar';
+import { MenuSignedIdentityMark, type MenuSignedStatus } from './MenuSignedIdentityMark';
+import { MenuMapTipDismiss } from './MenuMapTipDismiss';
 
 const PC_MENU_MQ = '(min-width: 1025px)';
 
@@ -19,7 +21,7 @@ const MODE_LEGEND_AUTO_CLOSE_MS = 20000;
 /** Длительность плавного сворачивания (fade → height → снятие класса). */
 const MODE_LEGEND_CLOSE_ANIM_MS = 300;
 const MODE_LEGEND_ART_COMPACT_DELAY_MS = 2600;
-const SOLO_MAP_TIP_AUTO_MS = 4200;
+const SOLO_MAP_TIP_AUTO_MS = 7500;
 
 /** Solo-офлайн каплюля: короткие ролики CTA (только без Continue). */
 const OFFLINE_SOLO_PILL_LABELS = ['Офлайн', 'с ИИ', 'Играть'] as const;
@@ -561,6 +563,8 @@ export type MenuCapsuleButtonProps = {
   /** Вместо глифа — аватар профиля. */
   avatarName?: string;
   avatarDataUrl?: string | null;
+  /** profile/account: WAVE / online-stamp поверх аватара. */
+  identityStatus?: MenuSignedStatus;
   /** Стрелки на капсуле: свернуть до глифа / развернуть. */
   collapsible?: boolean;
   /** Ключ localStorage для свёртки (обязателен при collapsible). */
@@ -578,6 +582,7 @@ export function MenuCapsuleButton({
   compact,
   avatarName,
   avatarDataUrl,
+  identityStatus,
   collapsible,
   collapseId,
 }: MenuCapsuleButtonProps) {
@@ -613,7 +618,16 @@ export function MenuCapsuleButton({
   const body = (
     <>
       <span className={['menu-capsule__glyph', avatarName ? 'menu-capsule__glyph--avatar' : ''].filter(Boolean).join(' ')}>
-        {avatarName ? (
+        {avatarName && identityStatus ? (
+          <MenuSignedIdentityMark
+            status={identityStatus}
+            name={avatarName}
+            avatarDataUrl={avatarDataUrl}
+            sizePx={compact ? 36 : 42}
+            surface="capsule"
+            onOpenCabinet={() => onClick?.()}
+          />
+        ) : avatarName ? (
           <PlayerAvatar name={avatarName} avatarDataUrl={avatarDataUrl} sizePx={compact ? 36 : 42} />
         ) : (
           GLYPHS[variant]
@@ -1231,6 +1245,17 @@ export function MenuPlaySplitCapsule({
   const [pillMapTipOpen, setPillMapTipOpen] = useState(false);
   const [showGlyphMapHint, setShowGlyphMapHint] = useState(() => !hasSeenSoloMapHint('glyph'));
   const [showPillMapHint, setShowPillMapHint] = useState(() => !hasSeenSoloMapHint('pill'));
+  /** Пока открыт guest-тултип — не рендерим офлайн-пунктиры (иначе SVG рисуется поверх). */
+  const [guestMapTipOpen, setGuestMapTipOpen] = useState(false);
+
+  useEffect(() => {
+    const onGuestTip = (e: Event) => {
+      const open = Boolean((e as CustomEvent<{ open?: boolean }>).detail?.open);
+      setGuestMapTipOpen(open);
+    };
+    window.addEventListener('menu-guest-map-tip', onGuestTip);
+    return () => window.removeEventListener('menu-guest-map-tip', onGuestTip);
+  }, []);
   const mapTipTimerRef = useRef<number | null>(null);
   const pillMapTipTimerRef = useRef<number | null>(null);
   const soloOfflinePillLabel = useCyclingLabel(
@@ -1437,7 +1462,7 @@ export function MenuPlaySplitCapsule({
             legendPanelId={legendPanelId}
             showModeLabel={false}
           />
-          {mode === 'offline' && !isPcMenu && !legendOpen && showGlyphMapHint ? (
+          {mode === 'offline' && !isPcMenu && !legendOpen && showGlyphMapHint && !guestMapTipOpen && !pillMapTipOpen ? (
             <div className="menu-split-capsule__solo-map-hint">
               <svg
                 className="menu-split-capsule__solo-map-hint__svg"
@@ -1575,11 +1600,12 @@ export function MenuPlaySplitCapsule({
                   <p className="game-table-tooltip-cosmic-body-text menu-split-capsule__solo-map-tip__text">
                     {SOLO_MAP_TIP_TEXT}
                   </p>
+                  <MenuMapTipDismiss onDismiss={closeMapTip} onHideHint={dismissGlyphMapHint} />
                 </div>
               ) : null}
             </div>
           ) : null}
-          {mode === 'offline' && !isPcMenu && !legendOpen && showPillMapHint ? (
+          {mode === 'offline' && !isPcMenu && !legendOpen && showPillMapHint && !guestMapTipOpen && !mapTipOpen ? (
             <div className="menu-split-capsule__solo-map-hint menu-split-capsule__solo-map-hint--pill">
               <svg
                 className="menu-split-capsule__solo-map-hint__svg"
@@ -1715,6 +1741,7 @@ export function MenuPlaySplitCapsule({
                   <p className="game-table-tooltip-cosmic-body-text menu-split-capsule__solo-map-tip__text">
                     {SOLO_PILL_MAP_TIP_TEXT}
                   </p>
+                  <MenuMapTipDismiss onDismiss={closePillMapTip} onHideHint={dismissPillMapHint} />
                 </div>
               ) : null}
             </div>

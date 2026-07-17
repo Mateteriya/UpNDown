@@ -1,0 +1,408 @@
+/**
+ * Бренд-марка Up&Down — «лицо» игры на главном меню.
+ * Орбитальное кольцо + голографическая рамка вокруг иконки.
+ */
+
+.menu-screen__brand-mark {
+  --mbm-size: 40px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--mbm-size);
+  height: var(--mbm-size);
+  flex-shrink: 0;
+  overflow: visible;
+  isolation: isolate;
+}
+
+.menu-screen__brand-mark__orbit {
+  position: absolute;
+  inset: -7px;
+  border-radius: 18px;
+  pointer-events: none;
+  background: conic-gradient(
+    from 210deg,
+    #22d3ee 0%,
+    #67e8f9 12%,
+    #a78bfa 28%,
+    #e879f9 42%,
+    #f472b6 55%,
+    #fbbf24 68%,
+    #4ade80 82%,
+    #22d3ee 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 1.35px;
+  opacity: 0.88;
+  /* один оборот 4 с, пауза 15 с — цикл 19 с */
+  animation: menu-brand-orbit-burst 19s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.35));
+}
+
+.menu-screen__brand-mark__orbit::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 15px;
+  border: 1px dashed rgba(186, 230, 253, 0.28);
+  opacity: 0.9;
+  animation: menu-brand-orbit-burst-rev 19s linear infinite;
+}
+
+.menu-screen__brand-mark__halo {
+  position: absolute;
+  inset: -11px;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(closest-side, rgba(34, 211, 238, 0.28) 0%, transparent 72%),
+    radial-gradient(closest-side at 30% 25%, rgba(244, 114, 182, 0.22) 0%, transparent 60%),
+    radial-gradient(closest-side at 75% 80%, rgba(74, 222, 128, 0.16) 0%, transparent 58%);
+  filter: blur(2px);
+  opacity: 0.85;
+  animation: menu-brand-halo-breathe 4.8s ease-in-out infinite;
+  z-index: 0;
+}
+
+.menu-screen__brand-mark__frame {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--mbm-size);
+  height: var(--mbm-size);
+  padding: 2.5px;
+  border-radius: 12px;
+  box-sizing: border-box;
+  transform: perspective(420px) rotateX(8deg) rotateY(-7deg) translateZ(0);
+  transform-style: preserve-3d;
+  background:
+    linear-gradient(145deg, rgba(14, 10, 36, 0.95), rgba(6, 8, 22, 0.98)) padding-box,
+    linear-gradient(
+      135deg,
+      #67e8f9 0%,
+      #22d3ee 18%,
+      #a78bfa 42%,
+      #f472b6 62%,
+      #fbbf24 82%,
+      #4ade80 100%
+    )
+      border-box;
+  border: 1.5px solid transparent;
+  box-shadow:
+    0 0 0 1px rgba(103, 232, 249, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.22),
+    0 10px 18px rgba(2, 6, 23, 0.55),
+    0 4px 8px rgba(2, 6, 23, 0.4),
+    0 0 18px rgba(34, 211, 238, 0.28),
+    0 0 28px rgba(168, 85, 247, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.45);
+}
+
+/* Уголки «карта» — намёк на масть / направление вверх-вниз */
+.menu-screen__brand-mark__frame::before,
+.menu-screen__brand-mark__frame::after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.menu-screen__brand-mark__frame::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1.5px solid #67e8f9;
+  border-left: 1.5px solid #67e8f9;
+  border-radius: 2px 0 0 0;
+  box-shadow: -1px -1px 6px rgba(34, 211, 238, 0.55);
+}
+
+.menu-screen__brand-mark__frame::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 1.5px solid #4ade80;
+  border-bottom: 1.5px solid #4ade80;
+  border-radius: 0 0 2px 0;
+  box-shadow: 1px 1px 6px rgba(74, 222, 128, 0.45);
+}
+
+.menu-screen__brand-mark .menu-screen__brand-icon {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 9px;
+  object-fit: cover;
+  box-shadow: none;
+  transform: translateZ(10px);
+  /* объём: свет сверху-слева, тень снизу-справа */
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.18))
+    drop-shadow(0 3px 2px rgba(2, 6, 23, 0.35))
+    drop-shadow(0 8px 10px rgba(2, 6, 23, 0.45))
+    contrast(1.06)
+    saturate(1.08);
+}
+
+.menu-screen__brand-mark__gloss {
+  position: absolute;
+  inset: 2.5px;
+  z-index: 2;
+  border-radius: 9px;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      155deg,
+      rgba(255, 255, 255, 0.42) 0%,
+      rgba(255, 255, 255, 0.14) 22%,
+      rgba(255, 255, 255, 0.02) 38%,
+      transparent 52%
+    ),
+    radial-gradient(
+      120% 90% at 18% 12%,
+      rgba(224, 242, 254, 0.35) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      80% 70% at 85% 90%,
+      rgba(2, 6, 23, 0.35) 0%,
+      transparent 55%
+    );
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.4),
+    inset 2px 0 4px rgba(0, 0, 0, 0.12),
+    inset -1px 0 3px rgba(255, 255, 255, 0.08);
+  mix-blend-mode: soft-light;
+}
+
+/* Искры / акценты Up (cyan) и Down (lime) */
+.menu-screen__brand-mark__spark {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 3;
+  transform: rotate(45deg);
+  animation: menu-brand-spark-twinkle 2.8s ease-in-out infinite;
+}
+
+.menu-screen__brand-mark__spark--a {
+  top: -2px;
+  right: 4px;
+  background: linear-gradient(135deg, #e0f2fe, #22d3ee);
+  box-shadow:
+    0 0 6px rgba(34, 211, 238, 0.9),
+    0 0 12px rgba(103, 232, 249, 0.55);
+}
+
+.menu-screen__brand-mark__spark--b {
+  left: 3px;
+  bottom: -2px;
+  background: linear-gradient(135deg, #dcfce7, #4ade80);
+  box-shadow:
+    0 0 6px rgba(74, 222, 128, 0.85),
+    0 0 12px rgba(34, 197, 94, 0.45);
+  animation-delay: -1.4s;
+}
+
+@keyframes menu-brand-orbit-burst {
+  0% {
+    transform: rotate(0deg);
+  }
+  /* ровно 360° за 4 с (4/19 ≈ 21%) */
+  21.05% {
+    transform: rotate(360deg);
+  }
+  /* пауза 15 с */
+  21.06%,
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes menu-brand-orbit-burst-rev {
+  0% {
+    transform: rotate(0deg);
+  }
+  21.05% {
+    transform: rotate(-360deg);
+  }
+  21.06%,
+  100% {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes menu-brand-halo-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes menu-brand-spark-twinkle {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: rotate(45deg) scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(45deg) scale(1.15);
+  }
+}
+
+@media (min-width: 1025px) {
+  .menu-screen__brand-mark {
+    --mbm-size: 56px;
+  }
+
+  .menu-screen__brand-mark__orbit {
+    inset: -9px;
+    border-radius: 22px;
+  }
+
+  .menu-screen__brand-mark__orbit::after {
+    inset: 4px;
+    border-radius: 18px;
+  }
+
+  .menu-screen__brand-mark__halo {
+    inset: -14px;
+  }
+
+  .menu-screen__brand-mark__frame {
+    border-radius: 14px;
+    padding: 3px;
+  }
+
+  .menu-screen__brand-mark .menu-screen__brand-icon {
+    border-radius: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-screen__brand-mark__orbit,
+  .menu-screen__brand-mark__orbit::after,
+  .menu-screen__brand-mark__halo,
+  .menu-screen__brand-mark__spark {
+    animation: none;
+  }
+}
+
+/*
+ * Название — снова цельный wordmark «игры», не три отдельных куска.
+ * Exo 2: display-характер; один переливающийся градиент + объём.
+ */
+.menu-screen .menu-screen__title {
+  position: relative;
+  margin: 0 0 6px;
+  font-family: 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1.9rem, 7.2vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.02;
+  user-select: none;
+  display: inline-block;
+  max-width: 100%;
+  background-image: linear-gradient(
+    105deg,
+    #67e8f9 0%,
+    #22d3ee 18%,
+    #a78bfa 38%,
+    #e879f9 52%,
+    #f472b6 68%,
+    #fbbf24 88%,
+    #fde68a 100%
+  );
+  background-size: 160% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.2))
+    drop-shadow(0 3px 2px rgba(2, 6, 23, 0.55))
+    drop-shadow(0 0 16px rgba(34, 211, 238, 0.35))
+    drop-shadow(0 0 28px rgba(232, 121, 249, 0.28));
+  animation: menu-title-sheen 9s ease-in-out infinite;
+}
+
+.menu-screen .menu-screen__title::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 12%;
+  bottom: -3px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(34, 211, 238, 0.75) 0%,
+    rgba(192, 132, 252, 0.7) 45%,
+    rgba(251, 191, 36, 0.55) 78%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 8px rgba(34, 211, 238, 0.45),
+    0 0 14px rgba(168, 85, 247, 0.3);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.menu-screen .menu-screen__tagline {
+  font-family: 'Exo 2', 'Outfit', 'Segoe UI', sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: rgba(244, 114, 182, 0.95);
+  text-shadow: 0 0 10px rgba(232, 121, 249, 0.32);
+}
+
+@keyframes menu-title-sheen {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@media (min-width: 1025px) {
+  .menu-screen .menu-screen__title {
+    font-size: clamp(2.35rem, 3.5vw, 3.1rem);
+    letter-spacing: -0.03em;
+  }
+
+  .menu-screen .menu-screen__tagline {
+    font-size: 0.95rem;
+    letter-spacing: 0.05em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-screen .menu-screen__title {
+    animation: none;
+    background-position: 40% 50%;
+  }
+}

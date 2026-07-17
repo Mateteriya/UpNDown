@@ -2,7 +2,7 @@
  * Главное меню — космические капсулы в стиле онлайн-лобби.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from 'react';
 import {
   advanceMenuPcCast,
   getMenuPcCastUrlAt,
@@ -12,44 +12,21 @@ import {
   takeMenuPcCastForMenuVisit,
   type MenuPcCastPick,
 } from '../lib/menuAssets';
-import { getMenuSectionGlyphsOnly, setMenuSectionGlyphsOnly } from '../lib/menuSectionPrefs';
+import { getMenuSectionGlyphsOnly, setMenuSectionGlyphsOnly, hasSeenSoloMapHint, markSoloMapHintSeen } from '../lib/menuSectionPrefs';
 import { MenuCapsuleButton, MenuPlaySplitCapsule, MenuSection } from './MenuEntryActions';
 import { MenuPcDrift } from './MenuPcDrift';
 import { PlayerAvatar } from './PlayerAvatar';
+import { MenuGuestIdentityCycle } from './MenuGuestIdentityCycle';
+import { MenuSignedIdentityMark } from './MenuSignedIdentityMark';
+import {
+  getMenuIdentityStatus,
+  MENU_IDENTITY_STATUS_ARIA,
+} from '../lib/menuIdentityStatus';
 
 const PC_MENU_MQ = '(min-width: 1025px)';
 /** Редкий автосвайп каста, пока сидят на главной. */
 const PC_CAST_AUTO_MS = 75_000;
 const PC_CAST_FADE_MS = 900;
-
-/** Буквы столбиком, без поворота на 90° (остаются вертикально читаемыми). */
-function StackedChars({ text, labelled = true }: { text: string; labelled?: boolean }) {
-  return (
-    <span
-      className="menu-screen__player-stack"
-      {...(labelled ? { 'aria-label': text } : { 'aria-hidden': true as const })}
-    >
-      {Array.from(text).map((ch, i) => (
-        <span key={`${i}-${ch}`} className="menu-screen__player-stack-char" aria-hidden="true">
-          {ch === ' ' ? '\u00a0' : ch}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-/** Два коротких столбика букв вместо одного длинного. */
-function DualColumnStack({ text }: { text: string }) {
-  const chars = Array.from(text);
-  if (chars.length <= 2) return <StackedChars text={text} />;
-  const mid = Math.ceil(chars.length / 2);
-  return (
-    <span className="menu-screen__player-stack-duo" aria-label={text}>
-      <StackedChars text={chars.slice(0, mid).join('')} labelled={false} />
-      <StackedChars text={chars.slice(mid).join('')} labelled={false} />
-    </span>
-  );
-}
 
 function CastLockGlyph({ locked }: { locked: boolean }) {
   return (
@@ -139,10 +116,21 @@ export function MainMenuScreen({
   onTraining,
 }: MainMenuScreenProps) {
   const signedIn = Boolean(userEmail);
+  const identityStatus = getMenuIdentityStatus({
+    displayName,
+    avatarDataUrl,
+    userEmail,
+  });
+  const isGuestIdentity = identityStatus === 'guest';
+  const isProfileIdentity = identityStatus === 'profile';
+  const isAccountIdentity = identityStatus === 'account';
   /** ПК vs мобилка (layout); каст грузится на обеих. */
   const [isPcMenu, setIsPcMenu] = useState(false);
   const [playGlyphsOnly, setPlayGlyphsOnly] = useState(() => getMenuSectionGlyphsOnly('play'));
+  /** «полный вид» через ~7.5 с слегка потухает, чтобы не мешать. */
+  const [glyphsToggleDimmed, setGlyphsToggleDimmed] = useState(false);
   const [accountExpanded, setAccountExpanded] = useState(false);
+  const [showGuestMapHint, setShowGuestMapHint] = useState(() => !hasSeenSoloMapHint('guest'));
   const [pcCastUrl, setPcCastUrl] = useState<string | null>(null);
   const [pcCastPrevUrl, setPcCastPrevUrl] = useState<string | null>(null);
   const [pcCastFading, setPcCastFading] = useState(false);
@@ -169,13 +157,39 @@ export function MainMenuScreen({
     });
   }, []);
 
-  const onAccountChipClick = useCallback(() => {
-    if (!accountExpanded) {
-      setAccountExpanded(true);
+  useEffect(() => {
+    if (!playGlyphsOnly) {
+      setGlyphsToggleDimmed(false);
       return;
     }
-    onOpenAccount();
-  }, [accountExpanded, onOpenAccount]);
+    setGlyphsToggleDimmed(false);
+    const id = window.setTimeout(() => setGlyphsToggleDimmed(true), 7500);
+    return () => window.clearTimeout(id);
+  }, [playGlyphsOnly]);
+
+  const dismissGuestMapHint = useCallback(() => {
+    if (!isGuestIdentity || !showGuestMapHint) return;
+    markSoloMapHintSeen('guest');
+    setShowGuestMapHint(false);
+  }, [isGuestIdentity, showGuestMapHint]);
+
+  const onAccountChipClick = useCallback(() => {
+    dismissGuestMapHint();
+    if (isPcMenu) {
+      onOpenAccount();
+      return;
+    }
+    setAccountExpanded((open) => !open);
+  }, [dismissGuestMapHint, isPcMenu, onOpenAccount]);
+
+  const onAccountEnterClick = useCallback(
+    (e: MouseEvent | ReactKeyboardEvent) => {
+      e.stopPropagation();
+      dismissGuestMapHint();
+      onOpenAccount();
+    },
+    [dismissGuestMapHint, onOpenAccount],
+  );
 
   useEffect(() => {
     if (!accountExpanded || isPcMenu) return;
@@ -475,7 +489,13 @@ export function MainMenuScreen({
             </span>
           </div>
         </>
-      ) : null}
+      ) : (
+        <div className="menu-screen__mobile-stars" aria-hidden="true">
+          <div className="menu-screen__mobile-stars__layer menu-screen__mobile-stars__layer--a" />
+          <div className="menu-screen__mobile-stars__layer menu-screen__mobile-stars__layer--b" />
+          <div className="menu-screen__mobile-stars__layer menu-screen__mobile-stars__layer--c" />
+        </div>
+      )}
       <div className="menu-screen__aura" aria-hidden="true">
         <div className="menu-screen__aura-glow" />
         <div className="menu-screen__aura-scrim" />
@@ -484,14 +504,23 @@ export function MainMenuScreen({
         <div className="menu-screen__pc-topbar">
           <header className="menu-screen__header">
             <div className="menu-screen__brand">
-              <img
-                className="menu-screen__brand-icon"
-                src="/icon-192.png"
-                alt=""
-                width={48}
-                height={48}
-                draggable={false}
-              />
+              <span className="menu-screen__brand-mark" aria-hidden="true">
+                <span className="menu-screen__brand-mark__halo" />
+                <span className="menu-screen__brand-mark__orbit" />
+                <span className="menu-screen__brand-mark__frame">
+                  <img
+                    className="menu-screen__brand-icon"
+                    src="/icon-192.png"
+                    alt=""
+                    width={48}
+                    height={48}
+                    draggable={false}
+                  />
+                  <span className="menu-screen__brand-mark__gloss" />
+                </span>
+                <span className="menu-screen__brand-mark__spark menu-screen__brand-mark__spark--a" />
+                <span className="menu-screen__brand-mark__spark menu-screen__brand-mark__spark--b" />
+              </span>
               <div className="menu-screen__brand-text">
                 <h1
                   className="menu-screen__title"
@@ -505,7 +534,7 @@ export function MainMenuScreen({
                     target.addEventListener('pointerleave', clear, { once: true });
                   }}
                 >
-                  Up&Down
+                  Up&amp;Down
                 </h1>
                 <div className="menu-screen__tagline-row">
                   <p className="menu-screen__tagline">Карточная игра на взятки</p>
@@ -519,40 +548,78 @@ export function MainMenuScreen({
             type="button"
             className={[
               'menu-screen__player',
+              isGuestIdentity ? 'menu-screen__player--guest' : '',
+              isProfileIdentity || isAccountIdentity ? 'menu-screen__player--signed' : '',
               accountExpanded ? 'menu-screen__player--expanded' : 'menu-screen__player--collapsed',
-            ].join(' ')}
+            ]
+              .filter(Boolean)
+              .join(' ')}
             onClick={onAccountChipClick}
             aria-label={
               accountExpanded
-                ? 'Открыть личный кабинет'
-                : 'Показать кабинет'
+                ? 'Свернуть кабинет'
+                : isGuestIdentity
+                  ? MENU_IDENTITY_STATUS_ARIA.guest
+                  : isProfileIdentity
+                    ? MENU_IDENTITY_STATUS_ARIA.profile
+                    : isAccountIdentity
+                      ? MENU_IDENTITY_STATUS_ARIA.account
+                      : 'Показать кабинет'
             }
             aria-expanded={accountExpanded}
           >
-            <span className="menu-screen__player-avatar-ring">
-              <PlayerAvatar
+            {isGuestIdentity ? (
+              <MenuGuestIdentityCycle showMapHint={showGuestMapHint} onHideMapHint={dismissGuestMapHint} />
+            ) : isProfileIdentity || isAccountIdentity ? (
+              <MenuSignedIdentityMark
+                status={isAccountIdentity ? 'account' : 'profile'}
                 name={displayName}
                 avatarDataUrl={avatarDataUrl}
                 avatarBgColor={avatarBgColor}
                 sizePx={44}
-                className="menu-screen__player-avatar"
+                onOpenCabinet={onOpenAccount}
               />
-            </span>
+            ) : (
+              <span className="menu-screen__player-avatar-ring">
+                <PlayerAvatar
+                  name={displayName}
+                  avatarDataUrl={avatarDataUrl}
+                  avatarBgColor={avatarBgColor}
+                  sizePx={44}
+                  className="menu-screen__player-avatar"
+                />
+              </span>
+            )}
             <span className="menu-screen__player-text">
               {isPcMenu ? (
                 <>
                   <span className="menu-screen__player-label">Кабинет</span>
                   <strong className="menu-screen__player-name">{displayName}</strong>
                   <span className="menu-screen__player-sub">
-                    {signedIn ? 'профиль + аккаунт' : 'профиль · войти в аккаунт'}
+                    {isGuestIdentity
+                      ? 'профиль не задан · войти'
+                      : signedIn
+                        ? 'профиль + аккаунт'
+                        : 'профиль · войти в аккаунт'}
                   </span>
                 </>
               ) : (
                 <>
-                  <strong className="menu-screen__player-name">
-                    <DualColumnStack text={displayName} />
-                  </strong>
-                  <span className="menu-screen__player-sub menu-screen__player-sub--inline">войти</span>
+                  <strong className="menu-screen__player-name">{displayName}</strong>
+                  <span
+                    className="menu-screen__player-sub menu-screen__player-sub--inline"
+                    role="button"
+                    tabIndex={0}
+                    onClick={onAccountEnterClick}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onAccountEnterClick(e);
+                      }
+                    }}
+                  >
+                    {signedIn ? 'открыть кабинет' : 'войти в кабинет'}
+                  </span>
                 </>
               )}
             </span>
@@ -592,7 +659,12 @@ export function MainMenuScreen({
                 <div className="menu-screen__glyphs-toggle-row">
                   <button
                     type="button"
-                    className="menu-screen__section-glyphs-toggle"
+                    className={[
+                      'menu-screen__section-glyphs-toggle',
+                      glyphsToggleDimmed ? 'menu-screen__section-glyphs-toggle--dimmed' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                     aria-pressed={playGlyphsOnly}
                     aria-label={playGlyphsOnly ? 'Показать подписи капсул' : 'Скрыть подписи капсул'}
                     onClick={togglePlayGlyphsOnly}
@@ -610,6 +682,9 @@ export function MainMenuScreen({
                 hint={signedIn ? 'профиль + аккаунт' : 'профиль · войти в аккаунт'}
                 avatarName={displayName}
                 avatarDataUrl={avatarDataUrl}
+                identityStatus={
+                  isAccountIdentity ? 'account' : isProfileIdentity ? 'profile' : undefined
+                }
                 onClick={onOpenAccount}
               />
             </MenuPcDrift>

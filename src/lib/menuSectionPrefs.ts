@@ -78,7 +78,7 @@ export function setMenuCapsuleGlyphOnly(capsuleId: string, glyphOnly: boolean): 
 
 const MENU_SOLO_MAP_HINTS_SEEN_KEY = 'upnd-menu-solo-map-hints-seen';
 
-export type SoloMapHintKind = 'glyph' | 'pill';
+export type SoloMapHintKind = 'glyph' | 'pill' | 'guest';
 
 type SoloMapHintsSeenPrefs = Partial<Record<SoloMapHintKind, boolean>>;
 
@@ -104,7 +104,7 @@ function writeSoloMapHintsSeen(prefs: SoloMapHintsSeenPrefs): void {
   }
 }
 
-/** true = пользователь уже нажимал глиф/пилюлю; хинт-линию больше не показываем. */
+/** true = пользователь уже нажимал глиф/пилюлю/guest-аватар; хинт-линию больше не показываем. */
 export function hasSeenSoloMapHint(kind: SoloMapHintKind): boolean {
   return readSoloMapHintsSeen()[kind] === true;
 }

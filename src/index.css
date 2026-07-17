@@ -52995,22 +52995,6 @@ body:has(.menu-screen) {
   color: var(--lobby-laser-amber);
   text-shadow: 0 0 8px rgba(251, 191, 36, 0.45);
 }
-.menu-screen__player-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1.05;
-}
-.menu-screen__player-stack-char {
-  display: block;
-}
-.menu-screen__player-stack-duo {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 8px;
-}
 .menu-screen__alert {
   margin: 0 0 8px;
   width: 100%;
