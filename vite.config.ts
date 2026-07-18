@@ -23,6 +23,10 @@ export default defineConfig({
       devOptions: {
         enabled: false,
       },
+      /* Не валить весь build, если какой-то ассет > лимита Workbox */
+      showMaximumFileSizeToCacheInBytesWarning: true,
+      /* Мелкие иконки в precache; тяжёлые PNG кастов — только runtime */
+      includeAssets: ['favicon.ico', 'icon-192.png', 'icon-256.png', 'icon-512.png'],
       manifest: {
         theme_color: '#0f172a',
         icons: [
@@ -35,8 +39,10 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // PNG кастов не в precache (МЕНЮ/КАСТ.png ~2.5MB). Иконки — через includeAssets.
+        globPatterns: ['**/*.{js,css,html,ico,svg,woff2}'],
         globIgnores: ['**/cards/**'],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
@@ -49,6 +55,31 @@ export default defineConfig({
               expiration: {
                 maxEntries: 32,
                 maxAgeSeconds: 60 * 60 * 24 * 365, // 1 год
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            /* /МЕНЮ/... в URL обычно percent-encoded */
+            urlPattern: /\/(%D0%9C%D0%95%D0%9D%D0%AE|МЕНЮ)\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'menu-cast-cache',
+              expiration: {
+                maxEntries: 24,
+                maxAgeSeconds: 60 * 60 * 24 * 90,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /\/(%D0%9B%D0%9A|ЛК)\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'lk-cast-cache',
+              expiration: {
+                maxEntries: 16,
+                maxAgeSeconds: 60 * 60 * 24 * 90,
               },
               cacheableResponse: { statuses: [0, 200] },
             },
