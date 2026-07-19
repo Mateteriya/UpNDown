@@ -11,8 +11,8 @@ import { MenuMapTipDismiss } from './MenuMapTipDismiss';
 export type GuestGlyphId = 'empty' | 'tri' | 'sad' | 'swiss';
 
 const GUEST_CYCLE_MS = 4200;
-/** Крест «+» держим заметно дольше остальных. */
-const GUEST_SWISS_MS = 6400;
+/** Крест «+» — дольше, чтобы успеть увидеть пульс варианта 3. */
+const GUEST_SWISS_MS = 12500;
 
 const GUEST_MAP_TIP_TEXT =
   'Профиль ещё не задан и вход в аккаунт не выполнен. Нажмите на значок, чтобы персонализировать игру и сохранить прогресс.';
@@ -25,6 +25,7 @@ export const GUEST_GLYPH_ORDER: { id: GuestGlyphId; label: string }[] = [
 ];
 
 function SwissEmptyCross({ uid }: { uid: string }) {
+  /* Вариант 3 (лаб): голубой fill + кислотно-розовая обводка. */
   return (
     <svg className="menu-guest-cycle__swiss" viewBox="0 0 44 44" aria-hidden>
       <defs>
@@ -35,16 +36,36 @@ function SwissEmptyCross({ uid }: { uid: string }) {
           <stop offset="78%" stopColor="#0284c7" />
           <stop offset="100%" stopColor="#0369a1" />
         </linearGradient>
-        <linearGradient id={`${uid}-swiss-edge`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#bae6fd" stopOpacity="0.95" />
-          <stop offset="100%" stopColor="#075985" stopOpacity="0.95" />
-        </linearGradient>
         <linearGradient id={`${uid}-swiss-gloss`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#e0f2fe" stopOpacity="0.85" />
-          <stop offset="40%" stopColor="#e0f2fe" stopOpacity="0.2" />
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
+          <stop offset="40%" stopColor="#e0f2fe" stopOpacity="0.28" />
           <stop offset="100%" stopColor="#0284c7" stopOpacity="0" />
         </linearGradient>
       </defs>
+      <rect
+        className="menu-guest-cycle__swiss-pink"
+        x="8"
+        y="17.5"
+        width="28"
+        height="9"
+        rx="1.8"
+        fill="none"
+        stroke="#ff2ec8"
+        strokeWidth="1.35"
+        strokeOpacity="0.95"
+      />
+      <rect
+        className="menu-guest-cycle__swiss-pink"
+        x="17.5"
+        y="8"
+        width="9"
+        height="28"
+        rx="1.8"
+        fill="none"
+        stroke="#ff2ec8"
+        strokeWidth="1.35"
+        strokeOpacity="0.95"
+      />
       <rect
         x="8"
         y="17.5"
@@ -52,8 +73,6 @@ function SwissEmptyCross({ uid }: { uid: string }) {
         height="9"
         rx="1.8"
         fill={`url(#${uid}-swiss-fill)`}
-        stroke={`url(#${uid}-swiss-edge)`}
-        strokeWidth="0.85"
       />
       <rect
         x="17.5"
@@ -62,12 +81,10 @@ function SwissEmptyCross({ uid }: { uid: string }) {
         height="28"
         rx="1.8"
         fill={`url(#${uid}-swiss-fill)`}
-        stroke={`url(#${uid}-swiss-edge)`}
-        strokeWidth="0.85"
       />
       <rect x="9.4" y="18.2" width="10" height="2.4" rx="1" fill={`url(#${uid}-swiss-gloss)`} />
       <rect x="18.9" y="9" width="2" height="10.5" rx="0.9" fill={`url(#${uid}-swiss-gloss)`} />
-      <ellipse cx="21.2" cy="12.8" rx="1.4" ry="1.1" fill="#e0f2fe" opacity="0.75" />
+      <ellipse cx="21.2" cy="12.8" rx="1.4" ry="1.1" fill="#ff7ae8" opacity="0.95" />
     </svg>
   );
 }
@@ -130,36 +147,62 @@ function EliteTriangle({ uid }: { uid: string }) {
   return (
     <svg className="menu-guest-cycle__tri" viewBox="0 0 48 44" aria-hidden>
       <defs>
-        <linearGradient id={`${uid}-tri-fill`} x1="50%" y1="0%" x2="50%" y2="100%">
-          <stop offset="0%" stopColor="#f59e0b" />
-          <stop offset="40%" stopColor="#dc2626" />
-          <stop offset="100%" stopColor="#7f1d1d" />
+        <linearGradient id={`${uid}-tri-fill`} x1="50%" y1="0%" x2="42%" y2="100%">
+          <stop offset="0%" stopColor="#fde68a" />
+          <stop offset="18%" stopColor="#fb923c" />
+          <stop offset="38%" stopColor="#f43f5e" />
+          <stop offset="58%" stopColor="#e879f9" />
+          <stop offset="78%" stopColor="#a78bfa" />
+          <stop offset="100%" stopColor="#4c1d95" />
         </linearGradient>
         <linearGradient id={`${uid}-tri-edge`} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#fbbf24" />
-          <stop offset="55%" stopColor="#f87171" />
-          <stop offset="100%" stopColor="#b45309" />
+          <stop offset="0%" stopColor="#fef08a" />
+          <stop offset="28%" stopColor="#fb7185" />
+          <stop offset="55%" stopColor="#c084fc" />
+          <stop offset="78%" stopColor="#67e8f9" />
+          <stop offset="100%" stopColor="#f472b6" />
+        </linearGradient>
+        <linearGradient id={`${uid}-tri-gloss`} x1="30%" y1="0%" x2="70%" y2="100%">
+          <stop offset="0%" stopColor="#fde68a" stopOpacity="0.28" />
+          <stop offset="40%" stopColor="#fb923c" stopOpacity="0.12" />
+          <stop offset="100%" stopColor="#4c1d95" stopOpacity="0" />
         </linearGradient>
         <linearGradient id={`${uid}-tri-q`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#fef3c7" />
-          <stop offset="100%" stopColor="#fcd34d" />
+          <stop offset="0%" stopColor="#fffbeb" />
+          <stop offset="40%" stopColor="#fde68a" />
+          <stop offset="75%" stopColor="#67e8f9" />
+          <stop offset="100%" stopColor="#e879f9" />
         </linearGradient>
       </defs>
       <path
         d="M24 4 L44 40 H4 Z"
         fill={`url(#${uid}-tri-fill)`}
         stroke={`url(#${uid}-tri-edge)`}
-        strokeWidth="1.55"
+        strokeWidth="1.7"
         strokeLinejoin="round"
-        opacity="0.92"
+        opacity="0.96"
+      />
+      <path
+        d="M24 7.5 L39.2 37 H8.8 Z"
+        fill={`url(#${uid}-tri-gloss)`}
+        stroke="none"
+        opacity="0.55"
       />
       <path
         d="M24 8.5 L38.5 36.5 H9.5 Z"
         fill="none"
-        stroke="#fef3c7"
+        stroke="#fde68a"
         strokeWidth="0.55"
         strokeLinejoin="round"
-        opacity="0.22"
+        opacity="0.28"
+      />
+      <path
+        d="M18 22 L30 22"
+        fill="none"
+        stroke="#67e8f9"
+        strokeWidth="0.45"
+        strokeLinecap="round"
+        opacity="0.28"
       />
       <text
         x="24"

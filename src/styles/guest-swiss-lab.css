@@ -1,0 +1,1377 @@
+/* Guest swiss cross lab — чистые кнопки + пульсации */
+
+.guest-swiss-lab__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.guest-swiss-lab__card {
+  padding: 12px 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(8, 12, 28, 0.6);
+}
+
+.guest-swiss-lab__card-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fde68a;
+  letter-spacing: 0.02em;
+}
+
+.guest-swiss-lab__card-blurb {
+  margin: 0 0 12px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #94a3b8;
+}
+
+.guest-swiss-lab__chip-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 12px 18px;
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(88, 28, 135, 0.28), transparent 62%),
+    rgba(2, 6, 23, 0.85);
+  border: 1px solid rgba(51, 65, 85, 0.55);
+  overflow: visible;
+}
+
+.guest-swiss-lab__pick-hint {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.swiss-btn {
+  --sb: 72px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--sb);
+  height: var(--sb);
+  flex-shrink: 0;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+}
+
+.swiss-btn__rim {
+  position: relative;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  padding: 5px;
+}
+
+.swiss-btn__depth {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.swiss-btn__face {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  max-width: 56px;
+  max-height: 56px;
+  border-radius: 50%;
+}
+
+.swiss-btn__glyph {
+  display: block;
+  width: 38px;
+  height: 38px;
+}
+
+/* розовая обводка видна только у s3 на пике */
+.swiss-btn__cross-pink {
+  stroke-opacity: 0;
+}
+
+/* ═══ 0 · оригинал ═══ */
+.swiss-btn--original {
+  filter:
+    drop-shadow(0 0 10px rgba(99, 102, 241, 0.4))
+    drop-shadow(0 0 14px rgba(99, 102, 241, 0.25));
+}
+.swiss-btn--original .swiss-btn__rim {
+  padding: 4.3px;
+  background: linear-gradient(145deg, #a78bfa, #818cf8 35%, #7c3aed 70%, #4c1d95);
+  box-shadow:
+    0 0 0 1px rgba(167, 139, 250, 0.5),
+    0 0 14px rgba(99, 102, 241, 0.4);
+}
+.swiss-btn--original .swiss-btn__rim::before {
+  content: '';
+  position: absolute;
+  inset: 4.3px;
+  border-radius: 50%;
+  z-index: 0;
+  background: linear-gradient(165deg, #5b21b6 0%, #312e81 55%, #1e1b4b 100%);
+}
+.swiss-btn--original .swiss-btn__face {
+  max-width: 56px;
+  max-height: 56px;
+  background:
+    radial-gradient(circle at 40% 32%, rgba(196, 181, 253, 0.28) 0%, transparent 55%),
+    linear-gradient(165deg, #4c1d95 0%, #312e81 50%, #1e1b4b 100%);
+}
+.swiss-btn--original .swiss-btn__glyph {
+  width: 37.5px;
+  height: 37.5px;
+  filter:
+    drop-shadow(0 1px 2px rgba(3, 105, 161, 0.5))
+    drop-shadow(0 0 4px rgba(56, 189, 248, 0.28));
+}
+
+/* ═══ 1 · мат + пульс с тонким хрустальным неоном ═══ */
+.swiss-btn--s1 {
+  animation: swiss-s1-btn 3s ease-in-out infinite;
+}
+.swiss-btn--s1 .swiss-btn__rim {
+  background: linear-gradient(
+    165deg,
+    #8b5cf6 0%,
+    #7c3aed 38%,
+    #6d28d9 70%,
+    #4c1d95 100%
+  );
+  box-shadow:
+    inset 0 2px 2px rgba(196, 181, 253, 0.22),
+    inset 0 -7px 12px rgba(30, 10, 60, 0.72),
+    0 0 0 1px rgba(109, 40, 217, 0.7);
+  animation: swiss-s1-rim 3s ease-in-out infinite;
+}
+/* тонкое «кольцо» = большой face + светящийся depth */
+.swiss-btn--s1 .swiss-btn__depth {
+  background: transparent;
+  box-shadow:
+    inset 0 0 0 1.5px rgba(224, 242, 254, 0.15),
+    0 0 0 0 transparent;
+  animation: swiss-s1-neon 3s ease-in-out infinite;
+}
+.swiss-btn--s1 .swiss-btn__face {
+  max-width: 54px;
+  max-height: 54px;
+  background: linear-gradient(
+    180deg,
+    #7c3aed 0%,
+    #6d28d9 42%,
+    #5b21b6 72%,
+    #3b0764 100%
+  );
+  box-shadow:
+    inset 0 3px 6px rgba(46, 16, 101, 0.38),
+    inset 0 -6px 10px rgba(24, 8, 48, 0.7),
+    inset 0 -1px 0 rgba(15, 5, 35, 0.55),
+    inset 0 0 0 1px rgba(76, 29, 149, 0.65);
+  animation: swiss-s1-face 3s ease-in-out infinite;
+}
+.swiss-btn--s1 .swiss-btn__glyph {
+  width: 34px;
+  height: 34px;
+  filter:
+    drop-shadow(0 1px 0 rgba(30, 10, 60, 0.6))
+    drop-shadow(0 2px 2px rgba(15, 5, 35, 0.35));
+  animation: swiss-s1-glyph 3s ease-in-out infinite;
+}
+
+@keyframes swiss-s1-btn {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+  }
+  50% {
+    transform: scale(1.04);
+    filter:
+      drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4))
+      drop-shadow(0 0 12px rgba(165, 243, 252, 0.35));
+  }
+}
+@keyframes swiss-s1-rim {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 2px 2px rgba(196, 181, 253, 0.22),
+      inset 0 -7px 12px rgba(30, 10, 60, 0.72),
+      0 0 0 1px rgba(109, 40, 217, 0.7);
+  }
+  50% {
+    box-shadow:
+      inset 0 2px 3px rgba(224, 242, 254, 0.28),
+      inset 0 -7px 12px rgba(30, 10, 60, 0.68),
+      0 0 0 1px rgba(167, 139, 250, 0.75),
+      0 0 10px rgba(167, 139, 250, 0.25);
+  }
+}
+@keyframes swiss-s1-neon {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 1.5px rgba(224, 242, 254, 0.12),
+      0 0 0 transparent;
+    opacity: 0.55;
+  }
+  45%,
+  55% {
+    box-shadow:
+      inset 0 0 0 1.75px rgba(240, 249, 255, 0.95),
+      inset 0 0 6px rgba(165, 243, 252, 0.55),
+      0 0 8px rgba(125, 211, 252, 0.55),
+      0 0 14px rgba(167, 139, 250, 0.35);
+    opacity: 1;
+  }
+}
+@keyframes swiss-s1-face {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 3px 6px rgba(46, 16, 101, 0.38),
+      inset 0 -6px 10px rgba(24, 8, 48, 0.7),
+      inset 0 -1px 0 rgba(15, 5, 35, 0.55),
+      inset 0 0 0 1px rgba(76, 29, 149, 0.65);
+  }
+  50% {
+    box-shadow:
+      inset 0 3px 6px rgba(46, 16, 101, 0.32),
+      inset 0 -6px 10px rgba(24, 8, 48, 0.75),
+      inset 0 -1px 0 rgba(15, 5, 35, 0.6),
+      inset 0 0 0 1px rgba(196, 181, 253, 0.35);
+  }
+}
+@keyframes swiss-s1-glyph {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 1px 0 rgba(30, 10, 60, 0.6))
+      drop-shadow(0 2px 2px rgba(15, 5, 35, 0.35));
+  }
+  50% {
+    filter:
+      drop-shadow(0 1px 0 rgba(30, 10, 60, 0.45))
+      drop-shadow(0 0 3px rgba(186, 230, 253, 0.75))
+      drop-shadow(0 0 8px rgba(125, 211, 252, 0.55))
+      drop-shadow(0 0 14px rgba(167, 139, 250, 0.35));
+  }
+}
+
+/* ═══ 2 · глянец + плавный блик (opacity, не скачок background) ═══ */
+.swiss-btn--s2 {
+  animation: swiss-s2-btn 3.2s ease-in-out infinite;
+}
+.swiss-btn--s2 .swiss-btn__rim {
+  background: linear-gradient(155deg, #8b5cf6 0%, #7c3aed 45%, #6d28d9 80%, #5b21b6 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(167, 139, 250, 0.18),
+    inset 0 -4px 8px rgba(30, 10, 60, 0.62),
+    0 0 0 1px rgba(91, 33, 182, 0.7);
+  animation: swiss-s2-rim 3.2s ease-in-out infinite;
+}
+.swiss-btn--s2 .swiss-btn__face {
+  max-width: 58px;
+  max-height: 58px;
+  overflow: hidden;
+  background: linear-gradient(
+    175deg,
+    #7c3aed 0%,
+    #6d28d9 38%,
+    #5b21b6 68%,
+    #3b0764 100%
+  );
+  box-shadow:
+    inset 0 2px 3px rgba(46, 16, 101, 0.45),
+    inset 0 -5px 9px rgba(24, 8, 48, 0.72),
+    inset 0 -1px 0 rgba(15, 5, 35, 0.55),
+    inset 0 0 0 1px rgba(76, 29, 149, 0.55);
+}
+/* отдельный слой блика — плавно появляется через opacity */
+.swiss-btn--s2 .swiss-btn__face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    circle at 32% 20%,
+    rgba(255, 255, 255, 0.42) 0%,
+    rgba(255, 255, 255, 0.12) 28%,
+    transparent 52%
+  );
+  opacity: 0.12;
+  animation: swiss-s2-gloss 3.2s ease-in-out infinite;
+}
+.swiss-btn--s2 .swiss-btn__glyph {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 1px 0 rgba(30, 10, 60, 0.6));
+  animation: swiss-s2-glyph 3.2s ease-in-out infinite;
+}
+
+@keyframes swiss-s2-btn {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+@keyframes swiss-s2-rim {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(167, 139, 250, 0.18),
+      inset 0 -4px 8px rgba(30, 10, 60, 0.62),
+      0 0 0 1px rgba(91, 33, 182, 0.7);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(221, 214, 254, 0.28),
+      inset 0 -4px 8px rgba(30, 10, 60, 0.58),
+      0 0 0 1px rgba(139, 92, 246, 0.7),
+      0 0 10px rgba(124, 58, 237, 0.22);
+  }
+}
+@keyframes swiss-s2-gloss {
+  0%,
+  100% {
+    opacity: 0.1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+@keyframes swiss-s2-glyph {
+  0%,
+  100% {
+    filter: drop-shadow(0 1px 0 rgba(30, 10, 60, 0.6));
+  }
+  50% {
+    filter:
+      drop-shadow(0 1px 0 rgba(30, 10, 60, 0.5))
+      drop-shadow(0 0 3px rgba(125, 211, 252, 0.4))
+      drop-shadow(0 0 7px rgba(56, 189, 248, 0.28));
+  }
+}
+
+/* общий face для кольцевых (кроме s5 — тоньше) */
+.swiss-btn--s3 .swiss-btn__face,
+.swiss-btn--s4 .swiss-btn__face,
+.swiss-btn--s6 .swiss-btn__face,
+.swiss-btn--s7 .swiss-btn__face {
+  max-width: 46px;
+  max-height: 46px;
+  background:
+    radial-gradient(circle at 36% 26%, rgba(255, 255, 255, 0.14) 0%, transparent 38%),
+    linear-gradient(165deg, #8b5cf6 0%, #7c3aed 50%, #5b21b6 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(221, 214, 254, 0.18),
+    inset 0 -2px 4px rgba(46, 16, 101, 0.5);
+}
+
+/* ═══ 3 · новый magenta rim + пульс ═══ */
+.swiss-btn--s3 {
+  animation: swiss-s3-btn 3.1s ease-in-out infinite;
+}
+.swiss-btn--s3 .swiss-btn__rim {
+  background: linear-gradient(150deg, #350ab6 0%, #e15cf6 40%, #5814cc 75%, #320dab 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(221, 214, 254, 0.32),
+    inset 0 -3px 6px rgba(46, 16, 101, 0.5),
+    0 0 0 1px rgba(109, 40, 217, 0.55);
+  animation: swiss-s3-rim 3.1s ease-in-out infinite;
+}
+.swiss-btn--s3 .swiss-btn__depth {
+  background: #4f46e5;
+  box-shadow: inset 0 0 0 1px rgba(165, 180, 252, 0.45);
+  animation: swiss-s3-depth 3.1s ease-in-out infinite;
+}
+.swiss-btn--s3 .swiss-btn__glyph {
+  width: 32px;
+  height: 32px;
+  filter:
+    drop-shadow(0 0 1.5px rgba(255, 90, 210, 0.85))
+    drop-shadow(0 0 4px rgba(255, 46, 200, 0.45))
+    drop-shadow(0 1px 0 rgba(30, 10, 60, 0.45));
+  animation: swiss-s3-glyph 3.1s ease-in-out infinite;
+}
+/* всегда кислотно-розовая обводка креста */
+.swiss-btn--s3 .swiss-btn__cross-pink {
+  stroke-opacity: 0.95;
+}
+.swiss-btn--s3 .swiss-btn__cross-ice,
+.swiss-btn--s3 .swiss-btn__cross-ice-edge {
+  stroke-opacity: 0;
+}
+.swiss-btn--s3 .swiss-btn__cross-spark {
+  fill: #ff7ae8;
+  opacity: 0.95;
+}
+/* leg3 тоже ice — розовый слой скрыт, белый лёд как был */
+.swiss-btn--leg3 .swiss-btn__cross-pink {
+  stroke-opacity: 0;
+}
+
+@keyframes swiss-s3-btn {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+@keyframes swiss-s3-rim {
+  0%,
+  100% {
+    background: linear-gradient(150deg, #350ab6 0%, #e15cf6 40%, #5814cc 75%, #320dab 100%);
+    filter: saturate(1) brightness(1);
+    box-shadow:
+      inset 0 1px 0 rgba(221, 214, 254, 0.28),
+      inset 0 -3px 6px rgba(46, 16, 101, 0.5),
+      0 0 0 1px rgba(109, 40, 217, 0.55);
+  }
+  50% {
+    background: linear-gradient(
+      150deg,
+      #5b21b6 0%,
+      #9333ea 24%,
+      #c026d3 34%,
+      #f03fc7 40%,
+      #ff2ec8 44%,
+      #d912dee6 50%,
+      #7c3aed 68%,
+      #4c1d95 100%
+    );
+    filter: saturate(1.28) brightness(1.01);
+    box-shadow:
+      inset 0 1px 0 rgb(111 13 214),
+      inset 0 -3px 6px rgb(72 12 180 / 86%),
+      0 0 0 1px rgb(94 62 255 / 87%),
+      0 0 8px rgb(189 95 232 / 8%),
+      0 0 14px rgb(236 50 187 / 13%),
+      0 0 22px rgb(168 12 191 / 34%);
+  }
+}
+@keyframes swiss-s3-depth {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px rgba(165, 180, 252, 0.4);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 1px rgba(240, 171, 252, 0.7),
+      0 0 7px rgba(255, 46, 200, 0.3);
+  }
+}
+@keyframes swiss-s3-glyph {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 1.5px rgba(255, 90, 210, 0.75))
+      drop-shadow(0 0 3px rgba(255, 46, 200, 0.35))
+      drop-shadow(0 1px 0 rgba(30, 10, 60, 0.45));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 1.5px rgba(255, 90, 210, 0.95))
+      drop-shadow(0 0 5px rgba(255, 46, 200, 0.55))
+      drop-shadow(0 1px 0 rgba(30, 10, 60, 0.4));
+  }
+}
+
+/* ═══ 4 · teal + пульс ═══ */
+.swiss-btn--s4 {
+  animation: swiss-s4-btn 3s ease-in-out infinite;
+}
+.swiss-btn--s4 .swiss-btn__rim {
+  background: linear-gradient(150deg, #a78bfa 0%, #8b5cf6 40%, #7c3aed 75%, #6d28d9 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(221, 214, 254, 0.32),
+    inset 0 -3px 6px rgba(46, 16, 101, 0.5),
+    0 0 0 1px rgba(109, 40, 217, 0.55);
+  animation: swiss-s4-rim 3s ease-in-out infinite;
+}
+.swiss-btn--s4 .swiss-btn__depth {
+  background: #0f766e;
+  box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.45);
+  animation: swiss-s4-depth 3s ease-in-out infinite;
+}
+.swiss-btn--s4 .swiss-btn__glyph {
+  width: 32px;
+  height: 32px;
+  filter:
+    drop-shadow(0 0 1.5px rgba(245, 208, 254, 0.55))
+    drop-shadow(0 0 2.5px rgba(165, 243, 252, 0.45))
+    drop-shadow(0 1px 0 rgba(30, 10, 60, 0.45));
+  animation: swiss-s4-glyph 3s ease-in-out infinite;
+}
+/* хрустальная обводка креста: на пике есть, на затухании почти исчезает */
+.swiss-btn--s4 .swiss-btn__glyph > rect:nth-of-type(1),
+.swiss-btn--s4 .swiss-btn__glyph > rect:nth-of-type(2) {
+  animation: swiss-s4-cross-edge 3s ease-in-out infinite;
+}
+
+@keyframes swiss-s4-btn {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+@keyframes swiss-s4-rim {
+  0%,
+  100% {
+    filter: brightness(1) saturate(1);
+    box-shadow:
+      inset 0 1px 0 rgba(221, 214, 254, 0.32),
+      inset 0 -3px 6px rgba(46, 16, 101, 0.5),
+      0 0 0 1px rgba(109, 40, 217, 0.55);
+  }
+  50% {
+    filter: brightness(1.1) saturate(1.18);
+    box-shadow:
+      inset 0 1px 0 rgba(204, 251, 241, 0.5),
+      inset 0 -3px 6px rgba(46, 16, 101, 0.42),
+      0 0 0 1px rgba(52, 230, 180, 0.75),
+      0 0 12px rgba(45, 212, 191, 0.45),
+      0 0 20px rgba(94, 234, 212, 0.25);
+  }
+}
+@keyframes swiss-s4-depth {
+  0%,
+  100% {
+    background: #0f766e;
+    box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.35);
+  }
+  50% {
+    background: #0d9488;
+    box-shadow:
+      inset 0 0 0 1px rgba(153, 246, 228, 0.85),
+      0 0 9px rgba(45, 212, 191, 0.45);
+  }
+}
+@keyframes swiss-s4-glyph {
+  0%,
+  100% {
+    filter: drop-shadow(0 1px 0 rgba(30, 10, 60, 0.55));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 2px rgba(204, 251, 241, 0.75))
+      drop-shadow(0 0 5px rgba(94, 234, 212, 0.5))
+      drop-shadow(0 1px 0 rgba(30, 10, 60, 0.4));
+  }
+}
+@keyframes swiss-s4-cross-edge {
+  0%,
+  100% {
+    stroke-opacity: 0.06;
+    stroke-width: 0.25px;
+  }
+  50% {
+    stroke-opacity: 1;
+    stroke-width: 1.1px;
+  }
+}
+
+/* ═══ 5 · нажатие с явной выпуклостью / впуклостью ═══ */
+.swiss-btn--s5 {
+  transform-origin: center center;
+  animation: swiss-s5-press 3.2s ease-in-out infinite;
+}
+.swiss-btn--s5 .swiss-btn__rim {
+  background: linear-gradient(150deg, #a78bfa 0%, #8b5cf6 40%, #7c3aed 75%, #6d28d9 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(221, 214, 254, 0.32),
+    inset 0 -3px 6px rgba(46, 16, 101, 0.5),
+    0 0 0 1px rgba(109, 40, 217, 0.55);
+  animation: swiss-s5-rim 3.2s ease-in-out infinite;
+}
+.swiss-btn--s5 .swiss-btn__depth {
+  background: linear-gradient(165deg, #4c1d95 0%, #3b0764 45%, #2e1065 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(15, 5, 40, 0.45),
+    inset 0 0 0 1px rgba(76, 29, 149, 0.65);
+  animation: swiss-s5-depth 3.2s ease-in-out infinite;
+}
+.swiss-btn--s5 .swiss-btn__face {
+  max-width: 52px;
+  max-height: 52px;
+  /* без светлого радиального покрытия в центре */
+  background: linear-gradient(165deg, #8b5cf6 0%, #7c3aed 50%, #5b21b6 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(221, 214, 254, 0.18),
+    inset 0 -2px 4px rgba(46, 16, 101, 0.5);
+  animation: swiss-s5-face 3.2s ease-in-out infinite;
+}
+.swiss-btn--s5 .swiss-btn__glyph {
+  width: 34px;
+  height: 34px;
+  filter: drop-shadow(0 1px 0 rgba(30, 10, 60, 0.55));
+  animation: swiss-s5-glyph 3.2s ease-in-out infinite;
+}
+
+@keyframes swiss-s5-press {
+  0%,
+  100% {
+    transform: translateY(0) scale(1.015);
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+  }
+  45%,
+  55% {
+    transform: translateY(3px) scale(0.955);
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+  }
+}
+@keyframes swiss-s5-rim {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1.5px 2px rgba(196, 181, 253, 0.28),
+      inset 0 -4px 8px rgba(30, 10, 60, 0.55),
+      0 0 0 1px rgba(109, 40, 217, 0.6);
+  }
+  45%,
+  55% {
+    box-shadow:
+      inset 0 4px 8px rgba(20, 5, 40, 0.58),
+      inset 0 1px 3px rgba(15, 5, 35, 0.35),
+      inset 0 -1px 2px rgba(139, 92, 246, 0.1),
+      0 0 0 1px rgba(76, 29, 149, 0.7);
+  }
+}
+@keyframes swiss-s5-depth {
+  0%,
+  100% {
+    filter: brightness(1.02);
+  }
+  45%,
+  55% {
+    filter: brightness(0.86);
+  }
+}
+@keyframes swiss-s5-face {
+  0%,
+  100% {
+    /* как было, но без светлого пятна в центре */
+    background: linear-gradient(170deg, #8b5cf6 0%, #7c3aed 45%, #5b21b6 100%);
+    box-shadow:
+      inset 0 2px 3px rgba(167, 139, 250, 0.22),
+      inset 0 -4px 7px rgba(24, 8, 48, 0.58),
+      inset 0 -1px 0 rgba(15, 5, 35, 0.4);
+  }
+  45%,
+  55% {
+    background: linear-gradient(175deg, #6d28d9 0%, #5b21b6 52%, #3b0764 100%);
+    box-shadow:
+      inset 0 4px 8px rgba(18, 6, 40, 0.62),
+      inset 0 1px 3px rgba(20, 5, 40, 0.4),
+      inset 0 -1px 1px rgba(109, 40, 217, 0.12);
+  }
+}
+@keyframes swiss-s5-glyph {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 1px 0 rgba(30, 10, 60, 0.55))
+      drop-shadow(0 2px 2px rgba(15, 5, 35, 0.22));
+  }
+  45%,
+  55% {
+    filter: drop-shadow(0 0.5px 0 rgba(15, 5, 35, 0.4));
+  }
+}
+
+/* ═══ 6 · хрустальное кольцо + пульс ═══ */
+.swiss-btn--s6 {
+  animation: swiss-s6-btn 3.2s ease-in-out infinite;
+}
+.swiss-btn--s6 .swiss-btn__rim {
+  background: linear-gradient(150deg, #a78bfa 0%, #8b5cf6 40%, #7c3aed 75%, #6d28d9 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(221, 214, 254, 0.32),
+    inset 0 -3px 6px rgba(46, 16, 101, 0.5),
+    0 0 0 1px rgba(109, 40, 217, 0.55);
+}
+.swiss-btn--s6 .swiss-btn__depth {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(196, 181, 253, 0.32) 0%,
+      rgba(147, 197, 253, 0.2) 28%,
+      rgba(129, 140, 248, 0.32) 62%,
+      rgba(49, 46, 129, 0.6) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(199, 210, 254, 0.4),
+    inset 0 -3px 5px rgba(15, 10, 40, 0.5),
+    inset 0 0 0 1px rgba(129, 140, 248, 0.45),
+    0 0 4px rgba(129, 140, 248, 0.15);
+  animation: swiss-s6-depth 3.2s ease-in-out infinite;
+}
+.swiss-btn--s6 .swiss-btn__face {
+  background:
+    radial-gradient(circle at 36% 26%, rgba(255, 255, 255, 0.12) 0%, transparent 40%),
+    linear-gradient(165deg, #7c3aed 0%, #6d28d9 50%, #4c1d95 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(221, 214, 254, 0.16),
+    inset 0 -3px 6px rgba(24, 8, 48, 0.62),
+    inset 0 -1px 0 rgba(15, 5, 35, 0.45);
+  animation: swiss-s6-face 3.2s ease-in-out infinite;
+}
+.swiss-btn--s6 .swiss-btn__glyph {
+  width: 32px;
+  height: 32px;
+  filter:
+    drop-shadow(0 1px 0 rgba(30, 10, 60, 0.6))
+    drop-shadow(0 2px 2px rgba(15, 5, 35, 0.3));
+  animation: swiss-s6-glyph 3.2s ease-in-out infinite;
+}
+
+@keyframes swiss-s6-btn {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.48));
+  }
+  50% {
+    transform: scale(1.045);
+    filter:
+      drop-shadow(0 7px 12px rgba(0, 0, 0, 0.4))
+      drop-shadow(0 0 8px rgba(167, 139, 250, 0.28))
+      drop-shadow(0 0 14px rgba(129, 140, 248, 0.22));
+  }
+}
+@keyframes swiss-s6-depth {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(199, 210, 254, 0.35),
+      inset 0 -3px 5px rgba(15, 10, 40, 0.5),
+      inset 0 0 0 1px rgba(129, 140, 248, 0.4),
+      0 0 3px rgba(129, 140, 248, 0.12);
+    filter: brightness(1);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(196, 181, 253, 0.55),
+      inset 0 -3px 5px rgba(15, 10, 40, 0.45),
+      inset 0 0 0 1px rgba(165, 180, 252, 0.65),
+      0 0 7px rgba(147, 197, 253, 0.28),
+      0 0 12px rgba(167, 139, 250, 0.28);
+    filter: brightness(1.05);
+  }
+}
+@keyframes swiss-s6-face {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(221, 214, 254, 0.16),
+      inset 0 -3px 6px rgba(24, 8, 48, 0.62),
+      inset 0 -1px 0 rgba(15, 5, 35, 0.45);
+  }
+  50% {
+    box-shadow:
+      inset 0 2px 3px rgba(237, 233, 254, 0.28),
+      inset 0 -5px 9px rgba(20, 6, 40, 0.72),
+      inset 0 -1px 0 rgba(15, 5, 35, 0.5),
+      0 2px 0 rgba(0, 0, 0, 0.2);
+  }
+}
+@keyframes swiss-s6-glyph {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 1px 0 rgba(30, 10, 60, 0.6))
+      drop-shadow(0 2px 2px rgba(15, 5, 35, 0.3));
+  }
+  50% {
+    filter:
+      drop-shadow(0 1px 0 rgba(30, 10, 60, 0.55))
+      drop-shadow(0 2px 3px rgba(15, 5, 35, 0.35))
+      drop-shadow(0 0 3px rgba(186, 230, 253, 0.35));
+  }
+}
+
+/* ═══ 7 · чистый хрусталь + 3D-центр + пульс ═══ */
+.swiss-btn--s7 {
+  animation: swiss-s7-btn 3s ease-in-out infinite;
+}
+.swiss-btn--s7 .swiss-btn__rim {
+  background: linear-gradient(150deg, #a78bfa 0%, #8b5cf6 40%, #7c3aed 75%, #6d28d9 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(221, 214, 254, 0.32),
+    inset 0 -3px 6px rgba(46, 16, 101, 0.5),
+    0 0 0 1px rgba(109, 40, 217, 0.55);
+  animation: swiss-s7-rim 3s ease-in-out infinite;
+}
+.swiss-btn--s7 .swiss-btn__depth {
+  background: #4338ca;
+  box-shadow: inset 0 0 0 1px rgba(199, 210, 254, 0.4);
+  animation: swiss-s7-depth 3s ease-in-out infinite;
+}
+.swiss-btn--s7 .swiss-btn__face {
+  /* купол: свет сверху, тень снизу */
+  background:
+    radial-gradient(circle at 38% 28%, rgba(196, 181, 253, 0.45) 0%, transparent 42%),
+    linear-gradient(175deg, #8b5cf6 0%, #6d28d9 42%, #4c1d95 78%, #2e1065 100%);
+  box-shadow:
+    inset 0 2px 3px rgba(237, 233, 254, 0.35),
+    inset 0 -4px 8px rgba(30, 10, 60, 0.65),
+    inset 0 -1px 0 rgba(15, 5, 40, 0.5),
+    inset 0 0 0 1px rgba(91, 33, 182, 0.45);
+  animation: swiss-s7-face 3s ease-in-out infinite;
+}
+.swiss-btn--s7 .swiss-btn__glyph {
+  width: 33px;
+  height: 33px;
+  filter:
+    drop-shadow(0 0 1px rgba(255, 255, 255, 0.7))
+    drop-shadow(0 1px 0 rgba(14, 40, 70, 0.45));
+  animation: swiss-s7-glyph 3s ease-in-out infinite;
+}
+
+@keyframes swiss-s7-btn {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+  }
+  50% {
+    transform: scale(1.04);
+    filter:
+      drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4))
+      drop-shadow(0 0 12px rgba(125, 211, 252, 0.35));
+  }
+}
+@keyframes swiss-s7-rim {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(221, 214, 254, 0.32),
+      inset 0 -3px 6px rgba(46, 16, 101, 0.5),
+      0 0 0 1px rgba(109, 40, 217, 0.55);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(224, 242, 254, 0.4),
+      inset 0 -3px 6px rgba(46, 16, 101, 0.45),
+      0 0 0 1px rgba(147, 197, 253, 0.55),
+      0 0 12px rgba(129, 140, 248, 0.3);
+  }
+}
+@keyframes swiss-s7-depth {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px rgba(199, 210, 254, 0.4);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 1px rgba(191, 219, 254, 0.7),
+      0 0 8px rgba(147, 197, 253, 0.35);
+  }
+}
+@keyframes swiss-s7-face {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 2px 3px rgba(237, 233, 254, 0.3),
+      inset 0 -4px 8px rgba(30, 10, 60, 0.65),
+      inset 0 -1px 0 rgba(15, 5, 40, 0.5),
+      inset 0 0 0 1px rgba(91, 33, 182, 0.45);
+  }
+  50% {
+    box-shadow:
+      inset 0 2px 4px rgba(224, 242, 254, 0.42),
+      inset 0 -4px 8px rgba(30, 10, 60, 0.6),
+      inset 0 -1px 0 rgba(15, 5, 40, 0.45),
+      inset 0 0 0 1px rgba(147, 197, 253, 0.4);
+  }
+}
+@keyframes swiss-s7-glyph {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 1px rgba(255, 255, 255, 0.65))
+      drop-shadow(0 1px 0 rgba(14, 40, 70, 0.45));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.9))
+      drop-shadow(0 0 5px rgba(186, 230, 253, 0.55))
+      drop-shadow(0 1px 0 rgba(14, 40, 70, 0.4));
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * LEGACY A–D · старые стадии меню + пульсация каждого облика
+ * ═══════════════════════════════════════════════════════════ */
+
+.guest-swiss-lab--legacy .guest-swiss-lab__chip-wrap {
+  padding-bottom: 36px;
+}
+
+.swiss-btn--leg1 .swiss-btn__face,
+.swiss-btn--leg2 .swiss-btn__face,
+.swiss-btn--leg3 .swiss-btn__face,
+.swiss-btn--leg4 .swiss-btn__face {
+  max-width: 48px;
+  max-height: 48px;
+  background:
+    radial-gradient(circle at 36% 28%, rgba(196, 181, 253, 0.28) 0%, transparent 50%),
+    linear-gradient(165deg, #5b21b6 0%, #4c1d95 42%, #2e1065 100%);
+}
+
+.swiss-btn--leg1 .swiss-btn__glyph,
+.swiss-btn--leg2 .swiss-btn__glyph,
+.swiss-btn--leg3 .swiss-btn__glyph,
+.swiss-btn--leg4 .swiss-btn__glyph {
+  width: 32px;
+  height: 32px;
+}
+
+/* A · классика — мягкое indigo/cyan дыхание */
+.swiss-btn--leg1 {
+  animation: swiss-leg1-btn 2.8s ease-in-out infinite;
+}
+.swiss-btn--leg1 .swiss-btn__rim {
+  background: linear-gradient(145deg, #a78bfa 0%, #818cf8 35%, #7c3aed 70%, #4c1d95 100%);
+  animation: swiss-leg1-rim 2.8s ease-in-out infinite;
+}
+.swiss-btn--leg1 .swiss-btn__depth {
+  background: radial-gradient(circle at 48% 38%, #3f3a5c 0%, #2e2948 45%, #221e38 100%);
+  box-shadow:
+    inset 0 3px 5px rgba(8, 6, 20, 0.5),
+    inset 0 -1px 2px rgba(129, 140, 248, 0.16),
+    inset 0 0 0 1px rgba(24, 20, 48, 0.35);
+  animation: swiss-leg1-depth 2.8s ease-in-out infinite;
+}
+.swiss-btn--leg1 .swiss-btn__face {
+  animation: swiss-leg1-face 2.8s ease-in-out infinite;
+}
+.swiss-btn--leg1 .swiss-btn__glyph {
+  animation: swiss-leg1-glyph 2.8s ease-in-out infinite;
+}
+
+@keyframes swiss-leg1-btn {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+@keyframes swiss-leg1-rim {
+  0%,
+  100% {
+    box-shadow:
+      0 5px 0 rgba(12, 4, 40, 0.55),
+      0 10px 16px rgba(0, 0, 0, 0.38),
+      0 0 0 1px rgba(167, 139, 250, 0.48),
+      0 0 10px rgba(99, 102, 241, 0.22),
+      inset 0 1px 0 rgba(237, 233, 254, 0.35),
+      inset 0 -4px 8px rgba(30, 27, 75, 0.45);
+  }
+  50% {
+    box-shadow:
+      0 5px 0 rgba(12, 4, 40, 0.55),
+      0 10px 16px rgba(0, 0, 0, 0.38),
+      0 0 0 1px rgba(167, 139, 250, 0.62),
+      0 0 14px rgba(99, 102, 241, 0.4),
+      0 0 22px rgba(56, 189, 248, 0.22),
+      inset 0 1px 0 rgba(237, 233, 254, 0.45),
+      inset 0 -4px 8px rgba(30, 27, 75, 0.45);
+  }
+}
+@keyframes swiss-leg1-depth {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.06);
+  }
+}
+@keyframes swiss-leg1-face {
+  0%,
+  100% {
+    box-shadow:
+      0 2px 0 rgba(0, 0, 0, 0.42),
+      0 4px 8px rgba(0, 0, 0, 0.28),
+      inset 0 2px 3px rgba(221, 214, 254, 0.18),
+      inset 0 -3px 6px rgba(15, 8, 40, 0.45),
+      inset 0 0 0 1px rgba(129, 140, 248, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 2px 0 rgba(0, 0, 0, 0.42),
+      0 4px 8px rgba(0, 0, 0, 0.28),
+      inset 0 2px 3px rgba(221, 214, 254, 0.28),
+      inset 0 -3px 6px rgba(15, 8, 40, 0.45),
+      inset 0 0 0 1px rgba(129, 140, 248, 0.32);
+  }
+}
+@keyframes swiss-leg1-glyph {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 1px 2px rgba(3, 105, 161, 0.45))
+      drop-shadow(0 0 3px rgba(56, 189, 248, 0.22))
+      drop-shadow(0 3px 0 rgba(3, 70, 110, 0.38))
+      drop-shadow(0 6px 8px rgba(0, 0, 0, 0.32));
+  }
+  50% {
+    filter:
+      drop-shadow(0 1px 2px rgba(3, 105, 161, 0.5))
+      drop-shadow(0 0 6px rgba(56, 189, 248, 0.4))
+      drop-shadow(0 3px 0 rgba(3, 70, 110, 0.38))
+      drop-shadow(0 6px 8px rgba(0, 0, 0, 0.32));
+  }
+}
+
+/* B · плотный 3D — реально плотный объём + ножка */
+.swiss-btn--leg2 {
+  animation: swiss-leg2-btn 2.9s ease-in-out infinite;
+}
+.swiss-btn--leg2 .swiss-btn__rim {
+  padding: 6px;
+  background: linear-gradient(135deg, #c4b5fd 0%, #818cf8 28%, #6366f1 52%, #5b21b6 100%);
+  animation: swiss-leg2-rim 2.9s ease-in-out infinite;
+}
+.swiss-btn--leg2 .swiss-btn__depth {
+  inset: 6px;
+  background: radial-gradient(circle at 48% 36%, #3a3558 0%, #26223f 48%, #141122 100%);
+  box-shadow:
+    inset 0 4px 6px rgba(0, 0, 0, 0.65),
+    inset 0 -1px 2px rgba(129, 140, 248, 0.1),
+    inset 0 0 0 1px rgba(10, 8, 24, 0.55);
+  animation: swiss-leg2-depth 2.9s ease-in-out infinite;
+}
+.swiss-btn--leg2 .swiss-btn__face {
+  max-width: 44px;
+  max-height: 44px;
+  background:
+    radial-gradient(circle at 38% 26%, rgba(196, 181, 253, 0.22) 0%, transparent 45%),
+    linear-gradient(170deg, #6d28d9 0%, #5b21b6 45%, #2e1065 100%);
+  animation: swiss-leg2-face 2.9s ease-in-out infinite;
+}
+.swiss-btn--leg2 .swiss-btn__glyph {
+  width: 30px;
+  height: 30px;
+  animation: swiss-leg2-glyph 2.9s ease-in-out infinite;
+}
+
+@keyframes swiss-leg2-btn {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.035);
+  }
+}
+@keyframes swiss-leg2-rim {
+  0%,
+  100% {
+    box-shadow:
+      0 8px 0 rgba(8, 2, 28, 0.78),
+      0 14px 0 rgba(4, 1, 16, 0.35),
+      0 18px 22px rgba(0, 0, 0, 0.5),
+      0 0 0 1px rgba(165, 180, 252, 0.45),
+      inset 0 2px 0 rgba(255, 255, 255, 0.38),
+      inset 0 4px 6px rgba(224, 231, 255, 0.16),
+      inset 0 -6px 12px rgba(20, 16, 50, 0.58);
+  }
+  50% {
+    box-shadow:
+      0 9px 0 rgba(8, 2, 28, 0.82),
+      0 16px 0 rgba(4, 1, 16, 0.4),
+      0 22px 26px rgba(0, 0, 0, 0.55),
+      0 0 0 1px rgba(165, 180, 252, 0.55),
+      0 0 12px rgba(99, 102, 241, 0.28),
+      inset 0 2px 0 rgba(255, 255, 255, 0.48),
+      inset 0 5px 8px rgba(224, 231, 255, 0.22),
+      inset 0 -6px 12px rgba(20, 16, 50, 0.62);
+  }
+}
+@keyframes swiss-leg2-depth {
+  0%,
+  100% {
+    filter: brightness(0.95);
+  }
+  50% {
+    filter: brightness(1.02);
+  }
+}
+@keyframes swiss-leg2-face {
+  0%,
+  100% {
+    box-shadow:
+      0 3px 0 rgba(0, 0, 0, 0.55),
+      0 6px 10px rgba(0, 0, 0, 0.4),
+      inset 0 2px 3px rgba(221, 214, 254, 0.22),
+      inset 0 -4px 8px rgba(10, 4, 30, 0.6),
+      inset 0 0 0 1px rgba(129, 140, 248, 0.22);
+  }
+  50% {
+    box-shadow:
+      0 4px 0 rgba(0, 0, 0, 0.62),
+      0 8px 12px rgba(0, 0, 0, 0.45),
+      inset 0 2px 3px rgba(221, 214, 254, 0.28),
+      inset 0 -5px 9px rgba(10, 4, 30, 0.65),
+      inset 0 0 0 1px rgba(129, 140, 248, 0.3);
+  }
+}
+@keyframes swiss-leg2-glyph {
+  0%,
+  100% {
+    transform: scale(1.02);
+    filter:
+      drop-shadow(0 1px 0 rgba(224, 242, 254, 0.3))
+      drop-shadow(0 0 2px rgba(56, 189, 248, 0.25))
+      drop-shadow(0 4px 0 rgba(2, 40, 70, 0.58))
+      drop-shadow(0 8px 10px rgba(0, 0, 0, 0.45));
+  }
+  50% {
+    transform: scale(1.05);
+    filter:
+      drop-shadow(0 1px 0 rgba(224, 242, 254, 0.4))
+      drop-shadow(0 0 3px rgba(56, 189, 248, 0.35))
+      drop-shadow(0 5px 0 rgba(2, 40, 70, 0.65))
+      drop-shadow(0 10px 12px rgba(0, 0, 0, 0.5));
+  }
+}
+
+/* C · пик-хрусталь — дыхание лака + кристалл */
+.swiss-btn--leg3 {
+  animation: swiss-leg3-btn 3s ease-in-out infinite;
+}
+.swiss-btn--leg3 .swiss-btn__rim {
+  background: linear-gradient(
+    135deg,
+    #e9d5ff 0%,
+    #c4b5fd 16%,
+    #818cf8 38%,
+    #7c3aed 70%,
+    #4338ca 100%
+  );
+  animation: swiss-leg3-rim 3s ease-in-out infinite;
+}
+.swiss-btn--leg3 .swiss-btn__depth {
+  background: radial-gradient(circle at 48% 38%, #4a4468 0%, #343054 45%, #262240 100%);
+  box-shadow:
+    inset 0 3px 5px rgba(8, 6, 20, 0.45),
+    inset 0 -1px 2px rgba(165, 180, 252, 0.2),
+    inset 0 0 0 1px rgba(40, 35, 70, 0.35);
+  animation: swiss-leg3-depth 3s ease-in-out infinite;
+}
+.swiss-btn--leg3 .swiss-btn__face {
+  animation: swiss-leg3-face 3s ease-in-out infinite;
+}
+.swiss-btn--leg3 .swiss-btn__glyph {
+  animation: swiss-leg3-glyph 3s ease-in-out infinite;
+}
+
+@keyframes swiss-leg3-btn {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+@keyframes swiss-leg3-rim {
+  0%,
+  100% {
+    box-shadow:
+      0 7px 0 rgba(12, 4, 40, 0.58),
+      0 14px 22px rgba(0, 0, 0, 0.4),
+      0 0 0 1px rgba(221, 214, 254, 0.55),
+      0 0 14px rgba(99, 102, 241, 0.28),
+      inset 0 2px 0 rgba(255, 255, 255, 0.45),
+      inset 0 4px 8px rgba(224, 231, 255, 0.22),
+      inset 0 -5px 10px rgba(30, 27, 75, 0.42);
+  }
+  50% {
+    box-shadow:
+      0 8px 0 rgba(12, 4, 40, 0.64),
+      0 16px 26px rgba(0, 0, 0, 0.44),
+      0 0 0 1px rgba(221, 214, 254, 0.75),
+      0 0 22px rgba(99, 102, 241, 0.45),
+      0 0 32px rgba(56, 189, 248, 0.25),
+      inset 0 2px 0 rgba(255, 255, 255, 0.65),
+      inset 0 6px 10px rgba(224, 231, 255, 0.35),
+      inset 0 -5px 10px rgba(30, 27, 75, 0.42);
+  }
+}
+@keyframes swiss-leg3-depth {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.1);
+  }
+}
+@keyframes swiss-leg3-face {
+  0%,
+  100% {
+    box-shadow:
+      0 3px 0 rgba(0, 0, 0, 0.48),
+      0 6px 10px rgba(0, 0, 0, 0.32),
+      inset 0 2px 3px rgba(224, 231, 255, 0.24),
+      inset 0 -4px 8px rgba(15, 8, 40, 0.48),
+      inset 0 0 0 1px rgba(165, 180, 252, 0.28);
+  }
+  50% {
+    box-shadow:
+      0 3px 0 rgba(0, 0, 0, 0.5),
+      0 7px 12px rgba(0, 0, 0, 0.36),
+      inset 0 2px 4px rgba(224, 231, 255, 0.35),
+      inset 0 -4px 8px rgba(15, 8, 40, 0.48),
+      inset 0 0 10px rgba(56, 189, 248, 0.12),
+      inset 0 0 0 1px rgba(165, 180, 252, 0.4);
+  }
+}
+@keyframes swiss-leg3-glyph {
+  0%,
+  100% {
+    transform: scale(1.04);
+    filter:
+      drop-shadow(0 1px 0 rgba(240, 249, 255, 0.5))
+      drop-shadow(0 0 3px rgba(186, 230, 253, 0.4))
+      drop-shadow(0 4px 0 rgba(3, 70, 110, 0.45))
+      drop-shadow(0 8px 10px rgba(0, 0, 0, 0.36));
+  }
+  50% {
+    transform: scale(1.1);
+    filter:
+      drop-shadow(0 1px 0 rgba(240, 249, 255, 0.75))
+      drop-shadow(0 0 5px rgba(186, 230, 253, 0.7))
+      drop-shadow(0 0 10px rgba(56, 189, 248, 0.55))
+      drop-shadow(0 4px 0 rgba(3, 70, 110, 0.5))
+      drop-shadow(0 9px 12px rgba(0, 0, 0, 0.4))
+      drop-shadow(0 0 16px rgba(14, 165, 233, 0.45));
+  }
+}
+
+/* D · космос — cyan/violet неон */
+.swiss-btn--leg4 {
+  animation: swiss-leg4-btn 2.7s ease-in-out infinite;
+}
+.swiss-btn--leg4 .swiss-btn__rim {
+  background: linear-gradient(145deg, #a78bfa 0%, #818cf8 28%, #6366f1 55%, #4c1d95 100%);
+  animation: swiss-leg4-rim 2.7s ease-in-out infinite;
+}
+.swiss-btn--leg4 .swiss-btn__depth {
+  background: radial-gradient(circle at 48% 38%, #3a3560 0%, #2a2550 50%, #1e1a3a 100%);
+  box-shadow:
+    inset 0 3px 5px rgba(8, 6, 20, 0.5),
+    inset 0 -1px 2px rgba(129, 140, 248, 0.18),
+    inset 0 0 0 1px rgba(30, 25, 55, 0.4);
+}
+.swiss-btn--leg4 .swiss-btn__face {
+  animation: swiss-leg4-face 2.7s ease-in-out infinite;
+}
+.swiss-btn--leg4 .swiss-btn__glyph {
+  animation: swiss-leg4-glyph 2.7s ease-in-out infinite;
+}
+
+@keyframes swiss-leg4-btn {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    transform: scale(1.035);
+    filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.3));
+  }
+}
+@keyframes swiss-leg4-rim {
+  0%,
+  100% {
+    box-shadow:
+      0 6px 0 rgba(12, 4, 40, 0.55),
+      0 12px 18px rgba(0, 0, 0, 0.38),
+      0 0 0 1px rgba(167, 139, 250, 0.55),
+      0 0 12px rgba(99, 102, 241, 0.32),
+      0 0 18px rgba(56, 189, 248, 0.15),
+      inset 0 2px 0 rgba(237, 233, 254, 0.4),
+      inset 0 -4px 8px rgba(30, 27, 75, 0.45);
+  }
+  50% {
+    box-shadow:
+      0 6px 0 rgba(12, 4, 40, 0.58),
+      0 12px 20px rgba(0, 0, 0, 0.4),
+      0 0 0 1px rgba(167, 139, 250, 0.7),
+      0 0 20px rgba(99, 102, 241, 0.55),
+      0 0 32px rgba(56, 189, 248, 0.4),
+      inset 0 2px 0 rgba(237, 233, 254, 0.5),
+      inset 0 -4px 8px rgba(30, 27, 75, 0.45);
+  }
+}
+@keyframes swiss-leg4-face {
+  0%,
+  100% {
+    box-shadow:
+      0 2px 0 rgba(0, 0, 0, 0.42),
+      0 5px 8px rgba(0, 0, 0, 0.3),
+      inset 0 2px 3px rgba(196, 181, 253, 0.22),
+      inset 0 -3px 6px rgba(15, 8, 40, 0.48),
+      inset 0 0 0 1px rgba(129, 140, 248, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 2px 0 rgba(0, 0, 0, 0.45),
+      0 5px 10px rgba(0, 0, 0, 0.32),
+      inset 0 2px 3px rgba(196, 181, 253, 0.32),
+      inset 0 -3px 6px rgba(15, 8, 40, 0.48),
+      inset 0 0 0 1px rgba(129, 140, 248, 0.38);
+  }
+}
+@keyframes swiss-leg4-glyph {
+  0%,
+  100% {
+    transform: scale(1.03);
+    filter:
+      drop-shadow(0 1px 0 rgba(224, 242, 254, 0.4))
+      drop-shadow(0 0 4px rgba(56, 189, 248, 0.35))
+      drop-shadow(0 0 10px rgba(14, 165, 233, 0.25))
+      drop-shadow(0 3px 0 rgba(3, 70, 110, 0.4))
+      drop-shadow(0 6px 8px rgba(0, 0, 0, 0.32));
+  }
+  50% {
+    transform: scale(1.07);
+    filter:
+      drop-shadow(0 1px 0 rgba(224, 242, 254, 0.55))
+      drop-shadow(0 0 7px rgba(56, 189, 248, 0.6))
+      drop-shadow(0 0 16px rgba(14, 165, 233, 0.45))
+      drop-shadow(0 0 22px rgba(99, 102, 241, 0.32))
+      drop-shadow(0 3px 0 rgba(3, 70, 110, 0.42))
+      drop-shadow(0 7px 10px rgba(0, 0, 0, 0.36));
+  }
+}

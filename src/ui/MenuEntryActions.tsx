@@ -6,7 +6,7 @@ import {
   markSoloMapHintSeen,
   type MenuSectionId,
 } from '../lib/menuSectionPrefs';
-import { MENU_OFFLINE_LEGEND_ART_URL, MENU_ONLINE_LEGEND_ART_URL } from '../lib/menuAssets';
+import { MODE_LEGENDS } from '../lib/modeLegends';
 import {
   ModeLabelHoloOrbitHybridRings,
   ModeLabelHoloWedge,
@@ -53,21 +53,6 @@ function useCyclingLabel(labels: readonly string[], enabled: boolean, intervalMs
 
   return labels[enabled ? index % labels.length : 0] ?? labels[0];
 }
-
-const MODE_LEGENDS = {
-  online: {
-    kicker: 'Космический зал',
-    title: 'Онлайн',
-    body: 'Живые партии через комнаты и лобби: создавайте столы, подключайтесь к друзьям, играйте в общем зале. Рейтинг и прогресс сохраняются, когда вы в аккаунте.',
-    artUrl: MENU_ONLINE_LEGEND_ART_URL,
-  },
-  offline: {
-    kicker: 'Экипаж ИИ',
-    title: 'Офлайн',
-    body: 'Игра на вашем устройстве без сети: быстрый старт против ботов, настройка сложности ИИ и продолжение сохранённой партии в любой момент.',
-    artUrl: MENU_OFFLINE_LEGEND_ART_URL,
-  },
-} as const;
 
 function useModeLegendAutoClose() {
   const [legendOpen, setLegendOpen] = useState(false);
@@ -1173,6 +1158,8 @@ function SplitCapsuleModeCrest({
   legendPanelId,
   showModeLabel = true,
   modeLabelSlot,
+  glyphAriaLabel,
+  legendEnabled = true,
 }: {
   mode: 'online' | 'offline';
   modeLabel: string;
@@ -1184,10 +1171,14 @@ function SplitCapsuleModeCrest({
   showModeLabel?: boolean;
   /** Лаб: заменить дугу. `false` — ничего; ReactNode — кастом. */
   modeLabelSlot?: ReactNode | false;
+  /** Переопределение aria-label глифа (напр. ПК: сразу в Онлайн). */
+  glyphAriaLabel?: string;
+  /** false — глиф не управляет панелью легенды (ПК Онлайн). */
+  legendEnabled?: boolean;
 }) {
-  const glyphAria = legendOpen
-    ? `Свернуть легенду «${modeLabel}»`
-    : `Что такое «${modeLabel}»`;
+  const glyphAria =
+    glyphAriaLabel ??
+    (legendOpen ? `Свернуть легенду «${modeLabel}»` : `Что такое «${modeLabel}»`);
 
   let labelNode: ReactNode = null;
   if (modeLabelSlot === false) {
@@ -1210,8 +1201,8 @@ function SplitCapsuleModeCrest({
               className={`menu-split-capsule__mode-glyph-btn menu-split-capsule__mode-glyph menu-split-capsule__mode-glyph--${mode}${legendOpen ? ' menu-split-capsule__mode-glyph--legend-open' : ''}`}
               onClick={onGlyphClick}
               onPointerUp={blurAfterTouch}
-              aria-expanded={legendOpen}
-              aria-controls={legendPanelId}
+              aria-expanded={legendEnabled ? legendOpen : undefined}
+              aria-controls={legendEnabled ? legendPanelId : undefined}
               aria-label={glyphAria}
             >
               {glyph}
@@ -1357,7 +1348,9 @@ export function MenuPlaySplitCapsule({
     }
   }, [legendOpen, closeMapTip, closePillMapTip]);
 
-  const [isPcMenu, setIsPcMenu] = useState(false);
+  const [isPcMenu, setIsPcMenu] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(PC_MENU_MQ).matches,
+  );
   useEffect(() => {
     const mq = window.matchMedia(PC_MENU_MQ);
     const sync = () => setIsPcMenu(mq.matches);
@@ -1365,6 +1358,10 @@ export function MenuPlaySplitCapsule({
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
   }, []);
+
+  /** ПК: глиф «Онлайн» сразу открывает страницу; легенда — на странице Онлайн. */
+  const onlinePcDirectOpen = mode === 'online' && isPcMenu;
+  const handleOnlineGlyphClick = onlinePcDirectOpen ? onMain : toggleLegend;
 
   /** ПК split: онлайн = клин+кольца; офлайн = только клин. Мобилка — smile-arc. */
   const usePcModeDecor = pcModeLabels && isPcMenu && canResume;
@@ -1387,8 +1384,8 @@ export function MenuPlaySplitCapsule({
     'menu-split-capsule--b4',
     `menu-split-capsule--${mode}`,
     pcModeClass,
-    legendOpen ? 'menu-split-capsule--legend-open' : '',
-    legendClosing ? 'menu-split-capsule--legend-closing' : '',
+    legendOpen && !onlinePcDirectOpen ? 'menu-split-capsule--legend-open' : '',
+    legendClosing && !onlinePcDirectOpen ? 'menu-split-capsule--legend-closing' : '',
     canResume ? '' : 'menu-split-capsule--solo',
   ]
     .filter(Boolean)
@@ -1446,21 +1443,25 @@ export function MenuPlaySplitCapsule({
               {pillLabel}
             </span>
           </button>
-          <ModeLegendPanel
-            mode={mode}
-            panelId={legendPanelId}
-            legendOpen={legendOpen}
-            onClose={closeLegend}
-            onPlay={onMain}
-          />
+          {!onlinePcDirectOpen ? (
+            <ModeLegendPanel
+              mode={mode}
+              panelId={legendPanelId}
+              legendOpen={legendOpen}
+              onClose={closeLegend}
+              onPlay={onMain}
+            />
+          ) : null}
           <SplitCapsuleModeCrest
             mode={mode}
             modeLabel={modeLabel}
             glyph={GLYPHS[mainVariant]}
-            legendOpen={legendOpen}
-            onGlyphClick={mode === 'offline' ? handleSoloGlyphClick : toggleLegend}
+            legendOpen={onlinePcDirectOpen ? false : legendOpen}
+            onGlyphClick={mode === 'offline' ? handleSoloGlyphClick : handleOnlineGlyphClick}
             legendPanelId={legendPanelId}
             showModeLabel={false}
+            glyphAriaLabel={onlinePcDirectOpen ? 'Открыть онлайн' : undefined}
+            legendEnabled={!onlinePcDirectOpen}
           />
           {mode === 'offline' && !isPcMenu && !legendOpen && showGlyphMapHint && !guestMapTipOpen && !pillMapTipOpen ? (
             <div className="menu-split-capsule__solo-map-hint">
@@ -1787,15 +1788,19 @@ export function MenuPlaySplitCapsule({
             onClick={onResume}
           />
         </div>
-        <ModeLegendPanel mode={mode} panelId={legendPanelId} legendOpen={legendOpen} onClose={closeLegend} />
+        {!onlinePcDirectOpen ? (
+          <ModeLegendPanel mode={mode} panelId={legendPanelId} legendOpen={legendOpen} onClose={closeLegend} />
+        ) : null}
         <SplitCapsuleModeCrest
           mode={mode}
           modeLabel={modeLabel}
           glyph={GLYPHS[mainVariant]}
-          legendOpen={legendOpen}
-          onGlyphClick={toggleLegend}
+          legendOpen={onlinePcDirectOpen ? false : legendOpen}
+          onGlyphClick={handleOnlineGlyphClick}
           legendPanelId={legendPanelId}
           modeLabelSlot={resolvedModeLabelSlot}
+          glyphAriaLabel={onlinePcDirectOpen ? 'Открыть онлайн' : undefined}
+          legendEnabled={!onlinePcDirectOpen}
         />
       </div>
     </div>

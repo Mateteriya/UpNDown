@@ -13,6 +13,7 @@ import { getWsUrl, isWsOnlineTransport, isWsOnlineConfigured } from '../lib/onli
 import { settlementModeBadgeLabel, type RoomPeekResult } from '../lib/roomSettlement';
 import { PUBLIC_HALL_ENABLED } from '../lib/productFlags';
 import { ONLINE_LOBBY_MASCOT_URL } from '../lib/lobbyAssets';
+import { MODE_LEGENDS } from '../lib/modeLegends';
 import { LobbyCapsuleButton, LobbyCreatePanel, LobbyLastPartyToggle, LobbyBackButton, LobbyPasteCodeButton } from './LobbyEntryActions';
 import { OnlineHallScreen } from './OnlineHallScreen';
 
@@ -443,7 +444,7 @@ export function LobbyScreen({
     return (
       <div className="lobby-screen">
         <div className="lobby-screen__stack">
-        <h1 className="lobby-screen__title">Онлайн-лобби</h1>
+        <h1 className="lobby-screen__title">Онлайн</h1>
         <p className="lobby-screen__muted" style={{ maxWidth: 320, fontSize: 14 }}>
           Войдите в аккаунт, чтобы создавать комнаты и играть онлайн. Либо включите LAN: VITE_ONLINE_TRANSPORT=ws и VITE_WS_URL.
         </p>
@@ -636,8 +637,24 @@ export function LobbyScreen({
         </div>
         <div className="lobby-screen__content">
       <h1 className="lobby-screen__title">
-        {guestFromHostLink ? 'Вход в комнату' : 'Онлайн-лобби'}
+        {guestFromHostLink ? 'Вход в комнату' : 'Онлайн'}
       </h1>
+      {!guestFromHostLink ? (
+        <details className="lobby-online-legend">
+          <summary className="lobby-online-legend__summary">Что такое Онлайн</summary>
+          <div className="lobby-online-legend__body">
+            <p className="lobby-online-legend__kicker">{MODE_LEGENDS.online.kicker}</p>
+            <p className="lobby-online-legend__text">{MODE_LEGENDS.online.body}</p>
+            <img
+              className="lobby-online-legend__art"
+              src={MODE_LEGENDS.online.artUrl}
+              alt=""
+              decoding="async"
+              draggable={false}
+            />
+          </div>
+        </details>
+      ) : null}
       {guestFromHostLink ? (
         <p className="lobby-screen__lead">
           Вас пригласили в игру Up&amp;Down.

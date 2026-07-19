@@ -33,6 +33,7 @@ import { OfflineResumeChoiceModal } from './ui/OfflineResumeChoiceModal'
 import { AccountLkPage } from './ui/AccountLkPage'
 import { MainMenuScreen } from './ui/MainMenuScreen'
 import { ACCOUNT_ROUTE_HASH, isAccountRouteHash } from './lib/accountRoute'
+import { ONLINE_ROUTE_HASH, isOnlineRouteHash } from './lib/onlineRoute'
 
 /** Ленивая загрузка экрана игры: уменьшает начальный бандл и ускоряет первый показ меню; экран игры подгружается при переходе. */
 const GameTable = lazy(() => import('./ui/GameTable'))
@@ -40,12 +41,17 @@ const GameTable = lazy(() => import('./ui/GameTable'))
 const DEV_MODE_KEY = 'updown-devMode'
 const DEFAULT_DISPLAY_NAME = 'Вы'
 
-function readInitialScreen(): 'menu' | 'game' | 'training' | 'account' {
+type AppScreen = 'menu' | 'game' | 'training' | 'account' | 'online'
+
+function readInitialScreen(): AppScreen {
   if (typeof window === 'undefined') return 'menu'
   const h = (window.location.hash || '#menu').trim().toLowerCase()
   if (h === '#game') return 'game'
   if (h === '#training') return 'training'
   if (isAccountRouteHash(h)) return 'account'
+  if (isOnlineRouteHash(h)) return 'online'
+  const { code } = applyLanJoinParamsFromUrl()
+  if (code) return 'online'
   return 'menu'
 }
 
@@ -55,7 +61,7 @@ function App() {
   // Не открывать стол по одному лишь sessionStorage: до applyRoomData roomId пустой —
   // GameTable успевал поднять офлайн-партию с ИИ и перекрывал лобби (fixed без z-index).
   // После F5 с #game не затирать хеш в меню: начальный экран совпадает с location.hash.
-  const [screen, setScreen] = useState<'menu' | 'game' | 'training' | 'account'>(() => readInitialScreen())
+  const [screen, setScreen] = useState<AppScreen>(() => readInitialScreen())
   const didAutoOpenLobbyRef = useRef(false)
   const hadOnlineRoomRef = useRef(false)
   /** Уже показывали «Задайте имя для этого аккаунта» этому user.id в сессии — не дёргать setShow снова при повторном срабатывании эффекта. */
@@ -85,11 +91,6 @@ function App() {
   const [showOfflineChoiceModal, setShowOfflineChoiceModal] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
-  const [screenLobby, setScreenLobby] = useState(() => {
-    if (typeof window === 'undefined') return false
-    const { code } = applyLanJoinParamsFromUrl()
-    return !!code
-  })
   const [urlJoinCode, setUrlJoinCode] = useState(() => {
     if (typeof window === 'undefined') return null
     const { code } = applyLanJoinParamsFromUrl()
@@ -146,7 +147,7 @@ function App() {
       } else if (
         online.status === 'waiting' &&
         screen !== 'game' &&
-        !screenLobby &&
+        screen !== 'online' &&
         !didAutoOpenLobbyRef.current
       ) {
         didAutoOpenLobbyRef.current = true
@@ -155,9 +156,9 @@ function App() {
         } catch {
           /* ignore */
         }
-        setScreenLobby(true)
-      } else if (online.status === 'waiting' && wasLobbyUiOpen() && screen !== 'game' && !screenLobby) {
-        setScreenLobby(true)
+        setScreen('online')
+      } else if (online.status === 'waiting' && wasLobbyUiOpen() && screen !== 'game' && screen !== 'online') {
+        setScreen('online')
       }
       return
     }
@@ -391,18 +392,27 @@ function App() {
   }
 
   const openAccountCabinet = useCallback(() => {
-    setScreenLobby(false)
     setUrlJoinCode(null)
     setScreen('account')
   }, [])
 
-  // Управление историей браузера: #menu ↔ #game и popstate
+  const openOnlinePage = useCallback(() => {
+    try {
+      sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
+    } catch {
+      /* ignore */
+    }
+    setScreen('online')
+  }, [])
+
+  // Управление историей браузера: #menu ↔ #game ↔ #online и popstate
   useEffect(() => {
     const applyHash = () => {
       const h = (window.location.hash || '#menu').trim().toLowerCase()
       if (h === '#menu') {
         try { sessionStorage.setItem(SUPPRESS_AUTO_OPEN_KEY, '1') } catch { /* ignore */ }
         setScreen('menu')
+        setUrlJoinCode(null)
       } else if (h === '#game') {
         try { sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY) } catch { /* ignore */ }
         setScreen('game')
@@ -410,6 +420,9 @@ function App() {
         setScreen('training')
       } else if (isAccountRouteHash(h)) {
         setScreen('account')
+      } else if (isOnlineRouteHash(h)) {
+        try { sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY) } catch { /* ignore */ }
+        setScreen('online')
       }
     }
     window.addEventListener('popstate', applyHash)
@@ -423,7 +436,9 @@ function App() {
           ? '#training'
           : screen === 'account'
             ? ACCOUNT_ROUTE_HASH
-            : '#menu'
+            : screen === 'online'
+              ? ONLINE_ROUTE_HASH
+              : '#menu'
     if (window.location.hash !== targetHash) {
       history.pushState({ screen }, '', targetHash)
     }
@@ -433,7 +448,7 @@ function App() {
 
   return (
     <>
-      {screen === 'menu' && !screenLobby && (
+      {screen === 'menu' && (
         <MainMenuScreen
           displayName={profile.displayName}
           avatarDataUrl={profile.avatarDataUrl}
@@ -450,14 +465,7 @@ function App() {
           onTitleDevMode={enableDevMode}
           onOpenAccount={openAccountCabinet}
           onResumeOnline={() => { void handleResumeOnline() }}
-          onOpenOnline={() => {
-            try {
-              sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
-            } catch {
-              /* ignore */
-            }
-            setScreenLobby(true)
-          }}
+          onOpenOnline={openOnlinePage}
           onResumeOffline={() => { void handleResumeOffline() }}
           onOfflinePlay={handleOfflineClick}
           onTraining={() => setScreen('training')}
@@ -663,11 +671,15 @@ function App() {
             setAuthMode('login')
             setShowAuthModal(true)
           }}
+          onJoinUnfinished={(code) => {
+            setUrlJoinCode(code)
+            openOnlinePage()
+          }}
         />
       )}
-      {screenLobby && (
+      {screen === 'online' && (
         <LobbyScreen
-          onBack={() => { setScreenLobby(false); setUrlJoinCode(null) }}
+          onBack={() => { setUrlJoinCode(null); setScreen('menu') }}
           playerName={profile.displayName}
           onEditProfile={() => openNameAvatarModal('profile')}
           onOpenAccount={openAccountCabinet}
@@ -681,7 +693,6 @@ function App() {
               /* ignore */
             }
             markLobbyUiOpen(false)
-            setScreenLobby(false);
             setUrlJoinCode(null);
             setScreen('game');
           }}

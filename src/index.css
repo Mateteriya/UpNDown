@@ -51333,7 +51333,7 @@ body:has(.lobby-screen) {
   width: 22px;
   height: 20px;
   border-radius: 4px;
-  color: var(--lobby-laser-indigo);
+  color: var(--lobby-laser-indigo, #a78bfa);
   background:
     radial-gradient(circle at 35% 30%, rgba(167, 139, 250, 0.32), transparent 58%),
     rgba(6, 3, 18, 0.92);
@@ -51357,7 +51357,7 @@ body:has(.lobby-screen) {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--lobby-laser-violet);
+  color: var(--lobby-laser-violet, #c084fc);
   text-shadow: 0 0 8px rgba(192, 132, 252, 0.42);
 }
 .lobby-nav-back:hover {
@@ -51368,10 +51368,10 @@ body:has(.lobby-screen) {
     0 0 20px rgba(168, 85, 247, 0.28);
 }
 .lobby-nav-back:hover .lobby-nav-back__glyph {
-  color: var(--lobby-laser-magenta);
+  color: var(--lobby-laser-magenta, #f472b6);
 }
 .lobby-nav-back:hover .lobby-nav-back__label {
-  color: var(--lobby-laser-magenta);
+  color: var(--lobby-laser-magenta, #f472b6);
 }
 .lobby-nav-back:active {
   transform: translateY(0);

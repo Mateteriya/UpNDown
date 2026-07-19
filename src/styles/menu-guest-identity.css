@@ -225,70 +225,157 @@
     drop-shadow(0 0 10px rgba(192, 132, 252, 0.55));
 }
 
-/* ── swiss cross: глянцевый голубой + дыхание ── */
+/* ── swiss cross: вариант 3 (малина) + объём + пульс ── */
 .menu-guest-cycle__ring--swiss {
-  background: linear-gradient(145deg, #a78bfa, #818cf8 35%, #7c3aed 70%, #4c1d95);
-  padding: calc(var(--mgc) * 0.06);
+  background: linear-gradient(150deg, #350ab6 0%, #e15cf6 40%, #5814cc 75%, #320dab 100%);
+  padding: calc(var(--mgc) * 0.08);
+  /* мягкая тень кнопки — без цветной «пятки» */
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.5));
   box-shadow:
-    0 0 0 1px rgba(167, 139, 250, 0.5),
-    0 0 14px rgba(99, 102, 241, 0.4);
+    inset 0 2px 2px rgba(237, 233, 254, 0.38),
+    inset 0 -5px 10px rgba(30, 10, 60, 0.62),
+    0 0 0 1px rgba(109, 40, 217, 0.6);
 }
 
 .menu-guest-cycle__ring--swiss::before {
-  inset: calc(var(--mgc) * 0.06);
-  background: linear-gradient(165deg, #5b21b6 0%, #312e81 55%, #1e1b4b 100%);
+  inset: calc(var(--mgc) * 0.08);
+  background: linear-gradient(165deg, #6366f1 0%, #4f46e5 45%, #3730a3 100%);
+  box-shadow:
+    inset 0 2px 4px rgba(15, 10, 40, 0.45),
+    inset 0 0 0 1px rgba(165, 180, 252, 0.5);
 }
 
 .menu-guest-cycle__ring--swiss .menu-guest-cycle__well {
+  max-width: calc(var(--mgc) * 0.68);
+  max-height: calc(var(--mgc) * 0.68);
   background:
-    radial-gradient(circle at 40% 32%, rgba(196, 181, 253, 0.28) 0%, transparent 55%),
-    linear-gradient(165deg, #4c1d95 0%, #312e81 50%, #1e1b4b 100%);
+    radial-gradient(circle at 36% 26%, rgba(196, 181, 253, 0.28) 0%, transparent 42%),
+    linear-gradient(170deg, #8b5cf6 0%, #7c3aed 45%, #5b21b6 78%, #3b0764 100%);
+  box-shadow:
+    inset 0 2px 3px rgba(221, 214, 254, 0.28),
+    inset 0 -4px 8px rgba(24, 8, 48, 0.65),
+    inset 0 -1px 0 rgba(15, 5, 35, 0.45),
+    0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
 .menu-guest-cycle__layer--on.menu-guest-cycle__ring--swiss {
-  animation: menu-guest-swiss-ring-breathe 2.6s ease-in-out infinite;
+  animation: menu-guest-swiss-s3-rim 3.1s ease-in-out infinite;
 }
 
-@keyframes menu-guest-swiss-ring-breathe {
+.menu-guest-cycle__layer--on.menu-guest-cycle__ring--swiss::before {
+  animation: menu-guest-swiss-s3-depth 3.1s ease-in-out infinite;
+}
+
+.menu-guest-cycle__layer--on.menu-guest-cycle__ring--swiss .menu-guest-cycle__well {
+  animation: menu-guest-swiss-s3-well 3.1s ease-in-out infinite;
+}
+
+@keyframes menu-guest-swiss-s3-rim {
+  0%,
+  100% {
+    background: linear-gradient(150deg, #350ab6 0%, #e15cf6 40%, #5814cc 75%, #320dab 100%);
+    filter:
+      drop-shadow(0 5px 8px rgba(0, 0, 0, 0.5))
+      saturate(1)
+      brightness(1);
+    box-shadow:
+      inset 0 2px 2px rgba(237, 233, 254, 0.38),
+      inset 0 -5px 10px rgba(30, 10, 60, 0.62),
+      0 0 0 1px rgba(109, 40, 217, 0.6);
+  }
+  50% {
+    background: linear-gradient(
+      150deg,
+      #5b21b6 0%,
+      #9333ea 24%,
+      #c026d3 34%,
+      #f03fc7 40%,
+      #ff2ec8 44%,
+      #d912dee6 50%,
+      #7c3aed 68%,
+      #4c1d95 100%
+    );
+    filter:
+      drop-shadow(0 6px 10px rgba(0, 0, 0, 0.52))
+      drop-shadow(0 0 10px rgba(168, 12, 191, 0.25))
+      saturate(1.28)
+      brightness(1.01);
+    /* цвет пика + сохранённый скос объёма */
+    box-shadow:
+      inset 0 2px 3px rgba(237, 233, 254, 0.42),
+      inset 0 1px 0 rgb(200 120 255 / 45%),
+      inset 0 -6px 12px rgb(40 8 70 / 78%),
+      inset 0 -2px 0 rgb(25 5 50 / 55%),
+      0 0 0 1px rgb(94 62 255 / 87%),
+      0 0 8px rgb(189 95 232 / 8%),
+      0 0 14px rgb(236 50 187 / 13%),
+      0 0 22px rgb(168 12 191 / 34%);
+  }
+}
+
+@keyframes menu-guest-swiss-s3-depth {
   0%,
   100% {
     box-shadow:
-      0 0 0 1px rgba(167, 139, 250, 0.45),
-      0 0 12px rgba(99, 102, 241, 0.32),
-      0 0 18px rgba(56, 189, 248, 0.12);
+      inset 0 2px 4px rgba(15, 10, 40, 0.45),
+      inset 0 0 0 1px rgba(165, 180, 252, 0.45);
   }
   50% {
     box-shadow:
-      0 0 0 1px rgba(167, 139, 250, 0.6),
-      0 0 16px rgba(99, 102, 241, 0.48),
-      0 0 26px rgba(56, 189, 248, 0.32);
+      inset 0 3px 5px rgba(10, 5, 30, 0.55),
+      inset 0 -1px 2px rgba(240, 171, 252, 0.25),
+      inset 0 0 0 1px rgba(240, 171, 252, 0.65),
+      0 0 5px rgba(255, 46, 200, 0.22);
+  }
+}
+
+@keyframes menu-guest-swiss-s3-well {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 2px 3px rgba(221, 214, 254, 0.28),
+      inset 0 -4px 8px rgba(24, 8, 48, 0.65),
+      inset 0 -1px 0 rgba(15, 5, 35, 0.45),
+      0 2px 4px rgba(0, 0, 0, 0.25);
+  }
+  50% {
+    /* купол на пике чуть выразительнее, без выбеливания */
+    box-shadow:
+      inset 0 2px 4px rgba(221, 214, 254, 0.32),
+      inset 0 -5px 10px rgba(20, 6, 42, 0.72),
+      inset 0 -1px 0 rgba(12, 4, 28, 0.5),
+      0 3px 5px rgba(0, 0, 0, 0.3);
   }
 }
 
 .menu-guest-cycle__swiss {
-  width: calc(var(--mgc) * 0.52);
-  height: calc(var(--mgc) * 0.52);
+  width: calc(var(--mgc) * 0.48);
+  height: calc(var(--mgc) * 0.48);
   transform-origin: center;
   filter:
-    drop-shadow(0 1px 2px rgba(3, 105, 161, 0.5))
-    drop-shadow(0 0 4px rgba(56, 189, 248, 0.28));
-  animation: menu-guest-swiss-breathe 2.6s ease-in-out infinite;
+    drop-shadow(0 0 1.5px rgba(255, 90, 210, 0.85))
+    drop-shadow(0 0 4px rgba(255, 46, 200, 0.45))
+    drop-shadow(0 2px 3px rgba(15, 5, 35, 0.4));
 }
 
-@keyframes menu-guest-swiss-breathe {
+.menu-guest-cycle__layer--on .menu-guest-cycle__swiss {
+  animation: menu-guest-swiss-s3-glyph 3.1s ease-in-out infinite;
+}
+
+@keyframes menu-guest-swiss-s3-glyph {
   0%,
   100% {
-    transform: scale(1);
     filter:
-      drop-shadow(0 1px 2px rgba(3, 105, 161, 0.5))
-      drop-shadow(0 0 3px rgba(56, 189, 248, 0.2));
+      drop-shadow(0 0 1.5px rgba(255, 90, 210, 0.75))
+      drop-shadow(0 0 3px rgba(255, 46, 200, 0.35))
+      drop-shadow(0 2px 3px rgba(15, 5, 35, 0.4));
   }
   50% {
-    transform: scale(1.07);
     filter:
-      drop-shadow(0 1px 2px rgba(3, 105, 161, 0.55))
-      drop-shadow(0 0 8px rgba(56, 189, 248, 0.55))
-      drop-shadow(0 0 16px rgba(14, 165, 233, 0.32));
+      drop-shadow(0 0 1.5px rgba(255, 90, 210, 0.9))
+      drop-shadow(0 0 4px rgba(255, 46, 200, 0.45))
+      drop-shadow(0 2px 0 rgba(30, 8, 50, 0.45))
+      drop-shadow(0 4px 6px rgba(0, 0, 0, 0.38));
   }
 }
 
@@ -300,6 +387,75 @@
   white-space: nowrap;
   font-size: 10px;
   color: #94a3b8;
+}
+
+/*
+ * Мобилка · элитные 3D-финиши сменяемых guest-глифов аватарки:
+ * △? — нарядный цвет без туманного ореола;
+ * смайл — 3D-ободок + чёрное кольцо + выпуклый центр;
+ * чёрная крутилка — только 3D-ободок;
+ * крест — вариант 3 (малина) из лаба.
+ */
+@media (max-width: 1024px) {
+  /* ── △? : объём без твёрдой «пятки» ── */
+  .menu-guest-cycle__tri {
+    filter:
+      drop-shadow(0 4px 6px rgba(0, 0, 0, 0.45))
+      drop-shadow(0 1px 0 rgba(76, 29, 149, 0.35));
+  }
+  .menu-guest-cycle__tri-q {
+    filter:
+      drop-shadow(0 1px 1px rgba(76, 29, 149, 0.45))
+      drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+  }
+
+  /* ── смайл: 3D без сплошной цветной «ножки» ── */
+  .menu-guest-cycle__ring--sad {
+    filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.45));
+    box-shadow:
+      0 0 0 1px rgba(167, 139, 250, 0.38),
+      0 0 10px rgba(244, 114, 182, 0.18),
+      inset 0 2px 2px rgba(196, 181, 253, 0.22),
+      inset 0 -3px 6px rgba(4, 2, 18, 0.42);
+  }
+  .menu-guest-cycle__ring--sad::before {
+    background:
+      radial-gradient(circle at 50% 45%, #0c0a14 0%, #05040a 70%, #000 100%);
+    box-shadow:
+      inset 0 4px 8px rgba(0, 0, 0, 0.85),
+      inset 0 -1px 2px rgba(40, 30, 60, 0.25);
+  }
+  .menu-guest-cycle__well--sad {
+    max-width: calc(var(--mgc) * 0.7);
+    max-height: calc(var(--mgc) * 0.7);
+    background:
+      radial-gradient(circle at 42% 30%, rgba(103, 232, 249, 0.3) 0%, transparent 48%),
+      radial-gradient(circle at 60% 68%, rgba(244, 114, 182, 0.2) 0%, transparent 55%),
+      linear-gradient(165deg, #1e1440 0%, #0f172a 55%, #020617 100%);
+    box-shadow:
+      inset 0 2px 3px rgba(186, 230, 253, 0.22),
+      inset 0 -4px 8px rgba(0, 0, 0, 0.5),
+      inset 0 0 0 1px rgba(129, 140, 248, 0.22),
+      0 2px 4px rgba(0, 0, 0, 0.28);
+  }
+  .menu-guest-cycle__face {
+    filter:
+      drop-shadow(0 1px 0 rgba(186, 230, 253, 0.3))
+      drop-shadow(0 3px 5px rgba(0, 0, 0, 0.4))
+      drop-shadow(0 0 6px rgba(192, 132, 252, 0.3));
+  }
+
+  /* ── чёрная крутилка: ободок 3D без твёрдой «пятки» ── */
+  .menu-guest-cycle__ring--empty {
+    filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.5));
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.8),
+      0 1px 0 rgba(113, 113, 122, 0.4),
+      inset 0 2px 3px rgba(212, 212, 216, 0.22),
+      inset 0 -4px 8px rgba(0, 0, 0, 0.55);
+  }
+
+  /* крест: объём задан в базовом блоке выше */
 }
 
 /* Убираем готовый контейнер/радужное кольцо меню — глифы сами со своей обводкой */

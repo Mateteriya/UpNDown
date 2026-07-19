@@ -284,3 +284,14 @@ export function getUnfinishedOnlineGames(): UnfinishedOnlineGame[] {
     return [];
   }
 }
+
+/** Убрать запись незавершённой онлайн-партии (по roomId; при дубликатах — все с этим id). */
+export function removeUnfinishedOnlineGame(roomId: string): void {
+  try {
+    if (typeof localStorage === 'undefined' || !roomId) return;
+    const list = getUnfinishedOnlineGames().filter((x) => x.roomId !== roomId);
+    localStorage.setItem(UNFINISHED_ONLINE_KEY, JSON.stringify(list));
+  } catch {
+    /* ignore */
+  }
+}

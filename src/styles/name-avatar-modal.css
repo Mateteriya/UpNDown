@@ -1,6 +1,6 @@
 /*
- * NameAvatarModal — компактный космический диалог (стиль cosmic-тултипов).
- * Keyboard-safe: карточка сверху, --nam-vvh от visualViewport при фокусе.
+ * NameAvatarModal — профиль: крупнее, зум аватара, вход в полный редактор.
+ * Keyboard-safe: --nam-vvh от visualViewport при фокусе.
  */
 
 .name-avatar-modal {
@@ -29,12 +29,12 @@
 .name-avatar-modal__panel {
   position: relative;
   width: 100%;
-  max-width: 312px;
-  max-height: min(calc(var(--nam-vvh) - 24px), 92dvh);
+  max-width: 440px;
+  max-height: min(calc(var(--nam-vvh) - 24px), 94dvh);
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 14px 14px 12px;
-  border-radius: 12px;
+  padding: 18px 18px 16px;
+  border-radius: 16px;
   border: 2px solid transparent;
   box-sizing: border-box;
   background:
@@ -79,9 +79,9 @@
 }
 
 .name-avatar-modal__title {
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   font-family: 'Exo 2', 'Segoe UI', sans-serif;
-  font-size: 15px;
+  font-size: 1.2rem;
   font-weight: 800;
   line-height: 1.25;
   letter-spacing: 0.01em;
@@ -105,13 +105,13 @@
 .name-avatar-modal__form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
 .name-avatar-modal__identity {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 14px;
   min-width: 0;
 }
 
@@ -120,8 +120,47 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 8px;
+  max-width: 140px;
+}
+
+.name-avatar-modal__avatar-hit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 6px;
-  max-width: 118px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.name-avatar-modal__avatar-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 4px;
+  border-radius: 50%;
+  line-height: 0;
+  background: conic-gradient(from 180deg, #a78bfa, #22d3ee, #f472b6, #fcd34d, #a78bfa);
+  box-shadow: 0 0 18px rgba(167, 139, 250, 0.4);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.name-avatar-modal__avatar-hit:hover .name-avatar-modal__avatar-ring {
+  transform: scale(1.04);
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.45);
+}
+
+.name-avatar-modal__avatar-zoom-hint {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #67e8f9;
 }
 
 .name-avatar-modal__bg-palette {
@@ -139,15 +178,11 @@
 
 .name-avatar-modal__bg-note {
   margin: 0;
-  font-size: 9px;
+  font-size: 0.7rem;
   font-weight: 600;
   line-height: 1.2;
   text-align: center;
   color: rgba(148, 163, 184, 0.75);
-}
-
-.name-avatar-modal__avatar {
-  flex: 0 0 auto;
 }
 
 .name-avatar-modal__name-block {
@@ -155,7 +190,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .name-avatar-modal__name-meta {
@@ -166,14 +201,14 @@
 }
 
 .name-avatar-modal__hint {
-  font-size: 11px;
+  font-size: 0.8rem;
   font-weight: 600;
   color: rgba(186, 230, 253, 0.72);
   letter-spacing: 0.02em;
 }
 
 .name-avatar-modal__count {
-  font-size: 10px;
+  font-size: 0.75rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: rgba(167, 139, 250, 0.85);
@@ -182,16 +217,16 @@
 .name-avatar-modal__input {
   width: 100%;
   margin: 0;
-  padding: 9px 11px;
+  padding: 11px 13px;
   box-sizing: border-box;
   font-family: inherit;
   font-size: 16px;
   font-weight: 600;
   line-height: 1.25;
-  border-radius: 9px;
+  border-radius: 11px;
   border: 1px solid rgba(103, 232, 249, 0.35);
   background: rgba(8, 6, 28, 0.88);
-  color: #f8fafc;
+  color: #e9d5ff;
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -212,15 +247,42 @@
 .name-avatar-modal__photo-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
+  justify-content: center;
+}
+
+.name-avatar-modal__camera {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.name-avatar-modal__camera-video {
+  display: block;
+  width: min(100%, 320px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  background: #0b1020;
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.2);
+  transform: scaleX(-1);
+}
+
+.name-avatar-modal__camera-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: center;
 }
 
 .name-avatar-modal__chip {
   margin: 0;
-  padding: 6px 10px;
+  padding: 8px 12px;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 0.82rem;
   font-weight: 700;
   line-height: 1.2;
   border-radius: 999px;
@@ -232,7 +294,7 @@
 .name-avatar-modal__chip--selfie {
   border: 1px solid rgba(34, 211, 238, 0.5);
   background: linear-gradient(155deg, rgba(14, 116, 144, 0.85) 0%, rgba(76, 29, 149, 0.55) 100%);
-  color: #f0f9ff;
+  color: #e0f2fe;
   box-shadow: 0 0 12px rgba(34, 211, 238, 0.22);
 }
 
@@ -242,10 +304,17 @@
   color: #e9d5ff;
 }
 
+.name-avatar-modal__chip--editor {
+  border: 1px solid rgba(244, 114, 182, 0.5);
+  background: linear-gradient(145deg, rgba(88, 28, 135, 0.75) 0%, rgba(14, 116, 144, 0.45) 100%);
+  color: #fce7f3;
+  box-shadow: 0 0 12px rgba(232, 121, 249, 0.22);
+}
+
 .name-avatar-modal__chip--remove {
   border: 1px solid rgba(148, 163, 184, 0.35);
   background: transparent;
-  color: rgba(148, 163, 184, 0.95);
+  color: rgba(203, 213, 225, 0.95);
 }
 
 .name-avatar-modal__chip:focus-visible {
@@ -253,9 +322,14 @@
   outline-offset: 2px;
 }
 
+.name-avatar-modal__chip:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .name-avatar-modal__error {
   margin: 0;
-  font-size: 12px;
+  font-size: 0.82rem;
   font-weight: 700;
   text-align: center;
   color: #fb7185;
@@ -263,16 +337,16 @@
 
 .name-avatar-modal__actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: flex-end;
   margin-top: 2px;
 }
 
 .name-avatar-modal__btn {
   margin: 0;
-  padding: 9px 14px;
+  padding: 11px 16px;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 0.92rem;
   font-weight: 800;
   line-height: 1.2;
   border-radius: 999px;
@@ -295,7 +369,7 @@
     rgba(124, 58, 237, 0.55) 48%,
     rgba(244, 114, 182, 0.4) 100%
   );
-  color: #f8fafc;
+  color: #e0f2fe;
   box-shadow:
     0 0 0 1px rgba(167, 139, 250, 0.2),
     0 0 18px rgba(34, 211, 238, 0.25);
@@ -304,4 +378,96 @@
 .name-avatar-modal__btn:focus-visible {
   outline: 2px solid rgba(103, 232, 249, 0.85);
   outline-offset: 2px;
+}
+
+/* Просмотр / зум */
+.name-avatar-modal__preview {
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+  background: rgba(2, 6, 23, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.name-avatar-modal__preview-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(100%, 420px);
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  background: rgba(10, 8, 28, 0.92);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
+}
+
+.name-avatar-modal__preview-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 280px;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.name-avatar-modal__preview-zoom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  transition: transform 0.15s ease;
+  will-change: transform;
+}
+
+.name-avatar-modal__preview-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.name-avatar-modal__preview-scale {
+  min-width: 3.2em;
+  text-align: center;
+  font-family: 'Share Tech Mono', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #67e8f9;
+}
+
+@media (min-width: 1025px) {
+  .name-avatar-modal {
+    align-items: center;
+  }
+
+  .name-avatar-modal__panel {
+    max-width: 560px;
+    padding: 24px 26px 20px;
+  }
+
+  .name-avatar-modal__title {
+    font-size: 1.45rem;
+  }
+
+  .name-avatar-modal__avatar-col {
+    max-width: 160px;
+  }
+
+  .name-avatar-modal__chip {
+    font-size: 0.9rem;
+    padding: 9px 14px;
+  }
+
+  .name-avatar-modal__preview-card {
+    width: min(100%, 520px);
+  }
 }

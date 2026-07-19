@@ -8,6 +8,7 @@ import { useState, type ReactNode } from 'react';
 import { accountRouteHref } from '../lib/accountRoute';
 import { MenuPlaySplitCapsule } from './MenuEntryActions';
 import { AvatarStatusLabSection } from './mode-label-lab/AvatarStatusLab';
+import { GuestSwissLabSection } from './mode-label-lab/GuestSwissLab';
 import {
   ModeLabelCenterWatermarkCaption,
   ModeLabelCenterWatermarkGhost,
@@ -17,6 +18,7 @@ import {
 } from './mode-label-lab/ModeLabelLabVariants';
 import '../styles/mode-label-lab.css';
 import '../styles/avatar-status-lab.css';
+import '../styles/guest-swiss-lab.css';
 
 type LabelVariant = 'current' | 'hybrid' | 'holo' | 'orbit' | 'watermark';
 /** Полный = как на 16″+; компакт ≈ −22% под планшет / узкий ПК. */
@@ -134,8 +136,8 @@ export function ModeLabelLabPage({ onBack }: ModeLabelLabPageProps) {
         <div>
           <h1 className="mode-label-lab__title">Лаб: меню — надписи и статус аватарки</h1>
           <p className="mode-label-lab__hint">
-            Локальная песочница (`/mode-label-lab`). Сверху — аватарка profile / account; ниже —
-            надписи режима на split-капсулах. Прод не меняется.
+            Локальная песочница (`/mode-label-lab`). Сверху — облики guest-креста; дальше аватарка
+            profile / account и надписи режима. Прод не меняется.
           </p>
         </div>
         <div className="mode-label-lab__density" role="group" aria-label="Плотность капсул">
@@ -173,6 +175,8 @@ export function ModeLabelLabPage({ onBack }: ModeLabelLabPageProps) {
       </header>
 
       <div className="mode-label-lab__body">
+        <GuestSwissLabSection />
+
         <AvatarStatusLabSection onOpenCabinet={() => (window.location.href = accountRouteHref())} />
 
         <p className="mode-label-lab__density-note">

@@ -1,14 +1,35 @@
 /**
  * Личный кабинет: профиль (локально), аккаунт (облако), рейтинг и история.
+ * ПК (≥1025px): full-page dashboard без прокрутки. Мобильный layout — прежняя карточка.
  */
 
-import { useEffect, useState } from 'react';
-import { getLocalRating, getPlayerProfile } from '../game/persistence';
+import { useEffect, useState, useRef } from 'react';
+import {
+  getLocalRating,
+  getPlayerProfile,
+  getUnfinishedOnlineGames,
+  removeUnfinishedOnlineGame,
+  type UnfinishedOnlineGame,
+} from '../game/persistence';
+import { getAiDifficulty, setAiDifficulty } from '../game/aiSettings';
+import type { AIDifficulty } from '../game/types';
 import { getPartyHistory, type PartyHistoryRecord } from '../game/partyHistory';
 import { useAuth } from '../contexts/AuthContext';
 import { getMyMatchHistory, getMyRatingSummary, type MatchHistoryItem } from '../lib/onlineGameSupabase';
+import { getMenuIdentityStatus, MENU_IDENTITY_STATUS_ARIA } from '../lib/menuIdentityStatus';
+import { LK_CAST_PRIMARY, LK_CAST_HERO, preloadLkCastUrl } from '../lib/lkCastAssets';
 import { CosmicCockpit, CosmicGlassClose, CosmicPhysButton } from './CosmicCockpit';
 import { PlayerAvatar } from './PlayerAvatar';
+import { LobbyBackButton } from './LobbyEntryActions';
+import { MenuCapsuleButton } from './MenuEntryActions';
+
+const PC_LK_MQ = '(min-width: 1025px)';
+
+const AI_LEVELS: { id: AIDifficulty; title: string; hint: string }[] = [
+  { id: 'novice', title: 'Новичок', hint: 'мягкая игра' },
+  { id: 'amateur', title: 'Любитель', hint: 'обычный темп' },
+  { id: 'expert', title: 'Эксперт', hint: 'жёсткий вызов' },
+];
 
 export type AccountLkPageProps = {
   onBack: () => void;
@@ -18,6 +39,8 @@ export type AccountLkPageProps = {
   onOpenRating: () => void;
   onOpenHistory: () => void;
   onSignIn: () => void;
+  /** ПК: войти в незавершённую комнату по коду (открывает Онлайн). */
+  onJoinUnfinished?: (code: string) => void;
 };
 
 function formatWhen(iso: string): string {
@@ -58,6 +81,12 @@ function CloudMatchRow({ row }: { row: MatchHistoryItem }) {
   );
 }
 
+function identityBadgeLabel(status: 'guest' | 'profile' | 'account'): string {
+  if (status === 'guest') return 'гость';
+  if (status === 'profile') return 'профиль';
+  return 'аккаунт';
+}
+
 export function AccountLkPage({
   onBack,
   displayName,
@@ -66,6 +95,7 @@ export function AccountLkPage({
   onOpenRating,
   onOpenHistory,
   onSignIn,
+  onJoinUnfinished,
 }: AccountLkPageProps) {
   const { user, configured, signOut, loading: authLoading } = useAuth();
   const rating = getLocalRating();
@@ -73,11 +103,43 @@ export function AccountLkPage({
   const [online, setOnline] = useState<{ games: number; ratedGames: number; wins: number; points: number } | null>(null);
   const [cloudMatches, setCloudMatches] = useState<MatchHistoryItem[] | null>(null);
   const [cloudLoading, setCloudLoading] = useState(false);
+  const [isPc, setIsPc] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(PC_LK_MQ).matches,
+  );
+  const [aiLevel, setAiLevel] = useState<AIDifficulty>(() => getAiDifficulty());
+  const [unfinished, setUnfinished] = useState<UnfinishedOnlineGame[]>(() => getUnfinishedOnlineGames());
+  const [aiPulseId, setAiPulseId] = useState<AIDifficulty | null>(null);
+  const aiPulseTimerRef = useRef<number | null>(null);
 
   const loggedIn = !!(configured && user?.id);
   const winRate = rating.gamesPlayed > 0 ? Math.round((rating.wins / rating.gamesPlayed) * 100) : 0;
   const avgBidAccuracy =
     rating.bidAccuracyCount > 0 ? Math.round(rating.bidAccuracySum / rating.bidAccuracyCount) : null;
+  const identityStatus = getMenuIdentityStatus({
+    displayName,
+    avatarDataUrl,
+    userEmail: user?.email ?? null,
+  });
+
+  useEffect(() => {
+    const mq = window.matchMedia(PC_LK_MQ);
+    const sync = () => setIsPc(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  useEffect(() => {
+    if (!isPc) return;
+    preloadLkCastUrl(LK_CAST_PRIMARY.url);
+    preloadLkCastUrl(LK_CAST_HERO.url);
+  }, [isPc]);
+
+  useEffect(() => {
+    return () => {
+      if (aiPulseTimerRef.current != null) window.clearTimeout(aiPulseTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,6 +182,278 @@ export function AccountLkPage({
         : null;
   const recentIsCloud = !!(loggedIn && cloudMatches && cloudMatches.length > 0);
 
+  const handleAiSelect = (level: AIDifficulty) => {
+    setAiDifficulty(level);
+    setAiLevel(level);
+    setAiPulseId(level);
+    if (aiPulseTimerRef.current != null) window.clearTimeout(aiPulseTimerRef.current);
+    aiPulseTimerRef.current = window.setTimeout(() => {
+      setAiPulseId(null);
+      aiPulseTimerRef.current = null;
+    }, 520);
+  };
+
+  const handleForgetUnfinished = (roomId: string) => {
+    removeUnfinishedOnlineGame(roomId);
+    setUnfinished(getUnfinishedOnlineGames());
+  };
+
+  const unfinishedShown = [...unfinished].reverse().slice(0, 2);
+  const recentShown = recentMatches ? recentMatches.slice(0, 2) : null;
+
+  if (isPc) {
+    return (
+      <div className="lk-page lk-page--pc">
+        <div className="lk-page__pc-cast" aria-hidden="true">
+          <img className="lk-page__pc-cast-img" src={LK_CAST_PRIMARY.url} alt="" decoding="async" />
+          <div className="lk-page__pc-cast-scrim" />
+          <div className="lk-page__pc-cast-glow" />
+        </div>
+
+        <div className="lk-page__pc-layout">
+          <header className="lk-page__pc-top">
+            <LobbyBackButton onClick={onBack} />
+            <h1 className="lk-page__pc-title">Личный кабинет</h1>
+            <span className="lk-page__pc-live" aria-hidden="true">
+              <span className="lk-page__pc-live-dot" />
+              активно
+            </span>
+          </header>
+
+          <div className="lk-page__pc-body">
+            <section className="lk-pc-hero" aria-label="Профиль">
+              <div className="lk-pc-hero__identity">
+                <div className="lk-pc-hero__avatar-ring">
+                  <PlayerAvatar
+                    name={displayName}
+                    avatarDataUrl={avatarDataUrl}
+                    avatarBgColor={getPlayerProfile().avatarBgColor}
+                    sizePx={90}
+                  />
+                </div>
+                <div className="lk-pc-hero__text">
+                  <p className="lk-pc-hero__name">{displayName}</p>
+                  <p className="lk-pc-hero__sub">
+                    {loggedIn && user?.email
+                      ? user.email
+                      : 'Без аккаунта · только это устройство'}
+                  </p>
+                  <span
+                    className={`lk-page__badge lk-page__badge--${identityStatus === 'account' ? 'online' : identityStatus === 'profile' ? 'local' : 'guest'}`}
+                    title={MENU_IDENTITY_STATUS_ARIA[identityStatus]}
+                  >
+                    {identityBadgeLabel(identityStatus)}
+                  </span>
+                </div>
+              </div>
+              <div className="lk-pc-hero__cast" aria-hidden="true">
+                <img className="lk-pc-hero__cast-img" src={LK_CAST_HERO.url} alt="" decoding="async" />
+                <div className="lk-pc-hero__cast-veil" />
+              </div>
+              <div className="lk-pc-hero__capsules">
+                <MenuCapsuleButton
+                  variant="profile"
+                  compact
+                  title="Имя и фото"
+                  hint="на устройстве"
+                  onClick={onEditProfile}
+                />
+                {loggedIn ? (
+                  <MenuCapsuleButton
+                    variant="auth"
+                    compact
+                    title="Выйти"
+                    hint="облачный аккаунт"
+                    onClick={() => {
+                      void signOut();
+                    }}
+                  />
+                ) : (
+                  <MenuCapsuleButton
+                    variant="auth"
+                    compact
+                    title={authLoading ? 'Проверка…' : 'Войти'}
+                    hint="для онлайна и облака"
+                    onClick={onSignIn}
+                  />
+                )}
+                <MenuCapsuleButton variant="rating" compact title="Рейтинг" hint="подробно" onClick={onOpenRating} />
+                <MenuCapsuleButton variant="history" compact title="История" hint="все партии" onClick={onOpenHistory} />
+              </div>
+            </section>
+
+            <div className="lk-pc-dash">
+              <section className="lk-pc-panel lk-pc-panel--settings" aria-labelledby="lk-pc-settings">
+                <header className="lk-pc-panel__head">
+                  <h2 id="lk-pc-settings" className="lk-pc-panel__title">
+                    Настройки
+                  </h2>
+                </header>
+                <div className="lk-pc-theme">
+                  <span className="lk-pc-theme__label">Оформление</span>
+                  <span className="lk-pc-theme__chip">стандарт</span>
+                </div>
+                <p className="lk-pc-panel__hint">Сложность ИИ · выберите пилюлю</p>
+                <div className="lk-pc-ai" role="radiogroup" aria-label="Сложность ИИ">
+                  {AI_LEVELS.map((row) => {
+                    const selected = aiLevel === row.id;
+                    return (
+                      <button
+                        key={row.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        className={[
+                          'lk-pc-ai__pill',
+                          `lk-pc-ai__pill--${row.id}`,
+                          selected ? 'lk-pc-ai__pill--on' : '',
+                          aiPulseId === row.id ? 'lk-pc-ai__pill--pulse' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        onClick={() => handleAiSelect(row.id)}
+                      >
+                        <span className="lk-pc-ai__ball" aria-hidden="true" />
+                        <span className="lk-pc-ai__copy">
+                          <span className="lk-pc-ai__title">{row.title}</span>
+                          <span className="lk-pc-ai__hint">{row.hint}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="lk-pc-panel lk-pc-panel--stats" aria-labelledby="lk-pc-stats">
+                <header className="lk-pc-panel__head">
+                  <h2 id="lk-pc-stats" className="lk-pc-panel__title">
+                    Статистика
+                  </h2>
+                </header>
+                <div className="lk-pc-stats">
+                  {loggedIn && online ? (
+                    <>
+                      <div className="lk-pc-stat">
+                        <span className="lk-pc-stat__value">{online.games}</span>
+                        <span className="lk-pc-stat__label">онлайн игр</span>
+                      </div>
+                      <div className="lk-pc-stat">
+                        <span className="lk-pc-stat__value">{online.wins}</span>
+                        <span className="lk-pc-stat__label">онлайн побед</span>
+                      </div>
+                      <div className="lk-pc-stat">
+                        <span className="lk-pc-stat__value">{online.points}</span>
+                        <span className="lk-pc-stat__label">онлайн очки</span>
+                      </div>
+                    </>
+                  ) : null}
+                  <div className="lk-pc-stat">
+                    <span className="lk-pc-stat__value">{rating.gamesPlayed}</span>
+                    <span className="lk-pc-stat__label">игр на устройстве</span>
+                  </div>
+                  <div className="lk-pc-stat">
+                    <span className="lk-pc-stat__value">
+                      {rating.wins}
+                      {rating.gamesPlayed > 0 ? ` · ${winRate}%` : ''}
+                    </span>
+                    <span className="lk-pc-stat__label">побед локально</span>
+                  </div>
+                  {avgBidAccuracy != null ? (
+                    <div className="lk-pc-stat">
+                      <span className="lk-pc-stat__value">{avgBidAccuracy}%</span>
+                      <span className="lk-pc-stat__label">точность заказов</span>
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+
+              <section className="lk-pc-panel lk-pc-panel--activity" aria-labelledby="lk-pc-activity">
+                <header className="lk-pc-panel__head">
+                  <h2 id="lk-pc-activity" className="lk-pc-panel__title">
+                    Активность
+                  </h2>
+                </header>
+
+                <div className="lk-pc-activity-block">
+                  <h3 className="lk-pc-activity-block__title">Незавершённые онлайн</h3>
+                  {unfinishedShown.length === 0 ? (
+                    <p className="lk-pc-activity-block__empty">Пока пусто</p>
+                  ) : (
+                    <ul className="lk-pc-chip-list">
+                      {unfinishedShown.map((row) => (
+                        <li key={`${row.roomId}-${row.leftAt}`} className="lk-pc-chip lk-pc-chip--warn">
+                          <div className="lk-pc-chip__main">
+                            <span className="lk-pc-chip__code">{row.code}</span>
+                            <span className="lk-pc-chip__meta">{formatWhen(row.leftAt)}</span>
+                          </div>
+                          <div className="lk-pc-chip__actions">
+                            {onJoinUnfinished ? (
+                              <button
+                                type="button"
+                                className="lk-pc-chip__btn"
+                                onClick={() => onJoinUnfinished(row.code)}
+                              >
+                                Открыть
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="lk-pc-chip__btn lk-pc-chip__btn--ghost"
+                              onClick={() => handleForgetUnfinished(row.roomId)}
+                            >
+                              Забыть
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="lk-pc-activity-block">
+                  <h3 className="lk-pc-activity-block__title">Недавние</h3>
+                  {cloudLoading && loggedIn ? (
+                    <p className="lk-pc-activity-block__empty">Загрузка…</p>
+                  ) : recentShown && recentShown.length > 0 ? (
+                    <ul className="lk-pc-chip-list">
+                      {recentIsCloud
+                        ? (recentShown as MatchHistoryItem[]).map((row) => (
+                            <li key={row.id} className="lk-pc-chip">
+                              <span className="lk-pc-chip__meta">
+                                {formatWhen(row.finished_at)} · {row.is_offline ? 'офлайн' : 'онлайн'}
+                              </span>
+                              <span className="lk-pc-chip__body">
+                                {row.place != null ? `место ${row.place}` : '—'}
+                                {' · '}
+                                {row.final_score != null
+                                  ? `${row.final_score >= 0 ? '+' : ''}${row.final_score}`
+                                  : '—'}
+                              </span>
+                            </li>
+                          ))
+                        : (recentShown as PartyHistoryRecord[]).map((row) => (
+                            <li key={row.id} className="lk-pc-chip">
+                              <span className="lk-pc-chip__meta">{formatWhen(row.finishedAt)} · офлайн</span>
+                              <span className="lk-pc-chip__body">
+                                место {row.humanPlace} · {row.humanScore >= 0 ? '+' : ''}
+                                {row.humanScore}
+                                {row.humanWon ? ' · победа' : ''}
+                              </span>
+                            </li>
+                          ))}
+                    </ul>
+                  ) : (
+                    <p className="lk-pc-activity-block__empty">Пока нет партий</p>
+                  )}
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="lk-page">
       <div className="lk-page__shell">
@@ -139,7 +473,9 @@ export function AccountLkPage({
               {loggedIn && user?.email ? (
                 <p className="lk-page__profile-email">{user.email}</p>
               ) : (
-                <p className="lk-page__profile-email lk-page__profile-email--guest">Без аккаунта · только это устройство</p>
+                <p className="lk-page__profile-email lk-page__profile-email--guest">
+                  Без аккаунта · только это устройство
+                </p>
               )}
             </div>
           </div>
