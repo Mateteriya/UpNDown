@@ -9,6 +9,8 @@
 
 Владелец после вашего `wss://`: [OWNER-AFTER-WS-READY.md](./OWNER-AFTER-WS-READY.md).
 
+**Конкретный деплой на `starkey.agneko.com/updown` (порт 3005):** [TECH-DIRECTOR-STARKEY-HANDOFF.md](./TECH-DIRECTOR-STARKEY-HANDOFF.md).
+
 ---
 
 ## 1. Цель и границы ответственности

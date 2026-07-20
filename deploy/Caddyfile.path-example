@@ -1,0 +1,20 @@
+# Пример: WS под путём /updown на уже существующем домене.
+# Домен техдиректора: starkey.agneko.com, Node на 127.0.0.1:3005
+#
+# handle_path СНИМАЕТ префикс /updown → бэкенд видит /api/health и WS на /
+# Клиент (Vercel): VITE_WS_URL=wss://starkey.agneko.com/updown
+#
+# Проверка:
+#   curl -s https://starkey.agneko.com/updown/api/health
+#   curl -s https://starkey.agneko.com/updown/api/version
+
+starkey.agneko.com {
+	encode gzip
+
+	# Up&Down game WS (альфа)
+	handle_path /updown* {
+		reverse_proxy 127.0.0.1:3005
+	}
+
+	# … остальные handle / сайты на этом хосте …
+}
