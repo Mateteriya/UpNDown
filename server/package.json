@@ -9,11 +9,11 @@
   "dependencies": {
     "nat-upnp": "^1.1.1",
     "qrcode": "^1.5.4",
+    "tsx": "^4.19.2",
     "up-down": "file:..",
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@types/ws": "^8.5.13",
-    "tsx": "^4.19.2"
+    "@types/ws": "^8.5.13"
   }
 }

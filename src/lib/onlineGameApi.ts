@@ -32,8 +32,14 @@ export const getRoomForSyncPoll: typeof sb.getRoomForSyncPoll = (...args) =>
 export const updateRoomState: typeof sb.updateRoomState = (...args) =>
   useWs() ? ws.wsUpdateRoomState(...args) : sb.updateRoomState(...args);
 
-export const updateRoomPlayerSlots: typeof sb.updateRoomPlayerSlots = (...args) =>
-  useWs() ? ws.wsUpdateRoomPlayerSlots(...args) : sb.updateRoomPlayerSlots(...args);
+export const updateRoomPlayerSlots = (
+  roomId: string,
+  playerSlots: sb.PlayerSlot[],
+  actorUserId?: string,
+): Promise<{ error?: string; room?: sb.GameRoomRow }> =>
+  useWs()
+    ? ws.wsUpdateRoomPlayerSlots(roomId, playerSlots, actorUserId)
+    : sb.updateRoomPlayerSlots(roomId, playerSlots).then((r) => ({ error: r.error }));
 
 /** Синхронизация имени игрока в комнате (слоты + game_state в партии). */
 export async function pushPlayerDisplayName(
@@ -96,3 +102,12 @@ export const transferHostRoom: typeof sb.transferHostRoom = (...args) =>
 
 export const hostResolveAbsent: typeof sb.hostResolveAbsent = (...args) =>
   useWs() ? ws.wsHostResolveAbsent(...args) : sb.hostResolveAbsent(...args);
+
+export const fetchRoomChatMessages: typeof sb.fetchRoomChatMessages = (...args) =>
+  useWs() ? ws.wsFetchRoomChatMessages(...args) : sb.fetchRoomChatMessages(...args);
+
+export const sendRoomChatMessage: typeof sb.sendRoomChatMessage = (...args) =>
+  useWs() ? ws.wsSendRoomChatMessage(...args) : sb.sendRoomChatMessage(...args);
+
+export const subscribeRoomChat: typeof sb.subscribeRoomChat = (...args) =>
+  useWs() ? ws.wsSubscribeRoomChat(...args) : sb.subscribeRoomChat(...args);

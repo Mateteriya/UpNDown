@@ -61,6 +61,54 @@ function fullSlotsFromPartial(partial: PlayerSlot[]): PlayerSlot[] {
 export class RoomStore {
   private rooms = new Map<string, GameRoomRow>();
   private codeToId = new Map<string, string>();
+  private onMutate: (() => void) | null = null;
+
+  /** Хук после мутации (persistance / метрики). */
+  setOnMutate(fn: (() => void) | null): void {
+    this.onMutate = fn;
+  }
+
+  private touch(): void {
+    try {
+      this.onMutate?.();
+    } catch (e) {
+      console.warn('[rooms] onMutate failed', e);
+    }
+  }
+
+  /** Восстановить комнаты с диска (после рестарта). */
+  hydrate(rooms: GameRoomRow[]): number {
+    let n = 0;
+    for (const raw of rooms) {
+      if (!raw?.id || !raw?.code) continue;
+      const code = String(raw.code).trim().toUpperCase();
+      const room: GameRoomRow = {
+        ...raw,
+        code,
+        player_slots: fullSlotsFromPartial(raw.player_slots ?? []),
+      };
+      this.rooms.set(room.id, room);
+      this.codeToId.set(code, room.id);
+      n += 1;
+    }
+    return n;
+  }
+
+  /** Удалить finished старше maxAgeMs; вернуть число удалённых. */
+  pruneFinished(maxAgeMs: number): number {
+    const cutoff = Date.now() - maxAgeMs;
+    let removed = 0;
+    for (const room of [...this.rooms.values()]) {
+      if (room.status !== 'finished') continue;
+      const t = Date.parse(room.updated_at || room.created_at || '');
+      if (!Number.isFinite(t) || t > cutoff) continue;
+      this.rooms.delete(room.id);
+      this.codeToId.delete(room.code);
+      removed += 1;
+    }
+    if (removed) this.touch();
+    return removed;
+  }
 
   listPublicWaiting(): GameRoomRow[] {
     return [...this.rooms.values()]
@@ -135,6 +183,7 @@ export class RoomStore {
     };
     this.rooms.set(id, room);
     this.codeToId.set(code, id);
+    this.touch();
     return room;
   }
 
@@ -162,6 +211,7 @@ export class RoomStore {
     };
     room.player_slots = slots;
     room.updated_at = nowIso();
+    this.touch();
     return { room, mySlotIndex: slots[reclaimIdx].slotIndex };
   }
 
@@ -219,6 +269,7 @@ export class RoomStore {
     else slots.push(newSlot);
     room.player_slots = fullSlotsFromPartial(slots);
     room.updated_at = nowIso();
+    this.touch();
     return { room, mySlotIndex: slotIndex };
   }
 
@@ -239,6 +290,7 @@ export class RoomStore {
       };
       room.player_slots = slots;
       room.updated_at = nowIso();
+      this.touch();
       return {};
     }
 
@@ -250,6 +302,7 @@ export class RoomStore {
     if (filtered.length === 0) {
       this.rooms.delete(roomId);
       this.codeToId.delete(room.code);
+      this.touch();
       return {};
     }
     room.player_slots = filtered;
@@ -257,15 +310,59 @@ export class RoomStore {
       room.host_user_id = filtered.find((s) => s.userId)?.userId ?? null;
     }
     room.updated_at = nowIso();
+    this.touch();
     return {};
   }
 
-  updatePlayerSlots(roomId: string, playerSlots: PlayerSlot[]): GameRoomRow | { error: string } {
+  /**
+   * Обновить слоты.
+   * Хост — полная замена (нормализованная).
+   * Обычный игрок — только свои displayName / shortLabel / avatarDataUrl.
+   */
+  updatePlayerSlots(
+    roomId: string,
+    playerSlots: PlayerSlot[],
+    actorUserId?: string | null,
+  ): GameRoomRow | { error: string } {
     const room = this.rooms.get(roomId);
     if (!room) return { error: 'Комната не найдена' };
-    room.player_slots = fullSlotsFromPartial(normalizeSlots(playerSlots));
+
+    const incoming = fullSlotsFromPartial(normalizeSlots(playerSlots));
+    const current = fullSlotsFromPartial(room.player_slots ?? []);
+    const actor = (actorUserId ?? '').trim();
+    const isHost = !!actor && room.host_user_id === actor;
+
+    if (!actor) {
+      return { error: 'player_required' };
+    }
+
+    if (isHost) {
+      room.player_slots = incoming;
+    } else {
+      const mineIdx = current.findIndex((s) => s.userId === actor);
+      if (mineIdx < 0) return { error: 'Слот не найден' };
+      const fromClient = incoming.find((s) => s.userId === actor) ?? incoming[mineIdx];
+      if (!fromClient) return { error: 'Слот не найден' };
+      const next = current.map((s, i) => {
+        if (i !== mineIdx) return s;
+        return {
+          ...s,
+          displayName: String(fromClient.displayName ?? s.displayName).slice(0, 17),
+          ...(fromClient.shortLabel != null
+            ? { shortLabel: String(fromClient.shortLabel).slice(0, 12) }
+            : {}),
+          avatarDataUrl:
+            fromClient.avatarDataUrl === null
+              ? null
+              : capAvatar(fromClient.avatarDataUrl) ?? s.avatarDataUrl ?? null,
+        };
+      });
+      room.player_slots = fullSlotsFromPartial(next);
+    }
+
     /** Имена/аватары в лобби не должны сдвигать game_state_revision — иначе ходы и вторая раздача ловят conflict. */
     room.updated_at = nowIso();
+    this.touch();
     return room;
   }
 
@@ -287,6 +384,7 @@ export class RoomStore {
     if (roomPhase) room.room_phase = roomPhase;
     room.game_state_revision = rev + 1;
     room.updated_at = nowIso();
+    this.touch();
     return { room };
   }
 
@@ -305,10 +403,13 @@ export class RoomStore {
     };
     room.player_slots = slots;
     room.updated_at = nowIso();
+    this.touch();
     return room;
   }
 
   returnFromPauseV2(roomId: string, userId: string): GameRoomRow | { error: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) return { error: 'Комната не найдена' };
     const recovered = this.recoverJoin(room.code, userId);
     if (!recovered) return { error: 'Слот не найден' };
     return recovered.room;
@@ -334,6 +435,7 @@ export class RoomStore {
     };
     room.player_slots = slots;
     room.updated_at = nowIso();
+    this.touch();
     return room;
   }
 
@@ -351,6 +453,7 @@ export class RoomStore {
     }
     room.host_user_id = newHostUserId;
     room.updated_at = nowIso();
+    this.touch();
     return room;
   }
 
@@ -379,6 +482,7 @@ export class RoomStore {
       room.player_slots = slots;
     }
     room.updated_at = nowIso();
+    this.touch();
     return room;
   }
 
@@ -407,6 +511,7 @@ export class RoomStore {
     if (opts?.roomPhase) room.room_phase = opts.roomPhase;
     room.game_state_revision = rev + 1;
     room.updated_at = nowIso();
+    this.touch();
     return { room };
   }
 

@@ -1092,7 +1092,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : {}),
         };
         setPlayerSlots(slots);
-        const { error: err } = await updateRoomPlayerSlots(roomId, slots);
+        const { error: err } = await updateRoomPlayerSlots(roomId, slots, onlinePlayerId);
         if (err) setError(err);
         else applyRoomData({ ...fresh, player_slots: slots });
         return;
@@ -1137,7 +1137,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         }
       }
     },
-    [roomId, status, myServerIndex, playerSlots, canonicalState, applyRoomData]
+    [roomId, status, myServerIndex, playerSlots, canonicalState, applyRoomData, onlinePlayerId]
   );
 
   const syncMySlotAvatar = useCallback(async () => {
@@ -1153,7 +1153,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         ...slots[idx],
         ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : { avatarDataUrl: null }),
       };
-      const { error: err } = await updateRoomPlayerSlots(roomId, slots);
+      const { error: err } = await updateRoomPlayerSlots(roomId, slots, onlinePlayerId);
       if (!err) applyRoomData({ ...fresh, player_slots: slots });
     } else if (canonicalState) {
       const slots = playerSlots.slice();
@@ -1175,7 +1175,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         resetStaleSameRevGraceAfterWrite(gameStateStaleSameRevIgnoreUntilRef);
       }
     }
-  }, [roomId, status, playerSlots, myServerIndex, canonicalState, applyRoomData]);
+  }, [roomId, status, playerSlots, myServerIndex, canonicalState, applyRoomData, onlinePlayerId]);
 
   const profileSyncedRoomRef = useRef<string | null>(null);
   useEffect(() => {

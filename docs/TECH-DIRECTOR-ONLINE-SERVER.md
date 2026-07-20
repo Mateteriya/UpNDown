@@ -34,7 +34,7 @@
 ### Что отдать владельцу продукта в конце
 
 1. **`wss://…`** — URL WebSocket для браузеров (обязательно HTTPS/WSS в проде).
-2. Подтверждение health: `GET https://тот-же-хост/api/version` → JSON, `"hostPanel": true`.
+2. Подтверждение health: `GET https://тот-же-хост/api/health` → `{ "ok": true }`, и `/api/version`.
 3. (Опционально) поддомен, порт, политика рестартов, контакт при падении.
 
 ---
@@ -157,7 +157,7 @@ npm run start --prefix server
 
 ### Вариант 1 — systemd (рекомендуется)
 
-Файл `/etc/systemd/system/updown-ws.service`:
+Файл `/etc/systemd/system/updown-ws.service` (готовый шаблон в репо: `deploy/updown-ws.service`):
 
 ```ini
 [Unit]
@@ -172,13 +172,26 @@ WorkingDirectory=/opt/updown
 ExecStart=/usr/bin/npm run start --prefix server
 Restart=on-failure
 RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=20
 Environment=NODE_ENV=production
 Environment=PORT=3001
-Environment=HOST=0.0.0.0
+Environment=HOST=127.0.0.1
+Environment=WS_BACKUP_PORTS=none
+Environment=ROOM_PERSIST=1
+Environment=ROOM_PERSIST_PATH=/var/lib/updown/rooms.json
 Environment=PUBLIC_WS_URL=wss://game.example.com
 
 [Install]
 WantedBy=multi-user.target
+```
+
+```bash
+sudo mkdir -p /var/lib/updown
+sudo chown updown:updown /var/lib/updown
+sudo systemctl daemon-reload
+sudo systemctl enable --now updown-ws
+curl -s http://127.0.0.1:3001/api/health
 ```
 
 ```bash
@@ -208,24 +221,7 @@ pm2 startup
 
 ### Вариант 3 — Docker
 
-В репозитории **пока нет** готового `Dockerfile` — ниже рабочий шаблон. Сохраните как `/opt/updown/Dockerfile.ws`:
-
-```dockerfile
-FROM node:22-bookworm-slim
-WORKDIR /app
-COPY package.json package-lock.json ./
-COPY server/package.json server/package-lock.json ./server/
-RUN npm ci && npm run server:install
-COPY server ./server
-COPY src/game ./src/game
-ENV NODE_ENV=production
-ENV PORT=3001
-ENV HOST=0.0.0.0
-EXPOSE 3001
-CMD ["npm", "run", "start", "--prefix", "server"]
-```
-
-Сборка и запуск:
+В корне репозитория: **`Dockerfile.ws`**.
 
 ```bash
 cd /opt/updown
@@ -233,10 +229,16 @@ docker build -f Dockerfile.ws -t updown-ws .
 docker run -d --name updown-ws --restart unless-stopped \
   -p 127.0.0.1:3001:3001 \
   -e PUBLIC_WS_URL=wss://game.example.com \
+  -v updown-ws-data:/app/server/data \
   updown-ws
 ```
 
-Порт **3001** снаружи не публикуйте, если перед ним стоит reverse proxy только на 443.
+Порт **3001** снаружи не публикуйте, если перед ним стоит reverse proxy только на 443.  
+Том `/app/server/data` хранит снимок комнат между рестартами контейнера.
+
+systemd-юнит и Caddy: `deploy/updown-ws.service`, `deploy/Caddyfile.example`.
+
+Health: `GET /api/health` (и `/api/version`).
 
 ---
 
@@ -461,7 +463,7 @@ curl -s https://game.example.com/api/version
 - **Рейтинг / `finish_game`** после партии — пока через Supabase на клиенте, не на WS-сервере.
 - **Чат комнаты** — Supabase, не WS.
 - Панель `/host` на VPS **не обязательна** — гости входят по коду в PWA владельца.
-- Один процесс Node; без кластера и персистентности.
+- Один процесс Node; комнаты в RAM + снимок на диск (`ROOM_PERSIST`).
 - Код и фронт v2 — ветка **`feat/lan-server-v2`** до merge в `main`.
 
 ---
@@ -471,10 +473,12 @@ curl -s https://game.example.com/api/version
 - [ ] VPS Linux, Node 18+ или Docker
 - [ ] Клонирован полный репозиторий, ветка **`feat/lan-server-v2`** (`server/` + `src/game/`)
 - [ ] `npm install` + `npm run server:install`
-- [ ] Процесс под systemd / pm2 / Docker с `Restart`
+- [ ] Процесс под systemd / pm2 / Docker с `Restart` (шаблоны: `deploy/updown-ws.service`, `Dockerfile.ws`)
+- [ ] Каталог/том для `ROOM_PERSIST_PATH`
 - [ ] `PUBLIC_WS_URL=wss://…` в окружении
-- [ ] Reverse proxy + TLS на 443
+- [ ] Reverse proxy + TLS на 443 (`deploy/Caddyfile.example`)
 - [ ] Файрвол: снаружи 443, 3001 только localhost
+- [ ] `curl https://…/api/health` → `{ "ok": true }`
 - [ ] `curl https://…/api/version` → OK
 - [ ] `wscat -c wss://…` → `hello`
 - [ ] Передан владельцу финальный **`wss://` URL** (см. шаблон ниже)
@@ -490,12 +494,14 @@ WebSocket (для VITE_WS_URL):
   wss://game.example.com
 
 Health:
+  https://game.example.com/api/health
   https://game.example.com/api/version
 
 Сборка сервера (поле build в JSON): host-panel-2026-06-06-installer
 
 Деплой: systemd updown-ws на Ubuntu 22.04, Caddy TLS.
-Рестарт: sudo systemctl restart updown-ws (активные комнаты сбросятся).
+Рестарт: sudo systemctl restart updown-ws
+  (комнаты восстанавливаются с диска; клиенты переподключают WS сами).
 
 Дальше — твои шаги: OWNER-AFTER-WS-READY.md
 ```

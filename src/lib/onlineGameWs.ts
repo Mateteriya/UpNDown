@@ -11,6 +11,9 @@ import type {
   HostResolveAbsentChoice,
   PlayerSlot,
   PublicWaitingRoomRow,
+  RoomChatMessageRow,
+  RoomChatSubscriptionHandle,
+  RoomChatTypingBroadcastPayload,
   RoomPeekResult,
   UpdateRoomStateOptions,
 } from './onlineGameSupabase';
@@ -28,11 +31,16 @@ export type GameStatePush = {
 };
 
 type GameStateListener = (push: GameStatePush) => void;
+type ChatInsertListener = (row: RoomChatMessageRow) => void;
+type ChatTypingListener = (payload: RoomChatTypingBroadcastPayload) => void;
 
 const REQUEST_TIMEOUT_MS = 25_000;
 
 let socket: WebSocket | null = null;
 let connectPromise: Promise<WebSocket> | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let reconnectAttempt = 0;
+let pingTimer: ReturnType<typeof setInterval> | null = null;
 const pending = new Map<
   string,
   { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }
@@ -40,6 +48,69 @@ const pending = new Map<
 const roomListeners = new Map<string, Set<RoomListener>>();
 const roomStatusListeners = new Map<string, Set<SubscribeStatusListener>>();
 const gameStateListeners = new Map<string, Set<GameStateListener>>();
+const chatInsertListeners = new Map<string, Set<ChatInsertListener>>();
+const chatTypingListeners = new Map<string, Set<ChatTypingListener>>();
+
+function hasActiveSubscriptions(): boolean {
+  return (
+    roomListeners.size > 0 ||
+    gameStateListeners.size > 0 ||
+    chatInsertListeners.size > 0 ||
+    chatTypingListeners.size > 0
+  );
+}
+
+function clearPingTimer(): void {
+  if (pingTimer) {
+    clearInterval(pingTimer);
+    pingTimer = null;
+  }
+}
+
+function startPing(ws: WebSocket): void {
+  clearPingTimer();
+  pingTimer = setInterval(() => {
+    if (ws.readyState !== WebSocket.OPEN) return;
+    try {
+      ws.send(JSON.stringify({ type: 'ping' }));
+    } catch {
+      /* ignore */
+    }
+  }, 25_000);
+}
+
+function clearReconnectTimer(): void {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}
+
+/** Авто-reconnect, пока есть подписки на комнаты / game_state. */
+function scheduleReconnect(): void {
+  if (!hasActiveSubscriptions()) {
+    reconnectAttempt = 0;
+    return;
+  }
+  if (reconnectTimer || connectPromise) return;
+  if (socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING) return;
+
+  const delay = Math.min(12_000, Math.round(400 * Math.pow(1.7, reconnectAttempt)));
+  reconnectAttempt += 1;
+  for (const roomId of roomListeners.keys()) {
+    notifyRoomStatus(roomId, 'CHANNEL_ERROR');
+  }
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    void openNewSocket()
+      .then(() => {
+        reconnectAttempt = 0;
+      })
+      .catch(() => {
+        scheduleReconnect();
+      });
+  }, delay);
+}
 
 function notifyRoomStatus(roomId: string, status: string): void {
   const set = roomStatusListeners.get(roomId);
@@ -96,6 +167,26 @@ function onSocketMessage(ev: MessageEvent): void {
     if (set) for (const fn of set) fn(push);
   }
 
+  if (msg.type === 'chat_message' && typeof msg.roomId === 'string' && msg.message && typeof msg.message === 'object') {
+    const row = msg.message as RoomChatMessageRow;
+    if (row?.id) {
+      const set = chatInsertListeners.get(msg.roomId);
+      if (set) for (const fn of set) fn(row);
+    }
+  }
+
+  if (msg.type === 'chat_typing' && typeof msg.roomId === 'string') {
+    const uid = msg.user_id;
+    if (typeof uid === 'string' && uid.length > 0) {
+      const payload: RoomChatTypingBroadcastPayload = {
+        user_id: uid,
+        display_name: typeof msg.display_name === 'string' ? msg.display_name : undefined,
+      };
+      const set = chatTypingListeners.get(msg.roomId);
+      if (set) for (const fn of set) fn(payload);
+    }
+  }
+
   const requestId = msg.requestId as string | undefined;
   if (requestId && pending.has(requestId)) {
     const p = pending.get(requestId)!;
@@ -144,20 +235,25 @@ function openNewSocket(): Promise<WebSocket> {
 
     ws.onopen = () => {
       clearTimeout(failTimer);
+      clearReconnectTimer();
+      reconnectAttempt = 0;
       socket = ws;
       connectPromise = null;
+      startPing(ws);
       if (roomListeners.size > 0) resubscribeAllRooms(ws);
       resolve(ws);
     };
     ws.onerror = () => {
       clearTimeout(failTimer);
-      socket = null;
+      if (socket === ws) socket = null;
       connectPromise = null;
+      clearPingTimer();
       reject(new Error(`WebSocket ошибка (${url})`));
     };
     ws.onclose = () => {
       if (socket === ws) socket = null;
       connectPromise = null;
+      clearPingTimer();
       for (const [, p] of pending) {
         clearTimeout(p.timer);
         p.reject(new Error('Соединение с игровым сервером закрыто'));
@@ -166,6 +262,7 @@ function openNewSocket(): Promise<WebSocket> {
       for (const roomId of roomListeners.keys()) {
         notifyRoomStatus(roomId, 'TIMED_OUT');
       }
+      scheduleReconnect();
     };
     ws.onmessage = onSocketMessage;
   });
@@ -331,11 +428,13 @@ export const wsGetRoomForSyncPoll = wsGetRoom;
 export async function wsUpdateRoomPlayerSlots(
   roomId: string,
   playerSlots: PlayerSlot[],
+  actorUserId?: string,
 ): Promise<{ error?: string; room?: GameRoomRow }> {
   const res = await sendRequest<{ ok?: boolean; error?: string; room?: GameRoomRow }>({
     type: 'update_slots',
     roomId,
     playerSlots,
+    ...(actorUserId ? { playerId: actorUserId } : {}),
   });
   if (!res.ok) return { error: res.error ?? 'update_slots_failed' };
   return { room: res.room };
@@ -643,4 +742,109 @@ export async function wsHostResolveAbsent(
     return wsV2HostResolveAbsent(roomId, hostId, choice);
   }
   return { ok: false, error: 'На LAN-сервере решение по absent пока не поддерживается' };
+}
+
+/* ── Room chat (WS) ── */
+
+export async function wsFetchRoomChatMessages(roomId: string, limit = 100): Promise<RoomChatMessageRow[]> {
+  if (!roomId) return [];
+  const res = await sendRequest<{ ok?: boolean; messages?: RoomChatMessageRow[]; error?: string }>({
+    type: 'chat_history',
+    roomId,
+    limit,
+  });
+  if (!res.ok || !Array.isArray(res.messages)) return [];
+  return res.messages;
+}
+
+export async function wsSendRoomChatMessage(
+  roomId: string,
+  userId: string,
+  displayName: string,
+  body: string,
+): Promise<{ error?: string; row?: RoomChatMessageRow }> {
+  const res = await sendRequest<{
+    ok?: boolean;
+    error?: string;
+    message?: RoomChatMessageRow;
+  }>({
+    type: 'chat_post',
+    roomId,
+    playerId: userId,
+    displayName,
+    body,
+  });
+  if (!res.ok) {
+    const code = res.error ?? 'send_failed';
+    if (code === 'not_member') return { error: 'Вы не в этой комнате' };
+    if (code === 'rate_limited') return { error: 'Слишком быстро — подождите секунду' };
+    if (code === 'bad_body') return { error: 'Некорректное сообщение' };
+    return { error: code };
+  }
+  return { row: res.message };
+}
+
+export function wsSubscribeRoomChat(
+  roomId: string,
+  onInsert: (row: RoomChatMessageRow) => void,
+  options?: {
+    onSubscribeStatus?: (status: string) => void;
+    onTypingBroadcast?: (payload: RoomChatTypingBroadcastPayload) => void;
+  },
+): RoomChatSubscriptionHandle {
+  if (!roomId) {
+    return { unsubscribe: () => {}, broadcastTyping: () => {} };
+  }
+
+  let insertSet = chatInsertListeners.get(roomId);
+  if (!insertSet) {
+    insertSet = new Set();
+    chatInsertListeners.set(roomId, insertSet);
+  }
+  insertSet.add(onInsert);
+
+  let typingSet: Set<ChatTypingListener> | undefined;
+  if (options?.onTypingBroadcast) {
+    typingSet = chatTypingListeners.get(roomId);
+    if (!typingSet) {
+      typingSet = new Set();
+      chatTypingListeners.set(roomId, typingSet);
+    }
+    typingSet.add(options.onTypingBroadcast);
+  }
+
+  options?.onSubscribeStatus?.('SUBSCRIBED');
+
+  void ensureSocket()
+    .then((sock) => {
+      sock.send(JSON.stringify({ type: 'subscribe_room', roomId }));
+    })
+    .catch(() => options?.onSubscribeStatus?.('CHANNEL_ERROR'));
+
+  return {
+    unsubscribe: () => {
+      insertSet?.delete(onInsert);
+      if (insertSet && insertSet.size === 0) chatInsertListeners.delete(roomId);
+      if (options?.onTypingBroadcast && typingSet) {
+        typingSet.delete(options.onTypingBroadcast);
+        if (typingSet.size === 0) chatTypingListeners.delete(roomId);
+      }
+    },
+    broadcastTyping: (payload: RoomChatTypingBroadcastPayload) => {
+      void ensureSocket()
+        .then((sock) => {
+          sock.send(
+            JSON.stringify({
+              type: 'chat_typing',
+              roomId,
+              playerId: payload.user_id,
+              displayName: payload.display_name,
+            }),
+          );
+        })
+        .catch(() => {
+          /* ignore */
+        });
+    },
+  };
 }

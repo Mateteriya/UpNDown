@@ -168,7 +168,7 @@ import {
   useOnlinePartyElapsedSeconds,
   useOnlineRoomCodeTimerAlternate,
 } from './OnlinePartyElapsedTimer';
-import { TableChatDock, type TableChatDockOwnMessageHandler } from './TableChatDock';
+import { TableChatDock } from './TableChatDock';
 import { GameDealOrbitDock } from './GameDealOrbitDock';
 import type { Card, GamePhase } from '../game/types';
 import { getDeckCardsUnderTrump, getDeckStackLayerCount } from '../game/deck';
@@ -1696,28 +1696,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       stopResume();
     };
   }, [isMobile]);
-  /** LAN/локальный WS: чат в Supabase — не показываем (иначе у вошедших в аккаунт ломается вёрстка vs гостей). */
-  const showTableChat = !!(online.roomId && (isOnline || isWaitingInRoom) && user?.id && !isWsOnlineTransport());
-  /** Последнее своё сообщение чата — бегущая строка на месте имени в моб. панели Юга */
-  const [mobileOwnChatTicker, setMobileOwnChatTicker] = useState<{ body: string; key: number } | null>(null);
-  const mobileOwnChatClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onOwnTableChatMessageSent = useCallback<TableChatDockOwnMessageHandler>((row) => {
-    if (mobileOwnChatClearTimerRef.current) clearTimeout(mobileOwnChatClearTimerRef.current);
-    setMobileOwnChatTicker((prev) => ({ body: row.body, key: (prev?.key ?? 0) + 1 }));
-    mobileOwnChatClearTimerRef.current = setTimeout(() => {
-      setMobileOwnChatTicker(null);
-      mobileOwnChatClearTimerRef.current = null;
-    }, 20000);
-  }, []);
-  useEffect(
-    () => () => {
-      if (mobileOwnChatClearTimerRef.current) {
-        clearTimeout(mobileOwnChatClearTimerRef.current);
-        mobileOwnChatClearTimerRef.current = null;
-      }
-    },
-    [],
-  );
+  /** Онлайн-чат: Supabase (auth user) или WS (onlinePlayerId / device id). */
+  const tableChatUserId = isWsOnlineTransport() ? online.onlinePlayerId : user?.id;
+  const showTableChat = !!(online.roomId && (isOnline || isWaitingInRoom) && tableChatUserId);
   const [localState, setLocalState] = useState<GameState | null>(null);
   const [startingFromWaiting, setStartingFromWaiting] = useState(false);
   const prevOnlineAiDriveKeyRef = useRef<string | null>(null);
@@ -2107,9 +2088,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       setMobileShortImmersiveInviteChip(false);
     }
   }, []);
-  /** Ушко/рельса/фантомы/космическая закладка: везде на мобиле, кроме short immersive. */
-  const mobileSideEarEnabled =
-    isMobile && !(mobileViewportShort && mobileShortHeaderImmersive);
+  /** Ушко чата временно не показываем (глюки); dock с mobileSideEarEnabled={false}. */
   const [mobileShortImmersiveInviteChip, setMobileShortImmersiveInviteChip] = useState(false);
   /** Меню режима short-VH (иммерсив / стандарт / свернуть ручку) — портал на body. */
   const [shortVhSouthPullModeMenuOpen, setShortVhSouthPullModeMenuOpen] = useState(false);
@@ -6033,8 +6012,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             >
               <MobileSouthLandscapePlayerName
                 name={humanLandscapeNameFormatted}
-                chatBody={mobileOwnChatTicker?.body ?? null}
-                chatKey={mobileOwnChatTicker?.key ?? 0}
+                chatBody={null}
+                chatKey={0}
                 nameClassName={mobileSouthPlayerNameClassName}
                 baseNameStyle={buildMobileSouthLandscapePlayerNameStyle(mobileSouthUsePremiumNameClass)}
                 title={`${humanLandscapeNameRaw} — ${getCompassLabel(humanIdx)}`}
@@ -8846,8 +8825,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                         ) : (
                           <MobileSouthChatNameTicker
                             name={displayState.players[humanIdx].name}
-                            chatBody={mobileOwnChatTicker?.body ?? null}
-                            chatKey={mobileOwnChatTicker?.key ?? 0}
+                            chatBody={null}
+                            chatKey={0}
                             nameClassName={mobileSouthPlayerNameClassName}
                             nameStyle={buildMobileSouthPlayerNameStyle(
                               Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE * 0.9),
@@ -9090,8 +9069,8 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
                         ) : (
                           <MobileSouthChatNameTicker
                             name={displayState.players[humanIdx].name}
-                            chatBody={mobileOwnChatTicker?.body ?? null}
-                            chatKey={mobileOwnChatTicker?.key ?? 0}
+                            chatBody={null}
+                            chatKey={0}
                             nameClassName={mobileSouthPlayerNameClassName}
                             nameStyle={buildMobileSouthPlayerNameStyle(
                               Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
@@ -9289,14 +9268,13 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
         );
       })()}
       </div>
-      {showTableChat && online.roomId && user?.id && (
+      {showTableChat && online.roomId && tableChatUserId && (
         <TableChatDock
           variant="mobile"
           roomId={online.roomId}
-          userId={user.id}
+          userId={tableChatUserId}
           displayName={playerDisplayName?.trim() || 'Игрок'}
-          onOwnMessageSent={onOwnTableChatMessageSent}
-          mobileSideEarEnabled={mobileSideEarEnabled}
+          mobileSideEarEnabled={false}
         />
       )}
       </div>
@@ -10017,7 +9995,7 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
       {!isMobile &&
         showTableChat &&
         online.roomId &&
-        user?.id &&
+        tableChatUserId &&
         createPortal(
           <div
             className="game-table-root table-chat-pc-portal-root"
@@ -10033,9 +10011,9 @@ export default function GameTable({ gameId, playerDisplayName, playerAvatarDataU
             <TableChatDock
               variant="pc"
               roomId={online.roomId}
-              userId={user.id}
+              userId={tableChatUserId}
               displayName={playerDisplayName?.trim() || 'Игрок'}
-              onOwnMessageSent={onOwnTableChatMessageSent}
+              mobileSideEarEnabled={false}
             />
           </div>,
           document.body,
@@ -17844,7 +17822,8 @@ const gameInfoLeftSectionStyle: React.CSSProperties = {
   gap: 12,
   flexWrap: 'wrap',
   alignItems: 'center',
-  padding: '18px 22px',
+  /* ПК/моб. финальный padding задаёт CSS (!important); здесь без «раздува» */
+  padding: '8px 12px',
   borderRadius: 12,
   border: '1px solid rgba(139, 92, 246, 0.5)',
   boxShadow: '0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1)',
@@ -17858,7 +17837,7 @@ const gameInfoLeftSectionStructureStyle: React.CSSProperties = {
   gap: 12,
   flexWrap: 'wrap',
   alignItems: 'center',
-  padding: '18px 22px',
+  padding: '8px 12px',
   borderRadius: 14,
 };
 

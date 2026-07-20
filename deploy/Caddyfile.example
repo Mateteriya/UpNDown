@@ -1,0 +1,12 @@
+# Пример Caddy для игрового WS (TLS + reverse_proxy).
+# Подставьте свой домен и перезагрузите: sudo systemctl reload caddy
+#
+# Проверка:
+#   curl -s https://game.example.com/api/health
+#   curl -s https://game.example.com/api/version
+# Клиент (Vercel): VITE_WS_URL=wss://game.example.com
+
+game.example.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:3001
+}

@@ -5,7 +5,10 @@ export function parseLanBackupPorts(
   envValue: string | undefined,
   defaultOffsets: number[] = [1, 2],
 ): number[] {
-  if (envValue?.trim()) {
+  /** Явно выкл.: пустая строка / none / off (для VPS/Docker). */
+  if (envValue !== undefined) {
+    const trimmed = envValue.trim().toLowerCase();
+    if (!trimmed || trimmed === 'none' || trimmed === 'off' || trimmed === '0') return [];
     const seen = new Set<number>();
     const out: number[] = [];
     for (const part of envValue.split(',')) {

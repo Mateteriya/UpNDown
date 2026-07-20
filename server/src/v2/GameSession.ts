@@ -109,8 +109,7 @@ export class GameSession {
         state: this.state(),
       };
     }
-    const seat = this.seatForPlayer(playerId);
-    if (seat !== 0) throw new V2CommandError('not_host');
+    this.assertHost(playerId);
 
     const sourceSlots = fullSlots(room.player_slots ?? []);
     const names: [string, string, string, string] = [

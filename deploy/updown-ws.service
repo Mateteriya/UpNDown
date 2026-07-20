@@ -1,0 +1,29 @@
+[Unit]
+Description=Up&Down WebSocket game server
+After=network.target
+
+[Service]
+Type=simple
+User=updown
+Group=updown
+WorkingDirectory=/opt/updown
+ExecStart=/usr/bin/npm run start --prefix server
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+Environment=NODE_ENV=production
+Environment=PORT=3001
+Environment=HOST=127.0.0.1
+Environment=WS_BACKUP_PORTS=none
+Environment=ROOM_PERSIST=1
+Environment=ROOM_PERSIST_PATH=/var/lib/updown/rooms.json
+# Environment=PUBLIC_WS_URL=wss://game.example.com
+# Environment=PUBLIC_GAME_URL=https://your-app.vercel.app
+
+# Soft open-file limit for many WS clients
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

@@ -10,6 +10,8 @@ const DRAG_HINT_SEEN_KEY = 'upd.mobileShortFullscreenBtnDragHintSeen.v1';
 const DRAG_THRESHOLD_PX = 10;
 /** Запас над видимым низом при авто-подъёме (px). */
 const OVERLAP_CLEARANCE_PX = 10;
+/** Зазор до кнопки «Чат», чтобы плавающий fullscreen её не перекрывал. */
+const CHAT_TOGGLE_CLEARANCE_PX = 14;
 
 type StoredPos = { x: number; y: number };
 type Mode = 'enter' | 'exit';
@@ -81,7 +83,67 @@ function clampPos(x: number, y: number, pad = 10): StoredPos {
   };
 }
 
-/** Стартовая позиция: enter — справа внизу; exit — по центру, с учётом перекрытия низа. */
+function readChatToggleRect(): DOMRect | null {
+  if (typeof document === 'undefined') return null;
+  const el = document.querySelector('[data-upnd-table-chat-toggle]');
+  if (!(el instanceof HTMLElement)) return null;
+  const r = el.getBoundingClientRect();
+  if (r.width < 4 || r.height < 4) return null;
+  return r;
+}
+
+function boxesOverlap(
+  a: { left: number; right: number; top: number; bottom: number },
+  b: DOMRect,
+  pad: number,
+): boolean {
+  return !(
+    a.right + pad < b.left ||
+    a.left - pad > b.right ||
+    a.bottom + pad < b.top ||
+    a.top - pad > b.bottom
+  );
+}
+
+/** Центр кнопки (fixed + translate -50%) → AABB. */
+function centerToBox(pos: StoredPos, w: number, h: number) {
+  return {
+    left: pos.x - w / 2,
+    right: pos.x + w / 2,
+    top: pos.y - h / 2,
+    bottom: pos.y + h / 2,
+  };
+}
+
+/**
+ * Если плавающая кнопка накрывает «Чат» — сдвинуть влево или выше.
+ * Чат остаётся видимым; fullscreen не «прячется» под ним.
+ */
+function nudgeAwayFromChatToggle(pos: StoredPos, btn: HTMLElement | null): StoredPos {
+  const chat = readChatToggleRect();
+  if (!chat) return clampPos(pos.x, pos.y);
+  const w = btn?.offsetWidth || 128;
+  const h = btn?.offsetHeight || 40;
+  let next = clampPos(pos.x, pos.y);
+  let box = centerToBox(next, w, h);
+  if (!boxesOverlap(box, chat, CHAT_TOGGLE_CLEARANCE_PX)) return next;
+
+  const tryLeft = clampPos(chat.left - w / 2 - CHAT_TOGGLE_CLEARANCE_PX, next.y);
+  box = centerToBox(tryLeft, w, h);
+  if (!boxesOverlap(box, chat, CHAT_TOGGLE_CLEARANCE_PX)) return tryLeft;
+
+  const tryAbove = clampPos(next.x, chat.top - h / 2 - CHAT_TOGGLE_CLEARANCE_PX);
+  box = centerToBox(tryAbove, w, h);
+  if (!boxesOverlap(box, chat, CHAT_TOGGLE_CLEARANCE_PX)) return tryAbove;
+
+  const tryLeftAbove = clampPos(
+    chat.left - w / 2 - CHAT_TOGGLE_CLEARANCE_PX,
+    chat.top - h / 2 - CHAT_TOGGLE_CLEARANCE_PX,
+  );
+  return tryLeftAbove;
+}
+
+/** Стартовая позиция: при чате — слева внизу (чат по центру); иначе справа внизу. */
 function defaultPosForMode(mode: Mode, standaloneDisplay = false): StoredPos {
   const box = readViewportBox();
   const bottomInset = computeMobileBottomObstructionInsetPx({
@@ -89,8 +151,15 @@ function defaultPosForMode(mode: Mode, standaloneDisplay = false): StoredPos {
     marginPx: mode === 'exit' ? 8 : 10,
   });
   const y = box.top + box.height - bottomInset;
+  const chatPresent = readChatToggleRect() != null;
   if (mode === 'enter') {
+    if (chatPresent) {
+      return clampPos(box.left + 72, y);
+    }
     return clampPos(box.left + box.width - 72, y);
+  }
+  if (chatPresent) {
+    return clampPos(box.left + box.width * 0.28, y);
   }
   return clampPos(box.left + box.width / 2, y);
 }
@@ -107,6 +176,10 @@ function liftPosIfOverlappingBottom(pos: StoredPos, btn: HTMLElement | null): St
   const overlap = rect.bottom - visibleBottom + OVERLAP_CLEARANCE_PX;
   if (overlap <= 0) return clampPos(pos.x, pos.y);
   return clampPos(pos.x, pos.y - overlap);
+}
+
+function finalizePos(pos: StoredPos, btn: HTMLElement | null): StoredPos {
+  return nudgeAwayFromChatToggle(liftPosIfOverlappingBottom(pos, btn), btn);
 }
 
 type Props = {
@@ -135,11 +208,11 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
   const applyAutoPosition = useCallback(
     (respectCustom: boolean) => {
       if (respectCustom && hasCustomPosRef.current) {
-        setPos((p) => liftPosIfOverlappingBottom(clampPos(p.x, p.y), btnRef.current));
+        setPos((p) => finalizePos(clampPos(p.x, p.y), btnRef.current));
         return;
       }
       const next = defaultPosForMode(modeRef.current, standaloneDisplay);
-      setPos(liftPosIfOverlappingBottom(next, btnRef.current));
+      setPos(finalizePos(next, btnRef.current));
     },
     [standaloneDisplay],
   );
@@ -148,7 +221,7 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
     const saved = readStoredPos(mode);
     hasCustomPosRef.current = saved != null;
     if (saved) {
-      setPos(liftPosIfOverlappingBottom(clampPos(saved.x, saved.y), btnRef.current));
+      setPos(finalizePos(clampPos(saved.x, saved.y), btnRef.current));
       return;
     }
     applyAutoPosition(false);
@@ -160,7 +233,7 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
       const btn = btnRef.current;
       if (!btn) return;
       setPos((p) => {
-        const next = liftPosIfOverlappingBottom(p, btn);
+        const next = finalizePos(p, btn);
         return next.x === p.x && next.y === p.y ? p : next;
       });
     });
@@ -185,6 +258,22 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
       window.visualViewport?.removeEventListener('scroll', onViewportChange);
     };
   }, [dragging, applyAutoPosition]);
+
+  /** Чат может появиться позже (после join) — пересчитать, чтобы не перекрыть «Чат». */
+  useEffect(() => {
+    if (dragging) return;
+    const tick = () => {
+      if (dragRef.current) return;
+      setPos((p) => {
+        const next = finalizePos(p, btnRef.current);
+        return next.x === p.x && next.y === p.y ? p : next;
+      });
+    };
+    const id = window.setInterval(tick, 1200);
+    return () => {
+      window.clearInterval(id);
+    };
+  }, [dragging, mode]);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -229,7 +318,7 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
         markDragHintSeen();
         setShowDragHint(false);
         setPos((current) => {
-          const next = liftPosIfOverlappingBottom(clampPos(current.x, current.y), btnRef.current);
+          const next = finalizePos(clampPos(current.x, current.y), btnRef.current);
           writeStoredPos(modeRef.current, next);
           return next;
         });

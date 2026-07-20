@@ -70,7 +70,7 @@ npm run dev:host
 
 ### Лобби (клиент → сервер)
 
-`create_room`, `join_room`, `leave_room`, `subscribe_room`, `get_room`, `update_slots`, `update_display_name`, `list_public_waiting`, `peek_room`, `recover_join`
+`create_room`, `join_room`, `leave_room`, `subscribe_room`, `get_room`, `update_slots`, `update_display_name`, `list_public_waiting`, `peek_room`, `recover_join`, `chat_history`, `chat_post`, `chat_typing`
 
 Новые комнаты: **`protocol_version: 2`** по умолчанию. Откат: `create_room` с `protocolVersion: 1`.
 
@@ -110,21 +110,27 @@ npm run dev:host
 | Переменная | По умолчанию | Назначение |
 |------------|--------------|------------|
 | `PORT` | `3001` | HTTP + WebSocket |
-| `HOST` | `0.0.0.0` | Слушать все интерфейсы |
+| `HOST` | `0.0.0.0` | Слушать все интерфейсы (`127.0.0.1` за Caddy на VPS) |
 | `PUBLIC_WS_URL` | — | `wss://…` для ссылок в API (VPS) |
+| `PUBLIC_GAME_URL` | — | URL фронта в `/api/info` |
 | `GAME_DIST` | — | Путь к `dist-host` (LAN `/play/`) |
+| `WS_BACKUP_PORTS` | LAN: +1,+2; prod: выкл. | Запасные порты; `none` — отключить |
+| `ROOM_PERSIST` | `1` | `0` — не писать комнаты на диск |
+| `ROOM_PERSIST_PATH` | `server/data/rooms.json` | Файл снимка комнат |
 | `NODE_ENV` | — | `production` на VPS |
 
 ```bash
 PORT=3002 npm run start --prefix server
 ```
 
+Health: `GET /api/health` и `GET /api/version`.
+
 ---
 
 ## Тесты
 
 ```bash
-npm test --prefix server
+npx vitest run server/src/v2/GameSession.test.ts
 ```
 
 Unit-тесты: `server/src/v2/GameSession.test.ts`.
@@ -133,12 +139,13 @@ Unit-тесты: `server/src/v2/GameSession.test.ts`.
 
 ## Ограничения (альфа)
 
-- Комнаты **в памяти** — рестарт сбрасывает столы.
+- Комнаты в памяти + **снимок на диск** (`ROOM_PERSIST`): рестарт процесса восстанавливает waiting/playing. Игроки всё равно должны переподключить WS (клиент делает auto-reconnect).
 - Рейтинг / `finish_game` после партии — пока через Supabase на клиенте.
 - Чат комнаты — Supabase, не WS.
-- Один процесс Node; без персистентности и кластера.
+- Один процесс Node; без кластера / Redis.
 
-Облачный деплой (VPS): [docs/TECH-DIRECTOR-ONLINE-SERVER.md](../docs/TECH-DIRECTOR-ONLINE-SERVER.md).
+Облачный деплой (VPS): [docs/TECH-DIRECTOR-ONLINE-SERVER.md](../docs/TECH-DIRECTOR-ONLINE-SERVER.md).  
+Готовые файлы: `Dockerfile.ws`, `deploy/updown-ws.service`, `deploy/Caddyfile.example`.
 
 ---
 

@@ -3838,9 +3838,20 @@
     max-width: min(280px, 100%) !important;
     border-radius: 10px !important;
   }
+  /*
+   * ПК: короткое имя (1–2 буквы) не должно сжимать бейдж —
+   * иначе вкладка «Раздача» наезжает на строку «Сейчас ход».
+   */
+  .game-table-root:not(.viewport-mobile) .game-info-row .game-info-left-col .game-info-left-section {
+    min-width: 200px !important;
+  }
+  .game-table-root:not(.viewport-mobile) .game-info-row .game-info-left-col {
+    min-width: 200px !important;
+  }
   .game-table-root .game-info-row .game-info-left-col:has(.first-move-badge-above-block) .game-info-left-section {
     width: 100% !important;
     max-width: 280px !important;
+    min-width: 200px !important;
     border-radius: 0 0 10px 10px !important;
   }
   .game-table-root .game-info-row .game-info-left-col .game-info-left-section > div {
@@ -7111,6 +7122,13 @@
     border: none;
   }
   .game-table-root.viewport-mobile .table-chat-toggle {
+    position: relative;
+    z-index: 240;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    max-width: min(92vw, 280px);
     padding: 8px 20px;
     font-size: 13px;
     font-weight: 600;
@@ -7119,6 +7137,54 @@
     background: rgba(15, 23, 42, 0.85);
     color: #e2e8f0;
     cursor: pointer;
+  }
+  .game-table-root.viewport-mobile .table-chat-toggle--typing {
+    border-color: rgba(167, 139, 250, 0.7);
+    box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.25);
+    padding-bottom: 6px;
+  }
+  .game-table-root.viewport-mobile .table-chat-toggle--unread {
+    border-color: rgba(34, 211, 238, 0.75);
+  }
+  .game-table-root.viewport-mobile .table-chat-toggle__label {
+    line-height: 1.1;
+  }
+  .game-table-root.viewport-mobile .table-chat-toggle__typing {
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: #c4b5fd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .game-table-root.viewport-mobile .table-chat-toggle__unread-dot {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22d3ee;
+    box-shadow: 0 0 6px rgba(34, 211, 238, 0.8);
+  }
+  .game-table-root.viewport-mobile .table-chat-dock-header-left {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 10px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .game-table-root.viewport-mobile .table-chat-dock-typing {
+    font-size: 11px;
+    font-weight: 500;
+    color: #c4b5fd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: min(52vw, 180px);
   }
   .game-table-root.viewport-mobile .table-chat-dock-header {
     display: flex;
@@ -23418,6 +23484,30 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 .game-table-root:not(.viewport-mobile) .table-chat-dock-pc-expand-btn:hover {
   border-color: rgba(196, 181, 253, 0.65);
   filter: brightness(1.06);
+}
+.game-table-root:not(.viewport-mobile) .table-chat-dock-pc-expand-btn--typing {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+.game-table-root:not(.viewport-mobile) .table-chat-dock-pc-expand-btn__typing {
+  flex: 1 1 100%;
+  font-size: 10px;
+  font-weight: 500;
+  color: #e9d5ff;
+  opacity: 0.95;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.game-table-root:not(.viewport-mobile) .table-chat-dock-typing--pc {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: #c4b5fd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ПК: угол изменения размера окна чата (ширина + высота), без ненадёжного CSS resize на flex */
@@ -56871,7 +56961,8 @@ body:has(.menu-screen) {
   padding: calc(10px + var(--plasma-badge-extra-h)) 12px 4px !important;
   border-radius: 14px !important;
   width: fit-content !important;
-  min-width: 0 !important;
+  /* Не сжимать при коротком имени — иначе «Раздача» перекрывает «Сейчас ход» */
+  min-width: 200px !important;
   max-width: min(var(--plasma-badge-max-w), 100%) !important;
 }
 

@@ -15,6 +15,8 @@ import { buildNetworkStatus, handleNetworkApi } from './networkHttp.js';
 import { parseLanBackupPorts } from './lanPorts.js';
 import { listLanIPv4 } from './networkInfo.js';
 import { RoomStore } from './rooms.js';
+import { isRoomPersistEnabled, RoomPersist } from './roomPersist.js';
+import { RoomChatStore } from './roomChat.js';
 import { TunnelManager } from './tunnelManager.js';
 import type { ClientMessage, GameRoomRow, ServerMessage } from './protocol.js';
 import { GameSessionManager } from './v2/GameSessionManager.js';
@@ -27,7 +29,22 @@ const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';
 
 const store = new RoomStore();
+const chatStore = new RoomChatStore();
 const roomSubscribers = new Map<string, Set<WebSocket>>();
+
+const roomPersist = isRoomPersistEnabled() ? new RoomPersist(store) : null;
+if (roomPersist) {
+  const loaded = roomPersist.load();
+  store.setOnMutate(() => roomPersist.schedule());
+  roomPersist.startPruneInterval();
+  if (loaded > 0) {
+    console.log(`[updown-server] Восстановлено комнат с диска: ${loaded} (${roomPersist.filePath})`);
+  } else {
+    console.log(`[updown-server] Persistence комнат: ${roomPersist.filePath}`);
+  }
+} else {
+  console.log('[updown-server] Persistence комнат выключен (ROOM_PERSIST=0)');
+}
 
 function broadcastGameStateV2(push: GameStatePush): void {
   const subs = roomSubscribers.get(push.roomId);
@@ -109,6 +126,14 @@ const v2Deps = {
   broadcastRoomMeta,
   getSubscribers: (roomId: string) => roomSubscribers.get(roomId),
 };
+
+function broadcastToRoom(roomId: string, payload: ServerMessage): void {
+  const subs = roomSubscribers.get(roomId);
+  if (!subs) return;
+  for (const client of subs) {
+    send(client, payload);
+  }
+}
 
 function handleMessage(ws: WebSocket, raw: string): void {
   let msg: ClientMessage;
@@ -256,7 +281,58 @@ function handleMessage(ws: WebSocket, raw: string): void {
       const err = store.leaveRoom(msg.roomId, msg.playerId);
       const room = store.getById(msg.roomId);
       if (room) broadcastRoom(room);
+      else chatStore.dropRoom(msg.roomId);
       reply(ws, requestId, { type: 'leave_room_result', ok: !err.error, error: err.error });
+      return;
+    }
+    case 'chat_history': {
+      if (!msg.roomId) {
+        reply(ws, requestId, { type: 'error', ok: false, error: 'room_id_required' });
+        return;
+      }
+      const room = store.getById(msg.roomId);
+      if (!room) {
+        reply(ws, requestId, { type: 'chat_history_result', ok: false, error: 'room_not_found' });
+        return;
+      }
+      const limit = typeof msg.limit === 'number' ? msg.limit : 120;
+      const messages = chatStore.history(msg.roomId, limit);
+      reply(ws, requestId, { type: 'chat_history_result', ok: true, messages });
+      return;
+    }
+    case 'chat_post': {
+      if (!msg.roomId || !msg.playerId) {
+        reply(ws, requestId, { type: 'error', ok: false, error: 'chat_params_required' });
+        return;
+      }
+      const room = store.getById(msg.roomId);
+      if (!room) {
+        reply(ws, requestId, { type: 'chat_post_result', ok: false, error: 'room_not_found' });
+        return;
+      }
+      const posted = chatStore.post(room, msg.playerId, msg.displayName, String(msg.body ?? ''));
+      if ('error' in posted) {
+        reply(ws, requestId, { type: 'chat_post_result', ok: false, error: posted.error });
+        return;
+      }
+      broadcastToRoom(msg.roomId, {
+        type: 'chat_message',
+        roomId: msg.roomId,
+        message: posted.message,
+      });
+      reply(ws, requestId, { type: 'chat_post_result', ok: true, message: posted.message });
+      return;
+    }
+    case 'chat_typing': {
+      if (!msg.roomId || !msg.playerId) return;
+      const room = store.getById(msg.roomId);
+      if (!room) return;
+      broadcastToRoom(msg.roomId, {
+        type: 'chat_typing',
+        roomId: msg.roomId,
+        user_id: msg.playerId,
+        display_name: msg.displayName ?? undefined,
+      });
       return;
     }
     case 'update_slots': {
@@ -264,7 +340,11 @@ function handleMessage(ws: WebSocket, raw: string): void {
         reply(ws, requestId, { type: 'error', ok: false, error: 'slots_required' });
         return;
       }
-      const updated = store.updatePlayerSlots(msg.roomId, msg.playerSlots);
+      if (!msg.playerId) {
+        reply(ws, requestId, { type: 'error', ok: false, error: 'player_required' });
+        return;
+      }
+      const updated = store.updatePlayerSlots(msg.roomId, msg.playerSlots, msg.playerId);
       if ('error' in updated) {
         reply(ws, requestId, { type: 'error', ok: false, error: updated.error });
         return;
@@ -288,7 +368,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
           ? { ...s, displayName: String(msg.displayName).trim().slice(0, 17) }
           : s,
       );
-      const updated = store.updatePlayerSlots(msg.roomId, slots);
+      const updated = store.updatePlayerSlots(msg.roomId, slots, msg.playerId);
       if ('error' in updated) {
         reply(ws, requestId, { type: 'error', ok: false, error: updated.error });
         return;
@@ -360,6 +440,16 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
   const path = url.pathname.replace(/\/+$/, '') || '/';
 
+  if (path === '/api/health' && req.method === 'GET') {
+    sendJson(res, 200, {
+      ok: true,
+      rooms: store.listAll().length,
+      uptimeSec: Math.round(process.uptime()),
+      persist: !!roomPersist,
+    });
+    return;
+  }
+
   if (path === '/api/version' && req.method === 'GET') {
     let panelSnippet = '';
     try {
@@ -374,6 +464,9 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
       panelSnippet,
       hostHtmlPath: hostHtmlPath(),
       pid: process.pid,
+      rooms: store.listAll().length,
+      persist: !!roomPersist,
+      uptimeSec: Math.round(process.uptime()),
     });
     return;
   }
@@ -443,12 +536,33 @@ function startHttpWsServer(listenPort: number, label: string): void {
   });
 }
 
-const wsBackupPorts = parseLanBackupPorts(PORT, process.env.WS_BACKUP_PORTS);
+const wsBackupPorts =
+  process.env.NODE_ENV === 'production' && process.env.WS_BACKUP_PORTS === undefined
+    ? parseLanBackupPorts(PORT, 'none')
+    : parseLanBackupPorts(PORT, process.env.WS_BACKUP_PORTS);
 
 startHttpWsServer(PORT, 'Основной');
 for (const backupPort of wsBackupPorts) {
   startHttpWsServer(backupPort, `Запасной WS :${backupPort}`);
 }
+
+function shutdown(signal: string): void {
+  console.log(`[updown-server] ${signal} — сохраняем комнаты и выходим`);
+  try {
+    roomPersist?.flushSync();
+  } catch {
+    /* ignore */
+  }
+  try {
+    tunnelManager.stopAll();
+  } catch {
+    /* ignore */
+  }
+  process.exit(0);
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 const ip = listLanIPv4()[0] ?? '127.0.0.1';
 console.log('');
@@ -466,5 +580,6 @@ if (wsBackupPorts.length) {
     `[updown-server] Запасные WS: ${wsBackupPorts.map((p) => `ws://${ip}:${p}`).join(', ')}`,
   );
 }
+console.log('[updown-server] Health: http://localhost:' + PORT + '/api/health');
 console.log('[updown-server] Проверка: http://localhost:' + PORT + '/api/version');
 console.log('');

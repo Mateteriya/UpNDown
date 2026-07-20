@@ -478,7 +478,7 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
         ? { ...s, ...(avatar != null && avatar !== '' ? { avatarDataUrl: avatar } : { avatarDataUrl: null }) }
         : s,
     );
-    await updateRoomPlayerSlots(roomId, slots);
+    await updateRoomPlayerSlots(roomId, slots, onlinePlayerId);
     await refreshRoom();
   }, [roomId, playerSlots, onlinePlayerId, refreshRoom]);
 

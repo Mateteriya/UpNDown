@@ -61,6 +61,9 @@ export interface ClientMessage {
   hostId?: string;
   newHostUserId?: string;
   choice?: 'finish' | 'wait' | 'replace_ai';
+  /** Чат */
+  body?: string;
+  limit?: number;
 }
 
 export interface ServerMessage {
@@ -77,4 +80,23 @@ export interface ServerMessage {
   state?: unknown;
   playerSlots?: PlayerSlot[];
   roomPhase?: string | null;
+  /** Чат */
+  message?: {
+    id: string;
+    room_id: string;
+    user_id: string;
+    display_name: string;
+    body: string;
+    created_at: string;
+  };
+  messages?: Array<{
+    id: string;
+    room_id: string;
+    user_id: string;
+    display_name: string;
+    body: string;
+    created_at: string;
+  }>;
+  user_id?: string;
+  display_name?: string;
 }

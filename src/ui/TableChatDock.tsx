@@ -16,7 +16,7 @@ import {
   subscribeRoomChat,
   type RoomChatMessageRow,
   type RoomChatTypingBroadcastPayload,
-} from '../lib/onlineGameSupabase';
+} from '../lib/onlineGameApi';
 import {
   CHAT_QUICK_PHRASES,
   MY_SNIPPETS_LS_KEY,
@@ -1338,11 +1338,14 @@ function TableChatDock({
         const next = opt ? prev.filter((m) => m.id !== opt) : prev;
         return [...next, row].slice(-FETCH_LIMIT);
       });
-      if (mobileSideEarEnabled && !mobileOpenRef.current && row.user_id !== userId) {
+      /** Без ушка тоже помечаем непрочитанное — точка на кнопке «Чат». */
+      if (!mobileOpenRef.current && row.user_id !== userId) {
         const seen = seenUpToCreatedAtRef.current;
         if (!seen || row.created_at > seen) {
           setSideEarUnread(true);
-          setUnreadPhantom(formatUnreadPhantomFromMessage(row));
+          if (mobileSideEarEnabled) {
+            setUnreadPhantom(formatUnreadPhantomFromMessage(row));
+          }
         }
       }
     },
@@ -2988,6 +2991,7 @@ function TableChatDock({
       : null;
 
   if (variant === 'mobile' && !mobileOpen) {
+    const collapsedTyping = typingPhantomLine?.trim() || null;
     return (
       <>
         <div
@@ -2998,12 +3002,40 @@ function TableChatDock({
             'table-chat-dock--mobile',
             'table-chat-dock--collapsed',
             mobileSideEarEnabled ? 'table-chat-dock--mobile-side-ear' : '',
+            collapsedTyping ? 'table-chat-dock--collapsed-typing' : '',
+            sideEarUnread && !collapsedTyping ? 'table-chat-dock--collapsed-unread' : '',
           ]
             .filter(Boolean)
             .join(' ')}
         >
-          <button type="button" className="table-chat-toggle" onClick={() => setMobileOpen(true)}>
-            Чат
+          <button
+            type="button"
+            className={[
+              'table-chat-toggle',
+              collapsedTyping ? 'table-chat-toggle--typing' : '',
+              sideEarUnread && !collapsedTyping ? 'table-chat-toggle--unread' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            data-upnd-table-chat-toggle=""
+            onClick={() => setMobileOpen(true)}
+            aria-label={
+              collapsedTyping
+                ? `Открыть чат. ${collapsedTyping}`
+                : sideEarUnread
+                  ? 'Открыть чат. Есть новые сообщения'
+                  : 'Открыть чат'
+            }
+          >
+            <span className="table-chat-toggle__label">Чат</span>
+            {sideEarUnread && !collapsedTyping ? (
+              <span className="table-chat-toggle__unread-dot" aria-hidden />
+            ) : null}
+            {collapsedTyping ? (
+              <span className="table-chat-toggle__typing" aria-live="polite">
+                {collapsedTyping}
+              </span>
+            ) : null}
           </button>
         </div>
         {mobileSideEarEnabled ? (
@@ -4179,7 +4211,12 @@ function TableChatDock({
           </span>
           <button
             type="button"
-            className="table-chat-dock-pc-expand-btn"
+            className={[
+              'table-chat-dock-pc-expand-btn',
+              typingPhantomLine ? 'table-chat-dock-pc-expand-btn--typing' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             onPointerDown={(ev) => ev.stopPropagation()}
             onClick={() => {
               setPcCollapsed(false);
@@ -4190,9 +4227,14 @@ function TableChatDock({
               }
             }}
             aria-expanded="false"
-            aria-label="Открыть чат стола"
+            aria-label={
+              typingPhantomLine ? `Открыть чат. ${typingPhantomLine}` : 'Открыть чат стола'
+            }
           >
             <span aria-hidden>💬</span> Чат
+            {typingPhantomLine ? (
+              <span className="table-chat-dock-pc-expand-btn__typing">{typingPhantomLine}</span>
+            ) : null}
           </button>
         </div>
       </div>
@@ -4219,6 +4261,11 @@ function TableChatDock({
               💬
             </span>
             <span className="table-chat-dock-title-text">Чат стола</span>
+            {typingPhantomLine ? (
+              <span className="table-chat-dock-typing" aria-live="polite">
+                {typingPhantomLine}
+              </span>
+            ) : null}
           </div>
           <button
             type="button"
@@ -4271,6 +4318,11 @@ function TableChatDock({
             ⋮⋮
           </span>
           <span className="table-chat-dock-title-text">Чат</span>
+          {typingPhantomLine ? (
+            <span className="table-chat-dock-typing table-chat-dock-typing--pc" aria-live="polite">
+              {typingPhantomLine}
+            </span>
+          ) : null}
           <button
             type="button"
             className="table-chat-dock-pc-collapse-btn"
