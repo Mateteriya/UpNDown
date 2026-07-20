@@ -690,7 +690,8 @@ export function MainMenuScreen({
                 onClick={onOpenAccount}
               />
             </MenuPcDrift>
-            {onOpenSupport ? (
+            {/* ПК: «Поддержать» в дрейфе. На мобиле — только внизу у «Обучение», без дубля. */}
+            {onOpenSupport && isPcMenu ? (
               <MenuPcDrift id="support" className="menu-screen__drift--support" movable>
                 <MenuCapsuleButton
                   variant="link"
