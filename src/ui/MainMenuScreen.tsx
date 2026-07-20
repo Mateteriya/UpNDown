@@ -90,6 +90,7 @@ export type MainMenuScreenProps = {
   onlineResumeMessage: string | null;
   onTitleDevMode?: () => void;
   onOpenAccount: () => void;
+  onOpenSupport?: () => void;
   onResumeOnline: () => void;
   onOpenOnline: () => void;
   onResumeOffline: () => void;
@@ -109,6 +110,7 @@ export function MainMenuScreen({
   onlineResumeMessage,
   onTitleDevMode,
   onOpenAccount,
+  onOpenSupport,
   onResumeOnline,
   onOpenOnline,
   onResumeOffline,
@@ -688,6 +690,17 @@ export function MainMenuScreen({
                 onClick={onOpenAccount}
               />
             </MenuPcDrift>
+            {onOpenSupport ? (
+              <MenuPcDrift id="support" className="menu-screen__drift--support" movable>
+                <MenuCapsuleButton
+                  variant="link"
+                  title="Поддержать"
+                  hint="донаты автору"
+                  compact
+                  onClick={onOpenSupport}
+                />
+              </MenuPcDrift>
+            ) : null}
             {isPcMenu ? (
               <MenuPcDrift id="training-v2" className="menu-screen__drift--training" movable>
                 <MenuCapsuleButton
@@ -844,6 +857,15 @@ export function MainMenuScreen({
                 collapseId="training"
                 onClick={onTraining}
               />
+              {onOpenSupport ? (
+                <MenuCapsuleButton
+                  variant="link"
+                  title="Поддержать"
+                  hint="донаты автору"
+                  compact
+                  onClick={onOpenSupport}
+                />
+              ) : null}
             </div>
           ) : null}
       </div>

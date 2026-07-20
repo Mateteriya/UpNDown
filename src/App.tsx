@@ -34,6 +34,8 @@ import { AccountLkPage } from './ui/AccountLkPage'
 import { MainMenuScreen } from './ui/MainMenuScreen'
 import { ACCOUNT_ROUTE_HASH, isAccountRouteHash } from './lib/accountRoute'
 import { ONLINE_ROUTE_HASH, isOnlineRouteHash } from './lib/onlineRoute'
+import { SUPPORT_ROUTE_HASH, isSupportRouteHash } from './lib/supportRoute'
+import { SupportDonatePage } from './ui/SupportDonatePage'
 
 /** Ленивая загрузка экрана игры: уменьшает начальный бандл и ускоряет первый показ меню; экран игры подгружается при переходе. */
 const GameTable = lazy(() => import('./ui/GameTable'))
@@ -41,7 +43,7 @@ const GameTable = lazy(() => import('./ui/GameTable'))
 const DEV_MODE_KEY = 'updown-devMode'
 const DEFAULT_DISPLAY_NAME = 'Вы'
 
-type AppScreen = 'menu' | 'game' | 'training' | 'account' | 'online'
+type AppScreen = 'menu' | 'game' | 'training' | 'account' | 'online' | 'support'
 
 function readInitialScreen(): AppScreen {
   if (typeof window === 'undefined') return 'menu'
@@ -49,6 +51,7 @@ function readInitialScreen(): AppScreen {
   if (h === '#game') return 'game'
   if (h === '#training') return 'training'
   if (isAccountRouteHash(h)) return 'account'
+  if (isSupportRouteHash(h)) return 'support'
   if (isOnlineRouteHash(h)) return 'online'
   const { code } = applyLanJoinParamsFromUrl()
   if (code) return 'online'
@@ -405,6 +408,11 @@ function App() {
     setScreen('online')
   }, [])
 
+  const openSupportPage = useCallback(() => {
+    setUrlJoinCode(null)
+    setScreen('support')
+  }, [])
+
   // Управление историей браузера: #menu ↔ #game ↔ #online и popstate
   useEffect(() => {
     const applyHash = () => {
@@ -420,6 +428,8 @@ function App() {
         setScreen('training')
       } else if (isAccountRouteHash(h)) {
         setScreen('account')
+      } else if (isSupportRouteHash(h)) {
+        setScreen('support')
       } else if (isOnlineRouteHash(h)) {
         try { sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY) } catch { /* ignore */ }
         setScreen('online')
@@ -436,9 +446,11 @@ function App() {
           ? '#training'
           : screen === 'account'
             ? ACCOUNT_ROUTE_HASH
-            : screen === 'online'
-              ? ONLINE_ROUTE_HASH
-              : '#menu'
+            : screen === 'support'
+              ? SUPPORT_ROUTE_HASH
+              : screen === 'online'
+                ? ONLINE_ROUTE_HASH
+                : '#menu'
     if (window.location.hash !== targetHash) {
       history.pushState({ screen }, '', targetHash)
     }
@@ -464,6 +476,7 @@ function App() {
           onlineResumeMessage={onlineResumeMessage}
           onTitleDevMode={enableDevMode}
           onOpenAccount={openAccountCabinet}
+          onOpenSupport={openSupportPage}
           onResumeOnline={() => { void handleResumeOnline() }}
           onOpenOnline={openOnlinePage}
           onResumeOffline={() => { void handleResumeOffline() }}
@@ -675,8 +688,10 @@ function App() {
             setUrlJoinCode(code)
             openOnlinePage()
           }}
+          onOpenSupport={openSupportPage}
         />
       )}
+      {screen === 'support' && <SupportDonatePage onBack={() => setScreen('menu')} />}
       {screen === 'online' && (
         <LobbyScreen
           onBack={() => { setUrlJoinCode(null); setScreen('menu') }}

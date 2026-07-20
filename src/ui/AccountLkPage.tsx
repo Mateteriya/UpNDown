@@ -41,6 +41,8 @@ export type AccountLkPageProps = {
   onSignIn: () => void;
   /** ПК: войти в незавершённую комнату по коду (открывает Онлайн). */
   onJoinUnfinished?: (code: string) => void;
+  /** Открыть страницу донатов. */
+  onOpenSupport?: () => void;
 };
 
 function formatWhen(iso: string): string {
@@ -96,6 +98,7 @@ export function AccountLkPage({
   onOpenHistory,
   onSignIn,
   onJoinUnfinished,
+  onOpenSupport,
 }: AccountLkPageProps) {
   const { user, configured, signOut, loading: authLoading } = useAuth();
   const rating = getLocalRating();
@@ -279,6 +282,15 @@ export function AccountLkPage({
                 )}
                 <MenuCapsuleButton variant="rating" compact title="Рейтинг" hint="подробно" onClick={onOpenRating} />
                 <MenuCapsuleButton variant="history" compact title="История" hint="все партии" onClick={onOpenHistory} />
+                {onOpenSupport ? (
+                  <MenuCapsuleButton
+                    variant="link"
+                    compact
+                    title="Поддержать"
+                    hint="донаты"
+                    onClick={onOpenSupport}
+                  />
+                ) : null}
               </div>
             </section>
 
@@ -575,6 +587,11 @@ export function AccountLkPage({
               <button type="button" className="lk-page__text-link" onClick={onOpenHistory}>
                 История партий
               </button>
+              {onOpenSupport ? (
+                <button type="button" className="lk-page__text-link" onClick={onOpenSupport}>
+                  Поддержать проект
+                </button>
+              ) : null}
             </div>
           </section>
 

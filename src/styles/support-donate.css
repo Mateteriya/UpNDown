@@ -1,0 +1,183 @@
+/**
+ * Страница «Поддержать проект» — мобилка и ПК.
+ * Одна композиция: бренд, заголовок, короткий текст, CTA.
+ */
+
+.support-page {
+  --sp-font-display: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  --sp-font-ui: 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  --sp-ink: #e9d5ff;
+  --sp-muted: #a5b4fc;
+  --sp-cyan: #67e8f9;
+
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  font-family: var(--sp-font-ui);
+  color: var(--sp-ink);
+  box-sizing: border-box;
+}
+
+.support-page__bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% -10%, rgba(124, 58, 237, 0.35), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 90% 80%, rgba(34, 211, 238, 0.12), transparent 50%),
+    linear-gradient(165deg, #07061a 0%, #120a2e 45%, #0a1628 100%);
+}
+
+.support-page__shell {
+  position: relative;
+  z-index: 1;
+  max-width: 520px;
+  margin: 0 auto;
+  padding:
+    max(16px, env(safe-area-inset-top, 0px))
+    20px
+    max(28px, env(safe-area-inset-bottom, 0px));
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+.support-page__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.support-page__brand {
+  margin: 0;
+  font-family: var(--sp-font-display);
+  font-size: clamp(1.35rem, 4.5vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: linear-gradient(105deg, #67e8f9 0%, #a78bfa 40%, #e879f9 70%, #fcd34d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.support-page__main {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.support-page__eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sp-cyan);
+  opacity: 0.9;
+}
+
+.support-page__title {
+  margin: 0;
+  font-family: var(--sp-font-display);
+  font-size: clamp(1.45rem, 5vw, 1.85rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: #f5f3ff;
+}
+
+.support-page__lead {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: var(--sp-muted);
+  max-width: 36em;
+}
+
+.support-page__links {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.support-page__cta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(167, 139, 250, 0.45);
+  background: linear-gradient(135deg, rgba(88, 28, 135, 0.55) 0%, rgba(30, 27, 75, 0.75) 100%);
+  text-decoration: none;
+  color: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.28);
+  transition: border-color 0.15s ease, filter 0.15s ease, transform 0.12s ease;
+}
+
+.support-page__cta:hover {
+  border-color: rgba(103, 232, 249, 0.55);
+  filter: brightness(1.06);
+}
+
+.support-page__cta:active {
+  transform: scale(0.98);
+}
+
+.support-page__cta-title {
+  font-family: var(--sp-font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #faf5ff;
+}
+
+.support-page__cta-hint {
+  font-size: 0.8rem;
+  color: var(--sp-muted);
+}
+
+.support-page__pending {
+  margin-top: 6px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px dashed rgba(167, 139, 250, 0.4);
+  background: rgba(15, 10, 40, 0.45);
+}
+
+.support-page__pending-title {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: #e9d5ff;
+}
+
+.support-page__pending-body {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--sp-muted);
+}
+
+.support-page__thanks {
+  margin: 18px 0 0;
+  font-size: 0.88rem;
+  color: rgba(196, 181, 253, 0.75);
+  font-style: italic;
+}
+
+@media (min-width: 1025px) {
+  .support-page__shell {
+    max-width: 560px;
+    padding-top: max(28px, env(safe-area-inset-top, 0px));
+  }
+
+  .support-page__lead {
+    font-size: 1.05rem;
+  }
+}
