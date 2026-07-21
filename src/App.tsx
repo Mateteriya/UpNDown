@@ -29,7 +29,7 @@ import { RatingModal } from './ui/RatingModal'
 import { AuthModal } from './ui/AuthModal'
 import { applyLanJoinParamsFromUrl } from './lib/lanJoinLink'
 import { LobbyScreen } from './ui/LobbyScreen'
-import { OfflineResumeChoiceModal } from './ui/OfflineResumeChoiceModal'
+import { OfflinePlayerCountModal, type OfflinePlayerCount } from './ui/OfflinePlayerCountModal'
 import { AccountLkPage } from './ui/AccountLkPage'
 import { MainMenuScreen } from './ui/MainMenuScreen'
 import { ACCOUNT_ROUTE_HASH, isAccountRouteHash } from './lib/accountRoute'
@@ -70,6 +70,10 @@ function App() {
   /** Уже показывали «Задайте имя для этого аккаунта» этому user.id в сессии — не дёргать setShow снова при повторном срабатывании эффекта. */
   const newAccountGatePromptedRef = useRef<string | null>(null)
   const [gameId, setGameId] = useState(1)
+  const [offlinePlayerCount, setOfflinePlayerCount] = useState<OfflinePlayerCount>(4)
+  const [showPlayerCountModal, setShowPlayerCountModal] = useState(false)
+  /** После выбора 3/4: старт с меню или новая партия уже на экране игры. */
+  const playerCountThenRef = useRef<'menu' | 'in-game' | null>(null)
   const [devMode, setDevMode] = useState(() => typeof sessionStorage !== 'undefined' && sessionStorage.getItem(DEV_MODE_KEY) === '1')
   const [profile, setProfile] = useState<PlayerProfile>(() => getPlayerProfile())
   const [nameAvatarMode, setNameAvatarMode] = useState<NameAvatarModalResumeMode>(
@@ -91,7 +95,6 @@ function App() {
   }, [])
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
-  const [showOfflineChoiceModal, setShowOfflineChoiceModal] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [urlJoinCode, setUrlJoinCode] = useState(() => {
@@ -291,17 +294,34 @@ function App() {
     startGame()
   }
 
-  const handleOfflineClick = () => {
-    if (hasSavedGame()) {
-      setShowOfflineChoiceModal(true)
+  const beginOfflineAfterPlayerCount = (count: OfflinePlayerCount) => {
+    setOfflinePlayerCount(count)
+    setShowPlayerCountModal(false)
+    const then = playerCountThenRef.current
+    playerCountThenRef.current = null
+    clearGameStateFromStorage()
+    if (then === 'in-game') {
+      suppressOnlineAutoRestore()
+      void online.leaveRoom()
+      setGameId((id) => id + 1)
+      setScreen('game')
       return
     }
+    startOfflineGame()
+  }
+
+  const requestOfflinePlayerCount = (then: 'menu' | 'in-game' = 'menu') => {
+    playerCountThenRef.current = then
+    setShowPlayerCountModal(true)
+  }
+
+  /** «Новая партия» с меню — без повторного «продолжить или новая»; продолжение только через onResumeOffline. */
+  const handleOfflineClick = () => {
     if (profile.displayName === DEFAULT_DISPLAY_NAME) {
       openNameAvatarModal('first-run')
-      // Пока пользователь вводит имя — подгружаем чанк игры, чтобы к моменту «Сохранить» экран открылся быстрее
       import('./ui/GameTable')
     } else {
-      startOfflineGame()
+      requestOfflinePlayerCount('menu')
     }
   }
 
@@ -323,9 +343,7 @@ function App() {
       if (online.syncMySlotAvatar) void online.syncMySlotAvatar()
     }
     if (nameAvatarMode === 'first-run') {
-      suppressOnlineAutoRestore()
-      void online.leaveRoom()
-      startGame()
+      requestOfflinePlayerCount('menu')
     }
     if (nameAvatarMode === 'new-account') setNameAvatarMode('profile')
   }, [nameAvatarMode, user?.id, online.roomId, online.syncMySlotDisplayName, online.syncMySlotAvatar, online.leaveRoom, suppressOnlineAutoRestore, closeNameAvatarModal])
@@ -390,8 +408,7 @@ function App() {
   }, [user, online, authLoading])
 
   const handleNewGame = () => {
-    clearGameStateFromStorage()
-    setGameId(id => id + 1)
+    requestOfflinePlayerCount('in-game')
   }
 
   const openAccountCabinet = useCallback(() => {
@@ -484,34 +501,13 @@ function App() {
           onTraining={() => setScreen('training')}
         />
       )}
-      {showOfflineChoiceModal && (
-        <OfflineResumeChoiceModal
-          onCancel={() => setShowOfflineChoiceModal(false)}
-          onContinue={() => {
-            setShowOfflineChoiceModal(false)
-            suppressOnlineAutoRestore()
-            if (online.status !== 'idle') {
-              online.leaveRoom().finally(() => setScreen('game'))
-            } else {
-              setScreen('game')
-            }
+      {showPlayerCountModal && (
+        <OfflinePlayerCountModal
+          onCancel={() => {
+            setShowPlayerCountModal(false)
+            playerCountThenRef.current = null
           }}
-          onStartNew={() => {
-            setShowOfflineChoiceModal(false)
-            clearGameStateFromStorage()
-            if (profile.displayName === DEFAULT_DISPLAY_NAME) {
-              openNameAvatarModal('first-run')
-              import('./ui/GameTable')
-            } else {
-              const startNew = () => {
-                suppressOnlineAutoRestore()
-                setGameId((id) => id + 1)
-                setScreen('game')
-              }
-              if (online.status !== 'idle') online.leaveRoom().finally(startNew)
-              else startNew()
-            }
-          }}
+          onChoose={beginOfflineAfterPlayerCount}
         />
       )}
       {screen === 'training' && (
@@ -744,6 +740,7 @@ function App() {
             <GameTable
               key={gameId}
               gameId={gameId}
+              offlinePlayerCount={offlinePlayerCount}
               playerDisplayName={profile.displayName}
               playerAvatarDataUrl={profile.avatarDataUrl}
               playerAvatarBgColor={profile.avatarBgColor}

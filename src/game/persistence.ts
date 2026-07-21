@@ -16,7 +16,7 @@ export function loadGameStateFromStorage(): GameState | null {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return null;
     const s = parsed as Record<string, unknown>;
-    if (!Array.isArray(s.players) || s.players.length !== 4 || typeof s.phase !== 'string') return null;
+    if (!Array.isArray(s.players) || (s.players.length !== 3 && s.players.length !== 4) || typeof s.phase !== 'string') return null;
     if (typeof s.dealerIndex !== 'number' || typeof s.dealNumber !== 'number') return null;
     let game = parsed as GameState;
     if (game.players[0]?.id === 'human') {

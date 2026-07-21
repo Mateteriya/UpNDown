@@ -1,0 +1,586 @@
+/* Лаб раскладки руки 10–12 — только /mode-label-lab */
+
+.hand-layout-lab__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(8, 12, 28, 0.55);
+}
+
+.hand-layout-lab__controls-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.hand-layout-lab__controls-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hand-layout-lab__count-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 44px;
+  padding: 8px 10px 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(71, 85, 105, 0.7);
+  background: rgba(15, 23, 42, 0.85);
+  color: #e2e8f0;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hand-layout-lab__count-btn:hover {
+  border-color: rgba(125, 211, 252, 0.45);
+}
+
+.hand-layout-lab__count-btn--active {
+  border-color: rgba(56, 189, 248, 0.75);
+  background: linear-gradient(165deg, rgba(14, 116, 144, 0.45), rgba(15, 23, 42, 0.95));
+  color: #f0f9ff;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.25);
+}
+
+.hand-layout-lab__count-meta {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+  opacity: 0.9;
+}
+
+.hand-layout-lab__casts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.hand-layout-lab__cast-card {
+  padding: 12px 12px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(8, 12, 28, 0.6);
+}
+
+.hand-layout-lab__cast-head {
+  margin-bottom: 12px;
+}
+
+.hand-layout-lab__cast-title {
+  margin: 6px 0 4px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fde68a;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+}
+
+.hand-layout-lab__cast-blurb {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.hand-layout-lab__mode-chip {
+  display: inline-block;
+  margin: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #a5f3fc;
+  background: rgba(8, 47, 73, 0.65);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+}
+
+.hand-layout-lab__badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0f172a;
+  background: linear-gradient(90deg, #fde68a, #fbbf24);
+}
+
+/* Телефон-каст */
+.hand-layout-lab__phone {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
+  padding: 10px 8px 12px;
+  border-radius: 28px;
+  border: 2px solid rgba(51, 65, 85, 0.95);
+  background: linear-gradient(160deg, #1e293b 0%, #0f172a 55%, #020617 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(148, 163, 184, 0.12),
+    0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.hand-layout-lab__phone-notch {
+  width: 38%;
+  height: 8px;
+  margin: 0 auto 8px;
+  border-radius: 999px;
+  background: #020617;
+  box-shadow: inset 0 0 0 1px rgba(71, 85, 105, 0.6);
+}
+
+.hand-layout-lab__table {
+  display: flex;
+  flex-direction: column;
+  height: 620px;
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 22%, rgba(22, 101, 52, 0.55), transparent 70%),
+    linear-gradient(180deg, #14532d 0%, #052e16 42%, #022c22 100%);
+  border: 1px solid rgba(21, 128, 61, 0.45);
+  box-sizing: border-box;
+}
+
+.hand-layout-lab__hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(226, 232, 240, 0.88);
+  background: rgba(2, 6, 23, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.hand-layout-lab__trump {
+  color: #fde68a;
+}
+
+.hand-layout-lab__top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 8px 0;
+  flex-shrink: 0;
+}
+
+.hand-layout-lab__opp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  min-width: 0;
+}
+
+.hand-layout-lab__opp-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: linear-gradient(145deg, #64748b, #334155);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.12);
+}
+
+.hand-layout-lab__opp--n .hand-layout-lab__opp-avatar {
+  background: linear-gradient(145deg, #38bdf8, #0369a1);
+}
+
+.hand-layout-lab__opp--w .hand-layout-lab__opp-avatar {
+  background: linear-gradient(145deg, #c084fc, #6b21a8);
+}
+
+.hand-layout-lab__opp-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.hand-layout-lab__opp-name {
+  font-size: 11px;
+  font-weight: 800;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hand-layout-lab__opp-bid {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.hand-layout-lab__felt {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  overflow: visible;
+}
+
+.hand-layout-lab__trick {
+  position: relative;
+  width: 140px;
+  height: 110px;
+}
+
+.hand-layout-lab__trick-card {
+  position: absolute;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+}
+
+.hand-layout-lab__trick-card--0 {
+  left: 6px;
+  top: 24px;
+  transform: rotate(-12deg);
+}
+
+.hand-layout-lab__trick-card--1 {
+  left: 44px;
+  top: 2px;
+  transform: rotate(4deg);
+}
+
+.hand-layout-lab__trick-card--2 {
+  left: 72px;
+  top: 32px;
+  transform: rotate(14deg);
+}
+
+.hand-layout-lab__deck-stub {
+  position: absolute;
+  left: 12px;
+  top: 14px;
+  width: 32px;
+  height: 46px;
+}
+
+.hand-layout-lab__deck-stub span {
+  position: absolute;
+  inset: 0;
+  border-radius: 5px;
+  background: linear-gradient(145deg, #1e3a8a, #0f172a);
+  border: 1px solid rgba(147, 197, 253, 0.35);
+}
+
+.hand-layout-lab__deck-stub span:nth-child(2) {
+  transform: translate(3px, 3px);
+  opacity: 0.7;
+  z-index: -1;
+}
+
+/* Стек как в игре: рука → панель Юга */
+.hand-layout-lab__stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  flex-shrink: 0;
+  padding: 0 6px 8px;
+  background: linear-gradient(180deg, transparent 0%, rgba(2, 6, 23, 0.55) 28%);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  z-index: 2;
+}
+
+.hand-layout-lab__hand-strip {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  /* одна строка — фиксированная «полоса руки» */
+  min-height: 64px;
+  align-items: flex-end;
+  overflow: visible;
+}
+
+.hand-layout-lab__hand-strip--two-rows {
+  /* место под нижний ряд; верхний уходит в сукно через отрицательный margin */
+  min-height: 64px;
+  position: relative;
+  z-index: 3;
+}
+
+.hand-layout-lab__hand-frame {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  max-width: 100%;
+  padding: 4px 6px 5px;
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.45);
+  border: 1px solid rgba(125, 211, 252, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.12),
+    0 0 14px rgba(34, 211, 238, 0.15);
+  overflow: visible;
+  box-sizing: border-box;
+}
+
+.hand-layout-lab__row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
+  width: max-content;
+  max-width: 100%;
+}
+
+.hand-layout-lab__two-rows {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* верхняя строка нависает в сукно */
+  position: relative;
+}
+
+.hand-layout-lab__row--upper {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+}
+
+.hand-layout-lab__card-slot {
+  position: relative;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+/* Толстая панель Юга — как в игре занимает низ */
+.hand-layout-lab__user-panel {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 92px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background:
+    linear-gradient(165deg, rgba(30, 58, 138, 0.45) 0%, rgba(15, 23, 42, 0.92) 55%),
+    rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(14, 165, 233, 0.15),
+    0 8px 20px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+}
+
+.hand-layout-lab__user-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #7dd3fc, #0369a1);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.2),
+    0 0 0 2px rgba(56, 189, 248, 0.35);
+}
+
+.hand-layout-lab__user-mid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.hand-layout-lab__user-name {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  font-weight: 800;
+  color: #e0f2fe;
+}
+
+.hand-layout-lab__user-order,
+.hand-layout-lab__user-tricks,
+.hand-layout-lab__user-score {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.hand-layout-lab__user-order span,
+.hand-layout-lab__user-tricks span,
+.hand-layout-lab__user-score span {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.hand-layout-lab__user-order strong,
+.hand-layout-lab__user-tricks strong,
+.hand-layout-lab__user-score strong {
+  font-size: 16px;
+  font-weight: 800;
+  color: #f8fafc;
+  line-height: 1.1;
+}
+
+.hand-layout-lab__user-score {
+  text-align: right;
+  padding-left: 8px;
+  border-left: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.hand-layout-lab__vert-note {
+  margin: 0;
+  padding: 2px 4px 0;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.hand-layout-lab__table--vert {
+  height: 680px;
+}
+
+.hand-layout-lab__table--vert .hand-layout-lab__felt {
+  padding-right: 88px;
+  align-items: stretch;
+}
+
+  /* Вертикальный столбец: портретная карта + rotate(-90deg) на обёртке */
+.hand-layout-lab__vert-rail {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  bottom: 4px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 5;
+  overflow-y: auto;
+  overflow-x: visible;
+  padding: 2px 0;
+  pointer-events: auto;
+  scrollbar-width: thin;
+}
+
+.hand-layout-lab__vert {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.hand-layout-lab__sideways {
+  flex-shrink: 0;
+  line-height: 0;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+}
+
+.hand-layout-lab__sideways .card-view-root {
+  margin: 0 !important;
+}
+
+.hand-layout-lab__table--east-tail {
+  overflow: visible;
+}
+
+/* 9 в ряду + короткий хвост над правым концом ряда */
+.hand-layout-lab__table--east-tail .hand-layout-lab__felt {
+  overflow: visible;
+}
+
+.hand-layout-lab__table--east-tail .hand-layout-lab__stack {
+  overflow: visible;
+  position: relative;
+  z-index: 3;
+}
+
+/* Рамка ряда: overflow visible, чтобы хвост уходил в сукно */
+.hand-layout-lab__hand-frame--east-main {
+  max-width: none;
+  width: max-content;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.hand-layout-lab__east-row-anchor {
+  position: relative;
+  width: max-content;
+}
+
+.hand-layout-lab__hand-frame--east-main .hand-layout-lab__row {
+  gap: 2px;
+}
+
+.hand-layout-lab__hand-strip--east-main {
+  min-height: 64px;
+  overflow: visible;
+  justify-content: center;
+}
+
+/* Ровно над правой картой ряда, зазор 2px */
+.hand-layout-lab__east-tail {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 6;
+  padding: 3px 3px 2px;
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.5);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(245, 158, 11, 0.12),
+    0 6px 14px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+.hand-layout-lab__east-tail-label {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fde68a;
+  opacity: 0.85;
+  line-height: 1;
+  margin-bottom: 1px;
+}
+
+.hand-layout-lab__phone--narrow {
+  /* max-width задаётся инлайном; чуть плотнее рамка */
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+@media (max-width: 720px) {
+  .hand-layout-lab__casts {
+    grid-template-columns: 1fr;
+  }
+
+  .hand-layout-lab__phone {
+    max-width: 360px;
+  }
+}

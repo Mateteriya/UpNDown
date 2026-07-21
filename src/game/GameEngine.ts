@@ -2,31 +2,9 @@
  * Игровой движок Up&Down
  * Управляет ходом игры: раздача, заказы, розыгрыш
  *
- * Расположение игроков (вид сверху): Юг(0, вы) внизу, Север(1) вверху, Запад(2) слева, Восток(3) справа.
- * Порядок «по левую руку» (следующий сдающий по часовой): Юг→Запад→Север→Восток→Юг (0→2→1→3→0)
+ * Расположение (вид сверху): Юг(0, вы), Север(1), Запад(2), Восток(3).
+ * 4 игрока, слева: 0→2→1→3→0. 3 игрока (без Востока): 0→2→1→0.
  */
-const NEXT_PLAYER_LEFT = [2, 3, 1, 0] as const; // [0]=Запад, [1]=Восток, [2]=Север, [3]=Юг — следующий слева
-
-function nextPlayerLeft(i: number): number {
-  return NEXT_PLAYER_LEFT[i % 4];
-}
-
-export function playerAtLeftFrom(base: number, steps: number): number {
-  let cur = base;
-  for (let k = 0; k < steps; k++) cur = nextPlayerLeft(cur);
-  return cur;
-}
-
-/** Абсолютный индекс игрока, выигравшего взятку с картами по порядку хода от trickLeaderIndex. */
-export function absoluteTrickWinnerPlayerIndex(
-  trickLeaderIndex: number,
-  trick: Card[],
-  trump: Suit | null
-): number {
-  if (trick.length === 0) return trickLeaderIndex;
-  const offset = getTrickWinner(trick, trick[0].suit, trump ?? undefined);
-  return playerAtLeftFrom(trickLeaderIndex, offset);
-}
 
 import type { AIDifficulty, Card, GamePhase, Player, Suit } from './types';
 import type { SettlementMode } from './partySettlement';
@@ -34,6 +12,42 @@ import { offlineAiDifficultyForNewBotId } from './aiSettings';
 import { createDeck, shuffleDeck, dealCards } from './deck';
 import { calculateDealPoints } from './scoring';
 import { isValidBidSum, getTrickWinner, isValidPlay } from './rules';
+
+export type PlayerCount = 3 | 4;
+
+const NEXT_PLAYER_LEFT_4 = [2, 3, 1, 0] as const;
+const NEXT_PLAYER_LEFT_3 = [2, 0, 1] as const;
+
+function nextPlayerLeft(i: number, playerCount: PlayerCount = 4): number {
+  if (playerCount === 3) return NEXT_PLAYER_LEFT_3[i % 3]!;
+  return NEXT_PLAYER_LEFT_4[i % 4]!;
+}
+
+export function playerCountOf(state: { players: { length: number } }): PlayerCount {
+  return state.players.length === 3 ? 3 : 4;
+}
+
+function emptyBids(n: PlayerCount): (number | null)[] {
+  return Array.from({ length: n }, () => null);
+}
+
+export function playerAtLeftFrom(base: number, steps: number, playerCount: PlayerCount = 4): number {
+  let cur = base;
+  for (let k = 0; k < steps; k++) cur = nextPlayerLeft(cur, playerCount);
+  return cur;
+}
+
+/** Абсолютный индекс игрока, выигравшего взятку с картами по порядку хода от trickLeaderIndex. */
+export function absoluteTrickWinnerPlayerIndex(
+  trickLeaderIndex: number,
+  trick: Card[],
+  trump: Suit | null,
+  playerCount: PlayerCount = 4
+): number {
+  if (trick.length === 0) return trickLeaderIndex;
+  const offset = getTrickWinner(trick, trick[0]!.suit, trump ?? undefined);
+  return playerAtLeftFrom(trickLeaderIndex, offset, playerCount);
+}
 
 export interface LastCompletedTrick {
   cards: Card[];
@@ -50,7 +64,7 @@ export interface PendingTrickCompletion {
   allPlayed: boolean;
 }
 
-/** Результат одной раздачи: заказы и очки по игрокам [Юг, Север, Запад, Восток] */
+/** Результат одной раздачи: заказы и очки по игрокам [Юг, Север, Запад, (Восток)] */
 export interface DealResult {
   dealNumber: number;
   bids: number[];
@@ -74,7 +88,7 @@ export interface GameState {
   trumpCard: Card | null;
   /** Последняя взятая взятка — для просмотра и паузы после завершения */
   lastCompletedTrick: LastCompletedTrick | null;
-  /** Взятка с 4 картами — карты в слотах, ждём задержку перед завершением */
+  /** Взятка полная — карты в слотах, ждём задержку перед завершением */
   pendingTrickCompletion: PendingTrickCompletion | null;
   /** История завершённых раздач для таблицы результатов (мобильная модалка) */
   dealHistory: DealResult[];
@@ -95,13 +109,71 @@ function trimPlayerName(name: string): string {
   return name.slice(0, MAX_PLAYER_NAME_LENGTH);
 }
 
+export function maxCardsPerPlayer(playerCount: PlayerCount): number {
+  return playerCount === 3 ? 12 : 9;
+}
+
+/** Раздач в партии для данного числа игроков (4 → 28, 3 → 31). */
+export function dealsPerMatch(playerCount: PlayerCount = 4): number {
+  const max = maxCardsPerPlayer(playerCount);
+  const n = playerCount;
+  return max + (n - 1) + (max - 1) + n + n;
+}
+
+/** Раздач в одной полной партии на 4 игроков (алиас для лаб/старых вызовов). */
+export const DEALS_PER_MATCH = dealsPerMatch(4);
+
+/**
+ * Карт в раздаче по номеру.
+ * 4: вверх 1→9, плато 9×4, вниз 8→1, бескозырка×4, тёмная×4.
+ * 3: вверх 1→12, плато 12×3, вниз 11→1, бескозырка×3, тёмная×3.
+ */
+export function getTricksInDeal(dealNumber: number, playerCount: PlayerCount = 4): number {
+  const max = maxCardsPerPlayer(playerCount);
+  const n = playerCount;
+  if (dealNumber <= max) return dealNumber;
+  const plateauEnd = max + (n - 1);
+  if (dealNumber <= plateauEnd) return max;
+  const downEnd = plateauEnd + (max - 1);
+  if (dealNumber <= downEnd) return max - (dealNumber - plateauEnd);
+  const ntEnd = downEnd + n;
+  if (dealNumber <= ntEnd) return max;
+  const darkEnd = ntEnd + n;
+  if (dealNumber <= darkEnd) return max;
+  return 1;
+}
+
+/** Тип раздачи по номеру */
+export function getDealType(
+  dealNumber: number,
+  playerCount: PlayerCount = 4
+): 'normal' | 'no-trump' | 'dark' {
+  const max = maxCardsPerPlayer(playerCount);
+  const n = playerCount;
+  const plateauEnd = max + (n - 1);
+  const downEnd = plateauEnd + (max - 1);
+  const ntEnd = downEnd + n;
+  const darkEnd = ntEnd + n;
+  if (dealNumber <= downEnd) return 'normal';
+  if (dealNumber <= ntEnd) return 'no-trump';
+  if (dealNumber <= darkEnd) return 'dark';
+  return 'normal';
+}
+
 export function createGame(
-  _playerCount: 4,
+  playerCount: PlayerCount,
   _mode: GameMode,
   humanPlayerName = 'Вы'
 ): GameState {
   const players: Player[] = [
-    { id: 'human', name: trimPlayerName(humanPlayerName), hand: [], bid: undefined, tricksTaken: 0, score: 0 },
+    {
+      id: 'human',
+      name: trimPlayerName(humanPlayerName),
+      hand: [],
+      bid: undefined,
+      tricksTaken: 0,
+      score: 0,
+    },
     {
       id: 'ai1',
       name: 'ИИ Север',
@@ -113,14 +185,16 @@ export function createGame(
     },
     {
       id: 'ai2',
-      name: 'ИИ супердлинноеим',
+      name: playerCount === 3 ? 'ИИ Запад' : 'ИИ супердлинноеим',
       hand: [],
       bid: undefined,
       tricksTaken: 0,
       score: 0,
       aiDifficulty: offlineAiDifficultyForNewBotId('ai2'),
     },
-    {
+  ];
+  if (playerCount === 4) {
+    players.push({
       id: 'ai3',
       name: 'Семнадцать символ',
       hand: [],
@@ -128,11 +202,10 @@ export function createGame(
       tricksTaken: 0,
       score: 0,
       aiDifficulty: offlineAiDifficultyForNewBotId('ai3'),
-    },
-  ];
+    });
+  }
 
-  /** Первая раздача в партии: сдающий выбирается случайно */
-  const firstDealer = Math.floor(Math.random() * 4);
+  const firstDealer = Math.floor(Math.random() * playerCount);
   return {
     phase: 'bidding',
     players,
@@ -142,7 +215,7 @@ export function createGame(
     tricksInDeal: 1,
     currentTrick: [],
     trickLeaderIndex: 0,
-    bids: [null, null, null, null],
+    bids: emptyBids(playerCount),
     dealNumber: 1,
     trumpCard: null,
     lastCompletedTrick: null,
@@ -171,7 +244,7 @@ export function createGameOnline(playerNames: [string, string, string, string]):
     tricksInDeal: 1,
     currentTrick: [],
     trickLeaderIndex: 0,
-    bids: [null, null, null, null],
+    bids: emptyBids(4),
     dealNumber: 1,
     trumpCard: null,
     lastCompletedTrick: null,
@@ -180,49 +253,29 @@ export function createGameOnline(playerNames: [string, string, string, string]):
   };
 }
 
-/** Раздач в одной полной партии (вверх, вниз, бескозырка, тёмная). */
-export const DEALS_PER_MATCH = 28;
-
-/** Карт в раздаче по номеру: вверх 1→9, плато 9×4, вниз 8→1, бескозырка 9×4, тёмная 9×4 */
-export function getTricksInDeal(dealNumber: number): number {
-  if (dealNumber <= 9) return dealNumber;
-  if (dealNumber <= 12) return 9; // ещё 3 раза по 9 (каждый сдаёт)
-  if (dealNumber <= 20) return 21 - dealNumber; // 8,7,6,5,4,3,2,1
-  if (dealNumber <= 24) return 9; // бескозырка
-  if (dealNumber <= DEALS_PER_MATCH) return 9; // тёмная
-  return 1;
-}
-
-/** Тип раздачи по номеру */
-export function getDealType(dealNumber: number): 'normal' | 'no-trump' | 'dark' {
-  if (dealNumber <= 20) return 'normal';
-  if (dealNumber <= 24) return 'no-trump';
-  if (dealNumber <= DEALS_PER_MATCH) return 'dark';
-  return 'normal';
-}
-
 export function startDeal(state: GameState): GameState {
-  const dealType = getDealType(state.dealNumber);
+  const n = playerCountOf(state);
+  const dealType = getDealType(state.dealNumber, n);
   if (dealType === 'dark') return startDarkBidding(state);
 
-  const tricksInDeal = getTricksInDeal(state.dealNumber);
+  const tricksInDeal = getTricksInDeal(state.dealNumber, n);
   const deck = shuffleDeck(createDeck());
-  const dealerIndex = state.dealerIndex % 4;
-  const firstReceiver = nextPlayerLeft(dealerIndex);
-  const hands = dealCards(deck, 4, tricksInDeal, firstReceiver);
+  const dealerIndex = state.dealerIndex % n;
+  const firstReceiver = nextPlayerLeft(dealerIndex, n);
+  const hands = dealCards(deck, n, tricksInDeal, firstReceiver);
 
-  const cardsDealt = tricksInDeal * 4;
+  const cardsDealt = tricksInDeal * n;
   const trumpCard: Card | null =
     dealType === 'no-trump'
       ? null
       : cardsDealt < 36
-        ? deck[cardsDealt]
-        : deck[35];
+        ? deck[cardsDealt]!
+        : deck[35]!;
   const trump = trumpCard ? trumpCard.suit : null;
 
   const players = state.players.map((p, i) => ({
     ...p,
-    hand: hands[i],
+    hand: hands[i] ?? [],
     bid: undefined,
     tricksTaken: 0,
   }));
@@ -240,7 +293,7 @@ export function startDeal(state: GameState): GameState {
     tricksInDeal,
     currentTrick: [],
     trickLeaderIndex: firstBidder,
-    bids: [null, null, null, null],
+    bids: emptyBids(n),
     lastCompletedTrick: null,
     pendingTrickCompletion: null,
   };
@@ -248,14 +301,15 @@ export function startDeal(state: GameState): GameState {
 
 /** Старт тёмной раздачи: заказ до раздачи, карт ещё нет */
 export function startDarkBidding(state: GameState): GameState {
-  const dealerIndex = state.dealerIndex % 4;
-  const firstBidder = nextPlayerLeft(dealerIndex);
-  const tricksInDeal = 9;
+  const n = playerCountOf(state);
+  const dealerIndex = state.dealerIndex % n;
+  const firstBidder = nextPlayerLeft(dealerIndex, n);
+  const tricksInDeal = getTricksInDeal(state.dealNumber, n);
 
   return {
     ...state,
     phase: 'dark-bidding',
-    players: state.players.map(p => ({ ...p, hand: [], bid: undefined, tricksTaken: 0 })),
+    players: state.players.map((p) => ({ ...p, hand: [], bid: undefined, tricksTaken: 0 })),
     dealerIndex,
     currentPlayerIndex: firstBidder,
     trump: null,
@@ -263,7 +317,7 @@ export function startDarkBidding(state: GameState): GameState {
     tricksInDeal,
     currentTrick: [],
     trickLeaderIndex: firstBidder,
-    bids: [null, null, null, null],
+    bids: emptyBids(n),
     lastCompletedTrick: null,
     pendingTrickCompletion: null,
   };
@@ -271,17 +325,20 @@ export function startDarkBidding(state: GameState): GameState {
 
 /** После заказа в тёмную — раздача и переход к игре */
 export function completeDarkDeal(state: GameState): GameState {
+  const n = playerCountOf(state);
+  const tricksInDeal = state.tricksInDeal;
   const deck = shuffleDeck(createDeck());
-  const dealerIndex = state.dealerIndex % 4;
-  const firstReceiver = nextPlayerLeft(dealerIndex);
-  const hands = dealCards(deck, 4, 9, firstReceiver);
+  const dealerIndex = state.dealerIndex % n;
+  const firstReceiver = nextPlayerLeft(dealerIndex, n);
+  const hands = dealCards(deck, n, tricksInDeal, firstReceiver);
 
-  const trumpCard: Card = deck[35]; // вся колода роздана — козырь последняя у сдающего
+  const cardsDealt = tricksInDeal * n;
+  const trumpCard: Card = cardsDealt < 36 ? deck[cardsDealt]! : deck[35]!;
   const trump = trumpCard.suit;
 
   const players = state.players.map((p, i) => ({
     ...p,
-    hand: hands[i],
+    hand: hands[i] ?? [],
     bid: p.bid,
     tricksTaken: 0,
   }));
@@ -307,27 +364,23 @@ export function completeDarkDeal(state: GameState): GameState {
  * Сдающий строго по очереди: игрок по левую руку (по часовой) от предыдущего сдающего.
  */
 export function startNextDeal(state: GameState): GameState | null {
-  if (state.dealNumber >= DEALS_PER_MATCH) return null;
-  const nextDealerIndex = nextPlayerLeft(state.dealerIndex);
+  const n = playerCountOf(state);
+  if (state.dealNumber >= dealsPerMatch(n)) return null;
+  const nextDealerIndex = nextPlayerLeft(state.dealerIndex, n);
   const nextDealNumber = state.dealNumber + 1;
   const prepared = { ...state, dealNumber: nextDealNumber, dealerIndex: nextDealerIndex };
   return startDeal(prepared);
 }
 
-export function placeBid(
-  state: GameState,
-  playerIndex: number,
-  bid: number
-): GameState {
+export function placeBid(state: GameState, playerIndex: number, bid: number): GameState {
+  const n = playerCountOf(state);
   const newBids = [...state.bids];
   newBids[playerIndex] = bid;
 
-  const players = state.players.map((p, i) =>
-    i === playerIndex ? { ...p, bid } : p
-  );
+  const players = state.players.map((p, i) => (i === playerIndex ? { ...p, bid } : p));
 
-  const nextPlayer = nextPlayerLeft(playerIndex);
-  const allBid = newBids.every(b => b !== null);
+  const nextPlayer = nextPlayerLeft(playerIndex, n);
+  const allBid = newBids.length === n && newBids.every((b) => b !== null);
 
   if (!allBid) {
     return {
@@ -338,29 +391,23 @@ export function placeBid(
     };
   }
 
-  // Все заказали — проверяем ответственность сдающего
   const bids = newBids as number[];
   if (!isValidBidSum(bids, state.tricksInDeal)) {
-    // Сдающий должен изменить заказ
     const resetBids: (number | null)[] = [...newBids];
     resetBids[state.dealerIndex] = null;
     return {
       ...state,
       bids: resetBids,
-      players: players.map((p, i) =>
-        i === state.dealerIndex ? { ...p, bid: undefined } : p
-      ),
+      players: players.map((p, i) => (i === state.dealerIndex ? { ...p, bid: undefined } : p)),
       currentPlayerIndex: state.dealerIndex,
       phase: state.phase,
     };
   }
 
-  // Тёмная: раздача и переход к розыгрышу
   if (state.phase === 'dark-bidding') {
     return completeDarkDeal({ ...state, bids: newBids, players });
   }
 
-  // Обычный переход к розыгрышу
   return {
     ...state,
     bids: newBids,
@@ -371,29 +418,24 @@ export function placeBid(
   };
 }
 
-export function playCard(
-  state: GameState,
-  playerIndex: number,
-  card: Card
-): GameState {
+export function playCard(state: GameState, playerIndex: number, card: Card): GameState {
+  const n = playerCountOf(state);
   const { players, currentTrick, trump, trickLeaderIndex } = state;
-  const leadSuit = currentTrick.length > 0 ? currentTrick[0].suit : null;
+  const leadSuit = currentTrick.length > 0 ? currentTrick[0]!.suit : null;
 
-  if (!isValidPlay(card, players[playerIndex].hand, leadSuit, trump ?? undefined)) {
+  if (!isValidPlay(card, players[playerIndex]!.hand, leadSuit, trump ?? undefined)) {
     return state;
   }
 
-  const newHand = players[playerIndex].hand.filter(
-    c => !(c.suit === card.suit && c.rank === card.rank)
+  const newHand = players[playerIndex]!.hand.filter(
+    (c) => !(c.suit === card.suit && c.rank === card.rank)
   );
   const newTrick = [...currentTrick, card];
 
-  const newPlayers = players.map((p, i) =>
-    i === playerIndex ? { ...p, hand: newHand } : p
-  );
+  const newPlayers = players.map((p, i) => (i === playerIndex ? { ...p, hand: newHand } : p));
 
-  const nextPlayer = nextPlayerLeft(playerIndex);
-  const trickComplete = newTrick.length === 4;
+  const nextPlayer = nextPlayerLeft(playerIndex, n);
+  const trickComplete = newTrick.length === n;
 
   if (!trickComplete) {
     return {
@@ -404,17 +446,14 @@ export function playCard(
     };
   }
 
-  // Взятка завершена — отложить завершение, чтобы карты успели показаться в слотах
-  const winnerOffset = getTrickWinner(newTrick, newTrick[0].suit, trump ?? undefined);
-  const trickWinner = playerAtLeftFrom(trickLeaderIndex, winnerOffset);
+  const winnerOffset = getTrickWinner(newTrick, newTrick[0]!.suit, trump ?? undefined);
+  const trickWinner = playerAtLeftFrom(trickLeaderIndex, winnerOffset, n);
 
   const updatedPlayers = newPlayers.map((p, i) =>
-    i === trickWinner
-      ? { ...p, tricksTaken: p.tricksTaken + 1 }
-      : p
+    i === trickWinner ? { ...p, tricksTaken: p.tricksTaken + 1 } : p
   );
 
-  const allPlayed = updatedPlayers.every(p => p.hand.length === 0);
+  const allPlayed = updatedPlayers.every((p) => p.hand.length === 0);
 
   return {
     ...state,
@@ -440,11 +479,11 @@ export function completeTrick(state: GameState): GameState {
 
   if (allPlayed) {
     const bids = state.bids as number[];
-    const pointsThisDeal = updatedPlayers.map((p, i) => calculateDealPoints(bids[i], p.tricksTaken));
+    const pointsThisDeal = updatedPlayers.map((p, i) => calculateDealPoints(bids[i]!, p.tricksTaken));
     const takensThisDeal = updatedPlayers.map((p) => p.tricksTaken);
     const finalPlayers = updatedPlayers.map((p, i) => ({
       ...p,
-      score: p.score + pointsThisDeal[i],
+      score: p.score + pointsThisDeal[i]!,
     }));
     const dealHistory = [
       ...(state.dealHistory || []),
@@ -475,11 +514,11 @@ export function completeTrick(state: GameState): GameState {
 
 export function getValidPlays(state: GameState, playerIndex: number): Card[] {
   const { players, currentTrick, trump } = state;
-  const hand = players[playerIndex].hand;
-  const leadSuit = currentTrick.length > 0 ? currentTrick[0].suit : null;
-  return hand.filter(c => isValidPlay(c, hand, leadSuit, trump ?? undefined));
+  const hand = players[playerIndex]!.hand;
+  const leadSuit = currentTrick.length > 0 ? currentTrick[0]!.suit : null;
+  return hand.filter((c) => isValidPlay(c, hand, leadSuit, trump ?? undefined));
 }
 
 export function isHumanPlayer(state: GameState, index: number): boolean {
-  return state.players[index].id === 'human';
+  return state.players[index]!.id === 'human';
 }

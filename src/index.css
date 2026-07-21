@@ -8085,6 +8085,108 @@
     overflow-y: visible !important;
     box-sizing: border-box !important;
   }
+
+  /*
+   * 10–12 карт (3 игрока): 9 в ряду как обычно + вертикальный «хвост» над правым концом.
+   * Стол уже справа через margin (не padding!) — иначе padding остаётся в hit-area и ест клики по хвосту.
+   * Хвост рендерится в fixed-портал (.game-mobile-hand-east-tail-col--portal), иначе
+   * .game-mobile-bottom-row { overflow:hidden } / .game-mobile-center перехватывают тапы.
+   * Пульс box-shadow на хвосте НЕ вешаем: свечение накрывает стол и дёргает кнопки заказа.
+   */
+  .game-table-root.viewport-mobile.game-mobile-hand-east-tail .game-center-table {
+    margin-right: var(--mobile-east-tail-gutter, 62px) !important;
+    box-sizing: border-box !important;
+  }
+  .game-table-root.viewport-mobile.game-mobile-hand-east-tail .game-mobile-center {
+    position: relative;
+    z-index: 1;
+  }
+  .game-table-root.viewport-mobile.game-mobile-hand-east-tail .game-mobile-hand-user-stack {
+    position: relative;
+    z-index: 6;
+    overflow: visible !important;
+  }
+  .game-table-root.viewport-mobile.game-mobile-hand-east-tail .game-mobile-hand-strip--east-tail,
+  .game-table-root.viewport-mobile.game-mobile-hand-east-tail .game-mobile-hand-frame--east-tail,
+  .game-table-root.viewport-mobile.game-mobile-hand-east-tail .game-mobile-south-panel-hand--east-tail {
+    overflow: visible !important;
+    position: relative !important;
+    z-index: 6;
+  }
+  /* Fixed-портал хвоста: вне overflow-клипа bottom-row, поверх стола */
+  .game-mobile-hand-east-tail-col.game-mobile-hand-east-tail-col--portal {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    /* Чуть выше горизонтальной рамки (+5px как прежний margin-bottom) */
+    display: flex;
+    /* column-reverse: первая карта хвоста (продолжение сортировки ряда) — у ряда снизу */
+    flex-direction: column-reverse;
+    align-items: center;
+    z-index: 90;
+    /*
+     * При column-reverse карты пакуются к низу content-box:
+     * меньше padding-bottom → карты ниже; больше padding-top → воздух сверху.
+     */
+    padding: 10px calc(var(--mobile-south-strip-inset-x, 6px) + 2px) 2px;
+    border-radius: 14px 14px 0 0;
+    /* Та же «умная» обводка, что у .game-mobile-hand-frame / handFrameStyle */
+    border: 1px solid rgba(34, 211, 238, 0.6);
+    border-bottom: none;
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.35),
+      0 0 20px rgba(34, 211, 238, 0.22),
+      0 0 40px rgba(34, 211, 238, 0.1),
+      inset 0 2px 4px rgba(255, 255, 255, 0.1),
+      inset 0 -1px 4px rgba(0, 0, 0, 0.12);
+    background: rgba(15, 23, 42, 0.35);
+    pointer-events: auto;
+    touch-action: manipulation;
+    line-height: 0;
+    box-sizing: border-box;
+  }
+  .game-mobile-hand-east-tail-col--portal .game-mobile-hand-east-tail-slot {
+    line-height: 0;
+    pointer-events: auto;
+    position: relative;
+    z-index: 1;
+  }
+  /* Ваш ход: пульс только на горизонтальной рамке — не на хвосте (иначе мигают кнопки заказа на столе) */
+  /* Волна по картам хвоста — transform, без box-shadow */
+  .game-mobile-hand-east-tail-col--portal.game-mobile-hand-east-tail-col--your-turn
+    > .game-mobile-hand-east-tail-slot {
+    transform-origin: center bottom;
+    overflow: visible !important;
+    animation: mobileHandCardWaveLift 2.85s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+    animation-delay: calc(3.2s + (var(--hand-wave-index, 1) - 1) * 78ms);
+  }
+  .game-mobile-hand-east-tail-col--portal.game-mobile-hand-east-tail-col--your-turn
+    > .game-mobile-hand-east-tail-slot::after {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    z-index: 4;
+    pointer-events: none;
+    border-radius: 6px;
+    background: linear-gradient(
+      to top,
+      rgba(196, 181, 253, 0.72) 0%,
+      rgba(255, 255, 255, 0.55) 22%,
+      rgba(186, 230, 253, 0.5) 48%,
+      rgba(56, 189, 248, 0.28) 74%,
+      rgba(196, 181, 253, 0.12) 100%
+    );
+    mix-blend-mode: soft-light;
+    opacity: 0;
+    will-change: opacity;
+    animation: mobileHandCardWaveGloss 2.85s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    animation-delay: calc(3.2s + (var(--hand-wave-index, 1) - 1) * 78ms);
+  }
+  .game-mobile-hand-east-tail-col--portal.game-mobile-hand-east-tail-col--your-turn
+    > .game-mobile-hand-east-tail-slot:has(.card-dark-mobile-hand:not(.card-dark-suit-trump))::after {
+    animation: none !important;
+    opacity: 0 !important;
+  }
   /*
    * Волна по картам: задержка через --hand-wave-index (GameTable). Только transform + opacity (::after) — без mix-blend и без анимации box-shadow.
    */
@@ -8159,7 +8261,9 @@
     .game-table-root.viewport-mobile.viewport-mobile-short
       .game-mobile-south-panel-hand
       .game-mobile-hand-row.player-hand-your-turn
-      > div {
+      > div,
+    .game-mobile-hand-east-tail-col--portal.game-mobile-hand-east-tail-col--your-turn
+      > .game-mobile-hand-east-tail-slot {
       animation: none !important;
       transform: none !important;
     }
@@ -8167,7 +8271,9 @@
     .game-table-root.viewport-mobile.viewport-mobile-short
       .game-mobile-south-panel-hand
       .game-mobile-hand-row.player-hand-your-turn
-      > div::after {
+      > div::after,
+    .game-mobile-hand-east-tail-col--portal.game-mobile-hand-east-tail-col--your-turn
+      > .game-mobile-hand-east-tail-slot::after {
       animation: none !important;
       opacity: 0 !important;
     }
@@ -27731,6 +27837,65 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   min-width: 0 !important;
   box-sizing: border-box !important;
 }
+
+/* 3 игрока: сверху Север|Запад, снизу Юг на всю ширину */
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation--three {
+  grid-template-columns: 1fr 1fr !important;
+  grid-template-rows: auto auto !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation--three .deal-results-panel-north {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation--three .deal-results-panel-west {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+}
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation--three .deal-results-panel-south {
+  grid-column: 1 / -1 !important;
+  grid-row: 2 !important;
+}
+
+/* Моб. оверлей между раздачами на троих: та же схема 2 сверху + Юг снизу */
+@media (max-width: 1024px) {
+  .deal-results-overlay-animation--three {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: auto auto !important;
+    gap: 10px !important;
+    padding: 12px !important;
+    align-items: stretch !important;
+    justify-items: stretch !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  .deal-results-overlay-animation--three .deal-results-panel-north,
+  .deal-results-overlay-animation--three .deal-results-panel-west,
+  .deal-results-overlay-animation--three .deal-results-panel-south {
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+  .deal-results-overlay-animation--three .deal-results-panel-north {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+  .deal-results-overlay-animation--three .deal-results-panel-west {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+  .deal-results-overlay-animation--three .deal-results-panel-south {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+  }
+}
 .game-table-root:not(.viewport-mobile) .deal-results-panel-title-overlay {
   white-space: normal !important;
   word-wrap: break-word !important;
@@ -29018,6 +29183,10 @@ body.deal-results-modal-open-mobile #root {
   gap: 0 !important;
   width: 100% !important;
   box-sizing: border-box !important;
+}
+.deal-results-modal-overlay-mobile.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-dock-landscape-player-grid[data-player-count='3'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
 }
 .deal-results-modal-overlay-mobile.game-table-root.viewport-mobile.viewport-mobile-landscape
   .deal-results-dock-landscape-value {

@@ -20,10 +20,11 @@ export function createDeck(): Card[] {
 
 /**
  * Карт в «теле» колоды под козырем на столе (козырь и розданные игрокам не входят).
- * При tricksInDeal×4 = 36 колода пуста — козырь только у сдающего.
+ * При tricksInDeal×playerCount = 36 колода пуста — козырь только у сдающего.
  */
-export function getDeckCardsUnderTrump(tricksInDeal: number): number {
-  const cardsDealt = tricksInDeal * 4;
+export function getDeckCardsUnderTrump(tricksInDeal: number, playerCount = 4): number {
+  const n = playerCount === 3 ? 3 : 4;
+  const cardsDealt = tricksInDeal * n;
   return Math.max(0, 36 - cardsDealt - 1);
 }
 
@@ -44,8 +45,15 @@ export function shuffleDeck(deck: Card[]): Card[] {
   return result;
 }
 
-/** Порядок «следующий игрок слева»: 0→2→1→3→0 (Юг→Запад→Север→Восток) */
-const NEXT_LEFT = [2, 3, 1, 0];
+/** 4 игрока: 0→2→1→3→0 (Юг→Запад→Север→Восток) */
+const NEXT_LEFT_4 = [2, 3, 1, 0] as const;
+/** 3 игрока: 0→2→1→0 (Юг→Запад→Север), Восток отсутствует */
+const NEXT_LEFT_3 = [2, 0, 1] as const;
+
+function nextLeftSeat(receiver: number, playerCount: number): number {
+  if (playerCount === 3) return NEXT_LEFT_3[receiver % 3]!;
+  return NEXT_LEFT_4[receiver % 4]!;
+}
 
 /**
  * Раздаёт карты игрокам по часовой (слева от сдающего).
@@ -57,12 +65,13 @@ export function dealCards(
   cardsPerPlayer: number,
   firstReceiver = 0
 ): Card[][] {
-  const hands: Card[][] = Array.from({ length: playerCount }, () => []);
-  const total = cardsPerPlayer * playerCount;
-  let receiver = firstReceiver;
+  const n = playerCount === 3 ? 3 : 4;
+  const hands: Card[][] = Array.from({ length: n }, () => []);
+  const total = cardsPerPlayer * n;
+  let receiver = firstReceiver % n;
   for (let i = 0; i < total; i++) {
-    hands[receiver].push(deck[i]);
-    receiver = NEXT_LEFT[receiver];
+    hands[receiver]!.push(deck[i]!);
+    receiver = nextLeftSeat(receiver, n);
   }
   return hands;
 }

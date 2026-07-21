@@ -240,12 +240,14 @@ function aiPlaySmart(state: GameState, playerIndex: number, difficulty: AIDiffic
     return pick(valid, true);
   }
 
-  const isLastInTrick = trick.length === 3;
+  const playerCount = state.players.length === 3 ? 3 : 4;
+  const isLastInTrick = trick.length === playerCount - 1;
 
   if (isLastInTrick) {
     const winning = valid.filter(
       (c) =>
-        absoluteTrickWinnerPlayerIndex(state.trickLeaderIndex, [...trick, c], trump) === playerIndex
+        absoluteTrickWinnerPlayerIndex(state.trickLeaderIndex, [...trick, c], trump, playerCount) ===
+        playerIndex
     );
     const losing = valid.filter((c) => !winning.some((w) => sameCard(w, c)));
 

@@ -1,4 +1,4 @@
-import { getDealType } from '../game/GameEngine';
+import { getDealType, type PlayerCount } from '../game/GameEngine';
 
 export type MobileDealContractBadgeFace = 'orders' | 'mode' | 'cards';
 
@@ -8,8 +8,9 @@ export function resolveMobileDealContractBadgeFace(opts: {
   phase: string;
   allBidsPlaced: boolean;
   alternateFace: number;
+  playerCount?: PlayerCount;
 }): MobileDealContractBadgeFace {
-  const dealType = getDealType(opts.dealNumber);
+  const dealType = getDealType(opts.dealNumber, opts.playerCount ?? 4);
   const isSpecial = dealType === 'no-trump' || dealType === 'dark';
   const isPlaying = opts.phase === 'playing';
 
@@ -29,8 +30,9 @@ export function getMobileDealContractMetaTooltip(opts: {
   totalOrders: number;
   totalTricks: number;
   allBidsPlaced: boolean;
+  playerCount?: PlayerCount;
 }): { title: string; ariaLabel: string } {
-  const dealType = getDealType(opts.dealNumber);
+  const dealType = getDealType(opts.dealNumber, opts.playerCount ?? 4);
   const isSpecial = dealType === 'no-trump' || dealType === 'dark';
   const modeLabel = dealType === 'no-trump' ? 'Бескозырка' : 'Тёмная';
 

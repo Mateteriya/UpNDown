@@ -2,7 +2,7 @@
  * Отображение карты
  */
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import type { ImgHTMLAttributes } from 'react';
 import type { Card } from '../game/types';
 import { useTheme } from '../contexts/ThemeContext';
@@ -163,6 +163,14 @@ export interface CardViewProps {
     | 'hearts-v3-deep'
     | 'diamonds-v3-gray'
     | 'diamonds-v3-deep';
+  /**
+   * Лаборатория: внешняя рамка landscape (горизонтальная карта);
+   * лицо (ранг/масть/картинки) внутри повёрнуто на labFaceRotateDeg (±90).
+   * Прод-руку не использовать.
+   */
+  labRotateContent90?: boolean;
+  /** Угол лица при labRotateContent90. По умолчанию +90. */
+  labFaceRotateDeg?: 90 | -90;
 }
 
 /** #RRGGBB + альфа для box-shadow (к rgb(...) суффикс не применяется — тень молча пропадает). */
@@ -667,7 +675,7 @@ function darkSuitTrumpValidPlayAccentHand(baseRing: string, ringColor: string) {
   ].join(', ');
 }
 
-export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, mobileTrumpShineBidding = false, mobileHandPeekLift = false, mobileOverlapHandPointerPassthrough = false, labDarkCardFace = false, labCardTheme, labDarkSuitVariant = 'default' }: CardViewProps) {
+export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, mobileTrumpShineBidding = false, mobileHandPeekLift = false, mobileOverlapHandPointerPassthrough = false, labDarkCardFace = false, labCardTheme, labDarkSuitVariant = 'default', labRotateContent90 = false, labFaceRotateDeg = 90 }: CardViewProps) {
   const { theme, cardTheme } = useTheme();
   const inLab = labDarkCardFace || labCardTheme !== undefined;
   const effectiveCardTheme: CardTheme = labCardTheme ?? (labDarkCardFace ? 'dark' : cardTheme);
@@ -795,6 +803,76 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
   const bh = compact ? 76 : 100;
   const w = Math.round(bw * scale);
   const h = Math.round(bh * scale);
+  /** При labRotateContent90: chrome landscape (горизонтальная карта), лицо внутри на ±90°. */
+  const boxW = labRotateContent90 ? h : w;
+  const boxH = labRotateContent90 ? w : h;
+  const faceDeg = labFaceRotateDeg === -90 ? -90 : 90;
+  /** Картинки фигур: контр-поворот к лицу, чтобы арт не стоял «боком» на landscape-карте. */
+  const labFaceArtOrient = labRotateContent90 ? (`rotate(${-faceDeg}deg)` as const) : null;
+  /** Центр арта на landscape: абсолютный центр + контр-поворот (без margin:auto, который съезжает после rotate лица). */
+  const labFaceArtWrapStyle: CSSProperties | undefined = labRotateContent90
+    ? {
+        position: 'absolute',
+        left: '50%',
+        top: '50%',
+        transform: `translate(-50%, -50%) ${labFaceArtOrient}`,
+        transformOrigin: 'center center',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '82%',
+        height: '82%',
+        zIndex: 1,
+        margin: 0,
+        lineHeight: 1,
+        gap: 0,
+      }
+    : undefined;
+  const withLabFaceArt = (style?: CSSProperties): CSSProperties => {
+    if (!labFaceArtOrient) return style ?? {};
+    /* Если арт уже в labFaceArtWrapStyle — на img только размер, без второго rotate */
+    return {
+      ...style,
+      maxWidth: style?.maxWidth ?? '100%',
+      maxHeight: style?.maxHeight ?? '100%',
+      width: style?.width ?? '100%',
+      height: style?.height ?? '100%',
+      objectFit: 'contain',
+    };
+  };
+  const labCenterRankStyle: CSSProperties | undefined = labRotateContent90
+    ? {
+        position: 'absolute',
+        left: '50%',
+        top: '50%',
+        transform: `translate(-50%, -50%) ${labFaceArtOrient}`,
+        transformOrigin: 'center center',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1,
+        margin: 0,
+        lineHeight: 1,
+        fontWeight: 800,
+      }
+    : undefined;
+  const labRotateFaceInnerStyle: CSSProperties | undefined = labRotateContent90
+    ? {
+        display: 'block',
+        boxSizing: 'border-box',
+        position: 'relative',
+        width: w,
+        height: h,
+        minWidth: w,
+        minHeight: h,
+        padding: Math.round(4 * scale),
+        transform: `rotate(${faceDeg}deg)`,
+        transformOrigin: 'center center',
+        flexShrink: 0,
+        overflow: 'hidden',
+        borderRadius: Math.round(8 * scale),
+      }
+    : undefined;
   const baseShadow = doubleBorder ? neon.outline : 'none';
   const isMobileHandTrump = mobileTrumpGlowActive && (forceMobileTrumpGlow || (!pcCardStyles && !!isTrumpInHand));
   /** Допустимый ход на руке (в тёмном листе — акцент цветом кольца масти, без белого перелива). */
@@ -984,6 +1062,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
       disabled={disabled}
       className={[
         'card-view-root',
+        labRotateContent90 ? 'card-lab-face-rot90' : null,
         mobileDarkHand ? 'card-dark-mobile-hand' : null,
         darkHandValidPlayHighlight ? 'card-dark-hand-playable' : null,
         darkHandValidPlayTrump ? 'card-dark-hand-playable-trump' : null,
@@ -999,11 +1078,11 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         .filter(Boolean)
         .join(' ')}
       style={{
-        width: w,
-        height: h,
-        minWidth: w,
-        minHeight: h,
-        padding: Math.round(4 * scale),
+        width: boxW,
+        height: boxH,
+        minWidth: boxW,
+        minHeight: boxH,
+        padding: labRotateContent90 ? 0 : Math.round(4 * scale),
         margin: suitIndexInHandMobile && !pcCardStyles && compact ? 0 : compact ? Math.round(2 * scale) : Math.round(4 * scale),
         /* В мобильной руке при подсветке: цветная рамка по масти (и для козырей тоже при вкл. подсветки); иначе козырь/доступный ход — белая рамка */
         border: darkSuitFace
@@ -1115,17 +1194,17 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         opacity: trumpOnDeck ? 1 : biddingHighlightMobile ? 1 : biddingHighlightPC ? 1 : isMobileHandTrump ? 1 : dimMobileUnplayable ? 1 : disabled ? 0.6 : 1,
         transition: 'transform 0.15s, box-shadow 0.15s',
         /* Торги на мобильной руке: без scale; тени — лёгкое кольцо (plain) или baseCardShadow (козырь/подсветка) */
-        ...(biddingHighlightMobile && !(suitIndexInHandMobile && !pcCardStyles)
+        ...(!labRotateContent90 && biddingHighlightMobile && !(suitIndexInHandMobile && !pcCardStyles)
           ? { transform: 'scale(1.06)', transformOrigin: 'center bottom' }
           : {}),
-        ...(darkHandValidPlayHighlight || standardHandPlayableLift
+        ...(!labRotateContent90 && (darkHandValidPlayHighlight || standardHandPlayableLift)
           ? {
               transform: 'translateY(-4px) scale(1.05)',
               transformOrigin: 'center bottom',
               zIndex: 12,
             }
           : {}),
-        ...(mobileHandPeekLift && suitIndexInHandMobile && !pcCardStyles
+        ...(!labRotateContent90 && mobileHandPeekLift && suitIndexInHandMobile && !pcCardStyles
           ? {
               transform: 'translateY(9px) scale(1.065)',
               transformOrigin: 'center bottom',
@@ -1137,619 +1216,709 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         position: 'relative',
         zIndex: suitIndexInHandMobile ? (mobileHandPeekLift ? 26 : 6) : undefined,
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: labRotateContent90 ? 'row' : 'column',
         alignItems: 'center',
         justifyContent: 'center',
         lineHeight: 1,
-        overflow: 'hidden',
+        overflow: labRotateContent90 ? 'visible' : 'hidden',
         touchAction: suitIndexInHandMobile ? 'manipulation' : undefined,
         ...(mobileOverlapHandPointerPassthrough ? { pointerEvents: 'none' as const } : {}),
       }}
       onMouseEnter={e => {
-        if (!disabled && !mobileDarkSuitFace) {
-          const n = suitNeonBorder[card.suit] ?? suitNeonBorder['♠'];
-          e.currentTarget.style.transform = 'translateY(-4px)';
-          const hoverShadow = isTrumpOnTable
-            ? `0 4px 12px rgba(0,0,0,0.25), ${n.outline}, 0 0 14px ${n.border}99`
-            : `0 4px 12px rgba(0,0,0,0.25), ${n.outline}`;
-          e.currentTarget.style.boxShadow = hoverShadow;
-        }
+        if (labRotateContent90 || disabled || mobileDarkSuitFace) return;
+        const n = suitNeonBorder[card.suit] ?? suitNeonBorder['♠'];
+        e.currentTarget.style.transform = 'translateY(-4px)';
+        const hoverShadow = isTrumpOnTable
+          ? `0 4px 12px rgba(0,0,0,0.25), ${n.outline}, 0 0 14px ${n.border}99`
+          : `0 4px 12px rgba(0,0,0,0.25), ${n.outline}`;
+        e.currentTarget.style.boxShadow = hoverShadow;
       }}
       onMouseLeave={e => {
-        if (mobileDarkSuitFace) return;
+        if (labRotateContent90 || mobileDarkSuitFace) return;
         e.currentTarget.style.transform = '';
         e.currentTarget.style.boxShadow = darkSuitBoxShadow ?? baseCardShadow;
       }}
     >
-      {/* Блеск-отблеск: козыри в руке при заказе (раз в ~4 с) и доступные для хода карты при нашем ходе (раз в ~5 с) */}
-      {(!mobileDarkHand || !!isTrumpInHand) &&
-        (mobileTrumpShineBidding || (highlightAsValidPlay && !pcCardStyles && !!isTrumpInHand)) && (
-        <span
-          aria-hidden
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 5,
-            borderRadius: Math.round(8 * scale),
-            overflow: 'hidden',
-            pointerEvents: 'none',
-          }}
-        >
-          <span
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '40%',
-              height: '100%',
-              pointerEvents: 'none',
-              background: isDark
-                ? 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 35%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.12) 65%, transparent 100%)'
-                : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.45) 35%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.45) 65%, transparent 100%)',
-              animation: highlightAsValidPlay && !pcCardStyles && isTrumpInHand
-                ? 'card-trump-shine 5s ease-in-out infinite'
-                : 'card-trump-shine 4s ease-in-out infinite',
-            }}
-          />
-        </span>
-      )}
-      {/* Белое неоновое свечение на поверхности карты для фигурных козырей на столе (только при вкл. подсветки) */}
-      {isTrumpOnTable && trumpHighlightOn && compact && !tableCardMobile && !isNumericRank(card.rank) && (
-        <span
-          aria-hidden
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 0,
-            borderRadius: Math.round(8 * scale),
-            boxShadow: 'inset 0 0 24px rgba(255,255,255,0.42), inset 0 0 12px rgba(255,255,255,0.28)',
-            border: '1px solid rgba(255,255,255,0.6)',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
-      {/* Бейдж «К» только на ПК; в мобильной версии — то же позиционирование, что у некозырей (без доп. элемента) */}
-      {isTrumpOnTable && !isNumericRank(card.rank) && !tableCardMobile && !trumpOnDeck && (
-        <span
-          style={{
-            position: 'absolute',
-            top: 2,
-            right: 4,
-            zIndex: 10,
-            fontSize: 10,
-            fontWeight: 700,
-            color: neon.border,
-            opacity: 0.9,
-            textShadow: `0 0 3px ${neon.border}99`,
-          }}
-          aria-label="Козырь"
-        >
-          К
-        </span>
-      )}
-      {/* Карты 6–10 на столе (ПК) козырь: умеренная подсветка (без перебора), только при вкл. подсветки */}
-      {isTrumpOnTable && trumpHighlightOn && compact && showDesktopFaceIndices && !tableCardMobile && isNumericRank(card.rank) && (
-        <span
-          aria-hidden
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 0,
-            borderRadius: Math.round(8 * scale),
-            background: `linear-gradient(145deg, ${neon.border}35 0%, #ffffff 35%, #f5f7fa 70%, ${neon.border}18 100%)`,
-            boxShadow: [
-              `inset 0 0 24px rgba(255,255,255,0.42)`,
-              `inset 0 0 12px rgba(255,255,255,0.28)`,
-              `0 0 0 1px rgba(255,255,255,0.75)`,
-              `0 0 16px rgba(255,255,255,0.44)`,
-              `0 0 8px ${neon.border}77`,
-              `0 0 14px ${neon.border}44`,
-              `0 2px 8px rgba(0,0,0,0.2)`,
-              `inset 0 1px 6px rgba(255,255,255,0.5)`,
-              `0 0 0 1px ${neon.border}99`,
-            ].join(', '),
-            border: `1px solid rgba(255,255,255,0.62)`,
-            pointerEvents: 'none',
-          }}
-        />
-      )}
-      {/* Карты на столе (ПК): те же правила, что на руках — 4 угла, сетка пипов, границы; не для мобильной руки и не для козыря на колоде */}
-      {compact && showDesktopFaceIndices && !tableCardMobile && !suitIndexInHandMobile && (!trumpOnDeck || pcCardStyles) && isNumericRank(card.rank) && (() => {
-        const kTable = 1.2;
-        const topRightTable = -4; /* верхний правый индекс масти чуть повыше (блок 2 — карты на столе) */
-        return (
-          <>
-            <span style={{ position: 'absolute', top: -1, left: Math.round(3 * scale), fontSize: Math.round(14 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 1 }}>
-              {card.rank}
-            </span>
-            <span style={{ position: 'absolute', top: topRightTable, right: Math.round(3 * scale), fontSize: Math.round(18 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 1 }}>
-              {card.suit}
-            </span>
-            <span style={{ position: 'absolute', bottom: -3, left: Math.round(3 * scale), fontSize: Math.round(18 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 1 }}>
-              {card.suit}
-            </span>
-            <span style={{ position: 'absolute', bottom: -2, right: Math.round(3 * scale), fontSize: Math.round(14 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 1 }}>
-              {card.rank}
-            </span>
-          </>
-        );
-      })()}
-      {/* Мобильная версия: простой центр без пипов (6–10) или индекс+фигура (В/Д/К/Т) */}
-      {compact ? (
-        isNumericRank(card.rank) ? (
-          showDesktopFaceIndices && !tableCardMobile && !suitIndexInHandMobile && (!trumpOnDeck || pcCardStyles) ? null : (suitIndexInHandMobile || tableCardMobile || (trumpOnDeck && !pcCardStyles)) ? (
-          /* Мобильная версия 6–10 (рука/стол мобильный или козырь на колоде только на мобильном): индексы масти как у фигур, значение по центру. На ПК козырь на колоде не сюда. */
-          (() => {
-            const faceK = 0.65;
-            const suitBase = 24 * 1.5 * faceK * cs;
-            const useMobileLayoutNum = suitIndexInHandMobile || tableCardMobile || (trumpOnDeck && !pcCardStyles);
-            const suitSize = suitIndexInHandMobile ? suitBase / 1.5 : useMobileLayoutNum ? (suitBase / 1.4) * 1.1 : suitBase;
-            const suitSizeFinal = suitSize / 1.1; /* тот же размер, что у нижнего индекса масти у фигур (J/Q/K) */
-            const suitIndexScaleTrumpDeckMobile = (trumpOnDeck && !pcCardStyles) ? 1.18 : 1; /* мобильная: козырь на колоде — индексы масти чуть крупнее */
-            const topSuitScaleTableMobile = tableCardMobile ? 1.15 : 1; /* мобильный стол 6–10: верхний индекс масти немного крупнее */
-            const topLeftTable = 2; /* как у фигур: верхний левый индекс */
-            const topLeftFinal = (trumpOnDeck && !pcCardStyles) ? topLeftTable - 2 : topLeftTable - 1; /* козырь на колоде мобильный: верхний индекс повыше */
-            /* Легаси ♣ 6–10: верхний левый глиф — чуть выше и левее (не neo clubs-v3-gray) */
-            const topLeftSuitTop = suitClubsV3 ? topLeftFinal - 2 : topLeftFinal;
-            const topLeftSuitLeft = suitClubsV3 ? 2 : 3;
-            /* Позиция нижнего правого индекса масти — та же формула, что у фигурных карт в мобильной версии */
-            const suitBottom = suitIndexInHandMobile ? -2.5 : -3;
-            const suitBottomFinal = suitBottom - 1.5;
-            const bottomRightLift = suitBottomFinal + 1;
-            /* В руке пользователя (мобильная) центральный индекс значения ещё в 1.1×1.1 раз мельче */
-            const rankCenterSize = Math.round((28 / 1.3 / 1.1) * (suitIndexInHandMobile ? 1 / 1.1 / 1.1 : 1) * cs);
-            return (
-              <>
-                <span style={{ position: 'absolute', top: topLeftSuitTop, left: topLeftSuitLeft, zIndex: 2, fontSize: Math.round((suitSizeFinal / 1.4 / 1.1) * suitIndexScaleTrumpDeckMobile * topSuitScaleTableMobile), fontWeight: 700, lineHeight: 1.1 }}>
-                  {card.suit}
-                </span>
-                <span style={{ position: 'absolute', bottom: bottomRightLift, right: 3, zIndex: 2, fontSize: Math.round((suitSizeFinal / 1.1) * suitIndexScaleTrumpDeckMobile), fontWeight: 700, lineHeight: 1 }}>
-                  {card.suit}
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 'auto', marginBottom: 'auto', fontSize: rankCenterSize, fontWeight: 800, lineHeight: 1, position: 'relative', zIndex: 1 }}>
-                  {card.rank}
-                </span>
-              </>
-            );
-          })()
-          ) : (
-          <span
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 0,
-              lineHeight: 1,
-              marginTop: 'auto',
-              marginBottom: 'auto',
-            }}
-          >
-            <span style={{ fontSize: Math.round(12 * cs), fontWeight: 700 }}>{card.rank}</span>
-            <span style={{ fontSize: Math.round(18 * cs), lineHeight: 1 }}>{card.suit}</span>
-          </span>
-          )
-        ) : (card.rank === 'J' && !hideJackCat && JACK_CAT_BY_SUIT[card.suit]) || (card.rank === 'Q' && QUEEN_IMAGE_BY_SUIT[card.suit]) || (card.rank === 'K' && KING_IMAGE_BY_SUIT[card.suit]) || (card.rank === 'A' && ACE_IMAGE_BY_SUIT[card.suit]) ? (
-          showDesktopFaceIndices ? (
-            (() => {
-              const faceK = 0.65;
-              const suitBase = 24 * 1.5 * faceK * cs;
-              /* Мобильная раскладка только при мобильной руке/столе или козыре на колоде на мобильном; на ПК козырь на колоде = те же настройки, что карты на столе ПК */
-              const useMobileLayout = (suitIndexInHandMobile || tableCardMobile) || (trumpOnDeck && !pcCardStyles);
-              const isAceMobile = card.rank === 'A' && useMobileLayout;
-              const isBlackSuit = card.suit === '♠' || card.suit === '♣';
-              const isFaceBlackMobile = (card.rank === 'J' || card.rank === 'Q' || card.rank === 'K') && isBlackSuit && useMobileLayout;
-              const suitSize = suitIndexInHandMobile ? suitBase / 1.5 : useMobileLayout ? (suitBase / 1.4) * 1.1 : suitBase;
-              /* Мобильная раскладка: один размер индекса масти для всех мастей, в 1.1 раз мельче */
-              const suitSizeFinal = useMobileLayout && (card.rank === 'A' || card.rank === 'J' || card.rank === 'Q' || card.rank === 'K')
-                ? suitSize / 1.1
-                : isAceMobile ? (isBlackSuit ? suitSize * 0.855 : suitSize * 0.874) : isFaceBlackMobile ? suitSize * 0.855 : suitSize;
-              const suitIndexScaleTrumpDeckMobile = (trumpOnDeck && !pcCardStyles) ? 1.18 : 1; /* мобильная: козырь на колоде — индекс масти чуть крупнее */
-              const rankBase = 18 * 1.21 * faceK * cs;
-              const rankSize = suitIndexInHandMobile ? rankBase / 1.3 / 1.2 : useMobileLayout ? (rankBase / 1.3 / 1.2) * 1.2 : rankBase;
-              const indexScaleTable = !useMobileLayout ? 1.2 : 1; /* ПК (стол и козырь на колоде): индексы в 1.2 раза крупнее */
-              const suitBottom = suitIndexInHandMobile ? -2.5 : -3;
-              const isFaceMobile = useMobileLayout && (card.rank === 'A' || card.rank === 'J' || card.rank === 'Q' || card.rank === 'K');
-              const suitBottomFinal = isFaceMobile ? suitBottom - 1.5 : suitBottom;
-              const bottomRightLift = isFaceMobile && (card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A')
-                ? suitBottomFinal + 1
-                : suitBottomFinal;
-              const topLeftTable = !useMobileLayout ? 0 : 2;
-              const topLeftFinal = useMobileLayout ? topLeftTable - 1 : topLeftTable;
-              const isMobileHandOrTable = suitIndexInHandMobile || tableCardMobile;
-              /* Туз крестей в мобильной руке: фиксированное смещение вне зависимости от темы */
-              const aceClubsMobileHandLift = card.rank === 'A' && card.suit === '♣' && suitIndexInHandMobile && useMobileLayout;
-              /*
-               * Явные оффсеты центра фигур/тузов по режимам.
-               * Значения и приоритеты сохранены как были:
-               * 1) A♣ в мобильной руке
-               * 2) любая карта в мобильной руке
-               * 3) мобильный стол / мобильная раскладка
-               * 4) ПК-раскладка (с масштабом)
-               */
-              const centerFaceTransformDesktop = 'scale(1.44) translateY(3px)';
-              const centerFaceOffsetMobileHand = 4;
-              const centerFaceOffsetMobileLayout = 2;
-              const centerFaceOffsetAceClubsMobileHand = -2;
-              const centerFaceTransform =
-                aceClubsMobileHandLift
-                  ? `translateY(${centerFaceOffsetAceClubsMobileHand}px)`
-                  : suitIndexInHandMobile
-                    ? `translateY(${centerFaceOffsetMobileHand}px)`
-                    : useMobileLayout
-                      ? `translateY(${centerFaceOffsetMobileLayout}px)`
-                      : centerFaceTransformDesktop;
-              return (
-            <>
-              <span className="card-face-value-index" style={{ position: 'absolute', top: topLeftFinal, left: 3, zIndex: 2, fontSize: Math.round(rankSize * indexScaleTable), fontWeight: 900, lineHeight: 1.1 }}>
-                {FACE_LABEL[card.rank] ?? card.rank}
-              </span>
-              <span
-                className={isAceMobile ? (isBlackSuit ? 'card-ace-suit-index-mobile card-ace-suit-black' : 'card-ace-suit-index-mobile') : undefined}
-                style={{ position: 'absolute', bottom: bottomRightLift, right: isMobileHandOrTable ? 3 : 1, zIndex: 2, fontSize: Math.round((suitSizeFinal * indexScaleTable) / (isMobileHandOrTable ? 1.1 : 1) * suitIndexScaleTrumpDeckMobile), fontWeight: 700, lineHeight: 1 }}
-              >
-                {card.suit}
-              </span>
-              <span style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto', position: 'relative', zIndex: 1,
-                transform: centerFaceTransform,
-              }}>
-                {card.rank === 'A' ? (
-                  <span
-                    className={useMobileLayout ? 'card-ace-central-drawing' : undefined}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', width: suitIndexInHandMobile ? '96%' : useMobileLayout ? '94%' : '92%', height: suitIndexInHandMobile ? '76%' : useMobileLayout ? '74%' : '72%', minHeight: suitIndexInHandMobile ? '76%' : useMobileLayout ? '74%' : '72%',
-                      ...(card.suit === '♥' && !useMobileLayout && !mobileDarkHand
-                        ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' }
-                        : {}),
-                    }}
-                  >
-                    <CardFaceImage
-                      className={useMobileLayout ? `card-ace-central-img${aceClubsImgClass ? ` ${aceClubsImgClass}` : ''}` : aceClubsImgClass}
-                      src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`}
-                      alt="Т"
-                      style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }}
-                    />
-                  </span>
-                ) : (
-                  <CardFaceImage
-                    className={
-                      card.rank === 'Q' && darkQueenSpadesFaceGlow ? 'card-queen-spades-dark-face' : undefined
-                    }
-                    src={card.rank === 'J' ? `/cards/${JACK_CAT_BY_SUIT[card.suit]}` : card.rank === 'Q' ? `/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}` : `/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`}
-                    alt={FACE_LABEL[card.rank] ?? card.rank}
-                    style={{ maxWidth: suitIndexInHandMobile ? '96%' : useMobileLayout ? '94%' : '92%', maxHeight: suitIndexInHandMobile ? '76%' : useMobileLayout ? '74%' : '72%', objectFit: 'contain' }}
-                  />
-                )}
-              </span>
-            </>
-              );
-            })()
-          ) : card.rank === 'J' ? (
-            <>
-              <span className="card-face-value-index" style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 900, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
-                <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
-              </span>
-              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto' }}>
-                <CardFaceImage src={`/cards/${JACK_CAT_BY_SUIT[card.suit]}`} alt="В" style={{ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' }} />
-              </span>
-            </>
-          ) : card.rank === 'Q' ? (
-            <>
-              <span className="card-face-value-index" style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 900, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
-                <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
-              </span>
-              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto' }}>
-                <CardFaceImage
-                  className={darkQueenSpadesFaceGlow ? 'card-queen-spades-dark-face' : undefined}
-                  src={`/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}`}
-                  alt="Д"
-                  style={{ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' }}
-                />
-              </span>
-            </>
-          ) : card.rank === 'K' ? (
-            <>
-              <span className="card-face-value-index" style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 900, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
-                <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
-              </span>
-              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto' }}>
-                <CardFaceImage src={`/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`} alt="К" style={{ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' }} />
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="card-face-value-index" style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 900, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
-                <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
-              </span>
-              <span style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', width: '95%', height: '85%', minHeight: '85%', marginTop: 'auto', marginBottom: 'auto',
-                ...(card.suit === '♥' && !mobileDarkHand
-                  ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' }
-                  : {}),
-              }}>
-                <CardFaceImage className={aceClubsImgClass} src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`} alt="Т" style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }} />
-              </span>
-            </>
-          )
-        ) : (
-          <>
-            <span
-              style={{
-                position: 'absolute',
-                top: 2,
-                left: 4,
-                fontSize: Math.round(10 * cs),
-                fontWeight: 700,
-                lineHeight: 1.1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-              }}
-            >
-              <span className={(card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? 'card-face-value-index' : undefined} style={(card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? { fontWeight: 900, fontSize: Math.round(10 * 1.21 * cs) } : undefined}>{FACE_LABEL[card.rank] ?? card.rank}</span>
-              <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
-            </span>
-            <span
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 0,
-                lineHeight: 1,
-                marginTop: 'auto',
-                marginBottom: 'auto',
-              }}
-            >
-              <span className="card-face-value-index" style={{ fontSize: Math.round(11 * cs), fontWeight: 900 }}>{FACE_LABEL[card.rank] ?? card.rank}</span>
-              <span style={{ fontSize: Math.round(12 * cs), lineHeight: 1 }}>{card.suit}</span>
-            </span>
-          </>
-        )
-      ) : (
-        <>
-          {/* Десктоп: рука игрока. Для 6–10: индексы крупнее (1.44×), раскладка — значение левый верх/правый низ, масть правый верх/левый низ. Фигуры — без увеличения. */}
-          {!compact && isNumericRank(card.rank) ? (
-            (() => {
-              const k = 1.44; /* ещё крупнее в 1.2 раза относительно базовых 14/18 */
-              return (
-                <>
-                  <span style={{ position: 'absolute', top: 0, left: Math.round(3 * scale), fontSize: Math.round(14 * k * cs), fontWeight: 700, lineHeight: 1 }}>
-                    {card.rank}
-                  </span>
-                  <span style={{ position: 'absolute', top: -4, right: Math.round(3 * scale), fontSize: Math.round(18 * k * cs), fontWeight: 700, lineHeight: 1 }}>
-                    {card.suit}
-                  </span>
-                  <span style={{ position: 'absolute', bottom: -1, left: Math.round(3 * scale), fontSize: Math.round(18 * k * cs), fontWeight: 700, lineHeight: 1 }}>
-                    {card.suit}
-                  </span>
-                  <span style={{ position: 'absolute', bottom: -1, right: Math.round(3 * scale), fontSize: Math.round(14 * k * cs), fontWeight: 700, lineHeight: 1 }}>
-                    {card.rank}
-                  </span>
-                </>
-              );
-            })()
-          ) : (
-            <>
-              <span
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: Math.round(3 * scale),
-                  fontSize: (card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? Math.round(18 * cs) : Math.round(14 * cs),
-                  fontWeight: 700,
-                  lineHeight: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                }}
-              >
-                {(card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? (
-                  <>
-                    <span className="card-face-value-index" style={{ fontWeight: 900, fontSize: Math.round(18 * 1.21 * cs) }}>{FACE_LABEL[card.rank] ?? card.rank}</span>
-                    <span style={{ fontSize: Math.round(18 * cs) }}>{card.suit}</span>
-                  </>
-                ) : (
-                  <>
-                    <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
-                    <span style={{ fontSize: Math.round(18 * cs) }}>{card.suit}</span>
-                  </>
-                )}
-              </span>
-              <span
-                style={{
-                  position: 'absolute',
-                  bottom: (card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? -4 : -1,
-                  right: Math.round(3 * scale),
-                  fontSize: Math.round(14 * cs),
-                  fontWeight: 700,
-                  lineHeight: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-end',
-                }}
-              >
-                {(card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? (
-                  <span style={{ fontSize: Math.round(24 * 1.5 * cs) }}>{card.suit}</span>
-                ) : (
-                  <>
-                    <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
-                    <span style={{ fontSize: Math.round(18 * cs) }}>{card.suit}</span>
-                  </>
-                )}
-              </span>
-            </>
-          )}
-        </>
-      )}
-      {/* Центр: пипы (6–10) — рука ПК и карты на столе (ПК). Мобильную руку не трогаем (suitIndexInHandMobile). */}
-      {((!compact || (compact && showDesktopFaceIndices && !tableCardMobile && !suitIndexInHandMobile && (!trumpOnDeck || pcCardStyles))) && isNumericRank(card.rank)) ? (
-        /* Рука ПК / стол ПК: сетка 3 колонки, те же правила; для compact — меньший размер пипов */
-        (() => {
-          const pipSize = compact ? Math.round(10 * 1.2 * cs) : Math.round(12 * 1.2 * cs);
-          const rank = card.rank as RankNumeric;
-          const positions = PIP_GRID_POSITIONS[rank];
-          const usedOuterRows = getUsedOuterRows(rank);
-          const outerRowToY = (row: number): number => {
-            const idx = usedOuterRows.indexOf(row);
-            if (idx === -1) return 50;
-            return ((idx + 1) / (usedOuterRows.length + 1)) * 100;
-          };
-          const neonLineStyle: React.CSSProperties = {
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            height: 1,
-            background: `linear-gradient(90deg, transparent 0%, ${neon.border} 15%, ${neon.border} 85%, transparent 100%)`,
-            boxShadow: `0 0 4px ${neon.border}, 0 0 8px ${neon.border}99`,
-            pointerEvents: 'none',
-          };
-          /* Подсветка от линий к центру зоны пипов */
-          const glowToCenterStyle: React.CSSProperties = {
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-            background: `linear-gradient(180deg, ${neon.border}1e 0%, ${neon.border}0a 22%, transparent 48%, transparent 52%, ${neon.border}0a 78%, ${neon.border}1e 100%)`,
-            pointerEvents: 'none',
-            borderRadius: 1,
-          };
-          return (
-            <span
-              style={{
-                position: 'absolute',
-                left: '12%',
-                right: '12%',
-                top: '20%',
-                bottom: '20%',
-                pointerEvents: 'none',
-                lineHeight: 1,
-                zIndex: 1,
-              }}
-            >
-              {showPipZoneBorders && !(trumpOnDeck && !trumpDeckHighlightOn) && !(isTrumpInHand && !trumpHighlightOn) && !(isTrumpOnTableDim) && (
-                <>
-                  <span style={glowToCenterStyle} aria-hidden />
-                  <span style={{ ...neonLineStyle, top: 0 }} aria-hidden />
-                  <span style={{ ...neonLineStyle, bottom: 0 }} aria-hidden />
-                </>
-              )}
-              {positions.map(({ col, row }, i) => {
-                const x = COL_X[col];
-                const y = col === 1
-                  ? (rank === '6' ? (row === 0 ? outerRowToY(0) : outerRowToY(2))
-                    : rank === '7' && row === 0 ? outerRowToY(1)
-                    : rank === '8' ? (row === 0 ? outerRowToY(0) : outerRowToY(3))
-                    : rank === '9' ? outerRowToY(row)
-                    : rank === '10' ? (row === 0 ? (outerRowToY(0) + outerRowToY(1)) / 2 : (outerRowToY(2) + outerRowToY(3)) / 2)
-                    : row === 1 ? outerRowToY(1) : CENTER_ROW_Y[0])
-                  : outerRowToY(row);
-                return (
-                  <span
-                    key={i}
-                    style={{
-                      position: 'absolute',
-                      left: `${x}%`,
-                      top: `${y}%`,
-                      transform: 'translate(-50%, -50%)',
-                      fontSize: pipSize,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {card.suit}
-                  </span>
-                );
-              })}
-            </span>
-          );
-        })()
-      ) : !compact ? (
-          <span
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 2,
-              lineHeight: 1,
-              marginTop: 'auto',
-              marginBottom: 'auto',
-            }}
-          >
-            {isNumericRank(card.rank) ? (
-              PIP_LAYOUT[card.rank].map((count, rowIdx) => (
+      <span
+        className={labRotateContent90 ? 'card-lab-face-rot90__inner' : undefined}
+        style={labRotateContent90 ? labRotateFaceInnerStyle : { display: 'contents' }}
+      >
+              {/* Блеск-отблеск: козыри в руке при заказе (раз в ~4 с) и доступные для хода карты при нашем ходе (раз в ~5 с) */}
+              {(!mobileDarkHand || !!isTrumpInHand) &&
+                (mobileTrumpShineBidding || (highlightAsValidPlay && !pcCardStyles && !!isTrumpInHand)) && (
                 <span
-                  key={rowIdx}
+                  aria-hidden
                   style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    gap: 1,
-                    fontSize: Math.round(12 * cs),
-                    lineHeight: 1,
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 5,
+                    borderRadius: Math.round(8 * scale),
+                    overflow: 'hidden',
+                    pointerEvents: 'none',
                   }}
                 >
-                  {Array.from({ length: count }, (_, i) => (
-                    <span key={i}>{card.suit}</span>
-                  ))}
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '40%',
+                      height: '100%',
+                      pointerEvents: 'none',
+                      background: isDark
+                        ? 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 35%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.12) 65%, transparent 100%)'
+                        : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.45) 35%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.45) 65%, transparent 100%)',
+                      animation: highlightAsValidPlay && !pcCardStyles && isTrumpInHand
+                        ? 'card-trump-shine 5s ease-in-out infinite'
+                        : 'card-trump-shine 4s ease-in-out infinite',
+                    }}
+                  />
                 </span>
-              ))
-            ) : card.rank === 'J' && !hideJackCat && JACK_CAT_BY_SUIT[card.suit] ? (
-              <CardFaceImage
-                src={`/cards/${JACK_CAT_BY_SUIT[card.suit]}`}
-                alt="В"
-                style={{
-                  maxWidth: '98%',
-                  maxHeight: '78%',
-                  objectFit: 'contain',
-                }}
-              />
-            ) : card.rank === 'Q' && QUEEN_IMAGE_BY_SUIT[card.suit] ? (
-              <CardFaceImage
-                src={`/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}`}
-                alt="Д"
-                style={{
-                  maxWidth: '98%',
-                  maxHeight: '78%',
-                  objectFit: 'contain',
-                }}
-              />
-            ) : card.rank === 'K' && KING_IMAGE_BY_SUIT[card.suit] ? (
-              <CardFaceImage
-                src={`/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`}
-                alt="К"
-                style={{
-                  maxWidth: '98%',
-                  maxHeight: '78%',
-                  objectFit: 'contain',
-                }}
-              />
-            ) : card.rank === 'A' && ACE_IMAGE_BY_SUIT[card.suit] ? (
-              <span style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', width: '98%', height: '78%', minHeight: '78%',
-                ...(card.suit === '♥' && !mobileDarkHand
-                  ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' }
-                  : {}),
-              }}>
-                <CardFaceImage
-                  className={aceClubsImgClass}
-                  src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`}
-                  alt="Т"
-                  style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }}
+              )}
+              {/* Белое неоновое свечение на поверхности карты для фигурных козырей на столе (только при вкл. подсветки) */}
+              {isTrumpOnTable && trumpHighlightOn && compact && !tableCardMobile && !isNumericRank(card.rank) && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 0,
+                    borderRadius: Math.round(8 * scale),
+                    boxShadow: 'inset 0 0 24px rgba(255,255,255,0.42), inset 0 0 12px rgba(255,255,255,0.28)',
+                    border: '1px solid rgba(255,255,255,0.6)',
+                    pointerEvents: 'none',
+                  }}
                 />
-              </span>
-            ) : (
-              <>
-                <span className="card-face-value-index" style={{ fontSize: Math.round(20 * cs), fontWeight: 900 }}>{FACE_LABEL[card.rank] ?? card.rank}</span>
-                <span style={{ fontSize: Math.round(24 * cs), lineHeight: 1 }}>{card.suit}</span>
-              </>
-            )}
+              )}
+              {/* Бейдж «К» только на ПК; в мобильной версии — то же позиционирование, что у некозырей (без доп. элемента) */}
+              {isTrumpOnTable && !isNumericRank(card.rank) && !tableCardMobile && !trumpOnDeck && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 2,
+                    right: 4,
+                    zIndex: 10,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: neon.border,
+                    opacity: 0.9,
+                    textShadow: `0 0 3px ${neon.border}99`,
+                  }}
+                  aria-label="Козырь"
+                >
+                  К
+                </span>
+              )}
+              {/* Карты 6–10 на столе (ПК) козырь: умеренная подсветка (без перебора), только при вкл. подсветки */}
+              {isTrumpOnTable && trumpHighlightOn && compact && showDesktopFaceIndices && !tableCardMobile && isNumericRank(card.rank) && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 0,
+                    borderRadius: Math.round(8 * scale),
+                    background: `linear-gradient(145deg, ${neon.border}35 0%, #ffffff 35%, #f5f7fa 70%, ${neon.border}18 100%)`,
+                    boxShadow: [
+                      `inset 0 0 24px rgba(255,255,255,0.42)`,
+                      `inset 0 0 12px rgba(255,255,255,0.28)`,
+                      `0 0 0 1px rgba(255,255,255,0.75)`,
+                      `0 0 16px rgba(255,255,255,0.44)`,
+                      `0 0 8px ${neon.border}77`,
+                      `0 0 14px ${neon.border}44`,
+                      `0 2px 8px rgba(0,0,0,0.2)`,
+                      `inset 0 1px 6px rgba(255,255,255,0.5)`,
+                      `0 0 0 1px ${neon.border}99`,
+                    ].join(', '),
+                    border: `1px solid rgba(255,255,255,0.62)`,
+                    pointerEvents: 'none',
+                  }}
+                />
+              )}
+              {/* Карты на столе (ПК): те же правила, что на руках — 4 угла, сетка пипов, границы; не для мобильной руки и не для козыря на колоде */}
+              {compact && showDesktopFaceIndices && !tableCardMobile && !suitIndexInHandMobile && (!trumpOnDeck || pcCardStyles) && isNumericRank(card.rank) && (() => {
+                const kTable = 1.2;
+                const topRightTable = -4; /* верхний правый индекс масти чуть повыше (блок 2 — карты на столе) */
+                return (
+                  <>
+                    <span style={{ position: 'absolute', top: -1, left: Math.round(3 * scale), fontSize: Math.round(14 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 1 }}>
+                      {card.rank}
+                    </span>
+                    <span style={{ position: 'absolute', top: topRightTable, right: Math.round(3 * scale), fontSize: Math.round(18 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 1 }}>
+                      {card.suit}
+                    </span>
+                    <span style={{ position: 'absolute', bottom: -3, left: Math.round(3 * scale), fontSize: Math.round(18 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 1 }}>
+                      {card.suit}
+                    </span>
+                    <span style={{ position: 'absolute', bottom: -2, right: Math.round(3 * scale), fontSize: Math.round(14 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 1 }}>
+                      {card.rank}
+                    </span>
+                  </>
+                );
+              })()}
+              {/* Мобильная версия: простой центр без пипов (6–10) или индекс+фигура (В/Д/К/Т) */}
+              {compact ? (
+                isNumericRank(card.rank) ? (
+                  showDesktopFaceIndices && !tableCardMobile && !suitIndexInHandMobile && (!trumpOnDeck || pcCardStyles) ? null : (suitIndexInHandMobile || tableCardMobile || (trumpOnDeck && !pcCardStyles)) ? (
+                  /* Мобильная версия 6–10 (рука/стол мобильный или козырь на колоде только на мобильном): индексы масти как у фигур, значение по центру. На ПК козырь на колоде не сюда. */
+                  (() => {
+                    const faceK = 0.65;
+                    const suitBase = 24 * 1.5 * faceK * cs;
+                    const useMobileLayoutNum = suitIndexInHandMobile || tableCardMobile || (trumpOnDeck && !pcCardStyles);
+                    const suitSize = suitIndexInHandMobile ? suitBase / 1.5 : useMobileLayoutNum ? (suitBase / 1.4) * 1.1 : suitBase;
+                    const suitSizeFinal = suitSize / 1.1; /* тот же размер, что у нижнего индекса масти у фигур (J/Q/K) */
+                    const suitIndexScaleTrumpDeckMobile = (trumpOnDeck && !pcCardStyles) ? 1.18 : 1; /* мобильная: козырь на колоде — индексы масти чуть крупнее */
+                    const topSuitScaleTableMobile = tableCardMobile ? 1.15 : 1; /* мобильный стол 6–10: верхний индекс масти немного крупнее */
+                    const topLeftTable = 2; /* как у фигур: верхний левый индекс */
+                    const topLeftFinal = (trumpOnDeck && !pcCardStyles) ? topLeftTable - 2 : topLeftTable - 1; /* козырь на колоде мобильный: верхний индекс повыше */
+                    /* Легаси ♣ 6–10: верхний левый глиф — чуть выше и левее (не neo clubs-v3-gray) */
+                    const topLeftSuitTop = suitClubsV3 ? topLeftFinal - 2 : topLeftFinal;
+                    const topLeftSuitLeft = suitClubsV3 ? 2 : 3;
+                    /* Позиция нижнего правого индекса масти — та же формула, что у фигурных карт в мобильной версии */
+                    const suitBottom = suitIndexInHandMobile ? -2.5 : -3;
+                    const suitBottomFinal = suitBottom - 1.5;
+                    const bottomRightLift = suitBottomFinal + 1;
+                    /* В руке пользователя (мобильная) центральный индекс значения ещё в 1.1×1.1 раз мельче */
+                    const rankCenterSize = Math.round((28 / 1.3 / 1.1) * (suitIndexInHandMobile ? 1 / 1.1 / 1.1 : 1) * cs);
+                    return (
+                      <>
+                        {!labRotateContent90 ? (
+                          <>
+                            <span style={{ position: 'absolute', top: topLeftSuitTop, left: topLeftSuitLeft, zIndex: 2, fontSize: Math.round((suitSizeFinal / 1.4 / 1.1) * suitIndexScaleTrumpDeckMobile * topSuitScaleTableMobile), fontWeight: 700, lineHeight: 1.1 }}>
+                              {card.suit}
+                            </span>
+                            <span style={{ position: 'absolute', bottom: bottomRightLift, right: 3, zIndex: 2, fontSize: Math.round((suitSizeFinal / 1.1) * suitIndexScaleTrumpDeckMobile), fontWeight: 700, lineHeight: 1 }}>
+                              {card.suit}
+                            </span>
+                          </>
+                        ) : null}
+                        <span
+                          style={
+                            labCenterRankStyle
+                              ? { ...labCenterRankStyle, fontSize: rankCenterSize }
+                              : {
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  marginTop: 'auto',
+                                  marginBottom: 'auto',
+                                  fontSize: rankCenterSize,
+                                  fontWeight: 800,
+                                  lineHeight: 1,
+                                  position: 'relative',
+                                  zIndex: 1,
+                                }
+                          }
+                        >
+                          {card.rank}
+                        </span>
+                      </>
+                    );
+                  })()
+                  ) : (
+                  <span
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 0,
+                      lineHeight: 1,
+                      marginTop: 'auto',
+                      marginBottom: 'auto',
+                    }}
+                  >
+                    <span style={{ fontSize: Math.round(12 * cs), fontWeight: 700 }}>{card.rank}</span>
+                    <span style={{ fontSize: Math.round(18 * cs), lineHeight: 1 }}>{card.suit}</span>
+                  </span>
+                  )
+                ) : (card.rank === 'J' && !hideJackCat && JACK_CAT_BY_SUIT[card.suit]) || (card.rank === 'Q' && QUEEN_IMAGE_BY_SUIT[card.suit]) || (card.rank === 'K' && KING_IMAGE_BY_SUIT[card.suit]) || (card.rank === 'A' && ACE_IMAGE_BY_SUIT[card.suit]) ? (
+                  showDesktopFaceIndices ? (
+                    (() => {
+                      const faceK = 0.65;
+                      const suitBase = 24 * 1.5 * faceK * cs;
+                      /* Мобильная раскладка только при мобильной руке/столе или козыре на колоде на мобильном; на ПК козырь на колоде = те же настройки, что карты на столе ПК */
+                      const useMobileLayout = (suitIndexInHandMobile || tableCardMobile) || (trumpOnDeck && !pcCardStyles);
+                      const isAceMobile = card.rank === 'A' && useMobileLayout;
+                      const isBlackSuit = card.suit === '♠' || card.suit === '♣';
+                      const isFaceBlackMobile = (card.rank === 'J' || card.rank === 'Q' || card.rank === 'K') && isBlackSuit && useMobileLayout;
+                      const suitSize = suitIndexInHandMobile ? suitBase / 1.5 : useMobileLayout ? (suitBase / 1.4) * 1.1 : suitBase;
+                      /* Мобильная раскладка: один размер индекса масти для всех мастей, в 1.1 раз мельче */
+                      const suitSizeFinal = useMobileLayout && (card.rank === 'A' || card.rank === 'J' || card.rank === 'Q' || card.rank === 'K')
+                        ? suitSize / 1.1
+                        : isAceMobile ? (isBlackSuit ? suitSize * 0.855 : suitSize * 0.874) : isFaceBlackMobile ? suitSize * 0.855 : suitSize;
+                      const suitIndexScaleTrumpDeckMobile = (trumpOnDeck && !pcCardStyles) ? 1.18 : 1; /* мобильная: козырь на колоде — индекс масти чуть крупнее */
+                      const rankBase = 18 * 1.21 * faceK * cs;
+                      const rankSize = suitIndexInHandMobile ? rankBase / 1.3 / 1.2 : useMobileLayout ? (rankBase / 1.3 / 1.2) * 1.2 : rankBase;
+                      const indexScaleTable = !useMobileLayout ? 1.2 : 1; /* ПК (стол и козырь на колоде): индексы в 1.2 раза крупнее */
+                      const suitBottom = suitIndexInHandMobile ? -2.5 : -3;
+                      const isFaceMobile = useMobileLayout && (card.rank === 'A' || card.rank === 'J' || card.rank === 'Q' || card.rank === 'K');
+                      const suitBottomFinal = isFaceMobile ? suitBottom - 1.5 : suitBottom;
+                      const bottomRightLift = isFaceMobile && (card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A')
+                        ? suitBottomFinal + 1
+                        : suitBottomFinal;
+                      const topLeftTable = !useMobileLayout ? 0 : 2;
+                      const topLeftFinal = useMobileLayout ? topLeftTable - 1 : topLeftTable;
+                      const isMobileHandOrTable = suitIndexInHandMobile || tableCardMobile;
+                      /* Туз крестей в мобильной руке: фиксированное смещение вне зависимости от темы */
+                      const aceClubsMobileHandLift = card.rank === 'A' && card.suit === '♣' && suitIndexInHandMobile && useMobileLayout;
+                      /*
+                       * Явные оффсеты центра фигур/тузов по режимам.
+                       * Значения и приоритеты сохранены как были:
+                       * 1) A♣ в мобильной руке
+                       * 2) любая карта в мобильной руке
+                       * 3) мобильный стол / мобильная раскладка
+                       * 4) ПК-раскладка (с масштабом)
+                       */
+                      const centerFaceTransformDesktop = 'scale(1.44) translateY(3px)';
+                      const centerFaceOffsetMobileHand = 4;
+                      const centerFaceOffsetMobileLayout = 2;
+                      const centerFaceOffsetAceClubsMobileHand = -2;
+                      const centerFaceTransform =
+                        aceClubsMobileHandLift
+                          ? `translateY(${centerFaceOffsetAceClubsMobileHand}px)`
+                          : suitIndexInHandMobile
+                            ? `translateY(${centerFaceOffsetMobileHand}px)`
+                            : useMobileLayout
+                              ? `translateY(${centerFaceOffsetMobileLayout}px)`
+                              : centerFaceTransformDesktop;
+                      return (
+                    <>
+                      {!labRotateContent90 ? (
+                        <>
+                          <span className="card-face-value-index" style={{ position: 'absolute', top: topLeftFinal, left: 3, zIndex: 2, fontSize: Math.round(rankSize * indexScaleTable), fontWeight: 900, lineHeight: 1.1 }}>
+                            {FACE_LABEL[card.rank] ?? card.rank}
+                          </span>
+                          <span
+                            className={isAceMobile ? (isBlackSuit ? 'card-ace-suit-index-mobile card-ace-suit-black' : 'card-ace-suit-index-mobile') : undefined}
+                            style={{ position: 'absolute', bottom: bottomRightLift, right: isMobileHandOrTable ? 3 : 1, zIndex: 2, fontSize: Math.round((suitSizeFinal * indexScaleTable) / (isMobileHandOrTable ? 1.1 : 1) * suitIndexScaleTrumpDeckMobile), fontWeight: 700, lineHeight: 1 }}
+                          >
+                            {card.suit}
+                          </span>
+                        </>
+                      ) : null}
+                      <span style={
+                        labFaceArtWrapStyle ?? {
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto', position: 'relative', zIndex: 1,
+                          transform: centerFaceTransform,
+                        }
+                      }>
+                        {card.rank === 'A' ? (
+                          <span
+                            className={useMobileLayout ? 'card-ace-central-drawing' : undefined}
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', width: suitIndexInHandMobile ? '96%' : useMobileLayout ? '94%' : '92%', height: suitIndexInHandMobile ? '76%' : useMobileLayout ? '74%' : '72%', minHeight: suitIndexInHandMobile ? '76%' : useMobileLayout ? '74%' : '72%',
+                              ...(card.suit === '♥' && !useMobileLayout && !mobileDarkHand
+                                ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' }
+                                : {}),
+                            }}
+                          >
+                            <CardFaceImage
+                              className={useMobileLayout ? `card-ace-central-img${aceClubsImgClass ? ` ${aceClubsImgClass}` : ''}` : aceClubsImgClass}
+                              src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`}
+                              alt="Т"
+                              style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }}
+                            />
+                          </span>
+                        ) : (
+                          <CardFaceImage
+                            className={
+                              card.rank === 'Q' && darkQueenSpadesFaceGlow ? 'card-queen-spades-dark-face' : undefined
+                            }
+                            src={card.rank === 'J' ? `/cards/${JACK_CAT_BY_SUIT[card.suit]}` : card.rank === 'Q' ? `/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}` : `/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`}
+                            alt={FACE_LABEL[card.rank] ?? card.rank}
+                            style={{ maxWidth: suitIndexInHandMobile ? '96%' : useMobileLayout ? '94%' : '92%', maxHeight: suitIndexInHandMobile ? '76%' : useMobileLayout ? '74%' : '72%', objectFit: 'contain' }}
+                          />
+                        )}
+                      </span>
+                    </>
+                      );
+                    })()
+                  ) : card.rank === 'J' ? (
+                    <>
+                      {!labRotateContent90 ? (
+                        <span className="card-face-value-index" style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 900, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
+                          <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
+                        </span>
+                      ) : null}
+                      <span style={labFaceArtWrapStyle ?? { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto' }}>
+                        <CardFaceImage src={`/cards/${JACK_CAT_BY_SUIT[card.suit]}`} alt="В" style={withLabFaceArt({ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' })} />
+                      </span>
+                    </>
+                  ) : card.rank === 'Q' ? (
+                    <>
+                      {!labRotateContent90 ? (
+                        <span className="card-face-value-index" style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 900, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
+                          <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
+                        </span>
+                      ) : null}
+                      <span style={labFaceArtWrapStyle ?? { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto' }}>
+                        <CardFaceImage
+                          className={darkQueenSpadesFaceGlow ? 'card-queen-spades-dark-face' : undefined}
+                          src={`/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}`}
+                          alt="Д"
+                          style={withLabFaceArt({ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' })}
+                        />
+                      </span>
+                    </>
+                  ) : card.rank === 'K' ? (
+                    <>
+                      {!labRotateContent90 ? (
+                        <span className="card-face-value-index" style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 900, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
+                          <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
+                        </span>
+                      ) : null}
+                      <span style={labFaceArtWrapStyle ?? { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto' }}>
+                        <CardFaceImage src={`/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`} alt="К" style={withLabFaceArt({ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' })} />
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      {!labRotateContent90 ? (
+                        <span className="card-face-value-index" style={{ position: 'absolute', top: 2, left: 4, fontSize: Math.round(10 * 1.21 * cs), fontWeight: 900, lineHeight: 1.1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
+                          <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
+                        </span>
+                      ) : null}
+                      <span style={
+                        labFaceArtWrapStyle ?? {
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', width: '95%', height: '85%', minHeight: '85%', marginTop: 'auto', marginBottom: 'auto',
+                          ...(card.suit === '♥' && !mobileDarkHand
+                            ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' }
+                            : {}),
+                        }
+                      }>
+                        <CardFaceImage className={aceClubsImgClass} src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`} alt="Т" style={withLabFaceArt({ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) })} />
+                      </span>
+                    </>
+                  )
+                ) : (
+                  <>
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: 2,
+                        left: 4,
+                        fontSize: Math.round(10 * cs),
+                        fontWeight: 700,
+                        lineHeight: 1.1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                      }}
+                    >
+                      <span className={(card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? 'card-face-value-index' : undefined} style={(card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? { fontWeight: 900, fontSize: Math.round(10 * 1.21 * cs) } : undefined}>{FACE_LABEL[card.rank] ?? card.rank}</span>
+                      <span style={{ fontSize: Math.round(12 * cs) }}>{card.suit}</span>
+                    </span>
+                    <span
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 0,
+                        lineHeight: 1,
+                        marginTop: 'auto',
+                        marginBottom: 'auto',
+                      }}
+                    >
+                      <span className="card-face-value-index" style={{ fontSize: Math.round(11 * cs), fontWeight: 900 }}>{FACE_LABEL[card.rank] ?? card.rank}</span>
+                      <span style={{ fontSize: Math.round(12 * cs), lineHeight: 1 }}>{card.suit}</span>
+                    </span>
+                  </>
+                )
+              ) : (
+                <>
+                  {/* Десктоп: рука игрока. Для 6–10: индексы крупнее (1.44×), раскладка — значение левый верх/правый низ, масть правый верх/левый низ. Фигуры — без увеличения. */}
+                  {!compact && isNumericRank(card.rank) ? (
+                    (() => {
+                      const k = 1.44; /* ещё крупнее в 1.2 раза относительно базовых 14/18 */
+                      return (
+                        <>
+                          <span style={{ position: 'absolute', top: 0, left: Math.round(3 * scale), fontSize: Math.round(14 * k * cs), fontWeight: 700, lineHeight: 1 }}>
+                            {card.rank}
+                          </span>
+                          <span style={{ position: 'absolute', top: -4, right: Math.round(3 * scale), fontSize: Math.round(18 * k * cs), fontWeight: 700, lineHeight: 1 }}>
+                            {card.suit}
+                          </span>
+                          <span style={{ position: 'absolute', bottom: -1, left: Math.round(3 * scale), fontSize: Math.round(18 * k * cs), fontWeight: 700, lineHeight: 1 }}>
+                            {card.suit}
+                          </span>
+                          <span style={{ position: 'absolute', bottom: -1, right: Math.round(3 * scale), fontSize: Math.round(14 * k * cs), fontWeight: 700, lineHeight: 1 }}>
+                            {card.rank}
+                          </span>
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <>
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: Math.round(3 * scale),
+                          fontSize: (card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? Math.round(18 * cs) : Math.round(14 * cs),
+                          fontWeight: 700,
+                          lineHeight: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-start',
+                        }}
+                      >
+                        {(card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? (
+                          <>
+                            <span className="card-face-value-index" style={{ fontWeight: 900, fontSize: Math.round(18 * 1.21 * cs) }}>{FACE_LABEL[card.rank] ?? card.rank}</span>
+                            <span style={{ fontSize: Math.round(18 * cs) }}>{card.suit}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
+                            <span style={{ fontSize: Math.round(18 * cs) }}>{card.suit}</span>
+                          </>
+                        )}
+                      </span>
+                      <span
+                        style={{
+                          position: 'absolute',
+                          bottom: (card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? -4 : -1,
+                          right: Math.round(3 * scale),
+                          fontSize: Math.round(14 * cs),
+                          fontWeight: 700,
+                          lineHeight: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-end',
+                        }}
+                      >
+                        {(card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A') ? (
+                          <span style={{ fontSize: Math.round(24 * 1.5 * cs) }}>{card.suit}</span>
+                        ) : (
+                          <>
+                            <span>{FACE_LABEL[card.rank] ?? card.rank}</span>
+                            <span style={{ fontSize: Math.round(18 * cs) }}>{card.suit}</span>
+                          </>
+                        )}
+                      </span>
+                    </>
+                  )}
+                </>
+              )}
+              {/* Центр: пипы (6–10) — рука ПК и карты на столе (ПК). Мобильную руку не трогаем (suitIndexInHandMobile). */}
+              {((!compact || (compact && showDesktopFaceIndices && !tableCardMobile && !suitIndexInHandMobile && (!trumpOnDeck || pcCardStyles))) && isNumericRank(card.rank)) ? (
+                /* Рука ПК / стол ПК: сетка 3 колонки, те же правила; для compact — меньший размер пипов */
+                (() => {
+                  const pipSize = compact ? Math.round(10 * 1.2 * cs) : Math.round(12 * 1.2 * cs);
+                  const rank = card.rank as RankNumeric;
+                  const positions = PIP_GRID_POSITIONS[rank];
+                  const usedOuterRows = getUsedOuterRows(rank);
+                  const outerRowToY = (row: number): number => {
+                    const idx = usedOuterRows.indexOf(row);
+                    if (idx === -1) return 50;
+                    return ((idx + 1) / (usedOuterRows.length + 1)) * 100;
+                  };
+                  const neonLineStyle: React.CSSProperties = {
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    height: 1,
+                    background: `linear-gradient(90deg, transparent 0%, ${neon.border} 15%, ${neon.border} 85%, transparent 100%)`,
+                    boxShadow: `0 0 4px ${neon.border}, 0 0 8px ${neon.border}99`,
+                    pointerEvents: 'none',
+                  };
+                  /* Подсветка от линий к центру зоны пипов */
+                  const glowToCenterStyle: React.CSSProperties = {
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    background: `linear-gradient(180deg, ${neon.border}1e 0%, ${neon.border}0a 22%, transparent 48%, transparent 52%, ${neon.border}0a 78%, ${neon.border}1e 100%)`,
+                    pointerEvents: 'none',
+                    borderRadius: 1,
+                  };
+                  return (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        left: '12%',
+                        right: '12%',
+                        top: '20%',
+                        bottom: '20%',
+                        pointerEvents: 'none',
+                        lineHeight: 1,
+                        zIndex: 1,
+                      }}
+                    >
+                      {showPipZoneBorders && !(trumpOnDeck && !trumpDeckHighlightOn) && !(isTrumpInHand && !trumpHighlightOn) && !(isTrumpOnTableDim) && (
+                        <>
+                          <span style={glowToCenterStyle} aria-hidden />
+                          <span style={{ ...neonLineStyle, top: 0 }} aria-hidden />
+                          <span style={{ ...neonLineStyle, bottom: 0 }} aria-hidden />
+                        </>
+                      )}
+                      {positions.map(({ col, row }, i) => {
+                        const x = COL_X[col];
+                        const y = col === 1
+                          ? (rank === '6' ? (row === 0 ? outerRowToY(0) : outerRowToY(2))
+                            : rank === '7' && row === 0 ? outerRowToY(1)
+                            : rank === '8' ? (row === 0 ? outerRowToY(0) : outerRowToY(3))
+                            : rank === '9' ? outerRowToY(row)
+                            : rank === '10' ? (row === 0 ? (outerRowToY(0) + outerRowToY(1)) / 2 : (outerRowToY(2) + outerRowToY(3)) / 2)
+                            : row === 1 ? outerRowToY(1) : CENTER_ROW_Y[0])
+                          : outerRowToY(row);
+                        return (
+                          <span
+                            key={i}
+                            style={{
+                              position: 'absolute',
+                              left: `${x}%`,
+                              top: `${y}%`,
+                              transform: 'translate(-50%, -50%)',
+                              fontSize: pipSize,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {card.suit}
+                          </span>
+                        );
+                      })}
+                    </span>
+                  );
+                })()
+              ) : !compact ? (
+                  <span
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 2,
+                      lineHeight: 1,
+                      marginTop: 'auto',
+                      marginBottom: 'auto',
+                    }}
+                  >
+                    {isNumericRank(card.rank) ? (
+                      PIP_LAYOUT[card.rank].map((count, rowIdx) => (
+                        <span
+                          key={rowIdx}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            gap: 1,
+                            fontSize: Math.round(12 * cs),
+                            lineHeight: 1,
+                          }}
+                        >
+                          {Array.from({ length: count }, (_, i) => (
+                            <span key={i}>{card.suit}</span>
+                          ))}
+                        </span>
+                      ))
+                    ) : card.rank === 'J' && !hideJackCat && JACK_CAT_BY_SUIT[card.suit] ? (
+                      <CardFaceImage
+                        src={`/cards/${JACK_CAT_BY_SUIT[card.suit]}`}
+                        alt="В"
+                        style={{
+                          maxWidth: '98%',
+                          maxHeight: '78%',
+                          objectFit: 'contain',
+                        }}
+                      />
+                    ) : card.rank === 'Q' && QUEEN_IMAGE_BY_SUIT[card.suit] ? (
+                      <CardFaceImage
+                        src={`/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}`}
+                        alt="Д"
+                        style={{
+                          maxWidth: '98%',
+                          maxHeight: '78%',
+                          objectFit: 'contain',
+                        }}
+                      />
+                    ) : card.rank === 'K' && KING_IMAGE_BY_SUIT[card.suit] ? (
+                      <CardFaceImage
+                        src={`/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`}
+                        alt="К"
+                        style={{
+                          maxWidth: '98%',
+                          maxHeight: '78%',
+                          objectFit: 'contain',
+                        }}
+                      />
+                    ) : card.rank === 'A' && ACE_IMAGE_BY_SUIT[card.suit] ? (
+                      <span style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', width: '98%', height: '78%', minHeight: '78%',
+                        ...(card.suit === '♥' && !mobileDarkHand
+                          ? { borderRadius: '24%', overflow: 'hidden', boxShadow: 'inset 0 0 22px rgba(255,255,255,0.28), inset 0 0 44px rgba(255,182,193,0.22)' }
+                          : {}),
+                      }}>
+                        <CardFaceImage
+                          className={aceClubsImgClass}
+                          src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`}
+                          alt="Т"
+                          style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }}
+                        />
+                      </span>
+                    ) : (
+                      <>
+                        <span className="card-face-value-index" style={{ fontSize: Math.round(20 * cs), fontWeight: 900 }}>{FACE_LABEL[card.rank] ?? card.rank}</span>
+                        <span style={{ fontSize: Math.round(24 * cs), lineHeight: 1 }}>{card.suit}</span>
+                      </>
+                    )}
+                  </span>
+              ) : null}
+      </span>
+      {labRotateContent90 ? (
+        <>
+          <span
+            className="card-lab-landscape-index card-lab-landscape-index--tl"
+            aria-hidden
+            style={{
+              position: 'absolute',
+              top: Math.max(2, Math.round(2 * scale)),
+              left: Math.max(4, Math.round(4 * scale)),
+              zIndex: 5,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              gap: 0,
+              lineHeight: 1.05,
+              color,
+              pointerEvents: 'none',
+            }}
+          >
+            <span
+              className="card-face-value-index"
+              style={{
+                fontSize: Math.round(11 * cs),
+                fontWeight: 900,
+              }}
+            >
+              {FACE_LABEL[card.rank] ?? card.rank}
+            </span>
+            <span style={{ fontSize: Math.round(13 * cs), fontWeight: 700 }}>{card.suit}</span>
           </span>
+          <span
+            className="card-lab-landscape-index card-lab-landscape-index--br"
+            aria-hidden
+            style={{
+              position: 'absolute',
+              bottom: Math.max(1, Math.round(1 * scale)),
+              right: Math.max(4, Math.round(4 * scale)),
+              zIndex: 5,
+              fontSize: Math.round(14 * cs),
+              fontWeight: 700,
+              lineHeight: 1,
+              color,
+              pointerEvents: 'none',
+            }}
+          >
+            {card.suit}
+          </span>
+        </>
       ) : null}
     </button>
   );

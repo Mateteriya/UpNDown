@@ -14,7 +14,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { DEALS_PER_MATCH } from '../game/GameEngine';
+import { DEALS_PER_MATCH, dealsPerMatch, type PlayerCount } from '../game/GameEngine';
 import {
   DEAL_TRACK_LAB_MODAL_CYCLE_ON_OPEN,
   DEAL_TRACK_LAB_MODAL_SWEEP_DURATION_MS,
@@ -63,14 +63,17 @@ export type GameDealOrbitDockProps = {
   /** Уникальный ключ сессии комнаты: online.roomId или `'offline'`. */
   roomIntroKey: string;
   prefersReducedMotion: boolean;
+  /** Число игроков за столом (орбита 28 vs 31). */
+  playerCount?: PlayerCount;
 };
 
 export function GameDealOrbitDock({
   dealNumber,
   roomIntroKey,
   prefersReducedMotion,
+  playerCount = 4,
 }: GameDealOrbitDockProps) {
-  const totalDeals = DEALS_PER_MATCH;
+  const totalDeals = playerCount === 3 ? dealsPerMatch(3) : DEALS_PER_MATCH;
   const currentDeal = useMemo(() => {
     const n = Number.isFinite(dealNumber) ? Math.trunc(dealNumber) : 1;
     return Math.min(totalDeals, Math.max(1, n));

@@ -1,6 +1,6 @@
 import type { CSSProperties, MouseEvent, PointerEvent, ReactNode } from 'react';
 
-import { getDealType } from '../game/GameEngine';
+import { getDealType, type PlayerCount } from '../game/GameEngine';
 
 import type { GameInfoBadgeStyle } from '../lib/gameInfoBadgeStyle';
 
@@ -38,6 +38,8 @@ type GameInfoPlasmaTurnBlockProps = {
 
   onMetaClick?: () => void;
 
+  playerCount?: PlayerCount;
+
   children: ReactNode;
 
 };
@@ -64,6 +66,8 @@ function GameInfoPlasmaDealMeta({
 
   onClick,
 
+  playerCount = 4,
+
 }: {
 
   dealNumber: number;
@@ -76,9 +80,11 @@ function GameInfoPlasmaDealMeta({
 
   onClick?: () => void;
 
+  playerCount?: PlayerCount;
+
 }) {
 
-  const dealType = getDealType(dealNumber);
+  const dealType = getDealType(dealNumber, playerCount);
 
   const tip = title?.trim() ?? '';
 
@@ -162,6 +168,8 @@ export function GameInfoPlasmaTurnBlock({
 
   onMetaClick,
 
+  playerCount = 4,
+
   children,
 
 }: GameInfoPlasmaTurnBlockProps) {
@@ -191,6 +199,8 @@ export function GameInfoPlasmaTurnBlock({
           ariaLabel={metaAriaLabel}
 
           onClick={onMetaClick}
+
+          playerCount={playerCount}
 
         />
 

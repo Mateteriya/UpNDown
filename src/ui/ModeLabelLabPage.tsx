@@ -9,6 +9,7 @@ import { accountRouteHref } from '../lib/accountRoute';
 import { MenuPlaySplitCapsule } from './MenuEntryActions';
 import { AvatarStatusLabSection } from './mode-label-lab/AvatarStatusLab';
 import { GuestSwissLabSection } from './mode-label-lab/GuestSwissLab';
+import { HandLayoutLabSection } from './mode-label-lab/HandLayoutLab';
 import {
   ModeLabelCenterWatermarkCaption,
   ModeLabelCenterWatermarkGhost,
@@ -19,6 +20,7 @@ import {
 import '../styles/mode-label-lab.css';
 import '../styles/avatar-status-lab.css';
 import '../styles/guest-swiss-lab.css';
+import '../styles/hand-layout-lab.css';
 
 type LabelVariant = 'current' | 'hybrid' | 'holo' | 'orbit' | 'watermark';
 /** Полный = как на 16″+; компакт ≈ −22% под планшет / узкий ПК. */
@@ -134,10 +136,10 @@ export function ModeLabelLabPage({ onBack }: ModeLabelLabPageProps) {
           ← В приложение
         </button>
         <div>
-          <h1 className="mode-label-lab__title">Лаб: меню — надписи и статус аватарки</h1>
+          <h1 className="mode-label-lab__title">Лаб: меню, аватарка, рука 10–12</h1>
           <p className="mode-label-lab__hint">
-            Локальная песочница (`/mode-label-lab`). Сверху — облики guest-креста; дальше аватарка
-            profile / account и надписи режима. Прод не меняется.
+            Локальная песочница (`/mode-label-lab`). Сверху — слепок стола для руки 10–12; дальше
+            guest-крест, аватарка и надписи режима. Прод не меняется.
           </p>
         </div>
         <div className="mode-label-lab__density" role="group" aria-label="Плотность капсул">
@@ -175,6 +177,8 @@ export function ModeLabelLabPage({ onBack }: ModeLabelLabPageProps) {
       </header>
 
       <div className="mode-label-lab__body">
+        <HandLayoutLabSection />
+
         <GuestSwissLabSection />
 
         <AvatarStatusLabSection onOpenCabinet={() => (window.location.href = accountRouteHref())} />
