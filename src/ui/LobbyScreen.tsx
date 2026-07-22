@@ -79,11 +79,13 @@ export function LobbyScreen({
     stopAutoRestoreForCurrentRoom,
     settlementMode,
     buyIn,
+    maxPlayers,
     startGame,
   } = useOnlineGame();
 
   const [createBankRoom, setCreateBankRoom] = useState(false);
   const [createPublicRoom, setCreatePublicRoom] = useState(() => isWsOnlineConfigured());
+  const [createMaxPlayers, setCreateMaxPlayers] = useState<3 | 4>(4);
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [roomPeek, setRoomPeek] = useState<RoomPeekResult | null>(null);
   const [showHall, setShowHall] = useState(false);
@@ -242,6 +244,7 @@ export function LobbyScreen({
           return createRoom(playerId, name, shortLabel, {
             settlementMode: createBankRoom ? 'prize_pool' : 'accuracy_bonus',
             roomKind: createPublicRoom ? 'public' : 'private',
+            maxPlayers: createMaxPlayers,
           });
         })(),
         new Promise<LobbyWall>((resolve) => {
@@ -510,7 +513,7 @@ export function LobbyScreen({
           )}
           <div style={{ width: '100%', maxWidth: 280 }}>
             <p className="lobby-screen__players-label">
-              Игроков: {humanSlots.length} из 4
+              Игроков: {humanSlots.length} из {maxPlayers}
             </p>
             <ul className="lobby-screen__players-list">
               {humanSlots.map((s) => (
@@ -535,7 +538,7 @@ export function LobbyScreen({
             >
               {startingGame
                 ? 'Запуск…'
-                : humanSlots.length >= 4
+                : humanSlots.length >= maxPlayers
                   ? 'Начать игру'
                   : 'Начать игру с ИИ'}
             </button>
@@ -717,10 +720,12 @@ export function LobbyScreen({
             <LobbyCreatePanel
               createBankRoom={createBankRoom}
               createPublicRoom={createPublicRoom}
+              maxPlayers={createMaxPlayers}
               showPublicHallOption={PUBLIC_HALL_ENABLED && lanWs}
               creating={creating}
               onToggleBank={setCreateBankRoom}
               onTogglePublic={setCreatePublicRoom}
+              onMaxPlayersChange={setCreateMaxPlayers}
               onLaunch={() => void handleCreateRoom()}
               onCancel={() => setShowCreatePanel(false)}
             />
@@ -766,7 +771,7 @@ export function LobbyScreen({
           {roomPeek?.settlement_mode && (
             <p className="lobby-entry-peek">
               Комната: {settlementModeBadgeLabel(roomPeek.settlement_mode, roomPeek.buy_in ?? null)}
-              {roomPeek.human_count != null ? ` · игроков ${roomPeek.human_count}/4` : ''}
+              {roomPeek.human_count != null ? ` · игроков ${roomPeek.human_count}/${roomPeek.max_players ?? 4}` : ''}
             </p>
           )}
           {(joining || creating) && (

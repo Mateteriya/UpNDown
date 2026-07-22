@@ -321,6 +321,11 @@ function SwissBtn({ stage }: { stage: SwissStageId }) {
   );
 }
 
+/** Кнопка-крест из лаба (s7 и др.) — для гибридов support и guest. */
+export function SwissLabGlyph({ stage }: { stage: SwissStageId }) {
+  return <SwissBtn stage={stage} />;
+}
+
 function SwissStageCard({
   stage,
   title,

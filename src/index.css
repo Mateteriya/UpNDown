@@ -8087,107 +8087,6 @@
   }
 
   /*
-   * 10–12 карт (3 игрока): 9 в ряду как обычно + вертикальный «хвост» над правым концом.
-   * Стол уже справа через margin (не padding!) — иначе padding остаётся в hit-area и ест клики по хвосту.
-   * Хвост рендерится в fixed-портал (.game-mobile-hand-east-tail-col--portal), иначе
-   * .game-mobile-bottom-row { overflow:hidden } / .game-mobile-center перехватывают тапы.
-   * Пульс box-shadow на хвосте НЕ вешаем: свечение накрывает стол и дёргает кнопки заказа.
-   */
-  .game-table-root.viewport-mobile.game-mobile-hand-east-tail .game-center-table {
-    margin-right: var(--mobile-east-tail-gutter, 62px) !important;
-    box-sizing: border-box !important;
-  }
-  .game-table-root.viewport-mobile.game-mobile-hand-east-tail .game-mobile-center {
-    position: relative;
-    z-index: 1;
-  }
-  .game-table-root.viewport-mobile.game-mobile-hand-east-tail .game-mobile-hand-user-stack {
-    position: relative;
-    z-index: 6;
-    overflow: visible !important;
-  }
-  .game-table-root.viewport-mobile.game-mobile-hand-east-tail .game-mobile-hand-strip--east-tail,
-  .game-table-root.viewport-mobile.game-mobile-hand-east-tail .game-mobile-hand-frame--east-tail,
-  .game-table-root.viewport-mobile.game-mobile-hand-east-tail .game-mobile-south-panel-hand--east-tail {
-    overflow: visible !important;
-    position: relative !important;
-    z-index: 6;
-  }
-  /* Fixed-портал хвоста: вне overflow-клипа bottom-row, поверх стола */
-  .game-mobile-hand-east-tail-col.game-mobile-hand-east-tail-col--portal {
-    position: fixed;
-    right: 0;
-    bottom: 0;
-    /* Чуть выше горизонтальной рамки (+5px как прежний margin-bottom) */
-    display: flex;
-    /* column-reverse: первая карта хвоста (продолжение сортировки ряда) — у ряда снизу */
-    flex-direction: column-reverse;
-    align-items: center;
-    z-index: 90;
-    /*
-     * При column-reverse карты пакуются к низу content-box:
-     * меньше padding-bottom → карты ниже; больше padding-top → воздух сверху.
-     */
-    padding: 10px calc(var(--mobile-south-strip-inset-x, 6px) + 2px) 2px;
-    border-radius: 14px 14px 0 0;
-    /* Та же «умная» обводка, что у .game-mobile-hand-frame / handFrameStyle */
-    border: 1px solid rgba(34, 211, 238, 0.6);
-    border-bottom: none;
-    box-shadow:
-      0 0 0 1px rgba(34, 211, 238, 0.35),
-      0 0 20px rgba(34, 211, 238, 0.22),
-      0 0 40px rgba(34, 211, 238, 0.1),
-      inset 0 2px 4px rgba(255, 255, 255, 0.1),
-      inset 0 -1px 4px rgba(0, 0, 0, 0.12);
-    background: rgba(15, 23, 42, 0.35);
-    pointer-events: auto;
-    touch-action: manipulation;
-    line-height: 0;
-    box-sizing: border-box;
-  }
-  .game-mobile-hand-east-tail-col--portal .game-mobile-hand-east-tail-slot {
-    line-height: 0;
-    pointer-events: auto;
-    position: relative;
-    z-index: 1;
-  }
-  /* Ваш ход: пульс только на горизонтальной рамке — не на хвосте (иначе мигают кнопки заказа на столе) */
-  /* Волна по картам хвоста — transform, без box-shadow */
-  .game-mobile-hand-east-tail-col--portal.game-mobile-hand-east-tail-col--your-turn
-    > .game-mobile-hand-east-tail-slot {
-    transform-origin: center bottom;
-    overflow: visible !important;
-    animation: mobileHandCardWaveLift 2.85s cubic-bezier(0.42, 0, 0.58, 1) infinite;
-    animation-delay: calc(3.2s + (var(--hand-wave-index, 1) - 1) * 78ms);
-  }
-  .game-mobile-hand-east-tail-col--portal.game-mobile-hand-east-tail-col--your-turn
-    > .game-mobile-hand-east-tail-slot::after {
-    content: '';
-    position: absolute;
-    inset: 1px;
-    z-index: 4;
-    pointer-events: none;
-    border-radius: 6px;
-    background: linear-gradient(
-      to top,
-      rgba(196, 181, 253, 0.72) 0%,
-      rgba(255, 255, 255, 0.55) 22%,
-      rgba(186, 230, 253, 0.5) 48%,
-      rgba(56, 189, 248, 0.28) 74%,
-      rgba(196, 181, 253, 0.12) 100%
-    );
-    mix-blend-mode: soft-light;
-    opacity: 0;
-    will-change: opacity;
-    animation: mobileHandCardWaveGloss 2.85s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-    animation-delay: calc(3.2s + (var(--hand-wave-index, 1) - 1) * 78ms);
-  }
-  .game-mobile-hand-east-tail-col--portal.game-mobile-hand-east-tail-col--your-turn
-    > .game-mobile-hand-east-tail-slot:has(.card-dark-mobile-hand:not(.card-dark-suit-trump))::after {
-    animation: none !important;
-    opacity: 0 !important;
-  }
-  /*
    * Волна по картам: задержка через --hand-wave-index (GameTable). Только transform + opacity (::after) — без mix-blend и без анимации box-shadow.
    */
   .game-table-root.viewport-mobile .game-mobile-hand-strip .game-mobile-hand-frame.player-hand-your-turn > div > div,
@@ -8261,9 +8160,7 @@
     .game-table-root.viewport-mobile.viewport-mobile-short
       .game-mobile-south-panel-hand
       .game-mobile-hand-row.player-hand-your-turn
-      > div,
-    .game-mobile-hand-east-tail-col--portal.game-mobile-hand-east-tail-col--your-turn
-      > .game-mobile-hand-east-tail-slot {
+      > div {
       animation: none !important;
       transform: none !important;
     }
@@ -8271,9 +8168,7 @@
     .game-table-root.viewport-mobile.viewport-mobile-short
       .game-mobile-south-panel-hand
       .game-mobile-hand-row.player-hand-your-turn
-      > div::after,
-    .game-mobile-hand-east-tail-col--portal.game-mobile-hand-east-tail-col--your-turn
-      > .game-mobile-hand-east-tail-slot::after {
+      > div::after {
       animation: none !important;
       opacity: 0 !important;
     }
@@ -21540,6 +21435,41 @@ html.theme-standard
   animation: none;
   transform: scale(0.95);
   box-shadow: inset 0 1px 0 rgba(34, 211, 238, 0.4), inset 0 0 12px rgba(34, 211, 238, 0.2), 0 0 16px rgba(34, 211, 238, 0.5);
+}
+/* Запрещённая цифра заказа (сдающий): бледная цифра + кислотно-розовая неоновая полоса */
+.bid-panel-btn.bid-panel-btn--forbidden,
+.bid-panel-btn:disabled {
+  position: relative !important;
+  opacity: 0.75 !important;
+  color: rgba(148, 163, 184, 0.5) !important;
+  background: rgba(15, 23, 42, 0.58) !important;
+  border-color: rgba(71, 85, 105, 0.5) !important;
+  box-shadow: none !important;
+  animation: none !important;
+  cursor: not-allowed !important;
+  filter: none !important;
+}
+.bid-panel-btn.bid-panel-btn--forbidden::after,
+.bid-panel-btn:disabled::after {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    to top right,
+    transparent 0%,
+    transparent 42%,
+    #ff5ae8 46%,
+    #ffb3f5 50%,
+    #ff5ae8 54%,
+    transparent 58%,
+    transparent 100%
+  );
+  filter: drop-shadow(0 0 3px #ff4fd8)
+    drop-shadow(0 0 8px rgba(255, 79, 216, 0.9))
+    drop-shadow(0 0 14px rgba(255, 154, 239, 0.65));
 }
 /* Mobile landscape: кнопки-цифры заказа на столе — на 5% компактнее только по высоте. */
 .game-table-root.viewport-mobile.viewport-mobile-landscape .bid-panel-mobile-on-table-wrap .bid-panel-mobile-inline .bid-panel-btn {

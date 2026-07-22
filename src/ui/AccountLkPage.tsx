@@ -22,6 +22,7 @@ import { CosmicCockpit, CosmicGlassClose, CosmicPhysButton } from './CosmicCockp
 import { PlayerAvatar } from './PlayerAvatar';
 import { LobbyBackButton } from './LobbyEntryActions';
 import { MenuCapsuleButton } from './MenuEntryActions';
+import { SupportMenuButton } from './SupportMenuButton';
 
 const PC_LK_MQ = '(min-width: 1025px)';
 
@@ -283,13 +284,7 @@ export function AccountLkPage({
                 <MenuCapsuleButton variant="rating" compact title="Рейтинг" hint="подробно" onClick={onOpenRating} />
                 <MenuCapsuleButton variant="history" compact title="История" hint="все партии" onClick={onOpenHistory} />
                 {onOpenSupport ? (
-                  <MenuCapsuleButton
-                    variant="link"
-                    compact
-                    title="Поддержать"
-                    hint="донаты"
-                    onClick={onOpenSupport}
-                  />
+                  <SupportMenuButton onClick={onOpenSupport} />
                 ) : null}
               </div>
             </section>

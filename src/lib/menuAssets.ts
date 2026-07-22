@@ -123,6 +123,50 @@ export function preloadMenuPcCastUrl(url: string): void {
   }
 }
 
+const castDisplayCache = new Map<string, string>();
+
+/**
+ * C: для мобилки — decode/resize через createImageBitmap (~512px),
+ * чтобы в GPU не тащить полный 1024² JPG. Fallback = исходный url.
+ */
+export async function resolveMenuCastDisplayUrl(
+  url: string,
+  opts?: { maxEdge?: number },
+): Promise<string> {
+  const maxEdge = opts?.maxEdge ?? 512;
+  const cacheKey = `${url}|${maxEdge}`;
+  const cached = castDisplayCache.get(cacheKey);
+  if (cached) return cached;
+  if (typeof fetch !== 'function' || typeof createImageBitmap !== 'function') {
+    return url;
+  }
+  try {
+    const res = await fetch(url, { credentials: 'same-origin' });
+    if (!res.ok) return url;
+    const blob = await res.blob();
+    const bmp = await createImageBitmap(blob, {
+      resizeWidth: maxEdge,
+      resizeHeight: maxEdge,
+      resizeQuality: 'high',
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = bmp.width;
+    canvas.height = bmp.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      bmp.close();
+      return url;
+    }
+    ctx.drawImage(bmp, 0, 0);
+    bmp.close();
+    const out = canvas.toDataURL('image/jpeg', 0.82);
+    castDisplayCache.set(cacheKey, out);
+    return out;
+  } catch {
+    return url;
+  }
+}
+
 /**
  * @deprecated используйте takeMenuPcCastForMenuVisit / getMenuPcCastCurrent
  * Оставлено для совместимости: поведение как «новый визит меню».

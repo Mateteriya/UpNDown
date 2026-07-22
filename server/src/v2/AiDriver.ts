@@ -6,17 +6,17 @@ import { aiBid, aiPlay } from '../../../src/game/ai.js';
 import { placeBid, playCard, type GameState } from '../../../src/game/GameEngine.js';
 import type { PlayerSlot } from '../protocol.js';
 
-const AI_NAMES = ['ИИ Север', 'ИИ Восток', 'ИИ Юг', 'ИИ Запад'] as const;
+const AI_NAMES = ['ИИ Юг', 'ИИ Север', 'ИИ Запад', 'ИИ Восток'] as const;
 
-function fullSlots(slots: PlayerSlot[]): PlayerSlot[] {
+function fullSlots(slots: PlayerSlot[], maxPlayers = 4): PlayerSlot[] {
   const byIndex = new Map<number, PlayerSlot>();
   for (const s of slots ?? []) {
-    if (typeof s.slotIndex === 'number' && s.slotIndex >= 0 && s.slotIndex <= 3) {
+    if (typeof s.slotIndex === 'number' && s.slotIndex >= 0 && s.slotIndex < maxPlayers) {
       byIndex.set(s.slotIndex, s);
     }
   }
   const out: PlayerSlot[] = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < maxPlayers; i++) {
     out.push(
       byIndex.get(i) ?? {
         slotIndex: i,
@@ -51,7 +51,7 @@ export function tryAiStep(state: GameState, slots: PlayerSlot[]): GameState | nu
   }
 
   const idx = state.currentPlayerIndex;
-  const full = fullSlots(slots);
+  const full = fullSlots(slots, state.players.length === 3 ? 3 : 4);
   const slot = full.find((s) => s.slotIndex === idx);
   if (!mayDriveAiSeat(slot)) return null;
 

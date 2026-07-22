@@ -141,6 +141,8 @@ export interface CardViewProps {
   mobileTrumpGlowActive?: boolean;
   /** true = карта доступна для хода (в масть или козырь при отсутствии масти) — подсвечивать в мобильной руке. */
   highlightAsValidPlay?: boolean;
+  /** Для вариантов раскладки: доступная карта смещается влево, а не вверх. */
+  handPlayableSlideLeft?: boolean;
   /** true = этап заказа взяток и это козырь в руке — показывать проходящий блеск раз в секунду. */
   mobileTrumpShineBidding?: boolean;
   /** Моб. рука в нахлёсте: палец ведут по ряду — карта под пальцем чуть ниже и крупнее (без отдельного клика). */
@@ -675,7 +677,7 @@ function darkSuitTrumpValidPlayAccentHand(baseRing: string, ringColor: string) {
   ].join(', ');
 }
 
-export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, mobileTrumpShineBidding = false, mobileHandPeekLift = false, mobileOverlapHandPointerPassthrough = false, labDarkCardFace = false, labCardTheme, labDarkSuitVariant = 'default', labRotateContent90 = false, labFaceRotateDeg = 90 }: CardViewProps) {
+export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, handPlayableSlideLeft = false, mobileTrumpShineBidding = false, mobileHandPeekLift = false, mobileOverlapHandPointerPassthrough = false, labDarkCardFace = false, labCardTheme, labDarkSuitVariant = 'default', labRotateContent90 = false, labFaceRotateDeg = 90 }: CardViewProps) {
   const { theme, cardTheme } = useTheme();
   const inLab = labDarkCardFace || labCardTheme !== undefined;
   const effectiveCardTheme: CardTheme = labCardTheme ?? (labDarkCardFace ? 'dark' : cardTheme);
@@ -1067,6 +1069,9 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         darkHandValidPlayHighlight ? 'card-dark-hand-playable' : null,
         darkHandValidPlayTrump ? 'card-dark-hand-playable-trump' : null,
         standardHandPlayableLift ? 'card-hand-playable-lift' : null,
+        (darkHandValidPlayHighlight || standardHandPlayableLift) && handPlayableSlideLeft
+          ? 'card-hand-playable-slide-left'
+          : null,
         mobileDarkSuitFace && isMobileDarkTrump ? 'card-dark-suit-trump' : null,
         trumpOnDeck
           ? trumpDeckHighlightOn
@@ -1198,11 +1203,17 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
           ? { transform: 'scale(1.06)', transformOrigin: 'center bottom' }
           : {}),
         ...(!labRotateContent90 && (darkHandValidPlayHighlight || standardHandPlayableLift)
-          ? {
-              transform: 'translateY(-4px) scale(1.05)',
-              transformOrigin: 'center bottom',
-              zIndex: 12,
-            }
+          ? handPlayableSlideLeft
+            ? {
+                transform: 'translateX(-4px) scale(1.05)',
+                transformOrigin: 'right center',
+                zIndex: 12,
+              }
+            : {
+                transform: 'translateY(-4px) scale(1.05)',
+                transformOrigin: 'center bottom',
+                zIndex: 12,
+              }
           : {}),
         ...(!labRotateContent90 && mobileHandPeekLift && suitIndexInHandMobile && !pcCardStyles
           ? {
@@ -1227,7 +1238,9 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
       onMouseEnter={e => {
         if (labRotateContent90 || disabled || mobileDarkSuitFace) return;
         const n = suitNeonBorder[card.suit] ?? suitNeonBorder['♠'];
-        e.currentTarget.style.transform = 'translateY(-4px)';
+        e.currentTarget.style.transform = handPlayableSlideLeft
+          ? 'translateX(-4px)'
+          : 'translateY(-4px)';
         const hoverShadow = isTrumpOnTable
           ? `0 4px 12px rgba(0,0,0,0.25), ${n.outline}, 0 0 14px ${n.border}99`
           : `0 4px 12px rgba(0,0,0,0.25), ${n.outline}`;

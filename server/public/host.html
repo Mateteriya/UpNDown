@@ -54,6 +54,24 @@
       color: var(--green); text-align: left; cursor: pointer;
     }
     .hall-opt input { margin-top: 3px; accent-color: var(--green); }
+    .seat-opt {
+      margin: 0 0 12px; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid rgba(232, 184, 74, 0.28); background: rgba(232, 184, 74, 0.06);
+      text-align: left;
+    }
+    .seat-opt__title {
+      display: block; margin-bottom: 8px; font-size: 0.82rem; font-weight: 700; color: var(--gold);
+    }
+    .seat-opt__row { display: flex; gap: 8px; }
+    .seat-btn {
+      flex: 1; padding: 11px 10px; border-radius: 10px;
+      border: 1px solid rgba(168, 132, 104, 0.35); background: var(--inset);
+      font: 800 0.95rem Inter, system-ui, sans-serif; color: var(--bronze); cursor: pointer;
+    }
+    .seat-btn[aria-pressed="true"] {
+      border-color: rgba(232, 184, 74, 0.65); color: var(--gold);
+      background: rgba(232, 184, 74, 0.12); box-shadow: 0 0 0 1px rgba(232, 184, 74, 0.2);
+    }
     .cta {
       width: 100%; padding: 15px; border: none; border-radius: 12px;
       font: 800 0.95rem Inter, system-ui, sans-serif; color: #1a1008;
@@ -186,6 +204,13 @@
     </header>
     <section class="card" id="setupCard">
       <p class="hint" id="netHint">Подключите телефоны к той же Wi‑Fi, что и этот компьютер.</p>
+      <div class="seat-opt" role="group" aria-label="Число игроков">
+        <span class="seat-opt__title">Игроков за столом</span>
+        <div class="seat-opt__row">
+          <button type="button" class="seat-btn" id="seatBtn3" aria-pressed="false" data-seats="3">3</button>
+          <button type="button" class="seat-btn" id="seatBtn4" aria-pressed="true" data-seats="4">4</button>
+        </div>
+      </div>
       <label class="hall-opt" id="hallOptWrap">
         <input type="checkbox" id="chkShowHall" checked />
         <span>Показывать стол в «Зале столов»</span>
@@ -233,6 +258,7 @@
     })();
 
     let ws = null, pending = new Map(), network = null, currentRoom = null;
+    let maxPlayers = 4;
 
     const statusPill = document.getElementById('statusPill');
     const statusText = document.getElementById('statusText');
@@ -298,10 +324,21 @@
 
     function updateRoomMeta(room) {
       const n = (room.player_slots || []).filter((s) => s.userId).length;
+      const cap = room.max_players === 3 ? 3 : 4;
+      const seats = n + '/' + cap + (cap === 3 ? ' · втроём' : '');
       roomMetaEl.textContent = room.status === 'playing'
-        ? 'Идёт игра · ' + n + ' в сети'
-        : n ? 'В лобби: ' + n : 'Ждём игроков';
+        ? 'Идёт игра · ' + seats
+        : n ? 'В лобби: ' + seats : 'Ждём игроков · стол на ' + cap;
     }
+
+    function setMaxPlayers(n) {
+      maxPlayers = n === 3 ? 3 : 4;
+      document.getElementById('seatBtn3').setAttribute('aria-pressed', maxPlayers === 3 ? 'true' : 'false');
+      document.getElementById('seatBtn4').setAttribute('aria-pressed', maxPlayers === 4 ? 'true' : 'false');
+    }
+
+    document.getElementById('seatBtn3').onclick = () => setMaxPlayers(3);
+    document.getElementById('seatBtn4').onclick = () => setMaxPlayers(4);
 
     function showRoom(room) {
       document.getElementById('qrImg').src = '/api/qr?code=' + encodeURIComponent(room.code) + '&_=' + Date.now();
@@ -548,6 +585,7 @@
           displayName: 'Сервер',
           hostDedicated: true,
           roomKind: inHall ? 'public' : 'private',
+          maxPlayers,
           protocolVersion: 2,
         });
         if (!res.ok || !res.room) throw new Error('Не вышло');

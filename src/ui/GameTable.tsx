@@ -23,13 +23,13 @@ import {
   getDealType,
   getTricksInDeal,
   dealsPerMatch,
-  playerAtLeftFrom,
   playerCountOf,
   placeBid,
   playCard,
   completeTrick,
   getValidPlays,
   isHumanPlayer,
+  playerAtLeftFrom,
 } from '../game/GameEngine';
 import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating, getPlayerProfile } from '../game/persistence';
 import { appendPartyHistoryRecord, buildPartyHistoryRecord } from '../game/partyHistory';
@@ -217,6 +217,10 @@ const MOBILE_HAND_9_ULTRA_TIGHT_MAX_VW = 312;
 const MOBILE_HAND_9_OVERLAP_BASE_PX = 5;
 const MOBILE_HAND_9_OVERLAP_TIGHT313_PX = 7;
 const MOBILE_HAND_9_OVERLAP_ULTRA312_PX = 10;
+const MOBILE_L_HAND_FROM_LEN = 10;
+const MOBILE_L_HAND_MAIN_MAX = 9;
+/** Запас справа у сукна под вертикаль L (≈ карта + рамка), только при expanded. */
+const MOBILE_L_HAND_GUTTER_PX = 63.5;
 /** 8 карт: ступени как у 9 карт только при очень узком экране — иначе 8 влезают без «девяткиного» нахлёста */
 const MOBILE_HAND_8_NARROW_MAX_VW = 300;
 /** ≤7 карт: сильный нахлёст при очень узком viewport (<292) */
@@ -233,16 +237,6 @@ function mobileSouthStripInsetPx(_vw: number): number {
 }
 /** Компактная карта в руке: CardView bw=52, scale=0.72 */
 const MOBILE_HAND_CARD_BODY_W = Math.round(52 * 0.72);
-/**
- * 10+ карт (игра втроём): первые 9 — обычный ряд Юга; лишние 1–3 — вертикальный «хвост»
- * над правым концом ряда (пустое место Востока). Стол временно уже справа.
- */
-const MOBILE_HAND_EAST_TAIL_FROM_LEN = 10;
-const MOBILE_HAND_EAST_TAIL_MAIN_MAX = 9;
-/** Запас справа у сукна под столбик хвоста (≈ ширина карты + рамка). */
-const MOBILE_EAST_TAIL_GUTTER_PX = 62;
-/** Сдвиг fixed-хвоста влево от правого края рамки руки (px). */
-const MOBILE_EAST_TAIL_NUDGE_LEFT_PX = 6;
 /** Моб. нахлёст: жест «пианино» — мягкий вход (disabled-кнопки не получают события, слушаем capture на ряду) */
 const MOBILE_OVERLAP_SCRUB_ACTIVATE_DIST = 7;
 const MOBILE_OVERLAP_SCRUB_ACTIVATE_DX = 5;
@@ -946,10 +940,11 @@ const TRICK_PAUSE_MS = 5500;
 /** Задержка бейджа «ждём вашу карту» в слоте Юга после начала хода. */
 const HUMAN_TRICK_WAIT_BADGE_DELAY_MS = 2500;
 
+/** После rotateState индексы display образуют тот же круг, что у Юга — ходим playerAtLeftFrom как в офлайне. */
 function getTrickPlayerIndex(
   trickLeaderIndex: number,
   cardIndex: number,
-  playerCount: PlayerCount = 4
+  playerCount: PlayerCount = 4,
 ): number {
   return playerAtLeftFrom(trickLeaderIndex, cardIndex, playerCount);
 }
@@ -981,11 +976,22 @@ function getTrickLandscapeSlotStyle(
   const westRight = `calc(${eastEdge} + ${cardHw} + 2 * ${hw})`;
   const nsEdge = `calc(${eastEdge} + ${cardHh})`;
   if (playerCount === 3) {
+    /* Треугольник: боковой (2) слева-сверху, напротив (1) справа-сверху — как у Юга. */
     switch (playerIdx) {
       case 2:
-        return { ...base, right: westRight, top: nsEdge, transform: 'translate(50%, -50%)' };
+        return {
+          ...base,
+          right: westRight,
+          top: nsEdge,
+          transform: 'translate(50%, -50%)',
+        };
       case 1:
-        return { ...base, right: eastCenter, top: nsEdge, transform: 'translate(50%, -50%)' };
+        return {
+          ...base,
+          right: eastCenter,
+          top: nsEdge,
+          transform: 'translate(50%, -50%)',
+        };
       case 0:
         return { ...base, right: midRight, bottom: nsEdge, transform: 'translate(50%, 50%)' };
       default:
@@ -1029,7 +1035,6 @@ function getTrickCardSlotStyle(
     const gridX = 'var(--trick-slot-grid-offset-x, 0)';
     const mobileBase = { ...base, left: '50%', top: '50%' };
     if (playerCount === 3) {
-      /** Верх: З (2) и С (1) шире; низ: Ю (0) по центру между ними. */
       const x = 'var(--trick-slot-three-x, 52px)';
       const y = 'var(--trick-slot-three-y, 44px)';
       switch (playerIdx) {
@@ -1063,7 +1068,6 @@ function getTrickCardSlotStyle(
       default: return { ...mobileBase, transform: `translate(calc(-50% - ${hw} - ${g} + ${gridX}), calc(${g}))` };
     }
   }
-  // ПК
   const offsetEdge = 'var(--trick-slot-offset-edge, 17px)';
   const offsetWestEast = 'var(--trick-slot-offset-west-east, 101px)';
   const nsOffset = 'var(--trick-slot-ns-offset-x, 28px)';
@@ -1072,9 +1076,19 @@ function getTrickCardSlotStyle(
     const topRight = 'var(--trick-slot-three-pc-right, 74%)';
     switch (playerIdx) {
       case 2:
-        return { ...base, top: offsetEdge, left: topLeft, transform: 'translate(-50%, 0)' };
+        return {
+          ...base,
+          top: offsetEdge,
+          left: topLeft,
+          transform: 'translate(-50%, 0)',
+        };
       case 1:
-        return { ...base, top: offsetEdge, left: topRight, transform: 'translate(-50%, 0)' };
+        return {
+          ...base,
+          top: offsetEdge,
+          left: topRight,
+          transform: 'translate(-50%, 0)',
+        };
       case 0:
         return { ...base, bottom: offsetEdge, left: '50%', transform: 'translateX(-50%)' };
       default:
@@ -1673,10 +1687,10 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const isWaitingInRoom = !!(online.roomId && online.status === 'waiting');
   const waitingState = useMemo(() => {
     if (!isWaitingInRoom) return null;
-    const names: [string, string, string, string] = [0, 1, 2, 3].map((i) => {
+    const names = Array.from({ length: online.maxPlayers }, (_, i) => {
       const s = online.playerSlots.find((sl) => sl.slotIndex === i);
       return s ? s.displayName : '—';
-    }) as [string, string, string, string];
+    }) as [string, string, string] | [string, string, string, string];
     return createGameOnline(names);
   }, [isWaitingInRoom, online.playerSlots]);
   /** Комната + активная или завершённая партия на сервере (для displayState и чата). */
@@ -1873,7 +1887,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         name:
           i === 0
             ? (playerDisplayName?.trim() || 'Игрок')
-            : (slots.length ? (slots.find((s) => s.slotIndex === getCanonicalIndexForDisplay(i, me))?.displayName ?? p.name) : p.name),
+            : (slots.length ? (slots.find((s) => s.slotIndex === getCanonicalIndexForDisplay(i, me, state.players.length === 3 ? 3 : 4))?.displayName ?? p.name) : p.name),
       })),
     };
     if (isWaitingInRoom) {
@@ -2053,6 +2067,8 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const [pcHandIdlePulsePc, setPcHandIdlePulsePc] = useState(false);
   /** Мобильная панель юга: та же гирлянда, через USER_PANEL_GARLAND_DELAY_MOBILE_MS, только playing и пока нет pendingTrickCompletion. */
   const [userTurnGarlandReadyMobile, setUserTurnGarlandReadyMobile] = useState(false);
+  /** Мобильная L-рука: false = вертикальная часть видна, true = все карты в одном ряду. */
+  const [mobileLHandFlat, setMobileLHandFlat] = useState(false);
   /** Мобильная панель Юга: подпись «Очки» у бейджа очков (как у оппонентов, тап переключает). */
   const [mobileSouthUserScoreExpanded, setMobileSouthUserScoreExpanded] = useState(false);
   const [lastTrickCollectingPhase, setLastTrickCollectingPhase] = useState<
@@ -4008,6 +4024,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   }, [isMobile, dealResultsExpanded, dealResultsMobileStretchPx]);
 
   const humanIdx = isOnline || isWaitingInRoom ? 0 : 0;
+  /** На троих — Запад+Север; Восток только на четверых (как офлайн). */
+  const showWestSideSeat = true;
+  const showEastSeatFour = !!state && playerCountOf(state) > 3;
   const isHumanTurn = state?.phase === 'playing' && state.currentPlayerIndex === humanIdx;
   const humanAlreadyPlayedCurrentTrick =
     state?.phase === 'playing' &&
@@ -4092,9 +4111,13 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const mobileSouthHandLayout = useMemo(() => {
     if (!isMobile || !state) return null;
     const mobileHandLen = state.players[humanIdx].hand.length;
-    const eastTailActive = mobileHandLen >= MOBILE_HAND_EAST_TAIL_FROM_LEN;
-    /** Ряд Юга при хвосте считаем как эталонные 9 — без сжатия «под 12». */
-    const layoutHandLen = eastTailActive ? MOBILE_HAND_EAST_TAIL_MAIN_MAX : mobileHandLen;
+    const lHandEligible =
+      !isMobileLandscape &&
+      !mobileShortHeaderImmersive &&
+      mobileHandLen >= MOBILE_L_HAND_FROM_LEN;
+    const lHandExpanded = lHandEligible && !mobileLHandFlat;
+    const lHandFlat = lHandEligible && mobileLHandFlat;
+    const layoutHandLen = lHandExpanded ? MOBILE_L_HAND_MAIN_MAX : mobileHandLen;
     /*
      * При zoom>1 на .game-mobile-user-south-main карты визуально крупнее того же layout в CSS px —
      * если считать нахлёст/scale по сыроу vw, ряд выпирает из .game-mobile-south-panel-hand.
@@ -4111,7 +4134,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     return {
       mobileHandLen,
       layoutHandLen,
-      eastTailActive,
+      lHandEligible,
+      lHandExpanded,
+      lHandFlat,
       m9,
       overlapPx: fit.overlapPx,
       rowTransform: rowScale < 0.998 ? (`scale(${rowScale})` as const) : undefined,
@@ -4122,74 +4147,217 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     state,
     humanIdx,
     mobileHandLayoutVw,
+    mobileLHandFlat,
+    mobileShortHeaderImmersive,
+    isMobileLandscape,
     prefersReducedMotion,
     shortVhSouthUiScale,
   ]);
 
-  /** Карты хвоста Востока (10+) — рендер в fixed-портале, иначе стол/overflow перехватывают тапы. */
-  const mobileEastTailCards = useMemo(() => {
-    if (!isMobile || !state || !mobileSouthHandLayout?.eastTailActive) return [];
-    return state.players[humanIdx].hand
+  useEffect(() => {
+    if (!mobileSouthHandLayout?.lHandEligible) setMobileLHandFlat(false);
+  }, [mobileSouthHandLayout?.lHandEligible]);
+
+  const toggleMobileLHand = useCallback(() => {
+    const update = () => setMobileLHandFlat((flat) => !flat);
+    const doc = document as Document & {
+      startViewTransition?: (callback: () => void) => { finished: Promise<void> };
+    };
+    if (typeof doc.startViewTransition === 'function') doc.startViewTransition(update);
+    else update();
+  }, []);
+
+  const renderMobileLHand = (shortViewport: boolean) => {
+    const layout = mobileSouthHandLayout;
+    if (!layout?.lHandEligible || !state) return null;
+
+    const { m9, overlapPx, rowTransform, lHandExpanded, lHandFlat } = layout;
+    const sortedHand = state.players[humanIdx].hand
       .slice()
-      .sort((a, b) => cardSort(a, b, state.trump))
-      .slice(MOBILE_HAND_EAST_TAIL_MAIN_MAX);
-  }, [isMobile, state, humanIdx, mobileSouthHandLayout?.eastTailActive]);
-
-  const mobileEastTailFrameRef = useRef<HTMLDivElement | null>(null);
-  const [mobileEastTailFixedPos, setMobileEastTailFixedPos] = useState<{
-    right: number;
-    bottom: number;
-  } | null>(null);
-
-  useLayoutEffect(() => {
-    if (!mobileSouthHandLayout?.eastTailActive || mobileEastTailCards.length === 0) {
-      setMobileEastTailFixedPos(null);
-      return;
-    }
-    const sync = () => {
-      const frame = mobileEastTailFrameRef.current;
-      if (!frame) return;
-      const r = frame.getBoundingClientRect();
-      if (!Number.isFinite(r.top) || !Number.isFinite(r.right) || r.width <= 0) return;
-      const insetExtend = MOBILE_SOUTH_STRIP_INSET_PX + MOBILE_HAND_FRAME_EXTRA_INLINE_PX;
-      const next = {
-        right: Math.max(
-          0,
-          Math.round(window.innerWidth - r.right - insetExtend + MOBILE_EAST_TAIL_NUDGE_LEFT_PX),
-        ),
-        bottom: Math.max(0, Math.round(window.innerHeight - r.top + 5)),
-      };
-      setMobileEastTailFixedPos((prev) =>
-        prev && prev.right === next.right && prev.bottom === next.bottom ? prev : next,
+      .sort((a, b) => cardSort(a, b, state.trump));
+    const rowHand = lHandExpanded ? sortedHand.slice(0, MOBILE_L_HAND_MAIN_MAX) : sortedHand;
+    const tailHand = sortedHand.slice(MOBILE_L_HAND_MAIN_MAX);
+    const humanAlreadyPlayedCurrentTrick =
+      state.phase === 'playing' &&
+      state.currentTrick.some(
+        (_, trickCardIndex) =>
+          getTrickPlayerIndex(state.trickLeaderIndex, trickCardIndex, playerCountOf(state)) === humanIdx,
+      );
+    const renderCard = (card: Card, i: number, vertical: boolean, rowLength: number) => {
+      const isValidPlay =
+        state.phase === 'playing' &&
+        state.currentPlayerIndex === humanIdx &&
+        !humanAlreadyPlayedCurrentTrick &&
+        validPlays.some((candidate) => candidate.suit === card.suit && candidate.rank === card.rank);
+      const handCardDisabled =
+        !!state.pendingTrickCompletion ||
+        !isHumanTurn ||
+        humanAlreadyPlayedCurrentTrick ||
+        !validPlays.some((candidate) => candidate.suit === card.suit && candidate.rank === card.rank);
+      return (
+        <div
+          key={`l-hand-${vertical ? 'v' : 'h'}-${card.suit}-${card.rank}-${i}`}
+          className="game-mobile-l-hand-card-slot"
+          style={{
+            marginRight: !vertical && overlapPx > 0 && i < rowLength - 1 ? -overlapPx : 0,
+            padding: m9.slotPadding,
+            zIndex: (isValidPlay ? 3 : 2) + (!vertical && overlapPx > 0 ? i : 0),
+            ...(vertical && state.currentPlayerIndex === humanIdx
+              ? ({ '--hand-wave-index': i + 1 } as CSSProperties)
+              : {}),
+          }}
+        >
+          <CardView
+            card={card}
+            scale={0.72}
+            contentScale={1.5}
+            compact
+            showDesktopFaceIndices
+            suitIndexInHandMobile
+            biddingHighlightMobile={isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding')}
+            doubleBorder={false}
+            isTrumpOnTable={false}
+            trumpHighlightOn={trumpHighlightOn}
+            isTrumpInHand={state.trump !== null && card.suit === state.trump}
+            forceMobileTrumpGlow={
+              isMobileOrTablet &&
+              state.trump !== null &&
+              card.suit === state.trump &&
+              (state.phase === 'bidding' ||
+                state.phase === 'dark-bidding' ||
+                (state.phase === 'playing' &&
+                  state.currentPlayerIndex === humanIdx &&
+                  state.currentTrick.length === 0))
+            }
+            mobileTrumpGlowActive={
+              state.phase === 'bidding' ||
+              state.phase === 'dark-bidding' ||
+              (state.phase === 'playing' &&
+                state.currentPlayerIndex === humanIdx &&
+                state.currentTrick.length === 0)
+            }
+            highlightAsValidPlay={isValidPlay}
+            handPlayableSlideLeft={vertical && isValidPlay}
+            mobileTrumpShineBidding={
+              (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+              state.trump !== null &&
+              card.suit === state.trump
+            }
+            showPipZoneBorders={false}
+            pcCardStyles={false}
+            thinBorder
+            onClick={() => {
+              if (
+                !state.pendingTrickCompletion &&
+                isHumanTurn &&
+                !humanAlreadyPlayedCurrentTrick &&
+                validPlays.some((candidate) => candidate.suit === card.suit && candidate.rank === card.rank)
+              ) {
+                if (isOnlinePlayPhase) online.sendPlay(card);
+                else setLocalState((prev) => prev && playCard(prev, humanIdx, card));
+              }
+            }}
+            disabled={handCardDisabled}
+          />
+        </div>
       );
     };
-    sync();
-    const wrap = mobileShortMainWrapRef.current;
-    wrap?.addEventListener('scroll', sync, { passive: true });
-    window.addEventListener('resize', sync);
-    window.addEventListener('scroll', sync, true);
-    const vv = window.visualViewport;
-    vv?.addEventListener('resize', sync);
-    vv?.addEventListener('scroll', sync);
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(sync) : null;
-    const frame = mobileEastTailFrameRef.current;
-    if (frame) ro?.observe(frame);
-    return () => {
-      wrap?.removeEventListener('scroll', sync);
-      window.removeEventListener('resize', sync);
-      window.removeEventListener('scroll', sync, true);
-      vv?.removeEventListener('resize', sync);
-      vv?.removeEventListener('scroll', sync);
-      ro?.disconnect();
-    };
-  }, [
-    mobileSouthHandLayout?.eastTailActive,
-    mobileEastTailCards.length,
-    mobileHandLayoutVw,
-    shortVhSouthUiScale,
-    mobileViewportShort,
-    state?.players[humanIdx]?.hand?.length,
-  ]);
+
+    return (
+      <div
+        role="region"
+        aria-label="Ваши карты"
+        className={[
+          shortViewport ? 'game-mobile-south-panel-hand' : 'game-mobile-hand-strip',
+          'game-mobile-l-hand',
+          lHandExpanded ? 'game-mobile-l-hand--expanded' : '',
+          lHandFlat ? 'game-mobile-l-hand--flat' : '',
+          state.currentPlayerIndex === humanIdx ? 'game-mobile-l-hand--your-turn' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        style={
+          shortViewport
+            ? {
+                gridColumn: '1 / -1',
+                gridRow: 1,
+                justifySelf: 'stretch',
+                width: '100%',
+                minWidth: 0,
+                position: 'relative',
+              }
+            : { width: '100%', maxWidth: '100%', flexShrink: 0, boxSizing: 'border-box' }
+        }
+      >
+        <div className="game-mobile-l-hand-shell">
+          <div
+            className={[
+              'game-mobile-l-hand-arm-v',
+              lHandFlat ? 'game-mobile-l-hand-arm-v--collapsed' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            aria-label={`Ещё ${tailHand.length} карт`}
+            aria-hidden={lHandFlat}
+          >
+            {lHandExpanded ? (
+              <button
+                type="button"
+                className="game-mobile-l-hand-crest"
+                aria-label="Свернуть вертикальный ряд в одну горизонтальную линию"
+                aria-expanded
+                title="В один ряд"
+                onClick={toggleMobileLHand}
+              >
+                <svg viewBox="0 0 14 36" width="14" height="36" aria-hidden focusable="false">
+                  <path d="M7 9 L1.5 2.5 L12.5 2.5 Z" />
+                  <path d="M7 20 L1.5 13.5 L12.5 13.5 Z" />
+                  <path d="M7 31 L1.5 24.5 L12.5 24.5 Z" />
+                </svg>
+              </button>
+            ) : null}
+            {/* column-reverse: у стыка с H — следующая после 9-й; сверху — последняя руки */}
+            <div className="game-mobile-l-hand-arm-v-cards">
+              {tailHand.map((card, i) => renderCard(card, i, true, tailHand.length))}
+            </div>
+          </div>
+          <div className="game-mobile-l-hand-arm-h">
+            <div
+              className="game-mobile-hand-row game-mobile-l-hand-row"
+              style={{
+                ...handStyle,
+                width: 'max-content',
+                maxWidth: '100%',
+                justifyContent: 'center',
+                ...(rowTransform ? { transform: rowTransform, transformOrigin: 'center bottom' as const } : {}),
+              }}
+            >
+              {rowHand.map((card, i) => renderCard(card, i, false, rowHand.length))}
+            </div>
+            {lHandFlat ? (
+              <button
+                type="button"
+                className="game-mobile-l-hand-crest game-mobile-l-hand-crest--docked"
+                aria-label="Показать вертикальный ряд"
+                aria-expanded={false}
+                title="Развернуть L"
+                onClick={toggleMobileLHand}
+              >
+                <svg viewBox="0 0 14 36" width="11" height="28" aria-hidden focusable="false">
+                  <path d="M7 9 L1.5 2.5 L12.5 2.5 Z" />
+                  <path d="M7 20 L1.5 13.5 L12.5 13.5 Z" />
+                  <path d="M7 31 L1.5 24.5 L12.5 24.5 Z" />
+                </svg>
+              </button>
+            ) : null}
+            {trumpHighlightOn && userTurnGarlandReadyMobile && isUserActiveTurnForGarlandMobile ? (
+              <UserPanelGarlandOverlay durationMs={USER_PANEL_GARLAND_HAND_DURATION_MS} />
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   /** Landscape · Юг: фиксированная ширина панели как при 9 картах (калибровка ≥660×330). */
   useLayoutEffect(() => {
@@ -4906,11 +5074,20 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
 
   const validPlays = state && isHumanTurn ? getValidPlays(state, humanIdx) : [];
 
-  const invalidBid =
-    state && isHumanBidding && state.dealerIndex === humanIdx &&
-    state.bids[1] !== null && state.bids[2] !== null && state.bids[3] !== null
-      ? state.tricksInDeal - (state.bids[1]! + state.bids[2]! + state.bids[3]!)
-      : null;
+  /** Запрещённая цифра у сдающего: сумма заказов не должна равняться взяткам в раздаче. */
+  const invalidBid = (() => {
+    if (!state || !isHumanBidding || state.dealerIndex !== humanIdx) return null;
+    const n = playerCountOf(state);
+    const others: number[] = [];
+    for (let i = 0; i < n; i++) {
+      if (i === humanIdx) continue;
+      const b = state.bids[i];
+      if (b === null || b === undefined) return null;
+      others.push(b);
+    }
+    if (others.length !== n - 1) return null;
+    return state.tricksInDeal - others.reduce((a, b) => a + b, 0);
+  })();
 
   const handleBid = useCallback((bid: number) => {
     if (isOnlinePlayPhase) {
@@ -5486,8 +5663,8 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const tableAiBotSeats = useMemo((): AiBotTableSeat[] => {
     const seats: AiBotTableSeat[] = [];
     if (online.roomId) {
-      for (let displayIdx = 1; displayIdx <= 3; displayIdx += 1) {
-        const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex);
+      for (let displayIdx = 1; displayIdx < (stateToShow?.players.length ?? online.maxPlayers); displayIdx += 1) {
+        const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex, stateToShow?.players.length === 3 ? 3 : 4);
         const slot = online.playerSlots.find((s) => s.slotIndex === canon);
         if (!slot || !isOnlineAiControlledSlot(slot)) continue;
         seats.push({
@@ -5500,7 +5677,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     }
     const players = stateToShow?.players;
     if (!players) return seats;
-    for (let displayIdx = 1; displayIdx <= 3; displayIdx += 1) {
+    for (let displayIdx = 1; displayIdx < players.length; displayIdx += 1) {
       const player = players[displayIdx];
       if (!isOfflineAiBotId(player?.id)) continue;
       seats.push({
@@ -5536,7 +5713,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const resolveDisplayPlayerAvatar = (displayIdx: number): string | undefined => {
     if (displayIdx === 0) return playerAvatarDataUrl ?? undefined;
     if (online.roomId) {
-      const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex);
+      const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex, displayState.players.length === 3 ? 3 : 4);
       const slot = online.playerSlots.find((s) => s.slotIndex === canon);
       if (slot && !isOnlineAiControlledSlot(slot)) {
         return slot.avatarDataUrl ?? undefined;
@@ -5574,7 +5751,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const isDisplayIndexAiPlayer = (displayIdx: number): boolean => {
     if (displayIdx === 0) return false;
     if (online.roomId) {
-      const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex);
+      const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex, displayState.players.length === 3 ? 3 : 4);
       const slot = online.playerSlots.find((s) => s.slotIndex === canon);
       return isOnlineAiControlledSlot(slot);
     }
@@ -5583,7 +5760,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
 
   const resolveAiAvatarVariantForDisplayIndex = (displayIdx: number): number => {
     if (online.roomId) {
-      const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex);
+      const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex, displayState.players.length === 3 ? 3 : 4);
       const seatKey = onlineAiBotAvatarKey(canon);
       const customPick = premiumAiAvatarCustomization ? getOnlineAiBotAvatarPick(canon) : null;
       return resolveAiBotAvatarVariantIndex({
@@ -5608,7 +5785,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const resolveDisplayPlayerName = (displayIdx: number): string => {
     if (displayIdx === 0) return playerDisplayName?.trim() || displayState.players[0]?.name || 'Игрок';
     if (online.roomId) {
-      const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex);
+      const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex, displayState.players.length === 3 ? 3 : 4);
       return (
         online.playerSlots.find((s) => s.slotIndex === canon)?.displayName?.trim() ||
         displayState.players[displayIdx]?.name ||
@@ -5693,7 +5870,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             currentVariant: resolveAiAvatarVariantForDisplayIndex(idx),
             onSelect: (variantIndex: number) => {
               if (online.roomId) {
-                const canon = getCanonicalIndexForDisplay(idx, online.myServerIndex);
+                const canon = getCanonicalIndexForDisplay(idx, online.myServerIndex, displayState.players.length === 3 ? 3 : 4);
                 setOnlineAiBotAvatarPick(canon, variantIndex);
               } else {
                 const botId = displayState.players[idx]?.id;
@@ -6787,7 +6964,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         compactMode={isMobileOrTablet}
         avatarDataUrl={resolveDisplayPlayerAvatar(1)}
         replacedByAi={
-          !!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.replacedUserId
+          !!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId
         }
         collectingCards={
           dealJustCompleted &&
@@ -6824,11 +7001,13 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileSouthHandLayout?.eastTailActive ? ' game-mobile-hand-east-tail' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{
         ...tableLayoutStyle,
-        ...(mobileSouthHandLayout?.eastTailActive
-          ? ({ ['--mobile-east-tail-gutter' as string]: `${MOBILE_EAST_TAIL_GUTTER_PX}px` } as const)
+        ...(mobileSouthHandLayout?.lHandExpanded
+          ? ({
+              ['--mobile-l-hand-gutter' as string]: `${MOBILE_L_HAND_GUTTER_PX}px`,
+            } as const)
           : {}),
         ...(mobileLandscapeNorthPanelFixedW != null
           ? ({
@@ -7931,7 +8110,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                       compactMode={isMobileOrTablet}
                       avatarDataUrl={resolveDisplayPlayerAvatar(2)}
                       replacedByAi={
-                        !!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))
+                        !!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))
                           ?.replacedUserId
                       }
                       collectingCards={
@@ -7993,7 +8172,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                 : undefined
             }
           >
-          {isMobileLandscape ? (
+          {isMobileLandscape && showWestSideSeat ? (
             <div
               className="game-mobile-slot-west game-mobile-west-landscape-col"
               style={{
@@ -8011,7 +8190,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             >
               <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={resolveDisplayPlayerAvatar(2)}
-                replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.replacedUserId}
+                replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
                 collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
       lastTrickCollectingPhase === 'winner' ||
       lastTrickCollectingPhase === 'totals-accent' ||
@@ -8315,33 +8494,77 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                     }}
                     aria-label="Выбор заказа"
                   >
-                    <div className="bid-panel-grid bid-panel-mobile-grid" style={bidSidePanelGridMobile}>
+                    <div
+                      className={[
+                        'bid-panel-grid',
+                        'bid-panel-mobile-grid',
+                        mobileSouthHandLayout?.lHandExpanded ? 'bid-panel-mobile-grid--l-gutter' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      style={
+                        mobileSouthHandLayout?.lHandExpanded
+                          ? undefined
+                          : bidSidePanelGridMobile
+                      }
+                    >
                     {isMobile ? (
                       (() => {
                         const n = state.tricksInDeal;
-                        const bidOrder = Array.from({ length: n + 1 }, (_, i) => i);
+                        const bidButtonCount = n + 1;
+                        const lGutterRows =
+                          mobileSouthHandLayout?.lHandExpanded
+                            ? chunkMobileBidRowsForLHandGutter(bidButtonCount)
+                            : null;
+                        const renderBidBtn = (i: number) => {
+                          const disabled = invalidBid === i;
+                          return (
+                            <button
+                              key={i}
+                              type="button"
+                              className={['bid-panel-btn', 'bid-panel-btn-mobile', disabled ? 'bid-panel-btn--forbidden' : ''].filter(Boolean).join(' ')}
+                              disabled={disabled}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                if (!disabled) handleBidRef.current(i);
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                if (!disabled) handleBidRef.current(i);
+                              }}
+                              style={{
+                                ...bidSidePanelButtonMobile,
+                                ...(disabled ? bidSidePanelButtonDisabledMobile : {}),
+                              }}
+                              title={
+                                disabled
+                                  ? `Запрещено: сумма заказов будет ${state.tricksInDeal}`
+                                  : undefined
+                              }
+                            >
+                              {i}
+                            </button>
+                          );
+                        };
+                        if (lGutterRows) {
+                          return (
+                            <>
+                              {lGutterRows.map((row, ri) => (
+                                <div
+                                  key={`bid-row-${ri}`}
+                                  className="bid-panel-mobile-grid-row"
+                                  data-cols={row.length}
+                                >
+                                  {row.map((i) => renderBidBtn(i))}
+                                </div>
+                              ))}
+                            </>
+                          );
+                        }
+                        const bidOrder = Array.from({ length: bidButtonCount }, (_, i) => i);
                         return (
                           <>
-                            {bidOrder.map((i) => {
-                              const disabled = invalidBid === i;
-                              return (
-                                <button
-                                  key={i}
-                                  type="button"
-                                  className="bid-panel-btn bid-panel-btn-mobile"
-                                  disabled={disabled}
-                                  onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
-                                  onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
-                                  style={{
-                                    ...bidSidePanelButtonMobile,
-                                    ...(disabled ? bidSidePanelButtonDisabledMobile : {}),
-                                  }}
-                                  title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
-                                >
-                                  {i}
-                                </button>
-                              );
-                            })}
+                            {bidOrder.map((i) => renderBidBtn(i))}
                             <span key="ph1" className="bid-panel-mobile-placeholder" aria-hidden />
                             <span key="ph2" className="bid-panel-mobile-placeholder" aria-hidden />
                           </>
@@ -8354,7 +8577,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                           <button
                             key={i}
                             type="button"
-                            className="bid-panel-btn"
+                            className={['bid-panel-btn', disabled ? 'bid-panel-btn--forbidden' : ''].filter(Boolean).join(' ')}
                             disabled={disabled}
                             onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
                             onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
@@ -8391,7 +8614,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             }
           />
         )}
-            {displayState.players.length > 3 ? (
+            {showEastSeatFour ? (
             <div
               className="game-center-east game-mobile-east"
               style={{
@@ -8408,7 +8631,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             >
               <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={resolveDisplayPlayerAvatar(3)}
-                replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.replacedUserId}
+                replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
                 collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
       lastTrickCollectingPhase === 'winner' ||
       lastTrickCollectingPhase === 'totals-accent' ||
@@ -8453,13 +8676,14 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                 : {}),
             }}
           >
-      {mobileSouthHandLayout != null && !mobileViewportShort && (() => {
-        const { eastTailActive, m9, overlapPx, rowTransform, overlapScrubEnabled } =
-          mobileSouthHandLayout;
+      {mobileSouthHandLayout != null && !mobileViewportShort && (mobileSouthHandLayout.lHandEligible
+        ? renderMobileLHand(false)
+        : (() => {
+        const { m9, overlapPx, rowTransform, overlapScrubEnabled } = mobileSouthHandLayout;
         const sortedHand = state.players[humanIdx].hand
           .slice()
           .sort((a, b) => cardSort(a, b, state.trump));
-        const rowHand = eastTailActive ? sortedHand.slice(0, MOBILE_HAND_EAST_TAIL_MAIN_MAX) : sortedHand;
+        const rowHand = sortedHand;
         const rowLen = rowHand.length;
         return (
       <div
@@ -8468,7 +8692,6 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
           'game-mobile-hand-strip',
           m9.attachExtraClass,
           m9.useNarrowAttach ? 'game-mobile-hand--narrow-vw' : '',
-          eastTailActive ? 'game-mobile-hand-strip--east-tail' : '',
         ]
           .filter(Boolean)
           .join(' ')}
@@ -8480,11 +8703,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         }}
       >
         <div
-          ref={eastTailActive ? mobileEastTailFrameRef : undefined}
           className={[
             'game-mobile-hand-frame',
             state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : '',
-            eastTailActive ? 'game-mobile-hand-frame--east-tail' : '',
           ]
             .filter(Boolean)
             .join(' ')}
@@ -8602,7 +8823,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         </div>
       </div>
         );
-      })()}
+      })())}
       <div
         className={[
           'game-mobile-bottom-row',
@@ -8744,23 +8965,23 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                   ...(mobileViewportShort ? mobileSouthShortUserPanelChrome.southMainChrome : {}),
                 }}
               >
-              {mobileSouthHandLayout != null && mobileViewportShort && (() => {
-                const { eastTailActive, m9, overlapPx, rowTransform, overlapScrubEnabled } = mobileSouthHandLayout;
+              {mobileSouthHandLayout != null && mobileViewportShort && (mobileSouthHandLayout.lHandEligible
+                ? renderMobileLHand(true)
+                : (() => {
+                const { m9, overlapPx, rowTransform, overlapScrubEnabled } = mobileSouthHandLayout;
                 const sortedHand = state.players[humanIdx].hand
                   .slice()
                   .sort((a, b) => cardSort(a, b, state.trump));
-                const rowHand = eastTailActive ? sortedHand.slice(0, MOBILE_HAND_EAST_TAIL_MAIN_MAX) : sortedHand;
+                const rowHand = sortedHand;
                 const rowLen = rowHand.length;
                 return (
                     <div
-                      ref={eastTailActive ? mobileEastTailFrameRef : undefined}
                       role="region"
                       aria-label="Ваши карты"
                       className={[
                         'game-mobile-south-panel-hand',
                         m9.attachExtraClass,
                         m9.useNarrowAttach ? 'game-mobile-hand--narrow-vw' : '',
-                        eastTailActive ? 'game-mobile-south-panel-hand--east-tail' : '',
                       ]
                         .filter(Boolean)
                         .join(' ')}
@@ -8918,7 +9139,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                       ) : null}
                     </div>
                 );
-              })()}
+              })())}
               {isMobileLandscape ? (
                 renderMobileSouthLandscapePanel()
               ) : mobileViewportShort ? (
@@ -9584,7 +9805,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         <div className="game-center-north" style={gameInfoNorthSlotWrapperAbsolute}>
           <OpponentSlot state={displayState} index={1} position="top" inline compactMode={isMobileOrTablet}
             avatarDataUrl={resolveDisplayPlayerAvatar(1)}
-            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex))?.replacedUserId}
+            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
       lastTrickCollectingPhase === 'winner' ||
       lastTrickCollectingPhase === 'totals-accent' ||
@@ -9614,10 +9835,11 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         role={isAITurn ? 'button' : undefined}
         tabIndex={isAITurn ? 0 : undefined}
         title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}>
+        {showWestSideSeat ? (
         <div className="game-center-west" style={{ ...opponentSideWrapWestStyle, ...(!isMobileOrTablet ? opponentSideWrapPcGrowStyle : {}) }}>
           <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
             avatarDataUrl={resolveDisplayPlayerAvatar(2)}
-            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex))?.replacedUserId}
+            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
       lastTrickCollectingPhase === 'winner' ||
       lastTrickCollectingPhase === 'totals-accent' ||
@@ -9632,6 +9854,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
           />
         </div>
+        ) : (
+          <div className="game-center-west" style={{ ...opponentSideWrapWestStyle, ...(!isMobileOrTablet ? opponentSideWrapPcGrowStyle : {}) }} aria-hidden />
+        )}
         <div className="game-center-table" style={centerStyle}>
         <div style={{ ...tableOuterStyle, ...(trumpHighlightOn ? tableOuterStyleWithHighlight : {}) }}>
           <div
@@ -9780,11 +10005,11 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
           </div>
         </div>
         </div>
-        {displayState.players.length > 3 ? (
+        {showEastSeatFour ? (
         <div className="game-center-east" style={{ ...opponentSideWrapEastStyle, ...(!isMobileOrTablet ? opponentSideWrapPcGrowStyle : {}) }}>
           <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
             avatarDataUrl={resolveDisplayPlayerAvatar(3)}
-            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex))?.replacedUserId}
+            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
             collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
       lastTrickCollectingPhase === 'winner' ||
       lastTrickCollectingPhase === 'totals-accent' ||
@@ -10056,7 +10281,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                             <button
                               key={i}
                               type="button"
-                              className="bid-panel-btn"
+                              className={['bid-panel-btn', disabled ? 'bid-panel-btn--forbidden' : ''].filter(Boolean).join(' ')}
                               disabled={disabled}
                               onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
                               onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
@@ -10134,7 +10359,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                           <button
                             key={i}
                             type="button"
-                            className="bid-panel-btn"
+                            className={['bid-panel-btn', disabled ? 'bid-panel-btn--forbidden' : ''].filter(Boolean).join(' ')}
                             disabled={disabled}
                             onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
                             onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
@@ -10158,133 +10383,6 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       </div>
       </div>
       )}
-
-      {/* 10–12 карт: вертикальный хвост Востока — fixed-портал (иначе стол/overflow перехватывают тапы) */}
-      {isMobile &&
-        state &&
-        mobileSouthHandLayout?.eastTailActive &&
-        mobileEastTailCards.length > 0 &&
-        mobileEastTailFixedPos &&
-        createPortal(
-          <div
-            className={[
-              'game-mobile-hand-east-tail-col',
-              'game-mobile-hand-east-tail-col--portal',
-              state.currentPlayerIndex === humanIdx ? 'game-mobile-hand-east-tail-col--your-turn' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            aria-label={`Дополнительные карты: ${mobileEastTailCards.length}`}
-            style={{
-              right: mobileEastTailFixedPos.right,
-              bottom: mobileEastTailFixedPos.bottom,
-              gap: mobileEastTailCards.length >= 3 ? 3 : 5,
-              ...(mobileViewportShort &&
-              !mobileShortHeaderImmersive &&
-              shortVhSouthUiScale > 1.0001
-                ? {
-                    transform: `scale(${shortVhSouthUiScale})`,
-                    transformOrigin: 'bottom right',
-                  }
-                : {}),
-            }}
-          >
-            {mobileEastTailCards.map((card, ti) => {
-              const i = MOBILE_HAND_EAST_TAIL_MAIN_MAX + ti;
-              const humanAlreadyPlayedCurrentTrick =
-                state.phase === 'playing' &&
-                state.currentTrick.some(
-                  (_, trickCardIndex) =>
-                    getTrickPlayerIndex(state.trickLeaderIndex, trickCardIndex, playerCountOf(state)) === humanIdx,
-                );
-              const isValidPlay =
-                state.phase === 'playing' &&
-                state.currentPlayerIndex === humanIdx &&
-                state.currentTrick.length > 0 &&
-                !humanAlreadyPlayedCurrentTrick &&
-                validPlays.some((c) => c.suit === card.suit && c.rank === card.rank);
-              const handCardZ =
-                isMobile && state.currentPlayerIndex === humanIdx ? (isValidPlay ? 3 : 2) : isValidPlay ? 1 : 0;
-              const handCardDisabled =
-                !!state.pendingTrickCompletion ||
-                !isHumanTurn ||
-                humanAlreadyPlayedCurrentTrick ||
-                !validPlays.some((c) => c.suit === card.suit && c.rank === card.rank);
-              return (
-                <div
-                  key={`east-tail-portal-${card.suit}-${card.rank}-${ti}`}
-                  className="game-mobile-hand-east-tail-slot"
-                  style={{
-                    flexShrink: 0,
-                    position: 'relative',
-                    zIndex: handCardZ + ti,
-                    ...(state.currentPlayerIndex === humanIdx
-                      ? ({ '--hand-wave-index': i + 1 } as CSSProperties)
-                      : {}),
-                  }}
-                >
-                  <CardView
-                    card={card}
-                    scale={0.72}
-                    contentScale={1.5}
-                    compact
-                    showDesktopFaceIndices={true}
-                    suitIndexInHandMobile={true}
-                    biddingHighlightMobile={state.phase === 'bidding' || state.phase === 'dark-bidding'}
-                    doubleBorder={false}
-                    isTrumpOnTable={false}
-                    trumpHighlightOn={trumpHighlightOn}
-                    isTrumpInHand={state.trump !== null && card.suit === state.trump}
-                    forceMobileTrumpGlow={
-                      isMobileOrTablet &&
-                      state.trump !== null &&
-                      card.suit === state.trump &&
-                      (state.phase === 'bidding' ||
-                        state.phase === 'dark-bidding' ||
-                        (state.phase === 'playing' &&
-                          state.currentPlayerIndex === humanIdx &&
-                          state.currentTrick.length === 0))
-                    }
-                    mobileTrumpGlowActive={
-                      state.phase === 'bidding' ||
-                      state.phase === 'dark-bidding' ||
-                      (state.phase === 'playing' &&
-                        state.currentPlayerIndex === humanIdx &&
-                        state.currentTrick.length === 0)
-                    }
-                    highlightAsValidPlay={
-                      state.phase === 'playing' &&
-                      state.currentPlayerIndex === humanIdx &&
-                      !humanAlreadyPlayedCurrentTrick &&
-                      validPlays.some((c) => c.suit === card.suit && c.rank === card.rank)
-                    }
-                    mobileTrumpShineBidding={
-                      (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
-                      state.trump !== null &&
-                      card.suit === state.trump
-                    }
-                    showPipZoneBorders={false}
-                    pcCardStyles={false}
-                    thinBorder={true}
-                    onClick={() => {
-                      if (
-                        !state.pendingTrickCompletion &&
-                        isHumanTurn &&
-                        !humanAlreadyPlayedCurrentTrick &&
-                        validPlays.some((c) => c.suit === card.suit && c.rank === card.rank)
-                      ) {
-                        if (isOnlinePlayPhase) online.sendPlay(card);
-                        else setLocalState((prev) => prev && playCard(prev, humanIdx, card));
-                      }
-                    }}
-                    disabled={handCardDisabled}
-                  />
-                </div>
-              );
-            })}
-          </div>,
-          document.body,
-        )}
 
       {!isMobile &&
         state != null &&
@@ -21512,6 +21610,27 @@ const bidSidePanelGridMobile: React.CSSProperties = {
   gap: 4,
 };
 
+/**
+ * L + gutter стола (10+ / вертикаль): две нижние строки по 4 кнопки, все верхние — макс. по 3.
+ * rows[0] = нижняя строка (0 справа при row-reverse).
+ */
+function chunkMobileBidRowsForLHandGutter(bidButtonCount: number): number[][] {
+  const bids = Array.from({ length: bidButtonCount }, (_, i) => i);
+  const rows: number[][] = [];
+  let i = 0;
+  for (let r = 0; r < 2 && i < bids.length; r++) {
+    const take = Math.min(4, bids.length - i);
+    rows.push(bids.slice(i, i + take));
+    i += take;
+  }
+  while (i < bids.length) {
+    const take = Math.min(3, bids.length - i);
+    rows.push(bids.slice(i, i + take));
+    i += take;
+  }
+  return rows;
+}
+
 const bidSidePanelButton: React.CSSProperties = {
   width: 38,
   height: 38,
@@ -21550,18 +21669,21 @@ const bidSidePanelButtonMobile: React.CSSProperties = {
 };
 
 const bidSidePanelButtonDisabled: React.CSSProperties = {
-  background: 'rgba(88, 28, 40, 0.5)',
-  border: '1px solid rgba(88, 28, 40, 0.6)',
-  color: 'rgba(255,255,255,0.6)',
+  background: 'rgba(15, 23, 42, 0.55)',
+  border: '1px solid rgba(148, 163, 184, 0.35)',
+  color: 'rgba(148, 163, 184, 0.42)',
   cursor: 'not-allowed',
+  opacity: 0.72,
+  boxShadow: 'none',
 };
 
-/** Отключённая кнопка заказа — только мобильная */
+/** Отключённая кнопка заказа — только мобильная: бледная (полоса — в CSS, без grayscale) */
 const bidSidePanelButtonDisabledMobile: React.CSSProperties = {
-  background: 'rgba(30, 41, 59, 0.8)',
-  border: '1px solid rgba(71, 85, 105, 0.6)',
-  color: 'rgba(148, 163, 184, 0.6)',
+  background: 'rgba(15, 23, 42, 0.5)',
+  border: '1px solid rgba(71, 85, 105, 0.45)',
+  color: 'rgba(100, 116, 139, 0.55)',
   cursor: 'not-allowed',
+  opacity: 0.7,
   boxShadow: 'none',
 };
 

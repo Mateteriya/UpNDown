@@ -33,6 +33,8 @@ export interface GameRoomRow {
   settlement_mode?: string | null;
   buy_in?: number | null;
   room_kind?: string | null;
+  /** Число мест за столом. Старые комнаты без поля считаются 4-местными. */
+  max_players?: 3 | 4;
 }
 
 export interface ClientMessage {
@@ -47,6 +49,7 @@ export interface ClientMessage {
   settlementMode?: string;
   buyIn?: number | null;
   roomKind?: string;
+  maxPlayers?: 3 | 4;
   /** Создать комнату без слота для создателя (отдельная панель хоста). */
   hostDedicated?: boolean;
   gameState?: unknown;

@@ -36,7 +36,8 @@ async function waitReady() {
     try {
       const r = await fetch(`http://127.0.0.1:${port}/api/version`, { cache: 'no-store' });
       const j = await r.json();
-      if (j.build?.includes('host-panel-2026-06-06') && j.panelSnippet === 'lan-ui') {
+      // Любая актуальная сборка host-panel-* + новая панель (не старый туннель-UI)
+      if (typeof j.build === 'string' && j.build.startsWith('host-panel-') && j.panelSnippet === 'lan-ui') {
         return true;
       }
     } catch { /* retry */ }

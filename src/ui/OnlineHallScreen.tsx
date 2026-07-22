@@ -158,7 +158,8 @@ export function OnlineHallScreen({
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
               <span style={{ letterSpacing: 3, fontWeight: 700, color: '#22d3ee' }}>{room.code}</span>
               <span style={{ fontSize: 12, color: '#94a3b8' }}>
-                {room.human_count}/4
+                {room.human_count}/{room.max_players ?? 4}
+                {(room.max_players ?? 4) === 3 ? ' · втроём' : ''}
               </span>
             </div>
             <p style={{ margin: '8px 0 12px', fontSize: 13, color: '#cbd5e1' }}>

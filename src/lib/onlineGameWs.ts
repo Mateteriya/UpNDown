@@ -353,6 +353,7 @@ export async function wsCreateRoom(
     settlementMode: normalized.settlementMode,
     buyIn: normalized.buyIn,
     roomKind: normalized.roomKind,
+    maxPlayers: normalized.maxPlayers,
     hostDedicated: roomOpts?.hostDedicated === true,
   /** LAN WS: только server-authoritative v2. */
     ...(isServerAuthoritativeOnline() ? { protocolVersion: 2 } : {}),
@@ -579,6 +580,7 @@ export async function wsListPublicWaitingRooms(limit = 40): Promise<{
       buy_in: r.buy_in ?? null,
       room_kind: (r.room_kind ?? 'public') as PublicWaitingRoomRow['room_kind'],
       updated_at: r.updated_at,
+      max_players: (r.max_players === 3 ? 3 : 4) as PublicWaitingRoomRow['max_players'],
       human_count: (r.player_slots ?? []).filter((s) => s.userId).length,
     }));
     return { ok: true, rooms: rows };

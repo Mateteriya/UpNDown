@@ -406,3 +406,31 @@
     background-position: 40% 50%;
   }
 }
+
+/* Мобилка: легче GPU, вид почти тот же (меньше drop-shadow / blur, sheen реже). */
+@media (max-width: 1024px) {
+  .menu-screen .menu-screen__brand-mark__orbit {
+    filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.28));
+  }
+
+  .menu-screen .menu-screen__brand-mark__halo {
+    filter: none;
+    opacity: 0.72;
+    animation: menu-brand-halo-breathe 7.2s ease-in-out infinite;
+  }
+
+  .menu-screen .menu-screen__brand-mark .menu-screen__brand-icon {
+    filter:
+      drop-shadow(0 1px 0 rgba(255, 255, 255, 0.16))
+      drop-shadow(0 4px 6px rgba(2, 6, 23, 0.4))
+      contrast(1.05)
+      saturate(1.06);
+  }
+
+  .menu-screen .menu-screen__title {
+    filter:
+      drop-shadow(0 1px 0 rgba(255, 255, 255, 0.18))
+      drop-shadow(0 0 14px rgba(34, 211, 238, 0.28));
+    animation: menu-title-sheen 16s ease-in-out infinite;
+  }
+}

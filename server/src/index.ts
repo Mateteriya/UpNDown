@@ -216,6 +216,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
         settlementMode: msg.settlementMode,
         buyIn: msg.buyIn,
         roomKind: msg.roomKind,
+        maxPlayers: msg.maxPlayers === 3 ? 3 : 4,
         hostDedicated: msg.hostDedicated === true,
         protocolVersion,
       });

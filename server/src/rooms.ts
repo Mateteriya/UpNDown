@@ -3,7 +3,7 @@ import type { GameRoomRow, PlayerSlot } from './protocol.js';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 6;
-const AI_NAMES = ['ИИ Север', 'ИИ Восток', 'ИИ Юг', 'ИИ Запад'] as const;
+const AI_NAMES = ['ИИ Юг', 'ИИ Север', 'ИИ Запад', 'ИИ Восток'] as const;
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -25,15 +25,15 @@ function capAvatar(url: string | null | undefined, max = 24_000): string | null 
   return url.length <= max ? url : undefined;
 }
 
-function normalizeSlots(slots: PlayerSlot[]): PlayerSlot[] {
+function normalizeSlots(slots: PlayerSlot[], maxPlayers = 4): PlayerSlot[] {
   const byIndex = new Map<number, PlayerSlot>();
   for (const s of slots) {
-    if (typeof s.slotIndex === 'number' && s.slotIndex >= 0 && s.slotIndex <= 3) {
+    if (typeof s.slotIndex === 'number' && s.slotIndex >= 0 && s.slotIndex < maxPlayers) {
       byIndex.set(s.slotIndex, { ...s, slotIndex: s.slotIndex });
     }
   }
   const out: PlayerSlot[] = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < maxPlayers; i++) {
     const existing = byIndex.get(i);
     if (existing) out.push(existing);
   }
@@ -48,14 +48,18 @@ function vacantAiSlot(slotIndex: number): PlayerSlot {
   };
 }
 
-function fullSlotsFromPartial(partial: PlayerSlot[]): PlayerSlot[] {
-  const norm = normalizeSlots(partial);
+function fullSlotsFromPartial(partial: PlayerSlot[], maxPlayers = 4): PlayerSlot[] {
+  const norm = normalizeSlots(partial, maxPlayers);
   const full: PlayerSlot[] = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < maxPlayers; i++) {
     const existing = norm.find((s) => s.slotIndex === i);
     full.push(existing ?? vacantAiSlot(i));
   }
   return full;
+}
+
+function roomPlayerCount(room: Pick<GameRoomRow, 'max_players'>): 3 | 4 {
+  return room.max_players === 3 ? 3 : 4;
 }
 
 export class RoomStore {
@@ -85,7 +89,8 @@ export class RoomStore {
       const room: GameRoomRow = {
         ...raw,
         code,
-        player_slots: fullSlotsFromPartial(raw.player_slots ?? []),
+        max_players: raw.max_players === 3 ? 3 : 4,
+        player_slots: fullSlotsFromPartial(raw.player_slots ?? [], raw.max_players === 3 ? 3 : 4),
       };
       this.rooms.set(room.id, room);
       this.codeToId.set(code, room.id);
@@ -150,6 +155,7 @@ export class RoomStore {
     buyIn?: number | null;
     roomKind?: string;
     hostDedicated?: boolean;
+    maxPlayers?: 3 | 4;
     protocolVersion?: 1 | 2;
   }): GameRoomRow {
     const codes = new Set(this.codeToId.keys());
@@ -180,6 +186,7 @@ export class RoomStore {
       settlement_mode: opts.settlementMode ?? 'accuracy_bonus',
       buy_in: opts.buyIn ?? null,
       room_kind: opts.roomKind ?? 'private',
+      max_players: opts.maxPlayers === 3 ? 3 : 4,
     };
     this.rooms.set(id, room);
     this.codeToId.set(code, id);
@@ -190,7 +197,7 @@ export class RoomStore {
   recoverJoin(code: string, userId: string): { room: GameRoomRow; mySlotIndex: number } | null {
     const room = this.getByCode(code);
     if (!room || room.status === 'finished') return null;
-    const slots = fullSlotsFromPartial(room.player_slots ?? []);
+    const slots = fullSlotsFromPartial(room.player_slots ?? [], roomPlayerCount(room));
     let idx = slots.findIndex((s) => s.userId === userId);
     if (idx >= 0) {
       return { room, mySlotIndex: slots[idx].slotIndex };
@@ -215,9 +222,9 @@ export class RoomStore {
     return { room, mySlotIndex: slots[reclaimIdx].slotIndex };
   }
 
-  /** Первый слот 0..3 без живого игрока (ИИ-слоты с userId=null не считаются занятыми). */
-  private firstVacantSlotIndex(slots: PlayerSlot[]): number {
-    for (let i = 0; i < 4; i++) {
+  /** Первый слот в пределах комнаты без живого игрока (ИИ-слоты с userId=null не считаются занятыми). */
+  private firstVacantSlotIndex(slots: PlayerSlot[], maxPlayers: 3 | 4): number {
+    for (let i = 0; i < maxPlayers; i++) {
       const s = slots.find((sl) => sl.slotIndex === i);
       if (!s?.userId) return i;
     }
@@ -245,16 +252,17 @@ export class RoomStore {
     }
     if (room.status !== 'waiting') return { error: 'Комната уже завершена' };
 
-    const slots = fullSlotsFromPartial(room.player_slots ?? []);
+    const maxPlayers = roomPlayerCount(room);
+    const slots = fullSlotsFromPartial(room.player_slots ?? [], maxPlayers);
     const humans = slots.filter((s) => s.userId != null && s.userId !== '');
-    if (humans.length >= 4) return { error: 'Все места заняты людьми' };
+    if (humans.length >= maxPlayers) return { error: 'Все места заняты людьми' };
 
     /** Комната с панели ПК (host_dedicated): первый живой игрок — ведущий (слот 0), не «Сервер» на ПК. */
     if (room.host_dedicated && humans.length === 0) {
       room.host_user_id = opts.userId;
     }
 
-    const slotIndex = this.firstVacantSlotIndex(slots);
+    const slotIndex = this.firstVacantSlotIndex(slots, maxPlayers);
     if (slotIndex < 0) return { error: 'Нет свободных мест за столом' };
 
     const newSlot: PlayerSlot = {
@@ -267,7 +275,7 @@ export class RoomStore {
     const at = slots.findIndex((s) => s.slotIndex === slotIndex);
     if (at >= 0) slots[at] = newSlot;
     else slots.push(newSlot);
-    room.player_slots = fullSlotsFromPartial(slots);
+    room.player_slots = fullSlotsFromPartial(slots, maxPlayers);
     room.updated_at = nowIso();
     this.touch();
     return { room, mySlotIndex: slotIndex };
@@ -278,7 +286,7 @@ export class RoomStore {
     if (!room) return {};
 
     if (room.status === 'playing') {
-      const slots = fullSlotsFromPartial(room.player_slots ?? []);
+      const slots = fullSlotsFromPartial(room.player_slots ?? [], roomPlayerCount(room));
       const idx = slots.findIndex((s) => s.userId === userId);
       if (idx < 0) return { error: 'Слот не найден' };
       const left = slots[idx];
@@ -294,7 +302,7 @@ export class RoomStore {
       return {};
     }
 
-    const slots = normalizeSlots(room.player_slots ?? []);
+    const slots = normalizeSlots(room.player_slots ?? [], roomPlayerCount(room));
     const filtered = slots.filter((s) => s.userId !== userId);
     if (filtered.length === slots.length) {
       return { error: 'Слот не найден' };
@@ -327,8 +335,9 @@ export class RoomStore {
     const room = this.rooms.get(roomId);
     if (!room) return { error: 'Комната не найдена' };
 
-    const incoming = fullSlotsFromPartial(normalizeSlots(playerSlots));
-    const current = fullSlotsFromPartial(room.player_slots ?? []);
+    const maxPlayers = roomPlayerCount(room);
+    const incoming = fullSlotsFromPartial(normalizeSlots(playerSlots, maxPlayers), maxPlayers);
+    const current = fullSlotsFromPartial(room.player_slots ?? [], maxPlayers);
     const actor = (actorUserId ?? '').trim();
     const isHost = !!actor && room.host_user_id === actor;
 
@@ -357,7 +366,7 @@ export class RoomStore {
               : capAvatar(fromClient.avatarDataUrl) ?? s.avatarDataUrl ?? null,
         };
       });
-      room.player_slots = fullSlotsFromPartial(next);
+      room.player_slots = fullSlotsFromPartial(next, maxPlayers);
     }
 
     /** Имена/аватары в лобби не должны сдвигать game_state_revision — иначе ходы и вторая раздача ловят conflict. */
@@ -380,7 +389,7 @@ export class RoomStore {
     const rev = room.game_state_revision ?? 0;
     room.game_state = gameState;
     room.status = 'playing';
-    if (playerSlots) room.player_slots = fullSlotsFromPartial(playerSlots);
+    if (playerSlots) room.player_slots = fullSlotsFromPartial(playerSlots, roomPlayerCount(room));
     if (roomPhase) room.room_phase = roomPhase;
     room.game_state_revision = rev + 1;
     room.updated_at = nowIso();
@@ -391,7 +400,7 @@ export class RoomStore {
   takePauseV2(roomId: string, userId: string): GameRoomRow | { error: string } {
     const room = this.rooms.get(roomId);
     if (!room) return { error: 'Комната не найдена' };
-    const slots = fullSlotsFromPartial(room.player_slots ?? []);
+    const slots = fullSlotsFromPartial(room.player_slots ?? [], roomPlayerCount(room));
     const idx = slots.findIndex((s) => s.userId === userId);
     if (idx < 0) return { error: 'Слот не найден' };
     const left = slots[idx];
@@ -419,7 +428,7 @@ export class RoomStore {
     const room = this.rooms.get(roomId);
     if (!room) return { error: 'Комната не найдена' };
     if (room.host_user_id !== hostId) return { error: 'not_host' };
-    const slots = fullSlotsFromPartial(room.player_slots ?? []);
+    const slots = fullSlotsFromPartial(room.player_slots ?? [], roomPlayerCount(room));
     const idx = slots.findIndex((s) => s.slotIndex === seat);
     if (idx < 0) return { error: 'Слот не найден' };
     const s = slots[idx];
@@ -447,7 +456,7 @@ export class RoomStore {
     const room = this.rooms.get(roomId);
     if (!room) return { error: 'Комната не найдена' };
     if (room.host_user_id !== hostId) return { error: 'not_host' };
-    const slots = fullSlotsFromPartial(room.player_slots ?? []);
+    const slots = fullSlotsFromPartial(room.player_slots ?? [], roomPlayerCount(room));
     if (!slots.some((s) => s.userId === newHostUserId)) {
       return { error: 'Игрок не в комнате' };
     }
@@ -469,7 +478,7 @@ export class RoomStore {
       room.status = 'finished';
       room.room_phase = 'finished';
     } else if (choice === 'replace_ai') {
-      const slots = fullSlotsFromPartial(room.player_slots ?? []);
+      const slots = fullSlotsFromPartial(room.player_slots ?? [], roomPlayerCount(room));
       for (let i = 0; i < slots.length; i++) {
         if (slots[i].absent) {
           slots[i] = {
@@ -507,7 +516,7 @@ export class RoomStore {
 
     room.game_state = gameState;
     room.status = 'playing';
-    if (playerSlots) room.player_slots = fullSlotsFromPartial(playerSlots);
+    if (playerSlots) room.player_slots = fullSlotsFromPartial(playerSlots, roomPlayerCount(room));
     if (opts?.roomPhase) room.room_phase = opts.roomPhase;
     room.game_state_revision = rev + 1;
     room.updated_at = nowIso();
@@ -522,6 +531,7 @@ export class RoomStore {
     settlement_mode?: string;
     buy_in?: number | null;
     room_kind?: string;
+    max_players?: 3 | 4;
     human_count?: number;
     error?: string;
   } {
@@ -535,6 +545,7 @@ export class RoomStore {
       settlement_mode: room.settlement_mode ?? undefined,
       buy_in: room.buy_in ?? null,
       room_kind: room.room_kind ?? undefined,
+      max_players: roomPlayerCount(room),
       human_count: humans,
     };
   }

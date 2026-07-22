@@ -224,8 +224,11 @@ export function createGame(
   };
 }
 
-/** Создать игру для 4 онлайн-игроков (имена по слотам). */
-export function createGameOnline(playerNames: [string, string, string, string]): GameState {
+/** Создать игру для 3 или 4 онлайн-игроков (имена по слотам). */
+export function createGameOnline(
+  playerNames: [string, string, string] | [string, string, string, string],
+): GameState {
+  const playerCount: PlayerCount = playerNames.length;
   const players: Player[] = playerNames.map((name, i) => ({
     id: `online-${i}`,
     name: trimPlayerName(name),
@@ -234,7 +237,7 @@ export function createGameOnline(playerNames: [string, string, string, string]):
     tricksTaken: 0,
     score: 0,
   }));
-  const firstDealer = Math.floor(Math.random() * 4);
+  const firstDealer = Math.floor(Math.random() * playerCount) % playerCount;
   return {
     phase: 'bidding',
     players,
@@ -244,7 +247,7 @@ export function createGameOnline(playerNames: [string, string, string, string]):
     tricksInDeal: 1,
     currentTrick: [],
     trickLeaderIndex: 0,
-    bids: emptyBids(4),
+    bids: emptyBids(playerCount),
     dealNumber: 1,
     trumpCard: null,
     lastCompletedTrick: null,

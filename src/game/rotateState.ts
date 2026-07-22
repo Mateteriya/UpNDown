@@ -1,100 +1,157 @@
 /**
  * Ротация GameState для онлайн: «вид из моего места».
- * Порядок на экране: 0=я (внизу), 1=напротив, 2=слева от меня, 3=справа от меня.
- * Геометрия стола как в GameEngine: Юг(0) внизу, Север(1) вверху, Запад(2) слева, Восток(3) справа;
- * следующий слева: 0→2→1→3→0 (NEXT_PLAYER_LEFT).
+ * Порядок на экране: 0=я (внизу), 1=напротив, 2=слева от меня, на четверых 3=справа.
+ *
+ * Тот же контракт, что у четверых: слева всегда сосед «по левую руку» = следующий по ходу.
+ * На троих — те же роли без Востока (слоты 0..2). Круг хода не здесь: он в GameEngine
+ * (0→2→1→3→0 / на троих 0→2→1→0).
  */
 
 import type { GameState } from './GameEngine';
 import type { DealResult } from './GameEngine';
+import type { PlayerCount } from './GameEngine';
+import { playerAtLeftFrom } from './GameEngine';
 
-// Геометрия стола (как в GameEngine): противоположные пары Юг–Север, Запад–Восток
-const OPPOSITE = [1, 0, 3, 2] as const;
-// Следующий по левую руку: Юг→Запад→Север→Восток→Юг
-const NEXT_PLAYER_LEFT = [2, 3, 1, 0] as const;
-// Сосед справа (у кого я слева)
-const NEXT_PLAYER_RIGHT = [3, 2, 0, 1] as const;
+// Геометрия четверых: Юг(0), Север(1), Запад(2), Восток(3)
+const OPPOSITE_4 = [1, 0, 3, 2] as const;
+const NEXT_PLAYER_LEFT_4 = [2, 3, 1, 0] as const;
+const NEXT_PLAYER_RIGHT_4 = [3, 2, 0, 1] as const;
+/** На троих без Востока — тот же круг, что в GameEngine.NEXT_PLAYER_LEFT_3 */
+const NEXT_PLAYER_LEFT_3 = [2, 0, 1] as const;
 
-/** Порядок слотов для отображения: [я, напротив, слева, справа] */
-function displayOrder(mySlot: number): [number, number, number, number] {
+/**
+ * [я, напротив, слева] (+ справа на 4).
+ * Слева = следующий по часовой (стандартные правила), как панель Запада у Юга на четверых.
+ */
+function displayOrder(mySlot: number, playerCount: PlayerCount): number[] {
+  if (playerCount === 3) {
+    const left = NEXT_PLAYER_LEFT_3[mySlot % 3]!;
+    const across = ([0, 1, 2] as const).find((i) => i !== mySlot && i !== left)!;
+    return [mySlot, across, left];
+  }
   return [
     mySlot,
-    OPPOSITE[mySlot],
-    NEXT_PLAYER_LEFT[mySlot],
-    NEXT_PLAYER_RIGHT[mySlot],
+    OPPOSITE_4[mySlot]!,
+    NEXT_PLAYER_LEFT_4[mySlot]!,
+    NEXT_PLAYER_RIGHT_4[mySlot]!,
   ];
 }
 
-/** Индекс в canonical по display-индексу (для unrotate и подстановки имён из слотов). */
-export function getCanonicalIndexForDisplay(displayIdx: number, myServerIndex: number): number {
-  return displayOrder(myServerIndex)[displayIdx];
+/** Индекс в canonical по display-индексу (аватары / слоты комнаты). */
+export function getCanonicalIndexForDisplay(
+  displayIdx: number,
+  myServerIndex: number,
+  playerCount: PlayerCount = 4,
+): number {
+  return displayOrder(myServerIndex, playerCount)[displayIdx] ?? -1;
 }
-function canonicalIndex(displayIdx: number, mySlot: number): number {
-  return displayOrder(mySlot)[displayIdx];
+
+function canonicalIndex(displayIdx: number, mySlot: number, playerCount: PlayerCount): number {
+  return displayOrder(mySlot, playerCount)[displayIdx]!;
+}
+
+/**
+ * После rotate display-индексы образуют тот же круг, что канон у Юга:
+ * 4: 0→2→1→3→0, 3: 0→2→1→0 — поэтому playerAtLeftFrom по display работает как в офлайне.
+ */
+export function getDisplayTrickPlayerIndex(
+  trickLeaderDisplayIndex: number,
+  cardIndex: number,
+  _myServerIndex: number,
+  playerCount: PlayerCount,
+): number {
+  return playerAtLeftFrom(trickLeaderDisplayIndex, cardIndex, playerCount);
 }
 
 export function rotateStateForPlayer(state: GameState, myServerIndex: number): GameState {
   if (myServerIndex === 0) return state;
-  const [d0, d1, d2, d3] = displayOrder(myServerIndex);
+  const playerCount: PlayerCount = state.players.length === 3 ? 3 : 4;
+  const order = displayOrder(myServerIndex, playerCount);
   const toDisplay = (canonicalIdx: number): number => {
-    if (canonicalIdx === d0) return 0;
-    if (canonicalIdx === d1) return 1;
-    if (canonicalIdx === d2) return 2;
-    return 3;
+    const d = order.indexOf(canonicalIdx);
+    return d >= 0 ? d : 0;
   };
   const mapDealRow = (deal: DealResult): DealResult => ({
     ...deal,
-    bids: [deal.bids[d0], deal.bids[d1], deal.bids[d2], deal.bids[d3]],
-    points: [deal.points[d0], deal.points[d1], deal.points[d2], deal.points[d3]],
-    ...(deal.takens
-      ? { takens: [deal.takens[d0], deal.takens[d1], deal.takens[d2], deal.takens[d3]] }
-      : {}),
+    bids: order.map((i) => deal.bids[i]!),
+    points: order.map((i) => deal.points[i]!),
+    ...(deal.takens ? { takens: order.map((i) => deal.takens![i]!) } : {}),
   });
   return {
     ...state,
-    players: [state.players[d0], state.players[d1], state.players[d2], state.players[d3]],
-    bids: [state.bids[d0], state.bids[d1], state.bids[d2], state.bids[d3]],
+    players: order.map((i) => state.players[i]!),
+    bids: order.map((i) => state.bids[i]!),
     dealHistory: (state.dealHistory ?? []).map(mapDealRow),
     dealerIndex: toDisplay(state.dealerIndex),
     currentPlayerIndex: toDisplay(state.currentPlayerIndex),
     trickLeaderIndex: toDisplay(state.trickLeaderIndex),
     lastCompletedTrick: state.lastCompletedTrick
-      ? { ...state.lastCompletedTrick, winnerIndex: toDisplay(state.lastCompletedTrick.winnerIndex), leaderIndex: toDisplay(state.lastCompletedTrick.leaderIndex) }
+      ? {
+          ...state.lastCompletedTrick,
+          winnerIndex: toDisplay(state.lastCompletedTrick.winnerIndex),
+          leaderIndex: toDisplay(state.lastCompletedTrick.leaderIndex),
+        }
       : null,
     pendingTrickCompletion: state.pendingTrickCompletion
-      ? { ...state.pendingTrickCompletion, winnerIndex: toDisplay(state.pendingTrickCompletion.winnerIndex), leaderIndex: toDisplay(state.pendingTrickCompletion.leaderIndex) }
+      ? {
+          ...state.pendingTrickCompletion,
+          winnerIndex: toDisplay(state.pendingTrickCompletion.winnerIndex),
+          leaderIndex: toDisplay(state.pendingTrickCompletion.leaderIndex),
+        }
       : null,
   };
 }
 
 export function unrotateStateToCanonical(state: GameState, myServerIndex: number): GameState {
   if (myServerIndex === 0) return state;
-  const toCanonical = (displayIdx: number) => canonicalIndex(displayIdx, myServerIndex);
-  const c0 = toCanonical(0);
-  const c1 = toCanonical(1);
-  const c2 = toCanonical(2);
-  const c3 = toCanonical(3);
-  const mapDealRowBack = (deal: DealResult): DealResult => ({
-    ...deal,
-    bids: [deal.bids[c0], deal.bids[c1], deal.bids[c2], deal.bids[c3]],
-    points: [deal.points[c0], deal.points[c1], deal.points[c2], deal.points[c3]],
-    ...(deal.takens
-      ? { takens: [deal.takens[c0], deal.takens[c1], deal.takens[c2], deal.takens[c3]] }
-      : {}),
-  });
+  const playerCount: PlayerCount = state.players.length === 3 ? 3 : 4;
+  const order = displayOrder(myServerIndex, playerCount);
+  const toCanonical = (displayIdx: number) => canonicalIndex(displayIdx, myServerIndex, playerCount);
+  const players: GameState['players'] = Array.from({ length: playerCount }, () => state.players[0]!);
+  const bids: GameState['bids'] = Array.from({ length: playerCount }, () => null);
+  for (let d = 0; d < order.length; d++) {
+    const c = order[d]!;
+    players[c] = state.players[d]!;
+    bids[c] = state.bids[d]!;
+  }
+  const mapDealRowBack = (deal: DealResult): DealResult => {
+    const outBids = Array.from({ length: playerCount }, () => 0);
+    const outPoints = Array.from({ length: playerCount }, () => 0);
+    const outTakens = deal.takens ? Array.from({ length: playerCount }, () => 0) : undefined;
+    for (let d = 0; d < order.length; d++) {
+      const c = order[d]!;
+      outBids[c] = deal.bids[d]!;
+      outPoints[c] = deal.points[d]!;
+      if (outTakens && deal.takens) outTakens[c] = deal.takens[d]!;
+    }
+    return {
+      ...deal,
+      bids: outBids,
+      points: outPoints,
+      ...(outTakens ? { takens: outTakens } : {}),
+    };
+  };
   return {
     ...state,
-    players: [state.players[toCanonical(0)], state.players[toCanonical(1)], state.players[toCanonical(2)], state.players[toCanonical(3)]],
-    bids: [state.bids[toCanonical(0)], state.bids[toCanonical(1)], state.bids[toCanonical(2)], state.bids[toCanonical(3)]],
+    players,
+    bids,
     dealHistory: (state.dealHistory ?? []).map(mapDealRowBack),
     dealerIndex: toCanonical(state.dealerIndex),
     currentPlayerIndex: toCanonical(state.currentPlayerIndex),
     trickLeaderIndex: toCanonical(state.trickLeaderIndex),
     lastCompletedTrick: state.lastCompletedTrick
-      ? { ...state.lastCompletedTrick, winnerIndex: toCanonical(state.lastCompletedTrick.winnerIndex), leaderIndex: toCanonical(state.lastCompletedTrick.leaderIndex) }
+      ? {
+          ...state.lastCompletedTrick,
+          winnerIndex: toCanonical(state.lastCompletedTrick.winnerIndex),
+          leaderIndex: toCanonical(state.lastCompletedTrick.leaderIndex),
+        }
       : null,
     pendingTrickCompletion: state.pendingTrickCompletion
-      ? { ...state.pendingTrickCompletion, winnerIndex: toCanonical(state.pendingTrickCompletion.winnerIndex), leaderIndex: toCanonical(state.pendingTrickCompletion.leaderIndex) }
+      ? {
+          ...state.pendingTrickCompletion,
+          winnerIndex: toCanonical(state.pendingTrickCompletion.winnerIndex),
+          leaderIndex: toCanonical(state.pendingTrickCompletion.leaderIndex),
+        }
       : null,
   };
 }

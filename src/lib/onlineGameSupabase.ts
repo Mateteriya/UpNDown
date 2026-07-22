@@ -6,6 +6,7 @@
 import { supabase } from './supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { GameState } from '../game/GameEngine';
+import type { PlayerCount } from '../game/GameEngine';
 import { getTakenFromDealPoints } from '../game/scoring';
 import type { SettlementMode } from '../game/partySettlement';
 import {
@@ -17,7 +18,7 @@ import {
 } from './roomSettlement';
 
 /** Имена пустых слотов при старте/выходе — как в OnlineGameContext.startGame (0..3). */
-const VACANT_AI_SLOT_NAMES = ['ИИ Север', 'ИИ Восток', 'ИИ Юг', 'ИИ Запад'] as const;
+const VACANT_AI_SLOT_NAMES = ['ИИ Юг', 'ИИ Север', 'ИИ Запад', 'ИИ Восток'] as const;
 
 function vacantAiPlayerSlot(slotIndex: number): PlayerSlot {
   return {
@@ -113,6 +114,8 @@ export interface GameRoomRow {
   settlement_mode?: SettlementMode | string | null;
   buy_in?: number | null;
   room_kind?: RoomKind | string | null;
+  /** Supabase старых схем не имеет колонку; отсутствие означает 4. */
+  max_players?: PlayerCount;
 }
 
 export type { CreateRoomOptions, PublicWaitingRoomRow, RoomPeekResult, RoomKind };

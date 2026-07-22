@@ -17,16 +17,16 @@ const TICK_MS = 180;
 const TRICK_COMPLETE_DELAY_MS = 2000;
 const DEAL_NEXT_DELAY_MS = 4500;
 
-function fullSlots(slots: PlayerSlot[]): PlayerSlot[] {
-  const AI_NAMES = ['ИИ Север', 'ИИ Восток', 'ИИ Юг', 'ИИ Запад'] as const;
+function fullSlots(slots: PlayerSlot[], maxPlayers = 4): PlayerSlot[] {
+  const AI_NAMES = ['ИИ Юг', 'ИИ Север', 'ИИ Запад', 'ИИ Восток'] as const;
   const byIndex = new Map<number, PlayerSlot>();
   for (const s of slots) {
-    if (typeof s.slotIndex === 'number' && s.slotIndex >= 0 && s.slotIndex <= 3) {
+    if (typeof s.slotIndex === 'number' && s.slotIndex >= 0 && s.slotIndex < maxPlayers) {
       byIndex.set(s.slotIndex, s);
     }
   }
   const out: PlayerSlot[] = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < maxPlayers; i++) {
     out.push(
       byIndex.get(i) ?? {
         slotIndex: i,
@@ -95,7 +95,7 @@ export class HostAutomation {
     if (room.protocol_version === 2) return;
     if (room.status !== 'playing' || !room.game_state) return;
     const state = room.game_state as GameState;
-    const slots = fullSlots(room.player_slots ?? []);
+    const slots = fullSlots(room.player_slots ?? [], room.max_players === 3 ? 3 : 4);
     let timers = this.timers.get(room.id);
     if (!timers) {
       timers = {};

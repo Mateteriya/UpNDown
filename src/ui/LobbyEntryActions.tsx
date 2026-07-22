@@ -257,10 +257,12 @@ export function LobbyPasteCodeButton({ ok, onClick }: LobbyPasteCodeButtonProps)
 export type LobbyCreatePanelProps = {
   createBankRoom: boolean;
   createPublicRoom: boolean;
+  maxPlayers: 3 | 4;
   showPublicHallOption: boolean;
   creating: boolean;
   onToggleBank: (value: boolean) => void;
   onTogglePublic: (value: boolean) => void;
+  onMaxPlayersChange: (value: 3 | 4) => void;
   onLaunch: () => void;
   onCancel: () => void;
 };
@@ -268,16 +270,36 @@ export type LobbyCreatePanelProps = {
 export function LobbyCreatePanel({
   createBankRoom,
   createPublicRoom,
+  maxPlayers,
   showPublicHallOption,
   creating,
   onToggleBank,
   onTogglePublic,
+  onMaxPlayersChange,
   onLaunch,
   onCancel,
 }: LobbyCreatePanelProps) {
   return (
     <div className="lobby-create-panel" role="region" aria-label="Настройки новой комнаты">
       <p className="lobby-create-panel__lead">Параметры комнаты перед запуском</p>
+      <div className="lobby-cosmo-toggle__text" role="group" aria-label="Число игроков">
+        <span className="lobby-cosmo-toggle__title">Игроков за столом</span>
+        <span style={{ display: 'inline-flex', gap: 8, marginTop: 6 }}>
+          {[3, 4].map((count) => (
+            <button
+              key={count}
+              type="button"
+              className="lobby-capsule lobby-capsule--ghost lobby-capsule--compact"
+              aria-pressed={maxPlayers === count}
+              onClick={() => onMaxPlayersChange(count as 3 | 4)}
+            >
+              <span className="lobby-capsule__body">
+                <span className="lobby-capsule__title">{count}</span>
+              </span>
+            </button>
+          ))}
+        </span>
+      </div>
       <label className="lobby-cosmo-toggle">
         <input
           type="checkbox"

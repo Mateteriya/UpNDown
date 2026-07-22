@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** Меняйте при обновлении панели — по значению видно, что сервер перезапущен с новым кодом. */
-export const SERVER_HTTP_BUILD = 'host-panel-2026-06-06-installer';
+export const SERVER_HTTP_BUILD = 'host-panel-2026-07-22-seats-3-4';
 
 export function hostHtmlPath(): string {
   const pub = (process.env.UPDOWN_HOST_PUBLIC ?? '').trim();

@@ -8,12 +8,14 @@ import {
   getMenuPcCastUrlAt,
   isMenuPcCastPinned,
   preloadMenuPcCastUrl,
+  resolveMenuCastDisplayUrl,
   setMenuPcCastPinned,
   takeMenuPcCastForMenuVisit,
   type MenuPcCastPick,
 } from '../lib/menuAssets';
 import { getMenuSectionGlyphsOnly, setMenuSectionGlyphsOnly, hasSeenSoloMapHint, markSoloMapHintSeen } from '../lib/menuSectionPrefs';
 import { MenuCapsuleButton, MenuPlaySplitCapsule, MenuSection } from './MenuEntryActions';
+import { SupportMenuButton } from './SupportMenuButton';
 import { MenuPcDrift } from './MenuPcDrift';
 import { PlayerAvatar } from './PlayerAvatar';
 import { MenuGuestIdentityCycle } from './MenuGuestIdentityCycle';
@@ -139,6 +141,9 @@ export function MainMenuScreen({
   const [castPinned, setCastPinned] = useState(() => isMenuPcCastPinned());
   const [castPinConfirmOpen, setCastPinConfirmOpen] = useState(false);
   const pcCastUrlRef = useRef<string | null>(null);
+  /** Исходный URL кадра (до mobile resize) — для сравнения смены и prefetch. */
+  const pcCastSourceUrlRef = useRef<string | null>(null);
+  const castApplyGenRef = useRef(0);
   const castFadeTimerRef = useRef<number | null>(null);
   const castPinConfirmRef = useRef<HTMLDivElement | null>(null);
   const castPinBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -207,20 +212,35 @@ export function MainMenuScreen({
 
   const applyCast = useCallback(
     (pick: MenuPcCastPick, withFade: boolean) => {
-      const cur = pcCastUrlRef.current;
-      if (withFade && cur && cur !== pick.url) {
-        setPcCastPrevUrl(cur);
-        setPcCastFading(true);
-        clearCastFadeTimer();
-        castFadeTimerRef.current = window.setTimeout(() => {
-          setPcCastPrevUrl(null);
-          setPcCastFading(false);
-          castFadeTimerRef.current = null;
-        }, PC_CAST_FADE_MS);
+      const gen = ++castApplyGenRef.current;
+      const sourceUrl = pick.url;
+      const prevSource = pcCastSourceUrlRef.current;
+      const prevDisplay = pcCastUrlRef.current;
+      const mobile = typeof window !== 'undefined' && !window.matchMedia(PC_MENU_MQ).matches;
+
+      const commit = (displayUrl: string) => {
+        if (gen !== castApplyGenRef.current) return;
+        if (withFade && prevSource && prevSource !== sourceUrl && prevDisplay) {
+          setPcCastPrevUrl(prevDisplay);
+          setPcCastFading(true);
+          clearCastFadeTimer();
+          castFadeTimerRef.current = window.setTimeout(() => {
+            setPcCastPrevUrl(null);
+            setPcCastFading(false);
+            castFadeTimerRef.current = null;
+          }, PC_CAST_FADE_MS);
+        }
+        pcCastSourceUrlRef.current = sourceUrl;
+        pcCastUrlRef.current = displayUrl;
+        setPcCastUrl(displayUrl);
+        preloadMenuPcCastUrl(getMenuPcCastUrlAt(pick.index + 1));
+      };
+
+      if (!mobile) {
+        commit(sourceUrl);
+        return;
       }
-      pcCastUrlRef.current = pick.url;
-      setPcCastUrl(pick.url);
-      preloadMenuPcCastUrl(getMenuPcCastUrlAt(pick.index + 1));
+      void resolveMenuCastDisplayUrl(sourceUrl).then(commit);
     },
     [clearCastFadeTimer],
   );
@@ -693,13 +713,7 @@ export function MainMenuScreen({
             {/* ПК: «Поддержать» в дрейфе. На мобиле — только внизу у «Обучение», без дубля. */}
             {onOpenSupport && isPcMenu ? (
               <MenuPcDrift id="support" className="menu-screen__drift--support" movable>
-                <MenuCapsuleButton
-                  variant="link"
-                  title="Поддержать"
-                  hint="донаты автору"
-                  compact
-                  onClick={onOpenSupport}
-                />
+                <SupportMenuButton onClick={onOpenSupport} />
               </MenuPcDrift>
             ) : null}
             {isPcMenu ? (
@@ -730,6 +744,10 @@ export function MainMenuScreen({
 
           {pcCastUrl && !isPcMenu ? (
             <div className="menu-screen__mobile-cast">
+              <div
+                className="menu-screen__mobile-cast__vignette menu-screen__mobile-cast__vignette--top"
+                aria-hidden="true"
+              />
               <div className="menu-screen__mobile-cast__stage" aria-hidden="true">
                 {pcCastPrevUrl ? (
                   <img
@@ -737,6 +755,9 @@ export function MainMenuScreen({
                     src={pcCastPrevUrl}
                     alt=""
                     draggable={false}
+                    decoding="async"
+                    width={512}
+                    height={512}
                   />
                 ) : null}
                 <img
@@ -748,9 +769,21 @@ export function MainMenuScreen({
                   src={pcCastUrl}
                   alt=""
                   draggable={false}
+                  decoding="async"
+                  width={512}
+                  height={512}
                 />
+                <div className="menu-screen__mobile-cast__meld" />
+                <div className="menu-screen__mobile-cast__edge-stars" aria-hidden="true">
+                  <div className="menu-screen__mobile-stars__layer menu-screen__mobile-stars__layer--a" />
+                  <div className="menu-screen__mobile-stars__layer menu-screen__mobile-stars__layer--b" />
+                  <div className="menu-screen__mobile-stars__layer menu-screen__mobile-stars__layer--c" />
+                </div>
               </div>
-              <div className="menu-screen__mobile-cast__vignette" aria-hidden="true" />
+              <div
+                className="menu-screen__mobile-cast__vignette menu-screen__mobile-cast__vignette--bottom"
+                aria-hidden="true"
+              />
               <div className="menu-screen__mobile-cast__nav" role="group" aria-label="Сменить фон меню">
                 <button
                   type="button"
@@ -859,13 +892,7 @@ export function MainMenuScreen({
                 onClick={onTraining}
               />
               {onOpenSupport ? (
-                <MenuCapsuleButton
-                  variant="link"
-                  title="Поддержать"
-                  hint="донаты автору"
-                  compact
-                  onClick={onOpenSupport}
-                />
+                <SupportMenuButton onClick={onOpenSupport} />
               ) : null}
             </div>
           ) : null}

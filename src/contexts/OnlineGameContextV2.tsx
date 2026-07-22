@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
 import type { Card } from '../game/types';
-import type { GameState } from '../game/GameEngine';
+import type { GameState, PlayerCount } from '../game/GameEngine';
 import { getPlayerProfile } from '../game/persistence';
 import { rotateStateForPlayer } from '../game/rotateState';
 import {
@@ -71,6 +71,7 @@ function applyRoomRow(
     setSettlementMode: (v: SettlementMode) => void;
     setBuyIn: (v: number | null) => void;
     setRoomKind: (v: RoomKind) => void;
+    setMaxPlayers: (v: PlayerCount) => void;
     setCanonicalState: (v: GameState | null) => void;
     revisionRef: React.MutableRefObject<number>;
   },
@@ -84,6 +85,11 @@ function applyRoomRow(
   setters.setSettlementMode((row.settlement_mode as SettlementMode) ?? DEFAULT_CASUAL_SETTLEMENT);
   setters.setBuyIn(row.buy_in ?? null);
   setters.setRoomKind((row.room_kind as RoomKind) ?? 'private');
+  const fromState =
+    row.game_state && typeof row.game_state === 'object' && Array.isArray((row.game_state as GameState).players)
+      ? ((row.game_state as GameState).players.length === 3 ? 3 : 4)
+      : null;
+  setters.setMaxPlayers(row.max_players === 3 || fromState === 3 ? 3 : 4);
   if (row.game_state && typeof row.game_state === 'object') {
     const rev = row.game_state_revision ?? 0;
     if (rev > setters.revisionRef.current) {
@@ -113,6 +119,7 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
   const [settlementMode, setSettlementMode] = useState<SettlementMode>(DEFAULT_CASUAL_SETTLEMENT);
   const [buyIn, setBuyIn] = useState<number | null>(null);
   const [roomKind, setRoomKind] = useState<RoomKind>('private');
+  const [maxPlayers, setMaxPlayers] = useState<PlayerCount>(4);
   const [onlineHydratedFromStorage, setOnlineHydratedFromStorage] = useState(false);
   const [userOnPause, setUserOnPause] = useState(false);
   const [playerLeftToast, setPlayerLeftToast] = useState<string | null>(null);
@@ -138,6 +145,7 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
       setSettlementMode,
       setBuyIn,
       setRoomKind,
+      setMaxPlayers,
       setCanonicalState,
       revisionRef,
     }),
@@ -602,6 +610,7 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     settlementMode,
     buyIn,
     roomKind,
+      maxPlayers,
     onlinePlayerId,
   };
 

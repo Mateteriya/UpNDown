@@ -5,7 +5,7 @@ import React, { createContext, useCallback, useEffect, useMemo, useRef, useState
 import { useAuth } from './AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import type { Card } from '../game/types';
-import type { GameState } from '../game/GameEngine';
+import type { GameState, PlayerCount } from '../game/GameEngine';
 import {
   startDeal,
   startNextDeal,
@@ -217,6 +217,7 @@ export interface OnlineGameContextValue {
   code: string | null;
   myServerIndex: number; // ИЗМЕНЕНО: mySlotIndex -> myServerIndex для ясности
   playerSlots: PlayerSlot[];
+  maxPlayers: PlayerCount;
   canonicalState: GameState | null;
   displayState: GameState | null;
   error: string | null;
@@ -317,6 +318,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const [settlementMode, setSettlementMode] = useState<SettlementMode>(DEFAULT_CASUAL_SETTLEMENT);
   const [buyIn, setBuyIn] = useState<number | null>(null);
   const [roomKind, setRoomKind] = useState<RoomKind>('private');
+  const [maxPlayers, setMaxPlayers] = useState<PlayerCount>(4);
   const [realtimeHealKey, setRealtimeHealKey] = useState(0);
   const [onlineHydratedFromStorage, setOnlineHydratedFromStorage] = useState(false);
   const onlineHydrateGenRef = useRef(0);
@@ -390,6 +392,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setBuyIn(typeof bi === 'number' && Number.isFinite(bi) ? bi : null);
     const rk = room.room_kind;
     setRoomKind(rk === 'public' ? 'public' : 'private');
+    const fromState = room.game_state?.players?.length === 3 ? 3 : room.game_state?.players?.length === 4 ? 4 : null;
+    setMaxPlayers(room.max_players === 3 || fromState === 3 ? 3 : 4);
     const asi = room.absent_slot_index;
     if (typeof asi === 'number' && Number.isFinite(asi)) setAbsentSlotIndex(asi);
     else if (asi != null && `${asi}`.trim() !== '') {
@@ -1215,6 +1219,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     setSettlementMode(DEFAULT_CASUAL_SETTLEMENT);
     setBuyIn(null);
     setRoomKind('private');
+    setMaxPlayers(4);
     setMyServerIndex(0);
     sessionRestoreOkRef.current = false;
     setUserLeftTemporarily(false);
@@ -1260,7 +1265,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     await leaveRoom();
   }, [leaveRoom]);
 
-  const AI_NAMES = ['ИИ Север', 'ИИ Восток', 'ИИ Юг', 'ИИ Запад'] as const;
+  const AI_NAMES = ['ИИ Юг', 'ИИ Север', 'ИИ Запад', 'ИИ Восток'] as const;
 
   const countHumanSlots = (slots: PlayerSlot[]) =>
     slots.filter((s) => s.userId != null && s.userId !== '').length;
@@ -1361,7 +1366,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     try {
       const fullSlots: PlayerSlot[] = [];
       const myAvatar = getPlayerProfile().avatarDataUrl ?? undefined;
-      for (let i = 0; i < 4; i++) {
+      const maxPlayers: PlayerCount = fresh.max_players === 3 ? 3 : 4;
+      for (let i = 0; i < maxPlayers; i++) {
         const existing = sourceSlots.find((s) => s.slotIndex === i);
         if (existing) {
           const slot =
@@ -1373,7 +1379,9 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           fullSlots.push({ slotIndex: i, displayName: AI_NAMES[i], userId: null });
         }
       }
-      const names: [string, string, string, string] = [ fullSlots[0].displayName, fullSlots[1].displayName, fullSlots[2].displayName, fullSlots[3].displayName, ];
+      const names = fullSlots.map((slot) => slot.displayName) as
+        | [string, string, string]
+        | [string, string, string, string];
       let state = createGameOnline(names);
       state = {
         ...state,
@@ -1830,6 +1838,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     code,
     myServerIndex,
     playerSlots,
+      maxPlayers,
     canonicalState,
     displayState,
     error,

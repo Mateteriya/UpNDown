@@ -11,6 +11,23 @@ function firstPlayableCard(state: GameState, seat: number) {
 }
 
 describe('GameSession v2', () => {
+  it('starts a 3-seat room without an East slot', () => {
+    const store = new RoomStore();
+    const room = store.createRoom({
+      hostUserId: 'user-0',
+      displayName: 'Юг',
+      maxPlayers: 3,
+      protocolVersion: 2,
+    });
+    store.joinRoom({ code: room.code, userId: 'user-1', displayName: 'Север' });
+    store.joinRoom({ code: room.code, userId: 'user-2', displayName: 'Запад' });
+
+    const start = new GameSession(room.id, store).startGame('user-0');
+    expect(start.state.players).toHaveLength(3);
+    expect(start.room.player_slots).toHaveLength(3);
+    expect(start.state.players.every((p) => Array.isArray(p.hand))).toBe(true);
+  });
+
   it('start_game → place_bid → play_card increments revision', () => {
     const store = new RoomStore();
     const room = store.createRoom({

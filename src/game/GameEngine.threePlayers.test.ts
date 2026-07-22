@@ -10,6 +10,7 @@ import {
   startDeal,
   placeBid,
   completeTrick,
+  createGameOnline,
 } from './GameEngine';
 import type { Card } from './types';
 
@@ -60,6 +61,13 @@ describe('3-player createGame and turn order', () => {
     expect(g.players[1]!.id).toBe('ai1');
     expect(g.players[2]!.id).toBe('ai2');
     expect(g.bids).toHaveLength(3);
+  });
+
+  it('createGameOnline accepts three names and uses the 3-player match schedule', () => {
+    const game = createGameOnline(['Юг', 'Север', 'Запад']);
+    expect(game.players).toHaveLength(3);
+    expect(game.bids).toHaveLength(3);
+    expect(dealsPerMatch(game.players.length as 3)).toBe(31);
   });
 
   it('left-hand order is 0→2→1→0', () => {

@@ -1,0 +1,570 @@
+/**
+ * Лаб обликов «Поддержать» — только /mode-label-lab.
+ * Лёгкие градиенты/тени; без filter/backdrop-filter/will-change.
+ */
+
+.support-lab__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.support-lab__card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(8, 4, 22, 0.55);
+  border: 1px solid rgba(167, 139, 250, 0.22);
+}
+
+.support-lab__card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 5.5rem;
+}
+
+.support-lab__card-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #e9d5ff;
+}
+
+.support-lab__card-blurb {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgba(196, 181, 253, 0.82);
+}
+
+.support-lab__card-perf {
+  margin: 4px 0 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #67e8f9;
+  opacity: 0.85;
+}
+
+.support-lab__stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 92px;
+  padding: 18px 14px;
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse 70% 80% at 50% 20%, rgba(124, 58, 237, 0.28), transparent 60%),
+    radial-gradient(ellipse 50% 50% at 85% 80%, rgba(34, 211, 238, 0.1), transparent 55%),
+    linear-gradient(165deg, #07061a 0%, #120a2e 48%, #0a1628 100%);
+  border: 1px solid rgba(129, 140, 248, 0.18);
+}
+
+/* —— общая база mock-кнопки —— */
+.support-lab-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 280px);
+  margin: 0;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  color: #e9d5ff;
+  overflow: hidden;
+  isolation: isolate;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.support-lab-btn__glyph {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.support-lab-btn__icon {
+  display: block;
+}
+
+.support-lab-btn__body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+/* Единая CTA-строка: display + радуга */
+.support-lab-btn__label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28em;
+  min-width: 0;
+}
+
+.support-lab-btn__label-text {
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  background: linear-gradient(105deg, #67e8f9 0%, #a78bfa 36%, #e879f9 66%, #fcd34d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.support-lab-btn__plus {
+  flex: 0 0 auto;
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.12em;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1;
+  background: linear-gradient(145deg, #fcd34d 0%, #e879f9 45%, #67e8f9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.support-lab-btn__spark-tail {
+  flex: 0 0 auto;
+  display: block;
+  align-self: center;
+  width: 16px;
+  height: 16px;
+  color: #67e8f9;
+  margin-left: -0.05em;
+}
+
+.support-lab-btn__sheen,
+.support-lab-btn__rim,
+.support-lab-btn__ribbon {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* —— Сейчас · link-капсула —— */
+.support-lab-btn--current {
+  background:
+    linear-gradient(165deg, rgba(36, 24, 56, 0.94) 0%, rgba(14, 10, 28, 0.97) 100%);
+  border-color: rgba(129, 140, 248, 0.35);
+  box-shadow:
+    0 4px 0 rgba(6, 2, 14, 0.45),
+    0 8px 14px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.support-lab-btn--current .support-lab-btn__glyph {
+  color: #c4b5fd;
+  background: rgba(30, 20, 55, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.3);
+}
+
+/* —— A · Aurora chip —— */
+.support-lab-btn--aurora {
+  background:
+    radial-gradient(circle at 22% 28%, rgba(255, 200, 230, 0.12), transparent 42%),
+    linear-gradient(165deg, rgba(42, 18, 58, 0.96) 0%, rgba(16, 8, 32, 0.98) 55%, rgba(8, 4, 20, 1) 100%);
+  border-color: rgba(167, 139, 250, 0.45);
+  box-shadow:
+    0 6px 0 rgba(6, 2, 14, 0.55),
+    0 10px 18px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.support-lab-btn--aurora .support-lab-btn__glyph {
+  color: #fcd34d;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(252, 211, 77, 0.28), transparent 55%),
+    linear-gradient(145deg, rgba(88, 28, 120, 0.9), rgba(15, 23, 42, 0.95));
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.35);
+}
+
+.support-lab-btn--aurora .support-lab-btn__sheen {
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 42%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 58%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  animation: support-lab-sheen 11s ease-in-out infinite;
+}
+
+/* —— B · Neon outline jewel —— */
+.support-lab-btn--jewel {
+  background: rgba(8, 6, 24, 0.35);
+  border-color: rgba(103, 232, 249, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(192, 132, 252, 0.25),
+    0 0 14px rgba(34, 211, 238, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.support-lab-btn--jewel .support-lab-btn__glyph {
+  color: #67e8f9;
+  background: rgba(15, 23, 42, 0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(103, 232, 249, 0.45),
+    0 0 10px rgba(34, 211, 238, 0.2);
+}
+
+.support-lab-btn--jewel .support-lab-btn__rim {
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px rgba(232, 121, 249, 0.22),
+    inset 0 -10px 18px rgba(124, 58, 237, 0.12);
+}
+
+/* —— C · Gift ribbon —— */
+.support-lab-btn--ribbon {
+  background:
+    linear-gradient(180deg, rgba(60, 24, 40, 0.92) 0%, rgba(28, 12, 28, 0.96) 100%);
+  border-color: rgba(251, 113, 133, 0.4);
+  box-shadow:
+    0 5px 0 rgba(10, 2, 12, 0.5),
+    0 8px 16px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(253, 224, 171, 0.14);
+}
+
+.support-lab-btn--ribbon .support-lab-btn__glyph {
+  color: #fde68a;
+  background:
+    radial-gradient(circle at 40% 30%, rgba(253, 230, 138, 0.22), transparent 55%),
+    linear-gradient(160deg, rgba(136, 19, 55, 0.85), rgba(30, 10, 24, 0.95));
+  box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.35);
+}
+
+.support-lab-btn--ribbon .support-lab-btn__ribbon {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 2;
+  background: linear-gradient(90deg, #f472b6 0%, #fbbf24 45%, #f472b6 100%);
+  opacity: 0.9;
+}
+
+/* —— D · Pulse gem (Aurora + breath) —— */
+.support-lab-btn--pulse {
+  background:
+    radial-gradient(circle at 22% 28%, rgba(255, 200, 230, 0.12), transparent 42%),
+    linear-gradient(165deg, rgba(42, 18, 58, 0.96) 0%, rgba(16, 8, 32, 0.98) 55%, rgba(8, 4, 20, 1) 100%);
+  border-color: rgba(167, 139, 250, 0.55);
+  box-shadow:
+    0 6px 0 rgba(6, 2, 14, 0.55),
+    0 10px 18px rgba(0, 0, 0, 0.35),
+    0 0 0 0 rgba(103, 232, 249, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  animation: support-lab-pulse 8s ease-in-out infinite;
+}
+
+.support-lab-btn--pulse .support-lab-btn__glyph {
+  color: #fcd34d;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(252, 211, 77, 0.28), transparent 55%),
+    linear-gradient(145deg, rgba(88, 28, 120, 0.9), rgba(15, 23, 42, 0.95));
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.35);
+}
+
+.support-lab-btn--pulse .support-lab-btn__sheen {
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 42%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 58%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  animation: support-lab-sheen 11s ease-in-out infinite;
+}
+
+/* —— E · Plus mark —— */
+.support-lab-btn--plus {
+  background:
+    radial-gradient(circle at 22% 28%, rgba(255, 200, 230, 0.12), transparent 42%),
+    linear-gradient(165deg, rgba(42, 18, 58, 0.96) 0%, rgba(16, 8, 32, 0.98) 55%, rgba(8, 4, 20, 1) 100%);
+  border-color: rgba(250, 204, 21, 0.42);
+  box-shadow:
+    0 6px 0 rgba(6, 2, 14, 0.55),
+    0 10px 18px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.support-lab-btn--plus .support-lab-btn__glyph {
+  color: #fde68a;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(252, 211, 77, 0.32), transparent 55%),
+    linear-gradient(145deg, rgba(88, 28, 120, 0.9), rgba(15, 23, 42, 0.95));
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.4);
+}
+
+.support-lab-btn--plus .support-lab-btn__sheen {
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 42%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 58%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  animation: support-lab-sheen 11s ease-in-out infinite;
+}
+
+/* —— F · Handshake —— */
+.support-lab-btn--handshake {
+  background: rgba(8, 6, 24, 0.4);
+  border-color: rgba(167, 139, 250, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(103, 232, 249, 0.22),
+    0 0 14px rgba(192, 132, 252, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.support-lab-btn--handshake .support-lab-btn__glyph {
+  color: #e9d5ff;
+  background:
+    radial-gradient(circle at 40% 30%, rgba(167, 139, 250, 0.28), transparent 55%),
+    rgba(15, 23, 42, 0.6);
+  box-shadow:
+    inset 0 0 0 1px rgba(192, 132, 252, 0.45),
+    0 0 10px rgba(167, 139, 250, 0.18);
+}
+
+.support-lab-btn--handshake .support-lab-btn__rim {
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px rgba(103, 232, 249, 0.18),
+    inset 0 -10px 18px rgba(124, 58, 237, 0.12);
+}
+
+/* —— G · Hybrid 1: F shell + крест s4 + spark-хвост + лента —— */
+.support-lab-btn--hybrid1 {
+  padding-top: 7px;
+  padding-bottom: 7px;
+  background: rgba(8, 6, 24, 0.4);
+  border-color: rgba(167, 139, 250, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(103, 232, 249, 0.22),
+    0 0 14px rgba(192, 132, 252, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.support-lab-btn--hybrid1 .support-lab-btn__ribbon {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 2;
+  background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 35%, #67e8f9 68%, #c4b5fd 100%);
+  opacity: 0.95;
+}
+
+.support-lab-btn--hybrid1 .support-lab-btn__glyph {
+  width: 44px;
+  height: 44px;
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.support-lab-btn--hybrid1 .swiss-btn {
+  --sb: 40px;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.4));
+  animation: support-hybrid1-swiss-btn 4.8s ease-in-out infinite !important;
+}
+
+.support-lab-btn--hybrid1 .swiss-btn--s4 .swiss-btn__rim {
+  padding: 4px;
+  /* чуть темнее фиолет в покое */
+  background: linear-gradient(150deg, #7c3aed 0%, #6d28d9 40%, #5b21b6 75%, #4c1d95 100%) !important;
+  animation: support-hybrid1-swiss-rim 4.8s ease-in-out infinite !important;
+}
+
+/*
+ * Важно: face должен быть МЕНЬШЕ content-box, иначе depth полностью
+ * перекрыт и «зелёный ободок» не виден (на 72px s4 face ограничен max 46px).
+ */
+.support-lab-btn--hybrid1 .swiss-btn--s4 .swiss-btn__depth {
+  inset: 4px;
+  /* циан с лёгкой зеленцой */
+  background: #14b8a6 !important;
+  box-shadow: none !important;
+  animation: support-hybrid1-swiss-depth 4.8s ease-in-out infinite !important;
+}
+
+.support-lab-btn--hybrid1 .swiss-btn--s4 .swiss-btn__face {
+  width: 72%;
+  height: 72%;
+  max-width: 26px !important;
+  max-height: 26px !important;
+  border: none !important;
+  outline: none !important;
+  background: linear-gradient(165deg, #6d28d9 0%, #5b21b6 48%, #3b0764 100%) !important;
+  box-shadow: inset 0 -2px 3px rgba(30, 10, 60, 0.55) !important;
+}
+
+.support-lab-btn--hybrid1 .swiss-btn--s4 .swiss-btn__glyph {
+  width: 18px !important;
+  height: 18px !important;
+  animation: support-hybrid1-swiss-glyph 4.8s ease-in-out infinite !important;
+}
+
+.support-lab-btn--hybrid1 .swiss-btn--s4 .swiss-btn__glyph > rect:nth-of-type(1),
+.support-lab-btn--hybrid1 .swiss-btn--s4 .swiss-btn__glyph > rect:nth-of-type(2) {
+  animation: support-hybrid1-swiss-cross-edge 4.8s ease-in-out infinite !important;
+}
+
+.support-lab-btn--hybrid1 .support-lab-btn__rim {
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px rgba(103, 232, 249, 0.18),
+    inset 0 -10px 18px rgba(124, 58, 237, 0.12);
+}
+
+.support-lab-btn--hybrid1 .support-lab-btn__spark-tail {
+  color: #a5f3fc;
+}
+
+@keyframes support-hybrid1-swiss-btn {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.025);
+  }
+}
+
+@keyframes support-hybrid1-swiss-rim {
+  0%,
+  100% {
+    filter: brightness(1) saturate(1);
+    box-shadow:
+      inset 0 -3px 6px rgba(46, 16, 101, 0.5),
+      0 0 0 1px rgba(109, 40, 217, 0.5);
+  }
+  50% {
+    filter: brightness(1.02) saturate(1.04);
+    /* без жёсткого светлого кольца — только soft box-shadow */
+    box-shadow:
+      inset 0 -3px 6px rgba(46, 16, 101, 0.45),
+      0 0 0 1px rgba(109, 40, 217, 0.45),
+      0 0 10px rgba(45, 212, 191, 0.26),
+      0 0 16px rgba(94, 234, 212, 0.14);
+  }
+}
+
+@keyframes support-hybrid1-swiss-depth {
+  0%,
+  100% {
+    background: #14b8a6;
+    box-shadow: none;
+  }
+  50% {
+    background: #2aa89c;
+    box-shadow: none;
+  }
+}
+
+@keyframes support-hybrid1-swiss-glyph {
+  0%,
+  100% {
+    filter: drop-shadow(0 1px 0 rgba(30, 10, 60, 0.55));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 1.2px rgba(204, 251, 241, 0.4))
+      drop-shadow(0 0 3px rgba(94, 234, 212, 0.26))
+      drop-shadow(0 1px 0 rgba(30, 10, 60, 0.4));
+  }
+}
+
+@keyframes support-hybrid1-swiss-cross-edge {
+  0%,
+  100% {
+    stroke-opacity: 0.06;
+    stroke-width: 0.25px;
+  }
+  50% {
+    stroke-opacity: 0.62;
+    stroke-width: 1.6px;
+  }
+}
+
+@keyframes support-lab-sheen {
+  0%,
+  100% {
+    background-position: 120% 0;
+  }
+  50% {
+    background-position: -20% 0;
+  }
+}
+
+@keyframes support-lab-pulse {
+  0%,
+  100% {
+    border-color: rgba(167, 139, 250, 0.45);
+    box-shadow:
+      0 6px 0 rgba(6, 2, 14, 0.55),
+      0 10px 18px rgba(0, 0, 0, 0.35),
+      0 0 0 0 rgba(103, 232, 249, 0),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+  50% {
+    border-color: rgba(103, 232, 249, 0.7);
+    box-shadow:
+      0 6px 0 rgba(6, 2, 14, 0.55),
+      0 10px 18px rgba(0, 0, 0, 0.35),
+      0 0 12px 1px rgba(103, 232, 249, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .support-lab-btn--aurora .support-lab-btn__sheen,
+  .support-lab-btn--pulse .support-lab-btn__sheen,
+  .support-lab-btn--plus .support-lab-btn__sheen,
+  .support-lab-btn--pulse,
+  .support-lab-btn--hybrid1 .swiss-btn,
+  .support-lab-btn--hybrid1 .swiss-btn--s4 .swiss-btn__rim,
+  .support-lab-btn--hybrid1 .swiss-btn--s4 .swiss-btn__depth,
+  .support-lab-btn--hybrid1 .swiss-btn--s4 .swiss-btn__glyph,
+  .support-lab-btn--hybrid1 .swiss-btn--s4 .swiss-btn__glyph > rect:nth-of-type(1),
+  .support-lab-btn--hybrid1 .swiss-btn--s4 .swiss-btn__glyph > rect:nth-of-type(2) {
+    animation: none !important;
+  }
+}

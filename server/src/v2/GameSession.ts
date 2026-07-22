@@ -16,17 +16,17 @@ import type { GameRoomRow, PlayerSlot } from '../protocol.js';
 import type { RoomStore } from '../rooms.js';
 import { V2CommandError } from './errors.js';
 
-const AI_NAMES = ['ИИ Север', 'ИИ Восток', 'ИИ Юг', 'ИИ Запад'] as const;
+const AI_NAMES = ['ИИ Юг', 'ИИ Север', 'ИИ Запад', 'ИИ Восток'] as const;
 
-function fullSlots(slots: PlayerSlot[]): PlayerSlot[] {
+function fullSlots(slots: PlayerSlot[], maxPlayers = 4): PlayerSlot[] {
   const byIndex = new Map<number, PlayerSlot>();
   for (const s of slots ?? []) {
-    if (typeof s.slotIndex === 'number' && s.slotIndex >= 0 && s.slotIndex <= 3) {
+    if (typeof s.slotIndex === 'number' && s.slotIndex >= 0 && s.slotIndex < maxPlayers) {
       byIndex.set(s.slotIndex, s);
     }
   }
   const out: PlayerSlot[] = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < maxPlayers; i++) {
     const existing = byIndex.get(i);
     out.push(
       existing ?? {
@@ -75,7 +75,8 @@ export class GameSession {
   }
 
   private seatForPlayer(playerId: string): number {
-    const slots = fullSlots(this.room().player_slots ?? []);
+    const room = this.room();
+    const slots = fullSlots(room.player_slots ?? [], room.max_players === 3 ? 3 : 4);
     const slot = slots.find((s) => s.userId === playerId);
     if (!slot || typeof slot.slotIndex !== 'number') {
       throw new V2CommandError('seat_mismatch');
@@ -111,13 +112,11 @@ export class GameSession {
     }
     this.assertHost(playerId);
 
-    const sourceSlots = fullSlots(room.player_slots ?? []);
-    const names: [string, string, string, string] = [
-      sourceSlots[0].displayName,
-      sourceSlots[1].displayName,
-      sourceSlots[2].displayName,
-      sourceSlots[3].displayName,
-    ];
+    const maxPlayers = room.max_players === 3 ? 3 : 4;
+    const sourceSlots = fullSlots(room.player_slots ?? [], maxPlayers);
+    const names = sourceSlots.map((slot) => slot.displayName) as
+      | [string, string, string]
+      | [string, string, string, string];
     let state = createGameOnline(names);
     state = {
       ...state,
