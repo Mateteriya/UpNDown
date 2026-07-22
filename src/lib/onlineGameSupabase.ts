@@ -5,10 +5,11 @@
 
 import { supabase } from './supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import type { GameState } from '../game/GameEngine';
+import type { GameState, DealResult } from '../game/GameEngine';
 import type { PlayerCount } from '../game/GameEngine';
 import { getTakenFromDealPoints } from '../game/scoring';
-import type { SettlementMode } from '../game/partySettlement';
+import { computePartySettlement, type SettlementMode } from '../game/partySettlement';
+import { readResultsChipView } from '../game/resultsChipView';
 import {
   normalizeCreateRoomOptions,
   type CreateRoomOptions,
@@ -902,16 +903,37 @@ export interface MatchPlayerInsert {
   place: number | null;
 }
 
+export type FinishGameDealHistoryEntry = {
+  dealNumber: number;
+  bids: number[];
+  points: number[];
+  takens?: number[];
+};
+
+/** Сериализация раздач для RPC finish_game / record_offline_match. */
+export function dealResultsToFinishRpcPayload(bh: readonly DealResult[]): FinishGameDealHistoryEntry[] {
+  return bh.map((d) => ({
+    dealNumber: d.dealNumber,
+    bids: d.bids,
+    points: d.points,
+    ...(d.takens ? { takens: d.takens } : {}),
+  }));
+}
+
 export async function finishMatch(
   roomId: string,
   code: string,
   snapshot: GameState,
-  playerSlots: PlayerSlot[]
-): Promise<{ ok: boolean; error?: string }> {
+  playerSlots: PlayerSlot[],
+  opts?: {
+    dealHistory?: GameState['dealHistory'];
+    chipsBySlot?: Record<string, number> | null;
+  },
+): Promise<{ ok: boolean; error?: string; matchId?: string }> {
   if (!supabase) return { ok: false, error: 'Supabase не настроен' };
   const players = snapshot.players;
   const dealsCount = snapshot.dealNumber;
-  const bh = snapshot.dealHistory ?? [];
+  const bh = opts?.dealHistory ?? snapshot.dealHistory ?? [];
   const calcAcc = (pi: number) => {
     if (!bh.length) return null;
     let met = 0;
@@ -919,7 +941,10 @@ export async function finishMatch(
       const bid = d.bids[pi];
       const pts = d.points[pi];
       if (bid == null) continue;
-      const taken = Math.max(0, Math.round((pts + Math.abs(pts)) / 20));
+      const taken =
+        d.takens?.[pi] != null
+          ? d.takens[pi]!
+          : Math.max(0, Math.round((pts + Math.abs(pts)) / 20));
       if (bid === taken) met++;
     }
     return Math.round((met / bh.length) * 100);
@@ -930,13 +955,13 @@ export async function finishMatch(
   let prevPlace = 0;
   order.forEach((row, idx) => {
     const score = row.s;
-    const place = prevScore === null ? 1 : (score === prevScore ? prevPlace : idx + 1);
+    const place = prevScore === null ? 1 : score === prevScore ? prevPlace : idx + 1;
     placeByIndex[row.i] = place;
     prevScore = score;
     prevPlace = place;
   });
   const payload = players.map((p, i) => {
-    const slot = playerSlots.find(s => s.slotIndex === i) as PlayerSlot | undefined;
+    const slot = playerSlots.find((s) => s.slotIndex === i) as PlayerSlot | undefined;
     const userId = slot?.userId ?? null;
     const isAi = !userId;
     const interrupted = !!slot?.replacedUserId;
@@ -955,14 +980,17 @@ export async function finishMatch(
       place: placeByIndex[i] ?? null,
     };
   });
+  const dealHistoryPayload = dealResultsToFinishRpcPayload(bh);
   const rpc = await supabase.rpc('finish_game', {
     p_room_id: roomId,
     p_code: code,
     p_deals_count: dealsCount,
     p_players: payload,
-  } as any);
+    p_deal_history: dealHistoryPayload.length ? dealHistoryPayload : null,
+    p_chips_by_slot: opts?.chipsBySlot ?? null,
+  } as Record<string, unknown>);
   if (rpc.error) return { ok: false, error: rpc.error.message };
-  return { ok: true };
+  return { ok: true, matchId: typeof rpc.data === 'string' ? rpc.data : undefined };
 }
 
 /** Подсказка режима комнаты по коду до входа. */
@@ -1041,8 +1069,12 @@ export async function listPublicWaitingRooms(limit = 40): Promise<{
 /** Завершённая офлайн-партия в истории аккаунта (без влияния на рейтинговую сводку — is_rated=false на сервере). */
 export async function recordOfflineMatchFinish(
   snapshot: GameState,
-  displayName: string
-): Promise<{ ok: boolean; error?: string }> {
+  displayName: string,
+  opts?: {
+    settlementMode?: SettlementMode;
+    chipsBySlot?: Record<string, number> | null;
+  },
+): Promise<{ ok: boolean; error?: string; matchId?: string }> {
   if (!supabase) return { ok: false, error: 'Supabase не настроен' };
   const { data: auth, error: authErr } = await supabase.auth.getUser();
   if (authErr || !auth.user) return { ok: false, error: 'Не выполнен вход' };
@@ -1054,7 +1086,7 @@ export async function recordOfflineMatchFinish(
   let prevPlace = 0;
   order.forEach((row, idx) => {
     const score = row.s;
-    const place = prevScore === null ? 1 : (score === prevScore ? prevPlace : idx + 1);
+    const place = prevScore === null ? 1 : score === prevScore ? prevPlace : idx + 1;
     placeByIndex[row.i] = place;
     prevScore = score;
     prevPlace = place;
@@ -1070,22 +1102,49 @@ export async function recordOfflineMatchFinish(
       const bid = d.bids[0];
       const pts = d.points[0];
       if (bid == null) continue;
-      const taken = getTakenFromDealPoints(bid, pts);
+      const taken = d.takens?.[0] != null ? d.takens[0]! : getTakenFromDealPoints(bid, pts);
       if (bid === taken) met++;
     }
     bidAccuracy = Math.round((met / bh.length) * 100);
   }
 
-  const { error } = await supabase.rpc('record_offline_match', {
+  const settlementMode =
+    opts?.settlementMode ?? snapshot.settlementMode ?? readResultsChipView();
+  let chipsBySlot = opts?.chipsBySlot ?? null;
+  if (!chipsBySlot && bh.length && (players.length === 3 || players.length === 4)) {
+    const settle = computePartySettlement(bh, players.length, settlementMode, {
+      buyIn: snapshot.buyIn ?? undefined,
+    });
+    chipsBySlot = {};
+    for (const row of settle.rows) {
+      chipsBySlot[String(row.playerIndex)] = row.chips;
+    }
+  }
+
+  const playersPayload = players.map((p, i) => ({
+    slot_index: i,
+    display_name: p.name,
+    is_ai: i !== 0,
+    final_score: p.score,
+    place: placeByIndex[i] ?? null,
+  }));
+
+  const dealHistoryPayload = dealResultsToFinishRpcPayload(bh);
+
+  const { data, error } = await supabase.rpc('record_offline_match', {
     p_deals_count: snapshot.dealNumber,
     p_final_score: players[0]?.score ?? 0,
     p_place: humanPlace,
     p_display_name: displayName.slice(0, 80),
     p_bid_accuracy: bidAccuracy,
+    p_settlement_mode: settlementMode,
+    p_chips_by_slot: chipsBySlot,
+    p_deal_history: dealHistoryPayload.length ? dealHistoryPayload : null,
+    p_players: playersPayload,
   } as Record<string, unknown>);
 
   if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  return { ok: true, matchId: typeof data === 'string' ? data : undefined };
 }
 
 export interface MatchHistoryItem {
@@ -1099,28 +1158,75 @@ export interface MatchHistoryItem {
   is_rated: boolean;
   /** true — запись из record_offline_match; онлайн-матчи после миграции = false */
   is_offline: boolean;
+  settlement_mode?: SettlementMode | null;
+  chips?: number | null;
+}
+
+export interface MatchDetailPlayer {
+  slot_index: number;
+  display_name: string;
+  is_ai: boolean;
+  final_score: number;
+  place: number | null;
+  bid_accuracy: number | null;
+  interrupted: boolean;
+  is_rated: boolean;
+}
+
+export interface MatchDetail {
+  id: string;
+  code: string;
+  finished_at: string;
+  deals_count: number | null;
+  is_offline: boolean;
+  settlement_mode: SettlementMode | null;
+  buy_in: number | null;
+  chips_by_slot: Record<string, number> | null;
+  deal_history: import('../game/GameEngine').DealResult[];
+  players: MatchDetailPlayer[];
+  /** Строка текущего пользователя в match_players */
+  my_place: number | null;
+  my_final_score: number | null;
+  my_chips: number | null;
 }
 
 function matchHistorySelectWithOffline(): string {
-  return 'match_id:match_id, final_score, interrupted, is_rated, place:place, matches:matches!inner(id, code, finished_at, deals_count, is_offline)';
+  return 'match_id:match_id, slot_index, final_score, interrupted, is_rated, place:place, matches:matches!inner(id, code, finished_at, deals_count, is_offline, settlement_mode, chips_by_slot)';
 }
 
 function matchHistorySelectWithoutOffline(): string {
-  return 'match_id:match_id, final_score, interrupted, is_rated, place:place, matches:matches!inner(id, code, finished_at, deals_count)';
+  return 'match_id:match_id, slot_index, final_score, interrupted, is_rated, place:place, matches:matches!inner(id, code, finished_at, deals_count)';
 }
 
 function mapMatchHistoryRows(data: unknown[]): MatchHistoryItem[] {
-  return (data as any[]).map((row) => ({
-    id: row.matches.id as string,
-    code: row.matches.code as string,
-    finished_at: row.matches.finished_at as string,
-    deals_count: row.matches.deals_count ?? null,
-    place: (row as any).place ?? null,
-    final_score: row.final_score ?? null,
-    interrupted: !!row.interrupted,
-    is_rated: !!row.is_rated,
-    is_offline: !!row.matches?.is_offline,
-  }));
+  return (data as any[]).map((row) => {
+    const chipsBySlot = row.matches?.chips_by_slot as Record<string, number> | null | undefined;
+    const slotKey =
+      row.slot_index != null
+        ? String(row.slot_index)
+        : null;
+    let chips: number | null = null;
+    if (chipsBySlot && typeof chipsBySlot === 'object') {
+      if (slotKey != null && chipsBySlot[slotKey] != null) chips = Number(chipsBySlot[slotKey]);
+      else {
+        const vals = Object.values(chipsBySlot);
+        if (vals.length === 1) chips = Number(vals[0]);
+      }
+    }
+    return {
+      id: row.matches.id as string,
+      code: row.matches.code as string,
+      finished_at: row.matches.finished_at as string,
+      deals_count: row.matches.deals_count ?? null,
+      place: (row as any).place ?? null,
+      final_score: row.final_score ?? null,
+      interrupted: !!row.interrupted,
+      is_rated: !!row.is_rated,
+      is_offline: !!row.matches?.is_offline,
+      settlement_mode: (row.matches?.settlement_mode as SettlementMode) ?? null,
+      chips: chips != null && Number.isFinite(chips) ? chips : null,
+    };
+  });
 }
 
 /** История матчей; без колонки matches.is_offline на БД повторяем запрос без неё (иначе PostgREST падает и список пустой). */
@@ -1141,7 +1247,9 @@ export async function getMyMatchHistory(userId: string, limit = 20): Promise<Mat
     const noOfflineCol =
       msg.includes('is_offline') ||
       msg.includes('does not exist') ||
-      code === '42703';
+      code === '42703' ||
+      msg.includes('settlement_mode') ||
+      msg.includes('chips_by_slot');
     if (noOfflineCol) {
       const second = await run(matchHistorySelectWithoutOffline());
       data = second.data;
@@ -1150,6 +1258,69 @@ export async function getMyMatchHistory(userId: string, limit = 20): Promise<Mat
   }
   if (error || !data) return [];
   return mapMatchHistoryRows(data as unknown[]);
+}
+
+/** Полный срез матча (standings + deal_history) для хаба «Мои партии». */
+export async function getMatchDetail(matchId: string, userId: string): Promise<MatchDetail | null> {
+  if (!supabase || !matchId || !userId) return null;
+  const { data: match, error: matchErr } = await supabase
+    .from('matches')
+    .select('id, code, finished_at, deals_count, is_offline, settlement_mode, buy_in, chips_by_slot, deal_history')
+    .eq('id', matchId)
+    .maybeSingle();
+  if (matchErr || !match) return null;
+
+  const { data: players, error: playersErr } = await supabase
+    .from('match_players')
+    .select('slot_index, display_name, is_ai, final_score, place, bid_accuracy, interrupted, is_rated, user_id')
+    .eq('match_id', matchId)
+    .order('slot_index', { ascending: true });
+  if (playersErr || !players) return null;
+
+  const mine = (players as any[]).find((p) => p.user_id === userId);
+  const chipsBySlot = (match.chips_by_slot as Record<string, number> | null) ?? null;
+  const mySlot = mine?.slot_index;
+  const myChips =
+    chipsBySlot && mySlot != null && chipsBySlot[String(mySlot)] != null
+      ? Number(chipsBySlot[String(mySlot)])
+      : null;
+
+  const dealHistoryRaw = match.deal_history;
+  const deal_history = Array.isArray(dealHistoryRaw)
+    ? (dealHistoryRaw as import('../game/GameEngine').DealResult[]).filter(
+        (d) =>
+          d &&
+          typeof d === 'object' &&
+          typeof (d as any).dealNumber === 'number' &&
+          Array.isArray((d as any).bids) &&
+          Array.isArray((d as any).points),
+      )
+    : [];
+
+  return {
+    id: match.id as string,
+    code: match.code as string,
+    finished_at: match.finished_at as string,
+    deals_count: (match.deals_count as number | null) ?? null,
+    is_offline: !!match.is_offline,
+    settlement_mode: (match.settlement_mode as SettlementMode) ?? null,
+    buy_in: (match.buy_in as number | null) ?? null,
+    chips_by_slot: chipsBySlot,
+    deal_history,
+    players: (players as any[]).map((p) => ({
+      slot_index: p.slot_index as number,
+      display_name: (p.display_name as string) || 'Игрок',
+      is_ai: !!p.is_ai,
+      final_score: (p.final_score as number) ?? 0,
+      place: (p.place as number | null) ?? null,
+      bid_accuracy: (p.bid_accuracy as number | null) ?? null,
+      interrupted: !!p.interrupted,
+      is_rated: !!p.is_rated,
+    })),
+    my_place: (mine?.place as number | null) ?? null,
+    my_final_score: (mine?.final_score as number | null) ?? null,
+    my_chips: myChips != null && Number.isFinite(myChips) ? myChips : null,
+  };
 }
 
 export interface RatingSummary {

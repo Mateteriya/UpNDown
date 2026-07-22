@@ -1,6 +1,6 @@
 /**
- * Личный кабинет: профиль (локально), аккаунт (облако), рейтинг и история.
- * ПК (≥1025px): full-page dashboard без прокрутки. Мобильный layout — прежняя карточка.
+ * Личный кабинет: профиль, аккаунт, рейтинг, архив партий (MatchArchiveHub).
+ * ПК (≥1025px): full-page dashboard. Мобильный layout — CosmicCockpit.
  */
 
 import { useEffect, useState, useRef } from 'react';
@@ -13,9 +13,8 @@ import {
 } from '../game/persistence';
 import { getAiDifficulty, setAiDifficulty } from '../game/aiSettings';
 import type { AIDifficulty } from '../game/types';
-import { getPartyHistory, type PartyHistoryRecord } from '../game/partyHistory';
 import { useAuth } from '../contexts/AuthContext';
-import { getMyMatchHistory, getMyRatingSummary, type MatchHistoryItem } from '../lib/onlineGameSupabase';
+import { getMyRatingSummary } from '../lib/onlineGameSupabase';
 import { getMenuIdentityStatus, MENU_IDENTITY_STATUS_ARIA } from '../lib/menuIdentityStatus';
 import { LK_CAST_PRIMARY, LK_CAST_HERO, preloadLkCastUrl } from '../lib/lkCastAssets';
 import { CosmicCockpit, CosmicGlassClose, CosmicPhysButton } from './CosmicCockpit';
@@ -23,6 +22,7 @@ import { PlayerAvatar } from './PlayerAvatar';
 import { LobbyBackButton } from './LobbyEntryActions';
 import { MenuCapsuleButton } from './MenuEntryActions';
 import { SupportMenuButton } from './SupportMenuButton';
+import { MatchArchiveHub } from './MatchArchiveHub';
 
 const PC_LK_MQ = '(min-width: 1025px)';
 
@@ -32,57 +32,23 @@ const AI_LEVELS: { id: AIDifficulty; title: string; hint: string }[] = [
   { id: 'expert', title: 'Эксперт', hint: 'жёсткий вызов' },
 ];
 
+export type AccountLkFocus = 'rating' | 'matches' | null;
+
 export type AccountLkPageProps = {
   onBack: () => void;
   displayName: string;
   avatarDataUrl?: string | null;
   onEditProfile: () => void;
-  onOpenRating: () => void;
-  onOpenHistory: () => void;
+  onOpenRating?: () => void;
+  onOpenHistory?: () => void;
   onSignIn: () => void;
   /** ПК: войти в незавершённую комнату по коду (открывает Онлайн). */
   onJoinUnfinished?: (code: string) => void;
   /** Открыть страницу донатов. */
   onOpenSupport?: () => void;
+  focusSection?: AccountLkFocus;
+  onContinueOffline?: () => void;
 };
-
-function formatWhen(iso: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return iso.slice(0, 10);
-  }
-}
-
-function LocalPartyRow({ row }: { row: PartyHistoryRecord }) {
-  return (
-    <li className="lk-page__match">
-      <span className="lk-page__match-meta">{formatWhen(row.finishedAt)} · офлайн</span>
-      <span className="lk-page__match-body">
-        Место {row.humanPlace} · {row.humanScore >= 0 ? '+' : ''}
-        {row.humanScore} очк.
-        {row.humanWon ? ' · победа' : ''}
-      </span>
-    </li>
-  );
-}
-
-function CloudMatchRow({ row }: { row: MatchHistoryItem }) {
-  const score = row.final_score != null ? `${row.final_score >= 0 ? '+' : ''}${row.final_score}` : '—';
-  const place = row.place != null ? `место ${row.place}` : '—';
-  return (
-    <li className="lk-page__match lk-page__match--cloud">
-      <span className="lk-page__match-meta">
-        {formatWhen(row.finished_at)} · {row.is_offline ? 'офлайн' : 'онлайн'}
-      </span>
-      <span className="lk-page__match-body">
-        {place} · {score} очк.
-        {row.interrupted ? ' · прервана' : ''}
-      </span>
-    </li>
-  );
-}
 
 function identityBadgeLabel(status: 'guest' | 'profile' | 'account'): string {
   if (status === 'guest') return 'гость';
@@ -90,23 +56,40 @@ function identityBadgeLabel(status: 'guest' | 'profile' | 'account'): string {
   return 'аккаунт';
 }
 
+function formatWhen(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso.slice(0, 10);
+  }
+}
+
+function scrollToAnchor(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 export function AccountLkPage({
   onBack,
   displayName,
   avatarDataUrl,
   onEditProfile,
-  onOpenRating,
-  onOpenHistory,
   onSignIn,
   onJoinUnfinished,
   onOpenSupport,
+  focusSection,
+  onContinueOffline,
 }: AccountLkPageProps) {
   const { user, configured, signOut, loading: authLoading } = useAuth();
   const rating = getLocalRating();
-  const localHistory = getPartyHistory(undefined, 8);
-  const [online, setOnline] = useState<{ games: number; ratedGames: number; wins: number; points: number } | null>(null);
-  const [cloudMatches, setCloudMatches] = useState<MatchHistoryItem[] | null>(null);
-  const [cloudLoading, setCloudLoading] = useState(false);
+  const [online, setOnline] = useState<{ games: number; ratedGames: number; wins: number; points: number } | null>(
+    null,
+  );
   const [isPc, setIsPc] = useState(
     () => typeof window !== 'undefined' && window.matchMedia(PC_LK_MQ).matches,
   );
@@ -124,6 +107,7 @@ export function AccountLkPage({
     avatarDataUrl,
     userEmail: user?.email ?? null,
   });
+  const archiveFocus = focusSection === 'matches' ? 'matches' : null;
 
   useEffect(() => {
     const mq = window.matchMedia(PC_LK_MQ);
@@ -146,45 +130,29 @@ export function AccountLkPage({
   }, []);
 
   useEffect(() => {
+    if (focusSection === 'rating') {
+      scrollToAnchor('lk-stats-anchor');
+    }
+  }, [focusSection]);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       if (!configured || !user?.id) {
         setOnline(null);
-        setCloudMatches(null);
-        setCloudLoading(false);
         return;
       }
-      setCloudLoading(true);
       try {
-        const [summary, hist] = await Promise.all([
-          getMyRatingSummary(user.id),
-          getMyMatchHistory(user.id, 8),
-        ]);
-        if (!cancelled) {
-          setOnline(summary);
-          setCloudMatches(hist);
-        }
+        const summary = await getMyRatingSummary(user.id);
+        if (!cancelled) setOnline(summary);
       } catch {
-        if (!cancelled) {
-          setOnline(null);
-          setCloudMatches([]);
-        }
-      } finally {
-        if (!cancelled) setCloudLoading(false);
+        if (!cancelled) setOnline(null);
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [configured, user?.id]);
-
-  const recentMatches =
-    loggedIn && cloudMatches && cloudMatches.length > 0
-      ? cloudMatches
-      : localHistory.length > 0
-        ? localHistory
-        : null;
-  const recentIsCloud = !!(loggedIn && cloudMatches && cloudMatches.length > 0);
 
   const handleAiSelect = (level: AIDifficulty) => {
     setAiDifficulty(level);
@@ -202,8 +170,24 @@ export function AccountLkPage({
     setUnfinished(getUnfinishedOnlineGames());
   };
 
+  const handleCapsuleRating = () => {
+    scrollToAnchor('lk-stats-anchor');
+  };
+
+  const handleCapsuleHistory = () => {
+    scrollToAnchor('lk-archive-hub');
+  };
+
   const unfinishedShown = [...unfinished].reverse().slice(0, 2);
-  const recentShown = recentMatches ? recentMatches.slice(0, 2) : null;
+
+  const archiveHub = (
+    <MatchArchiveHub
+      userId={user?.id ?? null}
+      configured={configured}
+      focus={archiveFocus}
+      onContinueOffline={onContinueOffline}
+    />
+  );
 
   if (isPc) {
     return (
@@ -281,11 +265,21 @@ export function AccountLkPage({
                     onClick={onSignIn}
                   />
                 )}
-                <MenuCapsuleButton variant="rating" compact title="Рейтинг" hint="подробно" onClick={onOpenRating} />
-                <MenuCapsuleButton variant="history" compact title="История" hint="все партии" onClick={onOpenHistory} />
-                {onOpenSupport ? (
-                  <SupportMenuButton onClick={onOpenSupport} />
-                ) : null}
+                <MenuCapsuleButton
+                  variant="rating"
+                  compact
+                  title="Рейтинг"
+                  hint="подробно"
+                  onClick={handleCapsuleRating}
+                />
+                <MenuCapsuleButton
+                  variant="history"
+                  compact
+                  title="История"
+                  hint="все партии"
+                  onClick={handleCapsuleHistory}
+                />
+                {onOpenSupport ? <SupportMenuButton onClick={onOpenSupport} /> : null}
               </div>
             </section>
 
@@ -331,7 +325,11 @@ export function AccountLkPage({
                 </div>
               </section>
 
-              <section className="lk-pc-panel lk-pc-panel--stats" aria-labelledby="lk-pc-stats">
+              <section
+                className="lk-pc-panel lk-pc-panel--stats"
+                id="lk-stats-anchor"
+                aria-labelledby="lk-pc-stats"
+              >
                 <header className="lk-pc-panel__head">
                   <h2 id="lk-pc-stats" className="lk-pc-panel__title">
                     Статистика
@@ -416,43 +414,10 @@ export function AccountLkPage({
                     </ul>
                   )}
                 </div>
+              </section>
 
-                <div className="lk-pc-activity-block">
-                  <h3 className="lk-pc-activity-block__title">Недавние</h3>
-                  {cloudLoading && loggedIn ? (
-                    <p className="lk-pc-activity-block__empty">Загрузка…</p>
-                  ) : recentShown && recentShown.length > 0 ? (
-                    <ul className="lk-pc-chip-list">
-                      {recentIsCloud
-                        ? (recentShown as MatchHistoryItem[]).map((row) => (
-                            <li key={row.id} className="lk-pc-chip">
-                              <span className="lk-pc-chip__meta">
-                                {formatWhen(row.finished_at)} · {row.is_offline ? 'офлайн' : 'онлайн'}
-                              </span>
-                              <span className="lk-pc-chip__body">
-                                {row.place != null ? `место ${row.place}` : '—'}
-                                {' · '}
-                                {row.final_score != null
-                                  ? `${row.final_score >= 0 ? '+' : ''}${row.final_score}`
-                                  : '—'}
-                              </span>
-                            </li>
-                          ))
-                        : (recentShown as PartyHistoryRecord[]).map((row) => (
-                            <li key={row.id} className="lk-pc-chip">
-                              <span className="lk-pc-chip__meta">{formatWhen(row.finishedAt)} · офлайн</span>
-                              <span className="lk-pc-chip__body">
-                                место {row.humanPlace} · {row.humanScore >= 0 ? '+' : ''}
-                                {row.humanScore}
-                                {row.humanWon ? ' · победа' : ''}
-                              </span>
-                            </li>
-                          ))}
-                    </ul>
-                  ) : (
-                    <p className="lk-pc-activity-block__empty">Пока нет партий</p>
-                  )}
-                </div>
+              <section className="lk-pc-panel lk-pc-panel--archive" aria-label="Архив партий">
+                {archiveHub}
               </section>
             </div>
           </div>
@@ -484,6 +449,12 @@ export function AccountLkPage({
                   Без аккаунта · только это устройство
                 </p>
               )}
+              <span
+                className={`lk-page__badge lk-page__badge--${identityStatus === 'account' ? 'online' : identityStatus === 'profile' ? 'local' : 'guest'}`}
+                title={MENU_IDENTITY_STATUS_ARIA[identityStatus]}
+              >
+                {identityBadgeLabel(identityStatus)}
+              </span>
             </div>
           </div>
 
@@ -536,7 +507,11 @@ export function AccountLkPage({
             </div>
           </section>
 
-          <section className="lk-page__section" aria-labelledby="lk-stats-title">
+          <section
+            className="lk-page__section"
+            id="lk-stats-anchor"
+            aria-labelledby="lk-stats-title"
+          >
             <h2 id="lk-stats-title" className="lk-page__section-title">
               Статистика
             </h2>
@@ -576,10 +551,10 @@ export function AccountLkPage({
               )}
             </div>
             <div className="lk-page__section-links">
-              <button type="button" className="lk-page__text-link" onClick={onOpenRating}>
+              <button type="button" className="lk-page__text-link" onClick={handleCapsuleRating}>
                 Подробный рейтинг
               </button>
-              <button type="button" className="lk-page__text-link" onClick={onOpenHistory}>
+              <button type="button" className="lk-page__text-link" onClick={handleCapsuleHistory}>
                 История партий
               </button>
               {onOpenSupport ? (
@@ -590,30 +565,42 @@ export function AccountLkPage({
             </div>
           </section>
 
-          <section className="lk-page__section" aria-labelledby="lk-recent-title">
-            <h2 id="lk-recent-title" className="lk-page__section-title">
-              Недавние партии
+          <section className="lk-page__section" aria-labelledby="lk-unfinished-title">
+            <h2 id="lk-unfinished-title" className="lk-page__section-title">
+              Незавершённые онлайн
             </h2>
-            {cloudLoading && loggedIn ? (
-              <p className="lk-page__empty">Загрузка из облака…</p>
-            ) : recentMatches && recentMatches.length > 0 ? (
-              <ul className="lk-page__match-list">
-                {recentIsCloud
-                  ? (recentMatches as MatchHistoryItem[]).map((row) => (
-                      <CloudMatchRow key={row.id} row={row} />
-                    ))
-                  : (recentMatches as PartyHistoryRecord[]).map((row) => (
-                      <LocalPartyRow key={row.id} row={row} />
-                    ))}
-              </ul>
+            {unfinishedShown.length === 0 ? (
+              <p className="lk-page__empty">Пока пусто</p>
             ) : (
-              <p className="lk-page__empty">
-                {loggedIn
-                  ? 'Пока нет сохранённых партий. Завершите офлайн- или онлайн-игру — запись появится здесь.'
-                  : 'Локальная история появится после офлайн-партий. Войдите в аккаунт, чтобы синхронизировать её между устройствами.'}
-              </p>
+              unfinishedShown.map((row) => (
+                <div key={`${row.roomId}-${row.leftAt}`} className="lk-page__actions lk-page__actions--in-section">
+                  <p className="lk-page__explain">
+                    Комната {row.code} · {formatWhen(row.leftAt)}
+                  </p>
+                  <div className="lk-page__section-links">
+                    {onJoinUnfinished ? (
+                      <button
+                        type="button"
+                        className="lk-page__text-link"
+                        onClick={() => onJoinUnfinished(row.code)}
+                      >
+                        Открыть
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="lk-page__text-link"
+                      onClick={() => handleForgetUnfinished(row.roomId)}
+                    >
+                      Забыть
+                    </button>
+                  </div>
+                </div>
+              ))
             )}
           </section>
+
+          {archiveHub}
 
           <CosmicPhysButton variant="secondary" onClick={onBack}>
             ← В главное меню

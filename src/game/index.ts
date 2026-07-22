@@ -9,6 +9,7 @@ export * from './rules';
 export * from './GameEngine';
 export * from './partySettlement';
 export * from './partyHistory';
+export * from './partyArchive';
 export * from './resultsChipView';
 export * from './ai';
 export * from './aiSettings';

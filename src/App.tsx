@@ -30,7 +30,7 @@ import { AuthModal } from './ui/AuthModal'
 import { applyLanJoinParamsFromUrl } from './lib/lanJoinLink'
 import { LobbyScreen } from './ui/LobbyScreen'
 import { OfflinePlayerCountModal, type OfflinePlayerCount } from './ui/OfflinePlayerCountModal'
-import { AccountLkPage } from './ui/AccountLkPage'
+import { AccountLkPage, type AccountLkFocus } from './ui/AccountLkPage'
 import { MainMenuScreen } from './ui/MainMenuScreen'
 import { ACCOUNT_ROUTE_HASH, isAccountRouteHash } from './lib/accountRoute'
 import { ONLINE_ROUTE_HASH, isOnlineRouteHash } from './lib/onlineRoute'
@@ -95,6 +95,7 @@ function App() {
   }, [])
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [accountFocus, setAccountFocus] = useState<AccountLkFocus>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [urlJoinCode, setUrlJoinCode] = useState(() => {
@@ -411,8 +412,12 @@ function App() {
     requestOfflinePlayerCount('in-game')
   }
 
-  const openAccountCabinet = useCallback(() => {
+  const openAccountCabinet = useCallback((focus?: AccountLkFocus) => {
     setUrlJoinCode(null)
+    // Ignore accidental event args from onClick={openAccountCabinet}
+    const next: AccountLkFocus =
+      focus === 'rating' || focus === 'matches' ? focus : null
+    setAccountFocus(next)
     setScreen('account')
   }, [])
 
@@ -517,11 +522,19 @@ function App() {
         <RatingModal
           onClose={() => setShowRatingModal(false)}
           playerAvatarDataUrl={profile.avatarDataUrl}
+          onOpenCabinet={() => {
+            setShowRatingModal(false)
+            openAccountCabinet('rating')
+          }}
         />
       )}
       {showHistoryModal && (
         <HistoryModal
           onClose={() => setShowHistoryModal(false)}
+          onOpenCabinet={() => {
+            setShowHistoryModal(false)
+            openAccountCabinet('matches')
+          }}
           onGoToOffline={() => {
             setShowHistoryModal(false)
             if (online.status !== 'idle') {
@@ -670,12 +683,17 @@ function App() {
         <AccountLkPage
           displayName={profile.displayName}
           avatarDataUrl={profile.avatarDataUrl}
-          onBack={() => setScreen('menu')}
+          focusSection={accountFocus}
+          onBack={() => {
+            setAccountFocus(null)
+            setScreen('menu')
+          }}
           onEditProfile={() => {
             openNameAvatarModal('profile')
           }}
-          onOpenRating={() => setShowRatingModal(true)}
-          onOpenHistory={() => setShowHistoryModal(true)}
+          onContinueOffline={() => {
+            void handleResumeOffline()
+          }}
           onSignIn={() => {
             setAuthMode('login')
             setShowAuthModal(true)

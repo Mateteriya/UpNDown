@@ -1,13 +1,73 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getMyMatchHistory, type MatchHistoryItem } from '../lib/onlineGameSupabase';
+import { getPartyHistory, type PartyHistoryRecord } from '../game/partyHistory';
 import { hasSavedGame } from '../game/persistence';
 
-export function HistoryModal({ onClose, onGoToOffline }: { onClose: () => void; onGoToOffline?: () => void }) {
+const CLOUD_TEASER_MAX = 5;
+const LOCAL_TEASER_MAX = 3;
+
+function formatWhen(iso: string): string {
+  try {
+    const dt = new Date(iso);
+    return isNaN(dt.getTime()) ? iso : dt.toLocaleString('ru-RU');
+  } catch {
+    return iso;
+  }
+}
+
+function LocalTeaserRow({ row }: { row: PartyHistoryRecord }) {
+  return (
+    <div className="lk-modal__row">
+      <div className="lk-modal__row-main">
+        <span className="lk-modal__row-title">Офлайн на устройстве</span>
+        <span className="lk-modal__row-meta">
+          {formatWhen(row.finishedAt)} — место {row.humanPlace}, {row.humanScore >= 0 ? '+' : ''}
+          {row.humanScore} очк.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function CloudTeaserRow({ it }: { it: MatchHistoryItem }) {
+  const flags = [it.is_rated ? 'рейтинговая' : 'без рейтинга', it.interrupted ? 'прервана' : null]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    <div className="lk-modal__row">
+      <div className="lk-modal__row-main">
+        <span className="lk-modal__row-title">{it.is_offline ? 'Офлайн‑партия' : 'Онлайн‑партия'}</span>
+        <span className="lk-modal__row-meta">
+          {formatWhen(it.finished_at)}
+          {flags ? ` — ${flags}` : ''}
+        </span>
+        {!it.is_offline && it.code ? <span className="lk-modal__row-code">Комната {it.code}</span> : null}
+      </div>
+      <div className="lk-modal__row-stats">
+        <span className="lk-modal__row-stat-label">Место</span>
+        <span className="lk-modal__row-stat-value">{it.place ?? '—'}</span>
+        <span className="lk-modal__row-stat-label">Очки</span>
+        <span className="lk-modal__row-stat-value">{it.final_score ?? '—'}</span>
+      </div>
+    </div>
+  );
+}
+
+export function HistoryModal({
+  onClose,
+  onGoToOffline,
+  onOpenCabinet,
+}: {
+  onClose: () => void;
+  onGoToOffline?: () => void;
+  onOpenCabinet?: () => void;
+}) {
   const { user, configured } = useAuth();
   const [items, setItems] = useState<MatchHistoryItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const offlineAvailable = hasSavedGame();
+  const localTeasers = getPartyHistory(undefined, LOCAL_TEASER_MAX);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -23,10 +83,14 @@ export function HistoryModal({ onClose, onGoToOffline }: { onClose: () => void; 
         setItems([]);
         return;
       }
-      const data = await getMyMatchHistory(user.id, 20);
+      const data = await getMyMatchHistory(user.id, CLOUD_TEASER_MAX);
       setItems(data);
     })().catch((e) => setError(String(e)));
   }, [configured, user?.id]);
+
+  const cloudTeasers = items?.slice(0, CLOUD_TEASER_MAX) ?? null;
+  const hasTeasers =
+    localTeasers.length > 0 || (cloudTeasers != null && cloudTeasers.length > 0);
 
   return (
     <div
@@ -51,7 +115,7 @@ export function HistoryModal({ onClose, onGoToOffline }: { onClose: () => void; 
             <p className="lk-modal__hint">Сервер не настроен. История появится после настройки.</p>
           ) : null}
           {configured && !user?.id ? (
-            <p className="lk-modal__hint">Войдите, чтобы просматривать историю.</p>
+            <p className="lk-modal__hint">Войдите, чтобы видеть облачную историю. Локальные партии — ниже.</p>
           ) : null}
           {error ? <p className="lk-modal__error">{error}</p> : null}
 
@@ -74,43 +138,36 @@ export function HistoryModal({ onClose, onGoToOffline }: { onClose: () => void; 
             </div>
           ) : null}
 
-          {items == null ? (
-            <p className="lk-modal__hint">Загрузка…</p>
-          ) : items.length === 0 ? (
+          {localTeasers.length > 0 ? (
+            <div className="lk-modal__list">
+              {localTeasers.map((row) => (
+                <LocalTeaserRow key={row.id} row={row} />
+              ))}
+            </div>
+          ) : null}
+
+          {cloudTeasers == null ? (
+            configured && user?.id ? <p className="lk-modal__hint">Загрузка…</p> : null
+          ) : cloudTeasers.length === 0 && !hasTeasers ? (
             <p className="lk-modal__hint">Пока пусто.</p>
           ) : (
             <div className="lk-modal__list">
-              {items.map((it) => {
-                const dt = new Date(it.finished_at);
-                const date = isNaN(dt.getTime()) ? it.finished_at : dt.toLocaleString();
-                const flags = [it.is_rated ? 'рейтинговая' : 'без рейтинга', it.interrupted ? 'прервана' : null]
-                  .filter(Boolean)
-                  .join(' · ');
-                return (
-                  <div key={it.id} className="lk-modal__row">
-                    <div className="lk-modal__row-main">
-                      <span className="lk-modal__row-title">
-                        {it.is_offline ? 'Офлайн‑партия' : 'Онлайн‑партия'}
-                      </span>
-                      <span className="lk-modal__row-meta">
-                        {date}
-                        {flags ? ` — ${flags}` : ''}
-                      </span>
-                      {!it.is_offline && it.code ? (
-                        <span className="lk-modal__row-code">Комната {it.code}</span>
-                      ) : null}
-                    </div>
-                    <div className="lk-modal__row-stats">
-                      <span className="lk-modal__row-stat-label">Место</span>
-                      <span className="lk-modal__row-stat-value">{it.place ?? '—'}</span>
-                      <span className="lk-modal__row-stat-label">Очки</span>
-                      <span className="lk-modal__row-stat-value">{it.final_score ?? '—'}</span>
-                    </div>
-                  </div>
-                );
-              })}
+              {cloudTeasers.map((it) => (
+                <CloudTeaserRow key={it.id} it={it} />
+              ))}
             </div>
           )}
+
+          {onOpenCabinet ? (
+            <button
+              type="button"
+              className="lk-modal__pill-btn"
+              style={{ width: '100%', marginTop: 12 }}
+              onClick={onOpenCabinet}
+            >
+              Мои партии в кабинете
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

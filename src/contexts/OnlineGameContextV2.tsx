@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from './AuthContext';
 import type { Card } from '../game/types';
 import type { GameState, PlayerCount } from '../game/GameEngine';
-import { getPlayerProfile } from '../game/persistence';
+import { getPlayerProfile, saveUnfinishedOnlineGame } from '../game/persistence';
 import { rotateStateForPlayer } from '../game/rotateState';
 import {
   createRoom as apiCreateRoom,
@@ -305,6 +305,11 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
 
   const leaveRoom = useCallback(async () => {
     const rid = roomId;
+    const roomCode = code;
+    const st = status;
+    if (rid && roomCode && st === 'playing') {
+      saveUnfinishedOnlineGame(rid, roomCode);
+    }
     const uid = onlinePlayerId;
     disconnectLocal();
     if (!rid || !uid) return;
@@ -313,7 +318,7 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     } catch {
       /* локально уже вышли */
     }
-  }, [roomId, onlinePlayerId, disconnectLocal]);
+  }, [roomId, code, status, onlinePlayerId, disconnectLocal]);
 
   const refreshRoom = useCallback(async () => {
     if (!roomId) return;

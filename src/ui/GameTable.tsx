@@ -32,7 +32,7 @@ import {
   playerAtLeftFrom,
 } from '../game/GameEngine';
 import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating, getPlayerProfile } from '../game/persistence';
-import { appendPartyHistoryRecord, buildPartyHistoryRecord } from '../game/partyHistory';
+import { appendPartyArchiveRecord, buildPartyArchiveRecord } from '../game/partyArchive';
 import { logDealOutcome } from '../game/aiLearning';
 import { aiBid, aiPlay } from '../game/ai';
 import {
@@ -122,7 +122,10 @@ import {
   hostMayAutoDriveOnlineAiForSeat,
   isNativeVacantAiPlayerSlot,
   recordOfflineMatchFinish,
+  finishMatch,
 } from '../lib/onlineGameSupabase';
+import { readResultsChipView } from '../game/resultsChipView';
+import { computePartySettlement } from '../game/partySettlement';
 import { isPersonalAiReplacementEnabled } from '../lib/featureFlags';
 import { getResultsTableFootTotalDigitStyle } from '../lib/mobileResultsTableTotalTone';
 import { CardView } from './CardView';
@@ -3741,6 +3744,8 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const dealResultsButtonEverShownRef = useRef(false);
   /** Одна отправка завершённой офлайн-партии на сервер за монтаж игры (история аккаунта). */
   const offlineMatchRecordedRef = useRef(false);
+  /** Одна отправка finish_game для онлайн-партии. */
+  const onlineMatchRecordedRef = useRef(false);
   const partyHistoryRecordedRef = useRef(false);
   /** Номер раздачи, для которой уже запущена анимация результатов (один раз на раздачу, без повторов при опросе). */
   const lastAnimatedDealNumberRef = useRef<number | null>(null);
@@ -3800,6 +3805,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     }
     dealResultsButtonEverShownRef.current = false;
     offlineMatchRecordedRef.current = false;
+    onlineMatchRecordedRef.current = false;
     partyHistoryRecordedRef.current = false;
     lastAnimatedDealNumberRef.current = null;
     setDealResultsExpanded(false);
@@ -5358,8 +5364,12 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                 updateLocalRating(humanWon, undefined, bidAccuracy);
                 if (!partyHistoryRecordedRef.current) {
                   partyHistoryRecordedRef.current = true;
-                  const hist = buildPartyHistoryRecord(snap, { gameId });
-                  if (hist) appendPartyHistoryRecord(hist);
+                  const arch = buildPartyArchiveRecord(snap, {
+                    gameId,
+                    source: 'offline',
+                    settlementMode: readResultsChipView(),
+                  });
+                  if (arch) void appendPartyArchiveRecord(arch);
                 }
                 if (userRef.current?.id && !offlineMatchRecordedRef.current) {
                   offlineMatchRecordedRef.current = true;
@@ -5371,6 +5381,52 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                     if (r.ok) setGameOverCloudSave('ok');
                     else {
                       offlineMatchRecordedRef.current = false;
+                      setGameOverCloudSave('fail');
+                    }
+                  });
+                } else if (!userRef.current?.id) {
+                  setGameOverCloudSave('no-auth');
+                }
+              } else if (canonicalSnap && snap && o?.roomId && o?.code) {
+                const humanIdx = o.myServerIndex ?? 0;
+                if (!partyHistoryRecordedRef.current) {
+                  partyHistoryRecordedRef.current = true;
+                  const mode = o.settlementMode ?? snap.settlementMode ?? 'accuracy_bonus';
+                  const arch = buildPartyArchiveRecord(snap, {
+                    gameId,
+                    humanIndex: humanIdx,
+                    source: 'online',
+                    settlementMode: mode === 'points_only' || mode === 'prize_pool' || mode === 'vs_average' || mode === 'accuracy_bonus'
+                      ? mode
+                      : 'accuracy_bonus',
+                    buyIn: o.buyIn ?? snap.buyIn ?? null,
+                  });
+                  if (arch) void appendPartyArchiveRecord(arch);
+                }
+                if (userRef.current?.id && !onlineMatchRecordedRef.current) {
+                  onlineMatchRecordedRef.current = true;
+                  setGameOverCloudSave('pending');
+                  const mode = o.settlementMode ?? snap.settlementMode ?? 'accuracy_bonus';
+                  const n = snap.players.length as 3 | 4;
+                  const settle =
+                    n === 3 || n === 4
+                      ? computePartySettlement(snap.dealHistory ?? [], n, mode, {
+                          buyIn: o.buyIn ?? snap.buyIn ?? undefined,
+                        })
+                      : null;
+                  const chipsBySlot: Record<string, number> = {};
+                  if (settle) {
+                    for (const row of settle.rows) {
+                      chipsBySlot[String(row.playerIndex)] = row.chips;
+                    }
+                  }
+                  void finishMatch(o.roomId, o.code, snap, o.playerSlots ?? [], {
+                    dealHistory: snap.dealHistory ?? [],
+                    chipsBySlot: Object.keys(chipsBySlot).length ? chipsBySlot : null,
+                  }).then((r) => {
+                    if (r.ok) setGameOverCloudSave('ok');
+                    else {
+                      onlineMatchRecordedRef.current = false;
                       setGameOverCloudSave('fail');
                     }
                   });

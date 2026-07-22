@@ -123,14 +123,16 @@
 
 ---
 
-### Фаза F — История и архив (офлайн — начато)
+### Фаза F — История и архив
 
-**Файлы:** `partyHistory.ts`, `RatingModal.tsx`; позже `HistoryModal`, Supabase
+**Файлы:** `partyHistory.ts`, `partyArchive.ts`, `MatchArchiveHub`, `AccountLkPage`, короткие `RatingModal` / `HistoryModal`
 
 - [x] Офлайн: `appendPartyHistoryRecord` при `game-complete` (по `profileId`)
-- [x] «Ваш рейтинг»: последние партии (очки, место, фишки, режим)
-- [ ] Полный архив с `dealHistory` / отдельный экран «Мои партии»
-- [ ] Онлайн: `settlement_mode`, `chips` в match results
+- [x] IndexedDB-архив с `dealHistory` (`partyArchive.ts`)
+- [x] Личный кабинет: рейтинг + «Мои партии» (`MatchArchiveHub`)
+- [x] Короткие модалки из меню с CTA «Открыть кабинет»
+- [x] Облако: `deal_history`, фишки в RPC (`APPLY-MATCH-ARCHIVE-PROD.sql`)
+- [ ] Онлайн: полный UI разбора облачной партии на всех клиентах (полировка)
 
 ---
 
@@ -187,7 +189,7 @@
   └─ [фаза C] колонка фишек, пояснения, в плюсе / ★
 
 История / рейтинг
-  └─ [фаза F] фишки в карточке; рейтинг = очки
+  └─ [фаза F] кабинет: архив + разбор; модалки — KPI и тизеры
 ```
 
 ---

@@ -1233,6 +1233,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
 
   const leaveRoom = useCallback(async () => {
     const rid = roomId;
+    const roomCode = code;
+    const st = status;
+    if (rid && roomCode && st === 'playing') {
+      saveUnfinishedOnlineGame(rid, roomCode);
+    }
     const uid = onlinePlayerId;
     disconnectLocalOnlineState();
     if (!rid || !uid) return;
@@ -1257,7 +1262,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     } catch (e) {
       setError(formatSupabaseNetworkError(e));
     }
-  }, [roomId, onlinePlayerId, disconnectLocalOnlineState]);
+  }, [roomId, code, status, onlinePlayerId, disconnectLocalOnlineState]);
 
   const stopAutoRestoreForCurrentRoom = useCallback(async () => {
     const rid = roomIdRef.current;

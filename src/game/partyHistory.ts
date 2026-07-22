@@ -3,10 +3,21 @@
  * @see docs/PARTY-SETTLEMENT-PLAN.md фаза F
  */
 
-import { computePartySettlement } from './partySettlement';
+import { computePartySettlement, type SettlementMode } from './partySettlement';
 import type { DealResult } from './GameEngine';
 import { getPlayerProfile } from './persistence';
 import { readResultsChipView, type ResultsChipView } from './resultsChipView';
+
+const SETTLEMENT_MODES: SettlementMode[] = [
+  'points_only',
+  'vs_average',
+  'accuracy_bonus',
+  'prize_pool',
+];
+
+function isSettlementMode(x: unknown): x is SettlementMode {
+  return typeof x === 'string' && (SETTLEMENT_MODES as string[]).includes(x);
+}
 
 const PARTY_HISTORY_KEY_PREFIX = 'updown_party_history_';
 /** Журнал последних партий на устройстве (не рейтинг). ~50 партий/день × 30 дней. */
@@ -27,7 +38,7 @@ export interface PartyHistoryRecord {
   profileId: string;
   gameId: number;
   playerCount: number;
-  settlementMode: ResultsChipView;
+  settlementMode: SettlementMode;
   humanIndex: number;
   humanWon: boolean;
   humanPlace: number;
@@ -61,7 +72,7 @@ function isPartyHistoryRecord(x: unknown): x is PartyHistoryRecord {
     typeof r.profileId === 'string' &&
     typeof r.gameId === 'number' &&
     typeof r.playerCount === 'number' &&
-    (r.settlementMode === 'accuracy_bonus' || r.settlementMode === 'vs_average') &&
+    isSettlementMode(r.settlementMode) &&
     typeof r.humanPlace === 'number' &&
     typeof r.humanScore === 'number' &&
     typeof r.humanChips === 'number' &&
@@ -83,7 +94,13 @@ export function getPartyHistory(profileId?: string, limit = 10): PartyHistoryRec
 
 export function buildPartyHistoryRecord(
   snap: { dealNumber: number; dealHistory?: DealResult[]; players: { name: string; score: number }[] },
-  opts: { gameId: number; humanIndex?: number; profileId?: string; settlementMode?: ResultsChipView },
+  opts: {
+    gameId: number;
+    humanIndex?: number;
+    profileId?: string;
+    settlementMode?: SettlementMode | ResultsChipView;
+    buyIn?: number | null;
+  },
 ): PartyHistoryRecord | null {
   const profileId = opts.profileId ?? getPlayerProfile().profileId ?? '';
   if (!profileId) return null;
@@ -95,7 +112,9 @@ export function buildPartyHistoryRecord(
   if (playerCount !== 3 && playerCount !== 4) return null;
 
   const settlementMode = opts.settlementMode ?? readResultsChipView();
-  const settlement = computePartySettlement(dealHistory, playerCount, settlementMode);
+  const settlement = computePartySettlement(dealHistory, playerCount, settlementMode, {
+    buyIn: opts.buyIn ?? undefined,
+  });
 
   const sorted = snap.players
     .map((p, i) => ({

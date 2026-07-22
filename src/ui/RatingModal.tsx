@@ -1,5 +1,5 @@
 /**
- * Модалка «Ваш рейтинг»: статистика текущего профиля (игр, побед, точность заказов).
+ * Модалка «Ваш рейтинг»: краткий KPI + переход в личный кабинет.
  */
 
 import { useEffect, useState } from 'react';
@@ -7,7 +7,7 @@ import { getLocalRating, getPlayerProfile } from '../game/persistence';
 import { getPartyHistory, type PartyHistoryRecord } from '../game/partyHistory';
 import { SETTLEMENT_MODE_LABELS } from '../game/partySettlement';
 import { useAuth } from '../contexts/AuthContext';
-import { getMyMatchHistory, getMyRatingSummary, type MatchHistoryItem } from '../lib/onlineGameSupabase';
+import { getMyRatingSummary } from '../lib/onlineGameSupabase';
 import { CosmicCockpit, CosmicPhysButton } from './CosmicCockpit';
 import { PlayerAvatar } from './PlayerAvatar';
 import { chipColor } from './DealResultsSettlement';
@@ -15,7 +15,10 @@ import { chipColor } from './DealResultsSettlement';
 export interface RatingModalProps {
   onClose: () => void;
   playerAvatarDataUrl?: string | null;
+  onOpenCabinet?: () => void;
 }
+
+const TEASER_MAX = 3;
 
 function formatPartyDate(iso: string): string {
   try {
@@ -26,7 +29,7 @@ function formatPartyDate(iso: string): string {
   }
 }
 
-function PartyHistoryRow({ row }: { row: PartyHistoryRecord }) {
+function PartyHistoryTeaser({ row }: { row: PartyHistoryRecord }) {
   const chipsStr = `${row.humanChips >= 0 ? '+' : ''}${row.humanChips}`;
   return (
     <div className="rating-modal__history-row">
@@ -51,31 +54,12 @@ function PartyHistoryRow({ row }: { row: PartyHistoryRecord }) {
   );
 }
 
-function CloudMatchRow({ row }: { row: MatchHistoryItem }) {
-  const when = formatPartyDate(row.finished_at);
-  const score = row.final_score != null ? `${row.final_score >= 0 ? '+' : ''}${row.final_score}` : '—';
-  const place = row.place != null ? `место ${row.place}` : '—';
-  return (
-    <div className="rating-modal__history-row rating-modal__history-row--cloud">
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-        <span className="rating-modal__history-meta">{when}</span>
-        <span className="rating-modal__history-meta">{row.is_offline ? 'офлайн' : 'онлайн'}</span>
-      </div>
-      <span className="rating-modal__history-body">
-        {place} · {score} очк.
-        {row.interrupted ? ' · прервана' : ''}
-      </span>
-    </div>
-  );
-}
-
-export function RatingModal({ onClose, playerAvatarDataUrl }: RatingModalProps) {
+export function RatingModal({ onClose, playerAvatarDataUrl, onOpenCabinet }: RatingModalProps) {
   const profile = getPlayerProfile();
   const rating = getLocalRating();
-  const partyHistory = getPartyHistory(undefined, 12);
+  const partyTeasers = getPartyHistory(undefined, TEASER_MAX);
   const { user, configured } = useAuth();
   const [online, setOnline] = useState<{ games: number; ratedGames: number; wins: number; points: number } | null>(null);
-  const [cloudMatches, setCloudMatches] = useState<MatchHistoryItem[] | null>(null);
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -87,15 +71,10 @@ export function RatingModal({ onClose, playerAvatarDataUrl }: RatingModalProps) 
     (async () => {
       if (!configured || !user?.id) {
         setOnline(null);
-        setCloudMatches(null);
         return;
       }
-      const [s, hist] = await Promise.all([
-        getMyRatingSummary(user.id),
-        getMyMatchHistory(user.id, 12),
-      ]);
+      const s = await getMyRatingSummary(user.id);
       setOnline(s);
-      setCloudMatches(hist);
     })().catch(() => {});
   }, [configured, user?.id]);
 
@@ -141,10 +120,6 @@ export function RatingModal({ onClose, playerAvatarDataUrl }: RatingModalProps) 
             />
             <span className="rating-modal__name">{profile.displayName}</span>
 
-            <p className="rating-modal__note">
-              Облако: войдите в аккаунт и доиграйте офлайн-партию — статус на экране «Партия завершена».
-            </p>
-
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {loggedIn && online && (
                 <>
@@ -189,31 +164,22 @@ export function RatingModal({ onClose, playerAvatarDataUrl }: RatingModalProps) 
               )}
             </div>
 
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div className="rating-modal__history-title">История на устройстве</div>
-              <p className="rating-modal__history-hint">После полной офлайн-партии (28 раздач).</p>
-              {partyHistory.length === 0 ? (
-                <div className="rating-modal__history-empty">Пока нет записей — доиграйте партию до конца.</div>
-              ) : (
-                partyHistory.map((row) => <PartyHistoryRow key={row.id} row={row} />)
-              )}
-            </div>
-
-            {loggedIn && (
+            {partyTeasers.length > 0 && (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div className="rating-modal__history-title">История в аккаунте</div>
-                <p className="rating-modal__history-hint">Тот же логин на другом телефоне — те же матчи.</p>
-                {cloudMatches == null ? (
-                  <div className="rating-modal__history-empty">Загрузка…</div>
-                ) : cloudMatches.length === 0 ? (
-                  <div className="rating-modal__history-empty">
-                    В облаке пусто. Завершите офлайн-партию, будучи авторизованными.
-                  </div>
-                ) : (
-                  cloudMatches.map((row) => <CloudMatchRow key={row.id} row={row} />)
-                )}
+                <div className="rating-modal__history-title">Недавно на устройстве</div>
+                {partyTeasers.map((row) => (
+                  <PartyHistoryTeaser key={row.id} row={row} />
+                ))}
               </div>
             )}
+
+            {onOpenCabinet ? (
+              <div style={{ width: '100%', marginTop: 4 }}>
+                <CosmicPhysButton variant="primary" onClick={onOpenCabinet}>
+                  Открыть кабинет
+                </CosmicPhysButton>
+              </div>
+            ) : null}
           </div>
         </CosmicCockpit>
       </div>
