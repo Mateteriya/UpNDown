@@ -36,6 +36,11 @@
           Promise.race([chain, new Promise(function (r) { setTimeout(r, 5000); })]).then(finish).catch(finish);
         }
         window.__updownHardReload = function (clearCache) {
+          /* Офлайн: сброс кэша уничтожит единственную копию приложения — только мягкий reload */
+          if (clearCache && typeof navigator !== 'undefined' && navigator.onLine === false) {
+            go(false);
+            return;
+          }
           if (clearCache) clearThenGo();
           else go(false);
         };
@@ -43,6 +48,11 @@
           ev.preventDefault();
           if (sessionStorage.getItem(GUARD)) return;
           try { sessionStorage.setItem(GUARD, '1'); } catch (e) {}
+          /* Без сети не unregister SW и не чистим caches — иначе PWA «умирает» в поезде */
+          if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            go(false);
+            return;
+          }
           clearThenGo();
         });
         window.addEventListener('unhandledrejection', function (ev) {
@@ -51,6 +61,10 @@
           ev.preventDefault();
           if (sessionStorage.getItem(GUARD)) return;
           try { sessionStorage.setItem(GUARD, '1'); } catch (e) {}
+          if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            go(false);
+            return;
+          }
           clearThenGo();
         });
         document.addEventListener('DOMContentLoaded', function () {
@@ -72,10 +86,19 @@
     <link rel="apple-touch-icon" href="/icon-512.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Не блокируем старт офлайн: при отсутствии сети браузер сразу идёт на system fallback -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700;800&family=JetBrains+Mono:wght@600;700;800&family=Manrope:wght@500;600;700&family=Orbitron:wght@600;700;800&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700&family=Share+Tech+Mono&display=swap"
       rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700;800&family=JetBrains+Mono:wght@600;700;800&family=Manrope:wght@500;600;700&family=Orbitron:wght@600;700;800&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700&family=Share+Tech+Mono&display=swap"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700;800&family=JetBrains+Mono:wght@600;700;800&family=Manrope:wght@500;600;700&family=Orbitron:wght@600;700;800&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700&family=Share+Tech+Mono&display=swap"
+      />
+    </noscript>
     <title>Up&Down — Карточная игра на взятки</title>
   </head>
   <body>

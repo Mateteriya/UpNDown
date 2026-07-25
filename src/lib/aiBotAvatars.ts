@@ -46,7 +46,8 @@ export type AiBotTableSeat = {
 
 function encodePublicAssetPath(dir: string, fileName: string): string {
   const normalizedDir = dir.replace(/\/+$/, '');
-  return `${normalizedDir}/${encodeURIComponent(fileName)}`;
+  /* encodeURI: кириллица в path → %XX, «/» остаётся — совпадает с запросом браузера/SW */
+  return encodeURI(`${normalizedDir}/${fileName}`);
 }
 
 function clampVariantIndex(variantIndex: number): number {

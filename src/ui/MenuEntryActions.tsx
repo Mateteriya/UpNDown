@@ -176,7 +176,7 @@ type MenuCapsuleVariant =
   | 'resumeOnline'
   | 'resumeOffline'
   | 'offline'
-  | 'training'
+  | 'rules'
   | 'account'
   | 'profile'
   | 'rating'
@@ -421,13 +421,17 @@ function GlyphMenuOffline() {
   );
 }
 
-function GlyphMenuTraining() {
+function GlyphMenuRules() {
   return (
     <svg className="menu-capsule-glyph-svg" viewBox="0 0 44 44" aria-hidden="true">
-      <path d="M22 6l2.5 7.5H32l-6 4.5 2.5 7.5L22 24l-6.5 1.5 2.5-7.5-6-4.5h7.5z" fill="currentColor" opacity="0.35" />
-      <rect x="12" y="26" width="20" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M16 30h12M16 33h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-      <circle cx="22" cy="22" r="3" fill="currentColor" opacity="0.9" />
+      <path
+        d="M22 7l2.2 6.6H31l-5.4 4 2.2 6.6L22 20.8l-5.8 3.4 2.2-6.6-5.4-4h6.8z"
+        fill="currentColor"
+        opacity="0.35"
+      />
+      <rect x="12" y="24" width="20" height="13" rx="2.2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M16 28.5h12M16 32h9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="22" cy="18" r="2.6" fill="currentColor" opacity="0.9" />
     </svg>
   );
 }
@@ -525,7 +529,7 @@ const GLYPHS: Record<MenuCapsuleVariant, ReactNode> = {
   resumeOnline: <GlyphMenuResume />,
   resumeOffline: <GlyphMenuResume />,
   offline: <GlyphMenuOffline />,
-  training: <GlyphMenuTraining />,
+  rules: <GlyphMenuRules />,
   account: <GlyphMenuAccount />,
   profile: <GlyphMenuProfile />,
   rating: <GlyphMenuRating />,

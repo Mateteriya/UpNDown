@@ -312,9 +312,48 @@
  * Название — снова цельный wordmark «игры», не три отдельных куска.
  * Exo 2: display-характер; один переливающийся градиент + объём.
  */
+.menu-screen .menu-screen__title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(0.55em - 0.5px);
+  max-width: 100%;
+  margin: 0 0 6px;
+}
+
+.menu-screen .menu-screen__title-3d {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* Объём отдельно от лица — иначе filter на h1 склеивает тьму с градиентом */
+.menu-screen .menu-screen__title-3d__extrude {
+  position: absolute;
+  left: 1.25px;
+  top: 1.5px;
+  z-index: 0;
+  font-family: 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1.9rem, 7.2vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.02;
+  white-space: nowrap;
+  color: #2e1065;
+  pointer-events: none;
+  user-select: none;
+  /* Твёрдые ступени (blur 0) — настоящий «блок», не мягкая тень */
+  text-shadow:
+    1px 1px 0 #3b0764,
+    2px 2px 0 #2e1065,
+    3px 3px 0 #1e1b4b,
+    4px 4px 0 #15102e,
+    5px 5px 0 #0c0818;
+}
+
 .menu-screen .menu-screen__title {
   position: relative;
-  margin: 0 0 6px;
+  z-index: 1;
+  margin: 0;
   font-family: 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(1.9rem, 7.2vw, 2.5rem);
   font-weight: 800;
@@ -338,12 +377,169 @@
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  filter:
-    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.2))
-    drop-shadow(0 3px 2px rgba(2, 6, 23, 0.55))
-    drop-shadow(0 0 16px rgba(34, 211, 238, 0.35))
-    drop-shadow(0 0 28px rgba(232, 121, 249, 0.28));
+  /* Без soft drop-shadow — они замыливают лицо; объём у extrude */
+  filter: none;
   animation: menu-title-sheen 9s ease-in-out infinite;
+}
+
+/* Яркая звезда у wordmark — переливы + лёгкий 3D (тень/блик/глубина) */
+.menu-screen .menu-screen__title-star {
+  position: relative;
+  flex: 0 0 auto;
+  width: calc(0.68em + 8px);
+  height: calc(0.68em + 8px);
+  /* Оптический центр по высоте строчных (не капители U/D) */
+  margin-top: 6.5px;
+  align-self: center;
+  pointer-events: none;
+}
+
+.menu-screen .menu-screen__title-star::before {
+  content: '';
+  position: absolute;
+  inset: -18%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(245, 208, 254, 0.28) 0%,
+    rgba(192, 132, 252, 0.14) 32%,
+    transparent 58%
+  );
+  opacity: 0.42;
+  animation: menu-title-star-glow 7.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.menu-screen .menu-screen__title-star__svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter:
+    drop-shadow(0 2px 1.5px rgba(8, 2, 24, 0.5))
+    drop-shadow(0 0.5px 0 rgba(245, 208, 254, 0.28))
+    drop-shadow(0 0 3px rgba(192, 132, 252, 0.28));
+  animation: menu-title-star-twinkle 7.2s ease-in-out infinite;
+}
+
+.menu-screen .menu-screen__title-star__burst {
+  transform-origin: 16px 16px;
+  animation: menu-title-star-spin 22s linear infinite;
+}
+
+.menu-screen .menu-screen__title-star__core {
+  transform-origin: 16px 16px;
+  opacity: 0.95;
+  animation: menu-title-star-core 7.2s ease-in-out infinite;
+}
+
+.menu-screen .menu-screen__title-star__stop--a {
+  animation: menu-title-star-hue-a 9s ease-in-out infinite;
+}
+.menu-screen .menu-screen__title-star__stop--b {
+  animation: menu-title-star-hue-b 9s ease-in-out infinite;
+}
+.menu-screen .menu-screen__title-star__stop--c {
+  animation: menu-title-star-hue-c 9s ease-in-out infinite;
+}
+.menu-screen .menu-screen__title-star__stop--d {
+  animation: menu-title-star-hue-d 9s ease-in-out infinite;
+}
+.menu-screen .menu-screen__title-star__stop--e {
+  animation: menu-title-star-hue-e 9s ease-in-out infinite;
+}
+
+@keyframes menu-title-star-twinkle {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.025);
+  }
+}
+
+@keyframes menu-title-star-glow {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes menu-title-star-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes menu-title-star-core {
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes menu-title-star-hue-a {
+  0%,
+  100% {
+    stop-color: #e9d5ff;
+  }
+  50% {
+    stop-color: #67e8f9;
+  }
+}
+@keyframes menu-title-star-hue-b {
+  0%,
+  100% {
+    stop-color: #a78bfa;
+  }
+  50% {
+    stop-color: #e879f9;
+  }
+}
+@keyframes menu-title-star-hue-c {
+  0%,
+  100% {
+    stop-color: #c084fc;
+  }
+  50% {
+    stop-color: #22d3ee;
+  }
+}
+@keyframes menu-title-star-hue-d {
+  0%,
+  100% {
+    stop-color: #e879f9;
+  }
+  50% {
+    stop-color: #ddd6fe;
+  }
+}
+@keyframes menu-title-star-hue-e {
+  0%,
+  100% {
+    stop-color: #67e8f9;
+  }
+  50% {
+    stop-color: #c084fc;
+  }
 }
 
 .menu-screen .menu-screen__title::after {
@@ -389,9 +585,16 @@
 }
 
 @media (min-width: 1025px) {
-  .menu-screen .menu-screen__title {
+  .menu-screen .menu-screen__title,
+  .menu-screen .menu-screen__title-3d__extrude {
     font-size: clamp(2.35rem, 3.5vw, 3.1rem);
     letter-spacing: -0.03em;
+  }
+
+  .menu-screen .menu-screen__title-star {
+    width: calc(0.64em + 8px);
+    height: calc(0.64em + 8px);
+    margin-top: 6.5px;
   }
 
   .menu-screen .menu-screen__tagline {
@@ -404,6 +607,28 @@
   .menu-screen .menu-screen__title {
     animation: none;
     background-position: 40% 50%;
+  }
+
+  .menu-screen .menu-screen__title-star__svg,
+  .menu-screen .menu-screen__title-star__burst,
+  .menu-screen .menu-screen__title-star__core,
+  .menu-screen .menu-screen__title-star__stop--a,
+  .menu-screen .menu-screen__title-star__stop--b,
+  .menu-screen .menu-screen__title-star__stop--c,
+  .menu-screen .menu-screen__title-star__stop--d,
+  .menu-screen .menu-screen__title-star__stop--e {
+    animation: none;
+  }
+
+  .menu-screen .menu-screen__title-star::before {
+    animation: none;
+    opacity: 0.35;
+    transform: none;
+  }
+
+  .menu-screen .menu-screen__title-star__svg {
+    opacity: 0.9;
+    transform: none;
   }
 }
 
@@ -428,9 +653,7 @@
   }
 
   .menu-screen .menu-screen__title {
-    filter:
-      drop-shadow(0 1px 0 rgba(255, 255, 255, 0.18))
-      drop-shadow(0 0 14px rgba(34, 211, 238, 0.28));
+    filter: none;
     animation: menu-title-sheen 16s ease-in-out infinite;
   }
 }

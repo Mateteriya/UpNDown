@@ -46,6 +46,8 @@ export type AccountLkPageProps = {
   onJoinUnfinished?: (code: string) => void;
   /** Открыть страницу донатов. */
   onOpenSupport?: () => void;
+  /** Stub: страница Подписка / Премиум. */
+  onOpenPremium?: () => void;
   focusSection?: AccountLkFocus;
   onContinueOffline?: () => void;
 };
@@ -84,6 +86,8 @@ export function AccountLkPage({
   onOpenSupport,
   focusSection,
   onContinueOffline,
+  onOpenRating,
+  onOpenPremium,
 }: AccountLkPageProps) {
   const { user, configured, signOut, loading: authLoading } = useAuth();
   const rating = getLocalRating();
@@ -186,6 +190,8 @@ export function AccountLkPage({
       configured={configured}
       focus={archiveFocus}
       onContinueOffline={onContinueOffline}
+      onOpenRating={onOpenRating}
+      onOpenPremium={onOpenPremium}
     />
   );
 
@@ -268,8 +274,8 @@ export function AccountLkPage({
                 <MenuCapsuleButton
                   variant="rating"
                   compact
-                  title="Рейтинг"
-                  hint="подробно"
+                  title="Статистика"
+                  hint="моя"
                   onClick={handleCapsuleRating}
                 />
                 <MenuCapsuleButton
@@ -332,7 +338,7 @@ export function AccountLkPage({
               >
                 <header className="lk-pc-panel__head">
                   <h2 id="lk-pc-stats" className="lk-pc-panel__title">
-                    Статистика
+                    Моя статистика
                   </h2>
                 </header>
                 <div className="lk-pc-stats">
@@ -468,7 +474,7 @@ export function AccountLkPage({
             <p className="lk-page__explain">
               Имя и фото для офлайн-партий и локальных игр. Работает без входа и остаётся на этом устройстве.
             </p>
-            <div className="lk-page__actions lk-page__actions--in-section">
+            <div className="lk-page__actions lk-page__actions--in-section lk-page__actions--edit-profile">
               <CosmicPhysButton variant="primary" onClick={onEditProfile}>
                 Изменить имя и фото
               </CosmicPhysButton>
@@ -476,12 +482,28 @@ export function AccountLkPage({
           </section>
 
           <section className="lk-page__section lk-page__section--account" aria-labelledby="lk-account-title">
-            <div className="lk-page__section-head">
-              <h2 id="lk-account-title" className="lk-page__section-title">
-                Аккаунт
+            <div
+              className={[
+                'lk-page__section-head',
+                'lk-page__section-head--account',
+                loggedIn ? 'lk-page__section-head--account-online' : 'lk-page__section-head--account-offline',
+              ].join(' ')}
+            >
+              <h2 id="lk-account-title" className="lk-page__section-title lk-page__section-title--framed">
+                <span className="lk-page__section-title-text">Аккаунт</span>
               </h2>
-              <span className={`lk-page__badge ${loggedIn ? 'lk-page__badge--online' : 'lk-page__badge--guest'}`}>
-                {loggedIn ? 'облако' : 'не выполнен вход'}
+              <span
+                className={`lk-page__badge ${loggedIn ? 'lk-page__badge--online lk-page__badge--cloud' : 'lk-page__badge--guest lk-page__badge--noauth'}`}
+              >
+                {loggedIn ? (
+                  <span className="lk-page__badge-dot" aria-hidden />
+                ) : (
+                  <span className="lk-page__badge-x" aria-hidden>
+                    <span className="lk-page__badge-x-arm lk-page__badge-x-arm--a" />
+                    <span className="lk-page__badge-x-arm lk-page__badge-x-arm--b" />
+                  </span>
+                )}
+                <span className="lk-page__badge-label">{loggedIn ? 'облако' : 'не выполнен вход'}</span>
               </span>
             </div>
             <p className="lk-page__explain">
@@ -491,18 +513,22 @@ export function AccountLkPage({
             </p>
             <div className="lk-page__actions lk-page__actions--in-section">
               {loggedIn ? (
-                <CosmicPhysButton
-                  variant="secondary"
-                  onClick={() => {
-                    void signOut();
-                  }}
-                >
-                  Выйти из аккаунта
-                </CosmicPhysButton>
+                <div className="lk-page__actions-auth lk-page__actions-auth--out">
+                  <CosmicPhysButton
+                    variant="secondary"
+                    onClick={() => {
+                      void signOut();
+                    }}
+                  >
+                    Выйти из аккаунта
+                  </CosmicPhysButton>
+                </div>
               ) : (
-                <CosmicPhysButton variant="secondary" onClick={onSignIn}>
-                  {authLoading ? 'Проверка…' : 'Войти в аккаунт'}
-                </CosmicPhysButton>
+                <div className="lk-page__actions-auth lk-page__actions-auth--in">
+                  <CosmicPhysButton variant="secondary" onClick={onSignIn}>
+                    {authLoading ? 'Проверка…' : 'Войти в аккаунт'}
+                  </CosmicPhysButton>
+                </div>
               )}
             </div>
           </section>
@@ -513,7 +539,7 @@ export function AccountLkPage({
             aria-labelledby="lk-stats-title"
           >
             <h2 id="lk-stats-title" className="lk-page__section-title">
-              Статистика
+              Моя статистика
             </h2>
             <div className="lk-page__stats">
               {loggedIn && online && (
@@ -602,9 +628,11 @@ export function AccountLkPage({
 
           {archiveHub}
 
-          <CosmicPhysButton variant="secondary" onClick={onBack}>
-            ← В главное меню
-          </CosmicPhysButton>
+          <div className="lk-page__back">
+            <CosmicPhysButton variant="secondary" onClick={onBack}>
+              ← В главное меню
+            </CosmicPhysButton>
+          </div>
         </CosmicCockpit>
       </div>
     </div>

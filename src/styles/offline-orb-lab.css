@@ -1,0 +1,1691 @@
+/**
+ * Лаб офлайн-кнопки — только /mode-label-lab.
+ * Тюнь через переменные на `.offline-orb-lab__skin--baseline` / `--tuned`.
+ */
+
+.offline-orb-lab__compare {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.offline-orb-lab__compare--hybrids {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 900px) {
+  .offline-orb-lab__compare--hybrids {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1100px) {
+  .offline-orb-lab__compare:not(.offline-orb-lab__compare--hybrids) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1500px) {
+  .offline-orb-lab__compare:not(.offline-orb-lab__compare--hybrids) {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.offline-orb-lab__skin {
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(129, 140, 248, 0.22);
+  background: rgba(8, 4, 22, 0.4);
+}
+
+.offline-orb-lab__skin--hybrid {
+  border-color: rgba(34, 211, 238, 0.35);
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(34, 211, 238, 0.1), transparent 55%),
+    rgba(8, 4, 22, 0.45);
+}
+
+.offline-orb-lab__skin--featured {
+  border-color: rgba(74, 222, 128, 0.45);
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 0%, rgba(34, 197, 94, 0.14), transparent 58%),
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(34, 211, 238, 0.08), transparent 55%),
+    rgba(8, 4, 22, 0.5);
+}
+
+@media (min-width: 900px) {
+  .offline-orb-lab__skin--featured {
+    grid-column: 1 / -1;
+  }
+}
+
+.offline-orb-lab__ready-compare {
+  grid-column: 1 / -1;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 0%, rgba(34, 197, 94, 0.12), transparent 55%),
+    rgba(8, 4, 22, 0.5);
+}
+
+.offline-orb-lab__ready-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+@media (min-width: 900px) {
+  .offline-orb-lab__ready-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.offline-orb-lab__skin--ready-var {
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(129, 140, 248, 0.28);
+  background: rgba(6, 2, 18, 0.55);
+}
+
+.offline-orb-lab__skin-title--sm {
+  font-size: 14px;
+}
+
+.offline-orb-lab__skin-tune {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: rgba(167, 139, 250, 0.75);
+}
+
+.offline-orb-lab__skin-tune code {
+  font-size: 10px;
+  word-break: break-all;
+}
+
+.offline-orb-lab__stage--ready {
+  margin-top: 8px;
+}
+
+/* ── Ready варианты: общие токены + скоупы под DevTools ── */
+.offline-orb-lab__skin--ready-check,
+.offline-orb-lab__skin--ready-orb-seal,
+.offline-orb-lab__skin--ready-ring-done,
+.offline-orb-lab__skin--hybrid-best {
+  --orb-lab-rdy-0: #22d3ee;
+  --orb-lab-rdy-1: #34d399;
+  --orb-lab-rdy-2: #4ade80;
+  --orb-lab-rdy-core-0: #ecfdf5;
+  --orb-lab-rdy-core-1: #6ee7b7;
+  --orb-lab-rdy-ring: #22c55e;
+  --orb-lab-rdy-ring-shine: #86efac;
+  --orb-lab-rdy-breathe: 1.045;
+}
+
+.offline-orb-lab__skin--ready-check {
+  --orb-lab-rdy-0: #22d3ee;
+  --orb-lab-rdy-1: #a78bfa;
+  --orb-lab-rdy-2: #c026d3;
+  --orb-lab-rdy-core-0: #f5f3ff;
+  --orb-lab-rdy-core-1: #e879f9;
+  --orb-lab-rdy-ring: #7c3aed;
+  --orb-lab-rdy-ring-shine: #ddd6fe;
+}
+
+.offline-orb-lab__skin--ready-orb-seal {
+  --orb-lab-rdy-0: #22d3ee;
+  --orb-lab-rdy-1: #2dd4bf;
+  --orb-lab-rdy-2: #22c55e;
+  --orb-lab-rdy-core-0: #ecfeff;
+  --orb-lab-rdy-core-1: #86efac;
+}
+
+.offline-orb-lab__skin--ready-ring-done {
+  --orb-lab-rdy-0: #4ade80;
+  --orb-lab-rdy-1: #22c55e;
+  --orb-lab-rdy-2: #16a34a;
+  --orb-lab-rdy-core-0: #f0fdf4;
+  --orb-lab-rdy-core-1: #86efac;
+  --orb-lab-rdy-ring: #22c55e;
+  --orb-lab-rdy-ring-shine: #bbf7d0;
+}
+
+.offline-orb-lab__stop--rdy-0 {
+  stop-color: var(--orb-lab-rdy-0);
+}
+.offline-orb-lab__stop--rdy-1 {
+  stop-color: var(--orb-lab-rdy-1);
+}
+.offline-orb-lab__stop--rdy-2 {
+  stop-color: var(--orb-lab-rdy-2);
+}
+.offline-orb-lab__stop--rdy-core-0 {
+  stop-color: var(--orb-lab-rdy-core-0);
+}
+.offline-orb-lab__stop--rdy-core-1 {
+  stop-color: var(--orb-lab-rdy-core-1);
+}
+
+.offline-orb-lab__glyph-wrap--ready {
+  z-index: 3;
+  animation: offline-orb-lab-ready-breathe 2.4s ease-in-out infinite;
+}
+
+.offline-orb-lab__glyph-svg--face-ok .offline-orb-lab__icon-outer {
+  stroke-width: calc(var(--orb-lab-icon-stroke-outer) + 0.15);
+  filter: drop-shadow(0 0 2px rgb(74 222 128 / 45%));
+}
+
+.offline-orb-lab__glyph-svg--face-ok .offline-orb-lab__icon-inner {
+  stroke-width: calc(var(--orb-lab-icon-stroke-inner) + 0.2);
+}
+
+.offline-orb-lab__glyph-svg--face-ok,
+.offline-orb-lab__glyph-svg--orb-seal {
+  filter:
+    drop-shadow(0 0 1.5px color-mix(in srgb, var(--orb-lab-rdy-1) 70%, transparent))
+    drop-shadow(0 0 4px color-mix(in srgb, var(--orb-lab-rdy-2) 35%, transparent));
+}
+
+.offline-orb-lab__face-ok-pupil--l {
+  animation: offline-orb-lab-face-ok-twinkle 3.6s ease-in-out infinite;
+}
+
+.offline-orb-lab__face-ok-pupil--r {
+  animation: offline-orb-lab-face-ok-twinkle 3.6s ease-in-out infinite;
+  animation-delay: -1.4s;
+}
+
+@keyframes offline-orb-lab-face-ok-twinkle {
+  0%,
+  100% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* C · кольцо 100%: полный зелёный круг без бегунка */
+.offline-orb-lab__progress--ready-done {
+  --orb-lab-progress: 100%;
+  --orb-lab-progress-thick: 3.45px;
+}
+
+.offline-orb-lab__progress-track--ready-done {
+  background: conic-gradient(
+    from -90deg,
+    color-mix(in srgb, var(--orb-lab-rdy-ring) 28%, transparent),
+    color-mix(in srgb, var(--orb-lab-rdy-1) 22%, transparent),
+    color-mix(in srgb, var(--orb-lab-rdy-ring) 28%, transparent)
+  );
+}
+
+.offline-orb-lab__progress-value--ready-done {
+  background: conic-gradient(
+    from -90deg,
+    var(--orb-lab-rdy-0) 0%,
+    var(--orb-lab-rdy-ring) 50%,
+    var(--orb-lab-rdy-2) 100%
+  );
+  filter:
+    brightness(1.06)
+    saturate(1.35)
+    drop-shadow(0 0 2px color-mix(in srgb, var(--orb-lab-rdy-ring) 55%, transparent));
+}
+
+.offline-orb-lab__progress-value-shine--ready-done {
+  background: conic-gradient(
+    from -90deg,
+    var(--orb-lab-rdy-ring-shine) 0%,
+    #f0fdf4 50%,
+    var(--orb-lab-rdy-ring-shine) 100%
+  );
+}
+
+.offline-orb-lab__preview--rdy-check.offline-orb-lab__preview--ready .offline-orb-lab__fab {
+  --orb-lab-ready-0: #22d3ee;
+  --orb-lab-ready-1: #818cf8;
+  --orb-lab-ready-2: #a78bfa;
+  --orb-lab-ready-3: #c026d3;
+  --orb-lab-ready-4: #7c3aed;
+  --orb-lab-ready-inset-top: rgba(196, 181, 253, 0.5);
+  --orb-lab-ready-inset-bottom: rgba(76, 29, 149, 0.42);
+  --orb-lab-ready-inset-ring: rgba(167, 139, 250, 0.4);
+  --orb-lab-ready-rim: rgba(192, 132, 252, 0.42);
+  --orb-lab-ready-ledge-1: #4c1d95;
+  --orb-lab-ready-ledge-2: #2e1065;
+}
+
+.offline-orb-lab__preview--rdy-ring-done .offline-orb-lab__glyph-wrap--rdy-ring-done,
+.offline-orb-lab__preview--rdy-check .offline-orb-lab__glyph-wrap--rdy-check {
+  animation-name: offline-orb-lab-ready-breathe-compact;
+}
+
+@keyframes offline-orb-lab-ready-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(var(--orb-lab-rdy-breathe, 1.045));
+    filter: brightness(1.08);
+  }
+}
+
+@keyframes offline-orb-lab-ready-breathe-compact {
+  0%,
+  100% {
+    transform: scale(0.88);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(0.93);
+    filter: brightness(1.08);
+  }
+}
+
+.offline-orb-lab__skin-badge {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  color: #052e16;
+  background: linear-gradient(135deg, #4ade80, #22d3ee);
+}
+
+/* C · Гибрид: слой B всегда; слой A проявляется на пике пульса */
+.offline-orb-lab__hybrid {
+  position: relative;
+  width: var(--orb-lab-fab-size, 58px);
+  height: var(--orb-lab-fab-size, 58px);
+}
+
+.offline-orb-lab__hybrid--pc {
+  width: var(--orb-lab-fab-size-pc, 64px);
+  height: var(--orb-lab-fab-size-pc, 64px);
+}
+
+.offline-orb-lab__hybrid-layer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.offline-orb-lab__hybrid-layer--b {
+  z-index: 1;
+}
+
+.offline-orb-lab__hybrid-layer--a {
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.offline-orb-lab__hybrid--pulse .offline-orb-lab__hybrid-layer--a {
+  /* Синхрон с offline-orb-lab-pulse (пик на 50%) */
+  animation: offline-orb-lab-hybrid-peak 2.8s ease-in-out infinite;
+}
+
+.offline-orb-lab__skin-head {
+  margin: 0 0 12px;
+}
+
+.offline-orb-lab__skin-title {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 750;
+  color: #e9d5ff;
+}
+
+.offline-orb-lab__skin-hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: rgba(196, 181, 253, 0.82);
+}
+
+.offline-orb-lab__skin-hint code {
+  color: #67e8f9;
+  font-size: 0.95em;
+}
+
+.offline-orb-lab__skin .offline-orb-lab__stage {
+  margin-bottom: 0;
+}
+
+/* —— A · эталон —— */
+.offline-orb-lab__skin--baseline {
+  --orb-lab-fab-size: 58px;
+  --orb-lab-fab-size-pc: 64px;
+  --orb-lab-icon-size: 40px;
+  --orb-lab-icon-size-pc: 44px;
+  --orb-lab-icon-stroke-outer: 3.5;
+  --orb-lab-icon-stroke-inner: 1.7;
+  --orb-lab-dot-size: 10px;
+  --orb-lab-ring-inset: 3px;
+  --orb-lab-glow-inset: -12px;
+  --orb-lab-beacon-inset: -16px;
+
+  --orb-lab-face-angle: 142deg;
+  --orb-lab-face-0: #22d3ee;
+  --orb-lab-face-1: #38bdf8;
+  --orb-lab-face-2: #6366f1;
+  --orb-lab-face-3: #7c3aed;
+  --orb-lab-face-4: #a855f7;
+  --orb-lab-face-5: #d946ef;
+  --orb-lab-face-6: #f43f5e;
+
+  --orb-lab-shine-top: rgba(186, 230, 253, 0.38);
+  --orb-lab-shine-mid: rgba(56, 189, 248, 0.18);
+  --orb-lab-shade-bottom: rgba(76, 29, 149, 0.7);
+  --orb-lab-inset-top: rgba(186, 230, 253, 0.42);
+  --orb-lab-inset-bottom: rgba(49, 46, 129, 0.55);
+  --orb-lab-inset-ring: rgba(125, 211, 252, 0.38);
+  --orb-lab-rim-top: rgba(125, 211, 252, 0.35);
+
+  --orb-lab-mirror-opacity: 0.72;
+  --orb-lab-mirror-angle: -28deg;
+  --orb-lab-mirror-soft: rgba(186, 230, 253, 0.55);
+  --orb-lab-mirror-mid: rgba(224, 242, 254, 0.38);
+  --orb-lab-mirror-edge: rgba(125, 211, 252, 0);
+  --orb-lab-mirror-spec: rgba(224, 242, 254, 0.55);
+  --orb-lab-mirror-spec-fade: rgba(125, 211, 252, 0.12);
+  --orb-lab-mirror-sweep: 0;
+
+  --orb-lab-ledge-1: #312e81;
+  --orb-lab-ledge-2: #1e1b4b;
+  --orb-lab-drop: rgba(30, 27, 75, 0.6);
+  --orb-lab-glow-a: rgba(34, 211, 238, 0.4);
+  --orb-lab-glow-b: rgba(217, 70, 239, 0.28);
+
+  --orb-lab-ring-border: rgba(125, 211, 252, 0.4);
+  --orb-lab-ring-inset-shine: rgba(186, 230, 253, 0.35);
+  --orb-lab-beacon: rgba(244, 63, 94, 0.55);
+  --orb-lab-pulse-0: rgba(34, 211, 238, 0.45);
+  --orb-lab-pulse-1: rgba(99, 102, 241, 0.32);
+  --orb-lab-pulse-2: rgba(217, 70, 239, 0.22);
+
+  --orb-lab-laser-0: #22d3ee;
+  --orb-lab-laser-1: #38bdf8;
+  --orb-lab-laser-2: #6366f1;
+  --orb-lab-laser-3: #7c3aed;
+  --orb-lab-laser-4: #d946ef;
+  --orb-lab-laser-5: #f43f5e;
+  --orb-lab-core-0: #bae6fd;
+  --orb-lab-core-1: #38bdf8;
+  --orb-lab-core-2: #818cf8;
+  --orb-lab-core-3: #fb7185;
+  --orb-lab-icon-glow-0: rgba(34, 211, 238, 1);
+  --orb-lab-icon-glow-1: rgba(99, 102, 241, 0.95);
+  --orb-lab-icon-glow-2: rgba(244, 63, 94, 0.7);
+
+  --orb-lab-dot-a: #22d3ee;
+  --orb-lab-dot-b: #f43f5e;
+  --orb-lab-dot-border: rgba(99, 102, 241, 0.85);
+  --orb-lab-dot-glow: rgba(244, 63, 94, 0.85);
+
+  --orb-lab-ready-0: #22d3ee;
+  --orb-lab-ready-1: #2dd4bf;
+  --orb-lab-ready-2: #34d399;
+  --orb-lab-ready-3: #6366f1;
+  --orb-lab-ready-4: #7c3aed;
+  --orb-lab-ready-inset-top: rgba(45, 212, 191, 0.55);
+  --orb-lab-ready-inset-bottom: rgba(15, 118, 110, 0.4);
+  --orb-lab-ready-inset-ring: rgba(94, 234, 212, 0.4);
+  --orb-lab-ready-rim: rgba(34, 211, 238, 0.4);
+  --orb-lab-ready-ledge-1: #115e59;
+  --orb-lab-ready-ledge-2: #134e4a;
+  --orb-lab-ready-glow: rgba(45, 212, 191, 0.4);
+
+  --orb-lab-run-0: #22d3ee;
+  --orb-lab-run-1: #38bdf8;
+  --orb-lab-run-2: #818cf8;
+  --orb-lab-run-3: #a78bfa;
+  --orb-lab-run-4: #e879f9;
+  --orb-lab-run-inset-top: rgba(103, 232, 249, 0.42);
+  --orb-lab-run-inset-bottom: rgba(67, 56, 202, 0.38);
+  --orb-lab-run-inset-ring: rgba(165, 180, 252, 0.4);
+  --orb-lab-run-rim: rgba(129, 140, 248, 0.35);
+  --orb-lab-run-ledge-1: #3730a3;
+  --orb-lab-run-ledge-2: #312e81;
+  --orb-lab-run-glow: rgba(129, 140, 248, 0.35);
+
+  --orb-lab-hover-brightness: 1.06;
+  --orb-lab-hover-saturate: 1.12;
+
+  --orb-lab-sphere-hi: #f0fdfa;
+  --orb-lab-sphere-mid: #2dd4bf;
+  --orb-lab-sphere-deep: #38bdf8;
+  --orb-lab-sphere-edge: #6366f1;
+  --orb-lab-sphere-spec: rgba(236, 254, 255, 0.92);
+}
+
+/* —— B · твой тюнинг из DevTools —— */
+.offline-orb-lab__skin--tuned {
+  --orb-lab-fab-size: 58px;
+  --orb-lab-fab-size-pc: 64px;
+  --orb-lab-icon-size: 40px;
+  --orb-lab-icon-size-pc: 44px;
+  --orb-lab-icon-stroke-outer: 3.5;
+  --orb-lab-icon-stroke-inner: 1.7;
+  --orb-lab-dot-size: 10px;
+  --orb-lab-ring-inset: 3px;
+  --orb-lab-glow-inset: -12px;
+  --orb-lab-beacon-inset: -16px;
+  --orb-lab-face-angle: 142deg;
+  --orb-lab-face-0: #22d3ee;
+  --orb-lab-face-1: #ce0f70;
+  --orb-lab-face-2: #a32ce4;
+  --orb-lab-face-3: #1994e1f7;
+  --orb-lab-face-4: #7836de;
+  --orb-lab-face-5: #2b0986;
+  --orb-lab-face-6: #f43f5efa;
+  --orb-lab-shine-top: rgb(186 230 253 / 38%);
+  --orb-lab-shine-mid: rgba(56, 189, 248, 0.18);
+  --orb-lab-shade-bottom: rgb(76 29 149 / 68%);
+  --orb-lab-inset-top: rgba(186, 230, 253, 0.42);
+  --orb-lab-inset-bottom: rgb(49 46 129 / 60%);
+  --orb-lab-inset-ring: rgba(125, 211, 252, 0.38);
+  --orb-lab-rim-top: rgba(125, 211, 252, 0.35);
+  --orb-lab-mirror-opacity: 0.72;
+  --orb-lab-mirror-angle: -28deg;
+  --orb-lab-mirror-soft: rgb(154 20 228 / 42%);
+  --orb-lab-mirror-mid: rgb(162 74 228 / 0%);
+  --orb-lab-mirror-edge: rgb(190 96 227 / 48%);
+  --orb-lab-mirror-spec: rgb(174 127 204 / 67%);
+  --orb-lab-mirror-spec-fade: rgb(29 213 232 / 11%);
+  --orb-lab-mirror-sweep: 0;
+  --orb-lab-ledge-1: #312e81;
+  --orb-lab-ledge-2: #1e1b4b;
+  --orb-lab-drop: rgba(30, 27, 75, 0.6);
+  --orb-lab-glow-a: rgba(34, 211, 238, 0.4);
+  --orb-lab-glow-b: rgba(217, 70, 239, 0.28);
+  --orb-lab-ring-border: rgb(125 211 252 / 28%);
+  --orb-lab-ring-inset-shine: rgb(11 69 98 / 55%);
+  --orb-lab-beacon: rgb(244 63 94 / 50%);
+  --orb-lab-pulse-0: rgba(34, 211, 238, 0.45);
+  --orb-lab-pulse-1: rgba(99, 102, 241, 0.32);
+  --orb-lab-pulse-2: rgba(217, 70, 239, 0.22);
+  --orb-lab-laser-0: #22d3ee;
+  --orb-lab-laser-1: #38bdf8;
+  --orb-lab-laser-2: #6b63f1;
+  --orb-lab-laser-3: #7c3aed;
+  --orb-lab-laser-4: #d946ef;
+  --orb-lab-laser-5: #f43f5e;
+  --orb-lab-core-0: #bae6fd96;
+  --orb-lab-core-1: #38bdf8;
+  --orb-lab-core-2: #10c142e6;
+  --orb-lab-core-3: #fe8f1cd6;
+  --orb-lab-icon-glow-0: rgb(34 174 238);
+  --orb-lab-icon-glow-1: rgb(77 34 217);
+  --orb-lab-icon-glow-2: rgb(123 27 235 / 90%);
+  --orb-lab-dot-a: #6210c1;
+  --orb-lab-dot-b: #f43f5ed1;
+  --orb-lab-dot-border: rgb(99 102 241 / 66%);
+  --orb-lab-dot-glow: rgb(244 63 94 / 88%);
+  --orb-lab-ready-0: #22d3ee;
+  --orb-lab-ready-1: #2dd4bf;
+  --orb-lab-ready-2: #34d399;
+  --orb-lab-ready-3: #6366f1;
+  --orb-lab-ready-4: #7c3aed;
+  --orb-lab-ready-inset-top: rgba(45, 212, 191, 0.55);
+  --orb-lab-ready-inset-bottom: rgba(15, 118, 110, 0.4);
+  --orb-lab-ready-inset-ring: rgba(94, 234, 212, 0.4);
+  --orb-lab-ready-rim: rgba(34, 211, 238, 0.4);
+  --orb-lab-ready-ledge-1: #115e59;
+  --orb-lab-ready-ledge-2: #134e4a;
+  --orb-lab-ready-glow: rgb(45 212 191 / 34%);
+  --orb-lab-run-0: #22d3ee;
+  --orb-lab-run-1: #38bdf8;
+  --orb-lab-run-2: #818cf8;
+  --orb-lab-run-3: #a78bfa;
+  --orb-lab-run-4: #e879f9;
+  --orb-lab-run-inset-top: rgba(103, 232, 249, 0.42);
+  --orb-lab-run-inset-bottom: rgba(67, 56, 202, 0.38);
+  --orb-lab-run-inset-ring: rgba(165, 180, 252, 0.4);
+  --orb-lab-run-rim: rgba(129, 140, 248, 0.35);
+  --orb-lab-run-ledge-1: #3730a3;
+  --orb-lab-run-ledge-2: #312e81;
+  --orb-lab-run-glow: rgba(129, 140, 248, 0.35);
+  --orb-lab-hover-brightness: 1.06;
+  --orb-lab-hover-saturate: 1.12;
+
+  --orb-lab-sphere-hi: #ecfeff;
+  --orb-lab-sphere-mid: #67e8f9;
+  --orb-lab-sphere-deep: #818cf8;
+  --orb-lab-sphere-edge: #a78bfa;
+  --orb-lab-sphere-spec: rgba(240, 249, 255, 0.92);
+}
+
+/* Face/фон/тени как в твоём DevTools-снимке (только idle) */
+.offline-orb-lab__skin--tuned .offline-orb-lab__preview--idle .offline-orb-lab__fab {
+  --orb-lab-face: linear-gradient(
+    var(--orb-lab-face-angle),
+    #22d3ee 0%,
+    var(--orb-lab-face-1) 14%,
+    var(--orb-lab-face-2) 32%,
+    #3219e1b8 48%,
+    var(--orb-lab-face-4) 62%,
+    var(--orb-lab-face-5) 78%,
+    var(--orb-lab-face-6) 100%
+  );
+  --orb-lab-face-bg:
+    radial-gradient(110% 80% at 28% 16%, rgb(17 158 231) 0%, rgb(21 143 208 / 80%) 26%, #237c9f00 48%),
+    radial-gradient(90% 75% at 82% 90%, rgb(69 16 207) 0%, #13061d00 52%),
+    var(--orb-lab-face);
+  --orb-lab-face-inset:
+    inset 0 2px 0 rgb(48 139 186),
+    inset 0 -4px 7px rgb(28 23 170 / 73%),
+    inset 0 0 0 1.5px rgb(7 134 204 / 71%);
+  box-shadow: none;
+}
+
+.offline-orb-lab__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: center;
+  margin: 0 0 14px;
+}
+
+.offline-orb-lab__toolbar-group {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.offline-orb-lab__chip {
+  appearance: none;
+  border-radius: 999px;
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  background: rgba(15, 23, 42, 0.55);
+  color: #c7d2fe;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.offline-orb-lab__chip--active {
+  border-color: rgba(34, 211, 238, 0.55);
+  background: rgba(34, 211, 238, 0.16);
+  color: #ecfeff;
+}
+
+.offline-orb-lab__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(196, 181, 253, 0.9);
+  cursor: pointer;
+  user-select: none;
+}
+
+.offline-orb-lab__stage {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.offline-orb-lab__stage-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 14px 22px;
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse 70% 70% at 40% 20%, rgba(99, 102, 241, 0.22), transparent 55%),
+    linear-gradient(165deg, #07061a 0%, #120a2e 50%, #0a1628 100%);
+  border: 1px solid rgba(129, 140, 248, 0.2);
+}
+
+.offline-orb-lab__stage-card--wide {
+  grid-column: 1 / -1;
+}
+
+.offline-orb-lab__stage-label {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(167, 139, 250, 0.85);
+}
+
+.offline-orb-lab__menu-mock {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 120px;
+  padding: 28px;
+  border-radius: 14px;
+  /* Тот же космос, что у главного меню / лунки running */
+  background:
+    radial-gradient(ellipse 90% 70% at 12% 18%, rgba(139, 92, 246, 0.28) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 65% at 88% 78%, rgba(79, 70, 229, 0.32) 0%, transparent 52%),
+    radial-gradient(ellipse 70% 55% at 55% 8%, rgba(196, 181, 253, 0.14) 0%, transparent 48%),
+    radial-gradient(ellipse 60% 50% at 70% 35%, rgba(99, 102, 241, 0.2) 0%, transparent 50%),
+    linear-gradient(
+      148deg,
+      rgb(12 4 36) 0%,
+      rgb(18 4 42) 22%,
+      rgb(28 12 72) 48%,
+      rgb(15 8 48) 72%,
+      rgb(6 2 20) 100%
+    );
+  border: 1px dashed rgba(103, 232, 249, 0.22);
+}
+
+.offline-orb-lab__preview {
+  position: relative;
+  width: var(--orb-lab-fab-size);
+  height: var(--orb-lab-fab-size);
+}
+
+.offline-orb-lab__preview--pc {
+  width: var(--orb-lab-fab-size-pc);
+  height: var(--orb-lab-fab-size-pc);
+}
+
+.offline-orb-lab__preview--pc .offline-orb-lab__fab {
+  width: var(--orb-lab-fab-size-pc);
+  height: var(--orb-lab-fab-size-pc);
+}
+
+.offline-orb-lab__preview--pc .offline-orb-lab__glyph-svg {
+  width: var(--orb-lab-icon-size-pc);
+  height: var(--orb-lab-icon-size-pc);
+}
+
+.offline-orb-lab__fab {
+  --orb-lab-face: linear-gradient(
+    var(--orb-lab-face-angle),
+    var(--orb-lab-face-0) 0%,
+    var(--orb-lab-face-1) 14%,
+    var(--orb-lab-face-2) 32%,
+    var(--orb-lab-face-3) 48%,
+    var(--orb-lab-face-4) 62%,
+    var(--orb-lab-face-5) 78%,
+    var(--orb-lab-face-6) 100%
+  );
+  --orb-lab-face-bg:
+    radial-gradient(
+      110% 80% at 28% 16%,
+      var(--orb-lab-shine-top) 0%,
+      var(--orb-lab-shine-mid) 26%,
+      transparent 48%
+    ),
+    radial-gradient(90% 75% at 82% 90%, var(--orb-lab-shade-bottom) 0%, transparent 52%),
+    var(--orb-lab-face);
+  --orb-lab-face-inset:
+    inset 0 2px 0 var(--orb-lab-inset-top),
+    inset 0 -4px 7px var(--orb-lab-inset-bottom),
+    inset 0 0 0 1.5px var(--orb-lab-inset-ring);
+  position: relative;
+  width: var(--orb-lab-fab-size);
+  height: var(--orb-lab-fab-size);
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  overflow: visible;
+  background: transparent;
+  box-shadow:
+    0 1px 0 var(--orb-lab-rim-top),
+    0 4px 0 var(--orb-lab-ledge-1),
+    0 6px 0 var(--orb-lab-ledge-2),
+    0 10px 18px var(--orb-lab-drop);
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    filter 0.16s ease;
+}
+
+/* Лицо кнопки отдельным слоем — можно вырезать настоящую дыру */
+.offline-orb-lab__fab-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--orb-lab-face-bg);
+  box-shadow: var(--orb-lab-face-inset);
+}
+
+/* Сквозная дыра под стрелками (виден фон сцены) — idle / cutout */
+.offline-orb-lab__fab--cutout .offline-orb-lab__fab-face,
+.offline-orb-lab__fab--cutout .offline-orb-lab__fab-mirror,
+.offline-orb-lab__fab--cutout .offline-orb-lab__fab-glow {
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 78%, #000 80%);
+  mask-image: radial-gradient(circle at 50% 50%, transparent 0 78%, #000 80%);
+}
+
+.offline-orb-lab__preview--running .offline-orb-lab__fab--cutout .offline-orb-lab__fab-face,
+.offline-orb-lab__preview--running .offline-orb-lab__fab--cutout .offline-orb-lab__fab-mirror,
+.offline-orb-lab__preview--running .offline-orb-lab__fab--cutout .offline-orb-lab__fab-glow,
+.offline-orb-lab__preview--rdy-check .offline-orb-lab__fab--cutout .offline-orb-lab__fab-face,
+.offline-orb-lab__preview--rdy-check .offline-orb-lab__fab--cutout .offline-orb-lab__fab-mirror,
+.offline-orb-lab__preview--rdy-check .offline-orb-lab__fab--cutout .offline-orb-lab__fab-glow,
+.offline-orb-lab__preview--rdy-ring-done .offline-orb-lab__fab--cutout .offline-orb-lab__fab-face,
+.offline-orb-lab__preview--rdy-ring-done .offline-orb-lab__fab--cutout .offline-orb-lab__fab-mirror,
+.offline-orb-lab__preview--rdy-ring-done .offline-orb-lab__fab--cutout .offline-orb-lab__fab-glow {
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 84%, #000 86%);
+  mask-image: radial-gradient(circle at 50% 50%, transparent 0 84%, #000 86%);
+}
+
+/* Running: лунка = космос главного меню (+ звёзды), не прозрачность и не «чёрная дыра» */
+.offline-orb-lab__fab-well {
+  /* То же, что --menu-pc-cosmos-bg, чуть глубже для лунки под глифом */
+  --orb-lab-menu-cosmos-bg:
+    radial-gradient(ellipse 90% 70% at 12% 18%, rgba(139, 92, 246, 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 65% at 88% 78%, rgba(79, 70, 229, 0.2) 0%, transparent 52%),
+    radial-gradient(ellipse 70% 55% at 55% 8%, rgba(196, 181, 253, 0.08) 0%, transparent 48%),
+    radial-gradient(ellipse 60% 50% at 70% 35%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    linear-gradient(
+      148deg,
+      rgb(8 2 24) 0%,
+      rgb(12 3 30) 22%,
+      rgb(18 8 48) 48%,
+      rgb(10 5 32) 72%,
+      rgb(4 1 14) 100%
+    );
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--orb-lab-menu-cosmos-bg);
+}
+
+.offline-orb-lab__fab-well-stars {
+  position: absolute;
+  /* Внутри лунки с запасом от цветного ободка / края cutout (~84%) */
+  inset: 16%;
+  display: block;
+  border-radius: 50%;
+  overflow: hidden;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  clip-path: circle(50% at 50% 50%);
+}
+
+.offline-orb-lab__fab-well-stars--a {
+  opacity: 0.55;
+  background-image:
+    radial-gradient(circle, #e0f2fe 0 50%, transparent 62%),
+    radial-gradient(circle, #a5f3fc 0 50%, transparent 62%),
+    radial-gradient(circle, #c4b5fd 0 50%, transparent 62%),
+    radial-gradient(circle, #fef08a 0 50%, transparent 62%),
+    radial-gradient(circle, #e0f2fe 0 50%, transparent 62%),
+    radial-gradient(circle, #67e8f9 0 50%, transparent 62%),
+    radial-gradient(circle, #f5d0fe 0 50%, transparent 62%),
+    radial-gradient(circle, #bae6fd 0 50%, transparent 62%),
+    radial-gradient(circle, #38bdf8 0 50%, transparent 62%);
+  background-size:
+    1.1px 1.1px,
+    0.85px 0.85px,
+    0.95px 0.95px,
+    0.8px 0.8px,
+    0.9px 0.9px,
+    0.75px 0.75px,
+    1px 1px,
+    0.8px 0.8px,
+    0.85px 0.85px;
+  background-position:
+    24% 30%,
+    66% 22%,
+    48% 58%,
+    74% 46%,
+    18% 56%,
+    56% 74%,
+    36% 42%,
+    78% 68%,
+    62% 78%;
+}
+
+.offline-orb-lab__fab-well-stars--b {
+  opacity: 0.5;
+  animation: offline-orb-lab-well-twinkle 5.4s ease-in-out infinite;
+  animation-delay: -1.2s;
+  background-image:
+    radial-gradient(circle, #f8fafc 0 48%, transparent 60%),
+    radial-gradient(circle, #67e8f9 0 50%, transparent 62%),
+    radial-gradient(circle, #c084fc 0 50%, transparent 62%),
+    radial-gradient(circle, #e0f2fe 0 50%, transparent 62%),
+    radial-gradient(circle, #38bdf8 0 50%, transparent 62%),
+    radial-gradient(circle, #a78bfa 0 50%, transparent 62%);
+  background-size:
+    1.25px 1.25px,
+    0.8px 0.8px,
+    0.9px 0.9px,
+    0.7px 0.7px,
+    0.75px 0.75px,
+    0.7px 0.7px;
+  background-position:
+    42% 26%,
+    22% 70%,
+    68% 36%,
+    50% 48%,
+    76% 62%,
+    58% 16%;
+}
+
+.offline-orb-lab__fab-well-stars--c {
+  opacity: 0.42;
+  animation: offline-orb-lab-well-twinkle-bright 4.2s ease-in-out infinite;
+  animation-delay: -0.5s;
+  background-image:
+    radial-gradient(circle, #ecfeff 0 48%, transparent 60%),
+    radial-gradient(circle, #fde68a 0 50%, transparent 62%),
+    radial-gradient(circle, #a78bfa 0 50%, transparent 62%),
+    radial-gradient(circle, #22d3ee 0 50%, transparent 62%);
+  background-size:
+    1.15px 1.15px,
+    0.8px 0.8px,
+    0.75px 0.75px,
+    0.9px 0.9px;
+  background-position:
+    60% 56%,
+    32% 66%,
+    20% 38%,
+    78% 28%;
+}
+
+@keyframes offline-orb-lab-well-twinkle {
+  0%,
+  100% {
+    opacity: 0.32;
+  }
+  50% {
+    opacity: 0.58;
+  }
+}
+
+@keyframes offline-orb-lab-well-twinkle-bright {
+  0%,
+  100% {
+    opacity: 0.28;
+  }
+  40% {
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0.38;
+  }
+}
+
+.offline-orb-lab__fab:hover {
+  filter: brightness(var(--orb-lab-hover-brightness)) saturate(var(--orb-lab-hover-saturate));
+  transform: translateY(-1px);
+}
+
+.offline-orb-lab__fab:active {
+  transform: translateY(3px) scale(1.02);
+  filter: brightness(0.97) saturate(1.08);
+}
+
+.offline-orb-lab__preview--ready .offline-orb-lab__fab {
+  --orb-lab-face: linear-gradient(
+    148deg,
+    var(--orb-lab-ready-0) 0%,
+    var(--orb-lab-ready-1) 28%,
+    var(--orb-lab-ready-2) 52%,
+    var(--orb-lab-ready-3) 78%,
+    var(--orb-lab-ready-4) 100%
+  );
+  --orb-lab-face-inset:
+    inset 0 2px 0 var(--orb-lab-ready-inset-top),
+    inset 0 -4px 6px var(--orb-lab-ready-inset-bottom),
+    inset 0 0 0 1.5px var(--orb-lab-ready-inset-ring);
+  box-shadow:
+    0 1px 0 var(--orb-lab-ready-rim),
+    0 4px 0 var(--orb-lab-ready-ledge-1),
+    0 6px 0 var(--orb-lab-ready-ledge-2),
+    0 10px 18px var(--orb-lab-drop);
+}
+
+.offline-orb-lab__preview--running .offline-orb-lab__fab {
+  --orb-lab-face: linear-gradient(
+    152deg,
+    var(--orb-lab-run-0) 0%,
+    var(--orb-lab-run-1) 22%,
+    var(--orb-lab-run-2) 48%,
+    var(--orb-lab-run-3) 74%,
+    var(--orb-lab-run-4) 100%
+  );
+  --orb-lab-face-inset:
+    inset 0 2px 0 var(--orb-lab-run-inset-top),
+    inset 0 -4px 6px var(--orb-lab-run-inset-bottom),
+    inset 0 0 0 1.5px var(--orb-lab-run-inset-ring);
+  box-shadow:
+    0 1px 0 var(--orb-lab-run-rim),
+    0 4px 0 var(--orb-lab-run-ledge-1),
+    0 6px 0 var(--orb-lab-run-ledge-2),
+    0 10px 18px var(--orb-lab-drop);
+}
+
+/* Running: поярче насыщенный лазер */
+.offline-orb-lab__preview--running .offline-orb-lab__stop--laser-0 {
+  stop-color: #22d3ee;
+}
+.offline-orb-lab__preview--running .offline-orb-lab__stop--laser-1 {
+  stop-color: #2dd4bf;
+}
+.offline-orb-lab__preview--running .offline-orb-lab__stop--laser-2 {
+  stop-color: #818cf8;
+}
+.offline-orb-lab__preview--running .offline-orb-lab__stop--laser-3 {
+  stop-color: #c084fc;
+}
+.offline-orb-lab__preview--running .offline-orb-lab__stop--laser-4 {
+  stop-color: #e879f9;
+}
+.offline-orb-lab__preview--running .offline-orb-lab__stop--laser-5 {
+  stop-color: #fb7185;
+}
+.offline-orb-lab__preview--running .offline-orb-lab__stop--core-0 {
+  stop-color: #5eead4;
+}
+.offline-orb-lab__preview--running .offline-orb-lab__stop--core-1 {
+  stop-color: #38bdf8;
+}
+.offline-orb-lab__preview--running .offline-orb-lab__stop--core-2 {
+  stop-color: #d946ef;
+}
+.offline-orb-lab__preview--running .offline-orb-lab__stop--core-3 {
+  stop-color: #f472b6;
+}
+
+.offline-orb-lab__fab-glow {
+  position: absolute;
+  inset: var(--orb-lab-glow-inset);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    var(--orb-lab-pulse-0) 0%,
+    var(--orb-lab-pulse-1) 28%,
+    var(--orb-lab-pulse-2) 48%,
+    transparent 72%
+  );
+  pointer-events: none;
+  z-index: 0;
+  /* Покой: без тумана. Свечение только при пульсе. */
+  opacity: 0;
+}
+
+.offline-orb-lab__preview--pulse .offline-orb-lab__fab-glow {
+  /* без неонового тумана — яркость крутим на лице */
+  opacity: 0;
+  animation: none;
+}
+
+.offline-orb-lab__preview--pulse .offline-orb-lab__fab-face {
+  animation: offline-orb-lab-face-bright 2.8s ease-in-out infinite;
+}
+
+.offline-orb-lab__fab-ring {
+  position: absolute;
+  inset: var(--orb-lab-ring-inset);
+  border-radius: 50%;
+  border: 1.5px solid var(--orb-lab-ring-border);
+  box-shadow: inset 0 1px 0 var(--orb-lab-ring-inset-shine);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Зеркальный «стеклянный» блик по верхней дуге */
+.offline-orb-lab__fab-mirror {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+  opacity: var(--orb-lab-mirror-opacity);
+}
+
+.offline-orb-lab__fab-mirror::before {
+  content: '';
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  top: -8%;
+  height: 52%;
+  border-radius: 50%;
+  background: linear-gradient(
+    var(--orb-lab-mirror-angle),
+    var(--orb-lab-mirror-edge) 0%,
+    var(--orb-lab-mirror-soft) 28%,
+    var(--orb-lab-mirror-mid) 48%,
+    var(--orb-lab-mirror-edge) 72%
+  );
+  transform: translateX(calc(var(--orb-lab-mirror-sweep) * 18%)) scaleY(0.92);
+  filter: blur(0.2px);
+}
+
+.offline-orb-lab__fab-mirror::after {
+  content: '';
+  position: absolute;
+  left: 18%;
+  right: 28%;
+  top: 10%;
+  height: 22%;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    var(--orb-lab-mirror-spec) 0%,
+    var(--orb-lab-mirror-spec-fade) 55%,
+    transparent 100%
+  );
+  opacity: 0.85;
+  transform: rotate(-12deg);
+}
+
+.offline-orb-lab__preview--pulse .offline-orb-lab__fab-mirror::before {
+  animation: offline-orb-lab-mirror-sweep 4.8s ease-in-out infinite;
+}
+
+.offline-orb-lab__fab-beacon {
+  position: absolute;
+  inset: var(--orb-lab-beacon-inset);
+  border-radius: 50%;
+  border: 2px solid var(--orb-lab-beacon);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.offline-orb-lab__preview--pulse .offline-orb-lab__fab-beacon {
+  opacity: 1;
+  animation: offline-orb-lab-beacon 3.2s ease-out infinite;
+}
+
+/* Круговой прогресс: conic по дуге (не SVG diagonal — тот врал цвета) */
+.offline-orb-lab__progress {
+  --orb-lab-progress: 0%;
+  --orb-lab-progress-thick: 3.45px;
+  position: absolute;
+  inset: -7px;
+  z-index: 4;
+  pointer-events: none;
+  border-radius: 50%;
+}
+
+.offline-orb-lab__preview--pc .offline-orb-lab__progress {
+  inset: -8px;
+}
+
+.offline-orb-lab__progress-track,
+.offline-orb-lab__progress-value,
+.offline-orb-lab__progress-value-shine {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  -webkit-mask-image: radial-gradient(
+    farthest-side,
+    transparent calc(100% - var(--orb-lab-progress-thick)),
+    #000 calc(100% - var(--orb-lab-progress-thick))
+  );
+  mask-image: radial-gradient(
+    farthest-side,
+    transparent calc(100% - var(--orb-lab-progress-thick)),
+    #000 calc(100% - var(--orb-lab-progress-thick))
+  );
+}
+
+.offline-orb-lab__progress-track {
+  background: conic-gradient(
+    from -90deg,
+    rgb(34 211 238 / 22%),
+    rgb(56 189 248 / 18%),
+    rgb(167 139 250 / 18%),
+    rgb(232 121 249 / 16%),
+    rgb(251 113 133 / 16%),
+    rgb(34 197 94 / 20%)
+  );
+  opacity: 0.9;
+}
+
+.offline-orb-lab__progress-value,
+.offline-orb-lab__progress-value-shine {
+  -webkit-mask-image:
+    conic-gradient(from -90deg, #000 0%, #000 var(--orb-lab-progress), transparent var(--orb-lab-progress)),
+    radial-gradient(
+      farthest-side,
+      transparent calc(100% - var(--orb-lab-progress-thick)),
+      #000 calc(100% - var(--orb-lab-progress-thick))
+    );
+  mask-image:
+    conic-gradient(from -90deg, #000 0%, #000 var(--orb-lab-progress), transparent var(--orb-lab-progress)),
+    radial-gradient(
+      farthest-side,
+      transparent calc(100% - var(--orb-lab-progress-thick)),
+      #000 calc(100% - var(--orb-lab-progress-thick))
+    );
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+
+.offline-orb-lab__progress-value {
+  background: conic-gradient(
+    from -90deg,
+    #06b6d4 0%,
+    #0ea5e9 18%,
+    #7c3aed 38%,
+    #c026d3 58%,
+    #e11d48 78%,
+    #16a34a 100%
+  );
+  filter:
+    brightness(1.06)
+    saturate(1.55)
+    drop-shadow(0 0 1.5px rgb(14 165 233 / 50%))
+    drop-shadow(0 0 3.5px rgb(124 58 237 / 40%));
+}
+
+/* Центральная лазер-полоска: screen, чтобы добавлять блеск, а не пастелить */
+.offline-orb-lab__progress-value-shine {
+  --orb-lab-progress-thick: 1.25px;
+  inset: 1.1px;
+  opacity: 0.78;
+  mix-blend-mode: screen;
+  background: conic-gradient(
+    from -90deg,
+    #a5f3fc 0%,
+    #7dd3fc 18%,
+    #c4b5fd 38%,
+    #e879f9 58%,
+    #fb7185 78%,
+    #86efac 100%
+  );
+  filter: brightness(1.15) contrast(1.1);
+  animation: offline-orb-lab-progress-shine 1.8s ease-in-out infinite;
+}
+
+/* Жирная выпуклая полусфера на бегущем кончике дуги */
+.offline-orb-lab__progress-knob {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  transform: rotate(var(--orb-lab-progress-tip, -90deg));
+  pointer-events: none;
+  z-index: 5;
+}
+
+.offline-orb-lab__progress-knob-ball {
+  --orb-lab-knob-size: 8.5px;
+  position: absolute;
+  left: 50%;
+  top: calc(var(--orb-lab-progress-thick) / 2);
+  width: var(--orb-lab-knob-size);
+  height: var(--orb-lab-knob-size);
+  margin-left: calc(var(--orb-lab-knob-size) / -2);
+  margin-top: calc(var(--orb-lab-knob-size) / -2);
+  border-radius: 50%;
+  background:
+    radial-gradient(120% 100% at 30% 16%, rgb(255 255 255 / 78%) 0%, rgb(255 255 255 / 28%) 22%, transparent 42%),
+    radial-gradient(90% 80% at 68% 72%, rgb(15 23 42 / 28%) 0%, transparent 55%),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--orb-lab-progress-tip-color) 40%, white) 0%,
+      var(--orb-lab-progress-tip-color) 42%,
+      color-mix(in srgb, var(--orb-lab-progress-tip-color) 68%, #0f172a) 100%
+    );
+  filter: saturate(1.4) brightness(1.08);
+  box-shadow:
+    inset 0 1.5px 1.5px rgb(255 255 255 / 62%),
+    inset 0 -1.5px 2px rgb(15 23 42 / 28%),
+    0 0 0 0.6px color-mix(in srgb, var(--orb-lab-progress-tip-color) 45%, white),
+    0 0 5px color-mix(in srgb, var(--orb-lab-progress-tip-color) 55%, transparent),
+    0 1px 1.5px rgb(15 23 42 / 22%);
+}
+
+.offline-orb-lab__progress-ctrl {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: min(100%, 220px);
+  font-size: 12px;
+  color: rgba(196, 181, 253, 0.9);
+}
+
+.offline-orb-lab__progress-ctrl-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.offline-orb-lab__progress-ctrl span {
+  display: inline;
+}
+
+.offline-orb-lab__check--inline {
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.offline-orb-lab__progress-ctrl input[type='range'] {
+  width: 100%;
+  accent-color: #c084fc;
+}
+
+.offline-orb-lab__glyph-svg {
+  width: var(--orb-lab-icon-size);
+  height: var(--orb-lab-icon-size);
+  position: relative;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.offline-orb-lab__glyph-svg:not(.offline-orb-lab__glyph-svg--download):not(
+    .offline-orb-lab__glyph-svg--face-ok
+  ):not(.offline-orb-lab__glyph-svg--orb-seal) {
+  filter:
+    drop-shadow(0 0 2px var(--orb-lab-icon-glow-0))
+    drop-shadow(0 0 5px var(--orb-lab-icon-glow-1))
+    drop-shadow(0 0 8px var(--orb-lab-icon-glow-2));
+}
+
+.offline-orb-lab__glyph-svg--download {
+  filter: none;
+}
+
+.offline-orb-lab__glyph-wrap {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+}
+
+/* Сквозная дыра — без искусственного чёрного круга */
+.offline-orb-lab__glyph-wrap--download .offline-orb-lab__glyph-svg {
+  position: relative;
+  z-index: 1;
+}
+
+/* running: пульс обёртки; у download — без filter-shimmer (мылит) */
+.offline-orb-lab__glyph-wrap--running:not(.offline-orb-lab__glyph-wrap--download) .offline-orb-lab__glyph-svg {
+  animation: offline-orb-lab-glyph-shimmer 2.4s ease-in-out infinite;
+}
+
+.offline-orb-lab__glyph-wrap--running {
+  animation: offline-orb-lab-glyph-breathe 2.2s ease-in-out infinite;
+}
+
+/* Гибрид «скачать»: бегущий штрих + мягкий перелив */
+.offline-orb-lab__glyph-wrap--running.offline-orb-lab__glyph-wrap--download .offline-orb-lab__icon-outer,
+.offline-orb-lab__glyph-wrap--running.offline-orb-lab__glyph-wrap--download .offline-orb-lab__icon-inner {
+  stroke-dasharray: 11 6;
+  animation: offline-orb-lab-glyph-dash 0.95s linear infinite;
+}
+
+.offline-orb-lab__glyph-wrap--running.offline-orb-lab__glyph-wrap--download .offline-orb-lab__icon-outer {
+  opacity: 1;
+}
+
+.offline-orb-lab__glyph-wrap--running.offline-orb-lab__glyph-wrap--download .offline-orb-lab__icon-inner {
+  opacity: 0.95;
+  animation:
+    offline-orb-lab-glyph-dash 1.05s linear infinite,
+    offline-orb-lab-glyph-inner-glow 2.4s ease-in-out infinite;
+}
+
+.offline-orb-lab__glyph-wrap--running.offline-orb-lab__glyph-wrap--download .offline-orb-lab__glyph-svg {
+  /* только лёгкая смена насыщенности через opacity слоёв — без filter-blur */
+  animation: none;
+  filter: none;
+}
+
+/* ready: супер-3D выпуклый шар (чуть меньше, без тёмного фиолета) */
+.offline-orb-lab__sphere {
+  --orb-lab-sphere-size: calc(var(--orb-lab-icon-size) * 0.7);
+  position: relative;
+  z-index: 3;
+  width: var(--orb-lab-sphere-size);
+  height: var(--orb-lab-sphere-size);
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      120% 100% at 30% 22%,
+      var(--orb-lab-sphere-spec) 0%,
+      transparent 34%
+    ),
+    radial-gradient(
+      90% 85% at 48% 42%,
+      var(--orb-lab-sphere-hi) 0%,
+      var(--orb-lab-sphere-mid) 42%,
+      var(--orb-lab-sphere-deep) 78%,
+      var(--orb-lab-sphere-edge) 100%
+    );
+  box-shadow:
+    inset 0 3px 5px rgba(255, 255, 255, 0.5),
+    inset 0 -6px 12px rgba(15, 23, 42, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 2px 0 rgba(15, 23, 42, 0.18),
+    0 5px 10px rgba(15, 23, 42, 0.32),
+    0 0 12px color-mix(in srgb, var(--orb-lab-sphere-mid) 45%, transparent);
+  animation: offline-orb-lab-sphere-breathe 2.2s ease-in-out infinite;
+}
+
+.offline-orb-lab__preview--pc .offline-orb-lab__sphere {
+  --orb-lab-sphere-size: calc(var(--orb-lab-icon-size-pc) * 0.7);
+}
+
+.offline-orb-lab__sphere-shine {
+  position: absolute;
+  left: 16%;
+  top: 12%;
+  width: 42%;
+  height: 28%;
+  border-radius: 50%;
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.75) 0%,
+    rgba(255, 255, 255, 0.15) 55%,
+    transparent 100%
+  );
+  filter: blur(0.3px);
+}
+
+.offline-orb-lab__sphere-rim {
+  position: absolute;
+  inset: 7%;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 -3px 6px rgba(15, 23, 42, 0.25);
+  pointer-events: none;
+}
+
+/* В ready: без кроссфейда A (не «пульсирует» в другой тон) и зеркало тише */
+.offline-orb-lab__preview--ready .offline-orb-lab__fab-mirror {
+  opacity: 0.28;
+}
+
+.offline-orb-lab__hybrid:has(.offline-orb-lab__preview--ready) .offline-orb-lab__hybrid-layer--a,
+.offline-orb-lab__hybrid--pulse:has(.offline-orb-lab__preview--ready) .offline-orb-lab__hybrid-layer--a {
+  animation: none !important;
+  opacity: 0 !important;
+}
+
+.offline-orb-lab__icon-outer {
+  stroke-width: var(--orb-lab-icon-stroke-outer);
+  opacity: 0.98;
+}
+
+.offline-orb-lab__icon-inner {
+  stroke-width: var(--orb-lab-icon-stroke-inner);
+}
+
+.offline-orb-lab__glyph-svg--download .offline-orb-lab__icon-outer {
+  stroke-width: calc(var(--orb-lab-icon-stroke-outer) + 0.65);
+  paint-order: stroke;
+  shape-rendering: geometricPrecision;
+}
+
+.offline-orb-lab__glyph-svg--download .offline-orb-lab__icon-inner {
+  stroke-width: calc(var(--orb-lab-icon-stroke-inner) + 0.45);
+  shape-rendering: geometricPrecision;
+}
+
+/* Без blur-свечения — стрелки остаются чёткими */
+.offline-orb-lab__preview--running .offline-orb-lab__glyph-svg--download {
+  filter: none;
+}
+
+.offline-orb-lab__stop--laser-0 {
+  stop-color: var(--orb-lab-laser-0);
+}
+.offline-orb-lab__stop--laser-1 {
+  stop-color: var(--orb-lab-laser-1);
+}
+.offline-orb-lab__stop--laser-2 {
+  stop-color: var(--orb-lab-laser-2);
+}
+.offline-orb-lab__stop--laser-3 {
+  stop-color: var(--orb-lab-laser-3);
+}
+.offline-orb-lab__stop--laser-4 {
+  stop-color: var(--orb-lab-laser-4);
+}
+.offline-orb-lab__stop--laser-5 {
+  stop-color: var(--orb-lab-laser-5);
+}
+.offline-orb-lab__stop--core-0 {
+  stop-color: var(--orb-lab-core-0);
+}
+.offline-orb-lab__stop--core-1 {
+  stop-color: var(--orb-lab-core-1);
+}
+.offline-orb-lab__stop--core-2 {
+  stop-color: var(--orb-lab-core-2);
+}
+.offline-orb-lab__stop--core-3 {
+  stop-color: var(--orb-lab-core-3);
+}
+
+.offline-orb-lab__fab-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: var(--orb-lab-dot-size);
+  height: var(--orb-lab-dot-size);
+  border-radius: 50%;
+  background: linear-gradient(160deg, var(--orb-lab-dot-a), var(--orb-lab-dot-b));
+  border: 1.5px solid var(--orb-lab-dot-border);
+  box-shadow:
+    0 1px 0 var(--orb-lab-dot-a),
+    0 0 8px var(--orb-lab-dot-glow),
+    0 2px 5px rgba(76, 29, 149, 0.55);
+  z-index: 4;
+}
+
+.offline-orb-lab__vars {
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(129, 140, 248, 0.22);
+  background: rgba(8, 4, 22, 0.45);
+  color: rgba(196, 181, 253, 0.9);
+  font-size: 12px;
+}
+
+.offline-orb-lab__vars summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #c4b5fd;
+  letter-spacing: 0.02em;
+}
+
+.offline-orb-lab__vars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px 16px;
+  margin-top: 12px;
+}
+
+.offline-orb-lab__vars-block h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+
+.offline-orb-lab__vars-block ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.offline-orb-lab__vars-block li {
+  margin: 0 0 3px;
+}
+
+.offline-orb-lab__vars-block code {
+  font-size: 11px;
+  color: #e9d5ff;
+}
+
+.mode-label-lab__section-head code {
+  font-size: 0.92em;
+  color: #67e8f9;
+}
+
+@keyframes offline-orb-lab-glyph-dash {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+@keyframes offline-orb-lab-progress-shine {
+  0%,
+  100% {
+    opacity: 0.68;
+    filter: brightness(1.08) contrast(1.08);
+  }
+  50% {
+    opacity: 0.88;
+    filter: brightness(1.28) contrast(1.12);
+  }
+}
+
+@keyframes offline-orb-lab-glyph-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes offline-orb-lab-sphere-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.04);
+    filter: brightness(1.1);
+  }
+}
+
+@keyframes offline-orb-lab-glyph-inner-glow {
+  0%,
+  100% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Цветной перелив без blur: только яркость/насыщенность */
+@keyframes offline-orb-lab-glyph-shimmer {
+  0%,
+  100% {
+    filter: brightness(1) saturate(1.05);
+    opacity: 0.96;
+  }
+  50% {
+    filter: brightness(1.14) saturate(1.18);
+    opacity: 1;
+  }
+}
+
+@keyframes offline-orb-lab-face-bright {
+  0%,
+  100% {
+    filter: brightness(1) saturate(1);
+  }
+  50% {
+    filter: brightness(1.12) saturate(1.08);
+  }
+}
+
+@keyframes offline-orb-lab-hybrid-peak {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes offline-orb-lab-mirror-sweep {
+  0%,
+  100% {
+    transform: translateX(-10%) scaleY(0.92);
+  }
+  50% {
+    transform: translateX(12%) scaleY(0.92);
+  }
+}
+
+@keyframes offline-orb-lab-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes offline-orb-lab-beacon {
+  0% {
+    transform: scale(0.75);
+    opacity: 0.75;
+  }
+  70% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offline-orb-lab__preview--pulse .offline-orb-lab__fab-face,
+  .offline-orb-lab__preview--pulse .offline-orb-lab__fab-beacon,
+  .offline-orb-lab__preview--pulse .offline-orb-lab__fab-mirror::before,
+  .offline-orb-lab__hybrid--pulse .offline-orb-lab__hybrid-layer--a,
+  .offline-orb-lab__glyph-wrap--running,
+  .offline-orb-lab__glyph-wrap--running .offline-orb-lab__glyph-svg,
+  .offline-orb-lab__glyph-wrap--running .offline-orb-lab__icon-outer,
+  .offline-orb-lab__glyph-wrap--running .offline-orb-lab__icon-inner,
+  .offline-orb-lab__sphere {
+    animation: none !important;
+  }
+
+  .offline-orb-lab__hybrid--pulse .offline-orb-lab__hybrid-layer--a {
+    opacity: 0;
+  }
+}

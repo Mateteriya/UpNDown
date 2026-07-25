@@ -32,7 +32,7 @@ import {
   playerAtLeftFrom,
 } from '../game/GameEngine';
 import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating, getPlayerProfile } from '../game/persistence';
-import { appendPartyArchiveRecord, buildPartyArchiveRecord } from '../game/partyArchive';
+import { appendPartyArchiveRecord, buildPartyArchiveRecord, linkPartyArchiveCloudMatch } from '../game/partyArchive';
 import { logDealOutcome } from '../game/aiLearning';
 import { aiBid, aiPlay } from '../game/ai';
 import {
@@ -58,7 +58,7 @@ import {
 } from '../lib/aiBotAvatars';
 import { isPremiumAiAvatarCustomizationEnabled } from '../lib/featureFlags';
 import { AiDifficultyControl, HeaderRoomExitIcon } from './AiDifficultyControl';
-import { getTrickWinner } from '../game/rules';
+import { getForbiddenDealerBid, getTrickWinner } from '../game/rules';
 import { getCanonicalIndexForDisplay, rotateStateForPlayer } from '../game/rotateState';
 import { calculateDealPoints, getTakenFromDealPoints } from '../game/scoring';
 import { SETTLEMENT_MODE_LABELS, type SettlementMode } from '../game/partySettlement';
@@ -5080,20 +5080,13 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
 
   const validPlays = state && isHumanTurn ? getValidPlays(state, humanIdx) : [];
 
-  /** Запрещённая цифра у сдающего: сумма заказов не должна равняться взяткам в раздаче. */
-  const invalidBid = (() => {
-    if (!state || !isHumanBidding || state.dealerIndex !== humanIdx) return null;
-    const n = playerCountOf(state);
-    const others: number[] = [];
-    for (let i = 0; i < n; i++) {
-      if (i === humanIdx) continue;
-      const b = state.bids[i];
-      if (b === null || b === undefined) return null;
-      others.push(b);
-    }
-    if (others.length !== n - 1) return null;
-    return state.tricksInDeal - others.reduce((a, b) => a + b, 0);
-  })();
+  /**
+   * Запрещённая цифра у последнего в торгах (сдающий).
+   * Считаем по «все остальные уже заказали», без жёсткой привязки к dealerIndex —
+   * в онлайне на троих после rotate/синхронизации dealerIndex иногда не совпадает с Югом.
+   */
+  const invalidBid =
+    state && isHumanBidding ? getForbiddenDealerBid(state, humanIdx) : null;
 
   const handleBid = useCallback((bid: number) => {
     if (isOnlinePlayPhase) {
@@ -5362,6 +5355,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                   bidAccuracy = Math.round((met / snap.dealHistory.length) * 100);
                 }
                 updateLocalRating(humanWon, undefined, bidAccuracy);
+                let offlineArchId: string | null = null;
                 if (!partyHistoryRecordedRef.current) {
                   partyHistoryRecordedRef.current = true;
                   const arch = buildPartyArchiveRecord(snap, {
@@ -5369,21 +5363,46 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                     source: 'offline',
                     settlementMode: readResultsChipView(),
                   });
-                  if (arch) void appendPartyArchiveRecord(arch);
+                  if (arch) {
+                    offlineArchId = arch.id;
+                    void appendPartyArchiveRecord(arch);
+                  }
                 }
                 if (userRef.current?.id && !offlineMatchRecordedRef.current) {
+                  const profileId = getPlayerProfile().profileId ?? '';
+                  const scoresFp = snap.players.map((p) => p.score).join(',');
+                  const cloudFpKey = `updown_off_cloud:${profileId}:${scoresFp}:${snap.dealHistory?.length ?? 0}:${snap.dealNumber}`;
+                  let alreadySent = false;
+                  try {
+                    alreadySent = typeof localStorage !== 'undefined' && !!localStorage.getItem(cloudFpKey);
+                  } catch {
+                    alreadySent = false;
+                  }
                   offlineMatchRecordedRef.current = true;
-                  const name =
-                    playerDisplayName?.trim() && playerDisplayName !== 'Вы'
-                      ? playerDisplayName
-                      : getPlayerProfile().displayName?.trim() || 'Вы';
-                  void recordOfflineMatchFinish(snap, name).then((r) => {
-                    if (r.ok) setGameOverCloudSave('ok');
-                    else {
-                      offlineMatchRecordedRef.current = false;
-                      setGameOverCloudSave('fail');
-                    }
-                  });
+                  if (alreadySent) {
+                    setGameOverCloudSave('ok');
+                  } else {
+                    const name =
+                      playerDisplayName?.trim() && playerDisplayName !== 'Вы'
+                        ? playerDisplayName
+                        : getPlayerProfile().displayName?.trim() || 'Вы';
+                    void recordOfflineMatchFinish(snap, name).then((r) => {
+                      if (r.ok) {
+                        try {
+                          if (typeof localStorage !== 'undefined') localStorage.setItem(cloudFpKey, r.matchId || '1');
+                        } catch {
+                          /* ignore */
+                        }
+                        if (offlineArchId && r.matchId) {
+                          void linkPartyArchiveCloudMatch(offlineArchId, r.matchId);
+                        }
+                        setGameOverCloudSave('ok');
+                      } else {
+                        offlineMatchRecordedRef.current = false;
+                        setGameOverCloudSave('fail');
+                      }
+                    });
+                  }
                 } else if (!userRef.current?.id) {
                   setGameOverCloudSave('no-auth');
                 }
@@ -5392,6 +5411,16 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                 if (!partyHistoryRecordedRef.current) {
                   partyHistoryRecordedRef.current = true;
                   const mode = o.settlementMode ?? snap.settlementMode ?? 'accuracy_bonus';
+                  const slots = o.playerSlots ?? [];
+                  const seatNames = snap.players.map((p, i) => {
+                    const slot = slots.find((s) => s.slotIndex === i);
+                    return (
+                      slot?.displayName?.trim() ||
+                      slot?.shortLabel?.trim() ||
+                      (p.name || '').trim() ||
+                      ''
+                    );
+                  });
                   const arch = buildPartyArchiveRecord(snap, {
                     gameId,
                     humanIndex: humanIdx,
@@ -5400,6 +5429,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                       ? mode
                       : 'accuracy_bonus',
                     buyIn: o.buyIn ?? snap.buyIn ?? null,
+                    seatNames,
                   });
                   if (arch) void appendPartyArchiveRecord(arch);
                 }

@@ -721,7 +721,7 @@ export function LobbyScreen({
               createBankRoom={createBankRoom}
               createPublicRoom={createPublicRoom}
               maxPlayers={createMaxPlayers}
-              showPublicHallOption={PUBLIC_HALL_ENABLED && lanWs}
+              showPublicHallOption={PUBLIC_HALL_ENABLED}
               creating={creating}
               onToggleBank={setCreateBankRoom}
               onTogglePublic={setCreatePublicRoom}

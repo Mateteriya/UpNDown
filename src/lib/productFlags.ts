@@ -25,5 +25,11 @@ export const PUBLIC_HALL_ENABLED = envBool('VITE_PUBLIC_HALL_ENABLED', true);
 /** Sit-n-go турниры на CC — волна 4+ */
 export const CC_TOURNAMENTS_ENABLED = envBool('VITE_CC_TOURNAMENTS_ENABLED', false);
 
+/** Полный разбор всех раздач в истории (подписка). Пока stub: false = free-лимит. */
+export const PREMIUM_HISTORY_ENABLED = envBool('VITE_PREMIUM_HISTORY', false);
+
+/** Free: сколько последних раздач показывать полностью (bids/taken/points). */
+export const FREE_FULL_DEAL_LIMIT = 3;
+
 /** Дефолтный demo buy-in для банковой комнаты (волна 1, без wallet) */
 export const DEFAULT_BANK_DEMO_BUY_IN = 100;

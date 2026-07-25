@@ -39,35 +39,65 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // PNG кастов не в precache (МЕНЮ/КАСТ.png ~2.5MB). Иконки — через includeAssets.
-        globPatterns: ['**/*.{js,css,html,ico,svg,woff2}'],
-        globIgnores: ['**/cards/**'],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Бандл + все офлайн-картинки: карты, аватары ИИ, касты/легенды меню.
+        globPatterns: [
+          '**/*.{js,css,html,ico,svg,woff2}',
+          'cards/**/*.{png,jpg,jpeg,webp,svg}',
+          'ИИ-боты/**/*.{jpg,jpeg,png,webp}',
+          'МЕНЮ/**/*.{jpg,jpeg,png,webp}',
+        ],
+        globIgnores: ['**/node_modules/**'],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/host/, /auth-callback\.html/, /cosmogenesis-demo\.html/],
         runtimeCaching: [
+          {
+            urlPattern: /\/(?:favicon\.ico|icon-\d+\.png)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'shell-icons-cache',
+              expiration: {
+                maxEntries: 12,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             urlPattern: /\/cards\/.+/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'card-images-cache',
               expiration: {
-                maxEntries: 32,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 год
+                maxEntries: 64,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
               },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
           {
-            /* /МЕНЮ/... в URL обычно percent-encoded */
+            urlPattern: /\/(%D0%98%D0%98-%D0%B1%D0%BE%D1%82%D1%8B|ИИ-боты)\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ai-bot-avatars-cache',
+              expiration: {
+                maxEntries: 48,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             urlPattern: /\/(%D0%9C%D0%95%D0%9D%D0%AE|МЕНЮ)\//,
             handler: 'CacheFirst',
             options: {
               cacheName: 'menu-cast-cache',
               expiration: {
-                maxEntries: 24,
-                maxAgeSeconds: 60 * 60 * 24 * 90,
+                maxEntries: 48,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
               },
               cacheableResponse: { statuses: [0, 200] },
             },
@@ -80,6 +110,18 @@ export default defineConfig({
               expiration: {
                 maxEntries: 16,
                 maxAgeSeconds: 60 * 60 * 24 * 90,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 24,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
               },
               cacheableResponse: { statuses: [0, 200] },
             },

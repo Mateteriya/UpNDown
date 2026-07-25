@@ -18,11 +18,13 @@ import {
   ModeLabelOrbitalRing,
 } from './mode-label-lab/ModeLabelLabVariants';
 import { SupportButtonLabSection } from './mode-label-lab/SupportButtonLab';
+import { OfflineOrbLabSection } from './mode-label-lab/OfflineOrbLab';
 import '../styles/mode-label-lab.css';
 import '../styles/avatar-status-lab.css';
 import '../styles/guest-swiss-lab.css';
 import '../styles/hand-layout-lab.css';
 import '../styles/support-button-lab.css';
+import '../styles/offline-orb-lab.css';
 
 type LabelVariant = 'current' | 'hybrid' | 'holo' | 'orbit' | 'watermark';
 /** Полный = как на 16″+; компакт ≈ −22% под планшет / узкий ПК. */
@@ -140,8 +142,9 @@ export function ModeLabelLabPage({ onBack }: ModeLabelLabPageProps) {
         <div>
           <h1 className="mode-label-lab__title">Лаб: меню, аватарка, рука 10–12</h1>
           <p className="mode-label-lab__hint">
-            Локальная песочница (`/mode-label-lab`). Сверху — варианты «Поддержать»; дальше рука
-            10–12, guest-крест, аватарка и надписи режима. Прод не меняется.
+            Локальная песочница (`/mode-label-lab`). Сверху — офлайн-кнопка (DevTools-тюнинг) и
+            «Поддержать»; дальше рука 10–12, guest-крест, аватарка и надписи режима. Прод не
+            меняется.
           </p>
         </div>
         <div className="mode-label-lab__density" role="group" aria-label="Плотность капсул">
@@ -179,6 +182,8 @@ export function ModeLabelLabPage({ onBack }: ModeLabelLabPageProps) {
       </header>
 
       <div className="mode-label-lab__body">
+        <OfflineOrbLabSection />
+
         <SupportButtonLabSection />
 
         <HandLayoutLabSection />

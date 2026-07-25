@@ -24,6 +24,7 @@ import {
   getMenuIdentityStatus,
   MENU_IDENTITY_STATUS_ARIA,
 } from '../lib/menuIdentityStatus';
+import { OfflineReadyOrb } from './OfflineReadyOrb';
 
 const PC_MENU_MQ = '(min-width: 1025px)';
 /** Редкий автосвайп каста, пока сидят на главной. */
@@ -93,11 +94,13 @@ export type MainMenuScreenProps = {
   onTitleDevMode?: () => void;
   onOpenAccount: () => void;
   onOpenSupport?: () => void;
+  /** Мобилка: под «Поддержать» — таблица лидеров. */
+  onOpenRating?: () => void;
   onResumeOnline: () => void;
   onOpenOnline: () => void;
   onResumeOffline: () => void;
   onOfflinePlay: () => void;
-  onTraining: () => void;
+  onOpenRules: () => void;
 };
 
 export function MainMenuScreen({
@@ -113,11 +116,12 @@ export function MainMenuScreen({
   onTitleDevMode,
   onOpenAccount,
   onOpenSupport,
+  onOpenRating,
   onResumeOnline,
   onOpenOnline,
   onResumeOffline,
   onOfflinePlay,
-  onTraining,
+  onOpenRules,
 }: MainMenuScreenProps) {
   const signedIn = Boolean(userEmail);
   const identityStatus = getMenuIdentityStatus({
@@ -518,6 +522,12 @@ export function MainMenuScreen({
           <div className="menu-screen__mobile-stars__layer menu-screen__mobile-stars__layer--c" />
         </div>
       )}
+      {/* Герой неба вне stars-слоя (z:1) — иначе тонет под stack/кастом */}
+      {!isPcMenu ? (
+        <div className="menu-screen__mobile-stars__heroes" aria-hidden="true">
+          <span className="menu-screen__mobile-stars__hero" />
+        </div>
+      ) : null}
       <div className="menu-screen__aura" aria-hidden="true">
         <div className="menu-screen__aura-glow" />
         <div className="menu-screen__aura-scrim" />
@@ -544,20 +554,108 @@ export function MainMenuScreen({
                 <span className="menu-screen__brand-mark__spark menu-screen__brand-mark__spark--b" />
               </span>
               <div className="menu-screen__brand-text">
-                <h1
-                  className="menu-screen__title"
-                  onContextMenu={(e) => e.preventDefault()}
-                  onPointerDown={(e) => {
-                    if (e.button !== 0 || !onTitleDevMode) return;
-                    const target = e.currentTarget;
-                    const t = window.setTimeout?.(() => onTitleDevMode(), 1200);
-                    const clear = () => window.clearTimeout?.(t);
-                    target.addEventListener('pointerup', clear, { once: true });
-                    target.addEventListener('pointerleave', clear, { once: true });
-                  }}
-                >
-                  Up&amp;Down
-                </h1>
+                <div className="menu-screen__title-row">
+                  <span className="menu-screen__title-3d">
+                    <span className="menu-screen__title-3d__extrude" aria-hidden="true">
+                      Up&amp;Down
+                    </span>
+                    <h1
+                      className="menu-screen__title"
+                      onContextMenu={(e) => e.preventDefault()}
+                      onPointerDown={(e) => {
+                        if (e.button !== 0 || !onTitleDevMode) return;
+                        const target = e.currentTarget;
+                        const t = window.setTimeout?.(() => onTitleDevMode(), 1200);
+                        const clear = () => window.clearTimeout?.(t);
+                        target.addEventListener('pointerup', clear, { once: true });
+                        target.addEventListener('pointerleave', clear, { once: true });
+                      }}
+                    >
+                      Up&amp;Down
+                    </h1>
+                  </span>
+                  <span className="menu-screen__title-star" aria-hidden="true">
+                    <svg className="menu-screen__title-star__svg" viewBox="0 0 32 32" focusable="false">
+                      <defs>
+                        <linearGradient id="menu-title-star-grad" x1="12%" y1="0%" x2="88%" y2="100%">
+                          <stop className="menu-screen__title-star__stop menu-screen__title-star__stop--a" offset="0%" stopColor="#e9d5ff" />
+                          <stop className="menu-screen__title-star__stop menu-screen__title-star__stop--b" offset="28%" stopColor="#a78bfa" />
+                          <stop className="menu-screen__title-star__stop menu-screen__title-star__stop--c" offset="55%" stopColor="#c084fc" />
+                          <stop className="menu-screen__title-star__stop menu-screen__title-star__stop--d" offset="78%" stopColor="#e879f9" />
+                          <stop className="menu-screen__title-star__stop menu-screen__title-star__stop--e" offset="100%" stopColor="#67e8f9" />
+                        </linearGradient>
+                        <radialGradient id="menu-title-star-core-grad" cx="36%" cy="32%" r="58%">
+                          <stop offset="0%" stopColor="#f5d0fe" stopOpacity="1" />
+                          <stop offset="42%" stopColor="#c084fc" stopOpacity="0.95" />
+                          <stop offset="100%" stopColor="#6d28d9" stopOpacity="0.45" />
+                        </radialGradient>
+                        <radialGradient id="menu-title-star-depth" cx="50%" cy="50%" r="55%">
+                          <stop offset="0%" stopColor="#f3e8ff" stopOpacity="0.55" />
+                          <stop offset="45%" stopColor="#a78bfa" stopOpacity="0.35" />
+                          <stop offset="100%" stopColor="#4c1d95" stopOpacity="0.3" />
+                        </radialGradient>
+                        {/* Мягкий объём лучей: свет сверху-слева, тень снизу-справа */}
+                        <radialGradient id="menu-title-star-shade" cx="30%" cy="26%" r="72%">
+                          <stop offset="0%" stopColor="#f5d0fe" stopOpacity="0.42" />
+                          <stop offset="48%" stopColor="#c084fc" stopOpacity="0" />
+                          <stop offset="100%" stopColor="#2e1065" stopOpacity="0.38" />
+                        </radialGradient>
+                      </defs>
+                      <g className="menu-screen__title-star__burst">
+                        {/* Мягкая тень под крестом */}
+                        <path
+                          className="menu-screen__title-star__shadow"
+                          fill="rgba(12, 4, 36, 0.52)"
+                          d="M16 1.4 Q16.55 14.2 30.6 16 Q16.55 17.8 16 30.6 Q15.45 17.8 1.4 16 Q15.45 14.2 16 1.4Z"
+                          transform="translate(0.7 1.05)"
+                        />
+                        {/* Главный 4-лучовый spark */}
+                        <path
+                          fill="url(#menu-title-star-grad)"
+                          d="M16 1.2 Q16.55 14.15 30.8 16 Q16.55 17.85 16 30.8 Q15.45 17.85 1.2 16 Q15.45 14.15 16 1.2Z"
+                        />
+                        <path
+                          fill="url(#menu-title-star-depth)"
+                          d="M16 1.2 Q16.55 14.15 30.8 16 Q16.55 17.85 16 30.8 Q15.45 17.85 1.2 16 Q15.45 14.15 16 1.2Z"
+                        />
+                        <path
+                          fill="url(#menu-title-star-shade)"
+                          d="M16 1.2 Q16.55 14.15 30.8 16 Q16.55 17.85 16 30.8 Q15.45 17.85 1.2 16 Q15.45 14.15 16 1.2Z"
+                        />
+                        {/* Короткий диагональный крест */}
+                        <path
+                          fill="url(#menu-title-star-grad)"
+                          opacity="0.82"
+                          transform="rotate(45 16 16)"
+                          d="M16 7.2 Q16.35 14.7 24.8 16 Q16.35 17.3 16 24.8 Q15.65 17.3 7.2 16 Q15.65 14.7 16 7.2Z"
+                        />
+                        <path
+                          fill="url(#menu-title-star-shade)"
+                          opacity="0.7"
+                          transform="rotate(45 16 16)"
+                          d="M16 7.2 Q16.35 14.7 24.8 16 Q16.35 17.3 16 24.8 Q15.65 17.3 7.2 16 Q15.65 14.7 16 7.2Z"
+                        />
+                      </g>
+                      {/* Ядро: объём + лёгкий блик сверху-слева */}
+                      <ellipse
+                        cx="16.35"
+                        cy="16.55"
+                        rx="2.7"
+                        ry="2.55"
+                        fill="rgba(46, 16, 101, 0.35)"
+                      />
+                      <circle
+                        className="menu-screen__title-star__core"
+                        cx="16"
+                        cy="16"
+                        r="2.55"
+                        fill="url(#menu-title-star-core-grad)"
+                      />
+                      <circle cx="15.15" cy="15.2" r="0.85" fill="#f5d0fe" opacity="0.75" />
+                      <circle cx="16" cy="16" r="1.05" fill="#e9d5ff" opacity="0.55" />
+                    </svg>
+                  </span>
+                </div>
                 <div className="menu-screen__tagline-row">
                   <p className="menu-screen__tagline">Карточная игра на взятки</p>
                 </div>
@@ -710,21 +808,21 @@ export function MainMenuScreen({
                 onClick={onOpenAccount}
               />
             </MenuPcDrift>
-            {/* ПК: «Поддержать» в дрейфе. На мобиле — только внизу у «Обучение», без дубля. */}
+            {/* ПК: «Поддержать» в дрейфе. На мобиле — только внизу у «Правила», без дубля. */}
             {onOpenSupport && isPcMenu ? (
               <MenuPcDrift id="support" className="menu-screen__drift--support" movable>
                 <SupportMenuButton onClick={onOpenSupport} />
               </MenuPcDrift>
             ) : null}
             {isPcMenu ? (
-              <MenuPcDrift id="training-v2" className="menu-screen__drift--training" movable>
+              <MenuPcDrift id="rules-v1" className="menu-screen__drift--rules" movable>
                 <MenuCapsuleButton
-                  variant="training"
-                  title="Обучение"
-                  hint="правила и практика"
+                  variant="rules"
+                  title="Правила игры"
+                  hint="как играть"
                   collapsible
-                  collapseId="training"
-                  onClick={onTraining}
+                  collapseId="rules"
+                  onClick={onOpenRules}
                 />
               </MenuPcDrift>
             ) : null}
@@ -736,6 +834,7 @@ export function MainMenuScreen({
               <MenuCapsuleButton variant="link" title="Лаб: шкала раздач" href="/deal-track-lab" compact />
               <MenuCapsuleButton variant="link" title="Лаб: цвета ИТОГО" href="/total-color-lab" compact />
               <MenuCapsuleButton variant="link" title="Лаб: онлайн-UI" href="/online-ui-lab" compact />
+              <MenuCapsuleButton variant="link" title="Лаб: правила" href="/rules-lab" compact />
               <MenuCapsuleButton variant="link" title="Демо: фишки" href="/scoring-demo" compact />
               <MenuCapsuleButton variant="link" title="Космогенез" href="/cosmogenesis-demo.html" compact />
             </div>
@@ -882,21 +981,32 @@ export function MainMenuScreen({
           ) : null}
 
           {!isPcMenu ? (
-            <div className="menu-screen__mobile-training">
+            <div className="menu-screen__mobile-rules">
               <MenuCapsuleButton
-                variant="training"
-                title="Обучение"
-                hint="правила и практика"
+                variant="rules"
+                title="Правила игры"
+                hint="как играть"
                 collapsible
-                collapseId="training"
-                onClick={onTraining}
+                collapseId="rules"
+                onClick={onOpenRules}
               />
               {onOpenSupport ? (
                 <SupportMenuButton onClick={onOpenSupport} />
               ) : null}
+              {onOpenRating ? (
+                <MenuCapsuleButton
+                  variant="rating"
+                  title="Рейтинг"
+                  hint="таблица лидеров"
+                  collapsible
+                  collapseId="rating"
+                  onClick={onOpenRating}
+                />
+              ) : null}
             </div>
           ) : null}
       </div>
+      <OfflineReadyOrb />
     </main>
   );
 }

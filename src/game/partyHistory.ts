@@ -30,6 +30,8 @@ export interface PartyHistoryPlayerRow {
   score: number;
   chips: number;
   place: number;
+  /** Индекс места за столом (= колонка в dealHistory). */
+  playerIndex?: number;
 }
 
 export interface PartyHistoryRecord {
@@ -46,6 +48,8 @@ export interface PartyHistoryRecord {
   humanChips: number;
   dealCount: number;
   players: PartyHistoryPlayerRow[];
+  /** Имена по слотам стола (индекс = колонка dealHistory). Надёжнее place-сортировки players. */
+  seatNames?: string[];
 }
 
 function historyKey(profileId: string): string {
@@ -100,6 +104,8 @@ export function buildPartyHistoryRecord(
     profileId?: string;
     settlementMode?: SettlementMode | ResultsChipView;
     buyIn?: number | null;
+    /** Явные имена по слотам (онлайн: из playerSlots displayName/shortLabel). */
+    seatNames?: string[];
   },
 ): PartyHistoryRecord | null {
   const profileId = opts.profileId ?? getPlayerProfile().profileId ?? '';
@@ -116,9 +122,15 @@ export function buildPartyHistoryRecord(
     buyIn: opts.buyIn ?? undefined,
   });
 
+  const seatNames = Array.from({ length: playerCount }, (_, i) => {
+    const fromOpt = opts.seatNames?.[i]?.trim();
+    if (fromOpt) return fromOpt;
+    return (snap.players[i]?.name || '').trim();
+  });
+
   const sorted = snap.players
     .map((p, i) => ({
-      name: p.name,
+      name: seatNames[i] || p.name,
       score: p.score,
       chips: settlement.rows.find((r) => r.playerIndex === i)?.chips ?? 0,
       idx: i,
@@ -144,11 +156,13 @@ export function buildPartyHistoryRecord(
     humanScore,
     humanChips,
     dealCount: dealHistory.length,
+    seatNames,
     players: sorted.map((p, rank) => ({
       name: p.name,
       score: p.score,
       chips: p.chips,
       place: rank + 1,
+      playerIndex: p.idx,
     })),
   };
 }

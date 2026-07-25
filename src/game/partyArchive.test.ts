@@ -66,6 +66,7 @@ describe('partyArchive', () => {
     expect(rec!.dealHistory).toHaveLength(1);
     expect(rec!.dealHistory[0].dealNumber).toBe(1);
     expect(rec!.source).toBe('offline');
+    expect(rec!.seatNames).toEqual(['Вы', 'A', 'B', 'C']);
   });
 
   it('toPartyHistorySummary strips dealHistory and cloud fields', () => {

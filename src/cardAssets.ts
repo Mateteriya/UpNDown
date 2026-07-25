@@ -40,6 +40,11 @@ function getAllCardImagePaths(): string[] {
   return paths;
 }
 
+/** Все URL фигурных карт (как в CardView) — для офлайн-прогрева SW-кэша. */
+export function listCardFaceImageUrls(): string[] {
+  return getAllCardImagePaths();
+}
+
 const CARD_IMAGE_PATHS = getAllCardImagePaths();
 
 /** Кэш URL картинок, уже загруженных в браузере. Используется, чтобы не показывать плейсхолдер при повторном появлении карты (напр. со стола). */

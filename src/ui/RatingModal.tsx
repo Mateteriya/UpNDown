@@ -1,5 +1,5 @@
 /**
- * Модалка «Ваш рейтинг»: краткий KPI + переход в личный кабинет.
+ * Модалка «Моя статистика»: краткий KPI + переход в личный кабинет.
  */
 
 import { useEffect, useState } from 'react';
@@ -109,7 +109,7 @@ export function RatingModal({ onClose, playerAvatarDataUrl, onOpenCabinet }: Rat
             </CosmicPhysButton>
           </div>
           <h2 id="rating-modal-title" className="rating-modal__title cosmic-iridescent-text">
-            Ваш рейтинг
+            Моя статистика
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
             <PlayerAvatar

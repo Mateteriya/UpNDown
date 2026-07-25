@@ -5,6 +5,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { Provider, Session, User } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { AUTH_BOOT_TIMEOUT_MS } from '../lib/networkTimeouts';
 
 interface AuthContextValue {
   session: Session | null;
@@ -29,15 +30,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setLoading(false);
+    let settled = false;
+    const finish = (next: Session | null | undefined, stopLoading = true) => {
+      if (next !== undefined) setSession(next);
+      if (stopLoading && !settled) {
+        settled = true;
+        setLoading(false);
+      }
+    };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      finish(nextSession, true);
     });
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-    return () => subscription.unsubscribe();
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: next } }) => finish(next, true))
+      .catch(() => finish(undefined, true));
+    /* Офлайн / висящий refresh: не держим весь UI в loading */
+    const bootTimer = window.setTimeout(() => finish(undefined, true), AUTH_BOOT_TIMEOUT_MS);
+    return () => {
+      clearTimeout(bootTimer);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {

@@ -20,6 +20,7 @@ import { OnlineUiLabPage } from './ui/OnlineUiLabPage'
 import { ScoringDemoPage } from './ui/ScoringDemoPage'
 import { CosmogenesisDemoPage } from './ui/CosmogenesisDemoPage'
 import { ModeLabelLabPage } from './ui/ModeLabelLabPage'
+import { RulesLabPage } from './ui/RulesLabPage'
 import './theme-standard.css'
 import './theme-neon.css'
 import './index.css'
@@ -32,17 +33,26 @@ import './styles/menu-brand-mark.css'
 import './styles/lobby-online-legend.css'
 import './styles/account-lk-pc.css'
 import './styles/match-archive.css'
+import './styles/leaderboard.css'
 import './styles/lk-modals.css'
 import './styles/support-donate.css'
 import './styles/support-menu-button.css'
+import './styles/rules-screen.css'
+import './styles/rules-view.css'
 import './styles/tableChatSideEarMobile.css'
 import { bootstrapLanPlayFromServer } from './lib/lanJoinLink'
 import { installCssDevGuard } from './lib/cssDevGuard'
 import { installPwaStaleRecovery, stripRecoveryQueryFromUrl } from './lib/pwaStaleRecovery'
+import { warmOfflineAssetsIfOnline } from './lib/warmOfflineAssets'
+import { installPwaInstallCapture } from './lib/pwaInstallPrompt'
+import './styles/offline-ready-orb.css'
 
 installPwaStaleRecovery()
 stripRecoveryQueryFromUrl()
 installCssDevGuard()
+installPwaInstallCapture()
+warmOfflineAssetsIfOnline()
+window.addEventListener('online', () => warmOfflineAssetsIfOnline())
 
 // LAN: /play/ с порта сервера — WS + v2 до инициализации контекста
 bootstrapLanPlayFromServer()
@@ -66,14 +76,16 @@ const isCosmogenesisDemo =
   hashRoute === 'cosmogenesis-demo' ||
   hashRoute === 'cosmo'
 const isModeLabelLab = path === '/mode-label-lab' || path.startsWith('/mode-label-lab/')
+const isRulesLab = path === '/rules-lab' || path.startsWith('/rules-lab/')
 // /mode-label-lab — локальная песочница меню; не прод-UI (не пушить как фичу меню)
 const devModeAllowed = typeof window !== 'undefined' && sessionStorage.getItem('updown-devMode') === '1'
 
 function DemoGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    if ((isDemo || isDealTrackLab || isTotalColorLab || isOnlineUiLab) && !devModeAllowed) window.location.href = '/'
+    if ((isDemo || isDealTrackLab || isTotalColorLab || isOnlineUiLab || isRulesLab) && !devModeAllowed)
+      window.location.href = '/'
   }, [])
-  if ((isDemo || isDealTrackLab || isTotalColorLab || isOnlineUiLab) && !devModeAllowed) return null
+  if ((isDemo || isDealTrackLab || isTotalColorLab || isOnlineUiLab || isRulesLab) && !devModeAllowed) return null
   return <>{children}</>
 }
 
@@ -119,6 +131,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     ) : isModeLabelLab ? (
       <ThemeProvider>
         <ModeLabelLabPage onBack={() => (window.location.href = '/')} />
+      </ThemeProvider>
+    ) : isRulesLab ? (
+      <ThemeProvider>
+        <DemoGuard>
+          <RulesLabPage onBack={() => (window.location.href = '/')} />
+        </DemoGuard>
       </ThemeProvider>
     ) : (
       <AuthProvider>

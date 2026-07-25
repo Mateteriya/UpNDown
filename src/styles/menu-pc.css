@@ -9,7 +9,8 @@
 .menu-screen__pc-hero,
 .menu-screen__pc-stars,
 .menu-screen__pc-ufos,
-.menu-screen__mobile-stars {
+.menu-screen__mobile-stars,
+.menu-screen__mobile-stars__heroes {
   display: none;
   pointer-events: none;
 }
@@ -838,7 +839,7 @@
   }
   .menu-screen__brand {
     justify-content: center;
-    gap: 14px;
+    gap: 17px;
   }
   .menu-screen__brand-icon {
     width: 56px;
@@ -859,7 +860,11 @@
   .menu-screen__title {
     font-size: clamp(2.4rem, 3.6vw, 3.25rem);
     letter-spacing: -0.03em;
-    filter: drop-shadow(0 0 24px rgba(34, 211, 238, 0.2)) drop-shadow(0 2px 18px rgba(8, 4, 24, 0.55));
+    filter: none;
+  }
+  .menu-screen__title-3d__extrude {
+    font-size: clamp(2.4rem, 3.6vw, 3.25rem);
+    letter-spacing: -0.03em;
   }
   .menu-screen__tagline {
     font-size: 0.95rem;
@@ -1194,7 +1199,7 @@
   }
   /* Стартовые позиции (первый заход / после сброса drift v5):
    * ряд под шапкой — Офлайн слева, Онлайн справа;
-   * низ — Кабинет слева, Обучение справа. */
+   * низ — Кабинет слева, Правила справа. */
   .menu-screen__drift--offline {
     left: 3%;
     right: auto;
@@ -1237,7 +1242,7 @@
     animation: menu-pc-bob-c 7.8s ease-in-out infinite;
     animation-delay: -1.2s;
   }
-  .menu-screen__drift--training {
+  .menu-screen__drift--rules {
     left: auto;
     right: 4%;
     top: auto;
@@ -1246,7 +1251,7 @@
     min-width: 260px;
     z-index: 4;
   }
-  .menu-screen__drift--training:has(.menu-capsule-shell--glyph-only) {
+  .menu-screen__drift--rules:has(.menu-capsule-shell--glyph-only) {
     width: auto;
     min-width: 0;
   }
@@ -1256,7 +1261,7 @@
   .menu-screen__drift--account .menu-capsule__eyebrow {
     color: rgba(251, 113, 133, 0.9);
   }
-  .menu-screen__drift--training > .menu-screen__drift-bob {
+  .menu-screen__drift--rules > .menu-screen__drift-bob {
     animation: menu-pc-bob-c 6.4s ease-in-out infinite;
   }
   .menu-screen__drift--profile {
@@ -1422,8 +1427,8 @@
       inset 0 1px 0 rgba(252, 231, 243, 0.35);
     outline: none;
   }
-  /* Обучение — мягкий индиго */
-  .menu-screen__drift--training .menu-screen__drift-ear {
+  /* Правила — мягкий индиго */
+  .menu-screen__drift--rules .menu-screen__drift-ear {
     border-color: rgba(129, 140, 248, 0.65);
     background: linear-gradient(180deg, rgba(40, 36, 88, 0.98) 0%, rgba(16, 14, 40, 1) 100%);
     box-shadow:
@@ -1431,12 +1436,12 @@
       0 0 14px rgba(99, 102, 241, 0.22),
       inset 0 1px 0 rgba(199, 210, 254, 0.25);
   }
-  .menu-screen__drift--training .menu-screen__drift-ear__grip > span {
+  .menu-screen__drift--rules .menu-screen__drift-ear__grip > span {
     background: #c7d2fe;
     box-shadow: 0 0 5px rgba(129, 140, 248, 0.6);
   }
-  .menu-screen__drift--training .menu-screen__drift-ear:hover,
-  .menu-screen__drift--training .menu-screen__drift-ear:focus-visible {
+  .menu-screen__drift--rules .menu-screen__drift-ear:hover,
+  .menu-screen__drift--rules .menu-screen__drift-ear:focus-visible {
     border-color: rgba(165, 180, 252, 0.9);
     filter: brightness(1.1);
     box-shadow:
@@ -1541,11 +1546,12 @@
     width: min(440px, 46vw);
   }
   .menu-screen__drift--account,
-  .menu-screen__drift--training {
+  .menu-screen__drift--rules {
     min-width: 220px;
     width: min(260px, 26vw);
   }
-  .menu-screen__title {
+  .menu-screen__title,
+  .menu-screen__title-3d__extrude {
     font-size: clamp(2.05rem, 3vw, 2.55rem);
   }
   .menu-screen__brand-icon {
@@ -1969,43 +1975,20 @@
 @media (max-width: 1024px) {
   .menu-screen--pc-cinematic {
     /*
-     * Акцент на очевидный фиолет (на OLED синий часто «съедает» пурпур).
-     * Синий/голубой — тише; сирень и чуть малины — заметнее.
-     * Тот же стек — в --menu-mobile-cosmos-bg (для meld каста, как на ПК).
+     * Равномерный глубокий космос (без «полок» и боковых карманов).
+     * Тот же стек — в --menu-mobile-cosmos-bg (для meld каста).
      */
     --menu-mobile-cosmos-bg:
-      radial-gradient(ellipse 120% 36% at 50% 112%, rgb(10 4 28) 0%, rgba(14, 6, 36, 0.78) 32%, transparent 68%),
-      linear-gradient(180deg, transparent 68%, rgba(18, 8, 44, 0.4) 86%, rgb(12 5 32) 100%),
-      radial-gradient(ellipse 58% 48% at 12% -2%, rgba(2, 1, 12, 0.55) 0%, transparent 56%),
-      radial-gradient(ellipse 52% 44% at 78% 2%, rgba(3, 2, 16, 0.5) 0%, transparent 54%),
-      radial-gradient(ellipse 48% 40% at 42% 10%, rgba(5, 2, 20, 0.4) 0%, transparent 52%),
-      radial-gradient(ellipse 70% 38% at 96% 18%, rgba(4, 6, 28, 0.45) 0%, transparent 50%),
-      radial-gradient(ellipse 55% 46% at 4% 24%, rgba(8, 3, 30, 0.4) 0%, transparent 54%),
-      radial-gradient(ellipse 42% 36% at 58% 6%, rgba(6, 4, 24, 0.35) 0%, transparent 50%),
-      radial-gradient(ellipse 50% 42% at 28% 18%, rgba(2, 2, 14, 0.32) 0%, transparent 55%),
-      /* цветные вспышки — выше каста, чтобы не резать верхний шов */
-      radial-gradient(ellipse 40% 30% at 62% -6%, rgba(192, 132, 252, 0.22) 0%, transparent 48%),
-      radial-gradient(ellipse 36% 28% at 22% -4%, rgba(232, 121, 249, 0.16) 0%, transparent 46%),
-      radial-gradient(ellipse 38% 28% at 88% -2%, rgba(99, 102, 241, 0.18) 0%, transparent 48%),
-      radial-gradient(ellipse 34% 26% at 48% 4%, rgba(14, 116, 144, 0.1) 0%, transparent 50%),
-      /* фиолет-окна подняты выше: градиент над кастом, зона каста = как под ним */
-      radial-gradient(ellipse 130% 72% at 50% -36%, rgba(109, 40, 217, 0.58) 0%, transparent 54%),
-      radial-gradient(ellipse 95% 58% at 0% -18%, rgba(91, 33, 182, 0.48) 0%, transparent 56%),
-      radial-gradient(ellipse 90% 54% at 100% -12%, rgba(124, 58, 237, 0.38) 0%, transparent 54%),
-      radial-gradient(ellipse 70% 42% at 28% 8%, rgba(168, 85, 247, 0.18) 0%, transparent 52%),
-      radial-gradient(ellipse 50% 36% at 78% 18%, rgba(99, 102, 241, 0.14) 0%, transparent 50%),
-      radial-gradient(ellipse 42% 30% at 88% -8%, rgba(232, 121, 249, 0.12) 0%, transparent 48%),
-      radial-gradient(ellipse 50% 38% at 60% 48%, rgba(14, 116, 144, 0.1) 0%, transparent 55%),
-      /* Ровная «полка» цвета вокруг каста (как под нижней гранью), затемнение — ниже */
+      radial-gradient(ellipse 120% 36% at 50% 112%, rgb(8 3 22) 0%, rgba(12, 5, 30, 0.85) 32%, transparent 68%),
+      linear-gradient(180deg, transparent 68%, rgba(12, 5, 30, 0.5) 86%, rgb(8 3 22) 100%),
       linear-gradient(
         175deg,
-        rgb(26 12 68) 0%,
-        rgb(28 14 72) 10%,
-        rgb(28 14 72) 42%,
-        rgb(28 14 72) 58%,
-        rgb(18 10 48) 78%,
-        rgb(14 7 38) 92%,
-        rgb(10 4 28) 100%
+        rgb(12 5 32) 0%,
+        rgb(12 5 32) 42%,
+        rgb(12 5 32) 58%,
+        rgb(11 4 30) 78%,
+        rgb(10 4 28) 92%,
+        rgb(8 3 22) 100%
       );
     background: var(--menu-mobile-cosmos-bg);
   }
@@ -2022,7 +2005,9 @@
   }
 
   /*
-   * Звёзды моб. меню — на всём фоне (статичные + лёгкий pulse).
+   * Звёзды моб. меню:
+   * A — статика; B/C — разные наборы, мягко и несинхронно.
+   * Крупные нерегулярные тайлы + сдвиг position — без «столбов фонарей».
    */
   .menu-screen__mobile-stars {
     display: block;
@@ -2038,95 +2023,147 @@
   }
   .menu-screen__mobile-stars__layer {
     position: absolute;
-    inset: -6%;
+    inset: -8%;
     display: block;
     background-repeat: repeat;
-    background-position: 0 0;
-    /* Без will-change: слои статичны (только лёгкий pulse opacity). */
-    filter:
-      drop-shadow(0 0 1px rgba(255, 255, 255, 0.35))
-      drop-shadow(0 0 2px rgba(34, 211, 238, 0.28))
-      drop-shadow(0 0 3.5px rgba(192, 132, 252, 0.22));
+    filter: none;
   }
   .menu-screen__mobile-stars__layer--a {
-    opacity: 0.72;
-    background-size: 116% auto;
-    /* Дрейф выключен — только мягкое мерцание */
-    animation: menu-mobile-stars-twinkle 5.6s ease-in-out infinite;
-    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20200%2040'%3E%3Ccircle%20cx%3D'18'%20cy%3D'5.5'%20r%3D'0.28'%20fill%3D'%23e0f2fe'%2F%3E%3Ccircle%20cx%3D'42'%20cy%3D'4.2'%20r%3D'0.22'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'66'%20cy%3D'6'%20r%3D'0.26'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'92'%20cy%3D'4.8'%20r%3D'0.22'%20fill%3D'%2338bdf8'%2F%3E%3Ccircle%20cx%3D'118'%20cy%3D'5.2'%20r%3D'0.24'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'142'%20cy%3D'4.5'%20r%3D'0.26'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'166'%20cy%3D'6.2'%20r%3D'0.24'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'186'%20cy%3D'5'%20r%3D'0.26'%20fill%3D'%23e0f2fe'%2F%3E%3Ccircle%20cx%3D'28'%20cy%3D'14'%20r%3D'0.22'%20fill%3D'%2338bdf8'%2F%3E%3Ccircle%20cx%3D'54'%20cy%3D'16.5'%20r%3D'0.2'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'80'%20cy%3D'13.5'%20r%3D'0.22'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'104'%20cy%3D'15'%20r%3D'0.2'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'128'%20cy%3D'14.2'%20r%3D'0.22'%20fill%3D'%2338bdf8'%2F%3E%3Ccircle%20cx%3D'152'%20cy%3D'16'%20r%3D'0.2'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'176'%20cy%3D'13.8'%20r%3D'0.2'%20fill%3D'%2367e8f9'%2F%3E%3C%2Fsvg%3E");
+    opacity: 0.78;
+    background-size: 320px auto;
+    background-position: 11% 17%;
+    animation: none;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20320%20120'%3E%3Ccircle%20cx%3D'23'%20cy%3D'14'%20r%3D'0.55'%20fill%3D'%23e0f2fe'%20opacity%3D'.85'%2F%3E%3Ccircle%20cx%3D'71'%20cy%3D'9'%20r%3D'0.45'%20fill%3D'%2367e8f9'%20opacity%3D'.7'%2F%3E%3Ccircle%20cx%3D'118'%20cy%3D'28'%20r%3D'0.5'%20fill%3D'%23a78bfa'%20opacity%3D'.75'%2F%3E%3Ccircle%20cx%3D'167'%20cy%3D'11'%20r%3D'0.42'%20fill%3D'%23f0ead0'%20opacity%3D'.65'%2F%3E%3Ccircle%20cx%3D'214'%20cy%3D'33'%20r%3D'0.48'%20fill%3D'%2338bdf8'%20opacity%3D'.7'%2F%3E%3Ccircle%20cx%3D'268'%20cy%3D'16'%20r%3D'0.44'%20fill%3D'%23c084fc'%20opacity%3D'.65'%2F%3E%3Ccircle%20cx%3D'301'%20cy%3D'41'%20r%3D'0.5'%20fill%3D'%23e0f2fe'%20opacity%3D'.8'%2F%3E%3Ccircle%20cx%3D'44'%20cy%3D'52'%20r%3D'0.46'%20fill%3D'%2338bdf8'%20opacity%3D'.7'%2F%3E%3Ccircle%20cx%3D'96'%20cy%3D'61'%20r%3D'0.4'%20fill%3D'%23e8e2c4'%20opacity%3D'.6'%2F%3E%3Ccircle%20cx%3D'149'%20cy%3D'47'%20r%3D'0.52'%20fill%3D'%2367e8f9'%20opacity%3D'.75'%2F%3E%3Ccircle%20cx%3D'201'%20cy%3D'69'%20r%3D'0.44'%20fill%3D'%23a78bfa'%20opacity%3D'.65'%2F%3E%3Ccircle%20cx%3D'252'%20cy%3D'54'%20r%3D'0.48'%20fill%3D'%23e0f2fe'%20opacity%3D'.7'%2F%3E%3Ccircle%20cx%3D'18'%20cy%3D'88'%20r%3D'0.42'%20fill%3D'%23c084fc'%20opacity%3D'.65'%2F%3E%3Ccircle%20cx%3D'81'%20cy%3D'97'%20r%3D'0.5'%20fill%3D'%2338bdf8'%20opacity%3D'.75'%2F%3E%3Ccircle%20cx%3D'138'%20cy%3D'84'%20r%3D'0.45'%20fill%3D'%23f5f0d6'%20opacity%3D'.6'%2F%3E%3Ccircle%20cx%3D'193'%20cy%3D'103'%20r%3D'0.48'%20fill%3D'%2367e8f9'%20opacity%3D'.7'%2F%3E%3Ccircle%20cx%3D'247'%20cy%3D'91'%20r%3D'0.42'%20fill%3D'%23a78bfa'%20opacity%3D'.65'%2F%3E%3Ccircle%20cx%3D'295'%20cy%3D'108'%20r%3D'0.46'%20fill%3D'%23e0f2fe'%20opacity%3D'.75'%2F%3E%3Ccircle%20cx%3D'57'%20cy%3D'31'%20r%3D'0.85'%20fill%3D'%23bae6fd'%20opacity%3D'.7'%2F%3E%3Ccircle%20cx%3D'178'%20cy%3D'76'%20r%3D'0.9'%20fill%3D'%23ddd6fe'%20opacity%3D'.65'%2F%3E%3Ccircle%20cx%3D'279'%20cy%3D'63'%20r%3D'0.8'%20fill%3D'%237dd3fc'%20opacity%3D'.65'%2F%3E%3Ccircle%20cx%3D'112'%20cy%3D'99'%20r%3D'1.15'%20fill%3D'%23e0f2fe'%20opacity%3D'.55'%2F%3E%3C%2Fsvg%3E");
   }
   .menu-screen__mobile-stars__layer--b {
-    opacity: 0.8;
-    background-size: 104% auto;
-    animation: menu-mobile-stars-twinkle 6.4s ease-in-out infinite;
-    animation-delay: -2.2s;
-    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20200%2040'%3E%3Ccircle%20cx%3D'14'%20cy%3D'34.5'%20r%3D'0.3'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'38'%20cy%3D'35.8'%20r%3D'0.24'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'62'%20cy%3D'34'%20r%3D'0.28'%20fill%3D'%2338bdf8'%2F%3E%3Ccircle%20cx%3D'88'%20cy%3D'36'%20r%3D'0.24'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'112'%20cy%3D'35.2'%20r%3D'0.26'%20fill%3D'%23e0f2fe'%2F%3E%3Ccircle%20cx%3D'136'%20cy%3D'34.6'%20r%3D'0.24'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'160'%20cy%3D'35.5'%20r%3D'0.28'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'184'%20cy%3D'34.2'%20r%3D'0.3'%20fill%3D'%23e0f2fe'%2F%3E%3Ccircle%20cx%3D'24'%20cy%3D'26'%20r%3D'0.22'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'50'%20cy%3D'28.5'%20r%3D'0.2'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'76'%20cy%3D'27'%20r%3D'0.22'%20fill%3D'%2338bdf8'%2F%3E%3Ccircle%20cx%3D'100'%20cy%3D'29'%20r%3D'0.22'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'124'%20cy%3D'27.5'%20r%3D'0.22'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'148'%20cy%3D'28.8'%20r%3D'0.2'%20fill%3D'%23a78bfa'%2F%3E%3Ccircle%20cx%3D'172'%20cy%3D'26.5'%20r%3D'0.22'%20fill%3D'%2338bdf8'%2F%3E%3C%2Fsvg%3E");
+    opacity: 0.55;
+    background-size: 380px auto;
+    background-position: 43% 58%;
+    animation: menu-mobile-stars-twinkle-soft 14s ease-in-out infinite;
+    animation-delay: -5.7s;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20380%20130'%3E%3Ccircle%20cx%3D'34'%20cy%3D'22'%20r%3D'0.75'%20fill%3D'%23c084fc'%20opacity%3D'.85'%2F%3E%3Ccircle%20cx%3D'98'%20cy%3D'48'%20r%3D'0.5'%20fill%3D'%23e8e2c4'%20opacity%3D'.7'%2F%3E%3Ccircle%20cx%3D'161'%20cy%3D'17'%20r%3D'1.05'%20fill%3D'%2367e8f9'%20opacity%3D'.85'%2F%3E%3Ccircle%20cx%3D'228'%20cy%3D'61'%20r%3D'0.48'%20fill%3D'%23e0f2fe'%20opacity%3D'.65'%2F%3E%3Ccircle%20cx%3D'291'%20cy%3D'29'%20r%3D'0.95'%20fill%3D'%23c084fc'%20opacity%3D'.85'%2F%3E%3Ccircle%20cx%3D'347'%20cy%3D'54'%20r%3D'0.55'%20fill%3D'%2338bdf8'%20opacity%3D'.7'%2F%3E%3Ccircle%20cx%3D'52'%20cy%3D'91'%20r%3D'0.7'%20fill%3D'%23a78bfa'%20opacity%3D'.8'%2F%3E%3Ccircle%20cx%3D'129'%20cy%3D'108'%20r%3D'1.15'%20fill%3D'%2367e8f9'%20opacity%3D'.85'%2F%3E%3Ccircle%20cx%3D'198'%20cy%3D'84'%20r%3D'0.45'%20fill%3D'%23efe8c8'%20opacity%3D'.65'%2F%3E%3Ccircle%20cx%3D'267'%20cy%3D'116'%20r%3D'0.8'%20fill%3D'%23e0f2fe'%20opacity%3D'.8'%2F%3E%3Ccircle%20cx%3D'332'%20cy%3D'97'%20r%3D'0.6'%20fill%3D'%2338bdf8'%20opacity%3D'.75'%2F%3E%3C%2Fsvg%3E");
   }
   .menu-screen__mobile-stars__layer--c {
-    opacity: 0.68;
-    background-size: 88% auto;
-    filter:
-      drop-shadow(0 0 1px rgba(255, 255, 255, 0.4))
-      drop-shadow(0 0 2.2px rgba(34, 211, 238, 0.32))
-      drop-shadow(0 0 3.5px rgba(192, 132, 252, 0.25));
-    animation: menu-mobile-stars-twinkle-bright 3.8s ease-in-out infinite;
-    animation-delay: -0.8s;
-    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20200%2040'%3E%3Ccircle%20cx%3D'24'%20cy%3D'8'%20r%3D'0.55'%20fill%3D'%23bae6fd'%2F%3E%3Ccircle%20cx%3D'68'%20cy%3D'12'%20r%3D'0.48'%20fill%3D'%2367e8f9'%2F%3E%3Ccircle%20cx%3D'112'%20cy%3D'6'%20r%3D'0.62'%20fill%3D'%23e9d5ff'%2F%3E%3Ccircle%20cx%3D'156'%20cy%3D'14'%20r%3D'0.52'%20fill%3D'%23ddd6fe'%2F%3E%3Ccircle%20cx%3D'40'%20cy%3D'28'%20r%3D'0.46'%20fill%3D'%2322d3ee'%2F%3E%3Ccircle%20cx%3D'90'%20cy%3D'30'%20r%3D'0.58'%20fill%3D'%237dd3fc'%2F%3E%3Ccircle%20cx%3D'138'%20cy%3D'24'%20r%3D'0.44'%20fill%3D'%23c084fc'%2F%3E%3Ccircle%20cx%3D'178'%20cy%3D'32'%20r%3D'0.5'%20fill%3D'%23bae6fd'%2F%3E%3Ccircle%20cx%3D'52'%20cy%3D'18'%20r%3D'0.36'%20fill%3D'%23e0f2fe'%20opacity%3D'.75'%2F%3E%3Ccircle%20cx%3D'124'%20cy%3D'20'%20r%3D'0.38'%20fill%3D'%23e0f2fe'%20opacity%3D'.7'%2F%3E%3C%2Fsvg%3E");
+    opacity: 0.48;
+    background-size: 460px auto;
+    background-position: 69% 23%;
+    animation: menu-mobile-stars-twinkle-bright 19s ease-in-out infinite;
+    animation-delay: -11.3s;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20460%20150'%3E%3Ccircle%20cx%3D'48'%20cy%3D'31'%20r%3D'1.25'%20fill%3D'%23bae6fd'%20opacity%3D'.8'%2F%3E%3Ccircle%20cx%3D'151'%20cy%3D'72'%20r%3D'0.7'%20fill%3D'%23efe8c8'%20opacity%3D'.65'%2F%3E%3Ccircle%20cx%3D'247'%20cy%3D'24'%20r%3D'1.45'%20fill%3D'%237dd3fc'%20opacity%3D'.85'%2F%3E%3Ccircle%20cx%3D'339'%20cy%3D'91'%20r%3D'0.65'%20fill%3D'%23f5d0fe'%20opacity%3D'.7'%2F%3E%3Ccircle%20cx%3D'421'%20cy%3D'48'%20r%3D'1.15'%20fill%3D'%2322d3ee'%20opacity%3D'.8'%2F%3E%3Ccircle%20cx%3D'96'%20cy%3D'118'%20r%3D'0.6'%20fill%3D'%23c084fc'%20opacity%3D'.7'%2F%3E%3Ccircle%20cx%3D'203'%20cy%3D'105'%20r%3D'1.05'%20fill%3D'%23bae6fd'%20opacity%3D'.8'%2F%3E%3Ccircle%20cx%3D'312'%20cy%3D'129'%20r%3D'0.55'%20fill%3D'%23f5f0d6'%20opacity%3D'.6'%2F%3E%3Ccircle%20cx%3D'388'%20cy%3D'112'%20r%3D'0.95'%20fill%3D'%2367e8f9'%20opacity%3D'.75'%2F%3E%3C%2Fsvg%3E");
   }
-  @keyframes menu-mobile-stars-twinkle {
+
+  /*
+   * Один «герой» неба — fixed поверх stack (не внутри z:1 stars).
+   */
+  .menu-screen__mobile-stars__heroes {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none !important;
+    overflow: hidden;
+  }
+  .menu-screen__mobile-stars__hero {
+    position: absolute;
+    top: auto;
+    bottom: max(140px, 26vh);
+    left: auto;
+    right: 12px;
+    width: 6px;
+    height: 6px;
+    margin: 0;
+    border-radius: 50%;
+    pointer-events: none !important;
+    opacity: 1;
+    background:
+      radial-gradient(circle at 50% 50%, #67e8f9 0 12%, transparent 14%),
+      radial-gradient(circle at 42% 38%, #a5f3fc 0 26%, transparent 38%),
+      radial-gradient(circle at 58% 58%, #e879f9 0 28%, transparent 44%),
+      radial-gradient(circle at 50% 50%, rgba(167, 139, 250, 0.88) 0 50%, transparent 72%);
+    box-shadow:
+      0 0 5px 1px rgba(103, 232, 249, 0.5),
+      0 0 10px 2px rgba(192, 132, 252, 0.3);
+    animation: menu-mobile-hero-twinkle 9.2s ease-in-out infinite;
+  }
+  .menu-screen__mobile-stars__hero::before,
+  .menu-screen__mobile-stars__hero::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(103, 232, 249, 0.95) 32%,
+      rgba(165, 243, 252, 0.9) 48%,
+      rgba(232, 121, 249, 0.7) 68%,
+      transparent 100%
+    );
+    transform: translate(-50%, -50%);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  .menu-screen__mobile-stars__hero::before {
+    width: 1.25px;
+    height: 210%;
+  }
+  .menu-screen__mobile-stars__hero::after {
+    width: 210%;
+    height: 1.25px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(103, 232, 249, 0.95) 32%,
+      rgba(165, 243, 252, 0.9) 48%,
+      rgba(232, 121, 249, 0.7) 68%,
+      transparent 100%
+    );
+  }
+  @keyframes menu-mobile-hero-twinkle {
     0%,
     100% {
-      opacity: 0.62;
+      opacity: 0.78;
+      transform: scale(0.9);
     }
-    40% {
-      opacity: 0.88;
+    28% {
+      opacity: 0.96;
+      transform: scale(1.14);
     }
-    70% {
-      opacity: 0.7;
+    55% {
+      opacity: 0.84;
+      transform: scale(0.96);
     }
+  }
+  @keyframes menu-mobile-stars-twinkle-soft {
+    0% { opacity: 0.32; }
+    18% { opacity: 0.48; }
+    41% { opacity: 0.38; }
+    63% { opacity: 0.72; }
+    81% { opacity: 0.44; }
+    100% { opacity: 0.32; }
   }
   @keyframes menu-mobile-stars-twinkle-bright {
-    0%,
-    100% {
-      opacity: 0.55;
-    }
-    35% {
-      opacity: 0.78;
-    }
-    65% {
-      opacity: 0.62;
-    }
-  }
-  @keyframes menu-mobile-stars-drift-a {
-    0%,
-    100% {
-      transform: translate3d(0, 0, 0);
-    }
-    50% {
-      transform: translate3d(10px, -7px, 0);
-    }
-  }
-  @keyframes menu-mobile-stars-drift-b {
-    0%,
-    100% {
-      transform: translate3d(0, 0, 0);
-    }
-    50% {
-      transform: translate3d(-14px, 9px, 0);
-    }
-  }
-  @keyframes menu-mobile-stars-drift-c {
-    0%,
-    100% {
-      transform: translate3d(0, 0, 0);
-    }
-    50% {
-      transform: translate3d(8px, 6px, 0);
-    }
+    0% { opacity: 0.22; }
+    12% { opacity: 0.28; }
+    27% { opacity: 0.68; }
+    39% { opacity: 0.3; }
+    58% { opacity: 0.24; }
+    71% { opacity: 0.58; }
+    86% { opacity: 0.34; }
+    100% { opacity: 0.22; }
   }
   @media (prefers-reduced-motion: reduce) {
     .menu-screen__mobile-stars__layer {
       animation: none;
+    }
+    .menu-screen__mobile-stars__layer--b,
+    .menu-screen__mobile-stars__layer--c {
+      opacity: 0.55;
+    }
+    .menu-screen__mobile-stars__hero {
+      animation: none;
+      opacity: 0.85;
+      transform: none;
     }
   }
 
@@ -2134,8 +2171,8 @@
   .menu-screen .menu-screen__brand {
     width: 100%;
     justify-content: flex-start;
-    /* scale(1.28) съедает ~6px справа — 25 даёт воздух от марки (+3) */
-    gap: 25px;
+    /* scale(1.28) съедает ~6px справа — 28 даёт воздух от марки */
+    gap: 28px;
   }
   .menu-screen .menu-screen__brand-text {
     flex: 1 1 auto;
@@ -2856,17 +2893,21 @@
     margin-top: 10px;
     margin-bottom: 4px;
   }
-  /* Обучение — самый низ мобильного меню, под кастом */
-  .menu-screen__mobile-training {
+  /* Правила — самый низ мобильного меню, под кастом */
+  .menu-screen__mobile-rules {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
     width: 100%;
     max-width: 356px;
     margin: 0 auto;
     padding-bottom: max(14px, env(safe-area-inset-bottom, 0px) + 10px);
+    gap: 0;
   }
 
   /*
    * Мобилка · финиши глифов:
-   * «Офлайн» + «Обучение» — матовый пластик 3D;
+   * «Офлайн» + «Правила» — матовый пластик 3D;
    * «Онлайн» — глянец (лак + неон).
    */
   .menu-screen .menu-split-capsule__mode-glyph--offline {
@@ -2936,7 +2977,8 @@
         rgba(24, 10, 64, 0.96) 48%,
         rgba(8, 2, 28, 0.99) 100%
       );
-    filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.55));
+    /* Без drop-shadow на кнопке: иначе орбиты рисуются в bitmap каждый кадр → дёрганье на слабых GPU */
+    filter: none;
     box-shadow:
       0 0 0 1px rgba(103, 232, 249, 0.45),
       0 0 18px rgba(34, 211, 238, 0.42),
@@ -2946,8 +2988,30 @@
       inset 0 -4px 10px rgba(4, 2, 16, 0.45),
       inset 0 0 0 1.5px rgba(103, 232, 249, 0.55);
   }
+  .menu-screen .menu-split-capsule__mode-glyph--online .menu-capsule-glyph-svg--online {
+    filter: none;
+    transform: translateZ(0);
+  }
+  /* Шарики: только spin (без opacity-pulse). Ядро — статично. */
+  .menu-screen .menu-capsule-glyph-svg--online .menu-capsule-glyph-orbit--a {
+    animation: lobby-orbit-spin 10s linear infinite;
+  }
+  .menu-screen .menu-capsule-glyph-svg--online .menu-capsule-glyph-orbit--b {
+    animation: lobby-orbit-spin 13s linear infinite reverse;
+  }
+  .menu-screen .menu-capsule-glyph-svg--online .menu-capsule-glyph-orbit--c {
+    animation: lobby-orbit-spin 16s linear infinite;
+  }
+  .menu-screen .menu-capsule-glyph-svg--online .menu-online-glyph__core-glow,
+  .menu-screen .menu-capsule-glyph-svg--online .menu-online-glyph__core-ring,
+  .menu-screen .menu-capsule-glyph-svg--online .menu-online-glyph__core {
+    animation: none;
+  }
+  .menu-screen .menu-capsule-glyph-svg--online .menu-online-glyph__core-glow {
+    opacity: 0.9;
+  }
   .menu-screen .menu-split-capsule__mode-glyph-btn.menu-split-capsule__mode-glyph--online:hover {
-    filter: brightness(1.14) saturate(1.12) drop-shadow(0 0 8px rgba(34, 211, 238, 0.65));
+    filter: brightness(1.14) saturate(1.12);
     transform: translateY(1px) scale(1.06);
     box-shadow:
       0 0 0 1px rgba(165, 243, 252, 0.55),
@@ -2959,7 +3023,7 @@
       inset 0 0 0 1.5px rgba(103, 232, 249, 0.65);
   }
   .menu-screen .menu-split-capsule__mode-glyph-btn.menu-split-capsule__mode-glyph--online:active {
-    filter: brightness(1.05) drop-shadow(0 0 4px rgba(34, 211, 238, 0.4));
+    filter: brightness(1.05);
     transform: translateY(3px) scale(1.02);
     box-shadow:
       0 0 0 1px rgba(103, 232, 249, 0.4),
@@ -2970,7 +3034,7 @@
       inset 0 0 0 1.5px rgba(103, 232, 249, 0.45);
   }
   .menu-screen .menu-split-capsule--online .menu-split-capsule__mode-glyph--legend-open {
-    filter: brightness(1.12) drop-shadow(0 0 8px rgba(168, 85, 247, 0.55));
+    filter: brightness(1.12);
     box-shadow:
       0 0 0 1px rgba(192, 132, 252, 0.55),
       0 0 20px rgba(34, 211, 238, 0.4),
@@ -2981,7 +3045,7 @@
       inset 0 0 0 1.5px rgba(192, 132, 252, 0.55);
   }
 
-  .menu-screen__mobile-training .menu-capsule--training {
+  .menu-screen__mobile-rules .menu-capsule--rules {
     border-color: rgba(129, 140, 248, 0.45);
     background: linear-gradient(
       168deg,
@@ -2996,7 +3060,7 @@
       inset 0 -7px 14px rgba(4, 2, 16, 0.62),
       inset 0 0 0 1px rgba(129, 140, 248, 0.22);
   }
-  .menu-screen__mobile-training .menu-capsule--training:hover:not(:disabled):not(.menu-capsule--disabled) {
+  .menu-screen__mobile-rules .menu-capsule--rules:hover:not(:disabled):not(.menu-capsule--disabled) {
     filter: brightness(1.05);
     transform: translateY(1px);
     box-shadow:
@@ -3006,7 +3070,7 @@
       inset 0 -7px 14px rgba(4, 2, 16, 0.58),
       inset 0 0 0 1px rgba(129, 140, 248, 0.28);
   }
-  .menu-screen__mobile-training .menu-capsule--training:active:not(:disabled):not(.menu-capsule--disabled) {
+  .menu-screen__mobile-rules .menu-capsule--rules:active:not(:disabled):not(.menu-capsule--disabled) {
     filter: brightness(0.97);
     transform: translateY(5px);
     box-shadow:
@@ -3016,15 +3080,15 @@
       inset 0 -1px 0 rgba(196, 181, 253, 0.08),
       inset 0 0 0 1px rgba(129, 140, 248, 0.18);
   }
-  .menu-screen__mobile-training .menu-capsule--training .menu-capsule__title {
+  .menu-screen__mobile-rules .menu-capsule--rules .menu-capsule__title {
     text-shadow:
       0 1px 0 rgba(6, 2, 18, 0.55),
       0 0 8px rgba(192, 132, 252, 0.28);
   }
-  .menu-screen__mobile-training .menu-capsule--training .menu-capsule__hint {
+  .menu-screen__mobile-rules .menu-capsule--rules .menu-capsule__hint {
     text-shadow: 0 1px 0 rgba(6, 2, 18, 0.4);
   }
-  .menu-screen__mobile-training .menu-capsule--training .menu-capsule__glyph {
+  .menu-screen__mobile-rules .menu-capsule--rules .menu-capsule__glyph {
     background:
       radial-gradient(circle at 36% 28%, rgba(196, 181, 253, 0.22), transparent 46%),
       linear-gradient(165deg, rgba(42, 30, 82, 0.98) 0%, rgba(14, 8, 32, 1) 100%);
@@ -3348,5 +3412,70 @@
       animation: none;
       opacity: var(--menu-mobile-cast-opacity);
     }
+  }
+
+  /*
+   * Легенды онлайн/офлайн на мобилке:
+   * — без анимации width/grid (онлайн сильно лагал);
+   * — офлайн раскрывается слабее (не на всю ширину).
+   */
+  .menu-screen .menu-split-capsule--solo-glyph {
+    transition: none;
+  }
+  .menu-screen .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open,
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open.menu-split-capsule--legend-closing {
+    transition: none;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--offline.menu-split-capsule--legend-open:not(
+      .menu-split-capsule--legend-closing
+    ) {
+    width: 90%;
+    max-width: 300px;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--online.menu-split-capsule--legend-open:not(
+      .menu-split-capsule--legend-closing
+    ) {
+    width: 94%;
+    max-width: 328px;
+  }
+  .menu-screen .menu-split-capsule__legend,
+  .menu-screen .menu-split-capsule--legend-open .menu-split-capsule__legend,
+  .menu-screen
+    .menu-split-capsule--legend-open.menu-split-capsule--legend-closing
+    .menu-split-capsule__legend {
+    transition: opacity 0.12s ease !important;
+  }
+  .menu-screen .menu-split-capsule__legend-inner {
+    transition: opacity 0.1s ease !important;
+  }
+  .menu-screen .menu-split-capsule__legend-shimmer {
+    display: none;
+    animation: none;
+  }
+  .menu-screen .menu-split-capsule--legend-open.menu-split-capsule--online .menu-split-capsule__shell {
+    box-shadow:
+      0 4px 14px rgba(0, 0, 0, 0.38),
+      0 0 12px rgba(91, 33, 182, 0.14);
+    transition: none;
+  }
+  .menu-screen
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open:not(.menu-split-capsule--legend-closing).menu-split-capsule--online
+    .menu-split-capsule__legend-inner {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(18, 4, 42, 0.3) 10%,
+      rgba(12, 4, 32, 0.78) 26%,
+      rgba(8, 2, 24, 0.94) 46%,
+      rgba(8, 2, 24, 0.97) 100%
+    );
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .menu-screen .menu-split-capsule__legend-art-wrap {
+    transition: width 0.2s ease, height 0.2s ease;
   }
 }

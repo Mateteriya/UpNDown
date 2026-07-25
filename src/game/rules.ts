@@ -21,6 +21,40 @@ export function isValidBidSum(bids: number[], tricksInDeal: number): boolean {
 }
 
 /**
+ * Запрещённая цифра заказа для игрока, который торгует последним
+ * (по правилам — сдающий): сумма чужих заказов + эта цифра = взяткам в раздаче.
+ *
+ * Не завязано на dealerIndex: в онлайне после rotate/JSON надёжнее смотреть,
+ * что все остальные уже заказали (ход последнего).
+ */
+export function getForbiddenDealerBid(
+  state: {
+    tricksInDeal: number;
+    bids: (number | null | undefined)[];
+    players: { bid?: number | null }[];
+  },
+  playerIndex: number,
+): number | null {
+  const n = state.players.length === 3 ? 3 : state.players.length === 4 ? 4 : 0;
+  if (n < 3) return null;
+  let othersSum = 0;
+  let othersCount = 0;
+  for (let i = 0; i < n; i++) {
+    if (i === playerIndex) continue;
+    const raw = state.bids[i] ?? state.players[i]?.bid;
+    if (raw === null || raw === undefined) return null;
+    const b = Number(raw);
+    if (!Number.isFinite(b)) return null;
+    othersSum += b;
+    othersCount += 1;
+  }
+  if (othersCount !== n - 1) return null;
+  const forbidden = state.tricksInDeal - othersSum;
+  if (forbidden < 0 || forbidden > state.tricksInDeal) return null;
+  return forbidden;
+}
+
+/**
  * Определяет, кто выиграл взятку
  */
 export function getTrickWinner(

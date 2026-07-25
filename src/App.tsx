@@ -24,7 +24,7 @@ import {
 import MobileOverlapHint from './ui/MobileOverlapHint'
 import { HistoryModal } from './ui/HistoryModal'
 import { NameAvatarModal } from './ui/NameAvatarModal'
-import TrainingScreen from './ui/TrainingScreen'
+import RulesScreen from './ui/RulesScreen'
 import { RatingModal } from './ui/RatingModal'
 import { AuthModal } from './ui/AuthModal'
 import { applyLanJoinParamsFromUrl } from './lib/lanJoinLink'
@@ -36,6 +36,8 @@ import { ACCOUNT_ROUTE_HASH, isAccountRouteHash } from './lib/accountRoute'
 import { ONLINE_ROUTE_HASH, isOnlineRouteHash } from './lib/onlineRoute'
 import { SUPPORT_ROUTE_HASH, isSupportRouteHash } from './lib/supportRoute'
 import { SupportDonatePage } from './ui/SupportDonatePage'
+import { LeaderboardPage } from './ui/LeaderboardPage'
+import { RATING_ROUTE_HASH, isRatingRouteHash } from './lib/ratingRoute'
 
 /** Ленивая загрузка экрана игры: уменьшает начальный бандл и ускоряет первый показ меню; экран игры подгружается при переходе. */
 const GameTable = lazy(() => import('./ui/GameTable'))
@@ -43,15 +45,16 @@ const GameTable = lazy(() => import('./ui/GameTable'))
 const DEV_MODE_KEY = 'updown-devMode'
 const DEFAULT_DISPLAY_NAME = 'Вы'
 
-type AppScreen = 'menu' | 'game' | 'training' | 'account' | 'online' | 'support'
+type AppScreen = 'menu' | 'game' | 'rules' | 'account' | 'online' | 'support' | 'rating'
 
 function readInitialScreen(): AppScreen {
   if (typeof window === 'undefined') return 'menu'
   const h = (window.location.hash || '#menu').trim().toLowerCase()
   if (h === '#game') return 'game'
-  if (h === '#training') return 'training'
+  if (h === '#rules' || h === '#training') return 'rules'
   if (isAccountRouteHash(h)) return 'account'
   if (isSupportRouteHash(h)) return 'support'
+  if (isRatingRouteHash(h)) return 'rating'
   if (isOnlineRouteHash(h)) return 'online'
   const { code } = applyLanJoinParamsFromUrl()
   if (code) return 'online'
@@ -435,6 +438,11 @@ function App() {
     setScreen('support')
   }, [])
 
+  const openRatingPage = useCallback(() => {
+    setUrlJoinCode(null)
+    setScreen('rating')
+  }, [])
+
   // Управление историей браузера: #menu ↔ #game ↔ #online и popstate
   useEffect(() => {
     const applyHash = () => {
@@ -446,33 +454,41 @@ function App() {
       } else if (h === '#game') {
         try { sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY) } catch { /* ignore */ }
         setScreen('game')
-      } else if (h === '#training') {
-        setScreen('training')
+      } else if (h === '#rules' || h === '#training') {
+        setScreen('rules')
       } else if (isAccountRouteHash(h)) {
         setScreen('account')
       } else if (isSupportRouteHash(h)) {
         setScreen('support')
+      } else if (isRatingRouteHash(h)) {
+        setScreen('rating')
       } else if (isOnlineRouteHash(h)) {
         try { sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY) } catch { /* ignore */ }
         setScreen('online')
       }
     }
     window.addEventListener('popstate', applyHash)
-    return () => window.removeEventListener('popstate', applyHash)
+    window.addEventListener('hashchange', applyHash)
+    return () => {
+      window.removeEventListener('popstate', applyHash)
+      window.removeEventListener('hashchange', applyHash)
+    }
   }, [])
   useEffect(() => {
     const targetHash =
       screen === 'game'
         ? '#game'
-        : screen === 'training'
-          ? '#training'
+        : screen === 'rules'
+          ? '#rules'
           : screen === 'account'
             ? ACCOUNT_ROUTE_HASH
             : screen === 'support'
               ? SUPPORT_ROUTE_HASH
-              : screen === 'online'
-                ? ONLINE_ROUTE_HASH
-                : '#menu'
+              : screen === 'rating'
+                ? RATING_ROUTE_HASH
+                : screen === 'online'
+                  ? ONLINE_ROUTE_HASH
+                  : '#menu'
     if (window.location.hash !== targetHash) {
       history.pushState({ screen }, '', targetHash)
     }
@@ -499,11 +515,12 @@ function App() {
           onTitleDevMode={enableDevMode}
           onOpenAccount={openAccountCabinet}
           onOpenSupport={openSupportPage}
+          onOpenRating={openRatingPage}
           onResumeOnline={() => { void handleResumeOnline() }}
           onOpenOnline={openOnlinePage}
           onResumeOffline={() => { void handleResumeOffline() }}
           onOfflinePlay={handleOfflineClick}
-          onTraining={() => setScreen('training')}
+          onOpenRules={() => setScreen('rules')}
         />
       )}
       {showPlayerCountModal && (
@@ -515,9 +532,7 @@ function App() {
           onChoose={beginOfflineAfterPlayerCount}
         />
       )}
-      {screen === 'training' && (
-        <TrainingScreen onBack={() => setScreen('menu')} profile={profile} />
-      )}
+      {screen === 'rules' && <RulesScreen onBack={() => setScreen('menu')} />}
       {showRatingModal && (
         <RatingModal
           onClose={() => setShowRatingModal(false)}
@@ -703,9 +718,24 @@ function App() {
             openOnlinePage()
           }}
           onOpenSupport={openSupportPage}
+          onOpenRating={openRatingPage}
+          onOpenPremium={() => {
+            /* TODO: экран «Подписка / Премиум» */
+            window.location.hash = '#premium';
+          }}
         />
       )}
       {screen === 'support' && <SupportDonatePage onBack={() => setScreen('menu')} />}
+      {screen === 'rating' && (
+        <LeaderboardPage
+          onBack={() => setScreen('menu')}
+          onSignIn={() => {
+            setAuthMode('login')
+            setShowAuthModal(true)
+          }}
+          onOpenAccount={() => openAccountCabinet('rating')}
+        />
+      )}
       {screen === 'online' && (
         <LobbyScreen
           onBack={() => { setUrlJoinCode(null); setScreen('menu') }}

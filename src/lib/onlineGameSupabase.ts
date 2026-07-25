@@ -970,7 +970,11 @@ export async function finishMatch(
     return {
       slot_index: i,
       user_id: userId,
-      display_name: slot?.displayName ?? p.name,
+      display_name: (() => {
+        const fromSlot = slot?.displayName?.trim() || slot?.shortLabel?.trim() || '';
+        const fromPlayer = (p.name || '').trim();
+        return (fromSlot || fromPlayer || 'Игрок').slice(0, 80);
+      })(),
       is_ai: isAi,
       final_score: p.score,
       bid_accuracy: acc,
@@ -1171,6 +1175,8 @@ export interface MatchDetailPlayer {
   bid_accuracy: number | null;
   interrupted: boolean;
   is_rated: boolean;
+  /** Логин аккаунта (local-part email), если display_name пустой/общий */
+  account_hint?: string | null;
 }
 
 export interface MatchDetail {
@@ -1188,6 +1194,8 @@ export interface MatchDetail {
   my_place: number | null;
   my_final_score: number | null;
   my_chips: number | null;
+  /** Слот текущего пользователя (колонка в таблице раздач). */
+  my_slot_index?: number | null;
 }
 
 function matchHistorySelectWithOffline(): string {
@@ -1199,7 +1207,7 @@ function matchHistorySelectWithoutOffline(): string {
 }
 
 function mapMatchHistoryRows(data: unknown[]): MatchHistoryItem[] {
-  return (data as any[]).map((row) => {
+  const mapped = (data as any[]).map((row) => {
     const chipsBySlot = row.matches?.chips_by_slot as Record<string, number> | null | undefined;
     const slotKey =
       row.slot_index != null
@@ -1226,6 +1234,19 @@ function mapMatchHistoryRows(data: unknown[]): MatchHistoryItem[] {
       settlement_mode: (row.matches?.settlement_mode as SettlementMode) ?? null,
       chips: chips != null && Number.isFinite(chips) ? chips : null,
     };
+  });
+  // PostgREST/join и повторные RPC дают дубли — схлопываем по id и по снимку результата.
+  const seenId = new Set<string>();
+  const seenSig = new Set<string>();
+  return mapped.filter((row) => {
+    if (!row.id || seenId.has(row.id)) return false;
+    seenId.add(row.id);
+    const t = Date.parse(row.finished_at);
+    const bucket = Number.isFinite(t) ? Math.floor(t / 60_000) : row.finished_at;
+    const sig = [bucket, row.place ?? '', row.final_score ?? '', row.chips ?? '', row.is_offline ? 1 : 0].join('|');
+    if (seenSig.has(sig)) return false;
+    seenSig.add(sig);
+    return true;
   });
 }
 
@@ -1263,6 +1284,77 @@ export async function getMyMatchHistory(userId: string, limit = 20): Promise<Mat
 /** Полный срез матча (standings + deal_history) для хаба «Мои партии». */
 export async function getMatchDetail(matchId: string, userId: string): Promise<MatchDetail | null> {
   if (!supabase || !matchId || !userId) return null;
+
+  // Предпочтительно RPC: все слоты + account_hint (email), даже если RLS на match_players узкий.
+  try {
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('updown_get_match_archive_detail', {
+      p_match_id: matchId,
+    });
+    let row: any = rpcData;
+    if (typeof row === 'string') {
+      try {
+        row = JSON.parse(row);
+      } catch {
+        row = null;
+      }
+    }
+    if (!rpcErr && row && typeof row === 'object' && row.ok === true) {
+      const m = row.match ?? {};
+      const chipsBySlot = (m.chips_by_slot as Record<string, number> | null) ?? null;
+      const mySlot = row.my_slot_index as number | null | undefined;
+      const myChips =
+        chipsBySlot && mySlot != null && chipsBySlot[String(mySlot)] != null
+          ? Number(chipsBySlot[String(mySlot)])
+          : null;
+      const dealHistoryRaw = m.deal_history;
+      const deal_history = Array.isArray(dealHistoryRaw)
+        ? (dealHistoryRaw as import('../game/GameEngine').DealResult[]).filter(
+            (d) =>
+              d &&
+              typeof d === 'object' &&
+              typeof (d as any).dealNumber === 'number' &&
+              Array.isArray((d as any).bids) &&
+              Array.isArray((d as any).points),
+          )
+        : [];
+      const playersRaw = Array.isArray(row.players) ? row.players : [];
+      return {
+        id: m.id as string,
+        code: m.code as string,
+        finished_at: m.finished_at as string,
+        deals_count: (m.deals_count as number | null) ?? null,
+        is_offline: !!m.is_offline,
+        settlement_mode: (m.settlement_mode as SettlementMode) ?? null,
+        buy_in: (m.buy_in as number | null) ?? null,
+        chips_by_slot: chipsBySlot,
+        deal_history,
+        players: playersRaw.map((p: any) => {
+          const dn = String(p.display_name || '').trim();
+          const hint =
+            typeof p.account_hint === 'string' && p.account_hint.trim() ? p.account_hint.trim() : null;
+          const generic = !dn || /^игрок\s*\d*$/i.test(dn);
+          return {
+            slot_index: Number(p.slot_index),
+            display_name: generic && hint ? hint : dn || hint || 'Игрок',
+            is_ai: !!p.is_ai,
+            final_score: (p.final_score as number) ?? 0,
+            place: (p.place as number | null) ?? null,
+            bid_accuracy: (p.bid_accuracy as number | null) ?? null,
+            interrupted: !!p.interrupted,
+            is_rated: !!p.is_rated,
+            account_hint: hint,
+          };
+        }),
+        my_place: (row.my_place as number | null) ?? null,
+        my_final_score: (row.my_final_score as number | null) ?? null,
+        my_chips: myChips != null && Number.isFinite(myChips) ? myChips : null,
+        my_slot_index: mySlot != null && Number.isFinite(Number(mySlot)) ? Number(mySlot) : null,
+      };
+    }
+  } catch {
+    /* fallback below */
+  }
+
   const { data: match, error: matchErr } = await supabase
     .from('matches')
     .select('id, code, finished_at, deals_count, is_offline, settlement_mode, buy_in, chips_by_slot, deal_history')
@@ -1297,6 +1389,23 @@ export async function getMatchDetail(matchId: string, userId: string): Promise<M
       )
     : [];
 
+  // profiles: обычно RLS отдаёт только свой — всё равно обогащаем что можно
+  const userIds = (players as any[])
+    .map((p) => p.user_id as string | null)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
+  const profileNameByUser = new Map<string, string>();
+  if (userIds.length) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('user_id, display_name')
+      .in('user_id', userIds);
+    for (const pr of profiles ?? []) {
+      const dn = typeof (pr as any).display_name === 'string' ? (pr as any).display_name.trim() : '';
+      const uid = (pr as any).user_id as string;
+      if (uid && dn) profileNameByUser.set(uid, dn);
+    }
+  }
+
   return {
     id: match.id as string,
     code: match.code as string,
@@ -1307,19 +1416,26 @@ export async function getMatchDetail(matchId: string, userId: string): Promise<M
     buy_in: (match.buy_in as number | null) ?? null,
     chips_by_slot: chipsBySlot,
     deal_history,
-    players: (players as any[]).map((p) => ({
-      slot_index: p.slot_index as number,
-      display_name: (p.display_name as string) || 'Игрок',
-      is_ai: !!p.is_ai,
-      final_score: (p.final_score as number) ?? 0,
-      place: (p.place as number | null) ?? null,
-      bid_accuracy: (p.bid_accuracy as number | null) ?? null,
-      interrupted: !!p.interrupted,
-      is_rated: !!p.is_rated,
-    })),
+    players: (players as any[]).map((p) => {
+      const raw = String(p.display_name || '').trim();
+      const fromProfile = p.user_id ? profileNameByUser.get(p.user_id as string) : undefined;
+      const display_name = raw || fromProfile || 'Игрок';
+      return {
+        slot_index: Number(p.slot_index),
+        display_name,
+        is_ai: !!p.is_ai,
+        final_score: (p.final_score as number) ?? 0,
+        place: (p.place as number | null) ?? null,
+        bid_accuracy: (p.bid_accuracy as number | null) ?? null,
+        interrupted: !!p.interrupted,
+        is_rated: !!p.is_rated,
+        account_hint: fromProfile && fromProfile !== display_name ? fromProfile : null,
+      };
+    }),
     my_place: (mine?.place as number | null) ?? null,
     my_final_score: (mine?.final_score as number | null) ?? null,
     my_chips: myChips != null && Number.isFinite(myChips) ? myChips : null,
+    my_slot_index: mine?.slot_index != null ? Number(mine.slot_index) : null,
   };
 }
 
@@ -1328,6 +1444,72 @@ export interface RatingSummary {
   ratedGames: number;
   wins: number;
   points: number;
+}
+
+export interface LeaderboardRow {
+  rank: number;
+  user_id: string;
+  elo: number;
+  games: number;
+  wins: number;
+  display_name: string;
+}
+
+export interface LeaderboardResult {
+  ok: boolean;
+  error?: string;
+  ladder_kind: string;
+  season_id: string;
+  rows: LeaderboardRow[];
+  me: (LeaderboardRow & { rank: number | null }) | null;
+}
+
+export async function getLeaderboard(limit = 50): Promise<LeaderboardResult> {
+  if (!supabase) {
+    return { ok: false, error: 'Supabase не настроен', ladder_kind: 'open', season_id: '', rows: [], me: null };
+  }
+  const { data, error } = await supabase.rpc('updown_get_leaderboard', {
+    p_limit: limit,
+    p_ladder: 'open',
+    p_season: '',
+  });
+  if (error) {
+    return { ok: false, error: error.message, ladder_kind: 'open', season_id: '', rows: [], me: null };
+  }
+  const row = data as {
+    ok?: boolean;
+    error?: string;
+    ladder_kind?: string;
+    season_id?: string;
+    rows?: LeaderboardRow[];
+    me?: LeaderboardRow & { rank?: number | null };
+  } | null;
+  if (!row?.ok) {
+    return {
+      ok: false,
+      error: row?.error ?? 'leaderboard_failed',
+      ladder_kind: 'open',
+      season_id: '',
+      rows: [],
+      me: null,
+    };
+  }
+  return {
+    ok: true,
+    ladder_kind: row.ladder_kind ?? 'open',
+    season_id: row.season_id ?? '',
+    rows: Array.isArray(row.rows) ? row.rows : [],
+    me: row.me
+      ? {
+          rank: row.me.rank ?? null,
+          user_id: row.me.user_id,
+          elo: row.me.elo,
+          games: row.me.games,
+          wins: row.me.wins,
+          display_name: row.me.display_name,
+        }
+      : null,
+  };
 }
 
 export async function getMyRatingSummary(userId: string): Promise<RatingSummary | null> {

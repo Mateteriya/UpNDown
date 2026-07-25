@@ -14,16 +14,14 @@ import {
 } from './aiBotAvatars';
 
 describe('getAiBotAvatarUrl', () => {
-  it('encodes Cyrillic paths', () => {
-    expect(getAiBotAvatarUrl('novice', 0)).toBe('/ИИ-боты/%D0%9D%D0%BE%D0%B2%D0%B8%D1%87%D0%BE%D0%BA.jpg');
-    expect(getAiBotAvatarUrl('amateur', 1)).toBe('/ИИ-боты/%D0%9B%D1%8E%D0%B1%D0%B8%D1%82%D0%B5%D0%BB%D1%8C%201.jpg');
+  it('encodes Cyrillic paths (folder + file) like the browser request', () => {
+    expect(getAiBotAvatarUrl('novice', 0)).toBe(encodeURI('/ИИ-боты/Новичок.jpg'));
+    expect(getAiBotAvatarUrl('amateur', 1)).toBe(encodeURI('/ИИ-боты/Любитель 1.jpg'));
   });
 
   it('has six variants per difficulty', () => {
     expect(listAiBotAvatarUrls('expert')).toHaveLength(AI_BOT_AVATAR_VARIANT_COUNT);
-    expect(getAiBotAvatarUrl('expert', 5)).toBe(
-      `/ИИ-боты/${encodeURIComponent('Эксперт 5.jpg')}`,
-    );
+    expect(getAiBotAvatarUrl('expert', 5)).toBe(encodeURI('/ИИ-боты/Эксперт 5.jpg'));
   });
 });
 

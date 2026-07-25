@@ -75,6 +75,7 @@ export function buildPartyArchiveRecord(
     buyIn?: number | null;
     source?: PartyArchiveSource;
     cloudMatchId?: string | null;
+    seatNames?: string[];
   },
 ): PartyArchiveRecord | null {
   const base = buildPartyHistoryRecord(snap, opts);
@@ -264,4 +265,23 @@ export async function getPartyArchiveById(
 ): Promise<PartyArchiveRecord | null> {
   const list = await getPartyArchive(profileId, PARTY_HISTORY_MAX_STORED);
   return list.find((r) => r.id === id) ?? null;
+}
+
+/** Привязать локальную запись архива к id матча в облаке. */
+export async function linkPartyArchiveCloudMatch(
+  archiveId: string,
+  cloudMatchId: string,
+  profileId?: string,
+): Promise<void> {
+  try {
+    const pid = profileId ?? getPlayerProfile().profileId ?? '';
+    if (!pid || !archiveId || !cloudMatchId) return;
+    const list = await readAllForProfile(pid);
+    const next = list.map((r) => (r.id === archiveId ? { ...r, cloudMatchId } : r));
+    await writeAllForProfile(pid, next);
+    const summary = next.find((r) => r.id === archiveId);
+    if (summary) appendPartyHistoryRecord(toPartyHistorySummary(summary));
+  } catch {
+    /* ignore */
+  }
 }

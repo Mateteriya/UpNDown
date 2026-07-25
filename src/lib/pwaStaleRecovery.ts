@@ -58,6 +58,11 @@ async function hardReloadAfterStaleCache(): Promise<boolean> {
     return false
   }
   sessionStorage.setItem(RELOAD_GUARD_KEY, '1')
+  /* Офлайн: сброс SW/кэша убьёт единственную копию приложения на телефоне */
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    hardNavigateReload()
+    return true
+  }
   await clearPwaCachesWithTimeout()
   hardNavigateReload()
   return true
@@ -72,6 +77,10 @@ export function hardReloadPage(): void {
 /** Явный сброс из UI (ErrorBoundary) — без ограничения «один раз за сессию». */
 export async function resetPwaCacheAndReload(): Promise<void> {
   sessionStorage.removeItem(RELOAD_GUARD_KEY)
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    hardNavigateReload()
+    return
+  }
   await clearPwaCachesWithTimeout()
   hardNavigateReload()
 }
@@ -93,7 +102,7 @@ export function installWindowHardReloadHook(): void {
   if (typeof window === 'undefined') return
   window.__updownHardReload = (clearCache = false) => {
     sessionStorage.removeItem(RELOAD_GUARD_KEY)
-    if (!clearCache) {
+    if (!clearCache || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
       hardNavigateReload()
       return
     }

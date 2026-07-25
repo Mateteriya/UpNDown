@@ -4,16 +4,15 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { SUPABASE_AUTH_TIMEOUT_MS, SUPABASE_REST_TIMEOUT_MS } from './networkTimeouts';
 
-/**
- * Верхняя граница висящего REST (не auth).
- * Должна быть ≥ таймаута записи game_state (~55 с), иначе updateRoomState обрывается раньше и «старт игры» не доезжает.
- */
-const FETCH_TIMEOUT_MS = 70_000;
-
-function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  timeoutMs: number,
+): Promise<Response> {
   const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const t = setTimeout(() => controller.abort(), timeoutMs);
   const parent = init?.signal;
   if (parent) {
     if (parent.aborted) {
@@ -25,24 +24,25 @@ function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise
       controller.abort(parent.reason);
     };
     parent.addEventListener('abort', onParentAbort);
-    return fetch(input, { ...init, signal: controller.signal })
-      .finally(() => {
-        clearTimeout(t);
-        parent.removeEventListener('abort', onParentAbort);
-      });
+    return fetch(input, { ...init, signal: controller.signal }).finally(() => {
+      clearTimeout(t);
+      parent.removeEventListener('abort', onParentAbort);
+    });
   }
   return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(t));
 }
 
-/** Auth (OAuth, setSession, refresh) без общего таймаута — иначе цепочка вызовов даёт минуты ожидания. */
+/**
+ * REST — длинный таймаут (запись стола).
+ * Auth — короткий: без сети refresh не должен блокировать офлайн-игру.
+ */
 function fetchForSupabase(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   let href = '';
   if (typeof input === 'string') href = input;
   else if (typeof URL !== 'undefined' && input instanceof URL) href = input.href;
   else if (typeof Request !== 'undefined' && input instanceof Request) href = input.url;
-  // Любой путь GoTrue, не только /auth/v1/…
-  if (/\/auth\/v1\b/i.test(href)) return fetch(input, init);
-  return fetchWithTimeout(input, init);
+  if (/\/auth\/v1\b/i.test(href)) return fetchWithTimeout(input, init, SUPABASE_AUTH_TIMEOUT_MS);
+  return fetchWithTimeout(input, init, SUPABASE_REST_TIMEOUT_MS);
 }
 
 let _supabase: SupabaseClient | null = null;
