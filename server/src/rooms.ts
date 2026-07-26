@@ -20,7 +20,8 @@ function generateCode(existing: Set<string>): string {
   return randomUUID().slice(0, CODE_LENGTH).toUpperCase();
 }
 
-function capAvatar(url: string | null | undefined, max = 24_000): string | null | undefined {
+/** LAN: профильный JPEG часто >24KB; слишком жёсткий потолок = пустые аватарки у соседей. */
+function capAvatar(url: string | null | undefined, max = 160_000): string | null | undefined {
   if (url == null || url === '') return url;
   return url.length <= max ? url : undefined;
 }
@@ -346,7 +347,19 @@ export class RoomStore {
     }
 
     if (isHost) {
-      room.player_slots = incoming;
+      /** Не затирать чужие аватарки, если в snapshot хоста их нет / они не прошли cap. */
+      const merged = incoming.map((s) => {
+        const prev = current.find((c) => c.slotIndex === s.slotIndex);
+        if (s.avatarDataUrl === null) return { ...s, avatarDataUrl: null };
+        if (s.avatarDataUrl === undefined) {
+          return { ...s, avatarDataUrl: prev?.avatarDataUrl ?? null };
+        }
+        return {
+          ...s,
+          avatarDataUrl: capAvatar(s.avatarDataUrl) ?? prev?.avatarDataUrl ?? null,
+        };
+      });
+      room.player_slots = fullSlotsFromPartial(merged, maxPlayers);
     } else {
       const mineIdx = current.findIndex((s) => s.userId === actor);
       if (mineIdx < 0) return { error: 'Слот не найден' };

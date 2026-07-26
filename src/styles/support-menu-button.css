@@ -253,7 +253,8 @@
 .menu-screen__mobile-rules .support-menu-btn {
   width: 100%;
   max-width: 356px;
-  margin-top: 10px;
+  /* отступ задаёт gap у .menu-screen__mobile-rules (как у «Правила» → «Поддержать») */
+  margin-top: 0;
   /* тоньше обводка, как у «Правила»; лента сверху без изменений */
   border-color: rgba(129, 140, 248, 0.45);
   box-shadow:

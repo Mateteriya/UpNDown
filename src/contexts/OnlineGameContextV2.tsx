@@ -41,6 +41,7 @@ import {
 } from '../lib/onlineIgnoredRooms';
 import { getOnlinePlayerId } from '../lib/deviceId';
 import { isWsOnlineConfigured } from '../lib/onlineTransport';
+import { ONLINE_ROOM_AVATAR_MAX_CHARS, prepareAvatarForOnlineRoom } from '../lib/avatarImage';
 import {
   wsSubscribeToGameState,
   wsV2StartGame,
@@ -176,12 +177,32 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     if (!roomId) return;
-    const unsubRoom = subscribeToRoom(roomId, applyRoom);
-    const unsubState = wsSubscribeToGameState(roomId, applyGameStatePush);
-    void getRoom(roomId).then((r) => {
-      if (r) applyRoom(r);
+    let cancelled = false;
+    let healTimer: ReturnType<typeof setTimeout> | null = null;
+    const healFromServer = () => {
+      if (cancelled) return;
+      void getRoom(roomId).then((r) => {
+        if (!cancelled && r) applyRoom(r);
+      });
+    };
+    const unsubRoom = subscribeToRoom(roomId, applyRoom, (status) => {
+      if (cancelled) return;
+      // После обрыва Wi‑Fi/фона на телефоне без pull UI не догоняет комнату.
+      if (status !== 'SUBSCRIBED' && status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT') return;
+      if (healTimer) clearTimeout(healTimer);
+      healTimer = setTimeout(
+        () => {
+          healTimer = null;
+          healFromServer();
+        },
+        status === 'SUBSCRIBED' ? 0 : 250,
+      );
     });
+    const unsubState = wsSubscribeToGameState(roomId, applyGameStatePush);
+    healFromServer();
     return () => {
+      cancelled = true;
+      if (healTimer) clearTimeout(healTimer);
       unsubRoom();
       unsubState();
     };
@@ -358,7 +379,10 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
       if (!roomId) return false;
       const res = await wsV2PlaceBid(roomId, myServerIndex, bid, onlinePlayerId);
       if (!res.ok) {
+        // not_your_turn / wrong_phase = клиент отстал; без resync UI залипает на торгах.
+        revisionRef.current = -1;
         setError(res.error ?? 'Заказ не принят');
+        await refreshRoom();
         return false;
       }
       await refreshRoom();
@@ -372,7 +396,9 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
       if (!roomId) return false;
       const res = await wsV2PlayCard(roomId, myServerIndex, card, onlinePlayerId);
       if (!res.ok) {
+        revisionRef.current = -1;
         setError(res.error ?? 'Ход не принят');
+        await refreshRoom();
         return false;
       }
       await refreshRoom();
@@ -485,7 +511,8 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
 
   const syncMySlotAvatar = useCallback(async () => {
     if (!roomId) return;
-    const avatar = getPlayerProfile().avatarDataUrl ?? undefined;
+    const raw = getPlayerProfile().avatarDataUrl ?? undefined;
+    const avatar = await prepareAvatarForOnlineRoom(raw ?? null, ONLINE_ROOM_AVATAR_MAX_CHARS);
     const slots = playerSlots.map((s) =>
       s.userId === onlinePlayerId
         ? { ...s, ...(avatar != null && avatar !== '' ? { avatarDataUrl: avatar } : { avatarDataUrl: null }) }
@@ -497,7 +524,7 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
 
   const profileSyncedRoomRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!roomId || status !== 'waiting') return;
+    if (!roomId || (status !== 'waiting' && status !== 'playing')) return;
     if (profileSyncedRoomRef.current === roomId) return;
     profileSyncedRoomRef.current = roomId;
     const name = getPlayerProfile().displayName?.trim();

@@ -2902,7 +2902,7 @@
     max-width: 356px;
     margin: 0 auto;
     padding-bottom: max(14px, env(safe-area-inset-bottom, 0px) + 10px);
-    gap: 0;
+    gap: 10px;
   }
 
   /*

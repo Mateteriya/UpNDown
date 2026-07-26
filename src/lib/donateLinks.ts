@@ -1,13 +1,16 @@
 /**
- * Ссылки на донаты: задаются в Vercel / `.env.local`.
- * Пока пусто — страница всё равно открывается с текстом «скоро».
+ * Ссылки на донаты: CloudTips и ЮMoney.
+ * Задаются в Vercel / `.env.local` (см. .env.example).
  */
 
+export type DonateMethodId = 'cloudtips' | 'yoomoney';
+
 export type DonateLink = {
-  id: string;
+  id: DonateMethodId;
   label: string;
   hint: string;
-  url: string;
+  blurb: string;
+  url: string | null;
 };
 
 function envUrl(key: string): string {
@@ -21,49 +24,26 @@ function envUrl(key: string): string {
   }
 }
 
-/** Настроенные ссылки (порядок: основная → Boosty → CloudTips → прочее). */
+/** Два способа поддержки; url=null пока не настроен. */
 export function getDonateLinks(): DonateLink[] {
-  const out: DonateLink[] = [];
-  const primary = envUrl('VITE_DONATE_URL');
-  if (primary) {
-    out.push({
-      id: 'primary',
-      label: 'Поддержать',
-      hint: 'основная ссылка',
-      url: primary,
-    });
-  }
-  const boosty = envUrl('VITE_DONATE_BOOSTY');
-  if (boosty) {
-    out.push({
-      id: 'boosty',
-      label: 'Boosty',
-      hint: 'подписка или разово',
-      url: boosty,
-    });
-  }
-  const tips = envUrl('VITE_DONATE_CLOUDTIPS');
-  if (tips) {
-    out.push({
+  return [
+    {
       id: 'cloudtips',
       label: 'CloudTips',
-      hint: 'быстрый перевод',
-      url: tips,
-    });
-  }
-  const extra = envUrl('VITE_DONATE_EXTRA_URL');
-  const extraLabel = (import.meta.env.VITE_DONATE_EXTRA_LABEL as string | undefined)?.trim() || 'Ещё способ';
-  if (extra) {
-    out.push({
-      id: 'extra',
-      label: extraLabel.slice(0, 40),
-      hint: 'дополнительно',
-      url: extra,
-    });
-  }
-  return out;
+      hint: 'карта · СБП · Т‑Pay',
+      blurb: 'Карта, СБП или Т‑Pay — без регистрации, перевод за пару кликов.',
+      url: envUrl('VITE_DONATE_CLOUDTIPS') || null,
+    },
+    {
+      id: 'yoomoney',
+      label: 'ЮMoney',
+      hint: 'кошелёк или карта',
+      blurb: 'С кошелька ЮMoney или с карты — привычный перевод за минуту.',
+      url: envUrl('VITE_DONATE_YOOMONEY') || null,
+    },
+  ];
 }
 
 export function hasDonateLinks(): boolean {
-  return getDonateLinks().length > 0;
+  return getDonateLinks().some((l) => !!l.url);
 }

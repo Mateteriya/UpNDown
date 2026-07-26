@@ -5088,9 +5088,15 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const invalidBid =
     state && isHumanBidding ? getForbiddenDealerBid(state, humanIdx) : null;
 
+  const onlineBidInFlightRef = useRef(false);
   const handleBid = useCallback((bid: number) => {
     if (isOnlinePlayPhase) {
-      online.sendBid(bid);
+      // mousedown+click / touch→click иначе шлют place_bid дважды → not_your_turn спам.
+      if (onlineBidInFlightRef.current) return;
+      onlineBidInFlightRef.current = true;
+      void Promise.resolve(online.sendBid(bid)).finally(() => {
+        onlineBidInFlightRef.current = false;
+      });
       return;
     }
     setLocalState(prev => prev && placeBid(prev, humanIdx, bid));
@@ -8610,10 +8616,6 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                               type="button"
                               className={['bid-panel-btn', 'bid-panel-btn-mobile', disabled ? 'bid-panel-btn--forbidden' : ''].filter(Boolean).join(' ')}
                               disabled={disabled}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                if (!disabled) handleBidRef.current(i);
-                              }}
                               onClick={(e) => {
                                 e.preventDefault();
                                 if (!disabled) handleBidRef.current(i);
@@ -8665,7 +8667,6 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                             type="button"
                             className={['bid-panel-btn', disabled ? 'bid-panel-btn--forbidden' : ''].filter(Boolean).join(' ')}
                             disabled={disabled}
-                            onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
                             onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
                             style={{
                               ...bidSidePanelButton,
@@ -10369,7 +10370,6 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                               type="button"
                               className={['bid-panel-btn', disabled ? 'bid-panel-btn--forbidden' : ''].filter(Boolean).join(' ')}
                               disabled={disabled}
-                              onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
                               onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
                               style={{
                                 ...bidSidePanelButtonMobile,
@@ -10447,7 +10447,6 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                             type="button"
                             className={['bid-panel-btn', disabled ? 'bid-panel-btn--forbidden' : ''].filter(Boolean).join(' ')}
                             disabled={disabled}
-                            onMouseDown={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
                             onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
                             style={{
                               ...bidSidePanelButtonMobile,

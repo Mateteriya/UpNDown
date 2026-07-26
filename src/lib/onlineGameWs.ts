@@ -4,6 +4,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { getWsUrl, isServerAuthoritativeOnline, isWsProtocolV2 } from './onlineTransport';
+import { ONLINE_ROOM_AVATAR_MAX_CHARS, prepareAvatarForOnlineRoom } from './avatarImage';
 import type { GameState } from '../game/GameEngine';
 import type {
   CreateRoomOptions,
@@ -340,6 +341,10 @@ export async function wsCreateRoom(
   roomOpts?: CreateRoomOptions,
 ): Promise<{ room: GameRoomRow } | { error: string }> {
   const normalized = normalizeCreateRoomOptions(roomOpts);
+  const avatarDataUrl = await prepareAvatarForOnlineRoom(
+    hostAvatarDataUrl ?? null,
+    ONLINE_ROOM_AVATAR_MAX_CHARS,
+  );
   const res = await sendRequest<{
     ok?: boolean;
     error?: string;
@@ -349,7 +354,7 @@ export async function wsCreateRoom(
     playerId: hostUserId,
     displayName: hostDisplayName,
     shortLabel: hostShortLabel ?? null,
-    avatarDataUrl: hostAvatarDataUrl ?? null,
+    avatarDataUrl: avatarDataUrl ?? null,
     settlementMode: normalized.settlementMode,
     buyIn: normalized.buyIn,
     roomKind: normalized.roomKind,
@@ -369,6 +374,10 @@ export async function wsJoinRoom(
   shortLabel?: string,
   avatarDataUrl?: string | null,
 ): Promise<{ roomId: string; mySlotIndex: number; room: GameRoomRow } | { error: string }> {
+  const preparedAvatar = await prepareAvatarForOnlineRoom(
+    avatarDataUrl ?? null,
+    ONLINE_ROOM_AVATAR_MAX_CHARS,
+  );
   const res = await sendRequest<{
     ok?: boolean;
     error?: string;
@@ -381,7 +390,7 @@ export async function wsJoinRoom(
     playerId: userId,
     displayName,
     shortLabel: shortLabel ?? null,
-    avatarDataUrl: avatarDataUrl ?? null,
+    avatarDataUrl: preparedAvatar ?? null,
   });
   if (!res.ok || !res.room || res.roomId == null || res.mySlotIndex == null) {
     return { error: res.error ?? 'Не удалось войти в комнату' };

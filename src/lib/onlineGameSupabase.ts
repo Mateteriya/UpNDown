@@ -17,6 +17,7 @@ import {
   type RoomKind,
   type RoomPeekResult,
 } from './roomSettlement';
+import { ONLINE_CLOUD_AVATAR_MAX_CHARS, prepareAvatarForOnlineRoom } from './avatarImage';
 
 /** Имена пустых слотов при старте/выходе — как в OnlineGameContext.startGame (0..3). */
 const VACANT_AI_SLOT_NAMES = ['ИИ Юг', 'ИИ Север', 'ИИ Запад', 'ИИ Восток'] as const;
@@ -402,7 +403,11 @@ export async function createRoom(
 ): Promise<{ room: GameRoomRow } | { error: string }> {
   if (!supabase) return { error: 'Supabase не настроен' };
 
-  const avatar = capAvatarDataUrl(hostAvatarDataUrl ?? undefined);
+  const prepared = await prepareAvatarForOnlineRoom(
+    hostAvatarDataUrl ?? null,
+    ONLINE_CLOUD_AVATAR_MAX_CHARS,
+  );
+  const avatar = capAvatarDataUrl(prepared ?? undefined);
   const normalized = normalizeCreateRoomOptions(roomOpts);
 
   let lastMessage = 'Не удалось создать комнату';
@@ -534,7 +539,11 @@ export async function joinRoom(
   const normalizedCode = code.trim().toUpperCase();
   if (!normalizedCode) return { error: 'Введите код комнаты' };
 
-  const av = capAvatarDataUrl(avatarDataUrl ?? undefined);
+  const prepared = await prepareAvatarForOnlineRoom(
+    avatarDataUrl ?? null,
+    ONLINE_CLOUD_AVATAR_MAX_CHARS,
+  );
+  const av = capAvatarDataUrl(prepared ?? undefined);
 
   const already = await recoverJoinByCode(normalizedCode, userId);
   if (already) return already;
