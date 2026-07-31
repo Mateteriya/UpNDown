@@ -1,14 +1,232 @@
 /**
  * Страница донатов: CloudTips · ЮMoney.
  * Ссылки — из VITE_DONATE_* (см. donateLinks.ts / .env.example).
+ *
+ * Иллюстрации лидов — картинка внутри абзаца, текст обтекает (сейчас).
+ * Отклонены: 1) крупная виньетка; 3) отдельная миниатюра слева.
+ * Запас: 2) текст поверх низа картинки; 4) мягкий затемнённый фон-атмосфера.
  */
 
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { LobbyBackButton } from './LobbyEntryActions';
 import { getDonateLinks, hasDonateLinks, type DonateMethodId } from '../lib/donateLinks';
 
 export type SupportDonatePageProps = {
   onBack: () => void;
 };
+
+/** Стильные марки способов оплаты — в kicker (над названием). */
+function withPayBrandMarks(text: string): ReactNode {
+  const parts = text.split(/(Т‑Pay|Т-Pay|СБП|кошелёк|Кошелёк|карта|Карта)/g);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) => {
+    if (part === 'Т‑Pay' || part === 'Т-Pay') {
+      return (
+        <span key={`tpay-${i}`} className="support-page__tpay">
+          {part}
+        </span>
+      );
+    }
+    if (part === 'СБП') {
+      return (
+        <span key={`sbp-${i}`} className="support-page__sbp">
+          <svg
+            className="support-page__sbp-mark"
+            viewBox="0 0 18 18"
+            width="12"
+            height="12"
+            aria-hidden
+            focusable="false"
+          >
+            <path fill="#7B2DBF" d="M9 1.2 14.8 11.2H3.2Z" />
+            <path fill="#2F6BFF" d="M3.4 6.2 9 16.2 1.6 11.2Z" opacity="0.95" />
+            <path fill="#2DBE6A" d="M14.6 6.2 16.4 11.2 9 16.2Z" opacity="0.95" />
+          </svg>
+          <span className="support-page__sbp-text">СБП</span>
+        </span>
+      );
+    }
+    if (part === 'кошелёк' || part === 'Кошелёк') {
+      return (
+        <span key={`wallet-${i}`} className="support-page__ym-wallet">
+          <svg
+            className="support-page__ym-wallet-mark"
+            viewBox="0 0 20 16"
+            width="14"
+            height="11"
+            aria-hidden
+            focusable="false"
+          >
+            <rect x="1" y="3" width="16.5" height="11.5" rx="2.2" fill="#03A9F4" />
+            <path fill="#0277a8" d="M1 6.2h16.5v2.1H1z" opacity="0.45" />
+            <rect x="12.2" y="8.4" width="6.2" height="4.4" rx="1.4" fill="#0d3a52" />
+            <circle cx="15.4" cy="10.6" r="1.15" fill="#03A9F4" />
+            <path
+              fill="#4fc3f7"
+              d="M4.2 3C4.2 1.6 5.3 0.6 6.7 0.6h4.2c1.4 0 2.5 1 2.5 2.4V3H4.2z"
+            />
+          </svg>
+          <span className="support-page__ym-wallet-text">{part}</span>
+        </span>
+      );
+    }
+    if (part === 'карта' || part === 'Карта') {
+      return (
+        <span key={`card-${i}`} className="support-page__card-pay">
+          <svg
+            className="support-page__card-pay-mark"
+            viewBox="0 0 20 14"
+            width="14"
+            height="10"
+            aria-hidden
+            focusable="false"
+          >
+            <rect x="0.6" y="0.6" width="18.8" height="12.8" rx="2.2" fill="#1e3a5f" />
+            <rect x="0.6" y="3.2" width="18.8" height="2.4" fill="#0f2744" />
+            <rect x="2.2" y="8.2" width="4.2" height="3.1" rx="0.5" fill="#d4af37" opacity="0.92" />
+            <rect x="12.2" y="8.6" width="5.4" height="1.1" rx="0.4" fill="#94a3b8" opacity="0.85" />
+            <rect x="13.4" y="10.4" width="4.2" height="0.7" rx="0.3" fill="#64748b" opacity="0.75" />
+          </svg>
+          <span className="support-page__card-pay-text">{part}</span>
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
+/** В blurb: обычный цвет строки, но набор как у kicker (uppercase · tracking). */
+function withPayBrandWords(text: string): ReactNode {
+  const parts = text.split(/(Т‑Pay|Т-Pay|СБП|кошелёк|Кошелёк|карта|Карта)/g);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) =>
+    part === 'Т‑Pay' ||
+    part === 'Т-Pay' ||
+    part === 'СБП' ||
+    part === 'кошелёк' ||
+    part === 'Кошелёк' ||
+    part === 'карта' ||
+    part === 'Карта' ? (
+      <span key={`payw-${i}`} className="support-page__pay-word">
+        {part}
+      </span>
+    ) : (
+      part
+    ),
+  );
+}
+
+/** ~23 с на вариант: комфортно прочитать длинный лид. */
+const LEAD_ROTATE_MS = 23_000;
+
+type LeadVariant = {
+  id: 'samurai' | 'dopamine' | 'joker';
+  cta: string;
+  /** WebP + JPEG fallback в /public/donate */
+  artWebp: string;
+  artJpeg: string;
+  artAlt: string;
+  body: (smile: ReactNode) => ReactNode;
+};
+
+const LEAD_VARIANTS: LeadVariant[] = [
+  {
+    id: 'samurai',
+    cta: 'Приблизить к цели:',
+    artWebp: '/donate/samurai.webp',
+    artJpeg: '/donate/samurai.jpg',
+    artAlt: 'Самурай у экрана с багами',
+    body: (smile) => (
+      <>
+        Путь самурая-одиночки лежит через баги, серверный аптайм и рефакторинг. Цель: стабильный
+        онлайн, космический интерфейс, довольные игроки {smile}. Каждый донат расчищает этот путь и
+        приближает к цели.{' '}
+      </>
+    ),
+  },
+  {
+    id: 'dopamine',
+    cta: 'Запустить реакцию:',
+    artWebp: '/donate/dopamine.webp',
+    artJpeg: '/donate/dopamine.jpg',
+    artAlt: 'Дофаминовая реакция разработки',
+    body: () => (
+      <>
+        Каждый донат = выброс дофамина в кровь разработчика, что ведёт к необратимой цепной реакции:
+        стабилизируется сервер, прокачивается космический интерфейс, зарождаются новые режимы,
+        добавляются всевозможные ништячки.{' '}
+      </>
+    ),
+  },
+  {
+    id: 'joker',
+    cta: 'Ваш ход:',
+    artWebp: '/donate/joker.webp',
+    artJpeg: '/donate/joker.jpg',
+    artAlt: 'Партия против серверных счетов и багов',
+    body: () => (
+      <>
+        Разработчику выпал расклад: партия против серверных счетов и багов. Ваш донат — джокер в
+        этой битве. На кону: стабильный онлайн, безупречный визуал и новые режимы.{' '}
+      </>
+    ),
+  },
+];
+
+function FaceCheerKind({ uid }: { uid: string }) {
+  /* На основе FaceSadPuzzled: космические штрихи, добрая ирония (без ушек). */
+  return (
+    <svg className="support-page__face support-page__face--inline" viewBox="0 0 40 40" aria-hidden>
+      <defs>
+        <linearGradient id={`${uid}-cheer-stroke`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#67e8f9" />
+          <stop offset="45%" stopColor="#c084fc" />
+          <stop offset="100%" stopColor="#fb7185" />
+        </linearGradient>
+        <radialGradient id={`${uid}-cheer-plate`} cx="45%" cy="35%" r="60%">
+          <stop offset="0%" stopColor="#312e81" stopOpacity="0.55" />
+          <stop offset="100%" stopColor="#0f172a" stopOpacity="0.15" />
+        </radialGradient>
+      </defs>
+      <circle cx="20" cy="20" r="15.5" fill={`url(#${uid}-cheer-plate)`} opacity="0.9" />
+      <circle
+        cx="20"
+        cy="20"
+        r="15.5"
+        fill="none"
+        stroke={`url(#${uid}-cheer-stroke)`}
+        strokeWidth="0.45"
+        opacity="0.4"
+      />
+      <path
+        d="M10.2 14.2c2.1-2.6 5.8-2.8 7.6-0.4"
+        fill="none"
+        stroke={`url(#${uid}-cheer-stroke)`}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M22.8 13.6c1.6-1.2 4.6-1 6.2 0.6"
+        fill="none"
+        stroke={`url(#${uid}-cheer-stroke)`}
+        strokeWidth="1.85"
+        strokeLinecap="round"
+        opacity="0.95"
+      />
+      <circle cx="14.2" cy="18.6" r="1.85" fill="#e9d5ff" />
+      <circle cx="14.2" cy="18.6" r="1.1" fill="#67e8f9" opacity="0.9" />
+      <circle cx="25.8" cy="18.7" r="1.85" fill="#e9d5ff" />
+      <circle cx="25.8" cy="18.7" r="1.1" fill="#f472b6" opacity="0.9" />
+      <path
+        d="M14.8 25.2c2.4 2.6 7.8 2.6 10.4 0"
+        fill="none"
+        stroke={`url(#${uid}-cheer-stroke)`}
+        strokeWidth="2.05"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
 function MethodGlyph({ id }: { id: DonateMethodId }) {
   if (id === 'cloudtips') {
@@ -57,17 +275,53 @@ function MethodGlyph({ id }: { id: DonateMethodId }) {
   );
 }
 
+function daySeedLeadIndex(): number {
+  const day = Math.floor(Date.now() / 86_400_000);
+  return day % LEAD_VARIANTS.length;
+}
+
 export function SupportDonatePage({ onBack }: SupportDonatePageProps) {
+  const uid = useId().replace(/:/g, '');
   const links = getDonateLinks();
   const ready = hasDonateLinks();
+  const [leadIndex, setLeadIndex] = useState(daySeedLeadIndex);
+  const [leadVisible, setLeadVisible] = useState(true);
+
+  useEffect(() => {
+    const reduce =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
+
+    let fadeOut: number | undefined;
+    let next: number | undefined;
+    const tick = window.setInterval(() => {
+      setLeadVisible(false);
+      fadeOut = window.setTimeout(() => {
+        setLeadIndex((i) => (i + 1) % LEAD_VARIANTS.length);
+        setLeadVisible(true);
+      }, 420);
+    }, LEAD_ROTATE_MS);
+
+    return () => {
+      window.clearInterval(tick);
+      if (fadeOut) window.clearTimeout(fadeOut);
+      if (next) window.clearTimeout(next);
+    };
+  }, []);
+
+  useEffect(() => {
+    for (const v of LEAD_VARIANTS) {
+      const img = new Image();
+      img.src = v.artWebp;
+    }
+  }, []);
+
+  const cheer = <FaceCheerKind uid={`${uid}-cheer`} />;
 
   return (
     <div className="support-page">
-      <div className="support-page__bg" aria-hidden="true">
-        <span className="support-page__orb support-page__orb--a" />
-        <span className="support-page__orb support-page__orb--b" />
-        <span className="support-page__orb support-page__orb--c" />
-      </div>
+      <div className="support-page__bg" aria-hidden="true" />
       <div className="support-page__shell">
         <header className="support-page__top">
           <LobbyBackButton onClick={onBack} />
@@ -76,11 +330,44 @@ export function SupportDonatePage({ onBack }: SupportDonatePageProps) {
 
         <main className="support-page__main">
           <p className="support-page__eyebrow">поддержка автора</p>
-          <h2 className="support-page__title">Поддержать проект</h2>
-          <p className="support-page__lead">
-            Игра делается одним человеком. Любая сумма помогает онлайн, полировке и новым режимам —
-            выберите удобный способ ниже.
-          </p>
+          <h2 className="support-page__title">
+            <span className="support-page__title-stack" aria-hidden="true">
+              <span className="support-page__title-depth">Поддержать проект</span>
+              <span className="support-page__title-depth support-page__title-depth--mid">
+                Поддержать проект
+              </span>
+            </span>
+            <span className="support-page__title-face cosmic-iridescent-text">Поддержать проект</span>
+          </h2>
+
+          {/* Картинка в начале лида — один поток текста обтекает без ложных абзацев */}
+          <div className="support-page__lead-slot" aria-live="polite">
+            {LEAD_VARIANTS.map((variant, i) => {
+              const active = i === leadIndex;
+              const shown = active && leadVisible;
+              return (
+                <p
+                  key={variant.id}
+                  className={[
+                    'support-page__lead',
+                    shown ? 'support-page__lead--in' : 'support-page__lead--out',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  aria-hidden={!active}
+                >
+                  <span className="support-page__lead-art" aria-hidden="true">
+                    <picture>
+                      <source srcSet={variant.artWebp} type="image/webp" />
+                      <img src={variant.artJpeg} alt="" decoding="async" draggable={false} />
+                    </picture>
+                  </span>
+                  {variant.body(cheer)}
+                  <span className="support-page__lead-cta">{variant.cta}</span>
+                </p>
+              );
+            })}
+          </div>
 
           <ul className="support-page__links">
             {links.map((link, i) => {
@@ -100,9 +387,17 @@ export function SupportDonatePage({ onBack }: SupportDonatePageProps) {
                     <MethodGlyph id={link.id} />
                   </span>
                   <span className="support-page__cta-copy">
-                    <span className="support-page__cta-kicker">{link.hint}</span>
+                    <span className="support-page__cta-kicker">
+                      {link.id === 'cloudtips' || link.id === 'yoomoney'
+                        ? withPayBrandMarks(link.hint)
+                        : link.hint}
+                    </span>
                     <span className="support-page__cta-title">{link.label}</span>
-                    <span className="support-page__cta-blurb">{link.blurb}</span>
+                    <span className="support-page__cta-blurb">
+                      {link.id === 'cloudtips' || link.id === 'yoomoney'
+                        ? withPayBrandWords(link.blurb)
+                        : link.blurb}
+                    </span>
                     {!live ? (
                       <span className="support-page__cta-soon-tag">ссылка скоро</span>
                     ) : null}
@@ -152,8 +447,6 @@ export function SupportDonatePage({ onBack }: SupportDonatePageProps) {
               Адреса ещё подключаются — карточки уже на месте, ссылки появятся здесь.
             </p>
           ) : null}
-
-          <p className="support-page__thanks">Спасибо, что играете и остаётесь рядом.</p>
         </main>
       </div>
     </div>

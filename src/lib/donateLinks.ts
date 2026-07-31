@@ -30,15 +30,15 @@ export function getDonateLinks(): DonateLink[] {
     {
       id: 'cloudtips',
       label: 'CloudTips',
-      hint: 'карта · СБП · Т‑Pay',
-      blurb: 'Карта, СБП или Т‑Pay — без регистрации, перевод за пару кликов.',
+      hint: 'СБП   ·   Т‑Pay   ·   карта',
+      blurb: 'СБП, Т‑Pay или карта — без регистрации, перевод за пару кликов.',
       url: envUrl('VITE_DONATE_CLOUDTIPS') || null,
     },
     {
       id: 'yoomoney',
       label: 'ЮMoney',
-      hint: 'кошелёк или карта',
-      blurb: 'С кошелька ЮMoney или с карты — привычный перевод за минуту.',
+      hint: 'кошелёк   ·   карта',
+      blurb: 'Кошелёк или карта — привычный перевод за минуту.',
       url: envUrl('VITE_DONATE_YOOMONEY') || null,
     },
   ];

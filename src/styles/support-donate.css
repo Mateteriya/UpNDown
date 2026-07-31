@@ -1,5 +1,8 @@
 /**
  * Страница «Поддержать проект» — CloudTips · ЮMoney.
+ *
+ * Иллюстрации: картинка внутри лида с обтеканием текстом.
+ * Отклонены: 1) виньетка; 3) миниатюра слева. Запас: 2) плашка; 4) soft full-bleed.
  */
 
 .support-page {
@@ -26,53 +29,11 @@
   pointer-events: none;
   overflow: hidden;
   background:
-    radial-gradient(ellipse 90% 55% at 50% -8%, rgba(56, 189, 248, 0.18), transparent 52%),
-    radial-gradient(ellipse 40% 35% at 92% 78%, rgba(251, 191, 36, 0.12), transparent 50%),
-    linear-gradient(168deg, #060814 0%, #0c1228 48%, #0a1620 100%);
-}
-
-.support-page__orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(40px);
-  opacity: 0.55;
-  animation: support-page-orb 12s ease-in-out infinite;
-}
-
-.support-page__orb--a {
-  width: min(48vw, 280px);
-  height: min(48vw, 280px);
-  left: -8%;
-  top: 18%;
-  background: rgba(34, 211, 238, 0.35);
-}
-
-.support-page__orb--b {
-  width: min(42vw, 240px);
-  height: min(42vw, 240px);
-  right: -6%;
-  top: 42%;
-  background: rgba(99, 102, 241, 0.28);
-  animation-delay: -4s;
-}
-
-.support-page__orb--c {
-  width: min(50vw, 260px);
-  height: min(50vw, 260px);
-  left: 30%;
-  bottom: -10%;
-  background: rgba(251, 191, 36, 0.22);
-  animation-delay: -7s;
-}
-
-@keyframes support-page-orb {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(12px, -18px, 0) scale(1.06);
-  }
+    /* умеренные блики: сирень + синий, без светлой каши */
+    radial-gradient(ellipse 65% 42% at 22% 20%, rgba(124, 58, 237, 0.22), transparent 62%),
+    radial-gradient(ellipse 55% 38% at 78% 24%, rgba(37, 99, 235, 0.18), transparent 60%),
+    radial-gradient(ellipse 75% 48% at 50% -6%, rgba(76, 29, 149, 0.32), transparent 55%),
+    linear-gradient(168deg, #06040f 0%, #04020c 45%, #0a0616 100%);
 }
 
 .support-page__shell {
@@ -92,7 +53,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 26px;
+  margin-bottom: 10px;
 }
 
 .support-page__brand {
@@ -115,7 +76,7 @@
 }
 
 .support-page__eyebrow {
-  margin: 0;
+  margin: 0 0 -6px;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -125,25 +86,196 @@
 }
 
 .support-page__title {
+  position: relative;
   margin: 0;
   font-family: var(--sp-font-display);
   font-size: clamp(1.5rem, 5.2vw, 1.95rem);
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.15;
-  color: #f8fafc;
+  letter-spacing: 0.02em;
+  isolation: isolate;
+}
+
+.support-page__title-stack {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.support-page__title-depth {
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: rgba(8, 4, 24, 0.88);
+  transform: translate(2px, 3px);
+  filter: blur(0.2px);
+}
+
+.support-page__title-depth--mid {
+  color: rgba(124, 58, 237, 0.45);
+  transform: translate(1px, 1.5px);
+  filter: none;
+}
+
+.support-page__title-face {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  filter:
+    drop-shadow(0 0 6px rgba(232, 121, 249, 0.35))
+    drop-shadow(0 0 14px rgba(103, 232, 249, 0.22))
+    drop-shadow(0 2px 0 rgba(15, 8, 40, 0.55));
+}
+
+/* Картинка в лиде: один абзац, текст обтекает float без принудительных переносов */
+.support-page__lead-slot {
+  display: grid;
+  width: 100%;
+  max-width: 38em;
+  margin: 0;
+  /* компактная плашка: без лишней высоты */
+  padding: 6px 8px 7px;
+  border-radius: 12px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(ellipse 85% 80% at 30% 40%, rgba(55, 20, 95, 0.32), transparent 70%),
+    linear-gradient(160deg, rgba(6, 2, 14, 0.78) 0%, rgba(10, 4, 22, 0.68) 100%);
+  box-shadow: inset 0 0 0 1px rgba(88, 40, 140, 0.2);
 }
 
 .support-page__lead {
-  margin: 0 0 4px;
-  font-size: 0.96rem;
-  line-height: 1.55;
-  color: var(--sp-muted);
-  max-width: 38em;
+  grid-area: 1 / 1;
+  /* flow-root = свой BFC: float не «протекает» */
+  display: flow-root;
+  margin: 0;
+  font-family: 'Exo 2', var(--sp-font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.86rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.43;
+  /* «Support iridescent» — насыщенный cyan ↔ blue ↔ violet (см. docs/BEST-DESIGN-ELEMENTS.md) */
+  background: linear-gradient(
+    105deg,
+    #0891b2 0%,
+    #2563eb 28%,
+    #7c3aed 58%,
+    #0e7490 100%
+  );
+  background-size: 180% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  /* без filter: иначе float-картинка может накрыть текст */
+  /* linear + keyframes: быстрый выход из тёмного края, остальной перелив как был */
+  animation: support-page-lead-iridescent 9s linear infinite;
+  transition: opacity 0.42s ease;
+}
+
+.support-page__lead-art {
+  float: left;
+  box-sizing: border-box;
+  width: clamp(6.5rem, 30vw, 7.75rem);
+  height: clamp(6.5rem, 30vw, 7.75rem);
+  margin: 0.1em 0.75em 0.35em 0;
+  border-radius: 14px;
+  overflow: hidden;
+  /* сброс text-fill от родителя — картинка должна быть видна */
+  -webkit-text-fill-color: initial;
+  color: initial;
+  /* без position/z-index: иначе картинка рисуется ПОВЕРХ строк текста */
+  shape-outside: inset(0 round 14px);
+  shape-margin: 0.4rem;
+  -webkit-shape-outside: inset(0 round 14px);
+  -webkit-shape-margin: 0.4rem;
+  box-shadow:
+    0 0 0 1px rgba(196, 181, 253, 0.4),
+    0 8px 22px rgba(2, 6, 23, 0.4);
+}
+
+.support-page__lead-art picture,
+.support-page__lead-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.support-page__lead-art img {
+  object-fit: cover;
+  object-position: center 32%;
+  /* чуть приглушить яркость */
+  opacity: 0.92;
+}
+
+@keyframes support-page-lead-iridescent {
+  /* тёмный край есть, но почти сразу уходим в светлый/яркий */
+  0% {
+    background-position: 0% 50%;
+  }
+  12% {
+    background-position: 100% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.support-page__lead--in {
+  opacity: 1;
+  z-index: 1;
+}
+
+.support-page__lead--out {
+  opacity: 0;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.support-page__lead-cta {
+  display: inline;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  /* тот же cyan↔violet перелив, чуть плотнее акцент */
+  background: linear-gradient(
+    105deg,
+    #0891b2 0%,
+    #2563eb 28%,
+    #7c3aed 58%,
+    #0e7490 100%
+  );
+  background-size: 180% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: support-page-lead-iridescent 9s ease-in-out infinite;
+}
+
+.support-page__face {
+  display: inline-block;
+  vertical-align: -0.35em;
+  flex-shrink: 0;
+  /* не наследовать transparent text-fill от iridescent-лида */
+  -webkit-text-fill-color: initial;
+  color: initial;
+}
+
+.support-page__face--inline {
+  width: 1.35em;
+  height: 1.35em;
+  margin: 0 0.12em;
+  vertical-align: -0.35em;
 }
 
 .support-page__links {
   list-style: none;
-  margin: 8px 0 0;
+  margin: -10px 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -235,19 +367,31 @@
 }
 
 .support-page__cta--cloudtips {
-  --cta-accent: #67e8f9;
-  --cta-glow: rgba(34, 211, 238, 0.4);
-  --cta-border: rgba(34, 211, 238, 0.48);
-  --cta-bg-a: rgba(8, 55, 78, 0.78);
-  --cta-bg-b: rgba(12, 24, 48, 0.92);
+  --cta-accent: #30efcf;
+  --cta-glow: rgb(85 199 221 / 40%);
+  --cta-border: #740998;
+  --cta-bg-a: rgb(42 9 88 / 87%);
+  --cta-bg-b: rgb(7 5 77 / 35%);
+  border-color: #740998;
+}
+
+.support-page__cta--cloudtips:hover,
+.support-page__cta--cloudtips:focus-visible {
+  border-color: #30efcf;
 }
 
 .support-page__cta--yoomoney {
   --cta-accent: #fbbf24;
   --cta-glow: rgba(251, 191, 36, 0.36);
-  --cta-border: rgba(251, 191, 36, 0.48);
-  --cta-bg-a: rgba(66, 40, 8, 0.78);
-  --cta-bg-b: rgba(28, 20, 10, 0.92);
+  --cta-border: rgb(13 9 83);
+  --cta-bg-a: #673ab79c;
+  --cta-bg-b: rgb(11 14 13 / 12%);
+  border-color: rgb(13 9 83);
+}
+
+.support-page__cta--yoomoney:hover,
+.support-page__cta--yoomoney:focus-visible {
+  border-color: #fbbf24;
 }
 
 .support-page__cta--soon {
@@ -301,8 +445,16 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--cta-accent);
-  opacity: 0.92;
+  opacity: 1;
+  transition: color 0.18s ease, text-shadow 0.18s ease;
+}
+
+/* Воздух между стильными марками в перечислении */
+.support-page__cta-kicker .support-page__sbp,
+.support-page__cta-kicker .support-page__tpay,
+.support-page__cta-kicker .support-page__card-pay,
+.support-page__cta-kicker .support-page__ym-wallet {
+  margin-inline: 0.28em;
 }
 
 .support-page__cta-title {
@@ -310,14 +462,308 @@
   font-size: 1.12rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #f8fafc;
   line-height: 1.2;
+  transition: color 0.18s ease, text-shadow 0.18s ease;
 }
 
 .support-page__cta-blurb {
   font-size: 0.8rem;
   line-height: 1.4;
-  color: rgba(199, 210, 254, 0.82);
+  transition: color 0.18s ease, text-shadow 0.18s ease;
+}
+
+/* В blurb: те же слова обычным цветом строки, но набор как у kicker */
+.support-page__pay-word {
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Т‑Pay — жёлто-чёрный акцент Т‑Банка (более тёмный верный жёлтый) */
+.support-page__tpay {
+  display: inline;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #1a1a1a;
+  background-color: #aa8c0f;
+  padding: 0.04em 0.3em 0.07em;
+  border-radius: 0.28em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  text-shadow: none;
+  -webkit-text-fill-color: #1a1a1a;
+}
+
+/* СБП — знак + набор в духе фирменных цветов */
+.support-page__sbp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22em;
+  vertical-align: baseline;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-shadow: none;
+  line-height: 1;
+}
+
+.support-page__sbp-mark {
+  flex-shrink: 0;
+  display: block;
+  width: 0.95em;
+  height: 0.95em;
+  position: relative;
+  top: 0.04em;
+}
+
+.support-page__sbp-text {
+  background: linear-gradient(
+    100deg,
+    #7b2dbf 0%,
+    #2f6bff 42%,
+    #2dbe6a 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* карта — мини-пластик + жемчужный набор */
+.support-page__card-pay {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.26em;
+  vertical-align: baseline;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-shadow: none;
+  line-height: 1;
+}
+
+.support-page__card-pay-mark {
+  flex-shrink: 0;
+  display: block;
+  width: 1.15em;
+  height: 0.8em;
+  border-radius: 0.12em;
+  position: relative;
+  top: 0.05em;
+  box-shadow: 0 0 0 0.5px rgba(148, 163, 184, 0.35);
+}
+
+.support-page__card-pay-text {
+  background: linear-gradient(
+    115deg,
+    #ffffff 0%,
+    #fff8f0 16%,
+    #f3eefc 34%,
+    #ffffff 48%,
+    #f0f6ff 62%,
+    #fff5e8 78%,
+    #fafcff 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  animation: support-page-pearl-sheen 7s ease-in-out infinite;
+}
+
+@keyframes support-page-pearl-sheen {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* ЮMoney — кошелёк в фирменном жёлтом */
+.support-page__ym-wallet {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.26em;
+  vertical-align: baseline;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-shadow: none;
+  line-height: 1;
+}
+
+.support-page__ym-wallet-mark {
+  flex-shrink: 0;
+  display: block;
+  width: 1.15em;
+  height: 0.9em;
+  position: relative;
+  top: 0.05em;
+}
+
+.support-page__ym-wallet-text {
+  color: #1a1a1a;
+  -webkit-text-fill-color: #1a1a1a;
+  background-color: #03a9f4;
+  padding: 0.04em 0.3em 0.07em;
+  border-radius: 0.28em;
+}
+
+/* Подпись = текст под названием; название = title */
+.support-page__cta--cloudtips .support-page__cta-blurb,
+.support-page__cta--cloudtips .support-page__cta-kicker {
+  color: rgb(48 239 207 / 82%);
+}
+
+.support-page__cta--cloudtips .support-page__cta-title {
+  color: #09b4ea;
+  font-weight: 800;
+  font-size: 1.24rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.14em 0.5em 0.16em;
+  border-radius: 0.42em;
+  background: linear-gradient(
+    105deg,
+    rgb(125 9 213 / 64%) 0%,
+    rgb(16 68 179 / 64%) 55%,
+    rgb(52 9 168 / 96%) 100%
+  );
+  box-shadow:
+    inset 0 0 0 1px rgb(255 0 177 / 24%),
+    0 0 18px rgb(0 127 255 / 57%),
+    0 2px 10px rgb(34 5 89);
+}
+
+.support-page__cta--yoomoney .support-page__cta-blurb,
+.support-page__cta--yoomoney .support-page__cta-kicker {
+  color: #0d86ff;
+}
+
+.support-page__cta--yoomoney .support-page__cta-title {
+  color: #d60dc5f7;
+  font-weight: 800;
+  font-size: 1.24rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.14em 0.5em 0.16em;
+  border-radius: 0.42em;
+  background: linear-gradient(
+    105deg,
+    rgb(90 40 12 / 70%) 0%,
+    rgb(120 85 10 / 58%) 48%,
+    rgb(48 18 72 / 88%) 100%
+  );
+  box-shadow:
+    inset 0 0 0 1px rgb(81 30 6 / 95%),
+    0 0 18px rgb(13 5 23),
+    0 2px 10px rgb(34 5 89);
+}
+
+/* Ховер: те же цвета, но кислотно-сочнее (полная кроющая + glow того же тона) */
+.support-page__cta--cloudtips:hover .support-page__cta-kicker,
+.support-page__cta--cloudtips:hover .support-page__cta-blurb,
+.support-page__cta--cloudtips:focus-visible .support-page__cta-kicker,
+.support-page__cta--cloudtips:focus-visible .support-page__cta-blurb {
+  color: #30efcf;
+  text-shadow:
+    0 0 8px rgb(48 239 207 / 55%),
+    0 0 18px rgb(48 239 207 / 35%);
+}
+
+.support-page__cta--cloudtips:hover .support-page__tpay,
+.support-page__cta--cloudtips:focus-visible .support-page__tpay {
+  color: #1a1a1a;
+  -webkit-text-fill-color: #1a1a1a;
+  background-color: #aa8c0f;
+  text-shadow: none;
+}
+
+.support-page__cta--cloudtips:hover .support-page__sbp-text,
+.support-page__cta--cloudtips:focus-visible .support-page__sbp-text {
+  text-shadow: none;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.support-page__cta--cloudtips:hover .support-page__card-pay-text,
+.support-page__cta--cloudtips:focus-visible .support-page__card-pay-text {
+  text-shadow: none;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.support-page__cta--cloudtips:hover .support-page__pay-word,
+.support-page__cta--cloudtips:focus-visible .support-page__pay-word {
+  /* наследуют сочный цвет blurb */
+  -webkit-text-fill-color: inherit;
+  color: inherit;
+}
+
+.support-page__cta--cloudtips:hover .support-page__cta-title,
+.support-page__cta--cloudtips:focus-visible .support-page__cta-title {
+  color: #09b4ea;
+  text-shadow:
+    0 0 8px rgb(9 180 234 / 55%),
+    0 0 18px rgb(0 127 255 / 40%);
+  background: linear-gradient(
+    105deg,
+    rgb(140 16 230 / 72%) 0%,
+    rgb(22 78 200 / 72%) 55%,
+    rgb(62 14 185 / 98%) 100%
+  );
+  box-shadow:
+    inset 0 0 0 1px rgb(255 0 177 / 36%),
+    0 0 22px rgb(0 127 255 / 65%),
+    0 2px 12px rgb(34 5 89);
+}
+
+.support-page__cta--yoomoney:hover .support-page__cta-kicker,
+.support-page__cta--yoomoney:hover .support-page__cta-blurb,
+.support-page__cta--yoomoney:focus-visible .support-page__cta-kicker,
+.support-page__cta--yoomoney:focus-visible .support-page__cta-blurb {
+  color: #0d86ff;
+  text-shadow:
+    0 0 8px rgba(13, 134, 255, 0.55),
+    0 0 18px rgba(13, 134, 255, 0.35);
+}
+
+.support-page__cta--yoomoney:hover .support-page__ym-wallet-text,
+.support-page__cta--yoomoney:focus-visible .support-page__ym-wallet-text {
+  color: #1a1a1a;
+  -webkit-text-fill-color: #1a1a1a;
+  background-color: #03a9f4;
+  text-shadow: none;
+}
+
+.support-page__cta--yoomoney:hover .support-page__card-pay-text,
+.support-page__cta--yoomoney:focus-visible .support-page__card-pay-text {
+  text-shadow: none;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.support-page__cta--yoomoney:hover .support-page__pay-word,
+.support-page__cta--yoomoney:focus-visible .support-page__pay-word {
+  -webkit-text-fill-color: inherit;
+  color: inherit;
+}
+
+.support-page__cta--yoomoney:hover .support-page__cta-title,
+.support-page__cta--yoomoney:focus-visible .support-page__cta-title {
+  color: #d60dc5;
+  text-shadow: none;
+  background: linear-gradient(
+    105deg,
+    rgb(105 48 14 / 78%) 0%,
+    rgb(140 100 12 / 68%) 48%,
+    rgb(58 22 88 / 94%) 100%
+  );
+  box-shadow:
+    inset 0 0 0 1px rgb(81 30 6 / 95%),
+    0 0 18px rgb(13 5 23),
+    0 2px 12px rgb(34 5 89);
 }
 
 .support-page__cta-soon-tag {
@@ -364,19 +810,25 @@
   color: rgba(165, 180, 252, 0.8);
 }
 
-.support-page__thanks {
-  margin: 16px 0 0;
-  font-size: 0.88rem;
-  color: rgba(196, 181, 253, 0.72);
-  font-style: italic;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .support-page__orb,
   .support-page__link-item,
-  .support-page__cta-shine {
+  .support-page__cta-shine,
+  .support-page__lead,
+  .support-page__lead-cta,
+  .support-page__card-pay-text {
     animation: none !important;
     transition: none !important;
+  }
+
+  .support-page__lead,
+  .support-page__lead-cta {
+    background: none;
+    -webkit-text-fill-color: #2563eb;
+    color: #2563eb;
+  }
+
+  .support-page__lead--out {
+    opacity: 0;
   }
 
   .support-page__cta:hover .support-page__cta-shine,
@@ -391,8 +843,21 @@
     padding-top: max(28px, env(safe-area-inset-top, 0px));
   }
 
+  .support-page__lead-art {
+    width: 8.25rem;
+    height: 8.25rem;
+    border-radius: 16px;
+    margin-right: 1em;
+  }
+
   .support-page__lead {
-    font-size: 1.04rem;
+    font-size: 0.92rem;
+    letter-spacing: -0.008em;
+    line-height: 1.45;
+  }
+
+  .support-page__lead-cta {
+    letter-spacing: 0.02em;
   }
 
   .support-page__cta {
