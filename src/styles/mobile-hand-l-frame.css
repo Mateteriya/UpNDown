@@ -55,7 +55,7 @@
   )
   .game-mobile-l-hand {
   position: relative;
-  z-index: 6;
+  z-index: 20;
 }
 
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short-header-immersive)
@@ -121,7 +121,8 @@
   position: absolute;
   right: 0;
   bottom: 100%;
-  z-index: 6;
+  /* Выше сукна стола: иначе хвост 10+ карт оказывается «под» .game-center-table */
+  z-index: 24;
   display: flex;
   flex-direction: column;
   align-items: center;

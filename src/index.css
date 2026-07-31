@@ -99,6 +99,7 @@
   --game-info-left-margin-top: 77px;
   --deal-results-overlay-top: 260px;
   --deal-results-overlay-height: 320px;
+  --deal-results-overlay-scale: 1;
   --game-header-padding: 20px;
   --game-header-padding-top: 7px;
   --game-player-bottom: 11px;
@@ -3711,6 +3712,32 @@
   .game-table-root:not(.viewport-mobile) .game-center-spacer-top {
     pointer-events: none;
   }
+  /*
+   * ПК · 3 игрока: нет Севера — стол и боковые слоты (Запад/Восток) ближе к шапке,
+   * боковые колонки чуть шире и симметричнее вокруг стола.
+   */
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc {
+    --game-table-center-margin-top: 28px;
+    --game-table-up-offset: 140px;
+    --game-north-slot-bottom: 0px;
+    --game-table-opponent-side-min: 160px;
+    --game-table-opponent-side-max: 220px;
+    --trick-slot-offset-west-east: 118px;
+  }
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc .game-info-row {
+    min-height: 48px;
+  }
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc .game-center-north--three-absent {
+    display: none !important;
+  }
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc .game-center-area {
+    align-items: center;
+    gap: 20px;
+  }
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc .game-center-west,
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc .game-center-east {
+    align-self: center;
+  }
   /* ПК: Σ в шапке — размер, рельеф, сиренево-фиолетовая обводка глифа; поблескивание только с .deal-results-btn--corner-hint (GameTable). */
   .game-table-root:not(.viewport-mobile) .game-header .deal-results-btn {
     width: 40px !important;
@@ -4093,6 +4120,515 @@
     --game-table-block-margin-top: 8px;
     --game-table-center-margin-top: 3px;
   }
+
+  /*
+   * Гибрид-планшет · 3 игрока (ПК-оболочка, без viewport-mobile):
+   * сукно выше (было min(320px, 25vh) — слишком низкое), Юг чуть компактнее.
+   * Бейдж «ваш ход» — см. блок .game-table-tablet-pc ниже (класс с React, ловит и iPad Pro >1024).
+   */
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc {
+    --game-table-surface-height: min(400px, 38vh);
+    --game-table-up-offset: 207px;
+    --game-player-area-height: 230px;
+    --game-player-bottom: 2px;
+    --pc-south-layer-gap: 2px;
+  }
+}
+
+/*
+ * Планшет / компактный ПК-шелл ≤1366 CSS-px.
+ * 3p: сукно выше и стол поднят (иначе уезжает под руку); info-бейджи ×(1.3/1.7).
+ */
+.game-table-root.game-table-tablet-pc.game-table-seats-three-pc {
+  --game-table-surface-height: min(420px, 40vh);
+  /* Подъём стола только: 203 − 2 */
+  --game-table-up-offset: 201px;
+  --game-player-area-height: 200px;
+  --game-player-bottom: 2px;
+  --pc-south-layer-gap: 0px;
+  --game-table-surface-width: min(535.68px, 51.15vw);
+  --trick-slot-grid-offset-x: 16px;
+  --trick-slot-cluster-shift-x: 12px;
+}
+/*
+ * Планшет 3p/4p: компактная внешняя рамка + космический градиентный обод.
+ */
+.game-table-root.game-table-tablet-pc .game-center-table > .game-table-outer.game-table-outer--tablet-compact-frame {
+  border: 1px solid transparent !important;
+  padding: max(6px, calc(var(--game-table-padding, 18px) - 8px)) !important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(15, 23, 42, 0.98) 0%,
+      rgba(30, 41, 59, 0.95) 50%,
+      rgba(15, 23, 42, 0.98) 100%
+    )
+      padding-box,
+    linear-gradient(
+      125deg,
+      #67e8f9 0%,
+      #22d3ee 16%,
+      #a78bfa 38%,
+      #e879f9 55%,
+      #34d399 78%,
+      #38bdf8 100%
+    )
+      border-box !important;
+  box-shadow:
+    0 0 18px rgba(34, 211, 238, 0.22),
+    0 0 28px rgba(167, 139, 250, 0.18),
+    0 0 22px rgba(52, 211, 153, 0.12),
+    inset 0 0 60px rgba(0, 0, 0, 0.5),
+    0 24px 48px rgba(0, 0, 0, 0.5) !important;
+}
+.game-table-root.game-table-tablet-pc.trump-highlight-on
+  .game-center-table
+  > .game-table-outer.game-table-outer--tablet-compact-frame {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(15, 23, 42, 0.98) 0%,
+      rgba(30, 41, 59, 0.95) 50%,
+      rgba(15, 23, 42, 0.98) 100%
+    )
+      padding-box,
+    linear-gradient(
+      135deg,
+      #a5f3fc 0%,
+      #67e8f9 14%,
+      #c4b5fd 36%,
+      #f0abfc 52%,
+      #5eead4 74%,
+      #38bdf8 100%
+    )
+      border-box !important;
+  box-shadow:
+    0 0 22px rgba(34, 211, 238, 0.28),
+    0 0 32px rgba(167, 139, 250, 0.24),
+    0 0 26px rgba(52, 211, 153, 0.16),
+    inset 0 0 60px rgba(0, 0, 0, 0.5),
+    inset 0 0 20px rgba(180, 235, 255, 0.55),
+    inset 0 0 36px rgba(120, 210, 255, 0.4),
+    0 24px 48px rgba(0, 0, 0, 0.5) !important;
+}
+/*
+ * Юг: панель у низа. Торги — как есть.
+ * Розыгрыш: карты −38, панель −31 (зазор ≈ вдвое меньше). Торги: карты −36.
+ * Стол: −201.
+ */
+.game-table-root.game-table-tablet-pc.game-table-seats-three-pc .game-pc-user-layer {
+  bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  transform: none !important;
+}
+.game-table-root.game-table-tablet-pc.game-table-seats-three-pc .pc-player-hand-frame {
+  margin-top: 0 !important;
+  margin-bottom: 8px !important;
+  transform: translateY(-28px);
+}
+.game-table-root.game-table-tablet-pc.game-table-seats-three-pc:not(.game-phase-bidding) .pc-player-hand-frame {
+  transform: translateY(-38px) !important;
+  margin-bottom: 2px !important;
+}
+.game-table-root.game-table-tablet-pc.game-table-seats-three-pc:not(.game-phase-bidding)
+  .game-pc-user-layer
+  .user-player-panel {
+  /* Было −21; +10 ≈ половина зазора к картам (−38) */
+  transform: translateY(-31px) !important;
+}
+.game-table-root.game-table-tablet-pc.game-table-seats-three-pc.game-phase-bidding .pc-player-hand-frame {
+  margin-bottom: 6px !important;
+  transform: translateY(-31px) !important;
+}
+.game-table-root.game-table-tablet-pc.game-table-seats-three-pc .game-pc-user-layer > .user-player-panel {
+  margin-bottom: 0 !important;
+  /* По контенту (бейджи в ряд), без растягивания до 800px и без узкого 420 */
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+/* Планшет: слоты взяток в панели Юга −4% (3p и 4p) */
+.game-table-root.game-table-tablet-pc .user-player-panel .user-player-panel-pc-tricks-column {
+  transform: scale(0.96);
+  transform-origin: left center;
+}
+.game-table-root.game-table-tablet-pc .user-player-panel .player-stats-row > .trick-slots-normal,
+.game-table-root.game-table-tablet-pc .user-player-panel .player-stats-row > .trick-slots-collecting,
+.game-table-root.game-table-tablet-pc .user-player-panel .player-stats-row > .trick-slots-south-exact-star-host {
+  transform: scale(0.96);
+  transform-origin: left center;
+}
+/* Планшет · торги: чуть выше панель Юга под увеличенный аватар (рост вверх к картам ок) */
+.game-table-root.game-table-tablet-pc.game-phase-bidding .user-player-panel {
+  padding-top: 10px !important;
+}
+.game-table-root.game-table-tablet-pc.game-phase-bidding .user-player-panel .user-player-panel-pc-avatar-wrap {
+  min-height: 58px;
+}
+/* Планшет: стопка взяток З/В не шире панели */
+.game-table-root.game-table-tablet-pc .opponent-slot-west .trick-slots-opponent-pc-stack,
+.game-table-root.game-table-tablet-pc .opponent-slot-east .trick-slots-opponent-pc-stack,
+.game-table-root.game-table-tablet-pc .game-center-west .trick-slots-opponent-pc-stack,
+.game-table-root.game-table-tablet-pc .game-center-east .trick-slots-opponent-pc-stack {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+/* Сукно чуть выше боков, без наезда на руку */
+.game-table-root.game-table-tablet-pc.game-table-seats-three-pc .game-center-table {
+  transform: translateY(-28px);
+}
+.game-table-root.game-table-tablet-pc.game-table-seats-three-pc
+  .game-info-row
+  .game-info-left-col
+  .game-info-left-section.pc-info-badge-unified,
+.game-table-root.game-table-tablet-pc.game-table-seats-three-pc
+  .game-info-row
+  .game-info-left-col
+  .first-move-badge.first-move-badge-above-block {
+  transform: scale(calc(1.3 / 1.7)) !important;
+  transform-origin: top left !important;
+}
+.game-table-root.game-table-tablet-pc.game-table-seats-three-pc
+  .game-info-row
+  .game-info-left-col
+  .first-move-badge.first-move-badge-above-block {
+  transform-origin: bottom left !important;
+}
+
+@media (max-width: 1366px) {
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc {
+    --game-table-surface-height: min(420px, 40vh);
+    --game-table-up-offset: 207px;
+    --game-player-area-height: 200px;
+    --game-player-bottom: 2px;
+    --pc-south-layer-gap: 0px;
+    --game-table-surface-width: min(535.68px, 51.15vw);
+    --trick-slot-grid-offset-x: 16px;
+    --trick-slot-cluster-shift-x: 12px;
+  }
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc .game-pc-user-layer {
+    bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    transform: none !important;
+  }
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc .pc-player-hand-frame {
+    margin-top: 0 !important;
+    margin-bottom: 8px !important;
+    transform: translateY(-28px);
+  }
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc:not(.game-phase-bidding) .pc-player-hand-frame {
+    transform: translateY(-38px) !important;
+    margin-bottom: 2px !important;
+  }
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc:not(.game-phase-bidding)
+    .game-pc-user-layer
+    .user-player-panel {
+    transform: translateY(-31px) !important;
+  }
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc.game-phase-bidding .pc-player-hand-frame {
+    margin-bottom: 6px !important;
+    transform: translateY(-31px) !important;
+  }
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc .game-pc-user-layer > .user-player-panel {
+    margin-bottom: 0 !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc .game-center-table {
+    transform: translateY(-28px);
+  }
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc
+    .game-info-row
+    .game-info-left-col
+    .game-info-left-section.pc-info-badge-unified,
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc
+    .game-info-row
+    .game-info-left-col
+    .first-move-badge.first-move-badge-above-block {
+    transform: scale(calc(1.3 / 1.7)) !important;
+    transform-origin: top left !important;
+  }
+  .game-table-root:not(.viewport-mobile).game-table-seats-three-pc
+    .game-info-row
+    .game-info-left-col
+    .first-move-badge.first-move-badge-above-block {
+    transform-origin: bottom left !important;
+  }
+}
+
+/*
+ * Планшет · оверлей итогов раздачи + эхо «Последняя взятка».
+ * Портал на body получает .game-table-tablet-pc (GameTable).
+ * Важно: height (не auto) + fr-ряды — иначе низ (блок Юга) обрезается overflow’ом.
+ */
+@media (max-width: 1366px) {
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation--three {
+    bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
+    top: auto !important;
+    left: 50% !important;
+    right: auto !important;
+    width: min(520px, 78vw) !important;
+    /* Верх (З/В) забирает остаток высоты; низ — по контенту, без пустоты под Югом */
+    height: min(60vh, 500px) !important;
+    max-height: min(60vh, 500px) !important;
+    min-height: 0 !important;
+    padding: 8px 10px 6px !important;
+    gap: 6px !important;
+    overflow: hidden !important;
+    transform: translateX(-50%) !important;
+    transform-origin: bottom center !important;
+    border-radius: 14px !important;
+    align-content: stretch !important;
+    align-items: stretch !important;
+    justify-items: stretch !important;
+    box-sizing: border-box !important;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: minmax(0, 1fr) auto !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation--three {
+    grid-template-rows: minmax(0, 1fr) auto !important;
+    padding-bottom: 6px !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-title-overlay {
+    font-size: 19px !important;
+    line-height: 1.08 !important;
+    margin-bottom: 2px !important;
+    flex-shrink: 0 !important;
+    color: #faf5ff !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 10px rgba(196, 181, 253, 0.55) !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-west,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-east,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-south,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-north {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    padding: 5px 8px !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    max-width: 100% !important;
+    width: auto !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    gap: 0 !important;
+  }
+  /* З/В: растянуть строки по высоте ряда — «Итого» не впритык */
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-west,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-east,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-north {
+    justify-content: space-between !important;
+  }
+  /* Юг — высота по контенту (не растягивать пустоту под блоком) */
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-south,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-human-overlay {
+    height: auto !important;
+    max-height: none !important;
+    justify-content: flex-start !important;
+  }
+  /* Соперники: крупнее + яркие подписи (цифры «Итого» — умные, цвет не трогаем) */
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-west .deal-results-panel-label-overlay,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-east .deal-results-panel-label-overlay,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-north .deal-results-panel-label-overlay {
+    color: #67e8f9 !important;
+    -webkit-text-fill-color: #67e8f9 !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.05em !important;
+    text-shadow: 0 0 8px rgba(34, 211, 238, 0.5) !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-west .deal-results-panel-value-overlay,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-east .deal-results-panel-value-overlay,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-north .deal-results-panel-value-overlay {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    font-size: 18px !important;
+    line-height: 1.08 !important;
+    font-weight: 900 !important;
+    text-shadow: 0 0 10px rgba(167, 139, 250, 0.45) !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-west .deal-results-panel-total-label-overlay,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-east .deal-results-panel-total-label-overlay,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-north .deal-results-panel-total-label-overlay {
+    color: #4ade80 !important;
+    -webkit-text-fill-color: #4ade80 !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+  }
+  /* Цифры «Итого»: только кегль/жирность — цвет из --dr-player-total-* (умные) */
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-west .deal-results-panel-total-value-overlay,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-east .deal-results-panel-total-value-overlay,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-north .deal-results-panel-total-value-overlay {
+    color: var(--dr-player-total-fg, #faf5ff) !important;
+    -webkit-text-fill-color: var(--dr-player-total-fg, #faf5ff) !important;
+    text-shadow: var(--dr-player-total-shadow, none) !important;
+    filter: var(--dr-player-total-filter, none) !important;
+    font-size: 21px !important;
+    line-height: 1.05 !important;
+    font-weight: 900 !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-human-overlay,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation--three .deal-results-panel-south,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation--three .deal-results-panel-human-overlay {
+    max-width: 100% !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    border: 2px solid rgba(103, 232, 249, 0.95) !important;
+    background:
+      linear-gradient(118deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 20%, transparent 42%),
+      linear-gradient(155deg, rgba(126, 34, 206, 0.95) 0%, rgba(37, 99, 235, 0.88) 45%, rgba(13, 148, 136, 0.82) 100%) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 -12px 20px rgba(17, 24, 39, 0.32),
+      0 0 0 2px rgba(103, 232, 249, 0.55),
+      0 10px 24px rgba(8, 47, 73, 0.42),
+      0 0 28px rgba(34, 211, 238, 0.42),
+      0 0 22px rgba(167, 139, 250, 0.38) !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-human-overlay::after,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation--three .deal-results-panel-human-overlay::after {
+    inset: -1px !important;
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.45),
+      0 0 12px rgba(168, 85, 247, 0.4) !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-title-overlay {
+    font-size: 22px !important;
+    margin-bottom: 2px !important;
+    font-weight: 900 !important;
+    color: #fffbeb !important;
+    -webkit-text-fill-color: #fffbeb !important;
+    text-shadow:
+      0 0 10px rgba(250, 204, 21, 0.55),
+      0 0 16px rgba(34, 211, 238, 0.45),
+      0 0 8px rgba(244, 114, 182, 0.35) !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-row-overlay {
+    gap: 6px !important;
+    margin: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    flex-shrink: 0 !important;
+    font-size: 15px !important;
+    line-height: 1.08 !important;
+    min-height: 0 !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-row-total-overlay {
+    margin-top: 1px !important;
+    padding-top: 2px !important;
+    padding-bottom: 0 !important;
+    border-top-width: 1px !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-label-overlay {
+    font-size: 14px !important;
+    font-weight: 800 !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-value-overlay {
+    font-size: 18px !important;
+    line-height: 1.08 !important;
+    font-weight: 900 !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-total-value-overlay {
+    color: var(--dr-player-total-fg, #faf5ff) !important;
+    -webkit-text-fill-color: var(--dr-player-total-fg, #faf5ff) !important;
+    text-shadow: var(--dr-player-total-shadow, none) !important;
+    filter: var(--dr-player-total-filter, none) !important;
+    font-size: 21px !important;
+    line-height: 1.05 !important;
+    font-weight: 900 !important;
+  }
+  /* Юг: яркие контрастные цвета подписей/значений (не цифр «Итого») */
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-label-overlay {
+    color: #fb7185 !important;
+    -webkit-text-fill-color: #fb7185 !important;
+    font-size: 15px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.06em !important;
+    text-shadow:
+      0 0 10px rgba(251, 113, 133, 0.65),
+      0 0 16px rgba(244, 63, 94, 0.4) !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-value-overlay {
+    color: #22d3ee !important;
+    -webkit-text-fill-color: #22d3ee !important;
+    font-size: 19px !important;
+    line-height: 1.08 !important;
+    font-weight: 900 !important;
+    text-shadow:
+      0 0 12px rgba(34, 211, 238, 0.75),
+      0 0 18px rgba(6, 182, 212, 0.45),
+      0 0 8px rgba(167, 139, 250, 0.35) !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-label-overlay {
+    color: #fde047 !important;
+    -webkit-text-fill-color: #fde047 !important;
+    font-size: 15px !important;
+    font-weight: 900 !important;
+    text-shadow:
+      0 0 10px rgba(250, 204, 21, 0.7),
+      0 0 14px rgba(234, 179, 8, 0.4) !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-value-overlay {
+    color: var(--dr-player-total-fg, #faf5ff) !important;
+    -webkit-text-fill-color: var(--dr-player-total-fg, #faf5ff) !important;
+    text-shadow: var(--dr-player-total-shadow, none) !important;
+    filter: var(--dr-player-total-filter, none) !important;
+    font-size: 23px !important;
+    line-height: 1.05 !important;
+    font-weight: 900 !important;
+  }
+  /* Эхо последней взятки */
+  .pc-deal-results-portal.game-table-tablet-pc .last-trick-echo--pc {
+    top: max(44px, calc(env(safe-area-inset-top, 0px) + 36px)) !important;
+    padding: 8px 16px 8px !important;
+    gap: 4px !important;
+    min-width: 220px !important;
+    border-radius: 14px !important;
+    border: 1.5px solid rgba(110, 231, 249, 0.72) !important;
+    background: linear-gradient(
+      148deg,
+      rgba(15, 23, 42, 0.9) 0%,
+      rgba(76, 29, 149, 0.72) 42%,
+      rgba(8, 47, 73, 0.82) 100%
+    ) !important;
+    box-shadow:
+      0 10px 28px rgba(7, 10, 26, 0.5),
+      0 0 0 1px rgba(167, 139, 250, 0.35),
+      0 0 28px rgba(34, 211, 238, 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .last-trick-echo__rail {
+    gap: 8px !important;
+    padding-top: 6px !important;
+    padding-bottom: 0 !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .last-trick-echo__slot--winner {
+    transform: translateY(-4px) scale(1.06) !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .last-trick-echo__meta {
+    margin-top: 0 !important;
+    gap: 2px !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .last-trick-echo__kicker {
+    font-size: 10px !important;
+    letter-spacing: 0.14em !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .last-trick-echo__winner {
+    font-size: 15px !important;
+    line-height: 1.1 !important;
+  }
 }
 
 /* Широкий планшет / ограниченная высота (напр. 2560×1600 с масштабом) */
@@ -4105,64 +4641,41 @@
     --game-table-surface-height: min(420px, 28vh);
     --deal-results-overlay-top: 132px;
     --deal-results-overlay-height: 220px;
-    --deal-results-overlay-scale: 1.3;
-    --deal-results-overlay-shift-y: -50%;
+    --deal-results-overlay-scale: 0.98;
+    --deal-results-overlay-shift-y: 0%;
   }
   .game-table-root:not(.viewport-mobile) .game-center-spacer-bottom {
     flex: 0 0 0 !important;
     min-height: 0 !important;
     max-height: 0 !important;
   }
-  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation {
-    top: 50% !important;
-    transform: translateY(var(--deal-results-overlay-shift-y, 0px)) scale(var(--deal-results-overlay-scale, 1));
-    transform-origin: center center !important;
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation,
+  .pc-deal-results-portal .deal-results-overlay-animation {
+    bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
+    width: min(840px, 88vw) !important;
+    transform: translateX(-50%) scale(var(--deal-results-overlay-scale, 0.98)) !important;
+    transform-origin: bottom center !important;
     z-index: 120 !important;
-    background: linear-gradient(
-      165deg,
-      rgba(91, 33, 182, 0.62) 0%,
-      rgba(79, 70, 229, 0.52) 42%,
-      rgba(14, 116, 144, 0.46) 100%
-    ) !important;
-    backdrop-filter: blur(4px) saturate(1.14);
-    -webkit-backdrop-filter: blur(4px) saturate(1.14);
-    border: 2px solid rgba(103, 232, 249, 0.74) !important;
-    box-shadow:
-      0 18px 46px rgba(10, 12, 28, 0.48),
-      0 0 0 1px rgba(167, 139, 250, 0.34),
-      0 0 24px rgba(34, 211, 238, 0.26),
-      inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
-    gap: 8px !important;
-    padding: 10px !important;
-    min-height: 300px !important;
+    gap: 14px !important;
+    padding: 16px !important;
+    min-height: 260px !important;
+    max-height: min(56vh, 520px) !important;
     overflow: visible !important;
   }
   .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-north,
   .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-east,
   .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-south,
-  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-west {
-    transform: scale(1.75) !important;
-    transform-origin: center center !important;
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-west,
+  .pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-north,
+  .pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-east,
+  .pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-south,
+  .pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-west {
+    transform: none !important;
   }
-  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-title-overlay {
-    font-size: 22px !important;
+  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-title-overlay,
+  .pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-title-overlay {
+    font-size: 18px !important;
     line-height: 1.12 !important;
-  }
-  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-north,
-  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-east,
-  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-south,
-  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-west {
-    background: linear-gradient(160deg, rgba(76, 29, 149, 0.7) 0%, rgba(67, 56, 202, 0.62) 55%, rgba(15, 118, 110, 0.52) 100%) !important;
-    border-color: rgba(196, 181, 253, 0.78) !important;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      inset 0 -10px 18px rgba(30, 27, 75, 0.24),
-      0 10px 24px rgba(7, 10, 26, 0.36),
-      0 0 18px rgba(139, 92, 246, 0.24) !important;
-  }
-  .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-title-overlay {
-    color: rgba(245, 232, 255, 0.98) !important;
-    text-shadow: 0 0 12px rgba(196, 181, 253, 0.42) !important;
   }
   .game-table-root:not(.viewport-mobile)
     .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
@@ -4174,17 +4687,23 @@
       0 0 10px rgba(45, 212, 191, 0.35),
       0 0 18px rgba(34, 211, 238, 0.22) !important;
   }
+  .pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-human-overlay,
   .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay {
-    background: linear-gradient(160deg, rgba(109, 40, 217, 0.78) 0%, rgba(59, 130, 246, 0.68) 56%, rgba(20, 184, 166, 0.58) 100%) !important;
-    border-color: rgba(110, 231, 249, 0.88) !important;
+    border: 2px solid rgba(110, 231, 249, 0.92) !important;
+    background:
+      linear-gradient(118deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 22%, rgba(255, 255, 255, 0) 44%),
+      linear-gradient(160deg, rgba(109, 40, 217, 0.88) 0%, rgba(59, 130, 246, 0.72) 48%, rgba(20, 184, 166, 0.62) 100%) !important;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.28),
-      inset 0 -12px 20px rgba(30, 27, 75, 0.22),
-      0 0 0 1px rgba(103, 232, 249, 0.42),
-      0 14px 28px rgba(8, 47, 73, 0.32),
-      0 0 26px rgba(34, 211, 238, 0.34),
-      0 0 18px rgba(167, 139, 250, 0.3) !important;
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -14px 22px rgba(17, 24, 39, 0.36),
+      0 0 0 2px rgba(103, 232, 249, 0.55),
+      0 14px 32px rgba(8, 47, 73, 0.4),
+      0 0 36px rgba(34, 211, 238, 0.48),
+      0 0 28px rgba(167, 139, 250, 0.42) !important;
+    animation: deal-results-human-panel-double-pulse 1.35s ease-out 1;
+    animation-fill-mode: forwards;
   }
+  .pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-value-overlay,
   .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-value-overlay {
     color: #67e8f9 !important;
     text-shadow:
@@ -4192,6 +4711,10 @@
       0 0 18px rgba(217, 70, 239, 0.34),
       0 0 28px rgba(34, 211, 238, 0.28) !important;
   }
+  .pc-deal-results-portal
+    .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+    .deal-results-panel-human-overlay
+    .deal-results-panel-total-value-overlay,
   .game-table-root:not(.viewport-mobile)
     .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
     .deal-results-panel-human-overlay
@@ -4203,9 +4726,49 @@
       0 0 28px rgba(34, 211, 238, 0.28) !important;
     filter: saturate(1.12) brightness(1.06);
   }
+  .pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-label-overlay,
   .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-label-overlay {
     color: rgba(253, 164, 175, 0.96) !important;
     text-shadow: 0 0 10px rgba(244, 114, 182, 0.28) !important;
+  }
+}
+
+/* Планшет: перебить short-height MQ и поздние PC-правила (--three overflow:visible / auto rows) */
+@media (max-width: 1366px) {
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation--three {
+    bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
+    width: min(520px, 78vw) !important;
+    height: min(60vh, 500px) !important;
+    max-height: min(60vh, 500px) !important;
+    min-height: 0 !important;
+    padding: 8px 10px 6px !important;
+    gap: 6px !important;
+    overflow: hidden !important;
+    transform: translateX(-50%) !important;
+    transform-origin: bottom center !important;
+    grid-template-rows: minmax(0, 1fr) auto !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation--three {
+    grid-template-rows: minmax(0, 1fr) auto !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc
+    .deal-results-overlay-animation.deal-results-overlay-animation--collapsing,
+  .pc-deal-results-portal.game-table-tablet-pc
+    .deal-results-overlay-animation--three.deal-results-overlay-animation--collapsing {
+    overflow: hidden !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .last-trick-echo--pc {
+    top: max(40px, calc(env(safe-area-inset-top, 0px) + 32px)) !important;
+    padding: 7px 14px 7px !important;
+    gap: 3px !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .last-trick-echo__slot {
+    transform: scale(0.86);
+    transform-origin: center bottom;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .last-trick-echo__slot--winner {
+    transform: translateY(-3px) scale(0.92) !important;
   }
 }
 
@@ -20375,6 +20938,15 @@ html.theme-standard
   font-size: 12.5px !important;
   letter-spacing: 0.05em !important;
 }
+/* ПК + планшет: единый кегль «взято/заказ» (перебивает compact neon 10–12.5); мобилу не трогаем */
+.game-table-root:not(.viewport-mobile) .trick-slots-bid-taken-figures,
+.game-table-root:not(.viewport-mobile) .trick-bid-taken-figures-neon,
+.game-table-root:not(.viewport-mobile) .trick-bid-taken-figures-neon--opponent,
+.game-table-root:not(.viewport-mobile) .trick-bid-taken-figures-neon--player,
+.game-table-root:not(.viewport-mobile) .trick-bid-taken-figures-neon--hand-bold.trick-bid-taken-figures-neon--opponent,
+.game-table-root:not(.viewport-mobile) .trick-bid-taken-figures-neon--hand-bold.trick-bid-taken-figures-neon--player {
+  font-size: 16px !important;
+}
 /* Цвета цифр и слэша задаются inline в TS (жёлтый добор / зелёный ровно / рыжий перебор) — здесь только плотность шрифта */
 .game-table-root .trick-bid-taken-figures-neon > span {
   font-weight: 900 !important;
@@ -20506,7 +21078,345 @@ html.theme-standard
 
 /* ПК, торги: лимит высоты полосы Юга (рука + панель + кнопки заказа) */
 .game-table-root:not(.viewport-mobile).game-phase-bidding .game-pc-user-layer {
-  max-height: min(360px, 46dvh) !important;
+  max-height: min(
+    calc(360px + var(--pc-hand-scale-extra-h, 0px)),
+    calc(46dvh + var(--pc-hand-scale-extra-h, 0px))
+  ) !important;
+}
+
+/* ПК: шестерёнка слева от «Очки»; раскрытие оверлеем вниз/вверх без ломки панели */
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-score-stack {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-right: 6px;
+  position: relative;
+  z-index: 8;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-score-dealer-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  /* «Очки» → пустая строка → «Сдающий» */
+  gap: 18px;
+  flex-shrink: 0;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-dealer-under-score {
+  align-self: flex-end;
+  white-space: nowrap;
+}
+.game-table-root .user-player-panel .user-player-panel-score-dealer-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  flex-shrink: 0;
+}
+.game-table-root .user-player-panel .user-player-panel-dealer-under-score {
+  align-self: flex-start;
+  white-space: nowrap;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-score-stack .player-score-badge-pc-bidding-row-end,
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-score-stack .player-score-badge-pc-playing-row-end {
+  margin-right: 0 !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .pc-table-settings {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  pointer-events: none;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .pc-table-settings--open {
+  position: absolute;
+  right: 0;
+  left: auto;
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+  z-index: 50;
+}
+/* слот под свёрнутую шестерёнку, пока капсула absolute */
+.game-table-root:not(.viewport-mobile) .user-player-panel-pc-score-stack:has(.pc-table-settings--open)::before {
+  content: '';
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .pc-table-settings > * {
+  pointer-events: auto;
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear {
+  appearance: none;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(165, 243, 252, 0.95);
+  color: #ecfeff;
+  cursor: pointer;
+  overflow: hidden;
+  background:
+    radial-gradient(1.4px 1.4px at 18% 24%, #fff 0%, transparent 100%),
+    radial-gradient(1.2px 1.2px at 78% 30%, #f5d0fe 0%, transparent 100%),
+    radial-gradient(1.3px 1.3px at 62% 78%, #67e8f9 0%, transparent 100%),
+    radial-gradient(circle at 28% 18%, rgba(103, 232, 249, 0.55) 0%, transparent 40%),
+    radial-gradient(circle at 82% 82%, rgba(192, 132, 252, 0.5) 0%, transparent 44%),
+    linear-gradient(145deg, #0f172a 0%, #1e1b4b 42%, #083344 78%, #0f172a 100%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.45),
+    0 0 16px rgba(34, 211, 238, 0.55),
+    0 0 28px rgba(168, 85, 247, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -10px 16px rgba(15, 23, 42, 0.55);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, filter 0.15s ease;
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear__cosmos {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      115deg,
+      transparent 0%,
+      transparent 38%,
+      rgba(255, 255, 255, 0.28) 48%,
+      transparent 58%,
+      transparent 100%
+    );
+  background-size: 220% 100%;
+  animation: pc-table-settings-gear-shine 2.8s ease-in-out infinite;
+  opacity: 0.95;
+  z-index: 0;
+}
+@keyframes pc-table-settings-gear-shine {
+  0%,
+  28% {
+    background-position: 120% 0;
+  }
+  58%,
+  100% {
+    background-position: -40% 0;
+  }
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear__icon {
+  position: relative;
+  z-index: 1;
+  display: block;
+  flex-shrink: 0;
+  filter:
+    drop-shadow(0 0 4px rgba(103, 232, 249, 0.95))
+    drop-shadow(0 0 10px rgba(192, 132, 252, 0.65));
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear__badge {
+  position: relative;
+  z-index: 1;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #f5e8ff;
+  text-shadow:
+    0 0 8px rgba(216, 180, 254, 0.85),
+    0 0 14px rgba(34, 211, 238, 0.45);
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear:hover {
+  transform: translateY(-1px) scale(1.04);
+  border-color: #ecfeff;
+  filter: brightness(1.08);
+  box-shadow:
+    0 0 0 1px rgba(103, 232, 249, 0.55),
+    0 0 22px rgba(34, 211, 238, 0.7),
+    0 0 34px rgba(192, 132, 252, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear:focus-visible {
+  outline: 2px solid rgba(165, 243, 252, 0.95);
+  outline-offset: 2px;
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear--active {
+  border-color: #e9d5ff;
+  box-shadow:
+    0 0 0 1px rgba(192, 132, 252, 0.55),
+    0 0 18px rgba(34, 211, 238, 0.5),
+    0 0 30px rgba(168, 85, 247, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root:not(.viewport-mobile) .pc-table-settings-gear__cosmos {
+    animation: none;
+    background-position: 50% 0;
+  }
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-capsule {
+  --pc-settings-gear-h: 30px;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  height: calc(var(--pc-settings-gear-h) * 2);
+  min-height: calc(var(--pc-settings-gear-h) * 2);
+  max-height: calc(var(--pc-settings-gear-h) * 2);
+  padding: 0 8px 0 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(165, 243, 252, 0.95);
+  overflow: hidden;
+  background:
+    radial-gradient(1.4px 1.4px at 14% 28%, #fff 0%, transparent 100%),
+    radial-gradient(1.2px 1.2px at 78% 32%, #f5d0fe 0%, transparent 100%),
+    radial-gradient(1.3px 1.3px at 58% 72%, #67e8f9 0%, transparent 100%),
+    radial-gradient(circle at 22% 20%, rgba(103, 232, 249, 0.5) 0%, transparent 40%),
+    radial-gradient(circle at 86% 78%, rgba(192, 132, 252, 0.48) 0%, transparent 44%),
+    linear-gradient(145deg, #0f172a 0%, #1e1b4b 42%, #083344 78%, #0f172a 100%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.45),
+    0 0 18px rgba(34, 211, 238, 0.5),
+    0 0 28px rgba(168, 85, 247, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -10px 16px rgba(15, 23, 42, 0.5);
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-capsule--wheel-armed {
+  border-color: #e9d5ff;
+  box-shadow:
+    0 0 0 1px rgba(192, 132, 252, 0.55),
+    0 0 20px rgba(34, 211, 238, 0.55),
+    0 0 32px rgba(168, 85, 247, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-capsule__cosmos {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      115deg,
+      transparent 0%,
+      transparent 38%,
+      rgba(255, 255, 255, 0.22) 48%,
+      transparent 58%,
+      transparent 100%
+    );
+  background-size: 220% 100%;
+  animation: pc-table-settings-gear-shine 2.8s ease-in-out infinite;
+  z-index: 0;
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra {
+  appearance: none;
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 232, 249, 0.55);
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.96) 100%);
+  color: #a5f3fc;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 10px rgba(34, 211, 238, 0.22);
+  transition: border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra:not(:disabled):hover {
+  border-color: rgba(165, 243, 252, 0.95);
+  color: #ecfeff;
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 14px rgba(34, 211, 238, 0.45);
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra:focus-visible {
+  outline: 2px solid rgba(165, 243, 252, 0.9);
+  outline-offset: 1px;
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--value {
+  width: auto;
+  min-width: 46px;
+  padding: 0 9px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--boosted {
+  border-color: rgba(196, 181, 253, 0.85);
+  color: #f5e8ff;
+  background: linear-gradient(180deg, rgba(76, 29, 149, 0.55) 0%, rgba(30, 27, 75, 0.92) 100%);
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel {
+  color: #c4b5fd;
+  border-color: rgba(167, 139, 250, 0.55);
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel-on {
+  color: #ecfeff;
+  border-color: rgba(165, 243, 252, 0.95);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(103, 232, 249, 0.35) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(49, 46, 129, 0.9) 0%, rgba(15, 23, 42, 0.96) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 16px rgba(34, 211, 238, 0.55),
+    0 0 14px rgba(168, 85, 247, 0.4);
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-wheel-icon {
+  display: block;
+  filter: drop-shadow(0 0 4px rgba(167, 139, 250, 0.55));
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel-on .pc-table-settings-wheel-icon__scroll {
+  animation: pc-table-settings-wheel-nudge 0.9s ease-in-out infinite;
+}
+@keyframes pc-table-settings-wheel-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(1.5px);
+  }
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--close {
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(226, 232, 240, 0.88);
+  border-color: rgba(148, 163, 184, 0.4);
+  background: rgba(15, 23, 42, 0.55);
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--close:hover {
+  color: #fff;
+  border-color: rgba(248, 113, 113, 0.65);
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root:not(.viewport-mobile) .pc-table-settings-capsule__cosmos,
+  .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel-on .pc-table-settings-wheel-icon__scroll {
+    animation: none;
+  }
 }
 
 /* ПК: простой на торгах (2 с) — крупный пульс панели цифр (scale + glow, без роста layout панели Юга) */
@@ -20531,7 +21441,7 @@ html.theme-standard
     filter: brightness(1.12);
   }
 }
-.game-table-root:not(.viewport-mobile) .user-player-panel .bid-panel-pc-under-score.pc-bid-panel-idle-pulse {
+.game-table-root:not(.viewport-mobile) .bid-panel-pc-on-table.pc-bid-panel-idle-pulse {
   position: relative;
   z-index: 12;
   transform-origin: center center;
@@ -20539,7 +21449,7 @@ html.theme-standard
   will-change: transform, box-shadow, filter;
   pointer-events: auto;
 }
-.game-table-root:not(.viewport-mobile) .user-player-panel:has(.pc-bid-panel-idle-pulse) {
+.game-table-root:not(.viewport-mobile) .game-center-table:has(.pc-bid-panel-idle-pulse) {
   overflow: visible !important;
 }
 
@@ -20564,6 +21474,7 @@ html.theme-standard
   overflow: visible !important;
 }
 @media (prefers-reduced-motion: reduce) {
+  .game-table-root:not(.viewport-mobile) .bid-panel-pc-on-table.pc-bid-panel-idle-pulse,
   .game-table-root:not(.viewport-mobile) .bid-panel-pc-under-score.pc-bid-panel-idle-pulse,
   .game-table-root:not(.viewport-mobile) .player-hand-your-turn.pc-player-hand-idle-pulse {
     animation: none !important;
@@ -20652,6 +21563,8 @@ html.theme-standard
   gap: 7px !important;
   /* С playerInfoPanelStyle (14px); фиксируем в CSS, чтобы не терять скругление из‑за каскада */
   border-radius: 14px !important;
+  /* настройки стола absolute + оверлей не должны клипаться */
+  overflow: visible !important;
 }
 
 /* ПК: слева колонка «аватар + имя под ним» и рядом «Ваш ход» над взятками; справа очки и заказ */
@@ -20680,6 +21593,7 @@ html.theme-standard
   align-items: center !important;
   gap: 10px !important;
   flex-shrink: 0 !important;
+  overflow: visible !important;
 }
 .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-avatar-name-stack {
   display: flex !important;
@@ -20687,6 +21601,29 @@ html.theme-standard
   align-items: center !important;
   gap: 6px !important;
   flex-shrink: 0 !important;
+  overflow: visible !important;
+}
+/* Бейдж «Сдающий» — справа вверху у аватарки (торги и розыгрыш), только ПК / слот 0 */
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-avatar-wrap {
+  position: relative !important;
+  display: inline-flex !important;
+  flex-shrink: 0 !important;
+  align-self: center !important;
+  overflow: visible !important;
+}
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-dealer-on-avatar {
+  position: absolute !important;
+  top: 0 !important;
+  left: calc(100% + 4px) !important;
+  right: auto !important;
+  transform: none !important;
+  z-index: 4 !important;
+  white-space: nowrap !important;
+  padding: 2px 8px !important;
+  font-size: 10px !important;
+  gap: 4px !important;
+  pointer-events: none !important;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.35), inset 0 0 6px rgba(56, 189, 248, 0.08) !important;
 }
 .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-tricks-column {
   display: flex !important;
@@ -20757,19 +21694,25 @@ html.theme-standard
   min-width: 0 !important;
   align-self: center !important;
 }
-/* ПК, торговля: одна фиксированная строка — бейдж «Ваш заказ» вне потока, без роста высоты */
+/* ПК, торговля: бейджи слева, «Очки» (+ «Сдающий» ниже) справа */
 .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-bidding-top-row {
   display: flex !important;
   flex-direction: row !important;
-  align-items: center !important;
+  align-items: flex-start !important;
   justify-content: space-between !important;
   gap: 12px !important;
   width: 100% !important;
   min-width: 0 !important;
-  height: 28px !important;
+  height: auto !important;
   min-height: 28px !important;
-  max-height: 28px !important;
+  max-height: none !important;
   box-sizing: border-box !important;
+}
+/* Без «Сдающего» — снова одна компактная строка 28px */
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-bidding-top-row:not(:has(.user-player-panel-pc-dealer-under-score)) {
+  height: 28px !important;
+  max-height: 28px !important;
+  align-items: center !important;
 }
 .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-bidding-badges {
   display: flex !important;
@@ -20968,7 +21911,35 @@ html.theme-standard
 .game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid > span:last-child {
   line-height: 1 !important;
 }
-/* ПК: панель заказа — в потоке, компактнее кнопки на торгах */
+/* ПК: кнопки заказа — на поверхности стола (низ центра), не в панели Юга; вид как раньше в панели Юга */
+.game-table-root:not(.viewport-mobile) .bid-panel-pc-on-table-wrap {
+  box-sizing: border-box;
+}
+.game-table-root:not(.viewport-mobile) .bid-panel-pc-on-table.bid-panel {
+  width: fit-content !important;
+  max-width: min(100%, 560px) !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  padding: 3px 6px !important;
+  gap: 5px !important;
+}
+.game-table-root:not(.viewport-mobile).game-phase-bidding .bid-panel-pc-on-table .bid-panel-title-inline {
+  display: none !important;
+}
+.game-table-root:not(.viewport-mobile).game-phase-bidding .bid-panel-pc-on-table .bid-panel-btn {
+  width: calc(32px * var(--pc-card-scale, 1)) !important;
+  height: calc(32px * var(--pc-card-scale, 1)) !important;
+  font-size: calc(14px * var(--pc-card-scale, 1)) !important;
+  border-radius: calc(10px * var(--pc-card-scale, 1)) !important;
+}
+.game-table-root:not(.viewport-mobile) .bid-panel-pc-on-table .bid-panel-grid {
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  max-width: 100% !important;
+  gap: calc(4px * var(--pc-card-scale, 1)) !important;
+}
+
+/* ПК: панель заказа — в потоке, компактнее кнопки на торгах (legacy under-score; на столе — .bid-panel-pc-on-table) */
 .game-table-root:not(.viewport-mobile) .user-player-panel .bid-panel-pc-under-score {
   width: fit-content !important;
   max-width: 100% !important;
@@ -20980,7 +21951,7 @@ html.theme-standard
   padding: 3px 6px !important;
   gap: 5px !important;
 }
-/* ПК/планшет: подпись у кнопок заказа скрыта — «Ваш заказ» только в роуминг-табличке (в бескозырке совпадало с зелёным бейджем) */
+/* ПК/планшет: подпись у кнопок заказа скрыта — «Ваш заказ» только в роуминг-табличке */
 .game-table-root:not(.viewport-mobile).game-phase-bidding
   .user-player-panel
   .bid-panel-inline
@@ -23209,6 +24180,37 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   }
 }
 
+/* Последняя взятка оппонента: зелёный неон поверх сдающего/хода */
+@keyframes lastTrickOpponentWinnerPulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 28px rgba(34, 197, 94, 0.48),
+      inset 0 0 0 2px rgba(74, 222, 128, 0.95),
+      0 0 0 2px rgba(52, 211, 153, 0.75),
+      0 0 22px rgba(34, 197, 94, 0.65),
+      0 0 42px rgba(16, 185, 129, 0.45),
+      0 0 64px rgba(52, 211, 153, 0.28);
+    outline-color: rgba(74, 222, 128, 0.9);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 36px rgba(52, 211, 153, 0.62),
+      inset 0 0 0 3px rgba(134, 239, 172, 1),
+      0 0 0 3px rgba(74, 222, 128, 0.95),
+      0 0 32px rgba(34, 197, 94, 0.85),
+      0 0 56px rgba(52, 211, 153, 0.55),
+      0 0 80px rgba(110, 231, 249, 0.28);
+    outline-color: rgba(134, 239, 172, 1);
+  }
+}
+.game-table-root .opponent-slot.opponent-slot--trick-winner-glow {
+  animation: lastTrickOpponentWinnerPulse 1.25s ease-in-out infinite !important;
+  z-index: 12;
+  outline: 2px solid rgba(74, 222, 128, 0.95);
+  outline-offset: 2px;
+}
+
 /* Панель карт игрока: умеренная подсветка рамки, когда его ход (не такая сильная, как у панели заказа) */
 @keyframes playerHandYourTurnGlow {
   0%, 100% {
@@ -23372,7 +24374,11 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   position: fixed;
   right: max(28px, calc(env(safe-area-inset-right, 0px) + 20px));
   /* Защита «базы»: bottom ограничен и сверху, и снизу */
-  bottom: clamp(12px, calc(var(--game-player-area-height, 260px) + 12px), calc(100vh - 220px));
+  bottom: clamp(
+    12px,
+    calc(var(--game-player-area-height, 260px) + var(--pc-hand-scale-extra-h, 0px) + 12px),
+    calc(100vh - 220px)
+  );
   z-index: 12;
   pointer-events: auto;
   box-sizing: border-box;
@@ -27693,8 +28699,10 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   }
 }
 
-/* ПК: оверлей результатов раздачи — сетка 2×2, панели равномерно с отступами; контейнер по высоте под контент */
-.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation {
+/* ПК: оверлей результатов — fixed к viewport (через .pc-deal-results-portal), якорь ВНИЗУ над Югом */
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation,
+.pc-deal-results-portal .deal-results-overlay-animation {
+  position: fixed !important;
   display: grid !important;
   grid-template-columns: 1fr 1fr !important;
   grid-template-rows: auto auto !important;
@@ -27703,8 +28711,109 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   align-items: stretch !important;
   justify-items: stretch !important;
   height: auto !important;
-  min-height: 380px !important;
+  min-height: 300px !important;
+  max-height: min(58vh, 560px) !important;
+  top: auto !important;
+  /* Привязка к низу viewport (портал на body) */
+  bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
+  left: 50% !important;
+  right: auto !important;
+  width: min(920px, 86vw) !important;
+  transform: translateX(-50%) scale(var(--deal-results-overlay-scale, 1)) !important;
+  transform-origin: bottom center !important;
+  z-index: 120 !important;
+  overflow: visible !important;
+  background: linear-gradient(
+    165deg,
+    rgba(91, 33, 182, 0.62) 0%,
+    rgba(79, 70, 229, 0.52) 42%,
+    rgba(14, 116, 144, 0.46) 100%
+  ) !important;
+  backdrop-filter: blur(4px) saturate(1.14);
+  -webkit-backdrop-filter: blur(4px) saturate(1.14);
+  border: 2px solid rgba(103, 232, 249, 0.74) !important;
+  border-radius: 20px !important;
+  box-shadow:
+    0 18px 46px rgba(10, 12, 28, 0.48),
+    0 0 0 1px rgba(167, 139, 250, 0.34),
+    0 0 24px rgba(34, 211, 238, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
 }
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-north,
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-east,
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-south,
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-west,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-north,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-east,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-south,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-west {
+  background: linear-gradient(160deg, rgba(76, 29, 149, 0.7) 0%, rgba(67, 56, 202, 0.62) 55%, rgba(15, 118, 110, 0.52) 100%) !important;
+  border-color: rgba(196, 181, 253, 0.78) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -10px 18px rgba(30, 27, 75, 0.24),
+    0 10px 24px rgba(7, 10, 26, 0.36),
+    0 0 18px rgba(139, 92, 246, 0.24) !important;
+  /* Без scale на панелях — иначе «кривой» разъезд сетки */
+  transform: none !important;
+}
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-title-overlay,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-title-overlay {
+  color: rgba(245, 232, 255, 0.98) !important;
+  text-shadow: 0 0 12px rgba(196, 181, 253, 0.42) !important;
+  font-size: 21px !important;
+  line-height: 1.12 !important;
+}
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-human-overlay,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay {
+  position: relative !important;
+  isolation: isolate !important;
+  border: 2px solid rgba(110, 231, 249, 0.92) !important;
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 22%, rgba(255, 255, 255, 0) 44%),
+    linear-gradient(160deg, rgba(109, 40, 217, 0.88) 0%, rgba(59, 130, 246, 0.72) 48%, rgba(20, 184, 166, 0.62) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -14px 22px rgba(17, 24, 39, 0.36),
+    0 0 0 2px rgba(103, 232, 249, 0.55),
+    0 14px 32px rgba(8, 47, 73, 0.4),
+    0 0 36px rgba(34, 211, 238, 0.48),
+    0 0 28px rgba(167, 139, 250, 0.42) !important;
+  animation: deal-results-human-panel-double-pulse 1.35s ease-out 1;
+  animation-fill-mode: forwards;
+}
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-human-overlay::after,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 18px;
+  pointer-events: none;
+  border: 2px solid rgba(167, 139, 250, 0.88);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.45),
+    0 0 18px rgba(168, 85, 247, 0.62),
+    0 0 30px rgba(139, 92, 246, 0.5),
+    0 0 42px rgba(34, 211, 238, 0.42);
+  z-index: -1;
+  opacity: 1;
+  animation: deal-results-human-outline-double-blink 1.35s ease-out 1;
+  animation-fill-mode: forwards;
+}
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-human-overlay::before,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: 13px;
+  pointer-events: none;
+  background:
+    linear-gradient(132deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.015) 22%, rgba(255, 255, 255, 0) 48%),
+    linear-gradient(306deg, rgba(34, 211, 238, 0.12) 0%, rgba(217, 70, 239, 0.1) 50%, rgba(251, 113, 133, 0.1) 100%);
+  mix-blend-mode: normal;
+  opacity: 0.7;
+}
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-north,
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-north {
   grid-column: 1 !important;
   grid-row: 1 !important;
@@ -27713,12 +28822,12 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   right: auto !important;
   top: auto !important;
   bottom: auto !important;
-  transform: none !important;
   width: auto !important;
   max-width: none !important;
   min-width: 0 !important;
   box-sizing: border-box !important;
 }
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-east,
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-east {
   grid-column: 2 !important;
   grid-row: 1 !important;
@@ -27727,12 +28836,12 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   right: auto !important;
   top: auto !important;
   bottom: auto !important;
-  transform: none !important;
   width: auto !important;
   max-width: none !important;
   min-width: 0 !important;
   box-sizing: border-box !important;
 }
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-south,
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-south {
   grid-column: 1 !important;
   grid-row: 2 !important;
@@ -27741,7 +28850,6 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   right: auto !important;
   top: auto !important;
   bottom: auto !important;
-  transform: none !important;
   width: auto !important;
   max-width: none !important;
   min-width: 0 !important;
@@ -27753,6 +28861,7 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
     0 0 36px rgba(200, 230, 255, 0.25),
     inset 0 0 24px rgba(255, 255, 255, 0.08) !important;
 }
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-west,
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-west {
   grid-column: 2 !important;
   grid-row: 2 !important;
@@ -27761,29 +28870,324 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   right: auto !important;
   top: auto !important;
   bottom: auto !important;
-  transform: none !important;
   width: auto !important;
   max-width: none !important;
   min-width: 0 !important;
   box-sizing: border-box !important;
 }
 
-/* 3 игрока: сверху Север|Запад, снизу Юг на всю ширину */
+/* Полёт к Σ: ниже экранчика «Последняя взятка» */
+.pc-deal-results-portal
+  .deal-results-overlay-animation.deal-results-overlay-animation--collapsing,
+.game-table-root:not(.viewport-mobile)
+  .deal-results-overlay-animation.deal-results-overlay-animation--collapsing {
+  z-index: 110 !important;
+  overflow: visible !important;
+}
+
+/* 3 игрока ПК: сверху Запад|Восток, снизу Юг на всю ширину (Север нет) */
+.pc-deal-results-portal .deal-results-overlay-animation--three,
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation--three {
   grid-template-columns: 1fr 1fr !important;
   grid-template-rows: auto auto !important;
+  max-height: min(58vh, 560px) !important;
+  padding-bottom: 14px !important;
+  overflow: visible !important;
+  align-content: start !important;
+  top: auto !important;
+  bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
+  transform-origin: bottom center !important;
 }
-.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation--three .deal-results-panel-north {
+.pc-deal-results-portal .deal-results-overlay-animation--three .deal-results-panel-west,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation--three .deal-results-panel-west {
   grid-column: 1 !important;
   grid-row: 1 !important;
 }
-.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation--three .deal-results-panel-west {
+.pc-deal-results-portal .deal-results-overlay-animation--three .deal-results-panel-east,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation--three .deal-results-panel-east {
   grid-column: 2 !important;
   grid-row: 1 !important;
 }
+.pc-deal-results-portal .deal-results-overlay-animation--three .deal-results-panel-south,
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation--three .deal-results-panel-south {
   grid-column: 1 / -1 !important;
   grid-row: 2 !important;
+  transform-origin: top center !important;
+  max-width: none !important;
+}
+.pc-deal-results-portal .deal-results-overlay-animation--three .deal-results-panel-west,
+.pc-deal-results-portal .deal-results-overlay-animation--three .deal-results-panel-east,
+.pc-deal-results-portal .deal-results-overlay-animation--three .deal-results-panel-south,
+.game-table-root:not(.viewport-mobile)
+  .deal-results-overlay-animation--three
+  .deal-results-panel-west,
+.game-table-root:not(.viewport-mobile)
+  .deal-results-overlay-animation--three
+  .deal-results-panel-east,
+.game-table-root:not(.viewport-mobile)
+  .deal-results-overlay-animation--three
+  .deal-results-panel-south {
+  transform: none !important;
+}
+
+/* Планшет: финальный каскад после PC --three (overflow:visible / grid-template-rows: auto) */
+@media (max-width: 1366px) {
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation--three,
+  .pc-deal-results-portal.game-table-tablet-pc
+    .deal-results-overlay-animation.deal-results-overlay-animation--collapsing {
+    bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
+    height: min(60vh, 500px) !important;
+    max-height: min(60vh, 500px) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    transform: translateX(-50%) !important;
+    transform-origin: bottom center !important;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: minmax(0, 1fr) auto !important;
+    align-items: stretch !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation--three {
+    grid-template-rows: minmax(0, 1fr) auto !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation--three .deal-results-panel-south,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-south,
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-human-overlay {
+    display: flex !important;
+    flex-direction: column !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-row-overlay {
+    margin: 0 !important;
+    padding-top: 1px !important;
+    padding-bottom: 1px !important;
+    line-height: 1.15 !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-row-total-overlay {
+    margin-top: 2px !important;
+    padding-top: 3px !important;
+    padding-bottom: 0 !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-total-value-overlay {
+    color: var(--dr-player-total-fg, #faf5ff) !important;
+    -webkit-text-fill-color: var(--dr-player-total-fg, #faf5ff) !important;
+    text-shadow: var(--dr-player-total-shadow, none) !important;
+    filter: var(--dr-player-total-filter, none) !important;
+    font-size: 21px !important;
+    line-height: 1.05 !important;
+    font-weight: 900 !important;
+  }
+  .pc-deal-results-portal.game-table-tablet-pc .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-value-overlay {
+    color: var(--dr-player-total-fg, #faf5ff) !important;
+    -webkit-text-fill-color: var(--dr-player-total-fg, #faf5ff) !important;
+    text-shadow: var(--dr-player-total-shadow, none) !important;
+    filter: var(--dr-player-total-filter, none) !important;
+    font-size: 23px !important;
+    font-weight: 900 !important;
+  }
+}
+
+/* Мини-эхо последней взятки: стеклянная капсула НАД столом; выше полёта Σ */
+.last-trick-echo {
+  position: absolute;
+  left: 50%;
+  z-index: 160;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 22px 14px;
+  border-radius: 20px;
+  pointer-events: none;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    155deg,
+    rgba(15, 23, 42, 0.78) 0%,
+    rgba(49, 46, 129, 0.58) 48%,
+    rgba(8, 47, 73, 0.68) 100%
+  );
+  border: 1px solid rgba(103, 232, 249, 0.45);
+  box-shadow:
+    0 12px 28px rgba(7, 10, 26, 0.42),
+    0 0 0 1px rgba(167, 139, 250, 0.22),
+    0 0 22px rgba(34, 211, 238, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px) saturate(1.2);
+  -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  animation: lastTrickEchoIn 0.45s ease-out both;
+  isolation: isolate;
+}
+.last-trick-echo--pc {
+  position: fixed !important;
+  /* Под шапкой, НАД поверхностью стола */
+  top: max(64px, calc(env(safe-area-inset-top, 0px) + 52px)) !important;
+  bottom: auto !important;
+  left: 50% !important;
+  min-width: 248px;
+  z-index: 160 !important;
+}
+.last-trick-echo--mobile {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  z-index: 16;
+  min-width: 224px;
+  padding: 18px 18px 12px;
+}
+.last-trick-echo--winner {
+  border-color: rgba(110, 231, 249, 0.78);
+  box-shadow:
+    0 12px 28px rgba(7, 10, 26, 0.42),
+    0 0 0 1px rgba(167, 139, 250, 0.28),
+    0 0 28px rgba(34, 211, 238, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.last-trick-echo__rail {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  /* Запас сверху под приподнятую карту взявшего */
+  padding-top: 18px;
+  padding-bottom: 2px;
+}
+.last-trick-echo__slot {
+  margin: 0;
+  flex: 0 0 auto;
+  width: auto;
+  line-height: 0;
+  isolation: isolate;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
+  transition: transform 0.25s ease;
+}
+.last-trick-echo__slot:first-child {
+  margin-left: 0;
+}
+.last-trick-echo__slot--winner {
+  transform: translateY(-8px) scale(1.05);
+  filter:
+    drop-shadow(0 0 10px rgba(34, 211, 238, 0.55))
+    drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
+}
+.last-trick-echo--mine {
+  border-color: rgba(52, 211, 153, 0.75);
+}
+.last-trick-echo--mine .last-trick-echo__winner {
+  background: linear-gradient(90deg, #6ee7b7 0%, #67e8f9 55%, #a78bfa 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.last-trick-echo__kicker {
+  font-family: 'Exo 2', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  /* Fallback, если clip не сработает — всё равно кислотный розово-оранжевый */
+  color: #ff3db5;
+  background: linear-gradient(90deg, #ff6b2d 0%, #ff2d95 38%, #ff4fd8 72%, #ff9f1a 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  /* Лёгкий лазерный ореол — без сильной «замыленности» */
+  filter:
+    drop-shadow(0 0 1.5px rgba(255, 45, 149, 0.85))
+    drop-shadow(0 0 4px rgba(255, 107, 45, 0.4));
+  animation: lastTrickEchoLaserKicker 2.4s linear infinite;
+}
+@keyframes lastTrickEchoLaserKicker {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 220% 50%;
+  }
+}
+
+/* Карта взявшего на столе во время reveal/slots */
+.last-trick-table-card--winner {
+  filter:
+    drop-shadow(0 0 0 2px rgba(34, 197, 94, 0.95))
+    drop-shadow(0 0 14px rgba(52, 211, 153, 0.75))
+    drop-shadow(0 0 28px rgba(34, 211, 238, 0.35));
+  animation: lastTrickWinnerCardPulse 1.4s ease-in-out infinite;
+}
+@keyframes lastTrickWinnerCardPulse {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 0 2px rgba(34, 197, 94, 0.85))
+      drop-shadow(0 0 12px rgba(52, 211, 153, 0.55))
+      drop-shadow(0 0 22px rgba(34, 211, 238, 0.28));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 0 3px rgba(110, 231, 249, 0.95))
+      drop-shadow(0 0 18px rgba(52, 211, 153, 0.85))
+      drop-shadow(0 0 32px rgba(34, 211, 238, 0.45));
+  }
+}
+.last-trick-echo__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.15;
+  max-width: 100%;
+  padding: 8px 14px 9px;
+  border-radius: 14px;
+  background: linear-gradient(
+    165deg,
+    rgba(8, 15, 35, 0.92) 0%,
+    rgba(30, 27, 75, 0.88) 48%,
+    rgba(8, 47, 73, 0.9) 100%
+  );
+  border: 1px solid rgba(167, 139, 250, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 0 1px rgba(15, 23, 42, 0.5),
+    0 6px 16px rgba(7, 10, 26, 0.4),
+    0 0 16px rgba(129, 140, 248, 0.18);
+}
+.last-trick-echo__winner {
+  font-family: 'Exo 2', system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  background: linear-gradient(90deg, #67e8f9 0%, #a78bfa 48%, #818cf8 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lastTrickEchoSheen 5.5s linear infinite;
+}
+@keyframes lastTrickEchoIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+@keyframes lastTrickEchoSheen {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
 }
 
 /* Моб. оверлей между раздачами на троих: та же схема 2 сверху + Юг снизу */
@@ -27876,53 +29280,62 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 }
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-total-value-overlay {
   color: rgba(251, 146, 60, 0.82) !important;
-  font-size: 19px !important;
+  font-size: 22px !important;
   font-weight: 700 !important;
   text-shadow:
     0 0 6px rgba(251, 146, 60, 0.48),
     0 0 10px rgba(249, 115, 22, 0.34),
     0 0 14px rgba(234, 88, 12, 0.2) !important;
 }
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-human-overlay,
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay {
   position: relative !important;
   isolation: isolate !important;
-  border: 1px solid rgba(45, 212, 191, 0.72) !important;
+  border: 2px solid rgba(110, 231, 249, 0.92) !important;
   background:
-    linear-gradient(118deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.015) 22%, rgba(255, 255, 255, 0) 44%),
-    linear-gradient(160deg, rgba(76, 29, 149, 0.95) 0%, rgba(55, 48, 163, 0.86) 44%, rgba(30, 27, 75, 0.92) 74%, rgba(15, 23, 42, 0.96) 100%) !important;
+    linear-gradient(118deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 22%, rgba(255, 255, 255, 0) 44%),
+    linear-gradient(160deg, rgba(109, 40, 217, 0.88) 0%, rgba(59, 130, 246, 0.72) 48%, rgba(20, 184, 166, 0.62) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -14px 22px rgba(17, 24, 39, 0.36),
+    0 0 0 2px rgba(103, 232, 249, 0.55),
+    0 14px 32px rgba(8, 47, 73, 0.4),
+    0 0 36px rgba(34, 211, 238, 0.48),
+    0 0 28px rgba(167, 139, 250, 0.42) !important;
+  animation: deal-results-human-panel-double-pulse 1.35s ease-out 1;
+  animation-fill-mode: forwards;
+}
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-row-total-overlay,
+.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-row-total-overlay {
+  background: linear-gradient(180deg, rgba(30, 27, 75, 0.5) 0%, rgba(15, 23, 42, 0.82) 100%) !important;
+  border-top: 1px solid rgba(110, 231, 249, 0.55) !important;
+  border-radius: 10px !important;
+  margin-top: 8px !important;
+  padding: 8px 12px 7px !important;
+  gap: 12px !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -16px 24px rgba(17, 24, 39, 0.44),
-    inset 0 10px 16px rgba(255, 255, 255, 0.02),
-    0 0 0 1px rgba(45, 212, 191, 0.32),
-    0 12px 28px rgba(12, 74, 110, 0.34),
-    0 0 20px rgba(45, 212, 191, 0.28) !important;
-  animation: deal-results-human-panel-double-pulse 1.2s ease-out 1;
+    0 0 16px rgba(34, 211, 238, 0.22) !important;
 }
-.game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-row-total-overlay {
-  background: linear-gradient(180deg, rgba(30, 27, 75, 0.36) 0%, rgba(15, 23, 42, 0.72) 100%) !important;
-  border-top-color: rgba(125, 211, 252, 0.42) !important;
-  border-radius: 8px !important;
-  margin-top: 7px !important;
-  padding: 6px 10px 5px !important;
-  gap: 10px !important;
-}
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-human-overlay::after,
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay::after {
   content: '';
   position: absolute;
-  inset: -4px;
-  border-radius: 16px;
+  inset: -5px;
+  border-radius: 18px;
   pointer-events: none;
-  border: 1px solid rgba(167, 139, 250, 0.78);
+  border: 2px solid rgba(167, 139, 250, 0.88);
   box-shadow:
-    0 0 0 1px rgba(34, 211, 238, 0.34),
-    0 0 14px rgba(168, 85, 247, 0.52),
-    0 0 24px rgba(139, 92, 246, 0.44),
-    0 0 34px rgba(34, 211, 238, 0.36);
+    0 0 0 1px rgba(34, 211, 238, 0.45),
+    0 0 18px rgba(168, 85, 247, 0.62),
+    0 0 30px rgba(139, 92, 246, 0.5),
+    0 0 42px rgba(34, 211, 238, 0.42);
   z-index: -1;
-  opacity: 0.82;
-  animation: deal-results-human-outline-double-blink 1.2s ease-out 1;
+  opacity: 1;
+  animation: deal-results-human-outline-double-blink 1.35s ease-out 1;
+  animation-fill-mode: forwards;
 }
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-human-overlay::before,
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay::before {
   content: '';
   position: absolute;
@@ -27930,14 +29343,16 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   border-radius: 13px;
   pointer-events: none;
   background:
-    linear-gradient(132deg, rgba(255, 255, 255, 0.065) 0%, rgba(255, 255, 255, 0.012) 22%, rgba(255, 255, 255, 0) 48%),
-    linear-gradient(306deg, rgba(34, 211, 238, 0.085) 0%, rgba(217, 70, 239, 0.08) 50%, rgba(251, 113, 133, 0.08) 100%);
+    linear-gradient(132deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.015) 22%, rgba(255, 255, 255, 0) 48%),
+    linear-gradient(306deg, rgba(34, 211, 238, 0.12) 0%, rgba(217, 70, 239, 0.1) 50%, rgba(251, 113, 133, 0.1) 100%);
   mix-blend-mode: normal;
-  opacity: 0.5;
+  opacity: 0.7;
 }
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-title-human-overlay,
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-title-human-overlay {
   color: #2af5c8 !important;
   font-weight: 900 !important;
+  font-size: 22px !important;
   -webkit-text-stroke: 0.8px #7c3aed;
   paint-order: stroke fill;
   letter-spacing: 0.04em !important;
@@ -27955,18 +29370,27 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
     0 0 6px rgba(42, 245, 200, 0.35) !important;
   filter: none !important;
 }
+.pc-deal-results-portal .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-label-overlay,
 .game-table-root:not(.viewport-mobile) .deal-results-overlay-animation .deal-results-panel-human-overlay .deal-results-panel-total-label-overlay {
   line-height: 1.1 !important;
   padding-right: 6px !important;
+  color: #5eead4 !important;
+  font-weight: 800 !important;
+  font-size: 15px !important;
+  text-shadow: 0 0 12px rgba(45, 212, 191, 0.45) !important;
 }
 
 /* Межраздачный оверлей ПК: фаза 1 — «Итого» в нейтральной капсуле; фаза 2 — умные плашки по приросту (vars из GameTable). */
+.pc-deal-results-portal
+  .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+  .deal-results-overlay-player-panel
+  .deal-results-panel-total-value-overlay,
 .game-table-root:not(.viewport-mobile)
   .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
   .deal-results-overlay-player-panel
   .deal-results-panel-total-value-overlay {
   color: rgba(226, 232, 240, 0.96) !important;
-  font-size: 17px !important;
+  font-size: 20px !important;
   font-weight: 780 !important;
   letter-spacing: 0.02em !important;
   line-height: 1.1 !important;
@@ -27976,7 +29400,7 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   background: linear-gradient(142deg, rgba(71, 85, 105, 0.52) 0%, rgba(51, 65, 85, 0.58) 42%, rgba(30, 41, 59, 0.64) 100%) !important;
   border: 1px solid rgba(148, 163, 184, 0.45) !important;
   border-radius: 10px !important;
-  padding: 2px 10px !important;
+  padding: 3px 12px !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.14),
     inset 0 -1px 0 rgba(15, 23, 42, 0.35),
@@ -27984,6 +29408,31 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
     0 2px 12px rgba(15, 23, 42, 0.38) !important;
   filter: none !important;
   animation: none !important;
+}
+/* Юг (пользователь): «Итого» явно ярче остальных на фазе очков раздачи */
+.pc-deal-results-portal
+  .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+  .deal-results-panel-human-overlay
+  .deal-results-panel-total-value-overlay,
+.game-table-root:not(.viewport-mobile)
+  .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
+  .deal-results-panel-human-overlay
+  .deal-results-panel-total-value-overlay {
+  color: #f9a8d4 !important;
+  font-size: 24px !important;
+  font-weight: 900 !important;
+  text-shadow:
+    0 0 12px rgba(244, 114, 182, 0.6),
+    0 0 22px rgba(217, 70, 239, 0.48),
+    0 0 28px rgba(34, 211, 238, 0.32) !important;
+  background: linear-gradient(142deg, rgba(157, 23, 77, 0.55) 0%, rgba(91, 33, 182, 0.58) 48%, rgba(14, 116, 144, 0.5) 100%) !important;
+  border: 1px solid rgba(244, 114, 182, 0.72) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 0 1px rgba(244, 114, 182, 0.35),
+    0 0 22px rgba(236, 72, 153, 0.4),
+    0 0 18px rgba(34, 211, 238, 0.28) !important;
+  filter: saturate(1.14) brightness(1.08) !important;
 }
 .game-table-root:not(.viewport-mobile)
   .deal-results-overlay-animation[data-overlay-accent-phase='deal-points']
@@ -28023,7 +29472,7 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   .deal-results-overlay-player-panel
   .deal-results-panel-total-value-overlay {
   color: var(--dr-player-total-fg, rgba(243, 232, 255, 0.96)) !important;
-  font-size: var(--dr-player-total-fs, 22px) !important;
+  font-size: var(--dr-player-total-fs, 26px) !important;
   font-weight: var(--dr-player-total-fw, 900) !important;
   letter-spacing: var(--dr-player-total-ls, 0.02em) !important;
   line-height: var(--dr-player-total-lh, 1.05) !important;
@@ -28035,6 +29484,18 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   box-shadow: var(--dr-player-total-box, none) !important;
   filter: var(--dr-player-total-filter, none) !important;
   animation: deal-results-human-score-pulse 0.45s ease-out 1;
+}
+.pc-deal-results-portal
+  .deal-results-overlay-animation[data-overlay-accent-phase='running-total']
+  .deal-results-panel-human-overlay
+  .deal-results-panel-total-value-overlay,
+.game-table-root:not(.viewport-mobile)
+  .deal-results-overlay-animation[data-overlay-accent-phase='running-total']
+  .deal-results-panel-human-overlay
+  .deal-results-panel-total-value-overlay {
+  font-size: var(--dr-player-total-fs, 30px) !important;
+  transform: scale(1.08);
+  transform-origin: center right;
 }
 
 .game-table-root.viewport-mobile
@@ -28186,13 +29647,13 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   }
   100% {
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      inset 0 -16px 24px rgba(17, 24, 39, 0.44),
-      inset 0 10px 16px rgba(255, 255, 255, 0.02),
-      0 0 0 1px rgba(45, 212, 191, 0.32),
-      0 12px 28px rgba(12, 74, 110, 0.34),
-      0 0 20px rgba(45, 212, 191, 0.28);
-    filter: brightness(1) saturate(1);
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -14px 22px rgba(17, 24, 39, 0.36),
+      0 0 0 2px rgba(103, 232, 249, 0.55),
+      0 14px 32px rgba(8, 47, 73, 0.4),
+      0 0 36px rgba(34, 211, 238, 0.48),
+      0 0 28px rgba(167, 139, 250, 0.42);
+    filter: brightness(1.08) saturate(1.12);
   }
 }
 @keyframes deal-results-human-outline-double-blink {
@@ -28201,7 +29662,7 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   52%,
   70%,
   100% {
-    opacity: 0.84;
+    opacity: 0.92;
   }
   30%,
   82% {
@@ -28223,25 +29684,40 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   }
 }
 
-/* Мобильная версия: итоги раздачи — сетка 2×2 по центру, космический стиль, адаптивный размер */
+/* Портал interstitial результатов: модалка у самого низа экрана */
+.game-table-root.viewport-mobile.mobile-deal-results-portal {
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape.mobile-deal-results-portal {
+  padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* Мобильная версия: итоги раздачи — у низа, высота по контенту (цифры не обрезать) */
 .game-table-root.viewport-mobile .deal-results-overlay-animation {
-  position: fixed !important;
+  position: relative !important;
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-rows: auto auto;
-  gap: clamp(10px, 2.8vw, 14px);
-  top: 54% !important;
-  left: 50% !important;
+  gap: clamp(10px, 2.6vw, 14px);
+  top: auto !important;
+  bottom: auto !important;
+  left: auto !important;
   right: auto !important;
-  width: min(96vw, 400px) !important;
+  width: min(98vw, 440px) !important;
   height: auto !important;
-  min-height: clamp(200px, 54vw, 280px);
-  max-height: min(78vh, 520px);
-  transform: translate(-50%, -50%);
-  padding: clamp(12px, 3.5vw, 16px);
+  min-height: 0 !important;
+  max-height: none !important;
+  /* Не ставить transform: none !important — ломает полёт схлопывания в кнопку Σ */
+  transform-origin: bottom center !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+  padding: clamp(12px, 3.2vw, 16px) !important;
   justify-items: stretch;
   align-items: stretch;
+  align-content: start !important;
   box-sizing: border-box;
+  overflow: hidden !important;
+  isolation: isolate !important;
   background: linear-gradient(
     165deg,
     rgba(49, 31, 96, 0.94) 0%,
@@ -28266,11 +29742,17 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   left: auto !important;
   right: auto !important;
   top: auto !important;
+  /* Старые absolute-правила давали bottom: -12/-16px — блок Юга «торчал» из модалки */
   bottom: auto !important;
+  margin: 0 !important;
   transform: none !important;
+  filter: none !important;
   min-width: 0 !important;
   max-width: 100% !important;
   width: 100% !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
   box-sizing: border-box !important;
   overflow: hidden !important;
   border-radius: 12px !important;
@@ -28283,9 +29765,9 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   ) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -10px 18px rgba(30, 27, 75, 0.28),
-    0 6px 16px rgba(9, 10, 26, 0.38),
-    0 0 0 1px rgba(139, 92, 246, 0.16) !important;
+    inset 0 -8px 14px rgba(30, 27, 75, 0.22),
+    0 2px 8px rgba(9, 10, 26, 0.28),
+    0 0 0 1px rgba(139, 92, 246, 0.14) !important;
 }
 .game-table-root.viewport-mobile .deal-results-overlay-animation .deal-results-panel-name-plate {
   position: relative !important;
@@ -28450,6 +29932,9 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   .deal-results-overlay-player-panel.deal-results-panel-human-overlay {
   position: relative !important;
   z-index: 2 !important;
+  bottom: auto !important;
+  margin: 0 !important;
+  transform: none !important;
   border: 2.5px solid rgba(94, 234, 212, 0.92) !important;
   background:
     linear-gradient(118deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.02) 30%),
@@ -28460,14 +29945,13 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
       rgba(20, 184, 166, 0.52) 68%,
       rgba(30, 27, 75, 0.95) 100%
     ) !important;
+  /* Без длинного внешнего glow вниз — иначе блок визуально «торчит» из модалки */
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.22),
     inset 0 0 28px rgba(45, 212, 191, 0.14),
-    inset 0 -12px 20px rgba(17, 24, 39, 0.36),
-    0 0 0 1px rgba(103, 232, 249, 0.62),
-    0 10px 28px rgba(12, 74, 110, 0.48),
-    0 0 26px rgba(45, 212, 191, 0.42),
-    0 0 44px rgba(34, 211, 238, 0.24) !important;
+    inset 0 -10px 16px rgba(17, 24, 39, 0.32),
+    0 0 0 1px rgba(103, 232, 249, 0.55),
+    0 0 18px rgba(45, 212, 191, 0.28) !important;
 }
 .game-table-root.viewport-mobile
   .deal-results-overlay-animation
@@ -28516,12 +30000,21 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 }
 @keyframes deal-results-mobile-human-panel-flash-border {
   0% {
-    filter: brightness(1.42) saturate(1.1);
     border-color: rgba(224, 242, 254, 0.98) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 0 32px rgba(224, 242, 254, 0.22),
+      0 0 0 1px rgba(224, 242, 254, 0.7),
+      0 0 22px rgba(45, 212, 191, 0.4) !important;
   }
   100% {
-    filter: brightness(1) saturate(1);
     border-color: rgba(94, 234, 212, 0.92) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 0 28px rgba(45, 212, 191, 0.14),
+      inset 0 -10px 16px rgba(17, 24, 39, 0.32),
+      0 0 0 1px rgba(103, 232, 249, 0.55),
+      0 0 18px rgba(45, 212, 191, 0.28) !important;
   }
 }
 .game-table-root.viewport-mobile
@@ -28577,25 +30070,39 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   grid-row: 2;
 }
 
-/* Моб. landscape · оверлей итогов раздачи: 2×2, контент строго внутри рамки */
+/* Моб. landscape · оверлей итогов: у низа, высота по контенту */
 .game-table-root.viewport-mobile.viewport-mobile-landscape .deal-results-overlay-animation {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
-  top: 50% !important;
-  left: 50% !important;
-  width: min(98vw, 616px) !important;
+  grid-template-rows: auto auto !important;
+  position: relative !important;
+  top: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  width: min(98vw, 640px) !important;
   max-width: 98vw !important;
   min-height: 0 !important;
-  height: min(91dvh, 312px) !important;
-  max-height: min(91dvh, 312px) !important;
-  gap: clamp(7px, 2.2vw, 11px) !important;
-  padding: clamp(9px, 2.7vw, 13px) !important;
+  height: auto !important;
+  max-height: none !important;
+  gap: clamp(8px, 2vw, 12px) !important;
+  padding: clamp(10px, 2.4vw, 14px) !important;
   align-items: stretch !important;
   justify-items: stretch !important;
   box-sizing: border-box !important;
   overflow: hidden !important;
-  transform: translate(-50%, -50%) !important;
+  transform-origin: bottom center !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+/* Схлопывание в Σ: разрешаем transform-полёт (и не клипаем кружок) */
+.game-table-root.viewport-mobile
+  .deal-results-overlay-animation.deal-results-overlay-animation--collapsing {
+  overflow: visible !important;
+  z-index: 50 !important;
+  max-height: none !important;
+  animation: dealResultsCollapseMobile 0.75s cubic-bezier(0.33, 0, 0.2, 1) forwards !important;
+  transform-origin: center center !important;
 }
 .game-table-root.viewport-mobile.viewport-mobile-landscape
   .deal-results-overlay-animation
@@ -33907,31 +35414,31 @@ body.deal-results-modal-open-mobile #root {
 }
 
 /*
- * ПК: схлопывание оверлея к кнопке Σ в шапке — те же --deal-results-collapse-dx/dy,
- * что и на мобильной, но задаются на .game-table-root (наследование в оверлей).
+ * ПК: схлопывание оверлея к кнопке Σ в шапке — те же --deal-results-collapse-dx/dy.
+ * translateX(-50%) сохраняем (якорь left:50%), иначе скачок в начале полёта.
  */
 @keyframes dealResultsCollapsePC {
   0% {
-    transform: translateY(var(--deal-results-overlay-shift-y, 0px))
+    transform: translateX(-50%)
       translate(0, 0)
-      scale(var(--deal-results-overlay-scale, 1));
+      scale(var(--deal-results-overlay-scale, 0.96));
     border-radius: 20px;
     opacity: 1;
   }
-  58% {
-    transform: translateY(var(--deal-results-overlay-shift-y, 0px))
+  42% {
+    transform: translateX(-50%)
       translate(
-        calc(var(--deal-results-collapse-dx, 0px) * 0.58),
-        calc(var(--deal-results-collapse-dy, 0px) * 0.58)
+        calc(var(--deal-results-collapse-dx, 0px) * 0.42),
+        calc(var(--deal-results-collapse-dy, 0px) * 0.42)
       )
-      scale(calc(var(--deal-results-overlay-scale, 1) * 0.2));
+      scale(calc(var(--deal-results-overlay-scale, 0.96) * 0.14));
     border-radius: 50%;
     opacity: 1;
   }
   100% {
-    transform: translateY(var(--deal-results-overlay-shift-y, 0px))
+    transform: translateX(-50%)
       translate(var(--deal-results-collapse-dx, 0px), var(--deal-results-collapse-dy, 0px))
-      scale(calc(var(--deal-results-overlay-scale, 1) * 0.052));
+      scale(calc(var(--deal-results-overlay-scale, 0.96) * 0.052));
     border-radius: 50%;
     opacity: 0.9;
   }
@@ -33940,22 +35447,26 @@ body.deal-results-modal-open-mobile #root {
 /*
  * Схлопывание мобильного оверлея к реальной Σ: вектор в px задаётся с корня портала
  * (--deal-results-collapse-dx/dy), см. GameTable useLayoutEffect.
+ * scale раньше уменьшаем, чтобы к бейджу `.game-info-left-section` подлетал уже «кружок Σ»,
+ * а не накрывал весь plasma-экранчик.
  */
 @keyframes dealResultsCollapseMobile {
   0% {
-    transform: translate(-50%, -50%) translate(0, 0) scale(1);
+    transform: translate(0, 0) scale(1);
     border-radius: 20px;
     opacity: 1;
   }
-  58% {
-    transform: translate(-50%, -50%)
-      translate(calc(var(--deal-results-collapse-dx, 0px) * 0.58), calc(var(--deal-results-collapse-dy, 0px) * 0.58))
-      scale(0.2);
+  42% {
+    transform: translate(
+        calc(var(--deal-results-collapse-dx, 0px) * 0.42),
+        calc(var(--deal-results-collapse-dy, 0px) * 0.42)
+      )
+      scale(0.14);
     border-radius: 50%;
     opacity: 1;
   }
   100% {
-    transform: translate(-50%, -50%) translate(var(--deal-results-collapse-dx, 0px), var(--deal-results-collapse-dy, 0px))
+    transform: translate(var(--deal-results-collapse-dx, 0px), var(--deal-results-collapse-dy, 0px))
       scale(0.052);
     border-radius: 50%;
     opacity: 0.9;

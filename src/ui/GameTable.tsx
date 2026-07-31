@@ -31,7 +31,38 @@ import {
   isHumanPlayer,
   playerAtLeftFrom,
 } from '../game/GameEngine';
+import {
+  DEAL_COMPLETE_HOLD_MS,
+  DEAL_RESULTS_COLLAPSING_MS as DEAL_RESULTS_COLLAPSING_MS_SHARED,
+  DEAL_RESULTS_TOTALS_ACCENT_MS as DEAL_RESULTS_TOTALS_ACCENT_MS_SHARED,
+  LAST_TRICK_CARDS_PAUSE_MS as LAST_TRICK_CARDS_PAUSE_MS_SHARED,
+  LAST_TRICK_COLLECT_MS as LAST_TRICK_COLLECT_MS_SHARED,
+  LAST_TRICK_REVEAL_MS as LAST_TRICK_REVEAL_MS_SHARED,
+  LAST_TRICK_WINNER_PAUSE_MS as LAST_TRICK_WINNER_PAUSE_MS_SHARED,
+  trickCompleteHoldMs,
+} from '../game/onlineTimings';
 import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating, getPlayerProfile } from '../game/persistence';
+import {
+  clampPcHandScaleBoost,
+  nextPcHandScaleBoost,
+  prevPcHandScaleBoost,
+  pcHandScaleExtraHeightPx,
+  pcHandScaleMaxForSeats,
+  pcHandScaleMultiplier,
+  pcSidePanelPushPx,
+  pcTableFeltScaleMultiplier,
+  pcHandToPanelGapPx,
+  pcHandTableClearancePx,
+  pcTableUpOffsetTotalPx,
+  pcFourSeatHandCompactMul,
+  resolvePcHandAdaptiveScale,
+  TABLET_HAND_COMPACT,
+  readPcHandScaleBoost,
+  readPcTableSettingsOpen,
+  writePcHandScaleBoost,
+  writePcTableSettingsOpen,
+  type PcHandScaleBoost,
+} from '../game/pcHandScale';
 import { appendPartyArchiveRecord, buildPartyArchiveRecord, linkPartyArchiveCloudMatch } from '../game/partyArchive';
 import { logDealOutcome } from '../game/aiLearning';
 import { aiBid, aiPlay } from '../game/ai';
@@ -299,6 +330,27 @@ function getMobileHandRowFit(
   const wFull = handLen * slotOuter - (handLen - 1) * maxO;
   const rowScale = wFull > 0 ? Math.min(1, inner / wFull) : 1;
   return { overlapPx: maxO, rowScale };
+}
+
+/**
+ * L-рамка (горизонталь 9 + вертикальный «хвост») — только если все карты
+ * не влезают в один ряд при *комфортном* нахлёсте (как у 9 карт), без укладки стопкой.
+ * Иначе на широком «мобильном» DevTools (растянутый device mode) хвост включался
+ * зря по одному лишь `handLen >= 10` и прятался под столом.
+ */
+function mobileHandNeedsLFrame(vw: number, handLen: number): boolean {
+  if (handLen < MOBILE_L_HAND_FROM_LEN) return false;
+  const m9 = getMobileNineCardHandLayout(vw, Math.min(handLen, 9));
+  const inset = mobileSouthStripInsetPx(vw);
+  const gutter = inset * 4 + MOBILE_HAND_FRAME_EXTRA_INLINE_PX * 2 + 2 + MOBILE_TABLE_INNER_PAD_X_PX;
+  const inner = Math.max(48, vw - gutter);
+  const slotOuter = MOBILE_HAND_CARD_BODY_W + 2 * m9.slotPadding;
+  const comfortO = Math.min(
+    Math.max(m9.overlapPx, MOBILE_HAND_9_OVERLAP_BASE_PX),
+    Math.max(0, Math.floor(slotOuter * 0.35)),
+  );
+  const rowW = handLen * slotOuter - (handLen - 1) * comfortO;
+  return rowW > inner + 0.5;
 }
 
 /** Моб. landscape · Юг: ширина колонки руки при 9 картах (рамка + ряд). */
@@ -928,17 +980,20 @@ interface GameTableProps {
   onSaveDisplayName?: (displayName: string) => void;
 }
 
-/** Сколько мс карты остаются на столе после 4‑го хода, чтобы все успели увидеть (прогрузка, онлайн). */
-const FOURTH_CARD_SLOT_PAUSE_MS = 2000;
-/** Пауза с картами на столе (последняя взятка раздачи) — слегка короче «серой» фазы deal-points, чтобы уравновесить время под умные итоги. */
-const LAST_TRICK_CARDS_PAUSE_MS = 1600;
-/** Пауза с миганием панельки взявшего взятку */
-const LAST_TRICK_WINNER_PAUSE_MS = 800;
-/** Пауза только на умные «Итого» (running-total) до начала схлопывания — раньше весь акцент уезжал за 750ms collapse. */
-const DEAL_RESULTS_TOTALS_ACCENT_MS = 1800;
+/** Чистый стол: последняя взятка без оверлея результатов. */
+const LAST_TRICK_REVEAL_MS = LAST_TRICK_REVEAL_MS_SHARED;
+/** Пауза с картами на столе (ещё без оверлея). */
+const LAST_TRICK_CARDS_PAUSE_MS = LAST_TRICK_CARDS_PAUSE_MS_SHARED;
+/** Длительность полёта карт к слоту победителя. */
+const LAST_TRICK_COLLECT_MS = LAST_TRICK_COLLECT_MS_SHARED;
+/** Пауза с миганием панельки взявшего взятку (+ старт оверлея). */
+const LAST_TRICK_WINNER_PAUSE_MS = LAST_TRICK_WINNER_PAUSE_MS_SHARED;
+/** Пауза только на умные «Итого» (running-total) до начала схлопывания. */
+const DEAL_RESULTS_TOTALS_ACCENT_MS = DEAL_RESULTS_TOTALS_ACCENT_MS_SHARED;
 /** Длительность фазы «таблица сворачивается в кнопку» */
-const DEAL_RESULTS_COLLAPSING_MS = 750;
-const TRICK_PAUSE_MS = 5500;
+const DEAL_RESULTS_COLLAPSING_MS = DEAL_RESULTS_COLLAPSING_MS_SHARED;
+/** Пауза до следующей раздачи (offline / v1 host); v2 сервер = DEAL_COMPLETE_HOLD_MS. */
+const TRICK_PAUSE_MS = DEAL_COMPLETE_HOLD_MS;
 
 /** Задержка бейджа «ждём вашу карту» в слоте Юга после начала хода. */
 const HUMAN_TRICK_WAIT_BADGE_DELAY_MS = 2500;
@@ -952,9 +1007,13 @@ function getTrickPlayerIndex(
   return playerAtLeftFrom(trickLeaderIndex, cardIndex, playerCount);
 }
 
-/** Масштаб карт на сукне (не ПК). Landscape: 0.76 → +5% → +3% = 0.822. */
-function getTrickTableCardScale(isMobileOrTablet: boolean, isMobileLandscape: boolean): number {
-  if (!isMobileOrTablet) return 1.18;
+/** Масштаб карт на сукне. ПК: base 1.18 × пользовательский boost карт. */
+function getTrickTableCardScale(
+  isMobileOrTablet: boolean,
+  isMobileLandscape: boolean,
+  pcScaleMul = 1,
+): number {
+  if (!isMobileOrTablet) return 1.18 * pcScaleMul;
   if (isMobileLandscape) return 0.822;
   return 0.98;
 }
@@ -1074,28 +1133,38 @@ function getTrickCardSlotStyle(
   const offsetEdge = 'var(--trick-slot-offset-edge, 17px)';
   const offsetWestEast = 'var(--trick-slot-offset-west-east, 101px)';
   const nsOffset = 'var(--trick-slot-ns-offset-x, 28px)';
+  /** ПК · 3: как у четверых по бокам — Запад=2, Восток=1 (Север нет). */
   if (playerCount === 3) {
-    const topLeft = 'var(--trick-slot-three-pc-left, 26%)';
-    const topRight = 'var(--trick-slot-three-pc-right, 74%)';
+    const clusterShift = 'var(--trick-slot-cluster-shift-x, 0px)';
     switch (playerIdx) {
       case 2:
         return {
           ...base,
-          top: offsetEdge,
-          left: topLeft,
-          transform: 'translate(-50%, 0)',
+          left: `calc(${offsetWestEast} + ${clusterShift})`,
+          top: '50%',
+          transform: 'translateY(-50%)',
         };
       case 1:
         return {
           ...base,
-          top: offsetEdge,
-          left: topRight,
-          transform: 'translate(-50%, 0)',
+          right: `calc(${offsetWestEast} - ${clusterShift})`,
+          top: '50%',
+          transform: 'translateY(-50%)',
         };
       case 0:
-        return { ...base, bottom: offsetEdge, left: '50%', transform: 'translateX(-50%)' };
+        return {
+          ...base,
+          bottom: offsetEdge,
+          left: '50%',
+          transform: `translateX(calc(-50% + ${clusterShift}))`,
+        };
       default:
-        return { ...base, bottom: offsetEdge, left: '50%', transform: 'translateX(-50%)' };
+        return {
+          ...base,
+          bottom: offsetEdge,
+          left: '50%',
+          transform: `translateX(calc(-50% + ${clusterShift}))`,
+        };
     }
   }
   switch (playerIdx) {
@@ -1157,15 +1226,15 @@ function getTrickSlotTransform(
     }
   }
   if (playerCount === 3) {
+    const clusterShift = 'var(--trick-slot-cluster-shift-x, 0px)';
     switch (playerIdx) {
       case 2:
-        return 'translate(-50%, 0)';
       case 1:
-        return 'translate(-50%, 0)';
+        return 'translateY(-50%)';
       case 0:
-        return 'translateX(-50%)';
+        return `translateX(calc(-50% + ${clusterShift}))`;
       default:
-        return 'translateX(-50%)';
+        return `translateX(calc(-50% + ${clusterShift}))`;
     }
   }
   const ns = 'var(--trick-slot-ns-offset-x, 28px)';
@@ -1178,7 +1247,7 @@ function getTrickSlotTransform(
   }
 }
 
-const TRICK_COLLECT_EASE = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+const TRICK_COLLECT_EASE = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
 
 /** Обёртка слота при анимации сбора взятки; landscape — те же якоря, что getTrickCardSlotStyle */
 function getTrickCollectSlotStyle(
@@ -1201,7 +1270,8 @@ function getTrickCollectSlotStyle(
     ].join(', ');
     return {
       ...getTrickCardSlotStyle(slotIdx, isMobileOrTablet, true, playerCount),
-      transition: collectToWinner ? collectTransition : 'none',
+      /* Transition всегда — иначе смена transition+transform в одном кадре глотает полёт. */
+      transition: collectTransition,
     };
   }
   return {
@@ -1213,7 +1283,8 @@ function getTrickCollectSlotStyle(
     alignItems: 'center',
     pointerEvents: 'none',
     transform: getTrickSlotTransform(slotIdx, isMobileOrTablet, false, playerCount),
-    transition: collectToWinner ? `transform ${cardCollectMs}ms ${TRICK_COLLECT_EASE}` : 'none',
+    /* Transition всегда — иначе смена transition+transform в одном кадре глотает полёт. */
+    transition: `transform ${cardCollectMs}ms ${TRICK_COLLECT_EASE}`,
   };
 }
 
@@ -1225,11 +1296,15 @@ const currentTrickLeaderGlowStyle: CSSProperties = {
   ].join(', '),
 };
 
-/** Подсветка панельки игрока, которому достаётся текущая взятка (пока карты на столе). */
+/** Подсветка панельки игрока, которому достаётся текущая / последняя взятка. */
 const trickWinnerGlowStyle: CSSProperties = {
   boxShadow: [
-    'inset 0 0 24px rgba(34, 197, 94, 0.35)',
-    'inset 0 0 0 2px rgba(34, 197, 94, 0.6)',
+    'inset 0 0 32px rgba(34, 197, 94, 0.5)',
+    'inset 0 0 0 2px rgba(74, 222, 128, 0.95)',
+    '0 0 0 2px rgba(52, 211, 153, 0.8)',
+    '0 0 22px rgba(34, 197, 94, 0.7)',
+    '0 0 44px rgba(16, 185, 129, 0.5)',
+    '0 0 68px rgba(52, 211, 153, 0.3)',
   ].join(', '),
 };
 
@@ -1312,6 +1387,25 @@ const MOBILE_VIEWPORT_MQ = '(max-width: 600px), (max-width: 1024px) and (max-hei
 /** Телефон в landscape: широкий низкий экран — отдельная раскладка (Север над столом, Запад слева). */
 const MOBILE_LANDSCAPE_MQ = '(max-width: 1024px) and (max-height: 560px) and (orientation: landscape)';
 /** Юг · landscape: калибровка панели/руки — не ниже 660×330, см. mobileLandscapeSouthLayout.ts */
+
+/**
+ * Планшет / компактный «ПК-шелл» (в т.ч. iPad Pro landscape ~1194 CSS-px).
+ * Не использовать голый max-height — иначе срабатывает на десктопе 1440×900.
+ */
+const TABLET_PC_SHELL_MQ = '(max-width: 1366px) and (min-width: 601px)';
+
+function useIsTabletPcShell() {
+  const [match, setMatch] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(TABLET_PC_SHELL_MQ).matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(TABLET_PC_SHELL_MQ);
+    const handler = () => setMatch(mq.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return match;
+}
 
 function useIsMobileLandscape() {
   const [match, setMatch] = useState(
@@ -1723,6 +1817,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
   const isMobileLandscape = useIsMobileLandscape() && isMobile;
+  const isTabletPcShell = useIsTabletPcShell();
+  /** ПК-оболочка на планшете/низком экране: без PC-lift и с компактным info-бейджем. */
+  const useTabletPcTableTuning = !isMobile && (isMobileOrTablet || isTabletPcShell);
   const mobileLandscapeSouthLayoutTuned = useMobileLandscapeSouthLayoutTuned();
   /** Баннер для гостя при ожидании решения хоста; класс на main-wrap — шапка fixed и без доп. padding перекрывает баннер. */
   const showAbsentGuestBanner =
@@ -1959,6 +2056,42 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const [showLastTrickModal, setShowLastTrickModal] = useState(false);
   const [bidPanelVisible, setBidPanelVisible] = useState(false);
   const [trumpHighlightOn, setTrumpHighlightOn] = useState(true);
+  const [pcHandScaleBoost, setPcHandScaleBoost] = useState<PcHandScaleBoost>(() => readPcHandScaleBoost());
+  const [pcTableSettingsOpen, setPcTableSettingsOpen] = useState(() => readPcTableSettingsOpen());
+  const [pcScaleWheelArmed, setPcScaleWheelArmed] = useState(false);
+  const pcScaleWheelLockRef = useRef(0);
+  const setPcHandScaleBoostPersistent = useCallback((boost: PcHandScaleBoost) => {
+    setPcHandScaleBoost(boost);
+    writePcHandScaleBoost(boost);
+  }, []);
+  const bumpPcHandScale = useCallback((dir: 1 | -1) => {
+    const seats: 3 | 4 = state && playerCountOf(state) === 3 ? 3 : 4;
+    setPcHandScaleBoost((prev) => {
+      const cur = clampPcHandScaleBoost(prev, seats);
+      const next =
+        dir > 0 ? nextPcHandScaleBoost(cur, seats) : prevPcHandScaleBoost(cur);
+      writePcHandScaleBoost(next);
+      return next;
+    });
+  }, [state]);
+  const setPcTableSettingsOpenPersistent = useCallback((open: boolean) => {
+    setPcTableSettingsOpen(open);
+    writePcTableSettingsOpen(open);
+    if (!open) setPcScaleWheelArmed(false);
+  }, []);
+  useEffect(() => {
+    if (isMobile || !pcTableSettingsOpen || !pcScaleWheelArmed) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const now = Date.now();
+      if (now - pcScaleWheelLockRef.current < 85) return;
+      pcScaleWheelLockRef.current = now;
+      if (e.deltaY < 0) bumpPcHandScale(1);
+      else if (e.deltaY > 0) bumpPcHandScale(-1);
+    };
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => window.removeEventListener('wheel', onWheel);
+  }, [isMobile, pcTableSettingsOpen, pcScaleWheelArmed, bumpPcHandScale]);
   const [gameInfoBadgeSkin, setGameInfoBadgeSkin] = useState<GameInfoBadgeStyle>(() => loadGameInfoBadgeStyle());
   const [gameInfoBadgeStyleToast, setGameInfoBadgeStyleToast] = useState<string | null>(null);
   const gameInfoBadgeLongPressConsumedRef = useRef(false);
@@ -2075,7 +2208,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   /** Мобильная панель Юга: подпись «Очки» у бейджа очков (как у оппонентов, тап переключает). */
   const [mobileSouthUserScoreExpanded, setMobileSouthUserScoreExpanded] = useState(false);
   const [lastTrickCollectingPhase, setLastTrickCollectingPhase] = useState<
-    'idle' | 'slots' | 'winner' | 'totals-accent' | 'collapsing' | 'button'
+    'idle' | 'reveal' | 'slots' | 'winner' | 'totals-accent' | 'collapsing' | 'button'
   >('idle');
   const [showDealResultsButton, setShowDealResultsButton] = useState(false);
   /** Σ (моб. угол / ПК шапка): краткое поблескивание после свежей раздачи; сброс при открытии таблицы (таймаут в эффекте результатов). */
@@ -3475,13 +3608,40 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   }, [shortVhSouthStretchMaxPx]);
 
   const dealJustCompleted = !!state?.lastCompletedTrick && state.players.every((p) => p.hand.length === 0);
-  const mobileDealResultsInterstitialOverlayActive =
-    isMobile &&
+  /** Стол показывает последнюю взятку (в т.ч. фаза reveal — ещё без оверлея). */
+  const lastTrickInterstitialActive =
     dealJustCompleted &&
-    (lastTrickCollectingPhase === 'slots' ||
+    (lastTrickCollectingPhase === 'reveal' ||
+      lastTrickCollectingPhase === 'slots' ||
       lastTrickCollectingPhase === 'winner' ||
       lastTrickCollectingPhase === 'totals-accent' ||
       lastTrickCollectingPhase === 'collapsing');
+  /** Модалка/оверлей результатов — только после паузы на столе (не на reveal/slots). */
+  const dealResultsAnimOverlayActive =
+    dealJustCompleted &&
+    (lastTrickCollectingPhase === 'winner' ||
+      lastTrickCollectingPhase === 'totals-accent' ||
+      lastTrickCollectingPhase === 'collapsing');
+  /**
+   * Экранчик «Последняя взятка»: пока виден оверлей результатов, в т.ч. на полёте к Σ
+   * (пролёт мимо эха допустим).
+   */
+  const lastTrickEchoVisible =
+    dealResultsAnimOverlayActive && !!state?.lastCompletedTrick;
+  /** Чистый стол: чья взятка — зелёный glow панели + рамка карты (reveal/slots/winner). */
+  const lastTrickWinnerAnnounceActive =
+    dealJustCompleted &&
+    (lastTrickCollectingPhase === 'reveal' ||
+      lastTrickCollectingPhase === 'slots' ||
+      lastTrickCollectingPhase === 'winner');
+  const lastTrickWinnerIdx = state?.lastCompletedTrick?.winnerIndex ?? -1;
+  /** Поднять обёртку слота победителя над оверлеем результатов (как Юг z=140), иначе glow не виден. */
+  const lastTrickWinnerSeatElevateStyle = (seat: number): CSSProperties =>
+    lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === seat
+      ? { zIndex: 145, position: 'relative' as const, isolation: 'isolate' as const }
+      : {};
+  const mobileDealResultsInterstitialOverlayActive =
+    isMobile && dealResultsAnimOverlayActive;
 
   const shortVhSouthResizeHandleVisible =
     mobileViewportShort &&
@@ -3752,6 +3912,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   /** Таймеры анимации результатов; очищаем только в том запуске эффекта, который их создал. */
   const dealResultsTimeoutsRef = useRef<{
     main?: number;
+    reveal?: number;
     slots?: number;
     winner?: number;
     totalsAccent?: number;
@@ -3767,6 +3928,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const dealResultsCornerHintTimeoutRef = useRef<number | undefined>(undefined);
   const mobileDealResultsPortalRootRef = useRef<HTMLDivElement>(null);
   const mobileDealResultsOverlayAnimRef = useRef<HTMLDivElement>(null);
+  const pcDealResultsPortalRootRef = useRef<HTMLDivElement>(null);
   const pcDealResultsOverlayAnimRef = useRef<HTMLDivElement>(null);
   /** Защита от мгновенного «обратного» тапа по backdrop сразу после открытия модалки (моб. флэш). */
   const dealResultsOpenedAtRef = useRef(0);
@@ -4030,10 +4192,58 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   }, [isMobile, dealResultsExpanded, dealResultsMobileStretchPx]);
 
   const humanIdx = isOnline || isWaitingInRoom ? 0 : 0;
-  /** На троих — Запад+Север; Восток только на четверых (как офлайн). */
+  const tableSeatCount: PlayerCount = state ? playerCountOf(state) : 4;
+  const isThreeSeatTable = tableSeatCount === 3;
+  const pcScaleSeats: 3 | 4 = isThreeSeatTable ? 3 : 4;
+  const pcScaleBoost = !isMobile
+    ? clampPcHandScaleBoost(pcHandScaleBoost, pcScaleSeats)
+    : 0;
+  const pcScaleMax = pcHandScaleMaxForSeats(pcScaleSeats);
+  const pcHandScaleExtraH =
+    !isMobile && !useTabletPcTableTuning ? pcHandScaleExtraHeightPx(pcScaleBoost, pcScaleSeats) : 0;
+  const pcCardScaleMul =
+    !isMobile && !useTabletPcTableTuning ? pcHandScaleMultiplier(pcScaleBoost) : 1;
+  const pcFeltScaleMul =
+    !isMobile && !useTabletPcTableTuning ? pcTableFeltScaleMultiplier(pcScaleBoost, pcScaleSeats) : 1;
+  const pcSidePushPx =
+    !isMobile && !useTabletPcTableTuning ? pcSidePanelPushPx(pcScaleBoost, pcScaleSeats) : 0;
+  const pcHandToPanelGap =
+    !isMobile && !useTabletPcTableTuning ? pcHandToPanelGapPx(pcScaleBoost, pcScaleSeats) : 0;
+  /** 3p ПК: подъём стола (база выше + clearance при scale); 4p: база 149, clearance 0. */
+  const pcHandTableClearance =
+    !isMobile && !useTabletPcTableTuning ? pcHandTableClearancePx(pcScaleBoost, pcScaleSeats) : 0;
+  const pcTableUpOffsetPx =
+    !isMobile && !useTabletPcTableTuning
+      ? pcTableUpOffsetTotalPx(pcScaleBoost, pcScaleSeats)
+      : 149;
+  /** Полный десктоп: подъём стола; планшет/низкий экран — нет (ломает рука↔сукно). */
+  const pcTableLiftActive =
+    !isMobile &&
+    !useTabletPcTableTuning &&
+    (isThreeSeatTable || pcHandTableClearance > 0);
+  const pcFourHandCompact =
+    !isMobile && !useTabletPcTableTuning && pcScaleSeats === 4
+      ? pcFourSeatHandCompactMul(pcScaleBoost)
+      : 1;
+  /**
+   * Слоты стола:
+   * 4 — Юг0 / Север1 / Запад2 / Восток3.
+   * 3 — Юг0 / Запад2 / Восток1; Север скрыт.
+   *   Мобильная (портрет) пока держит «Север» для idx1 — не ломаем.
+   *   ПК: idx1 переезжает на Восток.
+   */
   const showWestSideSeat = true;
-  const showEastSeatFour = !!state && playerCountOf(state) > 3;
-  const isHumanTurn = state?.phase === 'playing' && state.currentPlayerIndex === humanIdx;
+  const showEastSeatFour = !isThreeSeatTable;
+  const showPcNorthSeat = !isThreeSeatTable;
+  const showPcEastSeat = true;
+  const pcEastDisplayIndex = isThreeSeatTable ? 1 : 3;
+  const pcWestDisplayIndex = 2;
+  const pcNorthDisplayIndex = 1;
+  /** Пока взятка на столе (pending) — это НЕ ход «положить карту», даже если currentPlayer = победитель. */
+  const isHumanTurn =
+    state?.phase === 'playing' &&
+    state.currentPlayerIndex === humanIdx &&
+    !state.pendingTrickCompletion;
   const humanAlreadyPlayedCurrentTrick =
     state?.phase === 'playing' &&
     !!state.currentTrick.some((_, trickCardIndex) => getTrickPlayerIndex(state.trickLeaderIndex, trickCardIndex, playerCountOf(state)) === humanIdx);
@@ -4117,19 +4327,19 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const mobileSouthHandLayout = useMemo(() => {
     if (!isMobile || !state) return null;
     const mobileHandLen = state.players[humanIdx].hand.length;
-    const lHandEligible =
-      !isMobileLandscape &&
-      !mobileShortHeaderImmersive &&
-      mobileHandLen >= MOBILE_L_HAND_FROM_LEN;
-    const lHandExpanded = lHandEligible && !mobileLHandFlat;
-    const lHandFlat = lHandEligible && mobileLHandFlat;
-    const layoutHandLen = lHandExpanded ? MOBILE_L_HAND_MAIN_MAX : mobileHandLen;
     /*
      * При zoom>1 на .game-mobile-user-south-main карты визуально крупнее того же layout в CSS px —
      * если считать нахлёст/scale по сыроу vw, ряд выпирает из .game-mobile-south-panel-hand.
      */
     const layoutVwForHand =
       shortVhSouthUiScale > 1.0001 ? mobileHandLayoutVw / shortVhSouthUiScale : mobileHandLayoutVw;
+    const lHandEligible =
+      !isMobileLandscape &&
+      !mobileShortHeaderImmersive &&
+      mobileHandNeedsLFrame(layoutVwForHand, mobileHandLen);
+    const lHandExpanded = lHandEligible && !mobileLHandFlat;
+    const lHandFlat = lHandEligible && mobileLHandFlat;
+    const layoutHandLen = lHandExpanded ? MOBILE_L_HAND_MAIN_MAX : mobileHandLen;
     const m9 = getMobileNineCardHandLayout(layoutVwForHand, layoutHandLen);
     const fit = getMobileHandRowFit(layoutVwForHand, layoutHandLen, m9.overlapPx, m9.slotPadding);
     let rowScale = fit.rowScale;
@@ -4917,21 +5127,14 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       const panel = panelEl.getBoundingClientRect();
       const table = tableEl.getBoundingClientRect();
       if (pcTurnRoamSlot === 0) {
-        /** Торги: не по центру панели — там сетка цифр заказа; якорь — левый кластер (аватар/имя) */
+        /** Торги: кнопки заказа на столе — якорь таблички «Ваш заказ» у левого кластера панели Юга */
         if (showPcYourOrderRoamingBadge) {
           const clusterEl = pcUserPanelLeftClusterRef.current;
           const cluster = clusterEl?.getBoundingClientRect();
           if (cluster) {
-            const bid = pcBidPanelRef.current?.getBoundingClientRect();
-            /** ~половина ширины таблички — не заходить на кнопки заказа справа */
-            const badgeHalfW = userTurnStrongNudgePc ? 88 : 72;
-            let left = cluster.left + cluster.width / 2;
-            if (bid) {
-              left = Math.min(left, bid.left - badgeHalfW - 10);
-            }
             setPcTurnRoamFixedStyle({
               position: 'fixed',
-              left,
+              left: cluster.left + cluster.width / 2,
               top: cluster.top - 8,
               transform: 'translate(-50%, -100%)',
               margin: 0,
@@ -4988,7 +5191,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     state?.currentPlayerIndex,
   ]);
 
-  /** Вектор схлопывания оверлея к реальной Σ: моб. — корень портала; ПК — .game-table-root (наследование var() в оверлей). */
+  /** Вектор схлопывания оверлея к Σ: vars на корне портала (моб./ПК), иначе transform-предки ломают полёт. */
   useLayoutEffect(() => {
     const clearVars = (el: HTMLElement | null) => {
       if (!el) return;
@@ -5013,7 +5216,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       const btnCx = br.left + br.width / 2;
       const btnCy = br.top + br.height / 2;
       let ox = window.innerWidth * 0.5;
-      let oy = window.innerHeight * (isMobileLandscape ? 0.5 : 0.55);
+      let oy = window.innerHeight * (isMobileLandscape ? 0.5 : 0.72);
       if (overlay) {
         const ob = overlay.getBoundingClientRect();
         ox = ob.left + ob.width / 2;
@@ -5023,8 +5226,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       root.style.setProperty('--deal-results-collapse-dy', `${btnCy - oy}px`);
     };
 
+    clearVars(gameTableRootRef.current);
     if (isMobile) {
-      clearVars(gameTableRootRef.current);
+      clearVars(pcDealResultsPortalRootRef.current);
       measureAndApply(
         mobileDealResultsPortalRootRef.current,
         dealResultsCornerBtnRef.current,
@@ -5033,7 +5237,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     } else {
       clearVars(mobileDealResultsPortalRootRef.current);
       measureAndApply(
-        gameTableRootRef.current,
+        pcDealResultsPortalRootRef.current,
         dealResultsHeaderBtnRef.current,
         pcDealResultsOverlayAnimRef.current,
       );
@@ -5295,11 +5499,18 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
 
     const clearStoredTimeouts = () => {
       if (timeouts.main != null) clearTimeout(timeouts.main);
+      if (timeouts.reveal != null) clearTimeout(timeouts.reveal);
       if (timeouts.slots != null) clearTimeout(timeouts.slots);
       if (timeouts.winner != null) clearTimeout(timeouts.winner);
       if (timeouts.totalsAccent != null) clearTimeout(timeouts.totalsAccent);
       if (timeouts.collapse != null) clearTimeout(timeouts.collapse);
-      timeouts.main = timeouts.slots = timeouts.winner = timeouts.totalsAccent = timeouts.collapse = undefined;
+      timeouts.main =
+        timeouts.reveal =
+        timeouts.slots =
+        timeouts.winner =
+        timeouts.totalsAccent =
+        timeouts.collapse =
+          undefined;
     };
     clearStoredTimeouts();
 
@@ -5324,26 +5535,32 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       }
     }, TRICK_PAUSE_MS);
 
-    setLastTrickCollectingPhase('slots');
-    timeouts.slots = window.setTimeout(() => {
-      timeouts.slots = undefined;
-      setLastTrickCollectingPhase('winner');
-      timeouts.winner = window.setTimeout(() => {
-        timeouts.winner = undefined;
-        setLastTrickCollectingPhase('totals-accent');
-        timeouts.totalsAccent = window.setTimeout(() => {
-          timeouts.totalsAccent = undefined;
-          setLastTrickCollectingPhase('collapsing');
-          timeouts.collapse = window.setTimeout(() => {
-            timeouts.collapse = undefined;
-            setLastTrickCollectingPhase('button');
-            const o = onlineRef.current;
-            const canonicalSnap = o?.canonicalState;
-            const snap = canonicalSnap ?? stateRef.current;
-            if (snap && snap.dealNumber >= dealsPerMatch(playerCountOf(snap))) {
-              setGameOverSnapshot(snap);
-              setGameOverViewerSlot(canonicalSnap != null ? o.myServerIndex : null);
-              setShowGameOverModal(true);
+    // 1) Чистый стол — успеть прочитать последнюю взятку; оверлей ещё закрыт.
+    setLastTrickCollectingPhase('reveal');
+    timeouts.reveal = window.setTimeout(() => {
+      timeouts.reveal = undefined;
+      // 2) Полёт карт к слоту победителя — оверлей ещё закрыт, иначе он перекрывает анимацию.
+      setLastTrickCollectingPhase('slots');
+      timeouts.slots = window.setTimeout(() => {
+        timeouts.slots = undefined;
+        // 3) Оверлей результатов появляется здесь (пониже); полёт уже виден/завершён.
+        setLastTrickCollectingPhase('winner');
+        timeouts.winner = window.setTimeout(() => {
+          timeouts.winner = undefined;
+          setLastTrickCollectingPhase('totals-accent');
+          timeouts.totalsAccent = window.setTimeout(() => {
+            timeouts.totalsAccent = undefined;
+            setLastTrickCollectingPhase('collapsing');
+            timeouts.collapse = window.setTimeout(() => {
+              timeouts.collapse = undefined;
+              setLastTrickCollectingPhase('button');
+              const o = onlineRef.current;
+              const canonicalSnap = o?.canonicalState;
+              const snap = canonicalSnap ?? stateRef.current;
+              if (snap && snap.dealNumber >= dealsPerMatch(playerCountOf(snap))) {
+                setGameOverSnapshot(snap);
+                setGameOverViewerSlot(canonicalSnap != null ? o.myServerIndex : null);
+                setShowGameOverModal(true);
               if (!canonicalSnap && snap) {
                 setGameOverCloudSave(userRef.current?.id ? 'pending' : 'no-auth');
                 const maxScore = Math.max(...snap.players.map((p) => p.score));
@@ -5504,6 +5721,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         }, DEAL_RESULTS_TOTALS_ACCENT_MS);
       }, LAST_TRICK_WINNER_PAUSE_MS);
     }, LAST_TRICK_CARDS_PAUSE_MS);
+    }, LAST_TRICK_REVEAL_MS);
 
     return () => {
       if (dealResultsTimeoutsRunIdRef.current === runId) {
@@ -5515,13 +5733,15 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   useEffect(() => {
     if (pendingTrickCompletionKey == null) return;
     if (isOnlinePlayPhase && isServerAuthoritativeOnline()) return;
+    const allPlayed = stateRef.current?.pendingTrickCompletion?.allPlayed;
+    const holdMs = trickCompleteHoldMs(allPlayed);
     const t = setTimeout(() => {
       if (isOnlinePlayPhase) {
         void online.sendCompleteTrick();
       } else {
         setLocalState(prev => prev && completeTrick(prev));
       }
-    }, FOURTH_CARD_SLOT_PAUSE_MS);
+    }, holdMs);
     return () => clearTimeout(t);
   }, [pendingTrickCompletionKey, isOnlinePlayPhase, online.sendCompleteTrick]);
 
@@ -5994,13 +6214,8 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const pcDarkModeBadgeAsButton =
     !isMobile && dealTypeDark && !dealContractStats.allBidsPlaced;
 
-  /** Юг: «заказ на руке ровно» (в т.ч. заказ 0 при 0 взяток) — то же условие, что exact-кольцо аватара; не во время анимации слотов взятки */
-  const humanCollectingTrickSlots =
-    dealJustCompleted &&
-    (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing');
+  /** Юг: «заказ на руке ровно» — не во время анимации слотов взятки */
+  const humanCollectingTrickSlots = lastTrickInterstitialActive;
   const humanBidForOrderRingRaw = state.bids[humanIdx] ?? state.players[humanIdx].bid;
   const humanBidForOrderRingN =
     humanBidForOrderRingRaw == null || Number.isNaN(Number(humanBidForOrderRingRaw))
@@ -6107,6 +6322,182 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
           {avatarButton}
         </span>
       </span>
+    );
+  };
+
+  /** ПК: настройки стола (масштаб карт) — только desktop, не мобила. */
+  const renderPcTableSettings = () => {
+    if (isWaitingInRoom) return null;
+    return (
+      <div
+        className={[
+          'pc-table-settings',
+          pcTableSettingsOpen ? 'pc-table-settings--open' : 'pc-table-settings--collapsed',
+        ].join(' ')}
+      >
+        {!pcTableSettingsOpen ? (
+          <button
+            type="button"
+            className={[
+              'pc-table-settings-gear',
+              pcScaleBoost > 0 ? 'pc-table-settings-gear--active' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={() => setPcTableSettingsOpenPersistent(true)}
+            title={
+              pcScaleBoost > 0
+                ? `Настройки стола (карты ${100 + pcScaleBoost}%)`
+                : 'Настройки стола'
+            }
+            aria-label="Открыть настройки стола"
+            aria-expanded={false}
+          >
+            <span className="pc-table-settings-gear__cosmos" aria-hidden />
+            <svg
+              className="pc-table-settings-gear__icon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden
+            >
+              <defs>
+                <linearGradient id="pc-table-gear-grad" x1="4" y1="4" x2="20" y2="20">
+                  <stop offset="0%" stopColor="#ecfeff" />
+                  <stop offset="45%" stopColor="#67e8f9" />
+                  <stop offset="100%" stopColor="#e9d5ff" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm8.2 2.55-.95-.17a7.1 7.1 0 0 0-.55-1.32l.55-.8a.9.9 0 0 0-.1-1.15l-1.2-1.2a.9.9 0 0 0-1.15-.1l-.8.55c-.42-.23-.86-.42-1.32-.55l-.17-.95A.9.9 0 0 0 13.8 4h-1.7a.9.9 0 0 0-.88.73l-.17.95c-.46.13-.9.32-1.32.55l-.8-.55a.9.9 0 0 0-1.15.1L6.58 7.0a.9.9 0 0 0-.1 1.15l.55.8c-.23.42-.42.86-.55 1.32l-.95.17A.9.9 0 0 0 4.8 11.2v1.7c0 .44.32.82.75.89l.95.17c.13.46.32.9.55 1.32l-.55.8a.9.9 0 0 0 .1 1.15l1.2 1.2c.32.32.82.36 1.15.1l.8-.55c.42.23.86.42 1.32.55l.17.95c.07.43.45.75.89.75h1.7c.44 0 .82-.32.89-.75l.17-.95c.46-.13.9-.32 1.32-.55l.8.55c.33.26.83.22 1.15-.1l1.2-1.2a.9.9 0 0 0 .1-1.15l-.55-.8c.23-.42.42-.86.55-1.32l.95-.17a.9.9 0 0 0 .75-.89v-1.7a.9.9 0 0 0-.75-.9Z"
+                fill="url(#pc-table-gear-grad)"
+              />
+            </svg>
+            {pcScaleBoost > 0 ? (
+              <span className="pc-table-settings-gear__badge">{100 + pcScaleBoost}%</span>
+            ) : null}
+          </button>
+        ) : (
+          <div
+            className={[
+              'pc-table-settings-capsule',
+              pcScaleWheelArmed ? 'pc-table-settings-capsule--wheel-armed' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            role="dialog"
+            aria-label="Масштаб карт"
+          >
+            <span className="pc-table-settings-capsule__cosmos" aria-hidden />
+            <button
+              type="button"
+              className="pc-table-settings-ultra"
+              disabled={pcScaleBoost <= 0}
+              onClick={() => bumpPcHandScale(-1)}
+              title="Уменьшить на 10%"
+              aria-label="Уменьшить масштаб на 10 процентов"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              className={[
+                'pc-table-settings-ultra',
+                'pc-table-settings-ultra--value',
+                pcScaleBoost > 0 ? 'pc-table-settings-ultra--boosted' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={() => setPcHandScaleBoostPersistent(0)}
+              title={pcScaleBoost > 0 ? 'Сбросить до 100%' : 'Текущий масштаб 100%'}
+              aria-label={`Масштаб ${100 + pcScaleBoost} процентов${pcScaleBoost > 0 ? '. Нажмите, чтобы сбросить до 100' : ''}`}
+            >
+              {100 + pcScaleBoost}%
+            </button>
+            <button
+              type="button"
+              className="pc-table-settings-ultra"
+              disabled={pcScaleBoost >= pcScaleMax}
+              onClick={() => bumpPcHandScale(1)}
+              title={
+                pcScaleSeats === 4
+                  ? 'Увеличить на 10% (макс. 110% на четверых)'
+                  : 'Увеличить на 10%'
+              }
+              aria-label="Увеличить масштаб на 10 процентов"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className={[
+                'pc-table-settings-ultra',
+                'pc-table-settings-ultra--wheel',
+                pcScaleWheelArmed ? 'pc-table-settings-ultra--wheel-on' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={() => setPcScaleWheelArmed((v) => !v)}
+              title={
+                pcScaleWheelArmed
+                  ? `Скролл мыши: масштаб ${pcScaleSeats === 3 ? '100–140%' : '100–110%'}. Нажмите, чтобы выключить`
+                  : `Включить регулировку скроллом мыши (${pcScaleSeats === 3 ? '100–140%' : '100–110%'})`
+              }
+              aria-label={
+                pcScaleWheelArmed
+                  ? 'Выключить регулировку масштаба скроллом мыши'
+                  : 'Включить регулировку масштаба скроллом мыши'
+              }
+              aria-pressed={pcScaleWheelArmed}
+            >
+              <svg
+                className="pc-table-settings-wheel-icon"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden
+              >
+                <rect
+                  x="7.5"
+                  y="2.5"
+                  width="9"
+                  height="19"
+                  rx="4.5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                />
+                <rect
+                  className="pc-table-settings-wheel-icon__scroll"
+                  x="10.5"
+                  y="5.5"
+                  width="3"
+                  height="5"
+                  rx="1.5"
+                  fill="currentColor"
+                />
+                <path
+                  d="M12 12.5v4"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  opacity="0.55"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="pc-table-settings-ultra pc-table-settings-ultra--close"
+              onClick={() => setPcTableSettingsOpenPersistent(false)}
+              title="Свернуть"
+              aria-label="Свернуть настройки"
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -6291,10 +6682,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
           horizontalOnly
           collectingCards={
             dealJustCompleted &&
-            (lastTrickCollectingPhase === 'slots' ||
-              lastTrickCollectingPhase === 'winner' ||
-              lastTrickCollectingPhase === 'totals-accent' ||
-              lastTrickCollectingPhase === 'collapsing')
+            (lastTrickInterstitialActive)
           }
           compactMode={isMobileOrTablet}
           playerMobileWideTricks={isMobile}
@@ -6727,8 +7115,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
 
   const renderMobileGameInfoLeftSection = () => {
     if (!mobileShowGameInfoStrip) return null;
+    /** deal-complete: не снимать plasma-экранчик — иначе бейдж схлопывается на полёте Σ и «восстанавливается» на следующей раздаче. */
     const mobileGameInfoTurnPresentation =
-      !isWaitingInRoom && state.phase === 'playing'
+      !isWaitingInRoom && (state.phase === 'playing' || state.phase === 'deal-complete')
         ? resolveMobileGameInfoPlayerNamePresentation(state.currentPlayerIndex)
         : null;
     const mobileGameInfoBidPresentation =
@@ -7029,6 +7418,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         position: 'relative',
         display: 'flex',
         flexShrink: 0,
+        ...lastTrickWinnerSeatElevateStyle(1),
         ...(isMobileLandscape && mobileLandscapeNorthPanelFixedW != null
           ? {
               flex: '0 0 auto',
@@ -7060,15 +7450,13 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         }
         collectingCards={
           dealJustCompleted &&
-          (lastTrickCollectingPhase === 'slots' ||
-            lastTrickCollectingPhase === 'winner' ||
-            lastTrickCollectingPhase === 'totals-accent' ||
-            lastTrickCollectingPhase === 'collapsing')
+          (lastTrickInterstitialActive)
         }
-        winnerPanelBlink={
-          dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1
-        }
-        trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 1}
+        winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 1}
+        trickWinnerHighlight={
+                  (!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 1) ||
+                  (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 1)
+                }
         currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
         firstBidderBadge={
           (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
@@ -7093,9 +7481,38 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   return (
     <div
       ref={gameTableRootRef}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{
         ...tableLayoutStyle,
+        ...(pcHandScaleExtraH > 0 || pcTableLiftActive || pcCardScaleMul > 1
+          ? ({
+              ...(pcCardScaleMul > 1
+                ? {
+                    ['--pc-card-scale' as string]: String(pcCardScaleMul),
+                  }
+                : {}),
+              ...(pcHandScaleExtraH > 0
+                ? {
+                    ['--pc-hand-scale-extra-h' as string]: `${pcHandScaleExtraH}px`,
+                  }
+                : {}),
+              ...(pcHandToPanelGap > 0
+                ? {
+                    ['--pc-hand-to-panel-gap' as string]: `${pcHandToPanelGap}px`,
+                  }
+                : {}),
+              ...(pcTableLiftActive
+                ? {
+                    ['--game-table-up-offset' as string]: `${pcTableUpOffsetPx}px`,
+                    ...(pcHandTableClearance > 0
+                      ? {
+                          ['--pc-hand-table-clearance' as string]: `${pcHandTableClearance}px`,
+                        }
+                      : {}),
+                  }
+                : {}),
+            } as const)
+          : {}),
         ...(mobileSouthHandLayout?.lHandExpanded
           ? ({
               ['--mobile-l-hand-gutter' as string]: `${MOBILE_L_HAND_GUTTER_PX}px`,
@@ -8141,7 +8558,18 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
           </div>
         )}
 
-      <div className={isMobile ? 'game-table-block game-table-block-mobile' : undefined} style={gameTableBlockStyle}>
+      <div
+        className={isMobile ? 'game-table-block game-table-block-mobile' : undefined}
+        style={{
+          ...gameTableBlockStyle,
+          /* Явный подъём: CSS-var на корне иногда не дотягивался до визуала */
+          ...(!isMobile && pcTableLiftActive
+            ? { transform: `translateY(-${pcTableUpOffsetPx}px)` }
+            : !isMobile && useTabletPcTableTuning && isThreeSeatTable
+              ? { transform: 'translateY(-201px)' }
+              : {}),
+        }}
+      >
       {isMobile ? (
         /* Мобильная раскладка: Север+Запад над столом, стол вертикальный, Восток+Юг под столом */
         <>
@@ -8193,7 +8621,10 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                     ...(mobileViewportShort && mobileShortHeaderImmersive ? { marginTop: shortImmersiveNwRowAlignPx } : {}),
                   }}
                 >
-                  <div className="game-mobile-slot-west" style={{ display: 'flex', flexShrink: 0 }}>
+                  <div
+                    className="game-mobile-slot-west"
+                    style={{ display: 'flex', flexShrink: 0, ...lastTrickWinnerSeatElevateStyle(2) }}
+                  >
                     <OpponentSlot
                       state={displayState}
                       index={2}
@@ -8207,15 +8638,13 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                       }
                       collectingCards={
                         dealJustCompleted &&
-                        (lastTrickCollectingPhase === 'slots' ||
-                          lastTrickCollectingPhase === 'winner' ||
-                          lastTrickCollectingPhase === 'totals-accent' ||
-                          lastTrickCollectingPhase === 'collapsing')
+                        (lastTrickInterstitialActive)
                       }
-                      winnerPanelBlink={
-                        dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2
+                      winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 2}
+                      trickWinnerHighlight={
+                        (!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 2) ||
+                        (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 2)
                       }
-                      trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 2}
                       currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
                       firstBidderBadge={
                         (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
@@ -8271,6 +8700,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                 display: 'flex',
                 flex: '0 0 auto',
                 flexShrink: 0,
+                ...lastTrickWinnerSeatElevateStyle(2),
                 ...(mobileLandscapeWePanelFixedW != null
                   ? {
                       width: mobileLandscapeWePanelFixedW,
@@ -8283,12 +8713,12 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={resolveDisplayPlayerAvatar(2)}
                 replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
-                collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing')}
-                winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2}
-                trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 2}
+                collectingCards={lastTrickInterstitialActive}
+                winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 2}
+                trickWinnerHighlight={
+                        (!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 2) ||
+                        (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 2)
+                      }
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
@@ -8320,7 +8750,10 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             tabIndex={isAITurn ? 0 : undefined}
             title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}>
             <div className="game-center-table" style={{ ...centerStyle, ...(isMobileLandscape ? { flex: '0 0 auto', flexShrink: 0, alignItems: 'stretch' as const, width: 'var(--game-table-landscape-table-col-width)', maxWidth: 'var(--game-table-landscape-table-col-width)', minWidth: 0 } : { flex: 1, minWidth: 0 }) }}>
-        <div style={{ ...tableOuterStyle, ...(trumpHighlightOn ? tableOuterStyleWithHighlight : {}) }}>
+        <div
+          className="game-table-outer"
+          style={{ ...tableOuterStyle, ...(trumpHighlightOn ? tableOuterStyleWithHighlight : {}) }}
+        >
           <div style={{ ...tableSurfaceStyle, ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}) }}>
             {isMobile &&
               mobileViewportShort &&
@@ -8437,27 +8870,28 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                   );
                 })
               ) : state.lastCompletedTrick && Date.now() < trickPauseUntil && lastTrickCollectingPhase !== 'button' ? (
-                dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing') ? (
+                lastTrickInterstitialActive ? (
                   state.lastCompletedTrick.cards.map((card, i) => {
                     const leader = state.lastCompletedTrick!.leaderIndex;
                     const playerIdx = getTrickPlayerIndex(leader, i, playerCountOf(state));
                     const winnerIdx = state.lastCompletedTrick!.winnerIndex;
                     const collectToWinner =
+                      lastTrickCollectingPhase === 'slots' ||
                       lastTrickCollectingPhase === 'winner' ||
                       lastTrickCollectingPhase === 'totals-accent' ||
                       lastTrickCollectingPhase === 'collapsing';
                     const showCardBack =
-                      lastTrickCollectingPhase === 'totals-accent' || lastTrickCollectingPhase === 'collapsing';
-                    const CARD_COLLECT_MS = 500;
+                      lastTrickCollectingPhase === 'collapsing';
+                    const CARD_COLLECT_MS = LAST_TRICK_COLLECT_MS;
                     const cardScale = getTrickTableCardScale(isMobileOrTablet, isMobileLandscape);
                     const cardW = Math.round(52 * cardScale);
                     const cardH = Math.round(76 * cardScale);
+                    const isTrickWinnerCard =
+                      lastTrickWinnerAnnounceActive && playerIdx === winnerIdx;
                     return (
                       <div
                         key={`${card.suit}-${card.rank}-${i}`}
+                        className={isTrickWinnerCard ? 'last-trick-table-card--winner' : undefined}
                         style={{
                           ...getTrickCollectSlotStyle(
                             playerIdx,
@@ -8468,7 +8902,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                             CARD_COLLECT_MS,
                             playerCountOf(state),
                           ),
-                          zIndex: i,
+                          zIndex: isTrickWinnerCard ? 8 : i,
                         }}
                       >
                         {showCardBack ? (
@@ -8481,7 +8915,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                             tableCardMobile={isMobileOrTablet}
                             scale={cardScale}
                             contentScale={getTrickTableContentScale(isMobileOrTablet, isMobileLandscape)}
-                            doubleBorder={trumpHighlightOn}
+                            doubleBorder={trumpHighlightOn || isTrickWinnerCard}
                             isTrumpOnTable={isMobileOrTablet ? (trumpHighlightOn && state.trump !== null && card.suit === state.trump) : (state.trump !== null && card.suit === state.trump)}
                             trumpHighlightOn={trumpHighlightOn}
                             pcCardStyles={!isMobileOrTablet}
@@ -8687,20 +9121,6 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
           </div>
         </div>
         </div>
-        {dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing') && !isMobile && (
-          <DealResultsScreen
-            state={state}
-            isCollapsing={lastTrickCollectingPhase === 'collapsing'}
-            isMobile={false}
-            overlayAnimRef={pcDealResultsOverlayAnimRef}
-            overlayAccentPhase={
-              lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' ? 'deal-points' : 'running-total'
-            }
-          />
-        )}
             {showEastSeatFour ? (
             <div
               className="game-center-east game-mobile-east"
@@ -8714,17 +9134,18 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                 alignItems: 'stretch',
                 justifyContent: 'flex-start',
                 alignSelf: 'stretch',
+                ...lastTrickWinnerSeatElevateStyle(3),
               }}
             >
               <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={resolveDisplayPlayerAvatar(3)}
                 replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
-                collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing')}
-                winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 3}
-                trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 3}
+                collectingCards={lastTrickInterstitialActive}
+                winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 3}
+                trickWinnerHighlight={
+                  (!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 3) ||
+                  (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 3)
+                }
                 currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
                 firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
@@ -8952,11 +9373,11 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             ...(mobileViewportShort
               ? { flex: '0 0 auto', minWidth: 0, width: '100%', maxWidth: '100%' }
               : {}),
-            ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing')
+            ...(lastTrickInterstitialActive && lastTrickWinnerIdx !== humanIdx
               ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
+              : {}),
+            ...(lastTrickInterstitialActive && lastTrickWinnerIdx === humanIdx
+              ? { zIndex: 140, position: 'relative' as const }
               : {}),
           }}
         >
@@ -8986,7 +9407,10 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
           ...(!mobileViewportShort && state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : {}),
           ...(!mobileViewportShort && state.currentPlayerIndex !== humanIdx && state.dealerIndex === humanIdx ? dealerPanelFrameStyle : {}),
           ...(dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === humanIdx ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
-          ...(!mobileViewportShort && !!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === humanIdx ? trickWinnerGlowStyle : {}),
+          ...((!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === humanIdx) ||
+          (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === humanIdx)
+            ? trickWinnerGlowStyle
+            : {}),
           ...(!mobileViewportShort && getCurrentTrickLeaderIndex(state) === humanIdx ? currentTrickLeaderGlowStyle : {}),
           ...(!mobileViewportShort &&
           (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
@@ -9422,10 +9846,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                           variant="player"
                           collectingCards={
                             dealJustCompleted &&
-                            (lastTrickCollectingPhase === 'slots' ||
-                              lastTrickCollectingPhase === 'winner' ||
-                              lastTrickCollectingPhase === 'totals-accent' ||
-                              lastTrickCollectingPhase === 'collapsing')
+                            (lastTrickInterstitialActive)
                           }
                           compactMode={isMobileOrTablet}
                           playerMobileWideTricks={isMobile}
@@ -9640,10 +10061,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                       variant="player"
                       collectingCards={
                         dealJustCompleted &&
-                        (lastTrickCollectingPhase === 'slots' ||
-                          lastTrickCollectingPhase === 'winner' ||
-                          lastTrickCollectingPhase === 'totals-accent' ||
-                          lastTrickCollectingPhase === 'collapsing')
+                        (lastTrickInterstitialActive)
                       }
                       compactMode={isMobileOrTablet}
                       playerMobileWideTricks={isMobile}
@@ -9804,17 +10222,28 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               ['--pc-game-info-left-align-px' as string]: `${pcGameInfoLeftAlignPx}px`,
             }}
           >
-            {!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
+            {!isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
               <div
                 ref={pcFirstMoveBadgeRef}
                 className="first-move-badge first-move-badge-above-block pc-info-badge-unified pc-info-badge--bidding"
-                style={firstMoveBadgeStyle}
+                style={{
+                  ...firstMoveBadgeStyle,
+                  ...(useTabletPcTableTuning && isThreeSeatTable
+                    ? {
+                        transform: 'scale(calc(1.3 / 1.7))',
+                        transformOrigin: 'bottom left',
+                      }
+                    : null),
+                }}
               >
                 <span className="first-move-num" style={firstMoveLabelStyle}>Первый ход:</span>
                 <span style={firstMoveValueStyle}>{displayState.players[state.trickLeaderIndex].name}</span>
               </div>
             )}
-            {(state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') && (
+            {(state.phase === 'playing' ||
+              state.phase === 'deal-complete' ||
+              state.phase === 'bidding' ||
+              state.phase === 'dark-bidding') && (
               <div
                 ref={pcGameInfoLeftSectionRef}
                 className={`game-info-left-section pc-info-badge-unified ${
@@ -9824,7 +10253,16 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                       ? 'pc-info-badge--user-turn'
                       : 'pc-info-badge--playing'
                 }`}
-                style={gameInfoLeftSectionStyleResolved}
+                style={{
+                  ...gameInfoLeftSectionStyleResolved,
+                  ...(useTabletPcTableTuning && isThreeSeatTable
+                    ? {
+                        /* было 1/1.7; +1.3 → 1.3/1.7 */
+                        transform: 'scale(calc(1.3 / 1.7))',
+                        transformOrigin: 'top left',
+                      }
+                    : null),
+                }}
                 title={gameInfoBadgeHintTitle}
                 onContextMenu={onGameInfoBadgeContextMenu}
                 onPointerDown={onGameInfoBadgePointerDown}
@@ -9850,7 +10288,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                     </span>
                   </button>
                 )}
-                {state.phase === 'playing' && (
+                {(state.phase === 'playing' || state.phase === 'deal-complete') && (
                   <GameInfoPlasmaTurnBlock
                     skin={gameInfoBadgeSkin}
             playerCount={playerCountOf(state)}
@@ -9888,34 +10326,57 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             )}
           </div>
         <div style={gameInfoTopRowSpacerStyle} aria-hidden />
-        <div style={gameInfoNorthSlotWrapper} aria-hidden />
-        <div className="game-center-north" style={gameInfoNorthSlotWrapperAbsolute}>
-          <OpponentSlot state={displayState} index={1} position="top" inline compactMode={isMobileOrTablet}
-            avatarDataUrl={resolveDisplayPlayerAvatar(1)}
-            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
-            collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing')}
-            winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 1}
-            trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 1}
-            currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 1}
-            firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
-            firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 1}
-            onAvatarClick={handleOpponentAvatarClick}
-            onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
-            offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
-          />
-        </div>
-        <div style={gameInfoTopRowSpacerStyle} aria-hidden />
+        {showPcNorthSeat ? (
+          <>
+            <div style={gameInfoNorthSlotWrapper} aria-hidden />
+            <div
+              className="game-center-north"
+              style={{
+                ...gameInfoNorthSlotWrapperAbsolute,
+                ...(lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcNorthDisplayIndex
+                  ? { zIndex: 145 }
+                  : {}),
+              }}
+            >
+              <OpponentSlot state={displayState} index={pcNorthDisplayIndex} position="top" inline compactMode={isMobileOrTablet}
+                avatarDataUrl={resolveDisplayPlayerAvatar(pcNorthDisplayIndex)}
+                replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(pcNorthDisplayIndex, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
+                collectingCards={lastTrickInterstitialActive}
+                winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcNorthDisplayIndex}
+                trickWinnerHighlight={
+                      (!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === pcNorthDisplayIndex) ||
+                      (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcNorthDisplayIndex)
+                    }
+                currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === pcNorthDisplayIndex}
+                firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === pcNorthDisplayIndex}
+                firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === pcNorthDisplayIndex}
+                onAvatarClick={handleOpponentAvatarClick}
+                onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
+                offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
+              />
+            </div>
+            <div style={gameInfoTopRowSpacerStyle} aria-hidden />
+          </>
+        ) : (
+          <div className="game-center-north game-center-north--three-absent" style={gameInfoNorthSlotWrapperThreeAbsent} aria-hidden />
+        )}
         </div>
       <div className="game-center-spacer-top" style={centerAreaSpacerTopStyle} aria-hidden />
       <div
         className="game-center-area"
         style={{
           ...centerAreaStyle,
+          ...(pcSidePushPx > 0 ? { gap: 16 + Math.round(pcSidePushPx * 0.55) } : {}),
           ...(isAITurn ? { cursor: 'pointer' } : {}),
-          ...(dealJustCompleted ? { zIndex: 40 } : {}),
+          ...(dealJustCompleted
+            ? {
+                zIndex:
+                  lastTrickWinnerAnnounceActive &&
+                  (lastTrickWinnerIdx === pcWestDisplayIndex || lastTrickWinnerIdx === pcEastDisplayIndex)
+                    ? 145
+                    : 40,
+              }
+            : {}),
         }}
         onClick={isAITurn ? accelerateAI : undefined}
         onKeyDown={e => { if (isAITurn && e.key === ' ') { e.preventDefault(); accelerateAI(); } }}
@@ -9923,32 +10384,73 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         tabIndex={isAITurn ? 0 : undefined}
         title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}>
         {showWestSideSeat ? (
-        <div className="game-center-west" style={{ ...opponentSideWrapWestStyle, ...(!isMobileOrTablet ? opponentSideWrapPcGrowStyle : {}) }}>
-          <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
-            avatarDataUrl={resolveDisplayPlayerAvatar(2)}
-            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
-            collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing')}
-            winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 2}
-            trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 2}
-            currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
-            firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
-            firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
+        <div
+          className="game-center-west"
+          style={{
+            ...opponentSideWrapWestStyle,
+            ...(!isMobileOrTablet ? opponentSideWrapPcGrowStyle : {}),
+            ...lastTrickWinnerSeatElevateStyle(pcWestDisplayIndex),
+            ...(pcSidePushPx > 0 ? { marginRight: pcSidePushPx } : {}),
+          }}
+        >
+          <OpponentSlot state={displayState} index={pcWestDisplayIndex} position="left" inline compactMode={isMobileOrTablet}
+            avatarDataUrl={resolveDisplayPlayerAvatar(pcWestDisplayIndex)}
+            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(pcWestDisplayIndex, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
+            collectingCards={lastTrickInterstitialActive}
+            winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcWestDisplayIndex}
+            trickWinnerHighlight={
+                        (!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === pcWestDisplayIndex) ||
+                        (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcWestDisplayIndex)
+                      }
+            currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === pcWestDisplayIndex}
+            firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === pcWestDisplayIndex}
+            firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === pcWestDisplayIndex}
             onAvatarClick={handleOpponentAvatarClick}
             onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
             offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
           />
         </div>
         ) : (
-          <div className="game-center-west" style={{ ...opponentSideWrapWestStyle, ...(!isMobileOrTablet ? opponentSideWrapPcGrowStyle : {}) }} aria-hidden />
+          <div className="game-center-west" style={{ ...opponentSideWrapWestStyle, ...(!isMobileOrTablet ? opponentSideWrapPcGrowStyle : {}), ...(pcSidePushPx > 0 ? { marginRight: pcSidePushPx } : {}) }} aria-hidden />
         )}
-        <div className="game-center-table" style={centerStyle}>
-        <div style={{ ...tableOuterStyle, ...(trumpHighlightOn ? tableOuterStyleWithHighlight : {}) }}>
+        <div
+          className="game-center-table"
+          style={{
+            ...centerStyle,
+            ...(pcSidePushPx > 0 ? { marginLeft: Math.round(pcSidePushPx * 0.25), marginRight: Math.round(pcSidePushPx * 0.25) } : {}),
+          }}
+        >
+        <div
+          className={[
+            'game-table-outer',
+            useTabletPcTableTuning ? 'game-table-outer--tablet-compact-frame' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          style={{
+            ...tableOuterStyle,
+            ...(trumpHighlightOn ? tableOuterStyleWithHighlight : {}),
+            ...(useTabletPcTableTuning
+              ? {
+                  borderWidth: 1,
+                  padding: 'max(6px, calc(var(--game-table-padding, 18px) - 8px))',
+                }
+              : {}),
+          }}
+        >
           <div
             ref={pcTableSurfaceRef}
-            style={{ ...tableSurfaceStyle, ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}) }}
+            style={{
+              ...tableSurfaceStyle,
+              ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}),
+              ...(pcFeltScaleMul !== 1
+                ? {
+                    width: `calc(var(--game-table-surface-width, 576px) * ${pcFeltScaleMul})`,
+                    height: `calc(var(--game-table-surface-height, 250px) * ${pcFeltScaleMul})`,
+                    minHeight: `calc(var(--game-table-surface-height, 250px) * ${pcFeltScaleMul})`,
+                  }
+                : {}),
+            }}
           >
             {isWaitingInRoom && (
               <div
@@ -10018,6 +10520,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                 compactTable={isMobileOrTablet}
                 pcCardStyles={!isMobileOrTablet}
                 playerCount={displayState.players.length}
+                scaleMultiplier={isMobileOrTablet ? 1 : pcCardScaleMul}
               />
             )}
             <div style={trickStyle}>
@@ -10026,39 +10529,73 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                   const leader = state.trickLeaderIndex;
                   const playerIdx = getTrickPlayerIndex(leader, i, playerCountOf(state));
                   const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state));
+                  const tableCardScale = getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, pcCardScaleMul);
                   return (
                     <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
-                      <CardView card={card} compact showDesktopFaceIndices={true} tableCardMobile={isMobileOrTablet} scale={isMobileOrTablet ? 0.98 : 1.18} contentScale={isMobileOrTablet ? 1.8 : undefined}
+                      <CardView card={card} compact showDesktopFaceIndices={true} tableCardMobile={isMobileOrTablet} scale={tableCardScale} contentScale={isMobileOrTablet ? 1.8 : undefined}
                         doubleBorder={trumpHighlightOn} isTrumpOnTable={isMobileOrTablet ? (trumpHighlightOn && state.trump !== null && card.suit === state.trump) : (state.trump !== null && card.suit === state.trump)} trumpHighlightOn={trumpHighlightOn} showPipZoneBorders={trumpHighlightOn} pcCardStyles={!isMobileOrTablet} />
                     </div>
                   );
                 })
               ) : state.lastCompletedTrick && Date.now() < trickPauseUntil && lastTrickCollectingPhase !== 'button' ? (
-                dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing') ? (
+                lastTrickInterstitialActive ? (
                   state.lastCompletedTrick.cards.map((card, i) => {
                     const leader = state.lastCompletedTrick!.leaderIndex;
                     const playerIdx = getTrickPlayerIndex(leader, i, playerCountOf(state));
                     const winnerIdx = state.lastCompletedTrick!.winnerIndex;
                     const collectToWinner =
+                      lastTrickCollectingPhase === 'slots' ||
                       lastTrickCollectingPhase === 'winner' ||
                       lastTrickCollectingPhase === 'totals-accent' ||
                       lastTrickCollectingPhase === 'collapsing';
                     const showCardBack =
-                      lastTrickCollectingPhase === 'totals-accent' || lastTrickCollectingPhase === 'collapsing';
-                    const CARD_COLLECT_MS = 500;
-                    const cardScale = getTrickTableCardScale(isMobileOrTablet, isMobileLandscape);
+                      lastTrickCollectingPhase === 'collapsing';
+                    const CARD_COLLECT_MS = LAST_TRICK_COLLECT_MS;
+                    const cardScale = getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, pcCardScaleMul);
                     const cardW = Math.round(52 * cardScale);
                     const cardH = Math.round(76 * cardScale);
+                    const isTrickWinnerCard =
+                      lastTrickWinnerAnnounceActive && playerIdx === winnerIdx;
                     return (
-                      <div key={`${card.suit}-${card.rank}-${i}`} style={{ position: 'absolute', left: '50%', top: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none', zIndex: i,
-                        transform: collectToWinner ? getTrickSlotTransform(winnerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state)) : getTrickSlotTransform(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state)),
-                        transition: collectToWinner ? `transform ${CARD_COLLECT_MS}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` : 'none',
-                      }}>
-                        {showCardBack ? <div style={{ ...cardBackStyle, width: cardW, height: cardH }} aria-hidden /> : (
-                          <CardView card={card} compact showDesktopFaceIndices={true} tableCardMobile={isMobileOrTablet} scale={cardScale} contentScale={isMobileOrTablet ? 1.5 : undefined} doubleBorder={trumpHighlightOn} isTrumpOnTable={isMobileOrTablet ? (trumpHighlightOn && state.trump !== null && card.suit === state.trump) : (state.trump !== null && card.suit === state.trump)} trumpHighlightOn={trumpHighlightOn} showPipZoneBorders={trumpHighlightOn} pcCardStyles={!isMobileOrTablet} />
+                      <div
+                        key={`${card.suit}-${card.rank}-${i}`}
+                        className={isTrickWinnerCard ? 'last-trick-table-card--winner' : undefined}
+                        style={{
+                          position: 'absolute',
+                          left: '50%',
+                          top: '50%',
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          pointerEvents: 'none',
+                          zIndex: isTrickWinnerCard ? 8 : i,
+                          transform: collectToWinner
+                            ? getTrickSlotTransform(winnerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state))
+                            : getTrickSlotTransform(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state)),
+                          /* Transition всегда — иначе смена transition+transform в одном кадре глотает полёт. */
+                          transition: `transform ${CARD_COLLECT_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`,
+                        }}
+                      >
+                        {showCardBack ? (
+                          <div style={{ ...cardBackStyle, width: cardW, height: cardH }} aria-hidden />
+                        ) : (
+                          <CardView
+                            card={card}
+                            compact
+                            showDesktopFaceIndices={true}
+                            tableCardMobile={isMobileOrTablet}
+                            scale={cardScale}
+                            contentScale={isMobileOrTablet ? 1.5 : undefined}
+                            doubleBorder={trumpHighlightOn || isTrickWinnerCard}
+                            isTrumpOnTable={
+                              isMobileOrTablet
+                                ? trumpHighlightOn && state.trump !== null && card.suit === state.trump
+                                : state.trump !== null && card.suit === state.trump
+                            }
+                            trumpHighlightOn={trumpHighlightOn}
+                            showPipZoneBorders={trumpHighlightOn}
+                            pcCardStyles={!isMobileOrTablet}
+                          />
                         )}
                       </div>
                     );
@@ -10068,9 +10605,10 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                     const leader = state.lastCompletedTrick!.leaderIndex;
                     const playerIdx = getTrickPlayerIndex(leader, i, playerCountOf(state));
                     const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state));
+                    const tableCardScale = getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, pcCardScaleMul);
                     return (
                       <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
-                        <CardView card={card} compact showDesktopFaceIndices={true} tableCardMobile={isMobileOrTablet} scale={isMobileOrTablet ? 0.98 : 1.18} contentScale={isMobileOrTablet ? 1.5 : undefined} doubleBorder={trumpHighlightOn} isTrumpOnTable={isMobileOrTablet ? (trumpHighlightOn && state.trump !== null && card.suit === state.trump) : (state.trump !== null && card.suit === state.trump)} trumpHighlightOn={trumpHighlightOn} showPipZoneBorders={trumpHighlightOn} pcCardStyles={!isMobileOrTablet} />
+                        <CardView card={card} compact showDesktopFaceIndices={true} tableCardMobile={isMobileOrTablet} scale={tableCardScale} contentScale={isMobileOrTablet ? 1.5 : undefined} doubleBorder={trumpHighlightOn} isTrumpOnTable={isMobileOrTablet ? (trumpHighlightOn && state.trump !== null && card.suit === state.trump) : (state.trump !== null && card.suit === state.trump)} trumpHighlightOn={trumpHighlightOn} showPipZoneBorders={trumpHighlightOn} pcCardStyles={!isMobileOrTablet} />
                       </div>
                     );
                   })
@@ -10079,53 +10617,120 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               {humanTrickWaitBadgeReady && (
                 <HumanTrickSlotWaitBadge
                   slotStyle={getTrickCardSlotStyle(humanIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state))}
-                  cardScale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape)}
+                  cardScale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, pcCardScaleMul)}
                 />
               )}
             </div>
             {state.lastCompletedTrick && (
-              <button type="button" className={state.dealerIndex === 3 ? 'last-trick-btn last-trick-btn-left' : state.dealerIndex === 1 ? 'last-trick-btn last-trick-btn-left-mobile-only' : 'last-trick-btn'}
+              <button type="button" className={
+                state.dealerIndex === 3 || (isThreeSeatTable && state.dealerIndex === pcEastDisplayIndex)
+                  ? 'last-trick-btn last-trick-btn-left'
+                  : state.dealerIndex === 1
+                    ? 'last-trick-btn last-trick-btn-left-mobile-only'
+                    : 'last-trick-btn'
+              }
                 onClick={e => { e.stopPropagation(); setShowLastTrickModal(true); }} style={lastTrickButtonStyle}>
                 <span className="last-trick-btn__label">Последняя взятка</span>
               </button>
             )}
+            {!isMobile && shouldShowBidPanel && bidPanelVisible && (
+              <div
+                className="bid-panel-pc-on-table-wrap"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: 10,
+                  zIndex: 15,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'flex-end',
+                  pointerEvents: 'none',
+                  padding: '0 12px',
+                }}
+              >
+                <div
+                  ref={pcBidPanelRef}
+                  className={[
+                    'bid-panel',
+                    'bid-panel-inline',
+                    'bid-panel-bottom',
+                    'bid-panel-pc-on-table',
+                    pcBidPanelIdlePulsePc ? 'pc-bid-panel-idle-pulse' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  style={{
+                    ...bidPanelInlineStyle,
+                    pointerEvents: 'auto',
+                  }}
+                  aria-label="Выбор заказа"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {!showPcYourOrderRoamingBadge ? (
+                    <span className="bid-panel-title bid-panel-title-inline" style={bidPanelInlineTitleStyle}>
+                      {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
+                    </span>
+                  ) : null}
+                  <div className="bid-panel-grid" style={bidSidePanelGrid}>
+                    {Array.from({ length: state.tricksInDeal + 1 }, (_, i) => {
+                      const disabled = invalidBid === i;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          className={['bid-panel-btn', disabled ? 'bid-panel-btn--forbidden' : ''].filter(Boolean).join(' ')}
+                          disabled={disabled}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!disabled) handleBidRef.current(i);
+                          }}
+                          style={{
+                            ...bidSidePanelButtonMobile,
+                            ...(disabled ? bidSidePanelButtonDisabledMobile : {}),
+                          }}
+                          title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
+                        >
+                          {i}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         </div>
-        {showEastSeatFour ? (
-        <div className="game-center-east" style={{ ...opponentSideWrapEastStyle, ...(!isMobileOrTablet ? opponentSideWrapPcGrowStyle : {}) }}>
-          <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
-            avatarDataUrl={resolveDisplayPlayerAvatar(3)}
-            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
-            collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing')}
-            winnerPanelBlink={dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === 3}
-            trickWinnerHighlight={!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 3}
-            currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
-            firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
-            firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
+        {showPcEastSeat ? (
+        <div
+          className="game-center-east"
+          style={{
+            ...opponentSideWrapEastStyle,
+            ...(!isMobileOrTablet ? opponentSideWrapPcGrowStyle : {}),
+            ...lastTrickWinnerSeatElevateStyle(pcEastDisplayIndex),
+            ...(pcSidePushPx > 0 ? { marginLeft: pcSidePushPx } : {}),
+          }}
+        >
+          <OpponentSlot state={displayState} index={pcEastDisplayIndex} position="right" inline compactMode={isMobileOrTablet}
+            avatarDataUrl={resolveDisplayPlayerAvatar(pcEastDisplayIndex)}
+            replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(pcEastDisplayIndex, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
+            collectingCards={lastTrickInterstitialActive}
+            winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcEastDisplayIndex}
+            trickWinnerHighlight={
+              (!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === pcEastDisplayIndex) ||
+              (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcEastDisplayIndex)
+            }
+            currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === pcEastDisplayIndex}
+            firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === pcEastDisplayIndex}
+            firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === pcEastDisplayIndex}
             onAvatarClick={handleOpponentAvatarClick}
             onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
             offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
           />
         </div>
         ) : null}
-        {dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing') && !isMobile && (
-          <DealResultsScreen
-            state={state}
-            isCollapsing={lastTrickCollectingPhase === 'collapsing'}
-            isMobile={false}
-            overlayAnimRef={pcDealResultsOverlayAnimRef}
-            overlayAccentPhase={
-              lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' ? 'deal-points' : 'running-total'
-            }
-          />
-        )}
       </div>
       <div className="game-center-spacer-bottom" style={centerAreaSpacerBottomStyle} aria-hidden />
         </>
@@ -10150,37 +10755,69 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             : undefined
         }
       >
-      <div className="game-pc-user-layer" style={{
+      <div
+        className="game-pc-user-layer"
+        style={{
         ...playerStyle,
-        ...(dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing')
+        /* Панель Юга оставляем, если взятка ваша — иначе glow не виден. Чужую interstitial-панель прячем. */
+        ...(lastTrickInterstitialActive && lastTrickWinnerIdx !== humanIdx
           ? { visibility: 'hidden' as const, pointerEvents: 'none' as const, opacity: 0 }
+          : {}),
+        ...(lastTrickInterstitialActive && lastTrickWinnerIdx === humanIdx
+          ? { zIndex: 140, position: 'relative' as const }
           : {}),
       }}>
         <div
           className={[
+            'pc-player-hand-frame',
             state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : '',
             !isMobile && pcHandIdlePulsePc && isHumanTurn ? 'pc-player-hand-idle-pulse' : '',
           ]
             .filter(Boolean)
             .join(' ') || undefined}
-          style={handFrameStyle}
+          style={{
+            ...handFrameStyle,
+            position: 'relative',
+            overflow: 'visible',
+            ...(!isMobile
+              ? {
+                  marginBottom:
+                    useTabletPcTableTuning && isThreeSeatTable
+                      ? 0
+                      : Math.max(2, 6 + 10 + pcHandToPanelGap),
+                }
+              : pcHandToPanelGap > 0
+                ? { marginBottom: 6 + pcHandToPanelGap }
+                : {}),
+            ...(pcScaleBoost > 0
+              ? {
+                  maxWidth: `min(${Math.round(1100 + pcScaleBoost * 6)}px, 98vw)`,
+                }
+              : {}),
+          }}
         >
           <div style={handStyle}>
             {(() => {
               const humanAlreadyPlayedCurrentTrick =
                 state.phase === 'playing' &&
                 state.currentTrick.some((_, trickCardIndex) => getTrickPlayerIndex(state.trickLeaderIndex, trickCardIndex, playerCountOf(state)) === humanIdx);
-              return state.players[humanIdx].hand
+              const handCards = state.players[humanIdx].hand
                 .slice()
-                .sort((a, b) => cardSort(a, b, state.trump))
-                .map((card, i) => (
+                .sort((a, b) => cardSort(a, b, state.trump));
+              /** ПК: адаптивный base (калиброван к прежнему нативу на 100%) + boost; 4p — чуть компактнее. */
+              const pcHandBaseScale = isMobileOrTablet
+                ? 1 / (1.3 * 1.1)
+                : resolvePcHandAdaptiveScale(handCards.length);
+              let pcHandScale = isMobileOrTablet
+                ? pcHandBaseScale
+                : pcHandBaseScale * pcHandScaleMultiplier(pcScaleBoost) * pcFourHandCompact;
+              /* Планшет: всегда −5%, без порога по числу карт */
+              if (useTabletPcTableTuning) pcHandScale *= TABLET_HAND_COMPACT;
+              return handCards.map((card, i) => (
                 <CardView
                   key={`${card.suit}-${card.rank}-${i}`}
                   card={card}
-                  scale={isMobileOrTablet ? 1 / (1.3 * 1.1) : 1}
+                  scale={pcHandScale}
                   contentScale={isMobileOrTablet ? 1.5 : undefined}
                   doubleBorder={trumpHighlightOn}
                   isTrumpOnTable={isMobileOrTablet ? (trumpHighlightOn && state.trump !== null && card.suit === state.trump) : (state.trump !== null && card.suit === state.trump)}
@@ -10188,7 +10825,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                   isTrumpInHand={state.trump !== null && card.suit === state.trump}
                   forceMobileTrumpGlow={isMobileOrTablet && state.trump !== null && card.suit === state.trump && (state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0))}
                   mobileTrumpGlowActive={state.phase === 'bidding' || state.phase === 'dark-bidding' || (state.phase === 'playing' && state.currentPlayerIndex === humanIdx && state.currentTrick.length === 0)}
-                  highlightAsValidPlay={state.phase === 'playing' && state.currentPlayerIndex === humanIdx && !humanAlreadyPlayedCurrentTrick && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                  highlightAsValidPlay={isHumanTurn && !humanAlreadyPlayedCurrentTrick && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
                   mobileTrumpShineBidding={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.trump !== null && card.suit === state.trump}
                   showPipZoneBorders={trumpHighlightOn}
                   pcCardStyles={!isMobileOrTablet}
@@ -10213,7 +10850,10 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
           position: 'relative',
           ...(state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : undefined),
           ...(dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === humanIdx ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
-          ...(!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === humanIdx ? trickWinnerGlowStyle : {}),
+          ...((!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === humanIdx) ||
+          (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === humanIdx)
+            ? trickWinnerGlowStyle
+            : {}),
           ...(getCurrentTrickLeaderIndex(state) === humanIdx ? currentTrickLeaderGlowStyle : {}),
           ...((state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? (() => {
             const base = state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : null;
@@ -10275,16 +10915,16 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               <div className="user-player-panel-pc-avatar-col">
                 <div ref={pcUserPanelLeftClusterRef} className="user-player-panel-pc-left-cluster">
                   <div className="user-player-panel-pc-avatar-name-stack">
-                    {renderUserPlayerAvatar(38)}
+                    <div className="user-player-panel-pc-avatar-wrap">
+                      {renderUserPlayerAvatar(
+                        useTabletPcTableTuning &&
+                          (state.phase === 'bidding' || state.phase === 'dark-bidding')
+                          ? 58
+                          : 38,
+                      )}
+                    </div>
                     <div className="user-player-panel-pc-name-under-avatar">
                       <span className="player-panel-name user-player-panel-pc-name-text" style={playerNameStyle}>{displayState.players[humanIdx].name}</span>
-                      {state.dealerIndex === humanIdx &&
-                        state.phase !== 'bidding' &&
-                        state.phase !== 'dark-bidding' && (
-                        <span style={dealerLampStyle} title="Сдающий">
-                          <span style={dealerLampBulbStyle} /> Сдающий
-                        </span>
-                      )}
                     </div>
                   </div>
                   {state.phase !== 'bidding' && state.phase !== 'dark-bidding' && (
@@ -10293,10 +10933,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                         bid={state.bids[humanIdx] ?? null}
                         tricksTaken={state.players[humanIdx].tricksTaken}
                         variant="player"
-                        collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing')}
+                        collectingCards={lastTrickInterstitialActive}
                         compactMode={false}
                         playerMobileWideTricks={false}
                         tricksLeftInDeal={tricksRemainingInDeal(state)}
@@ -10315,95 +10952,74 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                             <span className="first-bidder-lamp-user-pc-bulb" style={firstBidderLampBulbStyle} /> Первый заказ/ход
                           </span>
                         )}
-                      {state.dealerIndex === humanIdx && (
-                        <span style={dealerLampStyle} title="Сдающий">
-                          <span style={dealerLampBulbStyle} /> Сдающий
-                        </span>
-                      )}
                     </div>
-                    <div
-                      className={['player-score-badge', 'player-score-badge-pc-above-bid', 'player-score-badge-pc-bidding-row-end', isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : ''].filter(Boolean).join(' ')}
-                      style={playerStatBadgeScoreStyle}
-                    >
-                      <span style={playerStatLabelStyle}>Очки</span>
-                      <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
+                    <div className="user-player-panel-pc-score-stack">
+                      {renderPcTableSettings()}
+                      <div className="user-player-panel-pc-score-dealer-col">
+                        <div
+                          className={['player-score-badge', 'player-score-badge-pc-above-bid', 'player-score-badge-pc-bidding-row-end', isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : ''].filter(Boolean).join(' ')}
+                          style={playerStatBadgeScoreStyle}
+                        >
+                          <span style={playerStatLabelStyle}>Очки</span>
+                          <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
+                        </div>
+                        {state.dealerIndex === humanIdx ? (
+                          <span
+                            className="user-player-panel-pc-dealer-under-score"
+                            style={dealerLampStyle}
+                            title="Сдающий"
+                          >
+                            <span style={dealerLampBulbStyle} /> Сдающий
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 ) : (
                   <div className="user-player-panel-pc-playing-top-row user-player-panel-pc-playing-top-row--score-only">
-                    <div
-                      className={['player-score-badge', 'player-score-badge-pc-above-bid', 'player-score-badge-pc-playing-row-end', isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : ''].filter(Boolean).join(' ')}
-                      style={playerStatBadgeScoreStyle}
-                    >
-                      <span style={playerStatLabelStyle}>Очки</span>
-                      <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
+                    <div className="user-player-panel-pc-score-stack">
+                      {renderPcTableSettings()}
+                      <div className="user-player-panel-pc-score-dealer-col">
+                        <div
+                          className={['player-score-badge', 'player-score-badge-pc-above-bid', 'player-score-badge-pc-playing-row-end', isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : ''].filter(Boolean).join(' ')}
+                          style={playerStatBadgeScoreStyle}
+                        >
+                          <span style={playerStatLabelStyle}>Очки</span>
+                          <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
+                        </div>
+                        {state.dealerIndex === humanIdx ? (
+                          <span
+                            className="user-player-panel-pc-dealer-under-score"
+                            style={dealerLampStyle}
+                            title="Сдающий"
+                          >
+                            <span style={dealerLampBulbStyle} /> Сдающий
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 )}
-                <div className="user-player-panel-pc-stats-stack">
-                  {shouldShowBidPanel && bidPanelVisible && (
-                    <div
-                      ref={pcBidPanelRef}
-                      className={[
-                        'bid-panel',
-                        'bid-panel-inline',
-                        'bid-panel-bottom',
-                        'bid-panel-pc-under-score',
-                        pcBidPanelIdlePulsePc ? 'pc-bid-panel-idle-pulse' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      style={bidPanelInlineStyle}
-                      aria-label="Выбор заказа"
-                    >
-                      {!showPcYourOrderRoamingBadge ? (
-                        <span className="bid-panel-title bid-panel-title-inline" style={bidPanelInlineTitleStyle}>
-                          {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
-                        </span>
-                      ) : null}
-                      <div className="bid-panel-grid" style={bidSidePanelGrid}>
-                        {Array.from({ length: state.tricksInDeal + 1 }, (_, i) => {
-                          const disabled = invalidBid === i;
-                          return (
-                            <button
-                              key={i}
-                              type="button"
-                              className={['bid-panel-btn', disabled ? 'bid-panel-btn--forbidden' : ''].filter(Boolean).join(' ')}
-                              disabled={disabled}
-                              onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
-                              style={{
-                                ...bidSidePanelButtonMobile,
-                                ...(disabled ? bidSidePanelButtonDisabledMobile : {}),
-                              }}
-                              title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
-                            >
-                              {i}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
           ) : (
             <>
               <div style={playerInfoHeaderStyle}>
-                {renderUserPlayerAvatar(34)}
+                {renderUserPlayerAvatar(
+                  useTabletPcTableTuning &&
+                    (state.phase === 'bidding' || state.phase === 'dark-bidding')
+                    ? 54
+                    : 34,
+                )}
                 <span style={playerNameDealerWrapStyle}>
                   <span className="player-panel-name" style={playerNameStyle}>{displayState.players[humanIdx].name}</span>
-                  {state.dealerIndex === humanIdx && (
-                    isMobileOrTablet && state.phase === 'playing' ? (
-                      <button type="button" className="dealer-badge-compact-mobile" style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={() => setShowDealerTooltip(true)} title="Сдающий" aria-label="Сдающий">
-                        <span style={dealerLampBulbStyle} /><span className="dealer-badge-text" aria-hidden>Сдающий</span>
-                      </button>
-                    ) : (
+                  {state.dealerIndex === humanIdx &&
+                    !useTabletPcTableTuning &&
+                    (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
                       <span style={dealerLampStyle} title="Сдающий">
                         <span style={dealerLampBulbStyle} /> Сдающий
                       </span>
-                    )
-                  )}
+                    )}
                 </span>
                 {isMobile && state.currentPlayerIndex === humanIdx && (
                   <span style={yourTurnBadgeStyle}>
@@ -10412,21 +11028,42 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                 )}
               </div>
               <div className="player-stats-row" style={playerStatsRowStyle}>
-                <div
-                  className={['player-score-badge', isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : ''].filter(Boolean).join(' ')}
-                  style={playerStatBadgeScoreStyle}
-                >
-                  <span style={playerStatLabelStyle}>Очки</span>
-                  <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
+                <div className="user-player-panel-score-dealer-col">
+                  <div
+                    className={['player-score-badge', isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : ''].filter(Boolean).join(' ')}
+                    style={playerStatBadgeScoreStyle}
+                  >
+                    <span style={playerStatLabelStyle}>Очки</span>
+                    <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
+                  </div>
+                  {state.dealerIndex === humanIdx &&
+                    (useTabletPcTableTuning ||
+                      (state.phase !== 'bidding' && state.phase !== 'dark-bidding')) &&
+                    (isMobileOrTablet ? (
+                      <button
+                        type="button"
+                        className="dealer-badge-compact-mobile user-player-panel-dealer-under-score"
+                        style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                        onClick={() => setShowDealerTooltip(true)}
+                        title="Сдающий"
+                        aria-label="Сдающий"
+                      >
+                        <span style={dealerLampBulbStyle} />
+                        <span className="dealer-badge-text" aria-hidden>
+                          Сдающий
+                        </span>
+                      </button>
+                    ) : (
+                      <span className="user-player-panel-dealer-under-score" style={dealerLampStyle} title="Сдающий">
+                        <span style={dealerLampBulbStyle} /> Сдающий
+                      </span>
+                    ))}
                 </div>
                 <TrickSlotsDisplay
                   bid={state.bids[humanIdx] ?? null}
                   tricksTaken={state.players[humanIdx].tricksTaken}
                   variant="player"
-                  collectingCards={dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing')}
+                  collectingCards={lastTrickInterstitialActive}
                   compactMode={isMobileOrTablet}
                   playerMobileWideTricks={isMobile}
                   tricksLeftInDeal={tricksRemainingInDeal(state)}
@@ -10474,10 +11111,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         !isWaitingInRoom &&
         !(
           dealJustCompleted &&
-          (lastTrickCollectingPhase === 'slots' ||
-            lastTrickCollectingPhase === 'winner' ||
-            lastTrickCollectingPhase === 'totals-accent' ||
-            lastTrickCollectingPhase === 'collapsing')
+          (lastTrickInterstitialActive)
         ) &&
         createPortal(
           <div className="deal-track-lab-root-scope game-pc-deal-orbit-fixed-host game-table-root">
@@ -10540,15 +11174,64 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
 
       {/* Мобильная панель заказа рендерится в потоке под картами (bid-panel-mobile-inline-wrap), не в портале */}
 
+      {/* ПК: оверлей результатов + эхо «Последняя взятка» — портал на body (иначе translateY стола ломает fixed/absolute). */}
+      {!isMobile && dealResultsAnimOverlayActive && createPortal(
+        <div
+          ref={pcDealResultsPortalRootRef}
+          className={[
+            'pc-deal-results-portal',
+            'game-table-root',
+            useTabletPcTableTuning ? 'game-table-tablet-pc' : '',
+            isThreeSeatTable ? 'game-table-seats-three-pc' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            pointerEvents: 'none',
+            zIndex: 130,
+            boxSizing: 'border-box',
+          }}
+        >
+          {lastTrickEchoVisible && (
+            <LastTrickEcho
+              trick={state.lastCompletedTrick!}
+              players={state.players}
+              playerCount={playerCountOf(state)}
+              accent={lastTrickCollectingPhase === 'winner' ? 'winner' : 'soft'}
+              humanSeat={humanIdx}
+            />
+          )}
+          <DealResultsScreen
+            state={state}
+            isCollapsing={lastTrickCollectingPhase === 'collapsing'}
+            isMobile={false}
+            overlayAnimRef={pcDealResultsOverlayAnimRef}
+            overlayAccentPhase={
+              lastTrickCollectingPhase === 'winner' ? 'deal-points' : 'running-total'
+            }
+          />
+        </div>,
+        document.body,
+      )}
+
       {/* На мобильной оверлей итогов раздачи рендерим в портал, чтобы position:fixed считался от viewport (нет предка с transform) */}
-      {isMobile && dealJustCompleted && (lastTrickCollectingPhase === 'slots' ||
-      lastTrickCollectingPhase === 'winner' ||
-      lastTrickCollectingPhase === 'totals-accent' ||
-      lastTrickCollectingPhase === 'collapsing') && createPortal(
+      {isMobile && dealResultsAnimOverlayActive && createPortal(
         <div
           ref={mobileDealResultsPortalRootRef}
-          className={mobilePortalRootClass}
-          style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 15 }}
+          className={`${mobilePortalRootClass} mobile-deal-results-portal`}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            pointerEvents: 'none',
+            zIndex: 15,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            boxSizing: 'border-box',
+          }}
         >
           <DealResultsScreen
             state={state}
@@ -10556,9 +11239,19 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             isMobile={true}
             overlayAnimRef={mobileDealResultsOverlayAnimRef}
             overlayAccentPhase={
-              lastTrickCollectingPhase === 'slots' || lastTrickCollectingPhase === 'winner' ? 'deal-points' : 'running-total'
+              lastTrickCollectingPhase === 'winner' ? 'deal-points' : 'running-total'
             }
           />
+          {lastTrickEchoVisible && (
+            <LastTrickEcho
+              trick={state.lastCompletedTrick!}
+              players={state.players}
+              playerCount={playerCountOf(state)}
+              accent={lastTrickCollectingPhase === 'winner' ? 'winner' : 'soft'}
+              mobile
+              humanSeat={humanIdx}
+            />
+          )}
         </div>,
         document.body,
       )}
@@ -11724,6 +12417,88 @@ const PLAYER_POSITIONS = [
   { idx: 3, side: 'right' as const, name: 'Восток' },
 ];
 
+/** Раскладка панелей оверлея результатов: на ПК·3 — Запад|Восток сверху, Юг снизу (Север нет). */
+function getOverlayPlayerPositions(
+  playerCount: number,
+  isMobile: boolean,
+): Array<{ idx: number; side: 'top' | 'bottom' | 'left' | 'right'; name: string }> {
+  if (playerCount === 3 && !isMobile) {
+    return [
+      { idx: 0, side: 'bottom', name: 'Юг' },
+      { idx: 2, side: 'left', name: 'Запад' },
+      { idx: 1, side: 'right', name: 'Восток' },
+    ];
+  }
+  return PLAYER_POSITIONS.filter((p) => p.idx < playerCount);
+}
+
+/**
+ * Мини-эхо последней взятки: читаемые мини-карты (без ПК-индексов/contentScale —
+ * они раздувают пипы и дают «кашу»).
+ */
+function LastTrickEcho({
+  trick,
+  players,
+  playerCount,
+  accent,
+  mobile = false,
+  humanSeat = 0,
+}: {
+  trick: NonNullable<GameState['lastCompletedTrick']>;
+  players: GameState['players'];
+  playerCount: PlayerCount;
+  accent: 'winner' | 'soft';
+  mobile?: boolean;
+  humanSeat?: number;
+}) {
+  const winnerName = players[trick.winnerIndex]?.name?.trim() || '—';
+  const iTookIt = trick.winnerIndex === humanSeat;
+  return (
+    <div
+      className={[
+        'last-trick-echo',
+        mobile ? 'last-trick-echo--mobile' : 'last-trick-echo--pc',
+        accent === 'winner' ? 'last-trick-echo--winner' : 'last-trick-echo--soft',
+        iTookIt ? 'last-trick-echo--mine' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-hidden
+    >
+      <div className="last-trick-echo__rail">
+        {trick.cards.map((card, i) => {
+          const seat = playerAtLeftFrom(trick.leaderIndex, i, playerCount);
+          const isWinner = seat === trick.winnerIndex;
+          return (
+            <div
+              key={`${card.suit}-${card.rank}-${i}`}
+              className={['last-trick-echo__slot', isWinner ? 'last-trick-echo__slot--winner' : '']
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <CardView
+                card={card}
+                compact
+                scale={mobile ? 0.7 : 0.78}
+                tableCardMobile
+                showDesktopFaceIndices={false}
+                pcCardStyles={false}
+                showPipZoneBorders={false}
+                doubleBorder={isWinner}
+                thinBorder={!isWinner}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="last-trick-echo__meta">
+        <span className="last-trick-echo__kicker">{iTookIt ? 'Вы взяли:' : 'Последняя взятка:'}</span>
+        <span className="last-trick-echo__winner">{iTookIt ? 'ваша!' : winnerName}</span>
+      </div>
+    </div>
+  );
+}
+
 const DEAL_RESULTS_MOBILE_PAYOUT_PEEK_MS = 2800;
 
 function DealResultsScreen({
@@ -11766,7 +12541,9 @@ function DealResultsScreen({
     ? isMobile
       ? dealResultsModalStyleMobile
       : dealResultsModalStyle
-    : dealResultsOverlayStyle;
+    : isMobile
+      ? dealResultsOverlayStyleMobile
+      : dealResultsOverlayStyle;
   const scores = players.map(p => p.score);
   const minScore = Math.min(...scores);
   const maxScore = Math.max(...scores);
@@ -12056,7 +12833,7 @@ function DealResultsScreen({
     const taken = players[idx].tricksTaken;
     const points = calculateDealPoints(bid, taken);
     const score = players[idx].score;
-    const side = PLAYER_POSITIONS.find(p => p.idx === idx)!.side;
+    const side = getOverlayPlayerPositions(players.length, isMobile).find((p) => p.idx === idx)!.side;
     const panelPos = variant === 'modal' ? undefined : getDealResultsPanelPosition(side);
     return (
       <div key={idx} style={{ ...panelStyle, ...(panelPos ?? {}) }}>
@@ -12832,13 +13609,27 @@ function DealResultsScreen({
   const overlayDealRowStyle: React.CSSProperties =
     isMobile && isOverlayPanels
       ? { ...dealResultsRowStyle, ...dealResultsRowStyleMobileOverlay }
-      : dealResultsRowStyle;
+      : isOverlayPCLayout
+        ? { ...dealResultsRowStyle, fontSize: 15, gap: 14 }
+        : dealResultsRowStyle;
   const overlayLabelStyle: React.CSSProperties =
-    isMobile && isOverlayPanels ? dealResultsLabelStyleMobileOverlay : dealResultsLabelStyle;
+    isMobile && isOverlayPanels
+      ? dealResultsLabelStyleMobileOverlay
+      : isOverlayPCLayout
+        ? { ...dealResultsLabelStyle, fontSize: 14 }
+        : dealResultsLabelStyle;
   const overlayLabelTotalStyle: React.CSSProperties =
-    isMobile && isOverlayPanels ? dealResultsLabelTotalStyleMobileOverlay : dealResultsLabelTotalStyle;
+    isMobile && isOverlayPanels
+      ? dealResultsLabelTotalStyleMobileOverlay
+      : isOverlayPCLayout
+        ? { ...dealResultsLabelTotalStyle, fontSize: 15 }
+        : dealResultsLabelTotalStyle;
   const overlayValueStyle: React.CSSProperties =
-    isMobile && isOverlayPanels ? dealResultsValueStyleMobileOverlay : dealResultsValueStyle;
+    isMobile && isOverlayPanels
+      ? dealResultsValueStyleMobileOverlay
+      : isOverlayPCLayout
+        ? { ...dealResultsValueStyle, fontSize: 18 }
+        : dealResultsValueStyle;
   const toggleLeaderBadgeTooltip = (anchorEl?: HTMLElement) => {
     if (leaderBadgeTooltipOpen) {
       setLeaderBadgeTooltipOpen(false);
@@ -13643,6 +14434,7 @@ function DealResultsScreen({
           ? [
               'deal-results-overlay-animation',
               seatCount === 3 ? 'deal-results-overlay-animation--three' : '',
+              isCollapsing ? 'deal-results-overlay-animation--collapsing' : '',
             ]
               .filter(Boolean)
               .join(' ')
@@ -13651,7 +14443,16 @@ function DealResultsScreen({
       {...(variant === 'overlay' && overlayAccentPhase ? ({ 'data-overlay-accent-phase': overlayAccentPhase } as const) : {})}
       style={{
         ...baseStyle,
-        ...(isCollapsing ? (isMobile ? dealResultsCollapsingStyleMobile : dealResultsCollapsingStyle) : {}),
+        ...(isCollapsing
+          ? {
+              ...(isMobile ? dealResultsCollapsingStyleMobile : dealResultsCollapsingStyle),
+              /* animation управляет transform — не держим transform:none из base */
+              transform: undefined,
+              overflow: 'visible',
+              /* ниже last-trick-echo (160), выше стола */
+              zIndex: 110,
+            }
+          : {}),
       }}
       {...(variant === 'overlay' ? { 'aria-hidden': true as const } : {})}
     >
@@ -14165,7 +14966,7 @@ function DealResultsScreen({
         </>
       ) : (
         <>
-      {PLAYER_POSITIONS.filter((p) => p.idx < players.length).map(({ idx, side }) => {
+      {getOverlayPlayerPositions(players.length, isMobile).map(({ idx, side }) => {
         /** Оверлей только при phase deal-complete: живые заказ/взятки уже от завершённой раздачи; снимок из history на первом кадре может отставать и давать «мигание» прошлыми очками. */
         const bid = bids[idx] ?? 0;
         const taken = players[idx].tricksTaken;
@@ -14234,7 +15035,8 @@ function DealResultsScreen({
               ...dealResultsPanelStyle,
               ...(isMobile && isOverlayPanels ? dealResultsPanelStyleMobileOverlay : {}),
               ...(isOverlayPCLayout ? dealResultsPanelStyleOverlayPC : {}),
-              ...panelPos,
+              /* ПК-оверлей: абсолютные panelPos ломают grid (съезд/вылет); позиция — только CSS. */
+              ...(!(isMobile && isOverlayPanels) && !isOverlayPCLayout ? panelPos : {}),
             }}
           >
             {isMobile && isOverlayPanels ? (
@@ -14490,13 +15292,18 @@ const pcTrickTakenPlainOpponentStyle: React.CSSProperties = {
   textShadow: '0 1px 2px rgba(0,0,0,0.9)',
 };
 
-/** ПК: оба числа при ровном попадании в заказ — нежный сиренево-голубой неон */
+/** ПК: оба числа при ровном попадании в заказ — яркий сиренево-бирюзовый неон (не бледно-белый) */
 const pcTrickExactMatchFigureStyle: React.CSSProperties = {
   cursor: 'help',
-  color: '#e9d5ff',
+  color: '#c084fc',
+  WebkitTextFillColor: '#c084fc',
+  fontWeight: 900,
+  WebkitTextStroke: '0.55px rgba(76, 29, 149, 0.75)',
   textShadow: [
-    '0 0 5px rgba(167, 139, 250, 0.42)',
-    '0 0 10px rgba(125, 211, 252, 0.28)',
+    '0 0 8px rgba(192, 132, 252, 0.95)',
+    '0 0 16px rgba(167, 139, 250, 0.8)',
+    '0 0 22px rgba(34, 211, 238, 0.55)',
+    '0 0 10px rgba(232, 121, 249, 0.45)',
     '0 1px 2px rgba(0,0,0,0.92)',
   ].join(', '),
 };
@@ -15215,6 +16022,11 @@ function TrickSlotsDisplay({
   tricksLeftInDeal?: number;
   playerMobileExactOrderCornerStar?: React.ReactNode;
 }) {
+  const isMobileViewport = useIsMobile();
+  /** ПК + планшет (не телефон): единый кегль и неон «взято/заказ». */
+  const usePcBidTakenFigures = !isMobileViewport;
+  const pcBidTakenFigPx = 16;
+
   const zeroCrossGradId = useId().replace(/:/g, '');
   const isCompact = variant === 'opponent';
   const hideOppOrderWord = Boolean(compactMode && variant === 'opponent' && opponentMobileHideOrderLabel);
@@ -15450,10 +16262,10 @@ function TrickSlotsDisplay({
         : variant === 'player' && bid > 6
           ? Math.min(1, 6 / bid)
           : 1;
-    /** Мобильная полоса без «Заказ:» (Север/Запад) — ширина слота; сжатие 5/bid не нужно, масштаб даёт wMax ниже */
+    /** Мобильная полоса без «Заказ:» (Север/Запад) — ширина слота; сжатие с 5+ слотов */
     let opponentScaleDown =
-      variant === 'opponent' && !eastMobileTricks && bid > 5 && !opponentMobileHideOrderLabel
-        ? Math.min(1, 5 / bid)
+      variant === 'opponent' && !eastMobileTricks && bid > 4 && !opponentMobileHideOrderLabel
+        ? Math.min(1, 4 / bid)
         : 1;
     /** Мобильная/компакт: один ряд кружков, без роста панели — ужимаем по ширине и высоте. */
     if (compactMode && bid != null && bid > 0) {
@@ -15963,6 +16775,9 @@ function TrickSlotsDisplay({
     ) {
       compactFigFont = Math.max(8, Math.round(compactFigFont * opponentScaleDown));
     }
+    if (usePcBidTakenFigures) {
+      compactFigFont = pcBidTakenFigPx;
+    }
     const landscapeSouthPanelNatural =
       variant === 'player' && playerMobileLandscapeTricks && bidNum != null
         ? estimateMobileLandscapeSouthOrderPanelWidthPx(
@@ -16087,17 +16902,22 @@ function TrickSlotsDisplay({
     );
   }
 
-  /** ПК (не compact): оппоненты — при заказе >5; игрок — по числу видимых слотов (заказ + перебор), чтобы панель не разрасталась */
+  /** ПК (не compact): оппоненты — с 5+ слотов постепенно мельче (цель ≈4 в полной ширине); игрок — при заказе+переборе >10 */
+  const pcOpponentSlotCount =
+    !compactMode && bid != null && variant === 'opponent' ? bid + extra : 0;
   const pcSlotScaleDown =
-    !compactMode && bid != null && variant === 'opponent' && bid > 5
-      ? Math.min(1, 5 / bid)
-      : !compactMode && bid != null && variant === 'player' && bid + extra > 5
-        ? Math.min(1, 5 / (bid + extra))
+    pcOpponentSlotCount > 4
+      ? Math.min(1, 4 / pcOpponentSlotCount)
+      : !compactMode && bid != null && variant === 'player' && bid + extra > 10
+        ? Math.min(1, 10 / (bid + extra))
         : 1;
   const effectiveSlotSize =
     pcSlotScaleDown < 1
       ? variant === 'opponent'
-        ? { w: Math.max(22, Math.round(44 * pcSlotScaleDown)), h: Math.max(36, Math.round(62 * pcSlotScaleDown)) }
+        ? {
+            w: Math.max(12, Math.round(44 * pcSlotScaleDown)),
+            h: Math.max(20, Math.round(62 * pcSlotScaleDown)),
+          }
         : { w: Math.max(28, Math.round(52 * pcSlotScaleDown)), h: Math.max(42, Math.round(76 * pcSlotScaleDown)) }
       : slotSize;
   const rowStyle = {
@@ -16132,7 +16952,9 @@ function TrickSlotsDisplay({
   const totalStackSlots = orderedSlots + extra;
   const stackWidthPc =
     totalStackSlots <= 0 ? Math.max(effectiveSlotSize.w, 36) : (totalStackSlots - 1) * stackStepPc + effectiveSlotSize.w;
-  const overlayFontPc = Math.max(9, Math.round(11 * pcSlotScaleDown));
+  const overlayFontPc = usePcBidTakenFigures
+    ? pcBidTakenFigPx
+    : Math.max(9, Math.round(11 * pcSlotScaleDown));
 
   if (opponentPcStacked) {
     /** Зазор между цифрами «заказ/взято» и стопкой слотов (тень у текста тянется вниз). */
@@ -16177,6 +16999,7 @@ function TrickSlotsDisplay({
               fontSize={overlayFontPc}
               style={{ lineHeight: 1 }}
               tricksLeftInDeal={tricksLeftInDeal}
+              exactMatchHeavyNeon={!hideCards && tricksTaken > 0}
             />
           </span>
           <div
@@ -16236,7 +17059,9 @@ function TrickSlotsDisplay({
     );
   }
 
-  const playerPcFiguresFont = Math.max(10, Math.round(11 * pcSlotScaleDown));
+  const playerPcFiguresFont = usePcBidTakenFigures
+    ? pcBidTakenFigPx
+    : Math.max(10, Math.round(11 * pcSlotScaleDown));
   return (
     <div
       style={wrapStyle}
@@ -16259,6 +17084,7 @@ function TrickSlotsDisplay({
           audience="player"
           fontSize={playerPcFiguresFont}
           tricksLeftInDeal={tricksLeftInDeal}
+          exactMatchHeavyNeon={!hideCards && tricksTaken > 0}
         />
         <div style={rowStyle}>
           {Array.from({ length: orderedSlots }, (_, i) => {
@@ -17155,6 +17981,7 @@ function OpponentSlot({
         mobileWestEastLandscapeCol ? 'opponent-slot--mobile-landscape-we' : '',
         dealerWestLandscapeEastPanelStars ? 'opponent-slot-dealer-stars-east-layout' : '',
         isActive ? 'opponent-slot-current-turn' : '',
+        trickWinnerHighlight ? 'opponent-slot--trick-winner-glow' : '',
         northPcFusedOrderBadge ? 'opponent-slot--north-pc-fused-order-badge' : '',
       ]
         .filter(Boolean)
@@ -17167,8 +17994,10 @@ function OpponentSlot({
         ...posStyle,
         ...frameStyle,
         overflow: 'visible',
-        ...(winnerPanelBlink ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
-        ...(trickWinnerHighlight ? trickWinnerGlowStyle : {}),
+        /* Зелёный pulse важнее cyan winnerPanelBlink — не ставим конфликтующую animation. */
+        ...(winnerPanelBlink && !trickWinnerHighlight
+          ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' }
+          : {}),
         ...(currentTrickLeaderHighlight ? currentTrickLeaderGlowStyle : {}),
         ...(firstMoverBiddingHighlight ? { boxShadow: [(frameStyle?.boxShadow ?? opponentSlotStyle.boxShadow), firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', ') } : {}),
         ...(dealerOpponentMobilePanelBidding
@@ -17186,6 +18015,21 @@ function OpponentSlot({
               boxShadow: [
                 frameStyle?.boxShadow ?? opponentSlotStyle.boxShadow,
                 dealerOpponentPanelGlowPlaying,
+              ]
+                .filter(Boolean)
+                .join(', '),
+            }
+          : {}),
+        /* Взятка — последней: иначе glow сдающего/хода затирает зелёный. */
+        ...(trickWinnerHighlight
+          ? {
+              ...trickWinnerGlowStyle,
+              outline: '2px solid rgba(74, 222, 128, 0.95)',
+              outlineOffset: 2,
+              zIndex: 12,
+              boxShadow: [
+                frameStyle?.boxShadow ?? opponentSlotStyle.boxShadow,
+                trickWinnerGlowStyle.boxShadow,
               ]
                 .filter(Boolean)
                 .join(', '),
@@ -18024,6 +18868,7 @@ function DeckWithTrump({
   forceDeckTopLeft,
   pcCardStyles,
   playerCount = 4,
+  scaleMultiplier = 1,
 }: {
   tricksInDeal: number;
   trumpCard: Card;
@@ -18035,6 +18880,8 @@ function DeckWithTrump({
   forceDeckTopLeft?: boolean;
   pcCardStyles?: boolean;
   playerCount?: number;
+  /** ПК: пользовательский масштаб карт на сукне (1 = без boost). */
+  scaleMultiplier?: number;
 }) {
   const cardsUnderTrump = getDeckCardsUnderTrump(tricksInDeal, playerCount === 3 ? 3 : 4);
   const numLayers = getDeckStackLayerCount(cardsUnderTrump);
@@ -18074,7 +18921,7 @@ function DeckWithTrump({
     bottom: 'auto',
   };
 
-  const deckScale = compactTable ? 1.18 / 1.2 : 1.18;
+  const deckScale = (compactTable ? 1.18 / 1.2 : 1.18) * (compactTable ? 1 : scaleMultiplier);
   const cardBackW = Math.round(52 * deckScale);
   const cardBackH = Math.round(76 * deckScale);
   const stackOffset = Math.round(2 * deckScale);
@@ -18241,7 +19088,8 @@ const centerAreaSpacerBottomStyle: React.CSSProperties = {
 };
 
 const playerSpacerStyle: React.CSSProperties = {
-  height: 'calc(var(--game-player-area-height, 260px) + var(--game-player-bottom, 34px) + var(--pc-south-layer-gap, 8px))',
+  height:
+    'calc(var(--game-player-area-height, 260px) + var(--pc-hand-scale-extra-h, 0px) + var(--pc-hand-table-clearance, 0px) + var(--game-player-bottom, 34px) + var(--pc-south-layer-gap, 8px))',
   flexShrink: 0,
 };
 
@@ -18404,6 +19252,16 @@ const gameInfoLeftSectionStructureStyle: React.CSSProperties = {
 const gameInfoNorthSlotWrapper: React.CSSProperties = {
   width: 'var(--game-table-north-slot-width, 420px)',
   flex: '0 0 var(--game-table-north-slot-width, 420px)',
+  pointerEvents: 'none',
+  visibility: 'hidden',
+};
+
+/** ПК · 3 игрока: место Севера не резервируем — стол ближе к шапке. */
+const gameInfoNorthSlotWrapperThreeAbsent: React.CSSProperties = {
+  width: 0,
+  flex: '0 0 0',
+  height: 0,
+  overflow: 'hidden',
   pointerEvents: 'none',
   visibility: 'hidden',
 };
@@ -18873,13 +19731,18 @@ const centerAreaStyle: React.CSSProperties = {
 };
 
 const dealResultsOverlayStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: 'var(--deal-results-overlay-top, 260px)',
-  left: '33%',
-  right: '33%',
-  height: 'var(--deal-results-overlay-height, 320px)',
-  zIndex: 15,
+  position: 'fixed',
+  top: 'auto',
+  bottom: 'max(12px, env(safe-area-inset-bottom, 0px))',
+  left: '50%',
+  right: 'auto',
+  width: 'min(920px, 86vw)',
+  height: 'auto',
+  maxHeight: 'min(58vh, 560px)',
+  zIndex: 120,
   pointerEvents: 'none',
+  transform: 'translateX(-50%)',
+  transformOrigin: 'bottom center',
   background: 'linear-gradient(180deg, rgba(3, 7, 18, 0.96) 0%, rgba(15, 23, 42, 0.96) 100%)',
   borderRadius: 20,
   border: '3px solid rgba(139, 92, 246, 0.42)',
@@ -18892,12 +19755,38 @@ const dealResultsOverlayStyle: React.CSSProperties = {
   animation: 'dealResultsFadeIn 0.5s ease-out',
 };
 
+/** Моб. interstitial: в потоке flex-портала у низа, высота по контенту. */
+const dealResultsOverlayStyleMobile: React.CSSProperties = {
+  position: 'relative',
+  top: 'auto',
+  bottom: 'auto',
+  left: 'auto',
+  right: 'auto',
+  width: 'min(98vw, 440px)',
+  height: 'auto',
+  maxHeight: 'none',
+  zIndex: 15,
+  pointerEvents: 'none',
+  flexShrink: 0,
+  background: 'linear-gradient(180deg, rgba(3, 7, 18, 0.96) 0%, rgba(15, 23, 42, 0.96) 100%)',
+  borderRadius: 20,
+  border: '3px solid rgba(139, 92, 246, 0.42)',
+  boxShadow: [
+    'inset 0 0 80px rgba(0, 0, 0, 0.5)',
+    '0 0 0 1px rgba(76, 29, 149, 0.35)',
+    '0 0 40px rgba(91, 33, 182, 0.28)',
+    '0 0 80px rgba(99, 102, 241, 0.14)',
+  ].join(', '),
+  transform: 'none',
+  animation: 'dealResultsFadeIn 0.5s ease-out',
+};
+
 const dealResultsCollapsingStyle: React.CSSProperties = {
   animation: 'dealResultsCollapsePC 0.75s cubic-bezier(0.33, 0, 0.2, 1) forwards',
   transformOrigin: '50% 50%',
 };
 
-/** Мобильный оверлей итогов раздачи: схлопывание к Σ в панели «Заказывает» (не в шапку). */
+/** Мобильный оверлей итогов раздачи: схлопывание к Σ в панели «Заказывает». */
 const dealResultsCollapsingStyleMobile: React.CSSProperties = {
   animation: 'dealResultsCollapseMobile 0.75s cubic-bezier(0.33, 0, 0.2, 1) forwards',
   transformOrigin: '50% 50%',
@@ -20275,9 +21164,9 @@ const dealResultsPanelTitleStyleMobileOverlay: React.CSSProperties = {
   letterSpacing: '0.03em',
 };
 
-/** ПК-оверлей результатов раздачи: только ограничение макс. ширины и перенос длинного имени (короткие имена — компактно) */
+/** ПК-оверлей результатов раздачи: шире панели, длинные имена с переносом */
 const dealResultsPanelStyleOverlayPC: React.CSSProperties = {
-  maxWidth: 180,
+  maxWidth: 280,
   minWidth: 0,
   boxSizing: 'border-box',
 };
@@ -21100,7 +21989,7 @@ const playerStyle: React.CSSProperties = {
   bottom: 'var(--game-player-bottom, 34px)',
   left: 0,
   right: 0,
-  maxHeight: 'var(--game-player-area-height, 260px)',
+  maxHeight: 'calc(var(--game-player-area-height, 260px) + var(--pc-hand-scale-extra-h, 0px))',
   padding: 'var(--game-header-padding, 20px)',
   paddingTop: 12,
   background: 'linear-gradient(0deg, #1e293b 0%, rgba(30, 41, 59, 0.98) 40%, transparent 100%)',
@@ -21636,7 +22525,7 @@ const handFrameStyle: React.CSSProperties = {
   ].join(', '),
   marginBottom: 6,
   transform: 'translateY(3px)',
-  maxWidth: 800,
+  maxWidth: 'min(1100px, 96vw)',
   width: 'fit-content',
   marginLeft: 'auto',
   marginRight: 'auto',
