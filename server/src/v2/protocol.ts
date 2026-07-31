@@ -49,6 +49,10 @@ export interface CommandResult {
   ok: boolean;
   error?: string;
   revision?: number;
+  /** Снимок после успешной game-команды — клиент применяет сразу, не ждя отдельный push. */
+  state?: GameState;
+  playerSlots?: PlayerSlot[];
+  roomPhase?: string | null;
 }
 
 export type V2ServerPush = GameStatePush | RoomMetaPush | CommandResult;

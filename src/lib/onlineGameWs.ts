@@ -621,15 +621,36 @@ export async function wsV2PlaceBid(
   seat: number,
   bid: number,
   playerId: string,
-): Promise<{ ok: boolean; error?: string }> {
-  const res = await sendRequest<{ ok?: boolean; error?: string }>({
+): Promise<{
+  ok: boolean;
+  error?: string;
+  revision?: number;
+  state?: GameState;
+  playerSlots?: PlayerSlot[];
+  roomPhase?: string | null;
+}> {
+  const res = await sendRequest<{
+    ok?: boolean;
+    error?: string;
+    revision?: number;
+    state?: GameState;
+    playerSlots?: PlayerSlot[];
+    roomPhase?: string | null;
+  }>({
     type: 'place_bid',
     roomId,
     seat,
     bid,
     playerId,
   });
-  return { ok: !!res.ok, error: res.error };
+  return {
+    ok: !!res.ok,
+    error: res.error,
+    revision: res.revision,
+    state: res.state,
+    playerSlots: res.playerSlots,
+    roomPhase: res.roomPhase ?? null,
+  };
 }
 
 export async function wsV2PlayCard(
@@ -637,15 +658,36 @@ export async function wsV2PlayCard(
   seat: number,
   card: import('../game/types').Card,
   playerId: string,
-): Promise<{ ok: boolean; error?: string }> {
-  const res = await sendRequest<{ ok?: boolean; error?: string }>({
+): Promise<{
+  ok: boolean;
+  error?: string;
+  revision?: number;
+  state?: GameState;
+  playerSlots?: PlayerSlot[];
+  roomPhase?: string | null;
+}> {
+  const res = await sendRequest<{
+    ok?: boolean;
+    error?: string;
+    revision?: number;
+    state?: GameState;
+    playerSlots?: PlayerSlot[];
+    roomPhase?: string | null;
+  }>({
     type: 'play_card',
     roomId,
     seat,
     card,
     playerId,
   });
-  return { ok: !!res.ok, error: res.error };
+  return {
+    ok: !!res.ok,
+    error: res.error,
+    revision: res.revision,
+    state: res.state,
+    playerSlots: res.playerSlots,
+    roomPhase: res.roomPhase ?? null,
+  };
 }
 
 export async function wsV2TakePause(roomId: string, playerId: string): Promise<{ ok: boolean; error?: string }> {

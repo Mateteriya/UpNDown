@@ -93,7 +93,17 @@ export class GameSessionManager {
       if (Date.now() >= session.trickCompleteAt) {
         const commit = session.runCompleteTrick();
         if (commit) this.emit(commit);
+        else {
+          // pending есть в room, но session не смог завершить — не крутимся молча.
+          console.warn('[v2-session] completeTrick skipped', room.code);
+        }
       }
+      return;
+    }
+
+    // pending без дедлайна (после sync должен быть редкий случай) — не блокируем комнату навсегда.
+    if (state.pendingTrickCompletion && session.trickCompleteAt == null) {
+      session.syncTrickTimer(state);
       return;
     }
 
@@ -106,6 +116,8 @@ export class GameSessionManager {
     }
 
     if (state.pendingTrickCompletion || state.phase === 'deal-complete') return;
+
+    if (!session.canRunAi()) return;
 
     const aiNext = tryAiStep(state, room.player_slots ?? []);
     if (aiNext && aiNext !== state) {

@@ -4,9 +4,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
 import type { Card } from '../game/types';
-import type { GameState, PlayerCount } from '../game/GameEngine';
+import { playerAtLeftFrom, type GameState, type PlayerCount } from '../game/GameEngine';
 import { getPlayerProfile, saveUnfinishedOnlineGame } from '../game/persistence';
 import { rotateStateForPlayer } from '../game/rotateState';
+import { TRICK_COMPLETE_HOLD_MS } from '../game/onlineTimings';
 import {
   createRoom as apiCreateRoom,
   joinRoom as apiJoinRoom,
@@ -158,6 +159,12 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     [canonicalState, myServerIndex],
   );
 
+  const playInFlightRef = useRef(false);
+  const bidInFlightRef = useRef(false);
+  const emptyHandHealAtRef = useRef(0);
+  const pendingStuckHealAtRef = useRef(0);
+  const turnDesyncHealAtRef = useRef(0);
+
   const applyGameStatePush = useCallback((push: GameStatePush) => {
     if (push.roomId !== roomIdRef.current) return;
     if (push.revision <= revisionRef.current) return;
@@ -175,12 +182,25 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     applyRoomRow(row, setters);
   }, [setters]);
 
+  const forceHealRoom = useCallback(
+    (reason: string) => {
+      if (!roomId) return;
+      console.warn('[online-v2] heal', reason);
+      revisionRef.current = -1;
+      void getRoom(roomId).then((r) => {
+        if (r) applyRoom(r);
+      });
+    },
+    [roomId, applyRoom],
+  );
+
   useEffect(() => {
     if (!roomId) return;
     let cancelled = false;
     let healTimer: ReturnType<typeof setTimeout> | null = null;
-    const healFromServer = () => {
+    const healFromServer = (force = false) => {
       if (cancelled) return;
+      if (force) revisionRef.current = -1;
       void getRoom(roomId).then((r) => {
         if (!cancelled && r) applyRoom(r);
       });
@@ -193,13 +213,14 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
       healTimer = setTimeout(
         () => {
           healTimer = null;
-          healFromServer();
+          // На reconnect всегда тянем снимок заново (revision мог «застыть»).
+          healFromServer(status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT');
         },
         status === 'SUBSCRIBED' ? 0 : 250,
       );
     });
     const unsubState = wsSubscribeToGameState(roomId, applyGameStatePush);
-    healFromServer();
+    healFromServer(true);
     return () => {
       cancelled = true;
       if (healTimer) clearTimeout(healTimer);
@@ -207,6 +228,82 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
       unsubState();
     };
   }, [roomId, applyRoom, applyGameStatePush]);
+
+  /** Пустая рука при «моём» ходе в playing — почти всегда рассинхрон; лечим pull с сервера. */
+  useEffect(() => {
+    if (status !== 'playing' || !canonicalState || !roomId) return;
+    if (canonicalState.phase !== 'playing') return;
+    if (canonicalState.pendingTrickCompletion) return;
+    if (canonicalState.currentPlayerIndex !== myServerIndex) return;
+    const hand = canonicalState.players[myServerIndex]?.hand;
+    if (!hand || hand.length > 0) return;
+    const now = Date.now();
+    if (now - emptyHandHealAtRef.current < 2000) return;
+    emptyHandHealAtRef.current = now;
+    forceHealRoom('empty-hand-on-turn');
+  }, [status, canonicalState, myServerIndex, roomId, forceHealRoom]);
+
+  /**
+   * Взятка «залипла» в pending на клиенте (пропущен completeTrick push) —
+   * руки не кликаются, панель может врать «ваш ход». Тянем снимок после hold+запас.
+   * На ПК (часто хост + Vite) push иногда теряется чаще — чуть короче запас.
+   */
+  useEffect(() => {
+    if (status !== 'playing' || !canonicalState?.pendingTrickCompletion || !roomId) return;
+    const pendingKey = `${canonicalState.dealNumber}-${canonicalState.pendingTrickCompletion.leaderIndex}-${canonicalState.pendingTrickCompletion.winnerIndex}-${canonicalState.pendingTrickCompletion.cards.map((c) => `${c.suit}:${c.rank}`).join('|')}`;
+    const isCoarsePointer =
+      typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+    const waitMs = TRICK_COMPLETE_HOLD_MS + (isCoarsePointer ? 1800 : 900);
+    const timer = window.setTimeout(() => {
+      const now = Date.now();
+      if (now - pendingStuckHealAtRef.current < waitMs) return;
+      pendingStuckHealAtRef.current = now;
+      forceHealRoom(`pending-stuck:${pendingKey}`);
+    }, waitMs);
+    return () => window.clearTimeout(timer);
+  }, [status, canonicalState, roomId, forceHealRoom]);
+
+  /** ПК: если «мой ход» и revision не двигается ~2.5с — мягкий pull (частый кейс хоста на машине разработки). */
+  useEffect(() => {
+    if (status !== 'playing' || !canonicalState || !roomId) return;
+    if (canonicalState.phase !== 'playing') return;
+    if (canonicalState.pendingTrickCompletion) return;
+    if (canonicalState.currentPlayerIndex !== myServerIndex) return;
+    const isCoarsePointer =
+      typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+    if (isCoarsePointer) return;
+    const revAtStart = revisionRef.current;
+    const timer = window.setTimeout(() => {
+      if (revisionRef.current !== revAtStart) return;
+      forceHealRoom('pc-turn-stale-revision');
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [status, canonicalState, myServerIndex, roomId, forceHealRoom]);
+
+  /**
+   * Мой ход по canonical, взятка не pending, в руке есть карты, но в display
+   * уже «как будто сходили» в эту взятку — классический рассинхрон 3p/rotate.
+   */
+  useEffect(() => {
+    if (status !== 'playing' || !canonicalState || !roomId) return;
+    if (canonicalState.phase !== 'playing') return;
+    if (canonicalState.pendingTrickCompletion) return;
+    if (canonicalState.currentPlayerIndex !== myServerIndex) return;
+    const hand = canonicalState.players[myServerIndex]?.hand;
+    if (!hand || hand.length === 0) return;
+
+    const display = rotateStateForPlayer(canonicalState, myServerIndex);
+    const n = display.players.length === 3 ? 3 : 4;
+    const alreadyPlayed = display.currentTrick.some((_, trickCardIndex) =>
+      playerAtLeftFrom(display.trickLeaderIndex, trickCardIndex, n) === 0,
+    );
+    if (!alreadyPlayed) return;
+
+    const now = Date.now();
+    if (now - turnDesyncHealAtRef.current < 2500) return;
+    turnDesyncHealAtRef.current = now;
+    forceHealRoom('turn-but-already-played-display');
+  }, [status, canonicalState, myServerIndex, roomId, forceHealRoom]);
 
   useEffect(() => {
     if (authLoading && !lanWs) return;
@@ -376,35 +473,65 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
 
   const sendBid = useCallback(
     async (bid: number): Promise<boolean> => {
-      if (!roomId) return false;
-      const res = await wsV2PlaceBid(roomId, myServerIndex, bid, onlinePlayerId);
-      if (!res.ok) {
-        // not_your_turn / wrong_phase = клиент отстал; без resync UI залипает на торгах.
-        revisionRef.current = -1;
-        setError(res.error ?? 'Заказ не принят');
-        await refreshRoom();
-        return false;
+      if (!roomId || bidInFlightRef.current) return false;
+      bidInFlightRef.current = true;
+      try {
+        const res = await wsV2PlaceBid(roomId, myServerIndex, bid, onlinePlayerId);
+        if (!res.ok) {
+          // not_your_turn / wrong_phase = клиент отстал; без resync UI залипает на торгах.
+          revisionRef.current = -1;
+          setError(res.error ?? 'Заказ не принят');
+          await refreshRoom();
+          return false;
+        }
+        if (res.state && typeof res.revision === 'number') {
+          applyGameStatePush({
+            roomId,
+            revision: res.revision,
+            state: res.state,
+            playerSlots: res.playerSlots,
+            roomPhase: res.roomPhase ?? null,
+          });
+        } else {
+          await refreshRoom();
+        }
+        return true;
+      } finally {
+        bidInFlightRef.current = false;
       }
-      await refreshRoom();
-      return true;
     },
-    [roomId, myServerIndex, onlinePlayerId, refreshRoom],
+    [roomId, myServerIndex, onlinePlayerId, refreshRoom, applyGameStatePush],
   );
 
   const sendPlay = useCallback(
     async (card: Card): Promise<boolean> => {
-      if (!roomId) return false;
-      const res = await wsV2PlayCard(roomId, myServerIndex, card, onlinePlayerId);
-      if (!res.ok) {
-        revisionRef.current = -1;
-        setError(res.error ?? 'Ход не принят');
-        await refreshRoom();
-        return false;
+      if (!roomId || playInFlightRef.current) return false;
+      playInFlightRef.current = true;
+      try {
+        const res = await wsV2PlayCard(roomId, myServerIndex, card, onlinePlayerId);
+        if (!res.ok) {
+          revisionRef.current = -1;
+          setError(res.error ?? 'Ход не принят');
+          await refreshRoom();
+          return false;
+        }
+        if (res.state && typeof res.revision === 'number') {
+          applyGameStatePush({
+            roomId,
+            revision: res.revision,
+            state: res.state,
+            playerSlots: res.playerSlots,
+            roomPhase: res.roomPhase ?? null,
+          });
+        } else {
+          await refreshRoom();
+        }
+        return true;
+      } finally {
+        playInFlightRef.current = false;
       }
-      await refreshRoom();
-      return true;
     },
-    [roomId, myServerIndex, onlinePlayerId, refreshRoom],
+    [roomId, myServerIndex, onlinePlayerId, refreshRoom, applyGameStatePush],
   );
 
   const sendCompleteTrick = useCallback(async () => true, []);

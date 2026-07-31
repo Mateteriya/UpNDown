@@ -61,16 +61,19 @@ LAN-сборка QR (`npm run build:host-game`) зашивает v2 в `vite.hos
 ## Поток взятки
 
 ```
-play_card (4-я карта) → game_state (pendingTrickCompletion)
+play_card (последняя карта взятки) → game_state (pendingTrickCompletion)
   → сервер ждёт 2000 ms → completeTrick → game_state
 ```
 
 ## Поток раздачи
 
 ```
-deal-complete → сервер ждёт 4500 ms → startNextDeal → game_state
+deal-complete → сервер ждёт 7200 ms → startNextDeal → game_state
 ```
 
 ## ИИ
 
-Серверный `AiDriver` (180 ms tick) для пустых слотов во всех v2-комнатах. Клиент не шлёт `sendState` / `sendCompleteTrick`.
+Серверный `AiDriver` (180 ms tick + 650 ms пауза после commit) для пустых слотов во всех v2-комнатах. Клиент не шлёт `sendState` / `sendCompleteTrick`.
+
+Тайминги: `src/game/onlineTimings.ts` (клиент + сервер).
+Клиентский interstitial: reveal (стол) → slots (стол) → winner (оверлей пониже + echo) → totals → collapse.

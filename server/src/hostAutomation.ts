@@ -10,12 +10,15 @@ import {
   startNextDeal,
   type GameState,
 } from '../../src/game/GameEngine.js';
+import {
+  DEAL_COMPLETE_HOLD_MS,
+  trickCompleteHoldMs,
+} from '../../src/game/onlineTimings.js';
 import type { GameRoomRow, PlayerSlot } from './protocol.js';
 import type { RoomStore } from './rooms.js';
 
 const TICK_MS = 180;
-const TRICK_COMPLETE_DELAY_MS = 2000;
-const DEAL_NEXT_DELAY_MS = 4500;
+const DEAL_NEXT_DELAY_MS = DEAL_COMPLETE_HOLD_MS;
 
 function fullSlots(slots: PlayerSlot[], maxPlayers = 4): PlayerSlot[] {
   const AI_NAMES = ['ИИ Юг', 'ИИ Север', 'ИИ Запад', 'ИИ Восток'] as const;
@@ -106,7 +109,7 @@ export class HostAutomation {
       const key = pendingKey(state);
       if (timers.trickKey !== key) {
         timers.trickKey = key;
-        timers.trickCompleteAt = Date.now() + TRICK_COMPLETE_DELAY_MS;
+        timers.trickCompleteAt = Date.now() + trickCompleteHoldMs(state.pendingTrickCompletion?.allPlayed);
       }
       if (timers.trickCompleteAt != null && Date.now() >= timers.trickCompleteAt) {
         timers.trickKey = undefined;

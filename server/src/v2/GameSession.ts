@@ -12,6 +12,11 @@ import {
   type GameState,
 } from '../../../src/game/GameEngine.js';
 import type { Card } from '../../../src/game/types.js';
+import {
+  AI_MOVE_DELAY_MS,
+  DEAL_COMPLETE_HOLD_MS,
+  trickCompleteHoldMs,
+} from '../../../src/game/onlineTimings.js';
 import type { GameRoomRow, PlayerSlot } from '../protocol.js';
 import type { RoomStore } from '../rooms.js';
 import { V2CommandError } from './errors.js';
@@ -54,11 +59,22 @@ export class GameSession {
   trickKey = '';
   dealNextAt: number | null = null;
   dealNumber: number | null = null;
+  /** Не раньше этого момента ИИ может сходить (анти-burst после чужого хода). */
+  nextAiAt: number | null = null;
 
   constructor(
     readonly roomId: string,
     private readonly store: RoomStore,
   ) {}
+
+  /** Можно ли сейчас гонять AiDriver для этой комнаты. */
+  canRunAi(now = Date.now()): boolean {
+    return this.nextAiAt == null || now >= this.nextAiAt;
+  }
+
+  private armAiDelay(now = Date.now()): void {
+    this.nextAiAt = now + AI_MOVE_DELAY_MS;
+  }
 
   private room(): GameRoomRow {
     const r = this.store.getById(this.roomId);
@@ -94,6 +110,7 @@ export class GameSession {
     if (result.error || !result.room) {
       throw new V2CommandError('room_not_found', result.error);
     }
+    this.armAiDelay();
     return {
       room: result.room,
       revision: result.room.game_state_revision ?? 0,
@@ -160,12 +177,12 @@ export class GameSession {
       const p = next.pendingTrickCompletion;
       const key = `${p.leaderIndex}-${p.winnerIndex}-${p.cards.map((c) => `${c.suit}:${c.rank}`).join('|')}`;
       this.trickKey = key;
-      this.trickCompleteAt = Date.now() + 2000;
+      this.trickCompleteAt = Date.now() + trickCompleteHoldMs(p.allPlayed);
     }
 
     if (next.phase === 'deal-complete') {
       this.dealNumber = next.dealNumber;
-      this.dealNextAt = Date.now() + 4500;
+      this.dealNextAt = Date.now() + DEAL_COMPLETE_HOLD_MS;
     }
 
     return this.commit(next);
@@ -184,7 +201,7 @@ export class GameSession {
 
     if (next.phase === 'deal-complete') {
       this.dealNumber = next.dealNumber;
-      this.dealNextAt = Date.now() + 4500;
+      this.dealNextAt = Date.now() + DEAL_COMPLETE_HOLD_MS;
     }
 
     return this.commit(next);
@@ -214,11 +231,11 @@ export class GameSession {
       const p = next.pendingTrickCompletion;
       const key = `${p.leaderIndex}-${p.winnerIndex}-${p.cards.map((c) => `${c.suit}:${c.rank}`).join('|')}`;
       this.trickKey = key;
-      this.trickCompleteAt = Date.now() + 2000;
+      this.trickCompleteAt = Date.now() + trickCompleteHoldMs(p.allPlayed);
     }
     if (next.phase === 'deal-complete') {
       this.dealNumber = next.dealNumber;
-      this.dealNextAt = Date.now() + 4500;
+      this.dealNextAt = Date.now() + DEAL_COMPLETE_HOLD_MS;
     }
     return this.commit(next);
   }
@@ -228,6 +245,7 @@ export class GameSession {
     this.trickKey = '';
     this.dealNextAt = null;
     this.dealNumber = null;
+    this.nextAiAt = null;
   }
 
   /** Синхронизация таймеров при tick (если pending уже есть). */
@@ -239,9 +257,11 @@ export class GameSession {
     }
     const p = state.pendingTrickCompletion;
     const key = `${p.leaderIndex}-${p.winnerIndex}-${p.cards.map((c) => `${c.suit}:${c.rank}`).join('|')}`;
-    if (this.trickKey !== key) {
+    // Важно: если ключ тот же, но trickCompleteAt потерян (рестарт сессии / гонка) —
+    // иначе взятка висит вечно, у победителя «ваш ход» без кликабельных карт.
+    if (this.trickKey !== key || this.trickCompleteAt == null) {
       this.trickKey = key;
-      this.trickCompleteAt = Date.now() + 2000;
+      this.trickCompleteAt = Date.now() + trickCompleteHoldMs(p.allPlayed);
     }
   }
 
@@ -253,7 +273,7 @@ export class GameSession {
     }
     if (this.dealNumber !== state.dealNumber) {
       this.dealNumber = state.dealNumber;
-      this.dealNextAt = Date.now() + 4500;
+      this.dealNextAt = Date.now() + DEAL_COMPLETE_HOLD_MS;
     }
   }
 

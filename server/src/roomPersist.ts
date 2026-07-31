@@ -1,6 +1,6 @@
 /**
  * Простой снимок комнат на диск — переживает рестарт процесса.
- * Не БД: один JSON, debounce, prune finished.
+ * Не БД: один JSON, debounce, prune finished / stale waiting / idle playing.
  */
 
 import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync } from 'node:fs';
@@ -11,7 +11,15 @@ import type { RoomStore } from './rooms.js';
 
 const PERSIST_VERSION = 1;
 const DEFAULT_DEBOUNCE_MS = 500;
-const FINISHED_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/** Finished: 2ч (раньше 24ч — копились в JSON и мешали). */
+export const FINISHED_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+/** Public/private waiting без активности — мусор зала столов. */
+export const WAITING_MAX_AGE_MS = 90 * 60 * 1000;
+/** Playing без апдейтов — брошенная / зависшая партия. */
+export const PLAYING_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+/** Как часто гонять prune (не только hourly). */
+const DEFAULT_PRUNE_EVERY_MS = 15 * 60 * 1000;
 
 type SnapshotFile = {
   version: number;
@@ -52,6 +60,21 @@ export class RoomPersist {
     return this.path;
   }
 
+  private runPrune(label: string): number {
+    const counts = this.store.pruneStale({
+      finishedMaxAgeMs: FINISHED_MAX_AGE_MS,
+      waitingMaxAgeMs: WAITING_MAX_AGE_MS,
+      playingMaxAgeMs: PLAYING_MAX_AGE_MS,
+    });
+    const n = counts.finished + counts.waiting + counts.playing;
+    if (n > 0) {
+      console.log(
+        `[room-persist] ${label}: −${n} (finished ${counts.finished}, waiting ${counts.waiting}, playing ${counts.playing})`,
+      );
+    }
+    return n;
+  }
+
   load(): number {
     if (!existsSync(this.path)) return 0;
     try {
@@ -59,11 +82,8 @@ export class RoomPersist {
       const data = JSON.parse(raw) as SnapshotFile;
       if (!data || !Array.isArray(data.rooms)) return 0;
       const n = this.store.hydrate(data.rooms);
-      const pruned = this.store.pruneFinished(FINISHED_MAX_AGE_MS);
-      if (pruned > 0) {
-        console.log(`[room-persist] prune finished: −${pruned}`);
-        this.flushSync();
-      }
+      const pruned = this.runPrune('load prune');
+      if (pruned > 0) this.flushSync();
       return n;
     } catch (e) {
       console.warn('[room-persist] load failed:', e instanceof Error ? e.message : e);
@@ -100,10 +120,10 @@ export class RoomPersist {
     }
   }
 
-  startPruneInterval(everyMs = 60 * 60 * 1000): void {
+  startPruneInterval(everyMs = DEFAULT_PRUNE_EVERY_MS): void {
     setInterval(() => {
-      const n = this.store.pruneFinished(FINISHED_MAX_AGE_MS);
-      if (n > 0) console.log(`[room-persist] hourly prune: −${n}`);
+      const n = this.runPrune('interval prune');
+      if (n > 0) this.flushSync();
     }, everyMs).unref?.();
   }
 }

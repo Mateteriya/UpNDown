@@ -130,13 +130,29 @@ export function handleV2GameMessage(
       type: 'command_result',
       ok: true,
       revision: commit.revision,
+      state: commit.state,
+      playerSlots: commit.room.player_slots,
+      roomPhase: commit.room.room_phase ?? null,
     });
     return true;
   } catch (e) {
     const code = e instanceof V2CommandError ? e.code : 'invalid_move';
     const message = e instanceof Error ? e.message : String(e);
     deps.reply(ws, requestId, { type: 'command_result', ok: false, error: code, conflict: false });
-    console.warn('[v2]', msg.type, room?.code, message);
+    const seat = typeof msg.seat === 'number' ? msg.seat : undefined;
+    let cur: number | undefined;
+    try {
+      cur = session.state().currentPlayerIndex;
+    } catch {
+      /* ignore */
+    }
+    console.warn(
+      '[v2]',
+      msg.type,
+      room?.code,
+      message,
+      seat != null || cur != null ? `seat=${seat} cur=${cur}` : '',
+    );
     return true;
   }
 }

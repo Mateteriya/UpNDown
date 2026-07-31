@@ -67,17 +67,33 @@ export class RoomStore {
   private rooms = new Map<string, GameRoomRow>();
   private codeToId = new Map<string, string>();
   private onMutate: (() => void) | null = null;
+  private onRemoveRoom: ((roomId: string) => void) | null = null;
 
   /** Хук после мутации (persistance / метрики). */
   setOnMutate(fn: (() => void) | null): void {
     this.onMutate = fn;
   }
 
+  /** Хук при удалении комнаты (сессии v2 / host-automation таймеры). */
+  setOnRemoveRoom(fn: ((roomId: string) => void) | null): void {
+    this.onRemoveRoom = fn;
+  }
+
   private touch(): void {
     try {
       this.onMutate?.();
     } catch (e) {
-      console.warn('[rooms] onMutate failed', e);
+      /* ignore */
+    }
+  }
+
+  private deleteRoom(room: GameRoomRow): void {
+    this.rooms.delete(room.id);
+    this.codeToId.delete(room.code);
+    try {
+      this.onRemoveRoom?.(room.id);
+    } catch {
+      /* ignore */
     }
   }
 
@@ -100,30 +116,72 @@ export class RoomStore {
     return n;
   }
 
-  /** Удалить finished старше maxAgeMs; вернуть число удалённых. */
-  pruneFinished(maxAgeMs: number): number {
-    const cutoff = Date.now() - maxAgeMs;
-    let removed = 0;
+  /**
+   * Удалить «висящие» комнаты:
+   * - finished старше finishedMaxAgeMs
+   * - waiting (лобби) без обновлений дольше waitingMaxAgeMs — мусор зала столов
+   * - playing без обновлений дольше playingMaxAgeMs — брошенные партии
+   */
+  pruneStale(opts: {
+    finishedMaxAgeMs: number;
+    waitingMaxAgeMs: number;
+    playingMaxAgeMs: number;
+  }): { finished: number; waiting: number; playing: number } {
+    const now = Date.now();
+    const finishedCut = now - opts.finishedMaxAgeMs;
+    const waitingCut = now - opts.waitingMaxAgeMs;
+    const playingCut = now - opts.playingMaxAgeMs;
+    const counts = { finished: 0, waiting: 0, playing: 0 };
+
     for (const room of [...this.rooms.values()]) {
-      if (room.status !== 'finished') continue;
       const t = Date.parse(room.updated_at || room.created_at || '');
-      if (!Number.isFinite(t) || t > cutoff) continue;
-      this.rooms.delete(room.id);
-      this.codeToId.delete(room.code);
-      removed += 1;
+      if (!Number.isFinite(t)) continue;
+
+      if (room.status === 'finished' && t <= finishedCut) {
+        this.deleteRoom(room);
+        counts.finished += 1;
+        continue;
+      }
+      if (room.status === 'waiting' && t <= waitingCut) {
+        this.deleteRoom(room);
+        counts.waiting += 1;
+        continue;
+      }
+      if (room.status === 'playing' && t <= playingCut) {
+        this.deleteRoom(room);
+        counts.playing += 1;
+      }
     }
+
+    const removed = counts.finished + counts.waiting + counts.playing;
     if (removed) this.touch();
-    return removed;
+    return counts;
   }
 
-  listPublicWaiting(): GameRoomRow[] {
+  /** Удалить finished старше maxAgeMs; вернуть число удалённых. */
+  pruneFinished(maxAgeMs: number): number {
+    return this.pruneStale({
+      finishedMaxAgeMs: maxAgeMs,
+      waitingMaxAgeMs: Number.POSITIVE_INFINITY,
+      playingMaxAgeMs: Number.POSITIVE_INFINITY,
+    }).finished;
+  }
+
+  /**
+   * Публичные лобби для зала столов.
+   * Сразу отфильтровываем «протухшие» waiting (без обновлений дольше maxAgeMs),
+   * чтобы клиент не видел зомби даже между prune-интервалами.
+   */
+  listPublicWaiting(maxAgeMs = 90 * 60 * 1000): GameRoomRow[] {
+    const cutoff = Date.now() - maxAgeMs;
     return [...this.rooms.values()]
-      .filter(
-        (r) =>
-          r.status === 'waiting' &&
-          r.room_phase === 'lobby' &&
-          r.room_kind === 'public',
-      )
+      .filter((r) => {
+        if (r.status !== 'waiting' || r.room_phase !== 'lobby' || r.room_kind !== 'public') {
+          return false;
+        }
+        const t = Date.parse(r.updated_at || r.created_at || '');
+        return Number.isFinite(t) && t >= cutoff;
+      })
       .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
       .slice(0, 40);
   }
@@ -309,8 +367,7 @@ export class RoomStore {
       return { error: 'Слот не найден' };
     }
     if (filtered.length === 0) {
-      this.rooms.delete(roomId);
-      this.codeToId.delete(room.code);
+      this.deleteRoom(room);
       this.touch();
       return {};
     }

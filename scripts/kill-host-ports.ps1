@@ -14,4 +14,4 @@ foreach ($port in $ports) {
     }
   }
 }
-Write-Host "Done. Now run: npm run server:dev"
+Write-Host "Done. Ports cleared. Start: npm run server:dev  (or npm run host:app)"

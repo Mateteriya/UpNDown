@@ -15,7 +15,13 @@ import { buildNetworkStatus, handleNetworkApi } from './networkHttp.js';
 import { parseLanBackupPorts } from './lanPorts.js';
 import { listLanIPv4 } from './networkInfo.js';
 import { RoomStore } from './rooms.js';
-import { isRoomPersistEnabled, RoomPersist } from './roomPersist.js';
+import {
+  FINISHED_MAX_AGE_MS,
+  PLAYING_MAX_AGE_MS,
+  WAITING_MAX_AGE_MS,
+  isRoomPersistEnabled,
+  RoomPersist,
+} from './roomPersist.js';
 import { RoomChatStore } from './roomChat.js';
 import { TunnelManager } from './tunnelManager.js';
 import type { ClientMessage, GameRoomRow, ServerMessage } from './protocol.js';
@@ -59,6 +65,11 @@ sessionManager.start();
 
 const hostAutomation = new HostAutomation(store, (room) => broadcastRoom(room));
 hostAutomation.start();
+
+store.setOnRemoveRoom((roomId) => {
+  sessionManager.remove(roomId);
+  hostAutomation.clearRoom(roomId);
+});
 
 const tunnelManager = new TunnelManager();
 
@@ -168,7 +179,13 @@ function handleMessage(ws: WebSocket, raw: string): void {
       return;
     }
     case 'list_public_waiting': {
-      const rooms = store.listPublicWaiting();
+      // Чистим зомби перед ответом залу — не ждём interval.
+      store.pruneStale({
+        finishedMaxAgeMs: FINISHED_MAX_AGE_MS,
+        waitingMaxAgeMs: WAITING_MAX_AGE_MS,
+        playingMaxAgeMs: PLAYING_MAX_AGE_MS,
+      });
+      const rooms = store.listPublicWaiting(WAITING_MAX_AGE_MS);
       reply(ws, requestId, { type: 'public_rooms', ok: true, rooms });
       return;
     }
