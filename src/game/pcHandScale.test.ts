@@ -29,9 +29,16 @@ import {
   PC_FOUR_HAND_SCALE_PCT_MAX,
   PC_FOUR_HAND_SCALE_PCT_MIN,
   TABLET_HAND_COMPACT,
+  TABLET_FOUR_HAND_ABS_AT_100,
   TABLET_FOUR_HAND_COMPACT_PX,
   TABLET_FOUR_HAND_TO_PANEL_GAP_PX,
+  TABLET_FOUR_TABLE_CARD_BASE_H,
+  TABLET_FOUR_TABLE_CARD_COMPACT_PX,
   tabletFourHandScaleMinus1px,
+  tabletFourHandScaleMultiplier,
+  tabletFourTableCardBonusPx,
+  tabletFourTableCardScaleMinus1px,
+  tabletFourTableCardScaleWithTablePct,
 } from './pcHandScale';
 
 describe('pcHandScale', () => {
@@ -95,6 +102,14 @@ describe('pcHandScale', () => {
     expect(TABLET_HAND_COMPACT).toBeCloseTo(0.95 * 0.95 * 0.97);
   });
 
+  it('tablet 4p: UI 100% = abs 1.0 (без ПК-надбавки 1.05)', () => {
+    expect(TABLET_FOUR_HAND_ABS_AT_100).toBe(1);
+    expect(tabletFourHandScaleMultiplier(100)).toBe(1);
+    expect(tabletFourHandScaleMultiplier(94)).toBeCloseTo(0.94);
+    expect(tabletFourHandScaleMultiplier(106)).toBeCloseTo(1.06);
+    expect(tabletFourHandScaleMultiplier(100)).toBeLessThan(pcFourHandScaleMultiplier(100));
+  });
+
   it('tablet 4p: −2px card height → gap to south panel is 8px', () => {
     expect(TABLET_FOUR_HAND_COMPACT_PX).toBe(2);
     expect(TABLET_FOUR_HAND_TO_PANEL_GAP_PX).toBe(8);
@@ -102,6 +117,42 @@ describe('pcHandScale', () => {
     const before = 100 * scale;
     const after = 100 * tabletFourHandScaleMinus1px(scale);
     expect(before - after).toBeCloseTo(TABLET_FOUR_HAND_COMPACT_PX, 5);
+  });
+
+  it('tablet 4p: table cards −2px height at 100% (compact base 76)', () => {
+    expect(TABLET_FOUR_TABLE_CARD_BASE_H).toBe(76);
+    expect(TABLET_FOUR_TABLE_CARD_COMPACT_PX).toBe(2);
+    const scale = 1.18;
+    const before = TABLET_FOUR_TABLE_CARD_BASE_H * scale;
+    const after = TABLET_FOUR_TABLE_CARD_BASE_H * tabletFourTableCardScaleMinus1px(scale);
+    expect(before - after).toBeCloseTo(2, 5);
+  });
+
+  it('tablet 4p: table cards follow table scale up/down steps', () => {
+    expect(tabletFourTableCardBonusPx(100)).toBe(0);
+    expect(tabletFourTableCardBonusPx(103)).toBe(1);
+    expect(tabletFourTableCardBonusPx(104)).toBe(2);
+    expect(tabletFourTableCardBonusPx(108)).toBe(2);
+    expect(tabletFourTableCardBonusPx(99)).toBe(-1);
+    expect(tabletFourTableCardBonusPx(98)).toBe(-1);
+    expect(tabletFourTableCardBonusPx(97)).toBe(-2);
+    expect(tabletFourTableCardBonusPx(96)).toBe(-2);
+    expect(tabletFourTableCardBonusPx(95)).toBe(-3);
+    expect(tabletFourTableCardBonusPx(94)).toBe(-3);
+    const scale = 1.18;
+    const baseH = TABLET_FOUR_TABLE_CARD_BASE_H * scale;
+    const at100 = TABLET_FOUR_TABLE_CARD_BASE_H * tabletFourTableCardScaleWithTablePct(scale, 100);
+    const at103 = TABLET_FOUR_TABLE_CARD_BASE_H * tabletFourTableCardScaleWithTablePct(scale, 103);
+    const at104 = TABLET_FOUR_TABLE_CARD_BASE_H * tabletFourTableCardScaleWithTablePct(scale, 104);
+    const at99 = TABLET_FOUR_TABLE_CARD_BASE_H * tabletFourTableCardScaleWithTablePct(scale, 99);
+    const at96 = TABLET_FOUR_TABLE_CARD_BASE_H * tabletFourTableCardScaleWithTablePct(scale, 96);
+    const at94 = TABLET_FOUR_TABLE_CARD_BASE_H * tabletFourTableCardScaleWithTablePct(scale, 94);
+    expect(baseH - at100).toBeCloseTo(2, 5);
+    expect(baseH - at103).toBeCloseTo(1, 5);
+    expect(baseH - at104).toBeCloseTo(0, 5);
+    expect(baseH - at99).toBeCloseTo(3, 5);
+    expect(baseH - at96).toBeCloseTo(4, 5);
+    expect(baseH - at94).toBeCloseTo(5, 5);
   });
 
   it('4p felt shrinks above 100% UI; 3p felt grows softly', () => {

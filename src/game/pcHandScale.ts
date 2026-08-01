@@ -158,12 +158,23 @@ export function pcHandScaleMultiplier(boost: PcHandScaleBoost): number {
 }
 
 /**
- * 4p: абсолютный множитель карт.
+ * 4p ПК: абсолютный множитель карт.
  * UI 100% → 1.05; UI 94% → ≈0.987; UI 106% → ≈1.113.
  */
 export function pcFourHandScaleMultiplier(uiPct: PcFourHandScalePct): number {
   const pct = clampPcFourHandScalePct(uiPct);
   return PC_FOUR_HAND_ABS_AT_100 * (pct / 100);
+}
+
+/**
+ * Планшет · 4p: UI 100% = компактный base без ПК-надбавки +5%.
+ * (На ПК «100%» = abs 1.05; на планшете это делало руку заметно крупнее калибровки.)
+ */
+export const TABLET_FOUR_HAND_ABS_AT_100 = 1;
+
+export function tabletFourHandScaleMultiplier(uiPct: PcFourHandScalePct): number {
+  const pct = clampPcFourHandScalePct(uiPct);
+  return TABLET_FOUR_HAND_ABS_AT_100 * (pct / 100);
 }
 
 /**
@@ -192,6 +203,46 @@ export function tabletFourHandScaleMinus1px(
   const h = baseHeight * scale;
   if (!(h > compactPx) || compactPx <= 0) return scale;
   return scale * ((h - compactPx) / h);
+}
+
+/** Планшет · 4p: карты на сукне (compact 52×76) −2px по высоте при столе 100% (не мобила). */
+export const TABLET_FOUR_TABLE_CARD_BASE_H = 76;
+export const TABLET_FOUR_TABLE_CARD_COMPACT_PX = 2;
+
+export function tabletFourTableCardScaleMinus1px(scale: number): number {
+  return tabletFourHandScaleMinus1px(
+    scale,
+    TABLET_FOUR_TABLE_CARD_BASE_H,
+    TABLET_FOUR_TABLE_CARD_COMPACT_PX,
+  );
+}
+
+/**
+ * Планшет · 4p: смещение высоты карт на сукне относительно «сырого» scale
+ * (поверх базового −2px при 100%):
+ * - 103% → +1px; 104…108% → ещё +1px (+2);
+ * - 99…98% → −1px; 97…96% → ещё −1px (−2); 95…94% (и ниже) → ещё −1px (−3).
+ */
+export function tabletFourTableCardBonusPx(tableScalePct: number): number {
+  const pct = Math.round(tableScalePct);
+  if (pct >= 104) return 2;
+  if (pct >= 103) return 1;
+  if (pct <= 95) return -3;
+  if (pct <= 97) return -2;
+  if (pct <= 99) return -1;
+  return 0;
+}
+
+/** Итоговый scale: базовый компакт −2px + бонус/штраф от масштаба стола. */
+export function tabletFourTableCardScaleWithTablePct(
+  scale: number,
+  tableScalePct: number,
+): number {
+  const deltaPx = -TABLET_FOUR_TABLE_CARD_COMPACT_PX + tabletFourTableCardBonusPx(tableScalePct);
+  const h = TABLET_FOUR_TABLE_CARD_BASE_H * scale;
+  if (deltaPx === 0) return scale;
+  if (deltaPx < 0 && !(h > -deltaPx)) return scale;
+  return scale * ((h + deltaPx) / h);
 }
 
 export function resolvePcHandAdaptiveScale(cardCount: number): number {

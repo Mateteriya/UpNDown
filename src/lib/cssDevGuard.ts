@@ -1,6 +1,7 @@
 /**
- * Dev-only: если Vite снова «съест» index.css (пустой inject),
+ * Dev-only: если Vite снова «съест» CSS меню (пустой inject),
  * на экране меню останется только каст без UI — делаем один hard reload.
+ * Не трогает нормальный CSS HMR за столом (партия не должна сбрасываться).
  */
 export function installCssDevGuard(): void {
   if (!import.meta.env.DEV) return

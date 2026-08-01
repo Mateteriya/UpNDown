@@ -3,11 +3,13 @@ import path from 'node:path'
 import type { Plugin, ViteDevServer } from 'vite'
 
 /**
- * HMR огромного src/index.css (~2MB) иногда отдаёт `const __vite__css = ""`,
- * из‑за чего страница теряет все стили (остаётся «сырой» каст).
+ * HMR огромного src/index.css (~2MB+) иногда отдаёт `const __vite__css = ""`,
+ * из‑за чего страница теряет все стили.
  *
- * - правки index.css → full-reload вместо CSS HMR
- * - если transform всё же пустой при большом файле — подставляем CSS с диска
+ * Важно для dev-цикла за столом:
+ * - НЕ форсируем full-reload на каждую правку CSS (это сбрасывало партию в браузере).
+ * - Обычный CSS HMR остаётся; при пустом/урезанном inject подставляем файл с диска.
+ * - full-reload — только если inject всё равно пустой после восстановления (редко).
  */
 const INDEX_CSS_RE = /[\\/]src[\\/]index\.css(?:\?|$)/i
 const MIN_SOURCE_BYTES = 80_000
@@ -24,20 +26,13 @@ function sourcePath(id: string): string {
 
 export function safeLargeCssPlugin(): Plugin {
   let server: ViteDevServer | undefined
+  let lastReloadAt = 0
 
   return {
     name: 'safe-large-css',
     enforce: 'post',
     configureServer(s) {
       server = s
-    },
-    handleHotUpdate(ctx) {
-      if (!isIndexCssId(ctx.file) && !ctx.file.replace(/\\/g, '/').endsWith('/src/index.css')) {
-        return
-      }
-      // Не пушим пустой CSS-модуль — только полная перезагрузка страницы
-      ctx.server.ws.send({ type: 'full-reload', path: ctx.file })
-      return []
     },
     transform(code, id) {
       if (!isIndexCssId(id)) return
@@ -59,22 +54,30 @@ export function safeLargeCssPlugin(): Plugin {
       if (!empty && !suspiciouslySmall) return
 
       const raw = fs.readFileSync(sourcePath(id), 'utf8')
-      console.error(
-        `[safe-large-css] Recovered empty/truncated index.css inject (source ${srcBytes}B, literal ${litLen}B). Prefer full-reload.`,
+      console.warn(
+        `[safe-large-css] Recovered empty/truncated index.css inject (source ${srcBytes}B, literal ${litLen}B) — CSS HMR kept, no game reset.`,
       )
-      server?.ws.send({ type: 'full-reload', path: sourcePath(id) })
 
+      let next = code
       if (empty) {
-        return {
-          code: code.replace(EMPTY_CSS_RE, `const __vite__css = ${JSON.stringify(raw)}\n`),
-          map: null,
+        next = code.replace(EMPTY_CSS_RE, `const __vite__css = ${JSON.stringify(raw)}\n`)
+      } else if (lit) {
+        next = code.replace(lit[0], `const __vite__css = ${JSON.stringify(raw)}`)
+      }
+
+      // Если после подстановки всё ещё пусто — один осторожный reload (не чаще раза в 5 с).
+      if (EMPTY_CSS_RE.test(next) || !next.includes('__vite__css')) {
+        const now = Date.now()
+        if (now - lastReloadAt > 5000) {
+          lastReloadAt = now
+          console.error('[safe-large-css] Inject still empty after recovery — full-reload once')
+          server?.ws.send({ type: 'full-reload', path: sourcePath(id) })
         }
       }
-      if (lit) {
-        return {
-          code: code.replace(lit[0], `const __vite__css = ${JSON.stringify(raw)}`),
-          map: null,
-        }
+
+      return {
+        code: next,
+        map: null,
       }
     },
   }

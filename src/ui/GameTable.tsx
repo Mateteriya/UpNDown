@@ -60,6 +60,8 @@ import {
   resolvePcHandAdaptiveScale,
   TABLET_HAND_COMPACT,
   tabletFourHandScaleMinus1px,
+  tabletFourHandScaleMultiplier,
+  tabletFourTableCardScaleWithTablePct,
   PC_FOUR_HAND_SCALE_PCT_DEFAULT,
   PC_FOUR_HAND_SCALE_PCT_MAX,
   PC_FOUR_HAND_SCALE_PCT_MIN,
@@ -218,6 +220,10 @@ import {
 import { MobileSouthLandscapePlayerName } from './MobileSouthLandscapePlayerName';
 import { MOBILE_SOUTH_LANDSCAPE_NAME_BASE_FONT_PX } from './mobileSouthLandscapeNameLayout';
 import {
+  OPPONENT_NAME_WINDOW_SCROLL_HINT,
+  useMobileOpponentNameWindowScroll,
+} from './useMobileOpponentNameWindowScroll';
+import {
   capMobileLandscapeNorthPanelWidthPx,
   estimateMobileLandscapeNorthColumnWidthPx,
   mobileLandscapeSouthPanelFixedWidthPxWhenTuned,
@@ -254,11 +260,18 @@ const USER_PANEL_GARLAND_HAND_DURATION_MS = 36000;
 const USER_PANEL_GARLAND_IDLE_PC_MS = 7500;
 /** ПК: усиленное напоминание о ходе после длительного простоя (тот же сброс по активности, что и гирлянда) */
 const USER_PANEL_STRONG_NUDGE_IDLE_PC_MS = 12500;
-/** ПК: табличка «Ваш заказ»/«Ваш ход» — только в простое; панель Юга ↔ стол (2 зоны) */
+/**
+ * ПК/планшет: табличка «Ваш заказ»/«Ваш ход» — только в простое.
+ * Слоты по «безопасному рельсу» (края панели Юга + бока зазора над рукой),
+ * без центра стола и без наезда на панельку заказа.
+ */
 const PC_TURN_ROAM_IDLE_MS = USER_PANEL_GARLAND_IDLE_PC_MS;
-const PC_TURN_ROAM_INTERVAL_MS = 9000;
-const PC_TURN_ROAM_SLOT_COUNT = 2;
+const PC_TURN_ROAM_INTERVAL_MS = 8000;
+const PC_TURN_ROAM_SLOT_COUNT = 4;
 const PC_TURN_ROAM_MOUSE_CLEAR_PX = 12;
+const PC_TURN_ROAM_EDGE_PAD_PX = 10;
+/** Примерная полуширина таблички для clamp у краёв viewport */
+const PC_TURN_ROAM_BADGE_HALF_W_PX = 88;
 /** ПК: пауза до яркой подсветки кнопок заказа / между повторами */
 const PC_BID_PANEL_ATTENTION_IDLE_MS = 3000;
 /** ПК: сколько держать яркую подсветку, затем снова пауза */
@@ -305,29 +318,6 @@ const MOBILE_OVERLAP_SCRUB_ACTIVATE_DIST = 7;
 const MOBILE_OVERLAP_SCRUB_ACTIVATE_DX = 5;
 const MOBILE_OVERLAP_SCRUB_HOLD_MS = 220;
 const MOBILE_OVERLAP_SCRUB_HOLD_NUDGE = 3;
-/**
- * Текст для нативных подсказок браузера (атрибуты title и aria-label у окошка имени) —
- * на телефоне обычно видно только после долгого удержания; отдельного «пузыря» в интерфейсе нет.
- */
-const OPPONENT_NAME_WINDOW_SCROLL_HINT =
-  'Тап: неон и плавный просмотр туда-обратно. Без тапа: раз в 15–30 с плавно показать конец имени и вернуться (без неона).';
-/** После тапа по имени — не запускать автопоказ (та же анимация), пока не прошло столько миллисекунд */
-const OPP_NAME_REVEAL_AUTO_IDLE_AFTER_USER_MS = 14000;
-/** Случайная пауза между автопрокрутками имени (мс): 15 000 … 30 000 */
-function oppNameRevealAutoIntervalMs() {
-  return 15000 + Math.floor(Math.random() * 15001);
-}
-/** Кадры sin(π·u) для WAAPI + easing: linear — без rAF, движок сам интерполирует между шагами */
-function buildOppNameRevealSinTranslateKeyframes(maxPx: number, steps = 100): Keyframe[] {
-  const m = Math.round(maxPx);
-  const frames: Keyframe[] = [];
-  for (let i = 0; i <= steps; i++) {
-    const u = i / steps;
-    const x = Math.round(m * Math.sin(Math.PI * u));
-    frames.push({ transform: `translate3d(${-x}px,0,0)` });
-  }
-  return frames;
-}
 const MOBILE_OVERLAP_SCRUB_LINGER_MS = 1000;
 
 /**
@@ -1041,8 +1031,15 @@ function getTrickTableCardScale(
   isMobileOrTablet: boolean,
   isMobileLandscape: boolean,
   pcScaleMul = 1,
+  /** Планшет · 4p: компакт + бонус при увеличении масштаба стола; мобила не затрагивается. */
+  tabletFourPcTableCompact = false,
+  tabletTableScalePct = 100,
 ): number {
-  if (!isMobileOrTablet) return 1.18 * pcScaleMul;
+  if (!isMobileOrTablet) {
+    let s = 1.18 * pcScaleMul;
+    if (tabletFourPcTableCompact) s = tabletFourTableCardScaleWithTablePct(s, tabletTableScalePct);
+    return s;
+  }
   if (isMobileLandscape) return 0.822;
   return 0.98;
 }
@@ -1259,6 +1256,8 @@ function getTrickCardSlotStyle(
   const offsetEdge = 'var(--trick-slot-offset-edge, 17px)';
   const offsetWestEast = 'var(--trick-slot-offset-west-east, 101px)';
   const nsOffset = 'var(--trick-slot-ns-offset-x, 28px)';
+  const nsSpread = 'var(--trick-slot-ns-spread-extra, 0px)';
+  const seNudge = 'var(--trick-slot-south-east-nudge-x, 0px)';
   /** ПК · 3: как у четверых по бокам — Запад=2, Восток=1 (Север нет). */
   if (playerCount === 3) {
     const clusterShift = 'var(--trick-slot-cluster-shift-x, 0px)';
@@ -1294,10 +1293,28 @@ function getTrickCardSlotStyle(
     }
   }
   switch (playerIdx) {
-    case 0: return { ...base, bottom: offsetEdge, left: '50%', transform: `translateX(calc(-50% + ${nsOffset}))` };
-    case 1: return { ...base, top: offsetEdge, left: '50%', transform: `translateX(calc(-50% - ${nsOffset}))` };
+    case 0:
+      return {
+        ...base,
+        bottom: offsetEdge,
+        left: '50%',
+        transform: `translateX(calc(-50% + ${nsOffset} + ${nsSpread} + ${seNudge}))`,
+      };
+    case 1:
+      return {
+        ...base,
+        top: offsetEdge,
+        left: '50%',
+        transform: `translateX(calc(-50% - ${nsOffset} - ${nsSpread}))`,
+      };
     case 2: return { ...base, left: offsetWestEast, top: '50%', transform: 'translateY(-50%)' };
-    case 3: return { ...base, right: offsetWestEast, top: '50%', transform: 'translateY(-50%)' };
+    case 3:
+      return {
+        ...base,
+        right: `calc(${offsetWestEast} - ${seNudge})`,
+        top: '50%',
+        transform: 'translateY(-50%)',
+      };
     default: return { ...base, bottom: offsetEdge, left: '50%', transform: 'translateX(-50%)' };
   }
 }
@@ -1364,12 +1381,18 @@ function getTrickSlotTransform(
     }
   }
   const ns = 'var(--trick-slot-ns-offset-x, 28px)';
+  const nsSpread = 'var(--trick-slot-ns-spread-extra, 0px)';
+  const seNudge = 'var(--trick-slot-south-east-nudge-x, 0px)';
   switch (playerIdx) {
-    case 0: return `translate(-50%, -50%) translateY(32%) translateX(${ns})`;
-    case 1: return `translate(-50%, -50%) translateY(-32%) translateX(calc(-1 * ${ns}))`;
+    case 0:
+      return `translate(-50%, -50%) translateY(32%) translateX(calc(${ns} + ${nsSpread} + ${seNudge}))`;
+    case 1:
+      return `translate(-50%, -50%) translateY(-32%) translateX(calc(-1 * (${ns} + ${nsSpread})))`;
     case 2: return 'translate(-50%, -50%) translateX(-30%)';
-    case 3: return 'translate(-50%, -50%) translateX(30%)';
-    default: return `translate(-50%, -50%) translateY(32%) translateX(${ns})`;
+    case 3:
+      return `translate(-50%, -50%) translateX(calc(30% + ${seNudge}))`;
+    default:
+      return `translate(-50%, -50%) translateY(32%) translateX(calc(${ns} + ${nsSpread} + ${seNudge}))`;
   }
 }
 
@@ -4353,7 +4376,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
 
   useEffect(() => {
     if (isOnline || isWaitingInRoom) return;
+    let alive = true;
     const flush = () => {
+      if (!alive) return;
       const s = stateRef.current;
       if (s) saveGameStateToStorage(s);
     };
@@ -4362,7 +4387,10 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       if (document.visibilityState === 'hidden') flush();
     };
     document.addEventListener('visibilitychange', onVis);
+    /** Dev: перед редким full-reload Vite успеть записать партию в localStorage. */
+    import.meta.hot?.on('vite:beforeFullReload', flush);
     return () => {
+      alive = false;
       window.removeEventListener('pagehide', flush);
       document.removeEventListener('visibilitychange', onVis);
     };
@@ -4594,8 +4622,10 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         ? pcFourHandScaleMultiplier(pcFourHandPct)
         : pcHandScaleMultiplier(pcScaleBoost)
       : useTabletPcTableTuning && pcScaleSeats === 4
-        ? pcFourHandScaleMultiplier(pcFourHandPct)
+        ? tabletFourHandScaleMultiplier(pcFourHandPct)
         : 1;
+  /** Планшет · 4p: карты на сукне компактнее (−2px при 100% + ступени от масштаба стола); мобила не трогаем. */
+  const tabletFourPcTableCards = useTabletPcTableTuning && pcScaleSeats === 4;
   const pcFeltScaleMul =
     !isMobile && !useTabletPcTableTuning
       ? pcTableFeltScaleMultiplier(
@@ -5577,54 +5607,79 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       }
       const panel = panelEl.getBoundingClientRect();
       const table = tableEl.getBoundingClientRect();
-      if (pcTurnRoamSlot === 0) {
-        /** Торги: кнопки заказа на столе — якорь таблички «Ваш заказ» у левого кластера панели Юга */
-        if (showPcYourOrderRoamingBadge) {
-          const clusterEl = pcUserPanelLeftClusterRef.current;
-          const cluster = clusterEl?.getBoundingClientRect();
-          if (cluster) {
-            setPcTurnRoamFixedStyle({
-              position: 'fixed',
-              left: cluster.left + cluster.width / 2,
-              top: cluster.top - 8,
-              transform: 'translate(-50%, -100%)',
-              margin: 0,
-            });
-            return;
+      const handEl = panelEl
+        .closest('.game-pc-user-layer')
+        ?.querySelector<HTMLElement>('.pc-player-hand-frame');
+      const hand = handEl?.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const pad = PC_TURN_ROAM_EDGE_PAD_PX;
+      const halfW = PC_TURN_ROAM_BADGE_HALF_W_PX;
+      const clampX = (x: number) => Math.max(pad + halfW, Math.min(vw - pad - halfW, x));
+      const clampY = (y: number) => Math.max(pad + 24, Math.min(vh - pad - 24, y));
+
+      /**
+       * Безопасный рельс (не центр сукна, не центр панели с заказом):
+       * 0 — слева от панели Юга
+       * 1 — справа от панели Юга
+       * 2 — левый бок коридора стол→рука/панель
+       * 3 — правый бок того же коридора
+       */
+      const corridorTop = hand && hand.top > table.bottom + 8 ? hand.top : panel.top;
+      const corridorY =
+        table.bottom < corridorTop - 8
+          ? clampY((table.bottom + corridorTop) / 2)
+          : clampY(Math.max(table.bottom + 14, panel.top - 36));
+      const railLeft = clampX(Math.min(panel.left, table.left) + Math.max(panel.width, table.width) * 0.18);
+      const railRight = clampX(Math.max(panel.right, table.right) - Math.max(panel.width, table.width) * 0.18);
+      const panelMidY = clampY(panel.top + Math.min(panel.height * 0.38, 52));
+
+      let left: number;
+      let top: number;
+      let transform: string;
+      switch (pcTurnRoamSlot % PC_TURN_ROAM_SLOT_COUNT) {
+        case 0:
+          /* Слева от панели; если места мало — у левого края viewport */
+          if (panel.left >= halfW * 2 + pad) {
+            left = panel.left - pad;
+            top = panelMidY;
+            transform = 'translate(-100%, -50%)';
+          } else {
+            left = pad;
+            top = panelMidY;
+            transform = 'translate(0, -50%)';
           }
-        }
-        setPcTurnRoamFixedStyle({
-          position: 'fixed',
-          left: panel.left + panel.width / 2,
-          top: panel.top + panel.height / 2,
-          transform: 'translate(-50%, -50%)',
-          margin: 0,
-        });
-      } else {
-        /** Планшет · торги: «Первый ход» сверху сукна — roaming ниже капсулы, не поверх неё */
-        const firstMoveOnTable =
-          useTabletPcTableTuning &&
-          (state?.phase === 'bidding' || state?.phase === 'dark-bidding');
-        const firstMoveEl = firstMoveOnTable ? pcFirstMoveBadgeRef.current : null;
-        const firstMoveRect = firstMoveEl?.getBoundingClientRect();
-        if (firstMoveRect && firstMoveRect.height > 0) {
-          setPcTurnRoamFixedStyle({
-            position: 'fixed',
-            left: table.left + table.width / 2,
-            top: firstMoveRect.bottom + 10,
-            transform: 'translateX(-50%)',
-            margin: 0,
-          });
-          return;
-        }
-        setPcTurnRoamFixedStyle({
-          position: 'fixed',
-          left: table.left + table.width / 2,
-          top: table.top + (firstMoveOnTable ? 52 : 12),
-          transform: 'translateX(-50%)',
-          margin: 0,
-        });
+          break;
+        case 1:
+          if (vw - panel.right >= halfW * 2 + pad) {
+            left = panel.right + pad;
+            top = panelMidY;
+            transform = 'translate(0, -50%)';
+          } else {
+            left = vw - pad;
+            top = panelMidY;
+            transform = 'translate(-100%, -50%)';
+          }
+          break;
+        case 2:
+          left = railLeft;
+          top = corridorY;
+          transform = 'translate(-50%, -50%)';
+          break;
+        default:
+          left = railRight;
+          top = corridorY;
+          transform = 'translate(-50%, -50%)';
+          break;
       }
+
+      setPcTurnRoamFixedStyle({
+        position: 'fixed',
+        left,
+        top,
+        transform,
+        margin: 0,
+      });
     };
     update();
     window.addEventListener('resize', update);
@@ -5634,15 +5689,13 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         ? new ResizeObserver(() => update())
         : null;
     const panelEl = pcUserPanelRef.current;
-    const clusterEl = pcUserPanelLeftClusterRef.current;
-    const bidPanelEl = pcBidPanelRef.current;
     const tableEl = pcTableSurfaceRef.current;
-    const firstMoveEl = pcFirstMoveBadgeRef.current;
+    const handEl = panelEl
+      ?.closest('.game-pc-user-layer')
+      ?.querySelector<HTMLElement>('.pc-player-hand-frame');
     if (panelEl) resizeObserver?.observe(panelEl);
-    if (clusterEl) resizeObserver?.observe(clusterEl);
-    if (bidPanelEl) resizeObserver?.observe(bidPanelEl);
     if (tableEl) resizeObserver?.observe(tableEl);
-    if (useTabletPcTableTuning && firstMoveEl) resizeObserver?.observe(firstMoveEl);
+    if (handEl) resizeObserver?.observe(handEl);
     return () => {
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
@@ -5650,14 +5703,11 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     };
   }, [
     showPcTurnRoamingBadge,
-    showPcYourOrderRoamingBadge,
     pcTurnRoamVisible,
     pcTurnRoamSlot,
     userTurnStrongNudgePc,
     shouldShowBidPanel,
     bidPanelVisible,
-    useTabletPcTableTuning,
-    state?.phase,
     state?.currentPlayerIndex,
   ]);
 
@@ -5763,6 +5813,8 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     state && isHumanBidding ? getForbiddenDealerBid(state, humanIdx) : null;
 
   const onlineBidInFlightRef = useRef(false);
+  /** ПК/планшет · кнопки заказа на столе: armed до pointerup (см. onPointerDown панели). */
+  const pcBidArmedRef = useRef<{ bid: number; pointerId: number } | null>(null);
   const handleBid = useCallback((bid: number) => {
     if (isOnlinePlayPhase) {
       // mousedown+click / touch→click иначе шлют place_bid дважды → not_your_turn спам.
@@ -11615,7 +11667,13 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                   const leader = state.trickLeaderIndex;
                   const playerIdx = getTrickPlayerIndex(leader, i, playerCountOf(state));
                   const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state));
-                  const tableCardScale = getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, pcCardScaleMul);
+                  const tableCardScale = getTrickTableCardScale(
+                    isMobileOrTablet,
+                    isMobileLandscape,
+                    pcCardScaleMul,
+                    tabletFourPcTableCards,
+                    tabletTableScalePct,
+                  );
                   return (
                     <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
                       <CardView card={card} compact showDesktopFaceIndices={true} tableCardMobile={isMobileOrTablet} scale={tableCardScale} contentScale={isMobileOrTablet ? 1.8 : undefined}
@@ -11637,7 +11695,13 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                     const showCardBack =
                       lastTrickCollectingPhase === 'collapsing';
                     const CARD_COLLECT_MS = LAST_TRICK_COLLECT_MS;
-                    const cardScale = getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, pcCardScaleMul);
+                    const cardScale = getTrickTableCardScale(
+                      isMobileOrTablet,
+                      isMobileLandscape,
+                      pcCardScaleMul,
+                      tabletFourPcTableCards,
+                      tabletTableScalePct,
+                    );
                     const cardW = Math.round(52 * cardScale);
                     const cardH = Math.round(76 * cardScale);
                     const isTrickWinnerCard =
@@ -11691,7 +11755,13 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                     const leader = state.lastCompletedTrick!.leaderIndex;
                     const playerIdx = getTrickPlayerIndex(leader, i, playerCountOf(state));
                     const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state));
-                    const tableCardScale = getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, pcCardScaleMul);
+                    const tableCardScale = getTrickTableCardScale(
+                      isMobileOrTablet,
+                      isMobileLandscape,
+                      pcCardScaleMul,
+                      tabletFourPcTableCards,
+                      tabletTableScalePct,
+                    );
                     return (
                       <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
                         <CardView card={card} compact showDesktopFaceIndices={true} tableCardMobile={isMobileOrTablet} scale={tableCardScale} contentScale={isMobileOrTablet ? 1.5 : undefined} doubleBorder={trumpHighlightOn} isTrumpOnTable={isMobileOrTablet ? (trumpHighlightOn && state.trump !== null && card.suit === state.trump) : (state.trump !== null && card.suit === state.trump)} trumpHighlightOn={trumpHighlightOn} showPipZoneBorders={trumpHighlightOn} pcCardStyles={!isMobileOrTablet} />
@@ -11703,7 +11773,13 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               {humanTrickWaitBadgeReady && (
                 <HumanTrickSlotWaitBadge
                   slotStyle={getTrickCardSlotStyle(humanIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state))}
-                  cardScale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, pcCardScaleMul)}
+                  cardScale={getTrickTableCardScale(
+                    isMobileOrTablet,
+                    isMobileLandscape,
+                    pcCardScaleMul,
+                    tabletFourPcTableCards,
+                    tabletTableScalePct,
+                  )}
                 />
               )}
             </div>
@@ -11733,6 +11809,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                   alignItems: 'flex-end',
                   pointerEvents: 'none',
                   padding: '0 12px',
+                  WebkitTapHighlightColor: 'transparent',
                 }}
               >
                 <div className="bid-panel-pc-on-table-stack">
@@ -11763,6 +11840,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                     style={{
                       ...bidPanelInlineStyle,
                       pointerEvents: 'auto',
+                      WebkitTapHighlightColor: 'transparent',
                     }}
                     aria-label="Выбор заказа"
                     onClick={(e) => e.stopPropagation()}
@@ -11781,10 +11859,37 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                               if (e.button !== 0) return;
                               e.preventDefault();
                               e.stopPropagation();
+                              /*
+                               * Не ставим заказ на pointerdown: панель сразу размонтируется,
+                               * а палец ещё на экране → WebKit рисует tap-highlight на полном
+                               * wrap/столе (огромный светлый прямоугольник). Заказ — на pointerup.
+                               */
+                              try {
+                                e.currentTarget.setPointerCapture(e.pointerId);
+                              } catch {
+                                /* ignore */
+                              }
+                              pcBidArmedRef.current = { bid: i, pointerId: e.pointerId };
+                            }}
+                            onPointerUp={(e) => {
+                              if (disabled) return;
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const armed = pcBidArmedRef.current;
+                              pcBidArmedRef.current = null;
+                              if (!armed || armed.bid !== i || armed.pointerId !== e.pointerId) return;
+                              try {
+                                e.currentTarget.releasePointerCapture(e.pointerId);
+                              } catch {
+                                /* ignore */
+                              }
                               handleBidRef.current(i);
                             }}
+                            onPointerCancel={() => {
+                              pcBidArmedRef.current = null;
+                            }}
                             onClick={(e) => {
-                              /* выбор уже на pointerdown — без второго срабатывания и без задержки click */
+                              /* выбор на pointerup — без второго срабатывания от click */
                               e.preventDefault();
                               e.stopPropagation();
                             }}
@@ -11908,22 +12013,31 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               const handCards = state.players[humanIdx].hand
                 .slice()
                 .sort((a, b) => cardSort(a, b, state.trump));
-              /** ПК: адаптивный base + boost; 4p — новая шкала 94…106 (100%=abs 1.05). */
-              const pcHandBaseScale = isMobileOrTablet
-                ? 1 / (1.3 * 1.1)
-                : resolvePcHandAdaptiveScale(handCards.length);
-              let pcHandScale = isMobileOrTablet
-                ? pcHandBaseScale
-                : pcScaleSeats === 4
-                  ? pcHandBaseScale * pcFourHandScaleMultiplier(pcFourHandPct)
-                  : pcHandBaseScale * pcHandScaleMultiplier(pcScaleBoost);
-              /* Планшет: постоянный компакт + опц. −2px высоты; 4p — ещё UI-шкала шестерёнки */
+              /**
+               * Масштаб руки:
+               * - tablet-shell (1025–1366): ПК adaptive base + компакт, но UI 100% без ×1.05
+               *   (раньше: adaptive×1.05×compact×… — рука на ~5% крупнее калибровки);
+               * - планшет ≤1024: мобильный base + компакт + UI;
+               * - полный ПК: adaptive + 4p abs 1.05 / 3p boost.
+               */
+              let pcHandScale: number;
               if (useTabletPcTableTuning) {
-                pcHandScale *= TABLET_HAND_COMPACT;
+                const tabletHandBase = isMobileOrTablet
+                  ? 1 / (1.3 * 1.1)
+                  : resolvePcHandAdaptiveScale(handCards.length);
+                pcHandScale = tabletHandBase * TABLET_HAND_COMPACT;
                 if (!isThreeSeatTable) {
                   pcHandScale = tabletFourHandScaleMinus1px(pcHandScale);
-                  pcHandScale *= pcFourHandScaleMultiplier(pcFourHandPct);
+                  pcHandScale *= tabletFourHandScaleMultiplier(pcFourHandPct);
                 }
+              } else if (!isMobileOrTablet) {
+                const pcHandBaseScale = resolvePcHandAdaptiveScale(handCards.length);
+                pcHandScale =
+                  pcScaleSeats === 4
+                    ? pcHandBaseScale * pcFourHandScaleMultiplier(pcFourHandPct)
+                    : pcHandBaseScale * pcHandScaleMultiplier(pcScaleBoost);
+              } else {
+                pcHandScale = 1 / (1.3 * 1.1);
               }
               return handCards.map((card, i) => (
                 <CardView
@@ -12016,6 +12130,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
           ) : null}
           {isMobileOrTablet &&
             (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+            state.bids[humanIdx] == null &&
             state.bids.some(b => b === null) &&
             state.trickLeaderIndex === humanIdx && (
               <span style={firstBidderLampExternalStyle} title="Первый заказ/ход">
@@ -12039,8 +12154,19 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                       <span className={`${southPlayerNameClassName} user-player-panel-pc-name-text`} style={southPlayerNameStyle}>{displayState.players[humanIdx].name}</span>
                     </div>
                   </div>
-                  {state.phase !== 'bidding' && state.phase !== 'dark-bidding' && (
-                    <div className="user-player-panel-pc-tricks-column">
+                  {/* Заказ Юга: на торгах — сразу после своей ставки (не ждать конца торгов). */}
+                  {(state.bids[humanIdx] != null ||
+                    (state.phase !== 'bidding' && state.phase !== 'dark-bidding')) && (
+                    <div
+                      className={[
+                        'user-player-panel-pc-tricks-column',
+                        state.phase === 'bidding' || state.phase === 'dark-bidding'
+                          ? 'user-player-panel-pc-tricks-column--bidding'
+                          : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
                       <TrickSlotsDisplay
                         bid={state.bids[humanIdx] ?? null}
                         tricksTaken={state.players[humanIdx].tricksTaken}
@@ -12058,7 +12184,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                 {(state.phase === 'bidding' || state.phase === 'dark-bidding') ? (
                   <div className="user-player-panel-pc-bidding-top-row">
                     <div style={playerInfoHeaderStyle} className="user-player-panel-pc-bidding-badges">
-                      {state.bids.some(b => b === null) &&
+                      {/* Скрываем, когда уже видна панелька заказа (своя ставка сделана). */}
+                      {state.bids[humanIdx] == null &&
+                        state.bids.some(b => b === null) &&
                         state.trickLeaderIndex === humanIdx && (
                           <span className="first-bidder-lamp-user-pc" style={firstBidderLampUserPanelPcStyle} title="Первый заказ/ход">
                             <span className="first-bidder-lamp-user-pc-bulb" style={firstBidderLampBulbStyle} /> Первый заказ/ход
@@ -17219,6 +17347,8 @@ function TrickSlotsDisplay({
   tricksLeftInDeal,
   /** Моб. Юг: звезда «ровно в заказ» внутри рамки панели заказа (верхний правый угол). */
   playerMobileExactOrderCornerStar,
+  /** Доп. масштаб панели (напр. планшет 4p · Север −10%); влияет на размеры, не только на CSS transform. */
+  panelScale,
 }: {
   bid: number | null;
   tricksTaken: number;
@@ -17242,11 +17372,13 @@ function TrickSlotsDisplay({
   playerMobileLandscapeTricks?: boolean;
   tricksLeftInDeal?: number;
   playerMobileExactOrderCornerStar?: React.ReactNode;
+  panelScale?: number;
 }) {
   const isMobileViewport = useIsMobile();
   /** ПК + планшет (не телефон): единый кегль и неон «взято/заказ». */
   const usePcBidTakenFigures = !isMobileViewport;
   const pcBidTakenFigPx = 16;
+  const sPanel = Number.isFinite(panelScale) && (panelScale as number) > 0 ? (panelScale as number) : 1;
 
   const zeroCrossGradId = useId().replace(/:/g, '');
   const isCompact = variant === 'opponent';
@@ -18132,7 +18264,7 @@ function TrickSlotsDisplay({
       : !compactMode && bid != null && variant === 'player' && bid + extra > 10
         ? Math.min(1, 10 / (bid + extra))
         : 1;
-  const effectiveSlotSize =
+  const baseSlotSize =
     pcSlotScaleDown < 1
       ? variant === 'opponent'
         ? {
@@ -18141,10 +18273,20 @@ function TrickSlotsDisplay({
           }
         : { w: Math.max(28, Math.round(52 * pcSlotScaleDown)), h: Math.max(42, Math.round(76 * pcSlotScaleDown)) }
       : slotSize;
+  /** panelScale (напр. 0.9 у Севера на планшете 4p) — реальные px, в т.ч. заказ 0. */
+  const effectiveSlotSize =
+    sPanel !== 1
+      ? {
+          w: Math.max(10, Math.round(baseSlotSize.w * sPanel)),
+          h: Math.max(16, Math.round(baseSlotSize.h * sPanel)),
+        }
+      : baseSlotSize;
   const rowStyle = {
     ...trickSlotsRowStyle,
     ...(horizontalOnly ? { flexWrap: 'nowrap' as const } : {}),
-    ...(pcSlotScaleDown < 1 ? { gap: Math.max(2, Math.round(6 * pcSlotScaleDown)) } : {}),
+    ...(pcSlotScaleDown < 1 || sPanel !== 1
+      ? { gap: Math.max(2, Math.round(6 * pcSlotScaleDown * sPanel)) }
+      : {}),
   };
   /** ПК: точно в заказ — сирень; перебор — болотно-жёлтый; красный недобор — только если заказ уже невыполним. */
   const pcTrickPanelExactOrder = tricksTaken === bid;
@@ -18154,6 +18296,7 @@ function TrickSlotsDisplay({
     (tricksLeftInDeal === undefined || tricksTaken + tricksLeftInDeal < bid);
   const pcBidNum = Number.isNaN(Number(bid)) ? null : Number(bid);
   const pcRareBidCls = trickSlotsRareBidClass(pcBidNum);
+  const padScale = pcSlotScaleDown * sPanel;
   const wrapStyle = {
     ...trickSlotsWrapStyle,
     ...(pcTrickPanelExactOrder
@@ -18163,7 +18306,11 @@ function TrickSlotsDisplay({
         : pcTrickPanelUnderOrderStrict
           ? trickSlotsWrapPcUnderBidStyle
           : {}),
-    ...(pcSlotScaleDown < 1 ? { padding: `${Math.max(2, Math.round(4 * pcSlotScaleDown))}px ${Math.max(4, Math.round(8 * pcSlotScaleDown))}px` } : {}),
+    ...(padScale < 1
+      ? {
+          padding: `${Math.max(2, Math.round(4 * padScale))}px ${Math.max(4, Math.round(8 * padScale))}px`,
+        }
+      : {}),
   };
 
   /** Только ПК-оппоненты: узкая «стопка» слотов (полоска слежу снизу видна) + числа заказ/взято поверх. */
@@ -18172,10 +18319,13 @@ function TrickSlotsDisplay({
   const stackStepPc = Math.max(5, effectiveSlotSize.w - stripVisiblePx);
   const totalStackSlots = orderedSlots + extra;
   const stackWidthPc =
-    totalStackSlots <= 0 ? Math.max(effectiveSlotSize.w, 36) : (totalStackSlots - 1) * stackStepPc + effectiveSlotSize.w;
-  const overlayFontPc = usePcBidTakenFigures
-    ? pcBidTakenFigPx
-    : Math.max(9, Math.round(11 * pcSlotScaleDown));
+    totalStackSlots <= 0
+      ? Math.max(effectiveSlotSize.w, Math.round(36 * sPanel))
+      : (totalStackSlots - 1) * stackStepPc + effectiveSlotSize.w;
+  const overlayFontPc = Math.max(
+    8,
+    Math.round((usePcBidTakenFigures ? pcBidTakenFigPx : Math.max(9, Math.round(11 * pcSlotScaleDown))) * sPanel),
+  );
 
   if (opponentPcStacked) {
     /** Зазор между цифрами «заказ/взято» и стопкой слотов (тень у текста тянется вниз). */
@@ -18698,20 +18848,18 @@ function OpponentSlot({
   const p = state.players[index];
   if (!p) return null;
   const displayName = p.name;
+  const isMobileOrTabletVp = useIsMobileOrTablet();
+  const isTabletPcShell = useIsTabletPcShell();
+  /** Планшет · 4p · Север: панель заказа −10% (в т.ч. заказ 0 на торгах/розыгрыше). */
+  const tabletFourNorthOrderPanelScale =
+    !isMobile &&
+    (isMobileOrTabletVp || isTabletPcShell) &&
+    position === 'top' &&
+    state.players.length === 4
+      ? 0.9
+      : undefined;
   /** Мобильные С/З/В: бейдж «Очки» по умолчанию только цифра; тап разворачивает подпись */
   const [mobileOpponentScoreExpanded, setMobileOpponentScoreExpanded] = useState(false);
-  const oppNameWindowRef = useRef<HTMLDivElement | null>(null);
-  /** Внутренняя дорожка имени (моб. С/З): смещение через transform, не scrollLeft — плавнее с backdrop-filter */
-  const oppNameRevealTrackRef = useRef<HTMLDivElement | null>(null);
-  /** Координаты pointerdown по окошку имени — тап vs гориз. жест (игнорируем сдвиг > ~14px) */
-  const oppNameTapPointerStartRef = useRef({ x: 0, y: 0 });
-  const oppNameRevealAnimRafRef = useRef<number | null>(null);
-  /** Web Animations API (transform) — предпочтительно мобилке вместо rAF */
-  const oppNameRevealWaRef = useRef<Animation | null>(null);
-  const oppNameRevealAnimatingRef = useRef(false);
-  /** Момент старта последнего раскрытия по тапу (null — пользователь ещё не тапал по этому окошку в этой «жизни» скролла) */
-  const oppNameLastUserRevealStartRef = useRef<number | null>(null);
-  const [oppNameWindowScrollable, setOppNameWindowScrollable] = useState(false);
   useEffect(() => {
     if (!mobileOpponentScoreExpanded) return;
     const id = window.setTimeout(() => setMobileOpponentScoreExpanded(false), 5000);
@@ -18786,334 +18934,27 @@ function OpponentSlot({
   const pcNorthSideBySide = position === 'top' && inline && !isMobile;
   /** Моб. landscape: Север — одна низкая полоска над столом (контент в строку). */
   const mobileNorthLandscapeRow = Boolean(isMobile && mobileLandscapeLayout && inline && position === 'top');
-  /** Моб. С/З и landscape З/В: имя в «окошке», длинное — обрезка + прокрутка по тапу; portrait Восток — перенос. */
+  /** Моб. С/З: имя в «окошке» (для звезды «ровно» и legacy-флагов). */
   const mobileOpponentInline = !!(isMobile && inline && !pcNorthSideBySide);
-  const mobileOpponentNameWindowHorizScroll =
-    mobileOpponentInline && (!useEastMobileNameStyle || mobileWestEastLandscapeCol);
-  useLayoutEffect(() => {
-    if (!mobileOpponentNameWindowHorizScroll) {
-      setOppNameWindowScrollable(false);
-      return;
-    }
-    const el = oppNameWindowRef.current;
-    if (!el) {
-      setOppNameWindowScrollable(false);
-      return;
-    }
-    const measure = () => {
-      /* Пока крутится rAF-прокрутка имени, не трогаем layout/React — иначе лишние перерисовки и дрожание */
-      if (oppNameRevealAnimatingRef.current) return;
-      setOppNameWindowScrollable(el.scrollWidth > el.clientWidth + 1);
-    };
-    measure();
-    const ro =
-      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => window.requestAnimationFrame(measure)) : null;
-    ro?.observe(el);
-    const onResize = () => measure();
-    window.addEventListener('resize', onResize);
-    return () => {
-      ro?.disconnect();
-      window.removeEventListener('resize', onResize);
-    };
-  }, [mobileOpponentNameWindowHorizScroll, displayName, replacedByAi, index]);
-  useEffect(() => {
-    if (!oppNameWindowScrollable) {
-      oppNameRevealAnimatingRef.current = false;
-      oppNameLastUserRevealStartRef.current = null;
-      if (oppNameRevealAnimRafRef.current != null) {
-        window.cancelAnimationFrame(oppNameRevealAnimRafRef.current);
-        oppNameRevealAnimRafRef.current = null;
-      }
-      if (oppNameRevealWaRef.current) {
-        oppNameRevealWaRef.current.onfinish = null;
-        try {
-          oppNameRevealWaRef.current.cancel();
-        } catch {
-          /* ignore */
-        }
-        oppNameRevealWaRef.current = null;
-      }
-      oppNameRevealTrackRef.current && (oppNameRevealTrackRef.current.style.transform = '');
-      oppNameWindowRef.current?.classList.remove('opponent-slot-header-name-window--reveal-compositing');
-      oppNameWindowRef.current?.classList.remove('opponent-slot-header-name-window--reveal-tap-chrome');
-    }
-  }, [oppNameWindowScrollable]);
-  useEffect(() => {
-    return () => {
-      if (oppNameRevealAnimRafRef.current != null) {
-        window.cancelAnimationFrame(oppNameRevealAnimRafRef.current);
-        oppNameRevealAnimRafRef.current = null;
-      }
-      if (oppNameRevealWaRef.current) {
-        oppNameRevealWaRef.current.onfinish = null;
-        try {
-          oppNameRevealWaRef.current.cancel();
-        } catch {
-          /* ignore */
-        }
-        oppNameRevealWaRef.current = null;
-      }
-      oppNameRevealAnimatingRef.current = false;
-      oppNameRevealTrackRef.current && (oppNameRevealTrackRef.current.style.transform = '');
-      oppNameWindowRef.current?.classList.remove('opponent-slot-header-name-window--reveal-compositing');
-      oppNameWindowRef.current?.classList.remove('opponent-slot-header-name-window--reveal-tap-chrome');
-    };
-  }, []);
-  const runMobileOppNameRevealScroll = useCallback((opts?: { source?: 'user' | 'auto' }) => {
-    const source = opts?.source ?? 'user';
-    if (!mobileOpponentNameWindowHorizScroll || !oppNameWindowScrollable) return;
-    if (oppNameRevealAnimatingRef.current) return;
-    const box = oppNameWindowRef.current;
-    if (!box) return;
-    const max = Math.max(0, box.scrollWidth - box.clientWidth);
-    if (max < 2) return;
-
-    if (source === 'user') {
-      oppNameLastUserRevealStartRef.current = Date.now();
-    }
-
-    const reduce =
-      typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) {
-      const track = oppNameRevealTrackRef.current;
-      const mx = Math.round(max);
-      if (track) {
-        if (source === 'user') {
-          oppNameWindowRef.current?.classList.add(
-            'opponent-slot-header-name-window--reveal-compositing',
-            'opponent-slot-header-name-window--reveal-tap-chrome',
-          );
-          track.style.transform = `translate3d(${-mx}px,0,0)`;
-          window.requestAnimationFrame(() => {
-            oppNameRevealTrackRef.current && (oppNameRevealTrackRef.current.style.transform = 'translate3d(0,0,0)');
-            window.setTimeout(() => {
-              oppNameWindowRef.current?.classList.remove(
-                'opponent-slot-header-name-window--reveal-compositing',
-                'opponent-slot-header-name-window--reveal-tap-chrome',
-              );
-            }, 400);
-          });
-        } else {
-          track.style.transform = `translate3d(${-mx}px,0,0)`;
-          window.requestAnimationFrame(() => {
-            oppNameRevealTrackRef.current && (oppNameRevealTrackRef.current.style.transform = 'translate3d(0,0,0)');
-          });
-        }
-      } else if (source === 'user') {
-        oppNameWindowRef.current?.classList.add(
-          'opponent-slot-header-name-window--reveal-compositing',
-          'opponent-slot-header-name-window--reveal-tap-chrome',
-        );
-        box.scrollLeft = max;
-        box.scrollLeft = 0;
-        window.setTimeout(() => {
-          oppNameWindowRef.current?.classList.remove(
-            'opponent-slot-header-name-window--reveal-compositing',
-            'opponent-slot-header-name-window--reveal-tap-chrome',
-          );
-        }, 400);
-      } else {
-        box.scrollLeft = max;
-        box.scrollLeft = 0;
-      }
-      return;
-    }
-
-    if (oppNameRevealAnimRafRef.current != null) {
-      window.cancelAnimationFrame(oppNameRevealAnimRafRef.current);
-      oppNameRevealAnimRafRef.current = null;
-    }
-    if (oppNameRevealWaRef.current) {
-      oppNameRevealWaRef.current.onfinish = null;
-      try {
-        oppNameRevealWaRef.current.cancel();
-      } catch {
-        /* ignore */
-      }
-      oppNameRevealWaRef.current = null;
-    }
-
-    const applyRevealOffsetPx = (px: number) => {
-      const track = oppNameRevealTrackRef.current;
-      const outer = oppNameWindowRef.current;
-      const x = Math.round(Math.max(0, px));
-      if (track) {
-        track.style.transform = `translate3d(${-x}px,0,0)`;
-      } else if (outer) {
-        outer.scrollLeft = x;
-      }
-    };
-
-    const finish = () => {
-      if (oppNameRevealAnimRafRef.current != null) {
-        window.cancelAnimationFrame(oppNameRevealAnimRafRef.current);
-        oppNameRevealAnimRafRef.current = null;
-      }
-      const wa = oppNameRevealWaRef.current;
-      oppNameRevealWaRef.current = null;
-      if (wa) {
-        wa.onfinish = null;
-        try {
-          wa.cancel();
-        } catch {
-          /* ignore */
-        }
-      }
-      oppNameRevealAnimatingRef.current = false;
-      const outer = oppNameWindowRef.current;
-      const track = oppNameRevealTrackRef.current;
-      if (track) track.style.transform = '';
-      if (outer) {
-        outer.scrollLeft = 0;
-        outer.classList.remove('opponent-slot-header-name-window--reveal-compositing');
-        outer.classList.remove('opponent-slot-header-name-window--reveal-tap-chrome');
-      }
-    };
-
-    const track = oppNameRevealTrackRef.current;
-    const outerWin = oppNameWindowRef.current;
-    const canWebAnim = Boolean(track && typeof track.animate === 'function');
-
-    /** Авто: sin(π·t) — Web Animations API (композитор); иначе rAF */
-    if (source === 'auto') {
-      const durationAutoBumpMs = 3600;
-      const maxScroll = Math.round(max);
-      oppNameRevealAnimatingRef.current = true;
-      outerWin?.classList.add('opponent-slot-header-name-window--reveal-compositing');
-      if (canWebAnim && track) {
-        const anim = track.animate(buildOppNameRevealSinTranslateKeyframes(maxScroll), {
-          duration: durationAutoBumpMs,
-          easing: 'linear',
-          fill: 'forwards',
-        });
-        oppNameRevealWaRef.current = anim;
-        anim.onfinish = () => finish();
-        return;
-      }
-      let t0Auto = performance.now();
-      const tickAuto = (now: number) => {
-        if (!oppNameWindowRef.current) {
-          finish();
-          return;
-        }
-        const u = Math.min(1, (now - t0Auto) / durationAutoBumpMs);
-        applyRevealOffsetPx(maxScroll * Math.sin(Math.PI * u));
-        if (u >= 1) {
-          finish();
-          return;
-        }
-        oppNameRevealAnimRafRef.current = window.requestAnimationFrame(tickAuto) as unknown as number;
-      };
-      t0Auto = performance.now();
-      oppNameRevealAnimRafRef.current = window.requestAnimationFrame(tickAuto) as unknown as number;
-      return;
-    }
-
-    const easeInOut = (t: number) => 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, t)));
-    /** Спокойный темп прокрутки по тапу */
-    const durationOutMs = 1400;
-    const durationInMs = 1400;
-    const maxScroll = Math.round(max);
-    const easeSeg = 'cubic-bezier(0.42, 0, 0.58, 1)';
-
-    if (canWebAnim && track) {
-      oppNameRevealAnimatingRef.current = true;
-      outerWin?.classList.add('opponent-slot-header-name-window--reveal-compositing');
-      if (source === 'user') {
-        outerWin?.classList.add('opponent-slot-header-name-window--reveal-tap-chrome');
-      }
-      const anim = track.animate(
-        [
-          { transform: 'translate3d(0,0,0)', offset: 0, easing: easeSeg },
-          { transform: `translate3d(${-maxScroll}px,0,0)`, offset: 0.5, easing: easeSeg },
-          { transform: 'translate3d(0,0,0)', offset: 1 },
-        ],
-        { duration: durationOutMs + durationInMs, fill: 'forwards' },
-      );
-      oppNameRevealWaRef.current = anim;
-      anim.onfinish = () => finish();
-      return;
-    }
-
-    let phase: 'out' | 'in' = 'out';
-    let t0 = performance.now();
-
-    const tick = (now: number) => {
-      if (!oppNameWindowRef.current) {
-        finish();
-        return;
-      }
-      if (phase === 'out') {
-        const u = Math.min(1, (now - t0) / durationOutMs);
-        applyRevealOffsetPx(maxScroll * easeInOut(u));
-        if (u >= 1) {
-          phase = 'in';
-          t0 = now;
-        }
-      } else {
-        const u = Math.min(1, (now - t0) / durationInMs);
-        applyRevealOffsetPx(maxScroll * (1 - easeInOut(u)));
-        if (u >= 1) {
-          finish();
-          return;
-        }
-      }
-      oppNameRevealAnimRafRef.current = window.requestAnimationFrame(tick) as unknown as number;
-    };
-
-    oppNameRevealAnimatingRef.current = true;
-    oppNameWindowRef.current?.classList.add('opponent-slot-header-name-window--reveal-compositing');
-    if (source === 'user') {
-      oppNameWindowRef.current?.classList.add('opponent-slot-header-name-window--reveal-tap-chrome');
-    }
-    t0 = performance.now();
-    oppNameRevealAnimRafRef.current = window.requestAnimationFrame(tick) as unknown as number;
-  }, [mobileOpponentNameWindowHorizScroll, oppNameWindowScrollable]);
-
-  /** Авто: одна плавная дуга к концу и обратно (sin), без неона. Пауза 15–30 с */
-  useEffect(() => {
-    if (!mobileOpponentNameWindowHorizScroll || !oppNameWindowScrollable) return;
-    if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      return;
-    }
-
-    let cancelled = false;
-    let timeoutId: number | undefined;
-
-    const scheduleWait = (ms: number, then: () => void) => {
-      if (cancelled) return;
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-        timeoutId = undefined;
-      }
-      timeoutId = window.setTimeout(() => {
-        timeoutId = undefined;
-        if (!cancelled) then();
-      }, ms) as unknown as number;
-    };
-
-    const tryAutoReveal = () => {
-      if (cancelled) return;
-      if (oppNameRevealAnimatingRef.current) {
-        scheduleWait(500 + Math.floor(Math.random() * 400), tryAutoReveal);
-        return;
-      }
-      const last = oppNameLastUserRevealStartRef.current;
-      if (last != null && Date.now() - last < OPP_NAME_REVEAL_AUTO_IDLE_AFTER_USER_MS) {
-        scheduleWait(400 + Math.floor(Math.random() * 350), tryAutoReveal);
-        return;
-      }
-      runMobileOppNameRevealScroll({ source: 'auto' });
-      scheduleWait(oppNameRevealAutoIntervalMs(), tryAutoReveal);
-    };
-
-    scheduleWait(oppNameRevealAutoIntervalMs(), tryAutoReveal);
-
-    return () => {
-      cancelled = true;
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
-    };
-  }, [mobileOpponentNameWindowHorizScroll, oppNameWindowScrollable, displayName, runMobileOppNameRevealScroll]);
+  /**
+   * Окошко имени: мобила + ПК/планшет (inline).
+   * Portrait East mobile — перенос без horiz-scroll; ПК East — горизонтальное окошко как С/З.
+   */
+  const opponentNameWindowChrome = !!inline;
+  const opponentNameWindowHorizScroll =
+    opponentNameWindowChrome &&
+    !(isMobile && useEastMobileNameStyle && !mobileWestEastLandscapeCol);
+  const {
+    nameWindowRef: oppNameWindowRef,
+    revealTrackRef: oppNameRevealTrackRef,
+    scrollable: oppNameWindowScrollable,
+    onPointerDown: onOppNameWindowPointerDown,
+    onPointerUp: onOppNameWindowPointerUp,
+    onKeyDown: onOppNameWindowKeyDown,
+  } = useMobileOpponentNameWindowScroll({
+    enabled: opponentNameWindowHorizScroll,
+    remeasureKey: `${displayName}|${replacedByAi ? 1 : 0}|${index}`,
+  });
 
   /** Мобильная колонка Восток: «Очки» между именем и полосой заказа (как по вертикали у Север/Запад). */
   const eastMobileScoreBetweenHeaderAndTricks = position === 'right' && isMobile && inline && !pcNorthSideBySide;
@@ -19435,7 +19276,6 @@ function OpponentSlot({
             : opponentNameStyle),
           ...(mobileActiveName && !styleOfflineAiNameByDifficulty ? nameActiveMobileStyle : {}),
           minWidth: 0,
-          ...(pcNorthSideBySide ? { maxWidth: 200 } : {}),
           ...(useEastMobileNameStyle && !mobileWestEastLandscapeCol
             ? {
                 overflow: 'visible',
@@ -19445,7 +19285,7 @@ function OpponentSlot({
                 hyphens: 'auto' as const,
                 WebkitHyphens: 'auto' as const,
               }
-            : mobileOpponentNameWindowHorizScroll
+            : opponentNameWindowHorizScroll
               ? {
                   whiteSpace: 'nowrap' as const,
                   overflow: 'visible',
@@ -19467,7 +19307,7 @@ function OpponentSlot({
               .join(' ')}
             style={nameStyleMerged}
             title={
-              mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
+              opponentNameWindowHorizScroll && oppNameWindowScrollable
                 ? undefined
                 : `${displayName} — ${getCompassLabel(index)}. Нажмите на аватар: информация и уровень ИИ`
             }
@@ -19487,7 +19327,7 @@ function OpponentSlot({
             }
             style={nameStyleMerged}
             title={
-              mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
+              opponentNameWindowHorizScroll && oppNameWindowScrollable
                 ? undefined
                 : `${displayName} — ${getCompassLabel(index)}`
             }
@@ -19600,10 +19440,11 @@ function OpponentSlot({
           </div>
         );
         const nameBlock =
-          mobileOpponentInline ? (
+          opponentNameWindowChrome ? (
             <div
               className={[
                 'opponent-slot-header-name-stack-mobile',
+                !isMobile ? 'opponent-slot-header-name-stack-mobile--pc' : '',
                 useEastMobileNameStyle ? 'opponent-slot-header-name-stack-mobile--east' : '',
                 dealerNwMobilePanelStars ? 'opponent-slot-header-name-stack-mobile--nw-dealer' : '',
               ]
@@ -19620,61 +19461,50 @@ function OpponentSlot({
                   .join(' ') || undefined}
               >
                 <div
-                  ref={mobileOpponentNameWindowHorizScroll ? oppNameWindowRef : undefined}
+                  ref={opponentNameWindowHorizScroll ? oppNameWindowRef : undefined}
                   className={[
                     'opponent-slot-header-name-window',
                     useEastMobileNameStyle ? 'opponent-slot-header-name-window--east' : '',
                     dealerNwMobilePanelStars ? 'opponent-slot-header-name-window--nw-dealer' : '',
                     dealerPlayingNameWindowClass,
-                    mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
+                    opponentNameWindowHorizScroll && oppNameWindowScrollable
                       ? 'opponent-slot-header-name-window--scrollable'
                       : '',
                   ]
                     .filter(Boolean)
                     .join(' ') || undefined}
                   title={
-                    mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
+                    opponentNameWindowHorizScroll && oppNameWindowScrollable
                       ? `${displayName} — ${getCompassLabel(index)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
                       : undefined
                   }
                   aria-label={
-                    mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
+                    opponentNameWindowHorizScroll && oppNameWindowScrollable
                       ? `${displayName}, ${getCompassLabel(index)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
                       : undefined
                   }
-                  role={mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable ? 'button' : undefined}
-                  tabIndex={mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable ? 0 : undefined}
+                  role={opponentNameWindowHorizScroll && oppNameWindowScrollable ? 'button' : undefined}
+                  tabIndex={opponentNameWindowHorizScroll && oppNameWindowScrollable ? 0 : undefined}
                   onPointerDown={
-                    mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
-                      ? (e: ReactPointerEvent) => {
-                          oppNameTapPointerStartRef.current = { x: e.clientX, y: e.clientY };
-                        }
+                    opponentNameWindowHorizScroll && oppNameWindowScrollable
+                      ? onOppNameWindowPointerDown
                       : undefined
                   }
                   onPointerUp={
-                    mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
-                      ? (e: ReactPointerEvent) => {
-                          if (e.pointerType === 'mouse' && e.button !== 0) return;
-                          const { x, y } = oppNameTapPointerStartRef.current;
-                          if (Math.hypot(e.clientX - x, e.clientY - y) > 14) return;
-                          runMobileOppNameRevealScroll();
-                        }
+                    opponentNameWindowHorizScroll && oppNameWindowScrollable
+                      ? onOppNameWindowPointerUp
                       : undefined
                   }
                   onKeyDown={
-                    mobileOpponentNameWindowHorizScroll && oppNameWindowScrollable
-                      ? (e: ReactKeyboardEvent) => {
-                          if (e.key !== 'Enter' && e.key !== ' ') return;
-                          e.preventDefault();
-                          runMobileOppNameRevealScroll();
-                        }
+                    opponentNameWindowHorizScroll && oppNameWindowScrollable
+                      ? onOppNameWindowKeyDown
                       : undefined
                   }
                 >
                   {dealerOpponentMobilePanelHighlight && useEastMobileNameStyle ? (
                     <DealerEastNamePanelStars />
                   ) : null}
-                  {mobileOpponentNameWindowHorizScroll ? (
+                  {opponentNameWindowHorizScroll ? (
                     <div className="opponent-slot-header-name-window-track" ref={oppNameRevealTrackRef}>
                       {nameSpan}
                     </div>
@@ -19879,6 +19709,7 @@ function OpponentSlot({
               opponentMobileZeroOrderCross={!!isMobile}
               opponentOrderHintSlot={position === 'top' ? 'north' : position === 'left' ? 'west' : 'east'}
               tricksLeftInDeal={tricksRemainingInDeal(state)}
+              panelScale={tabletFourNorthOrderPanelScale}
             />
             {!eastMobileScoreBetweenHeaderAndTricks ? opponentScoreControl : null}
           </div>
@@ -22523,8 +22354,8 @@ const opponentSlotSidePcGrowStyle: React.CSSProperties = {
   maxWidth: 'none',
 };
 
-/** Совпадение бейджа «Ровно» Север с внешним контуром панели оппонента (толщина border слота) */
-const OPPONENT_SLOT_PC_BORDER_PX = 1;
+/** Совпадение бейджа «Ровно» Север с внешним контуром панели оппонента (ПК: border 2px в index.css) */
+const OPPONENT_SLOT_PC_BORDER_PX = 2;
 
 const opponentSlotStyle: React.CSSProperties = {
   position: 'absolute',
@@ -23874,6 +23705,10 @@ const bidSidePanelButtonMobile: React.CSSProperties = {
   fontWeight: 700,
   cursor: 'pointer',
   userSelect: 'none',
+  WebkitUserSelect: 'none',
+  WebkitTapHighlightColor: 'transparent',
+  WebkitAppearance: 'none',
+  appearance: 'none',
   transition: 'transform 0.12s ease, box-shadow 0.2s ease',
   boxShadow: 'inset 0 1px 0 rgba(34, 211, 238, 0.5), inset 0 0 14px rgba(34, 211, 238, 0.15), 0 0 20px rgba(34, 211, 238, 0.45), 0 0 10px rgba(94, 234, 212, 0.3), 0 2px 8px rgba(0,0,0,0.3)',
 };
