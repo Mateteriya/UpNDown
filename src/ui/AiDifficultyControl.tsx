@@ -161,6 +161,17 @@ export function AiDifficultyControl({
           ×
         </button>
       </div>
+      <p className="ai-difficulty-popover-scope-note">
+        <span className="ai-difficulty-popover-scope-note__lead">Этот выбор</span>
+        {' — '}
+        один уровень сразу для <em>всех</em> ботов за столом.
+        <span className="ai-difficulty-popover-scope-note__sep" aria-hidden="true">
+          ·
+        </span>
+        <span className="ai-difficulty-popover-scope-note__personal">
+          Персональный уровень — по аватару бота в панели игрока.
+        </span>
+      </p>
       <div className="ai-difficulty-popover-list" role="radiogroup" aria-label="Уровень сложности">
         {LEVELS.map((row) => {
           const selected = level === row.id;

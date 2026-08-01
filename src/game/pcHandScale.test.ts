@@ -3,6 +3,7 @@ import {
   nextPcHandScaleBoost,
   prevPcHandScaleBoost,
   pcHandScaleMultiplier,
+  pcFourHandScaleMultiplier,
   pcHandScaleExtraHeightPx,
   pcTableFeltScaleMultiplier,
   pcTableLiftExtraPx,
@@ -15,15 +16,26 @@ import {
   PC_TABLE_UP_OFFSET_BASE_THREE,
   pcFourSeatHandCompactMul,
   clampPcHandScaleBoost,
+  clampPcFourHandScalePct,
+  bumpPcFourHandScalePct,
   pcHandScaleMaxForSeats,
   isPcHandScaleBoost,
   resolvePcHandAdaptiveScale,
   PC_HAND_NATIVE_RECALIBRATE,
+  PC_FOUR_HAND_ABS_AT_100,
+  PC_FOUR_HAND_ABS_REF_HIGH,
+  PC_FOUR_HAND_ABS_REF_LOW,
+  PC_FOUR_HAND_SCALE_PCT_DEFAULT,
+  PC_FOUR_HAND_SCALE_PCT_MAX,
+  PC_FOUR_HAND_SCALE_PCT_MIN,
   TABLET_HAND_COMPACT,
+  TABLET_FOUR_HAND_COMPACT_PX,
+  TABLET_FOUR_HAND_TO_PANEL_GAP_PX,
+  tabletFourHandScaleMinus1px,
 } from './pcHandScale';
 
 describe('pcHandScale', () => {
-  it('increments with seat max (4p caps at 10)', () => {
+  it('increments with seat max (3p to 140; 4p legacy boost still caps at 10)', () => {
     expect(nextPcHandScaleBoost(0, 4)).toBe(10);
     expect(nextPcHandScaleBoost(10, 4)).toBe(10);
     expect(nextPcHandScaleBoost(0, 3)).toBe(10);
@@ -44,10 +56,33 @@ describe('pcHandScale', () => {
     expect(clampPcHandScaleBoost(20, 3)).toBe(20);
   });
 
-  it('card multiplier matches boost percent', () => {
+  it('card multiplier matches boost percent (3p)', () => {
     expect(pcHandScaleMultiplier(0)).toBe(1);
     expect(pcHandScaleMultiplier(10)).toBe(1.1);
     expect(pcHandScaleMultiplier(40)).toBe(1.4);
+  });
+
+  it('4p: new 100% is midpoint of 98%…112%; UI ±6% → ≈97%…≈112% abs', () => {
+    expect(PC_FOUR_HAND_ABS_AT_100).toBeCloseTo(
+      (PC_FOUR_HAND_ABS_REF_LOW + PC_FOUR_HAND_ABS_REF_HIGH) / 2,
+    );
+    expect(PC_FOUR_HAND_ABS_AT_100).toBeCloseTo(1.05);
+    expect(PC_FOUR_HAND_SCALE_PCT_MIN).toBe(94);
+    expect(PC_FOUR_HAND_SCALE_PCT_MAX).toBe(106);
+    expect(pcFourHandScaleMultiplier(100)).toBeCloseTo(1.05);
+    expect(pcFourHandScaleMultiplier(94)).toBeCloseTo(1.05 * 0.94);
+    expect(pcFourHandScaleMultiplier(106)).toBeCloseTo(1.05 * 1.06);
+    expect(pcFourHandScaleMultiplier(94)).toBeCloseTo(0.987, 3);
+    expect(pcFourHandScaleMultiplier(106)).toBeCloseTo(1.113, 3);
+  });
+
+  it('4p UI pct clamps and bumps by 1%', () => {
+    expect(clampPcFourHandScalePct(93)).toBe(94);
+    expect(clampPcFourHandScalePct(107)).toBe(106);
+    expect(bumpPcFourHandScalePct(100, 1)).toBe(101);
+    expect(bumpPcFourHandScalePct(106, 1)).toBe(106);
+    expect(bumpPcFourHandScalePct(94, -1)).toBe(94);
+    expect(bumpPcFourHandScalePct(PC_FOUR_HAND_SCALE_PCT_DEFAULT, -1)).toBe(99);
   });
 
   it('adaptive hand base is recalibrated so 100% matches old native (−7% compact)', () => {
@@ -60,10 +95,21 @@ describe('pcHandScale', () => {
     expect(TABLET_HAND_COMPACT).toBeCloseTo(0.95 * 0.95 * 0.97);
   });
 
-  it('4p felt shrinks; 3p felt grows softly', () => {
-    expect(pcTableFeltScaleMultiplier(10, 4)).toBeLessThan(1);
+  it('tablet 4p: −2px card height → gap to south panel is 8px', () => {
+    expect(TABLET_FOUR_HAND_COMPACT_PX).toBe(2);
+    expect(TABLET_FOUR_HAND_TO_PANEL_GAP_PX).toBe(8);
+    const scale = (1 / (1.3 * 1.1)) * TABLET_HAND_COMPACT;
+    const before = 100 * scale;
+    const after = 100 * tabletFourHandScaleMinus1px(scale);
+    expect(before - after).toBeCloseTo(TABLET_FOUR_HAND_COMPACT_PX, 5);
+  });
+
+  it('4p felt shrinks above 100% UI; 3p felt grows softly', () => {
+    expect(pcTableFeltScaleMultiplier(106, 4)).toBeLessThan(1);
+    expect(pcTableFeltScaleMultiplier(100, 4)).toBe(1);
+    expect(pcTableFeltScaleMultiplier(94, 4)).toBe(1);
     expect(pcTableFeltScaleMultiplier(10, 3)).toBeGreaterThan(1);
-    expect(pcTableFeltScaleMultiplier(0, 4)).toBe(1);
+    expect(pcTableFeltScaleMultiplier(0, 3)).toBe(1);
   });
 
   it('lifts table only for 3p', () => {
@@ -72,15 +118,16 @@ describe('pcHandScale', () => {
     expect(pcTableLiftExtraPx(40, 3)).toBe(50);
   });
 
-  it('4p hand is slightly compacted at 110%', () => {
+  it('4p legacy compact mul is 1 (folded into abs scale)', () => {
     expect(pcFourSeatHandCompactMul(0)).toBe(1);
-    expect(pcFourSeatHandCompactMul(10)).toBe(0.98);
-    expect(pcFourSeatHandCompactMul(10)).toBeLessThan(1);
+    expect(pcFourSeatHandCompactMul(10)).toBe(1);
   });
 
-  it('side panel push grows with boost on 3p', () => {
+  it('side panel push grows with boost on 3p / with UI on 4p', () => {
     expect(pcSidePanelPushPx(0, 3)).toBe(0);
     expect(pcSidePanelPushPx(20, 3)).toBeGreaterThan(pcSidePanelPushPx(10, 3));
+    expect(pcSidePanelPushPx(100, 4)).toBe(0);
+    expect(pcSidePanelPushPx(106, 4)).toBe(14);
   });
 
   it('extra south height: none on 4p, grows on 3p', () => {
@@ -90,9 +137,10 @@ describe('pcHandScale', () => {
     expect(pcHandScaleExtraHeightPx(40, 3)).toBeLessThan(160);
   });
 
-  it('hand-to-panel gap: 4p shrinks, 3p grows', () => {
+  it('hand-to-panel gap: 4p shrinks above 100%, 3p grows', () => {
     expect(pcHandToPanelGapPx(0, 3)).toBe(0);
-    expect(pcHandToPanelGapPx(10, 4)).toBeLessThan(0);
+    expect(pcHandToPanelGapPx(106, 4)).toBeLessThan(0);
+    expect(pcHandToPanelGapPx(100, 4)).toBe(0);
     expect(pcHandToPanelGapPx(20, 3)).toBeGreaterThan(pcHandToPanelGapPx(10, 3));
   });
 

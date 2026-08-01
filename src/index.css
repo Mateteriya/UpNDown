@@ -2517,8 +2517,8 @@
   z-index: 1;
 }
 
-/* Моб.: «дорогие» имена людей (онлайн/офлайн) — голубо-серебристо-сиреневый градиент */
-.game-table-root.viewport-mobile .opponent-slot-header .opponent-slot-header-display-name--premium-human {
+/* «Дорогие» имена людей (онлайн/офлайн, ПК и моб.) — голубо-серебристо-сиреневый градиент */
+.game-table-root .opponent-slot-header .opponent-slot-header-display-name--premium-human {
   background: linear-gradient(
     168deg,
     #f8fcff 0%,
@@ -2536,8 +2536,8 @@
   text-shadow: none !important;
   filter: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.35));
 }
-.theme-neon .game-table-root.viewport-mobile .opponent-slot-header .opponent-slot-header-display-name--premium-human,
-.theme-standard .game-table-root.viewport-mobile .opponent-slot-header .opponent-slot-header-display-name--premium-human {
+.theme-neon .game-table-root .opponent-slot-header .opponent-slot-header-display-name--premium-human,
+.theme-standard .game-table-root .opponent-slot-header .opponent-slot-header-display-name--premium-human {
   background: linear-gradient(
     168deg,
     #f8fcff 0%,
@@ -2553,18 +2553,17 @@
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
 }
-/* Юг: премиум-имя (шампань/сирень) — мобилка, планшет и ПК */
+/* Юг: премиум-имя — тёплый шампань (отличается от холодного premium-human у оппонентов) */
 .game-table-root .user-player-panel .player-panel-name--premium-user {
   background: linear-gradient(
     168deg,
-    #f8fcff 0%,
-    #e8f6ff 14%,
-    #bae6fd 32%,
-    #a5b4fc 48%,
-    #d8cef8 54%,
-    #c4b5fd 62%,
-    #ddd6fe 78%,
-    #eef2ff 100%
+    #fffaf3 0%,
+    #fff1dc 12%,
+    #fde0b0 28%,
+    #f5c27a 46%,
+    #e8a86a 64%,
+    #f0c9a0 82%,
+    #fff6ea 100%
   ) !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
@@ -2573,21 +2572,20 @@
   text-shadow: none !important;
   filter:
     drop-shadow(0 1px 0 rgba(15, 23, 42, 0.35))
-    drop-shadow(0 0 11px rgba(186, 230, 253, 0.24))
-    drop-shadow(0 0 8px rgba(196, 181, 253, 0.2));
+    drop-shadow(0 0 10px rgba(251, 191, 36, 0.28))
+    drop-shadow(0 0 7px rgba(251, 146, 60, 0.18));
 }
 .theme-neon .game-table-root .user-player-panel .player-panel-name--premium-user,
 .theme-standard .game-table-root .user-player-panel .player-panel-name--premium-user {
   background: linear-gradient(
     168deg,
-    #f8fcff 0%,
-    #e8f6ff 14%,
-    #bae6fd 32%,
-    #a5b4fc 48%,
-    #d8cef8 54%,
-    #c4b5fd 62%,
-    #ddd6fe 78%,
-    #eef2ff 100%
+    #fffaf3 0%,
+    #fff1dc 12%,
+    #fde0b0 28%,
+    #f5c27a 46%,
+    #e8a86a 64%,
+    #f0c9a0 82%,
+    #fff6ea 100%
   ) !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
@@ -2596,8 +2594,8 @@
   text-shadow: none !important;
   filter:
     drop-shadow(0 1px 0 rgba(15, 23, 42, 0.35))
-    drop-shadow(0 0 11px rgba(186, 230, 253, 0.24))
-    drop-shadow(0 0 8px rgba(196, 181, 253, 0.2));
+    drop-shadow(0 0 10px rgba(251, 191, 36, 0.28))
+    drop-shadow(0 0 7px rgba(251, 146, 60, 0.18));
 }
 /* Сдающий: единое окошко имени — голубо-сиреневый неон (онлайн и офлайн) */
 .game-table-root.viewport-mobile
@@ -4276,6 +4274,588 @@
     inset 0 0 60px rgba(0, 0, 0, 0.5),
     0 24px 48px rgba(0, 0, 0, 0.5) !important;
 }
+
+/* ─── Общий стиль шестерёнок масштаба (карты + стол): триггер, капсула, Скролл ВКЛ/ВЫКЛ ─── */
+@keyframes scale-gear-shine {
+  0%,
+  28% {
+    background-position: 120% 0;
+  }
+  58%,
+  100% {
+    background-position: -40% 0;
+  }
+}
+@keyframes scale-gear-scroll-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(1.6px);
+  }
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-scroll,
+.game-table-root.game-table-tablet-pc .scale-gear-scroll {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  line-height: 1;
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-scroll__icon,
+.game-table-root.game-table-tablet-pc .scale-gear-scroll__icon {
+  display: block;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(103, 232, 249, 0.45));
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-scroll__copy,
+.game-table-root.game-table-tablet-pc .scale-gear-scroll__copy {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-scroll__title,
+.game-table-root.game-table-tablet-pc .scale-gear-scroll__title {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.78);
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-scroll__state,
+.game-table-root.game-table-tablet-pc .scale-gear-scroll__state {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-scroll--off .scale-gear-scroll__state,
+.game-table-root.game-table-tablet-pc .scale-gear-scroll--off .scale-gear-scroll__state {
+  color: #fda4af;
+  text-shadow: 0 0 8px rgba(251, 113, 133, 0.45);
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-scroll--on .scale-gear-scroll__state,
+.game-table-root.game-table-tablet-pc .scale-gear-scroll--on .scale-gear-scroll__state {
+  color: #49f228;
+  text-shadow: 0 0 8px rgba(73, 242, 40, 0.65);
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-scroll--on .scale-gear-scroll__title,
+.game-table-root.game-table-tablet-pc .scale-gear-scroll--on .scale-gear-scroll__title {
+  color: #a5f3fc;
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.75);
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-scroll--on .scale-gear-scroll__icon,
+.game-table-root.game-table-tablet-pc .scale-gear-scroll--on .scale-gear-scroll__icon {
+  color: #67e8f9;
+  filter:
+    drop-shadow(0 0 3px rgba(103, 232, 249, 1))
+    drop-shadow(0 0 8px rgba(34, 211, 238, 0.95))
+    drop-shadow(0 0 14px rgba(165, 243, 252, 0.7));
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-scroll--on .scale-gear-scroll__wheel,
+.game-table-root.game-table-tablet-pc .scale-gear-scroll--on .scale-gear-scroll__wheel {
+  fill: #ecfeff;
+  animation: scale-gear-scroll-nudge 0.9s ease-in-out infinite;
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-scroll--off .scale-gear-scroll__icon,
+.game-table-root.game-table-tablet-pc .scale-gear-scroll--off .scale-gear-scroll__icon {
+  opacity: 0.72;
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-btn--scroll,
+.game-table-root.game-table-tablet-pc .scale-gear-btn--scroll {
+  width: auto !important;
+  min-width: 78px;
+  height: 34px;
+  padding: 0 10px !important;
+  gap: 0;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  overflow: hidden;
+  background-clip: padding-box;
+  /* не даём OS/браузеру мигать светлым прямоугольником на press/focus */
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-btn--scroll::-moz-focus-inner,
+.game-table-root.game-table-tablet-pc .scale-gear-btn--scroll::-moz-focus-inner {
+  border: 0;
+  padding: 0;
+}
+.game-table-root:not(.viewport-mobile) .scale-gear-btn--scroll:focus,
+.game-table-root:not(.viewport-mobile) .scale-gear-btn--scroll:focus-visible,
+.game-table-root:not(.viewport-mobile) .scale-gear-btn--scroll:active,
+.game-table-root.game-table-tablet-pc .scale-gear-btn--scroll:focus,
+.game-table-root.game-table-tablet-pc .scale-gear-btn--scroll:focus-visible,
+.game-table-root.game-table-tablet-pc .scale-gear-btn--scroll:active {
+  outline: none !important;
+  outline-offset: 0 !important;
+  filter: none;
+}
+/* :active/:focus — держим тот же тёмный фон (не системный светлый) */
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel:focus,
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel:active,
+.game-table-root:not(.viewport-mobile) .scale-gear-btn--scroll:focus,
+.game-table-root:not(.viewport-mobile) .scale-gear-btn--scroll:active,
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel:focus,
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel:active,
+.game-table-root.game-table-tablet-pc .scale-gear-btn--scroll:focus,
+.game-table-root.game-table-tablet-pc .scale-gear-btn--scroll:active {
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.82) 0%, rgba(15, 23, 42, 0.94) 100%) !important;
+  border-color: rgba(103, 232, 249, 0.55) !important;
+  color: inherit !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 10px rgba(34, 211, 238, 0.22) !important;
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel-on:focus,
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel-on:active,
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel-on:focus,
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel-on:active {
+  background:
+    radial-gradient(circle at 50% 30%, rgba(103, 232, 249, 0.35) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(49, 46, 129, 0.9) 0%, rgba(15, 23, 42, 0.96) 100%) !important;
+  border-color: rgba(165, 243, 252, 0.85) !important;
+  color: #ecfeff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 0 14px rgba(34, 211, 238, 0.4),
+    0 0 12px rgba(168, 85, 247, 0.28) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root:not(.viewport-mobile) .scale-gear-scroll--on .scale-gear-scroll__wheel,
+  .game-table-root.game-table-tablet-pc .scale-gear-scroll--on .scale-gear-scroll__wheel {
+    animation: none;
+  }
+}
+
+/* Планшет: масштаб стола — поверх обводок в правом нижнем углу (зазор рамки не расширяем) */
+.game-table-root.game-table-tablet-pc .tablet-table-scale {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  z-index: 30;
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  max-width: calc(100% - 8px);
+  overflow: visible;
+}
+/* Раскрытая шестерёнка стола: выше fixed-панели Юга (z-index 10) и плашки карт */
+.game-table-root.game-table-tablet-pc .game-table-block--scale-gear-open {
+  position: relative;
+  z-index: 60;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale--open {
+  z-index: 70;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__trigger,
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn {
+  appearance: none;
+  border: none;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: #ecfeff;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__trigger {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(165, 243, 252, 0.95);
+  overflow: visible;
+  background:
+    radial-gradient(1.4px 1.4px at 18% 24%, #fff 0%, transparent 100%),
+    radial-gradient(1.2px 1.2px at 78% 30%, #f5d0fe 0%, transparent 100%),
+    radial-gradient(1.3px 1.3px at 62% 78%, #67e8f9 0%, transparent 100%),
+    radial-gradient(circle at 28% 18%, rgba(103, 232, 249, 0.55) 0%, transparent 40%),
+    radial-gradient(circle at 82% 82%, rgba(192, 132, 252, 0.5) 0%, transparent 44%),
+    linear-gradient(145deg, #0f172a 0%, #1e1b4b 42%, #083344 78%, #0f172a 100%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.45),
+    0 0 16px rgba(34, 211, 238, 0.55),
+    0 0 28px rgba(168, 85, 247, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -10px 16px rgba(15, 23, 42, 0.55);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, filter 0.15s ease;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__trigger:hover {
+  transform: translateY(-1px) scale(1.05);
+  border-color: #ecfeff;
+  filter: brightness(1.08);
+  box-shadow:
+    0 0 0 1px rgba(103, 232, 249, 0.55),
+    0 0 22px rgba(34, 211, 238, 0.7),
+    0 0 34px rgba(192, 132, 252, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+/* ≠100%: обводка и свечение — «умный» цвет цифр (как у шестерёнки карт) */
+.game-table-root.game-table-tablet-pc .tablet-table-scale--boosted .tablet-table-scale__trigger,
+.game-table-root.game-table-tablet-pc .scale-gear-trigger--active.tablet-table-scale__trigger {
+  border-color: color-mix(in srgb, var(--scale-gear-value-color, #e9d5ff) 72%, transparent);
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--scale-gear-value-color, #22d3ee) 32%, transparent),
+    0 0 16px color-mix(in srgb, var(--scale-gear-value-color, #a855f7) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale--boosted .tablet-table-scale__trigger:hover,
+.game-table-root.game-table-tablet-pc .scale-gear-trigger--active.tablet-table-scale__trigger:hover {
+  border-color: color-mix(in srgb, var(--scale-gear-value-color, #ecfeff) 88%, transparent);
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--scale-gear-value-color, #22d3ee) 42%, transparent),
+    0 0 20px color-mix(in srgb, var(--scale-gear-value-color, #a855f7) 26%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__cosmos {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      115deg,
+      transparent 0%,
+      transparent 38%,
+      rgba(255, 255, 255, 0.28) 48%,
+      transparent 58%,
+      transparent 100%
+    );
+  background-size: 220% 100%;
+  animation: scale-gear-shine 2.8s ease-in-out infinite;
+  opacity: 0.95;
+  z-index: 0;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__icon {
+  position: relative;
+  z-index: 1;
+  display: block;
+  filter:
+    drop-shadow(0 0 4px rgba(103, 232, 249, 0.95))
+    drop-shadow(0 0 10px rgba(192, 132, 252, 0.65));
+  transition: filter 0.55s ease, opacity 0.55s ease;
+}
+/* 100% стол: тот же «умный» глиф (голубой→фиолет→кислый розовый), как у шестерёнки карт */
+.game-table-root.game-table-tablet-pc
+  .tablet-table-scale__trigger--default.tablet-table-scale__trigger--pulse {
+  border-color: rgba(216, 180, 254, 0.9);
+  box-shadow:
+    0 0 10px rgba(56, 189, 248, 0.28),
+    0 0 16px rgba(168, 85, 247, 0.42),
+    0 0 20px rgba(255, 77, 158, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.game-table-root.game-table-tablet-pc
+  .tablet-table-scale__trigger--default.tablet-table-scale__trigger--pulse
+  .tablet-table-scale__icon {
+  filter:
+    drop-shadow(0 0 2px rgba(192, 132, 252, 0.9))
+    drop-shadow(0 0 6px rgba(217, 70, 239, 0.65))
+    drop-shadow(0 0 9px rgba(255, 77, 158, 0.45));
+}
+.game-table-root.game-table-tablet-pc
+  .tablet-table-scale__trigger--default.tablet-table-scale__trigger--pulse
+  .tablet-table-scale__cosmos {
+  opacity: 0.95;
+  animation-duration: 2.2s;
+}
+.game-table-root.game-table-tablet-pc
+  .tablet-table-scale__trigger--default.tablet-table-scale__trigger--settled {
+  border-color: rgba(192, 132, 252, 0.78);
+  box-shadow:
+    0 0 8px rgba(56, 189, 248, 0.18),
+    0 0 14px rgba(168, 85, 247, 0.32),
+    0 0 12px rgba(244, 114, 182, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -10px 16px rgba(15, 23, 42, 0.55);
+}
+.game-table-root.game-table-tablet-pc
+  .tablet-table-scale__trigger--default.tablet-table-scale__trigger--settled
+  .tablet-table-scale__icon {
+  opacity: 1;
+  filter:
+    drop-shadow(0 0 2px rgba(168, 85, 247, 0.75))
+    drop-shadow(0 0 5px rgba(217, 70, 239, 0.5))
+    drop-shadow(0 0 4px rgba(255, 77, 158, 0.35));
+}
+.game-table-root.game-table-tablet-pc
+  .tablet-table-scale__trigger--default.tablet-table-scale__trigger--settled
+  .tablet-table-scale__cosmos {
+  opacity: 0.7;
+  animation-duration: 3.4s;
+}
+/* ≠100%: % колонкой справа-сверху; автоскрытие через 5с */
+.game-table-root.game-table-tablet-pc .tablet-table-scale__badge {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__badge--vertical {
+  top: auto;
+  left: auto;
+  bottom: calc(100% + 2px);
+  right: -4px;
+  transform: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-width: 18px;
+  padding: 5px 4px 6px;
+  border-radius: 999px;
+  font-size: 12px; /* 8 × 1.5 */
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--scale-gear-value-color, #a5f3fc);
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 27, 75, 0.94) 100%);
+  border: 1px solid rgba(165, 243, 252, 0.75);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.28),
+    0 0 10px rgba(34, 211, 238, 0.4),
+    0 4px 10px rgba(2, 6, 23, 0.45);
+  animation: tablet-table-scale-column-in 0.22s ease-out;
+}
+@keyframes tablet-table-scale-column-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__badge-ch {
+  display: block;
+  text-align: center;
+  width: 100%;
+}
+/* На кружке: цифры + направление (+ снизу / − сверху), без крошечного % */
+.game-table-root.game-table-tablet-pc .tablet-table-scale__pct-glyph {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  gap: 0;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: var(--scale-gear-value-color, #a5f3fc);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__pct-glyph-num {
+  font-size: 11px;
+  letter-spacing: -0.02em;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__pct-glyph-sign {
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 0.75;
+  opacity: 0.95;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__pct-glyph--boost .tablet-table-scale__pct-glyph-sign {
+  margin-top: -1px;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__pct-glyph--shrink .tablet-table-scale__pct-glyph-sign {
+  margin-bottom: -1px;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__trigger--pct-glyph {
+  border-color: color-mix(in srgb, var(--scale-gear-value-color, #a5f3fc) 78%, transparent);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale--boosted .tablet-table-scale__badge--vertical {
+  border-color: color-mix(in srgb, var(--scale-gear-value-color, #c4b5fd) 70%, transparent);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__capsule {
+  --pc-settings-gear-h: 30px;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: calc(var(--pc-settings-gear-h) * 2);
+  min-height: calc(var(--pc-settings-gear-h) * 2);
+  max-height: calc(var(--pc-settings-gear-h) * 2);
+  padding: 0 8px 0 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(165, 243, 252, 0.95);
+  overflow: hidden;
+  background:
+    radial-gradient(1.4px 1.4px at 14% 28%, #fff 0%, transparent 100%),
+    radial-gradient(1.2px 1.2px at 78% 32%, #f5d0fe 0%, transparent 100%),
+    radial-gradient(1.3px 1.3px at 58% 72%, #67e8f9 0%, transparent 100%),
+    radial-gradient(circle at 22% 20%, rgba(103, 232, 249, 0.5) 0%, transparent 40%),
+    radial-gradient(circle at 86% 78%, rgba(192, 132, 252, 0.48) 0%, transparent 44%),
+    linear-gradient(145deg, #0f172a 0%, #1e1b4b 42%, #083344 78%, #0f172a 100%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.45),
+    0 0 18px rgba(34, 211, 238, 0.5),
+    0 0 28px rgba(168, 85, 247, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -10px 16px rgba(15, 23, 42, 0.5);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__capsule--wheel-on {
+  border-color: #e9d5ff;
+  box-shadow:
+    0 0 0 1px rgba(192, 132, 252, 0.55),
+    0 0 20px rgba(34, 211, 238, 0.55),
+    0 0 32px rgba(168, 85, 247, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__cosmos--capsule {
+  opacity: 0.9;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 232, 249, 0.55);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.96) 100%);
+  color: #a5f3fc;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 10px rgba(34, 211, 238, 0.22);
+  transition: border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn:not(:disabled):hover {
+  border-color: rgba(165, 243, 252, 0.95);
+  color: #ecfeff;
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 14px rgba(34, 211, 238, 0.45);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel:not(:disabled):hover,
+.game-table-root.game-table-tablet-pc .scale-gear-btn--scroll:not(:disabled):hover {
+  border-color: rgba(103, 232, 249, 0.55);
+  color: inherit;
+  transform: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 12px rgba(34, 211, 238, 0.28);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.82) 0%, rgba(15, 23, 42, 0.92) 100%);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel-on:not(:disabled):hover {
+  border-color: rgba(165, 243, 252, 0.75);
+  color: #ecfeff;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(103, 232, 249, 0.38) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(49, 46, 129, 0.92) 0%, rgba(15, 23, 42, 0.96) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 14px rgba(34, 211, 238, 0.4),
+    0 0 12px rgba(168, 85, 247, 0.28);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--value:not(:disabled):hover {
+  color: var(--scale-gear-value-color, #a5f3fc);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--value {
+  width: auto;
+  min-width: 46px;
+  padding: 0 9px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--scale-gear-value-color, #a5f3fc);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--boosted {
+  border-color: rgba(196, 181, 253, 0.85);
+  background: linear-gradient(180deg, rgba(76, 29, 149, 0.55) 0%, rgba(30, 27, 75, 0.92) 100%);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel {
+  color: #c4b5fd;
+  border-color: rgba(167, 139, 250, 0.55);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel-on {
+  color: #ecfeff;
+  border-color: rgba(165, 243, 252, 0.95);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(103, 232, 249, 0.35) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(49, 46, 129, 0.9) 0%, rgba(15, 23, 42, 0.96) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 16px rgba(34, 211, 238, 0.55),
+    0 0 14px rgba(168, 85, 247, 0.4);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel:not(.tablet-table-scale__btn--wheel-on) {
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.9) 100%);
+  opacity: 0.92;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--close {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fda4af;
+  border: 1px solid rgba(251, 113, 133, 0.55);
+  background:
+    radial-gradient(circle at 50% 28%, rgba(251, 113, 133, 0.28) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(76, 29, 49, 0.75) 0%, rgba(15, 23, 42, 0.96) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 0 12px rgba(244, 63, 94, 0.28);
+  text-shadow: 0 0 8px rgba(251, 113, 133, 0.55);
+  transition: border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease, filter 0.12s ease;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--close:hover {
+  color: #fff1f2;
+  border-color: rgba(253, 164, 175, 0.95);
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 0 16px rgba(244, 63, 94, 0.5),
+    0 0 22px rgba(251, 113, 133, 0.35);
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__trigger:focus-visible,
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn:focus-visible {
+  outline: 2px solid rgba(165, 243, 252, 0.95);
+  outline-offset: 2px;
+}
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel:focus-visible,
+.game-table-root.game-table-tablet-pc .tablet-table-scale .scale-gear-btn--scroll:focus-visible {
+  outline: none;
+  outline-offset: 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 0 1.5px rgba(103, 232, 249, 0.55),
+    0 0 12px rgba(34, 211, 238, 0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root.game-table-tablet-pc .tablet-table-scale__cosmos {
+    animation: none;
+    background-position: 50% 0;
+  }
+}
+
 .game-table-root.game-table-tablet-pc.trump-highlight-on
   .game-center-table
   > .game-table-outer.game-table-outer--tablet-compact-frame {
@@ -4362,6 +4942,16 @@
 .game-table-root.game-table-tablet-pc.game-phase-bidding .user-player-panel .user-player-panel-pc-avatar-wrap {
   min-height: 58px;
 }
+/* ПК (не планшет) · 3 места · торги: аватар как на планшете (58), панель чуть выше */
+.game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc).game-table-seats-three-pc.game-phase-bidding
+  .user-player-panel {
+  padding-top: 10px !important;
+}
+.game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc).game-table-seats-three-pc.game-phase-bidding
+  .user-player-panel
+  .user-player-panel-pc-avatar-wrap {
+  min-height: 58px;
+}
 /* Планшет: стопка взяток З/В не шире панели */
 .game-table-root.game-table-tablet-pc .opponent-slot-west .trick-slots-opponent-pc-stack,
 .game-table-root.game-table-tablet-pc .opponent-slot-east .trick-slots-opponent-pc-stack,
@@ -4377,19 +4967,262 @@
 .game-table-root.game-table-tablet-pc.game-table-seats-three-pc
   .game-info-row
   .game-info-left-col
-  .game-info-left-section.pc-info-badge-unified,
-.game-table-root.game-table-tablet-pc.game-table-seats-three-pc
-  .game-info-row
-  .game-info-left-col
-  .first-move-badge.first-move-badge-above-block {
+  .game-info-left-section.pc-info-badge-unified {
   transform: scale(calc(1.3 / 1.7)) !important;
   transform-origin: top left !important;
 }
-.game-table-root.game-table-tablet-pc.game-table-seats-three-pc
+/* Планшет · 4p: левый info-бейдж (+30% к прежним 0.55 → 0.715); «Первый ход» — на сукне */
+.game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc)
   .game-info-row
   .game-info-left-col
-  .first-move-badge.first-move-badge-above-block {
-  transform-origin: bottom left !important;
+  .game-info-left-section.pc-info-badge-unified {
+  transform: scale(0.715) !important;
+  transform-origin: top left !important;
+}
+/* Планшет (3p и 4p): «Первый ход» — хрустальная космическая капсула сверху на сукне (только торги) */
+.game-table-root.game-table-tablet-pc .first-move-badge.first-move-badge--tablet-on-table {
+  position: absolute !important;
+  top: 8px !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  z-index: 14 !important;
+  width: max-content !important;
+  max-width: calc(100% - 16px) !important;
+  margin: 0 !important;
+  transform: translateX(-50%) !important;
+  border-radius: 999px !important;
+  padding: 6px 14px !important;
+  gap: 7px !important;
+  box-sizing: border-box !important;
+  pointer-events: none !important;
+  justify-content: center !important;
+  isolation: isolate !important;
+  overflow: hidden !important;
+  border: 1px solid transparent !important;
+  background:
+    linear-gradient(
+      155deg,
+      rgba(8, 15, 35, 0.78) 0%,
+      rgba(24, 20, 58, 0.72) 42%,
+      rgba(6, 32, 52, 0.76) 100%
+    )
+      padding-box,
+    linear-gradient(
+      125deg,
+      rgba(165, 243, 252, 0.95) 0%,
+      rgba(34, 211, 238, 0.85) 18%,
+      rgba(167, 139, 250, 0.9) 45%,
+      rgba(232, 121, 249, 0.75) 68%,
+      rgba(45, 212, 191, 0.9) 88%,
+      rgba(125, 211, 252, 0.85) 100%
+    )
+      border-box !important;
+  backdrop-filter: blur(8px) saturate(1.25) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(1.25) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.4),
+    0 0 0 1px rgba(165, 243, 252, 0.22),
+    0 0 12px rgba(34, 211, 238, 0.22),
+    0 0 18px rgba(167, 139, 250, 0.16),
+    0 5px 14px rgba(2, 6, 23, 0.4) !important;
+}
+.game-table-root.game-table-tablet-pc .first-move-badge.first-move-badge--tablet-on-table::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: inherit !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  /* Лёгкий блик капсулы — без плотной пелены поверх букв */
+  background:
+    radial-gradient(ellipse 70% 80% at 16% 0%, rgba(255, 255, 255, 0.2) 0%, transparent 45%),
+    linear-gradient(
+      105deg,
+      transparent 0%,
+      transparent 42%,
+      rgba(255, 255, 255, 0.08) 50%,
+      transparent 58%,
+      transparent 100%
+    ) !important;
+  opacity: 0.55 !important;
+  animation: first-move-tablet-crystal-sheen 5.5s ease-in-out infinite !important;
+}
+.game-table-root.game-table-tablet-pc .first-move-badge.first-move-badge--tablet-on-table > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+.game-table-root.game-table-tablet-pc .first-move-badge.first-move-badge--tablet-on-table .first-move-num {
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  background-image: linear-gradient(
+    105deg,
+    #e0f2fe 0%,
+    #67e8f9 18%,
+    #c4b5fd 40%,
+    #f0abfc 58%,
+    #5eead4 78%,
+    #bae6fd 100%
+  ) !important;
+  background-size: 180% 100% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-font-smoothing: antialiased !important;
+  animation: first-move-tablet-label-shimmer 4.2s ease-in-out infinite !important;
+}
+.game-table-root.game-table-tablet-pc .first-move-badge.first-move-badge--tablet-on-table > span:last-child {
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.03em !important;
+  background-image: linear-gradient(
+    110deg,
+    #ffffff 0%,
+    #a5f3fc 10%,
+    #22d3ee 20%,
+    #a78bfa 34%,
+    #e879f9 46%,
+    #f472b6 56%,
+    #fbbf24 68%,
+    #34d399 80%,
+    #38bdf8 90%,
+    #f0f9ff 100%
+  ) !important;
+  background-size: 220% 100% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+  /* Без filter: drop-shadow на clip:text даёт постоянное замыливание */
+  filter: none !important;
+  -webkit-font-smoothing: antialiased !important;
+  animation: first-move-tablet-name-shimmer 3.6s ease-in-out infinite !important;
+}
+@keyframes first-move-tablet-crystal-sheen {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: translateX(-4%);
+  }
+  50% {
+    opacity: 0.62;
+    transform: translateX(4%);
+  }
+}
+@keyframes first-move-tablet-label-shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+@keyframes first-move-tablet-name-shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root.game-table-tablet-pc .first-move-badge.first-move-badge--tablet-on-table::before,
+  .game-table-root.game-table-tablet-pc .first-move-badge.first-move-badge--tablet-on-table .first-move-num,
+  .game-table-root.game-table-tablet-pc .first-move-badge.first-move-badge--tablet-on-table > span:last-child {
+    animation: none !important;
+  }
+}
+/* Планшет · 4p: компактнее панель Севера (горизонтальный ряд + уже min-width) */
+.game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc) .game-center-north .opponent-slot {
+  padding: 6px 8px !important;
+  min-width: min(300px, 70vw) !important;
+}
+.game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc)
+  .game-center-north
+  .opponent-slot-north-pc-row {
+  gap: 8px !important;
+}
+.game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc)
+  .game-center-north
+  .opponent-slot-header.opponent-north-pc-header-split {
+  gap: 8px !important;
+}
+/*
+ * Планшет · 4p: Юг у низа; Север (портал, top 25px); зазор 3px.
+ * Масштаб сукна — ручной (шестерёнка на рамке).
+ * Эталон калибровки: 1035×618 (tabletViewportScale.ts) — мягкий zoom корня
+ * в обе стороны, без lock размера (lock обрезал стол).
+ * 3p / мобилка: без 4p-специфики ниже.
+ */
+.game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc) {
+  --game-player-bottom: 4px;
+  --pc-south-layer-gap: 0px;
+  --game-north-table-gap: 3px;
+  overflow: hidden !important;
+  max-height: 100dvh;
+  overscroll-behavior: none;
+}
+/* Планшет · 4p: нижняя граница стола на 5px выше (базовая позиция) */
+.game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc) .game-center-table {
+  transform: translateY(-5px);
+}
+.game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc) .game-info-row {
+  margin-bottom: 3px !important;
+}
+/*
+ * Планшет (3p+4p): Север у верха корня стола — отступ 25px.
+ * Портал на .game-table-root: иначе fixed/absolute внутри блока с translateY
+ * улетает за верх экрана.
+ */
+.game-table-root.game-table-tablet-pc > .game-center-north.game-center-north--tablet-top-pin {
+  position: absolute !important;
+  top: 25px !important;
+  bottom: auto !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+  z-index: 28 !important;
+}
+.game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc) .game-pc-user-layer {
+  bottom: 4px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+  transform: none !important;
+  max-height: min(
+    calc(var(--game-player-area-height, 260px) + var(--pc-hand-scale-extra-h, 0px)),
+    calc(100dvh - 4px)
+  ) !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+}
+.game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc)
+  .game-pc-user-layer
+  > .user-player-panel {
+  margin-bottom: 0 !important;
+  transform: none !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+/*
+ * Планшет · 4p: зазор рука↔панель Юга = 8px (было 6).
+ * +2px взяты из компакта карты/плашки (−2px высоты через tabletFourHandScaleMinus1px).
+ */
+.game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc)
+  .game-pc-user-layer
+  > .pc-player-hand-frame {
+  margin-bottom: 8px !important;
 }
 
 @media (max-width: 1366px) {
@@ -5188,11 +6021,55 @@
   }
 }
 
+/*
+ * ПК ≤1366 · трое без планшет-шелла: в общем блоке выше margin-bottom обнулён —
+ * вернём зазор только панели (transform подъёма из того блока сохраняем).
+ */
+@media (max-width: 1366px) {
+  .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc).game-table-seats-three-pc
+    .game-pc-user-layer
+    > .user-player-panel {
+    margin-bottom: max(5px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
 /* Широкий ПК: отдельная фиксация высоты стола, без влияния на планшетную модалку результатов. */
 @media (min-width: 1367px) {
   :root {
     --game-table-surface-height: 344px;
   }
+
+  /*
+   * ПК · трое (не планшет): вечный зазор до панели Юга (~5px).
+   * В розыгрыше — лёгкий translateY, иначе отступ менее заметнен.
+   * Руку/стол не трогаем. ≤1366 трое уже свой layout.
+   */
+  .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc).game-table-seats-three-pc
+    .game-pc-user-layer
+    > .user-player-panel {
+    margin-bottom: max(5px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc).game-table-seats-three-pc:not(.game-phase-bidding)
+    .game-pc-user-layer
+    > .user-player-panel {
+    margin-bottom: max(5px, env(safe-area-inset-bottom, 0px)) !important;
+    transform: translateY(-5px) !important;
+  }
+}
+
+/*
+ * ПК · четверо (не планшет): вечный зазор до панели Юга (~5px) — только панель.
+ */
+.game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc):not(.game-table-seats-three-pc)
+  .game-pc-user-layer
+  > .user-player-panel {
+  margin-bottom: max(5px, env(safe-area-inset-bottom, 0px)) !important;
+}
+.game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc):not(.game-table-seats-three-pc):not(.game-phase-bidding)
+  .game-pc-user-layer
+  > .user-player-panel {
+  margin-bottom: max(5px, env(safe-area-inset-bottom, 0px)) !important;
+  transform: translateY(-5px) !important;
 }
 
 /* ========== Сложность ИИ: попап и «шарики» (мобильная + ПК) ========== */
@@ -5219,6 +6096,51 @@
   flex: 1;
   min-width: 0;
   padding-right: 4px;
+}
+/* Подсказка только в попапе кнопки «ИИ» (всем ботам) — не в персональном по аватару */
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-popover-scope-note {
+  margin: 0 0 12px;
+  padding: 9px 11px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background:
+    linear-gradient(155deg, rgba(49, 46, 129, 0.45) 0%, rgba(15, 23, 42, 0.72) 55%, rgba(30, 27, 75, 0.55) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(139, 92, 246, 0.12),
+    0 0 18px rgba(34, 211, 238, 0.08);
+  font-family: 'Segoe UI', 'Trebuchet MS', Verdana, sans-serif;
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  color: rgba(186, 230, 253, 0.92);
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.18);
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-popover-scope-note__lead {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 10.5px;
+  color: rgba(165, 243, 252, 0.98);
+  text-shadow:
+    0 0 8px rgba(94, 234, 212, 0.45),
+    0 0 14px rgba(34, 211, 238, 0.25);
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-popover-scope-note em {
+  font-style: normal;
+  font-weight: 800;
+  color: #e9d5ff;
+  text-shadow: 0 0 10px rgba(192, 132, 252, 0.45);
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-popover-scope-note__sep {
+  display: inline-block;
+  margin: 0 0.35em;
+  color: rgba(129, 140, 248, 0.75);
+  font-weight: 700;
+}
+:is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-popover-scope-note__personal {
+  color: rgba(196, 181, 253, 0.92);
 }
 :is(.game-table-root, .ai-difficulty-popover-layer) .ai-difficulty-popover-dismiss {
   flex-shrink: 0;
@@ -5485,6 +6407,215 @@
     0 0 0 1px rgba(34, 211, 238, 0.1),
     0 16px 48px rgba(0, 0, 0, 0.55),
     0 0 32px rgba(139, 92, 246, 0.22);
+}
+
+/* ПК/планшет · трое: ИИ справа между Σ и лампой — попап якорим вправо, иначе уезжает за край */
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile) .ai-difficulty-header-right-slot {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+}
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile)
+  .ai-difficulty-header-right-slot
+  .ai-difficulty-root--pc {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile)
+  .ai-difficulty-header-right-slot
+  .ai-difficulty-popover {
+  left: auto;
+  right: 0;
+}
+/*
+ * Правый ряд шапки: полный glass+neon как у домика/↻ (слева кнопка «подсвечивалась»
+ * ещё и капсулой группы — справа нужен собственный яркий bloom).
+ */
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile)
+  .ai-difficulty-header-right-slot
+  .header-ai-difficulty-btn--pc {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  box-sizing: border-box !important;
+  min-height: 35px !important;
+  height: auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  padding: 6px 12px !important;
+  margin: 0 !important;
+  position: relative !important;
+  overflow: hidden !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(94, 234, 212, 0.62) !important;
+  background:
+    linear-gradient(150deg, rgba(196, 181, 253, 0.34) 0%, rgba(139, 92, 246, 0.4) 45%, rgba(79, 70, 229, 0.5) 100%) !important;
+  backdrop-filter: blur(5px) saturate(1.15) !important;
+  -webkit-backdrop-filter: blur(5px) saturate(1.15) !important;
+  color: rgb(38 227 213 / 92%) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.03em !important;
+  line-height: 1 !important;
+  text-transform: none !important;
+  /* Только внутренние блики + тонкое кольцо — без внешних теней, чтобы ничего не вылезало вниз */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -10px 18px rgba(67, 56, 202, 0.28),
+    inset 0 6px 12px rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(34, 211, 238, 0.28) !important;
+  transform: none !important;
+  filter: saturate(1.03) brightness(1.02) !important;
+  white-space: nowrap !important;
+  isolation: isolate;
+}
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile)
+  .ai-difficulty-header-right-slot
+  .header-ai-difficulty-btn--pc
+  > * {
+  position: relative;
+  z-index: 1;
+}
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile)
+  .ai-difficulty-header-right-slot
+  .header-ai-difficulty-btn--pc::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  border-radius: inherit !important;
+  pointer-events: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  /* Блик только сверху внутри кнопки — без свечения у нижнего края */
+  background: radial-gradient(120% 70% at 18% 8%, rgba(255, 255, 255, 0.22) 0%, transparent 46%) !important;
+  mix-blend-mode: screen;
+}
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile)
+  .ai-difficulty-header-right-slot
+  .header-ai-difficulty-btn--pc:hover {
+  transform: translateY(-1px) !important;
+  border-color: rgba(94, 234, 212, 0.9) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -10px 18px rgba(67, 56, 202, 0.3),
+    inset 0 6px 12px rgba(255, 255, 255, 0.14),
+    0 0 0 1px rgba(45, 212, 191, 0.4) !important;
+  filter: saturate(1.06) brightness(1.04) !important;
+}
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile)
+  .ai-difficulty-header-right-slot
+  .header-ai-difficulty-btn--pc:hover::after {
+  opacity: 1 !important;
+  animation: none !important;
+  background: radial-gradient(120% 70% at 22% 6%, rgba(255, 255, 255, 0.28) 0%, transparent 48%) !important;
+}
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile)
+  .ai-difficulty-header-right-slot
+  .header-ai-difficulty-btn--pc:active {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow:
+    inset 0 2px 7px rgba(30, 27, 75, 0.52),
+    inset 0 -4px 12px rgba(46, 16, 101, 0.38),
+    0 0 0 1px rgba(34, 211, 238, 0.28) !important;
+}
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile)
+  .ai-difficulty-header-right-slot
+  .header-ai-difficulty-btn--pc
+  .ai-difficulty-trigger-ball {
+  display: inline-block !important;
+  width: 12px !important;
+  height: 12px !important;
+  flex-shrink: 0 !important;
+  border-radius: 50% !important;
+  border: 1px solid rgba(255, 255, 255, 0.45) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 0 5px rgba(255, 255, 255, 0.55),
+    0 0 9px rgba(94, 234, 212, 0.7),
+    0 0 14px rgba(34, 211, 238, 0.5),
+    0 0 18px rgba(167, 139, 250, 0.35) !important;
+  filter:
+    brightness(1.1) saturate(1.12)
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.65))
+    drop-shadow(0 0 5px rgba(94, 234, 212, 0.7))
+    drop-shadow(0 0 9px rgba(34, 211, 238, 0.45)) !important;
+}
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile)
+  .ai-difficulty-header-right-slot
+  .header-ai-difficulty-btn--pc
+  .ai-difficulty-trigger-ball--novice {
+  background: linear-gradient(145deg, #86efac 0%, #4ade80 35%, #16a34a 70%, #14532d 100%) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 5px rgba(255, 255, 255, 0.5),
+    0 0 10px rgba(74, 222, 128, 0.75),
+    0 0 14px rgba(34, 197, 94, 0.5) !important;
+}
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile)
+  .ai-difficulty-header-right-slot
+  .header-ai-difficulty-btn--pc
+  .ai-difficulty-trigger-ball--amateur {
+  background: linear-gradient(145deg, #fef08a 0%, #fde047 35%, #eab308 70%, #a16207 100%) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 5px rgba(255, 255, 255, 0.5),
+    0 0 10px rgba(250, 204, 21, 0.75),
+    0 0 14px rgba(234, 179, 8, 0.5) !important;
+}
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile)
+  .ai-difficulty-header-right-slot
+  .header-ai-difficulty-btn--pc
+  .ai-difficulty-trigger-ball--expert {
+  background: linear-gradient(145deg, #f5d0fe 0%, #e879f9 35%, #a855f7 70%, #6b21a8 100%) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 5px rgba(255, 255, 255, 0.5),
+    0 0 10px rgba(232, 121, 249, 0.75),
+    0 0 14px rgba(168, 85, 247, 0.5) !important;
+}
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile)
+  .ai-difficulty-header-right-slot
+  .ai-difficulty-trigger-label {
+  display: inline-block !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  line-height: 1 !important;
+  color: rgb(165 243 252 / 96%) !important;
+  -webkit-text-fill-color: rgb(165 243 252 / 96%) !important;
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  text-transform: uppercase !important;
+  text-shadow:
+    0 0 5px rgba(94, 234, 212, 0.6),
+    0 0 10px rgba(34, 211, 238, 0.38),
+    0 0 14px rgba(167, 139, 250, 0.28),
+    0 1px 0 rgba(15, 23, 42, 0.35) !important;
+  filter:
+    drop-shadow(0 0 3px rgba(94, 234, 212, 0.4))
+    drop-shadow(0 0 7px rgba(34, 211, 238, 0.28)) !important;
+}
+/* Пустой слот на месте бывшей кнопки ИИ слева — та же высота, без сдвига стола/панелей */
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile) .ai-difficulty-header-left-spacer {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 1px;
+  min-height: 35px;
+  height: 35px;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* Мобильный попап ИИ: createPortal(body) — вне stacking context шапки, поверх «Заказывает» */
@@ -17881,21 +19012,20 @@
     1px 1px 0 rgba(0, 0, 0, 0.12),
     2px 2px 1px rgba(0, 0, 0, 0.05) !important;
 }
-/* ФИНАЛ: премиум-имя Юга — перебивает theme-standard / тёплый градиент / your-turn (моб + ПК/планшет) */
+/* ФИНАЛ: премиум-имя Юга (шампань) — перебивает theme / your-turn; не путать с холодным premium-human */
 .theme-standard .game-table-root .user-player-panel .player-panel-name--premium-user,
 .theme-neon .game-table-root .user-player-panel .player-panel-name--premium-user,
 .game-table-root .user-player-panel .player-panel-name--premium-user,
 .game-table-root .player-info-panel-your-turn .player-panel-name--premium-user {
   background: linear-gradient(
     168deg,
-    #f8fcff 0%,
-    #e8f6ff 14%,
-    #bae6fd 32%,
-    #a5b4fc 48%,
-    #d8cef8 54%,
-    #c4b5fd 62%,
-    #ddd6fe 78%,
-    #eef2ff 100%
+    #fffaf3 0%,
+    #fff1dc 12%,
+    #fde0b0 28%,
+    #f5c27a 46%,
+    #e8a86a 64%,
+    #f0c9a0 82%,
+    #fff6ea 100%
   ) !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
@@ -17905,8 +19035,8 @@
   opacity: 1 !important;
   filter:
     drop-shadow(0 1px 0 rgba(15, 23, 42, 0.35))
-    drop-shadow(0 0 11px rgba(186, 230, 253, 0.24))
-    drop-shadow(0 0 8px rgba(196, 181, 253, 0.2));
+    drop-shadow(0 0 10px rgba(251, 191, 36, 0.28))
+    drop-shadow(0 0 7px rgba(251, 146, 60, 0.18));
 }
 
 /* Аватарка (ПК и мобильная): эффект выпуклости и серебристо-бирюзовая рамка */
@@ -21609,7 +22739,7 @@ html.theme-standard
   top: 50%;
   bottom: auto;
   transform: translateY(-50%);
-  z-index: 50;
+  z-index: 80;
 }
 /* слот под свёрнутую шестерёнку, пока капсула absolute */
 .game-table-root:not(.viewport-mobile) .user-player-panel-pc-score-stack:has(.pc-table-settings--open)::before {
@@ -21633,7 +22763,7 @@ html.theme-standard
   min-height: 30px;
   padding: 5px 8px;
   border-radius: 999px;
-  border: 1px solid rgba(165, 243, 252, 0.95);
+  border: 1px solid rgba(165, 243, 252, 0.72);
   color: #ecfeff;
   cursor: pointer;
   overflow: hidden;
@@ -21641,16 +22771,20 @@ html.theme-standard
     radial-gradient(1.4px 1.4px at 18% 24%, #fff 0%, transparent 100%),
     radial-gradient(1.2px 1.2px at 78% 30%, #f5d0fe 0%, transparent 100%),
     radial-gradient(1.3px 1.3px at 62% 78%, #67e8f9 0%, transparent 100%),
-    radial-gradient(circle at 28% 18%, rgba(103, 232, 249, 0.55) 0%, transparent 40%),
-    radial-gradient(circle at 82% 82%, rgba(192, 132, 252, 0.5) 0%, transparent 44%),
+    radial-gradient(circle at 28% 18%, rgba(103, 232, 249, 0.42) 0%, transparent 40%),
+    radial-gradient(circle at 82% 82%, rgba(192, 132, 252, 0.38) 0%, transparent 44%),
     linear-gradient(145deg, #0f172a 0%, #1e1b4b 42%, #083344 78%, #0f172a 100%);
   box-shadow:
-    0 0 0 1px rgba(34, 211, 238, 0.45),
-    0 0 16px rgba(34, 211, 238, 0.55),
-    0 0 28px rgba(168, 85, 247, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -10px 16px rgba(15, 23, 42, 0.55);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, filter 0.15s ease;
+    0 0 10px rgba(34, 211, 238, 0.28),
+    0 0 18px rgba(168, 85, 247, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -8px 12px rgba(15, 23, 42, 0.45);
+  transition:
+    border-color 0.55s ease,
+    box-shadow 0.55s ease,
+    transform 0.15s ease,
+    filter 0.55s ease,
+    opacity 0.55s ease;
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-gear__cosmos {
   position: absolute;
@@ -21687,8 +22821,49 @@ html.theme-standard
   display: block;
   flex-shrink: 0;
   filter:
-    drop-shadow(0 0 4px rgba(103, 232, 249, 0.95))
-    drop-shadow(0 0 10px rgba(192, 132, 252, 0.65));
+    drop-shadow(0 0 2px rgba(103, 232, 249, 0.7))
+    drop-shadow(0 0 6px rgba(192, 132, 252, 0.4));
+  transition: filter 0.55s ease, opacity 0.55s ease;
+}
+/* 100%: первые 3с — блик; градиент голубой → фиолет → кислый розовый */
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear--default.pc-table-settings-gear--pulse {
+  border-color: rgba(216, 180, 254, 0.9);
+  box-shadow:
+    0 0 10px rgba(56, 189, 248, 0.28),
+    0 0 16px rgba(168, 85, 247, 0.42),
+    0 0 20px rgba(255, 77, 158, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear--default.pc-table-settings-gear--pulse .pc-table-settings-gear__icon {
+  filter:
+    drop-shadow(0 0 2px rgba(192, 132, 252, 0.9))
+    drop-shadow(0 0 6px rgba(217, 70, 239, 0.65))
+    drop-shadow(0 0 9px rgba(255, 77, 158, 0.45));
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear--default.pc-table-settings-gear--pulse .pc-table-settings-gear__cosmos {
+  opacity: 0.95;
+  animation-duration: 2.2s;
+}
+/* 100%: после 3с — заметный фиолет + розовый, голубой только с краю */
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear--default.pc-table-settings-gear--settled {
+  border-color: rgba(192, 132, 252, 0.78);
+  box-shadow:
+    0 0 8px rgba(56, 189, 248, 0.18),
+    0 0 14px rgba(168, 85, 247, 0.32),
+    0 0 12px rgba(244, 114, 182, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -8px 12px rgba(15, 23, 42, 0.45);
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear--default.pc-table-settings-gear--settled .pc-table-settings-gear__icon {
+  opacity: 1;
+  filter:
+    drop-shadow(0 0 2px rgba(168, 85, 247, 0.75))
+    drop-shadow(0 0 5px rgba(217, 70, 239, 0.5))
+    drop-shadow(0 0 4px rgba(255, 77, 158, 0.35));
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear--default.pc-table-settings-gear--settled .pc-table-settings-gear__cosmos {
+  opacity: 0.7;
+  animation-duration: 3.4s;
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-gear__badge {
   position: relative;
@@ -21696,32 +22871,65 @@ html.theme-standard
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.03em;
-  color: #f5e8ff;
-  text-shadow:
-    0 0 8px rgba(216, 180, 254, 0.85),
-    0 0 14px rgba(34, 211, 238, 0.45);
+  font-variant-numeric: tabular-nums;
+  color: var(--scale-gear-value-color, #f5e8ff);
+  text-shadow: 0 0 5px color-mix(in srgb, var(--scale-gear-value-color, #c4b5fd) 55%, transparent);
+  transition: opacity 0.55s ease, text-shadow 0.55s ease, color 0.55s ease;
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-gear:hover {
-  transform: translateY(-1px) scale(1.04);
-  border-color: #ecfeff;
-  filter: brightness(1.08);
+  transform: translateY(-1px) scale(1.03);
+  border-color: rgba(236, 254, 255, 0.88);
+  filter: brightness(1.05);
   box-shadow:
-    0 0 0 1px rgba(103, 232, 249, 0.55),
-    0 0 22px rgba(34, 211, 238, 0.7),
-    0 0 34px rgba(192, 132, 252, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+    0 0 12px rgba(34, 211, 238, 0.36),
+    0 0 20px rgba(192, 132, 252, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-gear:focus-visible {
-  outline: 2px solid rgba(165, 243, 252, 0.95);
+  outline: 1.5px solid rgba(165, 243, 252, 0.85);
   outline-offset: 2px;
 }
-.game-table-root:not(.viewport-mobile) .pc-table-settings-gear--active {
-  border-color: #e9d5ff;
+/* ≠100%: первые ~3с после сворачивания — чуть ярче */
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear--active.pc-table-settings-gear--pulse {
+  border-color: color-mix(in srgb, var(--scale-gear-value-color, #e9d5ff) 70%, transparent);
   box-shadow:
-    0 0 0 1px rgba(192, 132, 252, 0.55),
-    0 0 18px rgba(34, 211, 238, 0.5),
-    0 0 30px rgba(168, 85, 247, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 0 12px color-mix(in srgb, var(--scale-gear-value-color, #22d3ee) 42%, transparent),
+    0 0 20px color-mix(in srgb, var(--scale-gear-value-color, #a855f7) 28%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.game-table-root:not(.viewport-mobile)
+  .pc-table-settings-gear--active.pc-table-settings-gear--pulse
+  .pc-table-settings-gear__badge {
+  text-shadow: 0 0 7px color-mix(in srgb, var(--scale-gear-value-color, #c4b5fd) 70%, transparent);
+}
+/* ≠100%: после 3с — спокойнее, не перетягивает взгляд */
+.game-table-root:not(.viewport-mobile) .pc-table-settings-gear--active.pc-table-settings-gear--settled {
+  border-color: color-mix(in srgb, var(--scale-gear-value-color, #e9d5ff) 38%, transparent);
+  box-shadow:
+    0 0 6px color-mix(in srgb, var(--scale-gear-value-color, #22d3ee) 14%, transparent),
+    0 0 10px color-mix(in srgb, var(--scale-gear-value-color, #a855f7) 8%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.game-table-root:not(.viewport-mobile)
+  .pc-table-settings-gear--active.pc-table-settings-gear--settled
+  .pc-table-settings-gear__icon {
+  opacity: 0.82;
+  filter:
+    drop-shadow(0 0 1px color-mix(in srgb, var(--scale-gear-value-color, #67e8f9) 45%, transparent))
+    drop-shadow(0 0 3px color-mix(in srgb, var(--scale-gear-value-color, #67e8f9) 25%, transparent));
+}
+.game-table-root:not(.viewport-mobile)
+  .pc-table-settings-gear--active.pc-table-settings-gear--settled
+  .pc-table-settings-gear__badge {
+  opacity: 0.78;
+  text-shadow: 0 0 3px color-mix(in srgb, var(--scale-gear-value-color, #c4b5fd) 28%, transparent);
+}
+.game-table-root:not(.viewport-mobile)
+  .pc-table-settings-gear--active.pc-table-settings-gear--settled
+  .pc-table-settings-gear__cosmos {
+  opacity: 0.45;
+  animation: none;
+  background-position: 50% 0;
 }
 @media (prefers-reduced-motion: reduce) {
   .game-table-root:not(.viewport-mobile) .pc-table-settings-gear__cosmos {
@@ -21816,6 +23024,33 @@ html.theme-standard
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
     0 0 14px rgba(34, 211, 238, 0.45);
 }
+/* Скролл: без «светлой прямоугольной» рамки на hover — только мягкое свечение капсулы */
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel:not(:disabled):hover,
+.game-table-root:not(.viewport-mobile) .scale-gear-btn--scroll:not(:disabled):hover {
+  border-color: rgba(103, 232, 249, 0.55);
+  color: inherit;
+  transform: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 12px rgba(34, 211, 238, 0.28);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.82) 0%, rgba(15, 23, 42, 0.92) 100%);
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel-on:not(:disabled):hover,
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel-on.scale-gear-btn--scroll:not(:disabled):hover {
+  border-color: rgba(165, 243, 252, 0.75);
+  color: #ecfeff;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(103, 232, 249, 0.38) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(49, 46, 129, 0.92) 0%, rgba(15, 23, 42, 0.96) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 14px rgba(34, 211, 238, 0.4),
+    0 0 12px rgba(168, 85, 247, 0.28);
+}
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--value:not(:disabled):hover,
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--value:not(:disabled):hover {
+  color: var(--scale-gear-value-color, #a5f3fc);
+}
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra:disabled {
   opacity: 0.32;
   cursor: default;
@@ -21824,6 +23059,16 @@ html.theme-standard
   outline: 2px solid rgba(165, 243, 252, 0.9);
   outline-offset: 1px;
 }
+.game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel:focus-visible,
+.game-table-root:not(.viewport-mobile) .scale-gear-btn--scroll:focus-visible,
+.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel:focus-visible,
+.game-table-root.game-table-tablet-pc .scale-gear-btn--scroll:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 0 1.5px rgba(103, 232, 249, 0.55),
+    0 0 12px rgba(34, 211, 238, 0.35);
+}
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--value {
   width: auto;
   min-width: 46px;
@@ -21831,15 +23076,17 @@ html.theme-standard
   font-size: 12px;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
+  color: var(--scale-gear-value-color, #a5f3fc);
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--boosted {
   border-color: rgba(196, 181, 253, 0.85);
-  color: #f5e8ff;
+  /* цвет цифр — через --scale-gear-value-color / inline, не фиолетовый */
   background: linear-gradient(180deg, rgba(76, 29, 149, 0.55) 0%, rgba(30, 27, 75, 0.92) 100%);
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel {
   color: #c4b5fd;
   border-color: rgba(167, 139, 250, 0.55);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.9) 100%);
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel-on {
   color: #ecfeff;
@@ -21857,7 +23104,7 @@ html.theme-standard
   filter: drop-shadow(0 0 4px rgba(167, 139, 250, 0.55));
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel-on .pc-table-settings-wheel-icon__scroll {
-  animation: pc-table-settings-wheel-nudge 0.9s ease-in-out infinite;
+  animation: scale-gear-scroll-nudge 0.9s ease-in-out infinite;
 }
 @keyframes pc-table-settings-wheel-nudge {
   0%,
@@ -21869,17 +23116,29 @@ html.theme-standard
   }
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--close {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   font-size: 18px;
-  font-weight: 700;
-  color: rgba(226, 232, 240, 0.88);
-  border-color: rgba(148, 163, 184, 0.4);
-  background: rgba(15, 23, 42, 0.55);
+  font-weight: 800;
+  color: #fda4af;
+  border-color: rgba(251, 113, 133, 0.55);
+  background:
+    radial-gradient(circle at 50% 28%, rgba(251, 113, 133, 0.28) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(76, 29, 49, 0.75) 0%, rgba(15, 23, 42, 0.96) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 0 12px rgba(244, 63, 94, 0.28);
+  text-shadow: 0 0 8px rgba(251, 113, 133, 0.55);
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--close:hover {
-  color: #fff;
-  border-color: rgba(248, 113, 113, 0.65);
+  color: #fff1f2;
+  border-color: rgba(253, 164, 175, 0.95);
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 0 16px rgba(244, 63, 94, 0.5),
+    0 0 22px rgba(251, 113, 133, 0.35);
 }
 @media (prefers-reduced-motion: reduce) {
   .game-table-root:not(.viewport-mobile) .pc-table-settings-capsule__cosmos,
@@ -26483,6 +27742,13 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   .game-table-root:not(.viewport-mobile):not(.deal-type-no-trump) .game-center-north .opponent-slot {
     min-width: min(360px, 94vw) !important;
   }
+  /* Планшет · 4p: уже Север — не наезжать на левые бейджи (перебивает 360px выше) */
+  .game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc):not(.viewport-mobile)
+    .game-center-north
+    .opponent-slot {
+    min-width: min(300px, 70vw) !important;
+    padding: 6px 8px !important;
+  }
   .game-table-root:not(.viewport-mobile):not(.deal-type-no-trump) .opponent-slot.opponent-slot--north-pc-fused-order-badge {
     border-top-left-radius: 0 !important;
     border-bottom-left-radius: 0 !important;
@@ -26504,6 +27770,12 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   }
   .game-table-root.deal-type-no-trump:not(.viewport-mobile) .game-center-north .opponent-slot {
     min-width: min(360px, 94vw) !important;
+  }
+  .game-table-root.deal-type-no-trump.game-table-tablet-pc:not(.game-table-seats-three-pc):not(.viewport-mobile)
+    .game-center-north
+    .opponent-slot {
+    min-width: min(300px, 70vw) !important;
+    padding: 6px 8px !important;
   }
   .game-table-root.deal-type-no-trump:not(.viewport-mobile) .opponent-slot.opponent-slot--north-pc-fused-order-badge {
     border-top-left-radius: 0 !important;
@@ -28082,8 +29354,12 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
     0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
-/* Название режима — «свет от экрана»: блик за текстом, без рамок */
-.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome .game-info-mode-panel-name {
+/* Название режима — «свет от экрана»: блик за текстом, без рамок.
+ * Не трогаем «Тёмная» (радуга) и --screen (бескозырка): у них свои слои. */
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel--pc-chrome
+  .game-info-mode-panel-name:not(.game-info-dark-mode-name):not(.game-info-mode-panel-name--screen) {
   position: relative;
   z-index: 4;
   display: inline-flex;
@@ -28107,7 +29383,10 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 }
 
 /* Мягкое «свечение экрана» за словом */
-.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome .game-info-mode-panel-name::before {
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel--pc-chrome
+  .game-info-mode-panel-name:not(.game-info-dark-mode-name):not(.game-info-mode-panel-name--screen)::before {
   content: '';
   position: absolute;
   left: 50%;
@@ -28130,7 +29409,10 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 }
 
 /* Тонкая линия-блик снизу (как от сегментного индикатора) */
-.game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel--pc-chrome .game-info-mode-panel-name::after {
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel--pc-chrome
+  .game-info-mode-panel-name:not(.game-info-dark-mode-name):not(.game-info-mode-panel-name--screen)::after {
   content: '';
   position: absolute;
   left: 8%;
@@ -28191,10 +29473,10 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 
 .game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-wrap.game-info-mode-panel--pc-chrome,
 .game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-bidding.game-info-mode-panel--pc-chrome {
-  --gip-chrome-accent: rgba(129, 140, 248, 0.78);
-  --gip-chrome-rail: rgba(224, 231, 255, 0.55);
-  --gip-chrome-rail-dim: rgba(129, 140, 248, 0.38);
-  --gip-chrome-inset: rgba(56, 189, 248, 0.22);
+  --gip-chrome-accent: rgba(129, 140, 248, 0.72);
+  --gip-chrome-rail: rgba(165, 180, 253, 0.28);
+  --gip-chrome-rail-dim: rgba(99, 102, 241, 0.32);
+  --gip-chrome-inset: rgba(56, 189, 248, 0.12);
   --gip-led-tl: #38bdf8;
   --gip-led-tr: #818cf8;
   --gip-led-bl: #4f46e5;
@@ -28345,13 +29627,13 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
 
 .game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-wrap.game-info-mode-panel--pc-chrome {
   box-shadow:
-    0 0 22px rgba(129, 140, 248, 0.42),
-    0 0 40px rgba(56, 189, 248, 0.18),
-    0 3px 14px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(224, 231, 255, 0.2),
-    inset 0 -1px 0 rgba(129, 140, 248, 0.32),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-    inset 0 -8px 18px rgba(0, 0, 0, 0.18) !important;
+    0 0 16px rgba(99, 102, 241, 0.28),
+    0 0 28px rgba(56, 189, 248, 0.1),
+    0 3px 14px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(165, 180, 253, 0.1),
+    inset 0 -1px 0 rgba(79, 70, 229, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 -10px 18px rgba(0, 0, 0, 0.28) !important;
 }
 
 /* Базовая индиго-палитра (gameInfoModePanelStyle), если без варианта wrap */
@@ -28953,48 +30235,50 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   }
 }
 
-/* ПК: неоновый бейдж «Тёмная» на торгах (сирень + голубой) */
+/* ПК: неоновый бейдж «Тёмная» на торгах (сирень + голубой) — без молочного засвета */
 @keyframes game-info-dark-bidding-pulse {
   0%,
   100% {
     box-shadow:
-      0 0 22px rgba(129, 140, 248, 0.5),
-      0 0 44px rgba(56, 189, 248, 0.28),
-      inset 0 1px 0 rgba(224, 231, 255, 0.22);
+      0 0 16px rgba(99, 102, 241, 0.32),
+      0 0 28px rgba(56, 189, 248, 0.12),
+      inset 0 1px 0 rgba(165, 180, 253, 0.1),
+      inset 0 -6px 14px rgba(0, 0, 0, 0.22);
   }
   50% {
     box-shadow:
-      0 0 34px rgba(167, 139, 250, 0.55),
-      0 0 52px rgba(34, 211, 238, 0.22),
-      inset 0 1px 0 rgba(240, 249, 255, 0.28);
+      0 0 22px rgba(129, 140, 248, 0.4),
+      0 0 36px rgba(56, 189, 248, 0.16),
+      inset 0 1px 0 rgba(186, 230, 253, 0.12),
+      inset 0 -6px 14px rgba(0, 0, 0, 0.2);
   }
 }
 
-/* «Масляный» перелив: два слоя фона + сдвиг + hue/saturation/brightness (работает поверх background-clip: text) */
+/* «Масляный» перелив: сдвиг слоёв + лёгкий hue (без brightness — иначе светлеет весь stacking context) */
 @keyframes game-info-dark-mode-name-oil {
   0% {
     background-position:
       0% 50%,
       -60% 50%;
-    filter: hue-rotate(-12deg) saturate(1.2) brightness(1.02);
+    filter: hue-rotate(-12deg) saturate(1.22);
   }
   33% {
     background-position:
       45% 50%,
       35% 50%;
-    filter: hue-rotate(22deg) saturate(1.38) brightness(1.05);
+    filter: hue-rotate(22deg) saturate(1.36);
   }
   66% {
     background-position:
       90% 50%,
       120% 50%;
-    filter: hue-rotate(-18deg) saturate(1.28) brightness(1.04);
+    filter: hue-rotate(-18deg) saturate(1.28);
   }
   100% {
     background-position:
       0% 50%,
       -60% 50%;
-    filter: hue-rotate(-12deg) saturate(1.2) brightness(1.02);
+    filter: hue-rotate(-12deg) saturate(1.22);
   }
 }
 
@@ -29008,25 +30292,26 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   gap: 4px !important;
   padding: 5px 9px 6px !important;
   border-radius: 9px !important;
-  border: 2px solid rgba(129, 140, 248, 0.78) !important;
+  border: 2px solid rgba(129, 140, 248, 0.7) !important;
   background:
-    radial-gradient(ellipse 120% 95% at 50% -25%, rgba(56, 189, 248, 0.28) 0%, transparent 52%),
-    radial-gradient(ellipse 90% 80% at 90% 40%, rgba(167, 139, 250, 0.22) 0%, transparent 48%),
-    linear-gradient(152deg, rgba(30, 22, 72, 0.96) 0%, rgba(22, 36, 86, 0.94) 42%, rgba(18, 28, 62, 0.96) 100%) !important;
+    radial-gradient(ellipse 110% 80% at 50% -30%, rgba(56, 189, 248, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 70% at 92% 42%, rgba(129, 140, 248, 0.1) 0%, transparent 50%),
+    linear-gradient(152deg, rgba(18, 14, 48, 0.97) 0%, rgba(22, 30, 68, 0.96) 45%, rgba(14, 22, 48, 0.97) 100%) !important;
   animation: game-info-dark-bidding-pulse 2.6s ease-in-out infinite;
 }
 
 .game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-wrap {
-  border: 2px solid rgba(129, 140, 248, 0.78) !important;
+  border: 2px solid rgba(129, 140, 248, 0.7) !important;
   border-radius: 9px !important;
   background:
-    radial-gradient(ellipse 120% 95% at 50% -25%, rgba(56, 189, 248, 0.28) 0%, transparent 52%),
-    radial-gradient(ellipse 90% 80% at 90% 40%, rgba(167, 139, 250, 0.22) 0%, transparent 48%),
-    linear-gradient(152deg, rgba(30, 22, 72, 0.96) 0%, rgba(22, 36, 86, 0.94) 42%, rgba(18, 28, 62, 0.96) 100%) !important;
+    radial-gradient(ellipse 110% 80% at 50% -30%, rgba(56, 189, 248, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 70% at 92% 42%, rgba(129, 140, 248, 0.1) 0%, transparent 50%),
+    linear-gradient(152deg, rgba(18, 14, 48, 0.97) 0%, rgba(22, 30, 68, 0.96) 45%, rgba(14, 22, 48, 0.97) 100%) !important;
   box-shadow:
-    0 0 26px rgba(129, 140, 248, 0.45),
-    0 0 48px rgba(56, 189, 248, 0.2),
-    inset 0 1px 0 rgba(224, 231, 255, 0.22);
+    0 0 16px rgba(99, 102, 241, 0.28),
+    0 0 28px rgba(56, 189, 248, 0.1),
+    inset 0 1px 0 rgba(165, 180, 253, 0.1),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.26);
 }
 
 .game-table-root:not(.viewport-mobile)
@@ -29064,8 +30349,12 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   -webkit-text-fill-color: rgb(40, 194, 255) !important;
 }
 
-/* text-shadow ломает заливку при background-clip: text — блик отдельным слоем градиента */
-.game-table-root:not(.viewport-mobile) .game-header .game-info-dark-mode-name {
+/* text-shadow ломает заливку при background-clip: text — блик отдельным слоем градиента.
+ * Без ::before/::after на этом же элементе: filter анимации иначе осветляет весь ореол. */
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel--pc-chrome
+  .game-info-mode-panel-name.game-info-dark-mode-name {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
@@ -29079,6 +30368,7 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
   background-color: transparent !important;
+  text-shadow: none !important;
   /* Слой 1: радужно-масляные полосы; слой 2: узкий блик, ездит по буквам */
   background-image:
     linear-gradient(
@@ -29101,12 +30391,12 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
     linear-gradient(
       100deg,
       transparent 0%,
-      transparent 26%,
-      rgba(255, 255, 255, 0.2) 38%,
-      rgba(186, 230, 253, 0.42) 46%,
-      rgba(244, 200, 230, 0.2) 54%,
-      rgba(255, 255, 255, 0.2) 62%,
-      transparent 74%,
+      transparent 28%,
+      rgba(255, 255, 255, 0.12) 40%,
+      rgba(186, 230, 253, 0.28) 48%,
+      rgba(244, 200, 230, 0.14) 56%,
+      rgba(255, 255, 255, 0.12) 64%,
+      transparent 76%,
       transparent 100%
     ) !important;
   background-repeat: no-repeat, no-repeat !important;
@@ -29123,39 +30413,32 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   animation: game-info-dark-mode-name-oil 7s ease-in-out infinite;
 }
 
-.game-table-root:not(.viewport-mobile) .game-header .game-info-dark-mode-name::before {
-  background: radial-gradient(
-    ellipse 100% 72% at 50% 50%,
-    rgba(129, 140, 248, 0.48) 0%,
-    rgba(56, 189, 248, 0.24) 44%,
-    transparent 72%
-  );
-  filter: blur(8px);
-  opacity: 0.9;
-}
-
-.game-table-root:not(.viewport-mobile) .game-header .game-info-dark-mode-name::after {
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(56, 189, 248, 0.5) 22%,
-    rgba(167, 139, 250, 0.95) 50%,
-    rgba(56, 189, 248, 0.5) 78%,
-    transparent 100%
-  );
-  box-shadow: 0 0 12px rgba(129, 140, 248, 0.55);
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel--pc-chrome
+  .game-info-mode-panel-name.game-info-dark-mode-name::before,
+.game-table-root:not(.viewport-mobile)
+  .game-header
+  .game-info-mode-panel--pc-chrome
+  .game-info-mode-panel-name.game-info-dark-mode-name::after {
+  content: none !important;
+  display: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .game-table-root:not(.viewport-mobile) .game-header .game-info-mode-panel-pc-dark-bidding {
     animation: none;
     box-shadow:
-      0 0 26px rgba(129, 140, 248, 0.45),
-      0 0 48px rgba(56, 189, 248, 0.2),
-      inset 0 1px 0 rgba(224, 231, 255, 0.22);
+      0 0 16px rgba(99, 102, 241, 0.28),
+      0 0 28px rgba(56, 189, 248, 0.1),
+      inset 0 1px 0 rgba(165, 180, 253, 0.1),
+      inset 0 -8px 16px rgba(0, 0, 0, 0.26);
   }
 
-  .game-table-root:not(.viewport-mobile) .game-header .game-info-dark-mode-name {
+  .game-table-root:not(.viewport-mobile)
+    .game-header
+    .game-info-mode-panel--pc-chrome
+    .game-info-mode-panel-name.game-info-dark-mode-name {
     animation: none !important;
     filter: none !important;
     will-change: auto !important;

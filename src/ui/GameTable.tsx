@@ -43,26 +43,53 @@ import {
 } from '../game/onlineTimings';
 import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating, getPlayerProfile } from '../game/persistence';
 import {
+  bumpPcFourHandScalePct,
+  clampPcFourHandScalePct,
   clampPcHandScaleBoost,
   nextPcHandScaleBoost,
   prevPcHandScaleBoost,
   pcHandScaleExtraHeightPx,
   pcHandScaleMaxForSeats,
   pcHandScaleMultiplier,
+  pcFourHandScaleMultiplier,
   pcSidePanelPushPx,
   pcTableFeltScaleMultiplier,
   pcHandToPanelGapPx,
   pcHandTableClearancePx,
   pcTableUpOffsetTotalPx,
-  pcFourSeatHandCompactMul,
   resolvePcHandAdaptiveScale,
   TABLET_HAND_COMPACT,
+  tabletFourHandScaleMinus1px,
+  PC_FOUR_HAND_SCALE_PCT_DEFAULT,
+  PC_FOUR_HAND_SCALE_PCT_MAX,
+  PC_FOUR_HAND_SCALE_PCT_MIN,
+  readPcFourHandScalePct,
   readPcHandScaleBoost,
   readPcTableSettingsOpen,
+  writePcFourHandScalePct,
   writePcHandScaleBoost,
   writePcTableSettingsOpen,
+  type PcFourHandScalePct,
   type PcHandScaleBoost,
 } from '../game/pcHandScale';
+import {
+  bumpTabletTableScalePct,
+  clampTabletTableScalePct,
+  defaultTabletTableScalePct,
+  readTabletTableScalePct,
+  tabletTableHeightMul,
+  tabletTableSideGapTight,
+  tabletTableWidthMul,
+  writeTabletTableScalePct,
+  type TabletTableScalePct,
+  TABLET_CENTER_AREA_GAP_PX,
+  TABLET_CENTER_AREA_GAP_TIGHT_PX,
+  TABLET_TABLE_SCALE_PCT_MAX,
+  TABLET_TABLE_SCALE_PCT_MIN,
+} from '../game/tabletTableScale';
+import {
+  readTabletViewportScale,
+} from '../game/tabletViewportScale';
 import { appendPartyArchiveRecord, buildPartyArchiveRecord, linkPartyArchiveCloudMatch } from '../game/partyArchive';
 import { logDealOutcome } from '../game/aiLearning';
 import { aiBid, aiPlay } from '../game/ai';
@@ -1025,6 +1052,103 @@ function getTrickTableContentScale(isMobileOrTablet: boolean, isMobileLandscape:
   return isMobileLandscape ? 1.32 : 1.5;
 }
 
+/** Общий тоггл «Скролл» для шестерёнок карт и стола — иконка + ВКЛ/ВЫКЛ. */
+function ScaleGearScrollToggle({ armed }: { armed: boolean }) {
+  return (
+    <span
+      className={['scale-gear-scroll', armed ? 'scale-gear-scroll--on' : 'scale-gear-scroll--off']
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <svg
+        className="scale-gear-scroll__icon"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden
+      >
+        <rect
+          x="7.5"
+          y="2.5"
+          width="9"
+          height="19"
+          rx="4.5"
+          stroke="currentColor"
+          strokeWidth="1.65"
+        />
+        <rect
+          className="scale-gear-scroll__wheel"
+          x="10.5"
+          y="5.4"
+          width="3"
+          height="5"
+          rx="1.5"
+          fill="currentColor"
+        />
+        <path
+          d="M12 12.2v3.8"
+          stroke="currentColor"
+          strokeWidth="1.35"
+          strokeLinecap="round"
+          opacity="0.55"
+        />
+        {!armed ? (
+          <path
+            className="scale-gear-scroll__slash"
+            d="M5.2 18.8 18.8 5.2"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        ) : null}
+      </svg>
+      <span className="scale-gear-scroll__copy">
+        <span className="scale-gear-scroll__title">Скролл</span>
+        <span className="scale-gear-scroll__state">{armed ? 'ВКЛ' : 'ВЫКЛ'}</span>
+      </span>
+    </span>
+  );
+}
+
+const SCALE_GEAR_PCT_NEUTRAL = '#a5f3fc';
+const SCALE_GEAR_PCT_ABOVE = '#f4a628';
+const SCALE_GEAR_PCT_BELOW = '#63efc8';
+
+function mixHexTowardWhite(hex: string, t: number): string {
+  const n = hex.replace('#', '');
+  if (n.length !== 6) return hex;
+  const r = parseInt(n.slice(0, 2), 16);
+  const g = parseInt(n.slice(2, 4), 16);
+  const b = parseInt(n.slice(4, 6), 16);
+  const k = Math.max(0, Math.min(1, t));
+  const to = (c: number) => Math.round(c + (255 - c) * k);
+  return `#${[to(r), to(g), to(b)].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * Умный цвет % масштаба: 100% — циан; выше — #f4a628 (ярче дальше от 100);
+ * ниже — #63efc8 (ярче дальше от 100).
+ */
+function scaleGearValueTone(pct: number): { color: string; textShadow: string } {
+  if (!Number.isFinite(pct) || pct === 100) {
+    return {
+      color: SCALE_GEAR_PCT_NEUTRAL,
+      textShadow: '0 0 8px rgba(34, 211, 238, 0.55)',
+    };
+  }
+  const above = pct > 100;
+  const base = above ? SCALE_GEAR_PCT_ABOVE : SCALE_GEAR_PCT_BELOW;
+  const bright = Math.min(1, Math.abs(pct - 100) / 12);
+  const color = mixHexTowardWhite(base, bright * 0.42);
+  const glowAlpha = 0.35 + bright * 0.5;
+  const glowBlur = 6 + bright * 10;
+  const glow = above
+    ? `0 0 ${glowBlur}px rgba(244, 166, 40, ${glowAlpha})`
+    : `0 0 ${glowBlur}px rgba(99, 239, 200, ${glowAlpha})`;
+  return { color, textShadow: glow };
+}
+
 /** Landscape: ромб от якоря Востока (прижат к правому краю стола). На троих — треугольник. */
 function getTrickLandscapeSlotStyle(
   playerIdx: number,
@@ -1868,6 +1992,24 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const isTabletPcShell = useIsTabletPcShell();
   /** ПК-оболочка на планшете/низком экране: без PC-lift и с компактным info-бейджем. */
   const useTabletPcTableTuning = !isMobile && (isMobileOrTablet || isTabletPcShell);
+  /** Эталон калибровки планшета 1035×618; на меньшем экране — пропорциональный zoom. */
+  const [tabletViewportScale, setTabletViewportScale] = useState(1);
+  useEffect(() => {
+    if (!useTabletPcTableTuning) {
+      setTabletViewportScale(1);
+      return;
+    }
+    const update = () => setTabletViewportScale(readTabletViewportScale());
+    update();
+    window.addEventListener('resize', update);
+    window.visualViewport?.addEventListener('resize', update);
+    window.visualViewport?.addEventListener('scroll', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.visualViewport?.removeEventListener('resize', update);
+      window.visualViewport?.removeEventListener('scroll', update);
+    };
+  }, [useTabletPcTableTuning]);
   const mobileLandscapeSouthLayoutTuned = useMobileLandscapeSouthLayoutTuned();
   /** Баннер для гостя при ожидании решения хоста; класс на main-wrap — шапка fixed и без доп. padding перекрывает баннер. */
   const showAbsentGuestBanner =
@@ -2123,15 +2265,66 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const [bidPanelVisible, setBidPanelVisible] = useState(false);
   const [trumpHighlightOn, setTrumpHighlightOn] = useState(true);
   const [pcHandScaleBoost, setPcHandScaleBoost] = useState<PcHandScaleBoost>(() => readPcHandScaleBoost());
+  const [pcFourHandScalePct, setPcFourHandScalePct] = useState<PcFourHandScalePct>(() =>
+    readPcFourHandScalePct(),
+  );
   const [pcTableSettingsOpen, setPcTableSettingsOpen] = useState(() => readPcTableSettingsOpen());
   const [pcScaleWheelArmed, setPcScaleWheelArmed] = useState(false);
+  /** После сворачивания: 3с ярче, потом спокойный вид свёрнутой кнопки карт. */
+  const [pcHandScaleCollapsedPulse, setPcHandScaleCollapsedPulse] = useState(false);
+  const pcHandScaleCollapsedPulseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pcScaleWheelLockRef = useRef(0);
+  const [tabletTableScalePct, setTabletTableScalePct] = useState<TabletTableScalePct>(() =>
+    readTabletTableScalePct(4),
+  );
+  const [tabletTableScaleOpen, setTabletTableScaleOpen] = useState(false);
+  const [tabletTableScaleWheelArmed, setTabletTableScaleWheelArmed] = useState(true);
+  /** Вертикальный столбик % на свёрнутой кнопке — показывается кратко, потом автоскрытие. */
+  const [tabletTableScaleColumnVisible, setTabletTableScaleColumnVisible] = useState(false);
+  /** 100% глиф стола: 3с ярче (как у шестерёнки карт), затем спокойнее. */
+  const [tabletTableScaleCollapsedPulse, setTabletTableScaleCollapsedPulse] = useState(false);
+  const tabletTableScaleWheelLockRef = useRef(0);
+  const tabletTableScaleColumnHideRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tabletTableScaleCollapsedPulseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tabletTableScaleGradId = useId().replace(/:/g, '');
+  const tabletTableScaleSheenId = useId().replace(/:/g, '');
+  const pcTableGearGradId = useId().replace(/:/g, '');
+  const pcTableGearSheenId = useId().replace(/:/g, '');
+  const pulseTabletTableScaleColumn = useCallback(() => {
+    if (tabletTableScaleColumnHideRef.current) {
+      clearTimeout(tabletTableScaleColumnHideRef.current);
+      tabletTableScaleColumnHideRef.current = null;
+    }
+    setTabletTableScaleColumnVisible(true);
+    tabletTableScaleColumnHideRef.current = setTimeout(() => {
+      setTabletTableScaleColumnVisible(false);
+      tabletTableScaleColumnHideRef.current = null;
+    }, 5000);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (tabletTableScaleColumnHideRef.current) clearTimeout(tabletTableScaleColumnHideRef.current);
+    };
+  }, []);
   const setPcHandScaleBoostPersistent = useCallback((boost: PcHandScaleBoost) => {
     setPcHandScaleBoost(boost);
     writePcHandScaleBoost(boost);
   }, []);
+  const setPcFourHandScalePctPersistent = useCallback((pct: PcFourHandScalePct) => {
+    const next = clampPcFourHandScalePct(pct);
+    setPcFourHandScalePct(next);
+    writePcFourHandScalePct(next);
+  }, []);
   const bumpPcHandScale = useCallback((dir: 1 | -1) => {
     const seats: 3 | 4 = state && playerCountOf(state) === 3 ? 3 : 4;
+    if (seats === 4) {
+      setPcFourHandScalePct((prev) => {
+        const next = bumpPcFourHandScalePct(prev, dir);
+        writePcFourHandScalePct(next);
+        return next;
+      });
+      return;
+    }
     setPcHandScaleBoost((prev) => {
       const cur = clampPcHandScaleBoost(prev, seats);
       const next =
@@ -2145,6 +2338,75 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     writePcTableSettingsOpen(open);
     if (!open) setPcScaleWheelArmed(false);
   }, []);
+  const tabletTableScaleSeats: 3 | 4 = state && playerCountOf(state) === 3 ? 3 : 4;
+  const tabletTableScaleDefault = defaultTabletTableScalePct(tabletTableScaleSeats);
+  const setTabletTableScalePctPersistent = useCallback(
+    (pct: TabletTableScalePct) => {
+      const seats: 3 | 4 = state && playerCountOf(state) === 3 ? 3 : 4;
+      const next = clampTabletTableScalePct(pct);
+      setTabletTableScalePct(next);
+      writeTabletTableScalePct(next, seats);
+    },
+    [state],
+  );
+  const bumpTabletTableScale = useCallback(
+    (dir: 1 | -1) => {
+      const seats: 3 | 4 = state && playerCountOf(state) === 3 ? 3 : 4;
+      setTabletTableScalePct((prev) => {
+        const next = bumpTabletTableScalePct(prev, dir);
+        writeTabletTableScalePct(next, seats);
+        return next;
+      });
+    },
+    [state],
+  );
+  useEffect(() => {
+    if (!useTabletPcTableTuning || tabletTableScaleOpen) return;
+    if (tabletTableScalePct === tabletTableScaleDefault) {
+      setTabletTableScaleColumnVisible(false);
+      return;
+    }
+    pulseTabletTableScaleColumn();
+  }, [
+    tabletTableScalePct,
+    tabletTableScaleDefault,
+    tabletTableScaleOpen,
+    useTabletPcTableTuning,
+    pulseTabletTableScaleColumn,
+  ]);
+  useEffect(() => {
+    if (tabletTableScaleCollapsedPulseRef.current) {
+      clearTimeout(tabletTableScaleCollapsedPulseRef.current);
+      tabletTableScaleCollapsedPulseRef.current = null;
+    }
+    if (!useTabletPcTableTuning || tabletTableScaleOpen) {
+      setTabletTableScaleCollapsedPulse(false);
+      return;
+    }
+    setTabletTableScaleCollapsedPulse(true);
+    tabletTableScaleCollapsedPulseRef.current = setTimeout(() => {
+      setTabletTableScaleCollapsedPulse(false);
+      tabletTableScaleCollapsedPulseRef.current = null;
+    }, 3000);
+    return () => {
+      if (tabletTableScaleCollapsedPulseRef.current) {
+        clearTimeout(tabletTableScaleCollapsedPulseRef.current);
+        tabletTableScaleCollapsedPulseRef.current = null;
+      }
+    };
+  }, [
+    useTabletPcTableTuning,
+    tabletTableScaleOpen,
+    tabletTableScalePct,
+    tabletTableScaleDefault,
+  ]);
+  const closeTabletTableScale = useCallback(() => {
+    setTabletTableScaleOpen(false);
+  }, []);
+  useEffect(() => {
+    if (!useTabletPcTableTuning) return;
+    setTabletTableScalePct(readTabletTableScalePct(tabletTableScaleSeats));
+  }, [useTabletPcTableTuning, tabletTableScaleSeats]);
   useEffect(() => {
     if (isMobile || !pcTableSettingsOpen || !pcScaleWheelArmed) return;
     const onWheel = (e: WheelEvent) => {
@@ -2158,6 +2420,24 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     window.addEventListener('wheel', onWheel, { passive: false });
     return () => window.removeEventListener('wheel', onWheel);
   }, [isMobile, pcTableSettingsOpen, pcScaleWheelArmed, bumpPcHandScale]);
+  useEffect(() => {
+    if (!useTabletPcTableTuning || !tabletTableScaleOpen || !tabletTableScaleWheelArmed) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const now = Date.now();
+      if (now - tabletTableScaleWheelLockRef.current < 85) return;
+      tabletTableScaleWheelLockRef.current = now;
+      if (e.deltaY < 0) bumpTabletTableScale(1);
+      else if (e.deltaY > 0) bumpTabletTableScale(-1);
+    };
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => window.removeEventListener('wheel', onWheel);
+  }, [
+    useTabletPcTableTuning,
+    tabletTableScaleOpen,
+    tabletTableScaleWheelArmed,
+    bumpTabletTableScale,
+  ]);
   const [gameInfoBadgeSkin, setGameInfoBadgeSkin] = useState<GameInfoBadgeStyle>(() => loadGameInfoBadgeStyle());
   const [gameInfoBadgeStyleToast, setGameInfoBadgeStyleToast] = useState<string | null>(null);
   const gameInfoBadgeLongPressConsumedRef = useRef(false);
@@ -2554,7 +2834,8 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     return () => clearTimeout(t);
   }, [showPcDarkModeTooltip]);
 
-  /** ПК: first-move + нижний бейдж как единый блок держим на одной горизонтали с контейнером кнопок (верхняя граница). */
+  /** ПК: first-move + нижний бейдж как единый блок держим на одной горизонтали с контейнером кнопок (верхняя граница).
+   * На планшете «Первый ход» на сукне — якорь только левый info-бейдж. */
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
     if (isMobile) {
@@ -2569,7 +2850,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         rafId = null;
         const headerGroup = pcHeaderActionGroupRef.current;
         const leftCol = pcGameInfoLeftColRef.current;
-        const anchorBadge = pcFirstMoveBadgeRef.current ?? pcGameInfoLeftSectionRef.current;
+        const anchorBadge =
+          (!useTabletPcTableTuning ? pcFirstMoveBadgeRef.current : null) ??
+          pcGameInfoLeftSectionRef.current;
         if (!headerGroup || !leftCol || !anchorBadge) return;
         const targetTop = Math.round(headerGroup.getBoundingClientRect().top);
         const currentTop = Math.round(anchorBadge.getBoundingClientRect().top);
@@ -2585,7 +2868,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     const ro = new ResizeObserver(scheduleAlign);
     if (pcHeaderActionGroupRef.current) ro.observe(pcHeaderActionGroupRef.current);
     if (pcGameInfoLeftColRef.current) ro.observe(pcGameInfoLeftColRef.current);
-    if (pcFirstMoveBadgeRef.current) ro.observe(pcFirstMoveBadgeRef.current);
+    if (!useTabletPcTableTuning && pcFirstMoveBadgeRef.current) ro.observe(pcFirstMoveBadgeRef.current);
     if (pcGameInfoLeftSectionRef.current) ro.observe(pcGameInfoLeftSectionRef.current);
 
     return () => {
@@ -2593,7 +2876,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       window.removeEventListener('resize', scheduleAlign);
       ro.disconnect();
     };
-  }, [isMobile, state?.phase]);
+  }, [isMobile, useTabletPcTableTuning, state?.phase]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -4003,6 +4286,8 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   /** Закрытие backdrop: arm только если pointer down стартовал именно на фоне модалки. */
   const dealResultsBackdropPressArmedRef = useRef(false);
   const gameTableRootRef = useRef<HTMLDivElement>(null);
+  /** Хост для портала Севера на планшете (вне transform у .game-table-block). */
+  const [tabletNorthPortalHost, setTabletNorthPortalHost] = useState<HTMLDivElement | null>(null);
   /** ПК: якоря для роуминг-бейджа — вне DOM панели, чтобы не раздувать layout Юга */
   const pcUserPanelRef = useRef<HTMLDivElement>(null);
   const pcUserPanelLeftClusterRef = useRef<HTMLDivElement>(null);
@@ -4266,20 +4551,79 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const pcScaleBoost = !isMobile
     ? clampPcHandScaleBoost(pcHandScaleBoost, pcScaleSeats)
     : 0;
-  const pcScaleMax = pcHandScaleMaxForSeats(pcScaleSeats);
+  const pcFourHandPct = !isMobile
+    ? clampPcFourHandScalePct(pcFourHandScalePct)
+    : PC_FOUR_HAND_SCALE_PCT_DEFAULT;
+  /** UI-процент шестерёнки: 4p — 94…106; 3p — 100…140. */
+  const pcHandScaleUiPct =
+    pcScaleSeats === 4 ? pcFourHandPct : 100 + pcScaleBoost;
+  const pcHandScaleNonDefault =
+    pcScaleSeats === 4
+      ? pcFourHandPct !== PC_FOUR_HAND_SCALE_PCT_DEFAULT
+      : pcScaleBoost > 0;
+  useEffect(() => {
+    if (pcHandScaleCollapsedPulseRef.current) {
+      clearTimeout(pcHandScaleCollapsedPulseRef.current);
+      pcHandScaleCollapsedPulseRef.current = null;
+    }
+    if (pcTableSettingsOpen || isMobile) {
+      setPcHandScaleCollapsedPulse(false);
+      return;
+    }
+    /* Свёрнутая кнопка: 3с ярче (100% — перелив глифа; ≠100% — умный акцент), затем спокойнее. */
+    setPcHandScaleCollapsedPulse(true);
+    pcHandScaleCollapsedPulseRef.current = setTimeout(() => {
+      setPcHandScaleCollapsedPulse(false);
+      pcHandScaleCollapsedPulseRef.current = null;
+    }, 3000);
+    return () => {
+      if (pcHandScaleCollapsedPulseRef.current) {
+        clearTimeout(pcHandScaleCollapsedPulseRef.current);
+        pcHandScaleCollapsedPulseRef.current = null;
+      }
+    };
+  }, [pcTableSettingsOpen, pcHandScaleNonDefault, isMobile]);
+  const pcScaleMaxThree = pcHandScaleMaxForSeats(3);
   const pcHandScaleExtraH =
-    !isMobile && !useTabletPcTableTuning ? pcHandScaleExtraHeightPx(pcScaleBoost, pcScaleSeats) : 0;
+    !isMobile && !useTabletPcTableTuning && pcScaleSeats === 3
+      ? pcHandScaleExtraHeightPx(pcScaleBoost, 3)
+      : 0;
   const pcCardScaleMul =
-    !isMobile && !useTabletPcTableTuning ? pcHandScaleMultiplier(pcScaleBoost) : 1;
+    !isMobile && !useTabletPcTableTuning
+      ? pcScaleSeats === 4
+        ? pcFourHandScaleMultiplier(pcFourHandPct)
+        : pcHandScaleMultiplier(pcScaleBoost)
+      : useTabletPcTableTuning && pcScaleSeats === 4
+        ? pcFourHandScaleMultiplier(pcFourHandPct)
+        : 1;
   const pcFeltScaleMul =
-    !isMobile && !useTabletPcTableTuning ? pcTableFeltScaleMultiplier(pcScaleBoost, pcScaleSeats) : 1;
+    !isMobile && !useTabletPcTableTuning
+      ? pcTableFeltScaleMultiplier(
+          pcScaleSeats === 4 ? pcFourHandPct : pcScaleBoost,
+          pcScaleSeats,
+        )
+      : 1;
+  const tabletTableHMul = useTabletPcTableTuning
+    ? tabletTableHeightMul(tabletTableScalePct, tabletTableScaleSeats)
+    : 1;
+  const tabletTableWMul = useTabletPcTableTuning
+    ? tabletTableWidthMul(tabletTableScalePct, tabletTableScaleSeats)
+    : 1;
+  const tabletSideGapTight =
+    useTabletPcTableTuning && tabletTableSideGapTight(tabletTableScalePct);
   const pcSidePushPx =
-    !isMobile && !useTabletPcTableTuning ? pcSidePanelPushPx(pcScaleBoost, pcScaleSeats) : 0;
+    !isMobile && !useTabletPcTableTuning
+      ? pcSidePanelPushPx(pcScaleSeats === 4 ? pcFourHandPct : pcScaleBoost, pcScaleSeats)
+      : 0;
   const pcHandToPanelGap =
-    !isMobile && !useTabletPcTableTuning ? pcHandToPanelGapPx(pcScaleBoost, pcScaleSeats) : 0;
+    !isMobile && !useTabletPcTableTuning
+      ? pcHandToPanelGapPx(pcScaleSeats === 4 ? pcFourHandPct : pcScaleBoost, pcScaleSeats)
+      : 0;
   /** 3p ПК: подъём стола (база выше + clearance при scale); 4p: база 149, clearance 0. */
   const pcHandTableClearance =
-    !isMobile && !useTabletPcTableTuning ? pcHandTableClearancePx(pcScaleBoost, pcScaleSeats) : 0;
+    !isMobile && !useTabletPcTableTuning && pcScaleSeats === 3
+      ? pcHandTableClearancePx(pcScaleBoost, 3)
+      : 0;
   const pcTableUpOffsetPx =
     !isMobile && !useTabletPcTableTuning
       ? pcTableUpOffsetTotalPx(pcScaleBoost, pcScaleSeats)
@@ -4289,10 +4633,6 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     !isMobile &&
     !useTabletPcTableTuning &&
     (isThreeSeatTable || pcHandTableClearance > 0);
-  const pcFourHandCompact =
-    !isMobile && !useTabletPcTableTuning && pcScaleSeats === 4
-      ? pcFourSeatHandCompactMul(pcScaleBoost)
-      : 1;
   /**
    * Слоты стола:
    * 4 — Юг0 / Север1 / Запад2 / Восток3.
@@ -5261,10 +5601,26 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
           margin: 0,
         });
       } else {
+        /** Планшет · торги: «Первый ход» сверху сукна — roaming ниже капсулы, не поверх неё */
+        const firstMoveOnTable =
+          useTabletPcTableTuning &&
+          (state?.phase === 'bidding' || state?.phase === 'dark-bidding');
+        const firstMoveEl = firstMoveOnTable ? pcFirstMoveBadgeRef.current : null;
+        const firstMoveRect = firstMoveEl?.getBoundingClientRect();
+        if (firstMoveRect && firstMoveRect.height > 0) {
+          setPcTurnRoamFixedStyle({
+            position: 'fixed',
+            left: table.left + table.width / 2,
+            top: firstMoveRect.bottom + 10,
+            transform: 'translateX(-50%)',
+            margin: 0,
+          });
+          return;
+        }
         setPcTurnRoamFixedStyle({
           position: 'fixed',
           left: table.left + table.width / 2,
-          top: table.top + 12,
+          top: table.top + (firstMoveOnTable ? 52 : 12),
           transform: 'translateX(-50%)',
           margin: 0,
         });
@@ -5281,10 +5637,12 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     const clusterEl = pcUserPanelLeftClusterRef.current;
     const bidPanelEl = pcBidPanelRef.current;
     const tableEl = pcTableSurfaceRef.current;
+    const firstMoveEl = pcFirstMoveBadgeRef.current;
     if (panelEl) resizeObserver?.observe(panelEl);
     if (clusterEl) resizeObserver?.observe(clusterEl);
     if (bidPanelEl) resizeObserver?.observe(bidPanelEl);
     if (tableEl) resizeObserver?.observe(tableEl);
+    if (useTabletPcTableTuning && firstMoveEl) resizeObserver?.observe(firstMoveEl);
     return () => {
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
@@ -5298,6 +5656,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     userTurnStrongNudgePc,
     shouldShowBidPanel,
     bidPanelVisible,
+    useTabletPcTableTuning,
     state?.phase,
     state?.currentPlayerIndex,
   ]);
@@ -6450,6 +6809,23 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   /** ПК: настройки стола (масштаб карт) — только desktop, не мобила. */
   const renderPcTableSettings = () => {
     if (isWaitingInRoom) return null;
+    const scaleLabel = `${pcHandScaleUiPct}%`;
+    const valueTone = scaleGearValueTone(pcHandScaleUiPct);
+    const scaleMin = pcScaleSeats === 4 ? PC_FOUR_HAND_SCALE_PCT_MIN : 100;
+    const scaleMax =
+      pcScaleSeats === 4 ? PC_FOUR_HAND_SCALE_PCT_MAX : 100 + pcScaleMaxThree;
+    const decDisabled =
+      pcScaleSeats === 4
+        ? pcFourHandPct <= PC_FOUR_HAND_SCALE_PCT_MIN
+        : pcScaleBoost <= 0;
+    const incDisabled =
+      pcScaleSeats === 4
+        ? pcFourHandPct >= PC_FOUR_HAND_SCALE_PCT_MAX
+        : pcScaleBoost >= pcScaleMaxThree;
+    const resetToDefault = () => {
+      if (pcScaleSeats === 4) setPcFourHandScalePctPersistent(PC_FOUR_HAND_SCALE_PCT_DEFAULT);
+      else setPcHandScaleBoostPersistent(0);
+    };
     return (
       <div
         className={[
@@ -6462,63 +6838,168 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             type="button"
             className={[
               'pc-table-settings-gear',
-              pcScaleBoost > 0 ? 'pc-table-settings-gear--active' : '',
+              'scale-gear-trigger',
+              pcHandScaleNonDefault
+                ? 'pc-table-settings-gear--active scale-gear-trigger--active'
+                : 'pc-table-settings-gear--default',
+              pcHandScaleCollapsedPulse
+                ? 'pc-table-settings-gear--pulse'
+                : 'pc-table-settings-gear--settled',
             ]
               .filter(Boolean)
               .join(' ')}
             onClick={() => setPcTableSettingsOpenPersistent(true)}
             title={
-              pcScaleBoost > 0
-                ? `Настройки стола (карты ${100 + pcScaleBoost}%)`
+              pcHandScaleNonDefault
+                ? `Настройки стола (карты ${scaleLabel})`
                 : 'Настройки стола'
             }
             aria-label="Открыть настройки стола"
             aria-expanded={false}
+            style={
+              pcHandScaleNonDefault
+                ? ({
+                    ['--scale-gear-value-color' as string]: valueTone.color,
+                  } as const)
+                : undefined
+            }
           >
-            <span className="pc-table-settings-gear__cosmos" aria-hidden />
+            <span className="pc-table-settings-gear__cosmos scale-gear-trigger__shine" aria-hidden />
             <svg
-              className="pc-table-settings-gear__icon"
+              className="pc-table-settings-gear__icon scale-gear-trigger__icon"
               width="16"
               height="16"
               viewBox="0 0 24 24"
               fill="none"
               aria-hidden
+              style={
+                pcHandScaleNonDefault
+                  ? {
+                      color: valueTone.color,
+                      filter: pcHandScaleCollapsedPulse
+                        ? `drop-shadow(0 0 3px ${valueTone.color}) drop-shadow(0 0 7px ${valueTone.color})`
+                        : `drop-shadow(0 0 1px ${valueTone.color}) drop-shadow(0 0 3px ${valueTone.color})`,
+                    }
+                  : undefined
+              }
             >
               <defs>
-                <linearGradient id="pc-table-gear-grad" x1="4" y1="4" x2="20" y2="20">
-                  <stop offset="0%" stopColor="#ecfeff" />
-                  <stop offset="45%" stopColor="#67e8f9" />
-                  <stop offset="100%" stopColor="#e9d5ff" />
+                <linearGradient id={pcTableGearGradId} x1="3" y1="2" x2="21" y2="22">
+                  <stop offset="0%" stopColor="#67e8f9">
+                    {!pcHandScaleNonDefault && pcHandScaleCollapsedPulse ? (
+                      <animate
+                        attributeName="stop-color"
+                        values="#67e8f9;#22d3ee;#a855f7;#67e8f9"
+                        dur="2.6s"
+                        repeatCount="indefinite"
+                      />
+                    ) : null}
+                  </stop>
+                  <stop offset="38%" stopColor="#a855f7">
+                    {!pcHandScaleNonDefault && pcHandScaleCollapsedPulse ? (
+                      <animate
+                        attributeName="stop-color"
+                        values="#a855f7;#c026d3;#f472b6;#a855f7"
+                        dur="2.6s"
+                        repeatCount="indefinite"
+                      />
+                    ) : null}
+                  </stop>
+                  <stop offset="68%" stopColor="#d946ef">
+                    {!pcHandScaleNonDefault && pcHandScaleCollapsedPulse ? (
+                      <animate
+                        attributeName="stop-color"
+                        values="#d946ef;#f0abfc;#ff4d9e;#d946ef"
+                        dur="2.6s"
+                        repeatCount="indefinite"
+                      />
+                    ) : null}
+                  </stop>
+                  <stop offset="100%" stopColor="#ff4d9e">
+                    {!pcHandScaleNonDefault && pcHandScaleCollapsedPulse ? (
+                      <animate
+                        attributeName="stop-color"
+                        values="#ff4d9e;#fb7185;#c084fc;#ff4d9e"
+                        dur="2.6s"
+                        repeatCount="indefinite"
+                      />
+                    ) : null}
+                  </stop>
                 </linearGradient>
+                {!pcHandScaleNonDefault && pcHandScaleCollapsedPulse ? (
+                  <linearGradient
+                    id={pcTableGearSheenId}
+                    gradientUnits="userSpaceOnUse"
+                    x1="-6"
+                    y1="0"
+                    x2="6"
+                    y2="24"
+                  >
+                    <stop offset="0%" stopColor="#f0abfc" stopOpacity="0" />
+                    <stop offset="40%" stopColor="#e879f9" stopOpacity="0" />
+                    <stop offset="50%" stopColor="#fae8ff" stopOpacity="0.62" />
+                    <stop offset="58%" stopColor="#ff4d9e" stopOpacity="0.28" />
+                    <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
+                    <animate attributeName="x1" values="-10;26" dur="1.9s" repeatCount="indefinite" />
+                    <animate attributeName="x2" values="2;38" dur="1.9s" repeatCount="indefinite" />
+                  </linearGradient>
+                ) : null}
               </defs>
               <path
                 d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm8.2 2.55-.95-.17a7.1 7.1 0 0 0-.55-1.32l.55-.8a.9.9 0 0 0-.1-1.15l-1.2-1.2a.9.9 0 0 0-1.15-.1l-.8.55c-.42-.23-.86-.42-1.32-.55l-.17-.95A.9.9 0 0 0 13.8 4h-1.7a.9.9 0 0 0-.88.73l-.17.95c-.46.13-.9.32-1.32.55l-.8-.55a.9.9 0 0 0-1.15.1L6.58 7.0a.9.9 0 0 0-.1 1.15l.55.8c-.23.42-.42.86-.55 1.32l-.95.17A.9.9 0 0 0 4.8 11.2v1.7c0 .44.32.82.75.89l.95.17c.13.46.32.9.55 1.32l-.55.8a.9.9 0 0 0 .1 1.15l1.2 1.2c.32.32.82.36 1.15.1l.8-.55c.42.23.86.42 1.32.55l.17.95c.07.43.45.75.89.75h1.7c.44 0 .82-.32.89-.75l.17-.95c.46-.13.9-.32 1.32-.55l.8.55c.33.26.83.22 1.15-.1l1.2-1.2a.9.9 0 0 0 .1-1.15l-.55-.8c.23-.42.42-.86.55-1.32l.95-.17a.9.9 0 0 0 .75-.89v-1.7a.9.9 0 0 0-.75-.9Z"
-                fill="url(#pc-table-gear-grad)"
+                fill={pcHandScaleNonDefault ? 'currentColor' : `url(#${pcTableGearGradId})`}
               />
+              {!pcHandScaleNonDefault && pcHandScaleCollapsedPulse ? (
+                <path
+                  d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm8.2 2.55-.95-.17a7.1 7.1 0 0 0-.55-1.32l.55-.8a.9.9 0 0 0-.1-1.15l-1.2-1.2a.9.9 0 0 0-1.15-.1l-.8.55c-.42-.23-.86-.42-1.32-.55l-.17-.95A.9.9 0 0 0 13.8 4h-1.7a.9.9 0 0 0-.88.73l-.17.95c-.46.13-.9.32-1.32.55l-.8-.55a.9.9 0 0 0-1.15.1L6.58 7.0a.9.9 0 0 0-.1 1.15l.55.8c-.23.42-.42.86-.55 1.32l-.95.17A.9.9 0 0 0 4.8 11.2v1.7c0 .44.32.82.75.89l.95.17c.13.46.32.9.55 1.32l-.55.8a.9.9 0 0 0 .1 1.15l1.2 1.2c.32.32.82.36 1.15.1l.8-.55c.42.23.86.42 1.32.55l.17.95c.07.43.45.75.89.75h1.7c.44 0 .82-.32.89-.75l.17-.95c.46-.13.9-.32 1.32-.55l.8.55c.33.26.83.22 1.15-.1l1.2-1.2a.9.9 0 0 0 .1-1.15l-.55-.8c.23-.42.42-.86.55-1.32l.95-.17a.9.9 0 0 0 .75-.89v-1.7a.9.9 0 0 0-.75-.9Z"
+                  fill={`url(#${pcTableGearSheenId})`}
+                  style={{ mixBlendMode: 'soft-light' }}
+                  opacity={0.9}
+                />
+              ) : null}
             </svg>
-            {pcScaleBoost > 0 ? (
-              <span className="pc-table-settings-gear__badge">{100 + pcScaleBoost}%</span>
+            {pcHandScaleNonDefault ? (
+              <span
+                className="pc-table-settings-gear__badge"
+                style={{
+                  color: valueTone.color,
+                  textShadow: pcHandScaleCollapsedPulse
+                    ? valueTone.textShadow
+                    : undefined,
+                }}
+              >
+                {scaleLabel}
+              </span>
             ) : null}
           </button>
         ) : (
           <div
             className={[
               'pc-table-settings-capsule',
-              pcScaleWheelArmed ? 'pc-table-settings-capsule--wheel-armed' : '',
+              'scale-gear-capsule',
+              pcScaleWheelArmed ? 'pc-table-settings-capsule--wheel-armed scale-gear-capsule--scroll-on' : '',
             ]
               .filter(Boolean)
               .join(' ')}
             role="dialog"
             aria-label="Масштаб карт"
           >
-            <span className="pc-table-settings-capsule__cosmos" aria-hidden />
+            <span className="pc-table-settings-capsule__cosmos scale-gear-capsule__shine" aria-hidden />
             <button
               type="button"
-              className="pc-table-settings-ultra"
-              disabled={pcScaleBoost <= 0}
+              className="pc-table-settings-ultra scale-gear-btn"
+              disabled={decDisabled}
               onClick={() => bumpPcHandScale(-1)}
-              title="Уменьшить на 10%"
-              aria-label="Уменьшить масштаб на 10 процентов"
+              title={
+                pcScaleSeats === 4
+                  ? `Уменьшить на 1% (мин. ${scaleMin}%)`
+                  : 'Уменьшить на 10%'
+              }
+              aria-label={
+                pcScaleSeats === 4
+                  ? 'Уменьшить масштаб на 1 процент'
+                  : 'Уменьшить масштаб на 10 процентов'
+              }
             >
               −
             </button>
@@ -6527,27 +7008,40 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               className={[
                 'pc-table-settings-ultra',
                 'pc-table-settings-ultra--value',
-                pcScaleBoost > 0 ? 'pc-table-settings-ultra--boosted' : '',
+                'scale-gear-btn',
+                'scale-gear-btn--value',
+                pcHandScaleNonDefault ? 'pc-table-settings-ultra--boosted scale-gear-btn--boosted' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
-              onClick={() => setPcHandScaleBoostPersistent(0)}
-              title={pcScaleBoost > 0 ? 'Сбросить до 100%' : 'Текущий масштаб 100%'}
-              aria-label={`Масштаб ${100 + pcScaleBoost} процентов${pcScaleBoost > 0 ? '. Нажмите, чтобы сбросить до 100' : ''}`}
+              onClick={resetToDefault}
+              style={{
+                color: valueTone.color,
+                textShadow: valueTone.textShadow,
+                ['--scale-gear-value-color' as string]: valueTone.color,
+              }}
+              title={
+                pcHandScaleNonDefault ? 'Сбросить до 100%' : 'Текущий масштаб 100%'
+              }
+              aria-label={`Масштаб ${pcHandScaleUiPct} процентов${pcHandScaleNonDefault ? '. Нажмите, чтобы сбросить до 100' : ''}`}
             >
-              {100 + pcScaleBoost}%
+              {scaleLabel}
             </button>
             <button
               type="button"
-              className="pc-table-settings-ultra"
-              disabled={pcScaleBoost >= pcScaleMax}
+              className="pc-table-settings-ultra scale-gear-btn"
+              disabled={incDisabled}
               onClick={() => bumpPcHandScale(1)}
               title={
                 pcScaleSeats === 4
-                  ? 'Увеличить на 10% (макс. 110% на четверых)'
+                  ? `Увеличить на 1% (макс. ${scaleMax}%; абс. ≈112%)`
                   : 'Увеличить на 10%'
               }
-              aria-label="Увеличить масштаб на 10 процентов"
+              aria-label={
+                pcScaleSeats === 4
+                  ? 'Увеличить масштаб на 1 процент'
+                  : 'Увеличить масштаб на 10 процентов'
+              }
             >
               +
             </button>
@@ -6556,15 +7050,17 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               className={[
                 'pc-table-settings-ultra',
                 'pc-table-settings-ultra--wheel',
+                'scale-gear-btn--scroll',
                 pcScaleWheelArmed ? 'pc-table-settings-ultra--wheel-on' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setPcScaleWheelArmed((v) => !v)}
               title={
                 pcScaleWheelArmed
-                  ? `Скролл мыши: масштаб ${pcScaleSeats === 3 ? '100–140%' : '100–110%'}. Нажмите, чтобы выключить`
-                  : `Включить регулировку скроллом мыши (${pcScaleSeats === 3 ? '100–140%' : '100–110%'})`
+                  ? `Скролл мыши: масштаб ${scaleMin}–${scaleMax}%. Нажмите, чтобы выключить`
+                  : `Включить регулировку скроллом мыши (${scaleMin}–${scaleMax}%)`
               }
               aria-label={
                 pcScaleWheelArmed
@@ -6573,47 +7069,310 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               }
               aria-pressed={pcScaleWheelArmed}
             >
+              <ScaleGearScrollToggle armed={pcScaleWheelArmed} />
+            </button>
+            <button
+              type="button"
+              className="pc-table-settings-ultra pc-table-settings-ultra--close scale-gear-btn scale-gear-btn--close"
+              onClick={() => setPcTableSettingsOpenPersistent(false)}
+              title="Свернуть"
+              aria-label="Свернуть настройки"
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  /** Планшет: масштаб сукна 93%…108% (100% = изначальный размер режима, шаг 1%). */
+  const renderTabletTableScaleControl = () => {
+    if (!useTabletPcTableTuning || isWaitingInRoom) return null;
+    const scalePct = tabletTableScalePct;
+    const offDefault = scalePct !== tabletTableScaleDefault;
+    const valueTone = scaleGearValueTone(scalePct);
+    return (
+      <div
+        className={[
+          'tablet-table-scale',
+          tabletTableScaleOpen ? 'tablet-table-scale--open' : 'tablet-table-scale--collapsed',
+          offDefault ? 'tablet-table-scale--boosted' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {!tabletTableScaleOpen ? (
+          <button
+            type="button"
+            className={[
+              'tablet-table-scale__trigger',
+              'scale-gear-trigger',
+              offDefault
+                ? 'scale-gear-trigger--active tablet-table-scale__trigger--pct-glyph'
+                : 'tablet-table-scale__trigger--default',
+              tabletTableScaleCollapsedPulse
+                ? 'tablet-table-scale__trigger--pulse'
+                : 'tablet-table-scale__trigger--settled',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={() => setTabletTableScaleOpen(true)}
+            title={offDefault ? `Масштаб стола ${scalePct}%` : 'Масштаб стола 100%'}
+            aria-label={
+              offDefault
+                ? `Открыть масштаб стола, сейчас ${scalePct}%`
+                : 'Открыть масштаб стола'
+            }
+            aria-expanded={false}
+            style={
+              offDefault
+                ? ({
+                    ['--scale-gear-value-color' as string]: valueTone.color,
+                  } as const)
+                : undefined
+            }
+          >
+            <span className="tablet-table-scale__cosmos scale-gear-trigger__shine" aria-hidden />
+            {offDefault ? (
+              <span
+                className={[
+                  'tablet-table-scale__pct-glyph',
+                  scalePct > tabletTableScaleDefault
+                    ? 'tablet-table-scale__pct-glyph--boost'
+                    : 'tablet-table-scale__pct-glyph--shrink',
+                ].join(' ')}
+                style={{
+                  color: valueTone.color,
+                  textShadow: valueTone.textShadow,
+                }}
+                aria-hidden
+              >
+                {scalePct < tabletTableScaleDefault ? (
+                  <span className="tablet-table-scale__pct-glyph-sign">−</span>
+                ) : null}
+                <span className="tablet-table-scale__pct-glyph-num">{scalePct}</span>
+                {scalePct > tabletTableScaleDefault ? (
+                  <span className="tablet-table-scale__pct-glyph-sign">+</span>
+                ) : null}
+              </span>
+            ) : (
               <svg
-                className="pc-table-settings-wheel-icon"
-                width="18"
-                height="18"
+                className="tablet-table-scale__icon scale-gear-trigger__icon"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
                 aria-hidden
               >
-                <rect
-                  x="7.5"
-                  y="2.5"
-                  width="9"
-                  height="19"
-                  rx="4.5"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
+                <defs>
+                  <linearGradient id={tabletTableScaleGradId} x1="3" y1="2" x2="21" y2="22">
+                    <stop offset="0%" stopColor="#67e8f9">
+                      {tabletTableScaleCollapsedPulse ? (
+                        <animate
+                          attributeName="stop-color"
+                          values="#67e8f9;#22d3ee;#a855f7;#67e8f9"
+                          dur="2.6s"
+                          repeatCount="indefinite"
+                        />
+                      ) : null}
+                    </stop>
+                    <stop offset="38%" stopColor="#a855f7">
+                      {tabletTableScaleCollapsedPulse ? (
+                        <animate
+                          attributeName="stop-color"
+                          values="#a855f7;#c026d3;#f472b6;#a855f7"
+                          dur="2.6s"
+                          repeatCount="indefinite"
+                        />
+                      ) : null}
+                    </stop>
+                    <stop offset="68%" stopColor="#d946ef">
+                      {tabletTableScaleCollapsedPulse ? (
+                        <animate
+                          attributeName="stop-color"
+                          values="#d946ef;#f0abfc;#ff4d9e;#d946ef"
+                          dur="2.6s"
+                          repeatCount="indefinite"
+                        />
+                      ) : null}
+                    </stop>
+                    <stop offset="100%" stopColor="#ff4d9e">
+                      {tabletTableScaleCollapsedPulse ? (
+                        <animate
+                          attributeName="stop-color"
+                          values="#ff4d9e;#fb7185;#c084fc;#ff4d9e"
+                          dur="2.6s"
+                          repeatCount="indefinite"
+                        />
+                      ) : null}
+                    </stop>
+                  </linearGradient>
+                  {tabletTableScaleCollapsedPulse ? (
+                    <linearGradient
+                      id={tabletTableScaleSheenId}
+                      gradientUnits="userSpaceOnUse"
+                      x1="-6"
+                      y1="0"
+                      x2="6"
+                      y2="24"
+                    >
+                      <stop offset="0%" stopColor="#f0abfc" stopOpacity="0" />
+                      <stop offset="40%" stopColor="#e879f9" stopOpacity="0" />
+                      <stop offset="50%" stopColor="#fae8ff" stopOpacity="0.62" />
+                      <stop offset="58%" stopColor="#ff4d9e" stopOpacity="0.28" />
+                      <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
+                      <animate attributeName="x1" values="-10;26" dur="1.9s" repeatCount="indefinite" />
+                      <animate attributeName="x2" values="2;38" dur="1.9s" repeatCount="indefinite" />
+                    </linearGradient>
+                  ) : null}
+                </defs>
+                <path
+                  d="M9.2 7.1a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2Zm6.4 1.85-.7-.12a5.3 5.3 0 0 0-.4-.96l.4-.58a.68.68 0 0 0-.08-.86l-.88-.88a.68.68 0 0 0-.86-.08l-.58.4c-.31-.17-.64-.31-.97-.4l-.12-.7A.68.68 0 0 0 10.5 4H9.2a.68.68 0 0 0-.66.55l-.12.7c-.34.1-.66.23-.97.4l-.58-.4a.68.68 0 0 0-.86.08L5.13 6.2a.68.68 0 0 0-.08.86l.4.58c-.17.31-.31.64-.4.97l-.7.12A.68.68 0 0 0 3.8 9.4v1.28c0 .33.24.62.56.67l.7.12c.1.34.23.66.4.97l-.4.58a.68.68 0 0 0 .08.86l.88.88c.24.24.62.27.86.08l.58-.4c.31.17.64.31.97.4l.12.7c.05.32.34.56.67.56h1.28c.33 0 .62-.24.67-.56l.12-.7c.34-.1.66-.23.97-.4l.58.4c.25.2.62.16.86-.08l.88-.88a.68.68 0 0 0 .08-.86l-.4-.58c.17-.31.31-.64.4-.97l.7-.12a.68.68 0 0 0 .56-.67V9.4a.68.68 0 0 0-.56-.68Z"
+                  fill={`url(#${tabletTableScaleGradId})`}
+                  opacity="0.95"
                 />
-                <rect
-                  className="pc-table-settings-wheel-icon__scroll"
-                  x="10.5"
-                  y="5.5"
-                  width="3"
-                  height="5"
-                  rx="1.5"
-                  fill="currentColor"
+                {tabletTableScaleCollapsedPulse ? (
+                  <path
+                    d="M9.2 7.1a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2Zm6.4 1.85-.7-.12a5.3 5.3 0 0 0-.4-.96l.4-.58a.68.68 0 0 0-.08-.86l-.88-.88a.68.68 0 0 0-.86-.08l-.58.4c-.31-.17-.64-.31-.97-.4l-.12-.7A.68.68 0 0 0 10.5 4H9.2a.68.68 0 0 0-.66.55l-.12.7c-.34.1-.66.23-.97.4l-.58-.4a.68.68 0 0 0-.86.08L5.13 6.2a.68.68 0 0 0-.08.86l.4.58c-.17.31-.31.64-.4.97l-.7.12A.68.68 0 0 0 3.8 9.4v1.28c0 .33.24.62.56.67l.7.12c.1.34.23.66.4.97l-.4.58a.68.68 0 0 0 .08.86l.88.88c.24.24.62.27.86.08l.58-.4c.31.17.64.31.97.4l.12.7c.05.32.34.56.67.56h1.28c.33 0 .62-.24.67-.56l.12-.7c.34-.1.66-.23.97-.4l.58.4c.25.2.62.16.86-.08l.88-.88a.68.68 0 0 0 .08-.86l-.4-.58c.17-.31.31-.64.4-.97l.7-.12a.68.68 0 0 0 .56-.67V9.4a.68.68 0 0 0-.56-.68Z"
+                    fill={`url(#${tabletTableScaleSheenId})`}
+                    style={{ mixBlendMode: 'soft-light' }}
+                    opacity={0.9}
+                  />
+                ) : null}
+                <circle
+                  cx="16.2"
+                  cy="16.2"
+                  r="3.35"
+                  stroke={`url(#${tabletTableScaleGradId})`}
+                  strokeWidth="1.55"
                 />
                 <path
-                  d="M12 12.5v4"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
+                  d="M18.55 18.55 21 21"
+                  stroke={`url(#${tabletTableScaleGradId})`}
+                  strokeWidth="1.7"
                   strokeLinecap="round"
-                  opacity="0.55"
+                />
+                <path
+                  d="M16.2 14.85v2.7M14.85 16.2h2.7"
+                  stroke={`url(#${tabletTableScaleGradId})`}
+                  strokeWidth="1.45"
+                  strokeLinecap="round"
                 />
               </svg>
+            )}
+            {offDefault && tabletTableScaleColumnVisible ? (
+              <span
+                className="tablet-table-scale__badge tablet-table-scale__badge--vertical scale-gear-trigger__badge"
+                style={{
+                  color: valueTone.color,
+                  textShadow: valueTone.textShadow,
+                  ['--scale-gear-value-color' as string]: valueTone.color,
+                }}
+                aria-hidden
+              >
+                {[...String(scalePct), '%'].map((ch, i) => (
+                  <span key={`${ch}-${i}`} className="tablet-table-scale__badge-ch">
+                    {ch}
+                  </span>
+                ))}
+              </span>
+            ) : null}
+          </button>
+        ) : (
+          <div
+            className={[
+              'tablet-table-scale__capsule',
+              'scale-gear-capsule',
+              tabletTableScaleWheelArmed ? 'tablet-table-scale__capsule--wheel-on scale-gear-capsule--scroll-on' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            role="dialog"
+            aria-label="Масштаб стола"
+          >
+            <span className="tablet-table-scale__cosmos tablet-table-scale__cosmos--capsule scale-gear-capsule__shine" aria-hidden />
+            <button
+              type="button"
+              className="tablet-table-scale__btn scale-gear-btn"
+              disabled={scalePct <= TABLET_TABLE_SCALE_PCT_MIN}
+              onClick={() => bumpTabletTableScale(-1)}
+              title="Уменьшить (−1%, мин. 93%)"
+              aria-label="Уменьшить масштаб стола на 1 процент"
+            >
+              −
             </button>
             <button
               type="button"
-              className="pc-table-settings-ultra pc-table-settings-ultra--close"
-              onClick={() => setPcTableSettingsOpenPersistent(false)}
+              className={[
+                'tablet-table-scale__btn',
+                'tablet-table-scale__btn--value',
+                'scale-gear-btn',
+                'scale-gear-btn--value',
+                offDefault ? 'tablet-table-scale__btn--boosted scale-gear-btn--boosted' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={() => setTabletTableScalePctPersistent(tabletTableScaleDefault)}
+              style={{
+                color: valueTone.color,
+                textShadow: valueTone.textShadow,
+                ['--scale-gear-value-color' as string]: valueTone.color,
+              }}
+              title={
+                offDefault
+                  ? `Сбросить к 100% (сейчас ${scalePct}%)`
+                  : 'Изначальный масштаб 100%'
+              }
+              aria-label={`Масштаб ${scalePct} процентов. Нажмите, чтобы сбросить к 100`}
+            >
+              {scalePct}%
+            </button>
+            <button
+              type="button"
+              className="tablet-table-scale__btn scale-gear-btn"
+              disabled={scalePct >= TABLET_TABLE_SCALE_PCT_MAX}
+              onClick={() => bumpTabletTableScale(1)}
+              title="Увеличить (+1%, макс. 108%)"
+              aria-label="Увеличить масштаб стола на 1 процент"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className={[
+                'tablet-table-scale__btn',
+                'tablet-table-scale__btn--wheel',
+                'scale-gear-btn',
+                'scale-gear-btn--scroll',
+                tabletTableScaleWheelArmed ? 'tablet-table-scale__btn--wheel-on' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setTabletTableScaleWheelArmed((v) => !v)}
+              title={
+                tabletTableScaleWheelArmed
+                  ? 'Скролл: масштаб 93–108%. Нажмите, чтобы выключить'
+                  : 'Включить регулировку скроллом (93–108%)'
+              }
+              aria-label={
+                tabletTableScaleWheelArmed
+                  ? 'Выключить скролл масштаба стола'
+                  : 'Включить скролл масштаба стола'
+              }
+              aria-pressed={tabletTableScaleWheelArmed}
+            >
+              <ScaleGearScrollToggle armed={tabletTableScaleWheelArmed} />
+            </button>
+            <button
+              type="button"
+              className="tablet-table-scale__btn tablet-table-scale__btn--close scale-gear-btn scale-gear-btn--close"
+              onClick={() => closeTabletTableScale()}
               title="Свернуть"
-              aria-label="Свернуть настройки"
+              aria-label="Свернуть масштаб стола"
             >
               ×
             </button>
@@ -7262,6 +8021,8 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   };
 
   const pcThreeSeatHeaderContractCenter = !isMobile && isThreeSeatTable && state != null;
+  /** ПК/планшет · только трое: «ИИ» между Σ и лампой подсветки (не в левой колонке). */
+  const pcThreeSeatAiInHeaderRight = !isMobile && isThreeSeatTable;
 
   const renderMobileTrumpLampButton = (opts?: { landscapeToolbar?: boolean }) => (
     <button
@@ -7695,13 +8456,28 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   /* Мобильная вёрстка (viewport-mobile — см. MOBILE_VIEWPORT_MQ): рука внизу, слоты в сетке 2×2; стили в index.css вместе с @media для компактного вьюпорта */
   return (
     <div
-      ref={gameTableRootRef}
+      ref={(el) => {
+        gameTableRootRef.current = el;
+        setTabletNorthPortalHost((prev) => (prev === el ? prev : el));
+      }}
       className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{
         ...tableLayoutStyle,
-        ...(pcHandScaleExtraH > 0 || pcTableLiftActive || pcCardScaleMul > 1
+        position: 'relative',
+        ...(useTabletPcTableTuning && tabletViewportScale !== 1
           ? ({
-              ...(pcCardScaleMul > 1
+              /* Мягкий zoom — без фиксации 1035×618 (lock обрезал стол из‑за translateY) */
+              zoom: tabletViewportScale,
+              ['--tablet-viewport-scale' as string]: String(tabletViewportScale),
+            } as const)
+          : useTabletPcTableTuning
+            ? ({
+                ['--tablet-viewport-scale' as string]: String(tabletViewportScale),
+              } as const)
+            : {}),
+        ...(pcHandScaleExtraH > 0 || pcTableLiftActive || pcCardScaleMul !== 1
+          ? ({
+              ...(pcCardScaleMul !== 1
                 ? {
                     ['--pc-card-scale' as string]: String(pcCardScaleMul),
                   }
@@ -8363,10 +9139,15 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                     <span style={{ fontSize: 14 }}>Выйти</span>
                   </button>
                 )}
-                <AiDifficultyControl
-                  layout="pc"
-                  offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
-                />
+                {!pcThreeSeatAiInHeaderRight ? (
+                  <AiDifficultyControl
+                    layout="pc"
+                    offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
+                  />
+                ) : (
+                  /* Сохраняем высоту левой колонки — иначе шапка сжимается и стол/панели едут вверх */
+                  <div className="ai-difficulty-header-left-spacer" aria-hidden />
+                )}
                 {isWaitingInRoom && (
                   <button
                     type="button"
@@ -8436,6 +9217,14 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                 Σ
               </button>
             )}
+            {pcThreeSeatAiInHeaderRight ? (
+              <div className="ai-difficulty-header-right-slot">
+                <AiDifficultyControl
+                  layout="pc"
+                  offlineApplyDifficultyToAllBots={offlineMode ? offlineApplyAllAiFromHeader : undefined}
+                />
+              </div>
+            ) : null}
             {isMobile ? null : (
               !isWaitingInRoom && (
               <button
@@ -8752,7 +9541,19 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         )}
 
       <div
-        className={isMobile ? 'game-table-block game-table-block-mobile' : undefined}
+        className={
+          isMobile
+            ? 'game-table-block game-table-block-mobile'
+            : [
+                'game-table-block',
+                'game-table-block--pc',
+                useTabletPcTableTuning && tabletTableScaleOpen
+                  ? 'game-table-block--scale-gear-open'
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
+        }
         style={{
           ...gameTableBlockStyle,
           /* Явный подъём: CSS-var на корне иногда не дотягивался до визуала */
@@ -10406,7 +11207,14 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       ) : (
         <>
       {/* z-index выше .game-header (20): иначе из-за translateY у .game-table-block клики по имени Север перехватывает шапка */}
-      <div className="game-info-row" style={{ ...gameInfoTopRowStyle, zIndex: 22 }}>
+      <div
+        className="game-info-row"
+        style={{
+          ...gameInfoTopRowStyle,
+          zIndex: 22,
+          ...(useTabletPcTableTuning && !isThreeSeatTable ? { marginBottom: 3 } : null),
+        }}
+      >
           <div
             ref={pcGameInfoLeftColRef}
             className="game-info-left-col"
@@ -10415,18 +11223,14 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               ['--pc-game-info-left-align-px' as string]: `${pcGameInfoLeftAlignPx}px`,
             }}
           >
-            {!isMobile && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
+            {!isMobile &&
+              !useTabletPcTableTuning &&
+              (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
               <div
                 ref={pcFirstMoveBadgeRef}
                 className="first-move-badge first-move-badge-above-block pc-info-badge-unified pc-info-badge--bidding"
                 style={{
                   ...firstMoveBadgeStyle,
-                  ...(useTabletPcTableTuning && isThreeSeatTable
-                    ? {
-                        transform: 'scale(calc(1.3 / 1.7))',
-                        transformOrigin: 'bottom left',
-                      }
-                    : null),
                 }}
               >
                 <span className="first-move-num" style={firstMoveLabelStyle}>Первый ход:</span>
@@ -10448,10 +11252,10 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                 }`}
                 style={{
                   ...gameInfoLeftSectionStyleResolved,
-                  ...(useTabletPcTableTuning && isThreeSeatTable
+                  ...(useTabletPcTableTuning
                     ? {
-                        /* было 1/1.7; +1.3 → 1.3/1.7 */
-                        transform: 'scale(calc(1.3 / 1.7))',
+                        /* 3p: 1.3/1.7; 4p: 0.55×1.3 */
+                        transform: isThreeSeatTable ? 'scale(calc(1.3 / 1.7))' : 'scale(0.715)',
                         transformOrigin: 'top left',
                       }
                     : null),
@@ -10522,32 +11326,83 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         {showPcNorthSeat ? (
           <>
             <div style={gameInfoNorthSlotWrapper} aria-hidden />
-            <div
-              className="game-center-north"
-              style={{
-                ...gameInfoNorthSlotWrapperAbsolute,
-                ...(lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcNorthDisplayIndex
-                  ? { zIndex: 145 }
-                  : {}),
-              }}
-            >
-              <OpponentSlot state={displayState} index={pcNorthDisplayIndex} position="top" inline compactMode={isMobileOrTablet}
-                avatarDataUrl={resolveDisplayPlayerAvatar(pcNorthDisplayIndex)}
-                replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(pcNorthDisplayIndex, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
-                collectingCards={lastTrickInterstitialActive}
-                winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcNorthDisplayIndex}
-                trickWinnerHighlight={
-                      (!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === pcNorthDisplayIndex) ||
+            {(() => {
+              const northEl = (
+                <div
+                  className={[
+                    'game-center-north',
+                    useTabletPcTableTuning && !isThreeSeatTable ? 'game-center-north--tablet-four' : '',
+                    useTabletPcTableTuning ? 'game-center-north--tablet-top-pin' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  style={{
+                    ...gameInfoNorthSlotWrapperAbsolute,
+                    ...(useTabletPcTableTuning
+                      ? {
+                          /* absolute на .game-table-root — не fixed (fixed ломается от translateY блока) */
+                          position: 'absolute',
+                          top: 25,
+                          bottom: 'auto',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          zIndex: 28,
+                        }
+                      : null),
+                    ...(lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcNorthDisplayIndex
+                      ? { zIndex: 145 }
+                      : {}),
+                  }}
+                >
+                  <OpponentSlot
+                    state={displayState}
+                    index={pcNorthDisplayIndex}
+                    position="top"
+                    inline
+                    compactMode={isMobileOrTablet}
+                    avatarDataUrl={resolveDisplayPlayerAvatar(pcNorthDisplayIndex)}
+                    replacedByAi={
+                      !!online.playerSlots.find(
+                        (s) =>
+                          s.slotIndex ===
+                          getCanonicalIndexForDisplay(
+                            pcNorthDisplayIndex,
+                            online.myServerIndex,
+                            displayState.players.length === 3 ? 3 : 4,
+                          ),
+                      )?.replacedUserId
+                    }
+                    collectingCards={lastTrickInterstitialActive}
+                    winnerPanelBlink={
+                      lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcNorthDisplayIndex
+                    }
+                    trickWinnerHighlight={
+                      (!!state.pendingTrickCompletion &&
+                        state.pendingTrickCompletion.winnerIndex === pcNorthDisplayIndex) ||
                       (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcNorthDisplayIndex)
                     }
-                currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === pcNorthDisplayIndex}
-                firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === pcNorthDisplayIndex}
-                firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === pcNorthDisplayIndex}
-                onAvatarClick={handleOpponentAvatarClick}
-                onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
-                offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
-              />
-            </div>
+                    currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === pcNorthDisplayIndex}
+                    firstBidderBadge={
+                      (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                      state.bids.some((b) => b === null) &&
+                      state.trickLeaderIndex === pcNorthDisplayIndex
+                    }
+                    firstMoverBiddingHighlight={
+                      (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                      state.bids.some((b) => b === null) &&
+                      state.trickLeaderIndex === pcNorthDisplayIndex
+                    }
+                    onAvatarClick={handleOpponentAvatarClick}
+                    onDealerBadgeClick={isMobileOrTablet ? () => setShowDealerTooltip(true) : undefined}
+                    offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
+                  />
+                </div>
+              );
+              if (useTabletPcTableTuning && tabletNorthPortalHost) {
+                return createPortal(northEl, tabletNorthPortalHost);
+              }
+              return northEl;
+            })()}
             <div style={gameInfoTopRowSpacerStyle} aria-hidden />
           </>
         ) : (
@@ -10560,6 +11415,12 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         style={{
           ...centerAreaStyle,
           ...(pcSidePushPx > 0 ? { gap: 16 + Math.round(pcSidePushPx * 0.55) } : {}),
+          /* Планшет · 107–108%: зазор стол↔Запад/Восток ×0.5 */
+          ...(tabletSideGapTight
+            ? { gap: TABLET_CENTER_AREA_GAP_TIGHT_PX }
+            : useTabletPcTableTuning
+              ? { gap: TABLET_CENTER_AREA_GAP_PX }
+              : {}),
           ...(isAITurn ? { cursor: 'pointer' } : {}),
           ...(dealJustCompleted
             ? {
@@ -10611,6 +11472,12 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
           style={{
             ...centerStyle,
             ...(pcSidePushPx > 0 ? { marginLeft: Math.round(pcSidePushPx * 0.25), marginRight: Math.round(pcSidePushPx * 0.25) } : {}),
+            /* Планшет: рост сукна вверх (отрицательный margin ≈ доля прироста высоты) */
+            ...(useTabletPcTableTuning && tabletTableHMul > 1
+              ? {
+                  marginTop: `calc(var(--game-table-surface-height, 250px) * ${1 - tabletTableHMul} * 0.72)`,
+                }
+              : {}),
           }}
         >
         <div
@@ -10626,13 +11493,18 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             ...(useTabletPcTableTuning
               ? {
                   borderWidth: 1,
-                  padding: 'max(6px, calc(var(--game-table-padding, 18px) - 8px))',
+                  /* padding — равномерный в CSS; шестерёнка поверх обводок */
                 }
               : {}),
           }}
         >
           <div
             ref={pcTableSurfaceRef}
+            className={
+              useTabletPcTableTuning && !isThreeSeatTable
+                ? 'game-table-surface game-table-surface--tablet-four'
+                : 'game-table-surface'
+            }
             style={{
               ...tableSurfaceStyle,
               ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}),
@@ -10642,9 +11514,30 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                     height: `calc(var(--game-table-surface-height, 250px) * ${pcFeltScaleMul})`,
                     minHeight: `calc(var(--game-table-surface-height, 250px) * ${pcFeltScaleMul})`,
                   }
-                : {}),
+                : useTabletPcTableTuning && (tabletTableHMul !== 1 || tabletTableWMul !== 1)
+                  ? {
+                      width: `calc(var(--game-table-surface-width, 576px) * ${tabletTableWMul})`,
+                      height: `calc(var(--game-table-surface-height, 250px) * ${tabletTableHMul})`,
+                      minHeight: `calc(var(--game-table-surface-height, 250px) * ${tabletTableHMul})`,
+                    }
+                  : {}),
             }}
           >
+            {useTabletPcTableTuning &&
+              (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
+                <div
+                  ref={pcFirstMoveBadgeRef}
+                  className="first-move-badge first-move-badge--tablet-on-table pc-info-badge-unified pc-info-badge--bidding"
+                  style={firstMoveBadgeStyle}
+                >
+                  <span className="first-move-num" style={firstMoveLabelStyle}>
+                    Первый ход:
+                  </span>
+                  <span style={firstMoveValueStyle}>
+                    {displayState.players[state.trickLeaderIndex].name}
+                  </span>
+                </div>
+              )}
             {isWaitingInRoom && (
               <div
                 className="waiting-room-table-overlay"
@@ -10911,6 +11804,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               </div>
             )}
           </div>
+          {renderTabletTableScaleControl()}
         </div>
         </div>
         {showPcEastSeat ? (
@@ -10999,9 +11893,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               : pcHandToPanelGap > 0
                 ? { marginBottom: 6 + pcHandToPanelGap }
                 : {}),
-            ...(pcScaleBoost > 0
+            ...(pcHandScaleNonDefault
               ? {
-                  maxWidth: `min(${Math.round(1100 + pcScaleBoost * 6)}px, 98vw)`,
+                  maxWidth: `min(${Math.round(1100 + (pcHandScaleUiPct - 100) * 6)}px, 98vw)`,
                 }
               : {}),
           }}
@@ -11014,15 +11908,23 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               const handCards = state.players[humanIdx].hand
                 .slice()
                 .sort((a, b) => cardSort(a, b, state.trump));
-              /** ПК: адаптивный base (калиброван к прежнему нативу на 100%) + boost; 4p — чуть компактнее. */
+              /** ПК: адаптивный base + boost; 4p — новая шкала 94…106 (100%=abs 1.05). */
               const pcHandBaseScale = isMobileOrTablet
                 ? 1 / (1.3 * 1.1)
                 : resolvePcHandAdaptiveScale(handCards.length);
               let pcHandScale = isMobileOrTablet
                 ? pcHandBaseScale
-                : pcHandBaseScale * pcHandScaleMultiplier(pcScaleBoost) * pcFourHandCompact;
-              /* Планшет: всегда −5%, без порога по числу карт */
-              if (useTabletPcTableTuning) pcHandScale *= TABLET_HAND_COMPACT;
+                : pcScaleSeats === 4
+                  ? pcHandBaseScale * pcFourHandScaleMultiplier(pcFourHandPct)
+                  : pcHandBaseScale * pcHandScaleMultiplier(pcScaleBoost);
+              /* Планшет: постоянный компакт + опц. −2px высоты; 4p — ещё UI-шкала шестерёнки */
+              if (useTabletPcTableTuning) {
+                pcHandScale *= TABLET_HAND_COMPACT;
+                if (!isThreeSeatTable) {
+                  pcHandScale = tabletFourHandScaleMinus1px(pcHandScale);
+                  pcHandScale *= pcFourHandScaleMultiplier(pcFourHandPct);
+                }
+              }
               return handCards.map((card, i) => (
                 <CardView
                   key={`${card.suit}-${card.rank}-${i}`}
@@ -11127,8 +12029,8 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                   <div className="user-player-panel-pc-avatar-name-stack">
                     <div className="user-player-panel-pc-avatar-wrap">
                       {renderUserPlayerAvatar(
-                        useTabletPcTableTuning &&
-                          (state.phase === 'bidding' || state.phase === 'dark-bidding')
+                        (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                          (useTabletPcTableTuning || isThreeSeatTable)
                           ? 58
                           : 38,
                       )}
@@ -17880,8 +18782,8 @@ function OpponentSlot({
   const eastMobileOnlyAvatar = position === 'right' && isMobile;
   /** Landscape З/В и моб. Восток: east-mobile стили; landscape З/В — одна строка + скролл как у С/З. */
   const useEastMobileNameStyle = eastMobileOnlyAvatar || mobileWestEastLandscapeCol;
-  /** ПК, слот «Север» над столом: аватар и имя слева, взятки и очки справа (мобильная не трогается). */
-  const pcNorthSideBySide = position === 'top' && inline && !compactMode && !isMobile;
+  /** ПК/планшет-шелл, слот «Север»: аватар и имя слева, взятки и очки справа (true-mobile не трогается). */
+  const pcNorthSideBySide = position === 'top' && inline && !isMobile;
   /** Моб. landscape: Север — одна низкая полоска над столом (контент в строку). */
   const mobileNorthLandscapeRow = Boolean(isMobile && mobileLandscapeLayout && inline && position === 'top');
   /** Моб. С/З и landscape З/В: имя в «окошке», длинное — обрезка + прокрутка по тапу; portrait Восток — перенос. */
@@ -18518,15 +19420,15 @@ function OpponentSlot({
         );
         const styleOfflineAiNameByDifficulty = !!offlineAiNameStyleByDifficulty && isAiSlotBot;
         const offlineAiDifficultyForName = styleOfflineAiNameByDifficulty ? (p.aiDifficulty ?? 'amateur') : null;
-        const mobileHumanPremiumNameClass =
-          isMobile && !isAiSlotBot ? 'opponent-slot-header-display-name--premium-human' : '';
+        const humanPremiumNameClass =
+          !isAiSlotBot ? 'opponent-slot-header-display-name--premium-human' : '';
         const dealerPlayingNameWindowClass = dealerOpponentMobileNameWindowHighlight
           ? styleOfflineAiNameByDifficulty && isAiSlotBot
             ? `opponent-slot-header-name-window--dealer-playing-ai-${offlineAiDifficultyForName ?? 'amateur'}`
             : 'opponent-slot-header-name-window--dealer-playing'
           : '';
         const usePremiumHumanNameGradient =
-          !!mobileHumanPremiumNameClass && !(mobileActiveName && !styleOfflineAiNameByDifficulty);
+          !!humanPremiumNameClass && !(mobileActiveName && !styleOfflineAiNameByDifficulty);
         const nameStyleMerged: React.CSSProperties = {
           ...(usePremiumHumanNameGradient
             ? { fontSize: opponentNameStyle.fontSize, fontWeight: opponentNameStyle.fontWeight, letterSpacing: opponentNameStyle.letterSpacing }
@@ -18578,7 +19480,7 @@ function OpponentSlot({
               [
                 useEastMobileNameStyle ? 'opponent-name-east-mobile' : '',
                 'opponent-slot-header-display-name',
-                mobileHumanPremiumNameClass,
+                humanPremiumNameClass,
               ]
                 .filter(Boolean)
                 .join(' ') || undefined

@@ -1,8 +1,9 @@
 /**
  * ПК: пользовательский масштаб карт.
  * 3 игрока: boost 0…40%, стол поднимаем выше при увеличении карт.
- * 4 игрока: максимум 110%; сукно чуть уменьшаем (не поднимаем);
- *   рука чуть компактнее + меньше зазор до панели, без роста высоты страницы.
+ * 4 игрока: UI 94%…106% (±6 от новой «100%»);
+ *   новая 100% = середина 98%…112% абсолюта (=105% старого);
+ *   абс. ≈97%…≈112%; сукно чуть уменьшаем при увеличении (не поднимаем).
  * Мобильная вёрстка не использует эти настройки.
  */
 
@@ -10,13 +11,38 @@ export const PC_HAND_SCALE_BOOSTS = [0, 10, 20, 30, 40] as const;
 export type PcHandScaleBoost = (typeof PC_HAND_SCALE_BOOSTS)[number];
 
 export const PC_HAND_SCALE_MAX_THREE: PcHandScaleBoost = 40;
+/** @deprecated 4p перешёл на UI-проценты 94…106; оставлено для совместимости чтения. */
 export const PC_HAND_SCALE_MAX_FOUR: PcHandScaleBoost = 10;
 
+/** 4p: бывший компакт при 110% и новый потолок → середина = новая «100%». */
+export const PC_FOUR_HAND_ABS_REF_LOW = 0.98;
+export const PC_FOUR_HAND_ABS_REF_HIGH = 1.12;
+/** Абсолютный множитель при UI 100%. */
+export const PC_FOUR_HAND_ABS_AT_100 =
+  (PC_FOUR_HAND_ABS_REF_LOW + PC_FOUR_HAND_ABS_REF_HIGH) / 2; /* 1.05 */
+
+export const PC_FOUR_HAND_SCALE_PCT_MIN = 94; /* 100 − 6 */
+export const PC_FOUR_HAND_SCALE_PCT_MAX = 106; /* 100 + 6 */
+export const PC_FOUR_HAND_SCALE_PCT_DEFAULT = 100;
+export const PC_FOUR_HAND_SCALE_PCT_STEP = 1;
+
 export const PC_HAND_SCALE_LS_KEY = 'updown_pc_hand_scale_boost';
+export const PC_FOUR_HAND_SCALE_LS_KEY = 'updown_pc_four_hand_scale_pct';
 export const PC_TABLE_SETTINGS_OPEN_LS_KEY = 'updown_pc_table_settings_open';
+
+export type PcFourHandScalePct = number;
 
 export function isPcHandScaleBoost(v: unknown): v is PcHandScaleBoost {
   return typeof v === 'number' && (PC_HAND_SCALE_BOOSTS as readonly number[]).includes(v);
+}
+
+export function clampPcFourHandScalePct(pct: number): PcFourHandScalePct {
+  if (!Number.isFinite(pct)) return PC_FOUR_HAND_SCALE_PCT_DEFAULT;
+  const rounded = Math.round(pct);
+  return Math.max(
+    PC_FOUR_HAND_SCALE_PCT_MIN,
+    Math.min(PC_FOUR_HAND_SCALE_PCT_MAX, rounded),
+  );
 }
 
 export function pcHandScaleMaxForSeats(playerCount: 3 | 4): PcHandScaleBoost {
@@ -51,6 +77,42 @@ export function writePcHandScaleBoost(boost: PcHandScaleBoost): void {
   } catch {
     /* ignore */
   }
+}
+
+/** Старый boost 0→100, 10→106 (макс. новой шкалы). */
+function migrateLegacyFourBoostToPct(boost: number): PcFourHandScalePct {
+  if (!Number.isFinite(boost) || boost <= 0) return PC_FOUR_HAND_SCALE_PCT_DEFAULT;
+  if (boost >= 10) return PC_FOUR_HAND_SCALE_PCT_MAX;
+  return clampPcFourHandScalePct(PC_FOUR_HAND_SCALE_PCT_DEFAULT + boost);
+}
+
+export function readPcFourHandScalePct(): PcFourHandScalePct {
+  try {
+    if (typeof localStorage === 'undefined') return PC_FOUR_HAND_SCALE_PCT_DEFAULT;
+    const keyed = localStorage.getItem(PC_FOUR_HAND_SCALE_LS_KEY);
+    if (keyed != null) return clampPcFourHandScalePct(Number(keyed));
+    const legacy = localStorage.getItem(PC_HAND_SCALE_LS_KEY);
+    if (legacy != null) return migrateLegacyFourBoostToPct(Number(legacy));
+  } catch {
+    /* ignore */
+  }
+  return PC_FOUR_HAND_SCALE_PCT_DEFAULT;
+}
+
+export function writePcFourHandScalePct(pct: PcFourHandScalePct): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(PC_FOUR_HAND_SCALE_LS_KEY, String(clampPcFourHandScalePct(pct)));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function bumpPcFourHandScalePct(
+  current: PcFourHandScalePct,
+  dir: 1 | -1,
+): PcFourHandScalePct {
+  return clampPcFourHandScalePct(current + dir * PC_FOUR_HAND_SCALE_PCT_STEP);
 }
 
 /** Панель «Настройки» на столе ПК: по умолчанию свёрнута. */
@@ -90,9 +152,18 @@ export function prevPcHandScaleBoost(current: PcHandScaleBoost): PcHandScaleBoos
   return PC_HAND_SCALE_BOOSTS[i - 1]!;
 }
 
-/** Множитель карт: рука и карты на сукне. */
+/** Множитель карт (3p): рука и карты на сукне. */
 export function pcHandScaleMultiplier(boost: PcHandScaleBoost): number {
   return 1 + boost / 100;
+}
+
+/**
+ * 4p: абсолютный множитель карт.
+ * UI 100% → 1.05; UI 94% → ≈0.987; UI 106% → ≈1.113.
+ */
+export function pcFourHandScaleMultiplier(uiPct: PcFourHandScalePct): number {
+  const pct = clampPcFourHandScalePct(uiPct);
+  return PC_FOUR_HAND_ABS_AT_100 * (pct / 100);
 }
 
 /**
@@ -103,6 +174,26 @@ export const PC_HAND_NATIVE_RECALIBRATE = 1.4 * 0.93;
 /** Планшет: постоянный доп. компакт руки (−5% × −5% × −3%). */
 export const TABLET_HAND_COMPACT = 0.95 * 0.95 * 0.97;
 
+/**
+ * Планшет · 4p: высота карты (base 100×scale) на 2px меньше —
+ * плашка руки сжимается вместе с контентом; пиксели уходят в зазор до панели Юга.
+ */
+export const TABLET_FOUR_HAND_CARD_BASE_H = 100;
+/** Сколько px высоты карты отдаём в зазор рука↔панель (накопительно). */
+export const TABLET_FOUR_HAND_COMPACT_PX = 2;
+export const TABLET_FOUR_HAND_TO_PANEL_GAP_PX = 6 + TABLET_FOUR_HAND_COMPACT_PX; /* было 6 */
+
+/** scale после −N px по высоте карты (только планшет 4p). */
+export function tabletFourHandScaleMinus1px(
+  scale: number,
+  baseHeight = TABLET_FOUR_HAND_CARD_BASE_H,
+  compactPx = TABLET_FOUR_HAND_COMPACT_PX,
+): number {
+  const h = baseHeight * scale;
+  if (!(h > compactPx) || compactPx <= 0) return scale;
+  return scale * ((h - compactPx) / h);
+}
+
 export function resolvePcHandAdaptiveScale(cardCount: number): number {
   const adaptive =
     cardCount >= 11 ? 0.76 : cardCount >= 9 ? 0.82 : cardCount >= 7 ? 0.88 : 0.9;
@@ -110,28 +201,31 @@ export function resolvePcHandAdaptiveScale(cardCount: number): number {
 }
 
 /**
- * 4p при boost: рука чуть компактнее, чтобы влезла между сукном и панелью
- * без подъёма стола и без роста высоты страницы.
- * 110%: ×0.98 (раньше 0.93) — заполняем зазор стол↔рука (~+5%).
+ * @deprecated Компакт 0.98 вшит в новую шкалу 4p (середина 98…112).
+ * Оставлено как 1 — не умножать повторно.
  */
-export function pcFourSeatHandCompactMul(boost: PcHandScaleBoost): number {
-  if (boost <= 0) return 1;
-  return 0.98;
+export function pcFourSeatHandCompactMul(_boostOrPct?: number): number {
+  return 1;
 }
 
 /**
  * Сукно:
  * - 3 игрока: лёгкий рост;
- * - 4 игрока: уменьшаем (освобождаем вертикаль над рукой).
+ * - 4 игрока: уменьшаем при UI > 100% (освобождаем вертикаль над рукой).
  */
 export function pcTableFeltScaleMultiplier(
-  boost: PcHandScaleBoost,
+  boostOrFourPct: number,
   playerCount: 3 | 4,
 ): number {
-  if (boost <= 0) return 1;
   if (playerCount === 4) {
-    return 1 - (boost * 0.45) / 100; // 10% → 0.955 (чуть меньше сжимать)
+    const pct = clampPcFourHandScalePct(boostOrFourPct);
+    const above = Math.max(0, pct - PC_FOUR_HAND_SCALE_PCT_DEFAULT);
+    if (above <= 0) return 1;
+    /* при +6% UI ≈ прежний 0.955 при старых 110% */
+    return 1 - (above * 0.045) / 6;
   }
+  const boost = boostOrFourPct as PcHandScaleBoost;
+  if (boost <= 0) return 1;
   return 1 + (boost * 0.35) / 100;
 }
 
@@ -164,18 +258,17 @@ export function pcTableLiftExtraPx(
 
 /** Сдвиг боковых панелей Запад/Восток от стола (px). */
 export function pcSidePanelPushPx(
-  boost: PcHandScaleBoost,
+  boostOrFourPct: number,
   playerCount: 3 | 4,
 ): number {
-  if (boost <= 0) return 0;
   if (playerCount === 4) {
-    switch (boost) {
-      case 10:
-        return 14;
-      default:
-        return 14;
-    }
+    const pct = clampPcFourHandScalePct(boostOrFourPct);
+    const above = Math.max(0, pct - PC_FOUR_HAND_SCALE_PCT_DEFAULT);
+    if (above <= 0) return 0;
+    return Math.round((14 * above) / 6);
   }
+  const boost = boostOrFourPct as PcHandScaleBoost;
+  if (boost <= 0) return 0;
   switch (boost) {
     case 10:
       return 14;
@@ -192,17 +285,19 @@ export function pcSidePanelPushPx(
 
 /**
  * Добавка к marginBottom рамки руки (поверх базы 16px на ПК).
- * 4p при 110%: отрицательная — сжимаем зазор до панели пользователя.
+ * 4p при UI > 100%: отрицательная — сжимаем зазор до панели пользователя.
  */
 export function pcHandToPanelGapPx(
-  boost: PcHandScaleBoost,
+  boostOrFourPct: number,
   playerCount: 3 | 4 = 4,
 ): number {
   if (playerCount === 4) {
-    if (boost <= 0) return 0;
-    return -12; /* 16−12 = 4px до панели */
+    const pct = clampPcFourHandScalePct(boostOrFourPct);
+    const above = Math.max(0, pct - PC_FOUR_HAND_SCALE_PCT_DEFAULT);
+    if (above <= 0) return 0;
+    return Math.round((-12 * above) / 6);
   }
-  switch (boost) {
+  switch (boostOrFourPct as PcHandScaleBoost) {
     case 10:
       return 6;
     case 20:
