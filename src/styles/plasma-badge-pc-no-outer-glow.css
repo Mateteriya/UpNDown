@@ -1,0 +1,106 @@
+/*
+ * ПК/планшет · plasma: переливы рамки — да; наружный ореол — нет.
+ * Главный баг: ::before с inset:-45% режется overflow → «блуждающая» светящаяся кромка.
+ * Класс .game-info-badge-plasma-pc-flat + дубль в <style> из GameTable.
+ *
+ * Панель Юга (размеры/имя/аватар) — НЕ здесь.
+ * Канон: src/styles/user-south-panel.css (грузится после этого файла).
+ */
+
+@keyframes plasma-badge-pc-flat-pulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(221, 214, 254, 0.14),
+      inset 0 0 28px rgba(99, 102, 241, 0.12),
+      inset 0 0 0 1px rgba(165, 180, 252, 0.22);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(221, 214, 254, 0.2),
+      inset 0 0 36px rgba(99, 102, 241, 0.16),
+      inset 0 0 0 1px rgba(196, 181, 253, 0.3);
+  }
+}
+
+html body .game-table-root.game-info-badge-plasma-pc-flat .game-info-left-section {
+  box-shadow:
+    inset 0 1px 0 rgba(221, 214, 254, 0.14),
+    inset 0 0 28px rgba(99, 102, 241, 0.12),
+    inset 0 0 0 1px rgba(165, 180, 252, 0.22) !important;
+  animation: plasma-badge-pc-flat-pulse 2.8s ease-in-out infinite !important;
+  filter: none !important;
+  overflow: hidden !important;
+}
+
+html body .game-table-root.game-info-badge-plasma-pc-flat .game-info-left-section::before {
+  inset: 0 !important;
+  border-radius: inherit !important;
+  filter: none !important;
+  box-shadow: none !important;
+  opacity: 0.45 !important;
+}
+
+html body .game-table-root.game-info-badge-plasma-pc-flat .game-info-left-section::after {
+  inset: 1px !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  will-change: auto !important;
+  animation-name: plasma-holo-border-spin !important;
+  animation-duration: 10s !important;
+  animation-timing-function: linear !important;
+  animation-iteration-count: infinite !important;
+}
+
+html body .game-table-root.game-info-badge-plasma-pc-flat .game-info-plasma-screen {
+  box-shadow:
+    inset 1px 0 0 rgba(196, 181, 253, 0.22),
+    inset -1px 0 0 rgba(196, 181, 253, 0.22),
+    inset 0 -14px 26px rgba(3, 7, 18, 0.38),
+    inset 0 0 36px rgba(124, 58, 237, 0.1) !important;
+}
+
+html body .game-table-root.game-info-badge-plasma-pc-flat .game-info-plasma-screen::before {
+  box-shadow: none !important;
+  filter: none !important;
+  animation-name: plasma-holo-border-spin !important;
+  animation-duration: 5.5s !important;
+  animation-timing-function: linear !important;
+  animation-iteration-count: infinite !important;
+}
+
+/*
+ * Планшет · только 3 игрока: info-бейдж на 18px левее.
+ * Только сам .game-info-left-section — колонка/стол/шапка не трогаем.
+ */
+.game-table-root.game-table-tablet-pc.game-table-seats-three-pc:not(.viewport-mobile)
+  .game-info-row
+  .game-info-left-col
+  > .game-info-left-section {
+  position: relative !important;
+  left: -18px !important;
+}
+
+/*
+ * ПК · только 4 игрока: панель Север — отступ от верхнего края страницы 23px.
+ * Портал на .game-table-root (см. GameTable); иначе translateY блока съедает top.
+ */
+.game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc):not(.game-table-seats-three-pc)
+  > .game-center-north.game-center-north--pc-four-top-pin {
+  position: absolute !important;
+  top: 23px !important;
+  bottom: auto !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+  z-index: 28 !important;
+}
+
+/*
+ * ПК (не планшет, не мобилка) · 3p и 4p: аватарки С/З/В крупнее (sizePx в OpponentSlot),
+ * панели не раздуваем — меньше внутренний padding. Юг — в user-south-panel.css.
+ */
+.game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc) .opponent-slot {
+  padding: 6px 10px !important;
+}

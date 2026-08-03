@@ -44,13 +44,11 @@ import {
 import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating, getPlayerProfile } from '../game/persistence';
 import {
   bumpPcFourHandScalePct,
+  bumpPcThreeHandScalePct,
   clampPcFourHandScalePct,
-  clampPcHandScaleBoost,
-  nextPcHandScaleBoost,
-  prevPcHandScaleBoost,
+  clampPcThreeHandScalePct,
   pcHandScaleExtraHeightPx,
-  pcHandScaleMaxForSeats,
-  pcHandScaleMultiplier,
+  pcThreeHandScaleMultiplier,
   pcFourHandScaleMultiplier,
   pcSidePanelPushPx,
   pcTableFeltScaleMultiplier,
@@ -59,33 +57,48 @@ import {
   pcTableUpOffsetTotalPx,
   resolvePcHandAdaptiveScale,
   TABLET_HAND_COMPACT,
-  tabletFourHandScaleMinus1px,
   tabletFourHandScaleMultiplier,
+  tabletFourHandBoostBasePx,
+  tabletFourHandScaleFromUiPct,
+  TABLET_FOUR_HAND_CARD_SIZE_MUL,
+  TABLET_FOUR_HAND_SCALE_PCT_MAX,
+  TABLET_FOUR_HAND_SCALE_PCT_STEP,
   tabletFourTableCardScaleWithTablePct,
+  tabletThreeBidBtnScaleMul,
+  tabletThreeHandGrowDownPx,
   PC_FOUR_HAND_SCALE_PCT_DEFAULT,
   PC_FOUR_HAND_SCALE_PCT_MAX,
   PC_FOUR_HAND_SCALE_PCT_MIN,
+  PC_THREE_HAND_SCALE_PCT_DEFAULT,
+  PC_THREE_HAND_SCALE_PCT_MAX,
+  PC_THREE_HAND_SCALE_PCT_MIN,
   readPcFourHandScalePct,
-  readPcHandScaleBoost,
+  readPcThreeHandScalePct,
   readPcTableSettingsOpen,
   writePcFourHandScalePct,
-  writePcHandScaleBoost,
+  writePcThreeHandScalePct,
   writePcTableSettingsOpen,
   type PcFourHandScalePct,
-  type PcHandScaleBoost,
+  type PcThreeHandScalePct,
 } from '../game/pcHandScale';
 import {
   bumpTabletTableScalePct,
   clampTabletTableScalePct,
   defaultTabletTableScalePct,
+  pcDesktopTableScaleMul,
+  readPcDesktopTableScalePct,
   readTabletTableScalePct,
   tabletTableHeightMul,
   tabletTableSideGapTight,
   tabletTableWidthMul,
+  writePcDesktopTableScalePct,
   writeTabletTableScalePct,
   type TabletTableScalePct,
   TABLET_CENTER_AREA_GAP_PX,
   TABLET_CENTER_AREA_GAP_TIGHT_PX,
+  TABLET_FOUR_BASE_HEIGHT_MUL,
+  TABLET_FOUR_TABLE_SCALE_PCT_STEP,
+  TABLET_TABLE_SCALE_PCT_DEFAULT,
   TABLET_TABLE_SCALE_PCT_MAX,
   TABLET_TABLE_SCALE_PCT_MIN,
 } from '../game/tabletTableScale';
@@ -117,6 +130,14 @@ import {
   type AiBotTableSeat,
 } from '../lib/aiBotAvatars';
 import { isPremiumAiAvatarCustomizationEnabled } from '../lib/featureFlags';
+import '../styles/plasma-badge-pc-no-outer-glow.css';
+/* Канон Юга после plasma — чтобы HMR/чанк GameTable не перебил main.tsx */
+import '../styles/user-south-panel.css';
+import {
+  pcSouthNameCutChars,
+  USER_SOUTH_TRICKS_PANEL_SCALE,
+  userSouthAvatarSizePx,
+} from './userSouthPanelCanon';
 import { AiDifficultyControl, HeaderRoomExitIcon } from './AiDifficultyControl';
 import { getForbiddenDealerBid, getTrickWinner } from '../game/rules';
 import { getCanonicalIndexForDisplay, rotateStateForPlayer } from '../game/rotateState';
@@ -2287,7 +2308,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const [showLastTrickModal, setShowLastTrickModal] = useState(false);
   const [bidPanelVisible, setBidPanelVisible] = useState(false);
   const [trumpHighlightOn, setTrumpHighlightOn] = useState(true);
-  const [pcHandScaleBoost, setPcHandScaleBoost] = useState<PcHandScaleBoost>(() => readPcHandScaleBoost());
+  const [pcThreeHandScalePct, setPcThreeHandScalePct] = useState<PcThreeHandScalePct>(() =>
+    readPcThreeHandScalePct(),
+  );
   const [pcFourHandScalePct, setPcFourHandScalePct] = useState<PcFourHandScalePct>(() =>
     readPcFourHandScalePct(),
   );
@@ -2297,8 +2320,8 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const [pcHandScaleCollapsedPulse, setPcHandScaleCollapsedPulse] = useState(false);
   const pcHandScaleCollapsedPulseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pcScaleWheelLockRef = useRef(0);
-  const [tabletTableScalePct, setTabletTableScalePct] = useState<TabletTableScalePct>(() =>
-    readTabletTableScalePct(4),
+  const [tabletTableScalePct, setTabletTableScalePct] = useState<TabletTableScalePct>(
+    TABLET_TABLE_SCALE_PCT_DEFAULT,
   );
   const [tabletTableScaleOpen, setTabletTableScaleOpen] = useState(false);
   const [tabletTableScaleWheelArmed, setTabletTableScaleWheelArmed] = useState(true);
@@ -2329,33 +2352,41 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       if (tabletTableScaleColumnHideRef.current) clearTimeout(tabletTableScaleColumnHideRef.current);
     };
   }, []);
-  const setPcHandScaleBoostPersistent = useCallback((boost: PcHandScaleBoost) => {
-    setPcHandScaleBoost(boost);
-    writePcHandScaleBoost(boost);
+  const setPcThreeHandScalePctPersistent = useCallback((pct: PcThreeHandScalePct) => {
+    const next = clampPcThreeHandScalePct(pct);
+    setPcThreeHandScalePct(next);
+    writePcThreeHandScalePct(next);
   }, []);
   const setPcFourHandScalePctPersistent = useCallback((pct: PcFourHandScalePct) => {
-    const next = clampPcFourHandScalePct(pct);
+    const max = useTabletPcTableTuning
+      ? TABLET_FOUR_HAND_SCALE_PCT_MAX
+      : PC_FOUR_HAND_SCALE_PCT_MAX;
+    const next = clampPcFourHandScalePct(pct, max);
     setPcFourHandScalePct(next);
     writePcFourHandScalePct(next);
-  }, []);
+  }, [useTabletPcTableTuning]);
   const bumpPcHandScale = useCallback((dir: 1 | -1) => {
     const seats: 3 | 4 = state && playerCountOf(state) === 3 ? 3 : 4;
     if (seats === 4) {
+      const step = useTabletPcTableTuning
+        ? TABLET_FOUR_HAND_SCALE_PCT_STEP
+        : undefined;
+      const max = useTabletPcTableTuning
+        ? TABLET_FOUR_HAND_SCALE_PCT_MAX
+        : PC_FOUR_HAND_SCALE_PCT_MAX;
       setPcFourHandScalePct((prev) => {
-        const next = bumpPcFourHandScalePct(prev, dir);
+        const next = bumpPcFourHandScalePct(prev, dir, step, max);
         writePcFourHandScalePct(next);
         return next;
       });
       return;
     }
-    setPcHandScaleBoost((prev) => {
-      const cur = clampPcHandScaleBoost(prev, seats);
-      const next =
-        dir > 0 ? nextPcHandScaleBoost(cur, seats) : prevPcHandScaleBoost(cur);
-      writePcHandScaleBoost(next);
+    setPcThreeHandScalePct((prev) => {
+      const next = bumpPcThreeHandScalePct(prev, dir);
+      writePcThreeHandScalePct(next);
       return next;
     });
-  }, [state]);
+  }, [state, useTabletPcTableTuning]);
   const setPcTableSettingsOpenPersistent = useCallback((open: boolean) => {
     setPcTableSettingsOpen(open);
     writePcTableSettingsOpen(open);
@@ -2363,28 +2394,38 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   }, []);
   const tabletTableScaleSeats: 3 | 4 = state && playerCountOf(state) === 3 ? 3 : 4;
   const tabletTableScaleDefault = defaultTabletTableScalePct(tabletTableScaleSeats);
+  /** ПК · 4p: шестерёнка масштаба сукна как на планшете (93–108%). */
+  const usePcDesktopFourTableScale =
+    !isMobile && !useTabletPcTableTuning && tabletTableScaleSeats === 4;
+  const tableScaleControlEnabled = useTabletPcTableTuning || usePcDesktopFourTableScale;
   const setTabletTableScalePctPersistent = useCallback(
     (pct: TabletTableScalePct) => {
       const seats: 3 | 4 = state && playerCountOf(state) === 3 ? 3 : 4;
       const next = clampTabletTableScalePct(pct);
       setTabletTableScalePct(next);
-      writeTabletTableScalePct(next, seats);
+      if (useTabletPcTableTuning) writeTabletTableScalePct(next, seats);
+      else writePcDesktopTableScalePct(next);
     },
-    [state],
+    [state, useTabletPcTableTuning],
   );
   const bumpTabletTableScale = useCallback(
     (dir: 1 | -1) => {
       const seats: 3 | 4 = state && playerCountOf(state) === 3 ? 3 : 4;
+      const step =
+        useTabletPcTableTuning && seats === 4
+          ? TABLET_FOUR_TABLE_SCALE_PCT_STEP
+          : undefined;
       setTabletTableScalePct((prev) => {
-        const next = bumpTabletTableScalePct(prev, dir);
-        writeTabletTableScalePct(next, seats);
+        const next = bumpTabletTableScalePct(prev, dir, step);
+        if (useTabletPcTableTuning) writeTabletTableScalePct(next, seats);
+        else writePcDesktopTableScalePct(next);
         return next;
       });
     },
-    [state],
+    [state, useTabletPcTableTuning],
   );
   useEffect(() => {
-    if (!useTabletPcTableTuning || tabletTableScaleOpen) return;
+    if (!tableScaleControlEnabled || tabletTableScaleOpen) return;
     if (tabletTableScalePct === tabletTableScaleDefault) {
       setTabletTableScaleColumnVisible(false);
       return;
@@ -2394,7 +2435,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     tabletTableScalePct,
     tabletTableScaleDefault,
     tabletTableScaleOpen,
-    useTabletPcTableTuning,
+    tableScaleControlEnabled,
     pulseTabletTableScaleColumn,
   ]);
   useEffect(() => {
@@ -2402,7 +2443,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       clearTimeout(tabletTableScaleCollapsedPulseRef.current);
       tabletTableScaleCollapsedPulseRef.current = null;
     }
-    if (!useTabletPcTableTuning || tabletTableScaleOpen) {
+    if (!tableScaleControlEnabled || tabletTableScaleOpen) {
       setTabletTableScaleCollapsedPulse(false);
       return;
     }
@@ -2418,7 +2459,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       }
     };
   }, [
-    useTabletPcTableTuning,
+    tableScaleControlEnabled,
     tabletTableScaleOpen,
     tabletTableScalePct,
     tabletTableScaleDefault,
@@ -2427,9 +2468,14 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     setTabletTableScaleOpen(false);
   }, []);
   useEffect(() => {
-    if (!useTabletPcTableTuning) return;
-    setTabletTableScalePct(readTabletTableScalePct(tabletTableScaleSeats));
-  }, [useTabletPcTableTuning, tabletTableScaleSeats]);
+    if (useTabletPcTableTuning) {
+      setTabletTableScalePct(readTabletTableScalePct(tabletTableScaleSeats));
+      return;
+    }
+    if (usePcDesktopFourTableScale) {
+      setTabletTableScalePct(readPcDesktopTableScalePct());
+    }
+  }, [useTabletPcTableTuning, usePcDesktopFourTableScale, tabletTableScaleSeats]);
   useEffect(() => {
     if (isMobile || !pcTableSettingsOpen || !pcScaleWheelArmed) return;
     const onWheel = (e: WheelEvent) => {
@@ -2444,7 +2490,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     return () => window.removeEventListener('wheel', onWheel);
   }, [isMobile, pcTableSettingsOpen, pcScaleWheelArmed, bumpPcHandScale]);
   useEffect(() => {
-    if (!useTabletPcTableTuning || !tabletTableScaleOpen || !tabletTableScaleWheelArmed) return;
+    if (!tableScaleControlEnabled || !tabletTableScaleOpen || !tabletTableScaleWheelArmed) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const now = Date.now();
@@ -2456,13 +2502,108 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     window.addEventListener('wheel', onWheel, { passive: false });
     return () => window.removeEventListener('wheel', onWheel);
   }, [
-    useTabletPcTableTuning,
+    tableScaleControlEnabled,
     tabletTableScaleOpen,
     tabletTableScaleWheelArmed,
     bumpTabletTableScale,
   ]);
   const [gameInfoBadgeSkin, setGameInfoBadgeSkin] = useState<GameInfoBadgeStyle>(() => loadGameInfoBadgeStyle());
   const [gameInfoBadgeStyleToast, setGameInfoBadgeStyleToast] = useState<string | null>(null);
+  /** ПК/планшет + plasma: убрать наружный ореол holo-рамки (CSS-файл часто проигрывает каскаду index.css). */
+  useLayoutEffect(() => {
+    const STYLE_ID = 'upnd-plasma-pc-flat-glow-kill';
+    const wantFlat = !isMobile && gameInfoBadgeSkin === 'plasma';
+    let el = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
+    if (!wantFlat) {
+      el?.remove();
+      return;
+    }
+    if (!el) {
+      el = document.createElement('style');
+      el.id = STYLE_ID;
+      document.head.appendChild(el);
+    }
+    /* Высокая специфичность + конец <head>: иначе index.css (!important + :not) снова включает ореол. */
+    el.textContent = `
+@keyframes upnd-plasma-pc-flat-pulse {
+  0%, 100% {
+    box-shadow:
+      inset 0 1px 0 rgba(221, 214, 254, 0.14),
+      inset 0 0 28px rgba(99, 102, 241, 0.12),
+      inset 0 0 0 1px rgba(165, 180, 252, 0.22);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(221, 214, 254, 0.2),
+      inset 0 0 36px rgba(99, 102, 241, 0.16),
+      inset 0 0 0 1px rgba(196, 181, 253, 0.3);
+  }
+}
+html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-flat .game-info-left-section {
+  box-shadow:
+    inset 0 1px 0 rgba(221, 214, 254, 0.14),
+    inset 0 0 28px rgba(99, 102, 241, 0.12),
+    inset 0 0 0 1px rgba(165, 180, 252, 0.22) !important;
+  filter: none !important;
+  animation: upnd-plasma-pc-flat-pulse 2.8s ease-in-out infinite !important;
+  /* клип по скруглению — без «полки» от вылезающих псевдо */
+  overflow: hidden !important;
+  isolation: isolate !important;
+}
+/*
+ * Главный виновник «блуждающих переливов» на внешнем ореоле:
+ * ::before с inset:-45%/-24% вылезает наружу и режется overflow → ровная светящаяся кромка.
+ * Держим блик строго внутри бейджа.
+ */
+html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-flat .game-info-left-section::before {
+  inset: 0 !important;
+  border-radius: inherit !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  box-shadow: none !important;
+  opacity: 0.45 !important;
+}
+/* Holo-рамка: только spin переливов, без наружного glow/filter */
+html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-flat .game-info-left-section::after {
+  inset: 1px !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  will-change: auto !important;
+  opacity: 1 !important;
+  animation: plasma-holo-border-spin 10s linear infinite !important;
+}
+html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-flat .game-info-plasma-screen {
+  box-shadow:
+    inset 1px 0 0 rgba(196, 181, 253, 0.22),
+    inset -1px 0 0 rgba(196, 181, 253, 0.22),
+    inset 0 -14px 26px rgba(3, 7, 18, 0.38),
+    inset 0 0 36px rgba(124, 58, 237, 0.1) !important;
+  filter: none !important;
+}
+html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-flat .game-info-plasma-screen::before {
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  animation: plasma-holo-border-spin 5.5s linear infinite !important;
+}
+`;
+    /* После HMR Vite может вставить style ниже — держим наш тег последним в <head>. */
+    const bump = () => {
+      const node = document.getElementById(STYLE_ID);
+      if (node && node.parentNode === document.head) {
+        document.head.appendChild(node);
+      }
+    };
+    bump();
+    const t = window.setTimeout(bump, 0);
+    const t2 = window.setTimeout(bump, 400);
+    return () => {
+      window.clearTimeout(t);
+      window.clearTimeout(t2);
+      document.getElementById(STYLE_ID)?.remove();
+    };
+  }, [isMobile, gameInfoBadgeSkin]);
   const gameInfoBadgeLongPressConsumedRef = useRef(false);
   const gameInfoBadgeLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gameInfoBadgeStyleToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -4309,7 +4450,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   /** Закрытие backdrop: arm только если pointer down стартовал именно на фоне модалки. */
   const dealResultsBackdropPressArmedRef = useRef(false);
   const gameTableRootRef = useRef<HTMLDivElement>(null);
-  /** Хост для портала Севера на планшете (вне transform у .game-table-block). */
+  /** Хост для портала Севера (планшет / ПК·4p) — вне transform у .game-table-block. */
   const [tabletNorthPortalHost, setTabletNorthPortalHost] = useState<HTMLDivElement | null>(null);
   /** ПК: якоря для роуминг-бейджа — вне DOM панели, чтобы не раздувать layout Юга */
   const pcUserPanelRef = useRef<HTMLDivElement>(null);
@@ -4576,19 +4717,22 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const tableSeatCount: PlayerCount = state ? playerCountOf(state) : 4;
   const isThreeSeatTable = tableSeatCount === 3;
   const pcScaleSeats: 3 | 4 = isThreeSeatTable ? 3 : 4;
-  const pcScaleBoost = !isMobile
-    ? clampPcHandScaleBoost(pcHandScaleBoost, pcScaleSeats)
-    : 0;
+  const pcThreeHandPct = !isMobile
+    ? clampPcThreeHandScalePct(pcThreeHandScalePct)
+    : PC_THREE_HAND_SCALE_PCT_DEFAULT;
   const pcFourHandPct = !isMobile
-    ? clampPcFourHandScalePct(pcFourHandScalePct)
+    ? clampPcFourHandScalePct(
+        pcFourHandScalePct,
+        useTabletPcTableTuning ? TABLET_FOUR_HAND_SCALE_PCT_MAX : PC_FOUR_HAND_SCALE_PCT_MAX,
+      )
     : PC_FOUR_HAND_SCALE_PCT_DEFAULT;
-  /** UI-процент шестерёнки: 4p — 94…106; 3p — 100…140. */
+  /** UI-процент шестерёнки: 4p — 94…106 (ПК) / 94…112 (планшет); 3p — 95…125 (шаг 5). */
   const pcHandScaleUiPct =
-    pcScaleSeats === 4 ? pcFourHandPct : 100 + pcScaleBoost;
+    pcScaleSeats === 4 ? pcFourHandPct : pcThreeHandPct;
   const pcHandScaleNonDefault =
     pcScaleSeats === 4
       ? pcFourHandPct !== PC_FOUR_HAND_SCALE_PCT_DEFAULT
-      : pcScaleBoost > 0;
+      : pcThreeHandPct !== PC_THREE_HAND_SCALE_PCT_DEFAULT;
   useEffect(() => {
     if (pcHandScaleCollapsedPulseRef.current) {
       clearTimeout(pcHandScaleCollapsedPulseRef.current);
@@ -4611,25 +4755,42 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       }
     };
   }, [pcTableSettingsOpen, pcHandScaleNonDefault, isMobile]);
-  const pcScaleMaxThree = pcHandScaleMaxForSeats(3);
   const pcHandScaleExtraH =
     !isMobile && !useTabletPcTableTuning && pcScaleSeats === 3
-      ? pcHandScaleExtraHeightPx(pcScaleBoost, 3)
+      ? pcHandScaleExtraHeightPx(pcThreeHandPct, 3)
       : 0;
   const pcCardScaleMul =
     !isMobile && !useTabletPcTableTuning
       ? pcScaleSeats === 4
         ? pcFourHandScaleMultiplier(pcFourHandPct)
-        : pcHandScaleMultiplier(pcScaleBoost)
+        : pcThreeHandScaleMultiplier(pcThreeHandPct)
       : useTabletPcTableTuning && pcScaleSeats === 4
         ? tabletFourHandScaleMultiplier(pcFourHandPct)
-        : 1;
+        : useTabletPcTableTuning && pcScaleSeats === 3
+          ? pcThreeHandScaleMultiplier(pcThreeHandPct)
+          : 1;
+  /** Планшет · 3p: кнопки заказа на столе — слабее руки; иначе = масштаб карт. */
+  const pcBidBtnScaleMul =
+    useTabletPcTableTuning && pcScaleSeats === 3
+      ? tabletThreeBidBtnScaleMul(pcCardScaleMul)
+      : pcCardScaleMul;
   /** Планшет · 4p: карты на сукне компактнее (−2px при 100% + ступени от масштаба стола); мобила не трогаем. */
   const tabletFourPcTableCards = useTabletPcTableTuning && pcScaleSeats === 4;
+  /** Планшет · 3p: base руки при 100% (без UI-mul) — для сдвига роста вниз к Югу. */
+  const tabletThreeHandCount = state?.players[humanIdx]?.hand.length ?? 9;
+  const tabletThreeHandScaleAt100 =
+    useTabletPcTableTuning && pcScaleSeats === 3
+      ? (isMobileOrTablet ? 1 / (1.3 * 1.1) : resolvePcHandAdaptiveScale(tabletThreeHandCount)) *
+        TABLET_HAND_COMPACT
+      : 0;
+  const tabletThreeHandGrowDown =
+    tabletThreeHandScaleAt100 > 0
+      ? tabletThreeHandGrowDownPx(tabletThreeHandScaleAt100, pcThreeHandPct)
+      : 0;
   const pcFeltScaleMul =
     !isMobile && !useTabletPcTableTuning
       ? pcTableFeltScaleMultiplier(
-          pcScaleSeats === 4 ? pcFourHandPct : pcScaleBoost,
+          pcScaleSeats === 4 ? pcFourHandPct : pcThreeHandPct,
           pcScaleSeats,
         )
       : 1;
@@ -4639,24 +4800,28 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const tabletTableWMul = useTabletPcTableTuning
     ? tabletTableWidthMul(tabletTableScalePct, tabletTableScaleSeats)
     : 1;
+  const pcDesktopFourTableScaleMul = usePcDesktopFourTableScale
+    ? pcDesktopTableScaleMul(tabletTableScalePct)
+    : 1;
+  const pcSurfaceScaleMul = pcFeltScaleMul * pcDesktopFourTableScaleMul;
   const tabletSideGapTight =
-    useTabletPcTableTuning && tabletTableSideGapTight(tabletTableScalePct);
+    tableScaleControlEnabled && tabletTableSideGapTight(tabletTableScalePct);
   const pcSidePushPx =
     !isMobile && !useTabletPcTableTuning
-      ? pcSidePanelPushPx(pcScaleSeats === 4 ? pcFourHandPct : pcScaleBoost, pcScaleSeats)
+      ? pcSidePanelPushPx(pcScaleSeats === 4 ? pcFourHandPct : pcThreeHandPct, pcScaleSeats)
       : 0;
   const pcHandToPanelGap =
     !isMobile && !useTabletPcTableTuning
-      ? pcHandToPanelGapPx(pcScaleSeats === 4 ? pcFourHandPct : pcScaleBoost, pcScaleSeats)
+      ? pcHandToPanelGapPx(pcScaleSeats === 4 ? pcFourHandPct : pcThreeHandPct, pcScaleSeats)
       : 0;
   /** 3p ПК: подъём стола (база выше + clearance при scale); 4p: база 149, clearance 0. */
   const pcHandTableClearance =
     !isMobile && !useTabletPcTableTuning && pcScaleSeats === 3
-      ? pcHandTableClearancePx(pcScaleBoost, 3)
+      ? pcHandTableClearancePx(pcThreeHandPct, 3)
       : 0;
   const pcTableUpOffsetPx =
     !isMobile && !useTabletPcTableTuning
-      ? pcTableUpOffsetTotalPx(pcScaleBoost, pcScaleSeats)
+      ? pcTableUpOffsetTotalPx(pcThreeHandPct, pcScaleSeats)
       : 149;
   /** Полный десктоп: подъём стола; планшет/низкий экран — нет (ломает рука↔сукно). */
   const pcTableLiftActive =
@@ -4673,6 +4838,8 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const showWestSideSeat = true;
   const showEastSeatFour = !isThreeSeatTable;
   const showPcNorthSeat = !isThreeSeatTable;
+  /** ПК · 4p (не планшет): Север pin к верху страницы (23px), вне translateY блока. */
+  const pinPcDesktopFourNorthTop = !isMobile && !useTabletPcTableTuning && showPcNorthSeat;
   const showPcEastSeat = true;
   const pcEastDisplayIndex = isThreeSeatTable ? 1 : 3;
   const pcWestDisplayIndex = 2;
@@ -6863,20 +7030,26 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     if (isWaitingInRoom) return null;
     const scaleLabel = `${pcHandScaleUiPct}%`;
     const valueTone = scaleGearValueTone(pcHandScaleUiPct);
-    const scaleMin = pcScaleSeats === 4 ? PC_FOUR_HAND_SCALE_PCT_MIN : 100;
+    const scaleMin = pcScaleSeats === 4 ? PC_FOUR_HAND_SCALE_PCT_MIN : PC_THREE_HAND_SCALE_PCT_MIN;
+    const fourHandMax = useTabletPcTableTuning
+      ? TABLET_FOUR_HAND_SCALE_PCT_MAX
+      : PC_FOUR_HAND_SCALE_PCT_MAX;
+    const fourHandStep = useTabletPcTableTuning
+      ? TABLET_FOUR_HAND_SCALE_PCT_STEP
+      : 1;
     const scaleMax =
-      pcScaleSeats === 4 ? PC_FOUR_HAND_SCALE_PCT_MAX : 100 + pcScaleMaxThree;
+      pcScaleSeats === 4 ? fourHandMax : PC_THREE_HAND_SCALE_PCT_MAX;
     const decDisabled =
       pcScaleSeats === 4
         ? pcFourHandPct <= PC_FOUR_HAND_SCALE_PCT_MIN
-        : pcScaleBoost <= 0;
+        : pcThreeHandPct <= PC_THREE_HAND_SCALE_PCT_MIN;
     const incDisabled =
       pcScaleSeats === 4
-        ? pcFourHandPct >= PC_FOUR_HAND_SCALE_PCT_MAX
-        : pcScaleBoost >= pcScaleMaxThree;
+        ? pcFourHandPct >= fourHandMax
+        : pcThreeHandPct >= PC_THREE_HAND_SCALE_PCT_MAX;
     const resetToDefault = () => {
       if (pcScaleSeats === 4) setPcFourHandScalePctPersistent(PC_FOUR_HAND_SCALE_PCT_DEFAULT);
-      else setPcHandScaleBoostPersistent(0);
+      else setPcThreeHandScalePctPersistent(PC_THREE_HAND_SCALE_PCT_DEFAULT);
     };
     return (
       <div
@@ -7044,12 +7217,12 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               onClick={() => bumpPcHandScale(-1)}
               title={
                 pcScaleSeats === 4
-                  ? `Уменьшить на 1% (мин. ${scaleMin}%)`
+                  ? `Уменьшить на ${fourHandStep}% (мин. ${scaleMin}%)`
                   : 'Уменьшить на 10%'
               }
               aria-label={
                 pcScaleSeats === 4
-                  ? 'Уменьшить масштаб на 1 процент'
+                  ? `Уменьшить масштаб на ${fourHandStep} процента`
                   : 'Уменьшить масштаб на 10 процентов'
               }
             >
@@ -7086,12 +7259,14 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
               onClick={() => bumpPcHandScale(1)}
               title={
                 pcScaleSeats === 4
-                  ? `Увеличить на 1% (макс. ${scaleMax}%; абс. ≈112%)`
+                  ? useTabletPcTableTuning
+                    ? `Увеличить на ${fourHandStep}% (макс. ${scaleMax}%)`
+                    : `Увеличить на ${fourHandStep}% (макс. ${scaleMax}%; абс. ≈112%)`
                   : 'Увеличить на 10%'
               }
               aria-label={
                 pcScaleSeats === 4
-                  ? 'Увеличить масштаб на 1 процент'
+                  ? `Увеличить масштаб на ${fourHandStep} процента`
                   : 'Увеличить масштаб на 10 процентов'
               }
             >
@@ -7138,9 +7313,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     );
   };
 
-  /** Планшет: масштаб сукна 93%…108% (100% = изначальный размер режима, шаг 1%). */
+  /** Планшет / ПК·4p: масштаб сукна 93%…108% (100% = изначальный размер режима, шаг 1%). */
   const renderTabletTableScaleControl = () => {
-    if (!useTabletPcTableTuning || isWaitingInRoom) return null;
+    if (!tableScaleControlEnabled || isWaitingInRoom) return null;
     const scalePct = tabletTableScalePct;
     const offDefault = scalePct !== tabletTableScaleDefault;
     const valueTone = scaleGearValueTone(scalePct);
@@ -8512,7 +8687,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         gameTableRootRef.current = el;
         setTabletNorthPortalHost((prev) => (prev === el ? prev : el));
       }}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${tableScaleControlEnabled ? ' game-table-has-table-scale' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${!isMobile && gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma-pc-flat' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{
         ...tableLayoutStyle,
         position: 'relative',
@@ -8527,11 +8702,16 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                 ['--tablet-viewport-scale' as string]: String(tabletViewportScale),
               } as const)
             : {}),
-        ...(pcHandScaleExtraH > 0 || pcTableLiftActive || pcCardScaleMul !== 1
+        ...(pcHandScaleExtraH > 0 || pcTableLiftActive || pcCardScaleMul !== 1 || pcBidBtnScaleMul !== 1
           ? ({
               ...(pcCardScaleMul !== 1
                 ? {
                     ['--pc-card-scale' as string]: String(pcCardScaleMul),
+                  }
+                : {}),
+              ...(pcBidBtnScaleMul !== 1
+                ? {
+                    ['--pc-bid-btn-scale' as string]: String(pcBidBtnScaleMul),
                   }
                 : {}),
               ...(pcHandScaleExtraH > 0
@@ -9599,7 +9779,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             : [
                 'game-table-block',
                 'game-table-block--pc',
-                useTabletPcTableTuning && tabletTableScaleOpen
+                tableScaleControlEnabled && tabletTableScaleOpen
                   ? 'game-table-block--scale-gear-open'
                   : '',
               ]
@@ -11385,6 +11565,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                     'game-center-north',
                     useTabletPcTableTuning && !isThreeSeatTable ? 'game-center-north--tablet-four' : '',
                     useTabletPcTableTuning ? 'game-center-north--tablet-top-pin' : '',
+                    pinPcDesktopFourNorthTop ? 'game-center-north--pc-four-top-pin' : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
@@ -11400,7 +11581,16 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                           transform: 'translateX(-50%)',
                           zIndex: 28,
                         }
-                      : null),
+                      : pinPcDesktopFourNorthTop
+                        ? {
+                            position: 'absolute',
+                            top: 23,
+                            bottom: 'auto',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            zIndex: 28,
+                          }
+                        : null),
                     ...(lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcNorthDisplayIndex
                       ? { zIndex: 145 }
                       : {}),
@@ -11450,7 +11640,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                   />
                 </div>
               );
-              if (useTabletPcTableTuning && tabletNorthPortalHost) {
+              if ((useTabletPcTableTuning || pinPcDesktopFourNorthTop) && tabletNorthPortalHost) {
                 return createPortal(northEl, tabletNorthPortalHost);
               }
               return northEl;
@@ -11524,12 +11714,21 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
           style={{
             ...centerStyle,
             ...(pcSidePushPx > 0 ? { marginLeft: Math.round(pcSidePushPx * 0.25), marginRight: Math.round(pcSidePushPx * 0.25) } : {}),
-            /* Планшет: рост сукна вверх (отрицательный margin ≈ доля прироста высоты) */
-            ...(useTabletPcTableTuning && tabletTableHMul > 1
+            /* Планшет · 4p: якорь верха на размере 100% — прирост высоты вниз.
+               Планшет · 3p / ПК·4p: рост сукна вверх (отриц. margin ≈ доля прироста). */
+            ...(useTabletPcTableTuning && !isThreeSeatTable
               ? {
-                  marginTop: `calc(var(--game-table-surface-height, 250px) * ${1 - tabletTableHMul} * 0.72)`,
+                  marginTop: `calc(var(--game-table-surface-height, 250px) * ${1 - TABLET_FOUR_BASE_HEIGHT_MUL} * 0.72)`,
                 }
-              : {}),
+              : useTabletPcTableTuning && tabletTableHMul > 1
+                ? {
+                    marginTop: `calc(var(--game-table-surface-height, 250px) * ${1 - tabletTableHMul} * 0.72)`,
+                  }
+                : usePcDesktopFourTableScale && pcDesktopFourTableScaleMul > 1
+                  ? {
+                      marginTop: `calc(var(--game-table-surface-height, 250px) * ${pcFeltScaleMul} * ${1 - pcDesktopFourTableScaleMul} * 0.72)`,
+                    }
+                  : {}),
           }}
         >
         <div
@@ -11560,17 +11759,17 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
             style={{
               ...tableSurfaceStyle,
               ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}),
-              ...(pcFeltScaleMul !== 1
+              ...(useTabletPcTableTuning && (tabletTableHMul !== 1 || tabletTableWMul !== 1)
                 ? {
-                    width: `calc(var(--game-table-surface-width, 576px) * ${pcFeltScaleMul})`,
-                    height: `calc(var(--game-table-surface-height, 250px) * ${pcFeltScaleMul})`,
-                    minHeight: `calc(var(--game-table-surface-height, 250px) * ${pcFeltScaleMul})`,
+                    width: `calc(var(--game-table-surface-width, 576px) * ${tabletTableWMul})`,
+                    height: `calc(var(--game-table-surface-height, 250px) * ${tabletTableHMul})`,
+                    minHeight: `calc(var(--game-table-surface-height, 250px) * ${tabletTableHMul})`,
                   }
-                : useTabletPcTableTuning && (tabletTableHMul !== 1 || tabletTableWMul !== 1)
+                : pcSurfaceScaleMul !== 1
                   ? {
-                      width: `calc(var(--game-table-surface-width, 576px) * ${tabletTableWMul})`,
-                      height: `calc(var(--game-table-surface-height, 250px) * ${tabletTableHMul})`,
-                      minHeight: `calc(var(--game-table-surface-height, 250px) * ${tabletTableHMul})`,
+                      width: `calc(var(--game-table-surface-width, 576px) * ${pcSurfaceScaleMul})`,
+                      height: `calc(var(--game-table-surface-height, 250px) * ${pcSurfaceScaleMul})`,
+                      minHeight: `calc(var(--game-table-surface-height, 250px) * ${pcSurfaceScaleMul})`,
                     }
                   : {}),
             }}
@@ -12003,6 +12202,11 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                   maxWidth: `min(${Math.round(1100 + (pcHandScaleUiPct - 100) * 6)}px, 98vw)`,
                 }
               : {}),
+            ...(tabletThreeHandGrowDown > 0
+              ? ({
+                  ['--tablet-three-hand-grow-down' as string]: `${tabletThreeHandGrowDown}px`,
+                } as const)
+              : {}),
           }}
         >
           <div style={handStyle}>
@@ -12027,15 +12231,19 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                   : resolvePcHandAdaptiveScale(handCards.length);
                 pcHandScale = tabletHandBase * TABLET_HAND_COMPACT;
                 if (!isThreeSeatTable) {
-                  pcHandScale = tabletFourHandScaleMinus1px(pcHandScale);
-                  pcHandScale *= tabletFourHandScaleMultiplier(pcFourHandPct);
+                  /* 4p: ×0.85 +3px база; шестерёнка ±2% = ±2px высоты */
+                  pcHandScale *= TABLET_FOUR_HAND_CARD_SIZE_MUL;
+                  pcHandScale = tabletFourHandBoostBasePx(pcHandScale);
+                  pcHandScale = tabletFourHandScaleFromUiPct(pcHandScale, pcFourHandPct);
+                } else {
+                  pcHandScale *= pcThreeHandScaleMultiplier(pcThreeHandPct);
                 }
               } else if (!isMobileOrTablet) {
                 const pcHandBaseScale = resolvePcHandAdaptiveScale(handCards.length);
                 pcHandScale =
                   pcScaleSeats === 4
                     ? pcHandBaseScale * pcFourHandScaleMultiplier(pcFourHandPct)
-                    : pcHandBaseScale * pcHandScaleMultiplier(pcScaleBoost);
+                    : pcHandBaseScale * pcThreeHandScaleMultiplier(pcThreeHandPct);
               } else {
                 pcHandScale = 1 / (1.3 * 1.1);
               }
@@ -12140,22 +12348,51 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
           {!isMobileOrTablet ? (
             <div className="user-player-panel-pc-layout">
               <div className="user-player-panel-pc-avatar-col">
+                {(() => {
+                  const humanBidPc = state.bids[humanIdx];
+                  const humanTricksPc = state.players[humanIdx].tricksTaken;
+                  /** Слоты панели взяток: заказ + незаказанный перебор (= max(bid, taken)). */
+                  const humanPcTrickSlotCount =
+                    humanBidPc == null
+                      ? 0
+                      : humanBidPc + Math.max(0, humanTricksPc - humanBidPc);
+                  const fullSouthName = displayState.players[humanIdx].name;
+                  const isBiddingPhase =
+                    state.phase === 'bidding' || state.phase === 'dark-bidding';
+                  /** Канон: src/ui/userSouthPanelCanon.ts + user-south-panel.css */
+                  const pcSouthNameCut = pcSouthNameCutChars(
+                    humanPcTrickSlotCount,
+                    useTabletPcTableTuning,
+                  );
+                  const pcSouthDisplayName =
+                    pcSouthNameCut > 0 && fullSouthName.length > pcSouthNameCut
+                      ? `${fullSouthName.slice(0, fullSouthName.length - pcSouthNameCut)}…`
+                      : fullSouthName;
+                  return (
                 <div ref={pcUserPanelLeftClusterRef} className="user-player-panel-pc-left-cluster">
                   <div className="user-player-panel-pc-avatar-name-stack">
                     <div className="user-player-panel-pc-avatar-wrap">
                       {renderUserPlayerAvatar(
-                        (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
-                          (useTabletPcTableTuning || isThreeSeatTable)
-                          ? 58
-                          : 38,
+                        userSouthAvatarSizePx({
+                          isTabletShell: useTabletPcTableTuning,
+                          isBidding: isBiddingPhase,
+                        }),
                       )}
                     </div>
                     <div className="user-player-panel-pc-name-under-avatar">
-                      <span className={`${southPlayerNameClassName} user-player-panel-pc-name-text`} style={southPlayerNameStyle}>{displayState.players[humanIdx].name}</span>
+                      <span
+                        className={[southPlayerNameClassName, 'user-player-panel-pc-name-text']
+                          .filter(Boolean)
+                          .join(' ')}
+                        style={southPlayerNameStyle}
+                        title={pcSouthNameCut > 0 ? fullSouthName : undefined}
+                      >
+                        {pcSouthDisplayName}
+                      </span>
                     </div>
                   </div>
                   {/* Заказ Юга: на торгах — сразу после своей ставки (не ждать конца торгов). */}
-                  {(state.bids[humanIdx] != null ||
+                  {(humanBidPc != null ||
                     (state.phase !== 'bidding' && state.phase !== 'dark-bidding')) && (
                     <div
                       className={[
@@ -12168,17 +12405,25 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
                         .join(' ')}
                     >
                       <TrickSlotsDisplay
-                        bid={state.bids[humanIdx] ?? null}
-                        tricksTaken={state.players[humanIdx].tricksTaken}
+                        bid={humanBidPc}
+                        tricksTaken={humanTricksPc}
                         variant="player"
                         collectingCards={lastTrickInterstitialActive}
                         compactMode={false}
                         playerMobileWideTricks={false}
                         tricksLeftInDeal={tricksRemainingInDeal(state)}
+                        /* ПК Юг: −8% ко всем размерам панели; заказ 0 оставляем как есть */
+                        panelScale={
+                          humanBidPc != null && humanBidPc > 0
+                            ? USER_SOUTH_TRICKS_PANEL_SCALE
+                            : undefined
+                        }
                       />
                     </div>
                   )}
                 </div>
+                  );
+                })()}
               </div>
               <div className="user-player-panel-pc-main">
                 {(state.phase === 'bidding' || state.phase === 'dark-bidding') ? (
@@ -18255,14 +18500,16 @@ function TrickSlotsDisplay({
     );
   }
 
-  /** ПК (не compact): оппоненты — с 5+ слотов постепенно мельче (цель ≈4 в полной ширине); игрок — при заказе+переборе >10 */
+  /** ПК (не compact): оппоненты — с 5+ слотов постепенно мельче (цель ≈4); игрок Юг — компактнее с 7+ слотов */
   const pcOpponentSlotCount =
     !compactMode && bid != null && variant === 'opponent' ? bid + extra : 0;
+  const pcPlayerSlotCount =
+    !compactMode && bid != null && variant === 'player' ? bid + extra : 0;
   const pcSlotScaleDown =
     pcOpponentSlotCount > 4
       ? Math.min(1, 4 / pcOpponentSlotCount)
-      : !compactMode && bid != null && variant === 'player' && bid + extra > 10
-        ? Math.min(1, 10 / (bid + extra))
+      : pcPlayerSlotCount >= 7
+        ? Math.min(1, 6 / pcPlayerSlotCount)
         : 1;
   const baseSlotSize =
     pcSlotScaleDown < 1
@@ -18430,9 +18677,12 @@ function TrickSlotsDisplay({
     );
   }
 
-  const playerPcFiguresFont = usePcBidTakenFigures
-    ? pcBidTakenFigPx
-    : Math.max(10, Math.round(11 * pcSlotScaleDown));
+  const playerPcFiguresFont = Math.max(
+    8,
+    Math.round(
+      (usePcBidTakenFigures ? pcBidTakenFigPx : Math.max(10, Math.round(11 * pcSlotScaleDown))) * sPanel,
+    ),
+  );
   return (
     <div
       style={wrapStyle}
@@ -18448,7 +18698,15 @@ function TrickSlotsDisplay({
       role="status"
       aria-label={`Взято ${tricksPhrase(tricksTaken)}, заказ ${tricksPhrase(bid)}`}
     >
-      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'nowrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: Math.max(6, Math.round(10 * sPanel)),
+          flexWrap: 'nowrap',
+        }}
+      >
         <PcTrickBidTakenFigures
           bid={bid}
           tricksTaken={tricksTaken}
@@ -18475,7 +18733,16 @@ function TrickSlotsDisplay({
           })}
           {extra > 0 && (
             <>
-              <span style={{ ...trickSlotsPlusStyle, ...(pcSlotScaleDown < 1 ? { fontSize: Math.max(9, Math.round(11 * pcSlotScaleDown)) } : {}) }}>+</span>
+              <span
+                style={{
+                  ...trickSlotsPlusStyle,
+                  ...(pcSlotScaleDown < 1 || sPanel !== 1
+                    ? { fontSize: Math.max(9, Math.round(11 * pcSlotScaleDown * sPanel)) }
+                    : {}),
+                }}
+              >
+                +
+              </span>
               {Array.from({ length: extra }, (_, i) => (
                 <div
                   key={`e-${i}`}
@@ -18921,12 +19188,14 @@ function OpponentSlot({
    * (кольцо в TS), иначе высота шапки прыгает при появлении/снятии кольца заказа.
    */
   const MOBILE_OPP_HEADER_AVATAR_RESERVE_PX = 56;
+  /** ПК (не compact): С/З/В — крупнее лицо; панель не раздуваем (padding ↓). Мобилка/планшет — как раньше. */
+  const PC_OPPONENT_AVATAR_SIZE_PX = 50;
   /** Компакт: С/З/В (моб.) — лицо всегда 40, без ×0.95 при кольце; прочие компактные слоты — как раньше */
   const avatarSizePx = compactMode
     ? mobileNwLayout || eastMobileLargeAvatar || mobileWestEastLandscapeCol
       ? 40
       : Math.round(32 * (avatarOrderRingMode ? 0.95 : 1))
-    : 38;
+    : PC_OPPONENT_AVATAR_SIZE_PX;
   const eastMobileOnlyAvatar = position === 'right' && isMobile;
   /** Landscape З/В и моб. Восток: east-mobile стили; landscape З/В — одна строка + скролл как у С/З. */
   const useEastMobileNameStyle = eastMobileOnlyAvatar || mobileWestEastLandscapeCol;
@@ -19050,6 +19319,8 @@ function OpponentSlot({
         .join(' ') || undefined}
       style={{
         ...opponentSlotStyle,
+        /* ПК: место под аватар 50px за счёт внутренних отступов — внешний размер панели ≈ как при 38px */
+        ...(!compactMode ? { padding: '6px 10px' } : {}),
         ...(sideSlotPcGrow ? opponentSlotSidePcGrowStyle : {}),
         ...northSlotOverrides,
         ...mobileGridOpponentSlotStretch,

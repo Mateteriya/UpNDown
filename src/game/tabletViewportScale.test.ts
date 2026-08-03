@@ -19,14 +19,16 @@ describe('tabletViewportScale', () => {
     expect(computeTabletViewportScale(1035, 500)).toBeCloseTo(500 / 618);
   });
 
-  it('scales up when larger (e.g. 125% of reference)', () => {
+  it('does not scale up when larger than reference (keeps fit, no hand crush)', () => {
     const w = TABLET_LAYOUT_REF_WIDTH_PX * 1.25;
     const h = TABLET_LAYOUT_REF_HEIGHT_PX * 1.25;
-    expect(computeTabletViewportScale(w, h)).toBeCloseTo(1.25);
+    expect(computeTabletViewportScale(w, h)).toBe(1);
+    expect(TABLET_VIEWPORT_SCALE_MAX).toBe(1);
   });
 
-  it('respects min and max floors', () => {
+  it('respects min floor and max=1 ceiling', () => {
     expect(computeTabletViewportScale(200, 100)).toBe(TABLET_VIEWPORT_SCALE_MIN);
     expect(computeTabletViewportScale(3000, 2000)).toBe(TABLET_VIEWPORT_SCALE_MAX);
+    expect(computeTabletViewportScale(3000, 2000)).toBe(1);
   });
 });

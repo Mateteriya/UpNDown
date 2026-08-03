@@ -2,8 +2,9 @@
  * Планшет (ПК-шелл): эталон калибровки раскладки и пропорциональный масштаб.
  *
  * Настройки планшет-стола снимались на **1035×618** CSS-px.
- * На другом размере — мягкий `zoom` корня в обе стороны
- * (без lock ширины/высоты: фиксированный 1035×618 обрезал стол).
+ * На **меньшем** экране — мягкий `zoom` вниз (чтобы всё влезало).
+ * На **большем** — НЕ увеличиваем (max = 1): иначе zoom>1 раздувает стол/панель Юга
+ * и они зажимают руку по вертикали (наложения). Лишнее место остаётся полями.
  *
  * @see docs/TABLET-PC-LAYOUT-SCALE.md
  */
@@ -13,8 +14,11 @@ export const TABLET_LAYOUT_REF_HEIGHT_PX = 618;
 
 /** Нижний предел, чтобы на крошечных окнах UI оставался читаемым. */
 export const TABLET_VIEWPORT_SCALE_MIN = 0.72;
-/** Верхний предел — запас на крупные планшеты / DevTools. */
-export const TABLET_VIEWPORT_SCALE_MAX = 1.45;
+/**
+ * Верхний предел = 1: эталон и крупнее — без upscale.
+ * Раньше 1.45 раздувал layout и сжимал руку между столом и панелью Юга.
+ */
+export const TABLET_VIEWPORT_SCALE_MAX = 1;
 
 export function readTabletViewportSize(): { width: number; height: number } {
   if (typeof window === 'undefined') {
@@ -28,8 +32,8 @@ export function readTabletViewportSize(): { width: number; height: number } {
 }
 
 /**
- * Коэффициент: min(w/1035, h/618), в коридоре [MIN…MAX].
- * На эталоне → ~1; меньше → <1; больше → >1.
+ * Коэффициент: min(w/1035, h/618), в коридоре [MIN…1].
+ * Эталон и больше → 1; меньше → пропорционально вниз (не ниже MIN).
  */
 export function computeTabletViewportScale(width: number, height: number): number {
   if (!(width > 0) || !(height > 0)) return 1;

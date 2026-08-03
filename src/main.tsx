@@ -46,6 +46,10 @@ import { installPwaStaleRecovery, stripRecoveryQueryFromUrl } from './lib/pwaSta
 import { warmOfflineAssetsIfOnline } from './lib/warmOfflineAssets'
 import { installPwaInstallCapture } from './lib/pwaInstallPrompt'
 import './styles/offline-ready-orb.css'
+/* После всех CSS: ПК plasma — без наружного ореола рамки (не править это в index.css — HMR ломает файл). */
+import './styles/plasma-badge-pc-no-outer-glow.css'
+/* Канон панели Юга (ПК/планшет): размеры, имя, аватар — единственный источник правды. */
+import './styles/user-south-panel.css'
 
 installPwaStaleRecovery()
 stripRecoveryQueryFromUrl()

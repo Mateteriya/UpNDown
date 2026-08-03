@@ -3940,15 +3940,16 @@
       0 0 30px rgba(34, 211, 238, 0.2),
       0 7px 18px rgba(15, 23, 42, 0.34) !important;
   }
-  /* Ход пользователя: самый заметный неон. */
+  /* Ход пользователя: заметный неон у кромки; дальние слои — в тон фона #0f172a (без светлого «прямоугольника»). */
   .game-table-root:not(.viewport-mobile) .game-info-row .game-info-left-col .pc-info-badge--user-turn {
-    border-color: rgba(110, 245, 226, 0.78) !important;
+    border-color: rgba(110, 245, 226, 0.72) !important;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.28),
-      0 0 0 1px rgba(94, 234, 212, 0.48),
-      0 0 24px rgba(94, 234, 212, 0.42),
-      0 0 38px rgba(34, 211, 238, 0.3),
-      0 9px 22px rgba(15, 23, 42, 0.36) !important;
+      inset 0 1px 0 rgba(255, 255, 255, 0.26),
+      0 0 0 1px rgba(94, 234, 212, 0.4),
+      0 0 12px rgba(94, 234, 212, 0.34),
+      0 0 22px rgba(34, 211, 238, 0.22),
+      0 0 34px rgba(15, 23, 42, 0.55),
+      0 8px 20px rgba(2, 6, 23, 0.4) !important;
   }
   .game-table-root .game-info-row .game-info-left-col .game-info-left-section {
     margin-top: 0 !important;
@@ -4403,8 +4404,8 @@
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel:active,
 .game-table-root:not(.viewport-mobile) .scale-gear-btn--scroll:focus,
 .game-table-root:not(.viewport-mobile) .scale-gear-btn--scroll:active,
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel:focus,
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel:active,
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--wheel:focus,
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--wheel:active,
 .game-table-root.game-table-tablet-pc .scale-gear-btn--scroll:focus,
 .game-table-root.game-table-tablet-pc .scale-gear-btn--scroll:active {
   background: linear-gradient(180deg, rgba(30, 41, 59, 0.82) 0%, rgba(15, 23, 42, 0.94) 100%) !important;
@@ -4416,8 +4417,8 @@
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel-on:focus,
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel-on:active,
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel-on:focus,
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel-on:active {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--wheel-on:focus,
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--wheel-on:active {
   background:
     radial-gradient(circle at 50% 30%, rgba(103, 232, 249, 0.35) 0%, transparent 55%),
     linear-gradient(180deg, rgba(49, 46, 129, 0.9) 0%, rgba(15, 23, 42, 0.96) 100%) !important;
@@ -4436,7 +4437,7 @@
 }
 
 /* Планшет: масштаб стола — поверх обводок в правом нижнем углу (зазор рамки не расширяем) */
-.game-table-root.game-table-tablet-pc .tablet-table-scale {
+.game-table-root.game-table-has-table-scale .tablet-table-scale {
   position: absolute;
   right: -2px;
   bottom: -2px;
@@ -4449,15 +4450,15 @@
   overflow: visible;
 }
 /* Раскрытая шестерёнка стола: выше fixed-панели Юга (z-index 10) и плашки карт */
-.game-table-root.game-table-tablet-pc .game-table-block--scale-gear-open {
+.game-table-root.game-table-has-table-scale .game-table-block--scale-gear-open {
   position: relative;
   z-index: 60;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale--open {
+.game-table-root.game-table-has-table-scale .tablet-table-scale--open {
   z-index: 70;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__trigger,
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__trigger,
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn {
   appearance: none;
   border: none;
   margin: 0;
@@ -4465,7 +4466,7 @@
   font: inherit;
   color: #ecfeff;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__trigger {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__trigger {
   position: relative;
   isolation: isolate;
   display: inline-flex;
@@ -4491,7 +4492,7 @@
     inset 0 -10px 16px rgba(15, 23, 42, 0.55);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, filter 0.15s ease;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__trigger:hover {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__trigger:hover {
   transform: translateY(-1px) scale(1.05);
   border-color: #ecfeff;
   filter: brightness(1.08);
@@ -4502,23 +4503,23 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.34);
 }
 /* ≠100%: обводка и свечение — «умный» цвет цифр (как у шестерёнки карт) */
-.game-table-root.game-table-tablet-pc .tablet-table-scale--boosted .tablet-table-scale__trigger,
-.game-table-root.game-table-tablet-pc .scale-gear-trigger--active.tablet-table-scale__trigger {
+.game-table-root.game-table-has-table-scale .tablet-table-scale--boosted .tablet-table-scale__trigger,
+.game-table-root.game-table-has-table-scale .scale-gear-trigger--active.tablet-table-scale__trigger {
   border-color: color-mix(in srgb, var(--scale-gear-value-color, #e9d5ff) 72%, transparent);
   box-shadow:
     0 0 10px color-mix(in srgb, var(--scale-gear-value-color, #22d3ee) 32%, transparent),
     0 0 16px color-mix(in srgb, var(--scale-gear-value-color, #a855f7) 18%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale--boosted .tablet-table-scale__trigger:hover,
-.game-table-root.game-table-tablet-pc .scale-gear-trigger--active.tablet-table-scale__trigger:hover {
+.game-table-root.game-table-has-table-scale .tablet-table-scale--boosted .tablet-table-scale__trigger:hover,
+.game-table-root.game-table-has-table-scale .scale-gear-trigger--active.tablet-table-scale__trigger:hover {
   border-color: color-mix(in srgb, var(--scale-gear-value-color, #ecfeff) 88%, transparent);
   box-shadow:
     0 0 12px color-mix(in srgb, var(--scale-gear-value-color, #22d3ee) 42%, transparent),
     0 0 20px color-mix(in srgb, var(--scale-gear-value-color, #a855f7) 26%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__cosmos {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__cosmos {
   position: absolute;
   inset: 0;
   border-radius: inherit;
@@ -4538,7 +4539,7 @@
   opacity: 0.95;
   z-index: 0;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__icon {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__icon {
   position: relative;
   z-index: 1;
   display: block;
@@ -4548,8 +4549,7 @@
   transition: filter 0.55s ease, opacity 0.55s ease;
 }
 /* 100% стол: тот же «умный» глиф (голубой→фиолет→кислый розовый), как у шестерёнки карт */
-.game-table-root.game-table-tablet-pc
-  .tablet-table-scale__trigger--default.tablet-table-scale__trigger--pulse {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__trigger--default.tablet-table-scale__trigger--pulse {
   border-color: rgba(216, 180, 254, 0.9);
   box-shadow:
     0 0 10px rgba(56, 189, 248, 0.28),
@@ -4557,22 +4557,19 @@
     0 0 20px rgba(255, 77, 158, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
-.game-table-root.game-table-tablet-pc
-  .tablet-table-scale__trigger--default.tablet-table-scale__trigger--pulse
+.game-table-root.game-table-has-table-scale .tablet-table-scale__trigger--default.tablet-table-scale__trigger--pulse
   .tablet-table-scale__icon {
   filter:
     drop-shadow(0 0 2px rgba(192, 132, 252, 0.9))
     drop-shadow(0 0 6px rgba(217, 70, 239, 0.65))
     drop-shadow(0 0 9px rgba(255, 77, 158, 0.45));
 }
-.game-table-root.game-table-tablet-pc
-  .tablet-table-scale__trigger--default.tablet-table-scale__trigger--pulse
+.game-table-root.game-table-has-table-scale .tablet-table-scale__trigger--default.tablet-table-scale__trigger--pulse
   .tablet-table-scale__cosmos {
   opacity: 0.95;
   animation-duration: 2.2s;
 }
-.game-table-root.game-table-tablet-pc
-  .tablet-table-scale__trigger--default.tablet-table-scale__trigger--settled {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__trigger--default.tablet-table-scale__trigger--settled {
   border-color: rgba(192, 132, 252, 0.78);
   box-shadow:
     0 0 8px rgba(56, 189, 248, 0.18),
@@ -4581,8 +4578,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
     inset 0 -10px 16px rgba(15, 23, 42, 0.55);
 }
-.game-table-root.game-table-tablet-pc
-  .tablet-table-scale__trigger--default.tablet-table-scale__trigger--settled
+.game-table-root.game-table-has-table-scale .tablet-table-scale__trigger--default.tablet-table-scale__trigger--settled
   .tablet-table-scale__icon {
   opacity: 1;
   filter:
@@ -4590,19 +4586,18 @@
     drop-shadow(0 0 5px rgba(217, 70, 239, 0.5))
     drop-shadow(0 0 4px rgba(255, 77, 158, 0.35));
 }
-.game-table-root.game-table-tablet-pc
-  .tablet-table-scale__trigger--default.tablet-table-scale__trigger--settled
+.game-table-root.game-table-has-table-scale .tablet-table-scale__trigger--default.tablet-table-scale__trigger--settled
   .tablet-table-scale__cosmos {
   opacity: 0.7;
   animation-duration: 3.4s;
 }
 /* ≠100%: % колонкой справа-сверху; автоскрытие через 5с */
-.game-table-root.game-table-tablet-pc .tablet-table-scale__badge {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__badge {
   position: absolute;
   z-index: 2;
   pointer-events: none;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__badge--vertical {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__badge--vertical {
   top: auto;
   left: auto;
   bottom: calc(100% + 2px);
@@ -4641,13 +4636,13 @@
     transform: translateY(0);
   }
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__badge-ch {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__badge-ch {
   display: block;
   text-align: center;
   width: 100%;
 }
 /* На кружке: цифры + направление (+ снизу / − сверху), без крошечного % */
-.game-table-root.game-table-tablet-pc .tablet-table-scale__pct-glyph {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__pct-glyph {
   position: relative;
   z-index: 1;
   display: inline-flex;
@@ -4660,29 +4655,29 @@
   font-variant-numeric: tabular-nums;
   color: var(--scale-gear-value-color, #a5f3fc);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__pct-glyph-num {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__pct-glyph-num {
   font-size: 11px;
   letter-spacing: -0.02em;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__pct-glyph-sign {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__pct-glyph-sign {
   font-size: 10px;
   font-weight: 900;
   line-height: 0.75;
   opacity: 0.95;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__pct-glyph--boost .tablet-table-scale__pct-glyph-sign {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__pct-glyph--boost .tablet-table-scale__pct-glyph-sign {
   margin-top: -1px;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__pct-glyph--shrink .tablet-table-scale__pct-glyph-sign {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__pct-glyph--shrink .tablet-table-scale__pct-glyph-sign {
   margin-bottom: -1px;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__trigger--pct-glyph {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__trigger--pct-glyph {
   border-color: color-mix(in srgb, var(--scale-gear-value-color, #a5f3fc) 78%, transparent);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale--boosted .tablet-table-scale__badge--vertical {
+.game-table-root.game-table-has-table-scale .tablet-table-scale--boosted .tablet-table-scale__badge--vertical {
   border-color: color-mix(in srgb, var(--scale-gear-value-color, #c4b5fd) 70%, transparent);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__capsule {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__capsule {
   --pc-settings-gear-h: 30px;
   position: relative;
   isolation: isolate;
@@ -4710,7 +4705,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.28),
     inset 0 -10px 16px rgba(15, 23, 42, 0.5);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__capsule--wheel-on {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__capsule--wheel-on {
   border-color: #e9d5ff;
   box-shadow:
     0 0 0 1px rgba(192, 132, 252, 0.55),
@@ -4718,10 +4713,10 @@
     0 0 32px rgba(168, 85, 247, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__cosmos--capsule {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__cosmos--capsule {
   opacity: 0.9;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn {
   position: relative;
   z-index: 1;
   display: inline-flex;
@@ -4744,7 +4739,7 @@
     0 0 10px rgba(34, 211, 238, 0.22);
   transition: border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn:not(:disabled):hover {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn:not(:disabled):hover {
   border-color: rgba(165, 243, 252, 0.95);
   color: #ecfeff;
   transform: translateY(-1px);
@@ -4752,7 +4747,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
     0 0 14px rgba(34, 211, 238, 0.45);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel:not(:disabled):hover,
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--wheel:not(:disabled):hover,
 .game-table-root.game-table-tablet-pc .scale-gear-btn--scroll:not(:disabled):hover {
   border-color: rgba(103, 232, 249, 0.55);
   color: inherit;
@@ -4762,7 +4757,7 @@
     0 0 12px rgba(34, 211, 238, 0.28);
   background: linear-gradient(180deg, rgba(30, 41, 59, 0.82) 0%, rgba(15, 23, 42, 0.92) 100%);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel-on:not(:disabled):hover {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--wheel-on:not(:disabled):hover {
   border-color: rgba(165, 243, 252, 0.75);
   color: #ecfeff;
   background:
@@ -4773,14 +4768,14 @@
     0 0 14px rgba(34, 211, 238, 0.4),
     0 0 12px rgba(168, 85, 247, 0.28);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--value:not(:disabled):hover {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--value:not(:disabled):hover {
   color: var(--scale-gear-value-color, #a5f3fc);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn:disabled {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn:disabled {
   opacity: 0.32;
   cursor: default;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--value {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--value {
   width: auto;
   min-width: 46px;
   padding: 0 9px;
@@ -4789,15 +4784,15 @@
   font-variant-numeric: tabular-nums;
   color: var(--scale-gear-value-color, #a5f3fc);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--boosted {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--boosted {
   border-color: rgba(196, 181, 253, 0.85);
   background: linear-gradient(180deg, rgba(76, 29, 149, 0.55) 0%, rgba(30, 27, 75, 0.92) 100%);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--wheel {
   color: #c4b5fd;
   border-color: rgba(167, 139, 250, 0.55);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel-on {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--wheel-on {
   color: #ecfeff;
   border-color: rgba(165, 243, 252, 0.95);
   background:
@@ -4808,11 +4803,11 @@
     0 0 16px rgba(34, 211, 238, 0.55),
     0 0 14px rgba(168, 85, 247, 0.4);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel:not(.tablet-table-scale__btn--wheel-on) {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--wheel:not(.tablet-table-scale__btn--wheel-on) {
   background: linear-gradient(180deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.9) 100%);
   opacity: 0.92;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--close {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--close {
   width: 34px;
   min-width: 34px;
   height: 34px;
@@ -4829,7 +4824,7 @@
   text-shadow: 0 0 8px rgba(251, 113, 133, 0.55);
   transition: border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease, filter 0.12s ease;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--close:hover {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--close:hover {
   color: #fff1f2;
   border-color: rgba(253, 164, 175, 0.95);
   transform: translateY(-1px);
@@ -4839,13 +4834,13 @@
     0 0 16px rgba(244, 63, 94, 0.5),
     0 0 22px rgba(251, 113, 133, 0.35);
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__trigger:focus-visible,
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn:focus-visible {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__trigger:focus-visible,
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn:focus-visible {
   outline: 2px solid rgba(165, 243, 252, 0.95);
   outline-offset: 2px;
 }
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel:focus-visible,
-.game-table-root.game-table-tablet-pc .tablet-table-scale .scale-gear-btn--scroll:focus-visible {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--wheel:focus-visible,
+.game-table-root.game-table-has-table-scale .tablet-table-scale .scale-gear-btn--scroll:focus-visible {
   outline: none;
   outline-offset: 0;
   box-shadow:
@@ -4854,7 +4849,7 @@
     0 0 12px rgba(34, 211, 238, 0.35);
 }
 @media (prefers-reduced-motion: reduce) {
-  .game-table-root.game-table-tablet-pc .tablet-table-scale__cosmos {
+  .game-table-root.game-table-has-table-scale .tablet-table-scale__cosmos {
     animation: none;
     background-position: 50% 0;
   }
@@ -4904,10 +4899,11 @@
 .game-table-root.game-table-tablet-pc.game-table-seats-three-pc .pc-player-hand-frame {
   margin-top: 0 !important;
   margin-bottom: 8px !important;
-  transform: translateY(-28px);
+  /* рост карт при UI>100% — вниз к Югу (var с hand frame), не вверх к столу */
+  transform: translateY(calc(-28px + var(--tablet-three-hand-grow-down, 0px)));
 }
 .game-table-root.game-table-tablet-pc.game-table-seats-three-pc:not(.game-phase-bidding) .pc-player-hand-frame {
-  transform: translateY(-38px) !important;
+  transform: translateY(calc(-38px + var(--tablet-three-hand-grow-down, 0px))) !important;
   margin-bottom: 2px !important;
 }
 .game-table-root.game-table-tablet-pc.game-table-seats-three-pc:not(.game-phase-bidding)
@@ -4918,7 +4914,7 @@
 }
 .game-table-root.game-table-tablet-pc.game-table-seats-three-pc.game-phase-bidding .pc-player-hand-frame {
   margin-bottom: 6px !important;
-  transform: translateY(-31px) !important;
+  transform: translateY(calc(-31px + var(--tablet-three-hand-grow-down, 0px))) !important;
 }
 .game-table-root.game-table-tablet-pc.game-table-seats-three-pc .game-pc-user-layer > .user-player-panel {
   margin-bottom: 0 !important;
@@ -4939,23 +4935,10 @@
   transform: scale(0.96);
   transform-origin: left center;
 }
-/* Планшет · торги: чуть выше панель Юга под увеличенный аватар (рост вверх к картам ок) */
-.game-table-root.game-table-tablet-pc.game-phase-bidding .user-player-panel {
-  padding-top: 10px !important;
-}
-.game-table-root.game-table-tablet-pc.game-phase-bidding .user-player-panel .user-player-panel-pc-avatar-wrap {
-  min-height: 58px;
-}
-/* ПК (не планшет) · 3 места · торги: аватар как на планшете (58), панель чуть выше */
-.game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc).game-table-seats-three-pc.game-phase-bidding
-  .user-player-panel {
-  padding-top: 10px !important;
-}
-.game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc).game-table-seats-three-pc.game-phase-bidding
-  .user-player-panel
-  .user-player-panel-pc-avatar-wrap {
-  min-height: 58px;
-}
+/*
+ * Панель Юга · padding / min-height аватара / торги —
+ * канон в src/styles/user-south-panel.css (не дублировать здесь: ПК≠планшет).
+ */)
 /* Планшет: стопка взяток З/В не шире панели */
 .game-table-root.game-table-tablet-pc .opponent-slot-west .trick-slots-opponent-pc-stack,
 .game-table-root.game-table-tablet-pc .opponent-slot-east .trick-slots-opponent-pc-stack,
@@ -4964,9 +4947,9 @@
   max-width: 100%;
   box-sizing: border-box;
 }
-/* Сукно чуть выше боков, без наезда на руку */
+/* Сукно чуть выше боков, без наезда на руку (−18 = было −28, стол на 10px ниже) */
 .game-table-root.game-table-tablet-pc.game-table-seats-three-pc .game-center-table {
-  transform: translateY(-28px);
+  transform: translateY(-18px);
 }
 .game-table-root.game-table-tablet-pc.game-table-seats-three-pc
   .game-info-row
@@ -5180,9 +5163,9 @@
   max-height: 100dvh;
   overscroll-behavior: none;
 }
-/* Планшет · 4p: стол выше (базовые −5px + ещё −3px) */
+/* Планшет · 4p: стол (+2 = было −8, опущен на 10px) */
 .game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc) .game-center-table {
-  transform: translateY(-8px);
+  transform: translateY(2px);
 }
 .game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc) .game-info-row {
   margin-bottom: 3px !important;
@@ -5200,6 +5183,15 @@
   right: auto !important;
   transform: translateX(-50%) !important;
   z-index: 28 !important;
+}
+/*
+ * Планшет · только 4 игрока: панель Север + весь контент внутри −3%.
+ * 3p / ПК / мобилка не трогаем. transform-origin сверху — якорь top:25px сохраняется.
+ */
+.game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc)
+  > .game-center-north.game-center-north--tablet-four.game-center-north--tablet-top-pin {
+  transform: translateX(-50%) scale(0.97) !important;
+  transform-origin: top center !important;
 }
 .game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc) .game-pc-user-layer {
   bottom: 4px !important;
@@ -23057,7 +23049,7 @@ html.theme-standard
     0 0 12px rgba(168, 85, 247, 0.28);
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--value:not(:disabled):hover,
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--value:not(:disabled):hover {
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--value:not(:disabled):hover {
   color: var(--scale-gear-value-color, #a5f3fc);
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra:disabled {
@@ -23070,7 +23062,7 @@ html.theme-standard
 }
 .game-table-root:not(.viewport-mobile) .pc-table-settings-ultra--wheel:focus-visible,
 .game-table-root:not(.viewport-mobile) .scale-gear-btn--scroll:focus-visible,
-.game-table-root.game-table-tablet-pc .tablet-table-scale__btn--wheel:focus-visible,
+.game-table-root.game-table-has-table-scale .tablet-table-scale__btn--wheel:focus-visible,
 .game-table-root.game-table-tablet-pc .scale-gear-btn--scroll:focus-visible {
   outline: none;
   box-shadow:
@@ -23393,10 +23385,14 @@ html.theme-standard
   }
 }
 
-/* ПК: панель пользователя Юга — по ширине контента (как maxWidth в playerInfoPanelStyle), не на всю полосу */
+/*
+ * ПК+планшет: базовая геометрия панели Юга (layout-примитивы ниже).
+ * Режимные размеры (padding 9/8 vs 7, max-width без 800, аватар) —
+ * только в src/styles/user-south-panel.css.
+ */
 .game-table-root:not(.viewport-mobile) .user-player-panel {
-  width: auto !important;
-  max-width: 800px !important;
+  width: fit-content !important;
+  max-width: min(800px, 100%) !important;
   box-sizing: border-box !important;
   padding-top: 7px !important;
   padding-bottom: 7px !important;
@@ -23407,6 +23403,8 @@ html.theme-standard
   border-radius: 14px !important;
   /* настройки стола absolute + оверлей не должны клипаться */
   overflow: visible !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 
 /* ПК: слева колонка «аватар + имя под ним» и рядом «Ваш ход» над взятками; справа очки и заказ */
@@ -23500,28 +23498,17 @@ html.theme-standard
   flex-direction: column !important;
   align-items: center !important;
   gap: 4px !important;
-  max-width: 132px !important;
+  max-width: 200px !important;
   min-width: 0 !important;
   text-align: center !important;
 }
+/* ПК/планшет: имя под аватаркой Юга — крупный кегль (×2 к прежнему 12–15px) */
 .game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-name-text {
   display: block !important;
   max-width: 100% !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
-  font-size: clamp(12px, 1.05vw, 15px) !important;
-  line-height: 1.2 !important;
-}
-/* Планшет · 4 игрока: имя пользователя в панельке Юга ×2 */
-.game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc)
-  .user-player-panel
-  .user-player-panel-pc-name-under-avatar {
-  max-width: 200px !important;
-}
-.game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc)
-  .user-player-panel
-  .user-player-panel-pc-name-text {
   font-size: clamp(24px, 2.1vw, 30px) !important;
   line-height: 1.15 !important;
 }
@@ -23912,10 +23899,10 @@ html.theme-standard
   display: none !important;
 }
 .game-table-root:not(.viewport-mobile).game-phase-bidding .bid-panel-pc-on-table .bid-panel-btn {
-  width: calc(32px * var(--pc-card-scale, 1)) !important;
-  height: calc(32px * var(--pc-card-scale, 1)) !important;
-  font-size: calc(14px * var(--pc-card-scale, 1)) !important;
-  border-radius: calc(10px * var(--pc-card-scale, 1)) !important;
+  width: calc(32px * var(--pc-bid-btn-scale, var(--pc-card-scale, 1))) !important;
+  height: calc(32px * var(--pc-bid-btn-scale, var(--pc-card-scale, 1))) !important;
+  font-size: calc(14px * var(--pc-bid-btn-scale, var(--pc-card-scale, 1))) !important;
+  border-radius: calc(10px * var(--pc-bid-btn-scale, var(--pc-card-scale, 1))) !important;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent !important;
   -webkit-appearance: none;
@@ -23968,20 +23955,20 @@ html.theme-standard
 /* Планшет: чуть крупнее hit-area цифр заказа */
 @media (max-width: 1366px) {
   .game-table-root:not(.viewport-mobile).game-table-tablet-pc.game-phase-bidding .bid-panel-pc-on-table .bid-panel-btn {
-    width: calc(40px * var(--pc-card-scale, 1)) !important;
-    height: calc(40px * var(--pc-card-scale, 1)) !important;
-    font-size: calc(16px * var(--pc-card-scale, 1)) !important;
-    border-radius: calc(11px * var(--pc-card-scale, 1)) !important;
+    width: calc(40px * var(--pc-bid-btn-scale, var(--pc-card-scale, 1))) !important;
+    height: calc(40px * var(--pc-bid-btn-scale, var(--pc-card-scale, 1))) !important;
+    font-size: calc(16px * var(--pc-bid-btn-scale, var(--pc-card-scale, 1))) !important;
+    border-radius: calc(11px * var(--pc-bid-btn-scale, var(--pc-card-scale, 1))) !important;
   }
   .game-table-root:not(.viewport-mobile).game-table-tablet-pc .bid-panel-pc-on-table .bid-panel-grid {
-    gap: calc(6px * var(--pc-card-scale, 1)) !important;
+    gap: calc(6px * var(--pc-bid-btn-scale, var(--pc-card-scale, 1))) !important;
   }
 }
 .game-table-root:not(.viewport-mobile) .bid-panel-pc-on-table .bid-panel-grid {
   flex-wrap: wrap !important;
   justify-content: center !important;
   max-width: 100% !important;
-  gap: calc(4px * var(--pc-card-scale, 1)) !important;
+  gap: calc(4px * var(--pc-bid-btn-scale, var(--pc-card-scale, 1))) !important;
 }
 
 /* ПК: панель заказа — в потоке, компактнее кнопки на торгах (legacy under-score; на столе — .bid-panel-pc-on-table) */
@@ -24627,6 +24614,40 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   inset: 0;
   pointer-events: none;
   z-index: 1;
+}
+/*
+ * ПК/планшет: шапка (.game-info-row z=22) и Север (портал z=28) выше стола
+ * (у .game-center-area инлайн z-index:10 — нужен !important).
+ * Пока видна подпись/тултип «Вся колода на руках» — центр выше Севера внутри блока.
+ */
+.game-table-root:not(.viewport-mobile)
+  .game-center-area:has(.trump-dealer-held-indicator--hint-open),
+.game-table-root:not(.viewport-mobile)
+  .game-center-area:has(.trump-dealer-held-indicator--label-open) {
+  z-index: 36 !important;
+}
+/*
+ * ПК · только трое: бейдж «Контракт» в .game-header (z=20) — снаружи
+ * .game-table-block (у блока transform → свой stacking context). Подъём
+ * .game-center-area внутри блока не бьёт шапку. Пока открыт космический
+ * тултип — поднимаем весь блок выше шапки (только --hint-open, не всю фазу торгов).
+ */
+.game-table-root.game-table-seats-three-pc:not(.viewport-mobile):has(
+    .trump-dealer-held-indicator--hint-open
+  )
+  .game-table-block {
+  position: relative;
+  z-index: 24;
+}
+.game-table-root:not(.viewport-mobile)
+  .trump-dealer-held-indicator--hint-open,
+.game-table-root:not(.viewport-mobile)
+  .trump-dealer-held-indicator--label-open {
+  z-index: 8;
+}
+.game-table-root:not(.viewport-mobile)
+  .trump-dealer-held-indicator__hint.game-table-tooltip-cosmic {
+  z-index: 40 !important;
 }
 .trump-dealer-held-indicator__deck,
 .trump-dealer-held-indicator__hint,
@@ -25659,7 +25680,7 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
   font-size: 11px !important;
   font-weight: 600 !important;
   line-height: 1.4 !important;
-  z-index: 4 !important;
+  z-index: 36 !important;
   transform: none !important;
   pointer-events: none !important;
   animation: trump-dealer-held-tooltip-pop 0.22s ease-out both !important;
@@ -27950,16 +27971,23 @@ html:has(.game-table-root.viewport-mobile.viewport-mobile-short) {
     padding-bottom: 7px !important;
   }
 
-  /* ПК: небольшой отступ аватарки от верхнего края панели (только не бескозырка) */
-  .game-table-root:not(.viewport-mobile):not(.deal-type-no-trump) .user-player-panel {
-    padding-top: 9px !important;
-    padding-bottom: 8px !important;
+  /*
+   * ПК desktop (НЕ планшет): padding 11/11 (= 9/8 +2 сверху +3 снизу).
+   * Канон дублирует в user-south-panel.css; здесь — для тем/бескозырки до канона.
+   */
+  .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc):not(.deal-type-no-trump) .user-player-panel {
+    padding-top: 11px !important;
+    padding-bottom: 11px !important;
   }
-  .game-table-root:not(.viewport-mobile):not(.deal-type-no-trump) .user-player-panel .user-player-panel-pc-avatar-col {
+  .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc):not(.deal-type-no-trump)
+    .user-player-panel
+    .user-player-panel-pc-avatar-col {
     padding-top: 3px !important;
     box-sizing: border-box !important;
   }
-  .game-table-root.deal-type-no-trump:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-avatar-col {
+  .game-table-root.deal-type-no-trump:not(.viewport-mobile):not(.game-table-tablet-pc)
+    .user-player-panel
+    .user-player-panel-pc-avatar-col {
     padding-top: 0 !important;
     box-sizing: border-box !important;
   }
@@ -62088,7 +62116,26 @@ body:has(.menu-screen) {
   position: relative !important;
 }
 
-/* ПК: classic teal-обводка pc-info-badge-* не перебивает plasma */
+/*
+ * ПК/планшет · plasma: без внешнего ореола у бейджа (только inset / тонкий rim).
+ * Переливы рамки — в правиле ::after выше (spin без box-shadow/filter).
+ */
+@keyframes plasma-badge-frame-pulse-pc {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(221, 214, 254, 0.14),
+      inset 0 0 28px rgba(99, 102, 241, 0.12),
+      inset 0 0 0 1px rgba(165, 180, 252, 0.2);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(221, 214, 254, 0.18),
+      inset 0 0 34px rgba(99, 102, 241, 0.16),
+      inset 0 0 0 1px rgba(196, 181, 253, 0.28);
+  }
+}
+
 .game-table-root.game-info-badge-plasma:not(.viewport-mobile)
   .game-info-row
   .game-info-left-col
@@ -62106,15 +62153,11 @@ body:has(.menu-screen) {
   .game-info-left-col
   .game-info-left-section.pc-info-badge--user-turn {
   border-color: transparent !important;
+  animation: plasma-badge-frame-pulse-pc 2.8s ease-in-out infinite !important;
   box-shadow:
-    inset 0 1px 0 rgba(221, 214, 254, 0.11),
-    inset 0 0 40px rgba(99, 102, 241, 0.08),
-    0 0 18px rgba(34, 211, 238, 0.22),
-    0 0 32px rgba(124, 58, 237, 0.38),
-    0 0 46px rgba(147, 51, 234, 0.3),
-    0 0 58px rgba(196, 181, 253, 0.2),
-    0 0 68px rgba(167, 139, 250, 0.14),
-    0 8px 30px rgba(3, 7, 18, 0.62) !important;
+    inset 0 1px 0 rgba(221, 214, 254, 0.14),
+    inset 0 0 28px rgba(99, 102, 241, 0.12),
+    inset 0 0 0 1px rgba(165, 180, 252, 0.2) !important;
 }
 
 /* Hologram shimmer — вне immersive short (pseudo там заняты) */
@@ -62980,7 +63023,8 @@ body:has(.menu-screen) {
   .game-info-row
   .game-info-left-col
   .game-info-left-section.pc-info-badge--user-turn {
-  animation: plasma-badge-frame-pulse 2.6s ease-in-out infinite !important;
+  /* pulse уже на .pc-info-badge-* выше (plasma-badge-frame-pulse-pc) */
+  animation: plasma-badge-frame-pulse-pc 2.6s ease-in-out infinite !important;
 }
 
 .game-table-root.game-info-badge-plasma.viewport-mobile .game-info-left-section,

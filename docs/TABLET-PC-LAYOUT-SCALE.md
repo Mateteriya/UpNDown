@@ -11,13 +11,17 @@
 | Эталон | **1035 × 618** CSS-px |
 | Код | `TABLET_LAYOUT_REF_WIDTH_PX` / `TABLET_LAYOUT_REF_HEIGHT_PX` в `src/game/tabletViewportScale.ts` |
 
-**Если viewport отличается от эталона** — мягкий `zoom` всего `.game-table-root.game-table-tablet-pc` в обе стороны:
+**Если viewport меньше эталона** — мягкий `zoom` вниз всего `.game-table-root.game-table-tablet-pc`:
 
 ```
-scale = clamp(min(width/1035, height/618), 0.72 … 1.45)
+scale = clamp(min(width/1035, height/618), 0.72 … 1)
 ```
 
-Класс `game-table-tablet-pc--viewport-scaled` при `scale ≠ 1`.  
+**Если viewport больше эталона** — `scale = 1` (без увеличения). Раньше max был 1.45:
+zoom>1 раздувал стол и панель Юга → они зажимали руку по вертикали. На крупном экране
+оставляем эталонный размер и свободные поля.
+
+Класс `game-table-tablet-pc--viewport-scaled` при `scale !== 1` (обычно только scale<1).  
 **Не** фиксируем логический размер в 1035×618 (это обрезало стол из‑за `translateY` подъёма).
 
 При правках планшет-layout ориентироваться на **1035×618**.
@@ -67,7 +71,8 @@ scale = clamp(min(width/1035, height/618), 0.72 … 1.45)
 | DOM стола | **ПК-оболочка** + `game-table-tablet-pc` |
 | Карты руки / взятки | **Компакт планшета**, без ×1.10 |
 | Масштаб сукна | шестерёнка на рамке, 93–108% (100% = изначальный) |
-| Viewport &lt; 1035×618 | пропорциональный `zoom` всего стола |
+| Viewport &lt; 1035×618 | пропорциональный `zoom` вниз |
+| Viewport ≥ 1035×618 | `zoom = 1` (без upscale — иначе зажим руки) |
 
 ### C. Полный ПК (`!isMobileOrTablet`, ширина ≥1025)
 
@@ -78,8 +83,9 @@ scale = clamp(min(width/1035, height/618), 0.72 … 1.45)
 ## QA-чеклист (планшет-layout)
 
 1. DevTools **1035×618**: эталон, `tabletViewportScale = 1`.
-2. DevTools **~900×550**: класс `game-table-tablet-pc--viewport-scaled`, всё пропорционально меньше.
-3. Телефон `viewport-mobile`: без tablet viewport zoom.
+2. DevTools **~900×550**: `tabletViewportScale < 1`, всё пропорционально меньше, без наложений.
+3. DevTools **крупнее эталона** (напр. 1200×800): `tabletViewportScale = 1` (не раздувать), зазоры/рука ок.
+4. Телефон `viewport-mobile`: без tablet viewport zoom.
 
 ---
 
