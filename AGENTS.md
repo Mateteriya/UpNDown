@@ -15,7 +15,7 @@
 
 ## Мобильная версия: не ломать при правках ПК
 
-- **Breakpoint:** до 1024px — компакт карт (`isMobileOrTablet`); класс `viewport-mobile` — при ≤600px или (≤1024 и высота ≤560). 1025px+ — полный ПК.
+- **Breakpoint:** до 1024px — компакт карт (`isMobileOrTablet`); класс `viewport-mobile` — при ≤600px, или phone-landscape (≤1024 × ≤500 и aspect ≥ 1.9), или **601–899** (= мобильный landscape). **900–1024** — планшет-стол (`game-table-tablet-pc`, zoom ×0.94). 1025px+ — полный ПК (до 1366 возможен планшет-шелл).
 - **Планшет-стол:** калибровка на **1035×618** CSS-px; на другом размере viewport — пропорциональный scale в обе стороны (`src/game/tabletViewportScale.ts`, `docs/TABLET-PC-LAYOUT-SCALE.md`).
 - Стили карт и стола для **ПК** — только внутри `@media (min-width: 1025px)` и/или селектора `.game-table-root:not(.viewport-mobile)`. Не менять мобильные стили при доработке ПК.
 - В коде: правки только для ПК — в ветках `if (!isMobileOrTablet)` или отдельные пропы, не затрагивающие мобильную вёрстку.

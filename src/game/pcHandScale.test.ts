@@ -146,16 +146,16 @@ describe('pcHandScale', () => {
     expect(TABLET_HAND_COMPACT).toBeCloseTo(0.95 * 0.95 * 0.97);
   });
 
-  it('tablet 4p: UI 100% = abs 1.0 (без ПК-надбавки 1.05); потолок 130%', () => {
+  it('tablet 4p: UI 100% = abs 1.0 (без ПК-надбавки 1.05); потолок 200%', () => {
     expect(TABLET_FOUR_HAND_ABS_AT_100).toBe(1);
-    expect(TABLET_FOUR_HAND_SCALE_PCT_MAX).toBe(130);
+    expect(TABLET_FOUR_HAND_SCALE_PCT_MAX).toBe(200);
     expect(tabletFourHandScaleMultiplier(100)).toBe(1);
     expect(tabletFourHandScaleMultiplier(94)).toBeCloseTo(0.94);
     expect(tabletFourHandScaleMultiplier(106)).toBeCloseTo(1.06);
-    expect(tabletFourHandScaleMultiplier(130)).toBeCloseTo(1.3);
-    expect(clampPcFourHandScalePct(140, TABLET_FOUR_HAND_SCALE_PCT_MAX)).toBe(130);
-    expect(bumpPcFourHandScalePct(125, 1, TABLET_FOUR_HAND_SCALE_PCT_STEP, TABLET_FOUR_HAND_SCALE_PCT_MAX)).toBe(130);
-    expect(bumpPcFourHandScalePct(130, 1, TABLET_FOUR_HAND_SCALE_PCT_STEP, TABLET_FOUR_HAND_SCALE_PCT_MAX)).toBe(130);
+    expect(tabletFourHandScaleMultiplier(200)).toBeCloseTo(2);
+    expect(clampPcFourHandScalePct(220, TABLET_FOUR_HAND_SCALE_PCT_MAX)).toBe(200);
+    expect(bumpPcFourHandScalePct(195, 1, TABLET_FOUR_HAND_SCALE_PCT_STEP, TABLET_FOUR_HAND_SCALE_PCT_MAX)).toBe(200);
+    expect(bumpPcFourHandScalePct(200, 1, TABLET_FOUR_HAND_SCALE_PCT_STEP, TABLET_FOUR_HAND_SCALE_PCT_MAX)).toBe(200);
     expect(tabletFourHandScaleMultiplier(100)).toBeLessThan(pcFourHandScaleMultiplier(100));
   });
 
@@ -173,6 +173,11 @@ describe('pcHandScale', () => {
     expect(h100 - h95).toBeCloseTo(5, 5);
     expect(bumpPcFourHandScalePct(100, 1, TABLET_FOUR_HAND_SCALE_PCT_STEP)).toBe(105);
     expect(bumpPcFourHandScalePct(100, -1, TABLET_FOUR_HAND_SCALE_PCT_STEP)).toBe(95);
+    /* Off-grid (напр. после ПК step 1): следующий клик попадает на 100% */
+    expect(bumpPcFourHandScalePct(99, 1, TABLET_FOUR_HAND_SCALE_PCT_STEP, TABLET_FOUR_HAND_SCALE_PCT_MAX)).toBe(100);
+    expect(bumpPcFourHandScalePct(99, -1, TABLET_FOUR_HAND_SCALE_PCT_STEP, TABLET_FOUR_HAND_SCALE_PCT_MAX)).toBe(95);
+    expect(bumpPcFourHandScalePct(101, -1, TABLET_FOUR_HAND_SCALE_PCT_STEP, TABLET_FOUR_HAND_SCALE_PCT_MAX)).toBe(100);
+    expect(bumpPcFourHandScalePct(94, 1, TABLET_FOUR_HAND_SCALE_PCT_STEP, TABLET_FOUR_HAND_SCALE_PCT_MAX)).toBe(95);
   });
 
   it('tablet 4p: table cards −2px height at 100% (compact base 76)', () => {

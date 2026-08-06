@@ -26,8 +26,8 @@ export const PC_FOUR_HAND_ABS_AT_100 =
 
 export const PC_FOUR_HAND_SCALE_PCT_MIN = 94; /* 100 − 6 */
 export const PC_FOUR_HAND_SCALE_PCT_MAX = 106; /* 100 + 6 */
-/** Планшет · 4p: потолок шестерёнки карт выше, чем на ПК. */
-export const TABLET_FOUR_HAND_SCALE_PCT_MAX = 130;
+/** Планшет / mid · 4p: потолок шестерёнки карт выше, чем на ПК. */
+export const TABLET_FOUR_HAND_SCALE_PCT_MAX = 200;
 /** Потолок в storage/read — max(ПК, планшет), чтобы 130% не срезался при чтении. */
 export const FOUR_HAND_SCALE_PCT_STORAGE_MAX = TABLET_FOUR_HAND_SCALE_PCT_MAX;
 export const PC_FOUR_HAND_SCALE_PCT_DEFAULT = 100;
@@ -43,6 +43,7 @@ export const PC_HAND_SCALE_LS_KEY = 'updown_pc_hand_scale_boost';
 export const PC_THREE_HAND_SCALE_LS_KEY = 'updown_pc_three_hand_scale_pct';
 export const PC_FOUR_HAND_SCALE_LS_KEY = 'updown_pc_four_hand_scale_pct';
 export const PC_TABLE_SETTINGS_OPEN_LS_KEY = 'updown_pc_table_settings_open';
+export const PC_SCALE_WHEEL_ARMED_LS_KEY = 'updown_pc_scale_wheel_armed';
 
 export type PcFourHandScalePct = number;
 export type PcThreeHandScalePct = number;
@@ -189,7 +190,19 @@ export function bumpPcFourHandScalePct(
   max: number = PC_FOUR_HAND_SCALE_PCT_MAX,
 ): PcFourHandScalePct {
   const s = Number.isFinite(step) && step > 0 ? step : PC_FOUR_HAND_SCALE_PCT_STEP;
-  return clampPcFourHandScalePct(current + dir * s, max);
+  const base = PC_FOUR_HAND_SCALE_PCT_DEFAULT;
+  let next: number;
+  if (s <= 1) {
+    next = current + dir * s;
+  } else if (dir > 0) {
+    /* Сетка …95,100,105… — 100% всегда достижим (шаг 5 с min 94 иначе давал 94→99→104). */
+    const k = Math.floor((current - base) / s) + 1;
+    next = base + k * s;
+  } else {
+    const k = Math.ceil((current - base) / s) - 1;
+    next = base + k * s;
+  }
+  return clampPcFourHandScalePct(next, max);
 }
 
 /** Панель «Настройки» на столе ПК: по умолчанию свёрнута. */
@@ -206,6 +219,25 @@ export function writePcTableSettingsOpen(open: boolean): void {
   try {
     if (typeof localStorage === 'undefined') return;
     localStorage.setItem(PC_TABLE_SETTINGS_OPEN_LS_KEY, open ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Регулировка масштаба карт скроллом: помнить выбор между открытиями капсулы. */
+export function readPcScaleWheelArmed(): boolean {
+  try {
+    if (typeof localStorage === 'undefined') return false;
+    return localStorage.getItem(PC_SCALE_WHEEL_ARMED_LS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function writePcScaleWheelArmed(armed: boolean): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(PC_SCALE_WHEEL_ARMED_LS_KEY, armed ? '1' : '0');
   } catch {
     /* ignore */
   }

@@ -47,11 +47,13 @@ zoom>1 раздувал стол и панель Юга → они зажима�
 | Флаг | Media Query | Что включает |
 |------|-------------|--------------|
 | `isMobileOrTablet` | `max-width: 1024px` | Компактные карты руки/взятки, сетка 2×2 |
-| `isMobile` (`viewport-mobile`) | `max-width: 600px` **или** `(max-width: 1024px) and (max-height: 560px)` | Мобильный DOM, short-VH, **полный сброс** PC-scale (`pcScaleBoost = 0`) |
+| `isMobile` (`viewport-mobile`) | `max-width: 600px` **или** phone-landscape `(max-width: 1024px) and (max-height: 500px) and (min-aspect-ratio: 1.9)` **или** ширина 601–899 | Мобильный DOM стола |
 
 Планшет-тюнинг стола: `useTabletPcTableTuning` = `!isMobile && (isMobileOrTablet || isTabletPcShell)`.
 
-**Важно:** класс `viewport-mobile` вешается только при `isMobile`. Высокий планшет 768×1024 — **не** `viewport-mobile`.
+**Закрытие дыры 601–1024 (без отдельных mid-стилей):**
+- **601–899** → тот же режим, что **мобильный landscape** (`viewport-mobile` + `viewport-mobile-landscape`)
+- **900–1024** → тот же **планшет-шелл** (`game-table-tablet-pc`), zoom дополнительно ×0.94 (~−6%)
 
 ---
 

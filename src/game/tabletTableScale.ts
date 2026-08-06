@@ -1,13 +1,13 @@
 /**
  * Планшет (ПК-шелл): ручной масштаб сукна.
  * UI: 100% = изначальный размер режима.
- * Диапазон 93%…108%; шаг по умолчанию 1% (3p / ПК·4p).
+ * Диапазон 93%…116%; шаг по умолчанию 1% (3p / ПК·4p).
  * Планшет · 4p: шаг крупнее; высота растёт смелее UI%, ширина почти не следует.
  * 4p: «100%» = бывший визуал 125% высоты (и пропорциональная ширина базы).
  */
 
 export const TABLET_TABLE_SCALE_PCT_MIN = 93;
-export const TABLET_TABLE_SCALE_PCT_MAX = 108;
+export const TABLET_TABLE_SCALE_PCT_MAX = 116;
 export const TABLET_TABLE_SCALE_PCT_DEFAULT = 100;
 export const TABLET_TABLE_SCALE_PCT_STEP = 1;
 /** Планшет · 4p: крупнее шаг шестерёнки стола (высота вниз). */
@@ -55,7 +55,7 @@ export function defaultTabletTableScalePct(_playerCount: 3 | 4): TabletTableScal
   return TABLET_TABLE_SCALE_PCT_DEFAULT;
 }
 
-/** Старый boost 25 ≡ новый UI 100%; иначе — в ближайшее в 93…108. */
+/** Старый boost 25 ≡ новый UI 100%; иначе — в ближайшее в 93…116. */
 function migrateLegacyBoostToPct(boost: number, playerCount: 3 | 4): TabletTableScalePct {
   if (!Number.isFinite(boost)) return TABLET_TABLE_SCALE_PCT_DEFAULT;
   if (playerCount === 4) {
@@ -66,7 +66,7 @@ function migrateLegacyBoostToPct(boost: number, playerCount: 3 | 4): TabletTable
   return clampTabletTableScalePct(100 + boost);
 }
 
-/** Миграция со шкалы 90/100/110 → 93…108. */
+/** Миграция со шкалы 90/100/110 → 93…116. */
 function migrateOldPctScale(pct: number): TabletTableScalePct {
   if (!Number.isFinite(pct)) return TABLET_TABLE_SCALE_PCT_DEFAULT;
   if (pct <= 90) return TABLET_TABLE_SCALE_PCT_MIN;
@@ -181,7 +181,7 @@ export function tabletTableWidthMul(
   return baseWidthMul(playerCount) * (1 + delta);
 }
 
-/** При 107–108% зазор стол↔Запад/Восток уменьшаем вдвое. */
+/** При ≥107% зазор стол↔Запад/Восток уменьшаем вдвое. */
 export function tabletTableSideGapTight(pct: TabletTableScalePct): boolean {
   const p = clampTabletTableScalePct(pct);
   return p >= 107;
@@ -189,3 +189,56 @@ export function tabletTableSideGapTight(pct: TabletTableScalePct): boolean {
 
 export const TABLET_CENTER_AREA_GAP_PX = 16;
 export const TABLET_CENTER_AREA_GAP_TIGHT_PX = 8;
+
+/** Mid 601–899: отдельный LS — не смешивать с планшетом 900+. */
+export const MID_TABLE_SCALE_LS_KEY_FOUR = 'updown_mid_table_scale_pct_4';
+export const MID_TABLE_SCALE_LS_KEY_THREE = 'updown_mid_table_scale_pct_3';
+
+export function midTableScaleLsKey(playerCount: 3 | 4): string {
+  return playerCount === 3 ? MID_TABLE_SCALE_LS_KEY_THREE : MID_TABLE_SCALE_LS_KEY_FOUR;
+}
+
+export function readMidTableScalePct(playerCount: 3 | 4 = 4): TabletTableScalePct {
+  const fallback = defaultTabletTableScalePct(playerCount);
+  try {
+    if (typeof localStorage === 'undefined') return fallback;
+    const keyed = localStorage.getItem(midTableScaleLsKey(playerCount));
+    if (keyed != null) return migrateOldPctScale(Number(keyed));
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function writeMidTableScalePct(
+  pct: TabletTableScalePct,
+  playerCount: 3 | 4 = 4,
+): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(
+      midTableScaleLsKey(playerCount),
+      String(clampTabletTableScalePct(pct)),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Mid: множитель высоты сукна без tablet-базы 1.25.
+ * Усиление UI-дельты как у планшета·4p — заметный рост вниз.
+ * Рост только вниз — якорь верха в вёрстке (без отриц. marginTop).
+ */
+export function midTableHeightMul(pct: TabletTableScalePct): number {
+  const p = clampTabletTableScalePct(pct);
+  const delta = (p - TABLET_TABLE_SCALE_PCT_DEFAULT) / 100;
+  return 1 + delta * TABLET_FOUR_HEIGHT_SCALE_GAIN;
+}
+
+/** Mid: ширина почти не следует за UI% (как tablet·4p follow). */
+export function midTableWidthMul(pct: TabletTableScalePct): number {
+  const p = clampTabletTableScalePct(pct);
+  const delta = (p - TABLET_TABLE_SCALE_PCT_DEFAULT) / 100;
+  return 1 + delta * TABLET_FOUR_WIDTH_SCALE_FOLLOW;
+}

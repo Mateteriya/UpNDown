@@ -324,12 +324,12 @@
   -webkit-background-clip: unset !important;
 }
 
-/* Бейдж «I: имя» */
-.theme-standard .game-table-root.viewport-mobile .first-move-badge {
+/* Бейдж «I: имя» (шапка); капсула на сукне — свой хрустальный стиль в index.css */
+.theme-standard .game-table-root.viewport-mobile .first-move-badge:not(.first-move-badge--on-table) {
   background: linear-gradient(135deg, rgba(88, 28, 135, 0.9) 0%, rgba(67, 56, 202, 0.85) 100%) !important;
   opacity: 1 !important;
 }
-.theme-standard .game-table-root.viewport-mobile .first-move-badge span {
+.theme-standard .game-table-root.viewport-mobile .first-move-badge:not(.first-move-badge--on-table) span {
   color: #38bdf8 !important;
   -webkit-text-fill-color: #38bdf8 !important;
   opacity: 1 !important;

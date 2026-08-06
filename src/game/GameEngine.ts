@@ -176,7 +176,8 @@ export function createGame(
     },
     {
       id: 'ai1',
-      name: 'ИИ Север',
+      /** 3p: idx1 сидит Востоком (ПК / mid); 4p — Север */
+      name: playerCount === 3 ? 'ИИ Восток' : 'ИИ Север',
       hand: [],
       bid: undefined,
       tricksTaken: 0,

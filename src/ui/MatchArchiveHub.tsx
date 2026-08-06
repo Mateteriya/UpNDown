@@ -23,7 +23,7 @@ import { chipColor } from './DealResultsSettlement';
 /** Дефолтные имена офлайн-ботов (как в createGame) — если в старой записи имя пустое. */
 function offlineDefaultSeatName(seat: number, playerCount: number): string {
   if (seat === 0) return '';
-  if (seat === 1) return 'ИИ Север';
+  if (seat === 1) return playerCount === 3 ? 'ИИ Восток' : 'ИИ Север';
   if (seat === 2) return playerCount === 3 ? 'ИИ Запад' : 'ИИ супердлинноеим';
   if (seat === 3) return 'Семнадцать символ';
   return '';

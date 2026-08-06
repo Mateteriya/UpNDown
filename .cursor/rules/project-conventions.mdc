@@ -6,6 +6,6 @@ alwaysApply: true
 # Up&Down — правила проекта
 
 - **Профиль игрока** — единственный источник правды для имени/аватара. Использовать `getPlayerProfile()` / `savePlayerProfile()` (persistence). Рейтинг привязан к `profileId`. При восстановлении партии из storage подставлять текущее имя из профиля.
-- **Мобильная версия:** при правках карт/стола для ПК не менять стили и логику для мобильной. Компакт карт: ≤1024 (`isMobileOrTablet`); `viewport-mobile`: ≤600 или (≤1024 и высота ≤560); полный ПК: 1025+. ПК-стили — в `@media (min-width: 1025px)` и/или `.game-table-root:not(.viewport-mobile)`. Детали: docs/PC-CARDS-PROTECT-MOBILE.md.
+- **Мобильная версия:** при правках карт/стола для ПК не менять стили и логику для мобильной. Компакт карт: ≤1024 (`isMobileOrTablet`); `viewport-mobile`: ≤600, или phone-landscape (≤1024×≤500 aspect≥1.9), или 601–899 (= мобильный landscape); 900–1024 — планшет-шелл (−6% zoom); полный ПК: 1025+. ПК-стили — в `@media (min-width: 1025px)` и/или `.game-table-root:not(.viewport-mobile)`. Детали: docs/PC-CARDS-PROTECT-MOBILE.md.
 - **Планшет-стол:** эталон калибровки **1035×618** CSS-px; на другом размере экрана — пропорциональный scale в обе стороны (`tabletViewportScale.ts`, docs/TABLET-PC-LAYOUT-SCALE.md).
 - **План дальше:** docs/PLAN-DALEE.md (актуально: онлайн-стабильность → аудио/EN → премиум → CC/турниры; обучение и свой Auth — бэклог). Полный ориентир: AGENTS.md.

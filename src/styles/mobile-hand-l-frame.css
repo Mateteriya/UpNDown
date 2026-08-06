@@ -300,6 +300,7 @@
 /*
  * Цифры заказа при L-gutter: явные строки.
  * Две нижние — до 4 кнопок; все выше — макс. 3. Только под .game-mobile-l-hand-table-gutter.
+ * Базовая раскладка рядов — в index.css (--rows); здесь только сужение верхних рядов.
  */
 .game-table-root.viewport-mobile.game-mobile-l-hand-table-gutter:not(.viewport-mobile-landscape):not(
     .viewport-mobile-short-header-immersive

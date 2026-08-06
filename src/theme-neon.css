@@ -3,8 +3,8 @@
  * ПК не затрагивается.
  */
 
-/* Бейдж «I: имя» */
-.theme-neon .game-table-root.viewport-mobile .first-move-badge span {
+/* Бейдж «I: имя» (шапка); капсула на сукне — index.css */
+.theme-neon .game-table-root.viewport-mobile .first-move-badge:not(.first-move-badge--on-table) span {
   color: #38bdf8 !important;
   -webkit-text-fill-color: #38bdf8 !important;
   opacity: 1 !important;

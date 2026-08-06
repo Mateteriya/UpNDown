@@ -1351,19 +1351,21 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
               {/* Карты на столе (ПК): те же правила, что на руках — 4 угла, сетка пипов, границы; не для мобильной руки и не для козыря на колоде */}
               {compact && showDesktopFaceIndices && !tableCardMobile && !suitIndexInHandMobile && (!trumpOnDeck || pcCardStyles) && isNumericRank(card.rank) && (() => {
                 const kTable = 1.2;
-                const topRightTable = -4; /* верхний правый индекс масти чуть повыше (блок 2 — карты на столе) */
+                /* Чуть внутрь от толстой обводки (было top/bottom ≤0 — глифы цепляли рамку) */
+                const edge = doubleBorder ? 2 : 1;
+                const side = Math.round((doubleBorder ? 5 : 4) * scale);
                 return (
                   <>
-                    <span style={{ position: 'absolute', top: -1, left: Math.round(3 * scale), fontSize: Math.round(14 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 1 }}>
+                    <span style={{ position: 'absolute', top: edge, left: side, fontSize: Math.round(14 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 2 }}>
                       {card.rank}
                     </span>
-                    <span style={{ position: 'absolute', top: topRightTable, right: Math.round(3 * scale), fontSize: Math.round(18 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 1 }}>
+                    <span style={{ position: 'absolute', top: edge - 1, right: side, fontSize: Math.round(18 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 2 }}>
                       {card.suit}
                     </span>
-                    <span style={{ position: 'absolute', bottom: -3, left: Math.round(3 * scale), fontSize: Math.round(18 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 1 }}>
+                    <span style={{ position: 'absolute', bottom: edge - 1, left: side, fontSize: Math.round(18 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 2 }}>
                       {card.suit}
                     </span>
-                    <span style={{ position: 'absolute', bottom: -2, right: Math.round(3 * scale), fontSize: Math.round(14 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 1 }}>
+                    <span style={{ position: 'absolute', bottom: edge, right: side, fontSize: Math.round(14 * kTable * cs), fontWeight: 700, lineHeight: 1, zIndex: 2 }}>
                       {card.rank}
                     </span>
                   </>
@@ -1732,6 +1734,16 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                     if (idx === -1) return 50;
                     return ((idx + 1) / (usedOuterRows.length + 1)) * 100;
                   };
+                  const pipZoneLinesOn =
+                    showPipZoneBorders &&
+                    !(trumpOnDeck && !trumpDeckHighlightOn) &&
+                    !(isTrumpInHand && !trumpHighlightOn) &&
+                    !(isTrumpOnTableDim);
+                  /*
+                   * Compact (стол): зона пипов ниже крупных угловых индексов —
+                   * иначе декоративные линии режут глифы масти/ранга (не мелкие пипы).
+                   */
+                  const zoneY = compact ? '32%' : '20%';
                   const neonLineStyle: React.CSSProperties = {
                     position: 'absolute',
                     left: 0,
@@ -1758,14 +1770,14 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                         position: 'absolute',
                         left: '12%',
                         right: '12%',
-                        top: '20%',
-                        bottom: '20%',
+                        top: zoneY,
+                        bottom: zoneY,
                         pointerEvents: 'none',
                         lineHeight: 1,
                         zIndex: 1,
                       }}
                     >
-                      {showPipZoneBorders && !(trumpOnDeck && !trumpDeckHighlightOn) && !(isTrumpInHand && !trumpHighlightOn) && !(isTrumpOnTableDim) && (
+                      {pipZoneLinesOn && (
                         <>
                           <span style={glowToCenterStyle} aria-hidden />
                           <span style={{ ...neonLineStyle, top: 0 }} aria-hidden />

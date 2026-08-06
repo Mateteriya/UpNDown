@@ -19,10 +19,10 @@ import {
 } from './tabletTableScale';
 
 describe('tabletTableScale', () => {
-  it('clamps to 93…108 any integer', () => {
+  it('clamps to 93…116 any integer', () => {
     expect(clampTabletTableScalePct(100)).toBe(100);
     expect(clampTabletTableScalePct(92)).toBe(93);
-    expect(clampTabletTableScalePct(109)).toBe(108);
+    expect(clampTabletTableScalePct(117)).toBe(116);
     expect(clampTabletTableScalePct(97)).toBe(97);
     expect(clampTabletTableScalePct(104.4)).toBe(104);
   });
@@ -31,12 +31,14 @@ describe('tabletTableScale', () => {
     expect(TABLET_TABLE_SCALE_PCT_STEP).toBe(1);
     expect(TABLET_FOUR_TABLE_SCALE_PCT_STEP).toBe(4);
     expect(bumpTabletTableScalePct(100, 1)).toBe(101);
-    expect(bumpTabletTableScalePct(108, 1)).toBe(108);
+    expect(bumpTabletTableScalePct(116, 1)).toBe(116);
     expect(bumpTabletTableScalePct(100, -1)).toBe(99);
     expect(bumpTabletTableScalePct(93, -1)).toBe(93);
     expect(bumpTabletTableScalePct(100, 1, TABLET_FOUR_TABLE_SCALE_PCT_STEP)).toBe(104);
     expect(bumpTabletTableScalePct(104, 1, TABLET_FOUR_TABLE_SCALE_PCT_STEP)).toBe(108);
-    expect(bumpTabletTableScalePct(108, 1, TABLET_FOUR_TABLE_SCALE_PCT_STEP)).toBe(108);
+    expect(bumpTabletTableScalePct(108, 1, TABLET_FOUR_TABLE_SCALE_PCT_STEP)).toBe(112);
+    expect(bumpTabletTableScalePct(112, 1, TABLET_FOUR_TABLE_SCALE_PCT_STEP)).toBe(116);
+    expect(bumpTabletTableScalePct(116, 1, TABLET_FOUR_TABLE_SCALE_PCT_STEP)).toBe(116);
     expect(bumpTabletTableScalePct(100, -1, TABLET_FOUR_TABLE_SCALE_PCT_STEP)).toBe(96);
   });
 
@@ -69,10 +71,12 @@ describe('tabletTableScale', () => {
     expect(tabletTableWidthMul(108, 3)).toBeCloseTo(1.08);
   });
 
-  it('tightens side gaps at 107–108%', () => {
+  it('tightens side gaps at ≥107%', () => {
     expect(tabletTableSideGapTight(106)).toBe(false);
     expect(tabletTableSideGapTight(107)).toBe(true);
     expect(tabletTableSideGapTight(108)).toBe(true);
+    expect(tabletTableSideGapTight(112)).toBe(true);
+    expect(tabletTableSideGapTight(116)).toBe(true);
   });
 
   it('PC desktop 4p uses pct/100 without tablet 1.25 base', () => {

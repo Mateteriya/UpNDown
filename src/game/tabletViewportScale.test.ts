@@ -15,8 +15,19 @@ describe('tabletViewportScale', () => {
   });
 
   it('scales down when smaller', () => {
-    expect(computeTabletViewportScale(900, 618)).toBeCloseTo(900 / 1035);
+    // 900×618 falls in narrow tablet band → ×0.94 on top of w/ref
+    expect(computeTabletViewportScale(900, 618)).toBeCloseTo((900 / 1035) * 0.94);
     expect(computeTabletViewportScale(1035, 500)).toBeCloseTo(500 / 618);
+  });
+
+  it('applies ~6% shrink on 900–1024 tablet band', () => {
+    expect(computeTabletViewportScale(950, 700)).toBeCloseTo(
+      Math.min(1, Math.min(950 / 1035, 700 / 618)) * 0.94,
+    );
+    // Just above band: no extra shrink
+    expect(computeTabletViewportScale(1025, 700)).toBeCloseTo(
+      Math.min(1, Math.min(1025 / 1035, 700 / 618)),
+    );
   });
 
   it('does not scale up when larger than reference (keeps fit, no hand crush)', () => {

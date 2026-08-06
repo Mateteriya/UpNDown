@@ -10,13 +10,18 @@ function oppNameRevealAutoIntervalMs() {
   return 15000 + Math.floor(Math.random() * 15001);
 }
 
-function buildOppNameRevealSinTranslateKeyframes(maxPx: number, steps = 100): Keyframe[] {
+function revealTranslate(axis: 'x' | 'y', px: number): string {
+  const v = Math.round(px);
+  return axis === 'y' ? `translate3d(0,${-v}px,0)` : `translate3d(${-v}px,0,0)`;
+}
+
+function buildOppNameRevealSinTranslateKeyframes(maxPx: number, axis: 'x' | 'y', steps = 100): Keyframe[] {
   const m = Math.round(maxPx);
   const frames: Keyframe[] = [];
   for (let i = 0; i <= steps; i++) {
     const u = i / steps;
-    const x = Math.round(m * Math.sin(Math.PI * u));
-    frames.push({ transform: `translate3d(${-x}px,0,0)` });
+    const d = Math.round(m * Math.sin(Math.PI * u));
+    frames.push({ transform: revealTranslate(axis, d) });
   }
   return frames;
 }
@@ -25,12 +30,15 @@ type UseMobileOpponentNameWindowScrollOpts = {
   enabled: boolean;
   /** По длине имени — всегда «окошко» и тап, даже если текст ещё помещается */
   forceScrollable?: boolean;
+  /** Горизонтальное окошко (по умолчанию) или вертикальный столбик букв (mid З/В) */
+  axis?: 'x' | 'y';
   remeasureKey?: string | number;
 };
 
 export function useMobileOpponentNameWindowScroll({
   enabled,
   forceScrollable = false,
+  axis = 'x',
   remeasureKey,
 }: UseMobileOpponentNameWindowScrollOpts) {
   const nameWindowRef = useRef<HTMLDivElement | null>(null);
@@ -55,7 +63,11 @@ export function useMobileOpponentNameWindowScroll({
     }
     const measure = () => {
       if (revealAnimatingRef.current) return;
-      setMeasuredScrollable(el.scrollWidth > el.clientWidth + 1);
+      /* vertical-rl + upright: overflow может лечь на height или width — берём оба */
+      const dy = el.scrollHeight - el.clientHeight;
+      const dx = el.scrollWidth - el.clientWidth;
+      const overflow = axis === 'y' ? dy > 1 || dx > 1 : dx > 1;
+      setMeasuredScrollable(overflow);
     };
     measure();
     const ro =
@@ -67,7 +79,7 @@ export function useMobileOpponentNameWindowScroll({
       ro?.disconnect();
       window.removeEventListener('resize', onResize);
     };
-  }, [enabled, remeasureKey]);
+  }, [enabled, remeasureKey, axis]);
 
   useEffect(() => {
     if (!scrollable) {
@@ -121,7 +133,10 @@ export function useMobileOpponentNameWindowScroll({
       if (revealAnimatingRef.current) return;
       const box = nameWindowRef.current;
       if (!box) return;
-      const max = Math.max(0, box.scrollWidth - box.clientWidth);
+      const max =
+        axis === 'y'
+          ? Math.max(0, box.scrollHeight - box.clientHeight, box.scrollWidth - box.clientWidth)
+          : Math.max(0, box.scrollWidth - box.clientWidth);
       if (max < 2) return;
 
       if (source === 'user') {
@@ -139,9 +154,9 @@ export function useMobileOpponentNameWindowScroll({
               'opponent-slot-header-name-window--reveal-compositing',
               'opponent-slot-header-name-window--reveal-tap-chrome',
             );
-            track.style.transform = `translate3d(${-mx}px,0,0)`;
+            track.style.transform = revealTranslate(axis, mx);
             window.requestAnimationFrame(() => {
-              if (revealTrackRef.current) revealTrackRef.current.style.transform = 'translate3d(0,0,0)';
+              if (revealTrackRef.current) revealTrackRef.current.style.transform = revealTranslate(axis, 0);
               window.setTimeout(() => {
                 nameWindowRef.current?.classList.remove(
                   'opponent-slot-header-name-window--reveal-compositing',
@@ -150,9 +165,9 @@ export function useMobileOpponentNameWindowScroll({
               }, 400);
             });
           } else {
-            track.style.transform = `translate3d(${-mx}px,0,0)`;
+            track.style.transform = revealTranslate(axis, mx);
             window.requestAnimationFrame(() => {
-              if (revealTrackRef.current) revealTrackRef.current.style.transform = 'translate3d(0,0,0)';
+              if (revealTrackRef.current) revealTrackRef.current.style.transform = revealTranslate(axis, 0);
             });
           }
         }
@@ -176,11 +191,12 @@ export function useMobileOpponentNameWindowScroll({
       const applyRevealOffsetPx = (px: number) => {
         const track = revealTrackRef.current;
         const outer = nameWindowRef.current;
-        const x = Math.round(Math.max(0, px));
+        const d = Math.round(Math.max(0, px));
         if (track) {
-          track.style.transform = `translate3d(${-x}px,0,0)`;
+          track.style.transform = revealTranslate(axis, d);
         } else if (outer) {
-          outer.scrollLeft = x;
+          if (axis === 'y') outer.scrollTop = d;
+          else outer.scrollLeft = d;
         }
       };
 
@@ -205,6 +221,7 @@ export function useMobileOpponentNameWindowScroll({
         if (track) track.style.transform = '';
         if (outer) {
           outer.scrollLeft = 0;
+          outer.scrollTop = 0;
           outer.classList.remove('opponent-slot-header-name-window--reveal-compositing');
           outer.classList.remove('opponent-slot-header-name-window--reveal-tap-chrome');
         }
@@ -220,7 +237,7 @@ export function useMobileOpponentNameWindowScroll({
         revealAnimatingRef.current = true;
         outerWin?.classList.add('opponent-slot-header-name-window--reveal-compositing');
         if (canWebAnim && track) {
-          const anim = track.animate(buildOppNameRevealSinTranslateKeyframes(maxScroll), {
+          const anim = track.animate(buildOppNameRevealSinTranslateKeyframes(maxScroll, axis), {
             duration: durationAutoBumpMs,
             easing: 'linear',
             fill: 'forwards',
@@ -262,9 +279,9 @@ export function useMobileOpponentNameWindowScroll({
         }
         const anim = track.animate(
           [
-            { transform: 'translate3d(0,0,0)', offset: 0, easing: easeSeg },
-            { transform: `translate3d(${-maxScroll}px,0,0)`, offset: 0.5, easing: easeSeg },
-            { transform: 'translate3d(0,0,0)', offset: 1 },
+            { transform: revealTranslate(axis, 0), offset: 0, easing: easeSeg },
+            { transform: revealTranslate(axis, maxScroll), offset: 0.5, easing: easeSeg },
+            { transform: revealTranslate(axis, 0), offset: 1 },
           ],
           { duration: durationOutMs + durationInMs, fill: 'forwards' },
         );
@@ -307,7 +324,7 @@ export function useMobileOpponentNameWindowScroll({
       t0 = performance.now();
       revealAnimRafRef.current = window.requestAnimationFrame(tick) as unknown as number;
     },
-    [enabled, scrollable],
+    [enabled, scrollable, axis],
   );
 
   useEffect(() => {

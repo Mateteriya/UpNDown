@@ -75,9 +75,11 @@ import {
   readPcFourHandScalePct,
   readPcThreeHandScalePct,
   readPcTableSettingsOpen,
+  readPcScaleWheelArmed,
   writePcFourHandScalePct,
   writePcThreeHandScalePct,
   writePcTableSettingsOpen,
+  writePcScaleWheelArmed,
   type PcFourHandScalePct,
   type PcThreeHandScalePct,
 } from '../game/pcHandScale';
@@ -88,6 +90,10 @@ import {
   pcDesktopTableScaleMul,
   readPcDesktopTableScalePct,
   readTabletTableScalePct,
+  readMidTableScalePct,
+  writeMidTableScalePct,
+  midTableHeightMul,
+  midTableWidthMul,
   tabletTableHeightMul,
   tabletTableSideGapTight,
   tabletTableWidthMul,
@@ -263,13 +269,48 @@ import { GameDealOrbitDock } from './GameDealOrbitDock';
 import type { Card, GamePhase } from '../game/types';
 import { getDeckCardsUnderTrump, getDeckStackLayerCount } from '../game/deck';
 
-function getCompassLabel(idx: number): 'Юг' | 'Север' | 'Запад' | 'Восток' {
+function getCompassLabel(
+  idx: number,
+  playerCount?: number,
+  /** Место на экране важнее индекса: в 3p idx1 справа — «Восток», не «Север». */
+  seatPosition?: 'left' | 'right' | 'top' | 'bottom',
+): 'Юг' | 'Север' | 'Запад' | 'Восток' {
+  if (seatPosition) {
+    switch (seatPosition) {
+      case 'bottom':
+        return 'Юг';
+      case 'top':
+        return 'Север';
+      case 'left':
+        return 'Запад';
+      case 'right':
+        return 'Восток';
+    }
+  }
+  /** 3p без position: idx1 = Восток (как на ПК). */
+  if (playerCount === 3) {
+    switch (idx) {
+      case 0:
+        return 'Юг';
+      case 1:
+        return 'Восток';
+      case 2:
+        return 'Запад';
+      default:
+        return 'Юг';
+    }
+  }
   switch (idx) {
-    case 0: return 'Юг';
-    case 1: return 'Север';
-    case 2: return 'Запад';
-    case 3: return 'Восток';
-    default: return 'Юг';
+    case 0:
+      return 'Юг';
+    case 1:
+      return 'Север';
+    case 2:
+      return 'Запад';
+    case 3:
+      return 'Восток';
+    default:
+      return 'Юг';
   }
 }
 
@@ -354,12 +395,15 @@ function getMobileHandRowFit(
   handLen: number,
   tierTypicalOverlapPx: number,
   slotPadding: number,
+  cardBodyW: number = MOBILE_HAND_CARD_BODY_W,
 ): { overlapPx: number; rowScale: number } {
   const inset = mobileSouthStripInsetPx(vw);
   /* Ряд живёт внутри table padding + inset полосы руки + frame insets (+ MOBILE_HAND_FRAME_EXTRA_INLINE_PX с каждой стороны рамки) + padding-right корня */
   const gutter = inset * 4 + MOBILE_HAND_FRAME_EXTRA_INLINE_PX * 2 + 2 + MOBILE_TABLE_INNER_PAD_X_PX;
   const inner = Math.max(48, vw - gutter);
-  const slotOuter = MOBILE_HAND_CARD_BODY_W + 2 * slotPadding;
+  const bodyW =
+    Number.isFinite(cardBodyW) && cardBodyW > 0 ? cardBodyW : MOBILE_HAND_CARD_BODY_W;
+  const slotOuter = bodyW + 2 * slotPadding;
   if (handLen <= 0) return { overlapPx: 0, rowScale: 1 };
   if (handLen === 1) return { overlapPx: 0, rowScale: 1 };
   const maxO = Math.max(0, Math.max(tierTypicalOverlapPx, slotOuter - 4));
@@ -1055,19 +1099,68 @@ function getTrickTableCardScale(
   /** Планшет · 4p: компакт + бонус при увеличении масштаба стола; мобила не затрагивается. */
   tabletFourPcTableCompact = false,
   tabletTableScalePct = 100,
+  /**
+   * Mid 601–899: `true` → дефолт; число → точный масштаб от ширины viewport
+   * (узкий — меньше, чтобы не наезжать на козырь; широкий — крупнее и ромб по центру).
+   * Mid рисует ПК-лицо (tableCardMobile=false, contentScale=undefined).
+   */
+  isMidLandscape: boolean | number = false,
 ): number {
   if (!isMobileOrTablet) {
     let s = 1.18 * pcScaleMul;
     if (tabletFourPcTableCompact) s = tabletFourTableCardScaleWithTablePct(s, tabletTableScalePct);
     return s;
   }
-  if (isMobileLandscape) return 0.822;
+  if (isMobileLandscape) {
+    if (typeof isMidLandscape === 'number') return isMidLandscape;
+    return isMidLandscape ? 1.06 : 0.822;
+  }
   return 0.98;
 }
 
-function getTrickTableContentScale(isMobileOrTablet: boolean, isMobileLandscape: boolean): number | undefined {
+function getTrickTableContentScale(
+  isMobileOrTablet: boolean,
+  isMobileLandscape: boolean,
+  isMidLandscape: boolean | number = false,
+): number | undefined {
   if (!isMobileOrTablet) return undefined;
-  return isMobileLandscape ? 1.32 : 1.5;
+  if (isMobileLandscape) {
+    /* Mid: ПК-лицо — contentScale = scale (undefined → CardView cs=scale), иначе мелкие блеклые глифы */
+    if (typeof isMidLandscape === 'number' || isMidLandscape) return undefined;
+    return 1.32;
+  }
+  return 1.5;
+}
+
+/** Mid 601–899: масштаб карт на сукне от ширины окна (реактивно на resize). */
+function midLandscapeTrickCardScaleFromWidth(widthPx: number): number {
+  const t = Math.max(0, Math.min(1, (widthPx - 601) / (899 - 601)));
+  /* ~0.86 @601 → ~1.18 @899 */
+  return Math.round((0.86 + t * 0.32) * 1000) / 1000;
+}
+
+function useMidLandscapeTrickCardScale(enabled: boolean): number {
+  const [scale, setScale] = useState(() => {
+    if (typeof window === 'undefined' || !enabled) return 1.06;
+    const w = window.visualViewport?.width ?? window.innerWidth;
+    return midLandscapeTrickCardScaleFromWidth(w);
+  });
+  useEffect(() => {
+    if (!enabled) return;
+    const sync = () => {
+      const w = window.visualViewport?.width ?? window.innerWidth;
+      setScale(midLandscapeTrickCardScaleFromWidth(w));
+    };
+    sync();
+    window.addEventListener('resize', sync);
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', sync);
+    return () => {
+      window.removeEventListener('resize', sync);
+      vv?.removeEventListener('resize', sync);
+    };
+  }, [enabled]);
+  return scale;
 }
 
 /** Общий тоггл «Скролл» для шестерёнок карт и стола — иконка + ВКЛ/ВЫКЛ. */
@@ -1167,20 +1260,28 @@ function scaleGearValueTone(pct: number): { color: string; textShadow: string } 
   return { color, textShadow: glow };
 }
 
-/** Landscape: ромб от якоря Востока (прижат к правому краю стола). На троих — треугольник. */
+/**
+ * Landscape: ромб от правого края.
+ * Mid (`centerOnFelt`): half-w от свободной ширины (минус зона козыря слева),
+ * чтобы слоты не прятались под козырем в 3p и 4p.
+ */
 function getTrickLandscapeSlotStyle(
   playerIdx: number,
   base: React.CSSProperties,
   playerCount: PlayerCount = 4,
+  centerOnFelt = false,
 ): React.CSSProperties {
   const eastEdge = 'var(--trick-slot-landscape-east-edge, 14px)';
-  const hw = 'var(--trick-slot-landscape-half-w, 74px)';
   const cardHw = 'var(--trick-slot-landscape-card-half-w, 21px)';
   const cardHh = 'var(--trick-slot-landscape-card-half-h, 31px)';
+  const trumpReserve = 'var(--trick-slot-landscape-trump-reserve, 0px)';
+  const hw = centerOnFelt
+    ? `max(48px, calc((100% - ${trumpReserve}) / 2 - ${eastEdge} - ${cardHw}))`
+    : 'var(--trick-slot-landscape-half-w, 74px)';
+  const nsEdge = `var(--trick-slot-landscape-ns-edge, calc(${eastEdge} + ${cardHh}))`;
   const eastCenter = `calc(${eastEdge} + ${cardHw})`;
   const midRight = `calc(${eastEdge} + ${cardHw} + ${hw})`;
   const westRight = `calc(${eastEdge} + ${cardHw} + 2 * ${hw})`;
-  const nsEdge = `calc(${eastEdge} + ${cardHh})`;
   if (playerCount === 3) {
     /* Треугольник: боковой (2) слева-сверху, напротив (1) справа-сверху — как у Юга. */
     switch (playerIdx) {
@@ -1223,6 +1324,8 @@ function getTrickCardSlotStyle(
   isMobileOrTablet: boolean,
   isMobileLandscape = false,
   playerCount: PlayerCount = 4,
+  /** Mid 601–899: центрировать ромб/треугольник на сукне. */
+  centerLandscapeOnFelt = false,
 ): React.CSSProperties {
   const base: React.CSSProperties = {
     position: 'absolute',
@@ -1232,7 +1335,7 @@ function getTrickCardSlotStyle(
     pointerEvents: 'none',
   };
   if (isMobileLandscape) {
-    return getTrickLandscapeSlotStyle(playerIdx, base, playerCount);
+    return getTrickLandscapeSlotStyle(playerIdx, base, playerCount, centerLandscapeOnFelt);
   }
   if (isMobileOrTablet) {
     const hw = 'var(--trick-slot-half-w, 26px)';
@@ -1428,6 +1531,7 @@ function getTrickCollectSlotStyle(
   isMobileLandscape: boolean,
   cardCollectMs: number,
   playerCount: PlayerCount = 4,
+  centerLandscapeOnFelt = false,
 ): React.CSSProperties {
   const slotIdx = collectToWinner ? winnerIdx : playerIdx;
   if (isMobileLandscape) {
@@ -1439,7 +1543,7 @@ function getTrickCollectSlotStyle(
       `transform ${cardCollectMs}ms ${TRICK_COLLECT_EASE}`,
     ].join(', ');
     return {
-      ...getTrickCardSlotStyle(slotIdx, isMobileOrTablet, true, playerCount),
+      ...getTrickCardSlotStyle(slotIdx, isMobileOrTablet, true, playerCount, centerLandscapeOnFelt),
       /* Transition всегда — иначе смена transition+transform в одном кадре глотает полёт. */
       transition: collectTransition,
     };
@@ -1549,20 +1653,35 @@ function useIsMobileOrTablet() {
 }
 
 /**
- * Компактный стол (viewport-mobile): узкий портрет ИЛИ «низкий» ландшафт на телефоне.
- * Иначе при повороте ширина >600px снимала viewport-mobile, а высота мала — оставалась ПК-вёрстка и ломались карты.
+ * Компактный стол (viewport-mobile): узкий портрет ИЛИ низкий «телефонный» landscape.
+ * 900–1024 не берём по голому max-height — иначе срывается планшет-шелл.
  */
-const MOBILE_VIEWPORT_MQ = '(max-width: 600px), (max-width: 1024px) and (max-height: 560px)';
+const MOBILE_VIEWPORT_MQ =
+  '(max-width: 600px), (max-width: 1024px) and (max-height: 500px) and (min-aspect-ratio: 1.9)';
+/**
+ * 601–899: закрываем дыру ширины — тот же режим, что мобильный landscape
+ * (`viewport-mobile-landscape`). На высоких экранах (≥580px) сукно/колонка
+ * масштабируются «квадратнее» (см. index.css @media mid + min-height).
+ */
+const MOBILE_WIDTH_LANDSCAPE_MQ = '(min-width: 601px) and (max-width: 899px)';
 
 /** Телефон в landscape: широкий низкий экран — отдельная раскладка (Север над столом, Запад слева). */
-const MOBILE_LANDSCAPE_MQ = '(max-width: 1024px) and (max-height: 560px) and (orientation: landscape)';
+const MOBILE_LANDSCAPE_MQ =
+  '(orientation: landscape) and (max-width: 899px) and (max-height: 560px), (orientation: landscape) and (max-width: 1024px) and (max-height: 500px) and (min-aspect-ratio: 1.9)';
+/**
+ * Кнопки заказа на столе (мобила), размер:
+ * ≥331 — база 44×44 (426+ ещё раскладка нижних по 6);
+ * 315–330 — Compact+ 41px;
+ * ≤314 — компакт 38px.
+ */
+const MOBILE_BID_SIX_COLS_MQ = '(min-width: 426px)';
 /** Юг · landscape: калибровка панели/руки — не ниже 660×330, см. mobileLandscapeSouthLayout.ts */
 
 /**
  * Планшет / компактный «ПК-шелл» (в т.ч. iPad Pro landscape ~1194 CSS-px).
- * Не использовать голый max-height — иначе срабатывает на десктопе 1440×900.
+ * С 900px: полоса 900–1024 = тот же планшет (чуть уменьшенный zoom, см. tabletViewportScale).
  */
-const TABLET_PC_SHELL_MQ = '(max-width: 1366px) and (min-width: 601px)';
+const TABLET_PC_SHELL_MQ = '(max-width: 1366px) and (min-width: 900px)';
 
 function useIsTabletPcShell() {
   const [match, setMatch] = useState(
@@ -1578,11 +1697,58 @@ function useIsTabletPcShell() {
 }
 
 function useIsMobileLandscape() {
+  const [match, setMatch] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return (
+      window.matchMedia(MOBILE_LANDSCAPE_MQ).matches ||
+      window.matchMedia(MOBILE_WIDTH_LANDSCAPE_MQ).matches
+    );
+  });
+  useEffect(() => {
+    const mqLandscape = window.matchMedia(MOBILE_LANDSCAPE_MQ);
+    const mqWidthBand = window.matchMedia(MOBILE_WIDTH_LANDSCAPE_MQ);
+    const sync = () => setMatch(mqLandscape.matches || mqWidthBand.matches);
+    mqLandscape.addEventListener('change', sync);
+    mqWidthBand.addEventListener('change', sync);
+    sync();
+    return () => {
+      mqLandscape.removeEventListener('change', sync);
+      mqWidthBand.removeEventListener('change', sync);
+    };
+  }, []);
+  return match;
+}
+
+function useIsMobile() {
+  const [match, setMatch] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return (
+      window.matchMedia(MOBILE_VIEWPORT_MQ).matches ||
+      window.matchMedia(MOBILE_WIDTH_LANDSCAPE_MQ).matches
+    );
+  });
+  useEffect(() => {
+    const mqMobile = window.matchMedia(MOBILE_VIEWPORT_MQ);
+    const mqWidthBand = window.matchMedia(MOBILE_WIDTH_LANDSCAPE_MQ);
+    const sync = () => setMatch(mqMobile.matches || mqWidthBand.matches);
+    mqMobile.addEventListener('change', sync);
+    mqWidthBand.addEventListener('change', sync);
+    sync();
+    return () => {
+      mqMobile.removeEventListener('change', sync);
+      mqWidthBand.removeEventListener('change', sync);
+    };
+  }, []);
+  return match;
+}
+
+/** Полоса 601–899: landscape-DOM с отдельной «квадратной» подстройкой (не phone-landscape). */
+function useIsMobileWidthLandscapeBand() {
   const [match, setMatch] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_LANDSCAPE_MQ).matches,
+    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_WIDTH_LANDSCAPE_MQ).matches,
   );
   useEffect(() => {
-    const mq = window.matchMedia(MOBILE_LANDSCAPE_MQ);
+    const mq = window.matchMedia(MOBILE_WIDTH_LANDSCAPE_MQ);
     const handler = () => setMatch(mq.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
@@ -1590,17 +1756,20 @@ function useIsMobileLandscape() {
   return match;
 }
 
-function useIsMobile() {
-  const [match, setMatch] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_VIEWPORT_MQ).matches,
-  );
+/** >425 CSS-px: две нижние строки заказа по 6 кнопок (иначе по 5). */
+function useMobileBidLowerCols(): 5 | 6 {
+  const [cols, setCols] = useState<5 | 6>(() => {
+    if (typeof window === 'undefined') return 5;
+    return window.matchMedia(MOBILE_BID_SIX_COLS_MQ).matches ? 6 : 5;
+  });
   useEffect(() => {
-    const mq = window.matchMedia(MOBILE_VIEWPORT_MQ);
-    const handler = () => setMatch(mq.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    const mq = window.matchMedia(MOBILE_BID_SIX_COLS_MQ);
+    const sync = () => setCols(mq.matches ? 6 : 5);
+    mq.addEventListener('change', sync);
+    sync();
+    return () => mq.removeEventListener('change', sync);
   }, []);
-  return match;
+  return cols;
 }
 
 /** Модалка «Партия завершена»: праздничный экран → по «Подробнее» развёрнутый вид с таблицей, статистикой, рейтингом */
@@ -2033,9 +2202,16 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
   const isMobileLandscape = useIsMobileLandscape() && isMobile;
+  const isMobileWidthLandscapeBand = useIsMobileWidthLandscapeBand();
+  /** Mid 601–899: шестерёнки масштаба стола (вниз) и карт руки (вверх), как на планшете/ПК. */
+  const useMidLandscapeScaleGears = isMobileLandscape && isMobileWidthLandscapeBand;
+  const midTrickCardScale = useMidLandscapeTrickCardScale(useMidLandscapeScaleGears);
+  const mobileBidLowerCols = useMobileBidLowerCols();
   const isTabletPcShell = useIsTabletPcShell();
   /** ПК-оболочка на планшете/низком экране: без PC-lift и с компактным info-бейджем. */
   const useTabletPcTableTuning = !isMobile && (isMobileOrTablet || isTabletPcShell);
+  /** Mid и планшет: расширенный потолок/шаг шестерёнки карт (touch). */
+  const useExpandedHandScaleUi = useTabletPcTableTuning || useMidLandscapeScaleGears;
   /** Эталон калибровки планшета 1035×618; на меньшем экране — пропорциональный zoom. */
   const [tabletViewportScale, setTabletViewportScale] = useState(1);
   useEffect(() => {
@@ -2315,7 +2491,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     readPcFourHandScalePct(),
   );
   const [pcTableSettingsOpen, setPcTableSettingsOpen] = useState(() => readPcTableSettingsOpen());
-  const [pcScaleWheelArmed, setPcScaleWheelArmed] = useState(false);
+  const [pcScaleWheelArmed, setPcScaleWheelArmed] = useState(() => readPcScaleWheelArmed());
   /** После сворачивания: 3с ярче, потом спокойный вид свёрнутой кнопки карт. */
   const [pcHandScaleCollapsedPulse, setPcHandScaleCollapsedPulse] = useState(false);
   const pcHandScaleCollapsedPulseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2358,20 +2534,20 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     writePcThreeHandScalePct(next);
   }, []);
   const setPcFourHandScalePctPersistent = useCallback((pct: PcFourHandScalePct) => {
-    const max = useTabletPcTableTuning
+    const max = useExpandedHandScaleUi
       ? TABLET_FOUR_HAND_SCALE_PCT_MAX
       : PC_FOUR_HAND_SCALE_PCT_MAX;
     const next = clampPcFourHandScalePct(pct, max);
     setPcFourHandScalePct(next);
     writePcFourHandScalePct(next);
-  }, [useTabletPcTableTuning]);
+  }, [useExpandedHandScaleUi]);
   const bumpPcHandScale = useCallback((dir: 1 | -1) => {
     const seats: 3 | 4 = state && playerCountOf(state) === 3 ? 3 : 4;
     if (seats === 4) {
-      const step = useTabletPcTableTuning
+      const step = useExpandedHandScaleUi
         ? TABLET_FOUR_HAND_SCALE_PCT_STEP
         : undefined;
-      const max = useTabletPcTableTuning
+      const max = useExpandedHandScaleUi
         ? TABLET_FOUR_HAND_SCALE_PCT_MAX
         : PC_FOUR_HAND_SCALE_PCT_MAX;
       setPcFourHandScalePct((prev) => {
@@ -2386,43 +2562,49 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       writePcThreeHandScalePct(next);
       return next;
     });
-  }, [state, useTabletPcTableTuning]);
+  }, [state, useExpandedHandScaleUi]);
   const setPcTableSettingsOpenPersistent = useCallback((open: boolean) => {
     setPcTableSettingsOpen(open);
     writePcTableSettingsOpen(open);
-    if (!open) setPcScaleWheelArmed(false);
+  }, []);
+  const setPcScaleWheelArmedPersistent = useCallback((armed: boolean) => {
+    setPcScaleWheelArmed(armed);
+    writePcScaleWheelArmed(armed);
   }, []);
   const tabletTableScaleSeats: 3 | 4 = state && playerCountOf(state) === 3 ? 3 : 4;
   const tabletTableScaleDefault = defaultTabletTableScalePct(tabletTableScaleSeats);
-  /** ПК · 4p: шестерёнка масштаба сукна как на планшете (93–108%). */
+  /** ПК · 4p: шестерёнка масштаба сукна как на планшете (93–116%). */
   const usePcDesktopFourTableScale =
     !isMobile && !useTabletPcTableTuning && tabletTableScaleSeats === 4;
-  const tableScaleControlEnabled = useTabletPcTableTuning || usePcDesktopFourTableScale;
+  const tableScaleControlEnabled =
+    useTabletPcTableTuning || usePcDesktopFourTableScale || useMidLandscapeScaleGears;
   const setTabletTableScalePctPersistent = useCallback(
     (pct: TabletTableScalePct) => {
       const seats: 3 | 4 = state && playerCountOf(state) === 3 ? 3 : 4;
       const next = clampTabletTableScalePct(pct);
       setTabletTableScalePct(next);
-      if (useTabletPcTableTuning) writeTabletTableScalePct(next, seats);
+      if (useMidLandscapeScaleGears) writeMidTableScalePct(next, seats);
+      else if (useTabletPcTableTuning) writeTabletTableScalePct(next, seats);
       else writePcDesktopTableScalePct(next);
     },
-    [state, useTabletPcTableTuning],
+    [state, useTabletPcTableTuning, useMidLandscapeScaleGears],
   );
   const bumpTabletTableScale = useCallback(
     (dir: 1 | -1) => {
       const seats: 3 | 4 = state && playerCountOf(state) === 3 ? 3 : 4;
       const step =
-        useTabletPcTableTuning && seats === 4
+        (useTabletPcTableTuning || useMidLandscapeScaleGears) && seats === 4
           ? TABLET_FOUR_TABLE_SCALE_PCT_STEP
           : undefined;
       setTabletTableScalePct((prev) => {
         const next = bumpTabletTableScalePct(prev, dir, step);
-        if (useTabletPcTableTuning) writeTabletTableScalePct(next, seats);
+        if (useMidLandscapeScaleGears) writeMidTableScalePct(next, seats);
+        else if (useTabletPcTableTuning) writeTabletTableScalePct(next, seats);
         else writePcDesktopTableScalePct(next);
         return next;
       });
     },
-    [state, useTabletPcTableTuning],
+    [state, useTabletPcTableTuning, useMidLandscapeScaleGears],
   );
   useEffect(() => {
     if (!tableScaleControlEnabled || tabletTableScaleOpen) return;
@@ -2468,6 +2650,10 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     setTabletTableScaleOpen(false);
   }, []);
   useEffect(() => {
+    if (useMidLandscapeScaleGears) {
+      setTabletTableScalePct(readMidTableScalePct(tabletTableScaleSeats));
+      return;
+    }
     if (useTabletPcTableTuning) {
       setTabletTableScalePct(readTabletTableScalePct(tabletTableScaleSeats));
       return;
@@ -2475,9 +2661,9 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     if (usePcDesktopFourTableScale) {
       setTabletTableScalePct(readPcDesktopTableScalePct());
     }
-  }, [useTabletPcTableTuning, usePcDesktopFourTableScale, tabletTableScaleSeats]);
+  }, [useTabletPcTableTuning, usePcDesktopFourTableScale, useMidLandscapeScaleGears, tabletTableScaleSeats]);
   useEffect(() => {
-    if (isMobile || !pcTableSettingsOpen || !pcScaleWheelArmed) return;
+    if ((isMobile && !useMidLandscapeScaleGears) || !pcTableSettingsOpen || !pcScaleWheelArmed) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const now = Date.now();
@@ -2488,7 +2674,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     };
     window.addEventListener('wheel', onWheel, { passive: false });
     return () => window.removeEventListener('wheel', onWheel);
-  }, [isMobile, pcTableSettingsOpen, pcScaleWheelArmed, bumpPcHandScale]);
+  }, [isMobile, useMidLandscapeScaleGears, pcTableSettingsOpen, pcScaleWheelArmed, bumpPcHandScale]);
   useEffect(() => {
     if (!tableScaleControlEnabled || !tabletTableScaleOpen || !tabletTableScaleWheelArmed) return;
     const onWheel = (e: WheelEvent) => {
@@ -2785,9 +2971,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   /** Short + immersive: выравнивание верха ряда З/С с верхом бейджа `.game-info-left-section` (getBoundingClientRect). */
   const mobileGameInfoSectionAlignRef = useRef<HTMLDivElement | null>(null);
   const mobileShortTopRowRef = useRef<HTMLDivElement | null>(null);
-  /** ПК: выравнивание верха связки first-move + game-info-left-section по верхней кромке контейнера action-кнопок. */
+  /** ПК: выравнивание верха game-info-left-section по верхней кромке контейнера action-кнопок. */
   const pcHeaderActionGroupRef = useRef<HTMLDivElement | null>(null);
   const pcGameInfoLeftColRef = useRef<HTMLDivElement | null>(null);
+  /** ПК/планшет: «Первый ход» на сукне (не в левой колонке). */
   const pcFirstMoveBadgeRef = useRef<HTMLDivElement | null>(null);
   const pcGameInfoLeftSectionRef = useRef<HTMLDivElement | null>(null);
   const [pcGameInfoLeftAlignPx, setPcGameInfoLeftAlignPx] = useState(0);
@@ -2998,8 +3185,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     return () => clearTimeout(t);
   }, [showPcDarkModeTooltip]);
 
-  /** ПК: first-move + нижний бейдж как единый блок держим на одной горизонтали с контейнером кнопок (верхняя граница).
-   * На планшете «Первый ход» на сукне — якорь только левый info-бейдж. */
+  /** ПК: левый info-бейдж держим на одной горизонтали с контейнером кнопок (верхняя граница).
+   * «Первый ход» на сукне (ПК и планшет) — в выравнивании не участвует. */
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
     if (isMobile) {
@@ -3014,9 +3201,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         rafId = null;
         const headerGroup = pcHeaderActionGroupRef.current;
         const leftCol = pcGameInfoLeftColRef.current;
-        const anchorBadge =
-          (!useTabletPcTableTuning ? pcFirstMoveBadgeRef.current : null) ??
-          pcGameInfoLeftSectionRef.current;
+        const anchorBadge = pcGameInfoLeftSectionRef.current;
         if (!headerGroup || !leftCol || !anchorBadge) return;
         const targetTop = Math.round(headerGroup.getBoundingClientRect().top);
         const currentTop = Math.round(anchorBadge.getBoundingClientRect().top);
@@ -3032,7 +3217,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     const ro = new ResizeObserver(scheduleAlign);
     if (pcHeaderActionGroupRef.current) ro.observe(pcHeaderActionGroupRef.current);
     if (pcGameInfoLeftColRef.current) ro.observe(pcGameInfoLeftColRef.current);
-    if (!useTabletPcTableTuning && pcFirstMoveBadgeRef.current) ro.observe(pcFirstMoveBadgeRef.current);
     if (pcGameInfoLeftSectionRef.current) ro.observe(pcGameInfoLeftSectionRef.current);
 
     return () => {
@@ -4449,7 +4633,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   const dealResultsOpenedAtRef = useRef(0);
   /** Закрытие backdrop: arm только если pointer down стартовал именно на фоне модалки. */
   const dealResultsBackdropPressArmedRef = useRef(false);
-  const gameTableRootRef = useRef<HTMLDivElement>(null);
+  const gameTableRootRef = useRef<HTMLDivElement | null>(null);
   /** Хост для портала Севера (планшет / ПК·4p) — вне transform у .game-table-block. */
   const [tabletNorthPortalHost, setTabletNorthPortalHost] = useState<HTMLDivElement | null>(null);
   /** ПК: якоря для роуминг-бейджа — вне DOM панели, чтобы не раздувать layout Юга */
@@ -4717,15 +4901,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   const tableSeatCount: PlayerCount = state ? playerCountOf(state) : 4;
   const isThreeSeatTable = tableSeatCount === 3;
   const pcScaleSeats: 3 | 4 = isThreeSeatTable ? 3 : 4;
-  const pcThreeHandPct = !isMobile
-    ? clampPcThreeHandScalePct(pcThreeHandScalePct)
-    : PC_THREE_HAND_SCALE_PCT_DEFAULT;
-  const pcFourHandPct = !isMobile
-    ? clampPcFourHandScalePct(
-        pcFourHandScalePct,
-        useTabletPcTableTuning ? TABLET_FOUR_HAND_SCALE_PCT_MAX : PC_FOUR_HAND_SCALE_PCT_MAX,
-      )
-    : PC_FOUR_HAND_SCALE_PCT_DEFAULT;
+  const pcThreeHandPct =
+    !isMobile || useMidLandscapeScaleGears
+      ? clampPcThreeHandScalePct(pcThreeHandScalePct)
+      : PC_THREE_HAND_SCALE_PCT_DEFAULT;
+  const pcFourHandPct =
+    !isMobile || useMidLandscapeScaleGears
+      ? clampPcFourHandScalePct(
+          pcFourHandScalePct,
+          useExpandedHandScaleUi ? TABLET_FOUR_HAND_SCALE_PCT_MAX : PC_FOUR_HAND_SCALE_PCT_MAX,
+        )
+      : PC_FOUR_HAND_SCALE_PCT_DEFAULT;
   /** UI-процент шестерёнки: 4p — 94…106 (ПК) / 94…112 (планшет); 3p — 95…125 (шаг 5). */
   const pcHandScaleUiPct =
     pcScaleSeats === 4 ? pcFourHandPct : pcThreeHandPct;
@@ -4738,7 +4924,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       clearTimeout(pcHandScaleCollapsedPulseRef.current);
       pcHandScaleCollapsedPulseRef.current = null;
     }
-    if (pcTableSettingsOpen || isMobile) {
+    if (pcTableSettingsOpen || (isMobile && !useMidLandscapeScaleGears)) {
       setPcHandScaleCollapsedPulse(false);
       return;
     }
@@ -4754,11 +4940,27 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         pcHandScaleCollapsedPulseRef.current = null;
       }
     };
-  }, [pcTableSettingsOpen, pcHandScaleNonDefault, isMobile]);
+  }, [pcTableSettingsOpen, pcHandScaleNonDefault, isMobile, useMidLandscapeScaleGears]);
   const pcHandScaleExtraH =
     !isMobile && !useTabletPcTableTuning && pcScaleSeats === 3
       ? pcHandScaleExtraHeightPx(pcThreeHandPct, 3)
       : 0;
+  /**
+   * Mid: множитель карт руки — в CardView.scale (не CSS transform),
+   * чтобы рамка/полоса росли вместе с картами (рост вверх: align-self end).
+   */
+  const midHandScaleMul = useMidLandscapeScaleGears
+    ? pcScaleSeats === 4
+      ? tabletFourHandScaleMultiplier(pcFourHandPct)
+      : pcThreeHandScaleMultiplier(pcThreeHandPct)
+    : 1;
+  const mobileHandCardScale = useMidLandscapeScaleGears ? 0.72 * midHandScaleMul : 0.72;
+  /** Пипы/фигуры: contentScale должен расти вместе с scale (иначе «тонкая» карта). */
+  const mobileHandContentScale = useMidLandscapeScaleGears ? 1.5 * midHandScaleMul : 1.5;
+  const mobileHandCardBodyW = Math.round(52 * mobileHandCardScale);
+  /** Mid: сукно без tablet-базы 1.25; рост только вниз (якорь верха в CSS). */
+  const midTableHMul = useMidLandscapeScaleGears ? midTableHeightMul(tabletTableScalePct) : 1;
+  const midTableWMul = useMidLandscapeScaleGears ? midTableWidthMul(tabletTableScalePct) : 1;
   const pcCardScaleMul =
     !isMobile && !useTabletPcTableTuning
       ? pcScaleSeats === 4
@@ -4834,9 +5036,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
    * 3 — Юг0 / Запад2 / Восток1; Север скрыт.
    *   Мобильная (портрет) пока держит «Север» для idx1 — не ломаем.
    *   ПК: idx1 переезжает на Восток.
+   *   Mid 601–899 (landscape-DOM): как ПК — Восток idx1, без «Севера» над столом.
    */
   const showWestSideSeat = true;
   const showEastSeatFour = !isThreeSeatTable;
+  /** Mid · 3p: показать Восток (idx1), иначе как 4p. */
+  const showMobileLandscapeEastSeat =
+    showEastSeatFour || (isMobileLandscape && isMobileWidthLandscapeBand && isThreeSeatTable);
+  const mobileEastDisplayIndex = isThreeSeatTable ? 1 : 3;
   const showPcNorthSeat = !isThreeSeatTable;
   /** ПК · 4p (не планшет): Север pin к верху страницы (23px), вне translateY блока. */
   const pinPcDesktopFourNorthTop = !isMobile && !useTabletPcTableTuning && showPcNorthSeat;
@@ -4952,7 +5159,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     const lHandFlat = lHandEligible && mobileLHandFlat;
     const layoutHandLen = lHandExpanded ? MOBILE_L_HAND_MAIN_MAX : mobileHandLen;
     const m9 = getMobileNineCardHandLayout(layoutVwForHand, layoutHandLen);
-    const fit = getMobileHandRowFit(layoutVwForHand, layoutHandLen, m9.overlapPx, m9.slotPadding);
+    const fit = getMobileHandRowFit(
+      layoutVwForHand,
+      layoutHandLen,
+      m9.overlapPx,
+      m9.slotPadding,
+      mobileHandCardBodyW,
+    );
     let rowScale = fit.rowScale;
     const ultra312Class = m9.attachExtraClass === 'game-mobile-hand--9-ultra312';
     if (ultra312Class && layoutVwForHand > 329) {
@@ -4979,6 +5192,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     isMobileLandscape,
     prefersReducedMotion,
     shortVhSouthUiScale,
+    mobileHandCardBodyW,
   ]);
 
   useEffect(() => {
@@ -5036,8 +5250,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         >
           <CardView
             card={card}
-            scale={0.72}
-            contentScale={1.5}
+            scale={mobileHandCardScale}
+            contentScale={mobileHandContentScale}
             compact
             showDesktopFaceIndices
             suitIndexInHandMobile
@@ -5113,7 +5327,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 minWidth: 0,
                 position: 'relative',
               }
-            : { width: '100%', maxWidth: '100%', flexShrink: 0, boxSizing: 'border-box' }
+            : {
+                width: '100%',
+                maxWidth: '100%',
+                flexShrink: 0,
+                boxSizing: 'border-box',
+              }
         }
       >
         <div className="game-mobile-l-hand-shell">
@@ -7031,10 +7250,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     const scaleLabel = `${pcHandScaleUiPct}%`;
     const valueTone = scaleGearValueTone(pcHandScaleUiPct);
     const scaleMin = pcScaleSeats === 4 ? PC_FOUR_HAND_SCALE_PCT_MIN : PC_THREE_HAND_SCALE_PCT_MIN;
-    const fourHandMax = useTabletPcTableTuning
+    const fourHandMax = useExpandedHandScaleUi
       ? TABLET_FOUR_HAND_SCALE_PCT_MAX
       : PC_FOUR_HAND_SCALE_PCT_MAX;
-    const fourHandStep = useTabletPcTableTuning
+    const fourHandStep = useExpandedHandScaleUi
       ? TABLET_FOUR_HAND_SCALE_PCT_STEP
       : 1;
     const scaleMax =
@@ -7283,7 +7502,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 .filter(Boolean)
                 .join(' ')}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setPcScaleWheelArmed((v) => !v)}
+              onClick={() => setPcScaleWheelArmedPersistent(!pcScaleWheelArmed)}
               title={
                 pcScaleWheelArmed
                   ? `Скролл мыши: масштаб ${scaleMin}–${scaleMax}%. Нажмите, чтобы выключить`
@@ -7313,7 +7532,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     );
   };
 
-  /** Планшет / ПК·4p: масштаб сукна 93%…108% (100% = изначальный размер режима, шаг 1%). */
+  /** Планшет / ПК·4p / mid: масштаб сукна 93%…116% (100% = изначальный размер режима). */
   const renderTabletTableScaleControl = () => {
     if (!tableScaleControlEnabled || isWaitingInRoom) return null;
     const scalePct = tabletTableScalePct;
@@ -7562,7 +7781,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               className="tablet-table-scale__btn scale-gear-btn"
               disabled={scalePct >= TABLET_TABLE_SCALE_PCT_MAX}
               onClick={() => bumpTabletTableScale(1)}
-              title="Увеличить (+1%, макс. 108%)"
+              title={`Увеличить (+1%, макс. ${TABLET_TABLE_SCALE_PCT_MAX}%)`}
               aria-label="Увеличить масштаб стола на 1 процент"
             >
               +
@@ -7582,8 +7801,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               onClick={() => setTabletTableScaleWheelArmed((v) => !v)}
               title={
                 tabletTableScaleWheelArmed
-                  ? 'Скролл: масштаб 93–108%. Нажмите, чтобы выключить'
-                  : 'Включить регулировку скроллом (93–108%)'
+                  ? `Скролл: масштаб ${TABLET_TABLE_SCALE_PCT_MIN}–${TABLET_TABLE_SCALE_PCT_MAX}%. Нажмите, чтобы выключить`
+                  : `Включить регулировку скроллом (${TABLET_TABLE_SCALE_PCT_MIN}–${TABLET_TABLE_SCALE_PCT_MAX}%)`
               }
               aria-label={
                 tabletTableScaleWheelArmed
@@ -7861,17 +8080,25 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
-              height: MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
-              minWidth: MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
-              minHeight: MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+              width: isMobileWidthLandscapeBand
+                ? MOBILE_SOUTH_LANDSCAPE_MID_AVATAR_RESERVE_PX
+                : MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+              height: isMobileWidthLandscapeBand
+                ? MOBILE_SOUTH_LANDSCAPE_MID_AVATAR_RESERVE_PX
+                : MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+              minWidth: isMobileWidthLandscapeBand
+                ? MOBILE_SOUTH_LANDSCAPE_MID_AVATAR_RESERVE_PX
+                : MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+              minHeight: isMobileWidthLandscapeBand
+                ? MOBILE_SOUTH_LANDSCAPE_MID_AVATAR_RESERVE_PX
+                : MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
               flexShrink: 0,
               boxSizing: 'border-box',
               position: 'relative',
               overflow: 'visible',
             }}
           >
-            {renderUserPlayerAvatar(40)}
+            {renderUserPlayerAvatar(isMobileWidthLandscapeBand ? 52 : 40)}
             {isMobile && userOrderRingExact ? (
               <div
                 className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
@@ -8082,6 +8309,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       playerCount: playerCountOf(state),
     });
     const modeLabel = dealType === 'no-trump' ? 'Бескозырка' : 'Тёмная';
+    /** Короткие подписи на экране; полные — в title/aria. */
+    const modeLabelShort = dealType === 'no-trump' ? 'БК' : 'Т';
 
     const ordersBlock = (
       <span
@@ -8099,13 +8328,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
 
     const liveBlock = (
       <span className="deal-contract-line deal-contract-line-mobile-live" style={dealContractLineMobileSplitOuterStyle}>
-        <span className="deal-contract-mobile-live-cards">
-          <span className="deal-contract-mobile-live-cards-label">КАРТ:</span>
-          <span className="deal-contract-mobile-live-cards-num">{dealContractStats.tricksInDeal}</span>
-        </span>
-        <span className="deal-contract-mobile-sep deal-contract-mobile-sep--pearl" aria-hidden="true" />
         <span className="deal-contract-mobile-live-ordered">
-          <span className="deal-contract-mobile-live-ordered-label">заказано:</span>
+          <span className="deal-contract-mobile-live-ordered-label">заказ:</span>
           <span
             className={`deal-contract-mobile-order-num deal-contract-mobile-order-num--${dealContractStats.orderCompare ?? 'under'}`}
           >
@@ -8122,7 +8346,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     const cardsBlock = (
       <>
         <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
-          КАРТ:
+          К:
         </span>
         <span className="deal-contract-value" style={dealContractCardsValueStyle}>
           {dealContractStats.tricksInDeal}
@@ -8135,7 +8359,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         className="deal-contract-line deal-contract-mobile-mode-alternate"
         style={{ ...dealContractMobileAlternateSlotStyle, ...dealContractMobileModeAlternateLineStyle }}
       >
-        {modeLabel}
+        {modeLabelShort}
       </span>
     );
 
@@ -8467,7 +8691,20 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       <div
         ref={mobileGameInfoSectionAlignRef}
         className="game-info-left-section"
-        style={gameInfoLeftSectionStyleResolved}
+        style={{
+          ...gameInfoLeftSectionStyleResolved,
+          ...(isMobileLandscape && isMobileWidthLandscapeBand
+            ? ({
+                width: 300,
+                minWidth: 300,
+                maxWidth: 300,
+                height: 80,
+                minHeight: 80,
+                maxHeight: 80,
+                boxSizing: 'border-box',
+              } as const)
+            : {}),
+        }}
         title={gameInfoBadgeHintTitle}
         onContextMenu={onGameInfoBadgeContextMenu}
         onPointerDown={onGameInfoBadgePointerDown}
@@ -8598,8 +8835,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     isMobileLandscape && mobileLandscapeNorthPanelIdealW != null
       ? capMobileLandscapeNorthPanelWidthPx(mobileHandLayoutVw, mobileLandscapeNorthPanelIdealW)
       : null;
+  /**
+   * Landscape З/В + верхние рейлы/тулбар (`--landscape-we-panel-fixed-w`).
+   * Mid 601–899: 108px + 14px margin от края страницы. Остальной landscape: не уже 120.
+   */
   const mobileLandscapeWePanelFixedW = isMobileLandscape
-    ? estimateMobileLandscapeWePanelFixedWidthPx()
+    ? isMobileWidthLandscapeBand
+      ? 108
+      : Math.max(120, estimateMobileLandscapeWePanelFixedWidthPx())
     : null;
   const mobileLandscapeEastBadgeMaxW =
     isMobileLandscape &&
@@ -8613,6 +8856,55 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             14,
         )
       : null;
+
+  const renderMobileWestSlot = () => (
+    <div
+      className="game-mobile-slot-west"
+      style={{ display: 'flex', flexShrink: 0, ...lastTrickWinnerSeatElevateStyle(2) }}
+    >
+      <OpponentSlot
+        state={displayState}
+        index={2}
+        position="left"
+        inline
+        compactMode={isMobileOrTablet}
+        avatarDataUrl={resolveDisplayPlayerAvatar(2)}
+        replacedByAi={
+          !!online.playerSlots.find(
+            (s) =>
+              s.slotIndex ===
+              getCanonicalIndexForDisplay(
+                2,
+                online.myServerIndex,
+                displayState.players.length === 3 ? 3 : 4,
+              ),
+          )?.replacedUserId
+        }
+        collectingCards={dealJustCompleted && lastTrickInterstitialActive}
+        winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 2}
+        trickWinnerHighlight={
+          (!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 2) ||
+          (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 2)
+        }
+        currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
+        firstBidderBadge={
+          (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+          state.bids.some((b) => b === null) &&
+          state.trickLeaderIndex === 2
+        }
+        firstMoverBiddingHighlight={
+          (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+          state.bids.some((b) => b === null) &&
+          state.trickLeaderIndex === 2
+        }
+        isMobile={true}
+        mobileLandscapeLayout={false}
+        onAvatarClick={handleOpponentAvatarClick}
+        onDealerBadgeClick={() => setShowDealerTooltip(true)}
+        offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
+      />
+    </div>
+  );
 
   const renderMobileNorthSlot = () => (
     <div
@@ -8673,6 +8965,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         }
         isMobile={true}
         mobileLandscapeLayout={isMobileLandscape}
+        mobileLandscapeMid={isMobileLandscape && isMobileWidthLandscapeBand}
         onAvatarClick={handleOpponentAvatarClick}
         onDealerBadgeClick={() => setShowDealerTooltip(true)}
         offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
@@ -8687,7 +8980,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         gameTableRootRef.current = el;
         setTabletNorthPortalHost((prev) => (prev === el ? prev : el));
       }}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${tableScaleControlEnabled ? ' game-table-has-table-scale' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${!isMobile && gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma-pc-flat' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isThreeSeatTable ? ' game-table-seats-three' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${tableScaleControlEnabled ? ' game-table-has-table-scale' : ''}${useMidLandscapeScaleGears ? ' game-table-has-hand-scale' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && isMobileWidthLandscapeBand ? ' viewport-mobile-landscape-mid' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${!isMobile && gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma-pc-flat' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{
         ...tableLayoutStyle,
         position: 'relative',
@@ -8702,6 +8995,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 ['--tablet-viewport-scale' as string]: String(tabletViewportScale),
               } as const)
             : {}),
+        ...(useMidLandscapeScaleGears
+          ? ({
+              ['--mid-table-h-mul' as string]: String(midTableHMul),
+              ['--mid-table-w-mul' as string]: String(midTableWMul),
+            } as const)
+          : {}),
         ...(pcHandScaleExtraH > 0 || pcTableLiftActive || pcCardScaleMul !== 1 || pcBidBtnScaleMul !== 1
           ? ({
               ...(pcCardScaleMul !== 1
@@ -8750,6 +9049,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         ...(mobileLandscapeWePanelFixedW != null
           ? ({
               ['--landscape-we-panel-fixed-w' as string]: `${mobileLandscapeWePanelFixedW}px`,
+              ...(isMobileWidthLandscapeBand
+                ? ({
+                    /* Mid: тулбар ~−16% — 4×34 + gap/pad ≈ 175 */
+                    ['--landscape-upper-rail-w' as string]: '175px',
+                  } as const)
+                : {}),
             } as const)
           : {}),
         ...(mobileLandscapeEastBadgeMaxW != null
@@ -9775,7 +10080,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       <div
         className={
           isMobile
-            ? 'game-table-block game-table-block-mobile'
+            ? [
+                'game-table-block',
+                'game-table-block-mobile',
+                useMidLandscapeScaleGears && tabletTableScaleOpen
+                  ? 'game-table-block--scale-gear-open'
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
             : [
                 'game-table-block',
                 'game-table-block--pc',
@@ -9811,21 +10124,29 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   {renderMobileLandscapeToolbarPanel()}
                 </div>
                 <div className="game-mobile-landscape-north-col">
-                  <div
-                    ref={mobileShortTopRowRef}
-                    className="game-mobile-top-row game-mobile-top-row--landscape"
-                    style={{
-                      ...gameInfoTopRowStyle,
-                      height: 'auto',
-                      minHeight: 0,
-                      marginBottom: 2,
-                      justifyContent: 'flex-start',
-                      gap: 8,
-                      flexWrap: 'nowrap',
-                    }}
-                  >
-                    {renderMobileNorthSlot()}
-                  </div>
+                  {!isMobileWidthLandscapeBand ? (
+                    <div
+                      ref={mobileShortTopRowRef}
+                      className="game-mobile-top-row game-mobile-top-row--landscape"
+                      style={{
+                        ...gameInfoTopRowStyle,
+                        height: 'auto',
+                        minHeight: 0,
+                        marginBottom: 2,
+                        justifyContent: 'flex-start',
+                        gap: 8,
+                        flexWrap: 'nowrap',
+                      }}
+                    >
+                      {renderMobileNorthSlot()}
+                    </div>
+                  ) : (
+                    /* Mid 601–899: в шапке только спейсер ширины стола; Север — над сукном ниже */
+                    <div
+                      className="game-mobile-top-row game-mobile-top-row--landscape game-mobile-top-row--landscape-mid-header-spacer"
+                      aria-hidden
+                    />
+                  )}
                 </div>
                 <div className="game-mobile-landscape-upper-east-rail game-info-left-col game-info-left-col--landscape-right">
                   {renderMobileGameInfoLeftSection()}
@@ -9847,54 +10168,21 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     ...(mobileViewportShort && mobileShortHeaderImmersive ? { marginTop: shortImmersiveNwRowAlignPx } : {}),
                   }}
                 >
-                  <div
-                    className="game-mobile-slot-west"
-                    style={{ display: 'flex', flexShrink: 0, ...lastTrickWinnerSeatElevateStyle(2) }}
-                  >
-                    <OpponentSlot
-                      state={displayState}
-                      index={2}
-                      position="left"
-                      inline
-                      compactMode={isMobileOrTablet}
-                      avatarDataUrl={resolveDisplayPlayerAvatar(2)}
-                      replacedByAi={
-                        !!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))
-                          ?.replacedUserId
-                      }
-                      collectingCards={
-                        dealJustCompleted &&
-                        (lastTrickInterstitialActive)
-                      }
-                      winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 2}
-                      trickWinnerHighlight={
-                        (!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 2) ||
-                        (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 2)
-                      }
-                      currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 2}
-                      firstBidderBadge={
-                        (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
-                        state.bids.some(b => b === null) &&
-                        state.trickLeaderIndex === 2
-                      }
-                      firstMoverBiddingHighlight={
-                        (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
-                        state.bids.some(b => b === null) &&
-                        state.trickLeaderIndex === 2
-                      }
-                      isMobile={true}
-                      mobileLandscapeLayout={isMobileLandscape}
-                      onAvatarClick={handleOpponentAvatarClick}
-                      onDealerBadgeClick={() => setShowDealerTooltip(true)}
-                      offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
-                    />
-                  </div>
+                  {renderMobileWestSlot()}
                   {renderMobileNorthSlot()}
                 </div>
               </>
             )}
           </div>
           <div className="game-center-spacer-top" style={centerAreaSpacerTopStyle} aria-hidden />
+          {isMobileLandscape && isMobileWidthLandscapeBand && !isThreeSeatTable ? (
+            <div
+              ref={mobileShortTopRowRef}
+              className="game-mobile-mid-north-above-table"
+            >
+              {renderMobileNorthSlot()}
+            </div>
+          ) : null}
           <div
             className={['game-mobile-table-and-hand', isMobileLandscape ? 'game-mobile-table-and-hand--landscape' : ''].filter(Boolean).join(' ')}
             style={{
@@ -9950,6 +10238,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
                 isMobile={true}
                 mobileLandscapeLayout={isMobileLandscape}
+                mobileLandscapeMid={isMobileLandscape && isMobileWidthLandscapeBand}
                 onAvatarClick={handleOpponentAvatarClick}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
@@ -9975,12 +10264,48 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             role={isAITurn ? 'button' : undefined}
             tabIndex={isAITurn ? 0 : undefined}
             title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}>
-            <div className="game-center-table" style={{ ...centerStyle, ...(isMobileLandscape ? { flex: '0 0 auto', flexShrink: 0, alignItems: 'stretch' as const, width: 'var(--game-table-landscape-table-col-width)', maxWidth: 'var(--game-table-landscape-table-col-width)', minWidth: 0 } : { flex: 1, minWidth: 0 }) }}>
+            <div className="game-center-table" style={{
+              ...centerStyle,
+              ...(isMobileLandscape
+                ? {
+                    flex: '0 0 auto',
+                    flexShrink: 0,
+                    alignItems: 'stretch' as const,
+                    width: 'var(--game-table-landscape-table-col-width)',
+                    maxWidth: 'var(--game-table-landscape-table-col-width)',
+                    minWidth: 0,
+                    /* Mid: якорь верха — прирост высоты сукна только вниз */
+                    ...(useMidLandscapeScaleGears
+                      ? { alignSelf: 'flex-start' as const, justifyContent: 'flex-start' as const }
+                      : {}),
+                  }
+                : { flex: 1, minWidth: 0 }),
+            }}>
         <div
-          className="game-table-outer"
+          className={[
+            'game-table-outer',
+            useMidLandscapeScaleGears ? 'game-table-outer--mid-scale' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           style={{ ...tableOuterStyle, ...(trumpHighlightOn ? tableOuterStyleWithHighlight : {}) }}
         >
-          <div style={{ ...tableSurfaceStyle, ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}) }}>
+          <div
+            className={
+              useMidLandscapeScaleGears ? 'game-table-surface game-table-surface--mid-scale' : undefined
+            }
+            style={{
+              ...tableSurfaceStyle,
+              ...(trumpHighlightOn ? tableSurfaceStyleWithHighlight : {}),
+              ...(useMidLandscapeScaleGears && (midTableHMul !== 1 || midTableWMul !== 1)
+                ? {
+                    width: `calc(var(--game-table-surface-width, 576px) * ${midTableWMul})`,
+                    height: `calc(var(--game-table-surface-height, 250px) * ${midTableHMul})`,
+                    minHeight: `calc(var(--game-table-surface-height, 250px) * ${midTableHMul})`,
+                  }
+                : {}),
+            }}
+          >
             {isMobile &&
               mobileViewportShort &&
               mobileShortHeaderImmersive &&
@@ -10077,20 +10402,27 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 state.currentTrick.map((card, i) => {
                   const leader = state.trickLeaderIndex;
                   const playerIdx = getTrickPlayerIndex(leader, i, playerCountOf(state));
-                  const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state));
+                  const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state), useMidLandscapeScaleGears);
+                  /* Mid: ПК-лицо (крупные глифы); phone-landscape — мобильный стол */
+                  const midPcFace = useMidLandscapeScaleGears;
                   return (
                     <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
                       <CardView
                         card={card}
                         compact
                         showDesktopFaceIndices={true}
-                        tableCardMobile={isMobileOrTablet}
-                        scale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape)}
-                        contentScale={getTrickTableContentScale(isMobileOrTablet, isMobileLandscape)}
+                        tableCardMobile={!midPcFace && isMobileOrTablet}
+                        scale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, 1, false, 100, midTrickCardScale)}
+                        contentScale={getTrickTableContentScale(isMobileOrTablet, isMobileLandscape, midPcFace ? midTrickCardScale : false)}
                         doubleBorder={trumpHighlightOn}
-                        isTrumpOnTable={isMobileOrTablet ? (trumpHighlightOn && state.trump !== null && card.suit === state.trump) : (state.trump !== null && card.suit === state.trump)}
+                        isTrumpOnTable={
+                          midPcFace || !isMobileOrTablet
+                            ? state.trump !== null && card.suit === state.trump
+                            : trumpHighlightOn && state.trump !== null && card.suit === state.trump
+                        }
                         trumpHighlightOn={trumpHighlightOn}
-                        pcCardStyles={!isMobileOrTablet}
+                        showPipZoneBorders={trumpHighlightOn}
+                        pcCardStyles={midPcFace || !isMobileOrTablet}
                       />
                     </div>
                   );
@@ -10109,11 +10441,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     const showCardBack =
                       lastTrickCollectingPhase === 'collapsing';
                     const CARD_COLLECT_MS = LAST_TRICK_COLLECT_MS;
-                    const cardScale = getTrickTableCardScale(isMobileOrTablet, isMobileLandscape);
+                    const cardScale = getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, 1, false, 100, midTrickCardScale);
                     const cardW = Math.round(52 * cardScale);
                     const cardH = Math.round(76 * cardScale);
                     const isTrickWinnerCard =
                       lastTrickWinnerAnnounceActive && playerIdx === winnerIdx;
+                    const midPcFace = useMidLandscapeScaleGears;
                     return (
                       <div
                         key={`${card.suit}-${card.rank}-${i}`}
@@ -10127,6 +10460,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             isMobileLandscape,
                             CARD_COLLECT_MS,
                             playerCountOf(state),
+                            useMidLandscapeScaleGears,
                           ),
                           zIndex: isTrickWinnerCard ? 8 : i,
                         }}
@@ -10138,13 +10472,18 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             card={card}
                             compact
                             showDesktopFaceIndices={true}
-                            tableCardMobile={isMobileOrTablet}
+                            tableCardMobile={!midPcFace && isMobileOrTablet}
                             scale={cardScale}
-                            contentScale={getTrickTableContentScale(isMobileOrTablet, isMobileLandscape)}
+                            contentScale={getTrickTableContentScale(isMobileOrTablet, isMobileLandscape, midPcFace ? midTrickCardScale : false)}
                             doubleBorder={trumpHighlightOn || isTrickWinnerCard}
-                            isTrumpOnTable={isMobileOrTablet ? (trumpHighlightOn && state.trump !== null && card.suit === state.trump) : (state.trump !== null && card.suit === state.trump)}
+                            isTrumpOnTable={
+                              midPcFace || !isMobileOrTablet
+                                ? state.trump !== null && card.suit === state.trump
+                                : trumpHighlightOn && state.trump !== null && card.suit === state.trump
+                            }
                             trumpHighlightOn={trumpHighlightOn}
-                            pcCardStyles={!isMobileOrTablet}
+                            showPipZoneBorders={trumpHighlightOn}
+                            pcCardStyles={midPcFace || !isMobileOrTablet}
                           />
                         )}
                       </div>
@@ -10154,20 +10493,26 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   state.lastCompletedTrick.cards.map((card, i) => {
                     const leader = state.lastCompletedTrick!.leaderIndex;
                     const playerIdx = getTrickPlayerIndex(leader, i, playerCountOf(state));
-                    const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state));
+                    const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state), useMidLandscapeScaleGears);
+                    const midPcFace = useMidLandscapeScaleGears;
                     return (
                       <div key={`${card.suit}-${card.rank}-${i}`} style={slotStyle}>
                         <CardView
                           card={card}
                           compact
                           showDesktopFaceIndices={true}
-                          tableCardMobile={isMobileOrTablet}
-                          scale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape)}
-                          contentScale={getTrickTableContentScale(isMobileOrTablet, isMobileLandscape)}
+                          tableCardMobile={!midPcFace && isMobileOrTablet}
+                          scale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, 1, false, 100, midTrickCardScale)}
+                          contentScale={getTrickTableContentScale(isMobileOrTablet, isMobileLandscape, midPcFace ? midTrickCardScale : false)}
                           doubleBorder={trumpHighlightOn}
-                          isTrumpOnTable={isMobileOrTablet ? (trumpHighlightOn && state.trump !== null && card.suit === state.trump) : (state.trump !== null && card.suit === state.trump)}
+                          isTrumpOnTable={
+                            midPcFace || !isMobileOrTablet
+                              ? state.trump !== null && card.suit === state.trump
+                              : trumpHighlightOn && state.trump !== null && card.suit === state.trump
+                          }
                           trumpHighlightOn={trumpHighlightOn}
-                          pcCardStyles={!isMobileOrTablet}
+                          showPipZoneBorders={trumpHighlightOn}
+                          pcCardStyles={midPcFace || !isMobileOrTablet}
                         />
                       </div>
                     );
@@ -10176,8 +10521,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               ) : null}
               {humanTrickWaitBadgeReady && (
                 <HumanTrickSlotWaitBadge
-                  slotStyle={getTrickCardSlotStyle(humanIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state))}
-                  cardScale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape)}
+                  slotStyle={getTrickCardSlotStyle(humanIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state), useMidLandscapeScaleGears)}
+                  cardScale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, 1, false, 100, midTrickCardScale)}
                 />
               )}
             </div>
@@ -10209,29 +10554,31 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 className="bid-panel-mobile-on-table-wrap"
                 style={{
                   position: 'absolute',
-                  bottom: 12,
+                  /* Раньше снизу висела надпись — без неё 12px даёт пустой зазор */
+                  bottom: 2,
                   zIndex: 15,
                   pointerEvents: 'none',
-                  ...(isMobileLandscape
-                    ? {
-                        left: 0,
-                        right: 0,
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        alignItems: 'flex-end',
-                        paddingRight: 11,
-                      }
-                    : {
-                        left: 'auto',
-                        right: 8,
-                        width: 'max-content',
-                        maxWidth: 'calc(100% - 16px)',
-                      }),
+                  left: 0,
+                  right: 0,
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  alignItems: 'flex-end',
+                  boxSizing: 'border-box',
+                  paddingLeft: 8,
+                  paddingRight: 8,
                 }}
               >
                 <div
                   className="bid-panel-mobile-on-table-stack"
-                  style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}
+                  style={{
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-end',
+                    width: '100%',
+                    maxWidth: '100%',
+                    minWidth: 0,
+                  }}
                 >
                   <span className="bid-panel-mobile-badge">
                     <span className="bid-panel-mobile-badge-text">
@@ -10250,12 +10597,16 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       className={[
                         'bid-panel-grid',
                         'bid-panel-mobile-grid',
-                        mobileSouthHandLayout?.lHandExpanded ? 'bid-panel-mobile-grid--l-gutter' : '',
+                        'bid-panel-mobile-grid--rows',
+                        'bid-panel-mobile-grid--cols5',
+                        mobileSouthHandLayout?.lHandExpanded && !isThreeSeatTable
+                          ? 'bid-panel-mobile-grid--l-gutter'
+                          : '',
                       ]
                         .filter(Boolean)
                         .join(' ')}
                       style={
-                        mobileSouthHandLayout?.lHandExpanded
+                        mobileSouthHandLayout?.lHandExpanded && !isThreeSeatTable
                           ? undefined
                           : bidSidePanelGridMobile
                       }
@@ -10264,10 +10615,20 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       (() => {
                         const n = state.tricksInDeal;
                         const bidButtonCount = n + 1;
-                        const lGutterRows =
-                          mobileSouthHandLayout?.lHandExpanded
-                            ? chunkMobileBidRowsForLHandGutter(bidButtonCount)
-                            : null;
+                        /*
+                         * 3p · мобила: две нижние по lowerCols (5, или 6 при ширине >425).
+                         * 4p: L-рука → 4+4 снизу / 3 выше; иначе lowerCols.
+                         */
+                        const bidRows =
+                          isThreeSeatTable
+                            ? chunkMobileBidRows(
+                                bidButtonCount,
+                                mobileBidLowerCols,
+                                mobileSouthHandLayout?.lHandExpanded ? 3 : mobileBidLowerCols,
+                              )
+                            : mobileSouthHandLayout?.lHandExpanded
+                              ? chunkMobileBidRowsForLHandGutter(bidButtonCount)
+                              : chunkMobileBidRows(bidButtonCount, mobileBidLowerCols);
                         const renderBidBtn = (i: number) => {
                           const disabled = invalidBid === i;
                           return (
@@ -10294,27 +10655,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             </button>
                           );
                         };
-                        if (lGutterRows) {
-                          return (
-                            <>
-                              {lGutterRows.map((row, ri) => (
-                                <div
-                                  key={`bid-row-${ri}`}
-                                  className="bid-panel-mobile-grid-row"
-                                  data-cols={row.length}
-                                >
-                                  {row.map((i) => renderBidBtn(i))}
-                                </div>
-                              ))}
-                            </>
-                          );
-                        }
-                        const bidOrder = Array.from({ length: bidButtonCount }, (_, i) => i);
                         return (
                           <>
-                            {bidOrder.map((i) => renderBidBtn(i))}
-                            <span key="ph1" className="bid-panel-mobile-placeholder" aria-hidden />
-                            <span key="ph2" className="bid-panel-mobile-placeholder" aria-hidden />
+                            {bidRows.map((row, ri) => (
+                              <div
+                                key={`bid-row-${ri}`}
+                                className="bid-panel-mobile-grid-row"
+                                data-cols={row.length}
+                              >
+                                {row.map((i) => renderBidBtn(i))}
+                              </div>
+                            ))}
                           </>
                         );
                       })()
@@ -10344,39 +10695,51 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 </div>
               </div>
             )}
+            {useMidLandscapeScaleGears ? renderTabletTableScaleControl() : null}
           </div>
         </div>
         </div>
-            {showEastSeatFour ? (
+            {showMobileLandscapeEastSeat ? (
             <div
               className="game-center-east game-mobile-east"
               style={{
-                flex: isMobileLandscape ? '1 1 0' : undefined,
-                flexShrink: isMobileLandscape ? 1 : 0,
+                flex: isMobileLandscape ? (mobileLandscapeWePanelFixedW != null ? '0 0 auto' : '1 1 0') : undefined,
+                flexShrink: isMobileLandscape ? (mobileLandscapeWePanelFixedW != null ? 0 : 1) : 0,
                 minWidth: isMobileLandscape ? 0 : undefined,
-                width: isMobileLandscape ? 'auto' : '100%',
+                width: isMobileLandscape
+                  ? mobileLandscapeWePanelFixedW != null
+                    ? mobileLandscapeWePanelFixedW
+                    : 'auto'
+                  : '100%',
+                ...(isMobileLandscape && mobileLandscapeWePanelFixedW != null
+                  ? {
+                      minWidth: mobileLandscapeWePanelFixedW,
+                      maxWidth: mobileLandscapeWePanelFixedW,
+                    }
+                  : {}),
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'stretch',
                 justifyContent: 'flex-start',
                 alignSelf: 'stretch',
-                ...lastTrickWinnerSeatElevateStyle(3),
+                ...lastTrickWinnerSeatElevateStyle(mobileEastDisplayIndex),
               }}
             >
-              <OpponentSlot state={displayState} index={3} position="right" inline compactMode={isMobileOrTablet}
-                avatarDataUrl={resolveDisplayPlayerAvatar(3)}
-                replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(3, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
+              <OpponentSlot state={displayState} index={mobileEastDisplayIndex} position="right" inline compactMode={isMobileOrTablet}
+                avatarDataUrl={resolveDisplayPlayerAvatar(mobileEastDisplayIndex)}
+                replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(mobileEastDisplayIndex, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
                 collectingCards={lastTrickInterstitialActive}
-                winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 3}
+                winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === mobileEastDisplayIndex}
                 trickWinnerHighlight={
-                  (!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === 3) ||
-                  (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 3)
+                  (!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === mobileEastDisplayIndex) ||
+                  (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === mobileEastDisplayIndex)
                 }
-                currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === 3}
-                firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
-                firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 3}
+                currentTrickLeaderHighlight={getCurrentTrickLeaderIndex(state) === mobileEastDisplayIndex}
+                firstBidderBadge={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === mobileEastDisplayIndex}
+                firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === mobileEastDisplayIndex}
                 isMobile={true}
                 mobileLandscapeLayout={isMobileLandscape}
+                mobileLandscapeMid={isMobileLandscape && isMobileWidthLandscapeBand}
                 onAvatarClick={handleOpponentAvatarClick}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
@@ -10469,7 +10832,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               borderRadius: 10,
               touchAction: overlapScrubEnabled ? ('none' as const) : undefined,
               ...(rowTransform
-                ? { transform: rowTransform, transformOrigin: 'center bottom' as const }
+                ? {
+                    transform: rowTransform,
+                    transformOrigin: 'center bottom' as const,
+                  }
                 : {}),
             }}
           >
@@ -10520,8 +10886,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 >
                 <CardView
                   card={card}
-                  scale={0.72}
-                  contentScale={1.5}
+                  scale={mobileHandCardScale}
+                  contentScale={mobileHandContentScale}
                   compact
                   showDesktopFaceIndices={true}
                   suitIndexInHandMobile={true}
@@ -10652,6 +11018,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             {isMobileLandscape ? (
               <div className="user-player-panel-south-landscape-score-corner">
                 {renderMobileSouthScoreToggleBadge({ landscapeCorner: true })}
+              </div>
+            ) : null}
+            {useMidLandscapeScaleGears ? (
+              <div className="user-player-panel-south-landscape-hand-scale">
+                {renderPcTableSettings()}
               </div>
             ) : null}
             <div
@@ -10811,8 +11182,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                               >
                                 <CardView
                                   card={card}
-                                  scale={0.72}
-                                  contentScale={1.5}
+                                  scale={mobileHandCardScale}
+                                  contentScale={mobileHandContentScale}
                                   compact
                                   showDesktopFaceIndices={true}
                                   suitIndexInHandMobile={true}
@@ -11455,20 +11826,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               ['--pc-game-info-left-align-px' as string]: `${pcGameInfoLeftAlignPx}px`,
             }}
           >
-            {!isMobile &&
-              !useTabletPcTableTuning &&
-              (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
-              <div
-                ref={pcFirstMoveBadgeRef}
-                className="first-move-badge first-move-badge-above-block pc-info-badge-unified pc-info-badge--bidding"
-                style={{
-                  ...firstMoveBadgeStyle,
-                }}
-              >
-                <span className="first-move-num" style={firstMoveLabelStyle}>Первый ход:</span>
-                <span style={firstMoveValueStyle}>{displayState.players[state.trickLeaderIndex].name}</span>
-              </div>
-            )}
             {(state.phase === 'playing' ||
               state.phase === 'deal-complete' ||
               state.phase === 'bidding' ||
@@ -11774,11 +12131,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   : {}),
             }}
           >
-            {useTabletPcTableTuning &&
+            {!isMobile &&
               (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
                 <div
                   ref={pcFirstMoveBadgeRef}
-                  className="first-move-badge first-move-badge--tablet-on-table pc-info-badge-unified pc-info-badge--bidding"
+                  className="first-move-badge first-move-badge--on-table first-move-badge--tablet-on-table pc-info-badge-unified pc-info-badge--bidding"
                   style={firstMoveBadgeStyle}
                 >
                   <span className="first-move-num" style={firstMoveLabelStyle}>
@@ -11865,7 +12222,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 state.currentTrick.map((card, i) => {
                   const leader = state.trickLeaderIndex;
                   const playerIdx = getTrickPlayerIndex(leader, i, playerCountOf(state));
-                  const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state));
+                  const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state), useMidLandscapeScaleGears);
                   const tableCardScale = getTrickTableCardScale(
                     isMobileOrTablet,
                     isMobileLandscape,
@@ -11953,7 +12310,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   state.lastCompletedTrick.cards.map((card, i) => {
                     const leader = state.lastCompletedTrick!.leaderIndex;
                     const playerIdx = getTrickPlayerIndex(leader, i, playerCountOf(state));
-                    const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state));
+                    const slotStyle = getTrickCardSlotStyle(playerIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state), useMidLandscapeScaleGears);
                     const tableCardScale = getTrickTableCardScale(
                       isMobileOrTablet,
                       isMobileLandscape,
@@ -11971,7 +12328,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               ) : null}
               {humanTrickWaitBadgeReady && (
                 <HumanTrickSlotWaitBadge
-                  slotStyle={getTrickCardSlotStyle(humanIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state))}
+                  slotStyle={getTrickCardSlotStyle(humanIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state), useMidLandscapeScaleGears)}
                   cardScale={getTrickTableCardScale(
                     isMobileOrTablet,
                     isMobileLandscape,
@@ -17586,6 +17943,8 @@ function TrickSlotsDisplay({
   playerMobileLandscapeTricks,
   /** Моб. landscape · Запад/Восток: горизонтальная полоска как у С/З (без east-mobile сетки и без «ушка» при заказе >6). */
   opponentMobileLandscapeWeTricks,
+  /** Mid 601–899 · З/В: вертикальная полоска заказа (цифры сверху, кружки столбиком). */
+  opponentMobileLandscapeMidWeVertical,
   /** Моб. landscape · Север (оппонент): компактная полоска заказа (×1.5 меньше). */
   opponentMobileLandscapeNorthTricks,
   /** Сколько взяток ещё не сыграно в раздаче (для мягкого недобора на ПК). */
@@ -17612,6 +17971,8 @@ function TrickSlotsDisplay({
   /** Только телефон (viewport-mobile): чуть шире бюджет под кружки заказа у панели игрока (слот Юг). */
   playerMobileWideTricks?: boolean;
   opponentMobileLandscapeWeTricks?: boolean;
+  /** Mid 601–899 · только З/В: вертикальная капсула заказа */
+  opponentMobileLandscapeMidWeVertical?: boolean;
   opponentMobileLandscapeNorthTricks?: boolean;
   /** Только моб. landscape · Юг: компактная полоска заказа по ширине колонки панели. */
   playerMobileLandscapeTricks?: boolean;
@@ -17749,13 +18110,13 @@ function TrickSlotsDisplay({
 
   if (compactMode) {
     const bidNum = bid == null || Number.isNaN(Number(bid)) ? null : Number(bid);
-    /** Landscape З/В: при заказе >6 цифры в «ушке» — иначе узкая колонка режет текст (overflow). */
+    /** Landscape З/В: при заказе >6 цифры в «ушке»; mid З/В — всегда «ушко»+вертикальные кружки. */
     const opponentLandscapeWeHighBidEar =
       variant === 'opponent' &&
       hideOppOrderWord &&
       !!opponentMobileLandscapeWeTricks &&
       bidNum != null &&
-      bidNum > 6;
+      (bidNum > 6 || !!opponentMobileLandscapeMidWeVertical);
     const southLandscapeHighBidEar =
       variant === 'player' &&
       Boolean(playerMobileLandscapeTricks) &&
@@ -18101,21 +18462,35 @@ function TrickSlotsDisplay({
               position: 'relative' as const,
               width: opponentMobileLandscapeWeTricks ? ('auto' as const) : ('100%' as const),
               maxWidth: opponentMobileLandscapeWeTricks ? ('max-content' as const) : ('100%' as const),
-              minHeight: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
-              maxHeight: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
-              height: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
-              borderRadius: MOBILE_LANDSCAPE_OPPONENT_ORDER_RADIUS_PX,
-              paddingTop: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
-              paddingBottom: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
-              paddingLeft: opponentMobileLandscapeWeTricks
-                ? MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX
-                : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
-              paddingRight: opponentMobileLandscapeWeTricks
-                ? MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX
-                : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
-              gap: opponentMobileLandscapeWeTricks
-                ? MOBILE_LANDSCAPE_WE_ORDER_GAP_PX
-                : MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX,
+              ...(opponentMobileLandscapeMidWeVertical
+                ? {
+                    minHeight: 0,
+                    maxHeight: 'none' as const,
+                    height: 'auto' as const,
+                    borderRadius: 10,
+                    paddingTop: 0,
+                    paddingBottom: 0,
+                    paddingLeft: 0,
+                    paddingRight: 0,
+                    gap: 0,
+                  }
+                : {
+                    minHeight: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
+                    maxHeight: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
+                    height: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
+                    borderRadius: MOBILE_LANDSCAPE_OPPONENT_ORDER_RADIUS_PX,
+                    paddingTop: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
+                    paddingBottom: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
+                    paddingLeft: opponentMobileLandscapeWeTricks
+                      ? MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX
+                      : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
+                    paddingRight: opponentMobileLandscapeWeTricks
+                      ? MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX
+                      : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
+                    gap: opponentMobileLandscapeWeTricks
+                      ? MOBILE_LANDSCAPE_WE_ORDER_GAP_PX
+                      : MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX,
+                  }),
               overflow: 'visible' as const,
             }
           : {
@@ -18228,9 +18603,34 @@ function TrickSlotsDisplay({
           ? {
               ...trickCirclesRowStyle,
               flexWrap: 'nowrap' as const,
-              gap: opponentMobileLandscapeWeTricks
-                ? MOBILE_LANDSCAPE_WE_ORDER_GAP_PX
-                : MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX,
+              ...(opponentMobileLandscapeMidWeVertical
+                ? (() => {
+                    const circ =
+                      circleSize ??
+                      Math.max(
+                        8,
+                        Math.round(MOBILE_LANDSCAPE_OPPONENT_ORDER_CIRCLE_BASE_PX * opponentScaleDown),
+                      );
+                    const gap = 3;
+                    const twoColW = circ * 2 + gap;
+                    return {
+                      flexDirection: 'row' as const,
+                      flexWrap: 'wrap' as const,
+                      alignItems: 'center' as const,
+                      justifyContent: 'center' as const,
+                      alignContent: 'center' as const,
+                      gap,
+                      boxSizing: 'content-box' as const,
+                      width: twoColW,
+                      maxWidth: twoColW,
+                      minWidth: twoColW,
+                    };
+                  })()
+                : {
+                    gap: opponentMobileLandscapeWeTricks
+                      ? MOBILE_LANDSCAPE_WE_ORDER_GAP_PX
+                      : MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX,
+                  }),
             }
         : scaleDown < 1
           ? {
@@ -18291,7 +18691,10 @@ function TrickSlotsDisplay({
       bidNum > 6 &&
       (opponentLandscapeWeHighBidEar ||
         (!opponentMobileLandscapeWeTricks && !opponentMobileLandscapeNorthTricks));
-    const mobileHighBidEar = mobileNwHighBidEar || southLandscapeHighBidEar;
+    /** Mid 601–899 З/В: вертикальная полоска с цифрами-крышкой — тот же ear-DOM, что у заказа >6. */
+    const mobileMidWeVerticalEar =
+      !!opponentMobileLandscapeMidWeVertical && bidNum != null && bidNum > 0;
+    const mobileHighBidEar = mobileNwHighBidEar || southLandscapeHighBidEar || mobileMidWeVerticalEar;
     const wrapCls = [
       hideCards ? 'trick-slots-collecting' : 'trick-slots-normal',
       eastMobileTricks ? 'trick-slots-east-mobile' : '',
@@ -18302,6 +18705,7 @@ function TrickSlotsDisplay({
       playerMobileWideTricks && variant === 'player' ? 'trick-slots-player-mobile-wide' : '',
       playerMobileLandscapeTricks && variant === 'player' ? 'trick-slots-player-mobile-landscape' : '',
       mobileHighBidEar ? 'trick-slots-mobile-nw-high-bid-ear' : '',
+      opponentMobileLandscapeMidWeVertical ? 'trick-slots-mid-we-vertical' : '',
     ]
       .filter(Boolean)
       .join(' ');
@@ -19082,6 +19486,7 @@ function OpponentSlot({
   onAvatarClick,
   onDealerBadgeClick,
   offlineAiNameStyleByDifficulty,
+  mobileLandscapeMid,
 }: {
   state: GameState;
   index: number;
@@ -19111,6 +19516,8 @@ function OpponentSlot({
   onDealerBadgeClick?: () => void;
   /** Офлайн: раскрасить имя бота по уровню ИИ; карточка и смена уровня — по тапу на аватар (PlayerInfoPanel) */
   offlineAiNameStyleByDifficulty?: boolean;
+  /** Mid 601–899: Север — аватар в «ушке» над панелью */
+  mobileLandscapeMid?: boolean;
 }) {
   const p = state.players[index];
   if (!p) return null;
@@ -19183,26 +19590,36 @@ function OpponentSlot({
   );
   /** Мобильная колонка Восток: тот же базовый размер, что у Запад/Север (40), и общие правила кольца заказа */
   const eastMobileLargeAvatar = Boolean(isMobile && inline && position === 'right');
+  /** Моб. landscape: Север — одна низкая полоска над столом (контент в строку). */
+  const mobileNorthLandscapeRow = Boolean(isMobile && mobileLandscapeLayout && inline && position === 'top');
+  /** Mid 601–899 · Север: аватар в «ушке» над верхней гранью панели */
+  const midNorthAvatarEar = Boolean(mobileLandscapeMid && mobileNorthLandscapeRow);
   /**
    * Моб. С/З и Восток: фиксированная ячейка под аватар — max(кнопка minTap 44, лицо 40) + padding кольца 6+6
    * (кольцо в TS), иначе высота шапки прыгает при появлении/снятии кольца заказа.
    */
   const MOBILE_OPP_HEADER_AVATAR_RESERVE_PX = 56;
+  /** Mid · ушко Севера: 48×1.07 / 65×1.07 */
+  const MID_NORTH_AVATAR_EAR_FACE_PX = 51;
+  const MID_NORTH_AVATAR_EAR_RESERVE_PX = 70;
   /** ПК (не compact): С/З/В — крупнее лицо; панель не раздуваем (padding ↓). Мобилка/планшет — как раньше. */
   const PC_OPPONENT_AVATAR_SIZE_PX = 50;
-  /** Компакт: С/З/В (моб.) — лицо всегда 40, без ×0.95 при кольце; прочие компактные слоты — как раньше */
+  /** Компакт: С/З/В (моб.) — лицо всегда 40, без ×0.95 при кольце; mid-ушко Севера — крупнее */
   const avatarSizePx = compactMode
-    ? mobileNwLayout || eastMobileLargeAvatar || mobileWestEastLandscapeCol
-      ? 40
-      : Math.round(32 * (avatarOrderRingMode ? 0.95 : 1))
+    ? midNorthAvatarEar
+      ? MID_NORTH_AVATAR_EAR_FACE_PX
+      : mobileNwLayout || eastMobileLargeAvatar || mobileWestEastLandscapeCol
+        ? 40
+        : Math.round(32 * (avatarOrderRingMode ? 0.95 : 1))
     : PC_OPPONENT_AVATAR_SIZE_PX;
+  const mobileAvatarReservePx = midNorthAvatarEar
+    ? MID_NORTH_AVATAR_EAR_RESERVE_PX
+    : MOBILE_OPP_HEADER_AVATAR_RESERVE_PX;
   const eastMobileOnlyAvatar = position === 'right' && isMobile;
   /** Landscape З/В и моб. Восток: east-mobile стили; landscape З/В — одна строка + скролл как у С/З. */
   const useEastMobileNameStyle = eastMobileOnlyAvatar || mobileWestEastLandscapeCol;
   /** ПК/планшет-шелл, слот «Север»: аватар и имя слева, взятки и очки справа (true-mobile не трогается). */
   const pcNorthSideBySide = position === 'top' && inline && !isMobile;
-  /** Моб. landscape: Север — одна низкая полоска над столом (контент в строку). */
-  const mobileNorthLandscapeRow = Boolean(isMobile && mobileLandscapeLayout && inline && position === 'top');
   /** Моб. С/З: имя в «окошке» (для звезды «ровно» и legacy-флагов). */
   const mobileOpponentInline = !!(isMobile && inline && !pcNorthSideBySide);
   /**
@@ -19210,6 +19627,7 @@ function OpponentSlot({
    * Portrait East mobile — перенос без horiz-scroll; ПК East — горизонтальное окошко как С/З.
    */
   const opponentNameWindowChrome = !!inline;
+  const midWeVerticalName = Boolean(mobileLandscapeMid && mobileWestEastLandscapeCol);
   const opponentNameWindowHorizScroll =
     opponentNameWindowChrome &&
     !(isMobile && useEastMobileNameStyle && !mobileWestEastLandscapeCol);
@@ -19222,7 +19640,8 @@ function OpponentSlot({
     onKeyDown: onOppNameWindowKeyDown,
   } = useMobileOpponentNameWindowScroll({
     enabled: opponentNameWindowHorizScroll,
-    remeasureKey: `${displayName}|${replacedByAi ? 1 : 0}|${index}`,
+    axis: midWeVerticalName ? 'y' : 'x',
+    remeasureKey: `${displayName}|${replacedByAi ? 1 : 0}|${index}|${midWeVerticalName ? 'v' : 'h'}`,
   });
 
   /** Мобильная колонка Восток: «Очки» между именем и полосой заказа (как по вертикали у Север/Запад). */
@@ -19266,14 +19685,15 @@ function OpponentSlot({
   const dealerWestLandscapeEastPanelStars = Boolean(
     dealerOpponentMobilePanelHighlight && mobileWestEastLandscapeCol && position === 'left',
   );
-  /** Моб. landscape С/З/В: после торгов «Сдающий» — кружок на аватаре (как у Юга, проще). */
+  /** Моб. landscape С/З/В: после торгов «Сдающий» — кружок на аватаре (как у Юга, проще).
+   * Mid · Север (аватар в «ушке»): бейдж остаётся на панели, не на ушке над границей. */
   const opponentLandscapePlayingDealerOnAvatar = Boolean(
     isMobile &&
       mobileLandscapeLayout &&
       isDealer &&
       !hideDealerBadge &&
       state.phase === 'playing' &&
-      (mobileWestEastLandscapeCol || mobileNorthLandscapeRow),
+      (mobileWestEastLandscapeCol || (mobileNorthLandscapeRow && !midNorthAvatarEar)),
   );
 
   const frameStyle =
@@ -19309,7 +19729,9 @@ function OpponentSlot({
         dealerOpponentMobilePanelPlaying ? 'dealer-opponent-panel-mobile--playing' : '',
         dealerOpponentMobilePanelBidding || dealerOpponentMobilePanelPlaying ? 'dealer-panel-stars-live' : '',
         mobileNorthLandscapeRow ? 'opponent-slot--mobile-landscape-north mobile-landscape-panel-north-layout' : '',
+        midNorthAvatarEar ? 'opponent-slot--mid-north-avatar-ear' : '',
         mobileWestEastLandscapeCol ? 'opponent-slot--mobile-landscape-we' : '',
+        mobileLandscapeMid && mobileWestEastLandscapeCol ? 'opponent-slot--mid-we-vertical-name' : '',
         dealerWestLandscapeEastPanelStars ? 'opponent-slot-dealer-stars-east-layout' : '',
         isActive ? 'opponent-slot-current-turn' : '',
         trickWinnerHighlight ? 'opponent-slot--trick-winner-glow' : '',
@@ -19399,7 +19821,11 @@ function OpponentSlot({
           className={[
             'opponent-badge',
             'first-bidder-badge',
-            position === 'top' || position === 'left' ? 'first-bidder-badge-two-lines' : '',
+            position === 'top' ||
+              position === 'left' ||
+              (mobileWestEastLandscapeCol && position === 'right')
+              ? 'first-bidder-badge-two-lines'
+              : '',
             position === 'right' && isMobile && typeof displayBid === 'number' && displayBid > 6
               ? 'first-bidder-badge-east-high-bid-soft-top'
               : '',
@@ -19409,7 +19835,9 @@ function OpponentSlot({
           style={firstBidderLampExternalStyle}
           title="Первый заказ/ход"
         >
-          {(position === 'top' || position === 'left') ? (
+          {position === 'top' ||
+          position === 'left' ||
+          (mobileWestEastLandscapeCol && position === 'right') ? (
             <>
               <span className="first-bidder-line1">
                 <span style={firstBidderLampBulbStyle} /> Первый:
@@ -19580,7 +20008,7 @@ function OpponentSlot({
             title={
               opponentNameWindowHorizScroll && oppNameWindowScrollable
                 ? undefined
-                : `${displayName} — ${getCompassLabel(index)}. Нажмите на аватар: информация и уровень ИИ`
+                : `${displayName} — ${getCompassLabel(index, state.players.length, position)}. Нажмите на аватар: информация и уровень ИИ`
             }
           >
             {nameInner}
@@ -19600,7 +20028,7 @@ function OpponentSlot({
             title={
               opponentNameWindowHorizScroll && oppNameWindowScrollable
                 ? undefined
-                : `${displayName} — ${getCompassLabel(index)}`
+                : `${displayName} — ${getCompassLabel(index, state.players.length, position)}`
             }
           >
             {nameInner}
@@ -19663,7 +20091,11 @@ function OpponentSlot({
                       sideSlotPcGrow ? 'opponent-score-badge-side-pc' : '',
                       scoreLeaderHighlight ? 'score-badge-leader' : '',
                       opponentScoreMobileSlotClass,
-                      mobileWestEastLandscapeCol ? 'opponent-score-badge--landscape-we-ear' : '',
+                      mobileWestEastLandscapeCol
+                        ? midWeVerticalName
+                          ? 'opponent-score-badge--mid-we-corner'
+                          : 'opponent-score-badge--landscape-we-ear'
+                        : '',
                       mobileNorthLandscapeRow ? 'opponent-score-badge--landscape-north-corner' : '',
                       mobileOpponentScoreExpanded
                         ? 'opponent-score-badge--score-expanded'
@@ -19746,12 +20178,12 @@ function OpponentSlot({
                     .join(' ') || undefined}
                   title={
                     opponentNameWindowHorizScroll && oppNameWindowScrollable
-                      ? `${displayName} — ${getCompassLabel(index)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
+                      ? `${displayName} — ${getCompassLabel(index, state.players.length, position)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
                       : undefined
                   }
                   aria-label={
                     opponentNameWindowHorizScroll && oppNameWindowScrollable
-                      ? `${displayName}, ${getCompassLabel(index)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
+                      ? `${displayName}, ${getCompassLabel(index, state.players.length, position)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
                       : undefined
                   }
                   role={opponentNameWindowHorizScroll && oppNameWindowScrollable ? 'button' : undefined}
@@ -19784,7 +20216,7 @@ function OpponentSlot({
                   )}
                 </div>
                 {mobileExactOrderStarEl}
-                {mobileWestEastLandscapeCol ? (
+                {mobileWestEastLandscapeCol && !midWeVerticalName ? (
                   <div className="opponent-slot-mobile-landscape-we-score-ear">{opponentScoreControl}</div>
                 ) : null}
               </div>
@@ -19831,7 +20263,7 @@ function OpponentSlot({
               name={displayName}
               avatarDataUrl={avatarDataUrl}
               sizePx={avatarSizePx}
-              title={`${displayName} — ${getCompassLabel(index)}`}
+              title={`${displayName} — ${getCompassLabel(index, state.players.length, position)}`}
               className={playerAvatarMergedCls}
             />
           </button>
@@ -19840,7 +20272,7 @@ function OpponentSlot({
             name={displayName}
             avatarDataUrl={avatarDataUrl}
             sizePx={avatarSizePx}
-            title={`${displayName} — ${getCompassLabel(index)}`}
+            title={`${displayName} — ${getCompassLabel(index, state.players.length, position)}`}
             className={playerAvatarMergedCls}
           />
         );
@@ -19886,10 +20318,10 @@ function OpponentSlot({
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: MOBILE_OPP_HEADER_AVATAR_RESERVE_PX,
-                height: MOBILE_OPP_HEADER_AVATAR_RESERVE_PX,
-                minWidth: MOBILE_OPP_HEADER_AVATAR_RESERVE_PX,
-                minHeight: MOBILE_OPP_HEADER_AVATAR_RESERVE_PX,
+                width: mobileAvatarReservePx,
+                height: mobileAvatarReservePx,
+                minWidth: mobileAvatarReservePx,
+                minHeight: mobileAvatarReservePx,
                 flexShrink: 0,
                 boxSizing: 'border-box',
               }}
@@ -20005,6 +20437,18 @@ function OpponentSlot({
           );
           return (
             <>
+              {midNorthAvatarEar ? (
+                <div className="opponent-slot-mobile-landscape-north-avatar-ear">
+                  <div className="opponent-slot-mobile-landscape-north-avatar-ear__bridge" aria-hidden />
+                  <div className="opponent-slot-mobile-landscape-north-avatar-ear__tab">
+                    <span className="opponent-slot-mobile-landscape-north-avatar-ear__sheen" aria-hidden />
+                    <span className="opponent-slot-mobile-landscape-north-avatar-ear__halo" aria-hidden />
+                    <div className="opponent-slot-mobile-landscape-north-avatar-ear__stage">
+                      {avatarElForHeader}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div className="opponent-slot-mobile-landscape-north-score-corner">{opponentScoreControl}</div>
               <div
                 className="opponent-slot-mobile-landscape-north-row"
@@ -20018,19 +20462,21 @@ function OpponentSlot({
                   boxSizing: 'border-box',
                 }}
               >
-                <div
-                  className="opponent-slot-mobile-landscape-north-avatar-col"
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    alignSelf: 'stretch',
-                  }}
-                >
-                  {avatarElForHeader}
-                </div>
+                {!midNorthAvatarEar ? (
+                  <div
+                    className="opponent-slot-mobile-landscape-north-avatar-col"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                      alignSelf: 'stretch',
+                    }}
+                  >
+                    {avatarElForHeader}
+                  </div>
+                ) : null}
                 <div
                   className="opponent-slot-mobile-landscape-north-body"
                   style={{
@@ -20087,6 +20533,7 @@ function OpponentSlot({
                 collectingCards={collectingCards}
                 compactMode={compactMode}
                 opponentMobileLandscapeWeTricks={mobileWestEastLandscapeCol}
+                opponentMobileLandscapeMidWeVertical={!!mobileLandscapeMid && mobileWestEastLandscapeCol}
                 opponentMobileHideOrderLabel={!!isMobile}
                 opponentMobileZeroOrderCross={!!isMobile}
                 opponentOrderHintSlot={position === 'left' ? 'west' : 'east'}
@@ -20094,7 +20541,7 @@ function OpponentSlot({
               />
             </div>
           );
-          return (
+          const weStack = (
             <div
               className="opponent-slot-mobile-landscape-we-stack"
               style={{
@@ -20108,47 +20555,91 @@ function OpponentSlot({
                 boxSizing: 'border-box',
               }}
             >
-              <div
-                className={[
-                  'opponent-slot-mobile-landscape-we-name opponent-slot-mobile-landscape-we-name--top',
-                  dealerOpponentMobilePanelHighlight ? 'opponent-slot-mobile-landscape-we-name--dealer' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
+              {mobileLandscapeMid ? null : (
                 <div
-                  className="opponent-slot-header opponent-slot-header--landscape-we-name"
-                  style={{
-                    display: 'flex',
-                    marginBottom: 0,
-                    flexDirection: 'column',
-                    alignItems: 'stretch',
-                    justifyContent: 'center',
-                    width: '100%',
-                    gap: 0,
-                  }}
+                  className={[
+                    'opponent-slot-mobile-landscape-we-name opponent-slot-mobile-landscape-we-name--top',
+                    dealerOpponentMobilePanelHighlight ? 'opponent-slot-mobile-landscape-we-name--dealer' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                 >
-                  {nameBlock}
+                  <div
+                    className="opponent-slot-header opponent-slot-header--landscape-we-name"
+                    style={{
+                      display: 'flex',
+                      marginBottom: 0,
+                      flexDirection: 'column',
+                      alignItems: 'stretch',
+                      justifyContent: 'center',
+                      width: '100%',
+                      gap: 0,
+                    }}
+                  >
+                    {nameBlock}
+                  </div>
                 </div>
-              </div>
+              )}
               <div
                 className="opponent-slot-mobile-landscape-we-top"
                 style={{
                   display: 'flex',
                   flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'flex-start',
+                  alignItems: mobileLandscapeMid ? 'flex-start' : 'center',
+                  justifyContent: mobileLandscapeMid ? 'space-between' : 'flex-start',
                   gap: 4,
                   width: '100%',
                   minWidth: 0,
                   boxSizing: 'border-box',
                 }}
               >
-                <div className="opponent-slot-mobile-landscape-we-avatar">{avatarElForHeader}</div>
+                {mobileLandscapeMid ? (
+                  <div className="opponent-slot-mobile-landscape-we-left">
+                    <div className="opponent-slot-mobile-landscape-we-avatar">{avatarElForHeader}</div>
+                    {orderStripLandscapeWe}
+                  </div>
+                ) : (
+                  <div className="opponent-slot-mobile-landscape-we-avatar">{avatarElForHeader}</div>
+                )}
+                {mobileLandscapeMid ? (
+                  <div
+                    className={[
+                      'opponent-slot-mobile-landscape-we-name opponent-slot-mobile-landscape-we-name--beside',
+                      dealerOpponentMobilePanelHighlight ? 'opponent-slot-mobile-landscape-we-name--dealer' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
+                    <div
+                      className="opponent-slot-header opponent-slot-header--landscape-we-name"
+                      style={{
+                        display: 'flex',
+                        marginBottom: 0,
+                        flexDirection: 'column',
+                        alignItems: position === 'right' ? 'flex-start' : 'flex-end',
+                        justifyContent: 'flex-start',
+                        width: 'auto',
+                        gap: 0,
+                      }}
+                    >
+                      {nameBlock}
+                    </div>
+                  </div>
+                ) : null}
               </div>
-              {orderStripLandscapeWe}
+              {mobileLandscapeMid ? null : orderStripLandscapeWe}
             </div>
           );
+          /* Mid: «Очки» — прямой потомок панели (угол), не внутри stack (у сдающего stack relative) */
+          if (mobileLandscapeMid) {
+            return (
+              <>
+                <div className="opponent-slot-mobile-landscape-we-score-corner">{opponentScoreControl}</div>
+                {weStack}
+              </>
+            );
+          }
+          return weStack;
         }
         if (pcNorthSideBySide) {
           return (
@@ -23770,6 +24261,8 @@ const playerNameStyle: React.CSSProperties = {
 const MOBILE_SOUTH_PREMIUM_PLAYER_NAME_CLASS = 'player-panel-name--premium-user';
 /** Моб. landscape · Юг: резерв под аватар как у Севера (OpponentSlot MOBILE_OPP_HEADER_AVATAR_RESERVE_PX). */
 const MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX = 56;
+/** 601–899 mid: крупнее аватар Юга */
+const MOBILE_SOUTH_LANDSCAPE_MID_AVATAR_RESERVE_PX = 72;
 
 function buildMobileSouthLandscapePlayerNameStyle(
   usePremiumGradient: boolean,
@@ -23923,24 +24416,33 @@ const bidSidePanelGridMobile: React.CSSProperties = {
 };
 
 /**
- * L + gutter стола (10+ / вертикаль): две нижние строки по 4 кнопки, все верхние — макс. по 3.
- * rows[0] = нижняя строка (0 справа при row-reverse).
+ * Мобильная сетка заказа: rows[0] = нижняя строка (0 справа при row-reverse на ряду).
+ * lowerCols — ёмкость двух нижних рядов; upperCols — всех выше (по умолчанию = lowerCols).
  */
-function chunkMobileBidRowsForLHandGutter(bidButtonCount: number): number[][] {
+function chunkMobileBidRows(
+  bidButtonCount: number,
+  lowerCols: number,
+  upperCols: number = lowerCols,
+): number[][] {
   const bids = Array.from({ length: bidButtonCount }, (_, i) => i);
   const rows: number[][] = [];
   let i = 0;
   for (let r = 0; r < 2 && i < bids.length; r++) {
-    const take = Math.min(4, bids.length - i);
+    const take = Math.min(lowerCols, bids.length - i);
     rows.push(bids.slice(i, i + take));
     i += take;
   }
   while (i < bids.length) {
-    const take = Math.min(3, bids.length - i);
+    const take = Math.min(upperCols, bids.length - i);
     rows.push(bids.slice(i, i + take));
     i += take;
   }
   return rows;
+}
+
+/** L + gutter стола (10+ / вертикаль): две нижние по 4, выше — макс. по 3. */
+function chunkMobileBidRowsForLHandGutter(bidButtonCount: number): number[][] {
+  return chunkMobileBidRows(bidButtonCount, 4, 3);
 }
 
 const bidSidePanelButton: React.CSSProperties = {
@@ -23961,18 +24463,18 @@ const bidSidePanelButton: React.CSSProperties = {
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 4px rgba(0,0,0,0.15)',
 };
 
-/** Только мобильная версия: кнопки заказа в стиле приложения (cyan/teal, больше подсветки) */
+/** Мобильные кнопки заказа: базовый размер 44 (космический хром — в CSS --cols5) */
 const bidSidePanelButtonMobile: React.CSSProperties = {
-  width: 40,
-  height: 40,
+  width: 44,
+  height: 44,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  borderRadius: 12,
+  borderRadius: 11,
   border: '1px solid rgba(34, 211, 238, 0.85)',
   background: 'linear-gradient(180deg, rgba(20, 184, 166, 0.45) 0%, rgba(15, 23, 42, 0.92) 50%, rgba(6, 78, 59, 0.5) 100%)',
   color: '#5eead4',
-  fontSize: 18,
+  fontSize: 24,
   fontWeight: 700,
   cursor: 'pointer',
   userSelect: 'none',
