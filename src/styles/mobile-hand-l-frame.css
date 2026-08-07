@@ -298,37 +298,9 @@
 }
 
 /*
- * Цифры заказа при L-gutter: явные строки.
- * Две нижние — до 4 кнопок; все выше — макс. 3. Только под .game-mobile-l-hand-table-gutter.
- * Базовая раскладка рядов — в index.css (--rows); здесь только сужение верхних рядов.
+ * L-рука: раскладка карт. Кнопки заказа на сукне больше не сужаются до 4
+ * (единая модель 5|6 + резина в index.css).
  */
-.game-table-root.viewport-mobile.game-mobile-l-hand-table-gutter:not(.viewport-mobile-landscape):not(
-    .viewport-mobile-short-header-immersive
-  )
-  .bid-panel-mobile-inline
-  .bid-panel-mobile-grid.bid-panel-mobile-grid--l-gutter {
-  display: flex !important;
-  flex-direction: column-reverse !important;
-  flex-wrap: nowrap !important;
-  align-items: flex-end !important;
-  justify-content: flex-start !important;
-  gap: 4px !important;
-  width: max-content !important;
-  max-width: none !important;
-}
-
-.game-table-root.viewport-mobile.game-mobile-l-hand-table-gutter:not(.viewport-mobile-landscape):not(
-    .viewport-mobile-short-header-immersive
-  )
-  .bid-panel-mobile-inline
-  .bid-panel-mobile-grid--l-gutter
-  .bid-panel-mobile-grid-row {
-  display: flex;
-  flex-direction: row-reverse;
-  flex-wrap: nowrap;
-  gap: 4px;
-  width: max-content;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short-header-immersive)

@@ -375,6 +375,12 @@ function mobileSouthStripInsetPx(_vw: number): number {
 }
 /** Компактная карта в руке: CardView bw=52, scale=0.72 */
 const MOBILE_HAND_CARD_BODY_W = Math.round(52 * 0.72);
+/** ≤8 карт на мобилке: чуть крупнее базы (+~3px к 37×55 → 40×58); 9+ без изменений */
+const MOBILE_HAND_FEW_CARDS_SCALE = 0.76;
+/** ≤7 карт: ещё +1px к ширине (~41×59) */
+const MOBILE_HAND_FEWER_CARDS_SCALE = 0.78;
+const MOBILE_HAND_BASE_SCALE = 0.72;
+const MOBILE_HAND_BASE_CONTENT_SCALE = 1.5;
 /** Моб. нахлёст: жест «пианино» — мягкий вход (disabled-кнопки не получают события, слушаем capture на ряду) */
 const MOBILE_OVERLAP_SCRUB_ACTIVATE_DIST = 7;
 const MOBILE_OVERLAP_SCRUB_ACTIVATE_DX = 5;
@@ -1669,12 +1675,16 @@ const MOBILE_WIDTH_LANDSCAPE_MQ = '(min-width: 601px) and (max-width: 899px)';
 const MOBILE_LANDSCAPE_MQ =
   '(orientation: landscape) and (max-width: 899px) and (max-height: 560px), (orientation: landscape) and (max-width: 1024px) and (max-height: 500px) and (min-aspect-ratio: 1.9)';
 /**
- * Кнопки заказа на столе (мобила), размер:
- * ≥331 — база 44×44 (426+ ещё раскладка нижних по 6);
- * 315–330 — Compact+ 41px;
- * ≤314 — компакт 38px.
+ * Мобильные кнопки заказа на столе (единая модель):
+ * база 44×1.05×1.07×1.02; нижние ряды по 5; если ширина сукна ≥ ROW_MAX — по 6;
+ * ряд не шире ROW_MAX; при нехватке места кнопки резиново сжимаются (CSS).
+ * При 5 кол. и ≥3 рядах — двухстрочный бейдж «Сколько хотите…» (не на козырь).
  */
-const MOBILE_BID_SIX_COLS_MQ = '(min-width: 426px)';
+const MOBILE_BID_BTN_BASE_PX = 44 * 1.05 * 1.07 * 1.02; /* ≈50.4 — +5% +7% +2% от классических 44 */
+const MOBILE_BID_GAP_MIN_PX = 6;
+/** 6×base + 5×gapMin — потолок ширины кластера и порог раскладки 6. */
+const MOBILE_BID_ROW_MAX_PX =
+  6 * MOBILE_BID_BTN_BASE_PX + 5 * MOBILE_BID_GAP_MIN_PX;
 /** Юг · landscape: калибровка панели/руки — не ниже 660×330, см. mobileLandscapeSouthLayout.ts */
 
 /**
@@ -1756,20 +1766,33 @@ function useIsMobileWidthLandscapeBand() {
   return match;
 }
 
-/** >425 CSS-px: две нижние строки заказа по 6 кнопок (иначе по 5). */
-function useMobileBidLowerCols(): 5 | 6 {
-  const [cols, setCols] = useState<5 | 6>(() => {
-    if (typeof window === 'undefined') return 5;
-    return window.matchMedia(MOBILE_BID_SIX_COLS_MQ).matches ? 6 : 5;
-  });
-  useEffect(() => {
-    const mq = window.matchMedia(MOBILE_BID_SIX_COLS_MQ);
-    const sync = () => setCols(mq.matches ? 6 : 5);
-    mq.addEventListener('change', sync);
-    sync();
-    return () => mq.removeEventListener('change', sync);
+/**
+ * 5|6 нижних рядов по фактической ширине сукна (wrap), не по viewport MQ.
+ * callback-ref: панель монтируется только на торгах.
+ */
+function useMobileBidLowerColsFromTableWidth(): {
+  lowerCols: 5 | 6;
+  measureRef: (node: HTMLDivElement | null) => void;
+} {
+  const [cols, setCols] = useState<5 | 6>(5);
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
+  const measureRef = useCallback((el: HTMLDivElement | null) => {
+    setNode(el);
   }, []);
-  return cols;
+  useEffect(() => {
+    if (!node) {
+      setCols(5);
+      return;
+    }
+    const sync = () => {
+      setCols(node.clientWidth >= MOBILE_BID_ROW_MAX_PX ? 6 : 5);
+    };
+    const ro = new ResizeObserver(sync);
+    ro.observe(node);
+    sync();
+    return () => ro.disconnect();
+  }, [node]);
+  return { lowerCols: cols, measureRef };
 }
 
 /** Модалка «Партия завершена»: праздничный экран → по «Подробнее» развёрнутый вид с таблицей, статистикой, рейтингом */
@@ -2206,7 +2229,10 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   /** Mid 601–899: шестерёнки масштаба стола (вниз) и карт руки (вверх), как на планшете/ПК. */
   const useMidLandscapeScaleGears = isMobileLandscape && isMobileWidthLandscapeBand;
   const midTrickCardScale = useMidLandscapeTrickCardScale(useMidLandscapeScaleGears);
-  const mobileBidLowerCols = useMobileBidLowerCols();
+  const { lowerCols: mobileBidLowerCols, measureRef: mobileBidMeasureRef } =
+    useMobileBidLowerColsFromTableWidth();
+  /** Тач-«ховер» кнопок заказа: класс --lit (нативный :hover на мобиле нестабилен). */
+  const [mobileBidLitKey, setMobileBidLitKey] = useState<number | null>(null);
   const isTabletPcShell = useIsTabletPcShell();
   /** ПК-оболочка на планшете/низком экране: без PC-lift и с компактным info-бейджем. */
   const useTabletPcTableTuning = !isMobile && (isMobileOrTablet || isTabletPcShell);
@@ -4954,9 +4980,20 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       ? tabletFourHandScaleMultiplier(pcFourHandPct)
       : pcThreeHandScaleMultiplier(pcThreeHandPct)
     : 1;
-  const mobileHandCardScale = useMidLandscapeScaleGears ? 0.72 * midHandScaleMul : 0.72;
+  const mobileHandLenForScale = state?.players[humanIdx]?.hand.length ?? 0;
+  const mobileHandBaseScale =
+    isMobile && mobileHandLenForScale > 0 && mobileHandLenForScale <= 7
+      ? MOBILE_HAND_FEWER_CARDS_SCALE
+      : isMobile && mobileHandLenForScale === 8
+        ? MOBILE_HAND_FEW_CARDS_SCALE
+        : MOBILE_HAND_BASE_SCALE;
+  const mobileHandCardScale = useMidLandscapeScaleGears
+    ? mobileHandBaseScale * midHandScaleMul
+    : mobileHandBaseScale;
   /** Пипы/фигуры: contentScale должен расти вместе с scale (иначе «тонкая» карта). */
-  const mobileHandContentScale = useMidLandscapeScaleGears ? 1.5 * midHandScaleMul : 1.5;
+  const mobileHandContentScale =
+    (MOBILE_HAND_BASE_CONTENT_SCALE * mobileHandBaseScale) / MOBILE_HAND_BASE_SCALE *
+    (useMidLandscapeScaleGears ? midHandScaleMul : 1);
   const mobileHandCardBodyW = Math.round(52 * mobileHandCardScale);
   /** Mid: сукно без tablet-базы 1.25; рост только вниз (якорь верха в CSS). */
   const midTableHMul = useMidLandscapeScaleGears ? midTableHeightMul(tabletTableScalePct) : 1;
@@ -10569,6 +10606,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 }}
               >
                 <div
+                  ref={mobileBidMeasureRef}
                   className="bid-panel-mobile-on-table-stack"
                   style={{
                     position: 'relative',
@@ -10580,10 +10618,38 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     minWidth: 0,
                   }}
                 >
-                  <span className="bid-panel-mobile-badge">
-                    <span className="bid-panel-mobile-badge-text">
-                      {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Сколько хотите взять взяток:'}
-                    </span>
+                  {(() => {
+                    const bidButtonCount = state.tricksInDeal + 1;
+                    const mobileBidRows = chunkMobileBidRows(bidButtonCount, mobileBidLowerCols);
+                    /*
+                     * 5 колонок + появилась 3-я строка: узкий двухстрочный бейдж,
+                     * чтобы не перекрывать козырь (базово уже white-space:normal + max-width).
+                     */
+                    const bidBadgeTwoLine =
+                      mobileBidLowerCols === 5 && mobileBidRows.length >= 3;
+                    const bidBadgeLabel =
+                      state.phase === 'dark-bidding' ? (
+                        'Заказ в тёмную'
+                      ) : bidBadgeTwoLine ? (
+                        <>
+                          Сколько хотите
+                          <br />
+                          взять взяток:
+                        </>
+                      ) : (
+                        'Сколько хотите взять взяток:'
+                      );
+                    return (
+                      <>
+                  <span
+                    className={[
+                      'bid-panel-mobile-badge',
+                      bidBadgeTwoLine ? 'bid-panel-mobile-badge--two-line' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
+                    <span className="bid-panel-mobile-badge-text">{bidBadgeLabel}</span>
                   </span>
                   <div
                     className="bid-panel bid-panel-inline bid-panel-bottom bid-panel-mobile-inline"
@@ -10599,50 +10665,60 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         'bid-panel-mobile-grid',
                         'bid-panel-mobile-grid--rows',
                         'bid-panel-mobile-grid--cols5',
-                        mobileSouthHandLayout?.lHandExpanded && !isThreeSeatTable
-                          ? 'bid-panel-mobile-grid--l-gutter'
-                          : '',
                       ]
                         .filter(Boolean)
                         .join(' ')}
                       style={
-                        mobileSouthHandLayout?.lHandExpanded && !isThreeSeatTable
-                          ? undefined
-                          : bidSidePanelGridMobile
+                        {
+                          ...bidSidePanelGridMobile,
+                          ['--bid-fill-cols' as string]: String(mobileBidLowerCols),
+                        } as React.CSSProperties
                       }
                     >
-                    {isMobile ? (
-                      (() => {
-                        const n = state.tricksInDeal;
-                        const bidButtonCount = n + 1;
+                    {(() => {
                         /*
-                         * 3p · мобила: две нижние по lowerCols (5, или 6 при ширине >425).
-                         * 4p: L-рука → 4+4 снизу / 3 выше; иначе lowerCols.
+                         * Мобилка: две нижние по 5, или по 6 если сукно ≥ ROW_MAX.
+                         * L-рука больше не сужает заказ до 4 — только 5|6 + резина.
                          */
-                        const bidRows =
-                          isThreeSeatTable
-                            ? chunkMobileBidRows(
-                                bidButtonCount,
-                                mobileBidLowerCols,
-                                mobileSouthHandLayout?.lHandExpanded ? 3 : mobileBidLowerCols,
-                              )
-                            : mobileSouthHandLayout?.lHandExpanded
-                              ? chunkMobileBidRowsForLHandGutter(bidButtonCount)
-                              : chunkMobileBidRows(bidButtonCount, mobileBidLowerCols);
+                        const bidRows = mobileBidRows;
                         const renderBidBtn = (i: number) => {
                           const disabled = invalidBid === i;
+                          const lit = !disabled && mobileBidLitKey === i;
                           return (
                             <button
                               key={i}
                               type="button"
-                              className={['bid-panel-btn', 'bid-panel-btn-mobile', disabled ? 'bid-panel-btn--forbidden' : ''].filter(Boolean).join(' ')}
+                              className={[
+                                'bid-panel-btn',
+                                'bid-panel-btn-mobile',
+                                disabled ? 'bid-panel-btn--forbidden' : '',
+                                lit ? 'bid-panel-btn-mobile--lit' : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' ')}
                               disabled={disabled}
+                              onPointerEnter={() => {
+                                if (!disabled) setMobileBidLitKey(i);
+                              }}
+                              onPointerDown={() => {
+                                if (!disabled) setMobileBidLitKey(i);
+                              }}
+                              onPointerUp={() => {
+                                setMobileBidLitKey((cur) => (cur === i ? null : cur));
+                              }}
+                              onPointerLeave={() => {
+                                setMobileBidLitKey((cur) => (cur === i ? null : cur));
+                              }}
+                              onPointerCancel={() => {
+                                setMobileBidLitKey((cur) => (cur === i ? null : cur));
+                              }}
                               onClick={(e) => {
                                 e.preventDefault();
+                                setMobileBidLitKey(null);
                                 if (!disabled) handleBidRef.current(i);
                               }}
                               style={{
-                                ...bidSidePanelButtonMobile,
+                                ...bidSidePanelButtonMobileOverlay,
                                 ...(disabled ? bidSidePanelButtonDisabledMobile : {}),
                               }}
                               title={
@@ -10651,7 +10727,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                                   : undefined
                               }
                             >
-                              {i}
+                              <span className="bid-panel-btn-digit">{i}</span>
                             </button>
                           );
                         };
@@ -10660,7 +10736,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             {bidRows.map((row, ri) => (
                               <div
                                 key={`bid-row-${ri}`}
-                                className="bid-panel-mobile-grid-row"
+                                className={[
+                                  'bid-panel-mobile-grid-row',
+                                  /* rows[0] = низ (column-reverse): ≤4 кнопок → всегда база */
+                                  ri === 0 && row.length <= 4
+                                    ? 'bid-panel-mobile-grid-row--bottom-base'
+                                    : '',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' ')}
                                 data-cols={row.length}
                               >
                                 {row.map((i) => renderBidBtn(i))}
@@ -10668,30 +10752,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             ))}
                           </>
                         );
-                      })()
-                    ) : (
-                      Array.from({ length: state.tricksInDeal + 1 }, (_, i) => {
-                        const disabled = invalidBid === i;
-                        return (
-                          <button
-                            key={i}
-                            type="button"
-                            className={['bid-panel-btn', disabled ? 'bid-panel-btn--forbidden' : ''].filter(Boolean).join(' ')}
-                            disabled={disabled}
-                            onClick={e => { e.preventDefault(); if (!disabled) handleBidRef.current(i); }}
-                            style={{
-                              ...bidSidePanelButton,
-                              ...(disabled ? bidSidePanelButtonDisabled : {}),
-                            }}
-                            title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
-                          >
-                            {i}
-                          </button>
-                        );
-                      })
-                    )}
+                      })()}
                     </div>
                   </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             )}
@@ -13014,7 +13080,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           document.body,
         )}
 
-      {/* Мобильная панель заказа рендерится в потоке под картами (bid-panel-mobile-inline-wrap), не в портале */}
+      {/* Мобильная панель заказа — overlay на сукне (bid-panel-mobile-on-table-wrap) */}
 
       {/* ПК: оверлей результатов + эхо «Последняя взятка» — портал на body (иначе translateY стола ломает fixed/absolute). */}
       {!isMobile && dealResultsAnimOverlayActive && createPortal(
@@ -15206,85 +15272,27 @@ function DealResultsScreen({
       ...getRunningTotalSmartDigitVars(delta),
     }) as React.CSSProperties;
 
-  const mobileTotalTextOnly: React.CSSProperties = {
-    '--dr-player-total-bg': 'transparent',
-    '--dr-player-total-border': 'none',
-    '--dr-player-total-radius': '0',
-    '--dr-player-total-pad': '0 3px',
-    '--dr-player-total-box': 'none',
-    '--dr-player-total-lh': '1.05',
-  } as React.CSSProperties;
-
-  /** Мобильный оверлей: неон «Итого» только гравировкой (blur-radius 0), без ореолов. */
-  const mobileTotalCrispEngrave = (stroke: string, under = stroke): string =>
-    `0 1px 0 ${stroke}, 1px 0 0 ${stroke}, -1px 0 0 ${stroke}, 0 -1px 0 ${under}`;
-
-  const getRunningTotalSmartDigitVarsMobileSharp = (delta: number): React.CSSProperties => {
-    const base = getRunningTotalSmartDigitVars(delta) as Record<string, string | number | undefined>;
-    const sharp: Record<string, string | number | undefined> = {
-      '--dr-player-total-fs': base['--dr-player-total-fs'],
-      '--dr-player-total-fw': base['--dr-player-total-fw'] ?? '900',
-      '--dr-player-total-ls': base['--dr-player-total-ls'] ?? '0.02em',
-      '--dr-player-total-lh': base['--dr-player-total-lh'] ?? '1.05',
-      '--dr-player-total-filter': 'none',
-      '--dr-player-total-bg': 'transparent',
-      '--dr-player-total-border': 'none',
-      '--dr-player-total-box': 'none',
-    };
-    if (delta < 0) {
-      sharp['--dr-player-total-fg'] = '#ff7ad8';
-      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(176 58 122)', 'rgb(134 42 115)');
-      return sharp as React.CSSProperties;
-    }
-    if (delta >= 1 && delta <= 9) {
-      sharp['--dr-player-total-fg'] = '#d9ff6a';
-      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(21 128 61)', 'rgb(20 83 45)');
-      return sharp as React.CSSProperties;
-    }
-    if (delta >= 10 && delta <= 29) {
-      sharp['--dr-player-total-fg'] = '#45ffe8';
-      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(15 118 110)', 'rgb(13 94 99)');
-      return sharp as React.CSSProperties;
-    }
-    if (delta >= 30 && delta <= 39) {
-      sharp['--dr-player-total-fg'] = '#70f8ff';
-      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(14 116 144)', 'rgb(12 74 110)');
-      return sharp as React.CSSProperties;
-    }
-    if (delta >= 40 && delta <= 59) {
-      sharp['--dr-player-total-fg'] = '#a0ecff';
-      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(30 64 175)', 'rgb(30 58 138)');
-      return sharp as React.CSSProperties;
-    }
-    if (delta >= 60 && delta <= 90) {
-      sharp['--dr-player-total-fg'] = '#45ffe8';
-      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(15 118 110)', 'rgb(13 148 136)');
-      return sharp as React.CSSProperties;
-    }
-    if (delta > 90) {
-      sharp['--dr-player-total-fg'] = '#f8c0ff';
-      sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(88 28 135)', 'rgb(59 7 100)');
-      return sharp as React.CSSProperties;
-    }
-    sharp['--dr-player-total-fg'] = '#f3e8ff';
-    sharp['--dr-player-total-shadow'] = mobileTotalCrispEngrave('rgb(46 16 101)', 'rgb(30 27 75)');
-    return sharp as React.CSSProperties;
-  };
-
   const getMobileOverlayTotalDealPointsVars = (): React.CSSProperties =>
     ({
-      ...mobileTotalTextOnly,
-      '--dr-player-total-fg': '#f3e8ff',
+      '--dr-player-total-fg': '#c4b5fd',
       '--dr-player-total-fs': 'clamp(15px, 4vw, 18px)',
       '--dr-player-total-fw': '880',
       '--dr-player-total-ls': '0.02em',
       '--dr-player-total-lh': '1.05',
-      '--dr-player-total-shadow': mobileTotalCrispEngrave('rgb(46 16 101)', 'rgb(30 27 75)'),
+      '--dr-player-total-shadow':
+        '0 1px 0 rgb(30 27 75 / 0.85), 0 0 8px rgb(167 139 250 / 0.35)',
       '--dr-player-total-filter': 'none',
+      '--dr-player-total-bg':
+        'linear-gradient(142deg, rgba(71, 85, 105, 0.52) 0%, rgba(51, 65, 85, 0.58) 42%, rgba(30, 41, 59, 0.64) 100%)',
+      '--dr-player-total-border': '1px solid rgba(148, 163, 184, 0.45)',
+      '--dr-player-total-radius': '10px',
+      '--dr-player-total-pad': '2px 8px',
+      '--dr-player-total-box':
+        'inset 0 1px 0 rgba(148, 163, 184, 0.22), inset 0 -1px 0 rgba(15, 23, 42, 0.35), 0 2px 10px rgba(15, 23, 42, 0.32)',
     }) as React.CSSProperties;
 
-  /** Мобильный оверлей: умные «Итого» ×1.5 к базовому размеру цифр. */
-  const scaleMobileOverlayTotalFontSize = (fs: string, scale = 1.5): string => {
+  /** Мобильный оверлей: умные «Итого» ×1.35 к базовому размеру цифр. */
+  const scaleMobileOverlayTotalFontSize = (fs: string, scale = 1.35): string => {
     const px = fs.match(/^([\d.]+)px$/);
     if (px) return `${Math.round(Number(px[1]) * scale)}px`;
     const clampMatch = fs.match(/^clamp\(\s*([\d.]+)px\s*,\s*([\d.]+)vw\s*,\s*([\d.]+)px\s*\)$/i);
@@ -15295,35 +15303,21 @@ function DealResultsScreen({
     return fs;
   };
 
-  /** Мобильный межраздачный оверлей: те же умные цифры, что на ПК; без плашки кроме delta > 90. */
+  /** Мобильный межраздачный оверлей: те же умные цифры + плашки, что на ПК. */
   const getRunningTotalOverlayCssVarsMobile = (delta: number): React.CSSProperties => {
-    const digits = getRunningTotalSmartDigitVarsMobileSharp(delta) as Record<string, string | number | undefined>;
+    const digits = getRunningTotalSmartDigitVars(delta) as Record<string, string | number | undefined>;
+    const pills = getRunningTotalPcPillVars(delta) as Record<string, string | number | undefined>;
     const scaledFs = scaleMobileOverlayTotalFontSize(String(digits['--dr-player-total-fs'] ?? '19px'));
-    const scaledDigits = { ...digits, '--dr-player-total-fs': scaledFs };
-    if (delta > 90) {
-      return {
-        ...mobileTotalTextOnly,
-        ...scaledDigits,
-      } as React.CSSProperties;
-    }
-    const baseFs =
-      delta < 0
-        ? 'clamp(17px, 4.4vw, 21px)'
-        : delta >= 1 && delta <= 9
-          ? 'clamp(16px, 4.2vw, 20px)'
-          : delta >= 10 && delta <= 29
-            ? 'clamp(17px, 4.4vw, 21px)'
-            : delta >= 30 && delta <= 39
-              ? 'clamp(17px, 4.4vw, 21px)'
-              : delta >= 40 && delta <= 59
-                ? 'clamp(18px, 4.6vw, 22px)'
-                : delta >= 60 && delta <= 90
-                  ? 'clamp(18px, 4.6vw, 22px)'
-                  : 'clamp(16px, 4vw, 19px)';
+    /** Без белил в ореолах — холодное серебро/slate */
+    const shadowRaw = String(digits['--dr-player-total-shadow'] ?? '');
+    const shadow = shadowRaw
+      .replace(/rgb\(255 255 255/g, 'rgb(148 163 184')
+      .replace(/rgba\(255,\s*255,\s*255/g, 'rgba(148, 163, 184');
     return {
-      ...mobileTotalTextOnly,
-      ...scaledDigits,
-      '--dr-player-total-fs': scaleMobileOverlayTotalFontSize(baseFs),
+      ...pills,
+      ...digits,
+      '--dr-player-total-fs': scaledFs,
+      ...(shadow ? { '--dr-player-total-shadow': shadow } : {}),
     } as React.CSSProperties;
   };
 
@@ -15363,6 +15357,22 @@ function DealResultsScreen({
       ? (player.aiDifficulty ?? 'amateur')
       : null;
     if (offlineAiLevel) {
+      const mobileAiGradients: Record<AIDifficulty, string> = {
+        novice: 'linear-gradient(122deg, #ecfdf5 0%, #bbf7d0 28%, #86efac 55%, #4ade80 82%, #e0f2fe 100%)',
+        amateur: 'linear-gradient(122deg, #fffbeb 0%, #fef08a 28%, #fde047 55%, #facc15 82%, #e0f2fe 100%)',
+        expert: 'linear-gradient(122deg, #fdf4ff 0%, #f5d0fe 28%, #e879f9 55%, #c084fc 82%, #e0f2fe 100%)',
+      };
+      if (isMobile) {
+        return {
+          ...dealResultsPlayerNameTextBaseStyle,
+          backgroundImage: mobileAiGradients[offlineAiLevel],
+          fontWeight: isLeader ? 720 : 685,
+          WebkitTextStroke: '0 transparent',
+          textShadow: isLeader
+            ? '0 1px 0 rgb(2 6 23 / 0.48), 0 0 9px rgb(125 211 252 / 0.5), 0 0 14px rgb(167 139 250 / 0.34)'
+            : '0 1px 0 rgb(2 6 23 / 0.44), 0 0 7px rgb(56 189 248 / 0.4), 0 0 11px rgb(96 165 250 / 0.24)',
+        };
+      }
       return {
         ...dealResultsPlayerNameTextBaseStyle,
         backgroundImage: OFFLINE_AI_NAME_GRADIENTS[offlineAiLevel],
@@ -15578,14 +15588,10 @@ function DealResultsScreen({
   }, []);
   const playerNamesKey = players.map((p) => p.name).join('\0');
   const [humanPanelFlashOn, setHumanPanelFlashOn] = useState(false);
+  /* Одноразовая белая вспышка панели отключена: отблеск — непрерывный лазер на name-plate. */
   useEffect(() => {
     if (!isMobile || variant !== 'overlay') return;
     setHumanPanelFlashOn(false);
-    const t = window.setTimeout(() => setHumanPanelFlashOn(true), 580);
-    return () => {
-      window.clearTimeout(t);
-      setHumanPanelFlashOn(false);
-    };
   }, [isMobile, variant, state.dealNumber]);
   useLayoutEffect(() => {
     if (!isMobile || variant !== 'overlay') return;
@@ -16878,12 +16884,16 @@ function DealResultsScreen({
       ) : (
         <>
       {getOverlayPlayerPositions(players.length, isMobile).map(({ idx, side }) => {
-        /** Оверлей только при phase deal-complete: живые заказ/взятки уже от завершённой раздачи; снимок из history на первом кадре может отставать и давать «мигание» прошлыми очками. */
+        /** Оверлей: Заказ/Взятки/Очки — текущая раздача; «Итого» до фазы running-total — прошлый счёт. */
         const bid = bids[idx] ?? 0;
         const taken = players[idx].tricksTaken;
         const points = calculateDealPoints(bid, taken);
         const score = players[idx].score;
         const delta = getPlayerDealDelta(idx);
+        /** До акцента «Итого» показываем счёт без очков этой раздачи. */
+        const previousScore = score - points;
+        const displayScore =
+          isOverlayPanels && overlayAccentPhase === 'deal-points' ? previousScore : score;
         const isHumanPlayer = idx === humanIdx;
         const accentPh = overlayAccentPhase;
         const panelPos = getDealResultsPanelPosition(side);
@@ -16973,7 +16983,15 @@ function DealResultsScreen({
                   ...dealResultsPanelTitleStyleMobileOverlay,
                 }}
               >
-                {players[idx].name}
+                {isHumanPlayer ? (
+                  <>
+                    <span className="deal-results-panel-name-plate__glow" aria-hidden>
+                      {players[idx].name}
+                    </span>
+                    <span className="deal-results-panel-name-plate__laser" aria-hidden />
+                  </>
+                ) : null}
+                <span className="deal-results-panel-name-plate__glyph">{players[idx].name}</span>
               </div>
             ) : isOverlayPanels && isHumanPlayer ? (
               <div className="deal-results-panel-name-bar deal-results-panel-name-bar--human">
@@ -17063,7 +17081,7 @@ function DealResultsScreen({
               </span>
               <span className={isOverlayPanels ? 'deal-results-panel-total-value-overlay' : undefined} style={totalSpanStyle}>
                 {ultraTotalStar && <span style={dealResultsExactStarUltraTotalStyle}>✦</span>}
-                {score >= 0 ? '+' : ''}{score}
+                {displayScore >= 0 ? '+' : ''}{displayScore}
               </span>
             </div>
           </div>
@@ -18602,7 +18620,6 @@ function TrickSlotsDisplay({
         : variant === 'opponent' && opponentMobileLandscapeNwOrderStrip
           ? {
               ...trickCirclesRowStyle,
-              flexWrap: 'nowrap' as const,
               ...(opponentMobileLandscapeMidWeVertical
                 ? (() => {
                     const circ =
@@ -18627,6 +18644,7 @@ function TrickSlotsDisplay({
                     };
                   })()
                 : {
+                    flexWrap: 'nowrap' as const,
                     gap: opponentMobileLandscapeWeTricks
                       ? MOBILE_LANDSCAPE_WE_ORDER_GAP_PX
                       : MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX,
@@ -24440,11 +24458,6 @@ function chunkMobileBidRows(
   return rows;
 }
 
-/** L + gutter стола (10+ / вертикаль): две нижние по 4, выше — макс. по 3. */
-function chunkMobileBidRowsForLHandGutter(bidButtonCount: number): number[][] {
-  return chunkMobileBidRows(bidButtonCount, 4, 3);
-}
-
 const bidSidePanelButton: React.CSSProperties = {
   width: 38,
   height: 38,
@@ -24463,7 +24476,7 @@ const bidSidePanelButton: React.CSSProperties = {
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 4px rgba(0,0,0,0.15)',
 };
 
-/** Мобильные кнопки заказа: базовый размер 44 (космический хром — в CSS --cols5) */
+/** Мобильные кнопки заказа: базовый размер 44 (космический хром — в CSS --cols5); ПК тоже reuse */
 const bidSidePanelButtonMobile: React.CSSProperties = {
   width: 44,
   height: 44,
@@ -24484,6 +24497,20 @@ const bidSidePanelButtonMobile: React.CSSProperties = {
   appearance: 'none',
   transition: 'transform 0.12s ease, box-shadow 0.2s ease',
   boxShadow: 'inset 0 1px 0 rgba(34, 211, 238, 0.5), inset 0 0 14px rgba(34, 211, 238, 0.15), 0 0 20px rgba(34, 211, 238, 0.45), 0 0 10px rgba(94, 234, 212, 0.3), 0 2px 8px rgba(0,0,0,0.3)',
+};
+
+/** Overlay на сукне: размер/хром только из CSS (база 44 + flex-shrink), без fixed 44 inline */
+const bidSidePanelButtonMobileOverlay: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
+  WebkitTapHighlightColor: 'transparent',
+  WebkitAppearance: 'none',
+  appearance: 'none',
+  transition: 'transform 0.12s ease, box-shadow 0.2s ease',
 };
 
 const bidSidePanelButtonDisabled: React.CSSProperties = {
