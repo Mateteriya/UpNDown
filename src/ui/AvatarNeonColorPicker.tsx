@@ -78,6 +78,12 @@ export interface AvatarNeonColorPickerProps {
   className?: string;
   /** Скрыть внешний переключатель Неон/Обыч (он остаётся внутри панели). */
   hideExternalModeToggle?: boolean;
+  /** Заголовок всплывающей панели */
+  title?: string;
+  /** Подпись на кнопке-триггере */
+  triggerLabel?: string;
+  /** Скрыть Неон/Обычная внутри панели (только сетка + hex) */
+  hidePanelModeToggle?: boolean;
 }
 
 function normalizeHex(raw: string): string {
@@ -99,6 +105,9 @@ export function AvatarNeonColorPicker({
   onNeonBrushChange,
   className,
   hideExternalModeToggle = false,
+  title = 'Цвета кисти',
+  triggerLabel = 'Цвета',
+  hidePanelModeToggle = false,
 }: AvatarNeonColorPickerProps) {
   const [open, setOpen] = useState(false);
   const [panelPos, setPanelPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -228,7 +237,7 @@ export function AvatarNeonColorPicker({
             <span className="avatar-neon-picker__drag-col">⋮</span>
             <span className="avatar-neon-picker__drag-col">⋮</span>
           </span>
-          <span className="avatar-neon-picker__title">Цвета кисти</span>
+          <span className="avatar-neon-picker__title">{title}</span>
           <div className="avatar-neon-picker__header-actions">
             <button type="button" className="avatar-neon-picker__ok" onClick={closePanel}>
               OK
@@ -239,25 +248,27 @@ export function AvatarNeonColorPicker({
           </div>
         </div>
 
-        <div className="avatar-neon-picker__mode" role="group" aria-label="Режим кисти">
-          <button
-            type="button"
-            className={['avatar-neon-picker__mode-btn', neonBrush ? 'avatar-neon-picker__mode-btn--active' : ''].join(' ')}
-            onClick={() => onNeonBrushChange(true)}
-          >
-            Неон
-          </button>
-          <button
-            type="button"
-            className={['avatar-neon-picker__mode-btn', !neonBrush ? 'avatar-neon-picker__mode-btn--active' : ''].join(' ')}
-            onClick={() => onNeonBrushChange(false)}
-          >
-            Обычная
-          </button>
-        </div>
+        {hidePanelModeToggle ? null : (
+          <div className="avatar-neon-picker__mode" role="group" aria-label="Режим кисти">
+            <button
+              type="button"
+              className={['avatar-neon-picker__mode-btn', neonBrush ? 'avatar-neon-picker__mode-btn--active' : ''].join(' ')}
+              onClick={() => onNeonBrushChange(true)}
+            >
+              Неон
+            </button>
+            <button
+              type="button"
+              className={['avatar-neon-picker__mode-btn', !neonBrush ? 'avatar-neon-picker__mode-btn--active' : ''].join(' ')}
+              onClick={() => onNeonBrushChange(false)}
+            >
+              Обычная
+            </button>
+          </div>
+        )}
 
         <p className="avatar-neon-picker__lead">
-          {neonBrush ? 'Свечение на линиях' : 'Ровный цвет без свечения'}
+          {neonBrush ? 'Свечение / насыщенные оттенки' : 'Ровный цвет без свечения'}
         </p>
         <div className={['avatar-neon-picker__grid', neonBrush ? '' : 'avatar-neon-picker__grid--flat'].filter(Boolean).join(' ')}>
           {NEON_PALETTE_SWATCHES.map((sw) => (
@@ -336,7 +347,7 @@ export function AvatarNeonColorPicker({
           className={['avatar-neon-picker__trigger-swatch', neonBrush ? '' : 'avatar-neon-picker__trigger-swatch--flat'].filter(Boolean).join(' ')}
           style={swatchStyle(hex, neonBrush)}
         />
-        <span className="avatar-neon-picker__trigger-label">Цвета</span>
+        <span className="avatar-neon-picker__trigger-label">{triggerLabel}</span>
       </button>
       {panel && createPortal(panel, document.body)}
     </div>

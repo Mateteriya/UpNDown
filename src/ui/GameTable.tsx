@@ -194,8 +194,12 @@ import {
   gameInfoBadgeLongPressHint,
   gameInfoBadgeStyleToastMessage,
   loadGameInfoBadgeStyle,
+  loadPlasmaScreenTone,
+  plasmaScreenToneToastMessage,
   saveGameInfoBadgeStyle,
+  savePlasmaScreenTone,
   type GameInfoBadgeStyle,
+  type PlasmaScreenTone,
 } from '../lib/gameInfoBadgeStyle';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -215,9 +219,15 @@ import { readResultsChipView } from '../game/resultsChipView';
 import { computePartySettlement } from '../game/partySettlement';
 import { isPersonalAiReplacementEnabled } from '../lib/featureFlags';
 import { getResultsTableFootTotalDigitStyle } from '../lib/mobileResultsTableTotalTone';
+import {
+  resolveMobileOrderPanelStyle,
+  resolveMobileZeroCrossStyle,
+  type MobileOrderSeatRole,
+} from '../lib/mobileOrderPanelStyle';
 import { CardView } from './CardView';
 import { TrumpDealerHeldIndicator } from './TrumpDealerHeldIndicator';
 import { GameInfoPlasmaTurnBlock } from './GameInfoPlasmaTurnBlock';
+import { GameInfoPlasmaTurnPlayerName } from './GameInfoPlasmaTurnPlayerName';
 import { getMobileDealContractMetaTooltip, resolveMobileDealContractBadgeFace } from '../lib/mobileDealContractBadgeFace';
 import { PlayerAvatar } from './PlayerAvatar';
 import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
@@ -226,6 +236,7 @@ import { canDriveOnlineRoomHost, isLanWsOnline } from '../lib/onlineHost';
 import { isServerAuthoritativeOnline, isWsOnlineTransport } from '../lib/onlineTransport';
 import {
   exitMobileBrowserFullscreen,
+  installMobileBrowserChromeCollapseAid,
   installMobileBrowserFullscreenResume,
   installMobileViewportBottomInsetTracking,
   isAppStandaloneDisplayMode,
@@ -499,6 +510,81 @@ function readMobileViewportHeightForShortModePx(): number {
 const MOBILE_SHORT_VIEWPORT_HEIGHT_PX = 652;
 /** sessionStorage: пользователь отключил short-VH-раскладку на эту вкладку (ложный порог браузера). */
 const MOBILE_SHORT_VH_LAYOUT_OPT_OUT_SESSION_KEY = 'upd.gameTable.mobileShortVhLayoutOptOut.v1';
+/** sessionStorage: режим «стол на весь экран» (immersive) для short-VH. */
+const MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY = 'upd.gameTable.mobileShortHeaderImmersive.v1';
+/** sessionStorage: phone LS компакт «после short» (переживает remount при rotate). */
+const AFTER_SHORT_LS_SESSION_KEY = 'upd.gameTable.afterShortLsCompact.v1';
+/**
+ * After-short phone LS: «портретная высота» устройства ≤ 650.
+ * В portrait это CSS-height, в landscape — CSS-width (длинная сторона).
+ * При размере ≥ 651 — обычный phone LS + сброс sticky-флага.
+ */
+const AFTER_SHORT_LS_MAX_REF_PX = 650;
+/** Память вкладки без sessionStorage (на случай блокировки storage / remount). */
+let afterShortLsArmedMemory = false;
+
+function armAfterShortLsCompact(): void {
+  afterShortLsArmedMemory = true;
+  try {
+    sessionStorage.setItem(AFTER_SHORT_LS_SESSION_KEY, '1');
+  } catch {
+    /* ignore */
+  }
+}
+
+function disarmAfterShortLsCompact(): void {
+  afterShortLsArmedMemory = false;
+  try {
+    sessionStorage.removeItem(AFTER_SHORT_LS_SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Опорный размер after-short = высота в вертикали / ширина в горизонтали
+ * (длинная сторона viewport). Не путать с CSS-height в landscape — там короткая сторона.
+ */
+function readAfterShortReferencePx(): number {
+  if (typeof window === 'undefined') return 800;
+  const vv = window.visualViewport;
+  const innerW = window.innerWidth;
+  const innerH = window.innerHeight;
+  const vvW = vv != null && Number.isFinite(vv.width) && vv.width > 0 ? vv.width : 0;
+  const vvH = vv != null && Number.isFinite(vv.height) && vv.height > 0 ? vv.height : 0;
+  const w = Math.max(innerW, vvW);
+  const h = Math.max(innerH, vvH);
+  return Math.max(0, Math.round(Math.max(w, h)));
+}
+
+/** Immersive / opt-out short уже в session → тоже считаем «после short» (флаг мог не успеть записаться). */
+function armAfterShortLsFromRelatedSessionKeys(): boolean {
+  try {
+    if (
+      sessionStorage.getItem(MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY) === '1' ||
+      sessionStorage.getItem(MOBILE_SHORT_VH_LAYOUT_OPT_OUT_SESSION_KEY) === '1'
+    ) {
+      armAfterShortLsCompact();
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function readAfterShortLsArmed(): boolean {
+  if (afterShortLsArmedMemory) return true;
+  try {
+    if (sessionStorage.getItem(AFTER_SHORT_LS_SESSION_KEY) === '1') {
+      afterShortLsArmedMemory = true;
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return armAfterShortLsFromRelatedSessionKeys();
+}
 /** sessionStorage: южная ручка short-VH свернута до одной полосы шариков. */
 const MOBILE_SHORT_VH_SOUTH_PULL_TAB_COLLAPSED_SESSION_KEY = 'upd.gameTable.shortVhSouthPullTabCollapsed.v1';
 
@@ -549,9 +635,6 @@ function shortVhSouthUiScaleFromStretch(stretchPx: number, maxPx: number, enable
 
 /** Ручка только под панелью: без translate вверх — иначе полоска заходит на карточку Юга. */
 const MOBILE_SHORT_SOUTH_RESIZE_LIFT_PX = 0;
-
-/** sessionStorage: режим «стол на весь экран» (immersive) для short-VH. */
-const MOBILE_SHORT_HEADER_IMMERSIVE_STORAGE_KEY = 'upd.gameTable.mobileShortHeaderImmersive.v1';
 
 function readStoredShortHeaderImmersive(): boolean {
   if (!MOBILE_SHORT_IMMERSIVE_ENABLED) return false;
@@ -1097,6 +1180,16 @@ function getTrickPlayerIndex(
   return playerAtLeftFrom(trickLeaderIndex, cardIndex, playerCount);
 }
 
+/**
+ * After-short phone LS: карты на сукне −10% от обычного phone LS.
+ */
+const AFTER_SHORT_TRICK_TABLE_CARD_SCALE_MUL = 0.9;
+/** Моб. кольцо заказа (оппоненты): padding с каждой стороны; phone LS — ×0.5, лицо +этот px. */
+const MOBILE_OPP_ORDER_RING_PAD_PX = 6;
+/** Моб. Юг · exact / chasing кольцо. */
+const MOBILE_USER_ORDER_RING_PAD_EXACT_PX = 5;
+const MOBILE_USER_ORDER_RING_PAD_CHASING_PX = 4;
+
 /** Масштаб карт на сукне. ПК: base 1.18 × пользовательский boost карт. */
 function getTrickTableCardScale(
   isMobileOrTablet: boolean,
@@ -1111,6 +1204,8 @@ function getTrickTableCardScale(
    * Mid рисует ПК-лицо (tableCardMobile=false, contentScale=undefined).
    */
   isMidLandscape: boolean | number = false,
+  /** Phone LS after-short: сжатие карт на столе (mid сюда не передаём). */
+  afterShortCompact = false,
 ): number {
   if (!isMobileOrTablet) {
     let s = 1.18 * pcScaleMul;
@@ -1118,8 +1213,11 @@ function getTrickTableCardScale(
     return s;
   }
   if (isMobileLandscape) {
-    if (typeof isMidLandscape === 'number') return isMidLandscape;
-    return isMidLandscape ? 1.06 : 0.822;
+    let s: number;
+    if (typeof isMidLandscape === 'number') s = isMidLandscape;
+    else s = isMidLandscape ? 1.06 : 0.822;
+    if (afterShortCompact) s *= AFTER_SHORT_TRICK_TABLE_CARD_SCALE_MUL;
+    return s;
   }
   return 0.98;
 }
@@ -1128,12 +1226,14 @@ function getTrickTableContentScale(
   isMobileOrTablet: boolean,
   isMobileLandscape: boolean,
   isMidLandscape: boolean | number = false,
+  afterShortCompact = false,
 ): number | undefined {
   if (!isMobileOrTablet) return undefined;
   if (isMobileLandscape) {
     /* Mid: ПК-лицо — contentScale = scale (undefined → CardView cs=scale), иначе мелкие блеклые глифы */
     if (typeof isMidLandscape === 'number' || isMidLandscape) return undefined;
-    return 1.32;
+    const cs = 1.32;
+    return afterShortCompact ? cs * AFTER_SHORT_TRICK_TABLE_CARD_SCALE_MUL : cs;
   }
   return 1.5;
 }
@@ -1661,9 +1761,10 @@ function useIsMobileOrTablet() {
 /**
  * Компактный стол (viewport-mobile): узкий портрет ИЛИ низкий «телефонный» landscape.
  * 900–1024 не берём по голому max-height — иначе срывается планшет-шелл.
+ * + short-vh rotate: тот же mobile-шелл, что phone LS (иначе isMobile=false → short остаётся включённым).
  */
 const MOBILE_VIEWPORT_MQ =
-  '(max-width: 600px), (max-width: 1024px) and (max-height: 500px) and (min-aspect-ratio: 1.9)';
+  '(max-width: 600px), (max-width: 1024px) and (max-height: 500px) and (min-aspect-ratio: 1.9), (max-width: 1024px) and (max-height: 651px) and (orientation: landscape) and (min-aspect-ratio: 1.35)';
 /**
  * 601–899: закрываем дыру ширины — тот же режим, что мобильный landscape
  * (`viewport-mobile-landscape`). На высоких экранах (≥580px) сукно/колонка
@@ -1671,9 +1772,45 @@ const MOBILE_VIEWPORT_MQ =
  */
 const MOBILE_WIDTH_LANDSCAPE_MQ = '(min-width: 601px) and (max-width: 899px)';
 
-/** Телефон в landscape: широкий низкий экран — отдельная раскладка (Север над столом, Запад слева). */
+/** Телефон в landscape: широкий низкий экран — отдельная раскладка (Север над столом, Запад слева).
+ * + short-vh телефоны при повороте (высота <652, широкий аспект) → тот же classic phone LS, не mid/short. */
 const MOBILE_LANDSCAPE_MQ =
-  '(orientation: landscape) and (max-width: 899px) and (max-height: 560px), (orientation: landscape) and (max-width: 1024px) and (max-height: 500px) and (min-aspect-ratio: 1.9)';
+  '(orientation: landscape) and (max-width: 899px) and (max-height: 560px), (orientation: landscape) and (max-width: 1024px) and (max-height: 500px) and (min-aspect-ratio: 1.9), (orientation: landscape) and (max-width: 1024px) and (max-height: 651px) and (min-aspect-ratio: 1.35)';
+
+/**
+ * Short / immersive / «стандарт после short» — только portrait.
+ * Жёсткий блок: orientation + геометрия (WebView иногда врёт MQ) + phone-LS MQ.
+ */
+function readLandscapeBlocksMobileShort(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (window.matchMedia('(orientation: landscape)').matches) return true;
+  if (window.innerWidth > window.innerHeight) return true;
+  if (window.matchMedia(MOBILE_LANDSCAPE_MQ).matches) return true;
+  return false;
+}
+
+function useLandscapeBlocksMobileShort() {
+  const [match, setMatch] = useState(readLandscapeBlocksMobileShort);
+  useEffect(() => {
+    const sync = () => setMatch(readLandscapeBlocksMobileShort());
+    const mqOrient = window.matchMedia('(orientation: landscape)');
+    const mqPhoneLs = window.matchMedia(MOBILE_LANDSCAPE_MQ);
+    mqOrient.addEventListener('change', sync);
+    mqPhoneLs.addEventListener('change', sync);
+    window.addEventListener('resize', sync);
+    window.addEventListener('orientationchange', sync);
+    window.visualViewport?.addEventListener('resize', sync);
+    sync();
+    return () => {
+      mqOrient.removeEventListener('change', sync);
+      mqPhoneLs.removeEventListener('change', sync);
+      window.removeEventListener('resize', sync);
+      window.removeEventListener('orientationchange', sync);
+      window.visualViewport?.removeEventListener('resize', sync);
+    };
+  }, []);
+  return match;
+}
 /**
  * Мобильные кнопки заказа на столе (единая модель):
  * база 44×1.05×1.07×1.02; нижние ряды по 5; если ширина сукна ≥ ROW_MAX — по 6;
@@ -1759,6 +1896,20 @@ function useIsMobileWidthLandscapeBand() {
   );
   useEffect(() => {
     const mq = window.matchMedia(MOBILE_WIDTH_LANDSCAPE_MQ);
+    const handler = () => setMatch(mq.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return match;
+}
+
+/** Только true phone-landscape MQ (низкий широкий телефон), без полосы 601–899. */
+function useIsPhoneLandscape() {
+  const [match, setMatch] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_LANDSCAPE_MQ).matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_LANDSCAPE_MQ);
     const handler = () => setMatch(mq.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
@@ -2224,10 +2375,23 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   }, [online.roomId, online.status, online.playerSlots, user?.id]);
   const isMobileOrTablet = useIsMobileOrTablet();
   const isMobile = useIsMobile();
-  const isMobileLandscape = useIsMobileLandscape() && isMobile;
+  /** Short запрещён при любом landscape (не только при сработавшем LS-шелле). */
+  const landscapeBlocksMobileShort = useLandscapeBlocksMobileShort();
+  const rawMobileLandscapeMatch = useIsMobileLandscape();
+  const isMobileLandscape =
+    (rawMobileLandscapeMatch && isMobile) || (landscapeBlocksMobileShort && isMobile);
   const isMobileWidthLandscapeBand = useIsMobileWidthLandscapeBand();
-  /** Mid 601–899: шестерёнки масштаба стола (вниз) и карт руки (вверх), как на планшете/ПК. */
-  const useMidLandscapeScaleGears = isMobileLandscape && isMobileWidthLandscapeBand;
+  const isPhoneLandscape = useIsPhoneLandscape();
+  /**
+   * Mid «анти-режим» (квадратнее 601–899): не phone-landscape.
+   * Рука над Югом, Север над сукном, tall felt, scale gears.
+   */
+  const isMobileMidSquareLayout =
+    isMobileLandscape && isMobileWidthLandscapeBand && !isPhoneLandscape;
+  /** Вертикальные панели В/З mid-стиля — и на mid, и на phone landscape. */
+  const useLandscapeWeMidChrome = isMobileLandscape;
+  /** Mid 601–899 (не phone LS): шестерёнки масштаба стола (вниз) и карт руки (вверх). */
+  const useMidLandscapeScaleGears = isMobileMidSquareLayout;
   const midTrickCardScale = useMidLandscapeTrickCardScale(useMidLandscapeScaleGears);
   const { lowerCols: mobileBidLowerCols, measureRef: mobileBidMeasureRef } =
     useMobileBidLowerColsFromTableWidth();
@@ -2279,10 +2443,65 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const [shortVhLayoutOptOutSession, setShortVhLayoutOptOutSession] = useState(() => readShortVhLayoutOptOutSession());
   /** Инкремент при выходе в «стандарт» из short/иммерсив — три вспышки на чипе возврата (key + data-star-pulse). */
   const [shortVhRestoreChipIntroPulseTick, setShortVhRestoreChipIntroPulseTick] = useState(0);
-  const mobileViewportShort = rawMobileViewportShort && !shortVhLayoutOptOutSession && !isMobileLandscape;
-  /** Физически низкий экран (<652), но выбрана «обычная» вёрстка (opt-out из short) — панель Юга чуть компактнее (index.css). */
+  /** Short только portrait: landscapeBlocksMobileShort жёстче, чем isMobileLandscape (ловит rotate до/без LS-шелла). */
+  const mobileViewportShort =
+    rawMobileViewportShort && !shortVhLayoutOptOutSession && !landscapeBlocksMobileShort;
+  /** Физически низкий экран (<652), но выбрана «обычная» вёрстка (opt-out из short) — только portrait; в landscape всегда classic LS. */
   const mobileStandardLayoutOnShortViewport =
-    isMobile && !isMobileLandscape && !mobileViewportShort && rawMobileViewportShort;
+    isMobile && !landscapeBlocksMobileShort && !mobileViewportShort && rawMobileViewportShort;
+  /**
+   * Phone LS «после short»: вооружается в портрете short / standard-from-short / opt-out / immersive.
+   * Память + sessionStorage — чтобы пережить remount при rotate.
+   * Режим: «портретная высота» (portrait height / landscape width) ≤ 650 → after-short; ≥ 651 → обычный LS.
+   */
+  const [sessionAfterShortLsCompact, setSessionAfterShortLsCompact] = useState(readAfterShortLsArmed);
+  const [afterShortReferencePx, setAfterShortReferencePx] = useState(() =>
+    typeof window !== 'undefined' ? readAfterShortReferencePx() : 0,
+  );
+  useLayoutEffect(() => {
+    const portraitShortEcosystem =
+      !landscapeBlocksMobileShort &&
+      (mobileViewportShort ||
+        mobileStandardLayoutOnShortViewport ||
+        shortVhLayoutOptOutSession ||
+        rawMobileViewportShort ||
+        readStoredShortHeaderImmersive());
+    if (!portraitShortEcosystem && !armAfterShortLsFromRelatedSessionKeys()) return;
+    armAfterShortLsCompact();
+    setSessionAfterShortLsCompact(true);
+  }, [
+    mobileViewportShort,
+    mobileStandardLayoutOnShortViewport,
+    shortVhLayoutOptOutSession,
+    landscapeBlocksMobileShort,
+    rawMobileViewportShort,
+  ]);
+  useLayoutEffect(() => {
+    if (!isMobile || !isMobileLandscape || isMobileMidSquareLayout) return;
+    const refPx = readAfterShortReferencePx();
+    setAfterShortReferencePx(refPx);
+    if (refPx >= AFTER_SHORT_LS_MAX_REF_PX + 1 && (sessionAfterShortLsCompact || readAfterShortLsArmed())) {
+      disarmAfterShortLsCompact();
+      setSessionAfterShortLsCompact(false);
+    }
+  }, [
+    isMobile,
+    isMobileLandscape,
+    isMobileMidSquareLayout,
+    sessionAfterShortLsCompact,
+    mobileHandLayoutVw,
+    rawMobileViewportShort,
+  ]);
+  const mobileLandscapeAfterShortVh =
+    isMobile &&
+    isMobileLandscape &&
+    !isMobileMidSquareLayout &&
+    afterShortReferencePx > 0 &&
+    afterShortReferencePx <= AFTER_SHORT_LS_MAX_REF_PX;
+  /** After-short phone LS: нижние ряды кнопок заказа — всегда по 6 (не по 5). */
+  const mobileBidLowerColsEffective: 5 | 6 = mobileLandscapeAfterShortVh
+    ? 6
+    : mobileBidLowerCols;
   const mobilePortalRootClass = useMemo(
     () =>
       buildMobileGamePortalRootClass({
@@ -2297,13 +2516,16 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     const upd = () => {
       setMobileHandLayoutVw(readMobileHandLayoutWidthPx());
       setRawMobileViewportShort(readMobileViewportHeightForShortModePx() < MOBILE_SHORT_VIEWPORT_HEIGHT_PX);
+      setAfterShortReferencePx(readAfterShortReferencePx());
     };
     upd();
     window.addEventListener('resize', upd);
+    window.addEventListener('orientationchange', upd);
     window.visualViewport?.addEventListener('resize', upd);
     window.visualViewport?.addEventListener('scroll', upd);
     return () => {
       window.removeEventListener('resize', upd);
+      window.removeEventListener('orientationchange', upd);
       window.visualViewport?.removeEventListener('resize', upd);
       window.visualViewport?.removeEventListener('scroll', upd);
     };
@@ -2342,9 +2564,11 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     if (!isMobile) return;
     const stopInset = installMobileViewportBottomInsetTracking();
     const stopResume = installMobileBrowserFullscreenResume();
+    const stopChromeCollapse = installMobileBrowserChromeCollapseAid();
     return () => {
       stopInset();
       stopResume();
+      stopChromeCollapse();
     };
   }, [isMobile]);
   /** Онлайн-чат: Supabase (auth user) или WS (onlinePlayerId / device id). */
@@ -2720,6 +2944,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     bumpTabletTableScale,
   ]);
   const [gameInfoBadgeSkin, setGameInfoBadgeSkin] = useState<GameInfoBadgeStyle>(() => loadGameInfoBadgeStyle());
+  const [plasmaScreenTone, setPlasmaScreenTone] = useState<PlasmaScreenTone>(() => loadPlasmaScreenTone());
   const [gameInfoBadgeStyleToast, setGameInfoBadgeStyleToast] = useState<string | null>(null);
   /** ПК/планшет + plasma: убрать наружный ореол holo-рамки (CSS-файл часто проигрывает каскаду index.css). */
   useLayoutEffect(() => {
@@ -2853,15 +3078,18 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     setTrumpHighlightOn((v) => !v);
   }, []);
   const trumpLampHintTitle = `Короткое нажатие — доп. подсветка козыря и стола. Удержание ~0,6 с — тема карт (сейчас: ${cardThemeLabel}): Стандарт → Тёмная → Легаси → Нео → снова Стандарт. Только телефон/планшет; стол ПК без смены листа.`;
-  const gameInfoBadgeHintTitle = gameInfoBadgeLongPressHint(gameInfoBadgeSkin);
+  const gameInfoBadgeHintTitle =
+    isPhoneLandscape && !isMobileMidSquareLayout && gameInfoBadgeSkin === 'plasma'
+      ? gameInfoBadgeLongPressHint(gameInfoBadgeSkin, plasmaScreenTone)
+      : gameInfoBadgeLongPressHint(gameInfoBadgeSkin);
   const clearGameInfoBadgeLongPressTimer = useCallback(() => {
     if (gameInfoBadgeLongPressTimerRef.current != null) {
       window.clearTimeout(gameInfoBadgeLongPressTimerRef.current);
       gameInfoBadgeLongPressTimerRef.current = null;
     }
   }, []);
-  const showGameInfoBadgeStyleToast = useCallback((style: GameInfoBadgeStyle) => {
-    setGameInfoBadgeStyleToast(gameInfoBadgeStyleToastMessage(style));
+  const showGameInfoBadgeStyleToast = useCallback((message: string) => {
+    setGameInfoBadgeStyleToast(message);
     if (gameInfoBadgeStyleToastTimerRef.current != null) {
       clearTimeout(gameInfoBadgeStyleToastTimerRef.current);
     }
@@ -2875,20 +3103,44 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     clearGameInfoBadgeLongPressTimer();
     gameInfoBadgeLongPressTimerRef.current = setTimeout(() => {
       gameInfoBadgeLongPressConsumedRef.current = true;
-      let toggledTo: GameInfoBadgeStyle = 'classic';
-      setGameInfoBadgeSkin(prev => {
-        toggledTo = prev === 'classic' ? 'plasma' : 'classic';
-        saveGameInfoBadgeStyle(toggledTo);
-        return toggledTo;
-      });
-      showGameInfoBadgeStyleToast(toggledTo);
+      /* Phone LS + plasma: спектр ↔ void экранчика; иначе классика ↔ plasma */
+      if (isPhoneLandscape && !isMobileMidSquareLayout) {
+        if (gameInfoBadgeSkin !== 'plasma') {
+          setGameInfoBadgeSkin('plasma');
+          saveGameInfoBadgeStyle('plasma');
+          showGameInfoBadgeStyleToast(plasmaScreenToneToastMessage(plasmaScreenTone));
+        } else {
+          let nextTone: PlasmaScreenTone = 'prism';
+          setPlasmaScreenTone(prev => {
+            nextTone = prev === 'prism' ? 'void' : 'prism';
+            savePlasmaScreenTone(nextTone);
+            return nextTone;
+          });
+          showGameInfoBadgeStyleToast(plasmaScreenToneToastMessage(nextTone));
+        }
+      } else {
+        let toggledTo: GameInfoBadgeStyle = 'classic';
+        setGameInfoBadgeSkin(prev => {
+          toggledTo = prev === 'classic' ? 'plasma' : 'classic';
+          saveGameInfoBadgeStyle(toggledTo);
+          return toggledTo;
+        });
+        showGameInfoBadgeStyleToast(gameInfoBadgeStyleToastMessage(toggledTo));
+      }
       try {
         void navigator.vibrate?.(12);
       } catch {
         /* ignore */
       }
     }, GAME_INFO_BADGE_LONGPRESS_MS);
-  }, [clearGameInfoBadgeLongPressTimer, showGameInfoBadgeStyleToast]);
+  }, [
+    clearGameInfoBadgeLongPressTimer,
+    showGameInfoBadgeStyleToast,
+    isPhoneLandscape,
+    isMobileMidSquareLayout,
+    gameInfoBadgeSkin,
+    plasmaScreenTone,
+  ]);
   const onGameInfoBadgeContextMenu = useCallback((e: ReactMouseEvent<HTMLElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -3038,6 +3290,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   const shortVhImmersiveNwAlignSettleUntilRef = useRef(0);
   /** Сразу из sessionStorage — иначе после F5 первый кадр false, а layout-effect ждёт state и может не восстановить. */
   const [mobileShortHeaderImmersive, setMobileShortHeaderImmersiveState] = useState(() => readStoredShortHeaderImmersive());
+  const prevImmersiveRef = useRef(mobileShortHeaderImmersive);
+  useEffect(() => {
+    if (mobileShortHeaderImmersive) {
+      armAfterShortLsCompact();
+      setSessionAfterShortLsCompact(true);
+    }
+    prevImmersiveRef.current = mobileShortHeaderImmersive;
+  }, [mobileShortHeaderImmersive]);
   const setMobileShortHeaderImmersive = useCallback((next: boolean) => {
     if (next && !MOBILE_SHORT_IMMERSIVE_ENABLED) return;
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -3045,6 +3305,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       shortVhImmersiveReverseExitSuppressUntilRef.current = now + 480;
       shortVhImmersiveNwAlignSettleUntilRef.current = now + 620;
       shortVhImmersivePinnedToEndRef.current = true;
+      armAfterShortLsCompact();
+      setSessionAfterShortLsCompact(true);
     } else {
       shortVhImmersiveReverseExitSuppressUntilRef.current = 0;
       shortVhImmersiveNwAlignSettleUntilRef.current = 0;
@@ -4130,6 +4392,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   /** Принудительно выйти из short-VH-раскладки на текущую сессию вкладки (ложный порог браузера, например Яндекс). */
   const exitShortVhLowScreenLayoutForSession = useCallback(() => {
     setShortVhLayoutOptOutSession(true);
+    armAfterShortLsCompact();
+    setSessionAfterShortLsCompact(true);
     try {
       sessionStorage.setItem(MOBILE_SHORT_VH_LAYOUT_OPT_OUT_SESSION_KEY, '1');
       sessionStorage.removeItem(MOBILE_SHORT_VH_SOUTH_PULL_TAB_COLLAPSED_SESSION_KEY);
@@ -4179,7 +4443,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
 
   const showShortFullscreenEntryBtn =
     isMobile &&
-    !isMobileLandscape &&
+    !landscapeBlocksMobileShort &&
     (mobileViewportShort || mobileStandardLayoutOnShortViewport) &&
     !isWaitingInRoom &&
     !online.userOnPause;
@@ -5079,7 +5343,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   const showEastSeatFour = !isThreeSeatTable;
   /** Mid · 3p: показать Восток (idx1), иначе как 4p. */
   const showMobileLandscapeEastSeat =
-    showEastSeatFour || (isMobileLandscape && isMobileWidthLandscapeBand && isThreeSeatTable);
+    showEastSeatFour || (isMobileMidSquareLayout && isThreeSeatTable);
   const mobileEastDisplayIndex = isThreeSeatTable ? 1 : 3;
   const showPcNorthSeat = !isThreeSeatTable;
   /** ПК · 4p (не планшет): Север pin к верху страницы (23px), вне translateY блока. */
@@ -6353,6 +6617,30 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     online.code &&
     (online.status === 'waiting' || online.status === 'playing' || online.status === 'finished')
   );
+  /** Моб. landscape · торги: капсула «Первый ход: имя» на сукне (вместо бейджа на Юге). */
+  const showMobileLandscapeFirstMoveOnTable = Boolean(
+    isMobile &&
+      isMobileLandscape &&
+      state &&
+      !isWaitingInRoom &&
+      (state.phase === 'bidding' || state.phase === 'dark-bidding'),
+  );
+  /** Онлайн: на время торгов в landscape скрываем таймер+код — место под «Первый ход». */
+  const hideOnlineRoomCodeForLandscapeFirstMove = Boolean(
+    showMobileLandscapeFirstMoveOnTable && showOnlineRoomCodeStrip,
+  );
+  /**
+   * Сколько «воздуха» под капсулой: мало кнопок заказа / панель скрыта → roomy (пульс и вниз),
+   * много рядов цифр → tight (только сворачивание подписи + лёгкий рост имени).
+   */
+  const mobileLandscapeFirstMoveBreatheClass = (() => {
+    if (!showMobileLandscapeFirstMoveOnTable || !state) return '';
+    const bidOnTable = shouldShowBidPanel && bidPanelVisible;
+    const rows = chunkMobileBidRows(state.tricksInDeal + 1, mobileBidLowerColsEffective).length;
+    if (!bidOnTable || rows <= 1) return 'first-move-badge--breathe-roomy';
+    if (rows <= 2) return 'first-move-badge--breathe-mid';
+    return 'first-move-badge--breathe-tight';
+  })();
 
   const [onlineRoomResyncBusy, setOnlineRoomResyncBusy] = useState(false);
   const onlineRoomResyncBusyRef = useRef(false);
@@ -7192,7 +7480,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
    * Аватар пользователя с кольцом заказа — как у OpponentSlot: span с градиентом СНАРУЖИ, внутри button → аватар.
    * Если кольцо вложить в button, браузер часто обрезает padding/фон («кольца не видно»).
    */
-  const renderUserPlayerAvatar = (avatarSizePx: number) => {
+  const renderUserPlayerAvatar = (
+    avatarSizePx: number,
+    opts?: { embedExactOrderStar?: boolean },
+  ) => {
     const p = state.players[humanIdx];
     const bidN = humanBidForOrderRingN;
     const tt = humanTricksTakenForOrderRing;
@@ -7208,9 +7499,23 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         ? 'chasing'
         : null;
     const innerCls = orderRingMode ? 'player-avatar-order-ring-inner' : undefined;
-    /** ПК: при «заказ на руке ровно» — чуть крупнее лицо + толще ободок (padding снаружи) */
+    /** Phone LS (не mid): лицо как в розыгрыше; без кольца (торги) — Ø = внешний с кольцом (40+12). */
+    const phoneLsLargeFace = Boolean(isMobile && isMobileLandscape && !isMobileMidSquareLayout);
+    const phoneLsThinOrderRing = Boolean(phoneLsLargeFace && orderRingMode);
+    const userRingBasePadPx = !orderRingMode
+      ? 0
+      : orderRingMode === 'exact'
+        ? isMobileOrTablet
+          ? MOBILE_USER_ORDER_RING_PAD_EXACT_PX
+          : 6
+        : MOBILE_USER_ORDER_RING_PAD_CHASING_PX;
+    const phoneLsFaceBoostPx = !phoneLsLargeFace
+      ? 0
+      : orderRingMode
+        ? MOBILE_OPP_ORDER_RING_PAD_PX
+        : MOBILE_OPP_ORDER_RING_PAD_PX * 2;
     const avatarFaceSizePx =
-      orderRingMode === 'exact' && !isMobileOrTablet ? avatarSizePx + 3 : avatarSizePx;
+      (orderRingMode === 'exact' && !isMobileOrTablet ? avatarSizePx + 3 : avatarSizePx) + phoneLsFaceBoostPx;
     const avatarBtnStyle: CSSProperties = {
       background: 'none',
       border: 'none',
@@ -7245,22 +7550,23 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         {face}
       </button>
     );
-    if (!orderRingMode) return avatarButton;
-    const ringPaddingNarrow = isMobile;
+    if (!orderRingMode) {
+      /* Phone LS: на торгах тот же scale(1.2), что у кольца в розыгрыше */
+      if (phoneLsLargeFace) {
+        return (
+          <span className="user-player-avatar-order-scale-wrap user-player-avatar-root">{avatarButton}</span>
+        );
+      }
+      return avatarButton;
+    }
+    const ringPadPx = phoneLsThinOrderRing ? userRingBasePadPx / 2 : userRingBasePadPx;
     const wrapStyle: CSSProperties = {
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: '50%',
-      /* exact: на ПК ободок 6px с каждой стороны; на мобильной/планшете — 5px */
-      padding:
-        orderRingMode === 'exact'
-          ? isMobileOrTablet
-            ? 5
-            : 6
-          : ringPaddingNarrow
-            ? 4
-            : 4,
+      /* exact: на ПК ободок 6px; моб./планшет — 5px; chasing моб. — 4px */
+      padding: ringPadPx,
       boxSizing: 'border-box',
       lineHeight: 0,
       ...(orderRingMode === 'exact' ? { background: AVATAR_ORDER_RING_GRADIENT_EXACT } : {}),
@@ -7271,11 +7577,42 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       orderRingMode === 'exact'
         ? 'opponent-avatar-order-ring opponent-avatar-order-ring--exact'
         : 'opponent-avatar-order-ring opponent-avatar-order-ring--chasing';
+    const embedExactStar = Boolean(opts?.embedExactOrderStar && orderRingExact);
+    const exactStarOnRing = embedExactStar ? (
+      <div
+        className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
+        aria-hidden
+      >
+        <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+          <span className="user-exact-order-star-badge__enter" aria-hidden>
+            <svg viewBox="0 0 24 24" width="19" height="19" focusable="false" aria-hidden>
+              <defs>
+                <linearGradient id={userExactOrderStarGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#faf5ff" />
+                  <stop offset="38%" stopColor="#ddd6fe" />
+                  <stop offset="72%" stopColor="#a78bfa" />
+                  <stop offset="100%" stopColor="#6d28d9" />
+                </linearGradient>
+              </defs>
+              <path
+                className="user-exact-order-star-path"
+                fill={`url(#${userExactOrderStarGradientId})`}
+                stroke="currentColor"
+                strokeWidth="0.82"
+                strokeLinejoin="round"
+                d="M12 1.35l2.35 7.15h7.6L15.8 14.1l2.35 7.55L12 17.45l-6.15 4.2 2.35-7.55L2.05 8.5h7.6z"
+              />
+            </svg>
+          </span>
+        </span>
+      </div>
+    ) : null;
     /* Масштаб 1.2 снаружи: пульс chasing крутит transform на внутреннем span — не смешиваем с scale */
     return (
       <span className="user-player-avatar-order-scale-wrap user-player-avatar-root">
         <span className={wrapCls} style={wrapStyle}>
           {avatarButton}
+          {exactStarOnRing}
         </span>
       </span>
     );
@@ -8023,10 +8360,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     state.dealerIndex === humanIdx && state.phase !== 'playing';
   const showSouthLandscapeDealerPlayingCorner =
     state.dealerIndex === humanIdx && state.phase === 'playing';
-  const showSouthLandscapeFirstBidBadge =
-    southLandscapeBiddingEmpty &&
-    state.bids.some(b => b === null) &&
-    state.trickLeaderIndex === humanIdx;
+  const southLandscapeOrderSlots =
+    state.bids[humanIdx] != null && state.bids[humanIdx]! > 0 ? state.bids[humanIdx]! : 0;
+  const southLandscapeAvatarReservePx = isMobileMidSquareLayout
+    ? MOBILE_SOUTH_LANDSCAPE_MID_AVATAR_RESERVE_PX
+    : mobileSouthLandscapeAvatarReserveForOrderSlots(
+        southLandscapeOrderSlots,
+        mobileLandscapeAfterShortVh,
+      );
+  const southLandscapeAvatarFacePx = isMobileMidSquareLayout
+    ? 52
+    : mobileSouthLandscapeAvatarFaceForReserve(southLandscapeAvatarReservePx);
 
   const renderMobileSouthLandscapeOrderCorner = () => (
     <div
@@ -8051,9 +8395,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           compactMode={isMobileOrTablet}
           playerMobileWideTricks={isMobile}
           playerMobileLandscapeTricks={isMobileLandscape}
+          playerMobileLandscapeOrderBudgetAvatarReservePx={southLandscapeAvatarReservePx}
           opponentMobileHideOrderLabel={!!isMobile}
           opponentMobileZeroOrderCross={!!isMobile}
           tricksLeftInDeal={tricksRemainingInDeal(state)}
+          orderSeatIsDealer={state.dealerIndex === humanIdx}
+          orderBiddingPhase={state.phase === 'bidding' || state.phase === 'dark-bidding'}
+          orderBiddingTurn={
+            (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+            state.currentPlayerIndex === humanIdx &&
+            (state.bids[humanIdx] ?? null) == null
+          }
           playerMobileExactOrderCornerStar={
             isMobile && userOrderRingExact ? (
               <div
@@ -8097,7 +8449,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   );
 
   const renderMobileSouthLandscapePanel = () => (
-    <div className="user-player-panel-south-landscape-main">
+    <div
+      className="user-player-panel-south-landscape-main"
+      style={
+        {
+          ['--north-landscape-avatar-reserve' as string]: `${southLandscapeAvatarReservePx}px`,
+        } as React.CSSProperties
+      }
+    >
       <div
         className="opponent-slot-mobile-landscape-north-row"
         style={{
@@ -8112,30 +8471,22 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       >
         <div className="opponent-slot-mobile-landscape-north-avatar-col">
           <span
-            className="opponent-slot-header-avatar-reserve-mobile"
+            className="opponent-slot-header-avatar-reserve-mobile user-player-panel-south-landscape-avatar-reserve"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: isMobileWidthLandscapeBand
-                ? MOBILE_SOUTH_LANDSCAPE_MID_AVATAR_RESERVE_PX
-                : MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
-              height: isMobileWidthLandscapeBand
-                ? MOBILE_SOUTH_LANDSCAPE_MID_AVATAR_RESERVE_PX
-                : MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
-              minWidth: isMobileWidthLandscapeBand
-                ? MOBILE_SOUTH_LANDSCAPE_MID_AVATAR_RESERVE_PX
-                : MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
-              minHeight: isMobileWidthLandscapeBand
-                ? MOBILE_SOUTH_LANDSCAPE_MID_AVATAR_RESERVE_PX
-                : MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+              width: southLandscapeAvatarReservePx,
+              height: southLandscapeAvatarReservePx,
+              minWidth: southLandscapeAvatarReservePx,
+              minHeight: southLandscapeAvatarReservePx,
               flexShrink: 0,
               boxSizing: 'border-box',
               position: 'relative',
               overflow: 'visible',
             }}
           >
-            {renderUserPlayerAvatar(isMobileWidthLandscapeBand ? 52 : 40)}
+            {renderUserPlayerAvatar(southLandscapeAvatarFacePx)}
             {isMobile && userOrderRingExact ? (
               <div
                 className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
@@ -8143,7 +8494,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               >
                 <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
                   <span className="user-exact-order-star-badge__enter" aria-hidden>
-                    <svg viewBox="0 0 24 24" width="19" height="19" focusable="false" aria-hidden>
+                    <svg viewBox="0 0 24 24" width="17" height="17" focusable="false" aria-hidden>
                       <defs>
                         <linearGradient id={userExactOrderStarGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
                           <stop offset="0%" stopColor="#faf5ff" />
@@ -8240,15 +8591,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               .join(' ')}
           >
             {renderMobileSouthLandscapeOrderCorner()}
-            {showSouthLandscapeFirstBidBadge ? (
-              <span
-                className="user-player-panel-south-landscape-first-bid-badge"
-                style={firstBidderLampStyle}
-                title="Первый заказ/ход"
-              >
-                <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
-              </span>
-            ) : null}
             {showSouthLandscapeDealerBottomRowBadge ? (
               <span className="user-player-panel-south-landscape-role-badge" style={dealerLampStyle} title="Сдающий">
                 <span style={dealerLampBulbStyle} /> Сдающий
@@ -8636,9 +8978,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             onMetaClick={() => setShowDealContractHelp(true)}
           >
             <span style={gameInfoLabelStyle}>Сейчас ход</span>
-            <span style={{ ...mobileGameInfoTurnPresentation.valueStyle, color: '#22c55e' }} className="game-info-value-name game-info-turn-player-name">
-              {mobileGameInfoTurnPresentation.name}
-            </span>
+            <GameInfoPlasmaTurnPlayerName
+              name={mobileGameInfoTurnPresentation.name}
+              style={mobileGameInfoTurnPresentation.valueStyle}
+              fitLongName={mobileLandscapeAfterShortVh}
+            />
           </GameInfoPlasmaTurnBlock>
         )}
         {mobileGameInfoBidPresentation && (
@@ -8654,9 +8998,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             onMetaClick={() => setShowDealContractHelp(true)}
           >
             <span style={gameInfoLabelStyle}>Заказывает</span>
-            <span style={{ ...mobileGameInfoBidPresentation.valueStyle, color: '#f59e0b' }}>
-              {mobileGameInfoBidPresentation.name}
-            </span>
+            <GameInfoPlasmaTurnPlayerName
+              name={mobileGameInfoBidPresentation.name}
+              style={mobileGameInfoBidPresentation.valueStyle}
+              fitLongName={mobileLandscapeAfterShortVh}
+            />
           </GameInfoPlasmaTurnBlock>
         )}
         {mobileViewportShort && mobileShortHeaderImmersive && !online.userOnPause && (
@@ -8688,6 +9034,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         )}
         {rawMobileViewportShort &&
           shortVhLayoutOptOutSession &&
+          !landscapeBlocksMobileShort &&
           !mobileShortHeaderImmersive &&
           !isWaitingInRoom &&
           !online.userOnPause && (
@@ -8730,7 +9077,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         className="game-info-left-section"
         style={{
           ...gameInfoLeftSectionStyleResolved,
-          ...(isMobileLandscape && isMobileWidthLandscapeBand
+          ...(isMobileMidSquareLayout
             ? ({
                 width: 300,
                 minWidth: 300,
@@ -8740,7 +9087,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 maxHeight: 80,
                 boxSizing: 'border-box',
               } as const)
-            : {}),
+            : isPhoneLandscape || (isMobileLandscape && !isMobileMidSquareLayout)
+              ? ({
+                  /* ширину/высоту задаёт CSS: --ls-badge-w / --mobile-landscape-upper-badge-h (+ after-short) */
+                  minWidth: 0,
+                  boxSizing: 'border-box',
+                } as const)
+              : {}),
         }}
         title={gameInfoBadgeHintTitle}
         onContextMenu={onGameInfoBadgeContextMenu}
@@ -8869,15 +9222,18 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     ? estimateMobileLandscapeNorthPanelFixedWidthPx()
     : null;
   const mobileLandscapeNorthPanelFixedW =
-    isMobileLandscape && mobileLandscapeNorthPanelIdealW != null
+    isMobileLandscape &&
+    mobileLandscapeNorthPanelIdealW != null &&
+    /* Phone LS (не mid): Север тянется flex’ом — фиксированную ширину не задаём */
+    isMobileMidSquareLayout
       ? capMobileLandscapeNorthPanelWidthPx(mobileHandLayoutVw, mobileLandscapeNorthPanelIdealW)
       : null;
   /**
    * Landscape З/В + верхние рейлы/тулбар (`--landscape-we-panel-fixed-w`).
-   * Mid 601–899: 108px + 14px margin от края страницы. Остальной landscape: не уже 120.
+   * WE mid-chrome (phone LS + mid): 108px. Остальной landscape: не уже 120.
    */
   const mobileLandscapeWePanelFixedW = isMobileLandscape
-    ? isMobileWidthLandscapeBand
+    ? useLandscapeWeMidChrome
       ? 108
       : Math.max(120, estimateMobileLandscapeWePanelFixedWidthPx())
     : null;
@@ -8951,23 +9307,32 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         display: 'flex',
         flexShrink: 0,
         ...lastTrickWinnerSeatElevateStyle(1),
-        ...(isMobileLandscape && mobileLandscapeNorthPanelFixedW != null
+        ...(isMobileLandscape && !isMobileMidSquareLayout
           ? {
-              flex: '0 0 auto',
-              width: `${mobileLandscapeNorthPanelFixedW}px`,
-              maxWidth: `${mobileLandscapeNorthPanelFixedW}px`,
-              minWidth: `${mobileLandscapeNorthPanelFixedW}px`,
-              justifyContent: 'flex-start',
+              /* Phone LS: Север на всю свободную ширину до кластера (gap + разделитель — в CSS) */
+              flex: '1 1 0',
+              width: 'auto',
+              maxWidth: 'none',
+              minWidth: 0,
+              justifyContent: 'stretch',
             }
-          : isMobileLandscape
+          : isMobileLandscape && mobileLandscapeNorthPanelFixedW != null
             ? {
                 flex: '0 0 auto',
-                width: 'var(--game-table-north-slot-width, min(341px, 46.4vw))',
-                maxWidth: 'var(--game-table-north-slot-width, min(341px, 46.4vw))',
-                minWidth: 0,
+                width: `${mobileLandscapeNorthPanelFixedW}px`,
+                maxWidth: `${mobileLandscapeNorthPanelFixedW}px`,
+                minWidth: `${mobileLandscapeNorthPanelFixedW}px`,
                 justifyContent: 'flex-start',
               }
-            : {}),
+            : isMobileLandscape
+              ? {
+                  flex: '0 0 auto',
+                  width: 'var(--game-table-north-slot-width, min(341px, 46.4vw))',
+                  maxWidth: 'var(--game-table-north-slot-width, min(341px, 46.4vw))',
+                  minWidth: 0,
+                  justifyContent: 'flex-start',
+                }
+              : {}),
       }}
     >
       <OpponentSlot
@@ -9002,7 +9367,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         }
         isMobile={true}
         mobileLandscapeLayout={isMobileLandscape}
-        mobileLandscapeMid={isMobileLandscape && isMobileWidthLandscapeBand}
+        mobileLandscapeMid={isMobileMidSquareLayout}
+        mobileLandscapeWeVertical={useLandscapeWeMidChrome}
         onAvatarClick={handleOpponentAvatarClick}
         onDealerBadgeClick={() => setShowDealerTooltip(true)}
         offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
@@ -9017,10 +9383,19 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         gameTableRootRef.current = el;
         setTabletNorthPortalHost((prev) => (prev === el ? prev : el));
       }}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isThreeSeatTable ? ' game-table-seats-three' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${tableScaleControlEnabled ? ' game-table-has-table-scale' : ''}${useMidLandscapeScaleGears ? ' game-table-has-hand-scale' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileLandscape && isMobileWidthLandscapeBand ? ' viewport-mobile-landscape-mid' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${!isMobile && gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma-pc-flat' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isThreeSeatTable ? ' game-table-seats-three' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${tableScaleControlEnabled ? ' game-table-has-table-scale' : ''}${useMidLandscapeScaleGears ? ' game-table-has-hand-scale' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileMidSquareLayout ? ' viewport-mobile-landscape-mid' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${mobileLandscapeAfterShortVh ? ' viewport-mobile-landscape-after-short' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${gameInfoBadgeSkin === 'plasma' ? ` game-info-plasma-screen-tone-${plasmaScreenTone}` : ''}${!isMobile && gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma-pc-flat' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{
         ...tableLayoutStyle,
         position: 'relative',
+        /*
+         * Мобильный браузер (не PWA / не Fullscreen API):
+         * maxHeight:100dvh + overflow:hidden обрезают корень до visible viewport —
+         * document не скроллится и жест «подтянуть страницу вверх» больше не
+         * скрывает адресную строку. height:100vh (large) оставляет запас под chrome.
+         */
+        ...(isMobile && !appStandaloneDisplay && !browserFullscreenActive
+          ? { maxHeight: 'none' }
+          : {}),
         ...(useTabletPcTableTuning && tabletViewportScale !== 1
           ? ({
               /* Мягкий zoom — без фиксации 1035×618 (lock обрезал стол из‑за translateY) */
@@ -9086,12 +9461,22 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         ...(mobileLandscapeWePanelFixedW != null
           ? ({
               ['--landscape-we-panel-fixed-w' as string]: `${mobileLandscapeWePanelFixedW}px`,
-              ...(isMobileWidthLandscapeBand
+              ...(isMobileMidSquareLayout
                 ? ({
                     /* Mid: тулбар ~−16% — 4×34 + gap/pad ≈ 175 */
                     ['--landscape-upper-rail-w' as string]: '175px',
                   } as const)
-                : {}),
+                : isPhoneLandscape
+                  ? ({
+                      /*
+                       * Обычный phone LS: 160px как раньше.
+                       * After-short: 136px — компактнее, но 4 кнопки (лампа) видны.
+                       */
+                      ['--landscape-upper-rail-w' as string]: mobileLandscapeAfterShortVh
+                        ? '136px'
+                        : '160px',
+                    } as const)
+                  : {}),
             } as const)
           : {}),
         ...(mobileLandscapeEastBadgeMaxW != null
@@ -10157,37 +10542,52 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           >
             {isMobileLandscape ? (
               <div className="game-mobile-landscape-upper-row game-mobile-landscape-upper-row--board-aligned">
-                <div className="game-mobile-landscape-upper-west-rail">
-                  {renderMobileLandscapeToolbarPanel()}
-                </div>
-                <div className="game-mobile-landscape-north-col">
-                  {!isMobileWidthLandscapeBand ? (
-                    <div
-                      ref={mobileShortTopRowRef}
-                      className="game-mobile-top-row game-mobile-top-row--landscape"
-                      style={{
-                        ...gameInfoTopRowStyle,
-                        height: 'auto',
-                        minHeight: 0,
-                        marginBottom: 2,
-                        justifyContent: 'flex-start',
-                        gap: 8,
-                        flexWrap: 'nowrap',
-                      }}
-                    >
-                      {renderMobileNorthSlot()}
+                {!isMobileMidSquareLayout ? (
+                  <>
+                    {/* Phone LS: пульт+HUD слева, Север — правый верх */}
+                    <div className="game-mobile-landscape-chassis">
+                      <div className="game-mobile-landscape-upper-west-rail">
+                        {renderMobileLandscapeToolbarPanel()}
+                      </div>
+                      <div className="game-mobile-landscape-upper-badge-rail game-info-left-col game-info-left-col--landscape-right">
+                        {renderMobileGameInfoLeftSection()}
+                      </div>
                     </div>
-                  ) : (
-                    /* Mid 601–899: в шапке только спейсер ширины стола; Север — над сукном ниже */
-                    <div
-                      className="game-mobile-top-row game-mobile-top-row--landscape game-mobile-top-row--landscape-mid-header-spacer"
-                      aria-hidden
-                    />
-                  )}
-                </div>
-                <div className="game-mobile-landscape-upper-east-rail game-info-left-col game-info-left-col--landscape-right">
-                  {renderMobileGameInfoLeftSection()}
-                </div>
+                    <div className="game-mobile-landscape-north-col game-mobile-landscape-north-col--phone-ls-end">
+                      <div
+                        ref={mobileShortTopRowRef}
+                        className="game-mobile-top-row game-mobile-top-row--landscape"
+                        style={{
+                          ...gameInfoTopRowStyle,
+                          height: 'auto',
+                          minHeight: 0,
+                          marginBottom: 2,
+                          justifyContent: 'flex-end',
+                          gap: 8,
+                          flexWrap: 'nowrap',
+                        }}
+                      >
+                        {renderMobileNorthSlot()}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="game-mobile-landscape-upper-west-rail">
+                      {renderMobileLandscapeToolbarPanel()}
+                    </div>
+                    <div className="game-mobile-landscape-north-col">
+                      {/* Mid 601–899: в шапке только спейсер ширины стола; Север — над сукном ниже */}
+                      <div
+                        className="game-mobile-top-row game-mobile-top-row--landscape game-mobile-top-row--landscape-mid-header-spacer"
+                        aria-hidden
+                      />
+                    </div>
+                    <div className="game-mobile-landscape-upper-east-rail game-info-left-col game-info-left-col--landscape-right">
+                      {renderMobileGameInfoLeftSection()}
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <>
@@ -10212,7 +10612,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             )}
           </div>
           <div className="game-center-spacer-top" style={centerAreaSpacerTopStyle} aria-hidden />
-          {isMobileLandscape && isMobileWidthLandscapeBand && !isThreeSeatTable ? (
+          {isMobileMidSquareLayout && !isThreeSeatTable ? (
             <div
               ref={mobileShortTopRowRef}
               className="game-mobile-mid-north-above-table"
@@ -10275,7 +10675,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === 2}
                 isMobile={true}
                 mobileLandscapeLayout={isMobileLandscape}
-                mobileLandscapeMid={isMobileLandscape && isMobileWidthLandscapeBand}
+                mobileLandscapeMid={isMobileMidSquareLayout}
+                mobileLandscapeWeVertical={useLandscapeWeMidChrome}
                 onAvatarClick={handleOpponentAvatarClick}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
@@ -10329,7 +10730,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         >
           <div
             className={
-              useMidLandscapeScaleGears ? 'game-table-surface game-table-surface--mid-scale' : undefined
+              useMidLandscapeScaleGears
+                ? 'game-table-surface game-table-surface--mid-scale'
+                : 'game-table-surface'
             }
             style={{
               ...tableSurfaceStyle,
@@ -10405,7 +10808,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 )}
               </div>
             )}
-            {showOnlineRoomCodeStrip && online.code && (
+            {showOnlineRoomCodeStrip && online.code && !hideOnlineRoomCodeForLandscapeFirstMove && (
               <OnlineRoomCodeBadge
                 code={online.code}
                 onCopy={copyOnlineRoomCode}
@@ -10416,6 +10819,39 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 alternatePartyTimer={isMobile}
                 partyElapsedSeconds={partyElapsedSeconds}
               />
+            )}
+            {showMobileLandscapeFirstMoveOnTable && state && (
+              <div
+                className={[
+                  'first-move-badge',
+                  'first-move-badge--mobile-on-table',
+                  'first-move-badge--mobile-landscape-on-table',
+                  mobileLandscapeFirstMoveBreatheClass,
+                  mobileViewportShort && mobileShortHeaderImmersive
+                    ? 'first-move-badge--mobile-on-table-under-marquee'
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                style={firstMoveBadgeStyle}
+                role="status"
+                aria-label={`Первый ход: ${displayState.players[state.trickLeaderIndex].name}`}
+                onClick={() => setShowFirstMoveTooltip(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setShowFirstMoveTooltip(true);
+                  }
+                }}
+                tabIndex={0}
+              >
+                <span className="first-move-num" aria-hidden>
+                  Первый ход:
+                </span>
+                <span className="first-move-value">
+                  {displayState.players[state.trickLeaderIndex].name}
+                </span>
+              </div>
             )}
             {displayState.trumpCard && (
               <DeckWithTrump
@@ -10449,9 +10885,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         compact
                         showDesktopFaceIndices={true}
                         tableCardMobile={!midPcFace && isMobileOrTablet}
-                        scale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, 1, false, 100, midTrickCardScale)}
-                        contentScale={getTrickTableContentScale(isMobileOrTablet, isMobileLandscape, midPcFace ? midTrickCardScale : false)}
+                        scale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, 1, false, 100, midTrickCardScale, mobileLandscapeAfterShortVh)}
+                        contentScale={getTrickTableContentScale(isMobileOrTablet, isMobileLandscape, midPcFace ? midTrickCardScale : false, mobileLandscapeAfterShortVh)}
                         doubleBorder={trumpHighlightOn}
+                        slimFrame={mobileLandscapeAfterShortVh}
                         isTrumpOnTable={
                           midPcFace || !isMobileOrTablet
                             ? state.trump !== null && card.suit === state.trump
@@ -10478,7 +10915,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     const showCardBack =
                       lastTrickCollectingPhase === 'collapsing';
                     const CARD_COLLECT_MS = LAST_TRICK_COLLECT_MS;
-                    const cardScale = getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, 1, false, 100, midTrickCardScale);
+                    const cardScale = getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, 1, false, 100, midTrickCardScale, mobileLandscapeAfterShortVh);
                     const cardW = Math.round(52 * cardScale);
                     const cardH = Math.round(76 * cardScale);
                     const isTrickWinnerCard =
@@ -10511,8 +10948,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             showDesktopFaceIndices={true}
                             tableCardMobile={!midPcFace && isMobileOrTablet}
                             scale={cardScale}
-                            contentScale={getTrickTableContentScale(isMobileOrTablet, isMobileLandscape, midPcFace ? midTrickCardScale : false)}
+                            contentScale={getTrickTableContentScale(isMobileOrTablet, isMobileLandscape, midPcFace ? midTrickCardScale : false, mobileLandscapeAfterShortVh)}
                             doubleBorder={trumpHighlightOn || isTrickWinnerCard}
+                            slimFrame={mobileLandscapeAfterShortVh}
                             isTrumpOnTable={
                               midPcFace || !isMobileOrTablet
                                 ? state.trump !== null && card.suit === state.trump
@@ -10539,9 +10977,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           compact
                           showDesktopFaceIndices={true}
                           tableCardMobile={!midPcFace && isMobileOrTablet}
-                          scale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, 1, false, 100, midTrickCardScale)}
-                          contentScale={getTrickTableContentScale(isMobileOrTablet, isMobileLandscape, midPcFace ? midTrickCardScale : false)}
+                          scale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, 1, false, 100, midTrickCardScale, mobileLandscapeAfterShortVh)}
+                          contentScale={getTrickTableContentScale(isMobileOrTablet, isMobileLandscape, midPcFace ? midTrickCardScale : false, mobileLandscapeAfterShortVh)}
                           doubleBorder={trumpHighlightOn}
+                          slimFrame={mobileLandscapeAfterShortVh}
                           isTrumpOnTable={
                             midPcFace || !isMobileOrTablet
                               ? state.trump !== null && card.suit === state.trump
@@ -10559,7 +10998,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               {humanTrickWaitBadgeReady && (
                 <HumanTrickSlotWaitBadge
                   slotStyle={getTrickCardSlotStyle(humanIdx, isMobileOrTablet, isMobileLandscape, playerCountOf(state), useMidLandscapeScaleGears)}
-                  cardScale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, 1, false, 100, midTrickCardScale)}
+                  cardScale={getTrickTableCardScale(isMobileOrTablet, isMobileLandscape, 1, false, 100, midTrickCardScale, mobileLandscapeAfterShortVh)}
                 />
               )}
             </div>
@@ -10620,13 +11059,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 >
                   {(() => {
                     const bidButtonCount = state.tricksInDeal + 1;
-                    const mobileBidRows = chunkMobileBidRows(bidButtonCount, mobileBidLowerCols);
+                    const mobileBidRows = chunkMobileBidRows(bidButtonCount, mobileBidLowerColsEffective);
                     /*
                      * 5 колонок + появилась 3-я строка: узкий двухстрочный бейдж,
                      * чтобы не перекрывать козырь (базово уже white-space:normal + max-width).
                      */
                     const bidBadgeTwoLine =
-                      mobileBidLowerCols === 5 && mobileBidRows.length >= 3;
+                      mobileBidLowerColsEffective === 5 && mobileBidRows.length >= 3;
                     const bidBadgeLabel =
                       state.phase === 'dark-bidding' ? (
                         'Заказ в тёмную'
@@ -10671,14 +11110,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       style={
                         {
                           ...bidSidePanelGridMobile,
-                          ['--bid-fill-cols' as string]: String(mobileBidLowerCols),
+                          ['--bid-fill-cols' as string]: String(mobileBidLowerColsEffective),
                         } as React.CSSProperties
                       }
                     >
                     {(() => {
                         /*
                          * Мобилка: две нижние по 5, или по 6 если сукно ≥ ROW_MAX.
-                         * L-рука больше не сужает заказ до 4 — только 5|6 + резина.
+                         * After-short: всегда по 6. L-рука больше не сужает заказ до 4.
                          */
                         const bidRows = mobileBidRows;
                         const renderBidBtn = (i: number) => {
@@ -10805,7 +11244,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 firstMoverBiddingHighlight={(state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === mobileEastDisplayIndex}
                 isMobile={true}
                 mobileLandscapeLayout={isMobileLandscape}
-                mobileLandscapeMid={isMobileLandscape && isMobileWidthLandscapeBand}
+                mobileLandscapeMid={isMobileMidSquareLayout}
+                mobileLandscapeWeVertical={useLandscapeWeMidChrome}
                 onAvatarClick={handleOpponentAvatarClick}
                 onDealerBadgeClick={() => setShowDealerTooltip(true)}
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
@@ -11453,13 +11893,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                               <span style={dealerLampBulbStyle} /> Сдающий
                             </span>
                           ))}
-                        {(state.phase === 'bidding' || state.phase === 'dark-bidding') &&
-                          state.bids.some(b => b === null) &&
-                          state.trickLeaderIndex === humanIdx && (
-                            <span style={firstBidderLampStyle} title="Первый заказ/ход">
-                              <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
-                            </span>
-                          )}
                       </span>
                     </div>
                     <div
@@ -11514,6 +11947,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           compactMode={isMobileOrTablet}
                           playerMobileWideTricks={isMobile}
                           tricksLeftInDeal={tricksRemainingInDeal(state)}
+                          orderSeatIsDealer={state.dealerIndex === humanIdx}
+                          orderBiddingPhase={state.phase === 'bidding' || state.phase === 'dark-bidding'}
+                          orderBiddingTurn={
+                            (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                            state.currentPlayerIndex === humanIdx &&
+                            humanSouthBidNumber == null
+                          }
                           playerMobileExactOrderCornerStar={
                             isMobile && userOrderRingExact ? (
                               <div
@@ -11694,13 +12134,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                               <span style={dealerLampBulbStyle} /> Сдающий
                             </span>
                           ))}
-                        {(state.phase === 'bidding' || state.phase === 'dark-bidding') &&
-                          state.bids.some(b => b === null) &&
-                          state.trickLeaderIndex === humanIdx && (
-                            <span style={firstBidderLampStyle} title="Первый заказ/ход">
-                              <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
-                            </span>
-                          )}
                       </span>
                     </div>
                   </div>
@@ -11729,6 +12162,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       compactMode={isMobileOrTablet}
                       playerMobileWideTricks={isMobile}
                       tricksLeftInDeal={tricksRemainingInDeal(state)}
+                      orderSeatIsDealer={state.dealerIndex === humanIdx}
+                      orderBiddingPhase={state.phase === 'bidding' || state.phase === 'dark-bidding'}
+                      orderBiddingTurn={
+                        (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                        state.currentPlayerIndex === humanIdx &&
+                        (state.bids[humanIdx] ?? null) == null
+                      }
                       playerMobileExactOrderCornerStar={
                         isMobile && userOrderRingExact ? (
                           <div
@@ -11953,7 +12393,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             onMetaClick={() => setShowDealContractHelp(true)}
                   >
                     <span style={gameInfoLabelStyle}>Сейчас ход</span>
-                    <span className="game-info-value-name game-info-turn-player-name" style={{ ...gameInfoValueStyle, color: '#22c55e' }}>{displayState.players[state.currentPlayerIndex].name}</span>
+                    <span className="game-info-value-name game-info-turn-player-name" style={gameInfoValueStyle}>{displayState.players[state.currentPlayerIndex].name}</span>
                   </GameInfoPlasmaTurnBlock>
                 )}
                 {!isWaitingInRoom && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
@@ -11969,7 +12409,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             onMetaClick={() => setShowDealContractHelp(true)}
                   >
                     <span style={gameInfoLabelStyle}>Заказывает</span>
-                    <span className="game-info-value-name" style={{ ...gameInfoValueStyle, color: '#f59e0b' }}>
+                    <span className="game-info-value-name game-info-turn-player-name" style={gameInfoValueStyle}>
                       {displayState.players[state.currentPlayerIndex].name}
                     </span>
                   </GameInfoPlasmaTurnBlock>
@@ -12759,15 +13199,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               </button>
             </>
           ) : null}
-          {isMobileOrTablet &&
-            (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
-            state.bids[humanIdx] == null &&
-            state.bids.some(b => b === null) &&
-            state.trickLeaderIndex === humanIdx && (
-              <span style={firstBidderLampExternalStyle} title="Первый заказ/ход">
-                <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
-              </span>
-            )}
           {!isMobileOrTablet ? (
             <div className="user-player-panel-pc-layout">
               <div className="user-player-panel-pc-avatar-col">
@@ -12974,7 +13405,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   collectingCards={lastTrickInterstitialActive}
                   compactMode={isMobileOrTablet}
                   playerMobileWideTricks={isMobile}
+                  opponentMobileZeroOrderCross={!!isMobile}
                   tricksLeftInDeal={tricksRemainingInDeal(state)}
+                  orderSeatIsDealer={state.dealerIndex === humanIdx}
+                  orderBiddingPhase={state.phase === 'bidding' || state.phase === 'dark-bidding'}
+                  orderBiddingTurn={
+                    (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                    state.currentPlayerIndex === humanIdx &&
+                    (state.bids[humanIdx] ?? null) == null
+                  }
                 />
                 {shouldShowBidPanel && bidPanelVisible && (
                   <div className="bid-panel bid-panel-inline bid-panel-bottom" style={bidPanelInlineStyle} aria-label="Выбор заказа">
@@ -17243,6 +17682,19 @@ const pcTrickBidFigureStyle: React.CSSProperties = {
   textShadow: '0 1px 2px rgba(0,0,0,0.9), 0 0 6px rgba(234,88,12,0.45), 0 0 1px rgba(185,28,28,0.6)',
 };
 
+/*
+ * Мобильные «умные» цвета цифр взято/заказ (compact neon) — состояния:
+ * | Состояние | Условие | Взято | Заказ | Панель (класс) |
+ * | Торги / нет заказа | bid == null | slate/plain | «—» slate | amber pending |
+ * | 0 взято, заказ >0 | taken===0, !exact | cyan | оранж. pending | amber |
+ * | Догоняем | taken>0, taken<bid, ещё можно | жёлтый | кислота-жёлтый | amber (normal) |
+ * | Ровно | taken===bid | сирень | сирень | order-complete (толстый градиент) |
+ * | Перебор | taken>bid | оранж | оранж | order-over |
+ * | Жёсткий недобор | taken+left < bid | красный | янтарь | mobile-under-strict |
+ * | Между раздачами | hideCards | неон не гасим при taken>0/exact; класс collecting | complete/over часто сняты |
+ * | Редкий 8/9 | bid 8|9 до exact/over/under | — | gold accent на цифре заказа | rare-bid-* |
+ */
+
 const pcTrickTakenFigureStyle: React.CSSProperties = {
   cursor: 'help',
   color: '#5eead4',
@@ -17261,7 +17713,7 @@ const pcTrickTakenPlainOpponentStyle: React.CSSProperties = {
   textShadow: '0 1px 2px rgba(0,0,0,0.9)',
 };
 
-/** ПК: оба числа при ровном попадании в заказ — яркий сиренево-бирюзовый неон (не бледно-белый) */
+/** ПК: оба числа при ровном попадании в заказ — сирень (без cyan glow). */
 const pcTrickExactMatchFigureStyle: React.CSSProperties = {
   cursor: 'help',
   color: '#c084fc',
@@ -17270,24 +17722,26 @@ const pcTrickExactMatchFigureStyle: React.CSSProperties = {
   WebkitTextStroke: '0.55px rgba(76, 29, 149, 0.75)',
   textShadow: [
     '0 0 8px rgba(192, 132, 252, 0.95)',
-    '0 0 16px rgba(167, 139, 250, 0.8)',
-    '0 0 22px rgba(34, 211, 238, 0.55)',
-    '0 0 10px rgba(232, 121, 249, 0.45)',
+    '0 0 16px rgba(167, 139, 250, 0.85)',
+    '0 0 22px rgba(168, 85, 247, 0.65)',
+    '0 0 10px rgba(232, 121, 249, 0.55)',
     '0 1px 2px rgba(0,0,0,0.92)',
   ].join(', '),
 };
 
-/** Компактная панель: неон цифр только inline (не зависит от CSS / viewport-класса на корне) */
+/** Компактная панель: неон «ровно в заказ» — сирень (без голубого glow — иначе читается как cyan).
+ * Телефон (viewport-mobile): цифры из mop-lab (`mobileLabFigures`), эти константы — планшет 900–1024 + fallback. */
 const mobileCompactNeonDigitExact: React.CSSProperties = {
   cursor: 'help',
-  color: '#34d399',
+  color: '#e879f9',
+  WebkitTextFillColor: '#e879f9',
   fontWeight: 900,
-  WebkitTextStroke: '0.8px rgba(4, 47, 46, 0.92)',
+  WebkitTextStroke: '0.72px rgba(76, 29, 149, 0.9)',
   textShadow:
-    '0 0 10px rgba(52,211,153,0.98), 0 0 20px rgba(16,185,129,0.92), 0 0 30px rgba(34,211,238,0.72), 0 2px 5px rgba(0,0,0,0.92)',
+    '0 0 10px rgba(232,121,249,0.98), 0 0 18px rgba(192,132,252,0.92), 0 0 26px rgba(168,85,247,0.72), 0 2px 5px rgba(0,0,0,0.92)',
 };
 
-/** Компакт: «взято» пока заказ не набран — жёлтый неон */
+/** Компакт: «взято» пока заказ не набран — жёлтый неон (отличим от кислоты «заказ»). */
 const mobileCompactNeonDigitChasingTaken: React.CSSProperties = {
   cursor: 'help',
   color: '#fde047',
@@ -17308,10 +17762,11 @@ const mobileCompactNeonDigitOver: React.CSSProperties = {
 };
 const mobileCompactNeonSlashExact: React.CSSProperties = {
   cursor: 'default',
-  color: '#6ee7b7',
+  color: '#d8b4fe',
   fontWeight: 900,
-  WebkitTextStroke: '0.55px rgba(4, 47, 46, 0.85)',
-  textShadow: '0 0 12px rgba(45,212,191,0.95), 0 0 8px rgba(103,232,249,0.8), 0 1px 2px rgba(0,0,0,0.9)',
+  WebkitTextStroke: '0.5px rgba(76, 29, 149, 0.8)',
+  textShadow:
+    '0 0 10px rgba(192,132,252,0.95), 0 0 14px rgba(232,121,249,0.75), 0 1px 2px rgba(0,0,0,0.9)',
   userSelect: 'none',
 };
 const mobileCompactNeonSlashOver: React.CSSProperties = {
@@ -17326,36 +17781,48 @@ const mobileCompactNeonSlashOver: React.CSSProperties = {
 
 const mobileCompactNeonSlashChasing: React.CSSProperties = {
   cursor: 'default',
-  color: '#facc15',
+  color: 'rgb(237, 238, 3)',
   fontWeight: 900,
-  WebkitTextStroke: '0.62px rgba(66, 32, 6, 0.86)',
+  WebkitTextStroke: '0.62px rgba(134, 110, 1, 0.9)',
   textShadow:
-    '0 0 12px rgba(250,204,21,0.95), 0 0 14px rgba(234,179,8,0.8), 0 1px 2px rgba(0,0,0,0.9)',
+    '0 0 10px rgba(158, 223, 6, 0.55), 0 0 14px rgba(6, 233, 65, 0.35), 0 1px 2px rgba(0,0,0,0.9)',
   userSelect: 'none',
 };
 
-/** Компакт: взятки уже на руке, заказ ещё добираем — цифра заказа, бирюзово-целевой неон */
+/** Компакт: цифра заказа «догоняем» — кислотно-жёлтый (насыщенный). */
 const mobileCompactNeonBidChasing: React.CSSProperties = {
   cursor: 'help',
-  color: '#22d3ee',
+  color: 'rgb(244, 245, 9)',
+  WebkitTextFillColor: 'rgb(237, 238, 3)',
   fontWeight: 900,
-  WebkitTextStroke: '0.72px rgba(8, 47, 73, 0.9)',
+  WebkitTextStroke: '0.72px rgba(134, 110, 1, 0.94)',
   textShadow:
-    '0 0 10px rgba(34,211,238,0.96), 0 0 18px rgba(6,182,212,0.82), 0 0 14px rgba(45,212,191,0.58), 0 2px 4px rgba(0,0,0,0.9)',
+    '0 0 13px rgba(6, 233, 65, 0.43), 0 0 24px rgba(158, 223, 6, 0.57), 0 0 18px rgba(5, 180, 76, 0.29), 0 2px 5px rgba(156, 3, 3, 0.94)',
 };
 
-/** ПК: недобор — яркий красный (заказ уже невыполним) */
+/** ПК: недобор — «взято» красным; заказ — отдельный цвет (см. order). */
 const pcTrickUnderBidFigureStyle: React.CSSProperties = {
   cursor: 'help',
-  color: '#fca5a5',
-  WebkitTextFillColor: '#fca5a5',
+  color: '#ff5a6e',
+  WebkitTextFillColor: '#ff5a6e',
   fontWeight: 900,
-  WebkitTextStroke: '0.55px rgba(127, 29, 29, 0.85)',
+  WebkitTextStroke: '0.7px rgba(80, 10, 20, 0.78)',
   textShadow: [
-    '0 0 8px rgba(248, 113, 113, 0.78)',
-    '0 0 16px rgba(239, 68, 68, 0.55)',
-    '0 0 12px rgba(220, 38, 38, 0.38)',
-    '0 1px 2px rgba(0,0,0,0.9)',
+    '0 0 5px rgba(248, 113, 113, 0.58)',
+    '0 1px 2px rgba(0,0,0,0.92)',
+  ].join(', '),
+};
+
+/** Жёсткий недобор · цифра заказа: сочный янтарь (читается рядом с красным «взято»). */
+const pcTrickUnderBidOrderFigureStyle: React.CSSProperties = {
+  cursor: 'help',
+  color: '#ffc400',
+  WebkitTextFillColor: '#ffc400',
+  fontWeight: 900,
+  WebkitTextStroke: '0.7px rgba(90, 40, 0, 0.82)',
+  textShadow: [
+    '0 0 5px rgba(255, 180, 0, 0.58)',
+    '0 1px 2px rgba(0,0,0,0.92)',
   ].join(', '),
 };
 
@@ -17384,27 +17851,14 @@ const rareBidFigure9Style: React.CSSProperties = {
   ].join(', '),
 };
 const rareBidFigure8UnderStrictStyle: React.CSSProperties = {
-  color: '#fde68a',
-  WebkitTextFillColor: '#fde68a',
-  fontWeight: 900,
-  WebkitTextStroke: '0.7px rgba(127, 29, 29, 0.9)',
-  textShadow: [
-    '0 0 10px rgba(248, 113, 113, 0.78)',
-    '0 0 18px rgba(251, 191, 36, 0.68)',
-    '0 2px 4px rgba(0, 0, 0, 0.92)',
-  ].join(', '),
+  ...pcTrickUnderBidOrderFigureStyle,
+  color: '#ffb300',
+  WebkitTextFillColor: '#ffb300',
 };
 const rareBidFigure9UnderStrictStyle: React.CSSProperties = {
-  color: '#fff1c2',
-  WebkitTextFillColor: '#fff1c2',
-  fontWeight: 900,
-  WebkitTextStroke: '0.72px rgba(127, 29, 29, 0.92)',
-  textShadow: [
-    '0 0 12px rgba(248, 113, 113, 0.85)',
-    '0 0 20px rgba(251, 191, 36, 0.72)',
-    '0 0 14px rgba(239, 68, 68, 0.48)',
-    '0 2px 5px rgba(0, 0, 0, 0.94)',
-  ].join(', '),
+  ...pcTrickUnderBidOrderFigureStyle,
+  color: '#ffaa00',
+  WebkitTextFillColor: '#ffaa00',
 };
 
 function rareBidFigureAccentStyle(bid: number | null, underStrict: boolean): CSSProperties | undefined {
@@ -17440,6 +17894,8 @@ function PcTrickBidTakenFigures({
   exactMatchHeavyNeon,
   /** Мобильная Север/Запад: заказ >6 — цифры в «ушке» столбиком (взято / заказ) */
   mobileNwEarFigures,
+  /** Телефон: словарь из лабы (не трогает ПК/планшет) */
+  mobileLabFigures,
 }: {
   bid: number | null;
   tricksTaken: number;
@@ -17449,6 +17905,12 @@ function PcTrickBidTakenFigures({
   tricksLeftInDeal?: number;
   exactMatchHeavyNeon?: boolean;
   mobileNwEarFigures?: boolean;
+  mobileLabFigures?: {
+    taken: CSSProperties;
+    bid: CSSProperties;
+    slash: CSSProperties;
+    figuresClassName: string;
+  };
 }) {
   const bidTitle =
     bid == null
@@ -17502,11 +17964,15 @@ function PcTrickBidTakenFigures({
   const chasingHandNeon = neonOn && !overBid && !exactMatch && !underBidPenalize;
   /** С момента первой взятки на руке — класс + чуть крупнее кегль (см. index.css --hand-bold) */
   const handNeonBold = neonOn && tricksTaken >= 1;
+  /** Телефон + лаба: кегль стабильный (без скачков pending / hand-bold). */
+  const labFiguresStable = !!mobileLabFigures;
   const mobileNeonFiguresCls = neonOn
     ? [
         'trick-bid-taken-figures-neon',
         `trick-bid-taken-figures-neon--${audience}`,
         overBid ? 'trick-bid-taken-figures-neon--overbid' : '',
+        exactMatch ? 'trick-bid-taken-figures-neon--exact' : '',
+        chasingHandNeon ? 'trick-bid-taken-figures-neon--chasing' : '',
         handNeonBold ? 'trick-bid-taken-figures-neon--hand-bold' : '',
       ]
         .filter(Boolean)
@@ -17522,7 +17988,10 @@ function PcTrickBidTakenFigures({
           ? mobileCompactNeonSlashChasing
           : mobileCompactNeonSlashExact
     : slashStyleBase;
-  const slashFinal: CSSProperties = slashNeonBase;
+  const slashFinal: CSSProperties = mobileLabFigures?.slash ?? slashNeonBase;
+  const figuresCls = mobileLabFigures?.figuresClassName ?? mobileNeonFiguresCls;
+  const resolveFiguresFontPx = (base: number, boldBump: number) =>
+    labFiguresStable ? base : handNeonBold ? boldBump : base;
 
   /** ПК-оппонент: взято / заказ; точно — сирень; перебор — болотно-жёлтый; жёсткий недобор — красный (заказ уже невыполним). */
   if (audience === 'opponent') {
@@ -17557,11 +18026,12 @@ function PcTrickBidTakenFigures({
                 ? mobileCompactNeonDigitExact
                 : pcTrickExactMatchFigureStyle
               : underBidPenalize
-                ? pcTrickUnderBidFigureStyle
+                ? pcTrickUnderBidOrderFigureStyle
                 : chasingHandNeon
                   ? mobileCompactNeonBidChasing
                   : pcTrickBidFigureStyle;
-      if (bid != null && tricksTaken === 0) {
+      /* Cyan «0 взято» только пока ещё не ровно (0/0 exact = сирень). Лаба перекрывает. */
+      if (!mobileLabFigures && bid != null && tricksTaken === 0 && !exactMatch) {
         takenFigStyle = {
           ...takenFigStyle,
           color: 'rgb(103 232 249)',
@@ -17569,20 +18039,27 @@ function PcTrickBidTakenFigures({
           textShadow: '0 0 10px rgb(56 189 248 / 0.78), 0 0 16px rgb(14 165 233 / 0.44)',
         };
       }
-      const earFont = handNeonBold ? Math.min(12, Math.round(fontSize * 1.08)) : Math.min(11, fontSize + 1);
+      if (mobileLabFigures) {
+        takenFigStyle = mobileLabFigures.taken;
+        bidFigStyle = mobileLabFigures.bid;
+      }
+      const earFont = resolveFiguresFontPx(
+        Math.min(13, Math.max(11, fontSize + 1)),
+        Math.min(14, Math.max(12, Math.round(fontSize * 1.1))),
+      );
       return (
         <span
-          className={[mobileNeonFiguresCls, 'trick-slots-bid-taken-figures'].filter(Boolean).join(' ')}
+          className={[figuresCls, 'trick-slots-bid-taken-figures'].filter(Boolean).join(' ')}
           style={{
             display: 'inline-flex',
             flexDirection: 'row',
-            alignItems: 'baseline',
+            alignItems: labFiguresStable ? 'center' : 'baseline',
             justifyContent: 'center',
             gap: 3,
             fontSize: earFont,
-            fontWeight: neonOn ? 900 : 800,
+            fontWeight: neonOn || mobileLabFigures ? 900 : 800,
             letterSpacing: '0.02em',
-            lineHeight: 1.1,
+            lineHeight: labFiguresStable ? 1 : 1.1,
             whiteSpace: 'nowrap',
             ...style,
           }}
@@ -17599,7 +18076,7 @@ function PcTrickBidTakenFigures({
             title={bidTitle}
             style={{
               ...bidFigStyle,
-              ...rareBidFigureAccentStyle(bidN, underBidPenalize),
+              ...(mobileLabFigures ? null : rareBidFigureAccentStyle(bidN, underBidPenalize)),
               fontVariantNumeric: 'tabular-nums',
             }}
           >
@@ -17638,11 +18115,12 @@ function PcTrickBidTakenFigures({
               ? mobileCompactNeonDigitExact
               : pcTrickExactMatchFigureStyle
             : underBidPenalize
-              ? pcTrickUnderBidFigureStyle
+              ? pcTrickUnderBidOrderFigureStyle
               : chasingHandNeon
                 ? mobileCompactNeonBidChasing
                 : pcTrickBidFigureStyle;
-    if (bid != null && tricksTaken === 0) {
+    /* Cyan «0 взято» только пока ещё не ровно (0/0 exact = сирень). Лаба перекрывает. */
+    if (!mobileLabFigures && bid != null && tricksTaken === 0 && !exactMatch) {
       takenFigStyle = {
         ...takenFigStyle,
         color: 'rgb(103 232 249)',
@@ -17650,17 +18128,22 @@ function PcTrickBidTakenFigures({
         textShadow: '0 0 10px rgb(56 189 248 / 0.78), 0 0 16px rgb(14 165 233 / 0.44)',
       };
     }
+    if (mobileLabFigures) {
+      takenFigStyle = mobileLabFigures.taken;
+      bidFigStyle = mobileLabFigures.bid;
+    }
 
     return (
       <span
-        className={[mobileNeonFiguresCls, 'trick-slots-bid-taken-figures'].filter(Boolean).join(' ')}
+        className={[figuresCls, 'trick-slots-bid-taken-figures'].filter(Boolean).join(' ')}
         style={{
           display: 'inline-flex',
-          alignItems: 'baseline',
+          alignItems: labFiguresStable ? 'center' : 'baseline',
           gap: 3,
-          fontSize: handNeonBold ? Math.min(14, Math.round(fontSize * 1.14)) : fontSize,
-          fontWeight: neonOn ? 900 : 800,
-          letterSpacing: handNeonBold ? '0.05em' : '0.04em',
+          fontSize: resolveFiguresFontPx(fontSize, Math.min(14, Math.round(fontSize * 1.14))),
+          fontWeight: neonOn || labFiguresStable ? 900 : 800,
+          letterSpacing: labFiguresStable ? '0.02em' : handNeonBold ? '0.05em' : '0.04em',
+          lineHeight: labFiguresStable ? 1 : undefined,
           whiteSpace: 'nowrap',
           flexShrink: 0,
           ...style,
@@ -17676,7 +18159,10 @@ function PcTrickBidTakenFigures({
         <span
           className={rareBidFigureCls || undefined}
           title={bidTitle}
-          style={{ ...bidFigStyle, ...rareBidFigureAccentStyle(bidN, underBidPenalize) }}
+          style={{
+            ...bidFigStyle,
+            ...(mobileLabFigures ? null : rareBidFigureAccentStyle(bidN, underBidPenalize)),
+          }}
         >
           {bidDisplay}
         </span>
@@ -17696,7 +18182,7 @@ function PcTrickBidTakenFigures({
             ? mobileCompactNeonDigitExact
             : pcTrickExactMatchFigureStyle
           : underBidPenalize
-            ? pcTrickUnderBidFigureStyle
+            ? pcTrickUnderBidOrderFigureStyle
             : chasingHandNeon
               ? mobileCompactNeonBidChasing
               : pcTrickBidFigureStyle;
@@ -17713,23 +18199,32 @@ function PcTrickBidTakenFigures({
         : chasingHandNeon
           ? mobileCompactNeonDigitChasingTaken
           : pcTrickTakenFigureStyle;
+  let slashFigPlayer: CSSProperties = slashFinal;
+  if (mobileLabFigures) {
+    takenFigPlayer = mobileLabFigures.taken;
+    bidFigPlayer = mobileLabFigures.bid;
+    slashFigPlayer = mobileLabFigures.slash;
+  }
 
   /** Как у оппонентов: сначала взято, затем заказ. */
   if (mobileNwEarFigures) {
-    const earFont = handNeonBold ? Math.min(12, Math.round(fontSize * 1.08)) : Math.min(11, fontSize + 1);
+    const earFont = resolveFiguresFontPx(
+      Math.min(13, Math.max(11, fontSize + 1)),
+      Math.min(14, Math.max(12, Math.round(fontSize * 1.1))),
+    );
     return (
       <span
-        className={[mobileNeonFiguresCls, 'trick-slots-bid-taken-figures'].filter(Boolean).join(' ')}
+        className={[figuresCls, 'trick-slots-bid-taken-figures'].filter(Boolean).join(' ')}
         style={{
           display: 'inline-flex',
           flexDirection: 'row',
-          alignItems: 'baseline',
+          alignItems: labFiguresStable ? 'center' : 'baseline',
           justifyContent: 'center',
           gap: 3,
           fontSize: earFont,
-          fontWeight: neonOn ? 900 : 800,
+          fontWeight: neonOn || mobileLabFigures ? 900 : 800,
           letterSpacing: '0.02em',
-          lineHeight: 1.1,
+          lineHeight: labFiguresStable ? 1 : 1.1,
           whiteSpace: 'nowrap',
           ...style,
         }}
@@ -17738,15 +18233,19 @@ function PcTrickBidTakenFigures({
         <span title={takenTitle} style={{ ...takenFigPlayer, fontVariantNumeric: 'tabular-nums' }}>
           {tricksTaken}
         </span>
-        <span style={slashFinal} aria-hidden>
+        <span style={slashFigPlayer} aria-hidden>
           /
         </span>
         <span
           className={rareBidFigureCls || undefined}
           title={bidTitle}
           style={{
-            ...bidFigPlayer,
-            ...rareBidFigureAccentStyle(bidN, underBidPenalize),
+            ...(mobileLabFigures
+              ? bidFigPlayer
+              : {
+                  ...bidFigPlayer,
+                  ...rareBidFigureAccentStyle(bidN, underBidPenalize),
+                }),
             fontVariantNumeric: 'tabular-nums',
           }}
         >
@@ -17758,14 +18257,15 @@ function PcTrickBidTakenFigures({
 
   return (
     <span
-      className={[mobileNeonFiguresCls, 'trick-slots-bid-taken-figures'].filter(Boolean).join(' ')}
+      className={[figuresCls, 'trick-slots-bid-taken-figures'].filter(Boolean).join(' ')}
       style={{
         display: 'inline-flex',
-        alignItems: 'baseline',
+        alignItems: labFiguresStable ? 'center' : 'baseline',
         gap: 3,
-        fontSize: handNeonBold ? Math.min(14, Math.round(fontSize * 1.14)) : fontSize,
-        fontWeight: neonOn ? 900 : 800,
-        letterSpacing: handNeonBold ? '0.05em' : '0.04em',
+        fontSize: resolveFiguresFontPx(fontSize, Math.min(14, Math.round(fontSize * 1.14))),
+        fontWeight: neonOn || mobileLabFigures ? 900 : 800,
+        letterSpacing: labFiguresStable ? '0.02em' : handNeonBold ? '0.05em' : '0.04em',
+        lineHeight: labFiguresStable ? 1 : undefined,
         whiteSpace: 'nowrap',
         flexShrink: 0,
         ...style,
@@ -17775,13 +18275,17 @@ function PcTrickBidTakenFigures({
       <span title={takenTitle} style={takenFigPlayer}>
         {tricksTaken}
       </span>
-      <span style={slashFinal} aria-hidden>
+      <span style={slashFigPlayer} aria-hidden>
         /
       </span>
       <span
         className={rareBidFigureCls || undefined}
         title={bidTitle}
-        style={{ ...bidFigPlayer, ...rareBidFigureAccentStyle(bidN, underBidPenalize) }}
+        style={
+          mobileLabFigures
+            ? bidFigPlayer
+            : { ...bidFigPlayer, ...rareBidFigureAccentStyle(bidN, underBidPenalize) }
+        }
       >
         {bidDisplay}
       </span>
@@ -17846,6 +18350,7 @@ function OpponentBidCompactWrap({
   const title = opponentOrderBadgeTitle(bid, tricksTaken);
   const mergedStyle: CSSProperties = resolveTrickWrapStyle({ ...wrapStyle, position: 'relative' });
   const hintSlot = orderHintSlot ?? 'north';
+  const hasMopLabChrome = /\bmop-panel--lab-chrome\b/.test(wrapCls);
 
   if (tapHintEnabled) {
     return (
@@ -17858,8 +18363,13 @@ function OpponentBidCompactWrap({
           font: 'inherit',
           color: 'inherit',
           WebkitTapHighlightColor: 'transparent',
-          border: mergedStyle.border ?? '1px solid transparent',
-          background: mergedStyle.background as string | undefined,
+          /* Lab: не форсировать UA/inline border|background — рамка из ::before + --mop-* */
+          ...(hasMopLabChrome
+            ? {}
+            : {
+                border: mergedStyle.border ?? '1px solid transparent',
+                background: mergedStyle.background as string | undefined,
+              }),
           padding: mergedStyle.padding,
           margin: 0,
           borderRadius: mergedStyle.borderRadius,
@@ -17959,10 +18469,14 @@ function TrickSlotsDisplay({
   playerMobileWideTricks,
   /** Моб. landscape · Юг: ужатая полоска заказа под узкую колонку панели. */
   playerMobileLandscapeTricks,
+  /** Моб. landscape · Юг: резерв аватара (px) → бюджет ширины полоски при 5+ слотах. */
+  playerMobileLandscapeOrderBudgetAvatarReservePx,
   /** Моб. landscape · Запад/Восток: горизонтальная полоска как у С/З (без east-mobile сетки и без «ушка» при заказе >6). */
   opponentMobileLandscapeWeTricks,
   /** Mid 601–899 · З/В: вертикальная полоска заказа (цифры сверху, кружки столбиком). */
   opponentMobileLandscapeMidWeVertical,
+  /** Landscape З/В · 4 игрока: при 5+ слотах — 3 кружка в ряд (иначе 2). */
+  opponentMobileLandscapeWeFourSeats,
   /** Моб. landscape · Север (оппонент): компактная полоска заказа (×1.5 меньше). */
   opponentMobileLandscapeNorthTricks,
   /** Сколько взяток ещё не сыграно в раздаче (для мягкого недобора на ПК). */
@@ -17971,6 +18485,9 @@ function TrickSlotsDisplay({
   playerMobileExactOrderCornerStar,
   /** Доп. масштаб панели (напр. планшет 4p · Север −10%); влияет на размеры, не только на CSS transform. */
   panelScale,
+  orderSeatIsDealer,
+  orderBiddingPhase,
+  orderBiddingTurn,
 }: {
   bid: number | null;
   tricksTaken: number;
@@ -17991,18 +18508,42 @@ function TrickSlotsDisplay({
   opponentMobileLandscapeWeTricks?: boolean;
   /** Mid 601–899 · только З/В: вертикальная капсула заказа */
   opponentMobileLandscapeMidWeVertical?: boolean;
+  /** Landscape З/В · партия на 4: сетка кружков 3 в ряд при заказе ≥5 */
+  opponentMobileLandscapeWeFourSeats?: boolean;
   opponentMobileLandscapeNorthTricks?: boolean;
   /** Только моб. landscape · Юг: компактная полоска заказа по ширине колонки панели. */
   playerMobileLandscapeTricks?: boolean;
+  /**
+   * Моб. landscape · Юг: актуальный резерв аватара (px) для бюджета ширины полоски
+   * (с 5+ слотов аватар чуть уже → полоске больше места).
+   */
+  playerMobileLandscapeOrderBudgetAvatarReservePx?: number;
   tricksLeftInDeal?: number;
   playerMobileExactOrderCornerStar?: React.ReactNode;
   panelScale?: number;
+  orderSeatIsDealer?: boolean;
+  orderBiddingPhase?: boolean;
+  orderBiddingTurn?: boolean;
 }) {
   const isMobileViewport = useIsMobile();
   /** ПК + планшет (не телефон): единый кегль и неон «взято/заказ». */
   const usePcBidTakenFigures = !isMobileViewport;
   const pcBidTakenFigPx = 16;
   const sPanel = Number.isFinite(panelScale) && (panelScale as number) > 0 ? (panelScale as number) : 1;
+  const mopRole: MobileOrderSeatRole = orderSeatIsDealer ? 'dealer' : 'normal';
+  const mopPhone =
+    isMobileViewport
+      ? resolveMobileOrderPanelStyle({
+          bid,
+          tricksTaken,
+          tricksLeftInDeal,
+          collecting: !!collectingCards,
+          bidding: !!orderBiddingPhase,
+          biddingTurn: !!orderBiddingTurn,
+          role: mopRole,
+        })
+      : null;
+  const mobileLabFigures = mopPhone?.figures;
 
   const zeroCrossGradId = useId().replace(/:/g, '');
   const isCompact = variant === 'opponent';
@@ -18015,13 +18556,34 @@ function TrickSlotsDisplay({
 
   if (bid === null) {
     const nullWrapBase = compactMode
-      ? { ...trickCirclesWrapStyle, border: '1px solid rgba(71, 85, 105, 0.5)', background: 'rgba(30, 41, 59, 0.8)', boxShadow: 'none' as const }
+      ? mopPhone
+        ? withMobileOrderLabChrome(trickCirclesWrapStyle, mopPhone.chrome.wrapStyle)
+        : {
+            ...trickCirclesWrapStyle,
+            border: '1px solid rgba(71, 85, 105, 0.5)',
+            background: 'rgba(30, 41, 59, 0.8)',
+            boxShadow: 'none' as const,
+          }
       : trickSlotsWrapStyle;
     const sTrick = MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK;
     const nullWrap =
       compactMode && variant === 'player' && playerMobileLandscapeTricks
         ? (() => {
-            const nullPanelW = MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_EMPTY_BIDDING_W;
+            /* Как полоска после заказа 1 (не «заглушка» 46–80): те же pad/высота, ширина ≈ bid=1. */
+            const nullPanelW = Math.max(
+              MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_EMPTY_BIDDING_W,
+              estimateMobileLandscapeSouthOrderPanelWidthPx(
+                1,
+                0,
+                Math.max(
+                  5,
+                  Math.round(18 * MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_SHRINK),
+                ),
+                MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURE_FONT_PENDING_PX,
+                0,
+                false,
+              ),
+            );
             return {
             ...nullWrapBase,
             position: 'static' as const,
@@ -18029,24 +18591,51 @@ function TrickSlotsDisplay({
             flexDirection: 'row' as const,
             flexWrap: 'nowrap' as const,
             alignItems: 'center' as const,
-            justifyContent: 'flex-start' as const,
+            justifyContent: 'center' as const,
             gap: 2,
-            padding: '0 3px',
+            padding: `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_RIGHT_PX}px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_LEFT_PX}px`,
             borderTopLeftRadius: Math.max(5, Math.round(8 * MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_SHRINK)),
             borderTopRightRadius: Math.max(5, Math.round(8 * MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_SHRINK)),
             borderBottomLeftRadius: 0,
             borderBottomRightRadius: 0,
-            minHeight: 22,
-            maxHeight: 22,
-            height: 22,
+            minHeight: MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX,
+            maxHeight: MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX,
+            height: MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX,
             overflow: 'visible' as const,
             width: nullPanelW,
             maxWidth: nullPanelW,
             minWidth: nullPanelW,
             ['--south-landscape-order-panel-w' as string]: `${nullPanelW}px`,
+            ['--south-landscape-order-panel-h' as string]: `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX}px`,
             transform: 'none' as const,
           };
           })()
+        : compactMode &&
+            variant === 'opponent' &&
+            (opponentMobileLandscapeNorthTricks || opponentMobileLandscapeWeTricks)
+          ? {
+              /* С/З/В · торги без заказа: одна ширина как у Севера (max-content + pad-h), без раздува З/В. */
+              ...nullWrapBase,
+              display: 'flex' as const,
+              flexDirection: 'row' as const,
+              flexWrap: 'nowrap' as const,
+              alignItems: 'center' as const,
+              justifyContent: 'flex-start' as const,
+              alignSelf: opponentMobileLandscapeWeTricks ? ('center' as const) : ('flex-start' as const),
+              minHeight: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
+              maxHeight: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
+              height: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
+              minWidth: 0,
+              width: 'auto' as const,
+              maxWidth: 'max-content' as const,
+              paddingTop: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
+              paddingBottom: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
+              paddingLeft: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
+              paddingRight: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
+              borderRadius: MOBILE_LANDSCAPE_OPPONENT_ORDER_RADIUS_PX,
+              boxSizing: 'border-box' as const,
+              overflow: 'visible' as const,
+            }
         : compactMode && variant === 'player' && playerMobileWideTricks
           ? {
               ...nullWrapBase,
@@ -18055,7 +18644,17 @@ function TrickSlotsDisplay({
               borderRadius: Math.max(5, Math.round(8 * sTrick)),
             }
           : nullWrapBase;
-    const nullCls = [collectingCards ? 'trick-slots-collecting' : 'trick-slots-normal', eastMobileTricks ? 'trick-slots-east-mobile' : ''].filter(Boolean).join(' ');
+    const nullCls = [
+      collectingCards ? 'trick-slots-collecting' : 'trick-slots-normal',
+      eastMobileTricks ? 'trick-slots-east-mobile' : '',
+      mopPhone?.chrome.extraClassName ?? '',
+      mopPhone?.chrome.outcomeClassName ?? '',
+      /* Как после заказа: иначе portrait даёт padding 1×3 вместо 4×9 у .player-mobile-wide */
+      variant === 'player' && playerMobileWideTricks ? 'trick-slots-player-mobile-wide' : '',
+      variant === 'player' && playerMobileLandscapeTricks ? 'trick-slots-player-mobile-landscape' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
     const compactNullFigFont =
       variant === 'player'
         ? playerMobileLandscapeTricks
@@ -18071,6 +18670,7 @@ function TrickSlotsDisplay({
         audience={variant}
         fontSize={compactNullFigFont}
         tricksLeftInDeal={tricksLeftInDeal}
+        mobileLabFigures={mobileLabFigures}
         style={{ lineHeight: 1 }}
       />
     ) : (
@@ -18148,26 +18748,75 @@ function TrickSlotsDisplay({
         : variant === 'player' && playerMobileWideTricks
           ? MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK * (bid === 0 ? 1.2 : 1) * landscapeSouthTrickShrink
           : MOBILE_SOUTH_USER_TRICK_SLOTS_SHRINK;
-    /** Мобильная: заказ 0 — фиксированная зона с крестиком «не брать взятки» (+ перебор, если есть). */
-    if (variant === 'opponent' && opponentMobileZeroOrderCross && bid === 0) {
-      const zeroTone =
-        tricksTaken === 0
-          ? trickCirclesWrapPendingStyle
-          : !hideCards
-            ? trickCirclesWrapMobileOverBidStyle
-            : trickCirclesWrapPendingStyle;
-      const wrapStyle = {
-        ...trickCirclesWrapStyle,
-        ...zeroTone,
-        minWidth: 34,
-      };
+    /** Мобильный: заказ 0 — цифры + крестик «не брать» (оппоненты и Юг). */
+    const showMobileZeroOrderCross =
+      bid === 0 &&
+      !!compactMode &&
+      ((variant === 'opponent' && !!opponentMobileZeroOrderCross) ||
+        (variant === 'player' && isMobileViewport));
+    if (showMobileZeroOrderCross) {
+      const landscapeSouthPanelHeightCss = playerMobileLandscapeTricks
+        ? {
+            ['--south-landscape-order-panel-h' as string]: `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX}px`,
+          }
+        : null;
+      const wrapStyleBase = mopPhone
+        ? withMobileOrderLabChrome(
+            {
+              ...trickCirclesWrapStyle,
+              minWidth: 34,
+              ['--mop-fig-size' as string]: `${tricksTaken === 0 ? 13 : 12}px`,
+            },
+            mopPhone.chrome.wrapStyle,
+          )
+        : {
+            ...trickCirclesWrapStyle,
+            ...(tricksTaken === 0
+              ? trickCirclesWrapPendingStyle
+              : !hideCards
+                ? trickCirclesWrapMobileOverBidStyle
+                : trickCirclesWrapPendingStyle),
+            minWidth: 34,
+          };
+      const wrapStyle: CSSProperties =
+        variant === 'player' && playerMobileLandscapeTricks
+          ? {
+              ...wrapStyleBase,
+              display: 'flex',
+              flexDirection: 'row',
+              flexWrap: 'nowrap',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              gap: 4,
+              minHeight: MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX,
+              maxHeight: MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX,
+              height: MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX,
+              padding: `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_RIGHT_PX}px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_LEFT_PX}px`,
+              borderTopLeftRadius: 8,
+              borderTopRightRadius: 8,
+              borderBottomLeftRadius: 0,
+              borderBottomRightRadius: 0,
+              ...landscapeSouthPanelHeightCss,
+            }
+          : wrapStyleBase;
       const zeroOrderMet = !hideCards && tricksTaken === 0;
       const zeroOrderOver = !hideCards && tricksTaken > 0;
+      const zeroCrossStyle = mopPhone?.zeroCross ?? resolveMobileZeroCrossStyle();
       const wrapCls = [
         hideCards ? 'trick-slots-collecting' : 'trick-slots-normal',
         eastMobileTricks ? 'trick-slots-east-mobile' : '',
-        zeroOrderMet ? 'trick-slots-order-complete' : '',
-        zeroOrderOver ? 'trick-slots-order-over' : '',
+        variant === 'player' && playerMobileWideTricks ? 'trick-slots-player-mobile-wide' : '',
+        variant === 'player' && playerMobileLandscapeTricks ? 'trick-slots-player-mobile-landscape' : '',
+        mopPhone
+          ? mopPhone.chrome.outcomeClassName
+          : zeroOrderMet
+            ? 'trick-slots-order-complete'
+            : '',
+        mopPhone ? '' : zeroOrderOver ? 'trick-slots-order-over' : '',
+        mopPhone?.chrome.extraClassName ?? '',
+        variant === 'player' && playerMobileExactOrderCornerStar
+          ? 'trick-slots-south-exact-star-host'
+          : '',
       ]
         .filter(Boolean)
         .join(' ');
@@ -18181,20 +18830,31 @@ function TrickSlotsDisplay({
           <PcTrickBidTakenFigures
             bid={0}
             tricksTaken={tricksTaken}
-            audience="opponent"
-            fontSize={tricksTaken === 0 ? 12 : 9}
+            audience={variant}
+            fontSize={mopPhone ? 13 : tricksTaken === 0 ? 12 : 9}
             tricksLeftInDeal={tricksLeftInDeal}
-            exactMatchHeavyNeon={!hideCards && tricksTaken > 0}
-            style={{ lineHeight: 1, marginBottom: 2 }}
+            exactMatchHeavyNeon={!hideCards}
+            mobileLabFigures={mobileLabFigures}
+            style={{ lineHeight: 1, marginTop: 0, marginBottom: mopPhone ? 0 : 2 }}
           />
           <div style={zeroRowStyle}>
-            <span className="opponent-zero-order-cross-mobile" title="Заказ: не брать взятки" aria-hidden>
+            <span
+              className={`opponent-zero-order-cross-mobile${zeroCrossStyle.glow ? ' opponent-zero-order-cross-mobile--lab-glow' : ''}`}
+              title="Заказ: не брать взятки"
+              aria-hidden
+              style={
+                {
+                  ['--mop-zero-cross-glow' as string]: zeroCrossStyle.mid,
+                  color: zeroCrossStyle.c1,
+                } as CSSProperties
+              }
+            >
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
                 <defs>
                   <linearGradient id={zeroCrossGradId} x1="5" y1="5" x2="19" y2="19" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#fef3c7" />
-                    <stop offset="0.4" stopColor="#fb923c" />
-                    <stop offset="1" stopColor="#c2410c" />
+                    <stop stopColor={zeroCrossStyle.c1} />
+                    <stop offset="0.4" stopColor={zeroCrossStyle.c1} />
+                    <stop offset="1" stopColor={zeroCrossStyle.c2} />
                   </linearGradient>
                 </defs>
                 <path
@@ -18205,7 +18865,9 @@ function TrickSlotsDisplay({
                 />
                 <path
                   d="M6.25 6.25l11.5 11.5m0-11.5l-11.5 11.5"
-                  stroke={`url(#${zeroCrossGradId})`}
+                  stroke={
+                    zeroCrossStyle.mode === 'gradient' ? `url(#${zeroCrossGradId})` : zeroCrossStyle.c1
+                  }
                   strokeWidth="4.35"
                   strokeLinecap="round"
                 />
@@ -18217,18 +18879,34 @@ function TrickSlotsDisplay({
           </div>
         </>
       );
+      if (variant === 'opponent') {
+        return (
+          <OpponentBidCompactWrap
+            wrapStyle={wrapStyle}
+            wrapCls={wrapCls}
+            bid={bid}
+            tricksTaken={tricksTaken}
+            tapHintEnabled={hideOppOrderWord}
+            ariaLabel={hideOppOrderWord ? opponentOrderBadgeTitle(bid, tricksTaken) : undefined}
+            orderHintSlot={opponentOrderHintSlot}
+          >
+            {zeroInner}
+          </OpponentBidCompactWrap>
+        );
+      }
       return (
-        <OpponentBidCompactWrap
-          wrapStyle={wrapStyle}
-          wrapCls={wrapCls}
-          bid={bid}
-          tricksTaken={tricksTaken}
-          tapHintEnabled={hideOppOrderWord}
-          ariaLabel={hideOppOrderWord ? opponentOrderBadgeTitle(bid, tricksTaken) : undefined}
-          orderHintSlot={opponentOrderHintSlot}
+        <div
+          style={resolveTrickWrapStyle(
+            variant === 'player' && playerMobileExactOrderCornerStar
+              ? { ...wrapStyle, overflow: 'visible' as const }
+              : wrapStyle,
+          )}
+          className={wrapCls}
+          role="status"
         >
           {zeroInner}
-        </OpponentBidCompactWrap>
+          {playerMobileExactOrderCornerStar}
+        </div>
       );
     }
 
@@ -18332,7 +19010,10 @@ function TrickSlotsDisplay({
               : 132;
         } else if (variant === 'player') {
           wMax = playerMobileLandscapeTricks
-            ? getMobileLandscapeSouthTrickPanelMaxWidthPx()
+            ? getMobileLandscapeSouthTrickPanelMaxWidthPx(
+                playerMobileLandscapeOrderBudgetAvatarReservePx ??
+                  MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+              )
             : playerMobileWideTricks
               ? Math.round(168 * 1.5 * southUserSlotShrink)
               : 140;
@@ -18403,20 +19084,28 @@ function TrickSlotsDisplay({
       !hideCards &&
       tricksTaken < bidNum &&
       (tricksLeftInDeal === undefined || tricksTaken + tricksLeftInDeal < bidNum);
-    const mobileWrapTone: React.CSSProperties = hideCards
-      ? trickCirclesWrapPendingStyle
-      : mobileOverOrder
-        ? trickCirclesWrapMobileOverBidStyle
-        : mobileUnderStrict
-          ? trickCirclesWrapMobileUnderStrictStyle
-          : trickCirclesWrapPendingStyle;
-    const landscapeSouthPlayerWrapPadding = `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px 5px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px 3px`;
+    const wrapStyleBase = mopPhone
+      ? withMobileOrderLabChrome(trickCirclesWrapStyle, mopPhone.chrome.wrapStyle)
+      : {
+          ...trickCirclesWrapStyle,
+          ...(hideCards
+            ? trickCirclesWrapPendingStyle
+            : mobileOverOrder
+              ? trickCirclesWrapMobileOverBidStyle
+              : mobileUnderStrict
+                ? trickCirclesWrapMobileUnderStrictStyle
+                : trickCirclesWrapPendingStyle),
+        };
+    const landscapeSouthPlayerWrapPadding =
+      bidNum != null && bidNum >= 7
+        ? /* Плотнее кружки, но рамка шире и с запасом слева (не режет 1-й слот) */
+          `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px 6px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px 7px`
+        : `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px 5px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px 3px`;
     const landscapeSouthPanelHeightCss = {
       ['--south-landscape-order-panel-h' as string]: `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX}px`,
     };
     const wrapStyle = {
-      ...trickCirclesWrapStyle,
-      ...mobileWrapTone,
+      ...wrapStyleBase,
       ...(variant === 'player' && playerMobileWideTricks
         ? { gap: Math.max(1, Math.round(2 * southUserSlotShrink)) }
         : {}),
@@ -18441,6 +19130,11 @@ function TrickSlotsDisplay({
             maxHeight: MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX,
             height: MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX,
             overflow: 'visible' as const,
+            /* longhand: dense BR под угол панели; иначе shorthand 8px на все углы */
+            borderTopLeftRadius: 8,
+            borderTopRightRadius: 8,
+            borderBottomLeftRadius: 0,
+            borderBottomRightRadius: bidNum != null && bidNum >= 7 ? 14 : 0,
             width: 'auto' as const,
             maxWidth: 'max-content' as const,
           }
@@ -18453,18 +19147,21 @@ function TrickSlotsDisplay({
                 const v =
                   playerMobileWideTricks && scaleDown >= 1
                     ? Math.max(1, Math.round(2 * playerScale * southUserSlotShrink))
-                    : scaleDown < 1
+                    : scaleDown < 1 && !mopPhone
                       ? Math.round(2 * scaleDown * playerScale)
                       : Math.round(2 * playerScale);
                 const h =
                   playerMobileWideTricks && scaleDown >= 1
                     ? Math.max(3, Math.round(6 * playerScale * southUserSlotShrink))
-                    : scaleDown < 1
+                    : scaleDown < 1 && !mopPhone
                       ? Math.round(6 * scaleDown * playerScale)
                       : Math.round(6 * playerScale);
                 return `${v}px ${h}px`;
               })(),
-              transform: `translateY(-50%) scale(${playerScale * (scaleDown < 1 ? scaleDown : 1)})`,
+              /* mop: не scale-ить всю панель (иначе цифры при переборе/7+ становятся микро) — жмём только кружки */
+              transform: `translateY(-50%) scale(${
+                mopPhone ? playerScale : playerScale * (scaleDown < 1 ? scaleDown : 1)
+              })`,
               transformOrigin: 'right center',
             }
           : {}),
@@ -18497,8 +19194,14 @@ function TrickSlotsDisplay({
                     maxHeight: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
                     height: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
                     borderRadius: MOBILE_LANDSCAPE_OPPONENT_ORDER_RADIUS_PX,
-                    paddingTop: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
-                    paddingBottom: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
+                    paddingTop:
+                      opponentMobileLandscapeWeTricks && bidNum != null && bidNum > 6
+                        ? MOBILE_LANDSCAPE_WE_ORDER_PAD_V_HIGH_BID_PX
+                        : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
+                    paddingBottom:
+                      opponentMobileLandscapeWeTricks && bidNum != null && bidNum > 6
+                        ? MOBILE_LANDSCAPE_WE_ORDER_PAD_V_HIGH_BID_PX
+                        : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
                     paddingLeft: opponentMobileLandscapeWeTricks
                       ? MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX
                       : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
@@ -18524,8 +19227,14 @@ function TrickSlotsDisplay({
               maxHeight: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
               height: MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX,
               borderRadius: MOBILE_LANDSCAPE_OPPONENT_ORDER_RADIUS_PX,
-              paddingTop: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
-              paddingBottom: MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
+              paddingTop:
+                opponentMobileLandscapeWeTricks && bidNum != null && bidNum > 6
+                  ? MOBILE_LANDSCAPE_WE_ORDER_PAD_V_HIGH_BID_PX
+                  : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
+              paddingBottom:
+                opponentMobileLandscapeWeTricks && bidNum != null && bidNum > 6
+                  ? MOBILE_LANDSCAPE_WE_ORDER_PAD_V_HIGH_BID_PX
+                  : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX,
               paddingLeft: opponentMobileLandscapeWeTricks
                 ? MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX
                 : MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX,
@@ -18540,6 +19249,22 @@ function TrickSlotsDisplay({
       ...(variant === 'opponent' && opponentScaleDown < 1 && !opponentMobileLandscapeNwOrderStrip ? {
         padding: `${Math.max(1, Math.round(4 * opponentScaleDown))}px ${Math.max(2, Math.round(8 * opponentScaleDown))}px`,
       } : {}),
+      ...(variant === 'opponent' && eastMobileTricks && !opponentMobileLandscapeNwOrderStrip
+        ? {
+            display: 'flex' as const,
+            flexDirection: 'column' as const,
+            flexWrap: 'nowrap' as const,
+            alignItems: 'center' as const,
+            justifyContent: 'flex-start' as const,
+            alignSelf: 'stretch' as const,
+            width: '100%' as const,
+            maxWidth: '100%' as const,
+            gap: mopPhone ? 3 : 3,
+            paddingTop: mopPhone ? 4 : undefined,
+            paddingBottom: mopPhone ? 4 : undefined,
+            overflow: 'visible' as const,
+          }
+        : {}),
     };
     const baseCircle =
       variant === 'player'
@@ -18568,7 +19293,9 @@ function TrickSlotsDisplay({
       playerCircleSize != null
     ) {
       const figFontLand = mobileLandscapeSouthFigFontPx(bid, tricksTaken);
-      const wCap = getMobileLandscapeSouthTrickPanelMaxWidthPx();
+      const wCap = getMobileLandscapeSouthTrickPanelMaxWidthPx(
+        playerMobileLandscapeOrderBudgetAvatarReservePx ?? MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+      );
       const panelNatural = estimateMobileLandscapeSouthOrderPanelWidthPx(
         bidNum,
         tricksTaken,
@@ -18589,7 +19316,12 @@ function TrickSlotsDisplay({
           hideCards,
           southLandscapeHighBidEar,
         );
-        playerCircleSize = Math.max(5, Math.round(playerCircleSize * extraFit));
+        playerCircleSize = Math.max(4, Math.round(playerCircleSize * extraFit));
+      }
+      /* 7–9: слегка мельче кружки — воздух внутри более широкой рамки */
+      if (bidNum >= 7) {
+        const denseMul = bidNum >= 9 ? 0.88 : bidNum >= 8 ? 0.92 : 0.95;
+        playerCircleSize = Math.max(4, Math.round(playerCircleSize * denseMul));
       }
     }
     const opponentCircleSize =
@@ -18611,7 +19343,7 @@ function TrickSlotsDisplay({
         ? {
             ...trickCirclesRowStyle,
             flexWrap: 'nowrap' as const,
-            gap: 1,
+            gap: bidNum != null && bidNum >= 7 ? 0 : 1,
             alignItems: 'center' as const,
             ...(southLandscapeHighBidEar
               ? { justifyContent: 'center' as const, width: '100%' as const }
@@ -18629,7 +19361,11 @@ function TrickSlotsDisplay({
                         Math.round(MOBILE_LANDSCAPE_OPPONENT_ORDER_CIRCLE_BASE_PX * opponentScaleDown),
                       );
                     const gap = 3;
-                    const twoColW = circ * 2 + gap;
+                    const slotN = bidNum ?? 0;
+                    /* 4p + 5+ слотов → 3 в ряд; иначе 2 (в т.ч. 3p и заказы 1–4) */
+                    const perRow =
+                      opponentMobileLandscapeWeFourSeats && slotN > 4 ? 3 : 2;
+                    const colsW = circ * perRow + gap * (perRow - 1);
                     return {
                       flexDirection: 'row' as const,
                       flexWrap: 'wrap' as const,
@@ -18638,9 +19374,9 @@ function TrickSlotsDisplay({
                       alignContent: 'center' as const,
                       gap,
                       boxSizing: 'content-box' as const,
-                      width: twoColW,
-                      maxWidth: twoColW,
-                      minWidth: twoColW,
+                      width: colsW,
+                      maxWidth: colsW,
+                      minWidth: colsW,
                     };
                   })()
                 : {
@@ -18694,11 +19430,13 @@ function TrickSlotsDisplay({
           }
         : rowStyle;
     /**
-     * Компактный неон: при любых взятках на руке (карты в слотах), пока не жёсткий недобор.
-     * Раньше было только tricks >= bid — из‑за этого неон был почти только при переборе.
+     * Компактный неон: взятки на руке ИЛИ уже ровно в заказ (в т.ч. 0/0 — иначе сирень не включается).
+     * hideCards раньше гасил неон → цифры оппонентов/юга становились тонкими «старыми».
      */
     const tricksOnHandHeavyNeon =
-      bidNum !== null && !hideCards && tricksTaken > 0 && !mobileUnderStrict;
+      bidNum !== null &&
+      !mobileUnderStrict &&
+      (tricksTaken > 0 || tricksTaken === bidNum);
     const orderCompleteMobile = bidNum !== null && !hideCards && tricksTaken === bidNum;
     const orderOverMobile = bidNum !== null && !hideCards && tricksTaken > bidNum;
     const mobileNwHighBidEar =
@@ -18716,14 +19454,31 @@ function TrickSlotsDisplay({
     const wrapCls = [
       hideCards ? 'trick-slots-collecting' : 'trick-slots-normal',
       eastMobileTricks ? 'trick-slots-east-mobile' : '',
-      orderCompleteMobile ? 'trick-slots-order-complete' : '',
-      orderOverMobile ? 'trick-slots-order-over' : '',
-      mobileUnderStrict ? 'trick-slots-mobile-under-strict' : '',
-      trickSlotsRareBidClass(bidNum),
+      mopPhone
+        ? mopPhone.chrome.outcomeClassName
+        : orderCompleteMobile
+          ? 'trick-slots-order-complete'
+          : '',
+      mopPhone ? '' : orderOverMobile ? 'trick-slots-order-over' : '',
+      mopPhone ? '' : mobileUnderStrict ? 'trick-slots-mobile-under-strict' : '',
+      mopPhone?.chrome.extraClassName ?? '',
+      mopPhone ? '' : trickSlotsRareBidClass(bidNum),
       playerMobileWideTricks && variant === 'player' ? 'trick-slots-player-mobile-wide' : '',
       playerMobileLandscapeTricks && variant === 'player' ? 'trick-slots-player-mobile-landscape' : '',
+      playerMobileLandscapeTricks && variant === 'player' && bidNum != null && bidNum >= 7
+        ? 'trick-slots-south-landscape--dense'
+        : '',
       mobileHighBidEar ? 'trick-slots-mobile-nw-high-bid-ear' : '',
       opponentMobileLandscapeMidWeVertical ? 'trick-slots-mid-we-vertical' : '',
+      opponentMobileLandscapeMidWeVertical &&
+      opponentMobileLandscapeWeFourSeats &&
+      bidNum != null &&
+      bidNum > 4
+        ? 'trick-slots-mid-we-vertical--cols-3'
+        : '',
+      opponentMobileLandscapeMidWeVertical && bidNum != null && bidNum > 6
+        ? 'trick-slots-mid-we-vertical--slots-7plus'
+        : '',
     ]
       .filter(Boolean)
       .join(' ');
@@ -18731,6 +19486,11 @@ function TrickSlotsDisplay({
       <>
         {Array.from({ length: orderedSlots }, (_, i) => {
           const filled = i < Math.min(totalFilled, bid) && !hideCards;
+          const southDense =
+            variant === 'player' &&
+            !!playerMobileLandscapeTricks &&
+            bidNum != null &&
+            bidNum >= 7;
           const circleStyle = variant === 'player'
             ? {
                 ...trickCircleBaseStyle,
@@ -18739,6 +19499,21 @@ function TrickSlotsDisplay({
                 ...(playerMobileLandscapeTricks ? { boxSizing: 'border-box' as const } : {}),
               }
             : { ...trickCircleBaseStyle, width: circleSize ?? 14, height: circleSize ?? 14 };
+          const denseFilled: React.CSSProperties | undefined = southDense
+            ? filled
+              ? {
+                  border: '1px solid rgba(165, 243, 252, 0.95)',
+                  background:
+                    'radial-gradient(circle at 32% 28%, #f0f9ff 0%, #67e8f9 28%, #818cf8 58%, #4c1d95 100%)',
+                  boxShadow:
+                    'inset 0 0 3px rgba(255,255,255,0.55), 0 0 3px 1px rgba(165,243,252,0.85), 0 0 7px rgba(34,211,238,0.7), 0 0 11px rgba(167,139,250,0.45)',
+                }
+              : {
+                  border: '1px dashed rgba(125, 211, 252, 0.75)',
+                  background: 'rgba(15, 23, 42, 0.55)',
+                  boxShadow: '0 0 3px rgba(56, 189, 248, 0.35)',
+                }
+            : undefined;
           return (
             <div
               key={`c-${i}`}
@@ -18746,6 +19521,7 @@ function TrickSlotsDisplay({
               style={{
                 ...circleStyle,
                 ...(filled ? trickCircleFilledStyle : trickCircleEmptyStyle),
+                ...denseFilled,
               }}
               aria-hidden
             />
@@ -18773,10 +19549,21 @@ function TrickSlotsDisplay({
             ? Math.max(7, Math.round(10 * southUserSlotShrink))
             : 10
         : opponentMobileLandscapeNwOrderStrip
-            ? Math.max(10, Math.round(10))
-            : 9;
-    /** До первой взятки: «0/заказ» читаемо (раньше 9/10px выглядели как микрошрифт). */
-    if (bid != null && tricksTaken === 0) {
+            ? Math.max(12, Math.round(12))
+            : 11;
+    /** Телефон+лаба: стабильный читаемый кегль (не привязан к scaleDown кружков / перебору). */
+    if (mopPhone) {
+      if (variant === 'player' && playerMobileLandscapeTricks) {
+        compactFigFont = Math.max(compactFigFont, MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURE_FONT_PX);
+      } else if (variant === 'player') {
+        compactFigFont = Math.max(compactFigFont, 13);
+      } else if (opponentMobileLandscapeNwOrderStrip) {
+        compactFigFont = Math.max(compactFigFont, 13);
+      } else {
+        compactFigFont = Math.max(compactFigFont, 13);
+      }
+    } else if (bid != null && tricksTaken === 0) {
+      /** До первой взятки: «0/заказ» читаемо (раньше 9/10px выглядели как микрошрифт). */
       compactFigFont =
         variant === 'player'
           ? playerMobileLandscapeTricks
@@ -18784,20 +19571,26 @@ function TrickSlotsDisplay({
             : Math.min(14, Math.max(compactFigFont, Math.round(compactFigFont * 1.28) + 1))
           : Math.min(13, compactFigFont + 3);
     }
-    if (variant === 'player' && playerMobileLandscapeTricks && scaleDown < 1) {
+    /* Вне лабы: ужатие кегля вместе с кружками. С лабой — никогда (перебор/7+ иначе микро). */
+    if (!mopPhone && variant === 'player' && playerMobileLandscapeTricks && scaleDown < 1) {
       compactFigFont = Math.max(8, Math.round(compactFigFont * scaleDown));
     }
     if (
+      !mopPhone &&
       variant === 'opponent' &&
       opponentMobileLandscapeNwOrderStrip &&
       !opponentLandscapeWeHighBidEar &&
       opponentScaleDown < 1
     ) {
-      compactFigFont = Math.max(8, Math.round(compactFigFont * opponentScaleDown));
+      compactFigFont = Math.max(11, Math.round(compactFigFont * Math.max(0.88, opponentScaleDown)));
     }
     if (usePcBidTakenFigures) {
       compactFigFont = pcBidTakenFigPx;
     }
+    const mopFigSizeStyle: React.CSSProperties | null = mopPhone
+      ? { ['--mop-fig-size' as string]: `${compactFigFont}px` }
+      : null;
+    const wrapStyleWithMopFig = mopFigSizeStyle ? { ...wrapStyle, ...mopFigSizeStyle } : wrapStyle;
     const landscapeSouthPanelNatural =
       variant === 'player' && playerMobileLandscapeTricks && bidNum != null
         ? estimateMobileLandscapeSouthOrderPanelWidthPx(
@@ -18812,25 +19605,31 @@ function TrickSlotsDisplay({
         : undefined;
     const landscapeSouthWMax =
       variant === 'player' && playerMobileLandscapeTricks
-        ? getMobileLandscapeSouthTrickPanelMaxWidthPx()
+        ? getMobileLandscapeSouthTrickPanelMaxWidthPx(
+            playerMobileLandscapeOrderBudgetAvatarReservePx ??
+              MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+          )
         : null;
     const landscapeSouthPanelWidthPx =
       landscapeSouthPanelNatural != null && landscapeSouthWMax != null
-        ? Math.min(landscapeSouthWMax, Math.ceil(landscapeSouthPanelNatural))
+        ? /* Dense 7+: рамка на весь бюджет колонки (кружки уже с запасом padding) */
+          bidNum != null && bidNum >= 7
+            ? Math.ceil(landscapeSouthWMax)
+            : Math.min(landscapeSouthWMax, Math.ceil(landscapeSouthPanelNatural))
         : landscapeSouthPanelNatural ?? landscapeSouthWMax ?? undefined;
     const wrapStylePlayer =
       landscapeSouthPanelWidthPx != null
         ? {
-            ...wrapStyle,
+            ...wrapStyleWithMopFig,
             overflow: southLandscapeHighBidEar ? ('visible' as const) : wrapStyle.overflow,
             position: southLandscapeHighBidEar ? ('relative' as const) : wrapStyle.position,
-            width: 'auto' as const,
+            width: landscapeSouthPanelWidthPx,
             maxWidth: landscapeSouthPanelWidthPx,
             minWidth: 0,
             ...landscapeSouthPanelHeightCss,
             ['--south-landscape-order-panel-w' as string]: `${landscapeSouthPanelWidthPx}px`,
           }
-        : { ...wrapStyle, ...landscapeSouthPanelHeightCss };
+        : { ...wrapStyleWithMopFig, ...landscapeSouthPanelHeightCss };
     const figuresCompact = (
         <PcTrickBidTakenFigures
           bid={bid}
@@ -18839,25 +19638,33 @@ function TrickSlotsDisplay({
           fontSize={compactFigFont}
           tricksLeftInDeal={tricksLeftInDeal}
           exactMatchHeavyNeon={tricksOnHandHeavyNeon}
-        mobileNwEarFigures={!!mobileHighBidEar}
-        style={
+          mobileLabFigures={mobileLabFigures}
+          mobileNwEarFigures={!!mobileHighBidEar}
+          style={
           mobileHighBidEar
-            ? { lineHeight: 1.05, marginBottom: 0 }
+            ? { lineHeight: 1, marginTop: 0, marginBottom: 0 }
             : variant === 'player' && playerMobileLandscapeTricks
               ? {
                   lineHeight: 1,
+                  marginTop: 0,
                   marginBottom: 0,
                   gap: Math.max(1, Math.round(3 * southUserSlotShrink)),
                 }
               : variant === 'player' && playerMobileWideTricks
                 ? {
                     lineHeight: 1,
-                    marginBottom: Math.max(0, Math.round(2 * southUserSlotShrink)),
+                    /* mop: без асимметрии; иначе снизу +2px «висит» воздух */
+                    marginTop: 0,
+                    marginBottom: mopPhone ? 0 : Math.max(0, Math.round(2 * southUserSlotShrink)),
                     gap: Math.max(1, Math.round(3 * southUserSlotShrink)),
                   }
                 : variant === 'opponent' && opponentMobileLandscapeNwOrderStrip
-                  ? { lineHeight: 1, marginBottom: 0, marginRight: 0 }
-                : { lineHeight: 1, marginBottom: 2 }
+                  ? { lineHeight: 1, marginTop: 0, marginBottom: 0, marginRight: 0 }
+                : {
+                    lineHeight: 1,
+                    marginTop: 0,
+                    marginBottom: mopPhone ? 0 : 2,
+                  }
         }
       />
     );
@@ -18893,7 +19700,7 @@ function TrickSlotsDisplay({
     if (variant === 'opponent') {
       return (
         <OpponentBidCompactWrap
-          wrapStyle={wrapStyle}
+          wrapStyle={wrapStyleWithMopFig}
           wrapCls={wrapCls}
           bid={bid}
           tricksTaken={tricksTaken}
@@ -19505,6 +20312,7 @@ function OpponentSlot({
   onDealerBadgeClick,
   offlineAiNameStyleByDifficulty,
   mobileLandscapeMid,
+  mobileLandscapeWeVertical,
 }: {
   state: GameState;
   index: number;
@@ -19536,6 +20344,8 @@ function OpponentSlot({
   offlineAiNameStyleByDifficulty?: boolean;
   /** Mid 601–899: Север — аватар в «ушке» над панелью */
   mobileLandscapeMid?: boolean;
+  /** Landscape З/В: вертикальные mid-панельки (имя столбиком) — mid и phone landscape */
+  mobileLandscapeWeVertical?: boolean;
 }) {
   const p = state.players[index];
   if (!p) return null;
@@ -19623,13 +20433,22 @@ function OpponentSlot({
   /** ПК (не compact): С/З/В — крупнее лицо; панель не раздуваем (padding ↓). Мобилка/планшет — как раньше. */
   const PC_OPPONENT_AVATAR_SIZE_PX = 50;
   /** Компакт: С/З/В (моб.) — лицо всегда 40, без ×0.95 при кольце; mid-ушко Севера — крупнее */
-  const avatarSizePx = compactMode
+  const avatarSizeBasePx = compactMode
     ? midNorthAvatarEar
       ? MID_NORTH_AVATAR_EAR_FACE_PX
       : mobileNwLayout || eastMobileLargeAvatar || mobileWestEastLandscapeCol
         ? 40
         : Math.round(32 * (avatarOrderRingMode ? 0.95 : 1))
     : PC_OPPONENT_AVATAR_SIZE_PX;
+  /** Phone LS (не mid): с кольцом лицо +6; на торгах без кольца +12 (= внешний Ø с тонким кольцом). */
+  const phoneLsLargeOppFace = Boolean(isMobile && mobileLandscapeLayout && !mobileLandscapeMid);
+  const phoneLsThinOppRing = Boolean(phoneLsLargeOppFace && avatarOrderRingMode);
+  const phoneLsOppFaceBoostPx = !phoneLsLargeOppFace
+    ? 0
+    : avatarOrderRingMode
+      ? MOBILE_OPP_ORDER_RING_PAD_PX
+      : MOBILE_OPP_ORDER_RING_PAD_PX * 2;
+  const avatarSizePx = avatarSizeBasePx + phoneLsOppFaceBoostPx;
   const mobileAvatarReservePx = midNorthAvatarEar
     ? MID_NORTH_AVATAR_EAR_RESERVE_PX
     : MOBILE_OPP_HEADER_AVATAR_RESERVE_PX;
@@ -19645,7 +20464,7 @@ function OpponentSlot({
    * Portrait East mobile — перенос без horiz-scroll; ПК East — горизонтальное окошко как С/З.
    */
   const opponentNameWindowChrome = !!inline;
-  const midWeVerticalName = Boolean(mobileLandscapeMid && mobileWestEastLandscapeCol);
+  const midWeVerticalName = Boolean(mobileLandscapeWeVertical && mobileWestEastLandscapeCol);
   const opponentNameWindowHorizScroll =
     opponentNameWindowChrome &&
     !(isMobile && useEastMobileNameStyle && !mobileWestEastLandscapeCol);
@@ -19654,7 +20473,9 @@ function OpponentSlot({
     revealTrackRef: oppNameRevealTrackRef,
     scrollable: oppNameWindowScrollable,
     onPointerDown: onOppNameWindowPointerDown,
+    onPointerMove: onOppNameWindowPointerMove,
     onPointerUp: onOppNameWindowPointerUp,
+    onPointerCancel: onOppNameWindowPointerCancel,
     onKeyDown: onOppNameWindowKeyDown,
   } = useMobileOpponentNameWindowScroll({
     enabled: opponentNameWindowHorizScroll,
@@ -19749,7 +20570,7 @@ function OpponentSlot({
         mobileNorthLandscapeRow ? 'opponent-slot--mobile-landscape-north mobile-landscape-panel-north-layout' : '',
         midNorthAvatarEar ? 'opponent-slot--mid-north-avatar-ear' : '',
         mobileWestEastLandscapeCol ? 'opponent-slot--mobile-landscape-we' : '',
-        mobileLandscapeMid && mobileWestEastLandscapeCol ? 'opponent-slot--mid-we-vertical-name' : '',
+        mobileLandscapeWeVertical && mobileWestEastLandscapeCol ? 'opponent-slot--mid-we-vertical-name' : '',
         dealerWestLandscapeEastPanelStars ? 'opponent-slot-dealer-stars-east-layout' : '',
         isActive ? 'opponent-slot-current-turn' : '',
         trickWinnerHighlight ? 'opponent-slot--trick-winner-glow' : '',
@@ -20054,9 +20875,17 @@ function OpponentSlot({
         );
         const showMobileExactOrderStar = mobileOpponentInline && avatarOrderRingExact;
         const exactStarPathD = 'M12 1.35l2.35 7.15h7.6L15.8 14.1l2.35 7.55L12 17.45l-6.15 4.2 2.35-7.55L2.05 8.5h7.6z';
+        /* С/В: SW; З: SE на кольце лица (к сукну). */
+        const mobileExactOrderStarCornerClass =
+          position === 'top' || position === 'right'
+            ? 'opponent-exact-order-star-with-flash--avatar-sw'
+            : 'opponent-exact-order-star-with-flash--avatar-se';
+        /** Моб.: звезда «ровно в заказ» — на кольце/аватарке (как у Юга), не на плашке имени. */
         const mobileExactOrderStarEl = showMobileExactOrderStar ? (
           <div
-            className="opponent-exact-order-star-with-flash opponent-exact-order-star-with-flash--name-window-ne"
+            className={['opponent-exact-order-star-with-flash', mobileExactOrderStarCornerClass]
+              .filter(Boolean)
+              .join(' ')}
             aria-hidden
           >
             <span className="opponent-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
@@ -20086,7 +20915,9 @@ function OpponentSlot({
         const opponentScoreMobileSlotClass =
           isMobile && inline
             ? mobileWestEastLandscapeCol
-              ? 'opponent-score-badge--slot-east'
+              ? position === 'left'
+                ? 'opponent-score-badge--slot-west'
+                : 'opponent-score-badge--slot-east'
               : position === 'top'
                 ? 'opponent-score-badge--slot-north'
                 : position === 'left'
@@ -20211,9 +21042,19 @@ function OpponentSlot({
                       ? onOppNameWindowPointerDown
                       : undefined
                   }
+                  onPointerMove={
+                    opponentNameWindowHorizScroll && oppNameWindowScrollable
+                      ? onOppNameWindowPointerMove
+                      : undefined
+                  }
                   onPointerUp={
                     opponentNameWindowHorizScroll && oppNameWindowScrollable
                       ? onOppNameWindowPointerUp
+                      : undefined
+                  }
+                  onPointerCancel={
+                    opponentNameWindowHorizScroll && oppNameWindowScrollable
+                      ? onOppNameWindowPointerCancel
                       : undefined
                   }
                   onKeyDown={
@@ -20233,7 +21074,6 @@ function OpponentSlot({
                     nameSpan
                   )}
                 </div>
-                {mobileExactOrderStarEl}
                 {mobileWestEastLandscapeCol && !midWeVerticalName ? (
                   <div className="opponent-slot-mobile-landscape-we-score-ear">{opponentScoreControl}</div>
                 ) : null}
@@ -20243,14 +21083,21 @@ function OpponentSlot({
             nameSpan
         );
         const avatarOrderRingInnerCls = avatarOrderRingMode ? 'player-avatar-order-ring-inner' : undefined;
+        const oppRingPadPx = isMobile
+          ? phoneLsThinOppRing
+            ? MOBILE_OPP_ORDER_RING_PAD_PX / 2
+            : MOBILE_OPP_ORDER_RING_PAD_PX
+          : avatarOrderRingMode === 'exact'
+            ? 2
+            : 4;
         const avatarOrderRingStyle: React.CSSProperties | undefined = avatarOrderRingMode
           ? {
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               borderRadius: '50%',
-              /* Мобильная: ободок кольца — padding 6px; ПК: exact 2 / chasing 4 */
-              padding: isMobile ? 6 : avatarOrderRingMode === 'exact' ? 2 : 4,
+              /* Мобильная: ободок 6px (phone LS: 3px); ПК: exact 2 / chasing 4 */
+              padding: oppRingPadPx,
               boxSizing: 'border-box',
               lineHeight: 0,
               ...(avatarOrderRingMode === 'exact' ? { background: AVATAR_ORDER_RING_GRADIENT_EXACT } : {}),
@@ -20294,13 +21141,21 @@ function OpponentSlot({
             className={playerAvatarMergedCls}
           />
         );
+        /* Звезда «ровно» — внутри кольца (якорь = круг лица), не на широком reserve/we-left. */
         const avatarEl =
           avatarOrderRingMode && avatarOrderRingStyle && avatarOrderRingWrapCls ? (
-            <span className={avatarOrderRingWrapCls} style={avatarOrderRingStyle}>
+            <span
+              className={avatarOrderRingWrapCls}
+              style={{ ...avatarOrderRingStyle, position: 'relative', overflow: 'visible' }}
+            >
               {avatarControl}
+              {mobileExactOrderStarEl}
             </span>
           ) : (
-            avatarControl
+            <>
+              {avatarControl}
+              {mobileExactOrderStarEl}
+            </>
           );
         const opponentLandscapeDealerAvatarCorner = opponentLandscapePlayingDealerOnAvatar ? (
           <div className="opponent-landscape-dealer-corner opponent-landscape-dealer-corner--avatar-ring-nw">
@@ -20329,7 +21184,7 @@ function OpponentSlot({
           </div>
         ) : null;
         const avatarElForHeader =
-          mobileNwLayout || eastMobileLargeAvatar || mobileWestEastLandscapeCol ? (
+          mobileNwLayout || eastMobileLargeAvatar || mobileWestEastLandscapeCol || showMobileExactOrderStar ? (
             <span
               className="opponent-slot-header-avatar-reserve-mobile"
               style={{
@@ -20342,6 +21197,8 @@ function OpponentSlot({
                 minHeight: mobileAvatarReservePx,
                 flexShrink: 0,
                 boxSizing: 'border-box',
+                position: 'relative',
+                overflow: 'visible',
               }}
             >
               {avatarEl}
@@ -20431,6 +21288,13 @@ function OpponentSlot({
               opponentOrderHintSlot={position === 'top' ? 'north' : position === 'left' ? 'west' : 'east'}
               tricksLeftInDeal={tricksRemainingInDeal(state)}
               panelScale={tabletFourNorthOrderPanelScale}
+              orderSeatIsDealer={isDealer}
+              orderBiddingPhase={state.phase === 'bidding' || state.phase === 'dark-bidding'}
+              orderBiddingTurn={
+                (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                state.currentPlayerIndex === index &&
+                displayBid == null
+              }
             />
             {!eastMobileScoreBetweenHeaderAndTricks ? opponentScoreControl : null}
           </div>
@@ -20450,6 +21314,13 @@ function OpponentSlot({
                 opponentMobileZeroOrderCross={!!isMobile}
                 opponentOrderHintSlot="north"
                 tricksLeftInDeal={tricksRemainingInDeal(state)}
+                orderSeatIsDealer={isDealer}
+                orderBiddingPhase={state.phase === 'bidding' || state.phase === 'dark-bidding'}
+                orderBiddingTurn={
+                  (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                  state.currentPlayerIndex === index &&
+                  displayBid == null
+                }
               />
             </div>
           );
@@ -20551,11 +21422,19 @@ function OpponentSlot({
                 collectingCards={collectingCards}
                 compactMode={compactMode}
                 opponentMobileLandscapeWeTricks={mobileWestEastLandscapeCol}
-                opponentMobileLandscapeMidWeVertical={!!mobileLandscapeMid && mobileWestEastLandscapeCol}
+                opponentMobileLandscapeMidWeVertical={!!mobileLandscapeWeVertical && mobileWestEastLandscapeCol}
+                opponentMobileLandscapeWeFourSeats={state.players.length === 4}
                 opponentMobileHideOrderLabel={!!isMobile}
                 opponentMobileZeroOrderCross={!!isMobile}
                 opponentOrderHintSlot={position === 'left' ? 'west' : 'east'}
                 tricksLeftInDeal={tricksRemainingInDeal(state)}
+                orderSeatIsDealer={isDealer}
+                orderBiddingPhase={state.phase === 'bidding' || state.phase === 'dark-bidding'}
+                orderBiddingTurn={
+                  (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                  state.currentPlayerIndex === index &&
+                  displayBid == null
+                }
               />
             </div>
           );
@@ -20573,7 +21452,7 @@ function OpponentSlot({
                 boxSizing: 'border-box',
               }}
             >
-              {mobileLandscapeMid ? null : (
+              {mobileLandscapeWeVertical ? null : (
                 <div
                   className={[
                     'opponent-slot-mobile-landscape-we-name opponent-slot-mobile-landscape-we-name--top',
@@ -20603,15 +21482,15 @@ function OpponentSlot({
                 style={{
                   display: 'flex',
                   flexDirection: 'row',
-                  alignItems: mobileLandscapeMid ? 'flex-start' : 'center',
-                  justifyContent: mobileLandscapeMid ? 'space-between' : 'flex-start',
+                  alignItems: mobileLandscapeWeVertical ? 'flex-start' : 'center',
+                  justifyContent: 'flex-start',
                   gap: 4,
                   width: '100%',
                   minWidth: 0,
                   boxSizing: 'border-box',
                 }}
               >
-                {mobileLandscapeMid ? (
+                {mobileLandscapeWeVertical ? (
                   <div className="opponent-slot-mobile-landscape-we-left">
                     <div className="opponent-slot-mobile-landscape-we-avatar">{avatarElForHeader}</div>
                     {orderStripLandscapeWe}
@@ -20619,7 +21498,7 @@ function OpponentSlot({
                 ) : (
                   <div className="opponent-slot-mobile-landscape-we-avatar">{avatarElForHeader}</div>
                 )}
-                {mobileLandscapeMid ? (
+                {mobileLandscapeWeVertical ? (
                   <div
                     className={[
                       'opponent-slot-mobile-landscape-we-name opponent-slot-mobile-landscape-we-name--beside',
@@ -20645,11 +21524,11 @@ function OpponentSlot({
                   </div>
                 ) : null}
               </div>
-              {mobileLandscapeMid ? null : orderStripLandscapeWe}
+              {mobileLandscapeWeVertical ? null : orderStripLandscapeWe}
             </div>
           );
-          /* Mid: «Очки» — прямой потомок панели (угол), не внутри stack (у сдающего stack relative) */
-          if (mobileLandscapeMid) {
+          /* WE mid-chrome: «Очки» — прямой потомок панели (угол), не внутри stack (у сдающего stack relative) */
+          if (mobileLandscapeWeVertical) {
             return (
               <>
                 <div className="opponent-slot-mobile-landscape-we-score-corner">{opponentScoreControl}</div>
@@ -20878,6 +21757,7 @@ const tableLayoutStyle: React.CSSProperties = {
   flexDirection: 'column',
   width: '100%',
   height: '100vh',
+  /* maxHeight:100dvh — только вне мобильного браузера (см. style у .game-table-root) */
   maxHeight: '100dvh',
   overflow: 'hidden',
   background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
@@ -23638,6 +24518,33 @@ function resolveTrickWrapStyle(style: CSSProperties): CSSProperties {
   return style;
 }
 
+/**
+ * Lab chrome (`mop-panel--lab-chrome`) рисует заливку/рамку через CSS vars + ::before.
+ * Inline border/background/boxShadow с базы trickCircles иначе остаются и дают «голые» цифры
+ * или старую оранжевую рамку поверх сдающего.
+ */
+function omitInlineTrickPanelChrome(style: CSSProperties): CSSProperties {
+  const {
+    border: _border,
+    borderColor: _borderColor,
+    borderWidth: _borderWidth,
+    borderStyle: _borderStyle,
+    background: _background,
+    backgroundImage: _backgroundImage,
+    boxShadow: _boxShadow,
+    ...rest
+  } = style;
+  return rest;
+}
+
+function withMobileOrderLabChrome(
+  base: CSSProperties,
+  mopWrapStyle: CSSProperties | null | undefined,
+): CSSProperties {
+  if (!mopWrapStyle) return base;
+  return omitInlineTrickPanelChrome({ ...base, ...mopWrapStyle });
+}
+
 /** Мобильные кружочки: перебор — болотно-жёлтый (как ПК) */
 const trickCirclesWrapMobileOverBidStyle: React.CSSProperties = {
   border: '1px solid rgba(130, 135, 78, 0.48)',
@@ -23892,19 +24799,21 @@ const MOBILE_LANDSCAPE_NORTH_AVATAR_BODY_GAP_PX = 3;
 const MOBILE_LANDSCAPE_NORTH_TOOLBAR_GAP_PX = 7;
 const MOBILE_LANDSCAPE_OPPONENT_ORDER_H_PX = 26;
 const MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX = 2;
+/** З/В landscape · заказ >6: ужать вертикальные отступы полоски/цифр на 1–2px. */
+const MOBILE_LANDSCAPE_WE_ORDER_PAD_V_HIGH_BID_PX = 0;
 const MOBILE_LANDSCAPE_OPPONENT_ORDER_RADIUS_PX = 5;
 const MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX = 4;
-const MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX = 4;
+const MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX = 6;
 const MOBILE_LANDSCAPE_OPPONENT_ORDER_CIRCLE_BASE_PX = 14;
 const MOBILE_LANDSCAPE_OPPONENT_ORDER_FIT_SAFETY_PX = 2;
 const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_SHRINK = 0.78;
 /** Моб. landscape · Юг: кегль «взято/заказ» внутри полоски заказа. */
-const MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURE_FONT_PX = 12;
-const MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURE_FONT_PENDING_PX = 13;
-/** Моб. landscape · Юг: высота полоски заказа после выбора взяток (торги — 22px, см. CSS --bidding-empty). */
-const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX = 22;
+const MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURE_FONT_PX = 13;
+const MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURE_FONT_PENDING_PX = 14;
+/** Моб. landscape · Юг: высота полоски заказа (в т.ч. торги без заказа). */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX = 26;
 /** Моб. landscape · Юг: высота нижней рельсы (полоска + бейджи торгов в одном ряду). */
-const MOBILE_LANDSCAPE_SOUTH_ORDER_RAIL_H_PX = 24;
+const MOBILE_LANDSCAPE_SOUTH_ORDER_RAIL_H_PX = 28;
 /** Моб. landscape · Юг: зазор рельсы от внутренней нижней кромки панели. */
 const MOBILE_LANDSCAPE_SOUTH_ORDER_RAIL_INSET_BOTTOM_PX = 5;
 /** Моб. landscape · Юг: доп. ширина полоски заказа после выбора взяток. */
@@ -23939,9 +24848,11 @@ const MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_SHRINK = 0.75;
 const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX = 2;
 /** Запас при подгонке кружков под ширину колонки (px). */
 const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_FIT_SAFETY_PX = 4;
-const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_EMPTY_BIDDING_W = 46;
-/** Моб. landscape · Юг · торги: scale() пустой полоски (компактнее, чем в игре). */
-const MOBILE_LANDSCAPE_SOUTH_TRICK_EMPTY_BIDDING_INNER_SCALE = 1.05;
+/** Доп. запас при 7+ слотах — крайние кружки иначе цепляют рамку. */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_FIT_SAFETY_DENSE_PX = 9;
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_EMPTY_BIDDING_W = 104;
+/** Моб. landscape · Юг · торги: scale() пустой полоски — как у обычной (не ужимать до 1.05). */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_EMPTY_BIDDING_INNER_SCALE = 1;
 /** Моб. landscape · Юг: минимальная ширина панели при фиксации под 9 карт. */
 const MOBILE_LANDSCAPE_SOUTH_PANEL_MIN_W_PX = 120;
 
@@ -24020,8 +24931,8 @@ function estimateMobileLandscapeNorthPanelFixedWidthPx(): number {
 
 /** Горизонтальный padding панели З/В в landscape — синхрон с --landscape-we-panel-pad-h в index.css */
 const MOBILE_LANDSCAPE_WE_PANEL_PAD_H_PX = 0;
-/** З/В: компактная полоска заказа — синхрон с --landscape-opponent-order-pad-h в index.css */
-const MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX = 2;
+/** З/В: полоска заказа — тот же pad-h, что у Севера (не 2px: цифры/крест 0/0 липнут к обводке). */
+const MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX = 6;
 const MOBILE_LANDSCAPE_WE_ORDER_GAP_PX = 3;
 /** Зазор панели З/В со столом (margin-right З / margin-left В) */
 const MOBILE_LANDSCAPE_WE_TABLE_GAP_PX = 3;
@@ -24146,7 +25057,7 @@ function estimateMobileLandscapeSouthOrderInnerWidthPx(
     figuresW +
     figuresGap +
     bid * circleSize +
-    Math.max(0, bid - 1) * 1 +
+    Math.max(0, bid - 1) * (bid >= 7 ? 0 : 1) +
     plusW
   );
 }
@@ -24169,7 +25080,8 @@ function estimateMobileLandscapeSouthOrderPanelWidthPx(
     hideCards,
     figuresInEar,
   );
-  return Math.ceil(innerW + MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_H_PX);
+  const padH = bid >= 7 ? 13 : MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_H_PX;
+  return Math.ceil(innerW + padH);
 }
 
 function mobileLandscapeSouthOrderScaleDown(
@@ -24182,9 +25094,14 @@ function mobileLandscapeSouthOrderScaleDown(
   hideCards: boolean,
   figuresInEar = false,
 ): number {
+  const fitSafety =
+    bid >= 7
+      ? MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_FIT_SAFETY_DENSE_PX
+      : MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_FIT_SAFETY_PX;
+  const padH = bid >= 7 ? 13 : MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_H_PX;
   const innerBudget = Math.max(
     1,
-    wMax - MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_H_PX - MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_FIT_SAFETY_PX,
+    wMax - padH - fitSafety,
   );
   const innerAt1 = estimateMobileLandscapeSouthOrderInnerWidthPx(
     bid,
@@ -24203,14 +25120,16 @@ function mobileLandscapeSouthOrderScaleDown(
     : Math.max(24, Math.round(figFont * (2.4 + Math.max(bidDigits, takenDigits) * 0.35)));
   const plusW = extra > 0 && !hideCards ? 14 : 0;
   const fixedPart = figuresW + (figuresInEar ? 0 : 4) + plusW;
-  const circleGap = 1;
+  const circleGap = bid >= 7 ? 0 : 1;
   const circlePart = bid * baseCircle + Math.max(0, bid - 1) * circleGap;
   const circleBudget = Math.max(1, innerBudget - fixedPart);
   if (circlePart <= 0) return 1;
   return Math.max(0.22, Math.min(1, circleBudget / circlePart));
 }
 
-function getMobileLandscapeSouthTrickPanelMaxWidthPx(): number {
+function getMobileLandscapeSouthTrickPanelMaxWidthPx(
+  avatarReservePx: number = MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+): number {
   if (typeof window === 'undefined') return 140;
   const iw = window.innerWidth;
   /**
@@ -24221,7 +25140,7 @@ function getMobileLandscapeSouthTrickPanelMaxWidthPx(): number {
   const panelEst = Math.max(80, iw - handEst);
   const northBody =
     panelEst -
-    MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX -
+    avatarReservePx -
     3 - // avatar ↔ body gap
     3 - // bottom-row padding-left
     3; // --has-order margin-left
@@ -24281,6 +25200,30 @@ const MOBILE_SOUTH_PREMIUM_PLAYER_NAME_CLASS = 'player-panel-name--premium-user'
 const MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX = 56;
 /** 601–899 mid: крупнее аватар Юга */
 const MOBILE_SOUTH_LANDSCAPE_MID_AVATAR_RESERVE_PX = 72;
+
+/**
+ * С 5+ слотов заказа слегка ужимаем аватар Юга → чуть больше ширины полоске.
+ * After-short: на шаг заметнее (там колонка совсем узкая), но без «жести».
+ */
+function mobileSouthLandscapeAvatarReserveForOrderSlots(
+  orderSlots: number,
+  afterShort: boolean,
+): number {
+  const base = MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX;
+  if (!Number.isFinite(orderSlots) || orderSlots < 5) return base;
+  const steps = Math.min(Math.floor(orderSlots), 9) - 4; // 5→1 … 9→5
+  const pxPerStep = afterShort ? 1.75 : 1.2;
+  const floorPx = afterShort ? 47 : 49;
+  return Math.max(floorPx, Math.round(base - steps * pxPerStep));
+}
+
+/** Лицо аватара Юга phone-LS: 56 резерв → 40px; пропорционально при ужатии. */
+function mobileSouthLandscapeAvatarFaceForReserve(reservePx: number): number {
+  return Math.max(
+    32,
+    Math.round((reservePx * 40) / MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX),
+  );
+}
 
 function buildMobileSouthLandscapePlayerNameStyle(
   usePremiumGradient: boolean,

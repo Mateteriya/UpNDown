@@ -21,9 +21,11 @@ import { ScoringDemoPage } from './ui/ScoringDemoPage'
 import { CosmogenesisDemoPage } from './ui/CosmogenesisDemoPage'
 import { ModeLabelLabPage } from './ui/ModeLabelLabPage'
 import { RulesLabPage } from './ui/RulesLabPage'
+import { OrderStyleLabPage } from './ui/OrderStyleLabPage'
 import './theme-standard.css'
 import './theme-neon.css'
 import './index.css'
+import './styles/mobile-order-panel.css'
 import './styles/mobile-hand-l-frame.css'
 import './styles/menu-pc.css'
 import './styles/menu-mode-labels.css'
@@ -80,6 +82,7 @@ const isCosmogenesisDemo =
   hashRoute === 'cosmogenesis-demo' ||
   hashRoute === 'cosmo'
 const isModeLabelLab = path === '/mode-label-lab' || path.startsWith('/mode-label-lab/')
+const isOrderStyleLab = path === '/order-style-lab' || path.startsWith('/order-style-lab/')
 const isRulesLab = path === '/rules-lab' || path.startsWith('/rules-lab/')
 // /mode-label-lab — локальная песочница меню; не прод-UI (не пушить как фичу меню)
 const devModeAllowed = typeof window !== 'undefined' && sessionStorage.getItem('updown-devMode') === '1'
@@ -135,6 +138,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     ) : isModeLabelLab ? (
       <ThemeProvider>
         <ModeLabelLabPage onBack={() => (window.location.href = '/')} />
+      </ThemeProvider>
+    ) : isOrderStyleLab ? (
+      <ThemeProvider>
+        <OrderStyleLabPage onBack={() => (window.location.href = '/')} />
       </ThemeProvider>
     ) : isRulesLab ? (
       <ThemeProvider>

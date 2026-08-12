@@ -189,3 +189,153 @@ export function installMobileBrowserFullscreenResume(): () => void {
     document.removeEventListener('webkitfullscreenchange', onFullscreenChange as EventListener);
   };
 }
+
+/** Запас скролла документа ≈ высота URL-бара — иначе при 100dvh/100vh = visible скроллить нечего. */
+const CHROME_COLLAPSE_SCROLL_ROOM_PX = 100;
+
+function readVisualViewportHeightPx(): number {
+  const vv = window.visualViewport;
+  if (vv != null && vv.height > 0) return Math.round(vv.height);
+  return Math.round(window.innerHeight);
+}
+
+function shouldAidMobileBrowserChromeCollapse(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (isAppStandaloneDisplayMode()) return false;
+  if (isMobileBrowserFullscreenActive()) return false;
+  /* Телефон / узкий viewport; не ПК с мышью */
+  if (!window.matchMedia('(max-width: 1024px)').matches) return false;
+  return true;
+}
+
+/**
+ * Жест «подтянуть страницу вверх» → скрыть шапку браузера.
+ * Современный Chrome часто даёт 100vh ≈ visible + overflow:hidden на корне стола —
+ * document не скроллится и chrome не прячется. Держим min-height документа
+ * выше visualViewport и на finger-up программно scroll'им window.
+ */
+export function installMobileBrowserChromeCollapseAid(): () => void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
+
+  let startY = 0;
+  let startX = 0;
+  let tracking = false;
+  let armed = false;
+  let lastAppliedScrollY = 0;
+
+  const clearRoomStyles = () => {
+    const html = document.documentElement;
+    html.style.removeProperty('min-height');
+    html.classList.remove('upd-chrome-collapse-aid');
+    document.body.style.removeProperty('min-height');
+    document.body.classList.remove('upd-chrome-collapse-aid');
+  };
+
+  const ensureScrollRoom = () => {
+    if (!shouldAidMobileBrowserChromeCollapse()) {
+      clearRoomStyles();
+      return;
+    }
+    const visual = readVisualViewportHeightPx();
+    const minH = `${visual + CHROME_COLLAPSE_SCROLL_ROOM_PX}px`;
+    const html = document.documentElement;
+    html.classList.add('upd-chrome-collapse-aid');
+    html.style.minHeight = minH;
+    document.body.classList.add('upd-chrome-collapse-aid');
+    document.body.style.minHeight = minH;
+  };
+
+  const onTouchStart = (e: TouchEvent) => {
+    if (!shouldAidMobileBrowserChromeCollapse() || e.touches.length !== 1) {
+      tracking = false;
+      armed = false;
+      return;
+    }
+    const tgt = e.target;
+    if (
+      tgt instanceof Element &&
+      tgt.closest(
+        'input, textarea, select, [contenteditable="true"], .table-chat-side-ear, .table-chat-dock, .mobile-short-fullscreen-entry-btn',
+      )
+    ) {
+      tracking = false;
+      armed = false;
+      return;
+    }
+    ensureScrollRoom();
+    const t = e.touches[0];
+    startY = t.clientY;
+    startX = t.clientX;
+    lastAppliedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    tracking = true;
+    armed = false;
+  };
+
+  const onTouchMove = (e: TouchEvent) => {
+    if (!tracking || !shouldAidMobileBrowserChromeCollapse()) return;
+    const t = e.touches[0];
+    if (!t) return;
+    const dyUp = startY - t.clientY; /* палец вверх → страница «вверх» → scroll вниз */
+    const dx = t.clientX - startX;
+    if (!armed) {
+      if (Math.abs(dyUp) < 8 && Math.abs(dx) < 8) return;
+      if (Math.abs(dx) >= Math.abs(dyUp) * 0.85) {
+        tracking = false;
+        return;
+      }
+      /* Только «подтянуть вверх»; вниз оставляем браузеру (pull-to-refresh / показать chrome) */
+      if (dyUp < 10) return;
+      armed = true;
+      ensureScrollRoom();
+    }
+    if (dyUp <= 0) return;
+    const room = CHROME_COLLAPSE_SCROLL_ROOM_PX;
+    const cur = window.scrollY || document.documentElement.scrollTop || 0;
+    const next = Math.min(room, Math.max(0, lastAppliedScrollY + Math.min(dyUp * 0.45, 28)));
+    if (next !== cur) {
+      window.scrollTo(0, next);
+    }
+  };
+
+  const onTouchEnd = () => {
+    if (!tracking && !armed) return;
+    tracking = false;
+    armed = false;
+    if (!shouldAidMobileBrowserChromeCollapse()) return;
+    /* После скрытия chrome visual растёт — оставляем 1px, чтобы часть WebKit не вернула шапку */
+    window.requestAnimationFrame(() => {
+      ensureScrollRoom();
+      const y = window.scrollY || document.documentElement.scrollTop || 0;
+      if (y > 1) window.scrollTo(0, 1);
+    });
+  };
+
+  const onViewportChange = () => {
+    ensureScrollRoom();
+  };
+
+  ensureScrollRoom();
+  document.documentElement.classList.add('upd-chrome-collapse-aid');
+
+  const opts: AddEventListenerOptions = { capture: true, passive: true };
+  window.addEventListener('touchstart', onTouchStart, opts);
+  window.addEventListener('touchmove', onTouchMove, opts);
+  window.addEventListener('touchend', onTouchEnd, opts);
+  window.addEventListener('touchcancel', onTouchEnd, opts);
+  window.addEventListener('resize', onViewportChange);
+  window.addEventListener('orientationchange', onViewportChange);
+  window.visualViewport?.addEventListener('resize', onViewportChange);
+  window.visualViewport?.addEventListener('scroll', onViewportChange);
+
+  return () => {
+    window.removeEventListener('touchstart', onTouchStart, opts);
+    window.removeEventListener('touchmove', onTouchMove, opts);
+    window.removeEventListener('touchend', onTouchEnd, opts);
+    window.removeEventListener('touchcancel', onTouchEnd, opts);
+    window.removeEventListener('resize', onViewportChange);
+    window.removeEventListener('orientationchange', onViewportChange);
+    window.visualViewport?.removeEventListener('resize', onViewportChange);
+    window.visualViewport?.removeEventListener('scroll', onViewportChange);
+    clearRoomStyles();
+  };
+}

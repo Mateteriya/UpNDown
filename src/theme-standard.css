@@ -52,10 +52,10 @@
 .theme-standard .game-table-root.viewport-mobile .bid-panel-title-inline,
 .theme-standard .game-table-root.viewport-mobile .bid-panel-subtitle,
 /* Не заливать бирюзовым цифры «взято/заказ» с классом .trick-bid-taken-figures-neon (inline-неон сильнее перебивается этим блоком) */
-.theme-standard .game-table-root.viewport-mobile .trick-slots-normal span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *, .trick-slots-mobile-nw-figures-ear *, .opponent-slot-stats-mobile-nw--landscape-north .trick-slots-bid-taken-figures *),
-.theme-standard .game-table-root.viewport-mobile .trick-slots-collecting span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *, .trick-slots-mobile-nw-figures-ear *, .opponent-slot-stats-mobile-nw--landscape-north .trick-slots-bid-taken-figures *),
+.theme-standard .game-table-root.viewport-mobile .trick-slots-normal span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *, .mop-figures, .mop-figures *, .trick-slots-mobile-nw-figures-ear *),
+.theme-standard .game-table-root.viewport-mobile .trick-slots-collecting span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *, .mop-figures, .mop-figures *, .trick-slots-mobile-nw-figures-ear *),
 .theme-standard .game-table-root.viewport-mobile .trick-slots-label-east-mobile,
-.theme-standard .game-table-root.viewport-mobile .trick-slots-east-mobile span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *),
+.theme-standard .game-table-root.viewport-mobile .trick-slots-east-mobile span:not(.trick-bid-taken-figures-neon, .trick-bid-taken-figures-neon *, .mop-figures, .mop-figures *),
 .theme-standard .game-table-root.viewport-mobile .player-stats-row > span,
 .theme-standard .game-table-root.viewport-mobile .user-player-panel:not(.player-info-panel-your-turn) .player-panel-name:not(.player-panel-name--premium-user) {
   color: #38bdf8 !important;

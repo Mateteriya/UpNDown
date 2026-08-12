@@ -135,6 +135,11 @@ export interface CardViewProps {
   pcCardStyles?: boolean;
   /** Рамки в 2 раза тоньше (для руки в мобильной версии). */
   thinBorder?: boolean;
+  /**
+   * Чуть тоньше все рамки карты (border / outline / кольца box-shadow).
+   * After-short: карты на сукне — козырные, доп.неон, тёмный лист и т.п.
+   */
+  slimFrame?: boolean;
   /** Принудительная неоновая белая подсветка козыря на руке в мобильной/планшетной версии. */
   forceMobileTrumpGlow?: boolean;
   /** false = не подсвечивать козырь на руке (например когда ход не у пользователя). По умолчанию true. */
@@ -173,6 +178,81 @@ export interface CardViewProps {
   labRotateContent90?: boolean;
   /** Угол лица при labRotateContent90. По умолчанию +90. */
   labFaceRotateDeg?: 90 | -90;
+}
+
+/**
+ * Чуть тоньше толщина рамки: 3→2, 2→1.5, 1→0.75 (after-short стол).
+ */
+function slimFrameCssPx(px: number): number {
+  if (!(px > 0) || !Number.isFinite(px)) return px;
+  if (px >= 2.5) return px - 1;
+  if (px >= 1.5) return Math.round((px - 0.5) * 2) / 2;
+  return Math.round(px * 0.75 * 100) / 100;
+}
+
+/** Утоньшает первое Npx в `border` / `outline` (`3px solid …`). */
+function slimFrameBorderOrOutline(css: string): string {
+  if (!css || css === 'none') return css;
+  return css.replace(/(^|\s)(\d+(?:\.\d+)?)px(\s)/, (_m, a: string, n: string, b: string) => {
+    return `${a}${slimFrameCssPx(parseFloat(n))}px${b}`;
+  });
+}
+
+/** Утоньшает только жёсткие кольца `0 0 0 Npx` в box-shadow (не blur). */
+function slimFrameRingSpreads(shadow: string): string {
+  if (!shadow || shadow === 'none') return shadow;
+  return shadow.replace(/0\s+0\s+0\s+(\d+(?:\.\d+)?)px/g, (_m, n: string) => {
+    return `0 0 0 ${slimFrameCssPx(parseFloat(n))}px`;
+  });
+}
+
+/**
+ * After-short: тонкая рамка.
+ * Некозырь — выпуклый «фасет» без цветного неона (иначе путается с козырем).
+ * Козырь — яркий bloom / белое кольцо.
+ */
+function enrichSlimTableCardGlow(shadow: string, neonBorder: string, trumpLit: boolean): string {
+  const bloom = trumpLit
+    ? [
+        `0 0 0 1px rgba(255,255,255,0.72)`,
+        `0 0 10px ${neonBorder}ee`,
+        `0 0 18px ${neonBorder}aa`,
+        `0 0 26px ${neonBorder}66`,
+        `inset 0 0 12px ${neonBorder}33`,
+        `inset 0 1px 6px rgba(255,255,255,0.5)`,
+      ].join(', ')
+    : [
+        /* Выпуклый фасет: свет сверху-слева, тень снизу-справа; без цветного ореола */
+        `0 0 0 1px rgba(255,255,255,0.42)`,
+        `inset 0 1.5px 0 rgba(255,255,255,0.72)`,
+        `inset 0 2px 3px rgba(255,255,255,0.38)`,
+        `inset 0 -1.5px 0 rgba(0,0,0,0.22)`,
+        `inset 0 -2px 4px rgba(0,0,0,0.16)`,
+        `inset 1.5px 0 0 rgba(255,255,255,0.28)`,
+        `inset -1.5px 0 0 rgba(0,0,0,0.14)`,
+        `0 2px 5px rgba(0,0,0,0.22)`,
+        `0 4px 10px rgba(0,0,0,0.14)`,
+      ].join(', ');
+  if (!shadow || shadow === 'none') return bloom;
+  return `${shadow}, ${bloom}`;
+}
+
+/** Чуть плотнее alpha у цвета рамки/outline (тонкая линия читается ярче). */
+function boostSlimFrameColorAlpha(css: string, mul = 1.4): string {
+  if (!css || css === 'none') return css;
+  let out = css.replace(/#([0-9a-fA-F]{8})\b/g, (_m, h: string) => {
+    const rgb = h.slice(0, 6);
+    const a = Math.min(255, Math.round(parseInt(h.slice(6, 8), 16) * mul));
+    return `#${rgb}${a.toString(16).padStart(2, '0')}`;
+  });
+  out = out.replace(
+    /rgba\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)/g,
+    (_m, r: string, g: string, b: string, a: string) => {
+      const na = Math.min(1, parseFloat(a) * Math.min(mul, 1.5));
+      return `rgba(${r}, ${g}, ${b}, ${Math.round(na * 1000) / 1000})`;
+    },
+  );
+  return out;
 }
 
 /** #RRGGBB + альфа для box-shadow (к rgb(...) суффикс не применяется — тень молча пропадает). */
@@ -677,7 +757,7 @@ function darkSuitTrumpValidPlayAccentHand(baseRing: string, ringColor: string) {
   ].join(', ');
 }
 
-export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, handPlayableSlideLeft = false, mobileTrumpShineBidding = false, mobileHandPeekLift = false, mobileOverlapHandPointerPassthrough = false, labDarkCardFace = false, labCardTheme, labDarkSuitVariant = 'default', labRotateContent90 = false, labFaceRotateDeg = 90 }: CardViewProps) {
+export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, doubleBorder = true, trumpOnDeck, trumpDeckHighlightOn = true, isTrumpInHand, trumpHighlightOn = true, scale = 1, contentScale, hideJackCat = false, showDesktopFaceIndices = false, suitIndexInHandMobile = false, tableCardMobile = false, biddingHighlightMobile = false, biddingHighlightPC = false, showPipZoneBorders = true, pcCardStyles = true, thinBorder = false, slimFrame = false, forceMobileTrumpGlow = false, mobileTrumpGlowActive = true, highlightAsValidPlay = false, handPlayableSlideLeft = false, mobileTrumpShineBidding = false, mobileHandPeekLift = false, mobileOverlapHandPointerPassthrough = false, labDarkCardFace = false, labCardTheme, labDarkSuitVariant = 'default', labRotateContent90 = false, labFaceRotateDeg = 90 }: CardViewProps) {
   const { theme, cardTheme } = useTheme();
   const inLab = labDarkCardFace || labCardTheme !== undefined;
   const effectiveCardTheme: CardTheme = labCardTheme ?? (labDarkCardFace ? 'dark' : cardTheme);
@@ -875,7 +955,11 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         borderRadius: Math.round(8 * scale),
       }
     : undefined;
-  const baseShadow = doubleBorder ? neon.outline : 'none';
+  const baseShadow = doubleBorder
+    ? slimFrame
+      ? slimFrameRingSpreads(neon.outline)
+      : neon.outline
+    : 'none';
   const isMobileHandTrump = mobileTrumpGlowActive && (forceMobileTrumpGlow || (!pcCardStyles && !!isTrumpInHand));
   /** Допустимый ход на руке (в тёмном листе — акцент цветом кольца масти, без белого перелива). */
   const showValidPlayHandHighlight = !!highlightAsValidPlay && !pcCardStyles;
@@ -1057,6 +1141,125 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
       })()
     : null;
 
+  let frameBorder: string = darkSuitFace
+    ? mobileDarkHand && (darkHandValidPlayTrump || darkHandValidPlayHighlight)
+      ? `1px solid rgba(255, 255, 255, 0.58)`
+      : mobileDarkHand
+        ? legacySuitV3
+          ? useSuitV3FullFace
+            ? `1px solid ${darkSuitFace.ringColor}`
+            : darkSuitFace.border
+          : darkSuitHandBorder(darkSuitFace.ringColor)
+        : darkSuitFace.border
+    : showMobileHandHighlight && thinBorder
+      ? suitIndexInHandMobile && trumpHighlightOn
+        ? `1px solid ${borderColor}`
+        : '1px solid rgba(255,255,255,0.98)'
+      : showMobileHandHighlight
+        ? '3px solid rgba(255,255,255,0.98)'
+        : mobileBiddingPlainHand && thinBorder
+          ? isDark
+            ? '2px solid rgba(203, 213, 225, 0.72)'
+            : '2px solid rgba(100, 116, 139, 0.88)'
+          : thinBorder
+            ? `1px solid ${borderColor}`
+            : trumpOnDeck && !trumpDeckHighlightOn
+              ? `2px solid ${borderColor}bb`
+              : doubleBorder
+                ? isNonTrumpWithHighlight
+                  ? `2px solid ${borderColor}`
+                  : `3px solid ${borderColor}`
+                : `2px solid ${borderColor}`;
+
+  let frameOutline: string = darkSuitFace
+    ? mobileDarkHand
+      ? darkHandValidPlayTrump
+        ? `1px solid ${darkSuitFace.ringColor}`
+        : mobileDarkTrumpLit
+          ? `0.5px solid ${darkSuitFace.ringColor}`
+          : darkHandValidPlayHighlight
+            ? '0.5px solid rgba(255, 255, 255, 0.5)'
+            : 'none'
+      : legacyClubsV3TrumpLit
+        ? MOBILE_DARK_CLUBS_V3_TRUMP_OUTLINE
+        : clubsV3GrayTrumpLit
+          ? MOBILE_DARK_CLUBS_V3_GRAY_TRUMP_OUTLINE
+          : spadesV3GrayTrumpLit
+            ? MOBILE_DARK_SPADES_V3_GRAY_TRUMP_OUTLINE
+            : spadesV3DeepTrumpLit
+              ? MOBILE_DARK_SPADES_V3_TRUMP_OUTLINE
+              : diamondsV3GrayTrumpLit
+                ? MOBILE_DARK_DIAMONDS_V3_GRAY_TRUMP_OUTLINE
+                : diamondsV3DeepTrumpLit
+                  ? MOBILE_DARK_DIAMONDS_V3_DEEP_TRUMP_OUTLINE
+                  : legacyHeartsV3TrumpLit
+                    ? MOBILE_DARK_HEARTS_V3_TRUMP_OUTLINE
+                    : legacyHeartsV3DeepTrumpLit
+                      ? MOBILE_DARK_HEARTS_V3_DEEP_TRUMP_OUTLINE
+                      : darkHandValidPlayTrump
+                        ? `3px solid ${darkSuitFace.ringColor}`
+                        : mobileDarkTrumpLit
+                          ? `2px solid ${darkSuitFace.ringColor}`
+                          : darkHandValidPlayHighlight
+                            ? `2px solid ${darkSuitFace.ringColor}`
+                            : 'none'
+    : thinBorder
+      ? suitIndexInHandMobile && trumpHighlightOn && showMobileHandHighlight
+        ? `1px solid ${borderColor}cc`
+        : 'none'
+      : trumpOnDeck
+        ? trumpDeckHighlightOn
+          ? `2px solid ${borderColor}ee`
+          : `1px solid ${borderColor}99`
+        : isTrumpOnTable && trumpHighlightOn && !mobileDarkSuitFace
+          ? `2px solid rgba(200,220,160,0.92)`
+          : doubleBorder
+            ? isNonTrumpWithHighlight
+              ? `1px solid ${borderColor}cc`
+              : `2px solid ${borderColor}cc`
+            : 'none';
+
+  let frameOutlineOffset =
+    legacySuitV3TrumpLit
+      ? 2
+      : darkSuitFace
+        ? 1
+        : trumpOnDeck
+          ? 1
+          : suitIndexInHandMobile && trumpHighlightOn
+            ? 1
+            : isTrumpOnTable && trumpHighlightOn
+              ? 2
+              : 0;
+
+  let frameBoxShadow =
+    darkSuitBoxShadow ??
+    (biddingHighlightMobile && suitIndexInHandMobile && !pcCardStyles
+      ? mobileBiddingPlainHand
+        ? isDark
+          ? '0 0 0 1px rgba(226, 232, 240, 0.38), 0 2px 10px rgba(0,0,0,0.42)'
+          : '0 0 0 1px rgba(51, 65, 85, 0.35), 0 2px 8px rgba(0,0,0,0.1)'
+        : baseCardShadow
+      : biddingHighlightMobile
+        ? `${trumpShadow}, 0 0 10px ${neon.border}88, 0 0 16px ${neon.border}44`
+        : baseCardShadow);
+
+  let slimFrameTrumpLit = false;
+  if (slimFrame) {
+    frameBorder = slimFrameBorderOrOutline(frameBorder);
+    frameOutline = slimFrameBorderOrOutline(frameOutline);
+    frameBoxShadow = slimFrameRingSpreads(frameBoxShadow);
+    slimFrameTrumpLit =
+      !!(isTrumpOnTable && trumpHighlightOn) ||
+      !!mobileDarkTrumpLit ||
+      !!(isTrumpOnTable && mobileDarkTable && trumpHighlightOn);
+    const glowColor = darkSuitFace?.ringColor ?? neon.border;
+    frameBoxShadow = enrichSlimTableCardGlow(frameBoxShadow, glowColor, slimFrameTrumpLit);
+    /* Некозырь: чуть плотнее линия; козырь — заметно сочнее, чтобы отличался */
+    frameBorder = boostSlimFrameColorAlpha(frameBorder, slimFrameTrumpLit ? 1.45 : 1.18);
+    frameOutline = boostSlimFrameColorAlpha(frameOutline, slimFrameTrumpLit ? 1.45 : 1.18);
+  }
+
   return (
     <button
       type="button"
@@ -1064,6 +1267,11 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
       disabled={disabled}
       className={[
         'card-view-root',
+        slimFrame
+          ? slimFrameTrumpLit
+            ? 'card-view-root--slim-frame-rich-trump'
+            : 'card-view-root--slim-frame-rich'
+          : null,
         labRotateContent90 ? 'card-lab-face-rot90' : null,
         mobileDarkHand ? 'card-dark-mobile-hand' : null,
         darkHandValidPlayHighlight ? 'card-dark-hand-playable' : null,
@@ -1090,73 +1298,13 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         padding: labRotateContent90 ? 0 : Math.round(4 * scale),
         margin: suitIndexInHandMobile && !pcCardStyles && compact ? 0 : compact ? Math.round(2 * scale) : Math.round(4 * scale),
         /* В мобильной руке при подсветке: цветная рамка по масти (и для козырей тоже при вкл. подсветки); иначе козырь/доступный ход — белая рамка */
-        border: darkSuitFace
-          ? mobileDarkHand && (darkHandValidPlayTrump || darkHandValidPlayHighlight)
-            ? `1px solid rgba(255, 255, 255, 0.58)`
-            : mobileDarkHand
-              ? legacySuitV3
-                ? useSuitV3FullFace
-                  ? `1px solid ${darkSuitFace.ringColor}`
-                  : darkSuitFace.border
-                : darkSuitHandBorder(darkSuitFace.ringColor)
-              : darkSuitFace.border
-          : showMobileHandHighlight && thinBorder
-          ? (suitIndexInHandMobile && trumpHighlightOn ? `1px solid ${borderColor}` : '1px solid rgba(255,255,255,0.98)')
-          : showMobileHandHighlight
-          ? '3px solid rgba(255,255,255,0.98)'
-          : mobileBiddingPlainHand && thinBorder
-            ? (isDark ? '2px solid rgba(203, 213, 225, 0.72)' : '2px solid rgba(100, 116, 139, 0.88)')
-            : (thinBorder ? `1px solid ${borderColor}` : (trumpOnDeck && !trumpDeckHighlightOn ? `2px solid ${borderColor}bb` : (doubleBorder ? (isNonTrumpWithHighlight ? `2px solid ${borderColor}` : `3px solid ${borderColor}`) : `2px solid ${borderColor}`))),
-        outline: darkSuitFace
-          ? mobileDarkHand
-            ? darkHandValidPlayTrump
-              ? `1px solid ${darkSuitFace.ringColor}`
-              : mobileDarkTrumpLit
-                ? `0.5px solid ${darkSuitFace.ringColor}`
-                : darkHandValidPlayHighlight
-                  ? '0.5px solid rgba(255, 255, 255, 0.5)'
-                  : 'none'
-            : legacyClubsV3TrumpLit
-              ? MOBILE_DARK_CLUBS_V3_TRUMP_OUTLINE
-              : clubsV3GrayTrumpLit
-                ? MOBILE_DARK_CLUBS_V3_GRAY_TRUMP_OUTLINE
-                : spadesV3GrayTrumpLit
-                ? MOBILE_DARK_SPADES_V3_GRAY_TRUMP_OUTLINE
-                : spadesV3DeepTrumpLit
-                  ? MOBILE_DARK_SPADES_V3_TRUMP_OUTLINE
-                  : diamondsV3GrayTrumpLit
-                  ? MOBILE_DARK_DIAMONDS_V3_GRAY_TRUMP_OUTLINE
-                  : diamondsV3DeepTrumpLit
-                    ? MOBILE_DARK_DIAMONDS_V3_DEEP_TRUMP_OUTLINE
-                    : legacyHeartsV3TrumpLit
-                      ? MOBILE_DARK_HEARTS_V3_TRUMP_OUTLINE
-                      : legacyHeartsV3DeepTrumpLit
-                        ? MOBILE_DARK_HEARTS_V3_DEEP_TRUMP_OUTLINE
-              : darkHandValidPlayTrump
-                ? `3px solid ${darkSuitFace.ringColor}`
-                : mobileDarkTrumpLit
-                  ? `2px solid ${darkSuitFace.ringColor}`
-                  : darkHandValidPlayHighlight
-                    ? `2px solid ${darkSuitFace.ringColor}`
-                    : 'none'
-          : thinBorder
-          ? (suitIndexInHandMobile && trumpHighlightOn && showMobileHandHighlight ? `1px solid ${borderColor}cc` : 'none')
-          : (trumpOnDeck ? (trumpDeckHighlightOn ? `2px solid ${borderColor}ee` : `1px solid ${borderColor}99`) : (isTrumpOnTable && trumpHighlightOn && !mobileDarkSuitFace) ? `2px solid rgba(200,220,160,0.92)` : (doubleBorder ? (isNonTrumpWithHighlight ? `1px solid ${borderColor}cc` : `2px solid ${borderColor}cc`) : 'none')),
-        outlineOffset: legacySuitV3TrumpLit ? 2 : darkSuitFace ? 1 : trumpOnDeck ? 1 : (suitIndexInHandMobile && trumpHighlightOn) ? 1 : (isTrumpOnTable && trumpHighlightOn) ? 2 : 0,
+        border: frameBorder,
+        outline: frameOutline,
+        outlineOffset: frameOutlineOffset,
         borderRadius: mobileDarkSuitFace
           ? Math.round(6 * scale)
           : Math.round(8 * scale),
-        boxShadow:
-          darkSuitBoxShadow ??
-          (biddingHighlightMobile && suitIndexInHandMobile && !pcCardStyles
-            ? mobileBiddingPlainHand
-              ? isDark
-                ? '0 0 0 1px rgba(226, 232, 240, 0.38), 0 2px 10px rgba(0,0,0,0.42)'
-                : '0 0 0 1px rgba(51, 65, 85, 0.35), 0 2px 8px rgba(0,0,0,0.1)'
-              : baseCardShadow
-            : biddingHighlightMobile
-              ? `${trumpShadow}, 0 0 10px ${neon.border}88, 0 0 16px ${neon.border}44`
-              : baseCardShadow),
+        boxShadow: frameBoxShadow,
         background: darkSuitFace
           ? suitClubsV3
             ? MOBILE_DARK_SUIT_PALETTE_CLUBS_V3.background
@@ -1241,15 +1389,17 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
         e.currentTarget.style.transform = handPlayableSlideLeft
           ? 'translateX(-4px)'
           : 'translateY(-4px)';
-        const hoverShadow = isTrumpOnTable
+        const hoverShadowRaw = isTrumpOnTable
           ? `0 4px 12px rgba(0,0,0,0.25), ${n.outline}, 0 0 14px ${n.border}99`
           : `0 4px 12px rgba(0,0,0,0.25), ${n.outline}`;
-        e.currentTarget.style.boxShadow = hoverShadow;
+        e.currentTarget.style.boxShadow = slimFrame
+          ? slimFrameRingSpreads(hoverShadowRaw)
+          : hoverShadowRaw;
       }}
       onMouseLeave={e => {
         if (labRotateContent90 || mobileDarkSuitFace) return;
         e.currentTarget.style.transform = '';
-        e.currentTarget.style.boxShadow = darkSuitBoxShadow ?? baseCardShadow;
+        e.currentTarget.style.boxShadow = frameBoxShadow;
       }}
     >
       <span

@@ -1,0 +1,972 @@
+/**
+ * Телефон (viewport-mobile): панели заказ/взято из лабы.
+ * ПК / планшет — не затрагиваем.
+ *
+ * Рамка = ::before + mask (как dealerExact в order-style-lab).
+ * Важно: у хоста border-width: 0 — иначе заливка (border-box) торчит
+ * СНАРУЖИ кольца (::before позиционируется по padding-box).
+ * Старые dealer ::before бьём селекторами + .mop-panel--lab-chrome.
+ *
+ * Очистка старого chrome (index.css):
+ * - мёртвые order-complete/over/under + rare-bid panel на телефоне удалены
+ * - dealer order-strip chrome нейтрализован через :not(.mop-panel--lab-chrome)
+ * - mobileCompactNeon* / trickCirclesWrapMobile* оставляем: планшет 900–1024 + PC
+ */
+
+/* —— Хост: только заливка, без «прозрачной рамки-зазора» —— */
+
+.game-table-root.viewport-mobile .mop-panel--lab-chrome {
+  position: relative !important;
+  isolation: isolate;
+  border: none !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  border-style: none !important;
+  background: var(--mop-fill, linear-gradient(#0f172a, #0f172a)) !important;
+  background-image: var(--mop-fill, linear-gradient(#0f172a, #0f172a)) !important;
+  background-clip: padding-box !important;
+  -webkit-background-clip: padding-box !important;
+  box-shadow: var(--mop-glow, none) !important;
+}
+
+/* —— Кольцо рамки по ВНЕШНЕМУ краю хоста —— */
+
+.game-table-root.viewport-mobile .mop-panel--lab-chrome::before {
+  content: '' !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  padding: var(--mop-bw, 2px) !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: inherit !important;
+  box-sizing: border-box !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  background: var(--mop-edge, linear-gradient(#fbbf24, #fbbf24)) !important;
+  background-image: var(--mop-edge, linear-gradient(#fbbf24, #fbbf24)) !important;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  mask-composite: exclude !important;
+  box-shadow: none !important;
+}
+
+.game-table-root.viewport-mobile .mop-panel--lab-chrome::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
+}
+
+.game-table-root.viewport-mobile .mop-panel--lab-chrome > * {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+ * Сдающий · С/З портрет: index ставит transparent + золотую ::before.
+ * + .mop-panel--lab-chrome → выше специфичность, lab fill/edge.
+ */
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile) {
+  background: var(--mop-fill, linear-gradient(#0f172a, #0f172a)) !important;
+  background-image: var(--mop-fill, linear-gradient(#0f172a, #0f172a)) !important;
+  background-clip: padding-box !important;
+  border: none !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  box-shadow: var(--mop-glow, none) !important;
+}
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before {
+  content: '' !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  padding: var(--mop-bw, 2px) !important;
+  border-radius: inherit !important;
+  box-sizing: border-box !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  background: var(--mop-edge, linear-gradient(#fbbf24, #fbbf24)) !important;
+  background-image: var(--mop-edge, linear-gradient(#fbbf24, #fbbf24)) !important;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  mask-composite: exclude !important;
+  box-shadow: none !important;
+}
+
+/* —— Восток · сдающий —— */
+
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.mop-panel--lab-chrome,
+
+.game-table-root.viewport-mobile
+  .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel
+  button.trick-slots-east-mobile.mop-panel--lab-chrome,
+
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  button.trick-slots-east-mobile.mop-panel--lab-chrome,
+
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  button.trick-slots-east-mobile.mop-panel--lab-chrome,
+
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  button.trick-slots-east-mobile.mop-panel--lab-chrome,
+
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  button.trick-slots-east-mobile.mop-panel--lab-chrome {
+  background: var(--mop-fill, linear-gradient(#0f172a, #0f172a)) !important;
+  background-image: var(--mop-fill, linear-gradient(#0f172a, #0f172a)) !important;
+  background-clip: padding-box !important;
+  border: none !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  box-shadow: var(--mop-glow, none) !important;
+}
+
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel
+  button.trick-slots-east-mobile.mop-panel--lab-chrome::before,
+
+.game-table-root.viewport-mobile
+  .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel
+  button.trick-slots-east-mobile.mop-panel--lab-chrome::before,
+
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  button.trick-slots-east-mobile.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  button.trick-slots-east-mobile.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  button.trick-slots-east-mobile.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  button.trick-slots-east-mobile.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile
+  .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  button.trick-slots-east-mobile.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile
+  .opponent-slot-dealer-stars-east-layout.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  button.trick-slots-east-mobile.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  button.trick-slots-east-mobile.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile
+  .game-center-area.game-mobile-center
+  .game-center-east
+  .opponent-slot-east.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  button.trick-slots-east-mobile.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before {
+  content: '' !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  padding: var(--mop-bw, 2px) !important;
+  border-radius: inherit !important;
+  box-sizing: border-box !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  background: var(--mop-edge, linear-gradient(#fbbf24, #fbbf24)) !important;
+  background-image: var(--mop-edge, linear-gradient(#fbbf24, #fbbf24)) !important;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  mask-composite: exclude !important;
+  box-shadow: none !important;
+}
+
+/* —— Landscape З/В · сдающий —— */
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear),
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear),
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear),
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > div.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear),
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear),
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear) {
+  background: var(--mop-fill, linear-gradient(#0f172a, #0f172a)) !important;
+  background-image: var(--mop-fill, linear-gradient(#0f172a, #0f172a)) !important;
+  background-clip: padding-box !important;
+  border: none !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  box-shadow: var(--mop-glow, none) !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > div.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel.dealer-opponent-panel-mobile--playing
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we.dealer-opponent-panel.dealer-opponent-panel-mobile--bidding
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear):not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict)::before {
+  content: '' !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  padding: var(--mop-bw, 2px) !important;
+  border-radius: inherit !important;
+  box-sizing: border-box !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  background: var(--mop-edge, linear-gradient(#fbbf24, #fbbf24)) !important;
+  background-image: var(--mop-edge, linear-gradient(#fbbf24, #fbbf24)) !important;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  mask-composite: exclude !important;
+  box-shadow: none !important;
+}
+
+/* —— Юг landscape: длинные селекторы border/box-shadow —— */
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .opponent-slot-mobile-landscape-north-body
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > button.trick-slots-normal.mop-panel--lab-chrome,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .opponent-slot-mobile-landscape-north-body
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > button.trick-slots-collecting.mop-panel--lab-chrome,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .opponent-slot-mobile-landscape-north-body
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-normal.mop-panel--lab-chrome,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .opponent-slot-mobile-landscape-north-body
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-collecting.mop-panel--lab-chrome,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .opponent-slot-mobile-landscape-north-body
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict),
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .opponent-slot-mobile-landscape-north-body
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict),
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .opponent-slot-mobile-landscape-north-body
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict),
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .opponent-slot-mobile-landscape-north-body
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-order-complete):not(.trick-slots-order-over):not(.trick-slots-mobile-under-strict) {
+  background: var(--mop-fill, linear-gradient(#0f172a, #0f172a)) !important;
+  background-image: var(--mop-fill, linear-gradient(#0f172a, #0f172a)) !important;
+  background-clip: padding-box !important;
+  border: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  box-shadow: var(--mop-glow, none) !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .opponent-slot-mobile-landscape-north-body
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > button.trick-slots-normal.mop-panel--lab-chrome::before,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .opponent-slot-mobile-landscape-north-body
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > button.trick-slots-collecting.mop-panel--lab-chrome::before,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .opponent-slot-mobile-landscape-north-body
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-normal.mop-panel--lab-chrome::before,
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .opponent-slot-mobile-landscape-north-body
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-collecting.mop-panel--lab-chrome::before {
+  content: '' !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  padding: var(--mop-bw, 2px) !important;
+  border-radius: inherit !important;
+  box-sizing: border-box !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  background: var(--mop-edge, linear-gradient(#fbbf24, #fbbf24)) !important;
+  background-image: var(--mop-edge, linear-gradient(#fbbf24, #fbbf24)) !important;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  mask-composite: exclude !important;
+  box-shadow: none !important;
+}
+
+/* Юг · open-bottom (без низа): кольцо без нижней кромки */
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .mop-panel--lab-chrome {
+  border-bottom-width: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .mop-panel--lab-chrome::before {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  clip-path: inset(0 0 var(--mop-bw, 2px) 0);
+}
+
+/*
+ * Обычные игроки / любые толстые рамки: старые index.css правила могут
+ * снова воткнуть border-width > 0 → заливка снова вылезет наружу.
+ * Жёстко гасим border на любом mop-panel.
+ */
+
+.game-table-root.viewport-mobile button.mop-panel--lab-chrome,
+
+.game-table-root.viewport-mobile div.mop-panel--lab-chrome {
+  border-width: 0 !important;
+  border-style: none !important;
+}
+
+/* —— Цифры лабы: чуть шире + выше (не только scaleY), оптический сдвиг вниз —— */
+.game-table-root.viewport-mobile .mop-figures.trick-slots-bid-taken-figures,
+.game-table-root.viewport-mobile .mop-figures {
+  line-height: 1 !important;
+  letter-spacing: 0.02em !important;
+  align-items: center !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  /* Жёсткий кегль с панели (--mop-fig-size); не дать index.css / scale сжать цифры */
+  font-size: var(--mop-fig-size, 13px) !important;
+  /* Аккуратно: +ширина и +высота; +1px вниз — глифы часто «завышены» */
+  transform: scale(1.05, 1.08) translateY(1px);
+  transform-origin: center center;
+}
+.game-table-root.viewport-mobile .mop-panel--lab-chrome .mop-figures,
+.game-table-root.viewport-mobile .mop-panel--lab-chrome .mop-figures.trick-slots-bid-taken-figures {
+  font-size: var(--mop-fig-size, 13px) !important;
+}
+
+.game-table-root.viewport-mobile .mop-figures > span {
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/*
+ * Панель: вертикальный padding 0 — index.css держит 4–5px !important
+ * с более длинными селекторами; без их перекрытия «ужать поля» не видно.
+ * gap по умолчанию 0 (цифры+кружки); у 0/0 — --mop-gap для крестика.
+ */
+.game-table-root.viewport-mobile button.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile div.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile .game-mobile-top-row button.trick-slots-normal.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile .game-mobile-top-row button.trick-slots-collecting.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile .game-mobile-top-row div.trick-slots-normal.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile .game-mobile-top-row div.trick-slots-collecting.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile
+  .game-center-east
+  button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile
+  .game-center-east
+  button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-mobile-top-row
+  .game-mobile-slot-north
+  .opponent-slot
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-mobile-top-row
+  .game-mobile-slot-north
+  .opponent-slot
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-mobile-top-row
+  .game-mobile-slot-north
+  .opponent-slot
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-mobile-top-row
+  .game-mobile-slot-north
+  .opponent-slot
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .game-mobile-slot-west
+  .opponent-slot
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .game-mobile-slot-west
+  .opponent-slot
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .game-mobile-slot-west
+  .opponent-slot
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .game-mobile-slot-west
+  .opponent-slot
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-nw-high-bid-ear.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-nw-high-bid-ear.mop-panel--lab-chrome {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  gap: var(--mop-gap, 0px) !important;
+  align-items: center !important;
+}
+
+/*
+ * Восток · портрет: цифры сверху, слоты сеткой снизу (не в одну строку с С/З).
+ * Общий mop gap:0 / row у pending сюда не переносим.
+ */
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-center-east
+  button.trick-slots-east-mobile.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-center-east
+  .trick-slots-east-mobile.mop-panel--lab-chrome {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 3px !important;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  max-height: none !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-center-east
+  .trick-slots-east-mobile
+  .trick-slots-east-mobile-tricks-row {
+  flex: 0 0 auto !important;
+  align-self: center !important;
+  width: auto !important;
+  max-width: 100% !important;
+}
+
+/* Торги · Восток без заказа: на всю ширину колонки (не «узкая» капсула) */
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-center-east
+  .opponent-slot-stats-mobile-east
+  > button.trick-slots-normal.mop-panel--lab-chrome:not(.trick-slots-east-mobile),
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-center-east
+  .opponent-slot-stats-mobile-east
+  > button.trick-slots-collecting.mop-panel--lab-chrome:not(.trick-slots-east-mobile) {
+  width: 100% !important;
+  max-width: 100% !important;
+  align-self: stretch !important;
+  box-sizing: border-box !important;
+}
+
+/* Колонка (ушко / юг high-bid): центрируем стопку по вертикали — не flex-start */
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot-stats-mobile-nw
+  > button.trick-slots-mobile-nw-high-bid-ear.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile
+  .game-mobile-top-row
+  .opponent-slot-stats-mobile-nw
+  > div.trick-slots-mobile-nw-high-bid-ear.mop-panel--lab-chrome {
+  justify-content: center !important;
+}
+
+/*
+ * 0/0: ряд — цифры слева, крест справа и по центру по вертикали
+ * (колонка держала крест «заниженным» под цифрами).
+ */
+.game-table-root.viewport-mobile .mop-panel--zeroExact.mop-panel--lab-chrome {
+  --mop-gap: 4px;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+}
+
+/* Landscape · 0/0 и 0/N: минимальный зазор цифр/креста от обводки (не «жирные» поля) */
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .mop-panel--zeroExact.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .mop-panel--zeroPending.mop-panel--lab-chrome {
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  box-sizing: border-box !important;
+}
+
+.game-table-root.viewport-mobile
+  .mop-panel--dealer.mop-panel--zeroExact.mop-panel--lab-chrome {
+  --mop-gap: 5px;
+}
+
+/* Сдающий · 0/0: оптический сдвиг только цифр (крест — отдельно, на 1px выше) */
+.game-table-root.viewport-mobile
+  .mop-panel--dealer.mop-panel--zeroExact
+  .mop-figures,
+.game-table-root.viewport-mobile
+  .mop-panel--dealer.mop-panel--zeroExact
+  .mop-figures.trick-slots-bid-taken-figures,
+.game-table-root.viewport-mobile .mop-figures--dealer.mop-figures--zeroExact {
+  transform: scale(1.05, 1.08) translateY(1px);
+  transform-origin: center center;
+}
+
+.game-table-root.viewport-mobile
+  .mop-panel--zeroExact.mop-panel--lab-chrome
+  > .mop-figures,
+.game-table-root.viewport-mobile
+  .mop-panel--zeroExact.mop-panel--lab-chrome
+  > .mop-figures.trick-slots-bid-taken-figures {
+  flex-shrink: 0 !important;
+  align-self: center !important;
+}
+
+.game-table-root.viewport-mobile
+  .mop-panel--zeroExact.mop-panel--lab-chrome
+  > div:has(> .opponent-zero-order-cross-mobile) {
+  align-self: center !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: auto !important;
+  margin: 0 0 0 auto !important;
+  padding: 0 !important;
+  line-height: 0 !important;
+  transform: translateY(-0.5px);
+}
+
+/*
+ * Landscape · З/В · торги без заказа: ширина как у Севера (max-content + pad-h),
+ * без прежнего min-width/padding, который раздувал капсулу относительно С.
+ */
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-normal.mop-panel--biddingNoBid.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-collecting.mop-panel--biddingNoBid.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > div.trick-slots-normal.mop-panel--biddingNoBid.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > div.trick-slots-collecting.mop-panel--biddingNoBid.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-normal.mop-panel--biddingTurnNoBid.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-collecting.mop-panel--biddingTurnNoBid.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > div.trick-slots-normal.mop-panel--biddingTurnNoBid.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear),
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > div.trick-slots-collecting.mop-panel--biddingTurnNoBid.mop-panel--lab-chrome:not(.trick-slots-east-mobile):not(.trick-slots-mobile-nw-high-bid-ear) {
+  min-width: 0 !important;
+  width: auto !important;
+  max-width: max-content !important;
+  /* Как у Севера (6px) — минимальный зазор цифр/креста от обводки */
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  justify-content: flex-start !important;
+  box-sizing: border-box !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-order-corner--bidding-empty
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-normal.mop-panel--biddingNoBid.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-order-corner--bidding-empty
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-collecting.mop-panel--biddingNoBid.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-order-corner--bidding-empty
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-normal.mop-panel--biddingTurnNoBid.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-order-corner--bidding-empty
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-collecting.mop-panel--biddingTurnNoBid.mop-panel--lab-chrome {
+  min-width: 104px !important;
+  width: 104px !important;
+  max-width: 104px !important;
+  min-height: 26px !important;
+  max-height: 26px !important;
+  height: 26px !important;
+  padding-left: 4px !important;
+  padding-right: 5px !important;
+  justify-content: center !important;
+}
