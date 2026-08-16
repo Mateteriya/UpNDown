@@ -4933,19 +4933,159 @@
     0 4px 10px rgba(2, 6, 23, 0.38) !important;
   -webkit-tap-highlight-color: rgba(167, 139, 250, 0.3);
 }
+/*
+ * Portrait: прижим к правому краю сукна (не задевать козырь слева).
+ * Имя ≤5: одна строка + grow при breathe.
+ * Имя >5: .first-move-badge--two-line — имя снизу, breathe раскрывает имя целиком
+ * (без раздувания кегля; при пике чуть мельче, без ellipsis).
+ */
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table {
+  top: 5px !important;
+  left: auto !important;
+  right: 6px !important;
+  --fm-label-t: 0;
+  --fm-name-size: 16px;
+  --fm-name-tracking: 0.35px;
+  --fm-pad-y: 6px;
+  --fm-pad-x: 12px;
+  --fm-drop: 0px;
+  --fm-gap: 7px;
+  transform: translateY(var(--fm-drop)) !important;
+  transform-origin: top right !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: var(--fm-gap) !important;
+  padding: var(--fm-pad-y) var(--fm-pad-x) !important;
+  border-radius: 999px !important;
+  width: max-content !important;
+  max-width: calc(100% - 72px) !important;
+  margin: 0 !important;
+  will-change: transform, padding;
+}
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--breathe-tight {
+  animation: first-move-portrait-breathe-tight 5.4s ease-in-out infinite !important;
+}
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--breathe-mid {
+  animation: first-move-portrait-breathe-mid 5.6s ease-in-out infinite !important;
+}
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--breathe-roomy {
+  animation: first-move-portrait-breathe-roomy 5.8s ease-in-out infinite !important;
+  border-radius: calc(14px + var(--fm-pad-y) * 0.85) !important;
+}
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table
+  .first-move-num {
+  flex: 0 0 auto !important;
+  font-family: 'Share Tech Mono', 'JetBrains Mono', ui-monospace, monospace !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  line-height: 1 !important;
+  align-self: center !important;
+  text-align: right !important;
+  opacity: calc(1 - var(--fm-label-t)) !important;
+  max-width: calc((1 - var(--fm-label-t)) * 10.5rem) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  transform: scaleX(calc(1 - var(--fm-label-t) * 0.92)) !important;
+  transform-origin: right center !important;
+  pointer-events: none !important;
+}
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table
+  .first-move-value,
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table
+  > span:last-child {
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  max-width: min(14ch, 100%) !important;
+  font-size: var(--fm-name-size) !important;
+  font-weight: 900 !important;
+  letter-spacing: var(--fm-name-tracking) !important;
+  line-height: 1.05 !important;
+  align-self: center !important;
+  text-align: right !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  transition: none !important;
+}
+/* Portrait · длинное имя (>5): 2 строки; breathe только сворачивает подпись, кегль имени стабильный */
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--two-line {
+  --fm-name-size: 15px;
+  --fm-name-tracking: 0.15px;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  justify-content: center !important;
+  gap: calc(2px + var(--fm-gap) * 0.12) !important;
+  border-radius: calc(12px + var(--fm-pad-y) * 0.35) !important;
+  padding: calc(var(--fm-pad-y) + 1px) calc(var(--fm-pad-x) + 2px) !important;
+  max-width: calc(100% - 72px) !important;
+}
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--two-line.first-move-badge--breathe-tight {
+  animation: first-move-portrait-breathe-tight-long 5.4s ease-in-out infinite !important;
+}
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--two-line.first-move-badge--breathe-mid {
+  animation: first-move-portrait-breathe-mid-long 5.6s ease-in-out infinite !important;
+}
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--two-line.first-move-badge--breathe-roomy {
+  animation: first-move-portrait-breathe-roomy-long 5.8s ease-in-out infinite !important;
+  border-radius: calc(14px + var(--fm-pad-y) * 0.55) !important;
+}
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--two-line
+  .first-move-num {
+  align-self: flex-end !important;
+  text-align: right !important;
+  max-width: none !important;
+  width: max-content !important;
+  max-height: calc((1 - var(--fm-label-t)) * 1.15em) !important;
+  transform: scaleY(calc(1 - var(--fm-label-t) * 0.88)) !important;
+  transform-origin: top right !important;
+}
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--two-line
+  .first-move-value,
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--two-line
+  > span:last-child {
+  /* Полное имя: без обрезки; кегль стабильный (long-keyframes) */
+  flex: 0 0 auto !important;
+  max-width: none !important;
+  width: max-content !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+  align-self: flex-end !important;
+  text-align: right !important;
+}
 /* Immersive short: бегущая строка тоже справа сверху — капсулу чуть ниже */
 .game-table-root.viewport-mobile .first-move-badge.first-move-badge--mobile-on-table-under-marquee {
   top: 28px !important;
 }
 /*
- * Онлайн · portrait: таймер/код комнаты (top-right, z-index 20) перекрывает «Первый ход».
- * Опускаем капсулу ПОД wrap таймера; на торгах бейдж уже только в bidding/dark-bidding.
+ * Онлайн · portrait: таймер/код справа сверху — капсулу ниже, всё ещё справа.
  */
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
   .game-table-surface:has(> .online-room-code-badge-wrap)
   .first-move-badge.first-move-badge--mobile-on-table {
   top: 42px !important;
-  right: 28px !important;
+  left: auto !important;
+  right: 6px !important;
+  transform: translateY(var(--fm-drop, 0px)) !important;
 }
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
   .game-table-surface:has(> .online-room-code-badge-wrap)
@@ -5045,8 +5185,9 @@
 
 /*
  * Моб. landscape (phone LS + mid 601–899): «Первый ход» одной строкой —
- * по центру верхней полосы между правым краем козыря/колоды и правым краем сукна.
- * На торгах онлайн таймер/код скрыты (JS), поэтому капсула занимает эту зону целиком.
+ * слева у козыря/колоды (не по центру): справа на торгах живёт
+ * «Сколько хотите взять взяток» над цифрами — иначе капсулы пересекаются.
+ * На торгах онлайн таймер/код скрыты (JS) — левая зона свободна.
  *
  * Внимание-пульс: «ПЕРВЫЙ ХОД:» сворачивается влево → имя растёт «жидко» (кегль + tracking);
  * при свободном месте под капсулой (мало рядов кнопок заказа) — ещё и вниз.
@@ -5091,7 +5232,7 @@
   0%,
   12% {
     --fm-label-t: 0;
-    --fm-name-size: 12px;
+    --fm-name-size: 15px;
     --fm-name-tracking: 0.4px;
     --fm-pad-y: 4px;
     --fm-pad-x: 10px;
@@ -5100,7 +5241,7 @@
   }
   24% {
     --fm-label-t: 1;
-    --fm-name-size: 12px;
+    --fm-name-size: 15px;
     --fm-name-tracking: 0.6px;
     --fm-pad-y: 4px;
     --fm-pad-x: 11px;
@@ -5110,7 +5251,7 @@
   40%,
   56% {
     --fm-label-t: 1;
-    --fm-name-size: 13px;
+    --fm-name-size: 16px;
     --fm-name-tracking: 1.1px;
     --fm-pad-y: 4px;
     --fm-pad-x: 12px;
@@ -5119,7 +5260,7 @@
   }
   72% {
     --fm-label-t: 0.35;
-    --fm-name-size: 12.5px;
+    --fm-name-size: 15.5px;
     --fm-name-tracking: 0.7px;
     --fm-pad-y: 4px;
     --fm-pad-x: 10px;
@@ -5129,7 +5270,7 @@
   88%,
   100% {
     --fm-label-t: 0;
-    --fm-name-size: 12px;
+    --fm-name-size: 15px;
     --fm-name-tracking: 0.4px;
     --fm-pad-y: 4px;
     --fm-pad-x: 10px;
@@ -5142,7 +5283,7 @@
   0%,
   10% {
     --fm-label-t: 0;
-    --fm-name-size: 12px;
+    --fm-name-size: 15px;
     --fm-name-tracking: 0.4px;
     --fm-pad-y: 4px;
     --fm-pad-x: 10px;
@@ -5151,7 +5292,7 @@
   }
   22% {
     --fm-label-t: 1;
-    --fm-name-size: 12.5px;
+    --fm-name-size: 15.5px;
     --fm-name-tracking: 0.7px;
     --fm-pad-y: 5px;
     --fm-pad-x: 11px;
@@ -5161,7 +5302,7 @@
   38%,
   56% {
     --fm-label-t: 1;
-    --fm-name-size: 13.5px;
+    --fm-name-size: 17px;
     --fm-name-tracking: 1.4px;
     --fm-pad-y: 6px;
     --fm-pad-x: 13px;
@@ -5170,7 +5311,7 @@
   }
   72% {
     --fm-label-t: 0.3;
-    --fm-name-size: 12.5px;
+    --fm-name-size: 15.5px;
     --fm-name-tracking: 0.8px;
     --fm-pad-y: 5px;
     --fm-pad-x: 11px;
@@ -5180,7 +5321,7 @@
   88%,
   100% {
     --fm-label-t: 0;
-    --fm-name-size: 12px;
+    --fm-name-size: 15px;
     --fm-name-tracking: 0.4px;
     --fm-pad-y: 4px;
     --fm-pad-x: 10px;
@@ -5193,7 +5334,7 @@
   0%,
   10% {
     --fm-label-t: 0;
-    --fm-name-size: 12px;
+    --fm-name-size: 15px;
     --fm-name-tracking: 0.4px;
     --fm-pad-y: 4px;
     --fm-pad-x: 10px;
@@ -5202,7 +5343,7 @@
   }
   20% {
     --fm-label-t: 1;
-    --fm-name-size: 12.5px;
+    --fm-name-size: 15.5px;
     --fm-name-tracking: 0.8px;
     --fm-pad-y: 5px;
     --fm-pad-x: 12px;
@@ -5212,7 +5353,7 @@
   36%,
   58% {
     --fm-label-t: 1;
-    --fm-name-size: 14px;
+    --fm-name-size: 18px;
     --fm-name-tracking: 1.8px;
     --fm-pad-y: 7px;
     --fm-pad-x: 14px;
@@ -5221,7 +5362,7 @@
   }
   74% {
     --fm-label-t: 0.25;
-    --fm-name-size: 13px;
+    --fm-name-size: 16px;
     --fm-name-tracking: 0.9px;
     --fm-pad-y: 5px;
     --fm-pad-x: 12px;
@@ -5231,9 +5372,316 @@
   90%,
   100% {
     --fm-label-t: 0;
-    --fm-name-size: 12px;
+    --fm-name-size: 15px;
     --fm-name-tracking: 0.4px;
     --fm-pad-y: 4px;
+    --fm-pad-x: 10px;
+    --fm-drop: 0px;
+    --fm-gap: 5px;
+  }
+}
+
+/* Portrait: те же фазы breathe, крупнее кегль (база 16). */
+@keyframes first-move-portrait-breathe-tight {
+  0%,
+  12% {
+    --fm-label-t: 0;
+    --fm-name-size: 16px;
+    --fm-name-tracking: 0.35px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 12px;
+    --fm-drop: 0px;
+    --fm-gap: 7px;
+  }
+  24% {
+    --fm-label-t: 1;
+    --fm-name-size: 16px;
+    --fm-name-tracking: 0.55px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 13px;
+    --fm-drop: 0px;
+    --fm-gap: 0px;
+  }
+  40%,
+  56% {
+    --fm-label-t: 1;
+    --fm-name-size: 18px;
+    --fm-name-tracking: 1.0px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 14px;
+    --fm-drop: 0px;
+    --fm-gap: 0px;
+  }
+  72% {
+    --fm-label-t: 0.35;
+    --fm-name-size: 16.5px;
+    --fm-name-tracking: 0.6px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 12px;
+    --fm-drop: 0px;
+    --fm-gap: 3px;
+  }
+  88%,
+  100% {
+    --fm-label-t: 0;
+    --fm-name-size: 16px;
+    --fm-name-tracking: 0.35px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 12px;
+    --fm-drop: 0px;
+    --fm-gap: 7px;
+  }
+}
+@keyframes first-move-portrait-breathe-mid {
+  0%,
+  10% {
+    --fm-label-t: 0;
+    --fm-name-size: 16px;
+    --fm-name-tracking: 0.35px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 12px;
+    --fm-drop: 0px;
+    --fm-gap: 7px;
+  }
+  22% {
+    --fm-label-t: 1;
+    --fm-name-size: 16.5px;
+    --fm-name-tracking: 0.65px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 13px;
+    --fm-drop: 0px;
+    --fm-gap: 0px;
+  }
+  38%,
+  56% {
+    --fm-label-t: 1;
+    --fm-name-size: 19px;
+    --fm-name-tracking: 1.3px;
+    --fm-pad-y: 7px;
+    --fm-pad-x: 14px;
+    --fm-drop: 2px;
+    --fm-gap: 0px;
+  }
+  72% {
+    --fm-label-t: 0.3;
+    --fm-name-size: 16.5px;
+    --fm-name-tracking: 0.7px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 13px;
+    --fm-drop: 0px;
+    --fm-gap: 3px;
+  }
+  88%,
+  100% {
+    --fm-label-t: 0;
+    --fm-name-size: 16px;
+    --fm-name-tracking: 0.35px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 12px;
+    --fm-drop: 0px;
+    --fm-gap: 7px;
+  }
+}
+@keyframes first-move-portrait-breathe-roomy {
+  0%,
+  10% {
+    --fm-label-t: 0;
+    --fm-name-size: 16px;
+    --fm-name-tracking: 0.35px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 12px;
+    --fm-drop: 0px;
+    --fm-gap: 7px;
+  }
+  20% {
+    --fm-label-t: 1;
+    --fm-name-size: 17px;
+    --fm-name-tracking: 0.75px;
+    --fm-pad-y: 7px;
+    --fm-pad-x: 14px;
+    --fm-drop: 1px;
+    --fm-gap: 0px;
+  }
+  36%,
+  58% {
+    --fm-label-t: 1;
+    --fm-name-size: 20px;
+    --fm-name-tracking: 1.6px;
+    --fm-pad-y: 8px;
+    --fm-pad-x: 16px;
+    --fm-drop: 3px;
+    --fm-gap: 0px;
+  }
+  74% {
+    --fm-label-t: 0.25;
+    --fm-name-size: 17px;
+    --fm-name-tracking: 0.8px;
+    --fm-pad-y: 7px;
+    --fm-pad-x: 14px;
+    --fm-drop: 1px;
+    --fm-gap: 3px;
+  }
+  90%,
+  100% {
+    --fm-label-t: 0;
+    --fm-name-size: 16px;
+    --fm-name-tracking: 0.35px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 12px;
+    --fm-drop: 0px;
+    --fm-gap: 7px;
+  }
+}
+
+/*
+ * Portrait · длинное имя: подпись сворачивается; кегль имени стабильный
+ * (полное имя уже видно вне анимации — не уменьшаем и не раздуваем).
+ */
+@keyframes first-move-portrait-breathe-tight-long {
+  0%,
+  12% {
+    --fm-label-t: 0;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 5px;
+    --fm-pad-x: 10px;
+    --fm-drop: 0px;
+    --fm-gap: 5px;
+  }
+  24% {
+    --fm-label-t: 1;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 5px;
+    --fm-pad-x: 11px;
+    --fm-drop: 0px;
+    --fm-gap: 0px;
+  }
+  40%,
+  56% {
+    --fm-label-t: 1;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 5px;
+    --fm-pad-x: 12px;
+    --fm-drop: 0px;
+    --fm-gap: 0px;
+  }
+  72% {
+    --fm-label-t: 0.35;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 5px;
+    --fm-pad-x: 10px;
+    --fm-drop: 0px;
+    --fm-gap: 2px;
+  }
+  88%,
+  100% {
+    --fm-label-t: 0;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 5px;
+    --fm-pad-x: 10px;
+    --fm-drop: 0px;
+    --fm-gap: 5px;
+  }
+}
+@keyframes first-move-portrait-breathe-mid-long {
+  0%,
+  10% {
+    --fm-label-t: 0;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 5px;
+    --fm-pad-x: 10px;
+    --fm-drop: 0px;
+    --fm-gap: 5px;
+  }
+  22% {
+    --fm-label-t: 1;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 5px;
+    --fm-pad-x: 11px;
+    --fm-drop: 0px;
+    --fm-gap: 0px;
+  }
+  38%,
+  56% {
+    --fm-label-t: 1;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 12px;
+    --fm-drop: 1px;
+    --fm-gap: 0px;
+  }
+  72% {
+    --fm-label-t: 0.3;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 5px;
+    --fm-pad-x: 11px;
+    --fm-drop: 0px;
+    --fm-gap: 2px;
+  }
+  88%,
+  100% {
+    --fm-label-t: 0;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 5px;
+    --fm-pad-x: 10px;
+    --fm-drop: 0px;
+    --fm-gap: 5px;
+  }
+}
+@keyframes first-move-portrait-breathe-roomy-long {
+  0%,
+  10% {
+    --fm-label-t: 0;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 5px;
+    --fm-pad-x: 10px;
+    --fm-drop: 0px;
+    --fm-gap: 5px;
+  }
+  20% {
+    --fm-label-t: 1;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 11px;
+    --fm-drop: 1px;
+    --fm-gap: 0px;
+  }
+  36%,
+  58% {
+    --fm-label-t: 1;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 6px;
+    --fm-pad-x: 13px;
+    --fm-drop: 2px;
+    --fm-gap: 0px;
+  }
+  74% {
+    --fm-label-t: 0.25;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 5px;
+    --fm-pad-x: 11px;
+    --fm-drop: 1px;
+    --fm-gap: 2px;
+  }
+  90%,
+  100% {
+    --fm-label-t: 0;
+    --fm-name-size: 15px;
+    --fm-name-tracking: 0.15px;
+    --fm-pad-y: 5px;
     --fm-pad-x: 10px;
     --fm-drop: 0px;
     --fm-gap: 5px;
@@ -5244,22 +5692,23 @@
   .first-move-badge.first-move-badge--mobile-landscape-on-table {
   top: 5px !important;
   left: calc(6px + 65px + 8px) !important;
-  right: 6px !important;
+  right: auto !important;
   width: max-content !important;
-  max-width: calc(100% - 85px) !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
+  /* Слева у козыря; справа место есть — не резервируем 13rem под бейдж заказа */
+  max-width: min(78vw, calc(100% - 100px)) !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
   --fm-label-t: 0;
-  --fm-name-size: 12px;
-  --fm-name-tracking: 0.4px;
-  --fm-pad-y: 4px;
-  --fm-pad-x: 10px;
+  --fm-name-size: 15px;
+  --fm-name-tracking: 0.35px;
+  --fm-pad-y: 5px;
+  --fm-pad-x: 12px;
   --fm-drop: 0px;
-  --fm-gap: 5px;
+  --fm-gap: 6px;
   transform: translateY(var(--fm-drop)) !important;
   flex-direction: row !important;
   align-items: center !important;
-  justify-content: center !important;
+  justify-content: flex-start !important;
   gap: var(--fm-gap) !important;
   padding: var(--fm-pad-y) var(--fm-pad-x) !important;
   border-radius: 999px !important;
@@ -5282,12 +5731,20 @@
   .game-table-surface:has(.deck-with-trump-wrap--trump-at-dealer)
   .first-move-badge.first-move-badge--mobile-landscape-on-table {
   left: calc(5px + 52px + 16px + 6px) !important;
-  max-width: calc(100% - 85px) !important;
+  max-width: min(78vw, calc(100% - 100px)) !important;
 }
 .game-table-root.viewport-mobile.viewport-mobile-landscape.game-phase-bidding
   .game-table-surface:has(.deck-with-trump-wrap--trump-at-dealer)
   .first-move-badge.first-move-badge--mobile-landscape-on-table {
   left: calc(5px + 52px + 17px + 6px) !important;
+}
+/* After-short: ещё шире — сверху свободно, имя не режем зря */
+.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short
+  .first-move-badge.first-move-badge--mobile-landscape-on-table {
+  max-width: min(85vw, calc(100% - 88px)) !important;
+  --fm-name-size: 16px;
+  --fm-pad-y: 5px;
+  --fm-pad-x: 12px;
 }
 .game-table-root.viewport-mobile.viewport-mobile-landscape
   .first-move-badge.first-move-badge--mobile-landscape-on-table
@@ -5295,14 +5752,14 @@
   /* Как «КАРТ:» на plasma deal-meta; сворачивается влево на пике внимания */
   flex: 0 0 auto !important;
   font-family: 'Share Tech Mono', 'JetBrains Mono', ui-monospace, monospace !important;
-  font-size: 11px !important;
+  font-size: 12px !important;
   font-weight: 800 !important;
-  letter-spacing: 0.1em !important;
+  letter-spacing: 0.08em !important;
   text-transform: uppercase !important;
   line-height: 1 !important;
   align-self: center !important;
   opacity: calc(1 - var(--fm-label-t)) !important;
-  max-width: calc((1 - var(--fm-label-t)) * 9.5rem) !important;
+  max-width: calc((1 - var(--fm-label-t)) * 10.5rem) !important;
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;
@@ -5317,11 +5774,11 @@
 .game-table-root.viewport-mobile.viewport-mobile-landscape
   .first-move-badge.first-move-badge--mobile-landscape-on-table
   > span:last-child {
-  /* Имя целиком + «жидкий» рост кегля/трекинга на пульсе */
   flex: 1 1 auto !important;
   min-width: 0 !important;
   max-width: none !important;
   font-size: var(--fm-name-size) !important;
+  font-weight: 900 !important;
   letter-spacing: var(--fm-name-tracking) !important;
   line-height: 1.05 !important;
   align-self: center !important;
@@ -5329,6 +5786,51 @@
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
   transition: none !important;
+}
+
+/* Landscape · длинное имя: 2 строки, полное имя без ellipsis */
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .first-move-badge.first-move-badge--mobile-landscape-on-table.first-move-badge--two-line {
+  --fm-name-size: 15px;
+  --fm-name-tracking: 0.15px;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  gap: calc(2px + var(--fm-gap) * 0.12) !important;
+  border-radius: calc(12px + var(--fm-pad-y) * 0.35) !important;
+  padding: calc(var(--fm-pad-y) + 1px) calc(var(--fm-pad-x) + 2px) !important;
+  max-width: min(78vw, calc(100% - 100px)) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short
+  .first-move-badge.first-move-badge--mobile-landscape-on-table.first-move-badge--two-line {
+  --fm-name-size: 16px;
+  max-width: min(85vw, calc(100% - 88px)) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .first-move-badge.first-move-badge--mobile-landscape-on-table.first-move-badge--two-line
+  .first-move-num {
+  align-self: flex-start !important;
+  text-align: left !important;
+  max-width: none !important;
+  width: max-content !important;
+  max-height: calc((1 - var(--fm-label-t)) * 1.15em) !important;
+  transform: scaleY(calc(1 - var(--fm-label-t) * 0.88)) !important;
+  transform-origin: top left !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .first-move-badge.first-move-badge--mobile-landscape-on-table.first-move-badge--two-line
+  .first-move-value,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .first-move-badge.first-move-badge--mobile-landscape-on-table.first-move-badge--two-line
+  > span:last-child {
+  flex: 0 0 auto !important;
+  max-width: none !important;
+  width: max-content !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+  align-self: flex-start !important;
+  text-align: left !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5340,13 +5842,38 @@
     .first-move-badge.first-move-badge--mobile-landscape-on-table.first-move-badge--breathe-roomy {
     animation: none !important;
     --fm-label-t: 0 !important;
-    --fm-name-size: 12px !important;
-    --fm-name-tracking: 0.4px !important;
-    --fm-pad-y: 4px !important;
-    --fm-pad-x: 10px !important;
+    --fm-name-size: 15px !important;
+    --fm-name-tracking: 0.35px !important;
+    --fm-pad-y: 5px !important;
+    --fm-pad-x: 12px !important;
     --fm-drop: 0px !important;
-    --fm-gap: 5px !important;
+    --fm-gap: 6px !important;
     transform: none !important;
+  }
+  .game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+    .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--breathe-tight,
+  .game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+    .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--breathe-mid,
+  .game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+    .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--breathe-roomy {
+    animation: none !important;
+    --fm-label-t: 0 !important;
+    --fm-name-size: 16px !important;
+    --fm-name-tracking: 0.35px !important;
+    --fm-pad-y: 6px !important;
+    --fm-pad-x: 12px !important;
+    --fm-drop: 0px !important;
+    --fm-gap: 6px !important;
+    transform: none !important;
+  }
+  .game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+    .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--two-line.first-move-badge--breathe-tight,
+  .game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+    .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--two-line.first-move-badge--breathe-mid,
+  .game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+    .first-move-badge.first-move-badge--mobile-on-table.first-move-badge--two-line.first-move-badge--breathe-roomy {
+    --fm-name-size: 15px !important;
+    --fm-name-tracking: 0.15px !important;
   }
 }
 
@@ -8023,6 +8550,8 @@
     .game-table-root.viewport-mobile.viewport-mobile-landscape {
       --mobile-landscape-south-tuned-min-w: 660px;
       --mobile-landscape-south-tuned-min-h: 330px;
+      /* Юг · landscape: жёсткий потолок высоты панели (border-box, pad/рамки внутри) */
+      --south-landscape-panel-h: 83.6px;
       --mobile-landscape-modal-pad: 8px;
       --mobile-landscape-modal-max-h: 92dvh;
       --game-table-surface-height: min(219px, calc(49.5vh - 7px)) !important;
@@ -8039,6 +8568,9 @@
       --landscape-we-panel-table-margin: 3px;
       --landscape-north-toolbar-gap: 7px;
       --game-table-landscape-board-gap: 1px;
+      /* 4p: опустить Север к сукну, оставить мин. зазор */
+      --landscape-north-felt-nudge: 8px;
+      --landscape-north-felt-gap: 4px;
       /* Ширина стола: калибровка; кластер З|стол|В центрируется по экрану */
       --game-table-landscape-table-col-width: calc(
         (100% - 2 * var(--game-table-landscape-side-col-max, 128px) - 2 * var(--game-table-landscape-board-gap, 1px)) * 0.8
@@ -8998,43 +9530,100 @@
       > .game-mobile-hand-strip {
       grid-column: 2 !important;
       grid-row: 1 !important;
-      justify-self: start !important;
-      align-self: stretch !important;
-      width: auto !important;
-      max-width: none !important;
+      /* На всю колонку руки — иначе рамка fit-content «не развинута», карты не влезают */
+      justify-self: stretch !important;
+      align-self: end !important;
+      width: 100% !important;
+      max-width: 100% !important;
       min-width: 0 !important;
       flex: unset !important;
       display: flex !important;
       flex-direction: column !important;
-      align-items: flex-start !important;
+      align-items: stretch !important;
       justify-content: center !important;
       padding: 0 !important;
-    }
-    .game-table-root.viewport-mobile.viewport-mobile-landscape
-      .game-mobile-hand-user-stack--landscape
-      > .game-mobile-hand-strip {
-      align-self: end !important;
+      box-sizing: border-box !important;
     }
     .game-table-root.viewport-mobile.viewport-mobile-landscape
       .game-mobile-hand-user-stack--landscape
       > .game-mobile-hand-strip
       .game-mobile-hand-frame {
       margin-inline: 0 !important;
-      margin-right: auto !important;
+      margin-right: 0 !important;
       height: auto !important;
       min-height: 0 !important;
       padding-bottom: 6px !important;
+      /* Внутренний отступ карта↔рамка (sync MOBILE_HAND_FRAME_LANDSCAPE_INLINE_PAD_PX) */
+      padding-inline: 6px !important;
       box-sizing: border-box !important;
       display: flex !important;
       flex-direction: column !important;
       justify-content: center !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow: hidden !important;
     }
     .game-table-root.viewport-mobile.viewport-mobile-landscape
       .game-mobile-hand-user-stack--landscape
       > .game-mobile-hand-strip
       .game-mobile-hand-frame
-      > .game-mobile-hand-row {
+      > .game-mobile-hand-row:not(.game-mobile-hand-row--liquid):not(.game-mobile-hand-row--liquid-capped) {
       justify-content: flex-start !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    /* Есть запас по ширине (без нахлёста) — карты равномерно по всей полоске */
+    .game-table-root.viewport-mobile.viewport-mobile-landscape
+      .game-mobile-hand-user-stack--landscape
+      > .game-mobile-hand-strip
+      .game-mobile-hand-frame--liquid,
+    .game-table-root.viewport-mobile.viewport-mobile-landscape
+      .game-mobile-hand-user-stack--landscape
+      > .game-mobile-hand-strip.game-mobile-hand-strip--liquid
+      .game-mobile-hand-frame {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-inline: 0 !important;
+    }
+    .game-table-root.viewport-mobile.viewport-mobile-landscape
+      .game-mobile-hand-user-stack--landscape
+      > .game-mobile-hand-strip
+      .game-mobile-hand-frame
+      > .game-mobile-hand-row--liquid {
+      justify-content: space-evenly !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      gap: 0 !important;
+      box-sizing: border-box !important;
+    }
+    /* Зазор упёрся в ~⅒ карты (или 1 карта) — shrink-wrap, без лишней широкой полоски */
+    .game-table-root.viewport-mobile.viewport-mobile-landscape
+      .game-mobile-hand-user-stack--landscape
+      > .game-mobile-hand-strip.game-mobile-hand-strip--liquid-capped {
+      width: max-content !important;
+      max-width: 100% !important;
+      margin-inline: 0 !important;
+      justify-self: start !important;
+      align-items: flex-start !important;
+    }
+    .game-table-root.viewport-mobile.viewport-mobile-landscape
+      .game-mobile-hand-user-stack--landscape
+      > .game-mobile-hand-strip
+      .game-mobile-hand-frame--liquid-capped {
+      width: max-content !important;
+      max-width: 100% !important;
+      margin-inline: 0 !important;
+    }
+    .game-table-root.viewport-mobile.viewport-mobile-landscape
+      .game-mobile-hand-user-stack--landscape
+      > .game-mobile-hand-strip
+      .game-mobile-hand-frame
+      > .game-mobile-hand-row--liquid-capped {
+      justify-content: flex-start !important;
+      width: max-content !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
     }
     .game-table-root.viewport-mobile.viewport-mobile-landscape
       .game-mobile-hand-user-stack--landscape
@@ -9042,14 +9631,15 @@
       grid-column: 1 !important;
       grid-row: 1 !important;
       justify-self: start !important;
-      align-self: stretch !important;
+      align-self: end !important;
       display: flex !important;
       flex-direction: column !important;
       width: 100% !important;
       max-width: none !important;
       min-width: 0 !important;
-      min-height: 100% !important;
+      min-height: 0 !important;
       height: auto !important;
+      max-height: var(--south-landscape-panel-h, 83.6px) !important;
       flex: unset !important;
       overflow: visible !important;
       padding: 0 !important;
@@ -9060,9 +9650,10 @@
       .game-mobile-hand-user-stack--landscape
       > .game-mobile-bottom-row--landscape
       .game-mobile-player-wrap {
-      flex: 1 1 auto !important;
-      height: 100% !important;
-      min-height: 100% !important;
+      flex: 0 0 auto !important;
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: var(--south-landscape-panel-h, 83.6px) !important;
       width: 100% !important;
       max-width: none !important;
       display: flex !important;
@@ -9094,14 +9685,19 @@
       .game-mobile-hand-user-stack--landscape
       > .game-mobile-bottom-row--landscape
       .game-mobile-player-panel {
-      flex: 1 1 auto !important;
-      height: 100% !important;
-      min-height: 100% !important;
-      max-height: none !important;
+      /* Эталон: 83.6 border-box (рамки+pad внутри). Не растягивать за рукой/рядом. */
+      flex: 0 0 var(--south-landscape-panel-h, 83.6px) !important;
+      height: var(--south-landscape-panel-h, 83.6px) !important;
+      min-height: var(--south-landscape-panel-h, 83.6px) !important;
+      max-height: var(--south-landscape-panel-h, 83.6px) !important;
       --south-landscape-panel-pad-y: 3px;
+      --south-landscape-panel-pad-left: 6px;
+      /* ≤3px до правой обводки панели Юга (полоска заказа тянется к этому краю) */
+      --south-landscape-panel-pad-right: 3px;
       padding-top: var(--south-landscape-panel-pad-y) !important;
       padding-bottom: var(--south-landscape-panel-pad-y) !important;
-      padding-inline: 6px !important;
+      padding-left: var(--south-landscape-panel-pad-left) !important;
+      padding-right: var(--south-landscape-panel-pad-right) !important;
       overflow: visible !important;
       display: flex !important;
       flex-direction: column !important;
@@ -15472,7 +16068,157 @@
     text-shadow: none !important;
   }
   .game-table-root.viewport-mobile .game-mobile-deal-contract-screen .deal-contract-line.deal-contract-mobile-mode-alternate {
-    letter-spacing: 0.02em !important;
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    letter-spacing: 0.08em !important;
+    font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif !important;
+    font-style: normal !important;
+    font-weight: 800 !important;
+    font-size: 13px !important;
+    line-height: 1.05 !important;
+    text-transform: uppercase !important;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    background-image: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    filter: none !important;
+  }
+  .game-table-root.viewport-mobile
+    .game-mobile-deal-contract-screen
+    .deal-contract-mobile-mode-alternate__sr {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+  .game-table-root.viewport-mobile
+    .game-mobile-deal-contract-screen
+    .deal-contract-mobile-mode-alternate__base,
+  .game-table-root.viewport-mobile
+    .game-mobile-deal-contract-screen
+    .deal-contract-mobile-mode-alternate__shine {
+    font: inherit !important;
+    letter-spacing: inherit !important;
+    text-transform: inherit !important;
+    line-height: inherit !important;
+    white-space: nowrap !important;
+  }
+  /* Каркас: толстый белый глиф + тёмный контур — читаемость на CRT */
+  .game-table-root.viewport-mobile
+    .game-mobile-deal-contract-screen
+    .deal-contract-mobile-mode-alternate__base {
+    position: relative !important;
+    z-index: 0 !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    -webkit-text-stroke: 0.9px rgba(8, 12, 28, 0.95) !important;
+    paint-order: stroke fill !important;
+    text-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.9),
+      0 0 10px rgba(255, 255, 255, 0.35) !important;
+  }
+  /* Хром: радуга по буквам, едет по строке */
+  .game-table-root.viewport-mobile
+    .game-mobile-deal-contract-screen
+    .deal-contract-mobile-mode-alternate__shine {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 1 !important;
+    pointer-events: none !important;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    -webkit-text-stroke: 0 !important;
+    text-shadow: none !important;
+    background-image: linear-gradient(
+      100deg,
+      #67e8f9 0%,
+      #ffffff 12%,
+      #c4b5fd 24%,
+      #f0abfc 36%,
+      #ffffff 48%,
+      #5eead4 60%,
+      #f9a8d4 72%,
+      #ffffff 84%,
+      #38bdf8 100%
+    ) !important;
+    background-size: 220% 100% !important;
+    background-position: 0% 50% !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    mix-blend-mode: normal !important;
+    opacity: 0.94 !important;
+    animation: deal-contract-mobile-mode-chrome-slide 2.4s linear infinite !important;
+  }
+  .game-table-root.viewport-mobile
+    .game-mobile-deal-contract-screen
+    .deal-contract-line.deal-contract-mobile-mode-alternate--dark {
+    font-size: 14px !important;
+  }
+  .game-table-root.viewport-mobile
+    .game-mobile-deal-contract-screen
+    .deal-contract-line.deal-contract-mobile-mode-alternate--dark
+    .deal-contract-mobile-mode-alternate__base {
+    text-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.95),
+      0 0 8px rgba(167, 139, 250, 0.85),
+      0 0 16px rgba(34, 211, 238, 0.55) !important;
+  }
+  .game-table-root.viewport-mobile
+    .game-mobile-deal-contract-screen
+    .deal-contract-line.deal-contract-mobile-mode-alternate--no-trump {
+    font-size: 10px !important;
+    letter-spacing: 0.05em !important;
+  }
+  .game-table-root.viewport-mobile
+    .game-mobile-deal-contract-screen
+    .deal-contract-line.deal-contract-mobile-mode-alternate--no-trump
+    .deal-contract-mobile-mode-alternate__base {
+    text-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.95),
+      0 0 8px rgba(52, 211, 153, 0.9),
+      0 0 16px rgba(244, 114, 182, 0.55) !important;
+  }
+  .game-table-root.viewport-mobile
+    .game-mobile-deal-contract-screen
+    .deal-contract-line.deal-contract-mobile-mode-alternate--no-trump
+    .deal-contract-mobile-mode-alternate__shine {
+    background-image: linear-gradient(
+      100deg,
+      #6ee7b7 0%,
+      #ffffff 14%,
+      #f9a8d4 28%,
+      #a5f3fc 42%,
+      #ffffff 56%,
+      #fb7185 70%,
+      #bbf7d0 84%,
+      #ffffff 100%
+    ) !important;
+  }
+  @keyframes deal-contract-mobile-mode-chrome-slide {
+    0% {
+      background-position: 0% 50%;
+    }
+    100% {
+      background-position: 200% 50%;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .game-table-root.viewport-mobile
+      .game-mobile-deal-contract-screen
+      .deal-contract-mobile-mode-alternate__shine {
+      animation: none !important;
+      background-position: 40% 50% !important;
+    }
   }
   .game-table-root.viewport-mobile .game-mobile-deal-contract-screen .deal-contract-line-mobile-split {
     display: inline-flex !important;
@@ -19020,6 +19766,33 @@
     padding-left: 0 !important;
     box-sizing: border-box !important;
   }
+  /* 4p · phone LS / after-short: Север ниже, мин. зазор до сукна */
+  .game-table-root.viewport-mobile.viewport-mobile-landscape:not(
+      .viewport-mobile-landscape-mid
+    ):not(.game-table-seats-three)
+    .game-mobile-landscape-north-col.game-mobile-landscape-north-col--phone-ls-end {
+    position: relative !important;
+    z-index: 40 !important;
+    margin-bottom: calc(
+      var(--landscape-north-felt-gap, 4px) - var(--landscape-north-felt-nudge, 8px)
+    ) !important;
+    transform: translateY(var(--landscape-north-felt-nudge, 8px)) !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-landscape:not(
+      .viewport-mobile-landscape-mid
+    ):not(.game-table-seats-three)
+    .game-mobile-landscape-north-col.game-mobile-landscape-north-col--phone-ls-end
+    .game-mobile-top-row--landscape {
+    margin-bottom: 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-landscape:not(
+      .viewport-mobile-landscape-mid
+    ):not(.game-table-seats-three)
+    .game-mobile-landscape-north-col.game-mobile-landscape-north-col--phone-ls-end
+    .game-mobile-slot-north
+    > .opponent-slot--mobile-landscape-north.mobile-landscape-panel-north-layout {
+    padding-bottom: 0 !important;
+  }
   .game-table-root.viewport-mobile.viewport-mobile-landscape:not(.viewport-mobile-landscape-mid)
     .game-mobile-landscape-north-col.game-mobile-landscape-north-col--phone-ls-end
     .game-mobile-top-row--landscape
@@ -20065,7 +20838,7 @@
     border: 0 !important;
   }
 
-  /* Север над столом (не в шапке). Ушко уходит вверх в зазор шапки — панель НЕ опускаем. */
+  /* Север над столом (не в шапке). Ушко уходит вверх в зазор шапки. */
   .game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid
     .game-mobile-mid-north-above-table {
     display: flex !important;
@@ -20081,6 +20854,18 @@
     flex: 0 0 auto !important;
     z-index: 50 !important;
     overflow: visible !important;
+  }
+
+  /* 4p · mid: Север ниже, минимальный зазор до сукна (как phone LS) */
+  .game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid:not(
+      .game-table-seats-three
+    )
+    .game-mobile-mid-north-above-table {
+    margin-top: 5px !important;
+    margin-bottom: calc(
+      var(--landscape-north-felt-gap, 4px) - var(--landscape-north-felt-nudge, 8px)
+    ) !important;
+    transform: translateY(var(--landscape-north-felt-nudge, 8px)) !important;
   }
 
   .game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid
@@ -20684,17 +21469,19 @@
     margin-top: 6px !important;
   }
 
-  /* Юг: компактнее в 4p mid (Север над столом съедает вертикаль) */
+  /* Юг mid: высота панели = общий эталон 83.6 (не 88/92) */
   .game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid
     .game-mobile-hand-user-stack--landscape
     > .game-mobile-bottom-row--landscape {
-    min-height: 92px !important;
+    min-height: 0 !important;
+    max-height: var(--south-landscape-panel-h, 83.6px) !important;
   }
 
   .game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid
     .user-player-panel--mobile-landscape-south {
-    min-height: 88px !important;
-    /* Аватар Юга +5% к mid 72px (Север mid не трогаем) */
+    min-height: 0 !important;
+    max-height: 100% !important;
+    /* Аватар Юга +5% к mid 72px (Север mid не трогаем) — влезает в 83.6 − pad − border */
     --north-landscape-avatar-reserve: calc(72px * 1.05);
   }
 
@@ -25657,8 +26444,8 @@
   height: var(--landscape-opponent-order-h, 26px) !important;
   padding-top: var(--landscape-opponent-order-pad-v, 2px) !important;
   padding-bottom: var(--landscape-opponent-order-pad-v, 2px) !important;
-  padding-left: var(--landscape-opponent-order-pad-h, 6px) !important;
-  padding-right: var(--landscape-opponent-order-pad-h, 6px) !important;
+  padding-left: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
+  padding-right: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
   gap: var(--landscape-opponent-order-gap, 4px) !important;
   border-radius: var(--landscape-opponent-order-radius, 5px) !important;
   box-sizing: border-box !important;
@@ -26814,8 +27601,8 @@
   height: var(--landscape-opponent-order-h, 26px) !important;
   padding-top: var(--landscape-opponent-order-pad-v, 2px) !important;
   padding-bottom: var(--landscape-opponent-order-pad-v, 2px) !important;
-  padding-left: var(--landscape-opponent-order-pad-h, 6px) !important;
-  padding-right: var(--landscape-opponent-order-pad-h, 6px) !important;
+  padding-left: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
+  padding-right: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
   gap: var(--landscape-opponent-order-gap, 4px) !important;
   border-radius: var(--landscape-opponent-order-radius, 5px) !important;
   box-sizing: border-box !important;
@@ -26859,8 +27646,8 @@
   height: var(--landscape-opponent-order-h, 26px) !important;
   padding-top: var(--landscape-opponent-order-pad-v, 2px) !important;
   padding-bottom: var(--landscape-opponent-order-pad-v, 2px) !important;
-  padding-left: var(--landscape-opponent-order-pad-h, 6px) !important;
-  padding-right: var(--landscape-opponent-order-pad-h, 6px) !important;
+  padding-left: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
+  padding-right: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
   overflow: visible !important;
   box-sizing: border-box !important;
 }
@@ -26973,8 +27760,8 @@
   height: var(--landscape-opponent-order-h, 26px) !important;
   padding-top: var(--landscape-opponent-order-pad-v, 2px) !important;
   padding-bottom: var(--landscape-opponent-order-pad-v, 2px) !important;
-  padding-left: var(--landscape-opponent-order-pad-h, 6px) !important;
-  padding-right: var(--landscape-opponent-order-pad-h, 6px) !important;
+  padding-left: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
+  padding-right: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
   box-sizing: border-box !important;
 }
 
@@ -28107,8 +28894,8 @@
   height: var(--north-landscape-opponent-order-h, var(--landscape-opponent-order-h, 26px)) !important;
   padding-top: var(--north-landscape-opponent-order-pad-v, var(--landscape-opponent-order-pad-v, 2px)) !important;
   padding-bottom: var(--north-landscape-opponent-order-pad-v, var(--landscape-opponent-order-pad-v, 2px)) !important;
-  padding-left: var(--north-landscape-opponent-order-pad-h, var(--landscape-opponent-order-pad-h, 6px)) !important;
-  padding-right: var(--north-landscape-opponent-order-pad-h, var(--landscape-opponent-order-pad-h, 6px)) !important;
+  padding-left: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
+  padding-right: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
   gap: var(--north-landscape-opponent-order-gap, var(--landscape-opponent-order-gap, 4px)) !important;
   box-sizing: border-box !important;
   overflow: hidden !important;
@@ -28203,8 +28990,8 @@
   height: var(--north-landscape-opponent-order-h, var(--landscape-opponent-order-h, 26px)) !important;
   padding-top: var(--north-landscape-opponent-order-pad-v, var(--landscape-opponent-order-pad-v, 2px)) !important;
   padding-bottom: var(--north-landscape-opponent-order-pad-v, var(--landscape-opponent-order-pad-v, 2px)) !important;
-  padding-left: var(--north-landscape-opponent-order-pad-h, var(--landscape-opponent-order-pad-h, 6px)) !important;
-  padding-right: var(--north-landscape-opponent-order-pad-h, var(--landscape-opponent-order-pad-h, 6px)) !important;
+  padding-left: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
+  padding-right: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
   overflow: visible !important;
   box-sizing: border-box !important;
   border-radius: var(--north-landscape-opponent-order-radius, var(--landscape-opponent-order-radius, 5px)) !important;
@@ -30600,8 +31387,8 @@ html.theme-standard
 }
 .game-table-root.viewport-mobile .bid-panel-mobile-inline .bid-panel-mobile-grid.bid-panel-mobile-grid--rows {
   /*
-   * База 44×1.05×1.07×1.02; ряд ≤ ROW_MAX; 5|6 — JS (--bid-fill-cols).
-   * Размер кнопки ОДИН на всю сетку: от ёмкости полного ряда (fill-cols), не от числа кнопок в строке.
+   * Дефолт: база 44 (portrait / mid). Compact+ 41 — класс .bid-panel-mobile--compact41
+   * и/или phone landscape :not(.mid) ниже.
    */
   --bid-btn-base: calc(44px * 1.05 * 1.07 * 1.02);
   --bid-gap-min: 6px;
@@ -30710,29 +31497,25 @@ html.theme-standard
   font-size: inherit;
   font-weight: 800;
   /*
-   * Стеклянный глиф: явная выпуклость + читаемый цветовой перелив.
-   * Bloom умеренный (без засвета на пиках).
+   * Цвет глифа — общая фаза сетки (--bid-digit), не отдельная анимация на каждой кнопке
+   * (иначе remount/ряды рассинхронят перелив).
    */
-  color: #7dd3fc;
-  -webkit-text-fill-color: #7dd3fc;
+  color: var(--bid-digit, #7dd3fc);
+  -webkit-text-fill-color: var(--bid-digit, #7dd3fc);
   text-shadow:
-    /* верхний фасет / блик стекла */
-    0 -2px 0 rgba(103, 232, 249, 0.78),
-    0 -1px 0 rgba(56, 189, 248, 0.62),
-    -1px -1px 0 rgba(125, 211, 252, 0.45),
-    /* боковой фасет */
+    0 -2px 0 color-mix(in srgb, var(--bid-digit, #7dd3fc) 78%, transparent),
+    0 -1px 0 color-mix(in srgb, var(--bid-digit, #7dd3fc) 55%, transparent),
+    -1px -1px 0 color-mix(in srgb, var(--bid-digit, #7dd3fc) 42%, white),
     -1px 0 0 rgba(49, 46, 129, 0.5),
-    1px 0 0 rgba(34, 211, 238, 0.38),
-    /* выпуклая глубина */
+    1px 0 0 color-mix(in srgb, var(--bid-digit, #7dd3fc) 38%, transparent),
     0 1px 0 rgba(15, 23, 42, 0.9),
     0 2px 0 rgba(15, 23, 42, 0.72),
     0 3px 2px rgba(30, 27, 75, 0.5),
     0 5px 5px rgba(15, 23, 42, 0.28),
-    /* цветное стекло (умеренно) */
-    0 0 5px rgba(56, 189, 248, 0.48),
-    0 0 11px rgba(129, 140, 248, 0.32),
+    0 0 5px color-mix(in srgb, var(--bid-digit, #7dd3fc) 48%, transparent),
+    0 0 11px color-mix(in srgb, var(--bid-digit, #7dd3fc) 32%, transparent),
     0 0 18px rgba(167, 139, 250, 0.2) !important;
-  animation: bidBtnMobileCrystalDigit 4.4s ease-in-out infinite;
+  animation: none;
 }
 .game-table-root.viewport-mobile .bid-panel-mobile-inline .bid-panel-btn.bid-panel-btn--forbidden .bid-panel-btn-digit,
 .game-table-root.viewport-mobile .bid-panel-mobile-inline .bid-panel-btn:disabled .bid-panel-btn-digit {
@@ -30789,7 +31572,6 @@ html.theme-standard
   border-radius: calc(12px + (var(--bid-bulge, 1) - 1) * 28px);
   border-width: 1.6px !important;
   border-style: solid !important;
-  --bid-ring: rgb(119 8 240);
   --bid-bulge: 1;
   border-color: var(--bid-ring) !important;
   color: #7dd3fc !important;
@@ -30837,10 +31619,18 @@ html.theme-standard
     inset 2px 0 4px rgba(76, 29, 149, 0.22),
     inset -2px 0 4px rgba(34, 211, 238, 0.16) !important;
   filter: none !important;
-  /* 6 цветов × ~1.8с = 11с; первый/базовый — rgb(119 8 240) */
+  /* Цвет обводки — общая фаза с сетки (--bid-ring inherits); тут только «резина». */
+  animation: bidBtnMobileRubberPulse 2.35s ease-in-out infinite !important;
+}
+/* Радужная обводка + фаза глифа: одна анимация на всю сетку → все цифры синхронно */
+.game-table-root.viewport-mobile
+  .bid-panel-mobile-inline
+  .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5.bid-panel-mobile-grid--rows {
+  --bid-ring: rgb(119 8 240);
+  --bid-digit: #22d3ee;
   animation:
     bidBtnMobileCrystalBorder 11s linear infinite,
-    bidBtnMobileRubberPulse 2.35s ease-in-out infinite !important;
+    bidBtnMobileCrystalDigitPhase 4.4s ease-in-out infinite;
 }
 /* Мягкий сферический ореол: без жёсткого 1px-кольца («границы света») */
 .game-table-root.viewport-mobile
@@ -30918,9 +31708,8 @@ html.theme-standard
     0 0 36px rgba(124, 58, 237, 0.28) !important;
   transform: translateY(-2px) scale(calc(var(--bid-bulge, 1) * 1.08));
   filter: brightness(1.14) saturate(1.4) !important;
-  animation:
-    bidBtnMobileCrystalBorder 11s linear infinite,
-    bidBtnMobileRubberPulse 2.35s ease-in-out infinite !important;
+  /* Обводка остаётся в общей фазе сетки; не перезапускаем CrystalBorder на кнопке */
+  animation: bidBtnMobileRubberPulse 2.35s ease-in-out infinite !important;
 }
 .game-table-root.viewport-mobile
   .bid-panel-mobile-inline
@@ -30998,6 +31787,7 @@ html.theme-standard
   overflow: hidden !important;
   mix-blend-mode: normal !important;
 }
+/* Sheen (::before) гасим; ::after — кислотно-розовая неоновая полоса запрета */
 .game-table-root.viewport-mobile
   .bid-panel-mobile-inline
   .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
@@ -31005,7 +31795,11 @@ html.theme-standard
 .game-table-root.viewport-mobile
   .bid-panel-mobile-inline
   .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
-  .bid-panel-btn:disabled::before,
+  .bid-panel-btn:disabled::before {
+  display: none !important;
+  animation: none !important;
+  background: none !important;
+}
 .game-table-root.viewport-mobile
   .bid-panel-mobile-inline
   .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
@@ -31014,8 +31808,28 @@ html.theme-standard
   .bid-panel-mobile-inline
   .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
   .bid-panel-btn:disabled::after {
-  display: none !important;
-  mix-blend-mode: normal !important;
+  content: '' !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 8% !important;
+  z-index: 3 !important;
+  pointer-events: none !important;
+  border-radius: inherit !important;
+  box-shadow: none !important;
+  animation: none !important;
+  background: linear-gradient(
+    to top right,
+    transparent 0%,
+    transparent 42%,
+    #ff5ae8 46%,
+    #ffb3f5 50%,
+    #ff5ae8 54%,
+    transparent 58%,
+    transparent 100%
+  ) !important;
+  filter: drop-shadow(0 0 3px #ff4fd8)
+    drop-shadow(0 0 8px rgba(255, 79, 216, 0.9))
+    drop-shadow(0 0 14px rgba(255, 154, 239, 0.65)) !important;
 }
 
 /*
@@ -31024,8 +31838,14 @@ html.theme-standard
 
 @property --bid-ring {
   syntax: '<color>';
-  inherits: false;
+  inherits: true;
   initial-value: #7708f0;
+}
+
+@property --bid-digit {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #22d3ee;
 }
 
 @property --bid-bulge {
@@ -31101,82 +31921,37 @@ html.theme-standard
   0% { background-position: 130% 0; }
   100% { background-position: -130% 0; }
 }
-@keyframes bidBtnMobileCrystalDigit {
-  /*
-   * Читаемый перелив (циан → лёд → индиго → фиолет),
-   * выпуклость стабильна; bloom усиливается мягко, без засвета.
-   */
-  0%, 100% {
-    color: #22d3ee;
-    -webkit-text-fill-color: #22d3ee;
-    text-shadow:
-      0 -2px 0 rgba(34, 211, 238, 0.75),
-      0 -1px 0 rgba(14, 165, 233, 0.58),
-      -1px -1px 0 rgba(103, 232, 249, 0.42),
-      -1px 0 0 rgba(49, 46, 129, 0.48),
-      1px 0 0 rgba(34, 211, 238, 0.36),
-      0 1px 0 rgba(15, 23, 42, 0.9),
-      0 2px 0 rgba(15, 23, 42, 0.72),
-      0 3px 2px rgba(30, 27, 75, 0.5),
-      0 5px 5px rgba(15, 23, 42, 0.28),
-      0 0 5px rgba(34, 211, 238, 0.45),
-      0 0 11px rgba(14, 165, 233, 0.28),
-      0 0 18px rgba(99, 102, 241, 0.16);
+@keyframes bidBtnMobileCrystalDigitPhase {
+  /* Фаза на сетке — все глифы одного цвета одновременно */
+  0%,
+  100% {
+    --bid-digit: #22d3ee;
   }
   25% {
-    color: #7dd3fc;
-    -webkit-text-fill-color: #7dd3fc;
-    text-shadow:
-      0 -2px 0 rgba(125, 211, 252, 0.82),
-      0 -1px 0 rgba(56, 189, 248, 0.65),
-      -1px -1px 0 rgba(165, 243, 252, 0.48),
-      -1px 0 0 rgba(49, 46, 129, 0.45),
-      1px 0 0 rgba(56, 189, 248, 0.4),
-      0 1px 0 rgba(15, 23, 42, 0.9),
-      0 2px 0 rgba(15, 23, 42, 0.72),
-      0 3px 2px rgba(30, 27, 75, 0.5),
-      0 5px 5px rgba(15, 23, 42, 0.28),
-      0 0 5px rgba(56, 189, 248, 0.52),
-      0 0 11px rgba(96, 165, 250, 0.34),
-      0 0 18px rgba(129, 140, 248, 0.2);
+    --bid-digit: #7dd3fc;
   }
   50% {
-    color: #a5b4fc;
-    -webkit-text-fill-color: #a5b4fc;
-    text-shadow:
-      0 -2px 0 rgba(165, 180, 252, 0.8),
-      0 -1px 0 rgba(129, 140, 248, 0.62),
-      -1px -1px 0 rgba(196, 181, 253, 0.45),
-      -1px 0 0 rgba(49, 46, 129, 0.5),
-      1px 0 0 rgba(167, 139, 250, 0.36),
-      0 1px 0 rgba(15, 23, 42, 0.9),
-      0 2px 0 rgba(15, 23, 42, 0.72),
-      0 3px 2px rgba(30, 27, 75, 0.5),
-      0 5px 5px rgba(15, 23, 42, 0.28),
-      0 0 5px rgba(129, 140, 248, 0.5),
-      0 0 11px rgba(167, 139, 250, 0.34),
-      0 0 18px rgba(192, 132, 252, 0.2);
+    --bid-digit: #a5b4fc;
   }
   75% {
-    color: #c084fc;
-    -webkit-text-fill-color: #c084fc;
-    text-shadow:
-      0 -2px 0 rgba(192, 132, 252, 0.78),
-      0 -1px 0 rgba(167, 139, 250, 0.6),
-      -1px -1px 0 rgba(216, 180, 254, 0.42),
-      -1px 0 0 rgba(49, 46, 129, 0.5),
-      1px 0 0 rgba(192, 132, 252, 0.34),
-      0 1px 0 rgba(15, 23, 42, 0.9),
-      0 2px 0 rgba(15, 23, 42, 0.72),
-      0 3px 2px rgba(30, 27, 75, 0.5),
-      0 5px 5px rgba(15, 23, 42, 0.28),
-      0 0 5px rgba(192, 132, 252, 0.48),
-      0 0 11px rgba(167, 139, 250, 0.32),
-      0 0 18px rgba(56, 189, 248, 0.16);
+    --bid-digit: #c084fc;
+  }
+}
+@keyframes bidBtnMobileCrystalDigit {
+  /*
+   * Legacy: раньше крутился на каждой кнопке (рассинхрон).
+   * Оставлен пустым по смыслу — фаза теперь bidBtnMobileCrystalDigitPhase на сетке.
+   */
+  0%,
+  100% {
+    color: #22d3ee;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .game-table-root.viewport-mobile
+    .bid-panel-mobile-inline
+    .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5.bid-panel-mobile-grid--rows,
   .game-table-root.viewport-mobile
     .bid-panel-mobile-inline
     .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
@@ -31231,66 +32006,65 @@ html.theme-standard
     drop-shadow(0 0 8px rgba(255, 79, 216, 0.9))
     drop-shadow(0 0 14px rgba(255, 154, 239, 0.65));
 }
-/* Mobile landscape: кнопки чуть ниже — aspect-ratio */
-.game-table-root.viewport-mobile.viewport-mobile-landscape
-  .bid-panel-mobile-on-table-wrap
+
+/*
+ * --fill-N: ёмкость ряда (JS). Перебивает дефолт --bid-fill-cols: 5.
+ */
+.game-table-root.viewport-mobile
   .bid-panel-mobile-inline
-  .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
-  .bid-panel-btn {
-  height: auto !important;
-  aspect-ratio: 1 / 0.95 !important;
+  .bid-panel-mobile-grid.bid-panel-mobile-grid--fill-5 {
+  --bid-fill-cols: 5 !important;
+}
+.game-table-root.viewport-mobile
+  .bid-panel-mobile-inline
+  .bid-panel-mobile-grid.bid-panel-mobile-grid--fill-6 {
+  --bid-fill-cols: 6 !important;
+}
+.game-table-root.viewport-mobile
+  .bid-panel-mobile-inline
+  .bid-panel-mobile-grid.bid-panel-mobile-grid--fill-7 {
+  --bid-fill-cols: 7 !important;
+}
+.game-table-root.viewport-mobile
+  .bid-panel-mobile-inline
+  .bid-panel-mobile-grid.bid-panel-mobile-grid--fill-8 {
+  --bid-fill-cols: 8 !important;
+}
+.game-table-root.viewport-mobile
+  .bid-panel-mobile-inline
+  .bid-panel-mobile-grid.bid-panel-mobile-grid--fill-9 {
+  --bid-fill-cols: 9 !important;
 }
 
 /*
- * After-short phone LS · торги: кнопки-цифры на сукне — Compact+ (41 вместо 44),
- * тот же космический хром / множители +5%+7%+2%.
- * Сетка на всю ширину сукна (равные inset L/R 8px) — без ROW_MAX + flex-end вправо.
- * Жидкий gap как обычно (fill-cols), короткие верхние ряды кучкой справа.
+ * Compact+ 41 — portrait short / immersive (класс с JS).
+ * Phone landscape: отдельный жёсткий блок ниже (не зависит от класса / fluid).
  */
-.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short:not(
-    .viewport-mobile-landscape-mid
-  )
-  .bid-panel-mobile-inline
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .bid-panel-mobile-inline.bid-panel-mobile--compact41
   .bid-panel-mobile-grid.bid-panel-mobile-grid--rows {
   --bid-btn-base: calc(41px * 1.05 * 1.07 * 1.02) !important;
   --bid-gap-min: 6px !important;
-  --bid-row-max: 100% !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  align-self: stretch !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-  gap: 8px !important;
 }
-.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short:not(
-    .viewport-mobile-landscape-mid
-  )
-  .bid-panel-mobile-on-table-wrap
-  .bid-panel-mobile-inline
-  .bid-panel-mobile-grid {
-  width: 100% !important;
-  max-width: 100% !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-}
-.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short:not(
-    .viewport-mobile-landscape-mid
-  )
-  .bid-panel-mobile-inline
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .bid-panel-mobile-inline.bid-panel-mobile--compact41
   .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
   .bid-panel-btn.bid-panel-btn-mobile {
   font-size: calc(22px * 1.05 * 1.07 * 1.02) !important;
   border-radius: calc(11px + (var(--bid-bulge, 1) - 1) * 28px) !important;
 }
-.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short:not(
-    .viewport-mobile-landscape-mid
-  )
-  .bid-panel-mobile-inline
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .bid-panel-mobile-inline.bid-panel-mobile--compact41
   .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
   .bid-panel-btn.bid-panel-btn-mobile
   .bid-panel-btn-digit {
   font-size: inherit !important;
 }
+.game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-landscape)
+  .bid-panel-mobile-on-table-wrap:has(.bid-panel-mobile--compact41) {
+  zoom: 1;
+}
+
 /* Mobile landscape: блок цифр на всю ширину сукна, равный inset L/R. */
 .game-table-root.viewport-mobile.viewport-mobile-landscape .bid-panel-mobile-on-table-wrap {
   justify-content: flex-end !important;
@@ -31298,6 +32072,8 @@ html.theme-standard
   padding-left: 8px !important;
   padding-right: 8px !important;
   box-sizing: border-box !important;
+  /* Нижний ряд внутри сукна — не накрывает нижнюю кромку */
+  bottom: 8px !important;
 }
 .game-table-root.viewport-mobile.viewport-mobile-landscape .bid-panel-mobile-on-table-wrap .bid-panel-mobile-on-table-stack {
   align-items: stretch !important;
@@ -31324,15 +32100,88 @@ html.theme-standard
 .game-table-root.viewport-mobile.viewport-mobile-landscape .bid-panel-mobile-on-table-wrap .bid-panel-mobile-inline .bid-panel-mobile-grid {
   justify-content: flex-start !important;
   width: 100% !important;
-  max-width: min(100%, var(--bid-row-max, 294px)) !important;
+  max-width: 100% !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
   overflow: visible !important;
 }
 
 /*
+ * Phone landscape (НЕ mid) — Compact+ 41×1.05≈43 (лёгкое дыхание).
+ * Gap сжимается до 2px раньше, чем уходит 6-я кнопка нижнего ряда.
+ * Rubber/hover scale — как на portrait (живые кнопки).
+ */
+.game-table-root.viewport-mobile.viewport-mobile-landscape:not(.viewport-mobile-landscape-mid)
+  .bid-panel-mobile-on-table-wrap
+  .bid-panel-mobile-inline
+  .bid-panel-mobile-grid.bid-panel-mobile-grid--rows {
+  --bid-btn-base: calc(41px * 1.05) !important;
+  --bid-gap-min: 2px !important;
+  --bid-row-max: 100% !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  align-self: stretch !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding: 4px 3px 4px 0 !important;
+  box-sizing: border-box !important;
+  gap: 6px !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape:not(.viewport-mobile-landscape-mid)
+  .bid-panel-mobile-on-table-wrap
+  .bid-panel-mobile-inline
+  .bid-panel-mobile-grid--rows
+  .bid-panel-mobile-grid-row,
+.game-table-root.viewport-mobile.viewport-mobile-landscape:not(.viewport-mobile-landscape-mid)
+  .bid-panel-mobile-on-table-wrap
+  .bid-panel-mobile-inline
+  .bid-panel-mobile-grid--rows
+  .bid-panel-mobile-grid-row.bid-panel-mobile-grid-row--bottom-base {
+  --bid-btn-w: var(--bid-btn-base) !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  justify-content: flex-start !important;
+  box-sizing: border-box !important;
+  /*
+   * Общий gap от JS (--bid-row-gap по нижнему ряду). Не пересчитывать от 100% ряда:
+   * у --upper есть padding-left под козырь → иначе кнопки/gap мельче нижней строки.
+   */
+  gap: var(--bid-row-gap, var(--bid-gap-min, 2px)) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape:not(.viewport-mobile-landscape-mid)
+  .bid-panel-mobile-on-table-wrap
+  .bid-panel-mobile-inline
+  .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
+  .bid-panel-btn.bid-panel-btn-mobile {
+  width: var(--bid-btn-base) !important;
+  max-width: var(--bid-btn-base) !important;
+  min-width: var(--bid-btn-base) !important;
+  flex: 0 0 var(--bid-btn-base) !important;
+  height: auto !important;
+  aspect-ratio: 1 / 1 !important;
+  font-size: calc(20px * 1.05) !important;
+  border-radius: calc(10px + (var(--bid-bulge, 1) - 1) * 28px) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape:not(.viewport-mobile-landscape-mid)
+  .bid-panel-mobile-on-table-wrap
+  .bid-panel-mobile-inline
+  .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
+  .bid-panel-btn.bid-panel-btn-mobile
+  .bid-panel-btn-digit {
+  font-size: inherit !important;
+}
+/* Козырь: отступ у рядов выше нижнего — ordinary + after-short */
+.game-table-root.viewport-mobile.viewport-mobile-landscape:not(.viewport-mobile-landscape-mid)
+  .bid-panel-mobile-on-table-wrap
+  .bid-panel-mobile-inline
+  .bid-panel-mobile-grid--rows
+  .bid-panel-mobile-grid-row--upper {
+  padding-left: 82px !important;
+}
+
+/*
  * Short (включая immersive): панель заказа на столе — тот же неон/пульс, что на обычной мобиле;
- * zoom ~6% компактнее; сукно не обрезает бейдж под кнопками.
+ * zoom ~6% компактнее (кроме Compact+ — см. :has(--compact41) выше).
  */
 .game-table-root.viewport-mobile.viewport-mobile-short.game-phase-bidding
   .game-center-area.game-mobile-center
@@ -38403,6 +39252,7 @@ body:has(.game-table-root.viewport-mobile.viewport-mobile-browser-fullscreen) {
   }
   .deal-results-overlay-animation--three .deal-results-panel-north,
   .deal-results-overlay-animation--three .deal-results-panel-west,
+  .deal-results-overlay-animation--three .deal-results-panel-east,
   .deal-results-overlay-animation--three .deal-results-panel-south {
     position: static !important;
     left: auto !important;
@@ -38415,11 +39265,16 @@ body:has(.game-table-root.viewport-mobile.viewport-mobile-browser-fullscreen) {
     min-width: 0 !important;
     box-sizing: border-box !important;
   }
+  /* Portrait·3: Север|Запад; landscape·3 перебивается ниже (Запад|Восток) */
   .deal-results-overlay-animation--three .deal-results-panel-north {
     grid-column: 1 !important;
     grid-row: 1 !important;
   }
   .deal-results-overlay-animation--three .deal-results-panel-west {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+  .deal-results-overlay-animation--three .deal-results-panel-east {
     grid-column: 2 !important;
     grid-row: 1 !important;
   }
@@ -39935,6 +40790,59 @@ body:has(.game-table-root.viewport-mobile.viewport-mobile-browser-fullscreen) {
   .deal-results-panel-west {
   grid-column: 2 !important;
   grid-row: 2 !important;
+}
+
+/*
+ * Моб. landscape · 3p: сетка 4p выше перебивала --three (Юг только в 1 колонке, Запад снизу).
+ * Восстановить: Запад|Восток сверху, Юг на всю нижнюю строку; влезать по высоте.
+ */
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation--three {
+  grid-template-columns: 1fr 1fr !important;
+  grid-template-rows: auto auto !important;
+  max-height: min(var(--mobile-landscape-modal-max-h, 92dvh), calc(100dvh - 10px)) !important;
+  height: auto !important;
+  overflow: hidden !important;
+  align-content: start !important;
+  gap: clamp(6px, 1.6vw, 10px) !important;
+  padding: clamp(8px, 1.8vw, 12px) !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation--three
+  .deal-results-panel-west {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation--three
+  .deal-results-panel-east,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation--three
+  .deal-results-panel-north {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation--three
+  .deal-results-panel-south {
+  grid-column: 1 / -1 !important;
+  grid-row: 2 !important;
+  max-width: none !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation--three
+  .deal-results-panel-west,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation--three
+  .deal-results-panel-east,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation--three
+  .deal-results-panel-north,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .deal-results-overlay-animation--three
+  .deal-results-panel-south {
+  height: auto !important;
+  max-height: none !important;
 }
 .game-table-root.viewport-mobile.viewport-mobile-landscape
   .deal-results-overlay-animation
@@ -61512,9 +62420,8 @@ html.theme-standard
   margin: 0 !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
-  padding-left: 4px !important;
-  padding-right: 5px !important;
-  gap: 3px !important;
+  /* L/R: mop --mop-bw + --mop-inline-inset */
+  gap: var(--mop-gap, 6px) !important;
   overflow: visible !important;
   align-self: auto !important;
   box-sizing: border-box !important;
@@ -61813,7 +62720,9 @@ html.theme-standard
   min-width: 0 !important;
   margin-top: auto !important;
   margin-bottom: 0 !important;
-  padding: 0 0 0 8px !important;
+  padding: 0 !important;
+  /* Правый inset даёт padding-right панели Юга (≤3px); слева — воздух под аватар/цифры */
+  padding-left: 4px !important;
   overflow: visible !important;
   box-sizing: border-box !important;
   z-index: 6 !important;
@@ -61850,8 +62759,10 @@ html.theme-standard
   min-height: var(--south-landscape-order-panel-h, 22px) !important;
   max-height: var(--south-landscape-order-panel-h, 22px) !important;
   height: var(--south-landscape-order-panel-h, 22px) !important;
-  padding: 2px 5px 2px 3px !important;
-  gap: 2px !important;
+  /* L/R inset: mobile-order-panel.css = --mop-bw + --mop-inline-inset */
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  gap: var(--mop-gap, 6px) !important;
   overflow: hidden !important;
   align-items: center !important;
 }
@@ -61863,16 +62774,18 @@ html.theme-standard
   > .user-player-panel-south-landscape-order-corner
   .user-player-panel-south-landscape-order-inner-scale {
   --south-landscape-order-inner-scale: 1 !important;
-  display: inline-flex !important;
+  display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  gap: 3px !important;
-  flex-shrink: 0 !important;
+  gap: var(--mop-gap, 6px) !important;
+  flex-shrink: 1 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
   margin: 0 !important;
   overflow: visible !important;
-  max-width: none !important;
   transform: none !important;
 }
 .game-table-root.viewport-mobile.viewport-mobile-landscape
@@ -62306,14 +63219,134 @@ html.theme-standard
     0 0 14px 3px rgba(34, 211, 238, 0.32) !important;
 }
 
-/* Юг · landscape · после заказа: полоска чуть правее (высота та же — 26px) */
+/*
+ * Юг · landscape · после заказа: полоска shrink-wrap сразу справа от аватарки
+ * (в т.ч. при 5+ слотах). Не растягивать рельсу на всю ширину Юга.
+ */
 .game-table-root.viewport-mobile.viewport-mobile-landscape
   .game-mobile-hand-user-stack--landscape
   > .game-mobile-bottom-row--landscape
   .user-player-panel--mobile-landscape-south
   .user-player-panel-south-landscape-bottom-row
   > .user-player-panel-south-landscape-order-corner--has-order {
-  margin-left: 3px !important;
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: max-content !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner--has-order
+  > .user-player-panel-south-landscape-order {
+  width: max-content !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner--has-order
+  > .user-player-panel-south-landscape-order
+  > .user-player-panel-south-landscape-order-inner-scale {
+  display: flex !important;
+  width: max-content !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  flex-shrink: 1 !important;
+  transform: none !important;
+  --south-landscape-order-inner-scale: 1 !important;
+}
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner--has-order
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-normal,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner--has-order
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-collecting,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner--has-order
+  > .user-player-panel-south-landscape-order
+  > button.trick-slots-normal,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner--has-order
+  > .user-player-panel-south-landscape-order
+  > button.trick-slots-collecting,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner--has-order
+  > .user-player-panel-south-landscape-order
+  > .user-player-panel-south-landscape-order-inner-scale
+  > div.trick-slots-normal,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner--has-order
+  > .user-player-panel-south-landscape-order
+  > .user-player-panel-south-landscape-order-inner-scale
+  > div.trick-slots-collecting,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner--has-order
+  > .user-player-panel-south-landscape-order
+  > .user-player-panel-south-landscape-order-inner-scale
+  > button.trick-slots-normal,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner--has-order
+  > .user-player-panel-south-landscape-order
+  > .user-player-panel-south-landscape-order-inner-scale
+  > button.trick-slots-collecting {
+  width: max-content !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  justify-content: flex-start !important;
+  box-sizing: border-box !important;
 }
 
 /* Юг · landscape: имя в 2 строки, без роста высоты панели */
@@ -62337,8 +63370,7 @@ html.theme-standard
   width: var(--south-landscape-order-panel-w, 104px) !important;
   max-width: var(--south-landscape-order-panel-w, 104px) !important;
   min-width: var(--south-landscape-order-panel-w, 104px) !important;
-  padding-left: 4px !important;
-  padding-right: 5px !important;
+  /* L/R: mop --mop-bw + --mop-inline-inset */
   justify-content: center !important;
   border-top-left-radius: 6px !important;
   border-top-right-radius: 6px !important;
@@ -62503,8 +63535,11 @@ html.theme-standard
   max-height: var(--south-landscape-order-panel-h, 22px) !important;
   height: var(--south-landscape-order-panel-h, 22px) !important;
   margin: 0 !important;
-  padding: 2px 5px 2px 3px !important;
-  gap: 1px !important;
+  /* L/R inset: mobile-order-panel.css = --mop-bw + --mop-inline-inset */
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  /* Цифры↔слоты: mop --mop-gap */
+  gap: var(--mop-gap, 6px) !important;
   overflow: hidden !important;
   align-self: auto !important;
   border-bottom: none !important;
@@ -62514,7 +63549,11 @@ html.theme-standard
   border-bottom-left-radius: 0 !important;
   border-bottom-right-radius: 0 !important;
 }
-/* 7–9 слотов: шире рамка (бюджет колонки), воздух слева, без обрезки кружков */
+/*
+ * После заказа: паковка вправо уже в блоке --has-order выше.
+ * Этот дубль с width:100% удалён — он снова оставлял «пустой хром» справа от слотов.
+ */
+/* 7+ слотов: полоска на всю рельсу; слоты внутри — жидкий space-evenly */
 .game-table-root.viewport-mobile.viewport-mobile-landscape
   .game-mobile-hand-user-stack--landscape
   > .game-mobile-bottom-row--landscape
@@ -62538,19 +63577,50 @@ html.theme-standard
   .user-player-panel-south-landscape-bottom-row
   > .user-player-panel-south-landscape-order-corner
   > .user-player-panel-south-landscape-order
+  > div.trick-slots-south-landscape--dense.trick-slots-collecting,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > .user-player-panel-south-landscape-order-inner-scale
+  > div.trick-slots-south-landscape--dense.trick-slots-normal,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > .user-player-panel-south-landscape-order-inner-scale
+  > button.trick-slots-south-landscape--dense.trick-slots-collecting,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > .user-player-panel-south-landscape-order-inner-scale
   > div.trick-slots-south-landscape--dense.trick-slots-collecting {
-  width: var(--south-landscape-order-panel-w, 100%) !important;
-  max-width: none !important;
-  min-width: var(--south-landscape-order-panel-w, 0) !important;
-  padding: 2px 6px 2px 7px !important;
-  gap: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  /* Dense L/R: mop; цифры↔слоты --mop-gap */
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  gap: var(--mop-gap, 6px) !important;
   overflow: visible !important;
-  /* Панель Юга ~14px: BR + отступ справа — угол не на гирлянде */
+  justify-content: flex-start !important;
+  align-items: center !important;
   border-top-left-radius: 8px !important;
   border-top-right-radius: 8px !important;
   border-bottom-left-radius: 0 !important;
   border-bottom-right-radius: 14px !important;
-  margin-right: 1px !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
 }
 .game-table-root.viewport-mobile.viewport-mobile-landscape
   .game-mobile-hand-user-stack--landscape
@@ -62566,10 +63636,13 @@ html.theme-standard
   > .user-player-panel-south-landscape-order-corner:has(.trick-slots-south-landscape--dense)
   > .user-player-panel-south-landscape-order {
   overflow: visible !important;
-  max-width: none !important;
-  flex: 0 0 auto !important;
+  max-width: 100% !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  display: flex !important;
+  justify-content: flex-start !important;
 }
-/* Dense: воздух справа — угол не садится на stroke гирлянды */
+/* Dense: воздух справа ≤3px от края панели Юга */
 .game-table-root.viewport-mobile.viewport-mobile-landscape
   .game-mobile-hand-user-stack--landscape
   > .game-mobile-bottom-row--landscape
@@ -62580,7 +63653,7 @@ html.theme-standard
   > .game-mobile-bottom-row--landscape
   .user-player-panel--mobile-landscape-south
   .user-player-panel-south-landscape-bottom-row:has(.trick-slots-south-landscape--dense) {
-  padding-right: 4px !important;
+  padding-right: 0 !important;
 }
 .game-table-root.viewport-mobile.viewport-mobile-landscape
   .game-mobile-hand-user-stack--landscape
@@ -62590,16 +63663,18 @@ html.theme-standard
   > .user-player-panel-south-landscape-order-corner
   .user-player-panel-south-landscape-order-inner-scale {
   --south-landscape-order-inner-scale: 1 !important;
-  display: inline-flex !important;
+  display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  gap: 3px !important;
-  flex-shrink: 0 !important;
+  gap: var(--mop-gap, 6px) !important;
+  flex-shrink: 1 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
   margin: 0 !important;
   overflow: visible !important;
-  max-width: none !important;
   transform: none !important;
   box-sizing: border-box !important;
 }
@@ -62654,12 +63729,13 @@ html.theme-standard
   position: relative !important;
   flex-direction: column !important;
   align-items: stretch !important;
-  align-self: flex-start !important;
+  align-self: stretch !important;
   overflow: visible !important;
   border-top-right-radius: 8px !important;
-  width: min(var(--south-landscape-order-panel-w, 100%), 100%) !important;
+  width: 100% !important;
   max-width: 100% !important;
   min-width: 0 !important;
+  margin-left: 0 !important;
 }
 .game-table-root.viewport-mobile.viewport-mobile-landscape
   .game-mobile-hand-user-stack--landscape
@@ -62712,8 +63788,11 @@ html.theme-standard
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  justify-content: center !important;
+  justify-content: space-evenly !important;
   flex-wrap: nowrap !important;
+  gap: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
   min-width: 0 !important;
   flex: 1 1 auto !important;
   box-sizing: border-box !important;
@@ -63055,7 +64134,10 @@ html.theme-standard
   > .trick-slots-south-landscape--dense {
   border-bottom-right-radius: 14px !important;
   border-bottom-left-radius: 0 !important;
-  margin-right: 1px !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  justify-content: flex-start !important;
 }
 @media (max-width: 600px), (max-width: 1024px) and (max-height: 500px) and (min-aspect-ratio: 1.9), (min-width: 601px) and (max-width: 899px) {
   .game-table-root.viewport-mobile.viewport-mobile-landscape
@@ -63162,7 +64244,7 @@ html.theme-standard
 .game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid
   .game-mobile-hand-user-stack--landscape
   > .game-mobile-hand-strip
-  .game-mobile-hand-frame {
+  .game-mobile-hand-frame:not(.game-mobile-hand-frame--liquid):not(.game-mobile-hand-frame--liquid-capped) {
   margin-inline: auto !important;
   margin-right: auto !important;
   width: max-content !important;
@@ -63173,7 +64255,7 @@ html.theme-standard
   .game-mobile-hand-user-stack--landscape
   > .game-mobile-hand-strip
   .game-mobile-hand-frame
-  > .game-mobile-hand-row {
+  > .game-mobile-hand-row:not(.game-mobile-hand-row--liquid):not(.game-mobile-hand-row--liquid-capped) {
   justify-content: center !important;
 }
 
@@ -63195,8 +64277,9 @@ html.theme-standard
   width: var(--south-landscape-mid-panel-w) !important;
   max-width: var(--south-landscape-mid-panel-w) !important;
   min-width: 0 !important;
-  min-height: 92px !important;
+  min-height: 0 !important;
   height: auto !important;
+  max-height: var(--south-landscape-panel-h, 83.6px) !important;
   margin-left: auto !important;
   margin-right: auto !important;
 }
@@ -63208,16 +64291,26 @@ html.theme-standard
 .game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid
   .game-mobile-hand-user-stack--landscape
   > .game-mobile-bottom-row--landscape
-  .game-mobile-player-panel,
-.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid
-  .game-mobile-hand-user-stack--landscape
-  > .game-mobile-bottom-row--landscape
   .game-mobile-player-info.user-player-panel--mobile-landscape-south {
   width: 100% !important;
   max-width: 100% !important;
-  height: auto !important;
+  height: 100% !important;
   min-height: 0 !important;
-  flex: 0 0 auto !important;
+  max-height: 100% !important;
+  flex: 1 1 auto !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .game-mobile-player-panel {
+  width: 100% !important;
+  max-width: 100% !important;
+  /* Не сбрасывать эталон 83.6 (раньше height:auto раздувало mid) */
+  flex: 0 0 var(--south-landscape-panel-h, 83.6px) !important;
+  height: var(--south-landscape-panel-h, 83.6px) !important;
+  min-height: var(--south-landscape-panel-h, 83.6px) !important;
+  max-height: var(--south-landscape-panel-h, 83.6px) !important;
 }
 
 .game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid
@@ -63300,6 +64393,8 @@ body:has(.lobby-screen) {
   flex-direction: column;
   overflow: hidden;
   background: #0f172a;
+  /* body:has(.lobby-screen) ставит touch-action:none — иначе жесты не доходят до скролла layout */
+  touch-action: pan-y;
 }
 .lobby-screen__stack {
   display: flex;
@@ -64468,6 +65563,79 @@ body:has(.lobby-screen) {
     min-width: 0;
   }
 }
+
+/*
+ * Моб. landscape (низкий viewport): портрет 200px съедает высоту → кнопки ниже сгиба и
+ * часто «невидимы» (скролл ломается touch-action на body). Каст слева, действия справа.
+ */
+@media (max-width: 1024px) and (orientation: landscape) and (max-height: 500px) {
+  .lobby-screen--entry .lobby-screen__layout.lobby-screen__layout--entry {
+    padding-top: max(6px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    padding-left: max(10px, env(safe-area-inset-left, 0px));
+    padding-right: max(10px, env(safe-area-inset-right, 0px));
+    gap: 6px;
+  }
+  .lobby-screen--entry .lobby-screen__top-bar {
+    padding: 2px 0 4px;
+    margin-bottom: 0;
+  }
+  .lobby-screen--entry .lobby-screen__entry-main {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 14px;
+    max-width: min(720px, 100%);
+    margin: 0 auto;
+  }
+  .lobby-screen--entry .lobby-screen__hero-col {
+    flex: 0 0 auto;
+    width: auto;
+    max-width: none;
+    position: sticky;
+    top: 4px;
+    align-self: flex-start;
+  }
+  .lobby-screen--entry .lobby-screen__hero {
+    width: min(112px, 32vh, 28vw);
+    border-radius: 14px;
+    padding: 2px;
+  }
+  .lobby-screen--entry .lobby-screen__hero img {
+    border-radius: 12px;
+  }
+  .lobby-screen--entry .lobby-screen__content {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: min(360px, 100%);
+    align-items: stretch;
+    gap: 10px;
+    padding-bottom: 8px;
+  }
+  .lobby-screen--entry .lobby-screen__title {
+    font-size: 1.35rem;
+    align-self: flex-start;
+  }
+  .lobby-screen--entry .lobby-online-legend,
+  .lobby-screen--entry .lobby-entry-player,
+  .lobby-screen--entry .lobby-entry-menu,
+  .lobby-screen--entry .lobby-entry-join,
+  .lobby-screen--entry .lobby-last-party-fold {
+    width: 100%;
+    max-width: 100%;
+    align-self: stretch;
+  }
+  .lobby-screen--entry .lobby-entry-menu .lobby-capsule,
+  .lobby-screen--entry .lobby-entry-join .lobby-capsule,
+  .lobby-screen--entry .lobby-last-party-fold .lobby-capsule {
+    max-width: 100%;
+  }
+  .lobby-screen--entry .lobby-screen__aura-img {
+    opacity: 0.28;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lobby-capsule {
     transition: none;
@@ -70067,6 +71235,27 @@ body:has(.menu-screen) {
     0 0 22px rgba(196, 181, 253, 0.28) !important;
 }
 
+/*
+ * Portrait mobile: без внешнего «фантомного» ореола вокруг имени
+ * (слой 22px violet выглядел как контейнер под буквами).
+ * Неон/лазер букв оставляем — только плотный currentColor + лёгкий контур.
+ * Landscape не трогаем (там свой text-shadow).
+ */
+.game-table-root.game-info-badge-plasma.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-info-left-section
+  .game-info-value-name,
+.game-table-root.game-info-badge-plasma.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-info-left-section
+  .game-info-turn-player-name,
+.game-table-root.game-info-badge-plasma.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-info-plasma-screen
+  > span:last-child {
+  text-shadow:
+    0 0 6px currentColor,
+    0 1px 0 rgba(0, 0, 0, 0.5) !important;
+  filter: none !important;
+}
+
 .game-table-root.game-info-badge-plasma:not(.viewport-mobile)
   .game-info-left-section
   .game-info-value-name,
@@ -70075,12 +71264,14 @@ body:has(.menu-screen) {
   > div
   > span:last-child {
   font-size: 17px !important;
-  line-height: 1.16 !important;
+  /* Плотнее между словами на 2-й строке — больше воздуха у низа экранчика */
+  line-height: 1.05 !important;
   letter-spacing: 0.05em !important;
 }
 
 .game-table-root.game-info-badge-plasma:not(.viewport-mobile) .game-info-plasma-screen {
-  padding: 5.5px 16px 7px !important;
+  /* Было 5.5 / 7: чуть меньше сверху, заметнее снизу под 2-строчные имена */
+  padding: 4.5px 16px 11px !important;
 }
 
 .game-table-root.game-info-badge-plasma.viewport-mobile

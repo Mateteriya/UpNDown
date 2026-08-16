@@ -264,6 +264,7 @@ import {
 import {
   capMobileLandscapeNorthPanelWidthPx,
   estimateMobileLandscapeNorthColumnWidthPx,
+  MOBILE_LANDSCAPE_SOUTH_PANEL_FIXED_REFERENCE_W_PX,
   mobileLandscapeSouthPanelFixedWidthPxWhenTuned,
   readMobileLandscapeSouthLayoutViewportPx,
   useMobileLandscapeSouthLayoutTuned,
@@ -378,8 +379,10 @@ const MOBILE_HAND_ULTRA_NARROW_MAX_VW = 292;
 const MOBILE_TABLE_INNER_PAD_X_PX = 6;
 /** Горизонтальный inset полосы Юга (рука + панель) = --game-table-padding в index.css — одна линия с рамкой стола и панелями С/З/В. */
 const MOBILE_SOUTH_STRIP_INSET_PX = MOBILE_TABLE_INNER_PAD_X_PX;
-/** Доп. к padding-inline рамки руки (index.css .game-mobile-hand-frame) — учитывать в getMobileHandRowFit. */
+/** Доп. к padding-inline рамки руки (portrait / общий fit). */
 const MOBILE_HAND_FRAME_EXTRA_INLINE_PX = 2;
+/** Landscape: внутренний отступ карта↔рамка с каждой стороны. */
+const MOBILE_HAND_FRAME_LANDSCAPE_INLINE_PAD_PX = 6;
 
 function mobileSouthStripInsetPx(_vw: number): number {
   return MOBILE_SOUTH_STRIP_INSET_PX;
@@ -400,12 +403,8 @@ const MOBILE_OVERLAP_SCRUB_HOLD_NUDGE = 3;
 const MOBILE_OVERLAP_SCRUB_LINGER_MS = 1000;
 
 /**
- * Подгонка ряда под ширину колонки: подбираем нахлёст, иначе scale<1.
- * Без overflow:hidden — карты остаются видимыми.
- *
- * Берём минимальный захлёст o ≥ 0 при котором ряд помещается — тогда при свободном месте по бокам
- * карты максимально расползаются по ширине (ступени getMobileNineCardHandLayout задают «типичный»
- * захлёст на узком экране, но не должны форсировать лишний нахлёст, если inner ещё позволяет).
+ * Подгонка ряда под ширину: минимальный нахлёст o≥0 при котором ряд влезает.
+ * `widthIsHandColumn`: vw уже ширина колонки руки (landscape) — не вычитать insets всего экрана.
  */
 function getMobileHandRowFit(
   vw: number,
@@ -413,10 +412,16 @@ function getMobileHandRowFit(
   tierTypicalOverlapPx: number,
   slotPadding: number,
   cardBodyW: number = MOBILE_HAND_CARD_BODY_W,
+  widthIsHandColumn: boolean = false,
 ): { overlapPx: number; rowScale: number } {
   const inset = mobileSouthStripInsetPx(vw);
-  /* Ряд живёт внутри table padding + inset полосы руки + frame insets (+ MOBILE_HAND_FRAME_EXTRA_INLINE_PX с каждой стороны рамки) + padding-right корня */
-  const gutter = inset * 4 + MOBILE_HAND_FRAME_EXTRA_INLINE_PX * 2 + 2 + MOBILE_TABLE_INNER_PAD_X_PX;
+  /*
+   * Колонка руки: только минимальный pad рамки (приоритет — карты без нахлёста).
+   * Полный viewport: table padding + полоса + frame + корень.
+   */
+  const gutter = widthIsHandColumn
+    ? MOBILE_HAND_FRAME_LANDSCAPE_INLINE_PAD_PX * 2 + 2
+    : inset * 4 + MOBILE_HAND_FRAME_EXTRA_INLINE_PX * 2 + 2 + MOBILE_TABLE_INNER_PAD_X_PX;
   const inner = Math.max(48, vw - gutter);
   const bodyW =
     Number.isFinite(cardBodyW) && cardBodyW > 0 ? cardBodyW : MOBILE_HAND_CARD_BODY_W;
@@ -431,6 +436,40 @@ function getMobileHandRowFit(
   const wFull = handLen * slotOuter - (handLen - 1) * maxO;
   const rowScale = wFull > 0 ? Math.min(1, inner / wFull) : 1;
   return { overlapPx: maxO, rowScale };
+}
+
+/** Макс. зазор между картами в landscape ≈ ⅒ ширины карты — дальше полоску сжимаем. */
+const MOBILE_HAND_LIQUID_MAX_GAP_OF_CARD = 1 / 10;
+
+/**
+ * Юг · landscape: жидкая рука без нахлёста.
+ * - fill: места мало/в меру → растянуть ряд на колонку (space-evenly)
+ * - capped: зазор упёрся в ~⅒ карты, или 1 карта → shrink-wrap (полоска не шире контента)
+ */
+function getMobileLandscapeHandLiquidLayout(
+  handColumnVw: number,
+  handLen: number,
+  slotPadding: number,
+  cardBodyW: number,
+): { mode: 'none' | 'fill' | 'capped'; gapPx: number } {
+  if (handLen < 1) return { mode: 'none', gapPx: 0 };
+  const gutter = MOBILE_HAND_FRAME_LANDSCAPE_INLINE_PAD_PX * 2 + 2;
+  const inner = Math.max(48, handColumnVw - gutter);
+  const bodyW =
+    Number.isFinite(cardBodyW) && cardBodyW > 0 ? cardBodyW : MOBILE_HAND_CARD_BODY_W;
+  const slotOuter = bodyW + 2 * slotPadding;
+  const packed = handLen * slotOuter;
+  if (packed > inner) return { mode: 'none', gapPx: 0 };
+  /* Одна карта — только shrink-wrap, без растягивания полоски на колонку */
+  if (handLen === 1) return { mode: 'capped', gapPx: 0 };
+  const slack = inner - packed;
+  const maxGap = Math.max(0, Math.round(bodyW * MOBILE_HAND_LIQUID_MAX_GAP_OF_CARD));
+  /* fill = space-evenly → одинаковые поля по краям и между картами (n+1 щелей) */
+  const fillBetweenGap = slack / (handLen + 1);
+  if (fillBetweenGap <= maxGap + 0.5) {
+    return { mode: 'fill', gapPx: fillBetweenGap };
+  }
+  return { mode: 'capped', gapPx: maxGap };
 }
 
 /**
@@ -454,22 +493,29 @@ function mobileHandNeedsLFrame(vw: number, handLen: number): boolean {
   return rowW > inner + 0.5;
 }
 
-/** Моб. landscape · Юг: ширина колонки руки при 9 картах (рамка + ряд). */
-function estimateMobileLandscapeHandStripOuterWidthPx(vw: number): number {
-  const m9 = getMobileNineCardHandLayout(vw, 9);
-  const fit = getMobileHandRowFit(vw, 9, m9.overlapPx, m9.slotPadding);
+/** Моб. landscape · Юг: ширина колонки руки при N картах (рамка + ряд с подгонкой). */
+function estimateMobileLandscapeHandStripOuterWidthPx(vw: number, handLen: number = 9): number {
+  const len = Math.max(1, Math.min(12, Math.floor(handLen)));
+  const m9 =
+    len >= 10
+      ? getMobilePhoneLsThreeSeatHandLayout(vw, len)
+      : getMobileNineCardHandLayout(vw, Math.min(len, 9));
+  const fit = getMobileHandRowFit(vw, len, m9.overlapPx, m9.slotPadding);
   const slotOuter = MOBILE_HAND_CARD_BODY_W + 2 * m9.slotPadding;
-  let rowW = 9 * slotOuter - 8 * fit.overlapPx;
+  let rowW = len * slotOuter - (len - 1) * fit.overlapPx;
   if (fit.rowScale < 0.998) rowW *= fit.rowScale;
   const frameInlinePad = MOBILE_SOUTH_STRIP_INSET_PX + MOBILE_HAND_FRAME_EXTRA_INLINE_PX;
   return Math.ceil(rowW + frameInlinePad * 2);
 }
 
-function estimateMobileLandscapeSouthPanelFixedWidthPx(containerWidth: number): number {
-  const hand9W = estimateMobileLandscapeHandStripOuterWidthPx(containerWidth);
+function estimateMobileLandscapeSouthPanelFixedWidthPx(
+  containerWidth: number,
+  handLenForReserve: number = 9,
+): number {
+  const handW = estimateMobileLandscapeHandStripOuterWidthPx(containerWidth, handLenForReserve);
   return Math.max(
     MOBILE_LANDSCAPE_SOUTH_PANEL_MIN_W_PX,
-    Math.floor(containerWidth - hand9W),
+    Math.floor(containerWidth - handW),
   );
 }
 
@@ -998,6 +1044,46 @@ function getMobileNineCardHandLayout(vw: number, handLen: number): MobileNineCar
   };
 }
 
+/**
+ * Phone LS · 3 игрока (не mid): до 12 карт в ОДНОМ ряду.
+ * Типичный нахлёст только при 12, если места мало; ≤11 — без (fit добавит минимум лишь если узко).
+ * After-short тоже: приоритет — показать карты без наложения, когда колонка позволяет.
+ */
+function getMobilePhoneLsThreeSeatHandLayout(vw: number, handLen: number): MobileNineCardHandLayout {
+  const box = { boxSizing: 'border-box' as const };
+  const pv = (tb: string): CSSProperties => ({ paddingTop: tb, paddingBottom: tb, ...box });
+  if (handLen <= 0) {
+    return {
+      attachExtraClass: null,
+      useNarrowAttach: false,
+      frameStyleExtra: {},
+      slotPadding: 2,
+      overlapPx: 0,
+    };
+  }
+  if (handLen <= 8) {
+    return getMobileNineCardHandLayout(vw, handLen);
+  }
+  /* 9–11: без типичного нахлёста; 12 — ultra только как потолок для fit, не форс */
+  if (handLen <= 11) {
+    return {
+      attachExtraClass: null,
+      useNarrowAttach: false,
+      frameStyleExtra: pv('6px'),
+      slotPadding: 0,
+      overlapPx: 0,
+    };
+  }
+  return {
+    attachExtraClass: 'game-mobile-hand--9-ultra312',
+    useNarrowAttach: true,
+    frameStyleExtra: pv('6px'),
+    slotPadding: 0,
+    /* Типичный max для fit; сам fit начнёт с 0 и возьмёт минимум */
+    overlapPx: MOBILE_HAND_9_OVERLAP_ULTRA312_PX,
+  };
+}
+
 type GarlandTickSubscriber = {
   getCyan: () => SVGRectElement | null;
   getViolet: () => SVGRectElement | null;
@@ -1389,20 +1475,20 @@ function getTrickLandscapeSlotStyle(
   const midRight = `calc(${eastEdge} + ${cardHw} + ${hw})`;
   const westRight = `calc(${eastEdge} + ${cardHw} + 2 * ${hw})`;
   if (playerCount === 3) {
-    /* Треугольник: боковой (2) слева-сверху, напротив (1) справа-сверху — как у Юга. */
+    /* 3p landscape: З/В по бокам на mid-высоте (как 4p), Юг снизу — без Севера. */
     switch (playerIdx) {
       case 2:
         return {
           ...base,
           right: westRight,
-          top: nsEdge,
+          top: '50%',
           transform: 'translate(50%, -50%)',
         };
       case 1:
         return {
           ...base,
           right: eastCenter,
-          top: nsEdge,
+          top: '50%',
           transform: 'translate(50%, -50%)',
         };
       case 0:
@@ -1812,16 +1898,178 @@ function useLandscapeBlocksMobileShort() {
   return match;
 }
 /**
- * Мобильные кнопки заказа на столе (единая модель):
- * база 44×1.05×1.07×1.02; нижние ряды по 5; если ширина сукна ≥ ROW_MAX — по 6;
- * ряд не шире ROW_MAX; при нехватке места кнопки резиново сжимаются (CSS).
- * При 5 кол. и ≥3 рядах — двухстрочный бейдж «Сколько хотите…» (не на козырь).
+ * Мобильные кнопки заказа на столе — ОДИН источник правды (3p=4p; mid не трогаем — 5–6@44):
+ * · phone-ls / after-short: Compact+ 41 × лёгкий MUL (дыхание, не полный ≈47);
+ *   нижний ряд держит 6+ за счёт сжатия gap (min 2px), не раннего сброса колонок;
+ * · portrait:            44×MUL, колонки 5–6;
+ * · portrait-compact:    Compact+ 41×MUL (short / immersive);
+ * · mid:                 44×MUL, колонки 5–6.
  */
-const MOBILE_BID_BTN_BASE_PX = 44 * 1.05 * 1.07 * 1.02; /* ≈50.4 — +5% +7% +2% от классических 44 */
+const MOBILE_BID_MUL = 1.05 * 1.07 * 1.02;
+const MOBILE_BID_BTN_BASE_PX = 44 * MOBILE_BID_MUL; /* ≈50.4 — portrait / mid */
+const MOBILE_BID_BTN_COMPACT_PX = 41 * MOBILE_BID_MUL; /* ≈46.9 — только portrait-compact */
+/** Phone landscape: лёгкое «дыхание» (не полный MUL ≈1.145). */
+const MOBILE_BID_LANDSCAPE_MUL = 1.05;
+const MOBILE_BID_BTN_LANDSCAPE_COMPACT_PX = 41 * MOBILE_BID_LANDSCAPE_MUL; /* ≈43.05 */
 const MOBILE_BID_GAP_MIN_PX = 6;
-/** 6×base + 5×gapMin — потолок ширины кластера и порог раскладки 6. */
-const MOBILE_BID_ROW_MAX_PX =
-  6 * MOBILE_BID_BTN_BASE_PX + 5 * MOBILE_BID_GAP_MIN_PX;
+/** Phone LS: сначала сжимаем gap, потом убираем колонку с нижнего ряда. */
+const MOBILE_BID_LANDSCAPE_GAP_MIN_PX = 2;
+/** Phone LS / after-short: резерв слева под козырь — только для рядов ВЫШЕ нижнего. */
+const MOBILE_BID_PHONE_LS_TRUMP_RESERVE_PX = 82;
+
+type MobileBidLowerCols = 5 | 6 | 7 | 8 | 9;
+type MobileBidLayoutMode = 'phone-ls' | 'after-short' | 'portrait' | 'portrait-compact' | 'mid';
+
+type MobileBidLayoutSpec = {
+  mode: MobileBidLayoutMode;
+  basePx: number;
+  /** Ёмкость нижнего ряда (без резерва козыря). */
+  minCols: MobileBidLowerCols;
+  maxCols: MobileBidLowerCols;
+  /** Резерв под козырь только для рядов выше нижнего (phone LS). */
+  trumpReservePx: number;
+  /** Мин/макс для рядов выше нижнего; по умолчанию = min/max нижнего. */
+  upperMinCols: MobileBidLowerCols;
+  upperMaxCols: MobileBidLowerCols;
+  compact41: boolean;
+  /** Мин. gap при подсчёте колонок (landscape — меньше, чтобы дольше держать 6). */
+  gapMinPx: number;
+};
+
+function mobileBidLayoutSpec(mode: MobileBidLayoutMode): MobileBidLayoutSpec {
+  switch (mode) {
+    case 'phone-ls':
+      return {
+        mode,
+        basePx: MOBILE_BID_BTN_LANDSCAPE_COMPACT_PX,
+        minCols: 6,
+        maxCols: 9,
+        trumpReservePx: MOBILE_BID_PHONE_LS_TRUMP_RESERVE_PX,
+        upperMinCols: 5,
+        upperMaxCols: 9,
+        compact41: true,
+        gapMinPx: MOBILE_BID_LANDSCAPE_GAP_MIN_PX,
+      };
+    case 'after-short':
+      return {
+        mode,
+        basePx: MOBILE_BID_BTN_LANDSCAPE_COMPACT_PX,
+        minCols: 6,
+        maxCols: 9,
+        trumpReservePx: MOBILE_BID_PHONE_LS_TRUMP_RESERVE_PX,
+        upperMinCols: 5,
+        upperMaxCols: 9,
+        compact41: true,
+        gapMinPx: MOBILE_BID_LANDSCAPE_GAP_MIN_PX,
+      };
+    case 'portrait-compact':
+      return {
+        mode,
+        basePx: MOBILE_BID_BTN_COMPACT_PX,
+        minCols: 5,
+        maxCols: 6,
+        trumpReservePx: 0,
+        upperMinCols: 5,
+        upperMaxCols: 6,
+        compact41: true,
+        gapMinPx: MOBILE_BID_GAP_MIN_PX,
+      };
+    case 'mid':
+    case 'portrait':
+    default:
+      return {
+        mode: mode === 'mid' ? 'mid' : 'portrait',
+        basePx: MOBILE_BID_BTN_BASE_PX,
+        minCols: 5,
+        maxCols: 6,
+        trumpReservePx: 0,
+        upperMinCols: 5,
+        upperMaxCols: 6,
+        compact41: false,
+        gapMinPx: MOBILE_BID_GAP_MIN_PX,
+      };
+  }
+}
+
+/** Сколько колонок влезает: n*base + (n-1)*gap ≤ usable. */
+function fitBidCols(
+  usablePx: number,
+  basePx: number,
+  minCols: MobileBidLowerCols,
+  maxCols: MobileBidLowerCols,
+  gapMinPx: number = MOBILE_BID_GAP_MIN_PX,
+): MobileBidLowerCols {
+  if (usablePx <= 0) return minCols;
+  const raw = Math.floor((usablePx + gapMinPx) / (basePx + gapMinPx));
+  return Math.max(minCols, Math.min(maxCols, raw)) as MobileBidLowerCols;
+}
+
+/** Жидкий gap нижнего ряда — один на все ряды (параллельные «умные» строки). */
+function bidSharedRowGapPx(
+  usablePx: number,
+  cols: number,
+  basePx: number,
+  gapMinPx: number,
+): number {
+  if (cols <= 1 || usablePx <= 0) return gapMinPx;
+  const liquid = (usablePx - cols * basePx) / (cols - 1);
+  return Math.max(gapMinPx, liquid);
+}
+
+function useMobileBidLowerColsFromTableWidth(spec: MobileBidLayoutSpec): {
+  lowerCols: MobileBidLowerCols;
+  upperCols: MobileBidLowerCols;
+  /** Общий gap рядов (px) — от нижнего ряда; верхние не пересчитывают по своей ширине. */
+  rowGapPx: number;
+  measureRef: (node: HTMLDivElement | null) => void;
+} {
+  const [lowerCols, setLowerCols] = useState<MobileBidLowerCols>(spec.minCols);
+  const [upperCols, setUpperCols] = useState<MobileBidLowerCols>(spec.upperMinCols);
+  const [rowGapPx, setRowGapPx] = useState(spec.gapMinPx);
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
+  const measureRef = useCallback((el: HTMLDivElement | null) => {
+    setNode(el);
+  }, []);
+  useEffect(() => {
+    if (!node) {
+      setLowerCols(spec.minCols);
+      setUpperCols(spec.upperMinCols);
+      setRowGapPx(spec.gapMinPx);
+      return;
+    }
+    const sync = () => {
+      const w = node.clientWidth;
+      /* Нижний ряд — полная ширина; gapMin из спеки (landscape: 2px → дольше 6 кнопок). */
+      const lower = fitBidCols(w, spec.basePx, spec.minCols, spec.maxCols, spec.gapMinPx);
+      setLowerCols(lower);
+      setRowGapPx(bidSharedRowGapPx(w, lower, spec.basePx, spec.gapMinPx));
+      if (spec.trumpReservePx > 0) {
+        const upperUsable = Math.max(0, w - spec.trumpReservePx);
+        setUpperCols(
+          fitBidCols(upperUsable, spec.basePx, spec.upperMinCols, spec.upperMaxCols, spec.gapMinPx),
+        );
+      } else {
+        setUpperCols(lower);
+      }
+    };
+    const ro = new ResizeObserver(sync);
+    ro.observe(node);
+    sync();
+    return () => ro.disconnect();
+  }, [
+    node,
+    spec.basePx,
+    spec.minCols,
+    spec.maxCols,
+    spec.trumpReservePx,
+    spec.upperMinCols,
+    spec.upperMaxCols,
+    spec.gapMinPx,
+    spec.mode,
+  ]);
+  return { lowerCols, upperCols, rowGapPx, measureRef };
+}
+
 /** Юг · landscape: калибровка панели/руки — не ниже 660×330, см. mobileLandscapeSouthLayout.ts */
 
 /**
@@ -1910,40 +2158,20 @@ function useIsPhoneLandscape() {
   );
   useEffect(() => {
     const mq = window.matchMedia(MOBILE_LANDSCAPE_MQ);
-    const handler = () => setMatch(mq.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    const sync = () => setMatch(mq.matches);
+    mq.addEventListener('change', sync);
+    window.addEventListener('resize', sync);
+    window.addEventListener('orientationchange', sync);
+    window.visualViewport?.addEventListener('resize', sync);
+    sync();
+    return () => {
+      mq.removeEventListener('change', sync);
+      window.removeEventListener('resize', sync);
+      window.removeEventListener('orientationchange', sync);
+      window.visualViewport?.removeEventListener('resize', sync);
+    };
   }, []);
   return match;
-}
-
-/**
- * 5|6 нижних рядов по фактической ширине сукна (wrap), не по viewport MQ.
- * callback-ref: панель монтируется только на торгах.
- */
-function useMobileBidLowerColsFromTableWidth(): {
-  lowerCols: 5 | 6;
-  measureRef: (node: HTMLDivElement | null) => void;
-} {
-  const [cols, setCols] = useState<5 | 6>(5);
-  const [node, setNode] = useState<HTMLDivElement | null>(null);
-  const measureRef = useCallback((el: HTMLDivElement | null) => {
-    setNode(el);
-  }, []);
-  useEffect(() => {
-    if (!node) {
-      setCols(5);
-      return;
-    }
-    const sync = () => {
-      setCols(node.clientWidth >= MOBILE_BID_ROW_MAX_PX ? 6 : 5);
-    };
-    const ro = new ResizeObserver(sync);
-    ro.observe(node);
-    sync();
-    return () => ro.disconnect();
-  }, [node]);
-  return { lowerCols: cols, measureRef };
 }
 
 /** Модалка «Партия завершена»: праздничный экран → по «Подробнее» развёрнутый вид с таблицей, статистикой, рейтингом */
@@ -2393,8 +2621,6 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   /** Mid 601–899 (не phone LS): шестерёнки масштаба стола (вниз) и карт руки (вверх). */
   const useMidLandscapeScaleGears = isMobileMidSquareLayout;
   const midTrickCardScale = useMidLandscapeTrickCardScale(useMidLandscapeScaleGears);
-  const { lowerCols: mobileBidLowerCols, measureRef: mobileBidMeasureRef } =
-    useMobileBidLowerColsFromTableWidth();
   /** Тач-«ховер» кнопок заказа: класс --lit (нативный :hover на мобиле нестабилен). */
   const [mobileBidLitKey, setMobileBidLitKey] = useState<number | null>(null);
   const isTabletPcShell = useIsTabletPcShell();
@@ -2498,10 +2724,31 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     !isMobileMidSquareLayout &&
     afterShortReferencePx > 0 &&
     afterShortReferencePx <= AFTER_SHORT_LS_MAX_REF_PX;
-  /** After-short phone LS: нижние ряды кнопок заказа — всегда по 6 (не по 5). */
-  const mobileBidLowerColsEffective: 5 | 6 = mobileLandscapeAfterShortVh
-    ? 6
-    : mobileBidLowerCols;
+  /**
+   * Режим сетки кнопок заказа (mid — 5–6@44; phone LS / after-short — Compact+ 41).
+   * portrait-compact = short / immersive / standard-from-short.
+   */
+  const mobileBidLayoutMode: MobileBidLayoutMode = !isMobile
+    ? 'portrait'
+    : isMobileMidSquareLayout
+      ? 'mid'
+      : isMobileLandscape && mobileLandscapeAfterShortVh
+        ? 'after-short'
+        : isMobileLandscape
+          ? 'phone-ls'
+          : mobileViewportShort || mobileStandardLayoutOnShortViewport
+            ? 'portrait-compact'
+            : 'portrait';
+  const mobileBidLayoutSpecResolved = mobileBidLayoutSpec(mobileBidLayoutMode);
+  const {
+    lowerCols: mobileBidLowerColsEffective,
+    upperCols: mobileBidUpperColsEffective,
+    rowGapPx: mobileBidRowGapPx,
+    measureRef: mobileBidMeasureRef,
+  } = useMobileBidLowerColsFromTableWidth(mobileBidLayoutSpecResolved);
+  /** Phone LS / after-short — всегда Compact+; mid и portrait — из спеки. */
+  const mobileBidCompact41 =
+    (isMobileLandscape && !isMobileMidSquareLayout) || mobileBidLayoutSpecResolved.compact41;
   const mobilePortalRootClass = useMemo(
     () =>
       buildMobileGamePortalRootClass({
@@ -4613,10 +4860,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       lastTrickCollectingPhase === 'collapsing');
   /**
    * Экранчик «Последняя взятка»: пока виден оверлей результатов, в т.ч. на полёте к Σ
-   * (пролёт мимо эха допустим).
+   * (пролёт мимо эха допустим). Моб. landscape — не показываем: перекрывает таблицу итогов.
    */
   const lastTrickEchoVisible =
-    dealResultsAnimOverlayActive && !!state?.lastCompletedTrick;
+    dealResultsAnimOverlayActive &&
+    !!state?.lastCompletedTrick &&
+    !isMobileLandscape;
   /** Чистый стол: чья взятка — зелёный glow панели + рамка карты (reveal/slots/winner). */
   const lastTrickWinnerAnnounceActive =
     dealJustCompleted &&
@@ -5335,15 +5584,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
    * Слоты стола:
    * 4 — Юг0 / Север1 / Запад2 / Восток3.
    * 3 — Юг0 / Запад2 / Восток1; Север скрыт.
-   *   Мобильная (портрет) пока держит «Север» для idx1 — не ломаем.
-   *   ПК: idx1 переезжает на Восток.
-   *   Mid 601–899 (landscape-DOM): как ПК — Восток idx1, без «Севера» над столом.
+   *   Портрет мобилки пока держит «Север» для idx1 — не ломаем.
+   *   ПК + любой моб. landscape (phone LS / mid / after-short): idx1 на Востоке, без Севера.
    */
   const showWestSideSeat = true;
   const showEastSeatFour = !isThreeSeatTable;
-  /** Mid · 3p: показать Восток (idx1), иначе как 4p. */
+  /** Моб. landscape · 3p: Восток (idx1), как в 4p справа; иначе Восток только в 4p. */
   const showMobileLandscapeEastSeat =
-    showEastSeatFour || (isMobileMidSquareLayout && isThreeSeatTable);
+    showEastSeatFour || (isMobileLandscape && isThreeSeatTable);
   const mobileEastDisplayIndex = isThreeSeatTable ? 1 : 3;
   const showPcNorthSeat = !isThreeSeatTable;
   /** ПК · 4p (не планшет): Север pin к верху страницы (23px), вне translateY блока. */
@@ -5450,8 +5698,22 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
      * При zoom>1 на .game-mobile-user-south-main карты визуально крупнее того же layout в CSS px —
      * если считать нахлёст/scale по сыроу vw, ряд выпирает из .game-mobile-south-panel-hand.
      */
-    const layoutVwForHand =
+    let layoutVwForHand =
       shortVhSouthUiScale > 1.0001 ? mobileHandLayoutVw / shortVhSouthUiScale : mobileHandLayoutVw;
+    /**
+     * Phone LS · 3p (не mid): до 12 в одном ряду.
+     * Fit по ширине КОЛОНКИ руки (viewport − панель Юга), gutter только рамки —
+     * приоритет: без нахлёста, если колонка позволяет.
+     */
+    const phoneLsThreeSeatHand =
+      isMobileLandscape && !isMobileMidSquareLayout && isThreeSeatTable;
+    if (isMobileLandscape) {
+      /* Резерв оценки панели — под 9 карт; фактическая ширина — state (эталон 247). */
+      const panelW =
+        mobileLandscapePanelFixedWidthPx ??
+        estimateMobileLandscapeSouthPanelFixedWidthPx(layoutVwForHand, 9);
+      layoutVwForHand = Math.max(48, layoutVwForHand - panelW - 8);
+    }
     const lHandEligible =
       !isMobileLandscape &&
       !mobileShortHeaderImmersive &&
@@ -5459,19 +5721,32 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     const lHandExpanded = lHandEligible && !mobileLHandFlat;
     const lHandFlat = lHandEligible && mobileLHandFlat;
     const layoutHandLen = lHandExpanded ? MOBILE_L_HAND_MAIN_MAX : mobileHandLen;
-    const m9 = getMobileNineCardHandLayout(layoutVwForHand, layoutHandLen);
+    const m9 = phoneLsThreeSeatHand
+      ? getMobilePhoneLsThreeSeatHandLayout(layoutVwForHand, layoutHandLen)
+      : getMobileNineCardHandLayout(layoutVwForHand, layoutHandLen);
     const fit = getMobileHandRowFit(
       layoutVwForHand,
       layoutHandLen,
       m9.overlapPx,
       m9.slotPadding,
       mobileHandCardBodyW,
+      /* landscape: vw уже колонка руки */
+      isMobileLandscape,
     );
     let rowScale = fit.rowScale;
     const ultra312Class = m9.attachExtraClass === 'game-mobile-hand--9-ultra312';
     if (ultra312Class && layoutVwForHand > 329) {
       rowScale *= 0.97;
     }
+    const liquid =
+      isMobileLandscape && fit.overlapPx === 0 && layoutHandLen >= 1
+        ? getMobileLandscapeHandLiquidLayout(
+            layoutVwForHand,
+            layoutHandLen,
+            m9.slotPadding,
+            mobileHandCardBodyW,
+          )
+        : { mode: 'none' as const, gapPx: 0 };
     return {
       mobileHandLen,
       layoutHandLen,
@@ -5480,6 +5755,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       lHandFlat,
       m9,
       overlapPx: fit.overlapPx,
+      /** fill = на всю колонку; capped = max gap ~⅒ карты (или 1 карта), полоска shrink-wrap */
+      liquidMode: liquid.mode,
+      liquidGapPx: liquid.gapPx,
+      liquidSpread: liquid.mode === 'fill' || liquid.mode === 'capped',
       rowTransform: rowScale < 0.998 ? (`scale(${rowScale})` as const) : undefined,
       overlapScrubEnabled: isMobile && fit.overlapPx > 0 && !prefersReducedMotion,
     };
@@ -5491,6 +5770,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     mobileLHandFlat,
     mobileShortHeaderImmersive,
     isMobileLandscape,
+    isMobileMidSquareLayout,
+    isThreeSeatTable,
+    mobileLandscapePanelFixedWidthPx,
     prefersReducedMotion,
     shortVhSouthUiScale,
     mobileHandCardBodyW,
@@ -5706,7 +5988,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     );
   };
 
-  /** Landscape · Юг: фиксированная ширина панели как при 9 картах (калибровка ≥660×330). */
+  /**
+   * Landscape · Юг: фиксированная ширина панели.
+   * Обычный phone LS (длинная сторона ≥651) — всегда эталон 247px.
+   * Раньше «дыра» 651–659: не after-short (≤650) и ещё не tuned (≥660×330) →
+   * динамический squeeze под 12 карт и ужатая панель.
+   * Рука 10–12 без нахлёста — только fit в колонке руки (панель не трогаем).
+   */
   useLayoutEffect(() => {
     if (!isMobileLandscape) {
       setMobileLandscapePanelFixedWidthPx(null);
@@ -5714,6 +6002,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     }
 
     const applyPanelWidth = () => {
+      /* Обычный phone LS: фикс сразу — без зависимости от порога 660×330. */
+      if (!isMobileMidSquareLayout && !mobileLandscapeAfterShortVh) {
+        const fixed = MOBILE_LANDSCAPE_SOUTH_PANEL_FIXED_REFERENCE_W_PX;
+        setMobileLandscapePanelFixedWidthPx(prev => (prev === fixed ? prev : fixed));
+        return;
+      }
+
       const tunedPanelW = mobileLandscapeSouthPanelFixedWidthPxWhenTuned(
         readMobileLandscapeSouthLayoutViewportPx(),
       );
@@ -5728,10 +6023,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       const stackW = stack.getBoundingClientRect().width;
       if (!Number.isFinite(stackW) || stackW <= 0) return;
 
-      const hand9W = estimateMobileLandscapeHandStripOuterWidthPx(mobileHandLayoutVw);
+      /* after-short / mid fallback: резерв под 9 карт (не под zero-overlap 12 — иначе панель схлопывается) */
+      const handW = estimateMobileLandscapeHandStripOuterWidthPx(mobileHandLayoutVw, 9);
       const panelW = Math.max(
         MOBILE_LANDSCAPE_SOUTH_PANEL_MIN_W_PX,
-        Math.floor(stackW - hand9W),
+        Math.floor(stackW - handW),
       );
       setMobileLandscapePanelFixedWidthPx(prev => (prev === panelW ? prev : panelW));
     };
@@ -5749,7 +6045,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       window.removeEventListener('resize', applyPanelWidth);
       vv?.removeEventListener('resize', applyPanelWidth);
     };
-  }, [isMobileLandscape, mobileHandLayoutVw]);
+  }, [
+    isMobileLandscape,
+    mobileHandLayoutVw,
+    isMobileMidSquareLayout,
+    mobileLandscapeAfterShortVh,
+  ]);
 
   const southShortPullTabVisible =
     mobileSouthHandLayout != null &&
@@ -6617,26 +6918,32 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     online.code &&
     (online.status === 'waiting' || online.status === 'playing' || online.status === 'finished')
   );
-  /** Моб. landscape · торги: капсула «Первый ход: имя» на сукне (вместо бейджа на Юге). */
-  const showMobileLandscapeFirstMoveOnTable = Boolean(
+  /**
+   * Моб. торги: капсула «Первый ход: имя» на сукне
+   * (portrait — центр верха; landscape — слева у козыря).
+   */
+  const showMobileFirstMoveOnTable = Boolean(
     isMobile &&
-      isMobileLandscape &&
       state &&
       !isWaitingInRoom &&
       (state.phase === 'bidding' || state.phase === 'dark-bidding'),
   );
   /** Онлайн: на время торгов в landscape скрываем таймер+код — место под «Первый ход». */
   const hideOnlineRoomCodeForLandscapeFirstMove = Boolean(
-    showMobileLandscapeFirstMoveOnTable && showOnlineRoomCodeStrip,
+    showMobileFirstMoveOnTable && isMobileLandscape && showOnlineRoomCodeStrip,
   );
   /**
-   * Сколько «воздуха» под капсулой: мало кнопок заказа / панель скрыта → roomy (пульс и вниз),
-   * много рядов цифр → tight (только сворачивание подписи + лёгкий рост имени).
+   * «Воздух» под капсулой → breathe: мало рядов цифр → roomy, много → tight.
+   * Portrait и landscape — одна анимация (подпись сворачивается, имя растёт).
    */
-  const mobileLandscapeFirstMoveBreatheClass = (() => {
-    if (!showMobileLandscapeFirstMoveOnTable || !state) return '';
+  const mobileFirstMoveBreatheClass = (() => {
+    if (!showMobileFirstMoveOnTable || !state) return '';
     const bidOnTable = shouldShowBidPanel && bidPanelVisible;
-    const rows = chunkMobileBidRows(state.tricksInDeal + 1, mobileBidLowerColsEffective).length;
+    const rows = chunkMobileBidRows(
+      state.tricksInDeal + 1,
+      mobileBidLowerColsEffective,
+      mobileBidUpperColsEffective,
+    ).length;
     if (!bidOnTable || rows <= 1) return 'first-move-badge--breathe-roomy';
     if (rows <= 2) return 'first-move-badge--breathe-mid';
     return 'first-move-badge--breathe-tight';
@@ -7265,6 +7572,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   }
 
   const displayState = stateToShow as GameState;
+  /** Моб.: имя >5 символов — вторая строка (portrait и landscape; не режем зря). */
+  const mobilePortraitFirstMoveTwoLine = Boolean(
+    showMobileFirstMoveOnTable &&
+      (displayState.players[state!.trickLeaderIndex]?.name ?? '').trim().length > 5,
+  );
 
   const resolveDisplayPlayerAvatar = (displayIdx: number): string | undefined => {
     if (displayIdx === 0) return playerAvatarDataUrl ?? undefined;
@@ -8396,6 +8708,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           playerMobileWideTricks={isMobile}
           playerMobileLandscapeTricks={isMobileLandscape}
           playerMobileLandscapeOrderBudgetAvatarReservePx={southLandscapeAvatarReservePx}
+          playerMobileLandscapeSouthPanelWPx={
+            mobileLandscapePanelFixedWidthPx ??
+            MOBILE_LANDSCAPE_SOUTH_PANEL_FIXED_REFERENCE_W_PX
+          }
           opponentMobileHideOrderLabel={!!isMobile}
           opponentMobileZeroOrderCross={!!isMobile}
           tricksLeftInDeal={tricksRemainingInDeal(state)}
@@ -8688,8 +9004,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       playerCount: playerCountOf(state),
     });
     const modeLabel = dealType === 'no-trump' ? 'Бескозырка' : 'Тёмная';
-    /** Короткие подписи на экране; полные — в title/aria. */
-    const modeLabelShort = dealType === 'no-trump' ? 'БК' : 'Т';
+    /** На экранчике тулбара — только капс (читаемо + «плакат»). */
+    const modeLabelScreen = dealType === 'no-trump' ? 'БЕСКОЗЫРКА' : 'ТЁМНАЯ';
 
     const ordersBlock = (
       <span
@@ -8735,10 +9051,23 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
 
     const modeBlock = (
       <span
-        className="deal-contract-line deal-contract-mobile-mode-alternate"
+        className={[
+          'deal-contract-line',
+          'deal-contract-mobile-mode-alternate',
+          dealType === 'no-trump'
+            ? 'deal-contract-mobile-mode-alternate--no-trump'
+            : 'deal-contract-mobile-mode-alternate--dark',
+        ].join(' ')}
         style={{ ...dealContractMobileAlternateSlotStyle, ...dealContractMobileModeAlternateLineStyle }}
       >
-        {modeLabelShort}
+        {/* Белый каркас снизу + градиентный хром сверху = читаемость и реальный перелив */}
+        <span className="deal-contract-mobile-mode-alternate__base" aria-hidden>
+          {modeLabelScreen}
+        </span>
+        <span className="deal-contract-mobile-mode-alternate__shine" aria-hidden>
+          {modeLabelScreen}
+        </span>
+        <span className="deal-contract-mobile-mode-alternate__sr">{modeLabelScreen}</span>
       </span>
     );
 
@@ -10553,23 +10882,26 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         {renderMobileGameInfoLeftSection()}
                       </div>
                     </div>
-                    <div className="game-mobile-landscape-north-col game-mobile-landscape-north-col--phone-ls-end">
-                      <div
-                        ref={mobileShortTopRowRef}
-                        className="game-mobile-top-row game-mobile-top-row--landscape"
-                        style={{
-                          ...gameInfoTopRowStyle,
-                          height: 'auto',
-                          minHeight: 0,
-                          marginBottom: 2,
-                          justifyContent: 'flex-end',
-                          gap: 8,
-                          flexWrap: 'nowrap',
-                        }}
-                      >
-                        {renderMobileNorthSlot()}
+                    {/* Phone LS · 3p: Север не используем — idx1 на Востоке (как mid/ПК). */}
+                    {!isThreeSeatTable ? (
+                      <div className="game-mobile-landscape-north-col game-mobile-landscape-north-col--phone-ls-end">
+                        <div
+                          ref={mobileShortTopRowRef}
+                          className="game-mobile-top-row game-mobile-top-row--landscape"
+                          style={{
+                            ...gameInfoTopRowStyle,
+                            height: 'auto',
+                            minHeight: 0,
+                            marginBottom: 0,
+                            justifyContent: 'flex-end',
+                            gap: 8,
+                            flexWrap: 'nowrap',
+                          }}
+                        >
+                          {renderMobileNorthSlot()}
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
                   </>
                 ) : (
                   <>
@@ -10820,13 +11152,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 partyElapsedSeconds={partyElapsedSeconds}
               />
             )}
-            {showMobileLandscapeFirstMoveOnTable && state && (
+            {showMobileFirstMoveOnTable && state && (
               <div
                 className={[
                   'first-move-badge',
                   'first-move-badge--mobile-on-table',
-                  'first-move-badge--mobile-landscape-on-table',
-                  mobileLandscapeFirstMoveBreatheClass,
+                  isMobileLandscape ? 'first-move-badge--mobile-landscape-on-table' : '',
+                  mobilePortraitFirstMoveTwoLine ? 'first-move-badge--two-line' : '',
+                  mobileFirstMoveBreatheClass,
                   mobileViewportShort && mobileShortHeaderImmersive
                     ? 'first-move-badge--mobile-on-table-under-marquee'
                     : '',
@@ -11059,13 +11392,20 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 >
                   {(() => {
                     const bidButtonCount = state.tricksInDeal + 1;
-                    const mobileBidRows = chunkMobileBidRows(bidButtonCount, mobileBidLowerColsEffective);
+                    const mobileBidRows = chunkMobileBidRows(
+                      bidButtonCount,
+                      mobileBidLowerColsEffective,
+                      mobileBidUpperColsEffective,
+                    );
                     /*
                      * 5 колонок + появилась 3-я строка: узкий двухстрочный бейдж,
                      * чтобы не перекрывать козырь (базово уже white-space:normal + max-width).
                      */
                     const bidBadgeTwoLine =
                       mobileBidLowerColsEffective === 5 && mobileBidRows.length >= 3;
+                    /** Phone-мобилка (не mid): подсказка только на раздачах 1–5; mid/ПК — всегда. */
+                    const showMobileBidHintBadge =
+                      isMobileMidSquareLayout || state.dealNumber <= 5;
                     const bidBadgeLabel =
                       state.phase === 'dark-bidding' ? (
                         'Заказ в тёмную'
@@ -11080,6 +11420,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       );
                     return (
                       <>
+                  {showMobileBidHintBadge ? (
                   <span
                     className={[
                       'bid-panel-mobile-badge',
@@ -11090,8 +11431,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   >
                     <span className="bid-panel-mobile-badge-text">{bidBadgeLabel}</span>
                   </span>
+                  ) : null}
                   <div
-                    className="bid-panel bid-panel-inline bid-panel-bottom bid-panel-mobile-inline"
+                    className={[
+                      'bid-panel',
+                      'bid-panel-inline',
+                      'bid-panel-bottom',
+                      'bid-panel-mobile-inline',
+                      mobileBidCompact41 ? 'bid-panel-mobile--compact41' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                     style={{
                       ...bidPanelInlineStyle,
                       pointerEvents: 'auto',
@@ -11104,6 +11454,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         'bid-panel-mobile-grid',
                         'bid-panel-mobile-grid--rows',
                         'bid-panel-mobile-grid--cols5',
+                        `bid-panel-mobile-grid--fill-${mobileBidLowerColsEffective}`,
                       ]
                         .filter(Boolean)
                         .join(' ')}
@@ -11111,14 +11462,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         {
                           ...bidSidePanelGridMobile,
                           ['--bid-fill-cols' as string]: String(mobileBidLowerColsEffective),
+                          /* Один gap на все ряды — верхний не сжимается из‑за padding-left козыря */
+                          ['--bid-row-gap' as string]: `${mobileBidRowGapPx}px`,
                         } as React.CSSProperties
                       }
+                      data-bid-fill-cols={mobileBidLowerColsEffective}
+                      data-bid-mode={mobileBidLayoutMode}
                     >
                     {(() => {
-                        /*
-                         * Мобилка: две нижние по 5, или по 6 если сукно ≥ ROW_MAX.
-                         * After-short: всегда по 6. L-рука больше не сужает заказ до 4.
-                         */
+                        /* Колонки — mobileBidLowerColsEffective по матрице режимов. */
                         const bidRows = mobileBidRows;
                         const renderBidBtn = (i: number) => {
                           const disabled = invalidBid === i;
@@ -11172,11 +11524,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         };
                         return (
                           <>
-                            {bidRows.map((row, ri) => (
+                            {bidRows.map((row, ri) => {
+                              /*
+                               * fill-cols / gap — всегда от нижнего ряда (параллельные кнопки).
+                               * upperCols влияет только на chunk (сколько кнопок в верхних рядах).
+                               */
+                              return (
                               <div
                                 key={`bid-row-${ri}`}
                                 className={[
                                   'bid-panel-mobile-grid-row',
+                                  ri === 0 ? 'bid-panel-mobile-grid-row--bottom' : 'bid-panel-mobile-grid-row--upper',
                                   /* rows[0] = низ (column-reverse): ≤4 кнопок → всегда база */
                                   ri === 0 && row.length <= 4
                                     ? 'bid-panel-mobile-grid-row--bottom-base'
@@ -11185,10 +11543,16 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                                   .filter(Boolean)
                                   .join(' ')}
                                 data-cols={row.length}
+                                style={
+                                  {
+                                    ['--bid-fill-cols' as string]: String(mobileBidLowerColsEffective),
+                                  } as React.CSSProperties
+                                }
                               >
                                 {row.map((i) => renderBidBtn(i))}
                               </div>
-                            ))}
+                              );
+                            })}
                           </>
                         );
                       })()}
@@ -11282,7 +11646,16 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       {mobileSouthHandLayout != null && !mobileViewportShort && (mobileSouthHandLayout.lHandEligible
         ? renderMobileLHand(false)
         : (() => {
-        const { m9, overlapPx, rowTransform, overlapScrubEnabled } = mobileSouthHandLayout;
+        const {
+          m9,
+          overlapPx,
+          rowTransform,
+          overlapScrubEnabled,
+          liquidMode,
+          liquidGapPx,
+        } = mobileSouthHandLayout;
+        const liquidFill = liquidMode === 'fill';
+        const liquidCapped = liquidMode === 'capped';
         const sortedHand = state.players[humanIdx].hand
           .slice()
           .sort((a, b) => cardSort(a, b, state.trump));
@@ -11295,11 +11668,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           'game-mobile-hand-strip',
           m9.attachExtraClass,
           m9.useNarrowAttach ? 'game-mobile-hand--narrow-vw' : '',
+          liquidFill ? 'game-mobile-hand-strip--liquid' : '',
+          liquidCapped ? 'game-mobile-hand-strip--liquid-capped' : '',
         ]
           .filter(Boolean)
           .join(' ')}
         style={{
-          width: '100%',
+          width: liquidCapped ? 'max-content' : '100%',
           maxWidth: '100%',
           flexShrink: 0,
           boxSizing: 'border-box',
@@ -11309,17 +11684,36 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           className={[
             'game-mobile-hand-frame',
             state.currentPlayerIndex === humanIdx ? 'player-hand-your-turn' : '',
+            liquidFill ? 'game-mobile-hand-frame--liquid' : '',
+            liquidCapped ? 'game-mobile-hand-frame--liquid-capped' : '',
           ]
             .filter(Boolean)
             .join(' ')}
           style={{
             ...handFrameStyleMobile,
             ...m9.frameStyleExtra,
+            ...(isMobileLandscape
+              ? {
+                  width: liquidCapped ? 'max-content' : '100%',
+                  maxWidth: '100%',
+                  marginLeft: 0,
+                  marginRight: 0,
+                  paddingLeft: MOBILE_HAND_FRAME_LANDSCAPE_INLINE_PAD_PX,
+                  paddingRight: MOBILE_HAND_FRAME_LANDSCAPE_INLINE_PAD_PX,
+                  boxSizing: 'border-box' as const,
+                }
+              : {}),
           }}
         >
           <div
             ref={mobileOverlapHandRowRef}
-            className="game-mobile-hand-row"
+            className={[
+              'game-mobile-hand-row',
+              liquidFill ? 'game-mobile-hand-row--liquid' : '',
+              liquidCapped ? 'game-mobile-hand-row--liquid-capped' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             onPointerDownCapture={overlapScrubEnabled ? handleMobileHandRowPointerDownCapture : undefined}
             onClickCapture={(e) => {
               if (suppressMobileOverlapClickRef.current) {
@@ -11331,9 +11725,16 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             style={{
               ...handStyle,
               overflow: 'visible',
-              justifyContent: isMobileLandscape ? 'flex-start' : 'center',
+              justifyContent: liquidFill
+                ? 'space-evenly'
+                : liquidCapped
+                  ? 'flex-start'
+                  : isMobileLandscape
+                    ? 'flex-start'
+                    : 'center',
+              gap: liquidCapped ? liquidGapPx : 0,
               boxSizing: 'border-box',
-              width: 'max-content',
+              width: liquidFill ? '100%' : liquidCapped || !isMobileLandscape ? 'max-content' : '100%',
               maxWidth: '100%',
               borderRadius: 10,
               touchAction: overlapScrubEnabled ? ('none' as const) : undefined,
@@ -13584,6 +13985,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             state={state}
             isCollapsing={lastTrickCollectingPhase === 'collapsing'}
             isMobile={true}
+            isMobileLandscape={isMobileLandscape}
             overlayAnimRef={mobileDealResultsOverlayAnimRef}
             overlayAccentPhase={
               lastTrickCollectingPhase === 'winner' ? 'deal-points' : 'running-total'
@@ -14770,12 +15172,16 @@ const PLAYER_POSITIONS = [
   { idx: 3, side: 'right' as const, name: 'Восток' },
 ];
 
-/** Раскладка панелей оверлея результатов: на ПК·3 — Запад|Восток сверху, Юг снизу (Север нет). */
+/** Раскладка панелей оверлея результатов:
+ * ПК·3 и моб. landscape·3 — Запад|Восток сверху, Юг снизу на всю ширину (Север нет).
+ * Моб. portrait·3 — Север|Запад сверху, Юг снизу (как места на столе).
+ */
 function getOverlayPlayerPositions(
   playerCount: number,
   isMobile: boolean,
+  isMobileLandscape = false,
 ): Array<{ idx: number; side: 'top' | 'bottom' | 'left' | 'right'; name: string }> {
-  if (playerCount === 3 && !isMobile) {
+  if (playerCount === 3 && (!isMobile || isMobileLandscape)) {
     return [
       { idx: 0, side: 'bottom', name: 'Юг' },
       { idx: 2, side: 'left', name: 'Запад' },
@@ -14897,6 +15303,8 @@ function DealResultsScreen({
   isCollapsing = false,
   variant = 'overlay',
   isMobile = false,
+  /** Моб. landscape: 3p оверлей — Запад|Восток сверху (как на столе), не Север|Запад. */
+  isMobileLandscape = false,
   /** ПК-модалка Σ на планшетной оболочке: ниже/уже, без desktop-minHeight. */
   tableModalCompact = false,
   onClose,
@@ -14911,6 +15319,7 @@ function DealResultsScreen({
   isCollapsing?: boolean;
   variant?: 'overlay' | 'modal';
   isMobile?: boolean;
+  isMobileLandscape?: boolean;
   tableModalCompact?: boolean;
   onClose?: () => void;
   /** Оверлей variant=overlay: ref на анимируемый корень (центр для вектора схлопывания к Σ). */
@@ -15229,7 +15638,7 @@ function DealResultsScreen({
     const taken = players[idx].tricksTaken;
     const points = calculateDealPoints(bid, taken);
     const score = players[idx].score;
-    const side = getOverlayPlayerPositions(players.length, isMobile).find((p) => p.idx === idx)!.side;
+    const side = getOverlayPlayerPositions(players.length, isMobile, isMobileLandscape).find((p) => p.idx === idx)!.side;
     const panelPos = variant === 'modal' ? undefined : getDealResultsPanelPosition(side);
     return (
       <div key={idx} style={{ ...panelStyle, ...(panelPos ?? {}) }}>
@@ -17322,7 +17731,7 @@ function DealResultsScreen({
         </>
       ) : (
         <>
-      {getOverlayPlayerPositions(players.length, isMobile).map(({ idx, side }) => {
+      {getOverlayPlayerPositions(players.length, isMobile, isMobileLandscape).map(({ idx, side }) => {
         /** Оверлей: Заказ/Взятки/Очки — текущая раздача; «Итого» до фазы running-total — прошлый счёт. */
         const bid = bids[idx] ?? 0;
         const taken = players[idx].tricksTaken;
@@ -18446,7 +18855,7 @@ function wrapMobileSouthLandscapeOrderInner(
           display: 'inline-flex',
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 3,
+          gap: MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURES_SLOTS_GAP_PX,
         } as React.CSSProperties
       }
     >
@@ -18471,6 +18880,8 @@ function TrickSlotsDisplay({
   playerMobileLandscapeTricks,
   /** Моб. landscape · Юг: резерв аватара (px) → бюджет ширины полоски при 5+ слотах. */
   playerMobileLandscapeOrderBudgetAvatarReservePx,
+  /** Моб. landscape · Юг: фактическая ширина панели (эталон 247) для бюджета полоски ≤ край−3px. */
+  playerMobileLandscapeSouthPanelWPx,
   /** Моб. landscape · Запад/Восток: горизонтальная полоска как у С/З (без east-mobile сетки и без «ушка» при заказе >6). */
   opponentMobileLandscapeWeTricks,
   /** Mid 601–899 · З/В: вертикальная полоска заказа (цифры сверху, кружки столбиком). */
@@ -18518,6 +18929,8 @@ function TrickSlotsDisplay({
    * (с 5+ слотов аватар чуть уже → полоске больше места).
    */
   playerMobileLandscapeOrderBudgetAvatarReservePx?: number;
+  /** Моб. landscape · Юг: ширина панели игрока (px), иначе эталон 247. */
+  playerMobileLandscapeSouthPanelWPx?: number;
   tricksLeftInDeal?: number;
   playerMobileExactOrderCornerStar?: React.ReactNode;
   panelScale?: number;
@@ -19013,6 +19426,8 @@ function TrickSlotsDisplay({
             ? getMobileLandscapeSouthTrickPanelMaxWidthPx(
                 playerMobileLandscapeOrderBudgetAvatarReservePx ??
                   MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+                playerMobileLandscapeSouthPanelWPx ??
+                  MOBILE_LANDSCAPE_SOUTH_PANEL_FIXED_REFERENCE_W_PX,
               )
             : playerMobileWideTricks
               ? Math.round(168 * 1.5 * southUserSlotShrink)
@@ -19021,25 +19436,8 @@ function TrickSlotsDisplay({
           wMax = 400;
         }
         if (variant === 'player' && playerMobileLandscapeTricks && bid != null && bid > 0) {
-          const figFont = mobileLandscapeSouthFigFontPx(bid, tricksTaken);
-          const basePlayerScaleEst = (1.3 * 1.1 * 1.1 * 1.15) / 1.7;
-          const circleEst = Math.max(
-            5,
-            Math.round(
-              18 * basePlayerScaleEst * southUserSlotShrink * MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_SHRINK,
-            ),
-          );
-          const landscapeS = mobileLandscapeSouthOrderScaleDown(
-            bid,
-            tricksTaken,
-            extra,
-            wMax,
-            circleEst,
-            figFont,
-            hideCards,
-            southLandscapeHighBidEar,
-          );
-          scaleDown = Math.min(scaleDown, landscapeS);
+          /* Юг landscape: размер кружков — liquid layout ниже, не 6/bid и не scaleDown-оценка. */
+          scaleDown = 1;
         } else {
         const wS = wMax / Math.max(naturalW, 1);
         const s =
@@ -19098,9 +19496,8 @@ function TrickSlotsDisplay({
         };
     const landscapeSouthPlayerWrapPadding =
       bidNum != null && bidNum >= 7
-        ? /* Плотнее кружки, но рамка шире и с запасом слева (не режет 1-й слот) */
-          `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px 6px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px 7px`
-        : `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px 5px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px 3px`;
+        ? `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_DENSE_RIGHT_PX}px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_DENSE_LEFT_PX}px`
+        : `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_RIGHT_PX}px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX}px ${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_LEFT_PX}px`;
     const landscapeSouthPanelHeightCss = {
       ['--south-landscape-order-panel-h' as string]: `${MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX}px`,
     };
@@ -19118,10 +19515,11 @@ function TrickSlotsDisplay({
             display: 'flex' as const,
             flexDirection: southLandscapeHighBidEar ? ('column' as const) : ('row' as const),
             flexWrap: 'nowrap' as const,
-            alignItems: 'center' as const,
+            /* Всегда у аватарки (shrink-wrap); не тянуть рельсу на всю ширину Юга */
+            alignItems: southLandscapeHighBidEar ? ('flex-end' as const) : ('center' as const),
             justifyContent: 'flex-start' as const,
             alignSelf: 'flex-start' as const,
-            gap: 1,
+            gap: MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURES_SLOTS_GAP_PX,
             padding: landscapeSouthPlayerWrapPadding,
             ...landscapeSouthPanelHeightCss,
             transform: 'none' as const,
@@ -19284,7 +19682,7 @@ function TrickSlotsDisplay({
     if (variant === 'player' && playerMobileWideTricks && !playerMobileLandscapeTricks && playerCircleSize != null) {
       playerCircleSize = Math.max(6, Math.round(playerCircleSize * 0.94));
     }
-  /** Юг · landscape: если полоска шире колонки панели — ужимаем кружки (не обрезаем). */
+  /** Юг · landscape: жидкий расклад — кружки заполняют ширину полоски равномерно (края + gaps). */
     if (
       variant === 'player' &&
       playerMobileLandscapeTricks &&
@@ -19292,37 +19690,45 @@ function TrickSlotsDisplay({
       bidNum > 0 &&
       playerCircleSize != null
     ) {
-      const figFontLand = mobileLandscapeSouthFigFontPx(bid, tricksTaken);
       const wCap = getMobileLandscapeSouthTrickPanelMaxWidthPx(
         playerMobileLandscapeOrderBudgetAvatarReservePx ?? MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+        playerMobileLandscapeSouthPanelWPx ?? MOBILE_LANDSCAPE_SOUTH_PANEL_FIXED_REFERENCE_W_PX,
       );
-      const panelNatural = estimateMobileLandscapeSouthOrderPanelWidthPx(
+      const padH =
+        bidNum >= 7
+          ? MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_DENSE_H_PX
+          : MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_H_PX;
+      const figuresReserve =
+        southLandscapeHighBidEar
+          ? 0
+          : Math.max(
+              28,
+              Math.round(
+                mobileLandscapeSouthFigFontPx(bid, tricksTaken) *
+                  (2.4 + Math.max(String(bidNum).length, String(tricksTaken).length) * 0.35),
+              ),
+            ) + MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURES_SLOTS_GAP_PX;
+      const plusReserve = extra > 0 && !hideCards ? 14 : 0;
+      const innerForCircles = Math.max(1, wCap - padH - figuresReserve - plusReserve);
+      const maxByHeight = Math.max(
+        4,
+        MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_H_PX - MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_V_PX * 2,
+      );
+      const preferred = Math.min(
+        Math.max(
+          5,
+          Math.round(18 * playerScale * southUserSlotShrink * MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_SHRINK),
+        ),
+        maxByHeight,
+      );
+      const liquid = mobileLandscapeSouthLiquidCircleLayout(
+        innerForCircles,
         bidNum,
-        tricksTaken,
-        playerCircleSize,
-        figFontLand,
-        extra,
-        hideCards,
-        southLandscapeHighBidEar,
+        preferred,
+        4,
+        MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_GAP_MIN_PX,
       );
-      if (panelNatural > wCap) {
-        const extraFit = mobileLandscapeSouthOrderScaleDown(
-          bidNum,
-          tricksTaken,
-          extra,
-          wCap,
-          playerCircleSize,
-          figFontLand,
-          hideCards,
-          southLandscapeHighBidEar,
-        );
-        playerCircleSize = Math.max(4, Math.round(playerCircleSize * extraFit));
-      }
-      /* 7–9: слегка мельче кружки — воздух внутри более широкой рамки */
-      if (bidNum >= 7) {
-        const denseMul = bidNum >= 9 ? 0.88 : bidNum >= 8 ? 0.92 : 0.95;
-        playerCircleSize = Math.max(4, Math.round(playerCircleSize * denseMul));
-      }
+      playerCircleSize = liquid.circlePx;
     }
     const opponentCircleSize =
       variant === 'opponent' && opponentMobileLandscapeNwOrderStrip
@@ -19338,16 +19744,29 @@ function TrickSlotsDisplay({
       variant === 'player' && playerMobileWideTricks
         ? { ...trickCirclesRowStyle, flexWrap: 'nowrap' }
         : null;
+    const southLandscapeLiquidEvenly =
+      variant === 'player' &&
+      !!playerMobileLandscapeTricks &&
+      bidNum != null &&
+      (bidNum >= 5 || southLandscapeHighBidEar);
     const rowStyle =
       variant === 'player' && playerMobileLandscapeTricks
         ? {
             ...trickCirclesRowStyle,
             flexWrap: 'nowrap' as const,
-            gap: bidNum != null && bidNum >= 7 ? 0 : 1,
+            gap: southLandscapeLiquidEvenly ? 0 : MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_GAP_PX,
+            paddingLeft: 0,
+            paddingRight: 0,
+            boxSizing: 'border-box' as const,
             alignItems: 'center' as const,
-            ...(southLandscapeHighBidEar
-              ? { justifyContent: 'center' as const, width: '100%' as const }
-              : {}),
+            justifyContent: (southLandscapeLiquidEvenly ? 'space-evenly' : 'flex-start') as
+              | 'space-evenly'
+              | 'flex-start',
+            width: southLandscapeLiquidEvenly ? ('100%' as const) : ('max-content' as const),
+            maxWidth: '100%' as const,
+            minWidth: 0,
+            alignSelf: (southLandscapeLiquidEvenly ? 'stretch' : 'center') as 'stretch' | 'center',
+            flex: southLandscapeLiquidEvenly ? ('1 1 auto' as const) : ('0 0 auto' as const),
           }
         : variant === 'opponent' && opponentMobileLandscapeNwOrderStrip
           ? {
@@ -19467,6 +19886,12 @@ function TrickSlotsDisplay({
       playerMobileLandscapeTricks && variant === 'player' ? 'trick-slots-player-mobile-landscape' : '',
       playerMobileLandscapeTricks && variant === 'player' && bidNum != null && bidNum >= 7
         ? 'trick-slots-south-landscape--dense'
+        : '',
+      playerMobileLandscapeTricks &&
+      variant === 'player' &&
+      bidNum != null &&
+      (bidNum >= 5 || southLandscapeHighBidEar)
+        ? 'trick-slots-south-landscape--liquid'
         : '',
       mobileHighBidEar ? 'trick-slots-mobile-nw-high-bid-ear' : '',
       opponentMobileLandscapeMidWeVertical ? 'trick-slots-mid-we-vertical' : '',
@@ -19608,24 +20033,27 @@ function TrickSlotsDisplay({
         ? getMobileLandscapeSouthTrickPanelMaxWidthPx(
             playerMobileLandscapeOrderBudgetAvatarReservePx ??
               MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+            playerMobileLandscapeSouthPanelWPx ??
+              MOBILE_LANDSCAPE_SOUTH_PANEL_FIXED_REFERENCE_W_PX,
           )
         : null;
     const landscapeSouthPanelWidthPx =
-      landscapeSouthPanelNatural != null && landscapeSouthWMax != null
-        ? /* Dense 7+: рамка на весь бюджет колонки (кружки уже с запасом padding) */
-          bidNum != null && bidNum >= 7
-            ? Math.ceil(landscapeSouthWMax)
-            : Math.min(landscapeSouthWMax, Math.ceil(landscapeSouthPanelNatural))
-        : landscapeSouthPanelNatural ?? landscapeSouthWMax ?? undefined;
+      landscapeSouthWMax != null
+        ? /* Бюджет для scaleDown кружков; визуальная ширина — 100% рельсы (CSS). */
+          Math.ceil(landscapeSouthWMax)
+        : landscapeSouthPanelNatural ?? undefined;
     const wrapStylePlayer =
       landscapeSouthPanelWidthPx != null
         ? {
             ...wrapStyleWithMopFig,
             overflow: southLandscapeHighBidEar ? ('visible' as const) : wrapStyle.overflow,
             position: southLandscapeHighBidEar ? ('relative' as const) : wrapStyle.position,
-            width: landscapeSouthPanelWidthPx,
-            maxWidth: landscapeSouthPanelWidthPx,
+            /* Ширина 100% рельсы; слоты у правого края (justify/align выше + CSS). */
+            width: '100%',
+            maxWidth: '100%',
             minWidth: 0,
+            marginLeft: 0,
+            marginRight: 0,
             ...landscapeSouthPanelHeightCss,
             ['--south-landscape-order-panel-w' as string]: `${landscapeSouthPanelWidthPx}px`,
           }
@@ -19671,7 +20099,17 @@ function TrickSlotsDisplay({
     const compactInner = mobileHighBidEar ? (
       <div className="trick-slots-mobile-nw-ear-inner">
         <span className="trick-slots-mobile-nw-figures-ear">{figuresCompact}</span>
-        <div className="trick-slots-mobile-nw-circles-only" style={rowStyle}>
+        <div
+          className={[
+            'trick-slots-mobile-nw-circles-only',
+            variant === 'player' && playerMobileLandscapeTricks
+              ? 'trick-slots-south-landscape-circles'
+              : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          style={rowStyle}
+        >
           {circlesBlock}
           {extraPlus}
         </div>
@@ -19690,7 +20128,14 @@ function TrickSlotsDisplay({
             {extraPlus}
           </div>
         ) : (
-          <div style={rowStyle}>
+          <div
+            className={
+              variant === 'player' && playerMobileLandscapeTricks
+                ? 'trick-slots-south-landscape-circles'
+                : undefined
+            }
+            style={rowStyle}
+          >
             {circlesBlock}
             {extraPlus}
           </div>
@@ -24803,7 +25248,14 @@ const MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_V_PX = 2;
 const MOBILE_LANDSCAPE_WE_ORDER_PAD_V_HIGH_BID_PX = 0;
 const MOBILE_LANDSCAPE_OPPONENT_ORDER_RADIUS_PX = 5;
 const MOBILE_LANDSCAPE_OPPONENT_ORDER_GAP_PX = 4;
-const MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX = 6;
+/**
+ * Host L/R pad budget: mop ring (exact3≈3) + --mop-inline-inset (4).
+ * Sync mobile-order-panel.css `calc(var(--mop-bw) + var(--mop-inline-inset))`.
+ */
+const MOBILE_LANDSCAPE_MOP_BW_BUDGET_PX = 3;
+const MOBILE_LANDSCAPE_MOP_INLINE_INSET_PX = 4;
+const MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX =
+  MOBILE_LANDSCAPE_MOP_BW_BUDGET_PX + MOBILE_LANDSCAPE_MOP_INLINE_INSET_PX;
 const MOBILE_LANDSCAPE_OPPONENT_ORDER_CIRCLE_BASE_PX = 14;
 const MOBILE_LANDSCAPE_OPPONENT_ORDER_FIT_SAFETY_PX = 2;
 const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_SHRINK = 0.78;
@@ -24820,10 +25272,32 @@ const MOBILE_LANDSCAPE_SOUTH_ORDER_RAIL_INSET_BOTTOM_PX = 5;
 const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_W_BONUS_PX = 0;
 /** Моб. landscape · Юг: без CSS transform — масштаб только через circleSize/scaleDown. */
 const MOBILE_LANDSCAPE_SOUTH_TRICK_INNER_CONTENT_SCALE = 1;
-const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_LEFT_PX = 3;
-const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_RIGHT_PX = 5;
+/**
+ * Юг · landscape · host pad = mop-bw + inset (см. mobile-order-panel.css).
+ * Голый «4» при exact3 (bw=3) → ~1px внутри кольца (=«как 0»).
+ * CSS !important перекрывает inline; константы — оценка ширины полоски.
+ */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_LEFT_PX =
+  MOBILE_LANDSCAPE_MOP_BW_BUDGET_PX + MOBILE_LANDSCAPE_MOP_INLINE_INSET_PX;
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_RIGHT_PX =
+  MOBILE_LANDSCAPE_MOP_BW_BUDGET_PX + MOBILE_LANDSCAPE_MOP_INLINE_INSET_PX;
+/** Dense 7+ без flush: тот же host pad. */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_DENSE_LEFT_PX =
+  MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_LEFT_PX;
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_DENSE_RIGHT_PX =
+  MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_RIGHT_PX;
 const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_H_PX =
   MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_LEFT_PX + MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_RIGHT_PX;
+const MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_DENSE_H_PX =
+  MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_DENSE_LEFT_PX +
+  MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_DENSE_RIGHT_PX;
+/** Зазор между слотами (кружками): обычный / dense (оценка ширины; визуал — жидкий расклад). */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_GAP_PX = 3;
+const MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_GAP_DENSE_PX = 2;
+/** Мин. жидкий зазор Юг landscape: между слотами и до L/R краёв полоски. */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_GAP_MIN_PX = 2;
+/** Юг · landscape · зазор между блоком «взято/заказ» и рядом слотов. */
+const MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURES_SLOTS_GAP_PX = 6;
 /** Моб. landscape · Юг: при заказе > N цифры «взято/заказ» — в «ушке» над полоской (как Север/Запад на мобиле). */
 const MOBILE_LANDSCAPE_SOUTH_TRICK_HIGH_BID_EAR_AFTER = 8;
 /** Редкий заказ 8 взяток — заметная подсветка полоски для всех игроков. */
@@ -24931,8 +25405,8 @@ function estimateMobileLandscapeNorthPanelFixedWidthPx(): number {
 
 /** Горизонтальный padding панели З/В в landscape — синхрон с --landscape-we-panel-pad-h в index.css */
 const MOBILE_LANDSCAPE_WE_PANEL_PAD_H_PX = 0;
-/** З/В: полоска заказа — тот же pad-h, что у Севера (не 2px: цифры/крест 0/0 липнут к обводке). */
-const MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX = 6;
+/** З/В: полоска заказа — тот же host pad, что у mop (bw + inset). */
+const MOBILE_LANDSCAPE_WE_ORDER_PAD_H_PX = MOBILE_LANDSCAPE_OPPONENT_ORDER_PAD_H_PX;
 const MOBILE_LANDSCAPE_WE_ORDER_GAP_PX = 3;
 /** Зазор панели З/В со столом (margin-right З / margin-left В) */
 const MOBILE_LANDSCAPE_WE_TABLE_GAP_PX = 3;
@@ -25051,13 +25525,17 @@ function estimateMobileLandscapeSouthOrderInnerWidthPx(
   const figuresW = figuresInEar
     ? 0
     : Math.max(24, Math.round(figFont * (2.4 + Math.max(bidDigits, takenDigits) * 0.35)));
-  const figuresGap = figuresInEar ? 0 : 4;
+  const figuresGap = figuresInEar ? 0 : MOBILE_LANDSCAPE_SOUTH_TRICK_FIGURES_SLOTS_GAP_PX;
   const plusW = extra > 0 && !hideCards ? 14 : 0;
+  const circleGap =
+    bid >= 7
+      ? MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_GAP_DENSE_PX
+      : MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_GAP_PX;
   return (
     figuresW +
     figuresGap +
     bid * circleSize +
-    Math.max(0, bid - 1) * (bid >= 7 ? 0 : 1) +
+    Math.max(0, bid - 1) * circleGap +
     plusW
   );
 }
@@ -25080,7 +25558,10 @@ function estimateMobileLandscapeSouthOrderPanelWidthPx(
     hideCards,
     figuresInEar,
   );
-  const padH = bid >= 7 ? 13 : MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_H_PX;
+  const padH =
+    bid >= 7
+      ? MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_DENSE_H_PX
+      : MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_H_PX;
   return Math.ceil(innerW + padH);
 }
 
@@ -25098,7 +25579,10 @@ function mobileLandscapeSouthOrderScaleDown(
     bid >= 7
       ? MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_FIT_SAFETY_DENSE_PX
       : MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_FIT_SAFETY_PX;
-  const padH = bid >= 7 ? 13 : MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_H_PX;
+  const padH =
+    bid >= 7
+      ? MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_DENSE_H_PX
+      : MOBILE_LANDSCAPE_SOUTH_TRICK_PANEL_PAD_H_PX;
   const innerBudget = Math.max(
     1,
     wMax - padH - fitSafety,
@@ -25120,7 +25604,10 @@ function mobileLandscapeSouthOrderScaleDown(
     : Math.max(24, Math.round(figFont * (2.4 + Math.max(bidDigits, takenDigits) * 0.35)));
   const plusW = extra > 0 && !hideCards ? 14 : 0;
   const fixedPart = figuresW + (figuresInEar ? 0 : 4) + plusW;
-  const circleGap = bid >= 7 ? 0 : 1;
+  const circleGap =
+    bid >= 7
+      ? MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_GAP_DENSE_PX
+      : MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_GAP_PX;
   const circlePart = bid * baseCircle + Math.max(0, bid - 1) * circleGap;
   const circleBudget = Math.max(1, innerBudget - fixedPart);
   if (circlePart <= 0) return 1;
@@ -25129,23 +25616,60 @@ function mobileLandscapeSouthOrderScaleDown(
 
 function getMobileLandscapeSouthTrickPanelMaxWidthPx(
   avatarReservePx: number = MOBILE_SOUTH_LANDSCAPE_AVATAR_RESERVE_PX,
+  southPanelWPx: number = MOBILE_LANDSCAPE_SOUTH_PANEL_FIXED_REFERENCE_W_PX,
 ): number {
-  if (typeof window === 'undefined') return 140;
-  const iw = window.innerWidth;
   /**
-   * Колонка панели Юга = viewport − рука (auto, часто 55–68% ширины).
-   * Завышенный бюджет → scaleDown=1 → полоска длиннее колонки и вылезает вправо.
+   * Бюджет полоски ≈ контент панели Юга минус аватар.
+   * Sync: panel pad L6/R3; rail pad-left 4; avatar/body margins ~6+4; gap 3.
    */
-  const handEst = Math.round(iw * 0.65);
-  const panelEst = Math.max(80, iw - handEst);
-  const northBody =
-    panelEst -
-    avatarReservePx -
-    3 - // avatar ↔ body gap
-    3 - // bottom-row padding-left
-    3; // --has-order margin-left
-  return Math.max(88, Math.min(240, northBody));
+  const PANEL_PAD_LEFT_PX = 6;
+  const PANEL_PAD_RIGHT_PX = 3;
+  const AVATAR_MARGIN_LEFT_PX = 6;
+  const BODY_MARGIN_LEFT_PX = 4;
+  const AVATAR_BODY_GAP_PX = 3;
+  const RAIL_PAD_LEFT_PX = 4;
+  const panelW =
+    Number.isFinite(southPanelWPx) && southPanelWPx > 0
+      ? southPanelWPx
+      : MOBILE_LANDSCAPE_SOUTH_PANEL_FIXED_REFERENCE_W_PX;
+  const innerPanel = Math.max(
+    0,
+    panelW - PANEL_PAD_LEFT_PX - PANEL_PAD_RIGHT_PX - AVATAR_MARGIN_LEFT_PX,
+  );
+  const bodyW = Math.max(
+    0,
+    innerPanel - avatarReservePx - AVATAR_BODY_GAP_PX - BODY_MARGIN_LEFT_PX,
+  );
+  const stripMax = bodyW - RAIL_PAD_LEFT_PX;
+  return Math.max(88, Math.floor(stripMax));
 }
+
+/**
+ * Жидкие слоты Юг · landscape (как bidSharedRowGapPx у кнопок торга):
+ * равные промежутки между кружками И до левого/правого края полоски (n+1).
+ * Кружок растёт до maxCirclePx, если ширина позволяет; иначе сжимается ≥ minCirclePx.
+ */
+function mobileLandscapeSouthLiquidCircleLayout(
+  innerW: number,
+  slotCount: number,
+  maxCirclePx: number,
+  minCirclePx: number = 4,
+  minGapPx: number = MOBILE_LANDSCAPE_SOUTH_TRICK_CIRCLE_GAP_MIN_PX,
+): { circlePx: number; gapPx: number; edgePx: number } {
+  const n = Math.max(0, Math.floor(slotCount));
+  const minG = Math.max(0, minGapPx);
+  const minC = Math.max(1, minCirclePx);
+  const maxC = Math.max(minC, maxCirclePx);
+  if (n <= 0 || innerW <= 0) {
+    return { circlePx: minC, gapPx: minG, edgePx: minG };
+  }
+  const maxByWidth = Math.floor((innerW - (n + 1) * minG) / n);
+  const circlePx = Math.max(minC, Math.min(maxC, maxByWidth));
+  const leftover = Math.max(0, innerW - n * circlePx);
+  const slot = leftover / (n + 1);
+  return { circlePx, gapPx: slot, edgePx: slot };
+}
+
 /** Ниже этой ширины viewport (px) — полоска заказа юга ещё на 15% компактнее (множитель к scaleDown). */
 const MOBILE_SOUTH_USER_TRICK_PANEL_NARROW_VIEWPORT_PX = 333;
 const MOBILE_SOUTH_USER_TRICK_PANEL_NARROW_SCALE_MUL = 0.85;
@@ -25378,7 +25902,7 @@ const bidSidePanelGridMobile: React.CSSProperties = {
 
 /**
  * Мобильная сетка заказа: rows[0] = нижняя строка (0 справа при row-reverse на ряду).
- * lowerCols — ёмкость двух нижних рядов; upperCols — всех выше (по умолчанию = lowerCols).
+ * lowerCols — только нижний ряд; upperCols — все ряды выше (phone LS: с учётом козыря).
  */
 function chunkMobileBidRows(
   bidButtonCount: number,
@@ -25388,7 +25912,7 @@ function chunkMobileBidRows(
   const bids = Array.from({ length: bidButtonCount }, (_, i) => i);
   const rows: number[][] = [];
   let i = 0;
-  for (let r = 0; r < 2 && i < bids.length; r++) {
+  if (i < bids.length) {
     const take = Math.min(lowerCols, bids.length - i);
     rows.push(bids.slice(i, i + take));
     i += take;

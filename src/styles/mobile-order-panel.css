@@ -680,6 +680,187 @@
   font-size: var(--mop-fig-size, 13px) !important;
 }
 
+/*
+ * Landscape · цифры в линии со слотами + зазор справа —
+ * ТОЛЬКО когда слоты СПРАВА от цифр (ряд).
+ * З/В · mid-we-vertical / high-bid-ear (слоты СНИЗУ): margin-right съезжает цифры влево — см. блок ниже.
+ */
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear)
+  > .mop-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear)
+  > .mop-figures.trick-slots-bid-taken-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear)
+  > .trick-slots-bid-taken-figures.mop-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .trick-slots-player-mobile-landscape:not(.trick-slots-mobile-nw-high-bid-ear)
+  > .trick-slots-bid-taken-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .mop-panel--lab-chrome:not(.trick-slots-mid-we-vertical):not(.trick-slots-mobile-nw-high-bid-ear)
+  > .mop-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .mop-panel--lab-chrome:not(.trick-slots-mid-we-vertical):not(.trick-slots-mobile-nw-high-bid-ear)
+  > .mop-figures.trick-slots-bid-taken-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > .mop-panel--lab-chrome:not(.trick-slots-mid-we-vertical):not(.trick-slots-mobile-nw-high-bid-ear)
+  > .trick-slots-bid-taken-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-north
+  .mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear)
+  > .mop-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-north
+  .mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear)
+  > .mop-figures.trick-slots-bid-taken-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-north
+  .opponent-slot-stats-mobile-nw--landscape-north
+  > .mop-panel--lab-chrome:not(.trick-slots-mobile-nw-high-bid-ear)
+  > .trick-slots-bid-taken-figures {
+  transform: scale(1.05, 1.05) translateY(-2px) !important;
+  transform-origin: center center !important;
+  align-self: center !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  margin-right: 6px !important;
+  line-height: 1 !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+}
+
+/*
+ * З/В · слоты ПОД цифрами (mid vertical / ушко): без margin-right,
+ * цифры по центру над гирляндой; зазор — column gap панели.
+ */
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .mop-panel--lab-chrome.trick-slots-mid-we-vertical
+  > .mop-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .mop-panel--lab-chrome.trick-slots-mid-we-vertical
+  > .mop-figures.trick-slots-bid-taken-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .mop-panel--lab-chrome.trick-slots-mid-we-vertical
+  .trick-slots-bid-taken-figures.mop-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .mop-panel--lab-chrome.trick-slots-mobile-nw-high-bid-ear
+  .trick-slots-mobile-nw-figures-ear
+  .mop-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .mop-panel--lab-chrome.trick-slots-mobile-nw-high-bid-ear
+  .trick-slots-mobile-nw-figures-ear
+  .trick-slots-bid-taken-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-north
+  .mop-panel--lab-chrome.trick-slots-mobile-nw-high-bid-ear
+  .trick-slots-mobile-nw-figures-ear
+  .mop-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-north
+  .mop-panel--lab-chrome.trick-slots-mobile-nw-high-bid-ear
+  .trick-slots-mobile-nw-figures-ear
+  .trick-slots-bid-taken-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .mop-panel--lab-chrome.trick-slots-mobile-nw-high-bid-ear
+  .trick-slots-mobile-nw-figures-ear
+  .mop-figures,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .mop-panel--lab-chrome.trick-slots-mobile-nw-high-bid-ear
+  .trick-slots-mobile-nw-figures-ear
+  .trick-slots-bid-taken-figures {
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+  margin-bottom: 0 !important;
+  transform: scale(1.05, 1.05) translateY(0) !important;
+  transform-origin: center center !important;
+  align-self: center !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .trick-slots-mobile-nw-figures-ear,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-north
+  .trick-slots-mobile-nw-figures-ear,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .trick-slots-mobile-nw-figures-ear {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  justify-content: center !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .mop-panel--lab-chrome.trick-slots-mid-we-vertical,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .mop-panel--lab-chrome.trick-slots-mobile-nw-high-bid-ear {
+  /* column: gap = воздух цифры ↔ слоты снизу (не margin-right) */
+  gap: var(--mop-gap, 6px) !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .mop-panel--lab-chrome
+  > .trick-slots-south-landscape-circles,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .trick-slots-player-mobile-landscape
+  > .trick-slots-south-landscape-circles,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .trick-slots-mobile-nw-circles-only.trick-slots-south-landscape-circles {
+  align-self: center !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* 5+ / ушко: жидкий расклад на всю ширину полоски */
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .trick-slots-south-landscape--liquid
+  .trick-slots-south-landscape-circles,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .trick-slots-south-landscape--liquid.trick-slots-mobile-nw-high-bid-ear
+  .trick-slots-mobile-nw-circles-only,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .trick-slots-south-landscape--liquid
+  > .trick-slots-south-landscape-circles {
+  align-self: stretch !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  gap: 0 !important;
+  justify-content: space-evenly !important;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+}
+
 .game-table-root.viewport-mobile .mop-figures > span {
   line-height: 1 !important;
   display: inline-flex !important;
@@ -837,21 +1018,22 @@
  * (колонка держала крест «заниженным» под цифрами).
  */
 .game-table-root.viewport-mobile .mop-panel--zeroExact.mop-panel--lab-chrome {
-  --mop-gap: 4px;
+  --mop-gap: 6px;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: center !important;
   justify-content: flex-start !important;
 }
 
-/* Landscape · 0/0 и 0/N: минимальный зазор цифр/креста от обводки (не «жирные» поля) */
-.game-table-root.viewport-mobile.viewport-mobile-landscape
-  .mop-panel--zeroExact.mop-panel--lab-chrome,
-.game-table-root.viewport-mobile.viewport-mobile-landscape
-  .mop-panel--zeroPending.mop-panel--lab-chrome {
-  padding-left: 6px !important;
-  padding-right: 6px !important;
-  box-sizing: border-box !important;
+/*
+ * Landscape · гориз. inset = кольцо (--mop-bw) + воздух (--mop-inline-inset).
+ * Голый pad:4 при exact3 (bw=3) даёт ~1px внутри кольца → «как 0» на скрине.
+ * Единый источник: блок в конце файла (не плодить 4px/0/2 здесь).
+ */
+.game-table-root.viewport-mobile.viewport-mobile-landscape {
+  --mop-inline-inset: 4px;
+  /* Цифры ↔ слоты: 6px (3 выглядело как «миллиметр») */
+  --mop-gap: 6px;
 }
 
 .game-table-root.viewport-mobile
@@ -933,9 +1115,7 @@
   min-width: 0 !important;
   width: auto !important;
   max-width: max-content !important;
-  /* Как у Севера (6px) — минимальный зазор цифр/креста от обводки */
-  padding-left: 6px !important;
-  padding-right: 6px !important;
+  /* L/R: финальный блок --mop-bw + --mop-inline-inset */
   justify-content: flex-start !important;
   box-sizing: border-box !important;
 }
@@ -966,7 +1146,165 @@
   min-height: 26px !important;
   max-height: 26px !important;
   height: 26px !important;
-  padding-left: 4px !important;
-  padding-right: 5px !important;
+  padding-left: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
+  padding-right: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
   justify-content: center !important;
+}
+
+/*
+ * ═══ ЕДИНСТВЕННЫЙ гориз. pad для mop-chrome (Юг + З/В landscape) ═══
+ * Специфичность ≥ index.css (bottom-row > corner > order > trick-slots),
+ * иначе shorthand padding: 2px 4px из index побеждает и «правка mop» невидима.
+ * pad = --mop-bw (кольцо ::before) + --mop-inline-inset (воздух до цифр/слотов).
+ */
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > button.trick-slots-normal.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > button.trick-slots-collecting.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-normal.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > div.trick-slots-collecting.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > .user-player-panel-south-landscape-order-inner-scale
+  > button.trick-slots-normal.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > .user-player-panel-south-landscape-order-inner-scale
+  > button.trick-slots-collecting.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > .user-player-panel-south-landscape-order-inner-scale
+  > div.trick-slots-normal.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-bottom-row--landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-bottom-row
+  > .user-player-panel-south-landscape-order-corner
+  > .user-player-panel-south-landscape-order
+  > .user-player-panel-south-landscape-order-inner-scale
+  > div.trick-slots-collecting.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .trick-slots-player-mobile-landscape.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .mop-panel--zeroExact.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .mop-panel--zeroPending.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-normal.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > button.trick-slots-collecting.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > div.trick-slots-normal.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-we
+  .opponent-slot-stats-mobile-nw--landscape-we
+  > div.trick-slots-collecting.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-north
+  .opponent-slot-stats-mobile-nw--landscape-north
+  > button.trick-slots-normal.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-north
+  .opponent-slot-stats-mobile-nw--landscape-north
+  > button.trick-slots-collecting.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-north
+  .opponent-slot-stats-mobile-nw--landscape-north
+  > div.trick-slots-normal.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .opponent-slot--mobile-landscape-north
+  .opponent-slot-stats-mobile-nw--landscape-north
+  > div.trick-slots-collecting.mop-panel--lab-chrome {
+  padding-left: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
+  padding-right: calc(var(--mop-bw, 2px) + var(--mop-inline-inset, 4px)) !important;
+  gap: var(--mop-gap, 6px) !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .trick-slots-south-landscape--liquid.mop-panel--lab-chrome,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .trick-slots-south-landscape--liquid {
+  width: 100% !important;
+  max-width: 100% !important;
+  justify-content: flex-start !important;
+  align-self: stretch !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-order-corner:has(.trick-slots-south-landscape--liquid),
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .user-player-panel-south-landscape-order-corner:has(.trick-slots-south-landscape--liquid)
+  > .user-player-panel-south-landscape-order {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  justify-content: flex-start !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .trick-slots-south-landscape--liquid
+  .trick-slots-south-landscape-circles,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .user-player-panel--mobile-landscape-south
+  .trick-slots-south-landscape--dense
+  .trick-slots-south-landscape-circles {
+  gap: 0 !important;
 }

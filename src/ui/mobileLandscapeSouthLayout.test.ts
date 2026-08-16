@@ -13,13 +13,22 @@ describe('isMobileLandscapeSouthLayoutTuned', () => {
   it('true at reference 660×330', () => {
     expect(
       isMobileLandscapeSouthLayoutTuned({
+        width: 660,
+        height: MOBILE_LANDSCAPE_SOUTH_TUNED_MIN_HEIGHT_PX,
+      }),
+    ).toBe(true);
+  });
+
+  it('true at after-short boundary+1 (651×330) — closes 651–659 gap', () => {
+    expect(
+      isMobileLandscapeSouthLayoutTuned({
         width: MOBILE_LANDSCAPE_SOUTH_TUNED_MIN_WIDTH_PX,
         height: MOBILE_LANDSCAPE_SOUTH_TUNED_MIN_HEIGHT_PX,
       }),
     ).toBe(true);
   });
 
-  it('true at 660×329 (Edge/DevTools height off by 1px)', () => {
+  it('true at 651×329 (Edge/DevTools height off by 1px)', () => {
     expect(
       isMobileLandscapeSouthLayoutTuned({
         width: MOBILE_LANDSCAPE_SOUTH_TUNED_MIN_WIDTH_PX,
@@ -32,7 +41,7 @@ describe('isMobileLandscapeSouthLayoutTuned', () => {
     expect(isMobileLandscapeSouthLayoutTuned({ width: 800, height: 400 })).toBe(true);
   });
 
-  it('false when width below minimum', () => {
+  it('false when width below minimum (still after-short band)', () => {
     expect(
       isMobileLandscapeSouthLayoutTuned({
         width: MOBILE_LANDSCAPE_SOUTH_TUNED_MIN_WIDTH_PX - 1,
@@ -61,7 +70,7 @@ describe('mobileLandscapeSouthPanelFixedWidthPxWhenTuned', () => {
     ).toBe(MOBILE_LANDSCAPE_SOUTH_PANEL_FIXED_REFERENCE_W_PX);
   });
 
-  it('returns null below tuned threshold', () => {
+  it('returns null below tuned threshold (after-short band)', () => {
     expect(
       mobileLandscapeSouthPanelFixedWidthPxWhenTuned({
         width: 640,

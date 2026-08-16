@@ -1,13 +1,14 @@
 /**
  * Моб. landscape · раскладка панели Юга (панель слева, рука справа, фикс. ширина под 9 карт).
  *
- * Откалибровано под эталонный viewport **660×330** (ширина×высота, landscape).
- * На экранах уже — возможны наложения и обрезки; доработка отдельно.
+ * Эталон калибровки **660×330**. Фикс. панель (247) в обычном phone LS с длинной стороны **≥651**
+ * (стык с after-short ≤650) — иначе дыра 651–659 без after-short и без старого порога 660.
  * Подробнее: docs/MOBILE-LANDSCAPE-SOUTH-LAYOUT.md
  */
 import { useEffect, useState } from 'react';
 
-export const MOBILE_LANDSCAPE_SOUTH_TUNED_MIN_WIDTH_PX = 660;
+/** Стык с after-short (≤650): обычный LS / south-tuned с длинной стороны ≥651. */
+export const MOBILE_LANDSCAPE_SOUTH_TUNED_MIN_WIDTH_PX = 651;
 export const MOBILE_LANDSCAPE_SOUTH_TUNED_MIN_HEIGHT_PX = 330;
 /**
  * DevTools/Edge иногда отдают visualViewport.height на 1px меньше (329 при «330»).
@@ -20,7 +21,8 @@ export const MOBILE_LANDSCAPE_SOUTH_TUNED_HEIGHT_TOLERANCE_PX = 1;
 export const MOBILE_LANDSCAPE_SOUTH_PANEL_FIXED_REFERENCE_W_PX = 247;
 
 export const MOBILE_LANDSCAPE_SOUTH_TUNED_REFERENCE_VIEWPORT = {
-  width: MOBILE_LANDSCAPE_SOUTH_TUNED_MIN_WIDTH_PX,
+  /** Эталон калибровки (не порог включения). */
+  width: 660,
   height: MOBILE_LANDSCAPE_SOUTH_TUNED_MIN_HEIGHT_PX,
 } as const;
 
