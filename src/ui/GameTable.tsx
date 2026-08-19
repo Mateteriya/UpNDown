@@ -277,6 +277,19 @@ import {
   useOnlineRoomCodeTimerAlternate,
 } from './OnlinePartyElapsedTimer';
 import { TableChatDock } from './TableChatDock';
+import { MobileLandscapeChatAffordance } from './MobileLandscapeChatAffordance';
+import {
+  MOBILE_LS_EAST_CHAT_HEADER_COLLAPSED_W_PX,
+  MOBILE_LS_FELT_MIN_BESIDE_CHAT_PX,
+  clampMobileLsEastChatColW,
+  mobileLsChatAffordanceMode,
+  mobilePortraitChatAffordanceMode,
+  mobileLsEastChatColWidthPx,
+  readOnlineEastChatColWFromLs,
+  readOnlineThreeSeatSideChatFromLs,
+  writeOnlineEastChatColWToLs,
+  writeOnlineThreeSeatSideChatToLs,
+} from './mobileLandscapeChatContract';
 import { GameDealOrbitDock } from './GameDealOrbitDock';
 import type { Card, GamePhase } from '../game/types';
 import { getDeckCardsUnderTrump, getDeckStackLayerCount } from '../game/deck';
@@ -2821,6 +2834,73 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   /** Онлайн-чат: Supabase (auth user) или WS (onlinePlayerId / device id). */
   const tableChatUserId = isWsOnlineTransport() ? online.onlinePlayerId : user?.id;
   const showTableChat = !!(online.roomId && (isOnline || isWaitingInRoom) && tableChatUserId);
+  const [tableChatOpenNonce, setTableChatOpenNonce] = useState(0);
+  const [tableChatChromeMeta, setTableChatChromeMeta] = useState<{
+    unread: boolean;
+    typingLine: string | null;
+  }>({ unread: false, typingLine: null });
+  /** Online · 3p landscape: opt-in «чат справа» (idx1 → Север, колонка Востока → чат). Только chrome. */
+  const [onlineThreeSeatSideChat, setOnlineThreeSeatSideChat] = useState(
+    readOnlineThreeSeatSideChatFromLs,
+  );
+  const [eastChatHeaderCollapsed, setEastChatHeaderCollapsed] = useState(false);
+  const [tableChatMobileOpen, setTableChatMobileOpen] = useState(false);
+  const openTableChatMobile = useCallback(() => {
+    setTableChatOpenNonce((n) => n + 1);
+  }, []);
+  const onTableChatChromeMeta = useCallback(
+    (meta: { unread: boolean; typingLine: string | null }) => {
+      setTableChatChromeMeta(meta);
+    },
+    [],
+  );
+  const [eastChatHostEl, setEastChatHostEl] = useState<HTMLElement | null>(null);
+  const eastChatHostRef = useCallback((el: HTMLDivElement | null) => {
+    setEastChatHostEl(el);
+  }, []);
+  /** Ручной resize колонки чата (3p online LS); null = дефолт режима. */
+  const [eastChatColWUser, setEastChatColWUser] = useState<number | null>(() =>
+    readOnlineEastChatColWFromLs(),
+  );
+  const [eastChatResizeHintOn, setEastChatResizeHintOn] = useState(false);
+  const [eastChatResizeHintKey, setEastChatResizeHintKey] = useState(0);
+  const eastChatResizeHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Точки ручки: intro (кислота) → mid (спокойно) → soft (ещё мягче). */
+  const [eastChatDiamondPhase, setEastChatDiamondPhase] = useState<'off' | 'intro' | 'mid' | 'soft'>(
+    'off',
+  );
+  const eastChatDiamondPhaseTimersRef = useRef<{
+    mid: ReturnType<typeof setTimeout> | null;
+    soft: ReturnType<typeof setTimeout> | null;
+  }>({ mid: null, soft: null });
+  const eastChatResizeSessionRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startW: number;
+    maxW: number;
+    dragged: boolean;
+  } | null>(null);
+  const toggleOnlineThreeSeatSideChat = useCallback(() => {
+    setOnlineThreeSeatSideChat((prev) => {
+      const next = !prev;
+      writeOnlineThreeSeatSideChatToLs(next);
+      if (!next) setEastChatHeaderCollapsed(false);
+      return next;
+    });
+  }, []);
+  const dismissEastChatToBottom = useCallback(() => {
+    setEastChatHeaderCollapsed(false);
+    setOnlineThreeSeatSideChat(false);
+    writeOnlineThreeSeatSideChatToLs(false);
+  }, []);
+  const onEastChatCollapsedChange = useCallback((collapsed: boolean) => {
+    setTableChatMobileOpen(!collapsed);
+    if (!onlineThreeSeatSideChat) {
+      setEastChatHeaderCollapsed(false);
+      return;
+    }
+    setEastChatHeaderCollapsed(collapsed);
+  }, [onlineThreeSeatSideChat]);
   const [localState, setLocalState] = useState<GameState | null>(null);
   const [startingFromWaiting, setStartingFromWaiting] = useState(false);
   const prevOnlineAiDriveKeyRef = useRef<string | null>(null);
@@ -5585,19 +5665,160 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
    * 4 — Юг0 / Север1 / Запад2 / Восток3.
    * 3 — Юг0 / Запад2 / Восток1; Север скрыт.
    *   Портрет мобилки пока держит «Север» для idx1 — не ломаем.
-   *   ПК + любой моб. landscape (phone LS / mid / after-short): idx1 на Востоке, без Севера.
+   *   ПК + моб. landscape: idx1 на Востоке, без Севера.
+   *   Online · 3p landscape + opt-in side-chat: idx1 на Севере (chrome only), Восток = чат.
    */
   const showWestSideSeat = true;
   const showEastSeatFour = !isThreeSeatTable;
-  /** Моб. landscape · 3p: Восток (idx1), как в 4p справа; иначе Восток только в 4p. */
+  const onlineThreeSeatSideChatActive =
+    Boolean(showTableChat) &&
+    isMobileLandscape &&
+    isThreeSeatTable &&
+    onlineThreeSeatSideChat;
+  const mobileLsEastChatDefaultW = onlineThreeSeatSideChatActive
+    ? mobileLsEastChatColWidthPx({
+        afterShort: mobileLandscapeAfterShortVh,
+        shortVh: mobileViewportShort || mobileStandardLayoutOnShortViewport,
+      })
+    : 0;
+  const mobileLsEastChatColW = onlineThreeSeatSideChatActive
+    ? eastChatHeaderCollapsed
+      ? MOBILE_LS_EAST_CHAT_HEADER_COLLAPSED_W_PX
+      : clampMobileLsEastChatColW(eastChatColWUser ?? mobileLsEastChatDefaultW)
+    : 0;
+  useEffect(() => {
+    const clearPhaseTimers = () => {
+      const t = eastChatDiamondPhaseTimersRef.current;
+      if (t.mid) {
+        window.clearTimeout(t.mid);
+        t.mid = null;
+      }
+      if (t.soft) {
+        window.clearTimeout(t.soft);
+        t.soft = null;
+      }
+    };
+    clearPhaseTimers();
+    if (!onlineThreeSeatSideChatActive) {
+      setEastChatDiamondPhase('off');
+      return;
+    }
+    setEastChatDiamondPhase('intro');
+    eastChatDiamondPhaseTimersRef.current.mid = window.setTimeout(() => {
+      setEastChatDiamondPhase('mid');
+      eastChatDiamondPhaseTimersRef.current.mid = null;
+    }, 5000);
+    eastChatDiamondPhaseTimersRef.current.soft = window.setTimeout(() => {
+      setEastChatDiamondPhase('soft');
+      eastChatDiamondPhaseTimersRef.current.soft = null;
+    }, 8000);
+    return clearPhaseTimers;
+  }, [onlineThreeSeatSideChatActive]);
+  const startEastChatColResize = useCallback(
+    (ev: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!onlineThreeSeatSideChatActive) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const host = eastChatHostEl;
+      const board = host?.closest('.game-mobile-landscape-board-row--active') as HTMLElement | null;
+      const boardW = board?.getBoundingClientRect().width ?? window.innerWidth;
+      const westW = 108;
+      const gaps = 16;
+      const maxFromBoard = Math.max(
+        MOBILE_LS_FELT_MIN_BESIDE_CHAT_PX,
+        boardW - westW - gaps - MOBILE_LS_FELT_MIN_BESIDE_CHAT_PX,
+      );
+      const maxW = clampMobileLsEastChatColW(maxFromBoard, { maxPx: maxFromBoard });
+      const startW = mobileLsEastChatColW;
+      eastChatResizeSessionRef.current = {
+        pointerId: ev.pointerId,
+        startX: ev.clientX,
+        startW,
+        maxW,
+        dragged: false,
+      };
+      try {
+        ev.currentTarget.setPointerCapture(ev.pointerId);
+      } catch {
+        /* ignore */
+      }
+    },
+    [eastChatHostEl, mobileLsEastChatColW, onlineThreeSeatSideChatActive],
+  );
+  const onEastChatColResizeMove = useCallback((ev: ReactPointerEvent<HTMLButtonElement>) => {
+    const sess = eastChatResizeSessionRef.current;
+    if (!sess || sess.pointerId !== ev.pointerId) return;
+    ev.preventDefault();
+    const dx = ev.clientX - sess.startX;
+    if (!sess.dragged) {
+      if (Math.abs(dx) < 8) return;
+      sess.dragged = true;
+      document.body.classList.add('ls-east-chat-resizing');
+      setEastChatResizeHintOn(false);
+      if (eastChatResizeHintTimerRef.current) {
+        window.clearTimeout(eastChatResizeHintTimerRef.current);
+        eastChatResizeHintTimerRef.current = null;
+      }
+    }
+    /* Вправо — уже чат; влево — шире чат. */
+    const next = clampMobileLsEastChatColW(sess.startW - dx, {
+      maxPx: sess.maxW,
+    });
+    setEastChatColWUser(next);
+  }, []);
+  const endEastChatColResize = useCallback((ev: ReactPointerEvent<HTMLButtonElement>) => {
+    const sess = eastChatResizeSessionRef.current;
+    if (!sess || sess.pointerId !== ev.pointerId) return;
+    const wasDrag = sess.dragged;
+    eastChatResizeSessionRef.current = null;
+    document.body.classList.remove('ls-east-chat-resizing');
+    try {
+      ev.currentTarget.releasePointerCapture(ev.pointerId);
+    } catch {
+      /* ignore */
+    }
+    if (wasDrag) {
+      setEastChatColWUser((w) => {
+        if (w == null) return w;
+        writeOnlineEastChatColWToLs(w);
+        return w;
+      });
+      return;
+    }
+    /* Однократный тап — подсказка-стрелки (новый key → CSS-анимация с нуля) */
+    if (eastChatResizeHintTimerRef.current) {
+      window.clearTimeout(eastChatResizeHintTimerRef.current);
+      eastChatResizeHintTimerRef.current = null;
+    }
+    setEastChatResizeHintKey((k) => k + 1);
+    setEastChatResizeHintOn(true);
+    eastChatResizeHintTimerRef.current = window.setTimeout(() => {
+      setEastChatResizeHintOn(false);
+      eastChatResizeHintTimerRef.current = null;
+    }, 1500);
+  }, []);
+  /** Моб. landscape · 3p: Восток (idx1), если не opt-in side-chat; иначе Восток только в 4p. */
   const showMobileLandscapeEastSeat =
-    showEastSeatFour || (isMobileLandscape && isThreeSeatTable);
+    showEastSeatFour || (isMobileLandscape && isThreeSeatTable && !onlineThreeSeatSideChatActive);
+  /** 3p online side-chat: Север вместо Востока (тот же display idx1). */
+  const showMobileLandscapeNorthThreeSideChat = onlineThreeSeatSideChatActive;
   const mobileEastDisplayIndex = isThreeSeatTable ? 1 : 3;
   const showPcNorthSeat = !isThreeSeatTable;
   /** ПК · 4p (не планшет): Север pin к верху страницы (23px), вне translateY блока. */
   const pinPcDesktopFourNorthTop = !isMobile && !useTabletPcTableTuning && showPcNorthSeat;
   const showPcEastSeat = true;
   const pcEastDisplayIndex = isThreeSeatTable ? 1 : 3;
+  /** Online 3p/4p: LS диск ≤5 / мини ≥6; портрет диск <5 / мини ≥5 по центру Юга. Не side-chat и не при открытом чате. */
+  const showMobileLsChatAffordance =
+    Boolean(showTableChat) &&
+    isMobile &&
+    (isMobileLandscape || !mobileViewportShort) &&
+    !onlineThreeSeatSideChatActive &&
+    !tableChatMobileOpen;
+  const mobileLsChatHandLen = state?.players[humanIdx]?.hand.length ?? 0;
+  const mobileLsChatMode = isMobileLandscape
+    ? mobileLsChatAffordanceMode(mobileLsChatHandLen)
+    : mobilePortraitChatAffordanceMode(mobileLsChatHandLen);
   const pcWestDisplayIndex = 2;
   const pcNorthDisplayIndex = 1;
   /** Пока взятка на столе (pending) — это НЕ ход «положить карту», даже если currentPlayer = победитель. */
@@ -9540,6 +9761,28 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             {renderMobileDealContractPanelButton({ landscapeToolbar: true })}
           </div>
         ) : null}
+        {showTableChat && isThreeSeatTable ? (
+          <div className="game-mobile-landscape-toolbar-panel__row game-mobile-landscape-toolbar-panel__row-chat-layout">
+            <button
+              type="button"
+              className={[
+                'game-mobile-landscape-toolbar-panel__chat-side-toggle',
+                onlineThreeSeatSideChat ? 'is-on' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              aria-pressed={onlineThreeSeatSideChat}
+              title={
+                onlineThreeSeatSideChat
+                  ? 'Обычный вид: Восток справа, чат снизу'
+                  : 'Чат справа у стола: Север сверху'
+              }
+              onClick={toggleOnlineThreeSeatSideChat}
+            >
+              {onlineThreeSeatSideChat ? 'Чат↓' : 'Чат→'}
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -9712,7 +9955,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         gameTableRootRef.current = el;
         setTabletNorthPortalHost((prev) => (prev === el ? prev : el));
       }}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isThreeSeatTable ? ' game-table-seats-three' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${tableScaleControlEnabled ? ' game-table-has-table-scale' : ''}${useMidLandscapeScaleGears ? ' game-table-has-hand-scale' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileMidSquareLayout ? ' viewport-mobile-landscape-mid' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${mobileLandscapeAfterShortVh ? ' viewport-mobile-landscape-after-short' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${gameInfoBadgeSkin === 'plasma' ? ` game-info-plasma-screen-tone-${plasmaScreenTone}` : ''}${!isMobile && gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma-pc-flat' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isThreeSeatTable ? ' game-table-seats-three' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${tableScaleControlEnabled ? ' game-table-has-table-scale' : ''}${useMidLandscapeScaleGears ? ' game-table-has-hand-scale' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileMidSquareLayout ? ' viewport-mobile-landscape-mid' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${mobileLandscapeAfterShortVh ? ' viewport-mobile-landscape-after-short' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${onlineThreeSeatSideChatActive ? ' game-table-ls-3p-side-chat' : ''}${onlineThreeSeatSideChatActive && eastChatHeaderCollapsed ? ' game-table-ls-3p-side-chat--header-collapsed' : ''}${onlineThreeSeatSideChatActive && !eastChatHeaderCollapsed && mobileLsEastChatColW <= 200 ? ' game-table-ls-3p-side-chat--compact' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${gameInfoBadgeSkin === 'plasma' ? ` game-info-plasma-screen-tone-${plasmaScreenTone}` : ''}${!isMobile && gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma-pc-flat' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{
         ...tableLayoutStyle,
         position: 'relative',
@@ -9811,6 +10054,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         ...(mobileLandscapeEastBadgeMaxW != null
           ? ({
               ['--landscape-upper-east-badge-max-w' as string]: `${mobileLandscapeEastBadgeMaxW}px`,
+            } as const)
+          : {}),
+        ...(onlineThreeSeatSideChatActive && mobileLsEastChatColW > 0
+          ? ({
+              ['--ls-east-chat-col-w' as string]: `${mobileLsEastChatColW}px`,
             } as const)
           : {}),
       }}
@@ -10882,8 +11130,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         {renderMobileGameInfoLeftSection()}
                       </div>
                     </div>
-                    {/* Phone LS · 3p: Север не используем — idx1 на Востоке (как mid/ПК). */}
-                    {!isThreeSeatTable ? (
+                    {/* Phone LS · 3p: Север только при online side-chat; иначе idx1 на Востоке. */}
+                    {!isThreeSeatTable || showMobileLandscapeNorthThreeSideChat ? (
                       <div className="game-mobile-landscape-north-col game-mobile-landscape-north-col--phone-ls-end">
                         <div
                           ref={mobileShortTopRowRef}
@@ -10944,7 +11192,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             )}
           </div>
           <div className="game-center-spacer-top" style={centerAreaSpacerTopStyle} aria-hidden />
-          {isMobileMidSquareLayout && !isThreeSeatTable ? (
+          {isMobileMidSquareLayout && (!isThreeSeatTable || showMobileLandscapeNorthThreeSideChat) ? (
             <div
               ref={mobileShortTopRowRef}
               className="game-mobile-mid-north-above-table"
@@ -10953,7 +11201,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             </div>
           ) : null}
           <div
-            className={['game-mobile-table-and-hand', isMobileLandscape ? 'game-mobile-table-and-hand--landscape' : ''].filter(Boolean).join(' ')}
+            className={[
+              'game-mobile-table-and-hand',
+              isMobileLandscape ? 'game-mobile-table-and-hand--landscape' : '',
+              isMobileLandscape && tableChatMobileOpen && !onlineThreeSeatSideChatActive
+                ? 'game-mobile-table-and-hand--ls-chat-open'
+                : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -11615,6 +11871,73 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 offlineAiNameStyleByDifficulty={offlineAiNamePickEnabled}
               />
             </div>
+            ) : onlineThreeSeatSideChatActive ? (
+            <div
+              ref={eastChatHostRef}
+              className="game-center-east game-mobile-east game-mobile-east--table-chat"
+              style={{
+                flex: '0 0 auto',
+                flexShrink: 0,
+                width: mobileLsEastChatColW,
+                minWidth: mobileLsEastChatColW,
+                maxWidth: mobileLsEastChatColW,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                justifyContent: eastChatHeaderCollapsed ? 'flex-start' : 'stretch',
+                alignSelf: eastChatHeaderCollapsed ? 'flex-start' : 'stretch',
+                minHeight: 0,
+                height: eastChatHeaderCollapsed
+                  ? 'auto'
+                  : 'var(--game-table-landscape-block-height)',
+                maxHeight: eastChatHeaderCollapsed
+                  ? 'none'
+                  : 'var(--game-table-landscape-block-height)',
+                boxSizing: 'border-box',
+                position: 'relative',
+              }}
+              aria-label="Чат стола"
+            >
+              {!eastChatHeaderCollapsed ? (
+              <button
+                type="button"
+                className={[
+                  'game-mobile-east-chat-resize-handle',
+                  eastChatResizeHintOn ? 'game-mobile-east-chat-resize-handle--hint' : '',
+                  eastChatDiamondPhase === 'intro'
+                    ? 'game-mobile-east-chat-resize-handle--diamond-intro'
+                    : '',
+                  eastChatDiamondPhase === 'soft'
+                    ? 'game-mobile-east-chat-resize-handle--diamond-soft'
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label="Изменить ширину чата и сукна"
+                title="Потяните вбок"
+                onPointerDown={startEastChatColResize}
+                onPointerMove={onEastChatColResizeMove}
+                onPointerUp={endEastChatColResize}
+                onPointerCancel={endEastChatColResize}
+              >
+                <span
+                  key={`east-chat-arrow-l-${eastChatResizeHintKey}`}
+                  className="game-mobile-east-chat-resize-handle__arrow game-mobile-east-chat-resize-handle__arrow--left"
+                  aria-hidden
+                />
+                <span className="game-mobile-east-chat-resize-handle__grip" aria-hidden>
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <span
+                  key={`east-chat-arrow-r-${eastChatResizeHintKey}`}
+                  className="game-mobile-east-chat-resize-handle__arrow game-mobile-east-chat-resize-handle__arrow--right"
+                  aria-hidden
+                />
+              </button>
+              ) : null}
+            </div>
             ) : null}
       </div>
           </div>
@@ -11661,7 +11984,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           .sort((a, b) => cardSort(a, b, state.trump));
         const rowHand = sortedHand;
         const rowLen = rowHand.length;
-        return (
+        const showHandChatDisk =
+          showMobileLsChatAffordance && mobileLsChatMode === 'hand-disk';
+        const handStrip = (
       <div
         ref={mobileLandscapeHandStripRef}
         className={[
@@ -11674,7 +11999,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           .filter(Boolean)
           .join(' ')}
         style={{
-          width: liquidCapped ? 'max-content' : '100%',
+          width: liquidCapped || showHandChatDisk ? 'max-content' : '100%',
           maxWidth: '100%',
           flexShrink: 0,
           boxSizing: 'border-box',
@@ -11694,7 +12019,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             ...m9.frameStyleExtra,
             ...(isMobileLandscape
               ? {
-                  width: liquidCapped ? 'max-content' : '100%',
+                  width: liquidCapped || showHandChatDisk ? 'max-content' : '100%',
                   maxWidth: '100%',
                   marginLeft: 0,
                   marginRight: 0,
@@ -11702,7 +12027,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   paddingRight: MOBILE_HAND_FRAME_LANDSCAPE_INLINE_PAD_PX,
                   boxSizing: 'border-box' as const,
                 }
-              : {}),
+              : showHandChatDisk
+                ? {
+                    width: 'max-content',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box' as const,
+                  }
+                : {}),
           }}
         >
           <div
@@ -11725,16 +12056,19 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             style={{
               ...handStyle,
               overflow: 'visible',
-              justifyContent: liquidFill
+              justifyContent: liquidFill && !showHandChatDisk
                 ? 'space-evenly'
-                : liquidCapped
+                : liquidCapped || isMobileLandscape || showHandChatDisk
                   ? 'flex-start'
-                  : isMobileLandscape
-                    ? 'flex-start'
-                    : 'center',
+                  : 'center',
               gap: liquidCapped ? liquidGapPx : 0,
               boxSizing: 'border-box',
-              width: liquidFill ? '100%' : liquidCapped || !isMobileLandscape ? 'max-content' : '100%',
+              width:
+                liquidFill && !showHandChatDisk
+                  ? '100%'
+                  : liquidCapped || showHandChatDisk || !isMobileLandscape
+                    ? 'max-content'
+                    : '100%',
               maxWidth: '100%',
               borderRadius: 10,
               touchAction: overlapScrubEnabled ? ('none' as const) : undefined,
@@ -11830,11 +12164,34 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         </div>
       </div>
         );
+        return showHandChatDisk ? (
+          <div
+            className={[
+              'game-mobile-ls-hand-chat-row',
+              !isMobileLandscape ? 'game-mobile-ls-hand-chat-row--portrait' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            {handStrip}
+            <MobileLandscapeChatAffordance
+              mode="hand-disk"
+              unread={tableChatChromeMeta.unread}
+              typingLine={tableChatChromeMeta.typingLine}
+              onOpen={openTableChatMobile}
+            />
+          </div>
+        ) : (
+          handStrip
+        );
       })())}
       <div
         className={[
           'game-mobile-bottom-row',
           isMobileLandscape ? 'game-mobile-bottom-row--landscape' : '',
+          showMobileLsChatAffordance && mobileLsChatMode === 'south-mini'
+            ? 'game-mobile-bottom-row--ls-chat-mini'
+            : '',
         ]
           .filter(Boolean)
           .join(' ')}
@@ -11845,6 +12202,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           alignItems: mobileViewportShort ? ('center' as const) : ('stretch' as const),
           justifyContent: 'flex-start',
           width: '100%',
+          position:
+            showMobileLsChatAffordance && mobileLsChatMode === 'south-mini'
+              ? ('relative' as const)
+              : undefined,
         }}
       >
       <div
@@ -11880,7 +12241,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               : {}),
           }}
         >
-        <div className={['game-mobile-player-info', 'user-player-panel', isMobileLandscape ? 'user-player-panel--mobile-landscape-south mobile-landscape-panel-north-layout' : '', mobileViewportShort ? 'user-player-panel--short-vh' : '', userMobilePanelOrderExactGlow ? 'user-player-panel-order-exact' : '', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : '', dealerSouthMobilePanelHighlight ? 'dealer-opponent-panel' : '', dealerSouthMobilePanelBidding ? 'dealer-opponent-panel-mobile--bidding' : '', dealerSouthMobilePanelPlaying ? 'dealer-opponent-panel-mobile--playing' : '', dealerSouthMobilePanelBidding || dealerSouthMobilePanelPlaying ? 'dealer-panel-stars-live' : ''].filter(Boolean).join(' ')} style={{
+        <div className={['game-mobile-player-info', 'user-player-panel', isMobileLandscape ? 'user-player-panel--mobile-landscape-south mobile-landscape-panel-north-layout' : '', showMobileLsChatAffordance && mobileLsChatMode === 'south-mini' ? 'user-player-panel--ls-chat-mini' : '', mobileViewportShort ? 'user-player-panel--short-vh' : '', userMobilePanelOrderExactGlow ? 'user-player-panel-order-exact' : '', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : '', dealerSouthMobilePanelHighlight ? 'dealer-opponent-panel' : '', dealerSouthMobilePanelBidding ? 'dealer-opponent-panel-mobile--bidding' : '', dealerSouthMobilePanelPlaying ? 'dealer-opponent-panel-mobile--playing' : '', dealerSouthMobilePanelBidding || dealerSouthMobilePanelPlaying ? 'dealer-panel-stars-live' : ''].filter(Boolean).join(' ')} style={{
           ...playerInfoPanelStyle,
           ...(isMobile && !mobileViewportShort ? playerInfoPanelStyleMobileSouth : {}),
           ...(isMobile && mobileViewportShort
@@ -12619,6 +12980,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           !mobileViewportShort ? (
             <UserPanelGarlandOverlay />
           ) : null}
+          {showMobileLsChatAffordance && mobileLsChatMode === 'south-mini' ? (
+            <MobileLandscapeChatAffordance
+              mode="south-mini"
+              unread={tableChatChromeMeta.unread}
+              typingLine={tableChatChromeMeta.typingLine}
+              onOpen={openTableChatMobile}
+            />
+          ) : null}
       </div>
       </div>
       {shortVhSouthResizeHandleVisible && (() => {
@@ -12701,6 +13070,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         );
       })()}
       </div>
+      </div>
       {showTableChat && online.roomId && tableChatUserId && (
         <TableChatDock
           variant="mobile"
@@ -12708,9 +13078,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           userId={tableChatUserId}
           displayName={playerDisplayName?.trim() || 'Игрок'}
           mobileSideEarEnabled={false}
+          openMobileNonce={tableChatOpenNonce}
+          onMobileChromeMeta={onTableChatChromeMeta}
+          mobileEmbedHost={onlineThreeSeatSideChatActive ? eastChatHostEl : null}
+          onMobileChatCollapsedChange={onEastChatCollapsedChange}
+          onEastEmbedDismissToBottom={dismissEastChatToBottom}
+          mobileLsBottomChrome={isMobileLandscape && !onlineThreeSeatSideChatActive}
         />
       )}
-      </div>
       </div>
       </div>
         </>

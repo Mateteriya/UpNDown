@@ -198,6 +198,587 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Действия с сообщением в ленте: ответить / реакция / адресовать */
+.game-table-root .table-chat-dock--pro {
+  position: relative;
+}
+.game-table-root .table-chat-msg-compact--actionable,
+.game-table-root .table-chat-msg--actionable {
+  position: relative;
+  cursor: context-menu;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.game-table-root .table-chat-msg-compact--selected,
+.game-table-root .table-chat-msg--selected .table-chat-msg__bubble {
+  outline: 1px solid rgba(34, 211, 238, 0.55);
+  box-shadow: 0 0 12px rgba(124, 58, 237, 0.28);
+}
+.game-table-root .table-chat-msg-action-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  margin: 0;
+  padding: 0 4px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.22);
+  color: #a5f3fc;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  flex: 0 0 auto;
+  opacity: 0.72;
+}
+.game-table-root .table-chat-msg-action-btn:hover,
+.game-table-root .table-chat-msg-action-btn:focus-visible {
+  opacity: 1;
+  background: rgba(34, 211, 238, 0.28);
+  outline: none;
+}
+.game-table-root .table-chat-msg-react-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  margin: 0;
+  padding: 0;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background:
+    radial-gradient(120% 120% at 50% 20%, rgba(165, 243, 252, 0.35) 0%, transparent 52%),
+    linear-gradient(180deg, rgba(34, 211, 238, 0.28) 0%, rgba(124, 58, 237, 0.45) 100%);
+  color: #ecfeff;
+  font-family: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols", sans-serif;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  flex: 0 0 auto;
+  opacity: 1;
+  text-shadow:
+    0 0 4px #67e8f9,
+    0 0 8px #22d3ee,
+    0 0 12px #a78bfa;
+  box-shadow:
+    inset 0 1px 0 rgba(224, 242, 254, 0.45),
+    0 0 8px rgba(34, 211, 238, 0.45),
+    0 0 14px rgba(167, 139, 250, 0.35);
+}
+.game-table-root .table-chat-msg-react-btn:hover,
+.game-table-root .table-chat-msg-react-btn:focus-visible {
+  opacity: 1;
+  border-color: rgba(167, 139, 250, 0.85);
+  background:
+    radial-gradient(120% 120% at 50% 20%, rgba(224, 242, 254, 0.5) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(34, 211, 238, 0.42) 0%, rgba(139, 92, 246, 0.55) 100%);
+  outline: none;
+}
+.game-table-root .table-chat-hidden-chip {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 1px 8px 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(167, 139, 250, 0.5);
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.32) 0%, rgba(8, 12, 36, 0.9) 100%);
+  color: #e9d5ff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.game-table-root .table-chat-hidden-sheet__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 6px;
+  max-height: 132px;
+  overflow-y: auto;
+}
+.game-table-root .table-chat-hidden-sheet__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.game-table-root .table-chat-hidden-sheet__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.game-table-root .table-chat-hidden-sheet__show {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  background: rgba(34, 211, 238, 0.16);
+  color: #67e8f9;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.game-table-root .table-chat-hidden-sheet__all {
+  width: 100%;
+}
+.game-table-root .table-chat-msg-react-btn--bubble {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  z-index: 2;
+}
+.game-table-root .table-chat-msg-action-sheet__btn--quiet {
+  border-color: rgba(148, 163, 184, 0.28);
+  color: #cbd5e1;
+  background: linear-gradient(180deg, rgba(51, 65, 85, 0.35) 0%, rgba(8, 12, 36, 0.92) 100%);
+}
+.game-table-root .table-chat-msg-compact__name--peer,
+.game-table-root .table-chat-msg__name--peer {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.game-table-root .table-chat-hide-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 14;
+  max-width: min(280px, calc(100% - 16px));
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  background: rgba(8, 10, 28, 0.94);
+  color: #e2e8f0;
+  font-size: 11px;
+  pointer-events: auto;
+}
+.game-table-root .table-chat-hide-toast__undo {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.22);
+  color: #67e8f9;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.game-table-root .table-chat-msg-action-btn--bubble {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  z-index: 2;
+}
+
+.game-table-root .table-chat-feed-reply-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  flex: 0 0 auto;
+  position: relative;
+  margin: 0 0 4px;
+  padding: 5px 6px 5px 0;
+  border-radius: 10px;
+  border: 1px solid rgba(34, 211, 238, 0.32);
+  background:
+    radial-gradient(120% 140% at 0% 50%, rgba(34, 211, 238, 0.14) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(18, 12, 42, 0.96) 0%, rgba(8, 10, 28, 0.98) 100%);
+  overflow: hidden;
+}
+.game-table-root .table-chat-feed-reply-strip__accent {
+  width: 3px;
+  flex: 0 0 3px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #22d3ee, #a78bfa);
+}
+.game-table-root .table-chat-feed-reply-strip__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.game-table-root .table-chat-feed-reply-strip__kicker {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+.game-table-root .table-chat-feed-reply-strip__author {
+  font-size: 11px;
+  font-weight: 800;
+  color: #e9d5ff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.game-table-root .table-chat-feed-reply-strip__excerpt {
+  font-size: 11px;
+  line-height: 1.25;
+  color: #a5f3fc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.game-table-root .table-chat-feed-reply-strip__clear {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  margin: auto 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(76, 29, 149, 0.45);
+  color: #c4b5fd;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.game-table-root .table-chat-msg-action-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 6px 8px 10px;
+  background: transparent;
+  pointer-events: none;
+}
+.game-table-root .table-chat-msg-action-layer__dismiss {
+  position: absolute;
+  inset: 0;
+  border: none;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+  pointer-events: auto;
+}
+.game-table-root .table-chat-msg-action-sheet {
+  position: relative;
+  width: min(100%, 248px);
+  border-radius: 12px;
+  border: 1px solid rgba(34, 211, 238, 0.42);
+  background:
+    radial-gradient(90% 70% at 50% 0%, rgba(124, 58, 237, 0.28) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(18, 12, 42, 0.97) 0%, rgba(6, 8, 22, 0.98) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(165, 243, 252, 0.14),
+    0 0 0 1px rgba(124, 58, 237, 0.22),
+    0 10px 24px rgba(2, 6, 23, 0.45);
+  padding: 6px;
+  pointer-events: auto;
+}
+.game-table-root .table-chat-msg-action-sheet__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+  min-width: 0;
+}
+.game-table-root .table-chat-msg-action-sheet__preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 5px;
+}
+.game-table-root .table-chat-msg-action-sheet__author {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 800;
+  color: #67e8f9;
+  white-space: nowrap;
+}
+.game-table-root .table-chat-msg-action-sheet__snippet {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.2;
+  color: #c4b5fd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.game-table-root .table-chat-msg-action-sheet__close {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(76, 29, 149, 0.4);
+  color: #e9d5ff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.game-table-root .table-chat-msg-action-sheet__actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.game-table-root .table-chat-msg-action-sheet__btn {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 5px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.28) 0%, rgba(8, 12, 36, 0.92) 100%);
+  color: #a5f3fc;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(165, 243, 252, 0.14);
+}
+.game-table-root .table-chat-msg-action-sheet__btn:hover,
+.game-table-root .table-chat-msg-action-sheet__btn:focus-visible {
+  border-color: rgba(167, 139, 250, 0.7);
+  color: #ecfeff;
+  outline: none;
+}
+.game-table-root .table-chat-msg-action-sheet__btn-ico {
+  flex: 0 0 auto;
+  font-size: 11px;
+  line-height: 1;
+}
+.game-table-root .table-chat-msg-action-sheet__btn-copy {
+  display: inline;
+  min-width: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.game-table-root .table-chat-msg-action-sheet__btn-copy strong {
+  font-size: inherit;
+  font-weight: inherit;
+}
+.game-table-root .table-chat-msg-action-sheet__btn-copy em {
+  display: none;
+}
+.game-table-root .table-chat-msg-action-sheet__back {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: transparent;
+  color: #67e8f9;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 0 4px;
+  cursor: pointer;
+  text-align: left;
+}
+.game-table-root .table-chat-msg-action-sheet__react-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+.game-table-root .table-chat-msg-action-sheet__react-cell {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(34, 211, 238, 0.32);
+  background: linear-gradient(165deg, rgba(40, 24, 78, 0.95) 0%, rgba(8, 12, 32, 0.98) 100%);
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(165, 243, 252, 0.14);
+}
+.game-table-root .table-chat-msg-action-sheet__react-cell:hover:not(:disabled),
+.game-table-root .table-chat-msg-action-sheet__react-cell:focus-visible {
+  border-color: rgba(167, 139, 250, 0.7);
+  outline: none;
+}
+.game-table-root .table-chat-msg-action-sheet__react-cell:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.game-table-root .table-chat-msg-action-sheet__react-cell--mine {
+  border-color: rgba(34, 211, 238, 0.75);
+  background:
+    linear-gradient(180deg, rgba(34, 211, 238, 0.28) 0%, rgba(76, 29, 149, 0.55) 100%);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.28);
+}
+.game-table-root .table-chat-msg-action-sheet__react-kicker {
+  display: block;
+  margin: 4px 0 3px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+.game-table-root .table-chat-msg-action-sheet__reacts {
+  max-height: min(42vh, 220px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.game-table-root .table-chat-feed-reply-strip--address {
+  border-color: rgba(167, 139, 250, 0.42);
+}
+.game-table-root .table-chat-feed-reply-strip--address .table-chat-feed-reply-strip__author {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 1px 8px 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.2) 0%, rgba(124, 58, 237, 0.28) 100%);
+  color: #a5f3fc;
+}
+.game-table-root .table-chat-addr {
+  display: inline;
+}
+.game-table-root .table-chat-addr__to {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin: 0 6px 0 0;
+  padding: 0 7px 1px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.48);
+  background:
+    linear-gradient(180deg, rgba(34, 211, 238, 0.22) 0%, rgba(124, 58, 237, 0.32) 100%);
+  color: #a5f3fc;
+  font-weight: 800;
+  font-size: 0.92em;
+  letter-spacing: 0.02em;
+  vertical-align: baseline;
+}
+.game-table-root .table-chat-addr__to::before {
+  content: '→';
+  margin-right: 4px;
+  color: #c4b5fd;
+  font-weight: 700;
+}
+.game-table-root .table-chat-addr__text {
+  color: inherit;
+}
+@keyframes table-chat-composer-flash {
+  0%, 16% {
+    border-color: rgba(34, 211, 238, 0.95);
+    box-shadow:
+      0 0 0 2px rgba(34, 211, 238, 0.72),
+      0 0 14px rgba(167, 139, 250, 0.55),
+      0 0 22px rgba(34, 211, 238, 0.4);
+  }
+  100% {
+    border-color: rgba(125, 211, 252, 0.35);
+    box-shadow: none;
+  }
+}
+.game-table-root .table-chat-mobile-input-shell {
+  position: relative;
+}
+.game-table-root .table-chat-mobile-input-shell--flash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 4;
+  box-shadow:
+    inset 0 0 0 2px rgba(34, 211, 238, 0.95),
+    inset 0 0 14px rgba(167, 139, 250, 0.5);
+  animation: table-chat-composer-flash-ring 2.6s ease-out forwards;
+}
+@keyframes table-chat-composer-flash-ring {
+  0%, 18% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.game-table-root .table-chat-input--flash {
+  animation: table-chat-composer-flash 2.6s ease-out;
+}
+.game-table-root .table-chat-msg-reactions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin: 0;
+}
+.game-table-root .table-chat-msg-compact .table-chat-msg-reactions {
+  flex: 0 1 auto;
+  width: auto;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.game-table-root .table-chat-msg__bubble-wrap .table-chat-msg-reactions {
+  display: flex;
+  margin: 4px 0 0;
+  justify-content: flex-start;
+}
+.game-table-root .table-chat-msg-reactions__chip {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 0;
+  padding: 1px 7px 2px;
+  min-height: 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(167, 139, 250, 0.38);
+  background: rgba(12, 10, 32, 0.72);
+  color: #e2e8f0;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.game-table-root .table-chat-msg-reactions__chip--mine {
+  border-color: rgba(34, 211, 238, 0.7);
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.22) 0%, rgba(76, 29, 149, 0.45) 100%);
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.25);
+}
+.game-table-root .table-chat-msg-reactions__count {
+  font-size: 10px;
+  font-weight: 800;
+  color: #67e8f9;
+}
 .game-table-root .table-chat-msg--self .table-chat-msg__quote-card {
   border-color: rgba(196, 181, 253, 0.35);
   background: rgba(15, 10, 35, 0.9);
@@ -8107,6 +8688,78 @@
   padding: 6px 4px;
   text-align: center;
 }
+.table-chat-dock--pro .table-chat-mine__empty--guide {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px 6px 4px;
+  text-align: left;
+}
+.table-chat-dock--pro .table-chat-mine__empty-lead {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: #c4b5fd;
+  text-align: center;
+}
+.table-chat-dock--pro .table-chat-mine__empty-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(165, 243, 252, 0.78);
+  text-align: center;
+}
+.table-chat-dock--pro .table-chat-mine__empty-steps {
+  margin: 0;
+  padding-left: 1.15em;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(165, 243, 252, 0.82);
+}
+.table-chat-dock--pro .table-chat-mine__empty-steps strong {
+  color: #67e8f9;
+  font-weight: 800;
+}
+.table-chat-dock--pro .table-chat-mine__empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+.table-chat-dock--pro .table-chat-mine__empty-go {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(34, 211, 238, 0.42);
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.32) 0%, rgba(8, 12, 36, 0.92) 100%);
+  color: #a5f3fc;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(165, 243, 252, 0.16);
+}
+.table-chat-dock--pro .table-chat-emoji-cell-star--mobile {
+  opacity: 0.95;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  color: #c4b5fd;
+  background: rgba(12, 8, 36, 0.92);
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.45);
+}
+.table-chat-dock--pro .table-chat-emoji-cell,
+.table-chat-dock--pro .table-chat-phrase-btn {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
 .table-chat-dock--pro .table-chat-mine__row {
   display: flex;
   gap: 4px;
@@ -8535,6 +9188,54 @@
     overflow-x: hidden !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+  }
+  /*
+   * Landscape · раскрытый нижний чат: в потоке под Югом (не fixed overlay на сукно/панель).
+   * Скролл — как в портрете: .game-table-main-wrap overflow-y auto.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-landscape
+    .table-chat-dock.table-chat-dock--mobile:not(.table-chat-dock--collapsed):not(.table-chat-dock--east-embed) {
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    z-index: 8 !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 4px 0 0 !important;
+    border-radius: 12px !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-landscape.game-mobile-table-chat:has(
+      .table-chat-dock--mobile:not(.table-chat-dock--collapsed):not(.table-chat-dock--east-embed)
+    )
+    .game-table-main-wrap {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  /* Рука+сукно остаются сверху; чат растёт ниже (не space-between, иначе рука уезжает вниз). */
+  .game-table-root.viewport-mobile.viewport-mobile-landscape.game-mobile-table-chat:has(
+      .table-chat-dock--mobile:not(.table-chat-dock--collapsed):not(.table-chat-dock--east-embed)
+    )
+    .game-mobile-table-and-hand--landscape,
+  .game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid.game-mobile-table-chat:has(
+      .table-chat-dock--mobile:not(.table-chat-dock--collapsed):not(.table-chat-dock--east-embed)
+    )
+    .game-mobile-table-and-hand--landscape {
+    justify-content: flex-start !important;
+  }
+  /* Вход — диск/мини; свёрнутый бар внизу не занимает экран. */
+  .game-table-root.viewport-mobile.viewport-mobile-landscape
+    .table-chat-dock.table-chat-dock--mobile.table-chat-dock--collapsed:not(.table-chat-dock--east-embed):not(
+      .table-chat-dock--mobile-side-ear
+    ) {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
   }
 
   /*
@@ -9544,6 +10245,44 @@
       padding: 0 !important;
       box-sizing: border-box !important;
     }
+    /* Диск «Чат» (≤5): обёртка — тот же слот, что и полоска руки, иначе auto-place ломает Юг */
+    .game-table-root.viewport-mobile.viewport-mobile-landscape
+      .game-mobile-hand-user-stack--landscape
+      > .game-mobile-ls-hand-chat-row {
+      grid-column: 2 !important;
+      grid-row: 1 !important;
+      justify-self: start !important;
+      align-self: end !important;
+      width: max-content !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: flex-end !important;
+      justify-content: flex-start !important;
+      overflow: visible !important;
+      z-index: 6 !important;
+      box-sizing: border-box !important;
+    }
+    .game-table-root.viewport-mobile.viewport-mobile-landscape
+      .game-mobile-hand-user-stack--landscape
+      > .game-mobile-ls-hand-chat-row
+      > .game-mobile-hand-strip {
+      grid-column: auto !important;
+      grid-row: auto !important;
+      justify-self: auto !important;
+      align-self: auto !important;
+      width: max-content !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      flex: 0 0 auto !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      justify-content: center !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+    }
     .game-table-root.viewport-mobile.viewport-mobile-landscape
       .game-mobile-hand-user-stack--landscape
       > .game-mobile-hand-strip
@@ -10087,9 +10826,11 @@
     max-width: 800px;
     margin: 0 auto;
     flex-shrink: 0;
-    border: 1px solid rgba(34, 211, 238, 0.32);
+    border: 1px solid rgba(167, 139, 250, 0.42);
     border-radius: 10px;
-    background: linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.94) 100%);
+    background:
+      radial-gradient(110% 70% at 18% 0%, rgba(124, 58, 237, 0.3) 0%, transparent 52%),
+      linear-gradient(180deg, rgba(30, 20, 62, 0.98) 0%, rgba(18, 12, 48, 0.98) 52%, rgba(8, 10, 28, 1) 100%);
     overflow: hidden;
   }
   /* Раскрытый чат: панель эмодзи открывается вверх и обрезалась overflow:hidden — виден только низ (сетка) */
@@ -10118,6 +10859,7 @@
   .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-panel__tabs {
     flex-shrink: 0;
     flex-wrap: nowrap;
+    align-items: center;
     overflow-x: auto;
     overflow-y: hidden;
     padding-bottom: 2px;
@@ -10134,10 +10876,78 @@
     min-height: 32px;
     padding: 6px 10px;
     font-size: 12px;
+    border: 1px solid rgba(34, 211, 238, 0.32);
+    background: linear-gradient(180deg, rgba(30, 20, 62, 0.9) 0%, rgba(8, 10, 28, 0.95) 100%);
+    color: #67e8f9;
+    font-weight: 800;
+    box-shadow:
+      inset 0 1px 0 rgba(165, 243, 252, 0.14),
+      inset 0 -1px 3px rgba(49, 46, 129, 0.5);
+  }
+  .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-tab--active {
+    border-color: rgba(34, 211, 238, 0.75);
+    color: #ecfeff;
+    background: linear-gradient(180deg, rgba(34, 211, 238, 0.4) 0%, rgba(124, 58, 237, 0.55) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(165, 243, 252, 0.35),
+      0 0 10px rgba(34, 211, 238, 0.35);
+  }
+  .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-panel,
+  .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-panel--popover,
+  .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-panel--mobile-sheet {
+    border: 1px solid rgba(34, 211, 238, 0.4);
+    background:
+      radial-gradient(90% 60% at 50% 0%, rgba(124, 58, 237, 0.28) 0%, transparent 55%),
+      linear-gradient(180deg, rgba(18, 12, 42, 0.98) 0%, rgba(6, 8, 22, 0.99) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(165, 243, 252, 0.16),
+      0 0 0 1px rgba(124, 58, 237, 0.25),
+      0 -12px 28px rgba(2, 6, 23, 0.72);
+  }
+  .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-panel__tabs {
+    border-bottom-color: rgba(124, 58, 237, 0.35);
+    background: rgba(8, 10, 28, 0.94);
+  }
+  .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-cell {
+    background: linear-gradient(165deg, rgba(40, 24, 78, 0.95) 0%, rgba(8, 12, 32, 0.98) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(165, 243, 252, 0.16),
+      inset 0 -2px 4px rgba(49, 46, 129, 0.45);
+  }
+  .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-more,
+  .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-more--compact {
+    width: auto;
+    height: 34px;
+    min-height: 34px;
+    margin: 0 0 0 auto;
+    padding: 0 8px;
+    flex: 0 0 auto;
+    align-self: center;
+    border-radius: 999px;
+    border: 1px solid rgba(34, 211, 238, 0.42);
+    background: linear-gradient(180deg, rgba(124, 58, 237, 0.32) 0%, rgba(8, 5, 22, 0.92) 100%);
+    color: #67e8f9;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: lowercase;
+    box-shadow:
+      inset 0 1px 0 rgba(165, 243, 252, 0.18),
+      0 1px 4px rgba(2, 6, 23, 0.35);
   }
   .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-picker-short-hint {
     font-size: 10px;
     line-height: 1.35;
+    margin: 0;
+    padding: 2px 2px 4px;
+    color: rgba(165, 243, 252, 0.78);
+  }
+  .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-picker-short-hint__lead {
+    color: #c4b5fd;
+    font-weight: 800;
+  }
+  .game-table-root.viewport-mobile .table-chat-dock--pro .table-chat-emoji-cell-star--mobile {
+    opacity: 1;
   }
   .game-table-root.viewport-mobile .table-chat-dock--collapsed {
     display: flex;
@@ -10310,12 +11120,8 @@
   .game-table-root.viewport-mobile .table-chat-input {
     flex: 1;
     min-width: 0;
-    padding: 8px 10px;
-    border-radius: 8px;
-    border: 1px solid rgba(100, 116, 139, 0.45);
-    background: rgba(15, 23, 42, 0.9);
+    font-family: inherit;
     color: #a5f3fc;
-    font-size: 13px;
   }
   .game-table-root.viewport-mobile .table-chat-send {
     flex-shrink: 0;
@@ -10351,8 +11157,8 @@
     flex-wrap: wrap;
     gap: 8px;
     padding: 8px 12px;
-    border-bottom: 1px solid rgba(34, 211, 238, 0.18);
-    background: linear-gradient(90deg, rgba(34, 211, 238, 0.08), transparent);
+    border-bottom: 1px solid rgba(167, 139, 250, 0.28);
+    background: linear-gradient(90deg, rgba(124, 58, 237, 0.22), transparent);
   }
   .game-table-root.viewport-mobile .table-chat-dock-header-left {
     display: flex;
@@ -10363,7 +11169,6 @@
   .game-table-root.viewport-mobile .table-chat-dock-title-text {
     font-size: 13px;
     font-weight: 700;
-    color: #e2e8f0;
     letter-spacing: 0.02em;
   }
   .game-table-root.viewport-mobile .table-chat-dock-mobile-quick-actions {
@@ -10633,15 +11438,10 @@
     padding: 0 4px;
   }
   .game-table-root.viewport-mobile .table-chat-composer--pro {
-    padding: 8px 10px 10px;
-    border-top: 1px solid rgba(34, 211, 238, 0.12);
-    background: linear-gradient(0deg, rgba(15, 23, 42, 0.55), transparent);
     position: sticky;
     bottom: 0;
     z-index: 3;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
   }
   .game-table-root.viewport-mobile .table-chat-composer__inner {
     display: flex;
@@ -10656,66 +11456,24 @@
     height: 34px;
     border-radius: 12px;
   }
-  .game-table-root.viewport-mobile .table-chat-input--pro {
-    width: 100%;
-    min-height: 40px;
-    max-height: 100px;
-    resize: none;
-    padding: 10px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(100, 116, 139, 0.45);
-    background: rgba(15, 23, 42, 0.75);
-    color: #a5f3fc;
-    font-size: 14px;
-    font-family: inherit;
-    line-height: 1.35;
-    box-sizing: border-box;
-  }
+  /* Поле ввода и полоска «Мои»: космический хром — mobileLandscapeChatAffordance.css */
   .game-table-root.viewport-mobile .table-chat-mobile-input-shell {
     position: relative;
     width: 100%;
   }
-  .game-table-root.viewport-mobile .table-chat-input--mobile-inline {
-    padding-left: 42px;
-    padding-right: 44px;
-    overflow-y: hidden;
-  }
   .game-table-root.viewport-mobile .table-chat-mobile-input-shell__emoji,
   .game-table-root.viewport-mobile .table-chat-mobile-input-shell__send {
-    position: absolute;
-    top: calc(50% - 16px);
-    width: 30px;
-    height: 30px;
-    border-radius: 9px;
-    border: 1px solid rgba(100, 116, 139, 0.45);
-    background: rgba(15, 23, 42, 0.78);
-    color: #e2e8f0;
+    appearance: none;
+    -webkit-appearance: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 0;
     font: inherit;
     cursor: pointer;
-    z-index: 2;
-  }
-  .game-table-root.viewport-mobile .table-chat-mobile-input-shell__emoji {
-    left: 7px;
-    font-size: 15px;
-  }
-  .game-table-root.viewport-mobile .table-chat-mobile-input-shell__send {
-    right: 7px;
-    font-size: 14px;
-    border-color: rgba(34, 211, 238, 0.5);
-    background: linear-gradient(180deg, #0e7490 0%, #155e75 100%);
   }
   .game-table-root.viewport-mobile .table-chat-mobile-input-shell__send:disabled {
-    opacity: 0.45;
     cursor: not-allowed;
-  }
-  .game-table-root.viewport-mobile .table-chat-input--pro:focus {
-    outline: none;
-    border-color: rgba(34, 211, 238, 0.55);
-    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
   }
   .game-table-root.viewport-mobile .table-chat-composer__footer {
     display: flex;
@@ -10729,34 +11487,160 @@
     font-variant-numeric: tabular-nums;
   }
   .game-table-root.viewport-mobile .table-chat-mine__edit-toggle-mobile {
-    width: 100%;
-    min-height: 34px;
-    border-radius: 10px;
-    border: 1px solid rgba(34, 211, 238, 0.38);
-    background: rgba(14, 116, 144, 0.2);
-    color: #cffafe;
-    font-size: 12px;
-    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: 22px;
+    min-height: 22px;
+    margin: 0;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(34, 211, 238, 0.42);
+    background: linear-gradient(180deg, rgba(124, 58, 237, 0.32) 0%, rgba(8, 5, 22, 0.92) 100%);
+    color: #67e8f9;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    line-height: 1;
     cursor: pointer;
-    font: inherit;
+    font-family: inherit;
+    box-shadow:
+      inset 0 1px 0 rgba(165, 243, 252, 0.18),
+      0 1px 4px rgba(2, 6, 23, 0.35);
+    flex: 0 0 auto;
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__edit-toggle-mobile[aria-pressed='true'] {
+    border-color: rgba(167, 139, 250, 0.7);
+    background: linear-gradient(180deg, rgba(34, 211, 238, 0.38) 0%, rgba(124, 58, 237, 0.55) 100%);
+    color: #ecfeff;
   }
   .game-table-root.viewport-mobile .table-chat-mine {
     min-height: 0;
     overflow: hidden;
-    gap: 5px;
+    gap: 4px;
   }
   .game-table-root.viewport-mobile .table-chat-mine__scroll {
-    min-height: 74px;
+    min-height: 0;
     padding-right: 1px;
   }
   .game-table-root.viewport-mobile .table-chat-mine__add-row {
     flex-shrink: 0;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 4px;
   }
+  .game-table-root.viewport-mobile .table-chat-mine__input {
+    height: 22px;
+    min-height: 22px;
+    padding: 0 8px;
+    font-size: 10px;
+    font-family: inherit;
+    font-weight: 600;
+    line-height: 22px;
+    border-radius: 999px;
+    color: #a5f3fc;
+    border-color: rgba(34, 211, 238, 0.35);
+    background: rgba(8, 10, 28, 0.88);
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__add-btn,
   .game-table-root.viewport-mobile .table-chat-mine__from-msg {
-    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: 22px;
+    min-height: 22px;
+    margin: 0;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-family: inherit;
+    font-weight: 800;
+    line-height: 1;
+    flex: 0 0 auto;
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__add-btn {
+    min-width: 22px;
+    padding: 0 7px;
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__layout {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__phrases-col,
+  .game-table-root.viewport-mobile .table-chat-mine__emoji-cols {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-content: flex-start;
+    align-items: center;
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__row {
+    display: inline-flex;
+    flex: 0 1 auto;
+    width: auto;
+    max-width: 100%;
+    align-items: center;
+    gap: 3px;
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__use {
+    flex: 0 1 auto;
+    width: auto;
+    max-width: 100%;
+    height: 22px;
+    min-height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(34, 211, 238, 0.38);
+    background: linear-gradient(180deg, rgba(124, 58, 237, 0.28) 0%, rgba(8, 12, 36, 0.92) 100%);
+    color: #a5f3fc;
+    font-size: 10px;
+    font-family: inherit;
+    font-weight: 700;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    box-shadow: inset 0 1px 0 rgba(165, 243, 252, 0.14);
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__use--emoji {
+    min-width: 22px;
+    padding: 0 6px;
+    font-size: 13px;
+    justify-content: center;
   }
   .game-table-root.viewport-mobile .table-chat-mine__del {
-    width: 36px;
+    width: 20px;
+    height: 20px;
+    min-height: 20px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-family: inherit;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .game-table-root.viewport-mobile .table-chat-mine__rewrite {
+    width: 20px;
+    height: 20px;
+    min-height: 20px;
+    margin: 0;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid rgba(34, 211, 238, 0.42);
+    background: linear-gradient(180deg, rgba(34, 211, 238, 0.22) 0%, rgba(76, 29, 149, 0.45) 100%);
+    color: #a5f3fc;
+    font-size: 11px;
+    font-family: inherit;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(165, 243, 252, 0.2);
   }
   .game-table-root.viewport-mobile .table-chat-mobile-favorites {
     display: flex;
@@ -10764,24 +11648,71 @@
     overflow-x: auto;
     overflow-y: hidden;
     padding: 2px 0 0;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(34, 211, 238, 0.35) transparent;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-favorites::-webkit-scrollbar {
+    display: none;
+    height: 0;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-favorites-rail {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-favorites-rail--more-right .table-chat-mobile-favorites {
+    mask-image: linear-gradient(90deg, #000 0%, #000 82%, transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 82%, transparent 100%);
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-favorites-rail--more-left .table-chat-mobile-favorites {
+    mask-image: linear-gradient(90deg, transparent 0%, #000 16%, #000 100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 16%, #000 100%);
+  }
+  .game-table-root.viewport-mobile
+    .table-chat-mobile-favorites-rail--more-left.table-chat-mobile-favorites-rail--more-right
+    .table-chat-mobile-favorites {
+    mask-image: linear-gradient(90deg, transparent 0%, #000 14%, #000 82%, transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 14%, #000 82%, transparent 100%);
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-favorites__tail {
+    flex: 0 0 8px;
+    width: 8px;
+    height: 1px;
+    pointer-events: none;
+  }
+  .game-table-root.viewport-mobile .table-chat-mobile-favorites-rail__peek {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    cursor: pointer;
+    z-index: 2;
+    font-size: 13px;
+    font-weight: 900;
+    color: #67e8f9;
+    text-shadow: 0 0 8px rgba(34, 211, 238, 0.85);
+    -webkit-tap-highlight-color: transparent;
   }
   .game-table-root.viewport-mobile .table-chat-mobile-favorites__chip {
+    appearance: none;
+    -webkit-appearance: none;
     flex-shrink: 0;
-    max-width: 220px;
-    min-height: 30px;
-    border-radius: 999px;
-    border: 1px solid rgba(34, 211, 238, 0.35);
-    background: rgba(15, 23, 42, 0.75);
-    color: #e2e8f0;
-    font-size: 12px;
-    padding: 0 10px;
-    cursor: pointer;
-    font: inherit;
+    margin: 0;
+    border: none;
+    background: transparent;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: pointer;
+    font: inherit;
   }
   .game-table-root.viewport-mobile .table-chat-mobile-favorites__chip:disabled {
     opacity: 0.45;
@@ -64184,7 +65115,10 @@ html.theme-standard
 }
 .game-table-root.viewport-mobile.viewport-mobile-landscape
   .game-mobile-hand-user-stack--landscape.game-mobile-hand-user-stack--landscape-panel-fixed
-  > .game-mobile-hand-strip {
+  > .game-mobile-hand-strip,
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape.game-mobile-hand-user-stack--landscape-panel-fixed
+  > .game-mobile-ls-hand-chat-row {
   grid-column: 2 !important;
   justify-self: start !important;
 }

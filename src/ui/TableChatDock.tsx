@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useCallback,
   useEffect,
   useId,
@@ -7,6 +8,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -22,11 +24,42 @@ import {
   MY_SNIPPETS_LS_KEY,
   MY_SNIPPETS_MAX,
   MY_SNIPPETS_MAX_LEN,
+  REACTION_EMOJI_PRIMARY,
   TABLE_CHAT_PICKER_TABS,
   getEmojiCellsForTab,
   tabHasEmojiMore,
   type TableChatPickerTabId,
 } from './tableChatEmojiPalette';
+import {
+  aggregateChatReactions,
+  buildAddressedChatBody,
+  buildChatReactionBody,
+  chatBodyForClipboard,
+  isChatReactionControlBody,
+  messageMatchesChatSearch,
+  myReactionEmoji,
+  parseAddressedChatBody,
+  splitChatSearchHighlight,
+  type ChatReactionChip,
+} from './tableChatBodyProtocol';
+import {
+  TABLE_CHAT_NAME_FOLD_MS,
+  foldTableChatDisplayName,
+  formatTableChatClock,
+  tableChatFeedKind,
+  tableChatFeedRowClassNames,
+  tableChatMessageSheetHideCopy,
+  tableChatNameTapKind,
+  tableChatOwnAuthorLabel,
+} from './tableChatFeedRow';
+import {
+  loadHiddenChatMessageIds,
+  loadHiddenChatUserIds,
+  persistHiddenChatMessageIds,
+  persistHiddenChatUserIds,
+  withHiddenId,
+  withoutHiddenId,
+} from './tableChatHide';
 
 export type TableChatDockOwnMessageHandler = (row: RoomChatMessageRow) => void;
 
@@ -44,6 +77,9 @@ const LS_PC_CHAT_COLLAPSED = 'upndown.pcChat.collapsed';
 const LS_PC_CHAT_SIZE = 'upndown.pcChat.size';
 const LS_MOBILE_CHAT_HEIGHT = 'upndown.mobileChat.height';
 const LS_MOBILE_CHAT_RESIZE_HINT_SEEN = 'upndown.mobileChat.resizeHintSeen.v1';
+const LS_MOBILE_CHAT_FONT_STEP = 'upndown.mobileChat.fontStep.v1';
+const LS_CHAT_NEWEST_FIRST = 'upndown.tableChat.newestFirst.v1';
+const LS_LS_CHAT_BODY_H = 'upndown.tableChat.lsBodyH.v1';
 const LS_MOBILE_SIDE_EAR_CENTER_PCT = 'upndown.mobileChat.sideEar.centerPercent.v1';
 const LS_MOBILE_SIDE_EAR_RAIL_COLLAPSED = 'upndown.mobileChat.sideEar.railCollapsed.v1';
 /** «1» — космическая закладка-шарик (без фантомов). */
@@ -85,7 +121,7 @@ function formatTypingLineFromMap(m: Map<string, TypingPeerEntry>, now: number): 
   return 'Несколько игроков печатают…';
 }
 
-type SideEarUnreadPhantom = { author: string; body: string; messageId: string };
+type SideEarUnreadPhantom = { author: string; body: string; messageId: string; userId?: string };
 
 /** Временное скрытие фантома по крестику до смены превью (стабильный ключ / id) или строки «печатает». */
 type SideEarPhantomDismiss =
@@ -95,8 +131,12 @@ type SideEarPhantomDismiss =
 function formatUnreadPhantomFromMessage(row: RoomChatMessageRow): SideEarUnreadPhantom {
   const author = row.display_name.trim().slice(0, 28) || 'Игрок';
   const b = row.body.trim();
-  if (!b) return { author, body: 'сообщение', messageId: row.id };
-  return { author, body: b, messageId: row.id };
+  return {
+    author,
+    body: b || 'сообщение',
+    messageId: row.id,
+    userId: row.user_id,
+  };
 }
 
 /** Эхо в ушке после отправки из фантома, если сервер не вернул строку сообщения. */
@@ -185,7 +225,33 @@ function parsePhantomContextualReplyBody(body: string): PhantomContextQuoteParts
   return { quoteAuthor: '', quoteExcerpt: quoteRaw, replyText };
 }
 
-function TableChatQuoteCard({ author, excerpt }: { author: string; excerpt: string }) {
+function ChatHighlightedText({ text, query }: { text: string; query?: string }) {
+  if (!query?.trim() || !text) return <>{text}</>;
+  const parts = splitChatSearchHighlight(text, query);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.hit ? (
+          <mark key={i} className="table-chat-search-hit">
+            {p.t}
+          </mark>
+        ) : (
+          <Fragment key={i}>{p.t}</Fragment>
+        ),
+      )}
+    </>
+  );
+}
+
+function TableChatQuoteCard({
+  author,
+  excerpt,
+  highlightQuery,
+}: {
+  author: string;
+  excerpt: string;
+  highlightQuery?: string;
+}) {
   return (
     <div
       className="table-chat-msg__quote-card"
@@ -194,8 +260,14 @@ function TableChatQuoteCard({ author, excerpt }: { author: string; excerpt: stri
       <div className="table-chat-msg__quote-card__accent" aria-hidden />
       <div className="table-chat-msg__quote-card__body">
         <div className="table-chat-msg__quote-card__kicker">Цитата</div>
-        {author ? <div className="table-chat-msg__quote-card__author">{author}</div> : null}
-        <blockquote className="table-chat-msg__quote-card__excerpt">{excerpt || '…'}</blockquote>
+        {author ? (
+          <div className="table-chat-msg__quote-card__author">
+            <ChatHighlightedText text={author} query={highlightQuery} />
+          </div>
+        ) : null}
+        <blockquote className="table-chat-msg__quote-card__excerpt">
+          <ChatHighlightedText text={excerpt || '…'} query={highlightQuery} />
+        </blockquote>
       </div>
     </div>
   );
@@ -223,27 +295,124 @@ function PhantomEarPreviewBody({ body }: { body: string }) {
   );
 }
 
-function TableChatMessageBody({ body, variant }: { body: string; variant: 'bubble' | 'compact' }) {
+function TableChatAddressedText({
+  to,
+  text,
+  highlightQuery,
+}: {
+  to: string;
+  text: string;
+  highlightQuery?: string;
+}) {
+  return (
+    <span className="table-chat-addr">
+      <span className="table-chat-addr__to">
+        <ChatHighlightedText text={to} query={highlightQuery} />
+      </span>
+      {text ? (
+        <span className="table-chat-addr__text">
+          <ChatHighlightedText text={text} query={highlightQuery} />
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function renderChatPlainOrAddressed(text: string, highlightQuery?: string) {
+  const addr = parseAddressedChatBody(text);
+  if (!addr) return <ChatHighlightedText text={text} query={highlightQuery} />;
+  return <TableChatAddressedText to={addr.to} text={addr.text} highlightQuery={highlightQuery} />;
+}
+
+function TableChatMessageBody({
+  body,
+  variant,
+  highlightQuery,
+}: {
+  body: string;
+  variant: 'bubble' | 'compact';
+  highlightQuery?: string;
+}) {
   const parsed = useMemo(() => parsePhantomContextualReplyBody(body), [body]);
   if (!parsed) {
     if (variant === 'bubble') {
-      return <p className="table-chat-msg__body">{body}</p>;
+      return <p className="table-chat-msg__body">{renderChatPlainOrAddressed(body, highlightQuery)}</p>;
     }
-    return <span className="table-chat-msg-compact__body">{body}</span>;
+    return (
+      <span className="table-chat-msg-compact__body">
+        {renderChatPlainOrAddressed(body, highlightQuery)}
+      </span>
+    );
   }
   const reply = parsed.replyText.trim();
+  const replyNode = reply ? renderChatPlainOrAddressed(parsed.replyText, highlightQuery) : null;
   if (variant === 'bubble') {
     return (
       <div className="table-chat-msg__body table-chat-msg__body--quoted">
-        <TableChatQuoteCard author={parsed.quoteAuthor} excerpt={parsed.quoteExcerpt} />
-        {reply ? <p className="table-chat-msg__reply-text">{parsed.replyText}</p> : null}
+        <TableChatQuoteCard
+          author={parsed.quoteAuthor}
+          excerpt={parsed.quoteExcerpt}
+          highlightQuery={highlightQuery}
+        />
+        {replyNode ? <p className="table-chat-msg__reply-text">{replyNode}</p> : null}
       </div>
     );
   }
   return (
     <span className="table-chat-msg-compact__quoted">
-      <TableChatQuoteCard author={parsed.quoteAuthor} excerpt={parsed.quoteExcerpt} />
-      {reply ? <span className="table-chat-msg-compact__reply">{parsed.replyText}</span> : null}
+      <TableChatQuoteCard
+        author={parsed.quoteAuthor}
+        excerpt={parsed.quoteExcerpt}
+        highlightQuery={highlightQuery}
+      />
+      {replyNode ? <span className="table-chat-msg-compact__reply">{replyNode}</span> : null}
+    </span>
+  );
+}
+
+function TableChatReactionChips({
+  chips,
+  disabled,
+  onToggle,
+}: {
+  chips: ReadonlyArray<ChatReactionChip>;
+  disabled?: boolean;
+  onToggle: (emoji: string) => void;
+}) {
+  if (chips.length === 0) return null;
+  return (
+    <span className="table-chat-msg-reactions" role="list" aria-label="Реакции">
+      {chips.map((chip) => (
+        <button
+          key={chip.emoji}
+          type="button"
+          role="listitem"
+          className={[
+            'table-chat-msg-reactions__chip',
+            chip.mine ? 'table-chat-msg-reactions__chip--mine' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          aria-pressed={chip.mine}
+          aria-label={
+            chip.mine
+              ? `Убрать реакцию ${chip.emoji}`
+              : `Поставить реакцию ${chip.emoji}`
+          }
+          title={chip.mine ? 'Нажмите, чтобы убрать' : 'Нажмите, чтобы поставить'}
+          disabled={disabled}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle(chip.emoji);
+          }}
+        >
+          <span aria-hidden>{chip.emoji}</span>
+          {chip.count > 1 ? (
+            <span className="table-chat-msg-reactions__count">{chip.count}</span>
+          ) : null}
+        </button>
+      ))}
     </span>
   );
 }
@@ -587,6 +756,92 @@ function readMobileResizeHintSeenFromLs(): boolean {
   }
 }
 
+function readChatNewestFirstFromLs(fallback: boolean): boolean {
+  if (typeof localStorage === 'undefined') return fallback;
+  try {
+    const raw = localStorage.getItem(LS_CHAT_NEWEST_FIRST);
+    if (raw === '1') return true;
+    if (raw === '0') return false;
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeChatNewestFirstToLs(on: boolean): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(LS_CHAT_NEWEST_FIRST, on ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
+
+const MOBILE_CHAT_BODY_BASE_H = 188;
+
+function clampMobilePortraitChatH(px: number): number {
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 700;
+  const max = Math.round(Math.min(vh * 0.62, 560));
+  return Math.round(Math.min(max, Math.max(140, px)));
+}
+
+function lsChatBodyBaseH(): number {
+  return typeof window !== 'undefined' ? Math.min(window.innerHeight * 0.32, 220) : 180;
+}
+
+function clampLsChatBodyH(px: number): number {
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 400;
+  const max = Math.round(Math.min(vh * 0.58, 420));
+  return Math.round(Math.min(max, Math.max(96, px)));
+}
+
+function readLsChatBodyHFromLs(): number {
+  const fallback = lsChatBodyBaseH();
+  if (typeof localStorage === 'undefined') return clampLsChatBodyH(fallback);
+  try {
+    const raw = localStorage.getItem(LS_LS_CHAT_BODY_H);
+    if (!raw) return clampLsChatBodyH(fallback);
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return clampLsChatBodyH(fallback);
+    return clampLsChatBodyH(n);
+  } catch {
+    return clampLsChatBodyH(fallback);
+  }
+}
+
+function writeLsChatBodyHToLs(px: number): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(LS_LS_CHAT_BODY_H, String(clampLsChatBodyH(px)));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Кегль ленты/ввода: 0 = обычный … 3 = крупный; «+» циклит. */
+const MOBILE_CHAT_FONT_SCALES = [1, 1.12, 1.26, 1.4] as const;
+
+function readMobileChatFontStepFromLs(): number {
+  if (typeof localStorage === 'undefined') return 0;
+  try {
+    const raw = localStorage.getItem(LS_MOBILE_CHAT_FONT_STEP);
+    if (!raw) return 0;
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 0 || n >= MOBILE_CHAT_FONT_SCALES.length) return 0;
+    return n;
+  } catch {
+    return 0;
+  }
+}
+
+function writeMobileChatFontStepToLs(step: number): void {
+  try {
+    localStorage.setItem(LS_MOBILE_CHAT_FONT_STEP, String(step));
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Вписать смещение в экран (тест через el.style.transform).
  * dx/dy суммируются: иначе при одновременном выходе за левый и правый край второе условие затирало первое.
@@ -668,7 +923,227 @@ export type TableChatDockProps = {
   offlineUiLabIncomingSeq?: number;
   /** Только mobile: свёрнут ли док (полоска + ушко видны при true) */
   onMobileChatCollapsedChange?: (collapsed: boolean) => void;
+  /**
+   * Инкремент → переключить мобильный док (диск/мини). 0 / undefined — игнор.
+   */
+  openMobileNonce?: number;
+  /** Свёрнутый chrome: непрочитанное / «печатает» для внешнего диска·мини */
+  onMobileChromeMeta?: (meta: { unread: boolean; typingLine: string | null }) => void;
+  /**
+   * 3p · landscape «чат справа»: монтировать док в эту колонку (лента у сукна),
+   * а не снизу страницы. null = обычный нижний dock.
+   */
+  mobileEmbedHost?: HTMLElement | null;
+  /** East-embed: «Убрать» — вернуть чат вниз страницы (как Чат↓). */
+  onEastEmbedDismissToBottom?: () => void;
+  /** Landscape · нижний dock: тот же chrome, что у чата справа от сукна. */
+  mobileLsBottomChrome?: boolean;
 };
+
+function CrystalLilacGlyph({
+  id,
+  path,
+  filled = false,
+}: {
+  id: string;
+  path: string;
+  filled?: boolean;
+}) {
+  const gradId = `${id}-lilac`;
+  return (
+    <svg className="table-chat-east-crystal-glyph" viewBox="0 0 16 16" aria-hidden>
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0.15" y2="1">
+          <stop offset="0%" stopColor="#67e8f9" />
+          <stop offset="38%" stopColor="#a78bfa" />
+          <stop offset="72%" stopColor="#f472b6" />
+          <stop offset="100%" stopColor="#7c3aed" />
+        </linearGradient>
+      </defs>
+      <path
+        d={path}
+        fill={filled ? `url(#${gradId})` : 'none'}
+        stroke={`url(#${gradId})`}
+        strokeWidth={filled ? 0.6 : 1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ChatToolSortGlyph({ newestFirst, hint }: { newestFirst: boolean; hint: boolean }) {
+  const gid = useId().replace(/:/g, '');
+  return (
+    <svg
+      className={[
+        'table-chat-tool-glyph',
+        'table-chat-tool-glyph--sort',
+        newestFirst ? 'table-chat-tool-glyph--sort-new-top' : 'table-chat-tool-glyph--sort-new-bot',
+        hint ? 'table-chat-tool-glyph--sort-hint' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      viewBox="0 0 16 16"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id={`${gid}-hot`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#22d3ee" />
+          <stop offset="46%" stopColor="#a78bfa" />
+          <stop offset="100%" stopColor="#f472b6" />
+        </linearGradient>
+        <linearGradient id={`${gid}-dim`} x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#22d3ee" />
+          <stop offset="100%" stopColor="#7c3aed" />
+        </linearGradient>
+      </defs>
+      <path
+        className={[
+          'table-chat-tool-glyph__chev',
+          'table-chat-tool-glyph__chev--up',
+          newestFirst ? 'table-chat-tool-glyph__chev--hot' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        d="M8 1.6 12.2 6.2H3.8Z"
+        fill={newestFirst ? `url(#${gid}-hot)` : `url(#${gid}-dim)`}
+        stroke={newestFirst ? '#f472b6' : '#7c3aed'}
+        strokeWidth={newestFirst ? 1.05 : 0.8}
+        strokeLinejoin="round"
+        paintOrder="stroke fill"
+      />
+      <path
+        className={[
+          'table-chat-tool-glyph__chev',
+          'table-chat-tool-glyph__chev--down',
+          newestFirst ? '' : 'table-chat-tool-glyph__chev--hot',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        d="M8 14.4 3.8 9.8h8.4Z"
+        fill={newestFirst ? `url(#${gid}-dim)` : `url(#${gid}-hot)`}
+        stroke={newestFirst ? '#7c3aed' : '#f472b6'}
+        strokeWidth={newestFirst ? 0.8 : 1.05}
+        strokeLinejoin="round"
+        paintOrder="stroke fill"
+      />
+      <g className="table-chat-tool-glyph__spark" aria-hidden>
+        <path className="table-chat-tool-glyph__spark-outer" d="M0-2.35 2.35 0 0 2.35-2.35 0Z" />
+        <path className="table-chat-tool-glyph__spark-core" d="M0-1.15 1.15 0 0 1.15-1.15 0Z" />
+      </g>
+    </svg>
+  );
+}
+
+function ChatToolSearchGlyph() {
+  const gid = useId().replace(/:/g, '');
+  return (
+    <svg className="table-chat-tool-glyph table-chat-tool-glyph--search" viewBox="0 0 16 16" aria-hidden>
+      <defs>
+        <linearGradient id={`${gid}-s`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#22d3ee" />
+          <stop offset="45%" stopColor="#a78bfa" />
+          <stop offset="100%" stopColor="#f472b6" />
+        </linearGradient>
+      </defs>
+      <circle cx="6.6" cy="6.6" r="4.05" fill="none" stroke={`url(#${gid}-s)`} strokeWidth="2.2" />
+      <path
+        d="M9.7 9.7 14.1 14.1"
+        fill="none"
+        stroke={`url(#${gid}-s)`}
+        strokeWidth="2.35"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function ChatFontTypeGlyph({ plus }: { plus: boolean }) {
+  return (
+    <span
+      className={[
+        'table-chat-dock-mobile-font-ctrl__glyph',
+        'table-chat-dock-mobile-font-ctrl__glyph--type',
+        plus
+          ? 'table-chat-dock-mobile-font-ctrl__glyph--type-plus'
+          : 'table-chat-dock-mobile-font-ctrl__glyph--type-minus',
+      ].join(' ')}
+      aria-hidden
+    >
+      <span className="table-chat-dock-mobile-font-ctrl__type-lg">{plus ? 'А' : 'О'}</span>
+      <span className="table-chat-dock-mobile-font-ctrl__type-sm">{plus ? 'а' : 'о'}</span>
+      <span className="table-chat-dock-mobile-font-ctrl__type-op">{plus ? '+' : '−'}</span>
+    </span>
+  );
+}
+
+function ChatStripPeekButton({
+  id,
+  dir,
+  onScroll,
+  className,
+  label,
+  crystal,
+}: {
+  id: string;
+  dir: 1 | -1;
+  onScroll: (dir: 1 | -1) => void;
+  className: string;
+  label: string;
+  crystal: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className={className}
+      aria-label={label}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onScroll(dir);
+      }}
+    >
+      {crystal ? (
+        <CrystalLilacGlyph
+          id={id}
+          path={dir === 1 ? 'M4.2 2 12.2 8 4.2 14' : 'M11.8 2 3.8 8 11.8 14'}
+        />
+      ) : dir === 1 ? (
+        '›'
+      ) : (
+        '‹'
+      )}
+    </button>
+  );
+}
+
+function readHScrollOverflow(el: HTMLElement | null): { left: boolean; right: boolean } {
+  if (!el) return { left: false, right: false };
+  const maxScroll = el.scrollWidth - el.clientWidth;
+  const sl = el.scrollLeft;
+  return {
+    left: sl > 2,
+    right: maxScroll > 4 && sl < maxScroll - 2,
+  };
+}
+
+/** Докрутить чип/вкладку из зоны fade, чтобы она была видна целиком. */
+function scrollChipFullyIntoHScroll(scroller: HTMLElement, chip: HTMLElement): void {
+  const sRect = scroller.getBoundingClientRect();
+  const tRect = chip.getBoundingClientRect();
+  if (sRect.width < 8) return;
+  const pad = Math.max(22, Math.round(sRect.width * 0.22));
+  let delta = 0;
+  if (tRect.left < sRect.left + pad) {
+    delta = tRect.left - (sRect.left + pad);
+  } else if (tRect.right > sRect.right - pad) {
+    delta = tRect.right - (sRect.right - pad);
+  }
+  if (Math.abs(delta) < 1) return;
+  scroller.scrollBy({ left: delta, behavior: 'smooth' });
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -746,17 +1221,64 @@ function TableChatDock({
   offlineUiLabEarMock = { scenario: 'none' },
   offlineUiLabIncomingSeq = 0,
   onMobileChatCollapsedChange,
+  openMobileNonce = 0,
+  onMobileChromeMeta,
+  mobileEmbedHost = null,
+  onEastEmbedDismissToBottom,
+  mobileLsBottomChrome = false,
 }: TableChatDockProps) {
   const [messages, setMessages] = useState<RoomChatMessageRow[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapseHintOn, setCollapseHintOn] = useState(false);
+  const [sortSparkHintOn, setSortSparkHintOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const mobileFavoritesRef = useRef<HTMLDivElement>(null);
+  const mobileEmojiTabsRef = useRef<HTMLDivElement>(null);
+  const [mobileFavCanScrollLeft, setMobileFavCanScrollLeft] = useState(false);
+  const [mobileFavCanScrollRight, setMobileFavCanScrollRight] = useState(false);
+  const [mobileEmojiTabsCanScrollLeft, setMobileEmojiTabsCanScrollLeft] = useState(false);
+  const [mobileEmojiTabsCanScrollRight, setMobileEmojiTabsCanScrollRight] = useState(false);
+  /** Меню действий по сообщению в ленте: ответить / реакция / адресовать. */
+  const [msgActionTarget, setMsgActionTarget] = useState<SideEarUnreadPhantom | null>(null);
+  const [msgActionMode, setMsgActionMode] = useState<'sheet' | 'react' | 'name' | null>(null);
+  /** Цитата к ответу из ленты (главный композер). */
+  const [feedReplyAnchor, setFeedReplyAnchor] = useState<SideEarUnreadPhantom | null>(null);
+  /** Адресат: в ленту уйдёт `→ Имя:`, в поле не вставляем сырой префикс. */
+  const [feedAddressTo, setFeedAddressTo] = useState<string | null>(null);
+  const [chatNewestFirst, setChatNewestFirst] = useState(() =>
+    readChatNewestFirstFromLs(variant === 'mobile' && !mobileEmbedHost),
+  );
+  const [chatSearchOpen, setChatSearchOpen] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [lsChatBodyH, setLsChatBodyH] = useState(() => readLsChatBodyHFromLs());
+  const chatSearchInputRef = useRef<HTMLInputElement>(null);
+  const [composerFlashOn, setComposerFlashOn] = useState(false);
+  const composerFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hiddenMsgIds, setHiddenMsgIds] = useState<ReadonlySet<string>>(
+    () => loadHiddenChatMessageIds(roomId),
+  );
+  const [hiddenUserIds, setHiddenUserIds] = useState<ReadonlySet<string>>(
+    () => loadHiddenChatUserIds(roomId),
+  );
+  const [chatHideUndo, setChatHideUndo] = useState<{
+    kind: 'msg' | 'user';
+    id: string;
+    label: string;
+  } | null>(null);
+  const [chatHiddenPanelOpen, setChatHiddenPanelOpen] = useState(false);
+  const chatHideUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [expandedFeedNames, setExpandedFeedNames] = useState<Set<string>>(() => new Set());
+  const feedNameFoldTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const msgTapGuardRef = useRef({ x: 0, y: 0, moved: false });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputShellRef = useRef<HTMLDivElement>(null);
   const optimisticIdRef = useRef<string | null>(null);
   const lastLabIncomingSeqRef = useRef(0);
   const dockRef = useRef<HTMLDivElement>(null);
+  const prevMobileEmbedHostRef = useRef<HTMLElement | null>(null);
   const mobileCollapsedChatDockRef = useRef<HTMLDivElement>(null);
   const resizeCornerRef = useRef<HTMLButtonElement>(null);
   const latestPcDragRef = useRef({ x: 0, y: 0 });
@@ -790,6 +1312,12 @@ function TableChatDock({
     startY: 0,
     startHeight: 220,
   });
+  const lsChatResizeSessionRef = useRef({
+    active: false,
+    pointerId: -1,
+    startY: 0,
+    startHeight: 180,
+  });
 
   const [pcCollapsed, setPcCollapsed] = useState(false);
   const [pcDrag, setPcDrag] = useState(() =>
@@ -807,8 +1335,8 @@ function TableChatDock({
   const [emojiBankExpanded, setEmojiBankExpanded] = useState(false);
   const emojiPanelRef = useRef<HTMLDivElement>(null);
   const emojiToggleRef = useRef<HTMLButtonElement>(null);
-  const emojiQuickRef = useRef<HTMLButtonElement>(null);
   const mineQuickRef = useRef<HTMLButtonElement>(null);
+  const [mobileChatFontStep, setMobileChatFontStep] = useState(readMobileChatFontStepFromLs);
   const composerInnerRef = useRef<HTMLDivElement>(null);
   const emojiPanelDomId = useId().replace(/:/g, '');
   const sideEarGlyphGradId = `${emojiPanelDomId}-side-ear-glyph`;
@@ -828,7 +1356,7 @@ function TableChatDock({
   const phantomDismissStrokeUrl = `url(#${phantomDismissGradId})`;
   const [mobileMessagesHeight, setMobileMessagesHeight] = useState<number>(() => {
     const ls = readMobileChatHeightFromLs();
-    return Math.round(Math.min(360, Math.max(140, ls ?? 188)));
+    return clampMobilePortraitChatH(ls ?? MOBILE_CHAT_BODY_BASE_H);
   });
   const [mobileResizeHintVisible, setMobileResizeHintVisible] = useState<boolean>(() => !readMobileResizeHintSeenFromLs());
   const [sideEarCenterPct, setSideEarCenterPct] = useState(() => {
@@ -968,18 +1496,49 @@ function TableChatDock({
 
   const mobileDockStyle = useMemo((): CSSProperties | undefined => {
     if (variant !== 'mobile') return undefined;
+    const bodyZoom = MOBILE_CHAT_FONT_SCALES[mobileChatFontStep] ?? 1;
+    /* Ввод: мягче ленты — чуть крупнее шрифт, без раздувания полоски. */
+    const inputFs = 1 + (bodyZoom - 1) * 0.28;
     return {
       ['--mobile-chat-messages-height' as string]: `${mobileMessagesHeight}px`,
+      ['--tch-body-zoom' as string]: String(bodyZoom),
+      ['--tch-input-fs' as string]: String(inputFs),
+      ...(mobileLsBottomChrome
+        ? {
+            ['--ls-chat-body-h' as string]: `${lsChatBodyH}px`,
+            ['--ls-chat-lift' as string]: `${Math.max(0, lsChatBodyH - lsChatBodyBaseH())}px`,
+          }
+        : {}),
     };
-  }, [mobileMessagesHeight, variant]);
+  }, [mobileChatFontStep, mobileMessagesHeight, variant, mobileLsBottomChrome, lsChatBodyH]);
 
-  const displayMessages = useMemo(
-    () => (variant === 'mobile' ? [...messages].reverse() : messages),
-    [messages, variant],
+  const visibleFeedMessages = useMemo(
+    () =>
+      messages.filter((m) => {
+        if (isChatReactionControlBody(m.body)) return false;
+        if (hiddenMsgIds.has(m.id)) return false;
+        if (m.user_id !== userId && hiddenUserIds.has(m.user_id)) return false;
+        return true;
+      }),
+    [messages, hiddenMsgIds, hiddenUserIds, userId],
   );
+  const reactionsByMessageId = useMemo(
+    () => aggregateChatReactions(messages, userId),
+    [messages, userId],
+  );
+  const displayMessages = useMemo(() => {
+    const q = chatSearchQuery.trim();
+    const filtered = q
+      ? visibleFeedMessages.filter((m) => messageMatchesChatSearch(m, q))
+      : visibleFeedMessages;
+    if (chatNewestFirst) return [...filtered].reverse();
+    return filtered;
+  }, [visibleFeedMessages, chatNewestFirst, chatSearchQuery]);
+  const mobileFeedKind = tableChatFeedKind({ mobileEmbedHost: Boolean(mobileEmbedHost) });
 
   const [mySnippets, setMySnippets] = useState<string[]>(() => loadMySnippetsFromLs());
   const [mineDraft, setMineDraft] = useState('');
+  const [mineEditIndex, setMineEditIndex] = useState<number | null>(null);
   const [mobileMineEditMode, setMobileMineEditMode] = useState(false);
   const [mobileMineToast, setMobileMineToast] = useState<string | null>(null);
   const mobileMineToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -987,6 +1546,81 @@ function TableChatDock({
     timer: null,
     fired: false,
   });
+
+  const updateMobileFavoritesOverflow = useCallback(() => {
+    const { left, right } = readHScrollOverflow(mobileFavoritesRef.current);
+    setMobileFavCanScrollLeft(left);
+    setMobileFavCanScrollRight(right);
+  }, []);
+
+  const scrollMobileFavoritesBy = useCallback((dir: 1 | -1) => {
+    const el = mobileFavoritesRef.current;
+    if (!el) return;
+    const step = Math.max(80, Math.round(el.clientWidth * 0.62));
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  }, []);
+
+  const updateMobileEmojiTabsOverflow = useCallback(() => {
+    const { left, right } = readHScrollOverflow(mobileEmojiTabsRef.current);
+    setMobileEmojiTabsCanScrollLeft(left);
+    setMobileEmojiTabsCanScrollRight(right);
+  }, []);
+
+  const scrollMobileEmojiTabsBy = useCallback((dir: 1 | -1) => {
+    const el = mobileEmojiTabsRef.current;
+    if (!el) return;
+    const step = Math.max(72, Math.round(el.clientWidth * 0.7));
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (variant !== 'mobile' || mySnippets.length === 0) {
+      setMobileFavCanScrollLeft(false);
+      setMobileFavCanScrollRight(false);
+      return;
+    }
+    updateMobileFavoritesOverflow();
+    const el = mobileFavoritesRef.current;
+    if (!el) return;
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => updateMobileFavoritesOverflow()) : null;
+    ro?.observe(el);
+    const t = window.setTimeout(updateMobileFavoritesOverflow, 80);
+    return () => {
+      ro?.disconnect();
+      window.clearTimeout(t);
+    };
+  }, [variant, mySnippets, mobileOpen, mobileEmbedHost, updateMobileFavoritesOverflow]);
+
+  useLayoutEffect(() => {
+    if (variant !== 'mobile' || !emojiPickerOpen) {
+      setMobileEmojiTabsCanScrollLeft(false);
+      setMobileEmojiTabsCanScrollRight(false);
+      return;
+    }
+    updateMobileEmojiTabsOverflow();
+    const el = mobileEmojiTabsRef.current;
+    if (!el) return;
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => updateMobileEmojiTabsOverflow()) : null;
+    ro?.observe(el);
+    const t = window.setTimeout(updateMobileEmojiTabsOverflow, 80);
+    return () => {
+      ro?.disconnect();
+      window.clearTimeout(t);
+    };
+  }, [variant, emojiPickerOpen, emojiTab, mobileEmbedHost, mobileLsBottomChrome, updateMobileEmojiTabsOverflow]);
+
+  useLayoutEffect(() => {
+    if (variant !== 'mobile' || !emojiPickerOpen) return;
+    const scroller = mobileEmojiTabsRef.current;
+    if (!scroller) return;
+    const tabEl = scroller.querySelector(`[data-emoji-tab="${emojiTab}"]`);
+    if (!(tabEl instanceof HTMLElement)) return;
+    const run = () => scrollChipFullyIntoHScroll(scroller, tabEl);
+    run();
+    const t = window.setTimeout(run, 40);
+    return () => window.clearTimeout(t);
+  }, [variant, emojiPickerOpen, emojiTab]);
+
   /** ПК: короткая подсказка «Мои» (кнопка ?) */
   const [minePcHelpOpen, setMinePcHelpOpen] = useState(false);
   /** Ключ ячейки «эмодзи+индекс» для неон-вспышки звезды после добавления в «Мои» */
@@ -1014,10 +1648,30 @@ function TableChatDock({
   }, [mySnippets]);
 
   useEffect(() => {
+    setHiddenMsgIds(loadHiddenChatMessageIds(roomId));
+    setHiddenUserIds(loadHiddenChatUserIds(roomId));
+    setChatHideUndo(null);
+    setChatHiddenPanelOpen(false);
+    setChatSearchOpen(false);
+    setChatSearchQuery('');
+    if (chatHideUndoTimerRef.current) {
+      clearTimeout(chatHideUndoTimerRef.current);
+      chatHideUndoTimerRef.current = null;
+    }
+    for (const t of feedNameFoldTimersRef.current.values()) clearTimeout(t);
+    feedNameFoldTimersRef.current.clear();
+    setExpandedFeedNames(new Set());
+  }, [roomId]);
+
+  useEffect(() => {
     return () => {
       if (mineStarFlashTimerRef.current) clearTimeout(mineStarFlashTimerRef.current);
       if (mobileMineToastTimerRef.current) clearTimeout(mobileMineToastTimerRef.current);
+      if (chatHideUndoTimerRef.current) clearTimeout(chatHideUndoTimerRef.current);
+      if (composerFlashTimerRef.current) clearTimeout(composerFlashTimerRef.current);
       if (longPressSessionRef.current.timer) clearTimeout(longPressSessionRef.current.timer);
+      for (const t of feedNameFoldTimersRef.current.values()) clearTimeout(t);
+      feedNameFoldTimersRef.current.clear();
     };
   }, []);
 
@@ -1077,7 +1731,6 @@ function TableChatDock({
       /* closest надёжнее ref.contains (звёздочка и др. внутри панели) */
       if (t.closest('.table-chat-emoji-panel--popover')) return;
       if (emojiToggleRef.current?.contains(t)) return;
-      if (emojiQuickRef.current?.contains(t)) return;
       if (mineQuickRef.current?.contains(t)) return;
       if (composerInnerRef.current?.contains(t)) return;
       if (resizeCornerRef.current?.contains(t)) return;
@@ -1228,23 +1881,18 @@ function TableChatDock({
     }
   }, [variant]);
 
-  const onEmojiTab = useCallback((id: TableChatPickerTabId) => {
-    setEmojiTab(id);
-    setEmojiBankExpanded(false);
-  }, []);
-
-  const onMobileQuickEmoji = useCallback(() => {
-    if (variant !== 'mobile') return;
-    setEarPhantomReplyEmojiOpen(false);
-    setEmojiPickerOpen((open) => {
-      if (open && emojiTab !== 'mine') return false;
-      return true;
-    });
-    if (emojiTab === 'mine') {
-      setEmojiTab('react');
+  const onEmojiTab = useCallback(
+    (id: TableChatPickerTabId) => {
+      /* Повторный тап по уже открытой вкладке — закрыть панель эмодзи/фраз. */
+      if (emojiPickerOpen && emojiTab === id) {
+        setEmojiPickerOpen(false);
+        return;
+      }
+      setEmojiTab(id);
       setEmojiBankExpanded(false);
-    }
-  }, [emojiTab, variant]);
+    },
+    [emojiPickerOpen, emojiTab],
+  );
 
   const onMobileQuickMine = useCallback(() => {
     if (variant !== 'mobile') return;
@@ -1254,6 +1902,33 @@ function TableChatDock({
       setEmojiBankExpanded(false);
     }
   }, [emojiTab, variant]);
+
+  const onMobileQuickPhrases = useCallback(() => {
+    if (variant !== 'mobile') return;
+    setEmojiPickerOpen((open) => !(open && emojiTab === 'phrases'));
+    if (emojiTab !== 'phrases') {
+      setEmojiTab('phrases');
+      setEmojiBankExpanded(false);
+    }
+  }, [emojiTab, variant]);
+
+  const onMobileChatFontStepUp = useCallback(() => {
+    if (variant !== 'mobile') return;
+    setMobileChatFontStep((prev) => {
+      const next = Math.min(prev + 1, MOBILE_CHAT_FONT_SCALES.length - 1);
+      writeMobileChatFontStepToLs(next);
+      return next;
+    });
+  }, [variant]);
+
+  const onMobileChatFontStepDown = useCallback(() => {
+    if (variant !== 'mobile') return;
+    setMobileChatFontStep((prev) => {
+      const next = Math.max(prev - 1, 0);
+      writeMobileChatFontStepToLs(next);
+      return next;
+    });
+  }, [variant]);
 
   const addMineSnippet = useCallback((raw: string) => {
     const t = raw.trim().slice(0, MY_SNIPPETS_MAX_LEN);
@@ -1295,18 +1970,35 @@ function TableChatDock({
     return fired;
   }, []);
 
-  const addMineFromComposer = useCallback(() => {
-    addMineSnippet(text);
-  }, [text, addMineSnippet]);
-
   const removeMineSnippet = useCallback((index: number) => {
     setMySnippets((prev) => prev.filter((_, i) => i !== index));
+    setMineEditIndex((cur) => {
+      if (cur == null) return cur;
+      if (cur === index) {
+        setMineDraft('');
+        return null;
+      }
+      return cur > index ? cur - 1 : cur;
+    });
   }, []);
 
   const commitMineDraft = useCallback(() => {
+    const t = mineDraft.trim().slice(0, MY_SNIPPETS_MAX_LEN);
+    if (!t) return;
+    if (mineEditIndex != null) {
+      setMySnippets((prev) => {
+        if (mineEditIndex < 0 || mineEditIndex >= prev.length) return prev;
+        const next = [...prev];
+        next[mineEditIndex] = t;
+        return dedupeMySnippets(next);
+      });
+      setMineEditIndex(null);
+      setMineDraft('');
+      return;
+    }
     addMineSnippet(mineDraft);
     setMineDraft('');
-  }, [mineDraft, addMineSnippet]);
+  }, [mineDraft, mineEditIndex, addMineSnippet]);
 
   const flushTypingLine = useCallback(() => {
     const now = Date.now();
@@ -1338,6 +2030,7 @@ function TableChatDock({
         const next = opt ? prev.filter((m) => m.id !== opt) : prev;
         return [...next, row].slice(-FETCH_LIMIT);
       });
+      if (isChatReactionControlBody(row.body)) return;
       /** Без ушка тоже помечаем непрочитанное — точка на кнопке «Чат». */
       if (!mobileOpenRef.current && row.user_id !== userId) {
         const seen = seenUpToCreatedAtRef.current;
@@ -1474,6 +2167,22 @@ function TableChatDock({
   }, [roomId, offlineUiLab]);
 
   useEffect(() => {
+    if (variant !== 'mobile' || !mobileOpen || mobileEmbedHost) {
+      setCollapseHintOn(false);
+      setSortSparkHintOn(false);
+      return;
+    }
+    setCollapseHintOn(true);
+    setSortSparkHintOn(true);
+    const collapseT = window.setTimeout(() => setCollapseHintOn(false), 4000);
+    const sparkT = window.setTimeout(() => setSortSparkHintOn(false), 14000);
+    return () => {
+      window.clearTimeout(collapseT);
+      window.clearTimeout(sparkT);
+    };
+  }, [mobileOpen, variant, mobileEmbedHost, openMobileNonce]);
+
+  useEffect(() => {
     if (variant === 'mobile' && !mobileOpen) setEmojiPickerOpen(false);
   }, [variant, mobileOpen]);
 
@@ -1483,28 +2192,100 @@ function TableChatDock({
   }, [variant, mobileOpen, onMobileChatCollapsedChange]);
 
   useEffect(() => {
+    if (variant !== 'mobile' || !openMobileNonce) return;
+    setMobileOpen((open) => !open);
+  }, [openMobileNonce, variant]);
+
+  /** Диск/мини: чат в потоке внизу — прокрутить страницу к низу дока (не overlay). */
+  useLayoutEffect(() => {
+    if (variant !== 'mobile' || !mobileOpen || !openMobileNonce || mobileEmbedHost) return;
+    const timer = window.setTimeout(() => {
+      const el = dockRef.current;
+      if (!el) return;
+      const wrap = el.closest('.game-table-main-wrap');
+      if (wrap instanceof HTMLElement) {
+        try {
+          wrap.scrollTo({ top: wrap.scrollHeight, behavior: 'smooth' });
+        } catch {
+          wrap.scrollTop = wrap.scrollHeight;
+        }
+      }
+      try {
+        el.scrollIntoView({ block: 'end', inline: 'nearest', behavior: 'smooth' });
+      } catch {
+        el.scrollIntoView({ block: 'end', inline: 'nearest' });
+      }
+    }, 40);
+    return () => window.clearTimeout(timer);
+  }, [openMobileNonce, mobileOpen, variant, mobileEmbedHost]);
+
+  const prevMobileOpenRef = useRef(mobileOpen);
+  useLayoutEffect(() => {
+    const wasOpen = prevMobileOpenRef.current;
+    prevMobileOpenRef.current = mobileOpen;
+    if (variant !== 'mobile' || mobileEmbedHost) return;
+    if (!wasOpen || mobileOpen) return;
+    const wrap =
+      (typeof document !== 'undefined' &&
+        document.querySelector(
+          '.game-table-root.viewport-mobile.viewport-mobile-landscape .game-table-main-wrap',
+        )) ||
+      null;
+    if (wrap instanceof HTMLElement) {
+      try {
+        wrap.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch {
+        wrap.scrollTop = 0;
+      }
+    }
+    try {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {
+      window.scrollTo(0, 0);
+    }
+  }, [mobileOpen, variant, mobileEmbedHost]);
+
+  /** Встроенный чат справа: открыть при появлении колонки, не форсить после «свернуть». */
+  useEffect(() => {
+    if (variant !== 'mobile') return;
+    const prev = prevMobileEmbedHostRef.current;
+    prevMobileEmbedHostRef.current = mobileEmbedHost;
+    if (mobileEmbedHost && !prev) setMobileOpen(true);
+    if (!mobileEmbedHost && prev) setMobileOpen(false);
+  }, [mobileEmbedHost, variant]);
+
+  useEffect(() => {
     if (variant !== 'mobile' || emojiTab !== 'mine') setMobileMineEditMode(false);
   }, [emojiTab, variant]);
 
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
-    if (variant === 'mobile') {
-      if (!mobileOpen) return;
+    if (variant === 'mobile' && !mobileOpen) return;
+    if (chatNewestFirst) {
       const stickToLatest = el.scrollTop < 72;
       if (stickToLatest) el.scrollTop = 0;
-    } else {
-      el.scrollTop = el.scrollHeight;
+      return;
     }
-  }, [messages, mobileOpen, variant]);
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (variant === 'mobile' && mobileEmbedHost) {
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
+    if (dist < 80) el.scrollTop = el.scrollHeight;
+  }, [messages, mobileOpen, variant, mobileEmbedHost, chatNewestFirst]);
 
   const resizeComposer = useCallback(() => {
     const ta = textareaRef.current;
     if (!ta) return;
+    if (mobileLsBottomChrome) {
+      ta.style.height = '';
+      return;
+    }
     ta.style.height = 'auto';
     const max = variant === 'mobile' ? 100 : 120;
     ta.style.height = `${Math.min(ta.scrollHeight, max)}px`;
-  }, [variant]);
+  }, [variant, mobileLsBottomChrome]);
 
   useLayoutEffect(() => {
     resizeComposer();
@@ -1731,8 +2512,7 @@ function TableChatDock({
     const s = mobileResizeSessionRef.current;
     if (!s.active || e.pointerId !== s.pointerId) return;
     const next = s.startHeight + (s.startY - e.clientY);
-    const clamped = Math.round(Math.min(360, Math.max(140, next)));
-    setMobileMessagesHeight(clamped);
+    setMobileMessagesHeight(clampMobilePortraitChatH(next));
   }, []);
 
   const onMobileResizePointerUp = useCallback(
@@ -1744,7 +2524,7 @@ function TableChatDock({
       window.removeEventListener('pointerup', onMobileResizePointerUp);
       window.removeEventListener('pointercancel', onMobileResizePointerUp);
       const next = s.startHeight + (s.startY - e.clientY);
-      const clamped = Math.round(Math.min(360, Math.max(140, next)));
+      const clamped = clampMobilePortraitChatH(next);
       setMobileMessagesHeight(clamped);
       try {
         localStorage.setItem(LS_MOBILE_CHAT_HEIGHT, String(clamped));
@@ -1771,6 +2551,11 @@ function TableChatDock({
         startY: e.clientY,
         startHeight: mobileMessagesHeight,
       };
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
       window.addEventListener('pointermove', onMobileResizePointerMove, PC_POINTER_MOVE_OPTS);
       window.addEventListener('pointerup', onMobileResizePointerUp);
       window.addEventListener('pointercancel', onMobileResizePointerUp);
@@ -1781,9 +2566,86 @@ function TableChatDock({
         /* ignore */
       }
       e.preventDefault();
+      e.stopPropagation();
     },
     [mobileMessagesHeight, onMobileResizePointerMove, onMobileResizePointerUp, variant],
   );
+
+  const onLsChatResizePointerMove = useCallback((e: PointerEvent) => {
+    const s = lsChatResizeSessionRef.current;
+    if (!s.active || e.pointerId !== s.pointerId) return;
+    const next = s.startHeight + (s.startY - e.clientY);
+    setLsChatBodyH(clampLsChatBodyH(next));
+  }, []);
+
+  const onLsChatResizePointerUp = useCallback(
+    (e: PointerEvent) => {
+      const s = lsChatResizeSessionRef.current;
+      if (!s.active || e.pointerId !== s.pointerId) return;
+      s.active = false;
+      window.removeEventListener('pointermove', onLsChatResizePointerMove, PC_POINTER_MOVE_OPTS);
+      window.removeEventListener('pointerup', onLsChatResizePointerUp);
+      window.removeEventListener('pointercancel', onLsChatResizePointerUp);
+      const next = clampLsChatBodyH(s.startHeight + (s.startY - e.clientY));
+      setLsChatBodyH(next);
+      writeLsChatBodyHToLs(next);
+    },
+    [onLsChatResizePointerMove],
+  );
+
+  const startLsChatResize = useCallback(
+    (e: ReactPointerEvent) => {
+      if (variant !== 'mobile' || !mobileLsBottomChrome) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      lsChatResizeSessionRef.current = {
+        active: true,
+        pointerId: e.pointerId,
+        startY: e.clientY,
+        startHeight: lsChatBodyH,
+      };
+      window.addEventListener('pointermove', onLsChatResizePointerMove, PC_POINTER_MOVE_OPTS);
+      window.addEventListener('pointerup', onLsChatResizePointerUp);
+      window.addEventListener('pointercancel', onLsChatResizePointerUp);
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    [
+      lsChatBodyH,
+      mobileLsBottomChrome,
+      onLsChatResizePointerMove,
+      onLsChatResizePointerUp,
+      variant,
+    ],
+  );
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('pointermove', onLsChatResizePointerMove, PC_POINTER_MOVE_OPTS);
+      window.removeEventListener('pointerup', onLsChatResizePointerUp);
+      window.removeEventListener('pointercancel', onLsChatResizePointerUp);
+      lsChatResizeSessionRef.current.active = false;
+    };
+  }, [onLsChatResizePointerMove, onLsChatResizePointerUp]);
+
+  useEffect(() => {
+    const onWin = () => setLsChatBodyH((h) => clampLsChatBodyH(h));
+    window.addEventListener('resize', onWin);
+    return () => window.removeEventListener('resize', onWin);
+  }, []);
+
+  useEffect(() => {
+    if (!chatSearchOpen) return;
+    const t = window.setTimeout(() => chatSearchInputRef.current?.focus(), 40);
+    return () => window.clearTimeout(t);
+  }, [chatSearchOpen]);
+
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    if (variant === 'mobile' && !mobileOpen) return;
+    if (chatNewestFirst) el.scrollTop = 0;
+    else el.scrollTop = el.scrollHeight;
+  }, [chatNewestFirst, mobileOpen, variant]);
 
   const onPcWindowPointerUp = useCallback(
     (e: PointerEvent) => {
@@ -1932,7 +2794,9 @@ function TableChatDock({
           if (without.some((m) => m.id === row.id)) return without;
           return [...without, row].slice(-FETCH_LIMIT);
         });
-        onOwnMessageSent?.(row);
+        if (!isChatReactionControlBody(row.body)) {
+          onOwnMessageSent?.(row);
+        }
         return { ok: true, row };
       }
       setMessages((prev) => prev.filter((m) => m.id !== optId));
@@ -1945,19 +2809,34 @@ function TableChatDock({
     setEmojiPickerOpen(false);
     const t = text.trim();
     if (!t || sending) return;
+    const addressed = feedAddressTo ? buildAddressedChatBody(feedAddressTo, t, MAX_BODY) : t;
+    const body = feedReplyAnchor
+      ? buildPhantomContextualReplyBody(addressed, feedReplyAnchor, MAX_BODY)
+      : addressed;
+    if (!body.trim()) return;
     if (offlineUiLab) {
-      const r = await sendTrimmedChatBody(t);
+      const r = await sendTrimmedChatBody(body);
       if (r.ok) {
         setText('');
+        setFeedReplyAnchor(null);
+        setFeedAddressTo(null);
         resizeComposer();
       }
       return;
     }
     setText('');
+    const replyAnchorSnap = feedReplyAnchor;
+    const addressSnap = feedAddressTo;
+    setFeedReplyAnchor(null);
+    setFeedAddressTo(null);
     resizeComposer();
-    const r = await sendTrimmedChatBody(t);
-    if (!r.ok) setText(t);
-  }, [text, sending, sendTrimmedChatBody, resizeComposer, offlineUiLab]);
+    const r = await sendTrimmedChatBody(body);
+    if (!r.ok) {
+      setText(t);
+      if (replyAnchorSnap) setFeedReplyAnchor(replyAnchorSnap);
+      if (addressSnap) setFeedAddressTo(addressSnap);
+    }
+  }, [text, sending, sendTrimmedChatBody, resizeComposer, offlineUiLab, feedReplyAnchor, feedAddressTo]);
 
   const flushPhantomReplySend = useCallback(async () => {
     const rawDraft = earPhantomReplyDraft.trim();
@@ -2017,11 +2896,320 @@ function TableChatDock({
     [sending, earPhantomReplyDraft, flushPhantomReplySend],
   );
 
+  const collapseAllFeedNames = useCallback(() => {
+    for (const t of feedNameFoldTimersRef.current.values()) clearTimeout(t);
+    feedNameFoldTimersRef.current.clear();
+    setExpandedFeedNames((cur) => (cur.size === 0 ? cur : new Set()));
+  }, []);
+
+  const expandFeedName = useCallback((full: string) => {
+    for (const [key, timer] of feedNameFoldTimersRef.current) {
+      if (key === full) continue;
+      clearTimeout(timer);
+      feedNameFoldTimersRef.current.delete(key);
+    }
+    setExpandedFeedNames(new Set([full]));
+    const prev = feedNameFoldTimersRef.current.get(full);
+    if (prev) clearTimeout(prev);
+    const t = setTimeout(() => {
+      feedNameFoldTimersRef.current.delete(full);
+      setExpandedFeedNames((cur) => {
+        if (!cur.has(full)) return cur;
+        const next = new Set(cur);
+        next.delete(full);
+        return next;
+      });
+    }, TABLE_CHAT_NAME_FOLD_MS);
+    feedNameFoldTimersRef.current.set(full, t);
+  }, []);
+
+  const toggleFeedName = useCallback(
+    (full: string, currentlyExpanded: boolean) => {
+      if (currentlyExpanded) {
+        const prev = feedNameFoldTimersRef.current.get(full);
+        if (prev) {
+          clearTimeout(prev);
+          feedNameFoldTimersRef.current.delete(full);
+        }
+        setExpandedFeedNames((cur) => {
+          if (!cur.has(full)) return cur;
+          const next = new Set(cur);
+          next.delete(full);
+          return next;
+        });
+        return;
+      }
+      expandFeedName(full);
+    },
+    [expandFeedName],
+  );
+
   const copyBody = useCallback((body: string) => {
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      void navigator.clipboard.writeText(body);
+      void navigator.clipboard.writeText(chatBodyForClipboard(body) || body);
     }
   }, []);
+
+  const closeMsgActionMenu = useCallback(() => {
+    setMsgActionMode(null);
+    setMsgActionTarget(null);
+  }, []);
+
+  const openMsgActionSheet = useCallback((row: RoomChatMessageRow) => {
+    if (row.id.startsWith('opt-')) return;
+    collapseAllFeedNames();
+    setChatHiddenPanelOpen(false);
+    setMsgActionTarget(formatUnreadPhantomFromMessage(row));
+    setMsgActionMode('sheet');
+    setEmojiPickerOpen(false);
+    setEarPhantomReplyEmojiOpen(false);
+  }, [collapseAllFeedNames]);
+
+  const openMsgReactSheet = useCallback((row: RoomChatMessageRow) => {
+    if (row.id.startsWith('opt-')) return;
+    setChatHiddenPanelOpen(false);
+    setMsgActionTarget(formatUnreadPhantomFromMessage(row));
+    setMsgActionMode('react');
+    setEmojiPickerOpen(false);
+    setEarPhantomReplyEmojiOpen(false);
+  }, []);
+
+  const openMsgNameSheet = useCallback((row: RoomChatMessageRow) => {
+    if (row.id.startsWith('opt-') || row.user_id === userId) return;
+    setChatHiddenPanelOpen(false);
+    setMsgActionTarget(formatUnreadPhantomFromMessage(row));
+    setMsgActionMode('name');
+    setEmojiPickerOpen(false);
+    setEarPhantomReplyEmojiOpen(false);
+  }, [userId]);
+
+  const armChatHideUndo = useCallback((next: { kind: 'msg' | 'user'; id: string; label: string }) => {
+    if (chatHideUndoTimerRef.current) clearTimeout(chatHideUndoTimerRef.current);
+    setChatHideUndo(next);
+    chatHideUndoTimerRef.current = setTimeout(() => {
+      setChatHideUndo(null);
+      chatHideUndoTimerRef.current = null;
+    }, 4200);
+  }, []);
+
+  const hideChatMessage = useCallback(() => {
+    if (!msgActionTarget || !roomId) return;
+    const id = msgActionTarget.messageId;
+    const hideCopy = tableChatMessageSheetHideCopy(msgActionTarget.userId === userId);
+    setHiddenMsgIds((prev) => {
+      const next = withHiddenId(prev, id);
+      persistHiddenChatMessageIds(roomId, next);
+      return next;
+    });
+    armChatHideUndo({ kind: 'msg', id, label: hideCopy.undo });
+    closeMsgActionMenu();
+  }, [msgActionTarget, roomId, userId, armChatHideUndo, closeMsgActionMenu]);
+
+  const hideChatUser = useCallback(() => {
+    const uid = msgActionTarget?.userId;
+    if (!uid || uid === userId || !roomId) return;
+    setHiddenUserIds((prev) => {
+      const next = withHiddenId(prev, uid);
+      persistHiddenChatUserIds(roomId, next);
+      return next;
+    });
+    const name = msgActionTarget.author.trim() || 'игрока';
+    armChatHideUndo({ kind: 'user', id: uid, label: `Сообщения ${name} скрыты` });
+    closeMsgActionMenu();
+  }, [msgActionTarget, userId, roomId, armChatHideUndo, closeMsgActionMenu]);
+
+  const undoChatHide = useCallback(() => {
+    if (!chatHideUndo || !roomId) return;
+    if (chatHideUndo.kind === 'msg') {
+      setHiddenMsgIds((prev) => {
+        const next = withoutHiddenId(prev, chatHideUndo.id);
+        persistHiddenChatMessageIds(roomId, next);
+        return next;
+      });
+    } else {
+      setHiddenUserIds((prev) => {
+        const next = withoutHiddenId(prev, chatHideUndo.id);
+        persistHiddenChatUserIds(roomId, next);
+        return next;
+      });
+    }
+    setChatHideUndo(null);
+    if (chatHideUndoTimerRef.current) {
+      clearTimeout(chatHideUndoTimerRef.current);
+      chatHideUndoTimerRef.current = null;
+    }
+  }, [chatHideUndo, roomId]);
+
+  const copyMsgActionTarget = useCallback(() => {
+    if (!msgActionTarget) return;
+    copyBody(msgActionTarget.body);
+    closeMsgActionMenu();
+  }, [msgActionTarget, copyBody, closeMsgActionMenu]);
+
+  const hiddenUserEntries = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { id: string; name: string }[] = [];
+    for (const m of messages) {
+      if (!hiddenUserIds.has(m.user_id) || m.user_id === userId || seen.has(m.user_id)) continue;
+      seen.add(m.user_id);
+      out.push({ id: m.user_id, name: m.display_name.trim() || 'Игрок' });
+    }
+    for (const id of hiddenUserIds) {
+      if (id === userId || seen.has(id)) continue;
+      out.push({ id, name: 'Игрок' });
+    }
+    return out;
+  }, [messages, hiddenUserIds, userId]);
+
+  const hiddenSoloMsgCount = useMemo(
+    () => messages.filter((m) => hiddenMsgIds.has(m.id) && !hiddenUserIds.has(m.user_id)).length,
+    [messages, hiddenMsgIds, hiddenUserIds],
+  );
+  const hasLocalHidden = hiddenMsgIds.size > 0 || hiddenUserIds.size > 0;
+
+  useEffect(() => {
+    if (!hasLocalHidden && chatHiddenPanelOpen) setChatHiddenPanelOpen(false);
+  }, [hasLocalHidden, chatHiddenPanelOpen]);
+
+  const unhideChatUserById = useCallback(
+    (uid: string) => {
+      if (!roomId || !uid) return;
+      setHiddenUserIds((prev) => {
+        const next = withoutHiddenId(prev, uid);
+        persistHiddenChatUserIds(roomId, next);
+        return next;
+      });
+    },
+    [roomId],
+  );
+
+  const unhideAllHiddenMessages = useCallback(() => {
+    if (!roomId) return;
+    setHiddenMsgIds(() => {
+      const next = new Set<string>();
+      persistHiddenChatMessageIds(roomId, next);
+      return next;
+    });
+  }, [roomId]);
+
+  const unhideAllHiddenChat = useCallback(() => {
+    if (!roomId) return;
+    setHiddenMsgIds(() => {
+      const next = new Set<string>();
+      persistHiddenChatMessageIds(roomId, next);
+      return next;
+    });
+    setHiddenUserIds(() => {
+      const next = new Set<string>();
+      persistHiddenChatUserIds(roomId, next);
+      return next;
+    });
+    setChatHiddenPanelOpen(false);
+  }, [roomId]);
+
+  const flashComposerField = useCallback(() => {
+    const shell = inputShellRef.current;
+    if (shell) {
+      shell.classList.remove('table-chat-mobile-input-shell--flash');
+      void shell.offsetWidth;
+      shell.classList.add('table-chat-mobile-input-shell--flash');
+    }
+    setComposerFlashOn(true);
+    if (composerFlashTimerRef.current) clearTimeout(composerFlashTimerRef.current);
+    composerFlashTimerRef.current = setTimeout(() => {
+      setComposerFlashOn(false);
+      inputShellRef.current?.classList.remove('table-chat-mobile-input-shell--flash');
+      composerFlashTimerRef.current = null;
+    }, 2600);
+  }, []);
+
+  const focusComposerField = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.focus();
+    try {
+      const pos = ta.value.length;
+      ta.setSelectionRange(pos, pos);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const beginFeedQuoteReply = useCallback(() => {
+    if (!msgActionTarget) return;
+    setFeedReplyAnchor(msgActionTarget);
+    closeMsgActionMenu();
+    setEmojiPickerOpen(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        focusComposerField();
+        flashComposerField();
+      });
+    });
+  }, [msgActionTarget, closeMsgActionMenu, flashComposerField, focusComposerField]);
+
+  const beginFeedAddressSender = useCallback(() => {
+    if (!msgActionTarget) return;
+    const name = msgActionTarget.author.trim() || 'Игрок';
+    setFeedAddressTo(name);
+    closeMsgActionMenu();
+    setEmojiPickerOpen(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        focusComposerField();
+        flashComposerField();
+      });
+    });
+  }, [msgActionTarget, closeMsgActionMenu, flashComposerField, focusComposerField]);
+
+  const toggleMsgReaction = useCallback(
+    async (targetId: string, emoji: string) => {
+      const id = targetId.trim();
+      const emo = emoji.trim();
+      if (!id || !emo || sending || id.startsWith('opt-')) return;
+      const mine = myReactionEmoji(reactionsByMessageId.get(id));
+      const op = mine === emo ? 'clear' : 'set';
+      closeMsgActionMenu();
+      await sendTrimmedChatBody(buildChatReactionBody(id, emo, op));
+    },
+    [sending, reactionsByMessageId, closeMsgActionMenu, sendTrimmedChatBody],
+  );
+
+  const sendMsgReaction = useCallback(
+    async (emoji: string) => {
+      if (!msgActionTarget) return;
+      await toggleMsgReaction(msgActionTarget.messageId, emoji);
+    },
+    [msgActionTarget, toggleMsgReaction],
+  );
+
+  const msgReactMineSnippets = useMemo(
+    () => mySnippets.filter((s) => isLikelyEmojiSnippet(s)),
+    [mySnippets],
+  );
+  const msgActionMineEmoji = msgActionTarget
+    ? myReactionEmoji(reactionsByMessageId.get(msgActionTarget.messageId))
+    : null;
+
+  const feedReplyPreview = useMemo(() => {
+    if (!feedReplyAnchor) return null;
+    const author = feedReplyAnchor.author.trim() || 'Собеседник';
+    const excerpt = truncatePhantomQuoteExcerpt(feedReplyAnchor.body, 48);
+    return { author, excerpt };
+  }, [feedReplyAnchor]);
+
+  useEffect(() => {
+    if (!msgActionMode && !chatHiddenPanelOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeMsgActionMenu();
+        setChatHiddenPanelOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [msgActionMode, chatHiddenPanelOpen, closeMsgActionMenu]);
 
   const clampSideEarY = useCallback((pct: number) => {
     if (typeof window === 'undefined') return pct;
@@ -2564,6 +3752,16 @@ function TableChatDock({
   const earTypingShown =
     mobileSideEarEnabled && (sideEarRailCollapsed || sideEarCosmicCompact) ? null : earTypingLine;
 
+  useEffect(() => {
+    if (variant !== 'mobile' || !onMobileChromeMeta) return;
+    const typingForChrome =
+      !mobileOpen && earTypingLine?.trim() ? earTypingLine.trim() : null;
+    onMobileChromeMeta({
+      unread: !mobileOpen && earUnread,
+      typingLine: typingForChrome,
+    });
+  }, [variant, mobileOpen, earUnread, earTypingLine, onMobileChromeMeta]);
+
   /** Фантом «печатает» скрывается той же опцией, что и текст превью непрочитанного. */
   const earTypingPhantomLine = hideUnreadEarPhantomPreview ? null : earTypingShown;
 
@@ -2992,6 +4190,66 @@ function TableChatDock({
 
   if (variant === 'mobile' && !mobileOpen) {
     const collapsedTyping = typingPhantomLine?.trim() || null;
+    if (mobileEmbedHost) {
+      return createPortal(
+        <div
+          ref={mobileCollapsedChatDockRef}
+          className={[
+            'table-chat-dock',
+            'table-chat-dock--pro',
+            'table-chat-dock--mobile',
+            'table-chat-dock--collapsed',
+            'table-chat-dock--east-embed',
+            'table-chat-dock--east-mini',
+            collapsedTyping ? 'table-chat-dock--collapsed-typing' : '',
+            sideEarUnread && !collapsedTyping ? 'table-chat-dock--collapsed-unread' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <div className="table-chat-east-mini-bar" role="toolbar" aria-label="Чат свёрнут">
+            <button
+              type="button"
+              className="table-chat-east-crystal-btn table-chat-east-crystal-btn--expand"
+              onClick={() => setMobileOpen(true)}
+              aria-label={
+                collapsedTyping
+                  ? `Развернуть чат. ${collapsedTyping}`
+                  : sideEarUnread
+                    ? 'Развернуть чат. Есть новые сообщения'
+                    : 'Развернуть чат'
+              }
+              title="Развернуть"
+            >
+              <CrystalLilacGlyph id={`${emojiPanelDomId}-exp`} path="M3.2 10.2 8 5.2l4.8 5" />
+            </button>
+            {onEastEmbedDismissToBottom ? (
+              <button
+                type="button"
+                className="table-chat-east-crystal-btn table-chat-east-crystal-btn--dismiss"
+                onClick={onEastEmbedDismissToBottom}
+                aria-label="Убрать чат вниз страницы"
+              title="Убрать вниз"
+            >
+              <CrystalLilacGlyph
+                id={`${emojiPanelDomId}-dis`}
+                path="M4.2 4.2 11.8 11.8M11.8 11.8H6.4M11.8 11.8V6.4"
+              />
+            </button>
+            ) : null}
+            <span className="table-chat-east-mini-bar__signals">
+              {sideEarUnread && !collapsedTyping ? (
+                <span className="table-chat-east-mini-bar__unread" title="Новые сообщения" />
+              ) : null}
+              {collapsedTyping ? (
+                <span className="table-chat-east-mini-bar__typing" title={collapsedTyping} />
+              ) : null}
+            </span>
+          </div>
+        </div>,
+        mobileEmbedHost,
+      );
+    }
     return (
       <>
         <div
@@ -4241,56 +5499,228 @@ function TableChatDock({
     );
   }
 
-  return (
+  const mobileChatFontAtMin = mobileChatFontStep <= 0;
+  const mobileChatFontAtMax = mobileChatFontStep >= MOBILE_CHAT_FONT_SCALES.length - 1;
+  const mobileChatFontSplit = !mobileChatFontAtMin && !mobileChatFontAtMax;
+  const mobileChatFontPct = Math.round(MOBILE_CHAT_FONT_SCALES[mobileChatFontStep] * 100);
+
+  const runChatSearch = (raw?: string) => {
+    const next = (raw ?? chatSearchInputRef.current?.value ?? chatSearchQuery).trim();
+    if (raw != null && raw !== chatSearchQuery) setChatSearchQuery(raw);
+    if (!next) return;
+    window.requestAnimationFrame(() => {
+      const first = listRef.current?.querySelector<HTMLElement>(
+        '.table-chat-msg-compact, .table-chat-msg',
+      );
+      first?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+  };
+
+  const chatSearchField = (
+    <form
+      className="table-chat-dock-search"
+      role="search"
+      onSubmit={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        runChatSearch(chatSearchInputRef.current?.value ?? chatSearchQuery);
+      }}
+    >
+      <input
+        ref={chatSearchInputRef}
+        type="search"
+        name="table-chat-search"
+        className="table-chat-dock-search__input"
+        value={chatSearchQuery}
+        onChange={(e) => setChatSearchQuery(e.target.value)}
+        onInput={(e) => setChatSearchQuery((e.target as HTMLInputElement).value)}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          e.stopPropagation();
+          runChatSearch((e.target as HTMLInputElement).value);
+        }}
+        onPointerDown={(ev) => ev.stopPropagation()}
+        placeholder="слово или символ…"
+        aria-label="Поиск сообщений, слов и символов"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        enterKeyHint="search"
+        inputMode="search"
+      />
+      {chatSearchQuery.trim() ? (
+        <span className="table-chat-dock-search__count" aria-live="polite">
+          {displayMessages.length}
+        </span>
+      ) : null}
+      {chatSearchQuery ? (
+        <button
+          type="button"
+          className="table-chat-dock-search__clear"
+          onPointerDown={(ev) => ev.stopPropagation()}
+          onClick={() => {
+            setChatSearchQuery('');
+            chatSearchInputRef.current?.focus();
+          }}
+          aria-label="Очистить поиск"
+        >
+          ×
+        </button>
+      ) : null}
+    </form>
+  );
+
+  const chatHeaderTools = (stopDrag: boolean) => (
+    <div className="table-chat-dock-header-tools" role="toolbar" aria-label="Параметры чата">
+      <button
+        type="button"
+        className={[
+          'table-chat-dock-tool-btn',
+          'table-chat-dock-tool-btn--sort',
+          chatNewestFirst ? 'table-chat-dock-tool-btn--on' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-pressed={chatNewestFirst}
+        title={
+          chatNewestFirst
+            ? 'Свежие сверху — нажмите, чтобы свежие были снизу'
+            : 'Свежие снизу — нажмите, чтобы свежие были сверху'
+        }
+        aria-label={chatNewestFirst ? 'Порядок: свежие сверху' : 'Порядок: свежие снизу'}
+        onPointerDown={stopDrag ? (ev) => ev.stopPropagation() : undefined}
+        onClick={() => {
+          setChatNewestFirst((v) => {
+            const next = !v;
+            writeChatNewestFirstToLs(next);
+            return next;
+          });
+        }}
+      >
+        <ChatToolSortGlyph newestFirst={chatNewestFirst} hint={sortSparkHintOn} />
+      </button>
+      <button
+        type="button"
+        className={[
+          'table-chat-dock-tool-btn',
+          'table-chat-dock-tool-btn--search',
+          chatSearchOpen ? 'table-chat-dock-tool-btn--on' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-pressed={chatSearchOpen}
+        title={chatSearchOpen ? 'Закрыть поиск' : 'Поиск в чате'}
+        aria-label={chatSearchOpen ? 'Закрыть поиск' : 'Поиск в чате'}
+        onPointerDown={stopDrag ? (ev) => ev.stopPropagation() : undefined}
+        onClick={() => {
+          setChatSearchOpen((v) => {
+            const next = !v;
+            if (!next) setChatSearchQuery('');
+            return next;
+          });
+        }}
+      >
+        <ChatToolSearchGlyph />
+      </button>
+    </div>
+  );
+
+  const dockNode = (
     <div
       ref={dockRef}
       className={[
         'table-chat-dock',
         'table-chat-dock--pro',
         variant === 'mobile' ? 'table-chat-dock--mobile' : 'table-chat-dock--pc',
-      ].join(' ')}
+        variant === 'mobile' && mobileEmbedHost ? 'table-chat-dock--east-embed' : '',
+        variant === 'mobile' && mobileLsBottomChrome ? 'table-chat-dock--ls-bottom' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={variant === 'pc' ? pcExpandedDockStyle : mobileDockStyle}
       {...(variant === 'pc'
         ? { 'data-pc-chat-drag-x': String(pcDrag.x), 'data-pc-chat-drag-y': String(pcDrag.y) }
         : {})}
     >
+      {variant === 'mobile' && !mobileEmbedHost ? (
+        <button
+          type="button"
+          className="table-chat-ls-height-handle"
+          onPointerDown={mobileLsBottomChrome ? startLsChatResize : startMobileResize}
+          aria-label="Изменить высоту окна чата"
+          title="Потяните вверх, чтобы увеличить высоту"
+        >
+          <span aria-hidden>⋯</span>
+        </button>
+      ) : null}
       {variant === 'mobile' && (
         <div className="table-chat-dock-header table-chat-dock-header--pro">
           <div className="table-chat-dock-header-left">
-            <span className="table-chat-dock-title" aria-hidden>
-              💬
-            </span>
-            <span className="table-chat-dock-title-text">Чат стола</span>
-            {typingPhantomLine ? (
-              <span className="table-chat-dock-typing" aria-live="polite">
-                {typingPhantomLine}
-              </span>
-            ) : null}
+            {chatSearchOpen ? (
+              chatSearchField
+            ) : (
+              <>
+                <span className="table-chat-dock-title" aria-hidden>
+                  💬
+                </span>
+                <span className="table-chat-dock-title-text">Чат стола</span>
+                {hasLocalHidden ? (
+                  <button
+                    type="button"
+                    className="table-chat-hidden-chip"
+                    aria-expanded={chatHiddenPanelOpen}
+                    aria-label="Показать скрытые сообщения"
+                    title="Скрытые только у вас — можно вернуть"
+                    onClick={() => {
+                      closeMsgActionMenu();
+                      setChatHiddenPanelOpen((v) => !v);
+                    }}
+                  >
+                    Скрыто
+                  </button>
+                ) : null}
+                {typingPhantomLine ? (
+                  <span className="table-chat-dock-typing" aria-live="polite">
+                    {typingPhantomLine}
+                  </span>
+                ) : null}
+              </>
+            )}
           </div>
-          <button
-            type="button"
-            className="table-chat-dock-collapse"
-            onClick={() => setMobileOpen(false)}
-            aria-label="Свернуть чат"
-          >
-            Свернуть
-          </button>
-          <div className="table-chat-dock-mobile-quick-actions">
+          {chatHeaderTools(false)}
+          {!mobileEmbedHost ? (
             <button
-              ref={emojiQuickRef}
               type="button"
               className={[
-                'table-chat-dock-mobile-quick-btn',
-                emojiPickerOpen && emojiTab !== 'mine' ? 'table-chat-dock-mobile-quick-btn--active' : '',
+                'table-chat-dock-collapse',
+                'table-chat-dock-collapse--crystal',
+                collapseHintOn ? 'table-chat-dock-collapse--intro' : '',
+                !mobileLsBottomChrome && !collapseHintOn ? 'table-chat-dock-collapse--glyph-only' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
-              onClick={onMobileQuickEmoji}
-              aria-pressed={emojiPickerOpen && emojiTab !== 'mine'}
-              aria-label="Эмодзи и фразы"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Свернуть чат"
+              title="Свернуть"
             >
-              Эмодзи
+              <CrystalLilacGlyph id={`${emojiPanelDomId}-col-bottom`} path="M3.2 5.8 8 10.8l4.8-5" />
+              <span className="table-chat-dock-collapse__label">Свернуть</span>
             </button>
+          ) : null}
+          <div className="table-chat-dock-mobile-quick-actions">
+            {mobileEmbedHost ? (
+              <button
+                type="button"
+                className="table-chat-east-crystal-btn table-chat-east-crystal-btn--collapse"
+                onClick={() => setMobileOpen(false)}
+                aria-label="Свернуть чат в шапку"
+                title="Свернуть"
+              >
+                <CrystalLilacGlyph id={`${emojiPanelDomId}-col`} path="M3.2 5.8 8 10.8l4.8-5" />
+              </button>
+            ) : null}
             <button
               ref={mineQuickRef}
               type="button"
@@ -4304,8 +5734,61 @@ function TableChatDock({
               aria-pressed={emojiPickerOpen && emojiTab === 'mine'}
               aria-label="Раздел Мои"
             >
-              Мои
+              <span className="table-chat-dock-mobile-quick-btn__label">Мои</span>
             </button>
+            {!mobileEmbedHost && (mobileLsBottomChrome || !collapseHintOn) ? (
+              <button
+                type="button"
+                className={[
+                  'table-chat-dock-mobile-quick-btn',
+                  emojiPickerOpen && emojiTab === 'phrases' ? 'table-chat-dock-mobile-quick-btn--active' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                onClick={onMobileQuickPhrases}
+                aria-pressed={emojiPickerOpen && emojiTab === 'phrases'}
+                aria-label="Готовые фразы"
+              >
+                <span className="table-chat-dock-mobile-quick-btn__label">Фразы</span>
+              </button>
+            ) : null}
+            <div
+              className={[
+                'table-chat-dock-mobile-font-ctrl',
+                mobileChatFontSplit ? 'table-chat-dock-mobile-font-ctrl--split' : '',
+                !mobileChatFontAtMin ? 'table-chat-dock-mobile-font-ctrl--raised' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              role="group"
+              aria-label={`Кегль чата ${mobileChatFontPct}%`}
+            >
+              {!mobileChatFontAtMax ? (
+                <button
+                  type="button"
+                  className="table-chat-dock-mobile-font-ctrl__half table-chat-dock-mobile-font-ctrl__half--plus"
+                  onClick={onMobileChatFontStepUp}
+                  aria-label={`Увеличить кегль (сейчас ${mobileChatFontPct}%)`}
+                  title={`Кегль ${mobileChatFontPct}% · увеличить`}
+                >
+                  <ChatFontTypeGlyph plus />
+                </button>
+              ) : null}
+              {mobileChatFontSplit ? (
+                <span className="table-chat-dock-mobile-font-ctrl__split-line" aria-hidden />
+              ) : null}
+              {!mobileChatFontAtMin ? (
+                <button
+                  type="button"
+                  className="table-chat-dock-mobile-font-ctrl__half table-chat-dock-mobile-font-ctrl__half--minus"
+                  onClick={onMobileChatFontStepDown}
+                  aria-label={`Уменьшить кегль (сейчас ${mobileChatFontPct}%)`}
+                  title={`Кегль ${mobileChatFontPct}% · уменьшить`}
+                >
+                  <ChatFontTypeGlyph plus={false} />
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       )}
@@ -4317,12 +5800,33 @@ function TableChatDock({
           <span className="table-chat-dock-pc-drag-grip" aria-hidden>
             ⋮⋮
           </span>
-          <span className="table-chat-dock-title-text">Чат</span>
-          {typingPhantomLine ? (
+          {chatSearchOpen ? (
+            chatSearchField
+          ) : (
+            <span className="table-chat-dock-title-text">Чат</span>
+          )}
+          {hasLocalHidden && !chatSearchOpen ? (
+            <button
+              type="button"
+              className="table-chat-hidden-chip"
+              aria-expanded={chatHiddenPanelOpen}
+              aria-label="Показать скрытые сообщения"
+              title="Скрытые только у вас — можно вернуть"
+              onPointerDown={(ev) => ev.stopPropagation()}
+              onClick={() => {
+                closeMsgActionMenu();
+                setChatHiddenPanelOpen((v) => !v);
+              }}
+            >
+              Скрыто
+            </button>
+          ) : null}
+          {typingPhantomLine && !chatSearchOpen ? (
             <span className="table-chat-dock-typing table-chat-dock-typing--pc" aria-live="polite">
               {typingPhantomLine}
             </span>
           ) : null}
+          {chatHeaderTools(true)}
           <button
             type="button"
             className="table-chat-dock-pc-collapse-btn"
@@ -4342,60 +5846,155 @@ function TableChatDock({
           </button>
         </div>
       )}
-      {variant === 'mobile' ? (
-        <div className="table-chat-mobile-resize-wrap">
-          <button
-            type="button"
-            className="table-chat-mobile-resize-handle"
-            onPointerDown={startMobileResize}
-            aria-label="Изменить высоту области сообщений"
-            title="Потяните вверх или вниз"
-          >
-            <span aria-hidden>⋯</span>
-          </button>
-          {mobileResizeHintVisible ? (
-            <div className="table-chat-mobile-resize-hint" role="status" aria-live="polite">
-              Потяните для изменения высоты
-            </div>
-          ) : null}
-        </div>
-      ) : null}
       <div ref={listRef} className="table-chat-messages table-chat-messages--pro" role="log" aria-live="polite">
-        {messages.length === 0 ? (
+        {visibleFeedMessages.length === 0 ? (
           <div className="table-chat-empty table-chat-empty--pro">
             <span className="table-chat-empty__lead">Пока тихо</span>
             <span className="table-chat-empty__hint">Напишите что-нибудь — сообщение увидят все за столом.</span>
+          </div>
+        ) : displayMessages.length === 0 ? (
+          <div className="table-chat-empty table-chat-empty--pro">
+            <span className="table-chat-empty__lead">Ничего не найдено</span>
+            <span className="table-chat-empty__hint">Попробуйте другое слово или символ.</span>
           </div>
         ) : (
           displayMessages.map((m) => {
             const self = m.user_id === userId;
             const pending = m.id.startsWith('opt-');
+            const msgActionHandlers = pending
+              ? {}
+              : {
+                  onContextMenu: (e: ReactMouseEvent) => {
+                    e.preventDefault();
+                    openMsgActionSheet(m);
+                  },
+                  onPointerDown: (e: ReactPointerEvent) => {
+                    if (e.pointerType === 'mouse' && e.button !== 0) return;
+                    msgTapGuardRef.current = { x: e.clientX, y: e.clientY, moved: false };
+                  },
+                  onPointerMove: (e: ReactPointerEvent) => {
+                    const g = msgTapGuardRef.current;
+                    if (Math.abs(e.clientX - g.x) + Math.abs(e.clientY - g.y) > 14) g.moved = true;
+                  },
+                  onClick: () => {
+                    if (msgTapGuardRef.current.moved) return;
+                    openMsgActionSheet(m);
+                  },
+                };
             if (variant === 'mobile') {
               const hasContextQuote = parsePhantomContextualReplyBody(m.body) !== null;
+              const reactChips = reactionsByMessageId.get(m.id) ?? [];
+              const authorLabel = self
+                ? tableChatOwnAuthorLabel(displayName, m.display_name)
+                : m.display_name.trim() || 'Игрок';
+              const authorFold = foldTableChatDisplayName(authorLabel);
+              const authorExpanded = expandedFeedNames.has(authorFold.full);
+              const authorShown =
+                authorFold.long && !authorExpanded ? authorFold.folded : authorFold.full;
+              const nameTap = tableChatNameTapKind({ self, long: authorFold.long });
+              const nameClass = [
+                'table-chat-msg-compact__name',
+                self
+                  ? 'table-chat-msg-compact__name--self-chip'
+                  : 'table-chat-msg-compact__name--peer',
+                nameTap !== 'none' ? 'table-chat-msg-compact__name--fold' : '',
+                authorExpanded ? 'table-chat-msg-compact__name--fold-open' : '',
+              ]
+                .filter(Boolean)
+                .join(' ');
+              const nameInner = (
+                <ChatHighlightedText text={authorShown} query={chatSearchQuery} />
+              );
+              const nameNode =
+                nameTap === 'none' ? (
+                  <span className={nameClass}>{nameInner}</span>
+                ) : (
+                  <button
+                    type="button"
+                    className={nameClass}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (nameTap === 'expand-and-menu') {
+                        if (authorFold.long) expandFeedName(authorFold.full);
+                        openMsgNameSheet(m);
+                      } else {
+                        toggleFeedName(authorFold.full, authorExpanded);
+                      }
+                    }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    aria-expanded={authorFold.long ? authorExpanded : undefined}
+                    aria-label={self ? authorFold.full : `Написать ${authorFold.full}`}
+                  >
+                    {nameInner}
+                  </button>
+                );
               return (
                 <div
                   key={m.id}
-                  className={[
-                    'table-chat-msg-compact',
-                    self ? 'table-chat-msg-compact--self' : '',
-                    pending ? 'table-chat-msg-compact--pending' : '',
-                    hasContextQuote ? 'table-chat-msg-compact--has-quote' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
+                  className={tableChatFeedRowClassNames({
+                    kind: mobileFeedKind,
+                    self,
+                    pending,
+                    hasContextQuote,
+                    selected: msgActionTarget?.messageId === m.id,
+                  })}
+                  {...msgActionHandlers}
                 >
-                  <span className="table-chat-msg-compact__name">{self ? 'Вы' : (m.display_name || 'Игрок')}</span>
-                  <span className="table-chat-msg-compact__sep">:</span>
-                  <TableChatMessageBody body={m.body} variant="compact" />
+                  <span className="table-chat-msg-compact__name-cell">{nameNode}</span>
+                  <span className="table-chat-msg-compact__body-cell">
+                    <TableChatMessageBody
+                      body={m.body}
+                      variant="compact"
+                      highlightQuery={chatSearchQuery}
+                    />
+                    <span
+                      className="table-chat-msg-compact__tail"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {reactChips.length > 0 ? (
+                        <TableChatReactionChips
+                          chips={reactChips}
+                          disabled={sending}
+                          onToggle={(emo) => void toggleMsgReaction(m.id, emo)}
+                        />
+                      ) : null}
+                      {!pending ? (
+                        <button
+                          type="button"
+                          className="table-chat-msg-react-btn"
+                          aria-label="Добавить реакцию"
+                          title="Реакция"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openMsgReactSheet(m);
+                          }}
+                        >
+                          {'\u263A\uFE0E'}
+                        </button>
+                      ) : null}
+                    </span>
+                  </span>
+                  <time className="table-chat-msg-compact__time" dateTime={m.created_at}>
+                    {formatTableChatClock(m.created_at)}
+                  </time>
                 </div>
               );
             }
             return (
               <div
                 key={m.id}
-                className={['table-chat-msg', self ? 'table-chat-msg--self' : 'table-chat-msg--peer', pending ? 'table-chat-msg--pending' : '']
+                className={[
+                  'table-chat-msg',
+                  self ? 'table-chat-msg--self' : 'table-chat-msg--peer',
+                  pending ? 'table-chat-msg--pending' : '',
+                  !pending ? 'table-chat-msg--actionable' : '',
+                  msgActionTarget?.messageId === m.id ? 'table-chat-msg--selected' : '',
+                ]
                   .filter(Boolean)
                   .join(' ')}
+                {...msgActionHandlers}
               >
                 {!self && (
                   <div className="table-chat-msg__avatar" aria-hidden title={m.display_name || 'Игрок'}>
@@ -4404,25 +6003,64 @@ function TableChatDock({
                 )}
                 <div className="table-chat-msg__bubble-wrap">
                   <div className="table-chat-msg__meta">
-                    {!self && <span className="table-chat-msg__name">{m.display_name || 'Игрок'}</span>}
+                    {!self && (
+                      <button
+                        type="button"
+                        className="table-chat-msg__name table-chat-msg__name--peer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openMsgNameSheet(m);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                      >
+                        <ChatHighlightedText text={m.display_name || 'Игрок'} query={chatSearchQuery} />
+                      </button>
+                    )}
                     <time className="table-chat-msg__time" dateTime={m.created_at}>
                       {formatChatTime(m.created_at)}
                     </time>
                   </div>
                   <div className="table-chat-msg__bubble">
-                    <TableChatMessageBody body={m.body} variant="bubble" />
+                    <TableChatMessageBody
+                      body={m.body}
+                      variant="bubble"
+                      highlightQuery={chatSearchQuery}
+                    />
                     {!pending && (
-                      <button
-                        type="button"
-                        className="table-chat-msg__copy"
-                        onClick={() => copyBody(m.body)}
-                        aria-label="Скопировать текст"
-                        title="Скопировать"
-                      >
-                        ⧉
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="table-chat-msg__copy"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyBody(m.body);
+                          }}
+                          aria-label="Скопировать текст"
+                          title="Скопировать"
+                        >
+                          ⧉
+                        </button>
+                        <button
+                          type="button"
+                          className="table-chat-msg-react-btn table-chat-msg-react-btn--bubble"
+                          aria-label="Добавить реакцию"
+                          title="Реакция"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openMsgReactSheet(m);
+                          }}
+                        >
+                          {'\u263A\uFE0E'}
+                        </button>
+                      </>
                     )}
                   </div>
+                  <TableChatReactionChips
+                    chips={reactionsByMessageId.get(m.id) ?? []}
+                    disabled={sending}
+                    onToggle={(emo) => void toggleMsgReaction(m.id, emo)}
+                  />
                 </div>
                 {self && (
                   <div className="table-chat-msg__avatar table-chat-msg__avatar--self" aria-hidden title="Вы">
@@ -4442,7 +6080,15 @@ function TableChatDock({
           </button>
         </div>
       )}
-      <div className="table-chat-composer table-chat-composer--pro">
+      <div
+        className={[
+          'table-chat-composer',
+          'table-chat-composer--pro',
+          feedReplyAnchor || feedAddressTo ? 'table-chat-composer--compose-extra' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
         <div ref={composerInnerRef} className="table-chat-composer__inner">
           <div className="table-chat-composer__anchor">
             {emojiPickerOpen ? (
@@ -4467,36 +6113,83 @@ function TableChatDock({
                 }
                 onPointerDown={(ev) => ev.stopPropagation()}
               >
-                <div className="table-chat-emoji-panel__tabs" role="tablist">
-                  {TABLE_CHAT_PICKER_TABS.map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={emojiTab === tab.id}
-                      aria-label={tab.label}
-                      title={tab.label}
-                      className={[
-                        'table-chat-emoji-tab',
-                        emojiTab === tab.id ? 'table-chat-emoji-tab--active' : '',
-                        variant === 'pc' && tab.tabEmojiPc ? 'table-chat-emoji-tab--icon-pc' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      onClick={() => onEmojiTab(tab.id)}
-                    >
-                      {variant === 'pc' && tab.tabEmojiPc ? (
-                        <span className="table-chat-emoji-tab__pc-ico" aria-hidden>
-                          {tab.tabEmojiPc}
-                        </span>
-                      ) : (
-                        tab.label
-                      )}
-                    </button>
-                  ))}
+                <div
+                  className={[
+                    'table-chat-emoji-panel__tabs-rail',
+                    variant === 'mobile' && mobileEmojiTabsCanScrollLeft
+                      ? 'table-chat-emoji-panel__tabs-rail--more-left'
+                      : '',
+                    variant === 'mobile' && mobileEmojiTabsCanScrollRight
+                      ? 'table-chat-emoji-panel__tabs-rail--more-right'
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  <div
+                    ref={variant === 'mobile' ? mobileEmojiTabsRef : undefined}
+                    className="table-chat-emoji-panel__tabs"
+                    role="tablist"
+                    onScroll={variant === 'mobile' ? updateMobileEmojiTabsOverflow : undefined}
+                  >
+                    {TABLE_CHAT_PICKER_TABS.map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        role="tab"
+                        data-emoji-tab={tab.id}
+                        aria-selected={emojiTab === tab.id}
+                        aria-label={tab.label}
+                        title={tab.label}
+                        className={[
+                          'table-chat-emoji-tab',
+                          emojiTab === tab.id ? 'table-chat-emoji-tab--active' : '',
+                          variant === 'pc' && tab.tabEmojiPc ? 'table-chat-emoji-tab--icon-pc' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        onClick={() => onEmojiTab(tab.id)}
+                      >
+                        {variant === 'pc' && tab.tabEmojiPc ? (
+                          <span className="table-chat-emoji-tab__pc-ico" aria-hidden>
+                            {tab.tabEmojiPc}
+                          </span>
+                        ) : (
+                          tab.label
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  {variant === 'mobile' && mobileEmojiTabsCanScrollLeft ? (
+                    <ChatStripPeekButton
+                      id={`${emojiPanelDomId}-tabs-peek-l`}
+                      dir={-1}
+                      onScroll={scrollMobileEmojiTabsBy}
+                      className="table-chat-emoji-panel__tabs-peek table-chat-emoji-panel__tabs-peek--left"
+                      label="Прокрутить вкладки влево"
+                      crystal
+                    />
+                  ) : null}
+                  {variant === 'mobile' && mobileEmojiTabsCanScrollRight ? (
+                    <ChatStripPeekButton
+                      id={`${emojiPanelDomId}-tabs-peek-r`}
+                      dir={1}
+                      onScroll={scrollMobileEmojiTabsBy}
+                      className="table-chat-emoji-panel__tabs-peek"
+                      label="Прокрутить вкладки вправо"
+                      crystal
+                    />
+                  ) : null}
                 </div>
                 {emojiTab === 'phrases' ? (
                   <div className="table-chat-phrase-scroll">
+                    {variant === 'mobile' ? (
+                      <p className="table-chat-picker-short-hint" role="note">
+                        <span className="table-chat-picker-short-hint__lead">Тап</span> — в сообщение.
+                        {' '}
+                        <span className="table-chat-picker-short-hint__lead">★</span> — в «Мои».
+                      </p>
+                    ) : null}
                     {CHAT_QUICK_PHRASES.map((phrase, idx) => (
                       <div key={`ph-${idx}`} className="table-chat-phrase-row">
                         <button
@@ -4507,10 +6200,10 @@ function TableChatDock({
                           }}
                           title={
                             text.length + phrase.length > MAX_BODY
-                              ? 'В сообщение не влезет — удерживайте Shift или Alt и кликните по фразе, либо нажмите «+» справа, чтобы только в «Мои»'
+                              ? 'В сообщение не влезет — нажмите «В Мои» справа, чтобы сохранить'
                               : variant === 'pc'
                                 ? 'Клик — вставить в сообщение. Shift/Alt + клик — только в «Мои»'
-                                : undefined
+                                : 'Тап — в сообщение'
                           }
                           onClick={(e) => {
                             if (variant === 'mobile' && consumeMobileLongPressFired()) {
@@ -4524,6 +6217,9 @@ function TableChatDock({
                             }
                             if (text.length + phrase.length > MAX_BODY) return;
                             insertSnippet(phrase);
+                          }}
+                          onContextMenu={(e) => {
+                            if (variant === 'mobile') e.preventDefault();
                           }}
                           onPointerDown={() => {
                             if (variant === 'mobile') startMobileLongPressAddMine(phrase);
@@ -4561,23 +6257,13 @@ function TableChatDock({
                           }
                           aria-label={`В «Мои»: ${phrase.slice(0, 48)}`}
                         >
-                          {variant === 'mobile' || variant === 'pc' ? 'В Мои' : '+'}
+                          {variant === 'mobile' ? '★' : variant === 'pc' ? 'В Мои' : '+'}
                         </button>
                       </div>
                     ))}
                   </div>
                 ) : emojiTab === 'mine' ? (
                   <div className="table-chat-mine">
-                    {variant === 'mobile' ? (
-                      <button
-                        type="button"
-                        className="table-chat-mine__edit-toggle-mobile"
-                        onClick={() => setMobileMineEditMode((v) => !v)}
-                        aria-pressed={mobileMineEditMode}
-                      >
-                        {mobileMineEditMode ? 'Готово' : 'Редактировать'}
-                      </button>
-                    ) : null}
                     {variant !== 'mobile' ? (
                       <div className="table-chat-mine__hint-wrap table-chat-mine__hint-wrap--pc">
                         <button
@@ -4599,7 +6285,47 @@ function TableChatDock({
                     ) : null}
                     <div className="table-chat-mine__scroll">
                       {mySnippets.length === 0 ? (
-                        <div className="table-chat-mine__empty">Пока пусто — добавьте первую строку.</div>
+                        <div className="table-chat-mine__empty table-chat-mine__empty--guide">
+                          <p className="table-chat-mine__empty-lead">Пока пусто</p>
+                          {variant === 'mobile' ? (
+                            <>
+                              <ol className="table-chat-mine__empty-steps">
+                                <li>
+                                  Введите фразу в поле <strong>ниже</strong> и нажмите «Добавить»
+                                </li>
+                                <li>
+                                  Или откройте эмодзи / фразы и нажмите <strong>★</strong> / «В Мои»
+                                </li>
+                              </ol>
+                              <div className="table-chat-mine__empty-actions">
+                                <button
+                                  type="button"
+                                  className="table-chat-mine__empty-go"
+                                  onClick={() => {
+                                    setEmojiTab('react');
+                                    setEmojiBankExpanded(false);
+                                  }}
+                                >
+                                  К эмодзи
+                                </button>
+                                <button
+                                  type="button"
+                                  className="table-chat-mine__empty-go"
+                                  onClick={() => {
+                                    setEmojiTab('phrases');
+                                    setEmojiBankExpanded(false);
+                                  }}
+                                >
+                                  К фразам
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <p className="table-chat-mine__empty-hint">
+                              ★ у эмодзи, «+» у фразы, или поле ниже.
+                            </p>
+                          )}
+                        </div>
                       ) : (
                         <div className="table-chat-mine__layout">
                           <div className="table-chat-mine__phrases-col">
@@ -4616,6 +6342,20 @@ function TableChatDock({
                                   >
                                     {s}
                                   </button>
+                                  {variant === 'mobile' && mobileMineEditMode ? (
+                                    <button
+                                      type="button"
+                                      className="table-chat-mine__rewrite"
+                                      aria-label={`Изменить: ${s.slice(0, 40)}`}
+                                      title="Изменить"
+                                      onClick={() => {
+                                        setMineDraft(s);
+                                        setMineEditIndex(idx);
+                                      }}
+                                    >
+                                      ✎
+                                    </button>
+                                  ) : null}
                                   {variant !== 'mobile' || mobileMineEditMode ? (
                                     <button
                                       type="button"
@@ -4644,6 +6384,20 @@ function TableChatDock({
                                   >
                                     {s}
                                   </button>
+                                  {variant === 'mobile' && mobileMineEditMode ? (
+                                    <button
+                                      type="button"
+                                      className="table-chat-mine__rewrite"
+                                      aria-label={`Изменить: ${s.slice(0, 40)}`}
+                                      title="Изменить"
+                                      onClick={() => {
+                                        setMineDraft(s);
+                                        setMineEditIndex(idx);
+                                      }}
+                                    >
+                                      ✎
+                                    </button>
+                                  ) : null}
                                   {variant !== 'mobile' || mobileMineEditMode ? (
                                     <button
                                       type="button"
@@ -4662,6 +6416,24 @@ function TableChatDock({
                       )}
                     </div>
                     <div className="table-chat-mine__add-row">
+                      {variant === 'mobile' ? (
+                        <button
+                          type="button"
+                          className="table-chat-mine__edit-toggle-mobile"
+                          onClick={() => {
+                            setMobileMineEditMode((v) => {
+                              if (v) {
+                                setMineEditIndex(null);
+                              }
+                              return !v;
+                            });
+                          }}
+                          aria-pressed={mobileMineEditMode}
+                          aria-label={mobileMineEditMode ? 'Готово' : 'Настроить список Мои'}
+                        >
+                          {mobileMineEditMode ? 'Готово' : 'Настроить'}
+                        </button>
+                      ) : null}
                       <input
                         type="text"
                         className="table-chat-mine__input"
@@ -4673,7 +6445,7 @@ function TableChatDock({
                             commitMineDraft();
                           }
                         }}
-                        placeholder="Новая фраза или эмодзи…"
+                        placeholder={variant === 'mobile' ? 'Новая фраза…' : 'Новая фраза или эмодзи…'}
                         maxLength={MY_SNIPPETS_MAX_LEN}
                         aria-label="Новая строка для банка «Мои»"
                       />
@@ -4682,22 +6454,24 @@ function TableChatDock({
                         className="table-chat-mine__add-btn"
                         disabled={!mineDraft.trim() || mySnippets.length >= MY_SNIPPETS_MAX}
                         onClick={() => commitMineDraft()}
+                        aria-label={mineEditIndex != null ? 'Сохранить изменение' : 'Добавить'}
                       >
-                        Добавить
+                        {variant === 'mobile' ? (mineEditIndex != null ? '✓' : '+') : mineEditIndex != null ? 'Сохранить' : 'Добавить'}
                       </button>
                     </div>
-                    <button
-                      type="button"
-                      className="table-chat-mine__from-msg"
-                      disabled={!text.trim() || mySnippets.length >= MY_SNIPPETS_MAX}
-                      onClick={() => addMineFromComposer()}
-                    >
-                      Из поля сообщения
-                    </button>
                   </div>
                 ) : (
                   <>
-                    {(emojiTab === 'react' || emojiTab === 'cards' || emojiTab === 'misc') && tabHasEmojiMore(emojiTab) ? (
+                    {variant === 'mobile' ? (
+                      <p className="table-chat-picker-short-hint" role="note">
+                        <span className="table-chat-picker-short-hint__lead">Тап</span> — в сообщение.
+                        {' '}
+                        <span className="table-chat-picker-short-hint__lead">★</span> — в «Мои».
+                      </p>
+                    ) : null}
+                    {variant !== 'mobile' &&
+                    (emojiTab === 'react' || emojiTab === 'cards' || emojiTab === 'misc') &&
+                    tabHasEmojiMore(emojiTab) ? (
                       <button
                         type="button"
                         className="table-chat-emoji-more"
@@ -4718,7 +6492,7 @@ function TableChatDock({
                               className="table-chat-emoji-cell"
                               title={
                                 variant === 'mobile'
-                                  ? `${emo} — тап: в чат; Shift+тап: в «Мои»`
+                                  ? `${emo} — тап: в чат; ★: в «Мои»`
                                   : `${emo} — обычный клик: в сообщение. Shift или Alt + клик: сохранить в «Мои»`
                               }
                               aria-label={`Вставить ${emo}`}
@@ -4738,6 +6512,9 @@ function TableChatDock({
                                 if (text.length + emo.length > MAX_BODY) return;
                                 insertSnippet(emo);
                               }}
+                              onContextMenu={(e) => {
+                                if (variant === 'mobile') e.preventDefault();
+                              }}
                               onPointerDown={() => {
                                 if (variant === 'mobile') startMobileLongPressAddMine(emo, starFlashKey);
                               }}
@@ -4753,38 +6530,54 @@ function TableChatDock({
                             >
                               {emo}
                             </button>
-                            {variant !== 'mobile' ? (
-                              <button
-                                type="button"
-                                className={[
-                                  'table-chat-emoji-cell-star',
-                                  mineStarFlashKey === starFlashKey ? 'table-chat-emoji-cell-star--flash' : '',
-                                  mySnippets.length >= MY_SNIPPETS_MAX ? 'table-chat-emoji-cell-star--at-cap' : '',
-                                ]
-                                  .filter(Boolean)
-                                  .join(' ')}
-                                title={
-                                  mySnippets.length >= MY_SNIPPETS_MAX
-                                    ? 'Список «Мои» полон — удалите строку или замените фразу'
-                                    : 'Добавить в «Мои»'
-                                }
-                                aria-label={`Добавить в «Мои»: ${emo}`}
-                                aria-disabled={mySnippets.length >= MY_SNIPPETS_MAX}
-                                onMouseDown={(e) => {
-                                  e.stopPropagation();
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  addMineFromEmojiStar(emo, starFlashKey);
-                                }}
-                              >
-                                <span aria-hidden>★</span>
-                              </button>
-                            ) : null}
+                            <button
+                              type="button"
+                              className={[
+                                'table-chat-emoji-cell-star',
+                                variant === 'mobile' ? 'table-chat-emoji-cell-star--mobile' : '',
+                                mineStarFlashKey === starFlashKey ? 'table-chat-emoji-cell-star--flash' : '',
+                                mySnippets.length >= MY_SNIPPETS_MAX ? 'table-chat-emoji-cell-star--at-cap' : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' ')}
+                              title={
+                                mySnippets.length >= MY_SNIPPETS_MAX
+                                  ? 'Список «Мои» полон — удалите строку или замените фразу'
+                                  : 'Добавить в «Мои»'
+                              }
+                              aria-label={`Добавить в «Мои»: ${emo}`}
+                              aria-disabled={mySnippets.length >= MY_SNIPPETS_MAX}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                              }}
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                addMineFromEmojiStar(emo, starFlashKey);
+                              }}
+                            >
+                              <span aria-hidden>★</span>
+                            </button>
                           </div>
                         );
                       })}
+                      {variant === 'mobile' &&
+                      (emojiTab === 'react' || emojiTab === 'cards' || emojiTab === 'misc') &&
+                      tabHasEmojiMore(emojiTab) ? (
+                        <button
+                          type="button"
+                          className="table-chat-emoji-more table-chat-emoji-more--compact"
+                          aria-expanded={emojiBankExpanded}
+                          aria-controls={`${emojiPanelDomId}-grid`}
+                          aria-label={emojiBankExpanded ? 'Свернуть дополнительные эмодзи' : 'Ещё эмодзи'}
+                          onClick={() => setEmojiBankExpanded((v) => !v)}
+                        >
+                          {emojiBankExpanded ? '−' : '+ ещё'}
+                        </button>
+                      ) : null}
                     </div>
                   </>
                 )}
@@ -4807,8 +6600,113 @@ function TableChatDock({
               </button>
             </div>
           </div>
+          {mobileLsBottomChrome ? (
+            <div className="table-chat-ls-bottom-rail" aria-hidden />
+          ) : null}
+          {variant === 'mobile' && mySnippets.length > 0 ? (
+            <div
+              id={`${emojiPanelDomId}-fav-rail`}
+              className={[
+                'table-chat-mobile-favorites-rail',
+                mobileFavCanScrollLeft ? 'table-chat-mobile-favorites-rail--more-left' : '',
+                mobileFavCanScrollRight ? 'table-chat-mobile-favorites-rail--more-right' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <div
+                ref={mobileFavoritesRef}
+                className="table-chat-mobile-favorites"
+                aria-label="Избранные вставки. Прокрутите вбок, если есть ещё"
+                onScroll={updateMobileFavoritesOverflow}
+              >
+                {mySnippets.slice(0, 10).map((s, idx) => (
+                  <Fragment key={`fav-${idx}-${mineSnippetDedupeKey(s)}`}>
+                    {idx > 0 && !mobileEmbedHost ? (
+                      <span className="table-chat-mobile-favorites__spark" aria-hidden />
+                    ) : null}
+                    <button
+                      type="button"
+                      className="table-chat-mobile-favorites__chip"
+                      disabled={text.length + s.length > MAX_BODY}
+                      onClick={() => insertSnippet(s)}
+                      title={s}
+                    >
+                      {s}
+                    </button>
+                  </Fragment>
+                ))}
+                <span className="table-chat-mobile-favorites__tail" aria-hidden />
+              </div>
+              {mobileFavCanScrollLeft ? (
+                <ChatStripPeekButton
+                  id={`${emojiPanelDomId}-fav-peek-l`}
+                  dir={-1}
+                  onScroll={scrollMobileFavoritesBy}
+                  className="table-chat-mobile-favorites-rail__peek table-chat-mobile-favorites-rail__peek--left"
+                  label="Прокрутить избранное влево"
+                  crystal={!mobileEmbedHost}
+                />
+              ) : null}
+              {mobileFavCanScrollRight ? (
+                <ChatStripPeekButton
+                  id={`${emojiPanelDomId}-fav-peek-r`}
+                  dir={1}
+                  onScroll={scrollMobileFavoritesBy}
+                  className="table-chat-mobile-favorites-rail__peek"
+                  label="Прокрутить избранное вправо"
+                  crystal={!mobileEmbedHost}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          {feedReplyPreview ? (
+            <div className="table-chat-feed-reply-strip" role="status">
+              <div className="table-chat-feed-reply-strip__accent" aria-hidden />
+              <div className="table-chat-feed-reply-strip__body">
+                <span className="table-chat-feed-reply-strip__kicker">Ответ</span>
+                <span className="table-chat-feed-reply-strip__author">{feedReplyPreview.author}</span>
+                <span className="table-chat-feed-reply-strip__excerpt">{feedReplyPreview.excerpt}</span>
+              </div>
+              <button
+                type="button"
+                className="table-chat-feed-reply-strip__clear"
+                aria-label="Отменить цитату"
+                title="Отменить цитату"
+                onClick={() => setFeedReplyAnchor(null)}
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
+          {feedAddressTo ? (
+            <div className="table-chat-feed-reply-strip table-chat-feed-reply-strip--address" role="status">
+              <div className="table-chat-feed-reply-strip__accent" aria-hidden />
+              <div className="table-chat-feed-reply-strip__body">
+                <span className="table-chat-feed-reply-strip__kicker">Для</span>
+                <span className="table-chat-feed-reply-strip__author">{feedAddressTo}</span>
+              </div>
+              <button
+                type="button"
+                className="table-chat-feed-reply-strip__clear"
+                aria-label="Отменить адресата"
+                title="Отменить адресата"
+                onClick={() => setFeedAddressTo(null)}
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
           {variant === 'mobile' ? (
-            <div className="table-chat-mobile-input-shell">
+            <div
+              ref={inputShellRef}
+              className={[
+                'table-chat-mobile-input-shell',
+                composerFlashOn ? 'table-chat-mobile-input-shell--flash' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
               <button
                 ref={emojiToggleRef}
                 type="button"
@@ -4832,7 +6730,13 @@ function TableChatDock({
                     void onSend();
                   }
                 }}
-                placeholder="Сообщение…"
+                placeholder={
+                  feedAddressTo
+                    ? `Для ${feedAddressTo}…`
+                    : feedReplyAnchor
+                      ? `Ответ для ${feedReplyAnchor.author || 'собеседника'}…`
+                      : 'Сообщение…'
+                }
                 maxLength={MAX_BODY}
                 rows={1}
                 className="table-chat-input table-chat-input--pro table-chat-input--mobile-inline"
@@ -4846,7 +6750,17 @@ function TableChatDock({
                 disabled={sending || !text.trim()}
                 aria-label={sending ? 'Отправка…' : 'Отправить'}
               >
-                {sending ? <span className="table-chat-send__spinner" aria-hidden /> : '➤'}
+                {sending ? (
+                  <span className="table-chat-send__spinner" aria-hidden />
+                ) : (
+                  <span className="table-chat-mobile-input-shell__send-glyph" aria-hidden>
+                    <CrystalLilacGlyph
+                      id={`${emojiPanelDomId}-send`}
+                      filled
+                      path="M2.6 2.4 13.6 8 2.6 13.6 5.4 8Z"
+                    />
+                  </span>
+                )}
               </button>
             </div>
           ) : (
@@ -4861,10 +6775,22 @@ function TableChatDock({
                     void onSend();
                   }
                 }}
-                placeholder="Сообщение…"
+                placeholder={
+                  feedAddressTo
+                    ? `Для ${feedAddressTo}…`
+                    : feedReplyAnchor
+                      ? `Ответ для ${feedReplyAnchor.author || 'собеседника'}…`
+                      : 'Сообщение…'
+                }
                 maxLength={MAX_BODY}
                 rows={1}
-                className="table-chat-input table-chat-input--pro"
+                className={[
+                  'table-chat-input',
+                  'table-chat-input--pro',
+                  composerFlashOn ? 'table-chat-input--flash' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 autoComplete="off"
                 aria-label="Текст сообщения в чат"
               />
@@ -4884,22 +6810,6 @@ function TableChatDock({
               </div>
             </>
           )}
-          {variant === 'mobile' && mySnippets.length > 0 ? (
-            <div className="table-chat-mobile-favorites" aria-label="Избранные вставки">
-              {mySnippets.slice(0, 10).map((s, idx) => (
-                <button
-                  key={`fav-${idx}-${mineSnippetDedupeKey(s)}`}
-                  type="button"
-                  className="table-chat-mobile-favorites__chip"
-                  disabled={text.length + s.length > MAX_BODY}
-                  onClick={() => insertSnippet(s)}
-                  title={s}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          ) : null}
           {variant === 'mobile' && mobileMineToast ? (
             <div className="table-chat-mobile-mine-toast" role="status" aria-live="polite">
               {mobileMineToast}
@@ -4920,8 +6830,291 @@ function TableChatDock({
           title="Потяните угол, чтобы изменить ширину и высоту"
         />
       ) : null}
+      {chatHiddenPanelOpen && hasLocalHidden ? (
+        <div
+          className={[
+            'table-chat-msg-action-layer',
+            variant === 'mobile' ? 'table-chat-msg-action-layer--feed' : '',
+            mobileLsBottomChrome ? 'table-chat-msg-action-layer--ls-feed' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          role="presentation"
+        >
+          <button
+            type="button"
+            className="table-chat-msg-action-layer__dismiss"
+            aria-label="Закрыть список скрытых"
+            onClick={() => setChatHiddenPanelOpen(false)}
+          />
+          <div
+            className="table-chat-msg-action-sheet table-chat-hidden-sheet"
+            role="dialog"
+            aria-label="Скрытые сообщения"
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div className="table-chat-msg-action-sheet__head">
+              <div className="table-chat-msg-action-sheet__preview">
+                <span className="table-chat-msg-action-sheet__author">Скрыто у вас</span>
+                <span className="table-chat-msg-action-sheet__snippet">Можно вернуть в любой момент</span>
+              </div>
+              <button
+                type="button"
+                className="table-chat-msg-action-sheet__close"
+                aria-label="Закрыть"
+                onClick={() => setChatHiddenPanelOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="table-chat-hidden-sheet__list">
+              {hiddenUserEntries.map((u) => (
+                <div key={u.id} className="table-chat-hidden-sheet__row">
+                  <span className="table-chat-hidden-sheet__label">{u.name}</span>
+                  <button
+                    type="button"
+                    className="table-chat-hidden-sheet__show"
+                    onClick={() => unhideChatUserById(u.id)}
+                  >
+                    Показать
+                  </button>
+                </div>
+              ))}
+              {hiddenMsgIds.size > 0 ? (
+                <div className="table-chat-hidden-sheet__row">
+                  <span className="table-chat-hidden-sheet__label">
+                    {hiddenSoloMsgCount > 0
+                      ? `Сообщения (${hiddenSoloMsgCount})`
+                      : 'Скрытые сообщения'}
+                  </span>
+                  <button
+                    type="button"
+                    className="table-chat-hidden-sheet__show"
+                    onClick={unhideAllHiddenMessages}
+                  >
+                    Показать
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="table-chat-msg-action-sheet__btn table-chat-hidden-sheet__all"
+              onClick={unhideAllHiddenChat}
+            >
+              <span className="table-chat-msg-action-sheet__btn-copy">
+                <strong>Показать всё</strong>
+              </span>
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {chatHideUndo ? (
+        <div className="table-chat-hide-toast" role="status">
+          <span>{chatHideUndo.label}</span>
+          <button type="button" className="table-chat-hide-toast__undo" onClick={undoChatHide}>
+            Вернуть
+          </button>
+        </div>
+      ) : null}
+      {msgActionMode && msgActionTarget ? (
+        <div
+          className={[
+            'table-chat-msg-action-layer',
+            variant === 'mobile' ? 'table-chat-msg-action-layer--feed' : '',
+            mobileLsBottomChrome ? 'table-chat-msg-action-layer--ls-feed' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          role="presentation"
+        >
+          <button
+            type="button"
+            className="table-chat-msg-action-layer__dismiss"
+            aria-label="Закрыть меню сообщения"
+            onClick={closeMsgActionMenu}
+          />
+          <div
+            className={[
+              'table-chat-msg-action-sheet',
+              msgActionMode === 'react' ? 'table-chat-msg-action-sheet--react' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            role="dialog"
+            aria-label={
+              msgActionMode === 'react'
+                ? `Реакция на сообщение от ${msgActionTarget.author || 'игрока'}`
+                : msgActionMode === 'name'
+                  ? `Написать ${msgActionTarget.author || 'игроку'}`
+                  : `Действия с сообщением от ${msgActionTarget.author || 'игрока'}`
+            }
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div className="table-chat-msg-action-sheet__head">
+              <div className="table-chat-msg-action-sheet__preview">
+                <span className="table-chat-msg-action-sheet__author">
+                  {msgActionTarget.author.trim() || 'Игрок'}
+                </span>
+                <span className="table-chat-msg-action-sheet__snippet">
+                  {truncatePhantomQuoteExcerpt(msgActionTarget.body, 42)}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="table-chat-msg-action-sheet__close"
+                aria-label="Закрыть"
+                onClick={closeMsgActionMenu}
+              >
+                ×
+              </button>
+            </div>
+            {msgActionMode === 'sheet' ? (
+              <div className="table-chat-msg-action-sheet__actions" role="menu">
+                <button
+                  type="button"
+                  className="table-chat-msg-action-sheet__btn"
+                  role="menuitem"
+                  title="Ответить с цитатой"
+                  onClick={beginFeedQuoteReply}
+                >
+                  <span className="table-chat-msg-action-sheet__btn-ico" aria-hidden>
+                    ↩
+                  </span>
+                  <span className="table-chat-msg-action-sheet__btn-copy">
+                    <strong>Ответить</strong>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="table-chat-msg-action-sheet__btn"
+                  role="menuitem"
+                  title="Скопировать текст"
+                  onClick={copyMsgActionTarget}
+                >
+                  <span className="table-chat-msg-action-sheet__btn-ico" aria-hidden>
+                    ⧉
+                  </span>
+                  <span className="table-chat-msg-action-sheet__btn-copy">
+                    <strong>Копировать</strong>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="table-chat-msg-action-sheet__btn table-chat-msg-action-sheet__btn--quiet"
+                  role="menuitem"
+                  title={tableChatMessageSheetHideCopy(msgActionTarget.userId === userId).title}
+                  onClick={hideChatMessage}
+                >
+                  <span className="table-chat-msg-action-sheet__btn-ico" aria-hidden>
+                    ⌕
+                  </span>
+                  <span className="table-chat-msg-action-sheet__btn-copy">
+                    <strong>
+                      {tableChatMessageSheetHideCopy(msgActionTarget.userId === userId).label}
+                    </strong>
+                  </span>
+                </button>
+              </div>
+            ) : msgActionMode === 'name' ? (
+              <div className="table-chat-msg-action-sheet__actions" role="menu">
+                <button
+                  type="button"
+                  className="table-chat-msg-action-sheet__btn"
+                  role="menuitem"
+                  title={`Написать ${msgActionTarget.author.trim() || 'отправителю'}`}
+                  onClick={beginFeedAddressSender}
+                >
+                  <span className="table-chat-msg-action-sheet__btn-ico" aria-hidden>
+                    ✎
+                  </span>
+                  <span className="table-chat-msg-action-sheet__btn-copy">
+                    <strong>Написать</strong>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="table-chat-msg-action-sheet__btn table-chat-msg-action-sheet__btn--quiet"
+                  role="menuitem"
+                  title="Скрыть все сообщения этого игрока у себя"
+                  onClick={hideChatUser}
+                >
+                  <span className="table-chat-msg-action-sheet__btn-ico" aria-hidden>
+                    ⌕
+                  </span>
+                  <span className="table-chat-msg-action-sheet__btn-copy">
+                    <strong>Скрыть все</strong>
+                  </span>
+                </button>
+              </div>
+            ) : (
+              <div className="table-chat-msg-action-sheet__reacts" role="listbox" aria-label="Выберите реакцию">
+                {msgReactMineSnippets.length > 0 ? (
+                  <>
+                    <span className="table-chat-msg-action-sheet__react-kicker">Мои</span>
+                    <div className="table-chat-msg-action-sheet__react-grid table-chat-msg-action-sheet__react-grid--mine">
+                      {msgReactMineSnippets.map((emo) => (
+                        <button
+                          key={`mine-${emo}`}
+                          type="button"
+                          className={[
+                            'table-chat-msg-action-sheet__react-cell',
+                            msgActionMineEmoji === emo
+                              ? 'table-chat-msg-action-sheet__react-cell--mine'
+                              : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                          role="option"
+                          aria-label={`Моя реакция ${emo}`}
+                          aria-selected={msgActionMineEmoji === emo}
+                          disabled={sending}
+                          onClick={() => void sendMsgReaction(emo)}
+                        >
+                          {emo}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+                <span className="table-chat-msg-action-sheet__react-kicker">Реакции</span>
+                <div className="table-chat-msg-action-sheet__react-grid">
+                  {REACTION_EMOJI_PRIMARY.map((emo) => (
+                    <button
+                      key={emo}
+                      type="button"
+                      className={[
+                        'table-chat-msg-action-sheet__react-cell',
+                        msgActionMineEmoji === emo
+                          ? 'table-chat-msg-action-sheet__react-cell--mine'
+                          : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      role="option"
+                      aria-label={`Реакция ${emo}`}
+                      aria-selected={msgActionMineEmoji === emo}
+                      disabled={sending}
+                      onClick={() => void sendMsgReaction(emo)}
+                    >
+                      {emo}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
+
+  if (variant === 'mobile' && mobileEmbedHost) {
+    return createPortal(dockNode, mobileEmbedHost);
+  }
+  return dockNode;
 }
 
 export { TableChatDock };
