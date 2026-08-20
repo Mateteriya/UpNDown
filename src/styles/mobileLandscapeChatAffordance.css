@@ -3342,13 +3342,16 @@ body.ls-east-chat-resizing * {
 }
 
 .game-table-root.viewport-mobile.viewport-mobile-landscape
-  .table-chat-dock.table-chat-dock--mobile.table-chat-dock--ls-bottom {
+  .table-chat-dock.table-chat-dock--mobile.table-chat-dock--ls-bottom:not(
+    .table-chat-dock--collapsed
+  ):not(.table-chat-dock--east-embed) {
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) min(276px, 38%) !important;
   grid-template-rows: auto max-content auto !important;
   position: relative !important;
   align-items: stretch !important;
   width: 100% !important;
+  /* Lift от якоря: низ (композер) остаётся на месте, растём вверх. */
   margin: calc(10px - var(--ls-chat-lift, 0px)) 0 0 0 !important;
   transform: none !important;
   overflow-anchor: none;
@@ -4809,6 +4812,7 @@ body.ls-east-chat-resizing * {
   .table-chat-dock.table-chat-dock--mobile:not(.table-chat-dock--collapsed):not(.table-chat-dock--east-embed) {
   position: relative !important;
   z-index: auto !important;
+  /* Портрет: растём вниз под Югом (без lift вверх). */
   margin-top: 10px !important;
   transform: none !important;
   overflow: visible !important;
