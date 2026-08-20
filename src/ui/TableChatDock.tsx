@@ -1296,6 +1296,8 @@ function TableChatDock({
   const [eastToolsMenuOpen, setEastToolsMenuOpen] = useState(false);
   const eastToolsMenuRef = useRef<HTMLDivElement>(null);
   const [lsChatBodyH, setLsChatBodyH] = useState(() => readLsChatBodyHFromLs());
+  /** Высота, при которой lift=0: низ модалки «приклеен». Рост выше якоря → только вверх. */
+  const lsChatLiftAnchorRef = useRef(lsChatBodyH);
   const chatSearchInputRef = useRef<HTMLInputElement>(null);
   const [composerFlashOn, setComposerFlashOn] = useState(false);
   const composerFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1548,7 +1550,8 @@ function TableChatDock({
       ...(mobileLsBottomChrome
         ? {
             ['--ls-chat-body-h' as string]: `${lsChatBodyH}px`,
-            ['--ls-chat-lift' as string]: `${Math.max(0, lsChatBodyH - lsChatBodyBaseH())}px`,
+            /* Якорь = высота при «нулевом» lift; иначе низ уезжает вниз при росте. */
+            ['--ls-chat-lift' as string]: `${Math.max(0, lsChatBodyH - lsChatLiftAnchorRef.current)}px`,
           }
         : {}),
     };
@@ -2566,12 +2569,38 @@ function TableChatDock({
     setPcDrag((prev) => (prev.x === nx && prev.y === ny ? prev : { x: nx, y: ny }));
   }, []);
 
-  const onMobileResizePointerMove = useCallback((e: PointerEvent) => {
-    const s = mobileResizeSessionRef.current;
-    if (!s.active || e.pointerId !== s.pointerId) return;
-    const next = s.startHeight + (s.startY - e.clientY);
-    setMobileMessagesHeight(clampMobilePortraitChatH(next));
-  }, []);
+  const scrollPortraitChatBottomIntoView = useCallback(() => {
+    if (mobileLsBottomChrome) return;
+    const dock = dockRef.current;
+    if (!dock) return;
+    const wrap =
+      (dock.closest('.game-table-main-wrap') as HTMLElement | null) ??
+      (typeof document !== 'undefined'
+        ? (document.querySelector('.game-table-root.viewport-mobile .game-table-main-wrap') as HTMLElement | null)
+        : null);
+    if (!wrap) return;
+    const dockBottom = dock.getBoundingClientRect().bottom;
+    const wrapBottom = wrap.getBoundingClientRect().bottom;
+    const overflow = dockBottom - wrapBottom + 20;
+    if (overflow > 0) wrap.scrollTop += overflow;
+  }, [mobileLsBottomChrome]);
+
+  /* После смены высоты в портрете — догоняем скролл, чтобы низ (ввод/«Мои») оставался в кадре. */
+  useLayoutEffect(() => {
+    if (variant !== 'mobile' || mobileLsBottomChrome || !mobileOpen) return;
+    if (!mobileResizeSessionRef.current.active) return;
+    scrollPortraitChatBottomIntoView();
+  }, [mobileMessagesHeight, mobileLsBottomChrome, mobileOpen, scrollPortraitChatBottomIntoView, variant]);
+
+  const onMobileResizePointerMove = useCallback(
+    (e: PointerEvent) => {
+      const s = mobileResizeSessionRef.current;
+      if (!s.active || e.pointerId !== s.pointerId) return;
+      const next = s.startHeight + (s.startY - e.clientY);
+      setMobileMessagesHeight(clampMobilePortraitChatH(next));
+    },
+    [],
+  );
 
   const onMobileResizePointerUp = useCallback(
     (e: PointerEvent) => {
@@ -2595,8 +2624,13 @@ function TableChatDock({
       } catch {
         /* ignore */
       }
+      /* Сессия уже inactive — догоняем скролл отдельно после paint. */
+      requestAnimationFrame(() => {
+        scrollPortraitChatBottomIntoView();
+        requestAnimationFrame(scrollPortraitChatBottomIntoView);
+      });
     },
-    [onMobileResizePointerMove],
+    [onMobileResizePointerMove, scrollPortraitChatBottomIntoView],
   );
 
   const startMobileResize = useCallback(
@@ -2647,6 +2681,8 @@ function TableChatDock({
       const next = clampLsChatBodyH(s.startHeight + (s.startY - e.clientY));
       setLsChatBodyH(next);
       writeLsChatBodyHToLs(next);
+      /* Сжали ниже якоря — новый «нулевой» низ, чтобы следующий рост снова шёл вверх. */
+      if (next < lsChatLiftAnchorRef.current) lsChatLiftAnchorRef.current = next;
     },
     [onLsChatResizePointerMove],
   );
@@ -2686,7 +2722,12 @@ function TableChatDock({
   }, [onLsChatResizePointerMove, onLsChatResizePointerUp]);
 
   useEffect(() => {
-    const onWin = () => setLsChatBodyH((h) => clampLsChatBodyH(h));
+    const onWin = () =>
+      setLsChatBodyH((h) => {
+        const next = clampLsChatBodyH(h);
+        if (next < lsChatLiftAnchorRef.current) lsChatLiftAnchorRef.current = next;
+        return next;
+      });
     window.addEventListener('resize', onWin);
     return () => window.removeEventListener('resize', onWin);
   }, []);
