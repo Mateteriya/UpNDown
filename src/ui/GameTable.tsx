@@ -282,9 +282,10 @@ import {
   MOBILE_LS_EAST_CHAT_HEADER_COLLAPSED_W_PX,
   MOBILE_LS_FELT_MIN_BESIDE_CHAT_PX,
   clampMobileLsEastChatColW,
-  mobileLsChatAffordanceMode,
-  mobilePortraitChatAffordanceMode,
+  mobileLsChatAffordanceKind,
   mobileLsEastChatColWidthPx,
+  mobileLsEastHeaderUsesOverflow,
+  mobileLsHandDiskHome,
   readOnlineEastChatColWFromLs,
   readOnlineThreeSeatSideChatFromLs,
   writeOnlineEastChatColWToLs,
@@ -2846,7 +2847,27 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   const [eastChatHeaderCollapsed, setEastChatHeaderCollapsed] = useState(false);
   const [tableChatMobileOpen, setTableChatMobileOpen] = useState(false);
   const openTableChatMobile = useCallback(() => {
+    setTableChatMobileOpen(true);
+    setEastChatHeaderCollapsed(false);
     setTableChatOpenNonce((n) => n + 1);
+  }, []);
+  const openTableChatMobileAt = useCallback((place: 'bottom' | 'side') => {
+    if (place === 'side') {
+      setOnlineThreeSeatSideChat(true);
+      writeOnlineThreeSeatSideChatToLs(true);
+    } else {
+      setOnlineThreeSeatSideChat(false);
+      writeOnlineThreeSeatSideChatToLs(false);
+    }
+    setEastChatHeaderCollapsed(false);
+    setTableChatMobileOpen(true);
+    setTableChatOpenNonce((n) => n + 1);
+  }, []);
+  const moveLsChatToSide = useCallback(() => {
+    setOnlineThreeSeatSideChat(true);
+    writeOnlineThreeSeatSideChatToLs(true);
+    setEastChatHeaderCollapsed(false);
+    setTableChatMobileOpen(true);
   }, []);
   const onTableChatChromeMeta = useCallback(
     (meta: { unread: boolean; typingLine: string | null }) => {
@@ -2880,14 +2901,6 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     maxW: number;
     dragged: boolean;
   } | null>(null);
-  const toggleOnlineThreeSeatSideChat = useCallback(() => {
-    setOnlineThreeSeatSideChat((prev) => {
-      const next = !prev;
-      writeOnlineThreeSeatSideChatToLs(next);
-      if (!next) setEastChatHeaderCollapsed(false);
-      return next;
-    });
-  }, []);
   const dismissEastChatToBottom = useCallback(() => {
     setEastChatHeaderCollapsed(false);
     setOnlineThreeSeatSideChat(false);
@@ -5808,17 +5821,49 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   const pinPcDesktopFourNorthTop = !isMobile && !useTabletPcTableTuning && showPcNorthSeat;
   const showPcEastSeat = true;
   const pcEastDisplayIndex = isThreeSeatTable ? 1 : 3;
-  /** Online 3p/4p: LS диск ≤5 / мини ≥6; портрет диск <5 / мини ≥5 по центру Юга. Не side-chat и не при открытом чате. */
+  /** Online: диск/мини пока чат закрыт. Пауза между раздачами — скрыть (как бейдж «Сдающий»). */
   const showMobileLsChatAffordance =
     Boolean(showTableChat) &&
     isMobile &&
     (isMobileLandscape || !mobileViewportShort) &&
     !onlineThreeSeatSideChatActive &&
-    !tableChatMobileOpen;
+    !tableChatMobileOpen &&
+    !dealJustCompleted &&
+    state?.phase !== 'deal-complete';
+  const mobileLsChatPlacement =
+    isMobileLandscape && isThreeSeatTable
+      ? onlineThreeSeatSideChat
+        ? ('side' as const)
+        : ('bottom' as const)
+      : null;
   const mobileLsChatHandLen = state?.players[humanIdx]?.hand.length ?? 0;
-  const mobileLsChatMode = isMobileLandscape
-    ? mobileLsChatAffordanceMode(mobileLsChatHandLen)
-    : mobilePortraitChatAffordanceMode(mobileLsChatHandLen);
+  const mobileLsChatMode = mobileLsChatAffordanceKind({
+    handLen: mobileLsChatHandLen,
+    landscape: isMobileLandscape,
+    threeSeat: isThreeSeatTable,
+  });
+  const mobileLsDiskHome = mobileLsHandDiskHome({
+    handLen: mobileLsChatHandLen,
+    landscape: isMobileLandscape,
+    threeSeat: isThreeSeatTable,
+  });
+  const showMobileLsHandDisk =
+    showMobileLsChatAffordance && mobileLsChatMode === 'hand-disk';
+  const showEastHeaderChatDisk =
+    showMobileLsHandDisk && mobileLsDiskHome === 'east-header' && showMobileLandscapeEastSeat;
+  const showHandChatDisk = showMobileLsHandDisk && !showEastHeaderChatDisk;
+  const renderMobileLsChatDisk = () => (
+    <MobileLandscapeChatAffordance
+      key={mobileLsDiskHome}
+      mode="hand-disk"
+      diskHome={showEastHeaderChatDisk ? 'east-header' : 'hand'}
+      unread={tableChatChromeMeta.unread}
+      typingLine={tableChatChromeMeta.typingLine}
+      onOpen={openTableChatMobile}
+      placement={mobileLsChatPlacement}
+      onOpenAt={mobileLsChatPlacement ? openTableChatMobileAt : undefined}
+    />
+  );
   const pcWestDisplayIndex = 2;
   const pcNorthDisplayIndex = 1;
   /** Пока взятка на столе (pending) — это НЕ ход «положить карту», даже если currentPlayer = победитель. */
@@ -5844,7 +5889,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         letterSpacing: playerNameStyle.letterSpacing,
       }
     : playerNameStyle;
-  const dealerSouthMobilePanelHighlight = isMobile && !!state && state.dealerIndex === humanIdx;
+  const dealerSouthMobilePanelHighlight =
+    isMobile &&
+    !!state &&
+    state.dealerIndex === humanIdx &&
+    !dealJustCompleted &&
+    state.phase !== 'deal-complete';
   const dealerSouthMobilePanelBidding =
     dealerSouthMobilePanelHighlight &&
     (state.phase === 'bidding' || state.phase === 'dark-bidding');
@@ -6139,6 +6189,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               }
         }
       >
+        <div
+          className={
+            showHandChatDisk && !shortViewport
+              ? 'game-mobile-ls-hand-chat-row game-mobile-ls-hand-chat-row--portrait'
+              : undefined
+          }
+        >
         <div className="game-mobile-l-hand-shell">
           <div
             className={[
@@ -6204,6 +6261,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               <UserPanelGarlandOverlay durationMs={USER_PANEL_GARLAND_HAND_DURATION_MS} />
             ) : null}
           </div>
+        </div>
+          {showHandChatDisk && !shortViewport ? renderMobileLsChatDisk() : null}
         </div>
       </div>
     );
@@ -8890,9 +8949,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids[humanIdx] === null;
   const southLandscapeBottomRowHasOrder = state.bids[humanIdx] !== null;
   const showSouthLandscapeDealerBottomRowBadge =
-    state.dealerIndex === humanIdx && state.phase !== 'playing';
+    dealerSouthMobilePanelHighlight && state.phase !== 'playing';
   const showSouthLandscapeDealerPlayingCorner =
-    state.dealerIndex === humanIdx && state.phase === 'playing';
+    dealerSouthMobilePanelHighlight && state.phase === 'playing';
   const southLandscapeOrderSlots =
     state.bids[humanIdx] != null && state.bids[humanIdx]! > 0 ? state.bids[humanIdx]! : 0;
   const southLandscapeAvatarReservePx = isMobileMidSquareLayout
@@ -9759,28 +9818,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         ) : state != null ? (
           <div className="game-mobile-landscape-toolbar-panel__row game-mobile-landscape-toolbar-panel__row-deal">
             {renderMobileDealContractPanelButton({ landscapeToolbar: true })}
-          </div>
-        ) : null}
-        {showTableChat && isThreeSeatTable ? (
-          <div className="game-mobile-landscape-toolbar-panel__row game-mobile-landscape-toolbar-panel__row-chat-layout">
-            <button
-              type="button"
-              className={[
-                'game-mobile-landscape-toolbar-panel__chat-side-toggle',
-                onlineThreeSeatSideChat ? 'is-on' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              aria-pressed={onlineThreeSeatSideChat}
-              title={
-                onlineThreeSeatSideChat
-                  ? 'Обычный вид: Восток справа, чат снизу'
-                  : 'Чат справа у стола: Север сверху'
-              }
-              onClick={toggleOnlineThreeSeatSideChat}
-            >
-              {onlineThreeSeatSideChat ? 'Чат↓' : 'Чат→'}
-            </button>
           </div>
         ) : null}
       </div>
@@ -11850,6 +11887,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 ...lastTrickWinnerSeatElevateStyle(mobileEastDisplayIndex),
               }}
             >
+              {showEastHeaderChatDisk ? (
+                <div className="game-mobile-east-chat-disk-home">
+                  {renderMobileLsChatDisk()}
+                </div>
+              ) : null}
               <OpponentSlot state={displayState} index={mobileEastDisplayIndex} position="right" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={resolveDisplayPlayerAvatar(mobileEastDisplayIndex)}
                 replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(mobileEastDisplayIndex, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
@@ -11984,8 +12026,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           .sort((a, b) => cardSort(a, b, state.trump));
         const rowHand = sortedHand;
         const rowLen = rowHand.length;
-        const showHandChatDisk =
-          showMobileLsChatAffordance && mobileLsChatMode === 'hand-disk';
         const handStrip = (
       <div
         ref={mobileLandscapeHandStripRef}
@@ -12174,12 +12214,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               .join(' ')}
           >
             {handStrip}
-            <MobileLandscapeChatAffordance
-              mode="hand-disk"
-              unread={tableChatChromeMeta.unread}
-              typingLine={tableChatChromeMeta.typingLine}
-              onOpen={openTableChatMobile}
-            />
+            {renderMobileLsChatDisk()}
           </div>
         ) : (
           handStrip
@@ -12265,7 +12300,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             : '7px 0',
           position: 'relative',
           ...(!mobileViewportShort && state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : {}),
-          ...(!mobileViewportShort && state.currentPlayerIndex !== humanIdx && state.dealerIndex === humanIdx ? dealerPanelFrameStyle : {}),
+          ...(!mobileViewportShort && state.currentPlayerIndex !== humanIdx && dealerSouthMobilePanelHighlight ? dealerPanelFrameStyle : {}),
           ...(dealJustCompleted && lastTrickCollectingPhase === 'winner' && state.lastCompletedTrick?.winnerIndex === humanIdx ? { animation: 'winnerPanelBlink 0.5s ease-in-out 2' } : {}),
           ...((!!state.pendingTrickCompletion && state.pendingTrickCompletion.winnerIndex === humanIdx) ||
           (lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === humanIdx)
@@ -12277,7 +12312,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           state.bids.some(b => b === null) &&
           state.trickLeaderIndex === humanIdx
             ? (() => {
-            const base = state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : state.dealerIndex === humanIdx ? dealerPanelFrameStyle : null;
+            const base = state.currentPlayerIndex === humanIdx ? activeTurnPanelFrameStyleUser : dealerSouthMobilePanelHighlight ? dealerPanelFrameStyle : null;
             const baseShadow = base?.boxShadow ?? playerInfoPanelStyle.boxShadow;
             return { boxShadow: [baseShadow, firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', ') };
               })()
@@ -12635,7 +12670,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
                           />
                         )}
-                        {state.dealerIndex === humanIdx &&
+                        {dealerSouthMobilePanelHighlight &&
                           (isMobileOrTablet && state.phase === 'playing' ? (
                             <button
                               type="button"
@@ -12876,7 +12911,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
                           />
                         )}
-                        {state.dealerIndex === humanIdx &&
+                        {dealerSouthMobilePanelHighlight &&
                           (isMobileOrTablet && state.phase === 'playing' ? (
                             <button
                               type="button"
@@ -12986,6 +13021,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               unread={tableChatChromeMeta.unread}
               typingLine={tableChatChromeMeta.typingLine}
               onOpen={openTableChatMobile}
+              placement={mobileLsChatPlacement}
             />
           ) : null}
       </div>
@@ -13083,7 +13119,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           mobileEmbedHost={onlineThreeSeatSideChatActive ? eastChatHostEl : null}
           onMobileChatCollapsedChange={onEastChatCollapsedChange}
           onEastEmbedDismissToBottom={dismissEastChatToBottom}
+          onLsBottomMoveToSide={
+            isMobileLandscape && isThreeSeatTable ? moveLsChatToSide : undefined
+          }
           mobileLsBottomChrome={isMobileLandscape && !onlineThreeSeatSideChatActive}
+          mobileEastHeaderCompact={mobileLsEastHeaderUsesOverflow(mobileLsEastChatColW)}
         />
       )}
       </div>

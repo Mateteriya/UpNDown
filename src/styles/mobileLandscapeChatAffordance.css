@@ -1,5 +1,5 @@
 /**
- * 4p · mobile landscape chat affordance (диск у руки / мини на Юге).
+ * 4p · mobile landscape chat: диск у руки / мини только 4p LS на Юге слева внизу.
  */
 
 .mobile-ls-chat-affordance {
@@ -38,13 +38,246 @@
   width: 40px;
   height: 40px;
   flex: 0 0 40px;
-  margin-left: 5px;
+  margin-left: 12px;
   align-self: center;
   pointer-events: none;
 }
 
+/* 3p LS 10+: якорь над Востоком, без 40px в колонке. Диск — portal/fixed. */
+.mobile-ls-chat-affordance--hand-disk-slot--east-header {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  flex: none;
+}
+
+.game-mobile-east-chat-disk-home {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 8;
+}
+
 .mobile-ls-chat-affordance--hand-disk.mobile-ls-chat-affordance--hand-disk-float {
   margin-left: 0;
+}
+
+/* Кластер: диск + живые ↓/→ (3p LS). Сам диск 40px, стрелки снаружи. */
+.mobile-ls-chat-affordance-cluster {
+  box-sizing: border-box;
+  overflow: visible;
+  pointer-events: none;
+  touch-action: none;
+}
+
+.mobile-ls-chat-affordance-cluster .mobile-ls-chat-affordance--hand-disk,
+.mobile-ls-chat-affordance-cluster .mobile-ls-chat-affordance__place-tick {
+  pointer-events: auto;
+}
+
+.mobile-ls-chat-affordance-cluster .mobile-ls-chat-affordance--hand-disk {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: grab;
+}
+
+.mobile-ls-chat-affordance-cluster--dragging .mobile-ls-chat-affordance--hand-disk {
+  cursor: grabbing;
+}
+
+.mobile-ls-chat-affordance__place-tick {
+  appearance: none;
+  -webkit-appearance: none;
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(253, 244, 255, 0.22) 0%, transparent 46%),
+    linear-gradient(165deg, rgba(36, 22, 78, 0.96) 0%, rgba(8, 6, 28, 0.98) 100%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.16),
+    0 0 10px rgba(124, 58, 237, 0.42),
+    inset 0 1px 0 rgba(165, 243, 252, 0.18);
+  cursor: pointer;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-ls-chat-affordance__place-tick--east {
+  left: calc(100% - 4px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.mobile-ls-chat-affordance__place-tick--south {
+  left: 50%;
+  top: calc(100% - 4px);
+  transform: translateX(-50%);
+}
+
+.mobile-ls-chat-affordance__place-tick.is-active {
+  border-color: rgba(34, 211, 238, 0.78);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.35),
+    0 0 12px rgba(34, 211, 238, 0.45),
+    0 0 10px rgba(167, 139, 250, 0.4),
+    inset 0 1px 0 rgba(165, 243, 252, 0.28);
+}
+
+.mobile-ls-chat-affordance__place-tick:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.85);
+  outline-offset: 1px;
+}
+
+.mobile-ls-chat-affordance__place-glyph {
+  display: block;
+  width: 14px;
+  height: 14px;
+  overflow: visible;
+  filter:
+    drop-shadow(0 0 1px #fdf4ff)
+    drop-shadow(0 0 3px #22d3ee)
+    drop-shadow(0 0 5px #a78bfa);
+}
+
+.mobile-ls-chat-affordance__place-tick:not(.is-active) .mobile-ls-chat-affordance__place-glyph {
+  opacity: 0.62;
+  filter:
+    drop-shadow(0 0 1px #a78bfa)
+    drop-shadow(0 0 3px #7c3aed);
+}
+
+.mobile-ls-chat-affordance__place-tick--intro {
+  animation: mobile-ls-place-tick-intro 0.7s ease-in-out 5;
+}
+
+.mobile-ls-chat-affordance__place-tick--south.mobile-ls-chat-affordance__place-tick--intro {
+  animation-delay: 0.16s;
+}
+
+.mobile-ls-chat-affordance__place-tick--intro::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  pointer-events: none;
+  animation: mobile-ls-place-tick-halo 0.7s ease-out 5;
+}
+
+.mobile-ls-chat-affordance__place-tick--south.mobile-ls-chat-affordance__place-tick--intro::after {
+  animation-delay: 0.16s;
+}
+
+.mobile-ls-chat-affordance__place-tick--intro .mobile-ls-chat-affordance__place-glyph {
+  opacity: 1 !important;
+  animation: mobile-ls-place-tick-glyph-intro 0.7s ease-in-out 5;
+}
+
+.mobile-ls-chat-affordance__place-tick--south.mobile-ls-chat-affordance__place-tick--intro
+  .mobile-ls-chat-affordance__place-glyph {
+  animation-delay: 0.16s;
+}
+
+@keyframes mobile-ls-place-tick-intro {
+  0%,
+  100% {
+    border-color: rgba(167, 139, 250, 0.7);
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.28),
+      0 0 10px rgba(124, 58, 237, 0.45);
+  }
+  25% {
+    border-color: #67e8f9;
+    box-shadow:
+      0 0 0 2px rgba(34, 211, 238, 0.95),
+      0 0 16px rgba(34, 211, 238, 0.95),
+      0 0 22px rgba(244, 114, 182, 0.7);
+  }
+  50% {
+    border-color: #e9d5ff;
+    box-shadow:
+      0 0 0 2px rgba(167, 139, 250, 1),
+      0 0 18px rgba(168, 85, 247, 0.95),
+      0 0 24px rgba(250, 204, 21, 0.55);
+  }
+  75% {
+    border-color: #f9a8d4;
+    box-shadow:
+      0 0 0 2px rgba(244, 114, 182, 0.95),
+      0 0 16px rgba(244, 114, 182, 0.9),
+      0 0 20px rgba(34, 211, 238, 0.55);
+  }
+}
+
+@keyframes mobile-ls-place-tick-halo {
+  0%,
+  100% {
+    opacity: 0.15;
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0);
+  }
+  40% {
+    opacity: 1;
+    box-shadow:
+      0 0 12px 3px rgba(103, 232, 249, 0.55),
+      0 0 18px 5px rgba(167, 139, 250, 0.45);
+  }
+}
+
+@keyframes mobile-ls-place-tick-glyph-intro {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 2px #67e8f9)
+      drop-shadow(0 0 6px #a78bfa);
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 3px #fdf4ff)
+      drop-shadow(0 0 8px #f472b6)
+      drop-shadow(0 0 12px #22d3ee);
+  }
+}
+
+.mobile-ls-chat-affordance__place-tick--soft .mobile-ls-chat-affordance__place-glyph {
+  opacity: 1 !important;
+  animation: mobile-ls-place-tick-glyph-soft 0.82s ease-in-out 3;
+}
+
+.mobile-ls-chat-affordance__place-tick--south.mobile-ls-chat-affordance__place-tick--soft
+  .mobile-ls-chat-affordance__place-glyph {
+  animation-delay: 0.2s;
+}
+
+@keyframes mobile-ls-place-tick-glyph-soft {
+  0%,
+  100% {
+    opacity: 0.72;
+    filter:
+      drop-shadow(0 0 1px #67e8f9)
+      drop-shadow(0 0 4px #a78bfa);
+  }
+  50% {
+    opacity: 1;
+    filter:
+      drop-shadow(0 0 2px #ecfeff)
+      drop-shadow(0 0 6px #c4b5fd)
+      drop-shadow(0 0 8px #22d3ee);
+  }
 }
 
 .mobile-ls-chat-affordance--dragging {
@@ -228,8 +461,8 @@
 /* ——— Мини: левый нижний угол панели Юг ——— */
 .mobile-ls-chat-affordance--south-mini {
   position: absolute;
-  left: 3px;
-  bottom: 3px;
+  left: 4px;
+  bottom: 2px;
   transform: none;
   display: inline-flex;
   align-items: center;
@@ -418,7 +651,11 @@
   .mobile-ls-chat-affordance__disk-prism,
   .mobile-ls-chat-affordance--unread .mobile-ls-chat-affordance__dot,
   .mobile-ls-chat-affordance__typing i,
-  .mobile-ls-chat-affordance__orbit {
+  .mobile-ls-chat-affordance__orbit,
+  .mobile-ls-chat-affordance__place-tick--intro,
+  .mobile-ls-chat-affordance__place-tick--intro::after,
+  .mobile-ls-chat-affordance__place-tick--intro .mobile-ls-chat-affordance__place-glyph,
+  .mobile-ls-chat-affordance__place-tick--soft .mobile-ls-chat-affordance__place-glyph {
     animation: none;
   }
 }
@@ -450,7 +687,7 @@
   > .game-mobile-hand-strip {
   flex: 0 0 auto;
   width: max-content;
-  max-width: 100%;
+  max-width: calc(100% - 52px);
   min-width: 0;
 }
 
@@ -504,9 +741,6 @@
 }
 
 .game-table-root.viewport-mobile.viewport-mobile-landscape
-  .game-mobile-bottom-row--landscape.game-mobile-bottom-row--ls-chat-mini
-  > .mobile-ls-chat-affordance--south-mini,
-.game-table-root.viewport-mobile.viewport-mobile-landscape
   .user-player-panel--mobile-landscape-south.user-player-panel--ls-chat-mini
   > .mobile-ls-chat-affordance--south-mini {
   z-index: 80;
@@ -518,17 +752,18 @@
   position: relative !important;
 }
 
-/* Бейджик на нижнем крае панели Юг (4p/3p, ≥6 карт) */
+/* 4p LS ≥6: мини только здесь — левый нижний угол панели Юг (одно место). */
 .game-table-root.viewport-mobile.viewport-mobile-landscape
-  .user-player-panel--mobile-landscape-south
+  .user-player-panel--mobile-landscape-south.user-player-panel--ls-chat-mini
   > .mobile-ls-chat-affordance--south-mini {
   left: 4px;
   bottom: 2px;
+  transform: none;
 }
 
 /*
- * Обычный портрет · online 3p/4p: диск справа от руки (<5 карт);
- * мини по центру нижней границы Юга (≥5). Свёрнутый бар «Чат» скрыт.
+ * Обычный портрет · online 3p/4p: диск справа от руки (мини на Юге нет).
+ * Свёрнутый бар «Чат» скрыт.
  */
 .game-table-root.viewport-mobile.game-mobile-table-chat:not(.viewport-mobile-landscape):not(
     .viewport-mobile-short
@@ -546,6 +781,9 @@
 
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
   .game-mobile-hand-user-stack
+  > .game-mobile-ls-hand-chat-row--portrait,
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
+  .game-mobile-l-hand
   > .game-mobile-ls-hand-chat-row--portrait {
   display: flex;
   flex-direction: row;
@@ -563,12 +801,28 @@
 }
 
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
+  .game-mobile-l-hand
+  > .game-mobile-ls-hand-chat-row--portrait {
+  align-items: flex-end;
+}
+
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
   .game-mobile-hand-user-stack
   > .game-mobile-ls-hand-chat-row--portrait
   > .game-mobile-hand-strip {
   flex: 0 1 auto;
   width: max-content;
-  max-width: calc(100% - 45px);
+  max-width: calc(100% - 52px);
+  min-width: 0;
+}
+
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
+  .game-mobile-l-hand
+  > .game-mobile-ls-hand-chat-row--portrait
+  > .game-mobile-l-hand-shell {
+  flex: 0 1 auto;
+  width: max-content;
+  max-width: calc(100% - 52px);
   min-width: 0;
 }
 
@@ -584,37 +838,8 @@
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
   .game-mobile-hand-user-stack:has(> .game-mobile-ls-hand-chat-row--portrait),
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .game-mobile-hand-user-stack:has(.user-player-panel--ls-chat-mini),
-.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .game-mobile-bottom-row.game-mobile-bottom-row--ls-chat-mini,
-.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .game-mobile-player-wrap:has(.user-player-panel--ls-chat-mini),
-.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .game-mobile-player-panel:has(.user-player-panel--ls-chat-mini) {
+  .game-mobile-l-hand:has(> .game-mobile-ls-hand-chat-row--portrait) {
   overflow: visible !important;
-}
-
-.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .game-mobile-bottom-row.game-mobile-bottom-row--ls-chat-mini {
-  position: relative;
-  z-index: 5;
-  isolation: isolate;
-}
-
-.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .user-player-panel.user-player-panel--ls-chat-mini {
-  overflow: visible !important;
-  position: relative !important;
-}
-
-.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .user-player-panel.user-player-panel--ls-chat-mini
-  > .mobile-ls-chat-affordance--south-mini {
-  left: 50%;
-  right: auto;
-  bottom: 2px;
-  transform: translateX(-50%);
-  z-index: 80;
 }
 
 /*
@@ -644,7 +869,7 @@
   > .game-mobile-hand-strip {
   flex: 0 0 auto !important;
   width: max-content !important;
-  max-width: 100% !important;
+  max-width: calc(100% - 52px) !important;
   min-width: 0 !important;
   display: flex !important;
   flex-direction: column !important;
@@ -1269,6 +1494,21 @@ body.ls-east-chat-resizing * {
     linear-gradient(180deg, rgba(30, 20, 62, 0.98) 0%, rgba(18, 12, 48, 1) 52%, rgba(8, 10, 28, 1) 100%) !important;
 }
 
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-east--table-chat
+  .table-chat-dock--east-embed.table-chat-dock--east-header-overflow {
+  overflow: visible !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-east--table-chat
+  .table-chat-dock--east-embed.table-chat-dock--east-header-overflow
+  .table-chat-dock-header-left:not(:has(.table-chat-hidden-chip)):not(
+    :has(.table-chat-dock-typing)
+  ):not(:has(.table-chat-dock-search)) {
+  display: none !important;
+}
+
 /* Вертикальная колонка: шапка → лента → композер (без «выворота» нижнего dock) */
 .game-table-root.viewport-mobile.viewport-mobile-landscape
   .game-mobile-east--table-chat
@@ -1304,8 +1544,75 @@ body.ls-east-chat-resizing * {
   .game-mobile-east--table-chat
   .table-chat-dock--east-embed
   .table-chat-dock-title-text {
-  font-size: 11px !important;
-  white-space: nowrap !important;
+  display: none !important;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-east--table-chat
+  .table-chat-dock--east-embed
+  .table-chat-dock-header {
+  overflow: visible !important;
+}
+
+.game-table-root.viewport-mobile .table-chat-placement-glyph {
+  display: block;
+  width: 14px;
+  height: 14px;
+  overflow: visible;
+  filter:
+    drop-shadow(0 0 1px #fdf4ff)
+    drop-shadow(0 0 3px #22d3ee)
+    drop-shadow(0 0 5px #a78bfa);
+}
+
+.game-table-root.viewport-mobile .table-chat-dock-east-more {
+  position: relative;
+  flex: 0 0 auto;
+  z-index: 6;
+}
+
+.game-table-root.viewport-mobile .table-chat-dock-east-more__btn.is-open {
+  color: #67e8f9 !important;
+}
+
+.game-table-root.viewport-mobile .table-chat-dock-east-more__dots {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: #67e8f9;
+  text-shadow: 0 0 6px rgba(34, 211, 238, 0.55);
+}
+
+.game-table-root.viewport-mobile .table-chat-dock-east-more__panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 24;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 152px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(167, 139, 250, 0.5);
+  background:
+    radial-gradient(120% 80% at 12% 0%, rgba(124, 58, 237, 0.32) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(30, 20, 62, 0.98) 0%, rgba(8, 10, 28, 0.98) 100%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.16),
+    0 10px 22px rgba(2, 6, 23, 0.55);
+}
+
+.game-table-root.viewport-mobile .table-chat-dock-east-more__panel .table-chat-dock-header-tools {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.game-table-root.viewport-mobile .table-chat-dock-east-more__panel .table-chat-dock-mobile-font-ctrl {
+  align-self: flex-start;
 }
 
 .game-table-root.viewport-mobile.viewport-mobile-landscape
