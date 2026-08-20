@@ -924,7 +924,7 @@ export type TableChatDockProps = {
   /** Только mobile: свёрнут ли док (полоска + ушко видны при true) */
   onMobileChatCollapsedChange?: (collapsed: boolean) => void;
   /**
-   * Инкремент → переключить мобильный док (диск/мини). 0 / undefined — игнор.
+   * Инкремент → открыть мобильный док (диск/мини). 0 / undefined — игнор.
    */
   openMobileNonce?: number;
   /** Свёрнутый chrome: непрочитанное / «печатает» для внешнего диска·мини */
@@ -938,6 +938,13 @@ export type TableChatDockProps = {
   onEastEmbedDismissToBottom?: () => void;
   /** Landscape · нижний dock: тот же chrome, что у чата справа от сукна. */
   mobileLsBottomChrome?: boolean;
+  /** 3p LS · нижний dock: переложить чат в колонку справа от сукна. */
+  onLsBottomMoveToSide?: () => void;
+  /**
+   * 3p east-embed: true, пока колонка уже, чем порог inline-инструментов.
+   * Сортировка / поиск / кегль уходят под «⋯».
+   */
+  mobileEastHeaderCompact?: boolean;
 };
 
 function CrystalLilacGlyph({
@@ -1075,6 +1082,37 @@ function ChatFontTypeGlyph({ plus }: { plus: boolean }) {
       <span className="table-chat-dock-mobile-font-ctrl__type-sm">{plus ? 'а' : 'о'}</span>
       <span className="table-chat-dock-mobile-font-ctrl__type-op">{plus ? '+' : '−'}</span>
     </span>
+  );
+}
+
+/** 3p LS: переложить док вниз / вправо — рамка сукна + полоска места чата. */
+function ChatPlacementDockGlyph({ side }: { side: 'bottom' | 'east' }) {
+  const gid = useId().replace(/:/g, '');
+  return (
+    <svg className="table-chat-placement-glyph" viewBox="0 0 16 16" aria-hidden>
+      <defs>
+        <linearGradient id={`${gid}-p`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#67e8f9" />
+          <stop offset="55%" stopColor="#a78bfa" />
+          <stop offset="100%" stopColor="#f472b6" />
+        </linearGradient>
+      </defs>
+      <rect
+        x="2.1"
+        y="2.1"
+        width="11.8"
+        height="11.8"
+        rx="2.2"
+        fill="none"
+        stroke={`url(#${gid}-p)`}
+        strokeWidth="1.35"
+      />
+      {side === 'bottom' ? (
+        <rect x="3.6" y="10.05" width="8.8" height="2.35" rx="0.7" fill={`url(#${gid}-p)`} />
+      ) : (
+        <rect x="10.05" y="3.6" width="2.35" height="8.8" rx="0.7" fill={`url(#${gid}-p)`} />
+      )}
+    </svg>
   );
 }
 
@@ -1226,6 +1264,8 @@ function TableChatDock({
   mobileEmbedHost = null,
   onEastEmbedDismissToBottom,
   mobileLsBottomChrome = false,
+  onLsBottomMoveToSide,
+  mobileEastHeaderCompact = false,
 }: TableChatDockProps) {
   const [messages, setMessages] = useState<RoomChatMessageRow[]>([]);
   const [text, setText] = useState('');
@@ -1253,6 +1293,8 @@ function TableChatDock({
   );
   const [chatSearchOpen, setChatSearchOpen] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [eastToolsMenuOpen, setEastToolsMenuOpen] = useState(false);
+  const eastToolsMenuRef = useRef<HTMLDivElement>(null);
   const [lsChatBodyH, setLsChatBodyH] = useState(() => readLsChatBodyHFromLs());
   const chatSearchInputRef = useRef<HTMLInputElement>(null);
   const [composerFlashOn, setComposerFlashOn] = useState(false);
@@ -2183,6 +2225,22 @@ function TableChatDock({
   }, [mobileOpen, variant, mobileEmbedHost, openMobileNonce]);
 
   useEffect(() => {
+    if (!mobileEastHeaderCompact) setEastToolsMenuOpen(false);
+  }, [mobileEastHeaderCompact]);
+
+  useEffect(() => {
+    if (!eastToolsMenuOpen) return;
+    const onPtr = (ev: PointerEvent) => {
+      const root = eastToolsMenuRef.current;
+      if (!root) return;
+      if (ev.target instanceof Node && root.contains(ev.target)) return;
+      setEastToolsMenuOpen(false);
+    };
+    window.addEventListener('pointerdown', onPtr, true);
+    return () => window.removeEventListener('pointerdown', onPtr, true);
+  }, [eastToolsMenuOpen]);
+
+  useEffect(() => {
     if (variant === 'mobile' && !mobileOpen) setEmojiPickerOpen(false);
   }, [variant, mobileOpen]);
 
@@ -2191,9 +2249,9 @@ function TableChatDock({
     onMobileChatCollapsedChange?.(!mobileOpen);
   }, [variant, mobileOpen, onMobileChatCollapsedChange]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (variant !== 'mobile' || !openMobileNonce) return;
-    setMobileOpen((open) => !open);
+    setMobileOpen(true);
   }, [openMobileNonce, variant]);
 
   /** Диск/мини: чат в потоке внизу — прокрутить страницу к низу дока (не overlay). */
@@ -5620,12 +5678,55 @@ function TableChatDock({
             if (!next) setChatSearchQuery('');
             return next;
           });
+          setEastToolsMenuOpen(false);
         }}
       >
         <ChatToolSearchGlyph />
       </button>
     </div>
   );
+
+  const mobileFontCtrl = (
+    <div
+      className={[
+        'table-chat-dock-mobile-font-ctrl',
+        mobileChatFontSplit ? 'table-chat-dock-mobile-font-ctrl--split' : '',
+        !mobileChatFontAtMin ? 'table-chat-dock-mobile-font-ctrl--raised' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      role="group"
+      aria-label={`Кегль чата ${mobileChatFontPct}%`}
+    >
+      {!mobileChatFontAtMax ? (
+        <button
+          type="button"
+          className="table-chat-dock-mobile-font-ctrl__half table-chat-dock-mobile-font-ctrl__half--plus"
+          onClick={onMobileChatFontStepUp}
+          aria-label={`Увеличить кегль (сейчас ${mobileChatFontPct}%)`}
+          title={`Кегль ${mobileChatFontPct}% · увеличить`}
+        >
+          <ChatFontTypeGlyph plus />
+        </button>
+      ) : null}
+      {mobileChatFontSplit ? (
+        <span className="table-chat-dock-mobile-font-ctrl__split-line" aria-hidden />
+      ) : null}
+      {!mobileChatFontAtMin ? (
+        <button
+          type="button"
+          className="table-chat-dock-mobile-font-ctrl__half table-chat-dock-mobile-font-ctrl__half--minus"
+          onClick={onMobileChatFontStepDown}
+          aria-label={`Уменьшить кегль (сейчас ${mobileChatFontPct}%)`}
+          title={`Кегль ${mobileChatFontPct}% · уменьшить`}
+        >
+          <ChatFontTypeGlyph plus={false} />
+        </button>
+      ) : null}
+    </div>
+  );
+
+  const eastHeaderOverflow = Boolean(mobileEmbedHost && mobileEastHeaderCompact);
 
   const dockNode = (
     <div
@@ -5636,6 +5737,7 @@ function TableChatDock({
         variant === 'mobile' ? 'table-chat-dock--mobile' : 'table-chat-dock--pc',
         variant === 'mobile' && mobileEmbedHost ? 'table-chat-dock--east-embed' : '',
         variant === 'mobile' && mobileLsBottomChrome ? 'table-chat-dock--ls-bottom' : '',
+        eastHeaderOverflow ? 'table-chat-dock--east-header-overflow' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -5689,7 +5791,7 @@ function TableChatDock({
               </>
             )}
           </div>
-          {chatHeaderTools(false)}
+          {!eastHeaderOverflow ? chatHeaderTools(false) : null}
           {!mobileEmbedHost ? (
             <button
               type="button"
@@ -5715,10 +5817,32 @@ function TableChatDock({
                 type="button"
                 className="table-chat-east-crystal-btn table-chat-east-crystal-btn--collapse"
                 onClick={() => setMobileOpen(false)}
-                aria-label="Свернуть чат в шапку"
+                aria-label="Свернуть чат в капсулу"
                 title="Свернуть"
               >
                 <CrystalLilacGlyph id={`${emojiPanelDomId}-col`} path="M3.2 5.8 8 10.8l4.8-5" />
+              </button>
+            ) : null}
+            {mobileEmbedHost && onEastEmbedDismissToBottom ? (
+              <button
+                type="button"
+                className="table-chat-east-crystal-btn table-chat-dock-placement-btn"
+                onClick={onEastEmbedDismissToBottom}
+                aria-label="Переложить чат вниз, под Юг"
+                title="Чат снизу под Югом"
+              >
+                <ChatPlacementDockGlyph side="bottom" />
+              </button>
+            ) : null}
+            {mobileLsBottomChrome && onLsBottomMoveToSide ? (
+              <button
+                type="button"
+                className="table-chat-east-crystal-btn table-chat-dock-placement-btn"
+                onClick={onLsBottomMoveToSide}
+                aria-label="Переложить чат вправо, к сукну"
+                title="Чат справа от сукна"
+              >
+                <ChatPlacementDockGlyph side="east" />
               </button>
             ) : null}
             <button
@@ -5752,43 +5876,36 @@ function TableChatDock({
                 <span className="table-chat-dock-mobile-quick-btn__label">Фразы</span>
               </button>
             ) : null}
-            <div
-              className={[
-                'table-chat-dock-mobile-font-ctrl',
-                mobileChatFontSplit ? 'table-chat-dock-mobile-font-ctrl--split' : '',
-                !mobileChatFontAtMin ? 'table-chat-dock-mobile-font-ctrl--raised' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              role="group"
-              aria-label={`Кегль чата ${mobileChatFontPct}%`}
-            >
-              {!mobileChatFontAtMax ? (
+            {!eastHeaderOverflow ? mobileFontCtrl : null}
+            {eastHeaderOverflow ? (
+              <div ref={eastToolsMenuRef} className="table-chat-dock-east-more">
                 <button
                   type="button"
-                  className="table-chat-dock-mobile-font-ctrl__half table-chat-dock-mobile-font-ctrl__half--plus"
-                  onClick={onMobileChatFontStepUp}
-                  aria-label={`Увеличить кегль (сейчас ${mobileChatFontPct}%)`}
-                  title={`Кегль ${mobileChatFontPct}% · увеличить`}
+                  className={[
+                    'table-chat-east-crystal-btn',
+                    'table-chat-dock-east-more__btn',
+                    eastToolsMenuOpen ? 'is-open' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  aria-expanded={eastToolsMenuOpen}
+                  aria-haspopup="true"
+                  aria-label="Ещё параметры чата"
+                  title="Поиск, порядок, кегль"
+                  onClick={() => setEastToolsMenuOpen((v) => !v)}
                 >
-                  <ChatFontTypeGlyph plus />
+                  <span className="table-chat-dock-east-more__dots" aria-hidden>
+                    ···
+                  </span>
                 </button>
-              ) : null}
-              {mobileChatFontSplit ? (
-                <span className="table-chat-dock-mobile-font-ctrl__split-line" aria-hidden />
-              ) : null}
-              {!mobileChatFontAtMin ? (
-                <button
-                  type="button"
-                  className="table-chat-dock-mobile-font-ctrl__half table-chat-dock-mobile-font-ctrl__half--minus"
-                  onClick={onMobileChatFontStepDown}
-                  aria-label={`Уменьшить кегль (сейчас ${mobileChatFontPct}%)`}
-                  title={`Кегль ${mobileChatFontPct}% · уменьшить`}
-                >
-                  <ChatFontTypeGlyph plus={false} />
-                </button>
-              ) : null}
-            </div>
+                {eastToolsMenuOpen ? (
+                  <div className="table-chat-dock-east-more__panel" role="menu">
+                    {chatHeaderTools(false)}
+                    {mobileFontCtrl}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
       )}
