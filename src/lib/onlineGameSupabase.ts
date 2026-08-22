@@ -77,6 +77,46 @@ export function hostMayAutoDriveOnlineAiForSeat(
 /** Фаза комнаты (миграция game_rooms.room_phase). */
 export type GameRoomPhase = 'lobby' | 'playing' | 'waiting_host_action' | 'waiting_return' | 'finished';
 
+export type JoinWhilePlayingDecision =
+  | { action: 'reclaim'; slotIndex: number }
+  | { action: 'already'; slotIndex: number }
+  | { action: 'reject'; error: string };
+
+/**
+ * Вход в уже идущую партию: только своё место или возврат с паузы.
+ * Занять пустой слот ИИ нельзя — F5/restore на Realtime так двоил аккаунт (Юг + Запад).
+ */
+export function decideJoinWhilePlaying(slots: PlayerSlot[], userId: string): JoinWhilePlayingDecision {
+  const uid = userId.trim();
+  if (!uid) return { action: 'reject', error: 'Нужен вход в аккаунт.' };
+  const reclaim = slots.find((s) => s.replacedUserId === uid);
+  if (reclaim != null) return { action: 'reclaim', slotIndex: reclaim.slotIndex };
+  const already = slots.find((s) => s.userId != null && s.userId === uid);
+  if (already) return { action: 'already', slotIndex: already.slotIndex };
+  return {
+    action: 'reject',
+    error:
+      'Партия уже идёт. Если вас выкинуло — обновите стол ещё раз. Сесть вместо ИИ в начатой партии нельзя.',
+  };
+}
+
+/** Один userId в двух слотах: оставляем меньший slotIndex, остальные — родной ИИ. */
+export function dedupePlayerSlotsByUserId(slots: PlayerSlot[]): PlayerSlot[] {
+  const seen = new Set<string>();
+  const replacement = new Map<number, PlayerSlot>();
+  const ordered = [...slots].sort((a, b) => a.slotIndex - b.slotIndex);
+  for (const s of ordered) {
+    const uid = (s.userId ?? '').trim();
+    if (uid && seen.has(uid)) {
+      replacement.set(s.slotIndex, vacantAiPlayerSlot(s.slotIndex));
+    } else if (uid) {
+      seen.add(uid);
+    }
+  }
+  if (replacement.size === 0) return slots;
+  return slots.map((s) => replacement.get(s.slotIndex) ?? s);
+}
+
 export interface PlayerSlot {
   /** Отсутствует или null = слот ИИ */
   userId?: string | null;
@@ -523,7 +563,9 @@ export async function recoverJoinByCode(
     const row = data as GameRoomRow;
     if (row.status === 'finished') return null;
     const slots = (row.player_slots as PlayerSlot[]) || [];
-    const me = slots.find((s) => s.userId != null && s.userId === userId);
+    const me =
+      slots.find((s) => s.userId != null && s.userId === userId) ??
+      slots.find((s) => s.replacedUserId === userId);
     if (!me) return null;
     return { roomId: row.id, mySlotIndex: me.slotIndex, room: row };
   } catch {
@@ -627,59 +669,18 @@ export async function joinRoom(
       return { error: 'Комната уже завершена' };
     }
 
-    // Игра уже идёт: возврат с ручной паузы, повторный вход тем же аккаунтом или место ИИ (свободный слот)
+    // Игра уже идёт: только своё место или возврат с паузы. Слот ИИ не занимаем (F5 иначе двоит игрока).
     if (row.status === 'playing') {
-      const reclaimSlot = slots.find((s) => s.replacedUserId === userId);
-      if (reclaimSlot != null) {
-        const newSlots = slots.map((s) =>
-          s.slotIndex === reclaimSlot.slotIndex
-            ? {
-                ...s,
-                userId,
-                displayName: displayName.slice(0, 17),
-                slotIndex: s.slotIndex,
-                replacedUserId: undefined,
-                replacedDisplayName: undefined,
-                pausedByUser: undefined,
-                ...(shortLabel != null && shortLabel !== '' ? { shortLabel: shortLabel.slice(0, 12) } : {}),
-                ...(av != null && av !== '' ? { avatarDataUrl: av } : {}),
-              }
-            : s
-        );
-        const { data: updated, error: updateError } = await supabase
-          .from(TABLE)
-          .update({ player_slots: newSlots })
-          .eq('id', row.id)
-          .eq('updated_at', stamp)
-          .select('*')
-          .abortSignal(lobbyFastAbortSignal())
-          .maybeSingle();
-        if (updateError || !updated) {
-          await sleep(joinBackoffMs(attempt));
-          continue;
-        }
-        return { roomId: row.id, mySlotIndex: reclaimSlot.slotIndex, room: updated as GameRoomRow };
+      const decision = decideJoinWhilePlaying(slots, userId);
+      if (decision.action === 'reject') {
+        return { error: decision.error };
       }
-
-      const already = slots.find((s) => s.userId != null && s.userId === userId);
-      if (already) {
-        return { roomId: row.id, mySlotIndex: already.slotIndex, room: row };
-      }
-
-      const free = slots.find(
-        (s) =>
-          (s.userId == null || s.userId === '') &&
-          (s.replacedUserId == null || s.replacedUserId === undefined),
-      );
-      if (!free) {
-        return {
-          error:
-            'Игра уже идёт и все четыре места заняты. Дождитесь окончания раздачи или создайте новую комнату.',
-        };
+      if (decision.action === 'already') {
+        return { roomId: row.id, mySlotIndex: decision.slotIndex, room: row };
       }
 
       const newSlots = slots.map((s) =>
-        s.slotIndex === free.slotIndex
+        s.slotIndex === decision.slotIndex
           ? {
               ...s,
               userId,
@@ -699,13 +700,13 @@ export async function joinRoom(
         .eq('id', row.id)
         .eq('updated_at', stamp)
         .select('*')
-        .abortSignal(lobbyRestAbortSignal())
+        .abortSignal(lobbyFastAbortSignal())
         .maybeSingle();
       if (updateError || !updated) {
         await sleep(joinBackoffMs(attempt));
         continue;
       }
-      return { roomId: row.id, mySlotIndex: free.slotIndex, room: updated as GameRoomRow };
+      return { roomId: row.id, mySlotIndex: decision.slotIndex, room: updated as GameRoomRow };
     }
 
     // Лобби (waiting): идемпотентный вход + оптимистичная блокировка по updated_at (не теряем игроков при одновременном join)
