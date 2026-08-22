@@ -18,6 +18,7 @@ export type V2HandlerDeps = {
   broadcastGameState: (subs: Set<WebSocket> | undefined, push: GameStatePush) => void;
   broadcastRoomMeta: (room: GameRoomRow) => void;
   getSubscribers: (roomId: string) => Set<WebSocket> | undefined;
+  viewState: (ws: WebSocket, room: GameRoomRow, state: GameStatePush['state']) => GameStatePush['state'];
 };
 
 export function isV2GameCommand(type: string): boolean {
@@ -130,7 +131,7 @@ export function handleV2GameMessage(
       type: 'command_result',
       ok: true,
       revision: commit.revision,
-      state: commit.state,
+      state: deps.viewState(ws, commit.room, commit.state),
       playerSlots: commit.room.player_slots,
       roomPhase: commit.room.room_phase ?? null,
     });

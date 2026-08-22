@@ -1,7 +1,10 @@
 # Handoff для VPS: starkey.agneko.com/updown (порт 3005)
 
+> **Архив / overlay.** Актуальный прод-контракт: [PRODUCTION-WS.md](./PRODUCTION-WS.md).  
+> Этот файл — только пример домена/порта. **Не** пакет для хоста, пока `/api/ready` не зелёный.
+
 Краткий пакет команд под договорённость с техдиректором.  
-Полная общая инструкция: [TECH-DIRECTOR-ONLINE-SERVER.md](./TECH-DIRECTOR-ONLINE-SERVER.md).
+Полная общая инструкция: [PRODUCTION-WS.md](./PRODUCTION-WS.md) (устаревшее общее: [TECH-DIRECTOR-ONLINE-SERVER.md](./TECH-DIRECTOR-ONLINE-SERVER.md)).
 
 | Параметр | Значение |
 |----------|----------|
@@ -47,21 +50,30 @@ git pull origin staging
 
 npm install
 npm run server:install
+npm run server:build
 
 sudo useradd -r -s /bin/false updown 2>/dev/null || true
-sudo mkdir -p /var/lib/updown
+sudo mkdir -p /opt/updown /var/lib/updown /etc/updown
 sudo chown updown:updown /var/lib/updown
-sudo chown -R updown:updown /opt/updown
+
+sudo cp deploy/updown-ws.env.example /etc/updown/ws.env
+sudo chmod 600 /etc/updown/ws.env
+sudo chown root:updown /etc/updown/ws.env
+# вписать SUPABASE_JWT_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 sudo cp deploy/updown-ws.starkey.service /etc/systemd/system/updown-ws.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now updown-ws
 
 curl -s http://127.0.0.1:3005/api/health
-curl -s http://127.0.0.1:3005/api/version
+curl -s http://127.0.0.1:3005/api/ready
 ```
 
-Ожидается `{"ok":true,...}` на health.
+Ожидается ready 200 с `"auth":"required","jwtConfigured":true`.
+
+**Секреты лично, не в чат, не в юнит:** Legacy JWT Secret + service_role в `/etc/updown/ws.env`.
+
+Бэкапы комнат пишет сам процесс в `/var/lib/updown/backups/` (cron не нужен; тот же диск, ~24 ч при KEEP=144).
 
 Рестарт: `sudo systemctl restart updown-ws`  
 Логи: `journalctl -u updown-ws -f`

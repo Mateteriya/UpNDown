@@ -19,6 +19,7 @@ import type {
   UpdateRoomStateOptions,
 } from './onlineGameSupabase';
 import { normalizeCreateRoomOptions } from './roomSettlement';
+import { supabase } from './supabase';
 
 type RoomListener = (row: GameRoomRow) => void;
 type SubscribeStatusListener = (status: string) => void;
@@ -34,6 +35,12 @@ export type GameStatePush = {
 type GameStateListener = (push: GameStatePush) => void;
 type ChatInsertListener = (row: RoomChatMessageRow) => void;
 type ChatTypingListener = (payload: RoomChatTypingBroadcastPayload) => void;
+type MatchRecordedListener = (payload: {
+  ok: boolean;
+  matchId?: string;
+  skipped?: boolean;
+  error?: string;
+}) => void;
 
 const REQUEST_TIMEOUT_MS = 25_000;
 
@@ -51,6 +58,7 @@ const roomStatusListeners = new Map<string, Set<SubscribeStatusListener>>();
 const gameStateListeners = new Map<string, Set<GameStateListener>>();
 const chatInsertListeners = new Map<string, Set<ChatInsertListener>>();
 const chatTypingListeners = new Map<string, Set<ChatTypingListener>>();
+const matchRecordedListeners = new Map<string, Set<MatchRecordedListener>>();
 
 function hasActiveSubscriptions(): boolean {
   return (
@@ -78,6 +86,38 @@ function startPing(ws: WebSocket): void {
       /* ignore */
     }
   }, 25_000);
+}
+
+async function sendWsAuth(ws: WebSocket): Promise<void> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (!accessToken) return;
+    await new Promise<void>((resolve, reject) => {
+      const requestId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : uuidv4();
+      const timer = setTimeout(() => {
+        pending.delete(requestId);
+        reject(new Error('Таймаут авторизации игрового сервера'));
+      }, 12_000);
+      pending.set(requestId, {
+        resolve: () => resolve(),
+        reject,
+        timer,
+      });
+      try {
+        ws.send(JSON.stringify({ type: 'auth', accessToken, requestId }));
+      } catch (e) {
+        pending.delete(requestId);
+        clearTimeout(timer);
+        reject(e instanceof Error ? e : new Error('Нет связи с сервером'));
+      }
+    });
+  } catch {
+    /* optional: без сессии остаёмся гостем (device id) */
+  }
 }
 
 function clearReconnectTimer(): void {
@@ -188,6 +228,17 @@ function onSocketMessage(ev: MessageEvent): void {
     }
   }
 
+  if (msg.type === 'match_recorded' && typeof msg.roomId === 'string') {
+    const payload = {
+      ok: msg.ok === true,
+      matchId: typeof msg.matchId === 'string' ? msg.matchId : undefined,
+      skipped: msg.skipped === true,
+      error: typeof msg.error === 'string' ? msg.error : undefined,
+    };
+    const set = matchRecordedListeners.get(msg.roomId);
+    if (set) for (const fn of set) fn(payload);
+  }
+
   const requestId = msg.requestId as string | undefined;
   if (requestId && pending.has(requestId)) {
     const p = pending.get(requestId)!;
@@ -241,8 +292,14 @@ function openNewSocket(): Promise<WebSocket> {
       socket = ws;
       connectPromise = null;
       startPing(ws);
-      if (roomListeners.size > 0) resubscribeAllRooms(ws);
-      resolve(ws);
+      void sendWsAuth(ws)
+        .catch(() => {
+          /* без токена — гость; на VPS required сервер ответит auth_required на create/join */
+        })
+        .finally(() => {
+          if (roomListeners.size > 0) resubscribeAllRooms(ws);
+          resolve(ws);
+        });
     };
     ws.onerror = () => {
       clearTimeout(failTimer);
@@ -511,6 +568,22 @@ export function wsSubscribeToGameState(
   return () => {
     set?.delete(onUpdate);
     if (set?.size === 0) gameStateListeners.delete(roomId);
+  };
+}
+
+export function wsSubscribeMatchRecorded(
+  roomId: string,
+  onUpdate: MatchRecordedListener,
+): () => void {
+  let set = matchRecordedListeners.get(roomId);
+  if (!set) {
+    set = new Set();
+    matchRecordedListeners.set(roomId, set);
+  }
+  set.add(onUpdate);
+  return () => {
+    set.delete(onUpdate);
+    if (set.size === 0) matchRecordedListeners.delete(roomId);
   };
 }
 

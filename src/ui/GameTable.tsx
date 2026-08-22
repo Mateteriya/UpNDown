@@ -234,6 +234,7 @@ import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
 import { UserAvatarMenuSheet } from './UserAvatarMenuSheet';
 import { canDriveOnlineRoomHost, isLanWsOnline } from '../lib/onlineHost';
 import { isServerAuthoritativeOnline, isWsOnlineTransport } from '../lib/onlineTransport';
+import { wsSubscribeMatchRecorded } from '../lib/onlineGameWs';
 import {
   exitMobileBrowserFullscreen,
   installMobileBrowserChromeCollapseAid,
@@ -286,6 +287,7 @@ import {
   mobileLsEastChatColWidthPx,
   mobileLsEastHeaderUsesOverflow,
   mobileLsHandDiskHome,
+  mobilePortraitHandDiskHome,
   readOnlineEastChatColWFromLs,
   readOnlineThreeSeatSideChatFromLs,
   writeOnlineEastChatColWToLs,
@@ -5842,21 +5844,29 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     landscape: isMobileLandscape,
     threeSeat: isThreeSeatTable,
   });
-  const mobileLsDiskHome = mobileLsHandDiskHome({
-    handLen: mobileLsChatHandLen,
-    landscape: isMobileLandscape,
-    threeSeat: isThreeSeatTable,
-  });
+  const mobileLsDiskHome = isMobileLandscape
+    ? mobileLsHandDiskHome({
+        handLen: mobileLsChatHandLen,
+        landscape: isMobileLandscape,
+        threeSeat: isThreeSeatTable,
+      })
+    : mobilePortraitHandDiskHome();
   const showMobileLsHandDisk =
     showMobileLsChatAffordance && mobileLsChatMode === 'hand-disk';
+  const showLandscapeHandChatDisk = showMobileLsHandDisk && isMobileLandscape;
+  const showPortraitSouthPanelChatDisk = showMobileLsHandDisk && !isMobileLandscape;
   const showEastHeaderChatDisk =
-    showMobileLsHandDisk && mobileLsDiskHome === 'east-header' && showMobileLandscapeEastSeat;
-  const showHandChatDisk = showMobileLsHandDisk && !showEastHeaderChatDisk;
+    showLandscapeHandChatDisk && mobileLsDiskHome === 'east-header' && showMobileLandscapeEastSeat;
+  const showHandChatDiskBesideCards =
+    showLandscapeHandChatDisk && !showEastHeaderChatDisk;
+  const mobileChatLsBottomChrome =
+    !onlineThreeSeatSideChatActive &&
+    (isMobileLandscape || (mobileViewportShort && !isMobileLandscape));
   const renderMobileLsChatDisk = () => (
     <MobileLandscapeChatAffordance
       key={mobileLsDiskHome}
       mode="hand-disk"
-      diskHome={showEastHeaderChatDisk ? 'east-header' : 'hand'}
+      diskHome={showEastHeaderChatDisk ? 'east-header' : mobileLsDiskHome}
       unread={tableChatChromeMeta.unread}
       typingLine={tableChatChromeMeta.typingLine}
       onOpen={openTableChatMobile}
@@ -6191,8 +6201,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       >
         <div
           className={
-            showHandChatDisk && !shortViewport
-              ? 'game-mobile-ls-hand-chat-row game-mobile-ls-hand-chat-row--portrait'
+            showHandChatDiskBesideCards && !shortViewport
+              ? 'game-mobile-ls-hand-chat-row'
               : undefined
           }
         >
@@ -6262,7 +6272,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             ) : null}
           </div>
         </div>
-          {showHandChatDisk && !shortViewport ? renderMobileLsChatDisk() : null}
+          {showHandChatDiskBesideCards && !shortViewport ? renderMobileLsChatDisk() : null}
         </div>
       </div>
     );
@@ -7208,9 +7218,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       !isWaitingInRoom &&
       (state.phase === 'bidding' || state.phase === 'dark-bidding'),
   );
-  /** Онлайн: на время торгов в landscape скрываем таймер+код — место под «Первый ход». */
-  const hideOnlineRoomCodeForLandscapeFirstMove = Boolean(
-    showMobileFirstMoveOnTable && isMobileLandscape && showOnlineRoomCodeStrip,
+  /** Онлайн: на торгах скрываем бейдж код/таймер на сукне; в розыгрыше — снова. */
+  const hideOnlineRoomCodeDuringBidding = Boolean(
+    showOnlineRoomCodeStrip &&
+      !isWaitingInRoom &&
+      state &&
+      (state.phase === 'bidding' || state.phase === 'dark-bidding'),
   );
   /**
    * «Воздух» под капсулой → breathe: мало рядов цифр → roomy, много → tight.
@@ -7269,6 +7282,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     const t = setTimeout(() => online.clearPlayerLeftToast(), 5000);
     return () => clearTimeout(t);
   }, [online.playerLeftToast, online.clearPlayerLeftToast]);
+
+  useEffect(() => {
+    if (!isWsOnlineTransport()) return;
+    const rid = online.roomId;
+    if (!rid) return;
+    return wsSubscribeMatchRecorded(rid, (ev) => {
+      if (ev.ok && ev.skipped) setGameOverCloudSave('none');
+      else if (ev.ok) setGameOverCloudSave('ok');
+      else setGameOverCloudSave('fail');
+    });
+  }, [online.roomId]);
 
   // Онлайн: heartbeat в лобби и в партии — держим presence и «прогреваем» канал к Supabase (мобилка в фоне / один Wi‑Fi).
   useEffect(() => {
@@ -7479,30 +7503,45 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 if (userRef.current?.id && !onlineMatchRecordedRef.current) {
                   onlineMatchRecordedRef.current = true;
                   setGameOverCloudSave('pending');
-                  const mode = o.settlementMode ?? snap.settlementMode ?? 'accuracy_bonus';
-                  const n = snap.players.length as 3 | 4;
-                  const settle =
-                    n === 3 || n === 4
-                      ? computePartySettlement(snap.dealHistory ?? [], n, mode, {
-                          buyIn: o.buyIn ?? snap.buyIn ?? undefined,
-                        })
-                      : null;
-                  const chipsBySlot: Record<string, number> = {};
-                  if (settle) {
-                    for (const row of settle.rows) {
-                      chipsBySlot[String(row.playerIndex)] = row.chips;
+                  if (isWsOnlineTransport()) {
+                    const unsub = wsSubscribeMatchRecorded(o.roomId, (ev) => {
+                      unsub();
+                      if (ev.ok && ev.skipped) setGameOverCloudSave('none');
+                      else if (ev.ok) setGameOverCloudSave('ok');
+                      else {
+                        onlineMatchRecordedRef.current = false;
+                        setGameOverCloudSave('fail');
+                      }
+                    });
+                    window.setTimeout(() => {
+                      unsub();
+                    }, 20_000);
+                  } else {
+                    const mode = o.settlementMode ?? snap.settlementMode ?? 'accuracy_bonus';
+                    const n = snap.players.length as 3 | 4;
+                    const settle =
+                      n === 3 || n === 4
+                        ? computePartySettlement(snap.dealHistory ?? [], n, mode, {
+                            buyIn: o.buyIn ?? snap.buyIn ?? undefined,
+                          })
+                        : null;
+                    const chipsBySlot: Record<string, number> = {};
+                    if (settle) {
+                      for (const row of settle.rows) {
+                        chipsBySlot[String(row.playerIndex)] = row.chips;
+                      }
                     }
+                    void finishMatch(o.roomId, o.code, snap, o.playerSlots ?? [], {
+                      dealHistory: snap.dealHistory ?? [],
+                      chipsBySlot: Object.keys(chipsBySlot).length ? chipsBySlot : null,
+                    }).then((r) => {
+                      if (r.ok) setGameOverCloudSave('ok');
+                      else {
+                        onlineMatchRecordedRef.current = false;
+                        setGameOverCloudSave('fail');
+                      }
+                    });
                   }
-                  void finishMatch(o.roomId, o.code, snap, o.playerSlots ?? [], {
-                    dealHistory: snap.dealHistory ?? [],
-                    chipsBySlot: Object.keys(chipsBySlot).length ? chipsBySlot : null,
-                  }).then((r) => {
-                    if (r.ok) setGameOverCloudSave('ok');
-                    else {
-                      onlineMatchRecordedRef.current = false;
-                      setGameOverCloudSave('fail');
-                    }
-                  });
                 } else if (!userRef.current?.id) {
                   setGameOverCloudSave('no-auth');
                 }
@@ -9992,7 +10031,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         gameTableRootRef.current = el;
         setTabletNorthPortalHost((prev) => (prev === el ? prev : el));
       }}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isThreeSeatTable ? ' game-table-seats-three' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${tableScaleControlEnabled ? ' game-table-has-table-scale' : ''}${useMidLandscapeScaleGears ? ' game-table-has-hand-scale' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileMidSquareLayout ? ' viewport-mobile-landscape-mid' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${mobileLandscapeAfterShortVh ? ' viewport-mobile-landscape-after-short' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${onlineThreeSeatSideChatActive ? ' game-table-ls-3p-side-chat' : ''}${onlineThreeSeatSideChatActive && eastChatHeaderCollapsed ? ' game-table-ls-3p-side-chat--header-collapsed' : ''}${onlineThreeSeatSideChatActive && !eastChatHeaderCollapsed && mobileLsEastChatColW <= 200 ? ' game-table-ls-3p-side-chat--compact' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${gameInfoBadgeSkin === 'plasma' ? ` game-info-plasma-screen-tone-${plasmaScreenTone}` : ''}${!isMobile && gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma-pc-flat' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isThreeSeatTable ? ' game-table-seats-three' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${tableScaleControlEnabled ? ' game-table-has-table-scale' : ''}${useMidLandscapeScaleGears ? ' game-table-has-hand-scale' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileMidSquareLayout ? ' viewport-mobile-landscape-mid' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${mobileLandscapeAfterShortVh ? ' viewport-mobile-landscape-after-short' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileChatLsBottomChrome ? ' viewport-mobile-chat-ls-bottom' : ''}${onlineThreeSeatSideChatActive ? ' game-table-ls-3p-side-chat' : ''}${onlineThreeSeatSideChatActive && eastChatHeaderCollapsed ? ' game-table-ls-3p-side-chat--header-collapsed' : ''}${onlineThreeSeatSideChatActive && !eastChatHeaderCollapsed && mobileLsEastChatColW <= 200 ? ' game-table-ls-3p-side-chat--compact' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${gameInfoBadgeSkin === 'plasma' ? ` game-info-plasma-screen-tone-${plasmaScreenTone}` : ''}${!isMobile && gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma-pc-flat' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{
         ...tableLayoutStyle,
         position: 'relative',
@@ -11433,7 +11472,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 )}
               </div>
             )}
-            {showOnlineRoomCodeStrip && online.code && !hideOnlineRoomCodeForLandscapeFirstMove && (
+            {showOnlineRoomCodeStrip && online.code && !hideOnlineRoomCodeDuringBidding && (
               <OnlineRoomCodeBadge
                 code={online.code}
                 onCopy={copyOnlineRoomCode}
@@ -11441,7 +11480,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 portalRootClass={isMobile ? mobilePortalRootClass : undefined}
                 elevated={isWaitingInRoom}
                 partyTimerActive={onlinePartyTimerActive}
-                alternatePartyTimer={isMobile}
+                alternatePartyTimer
                 partyElapsedSeconds={partyElapsedSeconds}
               />
             )}
@@ -12039,7 +12078,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           .filter(Boolean)
           .join(' ')}
         style={{
-          width: liquidCapped || showHandChatDisk ? 'max-content' : '100%',
+          width: liquidCapped || showLandscapeHandChatDisk ? 'max-content' : '100%',
           maxWidth: '100%',
           flexShrink: 0,
           boxSizing: 'border-box',
@@ -12059,7 +12098,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             ...m9.frameStyleExtra,
             ...(isMobileLandscape
               ? {
-                  width: liquidCapped || showHandChatDisk ? 'max-content' : '100%',
+                  width: liquidCapped || showLandscapeHandChatDisk ? 'max-content' : '100%',
                   maxWidth: '100%',
                   marginLeft: 0,
                   marginRight: 0,
@@ -12067,13 +12106,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   paddingRight: MOBILE_HAND_FRAME_LANDSCAPE_INLINE_PAD_PX,
                   boxSizing: 'border-box' as const,
                 }
-              : showHandChatDisk
-                ? {
-                    width: 'max-content',
-                    maxWidth: '100%',
-                    boxSizing: 'border-box' as const,
-                  }
-                : {}),
+              : {}),
           }}
         >
           <div
@@ -12096,17 +12129,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             style={{
               ...handStyle,
               overflow: 'visible',
-              justifyContent: liquidFill && !showHandChatDisk
+              justifyContent: liquidFill && !showLandscapeHandChatDisk
                 ? 'space-evenly'
-                : liquidCapped || isMobileLandscape || showHandChatDisk
+                : liquidCapped || isMobileLandscape || showLandscapeHandChatDisk
                   ? 'flex-start'
                   : 'center',
               gap: liquidCapped ? liquidGapPx : 0,
               boxSizing: 'border-box',
               width:
-                liquidFill && !showHandChatDisk
+                liquidFill && !showLandscapeHandChatDisk
                   ? '100%'
-                  : liquidCapped || showHandChatDisk || !isMobileLandscape
+                  : liquidCapped || showLandscapeHandChatDisk || !isMobileLandscape
                     ? 'max-content'
                     : '100%',
               maxWidth: '100%',
@@ -12204,15 +12237,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         </div>
       </div>
         );
-        return showHandChatDisk ? (
-          <div
-            className={[
-              'game-mobile-ls-hand-chat-row',
-              !isMobileLandscape ? 'game-mobile-ls-hand-chat-row--portrait' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
+        return showHandChatDiskBesideCards ? (
+          <div className="game-mobile-ls-hand-chat-row">
             {handStrip}
             {renderMobileLsChatDisk()}
           </div>
@@ -12243,6 +12269,18 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               : undefined,
         }}
       >
+      {showMobileLsChatAffordance && mobileLsChatMode === 'south-mini' && isMobileLandscape ? (
+        <div className="game-mobile-ls-chat-table-corner-home">
+          <MobileLandscapeChatAffordance
+            mode="south-mini"
+            miniAnchor="table-corner"
+            unread={tableChatChromeMeta.unread}
+            typingLine={tableChatChromeMeta.typingLine}
+            onOpen={openTableChatMobile}
+            placement={mobileLsChatPlacement}
+          />
+        </div>
+      ) : null}
       <div
         className={mobileViewportShort ? undefined : 'game-mobile-player-wrap game-mobile-player'}
         style={
@@ -12276,7 +12314,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               : {}),
           }}
         >
-        <div className={['game-mobile-player-info', 'user-player-panel', isMobileLandscape ? 'user-player-panel--mobile-landscape-south mobile-landscape-panel-north-layout' : '', showMobileLsChatAffordance && mobileLsChatMode === 'south-mini' ? 'user-player-panel--ls-chat-mini' : '', mobileViewportShort ? 'user-player-panel--short-vh' : '', userMobilePanelOrderExactGlow ? 'user-player-panel-order-exact' : '', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : '', dealerSouthMobilePanelHighlight ? 'dealer-opponent-panel' : '', dealerSouthMobilePanelBidding ? 'dealer-opponent-panel-mobile--bidding' : '', dealerSouthMobilePanelPlaying ? 'dealer-opponent-panel-mobile--playing' : '', dealerSouthMobilePanelBidding || dealerSouthMobilePanelPlaying ? 'dealer-panel-stars-live' : ''].filter(Boolean).join(' ')} style={{
+        <div className={['game-mobile-player-info', 'user-player-panel', isMobileLandscape ? 'user-player-panel--mobile-landscape-south mobile-landscape-panel-north-layout' : '', showPortraitSouthPanelChatDisk ? 'user-player-panel--portrait-chat-disk' : '', mobileViewportShort ? 'user-player-panel--short-vh' : '', userMobilePanelOrderExactGlow ? 'user-player-panel-order-exact' : '', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : '', dealerSouthMobilePanelHighlight ? 'dealer-opponent-panel' : '', dealerSouthMobilePanelBidding ? 'dealer-opponent-panel-mobile--bidding' : '', dealerSouthMobilePanelPlaying ? 'dealer-opponent-panel-mobile--playing' : '', dealerSouthMobilePanelBidding || dealerSouthMobilePanelPlaying ? 'dealer-panel-stars-live' : ''].filter(Boolean).join(' ')} style={{
           ...playerInfoPanelStyle,
           ...(isMobile && !mobileViewportShort ? playerInfoPanelStyleMobileSouth : {}),
           ...(isMobile && mobileViewportShort
@@ -13015,14 +13053,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           !mobileViewportShort ? (
             <UserPanelGarlandOverlay />
           ) : null}
-          {showMobileLsChatAffordance && mobileLsChatMode === 'south-mini' ? (
-            <MobileLandscapeChatAffordance
-              mode="south-mini"
-              unread={tableChatChromeMeta.unread}
-              typingLine={tableChatChromeMeta.typingLine}
-              onOpen={openTableChatMobile}
-              placement={mobileLsChatPlacement}
-            />
+          {showPortraitSouthPanelChatDisk ? (
+            <div className="game-mobile-portrait-chat-disk-home">{renderMobileLsChatDisk()}</div>
           ) : null}
       </div>
       </div>
@@ -13122,7 +13154,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           onLsBottomMoveToSide={
             isMobileLandscape && isThreeSeatTable ? moveLsChatToSide : undefined
           }
-          mobileLsBottomChrome={isMobileLandscape && !onlineThreeSeatSideChatActive}
+          mobileLsBottomChrome={mobileChatLsBottomChrome}
           mobileEastHeaderCompact={mobileLsEastHeaderUsesOverflow(mobileLsEastChatColW)}
         />
       )}
@@ -13513,7 +13545,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 )}
               </div>
             )}
-            {showOnlineRoomCodeStrip && online.code && (
+            {showOnlineRoomCodeStrip && online.code && !hideOnlineRoomCodeDuringBidding && (
               <OnlineRoomCodeBadge
                 code={online.code}
                 onCopy={copyOnlineRoomCode}
@@ -13521,7 +13553,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 portalRootClass={isMobile ? mobilePortalRootClass : undefined}
                 elevated={isWaitingInRoom}
                 partyTimerActive={onlinePartyTimerActive}
-                alternatePartyTimer={isMobile}
+                alternatePartyTimer
                 partyElapsedSeconds={partyElapsedSeconds}
               />
             )}

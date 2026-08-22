@@ -9,6 +9,10 @@ import type { GameState, DealResult } from '../game/GameEngine';
 import type { PlayerCount } from '../game/GameEngine';
 import { getTakenFromDealPoints } from '../game/scoring';
 import { computePartySettlement, type SettlementMode } from '../game/partySettlement';
+import {
+  buildFinishMatchPlayers,
+  dealResultsToFinishRpcPayload,
+} from '../game/finishMatchPayload';
 import { readResultsChipView } from '../game/resultsChipView';
 import {
   normalizeCreateRoomOptions,
@@ -443,6 +447,7 @@ export async function createRoom(
             settlement_mode: normalized.settlementMode,
             buy_in: normalized.buyIn,
             room_kind: normalized.roomKind,
+            max_players: normalized.maxPlayers,
           })
           .select('*')
           .abortSignal(lobbyFastAbortSignal())
@@ -912,22 +917,8 @@ export interface MatchPlayerInsert {
   place: number | null;
 }
 
-export type FinishGameDealHistoryEntry = {
-  dealNumber: number;
-  bids: number[];
-  points: number[];
-  takens?: number[];
-};
-
-/** Сериализация раздач для RPC finish_game / record_offline_match. */
-export function dealResultsToFinishRpcPayload(bh: readonly DealResult[]): FinishGameDealHistoryEntry[] {
-  return bh.map((d) => ({
-    dealNumber: d.dealNumber,
-    bids: d.bids,
-    points: d.points,
-    ...(d.takens ? { takens: d.takens } : {}),
-  }));
-}
+export type { FinishGameDealHistoryEntry } from '../game/finishMatchPayload';
+export { dealResultsToFinishRpcPayload } from '../game/finishMatchPayload';
 
 export async function finishMatch(
   roomId: string,
@@ -940,59 +931,9 @@ export async function finishMatch(
   },
 ): Promise<{ ok: boolean; error?: string; matchId?: string }> {
   if (!supabase) return { ok: false, error: 'Supabase не настроен' };
-  const players = snapshot.players;
   const dealsCount = snapshot.dealNumber;
   const bh = opts?.dealHistory ?? snapshot.dealHistory ?? [];
-  const calcAcc = (pi: number) => {
-    if (!bh.length) return null;
-    let met = 0;
-    for (const d of bh) {
-      const bid = d.bids[pi];
-      const pts = d.points[pi];
-      if (bid == null) continue;
-      const taken =
-        d.takens?.[pi] != null
-          ? d.takens[pi]!
-          : Math.max(0, Math.round((pts + Math.abs(pts)) / 20));
-      if (bid === taken) met++;
-    }
-    return Math.round((met / bh.length) * 100);
-  };
-  const order = players.map((p, i) => ({ i, s: p.score })).sort((a, b) => b.s - a.s);
-  const placeByIndex: Record<number, number> = {};
-  let prevScore: number | null = null;
-  let prevPlace = 0;
-  order.forEach((row, idx) => {
-    const score = row.s;
-    const place = prevScore === null ? 1 : score === prevScore ? prevPlace : idx + 1;
-    placeByIndex[row.i] = place;
-    prevScore = score;
-    prevPlace = place;
-  });
-  const payload = players.map((p, i) => {
-    const slot = playerSlots.find((s) => s.slotIndex === i) as PlayerSlot | undefined;
-    const userId = slot?.userId ?? null;
-    const isAi = !userId;
-    const interrupted = !!slot?.replacedUserId;
-    const isRated = !interrupted;
-    const acc = calcAcc(i);
-    return {
-      slot_index: i,
-      user_id: userId,
-      display_name: (() => {
-        const fromSlot = slot?.displayName?.trim() || slot?.shortLabel?.trim() || '';
-        const fromPlayer = (p.name || '').trim();
-        return (fromSlot || fromPlayer || 'Игрок').slice(0, 80);
-      })(),
-      is_ai: isAi,
-      final_score: p.score,
-      bid_accuracy: acc,
-      interrupted,
-      is_rated: isRated,
-      replaced_user_id: slot?.replacedUserId ?? null,
-      place: placeByIndex[i] ?? null,
-    };
-  });
+  const payload = buildFinishMatchPlayers(snapshot, playerSlots, bh);
   const dealHistoryPayload = dealResultsToFinishRpcPayload(bh);
   const rpc = await supabase.rpc('finish_game', {
     p_room_id: roomId,

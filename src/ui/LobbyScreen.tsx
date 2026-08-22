@@ -1,7 +1,7 @@
 /**
  * Экран лобби для онлайн-игры. Создание комнаты, присоединение по коду, ожидание и старт.
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnlineGame } from '../contexts/useOnlineGame';
 import { loadLastOnlineParty } from '../lib/lastOnlineParty';
@@ -86,6 +86,11 @@ export function LobbyScreen({
   const [createBankRoom, setCreateBankRoom] = useState(false);
   const [createPublicRoom, setCreatePublicRoom] = useState(() => isWsOnlineConfigured());
   const [createMaxPlayers, setCreateMaxPlayers] = useState<3 | 4>(4);
+  const createMaxPlayersRef = useRef<3 | 4>(4);
+  const pickCreateMaxPlayers = useCallback((value: 3 | 4) => {
+    createMaxPlayersRef.current = value;
+    setCreateMaxPlayers(value);
+  }, []);
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [roomPeek, setRoomPeek] = useState<RoomPeekResult | null>(null);
   const [showHall, setShowHall] = useState(false);
@@ -244,7 +249,7 @@ export function LobbyScreen({
           return createRoom(playerId, name, shortLabel, {
             settlementMode: createBankRoom ? 'prize_pool' : 'accuracy_bonus',
             roomKind: createPublicRoom ? 'public' : 'private',
-            maxPlayers: createMaxPlayers,
+            maxPlayers: createMaxPlayersRef.current,
           });
         })(),
         new Promise<LobbyWall>((resolve) => {
@@ -725,7 +730,7 @@ export function LobbyScreen({
               creating={creating}
               onToggleBank={setCreateBankRoom}
               onTogglePublic={setCreatePublicRoom}
-              onMaxPlayersChange={setCreateMaxPlayers}
+              onMaxPlayersChange={pickCreateMaxPlayers}
               onLaunch={() => void handleCreateRoom()}
               onCancel={() => setShowCreatePanel(false)}
             />

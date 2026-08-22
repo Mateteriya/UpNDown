@@ -32374,6 +32374,27 @@ html.theme-standard
   --bid-btn-w: var(--bid-btn-base);
 }
 /*
+ * Portrait on-table: фиксированная база кнопок (как phone LS), без fluid-shrink по ширине сукна.
+ */
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .bid-panel-mobile-on-table-wrap
+  .bid-panel-mobile-inline
+  .bid-panel-mobile-grid--rows
+  .bid-panel-mobile-grid-row {
+  --bid-btn-w: var(--bid-btn-base) !important;
+  gap: var(--bid-gap-min, 6px) !important;
+}
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .bid-panel-mobile-on-table-wrap
+  .bid-panel-mobile-inline
+  .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
+  .bid-panel-btn.bid-panel-btn-mobile {
+  width: var(--bid-btn-base) !important;
+  max-width: var(--bid-btn-base) !important;
+  min-width: var(--bid-btn-base) !important;
+  flex: 0 0 var(--bid-btn-base) !important;
+}
+/*
  * Portrait: wrap на всю ширину сукна (inset 8px) — надпись max-width:100% не выходит за обводку;
  * стек/кнопки по-прежнему справа.
  */
@@ -66190,6 +66211,66 @@ body:has(.lobby-screen) {
   color: var(--lobby-laser-cyan-hot);
   text-align: center;
   text-shadow: 0 0 12px rgba(103, 232, 249, 0.55);
+}
+.lobby-seat-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 2px 2px;
+}
+.lobby-seat-picker__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--lobby-laser-cyan-hot);
+  text-shadow: 0 0 10px rgba(103, 232, 249, 0.45);
+}
+.lobby-seat-picker__row {
+  display: flex;
+  gap: 8px;
+}
+.lobby-seat-picker__btn {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(232, 121, 249, 0.28);
+  background: rgba(15, 23, 42, 0.42);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--lobby-laser-fuchsia);
+  text-shadow: 0 0 8px rgba(232, 121, 249, 0.32);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.12s ease;
+}
+.lobby-seat-picker__btn:hover:not(:disabled) {
+  border-color: rgba(244, 114, 182, 0.45);
+  background: rgba(30, 41, 59, 0.62);
+}
+.lobby-seat-picker__btn--active,
+.lobby-seat-picker__btn[aria-checked='true'] {
+  border-color: rgba(34, 211, 238, 0.62);
+  background: rgba(8, 51, 68, 0.88);
+  color: var(--lobby-laser-cyan-hot);
+  box-shadow:
+    inset 0 1px 0 rgba(186, 230, 253, 0.12),
+    0 0 14px rgba(34, 211, 238, 0.28);
+  text-shadow:
+    0 0 10px rgba(103, 232, 249, 0.75),
+    0 0 16px rgba(34, 211, 238, 0.35);
+  transform: translateY(-1px);
+}
+.lobby-seat-picker__hint {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--lobby-laser-indigo);
+  text-shadow: 0 0 8px rgba(167, 139, 250, 0.35);
 }
 .lobby-cosmo-toggle {
   display: flex;

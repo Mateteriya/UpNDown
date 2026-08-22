@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { GameRoomRow, PlayerSlot } from './protocol.js';
+import { parseMaxPlayers, type GameRoomRow, type PlayerSlot } from './protocol.js';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 6;
@@ -66,6 +66,8 @@ function roomPlayerCount(room: Pick<GameRoomRow, 'max_players'>): 3 | 4 {
 export class RoomStore {
   private rooms = new Map<string, GameRoomRow>();
   private codeToId = new Map<string, string>();
+  /** roomId → IP создателя; не уходит клиенту. */
+  private createdByIp = new Map<string, string>();
   private onMutate: (() => void) | null = null;
   private onRemoveRoom: ((roomId: string) => void) | null = null;
 
@@ -90,11 +92,29 @@ export class RoomStore {
   private deleteRoom(room: GameRoomRow): void {
     this.rooms.delete(room.id);
     this.codeToId.delete(room.code);
+    this.createdByIp.delete(room.id);
     try {
       this.onRemoveRoom?.(room.id);
     } catch {
       /* ignore */
     }
+  }
+
+  countRoomsByCreatorIp(ip: string): number {
+    const key = (ip || '').trim();
+    if (!key) return 0;
+    let n = 0;
+    for (const [roomId, creator] of this.createdByIp) {
+      if (creator === key && this.rooms.has(roomId)) n += 1;
+    }
+    return n;
+  }
+
+  setMatchId(roomId: string, matchId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    room.match_id = matchId;
+    this.touch();
   }
 
   /** Восстановить комнаты с диска (после рестарта). */
@@ -216,6 +236,7 @@ export class RoomStore {
     hostDedicated?: boolean;
     maxPlayers?: 3 | 4;
     protocolVersion?: 1 | 2;
+    createdByIp?: string;
   }): GameRoomRow {
     const codes = new Set(this.codeToId.keys());
     const code = generateCode(codes);
@@ -238,17 +259,19 @@ export class RoomStore {
       status: 'waiting',
       game_state: null,
       game_state_revision: 0,
-      player_slots: dedicated ? [] : [hostSlot],
+      player_slots: dedicated ? [] : fullSlotsFromPartial([hostSlot], parseMaxPlayers(opts.maxPlayers)),
       created_at: t,
       updated_at: t,
       room_phase: 'lobby',
       settlement_mode: opts.settlementMode ?? 'accuracy_bonus',
       buy_in: opts.buyIn ?? null,
       room_kind: opts.roomKind ?? 'private',
-      max_players: opts.maxPlayers === 3 ? 3 : 4,
+      max_players: parseMaxPlayers(opts.maxPlayers),
     };
     this.rooms.set(id, room);
     this.codeToId.set(code, id);
+    const ip = (opts.createdByIp ?? '').trim();
+    if (ip) this.createdByIp.set(id, ip);
     this.touch();
     return room;
   }
@@ -458,9 +481,18 @@ export class RoomStore {
 
     const rev = room.game_state_revision ?? 0;
     room.game_state = gameState;
-    room.status = 'playing';
+    const phase =
+      gameState && typeof gameState === 'object'
+        ? (gameState as { phase?: string }).phase
+        : undefined;
+    if (roomPhase === 'finished' || phase === 'game-complete') {
+      room.status = 'finished';
+      room.room_phase = 'finished';
+    } else {
+      room.status = 'playing';
+      if (roomPhase) room.room_phase = roomPhase;
+    }
     if (playerSlots) room.player_slots = fullSlotsFromPartial(playerSlots, roomPlayerCount(room));
-    if (roomPhase) room.room_phase = roomPhase;
     room.game_state_revision = rev + 1;
     room.updated_at = nowIso();
     this.touch();

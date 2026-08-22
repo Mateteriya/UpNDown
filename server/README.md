@@ -2,6 +2,8 @@
 
 Server-authoritative синхронизация партии: клиент шлёт **команды**, сервер применяет `GameEngine` и рассылает `game_state`.
 
+**Прод (VPS):** [docs/PRODUCTION-WS.md](../docs/PRODUCTION-WS.md) — `npm run server:build`, `WS_AUTH=required`, секреты в `/etc/updown/ws.env`.
+
 **Ветка разработки:** `feat/lan-server-v2`. На `main` без merge — старый облачный путь (Supabase).
 
 Общий workflow: [docs/LAN-SERVER-V2-WORKFLOW.md](../docs/LAN-SERVER-V2-WORKFLOW.md).  
@@ -117,6 +119,19 @@ npm run dev:host
 | `WS_BACKUP_PORTS` | LAN: +1,+2; prod: выкл. | Запасные порты; `none` — отключить |
 | `ROOM_PERSIST` | `1` | `0` — не писать комнаты на диск |
 | `ROOM_PERSIST_PATH` | `server/data/rooms.json` | Файл снимка комнат |
+| `ROOM_BACKUP_KEEP` | `24` | Сколько копий в `backups/` (`0` = выкл.) |
+| `ROOM_BACKUP_EVERY_MS` | `600000` | Интервал авто-бэкапа (мин. 60с) |
+| `WS_AUTH` | `optional` | `off` / `optional` / `required` — JWT на сокете; `required` без секрета не стартует |
+| `SUPABASE_JWT_SECRET` | — | Legacy JWT Secret (HS256). Обязателен при `required` |
+| `SUPABASE_URL` | — | Для `finish_game_from_server` с WS |
+| `SUPABASE_SERVICE_ROLE_KEY` | — | Только процесс WS; не в git |
+| `WS_TRUST_PROXY` | auto | `1` за Caddy (`HOST=127.0.0.1`); иначе не доверять `X-Forwarded-For` |
+| `WS_MAX_ROOMS` | `80` | Потолок комнат на процесс |
+| `WS_MAX_SOCKETS` | `400` | Потолок одновременных WS |
+| `WS_MAX_ROOMS_PER_IP` | `8` | Комнат с одного IP |
+| `WS_CREATE_PER_MIN` | `6` | create_room / IP / мин |
+| `WS_JOIN_PER_MIN` | `20` | join/recover / IP / мин |
+| `WS_MSG_PER_SEC` | `40` | Сообщений / IP / сек |
 | `NODE_ENV` | — | `production` на VPS |
 
 ```bash
@@ -140,12 +155,12 @@ Unit-тесты: `server/src/v2/GameSession.test.ts`.
 ## Ограничения (альфа)
 
 - Комнаты в памяти + **снимок на диск** (`ROOM_PERSIST`): рестарт процесса восстанавливает waiting/playing. Игроки всё равно должны переподключить WS (клиент делает auto-reconnect).
-- Рейтинг / `finish_game` после партии — пока через Supabase на клиенте.
-- Чат комнаты — Supabase, не WS.
+- Рейтинг / конец партии на **WS**: RPC `finish_game_from_server` (service_role). Клиент на транспорте `ws` не вызывает `finish_game`.
+- Чат комнаты на WS.
 - Один процесс Node; без кластера / Redis.
 
-Облачный деплой (VPS): [docs/TECH-DIRECTOR-ONLINE-SERVER.md](../docs/TECH-DIRECTOR-ONLINE-SERVER.md).  
-Готовые файлы: `Dockerfile.ws`, `deploy/updown-ws.service`, `deploy/Caddyfile.example`.
+Облачный деплой: [docs/PRODUCTION-WS.md](../docs/PRODUCTION-WS.md).  
+Готовые файлы: `Dockerfile.ws`, `deploy/updown-ws.service`, `deploy/updown-ws.env.example`.
 
 ---
 

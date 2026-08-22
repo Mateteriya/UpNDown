@@ -740,30 +740,60 @@
   z-index: 0;
 }
 
+/* 4p LS ≥6: мини в углу стола (слева снизу, между Западом и Югом). */
 .game-table-root.viewport-mobile.viewport-mobile-landscape
-  .user-player-panel--mobile-landscape-south.user-player-panel--ls-chat-mini
-  > .mobile-ls-chat-affordance--south-mini {
-  z-index: 80;
+  .game-mobile-ls-chat-table-corner-home {
+  position: absolute;
+  left: max(4px, env(safe-area-inset-left, 0px));
+  top: 0;
+  transform: translateY(-54%);
+  z-index: 90;
+  pointer-events: none;
+  overflow: visible;
 }
 
 .game-table-root.viewport-mobile.viewport-mobile-landscape
-  .user-player-panel--mobile-landscape-south.user-player-panel--ls-chat-mini {
-  overflow: visible !important;
-  position: relative !important;
-}
-
-/* 4p LS ≥6: мини только здесь — левый нижний угол панели Юг (одно место). */
-.game-table-root.viewport-mobile.viewport-mobile-landscape
-  .user-player-panel--mobile-landscape-south.user-player-panel--ls-chat-mini
-  > .mobile-ls-chat-affordance--south-mini {
-  left: 4px;
-  bottom: 2px;
+  .game-mobile-ls-chat-table-corner-home
+  .mobile-ls-chat-affordance--south-mini {
+  position: relative;
+  left: auto;
+  bottom: auto;
   transform: none;
+  pointer-events: auto;
+  min-height: 26px;
+  min-width: 48px;
+  padding: 3px 8px 3px 5px;
+  max-width: none;
+  z-index: 90;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-ls-chat-table-corner-home
+  .mobile-ls-chat-affordance--south-mini.mobile-ls-chat-affordance--micro {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-ls-chat-table-corner-home
+  .mobile-ls-chat-affordance--south-mini
+  .mobile-ls-chat-affordance__mini-label {
+  font-size: 9px;
+  max-width: 42px;
+}
+
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-table-and-hand--landscape:has(.game-mobile-ls-chat-table-corner-home),
+.game-table-root.viewport-mobile.viewport-mobile-landscape
+  .game-mobile-hand-user-stack--landscape:has(.game-mobile-ls-chat-table-corner-home) {
+  overflow: visible !important;
 }
 
 /*
- * Обычный портрет · online 3p/4p: диск справа от руки (мини на Юге нет).
- * Свёрнутый бар «Чат» скрыт.
+ * Обычный портрет · online 3p/4p: диск на нижней границе панели Юг (мини на Юге нет).
+ * Свёрнутый бар «Чат» скрыт (short-VH — свой бар внизу).
  */
 .game-table-root.viewport-mobile.game-mobile-table-chat:not(.viewport-mobile-landscape):not(
     .viewport-mobile-short
@@ -780,65 +810,41 @@
 }
 
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .game-mobile-hand-user-stack
-  > .game-mobile-ls-hand-chat-row--portrait,
+  .game-mobile-player-panel:has(.game-mobile-portrait-chat-disk-home),
+.game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-landscape)
+  .game-mobile-player-panel:has(.game-mobile-portrait-chat-disk-home) {
+  position: relative !important;
+  overflow: visible !important;
+}
+
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .game-mobile-l-hand
-  > .game-mobile-ls-hand-chat-row--portrait {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  width: max-content;
-  max-width: 100%;
-  min-width: 0;
-  margin-inline: auto;
-  box-sizing: border-box;
+  .user-player-panel--portrait-chat-disk,
+.game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-landscape)
+  .user-player-panel--portrait-chat-disk {
+  overflow: visible !important;
+}
+
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
+  .game-mobile-portrait-chat-disk-home,
+.game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-landscape)
+  .game-mobile-portrait-chat-disk-home {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
   overflow: visible;
-  position: relative;
-  z-index: 6;
+  z-index: 8;
 }
 
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .game-mobile-l-hand
-  > .game-mobile-ls-hand-chat-row--portrait {
-  align-items: flex-end;
-}
-
+  .game-mobile-hand-user-stack:has(.game-mobile-portrait-chat-disk-home),
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .game-mobile-hand-user-stack
-  > .game-mobile-ls-hand-chat-row--portrait
-  > .game-mobile-hand-strip {
-  flex: 0 1 auto;
-  width: max-content;
-  max-width: calc(100% - 52px);
-  min-width: 0;
-}
-
-.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .game-mobile-l-hand
-  > .game-mobile-ls-hand-chat-row--portrait
-  > .game-mobile-l-hand-shell {
-  flex: 0 1 auto;
-  width: max-content;
-  max-width: calc(100% - 52px);
-  min-width: 0;
-}
-
-.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .game-mobile-hand-user-stack
-  > .game-mobile-ls-hand-chat-row--portrait
-  > .game-mobile-hand-strip
-  .game-mobile-hand-frame
-  > .game-mobile-hand-row:not(.game-mobile-hand-row--liquid):not(.game-mobile-hand-row--liquid-capped) {
-  justify-content: flex-start !important;
-}
-
-.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .game-mobile-hand-user-stack:has(> .game-mobile-ls-hand-chat-row--portrait),
-.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short)
-  .game-mobile-l-hand:has(> .game-mobile-ls-hand-chat-row--portrait) {
+  .game-mobile-l-hand:has(.game-mobile-portrait-chat-disk-home),
+.game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-landscape)
+  .game-mobile-hand-user-stack:has(.game-mobile-portrait-chat-disk-home) {
   overflow: visible !important;
 }
 
@@ -852,6 +858,12 @@
   > .game-mobile-ls-hand-chat-row,
 .game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid
   .game-mobile-hand-user-stack--landscape.game-mobile-hand-user-stack--landscape-panel-fixed
+  > .game-mobile-ls-hand-chat-row,
+.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-ls-hand-chat-row,
+.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short
+  .game-mobile-hand-user-stack--landscape.game-mobile-hand-user-stack--landscape-panel-fixed
   > .game-mobile-ls-hand-chat-row {
   grid-column: 1 / -1 !important;
   grid-row: 1 !important;
@@ -864,6 +876,10 @@
 }
 
 .game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-ls-hand-chat-row
+  > .game-mobile-hand-strip,
+.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short
   .game-mobile-hand-user-stack--landscape
   > .game-mobile-ls-hand-chat-row
   > .game-mobile-hand-strip {
@@ -881,6 +897,11 @@
   .game-mobile-hand-user-stack--landscape
   > .game-mobile-ls-hand-chat-row
   > .game-mobile-hand-strip
+  .game-mobile-hand-frame:not(.game-mobile-hand-frame--liquid):not(.game-mobile-hand-frame--liquid-capped),
+.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-ls-hand-chat-row
+  > .game-mobile-hand-strip
   .game-mobile-hand-frame:not(.game-mobile-hand-frame--liquid):not(.game-mobile-hand-frame--liquid-capped) {
   margin-inline: auto !important;
   width: max-content !important;
@@ -888,6 +909,12 @@
 }
 
 .game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-ls-hand-chat-row
+  > .game-mobile-hand-strip
+  .game-mobile-hand-frame
+  > .game-mobile-hand-row:not(.game-mobile-hand-row--liquid):not(.game-mobile-hand-row--liquid-capped),
+.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short
   .game-mobile-hand-user-stack--landscape
   > .game-mobile-ls-hand-chat-row
   > .game-mobile-hand-strip
@@ -3341,7 +3368,7 @@ body.ls-east-chat-resizing * {
   height: auto !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock.table-chat-dock--mobile.table-chat-dock--ls-bottom:not(
     .table-chat-dock--collapsed
   ):not(.table-chat-dock--east-embed) {
@@ -3367,7 +3394,7 @@ body.ls-east-chat-resizing * {
   overflow: visible !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-header {
   grid-column: 1 / -1 !important;
@@ -3381,7 +3408,7 @@ body.ls-east-chat-resizing * {
   background: linear-gradient(90deg, rgba(124, 58, 237, 0.24) 0%, rgba(167, 139, 250, 0.08) 42%, transparent 100%) !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-header-left {
   flex: 1 1 auto !important;
@@ -3389,13 +3416,13 @@ body.ls-east-chat-resizing * {
   gap: 4px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-title {
   display: none !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-title-text {
   font-size: 11px !important;
@@ -3405,7 +3432,7 @@ body.ls-east-chat-resizing * {
   white-space: nowrap !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-header .table-chat-dock-mobile-quick-actions {
   display: inline-flex !important;
@@ -3415,13 +3442,13 @@ body.ls-east-chat-resizing * {
   margin-left: auto !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-mobile-resize-wrap {
   display: none !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-mobile-quick-btn {
   min-height: 22px !important;
@@ -3439,7 +3466,7 @@ body.ls-east-chat-resizing * {
   text-shadow: 0 0 8px rgba(34, 211, 238, 0.35);
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-mobile-quick-btn--active {
   border-color: rgba(167, 139, 250, 0.75) !important;
@@ -3448,10 +3475,10 @@ body.ls-east-chat-resizing * {
   color: #ecfeff !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-messages,
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-messages--pro {
   grid-column: 1 !important;
@@ -3466,7 +3493,7 @@ body.ls-east-chat-resizing * {
   border-right: 1px solid rgba(34, 211, 238, 0.14) !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-msg-compact {
   margin-bottom: 3px !important;
@@ -3663,24 +3690,24 @@ body.ls-east-chat-resizing * {
   opacity: 0.8;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-hidden-chip {
   padding: 0 7px 1px !important;
   font-size: 9px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-error {
   grid-column: 1 / -1 !important;
   grid-row: 3 !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-composer,
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-composer--pro {
   grid-column: 2 !important;
@@ -3707,7 +3734,7 @@ body.ls-east-chat-resizing * {
     linear-gradient(180deg, rgba(30, 20, 62, 0.48) 0%, rgba(8, 10, 28, 0.72) 100%) !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-composer__inner {
   flex: 0 0 auto !important;
@@ -3722,13 +3749,13 @@ body.ls-east-chat-resizing * {
   overflow: visible !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-composer--compose-extra .table-chat-mobile-favorites-rail {
   display: none !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-composer--compose-extra .table-chat-ls-bottom-rail {
   flex: 0 0 auto !important;
@@ -3736,7 +3763,7 @@ body.ls-east-chat-resizing * {
   overflow: hidden !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-composer--compose-extra .table-chat-feed-reply-strip {
   flex: 0 0 auto !important;
@@ -3744,20 +3771,20 @@ body.ls-east-chat-resizing * {
   padding: 3px 4px 3px 0 !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-composer--compose-extra .table-chat-feed-reply-strip__excerpt {
   display: none;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-composer--compose-extra .table-chat-mobile-input-shell {
   flex: 0 0 auto !important;
   margin-top: 0 !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-ls-bottom-rail {
   flex: 0 0 auto !important;
@@ -3767,7 +3794,7 @@ body.ls-east-chat-resizing * {
   min-height: 0 !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-ls-bottom-rail__tools {
   display: flex !important;
@@ -3776,7 +3803,7 @@ body.ls-east-chat-resizing * {
   gap: 5px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-ls-bottom-rail__tools .table-chat-dock-mobile-quick-btn {
   min-height: 22px !important;
@@ -3787,10 +3814,10 @@ body.ls-east-chat-resizing * {
   border-radius: 7px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-mobile-font-ctrl,
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-header .table-chat-dock-mobile-font-ctrl {
   margin-left: auto !important;
@@ -3804,7 +3831,7 @@ body.ls-east-chat-resizing * {
     inset 0 -2px 4px rgba(76, 29, 149, 0.45) !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-mobile-font-ctrl__half {
   min-width: 30px !important;
@@ -3812,7 +3839,7 @@ body.ls-east-chat-resizing * {
   color: #c4b5fd !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-mobile-font-ctrl__glyph {
   width: auto !important;
@@ -3822,32 +3849,32 @@ body.ls-east-chat-resizing * {
   color: #c4b5fd !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-mobile-font-ctrl__type-lg {
   font-size: 11px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-mobile-font-ctrl__type-sm {
   font-size: 7.5px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-mobile-font-ctrl__type-op {
   font-size: 10px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-mobile-font-ctrl__split-line {
   margin: 4px 0 !important;
   background: rgba(167, 139, 250, 0.55) !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-composer__anchor {
   position: absolute !important;
@@ -3864,10 +3891,10 @@ body.ls-east-chat-resizing * {
   z-index: 8 !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-emoji-panel--popover,
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-emoji-panel--mobile-sheet {
   position: absolute !important;
@@ -3881,7 +3908,7 @@ body.ls-east-chat-resizing * {
   z-index: 8 !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-emoji-tab {
   min-height: 24px !important;
@@ -3900,7 +3927,7 @@ body.ls-east-chat-resizing * {
     inset 0 -1px 3px rgba(49, 46, 129, 0.5) !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-emoji-tab--active {
   border-color: rgba(34, 211, 238, 0.75) !important;
@@ -3910,7 +3937,7 @@ body.ls-east-chat-resizing * {
     linear-gradient(180deg, rgba(34, 211, 238, 0.4) 0%, rgba(124, 58, 237, 0.55) 100%) !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-emoji-cell {
   border-radius: 8px !important;
@@ -5100,7 +5127,7 @@ body.ls-east-chat-resizing * {
     drop-shadow(0 0 7px #a78bfa);
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-msg-action-layer--ls-feed {
   justify-content: flex-start !important;
@@ -5108,13 +5135,13 @@ body.ls-east-chat-resizing * {
   padding: 8px 8px 10px 6px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-feed-reply-strip {
   margin: 0 0 2px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-msg-action-sheet {
   width: min(228px, 58%) !important;
@@ -5130,13 +5157,13 @@ body.ls-east-chat-resizing * {
     0 12px 28px rgba(2, 6, 23, 0.55) !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-msg-action-sheet__reacts {
   max-height: min(38vh, 168px);
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-msg-action-sheet__react-cell {
   height: 26px !important;
@@ -5618,53 +5645,53 @@ body.ls-east-chat-resizing * {
   font-variant-numeric: tabular-nums;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-header-tools {
   gap: 3px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-tool-btn {
   width: 24px !important;
   height: 24px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-tool-btn--sort {
   border-radius: 7px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-tool-btn--search {
   border-radius: 999px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-tool-glyph {
   width: 15px !important;
   height: 15px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-search {
   height: 22px !important;
   padding: 0 2px 0 7px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-search__input {
   height: 20px !important;
   font-size: 11px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-ls-height-handle {
   appearance: none;
@@ -5691,7 +5718,7 @@ body.ls-east-chat-resizing * {
   -webkit-user-select: none;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-ls-height-handle::before {
   content: '';
@@ -5707,7 +5734,7 @@ body.ls-east-chat-resizing * {
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-ls-height-handle > span {
   position: relative;
@@ -5722,7 +5749,7 @@ body.ls-east-chat-resizing * {
  * Горизонталка: портретные правки шапки/поля не должны перебивать LS-чат.
  * 4p низ и 3p справа — прежний космический хром, поле внизу правой колонки.
  */
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-dock-title-text,
 .game-table-root.viewport-mobile.viewport-mobile-landscape
@@ -5756,10 +5783,10 @@ body.ls-east-chat-resizing * {
   text-transform: uppercase;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-composer,
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-composer--pro {
   justify-content: flex-end !important;
@@ -5771,7 +5798,7 @@ body.ls-east-chat-resizing * {
   border-image: none !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-composer__inner {
   flex: 0 0 auto !important;
@@ -5780,7 +5807,7 @@ body.ls-east-chat-resizing * {
   gap: 2px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-ls-bottom-rail {
   flex: 0 0 auto !important;
@@ -5797,7 +5824,7 @@ body.ls-east-chat-resizing * {
   padding-top: 3px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-ls-bottom-rail__tools .table-chat-dock-mobile-quick-btn {
   min-height: 22px !important;
@@ -5818,7 +5845,7 @@ body.ls-east-chat-resizing * {
   text-shadow: 0 0 8px rgba(34, 211, 238, 0.35);
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-ls-bottom-rail__tools .table-chat-dock-mobile-quick-btn--active {
   border-color: rgba(167, 139, 250, 0.75) !important;
@@ -5828,7 +5855,7 @@ body.ls-east-chat-resizing * {
   -webkit-text-fill-color: #ecfeff !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-mobile-input-shell {
   flex: 0 0 auto !important;
@@ -5839,10 +5866,10 @@ body.ls-east-chat-resizing * {
   border-radius: 8px !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-mobile-input-shell__emoji,
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-mobile-input-shell__send {
   flex: 0 0 22px !important;
@@ -5852,10 +5879,10 @@ body.ls-east-chat-resizing * {
   max-height: none !important;
 }
 
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-input--pro,
-.game-table-root.viewport-mobile.viewport-mobile-landscape
+.game-table-root.viewport-mobile:is(.viewport-mobile-landscape, .viewport-mobile-chat-ls-bottom:not(.viewport-mobile-landscape))
   .table-chat-dock--ls-bottom
   .table-chat-input--mobile-inline {
   max-height: 40px !important;

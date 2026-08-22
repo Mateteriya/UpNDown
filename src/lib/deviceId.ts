@@ -1,5 +1,4 @@
 import { v4 as uuidv4 } from 'uuid';
-import { isWsOnlineTransport } from './onlineTransport';
 
 const DEVICE_ID_KEY = 'updown_device_id';
 
@@ -19,11 +18,10 @@ export function getDeviceId(): string {
 
 /**
  * Id игрока в комнате.
- * LAN (ws): всегда device id — иначе после входа в Google host_user_id и слоты не совпадают, ИИ не ходит, игрока «выбивает».
- * Облако: Supabase user id, без входа — device id.
+ * Со входом: Supabase user id (= JWT sub на WS-сервере).
+ * Без входа: device id (LAN / гость; на VPS с WS_AUTH=required нужен логин).
  */
 export function getOnlinePlayerId(userId: string | null | undefined): string {
-  if (isWsOnlineTransport()) return getDeviceId();
   const u = userId?.trim();
   if (u) return u;
   return getDeviceId();

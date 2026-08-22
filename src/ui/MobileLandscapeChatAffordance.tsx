@@ -1,5 +1,5 @@
 /**
- * 4p LS: диск ≤5 / мини ≥6 слева внизу Юга.
+ * 4p LS: диск ≤5 / мини ≥6 (landscape: угол стола слева снизу).
  * Портрет и 3p LS: всегда диск (мини нет). 3p LS 10+ — слот над Востоком.
  * 3p LS: живые стрелки ↓ / →; центр открывает last placement.
  * Старт у текущего слота; pin только после drag. Смена слота (9↔10) сбрасывает pin.
@@ -21,6 +21,7 @@ import {
   type MobileLsChatPlacement,
   type MobileLsHandDiskHome,
   type MobileLsHandDiskPos,
+  type MobileLsSouthMiniAnchor,
 } from './mobileLandscapeChatContract';
 
 export type MobileLandscapeChatAffordanceProps = {
@@ -33,6 +34,8 @@ export type MobileLandscapeChatAffordanceProps = {
   onOpenAt?: (place: MobileLsChatPlacement) => void;
   /** Где ставить диск, пока его не утащили. */
   diskHome?: MobileLsHandDiskHome;
+  /** 4p LS ≥6: мини-бейдж на панели Юг или в углу стола (landscape). */
+  miniAnchor?: MobileLsSouthMiniAnchor;
 };
 
 const DISK_DRAG_THRESHOLD_PX = 8;
@@ -107,6 +110,7 @@ export function MobileLandscapeChatAffordance({
   placement = null,
   onOpenAt,
   diskHome = 'hand',
+  miniAnchor = 'south-panel',
 }: MobileLandscapeChatAffordanceProps) {
   const reactId = useId().replace(/:/g, '');
   const typing = Boolean(typingLine?.trim());
@@ -225,6 +229,21 @@ export function MobileLandscapeChatAffordance({
         setPosReady(true);
         return;
       }
+      if (diskHome === 'south-panel') {
+        const host =
+          slot.closest('.game-mobile-player-panel') ??
+          slot.closest('.game-mobile-portrait-chat-disk-home') ??
+          slot.parentElement;
+        const hr = host?.getBoundingClientRect();
+        if (!hr || hr.width < 2) return;
+        const size = MOBILE_LS_HAND_DISK_SIZE_PX;
+        const next = clampDisk(hr.left + (hr.width - size) / 2, hr.bottom - size * 0.52);
+        posRef.current = next;
+        applyPosToDom(next);
+        setPos(next);
+        setPosReady(true);
+        return;
+      }
       const r = slot.getBoundingClientRect();
       const cards = collectHandRects();
       let next = { x: r.left, y: r.top };
@@ -247,6 +266,8 @@ export function MobileLandscapeChatAffordance({
         .querySelectorAll('.game-mobile-hand-strip, .game-mobile-hand-row, .game-mobile-l-hand-shell')
         .forEach((el) => ro.observe(el));
     }
+    const southPanelHost = slot.closest('.game-mobile-player-panel');
+    if (southPanelHost) ro.observe(southPanelHost);
     const eastHost = slot.closest('.game-center-east');
     if (eastHost) ro.observe(eastHost);
     window.addEventListener('resize', sync);
@@ -483,6 +504,9 @@ export function MobileLandscapeChatAffordance({
           ? 'mobile-ls-chat-affordance--hand-disk'
           : 'mobile-ls-chat-affordance--south-mini',
         mode === 'hand-disk' ? 'mobile-ls-chat-affordance--hand-disk-float' : '',
+        mode === 'south-mini' && miniAnchor === 'table-corner'
+          ? 'mobile-ls-chat-affordance--table-corner'
+          : '',
         mode === 'hand-disk' && dragging ? 'mobile-ls-chat-affordance--dragging' : '',
         mode === 'south-mini' && miniCollapsed ? 'mobile-ls-chat-affordance--micro' : '',
         showTyping ? 'mobile-ls-chat-affordance--typing' : '',
