@@ -5824,10 +5824,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   const showPcEastSeat = true;
   const pcEastDisplayIndex = isThreeSeatTable ? 1 : 3;
   /** Online: диск/мини пока чат закрыт. Пауза между раздачами — скрыть (как бейдж «Сдающий»). */
+  const mobilePortraitChatDiskAllowed =
+    !mobileViewportShort && !mobileStandardLayoutOnShortViewport;
   const showMobileLsChatAffordance =
     Boolean(showTableChat) &&
     isMobile &&
-    (isMobileLandscape || !mobileViewportShort) &&
+    (isMobileLandscape || mobilePortraitChatDiskAllowed) &&
     !onlineThreeSeatSideChatActive &&
     !tableChatMobileOpen &&
     !dealJustCompleted &&
@@ -5839,11 +5841,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         : ('bottom' as const)
       : null;
   const mobileLsChatHandLen = state?.players[humanIdx]?.hand.length ?? 0;
-  const mobileLsChatMode = mobileLsChatAffordanceKind({
-    handLen: mobileLsChatHandLen,
-    landscape: isMobileLandscape,
-    threeSeat: isThreeSeatTable,
-  });
+  const mobileLsChatMode =
+    mobileLandscapeAfterShortVh && isMobileLandscape && !isThreeSeatTable
+      ? ('south-mini' as const)
+      : mobileLsChatAffordanceKind({
+          handLen: mobileLsChatHandLen,
+          landscape: isMobileLandscape,
+          threeSeat: isThreeSeatTable,
+        });
   const mobileLsDiskHome = isMobileLandscape
     ? mobileLsHandDiskHome({
         handLen: mobileLsChatHandLen,
@@ -5858,10 +5863,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   const showEastHeaderChatDisk =
     showLandscapeHandChatDisk && mobileLsDiskHome === 'east-header' && showMobileLandscapeEastSeat;
   const showHandChatDiskBesideCards =
-    showLandscapeHandChatDisk && !showEastHeaderChatDisk;
+    showLandscapeHandChatDisk &&
+    !showEastHeaderChatDisk &&
+    !mobileLandscapeAfterShortVh;
   const mobileChatLsBottomChrome =
-    !onlineThreeSeatSideChatActive &&
-    (isMobileLandscape || (mobileViewportShort && !isMobileLandscape));
+    !onlineThreeSeatSideChatActive && isMobileLandscape;
   const renderMobileLsChatDisk = () => (
     <MobileLandscapeChatAffordance
       key={mobileLsDiskHome}

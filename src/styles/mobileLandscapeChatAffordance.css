@@ -848,6 +848,18 @@
   overflow: visible !important;
 }
 
+.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-hand-strip:not(.game-mobile-l-hand),
+.game-table-root.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short
+  .game-mobile-hand-user-stack--landscape
+  > .game-mobile-l-hand {
+  justify-self: center !important;
+  width: max-content !important;
+  max-width: 100% !important;
+  margin-inline: auto !important;
+}
+
 /*
  * Mid 601–899: сетка одна колонка, рука над Югом.
  * Phone-LS правило grid-column:2 для chat-row здесь ломает 4p: диск+рука

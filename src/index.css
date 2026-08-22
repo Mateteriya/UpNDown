@@ -32376,7 +32376,9 @@ html.theme-standard
 /*
  * Portrait on-table: фиксированная база кнопок (как phone LS), без fluid-shrink по ширине сукна.
  */
-.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short):not(
+    .viewport-mobile-standard-from-short-vh
+  )
   .bid-panel-mobile-on-table-wrap
   .bid-panel-mobile-inline
   .bid-panel-mobile-grid--rows
@@ -32384,7 +32386,9 @@ html.theme-standard
   --bid-btn-w: var(--bid-btn-base) !important;
   gap: var(--bid-gap-min, 6px) !important;
 }
-.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short):not(
+    .viewport-mobile-standard-from-short-vh
+  )
   .bid-panel-mobile-on-table-wrap
   .bid-panel-mobile-inline
   .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
@@ -33017,7 +33021,25 @@ html.theme-standard
 }
 .game-table-root.viewport-mobile.viewport-mobile-short:not(.viewport-mobile-landscape)
   .bid-panel-mobile-on-table-wrap:has(.bid-panel-mobile--compact41) {
-  zoom: 1;
+  zoom: var(--short-vh-y-compact, 0.94);
+}
+.game-table-root.viewport-mobile.viewport-mobile-standard-from-short-vh:not(.viewport-mobile-landscape)
+  .bid-panel-mobile-on-table-wrap:has(.bid-panel-mobile--compact41) {
+  zoom: var(--short-vh-y-compact, 0.94);
+}
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .bid-panel-mobile-inline.bid-panel-mobile--compact41
+  .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
+  .bid-panel-mobile-grid-row {
+  justify-content: flex-end !important;
+  max-width: 100% !important;
+}
+.game-table-root.viewport-mobile:not(.viewport-mobile-landscape)
+  .bid-panel-mobile-inline.bid-panel-mobile--compact41
+  .bid-panel-mobile-grid {
+  max-width: 100% !important;
+  margin-left: auto !important;
+  margin-right: 0 !important;
 }
 
 /* Mobile landscape: блок цифр на всю ширину сукна, равный inset L/R. */
