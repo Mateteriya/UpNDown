@@ -4,9 +4,9 @@
  * 4p LS:
  * - dock чата всегда под Югом;
  * - handLen ≤ HAND_DISK_MAX_CARDS → диск справа от руки;
- * - handLen ≥ 6 → мини-бейдж только на панели Юг (левый нижний угол).
+ * - handLen ≥ 6 → мини-бейдж в левом нижнем углу стола (landscape).
  *
- * Портрет: всегда диск справа от руки (мини на Юге нет).
+ * Портрет: диск на нижней границе панели Юг (мини на Юге нет).
  *
  * 3p LS:
  * - диск всегда (мини на Юге нет);
@@ -63,7 +63,8 @@ export function mobileLsEastHeaderUsesOverflow(colW: number): boolean {
 }
 
 export type MobileLsChatAffordanceMode = 'hand-disk' | 'south-mini';
-export type MobileLsHandDiskHome = 'hand' | 'east-header';
+export type MobileLsHandDiskHome = 'hand' | 'east-header' | 'south-panel';
+export type MobileLsSouthMiniAnchor = 'south-panel' | 'table-corner';
 
 /** 4p landscape: диск ≤5 / мини ≥6. */
 export function mobileLsChatAffordanceMode(handLen: number): MobileLsChatAffordanceMode {
@@ -94,6 +95,11 @@ export function mobileLsHandDiskHome(input: {
 /** Портрет: диск всегда (мини на Юге только 4p landscape). */
 export function mobilePortraitChatAffordanceMode(_handLen: number): MobileLsChatAffordanceMode {
   return 'hand-disk';
+}
+
+/** Портрет: диск на нижней границе панели Юг (не у руки). */
+export function mobilePortraitHandDiskHome(): MobileLsHandDiskHome {
+  return 'south-panel';
 }
 
 /** Узкий phone LS: after-short или short-VH — компактный east-chat. */

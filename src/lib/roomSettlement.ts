@@ -19,6 +19,12 @@ export interface CreateRoomOptions {
 
 export const DEFAULT_CASUAL_SETTLEMENT: SettlementMode = 'accuracy_bonus';
 
+/** 3 только при явном значении 3 (число или строка); иначе 4. */
+export function parseMaxPlayers(value: unknown): PlayerCount {
+  if (value === 3 || value === '3') return 3;
+  return 4;
+}
+
 export function normalizeCreateRoomOptions(opts?: CreateRoomOptions): {
   settlementMode: SettlementMode;
   buyIn: number | null;
@@ -27,7 +33,7 @@ export function normalizeCreateRoomOptions(opts?: CreateRoomOptions): {
 } {
   const settlementMode = opts?.settlementMode ?? DEFAULT_CASUAL_SETTLEMENT;
   const roomKind = opts?.roomKind ?? 'private';
-  const maxPlayers: PlayerCount = opts?.maxPlayers === 3 ? 3 : 4;
+  const maxPlayers = parseMaxPlayers(opts?.maxPlayers);
   if (settlementMode === 'prize_pool') {
     return {
       settlementMode,

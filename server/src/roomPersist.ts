@@ -1,16 +1,28 @@
 /**
  * Простой снимок комнат на диск — переживает рестарт процесса.
  * Не БД: один JSON, debounce, prune finished / stale waiting / idle playing.
+ * Авто-ротация копий в подпапке backups/ — техдиру не нужен ручной cron.
  */
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import {
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+  existsSync,
+  readdirSync,
+  unlinkSync,
+  copyFileSync,
+} from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { GameRoomRow } from './protocol.js';
 import type { RoomStore } from './rooms.js';
 
 const PERSIST_VERSION = 1;
 const DEFAULT_DEBOUNCE_MS = 500;
+const DEFAULT_BACKUP_EVERY_MS = 10 * 60 * 1000;
+const DEFAULT_BACKUP_KEEP = 24;
 
 /** Finished: 2ч (раньше 24ч — копились в JSON и мешали). */
 export const FINISHED_MAX_AGE_MS = 2 * 60 * 60 * 1000;
@@ -43,10 +55,26 @@ export function isRoomPersistEnabled(): boolean {
   return v !== '0' && v !== 'false' && v !== 'off' && v !== 'no';
 }
 
+function readBackupKeep(): number {
+  const raw = Number(process.env.ROOM_BACKUP_KEEP ?? '');
+  if (Number.isFinite(raw) && raw >= 0) return Math.floor(raw);
+  return DEFAULT_BACKUP_KEEP;
+}
+
+function readBackupEveryMs(): number {
+  const raw = Number(process.env.ROOM_BACKUP_EVERY_MS ?? '');
+  if (Number.isFinite(raw) && raw >= 60_000) return Math.floor(raw);
+  return DEFAULT_BACKUP_EVERY_MS;
+}
+
 export class RoomPersist {
   private timer: ReturnType<typeof setTimeout> | null = null;
+  private backupTimer: ReturnType<typeof setInterval> | null = null;
   private readonly path: string;
   private readonly debounceMs: number;
+  private readonly backupKeep: number;
+  private readonly backupEveryMs: number;
+  private lastBackupFingerprint = '';
 
   constructor(
     private readonly store: RoomStore,
@@ -54,10 +82,16 @@ export class RoomPersist {
   ) {
     this.path = opts?.path ?? resolveRoomPersistPath();
     this.debounceMs = opts?.debounceMs ?? DEFAULT_DEBOUNCE_MS;
+    this.backupKeep = readBackupKeep();
+    this.backupEveryMs = readBackupEveryMs();
   }
 
   get filePath(): string {
     return this.path;
+  }
+
+  private backupDir(): string {
+    return join(dirname(this.path), 'backups');
   }
 
   private runPrune(label: string): number {
@@ -120,10 +154,61 @@ export class RoomPersist {
     }
   }
 
+  /** Копия актуального снимка в backups/; без изменений файла — no-op. */
+  rotateBackup(label = 'interval'): void {
+    if (this.backupKeep <= 0) return;
+    if (!existsSync(this.path)) return;
+    try {
+      const raw = readFileSync(this.path, 'utf8');
+      const fingerprint = `${raw.length}:${raw.slice(0, 64)}:${raw.slice(-64)}`;
+      if (fingerprint === this.lastBackupFingerprint && label === 'interval') return;
+      const dir = this.backupDir();
+      mkdirSync(dir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const dest = join(dir, `rooms-${stamp}.json`);
+      copyFileSync(this.path, dest);
+      this.lastBackupFingerprint = fingerprint;
+      this.pruneBackupFiles(dir);
+      console.log(`[room-persist] backup ${label}: ${dest}`);
+    } catch (e) {
+      console.warn('[room-persist] backup failed:', e instanceof Error ? e.message : e);
+    }
+  }
+
+  private pruneBackupFiles(dir: string): void {
+    let files: string[];
+    try {
+      files = readdirSync(dir)
+        .filter((f) => f.startsWith('rooms-') && f.endsWith('.json'))
+        .sort();
+    } catch {
+      return;
+    }
+    const excess = files.length - this.backupKeep;
+    if (excess <= 0) return;
+    for (let i = 0; i < excess; i++) {
+      try {
+        unlinkSync(join(dir, files[i]!));
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   startPruneInterval(everyMs = DEFAULT_PRUNE_EVERY_MS): void {
     setInterval(() => {
       const n = this.runPrune('interval prune');
       if (n > 0) this.flushSync();
     }, everyMs).unref?.();
+  }
+
+  startBackupInterval(): void {
+    if (this.backupKeep <= 0) return;
+    this.rotateBackup('startup');
+    this.backupTimer = setInterval(() => this.rotateBackup('interval'), this.backupEveryMs);
+    this.backupTimer.unref?.();
+    console.log(
+      `[room-persist] auto-backup every ${Math.round(this.backupEveryMs / 60000)}m, keep ${this.backupKeep} → ${this.backupDir()}`,
+    );
   }
 }

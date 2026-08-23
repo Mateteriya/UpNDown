@@ -33,6 +33,7 @@ import {
   transferHostRoom,
   hostResolveAbsent,
   normalizeRoomPhase,
+  dedupePlayerSlotsByUserId,
   type PlayerSlot,
   type GameRoomRow,
   type GameRoomPhase,
@@ -331,7 +332,16 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const roomResyncAggressiveLockRef = useRef(false);
   /** Последняя номер раздачи, для доборного heal при переходе 1→2… без ручного VPN. */
   const prevHealDealNumberRef = useRef<number | null>(null);
-  
+  /** Realtime: один userId в двух слотах — пишем обратно родной ИИ (после F5/join). */
+  const pendingSlotDedupeHealRef = useRef<PlayerSlot[] | null>(null);
+  const ingestRoomSlots = (raw: PlayerSlot[]): PlayerSlot[] => {
+    const next = dedupePlayerSlotsByUserId(raw);
+    if (!playerSlotsJsonEqual(raw, next)) {
+      pendingSlotDedupeHealRef.current = next;
+    }
+    return next;
+  };
+
   // Порядок слотов ВЕЗДЕ один и тот же: 0=Юг, 1=Север, 2=Запад, 3=Восток. Не вращаем — только «я» = myServerIndex.
   /** Без useMemo каждый ререндер провайдера (опрос слотов, heartbeat) создавал новый объект → стол и карты взятки перерисовывались и «мигали». */
   const displayState = useMemo(
@@ -429,7 +439,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       setRoomId(room.id);
       setCode(room.code);
-      const nextSlotsApply = (room.player_slots || []) as PlayerSlot[];
+      const nextSlotsApply = ingestRoomSlots((room.player_slots || []) as PlayerSlot[]);
       setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsApply) ? prev : nextSlotsApply));
       syncRoomRowMeta(room);
       // playing без game_state в payload бывает при гонках Realtime/опроса — нельзя сбрасывать статус в waiting (гость «висит» на лобби при старте).
@@ -465,7 +475,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         r2 === lastRev &&
         gameStateJsonEqual(canonicalStateRef.current, incoming)
       ) {
-        const nextSlotsEq = (room.player_slots || []) as PlayerSlot[];
+        const nextSlotsEq = ingestRoomSlots((room.player_slots || []) as PlayerSlot[]);
         setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsEq) ? prev : nextSlotsEq));
         const patched = patchGameStateNamesFromSlots(incoming, nextSlotsEq);
         if (patched !== incoming) {
@@ -501,7 +511,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         canonicalStateRef.current != null &&
         gameStateJsonEqual(canonicalStateRef.current, incoming)
       ) {
-        const nextSlotsEq = (room.player_slots || []) as PlayerSlot[];
+        const nextSlotsEq = ingestRoomSlots((room.player_slots || []) as PlayerSlot[]);
         setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsEq) ? prev : nextSlotsEq));
         if (r2 !== undefined) {
           lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r2);
@@ -544,7 +554,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       setRoomId(room.id);
       setCode(room.code);
-      const nextSlotsM = (room.player_slots || []) as PlayerSlot[];
+      const nextSlotsM = ingestRoomSlots((room.player_slots || []) as PlayerSlot[]);
       setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsM) ? prev : nextSlotsM));
       syncRoomRowMeta(room);
       // Сервер уже playing — UI не должен оставаться в лобби «ждём хоста», даже если JSON стола ещё не пришёл в этом payload.
@@ -621,7 +631,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         if (k !== appliedRowMetaKeyRef.current) {
           setRoomId(room.id);
           setCode(room.code);
-          const nextSlotsS = (room.player_slots || []) as PlayerSlot[];
+          const nextSlotsS = ingestRoomSlots((room.player_slots || []) as PlayerSlot[]);
           setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsS) ? prev : nextSlotsS));
           syncRoomRowMeta(room);
           appliedRowMetaKeyRef.current = k;
@@ -684,6 +694,21 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (!room?.id || room.id !== rid || roomIdRef.current !== rid) return;
     applyRoomSnapshot(room);
   }, [roomId, applyRoomSnapshot]);
+
+  const slotDedupeHealSigRef = useRef('');
+  useEffect(() => {
+    if (!roomId || (status !== 'playing' && status !== 'waiting')) return;
+    const heal = pendingSlotDedupeHealRef.current;
+    if (!heal) return;
+    const sig = `${roomId}:${heal.map((s) => `${s.slotIndex}:${s.userId ?? ''}`).join('|')}`;
+    if (slotDedupeHealSigRef.current === sig) {
+      pendingSlotDedupeHealRef.current = null;
+      return;
+    }
+    slotDedupeHealSigRef.current = sig;
+    pendingSlotDedupeHealRef.current = null;
+    void updateRoomPlayerSlots(roomId, heal, onlinePlayerId);
+  }, [roomId, status, playerSlots, onlinePlayerId]);
 
   /** Тяжее опросного getRoomForSyncPoll: несколько попыток/таймаут — разруливает «залипшие» без переключения VPN. Одновременный один полёт. */
   const runHardRoomRefresh = useCallback(async () => {
@@ -1384,7 +1409,8 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
           fullSlots.push({ slotIndex: i, displayName: AI_NAMES[i], userId: null });
         }
       }
-      const names = fullSlots.map((slot) => slot.displayName) as
+      const uniqueSlots = dedupePlayerSlotsByUserId(fullSlots);
+      const names = uniqueSlots.map((slot) => slot.displayName) as
         | [string, string, string]
         | [string, string, string, string];
       let state = createGameOnline(names);
@@ -1395,13 +1421,13 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       };
       state = startDeal(state);
       canonicalStateRef.current = state;
-      setPlayerSlots(fullSlots);
+      setPlayerSlots(uniqueSlots);
       setCanonicalState(state);
       setStatus('playing');
 
       const exp =
         lastAppliedGameStateRevisionRef.current >= 0 ? lastAppliedGameStateRevisionRef.current : undefined;
-      const { error: err, room, conflict } = await updateRoomState(roomId, state, fullSlots, {
+      const { error: err, room, conflict } = await updateRoomState(roomId, state, uniqueSlots, {
         expectedRevision: exp,
         roomPhase: 'playing',
         hostLastSeenAtNow: true,
@@ -1581,6 +1607,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         const name = prof.displayName?.trim() || 'Игрок';
         const shortLabel = user?.email ? user.email.replace(/@.*$/, '').slice(-8) : undefined;
         const avatarDataUrl = prof.avatarDataUrl ?? undefined;
+        /** Playing больше не сажает в слот ИИ (joinRoom). Waiting — обычный повторный вход. */
         const jr = await apiJoinRoom(last.code, onlinePlayerId, name, shortLabel, avatarDataUrl);
         if (!('error' in jr)) {
           applyRoomData(jr.room);

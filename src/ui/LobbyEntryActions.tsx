@@ -282,22 +282,35 @@ export function LobbyCreatePanel({
   return (
     <div className="lobby-create-panel" role="region" aria-label="Настройки новой комнаты">
       <p className="lobby-create-panel__lead">Параметры комнаты перед запуском</p>
-      <div className="lobby-cosmo-toggle__text" role="group" aria-label="Число игроков">
-        <span className="lobby-cosmo-toggle__title">Игроков за столом</span>
-        <span style={{ display: 'inline-flex', gap: 8, marginTop: 6 }}>
-          {[3, 4].map((count) => (
-            <button
-              key={count}
-              type="button"
-              className="lobby-capsule lobby-capsule--ghost lobby-capsule--compact"
-              aria-pressed={maxPlayers === count}
-              onClick={() => onMaxPlayersChange(count as 3 | 4)}
-            >
-              <span className="lobby-capsule__body">
-                <span className="lobby-capsule__title">{count}</span>
-              </span>
-            </button>
-          ))}
+      <div className="lobby-seat-picker" role="radiogroup" aria-label="Число игроков">
+        <span className="lobby-seat-picker__title">Игроков за столом</span>
+        <div className="lobby-seat-picker__row">
+          {([3, 4] as const).map((count) => {
+            const active = maxPlayers === count;
+            return (
+              <button
+                key={count}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                className={[
+                  'lobby-seat-picker__btn',
+                  active ? 'lobby-seat-picker__btn--active' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMaxPlayersChange(count);
+                }}
+              >
+                {count}
+              </button>
+            );
+          })}
+        </div>
+        <span className="lobby-seat-picker__hint">
+          {maxPlayers === 3 ? 'Стол на 3 игрока' : 'Стол на 4 игрока'}
         </span>
       </div>
       <label className="lobby-cosmo-toggle">

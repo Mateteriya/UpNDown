@@ -25,6 +25,7 @@ import {
   MENU_IDENTITY_STATUS_ARIA,
 } from '../lib/menuIdentityStatus';
 import { OfflineReadyOrb } from './OfflineReadyOrb';
+import { MenuGlassLadder } from './MenuGlassLadder';
 
 const PC_MENU_MQ = '(min-width: 1025px)';
 /** Редкий автосвайп каста, пока сидят на главной. */
@@ -754,6 +755,12 @@ export function MainMenuScreen({
             {onlineResumeMessage}
           </p>
         ) : null}
+
+        <MenuGlassLadder
+          signedIn={signedIn}
+          youName={displayName}
+          onOpenRating={onOpenRating}
+        />
 
         <div className="menu-screen__sections menu-screen__constellation">
           <MenuSection sectionId="play" glyphsOnly={playGlyphsOnly}>

@@ -1,5 +1,7 @@
 # Инструкция для технического директора: игровой WebSocket-сервер Up&Down
 
+> **Архив.** Не использовать как инструкцию деплоя. Актуальный portable-прод: [PRODUCTION-WS.md](./PRODUCTION-WS.md). Overlay `starkey`: [TECH-DIRECTOR-STARKEY-HANDOFF.md](./TECH-DIRECTOR-STARKEY-HANDOFF.md).
+
 **Только для техдиректора.** Поднятие **альфа-VPS** для тестов нового server-authoritative сервера (протокол **v2**).  
 **Не прод:** Vercel Production на `main` пока на Supabase; фронт v2 тестирует владелец отдельно ([LAN-SERVER-V2-WORKFLOW.md](./LAN-SERVER-V2-WORKFLOW.md)).
 

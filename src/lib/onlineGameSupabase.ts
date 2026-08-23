@@ -9,6 +9,10 @@ import type { GameState, DealResult } from '../game/GameEngine';
 import type { PlayerCount } from '../game/GameEngine';
 import { getTakenFromDealPoints } from '../game/scoring';
 import { computePartySettlement, type SettlementMode } from '../game/partySettlement';
+import {
+  buildFinishMatchPlayers,
+  dealResultsToFinishRpcPayload,
+} from '../game/finishMatchPayload';
 import { readResultsChipView } from '../game/resultsChipView';
 import {
   normalizeCreateRoomOptions,
@@ -72,6 +76,46 @@ export function hostMayAutoDriveOnlineAiForSeat(
 
 /** Фаза комнаты (миграция game_rooms.room_phase). */
 export type GameRoomPhase = 'lobby' | 'playing' | 'waiting_host_action' | 'waiting_return' | 'finished';
+
+export type JoinWhilePlayingDecision =
+  | { action: 'reclaim'; slotIndex: number }
+  | { action: 'already'; slotIndex: number }
+  | { action: 'reject'; error: string };
+
+/**
+ * Вход в уже идущую партию: только своё место или возврат с паузы.
+ * Занять пустой слот ИИ нельзя — F5/restore на Realtime так двоил аккаунт (Юг + Запад).
+ */
+export function decideJoinWhilePlaying(slots: PlayerSlot[], userId: string): JoinWhilePlayingDecision {
+  const uid = userId.trim();
+  if (!uid) return { action: 'reject', error: 'Нужен вход в аккаунт.' };
+  const reclaim = slots.find((s) => s.replacedUserId === uid);
+  if (reclaim != null) return { action: 'reclaim', slotIndex: reclaim.slotIndex };
+  const already = slots.find((s) => s.userId != null && s.userId === uid);
+  if (already) return { action: 'already', slotIndex: already.slotIndex };
+  return {
+    action: 'reject',
+    error:
+      'Партия уже идёт. Если вас выкинуло — обновите стол ещё раз. Сесть вместо ИИ в начатой партии нельзя.',
+  };
+}
+
+/** Один userId в двух слотах: оставляем меньший slotIndex, остальные — родной ИИ. */
+export function dedupePlayerSlotsByUserId(slots: PlayerSlot[]): PlayerSlot[] {
+  const seen = new Set<string>();
+  const replacement = new Map<number, PlayerSlot>();
+  const ordered = [...slots].sort((a, b) => a.slotIndex - b.slotIndex);
+  for (const s of ordered) {
+    const uid = (s.userId ?? '').trim();
+    if (uid && seen.has(uid)) {
+      replacement.set(s.slotIndex, vacantAiPlayerSlot(s.slotIndex));
+    } else if (uid) {
+      seen.add(uid);
+    }
+  }
+  if (replacement.size === 0) return slots;
+  return slots.map((s) => replacement.get(s.slotIndex) ?? s);
+}
 
 export interface PlayerSlot {
   /** Отсутствует или null = слот ИИ */
@@ -443,6 +487,7 @@ export async function createRoom(
             settlement_mode: normalized.settlementMode,
             buy_in: normalized.buyIn,
             room_kind: normalized.roomKind,
+            max_players: normalized.maxPlayers,
           })
           .select('*')
           .abortSignal(lobbyFastAbortSignal())
@@ -518,7 +563,9 @@ export async function recoverJoinByCode(
     const row = data as GameRoomRow;
     if (row.status === 'finished') return null;
     const slots = (row.player_slots as PlayerSlot[]) || [];
-    const me = slots.find((s) => s.userId != null && s.userId === userId);
+    const me =
+      slots.find((s) => s.userId != null && s.userId === userId) ??
+      slots.find((s) => s.replacedUserId === userId);
     if (!me) return null;
     return { roomId: row.id, mySlotIndex: me.slotIndex, room: row };
   } catch {
@@ -622,59 +669,18 @@ export async function joinRoom(
       return { error: 'Комната уже завершена' };
     }
 
-    // Игра уже идёт: возврат с ручной паузы, повторный вход тем же аккаунтом или место ИИ (свободный слот)
+    // Игра уже идёт: только своё место или возврат с паузы. Слот ИИ не занимаем (F5 иначе двоит игрока).
     if (row.status === 'playing') {
-      const reclaimSlot = slots.find((s) => s.replacedUserId === userId);
-      if (reclaimSlot != null) {
-        const newSlots = slots.map((s) =>
-          s.slotIndex === reclaimSlot.slotIndex
-            ? {
-                ...s,
-                userId,
-                displayName: displayName.slice(0, 17),
-                slotIndex: s.slotIndex,
-                replacedUserId: undefined,
-                replacedDisplayName: undefined,
-                pausedByUser: undefined,
-                ...(shortLabel != null && shortLabel !== '' ? { shortLabel: shortLabel.slice(0, 12) } : {}),
-                ...(av != null && av !== '' ? { avatarDataUrl: av } : {}),
-              }
-            : s
-        );
-        const { data: updated, error: updateError } = await supabase
-          .from(TABLE)
-          .update({ player_slots: newSlots })
-          .eq('id', row.id)
-          .eq('updated_at', stamp)
-          .select('*')
-          .abortSignal(lobbyFastAbortSignal())
-          .maybeSingle();
-        if (updateError || !updated) {
-          await sleep(joinBackoffMs(attempt));
-          continue;
-        }
-        return { roomId: row.id, mySlotIndex: reclaimSlot.slotIndex, room: updated as GameRoomRow };
+      const decision = decideJoinWhilePlaying(slots, userId);
+      if (decision.action === 'reject') {
+        return { error: decision.error };
       }
-
-      const already = slots.find((s) => s.userId != null && s.userId === userId);
-      if (already) {
-        return { roomId: row.id, mySlotIndex: already.slotIndex, room: row };
-      }
-
-      const free = slots.find(
-        (s) =>
-          (s.userId == null || s.userId === '') &&
-          (s.replacedUserId == null || s.replacedUserId === undefined),
-      );
-      if (!free) {
-        return {
-          error:
-            'Игра уже идёт и все четыре места заняты. Дождитесь окончания раздачи или создайте новую комнату.',
-        };
+      if (decision.action === 'already') {
+        return { roomId: row.id, mySlotIndex: decision.slotIndex, room: row };
       }
 
       const newSlots = slots.map((s) =>
-        s.slotIndex === free.slotIndex
+        s.slotIndex === decision.slotIndex
           ? {
               ...s,
               userId,
@@ -694,13 +700,13 @@ export async function joinRoom(
         .eq('id', row.id)
         .eq('updated_at', stamp)
         .select('*')
-        .abortSignal(lobbyRestAbortSignal())
+        .abortSignal(lobbyFastAbortSignal())
         .maybeSingle();
       if (updateError || !updated) {
         await sleep(joinBackoffMs(attempt));
         continue;
       }
-      return { roomId: row.id, mySlotIndex: free.slotIndex, room: updated as GameRoomRow };
+      return { roomId: row.id, mySlotIndex: decision.slotIndex, room: updated as GameRoomRow };
     }
 
     // Лобби (waiting): идемпотентный вход + оптимистичная блокировка по updated_at (не теряем игроков при одновременном join)
@@ -912,22 +918,8 @@ export interface MatchPlayerInsert {
   place: number | null;
 }
 
-export type FinishGameDealHistoryEntry = {
-  dealNumber: number;
-  bids: number[];
-  points: number[];
-  takens?: number[];
-};
-
-/** Сериализация раздач для RPC finish_game / record_offline_match. */
-export function dealResultsToFinishRpcPayload(bh: readonly DealResult[]): FinishGameDealHistoryEntry[] {
-  return bh.map((d) => ({
-    dealNumber: d.dealNumber,
-    bids: d.bids,
-    points: d.points,
-    ...(d.takens ? { takens: d.takens } : {}),
-  }));
-}
+export type { FinishGameDealHistoryEntry } from '../game/finishMatchPayload';
+export { dealResultsToFinishRpcPayload } from '../game/finishMatchPayload';
 
 export async function finishMatch(
   roomId: string,
@@ -940,59 +932,9 @@ export async function finishMatch(
   },
 ): Promise<{ ok: boolean; error?: string; matchId?: string }> {
   if (!supabase) return { ok: false, error: 'Supabase не настроен' };
-  const players = snapshot.players;
   const dealsCount = snapshot.dealNumber;
   const bh = opts?.dealHistory ?? snapshot.dealHistory ?? [];
-  const calcAcc = (pi: number) => {
-    if (!bh.length) return null;
-    let met = 0;
-    for (const d of bh) {
-      const bid = d.bids[pi];
-      const pts = d.points[pi];
-      if (bid == null) continue;
-      const taken =
-        d.takens?.[pi] != null
-          ? d.takens[pi]!
-          : Math.max(0, Math.round((pts + Math.abs(pts)) / 20));
-      if (bid === taken) met++;
-    }
-    return Math.round((met / bh.length) * 100);
-  };
-  const order = players.map((p, i) => ({ i, s: p.score })).sort((a, b) => b.s - a.s);
-  const placeByIndex: Record<number, number> = {};
-  let prevScore: number | null = null;
-  let prevPlace = 0;
-  order.forEach((row, idx) => {
-    const score = row.s;
-    const place = prevScore === null ? 1 : score === prevScore ? prevPlace : idx + 1;
-    placeByIndex[row.i] = place;
-    prevScore = score;
-    prevPlace = place;
-  });
-  const payload = players.map((p, i) => {
-    const slot = playerSlots.find((s) => s.slotIndex === i) as PlayerSlot | undefined;
-    const userId = slot?.userId ?? null;
-    const isAi = !userId;
-    const interrupted = !!slot?.replacedUserId;
-    const isRated = !interrupted;
-    const acc = calcAcc(i);
-    return {
-      slot_index: i,
-      user_id: userId,
-      display_name: (() => {
-        const fromSlot = slot?.displayName?.trim() || slot?.shortLabel?.trim() || '';
-        const fromPlayer = (p.name || '').trim();
-        return (fromSlot || fromPlayer || 'Игрок').slice(0, 80);
-      })(),
-      is_ai: isAi,
-      final_score: p.score,
-      bid_accuracy: acc,
-      interrupted,
-      is_rated: isRated,
-      replaced_user_id: slot?.replacedUserId ?? null,
-      place: placeByIndex[i] ?? null,
-    };
-  });
+  const payload = buildFinishMatchPlayers(snapshot, playerSlots, bh);
   const dealHistoryPayload = dealResultsToFinishRpcPayload(bh);
   const rpc = await supabase.rpc('finish_game', {
     p_room_id: roomId,
@@ -1473,41 +1415,44 @@ export interface LeaderboardResult {
   me: (LeaderboardRow & { rank: number | null }) | null;
 }
 
-export async function getLeaderboard(limit = 50): Promise<LeaderboardResult> {
-  if (!supabase) {
-    return { ok: false, error: 'Supabase не настроен', ladder_kind: 'open', season_id: '', rows: [], me: null };
+function asLeaderboardRows(raw: unknown): LeaderboardRow[] {
+  let value: unknown = raw;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value) as unknown;
+    } catch {
+      return [];
+    }
   }
-  const { data, error } = await supabase.rpc('updown_get_leaderboard', {
-    p_limit: limit,
-    p_ladder: 'open',
-    p_season: '',
-  });
-  if (error) {
-    return { ok: false, error: error.message, ladder_kind: 'open', season_id: '', rows: [], me: null };
-  }
+  return Array.isArray(value) ? (value as LeaderboardRow[]) : [];
+}
+
+function parseLeaderboardPayload(data: unknown, rpcError?: string): LeaderboardResult {
+  const empty: LeaderboardResult = {
+    ok: false,
+    error: rpcError ?? 'leaderboard_failed',
+    ladder_kind: 'open',
+    season_id: '',
+    rows: [],
+    me: null,
+  };
+  if (!data || typeof data !== 'object') return empty;
   const row = data as {
     ok?: boolean;
     error?: string;
     ladder_kind?: string;
     season_id?: string;
-    rows?: LeaderboardRow[];
+    rows?: unknown;
     me?: LeaderboardRow & { rank?: number | null };
-  } | null;
-  if (!row?.ok) {
-    return {
-      ok: false,
-      error: row?.error ?? 'leaderboard_failed',
-      ladder_kind: 'open',
-      season_id: '',
-      rows: [],
-      me: null,
-    };
+  };
+  if (!row.ok) {
+    return { ...empty, error: row.error ?? empty.error };
   }
   return {
     ok: true,
     ladder_kind: row.ladder_kind ?? 'open',
     season_id: row.season_id ?? '',
-    rows: Array.isArray(row.rows) ? row.rows : [],
+    rows: asLeaderboardRows(row.rows),
     me: row.me
       ? {
           rank: row.me.rank ?? null,
@@ -1519,6 +1464,71 @@ export async function getLeaderboard(limit = 50): Promise<LeaderboardResult> {
         }
       : null,
   };
+}
+
+/** Битый JWT на сессии роняет RPC — тот же вызов с anon-ключом отдаёт публичный топ. */
+async function fetchLeaderboardAnon(limit: number): Promise<LeaderboardResult> {
+  if (!supabase) {
+    return parseLeaderboardPayload(null, 'Supabase не настроен');
+  }
+  const url = supabase.supabaseUrl;
+  const key = supabase.supabaseKey;
+  try {
+    const res = await fetch(`${url}/rest/v1/rpc/updown_get_leaderboard`, {
+      method: 'POST',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_limit: limit, p_ladder: 'open', p_season: '' }),
+    });
+    const json: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      const msg =
+        json && typeof json === 'object' && 'message' in json
+          ? String((json as { message?: unknown }).message ?? res.status)
+          : `HTTP ${res.status}`;
+      return parseLeaderboardPayload(null, msg);
+    }
+    return parseLeaderboardPayload(json);
+  } catch (e) {
+    return parseLeaderboardPayload(null, e instanceof Error ? e.message : 'leaderboard_failed');
+  }
+}
+
+let lastGoodLeaderboardRows: LeaderboardRow[] = [];
+
+export async function getLeaderboard(limit = 50): Promise<LeaderboardResult> {
+  if (!supabase) {
+    return parseLeaderboardPayload(null, 'Supabase не настроен');
+  }
+  const { data, error } = await supabase.rpc('updown_get_leaderboard', {
+    p_limit: limit,
+    p_ladder: 'open',
+    p_season: '',
+  });
+  let result = parseLeaderboardPayload(data, error?.message);
+  if (!result.ok || result.rows.length === 0) {
+    const anon = await fetchLeaderboardAnon(limit);
+    if (anon.ok && anon.rows.length > 0) {
+      result = { ...anon, me: result.me ?? anon.me };
+    }
+  }
+  if (result.ok && result.rows.length > 0) {
+    lastGoodLeaderboardRows = result.rows;
+    return result;
+  }
+  if (lastGoodLeaderboardRows.length > 0) {
+    return {
+      ok: true,
+      ladder_kind: result.ladder_kind,
+      season_id: result.season_id,
+      rows: lastGoodLeaderboardRows,
+      me: result.me,
+    };
+  }
+  return result;
 }
 
 export async function getMyRatingSummary(userId: string): Promise<RatingSummary | null> {

@@ -49,8 +49,10 @@ async function waitReady() {
     try {
       const r = await fetch(`http://127.0.0.1:${port}/api/version`, { cache: 'no-store' });
       const j = await r.json();
-      // Любая актуальная сборка host-panel-* + новая панель (не старый туннель-UI)
-      if (typeof j.build === 'string' && j.build.startsWith('host-panel-') && j.panelSnippet === 'lan-ui') {
+      const build = typeof j.build === 'string' ? j.build : '';
+      const lanPanel =
+        j.panelSnippet === 'lan-ui' || j.hostPanel === true || j.profile === 'lan';
+      if (build.startsWith('host-panel-') && lanPanel) {
         return true;
       }
     } catch {

@@ -35,6 +35,14 @@ export interface GameRoomRow {
   room_kind?: string | null;
   /** Число мест за столом. Старые комнаты без поля считаются 4-местными. */
   max_players?: 3 | 4;
+  /** Id матча в Supabase после server-side finish. */
+  match_id?: string | null;
+}
+
+/** 3 только при явном значении 3 (число или строка); иначе 4. */
+export function parseMaxPlayers(value: unknown): 3 | 4 {
+  if (value === 3 || value === '3') return 3;
+  return 4;
 }
 
 export interface ClientMessage {
@@ -64,6 +72,8 @@ export interface ClientMessage {
   hostId?: string;
   newHostUserId?: string;
   choice?: 'finish' | 'wait' | 'replace_ai';
+  /** Bearer access_token Supabase (сообщение type=auth). */
+  accessToken?: string;
   /** Чат */
   body?: string;
   limit?: number;
@@ -74,6 +84,8 @@ export interface ServerMessage {
   requestId?: string;
   ok?: boolean;
   error?: string;
+  /** hello: сервер требует JWT (WS_AUTH=required). */
+  authRequired?: boolean;
   room?: GameRoomRow;
   roomId?: string;
   mySlotIndex?: number;
@@ -102,4 +114,6 @@ export interface ServerMessage {
   }>;
   user_id?: string;
   display_name?: string;
+  matchId?: string;
+  skipped?: boolean;
 }

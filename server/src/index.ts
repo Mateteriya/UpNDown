@@ -4,12 +4,12 @@
  * Слушает 0.0.0.0 — телефоны в Wi‑Fi подключаются к ws://IP_ПК:3001
  */
 
+import './loadLanEnv.js';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { HostAutomation } from './hostAutomation.js';
 import { tryServeGameStatic, isGameDistAvailable } from './gameStatic.js';
 import { tryServeJoinQr } from './qrHttp.js';
-import { readFileSync } from 'node:fs';
 import { SERVER_HTTP_BUILD, serveHostPanel, hostHtmlPath } from './hostPanelHtml.js';
 import { buildNetworkStatus, handleNetworkApi } from './networkHttp.js';
 import { parseLanBackupPorts } from './lanPorts.js';
@@ -24,15 +24,83 @@ import {
 } from './roomPersist.js';
 import { RoomChatStore } from './roomChat.js';
 import { TunnelManager } from './tunnelManager.js';
-import type { ClientMessage, GameRoomRow, ServerMessage } from './protocol.js';
+import { parseMaxPlayers, type ClientMessage, type GameRoomRow, type ServerMessage } from './protocol.js';
 import { GameSessionManager } from './v2/GameSessionManager.js';
 import { handleV2GameMessage, isV2GameCommand } from './v2/handlers.js';
 import type { GameStatePush } from './v2/protocol.js';
+import {
+  bindPlayerId,
+  isJwtConfigured,
+  readWsAuthMode,
+  verifySupabaseAccessToken,
+  wsAuthBootError,
+  type WsSocketAuth,
+} from './wsAuth.js';
+import {
+  WS_MAX_PAYLOAD_BYTES,
+  clientIpFromUpgrade,
+  readTrustProxy,
+  readWsLimitConfig,
+  WsRateLimiter,
+} from './wsLimits.js';
+import { isProdProfile } from './prodMode.js';
+import { canAccessRoom } from './roomAccess.js';
+import { lobbyRoomPublic, projectGameState, projectRoomForViewer, viewerSeatIndex } from './stateView.js';
+import { finishGameFromServer, supabaseAuthReachable, supabaseFinishConfigured } from './matchFinish.js';
+import { localReadyStatus } from './readyCheck.js';
+import type { GameState } from '../../src/game/GameEngine.js';
 
 const GAME_APP_PORT = Number(process.env.GAME_APP_PORT ?? 5173);
 
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';
+const WS_AUTH_MODE = readWsAuthMode();
+const PROD = isProdProfile();
+const TRUST_PROXY = readTrustProxy();
+const wsLimits = new WsRateLimiter(readWsLimitConfig());
+
+const bootErr = wsAuthBootError(WS_AUTH_MODE);
+if (bootErr) {
+  console.error(bootErr);
+  process.exit(1);
+}
+
+type WsConn = WebSocket & {
+  subscribedRooms?: Set<string>;
+  updownIp?: string;
+  updownAuth?: WsSocketAuth;
+};
+
+function connAuth(ws: WebSocket): WsSocketAuth {
+  const c = ws as WsConn;
+  if (!c.updownAuth) c.updownAuth = { userId: null, authed: false };
+  return c.updownAuth;
+}
+
+function connIp(ws: WebSocket): string {
+  return (ws as WsConn).updownIp ?? '';
+}
+
+/** Типы, где playerId должен совпасть с JWT (или разрешён guest в optional). */
+const PLAYER_BOUND_TYPES = new Set([
+  'create_room',
+  'join_room',
+  'recover_join',
+  'leave_room',
+  'chat_post',
+  'chat_typing',
+  'update_slots',
+  'update_display_name',
+  'update_state',
+  'start_game',
+  'place_bid',
+  'play_card',
+  'take_pause',
+  'return_from_pause',
+  'host_return_slot',
+  'transfer_host',
+  'host_resolve_absent',
+]);
 
 const store = new RoomStore();
 const chatStore = new RoomChatStore();
@@ -43,6 +111,7 @@ if (roomPersist) {
   const loaded = roomPersist.load();
   store.setOnMutate(() => roomPersist.schedule());
   roomPersist.startPruneInterval();
+  roomPersist.startBackupInterval();
   if (loaded > 0) {
     console.log(`[updown-server] Восстановлено комнат с диска: ${loaded} (${roomPersist.filePath})`);
   } else {
@@ -52,15 +121,102 @@ if (roomPersist) {
   console.log('[updown-server] Persistence комнат выключен (ROOM_PERSIST=0)');
 }
 
+console.log(
+  `[updown-server] WS_AUTH=${WS_AUTH_MODE}` +
+    (isJwtConfigured() ? ' (JWT secret ok)' : ' (SUPABASE_JWT_SECRET не задан)'),
+);
+console.log(
+  `[updown-server] Запись матча/Elo: ${supabaseFinishConfigured() ? 'да (service role)' : 'нет (добавьте SUPABASE_SERVICE_ROLE_KEY в .env.local)'}`,
+);
+console.log(
+  `[updown-server] Limits: rooms≤${wsLimits.config.maxRooms} sockets≤${wsLimits.config.maxSockets} create/min≤${wsLimits.config.createPerMin}`,
+);
+console.log(
+  `[updown-server] profile=${PROD ? 'production' : 'lan'} trustProxy=${TRUST_PROXY} maxPayload=${WS_MAX_PAYLOAD_BYTES}`,
+);
+
+function viewerUserId(ws: WebSocket): string | null {
+  const a = connAuth(ws);
+  return a.authed && a.userId ? a.userId : null;
+}
+
+function shouldStripUnknownHands(userId: string | null): boolean {
+  return WS_AUTH_MODE === 'required' || !!userId;
+}
+
+function sendProjectedPush(ws: WebSocket, push: GameStatePush, room: GameRoomRow | null): void {
+  if (!room || !push.state || typeof push.state !== 'object') {
+    send(ws, push);
+    return;
+  }
+  const uid = viewerUserId(ws);
+  const strip = shouldStripUnknownHands(uid);
+  const seat = viewerSeatIndex(room, uid);
+  if (seat == null && !strip) {
+    send(ws, push);
+    return;
+  }
+  send(ws, { ...push, state: projectGameState(push.state as GameState, seat) });
+}
+
+function sendRoomTo(ws: WebSocket, room: GameRoomRow, type: 'room_snapshot' | 'room_meta' = 'room_snapshot'): void {
+  const uid = viewerUserId(ws);
+  const projected = projectRoomForViewer(room, uid, {
+    stripUnknownHands: shouldStripUnknownHands(uid),
+  });
+  send(ws, { type, room: projected });
+}
+
 function broadcastGameStateV2(push: GameStatePush): void {
   const subs = roomSubscribers.get(push.roomId);
   if (!subs) return;
+  const room = store.getById(push.roomId);
   for (const client of subs) {
-    send(client, push);
+    sendProjectedPush(client, push, room);
   }
 }
 
-const sessionManager = new GameSessionManager(store, broadcastGameStateV2);
+const finishingRooms = new Set<string>();
+
+function broadcastMatchRecorded(
+  roomId: string,
+  body: { ok: boolean; matchId?: string; skipped?: boolean; error?: string },
+): void {
+  broadcastToRoom(roomId, { type: 'match_recorded', roomId, ...body });
+}
+
+function onGameComplete(room: GameRoomRow, state: GameState): void {
+  if (room.match_id) {
+    broadcastMatchRecorded(room.id, { ok: true, matchId: room.match_id });
+    return;
+  }
+  if (finishingRooms.has(room.id)) return;
+  finishingRooms.add(room.id);
+  void (async () => {
+    try {
+      const result = await finishGameFromServer(store.getById(room.id) ?? room, state);
+      if ('skipped' in result && result.skipped) {
+        broadcastMatchRecorded(room.id, { ok: true, skipped: true });
+        return;
+      }
+      if (result.ok && 'matchId' in result) {
+        store.setMatchId(room.id, result.matchId);
+        broadcastMatchRecorded(room.id, { ok: true, matchId: result.matchId });
+        return;
+      }
+      broadcastMatchRecorded(room.id, { ok: false, error: 'error' in result ? result.error : 'finish_failed' });
+    } catch (e) {
+      broadcastMatchRecorded(room.id, {
+        ok: false,
+        error: e instanceof Error ? e.message : 'finish_failed',
+      });
+    } finally {
+      finishingRooms.delete(room.id);
+    }
+  })();
+}
+
+const sessionManager = new GameSessionManager(store, broadcastGameStateV2, onGameComplete);
 sessionManager.start();
 
 const hostAutomation = new HostAutomation(store, (room) => broadcastRoom(room));
@@ -84,18 +240,16 @@ function send(ws: WebSocket, msg: ServerMessage): void {
 function broadcastRoom(room: GameRoomRow): void {
   const subs = roomSubscribers.get(room.id);
   if (!subs) return;
-  const payload: ServerMessage = { type: 'room_snapshot', room };
   for (const client of subs) {
-    send(client, payload);
+    sendRoomTo(client, room, 'room_snapshot');
   }
 }
 
 function broadcastRoomMeta(room: GameRoomRow): void {
   const subs = roomSubscribers.get(room.id);
   if (!subs) return;
-  const payload: ServerMessage = { type: 'room_meta', room };
   for (const client of subs) {
-    send(client, payload);
+    sendRoomTo(client, room, 'room_meta');
   }
 }
 
@@ -128,14 +282,19 @@ const v2Deps = {
   sessionManager,
   send,
   reply,
-  broadcastGameState: (subs: Set<WebSocket> | undefined, push: GameStatePush) => {
-    if (!subs) return;
-    for (const client of subs) {
-      send(client, push);
-    }
+  broadcastGameState: (_subs: Set<WebSocket> | undefined, push: GameStatePush) => {
+    broadcastGameStateV2(push);
   },
   broadcastRoomMeta,
   getSubscribers: (roomId: string) => roomSubscribers.get(roomId),
+  viewState: (ws: WebSocket, room: GameRoomRow, state: GameStatePush['state']) => {
+    if (!state || typeof state !== 'object') return state;
+    const uid = viewerUserId(ws);
+    const strip = shouldStripUnknownHands(uid);
+    const seat = viewerSeatIndex(room, uid);
+    if (seat == null && !strip) return state;
+    return projectGameState(state as GameState, seat);
+  },
 };
 
 function broadcastToRoom(roomId: string, payload: ServerMessage): void {
@@ -156,6 +315,38 @@ function handleMessage(ws: WebSocket, raw: string): void {
   }
 
   const { requestId } = msg;
+  const ip = connIp(ws);
+
+  if (msg.type !== 'ping' && msg.type !== 'auth' && !wsLimits.allowMessage(ip)) {
+    reply(ws, requestId, { type: 'error', ok: false, error: 'rate_limited' });
+    return;
+  }
+
+  if (msg.type === 'auth') {
+    void (async () => {
+      const token = typeof msg.accessToken === 'string' ? msg.accessToken : '';
+      const verified = await verifySupabaseAccessToken(token);
+      if ('error' in verified) {
+        reply(ws, requestId, { type: 'auth_result', ok: false, error: verified.error });
+        return;
+      }
+      const auth = connAuth(ws);
+      auth.userId = verified.userId;
+      auth.authed = true;
+      reply(ws, requestId, { type: 'auth_result', ok: true });
+    })();
+    return;
+  }
+
+  if (PLAYER_BOUND_TYPES.has(msg.type) || isV2GameCommand(msg.type)) {
+    const bound = bindPlayerId(msg.playerId, connAuth(ws), WS_AUTH_MODE);
+    if ('error' in bound) {
+      reply(ws, requestId, { type: 'error', ok: false, error: bound.error });
+      return;
+    }
+    msg.playerId = bound.playerId;
+    if (msg.hostId) msg.hostId = bound.playerId;
+  }
 
   if (isV2GameCommand(msg.type)) {
     handleV2GameMessage(ws, msg, v2Deps);
@@ -172,10 +363,35 @@ function handleMessage(ws: WebSocket, raw: string): void {
         reply(ws, requestId, { type: 'error', ok: false, error: 'room_id_required' });
         return;
       }
-      subscribe(ws, msg.roomId);
       const room = store.getById(msg.roomId);
-      if (room) send(ws, { type: 'room_snapshot', room, requestId });
-      else reply(ws, requestId, { type: 'ok', ok: true });
+      if (!room) {
+        if (WS_AUTH_MODE === 'required') {
+          reply(ws, requestId, { type: 'error', ok: false, error: 'room_not_found' });
+          return;
+        }
+        subscribe(ws, msg.roomId);
+        reply(ws, requestId, { type: 'ok', ok: true });
+        return;
+      }
+      if (!canAccessRoom(room, connAuth(ws), WS_AUTH_MODE)) {
+        reply(ws, requestId, { type: 'error', ok: false, error: 'not_member' });
+        return;
+      }
+      subscribe(ws, msg.roomId);
+      const uid = viewerUserId(ws);
+      const projected = projectRoomForViewer(room, uid, {
+        stripUnknownHands: shouldStripUnknownHands(uid),
+      });
+      send(ws, { type: 'room_snapshot', room: projected, requestId });
+      if (room.status === 'finished') {
+        send(ws, {
+          type: 'match_recorded',
+          roomId: room.id,
+          ok: true,
+          matchId: room.match_id ?? undefined,
+          skipped: !room.match_id,
+        });
+      }
       return;
     }
     case 'list_public_waiting': {
@@ -185,7 +401,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
         waitingMaxAgeMs: WAITING_MAX_AGE_MS,
         playingMaxAgeMs: PLAYING_MAX_AGE_MS,
       });
-      const rooms = store.listPublicWaiting(WAITING_MAX_AGE_MS);
+      const rooms = store.listPublicWaiting(WAITING_MAX_AGE_MS).map(lobbyRoomPublic);
       reply(ws, requestId, { type: 'public_rooms', ok: true, rooms });
       return;
     }
@@ -201,6 +417,10 @@ function handleMessage(ws: WebSocket, raw: string): void {
     case 'recover_join': {
       if (!msg.code || !msg.playerId) {
         reply(ws, requestId, { type: 'error', ok: false, error: 'recover_params_required' });
+        return;
+      }
+      if (!wsLimits.allowJoin(ip)) {
+        reply(ws, requestId, { type: 'recover_join_result', ok: false, error: 'rate_limited' });
         return;
       }
       const recovered = store.recoverJoin(msg.code, msg.playerId);
@@ -223,6 +443,11 @@ function handleMessage(ws: WebSocket, raw: string): void {
         reply(ws, requestId, { type: 'error', ok: false, error: 'player_required' });
         return;
       }
+      const createGate = wsLimits.allowCreate(ip, store.listAll().length, store.countRoomsByCreatorIp(ip));
+      if (!createGate.ok) {
+        reply(ws, requestId, { type: 'create_room_result', ok: false, error: createGate.error });
+        return;
+      }
       /** LAN: по умолчанию v2 (server-authoritative). Явно protocolVersion: 1 — откат. */
       const protocolVersion = msg.protocolVersion === 1 ? 1 : 2;
       const room = store.createRoom({
@@ -233,9 +458,10 @@ function handleMessage(ws: WebSocket, raw: string): void {
         settlementMode: msg.settlementMode,
         buyIn: msg.buyIn,
         roomKind: msg.roomKind,
-        maxPlayers: msg.maxPlayers === 3 ? 3 : 4,
+        maxPlayers: parseMaxPlayers(msg.maxPlayers),
         hostDedicated: msg.hostDedicated === true,
         protocolVersion,
+        createdByIp: ip,
       });
       subscribe(ws, room.id);
       broadcastRoom(room);
@@ -245,6 +471,10 @@ function handleMessage(ws: WebSocket, raw: string): void {
     case 'join_room': {
       if (!msg.playerId || !msg.displayName || !msg.code) {
         reply(ws, requestId, { type: 'error', ok: false, error: 'join_params_required' });
+        return;
+      }
+      if (!wsLimits.allowJoin(ip)) {
+        reply(ws, requestId, { type: 'join_room_result', ok: false, error: 'rate_limited' });
         return;
       }
       const recovered = store.recoverJoin(msg.code, msg.playerId);
@@ -288,7 +518,20 @@ function handleMessage(ws: WebSocket, raw: string): void {
         return;
       }
       const room = store.getById(msg.roomId);
-      reply(ws, requestId, { type: 'get_room_result', ok: !!room, room: room ?? undefined });
+      if (!room) {
+        reply(ws, requestId, { type: 'get_room_result', ok: false });
+        return;
+      }
+      if (!canAccessRoom(room, connAuth(ws), WS_AUTH_MODE)) {
+        reply(ws, requestId, { type: 'get_room_result', ok: false, error: 'not_member' });
+        return;
+      }
+      const uid = viewerUserId(ws);
+      reply(ws, requestId, {
+        type: 'get_room_result',
+        ok: true,
+        room: projectRoomForViewer(room, uid, { stripUnknownHands: shouldStripUnknownHands(uid) }),
+      });
       return;
     }
     case 'leave_room': {
@@ -311,6 +554,10 @@ function handleMessage(ws: WebSocket, raw: string): void {
       const room = store.getById(msg.roomId);
       if (!room) {
         reply(ws, requestId, { type: 'chat_history_result', ok: false, error: 'room_not_found' });
+        return;
+      }
+      if (!canAccessRoom(room, connAuth(ws), WS_AUTH_MODE)) {
+        reply(ws, requestId, { type: 'chat_history_result', ok: false, error: 'not_member' });
         return;
       }
       const limit = typeof msg.limit === 'number' ? msg.limit : 120;
@@ -464,28 +711,45 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
       rooms: store.listAll().length,
       uptimeSec: Math.round(process.uptime()),
       persist: !!roomPersist,
+      auth: WS_AUTH_MODE,
+      jwtConfigured: isJwtConfigured(),
+    });
+    return;
+  }
+
+  if (path === '/api/ready' && req.method === 'GET') {
+    const local = localReadyStatus();
+    let supabaseOk = !local.supabaseConfigured;
+    if (local.supabaseConfigured) {
+      supabaseOk = await supabaseAuthReachable();
+    }
+    const ready = local.ready && supabaseOk;
+    sendJson(res, ready ? 200 : 503, {
+      ...local,
+      ready,
+      supabaseOk,
     });
     return;
   }
 
   if (path === '/api/version' && req.method === 'GET') {
-    let panelSnippet = '';
-    try {
-      const html = readFileSync(hostHtmlPath(), 'utf8');
-      panelSnippet = html.includes('Игра в сети') ? 'lan-ui' : html.includes('Туннель') ? 'old-ui' : 'unknown-ui';
-    } catch {
-      panelSnippet = 'no-host-html';
-    }
     sendJson(res, 200, {
       build: SERVER_HTTP_BUILD,
-      hostPanel: true,
-      panelSnippet,
-      hostHtmlPath: hostHtmlPath(),
+      hostPanel: !PROD,
+      panelSnippet: PROD ? undefined : 'lan-ui',
       pid: process.pid,
       rooms: store.listAll().length,
       persist: !!roomPersist,
       uptimeSec: Math.round(process.uptime()),
+      auth: WS_AUTH_MODE,
+      profile: PROD ? 'production' : 'lan',
     });
+    return;
+  }
+
+  if (PROD) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Not found.\n');
     return;
   }
 
@@ -526,14 +790,33 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
 }
 
 function attachWebSocketServer(httpServer: ReturnType<typeof createServer>): void {
-  const wss = new WebSocketServer({ server: httpServer });
-  wss.on('connection', (ws) => {
-    send(ws, { type: 'hello', ok: true });
+  const wss = new WebSocketServer({ server: httpServer, maxPayload: WS_MAX_PAYLOAD_BYTES });
+  wss.on('connection', (ws, req) => {
+    const conn = ws as WsConn;
+    conn.updownIp = clientIpFromUpgrade(req, TRUST_PROXY);
+    conn.updownAuth = { userId: null, authed: false };
+    if (!wsLimits.onSocketOpen()) {
+      send(ws, { type: 'hello', ok: false, error: 'server_full' });
+      try {
+        ws.close();
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    send(ws, {
+      type: 'hello',
+      ok: true,
+      authRequired: WS_AUTH_MODE === 'required',
+    });
     ws.on('message', (data) => {
       const raw = typeof data === 'string' ? data : data.toString('utf8');
       handleMessage(ws, raw);
     });
-    ws.on('close', () => unsubscribeAll(ws));
+    ws.on('close', () => {
+      wsLimits.onSocketClose();
+      unsubscribeAll(ws);
+    });
   });
 }
 
@@ -543,7 +826,11 @@ function startHttpWsServer(listenPort: number, label: string): void {
   });
   attachWebSocketServer(httpServer);
   httpServer.listen(listenPort, HOST, () => {
-    console.log(`[updown-server] ${label} → http://localhost:${listenPort}/host  ws://…:${listenPort}`);
+    if (PROD) {
+      console.log(`[updown-server] ${label} → http://${HOST}:${listenPort}/api/health  ws://…:${listenPort}`);
+    } else {
+      console.log(`[updown-server] ${label} → http://localhost:${listenPort}/host  ws://…:${listenPort}`);
+    }
   });
   httpServer.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
@@ -568,6 +855,7 @@ function shutdown(signal: string): void {
   console.log(`[updown-server] ${signal} — сохраняем комнаты и выходим`);
   try {
     roomPersist?.flushSync();
+    roomPersist?.rotateBackup('shutdown');
   } catch {
     /* ignore */
   }
@@ -585,13 +873,15 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 const ip = listLanIPv4()[0] ?? '127.0.0.1';
 console.log('');
 console.log(`[updown-server] Сборка ${SERVER_HTTP_BUILD}  PID ${process.pid}`);
-console.log(`[updown-server] host.html → ${hostHtmlPath()}`);
-console.log(`[updown-server] Панель хоста → http://localhost:${PORT}/host`);
-console.log(`[updown-server] В Wi‑Fi: http://${ip}:${PORT}/host  ws://${ip}:${PORT}`);
-if (isGameDistAvailable()) {
-  console.log(`[updown-server] QR и вход: http://${ip}:${PORT}/play/`);
-} else {
-  console.log(`[updown-server] Для QR: npm run build:host-game  и перезапуск`);
+if (!PROD) {
+  console.log(`[updown-server] host.html → ${hostHtmlPath()}`);
+  console.log(`[updown-server] Панель хоста → http://localhost:${PORT}/host`);
+  console.log(`[updown-server] В Wi‑Fi: http://${ip}:${PORT}/host  ws://${ip}:${PORT}`);
+  if (isGameDistAvailable()) {
+    console.log(`[updown-server] QR и вход: http://${ip}:${PORT}/play/`);
+  } else {
+    console.log(`[updown-server] Для QR: npm run build:host-game  и перезапуск`);
+  }
 }
 if (wsBackupPorts.length) {
   console.log(
@@ -599,5 +889,6 @@ if (wsBackupPorts.length) {
   );
 }
 console.log('[updown-server] Health: http://localhost:' + PORT + '/api/health');
+console.log('[updown-server] Ready:  http://localhost:' + PORT + '/api/ready');
 console.log('[updown-server] Проверка: http://localhost:' + PORT + '/api/version');
 console.log('');

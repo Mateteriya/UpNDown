@@ -12,6 +12,7 @@ import type { GameStatePush } from './protocol.js';
 const TICK_MS = 180;
 
 export type BroadcastGameState = (push: GameStatePush) => void;
+export type GameCompleteHandler = (room: GameRoomRow, state: import('../../../src/game/GameEngine.js').GameState) => void;
 
 export class GameSessionManager {
   private sessions = new Map<string, GameSession>();
@@ -20,6 +21,7 @@ export class GameSessionManager {
   constructor(
     private readonly store: RoomStore,
     private readonly broadcast: BroadcastGameState,
+    private readonly onGameComplete?: GameCompleteHandler,
   ) {}
 
   start(): void {
@@ -70,6 +72,13 @@ export class GameSessionManager {
       playerSlots: commit.room.player_slots,
       roomPhase: commit.room.room_phase ?? null,
     });
+    if (commit.state.phase === 'game-complete') {
+      try {
+        this.onGameComplete?.(commit.room, commit.state);
+      } catch (e) {
+        console.error('[v2-session] onGameComplete', commit.room.code, e);
+      }
+    }
   }
 
   tick(): void {

@@ -217,11 +217,8 @@ export class GameSession {
     this.dealNextAt = null;
     this.dealNumber = null;
     if (!next) {
-      const room = this.room();
-      room.status = 'finished';
-      room.room_phase = 'finished';
-      room.updated_at = new Date().toISOString();
-      return null;
+      const finished: GameState = { ...state, phase: 'game-complete' };
+      return this.commit(finished, undefined, 'finished');
     }
     return this.commit(next);
   }

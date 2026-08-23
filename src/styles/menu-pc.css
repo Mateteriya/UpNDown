@@ -819,7 +819,8 @@
   /* Только реальные контролы: title (long-press dev) и кабинет.
    * header/brand иначе перекрывают капсулы под шапкой. */
   .menu-screen__pc-topbar .menu-screen__title,
-  .menu-screen__pc-topbar .menu-screen__player {
+  .menu-screen__pc-topbar .menu-screen__player,
+  .menu-screen__pc-topbar .menu-glass-ladder {
     pointer-events: auto;
   }
   /* ПК: кабинет — капсула внизу слева, не в шапке */

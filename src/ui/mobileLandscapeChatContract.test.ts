@@ -20,6 +20,7 @@ import {
   mobileLsEastChatColWidthPx,
   mobileLsEastHeaderUsesOverflow,
   mobileLsHandDiskHome,
+  mobilePortraitHandDiskHome,
   mobilePortraitChatAffordanceMode,
   nudgeMobileLsHandDiskOffRects,
 } from './mobileLandscapeChatContract';
@@ -63,6 +64,12 @@ describe('mobileLsChatAffordanceKind', () => {
     expect(
       mobileLsChatAffordanceKind({ handLen: 12, landscape: false, threeSeat: true }),
     ).toBe('hand-disk');
+  });
+});
+
+describe('mobilePortraitHandDiskHome', () => {
+  it('anchors the disk on the south panel bottom in portrait', () => {
+    expect(mobilePortraitHandDiskHome()).toBe('south-panel');
   });
 });
 

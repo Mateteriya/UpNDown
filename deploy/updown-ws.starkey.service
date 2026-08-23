@@ -7,21 +7,30 @@ Type=simple
 User=updown
 Group=updown
 WorkingDirectory=/opt/updown
-ExecStart=/usr/bin/npm run start --prefix server
-Restart=on-failure
+ExecStart=/usr/bin/node /opt/updown/server/dist/index.js
+Restart=always
 RestartSec=5
 KillSignal=SIGTERM
 TimeoutStopSec=20
 
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/updown
+PrivateTmp=true
+LimitNOFILE=65535
+
 Environment=NODE_ENV=production
+Environment=UPDOWN_MODE=prod
 Environment=PORT=3005
 Environment=HOST=127.0.0.1
 Environment=WS_BACKUP_PORTS=none
 Environment=ROOM_PERSIST=1
 Environment=ROOM_PERSIST_PATH=/var/lib/updown/rooms.json
+Environment=ROOM_BACKUP_KEEP=144
 Environment=PUBLIC_WS_URL=wss://starkey.agneko.com/updown
-
-LimitNOFILE=65535
+Environment=WS_AUTH=required
+Environment=WS_TRUST_PROXY=1
+EnvironmentFile=-/etc/updown/ws.env
 
 [Install]
 WantedBy=multi-user.target
