@@ -1415,41 +1415,44 @@ export interface LeaderboardResult {
   me: (LeaderboardRow & { rank: number | null }) | null;
 }
 
-export async function getLeaderboard(limit = 50): Promise<LeaderboardResult> {
-  if (!supabase) {
-    return { ok: false, error: 'Supabase не настроен', ladder_kind: 'open', season_id: '', rows: [], me: null };
+function asLeaderboardRows(raw: unknown): LeaderboardRow[] {
+  let value: unknown = raw;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value) as unknown;
+    } catch {
+      return [];
+    }
   }
-  const { data, error } = await supabase.rpc('updown_get_leaderboard', {
-    p_limit: limit,
-    p_ladder: 'open',
-    p_season: '',
-  });
-  if (error) {
-    return { ok: false, error: error.message, ladder_kind: 'open', season_id: '', rows: [], me: null };
-  }
+  return Array.isArray(value) ? (value as LeaderboardRow[]) : [];
+}
+
+function parseLeaderboardPayload(data: unknown, rpcError?: string): LeaderboardResult {
+  const empty: LeaderboardResult = {
+    ok: false,
+    error: rpcError ?? 'leaderboard_failed',
+    ladder_kind: 'open',
+    season_id: '',
+    rows: [],
+    me: null,
+  };
+  if (!data || typeof data !== 'object') return empty;
   const row = data as {
     ok?: boolean;
     error?: string;
     ladder_kind?: string;
     season_id?: string;
-    rows?: LeaderboardRow[];
+    rows?: unknown;
     me?: LeaderboardRow & { rank?: number | null };
-  } | null;
-  if (!row?.ok) {
-    return {
-      ok: false,
-      error: row?.error ?? 'leaderboard_failed',
-      ladder_kind: 'open',
-      season_id: '',
-      rows: [],
-      me: null,
-    };
+  };
+  if (!row.ok) {
+    return { ...empty, error: row.error ?? empty.error };
   }
   return {
     ok: true,
     ladder_kind: row.ladder_kind ?? 'open',
     season_id: row.season_id ?? '',
-    rows: Array.isArray(row.rows) ? row.rows : [],
+    rows: asLeaderboardRows(row.rows),
     me: row.me
       ? {
           rank: row.me.rank ?? null,
@@ -1461,6 +1464,71 @@ export async function getLeaderboard(limit = 50): Promise<LeaderboardResult> {
         }
       : null,
   };
+}
+
+/** Битый JWT на сессии роняет RPC — тот же вызов с anon-ключом отдаёт публичный топ. */
+async function fetchLeaderboardAnon(limit: number): Promise<LeaderboardResult> {
+  if (!supabase) {
+    return parseLeaderboardPayload(null, 'Supabase не настроен');
+  }
+  const url = supabase.supabaseUrl;
+  const key = supabase.supabaseKey;
+  try {
+    const res = await fetch(`${url}/rest/v1/rpc/updown_get_leaderboard`, {
+      method: 'POST',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_limit: limit, p_ladder: 'open', p_season: '' }),
+    });
+    const json: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      const msg =
+        json && typeof json === 'object' && 'message' in json
+          ? String((json as { message?: unknown }).message ?? res.status)
+          : `HTTP ${res.status}`;
+      return parseLeaderboardPayload(null, msg);
+    }
+    return parseLeaderboardPayload(json);
+  } catch (e) {
+    return parseLeaderboardPayload(null, e instanceof Error ? e.message : 'leaderboard_failed');
+  }
+}
+
+let lastGoodLeaderboardRows: LeaderboardRow[] = [];
+
+export async function getLeaderboard(limit = 50): Promise<LeaderboardResult> {
+  if (!supabase) {
+    return parseLeaderboardPayload(null, 'Supabase не настроен');
+  }
+  const { data, error } = await supabase.rpc('updown_get_leaderboard', {
+    p_limit: limit,
+    p_ladder: 'open',
+    p_season: '',
+  });
+  let result = parseLeaderboardPayload(data, error?.message);
+  if (!result.ok || result.rows.length === 0) {
+    const anon = await fetchLeaderboardAnon(limit);
+    if (anon.ok && anon.rows.length > 0) {
+      result = { ...anon, me: result.me ?? anon.me };
+    }
+  }
+  if (result.ok && result.rows.length > 0) {
+    lastGoodLeaderboardRows = result.rows;
+    return result;
+  }
+  if (lastGoodLeaderboardRows.length > 0) {
+    return {
+      ok: true,
+      ladder_kind: result.ladder_kind,
+      season_id: result.season_id,
+      rows: lastGoodLeaderboardRows,
+      me: result.me,
+    };
+  }
+  return result;
 }
 
 export async function getMyRatingSummary(userId: string): Promise<RatingSummary | null> {

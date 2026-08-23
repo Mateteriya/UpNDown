@@ -4,6 +4,7 @@
  * Слушает 0.0.0.0 — телефоны в Wi‑Fi подключаются к ws://IP_ПК:3001
  */
 
+import './loadLanEnv.js';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { HostAutomation } from './hostAutomation.js';
@@ -45,7 +46,7 @@ import {
 import { isProdProfile } from './prodMode.js';
 import { canAccessRoom } from './roomAccess.js';
 import { lobbyRoomPublic, projectGameState, projectRoomForViewer, viewerSeatIndex } from './stateView.js';
-import { finishGameFromServer, supabaseAuthReachable } from './matchFinish.js';
+import { finishGameFromServer, supabaseAuthReachable, supabaseFinishConfigured } from './matchFinish.js';
 import { localReadyStatus } from './readyCheck.js';
 import type { GameState } from '../../src/game/GameEngine.js';
 
@@ -123,6 +124,9 @@ if (roomPersist) {
 console.log(
   `[updown-server] WS_AUTH=${WS_AUTH_MODE}` +
     (isJwtConfigured() ? ' (JWT secret ok)' : ' (SUPABASE_JWT_SECRET не задан)'),
+);
+console.log(
+  `[updown-server] Запись матча/Elo: ${supabaseFinishConfigured() ? 'да (service role)' : 'нет (добавьте SUPABASE_SERVICE_ROLE_KEY в .env.local)'}`,
 );
 console.log(
   `[updown-server] Limits: rooms≤${wsLimits.config.maxRooms} sockets≤${wsLimits.config.maxSockets} create/min≤${wsLimits.config.createPerMin}`,
@@ -732,6 +736,7 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
     sendJson(res, 200, {
       build: SERVER_HTTP_BUILD,
       hostPanel: !PROD,
+      panelSnippet: PROD ? undefined : 'lan-ui',
       pid: process.pid,
       rooms: store.listAll().length,
       persist: !!roomPersist,

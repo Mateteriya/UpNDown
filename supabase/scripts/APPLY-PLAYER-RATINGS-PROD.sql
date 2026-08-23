@@ -292,10 +292,6 @@ declare
   v_mine jsonb;
   v_rank bigint;
 begin
-  if v_uid is null then
-    return jsonb_build_object('ok', false, 'error', 'not_authenticated');
-  end if;
-
   select coalesce(jsonb_agg(to_jsonb(t) order by t.rank), '[]'::jsonb)
   into v_rows
   from (
@@ -314,6 +310,16 @@ begin
     order by pr.elo desc, pr.wins desc, pr.games asc
     limit v_lim
   ) t;
+
+  if v_uid is null then
+    return jsonb_build_object(
+      'ok', true,
+      'ladder_kind', v_ladder,
+      'season_id', v_season,
+      'rows', coalesce(v_rows, '[]'::jsonb),
+      'me', null
+    );
+  end if;
 
   select x.rank into v_rank
   from (
@@ -353,7 +359,7 @@ end;
 $$;
 
 revoke all on function public.updown_get_leaderboard(integer, text, text) from public;
-grant execute on function public.updown_get_leaderboard(integer, text, text) to authenticated;
+grant execute on function public.updown_get_leaderboard(integer, text, text) to anon, authenticated;
 
 create or replace function public.updown_compress_old_deal_history(
   p_days integer default 90

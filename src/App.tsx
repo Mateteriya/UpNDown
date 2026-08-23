@@ -27,6 +27,7 @@ import { NameAvatarModal } from './ui/NameAvatarModal'
 import RulesScreen from './ui/RulesScreen'
 import { RatingModal } from './ui/RatingModal'
 import { AuthModal } from './ui/AuthModal'
+import { CosmicCockpit, CosmicPhysButton } from './ui/CosmicCockpit'
 import { applyLanJoinParamsFromUrl } from './lib/lanJoinLink'
 import { LobbyScreen } from './ui/LobbyScreen'
 import { OfflinePlayerCountModal, type OfflinePlayerCount } from './ui/OfflinePlayerCountModal'
@@ -568,110 +569,20 @@ function App() {
         />
       )}
       {showRegistrationSuccessModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            padding: 20,
-          }}
-          onClick={(e) => e.target === e.currentTarget && setShowRegistrationSuccessModal(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="registration-success-title"
-        >
-          <div
-            style={{
-              background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-              borderRadius: 16,
-              border: '1px solid rgba(34,211,238,0.3)',
-              padding: 32,
-              maxWidth: 360,
-              textAlign: 'center',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p id="registration-success-title" style={{ margin: '0 0 12px', fontSize: 20, fontWeight: 600, color: '#22d3ee' }}>
-              Регистрация прошла успешно!
-            </p>
-            <p style={{ margin: '0 0 24px', fontSize: 15, color: '#94a3b8' }}>
-              Добро пожаловать в Up&Down. Теперь вы можете играть офлайн или войти на другом устройстве.
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowRegistrationSuccessModal(false)}
-              style={{
-                padding: '12px 24px',
-                fontSize: 16,
-                fontWeight: 600,
-                borderRadius: 8,
-                border: '1px solid #22d3ee',
-                background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
-                color: '#f8fafc',
-                cursor: 'pointer',
-              }}
-            >
-              Отлично!
-            </button>
-          </div>
-        </div>
+        <AuthCelebrateDialog
+          titleId="registration-success-title"
+          title="Регистрация прошла успешно!"
+          body="Добро пожаловать в Up&Down. Теперь вы можете играть офлайн или войти на другом устройстве."
+          onClose={() => setShowRegistrationSuccessModal(false)}
+        />
       )}
       {showOAuthSuccessModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            padding: 20,
-          }}
-          onClick={(e) => e.target === e.currentTarget && setShowOAuthSuccessModal(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="oauth-success-title"
-        >
-          <div
-            style={{
-              background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-              borderRadius: 16,
-              border: '1px solid rgba(34,211,238,0.3)',
-              padding: 32,
-              maxWidth: 360,
-              textAlign: 'center',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p id="oauth-success-title" style={{ margin: '0 0 12px', fontSize: 20, fontWeight: 600, color: '#22d3ee' }}>
-              Всё супер!
-            </p>
-            <p style={{ margin: '0 0 24px', fontSize: 15, color: '#94a3b8' }}>
-              Вы успешно вошли в аккаунт. Добро пожаловать в Up&Down!
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowOAuthSuccessModal(false)}
-              style={{
-                padding: '12px 24px',
-                fontSize: 16,
-                fontWeight: 600,
-                borderRadius: 8,
-                border: '1px solid #22d3ee',
-                background: 'linear-gradient(180deg, #0e7490 0%, #155e75 100%)',
-                color: '#f8fafc',
-                cursor: 'pointer',
-              }}
-            >
-              Отлично!
-            </button>
-          </div>
-        </div>
+        <AuthCelebrateDialog
+          titleId="oauth-success-title"
+          title="Всё супер!"
+          body="Вы успешно вошли в аккаунт. Добро пожаловать в Up&Down!"
+          onClose={() => setShowOAuthSuccessModal(false)}
+        />
       )}
       {roomFinishedMessage && (
         <div
@@ -808,6 +719,50 @@ function App() {
         </div>
       )}
     </>
+  )
+}
+
+function AuthCelebrateDialog({
+  titleId,
+  title,
+  body,
+  onClose,
+}: {
+  titleId: string
+  title: string
+  body: string
+  onClose: () => void
+}) {
+  return (
+    <div
+      className="lk-modal"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+    >
+      <div className="lk-modal__panel lk-modal__panel--celebrate" onClick={(e) => e.stopPropagation()}>
+        <CosmicCockpit dense className="lk-modal__cockpit">
+          <h2 id={titleId} className="lk-modal__title lk-modal__title--center">
+            {title}
+          </h2>
+          <span className="lk-modal__celebrate-rift" aria-hidden>
+            <i />
+            <i />
+            <i />
+          </span>
+          <p className="lk-modal__success-text cosmic-iridescent-text">{body}</p>
+          <span className="lk-modal__celebrate-lamps" aria-hidden>
+            <span className="lk-modal__celebrate-lamp lk-modal__celebrate-lamp--cyan" />
+            <span className="lk-modal__celebrate-lamp lk-modal__celebrate-lamp--violet" />
+            <span className="lk-modal__celebrate-lamp lk-modal__celebrate-lamp--pink" />
+          </span>
+          <div className="lk-modal__celebrate-actions">
+            <CosmicPhysButton onClick={onClose}>Понятно</CosmicPhysButton>
+          </div>
+        </CosmicCockpit>
+      </div>
+    </div>
   )
 }
 
