@@ -1,0 +1,368 @@
+/*
+ * Ожидание в онлайн-комнате: космический CTA (тот же язык, что лобби / «Зал столов»).
+ * Мобилка ≤1024: панель над сукном. ПК: капсула на сукне.
+ */
+
+.game-table-root {
+  --waiting-laser-cyan: #22d3ee;
+  --waiting-laser-cyan-hot: #67e8f9;
+  --waiting-laser-magenta: #f472b6;
+  --waiting-laser-violet: #c084fc;
+  --waiting-laser-indigo: #a78bfa;
+  --waiting-laser-gold: #fbbf24;
+  --waiting-laser-fuchsia: #e879f9;
+}
+
+/* --- Мобильная панель над сукном --- */
+.game-table-root.viewport-mobile .waiting-room-mobile-bar {
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  width: calc(100% - 2 * var(--game-table-padding, 6px));
+  max-width: 100%;
+  margin: 4px auto 8px;
+  padding: 11px 12px 12px;
+  border-radius: 14px;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(
+      165deg,
+      rgba(28, 14, 64, 0.97) 0%,
+      rgba(12, 8, 36, 0.98) 42%,
+      rgba(6, 4, 20, 0.99) 100%
+    )
+      padding-box,
+    linear-gradient(
+      118deg,
+      rgba(109, 40, 217, 0.85) 0%,
+      rgba(6, 182, 212, 0.75) 28%,
+      rgba(251, 191, 36, 0.7) 50%,
+      rgba(168, 85, 247, 0.8) 72%,
+      rgba(34, 211, 238, 0.75) 100%
+    )
+      border-box;
+  box-shadow:
+    0 0 0 1px rgba(129, 140, 248, 0.28),
+    0 8px 28px rgba(0, 0, 0, 0.5),
+    0 0 36px rgba(109, 40, 217, 0.28),
+    0 0 48px rgba(34, 211, 238, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -12px 22px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 9px;
+  overflow: hidden;
+}
+
+.game-table-root.viewport-mobile .waiting-room-mobile-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(90% 70% at 12% 0%, rgba(124, 58, 237, 0.22) 0%, transparent 55%),
+    radial-gradient(80% 60% at 92% 100%, rgba(34, 211, 238, 0.14) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.game-table-root.viewport-mobile .waiting-room-mobile-bar > * {
+  position: relative;
+  z-index: 1;
+}
+
+.game-table-root.viewport-mobile .waiting-room-mobile-bar__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 0 2px;
+}
+
+.game-table-root.viewport-mobile .waiting-room-mobile-bar__players {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.25;
+  background: linear-gradient(
+    102deg,
+    var(--waiting-laser-cyan-hot) 0%,
+    var(--waiting-laser-magenta) 48%,
+    var(--waiting-laser-gold) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.35));
+}
+
+.game-table-root.viewport-mobile .waiting-room-mobile-bar__code-hint {
+  color: var(--waiting-laser-indigo);
+  font-size: 11px;
+  line-height: 1.35;
+  text-shadow: 0 0 8px rgba(167, 139, 250, 0.28);
+}
+
+.game-table-root.viewport-mobile .waiting-room-mobile-bar__error {
+  margin: 0;
+  color: #fda4af;
+  font-size: 12px;
+  line-height: 1.35;
+  text-shadow: 0 0 8px rgba(251, 113, 133, 0.35);
+}
+
+.game-table-root.viewport-mobile .waiting-room-mobile-bar__wait {
+  margin: 0;
+  color: var(--waiting-laser-violet);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  text-shadow: 0 0 10px rgba(192, 132, 252, 0.35);
+}
+
+/* --- Общий космический CTA (моб. панель + ПК на сукне) --- */
+.game-table-root .waiting-room-start-cta {
+  position: relative;
+  isolation: isolate;
+  appearance: none;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  padding: 13px 20px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--waiting-laser-cyan-hot);
+  background:
+    linear-gradient(168deg, rgba(36, 20, 82, 0.98) 0%, rgba(14, 8, 42, 1) 46%, rgba(6, 3, 22, 1) 100%)
+      padding-box,
+    linear-gradient(
+      118deg,
+      #6d28d9 0%,
+      #7c3aed 14%,
+      #06b6d4 32%,
+      #fbbf24 48%,
+      #a855f7 64%,
+      #22d3ee 82%,
+      #8b5cf6 100%
+    )
+      border-box;
+  box-shadow:
+    0 0 0 1px rgba(129, 140, 248, 0.42),
+    0 4px 20px rgba(0, 0, 0, 0.48),
+    0 0 32px rgba(124, 58, 237, 0.42),
+    0 0 52px rgba(34, 211, 238, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -14px 24px rgba(0, 0, 0, 0.35);
+  text-shadow:
+    0 0 14px rgba(167, 139, 250, 0.62),
+    0 0 24px rgba(34, 211, 238, 0.38),
+    0 1px 2px rgba(0, 0, 0, 0.45);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
+  pointer-events: auto;
+}
+
+.game-table-root .waiting-room-start-cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: linear-gradient(
+    180deg,
+    rgba(167, 139, 250, 0.16) 0%,
+    transparent 40%,
+    transparent 66%,
+    rgba(34, 211, 238, 0.1) 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.game-table-root .waiting-room-start-cta::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 9%;
+  right: 9%;
+  height: 1px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(254, 249, 195, 0.55) 18%,
+    rgba(186, 230, 253, 0.95) 50%,
+    rgba(254, 249, 195, 0.55) 82%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  box-shadow: 0 0 10px rgba(186, 230, 253, 0.45);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.game-table-root .waiting-room-start-cta__label {
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(
+    105deg,
+    #fde68a 0%,
+    #e879f9 18%,
+    #67e8f9 38%,
+    #c4b5fd 58%,
+    #6ee7b7 78%,
+    #fde68a 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: waiting-room-cta-iridescent 11s ease-in-out infinite;
+  filter:
+    drop-shadow(0 0 6px rgba(232, 121, 249, 0.35))
+    drop-shadow(0 0 10px rgba(34, 211, 238, 0.28));
+}
+
+@keyframes waiting-room-cta-iridescent {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.game-table-root .waiting-room-start-cta:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08) saturate(1.1);
+  box-shadow:
+    0 0 0 1px rgba(196, 181, 253, 0.58),
+    0 6px 24px rgba(0, 0, 0, 0.52),
+    0 0 40px rgba(124, 58, 237, 0.52),
+    0 0 64px rgba(34, 211, 238, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -14px 24px rgba(0, 0, 0, 0.35);
+}
+
+.game-table-root .waiting-room-start-cta:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(1.03);
+}
+
+.game-table-root .waiting-room-start-cta:disabled {
+  opacity: 0.52;
+  cursor: wait;
+  filter: saturate(0.85);
+}
+
+.game-table-root .waiting-room-start-cta:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.75);
+  outline-offset: 3px;
+}
+
+/* ПК: капсула по центру сукна */
+.game-table-root:not(.viewport-mobile) .waiting-room-table-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.game-table-root:not(.viewport-mobile) .waiting-room-table-overlay__hint {
+  margin: 0;
+  max-width: 280px;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--waiting-laser-indigo);
+  text-shadow: 0 0 10px rgba(167, 139, 250, 0.3);
+}
+
+.game-table-root:not(.viewport-mobile) .waiting-room-table-overlay__error {
+  margin: 0;
+  font-size: 13px;
+  color: #fda4af;
+  text-shadow: 0 0 8px rgba(251, 113, 133, 0.35);
+}
+
+.game-table-root:not(.viewport-mobile) .waiting-room-table-overlay__wait {
+  margin: 0;
+  max-width: 300px;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--waiting-laser-violet);
+  text-shadow: 0 0 10px rgba(192, 132, 252, 0.35);
+}
+
+.game-table-root:not(.viewport-mobile) .waiting-room-start-cta {
+  width: auto;
+  min-width: 240px;
+  max-width: min(340px, 86%);
+  min-height: 52px;
+  padding: 15px 28px;
+  font-size: 17px;
+}
+
+@media (max-width: 1024px) and (orientation: landscape) {
+  .game-table-root.viewport-mobile .waiting-room-mobile-bar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 6px;
+    padding: 8px 12px;
+  }
+
+  .game-table-root.viewport-mobile .waiting-room-mobile-bar__meta {
+    flex: 1 1 140px;
+  }
+
+  .game-table-root.viewport-mobile .waiting-room-mobile-bar__wait {
+    flex: 1 1 180px;
+    text-align: left;
+  }
+
+  .game-table-root.viewport-mobile .waiting-room-start-cta {
+    flex: 1 1 168px;
+    max-width: 300px;
+    min-height: 42px;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-table-root .waiting-room-start-cta,
+  .game-table-root .waiting-room-start-cta:hover:not(:disabled) {
+    transition: none;
+    transform: none;
+  }
+
+  .game-table-root .waiting-room-start-cta__label {
+    animation: none;
+    background-position: 42% 50%;
+  }
+}

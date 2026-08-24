@@ -1,16 +1,22 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
-import { join, normalize } from 'node:path';
+import { dirname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-const DEFAULT_GAME_DIST = join(process.cwd(), 'dist-host');
-const FALLBACK_GAME_DIST = join(process.cwd(), 'dist');
+/** Корень репо: не зависеть от cwd (`npm run server:dev` стартует из server/). */
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const DEFAULT_GAME_DIST = join(REPO_ROOT, 'dist-host');
+const FALLBACK_GAME_DIST = join(REPO_ROOT, 'dist');
+const CWD_GAME_DIST = join(process.cwd(), 'dist-host');
+const CWD_FALLBACK_DIST = join(process.cwd(), 'dist');
 
 function resolveGameDist(): string {
   const fromEnv = (process.env.GAME_DIST ?? '').trim();
   if (fromEnv) return fromEnv;
   if (existsSync(join(DEFAULT_GAME_DIST, 'index.html'))) return DEFAULT_GAME_DIST;
-  return FALLBACK_GAME_DIST;
+  if (existsSync(join(CWD_GAME_DIST, 'index.html'))) return CWD_GAME_DIST;
+  if (existsSync(join(FALLBACK_GAME_DIST, 'index.html'))) return FALLBACK_GAME_DIST;
+  return CWD_FALLBACK_DIST;
 }
 
 function gameDistDir(): string {
