@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import { resolve } from 'path'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { labSfxWritePlugin } from './vite-plugin-lab-sfx-write'
 import { safeLargeCssPlugin } from './vite-plugin-safe-large-css'
 
 export default defineConfig({
@@ -17,6 +18,7 @@ export default defineConfig({
   plugins: [
     react(),
     safeLargeCssPlugin(),
+    labSfxWritePlugin(), // POST /__updown_lab_sfx writes public/audio/sfx
     VitePWA({
       registerType: 'autoUpdate',
       /* Не регистрировать SW в dev — телефон по LAN иначе может тянуть устаревший бандл из кэша вместо Vite */

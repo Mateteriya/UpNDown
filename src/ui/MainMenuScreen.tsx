@@ -26,6 +26,7 @@ import {
 } from '../lib/menuIdentityStatus';
 import { OfflineReadyOrb } from './OfflineReadyOrb';
 import { MenuGlassLadder } from './MenuGlassLadder';
+import { AudioSettingsPanel } from './AudioSettingsPanel';
 
 const PC_MENU_MQ = '(min-width: 1025px)';
 /** Редкий автосвайп каста, пока сидят на главной. */
@@ -822,6 +823,11 @@ export function MainMenuScreen({
               </MenuPcDrift>
             ) : null}
             {isPcMenu ? (
+              <MenuPcDrift id="audio" className="menu-screen__drift--audio" movable>
+                <AudioSettingsPanel />
+              </MenuPcDrift>
+            ) : null}
+            {isPcMenu ? (
               <MenuPcDrift id="rules-v1" className="menu-screen__drift--rules" movable>
                 <MenuCapsuleButton
                   variant="rules"
@@ -842,6 +848,7 @@ export function MainMenuScreen({
               <MenuCapsuleButton variant="link" title="Лаб: цвета ИТОГО" href="/total-color-lab" compact />
               <MenuCapsuleButton variant="link" title="Лаб: онлайн-UI" href="/online-ui-lab" compact />
               <MenuCapsuleButton variant="link" title="Лаб: правила" href="/rules-lab" compact />
+              <MenuCapsuleButton variant="link" title="Лаб: аудио SFX" href="/audio-sfx-lab" compact />
               <MenuCapsuleButton variant="link" title="Демо: фишки" href="/scoring-demo" compact />
               <MenuCapsuleButton variant="link" title="Космогенез" href="/cosmogenesis-demo.html" compact />
             </div>
@@ -1000,6 +1007,9 @@ export function MainMenuScreen({
               {onOpenSupport ? (
                 <SupportMenuButton onClick={onOpenSupport} />
               ) : null}
+              <div className="menu-screen__mobile-audio">
+                <AudioSettingsPanel />
+              </div>
               {onOpenRating ? (
                 <MenuCapsuleButton
                   variant="rating"

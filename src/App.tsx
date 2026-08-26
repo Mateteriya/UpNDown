@@ -39,6 +39,7 @@ import { SUPPORT_ROUTE_HASH, isSupportRouteHash } from './lib/supportRoute'
 import { SupportDonatePage } from './ui/SupportDonatePage'
 import { LeaderboardPage } from './ui/LeaderboardPage'
 import { RATING_ROUTE_HASH, isRatingRouteHash } from './lib/ratingRoute'
+import { stopNudgeSounds, unlockAudio } from './audio'
 
 /** Ленивая загрузка экрана игры: уменьшает начальный бандл и ускоряет первый показ меню; экран игры подгружается при переходе. */
 const GameTable = lazy(() => import('./ui/GameTable'))
@@ -288,6 +289,7 @@ function App() {
   }, [])
 
   const startGame = () => {
+    unlockAudio()
     setGameId(id => id + 1)
     setScreen('game')
   }
@@ -306,6 +308,7 @@ function App() {
     playerCountThenRef.current = null
     clearGameStateFromStorage()
     if (then === 'in-game') {
+      unlockAudio()
       suppressOnlineAutoRestore()
       void online.leaveRoom()
       setGameId((id) => id + 1)
@@ -316,6 +319,7 @@ function App() {
   }
 
   const requestOfflinePlayerCount = (then: 'menu' | 'in-game' = 'menu') => {
+    stopNudgeSounds()
     playerCountThenRef.current = then
     setShowPlayerCountModal(true)
   }
@@ -362,6 +366,7 @@ function App() {
   }, [user?.id, online.roomId, online.syncMySlotAvatar])
 
   const handleExit = useCallback(() => {
+    stopNudgeSounds()
     if (loadOnlineSession()) online.leaveRoom()
     /** Не трогаем localStorage партии: иначе «Домой» из офлайна стирало сохранение и пропадали «Продолжить» / модалка. Сброс только через «Начать новую» / явный выбор в модалке. */
     try {
@@ -379,12 +384,14 @@ function App() {
   })()
 
   const handleResumeOffline = useCallback(() => {
+    unlockAudio()
     suppressOnlineAutoRestore()
     void online.leaveRoom()
     setScreen('game')
   }, [online, suppressOnlineAutoRestore])
 
   const handleResumeOnline = useCallback(async () => {
+    unlockAudio()
     setOnlineResumeMessage(null)
     try {
       sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
@@ -405,6 +412,7 @@ function App() {
       return
     }
     if (r.ok) {
+      unlockAudio()
       online.setUserLeftTemporarily?.(false)
       setScreen('game')
       return
@@ -703,6 +711,7 @@ function App() {
               playerDisplayName={profile.displayName}
               playerAvatarDataUrl={profile.avatarDataUrl}
               playerAvatarBgColor={profile.avatarBgColor}
+              tableAudioSilenced={showPlayerCountModal}
               onExit={handleExit}
               onNewGame={handleNewGame}
               onOpenProfileModal={() => openNameAvatarModal('profile')}

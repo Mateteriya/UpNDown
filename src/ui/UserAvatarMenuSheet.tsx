@@ -11,6 +11,8 @@ import { getLocalRating } from '../game/persistence';
 import { MAX_DISPLAY_NAME_LENGTH } from './NameAvatarModal';
 import { PlayerAvatar } from './PlayerAvatar';
 import { useDesktopProfileUi } from './useDesktopProfileUi';
+import { AudioSettingsPanel } from './AudioSettingsPanel';
+import { stopAllSounds } from '../audio';
 
 export interface UserAvatarMenuSheetProps {
   displayName: string;
@@ -109,6 +111,30 @@ function AvatarMenuIconEdit({ gradId }: { gradId: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function AvatarMenuIconSound({ gradId }: { gradId: string }) {
+  const g = `${gradId}-sound`;
+  return (
+    <svg className="avatar-menu-sheet-btn-icon-svg" viewBox="0 0 24 24" width={18} height={18} aria-hidden>
+      <defs>
+        <linearGradient id={g} x1="2" y1="3" x2="22" y2="21" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#fde68a" />
+          <stop offset="42%" stopColor="#e9d5ff" />
+          <stop offset="100%" stopColor="#c084fc" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M11 5L6 9H3v6h3l5 4V5z"
+        fill="rgba(253, 224, 71, 0.18)"
+        stroke={`url(#${g})`}
+        strokeWidth={ICON_STROKE}
+        strokeLinejoin="round"
+      />
+      <path d="M15.5 8.5a5 5 0 010 7" fill="none" stroke={`url(#${g})`} strokeWidth={ICON_STROKE} strokeLinecap="round" />
+      <path d="M18.5 6a9 9 0 010 12" fill="none" stroke={`url(#${g})`} strokeWidth={ICON_STROKE} strokeLinecap="round" />
     </svg>
   );
 }
@@ -466,6 +492,29 @@ export function UserAvatarMenuSheet({
               </button>
             </div>
           )}
+          <AudioSettingsPanel
+            className="avatar-menu-sheet-audio"
+            renderToggle={({ open, panelId, onToggle }) => (
+              <button
+                type="button"
+                className="avatar-menu-sheet-btn avatar-menu-sheet-btn--audio"
+                aria-expanded={open}
+                aria-controls={open ? panelId : undefined}
+                onClick={() => {
+                  stopAllSounds();
+                  onToggle();
+                }}
+              >
+                <AvatarMenuBtnIcon>
+                  <AvatarMenuIconSound gradId={iconGradPrefix} />
+                </AvatarMenuBtnIcon>
+                <span className="avatar-menu-sheet-btn-copy">
+                  <span className="avatar-menu-sheet-btn-kicker">Эфир</span>
+                  <span className="avatar-menu-sheet-btn-label">Звук и музыка</span>
+                </span>
+              </button>
+            )}
+          />
           {showPause && onTakePause && (
             <button
               type="button"
