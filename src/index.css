@@ -32374,7 +32374,9 @@ html.theme-standard
   --bid-btn-w: var(--bid-btn-base);
 }
 /*
- * Portrait on-table: фиксированная база кнопок (как phone LS), без fluid-shrink по ширине сукна.
+ * Portrait on-table: размер/gap из JS на сетке (--bid-btn-w, --bid-row-gap).
+ * Ряд наследует --bid-btn-w (не пересчитывать CSS % / fill-cols).
+ * Mid/LS/short/compact41 / матрицу колонок не трогаем.
  */
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short):not(
     .viewport-mobile-standard-from-short-vh
@@ -32383,8 +32385,11 @@ html.theme-standard
   .bid-panel-mobile-inline
   .bid-panel-mobile-grid--rows
   .bid-panel-mobile-grid-row {
-  --bid-btn-w: var(--bid-btn-base) !important;
-  gap: var(--bid-gap-min, 6px) !important;
+  --bid-btn-w: inherit !important;
+  gap: var(--bid-row-gap, var(--bid-gap-min, 6px)) !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
 }
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-short):not(
     .viewport-mobile-standard-from-short-vh
@@ -32393,18 +32398,18 @@ html.theme-standard
   .bid-panel-mobile-inline
   .bid-panel-mobile-grid.bid-panel-mobile-grid--cols5
   .bid-panel-btn.bid-panel-btn-mobile {
-  width: var(--bid-btn-base) !important;
-  max-width: var(--bid-btn-base) !important;
-  min-width: var(--bid-btn-base) !important;
-  flex: 0 0 var(--bid-btn-base) !important;
+  width: var(--bid-btn-w, var(--bid-btn-base)) !important;
+  max-width: var(--bid-btn-w, var(--bid-btn-base)) !important;
+  min-width: 0 !important;
+  flex: 0 0 var(--bid-btn-w, var(--bid-btn-base)) !important;
 }
 /*
  * Portrait: wrap на всю ширину сукна (inset 8px) — надпись max-width:100% не выходит за обводку;
  * стек/кнопки по-прежнему справа.
  */
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape) .bid-panel-mobile-on-table-wrap {
-  left: 8px !important;
-  right: 8px !important;
+  left: 4px !important;
+  right: 4px !important;
   width: auto !important;
   max-width: none !important;
   min-width: 0 !important;
@@ -32436,13 +32441,15 @@ html.theme-standard
   max-width: 100% !important;
 }
 .game-table-root.viewport-mobile:not(.viewport-mobile-landscape) .bid-panel-mobile-on-table-wrap .bid-panel-mobile-inline .bid-panel-mobile-grid {
-  /* row-reverse + fill; overflow visible — ореол не режется; ширина ≤ ROW_MAX */
+  /* row-reverse + fill; overflow visible — ореол не режется; вся ширина сукна */
   justify-content: flex-start !important;
   width: 100% !important;
-  max-width: min(100%, var(--bid-row-max, 294px)) !important;
+  max-width: 100% !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
   overflow: visible !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 .game-table-root.viewport-mobile .bid-panel-mobile-inline .bid-panel-btn .bid-panel-btn-digit {
   position: relative;
@@ -60395,6 +60402,65 @@ html.theme-standard
   color: #fdba74;
   background: linear-gradient(168deg, rgba(124, 45, 18, 0.55) 0%, rgba(30, 27, 75, 0.88) 100%);
   box-shadow: 0 0 10px rgba(251, 146, 60, 0.15);
+}
+
+.avatar-menu-sheet-actions .avatar-menu-sheet-audio {
+  width: 100%;
+  z-index: auto;
+}
+
+.avatar-menu-sheet-btn--audio {
+  gap: 10px;
+  padding: 8px 12px 9px;
+  border: 1px solid transparent;
+  color: #f5f3ff;
+  font-family: 'Orbitron', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  background-color: transparent;
+  background-image:
+    linear-gradient(168deg, rgba(52, 18, 92, 0.96) 0%, rgba(16, 8, 36, 0.98) 55%, rgba(8, 6, 24, 0.99) 100%),
+    linear-gradient(118deg, #c084fc 0%, #e879f9 38%, #fbbf24 72%, #a78bfa 100%);
+  background-clip: padding-box, border-box;
+  background-origin: padding-box, border-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 16px rgba(168, 85, 247, 0.32),
+    0 0 22px rgba(251, 191, 36, 0.1);
+}
+
+.avatar-menu-sheet-btn--audio .avatar-menu-sheet-btn-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+}
+
+.avatar-menu-sheet-btn-kicker {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: #f0abfc;
+}
+
+.avatar-menu-sheet-btn--audio .avatar-menu-sheet-btn-label {
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  line-height: 1.15;
+  background: linear-gradient(102deg, #faf5ff 0%, #e9d5ff 48%, #fde68a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.avatar-menu-sheet-btn--audio:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 22px rgba(192, 132, 252, 0.42),
+    0 0 28px rgba(251, 191, 36, 0.16);
 }
 
 .avatar-menu-sheet-btn:focus-visible {

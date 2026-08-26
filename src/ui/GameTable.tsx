@@ -139,6 +139,8 @@ import { isPremiumAiAvatarCustomizationEnabled } from '../lib/featureFlags';
 import '../styles/plasma-badge-pc-no-outer-glow.css';
 /* Канон Юга после plasma — чтобы HMR/чанк GameTable не перебил main.tsx */
 import '../styles/user-south-panel.css';
+import { playIllegal, playCardPlaySouth, playSound, stopAllSounds, stopNudgeSounds } from '../audio';
+import { useGameTableAudio } from '../audio/useGameTableAudio';
 import {
   pcSouthNameCutChars,
   USER_SOUTH_TRICKS_PANEL_SCALE,
@@ -1253,6 +1255,8 @@ interface GameTableProps {
   onPhotoCaptured?: (avatarDataUrl: string) => void;
   /** Сохранить имя из меню аватарки (inline, без модалки профиля). */
   onSaveDisplayName?: (displayName: string) => void;
+  /** Глушить стол (модалка «сколько игроков» поверх живой партии). */
+  tableAudioSilenced?: boolean;
 }
 
 /** Чистый стол: последняя взятка без оверлея результатов. */
@@ -2037,11 +2041,14 @@ function useMobileBidLowerColsFromTableWidth(spec: MobileBidLayoutSpec): {
   upperCols: MobileBidLowerCols;
   /** Общий gap рядов (px) — от нижнего ряда; верхние не пересчитывают по своей ширине. */
   rowGapPx: number;
+  /** Ширина кнопки (px): portrait 5+ — max под узкий gap; иначе base. */
+  btnWidthPx: number;
   measureRef: (node: HTMLDivElement | null) => void;
 } {
   const [lowerCols, setLowerCols] = useState<MobileBidLowerCols>(spec.minCols);
   const [upperCols, setUpperCols] = useState<MobileBidLowerCols>(spec.upperMinCols);
   const [rowGapPx, setRowGapPx] = useState(spec.gapMinPx);
+  const [btnWidthPx, setBtnWidthPx] = useState(spec.basePx);
   const [node, setNode] = useState<HTMLDivElement | null>(null);
   const measureRef = useCallback((el: HTMLDivElement | null) => {
     setNode(el);
@@ -2051,6 +2058,7 @@ function useMobileBidLowerColsFromTableWidth(spec: MobileBidLayoutSpec): {
       setLowerCols(spec.minCols);
       setUpperCols(spec.upperMinCols);
       setRowGapPx(spec.gapMinPx);
+      setBtnWidthPx(spec.basePx);
       return;
     }
     const sync = () => {
@@ -2058,7 +2066,18 @@ function useMobileBidLowerColsFromTableWidth(spec: MobileBidLayoutSpec): {
       /* Нижний ряд — полная ширина; gapMin из спеки (landscape: 2px → дольше 6 кнопок). */
       const lower = fitBidCols(w, spec.basePx, spec.minCols, spec.maxCols, spec.gapMinPx);
       setLowerCols(lower);
-      setRowGapPx(bidSharedRowGapPx(w, lower, spec.basePx, spec.gapMinPx));
+      /*
+       * Portrait · 5+ в ряду: gap 1px и кнопка = max возможный ≤ base по факту ширины сукна.
+       * (CSS % / fill-cols давали лишнее сжатие; ≤4 — всегда base + жидкий gap.)
+       */
+      if (spec.mode === 'portrait' && lower >= 5) {
+        const tightGap = 1;
+        setRowGapPx(tightGap);
+        setBtnWidthPx(Math.min(spec.basePx, (w - (lower - 1) * tightGap) / lower));
+      } else {
+        setRowGapPx(bidSharedRowGapPx(w, lower, spec.basePx, spec.gapMinPx));
+        setBtnWidthPx(spec.basePx);
+      }
       if (spec.trumpReservePx > 0) {
         const upperUsable = Math.max(0, w - spec.trumpReservePx);
         setUpperCols(
@@ -2083,7 +2102,7 @@ function useMobileBidLowerColsFromTableWidth(spec: MobileBidLayoutSpec): {
     spec.gapMinPx,
     spec.mode,
   ]);
-  return { lowerCols, upperCols, rowGapPx, measureRef };
+  return { lowerCols, upperCols, rowGapPx, btnWidthPx, measureRef };
 }
 
 /** Юг · landscape: калибровка панели/руки — не ниже 660×330, см. mobileLandscapeSouthLayout.ts */
@@ -2576,7 +2595,7 @@ function difficultyForAiPlayMove(online: boolean, st: GameState, playerIndex: nu
   return st.players[playerIndex]?.aiDifficulty ?? getAiDifficulty();
 }
 
-export default function GameTable({ gameId, offlinePlayerCount = 4, playerDisplayName, playerAvatarDataUrl, playerAvatarBgColor, onExit, onNewGame, onOpenProfileModal, onSaveAvatar, onPhotoCaptured, onSaveDisplayName }: GameTableProps) {
+export default function GameTable({ gameId, offlinePlayerCount = 4, playerDisplayName, playerAvatarDataUrl, playerAvatarBgColor, onExit, onNewGame, onOpenProfileModal, onSaveAvatar, onPhotoCaptured, onSaveDisplayName, tableAudioSilenced = false }: GameTableProps) {
   const { user } = useAuth();
   const { cardPaletteLock, cardThemeLabel, cycleCardTheme } = useTheme();
   const userRef = useRef(user);
@@ -2760,6 +2779,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     lowerCols: mobileBidLowerColsEffective,
     upperCols: mobileBidUpperColsEffective,
     rowGapPx: mobileBidRowGapPx,
+    btnWidthPx: mobileBidBtnWidthPx,
     measureRef: mobileBidMeasureRef,
   } = useMobileBidLowerColsFromTableWidth(mobileBidLayoutSpecResolved);
   /** Phone LS / after-short — всегда Compact+; mid и portrait — из спеки. */
@@ -5531,6 +5551,21 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   }, [isMobile, dealResultsExpanded, dealResultsMobileStretchPx]);
 
   const humanIdx = isOnline || isWaitingInRoom ? 0 : 0;
+  const tableAudioOff =
+    isWaitingInRoom ||
+    online.userOnPause ||
+    tableAudioSilenced ||
+    showNewGameConfirm ||
+    showHomeConfirm ||
+    showExitConfirm ||
+    showAvatarMenu;
+  useGameTableAudio({
+    state,
+    humanIdx,
+    isOnline,
+    silenced: tableAudioOff,
+    dealResultsCollectPhase: lastTrickCollectingPhase,
+  });
   const tableSeatCount: PlayerCount = state ? playerCountOf(state) : 4;
   const isThreeSeatTable = tableSeatCount === 3;
   const pcScaleSeats: 3 | 4 = isThreeSeatTable ? 3 : 4;
@@ -6102,8 +6137,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       const handCardDisabled =
         !!state.pendingTrickCompletion ||
         !isHumanTurn ||
-        humanAlreadyPlayedCurrentTrick ||
-        !validPlays.some((candidate) => candidate.suit === card.suit && candidate.rank === card.rank);
+        humanAlreadyPlayedCurrentTrick;
       return (
         <div
           key={`l-hand-${vertical ? 'v' : 'h'}-${card.suit}-${card.rank}-${i}`}
@@ -6157,15 +6191,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             pcCardStyles={false}
             thinBorder
             onClick={() => {
-              if (
-                !state.pendingTrickCompletion &&
-                isHumanTurn &&
-                !humanAlreadyPlayedCurrentTrick &&
-                validPlays.some((candidate) => candidate.suit === card.suit && candidate.rank === card.rank)
-              ) {
-                if (isOnlinePlayPhase) online.sendPlay(card);
-                else setLocalState((prev) => prev && playCard(prev, humanIdx, card));
+              if (state.pendingTrickCompletion || !isHumanTurn || humanAlreadyPlayedCurrentTrick) return;
+              const ok = validPlays.some(
+                (candidate) => candidate.suit === card.suit && candidate.rank === card.rank,
+              );
+              if (!ok) {
+                playIllegal();
+                return;
               }
+              playCardPlaySouth();
+              if (isOnlinePlayPhase) online.sendPlay(card);
+              else setLocalState((prev) => prev && playCard(prev, humanIdx, card));
             }}
             disabled={handCardDisabled}
           />
@@ -7103,11 +7139,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       // mousedown+click / touch→click иначе шлют place_bid дважды → not_your_turn спам.
       if (onlineBidInFlightRef.current) return;
       onlineBidInFlightRef.current = true;
+      stopNudgeSounds();
+      playSound('bid_place');
       void Promise.resolve(online.sendBid(bid)).finally(() => {
         onlineBidInFlightRef.current = false;
       });
       return;
     }
+    stopNudgeSounds();
+    playSound('bid_place');
     setLocalState(prev => prev && placeBid(prev, humanIdx, bid));
   }, [humanIdx, isOnlinePlayPhase, online]);
 
@@ -8183,6 +8223,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         type="button"
         className={avatarRootCls}
         onClick={() => {
+          stopAllSounds();
           setShowAvatarMenu(true);
         }}
         style={avatarBtnStyle}
@@ -11662,8 +11703,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   justifyContent: 'flex-end',
                   alignItems: 'flex-end',
                   boxSizing: 'border-box',
-                  paddingLeft: 8,
-                  paddingRight: 8,
+                  /* inset L/R — в CSS (.bid-panel-mobile-on-table-wrap), не здесь: иначе measure уже уже */
+                  paddingLeft: 0,
+                  paddingRight: 0,
                 }}
               >
                 <div
@@ -11753,6 +11795,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           ['--bid-fill-cols' as string]: String(mobileBidLowerColsEffective),
                           /* Один gap на все ряды — верхний не сжимается из‑за padding-left козыря */
                           ['--bid-row-gap' as string]: `${mobileBidRowGapPx}px`,
+                          /* Portrait 5+: фактическая ширина кнопки с measure (не CSS %) */
+                          ['--bid-btn-w' as string]: `${mobileBidBtnWidthPx}px`,
                         } as React.CSSProperties
                       }
                       data-bid-fill-cols={mobileBidLowerColsEffective}
@@ -12127,8 +12171,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 const handCardDisabled =
                   !!state.pendingTrickCompletion ||
                   !isHumanTurn ||
-                  humanAlreadyPlayedCurrentTrick ||
-                  !validPlays.some(c => c.suit === card.suit && c.rank === card.rank);
+                  humanAlreadyPlayedCurrentTrick;
                 return (
                 <div
                   key={`${card.suit}-${card.rank}-${i}`}
@@ -12177,10 +12220,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   pcCardStyles={false}
                   thinBorder={true}
                   onClick={() => {
-                    if (!state.pendingTrickCompletion && isHumanTurn && !humanAlreadyPlayedCurrentTrick && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
-                      if (isOnlinePlayPhase) online.sendPlay(card);
-                      else setLocalState(prev => prev && playCard(prev, humanIdx, card));
+                    if (state.pendingTrickCompletion || !isHumanTurn || humanAlreadyPlayedCurrentTrick) return;
+                    const ok = validPlays.some((c) => c.suit === card.suit && c.rank === card.rank);
+                    if (!ok) {
+                      playIllegal();
+                      return;
                     }
+                    playCardPlaySouth();
+                    if (isOnlinePlayPhase) online.sendPlay(card);
+                    else setLocalState((prev) => prev && playCard(prev, humanIdx, card));
                   }}
                   disabled={handCardDisabled}
                 />
@@ -12450,8 +12498,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             const handCardDisabled =
                               !!state.pendingTrickCompletion ||
                               !isHumanTurn ||
-                              humanAlreadyPlayedCurrentTrick ||
-                              !validPlays.some((c) => c.suit === card.suit && c.rank === card.rank);
+                              humanAlreadyPlayedCurrentTrick;
                             return (
                               <div
                                 key={`southgrid-${card.suit}-${card.rank}-${i}`}
@@ -12525,14 +12572,22 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                                   thinBorder={true}
                                   onClick={() => {
                                     if (
-                                      !state.pendingTrickCompletion &&
-                                      isHumanTurn &&
-                                      !humanAlreadyPlayedCurrentTrick &&
-                                      validPlays.some((c) => c.suit === card.suit && c.rank === card.rank)
+                                      state.pendingTrickCompletion ||
+                                      !isHumanTurn ||
+                                      humanAlreadyPlayedCurrentTrick
                                     ) {
-                                      if (isOnlinePlayPhase) online.sendPlay(card);
-                                      else setLocalState((prev) => prev && playCard(prev, humanIdx, card));
+                                      return;
                                     }
+                                    const ok = validPlays.some(
+                                      (c) => c.suit === card.suit && c.rank === card.rank,
+                                    );
+                                    if (!ok) {
+                                      playIllegal();
+                                      return;
+                                    }
+                                    playCardPlaySouth();
+                                    if (isOnlinePlayPhase) online.sendPlay(card);
+                                    else setLocalState((prev) => prev && playCard(prev, humanIdx, card));
                                   }}
                                   disabled={handCardDisabled}
                                 />
@@ -13901,12 +13956,21 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   pcCardStyles={!isMobileOrTablet}
                   biddingHighlightPC={!isMobileOrTablet && (state.phase === 'bidding' || state.phase === 'dark-bidding')}
                   onClick={() => {
-                    if (!state.pendingTrickCompletion && isHumanTurn && !humanAlreadyPlayedCurrentTrick && validPlays.some(c => c.suit === card.suit && c.rank === card.rank)) {
-                      if (isOnlinePlayPhase) online.sendPlay(card);
-                      else setLocalState(prev => prev && playCard(prev, humanIdx, card));
+                    if (state.pendingTrickCompletion || !isHumanTurn || humanAlreadyPlayedCurrentTrick) return;
+                    const ok = validPlays.some((c) => c.suit === card.suit && c.rank === card.rank);
+                    if (!ok) {
+                      playIllegal();
+                      return;
                     }
+                    playCardPlaySouth();
+                    if (isOnlinePlayPhase) online.sendPlay(card);
+                    else setLocalState((prev) => prev && playCard(prev, humanIdx, card));
                   }}
-                  disabled={!!state.pendingTrickCompletion || !isHumanTurn || humanAlreadyPlayedCurrentTrick || !validPlays.some(c => c.suit === card.suit && c.rank === card.rank)}
+                  disabled={
+                    !!state.pendingTrickCompletion ||
+                    !isHumanTurn ||
+                    humanAlreadyPlayedCurrentTrick
+                  }
                 />
               ));
             })()}

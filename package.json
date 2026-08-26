@@ -30,7 +30,9 @@
     "host:desktop:install": "npm install --prefix host-desktop",
     "host:desktop": "npm run host:desktop:install && cd host-desktop && npm run tauri dev",
     "host:desktop:build": "npm run host:desktop:install && cd host-desktop && npm run tauri build",
-    "host:installer:prep": "node scripts/stage-host-installer.mjs"
+    "host:installer:prep": "node scripts/stage-host-installer.mjs",
+    "audio:gen": "node scripts/gen-audio-sfx.mjs",
+    "audio:gen-music": "node scripts/gen-audio-music.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
