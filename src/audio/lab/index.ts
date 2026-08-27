@@ -1,16 +1,48 @@
-export type { LabInstrumentId, LabVoiceParams, LabPreset, LabPhraseNote, LabBeatParams, LabBeatRhythmId } from './types';
+export type {
+  LabInstrumentId,
+  LabVoiceParams,
+  LabPreset,
+  LabPhraseNote,
+  LabBeatParams,
+  LabBeatRhythmId,
+  LabBeatBarPattern,
+  LabBeatLaneId,
+  LabMelodyLayer,
+  LabMusicPadParams,
+  LabMusicSlotId,
+  LabMusicSessionSnapshot,
+} from './types';
 export {
   LAB_INSTRUMENTS,
   DEFAULT_LAB_VOICE,
   DEFAULT_LAB_BEAT,
+  DEFAULT_LAB_MUSIC_PAD,
   LAB_BEAT_PRESETS,
   LAB_BEAT_RHYTHMS,
+  LAB_BEAT_STEPS_PER_BAR,
+  LAB_MUSIC_SLOTS,
   LAB_SLOT_HINTS,
   LAB_SAMPLE_RATE,
   LAB_CHORD_MAX,
+  LAB_SESSION_DRAFT_KEY,
+  emptyBeatPattern,
+  cloneBeatPattern,
+  normalizeBeatPattern,
+  serializeBeatPattern,
+  patternsEqual,
+  createMelodyLayer,
+  stampPhraseDurations,
+  quantizePhraseNotes,
+  wrapPhraseNotesToLoop,
 } from './types';
 export { midiToHz, renderNoteSamples, renderPhraseSamples, renderChordSamples } from './renderVoice';
-export { renderBeatSamples, mixBeatIntoSamples } from './renderBeat';
+export {
+  renderBeatSamples,
+  mixBeatIntoSamples,
+  barPatternFromRhythm,
+  resolveDisplayPattern,
+} from './renderBeat';
+export { renderMusicBedSamples } from './renderMusicBed';
 export {
   playLabNote,
   playLabChord,
@@ -18,11 +50,20 @@ export {
   playGameSample,
   playWavBytes,
   stopAllLabNotes,
+  stopLabPhrase,
   resumeLabAudio,
   startLabBeat,
+  startLabMusicBed,
   stopLabBeat,
   setLabBeatParams,
   getLabBeatParams,
+  setLabMusicPlaybackVolume,
+  previewLabDrumHit,
+  isLabBeatOn,
+  isLabPhrasePlaying,
+  getLabBeatLoopDurationSec,
+  getLabBeatLoopPhaseSec,
+  getLabBeatRecordEpochMs,
   mixLabBeatInto,
   shouldBakeBeatIntoExport,
   isLabBeatExportWanted,
@@ -34,6 +75,10 @@ export {
   deleteLabPreset,
   exportPresetJson,
   cloneDefaultVoice,
+  saveLabSessionDraft,
+  loadLabSessionDraft,
+  type LabSessionDraft,
+  type UpsertLabPresetInput,
 } from './presetStore';
 export {
   saveLabSlot,
@@ -41,6 +86,7 @@ export {
   listLabSlotIds,
   loadAllLabSlots,
   writeSlotToDevServer,
+  writeMusicSlotToDevServer,
   deleteLabSlot,
   type LabSlotRecord,
 } from './slotStore';

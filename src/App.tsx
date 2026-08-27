@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
 import { hasSavedGame, clearGameStateFromStorage, getPlayerProfile, savePlayerProfile, type PlayerProfile } from './game/persistence'
-import { loadProfileFromSupabase, saveProfileToSupabase } from './lib/profileSync'
+import { loadProfileFromSupabase, mergeLocalAndRemoteProfile, saveProfileToSupabase } from './lib/profileSync'
 import { useAuth } from './contexts/AuthContext'
 import { useOnlineGame } from './contexts/useOnlineGame'
 import { loadOnlineSession, markLobbyUiOpen, wasLobbyUiOpen, SUPPRESS_AUTO_OPEN_KEY } from './lib/onlineSession'
@@ -63,6 +63,16 @@ function readInitialScreen(): AppScreen {
   return 'menu'
 }
 
+function hashForScreen(screen: AppScreen): string {
+  if (screen === 'game') return '#game'
+  if (screen === 'rules') return '#rules'
+  if (screen === 'account') return ACCOUNT_ROUTE_HASH
+  if (screen === 'support') return SUPPORT_ROUTE_HASH
+  if (screen === 'rating') return RATING_ROUTE_HASH
+  if (screen === 'online') return ONLINE_ROUTE_HASH
+  return '#menu'
+}
+
 function App() {
   const { user, signOut, configured, loading: authLoading } = useAuth()
   const online = useOnlineGame()
@@ -70,6 +80,8 @@ function App() {
   // GameTable успевал поднять офлайн-партию с ИИ и перекрывал лобби (fixed без z-index).
   // После F5 с #game не затирать хеш в меню: начальный экран совпадает с location.hash.
   const [screen, setScreen] = useState<AppScreen>(() => readInitialScreen())
+  /** Куда вернуть крестик «Рейтинг»: ЛК, меню и т.д. */
+  const ratingReturnScreenRef = useRef<AppScreen>('menu')
   const didAutoOpenLobbyRef = useRef(false)
   const hadOnlineRoomRef = useRef(false)
   /** Уже показывали «Задайте имя для этого аккаунта» этому user.id в сессии — не дёргать setShow снова при повторном срабатывании эффекта. */
@@ -222,13 +234,11 @@ function App() {
       const remote = await loadProfileFromSupabase(user.id)
       if (cancelled) return
       if (remote) {
-        const merged: PlayerProfile = {
-          displayName: remote.displayName,
-          avatarDataUrl: remote.avatarDataUrl ?? null,
-          profileId: remote.profileId ?? getPlayerProfile().profileId,
-        }
+        const local = getPlayerProfile()
+        const { profile: merged, push } = mergeLocalAndRemoteProfile(local, remote)
         savePlayerProfile(merged)
         setProfile(merged)
+        if (push) await saveProfileToSupabase(user.id, merged)
       } else {
         // Новый пользователь: имя при регистрации по email сохранено в sessionStorage; иначе — запросим в модалке
         const emailKey = userEmailNorm || undefined
@@ -341,12 +351,17 @@ function App() {
       avatarDataUrl: data.avatarDataUrl ?? null,
       avatarBgColor: data.avatarBgColor ?? current.avatarBgColor ?? null,
       profileId: current.profileId,
+      updatedAt: new Date().toISOString(),
     }
     savePlayerProfile(next)
     setProfile(next)
     closeNameAvatarModal()
     newAccountGatePromptedRef.current = null
-    if (user?.id) saveProfileToSupabase(user.id, next)
+    if (user?.id) {
+      void saveProfileToSupabase(user.id, next).then((ok) => {
+        if (ok) setProfile(getPlayerProfile())
+      })
+    }
     if (online.roomId) {
       if (online.syncMySlotDisplayName) void online.syncMySlotDisplayName(next.displayName)
       if (online.syncMySlotAvatar) void online.syncMySlotAvatar()
@@ -359,9 +374,14 @@ function App() {
 
   /** Селфи на телефоне часто перезагружает вкладку — пишем аватар и слот сразу, не дожидаясь «Сохранить». */
   const handlePhotoCaptured = useCallback((avatarDataUrl: string) => {
-    const next = { ...getPlayerProfile(), avatarDataUrl };
+    const next = { ...getPlayerProfile(), avatarDataUrl, updatedAt: new Date().toISOString() };
+    savePlayerProfile(next);
     setProfile(next);
-    if (user?.id) void saveProfileToSupabase(user.id, next);
+    if (user?.id) {
+      void saveProfileToSupabase(user.id, next).then((ok) => {
+        if (ok) setProfile(getPlayerProfile());
+      });
+    }
     if (online.roomId && online.syncMySlotAvatar) void online.syncMySlotAvatar();
   }, [user?.id, online.roomId, online.syncMySlotAvatar])
 
@@ -449,7 +469,20 @@ function App() {
 
   const openRatingPage = useCallback(() => {
     setUrlJoinCode(null)
-    setScreen('rating')
+    setScreen((prev) => {
+      if (prev !== 'rating') ratingReturnScreenRef.current = prev
+      return 'rating'
+    })
+  }, [])
+
+  const closeRatingPage = useCallback(() => {
+    const back = ratingReturnScreenRef.current
+    const next: AppScreen = back && back !== 'rating' ? back : 'menu'
+    const nextHash = hashForScreen(next)
+    if (window.location.hash !== nextHash) {
+      history.replaceState({ screen: next }, '', nextHash)
+    }
+    setScreen(next)
   }, [])
 
   // Управление историей браузера: #menu ↔ #game ↔ #online и popstate
@@ -470,7 +503,10 @@ function App() {
       } else if (isSupportRouteHash(h)) {
         setScreen('support')
       } else if (isRatingRouteHash(h)) {
-        setScreen('rating')
+        setScreen((prev) => {
+          if (prev !== 'rating') ratingReturnScreenRef.current = prev
+          return 'rating'
+        })
       } else if (isOnlineRouteHash(h)) {
         try { sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY) } catch { /* ignore */ }
         setScreen('online')
@@ -647,7 +683,8 @@ function App() {
       {screen === 'support' && <SupportDonatePage onBack={() => setScreen('menu')} />}
       {screen === 'rating' && (
         <LeaderboardPage
-          onBack={() => setScreen('menu')}
+          onBack={closeRatingPage}
+          onGoToMenu={() => setScreen('menu')}
           onSignIn={() => {
             setAuthMode('login')
             setShowAuthModal(true)

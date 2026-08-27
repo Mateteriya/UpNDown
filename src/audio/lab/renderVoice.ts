@@ -193,12 +193,58 @@ function renderBass(freq: number, p: LabVoiceParams, n: number): Float32Array {
   return out;
 }
 
+/**
+ * Мягкий электронный бас: чистый суб, без fuzz/delay/reese.
+ * depth = упругость (pitch drop + короче атака), brightness = открытость мягкого LPF.
+ * Высота — настоящая MIDI-нота (раньше clamp 220 Hz делал все ноты выше A3 одинаковыми).
+ */
+function renderEBass(freq: number, p: LabVoiceParams, n: number): Float32Array {
+  const out = new Float32Array(n);
+  const bright = clamp(p.brightness, 0, 1);
+  const bounce = clamp(p.depth, 0, 1);
+  const amp = p.volume * 0.5;
+  const dur = p.duration;
+  const atkIn = Math.max(0.004, p.attack * (1.15 - bounce * 0.55));
+  const { atk, rel } = fitAdsr(dur, atkIn, Math.max(0.12, p.release * 1.1));
+  const f0 = Math.max(28, freq);
+  const subHz = Math.max(28, f0 * 0.5);
+  /* Чуть шире LPF на высоких нотах — меньше грязи при полифонии */
+  const cutoff = 150 + bright * 640 + bounce * 70 + Math.min(320, f0 * 0.28);
+  const rc = 1 / (2 * Math.PI * cutoff);
+  const dt = 1 / LAB_SAMPLE_RATE;
+  const lpK = dt / (rc + dt);
+  let lp = 0;
+  let phase = 0;
+  /* Sustain чуть ниже — длинные ноты не забивают шину при наложении */
+  const sustain = 0.4 + bounce * 0.1;
+  for (let i = 0; i < n; i++) {
+    const t = i / LAB_SAMPLE_RATE;
+    const a = env(t, atk, Math.min(0.14 + bounce * 0.08, dur * 0.35), sustain, rel, dur) * amp;
+    const dropMs = 0.035 + bounce * 0.055;
+    const dropAmt = bounce * 0.085;
+    const fInst = f0 * (1 + dropAmt * Math.exp(-t / Math.max(0.012, dropMs)));
+    phase += (2 * Math.PI * fInst) / LAB_SAMPLE_RATE;
+    const fund = Math.sin(phase);
+    const sub = (0.38 + bounce * 0.2) * Math.sin(2 * Math.PI * subHz * t);
+    const tri =
+      (0.1 + bright * 0.09) *
+      (2 * Math.abs(2 * ((f0 * t) % 1) - 1) - 1) *
+      decayForDur(t, dur, 2.8);
+    const warm = (0.05 + bright * 0.045) * Math.sin(2 * Math.PI * f0 * 1.5 * t) * decayForDur(t, dur, 5.5);
+    const raw = (fund * 0.72 + sub + tri * 0.2 + warm) * a;
+    lp += lpK * (raw - lp);
+    out[i] = Math.tanh(lp * 0.88);
+  }
+  return out;
+}
+
 const RENDERERS: Record<LabInstrumentId, (freq: number, p: LabVoiceParams, n: number) => Float32Array> = {
   bell: renderBell,
   epiano: renderEPiano,
   piano: renderPiano,
   guitar: renderGuitar,
   bass: renderBass,
+  ebass: renderEBass,
 };
 
 /** Однополюсный lowpass: filter 1 ≈ прозрачно, 0 — только низ. */
@@ -220,7 +266,7 @@ function applyToneFilter(samples: Float32Array, amount: number): Float32Array {
 
 /** Офлайн-рендер одной ноты (то же услышите и в WAV). */
 export function renderNoteSamples(midi: number, voice: LabVoiceParams): Float32Array {
-  const dur = clamp(Number.isFinite(voice.duration) ? voice.duration : 0.55, 0.04, 4);
+  const dur = clamp(Number.isFinite(voice.duration) ? voice.duration : 0.55, 0.04, 6);
   const n = Math.max(1, Math.floor(LAB_SAMPLE_RATE * dur));
   const detune = Number.isFinite(voice.detuneCents) ? voice.detuneCents : 0;
   const hz = midiToHz(midi, detune);
@@ -242,22 +288,24 @@ export function renderNoteSamples(midi: number, voice: LabVoiceParams): Float32A
 
 /** Свести фразу в один буфер. */
 export function renderPhraseSamples(
-  phrase: { midi: number; at: number }[],
+  phrase: { midi: number; at: number; dur?: number }[],
   voice: LabVoiceParams,
 ): Float32Array {
   if (phrase.length === 0) return new Float32Array(0);
   let end = 0;
   for (const note of phrase) {
-    end = Math.max(end, note.at + voice.duration + 0.02);
+    const dur = Math.max(0.04, note.dur ?? voice.duration);
+    end = Math.max(end, note.at + dur + 0.02);
   }
   const n = Math.max(1, Math.floor(LAB_SAMPLE_RATE * end));
   const out = new Float32Array(n);
   for (const note of phrase) {
-    const samples = renderNoteSamples(note.midi, voice);
+    const dur = Math.max(0.04, note.dur ?? voice.duration);
+    const samples = renderNoteSamples(note.midi, { ...voice, duration: dur });
     const offset = Math.floor(note.at * LAB_SAMPLE_RATE);
     for (let i = 0; i < samples.length; i++) {
       const j = offset + i;
-      if (j >= 0 && j < n) out[j] += samples[i]!;
+      if (j >= 0 && j < n) out[j]! += samples[i]!;
     }
   }
   /* Только антиклип: не поднимать пик до 0.92 — иначе громкость слайдера пропадает. */

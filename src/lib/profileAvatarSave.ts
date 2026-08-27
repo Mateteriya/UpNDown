@@ -1,8 +1,7 @@
-import { getPlayerProfile, savePlayerProfile } from '../game/persistence';
+import { getPlayerProfile, savePlayerProfile, PLAYER_AVATAR_STORAGE_KEY } from '../game/persistence';
 import { compressImageToDataUrl } from './avatarImage';
 
 const PENDING_AVATAR_KEY = 'updown_avatar_pending';
-const AVATAR_ONLY_KEY = 'updown_avatar_data_url';
 export const AVATAR_CAMERA_PENDING_KEY = 'updown_avatar_camera_pending';
 /** localStorage: переживает уход в системную камеру (sessionStorage на части телефонов сбрасывается). */
 const NAME_AVATAR_MODAL_OPEN_KEY = 'updown_name_avatar_modal_open';
@@ -96,7 +95,7 @@ export function peekAvatarCameraPending(): boolean {
 export async function persistAvatarToProfile(avatarDataUrl: string): Promise<string> {
   const compressed = await compressImageToDataUrl(avatarDataUrl);
   try {
-    localStorage.setItem(AVATAR_ONLY_KEY, compressed);
+    localStorage.setItem(PLAYER_AVATAR_STORAGE_KEY, compressed);
   } catch {
     /* ignore */
   }
@@ -115,7 +114,7 @@ export async function persistAvatarToProfile(avatarDataUrl: string): Promise<str
 /** Подмешать аватар из отдельного ключа, если в профиле пусто (после перезагрузки вкладки). */
 export function mergeStoredAvatarIntoProfile(): void {
   try {
-    const only = localStorage.getItem(AVATAR_ONLY_KEY);
+    const only = localStorage.getItem(PLAYER_AVATAR_STORAGE_KEY);
     if (!only || only.length < 32) return;
     const cur = getPlayerProfile();
     if (cur.avatarDataUrl === only) return;

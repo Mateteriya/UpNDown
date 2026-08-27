@@ -139,6 +139,8 @@ export function updateLocalRating(won: boolean, profileId?: string, bidAccuracy?
 
 /** Профиль игрока: имя, опциональное фото, стабильный id для привязки рейтинга */
 export const PLAYER_PROFILE_STORAGE_KEY = 'updown_player_profile';
+/** Аватар отдельно — большой data URL не должен ломать JSON.parse профиля. */
+export const PLAYER_AVATAR_STORAGE_KEY = 'updown_avatar_data_url';
 
 export interface PlayerProfile {
   displayName: string;
@@ -147,6 +149,8 @@ export interface PlayerProfile {
   avatarBgColor?: string | null;
   /** Стабильный id профиля (uuid) — не меняется при смене имени; рейтинг привязан к нему */
   profileId?: string;
+  /** ISO-время последнего сохранения (last-write-wins с облаком). */
+  updatedAt?: string;
 }
 
 const DEFAULT_DISPLAY_NAME = 'Вы';
@@ -155,11 +159,35 @@ const MAX_DISPLAY_NAME_LENGTH = 17;
 /** Выше — JSON.parse на главном потоке «подвешивает» кнопки (лобби createRoom читает профиль). */
 const PLAYER_PROFILE_RAW_PARSE_MAX = 90_000;
 
+function readStoredAvatar(): string | null {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(PLAYER_AVATAR_STORAGE_KEY) : null;
+    if (!raw || raw.length < 32) return null;
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredAvatar(avatarDataUrl: string | null | undefined): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    if (avatarDataUrl && avatarDataUrl.length >= 32) {
+      localStorage.setItem(PLAYER_AVATAR_STORAGE_KEY, avatarDataUrl);
+    } else {
+      localStorage.removeItem(PLAYER_AVATAR_STORAGE_KEY);
+    }
+  } catch {
+    /* quota / private mode */
+  }
+}
+
 /** Только начало файла: profileId и displayName без полного parse мегабайтного data URL. */
 function tryParsePlayerProfileLight(raw: string): PlayerProfile {
   const head = raw.slice(0, 8000);
   const profileIdMatch = head.match(/"profileId"\s*:\s*"([0-9a-f-]{36})"/i);
   const nameMatch = head.match(/"displayName"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  const updatedMatch = head.match(/"updatedAt"\s*:\s*"([^"]+)"/);
   let displayName = DEFAULT_DISPLAY_NAME;
   if (nameMatch?.[1]) {
     try {
@@ -172,8 +200,9 @@ function tryParsePlayerProfileLight(raw: string): PlayerProfile {
   const profileId = profileIdMatch?.[1] ?? generateProfileId();
   return {
     displayName: displayName.trim().slice(0, MAX_DISPLAY_NAME_LENGTH),
-    avatarDataUrl: undefined,
+    avatarDataUrl: readStoredAvatar(),
     profileId,
+    updatedAt: updatedMatch?.[1],
   };
 }
 
@@ -188,36 +217,44 @@ function generateProfileId(): string {
 export function getPlayerProfile(): PlayerProfile {
   try {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(PLAYER_PROFILE_STORAGE_KEY) : null;
-    if (!raw) return { displayName: DEFAULT_DISPLAY_NAME, profileId: generateProfileId() };
+    const sideAvatar = readStoredAvatar();
+    if (!raw) {
+      return { displayName: DEFAULT_DISPLAY_NAME, avatarDataUrl: sideAvatar, profileId: generateProfileId() };
+    }
     if (raw.length > PLAYER_PROFILE_RAW_PARSE_MAX) {
-      return tryParsePlayerProfileLight(raw);
+      const light = tryParsePlayerProfileLight(raw);
+      return { ...light, avatarDataUrl: sideAvatar ?? light.avatarDataUrl ?? null };
     }
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return { displayName: DEFAULT_DISPLAY_NAME, profileId: generateProfileId() };
+    if (!parsed || typeof parsed !== 'object') {
+      return { displayName: DEFAULT_DISPLAY_NAME, avatarDataUrl: sideAvatar, profileId: generateProfileId() };
+    }
     const p = parsed as Record<string, unknown>;
     const displayName = typeof p.displayName === 'string' && p.displayName.trim().length > 0
       ? p.displayName.trim()
       : DEFAULT_DISPLAY_NAME;
-    const avatarDataUrl = p.avatarDataUrl === null || p.avatarDataUrl === undefined
-      ? undefined
-      : typeof p.avatarDataUrl === 'string' ? p.avatarDataUrl : undefined;
+    const fromMain = p.avatarDataUrl === null || p.avatarDataUrl === undefined
+      ? null
+      : typeof p.avatarDataUrl === 'string' ? p.avatarDataUrl : null;
+    const avatarDataUrl = sideAvatar ?? fromMain;
     const avatarBgColor =
       typeof p.avatarBgColor === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(p.avatarBgColor.trim())
         ? p.avatarBgColor.trim()
         : null;
+    const updatedAt = typeof p.updatedAt === 'string' && p.updatedAt.length > 0 ? p.updatedAt : undefined;
     let profileId = typeof p.profileId === 'string' && p.profileId.length > 0 ? p.profileId : undefined;
     if (!profileId) {
       profileId = generateProfileId();
       try {
-        const payload = { displayName, avatarDataUrl: avatarDataUrl ?? null, avatarBgColor, profileId };
+        const payload = { displayName, avatarBgColor, profileId, updatedAt };
         localStorage.setItem(PLAYER_PROFILE_STORAGE_KEY, JSON.stringify(payload));
       } catch {
         /* ignore */
       }
     }
-    return { displayName, avatarDataUrl: avatarDataUrl ?? null, avatarBgColor, profileId };
+    return { displayName, avatarDataUrl: avatarDataUrl ?? null, avatarBgColor, profileId, updatedAt };
   } catch {
-    return { displayName: DEFAULT_DISPLAY_NAME, profileId: generateProfileId() };
+    return { displayName: DEFAULT_DISPLAY_NAME, avatarDataUrl: readStoredAvatar(), profileId: generateProfileId() };
   }
 }
 
@@ -230,18 +267,29 @@ export function savePlayerProfile(profile: PlayerProfile): void {
     if (displayName.length > MAX_DISPLAY_NAME_LENGTH) displayName = displayName.slice(0, MAX_DISPLAY_NAME_LENGTH);
     const existing = getPlayerProfile();
     const profileId = profile.profileId ?? existing.profileId ?? generateProfileId();
-    const payload: PlayerProfile = {
+    const avatarDataUrl =
+      profile.avatarDataUrl === undefined ? existing.avatarDataUrl ?? null : profile.avatarDataUrl ?? null;
+    const avatarBgColor =
+      typeof profile.avatarBgColor === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(profile.avatarBgColor.trim())
+        ? profile.avatarBgColor.trim()
+        : profile.avatarBgColor === null
+          ? null
+          : existing.avatarBgColor ?? null;
+    const updatedAt = profile.updatedAt ?? new Date().toISOString();
+    writeStoredAvatar(avatarDataUrl);
+    const meta = {
       displayName,
-      avatarDataUrl: profile.avatarDataUrl ?? null,
-      avatarBgColor:
-        typeof profile.avatarBgColor === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(profile.avatarBgColor.trim())
-          ? profile.avatarBgColor.trim()
-          : profile.avatarBgColor === null
-            ? null
-            : existing.avatarBgColor ?? null,
+      avatarBgColor,
       profileId,
+      updatedAt,
     };
-    localStorage.setItem(PLAYER_PROFILE_STORAGE_KEY, JSON.stringify(payload));
+    const withAvatar: PlayerProfile = { ...meta, avatarDataUrl };
+    const full = JSON.stringify(withAvatar);
+    if (full.length <= PLAYER_PROFILE_RAW_PARSE_MAX) {
+      localStorage.setItem(PLAYER_PROFILE_STORAGE_KEY, full);
+    } else {
+      localStorage.setItem(PLAYER_PROFILE_STORAGE_KEY, JSON.stringify({ ...meta, avatarDataUrl: null }));
+    }
   } catch {
     /* ignore */
   }

@@ -2,7 +2,7 @@
  * Хаб «Мои партии»: лента (локальный архив ∪ облако) + деталь с таблицей раздач.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   getPartyArchive,
   getPartyArchiveById,
@@ -12,9 +12,10 @@ import { SETTLEMENT_MODE_LABELS, type SettlementMode } from '../game/partySettle
 import type { DealResult } from '../game/GameEngine';
 import { hasSavedGame } from '../game/persistence';
 import { isFullDealRow, type GatedDealRow } from '../lib/historyAccess';
+import { useAuth } from '../contexts/AuthContext';
 import {
   getMatchDetail,
-  getMyMatchHistory,
+  getMyMatchHistoryResult,
   type MatchDetail,
   type MatchHistoryItem,
 } from '../lib/onlineGameSupabase';
@@ -93,6 +94,30 @@ function matchFeedDedupeKey(parts: {
   // До минуты: в UI время без секунд, дубли RPC часто в одну минуту
   const bucket = Number.isFinite(t) ? Math.floor(t / 60_000) : parts.at;
   return [bucket, parts.place ?? '', parts.score ?? '', parts.chips ?? '', parts.offline ? 1 : 0].join('|');
+}
+
+/** Локальная копия той же онлайн-партии: фишки/минута часто не совпадают с облаком. */
+function isSameAccountMatch(
+  a: {
+    at: string;
+    place: number | null | undefined;
+    score: number | null | undefined;
+    offline: boolean;
+  },
+  b: {
+    at: string;
+    place: number | null | undefined;
+    score: number | null | undefined;
+    offline: boolean;
+  },
+): boolean {
+  if (a.offline !== b.offline) return false;
+  if ((a.place ?? null) !== (b.place ?? null)) return false;
+  if ((a.score ?? null) !== (b.score ?? null)) return false;
+  const ta = Date.parse(a.at);
+  const tb = Date.parse(b.at);
+  if (!Number.isFinite(ta) || !Number.isFinite(tb)) return false;
+  return Math.abs(ta - tb) <= 15 * 60 * 1000;
 }
 
 export type MatchArchiveFilter = 'all' | 'cloud' | 'local' | 'online' | 'offline';
@@ -436,9 +461,12 @@ export function MatchArchiveHub({
   onContinueOffline,
   onOpenRating,
 }: MatchArchiveHubProps) {
+  const { session, loading: authLoading } = useAuth();
+  const accessToken = session?.access_token ?? '';
   const [filter, setFilter] = useState<MatchArchiveFilter>('all');
   const [localRows, setLocalRows] = useState<PartyArchiveRecord[]>([]);
   const [cloudRows, setCloudRows] = useState<MatchHistoryItem[] | null>(null);
+  const [cloudError, setCloudError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailKey, setDetailKey] = useState<string | null>(null);
   const [cloudDetail, setCloudDetail] = useState<MatchDetail | null>(null);
@@ -459,33 +487,43 @@ export function MatchArchiveHub({
     return () => mq.removeEventListener('change', sync);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const local = await getPartyArchive(undefined, 80);
-        let cloud: MatchHistoryItem[] = [];
-        if (configured && userId) {
-          cloud = await getMyMatchHistory(userId, 80);
-        }
-        if (!cancelled) {
-          setLocalRows(local);
-          setCloudRows(configured && userId ? cloud : []);
-        }
-      } catch {
-        if (!cancelled) {
-          setLocalRows([]);
-          setCloudRows([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+  const loadGen = useRef(0);
+  const loadFeed = useCallback(async () => {
+    if (authLoading) return;
+    void accessToken;
+    const gen = ++loadGen.current;
+    if (gen === 1) setLoading(true);
+    try {
+      const local = await getPartyArchive(undefined, 80);
+      if (loadGen.current !== gen) return;
+      setLocalRows(local);
+      if (configured && userId) {
+        const { rows, error } = await getMyMatchHistoryResult(userId, 80);
+        if (loadGen.current !== gen) return;
+        setCloudRows(rows);
+        setCloudError(error);
+      } else if (loadGen.current === gen) {
+        setCloudRows([]);
+        setCloudError(null);
       }
-    })();
-    return () => {
-      cancelled = true;
+    } catch {
+      if (loadGen.current === gen) setCloudError('Не удалось загрузить облако');
+    } finally {
+      if (loadGen.current === gen) setLoading(false);
+    }
+  }, [authLoading, configured, userId, accessToken]);
+
+  useEffect(() => {
+    void loadFeed();
+  }, [loadFeed]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void loadFeed();
     };
-  }, [configured, userId]);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [loadFeed]);
 
   useEffect(() => {
     if (focus === 'matches') {
@@ -511,15 +549,24 @@ export function MatchArchiveHub({
     }
     for (const loc of localRows) {
       if (loc.cloudMatchId && cloudIds.has(loc.cloudMatchId)) continue;
-      const sig = matchFeedDedupeKey({
+      const locParts = {
         at: loc.finishedAt,
         place: loc.humanPlace,
         score: loc.humanScore,
         chips: loc.humanChips,
         offline: loc.source !== 'online',
-      });
-      // Та же партия уже есть из облака (без cloudMatchId у старых записей)
+      };
+      const sig = matchFeedDedupeKey(locParts);
       if (seenSig.has(sig)) continue;
+      const cloudDup = (cloudRows ?? []).some((c) =>
+        isSameAccountMatch(locParts, {
+          at: c.finished_at,
+          place: c.place,
+          score: c.final_score,
+          offline: !!c.is_offline,
+        }),
+      );
+      if (cloudDup) continue;
       seenSig.add(sig);
       rows.push({ key: `local:${loc.id}`, at: loc.finishedAt, kind: 'local', local: loc });
     }
@@ -551,26 +598,25 @@ export function MatchArchiveHub({
       } else if (userId) {
         const d = await getMatchDetail(row.cloud.id, userId);
         setCloudDetail(d);
-        const cloudSig = matchFeedDedupeKey({
-          at: row.cloud.finished_at,
-          place: row.cloud.place,
-          score: row.cloud.final_score,
-          chips: row.cloud.chips,
-          offline: !!row.cloud.is_offline,
-        });
-        // Точный id, иначе (только офлайн↔офлайн) та же партия по месту/очкам/минуте
         const localHit =
           localRows.find((l) => l.cloudMatchId === row.cloud.id) ??
           localRows.find(
             (l) =>
               (row.cloud.is_offline ? l.source === 'offline' : l.source === 'online') &&
-              matchFeedDedupeKey({
-                at: l.finishedAt,
-                place: l.humanPlace,
-                score: l.humanScore,
-                chips: l.humanChips,
-                offline: l.source !== 'online',
-              }) === cloudSig,
+              isSameAccountMatch(
+                {
+                  at: l.finishedAt,
+                  place: l.humanPlace,
+                  score: l.humanScore,
+                  offline: l.source !== 'online',
+                },
+                {
+                  at: row.cloud.finished_at,
+                  place: row.cloud.place,
+                  score: row.cloud.final_score,
+                  offline: !!row.cloud.is_offline,
+                },
+              ),
           );
         if (localHit) {
           const full = (await getPartyArchiveById(localHit.id)) ?? localHit;
@@ -640,6 +686,15 @@ export function MatchArchiveHub({
             Продолжить
           </button>
         </div>
+      ) : null}
+
+      {cloudError && configured && userId ? (
+        <p className="lk-archive__cloud-error">
+          Облако не подтянулось — на этом телефоне видны только партии с устройства.{' '}
+          <button type="button" className="lk-archive__hint-link" onClick={() => void loadFeed()}>
+            Обновить
+          </button>
+        </p>
       ) : null}
 
       {showMobileEmpty ? (

@@ -16,6 +16,11 @@ type Opts = {
   silenced?: boolean;
   /** Фаза анимации итогов раздачи (улёт в Σ). */
   dealResultsCollectPhase?: string | null;
+  /**
+   * Явный «мой ход» (онлайн: canonical currentPlayer === myServerIndex).
+   * Надёжнее, чем только rotated state — на мобиле не залипает nudge при рассинхроне.
+   */
+  isMyTurn?: boolean;
 };
 
 function tricksRemainingInDeal(state: GameState): number {
@@ -42,6 +47,14 @@ function isUnderPenalize(state: GameState, i: number): boolean {
   return taken + tricksRemainingInDeal(state) < bid;
 }
 
+function isSouthTurnState(state: GameState, humanIdx: number): boolean {
+  return (
+    (state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+    state.currentPlayerIndex === humanIdx &&
+    !state.pendingTrickCompletion
+  );
+}
+
 /**
  * События стола по смене state.
  * card_play для Юга — только из клика (playCardPlaySouth), здесь только чужие/боты.
@@ -52,28 +65,49 @@ export function useGameTableAudio({
   isOnline,
   silenced,
   dealResultsCollectPhase,
+  isMyTurn,
 }: Opts): void {
   const prevRef = useRef<GameState | null>(null);
   const underLatchedRef = useRef<boolean[]>([]);
   const nudgeTimersRef = useRef<{ idle?: number; long?: number; repeat?: number }>({});
+  const nudgeGenRef = useRef(0);
+  const myTurnActiveRef = useRef(false);
   const prevDealAnimRef = useRef<string | null>(null);
   /** Сигнатура, чтобы не пропускать события при частых новых ссылках с тем же смыслом. */
   const lastSigRef = useRef<string>('');
 
   const clearNudge = () => {
+    nudgeGenRef.current += 1;
+    myTurnActiveRef.current = false;
     const t = nudgeTimersRef.current;
     if (t.idle != null) window.clearTimeout(t.idle);
     if (t.long != null) window.clearTimeout(t.long);
     if (t.repeat != null) window.clearInterval(t.repeat);
     nudgeTimersRef.current = {};
-    /* Глушим уже играющий long/soft — иначе накладывается на карты после хода */
     stopNudgeSounds();
+  };
+
+  const scheduleNudge = () => {
+    clearNudge();
+    myTurnActiveRef.current = true;
+    const gen = nudgeGenRef.current;
+    playSound('your_turn_soft');
+    nudgeTimersRef.current.idle = window.setTimeout(() => {
+      if (gen !== nudgeGenRef.current) return;
+      playSound('your_turn_nudge_long');
+      nudgeTimersRef.current.long = window.setTimeout(() => {
+        if (gen !== nudgeGenRef.current) return;
+        nudgeTimersRef.current.repeat = window.setInterval(() => {
+          if (gen !== nudgeGenRef.current) return;
+          playSound('your_turn_nudge_short');
+        }, YOUR_TURN_NUDGE_REPEAT_MS);
+      }, YOUR_TURN_NUDGE_LONG_MS);
+    }, YOUR_TURN_NUDGE_IDLE_MS);
   };
 
   useEffect(() => {
     if (silenced || !state) {
       clearNudge();
-      /* null — после возврата на стол снова сыграть soft, а не молчать до следующего хода */
       prevRef.current = silenced ? null : state;
       lastSigRef.current = '';
       return;
@@ -118,7 +152,6 @@ export function useGameTableAudio({
         const bid = bidOf(state, i);
         const isSouth = i === humanIdx;
 
-        /* Взятка чуть после карты; ровно/перебор — отдельной фразой */
         const playOutcome = (soundId: Parameters<typeof playSound>[0], other: boolean) => {
           window.setTimeout(() => {
             if (other) playOtherSound(soundId);
@@ -126,7 +159,6 @@ export function useGameTableAudio({
           }, 40);
         };
 
-        /* «Взятка взята» — только Юг; чужие взятки без этого слота */
         if (isSouth) playOutcome('trick_won', false);
 
         if (bid != null) {
@@ -151,7 +183,6 @@ export function useGameTableAudio({
           state.currentTrick.length > 0
             ? (state.trickLeaderIndex + state.currentTrick.length - 1) % nPlayers
             : -1;
-        /* Юг уже озвучен в onClick */
         if (lastIdx !== humanIdx && lastIdx >= 0 && !isOnline) {
           playOtherSound('card_play');
         }
@@ -188,34 +219,17 @@ export function useGameTableAudio({
     }
 
     const southTurn =
-      (state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') &&
-      state.currentPlayerIndex === humanIdx &&
-      !state.pendingTrickCompletion;
+      isMyTurn !== undefined ? isMyTurn : isSouthTurnState(state, humanIdx);
 
-    const wasSouthTurn =
-      !!prev &&
-      (prev.phase === 'playing' || prev.phase === 'bidding' || prev.phase === 'dark-bidding') &&
-      prev.currentPlayerIndex === humanIdx &&
-      !prev.pendingTrickCompletion;
-
-    if (southTurn && !wasSouthTurn) {
-      clearNudge();
-      playSound('your_turn_soft');
-      nudgeTimersRef.current.idle = window.setTimeout(() => {
-        playSound('your_turn_nudge_long');
-        nudgeTimersRef.current.long = window.setTimeout(() => {
-          nudgeTimersRef.current.repeat = window.setInterval(() => {
-            playSound('your_turn_nudge_short');
-          }, YOUR_TURN_NUDGE_REPEAT_MS);
-        }, YOUR_TURN_NUDGE_LONG_MS);
-      }, YOUR_TURN_NUDGE_IDLE_MS);
-    } else if (!southTurn) {
+    if (southTurn && !myTurnActiveRef.current) {
+      scheduleNudge();
+    } else if (!southTurn && myTurnActiveRef.current) {
       clearNudge();
     }
 
     prevRef.current = state;
     lastSigRef.current = sig;
-  }, [state, humanIdx, isOnline, silenced]);
+  }, [state, humanIdx, isOnline, silenced, isMyTurn]);
 
   useEffect(() => {
     if (silenced) {
@@ -229,6 +243,19 @@ export function useGameTableAudio({
     }
     prevDealAnimRef.current = next;
   }, [dealResultsCollectPhase, silenced]);
+
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') clearNudge();
+    };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', clearNudge);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', clearNudge);
+      clearNudge();
+    };
+  }, []);
 
   useEffect(() => () => clearNudge(), []);
 }

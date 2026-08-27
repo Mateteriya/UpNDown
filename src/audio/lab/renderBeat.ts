@@ -1,31 +1,46 @@
-import { DEFAULT_LAB_BEAT, LAB_SAMPLE_RATE, type LabBeatParams, type LabBeatRhythmId } from './types';
+import {
+  DEFAULT_LAB_BEAT,
+  LAB_SAMPLE_RATE,
+  emptyBeatPattern,
+  normalizeBeatPattern,
+  serializeBeatPattern,
+  type LabBeatBarPattern,
+  type LabBeatParams,
+  type LabBeatRhythmId,
+} from './types';
 
 const SR = LAB_SAMPLE_RATE;
-const BARS = 4;
 
-const RHYTHM_KICKS: Record<LabBeatRhythmId, number[]> = {
+const RHYTHM_KICKS: Record<Exclude<LabBeatRhythmId, 'custom'>, number[]> = {
+  none: [],
   '808': [0, 8, 16, 24, 32, 40, 48, 56],
   four: [0, 16, 32, 48],
   half: [0, 32],
-  dub: [0, 24, 32, 48, 56],
-  sync: [0, 6, 16, 22, 32, 38, 48, 54],
+  /** One-drop: кик на 3-ю долю. */
+  dub: [8, 24, 40, 56],
+  /** Industrial syncopation — плотные смещения. */
+  sync: [0, 6, 10, 16, 22, 26, 32, 38, 42, 48, 54, 58],
   amen: [0, 6, 10, 16, 22, 26, 32, 40, 48, 56],
-  trap: [0, 10, 16, 22, 32, 42, 48],
+  trap: [0, 7, 10, 16, 19, 26, 32, 35, 42, 48, 51, 58],
   kick1: [0],
 };
 
-const RHYTHM_SNARES: Record<LabBeatRhythmId, number[]> = {
-  '808': [4, 20, 36, 52],
+const RHYTHM_SNARES: Record<Exclude<LabBeatRhythmId, 'custom'>, number[]> = {
+  none: [],
+  '808': [8, 24, 40, 56],
   four: [8, 24, 40, 56],
   half: [16, 48],
-  dub: [12, 44],
-  sync: [4, 12, 20, 28, 44, 52, 60],
+  dub: [4, 12, 20, 28, 36, 44, 52, 60],
+  /** Sync: смещённые клэпы / римшоты. */
+  sync: [4, 10, 20, 28, 36, 42, 52, 60],
   amen: [4, 12, 20, 28, 30, 44, 52, 60],
   trap: [8, 24, 40, 56],
   kick1: [],
 };
 
 const RHYTHM_RHYTHM_HASH: Record<LabBeatRhythmId, number> = {
+  custom: 99,
+  none: 0,
   '808': 11,
   four: 22,
   half: 33,
@@ -54,17 +69,49 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-function beatSeed(p: LabBeatParams): number {
+const BASE_BARS = 4;
+
+function tileSteps(pattern: number[], bars: number): number[] {
+  if (bars <= BASE_BARS) return pattern;
+  const baseSteps = BASE_BARS * 16;
+  const reps = Math.max(1, Math.floor(bars / BASE_BARS));
+  const out: number[] = [];
+  for (let r = 0; r < reps; r++) {
+    for (const s of pattern) out.push(s + r * baseSteps);
+  }
+  return out;
+}
+
+function beatSeed(p: {
+  bass: number;
+  kick: number;
+  hats: number;
+  snare: number;
+  industrial: number;
+  crackle: number;
+  bpm: number;
+  depth: number;
+  rhythm: LabBeatRhythmId;
+  bars: number;
+  pattern?: LabBeatBarPattern;
+}): number {
   const q = (n: number) => Math.round(n * 1000);
-  return (
+  let h =
     (q(p.bass) * 73856093) ^
-    (q(p.percussion) * 19349663) ^
-    (q(p.industrial) * 83492791) ^
-    (q(p.crackle) * 56473829) ^
-    (q(p.depth) * 97283461) ^
+    (q(p.kick) * 19349663) ^
+    (q(p.hats) * 83492791) ^
+    (q(p.snare) * 56473829) ^
+    (q(p.industrial) * 371293) ^
+    (q(p.crackle) * 97283461) ^
+    (q(p.depth) * 433494437) ^
     q(p.bpm) ^
-    RHYTHM_RHYTHM_HASH[p.rhythm]
-  );
+    (p.bars * 101) ^
+    RHYTHM_RHYTHM_HASH[p.rhythm];
+  if (p.rhythm === 'custom') {
+    const s = serializeBeatPattern(p.pattern);
+    for (let i = 0; i < s.length; i++) h = (h * 33) ^ s.charCodeAt(i);
+  }
+  return h;
 }
 
 function at(out: Float64Array, t0: number, dur: number, fn: (t: number) => number): void {
@@ -112,12 +159,91 @@ function addSnare(out: Float64Array, t0: number, amp: number, noiseAmt: number, 
 
 function addHat(out: Float64Array, t0: number, open: boolean, amp: number, crackle: number, rnd: () => number): void {
   if (amp <= 0.001) return;
-  const dur = open ? 0.14 : 0.038;
+  const dur = open ? 0.12 : 0.045;
   at(out, t0, dur, (t) => {
-    const n = (rnd() * 2 - 1) * Math.exp(-t * (open ? 14 : 55));
-    const metal = Math.sin(2 * Math.PI * 7400 * t) * Math.exp(-t * 40) * 0.12 * crackle;
-    return (n * 0.32 + metal) * (open ? 0.22 : 0.16) * amp;
+    const n = (rnd() * 2 - 1) * Math.exp(-t * (open ? 12 : 70));
+    const metal =
+      Math.sin(2 * Math.PI * 7800 * t) * Math.exp(-t * 55) * 0.35 +
+      Math.sin(2 * Math.PI * 11200 * t) * Math.exp(-t * 80) * 0.18;
+    const body = n * 0.55 + metal * (0.55 + crackle * 0.35);
+    return body * (open ? 0.42 : 0.38) * amp;
   });
+}
+
+/** Сетка хетов по ритму — отдельный слой, не вырезается киками/снейрами. */
+function buildHatSteps(rhythm: Exclude<LabBeatRhythmId, 'custom'>, totalSteps: number): number[] {
+  const out: number[] = [];
+  for (let s = 0; s < totalSteps; s++) {
+    const b = s % 16;
+    let hit = false;
+    switch (rhythm) {
+      case 'none':
+        hit = false;
+        break;
+      case 'kick1':
+        hit = b % 2 === 0;
+        break;
+      case 'trap':
+        hit = true;
+        break;
+      case 'dub':
+        hit = b % 4 === 2;
+        break;
+      case 'sync':
+        /* industrial: плотные группы 16-х + syncopation */
+        hit = b < 4 || (b >= 8 && b < 12) || b === 5 || b === 13 || b === 14;
+        break;
+      case 'amen':
+        hit = b % 2 === 0 || b === 5 || b === 13;
+        break;
+      case 'half':
+        hit = b === 4 || b === 6 || b === 12 || b === 14;
+        break;
+      case '808':
+      case 'four':
+      default:
+        hit = b % 2 === 0;
+        break;
+    }
+    if (hit) out.push(s);
+  }
+  return out;
+}
+
+function stepsToBarFlags(steps: number[]): boolean[] {
+  const bar = Array.from({ length: 16 }, () => false);
+  for (const s of steps) {
+    if (s >= 0) bar[s % 16] = true;
+  }
+  return bar;
+}
+
+function tileBarFlags(bar: boolean[], bars: number): number[] {
+  const out: number[] = [];
+  const total = bars * 16;
+  for (let s = 0; s < total; s++) {
+    if (bar[s % 16]) out.push(s);
+  }
+  return out;
+}
+
+/** Шаблон ритма → сетка 1 такта (для UI и режима «Свой»). */
+export function barPatternFromRhythm(rhythm: LabBeatRhythmId): LabBeatBarPattern {
+  if (rhythm === 'custom') return emptyBeatPattern();
+  const kicks = RHYTHM_KICKS[rhythm] ?? [];
+  const snares = RHYTHM_SNARES[rhythm] ?? [];
+  const hats = buildHatSteps(rhythm, 16);
+  return {
+    kick: stepsToBarFlags(kicks),
+    snare: stepsToBarFlags(snares),
+    hats: stepsToBarFlags(hats),
+  };
+}
+
+/** Активная сетка для отображения / правки. */
+export function resolveDisplayPattern(params: LabBeatParams): LabBeatBarPattern {
+  if (params.rhythm === 'custom') return normalizeBeatPattern(params.pattern);
+  return barPatternFromRhythm(params.rhythm);
 }
 
 function addRim(out: Float64Array, t0: number, amp: number, crackle: number): void {
@@ -192,7 +318,9 @@ function stepTime(step: number, stepDur: number, rhythm: LabBeatRhythmId): numbe
         ? 0.06
         : rhythm === '808'
           ? 0.04
-          : 0.08;
+          : rhythm === 'custom'
+            ? 0.06
+            : 0.08;
   return step * stepDur + (step % 2 === 1 ? stepDur * swing : 0);
 }
 
@@ -207,146 +335,177 @@ function applyLowShelf(out: Float64Array, depth: number): void {
   }
 }
 
-/** Срезает верх, когда «Хруст» на нуле — чистый низ. */
-function applyHighCut(out: Float64Array, crackle: number): void {
-  if (crackle > 0.4) return;
-  const mix = 1 - crackle / 0.4;
-  let lp = out[0] ?? 0;
-  const coef = lerp(0.1, 0.28, mix);
-  for (let i = 0; i < out.length; i++) {
-    lp += coef * (out[i]! - lp);
-    out[i]! = out[i]! * (1 - mix * 0.5) + lp * (mix * 0.5);
-  }
-}
 
 export function renderBeatSamples(params: LabBeatParams): Float32Array {
+  const bars = (params.bars === 8 || params.bars === 16 ? params.bars : 4) as 4 | 8 | 16;
   const p = {
     bass: clamp(params.bass, 0, 1),
-    percussion: clamp(params.percussion, 0, 1),
+    kick: clamp(params.kick ?? 0, 0, 1),
+    hats: clamp(params.hats ?? 0, 0, 1),
+    snare: clamp(params.snare ?? 0, 0, 1),
     industrial: clamp(params.industrial, 0, 1),
     crackle: clamp(params.crackle, 0, 1),
     bpm: clamp(params.bpm, 80, 190),
     depth: clamp(params.depth, 0, 1),
     rhythm: params.rhythm,
+    bars,
+    pattern: params.pattern,
   };
   const beat = 60 / p.bpm;
   const stepDur = beat / 4;
-  const steps = BARS * 16;
-  const dur = BARS * 4 * beat;
+  const steps = bars * 16;
+  const dur = bars * 4 * beat;
   const n = Math.floor(SR * dur);
   const out = new Float64Array(n);
   const rnd = mulberry32(beatSeed(p));
 
-  const perc = p.percussion;
   const bass = p.bass;
+  const kickLvl = p.kick;
+  const hatLvl = p.hats;
+  const snareLvl = p.snare;
   const grit = p.industrial;
   const crackle = p.crackle;
   const depth = p.depth;
   const rhythm = p.rhythm;
-  const noHats = rhythm === '808' || rhythm === 'kick1';
-  const use808Kick = rhythm === '808' || rhythm === 'trap' || depth > 0.55;
-  const kickBlend = rhythm === '808' || rhythm === 'trap' ? 1 : clamp((depth - 0.35) / 0.65, 0, 1);
 
-  const kickAmp = lerp(0.55, 1.05, bass) * lerp(0.72, 1.05, depth);
-  const snareAmp = perc > 0.04 ? Math.max(0.42, perc * 1.05) * lerp(0.95, 0.6, crackle) : 0;
-  const hatAmp = noHats ? 0 : perc > 0.04 ? Math.max(0.28, perc * 0.85) * lerp(0.95, 0.35, crackle) : 0;
-  const ghostAmp = noHats ? 0 : perc * 0.45 * crackle;
-  const rimAmp = noHats ? 0 : perc * 0.35 * crackle;
-  const snareNoise = lerp(0.35, 1, crackle);
+  const use808Kick =
+    rhythm === '808' || rhythm === 'trap' || rhythm === 'dub' || rhythm === 'custom' || depth > 0.45;
+  const kickBlend =
+    rhythm === '808' || rhythm === 'trap' || rhythm === 'dub'
+      ? 1
+      : rhythm === 'custom'
+        ? clamp((depth - 0.15) / 0.75, 0, 1)
+        : clamp((depth - 0.25) / 0.75, 0, 1);
 
-  const kicks = RHYTHM_KICKS[rhythm];
-  const snarePattern = RHYTHM_SNARES[rhythm];
-  const snares = perc > 0.08 ? snarePattern : [];
-  const ghosts =
-    !noHats && perc > 0.5 ? [7, 14, 23, 27, 46, 61] : !noHats && perc > 0.25 ? [14, 46] : [];
-  const rims = !noHats && perc > 0.45 ? [2, 18, 34, 50] : [];
-  const opens = !noHats && perc > 0.4 ? [14, 30, 46, 58] : !noHats && perc > 0.15 ? [30] : [];
+  const kickAmp = kickLvl * 1.15;
+  const snareAmp = snareLvl * (rhythm === 'dub' ? 0.55 : rhythm === 'trap' ? 0.75 : rhythm === 'sync' ? 0.8 : 0.7);
+  const hatAmp = hatLvl * (rhythm === 'trap' ? 0.62 : rhythm === 'dub' ? 0.5 : rhythm === 'sync' ? 0.72 : 0.58);
+  const snareNoise = lerp(0.25, 1, crackle);
+
+  let kicks: number[] = [];
+  let snares: number[] = [];
+  let hatSteps: number[] = [];
+
+  if (rhythm === 'custom') {
+    const pat = normalizeBeatPattern(params.pattern);
+    kicks = kickLvl > 0.01 ? tileBarFlags(pat.kick, bars) : [];
+    snares = snareLvl > 0.01 ? tileBarFlags(pat.snare, bars) : [];
+    hatSteps = hatAmp > 0.01 ? tileBarFlags(pat.hats, bars) : [];
+  } else {
+    kicks = kickLvl > 0.01 ? tileSteps(RHYTHM_KICKS[rhythm], bars) : [];
+    snares = snareLvl > 0.01 ? tileSteps(RHYTHM_SNARES[rhythm], bars) : [];
+    hatSteps = hatAmp > 0.01 ? buildHatSteps(rhythm, steps) : [];
+  }
 
   for (const s of kicks) {
     const t = stepTime(s, stepDur, rhythm);
     if (use808Kick) {
-      add808Kick(out, t, kickAmp * lerp(0.55, 1, kickBlend), depth, grit);
-      if (kickBlend < 1) addKick(out, t, kickAmp * (1 - kickBlend) * 0.65, bass, crackle);
+      add808Kick(out, t, kickAmp * lerp(0.7, 1, kickBlend), depth, grit);
+      if (kickBlend < 1) addKick(out, t, kickAmp * (1 - kickBlend) * 0.55, depth, crackle);
     } else {
-      addKick(out, t, kickAmp, bass, crackle);
+      addKick(out, t, kickAmp, depth, crackle);
     }
   }
 
   for (const s of snares) addSnare(out, stepTime(s, stepDur, rhythm), snareAmp, snareNoise, rnd);
-  for (const s of ghosts) addSnare(out, stepTime(s, stepDur, rhythm), ghostAmp, snareNoise, rnd);
-  for (const s of rims) addRim(out, stepTime(s, stepDur, rhythm), rimAmp, crackle);
-  for (const s of opens) addHat(out, stepTime(s, stepDur, rhythm), true, hatAmp * 1.4, crackle, rnd);
 
-  if (hatAmp > 0.02) {
-    for (let s = 0; s < steps; s++) {
-      if (s % 2 === 0 && !snares.includes(s) && !kicks.includes(s)) {
-        addHat(out, stepTime(s, stepDur, rhythm), false, hatAmp, crackle, rnd);
+  if (hatAmp > 0.01) {
+    for (const s of hatSteps) {
+      const open = rhythm === 'sync' ? s % 16 === 14 : rhythm === 'amen' && s % 16 === 14;
+      addHat(out, stepTime(s, stepDur, rhythm), open, hatAmp * (open ? 0.85 : 1), crackle, rnd);
+    }
+  }
+
+  if (crackle > 0.15 && rhythm !== '808' && rhythm !== 'kick1' && rhythm !== 'none' && rhythm !== 'dub') {
+    for (const g of tileSteps([32], bars)) {
+      addGlitch(out, stepTime(g, stepDur, rhythm), stepDur, crackle * lerp(0.35, 0.8, grit), rnd);
+    }
+  }
+
+  const padFreq = lerp(58, lerp(40, 26, depth), bass);
+  const padAmp = bass * lerp(0.12, 0.34, depth);
+  const padSteps = tileSteps(
+    rhythm === 'none'
+      ? [0, 16, 32, 48]
+      : rhythm === 'kick1'
+        ? [0]
+        : rhythm === 'dub'
+          ? [8, 24, 40, 56]
+          : rhythm === '808' || rhythm === 'half' || rhythm === 'trap'
+            ? [0, 16, 32, 48]
+            : bass > 0.45
+              ? [0, 8, 16, 24, 40, 48, 56]
+              : [0, 16, 32, 48],
+    bars,
+  );
+  const padDur = stepDur * lerp(2.4, 5.2, depth);
+
+  if (bass > 0.02) {
+    for (const s of padSteps) {
+      const t = stepTime(s, stepDur, rhythm);
+      const freq = (s % 64) >= 48 ? padFreq * 0.75 : padFreq;
+      addSoftBassPad(out, t, padDur, freq, padAmp, grit);
+      if (crackle > 0.25) {
+        addHarshReese(out, t, padDur * 0.8, freq, padAmp * lerp(0, 0.55, (crackle - 0.25) / 0.75), crackle);
       }
-      if (perc > 0.35 && s % 4 === 1 && s < 48) addHat(out, stepTime(s, stepDur, rhythm), false, hatAmp * 0.85, crackle, rnd);
     }
-  }
 
-  if (crackle > 0.2 && rhythm !== '808' && rhythm !== 'kick1') {
-    addGlitch(out, stepTime(32, stepDur, rhythm), stepDur, crackle * grit * lerp(0.35, 0.85, crackle), rnd);
-  }
-
-  const padFreq = lerp(55, lerp(38, 28, depth), bass);
-  const padAmp = lerp(0.06, 0.22, bass) * lerp(1, 1.2, grit);
-  const padSteps =
-    rhythm === 'kick1'
-      ? [0]
-      : rhythm === '808' || rhythm === 'half' || rhythm === 'trap'
-        ? [0, 16, 32, 48]
-        : bass > 0.5
-          ? [0, 8, 16, 24, 40, 48, 56]
-          : [0, 16, 32, 48];
-  const padDur = stepDur * lerp(2.8, 4.8, depth);
-
-  for (const s of padSteps) {
-    const t = stepTime(s, stepDur, rhythm);
-    const freq = s >= 48 ? padFreq * 0.72 : padFreq;
-    addSoftBassPad(out, t, padDur, freq, padAmp, grit);
-    if (crackle > 0.28) {
-      addHarshReese(out, t, padDur * 0.85, freq, padAmp * lerp(0, 0.55, (crackle - 0.28) / 0.72), crackle);
-    }
-  }
-
-  if (bass > 0.2) {
-    const subFreq = lerp(41, lerp(32, 22, depth), bass);
-    const subSteps = rhythm === 'kick1' ? [0] : rhythm === '808' || rhythm === 'trap' ? kicks : [0, 16, 32, 48];
+    const subFreq = lerp(48, lerp(34, 22, depth), bass);
+    const subSteps = tileSteps(
+      rhythm === 'none' || rhythm === 'kick1'
+        ? rhythm === 'none'
+          ? [0, 16, 32, 48]
+          : [0]
+        : rhythm === 'dub'
+          ? [8, 24, 40, 56]
+          : rhythm === '808' || rhythm === 'trap'
+            ? RHYTHM_KICKS[rhythm]
+            : [0, 16, 32, 48],
+      bars,
+    );
     for (const s of subSteps) {
-      addSubDrone(out, stepTime(s, stepDur, rhythm), stepDur * lerp(3.2, 5.2, depth), subFreq, lerp(0.08, 0.24, bass) * lerp(1, 1.35, depth));
+      addSubDrone(
+        out,
+        stepTime(s, stepDur, rhythm),
+        stepDur * lerp(2.8, 5.5, depth),
+        subFreq,
+        bass * lerp(0.12, 0.36, depth),
+      );
     }
   }
 
-  if (crackle > 0.25) {
-    const metalSteps = crackle > 0.55 ? [6, 22, 38, 54] : [22, 54];
-    for (const s of metalSteps) addMetalHit(out, stepTime(s, stepDur, rhythm), lerp(0.08, 0.2, crackle));
+  if (crackle > 0.2) {
+    const metalSteps = tileSteps(crackle > 0.55 ? [6, 22, 38, 54] : [22, 54], bars);
+    for (const s of metalSteps) addMetalHit(out, stepTime(s, stepDur, rhythm), crackle * 0.22);
   }
 
   if (crackle > 0.45) {
-    addMachinePulse(out, stepTime(8, stepDur, rhythm), stepDur * 6, lerp(0.04, 0.12, crackle));
-    addMachinePulse(out, stepTime(40, stepDur, rhythm), stepDur * 6, lerp(0.04, 0.12, crackle));
-  }
-
-  if (perc > 0.6 && crackle > 0.35 && !noHats) {
-    at(out, stepTime(18, stepDur, rhythm), 0.22, (t) => Math.sin(2 * Math.PI * 784 * t + Math.sin(2 * Math.PI * 784 * 3.2 * t) * Math.exp(-t * 8) * 2.4) * Math.exp(-t * 7) * 0.08 * perc * crackle);
-    at(out, stepTime(42, stepDur, rhythm), 0.22, (t) => Math.sin(2 * Math.PI * 622 * t + Math.sin(2 * Math.PI * 622 * 3.2 * t) * Math.exp(-t * 8) * 2.4) * Math.exp(-t * 7) * 0.08 * perc * crackle);
-  }
-
-  if (crackle > 0.08) {
-    for (let i = 0; i < n; i++) {
-      if (rnd() < lerp(0.0002, 0.0016, crackle)) out[i]! += (rnd() * 2 - 1) * lerp(0.006, 0.022, crackle);
+    for (const s of tileSteps([8, 40], bars)) {
+      addMachinePulse(out, stepTime(s, stepDur, rhythm), stepDur * 6, crackle * 0.12);
     }
   }
 
-  applyHighCut(out, crackle);
-  applyLowShelf(out, depth);
+  if (grit > 0.02) {
+    const drive = 1 + grit * 2.4;
+    for (let i = 0; i < n; i++) out[i]! = Math.tanh(out[i]! * drive) / Math.tanh(drive);
+  }
+
+  if (crackle > 0.05) {
+    for (let i = 0; i < n; i++) {
+      if (rnd() < crackle * 0.0018) out[i]! += (rnd() * 2 - 1) * crackle * 0.03;
+    }
+  }
+
+  /* Low-shelf только если хеты почти выкл — иначе верх тонет. */
+  if (hatLvl < 0.08) applyLowShelf(out, depth);
+  else if (depth > 0.55) applyLowShelf(out, depth * 0.55);
 
   let peak = 1e-6;
   for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(out[i]!));
-  const norm = 0.92 / peak;
-  for (let i = 0; i < n; i++) out[i]! *= norm;
+  if (peak > 0.82) {
+    const g = 0.82 / peak;
+    for (let i = 0; i < n; i++) out[i]! *= g;
+  }
 
   const fade = Math.min(512, Math.floor(SR * 0.008));
   for (let i = 0; i < fade; i++) {
@@ -361,24 +520,24 @@ export function renderBeatSamples(params: LabBeatParams): Float32Array {
 }
 
 export function beatMixGain(params: LabBeatParams): number {
-  const vol = clamp(params.volume ?? 1, 0, 2);
-  const base =
-    lerp(0.55, 0.95, clamp(params.bass, 0, 1)) *
-    lerp(1, 1.15, clamp(params.depth, 0, 1)) *
-    lerp(1, 1.25, clamp(params.percussion, 0, 1));
-  return base * vol;
+  return 0.42 * clamp(params.volume ?? 1, 0, 2);
 }
 
 export function beatPlaybackGain(params: LabBeatParams): number {
-  const vol = clamp(params.volume ?? 1, 0, 2);
-  const bass = clamp(params.bass, 0, 1);
-  const depth = clamp(params.depth, 0, 1);
-  const perc = clamp(params.percussion, 0, 1);
-  return (0.78 + bass * 0.2 + depth * 0.14 + perc * 0.08) * vol;
+  /* Ниже — запас под полифонию/клавиши; мастер-лимитер добивает пики */
+  return 0.48 * clamp(params.volume ?? 1, 0, 2);
 }
 
 function mergeBeatParams(params: LabBeatParams): LabBeatParams {
-  return { ...DEFAULT_LAB_BEAT, ...params };
+  const merged = { ...DEFAULT_LAB_BEAT, ...params };
+  /* Миграция старого поля percussion → hats/snare, если kick ещё не задан явно в старых сессиях */
+  const legacy = params as LabBeatParams & { percussion?: number };
+  if (typeof legacy.percussion === 'number' && params.kick === undefined) {
+    merged.kick = merged.kick ?? 0.85;
+    merged.hats = legacy.percussion * 0.5;
+    merged.snare = legacy.percussion * 0.35;
+  }
+  return merged;
 }
 
 function softLimitSample(x: number): number {

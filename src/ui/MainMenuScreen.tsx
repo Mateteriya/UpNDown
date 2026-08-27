@@ -839,6 +839,18 @@ export function MainMenuScreen({
                 />
               </MenuPcDrift>
             ) : null}
+            {isPcMenu && onOpenRating ? (
+              <MenuPcDrift id="rating" className="menu-screen__drift--rating" movable>
+                <MenuCapsuleButton
+                  variant="rating"
+                  title="Рейтинг"
+                  hint="таблица лидеров"
+                  collapsible
+                  collapseId="rating"
+                  onClick={onOpenRating}
+                />
+              </MenuPcDrift>
+            ) : null}
           </MenuSection>
 
           {devMode ? (

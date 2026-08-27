@@ -238,5 +238,13 @@ function numOr(v: unknown, fallback: number): number {
 }
 
 export function instrumentLabel(id: LabInstrumentId): string {
-  return id;
+  const map: Record<LabInstrumentId, string> = {
+    bell: 'Колокольчики',
+    epiano: 'Hang',
+    piano: 'Пианино',
+    guitar: 'Гитара',
+    bass: 'Бас',
+    ebass: 'Эл. бас',
+  };
+  return map[id] ?? id;
 }

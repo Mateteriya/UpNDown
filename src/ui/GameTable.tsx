@@ -5259,6 +5259,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   /** Одна отправка finish_game для онлайн-партии. */
   const onlineMatchRecordedRef = useRef(false);
   const partyHistoryRecordedRef = useRef(false);
+  const onlineArchiveIdRef = useRef<string | null>(null);
+  const onlineCloudMatchIdRef = useRef<string | null>(null);
   /** Номер раздачи, для которой уже запущена анимация результатов (один раз на раздачу, без повторов при опросе). */
   const lastAnimatedDealNumberRef = useRef<number | null>(null);
   /** Таймеры анимации результатов; очищаем только в том запуске эффекта, который их создал. */
@@ -5323,6 +5325,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     offlineMatchRecordedRef.current = false;
     onlineMatchRecordedRef.current = false;
     partyHistoryRecordedRef.current = false;
+    onlineArchiveIdRef.current = null;
+    onlineCloudMatchIdRef.current = null;
     lastAnimatedDealNumberRef.current = null;
     setDealResultsExpanded(false);
     setLastDealResultsSnapshot(null);
@@ -5551,6 +5555,20 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   }, [isMobile, dealResultsExpanded, dealResultsMobileStretchPx]);
 
   const humanIdx = isOnline || isWaitingInRoom ? 0 : 0;
+  const isMyTurnForAudio = useMemo(() => {
+    if (!state) return false;
+    if (isOnline && online.canonicalState) {
+      const c = online.canonicalState;
+      if (c.pendingTrickCompletion) return false;
+      if (c.phase !== 'playing' && c.phase !== 'bidding' && c.phase !== 'dark-bidding') return false;
+      return c.currentPlayerIndex === online.myServerIndex;
+    }
+    return (
+      (state.phase === 'playing' || state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+      state.currentPlayerIndex === humanIdx &&
+      !state.pendingTrickCompletion
+    );
+  }, [state, isOnline, online.canonicalState, online.myServerIndex, humanIdx]);
   const tableAudioOff =
     isWaitingInRoom ||
     online.userOnPause ||
@@ -5565,6 +5583,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     isOnline,
     silenced: tableAudioOff,
     dealResultsCollectPhase: lastTrickCollectingPhase,
+    isMyTurn: isMyTurnForAudio,
   });
   const tableSeatCount: PlayerCount = state ? playerCountOf(state) : 4;
   const isThreeSeatTable = tableSeatCount === 3;
@@ -7339,6 +7358,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     const rid = online.roomId;
     if (!rid) return;
     return wsSubscribeMatchRecorded(rid, (ev) => {
+      if (ev.ok && ev.matchId) {
+        onlineCloudMatchIdRef.current = ev.matchId;
+        const archId = onlineArchiveIdRef.current;
+        if (archId) void linkPartyArchiveCloudMatch(archId, ev.matchId);
+      }
       if (ev.ok && ev.skipped) setGameOverCloudSave('none');
       else if (ev.ok) setGameOverCloudSave('ok');
       else setGameOverCloudSave('fail');
@@ -7549,7 +7573,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     buyIn: o.buyIn ?? snap.buyIn ?? null,
                     seatNames,
                   });
-                  if (arch) void appendPartyArchiveRecord(arch);
+                  if (arch) {
+                    onlineArchiveIdRef.current = arch.id;
+                    void appendPartyArchiveRecord(arch);
+                    const already = onlineCloudMatchIdRef.current;
+                    if (already) void linkPartyArchiveCloudMatch(arch.id, already);
+                  }
                 }
                 if (userRef.current?.id && !onlineMatchRecordedRef.current) {
                   onlineMatchRecordedRef.current = true;
@@ -7557,6 +7586,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   if (isWsOnlineTransport()) {
                     const unsub = wsSubscribeMatchRecorded(o.roomId, (ev) => {
                       unsub();
+                      if (ev.ok && ev.matchId) {
+                        onlineCloudMatchIdRef.current = ev.matchId;
+                        const archId = onlineArchiveIdRef.current;
+                        if (archId) void linkPartyArchiveCloudMatch(archId, ev.matchId);
+                      }
                       if (ev.ok && ev.skipped) setGameOverCloudSave('none');
                       else if (ev.ok) setGameOverCloudSave('ok');
                       else {
@@ -7586,8 +7620,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       dealHistory: snap.dealHistory ?? [],
                       chipsBySlot: Object.keys(chipsBySlot).length ? chipsBySlot : null,
                     }).then((r) => {
-                      if (r.ok) setGameOverCloudSave('ok');
-                      else {
+                      if (r.ok) {
+                        if (r.matchId) {
+                          onlineCloudMatchIdRef.current = r.matchId;
+                          const archId = onlineArchiveIdRef.current;
+                          if (archId) void linkPartyArchiveCloudMatch(archId, r.matchId);
+                        }
+                        setGameOverCloudSave('ok');
+                      } else {
                         onlineMatchRecordedRef.current = false;
                         setGameOverCloudSave('fail');
                       }

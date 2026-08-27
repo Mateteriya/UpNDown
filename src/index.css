@@ -68070,16 +68070,23 @@ body:has(.menu-screen) {
   line-height: 1.2;
 }
 .menu-capsule__glyph--avatar {
-  overflow: hidden;
+  overflow: visible;
   padding: 0;
   background: transparent !important;
   box-shadow: none !important;
+  aspect-ratio: 1;
+  flex-shrink: 0;
 }
 .menu-capsule__glyph--avatar .player-avatar {
   width: 100% !important;
   height: 100% !important;
-  min-width: 0 !important;
-  min-height: 0 !important;
+  aspect-ratio: 1 !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
 }
 .menu-capsule--with-avatar .menu-capsule__title {
   font-size: 15px;

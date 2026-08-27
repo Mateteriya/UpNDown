@@ -274,9 +274,9 @@ export function AccountLkPage({
                 <MenuCapsuleButton
                   variant="rating"
                   compact
-                  title="Статистика"
-                  hint="моя"
-                  onClick={handleCapsuleRating}
+                  title="Рейтинг"
+                  hint="таблица лидеров"
+                  onClick={onOpenRating ?? handleCapsuleRating}
                 />
                 <MenuCapsuleButton
                   variant="history"
@@ -376,6 +376,11 @@ export function AccountLkPage({
                     </div>
                   ) : null}
                 </div>
+                {onOpenRating ? (
+                  <button type="button" className="lk-pc-chip__btn" onClick={onOpenRating}>
+                    Таблица лидеров
+                  </button>
+                ) : null}
               </section>
 
               <section className="lk-pc-panel lk-pc-panel--activity" aria-labelledby="lk-pc-activity">
@@ -577,9 +582,15 @@ export function AccountLkPage({
               )}
             </div>
             <div className="lk-page__section-links">
-              <button type="button" className="lk-page__text-link" onClick={handleCapsuleRating}>
-                Подробный рейтинг
-              </button>
+              {onOpenRating ? (
+                <button type="button" className="lk-page__text-link" onClick={onOpenRating}>
+                  Таблица лидеров
+                </button>
+              ) : (
+                <button type="button" className="lk-page__text-link" onClick={handleCapsuleRating}>
+                  Моя статистика
+                </button>
+              )}
               <button type="button" className="lk-page__text-link" onClick={handleCapsuleHistory}>
                 История партий
               </button>
