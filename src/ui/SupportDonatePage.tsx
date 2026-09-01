@@ -10,6 +10,7 @@
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { LobbyBackButton } from './LobbyEntryActions';
 import { getDonateLinks, hasDonateLinks, type DonateMethodId } from '../lib/donateLinks';
+import { useT } from '../i18n';
 
 export type SupportDonatePageProps = {
   onBack: () => void;
@@ -17,17 +18,17 @@ export type SupportDonatePageProps = {
 
 /** Стильные марки способов оплаты — в kicker (над названием). */
 function withPayBrandMarks(text: string): ReactNode {
-  const parts = text.split(/(Т‑Pay|Т-Pay|СБП|кошелёк|Кошелёк|карта|Карта)/g);
+  const parts = text.split(/(Т‑Pay|Т-Pay|T‑Pay|T-Pay|СБП|SBP|кошелёк|Кошелёк|wallet|Wallet|карта|Карта|card|Card)/g);
   if (parts.length === 1) return text;
   return parts.map((part, i) => {
-    if (part === 'Т‑Pay' || part === 'Т-Pay') {
+    if (part === 'Т‑Pay' || part === 'Т-Pay' || part === 'T‑Pay' || part === 'T-Pay') {
       return (
         <span key={`tpay-${i}`} className="support-page__tpay">
           {part}
         </span>
       );
     }
-    if (part === 'СБП') {
+    if (part === 'СБП' || part === 'SBP') {
       return (
         <span key={`sbp-${i}`} className="support-page__sbp">
           <svg
@@ -42,11 +43,11 @@ function withPayBrandMarks(text: string): ReactNode {
             <path fill="#2F6BFF" d="M3.4 6.2 9 16.2 1.6 11.2Z" opacity="0.95" />
             <path fill="#2DBE6A" d="M14.6 6.2 16.4 11.2 9 16.2Z" opacity="0.95" />
           </svg>
-          <span className="support-page__sbp-text">СБП</span>
+          <span className="support-page__sbp-text">{part}</span>
         </span>
       );
     }
-    if (part === 'кошелёк' || part === 'Кошелёк') {
+    if (part === 'кошелёк' || part === 'Кошелёк' || part === 'wallet' || part === 'Wallet') {
       return (
         <span key={`wallet-${i}`} className="support-page__ym-wallet">
           <svg
@@ -70,7 +71,7 @@ function withPayBrandMarks(text: string): ReactNode {
         </span>
       );
     }
-    if (part === 'карта' || part === 'Карта') {
+    if (part === 'карта' || part === 'Карта' || part === 'card' || part === 'Card') {
       return (
         <span key={`card-${i}`} className="support-page__card-pay">
           <svg
@@ -97,16 +98,23 @@ function withPayBrandMarks(text: string): ReactNode {
 
 /** В blurb: обычный цвет строки, но набор как у kicker (uppercase · tracking). */
 function withPayBrandWords(text: string): ReactNode {
-  const parts = text.split(/(Т‑Pay|Т-Pay|СБП|кошелёк|Кошелёк|карта|Карта)/g);
+  const parts = text.split(/(Т‑Pay|Т-Pay|T‑Pay|T-Pay|СБП|SBP|кошелёк|Кошелёк|wallet|Wallet|карта|Карта|card|Card)/g);
   if (parts.length === 1) return text;
   return parts.map((part, i) =>
     part === 'Т‑Pay' ||
     part === 'Т-Pay' ||
+    part === 'T‑Pay' ||
+    part === 'T-Pay' ||
     part === 'СБП' ||
+    part === 'SBP' ||
     part === 'кошелёк' ||
     part === 'Кошелёк' ||
+    part === 'wallet' ||
+    part === 'Wallet' ||
     part === 'карта' ||
-    part === 'Карта' ? (
+    part === 'Карта' ||
+    part === 'card' ||
+    part === 'Card' ? (
       <span key={`payw-${i}`} className="support-page__pay-word">
         {part}
       </span>
@@ -119,58 +127,16 @@ function withPayBrandWords(text: string): ReactNode {
 /** ~23 с на вариант: комфортно прочитать длинный лид. */
 const LEAD_ROTATE_MS = 23_000;
 
-type LeadVariant = {
+type LeadArt = {
   id: 'samurai' | 'dopamine' | 'joker';
-  cta: string;
-  /** WebP + JPEG fallback в /public/donate */
   artWebp: string;
   artJpeg: string;
-  artAlt: string;
-  body: (smile: ReactNode) => ReactNode;
 };
 
-const LEAD_VARIANTS: LeadVariant[] = [
-  {
-    id: 'samurai',
-    cta: 'Приблизить к цели:',
-    artWebp: '/donate/samurai.webp',
-    artJpeg: '/donate/samurai.jpg',
-    artAlt: 'Самурай у экрана с багами',
-    body: (smile) => (
-      <>
-        Путь самурая-одиночки лежит через баги, серверный аптайм и рефакторинг. Цель: стабильный
-        онлайн, космический интерфейс, довольные игроки {smile}. Каждый донат расчищает этот путь и
-        приближает к цели.{' '}
-      </>
-    ),
-  },
-  {
-    id: 'dopamine',
-    cta: 'Запустить реакцию:',
-    artWebp: '/donate/dopamine.webp',
-    artJpeg: '/donate/dopamine.jpg',
-    artAlt: 'Дофаминовая реакция разработки',
-    body: () => (
-      <>
-        Каждый донат = выброс дофамина в кровь разработчика, что ведёт к необратимой цепной реакции:
-        стабилизируется сервер, прокачивается космический интерфейс, зарождаются новые режимы,
-        добавляются всевозможные ништячки.{' '}
-      </>
-    ),
-  },
-  {
-    id: 'joker',
-    cta: 'Ваш ход:',
-    artWebp: '/donate/joker.webp',
-    artJpeg: '/donate/joker.jpg',
-    artAlt: 'Партия против серверных счетов и багов',
-    body: () => (
-      <>
-        Разработчику выпал расклад: партия против серверных счетов и багов. Ваш донат — джокер в
-        этой битве. На кону: стабильный онлайн, безупречный визуал и новые режимы.{' '}
-      </>
-    ),
-  },
+const LEAD_ART: LeadArt[] = [
+  { id: 'samurai', artWebp: '/donate/samurai.webp', artJpeg: '/donate/samurai.jpg' },
+  { id: 'dopamine', artWebp: '/donate/dopamine.webp', artJpeg: '/donate/dopamine.jpg' },
+  { id: 'joker', artWebp: '/donate/joker.webp', artJpeg: '/donate/joker.jpg' },
 ];
 
 function FaceCheerKind({ uid }: { uid: string }) {
@@ -277,10 +243,11 @@ function MethodGlyph({ id }: { id: DonateMethodId }) {
 
 function daySeedLeadIndex(): number {
   const day = Math.floor(Date.now() / 86_400_000);
-  return day % LEAD_VARIANTS.length;
+  return day % LEAD_ART.length;
 }
 
 export function SupportDonatePage({ onBack }: SupportDonatePageProps) {
+  const t = useT();
   const uid = useId().replace(/:/g, '');
   const links = getDonateLinks();
   const ready = hasDonateLinks();
@@ -298,7 +265,7 @@ export function SupportDonatePage({ onBack }: SupportDonatePageProps) {
     const tick = window.setInterval(() => {
       setLeadVisible(false);
       fadeOut = window.setTimeout(() => {
-        setLeadIndex((i) => (i + 1) % LEAD_VARIANTS.length);
+        setLeadIndex((i) => (i + 1) % LEAD_ART.length);
         setLeadVisible(true);
       }, 420);
     }, LEAD_ROTATE_MS);
@@ -311,13 +278,18 @@ export function SupportDonatePage({ onBack }: SupportDonatePageProps) {
   }, []);
 
   useEffect(() => {
-    for (const v of LEAD_VARIANTS) {
+    for (const v of LEAD_ART) {
       const img = new Image();
       img.src = v.artWebp;
     }
   }, []);
 
   const cheer = <FaceCheerKind uid={`${uid}-cheer`} />;
+  const leadCopy = {
+    samurai: { cta: t('support.ctaSamurai'), body: t('support.bodySamurai') },
+    dopamine: { cta: t('support.ctaDopamine'), body: t('support.bodyDopamine') },
+    joker: { cta: t('support.ctaJoker'), body: t('support.bodyJoker') },
+  } as const;
 
   return (
     <div className="support-page">
@@ -329,22 +301,23 @@ export function SupportDonatePage({ onBack }: SupportDonatePageProps) {
         </header>
 
         <main className="support-page__main">
-          <p className="support-page__eyebrow">поддержка автора</p>
+          <p className="support-page__eyebrow">{t('support.eyebrow')}</p>
           <h2 className="support-page__title">
             <span className="support-page__title-stack" aria-hidden="true">
-              <span className="support-page__title-depth">Поддержать проект</span>
+              <span className="support-page__title-depth">{t('support.title')}</span>
               <span className="support-page__title-depth support-page__title-depth--mid">
-                Поддержать проект
+                {t('support.title')}
               </span>
             </span>
-            <span className="support-page__title-face cosmic-iridescent-text">Поддержать проект</span>
+            <span className="support-page__title-face cosmic-iridescent-text">{t('support.title')}</span>
           </h2>
 
           {/* Картинка в начале лида — один поток текста обтекает без ложных абзацев */}
           <div className="support-page__lead-slot" aria-live="polite">
-            {LEAD_VARIANTS.map((variant, i) => {
+            {LEAD_ART.map((variant, i) => {
               const active = i === leadIndex;
               const shown = active && leadVisible;
+              const copy = leadCopy[variant.id];
               return (
                 <p
                   key={variant.id}
@@ -362,8 +335,8 @@ export function SupportDonatePage({ onBack }: SupportDonatePageProps) {
                       <img src={variant.artJpeg} alt="" decoding="async" draggable={false} />
                     </picture>
                   </span>
-                  {variant.body(cheer)}
-                  <span className="support-page__lead-cta">{variant.cta}</span>
+                  {copy.body} {variant.id === 'samurai' ? cheer : null}{' '}
+                  <span className="support-page__lead-cta">{copy.cta}</span>
                 </p>
               );
             })}
@@ -388,18 +361,22 @@ export function SupportDonatePage({ onBack }: SupportDonatePageProps) {
                   </span>
                   <span className="support-page__cta-copy">
                     <span className="support-page__cta-kicker">
-                      {link.id === 'cloudtips' || link.id === 'yoomoney'
-                        ? withPayBrandMarks(link.hint)
-                        : link.hint}
+                      {link.id === 'cloudtips'
+                        ? withPayBrandMarks(t('support.cloudtipsHint'))
+                        : link.id === 'yoomoney'
+                          ? withPayBrandMarks(t('support.yoomoneyHint'))
+                          : link.hint}
                     </span>
                     <span className="support-page__cta-title">{link.label}</span>
                     <span className="support-page__cta-blurb">
-                      {link.id === 'cloudtips' || link.id === 'yoomoney'
-                        ? withPayBrandWords(link.blurb)
-                        : link.blurb}
+                      {link.id === 'cloudtips'
+                        ? withPayBrandWords(t('support.cloudtipsBlurb'))
+                        : link.id === 'yoomoney'
+                          ? withPayBrandWords(t('support.yoomoneyBlurb'))
+                          : link.blurb}
                     </span>
                     {!live ? (
-                      <span className="support-page__cta-soon-tag">ссылка скоро</span>
+                      <span className="support-page__cta-soon-tag">{t('support.soon')}</span>
                     ) : null}
                   </span>
                   <span className="support-page__cta-go" aria-hidden="true">
@@ -444,7 +421,7 @@ export function SupportDonatePage({ onBack }: SupportDonatePageProps) {
 
           {!ready ? (
             <p className="support-page__pending-note" role="status">
-              Адреса ещё подключаются — карточки уже на месте, ссылки появятся здесь.
+              {t('support.pending')}
             </p>
           ) : null}
         </main>

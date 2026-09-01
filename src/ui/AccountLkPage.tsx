@@ -15,7 +15,7 @@ import { getAiDifficulty, setAiDifficulty } from '../game/aiSettings';
 import type { AIDifficulty } from '../game/types';
 import { useAuth } from '../contexts/AuthContext';
 import { getMyRatingSummary } from '../lib/onlineGameSupabase';
-import { getMenuIdentityStatus, MENU_IDENTITY_STATUS_ARIA } from '../lib/menuIdentityStatus';
+import { getMenuIdentityStatus } from '../lib/menuIdentityStatus';
 import { LK_CAST_PRIMARY, LK_CAST_HERO, preloadLkCastUrl } from '../lib/lkCastAssets';
 import { CosmicCockpit, CosmicGlassClose, CosmicPhysButton } from './CosmicCockpit';
 import { PlayerAvatar } from './PlayerAvatar';
@@ -23,14 +23,11 @@ import { LobbyBackButton } from './LobbyEntryActions';
 import { MenuCapsuleButton } from './MenuEntryActions';
 import { SupportMenuButton } from './SupportMenuButton';
 import { MatchArchiveHub } from './MatchArchiveHub';
+import { getLocale, useT, formatYouName, type TFunc } from '../i18n';
 
 const PC_LK_MQ = '(min-width: 1025px)';
 
-const AI_LEVELS: { id: AIDifficulty; title: string; hint: string }[] = [
-  { id: 'novice', title: 'Новичок', hint: 'мягкая игра' },
-  { id: 'amateur', title: 'Любитель', hint: 'обычный темп' },
-  { id: 'expert', title: 'Эксперт', hint: 'жёсткий вызов' },
-];
+const AI_LEVELS: AIDifficulty[] = ['novice', 'amateur', 'expert'];
 
 export type AccountLkFocus = 'rating' | 'matches' | null;
 
@@ -52,16 +49,22 @@ export type AccountLkPageProps = {
   onContinueOffline?: () => void;
 };
 
-function identityBadgeLabel(status: 'guest' | 'profile' | 'account'): string {
-  if (status === 'guest') return 'гость';
-  if (status === 'profile') return 'профиль';
-  return 'аккаунт';
+function identityBadgeLabel(status: 'guest' | 'profile' | 'account', tr: TFunc): string {
+  if (status === 'guest') return tr('cabinet.guest');
+  if (status === 'profile') return tr('cabinet.profile');
+  return tr('cabinet.account');
+}
+
+function identityTitle(status: 'guest' | 'profile' | 'account', tr: TFunc): string {
+  if (status === 'guest') return tr('cabinet.identityGuest');
+  if (status === 'profile') return tr('cabinet.identityProfile');
+  return tr('cabinet.identityAccount');
 }
 
 function formatWhen(iso: string): string {
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString('ru-RU', {
+    return d.toLocaleDateString(getLocale() === 'en' ? 'en-GB' : 'ru-RU', {
       day: 'numeric',
       month: 'short',
       hour: '2-digit',
@@ -89,6 +92,7 @@ export function AccountLkPage({
   onOpenRating,
   onOpenPremium,
 }: AccountLkPageProps) {
+  const t = useT();
   const { user, configured, signOut, loading: authLoading } = useAuth();
   const rating = getLocalRating();
   const [online, setOnline] = useState<{ games: number; ratedGames: number; wins: number; points: number } | null>(
@@ -207,15 +211,15 @@ export function AccountLkPage({
         <div className="lk-page__pc-layout">
           <header className="lk-page__pc-top">
             <LobbyBackButton onClick={onBack} />
-            <h1 className="lk-page__pc-title">Личный кабинет</h1>
+            <h1 className="lk-page__pc-title">{t('cabinet.title')}</h1>
             <span className="lk-page__pc-live" aria-hidden="true">
               <span className="lk-page__pc-live-dot" />
-              активно
+              {t('cabinet.live')}
             </span>
           </header>
 
           <div className="lk-page__pc-body">
-            <section className="lk-pc-hero" aria-label="Профиль">
+            <section className="lk-pc-hero" aria-label={t('cabinet.profileAria')}>
               <div className="lk-pc-hero__identity">
                 <div className="lk-pc-hero__avatar-ring">
                   <PlayerAvatar
@@ -226,17 +230,17 @@ export function AccountLkPage({
                   />
                 </div>
                 <div className="lk-pc-hero__text">
-                  <p className="lk-pc-hero__name">{displayName}</p>
+                  <p className="lk-pc-hero__name">{formatYouName(displayName, t)}</p>
                   <p className="lk-pc-hero__sub">
                     {loggedIn && user?.email
                       ? user.email
-                      : 'Без аккаунта · только это устройство'}
+                      : t('cabinet.noAccount')}
                   </p>
                   <span
                     className={`lk-page__badge lk-page__badge--${identityStatus === 'account' ? 'online' : identityStatus === 'profile' ? 'local' : 'guest'}`}
-                    title={MENU_IDENTITY_STATUS_ARIA[identityStatus]}
+                    title={identityTitle(identityStatus, t)}
                   >
-                    {identityBadgeLabel(identityStatus)}
+                    {identityBadgeLabel(identityStatus, t)}
                   </span>
                 </div>
               </div>
@@ -248,16 +252,16 @@ export function AccountLkPage({
                 <MenuCapsuleButton
                   variant="profile"
                   compact
-                  title="Имя и фото"
-                  hint="на устройстве"
+                  title={t('cabinet.namePhoto')}
+                  hint={t('cabinet.onDevice')}
                   onClick={onEditProfile}
                 />
                 {loggedIn ? (
                   <MenuCapsuleButton
                     variant="auth"
                     compact
-                    title="Выйти"
-                    hint="облачный аккаунт"
+                    title={t('cabinet.signOut')}
+                    hint={t('cabinet.cloudAccount')}
                     onClick={() => {
                       void signOut();
                     }}
@@ -266,23 +270,23 @@ export function AccountLkPage({
                   <MenuCapsuleButton
                     variant="auth"
                     compact
-                    title={authLoading ? 'Проверка…' : 'Войти'}
-                    hint="для онлайна и облака"
+                    title={authLoading ? t('cabinet.checking') : t('cabinet.signIn')}
+                    hint={t('cabinet.forOnlineCloud')}
                     onClick={onSignIn}
                   />
                 )}
                 <MenuCapsuleButton
                   variant="rating"
                   compact
-                  title="Рейтинг"
-                  hint="таблица лидеров"
+                  title={t('menu.ratingTitle')}
+                  hint={t('menu.ratingHint')}
                   onClick={onOpenRating ?? handleCapsuleRating}
                 />
                 <MenuCapsuleButton
                   variant="history"
                   compact
-                  title="История"
-                  hint="все партии"
+                  title={t('cabinet.history')}
+                  hint={t('cabinet.allMatches')}
                   onClick={handleCapsuleHistory}
                 />
                 {onOpenSupport ? <SupportMenuButton onClick={onOpenSupport} /> : null}
@@ -293,37 +297,41 @@ export function AccountLkPage({
               <section className="lk-pc-panel lk-pc-panel--settings" aria-labelledby="lk-pc-settings">
                 <header className="lk-pc-panel__head">
                   <h2 id="lk-pc-settings" className="lk-pc-panel__title">
-                    Настройки
+                    {t('cabinet.settings')}
                   </h2>
                 </header>
                 <div className="lk-pc-theme">
-                  <span className="lk-pc-theme__label">Оформление</span>
-                  <span className="lk-pc-theme__chip">стандарт</span>
+                  <span className="lk-pc-theme__label">{t('cabinet.theme')}</span>
+                  <span className="lk-pc-theme__chip">{t('cabinet.themeStd')}</span>
                 </div>
-                <p className="lk-pc-panel__hint">Сложность ИИ · выберите пилюлю</p>
-                <div className="lk-pc-ai" role="radiogroup" aria-label="Сложность ИИ">
-                  {AI_LEVELS.map((row) => {
-                    const selected = aiLevel === row.id;
+                <p className="lk-pc-panel__hint">{t('cabinet.aiPickPill')}</p>
+                <div className="lk-pc-ai" role="radiogroup" aria-label={t('ai.title')}>
+                  {AI_LEVELS.map((id) => {
+                    const selected = aiLevel === id;
+                    const title =
+                      id === 'novice' ? t('ai.novice') : id === 'amateur' ? t('ai.amateur') : t('ai.expert');
+                    const hint =
+                      id === 'novice' ? t('cabinet.aiSoft') : id === 'amateur' ? t('cabinet.aiPace') : t('cabinet.aiHard');
                     return (
                       <button
-                        key={row.id}
+                        key={id}
                         type="button"
                         role="radio"
                         aria-checked={selected}
                         className={[
                           'lk-pc-ai__pill',
-                          `lk-pc-ai__pill--${row.id}`,
+                          `lk-pc-ai__pill--${id}`,
                           selected ? 'lk-pc-ai__pill--on' : '',
-                          aiPulseId === row.id ? 'lk-pc-ai__pill--pulse' : '',
+                          aiPulseId === id ? 'lk-pc-ai__pill--pulse' : '',
                         ]
                           .filter(Boolean)
                           .join(' ')}
-                        onClick={() => handleAiSelect(row.id)}
+                        onClick={() => handleAiSelect(id)}
                       >
                         <span className="lk-pc-ai__ball" aria-hidden="true" />
                         <span className="lk-pc-ai__copy">
-                          <span className="lk-pc-ai__title">{row.title}</span>
-                          <span className="lk-pc-ai__hint">{row.hint}</span>
+                          <span className="lk-pc-ai__title">{title}</span>
+                          <span className="lk-pc-ai__hint">{hint}</span>
                         </span>
                       </button>
                     );
@@ -338,7 +346,7 @@ export function AccountLkPage({
               >
                 <header className="lk-pc-panel__head">
                   <h2 id="lk-pc-stats" className="lk-pc-panel__title">
-                    Моя статистика
+                    {t('cabinet.myStats')}
                   </h2>
                 </header>
                 <div className="lk-pc-stats">
@@ -346,39 +354,39 @@ export function AccountLkPage({
                     <>
                       <div className="lk-pc-stat">
                         <span className="lk-pc-stat__value">{online.games}</span>
-                        <span className="lk-pc-stat__label">онлайн игр</span>
+                        <span className="lk-pc-stat__label">{t('cabinet.onlineGames')}</span>
                       </div>
                       <div className="lk-pc-stat">
                         <span className="lk-pc-stat__value">{online.wins}</span>
-                        <span className="lk-pc-stat__label">онлайн побед</span>
+                        <span className="lk-pc-stat__label">{t('cabinet.onlineWins')}</span>
                       </div>
                       <div className="lk-pc-stat">
                         <span className="lk-pc-stat__value">{online.points}</span>
-                        <span className="lk-pc-stat__label">онлайн очки</span>
+                        <span className="lk-pc-stat__label">{t('cabinet.onlinePts')}</span>
                       </div>
                     </>
                   ) : null}
                   <div className="lk-pc-stat">
                     <span className="lk-pc-stat__value">{rating.gamesPlayed}</span>
-                    <span className="lk-pc-stat__label">игр на устройстве</span>
+                    <span className="lk-pc-stat__label">{t('cabinet.deviceGames')}</span>
                   </div>
                   <div className="lk-pc-stat">
                     <span className="lk-pc-stat__value">
                       {rating.wins}
                       {rating.gamesPlayed > 0 ? ` · ${winRate}%` : ''}
                     </span>
-                    <span className="lk-pc-stat__label">побед локально</span>
+                    <span className="lk-pc-stat__label">{t('cabinet.localWins')}</span>
                   </div>
                   {avgBidAccuracy != null ? (
                     <div className="lk-pc-stat">
                       <span className="lk-pc-stat__value">{avgBidAccuracy}%</span>
-                      <span className="lk-pc-stat__label">точность заказов</span>
+                      <span className="lk-pc-stat__label">{t('cabinet.bidAcc')}</span>
                     </div>
                   ) : null}
                 </div>
                 {onOpenRating ? (
                   <button type="button" className="lk-pc-chip__btn" onClick={onOpenRating}>
-                    Таблица лидеров
+                    {t('cabinet.leaderboard')}
                   </button>
                 ) : null}
               </section>
@@ -386,14 +394,14 @@ export function AccountLkPage({
               <section className="lk-pc-panel lk-pc-panel--activity" aria-labelledby="lk-pc-activity">
                 <header className="lk-pc-panel__head">
                   <h2 id="lk-pc-activity" className="lk-pc-panel__title">
-                    Активность
+                    {t('cabinet.activity')}
                   </h2>
                 </header>
 
                 <div className="lk-pc-activity-block">
-                  <h3 className="lk-pc-activity-block__title">Незавершённые онлайн</h3>
+                  <h3 className="lk-pc-activity-block__title">{t('cabinet.unfinishedOnline')}</h3>
                   {unfinishedShown.length === 0 ? (
-                    <p className="lk-pc-activity-block__empty">Пока пусто</p>
+                    <p className="lk-pc-activity-block__empty">{t('cabinet.empty')}</p>
                   ) : (
                     <ul className="lk-pc-chip-list">
                       {unfinishedShown.map((row) => (
@@ -409,7 +417,7 @@ export function AccountLkPage({
                                 className="lk-pc-chip__btn"
                                 onClick={() => onJoinUnfinished(row.code)}
                               >
-                                Открыть
+                                {t('cabinet.open')}
                               </button>
                             ) : null}
                             <button
@@ -417,7 +425,7 @@ export function AccountLkPage({
                               className="lk-pc-chip__btn lk-pc-chip__btn--ghost"
                               onClick={() => handleForgetUnfinished(row.roomId)}
                             >
-                              Забыть
+                              {t('cabinet.forget')}
                             </button>
                           </div>
                         </li>
@@ -427,7 +435,7 @@ export function AccountLkPage({
                 </div>
               </section>
 
-              <section className="lk-pc-panel lk-pc-panel--archive" aria-label="Архив партий">
+              <section className="lk-pc-panel lk-pc-panel--archive" aria-label={t('cabinet.archiveAria')}>
                 {archiveHub}
               </section>
             </div>
@@ -440,9 +448,9 @@ export function AccountLkPage({
   return (
     <div className="lk-page">
       <div className="lk-page__shell">
-        <CosmicGlassClose className="lk-page__close" onClick={onBack} aria-label="Закрыть" />
+        <CosmicGlassClose className="lk-page__close" onClick={onBack} aria-label={t('common.close')} />
         <CosmicCockpit className="lk-page__cockpit">
-          <h1 className="lk-page__title cosmic-iridescent-text">Личный кабинет</h1>
+          <h1 className="lk-page__title cosmic-iridescent-text">{t('cabinet.title')}</h1>
 
           <div className="lk-page__profile">
             <PlayerAvatar
@@ -452,19 +460,19 @@ export function AccountLkPage({
               sizePx={72}
             />
             <div className="lk-page__profile-text">
-              <p className="lk-page__profile-name">{displayName}</p>
+              <p className="lk-page__profile-name">{formatYouName(displayName, t)}</p>
               {loggedIn && user?.email ? (
                 <p className="lk-page__profile-email">{user.email}</p>
               ) : (
                 <p className="lk-page__profile-email lk-page__profile-email--guest">
-                  Без аккаунта · только это устройство
+                  {t('cabinet.noAccount')}
                 </p>
               )}
               <span
                 className={`lk-page__badge lk-page__badge--${identityStatus === 'account' ? 'online' : identityStatus === 'profile' ? 'local' : 'guest'}`}
-                title={MENU_IDENTITY_STATUS_ARIA[identityStatus]}
+                title={identityTitle(identityStatus, t)}
               >
-                {identityBadgeLabel(identityStatus)}
+                {identityBadgeLabel(identityStatus, t)}
               </span>
             </div>
           </div>
@@ -472,16 +480,14 @@ export function AccountLkPage({
           <section className="lk-page__section lk-page__section--identity" aria-labelledby="lk-profile-title">
             <div className="lk-page__section-head">
               <h2 id="lk-profile-title" className="lk-page__section-title">
-                Профиль
+                {t('cabinet.profileSection')}
               </h2>
-              <span className="lk-page__badge lk-page__badge--local">на устройстве</span>
+              <span className="lk-page__badge lk-page__badge--local">{t('cabinet.onDevice')}</span>
             </div>
-            <p className="lk-page__explain">
-              Имя и фото для офлайн-партий и локальных игр. Работает без входа и остаётся на этом устройстве.
-            </p>
+            <p className="lk-page__explain">{t('cabinet.profileExplain')}</p>
             <div className="lk-page__actions lk-page__actions--in-section lk-page__actions--edit-profile">
               <CosmicPhysButton variant="primary" onClick={onEditProfile}>
-                Изменить имя и фото
+                {t('cabinet.editNamePhoto')}
               </CosmicPhysButton>
             </div>
           </section>
@@ -495,7 +501,7 @@ export function AccountLkPage({
               ].join(' ')}
             >
               <h2 id="lk-account-title" className="lk-page__section-title lk-page__section-title--framed">
-                <span className="lk-page__section-title-text">Аккаунт</span>
+                <span className="lk-page__section-title-text">{t('cabinet.accountSection')}</span>
               </h2>
               <span
                 className={`lk-page__badge ${loggedIn ? 'lk-page__badge--online lk-page__badge--cloud' : 'lk-page__badge--guest lk-page__badge--noauth'}`}
@@ -508,13 +514,11 @@ export function AccountLkPage({
                     <span className="lk-page__badge-x-arm lk-page__badge-x-arm--b" />
                   </span>
                 )}
-                <span className="lk-page__badge-label">{loggedIn ? 'облако' : 'не выполнен вход'}</span>
+                <span className="lk-page__badge-label">{loggedIn ? t('cabinet.cloud') : t('cabinet.notSigned')}</span>
               </span>
             </div>
             <p className="lk-page__explain">
-              {loggedIn
-                ? 'Вы вошли: доступны онлайн-игры, облачный рейтинг и история партий на всех устройствах.'
-                : 'Вход нужен для онлайн-игр и сохранения рейтинга и истории в облаке. Без аккаунта можно играть офлайн под своим профилем.'}
+              {loggedIn ? t('cabinet.signedExplain') : t('cabinet.guestExplain')}
             </p>
             <div className="lk-page__actions lk-page__actions--in-section">
               {loggedIn ? (
@@ -525,13 +529,13 @@ export function AccountLkPage({
                       void signOut();
                     }}
                   >
-                    Выйти из аккаунта
+                    {t('cabinet.signOutAccount')}
                   </CosmicPhysButton>
                 </div>
               ) : (
                 <div className="lk-page__actions-auth lk-page__actions-auth--in">
                   <CosmicPhysButton variant="secondary" onClick={onSignIn}>
-                    {authLoading ? 'Проверка…' : 'Войти в аккаунт'}
+                    {authLoading ? t('cabinet.checking') : t('cabinet.signInAccount')}
                   </CosmicPhysButton>
                 </div>
               )}
@@ -544,31 +548,31 @@ export function AccountLkPage({
             aria-labelledby="lk-stats-title"
           >
             <h2 id="lk-stats-title" className="lk-page__section-title">
-              Моя статистика
+              {t('cabinet.myStats')}
             </h2>
             <div className="lk-page__stats">
               {loggedIn && online && (
                 <>
                   <div className="lk-page__stat">
-                    <span className="lk-page__stat-label">Онлайн · игр</span>
+                    <span className="lk-page__stat-label">{t('cabinet.onlineGamesStat')}</span>
                     <span className="lk-page__stat-value">{online.games}</span>
                   </div>
                   <div className="lk-page__stat">
-                    <span className="lk-page__stat-label">Онлайн · побед</span>
+                    <span className="lk-page__stat-label">{t('cabinet.onlineWinsStat')}</span>
                     <span className="lk-page__stat-value">{online.wins}</span>
                   </div>
                   <div className="lk-page__stat">
-                    <span className="lk-page__stat-label">Онлайн · очки</span>
+                    <span className="lk-page__stat-label">{t('cabinet.onlinePtsStat')}</span>
                     <span className="lk-page__stat-value">{online.points}</span>
                   </div>
                 </>
               )}
               <div className="lk-page__stat">
-                <span className="lk-page__stat-label">На устройстве · игр</span>
+                <span className="lk-page__stat-label">{t('cabinet.deviceGamesStat')}</span>
                 <span className="lk-page__stat-value">{rating.gamesPlayed}</span>
               </div>
               <div className="lk-page__stat">
-                <span className="lk-page__stat-label">На устройстве · побед</span>
+                <span className="lk-page__stat-label">{t('cabinet.deviceWinsStat')}</span>
                 <span className="lk-page__stat-value">
                   {rating.wins}
                   {rating.gamesPlayed > 0 ? ` (${winRate}%)` : ''}
@@ -576,7 +580,7 @@ export function AccountLkPage({
               </div>
               {avgBidAccuracy != null && (
                 <div className="lk-page__stat">
-                  <span className="lk-page__stat-label">Точность заказов</span>
+                  <span className="lk-page__stat-label">{t('cabinet.bidAccStat')}</span>
                   <span className="lk-page__stat-value">{avgBidAccuracy}%</span>
                 </div>
               )}
@@ -584,19 +588,19 @@ export function AccountLkPage({
             <div className="lk-page__section-links">
               {onOpenRating ? (
                 <button type="button" className="lk-page__text-link" onClick={onOpenRating}>
-                  Таблица лидеров
+                  {t('cabinet.leaderboard')}
                 </button>
               ) : (
                 <button type="button" className="lk-page__text-link" onClick={handleCapsuleRating}>
-                  Моя статистика
+                  {t('cabinet.myStats')}
                 </button>
               )}
               <button type="button" className="lk-page__text-link" onClick={handleCapsuleHistory}>
-                История партий
+                {t('cabinet.matchHistory')}
               </button>
               {onOpenSupport ? (
                 <button type="button" className="lk-page__text-link" onClick={onOpenSupport}>
-                  Поддержать проект
+                  {t('support.title')}
                 </button>
               ) : null}
             </div>
@@ -604,15 +608,15 @@ export function AccountLkPage({
 
           <section className="lk-page__section" aria-labelledby="lk-unfinished-title">
             <h2 id="lk-unfinished-title" className="lk-page__section-title">
-              Незавершённые онлайн
+              {t('cabinet.unfinishedOnline')}
             </h2>
             {unfinishedShown.length === 0 ? (
-              <p className="lk-page__empty">Пока пусто</p>
+              <p className="lk-page__empty">{t('cabinet.empty')}</p>
             ) : (
               unfinishedShown.map((row) => (
                 <div key={`${row.roomId}-${row.leftAt}`} className="lk-page__actions lk-page__actions--in-section">
                   <p className="lk-page__explain">
-                    Комната {row.code} · {formatWhen(row.leftAt)}
+                    {t('cabinet.roomWhen', { code: row.code, when: formatWhen(row.leftAt) })}
                   </p>
                   <div className="lk-page__section-links">
                     {onJoinUnfinished ? (
@@ -621,7 +625,7 @@ export function AccountLkPage({
                         className="lk-page__text-link"
                         onClick={() => onJoinUnfinished(row.code)}
                       >
-                        Открыть
+                        {t('cabinet.open')}
                       </button>
                     ) : null}
                     <button
@@ -629,7 +633,7 @@ export function AccountLkPage({
                       className="lk-page__text-link"
                       onClick={() => handleForgetUnfinished(row.roomId)}
                     >
-                      Забыть
+                      {t('cabinet.forget')}
                     </button>
                   </div>
                 </div>
@@ -641,7 +645,7 @@ export function AccountLkPage({
 
           <div className="lk-page__back">
             <CosmicPhysButton variant="secondary" onClick={onBack}>
-              ← В главное меню
+              {t('rating.toMenu')}
             </CosmicPhysButton>
           </div>
         </CosmicCockpit>
