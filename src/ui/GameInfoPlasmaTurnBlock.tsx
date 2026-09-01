@@ -3,6 +3,7 @@ import type { CSSProperties, MouseEvent, PointerEvent, ReactNode } from 'react';
 import { getDealType, type PlayerCount } from '../game/GameEngine';
 
 import type { GameInfoBadgeStyle } from '../lib/gameInfoBadgeStyle';
+import { t } from '../i18n';
 
 
 
@@ -96,17 +97,17 @@ function GameInfoPlasmaDealMeta({
 
     dealType === 'no-trump' ? (
 
-      <span className="game-info-plasma-deal-meta__mode">Бескозырка</span>
+      <span className="game-info-plasma-deal-meta__mode">{t('table.noTrump')}</span>
 
     ) : dealType === 'dark' ? (
 
-      <span className="game-info-plasma-deal-meta__mode">Тёмная</span>
+      <span className="game-info-plasma-deal-meta__mode">{t('table.darkDeal')}</span>
 
     ) : (
 
       <>
 
-        <span className="game-info-plasma-deal-meta__label">КАРТ:</span>
+        <span className="game-info-plasma-deal-meta__label">{t('table.cardsHud')}</span>
 
         <span className="game-info-plasma-deal-meta__value">{tricksInDeal}</span>
 

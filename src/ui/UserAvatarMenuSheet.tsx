@@ -13,6 +13,7 @@ import { PlayerAvatar } from './PlayerAvatar';
 import { useDesktopProfileUi } from './useDesktopProfileUi';
 import { AudioSettingsPanel } from './AudioSettingsPanel';
 import { stopAllSounds } from '../audio';
+import { t, useT } from '../i18n';
 
 export interface UserAvatarMenuSheetProps {
   displayName: string;
@@ -171,6 +172,7 @@ export function UserAvatarMenuSheet({
   onSaveDisplayName,
   onTakePause,
 }: UserAvatarMenuSheetProps) {
+  const tr = useT();
   const isDesktopProfileUi = useDesktopProfileUi();
   const menuAvatarSizePx = isDesktopProfileUi ? 92 : 68;
   const iconGradPrefix = useId().replace(/:/g, '');
@@ -205,7 +207,7 @@ export function UserAvatarMenuSheet({
   const commitNameEdit = useCallback(() => {
     const trimmed = draftName.trim();
     if (!trimmed) {
-      setNameError('Введите имя');
+      setNameError(t('nameAvatar.needName'));
       return;
     }
     const next = trimmed.slice(0, MAX_DISPLAY_NAME_LENGTH);
@@ -266,7 +268,7 @@ export function UserAvatarMenuSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="avatar-menu-sheet-card__glow" aria-hidden />
-        <button type="button" className="avatar-menu-sheet-close" onClick={onClose} aria-label="Закрыть">
+        <button type="button" className="avatar-menu-sheet-close" onClick={onClose} aria-label={tr('common.close')}>
           <svg className="avatar-menu-sheet-close__icon" viewBox="0 0 24 24" width={12} height={12} aria-hidden>
             <path
               d="M18 6L6 18M6 6l12 12"
@@ -280,13 +282,13 @@ export function UserAvatarMenuSheet({
 
         <div className="avatar-menu-sheet-header">
           <p className="avatar-menu-sheet-card__eyebrow" aria-hidden>
-            {offlineMode ? 'Офлайн · ваш профиль' : 'Онлайн · ваш профиль'}
+            {offlineMode ? tr('avatarMenu.eyebrowOffline') : tr('avatarMenu.eyebrowOnline')}
           </p>
           <div className="avatar-menu-sheet-header__main">
             <div className="avatar-menu-sheet-header__side avatar-menu-sheet-header__side--left">
               <div className="avatar-menu-sheet-name-panel">
                 <div className="avatar-menu-sheet-name-panel__head">
-                  <span className="avatar-menu-sheet-name-label">Имя:</span>
+                  <span className="avatar-menu-sheet-name-label">{tr('avatarMenu.name')}</span>
                   {canEditName ? (
                     <button
                       type="button"
@@ -296,7 +298,7 @@ export function UserAvatarMenuSheet({
                       ].join(' ')}
                       onClick={startNameEdit}
                       disabled={editingName}
-                      aria-label={`Имя: ${displayName}. Нажмите, чтобы изменить`}
+                      aria-label={tr('avatarMenu.nameAria', { name: displayName })}
                     >
                       <span id="avatar-menu-sheet-name" className="avatar-menu-sheet-name">
                         {displayName}
@@ -310,7 +312,7 @@ export function UserAvatarMenuSheet({
                   )}
                 </div>
                 {editingName && canEditName && (
-                  <div className="avatar-menu-sheet-name-edit" role="group" aria-label="Редактирование имени">
+                  <div className="avatar-menu-sheet-name-edit" role="group" aria-label={tr('avatarMenu.nameEdit')}>
                     <input
                       ref={nameInputRef}
                       type="text"
@@ -319,7 +321,7 @@ export function UserAvatarMenuSheet({
                       maxLength={MAX_DISPLAY_NAME_LENGTH}
                       autoComplete="nickname"
                       enterKeyHint="done"
-                      aria-label="Новое имя"
+                      aria-label={tr('avatarMenu.newName')}
                       aria-invalid={nameError ? true : undefined}
                       onChange={(e) => {
                         setDraftName(e.target.value);
@@ -386,8 +388,8 @@ export function UserAvatarMenuSheet({
                 ].join(' ')}
                 onClick={() => onSaveAvatar && setAvatarEditorOpen(true)}
                 disabled={!onSaveAvatar}
-                aria-label="Открыть редактор аватарки"
-                title={onSaveAvatar ? 'Нажмите, чтобы увеличить и нарисовать аватар' : undefined}
+                aria-label={tr('avatarMenu.openEditor')}
+                title={onSaveAvatar ? tr('avatarMenu.tapToDraw') : undefined}
               >
                 <div className="avatar-menu-sheet-avatar-halo" aria-hidden />
                 <div className="avatar-menu-sheet-avatar-ring">
@@ -402,8 +404,8 @@ export function UserAvatarMenuSheet({
               </button>
               {onSaveAvatar && (
                 <p className="avatar-menu-sheet-avatar-tap-hint avatar-menu-sheet-avatar-tap-hint--prominent">
-                  <span className="avatar-menu-sheet-avatar-tap-hint__line">Нажмите на аватар —</span>
-                  <span className="avatar-menu-sheet-avatar-tap-hint__line">редактор</span>
+                  <span className="avatar-menu-sheet-avatar-tap-hint__line">{tr('avatarMenu.tapAvatar')}</span>
+                  <span className="avatar-menu-sheet-avatar-tap-hint__line">{tr('avatarMenu.editor')}</span>
                 </p>
               )}
             </div>
@@ -412,7 +414,7 @@ export function UserAvatarMenuSheet({
 
         <div className="avatar-menu-sheet-stats player-info-panel-stats">
           <div className="avatar-menu-sheet-stat-row">
-            <span className="player-info-panel-label player-info-panel-label--party-score">Очки в партии</span>
+            <span className="player-info-panel-label player-info-panel-label--party-score">{tr('avatarMenu.partyScore')}</span>
             <span className="player-info-panel-value player-info-panel-value--party-score">
               {p.score >= 0 ? '+' : ''}
               {p.score}
@@ -420,32 +422,32 @@ export function UserAvatarMenuSheet({
           </div>
           {inPlay && currentBid != null && (
             <div className="avatar-menu-sheet-stat-row">
-              <span className="avatar-menu-sheet-stat-label">Текущий заказ</span>
+              <span className="avatar-menu-sheet-stat-label">{tr('avatarMenu.currentBid')}</span>
               <span className="avatar-menu-sheet-stat-value">{currentBid}</span>
             </div>
           )}
           {state.phase === 'playing' && (
             <div className="avatar-menu-sheet-stat-row">
-              <span className="avatar-menu-sheet-stat-label">Взяток в раздаче</span>
+              <span className="avatar-menu-sheet-stat-label">{tr('avatarMenu.tricksInDeal')}</span>
               <span className="avatar-menu-sheet-stat-value">{p.tricksTaken}</span>
             </div>
           )}
           <div className="avatar-menu-sheet-stat-row">
             <span className="player-info-panel-label player-info-panel-label--bid-accuracy-deal">
-              Точность заказов в этой партии
+              {tr('avatarMenu.accuracyDeal')}
             </span>
             <span className="player-info-panel-value player-info-panel-value--bid-accuracy-deal">{bidAccuracy}%</span>
           </div>
           {localRating && (
             <>
               <div className="avatar-menu-sheet-stat-row">
-                <span className="avatar-menu-sheet-stat-label avatar-menu-sheet-stat-label--games">Игр сыграно</span>
+                <span className="avatar-menu-sheet-stat-label avatar-menu-sheet-stat-label--games">{tr('avatarMenu.gamesPlayed')}</span>
                 <span className="avatar-menu-sheet-stat-value avatar-menu-sheet-stat-value--games">
                   {localRating.gamesPlayed}
                 </span>
               </div>
               <div className="avatar-menu-sheet-stat-row">
-                <span className="avatar-menu-sheet-stat-label avatar-menu-sheet-stat-label--wins">Побед</span>
+                <span className="avatar-menu-sheet-stat-label avatar-menu-sheet-stat-label--wins">{tr('avatarMenu.wins')}</span>
                 <span className="avatar-menu-sheet-stat-value avatar-menu-sheet-stat-value--wins">
                   {localRating.wins}
                 </span>
@@ -453,7 +455,7 @@ export function UserAvatarMenuSheet({
               {localRating.bidAccuracyCount > 0 && (
                 <div className="avatar-menu-sheet-stat-row">
                   <span className="avatar-menu-sheet-stat-label avatar-menu-sheet-stat-label--avg-accuracy">
-                    Средняя точность заказов
+                    {tr('avatarMenu.accuracyAvg')}
                   </span>
                   <span className="avatar-menu-sheet-stat-value avatar-menu-sheet-stat-value--avg-accuracy">
                     {Math.round(localRating.bidAccuracySum / localRating.bidAccuracyCount)}%
@@ -478,7 +480,7 @@ export function UserAvatarMenuSheet({
                 <AvatarMenuBtnIcon>
                   <AvatarMenuIconPhoto gradId={iconGradPrefix} />
                 </AvatarMenuBtnIcon>
-                <span className="avatar-menu-sheet-btn-label">Сменить фото</span>
+                <span className="avatar-menu-sheet-btn-label">{tr('avatarMenu.changePhoto')}</span>
               </button>
               <button
                 type="button"
@@ -488,7 +490,7 @@ export function UserAvatarMenuSheet({
                 <AvatarMenuBtnIcon>
                   <AvatarMenuIconName gradId={iconGradPrefix} />
                 </AvatarMenuBtnIcon>
-                <span className="avatar-menu-sheet-btn-label">Изменить имя</span>
+                <span className="avatar-menu-sheet-btn-label">{tr('avatarMenu.changeName')}</span>
               </button>
             </div>
           )}
@@ -509,8 +511,8 @@ export function UserAvatarMenuSheet({
                   <AvatarMenuIconSound gradId={iconGradPrefix} />
                 </AvatarMenuBtnIcon>
                 <span className="avatar-menu-sheet-btn-copy">
-                  <span className="avatar-menu-sheet-btn-kicker">Эфир</span>
-                  <span className="avatar-menu-sheet-btn-label">Звук и музыка</span>
+                  <span className="avatar-menu-sheet-btn-kicker">{tr('audio.ether')}</span>
+                  <span className="avatar-menu-sheet-btn-label">{tr('audio.title')}</span>
                 </span>
               </button>
             )}
@@ -525,7 +527,7 @@ export function UserAvatarMenuSheet({
               <AvatarMenuBtnIcon>
                 <AvatarMenuIconPause gradId={iconGradPrefix} />
               </AvatarMenuBtnIcon>
-              <span className="avatar-menu-sheet-btn-label">{takingPause ? 'Пауза…' : 'Взять паузу'}</span>
+              <span className="avatar-menu-sheet-btn-label">{takingPause ? tr('avatarMenu.pauseBusy') : tr('avatarMenu.pause')}</span>
             </button>
           )}
         </div>

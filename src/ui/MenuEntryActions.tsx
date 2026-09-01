@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import {
   getMenuCapsuleGlyphOnly,
   setMenuCapsuleGlyphOnly,
@@ -14,6 +14,7 @@ import {
 import { PlayerAvatar } from './PlayerAvatar';
 import { MenuSignedIdentityMark, type MenuSignedStatus } from './MenuSignedIdentityMark';
 import { MenuMapTipDismiss } from './MenuMapTipDismiss';
+import { t, useT } from '../i18n';
 
 const PC_MENU_MQ = '(min-width: 1025px)';
 
@@ -24,11 +25,7 @@ const MODE_LEGEND_ART_COMPACT_DELAY_MS = 2600;
 const SOLO_MAP_TIP_AUTO_MS = 7500;
 
 /** Solo-офлайн каплюля: короткие ролики CTA (только без Continue). */
-const OFFLINE_SOLO_PILL_LABELS = ['Офлайн', 'с ИИ', 'Играть'] as const;
 const OFFLINE_SOLO_PILL_LABEL_MS = 2600;
-const SOLO_MAP_TIP_TEXT =
-  'Нажмите на робота — откроется информация о режиме «Офлайн».';
-const SOLO_PILL_MAP_TIP_TEXT = 'Нажмите, чтобы начать игру с ИИ.';
 
 /** Снять focus после touch — иначе WebKit рисует серый tap/focus-квадрат (часто сверху страницы). */
 function blurAfterTouch(e: PointerEvent<HTMLElement>) {
@@ -934,16 +931,17 @@ function SplitCapsuleHalf({
 }
 
 function ModeLabelSplitFlat({ mode }: { mode: 'online' | 'offline' }) {
-  const keyLetter = mode === 'online' ? 'Н' : 'Ф';
+  const t = useT();
+  const keyLetter = mode === 'online' ? t('menu.modeKeyOnline') : t('menu.modeKeyOffline');
 
   return (
     <>
-      <span className="menu-mode-label__chip-o">О</span>
+      <span className="menu-mode-label__chip-o">{t('menu.modeChip')}</span>
       <span className={`menu-mode-label__key menu-mode-label__key--${mode}`}>{keyLetter}</span>
       <span className={`menu-mode-label__sep menu-mode-label__sep--${mode}`} aria-hidden="true">
         ·
       </span>
-      <span className={`menu-mode-label__tail menu-mode-label__tail--${mode}`}>ЛАЙН</span>
+      <span className={`menu-mode-label__tail menu-mode-label__tail--${mode}`}>{t('menu.modeTail')}</span>
     </>
   );
 }
@@ -954,7 +952,8 @@ function ModeLabelSmileArc({ mode }: { mode: 'online' | 'offline' }) {
   const fillTextId = `${uid}-fill-text`;
   const fillPillId = `${uid}-fill-pill`;
   const fillRimId = `${uid}-fill-rim`;
-  const keyLetter = mode === 'online' ? 'Н' : 'Ф';
+  const t = useT();
+  const keyLetter = mode === 'online' ? t('menu.modeKeyOnline') : t('menu.modeKeyOffline');
   /** Одна дуга для pill и текста; буквы в центр stroke — через translate у <g>. */
   const arcPathD = 'M 16,24 A 36,36 0 0,0 84,24';
   const pillPathD = 'M 22,24 A 36,36 0 0,0 78,24';
@@ -1053,7 +1052,7 @@ function ModeLabelSmileArc({ mode }: { mode: 'online' | 'offline' }) {
             fill={`url(#${fillTextId})`}
           >
             <textPath href={`#${pathId}`} xlinkHref={`#${pathId}`} startOffset="50%" textAnchor="middle">
-              <tspan className="menu-split-capsule__mode-arc-chip-o">О</tspan>
+              <tspan className="menu-split-capsule__mode-arc-chip-o">{t('menu.modeChip')}</tspan>
               <tspan className={`menu-split-capsule__mode-arc-key menu-split-capsule__mode-arc-key--${mode}`}>
                 {keyLetter}
               </tspan>
@@ -1061,7 +1060,7 @@ function ModeLabelSmileArc({ mode }: { mode: 'online' | 'offline' }) {
                 ·
               </tspan>
               <tspan className={`menu-split-capsule__mode-arc-tail menu-split-capsule__mode-arc-tail--${mode}`} dx="0.08em">
-                ЛАЙН
+                {t('menu.modeTail')}
               </tspan>
             </textPath>
           </text>
@@ -1091,9 +1090,13 @@ function ModeLegendPanel({
   /** Solo: быстрый переход в лобби / офлайн-игру из легенды. */
   onPlay?: () => void;
 }) {
+  const t = useT();
   const legend = MODE_LEGENDS[mode];
   const { artExpanded, expandArt } = useLegendArtCompact(legendOpen);
-  const playLabel = mode === 'online' ? 'В лобби' : 'Играть';
+  const playLabel = mode === 'online' ? t('menu.toLobby') : t('menu.play');
+  const kicker = mode === 'online' ? t('menu.legendOnlineKicker') : t('menu.legendOfflineKicker');
+  const title = mode === 'online' ? t('menu.legendOnlineTitle') : t('menu.legendOfflineTitle');
+  const body = mode === 'online' ? t('menu.legendOnlineBody') : t('menu.legendOfflineBody');
 
   return (
     <div className={`menu-split-capsule__legend menu-split-capsule__legend--${mode}`} id={panelId}>
@@ -1103,11 +1106,11 @@ function ModeLegendPanel({
           type="button"
           className="menu-split-capsule__legend-close"
           onClick={onClose}
-          aria-label="Свернуть легенду"
+          aria-label={t('menu.legendCollapseAria')}
         >
           <span aria-hidden="true">×</span>
         </button>
-        <p className="menu-split-capsule__legend-kicker">{legend.kicker}</p>
+        <p className="menu-split-capsule__legend-kicker">{kicker}</p>
         <div className="menu-split-capsule__legend-head">
           <button
             type="button"
@@ -1118,7 +1121,7 @@ function ModeLegendPanel({
               .filter(Boolean)
               .join(' ')}
             onClick={expandArt}
-            aria-label={artExpanded ? 'Иллюстрация режима' : 'Увеличить иллюстрацию'}
+            aria-label={artExpanded ? t('menu.legendArt') : t('menu.legendArtExpand')}
           >
             <img
               className="menu-split-capsule__legend-art"
@@ -1128,9 +1131,9 @@ function ModeLegendPanel({
               draggable={false}
             />
           </button>
-          <h3 className="menu-split-capsule__legend-title">{legend.title}</h3>
+          <h3 className="menu-split-capsule__legend-title">{title}</h3>
         </div>
-        <p className="menu-split-capsule__legend-body">{legend.body}</p>
+        <p className="menu-split-capsule__legend-body">{body}</p>
         <div className="menu-split-capsule__legend-actions">
           {onPlay ? (
             <button
@@ -1145,7 +1148,7 @@ function ModeLegendPanel({
             </button>
           ) : null}
           <button type="button" className="menu-split-capsule__legend-collapse" onClick={onClose}>
-            Свернуть
+            {t('menu.legendCollapse')}
           </button>
         </div>
       </div>
@@ -1182,7 +1185,7 @@ function SplitCapsuleModeCrest({
 }) {
   const glyphAria =
     glyphAriaLabel ??
-    (legendOpen ? `Свернуть легенду «${modeLabel}»` : `Что такое «${modeLabel}»`);
+    (legendOpen ? t('menu.legendCollapseNamed', { name: modeLabel }) : t('menu.legendWhat', { name: modeLabel }));
 
   let labelNode: ReactNode = null;
   if (modeLabelSlot === false) {
@@ -1229,9 +1232,10 @@ export function MenuPlaySplitCapsule({
   shellDecor,
   pcModeLabels = true,
 }: MenuPlaySplitCapsuleProps) {
+  const t = useT();
   const mainVariant: MenuCapsuleVariant = mode === 'online' ? 'online' : 'offline';
   const resumeVariant: MenuCapsuleVariant = mode === 'online' ? 'resumeOnline' : 'resumeOffline';
-  const modeLabel = mode === 'online' ? 'Онлайн' : 'Офлайн';
+  const modeLabel = mode === 'online' ? t('menu.legendOnlineTitle') : t('menu.legendOfflineTitle');
   const { legendOpen, legendClosing, toggleLegend, closeLegend } = useModeLegendAutoClose();
   const legendPanelId = useId();
   const mapTipId = useId();
@@ -1253,8 +1257,12 @@ export function MenuPlaySplitCapsule({
   }, []);
   const mapTipTimerRef = useRef<number | null>(null);
   const pillMapTipTimerRef = useRef<number | null>(null);
+  const offlinePillLabels = useMemo(
+    () => [t('menu.offlinePill'), t('menu.withAi'), t('menu.play')] as const,
+    [t],
+  );
   const soloOfflinePillLabel = useCyclingLabel(
-    OFFLINE_SOLO_PILL_LABELS,
+    offlinePillLabels,
     !canResume && mode === 'offline',
     OFFLINE_SOLO_PILL_LABEL_MS,
   );
@@ -1396,9 +1404,9 @@ export function MenuPlaySplitCapsule({
     .join(' ');
 
   if (!canResume) {
-    const pillLabel = mode === 'online' ? 'Онлайн' : soloOfflinePillLabel;
+    const pillLabel = mode === 'online' ? t('menu.legendOnlineTitle') : soloOfflinePillLabel;
     const pillAria =
-      mode === 'online' ? 'Открыть онлайн-лобби' : 'Начать офлайн-игру';
+      mode === 'online' ? t('menu.openOnlineLobby') : t('menu.startOffline');
     return (
       <div
         className={[
@@ -1418,13 +1426,13 @@ export function MenuPlaySplitCapsule({
           >
             <span className="menu-split-capsule__solo-watermark-scan" />
             <span className="menu-split-capsule__solo-watermark-ghost">
-              {mode === 'online' ? 'ОНЛАЙН' : 'ОФЛАЙН'}
+              {mode === 'online' ? t('menu.legendOnlineTitle').toUpperCase() : t('menu.legendOfflineTitle').toUpperCase()}
             </span>
             <span className="menu-split-capsule__solo-watermark-glitch menu-split-capsule__solo-watermark-glitch--a">
-              {mode === 'online' ? 'Онлайн' : 'Офлайн'}
+              {mode === 'online' ? t('menu.legendOnlineTitle') : t('menu.legendOfflineTitle')}
             </span>
             <span className="menu-split-capsule__solo-watermark-glitch menu-split-capsule__solo-watermark-glitch--b">
-              {mode === 'online' ? 'Онлайн' : 'Офлайн'}
+              {mode === 'online' ? t('menu.legendOnlineTitle') : t('menu.legendOfflineTitle')}
             </span>
           </div>
           <button
@@ -1464,7 +1472,7 @@ export function MenuPlaySplitCapsule({
             onGlyphClick={mode === 'offline' ? handleSoloGlyphClick : handleOnlineGlyphClick}
             legendPanelId={legendPanelId}
             showModeLabel={false}
-            glyphAriaLabel={onlinePcDirectOpen ? 'Открыть онлайн' : undefined}
+            glyphAriaLabel={onlinePcDirectOpen ? t('menu.openOnline') : undefined}
             legendEnabled={!onlinePcDirectOpen}
           />
           {mode === 'offline' && !isPcMenu && !legendOpen && showGlyphMapHint && !guestMapTipOpen && !pillMapTipOpen ? (
@@ -1588,7 +1596,7 @@ export function MenuPlaySplitCapsule({
                 className="menu-split-capsule__solo-map-hint__hit"
                 aria-expanded={mapTipOpen}
                 aria-controls={mapTipId}
-                aria-label="Подсказка: как открыть информацию о режиме Офлайн"
+                aria-label={t('menu.soloGlyphAria')}
                 onPointerUp={blurAfterTouch}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1603,7 +1611,7 @@ export function MenuPlaySplitCapsule({
                   role="tooltip"
                 >
                   <p className="game-table-tooltip-cosmic-body-text menu-split-capsule__solo-map-tip__text">
-                    {SOLO_MAP_TIP_TEXT}
+                    {t('menu.soloMapTip')}
                   </p>
                   <MenuMapTipDismiss onDismiss={closeMapTip} onHideHint={dismissGlyphMapHint} />
                 </div>
@@ -1729,7 +1737,7 @@ export function MenuPlaySplitCapsule({
                 className="menu-split-capsule__solo-map-hint__hit menu-split-capsule__solo-map-hint__hit--pill"
                 aria-expanded={pillMapTipOpen}
                 aria-controls={pillMapTipId}
-                aria-label="Подсказка: как начать офлайн-игру"
+                aria-label={t('menu.soloPillAria')}
                 onPointerUp={blurAfterTouch}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1744,7 +1752,7 @@ export function MenuPlaySplitCapsule({
                   role="tooltip"
                 >
                   <p className="game-table-tooltip-cosmic-body-text menu-split-capsule__solo-map-tip__text">
-                    {SOLO_PILL_MAP_TIP_TEXT}
+                    {t('menu.soloPillTip')}
                   </p>
                   <MenuMapTipDismiss onDismiss={closePillMapTip} onHideHint={dismissPillMapHint} />
                 </div>
@@ -1777,8 +1785,8 @@ export function MenuPlaySplitCapsule({
             side="main"
             tone={actionTone}
             glyph={GLYPHS[mode === 'online' ? 'newOnline' : 'newOffline']}
-            title={mode === 'online' ? 'Новая сессия' : 'Новая партия'}
-            hint={mode === 'online' ? 'Комнаты и лобби' : 'против ИИ'}
+            title={mode === 'online' ? t('menu.newSession') : t('menu.newDeal')}
+            hint={mode === 'online' ? t('menu.newSessionHint') : t('menu.newDealHint')}
             onClick={onMain}
           />
           <span className="menu-split-capsule__beam" aria-hidden="true" />
@@ -1786,8 +1794,8 @@ export function MenuPlaySplitCapsule({
             side="resume"
             tone={resumeTone}
             glyph={GLYPHS[resumeVariant]}
-            title="Продолжить"
-            hint={mode === 'online' ? 'в партию' : 'сохранено'}
+            title={t('menu.continue')}
+            hint={mode === 'online' ? t('menu.continueOnlineHint') : t('menu.continueOfflineHint')}
             satelliteCode={satelliteCode}
             onClick={onResume}
           />
@@ -1803,7 +1811,7 @@ export function MenuPlaySplitCapsule({
           onGlyphClick={handleOnlineGlyphClick}
           legendPanelId={legendPanelId}
           modeLabelSlot={resolvedModeLabelSlot}
-          glyphAriaLabel={onlinePcDirectOpen ? 'Открыть онлайн' : undefined}
+          glyphAriaLabel={onlinePcDirectOpen ? t('menu.openOnline') : undefined}
           legendEnabled={!onlinePcDirectOpen}
         />
       </div>

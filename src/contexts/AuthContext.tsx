@@ -2,7 +2,7 @@
  * Контекст авторизации — единый источник правды для сессии.
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { Provider, Session, User } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { AUTH_BOOT_TIMEOUT_MS } from '../lib/networkTimeouts';
@@ -24,6 +24,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const configured = isSupabaseConfigured();
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   useEffect(() => {
     if (!supabase) {
@@ -38,7 +40,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     };
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      /* Не обнулять сессию на сбое/таймауте refresh — иначе лаба «сбрасывается» ~каждые 10 мин */
+      if (
+        (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') &&
+        nextSession == null &&
+        sessionRef.current != null
+      ) {
+        return;
+      }
       finish(nextSession, true);
     });
     supabase.auth

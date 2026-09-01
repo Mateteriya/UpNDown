@@ -6,11 +6,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { getLeaderboard, listPublicWaitingRooms, type LeaderboardRow } from '../lib/onlineGameSupabase';
 import { startMenuGlassMagnet } from './menuGlassMagnet';
+import { t, useT } from '../i18n';
 
 function shortName(name: string, max = 14): string {
-  const t = name.trim() || 'Игрок';
-  if (t.length <= max) return t;
-  return `${t.slice(0, max - 1)}…`;
+  const raw = name.trim() || t('common.player');
+  if (raw.length <= max) return raw;
+  return `${raw.slice(0, max - 1)}…`;
 }
 
 type GlassState = {
@@ -28,6 +29,7 @@ export function MenuGlassLadder({
   youName: string;
   onOpenRating?: () => void;
 }) {
+  const t = useT();
   const [data, setData] = useState<GlassState | null>(null);
   const [ready, setReady] = useState(false);
   const rootRef = useRef<HTMLElement | null>(null);
@@ -88,12 +90,14 @@ export function MenuGlassLadder({
   const worldName = leader ? shortName(leader.display_name) : '—';
   const worldElo = leader ? String(leader.elo) : '—';
   const worldEmpty = !leader;
+  const leaderName = leader?.display_name ?? t('menu.glassUnknown');
+  const youPlace = inBoard ? t('menu.glassYouRank', { rank: meRank ?? '' }) : t('menu.glassYouOff');
 
   const aria = merged && leader
-    ? `Рейтинг: вы первое место, ${leader.display_name}, ELO ${leader.elo}`
+    ? t('menu.glassAriaMerged', { name: leader.display_name, elo: leader.elo })
     : guest
-      ? `Рейтинг: лидер ${leader?.display_name ?? 'пока неизвестен'}, вы вне таблицы`
-      : `Рейтинг: лидер ${leader?.display_name ?? 'пока неизвестен'}, вы ${inBoard ? `номер ${meRank}` : 'вне таблицы'}`;
+      ? t('menu.glassAriaGuest', { name: leaderName })
+      : t('menu.glassAriaYou', { leader: leaderName, you: youPlace });
 
   const className = [
     'menu-glass-ladder',
@@ -155,9 +159,9 @@ export function MenuGlassLadder({
       </span>
       {onOpenRating ? (
         <span className="menu-glass-ladder__hint" aria-hidden>
-          <span className="menu-glass-ladder__hint-kicker">открыть</span>
-          <span className="menu-glass-ladder__hint-title">рейтинг</span>
-          <span className="menu-glass-ladder__hint-sub">таблица лидеров</span>
+          <span className="menu-glass-ladder__hint-kicker">{t('menu.glassOpen')}</span>
+          <span className="menu-glass-ladder__hint-title">{t('menu.glassRating')}</span>
+          <span className="menu-glass-ladder__hint-sub">{t('menu.glassLeaders')}</span>
         </span>
       ) : null}
       </span>

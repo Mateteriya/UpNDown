@@ -820,7 +820,9 @@
    * header/brand иначе перекрывают капсулы под шапкой. */
   .menu-screen__pc-topbar .menu-screen__title,
   .menu-screen__pc-topbar .menu-screen__player,
-  .menu-screen__pc-topbar .menu-glass-ladder {
+  .menu-screen__pc-topbar .menu-glass-ladder,
+  .menu-screen__pc-topbar .menu-screen__lang,
+  .menu-screen__pc-topbar .lang-switch {
     pointer-events: auto;
   }
   /* ПК: кабинет — капсула внизу слева, не в шапке */
@@ -2257,10 +2259,7 @@
   .menu-screen .menu-screen__title {
     text-align: left;
   }
-  .menu-screen .menu-screen__tagline-row {
-    justify-content: flex-start;
-  }
-  .menu-screen .menu-screen__tagline-row .menu-screen__tagline {
+  .menu-screen .menu-screen__tagline {
     text-align: left;
   }
   .menu-screen .menu-screen__online-with-glyphs {

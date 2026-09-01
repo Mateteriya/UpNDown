@@ -1,27 +1,25 @@
 import { useId } from 'react';
+import { useT, type TFunc } from '../../i18n';
 
 type Mode = 'online' | 'offline';
 
-const MODE_WORD: Record<Mode, string> = {
-  online: 'ОНЛАЙН',
-  offline: 'ОФЛАЙН',
-};
-
-const MODE_KICKER: Record<Mode, string> = {
-  online: 'Космический зал',
-  offline: 'Экипаж ИИ',
-};
+function modeWord(mode: Mode, t: TFunc): string {
+  return (mode === 'online' ? t('menu.legendOnlineTitle') : t('menu.legendOfflineTitle')).toUpperCase();
+}
 
 /** Вариант 2 — голографический клин ПОД глифом (замена дуги) */
 export function ModeLabelHoloWedge({ mode }: { mode: Mode }) {
+  const t = useT();
   return (
     <div className={`mode-label-lab-holo mode-label-lab-holo--${mode}`} aria-hidden="true">
       <div className="mode-label-lab-holo__panel">
         <span className="mode-label-lab-holo__scan" />
         <span className="mode-label-lab-holo__grid" />
         <span className="mode-label-lab-holo__neon-rise" />
-        <span className="mode-label-lab-holo__title">{MODE_WORD[mode]}</span>
-        <span className="mode-label-lab-holo__kicker">{MODE_KICKER[mode]}</span>
+        <span className="mode-label-lab-holo__title">{modeWord(mode, t)}</span>
+        <span className="mode-label-lab-holo__kicker">
+          {mode === 'online' ? t('menu.legendOnlineKicker') : t('menu.legendOfflineKicker')}
+        </span>
         <span className="mode-label-lab-holo__corner mode-label-lab-holo__corner--tl" />
         <span className="mode-label-lab-holo__corner mode-label-lab-holo__corner--br" />
       </div>
@@ -44,7 +42,8 @@ export function ModeLabelOrbitalRing({
   const uid = useId().replace(/:/g, '');
   const pathId = `${uid}-orbit`;
   const fillId = `${uid}-fill`;
-  const word = MODE_WORD[mode];
+  const t = useT();
+  const word = modeWord(mode, t);
 
   return (
     <div
@@ -122,8 +121,9 @@ export function ModeLabelHoloOrbitHybridRings({ mode }: { mode: Mode }) {
  * Ghost рендерится в shell; caption — в modeLabelSlot.
  */
 export function ModeLabelCenterWatermarkGhost({ mode }: { mode: Mode }) {
-  const word = MODE_WORD[mode];
-  const wordTitle = mode === 'online' ? 'Онлайн' : 'Офлайн';
+  const t = useT();
+  const word = modeWord(mode, t);
+  const wordTitle = mode === 'online' ? t('menu.legendOnlineTitle') : t('menu.legendOfflineTitle');
 
   return (
     <div className={`mode-label-lab-watermark mode-label-lab-watermark--${mode}`} aria-hidden="true">
@@ -138,10 +138,11 @@ export function ModeLabelCenterWatermarkGhost({ mode }: { mode: Mode }) {
 }
 
 export function ModeLabelCenterWatermarkCaption({ mode }: { mode: Mode }) {
+  const t = useT();
   return (
     <div className={`mode-label-lab-wm-caption mode-label-lab-wm-caption--${mode}`} aria-hidden="true">
       <span className="mode-label-lab-wm-caption__pill">
-        <span className="mode-label-lab-wm-caption__text">{MODE_WORD[mode]}</span>
+        <span className="mode-label-lab-wm-caption__text">{modeWord(mode, t)}</span>
       </span>
     </div>
   );

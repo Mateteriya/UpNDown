@@ -15717,6 +15717,26 @@
     outline: 2px solid rgba(233, 213, 255, 0.95) !important;
     outline-offset: 2px !important;
   }
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc--label {
+    width: auto !important;
+    min-width: 4.6rem !important;
+    height: 35px !important;
+    min-height: 35px !important;
+    padding: 0 11px !important;
+    font-size: 12px !important;
+    font-weight: 750 !important;
+    letter-spacing: 0.08em !important;
+    line-height: 1 !important;
+    text-transform: uppercase;
+    color: rgb(14 165 233) !important;
+    -webkit-text-fill-color: rgb(14 165 233) !important;
+    -webkit-text-stroke: 0.65px #4c1d95;
+    paint-order: stroke fill;
+    text-shadow:
+      0 0 1.5px rgb(87 7 206),
+      0 0 4px rgb(5 238 152 / 31%),
+      0 0 5px #a41e64;
+  }
   .game-table-root.viewport-mobile .game-header .deal-results-btn {
     width: 22px !important;
     height: 24px !important;
@@ -35413,7 +35433,7 @@ body:has(.game-table-root.viewport-mobile.viewport-mobile-browser-fullscreen) {
   /* ПК хедер: единый glass-стиль кнопок */
   .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc {
     border-radius: 10px !important;
-    border: 1px solid rgba(38, 227, 213, 0.56) !important;
+    border: 2px solid rgb(14 165 233) !important;
     color: rgb(38 227 213 / 78%) !important;
     transition:
       transform 160ms ease,
@@ -35426,6 +35446,7 @@ body:has(.game-table-root.viewport-mobile.viewport-mobile-browser-fullscreen) {
   }
   .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc:hover {
     transform: translateY(-1px) !important;
+    border-color: rgb(5 231 189) !important;
   }
   .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc:active {
     transform: translateY(0) scale(0.98) !important;
@@ -35459,7 +35480,7 @@ body:has(.game-table-root.viewport-mobile.viewport-mobile-browser-fullscreen) {
       drop-shadow(0 0 16px rgba(34, 211, 238, 0.34)) !important;
   }
   .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc--glass:hover {
-    border-color: rgba(94, 234, 212, 0.86) !important;
+    border-color: rgb(5 231 189) !important;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.48),
       inset 0 -12px 24px rgba(67, 56, 202, 0.3),
@@ -35468,6 +35489,16 @@ body:has(.game-table-root.viewport-mobile.viewport-mobile-browser-fullscreen) {
       0 0 20px rgba(94, 234, 212, 0.32),
       0 0 34px rgba(34, 211, 238, 0.26) !important;
     filter: saturate(1.08) brightness(1.05) !important;
+  }
+  .game-table-root:not(.viewport-mobile) .game-header .header-action-btn-pc--glass.header-action-btn-pc--label {
+    color: rgb(14 165 233) !important;
+    -webkit-text-fill-color: rgb(14 165 233) !important;
+    -webkit-text-stroke: 0.65px #4c1d95;
+    paint-order: stroke fill;
+    text-shadow:
+      0 0 1.5px rgb(87 7 206),
+      0 0 4px rgb(5 238 152 / 31%),
+      0 0 5px #a41e64;
   }
 
   .game-table-root:not(.viewport-mobile) .game-pc-table-chat-wrap {

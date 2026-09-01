@@ -236,6 +236,7 @@ import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
 import { UserAvatarMenuSheet } from './UserAvatarMenuSheet';
 import { canDriveOnlineRoomHost, isLanWsOnline } from '../lib/onlineHost';
 import { isServerAuthoritativeOnline, isWsOnlineTransport } from '../lib/onlineTransport';
+import { loadOnlineSession } from '../lib/onlineSession';
 import { wsSubscribeMatchRecorded } from '../lib/onlineGameWs';
 import {
   exitMobileBrowserFullscreen,
@@ -296,6 +297,7 @@ import {
   writeOnlineThreeSeatSideChatToLs,
 } from './mobileLandscapeChatContract';
 import { GameDealOrbitDock } from './GameDealOrbitDock';
+import { localizeAiDisplayName, t, useT } from '../i18n';
 import type { Card, GamePhase } from '../game/types';
 import { getDeckCardsUnderTrump, getDeckStackLayerCount } from '../game/deck';
 
@@ -304,43 +306,41 @@ function getCompassLabel(
   playerCount?: number,
   /** Место на экране важнее индекса: в 3p idx1 справа — «Восток», не «Север». */
   seatPosition?: 'left' | 'right' | 'top' | 'bottom',
-): 'Юг' | 'Север' | 'Запад' | 'Восток' {
+): string {
   if (seatPosition) {
     switch (seatPosition) {
       case 'bottom':
-        return 'Юг';
+        return t('table.south');
       case 'top':
-        return 'Север';
+        return t('table.north');
       case 'left':
-        return 'Запад';
+        return t('table.west');
       case 'right':
-        return 'Восток';
+        return t('table.east');
     }
   }
   /** 3p без position: idx1 = Восток (как на ПК). */
   if (playerCount === 3) {
     switch (idx) {
       case 0:
-        return 'Юг';
+        return t('table.south');
       case 1:
-        return 'Восток';
+        return t('table.east');
       case 2:
-        return 'Запад';
-      default:
-        return 'Юг';
+        return t('table.west');
     }
   }
   switch (idx) {
     case 0:
-      return 'Юг';
+      return t('table.south');
     case 1:
-      return 'Север';
+      return t('table.north');
     case 2:
-      return 'Запад';
+      return t('table.west');
     case 3:
-      return 'Восток';
+      return t('table.east');
     default:
-      return 'Юг';
+      return t('table.south');
   }
 }
 
@@ -2239,6 +2239,7 @@ function GameOverModal({
   fixedSettlementMode?: SettlementMode;
   fixedBuyIn?: number | null;
 }) {
+  const tr = useT();
   const [showExpanded, setShowExpanded] = useState(false);
   const [chipView, setChipView] = useResultsChipView();
   const humanIdx = viewerCanonicalSlotIndex ?? 0;
@@ -2491,14 +2492,14 @@ function GameOverModal({
               <span className="game-over-chip-bar__label">
                 {lockChipToggle
                   ? settlementModeBadgeLabel(resolvedMode, fixedBuyIn ?? snapshot.buyIn ?? null)
-                  : 'Подсчёт фишек'}
+                  : tr('table.countingChips')}
               </span>
               {!lockChipToggle && (
                 <div className="game-over-chip-bar__controls">
                   <DealResultsChipToggle chipView={chipView} onChange={setChipView} compact />
                 </div>
               )}
-              <span className="game-over-chip-bar__hint">Рейтинг — по очкам</span>
+              <span className="game-over-chip-bar__hint">{tr('table.ratingByPoints')}</span>
             </div>
           )}
           {resolvedMode === 'prize_pool' && settlement.middleLine && (
@@ -2523,7 +2524,7 @@ function GameOverModal({
                   <tr>
                     <th>#</th>
                     <th>Игрок</th>
-                    <th>Очки</th>
+                    <th>{t('table.score')}</th>
                     {dealHistory.length > 0 && <th>Фишки</th>}
                   </tr>
                 </thead>
@@ -2596,6 +2597,7 @@ function difficultyForAiPlayMove(online: boolean, st: GameState, playerIndex: nu
 }
 
 export default function GameTable({ gameId, offlinePlayerCount = 4, playerDisplayName, playerAvatarDataUrl, playerAvatarBgColor, onExit, onNewGame, onOpenProfileModal, onSaveAvatar, onPhotoCaptured, onSaveDisplayName, tableAudioSilenced = false }: GameTableProps) {
+  const tr = useT();
   const { user } = useAuth();
   const { cardPaletteLock, cardThemeLabel, cycleCardTheme } = useTheme();
   const userRef = useRef(user);
@@ -3008,7 +3010,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         ...p,
         name:
           i === 0
-            ? (playerDisplayName?.trim() || 'Игрок')
+            ? (playerDisplayName?.trim() || tr('common.player'))
             : (slots.length ? (slots.find((s) => s.slotIndex === getCanonicalIndexForDisplay(i, me, state.players.length === 3 ? 3 : 4))?.displayName ?? p.name) : p.name),
       })),
     };
@@ -3016,7 +3018,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       return { ...base, dealerIndex: -1 };
     }
     return base;
-  }, [state, isOnline, isWaitingInRoom, onlineSlotsSig, online.myServerIndex, playerDisplayName]);
+  }, [state, isOnline, isWaitingInRoom, onlineSlotsSig, online.myServerIndex, playerDisplayName, tr]);
   const stateToShow = stateForRender ?? state;
   /** Полоска игры в моб. шапке (раздача / Σ / бейдж хода): нужна до хуков short-бейджа. */
   const mobileShowGameInfoStrip = !isWaitingInRoom && state != null;
@@ -3029,7 +3031,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
         ordersSumSoFar: 0,
         totalTricks: 0,
         tricksInDeal: 0,
-        cardsWord: 'карт' as string,
+        cardsWord: tr('table.cards') as string,
         orderCompare: null as DealOrderComparePc | null,
       };
     }
@@ -3041,7 +3043,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
     const totalOrders = allBidsPlaced ? ordersSumSoFar : 0;
     const totalTricks = s.players.reduce((sum, p) => sum + (p.tricksTaken ?? 0), 0);
     const tricksInDeal = s.tricksInDeal;
-    const cardsWord = tricksInDeal === 1 ? 'карта' : tricksInDeal < 5 ? 'карты' : 'карт';
+    const cardsWord = tricksInDeal === 1 ? tr('table.card1') : tricksInDeal < 5 ? tr('table.card2') : tr('table.cards');
     const compareAgainst = allBidsPlaced ? ordersSumSoFar : hasAnyBid ? ordersSumSoFar : null;
     const orderCompare: DealOrderComparePc | null =
       compareAgainst == null
@@ -3061,7 +3063,7 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
       cardsWord,
       orderCompare,
     };
-  }, [stateToShow]);
+  }, [stateToShow, tr]);
   const plasmaDealMetaTooltip = useMemo(() => {
     if (!stateToShow) return null;
     return getMobileDealContractMetaTooltip({
@@ -5301,6 +5303,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     if (isOnline || isWaitingInRoom) return;
     /** Пока контекст не решил судьбу сохранённой онлайн-сессии — не поднимать офлайн (иначе после убийства вкладки моб. браузером показывается локальная партия вместо онлайна). */
     if (!online.onlineHydratedFromStorage) return;
+    if (isWsOnlineTransport() && loadOnlineSession()) return;
     const prof = getPlayerProfile();
     const humanName = prof.displayName?.trim() && prof.displayName !== 'Вы' ? prof.displayName : 'Вы';
     const restored = loadGameStateFromStorage();
@@ -6283,7 +6286,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 className="game-mobile-l-hand-crest"
                 aria-label="Свернуть вертикальный ряд в одну горизонтальную линию"
                 aria-expanded
-                title="В один ряд"
+                title={t('table.oneRow')}
                 onClick={toggleMobileLHand}
               >
                 <svg viewBox="0 0 14 36" width="14" height="36" aria-hidden focusable="false">
@@ -6317,7 +6320,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 className="game-mobile-l-hand-crest game-mobile-l-hand-crest--docked"
                 aria-label="Показать вертикальный ряд"
                 aria-expanded={false}
-                title="Развернуть L"
+                title={t('table.expandL')}
                 onClick={toggleMobileLHand}
               >
                 <svg viewBox="0 0 14 36" width="11" height="28" aria-hidden focusable="false">
@@ -6917,10 +6920,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   }, [pcTurnRoamVisible]);
 
   const pcTurnRoamBadgeLabel = showPcYourTurnRoamingBadge
-    ? 'Ваш ход'
+    ? tr('table.yourTurn')
     : state?.phase === 'dark-bidding'
-      ? 'Заказ в тёмную'
-      : 'Ваш заказ';
+      ? tr('table.darkBid')
+      : tr('table.yourBid');
   const pcTurnRoamBadgeClassName = [
     'pc-turn-roaming-badge',
     'pc-turn-roaming-badge--fixed',
@@ -7268,16 +7271,16 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   const waitingRoomCanStart = online.playerSlots.some((s) => s.userId != null && s.userId !== '');
   const waitingRoomStartDisabled = startingFromWaiting || !waitingRoomCanStart;
   const waitingRoomStartLabel = startingFromWaiting
-    ? 'Запуск…'
+    ? tr('table.starting')
     : waitingRoomHumanCount >= online.maxPlayers
-      ? 'Начать игру'
-      : 'Начать игру с ИИ';
+      ? tr('table.start')
+      : tr('table.startAi');
   const waitingRoomCaptainWaitText = useMemo(() => {
     const cap = online.playerSlots.find((s) => s.slotIndex === 0 && s.userId);
     return cap?.displayName
-      ? `Ждём, пока ${cap.displayName} нажмёт «Начать игру»…`
-      : 'Ожидание старта от ведущего (первый в комнате)…';
-  }, [online.playerSlots]);
+      ? tr('table.waitStartNamed', { name: cap.displayName })
+      : tr('table.waitStart');
+  }, [online.playerSlots, tr]);
   /**
    * Моб. торги: капсула «Первый ход: имя» на сукне
    * (portrait — центр верха; landscape — слева у козыря).
@@ -7973,15 +7976,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     [tableAiBotSeats],
   );
 
+  const displayState = stateToShow as GameState;
+
   if (!state) {
     return (
       <>
-        <div style={{ padding: 20 }}>Загрузка...</div>
+        <div style={{ padding: 20 }}>{t('common.loadingGame')}</div>
       </>
     );
   }
-
-  const displayState = stateToShow as GameState;
   /** Моб.: имя >5 символов — вторая строка (portrait и landscape; не режем зря). */
   const mobilePortraitFirstMoveTwoLine = Boolean(
     showMobileFirstMoveOnTable &&
@@ -8061,16 +8064,22 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   };
 
   const resolveDisplayPlayerName = (displayIdx: number): string => {
-    if (displayIdx === 0) return playerDisplayName?.trim() || displayState.players[0]?.name || 'Игрок';
+    if (displayIdx === 0) return playerDisplayName?.trim() || displayState.players[0]?.name || t('common.player');
     if (online.roomId) {
       const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex, displayState.players.length === 3 ? 3 : 4);
-      return (
+      return localizeAiDisplayName(
+        displayState.players[displayIdx]?.id,
         online.playerSlots.find((s) => s.slotIndex === canon)?.displayName?.trim() ||
-        displayState.players[displayIdx]?.name ||
-        'Игрок'
+          displayState.players[displayIdx]?.name ||
+          t('common.player'),
+        displayState.players.length,
       );
     }
-    return displayState.players[displayIdx]?.name || 'Игрок';
+    return localizeAiDisplayName(
+      displayState.players[displayIdx]?.id,
+      displayState.players[displayIdx]?.name || t('common.player'),
+      displayState.players.length,
+    );
   };
 
   const humanLandscapeNameRaw = resolveDisplayPlayerName(humanIdx);
@@ -8246,8 +8255,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       display: 'inline-flex',
       lineHeight: 0,
     };
-    const title = online.roomId ? 'Меню (пауза, информация)' : 'Меню профиля';
-    const ariaLabel = online.roomId ? `Меню ${p.name}` : `Профиль ${p.name}`;
+    const title = online.roomId ? tr('table.menuPause') : tr('table.menuProfile');
+    const ariaLabel = online.roomId ? tr('table.menuOf', { name: p.name }) : tr('table.profileOf', { name: p.name });
     const face = (
       <PlayerAvatar
         name={displayState.players[humanIdx].name}
@@ -8306,7 +8315,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
         aria-hidden
       >
-        <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+        <span className="user-exact-order-star-badge" title={tr('table.exactOrder')} aria-hidden>
           <span className="user-exact-order-star-badge__enter" aria-hidden>
             <svg viewBox="0 0 24 24" width="19" height="19" focusable="false" aria-hidden>
               <defs>
@@ -8618,8 +8627,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               type="button"
               className="pc-table-settings-ultra pc-table-settings-ultra--close scale-gear-btn scale-gear-btn--close"
               onClick={() => setPcTableSettingsOpenPersistent(false)}
-              title="Свернуть"
-              aria-label="Свернуть настройки"
+              title={t('table.collapse')}
+              aria-label={tr('table.collapseSettings')}
             >
               ×
             </button>
@@ -8842,7 +8851,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               className="tablet-table-scale__btn scale-gear-btn"
               disabled={scalePct <= TABLET_TABLE_SCALE_PCT_MIN}
               onClick={() => bumpTabletTableScale(-1)}
-              title="Уменьшить (−1%, мин. 93%)"
+              title={t('table.scaleDownMin')}
               aria-label="Уменьшить масштаб стола на 1 процент"
             >
               −
@@ -8914,7 +8923,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               type="button"
               className="tablet-table-scale__btn tablet-table-scale__btn--close scale-gear-btn scale-gear-btn--close"
               onClick={() => closeTabletTableScale()}
-              title="Свернуть"
+              title={t('table.collapse')}
               aria-label="Свернуть масштаб стола"
             >
               ×
@@ -9037,10 +9046,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           setMobileSouthUserScoreExpanded(v => !v);
         }}
         aria-expanded={mobileSouthUserScoreExpanded}
-        title={mobileSouthUserScoreExpanded ? 'Скрыть подпись «Очки»' : 'Показать подпись «Очки»'}
+        title={mobileSouthUserScoreExpanded ? t('table.hideScoreLabel') : t('table.showScoreLabel')}
         aria-label={
           mobileSouthUserScoreExpanded
-            ? `Очки игрока ${state.players[humanIdx].score}, скрыть подпись`
+            ? t('table.scoreOfPlayerHide', { n: state.players[humanIdx].score })
             : `${state.players[humanIdx].score} очков, показать подпись`
         }
       >
@@ -9052,7 +9061,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               ...(aboveStripExpandedNeon ?? {}),
             }}
           >
-            Очки
+            {t('table.score')}
           </span>
         ) : null}
         <span
@@ -9139,7 +9148,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-order-panel-ne"
                 aria-hidden
               >
-                <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+                <span className="user-exact-order-star-badge" title={tr('table.exactOrder')} aria-hidden>
                   <span className="user-exact-order-star-badge__enter" aria-hidden>
                     <svg viewBox="0 0 24 24" width="13" height="13" focusable="false" aria-hidden>
                       <defs>
@@ -9219,7 +9228,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
                 aria-hidden
               >
-                <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+                <span className="user-exact-order-star-badge" title={tr('table.exactOrder')} aria-hidden>
                   <span className="user-exact-order-star-badge__enter" aria-hidden>
                     <svg viewBox="0 0 24 24" width="17" height="17" focusable="false" aria-hidden>
                       <defs>
@@ -9250,12 +9259,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   className="dealer-badge-compact-mobile user-player-panel-south-landscape-dealer-corner-badge"
                   style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                   onClick={() => setShowDealerTooltip(true)}
-                  title="Сдающий"
-                  aria-label="Сдающий"
+                  title={t('table.dealer')}
+                  aria-label={t('table.dealer')}
                 >
                   <span className="user-south-landscape-dealer-lamp-cosmic" style={dealerLampBulbStyle} />
                   <span className="dealer-badge-text" aria-hidden>
-                    Сдающий
+                    {t('table.dealer')}
                   </span>
                 </button>
               </div>
@@ -9319,8 +9328,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           >
             {renderMobileSouthLandscapeOrderCorner()}
             {showSouthLandscapeDealerBottomRowBadge ? (
-              <span className="user-player-panel-south-landscape-role-badge" style={dealerLampStyle} title="Сдающий">
-                <span style={dealerLampBulbStyle} /> Сдающий
+              <span className="user-player-panel-south-landscape-role-badge" style={dealerLampStyle} title={t('table.dealer')}>
+                <span style={dealerLampBulbStyle} /> {t('table.dealer')}
               </span>
             ) : null}
           </div>
@@ -9363,7 +9372,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         className="header-exit-btn"
         onClick={handleHomeClick}
         style={exitBtnStyle}
-        title="В меню"
+        title={t('table.toMenu')}
         aria-label="В меню"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -9389,7 +9398,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           className="header-new-game-btn"
           onClick={() => setShowNewGameConfirm(true)}
           style={newGameBtnStyle}
-          title="Обновить — новая партия"
+          title={t('table.refreshDeal')}
           aria-label="Обновить — новая партия"
         >
           ↻
@@ -9414,9 +9423,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       alternateFace: mobileSpecialDealBadgeFace,
       playerCount: playerCountOf(state),
     });
-    const modeLabel = dealType === 'no-trump' ? 'Бескозырка' : 'Тёмная';
+    const modeLabel = dealType === 'no-trump' ? t('table.noTrump') : t('table.darkDeal');
     /** На экранчике тулбара — только капс (читаемо + «плакат»). */
-    const modeLabelScreen = dealType === 'no-trump' ? 'БЕСКОЗЫРКА' : 'ТЁМНАЯ';
+    const modeLabelScreen = modeLabel.toLocaleUpperCase();
 
     const ordersBlock = (
       <span
@@ -9435,7 +9444,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     const liveBlock = (
       <span className="deal-contract-line deal-contract-line-mobile-live" style={dealContractLineMobileSplitOuterStyle}>
         <span className="deal-contract-mobile-live-ordered">
-          <span className="deal-contract-mobile-live-ordered-label">заказ:</span>
+          <span className="deal-contract-mobile-live-ordered-label">{t('table.orderedHud')}</span>
           <span
             className={`deal-contract-mobile-order-num deal-contract-mobile-order-num--${dealContractStats.orderCompare ?? 'under'}`}
           >
@@ -9452,7 +9461,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     const cardsBlock = (
       <>
         <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
-          К:
+          {t('table.cardsHud')}
         </span>
         <span className="deal-contract-value" style={dealContractCardsValueStyle}>
           {dealContractStats.tricksInDeal}
@@ -9503,24 +9512,25 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         cardsBlock
       );
 
+    const n = dealContractStats.tricksInDeal;
+    const ordered = dealContractStats.ordersSumSoFar;
+    const taken = dealContractStats.totalTricks;
     const liveTitle = isSpecialDeal
-      ? `Режим: ${modeLabel}. КАРТ: ${dealContractStats.tricksInDeal}. Заказано ${dealContractStats.ordersSumSoFar} из ${dealContractStats.tricksInDeal}. Нажмите — подробности`
-      : `Карт: ${dealContractStats.tricksInDeal}. Уже заказано ${dealContractStats.ordersSumSoFar} из ${dealContractStats.tricksInDeal}`;
+      ? `${t('table.mode')}: ${modeLabel}. ${t('table.cardsAriaLive', { n, ordered, total: n })}`
+      : t('table.cardsLiveTitle', { n, ordered, total: n });
     const biddingTitle = isSpecialDeal
-      ? `Режим: ${modeLabel}. КАРТ: ${dealContractStats.tricksInDeal} у каждого. Нажмите — подробности`
-      : 'Сколько карт в раздаче';
+      ? `${t('table.mode')}: ${modeLabel}. ${t('table.cardsAriaEach', { n })}`
+      : t('table.cardsInDeal');
     const ordersTitle = isSpecialDeal
-      ? `Режим: ${modeLabel}. Заказ: ${dealContractStats.ordersSumSoFar}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности`
-      : `Заказ: ${dealContractStats.ordersSumSoFar}; Взяток: ${dealContractStats.totalTricks}/${dealContractStats.tricksInDeal}. Нажмите — подробности по игрокам`;
+      ? `${t('table.mode')}: ${modeLabel}. ${t('table.orderTricksAria', { ordered, taken, total: n })}`
+      : t('table.orderTricksAria', { ordered, taken, total: n });
     const liveAria = isSpecialDeal
-      ? `Режим ${modeLabel.toLowerCase()}. КАРТ: ${dealContractStats.tricksInDeal}. Заказано ${dealContractStats.ordersSumSoFar} из ${dealContractStats.tricksInDeal}`
-      : `КАРТ: ${dealContractStats.tricksInDeal}. Заказано ${dealContractStats.ordersSumSoFar} из ${dealContractStats.tricksInDeal}`;
+      ? `${t('table.mode')} ${modeLabel}. ${t('table.cardsAriaLive', { n, ordered, total: n })}`
+      : t('table.cardsAriaLive', { n, ordered, total: n });
     const biddingAria = isSpecialDeal
-      ? `Режим ${modeLabel.toLowerCase()}. КАРТ: ${dealContractStats.tricksInDeal} у каждого. Показать по игрокам`
-      : `КАРТ: ${dealContractStats.tricksInDeal} у каждого`;
-    const ordersAria = isSpecialDeal
-      ? `Режим ${modeLabel.toLowerCase()}. Заказ ${dealContractStats.ordersSumSoFar}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`
-      : `Заказ ${dealContractStats.ordersSumSoFar}, взяток ${dealContractStats.totalTricks} из ${dealContractStats.tricksInDeal}. Показать по игрокам`;
+      ? `${t('table.mode')} ${modeLabel}. ${t('table.cardsAriaEach', { n })}`
+      : t('table.cardsAriaEach', { n });
+    const ordersAria = t('table.orderTricksAria', { ordered, taken, total: n });
 
     const faceTitle = badgeFace === 'orders' ? ordersTitle : badgeFace === 'live' ? liveTitle : biddingTitle;
     const faceAria = badgeFace === 'orders' ? ordersAria : badgeFace === 'live' ? liveAria : biddingAria;
@@ -9567,7 +9577,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               ].join(' ')}
               style={{ marginBottom: 0, lineHeight: 1 }}
             >
-              {dealContractStats.allBidsPlaced ? 'Контракт' : 'Торги'}
+              {dealContractStats.allBidsPlaced ? t('table.contract') : t('table.auction')}
             </span>
           </div>
         ) : null}
@@ -9699,7 +9709,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             }}
             style={dealResultsButtonStyle}
             className={`deal-results-btn deal-results-btn--game-info-corner${dealResultsCornerHint ? ' deal-results-btn--corner-hint' : ''}`}
-            title="Таблица текущих результатов"
+            title={t('table.currentResults')}
             aria-label="Показать таблицу текущих результатов раздач"
           >
             Σ
@@ -9737,7 +9747,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             metaAriaLabel={plasmaDealMetaTooltip?.ariaLabel}
             onMetaClick={() => setShowDealContractHelp(true)}
           >
-            <span style={gameInfoLabelStyle}>Заказывает</span>
+            <span style={gameInfoLabelStyle}>{t('table.bidding')}</span>
             <GameInfoPlasmaTurnPlayerName
               name={mobileGameInfoBidPresentation.name}
               style={mobileGameInfoBidPresentation.valueStyle}
@@ -9759,7 +9769,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             onPointerCancel={clearLHandleLongPress}
             onPointerLeave={clearLHandleLongPress}
             aria-label="Показать шапку: длинная кнопка с шариками над бейджем хода. Либо потяните вниз от края экрана"
-            title="Шапку назад: кнопка с шариками над бейджем или жест вниз от края"
+            title={t('table.headerBack')}
           >
             <span className="mobile-short-immersive-l-handle__glyph" aria-hidden>
               {MOBILE_IMMERSIVE_HANDLE_DOT_COLORS.map((color, i) => (
@@ -9788,7 +9798,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 restoreShortVhLowScreenLayoutForSession();
               }}
               aria-label="Снова режим низкого экрана: вернуть раскладку и магнит"
-              title="Вернуть раскладку «низкого экрана» и южную ручку"
+              title={t('table.restoreLowScreen')}
             >
               <svg
                 className="mobile-short-vh-layout-restore-chip__icon"
@@ -9876,7 +9886,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         type="button"
         className="header-exit-btn game-mobile-landscape-toolbar-panel__icon-btn"
         onClick={handleHomeClick}
-        title="В меню"
+        title={t('table.toMenu')}
         aria-label="В меню"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -9889,7 +9899,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           type="button"
           className="header-new-game-btn game-mobile-landscape-toolbar-panel__icon-btn"
           onClick={() => setShowNewGameConfirm(true)}
-          title="Обновить — новая партия"
+          title={t('table.refreshDeal')}
           aria-label="Обновить — новая партия"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -10317,12 +10327,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       )}
       {isMobileOrTablet && showDealerTooltip && (
         <div className="game-table-tooltip-cosmic game-table-tooltip-cosmic--mobile-footer toast-with-close" role="status" aria-live="polite">
-          <span className="game-table-tooltip-cosmic-body-text">Сдающий</span>
+          <span className="game-table-tooltip-cosmic-body-text">{t('table.dealer')}</span>
           <button
             type="button"
             className="toast-close-btn"
             onClick={() => setShowDealerTooltip(false)}
-            aria-label="Закрыть подсказку"
+            aria-label={t('table.closeHint')}
           >
             ×
           </button>
@@ -10334,13 +10344,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             type="button"
             className="toast-close-btn"
             onClick={() => setShowFirstMoveTooltip(false)}
-            aria-label="Закрыть подсказку"
+            aria-label={t('table.closeHint')}
           >
             ×
           </button>
           <div className="first-move-tooltip-name">{displayState.players[state.trickLeaderIndex].name}</div>
           <div className="game-table-tooltip-cosmic-body-text" style={{ fontSize: 12, opacity: 1 }}>
-            У данного игрока будет первый ход в этой раздаче
+            {t('table.firstMoveHint')}
           </div>
         </div>
       )}
@@ -10355,15 +10365,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             type="button"
             className="toast-close-btn"
             onClick={() => setShowPcNoTrumpModeTooltip(false)}
-            aria-label="Закрыть подсказку"
+            aria-label={t('table.closeHint')}
           >
             ×
           </button>
           <div id="no-trump-mode-pc-tooltip-title" className="no-trump-mode-pc-tooltip-title">
-            Режим «Бескозырка»
+            {t('table.modeNoTrumpTitle')}
           </div>
           <div className="no-trump-mode-pc-tooltip-body">
-            В этой партии четыре раздачи подряд (№21–№24) идут без козыря: при раздаче козырь не назначается, старшинство в масти как обычно. Сейчас вы в одной из этих раздач — закажите взятки как в обычном раунде.
+            {t('table.noTrumpBody')}
           </div>
         </div>
       )}
@@ -10378,15 +10388,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             type="button"
             className="toast-close-btn"
             onClick={() => setShowPcDarkModeTooltip(false)}
-            aria-label="Закрыть подсказку"
+            aria-label={t('table.closeHint')}
           >
             ×
           </button>
           <div id="dark-mode-pc-tooltip-title" className="dark-mode-pc-tooltip-title">
-            Режим «Тёмная»
+            {t('table.modeDarkTitle')}
           </div>
           <div className="dark-mode-pc-tooltip-body">
-            В этой партии четыре раздачи подряд (№25–№28) — «тёмные»: сначала все игроки делают заказ, не видя своих карт. После того как заказы приняты, карты сдаются, козырь определяется последней картой у сдающего, и раздача идёт как обычно. Сейчас вы на этапе заказа — ориентируйтесь на счёт партии и договорённости за столом.
+            {t('table.darkBody')}
           </div>
         </div>
       )}
@@ -10403,7 +10413,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 type="button"
                 className="toast-close-btn"
                 onClick={() => setShowDealContractHelp(false)}
-                aria-label="Закрыть подсказку"
+                aria-label={t('table.closeHint')}
               >
                 ×
               </button>
@@ -10438,7 +10448,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   >
                     Сумма заказов — {dealContractStats.totalOrders}, сыграно взяток — {dealContractStats.totalTricks} из {dealContractStats.tricksInDeal}. Сумма заказов может не совпадать с числом взяток — это нормально.
                     {getDealType(state.dealNumber, playerCountOf(state)) !== 'no-trump' && getDealType(state.dealNumber, playerCountOf(state)) !== 'dark' ? (
-                      <> Карт у каждого: {dealContractStats.tricksInDeal} ({dealContractStats.cardsWord}).</>
+                      <> {t('table.cardsEach', { n: dealContractStats.tricksInDeal, word: dealContractStats.cardsWord })}</>
                     ) : null}
                   </div>
                 </>
@@ -10476,7 +10486,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 type="button"
                 className="toast-close-btn"
                 onClick={() => setShowDealNumberExplain(false)}
-                aria-label="Закрыть подсказку"
+                aria-label={t('table.closeHint')}
               >
                 ×
               </button>
@@ -10495,7 +10505,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 type="button"
                 className="toast-close-btn"
                 onClick={() => setShowDealNumberExplain(false)}
-                aria-label="Закрыть подсказку"
+                aria-label={t('table.closeHint')}
               >
                 ×
               </button>
@@ -10647,7 +10657,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               left: southPullTabFixedPos.left,
             }}
             aria-label="Меню режимов низкого экрана"
-            title="Нажать — меню режимов"
+            title={t('table.modeMenu')}
             onPointerOver={onShortVhSouthPullTabPortalPointerOver}
             onPointerLeave={onShortVhSouthPullTabPortalPointerLeave}
             onPointerDown={onShortVhSouthPullTabPointerDown}
@@ -10815,7 +10825,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     className="header-exit-btn header-action-btn-pc header-action-btn-pc--glass"
                     onClick={handleHomeClick}
                     style={exitBtnStyle}
-                    title="В меню"
+                    title={t('table.toMenu')}
                     aria-label="В меню"
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -10829,7 +10839,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       className="header-new-game-btn header-action-btn-pc header-action-btn-pc--glass"
                       onClick={() => setShowNewGameConfirm(true)}
                       style={newGameBtnStyle}
-                      title="Перезапуск партии — мгновенно"
+                      title={t('table.restartInstant')}
                       aria-label="Перезапуск партии — мгновенно"
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -10840,19 +10850,18 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       </svg>
                     </button>
                   )}
+                  {(isOnline || isWaitingInRoom) && (
+                    <button
+                      type="button"
+                      className="header-room-exit-btn header-action-btn-pc header-action-btn-pc--glass header-action-btn-pc--label"
+                      onClick={handleLeaveRoomClick}
+                      title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
+                      aria-label="Выйти из комнаты"
+                    >
+                      Выйти
+                    </button>
+                  )}
                 </div>
-                {(isOnline || isWaitingInRoom) && (
-                  <button
-                    type="button"
-                    className="header-exit-btn"
-                    onClick={handleLeaveRoomClick}
-                    style={exitBtnStyle}
-                    title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
-                    aria-label="Выйти из комнаты"
-                  >
-                    <span style={{ fontSize: 14 }}>Выйти</span>
-                  </button>
-                )}
                 {!pcThreeSeatAiInHeaderRight ? (
                   <AiDifficultyControl
                     layout="pc"
@@ -10904,8 +10913,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 }}
                 style={dealResultsButtonStyle}
                 className={`deal-results-btn${dealResultsCornerHint ? ' deal-results-btn--corner-hint' : ''}`}
-                title="Результаты раздачи"
-                aria-label="Показать результаты раздачи"
+                title={t('table.dealResults')}
+                aria-label={t('table.showDealResults')}
               >
                 Σ
               </button>
@@ -10957,7 +10966,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     <path d="M9 15v2" />
                     <path d="M6 19h6" />
                   </svg>
-                  {trumpHighlightOn ? 'Выключить' : 'Включить'}
+                  {trumpHighlightOn ? t('table.highlightOff') : t('table.highlightOn')}
               </button>
               )
             )}
@@ -11012,7 +11021,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   setShowPcDarkModeTooltip(false);
                   setShowPcNoTrumpModeTooltip(true);
                 }}
-                title="Что значит бескозырка в этой партии"
+                title={t('table.noTrumpMeaning')}
                 aria-label="Пояснение: четыре раздачи подряд без козыря (номера 21–24)"
               >
                 <PcModePanelCornerLeds />
@@ -11025,7 +11034,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       lineHeight: 1,
                     }}
                   >
-                    Режим
+                    {t('table.mode')}
                   </PcModePanelScreenTag>
                   <PcModePanelScreenName
                     style={{
@@ -11034,7 +11043,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       lineHeight: 1,
                     }}
                   >
-                    Бескозырка
+                    {t('table.noTrump')}
                   </PcModePanelScreenName>
                 </div>
               </button>
@@ -11060,7 +11069,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   setShowPcNoTrumpModeTooltip(false);
                   setShowPcDarkModeTooltip(true);
                 }}
-                title="Что значит тёмная раздача в этой партии"
+                title={t('table.darkMeaning')}
                 aria-label="Пояснение: четыре раздачи с заказом до раздачи карт (номера 25–28)"
               >
                 <PcModePanelCornerLeds />
@@ -11075,7 +11084,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       ...gameInfoDarkModeTagLabelOverride,
                     }}
                   >
-                    Режим
+                    {t('table.mode')}
                   </span>
                   <span
                     className="game-info-mode-panel-name game-info-dark-mode-name"
@@ -11085,7 +11094,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       lineHeight: 1,
                     }}
                   >
-                    Тёмная
+                    {t('table.darkDeal')}
                   </span>
                 </div>
               </button>
@@ -11126,7 +11135,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         ...gameInfoDarkModeTagLabelOverride,
                       }}
                     >
-                      Режим
+                      {t('table.mode')}
                     </span>
                   )}
                   {getDealType(state.dealNumber, playerCountOf(state)) === 'no-trump' ? (
@@ -11137,7 +11146,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         lineHeight: 1,
                       }}
                     >
-                      Бескозырка
+                      {t('table.noTrump')}
                     </PcModePanelScreenName>
                   ) : (
                     <span
@@ -11148,7 +11157,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         lineHeight: 1,
                       }}
                     >
-                      Тёмная
+                      {t('table.darkDeal')}
                     </span>
                   )}
                 </div>
@@ -11192,7 +11201,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     ].join(' ')}
                     style={{ marginBottom: 0, lineHeight: 1 }}
                   >
-                    {dealContractStats.allBidsPlaced ? 'Контракт' : 'Торги'}
+                    {dealContractStats.allBidsPlaced ? t('table.contract') : t('table.auction')}
                   </span>
                 </div>
               ) : null}
@@ -11538,7 +11547,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   .join(' ')}
                 style={firstMoveBadgeStyle}
                 role="status"
-                aria-label={`Первый ход: ${displayState.players[state.trickLeaderIndex].name}`}
+                aria-label={t('table.firstMoveAria', { name: displayState.players[state.trickLeaderIndex].name })}
                 onClick={() => setShowFirstMoveTooltip(true)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -11549,7 +11558,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 tabIndex={0}
               >
                 <span className="first-move-num" aria-hidden>
-                  Первый ход:
+                  {t('table.firstMoveColon')}
                 </span>
                 <span className="first-move-value">
                   {displayState.players[state.trickLeaderIndex].name}
@@ -11561,7 +11570,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 tricksInDeal={displayState.tricksInDeal}
                 trumpCard={displayState.trumpCard}
                 trumpHighlightOn={trumpHighlightOn}
-                dealerName={displayState.players[displayState.dealerIndex]?.name ?? 'Сдающий'}
+                dealerName={displayState.players[displayState.dealerIndex]?.name ?? t('table.dealer')}
                 dealNumber={displayState.dealNumber}
                 isBiddingPhase={displayState.phase === 'bidding' || displayState.phase === 'dark-bidding'}
                 compactTable={isMobileOrTablet}
@@ -11779,7 +11788,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       isMobileMidSquareLayout || state.dealNumber <= 5;
                     const bidBadgeLabel =
                       state.phase === 'dark-bidding' ? (
-                        'Заказ в тёмную'
+                        t('table.darkBid')
                       ) : bidBadgeTwoLine ? (
                         <>
                           Сколько хотите
@@ -12036,7 +12045,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   .filter(Boolean)
                   .join(' ')}
                 aria-label="Изменить ширину чата и сукна"
-                title="Потяните вбок"
+                title={t('table.dragSide')}
                 onPointerDown={startEastChatColResize}
                 onPointerMove={onEastChatColResizeMove}
                 onPointerUp={endEastChatColResize}
@@ -12674,7 +12683,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
                         aria-hidden
                       >
-                        <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+                        <span className="user-exact-order-star-badge" title={tr('table.exactOrder')} aria-hidden>
                           <span className="user-exact-order-star-badge__enter" aria-hidden>
                             <svg viewBox="0 0 24 24" width="19" height="19" focusable="false" aria-hidden>
                               <defs>
@@ -12745,7 +12754,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             }}
                             title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
                           >
-                            {state.phase === 'playing' ? 'Ваш ход!' : 'Ваш заказ!'}
+                            {state.phase === 'playing' ? tr('table.yourTurnBang') : tr('table.yourBidBang')}
                           </span>
                         ) : (
                           <MobileSouthChatNameTicker
@@ -12767,17 +12776,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                               className="dealer-badge-compact-mobile"
                               style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                               onClick={() => setShowDealerTooltip(true)}
-                              title="Сдающий"
-                              aria-label="Сдающий"
+                              title={t('table.dealer')}
+                              aria-label={t('table.dealer')}
                             >
                               <span style={dealerLampBulbStyle} />
                               <span className="dealer-badge-text" aria-hidden>
-                                Сдающий
+                                {t('table.dealer')}
                               </span>
                             </button>
                           ) : (
-                            <span style={dealerLampStyle} title="Сдающий">
-                              <span style={dealerLampBulbStyle} /> Сдающий
+                            <span style={dealerLampStyle} title={t('table.dealer')}>
+                              <span style={dealerLampBulbStyle} /> {t('table.dealer')}
                             </span>
                           ))}
                       </span>
@@ -12847,7 +12856,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                                 className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-order-panel-ne"
                                 aria-hidden
                               >
-                                <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+                                <span className="user-exact-order-star-badge" title={tr('table.exactOrder')} aria-hidden>
                                   <span className="user-exact-order-star-badge__enter" aria-hidden>
                                     <svg viewBox="0 0 24 24" width="13" height="13" focusable="false" aria-hidden>
                                       <defs>
@@ -12906,7 +12915,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
                         aria-hidden
                       >
-                        <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+                        <span className="user-exact-order-star-badge" title={tr('table.exactOrder')} aria-hidden>
                           <span className="user-exact-order-star-badge__enter" aria-hidden>
                             <svg viewBox="0 0 24 24" width="19" height="19" focusable="false" aria-hidden>
                               <defs>
@@ -12986,7 +12995,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             }}
                             title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
                           >
-                            {state.phase === 'playing' ? 'Ваш ход!' : 'Ваш заказ!'}
+                            {state.phase === 'playing' ? tr('table.yourTurnBang') : tr('table.yourBidBang')}
                           </span>
                         ) : (
                           <MobileSouthChatNameTicker
@@ -13008,17 +13017,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                               className="dealer-badge-compact-mobile"
                               style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                               onClick={() => setShowDealerTooltip(true)}
-                              title="Сдающий"
-                              aria-label="Сдающий"
+                              title={t('table.dealer')}
+                              aria-label={t('table.dealer')}
                             >
                               <span style={dealerLampBulbStyle} />
                               <span className="dealer-badge-text" aria-hidden>
-                                Сдающий
+                                {t('table.dealer')}
                               </span>
                             </button>
                           ) : (
-                            <span style={dealerLampStyle} title="Сдающий">
-                              <span style={dealerLampBulbStyle} /> Сдающий
+                            <span style={dealerLampStyle} title={t('table.dealer')}>
+                              <span style={dealerLampBulbStyle} /> {t('table.dealer')}
                             </span>
                           ))}
                       </span>
@@ -13062,7 +13071,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-order-panel-ne"
                             aria-hidden
                           >
-                            <span className="user-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+                            <span className="user-exact-order-star-badge" title={tr('table.exactOrder')} aria-hidden>
                               <span className="user-exact-order-star-badge__enter" aria-hidden>
                                 <svg viewBox="0 0 24 24" width="13" height="13" focusable="false" aria-hidden>
                                   <defs>
@@ -13196,7 +13205,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           variant="mobile"
           roomId={online.roomId}
           userId={tableChatUserId}
-          displayName={playerDisplayName?.trim() || 'Игрок'}
+          displayName={playerDisplayName?.trim() || t('common.player')}
           mobileSideEarEnabled={false}
           openMobileNonce={tableChatOpenNonce}
           onMobileChromeMeta={onTableChatChromeMeta}
@@ -13308,7 +13317,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             metaAriaLabel={plasmaDealMetaTooltip?.ariaLabel}
             onMetaClick={() => setShowDealContractHelp(true)}
                   >
-                    <span style={gameInfoLabelStyle}>Заказывает</span>
+                    <span style={gameInfoLabelStyle}>{t('table.bidding')}</span>
                     <span className="game-info-value-name game-info-turn-player-name" style={gameInfoValueStyle}>
                       {displayState.players[state.currentPlayerIndex].name}
                     </span>
@@ -13545,7 +13554,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   style={firstMoveBadgeStyle}
                 >
                   <span className="first-move-num" style={firstMoveLabelStyle}>
-                    Первый ход:
+                    {t('table.firstMoveColon')}
                   </span>
                   <span style={firstMoveValueStyle}>
                     {displayState.players[state.trickLeaderIndex].name}
@@ -13582,7 +13591,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 tricksInDeal={displayState.tricksInDeal}
                 trumpCard={displayState.trumpCard}
                 trumpHighlightOn={trumpHighlightOn}
-                dealerName={displayState.players[displayState.dealerIndex]?.name ?? 'Сдающий'}
+                dealerName={displayState.players[displayState.dealerIndex]?.name ?? t('table.dealer')}
                 dealNumber={displayState.dealNumber}
                 isBiddingPhase={displayState.phase === 'bidding' || displayState.phase === 'dark-bidding'}
                 compactTable={isMobileOrTablet}
@@ -13746,13 +13755,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   <span className="bid-panel-pc-prompt-badge">
                     {state.phase === 'dark-bidding' ? (
                       <>
-                        <span className="bid-panel-pc-prompt-badge-text">Выберите: сколько хотите взять взяток</span>
+                        <span className="bid-panel-pc-prompt-badge-text">{t('table.bidPrompt')}</span>
                         <span className="bid-panel-pc-prompt-badge-text bid-panel-pc-prompt-badge-text--sub">
-                          Заказ в тёмную
+                          {t('table.darkBid')}
                         </span>
                       </>
                     ) : (
-                      <span className="bid-panel-pc-prompt-badge-text">Выберите: сколько хотите взять взяток</span>
+                      <span className="bid-panel-pc-prompt-badge-text">{t('table.bidPrompt')}</span>
                     )}
                   </span>
                   <div
@@ -14043,15 +14052,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 left: userTurnStrongNudgePc ? -4 : 0,
                 transform: `translateX(calc(-100% - ${ORDER_ON_HAND_USER_PANEL_GAP_PX}px - ${userTurnStrongNudgePc ? ORDER_ON_HAND_USER_IDLE_NUDGE_EXTRA_PX : 0}px))`,
               }}
-              title="Заказ на руке — взяток ровно по заказу"
+              title={t('table.exactOnHand')}
               role="status"
-              aria-label="Заказ на руке"
+              aria-label={t('table.orderOnHandAria')}
             >
               <span className="order-on-hand-badge-user-check" style={orderOnHandCheckBulbUserCompactStyle} aria-hidden>
                 ✓
               </span>
               <span className="order-on-hand-badge-user-vertical" aria-hidden>
-                {'Ровно'.split('').map((ch, i) => (
+                {t('table.exactShort').split('').map((ch, i) => (
                   <span key={i} className="order-on-hand-badge-user-vertical-char">
                     {ch}
                   </span>
@@ -14065,7 +14074,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               <button
                 type="button"
                 className="user-panel-garland-dismiss-hint-pc"
-                title="Нажмите здесь или по панели — огоньки ненадолго погаснут"
+                title={t('table.garlandDismiss')}
                 aria-label="Ненадолго скрыть бегущую подсветку рамки"
               >
                 <span className="user-panel-garland-dismiss-hint-pc-dots" aria-hidden>
@@ -14164,8 +14173,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       {state.bids[humanIdx] == null &&
                         state.bids.some(b => b === null) &&
                         state.trickLeaderIndex === humanIdx && (
-                          <span className="first-bidder-lamp-user-pc" style={firstBidderLampUserPanelPcStyle} title="Первый заказ/ход">
-                            <span className="first-bidder-lamp-user-pc-bulb" style={firstBidderLampBulbStyle} /> Первый заказ/ход
+                          <span className="first-bidder-lamp-user-pc" style={firstBidderLampUserPanelPcStyle} title={t('table.firstBidMove')}>
+                            <span className="first-bidder-lamp-user-pc-bulb" style={firstBidderLampBulbStyle} /> {t('table.firstBidMove')}
                           </span>
                         )}
                     </div>
@@ -14176,16 +14185,16 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           className={['player-score-badge', 'player-score-badge-pc-above-bid', 'player-score-badge-pc-bidding-row-end', isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : ''].filter(Boolean).join(' ')}
                           style={playerStatBadgeScoreStyle}
                         >
-                          <span style={playerStatLabelStyle}>Очки</span>
+                          <span style={playerStatLabelStyle}>{t('table.score')}</span>
                           <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
                         </div>
                         {state.dealerIndex === humanIdx ? (
                           <span
                             className="user-player-panel-pc-dealer-under-score"
                             style={dealerLampStyle}
-                            title="Сдающий"
+                            title={t('table.dealer')}
                           >
-                            <span style={dealerLampBulbStyle} /> Сдающий
+                            <span style={dealerLampBulbStyle} /> {t('table.dealer')}
                           </span>
                         ) : null}
                       </div>
@@ -14200,16 +14209,16 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           className={['player-score-badge', 'player-score-badge-pc-above-bid', 'player-score-badge-pc-playing-row-end', isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : ''].filter(Boolean).join(' ')}
                           style={playerStatBadgeScoreStyle}
                         >
-                          <span style={playerStatLabelStyle}>Очки</span>
+                          <span style={playerStatLabelStyle}>{t('table.score')}</span>
                           <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
                         </div>
                         {state.dealerIndex === humanIdx ? (
                           <span
                             className="user-player-panel-pc-dealer-under-score"
                             style={dealerLampStyle}
-                            title="Сдающий"
+                            title={t('table.dealer')}
                           >
-                            <span style={dealerLampBulbStyle} /> Сдающий
+                            <span style={dealerLampBulbStyle} /> {t('table.dealer')}
                           </span>
                         ) : null}
                       </div>
@@ -14232,14 +14241,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   {state.dealerIndex === humanIdx &&
                     !useTabletPcTableTuning &&
                     (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
-                      <span style={dealerLampStyle} title="Сдающий">
-                        <span style={dealerLampBulbStyle} /> Сдающий
+                      <span style={dealerLampStyle} title={t('table.dealer')}>
+                        <span style={dealerLampBulbStyle} /> {t('table.dealer')}
                       </span>
                     )}
                 </span>
                 {isMobile && state.currentPlayerIndex === humanIdx && (
                   <span style={yourTurnBadgeStyle}>
-                    {(state.phase === 'bidding' || state.phase === 'dark-bidding') ? 'Ваш заказ' : 'Ваш ход'}
+                    {(state.phase === 'bidding' || state.phase === 'dark-bidding') ? tr('table.yourBid') : tr('table.yourTurn')}
                   </span>
                 )}
               </div>
@@ -14249,7 +14258,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     className={['player-score-badge', isPartyScoreLeader(displayState, humanIdx) ? 'score-badge-leader' : ''].filter(Boolean).join(' ')}
                     style={playerStatBadgeScoreStyle}
                   >
-                    <span style={playerStatLabelStyle}>Очки</span>
+                    <span style={playerStatLabelStyle}>{t('table.score')}</span>
                     <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
                   </div>
                   {state.dealerIndex === humanIdx &&
@@ -14261,17 +14270,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         className="dealer-badge-compact-mobile user-player-panel-dealer-under-score"
                         style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                         onClick={() => setShowDealerTooltip(true)}
-                        title="Сдающий"
-                        aria-label="Сдающий"
+                        title={t('table.dealer')}
+                        aria-label={t('table.dealer')}
                       >
                         <span style={dealerLampBulbStyle} />
                         <span className="dealer-badge-text" aria-hidden>
-                          Сдающий
+                          {t('table.dealer')}
                         </span>
                       </button>
                     ) : (
-                      <span className="user-player-panel-dealer-under-score" style={dealerLampStyle} title="Сдающий">
-                        <span style={dealerLampBulbStyle} /> Сдающий
+                      <span className="user-player-panel-dealer-under-score" style={dealerLampStyle} title={t('table.dealer')}>
+                        <span style={dealerLampBulbStyle} /> {t('table.dealer')}
                       </span>
                     ))}
                 </div>
@@ -14296,7 +14305,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   <div className="bid-panel bid-panel-inline bid-panel-bottom" style={bidPanelInlineStyle} aria-label="Выбор заказа">
                     {!showPcYourOrderRoamingBadge ? (
                       <span className="bid-panel-title bid-panel-title-inline" style={bidPanelInlineTitleStyle}>
-                        {state.phase === 'dark-bidding' ? 'Заказ в тёмную' : 'Ваш заказ'}
+                        {state.phase === 'dark-bidding' ? tr('table.darkBid') : tr('table.yourBid')}
                       </span>
                     ) : null}
                     <div className="bid-panel-grid" style={bidSidePanelGrid}>
@@ -14389,7 +14398,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               variant="pc"
               roomId={online.roomId}
               userId={tableChatUserId}
-              displayName={playerDisplayName?.trim() || 'Игрок'}
+              displayName={playerDisplayName?.trim() || t('common.player')}
               mobileSideEarEnabled={false}
             />
           </div>,
@@ -14505,7 +14514,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             <div
               role="dialog"
               aria-modal="true"
-              aria-label="Результаты раздач"
+              aria-label={t('table.dealResultsAria')}
               className={[
                 'deal-results-table-modal-shell',
                 useTabletPcTableTuning
@@ -14751,7 +14760,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               <button
                 type="button"
                 aria-label="Закрыть"
-                title="Закрыть"
+                title={t('common.close')}
                 onClick={() => {
                   if (transferHostExitInProgress) return;
                   setTransferHostExitPhase('pick');
@@ -15017,8 +15026,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           >
             <p id="exit-confirm-title" style={newGameConfirmTextStyle}>
               {isWaitingInRoom
-                ? 'Выйти из комнаты? Сессия сбросится, вернуться в эту партию будет нельзя.'
-                : 'Выйти из игры? Вы покинете комнату. Вернуться в эту партию будет нельзя.'}
+                ? tr('table.exitRoom')
+                : tr('table.exitGame')}
             </p>
             {exitConfirmPending && (
               <p style={roomExitPendingHintStyle} role="status" aria-live="polite">
@@ -15074,7 +15083,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             onClick={e => e.stopPropagation()}
           >
             <p id="home-confirm-title" style={newGameConfirmTextStyle}>
-              Выйти в меню? Вы покинете партию. Вернуться в эту партию будет нельзя.
+              {tr('table.exitOffline')}
             </p>
             {homeConfirmPending && (
               <p style={roomExitPendingHintStyle} role="status" aria-live="polite">
@@ -15269,7 +15278,7 @@ function OnlineRoomCodeBadge({
             type="button"
             className="online-room-code-badge online-room-code-badge--collapsed"
             aria-label="Развернуть код комнаты"
-            title="Развернуть код"
+            title={t('table.expandCode')}
             onClick={() => setCollapsed(false)}
           >
             <span className="online-room-code-badge__screen online-room-code-badge__screen--collapsed-chip">
@@ -15307,7 +15316,7 @@ function OnlineRoomCodeBadge({
               type="button"
               className="online-room-code-badge-fold-btn online-room-code-badge-fold-btn--collapse"
               aria-label="Свернуть код комнаты"
-              title="Свернуть"
+              title={t('table.collapse')}
               onClick={(e) => {
                 e.stopPropagation();
                 setCollapsed(true);
@@ -15430,7 +15439,7 @@ function ImmersiveDealContractMarquee({
   const renderModeLead = (variant: 'scroll' | 'compact') => {
     if (dealType === 'normal') return null;
     const compact = variant === 'compact';
-    const label = dealType === 'no-trump' ? 'Бескозырка' : 'Тёмная';
+    const label = dealType === 'no-trump' ? t('table.noTrump') : t('table.darkDeal');
     const modeClass =
       dealType === 'no-trump'
         ? 'immersive-deal-contract-marquee__mode immersive-deal-contract-marquee__mode--no-trump'
@@ -15481,9 +15490,9 @@ function ImmersiveDealContractMarquee({
   const renderScrollChunk = () => (
     <>
       {renderModeLead('scroll')}
-      <span className="immersive-deal-contract-marquee__neon-label">Взяток:</span>
+      <span className="immersive-deal-contract-marquee__neon-label">{t('table.tricksHud')}</span>
       <span className="immersive-deal-contract-marquee__neon-num immersive-deal-contract-marquee__neon-num--deal">{tricksInDeal}</span>
-      <span className="immersive-deal-contract-marquee__neon-label">Заказано:</span>
+      <span className="immersive-deal-contract-marquee__neon-label">{t('table.orderedHud')}</span>
       <span className={orderClass}>{ordersSumSoFar}</span>
     </>
   );
@@ -15618,15 +15627,15 @@ function ImmersiveDealContractMarquee({
                 type="button"
                 className="immersive-deal-mode-explain-toast__close"
                 onClick={() => setModeExplainOpen(null)}
-                aria-label="Закрыть подсказку"
+                aria-label={t('table.closeHint')}
               >
                 ×
               </button>
               <h2 id="immersive-deal-mode-explain-title" className="immersive-deal-mode-explain-toast__title">
-                {modeExplainOpen === 'no-trump' ? IMMERSIVE_MODE_EXPLAIN_NO_TRUMP_TITLE : IMMERSIVE_MODE_EXPLAIN_DARK_TITLE}
+                {modeExplainOpen === 'no-trump' ? t('table.modeNoTrumpTitle') : t('table.modeDarkTitle')}
               </h2>
               <p className="immersive-deal-mode-explain-toast__body">
-                {modeExplainOpen === 'no-trump' ? IMMERSIVE_MODE_EXPLAIN_NO_TRUMP_BODY : IMMERSIVE_MODE_EXPLAIN_DARK_BODY}
+                {modeExplainOpen === 'no-trump' ? t('table.noTrumpBody') : t('table.darkBody')}
               </p>
               <div className="immersive-deal-mode-explain-toast__actions">
                 <button type="button" className="immersive-deal-mode-explain-toast__btn" onClick={() => setModeExplainOpen(null)}>
@@ -15775,7 +15784,7 @@ const OFFLINE_AI_NAME_GRADIENTS: Record<AIDifficulty, string> = {
 };
 
 function DealResultsScreen({
-  state,
+  state: stateRaw,
   isCollapsing = false,
   variant = 'overlay',
   isMobile = false,
@@ -15804,6 +15813,17 @@ function DealResultsScreen({
   mobilePayoutPeekOnOpen?: boolean;
   onMobilePayoutPeekComplete?: () => void;
 }) {
+  const tr = useT();
+  const state = useMemo(() => {
+    const n = stateRaw.players.length;
+    return {
+      ...stateRaw,
+      players: stateRaw.players.map((p) => ({
+        ...p,
+        name: localizeAiDisplayName(p.id, p.name, n),
+      })),
+    };
+  }, [stateRaw, tr]);
   const [leaderBadgeTooltipOpen, setLeaderBadgeTooltipOpen] = useState(false);
   const [leaderBadgeTooltipPos, setLeaderBadgeTooltipPos] = useState<{ left: number; top: number; placement: 'above' | 'below'; arrowX: number } | null>(null);
   const [mobileScrollHintVisible, setMobileScrollHintVisible] = useState(true);
@@ -15834,6 +15854,7 @@ function DealResultsScreen({
   const seatCount = playerCountOf(state);
   /** Каждая завершённая раздача добавляет одну запись; полная партия — dealsPerMatch(N). */
   const isPartyFinished = dealHistory.length >= dealsPerMatch(seatCount);
+  const resultsHeading = isPartyFinished ? tr('table.resultsTable') : tr('table.resultsInterim');
   const [chipView, setChipView] = useResultsChipView();
   const playerCount = players.length;
   const fixedMode = state.settlementMode;
@@ -16120,15 +16141,15 @@ function DealResultsScreen({
       <div key={idx} style={{ ...panelStyle, ...(panelPos ?? {}) }}>
         <div style={panelTitleStyle}>{players[idx].name}</div>
         <div style={rowStyle}>
-          <span style={dealResultsLabelStyle}>Заказ</span>
+          <span style={dealResultsLabelStyle}>{t('table.bid')}</span>
           <span style={dealResultsValueStyle}>{bid}</span>
         </div>
         <div style={rowStyle}>
-          <span style={dealResultsLabelStyle}>Взяток</span>
+          <span style={dealResultsLabelStyle}>{t('table.taken')}</span>
           <span style={dealResultsValueStyle}>{taken}</span>
         </div>
         <div style={rowStyle}>
-          <span style={dealResultsLabelStyle}>Очки</span>
+          <span style={dealResultsLabelStyle}>{t('table.score')}</span>
           <span style={{ ...dealResultsValueStyle, ...getDealPointsAccentStyle(points, bid, taken, 'pill', taken) }}>
             {isExactDealPoints(points, bid, taken) && (
               <span
@@ -16193,8 +16214,8 @@ function DealResultsScreen({
   /** Подпись ячейки первого столбца: на ПК — «Бескозырка»/«Тёмная», на мобильной — Б/Т */
   const getDealColumnLabel = (rowIndex: number) => {
     if (!isMobile) {
-      if (rowIndex >= ntLabelStart && rowIndex < darkLabelStart) return 'Бескозырка';
-      if (rowIndex >= darkLabelStart && rowIndex < darkLabelStart + seatCount) return 'Тёмная';
+      if (rowIndex >= ntLabelStart && rowIndex < darkLabelStart) return tr('table.noTrump');
+      if (rowIndex >= darkLabelStart && rowIndex < darkLabelStart + seatCount) return tr('table.darkDeal');
     }
     return DEAL_COLUMN_LABELS[rowIndex] ?? String(rowIndex + 1);
   };
@@ -17714,7 +17735,7 @@ function DealResultsScreen({
           {onClose && !compactModal ? (
             <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginBottom: 0, paddingTop: 4, gap: 12 }}>
               <div style={{ flex: 1 }} />
-              <span className="deal-results-modal-title deal-results-modal-title--roomy">Результаты</span>
+              <span className="deal-results-modal-title deal-results-modal-title--roomy">{resultsHeading}</span>
               <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
@@ -17764,7 +17785,7 @@ function DealResultsScreen({
                           }}
                         >
                           <div style={{ flex: 1 }} />
-                          <span className="deal-results-modal-title">Результаты</span>
+                          <span className="deal-results-modal-title">{resultsHeading}</span>
                           <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
                             <button
                               type="button"
@@ -17808,7 +17829,7 @@ function DealResultsScreen({
                             <th
                               className="deal-results-table-mobile-deal-th"
                               style={{ ...dealResultsTableThStyleMobile, ...dealResultsTableThDealStyle, minWidth: dealColumnWidth, width: dealColumnWidth }}
-                              title="Раздача"
+                              title={t('table.dealCol')}
                             >
                               <span className="deal-results-mobile-deal-th-badge" aria-hidden>
                                 <span className="deal-results-mobile-deal-th-badge__symbol">№</span>
@@ -17872,7 +17893,7 @@ function DealResultsScreen({
                                   }}
                                 >
                                   <span style={{ ...dealResultsMobileLegendKeyStyle, ...dealResultsMobileLegendKeyBidStyle }}>З</span>
-                                  ЗАКАЗАНО
+                                  {t('table.orderedCaps')}
                                 </span>
                                 <span style={dealResultsMobileLegendDotStyle}>•</span>
                                 <span
@@ -17882,7 +17903,7 @@ function DealResultsScreen({
                                   }}
                                 >
                                   <span style={{ ...dealResultsMobileLegendKeyStyle, ...dealResultsMobileLegendKeyResultStyle }}>О</span>
-                                  ОЧКИ
+                                  {t('table.scoreCaps')}
                                 </span>
                               </div>
                             </th>
@@ -17904,7 +17925,7 @@ function DealResultsScreen({
                                         .join(' ') || undefined
                                     }
                                     style={{ ...dealResultsTableThBidStyleMobile, ...(i === 0 ? dealResultsTableThBidFirstStyle : {}), width: mobileBidCellWidth, minWidth: mobileBidCellWidth }}
-                                    title="Заказ"
+                                    title={t('table.bid')}
                                   >
                                     <span
                                       role="button"
@@ -17941,7 +17962,7 @@ function DealResultsScreen({
                                         .join(' ') || undefined
                                     }
                                     style={{ ...dealResultsTableThResultStyleMobile, width: mobileResultCellWidth, minWidth: mobileResultCellWidth }}
-                                    title="Очки"
+                                    title={t('table.score')}
                                   >
                                     <span
                                       role="button"
@@ -18059,19 +18080,19 @@ function DealResultsScreen({
                             })}
                           </tr>
                           <tr>
-                            <th className="deal-results-deal-column-pc" style={{ ...dealResultsTableThStyle, ...dealResultsTableThDealStyle, ...dealResultsTableThNumWrapStyle, minWidth: dealColumnWidth, width: dealColumnWidth, textAlign: 'left', paddingLeft: 6 }} title="Номер раздачи">
+                            <th className="deal-results-deal-column-pc" style={{ ...dealResultsTableThStyle, ...dealResultsTableThDealStyle, ...dealResultsTableThNumWrapStyle, minWidth: dealColumnWidth, width: dealColumnWidth, textAlign: 'left', paddingLeft: 6 }} title={t('table.dealNumTitle')}>
                               <span style={{ ...dealResultsTableThNumBadgeStyle, width: 20, height: 22, transform: 'none' }}>
                                 <span style={{ ...dealResultsTableThNumSymbolStyle, fontSize: 11, transform: 'none' }}>№</span>
                               </span>
-                              <span className="deal-results-deal-cell-label"> Раздача</span>
+                              <span className="deal-results-deal-cell-label"> {t('table.dealCol')}</span>
                             </th>
                             {players.map((_, i) => {
                               const isLeader = range > 0 && players[i].score === maxScore;
                               const isHuman = i === humanIdx;
                               return (
                                 <Fragment key={i}>
-                                  <th className={[isLeader && 'deal-results-column-leader', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={{ ...dealResultsTableThBidStyle, ...(i === 0 ? dealResultsTableThBidFirstStyle : {}), width: playerCellWidth, minWidth: playerCellWidth }} title="Заказ">Заказ</th>
-                                  <th className={[isLeader && 'deal-results-column-leader', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={{ ...dealResultsTableThResultStyle, width: playerCellWidth, minWidth: playerCellWidth }} title="Очки">Очки</th>
+                                  <th className={[isLeader && 'deal-results-column-leader', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={{ ...dealResultsTableThBidStyle, ...(i === 0 ? dealResultsTableThBidFirstStyle : {}), width: playerCellWidth, minWidth: playerCellWidth }} title={t('table.bid')}>{t('table.bid')}</th>
+                                  <th className={[isLeader && 'deal-results-column-leader', isHuman && 'deal-results-cell-human'].filter(Boolean).join(' ') || undefined} style={{ ...dealResultsTableThResultStyle, width: playerCellWidth, minWidth: playerCellWidth }} title={t('table.score')}>{t('table.score')}</th>
                                 </Fragment>
                               );
                             })}
@@ -18130,7 +18151,7 @@ function DealResultsScreen({
                         </tbody>
                         <tfoot>
                           <tr>
-                            <th className="deal-results-deal-column-pc" style={{ ...dealResultsTableThStyle, ...dealResultsTableTfootStyle, ...dealResultsTableThDealStyle, ...dealResultsTableThDealFooterStyle, minWidth: dealColumnWidth, width: dealColumnWidth }} title="Итого"><span className="deal-results-deal-cell-label">Итог</span></th>
+                            <th className="deal-results-deal-column-pc" style={{ ...dealResultsTableThStyle, ...dealResultsTableTfootStyle, ...dealResultsTableThDealStyle, ...dealResultsTableThDealFooterStyle, minWidth: dealColumnWidth, width: dealColumnWidth }} title={t('table.totalCol')}><span className="deal-results-deal-cell-label">{t('table.total')}</span></th>
                             {players.map((p, i) => {
                               const isWinner = range > 0 && p.score === maxScore;
                               const isHuman = i === humanIdx;
@@ -18163,7 +18184,7 @@ function DealResultsScreen({
                                   minWidth: dealColumnWidth,
                                   width: dealColumnWidth,
                                 }}
-                                title="Фишки"
+                                title={t('table.chips')}
                               >
                                 <span className="deal-results-deal-cell-label">Фишки</span>
                               </th>
@@ -18355,7 +18376,7 @@ function DealResultsScreen({
             )}
             <div className={isOverlayPanels ? 'deal-results-panel-row-overlay' : undefined} style={overlayDealRowStyle}>
               <span className={isOverlayPanels ? 'deal-results-panel-label-overlay' : undefined} style={overlayLabelStyle}>
-                Заказ
+                {t('table.bid')}
               </span>
               <span className={isOverlayPanels ? 'deal-results-panel-value-overlay' : undefined} style={overlayValueStyle}>
                 {bid}
@@ -18363,7 +18384,7 @@ function DealResultsScreen({
             </div>
             <div className={isOverlayPanels ? 'deal-results-panel-row-overlay' : undefined} style={overlayDealRowStyle}>
               <span className={isOverlayPanels ? 'deal-results-panel-label-overlay' : undefined} style={overlayLabelStyle}>
-                Взяток
+                {t('table.taken')}
               </span>
               <span className={isOverlayPanels ? 'deal-results-panel-value-overlay' : undefined} style={overlayValueStyle}>
                 {taken}
@@ -18371,7 +18392,7 @@ function DealResultsScreen({
             </div>
             <div className={isOverlayPanels ? 'deal-results-panel-row-overlay' : undefined} style={overlayDealRowStyle}>
               <span className={isOverlayPanels ? 'deal-results-panel-label-overlay' : undefined} style={overlayLabelStyle}>
-                Очки
+                {t('table.score')}
               </span>
               <span
                 className={
@@ -18435,7 +18456,7 @@ function DealResultsScreen({
           <button
             type="button"
             className="deal-results-name-rank-badge-tooltip-close"
-            aria-label="Закрыть подсказку"
+            aria-label={t('table.closeHint')}
             onClick={(e) => {
               e.stopPropagation();
               setLeaderBadgeTooltipOpen(false);
@@ -19566,7 +19587,7 @@ function TrickSlotsDisplay({
       <>
         {!hideOppOrderWord && (
           <span className={eastMobileTricks ? 'trick-slots-label-east-mobile' : undefined} style={trickSlotsLabelStyle}>
-            Заказ
+            {t('table.bid')}
           </span>
         )}
         <span style={trickSlotsValueStyle}>—</span>
@@ -19729,7 +19750,7 @@ function TrickSlotsDisplay({
           <div style={zeroRowStyle}>
             <span
               className={`opponent-zero-order-cross-mobile${zeroCrossStyle.glow ? ' opponent-zero-order-cross-mobile--lab-glow' : ''}`}
-              title="Заказ: не брать взятки"
+              title={t('table.zeroBid')}
               aria-hidden
               style={
                 {
@@ -21270,7 +21291,7 @@ function OpponentSlot({
 }) {
   const p = state.players[index];
   if (!p) return null;
-  const displayName = p.name;
+  const displayName = localizeAiDisplayName(p.id, p.name, state.players.length);
   const isMobileOrTabletVp = useIsMobileOrTablet();
   const isTabletPcShell = useIsTabletPcShell();
   /** Планшет · 4p · Север: панель заказа −10% (в т.ч. заказ 0 на торгах/розыгрыше). */
@@ -21565,14 +21586,14 @@ function OpponentSlot({
       ) : null}
       {isDealer && !hideDealerBadge && !opponentLandscapePlayingDealerOnAvatar && (
         isMobile && state.phase === 'playing' && onDealerBadgeClick ? (
-          <button type="button" className={['opponent-badge', 'dealer-badge', 'dealer-badge-compact-mobile'].join(' ')} style={{ ...dealerLampExternalStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={onDealerBadgeClick} title="Сдающий" aria-label="Сдающий">
+          <button type="button" className={['opponent-badge', 'dealer-badge', 'dealer-badge-compact-mobile'].join(' ')} style={{ ...dealerLampExternalStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={onDealerBadgeClick} title={t('table.dealer')} aria-label={t('table.dealer')}>
             <span style={dealerLampBulbStyle} />
-            <span className="dealer-badge-text" aria-hidden>Сдающий</span>
+            <span className="dealer-badge-text" aria-hidden>{t('table.dealer')}</span>
           </button>
         ) : (
-          <span className={['opponent-badge', 'dealer-badge', isMobile && state.phase === 'playing' ? 'dealer-badge-compact-mobile' : ''].filter(Boolean).join(' ')} style={dealerLampExternalStyle} title="Сдающий">
+          <span className={['opponent-badge', 'dealer-badge', isMobile && state.phase === 'playing' ? 'dealer-badge-compact-mobile' : ''].filter(Boolean).join(' ')} style={dealerLampExternalStyle} title={t('table.dealer')}>
             <span style={dealerLampBulbStyle} />
-            <span className="dealer-badge-text">Сдающий</span>
+            <span className="dealer-badge-text">{t('table.dealer')}</span>
           </span>
         )
       )}
@@ -21593,20 +21614,20 @@ function OpponentSlot({
             .filter(Boolean)
             .join(' ')}
           style={firstBidderLampExternalStyle}
-          title="Первый заказ/ход"
+          title={t('table.firstBidMove')}
         >
           {position === 'top' ||
           position === 'left' ||
           (mobileWestEastLandscapeCol && position === 'right') ? (
             <>
               <span className="first-bidder-line1">
-                <span style={firstBidderLampBulbStyle} /> Первый:
+                <span style={firstBidderLampBulbStyle} /> {t('table.firstBidMoveLine1')}
               </span>
-              <span className="first-bidder-line2">заказ/ход</span>
+              <span className="first-bidder-line2">{t('table.firstBidMoveLine2')}</span>
             </>
           ) : (
             <>
-              <span style={firstBidderLampBulbStyle} /> Первый заказ/ход
+              <span style={firstBidderLampBulbStyle} /> {t('table.firstBidMove')}
             </>
           )}
         </span>
@@ -21616,16 +21637,16 @@ function OpponentSlot({
           <span
             className="opponent-badge order-on-hand-badge-pc order-on-hand-badge-pc-north-vertical order-on-hand-badge-pc-north-vertical--fused"
             style={orderOnHandNorthVerticalWrapStyle}
-            title="Заказ на руке — взяток ровно по заказу"
+            title={t('table.exactOnHand')}
             role="status"
-            aria-label="Заказ на руке"
+            aria-label={t('table.orderOnHandAria')}
           >
             <span className="order-on-hand-badge-pc-north-vertical-inner" style={orderOnHandNorthVerticalInnerStyle}>
               <span className="order-on-hand-badge-pc-north-vertical-check" style={orderOnHandCheckBulbStyle} aria-hidden>
                 ✓
               </span>
               <span className="order-on-hand-badge-pc-north-vertical-letters" aria-hidden>
-                {'Ровно'.split('').map((ch, i) => (
+                {t('table.exactShort').split('').map((ch, i) => (
                   <span key={i} className="order-on-hand-badge-pc-text order-on-hand-badge-pc-north-vertical-char">
                     {ch}
                   </span>
@@ -21661,9 +21682,9 @@ function OpponentSlot({
                     transformOrigin: 'top left',
                   }
             }
-            title="Заказ на руке — взяток ровно по заказу"
+            title={t('table.exactOnHand')}
             role="status"
-            aria-label="Заказ на руке"
+            aria-label={t('table.orderOnHandAria')}
           >
             <span style={orderOnHandCheckBulbStyle} aria-hidden>
               ✓
@@ -21687,9 +21708,9 @@ function OpponentSlot({
             pointerEvents: 'none',
           }}
           role="status"
-          aria-label="Сейчас ходит этот игрок"
+          aria-label={t('table.turnAria')}
         >
-          Ходит
+          {t('table.turn')}
         </span>
       ) : null}
       {(() => {
@@ -21712,7 +21733,7 @@ function OpponentSlot({
           <>
             {displayName}
             {replacedByAi && (
-              <span style={{ marginLeft: 4, fontSize: '0.85em', color: '#94a3b8', fontWeight: 500 }} title="Игрок вышел, за него играет ИИ">
+              <span style={{ marginLeft: 4, fontSize: '0.85em', color: '#94a3b8', fontWeight: 500 }} title={t('table.leftForAi')}>
                 (ИИ)
               </span>
             )}
@@ -21768,7 +21789,10 @@ function OpponentSlot({
             title={
               opponentNameWindowHorizScroll && oppNameWindowScrollable
                 ? undefined
-                : `${displayName} — ${getCompassLabel(index, state.players.length, position)}. Нажмите на аватар: информация и уровень ИИ`
+                : t('ai.tapForLevel', {
+                    name: displayName,
+                    seat: getCompassLabel(index, state.players.length, position),
+                  })
             }
           >
             {nameInner}
@@ -21809,7 +21833,7 @@ function OpponentSlot({
               .join(' ')}
             aria-hidden
           >
-            <span className="opponent-exact-order-star-badge" title="Ровно в заказ" aria-hidden>
+            <span className="opponent-exact-order-star-badge" title={t('table.exactOrder')} aria-hidden>
               <span className="opponent-exact-order-star-badge__enter" aria-hidden>
                 <svg viewBox="0 0 24 24" width="17" height="17" focusable="false" aria-hidden>
                   <defs>
@@ -21887,15 +21911,15 @@ function OpponentSlot({
                     setMobileOpponentScoreExpanded(v => !v);
                   }}
                   aria-expanded={mobileOpponentScoreExpanded}
-                  title={mobileOpponentScoreExpanded ? 'Скрыть подпись «Очки»' : 'Показать подпись «Очки»'}
+                  title={mobileOpponentScoreExpanded ? t('table.hideScoreLabel') : t('table.showScoreLabel')}
                   aria-label={
                     mobileOpponentScoreExpanded
-                      ? `Очки игрока ${p.score}, скрыть подпись`
+                      ? t('table.scoreOfPlayerHide', { n: p.score })
                       : `${p.score} очков, показать подпись`
                   }
                 >
                   {mobileOpponentScoreExpanded ? (
-                    <span style={opponentScoreLabelStyleResolved}>Очки</span>
+                    <span style={opponentScoreLabelStyleResolved}>{t('table.score')}</span>
                   ) : null}
                   <span style={opponentScoreValueStyleResolved}>{p.score}</span>
                 </button>
@@ -21908,7 +21932,7 @@ function OpponentSlot({
                   }
                   style={opponentStatBadgeScoreStyle}
                 >
-                  <span style={opponentStatLabelStyle}>Очки</span>
+                  <span style={opponentStatLabelStyle}>{t('table.score')}</span>
                   <span style={opponentStatValueStyle}>{p.score}</span>
           </div>
         );
@@ -22042,8 +22066,8 @@ function OpponentSlot({
               onAvatarClick(index);
             }}
             style={avatarBtnStyle}
-            title={isAiSlotBot ? `${displayName} — информация и уровень ИИ` : 'Информация об игроке'}
-            aria-label={isAiSlotBot ? `Карточка игрока и уровень ИИ: ${displayName}` : `Информация об игроке ${displayName}`}
+            title={isAiSlotBot ? t('ai.infoAndLevel', { name: displayName }) : t('ai.playerInfo')}
+            aria-label={isAiSlotBot ? t('ai.cardAndLevel', { name: displayName }) : t('ai.playerInfoNamed', { name: displayName })}
           >
             <PlayerAvatar
               name={displayName}
@@ -22086,19 +22110,19 @@ function OpponentSlot({
                 className="dealer-badge-compact-mobile opponent-landscape-dealer-corner-badge"
                 style={{ ...dealerLampStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                 onClick={onDealerBadgeClick}
-                title="Сдающий"
-                aria-label="Сдающий"
+                title={t('table.dealer')}
+                aria-label={t('table.dealer')}
               >
                 <span className="opponent-landscape-dealer-lamp-cosmic" aria-hidden />
                 <span className="dealer-badge-text" aria-hidden>
-                  Сдающий
+                  {t('table.dealer')}
                 </span>
               </button>
             ) : (
-              <span className="dealer-badge-compact-mobile opponent-landscape-dealer-corner-badge" title="Сдающий">
+              <span className="dealer-badge-compact-mobile opponent-landscape-dealer-corner-badge" title={t('table.dealer')}>
                 <span className="opponent-landscape-dealer-lamp-cosmic" aria-hidden />
                 <span className="dealer-badge-text" aria-hidden>
-                  Сдающий
+                  {t('table.dealer')}
                 </span>
               </span>
             )}
@@ -22149,20 +22173,20 @@ function OpponentSlot({
                 className={['opponent-score-badge opponent-score-badge-side-pc opponent-score-north-pc', scoreLeaderHighlight ? 'score-badge-leader' : ''].filter(Boolean).join(' ')}
                 style={opponentStatBadgeScoreStyle}
               >
-                <span style={opponentStatLabelStyle}>Очки</span>
+                <span style={opponentStatLabelStyle}>{t('table.score')}</span>
                 <span style={opponentStatValueStyle}>{p.score}</span>
               </div>
             </div>
             <div className="opponent-north-pc-name-col">
               {nameSpan}
-              {isActive && !isMobile && <span style={opponentTurnBadgeStyle}>Ходит</span>}
+              {isActive && !isMobile && <span style={opponentTurnBadgeStyle}>{t('table.turn')}</span>}
             </div>
           </div>
         ) : (
           <div className="opponent-slot-header" style={opponentHeaderStyle}>
             {avatarElForHeader}
             {nameBlock}
-            {isActive && !isMobile && !turnBadgeOutsidePc ? <span style={opponentTurnBadgeStyle}>Ходит</span> : null}
+            {isActive && !isMobile && !turnBadgeOutsidePc ? <span style={opponentTurnBadgeStyle}>{t('table.turn')}</span> : null}
           </div>
         );
         const statsBlock = (
@@ -22593,7 +22617,7 @@ function DeckWithTrump({
           zIndex: numLayers + 1,
         }}
       >
-        <span style={{ fontSize: compactTable ? 14 : 16, color: 'rgba(34, 211, 238, 0.9)', textShadow: '0 0 8px rgba(34, 211, 238, 0.5)' }}>Козырь</span>
+        <span style={{ fontSize: compactTable ? 14 : 16, color: 'rgba(34, 211, 238, 0.9)', textShadow: '0 0 8px rgba(34, 211, 238, 0.5)' }}>{t('table.trump')}</span>
         <CardView card={trumpCard} disabled compact showDesktopFaceIndices={true} tableCardMobile={compactTable} scale={compactTable ? 0.98 : deckScale} contentScale={compactTable ? 1.5 : undefined} doubleBorder={trumpHighlightOn} trumpOnDeck trumpDeckHighlightOn={trumpHighlightOn} pcCardStyles={pcCardStyles} />
       </div>
     </div>
@@ -26573,11 +26597,11 @@ function DealContractPcSummaryLine({
 }) {
   return (
     <span className="deal-contract-line deal-contract-line-pc-colored" style={dealContractLineTextStyle}>
-      <span className="deal-contract-pc-label deal-contract-pc-label-order">Заказ:</span>{' '}
+      <span className="deal-contract-pc-label deal-contract-pc-label-order">{t('table.orderHud')}</span>{' '}
       <span className={`deal-contract-pc-num deal-contract-pc-num-order deal-contract-pc-num-order--${orderCompare}`}>
         {totalOrders}
       </span>
-      <span className="deal-contract-pc-label deal-contract-pc-label-tricks">Взяток:</span>{' '}
+      <span className="deal-contract-pc-label deal-contract-pc-label-tricks">{t('table.tricksHud')}</span>{' '}
       <span className="deal-contract-pc-num deal-contract-pc-num-taken">{totalTricks}</span>
       <span className="deal-contract-pc-slash" aria-hidden="true">
         /
@@ -26599,10 +26623,10 @@ function DealContractPcLiveBiddingLine({
 }) {
   return (
     <span className="deal-contract-line deal-contract-line-pc-colored deal-contract-line-pc-live">
-      <span className="deal-contract-pc-label deal-contract-pc-label-cards">КАРТ:</span>
+      <span className="deal-contract-pc-label deal-contract-pc-label-cards">{t('table.cardsHud')}</span>
       <span className="deal-contract-pc-num deal-contract-pc-num-cards">{tricksInDeal}</span>
       <span className="deal-contract-pc-live-sep" aria-hidden="true" />
-      <span className="deal-contract-pc-label deal-contract-pc-label-ordered">заказано:</span>
+      <span className="deal-contract-pc-label deal-contract-pc-label-ordered">{t('table.orderedHud')}</span>
       <span
         className={`deal-contract-pc-num deal-contract-pc-num-order deal-contract-pc-num-order--live deal-contract-pc-num-order--${orderCompare}`}
       >
@@ -26647,7 +26671,7 @@ function renderPcDealContractBadgeInner(stats: {
   return (
     <>
       <span className="deal-contract-label" style={dealContractCardsLabelStyle}>
-        КАРТ:
+        {t('table.cardsHud')}
       </span>
       <span className="deal-contract-value" style={dealContractCardsValueStyle}>
         {stats.tricksInDeal}
@@ -26669,11 +26693,11 @@ function pcDealContractTitle(stats: {
   totalTricks: number;
   tricksInDeal: number;
 }): string {
-  if (stats.allBidsPlaced) return 'Подробности по игрокам';
+  if (stats.allBidsPlaced) return t('table.detailsByPlayer');
   if (stats.hasAnyBid) {
-    return `Карт: ${stats.tricksInDeal}. Уже заказано ${stats.ordersSumSoFar} из ${stats.tricksInDeal}`;
+    return t('table.cardsLiveTitle', { n: stats.tricksInDeal, ordered: stats.ordersSumSoFar, total: stats.tricksInDeal });
   }
-  return 'Сколько карт в раздаче';
+  return t('table.cardsInDeal');
 }
 
 function pcDealContractAria(stats: {
@@ -26684,11 +26708,19 @@ function pcDealContractAria(stats: {
   tricksInDeal: number;
 }): string {
   if (stats.allBidsPlaced) {
-    return `Заказ ${stats.ordersSumSoFar}, взяток ${stats.totalTricks} из ${stats.tricksInDeal}. Показать по игрокам`;
+    return t('table.orderTricksAria', {
+      ordered: stats.ordersSumSoFar,
+      taken: stats.totalTricks,
+      total: stats.tricksInDeal,
+    });
   }
   if (stats.hasAnyBid) {
-    return `КАРТ: ${stats.tricksInDeal}. Заказано ${stats.ordersSumSoFar} из ${stats.tricksInDeal}. Показать подробности`;
+    return t('table.cardsAriaLive', {
+      n: stats.tricksInDeal,
+      ordered: stats.ordersSumSoFar,
+      total: stats.tricksInDeal,
+    });
   }
-  return `КАРТ: ${stats.tricksInDeal} у каждого`;
+  return t('table.cardsAriaEach', { n: stats.tricksInDeal });
 }
 

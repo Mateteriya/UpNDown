@@ -40,6 +40,7 @@ import { SupportDonatePage } from './ui/SupportDonatePage'
 import { LeaderboardPage } from './ui/LeaderboardPage'
 import { RATING_ROUTE_HASH, isRatingRouteHash } from './lib/ratingRoute'
 import { stopNudgeSounds, unlockAudio } from './audio'
+import { useT } from './i18n'
 
 /** Ленивая загрузка экрана игры: уменьшает начальный бандл и ускоряет первый показ меню; экран игры подгружается при переходе. */
 const GameTable = lazy(() => import('./ui/GameTable'))
@@ -74,6 +75,7 @@ function hashForScreen(screen: AppScreen): string {
 }
 
 function App() {
+  const t = useT()
   const { user, signOut, configured, loading: authLoading } = useAuth()
   const online = useOnlineGame()
   // Не открывать стол по одному лишь sessionStorage: до applyRoomData roomId пустой —
@@ -615,16 +617,16 @@ function App() {
       {showRegistrationSuccessModal && (
         <AuthCelebrateDialog
           titleId="registration-success-title"
-          title="Регистрация прошла успешно!"
-          body="Добро пожаловать в Up&Down. Теперь вы можете играть офлайн или войти на другом устройстве."
+          title={t('auth.registerOk')}
+          body={t('auth.registerWelcome')}
           onClose={() => setShowRegistrationSuccessModal(false)}
         />
       )}
       {showOAuthSuccessModal && (
         <AuthCelebrateDialog
           titleId="oauth-success-title"
-          title="Всё супер!"
-          body="Вы успешно вошли в аккаунт. Добро пожаловать в Up&Down!"
+          title={t('auth.oauthOk')}
+          body={t('auth.oauthWelcome')}
           onClose={() => setShowOAuthSuccessModal(false)}
         />
       )}
@@ -721,12 +723,12 @@ function App() {
           resumeMode={nameAvatarMode}
           title={
             nameAvatarMode === 'first-run'
-              ? 'Как к вам обращаться?'
+              ? t('nameAvatar.title')
               : nameAvatarMode === 'new-account'
-                ? 'Задайте имя для этого аккаунта (привязывается к почте)'
-                : 'Профиль'
+                ? t('nameAvatar.newAccount')
+                : t('nameAvatar.profile')
           }
-          confirmLabel="Сохранить"
+          confirmLabel={t('nameAvatar.save')}
           onConfirm={handleNameAvatarConfirm}
           onPhotoCaptured={handlePhotoCaptured}
           onCancel={nameAvatarMode === 'profile' ? closeNameAvatarModal : undefined}
@@ -738,7 +740,7 @@ function App() {
           <Suspense fallback={
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '1rem', background: '#0f172a', color: '#94a3b8' }}>
               <div style={{ width: 32, height: 32, border: '3px solid rgba(34,211,238,0.3)', borderTopColor: '#22d3ee', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} aria-hidden />
-              <span style={{ fontSize: '1rem' }}>Загрузка игры...</span>
+              <span style={{ fontSize: '1rem' }}>{t('common.loadingGame')}</span>
             </div>
           }>
             <GameTable

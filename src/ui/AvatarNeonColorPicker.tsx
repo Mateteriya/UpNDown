@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { HexColorPicker } from 'react-colorful';
+import { t } from '../i18n';
 
 /** Быстрые цвета слева от кнопки палитры */
 export const BRUSH_QUICK_COLORS = ['#ffffff', '#22d3ee', '#f472b6'] as const;
@@ -339,7 +340,7 @@ export function AvatarNeonColorPicker({
         type="button"
         className={['avatar-neon-picker__trigger', open ? 'avatar-neon-picker__trigger--open' : ''].join(' ')}
         onClick={openPanel}
-        aria-label="Все цвета"
+        aria-label={t('nameAvatar.allColors')}
         aria-expanded={open}
         title="Палитра цветов"
       >

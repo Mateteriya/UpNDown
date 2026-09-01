@@ -21,7 +21,7 @@ import {
 import { PlayerAvatar } from './PlayerAvatar';
 import { AvatarNeonColorPicker } from './AvatarNeonColorPicker';
 import { AvatarEditorModal } from './AvatarEditorModal';
-import '../styles/name-avatar-modal.css';
+import { useT } from '../i18n';
 
 export const MAX_DISPLAY_NAME_LENGTH = 17;
 const MAX_NAME_LENGTH = MAX_DISPLAY_NAME_LENGTH;
@@ -56,10 +56,13 @@ export function NameAvatarModal({
   resumeMode = 'profile',
   onConfirm,
   onCancel,
-  title = 'Как к вам обращаться?',
-  confirmLabel = 'Сохранить',
+  title,
+  confirmLabel,
   onPhotoCaptured,
 }: NameAvatarModalProps) {
+  const t = useT();
+  const heading = title ?? t('nameAvatar.title');
+  const saveLabel = confirmLabel ?? t('nameAvatar.save');
   const [displayName, setDisplayName] = useState(initialDisplayName.trim() || '');
   const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(initialAvatarDataUrl ?? null);
   const [avatarBgColor, setAvatarBgColor] = useState<string>(
@@ -142,7 +145,7 @@ export function NameAvatarModal({
           markNameAvatarModalOpen(resumeMode);
           openNativeCameraPicker(cameraInputRef.current);
         } else {
-          setError(e instanceof Error ? e.message : 'Не удалось открыть камеру');
+          setError(e instanceof Error ? e.message : t('nameAvatar.cameraFail'));
         }
       }
     })();
@@ -203,7 +206,7 @@ export function NameAvatarModal({
       await applyPhotoDataUrl(await captureVideoElementDataUrl(video));
       stopInPageCamera();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось снять кадр');
+      setError(e instanceof Error ? e.message : t('nameAvatar.shotFail'));
     } finally {
       setSelfieBusy(false);
     }
@@ -213,7 +216,7 @@ export function NameAvatarModal({
     e.preventDefault();
     const name = displayName.trim();
     if (!name) {
-      setError('Введите имя');
+      setError(t('nameAvatar.needName'));
       return;
     }
     setError(null);
@@ -230,11 +233,11 @@ export function NameAvatarModal({
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      setError('Выберите изображение (JPG, PNG и т.д.)');
+      setError(t('nameAvatar.pickImage'));
       return;
     }
     if (file.size > MAX_IMAGE_SIZE_BYTES) {
-      setError(`Файл не больше ${Math.round(MAX_IMAGE_SIZE_BYTES / 1024 / 1024)} МБ`);
+      setError(t('nameAvatar.fileTooBig', { n: Math.round(MAX_IMAGE_SIZE_BYTES / 1024 / 1024) }));
       return;
     }
     setError(null);
@@ -242,7 +245,7 @@ export function NameAvatarModal({
     reader.onload = async () => {
       await applyPhotoDataUrl(reader.result as string);
     };
-    reader.onerror = () => setError('Не удалось прочитать файл');
+    reader.onerror = () => setError(t('nameAvatar.readFail'));
     reader.readAsDataURL(file);
     e.target.value = '';
   };
@@ -290,7 +293,7 @@ export function NameAvatarModal({
           onClick={(e) => e.stopPropagation()}
         >
           <h2 id="name-avatar-modal-title" className="name-avatar-modal__title">
-            {title}
+            {heading}
           </h2>
           <form className="name-avatar-modal__form" onSubmit={handleSubmit}>
             <div className="name-avatar-modal__identity">
@@ -299,8 +302,8 @@ export function NameAvatarModal({
                   type="button"
                   className="name-avatar-modal__avatar-hit"
                   onClick={openPreview}
-                  title="Увеличить аватар"
-                  aria-label="Увеличить аватар"
+                  title={t('nameAvatar.zoomAvatar')}
+                  aria-label={t('nameAvatar.zoomAvatar')}
                 >
                   <span className="name-avatar-modal__avatar-ring">
                     <PlayerAvatar
@@ -310,10 +313,10 @@ export function NameAvatarModal({
                       sizePx={112}
                     />
                   </span>
-                  <span className="name-avatar-modal__avatar-zoom-hint">увеличить</span>
+                  <span className="name-avatar-modal__avatar-zoom-hint">{t('nameAvatar.zoomHint')}</span>
                 </button>
                 {!avatarDataUrl ? (
-                  <div className="name-avatar-modal__bg-palette" aria-label="Цвет фона аватара">
+                  <div className="name-avatar-modal__bg-palette" aria-label={t('nameAvatar.bgColor')}>
                     <AvatarNeonColorPicker
                       color={avatarBgColor}
                       onChange={setAvatarBgColor}
@@ -324,12 +327,12 @@ export function NameAvatarModal({
                     />
                   </div>
                 ) : (
-                  <p className="name-avatar-modal__bg-note">Фон виден без фото</p>
+                  <p className="name-avatar-modal__bg-note">{t('nameAvatar.bgNote')}</p>
                 )}
               </div>
               <div className="name-avatar-modal__name-block">
                 <div className="name-avatar-modal__name-meta">
-                  <span className="name-avatar-modal__hint">Имя в игре</span>
+                  <span className="name-avatar-modal__hint">{t('nameAvatar.nameInGame')}</span>
                   <span className="name-avatar-modal__count" aria-live="polite">
                     {nameLen}/{MAX_NAME_LENGTH}
                   </span>
@@ -343,7 +346,7 @@ export function NameAvatarModal({
                   onFocus={() => setInputFocused(true)}
                   onBlur={() => setInputFocused(false)}
                   maxLength={MAX_NAME_LENGTH}
-                  placeholder="Коснитесь, чтобы ввести"
+                  placeholder={t('nameAvatar.tapToType')}
                   enterKeyHint="done"
                   autoComplete="nickname"
                   autoCorrect="off"
@@ -353,7 +356,7 @@ export function NameAvatarModal({
             </div>
 
             {inPageCameraOpen ? (
-              <div className="name-avatar-modal__camera" role="region" aria-label="Селфи с камеры">
+              <div className="name-avatar-modal__camera" role="region" aria-label={t('nameAvatar.selfieRegion')}>
                 <video
                   ref={cameraVideoRef}
                   className="name-avatar-modal__camera-video"
@@ -367,7 +370,7 @@ export function NameAvatarModal({
                     className="name-avatar-modal__chip name-avatar-modal__chip--remove"
                     onClick={stopInPageCamera}
                   >
-                    Отмена
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="button"
@@ -375,7 +378,7 @@ export function NameAvatarModal({
                     disabled={selfieBusy}
                     onClick={() => void handleInPageCameraCapture()}
                   >
-                    {selfieBusy ? '…' : 'Снять'}
+                    {selfieBusy ? '…' : t('nameAvatar.shoot')}
                   </button>
                 </div>
               </div>
@@ -401,25 +404,25 @@ export function NameAvatarModal({
                   className="name-avatar-modal__chip name-avatar-modal__chip--selfie"
                   disabled={selfieBusy}
                   onClick={handleSelfie}
-                  title="Сделать селфи"
+                  title={t('nameAvatar.makeSelfie')}
                 >
-                  {selfieBusy ? 'Камера…' : 'Селфи'}
+                  {selfieBusy ? t('nameAvatar.cameraBusy') : t('nameAvatar.selfie')}
                 </button>
                 <button
                   type="button"
                   className="name-avatar-modal__chip name-avatar-modal__chip--gallery"
                   onClick={() => openGalleryPicker(galleryInputRef.current)}
-                  title="Фото с устройства"
+                  title={t('nameAvatar.fromDevice')}
                 >
-                  Галерея
+                  {t('nameAvatar.gallery')}
                 </button>
                 <button
                   type="button"
                   className="name-avatar-modal__chip name-avatar-modal__chip--editor"
                   onClick={openEditor}
-                  title="Полноценный редактор аватарки"
+                  title={t('nameAvatar.fullEditor')}
                 >
-                  Редактор
+                  {t('nameAvatar.editorShort')}
                 </button>
                 {avatarDataUrl ? (
                   <button
@@ -427,7 +430,7 @@ export function NameAvatarModal({
                     className="name-avatar-modal__chip name-avatar-modal__chip--remove"
                     onClick={removePhoto}
                   >
-                    Убрать
+                    {t('nameAvatar.removePhoto')}
                   </button>
                 ) : null}
               </div>
@@ -446,11 +449,11 @@ export function NameAvatarModal({
                     onCancel();
                   }}
                 >
-                  Отмена
+                  {t('common.cancel')}
                 </button>
               ) : null}
               <button type="submit" className="name-avatar-modal__btn name-avatar-modal__btn--primary">
-                {confirmLabel}
+                {saveLabel}
               </button>
             </div>
           </form>
@@ -462,7 +465,7 @@ export function NameAvatarModal({
           className="name-avatar-modal__preview"
           role="dialog"
           aria-modal="true"
-          aria-label="Просмотр аватара"
+          aria-label={t('nameAvatar.previewAria')}
           onClick={() => setPreviewOpen(false)}
         >
           <div className="name-avatar-modal__preview-card" onClick={(e) => e.stopPropagation()}>
@@ -486,7 +489,7 @@ export function NameAvatarModal({
                 onClick={() =>
                   setPreviewScale((s) => Math.max(PREVIEW_SCALE_MIN, +(s - PREVIEW_SCALE_STEP).toFixed(2)))
                 }
-                aria-label="Уменьшить"
+                aria-label={t('nameAvatar.zoomOut')}
               >
                 −
               </button>
@@ -497,7 +500,7 @@ export function NameAvatarModal({
                 onClick={() =>
                   setPreviewScale((s) => Math.min(PREVIEW_SCALE_MAX, +(s + PREVIEW_SCALE_STEP).toFixed(2)))
                 }
-                aria-label="Увеличить"
+                aria-label={t('nameAvatar.zoomIn')}
               >
                 +
               </button>
@@ -506,14 +509,14 @@ export function NameAvatarModal({
                 className="name-avatar-modal__chip name-avatar-modal__chip--editor"
                 onClick={openEditor}
               >
-                Редактор
+                {t('nameAvatar.editorShort')}
               </button>
               <button
                 type="button"
                 className="name-avatar-modal__chip name-avatar-modal__chip--remove"
                 onClick={() => setPreviewOpen(false)}
               >
-                Закрыть
+                {t('common.close')}
               </button>
             </div>
           </div>

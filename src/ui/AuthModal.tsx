@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useT } from '../i18n';
 
 export type AuthMode = 'login' | 'register';
 
@@ -34,6 +35,7 @@ const GoogleIcon = () => (
 const PENDING_NAME_KEY_PREFIX = 'updown_pending_name_';
 
 export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
+  const t = useT();
   const { signIn, signUp, signInWithOAuth, configured } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -58,7 +60,7 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
     setOauthLoading(provider);
     const { error: authError } = await signInWithOAuth(provider);
     setOauthLoading(null);
-    if (authError) setError(authError.message || 'Ошибка входа');
+    if (authError) setError(authError.message || t('auth.loginError'));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,34 +69,34 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
     setSuccessMessage(null);
     const em = email.trim().toLowerCase();
     if (!em) {
-      setError('Введите email');
+      setError(t('auth.enterEmail'));
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
-      setError('Некорректный email');
+      setError(t('auth.badEmail'));
       return;
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Пароль не менее ${MIN_PASSWORD_LENGTH} символов`);
+      setError(t('auth.passwordMin', { n: MIN_PASSWORD_LENGTH }));
       return;
     }
     if (mode === 'register' && password !== confirmPassword) {
-      setError('Пароли не совпадают');
+      setError(t('auth.passwordMismatch'));
       return;
     }
     if (mode === 'register') {
       const nick = displayName.trim();
       if (!nick) {
-        setError('Введите имя или ник — оно будет привязано к этому аккаунту');
+        setError(t('auth.needNick'));
         return;
       }
       if (nick.length > 17) {
-        setError('Имя не длиннее 17 символов');
+        setError(t('auth.nickMax'));
         return;
       }
     }
     if (!configured) {
-      setSuccessMessage('Сервер не настроен. Добавьте VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY в .env.local');
+      setSuccessMessage(t('auth.notConfigured'));
       return;
     }
     setLoading(true);
@@ -109,13 +111,13 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
       mode === 'login' ? await signIn(em, password) : await signUp(em, password);
     setLoading(false);
     if (authError) {
-      setError(authError.message || 'Ошибка авторизации');
+      setError(authError.message || t('auth.authError'));
       return;
     }
     if (mode === 'login') {
       onClose();
     } else {
-      setSuccessMessage('Проверьте почту — на неё отправлена ссылка для подтверждения.');
+      setSuccessMessage(t('auth.checkEmail'));
     }
   };
 
@@ -131,8 +133,8 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
           <p className="lk-modal__success-text">{successMessage}</p>
           <p className="lk-modal__hint lk-modal__hint--center" style={{ marginBottom: 16 }}>
             {configured
-              ? 'После подтверждения войдите через «Вход».'
-              : 'Пока играйте офлайн — рейтинг сохраняется на устройстве.'}
+              ? t('auth.afterConfirm')
+              : t('auth.playOffline')}
           </p>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <button
@@ -143,7 +145,7 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
                 setError(null);
               }}
             >
-              Назад
+              {t('auth.back')}
             </button>
           </div>
         </div>
@@ -162,9 +164,9 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
       <div className="lk-modal__panel" onClick={(e) => e.stopPropagation()}>
         <div className="lk-modal__head" style={{ marginBottom: 12 }}>
           <h2 id="auth-modal-title" className="lk-modal__title">
-            {mode === 'login' ? 'Вход' : 'Регистрация'}
+            {mode === 'login' ? t('auth.login') : t('auth.register')}
           </h2>
-          <button type="button" className="lk-modal__close" onClick={onClose} aria-label="Закрыть">
+          <button type="button" className="lk-modal__close" onClick={onClose} aria-label={t('common.close')}>
             ×
           </button>
         </div>
@@ -190,7 +192,7 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
           </button>
         </div>
 
-        <div className="lk-modal__divider">или email</div>
+        <div className="lk-modal__divider">{t('auth.orEmail')}</div>
 
         <form className="lk-modal__form" onSubmit={handleSubmit}>
           <div className="lk-modal__field">
@@ -209,7 +211,7 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
           </div>
           <div className="lk-modal__field">
             <label className="lk-modal__label" htmlFor="auth-password">
-              Пароль
+              {t('auth.password')}
             </label>
             <input
               id="auth-password"
@@ -218,14 +220,14 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              placeholder={`Не менее ${MIN_PASSWORD_LENGTH} символов`}
+              placeholder={t('auth.passwordPlaceholder', { n: MIN_PASSWORD_LENGTH })}
             />
           </div>
           {mode === 'register' ? (
             <>
               <div className="lk-modal__field">
                 <label className="lk-modal__label" htmlFor="auth-display-name">
-                  Имя или ник <span className="lk-modal__label-note">(к этой почте)</span>
+                  {t('auth.nickLabel')} <span className="lk-modal__label-note">{t('auth.nickNote')}</span>
                 </label>
                 <input
                   id="auth-display-name"
@@ -234,13 +236,13 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   autoComplete="username"
-                  placeholder="Как к вам обращаться в игре"
+                  placeholder={t('auth.nickPlaceholder')}
                   maxLength={17}
                 />
               </div>
               <div className="lk-modal__field">
                 <label className="lk-modal__label" htmlFor="auth-confirm">
-                  Подтвердите пароль
+                  {t('auth.confirmPassword')}
                 </label>
                 <input
                   id="auth-confirm"
@@ -249,25 +251,25 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   autoComplete="new-password"
-                  placeholder="Повторите пароль"
+                  placeholder={t('auth.confirmPlaceholder')}
                 />
               </div>
             </>
           ) : null}
           {error ? <p className="lk-modal__error">{error}</p> : null}
           <button type="submit" className="lk-modal__submit" disabled={loading}>
-            {loading ? '…' : mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
+            {loading ? '…' : mode === 'login' ? t('auth.submitLogin') : t('auth.submitRegister')}
           </button>
         </form>
 
         <p className="lk-modal__switch">
-          {mode === 'login' ? 'Нет аккаунта? ' : 'Уже есть аккаунт? '}
+          {mode === 'login' ? t('auth.noAccount') : t('auth.hasAccount')}
           <button
             type="button"
             className="lk-modal__switch-btn"
             onClick={() => onSwitchMode(mode === 'login' ? 'register' : 'login')}
           >
-            {mode === 'login' ? 'Зарегистрироваться' : 'Войти'}
+            {mode === 'login' ? t('auth.submitRegister') : t('auth.submitLogin')}
           </button>
         </p>
       </div>

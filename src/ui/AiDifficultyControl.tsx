@@ -4,31 +4,32 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AIDifficulty } from '../game/GameEngine';
 import { getAiDifficulty, setAiDifficulty } from '../game/aiSettings';
+import { useT } from '../i18n';
+import type { AIDifficulty } from '../game/GameEngine';
 
-const LEVELS: {
+const LEVEL_META: {
   id: AIDifficulty;
-  title: string;
-  hint: string;
+  titleKey: 'ai.novice' | 'ai.amateur' | 'ai.expert';
+  hintKey: 'ai.noviceHint' | 'ai.amateurHint' | 'ai.expertHint';
   ballClass: string;
 }[] = [
   {
     id: 'novice',
-    title: 'Новичок',
-    hint: 'Всегда слабейшая легальная карта',
+    titleKey: 'ai.novice',
+    hintKey: 'ai.noviceHint',
     ballClass: 'ai-difficulty-ball--novice',
   },
   {
     id: 'amateur',
-    title: 'Любитель',
-    hint: 'Заказ и взятки, перебор — добирать очки',
+    titleKey: 'ai.amateur',
+    hintKey: 'ai.amateurHint',
     ballClass: 'ai-difficulty-ball--amateur',
   },
   {
     id: 'expert',
-    title: 'Эксперт',
-    hint: 'Как любитель + темп: не тратить топ на заходе впустую',
+    titleKey: 'ai.expert',
+    hintKey: 'ai.expertHint',
     ballClass: 'ai-difficulty-ball--expert',
   },
 ];
@@ -75,6 +76,7 @@ export function AiDifficultyControl({
   /** Офлайн: выбор в шапке — один уровень для всех ботов и для новых партий (ai1–ai3 в storage) */
   offlineApplyDifficultyToAllBots?: (level: AIDifficulty) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<AIDifficulty>(() => getAiDifficulty());
   const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0 });
@@ -162,18 +164,18 @@ export function AiDifficultyControl({
         </button>
       </div>
       <p className="ai-difficulty-popover-scope-note">
-        <span className="ai-difficulty-popover-scope-note__lead">Этот выбор</span>
+        <span className="ai-difficulty-popover-scope-note__lead">{t('ai.scopeLead')}</span>
         {' — '}
-        один уровень сразу для <em>всех</em> ботов за столом.
+        {t('ai.scopeAll')}
         <span className="ai-difficulty-popover-scope-note__sep" aria-hidden="true">
           ·
         </span>
         <span className="ai-difficulty-popover-scope-note__personal">
-          Персональный уровень — по аватару бота в панели игрока.
+          {t('ai.scopePersonal')}
         </span>
       </p>
-      <div className="ai-difficulty-popover-list" role="radiogroup" aria-label="Уровень сложности">
-        {LEVELS.map((row) => {
+      <div className="ai-difficulty-popover-list" role="radiogroup" aria-label={t('ai.levelGroup')}>
+        {LEVEL_META.map((row) => {
           const selected = level === row.id;
           return (
             <button
@@ -190,8 +192,8 @@ export function AiDifficultyControl({
                 </span>
               </span>
               <span className="ai-difficulty-option-text">
-                <span className="ai-difficulty-option-title">{row.title}</span>
-                <span className="ai-difficulty-option-hint">{row.hint}</span>
+                <span className="ai-difficulty-option-title">{t(row.titleKey)}</span>
+                <span className="ai-difficulty-option-hint">{t(row.hintKey)}</span>
               </span>
             </button>
           );
@@ -253,8 +255,8 @@ export function AiDifficultyControl({
           e.stopPropagation();
           setOpen((o) => !o);
         }}
-        title="Сложность ИИ"
-        aria-label="Сложность ИИ ботов"
+        title={t('ai.title')}
+        aria-label={t('ai.botsAria')}
         aria-expanded={open}
         aria-haspopup="dialog"
       >
@@ -263,7 +265,7 @@ export function AiDifficultyControl({
         ) : (
           <>
             <span className={['ai-difficulty-trigger-ball', triggerBallExtra].join(' ')} aria-hidden />
-            <span className="ai-difficulty-trigger-label">ИИ</span>
+            <span className="ai-difficulty-trigger-label">{t('ai.short')}</span>
           </>
         )}
       </button>

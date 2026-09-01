@@ -8,6 +8,7 @@ import type { Card } from '../game/types';
 import { useTheme } from '../contexts/ThemeContext';
 import type { CardTheme } from '../lib/cardPaletteLock';
 import { getCardThemeV3Variant } from '../lib/cardThemeSpec';
+import { t } from '../i18n';
 import { JACK_CAT_BY_SUIT, QUEEN_IMAGE_BY_SUIT, KING_IMAGE_BY_SUIT, ACE_IMAGE_BY_SUIT, isCardImageCached, markCardImageLoaded } from '../cardAssets';
 
 /** Ранги: 6–10 числовые, J/Q/K/A фигуры */
@@ -1467,7 +1468,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                     opacity: 0.9,
                     textShadow: `0 0 3px ${neon.border}99`,
                   }}
-                  aria-label="Козырь"
+                  aria-label={t('table.trump')}
                 >
                   К
                 </span>
