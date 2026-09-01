@@ -3,7 +3,16 @@
  * Тултип по антенне профиля → кабинет; по индикатору статуса → «офлайн» / «онлайн».
  */
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type RefObject,
+} from 'react';
 import { createPortal } from 'react-dom';
 import type { MenuIdentityStatus } from '../lib/menuIdentityStatus';
 import { PlayerAvatar } from './PlayerAvatar';
@@ -27,6 +36,17 @@ const ONLINE_LABEL_FLIP_MS = 2000;
 const SETTLED_NAME_CHARS = 5;
 
 const ONLINE_LETTER_COLORS = ['#a5f3fc', '#22d3ee', '#2dd4bf', '#67e8f9', '#34d399', '#38bdf8'] as const;
+
+function stopNestedEvent(e: { stopPropagation(): void; preventDefault(): void }) {
+  e.stopPropagation();
+  e.preventDefault();
+}
+
+function onNestedActivateKey(e: KeyboardEvent<HTMLElement>, action: () => void) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  stopNestedEvent(e);
+  action();
+}
 
 type MenuSignedIdentityMarkProps = {
   status: MenuSignedStatus;
@@ -182,7 +202,7 @@ function AccountStatusBadge({
   tipId: string;
   tipOpen: boolean;
   onToggleTip: () => void;
-  badgeRef: RefObject<HTMLButtonElement | null>;
+  badgeRef: RefObject<HTMLElement | null>;
   accountName: string;
 }) {
   const fullName = accountName.trim() || 'аккаунт';
@@ -240,9 +260,10 @@ function AccountStatusBadge({
   }, [badgeRef, cycling, label]);
 
   return (
-    <button
-      ref={badgeRef as RefObject<HTMLButtonElement>}
-      type="button"
+    <span
+      ref={badgeRef}
+      role="button"
+      tabIndex={0}
       data-signed-status-anchor
       className={[
         'menu-signed-id__status',
@@ -257,11 +278,11 @@ function AccountStatusBadge({
       aria-expanded={tipOpen}
       aria-controls={tipOpen ? tipId : undefined}
       onClick={(e) => {
-        e.stopPropagation();
-        e.preventDefault();
+        stopNestedEvent(e);
         onToggleTip();
       }}
       onPointerDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => onNestedActivateKey(e, onToggleTip)}
     >
       <span className="menu-signed-id__status-core" aria-hidden>
         <span className="menu-signed-id__status-glow" />
@@ -277,7 +298,7 @@ function AccountStatusBadge({
           </span>
         ) : null}
       </span>
-    </button>
+    </span>
   );
 }
 
@@ -291,12 +312,13 @@ function ProfileStatusBadge({
   tipId: string;
   tipOpen: boolean;
   onToggleTip: () => void;
-  badgeRef: RefObject<HTMLButtonElement | null>;
+  badgeRef: RefObject<HTMLElement | null>;
 }) {
   return (
-    <button
-      ref={badgeRef as RefObject<HTMLButtonElement>}
-      type="button"
+    <span
+      ref={badgeRef}
+      role="button"
+      tabIndex={0}
       data-signed-status-anchor
       className={[
         'menu-signed-id__status',
@@ -310,17 +332,17 @@ function ProfileStatusBadge({
       aria-expanded={tipOpen}
       aria-controls={tipOpen ? tipId : undefined}
       onClick={(e) => {
-        e.stopPropagation();
-        e.preventDefault();
+        stopNestedEvent(e);
         onToggleTip();
       }}
       onPointerDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => onNestedActivateKey(e, onToggleTip)}
     >
       <span className="menu-signed-id__status-core" aria-hidden>
         <span className="menu-signed-id__status-glow" />
         <span className="menu-signed-id__status-dot" />
       </span>
-    </button>
+    </span>
   );
 }
 
@@ -332,13 +354,14 @@ function WaveAntenna({
 }: {
   tipOpen: boolean;
   tipId: string;
-  badgeRef: RefObject<HTMLButtonElement | null>;
+  badgeRef: RefObject<HTMLElement | null>;
   onToggleTip: () => void;
 }) {
   return (
-    <button
-      ref={badgeRef as RefObject<HTMLButtonElement>}
-      type="button"
+    <span
+      ref={badgeRef}
+      role="button"
+      tabIndex={0}
       className={[
         'menu-signed-id__wave',
         tipOpen ? 'menu-signed-id__wave--tip-open' : '',
@@ -349,11 +372,11 @@ function WaveAntenna({
       aria-expanded={tipOpen}
       aria-controls={tipOpen ? tipId : undefined}
       onClick={(e) => {
-        e.stopPropagation();
-        e.preventDefault();
+        stopNestedEvent(e);
         onToggleTip();
       }}
       onPointerDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => onNestedActivateKey(e, onToggleTip)}
     >
       <svg className="menu-signed-id__wave-svg" viewBox="0 0 28 28" aria-hidden>
         <path
@@ -388,7 +411,7 @@ function WaveAntenna({
           opacity="0.85"
         />
       </svg>
-    </button>
+    </span>
   );
 }
 
@@ -399,7 +422,7 @@ function ProfileWaveTip({
   onOpenCabinet,
 }: {
   tipId: string;
-  anchorRef: RefObject<HTMLButtonElement | null>;
+  anchorRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   onOpenCabinet: () => void;
 }) {
@@ -508,8 +531,8 @@ export function MenuSignedIdentityMark({
   const isAccount = status === 'account';
   const waveTipId = useId();
   const statusTipId = useId();
-  const waveRef = useRef<HTMLButtonElement>(null);
-  const statusRef = useRef<HTMLButtonElement>(null);
+  const waveRef = useRef<HTMLElement>(null);
+  const statusRef = useRef<HTMLElement>(null);
   const [waveTipOpen, setWaveTipOpen] = useState(false);
   const [statusTipOpen, setStatusTipOpen] = useState(false);
 

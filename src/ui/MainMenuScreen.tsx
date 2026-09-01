@@ -20,13 +20,12 @@ import { MenuPcDrift } from './MenuPcDrift';
 import { PlayerAvatar } from './PlayerAvatar';
 import { MenuGuestIdentityCycle } from './MenuGuestIdentityCycle';
 import { MenuSignedIdentityMark } from './MenuSignedIdentityMark';
-import {
-  getMenuIdentityStatus,
-  MENU_IDENTITY_STATUS_ARIA,
-} from '../lib/menuIdentityStatus';
+import { getMenuIdentityStatus } from '../lib/menuIdentityStatus';
 import { OfflineReadyOrb } from './OfflineReadyOrb';
 import { MenuGlassLadder } from './MenuGlassLadder';
 import { AudioSettingsPanel } from './AudioSettingsPanel';
+import { LanguageSwitch } from './LanguageSwitch';
+import { useT } from '../i18n';
 
 const PC_MENU_MQ = '(min-width: 1025px)';
 /** Редкий автосвайп каста, пока сидят на главной. */
@@ -125,6 +124,7 @@ export function MainMenuScreen({
   onOfflinePlay,
   onOpenRules,
 }: MainMenuScreenProps) {
+  const t = useT();
   const signedIn = Boolean(userEmail);
   const identityStatus = getMenuIdentityStatus({
     displayName,
@@ -377,11 +377,11 @@ export function MainMenuScreen({
             />
             <div className="menu-screen__pc-cast-meld" />
           </div>
-          <div className="menu-screen__pc-cast-nav" role="group" aria-label="Сменить фон меню">
+          <div className="menu-screen__pc-cast-nav" role="group" aria-label={t('menu.castNav')}>
             <button
               type="button"
               className="menu-screen__pc-cast-nav-btn menu-screen__pc-cast-nav-btn--prev"
-              aria-label="Предыдущий фон"
+              aria-label={t('menu.castPrev')}
               onClick={onCastPrev}
             >
               <svg className="menu-screen__pc-cast-nav-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden focusable="false">
@@ -408,7 +408,7 @@ export function MainMenuScreen({
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-label={castPinned ? 'Открепить фон меню' : 'Закрепить фон меню'}
+                    aria-label={castPinned ? t('menu.castUnpin') : t('menu.castPin')}
                 aria-expanded={castPinConfirmOpen}
                 aria-haspopup="dialog"
                 onClick={onCastPinClick}
@@ -429,27 +429,27 @@ export function MainMenuScreen({
                   <div className="menu-screen__pc-cast-pin-popover__lock" aria-hidden>
                     <CastLockGlyph locked />
                   </div>
-                  <p className="menu-screen__pc-cast-pin-popover__eyebrow">Фон меню</p>
-                  <h2 id="pc-cast-pin-title" className="menu-screen__pc-cast-pin-popover__title">
-                    Закрепить этот кадр?
-                  </h2>
-                  <p id="pc-cast-pin-desc" className="menu-screen__pc-cast-pin-popover__lead">
-                    Автосмена и смена при входе на меню отключатся. Стрелки по-прежнему можно листать вручную.
-                  </p>
+                      <p className="menu-screen__pc-cast-pin-popover__eyebrow">{t('menu.castEyebrow')}</p>
+                      <h2 id="pc-cast-pin-title" className="menu-screen__pc-cast-pin-popover__title">
+                        {t('menu.castPinTitle')}
+                      </h2>
+                      <p id="pc-cast-pin-desc" className="menu-screen__pc-cast-pin-popover__lead">
+                        {t('menu.castPinLead')}
+                      </p>
                   <div className="menu-screen__pc-cast-pin-popover__actions">
                     <button
                       type="button"
                       className="menu-screen__pc-cast-pin-popover__btn menu-screen__pc-cast-pin-popover__btn--primary"
                       onClick={onConfirmCastPin}
                     >
-                      Закрепить
+                      {t('menu.castPinConfirm')}
                     </button>
                     <button
                       type="button"
                       className="menu-screen__pc-cast-pin-popover__btn menu-screen__pc-cast-pin-popover__btn--ghost"
                       onClick={() => setCastPinConfirmOpen(false)}
                     >
-                      Отмена
+                      {t('common.cancel')}
                     </button>
                   </div>
                 </div>
@@ -459,7 +459,7 @@ export function MainMenuScreen({
             <button
               type="button"
               className="menu-screen__pc-cast-nav-btn menu-screen__pc-cast-nav-btn--next"
-              aria-label="Следующий фон"
+              aria-label={t('menu.castNext')}
               onClick={onCastNext}
             >
               <svg className="menu-screen__pc-cast-nav-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden focusable="false">
@@ -536,6 +536,7 @@ export function MainMenuScreen({
       </div>
       <div className="menu-screen__stack">
         <div className="menu-screen__pc-topbar">
+          <LanguageSwitch className="menu-screen__lang" />
           <header className="menu-screen__header">
             <div className="menu-screen__brand">
               <span className="menu-screen__brand-mark" aria-hidden="true">
@@ -658,9 +659,7 @@ export function MainMenuScreen({
                     </svg>
                   </span>
                 </div>
-                <div className="menu-screen__tagline-row">
-                  <p className="menu-screen__tagline">Карточная игра на взятки</p>
-                </div>
+                <p className="menu-screen__tagline">{t('menu.tagline')}</p>
               </div>
             </div>
           </header>
@@ -679,14 +678,14 @@ export function MainMenuScreen({
             onClick={onAccountChipClick}
             aria-label={
               accountExpanded
-                ? 'Свернуть кабинет'
+                ? t('menu.cabinetCollapse')
                 : isGuestIdentity
-                  ? MENU_IDENTITY_STATUS_ARIA.guest
+                  ? t('menu.identityGuest')
                   : isProfileIdentity
-                    ? MENU_IDENTITY_STATUS_ARIA.profile
+                    ? t('menu.identityProfile')
                     : isAccountIdentity
-                      ? MENU_IDENTITY_STATUS_ARIA.account
-                      : 'Показать кабинет'
+                      ? t('menu.identityAccount')
+                      : t('menu.cabinetShow')
             }
             aria-expanded={accountExpanded}
           >
@@ -715,14 +714,14 @@ export function MainMenuScreen({
             <span className="menu-screen__player-text">
               {isPcMenu ? (
                 <>
-                  <span className="menu-screen__player-label">Кабинет</span>
+                  <span className="menu-screen__player-label">{t('menu.cabinet')}</span>
                   <strong className="menu-screen__player-name">{displayName}</strong>
                   <span className="menu-screen__player-sub">
                     {isGuestIdentity
-                      ? 'профиль не задан · войти'
+                      ? t('menu.subGuest')
                       : signedIn
-                        ? 'профиль + аккаунт'
-                        : 'профиль · войти в аккаунт'}
+                        ? t('menu.subSigned')
+                        : t('menu.subProfile')}
                   </span>
                 </>
               ) : (
@@ -740,7 +739,7 @@ export function MainMenuScreen({
                       }
                     }}
                   >
-                    {signedIn ? 'открыть кабинет' : 'войти в кабинет'}
+                    {signedIn ? t('menu.cabinetOpen') : t('menu.cabinetEnter')}
                   </span>
                 </>
               )}
@@ -794,10 +793,10 @@ export function MainMenuScreen({
                       .filter(Boolean)
                       .join(' ')}
                     aria-pressed={playGlyphsOnly}
-                    aria-label={playGlyphsOnly ? 'Показать подписи капсул' : 'Скрыть подписи капсул'}
+                    aria-label={playGlyphsOnly ? t('menu.glyphsShow') : t('menu.glyphsHide')}
                     onClick={togglePlayGlyphsOnly}
                   >
-                    {playGlyphsOnly ? 'полный вид' : 'без слов'}
+                    {playGlyphsOnly ? t('menu.glyphsFull') : t('menu.glyphsNone')}
                   </button>
                 </div>
               ) : null}
@@ -805,9 +804,9 @@ export function MainMenuScreen({
             <MenuPcDrift id="account" className="menu-screen__drift--account" movable>
               <MenuCapsuleButton
                 variant="account"
-                eyebrow="Кабинет"
+                eyebrow={t('menu.cabinet')}
                 title={displayName}
-                hint={signedIn ? 'профиль + аккаунт' : 'профиль · войти в аккаунт'}
+                hint={signedIn ? t('menu.subSigned') : t('menu.subProfile')}
                 avatarName={displayName}
                 avatarDataUrl={avatarDataUrl}
                 identityStatus={
@@ -831,11 +830,23 @@ export function MainMenuScreen({
               <MenuPcDrift id="rules-v1" className="menu-screen__drift--rules" movable>
                 <MenuCapsuleButton
                   variant="rules"
-                  title="Правила игры"
-                  hint="как играть"
+                  title={t('menu.rulesTitle')}
+                  hint={t('menu.rulesHint')}
                   collapsible
                   collapseId="rules"
                   onClick={onOpenRules}
+                />
+              </MenuPcDrift>
+            ) : null}
+            {isPcMenu && onOpenRating ? (
+              <MenuPcDrift id="rating" className="menu-screen__drift--rating" movable>
+                <MenuCapsuleButton
+                  variant="rating"
+                  title={t('menu.ratingTitle')}
+                  hint={t('menu.ratingHint')}
+                  collapsible
+                  collapseId="rating"
+                  onClick={onOpenRating}
                 />
               </MenuPcDrift>
             ) : null}
@@ -843,14 +854,14 @@ export function MainMenuScreen({
 
           {devMode ? (
             <div className="menu-screen__dev">
-              <MenuCapsuleButton variant="link" title="Демо карт" href="/demo" compact />
-              <MenuCapsuleButton variant="link" title="Лаб: шкала раздач" href="/deal-track-lab" compact />
-              <MenuCapsuleButton variant="link" title="Лаб: цвета ИТОГО" href="/total-color-lab" compact />
-              <MenuCapsuleButton variant="link" title="Лаб: онлайн-UI" href="/online-ui-lab" compact />
-              <MenuCapsuleButton variant="link" title="Лаб: правила" href="/rules-lab" compact />
-              <MenuCapsuleButton variant="link" title="Лаб: аудио SFX" href="/audio-sfx-lab" compact />
-              <MenuCapsuleButton variant="link" title="Демо: фишки" href="/scoring-demo" compact />
-              <MenuCapsuleButton variant="link" title="Космогенез" href="/cosmogenesis-demo.html" compact />
+              <MenuCapsuleButton variant="link" title={t('menu.devCards')} href="/demo" compact />
+              <MenuCapsuleButton variant="link" title={t('menu.devDealTrack')} href="/deal-track-lab" compact />
+              <MenuCapsuleButton variant="link" title={t('menu.devTotalColor')} href="/total-color-lab" compact />
+              <MenuCapsuleButton variant="link" title={t('menu.devOnlineUi')} href="/online-ui-lab" compact />
+              <MenuCapsuleButton variant="link" title={t('menu.devRules')} href="/rules-lab" compact />
+              <MenuCapsuleButton variant="link" title={t('menu.devAudio')} href="/audio-sfx-lab" compact />
+              <MenuCapsuleButton variant="link" title={t('menu.devChips')} href="/scoring-demo" compact />
+              <MenuCapsuleButton variant="link" title={t('menu.devCosmo')} href="/cosmogenesis-demo.html" compact />
             </div>
           ) : null}
         </div>
@@ -897,11 +908,11 @@ export function MainMenuScreen({
                 className="menu-screen__mobile-cast__vignette menu-screen__mobile-cast__vignette--bottom"
                 aria-hidden="true"
               />
-              <div className="menu-screen__mobile-cast__nav" role="group" aria-label="Сменить фон меню">
+              <div className="menu-screen__mobile-cast__nav" role="group" aria-label={t('menu.castNav')}>
                 <button
                   type="button"
                   className="menu-screen__pc-cast-nav-btn menu-screen__pc-cast-nav-btn--prev"
-                  aria-label="Предыдущий фон"
+                  aria-label={t('menu.castPrev')}
                   onClick={onCastPrev}
                 >
                   <svg className="menu-screen__pc-cast-nav-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden focusable="false">
@@ -927,7 +938,7 @@ export function MainMenuScreen({
                     ]
                       .filter(Boolean)
                       .join(' ')}
-                    aria-label={castPinned ? 'Открепить фон меню' : 'Закрепить фон меню'}
+                    aria-label={castPinned ? t('menu.castUnpin') : t('menu.castPin')}
                     aria-expanded={castPinConfirmOpen}
                     aria-haspopup="dialog"
                     onClick={onCastPinClick}
@@ -947,12 +958,12 @@ export function MainMenuScreen({
                       <div className="menu-screen__pc-cast-pin-popover__lock" aria-hidden>
                         <CastLockGlyph locked />
                       </div>
-                      <p className="menu-screen__pc-cast-pin-popover__eyebrow">Фон меню</p>
+                      <p className="menu-screen__pc-cast-pin-popover__eyebrow">{t('menu.castEyebrow')}</p>
                       <h2 id="mobile-cast-pin-title" className="menu-screen__pc-cast-pin-popover__title">
-                        Закрепить этот кадр?
+                        {t('menu.castPinTitle')}
                       </h2>
                       <p id="mobile-cast-pin-desc" className="menu-screen__pc-cast-pin-popover__lead">
-                        Автосмена и смена при входе на меню отключатся. Стрелки по-прежнему можно листать вручную.
+                        {t('menu.castPinLead')}
                       </p>
                       <div className="menu-screen__pc-cast-pin-popover__actions">
                         <button
@@ -960,14 +971,14 @@ export function MainMenuScreen({
                           className="menu-screen__pc-cast-pin-popover__btn menu-screen__pc-cast-pin-popover__btn--primary"
                           onClick={onConfirmCastPin}
                         >
-                          Закрепить
+                          {t('menu.castPinConfirm')}
                         </button>
                         <button
                           type="button"
                           className="menu-screen__pc-cast-pin-popover__btn menu-screen__pc-cast-pin-popover__btn--ghost"
                           onClick={() => setCastPinConfirmOpen(false)}
                         >
-                          Отмена
+                          {t('common.cancel')}
                         </button>
                       </div>
                     </div>
@@ -976,7 +987,7 @@ export function MainMenuScreen({
                 <button
                   type="button"
                   className="menu-screen__pc-cast-nav-btn menu-screen__pc-cast-nav-btn--next"
-                  aria-label="Следующий фон"
+                  aria-label={t('menu.castNext')}
                   onClick={onCastNext}
                 >
                   <svg className="menu-screen__pc-cast-nav-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden focusable="false">
@@ -998,8 +1009,8 @@ export function MainMenuScreen({
             <div className="menu-screen__mobile-rules">
               <MenuCapsuleButton
                 variant="rules"
-                title="Правила игры"
-                hint="как играть"
+                title={t('menu.rulesTitle')}
+                hint={t('menu.rulesHint')}
                 collapsible
                 collapseId="rules"
                 onClick={onOpenRules}
@@ -1013,8 +1024,8 @@ export function MainMenuScreen({
               {onOpenRating ? (
                 <MenuCapsuleButton
                   variant="rating"
-                  title="Рейтинг"
-                  hint="таблица лидеров"
+                  title={t('menu.ratingTitle')}
+                  hint={t('menu.ratingHint')}
                   collapsible
                   collapseId="rating"
                   onClick={onOpenRating}

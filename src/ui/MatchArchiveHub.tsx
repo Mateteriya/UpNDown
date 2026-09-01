@@ -2,23 +2,25 @@
  * Хаб «Мои партии»: лента (локальный архив ∪ облако) + деталь с таблицей раздач.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   getPartyArchive,
   getPartyArchiveById,
   type PartyArchiveRecord,
 } from '../game/partyArchive';
-import { SETTLEMENT_MODE_LABELS, type SettlementMode } from '../game/partySettlement';
+import type { SettlementMode } from '../game/partySettlement';
 import type { DealResult } from '../game/GameEngine';
 import { hasSavedGame } from '../game/persistence';
 import { isFullDealRow, type GatedDealRow } from '../lib/historyAccess';
+import { useAuth } from '../contexts/AuthContext';
 import {
   getMatchDetail,
-  getMyMatchHistory,
+  getMyMatchHistoryResult,
   type MatchDetail,
   type MatchHistoryItem,
 } from '../lib/onlineGameSupabase';
 import { chipColor } from './DealResultsSettlement';
+import { getLocale, localizeAiDisplayName, useT, type TFunc } from '../i18n';
 
 /** Дефолтные имена офлайн-ботов (как в createGame) — если в старой записи имя пустое. */
 function offlineDefaultSeatName(seat: number, playerCount: number): string {
@@ -78,7 +80,22 @@ function dealsForViewer(raw: DealResult[]): GatedDealRow[] {
 
 function isGenericPlayerLabel(name: string): boolean {
   const n = name.trim().toLowerCase();
-  return !n || n === 'игрок' || /^игрок\s*\d*$/i.test(name.trim());
+  return !n || n === 'игрок' || n === 'player' || /^(игрок|player)\s*\d*$/i.test(name.trim());
+}
+
+function displaySeatName(raw: string, index: number, playerCount: number, tr: TFunc): string {
+  const trimmed = raw.trim();
+  if (!trimmed || isGenericPlayerLabel(trimmed)) return tr('archive.playerN', { n: index + 1 });
+  return localizeAiDisplayName(undefined, trimmed, playerCount);
+}
+
+function modeLabel(mode: SettlementMode | string | null | undefined, tr: TFunc): string {
+  if (!mode) return '';
+  if (mode === 'points_only') return tr('settlement.points');
+  if (mode === 'vs_average') return tr('settlement.average');
+  if (mode === 'accuracy_bonus') return tr('settlement.accuracy');
+  if (mode === 'prize_pool') return tr('settlement.prize');
+  return String(mode);
 }
 
 /** Ключ для схлопывания одинаковых строк ленты (код комнаты разный у дублей insert — не используем). */
@@ -93,6 +110,30 @@ function matchFeedDedupeKey(parts: {
   // До минуты: в UI время без секунд, дубли RPC часто в одну минуту
   const bucket = Number.isFinite(t) ? Math.floor(t / 60_000) : parts.at;
   return [bucket, parts.place ?? '', parts.score ?? '', parts.chips ?? '', parts.offline ? 1 : 0].join('|');
+}
+
+/** Локальная копия той же онлайн-партии: фишки/минута часто не совпадают с облаком. */
+function isSameAccountMatch(
+  a: {
+    at: string;
+    place: number | null | undefined;
+    score: number | null | undefined;
+    offline: boolean;
+  },
+  b: {
+    at: string;
+    place: number | null | undefined;
+    score: number | null | undefined;
+    offline: boolean;
+  },
+): boolean {
+  if (a.offline !== b.offline) return false;
+  if ((a.place ?? null) !== (b.place ?? null)) return false;
+  if ((a.score ?? null) !== (b.score ?? null)) return false;
+  const ta = Date.parse(a.at);
+  const tb = Date.parse(b.at);
+  if (!Number.isFinite(ta) || !Number.isFinite(tb)) return false;
+  return Math.abs(ta - tb) <= 15 * 60 * 1000;
 }
 
 export type MatchArchiveFilter = 'all' | 'cloud' | 'local' | 'online' | 'offline';
@@ -118,7 +159,7 @@ type FeedRow =
 function formatWhen(iso: string): string {
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString('ru-RU', {
+    return d.toLocaleDateString(getLocale() === 'en' ? 'en-GB' : 'ru-RU', {
       day: 'numeric',
       month: 'short',
       hour: '2-digit',
@@ -127,14 +168,6 @@ function formatWhen(iso: string): string {
   } catch {
     return iso.slice(0, 10);
   }
-}
-
-function modeLabel(mode: SettlementMode | string | null | undefined): string {
-  if (!mode) return '';
-  if (mode in SETTLEMENT_MODE_LABELS) {
-    return SETTLEMENT_MODE_LABELS[mode as SettlementMode];
-  }
-  return String(mode);
 }
 
 function DealHistoryTable({
@@ -150,8 +183,9 @@ function DealHistoryTable({
   /** Колонка текущего пользователя (не всегда 0). */
   youColumnIndex?: number | null;
 }) {
+  const t = useT();
   if (!deals.length) {
-    return <p className="lk-archive__empty">Срез раздач недоступен для этой записи.</p>;
+    return <p className="lk-archive__empty">{t('archive.dealsUnavailable')}</p>;
   }
   const cols = Math.max(
     playerNames.length,
@@ -168,14 +202,14 @@ function DealHistoryTable({
   return (
     <div className="lk-archive__deals-block">
       <div className="lk-archive__deals-legend">
-        <span className="lk-archive__legend-bid">заказ</span>
+        <span className="lk-archive__legend-bid">{t('archive.legendBid')}</span>
         {' / '}
-        <span className="lk-archive__legend-taken">взятки</span>
-        {' · очки'}
+        <span className="lk-archive__legend-taken">{t('archive.legendTaken')}</span>
+        {` · ${t('archive.legendPts')}`}
         {youCol != null ? (
           <>
             {' · '}
-            <span className="lk-archive__legend-you">вы</span>
+            <span className="lk-archive__legend-you">{t('rating.you')}</span>
           </>
         ) : null}
       </div>
@@ -194,12 +228,12 @@ function DealHistoryTable({
                   {i === youCol ? (
                     <span className="lk-archive__you-name">
                       <span className="lk-archive__you-badge" aria-hidden>
-                        вы
+                        {t('rating.you')}
                       </span>
-                      {n || '—'}
+                      {displaySeatName(n, i, cols, t) || '—'}
                     </span>
                   ) : (
-                    n || '—'
+                    n ? displaySeatName(n, i, cols, t) : '—'
                   )}
                 </th>
               ))}
@@ -243,7 +277,7 @@ function DealHistoryTable({
           {showTotals ? (
             <tfoot>
               <tr className="lk-archive__deals-total">
-                <th scope="row">Итог</th>
+                <th scope="row">{t('archive.total')}</th>
                 {Array.from({ length: cols }, (_, i) => {
                   const s = finalScores[i];
                   const str = s == null || !Number.isFinite(s) ? '—' : `${s >= 0 ? '+' : ''}${s}`;
@@ -436,9 +470,13 @@ export function MatchArchiveHub({
   onContinueOffline,
   onOpenRating,
 }: MatchArchiveHubProps) {
+  const t = useT();
+  const { session, loading: authLoading } = useAuth();
+  const accessToken = session?.access_token ?? '';
   const [filter, setFilter] = useState<MatchArchiveFilter>('all');
   const [localRows, setLocalRows] = useState<PartyArchiveRecord[]>([]);
   const [cloudRows, setCloudRows] = useState<MatchHistoryItem[] | null>(null);
+  const [cloudError, setCloudError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailKey, setDetailKey] = useState<string | null>(null);
   const [cloudDetail, setCloudDetail] = useState<MatchDetail | null>(null);
@@ -459,33 +497,43 @@ export function MatchArchiveHub({
     return () => mq.removeEventListener('change', sync);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const local = await getPartyArchive(undefined, 80);
-        let cloud: MatchHistoryItem[] = [];
-        if (configured && userId) {
-          cloud = await getMyMatchHistory(userId, 80);
-        }
-        if (!cancelled) {
-          setLocalRows(local);
-          setCloudRows(configured && userId ? cloud : []);
-        }
-      } catch {
-        if (!cancelled) {
-          setLocalRows([]);
-          setCloudRows([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+  const loadGen = useRef(0);
+  const loadFeed = useCallback(async () => {
+    if (authLoading) return;
+    void accessToken;
+    const gen = ++loadGen.current;
+    if (gen === 1) setLoading(true);
+    try {
+      const local = await getPartyArchive(undefined, 80);
+      if (loadGen.current !== gen) return;
+      setLocalRows(local);
+      if (configured && userId) {
+        const { rows, error } = await getMyMatchHistoryResult(userId, 80);
+        if (loadGen.current !== gen) return;
+        setCloudRows(rows);
+        setCloudError(error);
+      } else if (loadGen.current === gen) {
+        setCloudRows([]);
+        setCloudError(null);
       }
-    })();
-    return () => {
-      cancelled = true;
+    } catch {
+      if (loadGen.current === gen) setCloudError('Не удалось загрузить облако');
+    } finally {
+      if (loadGen.current === gen) setLoading(false);
+    }
+  }, [authLoading, configured, userId, accessToken]);
+
+  useEffect(() => {
+    void loadFeed();
+  }, [loadFeed]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void loadFeed();
     };
-  }, [configured, userId]);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [loadFeed]);
 
   useEffect(() => {
     if (focus === 'matches') {
@@ -511,15 +559,24 @@ export function MatchArchiveHub({
     }
     for (const loc of localRows) {
       if (loc.cloudMatchId && cloudIds.has(loc.cloudMatchId)) continue;
-      const sig = matchFeedDedupeKey({
+      const locParts = {
         at: loc.finishedAt,
         place: loc.humanPlace,
         score: loc.humanScore,
         chips: loc.humanChips,
         offline: loc.source !== 'online',
-      });
-      // Та же партия уже есть из облака (без cloudMatchId у старых записей)
+      };
+      const sig = matchFeedDedupeKey(locParts);
       if (seenSig.has(sig)) continue;
+      const cloudDup = (cloudRows ?? []).some((c) =>
+        isSameAccountMatch(locParts, {
+          at: c.finished_at,
+          place: c.place,
+          score: c.final_score,
+          offline: !!c.is_offline,
+        }),
+      );
+      if (cloudDup) continue;
       seenSig.add(sig);
       rows.push({ key: `local:${loc.id}`, at: loc.finishedAt, kind: 'local', local: loc });
     }
@@ -551,26 +608,25 @@ export function MatchArchiveHub({
       } else if (userId) {
         const d = await getMatchDetail(row.cloud.id, userId);
         setCloudDetail(d);
-        const cloudSig = matchFeedDedupeKey({
-          at: row.cloud.finished_at,
-          place: row.cloud.place,
-          score: row.cloud.final_score,
-          chips: row.cloud.chips,
-          offline: !!row.cloud.is_offline,
-        });
-        // Точный id, иначе (только офлайн↔офлайн) та же партия по месту/очкам/минуте
         const localHit =
           localRows.find((l) => l.cloudMatchId === row.cloud.id) ??
           localRows.find(
             (l) =>
               (row.cloud.is_offline ? l.source === 'offline' : l.source === 'online') &&
-              matchFeedDedupeKey({
-                at: l.finishedAt,
-                place: l.humanPlace,
-                score: l.humanScore,
-                chips: l.humanChips,
-                offline: l.source !== 'online',
-              }) === cloudSig,
+              isSameAccountMatch(
+                {
+                  at: l.finishedAt,
+                  place: l.humanPlace,
+                  score: l.humanScore,
+                  offline: l.source !== 'online',
+                },
+                {
+                  at: row.cloud.finished_at,
+                  place: row.cloud.place,
+                  score: row.cloud.final_score,
+                  offline: !!row.cloud.is_offline,
+                },
+              ),
           );
         if (localHit) {
           const full = (await getPartyArchiveById(localHit.id)) ?? localHit;
@@ -598,34 +654,33 @@ export function MatchArchiveHub({
   const showDetailPane = !isMobile || listOpen;
 
   const filters: { id: MatchArchiveFilter; label: string }[] = [
-    { id: 'all', label: 'Все' },
-    { id: 'offline', label: 'Офлайн' },
-    { id: 'online', label: 'Онлайн' },
-    { id: 'cloud', label: 'Облако' },
-    { id: 'local', label: 'Устройство' },
+    { id: 'all', label: t('archive.all') },
+    { id: 'offline', label: t('archive.offline') },
+    { id: 'online', label: t('archive.online') },
+    { id: 'cloud', label: t('archive.cloud') },
+    { id: 'local', label: t('archive.device') },
   ];
 
   return (
     <section className="lk-archive" id="lk-archive-hub" aria-labelledby="lk-archive-title">
       <header className="lk-archive__head">
         <h2 id="lk-archive-title" className="lk-archive__title">
-          Мои партии
+          {t('archive.title')}
         </h2>
         <div className="lk-archive__hint">
-          <p>На устройстве сохраняется история с раздачами. Рейтинг — по очкам.</p>
+          <p>{t('archive.hintLocal')}</p>
           <p>
-            Онлайн-партии хранятся в облаке (офлайн тоже — если вы вошли)
+            {t('archive.hintCloud')}
             {onOpenRating ? (
               <>
-                . Общий онлайн-рейтинг — на странице{' '}
+                {' '}
+                {t('archive.hintRating')}{' '}
                 <button type="button" className="lk-archive__hint-link" onClick={onOpenRating}>
-                  Рейтинг
+                  {t('archive.ratingPage')}
                 </button>
-                .
+                {'.'}
               </>
-            ) : (
-              '.'
-            )}
+            ) : null}
           </p>
         </div>
       </header>
@@ -633,24 +688,33 @@ export function MatchArchiveHub({
       {offlineSaved && onContinueOffline ? (
         <div className="lk-archive__resume">
           <div>
-            <span className="lk-archive__resume-title">Незавершённая офлайн-партия</span>
-            <span className="lk-archive__resume-sub">Есть сохранение на этом устройстве</span>
+            <span className="lk-archive__resume-title">{t('archive.resumeTitle')}</span>
+            <span className="lk-archive__resume-sub">{t('archive.resumeSub')}</span>
           </div>
           <button type="button" className="lk-archive__btn" onClick={onContinueOffline}>
-            Продолжить
+            {t('archive.continue')}
           </button>
         </div>
       ) : null}
 
+      {cloudError && configured && userId ? (
+        <p className="lk-archive__cloud-error">
+          {t('archive.cloudFail')}{' '}
+          <button type="button" className="lk-archive__hint-link" onClick={() => void loadFeed()}>
+            {t('archive.refresh')}
+          </button>
+        </p>
+      ) : null}
+
       {showMobileEmpty ? (
         <p className="lk-archive__empty-hero">
-          Сохранённых партий пока нет. Здесь появится список завершённых партий.
+          {t('archive.emptyHero')}
         </p>
       ) : isMobile && loading && !hasAnyMatches ? (
-        <p className="lk-archive__empty-hero">Загрузка…</p>
+        <p className="lk-archive__empty-hero">{t('archive.loading')}</p>
       ) : (
         <>
-      <div className="lk-archive__filters" role="tablist" aria-label="Фильтр партий">
+      <div className="lk-archive__filters" role="tablist" aria-label={t('archive.filterAria')}>
         {filters.map((f) => (
           <button
             key={f.id}
@@ -681,8 +745,8 @@ export function MatchArchiveHub({
             >
               <span className="lk-archive__list-toggle-label">
                 {listOpen
-                  ? 'Свернуть список'
-                  : `Список партий${hasAnyMatches ? ` · ${feed.length}` : ''}`}
+                  ? t('archive.collapseList')
+                  : `${t('archive.listMatches')}${hasAnyMatches ? ` · ${feed.length}` : ''}`}
               </span>
               <span className="lk-archive__list-toggle-chev" aria-hidden>
                 {listOpen ? '▴' : '▾'}
@@ -694,11 +758,10 @@ export function MatchArchiveHub({
             <div className="lk-archive__list-wrap">
               <div className="lk-archive__list" role="list">
                 {loading ? (
-                  <p className="lk-archive__empty">Загрузка…</p>
+                  <p className="lk-archive__empty">{t('archive.loading')}</p>
                 ) : feed.length === 0 ? (
                   <p className="lk-archive__empty">
-                    Пока пусто. Завершите партию — запись появится здесь
-                    {configured && userId ? ' и в облаке под вашим логином' : ''}.
+                    {`${t('archive.emptyFeed')}${configured && userId ? t('archive.emptyFeedCloud') : ''}.`}
                   </p>
                 ) : (
                   feed.map((row) => {
@@ -719,23 +782,22 @@ export function MatchArchiveHub({
                             <span className="lk-archive__row-when">{formatWhen(c.finished_at)}</span>
                             <span className="lk-archive__tags">
                               <span className={`lk-archive__tag lk-archive__tag--${c.is_offline ? 'offline' : 'online'}`}>
-                                {c.is_offline ? 'офлайн' : 'онлайн'}
+                                {c.is_offline ? t('archive.tagOffline') : t('archive.tagOnline')}
                               </span>
-                              <span className="lk-archive__tag lk-archive__tag--cloud">облако</span>
+                              <span className="lk-archive__tag lk-archive__tag--cloud">{t('archive.tagCloud')}</span>
                             </span>
                           </span>
                           <span className="lk-archive__row-body">
                             <strong className="lk-archive__place">
-                              {c.place != null ? `${c.place} место` : '—'}
+                              {c.place != null ? t('archive.place', { n: c.place }) : '—'}
                             </strong>
                             <span className="lk-archive__sep">·</span>
-                            <span>{score} очк.</span>
+                            <span>{t('archive.pts', { n: score })}</span>
                             {c.chips != null ? (
                               <>
                                 <span className="lk-archive__sep">·</span>
                                 <span style={{ color: chipColor(c.chips) }}>
-                                  {c.chips >= 0 ? '+' : ''}
-                                  {c.chips} фиш.
+                                  {t('archive.chips', { n: `${c.chips >= 0 ? '+' : ''}${c.chips}` })}
                                 </span>
                               </>
                             ) : null}
@@ -758,27 +820,25 @@ export function MatchArchiveHub({
                             <span
                               className={`lk-archive__tag lk-archive__tag--${loc.source === 'online' ? 'online' : 'offline'}`}
                             >
-                              {loc.source === 'online' ? 'онлайн' : 'офлайн'}
+                              {loc.source === 'online' ? t('archive.tagOnline') : t('archive.tagOffline')}
                             </span>
-                            <span className="lk-archive__tag lk-archive__tag--device">устройство</span>
+                            <span className="lk-archive__tag lk-archive__tag--device">{t('archive.tagDevice')}</span>
                           </span>
                         </span>
                         <span className="lk-archive__row-body">
-                          <strong className="lk-archive__place">{loc.humanPlace} место</strong>
+                          <strong className="lk-archive__place">{t('archive.place', { n: loc.humanPlace })}</strong>
                           <span className="lk-archive__sep">·</span>
                           <span>
-                            {loc.humanScore >= 0 ? '+' : ''}
-                            {loc.humanScore} очк.
+                            {t('archive.pts', { n: `${loc.humanScore >= 0 ? '+' : ''}${loc.humanScore}` })}
                           </span>
                           <span className="lk-archive__sep">·</span>
                           <span style={{ color: chipColor(loc.humanChips) }}>
-                            {loc.humanChips >= 0 ? '+' : ''}
-                            {loc.humanChips} фиш.
+                            {t('archive.chips', { n: `${loc.humanChips >= 0 ? '+' : ''}${loc.humanChips}` })}
                           </span>
                           {loc.humanWon ? (
                             <>
                               <span className="lk-archive__sep">·</span>
-                              <span className="lk-archive__win">победа</span>
+                              <span className="lk-archive__win">{t('archive.win')}</span>
                             </>
                           ) : null}
                         </span>
@@ -794,30 +854,30 @@ export function MatchArchiveHub({
         {showDetailPane ? (
         <div className="lk-archive__detail" ref={detailRef} aria-live="polite">
           {!detailKey ? (
-            <p className="lk-archive__empty">Выберите партию, чтобы открыть итог и раздачи.</p>
+            <p className="lk-archive__empty">{t('archive.pickDetail')}</p>
           ) : detailLoading ? (
-            <p className="lk-archive__empty">Загрузка детали…</p>
+            <p className="lk-archive__empty">{t('archive.loadingDetail')}</p>
           ) : cloudDetail ? (
             <div className="lk-archive__detail-inner">
               <div className="lk-archive__detail-top">
                 <h3 className="lk-archive__detail-title">
-                  {cloudDetail.is_offline ? 'Офлайн' : 'Онлайн'} · {cloudDetail.code}
+                  {cloudDetail.is_offline ? t('archive.offline') : t('archive.online')} · {cloudDetail.code}
                 </h3>
                 <button type="button" className="lk-archive__btn lk-archive__btn--ghost" onClick={closeDetail}>
-                  Закрыть
+                  {t('common.close')}
                 </button>
               </div>
               <p className="lk-archive__detail-meta">
                 {formatWhen(cloudDetail.finished_at)}
                 {cloudDetail.settlement_mode
-                  ? ` · ${modeLabel(cloudDetail.settlement_mode)}`
+                  ? ` · ${modeLabel(cloudDetail.settlement_mode, t)}`
                   : ''}
-                {cloudDetail.my_place != null ? ` · ваше место ${cloudDetail.my_place}` : ''}
+                {cloudDetail.my_place != null ? ` · ${t('archive.yourPlace', { n: cloudDetail.my_place })}` : ''}
                 {cloudDetail.my_final_score != null
-                  ? ` · ${cloudDetail.my_final_score >= 0 ? '+' : ''}${cloudDetail.my_final_score} очк.`
+                  ? ` · ${t('archive.pts', { n: `${cloudDetail.my_final_score >= 0 ? '+' : ''}${cloudDetail.my_final_score}` })}`
                   : ''}
                 {cloudDetail.my_chips != null
-                  ? ` · ${cloudDetail.my_chips >= 0 ? '+' : ''}${cloudDetail.my_chips} фиш.`
+                  ? ` · ${t('archive.chips', { n: `${cloudDetail.my_chips >= 0 ? '+' : ''}${cloudDetail.my_chips}` })}`
                   : ''}
               </p>
               <ul className="lk-archive__standings">
@@ -828,18 +888,17 @@ export function MatchArchiveHub({
                       cloudDetail.chips_by_slot?.[String(p.slot_index)] != null
                         ? Number(cloudDetail.chips_by_slot[String(p.slot_index)])
                         : null;
-                    const label =
-                      p.display_name?.trim() && !/^игрок\s*\d*$/i.test(p.display_name.trim())
+                    const rawName =
+                      p.display_name?.trim() && !isGenericPlayerLabel(p.display_name)
                         ? p.display_name.trim()
-                        : p.account_hint?.trim() ||
-                          p.display_name?.trim() ||
-                          `Игрок ${(p.slot_index ?? 0) + 1}`;
+                        : p.account_hint?.trim() || p.display_name?.trim() || '';
+                    const label = displaySeatName(rawName, p.slot_index ?? 0, cloudDetail.players.length, t);
                     return (
                       <li key={p.slot_index}>
                         <span>
                           {p.place != null ? `${p.place}. ` : ''}
                           {label}
-                          {p.is_ai ? ' (ИИ)' : ''}
+                          {p.is_ai ? t('archive.aiParen') : ''}
                         </span>
                         <span>
                           {p.final_score >= 0 ? '+' : ''}
@@ -897,23 +956,24 @@ export function MatchArchiveHub({
             <div className="lk-archive__detail-inner">
               <div className="lk-archive__detail-top">
                 <h3 className="lk-archive__detail-title">
-                  {localDetail.source === 'online' ? 'Онлайн' : 'Офлайн'} · №{localDetail.gameId}
+                  {localDetail.source === 'online' ? t('archive.online') : t('archive.offline')} · №
+                  {localDetail.gameId}
                 </h3>
                 <button type="button" className="lk-archive__btn lk-archive__btn--ghost" onClick={closeDetail}>
-                  Закрыть
+                  {t('common.close')}
                 </button>
               </div>
               <p className="lk-archive__detail-meta">
-                {formatWhen(localDetail.finishedAt)} · {modeLabel(localDetail.settlementMode)} · место{' '}
-                {localDetail.humanPlace} · {localDetail.humanScore >= 0 ? '+' : ''}
-                {localDetail.humanScore} очк. · {localDetail.humanChips >= 0 ? '+' : ''}
-                {localDetail.humanChips} фиш.
+                {formatWhen(localDetail.finishedAt)} · {modeLabel(localDetail.settlementMode, t)} ·{' '}
+                {t('archive.placeMeta', { n: localDetail.humanPlace })} ·{' '}
+                {t('archive.pts', { n: `${localDetail.humanScore >= 0 ? '+' : ''}${localDetail.humanScore}` })} ·{' '}
+                {t('archive.chips', { n: `${localDetail.humanChips >= 0 ? '+' : ''}${localDetail.humanChips}` })}
               </p>
               <ul className="lk-archive__standings">
                 {localDetail.players.map((p, i) => (
                   <li key={`${p.place}-${p.name}-${i}`}>
                     <span>
-                      {p.place}. {p.name?.trim() || `Игрок ${i + 1}`}
+                      {p.place}. {displaySeatName(p.name ?? '', i, localDetail.players.length, t)}
                     </span>
                     <span>
                       {p.score >= 0 ? '+' : ''}
@@ -941,7 +1001,7 @@ export function MatchArchiveHub({
               })()}
             </div>
           ) : (
-            <p className="lk-archive__empty">Не удалось загрузить деталь.</p>
+            <p className="lk-archive__empty">{t('archive.detailFail')}</p>
           )}
         </div>
         ) : null}

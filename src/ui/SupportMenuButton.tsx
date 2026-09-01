@@ -4,6 +4,7 @@
  */
 
 import { useId, type ReactNode } from 'react';
+import { useT } from '../i18n';
 
 type SupportMenuButtonProps = {
   onClick: () => void;
@@ -87,6 +88,7 @@ function SparkTail(): ReactNode {
 
 export function SupportMenuButton({ onClick, className }: SupportMenuButtonProps) {
   const uid = useId().replace(/:/g, '');
+  const t = useT();
 
   return (
     <button
@@ -107,7 +109,7 @@ export function SupportMenuButton({ onClick, className }: SupportMenuButtonProps
       </span>
       <span className="support-menu-btn__body">
         <span className="support-menu-btn__label">
-          <span className="support-menu-btn__label-text">поддержать проект</span>
+          <span className="support-menu-btn__label-text">{t('menu.support')}</span>
           <SparkTail />
         </span>
       </span>

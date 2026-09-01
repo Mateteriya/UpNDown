@@ -6,22 +6,26 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_AUTH_TIMEOUT_MS, SUPABASE_REST_TIMEOUT_MS } from './networkTimeouts';
 
+function abortReason(message: string): DOMException {
+  return new DOMException(message, 'AbortError');
+}
+
 function fetchWithTimeout(
   input: RequestInfo | URL,
   init: RequestInit | undefined,
   timeoutMs: number,
 ): Promise<Response> {
   const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), timeoutMs);
+  const t = setTimeout(() => controller.abort(abortReason('Supabase request timed out')), timeoutMs);
   const parent = init?.signal;
   if (parent) {
     if (parent.aborted) {
       clearTimeout(t);
-      return Promise.reject(parent.reason ?? new DOMException('Aborted', 'AbortError'));
+      return Promise.reject(parent.reason ?? abortReason('Aborted'));
     }
     const onParentAbort = () => {
       clearTimeout(t);
-      controller.abort(parent.reason);
+      controller.abort(parent.reason ?? abortReason('Aborted'));
     };
     parent.addEventListener('abort', onParentAbort);
     return fetch(input, { ...init, signal: controller.signal }).finally(() => {
@@ -41,6 +45,10 @@ function fetchForSupabase(input: RequestInfo | URL, init?: RequestInit): Promise
   if (typeof input === 'string') href = input;
   else if (typeof URL !== 'undefined' && input instanceof URL) href = input.href;
   else if (typeof Request !== 'undefined' && input instanceof Request) href = input.url;
+  /* refresh_token не обрывать за 4с — иначе ~каждые 10 мин SIGNED_OUT / «сброс» лабы */
+  if (/\/auth\/v1\/token\b/i.test(href)) {
+    return fetchWithTimeout(input, init, Math.max(SUPABASE_AUTH_TIMEOUT_MS, 15_000));
+  }
   if (/\/auth\/v1\b/i.test(href)) return fetchWithTimeout(input, init, SUPABASE_AUTH_TIMEOUT_MS);
   return fetchWithTimeout(input, init, SUPABASE_REST_TIMEOUT_MS);
 }
@@ -62,3 +70,16 @@ try {
 export const supabase = _supabase;
 
 export const isSupabaseConfigured = (): boolean => !!supabase;
+
+/** supabase-js abort’ит lock/getSession без catch — иначе консоль и DEV-тормоза. */
+function isBenignAbortReason(reason: unknown): boolean {
+  if (reason == null || typeof reason !== 'object') return false;
+  return 'name' in reason && String((reason as { name: unknown }).name) === 'AbortError';
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (ev) => {
+    if (!isBenignAbortReason(ev.reason)) return;
+    ev.preventDefault();
+  });
+}

@@ -78,6 +78,14 @@
   color: #a5f3fc;
 }
 
+.lk-archive__cloud-error {
+  margin: 0;
+  font-family: var(--lk-arch-font-ui);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #fdba74;
+}
+
 .lk-archive__resume {
   display: flex;
   align-items: center;

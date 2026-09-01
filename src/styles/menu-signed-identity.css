@@ -106,6 +106,7 @@
   -webkit-tap-highlight-color: transparent;
   font: inherit;
   color: #e879f9;
+  user-select: none;
   background: linear-gradient(160deg, rgba(76, 29, 149, 0.92), rgba(30, 10, 58, 0.98));
   box-shadow:
     0 0 0 1px rgba(232, 121, 249, 0.55),
@@ -220,6 +221,7 @@
   background: transparent;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  user-select: none;
   transition:
     padding 0.35s ease,
     border-color 0.35s ease,

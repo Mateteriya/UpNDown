@@ -58,6 +58,7 @@ import './styles/offline-ready-orb.css'
 import './styles/plasma-badge-pc-no-outer-glow.css'
 /* Канон панели Юга (ПК/планшет): размеры, имя, аватар — единственный источник правды. */
 import './styles/user-south-panel.css'
+import './i18n'
 
 installPwaStaleRecovery()
 stripRecoveryQueryFromUrl()
@@ -165,11 +166,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         </DemoGuard>
       </ThemeProvider>
     ) : isAudioSfxLab ? (
-      <ThemeProvider>
-        <DemoGuard>
-          <AudioSfxLabPage onBack={() => (window.location.href = '/')} />
-        </DemoGuard>
-      </ThemeProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <DemoGuard>
+            <AudioSfxLabPage onBack={() => (window.location.href = '/')} />
+          </DemoGuard>
+        </ThemeProvider>
+      </AuthProvider>
     ) : (
       <AuthProvider>
         <OnlineGameProvider>

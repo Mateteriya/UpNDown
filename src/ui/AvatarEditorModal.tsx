@@ -43,11 +43,39 @@ import { AvatarPolishGlyph } from './icons/AvatarPolishGlyph';
 import { AvatarNeonColorPicker, BRUSH_QUICK_COLORS } from './AvatarNeonColorPicker';
 import { getPlayerAvatarInitials } from './PlayerAvatar';
 import { useDesktopProfileUi } from './useDesktopProfileUi';
+import { useT, type TFunc } from '../i18n';
 
 const CANVAS_SIZE = 512;
 const MAX_UNDO = 24;
 
 const BRUSH_SIZES = [4, 8, 14] as const;
+
+function templateLabel(id: AvatarEditorTemplateId, tr: TFunc): string {
+  switch (id) {
+    case 'nebula':
+      return tr('avatarEditor.nebula');
+    case 'aurora':
+      return tr('avatarEditor.aurora');
+    case 'ember':
+      return tr('avatarEditor.ember');
+    case 'violet-crown':
+      return tr('avatarEditor.violetCrown');
+    case 'deep-space':
+      return tr('avatarEditor.deepSpace');
+    case 'prism':
+      return tr('avatarEditor.prism');
+    default:
+      return tr('avatarEditor.none');
+  }
+}
+
+function frameLabel(id: string, tr: TFunc): string {
+  if (id === 'cosmic') return tr('avatarEditor.frameCosmic');
+  if (id === 'gold') return tr('avatarEditor.frameGold');
+  if (id === 'neon') return tr('avatarEditor.frameNeon');
+  if (id === 'orbit') return tr('avatarEditor.frameOrbit');
+  return id;
+}
 
 type EditorTool = 'brush' | 'eraser' | 'sticker' | 'photo';
 
@@ -88,6 +116,7 @@ export function AvatarEditorModal({
   onCancel,
   onPhotoCaptured,
 }: AvatarEditorModalProps) {
+  const tr = useT();
   const isDesktopProfileUi = useDesktopProfileUi();
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -405,7 +434,7 @@ export function AvatarEditorModal({
       drawAvatarFrameOnLayer(ctx, CANVAS_SIZE, img);
       compositeToDisplay();
     } catch {
-      setError('Не удалось загрузить рамку');
+      setError(tr('avatarEditor.frameFail'));
     }
   };
 
@@ -570,7 +599,7 @@ export function AvatarEditorModal({
         if (preferNativeCameraPicker()) {
           openNativeCameraPicker(selfieInputRef.current);
         } else {
-          setError(e instanceof Error ? e.message : 'Не удалось открыть камеру');
+          setError(e instanceof Error ? e.message : tr('nameAvatar.cameraFail'));
         }
       }
     })();
@@ -598,7 +627,7 @@ export function AvatarEditorModal({
       const dataUrl = await captureSelfieDataUrl();
       applyPhotoDataUrl(dataUrl);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось открыть камеру');
+      setError(e instanceof Error ? e.message : tr('nameAvatar.cameraFail'));
     } finally {
       setSelfieBusy(false);
     }
@@ -613,7 +642,7 @@ export function AvatarEditorModal({
       applyPhotoDataUrl(await captureVideoElementDataUrl(video));
       stopInPageCamera();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось снять кадр');
+      setError(e instanceof Error ? e.message : tr('nameAvatar.shotFail'));
     } finally {
       setSelfieBusy(false);
     }
@@ -623,18 +652,18 @@ export function AvatarEditorModal({
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      setError('Выберите изображение');
+      setError(tr('avatarEditor.pickImage'));
       return;
     }
     if (file.size > MAX_AVATAR_IMAGE_SIZE_BYTES) {
-      setError(`Файл не больше ${Math.round(MAX_AVATAR_IMAGE_SIZE_BYTES / 1024 / 1024)} МБ`);
+      setError(tr('nameAvatar.fileTooBig', { n: Math.round(MAX_AVATAR_IMAGE_SIZE_BYTES / 1024 / 1024) }));
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
       applyPhotoDataUrl(reader.result as string);
     };
-    reader.onerror = () => setError('Не удалось прочитать файл');
+    reader.onerror = () => setError(tr('nameAvatar.readFail'));
     reader.readAsDataURL(file);
     e.target.value = '';
   };
@@ -650,7 +679,7 @@ export function AvatarEditorModal({
       out = await compressImageToDataUrl(out);
       onSave(out);
     } catch {
-      setError('Не удалось сохранить');
+      setError(tr('avatarEditor.saveFail'));
     } finally {
       setSaving(false);
     }
@@ -682,14 +711,14 @@ export function AvatarEditorModal({
     tool === 'sticker' ? 'copy' : tool === 'photo' ? 'grab' : tool === 'eraser' ? 'cell' : 'crosshair';
   const hintText =
     tool === 'photo'
-      ? 'Перетащите фото · ± масштаб'
+      ? tr('avatarEditor.hintDrag')
       : tool === 'sticker'
-        ? 'Нажмите на холст — стикер'
+        ? tr('avatarEditor.hintSticker')
         : photoDataUrl && baseMode === 'photo'
-          ? 'Фон меняется под фото · Назад / Вперёд'
+          ? tr('avatarEditor.hintPhotoBg')
           : polishApplied
-            ? 'Объём добавлен · Назад / Вперёд'
-            : 'Рисуйте · рамки · Назад / Вперёд / объём';
+            ? tr('avatarEditor.hintPolish')
+            : tr('avatarEditor.hintDraw');
 
   return createPortal(
     <div
@@ -718,12 +747,12 @@ export function AvatarEditorModal({
             <div className="avatar-editor-modal-card__hud" aria-hidden />
           </>
         ) : null}
-        <button type="button" className="avatar-editor-modal-close" onClick={onCancel} aria-label="Закрыть">
+        <button type="button" className="avatar-editor-modal-close" onClick={onCancel} aria-label={tr('common.close')}>
           ×
         </button>
         <div className="avatar-editor-hero">
           <h2 id="avatar-editor-title" className="avatar-editor-modal-card__title">
-            Персональный образ
+            {tr('avatarEditor.title')}
           </h2>
           <div className="avatar-editor-hero__wing avatar-editor-hero__wing--left">
             <button
@@ -731,27 +760,27 @@ export function AvatarEditorModal({
               className="avatar-editor-history-btn avatar-editor-hero__slot avatar-editor-hero__slot--top"
               onClick={handleUndo}
               disabled={!canUndo}
-              title="Назад (Ctrl+Z)"
-              aria-label="Назад"
+              title={tr('avatarEditor.backTitle')}
+              aria-label={tr('avatarEditor.back')}
             >
               <span className="avatar-editor-history-btn__icon" aria-hidden>
                 ↶
               </span>
-              <span className="avatar-editor-history-btn__label">Назад</span>
+              <span className="avatar-editor-history-btn__label">{tr('avatarEditor.back')}</span>
             </button>
-            <p className="avatar-editor-hero__eyebrow avatar-editor-hero__slot avatar-editor-hero__slot--mid">Аватар</p>
+            <p className="avatar-editor-hero__eyebrow avatar-editor-hero__slot avatar-editor-hero__slot--mid">{tr('avatarEditor.avatar')}</p>
             <button
               type="button"
               className="avatar-editor-history-btn avatar-editor-hero__slot avatar-editor-hero__slot--bottom"
               onClick={handleRedo}
               disabled={!canRedo}
-              title="Вперёд (Ctrl+Y)"
-              aria-label="Вперёд"
+              title={tr('avatarEditor.forwardTitle')}
+              aria-label={tr('avatarEditor.forward')}
             >
               <span className="avatar-editor-history-btn__icon" aria-hidden>
                 ↷
               </span>
-              <span className="avatar-editor-history-btn__label">Вперёд</span>
+              <span className="avatar-editor-history-btn__label">{tr('avatarEditor.forward')}</span>
             </button>
           </div>
           <div className="avatar-editor-preview-ring avatar-editor-hero__canvas">
@@ -763,7 +792,7 @@ export function AvatarEditorModal({
               onPointerMove={onPointerMove}
               onPointerUp={endStroke}
               onPointerCancel={endStroke}
-              aria-label="Холст аватарки"
+              aria-label={tr('avatarEditor.canvas')}
             />
           </div>
           <div className="avatar-editor-hero__wing avatar-editor-hero__wing--right">
@@ -771,10 +800,10 @@ export function AvatarEditorModal({
               type="button"
               className="avatar-editor-clear-btn avatar-editor-hero__slot avatar-editor-hero__slot--top"
               onClick={clearDrawing}
-              title="Стереть рисунок и стикеры"
-              aria-label="Очистить"
+              title={tr('avatarEditor.clearTitle')}
+              aria-label={tr('avatarEditor.clear')}
             >
-              <span className="avatar-editor-clear-btn__label">Очистить</span>
+              <span className="avatar-editor-clear-btn__label">{tr('avatarEditor.clear')}</span>
             </button>
             <button
               type="button"
@@ -785,8 +814,8 @@ export function AvatarEditorModal({
                 polishApplied ? 'avatar-editor-3d-btn--applied' : '',
               ].join(' ')}
               onClick={apply3dPolish}
-              title="3D-финиш: объём сферы — затемнение по краям, блик, тень, ободок"
-              aria-label="3D-финиш"
+              title={tr('avatarEditor.polishTitle')}
+              aria-label={tr('avatarEditor.polish')}
             >
               <AvatarPolishGlyph className="avatar-editor-3d-btn__glyph" />
             </button>
@@ -800,13 +829,13 @@ export function AvatarEditorModal({
                   className={['avatar-editor-photo-tool-btn', tool === 'photo' ? 'avatar-editor-photo-tool-btn--active' : ''].join(' ')}
                   onClick={() => setTool('photo')}
                 >
-                  Позиция
+                  {tr('avatarEditor.position')}
                 </button>
-                <button type="button" className="avatar-editor-photo-zoom-btn" onClick={() => changePhotoScale(-0.08)} aria-label="Уменьшить">
+                <button type="button" className="avatar-editor-photo-zoom-btn" onClick={() => changePhotoScale(-0.08)} aria-label={tr('nameAvatar.zoomOut')}>
                   −
                 </button>
                 <span className="avatar-editor-photo-zoom-label">{Math.round(photoScale * 100)}%</span>
-                <button type="button" className="avatar-editor-photo-zoom-btn" onClick={() => changePhotoScale(0.08)} aria-label="Увеличить">
+                <button type="button" className="avatar-editor-photo-zoom-btn" onClick={() => changePhotoScale(0.08)} aria-label={tr('nameAvatar.zoomIn')}>
                   +
                 </button>
               </div>
@@ -814,38 +843,41 @@ export function AvatarEditorModal({
           </div>
           {photoDataUrl && baseMode !== 'photo' && (
             <button type="button" className="avatar-editor-restore-photo-btn avatar-editor-hero__restore-photo" onClick={restorePhotoMode}>
-              Вернуть моё фото
+              {tr('avatarEditor.restorePhoto')}
             </button>
           )}
         </div>
 
         <div className="avatar-editor-modal-body">
         <div className="avatar-editor-block avatar-editor-modal-body__bg">
-          <span className="avatar-editor-section-label">Фон</span>
+          <span className="avatar-editor-section-label">{tr('avatarEditor.bg')}</span>
           <div className="avatar-editor-templates" role="list">
-            {AVATAR_EDITOR_TEMPLATES.map((t) => (
+            {AVATAR_EDITOR_TEMPLATES.map((tpl) => {
+              const label = templateLabel(tpl.id, tr);
+              return (
               <button
-                key={t.id}
+                key={tpl.id}
                 type="button"
                 role="listitem"
                 className={[
                   'avatar-editor-template-chip',
-                  templateId === t.id && (baseMode === 'template' || baseMode === 'photo')
+                  templateId === tpl.id && (baseMode === 'template' || baseMode === 'photo')
                     ? 'avatar-editor-template-chip--active'
                     : '',
-                  `avatar-editor-template-chip--${t.id}`,
+                  `avatar-editor-template-chip--${tpl.id}`,
                 ].join(' ')}
-                onClick={() => selectTemplate(t.id)}
-                title={t.label}
+                onClick={() => selectTemplate(tpl.id)}
+                title={label}
               >
-                <span className="avatar-editor-template-chip__label">{t.label}</span>
+                <span className="avatar-editor-template-chip__label">{label}</span>
               </button>
-            ))}
+              );
+            })}
             <button
               type="button"
               className={['avatar-editor-template-chip', 'avatar-editor-template-chip--initials', baseMode === 'initials' ? 'avatar-editor-template-chip--active' : ''].join(' ')}
               onClick={useInitialsBase}
-              title="Инициалы"
+              title={tr('avatarEditor.initials')}
             >
               <span className="avatar-editor-template-chip__label">{getInitials(displayName)}</span>
             </button>
@@ -853,7 +885,7 @@ export function AvatarEditorModal({
         </div>
 
         <div className="avatar-editor-block avatar-editor-tools avatar-editor-modal-body__tools">
-          <span className="avatar-editor-section-label">Кисть</span>
+          <span className="avatar-editor-section-label">{tr('avatarEditor.brush')}</span>
           <div className={['avatar-editor-tools-line', brushNeon ? '' : 'avatar-editor-tools-line--flat-brush'].filter(Boolean).join(' ')}>
             {BRUSH_QUICK_COLORS.map((c) => (
               <button
@@ -868,7 +900,7 @@ export function AvatarEditorModal({
                   .join(' ')}
                 style={{ background: c }}
                 onClick={() => selectBrushColor(c)}
-                aria-label={`Цвет ${c}`}
+                aria-label={tr('avatarEditor.colorOf', { c })}
               />
             ))}
             <AvatarNeonColorPicker
@@ -895,13 +927,13 @@ export function AvatarEditorModal({
               className={['avatar-editor-tool-toggle', tool === 'eraser' ? 'avatar-editor-tool-toggle--active' : ''].join(' ')}
               onClick={() => setTool(tool === 'eraser' ? 'brush' : 'eraser')}
             >
-              Ластик
+              {tr('avatarEditor.eraser')}
             </button>
           </div>
         </div>
 
         <div className="avatar-editor-block avatar-editor-decor avatar-editor-modal-body__decor">
-          <span className="avatar-editor-section-label">Рамки · стикеры</span>
+          <span className="avatar-editor-section-label">{tr('avatarEditor.framesStickers')}</span>
           <AvatarEditorChipRail
             collapsedVisible={isDesktopProfileUi ? AVATAR_EDITOR_FRAMES.length + AVATAR_EDITOR_STICKERS.length : 6}
             className="avatar-editor-decor-rail"
@@ -912,9 +944,9 @@ export function AvatarEditorModal({
                 type="button"
                 className={['avatar-editor-frame-btn', activeFrameId === f.id ? 'avatar-editor-frame-btn--active' : ''].join(' ')}
                 onClick={() => void applyFrame(f.id)}
-                title={f.label}
+                title={frameLabel(f.id, tr)}
               >
-                <img src={f.src} alt="" className="avatar-editor-frame-btn__img" />
+                <img src={f.src} alt={frameLabel(f.id, tr)} className="avatar-editor-frame-btn__img" />
               </button>
             ))}
             {AVATAR_EDITOR_STICKERS.map((s) => (
@@ -938,14 +970,14 @@ export function AvatarEditorModal({
         </div>
 
         {inPageCameraOpen && (
-          <div className="avatar-editor-inpage-camera" role="region" aria-label="Селфи">
+          <div className="avatar-editor-inpage-camera" role="region" aria-label={tr('nameAvatar.selfie')}>
             <video ref={cameraVideoRef} className="avatar-editor-inpage-camera__video" playsInline muted autoPlay />
             <div className="avatar-editor-inpage-camera__actions">
               <button type="button" className="avatar-editor-modal-btn avatar-editor-modal-btn--ghost avatar-editor-modal-btn--compact" onClick={stopInPageCamera}>
-                Отмена
+                {tr('common.cancel')}
               </button>
               <button type="button" className="avatar-editor-modal-btn avatar-editor-modal-btn--primary avatar-editor-modal-btn--compact" disabled={selfieBusy} onClick={() => void handleInPageCameraCapture()}>
-                {selfieBusy ? '…' : 'Снять'}
+                {selfieBusy ? '…' : tr('nameAvatar.shoot')}
               </button>
             </div>
           </div>
@@ -968,22 +1000,22 @@ export function AvatarEditorModal({
             onChange={handleFileChange}
           />
           <button type="button" className="avatar-editor-modal-btn avatar-editor-modal-btn--primary avatar-editor-modal-btn--compact" disabled={selfieBusy || saving || inPageCameraOpen} onClick={() => void handleSelfie()}>
-            {selfieBusy ? 'Камера…' : inPageCameraOpen ? 'Снимаем…' : 'Селфи'}
+            {selfieBusy ? tr('nameAvatar.cameraBusy') : inPageCameraOpen ? tr('avatarEditor.shooting') : tr('nameAvatar.selfie')}
           </button>
           <button type="button" className="avatar-editor-modal-btn avatar-editor-modal-btn--secondary avatar-editor-modal-btn--compact" disabled={saving || inPageCameraOpen} onClick={() => openGalleryPicker(galleryInputRef.current)}>
-            Галерея
+            {tr('nameAvatar.gallery')}
           </button>
           {photoDataUrl ? (
             <button type="button" className="avatar-editor-modal-btn avatar-editor-modal-btn--ghost avatar-editor-modal-btn--compact" onClick={handleRemovePhoto}>
-              Без фото
+              {tr('avatarEditor.noPhoto')}
             </button>
           ) : null}
           <span className="avatar-editor-modal-footer__spacer" aria-hidden />
           <button type="button" className="avatar-editor-modal-btn avatar-editor-modal-btn--ghost avatar-editor-modal-btn--compact" onClick={onCancel} disabled={saving}>
-            Отмена
+            {tr('common.cancel')}
           </button>
           <button type="button" className="avatar-editor-modal-btn avatar-editor-modal-btn--primary avatar-editor-modal-btn--compact" onClick={() => void handleSave()} disabled={saving}>
-            {saving ? '…' : 'Сохранить'}
+            {saving ? '…' : tr('common.save')}
           </button>
         </div>
       </div>

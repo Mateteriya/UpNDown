@@ -1,6 +1,12 @@
 import {
   DEFAULT_LAB_VOICE,
   LAB_PRESETS_STORAGE_KEY,
+  LAB_SESSION_DRAFT_KEY,
+  type LabBeatParams,
+  type LabMelodyLayer,
+  type LabMusicPadParams,
+  type LabMusicSessionSnapshot,
+  type LabMusicSlotId,
   type LabPreset,
   type LabVoiceParams,
 } from './types';
@@ -29,35 +35,48 @@ function saveAll(presets: LabPreset[]): void {
   }
 }
 
-export function upsertLabPreset(
-  input: {
-    id?: string;
-    name: string;
-    voice: LabVoiceParams;
-    phrase: LabPreset['phrase'];
-    slotHint?: string;
-    chordMidis?: number[];
-    lastMidi?: number;
-  },
-): LabPreset {
+export type UpsertLabPresetInput = {
+  id?: string;
+  name: string;
+  voice: LabVoiceParams;
+  phrase: LabPreset['phrase'];
+  slotHint?: string;
+  chordMidis?: number[];
+  lastMidi?: number;
+  kind?: 'sfx' | 'music';
+  musicSlot?: LabMusicSlotId;
+  beat?: LabBeatParams;
+  pad?: LabMusicPadParams;
+  layers?: LabMelodyLayer[];
+  session?: LabMusicSessionSnapshot;
+};
+
+export function upsertLabPreset(input: UpsertLabPresetInput): LabPreset {
   const list = loadLabPresets();
   const now = Date.now();
+  const kind = input.kind ?? 'sfx';
   const idx = input.id
     ? list.findIndex((p) => p.id === input.id)
-    : input.slotHint
-      ? list.findIndex((p) => p.slotHint === input.slotHint)
+    : kind === 'sfx' && input.slotHint
+      ? list.findIndex((p) => (p.kind ?? 'sfx') === 'sfx' && p.slotHint === input.slotHint)
       : -1;
+  const patch: Partial<LabPreset> = {
+    name: input.name,
+    voice: input.voice,
+    phrase: input.phrase,
+    slotHint: input.slotHint,
+    chordMidis: input.chordMidis,
+    lastMidi: input.lastMidi,
+    kind,
+    musicSlot: input.musicSlot,
+    beat: input.beat,
+    pad: input.pad,
+    layers: input.layers,
+    session: input.session,
+    updatedAt: now,
+  };
   if (idx >= 0) {
-    const next: LabPreset = {
-      ...list[idx]!,
-      name: input.name,
-      voice: input.voice,
-      phrase: input.phrase,
-      slotHint: input.slotHint,
-      chordMidis: input.chordMidis,
-      lastMidi: input.lastMidi,
-      updatedAt: now,
-    };
+    const next: LabPreset = { ...list[idx]!, ...patch };
     list[idx] = next;
     saveAll(list);
     return next;
@@ -70,6 +89,12 @@ export function upsertLabPreset(
     slotHint: input.slotHint,
     chordMidis: input.chordMidis,
     lastMidi: input.lastMidi,
+    kind,
+    musicSlot: input.musicSlot,
+    beat: input.beat,
+    pad: input.pad,
+    layers: input.layers,
+    session: input.session,
     updatedAt: now,
   };
   list.unshift(created);
@@ -93,4 +118,40 @@ export function exportPresetJson(preset: LabPreset): void {
 
 export function cloneDefaultVoice(): LabVoiceParams {
   return { ...DEFAULT_LAB_VOICE };
+}
+
+export type LabSessionDraft = {
+  voice: LabVoiceParams;
+  beat: LabBeatParams;
+  pad: LabMusicPadParams;
+  layers: LabMelodyLayer[];
+  musicSlot: LabMusicSlotId;
+  labMode: 'sfx' | 'music';
+  staffLayerId: string | null;
+  beatOn: boolean;
+  bakeBeat: boolean;
+  focusArrange: boolean;
+  keyboardOpen: boolean;
+  savedAt: number;
+};
+
+export function saveLabSessionDraft(draft: Omit<LabSessionDraft, 'savedAt'>): void {
+  try {
+    const payload: LabSessionDraft = { ...draft, savedAt: Date.now() };
+    localStorage.setItem(LAB_SESSION_DRAFT_KEY, JSON.stringify(payload));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function loadLabSessionDraft(): LabSessionDraft | null {
+  try {
+    const raw = localStorage.getItem(LAB_SESSION_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as LabSessionDraft;
+    if (!parsed?.voice || !parsed?.beat) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 }

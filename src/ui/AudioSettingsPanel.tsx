@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  AUDIO_CHANNEL_META,
   LIVE_AUDIO_CHANNELS,
   getAudioSettings,
   patchAudioSettings,
@@ -12,16 +11,26 @@ import {
   stopVolumePreview,
   subscribeAudioSettings,
   unlockAudio,
+  type AudioChannel,
   type AudioSettings,
   type LiveAudioChannel,
   type SoundId,
 } from '../audio';
+import { useT, type MsgKey } from '../i18n';
 
 const CHANNEL_TEST: Record<LiveAudioChannel, SoundId> = {
   mine: 'bid_place',
   others: 'deal_complete',
   ui: 'ui_tap',
   nudge: 'your_turn_nudge_short',
+};
+
+const CHANNEL_I18N: Record<AudioChannel, { label: MsgKey; hint: MsgKey }> = {
+  mine: { label: 'audio.mineLabel', hint: 'audio.mineHint' },
+  others: { label: 'audio.othersLabel', hint: 'audio.othersHint' },
+  ui: { label: 'audio.uiLabel', hint: 'audio.uiHint' },
+  nudge: { label: 'audio.nudgeLabel', hint: 'audio.nudgeHint' },
+  music: { label: 'audio.musicLabel', hint: 'audio.musicHint' },
 };
 
 function isAudible(s: AudioSettings): boolean {
@@ -42,6 +51,7 @@ type Props = {
 };
 
 export function AudioSettingsPanel({ className, compact, renderToggle }: Props) {
+  const t = useT();
   const panelId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const volIdleRef = useRef(0);
@@ -104,17 +114,17 @@ export function AudioSettingsPanel({ className, compact, renderToggle }: Props) 
               className="audio-settings__panel audio-settings__panel--modal"
               role="dialog"
               aria-modal="true"
-              aria-label="Настройки звука и музыки"
+              aria-label={t('audio.panelAria')}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="audio-settings__glow" aria-hidden />
-              <p className="audio-settings__eyebrow">Канал связи</p>
+              <p className="audio-settings__eyebrow">{t('audio.eyebrow')}</p>
               <div className="audio-settings__head">
-                <h2 className="audio-settings__title">Звук и музыка</h2>
+                <h2 className="audio-settings__title">{t('audio.title')}</h2>
                 <button
                   type="button"
                   className="audio-settings__close"
-                  aria-label="Закрыть"
+                  aria-label={t('common.close')}
                   onClick={() => setOpen(false)}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -125,8 +135,8 @@ export function AudioSettingsPanel({ className, compact, renderToggle }: Props) 
 
               <label className="audio-settings__master">
                 <span className="audio-settings__master-copy">
-                  <span className="audio-settings__kicker">Эфир</span>
-                  Все звуки
+                  <span className="audio-settings__kicker">{t('audio.ether')}</span>
+                  {t('audio.allSounds')}
                 </span>
                 <span className="audio-settings__switch-wrap">
                   <input
@@ -145,7 +155,7 @@ export function AudioSettingsPanel({ className, compact, renderToggle }: Props) 
                 max={100}
                 value={Math.round(settings.masterVolume * 100)}
                 disabled={!settings.enabled}
-                aria-label="Общая громкость"
+                aria-label={t('audio.masterVolume')}
                 onPointerDown={hearMaster}
                 onChange={(e) => {
                   apply(patchAudioSettings(settings, { masterVolume: Number(e.target.value) / 100 }));
@@ -153,10 +163,12 @@ export function AudioSettingsPanel({ className, compact, renderToggle }: Props) 
                 }}
               />
 
-              <p className="audio-settings__section">Что слышно</p>
-              <div className="audio-settings-checks" role="group" aria-label="Каналы">
+              <p className="audio-settings__section">{t('audio.whatPlays')}</p>
+              <div className="audio-settings-checks" role="group" aria-label={t('audio.channels')}>
                 {LIVE_AUDIO_CHANNELS.map((ch) => {
-                  const meta = AUDIO_CHANNEL_META[ch];
+                  const keys = CHANNEL_I18N[ch];
+                  const label = t(keys.label);
+                  const hint = t(keys.hint);
                   const on = !settings.muted[ch];
                   const live = settings.enabled && on;
                   return (
@@ -176,7 +188,7 @@ export function AudioSettingsPanel({ className, compact, renderToggle }: Props) 
                           className="audio-settings-check__input"
                           checked={on}
                           disabled={!settings.enabled}
-                          aria-label={meta.label}
+                          aria-label={label}
                           onChange={(e) => toggleChannel(ch, e.target.checked)}
                         />
                         <span className="audio-settings-check__box" aria-hidden>
@@ -192,14 +204,14 @@ export function AudioSettingsPanel({ className, compact, renderToggle }: Props) 
                         </span>
                       </span>
                       <span className="audio-settings-row__copy">
-                        <span className="audio-settings-row__name">{meta.label}</span>
-                        <span className="audio-settings-row__hint">{meta.hint}</span>
+                        <span className="audio-settings-row__name">{label}</span>
+                        <span className="audio-settings-row__hint">{hint}</span>
                       </span>
                       <button
                         type="button"
                         className="audio-settings__test"
                         disabled={!live}
-                        title={`Прослушать: ${meta.label}`}
+                        title={t('audio.preview', { name: label })}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -212,23 +224,23 @@ export function AudioSettingsPanel({ className, compact, renderToggle }: Props) 
                     </label>
                   );
                 })}
-                <div className="audio-settings-row audio-settings-row--soon" title={AUDIO_CHANNEL_META.music.hint}>
+                <div className="audio-settings-row audio-settings-row--soon" title={t('audio.musicHint')}>
                   <span className="audio-settings-row__copy">
-                    <span className="audio-settings-row__name">{AUDIO_CHANNEL_META.music.label}</span>
-                    <span className="audio-settings-row__hint">{AUDIO_CHANNEL_META.music.hint}</span>
+                    <span className="audio-settings-row__name">{t('audio.musicLabel')}</span>
+                    <span className="audio-settings-row__hint">{t('audio.musicHint')}</span>
                   </span>
-                  <span className="audio-settings-chip__soon">скоро</span>
+                  <span className="audio-settings-chip__soon">{t('audio.soon')}</span>
                 </div>
               </div>
 
               <details className="audio-settings__more">
-                <summary>Громкость каналов</summary>
+                <summary>{t('audio.channelVolume')}</summary>
                 <div className="audio-settings__vols">
                   {LIVE_AUDIO_CHANNELS.map((ch) => {
-                    const meta = AUDIO_CHANNEL_META[ch];
+                    const label = t(CHANNEL_I18N[ch].label);
                     return (
                       <label key={ch} className="audio-settings__vol-row">
-                        <span>{meta.label}</span>
+                        <span>{label}</span>
                         <input
                           type="range"
                           min={0}
@@ -236,7 +248,7 @@ export function AudioSettingsPanel({ className, compact, renderToggle }: Props) 
                           value={Math.round(settings.volume[ch] * 100)}
                           disabled={!settings.enabled || settings.muted[ch]}
                           className="audio-settings__range"
-                          aria-label={`Громкость: ${meta.label}`}
+                          aria-label={t('audio.volumeOf', { name: label })}
                           onPointerDown={() => hearChannel(ch)}
                           onChange={(e) => {
                             apply(
@@ -273,7 +285,7 @@ export function AudioSettingsPanel({ className, compact, renderToggle }: Props) 
           className="audio-settings__toggle"
           aria-expanded={open}
           aria-controls={open ? panelId : undefined}
-          title="Звук и музыка"
+          title={t('audio.title')}
           onClick={() => setOpen((v) => !v)}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -290,7 +302,7 @@ export function AudioSettingsPanel({ className, compact, renderToggle }: Props) 
               </>
             )}
           </svg>
-          {!compact ? <span>Звук</span> : null}
+          {!compact ? <span>{t('audio.toggle')}</span> : null}
         </button>
       )}
       {panel}

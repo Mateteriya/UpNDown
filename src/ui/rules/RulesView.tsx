@@ -3,10 +3,9 @@ import {
   isRulesLinkPart,
   RULES_DETAILED,
   RULES_HOW_TO_START,
-  RULES_PAGE_LEAD,
-  RULES_PAGE_TITLE,
   RULES_SHORT,
 } from './rulesContent';
+import { useLocale, useT } from '../../i18n';
 
 export type RulesLayoutMode = 'mobile' | 'pc';
 
@@ -83,6 +82,8 @@ export function RulesView({
   onBack,
   showLayoutBadge = false,
 }: RulesViewProps) {
+  const t = useT();
+  const locale = useLocale();
   const sections = detailed ? RULES_DETAILED : RULES_SHORT;
 
   return (
@@ -99,13 +100,13 @@ export function RulesView({
       <header className="rules-view__top">
         {onBack ? (
           <button type="button" className="rules-view__back" onClick={onBack}>
-            ← Меню
+            ← {t('common.menu')}
           </button>
         ) : (
           <span className="rules-view__back-spacer" />
         )}
         {showLayoutBadge ? (
-          <span className="rules-view__badge">{layout === 'pc' ? 'ПК' : 'Мобилка'}</span>
+          <span className="rules-view__badge">{layout === 'pc' ? t('rules.layoutPc') : t('rules.layoutMobile')}</span>
         ) : null}
       </header>
 
@@ -122,7 +123,7 @@ export function RulesView({
             </span>
           </p>
           <h1 className="rules-view__title">
-            {RULES_PAGE_TITLE.split(/\s+/).map((word, i, arr) => (
+            {t('rules.title').split(/\s+/).map((word, i, arr) => (
               <span
                 key={`${word}-${i}`}
                 className="rules-view__neon-word rules-view__neon-word--hero"
@@ -133,15 +134,16 @@ export function RulesView({
               </span>
             ))}
           </h1>
-          <p className="rules-view__lead">{RULES_PAGE_LEAD}</p>
-          <div className="rules-view__mode-row" role="group" aria-label="Объём правил">
+          <p className="rules-view__lead">{t('rules.lead')}</p>
+          {locale === 'en' ? <p className="rules-view__lead rules-view__lead--en">{t('rules.enBanner')}</p> : null}
+          <div className="rules-view__mode-row" role="group" aria-label={t('rules.volumeAria')}>
             <button
               type="button"
               className={`rules-view__mode-btn${!detailed ? ' rules-view__mode-btn--on' : ''}`}
               onClick={() => detailed && onToggleDetailed()}
               aria-pressed={!detailed}
             >
-              Кратко
+              {t('rules.short')}
             </button>
             <button
               type="button"
@@ -149,15 +151,15 @@ export function RulesView({
               onClick={() => !detailed && onToggleDetailed()}
               aria-pressed={detailed}
             >
-              Подробнее
+              {t('rules.detailed')}
             </button>
           </div>
         </div>
 
         <div className={`rules-view__grid${detailed ? ' rules-view__grid--detailed' : ''}`}>
           {layout === 'pc' && detailed ? (
-            <nav className="rules-view__toc" aria-label="Разделы">
-              <p className="rules-view__toc-label">Разделы</p>
+            <nav className="rules-view__toc" aria-label={t('rules.sections')}>
+              <p className="rules-view__toc-label">{t('rules.sections')}</p>
               <ul>
                 {sections.map((s) => (
                   <li key={s.id}>

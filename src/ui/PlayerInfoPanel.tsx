@@ -10,6 +10,7 @@ import { avatarLikelyHas3dMagic } from '../lib/avatarPremium';
 import { PlayerAvatar } from './PlayerAvatar';
 import { OfflineAiDifficultyOptionList } from './OfflineAiDifficultyOptionList';
 import { AiBotAvatarPicker } from './AiBotAvatarPicker';
+import { localizeAiDisplayName, useT } from '../i18n';
 
 export interface PlayerInfoPanelProps {
   state: GameState;
@@ -50,8 +51,13 @@ export function PlayerInfoPanel({
   portalRootClass,
   layoutMobile = false,
 }: PlayerInfoPanelProps) {
+  const tr = useT();
   const p = state.players[playerIndex];
-  const shownName = playerDisplayName?.trim() || p.name;
+  const shownName = localizeAiDisplayName(
+    p.id,
+    playerDisplayName?.trim() || p.name,
+    state.players.length,
+  );
   const isSelf = playerIndex === 0;
   const isAiBot = isAiPlayer || p.id === 'ai1' || p.id === 'ai2' || p.id === 'ai3';
   const hasPhoto = !!playerAvatarDataUrl;
@@ -215,13 +221,13 @@ export function PlayerInfoPanel({
           >
             {shownName}
           </h2>
-          {isAiBot && <span className="player-info-panel-ai-role">Игрок ИИ</span>}
+          {isAiBot && <span className="player-info-panel-ai-role">{tr('ai.playerRole')}</span>}
           <div
             className="player-info-panel-stats"
             style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: viewportShort ? 7 : 10 }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="player-info-panel-label player-info-panel-label--party-score">Очки в партии</span>
+              <span className="player-info-panel-label player-info-panel-label--party-score">{tr('avatarMenu.partyScore')}</span>
               <span className="player-info-panel-value player-info-panel-value--party-score">
                 {p.score >= 0 ? '+' : ''}
                 {p.score}
@@ -229,23 +235,23 @@ export function PlayerInfoPanel({
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="player-info-panel-label player-info-panel-label--bid-accuracy-deal">
-                Точность заказов в этой партии
+                {tr('avatarMenu.accuracyDeal')}
               </span>
               <span className="player-info-panel-value player-info-panel-value--bid-accuracy-deal">{bidAccuracy}%</span>
             </div>
             {isSelf && localRating && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 14, color: '#94a3b8' }}>Игр сыграно</span>
+                  <span style={{ fontSize: 14, color: '#94a3b8' }}>{tr('avatarMenu.gamesPlayed')}</span>
                   <span style={{ fontSize: 16, fontWeight: 600, color: '#f8fafc' }}>{localRating.gamesPlayed}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 14, color: '#94a3b8' }}>Побед</span>
+                  <span style={{ fontSize: 14, color: '#94a3b8' }}>{tr('avatarMenu.wins')}</span>
                   <span style={{ fontSize: 16, fontWeight: 600, color: '#f8fafc' }}>{localRating.wins}</span>
                 </div>
                 {localRating.bidAccuracyCount > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 14, color: '#94a3b8' }}>Средняя точность заказов</span>
+                    <span style={{ fontSize: 14, color: '#94a3b8' }}>{tr('avatarMenu.accuracyAvg')}</span>
                     <span style={{ fontSize: 16, fontWeight: 600, color: '#f8fafc' }}>
                       {Math.round(localRating.bidAccuracySum / localRating.bidAccuracyCount)}%
                     </span>
@@ -263,7 +269,7 @@ export function PlayerInfoPanel({
                   borderTop: '1px solid rgba(148, 163, 184, 0.25)',
                 }}
               >
-                <div className="player-info-panel-ai-difficulty-heading">Уровень сложности ИИ</div>
+                <div className="player-info-panel-ai-difficulty-heading">{tr('ai.levelGroup')}</div>
                 <OfflineAiDifficultyOptionList
                   current={offlineAiDifficultyPicker.current}
                   onSelect={offlineAiDifficultyPicker.onSelect}

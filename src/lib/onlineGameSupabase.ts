@@ -1157,35 +1157,50 @@ function matchHistorySelectWithoutOffline(): string {
   return 'match_id:match_id, slot_index, final_score, interrupted, is_rated, place:place, matches:matches!inner(id, code, finished_at, deals_count)';
 }
 
+function chipsFromSlot(
+  chipsBySlot: Record<string, number> | null | undefined,
+  slotIndex: number | null | undefined,
+): number | null {
+  if (!chipsBySlot || typeof chipsBySlot !== 'object') return null;
+  const slotKey = slotIndex != null ? String(slotIndex) : null;
+  if (slotKey != null && chipsBySlot[slotKey] != null) {
+    const n = Number(chipsBySlot[slotKey]);
+    return Number.isFinite(n) ? n : null;
+  }
+  const vals = Object.values(chipsBySlot);
+  if (vals.length === 1) {
+    const n = Number(vals[0]);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 function mapMatchHistoryRows(data: unknown[]): MatchHistoryItem[] {
   const mapped = (data as any[]).map((row) => {
-    const chipsBySlot = row.matches?.chips_by_slot as Record<string, number> | null | undefined;
-    const slotKey =
-      row.slot_index != null
-        ? String(row.slot_index)
-        : null;
-    let chips: number | null = null;
-    if (chipsBySlot && typeof chipsBySlot === 'object') {
-      if (slotKey != null && chipsBySlot[slotKey] != null) chips = Number(chipsBySlot[slotKey]);
-      else {
-        const vals = Object.values(chipsBySlot);
-        if (vals.length === 1) chips = Number(vals[0]);
-      }
-    }
+    const nested = row.matches;
+    const id = (nested?.id ?? row.id) as string | undefined;
+    const finishedAt = (nested?.finished_at ?? row.finished_at) as string | undefined;
+    if (!id || !finishedAt) return null;
+    const chipsBySlot = (nested?.chips_by_slot ?? null) as Record<string, number> | null;
+    const chipsDirect = row.chips != null ? Number(row.chips) : null;
+    const chips =
+      chipsDirect != null && Number.isFinite(chipsDirect)
+        ? chipsDirect
+        : chipsFromSlot(chipsBySlot, row.slot_index);
     return {
-      id: row.matches.id as string,
-      code: row.matches.code as string,
-      finished_at: row.matches.finished_at as string,
-      deals_count: row.matches.deals_count ?? null,
+      id,
+      code: String(nested?.code ?? row.code ?? ''),
+      finished_at: finishedAt,
+      deals_count: nested?.deals_count ?? row.deals_count ?? null,
       place: (row as any).place ?? null,
       final_score: row.final_score ?? null,
       interrupted: !!row.interrupted,
       is_rated: !!row.is_rated,
-      is_offline: !!row.matches?.is_offline,
-      settlement_mode: (row.matches?.settlement_mode as SettlementMode) ?? null,
-      chips: chips != null && Number.isFinite(chips) ? chips : null,
-    };
-  });
+      is_offline: !!(nested?.is_offline ?? row.is_offline),
+      settlement_mode: ((nested?.settlement_mode ?? row.settlement_mode) as SettlementMode) ?? null,
+      chips,
+    } satisfies MatchHistoryItem;
+  }).filter((row): row is MatchHistoryItem => row != null);
   // PostgREST/join и повторные RPC дают дубли — схлопываем по id и по снимку результата.
   const seenId = new Set<string>();
   const seenSig = new Set<string>();
@@ -1201,9 +1216,93 @@ function mapMatchHistoryRows(data: unknown[]): MatchHistoryItem[] {
   });
 }
 
-/** История матчей; без колонки matches.is_offline на БД повторяем запрос без неё (иначе PostgREST падает и список пустой). */
-export async function getMyMatchHistory(userId: string, limit = 20): Promise<MatchHistoryItem[]> {
-  if (!supabase) return [];
+async function queryMyMatchHistoryRpc(
+  limit: number,
+): Promise<{ rows: MatchHistoryItem[]; error: string | null }> {
+  if (!supabase) return { rows: [], error: 'not_configured' };
+  const { data, error } = await supabase.rpc('updown_list_my_match_history', { p_limit: limit });
+  if (error) return { rows: [], error: error.message || 'rpc_failed' };
+  let payload: any = data;
+  if (typeof payload === 'string') {
+    try {
+      payload = JSON.parse(payload);
+    } catch {
+      payload = null;
+    }
+  }
+  if (!payload || typeof payload !== 'object') return { rows: [], error: 'rpc_empty' };
+  if (payload.ok !== true) return { rows: [], error: String(payload.error || 'rpc_failed') };
+  const raw = Array.isArray(payload.rows) ? payload.rows : [];
+  return { rows: mapMatchHistoryRows(raw).slice(0, limit), error: null };
+}
+
+async function queryMyMatchHistoryTwoStep(
+  userId: string,
+  limit: number,
+): Promise<{ rows: MatchHistoryItem[]; error: string | null }> {
+  if (!supabase) return { rows: [], error: 'not_configured' };
+  const playersRes = await supabase
+    .from('match_players')
+    .select('match_id, slot_index, final_score, interrupted, is_rated, place')
+    .eq('user_id', userId);
+  if (playersRes.error) return { rows: [], error: playersRes.error.message || 'players_failed' };
+  const players = (playersRes.data ?? []) as Array<{
+    match_id: string;
+    slot_index: number | null;
+    final_score: number | null;
+    interrupted: boolean | null;
+    is_rated: boolean | null;
+    place: number | null;
+  }>;
+  if (players.length === 0) return { rows: [], error: null };
+
+  const ids = [...new Set(players.map((p) => p.match_id).filter(Boolean))];
+  const full = await supabase
+    .from('matches')
+    .select('id, code, finished_at, deals_count, is_offline, settlement_mode, chips_by_slot')
+    .in('id', ids);
+  let matches = full.data as any[] | null;
+  let matchErr = full.error;
+  if (matchErr) {
+    const msg = (matchErr.message || '').toLowerCase();
+    if (
+      msg.includes('is_offline') ||
+      msg.includes('does not exist') ||
+      msg.includes('settlement_mode') ||
+      msg.includes('chips_by_slot')
+    ) {
+      const plain = await supabase.from('matches').select('id, code, finished_at, deals_count').in('id', ids);
+      matches = plain.data as any[] | null;
+      matchErr = plain.error;
+    }
+  }
+  if (matchErr) return { rows: [], error: matchErr.message || 'matches_failed' };
+  const byId = new Map((matches ?? []).map((m) => [m.id as string, m]));
+  const joined = players
+    .map((p) => {
+      const m = byId.get(p.match_id);
+      if (!m) return null;
+      return {
+        matches: m,
+        slot_index: p.slot_index,
+        final_score: p.final_score,
+        interrupted: p.interrupted,
+        is_rated: p.is_rated,
+        place: p.place,
+      };
+    })
+    .filter(Boolean);
+  const rows = mapMatchHistoryRows(joined as unknown[]).sort(
+    (a, b) => Date.parse(b.finished_at) - Date.parse(a.finished_at),
+  );
+  return { rows: rows.slice(0, Math.max(1, limit)), error: null };
+}
+
+async function queryMyMatchHistoryEmbed(
+  userId: string,
+  limit: number,
+): Promise<{ rows: MatchHistoryItem[]; error: string | null }> {
+  if (!supabase) return { rows: [], error: 'not_configured' };
   const run = (select: string) =>
     supabase!
       .from('match_players')
@@ -1228,8 +1327,41 @@ export async function getMyMatchHistory(userId: string, limit = 20): Promise<Mat
       error = second.error;
     }
   }
-  if (error || !data) return [];
-  return mapMatchHistoryRows(data as unknown[]);
+  if (error) return { rows: [], error: error.message || 'query_failed' };
+  if (!data) return { rows: [], error: null };
+  return { rows: mapMatchHistoryRows(data as unknown[]), error: null };
+}
+
+async function queryMyMatchHistory(
+  userId: string,
+  limit: number,
+): Promise<{ rows: MatchHistoryItem[]; error: string | null }> {
+  const rpc = await queryMyMatchHistoryRpc(limit);
+  if (!rpc.error) return rpc;
+  const twoStep = await queryMyMatchHistoryTwoStep(userId, limit);
+  if (!twoStep.error) return twoStep;
+  const embed = await queryMyMatchHistoryEmbed(userId, limit);
+  if (!embed.error) return embed;
+  return { rows: [], error: rpc.error || twoStep.error || embed.error };
+}
+
+/** История матчей; без колонки matches.is_offline на БД повторяем запрос без неё (иначе PostgREST падает и список пустой). */
+export async function getMyMatchHistoryResult(
+  userId: string,
+  limit = 20,
+): Promise<{ rows: MatchHistoryItem[]; error: string | null }> {
+  let result = await queryMyMatchHistory(userId, limit);
+  // На телефоне частый 401: сессия уже есть, JWT ещё обновляется — один повтор после паузы.
+  if (result.error) {
+    await new Promise((r) => setTimeout(r, 700));
+    result = await queryMyMatchHistory(userId, limit);
+  }
+  return result;
+}
+
+export async function getMyMatchHistory(userId: string, limit = 20): Promise<MatchHistoryItem[]> {
+  const result = await getMyMatchHistoryResult(userId, limit);
+  return result.rows;
 }
 
 /** Полный срез матча (standings + deal_history) для хаба «Мои партии». */

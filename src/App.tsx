@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
 import { hasSavedGame, clearGameStateFromStorage, getPlayerProfile, savePlayerProfile, type PlayerProfile } from './game/persistence'
-import { loadProfileFromSupabase, saveProfileToSupabase } from './lib/profileSync'
+import { loadProfileFromSupabase, mergeLocalAndRemoteProfile, saveProfileToSupabase } from './lib/profileSync'
 import { useAuth } from './contexts/AuthContext'
 import { useOnlineGame } from './contexts/useOnlineGame'
 import { loadOnlineSession, markLobbyUiOpen, wasLobbyUiOpen, SUPPRESS_AUTO_OPEN_KEY } from './lib/onlineSession'
@@ -40,6 +40,7 @@ import { SupportDonatePage } from './ui/SupportDonatePage'
 import { LeaderboardPage } from './ui/LeaderboardPage'
 import { RATING_ROUTE_HASH, isRatingRouteHash } from './lib/ratingRoute'
 import { stopNudgeSounds, unlockAudio } from './audio'
+import { useT } from './i18n'
 
 /** Ленивая загрузка экрана игры: уменьшает начальный бандл и ускоряет первый показ меню; экран игры подгружается при переходе. */
 const GameTable = lazy(() => import('./ui/GameTable'))
@@ -63,13 +64,26 @@ function readInitialScreen(): AppScreen {
   return 'menu'
 }
 
+function hashForScreen(screen: AppScreen): string {
+  if (screen === 'game') return '#game'
+  if (screen === 'rules') return '#rules'
+  if (screen === 'account') return ACCOUNT_ROUTE_HASH
+  if (screen === 'support') return SUPPORT_ROUTE_HASH
+  if (screen === 'rating') return RATING_ROUTE_HASH
+  if (screen === 'online') return ONLINE_ROUTE_HASH
+  return '#menu'
+}
+
 function App() {
+  const t = useT()
   const { user, signOut, configured, loading: authLoading } = useAuth()
   const online = useOnlineGame()
   // Не открывать стол по одному лишь sessionStorage: до applyRoomData roomId пустой —
   // GameTable успевал поднять офлайн-партию с ИИ и перекрывал лобби (fixed без z-index).
   // После F5 с #game не затирать хеш в меню: начальный экран совпадает с location.hash.
   const [screen, setScreen] = useState<AppScreen>(() => readInitialScreen())
+  /** Куда вернуть крестик «Рейтинг»: ЛК, меню и т.д. */
+  const ratingReturnScreenRef = useRef<AppScreen>('menu')
   const didAutoOpenLobbyRef = useRef(false)
   const hadOnlineRoomRef = useRef(false)
   /** Уже показывали «Задайте имя для этого аккаунта» этому user.id в сессии — не дёргать setShow снова при повторном срабатывании эффекта. */
@@ -222,13 +236,11 @@ function App() {
       const remote = await loadProfileFromSupabase(user.id)
       if (cancelled) return
       if (remote) {
-        const merged: PlayerProfile = {
-          displayName: remote.displayName,
-          avatarDataUrl: remote.avatarDataUrl ?? null,
-          profileId: remote.profileId ?? getPlayerProfile().profileId,
-        }
+        const local = getPlayerProfile()
+        const { profile: merged, push } = mergeLocalAndRemoteProfile(local, remote)
         savePlayerProfile(merged)
         setProfile(merged)
+        if (push) await saveProfileToSupabase(user.id, merged)
       } else {
         // Новый пользователь: имя при регистрации по email сохранено в sessionStorage; иначе — запросим в модалке
         const emailKey = userEmailNorm || undefined
@@ -341,12 +353,17 @@ function App() {
       avatarDataUrl: data.avatarDataUrl ?? null,
       avatarBgColor: data.avatarBgColor ?? current.avatarBgColor ?? null,
       profileId: current.profileId,
+      updatedAt: new Date().toISOString(),
     }
     savePlayerProfile(next)
     setProfile(next)
     closeNameAvatarModal()
     newAccountGatePromptedRef.current = null
-    if (user?.id) saveProfileToSupabase(user.id, next)
+    if (user?.id) {
+      void saveProfileToSupabase(user.id, next).then((ok) => {
+        if (ok) setProfile(getPlayerProfile())
+      })
+    }
     if (online.roomId) {
       if (online.syncMySlotDisplayName) void online.syncMySlotDisplayName(next.displayName)
       if (online.syncMySlotAvatar) void online.syncMySlotAvatar()
@@ -359,9 +376,14 @@ function App() {
 
   /** Селфи на телефоне часто перезагружает вкладку — пишем аватар и слот сразу, не дожидаясь «Сохранить». */
   const handlePhotoCaptured = useCallback((avatarDataUrl: string) => {
-    const next = { ...getPlayerProfile(), avatarDataUrl };
+    const next = { ...getPlayerProfile(), avatarDataUrl, updatedAt: new Date().toISOString() };
+    savePlayerProfile(next);
     setProfile(next);
-    if (user?.id) void saveProfileToSupabase(user.id, next);
+    if (user?.id) {
+      void saveProfileToSupabase(user.id, next).then((ok) => {
+        if (ok) setProfile(getPlayerProfile());
+      });
+    }
     if (online.roomId && online.syncMySlotAvatar) void online.syncMySlotAvatar();
   }, [user?.id, online.roomId, online.syncMySlotAvatar])
 
@@ -449,7 +471,20 @@ function App() {
 
   const openRatingPage = useCallback(() => {
     setUrlJoinCode(null)
-    setScreen('rating')
+    setScreen((prev) => {
+      if (prev !== 'rating') ratingReturnScreenRef.current = prev
+      return 'rating'
+    })
+  }, [])
+
+  const closeRatingPage = useCallback(() => {
+    const back = ratingReturnScreenRef.current
+    const next: AppScreen = back && back !== 'rating' ? back : 'menu'
+    const nextHash = hashForScreen(next)
+    if (window.location.hash !== nextHash) {
+      history.replaceState({ screen: next }, '', nextHash)
+    }
+    setScreen(next)
   }, [])
 
   // Управление историей браузера: #menu ↔ #game ↔ #online и popstate
@@ -470,7 +505,10 @@ function App() {
       } else if (isSupportRouteHash(h)) {
         setScreen('support')
       } else if (isRatingRouteHash(h)) {
-        setScreen('rating')
+        setScreen((prev) => {
+          if (prev !== 'rating') ratingReturnScreenRef.current = prev
+          return 'rating'
+        })
       } else if (isOnlineRouteHash(h)) {
         try { sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY) } catch { /* ignore */ }
         setScreen('online')
@@ -579,16 +617,16 @@ function App() {
       {showRegistrationSuccessModal && (
         <AuthCelebrateDialog
           titleId="registration-success-title"
-          title="Регистрация прошла успешно!"
-          body="Добро пожаловать в Up&Down. Теперь вы можете играть офлайн или войти на другом устройстве."
+          title={t('auth.registerOk')}
+          body={t('auth.registerWelcome')}
           onClose={() => setShowRegistrationSuccessModal(false)}
         />
       )}
       {showOAuthSuccessModal && (
         <AuthCelebrateDialog
           titleId="oauth-success-title"
-          title="Всё супер!"
-          body="Вы успешно вошли в аккаунт. Добро пожаловать в Up&Down!"
+          title={t('auth.oauthOk')}
+          body={t('auth.oauthWelcome')}
           onClose={() => setShowOAuthSuccessModal(false)}
         />
       )}
@@ -647,7 +685,8 @@ function App() {
       {screen === 'support' && <SupportDonatePage onBack={() => setScreen('menu')} />}
       {screen === 'rating' && (
         <LeaderboardPage
-          onBack={() => setScreen('menu')}
+          onBack={closeRatingPage}
+          onGoToMenu={() => setScreen('menu')}
           onSignIn={() => {
             setAuthMode('login')
             setShowAuthModal(true)
@@ -684,12 +723,12 @@ function App() {
           resumeMode={nameAvatarMode}
           title={
             nameAvatarMode === 'first-run'
-              ? 'Как к вам обращаться?'
+              ? t('nameAvatar.title')
               : nameAvatarMode === 'new-account'
-                ? 'Задайте имя для этого аккаунта (привязывается к почте)'
-                : 'Профиль'
+                ? t('nameAvatar.newAccount')
+                : t('nameAvatar.profile')
           }
-          confirmLabel="Сохранить"
+          confirmLabel={t('nameAvatar.save')}
           onConfirm={handleNameAvatarConfirm}
           onPhotoCaptured={handlePhotoCaptured}
           onCancel={nameAvatarMode === 'profile' ? closeNameAvatarModal : undefined}
@@ -701,7 +740,7 @@ function App() {
           <Suspense fallback={
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '1rem', background: '#0f172a', color: '#94a3b8' }}>
               <div style={{ width: 32, height: 32, border: '3px solid rgba(34,211,238,0.3)', borderTopColor: '#22d3ee', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} aria-hidden />
-              <span style={{ fontSize: '1rem' }}>Загрузка игры...</span>
+              <span style={{ fontSize: '1rem' }}>{t('common.loadingGame')}</span>
             </div>
           }>
             <GameTable

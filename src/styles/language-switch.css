@@ -1,0 +1,53 @@
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+.lang-switch__btn {
+  min-width: 34px;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(226, 232, 240, 0.78);
+  font: 700 11px/1 Orbitron, system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.lang-switch__btn--on {
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.35), rgba(14, 165, 233, 0.22));
+  color: #f8fafc;
+  box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.35);
+}
+
+.lang-switch__btn:focus-visible {
+  outline: 2px solid rgb(5 231 189);
+  outline-offset: 1px;
+}
+
+/* Не в слогане: иначе шапка выше и перекрывает #1 в рейтинге-полоске */
+.menu-screen__lang {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  z-index: 5;
+  flex-shrink: 0;
+}
+
+@media (min-width: 1025px) {
+  .menu-screen__lang {
+    top: 14px;
+    left: auto;
+    right: clamp(16px, 2.4vw, 48px);
+  }
+}

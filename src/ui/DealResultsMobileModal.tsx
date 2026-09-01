@@ -1,5 +1,5 @@
 import { memo, type LegacyRef, type ReactNode, type Ref } from 'react';
-
+import { t } from '../i18n';
 import { dealResultsModalResizingRef } from './dealResultsModalStretch';
 import { MobileSouthResizeHandle } from './MobileSouthResizeHandle';
 
@@ -269,7 +269,7 @@ export const DealResultsMobileModalOverlay = memo(function DealResultsMobileModa
 
       aria-modal="true"
 
-      aria-label="Результаты раздач"
+      aria-label={t('table.dealResultsAria')}
 
       style={{
 

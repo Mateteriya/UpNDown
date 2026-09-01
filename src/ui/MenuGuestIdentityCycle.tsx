@@ -3,19 +3,16 @@
  * Порядок: пустое кольцо → △? → грустный смайл → швейцарский крест.
  */
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { MENU_IDENTITY_STATUS_ARIA } from '../lib/menuIdentityStatus';
 import { MenuMapTipDismiss } from './MenuMapTipDismiss';
+import { useT } from '../i18n';
 
 export type GuestGlyphId = 'empty' | 'tri' | 'sad' | 'swiss';
 
 const GUEST_CYCLE_MS = 4200;
 /** Крест «+» — дольше, чтобы успеть увидеть пульс варианта 3. */
 const GUEST_SWISS_MS = 12500;
-
-const GUEST_MAP_TIP_TEXT =
-  'Профиль ещё не задан и вход в аккаунт не выполнен. Нажмите на значок, чтобы персонализировать игру и сохранить прогресс.';
 
 export const GUEST_GLYPH_ORDER: { id: GuestGlyphId; label: string }[] = [
   { id: 'empty', label: 'пустое кольцо' },
@@ -283,10 +280,11 @@ type MenuGuestIdentityCycleProps = {
  * Тултип — portal в body, чтобы пунктиры офлайна не перекрывали.
  */
 function GuestMapHint({ uid, onHideMapHint }: { uid: string; onHideMapHint?: () => void }) {
+  const t = useT();
   const flowH = `${uid}-guest-map-h`;
   const flowV = `${uid}-guest-map-v`;
   const tipId = `${uid}-guest-map-tip`;
-  const hitRef = useRef<HTMLButtonElement>(null);
+  const hitRef = useRef<HTMLElement>(null);
   const tipRef = useRef<HTMLDivElement>(null);
   const [tipOpen, setTipOpen] = useState(false);
   const [tipPos, setTipPos] = useState<{ top: number; left: number } | null>(null);
@@ -350,7 +348,7 @@ function GuestMapHint({ uid, onHideMapHint }: { uid: string; onHideMapHint?: () 
             role="tooltip"
             style={{ top: tipPos.top, left: tipPos.left }}
           >
-            <p className="game-table-tooltip-cosmic-body-text menu-guest-map-hint__tip-text">{GUEST_MAP_TIP_TEXT}</p>
+            <p className="game-table-tooltip-cosmic-body-text menu-guest-map-hint__tip-text">{t('menu.guestTip')}</p>
             <MenuMapTipDismiss
               onDismiss={() => setTipOpen(false)}
               onHideHint={() => {
@@ -475,14 +473,22 @@ function GuestMapHint({ uid, onHideMapHint }: { uid: string; onHideMapHint?: () 
           ?
         </text>
       </svg>
-      <button
+      <span
         ref={hitRef}
-        type="button"
+        role="button"
+        tabIndex={0}
         className="menu-guest-map-hint__hit"
         aria-expanded={tipOpen}
         aria-controls={tipId}
         aria-label="Подсказка: профиль и аккаунт не заданы"
         onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          setTipOpen((v) => !v);
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onKeyDown={(e: KeyboardEvent<HTMLElement>) => {
+          if (e.key !== 'Enter' && e.key !== ' ') return;
           e.stopPropagation();
           e.preventDefault();
           setTipOpen((v) => !v);
@@ -499,6 +505,7 @@ export function MenuGuestIdentityCycle({
   showMapHint = true,
   onHideMapHint,
 }: MenuGuestIdentityCycleProps) {
+  const t = useT();
   const rawId = useId();
   const uid = `mgc${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const phase = useGuestPhaseIndex();
@@ -507,7 +514,7 @@ export function MenuGuestIdentityCycle({
   return (
     <span
       className={['menu-guest-cycle', className].filter(Boolean).join(' ')}
-      title={MENU_IDENTITY_STATUS_ARIA.guest}
+      title={t('menu.identityGuest')}
     >
       {showMapHint ? <GuestMapHint uid={uid} onHideMapHint={onHideMapHint} /> : null}
       <span className="menu-guest-cycle__stage" aria-hidden>

@@ -14,6 +14,7 @@ import { settlementModeBadgeLabel, type RoomPeekResult } from '../lib/roomSettle
 import { PUBLIC_HALL_ENABLED } from '../lib/productFlags';
 import { ONLINE_LOBBY_MASCOT_URL } from '../lib/lobbyAssets';
 import { MODE_LEGENDS } from '../lib/modeLegends';
+import { useT } from '../i18n';
 import { LobbyCapsuleButton, LobbyCreatePanel, LobbyLastPartyToggle, LobbyBackButton, LobbyPasteCodeButton } from './LobbyEntryActions';
 import { OnlineHallScreen } from './OnlineHallScreen';
 
@@ -58,6 +59,7 @@ export function LobbyScreen({
   lanGuestInvite,
   lanAutoJoinFromLink,
 }: LobbyScreenProps) {
+  const t = useT();
   const { user } = useAuth();
   const {
     status,
@@ -226,16 +228,16 @@ export function LobbyScreen({
 
   const handleCreateRoom = async () => {
     if (!lanWs && !user?.id) {
-      setJoinError('Войдите в аккаунт, чтобы создать комнату.');
+      setJoinError(t('lobby.createNeedAuth'));
       return;
     }
     if (isWsOnlineTransport() && !isWsOnlineConfigured()) {
-      setJoinError('Задайте VITE_WS_URL (например ws://192.168.1.5:3001) и перезапустите dev.');
+      setJoinError(t('lobby.createNeedWs'));
       return;
     }
     const name = playerName.trim();
     if (!name) {
-      setJoinError('Укажите имя в профиле перед созданием комнаты.');
+      setJoinError(t('lobby.createNeedName'));
       return;
     }
     clearError();
@@ -258,15 +260,15 @@ export function LobbyScreen({
       ]);
       if (r && typeof r === 'object' && '__lobbyWall' in r && r.__lobbyWall) {
         setJoinError(
-          'Слишком долгое ожидание (в том числе выход из прошлой комнаты). Проверьте сеть и VPN и нажмите «Создать» снова.',
+          t('lobby.createTimeout'),
         );
       } else {
         const cr = r as Awaited<ReturnType<typeof createRoom>>;
-        if (!cr.ok) setJoinError(cr.error ?? 'Не удалось создать комнату.');
+        if (!cr.ok) setJoinError(cr.error ?? t('lobby.createFail'));
         else setShowCreatePanel(false);
       }
     } catch (e) {
-      setJoinError(e instanceof Error ? e.message : 'Ошибка при создании комнаты.');
+      setJoinError(e instanceof Error ? e.message : t('lobby.createError'));
     } finally {
       setCreating(false);
     }
@@ -283,13 +285,13 @@ export function LobbyScreen({
   const handlePasteJoinCode = async () => {
     try {
       if (typeof navigator === 'undefined' || !navigator.clipboard?.readText) {
-        setJoinError('Вставка недоступна в этом браузере.');
+        setJoinError(t('lobby.pasteUnavailable'));
         return;
       }
       const text = await navigator.clipboard.readText();
       const cleaned = normalizeJoinCode(text);
       if (!cleaned) {
-        setJoinError('В буфере нет подходящего кода комнаты.');
+        setJoinError(t('lobby.pasteEmpty'));
         return;
       }
       setJoinCode(cleaned);
@@ -299,26 +301,26 @@ export function LobbyScreen({
         document.activeElement.blur();
       }
     } catch {
-      setJoinError('Не удалось вставить из буфера. Разрешите доступ к буферу обмена.');
+      setJoinError(t('lobby.pasteDenied'));
     }
   };
 
   const runJoinRoom = async () => {
     const typedCode = joinCode.trim();
     if (!typedCode) {
-      setJoinError('Введите код комнаты.');
+      setJoinError(t('lobby.enterCode'));
       return;
     }
     if (!lanWs && !user?.id) {
-      setJoinError('Войдите в аккаунт, чтобы присоединиться к комнате.');
+      setJoinError(t('lobby.joinNeedAuth'));
       return;
     }
     if (isWsOnlineTransport() && !isWsOnlineConfigured()) {
-      setJoinError('Задайте VITE_WS_URL и перезапустите dev.');
+      setJoinError(t('lobby.joinNeedWs'));
       return;
     }
     if (!playerName.trim()) {
-      setJoinError('Укажите имя в профиле перед входом в комнату.');
+      setJoinError(t('lobby.joinNeedName'));
       return;
     }
     clearError();
@@ -350,7 +352,7 @@ export function LobbyScreen({
       ]);
       if (r && typeof r === 'object' && '__lobbyWall' in r && r.__lobbyWall) {
         setJoinError(
-          'Слишком долгое ожидание (в том числе выход из прошлой комнаты). Проверьте интернет и нажмите «Присоединиться» снова.',
+          t('lobby.joinTimeout'),
         );
       } else {
         let jr = r as JoinOutcome;
@@ -359,7 +361,7 @@ export function LobbyScreen({
           if (recovered) {
             jr = { ok: true };
           } else {
-            setJoinError(jr.error ?? 'Не удалось присоединиться. Проверьте код и подключение.');
+            setJoinError(jr.error ?? t('lobby.joinFail'));
           }
         }
         if (jr.ok && onGoToGame && typeof window !== 'undefined' && window.innerWidth <= 1024) {
@@ -367,7 +369,7 @@ export function LobbyScreen({
         }
       }
     } catch (e) {
-      setJoinError(e instanceof Error ? e.message : String(e) || 'Ошибка соединения. Проверьте интернет.');
+      setJoinError(e instanceof Error ? e.message : String(e) || t('lobby.joinNet'));
     } finally {
       setJoining(false);
       setAutoJoining(false);
@@ -392,7 +394,7 @@ export function LobbyScreen({
     try {
       const r = await tryRestoreSession();
       if (r.roomFinished) {
-        setJoinError('Эта партия уже завершена.');
+        setJoinError(t('lobby.alreadyFinished'));
         return;
       }
       if (!r.ok && r.error) setJoinError(r.error);
@@ -427,7 +429,7 @@ export function LobbyScreen({
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: 'Up&Down — код комнаты',
+          title: t('lobby.shareTitle'),
           text: roomCode,
         });
       } catch (e) {
@@ -452,12 +454,12 @@ export function LobbyScreen({
     return (
       <div className="lobby-screen">
         <div className="lobby-screen__stack">
-        <h1 className="lobby-screen__title">Онлайн</h1>
+        <h1 className="lobby-screen__title">{t('lobby.title')}</h1>
         <p className="lobby-screen__muted" style={{ maxWidth: 320, fontSize: 14 }}>
-          Войдите в аккаунт, чтобы создавать комнаты и играть онлайн. Либо включите LAN: VITE_ONLINE_TRANSPORT=ws и VITE_WS_URL.
+          {t('lobby.needAuth')}
         </p>
         <button type="button" className={lobbyBtnClass('ghost')} onClick={onBack}>
-          ← Назад в меню
+          {t('common.backToMenu')}
         </button>
         </div>
       </div>
@@ -483,50 +485,50 @@ export function LobbyScreen({
       <>
         <div className="lobby-screen">
           <div className="lobby-screen__stack">
-          <h1 className="lobby-screen__title lobby-screen__title--room">Комната</h1>
+          <h1 className="lobby-screen__title lobby-screen__title--room">{t('lobby.roomTitle')}</h1>
           <p className="lobby-screen__room-desc">
             {isCaptain
               ? lanWs
-                ? 'Вы ведущий (первый в комнате). Когда все готовы — нажмите «Начать игру».'
-                : 'Вы создатель комнаты. Когда все готовы — «Начать игру».'
+                ? t('lobby.captainLan')
+                : t('lobby.captainCloud')
               : captainSlot?.displayName
-                ? `Ждём старт от ${captainSlot.displayName} (ведущий).`
-                : 'Дождитесь игроков или поделитесь кодом.'}
+                ? t('lobby.waitCaptain', { name: captainSlot.displayName })
+                : t('lobby.waitPlayers')}
           </p>
           <p className="lobby-screen__room-mode">
             {settlementModeBadgeLabel(settlementMode, buyIn)}
           </p>
           {roomCode && (
             <div style={{ textAlign: 'center' }}>
-              <p className="lobby-screen__code-label">Код комнаты</p>
+              <p className="lobby-screen__code-label">{t('lobby.roomCode')}</p>
               <p className="lobby-screen__code-value">{roomCode}</p>
               <p className="lobby-screen__code-hint">
-                Пока вы в комнате, после обновления страницы можно быстро вернуться кнопкой «Продолжить» в главном меню. После выхода из комнаты вход только по коду здесь.
+                {t('lobby.roomCodeStay')}
               </p>
               <p className="lobby-screen__code-hint lobby-screen__code-hint--dim">
-                Другие игроки вводят этот код в «Присоединиться»
+                {t('lobby.othersEnter')}
               </p>
               <div className="lobby-btn-row" style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 280 }}>
                 <button type="button" className={lobbyBtnClass('secondary', 'lobby-btn--grow')} onClick={copyCodeToClipboard}>
-                  {shareCopied ? 'Скопировано!' : 'Скопировать код'}
+                  {shareCopied ? t('lobby.copied') : t('lobby.copyCode')}
                 </button>
                 <button type="button" className={lobbyBtnClass('primary', 'lobby-btn--grow')} onClick={handleShare}>
-                  Поделиться кодом
+                  {t('lobby.shareCode')}
                 </button>
               </div>
             </div>
           )}
           <div style={{ width: '100%', maxWidth: 280 }}>
             <p className="lobby-screen__players-label">
-              Игроков: {humanSlots.length} из {maxPlayers}
+              {t('lobby.playersCount', { n: humanSlots.length, max: maxPlayers })}
             </p>
             <ul className="lobby-screen__players-list">
               {humanSlots.map((s) => (
                 <li key={s.slotIndex}>
                   {s.displayName}
                   {s.shortLabel ? ` (${s.shortLabel})` : ''}
-                  {s.slotIndex === myServerIndex && ' (вы)'}
-                  {s.slotIndex === 0 && ' — ведущий'}
+                  {s.slotIndex === myServerIndex && t('lobby.youSuffix')}
+                  {s.slotIndex === 0 && t('lobby.captainSuffix')}
                 </li>
               ))}
             </ul>
@@ -542,10 +544,10 @@ export function LobbyScreen({
               className={lobbyBtnClass('primary', 'lobby-btn--lg')}
             >
               {startingGame
-                ? 'Запуск…'
+                ? t('lobby.starting')
                 : humanSlots.length >= maxPlayers
-                  ? 'Начать игру'
-                  : 'Начать игру с ИИ'}
+                  ? t('lobby.start')
+                  : t('lobby.startAi')}
             </button>
           )}
           <button
@@ -553,29 +555,29 @@ export function LobbyScreen({
             className={lobbyBtnClass(isCaptain ? 'secondary' : 'primary')}
             onClick={onGoToGame}
           >
-            {isCaptain ? 'Открыть стол заранее' : 'Войти в игру'}
+            {isCaptain ? t('lobby.openTableEarly') : t('lobby.enterGame')}
           </button>
           {onEditProfile && (
             <button type="button" className={lobbyBtnClass('secondary')} onClick={onEditProfile}>
-              Селфи / редактор профиля
+              {t('lobby.selfie')}
             </button>
           )}
           <button type="button" className={lobbyBtnClass('secondary')} onClick={handleLeaveRoomClick}>
-            Выйти из комнаты
+            {t('lobby.leaveRoom')}
           </button>
           <button
             type="button"
             disabled={stopRememberBusy}
             onClick={() => void handleStopRememberThisRoom()}
             className={lobbyBtnClass('ghost', 'lobby-btn--sm')}
-            title="После выхода или обновления страницы эта комната не будет открываться сама — можно снова войти по коду."
+            title={t('lobby.forgetTitle')}
           >
-            {stopRememberBusy ? 'Выходим…' : 'Не запоминать эту комнату'}
+            {stopRememberBusy ? t('lobby.forgetting') : t('lobby.forgetRoom')}
           </button>
           </div>
         {leftPlayerToast && (
           <div role="status" className="lobby-screen__toast">
-            Игрок {leftPlayerToast} покинул комнату.
+            {t('lobby.playerLeft', { name: leftPlayerToast })}
           </div>
         )}
         {showLeaveConfirm && (
@@ -587,10 +589,10 @@ export function LobbyScreen({
           >
             <div className="lobby-dialog lobby-dialog--leave">
               <p id="leave-room-title" className="lobby-dialog__title">
-                Выйти из комнаты?
+                {t('lobby.leaveConfirmTitle')}
               </p>
               <p className="lobby-dialog__text">
-                Вы выйдете с сервера. Код комнаты останется в подсказке «последняя комната» в меню — по нему можно зайти снова, пока комната жива.
+                {t('lobby.leaveConfirmText')}
               </p>
               <div className="lobby-dialog__actions">
                 <button
@@ -598,14 +600,14 @@ export function LobbyScreen({
                   className={lobbyBtnClass('secondary', 'lobby-btn--dialog')}
                   onClick={() => setShowLeaveConfirm(false)}
                 >
-                  Отмена
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="button"
                   className={lobbyBtnClass('danger', 'lobby-btn--dialog')}
                   onClick={() => void handleLeaveRoomConfirm()}
                 >
-                  Выйти
+                  {t('lobby.leave')}
                 </button>
               </div>
             </div>
@@ -645,14 +647,14 @@ export function LobbyScreen({
         </div>
         <div className="lobby-screen__content">
       <h1 className="lobby-screen__title">
-        {guestFromHostLink ? 'Вход в комнату' : 'Онлайн'}
+        {guestFromHostLink ? t('lobby.joinRoomTitle') : t('lobby.title')}
       </h1>
       {!guestFromHostLink ? (
         <details className="lobby-online-legend">
-          <summary className="lobby-online-legend__summary">Что такое Онлайн</summary>
+          <summary className="lobby-online-legend__summary">{t('lobby.whatIsOnline')}</summary>
           <div className="lobby-online-legend__body">
-            <p className="lobby-online-legend__kicker">{MODE_LEGENDS.online.kicker}</p>
-            <p className="lobby-online-legend__text">{MODE_LEGENDS.online.body}</p>
+            <p className="lobby-online-legend__kicker">{t('menu.legendOnlineKicker')}</p>
+            <p className="lobby-online-legend__text">{t('menu.legendOnlineBody')}</p>
             <img
               className="lobby-online-legend__art"
               src={MODE_LEGENDS.online.artUrl}
@@ -665,11 +667,11 @@ export function LobbyScreen({
       ) : null}
       {guestFromHostLink ? (
         <p className="lobby-screen__lead">
-          Вас пригласили в игру Up&amp;Down.
+          {t('lobby.invited')}
           {inviteCode ? (
             <>
               {' '}
-              Код комнаты:{' '}
+              {t('lobby.roomCodeInline')}{' '}
               <strong className="lobby-screen__code-value lobby-screen__code-value--inline">{inviteCode}</strong>
             </>
           ) : null}
@@ -677,15 +679,15 @@ export function LobbyScreen({
       ) : (
         lanWs && (
           <p className="lobby-screen__muted lobby-screen__muted--lan">
-            Игра в вашей Wi‑Fi (без интернета и аккаунта)
+            {t('lobby.lanHint')}
           </p>
         )
       )}
       {guestFromHostLink && (
         <p className="lobby-screen__muted">
           {autoJoining || joining
-            ? 'Подключаем к комнате…'
-            : 'Нажмите «Войти в комнату» — откроется лобби этой партии, не общий зал.'}
+            ? t('lobby.connecting')
+            : t('lobby.guestJoinHint')}
         </p>
       )}
       <button
@@ -693,9 +695,9 @@ export function LobbyScreen({
         className="lobby-entry-player lobby-entry-player--account"
         onClick={() => onOpenAccount?.()}
         disabled={!onOpenAccount}
-        aria-label="Открыть личный кабинет"
+        aria-label={t('lobby.openLk')}
       >
-        Вы: <strong>{playerName}</strong>
+        {t('lobby.youAre')} <strong>{playerName}</strong>
       </button>
       {(error || joinError) && (
         <p className="lobby-entry-error">{joinError || error}</p>
@@ -705,15 +707,15 @@ export function LobbyScreen({
           {PUBLIC_HALL_ENABLED && (
             <LobbyCapsuleButton
               variant="hall"
-              title="Зал столов"
-              hint="найти открытый стол"
+              title={t('lobby.hallTitle')}
+              hint={t('lobby.hallHint')}
               onClick={() => setShowHall(true)}
             />
           )}
           <LobbyCapsuleButton
             variant="create"
-            title="Создать комнату"
-            hint={showCreatePanel ? 'настройки ниже' : 'своя партия с кодом'}
+            title={t('lobby.createTitle')}
+            hint={showCreatePanel ? t('lobby.createHintOpen') : t('lobby.createHint')}
             expanded={showCreatePanel}
             disabled={creating}
             onClick={() => {
@@ -755,7 +757,7 @@ export function LobbyScreen({
                 }}
                 maxLength={CODE_LENGTH}
                 className="lobby-entry-input"
-                aria-label="Код комнаты"
+                aria-label={t('lobby.roomCodeAria')}
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="characters"
@@ -766,8 +768,8 @@ export function LobbyScreen({
             </div>
             <LobbyCapsuleButton
               variant="join"
-              title={joining || autoJoining ? 'Вход…' : 'Присоединиться'}
-              hint="ввести код и войти"
+              title={joining || autoJoining ? t('lobby.joining') : t('lobby.joinTitle')}
+              hint={t('lobby.joinHint')}
               disabled={joining || autoJoining}
               onClick={handleJoinRoom}
               showChevron={false}
@@ -775,13 +777,13 @@ export function LobbyScreen({
           </div>
           {roomPeek?.settlement_mode && (
             <p className="lobby-entry-peek">
-              Комната: {settlementModeBadgeLabel(roomPeek.settlement_mode, roomPeek.buy_in ?? null)}
-              {roomPeek.human_count != null ? ` · игроков ${roomPeek.human_count}/${roomPeek.max_players ?? 4}` : ''}
+              {t('lobby.peekRoom', { mode: settlementModeBadgeLabel(roomPeek.settlement_mode, roomPeek.buy_in ?? null) })}
+              {roomPeek.human_count != null ? t('lobby.peekPlayers', { n: roomPeek.human_count, max: roomPeek.max_players ?? 4 }) : ''}
             </p>
           )}
           {(joining || creating) && (
             <p className="lobby-entry-hint">
-              Связь с сервером обычно до ~30 с. Если долго — проверьте сеть.
+              {t('lobby.connectingHint')}
             </p>
           )}
           {hostPanelUrl && (
@@ -791,7 +793,7 @@ export function LobbyScreen({
               rel="noopener noreferrer"
               className="lobby-entry-host-link"
             >
-              Панель хоста
+              {t('lobby.hostPanel')}
             </a>
           )}
         </div>
@@ -799,8 +801,8 @@ export function LobbyScreen({
         <div className="lobby-entry-menu lobby-entry-menu--guest">
           <LobbyCapsuleButton
             variant="join"
-            title={joining || autoJoining ? 'Вход…' : 'Войти в комнату'}
-            hint="по приглашению"
+            title={joining || autoJoining ? t('lobby.joining') : t('lobby.enterRoom')}
+            hint={t('lobby.enterRoomHint')}
             disabled={joining || autoJoining}
             onClick={handleJoinRoom}
             showChevron={false}
@@ -808,8 +810,8 @@ export function LobbyScreen({
           {PUBLIC_HALL_ENABLED && lanWs && (
             <LobbyCapsuleButton
               variant="hall"
-              title="Зал столов"
-              hint="или найти стол"
+              title={t('lobby.hallTitle')}
+              hint={t('lobby.hallHintAlt')}
               onClick={() => setShowHall(true)}
             />
           )}
@@ -826,16 +828,16 @@ export function LobbyScreen({
             <div className="lobby-last-party-panel">
               <LobbyCapsuleButton
                 variant="launch"
-                title={resumeLastBusy ? 'Вход…' : 'Вернуться'}
-                hint="продолжить партию"
+                title={resumeLastBusy ? t('lobby.joining') : t('lobby.resume')}
+                hint={t('lobby.resumeHint')}
                 disabled={resumeLastBusy}
                 onClick={() => void handleResumeLastFromLobby()}
                 showChevron={false}
               />
               <LobbyCapsuleButton
                 variant="join"
-                title="Подставить код"
-                hint="в поле выше"
+                title={t('lobby.fillCode')}
+                hint={t('lobby.fillCodeHint')}
                 onClick={() => {
                   setJoinCode(lastPartyBanner.code);
                   setJoinError(null);
@@ -852,7 +854,7 @@ export function LobbyScreen({
                 }}
               >
                 <span className="lobby-capsule__body">
-                  <span className="lobby-capsule__title">Скрыть</span>
+                  <span className="lobby-capsule__title">{t('lobby.hide')}</span>
                 </span>
               </button>
             </div>

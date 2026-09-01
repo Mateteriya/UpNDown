@@ -820,7 +820,9 @@
    * header/brand иначе перекрывают капсулы под шапкой. */
   .menu-screen__pc-topbar .menu-screen__title,
   .menu-screen__pc-topbar .menu-screen__player,
-  .menu-screen__pc-topbar .menu-glass-ladder {
+  .menu-screen__pc-topbar .menu-glass-ladder,
+  .menu-screen__pc-topbar .menu-screen__lang,
+  .menu-screen__pc-topbar .lang-switch {
     pointer-events: auto;
   }
   /* ПК: кабинет — капсула внизу слева, не в шапке */
@@ -1235,8 +1237,8 @@
     right: auto;
     top: auto;
     bottom: max(28px, 5vh);
-    width: min(300px, 28vw);
-    min-width: 240px;
+    width: min(380px, 32vw);
+    min-width: 300px;
     z-index: 4;
   }
   .menu-screen__drift--account > .menu-screen__drift-bob {
@@ -1257,10 +1259,40 @@
     min-width: 0;
   }
   .menu-screen__drift--account .menu-capsule--with-avatar {
+    min-height: 80px;
+    padding: 8px 18px 8px 8px;
+    gap: 12px;
+  }
+  .menu-screen__drift--account .menu-capsule__glyph,
+  .menu-screen__drift--account .menu-capsule__glyph--avatar {
+    width: 64px;
+    height: 64px;
+    min-width: 64px;
     min-height: 64px;
+    aspect-ratio: 1;
+    flex-shrink: 0;
+  }
+  .menu-screen__drift--account .menu-capsule__glyph--avatar .player-avatar {
+    width: 58px !important;
+    height: 58px !important;
+    min-width: 58px !important;
+    min-height: 58px !important;
+    max-width: 58px !important;
+    max-height: 58px !important;
+    aspect-ratio: 1 !important;
+    border-radius: 50% !important;
+    flex-shrink: 0 !important;
+    font-size: 24px !important;
   }
   .menu-screen__drift--account .menu-capsule__eyebrow {
     color: rgba(251, 113, 133, 0.9);
+    font-size: 11px;
+  }
+  .menu-screen__drift--account .menu-capsule__title {
+    font-size: 17px;
+  }
+  .menu-screen__drift--account .menu-capsule__hint {
+    font-size: 12px;
   }
   .menu-screen__drift--rules > .menu-screen__drift-bob {
     animation: menu-pc-bob-c 6.4s ease-in-out infinite;
@@ -1277,9 +1309,13 @@
   }
   .menu-screen__drift--rating {
     left: 50%;
-    top: 48%;
-    width: min(240px, 20vw);
-    min-width: 200px;
+    right: auto;
+    top: auto;
+    bottom: max(28px, 5vh);
+    width: min(280px, 24vw);
+    min-width: 220px;
+    z-index: 4;
+    translate: calc(-50% + var(--menu-drift-x, 0px)) var(--menu-drift-y, 0px);
   }
   .menu-screen__drift--rating > .menu-screen__drift-bob {
     animation: menu-pc-bob-b 7s ease-in-out infinite;
@@ -1451,6 +1487,29 @@
       inset 0 1px 0 rgba(224, 231, 255, 0.35);
     outline: none;
   }
+  /* Рейтинг — циан */
+  .menu-screen__drift--rating .menu-screen__drift-ear {
+    border-color: rgba(34, 211, 238, 0.65);
+    background: linear-gradient(180deg, rgba(12, 48, 72, 0.98) 0%, rgba(8, 16, 36, 1) 100%);
+    box-shadow:
+      0 0 8px rgba(34, 211, 238, 0.38),
+      0 0 14px rgba(56, 189, 248, 0.22),
+      inset 0 1px 0 rgba(165, 243, 252, 0.25);
+  }
+  .menu-screen__drift--rating .menu-screen__drift-ear__grip > span {
+    background: #67e8f9;
+    box-shadow: 0 0 5px rgba(34, 211, 238, 0.6);
+  }
+  .menu-screen__drift--rating .menu-screen__drift-ear:hover,
+  .menu-screen__drift--rating .menu-screen__drift-ear:focus-visible {
+    border-color: rgba(103, 232, 249, 0.9);
+    filter: brightness(1.1);
+    box-shadow:
+      0 0 12px rgba(34, 211, 238, 0.48),
+      0 0 18px rgba(56, 189, 248, 0.3),
+      inset 0 1px 0 rgba(207, 250, 254, 0.35);
+    outline: none;
+  }
   /* Поддержать — фиолет/циан (как кнопка), не белая ручка */
   .menu-screen__drift--support .menu-screen__drift-ear {
     border-color: rgba(167, 139, 250, 0.7);
@@ -1546,10 +1605,17 @@
     min-width: 360px;
     width: min(440px, 46vw);
   }
-  .menu-screen__drift--account,
+  .menu-screen__drift--account {
+    min-width: 280px;
+    width: min(340px, 34vw);
+  }
   .menu-screen__drift--rules {
     min-width: 220px;
     width: min(260px, 26vw);
+  }
+  .menu-screen__drift--rating {
+    min-width: 200px;
+    width: min(230px, 22vw);
   }
   .menu-screen__title,
   .menu-screen__title-3d__extrude {
@@ -2193,10 +2259,7 @@
   .menu-screen .menu-screen__title {
     text-align: left;
   }
-  .menu-screen .menu-screen__tagline-row {
-    justify-content: flex-start;
-  }
-  .menu-screen .menu-screen__tagline-row .menu-screen__tagline {
+  .menu-screen .menu-screen__tagline {
     text-align: left;
   }
   .menu-screen .menu-screen__online-with-glyphs {
@@ -2316,7 +2379,7 @@
    */
   .menu-screen .menu-guest-cycle__stage,
   .menu-screen .menu-screen__player-avatar-ring,
-  .menu-screen .menu-signed-id {
+  .menu-screen .menu-screen__player .menu-signed-id {
     transform: translateY(5px);
   }
   .menu-screen .menu-screen__player:hover {

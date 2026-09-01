@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useT } from '../i18n';
 
 type CapsuleVariant = 'hall' | 'create' | 'join' | 'launch' | 'ghost' | 'back' | 'lastParty';
 
@@ -194,6 +195,7 @@ export type LobbyLastPartyToggleProps = {
 };
 
 export function LobbyLastPartyToggle({ code, expanded, onClick }: LobbyLastPartyToggleProps) {
+  const t = useT();
   return (
     <button
       type="button"
@@ -209,8 +211,8 @@ export function LobbyLastPartyToggle({ code, expanded, onClick }: LobbyLastParty
     >
       <span className="lobby-capsule__glyph">{GLYPHS.lastParty}</span>
       <span className="lobby-capsule__body">
-        <span className="lobby-capsule__title">Предыдущая комната</span>
-        <span className="lobby-capsule__hint">быстрый возврат</span>
+        <span className="lobby-capsule__title">{t('lobby.lastParty')}</span>
+        <span className="lobby-capsule__hint">{t('lobby.lastPartyHint')}</span>
       </span>
       <span className="lobby-capsule__code-badge">{code}</span>
       <span className="lobby-capsule__chev" aria-hidden="true">
@@ -225,13 +227,14 @@ export type LobbyBackButtonProps = {
 };
 
 export function LobbyBackButton({ onClick }: LobbyBackButtonProps) {
+  const t = useT();
   return (
-    <button type="button" className="lobby-nav-back" onClick={onClick} aria-label="Назад в меню">
+    <button type="button" className="lobby-nav-back" onClick={onClick} aria-label={t('lobby.backAria')}>
       <span className="lobby-nav-back__glyph">
         <GlyphBackNav />
       </span>
       <span className="lobby-nav-back__beam" aria-hidden="true" />
-      <span className="lobby-nav-back__label">Меню</span>
+      <span className="lobby-nav-back__label">{t('common.menu')}</span>
     </button>
   );
 }
@@ -242,12 +245,13 @@ export type LobbyPasteCodeButtonProps = {
 };
 
 export function LobbyPasteCodeButton({ ok, onClick }: LobbyPasteCodeButtonProps) {
+  const t = useT();
   return (
     <button
       type="button"
       className={['lobby-entry-paste', ok ? 'lobby-entry-paste--ok' : ''].filter(Boolean).join(' ')}
       onClick={onClick}
-      aria-label="Вставить код комнаты из буфера обмена"
+      aria-label={t('lobby.pasteCodeAria')}
     >
       {ok ? <GlyphPasteOk /> : <GlyphPaste />}
     </button>
@@ -279,11 +283,12 @@ export function LobbyCreatePanel({
   onLaunch,
   onCancel,
 }: LobbyCreatePanelProps) {
+  const t = useT();
   return (
-    <div className="lobby-create-panel" role="region" aria-label="Настройки новой комнаты">
-      <p className="lobby-create-panel__lead">Параметры комнаты перед запуском</p>
-      <div className="lobby-seat-picker" role="radiogroup" aria-label="Число игроков">
-        <span className="lobby-seat-picker__title">Игроков за столом</span>
+    <div className="lobby-create-panel" role="region" aria-label={t('lobby.createSettings')}>
+      <p className="lobby-create-panel__lead">{t('lobby.createLead')}</p>
+      <div className="lobby-seat-picker" role="radiogroup" aria-label={t('lobby.seatsAria')}>
+        <span className="lobby-seat-picker__title">{t('lobby.seatsTitle')}</span>
         <div className="lobby-seat-picker__row">
           {([3, 4] as const).map((count) => {
             const active = maxPlayers === count;
@@ -310,7 +315,7 @@ export function LobbyCreatePanel({
           })}
         </div>
         <span className="lobby-seat-picker__hint">
-          {maxPlayers === 3 ? 'Стол на 3 игрока' : 'Стол на 4 игрока'}
+          {maxPlayers === 3 ? t('lobby.seats3') : t('lobby.seats4')}
         </span>
       </div>
       <label className="lobby-cosmo-toggle">
@@ -323,8 +328,8 @@ export function LobbyCreatePanel({
           <span className="lobby-cosmo-toggle__knob" />
         </span>
         <span className="lobby-cosmo-toggle__text">
-          <span className="lobby-cosmo-toggle__title">Банк (демо)</span>
-          <span className="lobby-cosmo-toggle__hint">взнос 100 с каждого</span>
+          <span className="lobby-cosmo-toggle__title">{t('lobby.bankTitle')}</span>
+          <span className="lobby-cosmo-toggle__hint">{t('lobby.bankHint')}</span>
         </span>
       </label>
       {showPublicHallOption && (
@@ -338,22 +343,22 @@ export function LobbyCreatePanel({
             <span className="lobby-cosmo-toggle__knob" />
           </span>
           <span className="lobby-cosmo-toggle__text">
-            <span className="lobby-cosmo-toggle__title">Показать в зале</span>
-            <span className="lobby-cosmo-toggle__hint">стол виден другим игрокам</span>
+            <span className="lobby-cosmo-toggle__title">{t('lobby.publicTitle')}</span>
+            <span className="lobby-cosmo-toggle__hint">{t('lobby.publicHint')}</span>
           </span>
         </label>
       )}
       <LobbyCapsuleButton
         variant="launch"
-        title={creating ? 'Запуск…' : createBankRoom ? 'Запустить банковую' : 'Запустить комнату'}
-        hint="создать и войти"
+        title={creating ? t('lobby.starting') : createBankRoom ? t('lobby.launchBank') : t('lobby.launch')}
+        hint={t('lobby.launchHint')}
         disabled={creating}
         onClick={onLaunch}
         showChevron={false}
       />
       <button type="button" className="lobby-capsule lobby-capsule--ghost lobby-capsule--compact" onClick={onCancel}>
         <span className="lobby-capsule__body">
-          <span className="lobby-capsule__title">Отмена</span>
+          <span className="lobby-capsule__title">{t('common.cancel')}</span>
         </span>
       </button>
     </div>

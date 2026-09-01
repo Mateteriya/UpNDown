@@ -50,9 +50,65 @@ let labOverridesApplied = false;
 
 /** Активные голоса по слоту — чтобы карта не наслаивалась. */
 const activeBySlot = new Map<SoundId, { src: AudioBufferSourceNode; gain: GainNode }>();
+/** Синт-фолбэк и gain-узлы nudge — stopSlot их не видит. */
+const nudgeSynthNodes = new Set<AudioNode>();
+const nudgeSafetyTimers = new Map<SoundId, number>();
 let lastCardPlayAt = 0;
 
+const NUDGE_SOUND_IDS: SoundId[] = [
+  'your_turn_soft',
+  'your_turn_nudge_long',
+  'your_turn_nudge_short',
+];
+
+function isNudgeSound(id: SoundId): boolean {
+  return NUDGE_SOUND_IDS.includes(id);
+}
+
+function clearNudgeSafetyTimer(id: SoundId): void {
+  const t = nudgeSafetyTimers.get(id);
+  if (t != null) {
+    window.clearTimeout(t);
+    nudgeSafetyTimers.delete(id);
+  }
+}
+
+function stopActiveVoice(cur: { src: AudioBufferSourceNode; gain: GainNode }): void {
+  try {
+    if (ctx && ctx.state !== 'closed') {
+      const t = ctx.currentTime;
+      cur.gain.gain.cancelScheduledValues(t);
+      cur.gain.gain.setValueAtTime(Math.max(0.0001, cur.gain.gain.value), t);
+      cur.gain.gain.linearRampToValueAtTime(0.0001, t + 0.04);
+      cur.src.stop(t + 0.05);
+    } else {
+      cur.src.stop(0);
+    }
+  } catch {
+    try {
+      cur.src.stop(0);
+    } catch {
+      /* ignore */
+    }
+  }
+  try {
+    cur.gain.disconnect();
+  } catch {
+    /* ignore */
+  }
+}
+
 function resetGraph(): void {
+  for (const id of [...activeBySlot.keys()]) stopSlot(id);
+  for (const node of [...nudgeSynthNodes]) {
+    try {
+      node.disconnect();
+    } catch {
+      /* ignore */
+    }
+  }
+  nudgeSynthNodes.clear();
+  for (const id of NUDGE_SOUND_IDS) clearNudgeSafetyTimer(id);
   ctx = null;
   master = null;
   channelGain = null;
@@ -227,19 +283,23 @@ export function playSound(id: SoundId, opts?: PlayOpts): void {
   const run = () => {
     if (!channelGain) return;
     const dest = channelGain[ch];
+    if (isNudgeSound(id) && opts?.preview !== true) stopNudgeSounds();
     if (playBuffer(c, id, dest, mul, opts?.preview === true)) return;
     /* fallback synth, пока сэмплы грузятся */
     const voice = c.createGain();
     voice.gain.value = Math.min(1.4, Math.max(0, mul * (SLOT_GAIN[id] ?? 1)));
     voice.connect(dest);
+    if (isNudgeSound(id)) nudgeSynthNodes.add(voice);
     playSynthSound(c, voice, id);
+    const tailMs = isNudgeSound(id) ? 9000 : 7000;
     window.setTimeout(() => {
+      nudgeSynthNodes.delete(voice);
       try {
         voice.disconnect();
       } catch {
         /* ignore */
       }
-    }, 7000);
+    }, tailMs);
   };
 
   const kick = async () => {
@@ -256,17 +316,10 @@ export function playSound(id: SoundId, opts?: PlayOpts): void {
 }
 
 function stopSlot(id: SoundId): void {
+  clearNudgeSafetyTimer(id);
   const cur = activeBySlot.get(id);
-  if (!cur || !ctx) return;
-  try {
-    const t = ctx.currentTime;
-    cur.gain.gain.cancelScheduledValues(t);
-    cur.gain.gain.setValueAtTime(Math.max(0.0001, cur.gain.gain.value), t);
-    cur.gain.gain.linearRampToValueAtTime(0.0001, t + 0.04);
-    cur.src.stop(t + 0.05);
-  } catch {
-    /* ignore */
-  }
+  if (!cur) return;
+  stopActiveVoice(cur);
   activeBySlot.delete(id);
 }
 
@@ -305,6 +358,10 @@ function playBuffer(
     stopSlot('card_play');
   }
 
+  if (isNudgeSound(id) && !preview) {
+    stopSlot(id);
+  }
+
   const voice = c.createGain();
   const slotGain = SLOT_GAIN[id] ?? 1;
   voice.gain.value = Math.min(1.4, Math.max(0, mul * slotGain));
@@ -312,8 +369,10 @@ function playBuffer(
 
   const src = c.createBufferSource();
   src.buffer = buf;
+  src.loop = false;
   src.connect(voice);
   src.onended = () => {
+    clearNudgeSafetyTimer(id);
     if (activeBySlot.get(id)?.src === src) activeBySlot.delete(id);
     try {
       voice.disconnect();
@@ -323,6 +382,17 @@ function playBuffer(
   };
   activeBySlot.set(id, { src, gain: voice });
   src.start();
+  if (isNudgeSound(id) && !preview) {
+    const capMs = Math.min(Math.ceil(buf.duration * 1000) + 250, 12000);
+    clearNudgeSafetyTimer(id);
+    nudgeSafetyTimers.set(
+      id,
+      window.setTimeout(() => {
+        nudgeSafetyTimers.delete(id);
+        if (activeBySlot.get(id)?.src === src) stopSlot(id);
+      }, capMs),
+    );
+  }
   return true;
 }
 
@@ -344,9 +414,15 @@ export function setAudioSettings(next: AudioSettings): void {
 }
 
 export function stopNudgeSounds(): void {
-  stopSlot('your_turn_soft');
-  stopSlot('your_turn_nudge_long');
-  stopSlot('your_turn_nudge_short');
+  for (const id of NUDGE_SOUND_IDS) stopSlot(id);
+  for (const node of [...nudgeSynthNodes]) {
+    try {
+      node.disconnect();
+    } catch {
+      /* ignore */
+    }
+  }
+  nudgeSynthNodes.clear();
 }
 
 let volumePreview: { src: AudioBufferSourceNode; gain: GainNode; id: SoundId } | null = null;

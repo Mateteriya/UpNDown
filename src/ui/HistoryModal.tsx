@@ -63,7 +63,8 @@ export function HistoryModal({
   onGoToOffline?: () => void;
   onOpenCabinet?: () => void;
 }) {
-  const { user, configured } = useAuth();
+  const { user, configured, session, loading: authLoading } = useAuth();
+  const accessToken = session?.access_token ?? '';
   const [items, setItems] = useState<MatchHistoryItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const offlineAvailable = hasSavedGame();
@@ -78,6 +79,8 @@ export function HistoryModal({
   }, [onClose]);
 
   useEffect(() => {
+    if (authLoading) return;
+    void accessToken;
     (async () => {
       if (!configured || !user?.id) {
         setItems([]);
@@ -86,7 +89,7 @@ export function HistoryModal({
       const data = await getMyMatchHistory(user.id, CLOUD_TEASER_MAX);
       setItems(data);
     })().catch((e) => setError(String(e)));
-  }, [configured, user?.id]);
+  }, [authLoading, configured, user?.id, accessToken]);
 
   const cloudTeasers = items?.slice(0, CLOUD_TEASER_MAX) ?? null;
   const hasTeasers =

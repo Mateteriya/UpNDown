@@ -126,3 +126,17 @@ export async function writeSlotToDevServer(id: SoundId, wav: ArrayBuffer | Blob)
     return false;
   }
 }
+
+/** Dev-only: пишет фоновую петлю в public/audio/music/{id}.wav */
+export async function writeMusicSlotToDevServer(id: string, wav: ArrayBuffer | Blob): Promise<boolean> {
+  try {
+    const res = await fetch(`/__updown_lab_music?id=${encodeURIComponent(id)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'audio/wav' },
+      body: wav instanceof Blob ? wav : new Blob([wav.slice(0)], { type: 'audio/wav' }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

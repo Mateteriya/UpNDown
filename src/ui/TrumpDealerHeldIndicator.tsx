@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties
 import type { Card } from '../game/types';
 import { getFaceCardImageSrc, getFaceRankLabel, isFaceRank } from '../cardAssets';
 import { getSuitGlyphColorOnIndicatorTrump } from './CardView';
+import { t } from '../i18n';
 
 const INTRO_MS = 2800;
 const HINT_AUTO_MS = 2600;
@@ -216,8 +217,8 @@ export function TrumpDealerHeldIndicator({
   }, [introKey]);
 
   const deckAriaLabel = trumpLabelOpen
-    ? `Козырь раздачи: ${trumpCard.rank} ${trumpCard.suit}. Вся колода на руках.`
-    : `Козырь раздачи: ${trumpCard.rank} ${trumpCard.suit}. Нажмите, чтобы показать подпись.`;
+    ? t('table.trumpDealHeld', { rank: trumpCard.rank, suit: trumpCard.suit })
+    : t('table.trumpDealTap', { rank: trumpCard.rank, suit: trumpCard.suit });
 
   return (
     <div
@@ -380,10 +381,10 @@ export function TrumpDealerHeldIndicator({
                 </div>
                 <span className="trump-dealer-held-indicator__deck-label">
                   <span className="online-room-code-badge-iridescent-text trump-dealer-held-indicator__deck-label-line">
-                    Вся колода
+                    {t('table.wholeDeck')}
                   </span>
                   <span className="online-room-code-badge-iridescent-text trump-dealer-held-indicator__deck-label-line">
-                    на руках
+                    {t('table.onHands')}
                   </span>
                 </span>
               </span>
@@ -430,7 +431,7 @@ export function TrumpDealerHeldIndicator({
                     role="tooltip"
                   >
                     <span className="game-table-tooltip-cosmic-body-text trump-dealer-held-indicator__dealer-tooltip-text">
-                      Козырь у сдающего игрока — {dealerName}
+                      {t('table.trumpAtDealer', { name: dealerName })}
                     </span>
                   </div>
                 ) : null}

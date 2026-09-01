@@ -9,8 +9,10 @@ export const MAX_AVATAR_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
  * старый потолок 24KB молча выкидывал аватар, и игроки не видели друг друга.
  */
 export const ONLINE_ROOM_AVATAR_MAX_CHARS = 140_000;
-/** Для Supabase / слабой сети — ужимаем сильнее перед INSERT. */
+/** Для слота комнаты / слабой сети — ужимаем сильнее перед INSERT. */
 export const ONLINE_CLOUD_AVATAR_MAX_CHARS = 22_000;
+/** Профиль в `profiles.avatar_data_url`: JPEG 256–512px обычно влезает. */
+export const PROFILE_CLOUD_AVATAR_MAX_CHARS = 80_000;
 
 export function compressImageToDataUrl(dataUrl: string): Promise<string> {
   return new Promise((resolve, reject) => {
