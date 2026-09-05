@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { projectGameState, viewerSeatIndex } from './stateView';
+import { projectGameState, projectRoomForViewer, viewerSeatIndex, slimPlayerSlots } from './stateView';
 import { canAccessRoom, isRoomMember } from './roomAccess';
 import type { GameState } from '../../src/game/GameEngine';
 import type { GameRoomRow } from './protocol';
@@ -51,6 +51,41 @@ const room: GameRoomRow = {
   created_at: '',
   updated_at: '',
 };
+
+describe('slimPlayerSlots', () => {
+  it('drops data-URL avatars and keeps pause flags', () => {
+    const slim = slimPlayerSlots([
+      {
+        slotIndex: 0,
+        displayName: 'A',
+        userId: 'u1',
+        avatarDataUrl: 'data:image/jpeg;base64,' + 'x'.repeat(80),
+        pausedByUser: true,
+      },
+      { slotIndex: 1, displayName: 'B', userId: 'u2' },
+    ]);
+    expect(slim?.[0]).not.toHaveProperty('avatarDataUrl');
+    expect(slim?.[0].pausedByUser).toBe(true);
+    expect(slim?.[1].displayName).toBe('B');
+  });
+});
+
+describe('projectRoomForViewer', () => {
+  it('strips data-URL avatars unless keepAvatars is explicit', () => {
+    const fat = 'data:image/jpeg;base64,' + 'x'.repeat(80);
+    const waiting: GameRoomRow = {
+      ...room,
+      status: 'waiting',
+      player_slots: [{ slotIndex: 0, userId: 'user-a', displayName: 'A', avatarDataUrl: fat }],
+    };
+    const playing: GameRoomRow = { ...waiting, status: 'playing' };
+    expect(projectRoomForViewer(waiting, 'user-a').player_slots?.[0]).not.toHaveProperty('avatarDataUrl');
+    expect(projectRoomForViewer(playing, 'user-a').player_slots?.[0]).not.toHaveProperty('avatarDataUrl');
+    expect(
+      projectRoomForViewer(playing, 'user-a', { stripUnknownHands: false, keepAvatars: true }).player_slots?.[0],
+    ).toHaveProperty('avatarDataUrl', fat);
+  });
+});
 
 describe('projectGameState', () => {
   it('keeps only the viewer hand', () => {

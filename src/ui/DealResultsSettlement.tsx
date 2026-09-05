@@ -7,7 +7,6 @@ import { createPortal } from 'react-dom';
 import type { DealResult } from '../game/GameEngine';
 import {
   computePartySettlement,
-  SETTLEMENT_MODE_LABELS,
   type SettlementMode,
   type SettlementOptions,
 } from '../game/partySettlement';
@@ -16,64 +15,72 @@ import {
   writeResultsChipView,
   type ResultsChipView,
 } from '../game/resultsChipView';
+import { t, useT, type TFunc } from '../i18n';
 
 export type { ResultsChipView };
 
-const CHIP_MODE_COMPARE_ROWS: {
-  key: string;
-  label: string;
-  vs_average: string;
-  accuracy_bonus: string;
-}[] = [
-  {
-    key: 'formula',
-    label: 'Формула',
-    vs_average: 'Ваши очки − среднее по столу',
-    accuracy_bonus: 'Очки − среднее + бонус',
-  },
-  {
-    key: 'bonus',
-    label: 'Бонус',
-    vs_average: 'Нет',
-    accuracy_bonus: '+10 за раздачу, где заказ = взял',
-  },
-  {
-    key: 'sum',
-    label: 'Сумма фишек',
-    vs_average: 'Всегда 0 — перераспределение',
-    accuracy_bonus: 'Может быть ≠ 0',
-  },
-];
+function settlementModeLabel(mode: SettlementMode, tr: TFunc): string {
+  if (mode === 'accuracy_bonus') return tr('settlement.accuracy');
+  if (mode === 'vs_average') return tr('settlement.average');
+  if (mode === 'prize_pool') return tr('settlement.prize');
+  return tr('settlement.points');
+}
 
-const CHIP_MODE_NOTE: Record<ResultsChipView, { lead: string; rest: string }> = {
-  vs_average: {
-    lead: 'Среднее по столу',
-    rest: 'среднее арифметическое итоговых очков всех игроков за партию.',
-  },
-  accuracy_bonus: {
-    lead: 'Точный заказ',
-    rest: 'среднее арифметическое итоговых очков всех игроков за партию + бонус за каждый точный заказ (+10 фишек).',
-  },
-};
+function chipModeCompareRows(tr: TFunc) {
+  return [
+    {
+      key: 'formula',
+      label: tr('settlement.formula'),
+      vs_average: tr('settlement.formulaAvg'),
+      accuracy_bonus: tr('settlement.formulaAcc'),
+    },
+    {
+      key: 'bonus',
+      label: tr('settlement.bonus'),
+      vs_average: tr('settlement.none'),
+      accuracy_bonus: tr('settlement.bonusAcc'),
+    },
+    {
+      key: 'sum',
+      label: tr('settlement.chipSum'),
+      vs_average: tr('settlement.sumAvg'),
+      accuracy_bonus: tr('settlement.sumAcc'),
+    },
+  ] as const;
+}
 
-const CHIP_MODE_FULL_DETAILS: Record<ResultsChipView, string[]> = {
-  vs_average: [
-    'Считаем среднее арифметическое итоговых очков всех игроков за партию.',
-    'Фишки игрока = его очки минус это среднее: кто выше среднего — в плюсе, кто ниже — в минусе.',
-    'Сумма фишек по столу всегда равна нулю — это перераспределение между игроками, без «приза сверху».',
-  ],
-  accuracy_bonus: [
-    'Считаем среднее арифметическое итоговых очков всех игроков за партию.',
-    'Базовые фишки = очки игрока минус это среднее: кто выше среднего — в плюсе, кто ниже — в минусе.',
-    'Дополнительно +10 фишек за каждую раздачу, где заказ совпал с количеством взятых взяток.',
-    'Сумма фишек по столу может быть не нулевой — бонус за точность начисляется сверх перераспределения.',
-  ],
-};
+function chipModeNote(tr: TFunc): Record<ResultsChipView, { lead: string; rest: string }> {
+  return {
+    vs_average: {
+      lead: tr('settlement.noteAvgLead'),
+      rest: tr('settlement.noteAvgRest'),
+    },
+    accuracy_bonus: {
+      lead: tr('settlement.noteAccLead'),
+      rest: tr('settlement.noteAccRest'),
+    },
+  };
+}
+
+function chipModeFullDetails(tr: TFunc): Record<ResultsChipView, string[]> {
+  return {
+    vs_average: [tr('settlement.detailsAvg1'), tr('settlement.detailsAvg2'), tr('settlement.detailsAvg3')],
+    accuracy_bonus: [
+      tr('settlement.detailsAcc1'),
+      tr('settlement.detailsAcc2'),
+      tr('settlement.detailsAcc3'),
+      tr('settlement.detailsAcc4'),
+    ],
+  };
+}
 
 export function ResultsChipModeHelpContent({ chipView }: { chipView: ResultsChipView }) {
+  const tr = useT();
   const modes: ResultsChipView[] = ['vs_average', 'accuracy_bonus'];
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const modeNote = CHIP_MODE_NOTE[chipView];
+  const modeNote = chipModeNote(tr)[chipView];
+  const fullDetails = chipModeFullDetails(tr);
+  const compareRows = chipModeCompareRows(tr);
 
   return (
     <div className="chip-mode-help-cosmos">
@@ -82,18 +89,18 @@ export function ResultsChipModeHelpContent({ chipView }: { chipView: ResultsChip
         <span className="chip-mode-help-cosmos__glyph" aria-hidden>
           ✦
         </span>
-        <h3 className="chip-mode-help-cosmos__title">Режимы подсчёта фишек</h3>
+        <h3 className="chip-mode-help-cosmos__title">{tr('settlement.helpTitle')}</h3>
       </header>
       <p className="chip-mode-help-cosmos__intro">
-        Можно выбрать варианты подсчёта фишек:{' '}
+        {tr('settlement.helpIntroBefore')}{' '}
         <span className="chip-mode-help-cosmos__intro-mode chip-mode-help-cosmos__intro-mode--average">
-          «Середина стола»
+          «{tr('settlement.average')}»
         </span>{' '}
-        (классика) или{' '}
+        {tr('settlement.helpClassic')} {tr('settlement.helpOr')}{' '}
         <span className="chip-mode-help-cosmos__intro-mode chip-mode-help-cosmos__intro-mode--accuracy">
-          «Точный заказ»
+          «{tr('settlement.accuracy')}»
         </span>{' '}
-        (классика + бонус за чёткость).
+        {tr('settlement.helpClassicBonus')}
         {!detailsOpen ? (
           <>
             {' '}
@@ -103,7 +110,7 @@ export function ResultsChipModeHelpContent({ chipView }: { chipView: ResultsChip
               aria-expanded={false}
               onClick={() => setDetailsOpen(true)}
             >
-              Подробнее…
+              {tr('settlement.helpMore')}
             </button>
           </>
         ) : null}
@@ -121,9 +128,9 @@ export function ResultsChipModeHelpContent({ chipView }: { chipView: ResultsChip
                   .filter(Boolean)
                   .join(' ')}
               >
-                <h4 className="chip-mode-help-cosmos__detail-title">{SETTLEMENT_MODE_LABELS[mode]}</h4>
+                <h4 className="chip-mode-help-cosmos__detail-title">{settlementModeLabel(mode, tr)}</h4>
                 <ul className="chip-mode-help-cosmos__detail-list">
-                  {CHIP_MODE_FULL_DETAILS[mode].map((line) => (
+                  {fullDetails[mode].map((line) => (
                     <li key={line}>{line}</li>
                   ))}
                 </ul>
@@ -139,7 +146,7 @@ export function ResultsChipModeHelpContent({ chipView }: { chipView: ResultsChip
             <span className="chip-mode-help-cosmos__collapse-icon" aria-hidden>
               ▲
             </span>
-            Свернуть подробности
+            {tr('settlement.helpCollapse')}
           </button>
         </div>
       ) : null}
@@ -150,7 +157,7 @@ export function ResultsChipModeHelpContent({ chipView }: { chipView: ResultsChip
           <span className="chip-mode-help-cosmos__middle-rest"> — {modeNote.rest}</span>
         </span>
       </p>
-      <div className="chip-mode-help-cosmos__compare" role="table" aria-label="Сравнение режимов подсчёта">
+      <div className="chip-mode-help-cosmos__compare" role="table" aria-label={tr('settlement.compareAria')}>
         <div className="chip-mode-help-cosmos__compare-head" role="row">
           <span className="chip-mode-help-cosmos__compare-corner" role="columnheader" aria-hidden />
           {modes.map((mode) => (
@@ -164,14 +171,14 @@ export function ResultsChipModeHelpContent({ chipView }: { chipView: ResultsChip
                 .filter(Boolean)
                 .join(' ')}
             >
-              <span className="chip-mode-help-cosmos__compare-coltitle">{SETTLEMENT_MODE_LABELS[mode]}</span>
+              <span className="chip-mode-help-cosmos__compare-coltitle">{settlementModeLabel(mode, tr)}</span>
               {mode === chipView ? (
-                <span className="chip-mode-help-cosmos__compare-pick">выбрано</span>
+                <span className="chip-mode-help-cosmos__compare-pick">{tr('settlement.selected')}</span>
               ) : null}
             </div>
           ))}
         </div>
-        {CHIP_MODE_COMPARE_ROWS.map((row) => (
+        {compareRows.map((row) => (
           <div key={row.key} className="chip-mode-help-cosmos__compare-row" role="row">
             <span className="chip-mode-help-cosmos__compare-label" role="rowheader">
               {row.label}
@@ -193,7 +200,7 @@ export function ResultsChipModeHelpContent({ chipView }: { chipView: ResultsChip
           </div>
         ))}
       </div>
-      <p className="chip-mode-help-cosmos__footnote">Рейтинг партии — всегда по очкам, не по фишкам.</p>
+      <p className="chip-mode-help-cosmos__footnote">{tr('settlement.ratingAlwaysPoints')}</p>
     </div>
   );
 }
@@ -230,6 +237,7 @@ export function ResultsChipModeHelpPanel({
   onClose: () => void;
   portalled?: boolean | ChipModeHelpPortalTarget;
 }) {
+  const tr = useT();
   const portalTarget = resolveChipModeHelpPortal(portalled);
   return (
     <div
@@ -241,7 +249,7 @@ export function ResultsChipModeHelpPanel({
         .filter(Boolean)
         .join(' ')}
       role="dialog"
-      aria-label="Пояснение режимов подсчёта"
+      aria-label={tr('settlement.helpDialog')}
       onClick={(e) => e.stopPropagation()}
     >
       <ResultsChipModeHelpContent chipView={chipView} />
@@ -253,7 +261,7 @@ export function ResultsChipModeHelpPanel({
           onClose();
         }}
       >
-        Понятно
+        {tr('common.understood')}
       </button>
     </div>
   );
@@ -270,6 +278,7 @@ export function ResultsChipModeHelpOverlay({
   onClose: () => void;
   portalled: ChipModeHelpPortalTarget;
 }) {
+  const tr = useT();
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
@@ -277,7 +286,7 @@ export function ResultsChipModeHelpOverlay({
       <button
         type="button"
         className="chip-mode-help-scrim"
-        aria-label="Закрыть пояснение"
+        aria-label={tr('settlement.closeHelp')}
         onClick={onClose}
       />
       <ResultsChipModeHelpPanel chipView={chipView} portalled={portalled} onClose={onClose} />
@@ -336,14 +345,15 @@ interface DealResultsChipToggleProps {
 }
 
 export function DealResultsChipToggle({ chipView, onChange, compact, micro, className }: DealResultsChipToggleProps) {
-  const accuracyLabel = micro ? 'Точный' : SETTLEMENT_MODE_LABELS.accuracy_bonus;
-  const averageLabel = micro ? 'Середина' : SETTLEMENT_MODE_LABELS.vs_average;
+  const tr = useT();
+  const accuracyLabel = micro ? tr('settlement.accuracyShort') : tr('settlement.accuracy');
+  const averageLabel = micro ? tr('settlement.averageShort') : tr('settlement.average');
   return (
     <div
       className={['cosmic-chip-toggle', 'cosmic-chip-toggle--phys', className].filter(Boolean).join(' ')}
       style={compact ? { marginTop: 0, marginBottom: 0 } : toggleWrapStyle}
       role="tablist"
-      aria-label="Способ подсчёта фишек"
+      aria-label={tr('settlement.chipModesAria')}
     >
       <button
         type="button"
@@ -351,7 +361,7 @@ export function DealResultsChipToggle({ chipView, onChange, compact, micro, clas
         aria-selected={chipView === 'accuracy_bonus'}
         className={`cosmic-chip-toggle__btn${chipView === 'accuracy_bonus' ? ' cosmic-chip-toggle__btn--active' : ''}`}
         onClick={() => onChange('accuracy_bonus')}
-        title={SETTLEMENT_MODE_LABELS.accuracy_bonus}
+        title={tr('settlement.accuracy')}
       >
         <span className="cosmic-chip-toggle__label">{accuracyLabel}</span>
       </button>
@@ -361,7 +371,7 @@ export function DealResultsChipToggle({ chipView, onChange, compact, micro, clas
         aria-selected={chipView === 'vs_average'}
         className={`cosmic-chip-toggle__btn${chipView === 'vs_average' ? ' cosmic-chip-toggle__btn--active' : ''}`}
         onClick={() => onChange('vs_average')}
-        title={SETTLEMENT_MODE_LABELS.vs_average}
+        title={tr('settlement.average')}
       >
         <span className="cosmic-chip-toggle__label">{averageLabel}</span>
       </button>
@@ -380,6 +390,7 @@ export function ResultsChipModeHelpButton({
   /** Поверх модалки (не обрезается overflow) */
   portalled?: boolean | ChipModeHelpPortalTarget;
 }) {
+  const tr = useT();
   const [open, setOpen] = useState(false);
   const portalTarget = resolveChipModeHelpPortal(portalled);
 
@@ -388,7 +399,7 @@ export function ResultsChipModeHelpButton({
       <button
         type="button"
         className="deal-results-sticky-payout-veil-caption__help-btn"
-        aria-label="Пояснение режимов подсчёта выигрыша"
+        aria-label={tr('table.scoreModeHelp')}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
@@ -410,13 +421,13 @@ export function ResultsChipModeHelpButton({
 
 export function settlementFootnote(mode: SettlementMode, sumChips?: number): string | null {
   if (mode === 'vs_average' && sumChips === 0) {
-    return 'Сумма фишек = 0: перераспределение между игроками.';
+    return t('settlement.footnoteAvg');
   }
   if (mode === 'accuracy_bonus') {
-    return 'Бонус +10 за каждую раздачу с точным заказом.';
+    return t('settlement.footnoteAcc');
   }
   if (mode === 'prize_pool') {
-    return 'Банк делится по местам (очки). Взнос демо — без списания баланса.';
+    return t('settlement.footnotePrize');
   }
   return null;
 }
@@ -424,9 +435,9 @@ export function settlementFootnote(mode: SettlementMode, sumChips?: number): str
 export function prizePoolRowExtra(buyIn: number | undefined, chips: number): string | undefined {
   if (buyIn == null) return undefined;
   const gross = Math.round((chips + buyIn) * 10) / 10;
-  if (chips > 0) return `взнос ${buyIn} → из банка ${gross} → +${chips}`;
-  if (chips < 0) return `взнос ${buyIn} → ${chips}`;
-  return `взнос ${buyIn} → 0`;
+  if (chips > 0) return t('settlement.buyInFromBank', { buyIn, gross, chips });
+  if (chips < 0) return t('settlement.buyInLoss', { buyIn, chips });
+  return t('settlement.buyInZero', { buyIn });
 }
 
 export function usePartySettlementWithMode(

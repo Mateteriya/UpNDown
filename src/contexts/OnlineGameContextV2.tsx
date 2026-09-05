@@ -61,13 +61,24 @@ import {
   type OnlineStatus,
 } from './OnlineGameContext';
 
+/** Слоты в live-push без data-URL: не затираем уже известные аватары. */
+function mergePlayerSlotsKeepAvatars(prev: PlayerSlot[], next: PlayerSlot[]): PlayerSlot[] {
+  const prevBy = new Map(prev.map((s) => [s.slotIndex, s]));
+  return next.map((s) => {
+    if (s.avatarDataUrl) return s;
+    const old = prevBy.get(s.slotIndex);
+    if (old?.avatarDataUrl) return { ...s, avatarDataUrl: old.avatarDataUrl };
+    return s;
+  });
+}
+
 function applyRoomRow(
   row: GameRoomRow,
   setters: {
     setRoomId: (v: string | null) => void;
     setCode: (v: string | null) => void;
     setStatus: (v: OnlineStatus) => void;
-    setPlayerSlots: (v: PlayerSlot[]) => void;
+    setPlayerSlots: React.Dispatch<React.SetStateAction<PlayerSlot[]>>;
     setHostUserId: (v: string | null) => void;
     setRoomPhase: (v: GameRoomPhase) => void;
     setSettlementMode: (v: SettlementMode) => void;
@@ -81,7 +92,9 @@ function applyRoomRow(
   setters.setRoomId(row.id);
   setters.setCode(row.code);
   setters.setStatus(row.status === 'playing' ? 'playing' : row.status === 'finished' ? 'finished' : 'waiting');
-  setters.setPlayerSlots((row.player_slots as PlayerSlot[]) ?? []);
+  setters.setPlayerSlots((prev) =>
+    mergePlayerSlotsKeepAvatars(prev, (row.player_slots as PlayerSlot[]) ?? []),
+  );
   setters.setHostUserId(row.host_user_id ?? null);
   setters.setRoomPhase(normalizeRoomPhase(row));
   setters.setSettlementMode((row.settlement_mode as SettlementMode) ?? DEFAULT_CASUAL_SETTLEMENT);
@@ -133,6 +146,8 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
   const revisionRef = useRef(-1);
   const roomIdRef = useRef<string | null>(null);
   roomIdRef.current = roomId;
+  const statusRef = useRef(status);
+  statusRef.current = status;
   const deviceIdRef = useRef(onlinePlayerId);
   deviceIdRef.current = onlinePlayerId;
 
@@ -164,13 +179,16 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
   const emptyHandHealAtRef = useRef(0);
   const pendingStuckHealAtRef = useRef(0);
   const turnDesyncHealAtRef = useRef(0);
+  const roomPullInFlightRef = useRef(false);
 
   const applyGameStatePush = useCallback((push: GameStatePush) => {
     if (push.roomId !== roomIdRef.current) return;
     if (push.revision <= revisionRef.current) return;
     revisionRef.current = push.revision;
     setCanonicalState(push.state);
-    if (push.playerSlots) setPlayerSlots(push.playerSlots);
+    if (push.playerSlots) {
+      setPlayerSlots((prev) => mergePlayerSlotsKeepAvatars(prev, push.playerSlots!));
+    }
     if (push.roomPhase) {
       setRoomPhase(normalizeRoomPhase({ status: 'playing', room_phase: push.roomPhase }));
     }
@@ -185,11 +203,17 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
   const forceHealRoom = useCallback(
     (reason: string) => {
       if (!roomId) return;
+      if (roomPullInFlightRef.current) return;
       console.warn('[online-v2] heal', reason);
+      roomPullInFlightRef.current = true;
       revisionRef.current = -1;
-      void getRoom(roomId).then((r) => {
-        if (r) applyRoom(r);
-      });
+      void getRoom(roomId)
+        .then((r) => {
+          if (r) applyRoom(r);
+        })
+        .finally(() => {
+          roomPullInFlightRef.current = false;
+        });
     },
     [roomId, applyRoom],
   );
@@ -200,10 +224,16 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     let healTimer: ReturnType<typeof setTimeout> | null = null;
     const healFromServer = (force = false) => {
       if (cancelled) return;
+      if (roomPullInFlightRef.current) return;
+      roomPullInFlightRef.current = true;
       if (force) revisionRef.current = -1;
-      void getRoom(roomId).then((r) => {
-        if (!cancelled && r) applyRoom(r);
-      });
+      void getRoom(roomId)
+        .then((r) => {
+          if (!cancelled && r) applyRoom(r);
+        })
+        .finally(() => {
+          roomPullInFlightRef.current = false;
+        });
     };
     const unsubRoom = subscribeToRoom(roomId, applyRoom, (status) => {
       if (cancelled) return;
@@ -235,6 +265,8 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     if (canonicalState.phase !== 'playing') return;
     if (canonicalState.pendingTrickCompletion) return;
     if (canonicalState.currentPlayerIndex !== myServerIndex) return;
+    const anyCardsLeft = canonicalState.players.some((p) => (p.hand?.length ?? 0) > 0);
+    if (!anyCardsLeft) return;
     const hand = canonicalState.players[myServerIndex]?.hand;
     if (!hand || hand.length > 0) return;
     const now = Date.now();
@@ -263,8 +295,9 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
     return () => window.clearTimeout(timer);
   }, [status, canonicalState, roomId, forceHealRoom]);
 
-  /** ПК: если «мой ход» и revision не двигается ~2.5с — мягкий pull (частый кейс хоста на машине разработки). */
+  /** Vite/dev: если «мой ход» и revision не двигается ~2.5с — мягкий pull. На LAN host:app только мешает: думаешь над картой — getRoom ~100KB и браузер клинит. */
   useEffect(() => {
+    if (lanWs) return;
     if (status !== 'playing' || !canonicalState || !roomId) return;
     if (canonicalState.phase !== 'playing') return;
     if (canonicalState.pendingTrickCompletion) return;
@@ -278,7 +311,7 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
       forceHealRoom('pc-turn-stale-revision');
     }, 2500);
     return () => window.clearTimeout(timer);
-  }, [status, canonicalState, myServerIndex, roomId, forceHealRoom]);
+  }, [status, canonicalState, myServerIndex, roomId, forceHealRoom, lanWs]);
 
   /**
    * Мой ход по canonical, взятка не pending, в руке есть карты, но в display
@@ -306,7 +339,7 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
   }, [status, canonicalState, myServerIndex, roomId, forceHealRoom]);
 
   useEffect(() => {
-    if (authLoading && !lanWs) return;
+    if (authLoading) return;
     if (!onlinePlayerId && !lanWs) {
       setOnlineHydratedFromStorage(true);
       return;
@@ -328,7 +361,14 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
       return;
     }
     void getRoom(saved.roomId).then((room) => {
+      const liveHere =
+        roomIdRef.current === saved.roomId &&
+        (statusRef.current === 'playing' || statusRef.current === 'waiting');
       if (!room) {
+        if (liveHere) {
+          setOnlineHydratedFromStorage(true);
+          return;
+        }
         clearOnlineSession();
         clearLastOnlineParty();
         setLastPartyHintVersion((v) => v + 1);
@@ -338,6 +378,10 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
       const slots = (room.player_slots ?? []) as PlayerSlot[];
       const me = slots.find((s) => s.userId === onlinePlayerId || s.replacedUserId === onlinePlayerId);
       if (!me) {
+        if (liveHere) {
+          setOnlineHydratedFromStorage(true);
+          return;
+        }
         clearOnlineSession();
         clearLastOnlineParty();
         setLastPartyHintVersion((v) => v + 1);

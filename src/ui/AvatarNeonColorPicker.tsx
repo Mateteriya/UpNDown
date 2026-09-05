@@ -297,7 +297,7 @@ export function AvatarNeonColorPicker({
           <HexColorPicker color={hex} onChange={(c) => onChange(normalizeHex(c))} />
         </div>
         <label className="avatar-neon-picker__hex-field">
-          <span className="avatar-neon-picker__hex-field-label">Код</span>
+          <span className="avatar-neon-picker__hex-field-label">{tr('avatarEditor.hexCode')}</span>
           <input
             type="text"
             className="avatar-neon-picker__hex-input"

@@ -179,6 +179,7 @@ type MenuCapsuleVariant =
   | 'rating'
   | 'history'
   | 'auth'
+  | 'signOut'
   | 'soon'
   | 'link';
 
@@ -484,11 +485,80 @@ function GlyphMenuHistory() {
 
 function GlyphMenuAuth() {
   return (
-    <svg className="menu-capsule-glyph-svg" viewBox="0 0 44 44" aria-hidden="true">
-      <circle cx="22" cy="24" r="10" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <path d="M22 18v6l3.5 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <rect x="18" y="8" width="8" height="10" rx="2" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <path d="M20 8V6a2 2 0 0 1 4 0v2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    <svg
+      className="menu-capsule-glyph-svg menu-capsule-glyph-svg--auth"
+      viewBox="0 0 44 44"
+      aria-hidden="true"
+    >
+      {/* Outer warp ring */}
+      <circle
+        cx="23"
+        cy="22"
+        r="15"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        opacity="0.32"
+        strokeDasharray="3.2 4.2"
+      />
+      {/* Portal disc */}
+      <circle cx="23" cy="22" r="10.5" fill="currentColor" opacity="0.16" />
+      <circle cx="23" cy="22" r="10.5" fill="none" stroke="currentColor" strokeWidth="2.35" />
+      <circle cx="23" cy="22" r="6.2" fill="none" stroke="currentColor" strokeWidth="1.7" opacity="0.55" />
+      {/* Bold enter chevron */}
+      <path
+        d="M7 22h12.5"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M15.2 14.8 24.4 22 15.2 29.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Core spark */}
+      <circle cx="23" cy="22" r="2.35" fill="currentColor" />
+    </svg>
+  );
+}
+
+function GlyphMenuSignOut() {
+  return (
+    <svg
+      className="menu-capsule-glyph-svg menu-capsule-glyph-svg--sign-out"
+      viewBox="0 0 44 44"
+      aria-hidden="true"
+    >
+      {/* Outer warp ring */}
+      <circle
+        cx="23"
+        cy="22"
+        r="15"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        opacity="0.32"
+        strokeDasharray="3.2 4.2"
+      />
+      {/* Portal disc */}
+      <circle cx="23" cy="22" r="10.5" fill="currentColor" opacity="0.16" />
+      <circle cx="23" cy="22" r="10.5" fill="none" stroke="currentColor" strokeWidth="2.35" />
+      <circle cx="23" cy="22" r="6.2" fill="none" stroke="currentColor" strokeWidth="1.7" opacity="0.55" />
+      {/* Exit chevron ← left, toward label */}
+      <path d="M37 22H24.5" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" />
+      <path
+        d="M28.8 14.8 19.6 22 28.8 29.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="23" cy="22" r="2.35" fill="currentColor" />
     </svg>
   );
 }
@@ -532,6 +602,7 @@ const GLYPHS: Record<MenuCapsuleVariant, ReactNode> = {
   rating: <GlyphMenuRating />,
   history: <GlyphMenuHistory />,
   auth: <GlyphMenuAuth />,
+  signOut: <GlyphMenuSignOut />,
   soon: <GlyphMenuSoon />,
   link: <GlyphMenuLink />,
 };

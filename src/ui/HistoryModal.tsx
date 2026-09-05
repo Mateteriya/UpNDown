@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getMyMatchHistory, type MatchHistoryItem } from '../lib/onlineGameSupabase';
 import { getPartyHistory, type PartyHistoryRecord } from '../game/partyHistory';
 import { hasSavedGame } from '../game/persistence';
+import { getLocale, useT, type TFunc } from '../i18n';
 
 const CLOUD_TEASER_MAX = 5;
 const LOCAL_TEASER_MAX = 3;
@@ -10,44 +11,53 @@ const LOCAL_TEASER_MAX = 3;
 function formatWhen(iso: string): string {
   try {
     const dt = new Date(iso);
-    return isNaN(dt.getTime()) ? iso : dt.toLocaleString('ru-RU');
+    return isNaN(dt.getTime())
+      ? iso
+      : dt.toLocaleString(getLocale() === 'en' ? 'en-GB' : 'ru-RU');
   } catch {
     return iso;
   }
 }
 
-function LocalTeaserRow({ row }: { row: PartyHistoryRecord }) {
+function LocalTeaserRow({ row, t }: { row: PartyHistoryRecord; t: TFunc }) {
+  const score = `${row.humanScore >= 0 ? '+' : ''}${row.humanScore}`;
   return (
     <div className="lk-modal__row">
       <div className="lk-modal__row-main">
-        <span className="lk-modal__row-title">Офлайн на устройстве</span>
+        <span className="lk-modal__row-title">{t('historyModal.offlineOnDevice')}</span>
         <span className="lk-modal__row-meta">
-          {formatWhen(row.finishedAt)} — место {row.humanPlace}, {row.humanScore >= 0 ? '+' : ''}
-          {row.humanScore} очк.
+          {formatWhen(row.finishedAt)} — {t('historyModal.placeScore', { place: row.humanPlace, score })}
         </span>
       </div>
     </div>
   );
 }
 
-function CloudTeaserRow({ it }: { it: MatchHistoryItem }) {
-  const flags = [it.is_rated ? 'рейтинговая' : 'без рейтинга', it.interrupted ? 'прервана' : null]
+function CloudTeaserRow({ it, t }: { it: MatchHistoryItem; t: TFunc }) {
+  const flags = [
+    it.is_rated ? t('historyModal.rated') : t('historyModal.unrated'),
+    it.interrupted ? t('historyModal.interrupted') : null,
+  ]
     .filter(Boolean)
     .join(' · ');
   return (
     <div className="lk-modal__row">
       <div className="lk-modal__row-main">
-        <span className="lk-modal__row-title">{it.is_offline ? 'Офлайн‑партия' : 'Онлайн‑партия'}</span>
+        <span className="lk-modal__row-title">
+          {it.is_offline ? t('archive.offline') : t('archive.online')}
+        </span>
         <span className="lk-modal__row-meta">
           {formatWhen(it.finished_at)}
           {flags ? ` — ${flags}` : ''}
         </span>
-        {!it.is_offline && it.code ? <span className="lk-modal__row-code">Комната {it.code}</span> : null}
+        {!it.is_offline && it.code ? (
+          <span className="lk-modal__row-code">{t('historyModal.room', { code: it.code })}</span>
+        ) : null}
       </div>
       <div className="lk-modal__row-stats">
-        <span className="lk-modal__row-stat-label">Место</span>
+        <span className="lk-modal__row-stat-label">{t('historyModal.placeLabel')}</span>
         <span className="lk-modal__row-stat-value">{it.place ?? '—'}</span>
-        <span className="lk-modal__row-stat-label">Очки</span>
+        <span className="lk-modal__row-stat-label">{t('historyModal.ptsLabel')}</span>
         <span className="lk-modal__row-stat-value">{it.final_score ?? '—'}</span>
       </div>
     </div>
@@ -63,6 +73,7 @@ export function HistoryModal({
   onGoToOffline?: () => void;
   onOpenCabinet?: () => void;
 }) {
+  const t = useT();
   const { user, configured, session, loading: authLoading } = useAuth();
   const accessToken = session?.access_token ?? '';
   const [items, setItems] = useState<MatchHistoryItem[] | null>(null);
@@ -106,27 +117,23 @@ export function HistoryModal({
       <div className="lk-modal__panel lk-modal__panel--history" onClick={(e) => e.stopPropagation()}>
         <div className="lk-modal__head">
           <h2 id="history-modal-title" className="lk-modal__title">
-            История матчей
+            {t('historyModal.title')}
           </h2>
-          <button type="button" className="lk-modal__close" onClick={onClose} aria-label="Закрыть">
+          <button type="button" className="lk-modal__close" onClick={onClose} aria-label={t('common.close')}>
             ×
           </button>
         </div>
 
         <div className="lk-modal__body">
-          {!configured ? (
-            <p className="lk-modal__hint">Сервер не настроен. История появится после настройки.</p>
-          ) : null}
-          {configured && !user?.id ? (
-            <p className="lk-modal__hint">Войдите, чтобы видеть облачную историю. Локальные партии — ниже.</p>
-          ) : null}
+          {!configured ? <p className="lk-modal__hint">{t('historyModal.serverOff')}</p> : null}
+          {configured && !user?.id ? <p className="lk-modal__hint">{t('historyModal.signInCloud')}</p> : null}
           {error ? <p className="lk-modal__error">{error}</p> : null}
 
           {offlineAvailable && onGoToOffline ? (
             <div className="lk-modal__offline-card">
               <div>
-                <span className="lk-modal__offline-card-title">Последняя офлайн‑партия</span>
-                <span className="lk-modal__offline-card-sub">Есть незавершённая партия на устройстве</span>
+                <span className="lk-modal__offline-card-title">{t('historyModal.lastOffline')}</span>
+                <span className="lk-modal__offline-card-sub">{t('historyModal.lastOfflineSub')}</span>
               </div>
               <button
                 type="button"
@@ -136,7 +143,7 @@ export function HistoryModal({
                   onGoToOffline();
                 }}
               >
-                Продолжить
+                {t('archive.continue')}
               </button>
             </div>
           ) : null}
@@ -144,19 +151,19 @@ export function HistoryModal({
           {localTeasers.length > 0 ? (
             <div className="lk-modal__list">
               {localTeasers.map((row) => (
-                <LocalTeaserRow key={row.id} row={row} />
+                <LocalTeaserRow key={row.id} row={row} t={t} />
               ))}
             </div>
           ) : null}
 
           {cloudTeasers == null ? (
-            configured && user?.id ? <p className="lk-modal__hint">Загрузка…</p> : null
+            configured && user?.id ? <p className="lk-modal__hint">{t('archive.loading')}</p> : null
           ) : cloudTeasers.length === 0 && !hasTeasers ? (
-            <p className="lk-modal__hint">Пока пусто.</p>
+            <p className="lk-modal__hint">{t('historyModal.empty')}</p>
           ) : (
             <div className="lk-modal__list">
               {cloudTeasers.map((it) => (
-                <CloudTeaserRow key={it.id} it={it} />
+                <CloudTeaserRow key={it.id} it={it} t={t} />
               ))}
             </div>
           )}
@@ -168,7 +175,7 @@ export function HistoryModal({
               style={{ width: '100%', marginTop: 12 }}
               onClick={onOpenCabinet}
             >
-              Мои партии в кабинете
+              {t('historyModal.cabinetCta')}
             </button>
           ) : null}
         </div>

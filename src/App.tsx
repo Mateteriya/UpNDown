@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
+import { createPortal } from 'react-dom'
 import { hasSavedGame, clearGameStateFromStorage, getPlayerProfile, savePlayerProfile, type PlayerProfile } from './game/persistence'
 import { loadProfileFromSupabase, mergeLocalAndRemoteProfile, saveProfileToSupabase } from './lib/profileSync'
 import { useAuth } from './contexts/AuthContext'
@@ -661,7 +662,7 @@ function App() {
             setScreen('menu')
           }}
           onEditProfile={() => {
-            openNameAvatarModal('profile')
+            window.setTimeout(() => openNameAvatarModal('profile'), 50);
           }}
           onContinueOffline={() => {
             void handleResumeOffline()
@@ -781,7 +782,8 @@ function AuthCelebrateDialog({
   body: string
   onClose: () => void
 }) {
-  return (
+  const t = useT()
+  return createPortal(
     <div
       className="lk-modal"
       onClick={(e) => e.target === e.currentTarget && onClose()}
@@ -806,11 +808,12 @@ function AuthCelebrateDialog({
             <span className="lk-modal__celebrate-lamp lk-modal__celebrate-lamp--pink" />
           </span>
           <div className="lk-modal__celebrate-actions">
-            <CosmicPhysButton onClick={onClose}>Понятно</CosmicPhysButton>
+            <CosmicPhysButton onClick={onClose}>{t('common.understood')}</CosmicPhysButton>
           </div>
         </CosmicCockpit>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

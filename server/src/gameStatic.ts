@@ -78,13 +78,26 @@ export function tryServeGameStatic(
     return true;
   }
 
-  if (!existsSync(file) || statSync(file).isDirectory()) {
+  const missing = !existsSync(file) || statSync(file).isDirectory();
+  if (missing) {
+    /** SPA fallback только для навигаций. Отдавать HTML вместо .js/.css — ломает всех клиентов разом. */
+    if (/\.(js|mjs|cjs|css|map|json|png|jpe?g|webp|gif|svg|ico|woff2?|webmanifest|wasm|mp3|wav|ogg)$/i.test(rel)) {
+      res.writeHead(404, { 'Cache-Control': 'no-store' });
+      res.end();
+      return true;
+    }
     file = join(root, 'index.html');
   }
 
+  const servingHtml = file.endsWith('index.html') || mimeFor(file).startsWith('text/html');
+  const hashedAsset = /[/\\]assets[/\\][^/\\]+-[A-Za-z0-9_-]{6,}\.[a-z0-9]+$/i.test(file);
   res.writeHead(200, {
     'Content-Type': mimeFor(file),
-    'Cache-Control': 'no-store',
+    'Cache-Control': servingHtml
+      ? 'no-store'
+      : hashedAsset
+        ? 'public, max-age=31536000, immutable'
+        : 'public, max-age=600',
   });
   if (req.method === 'HEAD') {
     res.end();

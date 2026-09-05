@@ -1,9 +1,9 @@
-/** Запасные LAN-порты для ссылок и доп. слушателей (если 3001 занят или режет файрвол). */
+/** Запасные LAN-порты — только если явно заданы `WS_BACKUP_PORTS`. Один listen — норма. */
 
 export function parseLanBackupPorts(
   mainPort: number,
   envValue: string | undefined,
-  defaultOffsets: number[] = [1, 2],
+  defaultOffsets: number[] = [],
 ): number[] {
   /** Явно выкл.: пустая строка / none / off (для VPS/Docker). */
   if (envValue !== undefined) {
@@ -27,7 +27,7 @@ export function parseLanBackupPorts(
 export function parseGameBackupPorts(
   mainPort: number,
   envValue: string | undefined,
-  defaultOffsets: number[] = [1, 2],
+  defaultOffsets: number[] = [],
 ): number[] {
   return parseLanBackupPorts(mainPort, envValue, defaultOffsets);
 }

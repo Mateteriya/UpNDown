@@ -49,6 +49,7 @@ let connectPromise: Promise<WebSocket> | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempt = 0;
 let pingTimer: ReturnType<typeof setInterval> | null = null;
+let authRefreshTimer: ReturnType<typeof setInterval> | null = null;
 const pending = new Map<
   string,
   { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }
@@ -74,6 +75,10 @@ function clearPingTimer(): void {
     clearInterval(pingTimer);
     pingTimer = null;
   }
+  if (authRefreshTimer) {
+    clearInterval(authRefreshTimer);
+    authRefreshTimer = null;
+  }
 }
 
 function startPing(ws: WebSocket): void {
@@ -86,6 +91,10 @@ function startPing(ws: WebSocket): void {
       /* ignore */
     }
   }, 25_000);
+  authRefreshTimer = setInterval(() => {
+    if (ws.readyState !== WebSocket.OPEN) return;
+    void sendWsAuth(ws);
+  }, 20 * 60_000);
 }
 
 async function sendWsAuth(ws: WebSocket): Promise<void> {

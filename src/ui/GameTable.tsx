@@ -297,7 +297,7 @@ import {
   writeOnlineThreeSeatSideChatToLs,
 } from './mobileLandscapeChatContract';
 import { GameDealOrbitDock } from './GameDealOrbitDock';
-import { localizeAiDisplayName, t, useT } from '../i18n';
+import { getLocale, localizeAiDisplayName, t, useT, formatYouName } from '../i18n';
 import type { Card, GamePhase } from '../game/types';
 import { getDeckCardsUnderTrump, getDeckStackLayerCount } from '../game/deck';
 
@@ -1427,8 +1427,8 @@ function ScaleGearScrollToggle({ armed }: { armed: boolean }) {
         ) : null}
       </svg>
       <span className="scale-gear-scroll__copy">
-        <span className="scale-gear-scroll__title">Скролл</span>
-        <span className="scale-gear-scroll__state">{armed ? 'ВКЛ' : 'ВЫКЛ'}</span>
+        <span className="scale-gear-scroll__title">{t('table.scroll')}</span>
+        <span className="scale-gear-scroll__state">{armed ? t('table.on') : t('table.off')}</span>
       </span>
     </span>
   );
@@ -2294,10 +2294,12 @@ function GameOverModal({
   const humanChips = chipForPlayer(humanIdx);
   const miniRows = sorted.map((p) => ({
     idx: p.idx,
-    name: p.name,
+    name: p.idx === humanIdx ? formatYouName(p.name, tr) : localizeAiDisplayName(p.id, p.name, players.length),
     score: p.score,
     chips: chipForPlayer(p.idx),
   }));
+  const overName = (p: { idx: number; id: string; name: string }) =>
+    p.idx === humanIdx ? formatYouName(p.name, tr) : localizeAiDisplayName(p.id, p.name, players.length);
 
   if (!showExpanded) {
     const celebrationRootClass = isMobileLayout
@@ -2312,8 +2314,8 @@ function GameOverModal({
               hideKicker={isMobileLayout}
               winnerStar={isMobileLayout && !isTie}
               isTie={isTie}
-              winnerNames={isTie ? winners.map((w) => w.name).join(' · ') : undefined}
-              winnerName={!isTie ? winners[0]?.name : undefined}
+              winnerNames={isTie ? winners.map((w) => overName(w)).join(' · ') : undefined}
+              winnerName={!isTie ? (winners[0] ? overName(winners[0]) : undefined) : undefined}
               isHumanWinner={!isTie && winners[0]?.idx === humanIdx}
             />
             {isMobileLayout ? (
@@ -2324,7 +2326,7 @@ function GameOverModal({
                   showChips={dealHistory.length > 0}
                 />
                 <CosmicGlassButton className="game-over-celebration__more" onClick={() => setShowExpanded(true)}>
-                  Подробнее
+                  {tr('table.details')}
                 </CosmicGlassButton>
                 <GameOverCloudStatus cloudSave={cloudSave} isOfflineEnd={isOfflineEnd} compact />
               </>
@@ -2333,18 +2335,18 @@ function GameOverModal({
                 <GameOverCloudStatus cloudSave={cloudSave} isOfflineEnd={isOfflineEnd} />
                 {dealHistory.length > 0 && (
                   <p className="game-over-celebration__teaser">
-                    Ваши фишки:{' '}
+                    {tr('table.yourChips')}:{' '}
                     <strong className={humanChips >= 0 ? 'game-over-num--plus' : 'game-over-num--minus'}>
                       {humanChips >= 0 ? '+' : ''}
                       {humanChips}
                     </strong>
                     <span className="game-over-celebration__teaser-sub">
-                      Переключатель режимов — в «Подробнее»
+                      {tr('table.modesInDetails')}
                     </span>
                   </p>
                 )}
                 <CosmicGlassButton className="game-over-celebration__more" onClick={() => setShowExpanded(true)}>
-                  Подробнее
+                  {tr('table.details')}
                 </CosmicGlassButton>
               </>
             )}
@@ -2367,7 +2369,7 @@ function GameOverModal({
     isMobileLayout && topbarSlotRef?.current
       ? createPortal(
           <h2 className="game-over-dialog__topbar-title" id="game-over-title">
-            <span className="game-over-dialog__topbar-title-text cosmic-iridescent-text">Итоги партии</span>
+            <span className="game-over-dialog__topbar-title-text cosmic-iridescent-text">{tr('table.matchOver')}</span>
             <span className="game-over-dialog__topbar-meta">№{gameId}</span>
           </h2>,
           topbarSlotRef.current,
@@ -2474,7 +2476,7 @@ function GameOverModal({
         <header className="game-over-expanded-header">
           <div className="game-over-expanded-header__top">
             <h2 className="game-over-expanded-header__title cosmic-iridescent-text" id="game-over-title">
-              Итоги партии
+              {tr('table.matchOver')}
             </h2>
             <span className="game-over-expanded-header__meta">№{gameId}</span>
           </div>
@@ -2482,8 +2484,8 @@ function GameOverModal({
             compact
             hideKicker={tabletCompact}
             isTie={isTie}
-            winnerNames={isTie ? winners.map((w) => w.name).join(' · ') : undefined}
-            winnerName={!isTie ? winners[0]?.name : undefined}
+            winnerNames={isTie ? winners.map((w) => overName(w)).join(' · ') : undefined}
+            winnerName={!isTie ? (winners[0] ? overName(winners[0]) : undefined) : undefined}
             isHumanWinner={!isTie && winners[0]?.idx === humanIdx}
           />
           <GameOverCloudStatus cloudSave={cloudSave} isOfflineEnd={isOfflineEnd} />
@@ -2523,9 +2525,9 @@ function GameOverModal({
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Игрок</th>
+                    <th>{tr('table.playerCol')}</th>
                     <th>{t('table.score')}</th>
-                    {dealHistory.length > 0 && <th>Фишки</th>}
+                    {dealHistory.length > 0 && <th>{tr('table.chips')}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -2540,7 +2542,7 @@ function GameOverModal({
                       ].filter(Boolean).join(' ')}
                     >
                       <td><span className="game-over-table__rank">{rank + 1}</span></td>
-                      <td><span className="game-over-table__name">{p.name}</span></td>
+                      <td><span className="game-over-table__name">{p.idx === humanIdx ? formatYouName(p.name, tr) : localizeAiDisplayName(p.id, p.name, players.length)}</span></td>
                       <td className="game-over-table__score">{p.score >= 0 ? '+' : ''}{p.score}</td>
                       {dealHistory.length > 0 && (
                         <td className={`game-over-table__chips${chipForPlayer(p.idx) >= 0 ? ' game-over-num--plus' : chipForPlayer(p.idx) < 0 ? ' game-over-num--minus' : ''}`}>
@@ -6234,7 +6236,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     return (
       <div
         role="region"
-        aria-label="Ваши карты"
+        aria-label={t('table.yourCards')}
         className={[
           shortViewport ? 'game-mobile-south-panel-hand' : 'game-mobile-hand-strip',
           'game-mobile-l-hand',
@@ -6284,7 +6286,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               <button
                 type="button"
                 className="game-mobile-l-hand-crest"
-                aria-label="Свернуть вертикальный ряд в одну горизонтальную линию"
+                aria-label={t('table.foldHand')}
                 aria-expanded
                 title={t('table.oneRow')}
                 onClick={toggleMobileLHand}
@@ -6318,7 +6320,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               <button
                 type="button"
                 className="game-mobile-l-hand-crest game-mobile-l-hand-crest--docked"
-                aria-label="Показать вертикальный ряд"
+                aria-label={t('table.expandHand')}
                 aria-expanded={false}
                 title={t('table.expandL')}
                 onClick={toggleMobileLHand}
@@ -8064,7 +8066,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   };
 
   const resolveDisplayPlayerName = (displayIdx: number): string => {
-    if (displayIdx === 0) return playerDisplayName?.trim() || displayState.players[0]?.name || t('common.player');
+    if (displayIdx === 0) {
+      return formatYouName(playerDisplayName?.trim() || displayState.players[0]?.name, t);
+    }
     if (online.roomId) {
       const canon = getCanonicalIndexForDisplay(displayIdx, online.myServerIndex, displayState.players.length === 3 ? 3 : 4);
       return localizeAiDisplayName(
@@ -8093,7 +8097,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   const resolveMobileGameInfoPlayerNamePresentation = (playerIdx: number) => {
     if (!isMobileLandscape || playerIdx !== humanIdx) {
       return {
-        name: displayState.players[playerIdx].name,
+        name: resolveDisplayPlayerName(playerIdx),
         valueStyle: gameInfoValueStyle,
       };
     }
@@ -8401,10 +8405,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             onClick={() => setPcTableSettingsOpenPersistent(true)}
             title={
               pcHandScaleNonDefault
-                ? `Настройки стола (карты ${scaleLabel})`
-                : 'Настройки стола'
+                ? t('table.tableSettingsCards', { scale: scaleLabel })
+                : t('table.tableSettings')
             }
-            aria-label="Открыть настройки стола"
+            aria-label={t('table.openTableSettings')}
             aria-expanded={false}
             style={
               pcHandScaleNonDefault
@@ -8532,7 +8536,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               .filter(Boolean)
               .join(' ')}
             role="dialog"
-            aria-label="Масштаб карт"
+            aria-label={t('table.scaleCards')}
           >
             <span className="pc-table-settings-capsule__cosmos scale-gear-capsule__shine" aria-hidden />
             <button
@@ -8542,13 +8546,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               onClick={() => bumpPcHandScale(-1)}
               title={
                 pcScaleSeats === 4
-                  ? `Уменьшить на ${fourHandStep}% (мин. ${scaleMin}%)`
-                  : 'Уменьшить на 10%'
+                  ? t('table.scaleHandDownMin', { step: fourHandStep, min: scaleMin })
+                  : t('table.scaleHandDownMin', { step: 10, min: scaleMin })
               }
               aria-label={
                 pcScaleSeats === 4
-                  ? `Уменьшить масштаб на ${fourHandStep} процента`
-                  : 'Уменьшить масштаб на 10 процентов'
+                  ? t('table.scaleHandDownN', { n: fourHandStep })
+                  : t('table.scaleHandDown10')
               }
             >
               −
@@ -8571,9 +8575,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 ['--scale-gear-value-color' as string]: valueTone.color,
               }}
               title={
-                pcHandScaleNonDefault ? 'Сбросить до 100%' : 'Текущий масштаб 100%'
+                pcHandScaleNonDefault ? t('table.scaleHandReset') : t('table.scaleHand100')
               }
-              aria-label={`Масштаб ${pcHandScaleUiPct} процентов${pcHandScaleNonDefault ? '. Нажмите, чтобы сбросить до 100' : ''}`}
+              aria-label={t('table.scalePctAria', { pct: pcHandScaleUiPct })}
             >
               {scaleLabel}
             </button>
@@ -8585,14 +8589,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               title={
                 pcScaleSeats === 4
                   ? useTabletPcTableTuning
-                    ? `Увеличить на ${fourHandStep}% (макс. ${scaleMax}%)`
-                    : `Увеличить на ${fourHandStep}% (макс. ${scaleMax}%; абс. ≈112%)`
-                  : 'Увеличить на 10%'
+                    ? t('table.scaleHandUpMax', { step: fourHandStep, max: scaleMax })
+                    : t('table.scaleHandUpAbs', { step: fourHandStep, max: scaleMax })
+                  : t('table.scaleHandUpMax', { step: 10, max: scaleMax })
               }
               aria-label={
                 pcScaleSeats === 4
-                  ? `Увеличить масштаб на ${fourHandStep} процента`
-                  : 'Увеличить масштаб на 10 процентов'
+                  ? t('table.scaleHandUpN', { n: fourHandStep })
+                  : t('table.scaleHandUp10')
               }
             >
               +
@@ -8611,13 +8615,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               onClick={() => setPcScaleWheelArmedPersistent(!pcScaleWheelArmed)}
               title={
                 pcScaleWheelArmed
-                  ? `Скролл мыши: масштаб ${scaleMin}–${scaleMax}%. Нажмите, чтобы выключить`
-                  : `Включить регулировку скроллом мыши (${scaleMin}–${scaleMax}%)`
+                  ? t('table.scaleWheelOn', { min: scaleMin, max: scaleMax })
+                  : t('table.scaleWheelOff', { min: scaleMin, max: scaleMax })
               }
               aria-label={
                 pcScaleWheelArmed
-                  ? 'Выключить регулировку масштаба скроллом мыши'
-                  : 'Включить регулировку масштаба скроллом мыши'
+                  ? t('table.scaleWheelAriaOn')
+                  : t('table.scaleWheelAriaOff')
               }
               aria-pressed={pcScaleWheelArmed}
             >
@@ -8672,11 +8676,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               .filter(Boolean)
               .join(' ')}
             onClick={() => setTabletTableScaleOpen(true)}
-            title={offDefault ? `Масштаб стола ${scalePct}%` : 'Масштаб стола 100%'}
+            title={offDefault ? t('table.scaleTablePct', { pct: scalePct }) : t('table.scaleTable100')}
             aria-label={
               offDefault
-                ? `Открыть масштаб стола, сейчас ${scalePct}%`
-                : 'Открыть масштаб стола'
+                ? t('table.scaleTableOpenPct', { pct: scalePct })
+                : t('table.scaleTableOpen')
             }
             aria-expanded={false}
             style={
@@ -8843,7 +8847,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               .filter(Boolean)
               .join(' ')}
             role="dialog"
-            aria-label="Масштаб стола"
+            aria-label={t('table.scaleTable')}
           >
             <span className="tablet-table-scale__cosmos tablet-table-scale__cosmos--capsule scale-gear-capsule__shine" aria-hidden />
             <button
@@ -8852,7 +8856,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               disabled={scalePct <= TABLET_TABLE_SCALE_PCT_MIN}
               onClick={() => bumpTabletTableScale(-1)}
               title={t('table.scaleDownMin')}
-              aria-label="Уменьшить масштаб стола на 1 процент"
+              aria-label={t('table.scaleTableDown1')}
             >
               −
             </button>
@@ -8875,10 +8879,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               }}
               title={
                 offDefault
-                  ? `Сбросить к 100% (сейчас ${scalePct}%)`
-                  : 'Изначальный масштаб 100%'
+                  ? t('table.scaleResetNow', { pct: scalePct })
+                  : t('table.scaleDefault100')
               }
-              aria-label={`Масштаб ${scalePct} процентов. Нажмите, чтобы сбросить к 100`}
+              aria-label={t('table.scalePctAria', { pct: scalePct })}
             >
               {scalePct}%
             </button>
@@ -8887,8 +8891,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               className="tablet-table-scale__btn scale-gear-btn"
               disabled={scalePct >= TABLET_TABLE_SCALE_PCT_MAX}
               onClick={() => bumpTabletTableScale(1)}
-              title={`Увеличить (+1%, макс. ${TABLET_TABLE_SCALE_PCT_MAX}%)`}
-              aria-label="Увеличить масштаб стола на 1 процент"
+              title={t('table.scaleTableUpMax', { max: TABLET_TABLE_SCALE_PCT_MAX })}
+              aria-label={t('table.scaleTableUp1')}
             >
               +
             </button>
@@ -8907,13 +8911,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               onClick={() => setTabletTableScaleWheelArmed((v) => !v)}
               title={
                 tabletTableScaleWheelArmed
-                  ? `Скролл: масштаб ${TABLET_TABLE_SCALE_PCT_MIN}–${TABLET_TABLE_SCALE_PCT_MAX}%. Нажмите, чтобы выключить`
-                  : `Включить регулировку скроллом (${TABLET_TABLE_SCALE_PCT_MIN}–${TABLET_TABLE_SCALE_PCT_MAX}%)`
+                  ? t('table.scaleScrollRange', { min: TABLET_TABLE_SCALE_PCT_MIN, max: TABLET_TABLE_SCALE_PCT_MAX })
+                  : t('table.scaleScrollEnable')
               }
               aria-label={
                 tabletTableScaleWheelArmed
-                  ? 'Выключить скролл масштаба стола'
-                  : 'Включить скролл масштаба стола'
+                  ? t('table.scaleScrollAriaOn')
+                  : t('table.scaleScrollAriaOff')
               }
               aria-pressed={tabletTableScaleWheelArmed}
             >
@@ -8924,7 +8928,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               className="tablet-table-scale__btn tablet-table-scale__btn--close scale-gear-btn scale-gear-btn--close"
               onClick={() => closeTabletTableScale()}
               title={t('table.collapse')}
-              aria-label="Свернуть масштаб стола"
+              aria-label={t('table.scaleTableCollapse')}
             >
               ×
             </button>
@@ -9373,7 +9377,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         onClick={handleHomeClick}
         style={exitBtnStyle}
         title={t('table.toMenu')}
-        aria-label="В меню"
+        aria-label={t('table.toMenu')}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -9386,10 +9390,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           className={['header-exit-btn', isMobile ? 'header-room-exit-btn' : ''].filter(Boolean).join(' ')}
           onClick={handleLeaveRoomClick}
           style={exitBtnStyle}
-          title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
-          aria-label="Выйти из комнаты"
+          title={isWaitingInRoom ? t('table.leaveRoom') : t('table.leaveRoomSession')}
+          aria-label={t('table.leaveRoom')}
         >
-          {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>Выйти</span>}
+          {isMobile ? <HeaderRoomExitIcon /> : <span style={{ fontSize: 14 }}>{t('table.exit')}</span>}
         </button>
       )}
       {onNewGame && !isOnline && !isWaitingInRoom && (
@@ -9399,7 +9403,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           onClick={() => setShowNewGameConfirm(true)}
           style={newGameBtnStyle}
           title={t('table.refreshDeal')}
-          aria-label="Обновить — новая партия"
+          aria-label={t('table.refreshDeal')}
         >
           ↻
         </button>
@@ -9689,9 +9693,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             style={dealNumberBadgeStyle}
             onClick={() => setShowDealNumberExplain(v => !v)}
             aria-expanded={showDealNumberExplain}
-            aria-label={`Раздача ${state.dealNumber}. Нажмите для пояснения`}
+            aria-label={t('table.dealExplainAria', { n: state.dealNumber })}
           >
-            <span style={dealNumberLabelStyle}>Раздача</span>
+            <span style={dealNumberLabelStyle}>{t('table.dealCol')}</span>
             <span style={dealNumberValueStyle}>
               <span className="deal-num-symbol" aria-hidden>
                 №
@@ -9710,7 +9714,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             style={dealResultsButtonStyle}
             className={`deal-results-btn deal-results-btn--game-info-corner${dealResultsCornerHint ? ' deal-results-btn--corner-hint' : ''}`}
             title={t('table.currentResults')}
-            aria-label="Показать таблицу текущих результатов раздач"
+            aria-label={t('table.showCurrentResults')}
           >
             Σ
           </button>
@@ -9727,7 +9731,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             metaAriaLabel={plasmaDealMetaTooltip?.ariaLabel}
             onMetaClick={() => setShowDealContractHelp(true)}
           >
-            <span style={gameInfoLabelStyle}>Сейчас ход</span>
+            <span style={gameInfoLabelStyle}>{t('table.nowTurn')}</span>
             <GameInfoPlasmaTurnPlayerName
               name={mobileGameInfoTurnPresentation.name}
               style={mobileGameInfoTurnPresentation.valueStyle}
@@ -9768,7 +9772,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             onPointerUp={onImmersiveLHandlePointerUp}
             onPointerCancel={clearLHandleLongPress}
             onPointerLeave={clearLHandleLongPress}
-            aria-label="Показать шапку: длинная кнопка с шариками над бейджем хода. Либо потяните вниз от края экрана"
+            aria-label={t('table.showHeaderAria')}
             title={t('table.headerBack')}
           >
             <span className="mobile-short-immersive-l-handle__glyph" aria-hidden>
@@ -9797,7 +9801,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 e.stopPropagation();
                 restoreShortVhLowScreenLayoutForSession();
               }}
-              aria-label="Снова режим низкого экрана: вернуть раскладку и магнит"
+              aria-label={t('table.restoreLowAria')}
               title={t('table.restoreLowScreen')}
             >
               <svg
@@ -9863,7 +9867,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           onPointerDown={onShortBadgeDragWrapPointerDown}
           onContextMenu={onGameInfoBadgeContextMenu}
           role="group"
-          aria-label="Сдвиг бейджа влево и вправо. Возле центра выравнивается; оттяните заметно в сторону — чтобы закрепить не по центру."
+          aria-label={t('table.badgeShift')}
         >
           {section}
         </div>
@@ -9887,7 +9891,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         className="header-exit-btn game-mobile-landscape-toolbar-panel__icon-btn"
         onClick={handleHomeClick}
         title={t('table.toMenu')}
-        aria-label="В меню"
+        aria-label={t('table.toMenu')}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -9900,7 +9904,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           className="header-new-game-btn game-mobile-landscape-toolbar-panel__icon-btn"
           onClick={() => setShowNewGameConfirm(true)}
           title={t('table.refreshDeal')}
-          aria-label="Обновить — новая партия"
+          aria-label={t('table.refreshDeal')}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <polyline points="23 4 23 10 17 10" />
@@ -9914,8 +9918,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           type="button"
           className="header-exit-btn header-room-exit-btn game-mobile-landscape-toolbar-panel__icon-btn"
           onClick={handleLeaveRoomClick}
-          title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
-          aria-label="Выйти из комнаты"
+          title={isWaitingInRoom ? t('table.leaveRoom') : t('table.leaveRoomSession')}
+          aria-label={t('table.leaveRoom')}
         >
           {isMobile ? (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -9924,7 +9928,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
           ) : (
-            <span style={{ fontSize: 14 }}>Выйти</span>
+            <span style={{ fontSize: 14 }}>{t('table.exit')}</span>
           )}
         </button>
       ) : null}
@@ -9957,7 +9961,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   );
 
   const renderWaitingRoomMobileBar = () => (
-    <div className="waiting-room-mobile-bar" role="region" aria-label="Ожидание в комнате">
+    <div className="waiting-room-mobile-bar" role="region" aria-label={t('table.waitingRoom')}>
       <div className="waiting-room-mobile-bar__meta">
         <span className="waiting-room-mobile-bar__players">
           Игроков: {waitingRoomHumanCount} из {online.maxPlayers}
@@ -9974,7 +9978,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   );
 
   const renderMobileLandscapeToolbarPanel = () => (
-    <div className="game-mobile-landscape-toolbar-panel" role="toolbar" aria-label="Управление игрой">
+    <div className="game-mobile-landscape-toolbar-panel" role="toolbar" aria-label={t('table.gameControls')}>
       <div className="game-mobile-landscape-toolbar-panel__inner">
         {renderMobileLandscapeToolbarActionsRow()}
         {!isWaitingInRoom && state != null ? (
@@ -10348,7 +10352,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           >
             ×
           </button>
-          <div className="first-move-tooltip-name">{displayState.players[state.trickLeaderIndex].name}</div>
+          <div className="first-move-tooltip-name">{resolveDisplayPlayerName(state.trickLeaderIndex)}</div>
           <div className="game-table-tooltip-cosmic-body-text" style={{ fontSize: 12, opacity: 1 }}>
             {t('table.firstMoveHint')}
           </div>
@@ -10542,9 +10546,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               e.stopPropagation();
               openShortVhSouthPullModeMenu();
             }}
-            aria-label="Меню режимов низкого экрана: обычный вид, свернуть ручку"
+            aria-label={t('table.lowScreenMenuHandle')}
           >
-            Без шапки ↓
+            {t('table.noHeaderBtn')}
           </button>
         )}
       {typeof document !== 'undefined' &&
@@ -10579,12 +10583,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 <span className="short-vh-south-pull-menu-portal__orb" />
               </div>
               <h2 id="short-vh-south-pull-menu-title" className="short-vh-south-pull-menu-portal__title">
-                <span className="short-vh-south-pull-menu-portal__title-w1">Режим</span>{' '}
-                <span className="short-vh-south-pull-menu-portal__title-w2">низкого</span>{' '}
-                <span className="short-vh-south-pull-menu-portal__title-w3">экрана</span>
+                <span className="short-vh-south-pull-menu-portal__title-w1">{t('table.lowScreenW1')}</span>{' '}
+                <span className="short-vh-south-pull-menu-portal__title-w2">{t('table.lowScreenW2')}</span>{' '}
+                <span className="short-vh-south-pull-menu-portal__title-w3">{t('table.lowScreenW3')}</span>
               </h2>
               <p className="short-vh-south-pull-menu-portal__lead">
-                Обычный вид на низком экране или свёрнутая ручка. Полный экран браузера — кнопка «На весь экран».
+                {t('table.lowScreenLead')}
               </p>
               <div className="short-vh-south-pull-menu-portal__opts">
                 <button
@@ -10599,8 +10603,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     ◇
                   </span>
                   <span className="short-vh-south-pull-menu-portal__opt-body">
-                    <span className="short-vh-south-pull-menu-portal__opt-k">Обычный (стандарт)</span>
-                    <span className="short-vh-south-pull-menu-portal__opt-d">Как на обычной мобильной высоте, без «низкого экрана»</span>
+                    <span className="short-vh-south-pull-menu-portal__opt-k">{t('table.lowScreenNormal')}</span>
+                    <span className="short-vh-south-pull-menu-portal__opt-d">{t('table.lowScreenNormalHint')}</span>
                   </span>
                 </button>
                 <button
@@ -10616,12 +10620,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   </span>
                   <span className="short-vh-south-pull-menu-portal__opt-body">
                     <span className="short-vh-south-pull-menu-portal__opt-k">
-                      {shortVhSouthPullTabCollapsed ? 'Развернуть ручку' : 'Остаться здесь и свернуть ручку'}
+                      {shortVhSouthPullTabCollapsed ? t('table.expandHandle') : t('table.stayCollapseHandle')}
                     </span>
                     <span className="short-vh-south-pull-menu-portal__opt-d">
                       {shortVhSouthPullTabCollapsed
-                        ? 'Снова полная кнопка с тремя рядами шариков'
-                        : 'Только узкая полоска шариков — больше места для стола'}
+                        ? t('table.fullBeadsHint')
+                        : t('table.stripBeadsHint')}
                     </span>
                   </span>
                 </button>
@@ -10634,7 +10638,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   dismissShortVhSouthPullModeMenu();
                 }}
               >
-                Закрыть
+                {t('common.close')}
               </button>
             </div>
           </div>
@@ -10656,7 +10660,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               top: southPullTabFixedPos.top,
               left: southPullTabFixedPos.left,
             }}
-            aria-label="Меню режимов низкого экрана"
+            aria-label={t('table.lowScreenMenu')}
             title={t('table.modeMenu')}
             onPointerOver={onShortVhSouthPullTabPortalPointerOver}
             onPointerLeave={onShortVhSouthPullTabPortalPointerLeave}
@@ -10713,14 +10717,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             role="status"
             aria-live="polite"
             aria-atomic="true"
-            aria-label="Иммерсив: выход — кнопка с шариками сверху или жест вниз от края"
+            aria-label={t('table.immersiveExit')}
           >
             <div className="mobile-short-immersive-welcome-portal__card">
-              <p className="mobile-short-immersive-welcome-portal__title">Иммерсив · без шапки</p>
+              <p className="mobile-short-immersive-welcome-portal__title">{t('table.immersiveTitle')}</p>
               <p className="mobile-short-immersive-welcome-portal__lead">
-                <span className="mobile-short-immersive-welcome-portal__hl">Кнопка с шариками</span> сверху — шапку
-                назад. Или <span className="mobile-short-immersive-welcome-portal__em">вниз от нижнего края</span>{' '}
-                экрана.
+                <span className="mobile-short-immersive-welcome-portal__hl">{t('table.immersiveBeads')}</span>{' '}
+                {t('table.immersiveHeaderBack')}{' '}
+                <span className="mobile-short-immersive-welcome-portal__em">{t('table.immersiveFromEdge')}</span>{' '}
+                {t('table.immersiveScreen')}
               </p>
               <label className="mobile-short-immersive-welcome-portal__skip">
                 <input
@@ -10733,7 +10738,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     setImmersiveWelcomeDontShowAgain(next);
                   }}
                 />
-                <span className="mobile-short-immersive-welcome-portal__skip-text">Не показывать больше</span>
+                <span className="mobile-short-immersive-welcome-portal__skip-text">{t('table.dontShowAgain')}</span>
               </label>
               <button
                 type="button"
@@ -10743,7 +10748,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   dismissImmersiveWelcomeHint();
                 }}
               >
-                Понятно
+                {t('common.understood')}
               </button>
             </div>
           </div>
@@ -10826,7 +10831,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     onClick={handleHomeClick}
                     style={exitBtnStyle}
                     title={t('table.toMenu')}
-                    aria-label="В меню"
+                    aria-label={t('table.toMenu')}
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                       <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -10840,7 +10845,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       onClick={() => setShowNewGameConfirm(true)}
                       style={newGameBtnStyle}
                       title={t('table.restartInstant')}
-                      aria-label="Перезапуск партии — мгновенно"
+                      aria-label={t('table.restartInstant')}
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                         <polyline points="23 4 23 10 17 10" />
@@ -10855,10 +10860,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       type="button"
                       className="header-room-exit-btn header-action-btn-pc header-action-btn-pc--glass header-action-btn-pc--label"
                       onClick={handleLeaveRoomClick}
-                      title={isWaitingInRoom ? 'Выйти из комнаты' : 'Выйти из комнаты (сессия сбросится)'}
-                      aria-label="Выйти из комнаты"
+                      title={isWaitingInRoom ? t('table.leaveRoom') : t('table.leaveRoomSession')}
+                      aria-label={t('table.leaveRoom')}
                     >
-                      Выйти
+                      {t('table.exit')}
                     </button>
                   )}
                 </div>
@@ -10900,7 +10905,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             }}
           >
             {pcThreeSeatHeaderContractCenter ? (
-              <div className="game-header-pc-deal-contract-center" aria-label="Контракт раздачи">
+              <div className="game-header-pc-deal-contract-center" aria-label={t('table.contractAria')}>
                 {renderPcThreeSeatHeaderCenterDealContract()}
               </div>
             ) : null}
@@ -10988,9 +10993,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       color: '#e2e8f0',
                       cursor: 'pointer',
                     }}
-                    title={`Вернуть управление игроку ${s.replacedDisplayName}`}
+                    title={t('table.restorePlayer', { name: localizeAiDisplayName(undefined, s.replacedDisplayName, displayState.players.length) })}
                   >
-                    Вернуть {s.replacedDisplayName}
+                    {t('table.restorePlayerShort', { name: localizeAiDisplayName(undefined, s.replacedDisplayName, displayState.players.length) })}
                   </button>
                 ) : null
               )}
@@ -11022,7 +11027,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   setShowPcNoTrumpModeTooltip(true);
                 }}
                 title={t('table.noTrumpMeaning')}
-                aria-label="Пояснение: четыре раздачи подряд без козыря (номера 21–24)"
+                aria-label={t('table.noTrumpAria')}
               >
                 <PcModePanelCornerLeds />
                 <div className="game-info-mode-panel-head" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -11070,7 +11075,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   setShowPcDarkModeTooltip(true);
                 }}
                 title={t('table.darkMeaning')}
-                aria-label="Пояснение: четыре раздачи с заказом до раздачи карт (номера 25–28)"
+                aria-label={t('table.darkAria')}
               >
                 <PcModePanelCornerLeds />
                 <div className="game-info-mode-panel-head" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -11457,7 +11462,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             onKeyDown={e => { if (isAITurn && e.key === ' ') { e.preventDefault(); accelerateAI(); } }}
             role={isAITurn ? 'button' : undefined}
             tabIndex={isAITurn ? 0 : undefined}
-            title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}>
+            title={isAITurn ? t('table.speedAi') : undefined}>
             <div className="game-center-table" style={{
               ...centerStyle,
               ...(isMobileLandscape
@@ -11547,7 +11552,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   .join(' ')}
                 style={firstMoveBadgeStyle}
                 role="status"
-                aria-label={t('table.firstMoveAria', { name: displayState.players[state.trickLeaderIndex].name })}
+                aria-label={t('table.firstMoveAria', {
+                  name: resolveDisplayPlayerName(state.trickLeaderIndex),
+                })}
                 onClick={() => setShowFirstMoveTooltip(true)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -11561,7 +11568,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   {t('table.firstMoveColon')}
                 </span>
                 <span className="first-move-value">
-                  {displayState.players[state.trickLeaderIndex].name}
+                  {resolveDisplayPlayerName(state.trickLeaderIndex)}
                 </span>
               </div>
             )}
@@ -11570,7 +11577,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 tricksInDeal={displayState.tricksInDeal}
                 trumpCard={displayState.trumpCard}
                 trumpHighlightOn={trumpHighlightOn}
-                dealerName={displayState.players[displayState.dealerIndex]?.name ?? t('table.dealer')}
+                dealerName={resolveDisplayPlayerName(displayState.dealerIndex)}
                 dealNumber={displayState.dealNumber}
                 isBiddingPhase={displayState.phase === 'bidding' || displayState.phase === 'dark-bidding'}
                 compactTable={isMobileOrTablet}
@@ -11734,7 +11741,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   ...lastTrickButtonStyle,
                 }}
               >
-                <span className="last-trick-btn__label">Последняя взятка</span>
+                <span className="last-trick-btn__label">{t('table.lastTrick')}</span>
               </button>
             )}
             {isMobile && shouldShowBidPanel && bidPanelVisible && (
@@ -11826,7 +11833,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       ...bidPanelInlineStyle,
                       pointerEvents: 'auto',
                     }}
-                    aria-label="Выбор заказа"
+                    aria-label={t('table.bidPick')}
                   >
                     <div
                       className={[
@@ -11896,7 +11903,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                               }}
                               title={
                                 disabled
-                                  ? `Запрещено: сумма заказов будет ${state.tricksInDeal}`
+                                  ? t('table.bidForbiddenSum', { n: state.tricksInDeal })
                                   : undefined
                               }
                             >
@@ -12027,7 +12034,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 boxSizing: 'border-box',
                 position: 'relative',
               }}
-              aria-label="Чат стола"
+              aria-label={t('table.tableChat')}
             >
               {!eastChatHeaderCollapsed ? (
               <button
@@ -12044,7 +12051,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-label="Изменить ширину чата и сукна"
+                aria-label={t('table.chatResize')}
                 title={t('table.dragSide')}
                 onPointerDown={startEastChatColResize}
                 onPointerMove={onEastChatColResizeMove}
@@ -12480,7 +12487,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 return (
                     <div
                       role="region"
-                      aria-label="Ваши карты"
+                      aria-label={t('table.yourCards')}
                       className={[
                         'game-mobile-south-panel-hand',
                         m9.attachExtraClass,
@@ -13278,9 +13285,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     style={dealNumberBadgeStyle}
                     onClick={() => setShowDealNumberExplain(v => !v)}
                     aria-expanded={showDealNumberExplain}
-                    aria-label={`Раздача ${state.dealNumber}. Нажмите для пояснения`}
+                    aria-label={t('table.dealExplainAria', { n: state.dealNumber })}
                   >
-                    <span style={dealNumberLabelStyle}>Раздача</span>
+                    <span style={dealNumberLabelStyle}>{t('table.dealCol')}</span>
                     <span style={dealNumberValueStyle}>
                       <span className="deal-num-symbol" aria-hidden>
                         №
@@ -13301,8 +13308,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             metaAriaLabel={plasmaDealMetaTooltip?.ariaLabel}
             onMetaClick={() => setShowDealContractHelp(true)}
                   >
-                    <span style={gameInfoLabelStyle}>Сейчас ход</span>
-                    <span className="game-info-value-name game-info-turn-player-name" style={gameInfoValueStyle}>{displayState.players[state.currentPlayerIndex].name}</span>
+                    <span style={gameInfoLabelStyle}>{t('table.nowTurn')}</span>
+                    <span className="game-info-value-name game-info-turn-player-name" style={gameInfoValueStyle}>{resolveDisplayPlayerName(state.currentPlayerIndex)}</span>
                   </GameInfoPlasmaTurnBlock>
                 )}
                 {!isWaitingInRoom && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
@@ -13319,7 +13326,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   >
                     <span style={gameInfoLabelStyle}>{t('table.bidding')}</span>
                     <span className="game-info-value-name game-info-turn-player-name" style={gameInfoValueStyle}>
-                      {displayState.players[state.currentPlayerIndex].name}
+                      {resolveDisplayPlayerName(state.currentPlayerIndex)}
                     </span>
                   </GameInfoPlasmaTurnBlock>
                 )}
@@ -13450,7 +13457,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         onKeyDown={e => { if (isAITurn && e.key === ' ') { e.preventDefault(); accelerateAI(); } }}
         role={isAITurn ? 'button' : undefined}
         tabIndex={isAITurn ? 0 : undefined}
-        title={isAITurn ? 'Нажмите, чтобы ускорить ход ИИ' : undefined}>
+        title={isAITurn ? t('table.speedAi') : undefined}>
         {showWestSideSeat ? (
         <div
           className="game-center-west"
@@ -13557,7 +13564,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     {t('table.firstMoveColon')}
                   </span>
                   <span style={firstMoveValueStyle}>
-                    {displayState.players[state.trickLeaderIndex].name}
+                    {resolveDisplayPlayerName(state.trickLeaderIndex)}
                   </span>
                 </div>
               )}
@@ -13591,7 +13598,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 tricksInDeal={displayState.tricksInDeal}
                 trumpCard={displayState.trumpCard}
                 trumpHighlightOn={trumpHighlightOn}
-                dealerName={displayState.players[displayState.dealerIndex]?.name ?? t('table.dealer')}
+                dealerName={resolveDisplayPlayerName(displayState.dealerIndex)}
                 dealNumber={displayState.dealNumber}
                 isBiddingPhase={displayState.phase === 'bidding' || displayState.phase === 'dark-bidding'}
                 compactTable={isMobileOrTablet}
@@ -13731,7 +13738,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     : 'last-trick-btn'
               }
                 onClick={e => { e.stopPropagation(); setShowLastTrickModal(true); }} style={lastTrickButtonStyle}>
-                <span className="last-trick-btn__label">Последняя взятка</span>
+                <span className="last-trick-btn__label">{t('table.lastTrick')}</span>
               </button>
             )}
             {!isMobile && shouldShowBidPanel && bidPanelVisible && (
@@ -13781,7 +13788,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       pointerEvents: 'auto',
                       WebkitTapHighlightColor: 'transparent',
                     }}
-                    aria-label="Выбор заказа"
+                    aria-label={t('table.bidPick')}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="bid-panel-grid" style={bidSidePanelGrid}>
@@ -13836,7 +13843,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                               ...bidSidePanelButtonMobile,
                               ...(disabled ? bidSidePanelButtonDisabledMobile : {}),
                             }}
-                            title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
+                            title={disabled ? t('table.bidForbiddenSum', { n: state.tricksInDeal }) : undefined}
                           >
                             {i}
                           </button>
@@ -14075,7 +14082,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 type="button"
                 className="user-panel-garland-dismiss-hint-pc"
                 title={t('table.garlandDismiss')}
-                aria-label="Ненадолго скрыть бегущую подсветку рамки"
+                aria-label={t('table.hideGarlandAria')}
               >
                 <span className="user-panel-garland-dismiss-hint-pc-dots" aria-hidden>
                   <span className="user-panel-garland-dismiss-hint-pc-dot user-panel-garland-dismiss-hint-pc-dot--1" />
@@ -14096,7 +14103,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     humanBidPc == null
                       ? 0
                       : humanBidPc + Math.max(0, humanTricksPc - humanBidPc);
-                  const fullSouthName = displayState.players[humanIdx].name;
+                  const fullSouthName = resolveDisplayPlayerName(humanIdx);
                   const isBiddingPhase =
                     state.phase === 'bidding' || state.phase === 'dark-bidding';
                   /** Канон: src/ui/userSouthPanelCanon.ts + user-south-panel.css */
@@ -14237,7 +14244,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     : 34,
                 )}
                 <span style={playerNameDealerWrapStyle}>
-                  <span className={southPlayerNameClassName} style={southPlayerNameStyle}>{displayState.players[humanIdx].name}</span>
+                  <span className={southPlayerNameClassName} style={southPlayerNameStyle}>{resolveDisplayPlayerName(humanIdx)}</span>
                   {state.dealerIndex === humanIdx &&
                     !useTabletPcTableTuning &&
                     (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
@@ -14302,7 +14309,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   }
                 />
                 {shouldShowBidPanel && bidPanelVisible && (
-                  <div className="bid-panel bid-panel-inline bid-panel-bottom" style={bidPanelInlineStyle} aria-label="Выбор заказа">
+                  <div className="bid-panel bid-panel-inline bid-panel-bottom" style={bidPanelInlineStyle} aria-label={t('table.bidPick')}>
                     {!showPcYourOrderRoamingBadge ? (
                       <span className="bid-panel-title bid-panel-title-inline" style={bidPanelInlineTitleStyle}>
                         {state.phase === 'dark-bidding' ? tr('table.darkBid') : tr('table.yourBid')}
@@ -14322,7 +14329,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                               ...bidSidePanelButtonMobile,
                               ...(disabled ? bidSidePanelButtonDisabledMobile : {}),
                             }}
-                            title={disabled ? `Запрещено: сумма заказов будет ${state.tricksInDeal}` : undefined}
+                            title={disabled ? t('table.bidForbiddenSum', { n: state.tricksInDeal }) : undefined}
                           >
                             {i}
                           </button>
@@ -14695,7 +14702,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             onClick={e => e.stopPropagation()}
           >
             <p id="new-game-confirm-title" style={newGameConfirmTextStyle}>
-              Текущая партия будет сброшена. Начать новую?
+              {t('table.resetParty')}
             </p>
             <div style={newGameConfirmButtonsStyle}>
               <button
@@ -14703,7 +14710,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 onClick={() => setShowNewGameConfirm(false)}
                 style={newGameConfirmCancelBtnStyle}
               >
-                Отмена
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -14713,7 +14720,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 }}
                 style={newGameConfirmOkBtnStyle}
               >
-                Начать заново
+                {t('table.startOver')}
               </button>
             </div>
           </div>
@@ -14759,7 +14766,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             >
               <button
                 type="button"
-                aria-label="Закрыть"
+                aria-label={t('common.close')}
                 title={t('common.close')}
                 onClick={() => {
                   if (transferHostExitInProgress) return;
@@ -14857,7 +14864,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     cursor: transferHostExitInProgress ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  Выйти без передачи
+                  {t('table.leaveWithoutTransfer')}
                 </button>
                 <button
                   type="button"
@@ -15032,7 +15039,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             {exitConfirmPending && (
               <p style={roomExitPendingHintStyle} role="status" aria-live="polite">
                 <span aria-hidden style={{ marginRight: 8 }}>⏳</span>
-                Выход выполняется. Это может занять несколько секунд при нестабильной сети.
+                {t('table.exitPending')}
               </p>
             )}
             <div style={newGameConfirmButtonsStyle}>
@@ -15043,7 +15050,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 style={newGameConfirmCancelBtnStyle}
                 disabled={exitConfirmPending}
               >
-                Отмена
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -15052,7 +15059,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 style={exitConfirmPending ? roomExitPendingBtnStyle : newGameConfirmOkBtnStyle}
                 disabled={exitConfirmPending}
               >
-                {exitConfirmPending ? 'Выходим…' : 'Выйти'}
+                {exitConfirmPending ? t('table.leaving') : t('table.exit')}
               </button>
             </div>
           </div>
@@ -15088,7 +15095,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             {homeConfirmPending && (
               <p style={roomExitPendingHintStyle} role="status" aria-live="polite">
                 <span aria-hidden style={{ marginRight: 8 }}>⏳</span>
-                Выход выполняется. Это может занять несколько секунд при нестабильной сети.
+                {t('table.exitPending')}
               </p>
             )}
             <div style={newGameConfirmButtonsStyle}>
@@ -15099,7 +15106,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 style={newGameConfirmCancelBtnStyle}
                 disabled={homeConfirmPending}
               >
-                Остаться
+                {t('table.stay')}
               </button>
               <button
                 type="button"
@@ -15108,7 +15115,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 style={homeConfirmPending ? roomExitPendingBtnStyle : newGameConfirmOkBtnStyle}
                 disabled={homeConfirmPending}
               >
-                {homeConfirmPending ? 'Выходим…' : 'В меню'}
+                {homeConfirmPending ? t('table.leaving') : t('table.toMenu')}
               </button>
             </div>
           </div>
@@ -15137,8 +15144,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     </div>
   );
 }
-
-const ONLINE_ROOM_CODE_TIP_TEXT = 'Скопировано. Код комнаты / стола.';
 
 function RoomCodeBadgeIcon({ kind }: { kind: 'collapse' | 'expand' | 'stack' }) {
   const gradId = `room-code-badge-grad-${kind}`;
@@ -15203,15 +15208,15 @@ function HumanTrickSlotWaitBadge({
       style={{ ...slotStyle, zIndex: 12 }}
       role="status"
       aria-live="polite"
-      aria-label="Ждём вашу карту"
+      aria-label={t('table.waitYourCard')}
     >
       <div className="human-trick-slot-wait-badge__chip" style={{ width: cardW, height: cardH }}>
         <span className="human-trick-slot-wait-badge__aura" aria-hidden />
         <span className="human-trick-slot-wait-badge__frame" aria-hidden />
         <span className="online-room-code-badge-iridescent-text human-trick-slot-wait-badge__text">
-          <span className="human-trick-slot-wait-badge__line">ждём</span>
-          <span className="human-trick-slot-wait-badge__line">вашу</span>
-          <span className="human-trick-slot-wait-badge__line">карту</span>
+          <span className="human-trick-slot-wait-badge__line">{t('table.waitLine1')}</span>
+          <span className="human-trick-slot-wait-badge__line">{t('table.waitLine2')}</span>
+          <span className="human-trick-slot-wait-badge__line">{t('table.waitLine3')}</span>
         </span>
       </div>
     </div>
@@ -15277,7 +15282,7 @@ function OnlineRoomCodeBadge({
           <button
             type="button"
             className="online-room-code-badge online-room-code-badge--collapsed"
-            aria-label="Развернуть код комнаты"
+            aria-label={t('table.expandRoomCode')}
             title={t('table.expandCode')}
             onClick={() => setCollapsed(false)}
           >
@@ -15299,7 +15304,7 @@ function OnlineRoomCodeBadge({
                   ? `Время партии ${formatOnlinePartyElapsed(partyElapsedSeconds)}. Нажмите, чтобы показать код комнаты и скопировать.`
                   : `Код комнаты ${code}. Нажмите, чтобы скопировать.`
               }
-              title={showTimerInBadge ? 'Показать код комнаты' : 'Код комнаты — нажмите, чтобы скопировать'}
+              title={showTimerInBadge ? t('table.showRoomCode') : t('table.copyRoomCode')}
             >
               <span className="online-room-code-badge__screen" aria-hidden="true">
                 {showTimerInBadge ? (
@@ -15315,7 +15320,7 @@ function OnlineRoomCodeBadge({
             <button
               type="button"
               className="online-room-code-badge-fold-btn online-room-code-badge-fold-btn--collapse"
-              aria-label="Свернуть код комнаты"
+              aria-label={t('table.collapseCode')}
               title={t('table.collapse')}
               onClick={(e) => {
                 e.stopPropagation();
@@ -15343,13 +15348,13 @@ function OnlineRoomCodeBadge({
               <button
                 type="button"
                 className="toast-close-btn"
-                aria-label="Закрыть"
+                aria-label={t('common.close')}
                 onClick={() => setTipOpen(false)}
               >
                 ×
               </button>
               <div className="online-room-code-tooltip__code">{code}</div>
-              <div className="game-table-tooltip-cosmic-body-text">{ONLINE_ROOM_CODE_TIP_TEXT}</div>
+              <div className="game-table-tooltip-cosmic-body-text">{t('table.roomCopied')}</div>
             </div>
           </div>,
           document.body,
@@ -15639,7 +15644,7 @@ function ImmersiveDealContractMarquee({
               </p>
               <div className="immersive-deal-mode-explain-toast__actions">
                 <button type="button" className="immersive-deal-mode-explain-toast__btn" onClick={() => setModeExplainOpen(null)}>
-                  Понятно
+                  {t('common.understood')}
                 </button>
               </div>
             </div>
@@ -15736,8 +15741,16 @@ function LastTrickEcho({
         })}
       </div>
       <div className="last-trick-echo__meta">
-        <span className="last-trick-echo__kicker">{iTookIt ? 'Вы взяли:' : 'Последняя взятка:'}</span>
-        <span className="last-trick-echo__winner">{iTookIt ? 'ваша!' : winnerName}</span>
+        <span className="last-trick-echo__kicker">{iTookIt ? t('table.youTook') : t('table.lastTrickColon')}</span>
+        <span className="last-trick-echo__winner">
+          {iTookIt
+            ? t('table.yoursBang')
+            : localizeAiDisplayName(
+                players[trick.winnerIndex]?.id,
+                winnerName,
+                playerCount,
+              )}
+        </span>
       </div>
     </div>
   );
@@ -15850,6 +15863,12 @@ function DealResultsScreen({
   const maxScore = Math.max(...scores);
   const range = maxScore - minScore;
   const humanIdx = 0;
+  const resultsPlayerName = (idx: number) => {
+    const p = players[idx];
+    if (!p) return tr('common.player');
+    if (idx === humanIdx) return formatYouName(p.name, tr);
+    return localizeAiDisplayName(p.id, p.name, players.length);
+  };
   const dealHistory = state.dealHistory || [];
   const seatCount = playerCountOf(state);
   /** Каждая завершённая раздача добавляет одну запись; полная партия — dealsPerMatch(N). */
@@ -15968,14 +15987,14 @@ function DealResultsScreen({
   const mobilePayoutDockUi = compactModal && showSettlementRow;
   const mobilePayoutExpanded = mobilePayoutCollapseEligible && !mobilePayoutDockCollapsed;
   const mobilePayoutUnderVeil = false;
-  const payoutGhostLabel = isPartyFinished ? 'ВЫИГРЫШ' : 'ПРЕДВАРИТЕЛЬНЫЙ РАСЧЕТ ВЫИГРЫША';
+  const payoutGhostLabel = isPartyFinished ? tr('table.payoutCaps') : tr('table.payoutPreviewCaps');
   const payoutGhostMarqueeText = `\u00A0${payoutGhostLabel}\u00A0\u00A0`;
   const renderMobileStickyPayoutCaption = () => (
     <div className="deal-results-sticky-payout-caption deal-results-sticky-payout-caption--in-row" aria-hidden>
       <span className="deal-results-sticky-payout-caption__glow" aria-hidden />
       <span style={dealResultsStickyTotalsCaptionPayoutScanlineStyle} />
-      <span style={dealResultsStickyTotalsCaptionPayoutGlitchLimeStyle}>Выигрыш</span>
-      <span style={dealResultsStickyTotalsCaptionPayoutGlitchAmberStyle}>Выигрыш</span>
+      <span style={dealResultsStickyTotalsCaptionPayoutGlitchLimeStyle}>{tr('table.payout')}</span>
+      <span style={dealResultsStickyTotalsCaptionPayoutGlitchAmberStyle}>{tr('table.payout')}</span>
       <span
         style={{
           ...dealResultsStickyTotalsCaptionPayoutMainStyle,
@@ -15988,7 +16007,7 @@ function DealResultsScreen({
             ...(isPartyFinished ? {} : dealResultsStickyTotalsCaptionPayoutMainTextStyleSoftDuringParty),
           }}
         >
-          {'\u00A0'}Выигрыш
+          {'\u00A0'}{tr('table.payout')}
         </span>
       </span>
     </div>
@@ -16139,7 +16158,7 @@ function DealResultsScreen({
     const panelPos = variant === 'modal' ? undefined : getDealResultsPanelPosition(side);
     return (
       <div key={idx} style={{ ...panelStyle, ...(panelPos ?? {}) }}>
-        <div style={panelTitleStyle}>{players[idx].name}</div>
+        <div style={panelTitleStyle}>{resultsPlayerName(idx)}</div>
         <div style={rowStyle}>
           <span style={dealResultsLabelStyle}>{t('table.bid')}</span>
           <span style={dealResultsValueStyle}>{bid}</span>
@@ -16171,7 +16190,7 @@ function DealResultsScreen({
           </span>
         </div>
         <div style={{ ...rowStyle, borderTop: '1px solid rgba(129, 140, 248, 0.28)', marginTop: 4, paddingTop: 4 }}>
-          <span style={dealResultsLabelTotalStyle}>Итого</span>
+          <span style={dealResultsLabelTotalStyle}>{tr('table.totalCol')}</span>
           <span style={{
             ...dealResultsValueStyle,
             ...(idx === humanIdx ? { color: '#a5b4fc' } : {}),
@@ -16186,17 +16205,37 @@ function DealResultsScreen({
   const _getDealCellLabel = (dealNumber: number) => {
     const type = getDealType(dealNumber, seatCount);
     const tricks = getTricksInDeal(dealNumber, seatCount);
-    if (type === 'no-trump') return `${dealNumber} БК`;
-    if (type === 'dark') return `${dealNumber} Тёмн.`;
-    return `${dealNumber} (${tricks} ${tricks === 1 ? 'карта' : tricks < 5 ? 'карты' : 'карт'})`;
+    if (type === 'no-trump') return tr('table.dealNtShort', { n: dealNumber });
+    if (type === 'dark') return tr('table.dealDarkShort', { n: dealNumber });
+    const word =
+      getLocale() === 'en'
+        ? tricks === 1
+          ? tr('table.card1')
+          : tr('table.cards')
+        : tricks === 1
+          ? tr('table.card1')
+          : tricks < 5
+            ? tr('table.card2')
+            : tr('table.cards');
+    return `${dealNumber} (${tricks} ${word})`;
   };
   /** Полная расшифровка раздачи для тултипа */
   const getDealCellTitle = (dealNumber: number) => {
     const type = getDealType(dealNumber, seatCount);
     const tricks = getTricksInDeal(dealNumber, seatCount);
-    if (type === 'no-trump') return `Раздача №${dealNumber} — бескозырка`;
-    if (type === 'dark') return `Раздача №${dealNumber} — тёмная`;
-    return `Раздача №${dealNumber} — ${tricks} ${tricks === 1 ? 'карта' : tricks < 5 ? 'карты' : 'карт'}`;
+    if (type === 'no-trump') return tr('table.dealNtTitle', { n: dealNumber });
+    if (type === 'dark') return tr('table.dealDarkTitle', { n: dealNumber });
+    const word =
+      getLocale() === 'en'
+        ? tricks === 1
+          ? tr('table.card1')
+          : tr('table.cards')
+        : tricks === 1
+          ? tr('table.card1')
+          : tricks < 5
+            ? tr('table.card2')
+            : tr('table.cards');
+    return tr('table.dealCardsTitle', { n: dealNumber, cards: `${tricks} ${word}` });
   };
   /** Подписи первого столбца: вверх (без пика) + N×max + вниз + N×Б + N×Т */
   const DEAL_COLUMN_LABELS = useMemo(() => {
@@ -17082,7 +17121,7 @@ function DealResultsScreen({
           <button
             type="button"
             className="deal-results-sticky-payout-veil-caption__mode-btn deal-results-dock-landscape-mode-btn"
-            aria-label={`Режим подсчёта: ${mobilePayoutModeLabel}. Нажмите, чтобы переключить`}
+            aria-label={t('table.scoreModeSwitch', { mode: mobilePayoutModeLabel })}
             onClick={(e) => {
               e.stopPropagation();
               setChipView(cycleResultsChipView(chipView));
@@ -17093,7 +17132,7 @@ function DealResultsScreen({
           <button
             type="button"
             className="deal-results-sticky-payout-veil-caption__help-btn deal-results-dock-landscape-help-btn"
-            aria-label="Пояснение режимов подсчёта выигрыша"
+            aria-label={t('table.scoreModeHelp')}
             aria-expanded={mobilePayoutModeHelpOpen}
             onClick={(e) => {
               e.stopPropagation();
@@ -17126,13 +17165,13 @@ function DealResultsScreen({
         .join(' ')}
     >
       <span className="deal-results-dock-landscape-payout-label" aria-hidden>
-        Выигрыш
+        {tr('table.payout')}
       </span>
       {collapsed ? (
         <button
           type="button"
           className="deal-results-dock-landscape-expand-btn"
-          aria-label="Выигрыш: развернуть"
+          aria-label={tr('table.payoutExpand')}
           onClick={() => setMobilePayoutDockCollapsed(false)}
         >
           <span className="deal-results-dock-landscape-expand-btn__chev" aria-hidden>
@@ -17165,7 +17204,7 @@ function DealResultsScreen({
         <tbody>
           <tr className="deal-results-dock-landscape-row deal-results-dock-landscape-row--scores">
             <td className="deal-results-dock-landscape-label-cell">
-              {renderLandscapeDockVerticalLabel('Итог')}
+              {renderLandscapeDockVerticalLabel(tr('table.total'))}
             </td>
             <td colSpan={players.length * 2} className="deal-results-dock-landscape-data-cell">
               <div
@@ -17183,7 +17222,7 @@ function DealResultsScreen({
                 role="button"
                 tabIndex={0}
                 aria-expanded={false}
-                aria-label="Выигрыш: предварительный расчёт, развернуть"
+                aria-label={tr('table.payoutPreviewExpand')}
                 onClick={() => setMobilePayoutDockCollapsed(false)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -17205,7 +17244,7 @@ function DealResultsScreen({
                       setMobilePayoutDockCollapsed(false);
                     }}
                   >
-                    <span className="deal-results-dock-landscape-expand-strip__label">Развернуть выигрыш</span>
+                    <span className="deal-results-dock-landscape-expand-strip__label">{tr('table.expandPayout')}</span>
                     <span className="deal-results-dock-landscape-expand-strip__chev" aria-hidden>
                       ▾
                     </span>
@@ -17264,11 +17303,11 @@ function DealResultsScreen({
                 <div ref={mobileStickyDockRef} className="deal-results-sticky-totals-dock" style={dockStyle}>
                   <div style={dealResultsStickyTotalsCaptionStyle} aria-hidden>
                     <span style={dealResultsStickyTotalsCaptionScanlineStyle} />
-                    <span style={dealResultsStickyTotalsCaptionGhostStyle}>{'\u00A0'}ИТОГ</span>
-                    <span style={dealResultsStickyTotalsCaptionGlitchCyanStyle}>{'\u00A0'}Итог</span>
-                    <span style={dealResultsStickyTotalsCaptionGlitchVioletStyle}>{'\u00A0'}Итог</span>
+                    <span style={dealResultsStickyTotalsCaptionGhostStyle}>{'\u00A0'}{tr('table.totalCaps')}</span>
+                    <span style={dealResultsStickyTotalsCaptionGlitchCyanStyle}>{'\u00A0'}{tr('table.total')}</span>
+                    <span style={dealResultsStickyTotalsCaptionGlitchVioletStyle}>{'\u00A0'}{tr('table.total')}</span>
                     <span style={dealResultsStickyTotalsCaptionMainStyle}>
-                      <span style={dealResultsStickyTotalsCaptionMainTextStyle}>{'\u00A0'}Итог</span>
+                      <span style={dealResultsStickyTotalsCaptionMainTextStyle}>{'\u00A0'}{tr('table.total')}</span>
                     </span>
                   </div>
                   <div
@@ -17331,7 +17370,7 @@ function DealResultsScreen({
                       aria-expanded={mobilePayoutCollapseEligible ? !mobilePayoutDockCollapsed : undefined}
                       aria-label={
                         mobilePayoutCollapseEligible && mobilePayoutDockCollapsed
-                          ? 'Выигрыш: предварительный расчёт, развернуть'
+                          ? tr('table.payoutPreviewExpand')
                           : undefined
                       }
                       onClick={
@@ -17358,7 +17397,7 @@ function DealResultsScreen({
                           />
                           <div className="deal-results-sticky-payout-collapsed-hint" aria-hidden>
                           <span className="deal-results-sticky-payout-collapsed-hint__label deal-results-sticky-payout-collapsed-hint__label--iridescent">
-                            Выигрыш
+                            {tr('table.payout')}
                           </span>
                           <span className="deal-results-sticky-payout-collapsed-hint__chev" aria-hidden>
                             ▾
@@ -17396,7 +17435,7 @@ function DealResultsScreen({
                                   className="deal-results-sticky-payout-collapse-btn__sep"
                                   aria-hidden
                                 />
-                                <span className="deal-results-sticky-payout-collapse-btn__label">Свернуть</span>
+                                <span className="deal-results-sticky-payout-collapse-btn__label">{tr('table.collapse')}</span>
                                 <span
                                   className="deal-results-sticky-payout-collapse-btn__sep"
                                   aria-hidden
@@ -17449,7 +17488,7 @@ function DealResultsScreen({
                               <button
                                 type="button"
                                 className="deal-results-sticky-payout-veil-caption__mode-btn"
-                                aria-label={`Режим подсчёта: ${mobilePayoutModeLabel}. Нажмите, чтобы переключить`}
+                                aria-label={t('table.scoreModeSwitch', { mode: mobilePayoutModeLabel })}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setChipView(cycleResultsChipView(chipView));
@@ -17462,7 +17501,7 @@ function DealResultsScreen({
                               <button
                                 type="button"
                                 className="deal-results-sticky-payout-veil-caption__help-btn"
-                                aria-label="Пояснение режимов подсчёта выигрыша"
+                                aria-label={t('table.scoreModeHelp')}
                                 aria-expanded={mobilePayoutModeHelpOpen}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -17753,7 +17792,7 @@ function DealResultsScreen({
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
-                  aria-label="Закрыть"
+                  aria-label={t('common.close')}
                 >
                   ×
                 </button>
@@ -17803,7 +17842,7 @@ function DealResultsScreen({
                                 alignItems: 'center',
                                 justifyContent: 'center',
                               }}
-                              aria-label="Закрыть"
+                              aria-label={t('common.close')}
                             >
                               ×
                             </button>
@@ -17852,13 +17891,13 @@ function DealResultsScreen({
                                       .join(' ') || undefined
                                   }
                                   style={{ ...dealResultsTableThStyleMobile, ...dealResultsTableThNameStyle }}
-                                  title={p.name}
+                                  title={resultsPlayerName(i)}
                                 >
                                   {isLeader && (
                                     <span
                                       className={`deal-results-name-rank-badge${leaderBadgeTooltipOpen ? ' deal-results-name-rank-badge--tooltip-open' : ''}`}
                                       tabIndex={0}
-                                      aria-label="Космический бейдж лидера по очкам"
+                                      aria-label={tr('table.leaderBadgeAria')}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         toggleLeaderBadgeTooltip(e.currentTarget);
@@ -17872,7 +17911,7 @@ function DealResultsScreen({
                                     className={`deal-results-player-name${i === humanIdx ? ' deal-results-player-name--human' : ''}${isLeader ? ' deal-results-player-name--leader' : ''}${isMobile && i !== humanIdx ? ' deal-results-player-name--mobile-opponent' : ''}`}
                                     style={getDealResultsPlayerNameCosmicStyle(i, isLeader)}
                                   >
-                                    {p.name}
+                                    {resultsPlayerName(i)}
                                   </span>
                                 </th>
                               );
@@ -18019,7 +18058,7 @@ function DealResultsScreen({
                         aria-hidden
                       >
                         <span style={dealResultsMobileScrollHintArrowsStyle}>↕</span>
-                        <span style={dealResultsMobileScrollHintTextStyle}>Прокрутка</span>
+                        <span style={dealResultsMobileScrollHintTextStyle}>{tr('table.scrollHint')}</span>
                       </div>
                       {renderMobileTotalsDock(dealResultsStickyTotalsDockStyle)}
                       <div className="deal-results-table-glow-bottom" style={dealResultsTableGlowBottomStyleMobile} aria-hidden />
@@ -18053,13 +18092,13 @@ function DealResultsScreen({
                                     [i === humanIdx && 'deal-results-cell-human', isLeader && 'deal-results-column-leader deal-results-column-leader-r', isLeader && 'deal-results-name-cell--leader'].filter(Boolean).join(' ') || undefined
                                   }
                                   style={{ ...dealResultsTableThStyle, ...dealResultsTableThNameStyle }}
-                                  title={p.name}
+                                  title={resultsPlayerName(i)}
                                 >
                                   {isLeader && (
                                     <span
                                       className={`deal-results-name-rank-badge${leaderBadgeTooltipOpen ? ' deal-results-name-rank-badge--tooltip-open' : ''}`}
                                       tabIndex={0}
-                                      aria-label="Космический бейдж лидера по очкам"
+                                      aria-label={tr('table.leaderBadgeAria')}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         toggleLeaderBadgeTooltip(e.currentTarget);
@@ -18073,7 +18112,7 @@ function DealResultsScreen({
                                     className={`deal-results-player-name${i === humanIdx ? ' deal-results-player-name--human' : ''}${isLeader ? ' deal-results-player-name--leader' : ''}${isMobile && i !== humanIdx ? ' deal-results-player-name--mobile-opponent' : ''}`}
                                     style={getDealResultsPlayerNameCosmicStyle(i, isLeader)}
                                   >
-                                    {p.name}
+                                    {resultsPlayerName(i)}
                                   </span>
                                 </th>
                               );
@@ -18173,7 +18212,7 @@ function DealResultsScreen({
                             })}
                           </tr>
                           {showSettlementRow && (
-                            <tr>
+                            <tr className="deal-results-tfoot-chips">
                               <th
                                 className="deal-results-deal-column-pc"
                                 style={{
@@ -18186,7 +18225,7 @@ function DealResultsScreen({
                                 }}
                                 title={t('table.chips')}
                               >
-                                <span className="deal-results-deal-cell-label">Фишки</span>
+                                <span className="deal-results-deal-cell-label deal-results-chips-label">{tr('table.chips')}</span>
                               </th>
                               {players.map((_, i) => {
                                 const chips = chipForPlayer(i);
@@ -18203,7 +18242,7 @@ function DealResultsScreen({
                                       style={{
                                         ...dealResultsTableTdResultStyle,
                                         ...dealResultsTableTfootStyle,
-                                        ...dealResultsTableTfootTotalShellPcStyle,
+                                        ...dealResultsTableTfootChipsShellPcStyle,
                                       }}
                                     >
                                       <span style={{ color: chipColor(chips), fontWeight: 700 }}>
@@ -18331,17 +18370,17 @@ function DealResultsScreen({
                 {isHumanPlayer ? (
                   <>
                     <span className="deal-results-panel-name-plate__glow" aria-hidden>
-                      {players[idx].name}
+                      {resultsPlayerName(idx)}
                     </span>
                     <span className="deal-results-panel-name-plate__laser" aria-hidden />
                   </>
                 ) : null}
-                <span className="deal-results-panel-name-plate__glyph">{players[idx].name}</span>
+                <span className="deal-results-panel-name-plate__glyph">{resultsPlayerName(idx)}</span>
               </div>
             ) : isOverlayPanels && isHumanPlayer ? (
               <div className="deal-results-panel-name-bar deal-results-panel-name-bar--human">
                 <span className="deal-results-panel-name-bar__glow" aria-hidden>
-                  {players[idx].name}
+                  {resultsPlayerName(idx)}
                 </span>
                 <div
                   className="deal-results-panel-title-overlay deal-results-panel-title-human-overlay"
@@ -18353,7 +18392,7 @@ function DealResultsScreen({
                     backgroundColor: 'transparent',
                   }}
                 >
-                  {players[idx].name}
+                  {resultsPlayerName(idx)}
                 </div>
               </div>
             ) : (
@@ -18371,7 +18410,7 @@ function DealResultsScreen({
                   ...(isOverlayPCLayout ? dealResultsPanelTitleStyleOverlayPC : {}),
                 }}
               >
-                {players[idx].name}
+                {resultsPlayerName(idx)}
               </div>
             )}
             <div className={isOverlayPanels ? 'deal-results-panel-row-overlay' : undefined} style={overlayDealRowStyle}>
@@ -18422,7 +18461,7 @@ function DealResultsScreen({
               style={{ ...overlayDealRowStyle, borderTop: '1px solid rgba(129, 140, 248, 0.28)', marginTop: 4, paddingTop: 4 }}
             >
               <span className={isOverlayPanels ? 'deal-results-panel-total-label-overlay' : undefined} style={overlayLabelTotalStyle}>
-                Итого
+                {tr('table.totalCol')}
               </span>
               <span className={isOverlayPanels ? 'deal-results-panel-total-value-overlay' : undefined} style={totalSpanStyle}>
                 {ultraTotalStar && <span style={dealResultsExactStarUltraTotalStyle}>✦</span>}
@@ -18450,9 +18489,9 @@ function DealResultsScreen({
         >
           <span className="deal-results-name-rank-badge-tooltip-title-wrap">
             <span className="deal-results-name-rank-badge-tooltip-badge-mini" aria-hidden />
-            <span className="deal-results-name-rank-badge-tooltip-title">Космический лидер</span>
+            <span className="deal-results-name-rank-badge-tooltip-title">{tr('table.cosmicLeader')}</span>
           </span>
-          <span className="deal-results-name-rank-badge-tooltip-text">Максимум очков в текущем рейтинге.</span>
+          <span className="deal-results-name-rank-badge-tooltip-text">{tr('table.leaderMaxScore')}</span>
           <button
             type="button"
             className="deal-results-name-rank-badge-tooltip-close"
@@ -18502,19 +18541,19 @@ function getDealResultsPanelPosition(side: 'top' | 'bottom' | 'left' | 'right'):
   }
 }
 
-/** Склонение «взятка» (1 взятка, 2 взятки, 5 взяток; 11–14 — всегда взяток). */
-function tricksDeclension(n: number): 'взятка' | 'взятки' | 'взяток' {
+/** «N взятка/взятки/взяток» для подписей и тултипов. */
+function tricksWord(n: number): string {
   const k = Math.abs(Math.trunc(n)) % 100;
   const d = k % 10;
-  if (k >= 11 && k <= 14) return 'взяток';
-  if (d === 1) return 'взятка';
-  if (d >= 2 && d <= 4) return 'взятки';
-  return 'взяток';
+  if (getLocale() === 'en') return k === 1 ? t('table.trick1') : t('table.tricksMany');
+  if (k >= 11 && k <= 14) return t('table.tricksMany');
+  if (d === 1) return t('table.trick1');
+  if (d >= 2 && d <= 4) return t('table.trick2');
+  return t('table.tricksMany');
 }
 
-/** «N взятка/взятки/взяток» для подписей и тултипов. */
 function tricksPhrase(n: number): string {
-  return `${n} ${tricksDeclension(n)}`;
+  return `${n} ${tricksWord(n)}`;
 }
 
 /** Сколько взяток ещё не сыграно в раздаче (сумма взятых по всем игрокам = число завершённых взяток). */
@@ -18525,61 +18564,42 @@ function tricksRemainingInDeal(state: { tricksInDeal: number; players: { tricksT
 
 /** Подсказка для таблички заказа оппонента (title / тап на мобильной). */
 function opponentOrderBadgeTitle(bid: number | null, tricksTaken: number): string {
-  if (bid == null) {
-    return 'Сколько взяток игрок обещает взять в этой раздаче. Пока заказ не сделан.';
-  }
-  return `Заказ: ${tricksPhrase(bid)}. Уже взято: ${tricksPhrase(tricksTaken)}.`;
+  if (bid == null) return t('table.orderPending');
+  return t('table.orderMade', { bid: tricksPhrase(bid), taken: tricksPhrase(tricksTaken) });
 }
 
-/** Текст всплывающей подсказки по тапу на заказ оппонента (только мобильная). */
 function opponentOrderTapHintText(bid: number | null, tricksTaken: number): string {
-  if (bid == null) {
-    return 'Заказ ещё не выбран.';
-  }
-  return `Заказ игрока: ${tricksPhrase(bid)}. Взято: ${tricksPhrase(tricksTaken)}.`;
+  if (bid == null) return t('table.orderTapPending');
+  return t('table.orderTapMade', { bid: tricksPhrase(bid), taken: tricksPhrase(tricksTaken) });
 }
 
-/** Тултип (ПК, число заказа над стопкой взяток соперника). */
 function opponentPcStackBidTooltip(bid: number): string {
-  return `Обещание в раздаче: ${tricksPhrase(bid)}. Недобор и перебор меняют очки.`;
+  return t('table.oppStackBid', { bid: tricksPhrase(bid) });
 }
 
-/** Тултип (ПК, число взятых взяток над стопкой). */
 function opponentPcStackTakenTooltip(bid: number, tricksTaken: number): string {
-  if (tricksTaken < bid) {
-    return `Сейчас ${tricksPhrase(tricksTaken)} из ${tricksPhrase(bid)} по заказу.`;
-  }
-  if (tricksTaken === bid) {
-    return `Ровно ${tricksPhrase(bid)} — как заказано.`;
-  }
-  return `Взято ${tricksPhrase(tricksTaken)} при заказе ${tricksPhrase(bid)}. Справа оранжевым — сверх заказа.`;
+  if (tricksTaken < bid) return t('table.oppStackTakenUnder', { taken: tricksPhrase(tricksTaken), bid: tricksPhrase(bid) });
+  if (tricksTaken === bid) return t('table.oppStackTakenExact', { bid: tricksPhrase(bid) });
+  return t('table.oppStackTakenOver', { taken: tricksPhrase(tricksTaken), bid: tricksPhrase(bid) });
 }
 
-/** Тултип (ПК, ваш заказ — число слева у панели взяток). */
 function playerPcStackBidTooltip(bid: number): string {
-  return `Ваш заказ: ${tricksPhrase(bid)}. Недобор и перебор меняют очки.`;
+  return t('table.youStackBid', { bid: tricksPhrase(bid) });
 }
 
 function playerPcStackBidTooltipPending(): string {
-  return 'Сколько взяток хотите взять — выберите в панели заказа.';
+  return t('table.youStackBidPending');
 }
 
-/** Тултип (ПК, сколько вы уже взяли взяток). */
 function playerPcStackTakenTooltip(bid: number, tricksTaken: number): string {
-  if (tricksTaken < bid) {
-    return `У вас ${tricksPhrase(tricksTaken)} из ${tricksPhrase(bid)}.`;
-  }
-  if (tricksTaken === bid) {
-    return `Ровно ${tricksPhrase(bid)} — как вы заказали.`;
-  }
-  return `Взято ${tricksPhrase(tricksTaken)}, заказ ${tricksPhrase(bid)}. Оранжевым — сверх заказа.`;
+  if (tricksTaken < bid) return t('table.youStackTakenUnder', { taken: tricksPhrase(tricksTaken), bid: tricksPhrase(bid) });
+  if (tricksTaken === bid) return t('table.youStackTakenExact', { bid: tricksPhrase(bid) });
+  return t('table.youStackTakenOver', { taken: tricksPhrase(tricksTaken), bid: tricksPhrase(bid) });
 }
 
 function playerPcStackTakenTooltipPending(tricksTaken: number): string {
-  if (tricksTaken === 0) {
-    return 'Сколько взяток вы уже забрали в этой раздаче.';
-  }
-  return `Уже ${tricksPhrase(tricksTaken)}. После заказа сравните с обещанным числом.`;
+  if (tricksTaken === 0) return t('table.youStackTakenPending0');
+  return t('table.youStackTakenPendingN', { taken: tricksPhrase(tricksTaken) });
 }
 
 const pcTrickBidFigureStyle: React.CSSProperties = {
@@ -18822,7 +18842,7 @@ function PcTrickBidTakenFigures({
     bid == null
       ? audience === 'player'
         ? playerPcStackBidTooltipPending()
-        : 'Заказ в этой раздаче ещё не сделан.'
+        : t('table.oppBidNotYet')
       : audience === 'player'
         ? playerPcStackBidTooltip(bid)
         : opponentPcStackBidTooltip(bid);
@@ -18831,7 +18851,7 @@ function PcTrickBidTakenFigures({
     bid == null
       ? audience === 'player'
         ? playerPcStackTakenTooltipPending(tricksTaken)
-        : `Уже ${tricksPhrase(tricksTaken)}. Число заказа — после его выбора.`
+        : t('table.oppTakenBeforeBid', { taken: tricksPhrase(tricksTaken) })
       : audience === 'player'
         ? playerPcStackTakenTooltip(bid, tricksTaken)
         : opponentPcStackTakenTooltip(bid, tricksTaken);
@@ -21689,7 +21709,7 @@ function OpponentSlot({
             <span style={orderOnHandCheckBulbStyle} aria-hidden>
               ✓
             </span>
-            <span className="order-on-hand-badge-pc-text">Ровно</span>
+            <span className="order-on-hand-badge-pc-text">{t('table.exactShort')}</span>
           </span>
         )
       ) : null}
@@ -22643,7 +22663,12 @@ function LastTrickModal({
   pcCardStyles?: boolean;
   onClose: () => void;
 }) {
-  const winnerName = players[trick.winnerIndex]?.name ?? '';
+  const tr = useT();
+  const winnerName = localizeAiDisplayName(
+    players[trick.winnerIndex]?.id,
+    players[trick.winnerIndex]?.name ?? '',
+    players.length,
+  );
   return (
     <div
       className="last-trick-modal-overlay"
@@ -22654,8 +22679,8 @@ function LastTrickModal({
       onKeyDown={e => e.key === 'Escape' && onClose()}
     >
       <div className="last-trick-modal-card" style={modalContent} onClick={e => e.stopPropagation()} role="presentation">
-        <h3>Последняя взятка</h3>
-        <p style={{ color: '#94a3b8', marginBottom: 16 }}>Взял: {winnerName}</p>
+        <h3>{tr('table.lastTrick')}</h3>
+        <p style={{ color: '#94a3b8', marginBottom: 16 }}>{tr('table.tookBy', { name: winnerName })}</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 16 }}>
           {trick.cards.map((card, i) => {
             const mobile = !pcCardStyles;
@@ -22680,7 +22705,7 @@ function LastTrickModal({
             );
           })}
         </div>
-        <button type="button" onClick={onClose} style={buttonStyle}>Закрыть</button>
+        <button type="button" onClick={onClose} style={buttonStyle}>{tr('common.close')}</button>
       </div>
     </div>
   );
@@ -23059,7 +23084,7 @@ function DealContractMobileOrderZAndNum({ totalOrders, orderCompare }: { totalOr
 function DealContractMobileTricksNumbers({ taken, dealTotal }: { taken: number; dealTotal: number }) {
   return (
     <span className="deal-contract-mobile-tricks">
-      <span className="deal-contract-mobile-tricks-v">В: </span>
+      <span className="deal-contract-mobile-tricks-v">{t('table.takenAbbr')} </span>
       <span className="deal-contract-mobile-tricks-taken">{taken}</span>
       <span className="deal-contract-mobile-tricks-slash" aria-hidden="true">
         /
@@ -24364,6 +24389,13 @@ const dealResultsTableTfootStyleMobile: React.CSSProperties = {
 const dealResultsTableTfootTotalShellPcStyle: React.CSSProperties = {
   color: 'transparent',
   textShadow: 'none',
+};
+/** ПК: строка «Фишки» — отдельная янтарная оболочка, не циан «Итог». */
+const dealResultsTableTfootChipsShellPcStyle: React.CSSProperties = {
+  color: 'unset',
+  textShadow: 'none',
+  boxShadow: 'inset 0 0 0 1px rgba(251, 191, 36, 0.38), 0 0 16px rgba(245, 158, 11, 0.16)',
+  background: 'linear-gradient(180deg, rgba(251, 191, 36, 0.08) 0%, rgba(15, 23, 42, 0.2) 100%)',
 };
 /** Базовый «дорогой» стиль имени в таблице результатов: тонкий неон + гравировка. */
 const dealResultsPlayerNameTextBaseStyle: React.CSSProperties = {

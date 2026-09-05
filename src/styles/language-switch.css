@@ -51,3 +51,16 @@
     right: clamp(16px, 2.4vw, 48px);
   }
 }
+
+/* Mobile cabinet: same pill as the menu, opposite the close control */
+.lk-page:not(.lk-page--pc) .lk-page__lang {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+}
+
+.lk-page:not(.lk-page--pc) .lang-switch {
+  border-color: rgba(167, 139, 250, 0.5);
+  background: rgba(15, 10, 36, 0.62);
+}

@@ -5,6 +5,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MAX_AVATAR_IMAGE_SIZE_BYTES } from '../lib/avatarImage';
 import {
   canUseInPageCamera,
@@ -22,6 +23,7 @@ import { PlayerAvatar } from './PlayerAvatar';
 import { AvatarNeonColorPicker } from './AvatarNeonColorPicker';
 import { AvatarEditorModal } from './AvatarEditorModal';
 import { useT } from '../i18n';
+import '../styles/name-avatar-modal.css';
 
 export const MAX_DISPLAY_NAME_LENGTH = 17;
 const MAX_NAME_LENGTH = MAX_DISPLAY_NAME_LENGTH;
@@ -174,6 +176,17 @@ export function NameAvatarModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [previewOpen, avatarEditorOpen]);
 
+  const allowBackdropCloseRef = useRef(false);
+  const backdropPointerDownRef = useRef(false);
+  useEffect(() => {
+    allowBackdropCloseRef.current = false;
+    backdropPointerDownRef.current = false;
+    const id = window.setTimeout(() => {
+      allowBackdropCloseRef.current = true;
+    }, 450);
+    return () => window.clearTimeout(id);
+  }, []);
+
   const applyPhotoDataUrl = async (dataUrl: string) => {
     setError(null);
     try {
@@ -270,18 +283,23 @@ export function NameAvatarModal({
 
   const nameLen = displayName.length;
 
-  return (
+  return createPortal(
     <>
       <div
         ref={rootRef}
         className={['name-avatar-modal', inputFocused ? 'name-avatar-modal--input-focus' : '']
           .filter(Boolean)
           .join(' ')}
+        onPointerDown={(e) => {
+          backdropPointerDownRef.current = e.target === e.currentTarget;
+        }}
         onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            stopInPageCamera();
-            onCancel?.();
-          }
+          if (e.target !== e.currentTarget) return;
+          if (!allowBackdropCloseRef.current) return;
+          if (!backdropPointerDownRef.current) return;
+          backdropPointerDownRef.current = false;
+          stopInPageCamera();
+          onCancel?.();
         }}
         role="dialog"
         aria-modal="true"
@@ -539,6 +557,7 @@ export function NameAvatarModal({
           onCancel={() => setAvatarEditorOpen(false)}
         />
       ) : null}
-    </>
+    </>,
+    document.body,
   );
 }

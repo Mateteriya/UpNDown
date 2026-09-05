@@ -45,13 +45,15 @@ export function normalizeCreateRoomOptions(opts?: CreateRoomOptions): {
   return { settlementMode, buyIn: null, roomKind, maxPlayers };
 }
 
+import { t } from '../i18n';
+
 export function settlementModeBadgeLabel(mode: SettlementMode, buyIn: number | null): string {
   if (mode === 'prize_pool') {
-    return `Банк · взнос ${buyIn ?? DEFAULT_BANK_DEMO_BUY_IN} (демо)`;
+    return t('settlement.bank', { n: buyIn ?? DEFAULT_BANK_DEMO_BUY_IN });
   }
-  if (mode === 'accuracy_bonus') return 'Точный заказ';
-  if (mode === 'vs_average') return 'Середина стола';
-  return 'Только очки';
+  if (mode === 'accuracy_bonus') return t('settlement.accuracy');
+  if (mode === 'vs_average') return t('settlement.average');
+  return t('settlement.points');
 }
 
 export interface PublicWaitingRoomRow {

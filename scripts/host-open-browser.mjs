@@ -1,7 +1,8 @@
 /**
  * Без Rust/Tauri: убить старые порты, поднять сервер, открыть панель в браузере.
  *
- *   npm run host:app          — kill портов + server:dev + открыть /host
+ *   npm run host:app          — если сервер уже жив: только открыть /host (партия не рвётся)
+ *                             иначе kill портов + server:start + открыть /host
  *   npm run host:app -- kill  — только освободить 3001–3003
  *   npm run host:kill         — то же, что kill
  */
@@ -23,6 +24,28 @@ function killHostPorts() {
   );
 }
 
+function openHostPanel() {
+  const open = spawn('cmd', ['/c', 'start', '', `http://127.0.0.1:${port}/host`], {
+    detached: true,
+    stdio: 'ignore',
+  });
+  open.unref();
+  console.log(`[host:app] Открыто http://127.0.0.1:${port}/host`);
+}
+
+async function lanServerUp() {
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/api/version`, { cache: 'no-store' });
+    if (!r.ok) return false;
+    const j = await r.json();
+    const build = typeof j.build === 'string' ? j.build : '';
+    const lanPanel = j.panelSnippet === 'lan-ui' || j.hostPanel === true || j.profile === 'lan';
+    return build.startsWith('host-panel-') && lanPanel;
+  } catch {
+    return false;
+  }
+}
+
 if (arg === 'kill' || arg === '--kill' || arg === '-k') {
   killHostPorts();
   console.log('[host:app] Только kill — сервер не поднимаю. Старт: npm run host:app');
@@ -35,9 +58,18 @@ if (!existsSync(distHost)) {
   console.log('[host:app] Игра для QR: dist-host OK');
 }
 
+if (await lanServerUp()) {
+  console.log(
+    '[host:app] Сервер уже работает — не перезапускаю (комната и игроки остаются).\n' +
+      '    Если нужен чистый старт: npm run host:kill  затем снова npm run host:app',
+  );
+  openHostPanel();
+  process.exit(0);
+}
+
 killHostPorts();
 
-const server = spawn('npm', ['run', 'server:dev'], {
+const server = spawn('npm', ['run', 'server:start'], {
   cwd: root,
   shell: true,
   stdio: 'inherit',
@@ -46,18 +78,7 @@ const server = spawn('npm', ['run', 'server:dev'], {
 
 async function waitReady() {
   for (let i = 0; i < 40; i++) {
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/api/version`, { cache: 'no-store' });
-      const j = await r.json();
-      const build = typeof j.build === 'string' ? j.build : '';
-      const lanPanel =
-        j.panelSnippet === 'lan-ui' || j.hostPanel === true || j.profile === 'lan';
-      if (build.startsWith('host-panel-') && lanPanel) {
-        return true;
-      }
-    } catch {
-      /* retry */
-    }
+    if (await lanServerUp()) return true;
     await new Promise((r) => setTimeout(r, 500));
   }
   return false;
@@ -65,12 +86,7 @@ async function waitReady() {
 
 const ok = await waitReady();
 if (ok) {
-  const open = spawn('cmd', ['/c', 'start', '', `http://127.0.0.1:${port}/host`], {
-    detached: true,
-    stdio: 'ignore',
-  });
-  open.unref();
-  console.log(`[host:app] Открыто http://127.0.0.1:${port}/host`);
+  openHostPanel();
 } else {
   console.error('[host:app] Сервер не поднялся с новой панелью. Смотрите лог выше.');
 }

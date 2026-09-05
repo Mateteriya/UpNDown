@@ -3,6 +3,7 @@
  */
 
 import { Children, useState, type ReactNode } from 'react';
+import { useT } from '../../i18n';
 
 export interface AvatarEditorChipRailProps {
   /** Сколько элементов видно в свёрнутом виде */
@@ -12,6 +13,7 @@ export interface AvatarEditorChipRailProps {
 }
 
 export function AvatarEditorChipRail({ collapsedVisible = 6, className, children }: AvatarEditorChipRailProps) {
+  const tr = useT();
   const [expanded, setExpanded] = useState(false);
   const items = Children.toArray(children).filter(Boolean);
   const overflow = items.length > collapsedVisible;
@@ -28,7 +30,7 @@ export function AvatarEditorChipRail({ collapsedVisible = 6, className, children
           aria-expanded={expanded}
           onClick={() => setExpanded((e) => !e)}
         >
-          {expanded ? 'Свернуть' : `+${hiddenCount}`}
+          {expanded ? tr('table.collapse') : `+${hiddenCount}`}
         </button>
       ) : null}
     </div>

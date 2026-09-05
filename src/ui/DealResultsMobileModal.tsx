@@ -131,13 +131,13 @@ const DealResultsMobileModalStack = memo(function DealResultsMobileModalStack({
 
           ariaHints={{
 
-            downOnly: 'Можно потянуть только вниз, чтобы увеличить высоту таблицы',
+            downOnly: t('table.resizeTableDown'),
 
-            upOnly: 'Можно потянуть только вверх, чтобы уменьшить высоту',
+            upOnly: t('table.resizeTableUp'),
 
-            both: 'Потяните вверх или вниз, чтобы изменить высоту таблицы',
+            both: t('table.resizeTableBoth'),
 
-            none: 'Изменить высоту таблицы «Результаты»',
+            none: t('table.resizeTableNone'),
 
           }}
 

@@ -348,15 +348,15 @@ export function UserAvatarMenuSheet({
                           type="button"
                           className="avatar-menu-sheet-name-edit__btn avatar-menu-sheet-name-edit__btn--save"
                           onClick={commitNameEdit}
-                          aria-label="Сохранить имя"
+                          aria-label={tr('avatarMenu.saveName')}
                         >
-                          Готово
+                          {tr('avatarMenu.done')}
                         </button>
                         <button
                           type="button"
                           className="avatar-menu-sheet-name-edit__btn avatar-menu-sheet-name-edit__btn--cancel"
                           onClick={cancelNameEdit}
-                          aria-label="Отменить"
+                          aria-label={tr('common.cancel')}
                         >
                           <svg className="avatar-menu-sheet-name-edit__cancel-icon" viewBox="0 0 24 24" width={13} height={13} aria-hidden>
                             <path

@@ -1,4 +1,4 @@
-/** Статичные наборы для чата стола — без сетевых запросов. */
+import { t, type MsgKey, type TFunc } from '../i18n';
 
 export type TableChatPickerTabId = 'react' | 'cards' | 'misc' | 'phrases' | 'mine';
 
@@ -24,25 +24,37 @@ export const MY_SNIPPETS_LS_KEY = 'upndown.tableChatMySnippets';
 export const MY_SNIPPETS_MAX = 50;
 export const MY_SNIPPETS_MAX_LEN = 200;
 
-export const CHAT_QUICK_PHRASES: readonly string[] = [
-  'Удачи всем!',
-  'Спасибо за игру!',
-  'Классная партия!',
-  'Извините, отойду на пару минут',
-  'Я здесь, не скидывайте',
-  'Го ещё раз после этой?',
-  'Красиво раздали!',
-  'Жёсткий стол)',
-  'Мне повезло с козырём',
-  'У кого интернет — держитесь',
-  'Сорри за задержку',
-  'Хорошего вечера!',
-  'Приятной игры!',
-  'Без обид — только игра',
-  'Заказываю смело',
-  'Мизер, но верю в чудо',
-  'Всем спасибо, я выхожу',
-] as const;
+export function tableChatPickerTabLabel(id: TableChatPickerTabId, tr: TFunc): string {
+  if (id === 'react') return tr('chat.tabReact');
+  if (id === 'mine') return tr('chat.tabMine');
+  if (id === 'cards') return tr('chat.tabCards');
+  if (id === 'misc') return tr('chat.tabMisc');
+  return tr('chat.tabPhrases');
+}
+
+const CHAT_QUICK_PHRASE_KEYS = [
+  'chat.phraseLuck',
+  'chat.phraseThanks',
+  'chat.phraseNice',
+  'chat.phraseBrb',
+  'chat.phraseHere',
+  'chat.phraseAgain',
+  'chat.phraseDeal',
+  'chat.phraseHard',
+  'chat.phraseTrump',
+  'chat.phraseNet',
+  'chat.phraseSorry',
+  'chat.phraseEvening',
+  'chat.phrasePlay',
+  'chat.phraseFair',
+  'chat.phraseBid',
+  'chat.phraseMisere',
+  'chat.phraseBye',
+] as const satisfies readonly MsgKey[];
+
+export function chatQuickPhrases(tr: TFunc = t): string[] {
+  return CHAT_QUICK_PHRASE_KEYS.map((k) => tr(k));
+}
 
 /** Компактный ряд — реакции. */
 export const REACTION_EMOJI_PRIMARY: readonly string[] = [
