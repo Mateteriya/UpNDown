@@ -1,6 +1,6 @@
 import type { SoundId } from '../types';
 import type { LabInstrumentId, LabVoiceParams } from './types';
-import { DEFAULT_LAB_VOICE } from './types';
+import { DEFAULT_LAB_VOICE, LAB_INSTRUMENTS, normalizeLabVoiceParams } from './types';
 
 /** Один пункт чеклиста «звуки для игры». */
 export type GameSoundTask = {
@@ -218,33 +218,9 @@ export function setLabDone(id: SoundId, done: boolean): Partial<Record<SoundId, 
 }
 
 export function voiceFromSuggest(suggest?: Partial<LabVoiceParams> | null): LabVoiceParams {
-  const s = suggest ?? {};
-  return {
-    instrument: s.instrument ?? DEFAULT_LAB_VOICE.instrument,
-    brightness: numOr(s.brightness, DEFAULT_LAB_VOICE.brightness),
-    depth: numOr(s.depth, DEFAULT_LAB_VOICE.depth),
-    duration: numOr(s.duration, DEFAULT_LAB_VOICE.duration),
-    attack: numOr(s.attack, DEFAULT_LAB_VOICE.attack),
-    release: numOr(s.release, DEFAULT_LAB_VOICE.release),
-    volume: numOr(s.volume, DEFAULT_LAB_VOICE.volume),
-    detuneCents: numOr(s.detuneCents, DEFAULT_LAB_VOICE.detuneCents),
-    octave: numOr(s.octave, DEFAULT_LAB_VOICE.octave),
-    filter: numOr(s.filter, DEFAULT_LAB_VOICE.filter),
-  };
-}
-
-function numOr(v: unknown, fallback: number): number {
-  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+  return normalizeLabVoiceParams(suggest);
 }
 
 export function instrumentLabel(id: LabInstrumentId): string {
-  const map: Record<LabInstrumentId, string> = {
-    bell: 'Колокольчики',
-    epiano: 'Hang',
-    piano: 'Пианино',
-    guitar: 'Гитара',
-    bass: 'Бас',
-    ebass: 'Эл. бас',
-  };
-  return map[id] ?? id;
+  return LAB_INSTRUMENTS.find((i) => i.id === id)?.label ?? id;
 }

@@ -1,6 +1,6 @@
 /** Размеры панелей студии лабы — localStorage. */
 
-export const LAB_PANEL_LAYOUT_KEY = 'updown_audio_lab_panel_layout_v1';
+export const LAB_PANEL_LAYOUT_KEY = 'updown_audio_lab_panel_layout_v2';
 
 export type LabPanelLayout = {
   libraryPx: number;
@@ -11,24 +11,33 @@ export type LabPanelLayout = {
   tracksPx: number;
   /** Высота клавиатуры (drawer), px; 0 = свёрнута. */
   keyboardPx: number;
+  /** Размер крутилок голоса (диаметр dial), px. */
+  knobsPx: number;
+  /** Библиотека свёрнута в узкий столбик. */
+  libraryCollapsed?: boolean;
 };
 
 export const DEFAULT_LAB_PANEL_LAYOUT: LabPanelLayout = {
   libraryPx: 340,
   inspectorPx: 248,
   presetsFrac: 0.42,
-  tracksPx: 200,
-  keyboardPx: 210,
+  tracksPx: 280,
+  keyboardPx: 240,
+  knobsPx: 88,
+  libraryCollapsed: false,
 };
 
+export const LAB_LIBRARY_RAIL_PX = 52;
 const LIBRARY_MIN = 200;
 const LIBRARY_MAX = 520;
 const INSPECTOR_MIN = 180;
 const INSPECTOR_MAX = 420;
-const TRACKS_MIN = 120;
-const TRACKS_MAX = 480;
+const TRACKS_MIN = 140;
+const TRACKS_MAX = 900;
 const KEYBOARD_MIN = 0;
-const KEYBOARD_MAX = 560;
+const KEYBOARD_MAX = 720;
+const KNOBS_MIN = 56;
+const KNOBS_MAX = 120;
 const PRESETS_FRAC_MIN = 0.18;
 const PRESETS_FRAC_MAX = 0.82;
 
@@ -44,6 +53,8 @@ export function clampLabPanelLayout(partial: Partial<LabPanelLayout>): LabPanelL
     presetsFrac: clamp(base.presetsFrac, PRESETS_FRAC_MIN, PRESETS_FRAC_MAX),
     tracksPx: clamp(Math.round(base.tracksPx), TRACKS_MIN, TRACKS_MAX),
     keyboardPx: clamp(Math.round(base.keyboardPx), KEYBOARD_MIN, KEYBOARD_MAX),
+    knobsPx: clamp(Math.round(base.knobsPx), KNOBS_MIN, KNOBS_MAX),
+    libraryCollapsed: base.libraryCollapsed === true,
   };
 }
 
@@ -75,6 +86,9 @@ export const LAB_PANEL_LIMITS = {
   TRACKS_MAX,
   KEYBOARD_MIN,
   KEYBOARD_MAX,
+  KNOBS_MIN,
+  KNOBS_MAX,
   PRESETS_FRAC_MIN,
   PRESETS_FRAC_MAX,
+  LAB_LIBRARY_RAIL_PX,
 } as const;

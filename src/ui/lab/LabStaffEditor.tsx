@@ -73,6 +73,43 @@ function phraseEnd(notes: LabPhraseNote[], defaultDur: number, minBars: number, 
   return Math.max(fromNotes, minBars * 4 * beatSec);
 }
 
+/**
+ * Укоротить «гудящие» хвосты:
+ * — жёсткий потолок maxBeats долей;
+ * — если дальше есть нота (любая) — не заезжать на неё (крошечный зазор).
+ */
+function trimNoteTails(
+  notes: LabPhraseNote[],
+  beatSec: number,
+  maxBeats: number,
+  defaultDur: number,
+): LabPhraseNote[] {
+  if (notes.length === 0) return notes;
+  const maxDur = Math.max(0.05, maxBeats * beatSec);
+  const sortedIdx = notes
+    .map((n, i) => ({ i, at: n.at }))
+    .sort((a, b) => a.at - b.at || a.i - b.i);
+  const nextAtAfter = new Array<number | null>(notes.length).fill(null);
+  for (let k = 0; k < sortedIdx.length; k++) {
+    const cur = sortedIdx[k]!;
+    for (let m = k + 1; m < sortedIdx.length; m++) {
+      const nxt = sortedIdx[m]!;
+      if (nxt.at > cur.at + 1e-4) {
+        nextAtAfter[cur.i] = nxt.at;
+        break;
+      }
+    }
+  }
+  return notes.map((n, i) => {
+    const raw = Math.max(0.05, n.dur ?? defaultDur);
+    const untilNext = nextAtAfter[i];
+    const capped =
+      untilNext != null ? Math.min(raw, maxDur, Math.max(0.05, untilNext - n.at - 0.012)) : Math.min(raw, maxDur);
+    if (Math.abs(capped - raw) < 1e-4) return n;
+    return { ...n, dur: capped };
+  });
+}
+
 type DragMode = 'move' | 'dur' | 'playhead';
 
 type Props = {
@@ -95,15 +132,20 @@ export function LabStaffEditor({
   title,
 }: Props) {
   const [sel, setSel] = useState<number | null>(null);
+  const [flashIdx, setFlashIdx] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [loopPlay, setLoopPlay] = useState(false);
   const [playheadAt, setPlayheadAt] = useState(0);
   const [zoom, setZoom] = useState(56);
-  const [status, setStatus] = useState('Space — play/stop · клик по ноте — слушать');
+  const [status, setStatus] = useState('Клик по стану = курсор · двойной клик = нота · Del = удалить');
 
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const notesRef = useRef(notes);
   notesRef.current = notes;
+  const flashTimerRef = useRef(0);
+  const undoStackRef = useRef<LabPhraseNote[][]>([]);
+  const undoBeforeDragRef = useRef<LabPhraseNote[] | null>(null);
+  const [undoCount, setUndoCount] = useState(0);
   const playStartRef = useRef<number | null>(null);
   const playOffsetRef = useRef(0);
   const loopRef = useRef(loopPlay);
@@ -175,18 +217,86 @@ export function LabStaffEditor({
     [range.hi],
   );
 
+  const formatPos = useCallback(
+    (at: number) => {
+      const bar = Math.floor(at / (4 * beatSec)) + 1;
+      const beat = Math.floor((at % (4 * beatSec)) / beatSec) + 1;
+      return `${bar}.${beat}`;
+    },
+    [beatSec],
+  );
+
+  const insertMidi = useMemo(() => {
+    if (sel != null && notes[sel]) return notes[sel]!.midi;
+    if (notes.length > 0) return notes[notes.length - 1]!.midi;
+    return 72;
+  }, [sel, notes]);
+
+  const scrollTimeIntoView = useCallback(
+    (at: number) => {
+      const el = wrapRef.current;
+      if (!el) return;
+      const x = PAD_L + (at / beatSec) * pxPerBeat;
+      const left = el.scrollLeft;
+      const view = el.clientWidth;
+      const margin = Math.min(100, view * 0.25);
+      if (x < left + margin) el.scrollLeft = Math.max(0, x - margin);
+      else if (x > left + view - margin) el.scrollLeft = x - view + margin;
+    },
+    [beatSec, pxPerBeat],
+  );
+
+  const flashNote = useCallback((index: number) => {
+    setFlashIdx(index);
+    if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = window.setTimeout(() => {
+      setFlashIdx((cur) => (cur === index ? null : cur));
+      flashTimerRef.current = 0;
+    }, 900);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+    },
+    [],
+  );
+
+  const pushUndoSnapshot = useCallback((snapshot: LabPhraseNote[]) => {
+    undoStackRef.current = [
+      ...undoStackRef.current.slice(-39),
+      snapshot.map((n) => ({ ...n })),
+    ];
+    setUndoCount(undoStackRef.current.length);
+  }, []);
+
   const commit = useCallback(
-    (next: LabPhraseNote[]) => {
+    (next: LabPhraseNote[], opts?: { undoFrom?: LabPhraseNote[] | null }) => {
       const cleaned = next.map((n) => ({
         ...n,
         at: snapTime(n.at, stepSec),
         dur: Math.max(0.05, n.dur ?? defaultDur),
       }));
+      const from = opts?.undoFrom ?? notesRef.current;
+      pushUndoSnapshot(from);
       onChange(cleaned);
       onCommit?.(cleaned);
     },
-    [onChange, onCommit, stepSec, defaultDur],
+    [onChange, onCommit, stepSec, defaultDur, pushUndoSnapshot],
   );
+
+  const undoStaff = useCallback(() => {
+    const prev = undoStackRef.current.pop();
+    setUndoCount(undoStackRef.current.length);
+    if (!prev) {
+      setStatus('Нечего отменять');
+      return;
+    }
+    onChange(prev);
+    onCommit?.(prev);
+    setSel(null);
+    setStatus('↩ Отменено');
+  }, [onChange, onCommit]);
 
   const stopPlayback = useCallback(() => {
     stopLabPhrase();
@@ -204,10 +314,13 @@ export function LabStaffEditor({
       if (loopRef.current && notesRef.current.length > 0) {
         stopLabPhrase();
         playOffsetRef.current = 0;
-        playStartRef.current = performance.now();
         setPlayheadAt(0);
-        void playLabPhrase(notesRef.current, voice);
-        rafRef.current = requestAnimationFrame(tickPlayhead);
+        void (async () => {
+          await playLabPhrase(notesRef.current, voice);
+          /* Часы только после старта звука — иначе playhead уезжает на время рендера */
+          playStartRef.current = performance.now();
+          rafRef.current = requestAnimationFrame(tickPlayhead);
+        })();
         return;
       }
       setPlayheadAt(end);
@@ -230,32 +343,72 @@ export function LabStaffEditor({
       const start = Math.max(0, fromAt);
       const sliced =
         start <= 0.001
-          ? list
+          ? list.map((n) => ({ ...n }))
           : list
-              .filter((n) => n.at + (n.dur ?? defaultDur) > start)
-              .map((n) => ({
-                ...n,
-                at: Math.max(0, n.at - start),
-              }));
+              .filter((n) => n.at + (n.dur ?? defaultDur) > start + 1e-4)
+              .map((n) => {
+                const dur = Math.max(0.05, n.dur ?? defaultDur);
+                const noteStart = n.at;
+                const overlap = noteStart < start;
+                /* С курсора: ноты, начавшиеся раньше, подрезаем по длительности, at→0 */
+                if (overlap) {
+                  const remain = noteStart + dur - start;
+                  return { ...n, at: 0, dur: Math.max(0.05, remain) };
+                }
+                return { ...n, at: Math.max(0, n.at - start) };
+              });
       if (sliced.length === 0) {
         setStatus('После курсора нот нет');
         return;
       }
       playOffsetRef.current = start;
-      playStartRef.current = performance.now();
+      playStartRef.current = null;
       setPlayheadAt(start);
       setPlaying(true);
-      setStatus(start > 0.01 ? `▶ с ${start.toFixed(2)}с` : '▶ Играет…');
-      await playLabPhrase(sliced, voice);
-      rafRef.current = requestAnimationFrame(tickPlayhead);
-      /* scroll playhead into view */
+      setStatus(start > 0.01 ? `▶ с ${start.toFixed(2)}с…` : '▶ С начала…');
+      /* scroll сразу к точке старта */
       const sc = wrapRef.current;
       if (sc) {
         const x = PAD_L + (start / beatSec) * pxPerBeat;
         sc.scrollLeft = Math.max(0, x - 80);
       }
+      try {
+        await playLabPhrase(sliced, voice);
+      } catch {
+        stopPlayback();
+        setStatus('Не удалось проиграть');
+        return;
+      }
+      /* Важно: часы после рендера+start — иначе «с начала» прыгает на 4–5 такт */
+      playStartRef.current = performance.now();
+      setStatus(start > 0.01 ? `▶ с ${start.toFixed(2)}с` : '▶ С начала');
+      rafRef.current = requestAnimationFrame(tickPlayhead);
     },
     [beatSec, defaultDur, pxPerBeat, stopPlayback, tickPlayhead, voice],
+  );
+
+  const trimTails = useCallback(
+    (maxBeats: number) => {
+      const before = notesRef.current;
+      if (before.length === 0) {
+        setStatus('Нет нот для обрезки');
+        return;
+      }
+      const next = trimNoteTails(before, beatSec, maxBeats, defaultDur);
+      let changed = 0;
+      for (let i = 0; i < before.length; i++) {
+        const a = before[i]!.dur ?? defaultDur;
+        const b = next[i]!.dur ?? defaultDur;
+        if (Math.abs(a - b) > 1e-3) changed += 1;
+      }
+      if (changed === 0) {
+        setStatus(`Хвосты уже ≤ ${maxBeats} доли`);
+        return;
+      }
+      commit(next);
+      setStatus(`✂ Хвосты: укорочено ${changed} нот (макс ${maxBeats} доли)`);
+    },
+    [beatSec, commit, defaultDur],
   );
 
   useEffect(() => () => stopPlayback(), [stopPlayback]);
@@ -271,15 +424,34 @@ export function LabStaffEditor({
     if (sel == null || !notes[sel]) return;
     const next = notes.map((n, i) => (i === sel ? { ...n, dur: Math.max(0.05, beats * beatSec) } : n));
     commit(next);
-    setStatus(`Длительность → ${beats === 0.25 ? '1/16' : beats === 0.5 ? '1/8' : beats === 1 ? '1/4' : '1/2'}`);
+    flashNote(sel);
+    scrollTimeIntoView(notes[sel]!.at);
+    setStatus(
+      `Длительность → ${beats === 0.25 ? '1/16' : beats === 0.5 ? '1/8' : beats === 1 ? '1/4' : '1/2'} · или тяни синий край справа`,
+    );
+  };
+
+  const nudgeDur = (dir: 1 | -1) => {
+    if (sel == null || !notes[sel]) return;
+    const cur = notes[sel]!.dur ?? defaultDur;
+    const nextDur = Math.max(stepSec, snapTime(cur + dir * stepSec, stepSec) || stepSec);
+    const next = notes.map((n, i) => (i === sel ? { ...n, dur: nextDur } : n));
+    commit(next);
+    flashNote(sel);
+    setStatus(`Длительность ${(nextDur / beatSec).toFixed(2)} доли ([ / ])`);
   };
 
   const deleteSelected = () => {
     if (sel == null) return;
+    const doomed = notes[sel];
     const next = notes.filter((_, i) => i !== sel);
     setSel(null);
     commit(next);
-    setStatus('Нота удалена');
+    setStatus(
+      doomed
+        ? `Удалено ${midiLabel(doomed.midi)} @ ${formatPos(doomed.at)} · Del / Backspace`
+        : 'Нота удалена',
+    );
   };
 
   const nudgeSelected = (dAt: number, dMidi: number) => {
@@ -293,15 +465,25 @@ export function LabStaffEditor({
       };
     });
     commit(next);
+    scrollTimeIntoView(next[sel]!.at);
     auditionNote(next[sel]!.midi);
   };
 
-  const addNoteAt = (at: number, midi: number) => {
-    const next = [...notes, { midi, at: snapTime(at, stepSec), dur: defaultDur }];
+  const addNoteAt = (at: number, midi: number, how: 'cursor' | 'click' = 'cursor') => {
+    const snapped = snapTime(at, stepSec);
+    const next = [...notes, { midi, at: snapped, dur: defaultDur }];
+    const idx = next.length - 1;
     commit(next);
-    setSel(next.length - 1);
+    setSel(idx);
+    flashNote(idx);
+    setPlayheadAt(snapped);
+    scrollTimeIntoView(snapped);
     auditionNote(midi);
-    setStatus(`+ ${midiLabel(midi)}`);
+    setStatus(
+      how === 'click'
+        ? `+ ${midiLabel(midi)} на ${formatPos(snapped)} (двойной клик) · подсвечено`
+        : `+ ${midiLabel(midi)} у курсора ${formatPos(snapped)} · красная линия = место вставки`,
+    );
   };
 
   useEffect(() => {
@@ -309,6 +491,11 @@ export function LabStaffEditor({
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
+      if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        undoStaff();
+        return;
+      }
       if (e.code === 'Space') {
         e.preventDefault();
         if (playing) {
@@ -323,6 +510,25 @@ export function LabStaffEditor({
         if (sel != null) {
           e.preventDefault();
           deleteSelected();
+        }
+        return;
+      }
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        addNoteAt(playheadAt, insertMidi, 'cursor');
+        return;
+      }
+      if (e.key === '[' || e.key === 'х' || e.key === 'Х') {
+        if (sel != null) {
+          e.preventDefault();
+          nudgeDur(-1);
+        }
+        return;
+      }
+      if (e.key === ']' || e.key === 'ъ' || e.key === 'Ъ') {
+        if (sel != null) {
+          e.preventDefault();
+          nudgeDur(1);
         }
         return;
       }
@@ -355,14 +561,23 @@ export function LabStaffEditor({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sel, notes, playing, playheadAt, beatSec, stepSec]);
+  }, [sel, notes, playing, playheadAt, beatSec, stepSec, insertMidi, undoStaff]);
 
   const onNotePointerDown = (e: ReactPointerEvent, index: number, mode: DragMode) => {
     e.preventDefault();
     e.stopPropagation();
     const n = notes[index];
     if (!n) return;
+    /* Снимок до drag — иначе commit увидит уже сдвинутые ноты */
+    undoBeforeDragRef.current = notes.map((x) => ({ ...x }));
     setSel(index);
+    flashNote(index);
+    scrollTimeIntoView(n.at);
+    if (mode === 'dur') {
+      setStatus(`Длительность: тяни край · сейчас ${((n.dur ?? defaultDur) / beatSec).toFixed(2)} доли`);
+    } else {
+      setStatus(`Выбрано ${midiLabel(n.midi)} @ ${formatPos(n.at)} · Del = удалить · 1/16…1/2 = длина`);
+    }
     didDragRef.current = false;
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
     dragRef.current = {
@@ -408,8 +623,12 @@ export function LabStaffEditor({
     const d = dragRef.current;
     if (!d) return;
     dragRef.current = null;
-    if (d.mode === 'playhead') return;
+    if (d.mode === 'playhead') {
+      undoBeforeDragRef.current = null;
+      return;
+    }
     if (!d.moved && d.mode === 'move') {
+      undoBeforeDragRef.current = null;
       const n = notesRef.current[d.index];
       if (n) {
         setPlayheadAt(n.at);
@@ -418,7 +637,8 @@ export function LabStaffEditor({
       }
       return;
     }
-    commit(notesRef.current);
+    commit(notesRef.current, { undoFrom: undoBeforeDragRef.current });
+    undoBeforeDragRef.current = null;
     const n = notesRef.current[d.index];
     if (n && d.mode === 'move') auditionNote(n.midi);
   };
@@ -428,6 +648,8 @@ export function LabStaffEditor({
     const at = atForClientX(e.clientX);
     setPlayheadAt(at);
     setSel(null);
+    scrollTimeIntoView(at);
+    setStatus(`Курсор → ${formatPos(at)} · «+ у курсора» или N · двойной клик = нота здесь`);
     didDragRef.current = false;
     dragRef.current = {
       mode: 'playhead',
@@ -447,7 +669,7 @@ export function LabStaffEditor({
     if (!svg) return;
     const rect = svg.getBoundingClientRect();
     const y = e.clientY - rect.top;
-    addNoteAt(atForClientX(e.clientX), midiForY(y));
+    addNoteAt(atForClientX(e.clientX), midiForY(y), 'click');
   };
 
   const barCount = Math.max(4, Math.ceil(maxAt / (beatSec * 4)) + 1);
@@ -456,15 +678,19 @@ export function LabStaffEditor({
 
   return (
     <div className="lab-staff" tabIndex={0}>
-      <div className="lab-staff__head">
+      <div className="lab-staff__head lab-staff__head--sticky">
         <div className="lab-staff__head-left">
           <span className="lab-staff__title">{title ?? 'Нотный стан'}</span>
           <span className="lab-staff__badge">{notes.length} нот · {bpm} BPM</span>
         </div>
-        <div className="lab-staff__transport">
+        <div className="lab-staff__transport" role="toolbar" aria-label="Воспроизведение слоя">
           <button
             type="button"
-            className={playing ? 'audio-sfx-lab__btn audio-sfx-lab__btn--beat-on' : 'audio-sfx-lab__btn'}
+            className={
+              playing
+                ? 'audio-sfx-lab__btn audio-sfx-lab__btn--beat-on lab-staff__btn-play'
+                : 'audio-sfx-lab__btn audio-sfx-lab__btn--beat-rhythm-on lab-staff__btn-play'
+            }
             disabled={notes.length === 0}
             onClick={() => {
               if (playing) {
@@ -472,18 +698,18 @@ export function LabStaffEditor({
                 setStatus('Стоп');
               } else void startPlayback(0);
             }}
-            title="Space"
+            title="Сначала (Space)"
           >
-            {playing ? '■ Стоп' : '▶ Play'}
+            {playing ? '■ Стоп' : '▶ Сначала'}
           </button>
           <button
             type="button"
-            className="audio-sfx-lab__btn audio-sfx-lab__btn--beat-preset"
+            className="audio-sfx-lab__btn audio-sfx-lab__btn--beat-rhythm-on lab-staff__btn-play"
             disabled={notes.length === 0 || playing}
             onClick={() => void startPlayback(playheadAt)}
-            title="Играть с курсора"
+            title="Играть с красного курсора"
           >
-            ▶ с курсора
+            ▶ С курсора
           </button>
           <button
             type="button"
@@ -503,6 +729,7 @@ export function LabStaffEditor({
               setPlayheadAt(0);
               setStatus('Курсор → начало');
             }}
+            title="Курсор в начало"
           >
             ⏮
           </button>
@@ -512,12 +739,48 @@ export function LabStaffEditor({
       <div className="lab-staff__tools">
         <button
           type="button"
-          className="audio-sfx-lab__btn audio-sfx-lab__btn--beat-preset"
-          onClick={() => addNoteAt(playheadAt, selected?.midi ?? 72)}
+          className="audio-sfx-lab__btn audio-sfx-lab__btn--beat-preset lab-staff__btn-undo"
+          disabled={undoCount <= 0}
+          title="Ctrl+Z"
+          onClick={undoStaff}
         >
-          + Нота
+          ↩ Отмена{undoCount > 0 ? ` (${undoCount})` : ''}
         </button>
         <span className="lab-staff__tools-sep" />
+        <span className="lab-staff__tools-label" title="Укоротить гудящие длинные ноты">
+          ✂ Хвосты
+        </span>
+        {(
+          [
+            [0.5, '½', 'Макс полдоли (коротко)'],
+            [1, '1', 'Макс 1 доля'],
+            [2, '2', 'Макс 2 доли'],
+          ] as const
+        ).map(([beats, label, tip]) => (
+          <button
+            key={`trim-${beats}`}
+            type="button"
+            className="audio-sfx-lab__btn audio-sfx-lab__btn--beat-preset lab-staff__btn-trim"
+            disabled={notes.length === 0}
+            title={`${tip}. Также не заезжать на следующую ноту. ↩ отмена.`}
+            onClick={() => trimTails(beats)}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="lab-staff__tools-sep" />
+        <button
+          type="button"
+          className="audio-sfx-lab__btn audio-sfx-lab__btn--beat-preset"
+          title={`Вставить ${midiLabel(insertMidi)} на красном курсоре (${formatPos(playheadAt)})`}
+          onClick={() => addNoteAt(playheadAt, insertMidi, 'cursor')}
+        >
+          + у курсора ({formatPos(playheadAt)})
+        </button>
+        <span className="lab-staff__tools-sep" />
+        <span className="lab-staff__tools-label" title="Сначала кликни ноту">
+          Длит.
+        </span>
         {([
           [0.25, '1/16'],
           [0.5, '1/8'],
@@ -529,6 +792,7 @@ export function LabStaffEditor({
             type="button"
             className="audio-sfx-lab__btn audio-sfx-lab__btn--beat-preset"
             disabled={sel == null}
+            title={sel == null ? 'Сначала выбери ноту' : `Длительность ${label}`}
             onClick={() => setDurPreset(beats)}
           >
             {label}
@@ -538,9 +802,29 @@ export function LabStaffEditor({
           type="button"
           className="audio-sfx-lab__btn audio-sfx-lab__btn--beat-preset"
           disabled={sel == null}
+          title="Короче на 1/16 ([)"
+          onClick={() => nudgeDur(-1)}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          className="audio-sfx-lab__btn audio-sfx-lab__btn--beat-preset"
+          disabled={sel == null}
+          title="Длиннее на 1/16 (])"
+          onClick={() => nudgeDur(1)}
+        >
+          +
+        </button>
+        <span className="lab-staff__tools-sep" />
+        <button
+          type="button"
+          className="audio-sfx-lab__btn audio-sfx-lab__btn--beat-preset lab-staff__btn-del"
+          disabled={sel == null}
+          title="Delete / Backspace"
           onClick={deleteSelected}
         >
-          Удалить
+          ⌫ Удалить
         </button>
         <button
           type="button"
@@ -569,8 +853,12 @@ export function LabStaffEditor({
       <p className="lab-staff__status">
         {status}
         {selected
-          ? ` · выбрано ${midiLabel(selected.midi)} @ ${selected.at.toFixed(2)}с · ${(selected.dur ?? defaultDur).toFixed(2)}с`
-          : ` · курсор ${playheadAt.toFixed(2)}с`}
+          ? ` · выбрано ${midiLabel(selected.midi)} @ ${formatPos(selected.at)} · ${(selected.dur ?? defaultDur).toFixed(2)}с`
+          : ` · курсор ${formatPos(playheadAt)} · высота вставки ${midiLabel(insertMidi)}`}
+      </p>
+      <p className="lab-staff__hint">
+        Курсор (красная линия): клик по стану. Нота: «+ у курсора» / N / двойной клик. Удалить: ⌫ или Del.
+        Длительность: кнопки 1/16…1/2 или тяни синий квадрат справа у выбранной ноты.
       </p>
 
       <div className="lab-staff__scroll" ref={wrapRef}>
@@ -623,18 +911,38 @@ export function LabStaffEditor({
             );
           })}
 
-          {/* playhead */}
-          <line
-            x1={playheadX}
-            x2={playheadX}
-            y1={PAD_T - 10}
-            y2={contentH - 14}
-            className={playing ? 'lab-staff__playhead lab-staff__playhead--run' : 'lab-staff__playhead'}
+          {/* playhead + место вставки — cap со static points (без template в attribute) */}
+          <g transform={`translate(${Number.isFinite(playheadX) ? playheadX : 0},0)`}>
+            <rect
+              x={-1.5}
+              y={PAD_T - 10}
+              width={3}
+              height={contentH - PAD_T - 4}
+              className="lab-staff__insert-glow"
+            />
+            <line
+              x1={0}
+              x2={0}
+              y1={PAD_T - 10}
+              y2={contentH - 14}
+              className={playing ? 'lab-staff__playhead lab-staff__playhead--run' : 'lab-staff__playhead'}
+            />
+            <polygon
+              points={`-6,${PAD_T - 12} 6,${PAD_T - 12} 0,${PAD_T - 2}`}
+              className="lab-staff__playhead-cap"
+            />
+          </g>
+          <ellipse
+            cx={playheadX + 4}
+            cy={yForMidi(insertMidi)}
+            rx={7}
+            ry={5}
+            transform={`rotate(-18 ${playheadX + 4} ${yForMidi(insertMidi)})`}
+            className="lab-staff__insert-ghost"
           />
-          <polygon
-            points={`${playheadX - 6},${PAD_T - 12} ${playheadX + 6},${PAD_T - 12} ${playheadX},${PAD_T - 2}`}
-            className="lab-staff__playhead-cap"
-          />
+          <text x={playheadX + 14} y={yForMidi(insertMidi) + 4} className="lab-staff__insert-label">
+            {midiLabel(insertMidi)}
+          </text>
 
           {notes.map((n, i) => {
             const x = xForAt(n.at);
@@ -642,6 +950,7 @@ export function LabStaffEditor({
             const dur = n.dur ?? defaultDur;
             const w = Math.max(12, (dur / beatSec) * pxPerBeat);
             const on = i === sel;
+            const flash = i === flashIdx;
             const sharp = midiNeedsSharp(n.midi);
             const stemUp = midiToDiatonicStep(n.midi) < midiToDiatonicStep(71);
             const activeHit = playing && playheadAt >= n.at && playheadAt < n.at + dur;
@@ -651,6 +960,7 @@ export function LabStaffEditor({
                 className={[
                   'lab-staff__note',
                   on ? 'lab-staff__note--on' : '',
+                  flash ? 'lab-staff__note--flash' : '',
                   activeHit ? 'lab-staff__note--hit' : '',
                 ]
                   .filter(Boolean)
@@ -693,16 +1003,16 @@ export function LabStaffEditor({
                 />
                 <rect
                   x={x + Math.max(16, w)}
-                  y={y - 9}
-                  width={11}
-                  height={18}
+                  y={on ? y - 11 : y - 9}
+                  width={on ? 14 : 11}
+                  height={on ? 22 : 18}
                   rx={2}
                   className="lab-staff__durhandle"
                   onPointerDown={(e) => onNotePointerDown(e, i, 'dur')}
                 />
                 {on ? (
                   <text x={x + 2} y={y + 22} className="lab-staff__nametag">
-                    {midiLabel(n.midi)}
+                    {midiLabel(n.midi)} · {((n.dur ?? defaultDur) / beatSec).toFixed(2)}д
                   </text>
                 ) : null}
               </g>
@@ -710,11 +1020,6 @@ export function LabStaffEditor({
           })}
         </svg>
       </div>
-
-      <p className="lab-staff__hint">
-        ▶ Play / Space — проиграть слой · клик по ноте — слышать · тащить — высота/время · правый край — длина ·
-        двойной клик по стану — новая нота · стрелки — сдвиг · клик по фону — курсор
-      </p>
     </div>
   );
 }
