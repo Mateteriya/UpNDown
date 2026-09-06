@@ -46729,7 +46729,8 @@ body.deal-results-modal-open-mobile #root {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .deal-results-modal-overlay-mobile .deal-results-table-window .deal-results-modal-title-bar .deal-results-modal-title {
+  .deal-results-modal-overlay-mobile .deal-results-table-window .deal-results-modal-title-bar .deal-results-modal-title,
+  .deal-results-table-outer-pc .deal-results-modal-title {
     animation: none;
   }
 }
@@ -46798,6 +46799,45 @@ body.deal-results-modal-open-mobile #root {
 }
 
 /* ПК-модалка: таблица результатов — скролл и адаптация */
+.deal-results-table-outer-pc .deal-results-modal-title {
+  display: inline-block;
+  font-size: 18px;
+  font-weight: 600;
+  font-family: Georgia, "Times New Roman", serif;
+  letter-spacing: 0.09em;
+  text-transform: none;
+  background: linear-gradient(
+    102deg,
+    #67e8f9 0%,
+    #a5b4fc 24%,
+    #e9d5ff 48%,
+    #f0abfc 68%,
+    #7dd3fc 100%
+  );
+  background-size: 180% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter:
+    drop-shadow(0 0 10px rgb(103 232 249 / 0.52))
+    drop-shadow(0 0 18px rgb(167 139 250 / 0.42))
+    drop-shadow(0 1px 0 rgb(15 23 42 / 0.55));
+  animation: deal-results-modal-title-shimmer 14s ease-in-out infinite;
+}
+.deal-results-table-outer-pc .deal-results-modal-title--roomy {
+  font-size: 20px;
+  letter-spacing: 0.1em;
+}
+.deal-results-table-outer-pc tfoot tr.deal-results-tfoot-chips .deal-results-chips-label {
+  color: #fbbf24;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  text-transform: uppercase;
+  filter:
+    drop-shadow(0 0 8px rgb(251 191 36 / 0.55))
+    drop-shadow(0 0 14px rgb(245 158 11 / 0.28));
+}
 .deal-results-table-outer-pc .deal-results-table-scroll-wrap {
   flex: 1 !important;
   min-height: 0 !important;
@@ -60722,7 +60762,7 @@ html.theme-standard
 .avatar-editor-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 10006;
+  z-index: 12100;
   display: flex;
   align-items: center;
   justify-content: center;

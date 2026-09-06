@@ -69,7 +69,17 @@ function templateLabel(id: AvatarEditorTemplateId, tr: TFunc): string {
   }
 }
 
-function frameLabel(id: string, tr: TFunc): string {
+function stickerLabel(id: AvatarStickerId, tr: TFunc): string {
+  if (id === 'spade') return tr('avatarEditor.stickerSpade');
+  if (id === 'heart') return tr('avatarEditor.stickerHeart');
+  if (id === 'diamond') return tr('avatarEditor.stickerDiamond');
+  if (id === 'club') return tr('avatarEditor.stickerClub');
+  if (id === 'star') return tr('avatarEditor.stickerStar');
+  if (id === 'sparkle') return tr('avatarEditor.stickerSparkle');
+  return tr('avatarEditor.stickerRing');
+}
+
+function frameLabel(id: AvatarFrameId, tr: TFunc): string {
   if (id === 'cosmic') return tr('avatarEditor.frameCosmic');
   if (id === 'gold') return tr('avatarEditor.frameGold');
   if (id === 'neon') return tr('avatarEditor.frameNeon');
@@ -918,6 +928,8 @@ export function AvatarEditorModal({
                   setTool('brush');
                   setBrushSize(s);
                 }}
+                title={tr('avatarEditor.brushSize', { n: s })}
+                aria-label={tr('avatarEditor.brushSize', { n: s })}
               >
                 {s}
               </button>
@@ -926,6 +938,8 @@ export function AvatarEditorModal({
               type="button"
               className={['avatar-editor-tool-toggle', tool === 'eraser' ? 'avatar-editor-tool-toggle--active' : ''].join(' ')}
               onClick={() => setTool(tool === 'eraser' ? 'brush' : 'eraser')}
+              title={tr('avatarEditor.eraserTitle')}
+              aria-label={tr('avatarEditor.eraser')}
             >
               {tr('avatarEditor.eraser')}
             </button>
@@ -958,7 +972,7 @@ export function AvatarEditorModal({
                   setTool('sticker');
                   setStickerId(s.id);
                 }}
-                title={s.label}
+                title={stickerLabel(s.id, tr)}
               >
                 {s.glyph}
               </button>

@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnlineGame } from '../contexts/useOnlineGame';
+import { useT } from '../i18n';
 import { listPublicWaitingRooms } from '../lib/onlineGameApi';
 import { settlementModeBadgeLabel, type PublicWaitingRoomRow } from '../lib/roomSettlement';
 import { PUBLIC_HALL_ENABLED } from '../lib/productFlags';
@@ -68,6 +69,7 @@ export function OnlineHallScreen({
   recoverJoinIfAlreadyInRoom,
   leaveRoom,
 }: OnlineHallScreenProps) {
+  const tr = useT();
   const { user } = useAuth();
   const { joinRoom, status } = useOnlineGame();
   const [rooms, setRooms] = useState<PublicWaitingRoomRow[]>([]);
@@ -80,10 +82,10 @@ export function OnlineHallScreen({
     setLoading(true);
     setError(null);
     const r = await listPublicWaitingRooms();
-    if (!r.ok) setError(r.error ?? 'Не удалось загрузить столы');
+    if (!r.ok) setError(r.error ?? tr('lobby.hallLoadFail'));
     else setRooms(r.rooms);
     setLoading(false);
-  }, []);
+  }, [tr]);
 
   useEffect(() => {
     void refresh();
@@ -116,7 +118,7 @@ export function OnlineHallScreen({
         if (recovered) return;
       }
       const jr = await joinRoom(code, playerId, playerName.trim());
-      if (!jr.ok) setError(jr.error ?? 'Не удалось войти');
+      if (!jr.ok) setError(jr.error ?? tr('lobby.hallJoinFail'));
     } finally {
       setJoinBusy(null);
     }
@@ -125,9 +127,9 @@ export function OnlineHallScreen({
   if (!PUBLIC_HALL_ENABLED) {
     return (
       <div style={shell}>
-        <p style={{ color: '#94a3b8' }}>Зал столов отключён (VITE_PUBLIC_HALL_ENABLED).</p>
+        <p style={{ color: '#94a3b8' }}>{tr('lobby.hallDisabled')}</p>
         <button type="button" style={btnSecondary} onClick={onBack}>
-          ← Назад
+          {tr('common.backMenu')}
         </button>
       </div>
     );
@@ -135,12 +137,12 @@ export function OnlineHallScreen({
 
   return (
     <div style={shell}>
-      <h1 style={{ margin: 0, color: '#f1f5f9', fontSize: '1.5rem' }}>Зал столов</h1>
+      <h1 style={{ margin: 0, color: '#f1f5f9', fontSize: '1.5rem' }}>{tr('lobby.hallTitle')}</h1>
       <p style={{ margin: 0, color: '#94a3b8', fontSize: 14, textAlign: 'center' }}>
-        Открытые комнаты в ожидании игроков
+        {tr('lobby.hallLead')}
       </p>
       <button type="button" style={btnSecondary} onClick={() => void refresh()} disabled={loading}>
-        {loading ? 'Обновление…' : 'Обновить'}
+        {loading ? tr('lobby.hallRefreshing') : tr('lobby.hallRefresh')}
       </button>
       {error && (
         <p style={{ margin: 0, color: '#f87171', fontSize: 13, maxWidth: 360, textAlign: 'center' }}>
@@ -150,7 +152,7 @@ export function OnlineHallScreen({
       <div style={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {rooms.length === 0 && !loading && !error && (
           <p style={{ color: '#64748b', textAlign: 'center', fontSize: 14 }}>
-            Пока нет открытых столов. В лобби создайте комнату и включите «Показать в зале столов».
+            {tr('lobby.hallEmpty')}
           </p>
         )}
         {rooms.map((room) => (
@@ -159,7 +161,7 @@ export function OnlineHallScreen({
               <span style={{ letterSpacing: 3, fontWeight: 700, color: '#22d3ee' }}>{room.code}</span>
               <span style={{ fontSize: 12, color: '#94a3b8' }}>
                 {room.human_count}/{room.max_players ?? 4}
-                {(room.max_players ?? 4) === 3 ? ' · втроём' : ''}
+                {(room.max_players ?? 4) === 3 ? tr('lobby.seats3dot') : ''}
               </span>
             </div>
             <p style={{ margin: '8px 0 12px', fontSize: 13, color: '#cbd5e1' }}>
@@ -171,13 +173,13 @@ export function OnlineHallScreen({
               disabled={joinBusy === room.code}
               onClick={() => void handleJoin(room.code)}
             >
-              {joinBusy === room.code ? 'Вход…' : 'Присоединиться'}
+              {joinBusy === room.code ? tr('lobby.joining') : tr('lobby.joinTitle')}
             </button>
           </div>
         ))}
       </div>
       <button type="button" style={btnSecondary} onClick={onBack}>
-        ← Назад в лобби
+        {tr('lobby.hallBack')}
       </button>
     </div>
   );

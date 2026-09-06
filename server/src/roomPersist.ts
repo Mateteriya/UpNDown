@@ -13,11 +13,13 @@ import {
   readdirSync,
   unlinkSync,
   copyFileSync,
+  writeFile,
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { GameRoomRow } from './protocol.js';
 import type { RoomStore } from './rooms.js';
+import { slimRoomForPersist } from './stateView.js';
 
 const PERSIST_VERSION = 1;
 const DEFAULT_DEBOUNCE_MS = 500;
@@ -75,6 +77,9 @@ export class RoomPersist {
   private readonly backupKeep: number;
   private readonly backupEveryMs: number;
   private lastBackupFingerprint = '';
+  private writeBusy = false;
+  private writeQueued = false;
+  private writeSeq = 0;
 
   constructor(
     private readonly store: RoomStore,
@@ -129,8 +134,62 @@ export class RoomPersist {
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.timer = null;
-      this.flushSync();
+      this.flushAsync();
     }, this.debounceMs);
+  }
+
+  private roomsPayload(): SnapshotFile {
+    return {
+      version: PERSIST_VERSION,
+      savedAt: new Date().toISOString(),
+      rooms: this.store.listAll().map(slimRoomForPersist),
+    };
+  }
+
+  private finishWrite(): void {
+    this.writeBusy = false;
+    if (this.writeQueued) {
+      this.writeQueued = false;
+      this.flushAsync();
+    }
+  }
+
+  /** Не блокируем event loop на каждый ход — иначе Wi‑Fi-сокеты отваливаются у всех сразу. */
+  flushAsync(): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    if (this.writeBusy) {
+      this.writeQueued = true;
+      return;
+    }
+    this.writeBusy = true;
+    try {
+      mkdirSync(dirname(this.path), { recursive: true });
+      const tmp = `${this.path}.${process.pid}.${++this.writeSeq}.tmp`;
+      writeFile(tmp, JSON.stringify(this.roomsPayload()), 'utf8', (err) => {
+        if (err) {
+          console.warn('[room-persist] save failed:', err.message);
+          this.finishWrite();
+          return;
+        }
+        try {
+          renameSync(tmp, this.path);
+        } catch (e) {
+          try {
+            unlinkSync(tmp);
+          } catch {
+            /* ignore */
+          }
+          console.warn('[room-persist] rename failed:', e instanceof Error ? e.message : e);
+        }
+        this.finishWrite();
+      });
+    } catch (e) {
+      console.warn('[room-persist] save failed:', e instanceof Error ? e.message : e);
+      this.finishWrite();
+    }
   }
 
   flushSync(): void {
@@ -140,14 +199,8 @@ export class RoomPersist {
     }
     try {
       mkdirSync(dirname(this.path), { recursive: true });
-      const rooms = this.store.listAll();
-      const payload: SnapshotFile = {
-        version: PERSIST_VERSION,
-        savedAt: new Date().toISOString(),
-        rooms,
-      };
-      const tmp = `${this.path}.${process.pid}.tmp`;
-      writeFileSync(tmp, JSON.stringify(payload), 'utf8');
+      const tmp = `${this.path}.${process.pid}.${++this.writeSeq}.tmp`;
+      writeFileSync(tmp, JSON.stringify(this.roomsPayload()), 'utf8');
       renameSync(tmp, this.path);
     } catch (e) {
       console.warn('[room-persist] save failed:', e instanceof Error ? e.message : e);

@@ -143,6 +143,8 @@ export type MatchArchiveHubProps = {
   configured: boolean;
   /** Прокрутить к ленте / открыть деталь */
   focus?: 'matches' | null;
+  /** ПК: раскрыть список партий (капсула «История»). */
+  expandList?: boolean;
   onContinueOffline?: () => void;
   /** Открыть экран «Рейтинг» */
   onOpenRating?: () => void;
@@ -217,7 +219,7 @@ function DealHistoryTable({
         <table className="lk-archive__deals">
           <thead>
             <tr>
-              <th scope="col">№</th>
+              <th scope="col">{t('archive.dealCol')}</th>
               {names.map((n, i) => (
                 <th
                   key={`col-${i}`}
@@ -467,6 +469,7 @@ export function MatchArchiveHub({
   userId,
   configured,
   focus,
+  expandList = false,
   onContinueOffline,
   onOpenRating,
 }: MatchArchiveHubProps) {
@@ -517,11 +520,11 @@ export function MatchArchiveHub({
         setCloudError(null);
       }
     } catch {
-      if (loadGen.current === gen) setCloudError('Не удалось загрузить облако');
+      if (loadGen.current === gen) setCloudError(t('archive.cloudLoadFail'));
     } finally {
       if (loadGen.current === gen) setLoading(false);
     }
-  }, [authLoading, configured, userId, accessToken]);
+  }, [authLoading, configured, userId, accessToken, t]);
 
   useEffect(() => {
     void loadFeed();
@@ -536,10 +539,11 @@ export function MatchArchiveHub({
   }, [loadFeed]);
 
   useEffect(() => {
+    if (focus === 'matches' || expandList) setListOpen(true);
     if (focus === 'matches') {
       document.getElementById('lk-archive-hub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, [focus]);
+  }, [focus, expandList]);
 
   const feed: FeedRow[] = useMemo(() => {
     const rows: FeedRow[] = [];
@@ -733,28 +737,28 @@ export function MatchArchiveHub({
         <div
           className={[
             'lk-archive__list-panel',
-            listOpen || !isMobile ? 'lk-archive__list-panel--open' : 'lk-archive__list-panel--collapsed',
+            listOpen ? 'lk-archive__list-panel--open' : 'lk-archive__list-panel--collapsed',
           ].join(' ')}
         >
-          {isMobile ? (
-            <button
-              type="button"
-              className="lk-archive__list-toggle"
-              aria-expanded={listOpen}
-              onClick={() => setListOpen((v) => !v)}
-            >
-              <span className="lk-archive__list-toggle-label">
-                {listOpen
-                  ? t('archive.collapseList')
-                  : `${t('archive.listMatches')}${hasAnyMatches ? ` · ${feed.length}` : ''}`}
-              </span>
-              <span className="lk-archive__list-toggle-chev" aria-hidden>
-                {listOpen ? '▴' : '▾'}
-              </span>
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="lk-archive__list-toggle"
+            aria-expanded={listOpen}
+            onClick={() => setListOpen((v) => !v)}
+          >
+            <span className="lk-archive__list-toggle-label">
+              {listOpen
+                ? t('archive.collapseList')
+                : hasAnyMatches
+                  ? t('archive.listWithCount', { label: t('archive.listMatches'), n: feed.length })
+                  : t('archive.listMatches')}
+            </span>
+            <span className="lk-archive__list-toggle-chev" aria-hidden>
+              {listOpen ? '▴' : '▾'}
+            </span>
+          </button>
 
-          {listOpen || !isMobile ? (
+          {listOpen ? (
             <div className="lk-archive__list-wrap">
               <div className="lk-archive__list" role="list">
                 {loading ? (
@@ -956,8 +960,10 @@ export function MatchArchiveHub({
             <div className="lk-archive__detail-inner">
               <div className="lk-archive__detail-top">
                 <h3 className="lk-archive__detail-title">
-                  {localDetail.source === 'online' ? t('archive.online') : t('archive.offline')} · №
-                  {localDetail.gameId}
+                  {t('archive.recordTitle', {
+                    kind: localDetail.source === 'online' ? t('archive.online') : t('archive.offline'),
+                    id: localDetail.gameId,
+                  })}
                 </h3>
                 <button type="button" className="lk-archive__btn lk-archive__btn--ghost" onClick={closeDetail}>
                   {t('common.close')}

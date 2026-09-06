@@ -13,6 +13,7 @@ import {
 } from '../game/persistence';
 import { getAiDifficulty, setAiDifficulty } from '../game/aiSettings';
 import type { AIDifficulty } from '../game/types';
+import { getAudioSettings, subscribeAudioSettings } from '../audio';
 import { useAuth } from '../contexts/AuthContext';
 import { getMyRatingSummary } from '../lib/onlineGameSupabase';
 import { getMenuIdentityStatus } from '../lib/menuIdentityStatus';
@@ -22,7 +23,15 @@ import { PlayerAvatar } from './PlayerAvatar';
 import { LobbyBackButton } from './LobbyEntryActions';
 import { MenuCapsuleButton } from './MenuEntryActions';
 import { SupportMenuButton } from './SupportMenuButton';
+import { LanguageSwitch } from './LanguageSwitch';
 import { MatchArchiveHub } from './MatchArchiveHub';
+import { LkFoldSection } from './LkFoldSection';
+import { AudioSettingsMixer, audioSettingsAreAudible } from './AudioSettingsPanel';
+import {
+  DealResultsChipToggle,
+  ResultsChipModeHelpContent,
+  useResultsChipView,
+} from './DealResultsSettlement';
 import { getLocale, useT, formatYouName, type TFunc } from '../i18n';
 
 const PC_LK_MQ = '(min-width: 1025px)';
@@ -105,6 +114,10 @@ export function AccountLkPage({
   const [unfinished, setUnfinished] = useState<UnfinishedOnlineGame[]>(() => getUnfinishedOnlineGames());
   const [aiPulseId, setAiPulseId] = useState<AIDifficulty | null>(null);
   const aiPulseTimerRef = useRef<number | null>(null);
+  const [audio, setAudio] = useState(() => getAudioSettings());
+  const [chipView, setChipView] = useResultsChipView();
+  const [expandArchiveList, setExpandArchiveList] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(true);
 
   const loggedIn = !!(configured && user?.id);
   const winRate = rating.gamesPlayed > 0 ? Math.round((rating.wins / rating.gamesPlayed) * 100) : 0;
@@ -136,6 +149,12 @@ export function AccountLkPage({
       if (aiPulseTimerRef.current != null) window.clearTimeout(aiPulseTimerRef.current);
     };
   }, []);
+
+  useEffect(() => subscribeAudioSettings(setAudio), []);
+
+  useEffect(() => {
+    if (focusSection === 'matches') setExpandArchiveList(true);
+  }, [focusSection]);
 
   useEffect(() => {
     if (focusSection === 'rating') {
@@ -183,6 +202,7 @@ export function AccountLkPage({
   };
 
   const handleCapsuleHistory = () => {
+    setExpandArchiveList(true);
     scrollToAnchor('lk-archive-hub');
   };
 
@@ -193,6 +213,7 @@ export function AccountLkPage({
       userId={user?.id ?? null}
       configured={configured}
       focus={archiveFocus}
+      expandList={expandArchiveList}
       onContinueOffline={onContinueOffline}
       onOpenRating={onOpenRating}
       onOpenPremium={onOpenPremium}
@@ -212,41 +233,82 @@ export function AccountLkPage({
           <header className="lk-page__pc-top">
             <LobbyBackButton onClick={onBack} />
             <h1 className="lk-page__pc-title">{t('cabinet.title')}</h1>
-            <span className="lk-page__pc-live" aria-hidden="true">
-              <span className="lk-page__pc-live-dot" />
-              {t('cabinet.live')}
-            </span>
+            <div className="lk-page__pc-tools">
+              {onOpenSupport ? (
+                <SupportMenuButton className="lk-page__pc-support" onClick={onOpenSupport} />
+              ) : null}
+              <LanguageSwitch className="lk-page__lang" />
+              <span className="lk-page__pc-live" aria-hidden="true">
+                <span className="lk-page__pc-live-dot" />
+                {t('cabinet.live')}
+              </span>
+            </div>
           </header>
 
           <div className="lk-page__pc-body">
             <section className="lk-pc-hero" aria-label={t('cabinet.profileAria')}>
               <div className="lk-pc-hero__identity">
-                <div className="lk-pc-hero__avatar-ring">
-                  <PlayerAvatar
-                    name={displayName}
-                    avatarDataUrl={avatarDataUrl}
-                    avatarBgColor={getPlayerProfile().avatarBgColor}
-                    sizePx={90}
-                  />
+                <div className="lk-pc-hero__avatar-stage">
+                  <span className="lk-pc-hero__avatar-cosmos" aria-hidden="true" />
+                  <button
+                    type="button"
+                    className="lk-pc-hero__avatar-ring"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onEditProfile();
+                    }}
+                    aria-label={t('cabinet.editNamePhoto')}
+                  >
+                    <span className="lk-pc-hero__avatar-spin" aria-hidden="true" />
+                    <PlayerAvatar
+                      name={displayName}
+                      avatarDataUrl={avatarDataUrl}
+                      avatarBgColor={getPlayerProfile().avatarBgColor}
+                      sizePx={88}
+                    />
+                    <span className="lk-pc-hero__avatar-glass" aria-hidden="true" />
+                  </button>
                 </div>
                 <div className="lk-pc-hero__text">
-                  <p className="lk-pc-hero__name">{formatYouName(displayName, t)}</p>
-                  <p className="lk-pc-hero__sub">
+                  <p className="lk-pc-hero__name" title={formatYouName(displayName, t)}>
+                    {formatYouName(displayName, t)}
+                  </p>
+                  <p
+                    className="lk-pc-hero__sub"
+                    title={loggedIn && user?.email ? user.email : t('cabinet.noAccount')}
+                  >
                     {loggedIn && user?.email
                       ? user.email
                       : t('cabinet.noAccount')}
                   </p>
-                  <span
-                    className={`lk-page__badge lk-page__badge--${identityStatus === 'account' ? 'online' : identityStatus === 'profile' ? 'local' : 'guest'}`}
-                    title={identityTitle(identityStatus, t)}
-                  >
-                    {identityBadgeLabel(identityStatus, t)}
-                  </span>
+                  {loggedIn ? (
+                    <div className="lk-pc-hero__sign-out">
+                      <MenuCapsuleButton
+                        variant="signOut"
+                        compact
+                        title={t('cabinet.signOut')}
+                        onClick={() => {
+                          void signOut();
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="lk-pc-hero__sign-in">
+                      <MenuCapsuleButton
+                        variant="auth"
+                        compact
+                        title={authLoading ? t('cabinet.checking') : t('cabinet.signIn')}
+                        disabled={authLoading}
+                        onClick={onSignIn}
+                      />
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div className="lk-pc-hero__cast" aria-hidden="true">
-                <img className="lk-pc-hero__cast-img" src={LK_CAST_HERO.url} alt="" decoding="async" />
-                <div className="lk-pc-hero__cast-veil" />
+                <div className="lk-pc-hero__cast" aria-hidden="true">
+                  <img className="lk-pc-hero__cast-img" src={LK_CAST_HERO.url} alt="" decoding="async" />
+                  <div className="lk-pc-hero__cast-veil" />
+                </div>
               </div>
               <div className="lk-pc-hero__capsules">
                 <MenuCapsuleButton
@@ -254,27 +316,8 @@ export function AccountLkPage({
                   compact
                   title={t('cabinet.namePhoto')}
                   hint={t('cabinet.onDevice')}
-                  onClick={onEditProfile}
+                  onClick={() => onEditProfile()}
                 />
-                {loggedIn ? (
-                  <MenuCapsuleButton
-                    variant="auth"
-                    compact
-                    title={t('cabinet.signOut')}
-                    hint={t('cabinet.cloudAccount')}
-                    onClick={() => {
-                      void signOut();
-                    }}
-                  />
-                ) : (
-                  <MenuCapsuleButton
-                    variant="auth"
-                    compact
-                    title={authLoading ? t('cabinet.checking') : t('cabinet.signIn')}
-                    hint={t('cabinet.forOnlineCloud')}
-                    onClick={onSignIn}
-                  />
-                )}
                 <MenuCapsuleButton
                   variant="rating"
                   compact
@@ -289,7 +332,6 @@ export function AccountLkPage({
                   hint={t('cabinet.allMatches')}
                   onClick={handleCapsuleHistory}
                 />
-                {onOpenSupport ? <SupportMenuButton onClick={onOpenSupport} /> : null}
               </div>
             </section>
 
@@ -304,90 +346,154 @@ export function AccountLkPage({
                   <span className="lk-pc-theme__label">{t('cabinet.theme')}</span>
                   <span className="lk-pc-theme__chip">{t('cabinet.themeStd')}</span>
                 </div>
-                <p className="lk-pc-panel__hint">{t('cabinet.aiPickPill')}</p>
-                <div className="lk-pc-ai" role="radiogroup" aria-label={t('ai.title')}>
-                  {AI_LEVELS.map((id) => {
-                    const selected = aiLevel === id;
-                    const title =
-                      id === 'novice' ? t('ai.novice') : id === 'amateur' ? t('ai.amateur') : t('ai.expert');
-                    const hint =
-                      id === 'novice' ? t('cabinet.aiSoft') : id === 'amateur' ? t('cabinet.aiPace') : t('cabinet.aiHard');
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        role="radio"
-                        aria-checked={selected}
-                        className={[
-                          'lk-pc-ai__pill',
-                          `lk-pc-ai__pill--${id}`,
-                          selected ? 'lk-pc-ai__pill--on' : '',
-                          aiPulseId === id ? 'lk-pc-ai__pill--pulse' : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                        onClick={() => handleAiSelect(id)}
-                      >
-                        <span className="lk-pc-ai__ball" aria-hidden="true" />
-                        <span className="lk-pc-ai__copy">
-                          <span className="lk-pc-ai__title">{title}</span>
-                          <span className="lk-pc-ai__hint">{hint}</span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <LkFoldSection
+                  title={t('cabinet.soundFold')}
+                  peek={audioSettingsAreAudible(audio) ? t('cabinet.soundPeekOn') : t('cabinet.soundPeekOff')}
+                >
+                  <AudioSettingsMixer embedded />
+                </LkFoldSection>
+                <LkFoldSection
+                  title={t('cabinet.aiFold')}
+                  peek={
+                    aiLevel === 'novice' ? t('ai.novice') : aiLevel === 'amateur' ? t('ai.amateur') : t('ai.expert')
+                  }
+                >
+                  <p className="lk-pc-panel__hint">{t('cabinet.aiPickPill')}</p>
+                  <p className="lk-pc-ai__sparkle">{t('cabinet.aiPickSparkle')}</p>
+                  <div className="lk-pc-ai" role="radiogroup" aria-label={t('ai.title')}>
+                    {AI_LEVELS.map((id) => {
+                      const selected = aiLevel === id;
+                      const title =
+                        id === 'novice' ? t('ai.novice') : id === 'amateur' ? t('ai.amateur') : t('ai.expert');
+                      const hint =
+                        id === 'novice' ? t('cabinet.aiSoft') : id === 'amateur' ? t('cabinet.aiPace') : t('cabinet.aiHard');
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          className={[
+                            'lk-pc-ai__pill',
+                            `lk-pc-ai__pill--${id}`,
+                            selected ? 'lk-pc-ai__pill--on' : '',
+                            aiPulseId === id ? 'lk-pc-ai__pill--pulse' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                          onClick={() => handleAiSelect(id)}
+                        >
+                          <span className="lk-pc-ai__ball" aria-hidden="true" />
+                          <span className="lk-pc-ai__copy">
+                            <span className="lk-pc-ai__title">{title}</span>
+                            <span className="lk-pc-ai__hint">{hint}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </LkFoldSection>
+                <LkFoldSection
+                  title={t('cabinet.scoreFold')}
+                  peek={chipView === 'accuracy_bonus' ? t('settlement.accuracy') : t('settlement.average')}
+                >
+                  <p className="lk-pc-panel__hint">{t('cabinet.scoreApply')}</p>
+                  <DealResultsChipToggle chipView={chipView} onChange={setChipView} compact />
+                  <div className="lk-pc-score-help">
+                    <ResultsChipModeHelpContent chipView={chipView} />
+                  </div>
+                  <p className="lk-pc-score-bank">{t('cabinet.scoreBankNote')}</p>
+                </LkFoldSection>
               </section>
 
               <section
-                className="lk-pc-panel lk-pc-panel--stats"
+                className={[
+                  'lk-pc-panel lk-pc-panel--stats',
+                  statsOpen ? 'lk-pc-panel--stats-open' : 'lk-pc-panel--stats-collapsed',
+                ].join(' ')}
                 id="lk-stats-anchor"
                 aria-labelledby="lk-pc-stats"
               >
-                <header className="lk-pc-panel__head">
+                <header className="lk-pc-panel__head lk-pc-panel__head--fold">
                   <h2 id="lk-pc-stats" className="lk-pc-panel__title">
                     {t('cabinet.myStats')}
                   </h2>
-                </header>
-                <div className="lk-pc-stats">
-                  {loggedIn && online ? (
-                    <>
-                      <div className="lk-pc-stat">
-                        <span className="lk-pc-stat__value">{online.games}</span>
-                        <span className="lk-pc-stat__label">{t('cabinet.onlineGames')}</span>
-                      </div>
-                      <div className="lk-pc-stat">
-                        <span className="lk-pc-stat__value">{online.wins}</span>
-                        <span className="lk-pc-stat__label">{t('cabinet.onlineWins')}</span>
-                      </div>
-                      <div className="lk-pc-stat">
-                        <span className="lk-pc-stat__value">{online.points}</span>
-                        <span className="lk-pc-stat__label">{t('cabinet.onlinePts')}</span>
-                      </div>
-                    </>
-                  ) : null}
-                  <div className="lk-pc-stat">
-                    <span className="lk-pc-stat__value">{rating.gamesPlayed}</span>
-                    <span className="lk-pc-stat__label">{t('cabinet.deviceGames')}</span>
-                  </div>
-                  <div className="lk-pc-stat">
-                    <span className="lk-pc-stat__value">
-                      {rating.wins}
-                      {rating.gamesPlayed > 0 ? ` · ${winRate}%` : ''}
+                  {!statsOpen ? (
+                    <span className="lk-pc-panel__fold-peek">
+                      {loggedIn && online
+                        ? `${online.games} · ${online.wins}`
+                        : `${rating.gamesPlayed}${rating.gamesPlayed > 0 ? ` · ${winRate}%` : ''}`}
                     </span>
-                    <span className="lk-pc-stat__label">{t('cabinet.localWins')}</span>
-                  </div>
-                  {avgBidAccuracy != null ? (
-                    <div className="lk-pc-stat">
-                      <span className="lk-pc-stat__value">{avgBidAccuracy}%</span>
-                      <span className="lk-pc-stat__label">{t('cabinet.bidAcc')}</span>
-                    </div>
                   ) : null}
-                </div>
-                {onOpenRating ? (
-                  <button type="button" className="lk-pc-chip__btn" onClick={onOpenRating}>
-                    {t('cabinet.leaderboard')}
+                  <button
+                    type="button"
+                    className={[
+                      'lk-pc-panel__fold-check',
+                      statsOpen ? 'lk-pc-panel__fold-check--on' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-expanded={statsOpen}
+                    aria-controls="lk-pc-stats-body"
+                    aria-label={statsOpen ? t('cabinet.collapseStats') : t('cabinet.expandStats')}
+                    title={statsOpen ? t('cabinet.collapseStats') : t('cabinet.expandStats')}
+                    onClick={() => setStatsOpen((v) => !v)}
+                  >
+                    <svg className="lk-pc-panel__fold-check-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M7 10.2 12 15l5-4.8"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   </button>
+                </header>
+                {statsOpen ? (
+                  <div id="lk-pc-stats-body" className="lk-pc-panel__fold-body">
+                    <div className="lk-pc-stats">
+                      {loggedIn && online ? (
+                        <>
+                          <div className="lk-pc-stat lk-pc-stat--tone-default">
+                            <span className="lk-pc-stat__value">{online.games}</span>
+                            <span className="lk-pc-stat__label">{t('cabinet.onlineGames')}</span>
+                          </div>
+                          <div className="lk-pc-stat lk-pc-stat--tone-ember">
+                            <span className="lk-pc-stat__value">{online.wins}</span>
+                            <span className="lk-pc-stat__label">{t('cabinet.onlineWins')}</span>
+                          </div>
+                          <div className="lk-pc-stat lk-pc-stat--tone-aurora">
+                            <span className="lk-pc-stat__value">{online.points}</span>
+                            <span className="lk-pc-stat__label">{t('cabinet.onlinePts')}</span>
+                          </div>
+                        </>
+                      ) : null}
+                      <div className="lk-pc-stat lk-pc-stat--tone-default">
+                        <span className="lk-pc-stat__value">{rating.gamesPlayed}</span>
+                        <span className="lk-pc-stat__label">{t('cabinet.deviceGames')}</span>
+                      </div>
+                      <div className="lk-pc-stat lk-pc-stat--tone-ember">
+                        <span className="lk-pc-stat__value">
+                          {rating.wins}
+                          {rating.gamesPlayed > 0 ? ` · ${winRate}%` : ''}
+                        </span>
+                        <span className="lk-pc-stat__label">{t('cabinet.localWins')}</span>
+                      </div>
+                      {avgBidAccuracy != null ? (
+                        <div className="lk-pc-stat lk-pc-stat--tone-aurora">
+                          <span className="lk-pc-stat__value">{avgBidAccuracy}%</span>
+                          <span className="lk-pc-stat__label">{t('cabinet.bidAcc')}</span>
+                        </div>
+                      ) : null}
+                    </div>
+                    {onOpenRating ? (
+                      <button type="button" className="lk-pc-chip__btn" onClick={onOpenRating}>
+                        {t('cabinet.leaderboard')}
+                      </button>
+                    ) : null}
+                  </div>
                 ) : null}
               </section>
 
@@ -397,9 +503,14 @@ export function AccountLkPage({
                     {t('cabinet.activity')}
                   </h2>
                 </header>
-
-                <div className="lk-pc-activity-block">
-                  <h3 className="lk-pc-activity-block__title">{t('cabinet.unfinishedOnline')}</h3>
+                <LkFoldSection
+                  title={t('cabinet.unfinishedOnline')}
+                  peek={
+                    unfinishedShown.length === 0
+                      ? t('cabinet.empty')
+                      : unfinishedShown.map((r) => r.code).join(' · ')
+                  }
+                >
                   {unfinishedShown.length === 0 ? (
                     <p className="lk-pc-activity-block__empty">{t('cabinet.empty')}</p>
                   ) : (
@@ -432,7 +543,7 @@ export function AccountLkPage({
                       ))}
                     </ul>
                   )}
-                </div>
+                </LkFoldSection>
               </section>
 
               <section className="lk-pc-panel lk-pc-panel--archive" aria-label={t('cabinet.archiveAria')}>
@@ -448,6 +559,7 @@ export function AccountLkPage({
   return (
     <div className="lk-page">
       <div className="lk-page__shell">
+        <LanguageSwitch className="lk-page__lang" />
         <CosmicGlassClose className="lk-page__close" onClick={onBack} aria-label={t('common.close')} />
         <CosmicCockpit className="lk-page__cockpit">
           <h1 className="lk-page__title cosmic-iridescent-text">{t('cabinet.title')}</h1>

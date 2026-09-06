@@ -45,6 +45,8 @@
  * (серверного unsend нет).
  */
 
+import { getLocale, t, type TFunc } from '../i18n';
+
 export const TABLE_CHAT_NAME_FOLD_CHARS = 6;
 export const TABLE_CHAT_NAME_FOLD_MS = 3000;
 
@@ -59,20 +61,21 @@ export function tableChatFeedKind(opts: { mobileEmbedHost: boolean }): TableChat
 export function tableChatOwnAuthorLabel(
   profileDisplayName: string,
   fallbackMessageName?: string,
+  tr: TFunc = t,
 ): string {
   const fromProfile = profileDisplayName.trim();
   if (fromProfile) return fromProfile;
   const fromMessage = fallbackMessageName?.trim();
   if (fromMessage) return fromMessage;
-  return 'Игрок';
+  return tr('common.player');
 }
 
-export function foldTableChatDisplayName(name: string): {
+export function foldTableChatDisplayName(name: string, tr: TFunc = t): {
   full: string;
   folded: string;
   long: boolean;
 } {
-  const full = name.trim() || 'Игрок';
+  const full = name.trim() || tr('common.player');
   const chars = Array.from(full);
   if (chars.length <= TABLE_CHAT_NAME_FOLD_CHARS) {
     return { full, folded: full, long: false };
@@ -98,28 +101,29 @@ export function formatTableChatClock(iso: string): string {
   try {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const loc = getLocale() === 'en' ? 'en-GB' : 'ru-RU';
+    return d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
   } catch {
     return '';
   }
 }
 
-export function tableChatMessageSheetHideCopy(self: boolean): {
+export function tableChatMessageSheetHideCopy(self: boolean, tr: TFunc = t): {
   label: string;
   undo: string;
   title: string;
 } {
   if (self) {
     return {
-      label: 'Удалить',
-      undo: 'Сообщение удалено',
-      title: 'Удалить у себя',
+      label: tr('chat.delete'),
+      undo: tr('chat.msgDeleted'),
+      title: tr('chat.deleteLocal'),
     };
   }
   return {
-    label: 'Скрыть',
-    undo: 'Сообщение скрыто',
-    title: 'Скрыть только у себя',
+    label: tr('chat.hide'),
+    undo: tr('chat.msgHidden'),
+    title: tr('chat.hideLocal'),
   };
 }
 

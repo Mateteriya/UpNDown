@@ -459,6 +459,35 @@
   cursor: default;
 }
 
+.audio-settings__panel--embed {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  padding: 12px 10px 10px;
+  border-radius: 16px;
+  border: 2px solid transparent;
+  background-color: rgba(8, 6, 28, 0.92);
+  background-image:
+    radial-gradient(120% 80% at 12% -8%, rgba(192, 132, 252, 0.22) 0%, transparent 52%),
+    radial-gradient(90% 70% at 92% 108%, rgba(251, 191, 36, 0.12) 0%, transparent 55%),
+    linear-gradient(168deg, rgba(30, 16, 58, 0.96) 0%, rgba(10, 6, 28, 0.99) 52%, rgba(2, 4, 18, 1) 100%),
+    linear-gradient(125deg, #3b0764 0%, #7c3aed 28%, #e879f9 52%, #fbbf24 78%, #a78bfa 100%);
+  background-clip: padding-box, padding-box, padding-box, border-box;
+  background-origin: padding-box, padding-box, padding-box, border-box;
+  box-shadow:
+    0 0 0 1px rgba(196, 181, 253, 0.22),
+    0 10px 24px rgba(0, 0, 0, 0.35),
+    0 0 22px rgba(124, 58, 237, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(58vh, 520px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  animation: none;
+  font-family: 'Exo 2', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+}
+
 @keyframes audio-settings-fade-in {
   from {
     opacity: 0;

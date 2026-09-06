@@ -150,7 +150,7 @@ export function PlayerInfoPanel({
               cursor: 'pointer',
               padding: viewportShort ? '1px 4px' : 4,
             }}
-            aria-label="Закрыть"
+            aria-label={tr('common.close')}
           >
             ×
           </button>
@@ -184,14 +184,14 @@ export function PlayerInfoPanel({
                 aria-controls="player-info-panel-ai-avatar-picker-body"
                 aria-label={
                   aiAvatarPickerOpen
-                    ? 'Свернуть выбор аватара ИИ'
-                    : 'Развернуть выбор аватара ИИ (Премиум)'
+                    ? tr('ai.collapseAvatar')
+                    : tr('ai.expandAvatarPremium')
                 }
                 onClick={() => setAiAvatarPickerOpen((open) => !open)}
               >
                 <span className="player-info-panel-ai-avatar-premium-toggle__main">
-                  <span className="player-info-panel-ai-avatar-picker-heading__label">Аватар ИИ</span>
-                  <span className="player-info-panel-ai-avatar-picker-heading__premium">Премиум</span>
+                  <span className="player-info-panel-ai-avatar-picker-heading__label">{tr('ai.avatar')}</span>
+                  <span className="player-info-panel-ai-avatar-picker-heading__premium">{tr('ai.premium')}</span>
                 </span>
                 <span className="player-info-panel-ai-avatar-premium-toggle__chevron" aria-hidden />
               </button>

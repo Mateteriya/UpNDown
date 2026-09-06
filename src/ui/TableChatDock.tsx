@@ -12,6 +12,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { formatYouName, getLocale, t, useT } from '../i18n';
 import {
   fetchRoomChatMessages,
   sendRoomChatMessage,
@@ -20,7 +21,8 @@ import {
   type RoomChatTypingBroadcastPayload,
 } from '../lib/onlineGameApi';
 import {
-  CHAT_QUICK_PHRASES,
+  chatQuickPhrases,
+  tableChatPickerTabLabel,
   MY_SNIPPETS_LS_KEY,
   MY_SNIPPETS_MAX,
   MY_SNIPPETS_MAX_LEN,
@@ -112,13 +114,13 @@ type TypingPeerEntry = { displayName: string; expiresAt: number };
 function formatTypingLineFromMap(m: Map<string, TypingPeerEntry>, now: number): string | null {
   const names = [...m.entries()]
     .filter(([, v]) => v.expiresAt > now)
-    .map(([, v]) => (v.displayName.trim() || 'Игрок'))
+    .map(([, v]) => (v.displayName.trim() || t('common.player')))
     .filter(Boolean);
   if (names.length === 0) return null;
   const short = (n: string) => (n.length > 14 ? `${n.slice(0, 14)}…` : n);
-  if (names.length === 1) return `${short(names[0])} печатает…`;
-  if (names.length === 2) return `${short(names[0])}, ${short(names[1])} печатают…`;
-  return 'Несколько игроков печатают…';
+  if (names.length === 1) return t('chat.typing1', { name: short(names[0]) });
+  if (names.length === 2) return t('chat.typing2', { a: short(names[0]), b: short(names[1]) });
+  return t('chat.typingMany');
 }
 
 type SideEarUnreadPhantom = { author: string; body: string; messageId: string; userId?: string };
@@ -129,11 +131,11 @@ type SideEarPhantomDismiss =
   | { kind: 'unread'; messageId: string };
 
 function formatUnreadPhantomFromMessage(row: RoomChatMessageRow): SideEarUnreadPhantom {
-  const author = row.display_name.trim().slice(0, 28) || 'Игрок';
+  const author = row.display_name.trim().slice(0, 28) || t('common.player');
   const b = row.body.trim();
   return {
     author,
-    body: b || 'сообщение',
+    body: b || t('chat.message'),
     messageId: row.id,
     userId: row.user_id,
   };
@@ -146,7 +148,7 @@ function formatOwnPhantomEchoAfterSend(
   row: RoomChatMessageRow | null | undefined,
 ): SideEarUnreadPhantom {
   if (row) return formatUnreadPhantomFromMessage(row);
-  const author = displayName.trim().slice(0, 28) || 'Игрок';
+  const author = displayName.trim().slice(0, 28) || t('common.player');
   const b = sentBody.trim();
   return {
     author,
@@ -252,14 +254,15 @@ function TableChatQuoteCard({
   excerpt: string;
   highlightQuery?: string;
 }) {
+  const tr = useT();
   return (
     <div
       className="table-chat-msg__quote-card"
-      aria-label={author ? `Цитата: ${author}` : 'Цитата'}
+      aria-label={author ? tr('chat.quoteAria', { name: author }) : tr('chat.quote')}
     >
       <div className="table-chat-msg__quote-card__accent" aria-hidden />
       <div className="table-chat-msg__quote-card__body">
-        <div className="table-chat-msg__quote-card__kicker">Цитата</div>
+        <div className="table-chat-msg__quote-card__kicker">{tr('chat.quote')}</div>
         {author ? (
           <div className="table-chat-msg__quote-card__author">
             <ChatHighlightedText text={author} query={highlightQuery} />
@@ -379,9 +382,10 @@ function TableChatReactionChips({
   disabled?: boolean;
   onToggle: (emoji: string) => void;
 }) {
+  const tr = useT();
   if (chips.length === 0) return null;
   return (
-    <span className="table-chat-msg-reactions" role="list" aria-label="Реакции">
+    <span className="table-chat-msg-reactions" role="list" aria-label={tr('chat.reactions')}>
       {chips.map((chip) => (
         <button
           key={chip.emoji}
@@ -396,10 +400,10 @@ function TableChatReactionChips({
           aria-pressed={chip.mine}
           aria-label={
             chip.mine
-              ? `Убрать реакцию ${chip.emoji}`
-              : `Поставить реакцию ${chip.emoji}`
+              ? tr('chat.reactRemove', { emoji: chip.emoji })
+              : tr('chat.reactAdd', { emoji: chip.emoji })
           }
-          title={chip.mine ? 'Нажмите, чтобы убрать' : 'Нажмите, чтобы поставить'}
+          title={chip.mine ? tr('chat.reactClickRemove') : tr('chat.reactClickAdd')}
           disabled={disabled}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -424,15 +428,15 @@ function phantomUnreadStableKeyFromPhantom(p: SideEarUnreadPhantom | null): stri
 
 /** Строка лабы «Имя: текст» или только текст — разбор для двух цветов в фантоме. */
 function parseUnreadPhantomDemoLine(line: string): SideEarUnreadPhantom {
-  const t = line.trim();
-  const demoId = `demo:${t.slice(0, 200)}`;
-  const i = t.indexOf(': ');
-  if (i > 0 && i < t.length - 2) {
-    const author = t.slice(0, i).trim().slice(0, 28) || 'Игрок';
-    const body = t.slice(i + 2).trim() || '…';
+  const raw = line.trim();
+  const demoId = `demo:${raw.slice(0, 200)}`;
+  const i = raw.indexOf(': ');
+  if (i > 0 && i < raw.length - 2) {
+    const author = raw.slice(0, i).trim().slice(0, 28) || t('common.player');
+    const body = raw.slice(i + 2).trim() || '…';
     return { author, body, messageId: demoId };
   }
-  return { author: '', body: t.length > 0 ? t : 'Новое сообщение', messageId: demoId };
+  return { author: '', body: raw.length > 0 ? raw : t('chat.newMessage'), messageId: demoId };
 }
 
 const PC_CHAT_MIN_W = 220;
@@ -883,11 +887,12 @@ function formatChatTime(iso: string): string {
     if (Number.isNaN(d.getTime())) return '';
     const now = Date.now();
     const diff = now - d.getTime();
-    if (diff < 45_000) return 'сейчас';
+    if (diff < 45_000) return t('chat.now');
+    const loc = getLocale() === 'en' ? 'en-GB' : 'ru-RU';
     if (diff < 86_400_000) {
-      return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
     }
-    return d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleString(loc, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   } catch {
     return '';
   }
@@ -1067,6 +1072,7 @@ function ChatToolSearchGlyph() {
 }
 
 function ChatFontTypeGlyph({ plus }: { plus: boolean }) {
+  const tr = useT();
   return (
     <span
       className={[
@@ -1078,8 +1084,8 @@ function ChatFontTypeGlyph({ plus }: { plus: boolean }) {
       ].join(' ')}
       aria-hidden
     >
-      <span className="table-chat-dock-mobile-font-ctrl__type-lg">{plus ? 'А' : 'О'}</span>
-      <span className="table-chat-dock-mobile-font-ctrl__type-sm">{plus ? 'а' : 'о'}</span>
+      <span className="table-chat-dock-mobile-font-ctrl__type-lg">{plus ? tr('chat.fontAaLg') : tr('chat.fontOoLg')}</span>
+      <span className="table-chat-dock-mobile-font-ctrl__type-sm">{plus ? tr('chat.fontAaSm') : tr('chat.fontOoSm')}</span>
       <span className="table-chat-dock-mobile-font-ctrl__type-op">{plus ? '+' : '−'}</span>
     </span>
   );
@@ -1267,6 +1273,8 @@ function TableChatDock({
   onLsBottomMoveToSide,
   mobileEastHeaderCompact = false,
 }: TableChatDockProps) {
+  const tr = useT();
+  const quickPhrases = useMemo(() => chatQuickPhrases(tr), [tr]);
   const [messages, setMessages] = useState<RoomChatMessageRow[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -1761,11 +1769,11 @@ function TableChatDock({
             /* ignore */
           }
         }
-        showMobileMineToast('Добавлено в «Мои»');
+        showMobileMineToast(tr('chat.addedToMine'));
       }
       triggerMineStarFlash(flashKey);
     },
-    [mySnippets.length, showMobileMineToast, triggerMineStarFlash, variant],
+    [mySnippets.length, showMobileMineToast, triggerMineStarFlash, variant, tr],
   );
 
   useEffect(() => {
@@ -1987,9 +1995,9 @@ function TableChatDock({
       return dedupeMySnippets([...prev, t]);
     });
     if (added && variant === 'mobile') {
-      showMobileMineToast('Добавлено в «Мои»');
+      showMobileMineToast(tr('chat.addedToMine'));
     }
-  }, [showMobileMineToast, variant]);
+  }, [showMobileMineToast, variant, tr]);
 
   const startMobileLongPressAddMine = useCallback((value: string, flashKey?: string) => {
     if (variant !== 'mobile') return;
@@ -3094,7 +3102,7 @@ function TableChatDock({
   const hideChatMessage = useCallback(() => {
     if (!msgActionTarget || !roomId) return;
     const id = msgActionTarget.messageId;
-    const hideCopy = tableChatMessageSheetHideCopy(msgActionTarget.userId === userId);
+    const hideCopy = tableChatMessageSheetHideCopy(msgActionTarget.userId === userId, tr);
     setHiddenMsgIds((prev) => {
       const next = withHiddenId(prev, id);
       persistHiddenChatMessageIds(roomId, next);
@@ -3102,7 +3110,7 @@ function TableChatDock({
     });
     armChatHideUndo({ kind: 'msg', id, label: hideCopy.undo });
     closeMsgActionMenu();
-  }, [msgActionTarget, roomId, userId, armChatHideUndo, closeMsgActionMenu]);
+  }, [msgActionTarget, roomId, userId, armChatHideUndo, closeMsgActionMenu, tr]);
 
   const hideChatUser = useCallback(() => {
     const uid = msgActionTarget?.userId;
@@ -3112,10 +3120,10 @@ function TableChatDock({
       persistHiddenChatUserIds(roomId, next);
       return next;
     });
-    const name = msgActionTarget.author.trim() || 'игрока';
-    armChatHideUndo({ kind: 'user', id: uid, label: `Сообщения ${name} скрыты` });
+    const name = msgActionTarget.author.trim() || tr('common.player');
+    armChatHideUndo({ kind: 'user', id: uid, label: tr('chat.hiddenUser', { name }) });
     closeMsgActionMenu();
-  }, [msgActionTarget, userId, roomId, armChatHideUndo, closeMsgActionMenu]);
+  }, [msgActionTarget, userId, roomId, armChatHideUndo, closeMsgActionMenu, tr]);
 
   const undoChatHide = useCallback(() => {
     if (!chatHideUndo || !roomId) return;
@@ -3151,14 +3159,14 @@ function TableChatDock({
     for (const m of messages) {
       if (!hiddenUserIds.has(m.user_id) || m.user_id === userId || seen.has(m.user_id)) continue;
       seen.add(m.user_id);
-      out.push({ id: m.user_id, name: m.display_name.trim() || 'Игрок' });
+      out.push({ id: m.user_id, name: m.display_name.trim() || tr('common.player') });
     }
     for (const id of hiddenUserIds) {
       if (id === userId || seen.has(id)) continue;
-      out.push({ id, name: 'Игрок' });
+      out.push({ id, name: tr('common.player') });
     }
     return out;
-  }, [messages, hiddenUserIds, userId]);
+  }, [messages, hiddenUserIds, userId, tr]);
 
   const hiddenSoloMsgCount = useMemo(
     () => messages.filter((m) => hiddenMsgIds.has(m.id) && !hiddenUserIds.has(m.user_id)).length,
@@ -3249,7 +3257,7 @@ function TableChatDock({
 
   const beginFeedAddressSender = useCallback(() => {
     if (!msgActionTarget) return;
-    const name = msgActionTarget.author.trim() || 'Игрок';
+    const name = msgActionTarget.author.trim() || tr('common.player');
     setFeedAddressTo(name);
     closeMsgActionMenu();
     setEmojiPickerOpen(false);
@@ -3259,7 +3267,7 @@ function TableChatDock({
         flashComposerField();
       });
     });
-  }, [msgActionTarget, closeMsgActionMenu, flashComposerField, focusComposerField]);
+  }, [msgActionTarget, closeMsgActionMenu, flashComposerField, focusComposerField, tr]);
 
   const toggleMsgReaction = useCallback(
     async (targetId: string, emoji: string) => {
@@ -3292,10 +3300,10 @@ function TableChatDock({
 
   const feedReplyPreview = useMemo(() => {
     if (!feedReplyAnchor) return null;
-    const author = feedReplyAnchor.author.trim() || 'Собеседник';
+    const author = feedReplyAnchor.author.trim() || tr('chat.interlocutor');
     const excerpt = truncatePhantomQuoteExcerpt(feedReplyAnchor.body, 48);
     return { author, excerpt };
-  }, [feedReplyAnchor]);
+  }, [feedReplyAnchor, tr]);
 
   useEffect(() => {
     if (!msgActionMode && !chatHiddenPanelOpen) return;
@@ -3950,18 +3958,17 @@ function TableChatDock({
   );
 
   const sideEarAriaLabel = useMemo(() => {
-    let base =
-      'Прокрутить к чату внизу и свернуть кнопку «Чат» в рельсу. Крестик под надписью — компактная закладка у края. Потяните вверх или вниз, чтобы сместить ушко.';
+    let base = tr('chat.earAria');
     if (earTypingShown) base += ` ${earTypingShown}`;
-    else if (earUnread) base += ' Есть непрочитанные сообщения.';
+    else if (earUnread) base += tr('chat.unreadSuffix');
     return base;
-  }, [earTypingShown, earUnread]);
+  }, [earTypingShown, earUnread, tr]);
 
   const sideEarPhantomUnread =
     earUnread && !earTypingShown && (!hideUnreadEarPhantomPreview || earUnreadPhantomPeek)
       ? (earUnreadPhantomEffective ?? {
           author: '',
-          body: 'Новое сообщение',
+          body: tr('chat.newMessage'),
           messageId: '',
         })
       : null;
@@ -4036,8 +4043,8 @@ function TableChatDock({
 
   const phantomQuotePanelAuthor = useMemo(() => {
     if (!phantomReplyAnchor) return '';
-    return (phantomReplyAnchor.author || '').trim() || 'Собеседник';
-  }, [phantomReplyAnchor]);
+    return (phantomReplyAnchor.author || '').trim() || tr('chat.interlocutor');
+  }, [phantomReplyAnchor, tr]);
 
   /** Текст цитаты для панели (без имени). */
   const phantomQuotePanelSnippet = useMemo(() => {
@@ -4049,13 +4056,13 @@ function TableChatDock({
 
   const phantomReplyAnchorTitle = useMemo(() => {
     if (!phantomReplyAnchor) {
-      return '«Добавить цитирование» / «Отменить цитирование»: панель цитаты и поле ответа. Enter или «Отправить». Ctrl+Enter — вкл/выкл.';
+      return tr('chat.quoteToggleHelp');
     }
-    const a = phantomReplyAnchor.author.trim() || 'Собеседник';
+    const a = phantomReplyAnchor.author.trim() || tr('chat.interlocutor');
     const raw = phantomReplyAnchor.body.trim().replace(/\s+/g, ' ');
     const cite = truncatePhantomQuoteExcerpt(raw, PHANTOM_REPLY_QUOTE_PREVIEW_MAX);
-    return `${a}: «${cite}» — так уйдёт в чат вместе с вашим текстом. Enter / «Отправить». Ctrl+Enter — вкл/выкл.`;
-  }, [phantomReplyAnchor]);
+    return tr('chat.quoteCiteHelp', { name: a, cite });
+  }, [phantomReplyAnchor, tr]);
 
   useEffect(() => {
     const was = prevEarPhantomReplyOpenRef.current;
@@ -4247,7 +4254,7 @@ function TableChatDock({
             <button
               type="button"
               className="table-chat-ear-preview-toast-backdrop"
-              aria-label="Закрыть"
+              aria-label={tr('common.close')}
               onClick={() => setEarPreviewSettingsOpen(false)}
             />
             <div
@@ -4259,7 +4266,7 @@ function TableChatDock({
               onClick={(e) => e.stopPropagation()}
             >
               <h2 id={earPreviewDialogTitleId} className="table-chat-ear-preview-toast__title">
-                Фантомы из чата
+                {tr('chat.phantomsTitle')}
               </h2>
               <label className="table-chat-ear-preview-switch">
                 <input
@@ -4272,14 +4279,14 @@ function TableChatDock({
                   <span className="table-chat-ear-preview-switch__track" />
                   <span className="table-chat-ear-preview-switch__knob" />
                 </span>
-                <span className="table-chat-ear-preview-switch__label">Не показывать фантомы из чата</span>
+                <span className="table-chat-ear-preview-switch__label">{tr('chat.hidePhantoms')}</span>
               </label>
               <button
                 type="button"
                 className="table-chat-ear-preview-toast__done"
                 onClick={() => setEarPreviewSettingsOpen(false)}
               >
-                Готово
+                {tr('avatarMenu.done')}
               </button>
             </div>
           </>,
@@ -4306,19 +4313,19 @@ function TableChatDock({
             .filter(Boolean)
             .join(' ')}
         >
-          <div className="table-chat-east-mini-bar" role="toolbar" aria-label="Чат свёрнут">
+          <div className="table-chat-east-mini-bar" role="toolbar" aria-label={tr('chat.collapsed')}>
             <button
               type="button"
               className="table-chat-east-crystal-btn table-chat-east-crystal-btn--expand"
               onClick={() => setMobileOpen(true)}
               aria-label={
                 collapsedTyping
-                  ? `Развернуть чат. ${collapsedTyping}`
+                  ? tr('chat.expandTyping', { line: collapsedTyping })
                   : sideEarUnread
-                    ? 'Развернуть чат. Есть новые сообщения'
-                    : 'Развернуть чат'
+                    ? tr('chat.expandUnread')
+                    : tr('chat.expandChat')
               }
-              title="Развернуть"
+              title={tr('chat.expand')}
             >
               <CrystalLilacGlyph id={`${emojiPanelDomId}-exp`} path="M3.2 10.2 8 5.2l4.8 5" />
             </button>
@@ -4327,8 +4334,8 @@ function TableChatDock({
                 type="button"
                 className="table-chat-east-crystal-btn table-chat-east-crystal-btn--dismiss"
                 onClick={onEastEmbedDismissToBottom}
-                aria-label="Убрать чат вниз страницы"
-              title="Убрать вниз"
+                aria-label={tr('chat.moveDownAria')}
+              title={tr('chat.moveDown')}
             >
               <CrystalLilacGlyph
                 id={`${emojiPanelDomId}-dis`}
@@ -4338,7 +4345,7 @@ function TableChatDock({
             ) : null}
             <span className="table-chat-east-mini-bar__signals">
               {sideEarUnread && !collapsedTyping ? (
-                <span className="table-chat-east-mini-bar__unread" title="Новые сообщения" />
+                <span className="table-chat-east-mini-bar__unread" title={tr('chat.newMsgs')} />
               ) : null}
               {collapsedTyping ? (
                 <span className="table-chat-east-mini-bar__typing" title={collapsedTyping} />
@@ -4378,13 +4385,13 @@ function TableChatDock({
             onClick={() => setMobileOpen(true)}
             aria-label={
               collapsedTyping
-                ? `Открыть чат. ${collapsedTyping}`
+                ? tr('chat.openTyping', { line: collapsedTyping })
                 : sideEarUnread
-                  ? 'Открыть чат. Есть новые сообщения'
-                  : 'Открыть чат'
+                  ? tr('chat.openUnread')
+                  : tr('chat.openChat')
             }
           >
-            <span className="table-chat-toggle__label">Чат</span>
+            <span className="table-chat-toggle__label">{tr('chat.title')}</span>
             {sideEarUnread && !collapsedTyping ? (
               <span className="table-chat-toggle__unread-dot" aria-hidden />
             ) : null}
@@ -4436,8 +4443,8 @@ function TableChatDock({
                 className="table-chat-side-ear-cosmic-orb"
                 onPointerDown={onCosmicOrbPointerDown}
                 onClick={onSideEarCosmicChipClick}
-                aria-label="Космическая закладка чата. Потяните в любую сторону; у края экрана прилипнет. Нажмите — развернуть ушко."
-                title="Потяните в любую сторону · у края прилипнет · тап — развернуть ушко"
+                aria-label={tr('chat.bookmarkAria')}
+                title={tr('chat.bookmarkTitle')}
               >
                 <span className="table-chat-side-ear-cosmic-orb__drag-ring" aria-hidden />
                 <span className="table-chat-side-ear-cosmic-orb__drag-hints" aria-hidden>
@@ -4512,8 +4519,8 @@ function TableChatDock({
                     className="table-chat-side-ear-rail__unread-hit table-chat-side-ear-rail__unread-hit--on-rail"
                     aria-label={
                       hideUnreadEarPhantomPreview
-                        ? 'Показать превью непрочитанного сообщения'
-                        : 'Индикатор непрочитанного сообщения'
+                        ? tr('chat.unreadPeek')
+                        : tr('chat.unreadDot')
                     }
                     onPointerDown={onUnreadRailIndicatorPointerDown}
                     onClick={onUnreadRailIndicatorClick}
@@ -4527,8 +4534,8 @@ function TableChatDock({
                   onClick={onSideEarRailClick}
                   aria-label={
                     sideEarRailCollapsed
-                      ? 'Показать кнопку «Чат» — сейчас у края только рельса'
-                      : 'Свернуть кнопку «Чат» вправо — у края останется рельса'
+                      ? tr('chat.railShowChat')
+                      : tr('chat.railHideChat')
                   }
                   aria-pressed={sideEarRailCollapsed}
                 >
@@ -4613,7 +4620,7 @@ function TableChatDock({
                   ]
                     .filter(Boolean)
                     .join(' ')}
-                  aria-label="Настройки превью у ушка, открыть окно"
+                  aria-label={tr('chat.earSettings')}
                   aria-haspopup="dialog"
                   aria-expanded={earPreviewSettingsOpen}
                   onPointerDown={(e) => {
@@ -4739,7 +4746,7 @@ function TableChatDock({
                       .filter(Boolean)
                       .join(' ')}
                   >
-                    Чат
+                    {tr('chat.title')}
                   </span>
                   <span className="table-chat-side-ear__chevron table-chat-side-ear__chevron--down" aria-hidden>
                     <svg
@@ -4762,8 +4769,8 @@ function TableChatDock({
                     className="table-chat-side-ear__cosmic-pin"
                     onPointerDown={onSideEarCosmicPinPointerDown}
                     onClick={onSideEarCosmicPinClick}
-                    aria-label="Свернуть ушко в компактную закладку"
-                    title="Компактная закладка чата"
+                    aria-label={tr('chat.compactBookmark')}
+                    title={tr('chat.compactBookmarkTitle')}
                   >
                     <span className="table-chat-side-ear__cosmic-pin-icon" aria-hidden>
                       <svg
@@ -4885,20 +4892,20 @@ function TableChatDock({
                 <button
                   type="button"
                   className="table-chat-side-ear-phantom__to-chat"
-                  aria-label="Прокрутить к чату стола"
-                  title="В чат"
+                  aria-label={tr('chat.scrollToChat')}
+                  title={tr('chat.toChat')}
                   onPointerDown={onPhantomDismissPointerDown}
                   onClick={onPhantomToChatClick}
                 >
                   <span className="table-chat-side-ear-phantom__to-chat-label" aria-hidden>
-                    В чат
+                    {tr('chat.toChat')}
                   </span>
                 </button>
                 <button
                   type="button"
                   className="table-chat-side-ear-phantom__dismiss"
-                  aria-label="Скрыть превью"
-                  title="Скрыть"
+                  aria-label={tr('chat.hidePreview')}
+                  title={tr('chat.hide')}
                   onPointerDown={onPhantomDismissPointerDown}
                   onClick={onPhantomDismissClick}
                 >
@@ -4928,7 +4935,7 @@ function TableChatDock({
                         <div
                           className="table-chat-side-ear-phantom__preview-stack"
                           role="navigation"
-                          aria-label="Листание непрочитанных превью"
+                          aria-label={tr('chat.unreadPager')}
                         >
                           <button
                             type="button"
@@ -4936,14 +4943,14 @@ function TableChatDock({
                             disabled={!phantomUnreadStackNav.canGoOlder}
                             onPointerDown={onPhantomDismissPointerDown}
                             onClick={onPhantomUnreadGoOlder}
-                            aria-label="Более раннее непрочитанное сообщение"
+                            aria-label={tr('chat.olderUnread')}
                           >
-                            ‹ Назад
+                            {tr('chat.pagerBack')}
                           </button>
                           <span
                             className="table-chat-side-ear-phantom__preview-stack-pos"
                             aria-live="polite"
-                            title="По порядку получения: 1 — самое раннее"
+                            title={tr('chat.unreadOrder')}
                           >
                             {phantomUnreadStackNav.chronoPos} / {phantomUnreadStackNav.len}
                           </span>
@@ -4953,9 +4960,9 @@ function TableChatDock({
                             disabled={!phantomUnreadStackNav.canGoNewer}
                             onPointerDown={onPhantomDismissPointerDown}
                             onClick={onPhantomUnreadGoNewer}
-                            aria-label="Более новое непрочитанное сообщение"
+                            aria-label={tr('chat.newerUnread')}
                           >
-                            Вперёд ›
+                            {tr('chat.pagerFwd')}
                           </button>
                           <button
                             type="button"
@@ -4970,9 +4977,9 @@ function TableChatDock({
                             disabled={phantomUnreadStackNav.index === 0}
                             onPointerDown={onPhantomDismissPointerDown}
                             onClick={onPhantomUnreadGoFresh}
-                            aria-label="Текущее, самое свежее сообщение"
+                            aria-label={tr('chat.currentFresh')}
                           >
-                            Текущее
+                            {tr('chat.pagerCurrent')}
                           </button>
                         </div>
                       ) : null}
@@ -5006,8 +5013,8 @@ function TableChatDock({
                           aria-expanded={earPhantomUnreadExpanded}
                           aria-label={
                             earPhantomUnreadExpanded
-                              ? 'Свернуть текст сообщения'
-                              : 'Развернуть и показать весь текст сообщения'
+                              ? tr('chat.collapseMsg')
+                              : tr('chat.expandMsg')
                           }
                         >
                           <svg
@@ -5045,7 +5052,7 @@ function TableChatDock({
                             )}
                           </svg>
                           <span className="table-chat-side-ear-phantom__expand-inline-label">
-                            {earPhantomUnreadExpanded ? 'Свернуть' : 'Развернуть'}
+                            {earPhantomUnreadExpanded ? tr('table.collapse') : tr('chat.expand')}
                           </span>
                         </button>
                       ) : null}
@@ -5061,8 +5068,8 @@ function TableChatDock({
                           onPointerDown={onPhantomDismissPointerDown}
                           onClick={onPhantomReplyToggleClick}
                           aria-expanded={false}
-                          aria-label="Ответить на сообщение из превью"
-                          title="Ответить"
+                          aria-label={tr('chat.replyPreview')}
+                          title={tr('chat.reply')}
                         >
                           <svg
                             className="table-chat-side-ear-phantom__reply-close-bar__glyph"
@@ -5113,7 +5120,7 @@ function TableChatDock({
                             />
                           </svg>
                           <span className="table-chat-side-ear-phantom__reply-close-bar__label">
-                            Нажмите для ответа
+                            {tr('chat.tapToReply')}
                           </span>
                         </button>
                       ) : null}
@@ -5148,14 +5155,14 @@ function TableChatDock({
                             aria-label={
                               phantomReplyAnchor
                                 ? earPhantomReplyIncludeQuote
-                                  ? 'Отменить цитирование: убрать панель цитаты из ответа'
-                                  : 'Добавить цитирование в ответ. Нажмите, чтобы включить'
-                                : 'Нет привязки к превью'
+                                  ? tr('chat.quoteOff')
+                                  : tr('chat.quoteOn')
+                                : tr('chat.noPreview')
                             }
                             title={
                               phantomReplyAnchor
                                 ? phantomReplyAnchorTitle
-                                : 'Нет привязки к превью'
+                                : tr('chat.noPreview')
                             }
                           >
                             <span className="table-chat-side-ear-phantom__reply-quote-toggle__row">
@@ -5174,8 +5181,8 @@ function TableChatDock({
                               </span>
                               <span className="table-chat-side-ear-phantom__reply-quote-toggle__main">
                                 {earPhantomReplyIncludeQuote
-                                  ? 'Отменить цитирование'
-                                  : 'Добавить цитирование'}
+                                  ? tr('chat.quoteOffShort')
+                                  : tr('chat.quoteOnShort')}
                               </span>
                             </span>
                             {phantomReplyAnchor && phantomReplyAnchorMicro && !earPhantomReplyIncludeQuote ? (
@@ -5201,7 +5208,7 @@ function TableChatDock({
                           {earPhantomReplyIncludeQuote && phantomReplyAnchor ? (
                             <div
                               className="table-chat-side-ear-phantom__reply-quote-card"
-                              aria-label={`Цитата: ${phantomQuotePanelAuthor}`}
+                              aria-label={tr('chat.quoteAria', { name: phantomQuotePanelAuthor })}
                             >
                               <div
                                 className="table-chat-side-ear-phantom__reply-quote-card__accent"
@@ -5209,7 +5216,7 @@ function TableChatDock({
                               />
                               <div className="table-chat-side-ear-phantom__reply-quote-card__body">
                                 <div className="table-chat-side-ear-phantom__reply-quote-card__kicker">
-                                  Ответ для
+                                  {tr('chat.replyForKicker')}
                                 </div>
                                 <div className="table-chat-side-ear-phantom__reply-quote-card__author">
                                   {phantomQuotePanelAuthor}
@@ -5243,9 +5250,9 @@ function TableChatDock({
                               aria-haspopup="dialog"
                               aria-controls={phantomReplyEmojiPanelDomId}
                               aria-label={
-                                earPhantomReplyEmojiOpen ? 'Закрыть эмодзи' : 'Вставить эмодзи в ответ'
+                                earPhantomReplyEmojiOpen ? tr('chat.closeEmoji') : tr('chat.insertEmojiReply')
                               }
-                              title={earPhantomReplyEmojiOpen ? 'Закрыть эмодзи' : 'Эмодзи'}
+                              title={earPhantomReplyEmojiOpen ? tr('chat.closeEmoji') : tr('chat.emoji')}
                               disabled={sending}
                             >
                               <span
@@ -5261,7 +5268,7 @@ function TableChatDock({
                                 id={phantomReplyEmojiPanelDomId}
                                 className="table-chat-side-ear-phantom__reply-emoji-popover"
                                 role="dialog"
-                                aria-label="Эмодзи для ответа"
+                                aria-label={tr('chat.emojiReply')}
                                 onPointerDown={(e) => e.stopPropagation()}
                               >
                                 <div
@@ -5274,8 +5281,8 @@ function TableChatDock({
                                       type="button"
                                       role="tab"
                                       aria-selected={phantomReplyEmojiTab === tab.id}
-                                      aria-label={tab.label}
-                                      title={tab.label}
+                                      aria-label={tableChatPickerTabLabel(tab.id, tr)}
+                                      title={tableChatPickerTabLabel(tab.id, tr)}
                                       className={[
                                         'table-chat-side-ear-phantom__reply-emoji-tab',
                                         tab.id === 'phrases'
@@ -5300,9 +5307,9 @@ function TableChatDock({
                                           ★
                                         </span>
                                       ) : tab.kind === 'emoji' ? (
-                                        tab.tabEmojiPc ?? tab.label.slice(0, 1)
+                                        tab.tabEmojiPc ?? tableChatPickerTabLabel(tab.id, tr).slice(0, 1)
                                       ) : (
-                                        tab.label
+                                        tableChatPickerTabLabel(tab.id, tr)
                                       )}
                                     </button>
                                   ))}
@@ -5310,7 +5317,7 @@ function TableChatDock({
                                 {phantomReplyEmojiTab === 'phrases' ? (
                                   <div className="table-chat-side-ear-phantom__reply-emoji-phrases">
                                     <div className="table-chat-side-ear-phantom__reply-emoji-phrases__scroll">
-                                      {CHAT_QUICK_PHRASES.map((phrase, idx) => (
+                                      {quickPhrases.map((phrase, idx) => (
                                         <button
                                           key={`ph-${idx}`}
                                           type="button"
@@ -5338,7 +5345,7 @@ function TableChatDock({
                                   <div className="table-chat-side-ear-phantom__reply-emoji-mine">
                                     {mySnippets.length === 0 ? (
                                       <p className="table-chat-side-ear-phantom__reply-emoji-mine__empty">
-                                        Пока пусто — добавьте в «Мои» из чата.
+                                        {tr('chat.mineEmptyFromChat')}
                                       </p>
                                     ) : (
                                       <div className="table-chat-side-ear-phantom__reply-emoji-mine__layout">
@@ -5376,7 +5383,7 @@ function TableChatDock({
                                                 key={`em-${idx}-${mineSnippetDedupeKey(s)}`}
                                                 type="button"
                                                 className="table-chat-side-ear-phantom__reply-emoji-mine__emoji"
-                                                aria-label={`Вставить ${s}`}
+                                                aria-label={tr('chat.insertItem', { s })}
                                                 title={s}
                                                 disabled={
                                                   sending ||
@@ -5410,19 +5417,19 @@ function TableChatDock({
                                         aria-expanded={phantomReplyEmojiExpanded}
                                         aria-label={
                                           phantomReplyEmojiExpanded
-                                            ? 'Свернуть: только основной набор эмодзи'
-                                            : 'Показать ещё эмодзи в этой категории'
+                                            ? tr('chat.collapseEmojiMain')
+                                            : tr('chat.showMoreEmojiCat')
                                         }
                                         title={
                                           phantomReplyEmojiExpanded
-                                            ? 'Свернуть расширенный набор'
-                                            : 'Ещё эмодзи в этой категории'
+                                            ? tr('chat.collapseEmojiSet')
+                                            : tr('chat.moreEmojiCat')
                                         }
                                         onClick={() => setPhantomReplyEmojiExpanded((v) => !v)}
                                       >
                                         <span aria-hidden>{phantomReplyEmojiExpanded ? '−' : '+'}</span>
                                         <span className="table-chat-side-ear-phantom__reply-emoji-more__label">
-                                          {phantomReplyEmojiExpanded ? 'свернуть' : 'ещё'}
+                                          {phantomReplyEmojiExpanded ? tr('chat.collapse') : tr('chat.more')}
                                         </span>
                                       </button>
                                     ) : null}
@@ -5432,7 +5439,7 @@ function TableChatDock({
                                           key={`${phantomReplyEmojiTab}-${idx}-${emo}`}
                                           type="button"
                                           className="table-chat-side-ear-phantom__reply-emoji-cell"
-                                          aria-label={`Вставить ${emo}`}
+                                          aria-label={tr('chat.insertItem', { s: emo })}
                                           title={emo}
                                           style={{
                                             opacity:
@@ -5463,20 +5470,20 @@ function TableChatDock({
                               onPointerDown={(e) => e.stopPropagation()}
                               placeholder={
                                 earPhantomReplyIncludeQuote && phantomReplyAnchor
-                                  ? 'Ваш ответ…'
-                                  : 'Ответ…'
+                                  ? tr('chat.yourReply')
+                                  : tr('chat.replyPh')
                               }
                               rows={3}
                               maxLength={MAX_BODY}
                               aria-label={
                                 earPhantomReplyIncludeQuote && phantomReplyAnchor
-                                  ? 'Текст вашего ответа (цитата показана панелью выше). Enter — отправить; Shift+Enter — новая строка; Ctrl+Enter — выключить цитирование.'
-                                  : 'Текст ответа. Enter — отправить; Shift+Enter — новая строка; Ctrl+Enter — включить или выключить цитирование.'
+                                  ? tr('chat.replyAriaQuote')
+                                  : tr('chat.replyAria')
                               }
                               title={
                                 earPhantomReplyIncludeQuote && phantomReplyAnchor
-                                  ? 'Панель выше — цитата · здесь только ваш текст · Enter — отправить · Ctrl+Enter — выкл. цитирование'
-                                  : 'Enter — отправить · Shift+Enter — новая строка · Ctrl+Enter — цитирование вкл/выкл'
+                                  ? tr('chat.replyTitleQuote')
+                                  : tr('chat.replyTitle')
                               }
                               spellCheck={false}
                               disabled={sending}
@@ -5484,8 +5491,8 @@ function TableChatDock({
                             <button
                               type="button"
                               className="table-chat-side-ear-phantom__reply-resize-grip"
-                              aria-label="Изменить высоту поля ответа"
-                              title="Потяните вверх или вниз"
+                              aria-label={tr('chat.replyResize')}
+                              title={tr('chat.pullVert')}
                               disabled={sending}
                               onPointerDown={onPhantomReplyResizePointerDown}
                               onPointerMove={onPhantomReplyResizePointerMove}
@@ -5499,13 +5506,13 @@ function TableChatDock({
                               onPointerDown={onPhantomDismissPointerDown}
                               onClick={onPhantomReplySendClick}
                               disabled={sending || !earPhantomReplyDraft.trim()}
-                              aria-label={sending ? 'Отправка…' : 'Отправить в чат'}
+                              aria-label={sending ? tr('chat.sending') : tr('chat.sendChat')}
                               title={
                                 sending
-                                  ? 'Отправка…'
+                                  ? tr('chat.sending')
                                   : earPhantomReplyIncludeQuote
                                     ? phantomReplyAnchorTitle
-                                    : 'Только ваш текст (включите «Добавить цитирование» для панели цитаты; при включении — «Отменить цитирование»)'
+                                    : tr('chat.sendPlainHint')
                               }
                             >
                               {sending ? (
@@ -5516,7 +5523,7 @@ function TableChatDock({
                                   ···
                                 </span>
                               ) : (
-                                'Отправить'
+                                tr('chat.send')
                               )}
                             </button>
                           </div>
@@ -5529,10 +5536,10 @@ function TableChatDock({
                           onPointerDown={onPhantomDismissPointerDown}
                           onClick={onPhantomReplyToggleClick}
                           aria-expanded
-                          aria-label="Закрыть окно ответа"
-                          title="Закрыть окно ответа"
+                          aria-label={tr('chat.closeReply')}
+                          title={tr('chat.closeReply')}
                         >
-                          Закрыть окно ответа
+                          {tr('chat.closeReply')}
                         </button>
                       </div>
                     ) : null}
@@ -5585,10 +5592,10 @@ function TableChatDock({
             }}
             aria-expanded="false"
             aria-label={
-              typingPhantomLine ? `Открыть чат. ${typingPhantomLine}` : 'Открыть чат стола'
+              typingPhantomLine ? tr('chat.openTableTyping', { line: typingPhantomLine }) : tr('chat.openTable')
             }
           >
-            <span aria-hidden>💬</span> Чат
+            <span aria-hidden>💬</span> {tr('chat.title')}
             {typingPhantomLine ? (
               <span className="table-chat-dock-pc-expand-btn__typing">{typingPhantomLine}</span>
             ) : null}
@@ -5640,8 +5647,8 @@ function TableChatDock({
           runChatSearch((e.target as HTMLInputElement).value);
         }}
         onPointerDown={(ev) => ev.stopPropagation()}
-        placeholder="слово или символ…"
-        aria-label="Поиск сообщений, слов и символов"
+        placeholder={tr('chat.searchPh')}
+        aria-label={tr('chat.searchAria')}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
@@ -5663,7 +5670,7 @@ function TableChatDock({
             setChatSearchQuery('');
             chatSearchInputRef.current?.focus();
           }}
-          aria-label="Очистить поиск"
+          aria-label={tr('chat.clearSearch')}
         >
           ×
         </button>
@@ -5672,7 +5679,7 @@ function TableChatDock({
   );
 
   const chatHeaderTools = (stopDrag: boolean) => (
-    <div className="table-chat-dock-header-tools" role="toolbar" aria-label="Параметры чата">
+    <div className="table-chat-dock-header-tools" role="toolbar" aria-label={tr('chat.tools')}>
       <button
         type="button"
         className={[
@@ -5685,10 +5692,10 @@ function TableChatDock({
         aria-pressed={chatNewestFirst}
         title={
           chatNewestFirst
-            ? 'Свежие сверху — нажмите, чтобы свежие были снизу'
-            : 'Свежие снизу — нажмите, чтобы свежие были сверху'
+            ? tr('chat.sortNewestTopHint')
+            : tr('chat.sortNewestBottomHint')
         }
-        aria-label={chatNewestFirst ? 'Порядок: свежие сверху' : 'Порядок: свежие снизу'}
+        aria-label={chatNewestFirst ? tr('chat.sortNewestTop') : tr('chat.sortNewestBottom')}
         onPointerDown={stopDrag ? (ev) => ev.stopPropagation() : undefined}
         onClick={() => {
           setChatNewestFirst((v) => {
@@ -5710,8 +5717,8 @@ function TableChatDock({
           .filter(Boolean)
           .join(' ')}
         aria-pressed={chatSearchOpen}
-        title={chatSearchOpen ? 'Закрыть поиск' : 'Поиск в чате'}
-        aria-label={chatSearchOpen ? 'Закрыть поиск' : 'Поиск в чате'}
+        title={chatSearchOpen ? tr('chat.closeSearch') : tr('chat.searchChat')}
+        aria-label={chatSearchOpen ? tr('chat.closeSearch') : tr('chat.searchChat')}
         onPointerDown={stopDrag ? (ev) => ev.stopPropagation() : undefined}
         onClick={() => {
           setChatSearchOpen((v) => {
@@ -5737,15 +5744,15 @@ function TableChatDock({
         .filter(Boolean)
         .join(' ')}
       role="group"
-      aria-label={`Кегль чата ${mobileChatFontPct}%`}
+      aria-label={tr('chat.fontAria', { pct: mobileChatFontPct })}
     >
       {!mobileChatFontAtMax ? (
         <button
           type="button"
           className="table-chat-dock-mobile-font-ctrl__half table-chat-dock-mobile-font-ctrl__half--plus"
           onClick={onMobileChatFontStepUp}
-          aria-label={`Увеличить кегль (сейчас ${mobileChatFontPct}%)`}
-          title={`Кегль ${mobileChatFontPct}% · увеличить`}
+          aria-label={tr('chat.fontUp', { pct: mobileChatFontPct })}
+          title={tr('chat.fontUpTitle', { pct: mobileChatFontPct })}
         >
           <ChatFontTypeGlyph plus />
         </button>
@@ -5758,8 +5765,8 @@ function TableChatDock({
           type="button"
           className="table-chat-dock-mobile-font-ctrl__half table-chat-dock-mobile-font-ctrl__half--minus"
           onClick={onMobileChatFontStepDown}
-          aria-label={`Уменьшить кегль (сейчас ${mobileChatFontPct}%)`}
-          title={`Кегль ${mobileChatFontPct}% · уменьшить`}
+          aria-label={tr('chat.fontDown', { pct: mobileChatFontPct })}
+          title={tr('chat.fontDownTitle', { pct: mobileChatFontPct })}
         >
           <ChatFontTypeGlyph plus={false} />
         </button>
@@ -5792,8 +5799,8 @@ function TableChatDock({
           type="button"
           className="table-chat-ls-height-handle"
           onPointerDown={mobileLsBottomChrome ? startLsChatResize : startMobileResize}
-          aria-label="Изменить высоту окна чата"
-          title="Потяните вверх, чтобы увеличить высоту"
+          aria-label={tr('chat.resizeHeight')}
+          title={tr('chat.pullUpHeight')}
         >
           <span aria-hidden>⋯</span>
         </button>
@@ -5808,20 +5815,20 @@ function TableChatDock({
                 <span className="table-chat-dock-title" aria-hidden>
                   💬
                 </span>
-                <span className="table-chat-dock-title-text">Чат стола</span>
+                <span className="table-chat-dock-title-text">{tr('chat.tableTitle')}</span>
                 {hasLocalHidden ? (
                   <button
                     type="button"
                     className="table-chat-hidden-chip"
                     aria-expanded={chatHiddenPanelOpen}
-                    aria-label="Показать скрытые сообщения"
-                    title="Скрытые только у вас — можно вернуть"
+                    aria-label={tr('chat.showHidden')}
+                    title={tr('chat.hiddenHint')}
                     onClick={() => {
                       closeMsgActionMenu();
                       setChatHiddenPanelOpen((v) => !v);
                     }}
                   >
-                    Скрыто
+                    {tr('chat.hiddenShort')}
                   </button>
                 ) : null}
                 {typingPhantomLine ? (
@@ -5845,11 +5852,11 @@ function TableChatDock({
                 .filter(Boolean)
                 .join(' ')}
               onClick={() => setMobileOpen(false)}
-              aria-label="Свернуть чат"
-              title="Свернуть"
+              aria-label={tr('chat.collapseChat')}
+              title={tr('table.collapse')}
             >
               <CrystalLilacGlyph id={`${emojiPanelDomId}-col-bottom`} path="M3.2 5.8 8 10.8l4.8-5" />
-              <span className="table-chat-dock-collapse__label">Свернуть</span>
+              <span className="table-chat-dock-collapse__label">{tr('table.collapse')}</span>
             </button>
           ) : null}
           <div className="table-chat-dock-mobile-quick-actions">
@@ -5858,8 +5865,8 @@ function TableChatDock({
                 type="button"
                 className="table-chat-east-crystal-btn table-chat-east-crystal-btn--collapse"
                 onClick={() => setMobileOpen(false)}
-                aria-label="Свернуть чат в капсулу"
-                title="Свернуть"
+                aria-label={tr('chat.collapseChatCapsule')}
+                title={tr('table.collapse')}
               >
                 <CrystalLilacGlyph id={`${emojiPanelDomId}-col`} path="M3.2 5.8 8 10.8l4.8-5" />
               </button>
@@ -5869,8 +5876,8 @@ function TableChatDock({
                 type="button"
                 className="table-chat-east-crystal-btn table-chat-dock-placement-btn"
                 onClick={onEastEmbedDismissToBottom}
-                aria-label="Переложить чат вниз, под Юг"
-                title="Чат снизу под Югом"
+                aria-label={tr('chat.moveSouth')}
+                title={tr('chat.moveSouthTitle')}
               >
                 <ChatPlacementDockGlyph side="bottom" />
               </button>
@@ -5880,8 +5887,8 @@ function TableChatDock({
                 type="button"
                 className="table-chat-east-crystal-btn table-chat-dock-placement-btn"
                 onClick={onLsBottomMoveToSide}
-                aria-label="Переложить чат вправо, к сукну"
-                title="Чат справа от сукна"
+                aria-label={tr('chat.moveFelt')}
+                title={tr('chat.moveFeltTitle')}
               >
                 <ChatPlacementDockGlyph side="east" />
               </button>
@@ -5897,9 +5904,9 @@ function TableChatDock({
                 .join(' ')}
               onClick={onMobileQuickMine}
               aria-pressed={emojiPickerOpen && emojiTab === 'mine'}
-              aria-label="Раздел Мои"
+              aria-label={tr('chat.mineSection')}
             >
-              <span className="table-chat-dock-mobile-quick-btn__label">Мои</span>
+              <span className="table-chat-dock-mobile-quick-btn__label">{tr('chat.tabMine')}</span>
             </button>
             {!mobileEmbedHost && (mobileLsBottomChrome || !collapseHintOn) ? (
               <button
@@ -5912,9 +5919,9 @@ function TableChatDock({
                   .join(' ')}
                 onClick={onMobileQuickPhrases}
                 aria-pressed={emojiPickerOpen && emojiTab === 'phrases'}
-                aria-label="Готовые фразы"
+                aria-label={tr('chat.readyPhrases')}
               >
-                <span className="table-chat-dock-mobile-quick-btn__label">Фразы</span>
+                <span className="table-chat-dock-mobile-quick-btn__label">{tr('chat.tabPhrases')}</span>
               </button>
             ) : null}
             {!eastHeaderOverflow ? mobileFontCtrl : null}
@@ -5931,8 +5938,8 @@ function TableChatDock({
                     .join(' ')}
                   aria-expanded={eastToolsMenuOpen}
                   aria-haspopup="true"
-                  aria-label="Ещё параметры чата"
-                  title="Поиск, порядок, кегль"
+                  aria-label={tr('chat.moreTools')}
+                  title={tr('chat.moreToolsTitle')}
                   onClick={() => setEastToolsMenuOpen((v) => !v)}
                 >
                   <span className="table-chat-dock-east-more__dots" aria-hidden>
@@ -5961,22 +5968,22 @@ function TableChatDock({
           {chatSearchOpen ? (
             chatSearchField
           ) : (
-            <span className="table-chat-dock-title-text">Чат</span>
+            <span className="table-chat-dock-title-text">{tr('chat.title')}</span>
           )}
           {hasLocalHidden && !chatSearchOpen ? (
             <button
               type="button"
               className="table-chat-hidden-chip"
               aria-expanded={chatHiddenPanelOpen}
-              aria-label="Показать скрытые сообщения"
-              title="Скрытые только у вас — можно вернуть"
+              aria-label={tr('chat.showHidden')}
+              title={tr('chat.hiddenHint')}
               onPointerDown={(ev) => ev.stopPropagation()}
               onClick={() => {
                 closeMsgActionMenu();
                 setChatHiddenPanelOpen((v) => !v);
               }}
             >
-              Скрыто
+              {tr('chat.hiddenShort')}
             </button>
           ) : null}
           {typingPhantomLine && !chatSearchOpen ? (
@@ -5997,8 +6004,8 @@ function TableChatDock({
                 /* ignore */
               }
             }}
-            aria-label="Свернуть чат"
-            title="Свернуть"
+            aria-label={tr('chat.collapseChat')}
+            title={tr('table.collapse')}
           >
             −
           </button>
@@ -6007,13 +6014,13 @@ function TableChatDock({
       <div ref={listRef} className="table-chat-messages table-chat-messages--pro" role="log" aria-live="polite">
         {visibleFeedMessages.length === 0 ? (
           <div className="table-chat-empty table-chat-empty--pro">
-            <span className="table-chat-empty__lead">Пока тихо</span>
-            <span className="table-chat-empty__hint">Напишите что-нибудь — сообщение увидят все за столом.</span>
+            <span className="table-chat-empty__lead">{tr('chat.emptyLead')}</span>
+            <span className="table-chat-empty__hint">{tr('chat.emptyHint')}</span>
           </div>
         ) : displayMessages.length === 0 ? (
           <div className="table-chat-empty table-chat-empty--pro">
-            <span className="table-chat-empty__lead">Ничего не найдено</span>
-            <span className="table-chat-empty__hint">Попробуйте другое слово или символ.</span>
+            <span className="table-chat-empty__lead">{tr('chat.noneLead')}</span>
+            <span className="table-chat-empty__hint">{tr('chat.noneHint')}</span>
           </div>
         ) : (
           displayMessages.map((m) => {
@@ -6043,9 +6050,9 @@ function TableChatDock({
               const hasContextQuote = parsePhantomContextualReplyBody(m.body) !== null;
               const reactChips = reactionsByMessageId.get(m.id) ?? [];
               const authorLabel = self
-                ? tableChatOwnAuthorLabel(displayName, m.display_name)
-                : m.display_name.trim() || 'Игрок';
-              const authorFold = foldTableChatDisplayName(authorLabel);
+                ? tableChatOwnAuthorLabel(displayName, m.display_name, tr)
+                : m.display_name.trim() || tr('common.player');
+              const authorFold = foldTableChatDisplayName(authorLabel, tr);
               const authorExpanded = expandedFeedNames.has(authorFold.full);
               const authorShown =
                 authorFold.long && !authorExpanded ? authorFold.folded : authorFold.full;
@@ -6081,7 +6088,7 @@ function TableChatDock({
                     }}
                     onPointerDown={(e) => e.stopPropagation()}
                     aria-expanded={authorFold.long ? authorExpanded : undefined}
-                    aria-label={self ? authorFold.full : `Написать ${authorFold.full}`}
+                    aria-label={self ? authorFold.full : tr('chat.writeTo', { name: authorFold.full })}
                   >
                     {nameInner}
                   </button>
@@ -6121,8 +6128,8 @@ function TableChatDock({
                         <button
                           type="button"
                           className="table-chat-msg-react-btn"
-                          aria-label="Добавить реакцию"
-                          title="Реакция"
+                          aria-label={tr('chat.addReaction')}
+                          title={tr('chat.reaction')}
                           onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -6155,8 +6162,8 @@ function TableChatDock({
                 {...msgActionHandlers}
               >
                 {!self && (
-                  <div className="table-chat-msg__avatar" aria-hidden title={m.display_name || 'Игрок'}>
-                    {initialsFromName(m.display_name || 'Игрок')}
+                  <div className="table-chat-msg__avatar" aria-hidden title={m.display_name || tr('common.player')}>
+                    {initialsFromName(m.display_name || tr('common.player'))}
                   </div>
                 )}
                 <div className="table-chat-msg__bubble-wrap">
@@ -6171,7 +6178,7 @@ function TableChatDock({
                         }}
                         onPointerDown={(e) => e.stopPropagation()}
                       >
-                        <ChatHighlightedText text={m.display_name || 'Игрок'} query={chatSearchQuery} />
+                        <ChatHighlightedText text={m.display_name || tr('common.player')} query={chatSearchQuery} />
                       </button>
                     )}
                     <time className="table-chat-msg__time" dateTime={m.created_at}>
@@ -6193,16 +6200,16 @@ function TableChatDock({
                             e.stopPropagation();
                             copyBody(m.body);
                           }}
-                          aria-label="Скопировать текст"
-                          title="Скопировать"
+                          aria-label={tr('chat.copyText')}
+                          title={tr('chat.copy')}
                         >
                           ⧉
                         </button>
                         <button
                           type="button"
                           className="table-chat-msg-react-btn table-chat-msg-react-btn--bubble"
-                          aria-label="Добавить реакцию"
-                          title="Реакция"
+                          aria-label={tr('chat.addReaction')}
+                          title={tr('chat.reaction')}
                           onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -6221,8 +6228,8 @@ function TableChatDock({
                   />
                 </div>
                 {self && (
-                  <div className="table-chat-msg__avatar table-chat-msg__avatar--self" aria-hidden title="Вы">
-                    {initialsFromName(displayName || 'Вы')}
+                  <div className="table-chat-msg__avatar table-chat-msg__avatar--self" aria-hidden title={formatYouName(displayName, tr)}>
+                    {initialsFromName(formatYouName(displayName, tr))}
                   </div>
                 )}
               </div>
@@ -6233,7 +6240,7 @@ function TableChatDock({
       {error && (
         <div className="table-chat-error table-chat-error--pro" role="alert">
           <span>{error}</span>
-          <button type="button" className="table-chat-error__dismiss" onClick={() => setError(null)} aria-label="Закрыть">
+          <button type="button" className="table-chat-error__dismiss" onClick={() => setError(null)} aria-label={tr('common.close')}>
             ×
           </button>
         </div>
@@ -6264,10 +6271,10 @@ function TableChatDock({
                 role="dialog"
                 aria-label={
                   emojiTab === 'phrases'
-                    ? 'Готовые фразы'
+                    ? tr('chat.readyPhrases')
                     : emojiTab === 'mine'
-                      ? 'Мои быстрые вставки'
-                      : 'Эмодзи для сообщения'
+                      ? tr('chat.mineSnippets')
+                      : tr('chat.emojiForMsg')
                 }
                 onPointerDown={(ev) => ev.stopPropagation()}
               >
@@ -6297,8 +6304,8 @@ function TableChatDock({
                         role="tab"
                         data-emoji-tab={tab.id}
                         aria-selected={emojiTab === tab.id}
-                        aria-label={tab.label}
-                        title={tab.label}
+                        aria-label={tableChatPickerTabLabel(tab.id, tr)}
+                        title={tableChatPickerTabLabel(tab.id, tr)}
                         className={[
                           'table-chat-emoji-tab',
                           emojiTab === tab.id ? 'table-chat-emoji-tab--active' : '',
@@ -6313,7 +6320,7 @@ function TableChatDock({
                             {tab.tabEmojiPc}
                           </span>
                         ) : (
-                          tab.label
+                          tableChatPickerTabLabel(tab.id, tr)
                         )}
                       </button>
                     ))}
@@ -6324,7 +6331,7 @@ function TableChatDock({
                       dir={-1}
                       onScroll={scrollMobileEmojiTabsBy}
                       className="table-chat-emoji-panel__tabs-peek table-chat-emoji-panel__tabs-peek--left"
-                      label="Прокрутить вкладки влево"
+                      label={tr('chat.tabsLeft')}
                       crystal
                     />
                   ) : null}
@@ -6334,7 +6341,7 @@ function TableChatDock({
                       dir={1}
                       onScroll={scrollMobileEmojiTabsBy}
                       className="table-chat-emoji-panel__tabs-peek"
-                      label="Прокрутить вкладки вправо"
+                      label={tr('chat.tabsRight')}
                       crystal
                     />
                   ) : null}
@@ -6343,12 +6350,12 @@ function TableChatDock({
                   <div className="table-chat-phrase-scroll">
                     {variant === 'mobile' ? (
                       <p className="table-chat-picker-short-hint" role="note">
-                        <span className="table-chat-picker-short-hint__lead">Тап</span> — в сообщение.
+                        <span className="table-chat-picker-short-hint__lead">{tr('chat.tapHint')}</span> {tr('chat.tapIntoMsg')}
                         {' '}
-                        <span className="table-chat-picker-short-hint__lead">★</span> — в «Мои».
+                        <span className="table-chat-picker-short-hint__lead">★</span> {tr('chat.starIntoMine')}
                       </p>
                     ) : null}
-                    {CHAT_QUICK_PHRASES.map((phrase, idx) => (
+                    {quickPhrases.map((phrase, idx) => (
                       <div key={`ph-${idx}`} className="table-chat-phrase-row">
                         <button
                           type="button"
@@ -6358,10 +6365,10 @@ function TableChatDock({
                           }}
                           title={
                             text.length + phrase.length > MAX_BODY
-                              ? 'В сообщение не влезет — нажмите «В Мои» справа, чтобы сохранить'
+                              ? tr('chat.wontFit')
                               : variant === 'pc'
-                                ? 'Клик — вставить в сообщение. Shift/Alt + клик — только в «Мои»'
-                                : 'Тап — в сообщение'
+                                ? tr('chat.clickInsert')
+                                : tr('chat.tapInsert')
                           }
                           onClick={(e) => {
                             if (variant === 'mobile' && consumeMobileLongPressFired()) {
@@ -6410,12 +6417,12 @@ function TableChatDock({
                           }}
                           title={
                             variant === 'pc'
-                              ? 'Добавить эту фразу в «Мои»'
-                              : 'Сохранить в банк «Мои» на этом устройстве'
+                              ? tr('chat.addPhraseMine')
+                              : tr('chat.saveMineDevice')
                           }
-                          aria-label={`В «Мои»: ${phrase.slice(0, 48)}`}
+                          aria-label={tr('chat.toMineItem', { s: phrase.slice(0, 48) })}
                         >
-                          {variant === 'mobile' ? '★' : variant === 'pc' ? 'В Мои' : '+'}
+                          {variant === 'mobile' ? '★' : variant === 'pc' ? tr('chat.toMine') : '+'}
                         </button>
                       </div>
                     ))}
@@ -6428,15 +6435,15 @@ function TableChatDock({
                           type="button"
                           className="table-chat-mine__hint-toggle"
                           aria-expanded={minePcHelpOpen}
-                          title={minePcHelpOpen ? 'Свернуть' : 'Как добавить в «Мои»'}
-                          aria-label={minePcHelpOpen ? 'Свернуть подсказку' : 'Как добавить в «Мои»'}
+                          title={minePcHelpOpen ? tr('table.collapse') : tr('chat.mineHelp')}
+                          aria-label={minePcHelpOpen ? tr('chat.collapseHint') : tr('chat.mineHelp')}
                           onClick={() => setMinePcHelpOpen((v) => !v)}
                         >
                           {minePcHelpOpen ? '×' : '?'}
                         </button>
                         {minePcHelpOpen ? (
                           <p className="table-chat-mine__hint table-chat-mine__hint--expanded">
-                            ★ у эмодзи, «+» у фразы, Shift+клик; поле или «Из поля».
+                            {tr('chat.mineHelpHint')}
                           </p>
                         ) : null}
                       </div>
@@ -6444,16 +6451,12 @@ function TableChatDock({
                     <div className="table-chat-mine__scroll">
                       {mySnippets.length === 0 ? (
                         <div className="table-chat-mine__empty table-chat-mine__empty--guide">
-                          <p className="table-chat-mine__empty-lead">Пока пусто</p>
+                          <p className="table-chat-mine__empty-lead">{tr('chat.mineEmpty')}</p>
                           {variant === 'mobile' ? (
                             <>
                               <ol className="table-chat-mine__empty-steps">
-                                <li>
-                                  Введите фразу в поле <strong>ниже</strong> и нажмите «Добавить»
-                                </li>
-                                <li>
-                                  Или откройте эмодзи / фразы и нажмите <strong>★</strong> / «В Мои»
-                                </li>
+                                <li>{tr('chat.mineStep1')}</li>
+                                <li>{tr('chat.mineStep2')}</li>
                               </ol>
                               <div className="table-chat-mine__empty-actions">
                                 <button
@@ -6464,7 +6467,7 @@ function TableChatDock({
                                     setEmojiBankExpanded(false);
                                   }}
                                 >
-                                  К эмодзи
+                                  {tr('chat.toEmoji')}
                                 </button>
                                 <button
                                   type="button"
@@ -6474,13 +6477,13 @@ function TableChatDock({
                                     setEmojiBankExpanded(false);
                                   }}
                                 >
-                                  К фразам
+                                  {tr('chat.toPhrases')}
                                 </button>
                               </div>
                             </>
                           ) : (
                             <p className="table-chat-mine__empty-hint">
-                              ★ у эмодзи, «+» у фразы, или поле ниже.
+                              {tr('chat.mineEmptyHint')}
                             </p>
                           )}
                         </div>
@@ -6504,8 +6507,8 @@ function TableChatDock({
                                     <button
                                       type="button"
                                       className="table-chat-mine__rewrite"
-                                      aria-label={`Изменить: ${s.slice(0, 40)}`}
-                                      title="Изменить"
+                                      aria-label={tr('chat.editItem', { s: s.slice(0, 40) })}
+                                      title={tr('chat.edit')}
                                       onClick={() => {
                                         setMineDraft(s);
                                         setMineEditIndex(idx);
@@ -6518,7 +6521,7 @@ function TableChatDock({
                                     <button
                                       type="button"
                                       className="table-chat-mine__del"
-                                      aria-label={`Удалить: ${s.slice(0, 40)}`}
+                                      aria-label={tr('chat.deleteItem', { s: s.slice(0, 40) })}
                                       onClick={() => removeMineSnippet(idx)}
                                     >
                                       ×
@@ -6546,8 +6549,8 @@ function TableChatDock({
                                     <button
                                       type="button"
                                       className="table-chat-mine__rewrite"
-                                      aria-label={`Изменить: ${s.slice(0, 40)}`}
-                                      title="Изменить"
+                                      aria-label={tr('chat.editItem', { s: s.slice(0, 40) })}
+                                      title={tr('chat.edit')}
                                       onClick={() => {
                                         setMineDraft(s);
                                         setMineEditIndex(idx);
@@ -6560,7 +6563,7 @@ function TableChatDock({
                                     <button
                                       type="button"
                                       className="table-chat-mine__del table-chat-mine__del--emoji"
-                                      aria-label={`Удалить: ${s.slice(0, 40)}`}
+                                      aria-label={tr('chat.deleteItem', { s: s.slice(0, 40) })}
                                       onClick={() => removeMineSnippet(idx)}
                                     >
                                       ×
@@ -6587,9 +6590,9 @@ function TableChatDock({
                             });
                           }}
                           aria-pressed={mobileMineEditMode}
-                          aria-label={mobileMineEditMode ? 'Готово' : 'Настроить список Мои'}
+                          aria-label={mobileMineEditMode ? tr('chat.done') : tr('chat.mineEdit')}
                         >
-                          {mobileMineEditMode ? 'Готово' : 'Настроить'}
+                          {mobileMineEditMode ? tr('chat.done') : tr('chat.setup')}
                         </button>
                       ) : null}
                       <input
@@ -6603,18 +6606,18 @@ function TableChatDock({
                             commitMineDraft();
                           }
                         }}
-                        placeholder={variant === 'mobile' ? 'Новая фраза…' : 'Новая фраза или эмодзи…'}
+                        placeholder={variant === 'mobile' ? tr('chat.newPhrase') : tr('chat.newPhraseOrEmoji')}
                         maxLength={MY_SNIPPETS_MAX_LEN}
-                        aria-label="Новая строка для банка «Мои»"
+                        aria-label={tr('chat.newMineAria')}
                       />
                       <button
                         type="button"
                         className="table-chat-mine__add-btn"
                         disabled={!mineDraft.trim() || mySnippets.length >= MY_SNIPPETS_MAX}
                         onClick={() => commitMineDraft()}
-                        aria-label={mineEditIndex != null ? 'Сохранить изменение' : 'Добавить'}
+                        aria-label={mineEditIndex != null ? tr('chat.saveChange') : tr('chat.add')}
                       >
-                        {variant === 'mobile' ? (mineEditIndex != null ? '✓' : '+') : mineEditIndex != null ? 'Сохранить' : 'Добавить'}
+                        {variant === 'mobile' ? (mineEditIndex != null ? '✓' : '+') : mineEditIndex != null ? tr('common.save') : tr('chat.add')}
                       </button>
                     </div>
                   </div>
@@ -6622,9 +6625,9 @@ function TableChatDock({
                   <>
                     {variant === 'mobile' ? (
                       <p className="table-chat-picker-short-hint" role="note">
-                        <span className="table-chat-picker-short-hint__lead">Тап</span> — в сообщение.
+                        <span className="table-chat-picker-short-hint__lead">{tr('chat.tapHint')}</span> {tr('chat.tapIntoMsg')}
                         {' '}
-                        <span className="table-chat-picker-short-hint__lead">★</span> — в «Мои».
+                        <span className="table-chat-picker-short-hint__lead">★</span> {tr('chat.starIntoMine')}
                       </p>
                     ) : null}
                     {variant !== 'mobile' &&
@@ -6637,7 +6640,7 @@ function TableChatDock({
                         aria-controls={`${emojiPanelDomId}-grid`}
                         onClick={() => setEmojiBankExpanded((v) => !v)}
                       >
-                        {emojiBankExpanded ? '− Свернуть' : '+ Ещё эмодзи'}
+                        {emojiBankExpanded ? tr('chat.collapseEmoji') : tr('chat.moreEmoji')}
                       </button>
                     ) : null}
                     <div className="table-chat-emoji-panel__grid" id={`${emojiPanelDomId}-grid`}>
@@ -6650,10 +6653,10 @@ function TableChatDock({
                               className="table-chat-emoji-cell"
                               title={
                                 variant === 'mobile'
-                                  ? `${emo} — тап: в чат; ★: в «Мои»`
-                                  : `${emo} — обычный клик: в сообщение. Shift или Alt + клик: сохранить в «Мои»`
+                                  ? tr('chat.emojiTapHint', { emo })
+                                  : tr('chat.emojiClickHint', { emo })
                               }
-                              aria-label={`Вставить ${emo}`}
+                              aria-label={tr('chat.insertItem', { s: emo })}
                               style={{
                                 opacity: text.length + emo.length > MAX_BODY ? 0.45 : 1,
                               }}
@@ -6700,10 +6703,10 @@ function TableChatDock({
                                 .join(' ')}
                               title={
                                 mySnippets.length >= MY_SNIPPETS_MAX
-                                  ? 'Список «Мои» полон — удалите строку или замените фразу'
-                                  : 'Добавить в «Мои»'
+                                  ? tr('chat.mineFull')
+                                  : tr('chat.addToMine')
                               }
-                              aria-label={`Добавить в «Мои»: ${emo}`}
+                              aria-label={tr('chat.addToMineItem', { s: emo })}
                               aria-disabled={mySnippets.length >= MY_SNIPPETS_MAX}
                               onMouseDown={(e) => {
                                 e.stopPropagation();
@@ -6730,10 +6733,10 @@ function TableChatDock({
                           className="table-chat-emoji-more table-chat-emoji-more--compact"
                           aria-expanded={emojiBankExpanded}
                           aria-controls={`${emojiPanelDomId}-grid`}
-                          aria-label={emojiBankExpanded ? 'Свернуть дополнительные эмодзи' : 'Ещё эмодзи'}
+                          aria-label={emojiBankExpanded ? tr('chat.collapseMoreEmoji') : tr('chat.moreEmojiShort')}
                           onClick={() => setEmojiBankExpanded((v) => !v)}
                         >
-                          {emojiBankExpanded ? '−' : '+ ещё'}
+                          {emojiBankExpanded ? '−' : `+ ${tr('chat.more')}`}
                         </button>
                       ) : null}
                     </div>
@@ -6749,8 +6752,8 @@ function TableChatDock({
                 aria-expanded={emojiPickerOpen}
                 aria-haspopup="dialog"
                 aria-controls={emojiPanelDomId}
-                aria-label={emojiPickerOpen ? 'Закрыть вставку' : 'Эмодзи и фразы'}
-                title="Эмодзи и фразы"
+                aria-label={emojiPickerOpen ? tr('chat.closeInsert') : tr('chat.emojiAndPhrases')}
+                title={tr('chat.emojiAndPhrases')}
                 onPointerDown={(ev) => ev.stopPropagation()}
                 onClick={onEmojiToggle}
               >
@@ -6775,7 +6778,7 @@ function TableChatDock({
               <div
                 ref={mobileFavoritesRef}
                 className="table-chat-mobile-favorites"
-                aria-label="Избранные вставки. Прокрутите вбок, если есть ещё"
+                aria-label={tr('chat.favScroll')}
                 onScroll={updateMobileFavoritesOverflow}
               >
                 {mySnippets.slice(0, 10).map((s, idx) => (
@@ -6802,7 +6805,7 @@ function TableChatDock({
                   dir={-1}
                   onScroll={scrollMobileFavoritesBy}
                   className="table-chat-mobile-favorites-rail__peek table-chat-mobile-favorites-rail__peek--left"
-                  label="Прокрутить избранное влево"
+                  label={tr('chat.favLeft')}
                   crystal={!mobileEmbedHost}
                 />
               ) : null}
@@ -6812,7 +6815,7 @@ function TableChatDock({
                   dir={1}
                   onScroll={scrollMobileFavoritesBy}
                   className="table-chat-mobile-favorites-rail__peek"
-                  label="Прокрутить избранное вправо"
+                  label={tr('chat.favRight')}
                   crystal={!mobileEmbedHost}
                 />
               ) : null}
@@ -6822,15 +6825,15 @@ function TableChatDock({
             <div className="table-chat-feed-reply-strip" role="status">
               <div className="table-chat-feed-reply-strip__accent" aria-hidden />
               <div className="table-chat-feed-reply-strip__body">
-                <span className="table-chat-feed-reply-strip__kicker">Ответ</span>
+                <span className="table-chat-feed-reply-strip__kicker">{tr('chat.replyKicker')}</span>
                 <span className="table-chat-feed-reply-strip__author">{feedReplyPreview.author}</span>
                 <span className="table-chat-feed-reply-strip__excerpt">{feedReplyPreview.excerpt}</span>
               </div>
               <button
                 type="button"
                 className="table-chat-feed-reply-strip__clear"
-                aria-label="Отменить цитату"
-                title="Отменить цитату"
+                aria-label={tr('chat.cancelQuote')}
+                title={tr('chat.cancelQuote')}
                 onClick={() => setFeedReplyAnchor(null)}
               >
                 ×
@@ -6841,14 +6844,14 @@ function TableChatDock({
             <div className="table-chat-feed-reply-strip table-chat-feed-reply-strip--address" role="status">
               <div className="table-chat-feed-reply-strip__accent" aria-hidden />
               <div className="table-chat-feed-reply-strip__body">
-                <span className="table-chat-feed-reply-strip__kicker">Для</span>
+                <span className="table-chat-feed-reply-strip__kicker">{tr('chat.forKicker')}</span>
                 <span className="table-chat-feed-reply-strip__author">{feedAddressTo}</span>
               </div>
               <button
                 type="button"
                 className="table-chat-feed-reply-strip__clear"
-                aria-label="Отменить адресата"
-                title="Отменить адресата"
+                aria-label={tr('chat.cancelAddr')}
+                title={tr('chat.cancelAddr')}
                 onClick={() => setFeedAddressTo(null)}
               >
                 ×
@@ -6872,8 +6875,8 @@ function TableChatDock({
                 aria-expanded={emojiPickerOpen}
                 aria-haspopup="dialog"
                 aria-controls={emojiPanelDomId}
-                aria-label={emojiPickerOpen ? 'Закрыть вставку' : 'Эмодзи и фразы'}
-                title="Эмодзи и фразы"
+                aria-label={emojiPickerOpen ? tr('chat.closeInsert') : tr('chat.emojiAndPhrases')}
+                title={tr('chat.emojiAndPhrases')}
                 onClick={onEmojiToggle}
               >
                 <span aria-hidden>✨</span>
@@ -6890,23 +6893,23 @@ function TableChatDock({
                 }}
                 placeholder={
                   feedAddressTo
-                    ? `Для ${feedAddressTo}…`
+                    ? tr('chat.forPh', { name: feedAddressTo })
                     : feedReplyAnchor
-                      ? `Ответ для ${feedReplyAnchor.author || 'собеседника'}…`
-                      : 'Сообщение…'
+                      ? tr('chat.replyForPh', { name: feedReplyAnchor.author || tr('chat.peer') })
+                      : tr('chat.messagePh')
                 }
                 maxLength={MAX_BODY}
                 rows={1}
                 className="table-chat-input table-chat-input--pro table-chat-input--mobile-inline"
                 autoComplete="off"
-                aria-label="Текст сообщения в чат"
+                aria-label={tr('chat.msgAria')}
               />
               <button
                 type="button"
                 className="table-chat-mobile-input-shell__send"
                 onClick={() => void onSend()}
                 disabled={sending || !text.trim()}
-                aria-label={sending ? 'Отправка…' : 'Отправить'}
+                aria-label={sending ? tr('chat.sending') : tr('chat.send')}
               >
                 {sending ? (
                   <span className="table-chat-send__spinner" aria-hidden />
@@ -6935,10 +6938,10 @@ function TableChatDock({
                 }}
                 placeholder={
                   feedAddressTo
-                    ? `Для ${feedAddressTo}…`
+                    ? tr('chat.forPh', { name: feedAddressTo })
                     : feedReplyAnchor
-                      ? `Ответ для ${feedReplyAnchor.author || 'собеседника'}…`
-                      : 'Сообщение…'
+                      ? tr('chat.replyForPh', { name: feedReplyAnchor.author || tr('chat.peer') })
+                      : tr('chat.messagePh')
                 }
                 maxLength={MAX_BODY}
                 rows={1}
@@ -6950,7 +6953,7 @@ function TableChatDock({
                   .filter(Boolean)
                   .join(' ')}
                 autoComplete="off"
-                aria-label="Текст сообщения в чат"
+                aria-label={tr('chat.msgAria')}
               />
               <div className="table-chat-composer__footer">
                 <span className="table-chat-composer__counter" aria-live="polite">
@@ -6961,9 +6964,9 @@ function TableChatDock({
                   className="table-chat-send table-chat-send--pro"
                   onClick={() => void onSend()}
                   disabled={sending || !text.trim()}
-                  aria-label={sending ? 'Отправка…' : 'Отправить'}
+                  aria-label={sending ? tr('chat.sending') : tr('chat.send')}
                 >
-                  {sending ? <span className="table-chat-send__spinner" aria-hidden /> : 'Отправить'}
+                  {sending ? <span className="table-chat-send__spinner" aria-hidden /> : tr('chat.send')}
                 </button>
               </div>
             </>
@@ -6984,8 +6987,8 @@ function TableChatDock({
             ev.stopPropagation();
             startPcResize(ev);
           }}
-          aria-label="Изменить размер окна чата: потяните угол"
-          title="Потяните угол, чтобы изменить ширину и высоту"
+          aria-label={tr('chat.resizeCorner')}
+          title={tr('chat.resizeCornerTitle')}
         />
       ) : null}
       {chatHiddenPanelOpen && hasLocalHidden ? (
@@ -7002,25 +7005,25 @@ function TableChatDock({
           <button
             type="button"
             className="table-chat-msg-action-layer__dismiss"
-            aria-label="Закрыть список скрытых"
+            aria-label={tr('chat.closeHidden')}
             onClick={() => setChatHiddenPanelOpen(false)}
           />
           <div
             className="table-chat-msg-action-sheet table-chat-hidden-sheet"
             role="dialog"
-            aria-label="Скрытые сообщения"
+            aria-label={tr('chat.hiddenMsgs')}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
           >
             <div className="table-chat-msg-action-sheet__head">
               <div className="table-chat-msg-action-sheet__preview">
-                <span className="table-chat-msg-action-sheet__author">Скрыто у вас</span>
-                <span className="table-chat-msg-action-sheet__snippet">Можно вернуть в любой момент</span>
+                <span className="table-chat-msg-action-sheet__author">{tr('chat.hiddenYou')}</span>
+                <span className="table-chat-msg-action-sheet__snippet">{tr('chat.hiddenRestore')}</span>
               </div>
               <button
                 type="button"
                 className="table-chat-msg-action-sheet__close"
-                aria-label="Закрыть"
+                aria-label={tr('common.close')}
                 onClick={() => setChatHiddenPanelOpen(false)}
               >
                 ×
@@ -7035,7 +7038,7 @@ function TableChatDock({
                     className="table-chat-hidden-sheet__show"
                     onClick={() => unhideChatUserById(u.id)}
                   >
-                    Показать
+                    {tr('chat.show')}
                   </button>
                 </div>
               ))}
@@ -7043,15 +7046,15 @@ function TableChatDock({
                 <div className="table-chat-hidden-sheet__row">
                   <span className="table-chat-hidden-sheet__label">
                     {hiddenSoloMsgCount > 0
-                      ? `Сообщения (${hiddenSoloMsgCount})`
-                      : 'Скрытые сообщения'}
+                      ? tr('chat.msgsCount', { n: hiddenSoloMsgCount })
+                      : tr('chat.hiddenMsgs')}
                   </span>
                   <button
                     type="button"
                     className="table-chat-hidden-sheet__show"
                     onClick={unhideAllHiddenMessages}
                   >
-                    Показать
+                    {tr('chat.show')}
                   </button>
                 </div>
               ) : null}
@@ -7062,7 +7065,7 @@ function TableChatDock({
               onClick={unhideAllHiddenChat}
             >
               <span className="table-chat-msg-action-sheet__btn-copy">
-                <strong>Показать всё</strong>
+<strong>{tr('chat.showAll')}</strong>
               </span>
             </button>
           </div>
@@ -7072,7 +7075,7 @@ function TableChatDock({
         <div className="table-chat-hide-toast" role="status">
           <span>{chatHideUndo.label}</span>
           <button type="button" className="table-chat-hide-toast__undo" onClick={undoChatHide}>
-            Вернуть
+            {tr('chat.restore')}
           </button>
         </div>
       ) : null}
@@ -7090,7 +7093,7 @@ function TableChatDock({
           <button
             type="button"
             className="table-chat-msg-action-layer__dismiss"
-            aria-label="Закрыть меню сообщения"
+            aria-label={tr('chat.closeMsgMenu')}
             onClick={closeMsgActionMenu}
           />
           <div
@@ -7103,10 +7106,10 @@ function TableChatDock({
             role="dialog"
             aria-label={
               msgActionMode === 'react'
-                ? `Реакция на сообщение от ${msgActionTarget.author || 'игрока'}`
+                ? tr('chat.reactOn', { name: msgActionTarget.author || tr('chat.playerOf') })
                 : msgActionMode === 'name'
-                  ? `Написать ${msgActionTarget.author || 'игроку'}`
-                  : `Действия с сообщением от ${msgActionTarget.author || 'игрока'}`
+                  ? tr('chat.writeTo', { name: msgActionTarget.author || tr('chat.toPlayer') })
+                  : tr('chat.msgActions', { name: msgActionTarget.author || tr('chat.playerOf') })
             }
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
@@ -7114,7 +7117,7 @@ function TableChatDock({
             <div className="table-chat-msg-action-sheet__head">
               <div className="table-chat-msg-action-sheet__preview">
                 <span className="table-chat-msg-action-sheet__author">
-                  {msgActionTarget.author.trim() || 'Игрок'}
+                  {msgActionTarget.author.trim() || tr('common.player')}
                 </span>
                 <span className="table-chat-msg-action-sheet__snippet">
                   {truncatePhantomQuoteExcerpt(msgActionTarget.body, 42)}
@@ -7123,7 +7126,7 @@ function TableChatDock({
               <button
                 type="button"
                 className="table-chat-msg-action-sheet__close"
-                aria-label="Закрыть"
+                aria-label={tr('common.close')}
                 onClick={closeMsgActionMenu}
               >
                 ×
@@ -7135,35 +7138,35 @@ function TableChatDock({
                   type="button"
                   className="table-chat-msg-action-sheet__btn"
                   role="menuitem"
-                  title="Ответить с цитатой"
+                  title={tr('chat.replyQuote')}
                   onClick={beginFeedQuoteReply}
                 >
                   <span className="table-chat-msg-action-sheet__btn-ico" aria-hidden>
                     ↩
                   </span>
                   <span className="table-chat-msg-action-sheet__btn-copy">
-                    <strong>Ответить</strong>
+<strong>{tr('chat.reply')}</strong>
                   </span>
                 </button>
                 <button
                   type="button"
                   className="table-chat-msg-action-sheet__btn"
                   role="menuitem"
-                  title="Скопировать текст"
+                  title={tr('chat.copyText')}
                   onClick={copyMsgActionTarget}
                 >
                   <span className="table-chat-msg-action-sheet__btn-ico" aria-hidden>
                     ⧉
                   </span>
                   <span className="table-chat-msg-action-sheet__btn-copy">
-                    <strong>Копировать</strong>
+<strong>{tr('chat.copy')}</strong>
                   </span>
                 </button>
                 <button
                   type="button"
                   className="table-chat-msg-action-sheet__btn table-chat-msg-action-sheet__btn--quiet"
                   role="menuitem"
-                  title={tableChatMessageSheetHideCopy(msgActionTarget.userId === userId).title}
+                  title={tableChatMessageSheetHideCopy(msgActionTarget.userId === userId, tr).title}
                   onClick={hideChatMessage}
                 >
                   <span className="table-chat-msg-action-sheet__btn-ico" aria-hidden>
@@ -7171,7 +7174,7 @@ function TableChatDock({
                   </span>
                   <span className="table-chat-msg-action-sheet__btn-copy">
                     <strong>
-                      {tableChatMessageSheetHideCopy(msgActionTarget.userId === userId).label}
+                      {tableChatMessageSheetHideCopy(msgActionTarget.userId === userId, tr).label}
                     </strong>
                   </span>
                 </button>
@@ -7182,36 +7185,36 @@ function TableChatDock({
                   type="button"
                   className="table-chat-msg-action-sheet__btn"
                   role="menuitem"
-                  title={`Написать ${msgActionTarget.author.trim() || 'отправителю'}`}
+                  title={tr('chat.writeToSender', { name: msgActionTarget.author.trim() || tr('chat.toSender') })}
                   onClick={beginFeedAddressSender}
                 >
                   <span className="table-chat-msg-action-sheet__btn-ico" aria-hidden>
                     ✎
                   </span>
                   <span className="table-chat-msg-action-sheet__btn-copy">
-                    <strong>Написать</strong>
+<strong>{tr('chat.write')}</strong>
                   </span>
                 </button>
                 <button
                   type="button"
                   className="table-chat-msg-action-sheet__btn table-chat-msg-action-sheet__btn--quiet"
                   role="menuitem"
-                  title="Скрыть все сообщения этого игрока у себя"
+                  title={tr('chat.hideAllHint')}
                   onClick={hideChatUser}
                 >
                   <span className="table-chat-msg-action-sheet__btn-ico" aria-hidden>
                     ⌕
                   </span>
                   <span className="table-chat-msg-action-sheet__btn-copy">
-                    <strong>Скрыть все</strong>
+<strong>{tr('chat.hideAll')}</strong>
                   </span>
                 </button>
               </div>
             ) : (
-              <div className="table-chat-msg-action-sheet__reacts" role="listbox" aria-label="Выберите реакцию">
+              <div className="table-chat-msg-action-sheet__reacts" role="listbox" aria-label={tr('chat.pickReaction')}>
                 {msgReactMineSnippets.length > 0 ? (
                   <>
-                    <span className="table-chat-msg-action-sheet__react-kicker">Мои</span>
+                    <span className="table-chat-msg-action-sheet__react-kicker">{tr('chat.tabMine')}</span>
                     <div className="table-chat-msg-action-sheet__react-grid table-chat-msg-action-sheet__react-grid--mine">
                       {msgReactMineSnippets.map((emo) => (
                         <button
@@ -7226,7 +7229,7 @@ function TableChatDock({
                             .filter(Boolean)
                             .join(' ')}
                           role="option"
-                          aria-label={`Моя реакция ${emo}`}
+                          aria-label={tr('chat.myReaction', { emoji: emo })}
                           aria-selected={msgActionMineEmoji === emo}
                           disabled={sending}
                           onClick={() => void sendMsgReaction(emo)}
@@ -7237,7 +7240,7 @@ function TableChatDock({
                     </div>
                   </>
                 ) : null}
-                <span className="table-chat-msg-action-sheet__react-kicker">Реакции</span>
+                <span className="table-chat-msg-action-sheet__react-kicker">{tr('chat.reactions')}</span>
                 <div className="table-chat-msg-action-sheet__react-grid">
                   {REACTION_EMOJI_PRIMARY.map((emo) => (
                     <button
@@ -7252,7 +7255,7 @@ function TableChatDock({
                         .filter(Boolean)
                         .join(' ')}
                       role="option"
-                      aria-label={`Реакция ${emo}`}
+                      aria-label={tr('chat.reactionEmoji', { emoji: emo })}
                       aria-selected={msgActionMineEmoji === emo}
                       disabled={sending}
                       onClick={() => void sendMsgReaction(emo)}

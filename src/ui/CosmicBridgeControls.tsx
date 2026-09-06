@@ -5,6 +5,7 @@
 import type { CSSProperties, ReactNode, RefObject } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { accountRouteHref } from '../lib/accountRoute';
+import { useT } from '../i18n';
 import type { GameOverCloudSave } from './CosmicCockpit';
 
 export function GameOverBridgeScenery() {
@@ -33,11 +34,12 @@ export function GameOverCloudStatus({
   /** Мобильный праздничный экран: одна ссылка под «Подробнее» */
   compact?: boolean;
 }) {
+  const tr = useT();
   if (compact) {
     if (cloudSave === 'pending') {
       return (
         <p className="game-over-lk-compact game-over-lk-compact--pending" role="status">
-          Сохранение…
+          {tr('gameOver.saving')}
         </p>
       );
     }
@@ -49,7 +51,7 @@ export function GameOverCloudStatus({
     ) {
       return (
         <a href={accountRouteHref()} className="game-over-lk-compact">
-          В Личный Кабинет
+          {tr('gameOver.toCabinet')}
         </a>
       );
     }
@@ -60,9 +62,9 @@ export function GameOverCloudStatus({
       <div className="game-over-cloud-status game-over-cloud-status--ok" role="status">
         <span className="game-over-cloud-status__lamp" aria-hidden />
         <span className="game-over-cloud-status__text">
-          Сохранено в аккаунт ·{' '}
+          {tr('gameOver.savedInAccount')}{' '}
           <a href={accountRouteHref()} className="game-over-lk-link">
-            личный кабинет
+            {tr('gameOver.cabinet')}
           </a>
         </span>
       </div>
@@ -72,7 +74,7 @@ export function GameOverCloudStatus({
     return (
       <div className="game-over-cloud-status game-over-cloud-status--pending" role="status">
         <span className="game-over-cloud-status__lamp" aria-hidden />
-        <span className="game-over-cloud-status__text">Сохранение в аккаунт…</span>
+        <span className="game-over-cloud-status__text">{tr('gameOver.savingAccount')}</span>
       </div>
     );
   }
@@ -81,9 +83,9 @@ export function GameOverCloudStatus({
       <div className="game-over-cloud-status game-over-cloud-status--fail" role="status">
         <span className="game-over-cloud-status__lamp" aria-hidden />
         <span className="game-over-cloud-status__text">
-          Облако недоступно — проверьте вход и{' '}
+          {tr('gameOver.cloudOff')}{' '}
           <a href={accountRouteHref()} className="game-over-lk-link">
-            личный кабинет
+            {tr('gameOver.cabinet')}
           </a>
         </span>
       </div>
@@ -94,12 +96,12 @@ export function GameOverCloudStatus({
       <div className="game-over-cloud-status game-over-cloud-status--hint" role="status">
         <span className="game-over-cloud-status__lamp" aria-hidden />
         <span className="game-over-cloud-status__text">
-          История на всех устройствах —{' '}
+          {tr('gameOver.historyEverywhere')}{' '}
           <a href={accountRouteHref()} className="game-over-lk-link">
-            личный кабинет
+            {tr('gameOver.cabinet')}
           </a>
           {' '}
-          <span className="game-over-cloud-status__sub">(вход в аккаунт для синхронизации)</span>
+          <span className="game-over-cloud-status__sub">{tr('gameOver.signInSync')}</span>
         </span>
       </div>
     );
@@ -218,12 +220,13 @@ export function GameOverBridgeScrollGutter({
 
 /** Центральная подсказка «Статистика». */
 export function GameOverBridgeScrollHint({ visible }: { visible: boolean }) {
+  const tr = useT();
   if (!visible) return null;
 
   return (
     <div className="game-over-bridge__scroll-hint" aria-hidden>
       <span className="game-over-bridge__scroll-hint-chevron">↓</span>
-      <span className="game-over-bridge__scroll-hint-text">Статистика</span>
+      <span className="game-over-bridge__scroll-hint-text">{tr('gameOver.stats')}</span>
     </div>
   );
 }
@@ -239,26 +242,27 @@ export function BridgeDock({
   onNewGame?: () => void;
   hideNewGame?: boolean;
 }) {
+  const tr = useT();
   return (
-    <nav className="bridge-dock" aria-label="Управление после партии">
+    <nav className="bridge-dock" aria-label={tr('gameOver.afterMatch')}>
       <button type="button" className="bridge-pod bridge-pod--helm" onClick={onExit}>
         <span className="bridge-pod__shine" aria-hidden />
         <span className="bridge-pod__icon" aria-hidden>
           ◁
         </span>
         <span className="bridge-pod__text">
-          <span className="bridge-pod__label">Меню</span>
-          <span className="bridge-pod__sublabel">на главную</span>
+          <span className="bridge-pod__label">{tr('common.menu')}</span>
+          <span className="bridge-pod__sublabel">{tr('gameOver.toMain')}</span>
         </span>
       </button>
-      <button type="button" className="bridge-pod bridge-pod--sigma" onClick={onOpenTable} title="Таблица раздач">
+      <button type="button" className="bridge-pod bridge-pod--sigma" onClick={onOpenTable} title={tr('gameOver.dealsTable')}>
         <span className="bridge-pod__shine" aria-hidden />
         <span className="bridge-pod__icon" aria-hidden>
           ▦
         </span>
         <span className="bridge-pod__text">
-          <span className="bridge-pod__label">Раздачи</span>
-          <span className="bridge-pod__sublabel">таблица</span>
+          <span className="bridge-pod__label">{tr('gameOver.deals')}</span>
+          <span className="bridge-pod__sublabel">{tr('gameOver.dealsSub')}</span>
         </span>
       </button>
       {!hideNewGame && onNewGame && (
@@ -268,8 +272,8 @@ export function BridgeDock({
             ▶
           </span>
           <span className="bridge-pod__text">
-            <span className="bridge-pod__label">Старт</span>
-            <span className="bridge-pod__sublabel">новая партия</span>
+            <span className="bridge-pod__label">{tr('gameOver.start')}</span>
+            <span className="bridge-pod__sublabel">{tr('gameOver.newDeal')}</span>
           </span>
         </button>
       )}
@@ -287,6 +291,7 @@ export function BridgeChipReel({
   modeLabel: string;
   compact?: boolean;
 }) {
+  const tr = useT();
   const tone = chips >= 0 ? 'plus' : 'minus';
   return (
     <div
@@ -295,9 +300,9 @@ export function BridgeChipReel({
         `bridge-chip-reel--${tone}`,
         compact ? 'bridge-chip-reel--compact' : '',
       ].filter(Boolean).join(' ')}
-      aria-label={`Фишки: ${chips}`}
+      aria-label={tr('table.chipsAria', { n: chips })}
     >
-      <span className="bridge-chip-reel__tag">Ваши фишки</span>
+      <span className="bridge-chip-reel__tag">{tr('table.yourChips')}</span>
       <span className="bridge-chip-reel__value">
         {chips >= 0 ? '+' : ''}
         {chips}
@@ -393,6 +398,7 @@ export function BridgeTelemetryDashboard({
   accuracyPct: number | null;
   compact?: boolean;
 }) {
+  const tr = useT();
   const winPct = gamesPlayed > 0 ? Math.round((wins / gamesPlayed) * 100) : 0;
   const diodeCount = 5;
   const litDiodes = gamesPlayed > 0 ? Math.min(diodeCount, Math.ceil((wins / gamesPlayed) * diodeCount)) : 0;
@@ -401,48 +407,48 @@ export function BridgeTelemetryDashboard({
     <div className={['bridge-dash', 'bridge-dash--interactive', compact ? 'bridge-dash--compact' : ''].filter(Boolean).join(' ')}>
       <div className="bridge-dash__header">
         <span className="bridge-dash__header-led bridge-dash__header-led--pulse" aria-hidden />
-        <span className="bridge-dash__header-text">{compact ? 'Статистика' : 'Телеметрия борта'}</span>
+        <span className="bridge-dash__header-text">{compact ? tr('gameOver.stats') : tr('gameOver.telemetry')}</span>
       </div>
       <div className="bridge-dash__gauges">
         <BridgeGauge
-          label="Место"
+          label={tr('gameOver.place')}
           value={humanPlace}
           max={4}
           tone="cyan"
           ledOn={humanPlace === 1}
-          detail={`${humanPlace} из 4`}
+          detail={tr('gameOver.placeOf', { n: humanPlace, max: 4 })}
         />
         <BridgeGauge
-          label="Побед"
+          label={tr('gameOver.wins')}
           value={winPct}
           max={100}
           suffix="%"
           tone="magenta"
           ledOn={winPct >= 50}
-          detail={`${wins} из ${gamesPlayed}`}
+          detail={tr('gameOver.winsOf', { wins, games: gamesPlayed })}
         />
         <BridgeGauge
-          label="Игр"
+          label={tr('gameOver.games')}
           value={gamesPlayed}
           max={20}
           tone="amber"
           ledOn={gamesPlayed > 0}
-          detail="всего партий"
+          detail={tr('gameOver.allMatches')}
         />
         {accuracyPct != null && (
           <BridgeGauge
-            label="Точность"
+            label={tr('gameOver.accuracy')}
             value={accuracyPct}
             max={100}
             suffix="%"
             tone="lime"
             ledOn={accuracyPct >= 60}
-            detail="средняя по заказам"
+            detail={tr('gameOver.accuracyAvg')}
           />
         )}
       </div>
-      <div className="bridge-dash__strip" aria-label={`Побед: ${wins} из ${gamesPlayed}`}>
-        <span className="bridge-dash__strip-label">Индикатор побед</span>
+      <div className="bridge-dash__strip" aria-label={tr('gameOver.winsAria', { wins, games: gamesPlayed })}>
+        <span className="bridge-dash__strip-label">{tr('gameOver.winIndicator')}</span>
         <div className="bridge-dash__diodes">
           {Array.from({ length: diodeCount }, (_, i) => (
             <span
@@ -475,6 +481,7 @@ export function BridgeAccuracyDeck({
   neonByIndex: (i: number) => BridgePlayerNeon;
   compact?: boolean;
 }) {
+  const tr = useT();
   const rowOrder = [
     humanIdx,
     ...players.map((_, i) => i).filter((i) => i !== humanIdx),
@@ -484,7 +491,7 @@ export function BridgeAccuracyDeck({
     <div className={['bridge-accuracy', 'bridge-accuracy--interactive', compact ? 'bridge-accuracy--compact' : ''].filter(Boolean).join(' ')}>
       <div className="bridge-dash__header">
         <span className="bridge-dash__header-led" aria-hidden />
-        <span className="bridge-dash__header-text">Точность заказов</span>
+        <span className="bridge-dash__header-text">{tr('gameOver.bidAccuracy')}</span>
       </div>
       {rowOrder.map((i) => {
         const p = players[i];
@@ -560,6 +567,7 @@ function GameOverTableNameMarquee({
   name: string;
   className?: string;
 }) {
+  const tr = useT();
   const viewportRef = useRef<HTMLSpanElement>(null);
   const labelRef = useRef<HTMLSpanElement>(null);
   const trackRef = useRef<HTMLSpanElement>(null);
@@ -628,7 +636,7 @@ function GameOverTableNameMarquee({
   }, [name]);
 
   const labelClass = ['game-over-name-marquee__label', className].filter(Boolean).join(' ');
-  const tapHint = overflows ? `${name} — нажмите, чтобы прокрутить` : name;
+  const tapHint = overflows ? tr('gameOver.scrollName', { name }) : name;
 
   return (
     <span
@@ -771,6 +779,7 @@ export function GameOverCelebrationMiniTable({
   /** Бегущая строка для длинных имён */
   nameMarquee?: boolean;
 }) {
+  const tr = useT();
   const topScore = rows[0]?.score ?? 0;
   const winners = rows.filter((r) => r.score === topScore);
   const rest = rows.filter((r) => r.score < topScore);
@@ -793,9 +802,9 @@ export function GameOverCelebrationMiniTable({
         <thead>
           <tr>
             <th>#</th>
-            <th>Игрок</th>
-            <th>Очки</th>
-            {showChips && <th>Фишки</th>}
+            <th>{tr('table.playerCol')}</th>
+            <th>{tr('table.score')}</th>
+            {showChips && <th>{tr('table.chips')}</th>}
           </tr>
         </thead>
         <tbody>
@@ -912,6 +921,7 @@ export function GameOverCelebrationHero({
 }) {
   const displayName = isTie ? winnerNames : winnerName;
   const glass = !compact;
+  const tr = useT();
   return (
     <header
       className={[
@@ -921,17 +931,17 @@ export function GameOverCelebrationHero({
         glass ? 'game-over-hero--glass' : '',
       ].filter(Boolean).join(' ')}
     >
-      {!minimal && !hideKicker && <p className="game-over-hero__kicker">Сеанс завершён</p>}
+      {!minimal && !hideKicker && <p className="game-over-hero__kicker">{tr('gameOver.sessionDone')}</p>}
       {!minimal && (
         <h2 className="game-over-hero__title">
           <HeroHeading glass={glass} className="game-over-hero__title-text">
-            Партия завершена
+            {tr('gameOver.matchDone')}
           </HeroHeading>
         </h2>
       )}
       {isTie ? (
         <p className="game-over-hero__winner game-over-hero__winner--tie">
-          {!minimal && <span className="game-over-hero__winner-label">Ничья</span>}
+          {!minimal && <span className="game-over-hero__winner-label">{tr('gameOver.tie')}</span>}
           <span className="game-over-hero__winner-name" title={displayName}>
             <HeroHeading glass={glass} className="game-over-hero__winner-name-text">
               {displayName}
@@ -940,7 +950,7 @@ export function GameOverCelebrationHero({
         </p>
       ) : (
         <p className="game-over-hero__winner">
-          <span className="game-over-hero__winner-label">Победитель</span>
+          <span className="game-over-hero__winner-label">{tr('gameOver.winner')}</span>
           <span className="game-over-hero__winner-name" title={winnerName}>
             <span className="game-over-hero__winner-name-frame">
               <span className="game-over-hero__winner-name-frame-glow" aria-hidden />
@@ -957,7 +967,7 @@ export function GameOverCelebrationHero({
             </span>
           </span>
           {isHumanWinner && (
-            <span className={`game-over-hero__super${glass ? ' game-over-hero__super--crystal' : ''}`}>Супер!</span>
+            <span className={`game-over-hero__super${glass ? ' game-over-hero__super--crystal' : ''}`}>{tr('gameOver.super')}</span>
           )}
         </p>
       )}

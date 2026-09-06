@@ -9,6 +9,7 @@ import { V2CommandError } from './errors.js';
 import { GameSessionManager } from './GameSessionManager.js';
 import { V2_GAME_COMMANDS } from './protocol.js';
 import type { GameStatePush } from './protocol.js';
+import { slimPlayerSlots } from '../stateView.js';
 
 export type V2HandlerDeps = {
   store: RoomStore;
@@ -132,7 +133,7 @@ export function handleV2GameMessage(
       ok: true,
       revision: commit.revision,
       state: deps.viewState(ws, commit.room, commit.state),
-      playerSlots: commit.room.player_slots,
+      playerSlots: slimPlayerSlots(commit.room.player_slots),
       roomPhase: commit.room.room_phase ?? null,
     });
     return true;

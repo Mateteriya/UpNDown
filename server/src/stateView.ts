@@ -25,15 +25,29 @@ export function projectGameState(state: GameState, viewerSeat: number | null): G
 export function projectRoomForViewer(
   room: GameRoomRow,
   userId: string | null | undefined,
-  opts?: { stripUnknownHands: boolean },
+  opts?: { stripUnknownHands: boolean; keepAvatars?: boolean },
 ): GameRoomRow {
   const gs = room.game_state;
-  if (!gs || typeof gs !== 'object') return room;
-  const state = gs as GameState;
-  if (!Array.isArray(state.players)) return room;
-  const seat = viewerSeatIndex(room, userId);
-  if (seat == null && !opts?.stripUnknownHands) return room;
-  return { ...room, game_state: projectGameState(state, seat) };
+  let next: GameRoomRow = room;
+  if (gs && typeof gs === 'object' && Array.isArray((gs as GameState).players)) {
+    const seat = viewerSeatIndex(room, userId);
+    if (seat != null || opts?.stripUnknownHands) {
+      next = { ...room, game_state: projectGameState(gs as GameState, seat) };
+    }
+  }
+  const keepAvatars = opts?.keepAvatars === true;
+  if (!keepAvatars) {
+    next = { ...next, player_slots: slimPlayerSlots(next.player_slots) ?? [] };
+  }
+  return next;
+}
+
+/** Снимок на диск без data-URL — иначе каждый ход stringify ~100KB и rename ломается. */
+export function slimRoomForPersist(room: GameRoomRow): GameRoomRow {
+  return {
+    ...room,
+    player_slots: slimPlayerSlots(room.player_slots) ?? room.player_slots,
+  };
 }
 
 export function lobbyRoomPublic(room: GameRoomRow): GameRoomRow {
@@ -42,4 +56,17 @@ export function lobbyRoomPublic(room: GameRoomRow): GameRoomRow {
 
 export function slotsOf(room: GameRoomRow): PlayerSlot[] {
   return room.player_slots ?? [];
+}
+
+/**
+ * Живой game_state не таскает data-URL аватаров (до ~140KB × слот).
+ * Иначе один ход — сотни КБ на каждого клиента, Wi‑Fi рвёт всех сразу.
+ */
+export function slimPlayerSlots(slots: PlayerSlot[] | undefined | null): PlayerSlot[] | undefined {
+  if (!slots) return undefined;
+  return slots.map((s) => {
+    if (s.avatarDataUrl == null) return s;
+    const { avatarDataUrl: _omit, ...rest } = s;
+    return rest;
+  });
 }

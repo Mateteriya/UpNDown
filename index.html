@@ -4,6 +4,24 @@
     <script>
       (function(){var d=document,h=d.documentElement;h.classList.remove('theme-neon');h.classList.add('theme-standard');h.classList.remove('system-dark');h.classList.add('system-light');h.setAttribute('data-theme','standard');try{localStorage.setItem('updown-theme','standard')}catch(e){}var m=d.querySelector('meta[name="color-scheme"]');if(m)m.setAttribute('content','only light');try{var t=localStorage.getItem('updown-card-theme');if(!t&&localStorage.getItem('updown-card-palette-lock')==='1')t='dark';if(t&&t!=='standard')h.classList.add('updown-card-palette-lock');else h.classList.remove('updown-card-palette-lock')}catch(e2){}})();
     </script>
+    <script>
+      (function () {
+        var en = false;
+        try { en = localStorage.getItem('updown-locale') === 'en'; } catch (e) {}
+        document.documentElement.lang = en ? 'en' : 'ru';
+        window.__updownBootT = {
+          loading: en ? 'Loading…' : 'Загрузка…',
+          slowTitle: en ? 'Taking a long time?' : 'Долго грузится?',
+          slowBody: en
+            ? 'On a phone over Wi‑Fi, dev mode can take a minute (huge GameTable.tsx). Or clear site data / don’t open from the home-screen icon.'
+            : 'На телефоне по Wi‑Fi dev-режим может идти минуту (огромный GameTable.tsx). Либо очистите данные сайта / не открывайте с иконки «на экран».',
+          reload: en ? 'Refresh' : 'Обновить',
+          reset: en ? 'Clear cache' : 'Сбросить кэш',
+          failTitle: en ? 'The page did not load' : 'Страница не загрузилась',
+          failBody: en ? 'Tap the button below' : 'Нажмите кнопку ниже',
+        };
+      })();
+    </script>
     <!-- Сброс SW/кэша до загрузки React — если бандл устарел после деплоя -->
     <script>
       (function () {
@@ -104,22 +122,33 @@
   <body>
     <div id="root">
       <div id="loading-fallback" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;color:#94a3b8;font-size:16px;gap:12px">
-        <span>Загрузка…</span>
+        <span id="loading-fallback-text">Загрузка…</span>
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       (function () {
+        var t = window.__updownBootT;
+        if (t) {
+          var s = document.getElementById('loading-fallback-text');
+          if (s) s.textContent = t.loading;
+        }
         setTimeout(function () {
           var lb = document.getElementById('loading-fallback');
           if (!lb || lb.offsetParent === null) return;
           var root = document.getElementById('root');
           if (!root || root.children.length !== 1) return;
+          var c = window.__updownBootT || {
+            slowTitle: 'Долго грузится?',
+            slowBody: 'На телефоне по Wi‑Fi dev-режим может идти минуту (огромный GameTable.tsx). Либо очистите данные сайта / не открывайте с иконки «на экран».',
+            reload: 'Обновить',
+            reset: 'Сбросить кэш',
+          };
           lb.innerHTML =
-            '<p style="margin:0 0 8px;color:#e2e8f0;text-align:center;max-width:320px;padding:0 16px">Долго грузится?</p>' +
-            '<p style="margin:0 0 12px;font-size:13px;text-align:center;max-width:320px;padding:0 16px;line-height:1.45">На телефоне по Wi‑Fi dev-режим может идти минуту (огромный GameTable.tsx). Либо очистите данные сайта / не открывайте с иконки «на экран».</p>' +
-            '<button type="button" onclick="window.__updownHardReload && window.__updownHardReload(false)" style="padding:12px 24px;font-size:16px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#22d3ee;cursor:pointer">Обновить</button>' +
-            '<button type="button" onclick="window.__updownHardReload && window.__updownHardReload(true)" style="margin-top:8px;padding:10px 20px;font-size:14px;border-radius:8px;border:1px solid #334155;background:transparent;color:#94a3b8;cursor:pointer">Сбросить кэш</button>';
+            '<p style="margin:0 0 8px;color:#e2e8f0;text-align:center;max-width:320px;padding:0 16px">' + c.slowTitle + '</p>' +
+            '<p style="margin:0 0 12px;font-size:13px;text-align:center;max-width:320px;padding:0 16px;line-height:1.45">' + c.slowBody + '</p>' +
+            '<button type="button" onclick="window.__updownHardReload && window.__updownHardReload(false)" style="padding:12px 24px;font-size:16px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#22d3ee;cursor:pointer">' + c.reload + '</button>' +
+            '<button type="button" onclick="window.__updownHardReload && window.__updownHardReload(true)" style="margin-top:8px;padding:10px 20px;font-size:14px;border-radius:8px;border:1px solid #334155;background:transparent;color:#94a3b8;cursor:pointer">' + c.reset + '</button>';
         }, 20000);
       })();
     </script>
@@ -132,7 +161,8 @@
           var r=document.getElementById('root');
           var lb=document.getElementById('loading-fallback');
           if(r&&r.children.length===1&&lb&&lb.offsetParent!==null){
-            lb.innerHTML='<p style="margin:0 0 12px;color:#e2e8f0">Страница не загрузилась</p><p style="margin:0 0 16px;font-size:14px">Нажмите кнопку ниже</p><button type="button" onclick="window.__updownHardReload && window.__updownHardReload(false)" style="padding:12px 24px;font-size:16px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#22d3ee;cursor:pointer">Обновить</button><button type="button" onclick="window.__updownHardReload && window.__updownHardReload(true)" style="display:block;margin:12px auto 0;padding:10px 20px;font-size:14px;border-radius:8px;border:1px solid #334155;background:transparent;color:#94a3b8;cursor:pointer">Сбросить кэш</button>';
+            var c=window.__updownBootT||{failTitle:'Страница не загрузилась',failBody:'Нажмите кнопку ниже',reload:'Обновить',reset:'Сбросить кэш'};
+            lb.innerHTML='<p style="margin:0 0 12px;color:#e2e8f0">'+c.failTitle+'</p><p style="margin:0 0 16px;font-size:14px">'+c.failBody+'</p><button type="button" onclick="window.__updownHardReload && window.__updownHardReload(false)" style="padding:12px 24px;font-size:16px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#22d3ee;cursor:pointer">'+c.reload+'</button><button type="button" onclick="window.__updownHardReload && window.__updownHardReload(true)" style="display:block;margin:12px auto 0;padding:10px 20px;font-size:14px;border-radius:8px;border:1px solid #334155;background:transparent;color:#94a3b8;cursor:pointer">'+c.reset+'</button>';
           }
         },8000);
       })();
