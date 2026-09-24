@@ -14,7 +14,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { DEALS_PER_MATCH, dealsPerMatch, type PlayerCount } from '../game/GameEngine';
+import { dealOrbitPhaseDegrees, dealsPerMatch, type PlayerCount } from '../game/GameEngine';
+import { useT } from '../i18n';
 import {
   DEAL_TRACK_LAB_MODAL_CYCLE_ON_OPEN,
   DEAL_TRACK_LAB_MODAL_SWEEP_DURATION_MS,
@@ -26,6 +27,7 @@ import {
   findOrbitTooltipPosition,
   getOrbitDigitHueDegrees,
   getOrbitPointTooltipText,
+  renderOrbitTooltipWords,
   type OrbitTooltipState,
 } from './DealTrackLabPage';
 import './deal-track-lab-orbit-tooltip.css';
@@ -43,21 +45,6 @@ const noSetDeal: Dispatch<SetStateAction<number>> = () => {
   /* орбита только для просмотра */
 };
 
-function renderTooltipWords(text: string, className: string) {
-  return text.split(/(\s+)/).map((chunk, idx) => {
-    if (chunk.trim().length === 0) return <span key={`s-${idx}`}>{chunk}</span>;
-    return (
-      <span
-        key={`w-${idx}-${chunk}`}
-        className={className}
-        style={{ ['--orbit-neon-word-idx' as string]: String(idx % 6) } as CSSProperties}
-      >
-        {chunk}
-      </span>
-    );
-  });
-}
-
 export type GameDealOrbitDockProps = {
   dealNumber: number;
   /** Уникальный ключ сессии комнаты: online.roomId или `'offline'`. */
@@ -73,7 +60,8 @@ export function GameDealOrbitDock({
   prefersReducedMotion,
   playerCount = 4,
 }: GameDealOrbitDockProps) {
-  const totalDeals = playerCount === 3 ? dealsPerMatch(3) : DEALS_PER_MATCH;
+  const tr = useT();
+  const totalDeals = dealsPerMatch(playerCount);
   const currentDeal = useMemo(() => {
     const n = Number.isFinite(dealNumber) ? Math.trunc(dealNumber) : 1;
     return Math.min(totalDeals, Math.max(1, n));
@@ -291,17 +279,17 @@ export function GameDealOrbitDock({
       width: br.width,
       height: br.height,
     });
-    const text = getOrbitPointTooltipText(deal);
+    const text = getOrbitPointTooltipText(deal, playerCount);
     const pos = findOrbitTooltipPosition(diskRect, ballRect, text);
     setOrbitTooltip({
       deal,
       text,
       left: pos.left,
       top: pos.top,
-      accentHue: getOrbitDigitHueDegrees(deal),
+      accentHue: getOrbitDigitHueDegrees(deal, totalDeals),
       refine: true,
     });
-  }, []);
+  }, [playerCount, totalDeals]);
 
   useLayoutEffect(() => {
     if (orbitTooltip?.refine !== true) return;
@@ -343,8 +331,7 @@ export function GameDealOrbitDock({
     GAME_DEAL_ORBIT_SWEEP_NEON_HUES[((sweepHueDeal - 1) % GAME_DEAL_ORBIT_SWEEP_NEON_HUES.length + GAME_DEAL_ORBIT_SWEEP_NEON_HUES.length) %
       GAME_DEAL_ORBIT_SWEEP_NEON_HUES.length];
 
-  const normDeg = (20 / totalDeals) * 360;
-  const ntDeg = (4 / totalDeals) * 360;
+  const { normDeg, ntDeg } = dealOrbitPhaseDegrees(playerCount);
   const circleRingDotR = 176;
   const circleCx = 210;
   const circleCy = 210;
@@ -406,7 +393,6 @@ export function GameDealOrbitDock({
         : null;
   const orbitTooltipPortalTarget =
     orbitTooltipDiskElRef.current?.closest('dialog[open]') ?? document.body;
-  const orbitTooltipOnBigDisk = orbitTooltipDiskElRef.current?.closest('.game-deal-orbit-dock__dialog') != null;
 
   return (
     <div
@@ -416,7 +402,7 @@ export function GameDealOrbitDock({
       <div
         className="deal-track-lab-orbit-replica-btn game-deal-orbit-dock__mini"
         role="group"
-        aria-label="Круговая шкала раздач в партии"
+        aria-label={tr('table.orbitMiniAria')}
       >
         <div className="deal-track-lab-orbit-replica-inner">
           <OrbitTrackDisk
@@ -452,6 +438,7 @@ export function GameDealOrbitDock({
             orbitSweepInstant={currentDealSweepRunning}
             orbitSweepNeonHue={currentDealSweepRunning ? sweepHue : null}
             centerLabelLayoutDeal={focusedDealMain}
+            playerCount={playerCount}
           />
         </div>
       </div>
@@ -466,7 +453,7 @@ export function GameDealOrbitDock({
         <div className="deal-track-lab-orbit-scale-dialog-surface">
           <header className="deal-track-lab-orbit-scale-dialog-head">
             <h2 id="game-deal-orbit-scale-title" className="deal-track-lab-orbit-scale-dialog-title">
-              Раздачи партии
+              {tr('table.orbitModalTitle')}
             </h2>
             <button
               type="button"
@@ -474,7 +461,7 @@ export function GameDealOrbitDock({
               autoFocus
               onClick={() => setOrbitScaleModalOpen(false)}
             >
-              Закрыть
+              {tr('common.close')}
             </button>
           </header>
           <div className="deal-track-lab-orbit-scale-disk">
@@ -507,6 +494,7 @@ export function GameDealOrbitDock({
                 orbitCssRingSweep={modalOrbitCssSweepConfig}
                 orbitSweepInstant={modalIntroRunning && modalOrbitCssSweepConfig == null}
                 centerLabelLayoutDeal={focusedDealModal}
+                playerCount={playerCount}
               />
             </div>
           </div>
@@ -531,6 +519,7 @@ export function GameDealOrbitDock({
                     left: orbitTooltip.left,
                     top: orbitTooltip.top,
                     transform: 'translate(-50%, -50%)',
+                    colorScheme: 'dark',
                     ...orbitTooltipChromeVars(orbitTooltip.accentHue),
                   } as CSSProperties
                 }
@@ -538,17 +527,9 @@ export function GameDealOrbitDock({
                 <span className="deal-track-lab-orbit-tooltip__shine" aria-hidden />
                 <div className="deal-track-lab-orbit-tooltip__inner">
                   <span className="deal-track-lab-orbit-tooltip__rail" aria-hidden />
-                  <div
-                    className={
-                      orbitTooltipOnBigDisk
-                        ? 'deal-track-lab-orbit-tooltip__text deal-track-lab-orbit-tooltip__text--big-neon'
-                        : 'deal-track-lab-orbit-tooltip__text'
-                    }
-                  >
+                  <div className="deal-track-lab-orbit-tooltip__text deal-track-lab-orbit-tooltip__text--neon">
                     <span className="deal-track-lab-orbit-tooltip__main">
-                      {orbitTooltipOnBigDisk
-                        ? renderTooltipWords(tipMain, 'deal-track-lab-orbit-tooltip__word-neon-main')
-                        : tipMain}
+                      {renderOrbitTooltipWords(tipMain, 'deal-track-lab-orbit-tooltip__word-neon-main')}
                     </span>
                     {tipSub != null && (
                       <>
@@ -557,9 +538,7 @@ export function GameDealOrbitDock({
                           ·{' '}
                         </span>
                         <span className="deal-track-lab-orbit-tooltip__sub">
-                          {orbitTooltipOnBigDisk
-                            ? renderTooltipWords(tipSub, 'deal-track-lab-orbit-tooltip__word-neon-sub')
-                            : tipSub}
+                          {renderOrbitTooltipWords(tipSub, 'deal-track-lab-orbit-tooltip__word-neon-sub')}
                         </span>
                       </>
                     )}

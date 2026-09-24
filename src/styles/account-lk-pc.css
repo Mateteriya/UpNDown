@@ -180,22 +180,6 @@
     flex-shrink: 0;
   }
 
-  .lk-page.lk-page--pc .lang-switch {
-    border-color: rgba(167, 139, 250, 0.5);
-    background: rgba(15, 10, 36, 0.62);
-    box-shadow: 0 0 12px rgba(124, 58, 237, 0.22);
-  }
-
-  .lk-page.lk-page--pc .lang-switch__btn {
-    color: rgba(226, 232, 240, 0.82);
-  }
-
-  .lk-page.lk-page--pc .lang-switch__btn--on {
-    background: linear-gradient(180deg, rgba(167, 139, 250, 0.42), rgba(34, 211, 238, 0.22));
-    color: #f8fafc;
-    box-shadow: 0 0 0 1px rgba(103, 232, 249, 0.38);
-  }
-
   .lk-page.lk-page--pc .lk-page__pc-live {
     display: inline-flex;
     align-items: center;
@@ -1160,9 +1144,10 @@
   .lk-page.lk-page--pc .lk-pc-hero__sign-out {
     --lk-signin-height: 42px;
     --lk-signin-glyph-h: 30px;
-    --lk-signin-glyph-w: 108px;
+    --lk-signin-glyph-w: 136px;
     --lk-signin-gap: 0;
-    --lk-signin-pad-x: 7px 7px 7px 18px;
+    --lk-signin-pad-end: 7px;
+    --lk-signin-pad-x: 7px var(--lk-signin-pad-end) 7px 18px;
     --lk-signin-title-size: 1.12rem;
     --lk-signin-title-grad: linear-gradient(105deg, #f91d68 0%, #f76215 46%, #87a505 100%);
     --lk-signin-title-bright: 1.5;
@@ -1286,7 +1271,7 @@
     display: grid;
     place-items: center end;
     padding-left: 0;
-    padding-right: 4px;
+    padding-right: 10px;
     transform: translateY(0);
     transform-origin: 70% 50%;
     animation: none;
@@ -1339,7 +1324,7 @@
     z-index: 2;
     width: calc(var(--lk-signin-glyph-h) * 0.92);
     height: calc(var(--lk-signin-glyph-h) * 0.92);
-    margin-right: 1px;
+    margin-right: 0;
     transform: translate(0, 0) scale(1);
     filter:
       brightness(1.05) saturate(0.85)
@@ -1353,17 +1338,20 @@
   .lk-page.lk-page--pc .lk-pc-hero__sign-out .menu-capsule__body {
     position: absolute;
     z-index: 3;
-    right: calc(8px + var(--lk-signin-glyph-h) * 0.92 + 10px);
-    left: auto;
-    width: calc(var(--lk-signin-glyph-w) - var(--lk-signin-glyph-h) * 0.92 - 18px);
+    /* ровно поверх внутреннего овала (глиф справа в капсуле) */
     top: 0;
     bottom: 0;
+    right: var(--lk-signin-pad-end);
+    left: auto;
+    width: var(--lk-signin-glyph-w);
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: flex-end;
+    align-items: center;
     margin: 0;
-    padding: 0;
+    /* слева — скругление овала; справа — глиф-иконка */
+    padding: 0 calc(10px + var(--lk-signin-glyph-h) * 0.92 + 5px) 0 10px;
     pointer-events: none;
     opacity: 1;
     transform: translateY(-1px);
@@ -1381,12 +1369,15 @@
     display: block;
     margin: 0;
     padding: 0;
+    width: max-content;
+    max-width: none;
+    overflow: visible;
     font-family: 'Outfit', 'Manrope', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
     font-size: var(--lk-signin-title-size);
     font-weight: 800;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
     line-height: 1;
-    text-align: right;
+    text-align: center;
     white-space: nowrap;
     background-image: var(--lk-signin-title-grad);
     background-size: 100% 100%;

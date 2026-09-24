@@ -69,6 +69,12 @@
   filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.4));
 }
 
+/* ПК-слои «слеза» — по умолчанию скрыты; включаются в menu-pc.css */
+.menu-signed-id__spin,
+.menu-signed-id__glass {
+  display: none;
+}
+
 /* Убираем старый контейнер чипа меню — signed-id сам себе кольцо */
 .menu-screen .menu-screen__player--signed.menu-screen__player--collapsed {
   padding: 0;

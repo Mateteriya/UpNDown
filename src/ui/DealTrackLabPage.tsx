@@ -15,55 +15,69 @@ import {
   DEALS_PER_MATCH,
   getDealType,
   getTricksInDeal,
+  type PlayerCount,
 } from '../game/GameEngine';
+
+import { t, useT } from '../i18n';
 
 import './deal-track-lab-orbit-tooltip.css';
 
 /** Сколько карт в раздаче — без склонения: «КАРТ: n». */
 function formatDealCardsCountLabel(tricks: number): string {
-  return `КАРТ: ${tricks}`;
+  return t('table.orbitCardsCount', { n: tricks });
 }
 
-/** Для тултипов/aria: «КАРТ: n каждому». */
 function formatDealCardsCountPerPlayer(tricks: number): string {
-  return `КАРТ: ${tricks} каждому`;
+  return t('table.orbitCardsEach', { n: tricks });
+}
+
+function orbitMapFrom28(n28: number, totalDeals: number): number {
+  return Math.max(1, Math.min(totalDeals, Math.round((n28 / DEALS_PER_MATCH) * totalDeals)));
 }
 
 /** Краткая подпись раздачи — как `_getDealCellLabel` в `GameTable` (ячейки таблицы). */
-function getDealLabel(dealNumber: number): string {
-  const type = getDealType(dealNumber);
-  const tricks = getTricksInDeal(dealNumber);
-  if (type === 'no-trump') return `${dealNumber} БК`;
-  if (type === 'dark') return `${dealNumber} Тёмн.`;
+function getDealLabel(dealNumber: number, playerCount: PlayerCount = 4): string {
+  const type = getDealType(dealNumber, playerCount);
+  const tricks = getTricksInDeal(dealNumber, playerCount);
+  if (type === 'no-trump') return t('table.dealNtShort', { n: dealNumber });
+  if (type === 'dark') return t('table.dealDarkShort', { n: dealNumber });
   return `${dealNumber} (${formatDealCardsCountLabel(tricks)})`;
 }
 
 /** Правая подпись в вертикальной шкале: только карты, для БК/Тёмной добавляем режим. */
-function getVerticalRowLabel(dealNumber: number): string {
-  const type = getDealType(dealNumber);
-  const tricks = getTricksInDeal(dealNumber);
+function getVerticalRowLabel(dealNumber: number, playerCount: PlayerCount = 4): string {
+  const type = getDealType(dealNumber, playerCount);
+  const tricks = getTricksInDeal(dealNumber, playerCount);
   const base = formatDealCardsCountLabel(tricks);
-  if (type === 'no-trump') return `БЕСКОЗЫРКА · ${base}`;
-  if (type === 'dark') return `ТЁМНАЯ · ${base}`;
+  if (type === 'no-trump') return `${t('table.noTrump').toUpperCase()} · ${base}`;
+  if (type === 'dark') return `${t('table.darkDeal').toUpperCase()} · ${base}`;
   return base;
 }
 
 /** «КАРТ:» + число — число красится отдельно (салатовый акцент). */
 function DealCircleCenterCardsLine({ tricks }: { tricks: number }) {
+  const tr = useT();
   return (
     <span className="deal-track-lab-circle-center-cap-hand">
-      <span className="deal-track-lab-circle-center-cap-hand-prefix">КАРТ:</span>{' '}
+      <span className="deal-track-lab-circle-center-cap-hand-prefix">{tr('table.cardsHud')}</span>{' '}
       <span className="deal-track-lab-circle-center-cap-num">{tricks}</span>
     </span>
   );
 }
 
 /** Вторая строка под номером в круге B: режим + карт на руках (или только карт). */
-function DealCircleCenterCapContent({ dealNumber }: { dealNumber: number }) {
-  const type = getDealType(dealNumber);
-  const tricks = getTricksInDeal(dealNumber);
+function DealCircleCenterCapContent({
+  dealNumber,
+  playerCount = 4,
+}: {
+  dealNumber: number;
+  playerCount?: PlayerCount;
+}) {
+  const type = getDealType(dealNumber, playerCount);
+  const tricks = getTricksInDeal(dealNumber, playerCount);
+  const tr = useT();
   if (type === 'no-trump' || type === 'dark') {
-    const mode = type === 'no-trump' ? 'Бескозырка' : 'Тёмная';
+    const mode = type === 'no-trump' ? tr('table.noTrump') : tr('table.darkDeal');
     const modeClass =
       'deal-track-lab-circle-center-cap-mode' +
       (type === 'no-trump' ? ' deal-track-lab-circle-center-cap-mode--no-trump' : '');
@@ -80,22 +94,22 @@ function DealCircleCenterCapContent({ dealNumber }: { dealNumber: number }) {
 export const ORBIT_TOOLTIP_ID = 'deal-track-lab-orbit-tooltip';
 
 /** Полная расшифровка раздачи (`aria-label`, текст кастомных тултипов) — без нативного `title`. */
-function getDealCellTitle(dealNumber: number): string {
-  const type = getDealType(dealNumber);
-  const tricks = getTricksInDeal(dealNumber);
-  if (type === 'no-trump') return `Раздача №${dealNumber} — бескозырка`;
-  if (type === 'dark') return `Раздача №${dealNumber} — тёмная`;
-  return `Раздача №${dealNumber} — ${formatDealCardsCountLabel(tricks)}`;
+function getDealCellTitle(dealNumber: number, playerCount: PlayerCount = 4): string {
+  const type = getDealType(dealNumber, playerCount);
+  const tricks = getTricksInDeal(dealNumber, playerCount);
+  if (type === 'no-trump') return t('table.dealNtTitle', { n: dealNumber });
+  if (type === 'dark') return t('table.dealDarkTitle', { n: dealNumber });
+  return t('table.dealCardsTitle', { n: dealNumber, cards: formatDealCardsCountLabel(tricks) });
 }
 
 /** Текст подсказки для шарика на орбите (круг B) — без нативного `title`, позиция задаётся вручную. */
-export function getOrbitPointTooltipText(dealNumber: number): string {
-  const type = getDealType(dealNumber);
-  const tricks = getTricksInDeal(dealNumber);
+export function getOrbitPointTooltipText(dealNumber: number, playerCount: PlayerCount = 4): string {
+  const type = getDealType(dealNumber, playerCount);
+  const tricks = getTricksInDeal(dealNumber, playerCount);
   if (type === 'normal') {
-    return `Раздача №${dealNumber} · ${formatDealCardsCountPerPlayer(tricks)}`;
+    return t('table.orbitDealNormalTip', { n: dealNumber, nCards: tricks });
   }
-  return `${getDealCellTitle(dealNumber)} · ${formatDealCardsCountPerPlayer(tricks)}`;
+  return `${getDealCellTitle(dealNumber, playerCount)} · ${formatDealCardsCountPerPlayer(tricks)}`;
 }
 
 /** Диск 420px, внутренний круг `.deal-track-lab-circle-inner { inset: 72px }` → радиус «дыры» = 210 − 72 (в дизайн-px). */
@@ -105,28 +119,33 @@ const ORBIT_INNER_RADIUS_RATIO =
   (ORBIT_DISK_DESIGN_PX / 2 - ORBIT_INNER_INSET_DESIGN_PX) / ORBIT_DISK_DESIGN_PX;
 
 /**
- * Цвет шарика орбиты: 1–14 — прежняя линейная прогрессия; 15–28 — плавный сдвиг в фиолет (от оттенка 14-й раздачи).
+ * Цвет шарика орбиты: первая половина — линейная прогрессия; вторая — сдвиг в фиолет.
+ * Для 28 раздач это 1–14 / 15–28; для 31 — та же радуга, растянутая.
  */
-function getOrbitBallHueDegrees(dealNumber: number): number {
-  const last = Math.max(1, DEALS_PER_MATCH - 1);
+function getOrbitBallHueDegrees(dealNumber: number, totalDeals: number = DEALS_PER_MATCH): number {
+  const last = Math.max(1, totalDeals - 1);
+  const split = orbitMapFrom28(14, totalDeals);
+  const secondStart = orbitMapFrom28(15, totalDeals);
   const linearHue = (n: number) => 186 + ((n - 1) / last) * 84;
-  if (dealNumber <= 14) return linearHue(dealNumber);
-  const h14 = linearHue(14);
+  if (dealNumber <= split) return linearHue(dealNumber);
+  const hSplit = linearHue(split);
   const hEnd = 288;
-  const span = DEALS_PER_MATCH - 15;
-  const t = span <= 0 ? 1 : (dealNumber - 15) / span;
-  return h14 + t * (hEnd - h14);
+  const span = totalDeals - secondStart;
+  const t = span <= 0 ? 1 : (dealNumber - secondStart) / span;
+  return hSplit + t * (hEnd - hSplit);
 }
 
 /**
  * Hue заливки шарика на круге B: после swap 8–14 несут «логику» бывших 1–7, поэтому для фона
  * подставляем тот же спектр hue, что был у 1–7 (иначе 207–226° при тех же L% выглядят темнее).
  */
-function getOrbitCirclePointHueDegrees(dealNumber: number): number {
-  if (dealNumber >= 8 && dealNumber <= 14) {
-    return getOrbitBallHueDegrees(dealNumber - 7);
+function getOrbitCirclePointHueDegrees(dealNumber: number, totalDeals: number = DEALS_PER_MATCH): number {
+  const swapA = orbitMapFrom28(8, totalDeals);
+  const swapB = orbitMapFrom28(14, totalDeals);
+  if (dealNumber >= swapA && dealNumber <= swapB) {
+    return getOrbitBallHueDegrees(dealNumber - (swapA - 1), totalDeals);
   }
-  return getOrbitBallHueDegrees(dealNumber);
+  return getOrbitBallHueDegrees(dealNumber, totalDeals);
 }
 
 /**
@@ -141,20 +160,22 @@ function getReplicaOrbitRestHueDegrees(dealNumber: number): number {
   return REPLICA_ORBIT_REST_HUES[i];
 }
 
-function getOrbitCirclePointStyle(dealNumber: number): CSSProperties {
+function getOrbitCirclePointStyle(dealNumber: number, totalDeals: number = DEALS_PER_MATCH): CSSProperties {
   return {
-    '--deal-hue': `${getOrbitCirclePointHueDegrees(dealNumber).toFixed(1)}`,
+    '--deal-hue': `${getOrbitCirclePointHueDegrees(dealNumber, totalDeals).toFixed(1)}`,
   } as CSSProperties;
 }
 
-/** Hue цифры на орбите: 1–14 и 15–28 — разные оттенки (задача дизайна). */
-export function getOrbitDigitHueDegrees(dealNumber: number): number {
-  return dealNumber <= 14 ? 266 : 173;
+/** Hue цифры на орбите: первая / вторая половина (у 28 это 1–14 и 15–28). */
+export function getOrbitDigitHueDegrees(dealNumber: number, totalDeals: number = DEALS_PER_MATCH): number {
+  return dealNumber <= orbitMapFrom28(14, totalDeals) ? 266 : 173;
 }
 
-/** Прошедшие 15–23: голубой глиф (циан / бирюза), не тот же hue что у «будущих» 15–28 (266°). */
-function getOrbitPast1523DigitHueDegrees(dealNumber: number): number {
-  const t = (dealNumber - 15) / (23 - 15);
+/** Прошедшие «вторая половина, ранняя»: голубой глиф, не тот же hue что у будущих. */
+function getOrbitPast1523DigitHueDegrees(dealNumber: number, totalDeals: number = DEALS_PER_MATCH): number {
+  const a = orbitMapFrom28(15, totalDeals);
+  const b = orbitMapFrom28(23, totalDeals);
+  const t = (dealNumber - a) / Math.max(1, b - a);
   return 187 + t * 26;
 }
 
@@ -170,6 +191,30 @@ export function orbitTooltipChromeVars(hue: number): CSSProperties {
     ['--orbit-tip-c2' as string]: `hsl(${h2}, 76%, 50%)`,
     ['--orbit-tip-c3' as string]: `hsl(${h3}, 82%, 52%)`,
   } as CSSProperties;
+}
+
+/** Слова тултипа орбиты — по слову свой hue (как в модалке и в «Правилах»). */
+export function renderOrbitTooltipWords(text: string, className: string) {
+  return text.split(/(\s+)/).map((chunk, idx) => {
+    if (chunk.trim().length === 0) return <span key={`s-${idx}`}>{chunk}</span>;
+    const hue = 148 + (idx % 6) * 37;
+    return (
+      <span
+        key={`w-${idx}-${chunk}`}
+        className={className}
+        style={
+          {
+            ['--orbit-neon-word-idx' as string]: String(idx % 6),
+            color: `hsl(${hue}, 100%, 74%)`,
+            WebkitTextFillColor: `hsl(${hue}, 100%, 74%)`,
+            textShadow: `0 0 8px hsla(${hue}, 100%, 68%, 0.95), 0 0 16px hsla(${hue}, 100%, 58%, 0.78), 0 1px 0 rgb(8 10 22 / 0.75)`,
+          } as CSSProperties
+        }
+      >
+        {chunk}
+      </span>
+    );
+  });
 }
 
 /** Мин. вынос центра тултипа от центра шарика вдоль радиуса (поверх радиуса шарика), px — дальше от кружка, меньше перекрытий. */
@@ -279,9 +324,9 @@ const DEAL_TRACK_LAB_ORBIT_CLICK_PREVIEW_HOLD_MS = 1800;
 
 type EngineDealType = ReturnType<typeof getDealType>;
 
-function getDealPointStyle(dealNumber: number): CSSProperties {
+function getDealPointStyle(dealNumber: number, totalDeals: number = DEALS_PER_MATCH): CSSProperties {
   return {
-    '--deal-hue': `${getOrbitBallHueDegrees(dealNumber).toFixed(1)}`,
+    '--deal-hue': `${getOrbitBallHueDegrees(dealNumber, totalDeals).toFixed(1)}`,
   } as CSSProperties;
 }
 
@@ -387,7 +432,7 @@ function HorizontalScaleDealLabel({
       className={`deal-track-lab-h-label-cards ${stackedCards ? 'deal-track-lab-h-label-cards--stacked' : ''}`}
       style={cardsStyle}
     >
-      <span className="deal-track-lab-h-label-cards-prefix">КАРТ:</span>
+      <span className="deal-track-lab-h-label-cards-prefix">{t('table.cardsHud')}</span>
       <span className="deal-track-lab-h-label-cards-num">{tricks}</span>
     </span>
   );
@@ -395,7 +440,7 @@ function HorizontalScaleDealLabel({
   if (type === 'no-trump') {
     return (
       <>
-        <span className="deal-track-lab-h-label-mode">БЕСКОЗЫРКА</span>
+        <span className="deal-track-lab-h-label-mode">{t('table.noTrump').toUpperCase()}</span>
         {cards}
       </>
     );
@@ -404,7 +449,7 @@ function HorizontalScaleDealLabel({
   if (type === 'dark') {
     return (
       <>
-        <span className="deal-track-lab-h-label-mode">ТЁМНАЯ</span>
+        <span className="deal-track-lab-h-label-mode">{t('table.darkDeal').toUpperCase()}</span>
         {cards}
       </>
     );
@@ -506,7 +551,7 @@ function DealCardBackStrip({
   return (
     <div
       className={`deal-track-lab-deck-strip ${getDealToneClass(type)} ${compact ? 'deal-track-lab-deck-strip--compact' : ''} ${vertical ? 'deal-track-lab-deck-strip--vertical' : ''} ${verticalDown ? 'deal-track-lab-deck-strip--vertical-down' : ''} ${horizontalScalePast ? 'deal-track-lab-deck-strip--h-scale-past' : ''}`}
-      aria-label={`Раздача · ${formatDealCardsCountLabel(tricks)} каждому игроку`}
+      aria-label={t('table.orbitStripAria', { n: tricks })}
       style={
         inDiskCenter
           ? ({
@@ -566,6 +611,7 @@ const ORBIT_DOT_CY = 210;
  * Прямоугольные ::before/::after для этого варианта отключаются классом `--volume-main-plaque--arc`.
  */
 function DealTrackLabVolumeMainArcPlaque() {
+  const tr = useT();
   const baseId = `dtl-arc-${useId().replace(/:/g, '')}`;
   const curveId = `${baseId}-curve`;
   /* Узкая дуга: «рога» ближе к центру; контрольная точка выше — сильнее закрутка под верх внутреннего круга */
@@ -669,7 +715,7 @@ function DealTrackLabVolumeMainArcPlaque() {
         textAnchor="middle"
       >
         <textPath href={`#${curveId}`} startOffset="50%">
-          Текущая раздача
+          {tr('table.orbitCurrent')}
         </textPath>
       </text>
     </svg>
@@ -731,9 +777,11 @@ type OrbitTrackDiskProps = {
   orbitSweepNeonHue?: number | null;
   /**
    * Раскладка дуговой плашки «Текущая раздача» и второй строки (бескозырка/тёмная): якорь на фактическую раздачу партии.
-   * Без этого при автопрогоне тип раздачи в центре мигал бы (1…28) и дёргал margin/placement плашки.
+   * Без этого при автопрогоне тип раздачи в центре мигал бы и дёргал margin/placement плашки.
    */
   centerLabelLayoutDeal?: number;
+  /** 3 или 4 — календарь раздач, подписи и «КАРТ: n». Лаба по умолчанию 4. */
+  playerCount?: PlayerCount;
 };
 
 export function OrbitTrackDisk({
@@ -772,18 +820,20 @@ export function OrbitTrackDisk({
   orbitCssRingSweep = null,
   orbitSweepNeonHue = null,
   centerLabelLayoutDeal,
+  playerCount = 4,
 }: OrbitTrackDiskProps) {
   const [launchScaleCenterHot, setLaunchScaleCenterHot] = useState(false);
+  const tr = useT();
   const cssRingSweepNotifiedRef = useRef(false);
   useEffect(() => {
     cssRingSweepNotifiedRef.current = false;
   }, [orbitCssRingSweep?.durationMs, orbitCssRingSweep != null]);
   const suppressOrbitalReactFloors = orbitCssRingSweep != null;
   const centerDealDisplay = orbitPreviewUiActive ? focusedDeal : currentDeal;
-  const centerDealType = getDealType(centerDealDisplay);
+  const centerDealType = getDealType(centerDealDisplay, playerCount);
   const layoutDealForCenterLabel =
     centerLabelLayoutDeal !== undefined ? centerLabelLayoutDeal : centerDealDisplay;
-  const centerCapLayoutType = getDealType(layoutDealForCenterLabel);
+  const centerCapLayoutType = getDealType(layoutDealForCenterLabel, playerCount);
   const centerCapTwoRows =
     centerCapLayoutType === 'no-trump' || centerCapLayoutType === 'dark';
   const centerNumPinkMod = orbitHoldPinkAccent ? ' deal-track-lab-circle-center-num--orbit-hold-pink' : '';
@@ -869,7 +919,7 @@ export function OrbitTrackDisk({
             ? 'deal-track-lab-circle-center-spot deal-track-lab-circle-center-spot--lit'
             : 'deal-track-lab-circle-center-spot'
         }
-        style={getDealPointStyle(centerDealDisplay)}
+        style={getDealPointStyle(centerDealDisplay, totalDeals)}
         aria-hidden
       />
       {orbitPointDealNumbers ? <div className="deal-track-lab-sphere-dome" aria-hidden /> : null}
@@ -914,15 +964,23 @@ export function OrbitTrackDisk({
         const y = ORBIT_DOT_CY + Math.sin(angle) * ORBIT_DOT_R;
         const active = d === currentDeal;
         const done = d < currentDeal;
-        const type = getDealType(d);
-        const tricks = getTricksInDeal(d);
+        const type = getDealType(d, playerCount);
+        const tricks = getTricksInDeal(d, playerCount);
         const pointClass = pointGlowClass(type, active, done);
-        /** Прошедшие 15–28: цифра визуально как «будущая» у 1–14 (hue + градиент future). */
-        const orbitPastSecondHalfFutureDigit = done && d >= 15 && d <= 28;
-        /** Лиловый/ранний индиго коридор 15–23: светлее глифа, чем у 24–28 (контраст к шару). */
-        const orbitPastSecondHalfFutureDigitBright = done && d >= 15 && d <= 23;
+        const pastStart = orbitMapFrom28(15, totalDeals);
+        const brightEnd = orbitMapFrom28(23, totalDeals);
+        const midSegEnd = orbitMapFrom28(7, totalDeals);
+        const lilacA = orbitMapFrom28(15, totalDeals);
+        const lilacB = orbitMapFrom28(21, totalDeals);
+        const indigoA = orbitMapFrom28(22, totalDeals);
+        const freezeA = orbitMapFrom28(18, totalDeals);
+        const freezeB = orbitMapFrom28(23, totalDeals);
+        /** Прошедшая вторая половина: цифра визуально как «будущая» у первой половины. */
+        const orbitPastSecondHalfFutureDigit = done && d >= pastStart && d <= totalDeals;
+        /** Ранняя вторая половина: светлее глифа, чем поздняя (контраст к шару). */
+        const orbitPastSecondHalfFutureDigitBright = done && d >= pastStart && d <= brightEnd;
         const pointStyle: CSSProperties = {
-          ...getOrbitCirclePointStyle(d),
+          ...getOrbitCirclePointStyle(d, totalDeals),
           ...(orbitReplicaSpectrum
             ? { [`--orbit-replica-rest-hue`]: `${getReplicaOrbitRestHueDegrees(d).toFixed(1)}` }
             : {}),
@@ -935,9 +993,9 @@ export function OrbitTrackDisk({
             key={`c-${d}`}
             className={pointClass}
             type="button"
-            {...(d >= 1 && d <= 7 ? { 'data-orbit-ball-segment': 'mid' } : {})}
-            {...(d >= 15 && d <= 21 ? { 'data-orbit-ball-tone': 'lilac' } : {})}
-            {...(d >= 22 && d <= 28 ? { 'data-orbit-ball-tone': 'indigo' } : {})}
+            {...(d >= 1 && d <= midSegEnd ? { 'data-orbit-ball-segment': 'mid' } : {})}
+            {...(d >= lilacA && d <= lilacB ? { 'data-orbit-ball-tone': 'lilac' } : {})}
+            {...(d >= indigoA && d <= totalDeals ? { 'data-orbit-ball-tone': 'indigo' } : {})}
             {...(orbitPastSecondHalfFutureDigit ? { 'data-orbit-past-second-half-light': '' } : {})}
             {...(orbitReplicaSpectrum
               ? {
@@ -1002,7 +1060,7 @@ export function OrbitTrackDisk({
                 setOrbitTooltip((t) => (t?.deal === d ? null : t));
               }, DEAL_TRACK_LAB_ORBIT_HOVER_LEAVE_MS);
             }}
-            aria-label={`${getDealCellTitle(d)}, ${formatDealCardsCountPerPlayer(tricks)}`}
+            aria-label={`${getDealCellTitle(d, playerCount)}, ${formatDealCardsCountPerPlayer(tricks)}`}
             aria-describedby={orbitTooltipDeal === d ? ORBIT_TOOLTIP_ID : undefined}
             style={pointStyle}
           >
@@ -1027,12 +1085,12 @@ export function OrbitTrackDisk({
                   {
                     '--orbit-digit-h': `${
                       orbitPastSecondHalfFutureDigitBright
-                        ? d >= 18 && d <= 23
-                          ? getOrbitPast1523DigitHueDegrees(15)
-                          : getOrbitPast1523DigitHueDegrees(d)
+                        ? d >= freezeA && d <= freezeB
+                          ? getOrbitPast1523DigitHueDegrees(pastStart, totalDeals)
+                          : getOrbitPast1523DigitHueDegrees(d, totalDeals)
                         : orbitPastSecondHalfFutureDigit
                           ? 266
-                          : getOrbitDigitHueDegrees(d)
+                          : getOrbitDigitHueDegrees(d, totalDeals)
                     }`,
                   } as CSSProperties
                 }
@@ -1067,19 +1125,19 @@ export function OrbitTrackDisk({
                         ? 'deal-track-lab-circle-center-label deal-track-lab-circle-center-label--current-head deal-track-lab-circle-center-label--volume-arc'
                         : 'deal-track-lab-circle-center-label deal-track-lab-circle-center-label--current-head'
                   }
-                  aria-label={showArcCurrentDealPlaque ? 'Текущая раздача' : undefined}
+                  aria-label={showArcCurrentDealPlaque ? tr('table.orbitCurrent') : undefined}
                 >
                   {centerNumOpensLargeScale && launchScaleCenterHot ? (
                     <>
                       <span className="deal-track-lab-circle-center-label--launch-hint-title">
-                        Шкала раздач в партии.
+                        {tr('table.orbitScaleHint')}
                       </span>
-                      <span className="deal-track-lab-circle-center-label--launch-hint-cta">Открыть</span>
+                      <span className="deal-track-lab-circle-center-label--launch-hint-cta">{tr('table.orbitOpen')}</span>
                     </>
                   ) : showArcCurrentDealPlaque ? (
                     <DealTrackLabVolumeMainArcPlaque />
                   ) : (
-                    'Текущая раздача'
+                    tr('table.orbitCurrent')
                   )}
                 </div>
               </div>
@@ -1092,7 +1150,7 @@ export function OrbitTrackDisk({
                 aria-hidden={!orbitPreviewUiActive}
               >
                 <div className="deal-track-lab-circle-center-label deal-track-lab-circle-center-label--preview-pick">
-                  Выбрано
+                  {tr('table.orbitPicked')}
                 </div>
                 <div className="deal-track-lab-circle-center-label-bar" aria-hidden />
               </div>
@@ -1116,12 +1174,12 @@ export function OrbitTrackDisk({
                         : '')
                     }
                   >
-                    {centerCapLayoutType === 'no-trump' ? 'Бескозырка' : 'Тёмная'}
+                    {centerCapLayoutType === 'no-trump' ? tr('table.noTrump') : tr('table.darkDeal')}
                   </span>
                   <span className="deal-track-lab-circle-center-label--deal-type-dup-kartline">
-                    <span className="deal-track-lab-circle-center-label--deal-type-dup-kart">КАРТ:</span>{' '}
+                    <span className="deal-track-lab-circle-center-label--deal-type-dup-kart">{tr('table.cardsHud')}</span>{' '}
                     <span className="deal-track-lab-circle-center-label--deal-type-dup-num">
-                      {getTricksInDeal(layoutDealForCenterLabel)}
+                      {getTricksInDeal(layoutDealForCenterLabel, playerCount)}
                     </span>
                   </span>
                 </div>
@@ -1146,7 +1204,7 @@ export function OrbitTrackDisk({
               if (centerNumOpensLargeScale) setLaunchScaleCenterHot(true);
             }}
             onBlur={() => setLaunchScaleCenterHot(false)}
-            aria-label={`Полная круговая шкала порядка раздач в партии. Сейчас выбрана раздача ${centerDealDisplay}.`}
+            aria-label={tr('table.orbitLaunchAria', { n: centerDealDisplay })}
             aria-haspopup="dialog"
             aria-expanded={largeScaleModalOpen}
             aria-controls="deal-track-lab-orbit-scale-dialog"
@@ -1162,14 +1220,14 @@ export function OrbitTrackDisk({
         {deckStripAboveCap ? (
           <>
             <DealCardBackStrip
-              tricks={getTricksInDeal(centerDealDisplay)}
+              tricks={getTricksInDeal(centerDealDisplay, playerCount)}
               type={centerDealType}
               inDiskCenter
             />
             <div
               className={`deal-track-lab-circle-center-cap${centerCapTwoRows ? ' deal-track-lab-circle-center-cap--two-rows' : ''}`}
             >
-              <DealCircleCenterCapContent dealNumber={centerDealDisplay} />
+              <DealCircleCenterCapContent dealNumber={centerDealDisplay} playerCount={playerCount} />
             </div>
           </>
         ) : (
@@ -1177,10 +1235,10 @@ export function OrbitTrackDisk({
             <div
               className={`deal-track-lab-circle-center-cap${centerCapTwoRows ? ' deal-track-lab-circle-center-cap--two-rows' : ''}`}
             >
-              <DealCircleCenterCapContent dealNumber={centerDealDisplay} />
+              <DealCircleCenterCapContent dealNumber={centerDealDisplay} playerCount={playerCount} />
             </div>
             <DealCardBackStrip
-              tricks={getTricksInDeal(centerDealDisplay)}
+              tricks={getTricksInDeal(centerDealDisplay, playerCount)}
               type={centerDealType}
               inDiskCenter
             />
@@ -2053,6 +2111,7 @@ export function DealTrackLabPage({
                     left: orbitTooltip.left,
                     top: orbitTooltip.top,
                     transform: 'translate(-50%, -50%)',
+                    colorScheme: 'dark',
                     ...orbitTooltipChromeVars(orbitTooltip.accentHue),
                   } as CSSProperties
                 }
@@ -2060,15 +2119,19 @@ export function DealTrackLabPage({
                 <span className="deal-track-lab-orbit-tooltip__shine" aria-hidden />
                 <div className="deal-track-lab-orbit-tooltip__inner">
                   <span className="deal-track-lab-orbit-tooltip__rail" aria-hidden />
-                  <div className="deal-track-lab-orbit-tooltip__text">
-                    <span className="deal-track-lab-orbit-tooltip__main">{tipMain}</span>
+                  <div className="deal-track-lab-orbit-tooltip__text deal-track-lab-orbit-tooltip__text--neon">
+                    <span className="deal-track-lab-orbit-tooltip__main">
+                      {renderOrbitTooltipWords(tipMain, 'deal-track-lab-orbit-tooltip__word-neon-main')}
+                    </span>
                     {tipSub != null && (
                       <>
                         <span className="deal-track-lab-orbit-tooltip__dot" aria-hidden>
                           {' '}
                           ·{' '}
                         </span>
-                        <span className="deal-track-lab-orbit-tooltip__sub">{tipSub}</span>
+                        <span className="deal-track-lab-orbit-tooltip__sub">
+                          {renderOrbitTooltipWords(tipSub, 'deal-track-lab-orbit-tooltip__word-neon-sub')}
+                        </span>
                       </>
                     )}
                   </div>

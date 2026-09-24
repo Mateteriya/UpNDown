@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   createGame,
+  dealOrbitPhaseDegrees,
+  dealPhaseEnds,
   dealsPerMatch,
   getDealType,
   getTricksInDeal,
@@ -20,8 +22,9 @@ describe('3-player deal cycle', () => {
     expect(dealsPerMatch(4)).toBe(28);
   });
 
-  it('getTricksInDeal for 3: up 1→12, plateau, down 11→1, specials at 12', () => {
+  it('getTricksInDeal for 3: up 1→12, three 12-card deals (12–14), down 11→1, specials at 12', () => {
     for (let d = 1; d <= 12; d++) expect(getTricksInDeal(d, 3)).toBe(d);
+    expect(getTricksInDeal(12, 3)).toBe(12);
     expect(getTricksInDeal(13, 3)).toBe(12);
     expect(getTricksInDeal(14, 3)).toBe(12);
     expect(getTricksInDeal(15, 3)).toBe(11);
@@ -30,6 +33,23 @@ describe('3-player deal cycle', () => {
     expect(getTricksInDeal(28, 3)).toBe(12);
     expect(getTricksInDeal(29, 3)).toBe(12);
     expect(getTricksInDeal(31, 3)).toBe(12);
+  });
+
+  it('orbit phase arcs: 4p 20+4+4, 3p 25+3+3', () => {
+    const four = dealPhaseEnds(4);
+    expect(four.downEnd).toBe(20);
+    expect(four.ntEnd - four.downEnd).toBe(4);
+    expect(four.darkEnd - four.ntEnd).toBe(4);
+    const three = dealPhaseEnds(3);
+    expect(three.downEnd).toBe(25);
+    expect(three.ntEnd - three.downEnd).toBe(3);
+    expect(three.darkEnd - three.ntEnd).toBe(3);
+    const d4 = dealOrbitPhaseDegrees(4);
+    expect(d4.normDeg).toBeCloseTo((20 / 28) * 360);
+    expect(d4.ntDeg).toBeCloseTo((4 / 28) * 360);
+    const d3 = dealOrbitPhaseDegrees(3);
+    expect(d3.normDeg).toBeCloseTo((25 / 31) * 360);
+    expect(d3.ntDeg).toBeCloseTo((3 / 31) * 360);
   });
 
   it('getDealType for 3: normal through 25, no-trump 26–28, dark 29–31', () => {

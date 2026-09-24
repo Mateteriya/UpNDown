@@ -816,11 +816,9 @@
      */
     pointer-events: none;
   }
-  /* Только реальные контролы: title (long-press dev) и кабинет.
-   * header/brand иначе перекрывают капсулы под шапкой. */
+  /* Только реальные контролы: title (long-press dev) и язык.
+   * Пустой chrome-trail не должен ловить клики капсул. */
   .menu-screen__pc-topbar .menu-screen__title,
-  .menu-screen__pc-topbar .menu-screen__player,
-  .menu-screen__pc-topbar .menu-glass-ladder,
   .menu-screen__pc-topbar .menu-screen__lang,
   .menu-screen__pc-topbar .lang-switch {
     pointer-events: auto;
@@ -1244,6 +1242,359 @@
   .menu-screen__drift--account > .menu-screen__drift-bob {
     animation: menu-pc-bob-c 7.8s ease-in-out infinite;
     animation-delay: -1.2s;
+    overflow: visible;
+  }
+
+  /*
+   * Ушко-сессии: полу-капсула-«ручка» на верхней кромке аккаунта.
+   * Цвета / обод — как у родительской .menu-capsule--account.
+   */
+  .menu-screen__drift--account .menu-account-wrap {
+    position: relative;
+    width: 100%;
+    padding-top: 22px;
+    overflow: visible;
+  }
+
+  .menu-screen__drift--account .menu-account-ear {
+    --account-rim: #860bfb;
+    --account-rim-soft: color-mix(in srgb, #e80de9d6 55%, #0d52b6b3);
+    position: absolute;
+    left: 50%;
+    top: 22px; /* верхняя граница родительской капсулы */
+    z-index: 6;
+    transform: translate(-50%, -100%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    max-width: calc(100% - 28px);
+    height: 22px;
+    padding: 0 14px;
+    border-radius: 999px 999px 0 0;
+    border: 2.5px solid transparent;
+    border-bottom-width: 0;
+    background:
+      linear-gradient(168deg, rgb(44 3 146 / 98%) 0%, rgb(47 12 106) 55%, rgb(67 26 94 / 95%) 100%)
+        padding-box,
+      linear-gradient(135deg, #025b87, var(--account-rim-soft), #06317b) border-box;
+    box-shadow:
+      0 -2px 0 rgb(71 12 190 / 14%),
+      0 0 12px rgb(84 5 163 / 40%),
+      0 0 16px rgba(103, 232, 249, 0.1),
+      inset 0 2px 3px rgb(2 18 89 / 50%),
+      inset 0 1px 0 rgb(70 8 121 / 50%);
+    pointer-events: none;
+  }
+
+  .menu-screen__drift--account .menu-account-ear__online {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    color: #08e090;
+  }
+
+  .menu-screen__drift--account .menu-account-ear__check {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 3px rgb(8 224 144 / 55%));
+  }
+
+  .menu-screen__drift--account .menu-account-ear__online-text {
+    font: 700 10px / 1 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-shadow:
+      0 1px 0 rgb(12 4 20 / 59%),
+      0 0 6px rgb(9 65 224);
+    white-space: nowrap;
+  }
+
+  /* Имя + шестерёнка настроек — без контейнера, со спином и цветным металлом */
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__title-settings {
+    flex-shrink: 0;
+    width: 1.45em;
+    height: 1.45em;
+    font-size: 21px;
+    display: grid;
+    place-items: center;
+    pointer-events: auto;
+    border-radius: 50%;
+    transition: transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1);
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__title-settings-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+    transform-origin: center;
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1),
+      filter 0.22s ease;
+    filter:
+      drop-shadow(0 0.5px 0 rgb(103 232 249 / 35%))
+      drop-shadow(0 1.5px 0 rgb(8 2 16 / 78%))
+      drop-shadow(0 3px 0 rgb(12 4 28 / 35%))
+      drop-shadow(0 0 5px rgb(124 58 237 / 42%))
+      drop-shadow(0 0 8px rgb(192 38 211 / 28%))
+      brightness(0.96)
+      saturate(1.35)
+      contrast(1.06);
+    animation: menu-account-settings-spin 36s cubic-bezier(0.42, 0.02, 0.18, 1) infinite;
+  }
+
+  /* Шестерёнка: лупа + тихий цветной акцент (ховер самой иконки) */
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__title-settings:hover,
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__title-settings:focus-visible {
+    transform: scale(1.32);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__title-settings:hover
+    .menu-capsule__title-settings-svg,
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__title-settings:focus-visible
+    .menu-capsule__title-settings-svg {
+    animation-duration: 14s;
+    filter:
+      drop-shadow(0 0.5px 0 rgb(103 232 249 / 40%))
+      drop-shadow(0 1.5px 0 rgb(8 2 16 / 75%))
+      drop-shadow(0 0 5px rgb(124 58 237 / 48%))
+      drop-shadow(0 0 10px rgb(109 40 217 / 38%))
+      drop-shadow(0 0 14px rgb(192 38 211 / 28%))
+      brightness(1.04)
+      saturate(1.42)
+      contrast(1.06);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-capsule__title-settings:not(:hover)
+    .menu-capsule__title-settings-svg {
+    animation-duration: 26s;
+  }
+
+  /* Космические тултипы: настройки / выйти */
+  .menu-capsule-cosmic-tip.game-table-tooltip-cosmic {
+    position: fixed;
+    z-index: 2147483000;
+    isolation: isolate;
+    display: block;
+    width: max-content;
+    max-width: min(240px, calc(100vw - 20px));
+    padding: 8px 12px;
+    border-radius: 11px;
+    border: 2px solid transparent;
+    pointer-events: none;
+    overflow: hidden;
+    transform: translate(-50%, calc(-100% - 2px));
+    background-color: #0e0c2a;
+    background-image:
+      radial-gradient(120% 90% at 20% 0%, rgb(56 189 248 / 0.14) 0%, rgb(14, 12, 42) 55%),
+      radial-gradient(100% 90% at 85% 100%, rgb(217 70 239 / 0.14) 0%, rgb(14, 12, 42) 62%),
+      linear-gradient(158deg, rgb(14, 12, 42) 0%, rgb(22, 18, 58) 42%, rgb(3, 6, 18) 100%),
+      conic-gradient(
+        from 225deg,
+        #22d3ee 0%,
+        #c084fc 18%,
+        #e879f9 34%,
+        #f472b6 50%,
+        #fbbf24 66%,
+        #4ade80 82%,
+        #22d3ee 100%
+      );
+    background-clip: padding-box, padding-box, padding-box, border-box;
+    background-origin: padding-box, padding-box, padding-box, border-box;
+    box-shadow:
+      0 0 0 1px rgb(34 211 238 / 0.55),
+      0 0 22px rgb(34 211 238 / 0.32),
+      0 0 34px rgb(168 85 247 / 0.28),
+      0 8px 22px rgb(2 6 23 / 0.58);
+    animation: menu-capsule-cosmic-tip-pop 0.2s ease-out both;
+  }
+
+  .menu-capsule-cosmic-tip__text.game-table-tooltip-cosmic-body-text {
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: 650;
+    line-height: 1.35;
+    letter-spacing: 0.02em;
+    background-image: linear-gradient(
+      104deg,
+      #fbcfe8 0%,
+      #ddd6fe 18%,
+      #bfdbfe 36%,
+      #99f6e4 54%,
+      #fde68a 72%,
+      #f9a8d4 88%,
+      #a5f3fc 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    white-space: nowrap;
+  }
+
+  @keyframes menu-capsule-cosmic-tip-pop {
+    from {
+      opacity: 0;
+      transform: translate(-50%, calc(-100% + 4px)) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, calc(-100% - 2px)) scale(1);
+    }
+  }
+
+  .menu-capsule-cosmic-tip--below.game-table-tooltip-cosmic {
+    transform: translate(-50%, 0);
+    animation-name: menu-capsule-cosmic-tip-pop-below;
+  }
+
+  @keyframes menu-capsule-cosmic-tip-pop-below {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -6px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, 0) scale(1);
+    }
+  }
+
+  /* Модалка выхода / смены — космическая панель */
+  .menu-account-signout-modal__panel {
+    position: relative;
+    max-width: min(420px, 92vw);
+    border: 1.5px solid transparent;
+    background:
+      linear-gradient(168deg, rgb(36 12 72 / 98%) 0%, rgb(14 6 36 / 98%) 55%, rgb(8 3 22 / 99%) 100%)
+        padding-box,
+      linear-gradient(135deg, #22d3ee, #7c3aed 50%, #db2777) border-box;
+    box-shadow:
+      0 0 28px rgba(124, 58, 237, 0.35),
+      0 18px 40px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+  }
+
+  .menu-account-signout-modal__panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 70% 50% at 20% 0%, rgba(34, 211, 238, 0.12), transparent 55%),
+      radial-gradient(ellipse 60% 45% at 90% 100%, rgba(244, 114, 182, 0.1), transparent 50%);
+  }
+
+  .menu-account-signout-modal__head,
+  .menu-account-signout-modal__body,
+  .menu-account-signout-modal__email,
+  .menu-account-signout-modal__actions {
+    position: relative;
+    z-index: 1;
+  }
+
+  .menu-account-signout-modal__title {
+    font: 800 18px / 1.2 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.04em;
+  }
+
+  .menu-account-signout-modal__body {
+    margin: 0 0 10px;
+    color: rgba(226, 232, 240, 0.88);
+    font: 500 14px / 1.45 'Outfit', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .menu-account-signout-modal__email {
+    margin: 0 0 18px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #a5f3fc;
+    font: 650 13px / 1.3 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.02em;
+    background: rgba(8, 4, 24, 0.55);
+    box-shadow:
+      inset 0 0 0 1px rgba(103, 232, 249, 0.22),
+      0 0 12px rgba(34, 211, 238, 0.12);
+  }
+
+  .menu-account-signout-modal__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .menu-account-signout-modal__btn {
+    appearance: none;
+    margin: 0;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font: 700 12px / 1.2 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition:
+      transform 0.15s ease,
+      filter 0.15s ease,
+      box-shadow 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .menu-account-signout-modal__btn:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
+
+  .menu-account-signout-modal__btn:not(:disabled):hover {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+  }
+
+  .menu-account-signout-modal__btn--ghost {
+    color: rgba(226, 232, 240, 0.85);
+    background: rgba(15, 8, 36, 0.65);
+    border-color: rgba(148, 163, 184, 0.28);
+  }
+
+  .menu-account-signout-modal__btn--switch {
+    color: #e0f2fe;
+    background:
+      linear-gradient(160deg, rgba(34, 211, 238, 0.22), rgba(99, 102, 241, 0.28));
+    border-color: rgba(103, 232, 249, 0.4);
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
+  }
+
+  .menu-account-signout-modal__btn--out {
+    color: #fce7f3;
+    background:
+      linear-gradient(160deg, rgba(244, 114, 182, 0.35), rgba(124, 58, 237, 0.4));
+    border-color: rgba(244, 114, 182, 0.45);
+    box-shadow: 0 0 14px rgba(244, 114, 182, 0.28);
   }
   .menu-screen__drift--rules {
     left: auto;
@@ -1259,9 +1610,21 @@
     min-width: 0;
   }
   .menu-screen__drift--account .menu-capsule--with-avatar {
-    min-height: 80px;
+    min-height: 92px;
     padding: 8px 18px 8px 8px;
     gap: 12px;
+  }
+  .menu-screen__drift--account .menu-capsule--with-avatar.menu-capsule--with-signout {
+    padding: 8px 8px 8px 8px;
+  }
+  .menu-screen__drift--account .menu-capsule--id-account.menu-capsule--with-avatar {
+    min-height: 104px;
+    padding: 8px 18px 8px 8px;
+    align-items: center;
+  }
+  .menu-screen__drift--account
+    .menu-capsule--id-account.menu-capsule--with-avatar.menu-capsule--with-signout {
+    padding: 8px 8px 8px 8px;
   }
   .menu-screen__drift--account .menu-capsule__glyph,
   .menu-screen__drift--account .menu-capsule__glyph--avatar {
@@ -1294,6 +1657,1053 @@
   .menu-screen__drift--account .menu-capsule__hint {
     font-size: 12px;
   }
+
+  /*
+   * Аккаунт / кабинет (ПК): премиальная выпуклая капсула.
+   * Зеркало — только у имени; фон без диагонального блика.
+   */
+  .menu-screen__drift--account .menu-capsule--account {
+    --account-rim: #860bfb;
+    --account-rim-soft: color-mix(in srgb, #e80de9d6 55%, #0d52b6b3);
+    --account-fill: #431a5e;
+    position: relative;
+    isolation: isolate;
+    border: 2.5px solid #26077e1a;
+    background:
+      linear-gradient(168deg, rgb(44 3 146 / 98%) 0%, rgb(47 12 106) 42%, rgb(100 60 112 / 9%) 100%)
+        padding-box,
+      linear-gradient(135deg, #025b87, var(--account-rim-soft), #06317b) border-box;
+    box-shadow:
+      0 7px 0 rgb(71 12 190 / 16%),
+      0 14px 26px rgb(0 0 0 / 40%),
+      0 0 18px rgb(84 5 163 / 65%),
+      0 0 28px rgb(74 4 177 / 46%),
+      inset 0 2px 3px rgb(2 18 89),
+      inset 0 1px 0 rgb(70 8 121 / 75%),
+      inset 0 -8px 16px rgb(7 7 20 / 75%),
+      inset 0 -1px 0 rgb(8 2 20 / 35%);
+    filter: none;
+  }
+
+  /* Тихий объём фона — без «жуткого» зеркального блика */
+  .menu-screen__drift--account .menu-capsule--account::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(245, 208, 254, 0.1) 0%,
+        rgba(192, 132, 252, 0.04) 16%,
+        transparent 36%
+      ),
+      radial-gradient(ellipse 70% 55% at 50% -8%, rgba(167, 139, 250, 0.1), transparent 58%);
+    animation: none;
+    filter: none;
+    opacity: 1;
+  }
+
+  .menu-screen__drift--account .menu-capsule--account::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: 18%;
+    right: 22%;
+    height: 1px;
+    border-radius: 999px;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, #c084fc 45%, #fff) 42%,
+      transparent
+    );
+    box-shadow: none;
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__glyph,
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__glyph--avatar,
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__glyph--signout,
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__body {
+    position: relative;
+    z-index: 2;
+  }
+
+  .menu-screen__drift--account .menu-capsule--account.menu-capsule--with-signout {
+    padding-right: 6px;
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__body {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* Шапка: Кабинет · профиль / профиль + аккаунт */
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__eyebrow-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    margin-bottom: 3px;
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__eyebrow {
+    flex-shrink: 0;
+    color: #0792f1;
+    font: 700 11px / 1.15 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-shadow:
+      0 1px 0 rgb(12 4 20 / 59%),
+      0 0 6px rgb(46 9 180);
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__eyebrow-sep {
+    flex-shrink: 0;
+    width: 1.5px;
+    height: 0.95em;
+    border-radius: 999px;
+    background: linear-gradient(
+      180deg,
+      transparent,
+      #67e8f9 22%,
+      #c084fc 55%,
+      #f472b6 78%,
+      transparent
+    );
+    box-shadow:
+      0 0 6px rgba(103, 232, 249, 0.55),
+      0 0 10px rgba(192, 132, 252, 0.35);
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__eyebrow-aside {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #5eead4;
+    font: 650 12px/1.15 'Outfit', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    text-shadow:
+      0 1px 0 rgb(12 4 20 / 55%),
+      0 0 7px rgb(94 234 212 / 55%),
+      0 0 12px rgb(246 205 226 / 40%);
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-account .menu-capsule__eyebrow-aside {
+    color: #fd3fea;
+    text-shadow:
+      0 1px 0 rgb(12 4 20 / 30%),
+      0 0 8px rgb(103 232 249 / 73%);
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-profile .menu-capsule__eyebrow-aside {
+    color: #f0abfc;
+    text-shadow:
+      0 1px 0 rgb(12 4 20 / 55%),
+      0 0 8px rgb(232 121 249 / 55%);
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-guest .menu-capsule__eyebrow-aside {
+    color: #fda4af;
+    text-shadow:
+      0 1px 0 rgb(12 4 20 / 55%),
+      0 0 8px rgb(251 113 133 / 50%);
+  }
+
+  /*
+   * Глиф «выйти» — справа. Вертикальный скруглённый прямоугольник (форма двери):
+   * тот же фиолетовый купол + обод, что был у шестерёнки.
+   */
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__glyph--signout {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: none;
+    cursor: pointer;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    margin-right: 4px;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+    isolation: isolate;
+    align-self: center;
+    -webkit-tap-highlight-color: transparent;
+    transform-origin: center;
+    transition: transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1);
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-account .menu-capsule__glyph--signout {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    border-radius: 50%;
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__signout {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    overflow: visible;
+    background:
+      linear-gradient(168deg, rgb(58 18 168) 0%, rgb(52 22 128) 42%, rgb(44 18 108) 100%);
+    transform: translateY(-1px);
+    box-shadow:
+      0 0 0 1px rgba(37, 99, 235, 0.35),
+      0 1px 0 rgba(129, 140, 248, 0.28),
+      0 3px 0 rgba(8, 12, 40, 0.45),
+      0 8px 14px rgba(0, 0, 0, 0.42),
+      0 0 14px rgba(67, 56, 202, 0.38),
+      0 0 22px rgba(49, 46, 129, 0.28);
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1),
+      box-shadow 0.22s ease,
+      filter 0.22s ease,
+      background 0.22s ease;
+  }
+
+  /* Обод: цвета бегут по дорожке (форма стоит, крутится только градиент) */
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__signout::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    padding: 1.65px;
+    --menu-signout-rim-angle: 200deg;
+    background: conic-gradient(
+      from var(--menu-signout-rim-angle),
+      #0e7490 0%,
+      #22d3ee 12%,
+      #6366f1 28%,
+      #7c3aed 42%,
+      #c026d3 58%,
+      #db2777 72%,
+      #4c1d95 88%,
+      #0e7490 100%
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    filter: saturate(1.2) brightness(1.04);
+    animation: menu-account-signout-rim-flow 5.5s linear infinite;
+  }
+
+  /* Внутренняя панель — купол в тоне родительской капсулы (сине-фиолет) */
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__signout::after {
+    content: '';
+    position: absolute;
+    inset: 2.5px;
+    z-index: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 78% 52% at 30% 18%, rgba(165, 180, 252, 0.42) 0%, transparent 52%),
+      radial-gradient(ellipse 90% 58% at 50% 118%, rgba(12, 28, 96, 0.35) 0%, transparent 55%),
+      radial-gradient(circle at 50% 48%, #4f46e5 0%, #4338ca 28%, #3730a3 58%, #2e1065 100%);
+    box-shadow:
+      inset 0 3px 5px rgba(199, 210, 254, 0.3),
+      inset 0 1px 0 rgba(224, 231, 255, 0.22),
+      inset 0 -5px 10px rgba(15, 23, 72, 0.38),
+      inset 0 0 0 1px rgba(99, 102, 241, 0.32);
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__signout-glass {
+    position: absolute;
+    inset: 2.5px;
+    z-index: 1;
+    border-radius: 50%;
+    pointer-events: none;
+    overflow: hidden;
+    background:
+      radial-gradient(
+        ellipse 70% 46% at 32% 20%,
+        rgba(125, 211, 252, 0.18) 0%,
+        rgba(129, 140, 248, 0.14) 40%,
+        transparent 62%
+      );
+    box-shadow:
+      inset 0 2px 3px rgba(165, 243, 252, 0.1),
+      inset 0 -4px 8px rgba(15, 23, 72, 0.22);
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__signout-glass::after {
+    content: '';
+    position: absolute;
+    top: 6%;
+    left: -28%;
+    width: 48%;
+    height: 48%;
+    border-radius: 50%;
+    background:
+      radial-gradient(
+        circle at 40% 40%,
+        rgba(34, 211, 238, 0.75) 0%,
+        rgba(168, 85, 247, 0.45) 38%,
+        rgba(236, 72, 153, 0.28) 58%,
+        transparent 72%
+      );
+    filter: blur(0.6px);
+    opacity: 0;
+    transform: translate(0, 0) scale(0.55);
+    animation: menu-account-settings-bloom 9.2s cubic-bezier(0.4, 0.05, 0.25, 1) infinite;
+  }
+
+  /* Крестик по центру кнопки */
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__signout-svg {
+    position: relative;
+    z-index: 2;
+    display: block;
+    width: 28px;
+    height: 28px;
+    margin: 0;
+    opacity: 1;
+    transform-origin: center;
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1),
+      filter 0.22s ease;
+    filter:
+      drop-shadow(0 0.5px 0 rgb(103 232 249 / 30%))
+      drop-shadow(0 1px 0 rgb(8 2 16 / 75%))
+      brightness(0.97)
+      saturate(1.32);
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-account .menu-capsule__signout-svg {
+    width: 30px;
+    height: 30px;
+    margin: 0;
+  }
+
+  /* Выйти: лупа + сдержанный тематичный акцент */
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__glyph--signout:hover,
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__glyph--signout:focus-visible {
+    transform: scale(1.2);
+    outline: none;
+    z-index: 6;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__glyph--signout:hover
+    .menu-capsule__signout,
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__glyph--signout:focus-visible
+    .menu-capsule__signout {
+    transform: translateY(-2px);
+    filter: brightness(1.06) saturate(1.12);
+    background:
+      linear-gradient(168deg, rgb(66 28 178) 0%, rgb(58 32 148) 42%, rgb(52 24 128) 100%);
+    box-shadow:
+      0 0 0 1px rgba(99, 102, 241, 0.5),
+      0 1px 0 rgba(165, 180, 252, 0.32),
+      0 4px 0 rgba(12, 4, 28, 0.42),
+      0 10px 16px rgba(0, 0, 0, 0.42),
+      0 0 16px rgba(79, 70, 229, 0.4),
+      0 0 26px rgba(109, 40, 217, 0.32);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__glyph--signout:hover
+    .menu-capsule__signout::before,
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__glyph--signout:focus-visible
+    .menu-capsule__signout::before {
+    animation-duration: 3.4s;
+    filter: saturate(1.22) brightness(1.06);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__glyph--signout:hover
+    .menu-capsule__signout-glass::after,
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__glyph--signout:focus-visible
+    .menu-capsule__signout-glass::after {
+    animation-duration: 5.2s;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__glyph--signout:hover
+    .menu-capsule__signout-svg,
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__glyph--signout:focus-visible
+    .menu-capsule__signout-svg {
+    transform: scale(1.05);
+    filter:
+      drop-shadow(0 0.5px 0 rgb(103 232 249 / 38%))
+      drop-shadow(0 0 5px rgb(124 58 237 / 42%))
+      drop-shadow(0 0 9px rgb(192 38 211 / 30%))
+      drop-shadow(0 1px 0 rgb(8 2 16 / 70%))
+      brightness(1.05)
+      saturate(1.4)
+      contrast(1.05);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__glyph--signout:active
+    .menu-capsule__signout {
+    transform: translateY(1px);
+    box-shadow:
+      0 0 0 1px rgba(109, 40, 217, 0.5),
+      0 1px 0 rgba(12, 4, 28, 0.55),
+      inset 0 2px 4px rgba(0, 0, 0, 0.45);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__glyph--signout:active {
+    transform: scale(1.08);
+  }
+
+  /* Неравномерно: разгон → короткая пауза → догон */
+  @keyframes menu-account-settings-spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    18% {
+      transform: rotate(55deg);
+    }
+    32% {
+      transform: rotate(70deg);
+    }
+    58% {
+      transform: rotate(210deg);
+    }
+    72% {
+      transform: rotate(235deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes menu-account-signout-rim-flow {
+    to {
+      --menu-signout-rim-angle: 560deg;
+    }
+  }
+
+  @keyframes menu-account-settings-bloom {
+    0%,
+    12%,
+    100% {
+      opacity: 0;
+      transform: translate(-8%, -4%) scale(0.5);
+    }
+    22% {
+      opacity: 0.9;
+      transform: translate(18%, 12%) scale(0.85);
+    }
+    38% {
+      opacity: 0.55;
+      transform: translate(72%, 58%) scale(1.05);
+    }
+    52% {
+      opacity: 0;
+      transform: translate(118%, 98%) scale(0.7);
+    }
+    52.01%,
+    100% {
+      opacity: 0;
+      transform: translate(118%, 98%) scale(0.7);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .menu-screen__drift--account .menu-capsule--account .menu-capsule__title-settings-svg,
+    .menu-screen__drift--account .menu-capsule--account .menu-capsule__signout::before,
+    .menu-screen__drift--account .menu-capsule--account .menu-capsule__signout-glass::after {
+      animation: none;
+    }
+    .menu-screen__drift--account .menu-capsule--account .menu-capsule__signout-glass::after {
+      opacity: 0;
+    }
+  }
+
+  /* Имя: зеркальный металлик — только текст */
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__title {
+    min-width: 0;
+    font: 800 21px/1.12 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.035em;
+    color: transparent;
+    background-image: linear-gradient(
+      185deg,
+      #f0f9ff 0%,
+      #bae6fd 14%,
+      #7dd3fc 28%,
+      #498ced 48%,
+      #3b82f6 62%,
+      #93c5fd 82%,
+      #e0f2fe 100%
+    );
+    background-size: 100% 180%;
+    background-position: 50% 20%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter:
+      drop-shadow(0 1px 0 rgb(28 8 40 / 70%))
+      drop-shadow(0 0 3px rgb(73 140 237 / 45%));
+    animation: menu-account-name-mirror 4.8s ease-in-out infinite;
+  }
+
+  @keyframes menu-account-name-mirror {
+    0%,
+    100% {
+      background-position: 50% 10%;
+    }
+    50% {
+      background-position: 50% 85%;
+    }
+  }
+
+  /* Meta: email / профиль / гость */
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    max-width: 100%;
+    margin-top: 3px;
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__meta-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: 650 11.5px/1.2 'Outfit', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.03em;
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__meta--email .menu-capsule__meta-pulse {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #a5f3fc, #22d3ee 55%, #0e7490);
+    box-shadow:
+      0 0 0 1px rgba(165, 243, 252, 0.45),
+      0 0 8px rgba(34, 211, 238, 0.75),
+      0 0 14px rgba(168, 85, 247, 0.35);
+    animation: menu-account-email-pulse 1.8s ease-in-out infinite;
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__meta--email .menu-capsule__meta-text {
+    color: transparent;
+    background-image: linear-gradient(
+      105deg,
+      #a5f3fc 0%,
+      #67e8f9 18%,
+      #c084fc 42%,
+      #f0abfc 58%,
+      #67e8f9 78%,
+      #e0f2fe 100%
+    );
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter:
+      drop-shadow(0 1px 0 rgb(8 2 28 / 65%))
+      drop-shadow(0 0 5px rgb(103 232 249 / 40%));
+    animation: menu-account-email-sheen 3.6s linear infinite;
+  }
+
+  @keyframes menu-account-email-sheen {
+    0% {
+      background-position: 0% 50%;
+    }
+    100% {
+      background-position: 220% 50%;
+    }
+  }
+
+  @keyframes menu-account-email-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 0.9;
+    }
+    50% {
+      transform: scale(1.2);
+      opacity: 1;
+    }
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__meta--profile .menu-capsule__meta-mark {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #f5d0fe, #e879f9 60%, #a21caf);
+    box-shadow: 0 0 8px rgba(232, 121, 249, 0.55);
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__meta--profile .menu-capsule__meta-text {
+    color: #e9d5ff;
+    text-shadow:
+      0 1px 0 rgb(12 4 20 / 60%),
+      0 0 8px rgb(192 132 252 / 40%);
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__meta--guest .menu-capsule__meta-mark {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    background: linear-gradient(135deg, #fda4af, #fb7185);
+    box-shadow: 0 0 8px rgba(251, 113, 133, 0.5);
+    transform: rotate(45deg);
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__meta--guest .menu-capsule__meta-text {
+    color: #fecdd3;
+    text-shadow:
+      0 1px 0 rgb(12 4 20 / 60%),
+      0 0 8px rgb(251 113 133 / 35%);
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__hint {
+    display: none;
+  }
+
+  /*
+   * ПК: плашка «онлайн / имя» над аватаркой не нужна —
+   * статус уже в шапке и meta-строке. На мобилке (chip) оставляем.
+   */
+  .menu-screen__drift--account .menu-signed-id__status {
+    display: none;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__glyph:not(.menu-capsule__glyph--avatar):not(.menu-capsule__glyph--signout) {
+    background:
+      radial-gradient(circle at 34% 28%, rgba(245, 208, 254, 0.32), transparent 48%),
+      radial-gradient(circle at 70% 75%, rgba(244, 114, 182, 0.14), transparent 55%),
+      linear-gradient(165deg, rgba(72, 28, 88, 0.98) 0%, rgba(18, 6, 32, 1) 100%);
+    box-shadow:
+      0 4px 0 rgba(8, 3, 16, 0.5),
+      0 7px 12px rgba(0, 0, 0, 0.32),
+      0 0 12px rgba(192, 132, 252, 0.28),
+      inset 0 2px 3px rgba(245, 208, 254, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      inset 0 -4px 8px rgba(8, 3, 16, 0.6),
+      inset 0 0 0 1px rgba(192, 132, 252, 0.4);
+    color: #f5d0fe;
+  }
+
+  /* Профиль / гость: прежний выпуклый глиф-аватар */
+  .menu-screen__drift--account
+    .menu-capsule--account:not(.menu-capsule--id-account)
+    .menu-capsule__glyph--avatar {
+    box-shadow:
+      0 4px 0 rgba(8, 3, 16, 0.48),
+      0 7px 12px rgba(0, 0, 0, 0.3),
+      0 0 14px rgba(232, 121, 249, 0.28),
+      inset 0 2px 3px rgba(245, 208, 254, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 0 0 1.5px rgba(192, 132, 252, 0.45);
+  }
+
+  /*
+   * Вошедший в аккаунт (ПК): аватар «через слезу» —
+   * вращающийся радужный обод, стекло-линза, 3D-глубина, чёткое лицо.
+   * Мобильный chip не затрагиваем (surface=capsule только на ПК).
+   */
+  .menu-screen__drift--account .menu-capsule--id-account .menu-capsule__glyph--avatar {
+    width: 78px;
+    height: 78px;
+    min-width: 78px;
+    min-height: 78px;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+    isolation: isolate;
+    align-self: center;
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id {
+    width: 78px;
+    height: 78px;
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__ring {
+    position: relative;
+    width: 78px;
+    height: 78px;
+    padding: 0;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #312e81;
+    transform: scale(1.045);
+    transform-style: preserve-3d;
+    box-shadow:
+      0 0 0 1.5px rgba(255, 255, 255, 0.32),
+      0 1px 0 rgba(245, 208, 254, 0.45),
+      0 0 14px rgba(103, 232, 249, 0.55),
+      0 0 28px rgba(192, 132, 252, 0.48),
+      0 0 42px rgba(244, 114, 182, 0.22),
+      0 3px 0 rgba(8, 3, 20, 0.4),
+      0 7px 0 rgba(8, 3, 20, 0.28),
+      0 14px 20px rgba(4, 2, 16, 0.55),
+      0 22px 36px rgba(0, 0, 0, 0.38),
+      0 32px 48px rgba(0, 0, 0, 0.22);
+    transition:
+      transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.22s ease,
+      filter 0.22s ease;
+  }
+
+  /* Купольная подложка под фото */
+  .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__ring::before {
+    content: '';
+    display: block;
+    position: absolute;
+    inset: 5px;
+    z-index: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 34% 26%, #f5f3ff 0%, #c4b5fd 34%, #6366f1 72%, #312e81 100%);
+    box-shadow:
+      inset 0 3px 5px rgba(255, 255, 255, 0.5),
+      inset 0 -5px 12px rgba(30, 27, 75, 0.65),
+      inset 0 0 0 1px rgba(167, 139, 250, 0.35);
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__spin {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    background: conic-gradient(
+      from 200deg,
+      #67e8f9 0%,
+      #22d3ee 12%,
+      #a78bfa 30%,
+      #f472b6 46%,
+      #fcd34d 62%,
+      #67e8f9 80%,
+      #22d3ee 100%
+    );
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5.5px), #000 calc(100% - 4.25px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 5.5px), #000 calc(100% - 4.25px));
+    animation: menu-pc-account-avatar-spin 8.5s linear infinite;
+    filter: saturate(1.22) brightness(1.12);
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__face.player-avatar,
+  .menu-screen__drift--account .menu-capsule--id-account .menu-capsule__glyph--avatar .player-avatar {
+    position: relative;
+    z-index: 1;
+    width: 64px !important;
+    height: 64px !important;
+    min-width: 64px !important;
+    min-height: 64px !important;
+    max-width: 64px !important;
+    max-height: 64px !important;
+    aspect-ratio: 1 !important;
+    border-radius: 50% !important;
+    flex-shrink: 0 !important;
+    font-size: 26px !important;
+    transform: none;
+    filter: contrast(1.1) saturate(1.08) brightness(1.03) !important;
+    box-shadow:
+      0 0 0 1.5px rgba(12, 6, 32, 0.92),
+      0 2px 3px rgba(0, 0, 0, 0.35),
+      0 6px 10px rgba(0, 0, 0, 0.32),
+      0 10px 18px rgba(0, 0, 0, 0.2),
+      inset 0 4px 8px rgba(255, 255, 255, 0.28),
+      inset 0 -7px 14px rgba(0, 0, 0, 0.38) !important;
+    transition:
+      transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+      filter 0.22s ease,
+      box-shadow 0.22s ease;
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__face img,
+  .menu-screen__drift--account .menu-capsule--id-account .player-avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    image-rendering: auto;
+  }
+
+  /* Стекло: сферический виньет по краям, центр лица свободен */
+  .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__glass {
+    display: block;
+    position: absolute;
+    inset: 7px;
+    z-index: 2;
+    border-radius: 50%;
+    pointer-events: none;
+    overflow: hidden;
+    background:
+      radial-gradient(
+        ellipse 68% 48% at 30% 14%,
+        rgba(186, 230, 253, 0.32) 0%,
+        rgba(192, 132, 252, 0.1) 28%,
+        transparent 50%
+      ),
+      radial-gradient(
+        circle at 50% 48%,
+        transparent 38%,
+        rgba(12, 8, 36, 0.12) 68%,
+        rgba(6, 3, 20, 0.38) 100%
+      ),
+      radial-gradient(ellipse 95% 70% at 50% 120%, rgba(0, 0, 0, 0.48) 0%, transparent 52%);
+    box-shadow:
+      inset 0 4px 6px rgba(186, 230, 253, 0.28),
+      inset 0 -10px 16px rgba(0, 0, 0, 0.4),
+      inset 0 0 0 1px rgba(167, 139, 250, 0.28);
+  }
+
+  /*
+   * Блик: узкая цветная полоса по стеклу (amber→rose→cyan),
+   * пик ~0.45 — заметна, фото читается. ≠ комета шестерёнки.
+   */
+  .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__glass::after {
+    content: '';
+    position: absolute;
+    top: -48%;
+    left: -70%;
+    width: 36%;
+    height: 210%;
+    background: linear-gradient(
+      108deg,
+      transparent 0%,
+      transparent 40%,
+      rgba(251, 191, 36, 0.22) 46%,
+      rgba(244, 114, 182, 0.45) 51%,
+      rgba(103, 232, 249, 0.4) 55%,
+      rgba(167, 139, 250, 0.14) 59%,
+      transparent 66%
+    );
+    filter: blur(0.5px);
+    transform: rotate(28deg);
+    opacity: 0;
+    animation: menu-pc-account-avatar-sheen 6.8s cubic-bezier(0.4, 0.05, 0.2, 1) infinite;
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__stars {
+    z-index: 4;
+    top: -2px;
+    right: -3px;
+    filter:
+      drop-shadow(0 0 3px rgba(34, 211, 238, 0.9))
+      drop-shadow(0 0 8px rgba(244, 114, 182, 0.55));
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-signed-id__ring {
+    transform: scale(1.06);
+    filter: brightness(1.05);
+    box-shadow:
+      0 0 0 1.5px rgba(255, 255, 255, 0.38),
+      0 1px 0 rgba(245, 208, 254, 0.5),
+      0 0 18px rgba(103, 232, 249, 0.62),
+      0 0 34px rgba(168, 85, 247, 0.52),
+      0 0 48px rgba(244, 114, 182, 0.28),
+      0 4px 0 rgba(8, 3, 20, 0.38),
+      0 9px 0 rgba(8, 3, 20, 0.26),
+      0 18px 26px rgba(0, 0, 0, 0.52),
+      0 28px 42px rgba(0, 0, 0, 0.32);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-signed-id__spin {
+    filter: saturate(1.35) brightness(1.18);
+    animation-duration: 5s;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-signed-id__glass {
+    background:
+      radial-gradient(
+        ellipse 68% 48% at 30% 14%,
+        rgba(186, 230, 253, 0.4) 0%,
+        rgba(192, 132, 252, 0.14) 28%,
+        transparent 50%
+      ),
+      radial-gradient(
+        circle at 50% 48%,
+        transparent 36%,
+        rgba(12, 8, 36, 0.14) 66%,
+        rgba(6, 3, 20, 0.42) 100%
+      ),
+      radial-gradient(ellipse 95% 70% at 50% 120%, rgba(0, 0, 0, 0.5) 0%, transparent 52%);
+    box-shadow:
+      inset 0 5px 8px rgba(186, 230, 253, 0.34),
+      inset 0 -11px 18px rgba(0, 0, 0, 0.44),
+      inset 0 0 10px rgba(244, 114, 182, 0.1);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-signed-id__glass::after {
+    animation-duration: 3.8s;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-signed-id__face.player-avatar,
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-capsule__glyph--avatar
+    .player-avatar {
+    transform: scale(1.03);
+    filter: contrast(1.12) saturate(1.1) brightness(1.05) !important;
+    box-shadow:
+      0 0 0 1.5px rgba(12, 6, 32, 0.92),
+      0 3px 5px rgba(0, 0, 0, 0.38),
+      0 8px 14px rgba(0, 0, 0, 0.34),
+      0 14px 22px rgba(0, 0, 0, 0.22),
+      inset 0 5px 9px rgba(255, 255, 255, 0.3),
+      inset 0 -8px 16px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  @keyframes menu-pc-account-avatar-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes menu-pc-account-avatar-sheen {
+    0%,
+    22%,
+    100% {
+      opacity: 0;
+      transform: translateX(0) rotate(28deg);
+    }
+    30% {
+      opacity: 0.55;
+    }
+    48% {
+      opacity: 0.38;
+      transform: translateX(220%) rotate(28deg);
+    }
+    62% {
+      opacity: 0;
+      transform: translateX(360%) rotate(28deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__spin,
+    .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__glass::after {
+      animation: none;
+    }
+    .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__glass::after {
+      opacity: 0;
+    }
+  }
+
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule-glyph-svg {
+    filter:
+      drop-shadow(0 0 3px rgb(192 132 252 / 50%))
+      drop-shadow(0 0 7px rgb(232 121 249 / 28%))
+      drop-shadow(0 1px 1px rgb(8 2 16 / 65%))
+      saturate(1.12)
+      brightness(1.04);
+  }
+
+  .menu-screen__drift--account .menu-capsule--account:hover:not(:disabled):not(.menu-capsule--disabled) {
+    filter: none;
+    transform: translateY(1px);
+    box-shadow:
+      0 5px 0 rgb(71 12 190 / 18%),
+      0 12px 22px rgb(0 0 0 / 42%),
+      0 0 22px rgb(84 5 163 / 90%),
+      0 0 32px rgba(103, 232, 249, 0.14),
+      inset 0 2px 4px rgba(245, 208, 254, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 -7px 14px rgba(4, 2, 16, 0.55),
+      inset 0 -1px 0 rgba(8, 2, 20, 0.45);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-capsule-glyph-svg {
+    filter:
+      drop-shadow(0 0 4px rgb(192 132 252 / 65%))
+      drop-shadow(0 0 9px rgb(232 121 249 / 38%))
+      drop-shadow(0 1px 1px rgb(8 2 16 / 65%))
+      saturate(1.18)
+      brightness(1.08);
+  }
+
+  .menu-screen__drift--account .menu-capsule--account:active:not(:disabled):not(.menu-capsule--disabled) {
+    filter: none;
+    transform: translateY(5px);
+    box-shadow:
+      0 1px 0 rgb(71 12 190 / 20%),
+      0 4px 10px rgb(0 0 0 / 35%),
+      0 0 12px rgb(84 5 163 / 55%),
+      inset 0 6px 14px rgba(0, 0, 0, 0.52),
+      inset 0 -1px 0 rgba(245, 208, 254, 0.1),
+      inset 0 0 0 1px rgba(192, 132, 252, 0.3);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .menu-screen__drift--account .menu-capsule--account .menu-capsule__title {
+      animation: none;
+      background-position: 50% 40%;
+    }
+
+    .menu-screen__drift--account .menu-capsule--account .menu-capsule__title-settings-svg {
+      animation: none;
+    }
+
+    .menu-screen__drift--account .menu-capsule--account .menu-capsule__meta--email .menu-capsule__meta-text,
+    .menu-screen__drift--account .menu-capsule--account .menu-capsule__meta--email .menu-capsule__meta-pulse {
+      animation: none;
+    }
+  }
+
   .menu-screen__drift--rules > .menu-screen__drift-bob {
     animation: menu-pc-bob-c 6.4s ease-in-out infinite;
   }
@@ -1320,6 +2730,211 @@
   .menu-screen__drift--rating > .menu-screen__drift-bob {
     animation: menu-pc-bob-b 7s ease-in-out infinite;
     animation-delay: -0.8s;
+  }
+
+  /*
+   * Рейтинг (ПК): премиальная выпуклая капсула —
+   * золото / янтарь + emboss / глянец (в духе элитных чипов меню).
+   */
+  .menu-screen__drift--rating .menu-capsule--rating {
+    --rating-rim: #fbbf24d1;
+    --rating-rim-soft: color-mix(in srgb, #f59e0be0 55%, #f51dc6);
+    --rating-fill: #150a08;
+    position: relative;
+    isolation: isolate;
+    border: 2.5px solid #00000000;
+    background:
+      linear-gradient(168deg, rgb(73 34 6) 0%, rgb(56 6 74 / 94%) 42%, rgba(10, 5, 14, 1) 100%)
+        padding-box,
+      linear-gradient(135deg, #5800f0f7, var(--rating-rim-soft), #16bb0ae6) border-box;
+    box-shadow:
+      0 7px 0 rgb(8 3 12 / 33%),
+      0 14px 26px rgb(0 0 0 / 95%),
+      0 0 18px rgb(229 157 8 / 29%),
+      0 0 28px rgb(28 4 79),
+      inset 0 2px 3px rgb(19 42 66 / 27%),
+      inset 0 1px 0 rgb(6 26 135),
+      inset 0 -8px 16px rgb(0 0 0 / 73%),
+      inset 0 -1px 0 rgb(8 2 16 / 27%);
+    filter: none;
+  }
+
+  .menu-screen__drift--rating .menu-capsule--rating::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(253, 230, 138, 0.22) 0%,
+        rgba(251, 191, 36, 0.08) 14%,
+        transparent 34%
+      ),
+      radial-gradient(ellipse 90% 70% at 50% -10%, rgba(253, 224, 71, 0.18), transparent 55%),
+      radial-gradient(ellipse 50% 100% at 4% 50%, rgba(251, 191, 36, 0.08), transparent 65%),
+      radial-gradient(ellipse 50% 100% at 96% 50%, rgba(232, 121, 249, 0.08), transparent 65%);
+  }
+
+  .menu-screen__drift--rating .menu-capsule--rating::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: 18%;
+    right: 22%;
+    height: 1px;
+    border-radius: 999px;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--rating-rim) 60%, #fff) 42%,
+      transparent
+    );
+  }
+
+  .menu-screen__drift--rating .menu-capsule--rating .menu-capsule__glyph,
+  .menu-screen__drift--rating .menu-capsule--rating .menu-capsule__body {
+    position: relative;
+    z-index: 2;
+  }
+
+  .menu-screen__drift--rating .menu-capsule--rating .menu-capsule__title {
+    color: #fde68ac7;
+    font-weight: 800;
+    text-shadow:
+      0 -1px 0 rgb(249 247 236 / 0%),
+      0 1px 0 rgb(156 45 8 / 99%),
+      0 0 4px #241111f7;
+  }
+
+  .menu-screen__drift--rating .menu-capsule--rating .menu-capsule__hint {
+    color: #fcd34d;
+    opacity: 0.92;
+    text-shadow: 0 1px 0 rgb(12 4 8 / 65%);
+  }
+
+  .menu-screen__drift--rating .menu-capsule--rating .menu-capsule__glyph {
+    background:
+      radial-gradient(circle at 34% 28%, rgba(253, 230, 138, 0.35), transparent 48%),
+      radial-gradient(circle at 70% 75%, rgba(232, 121, 249, 0.12), transparent 55%),
+      linear-gradient(165deg, rgba(72, 40, 8, 0.98) 0%, rgba(16, 8, 12, 1) 100%);
+    box-shadow:
+      0 4px 0 rgba(8, 3, 10, 0.55),
+      0 7px 12px rgba(0, 0, 0, 0.35),
+      0 0 12px rgba(251, 191, 36, 0.28),
+      inset 0 2px 3px rgba(254, 243, 199, 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -4px 8px rgba(8, 3, 10, 0.65),
+      inset 0 0 0 1px rgba(251, 191, 36, 0.4);
+    color: #fef3c7;
+  }
+
+  .menu-screen__drift--rating .menu-capsule--rating .menu-capsule-glyph-svg {
+    filter:
+      drop-shadow(0 0 3px rgb(251 191 36 / 55%))
+      drop-shadow(0 0 8px rgb(245 158 11 / 35%))
+      drop-shadow(0 1px 1px rgb(8 2 12 / 70%))
+      saturate(1.15)
+      brightness(1.06);
+  }
+
+  .menu-screen__drift--rating .menu-capsule--rating:hover:not(:disabled):not(.menu-capsule--disabled) {
+    filter: none;
+    transform: translateY(1px);
+    box-shadow:
+      0 5px 0 rgba(8, 3, 12, 0.58),
+      0 12px 22px rgba(0, 0, 0, 0.42),
+      0 0 22px rgba(251, 191, 36, 0.32),
+      0 0 32px rgba(232, 121, 249, 0.14),
+      inset 0 2px 4px rgba(254, 243, 199, 0.34),
+      inset 0 1px 0 rgba(255, 255, 255, 0.26),
+      inset 0 -7px 14px rgba(4, 2, 12, 0.58),
+      inset 0 -1px 0 rgba(8, 2, 16, 0.5);
+  }
+
+  .menu-screen__drift--rating
+    .menu-capsule--rating:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-capsule-glyph-svg {
+    filter:
+      drop-shadow(0 0 4px rgb(251 191 36 / 70%))
+      drop-shadow(0 0 10px rgb(245 158 11 / 45%))
+      drop-shadow(0 1px 1px rgb(8 2 12 / 70%))
+      saturate(1.2)
+      brightness(1.1);
+  }
+
+  .menu-screen__drift--rating .menu-capsule--rating:active:not(:disabled):not(.menu-capsule--disabled) {
+    filter: none;
+    transform: translateY(5px);
+    box-shadow:
+      0 1px 0 rgba(8, 3, 12, 0.45),
+      0 4px 10px rgba(0, 0, 0, 0.35),
+      0 0 12px rgba(251, 191, 36, 0.18),
+      inset 0 6px 14px rgba(0, 0, 0, 0.55),
+      inset 0 -1px 0 rgba(254, 243, 199, 0.1),
+      inset 0 0 0 1px rgba(251, 191, 36, 0.28);
+  }
+
+  /* Стрелки свёртки — золото вместо сирени */
+  .menu-screen__drift--rating .menu-capsule__fold {
+    color: #fbbf24;
+    filter:
+      drop-shadow(0 0 3px rgba(251, 191, 36, 0.55))
+      drop-shadow(0 0 8px rgba(245, 158, 11, 0.28));
+    opacity: 0.85;
+  }
+  .menu-screen__drift--rating .menu-capsule__fold:hover,
+  .menu-screen__drift--rating .menu-capsule__fold:focus-visible {
+    color: #fde68a;
+    opacity: 1;
+    filter:
+      drop-shadow(0 0 4px rgba(253, 224, 71, 0.7))
+      drop-shadow(0 0 10px rgba(251, 191, 36, 0.4));
+  }
+
+  /*
+   * Звук — левый верх страницы (симметрия с RU/EN справа).
+   * Прямой ребёнок .menu-screen + MenuPcDrift (drag за ушко).
+   */
+  .menu-screen > .menu-screen__drift--audio,
+  .menu-screen__drift--audio {
+    position: absolute;
+    top: calc(max(24px, env(safe-area-inset-top, 0px) + 12px) + 6px);
+    left: clamp(20px, 3.5vw, 56px);
+    right: auto;
+    bottom: auto;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    z-index: 5;
+    translate: var(--menu-drift-x, 0px) var(--menu-drift-y, 0px);
+  }
+  .menu-screen__drift--audio > .menu-screen__drift-bob {
+    /* block-flex: без inline-strut под капсулой (иначе щель до ручки) */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: auto;
+    font-size: 0;
+    line-height: 0;
+    animation: none;
+  }
+  .menu-screen__drift--audio .audio-settings {
+    z-index: 5;
+    display: flex;
+    width: max-content;
+    font-size: 0;
+    line-height: 0;
+  }
+  .menu-screen__drift--audio .menu-sound-btn--pc {
+    /* ниже ушка — неоновый верх ручки читается как шов у низа капсулы */
+    z-index: 8;
+    transform: none;
+    margin: 0;
   }
   .menu-screen__drift--history {
     left: 72%;
@@ -1487,27 +3102,27 @@
       inset 0 1px 0 rgba(224, 231, 255, 0.35);
     outline: none;
   }
-  /* Рейтинг — циан */
+  /* Рейтинг — золото / янтарь (в тон премиальной капсуле) */
   .menu-screen__drift--rating .menu-screen__drift-ear {
-    border-color: rgba(34, 211, 238, 0.65);
-    background: linear-gradient(180deg, rgba(12, 48, 72, 0.98) 0%, rgba(8, 16, 36, 1) 100%);
+    border-color: rgba(251, 191, 36, 0.7);
+    background: linear-gradient(180deg, rgba(56, 32, 10, 0.98) 0%, rgba(16, 8, 12, 1) 100%);
     box-shadow:
-      0 0 8px rgba(34, 211, 238, 0.38),
-      0 0 14px rgba(56, 189, 248, 0.22),
-      inset 0 1px 0 rgba(165, 243, 252, 0.25);
+      0 0 8px rgba(251, 191, 36, 0.4),
+      0 0 14px rgba(245, 158, 11, 0.22),
+      inset 0 1px 0 rgba(254, 243, 199, 0.35);
   }
   .menu-screen__drift--rating .menu-screen__drift-ear__grip > span {
-    background: #67e8f9;
-    box-shadow: 0 0 5px rgba(34, 211, 238, 0.6);
+    background: #fbbf24;
+    box-shadow: 0 0 5px rgba(251, 191, 36, 0.7);
   }
   .menu-screen__drift--rating .menu-screen__drift-ear:hover,
   .menu-screen__drift--rating .menu-screen__drift-ear:focus-visible {
-    border-color: rgba(103, 232, 249, 0.9);
-    filter: brightness(1.1);
+    border-color: rgba(253, 224, 71, 0.92);
+    filter: brightness(1.08);
     box-shadow:
-      0 0 12px rgba(34, 211, 238, 0.48),
-      0 0 18px rgba(56, 189, 248, 0.3),
-      inset 0 1px 0 rgba(207, 250, 254, 0.35);
+      0 0 12px rgba(251, 191, 36, 0.5),
+      0 0 18px rgba(245, 158, 11, 0.3),
+      inset 0 1px 0 rgba(255, 251, 235, 0.42);
     outline: none;
   }
   /* Поддержать — фиолет/циан (как кнопка), не белая ручка */
@@ -1531,6 +3146,36 @@
       0 0 12px rgba(167, 139, 250, 0.5),
       0 0 18px rgba(34, 211, 238, 0.28),
       inset 0 1px 0 rgba(221, 214, 254, 0.35);
+    outline: none;
+  }
+  /* Звук — циан / орхидея; неоновый верхний шов как у остальных капсул */
+  .menu-screen__drift--audio .menu-screen__drift-ear {
+    top: 100%;
+    z-index: 12;
+    translate: -50% 0;
+    border-color: rgba(56, 189, 248, 0.55);
+    border-top-color: rgba(165, 243, 252, 0.92);
+    background: linear-gradient(180deg, rgba(12, 40, 72, 0.98) 0%, rgba(24, 10, 48, 1) 100%);
+    box-shadow:
+      0 0 8px rgba(34, 211, 238, 0.38),
+      0 0 14px rgba(168, 85, 247, 0.22),
+      inset 0 1px 0 rgba(207, 250, 254, 0.55),
+      0 -1px 6px rgba(103, 232, 249, 0.35);
+  }
+  .menu-screen__drift--audio .menu-screen__drift-ear__grip > span {
+    background: #c084fc;
+    box-shadow: 0 0 5px rgba(192, 132, 252, 0.65);
+  }
+  .menu-screen__drift--audio .menu-screen__drift-ear:hover,
+  .menu-screen__drift--audio .menu-screen__drift-ear:focus-visible {
+    border-color: rgba(103, 232, 249, 0.75);
+    border-top-color: rgba(224, 242, 254, 0.98);
+    filter: brightness(1.1);
+    box-shadow:
+      0 0 12px rgba(34, 211, 238, 0.48),
+      0 0 18px rgba(232, 121, 249, 0.3),
+      inset 0 1px 0 rgba(240, 249, 255, 0.65),
+      0 -1px 8px rgba(103, 232, 249, 0.45);
     outline: none;
   }
   .menu-screen__drift--movable .menu-screen__drift-ear:active,
@@ -1957,6 +3602,12 @@
  * ПК: звёзды онлайн-капсулы — «окно в космос».
  * Bob на внешнем drift: звёзды движутся вместе с капсулой (без контр-translate у нижнего края).
  */
+@property --menu-signout-rim-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 200deg;
+}
+
 @property --menu-online-bob-y {
   syntax: '<length>';
   inherits: true;
@@ -2245,8 +3896,8 @@
     flex: 1 1 auto;
     align-items: stretch;
     min-width: 0;
-    /* Место под аватар кабинета справа */
-    padding-right: 64px;
+    /* Место под аватар (сдвинут левее ушка языка) */
+    padding-right: 96px;
   }
   /* Крупнее визуально, layout-box прежний — контент ниже не едет */
   .menu-screen .menu-screen__brand-mark {
@@ -2328,13 +3979,13 @@
       0 0 14px rgba(34, 211, 238, 0.35);
   }
 
-  /* Кабинет: правый верх; signed-id (WAVE / online) не обрезать */
-  .menu-screen .menu-screen__player {
-    position: absolute;
-    /* +11px ниже бренда (лого / Up&Down / подпись не сдвигаем) */
-    top: calc(max(12px, env(safe-area-inset-top, 0px)) + 11px);
-    right: max(12px, env(safe-area-inset-right, 0px));
-    z-index: 8;
+  /* Кабинет: в .menu-screen__chrome-trail (правый верх); signed-id не обрезать */
+  .menu-screen .menu-screen__chrome-trail .menu-screen__player {
+    position: relative;
+    top: auto;
+    right: auto;
+    left: auto;
+    z-index: auto;
     width: auto;
     max-width: none;
     margin: 0;
@@ -2360,16 +4011,24 @@
       box-shadow 0.18s ease,
       padding 0.18s ease,
       border-radius 0.18s ease,
-      background 0.18s ease;
+      background 0.18s ease,
+      min-width 0.18s ease,
+      width 0.18s ease;
+  }
+
+  /* Свёрнутый чип — круг; раскрытый переопределяется ниже (карточка) */
+  .menu-screen .menu-screen__chrome-trail .menu-screen__player--collapsed {
+    border-radius: 999px;
   }
 
   /*
-   * Мобилка: весь поток после шапки бренда (офлайн, пунктиры, каст, обучение…)
-   * на 11px ниже. Бренд внутри .menu-screen__pc-topbar не трогаем.
-   * Только первый сосед после topbar — остальное едет вместе с потоком.
+   * Мобилка: весь поток после шапки бренда на 11px ниже.
+   * В DOM между topbar и sections — glass-ladder (absolute), поэтому +sections
+   * к topbar не срабатывал; цепляем секции после лестницы.
    */
   .menu-screen .menu-screen__pc-topbar + .menu-screen__alert,
-  .menu-screen .menu-screen__pc-topbar + .menu-screen__sections {
+  .menu-screen .menu-glass-ladder + .menu-screen__sections,
+  .menu-screen .menu-screen__alert + .menu-glass-ladder + .menu-screen__sections {
     margin-top: 11px;
   }
 
@@ -2381,6 +4040,11 @@
   .menu-screen .menu-screen__player-avatar-ring,
   .menu-screen .menu-screen__player .menu-signed-id {
     transform: translateY(5px);
+  }
+  .menu-screen .menu-screen__player--expanded .menu-guest-cycle__stage,
+  .menu-screen .menu-screen__player--expanded .menu-screen__player-avatar-ring,
+  .menu-screen .menu-screen__player--expanded .menu-signed-id {
+    transform: none;
   }
   .menu-screen .menu-screen__player:hover {
     transform: none;
@@ -2438,40 +4102,139 @@
   .menu-screen .menu-screen__player--collapsed .menu-screen__player-avatar-ring {
     padding: 3.5px;
   }
+  .menu-screen .menu-screen__player--collapsed .menu-screen__player-head {
+    display: contents;
+  }
   .menu-screen .menu-screen__player--collapsed .menu-screen__player-text,
+  .menu-screen .menu-screen__player--collapsed .menu-screen__player-cta,
   .menu-screen .menu-screen__player--collapsed .menu-screen__player-chev {
     display: none;
   }
+  /*
+   * Раскрытый кабинет: компактная карточка с presence + email + CTA.
+   * Капсула имени над аватаром скрыта — имя уже в тексте ниже.
+   */
+  .menu-screen .menu-screen__chrome-trail .menu-screen__player--expanded,
   .menu-screen .menu-screen__player--expanded {
-    min-width: 84px;
-    /* Растёт с именем; перенос только у края экрана, без узкой колонки */
-    max-width: calc(
-      100vw - max(12px, env(safe-area-inset-left, 0px)) - max(12px, env(safe-area-inset-right, 0px))
-    );
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
     width: max-content;
-    padding: 10px 16px 16px;
-    border-radius: 28px;
-    gap: 10px;
+    min-width: 152px;
+    max-width: min(
+      268px,
+      calc(
+        100vw - max(12px, env(safe-area-inset-left, 0px)) - max(36px, calc(env(safe-area-inset-right, 0px) + 32px)) -
+          8px
+      )
+    );
+    padding: 6px 10px 8px;
+    border-radius: 18px;
+    overflow: visible;
     background:
-      linear-gradient(165deg, rgba(22, 12, 48, 0.94), rgba(8, 4, 28, 0.9)) padding-box,
-      linear-gradient(150deg, rgba(34, 211, 238, 0.7), rgba(167, 139, 250, 0.9), rgba(244, 114, 182, 0.65))
+      linear-gradient(165deg, rgba(24, 12, 52, 0.97), rgba(10, 5, 30, 0.95)) padding-box,
+      linear-gradient(145deg, rgba(34, 211, 238, 0.75), rgba(167, 139, 250, 0.88), rgba(244, 114, 182, 0.7))
         border-box;
     box-shadow:
-      0 0 0 1px rgba(192, 132, 252, 0.35),
-      0 0 22px rgba(168, 85, 247, 0.4),
-      0 12px 32px rgba(4, 2, 16, 0.55);
+      0 0 0 1px rgba(192, 132, 252, 0.32),
+      0 0 18px rgba(168, 85, 247, 0.36),
+      0 8px 22px rgba(4, 2, 16, 0.5),
+      inset 0 1px 0 rgba(245, 208, 254, 0.14);
+  }
+  .menu-screen .menu-screen__player--expanded .menu-signed-id__status {
+    display: none;
   }
   .menu-screen .menu-screen__player--expanded .menu-screen__player-chev {
     display: none;
   }
-  .menu-screen .menu-screen__player-text {
-    flex: 0 1 auto;
+  .menu-screen .menu-screen__chrome-trail .menu-screen__player--expanded .menu-screen__player-text,
+  .menu-screen .menu-screen__player--expanded .menu-screen__player-text {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 4px;
     text-align: center;
-    width: auto;
+    width: max-content;
     max-width: 100%;
-    min-width: 0;
+    min-width: min-content;
+    margin-top: 1px;
+    padding: 6px 8px 2px;
+    border-radius: 12px;
+    background:
+      linear-gradient(180deg, rgba(36, 16, 72, 0.55) 0%, rgba(12, 6, 36, 0.25) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(245, 208, 254, 0.1),
+      inset 0 -1px 0 rgba(4, 2, 20, 0.35);
+  }
+  .menu-screen .menu-screen__player--expanded .menu-screen__player-text::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 18%;
+    right: 18%;
+    height: 1px;
+    border-radius: 999px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(103, 232, 249, 0.55) 35%,
+      rgba(232, 121, 249, 0.5) 65%,
+      transparent
+    );
+    pointer-events: none;
+  }
+  .menu-screen .menu-screen__player-presence {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin: 0;
+    padding: 2px 8px 3px 6px;
+    border-radius: 999px;
+    border: 1px solid rgba(167, 139, 250, 0.28);
+    background: rgba(8, 4, 28, 0.45);
+    line-height: 1;
+  }
+  .menu-screen .menu-screen__player-presence-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .menu-screen .menu-screen__player-presence-label {
+    font: 700 9px/1 Orbitron, 'Share Tech Mono', ui-monospace, system-ui, sans-serif;
+    letter-spacing: 0.1em;
+    text-transform: lowercase;
+  }
+  .menu-screen .menu-screen__player-presence--online {
+    border-color: rgba(34, 211, 238, 0.45);
+    background: rgba(6, 40, 56, 0.55);
+  }
+  .menu-screen .menu-screen__player-presence--online .menu-screen__player-presence-dot {
+    background: radial-gradient(circle at 35% 30%, #a5f3fc, #22d3ee 55%, #0ea5e9);
+    box-shadow:
+      0 0 6px rgba(34, 211, 238, 0.9),
+      0 0 10px rgba(45, 212, 191, 0.45);
+  }
+  .menu-screen .menu-screen__player-presence--online .menu-screen__player-presence-label {
+    color: #67e8f9;
+    text-shadow: 0 0 8px rgba(34, 211, 238, 0.55);
+  }
+  .menu-screen .menu-screen__player-presence--offline {
+    border-color: rgba(244, 114, 182, 0.4);
+    background: rgba(48, 12, 40, 0.5);
+  }
+  .menu-screen .menu-screen__player-presence--offline .menu-screen__player-presence-dot {
+    background: radial-gradient(circle at 35% 30%, #f9a8d4, #f472b6 55%, #db2777);
+    box-shadow:
+      0 0 6px rgba(244, 114, 182, 0.85),
+      0 0 10px rgba(219, 39, 119, 0.4);
+  }
+  .menu-screen .menu-screen__player-presence--offline .menu-screen__player-presence-label {
+    color: #f9a8d4;
+    text-shadow: 0 0 8px rgba(244, 114, 182, 0.5);
   }
   .menu-screen .menu-screen__player-label {
     letter-spacing: 0;
@@ -2493,6 +4256,29 @@
     line-height: 1.25;
     text-align: center;
   }
+  .menu-screen .menu-screen__player--expanded .menu-screen__player-name {
+    font-size: 13px;
+    line-height: 1.15;
+    letter-spacing: 0.01em;
+    color: #e9d5ff;
+    text-shadow:
+      0 0 8px rgba(192, 132, 252, 0.45),
+      0 1px 0 rgba(8, 2, 28, 0.55);
+  }
+  .menu-screen .menu-screen__player-email {
+    display: block;
+    max-width: 220px;
+    margin: 0;
+    padding: 0 2px;
+    font: 600 9.5px/1.25 'Exo 2', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.02em;
+    color: #a5b4fc;
+    opacity: 0.92;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+  }
   .menu-screen .menu-screen__player-sub {
     font-size: 11px;
     font-weight: 600;
@@ -2500,39 +4286,94 @@
     white-space: normal;
     opacity: 0.9;
   }
-  .menu-screen .menu-screen__player-sub--inline {
-    display: inline-block;
-    width: auto;
-    align-self: center;
-    margin-top: 5px;
-    padding: 5px 12px 6px;
+  /* Ряд: аватар + CTA «открыть / кабинет» справа */
+  .menu-screen .menu-screen__player--expanded .menu-screen__player-head {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+  }
+  .menu-screen .menu-screen__player--expanded .menu-screen__player-cta {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    flex: 0 0 auto;
+    min-width: 0;
+    margin: 0;
+    padding: 7px 11px 8px;
+    border-radius: 14px;
+    border: 1px solid rgba(244, 114, 182, 0.55);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
     text-align: center;
-    font-size: 10.5px;
-    font-weight: 800;
+    line-height: 1.05;
+    background: linear-gradient(
+      155deg,
+      rgba(244, 114, 182, 0.48) 0%,
+      rgba(124, 58, 237, 0.38) 48%,
+      rgba(34, 211, 238, 0.3) 100%
+    );
+    box-shadow:
+      0 0 0 1px rgba(167, 139, 250, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 -3px 6px rgba(4, 2, 20, 0.4),
+      0 0 16px rgba(244, 114, 182, 0.4),
+      0 5px 12px rgba(4, 2, 16, 0.35);
+    transition:
+      transform 0.12s ease,
+      filter 0.12s ease,
+      box-shadow 0.12s ease;
+  }
+  .menu-screen .menu-screen__player--expanded .menu-screen__player-cta:hover,
+  .menu-screen .menu-screen__player--expanded .menu-screen__player-cta:focus-visible {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+    outline: none;
+    box-shadow:
+      0 0 0 1px rgba(103, 232, 249, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.32),
+      inset 0 -3px 6px rgba(4, 2, 20, 0.4),
+      0 0 20px rgba(244, 114, 182, 0.5),
+      0 6px 14px rgba(4, 2, 16, 0.4);
+  }
+  .menu-screen .menu-screen__player--expanded .menu-screen__player-cta:active {
+    transform: translateY(0);
+    filter: brightness(0.96);
+  }
+  .menu-screen .menu-screen__player--expanded .menu-screen__player-cta-line {
+    display: block;
+    font: 800 12px/1.05 Orbitron, 'Share Tech Mono', ui-monospace, system-ui, sans-serif;
     letter-spacing: 0.06em;
     text-transform: lowercase;
     white-space: nowrap;
-    line-height: 1.15;
-    border-radius: 999px;
-    border: 1px solid rgba(244, 114, 182, 0.5);
-    color: #fff1f8;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    background: linear-gradient(
-      155deg,
-      rgba(244, 114, 182, 0.38) 0%,
-      rgba(124, 58, 237, 0.28) 48%,
-      rgba(34, 211, 238, 0.22) 100%
-    );
+  }
+  .menu-screen .menu-screen__player--expanded .menu-screen__player-cta-line--a {
+    color: #67e8f9;
     text-shadow:
-      0 0 8px rgba(255, 255, 255, 0.35),
-      0 0 12px rgba(244, 114, 182, 0.9),
-      0 0 20px rgba(34, 211, 238, 0.45);
-    box-shadow:
-      0 0 0 1px rgba(167, 139, 250, 0.22),
-      inset 0 1px 0 rgba(255, 255, 255, 0.18),
-      0 0 18px rgba(244, 114, 182, 0.4),
-      0 6px 14px rgba(4, 2, 16, 0.35);
+      0 -1px 0 rgb(255 255 255 / 35%),
+      0 1px 0 rgb(8 2 28 / 70%),
+      0 0 8px rgb(34 211 238 / 85%),
+      0 0 14px rgb(103 232 249 / 55%),
+      0 0 20px rgb(192 132 252 / 35%);
+  }
+  .menu-screen .menu-screen__player--expanded .menu-screen__player-cta-line--b {
+    color: #f0abfc;
+    text-shadow:
+      0 -1px 0 rgb(255 255 255 / 35%),
+      0 1px 0 rgb(8 2 28 / 70%),
+      0 0 8px rgb(232 121 249 / 85%),
+      0 0 14px rgb(244 114 182 / 55%),
+      0 0 20px rgb(251 191 36 / 30%);
+  }
+  /* signed/guest: при раскрытии снова показываем карточку (collapsed был прозрачным) */
+  .menu-screen .menu-screen__player--signed.menu-screen__player--expanded,
+  .menu-screen .menu-screen__player--guest.menu-screen__player--expanded {
+    padding: 6px 10px 8px;
+    border: 1px solid transparent;
   }
   .menu-screen
     .menu-split-capsule--solo-glyph.menu-split-capsule--offline

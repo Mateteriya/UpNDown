@@ -32122,6 +32122,49 @@ html.theme-standard
     0 0 22px rgba(34, 211, 238, 0.45),
     0 1px 2px rgba(0, 0, 0, 0.55) !important;
 }
+
+/*
+ * ПК: подпись «Очки» — неон как тултипы орбиты; цифра — умная шкала (CSS-переменные с панели).
+ * Селекторы не слабее правил выше (в т.ч. лидер + horizontal), иначе color:!important останется серым.
+ */
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge > span:first-child,
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid > span:first-child,
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid.score-badge-leader > span:first-child,
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge.score-badge-leader:not(.player-score-badge-pc-above-bid) > span:first-child,
+.game-table-root:not(.viewport-mobile) .opponent-score-badge.opponent-score-badge-side-pc > span:first-child,
+.game-table-root:not(.viewport-mobile) .opponent-score-badge.opponent-score-badge-side-pc.score-badge-leader > span:first-child {
+  background-image: linear-gradient(
+    104deg,
+    #5eead4 0%,
+    #22d3ee 18%,
+    #818cf8 42%,
+    #c084fc 62%,
+    #f0abfc 80%,
+    #67e8f9 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+  filter:
+    drop-shadow(0 0 6px rgb(34 211 238 / 0.5))
+    drop-shadow(0 0 12px rgb(167 139 250 / 0.32));
+}
+
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge > span:last-child,
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid > span:last-child,
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge-pc-above-bid.score-badge-leader > span:last-child,
+.game-table-root:not(.viewport-mobile) .user-player-panel .player-score-badge.score-badge-leader:not(.player-score-badge-pc-above-bid) > span:last-child,
+.game-table-root:not(.viewport-mobile) .opponent-score-badge.opponent-score-badge-side-pc > span:last-child,
+.game-table-root:not(.viewport-mobile) .opponent-score-badge.opponent-score-badge-side-pc.score-badge-leader > span:last-child {
+  color: var(--pc-score-tone, #5eead4) !important;
+  -webkit-text-fill-color: var(--pc-score-fill, var(--pc-score-tone, #5eead4)) !important;
+  text-shadow: var(--pc-score-shadow, 0 0 8px rgb(34 211 238 / 0.45), 0 0 16px rgb(167 139 250 / 0.28)) !important;
+  background-image: var(--pc-score-bg, none) !important;
+  -webkit-background-clip: var(--pc-score-clip, border-box) !important;
+  background-clip: var(--pc-score-clip, border-box) !important;
+}
 .game-table-root.viewport-mobile .player-score-badge.score-badge-leader > span:first-child,
 .game-table-root.viewport-mobile .opponent-score-badge.score-badge-leader > span:first-child {
   color: #e9d5ff !important;
@@ -53923,7 +53966,8 @@ body.deal-results-modal-open-mobile #root {
   max-width: calc(100vw - 28px);
   width: min(520px, 100vw - 28px);
   background: transparent;
-  color-scheme: light;
+  overflow: visible;
+  color-scheme: dark;
 }
 
 .deal-track-lab-orbit-scale-dialog::backdrop {
@@ -56608,7 +56652,7 @@ body.deal-results-modal-open-mobile #root {
   opacity: 1 !important;
 }
 
-/* Стили тултипа орбиты — в `deal-track-lab-orbit-tooltip.css`, импорт из DealTrackLabPage.tsx */
+/* Стили тултипа орбиты — в `deal-track-lab-orbit-tooltip.css` (main.tsx + DealTrackLabPage + GameDealOrbitDock). */
 
 .deal-track-lab-circle-inner {
   position: absolute;
