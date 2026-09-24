@@ -56,6 +56,11 @@ import { installCssDevGuard } from './lib/cssDevGuard'
 import { installPwaStaleRecovery, stripRecoveryQueryFromUrl } from './lib/pwaStaleRecovery'
 import { warmOfflineAssetsIfOnline } from './lib/warmOfflineAssets'
 import { installPwaInstallCapture } from './lib/pwaInstallPrompt'
+import {
+  canAccessDevLab,
+  canAccessMusicStudio,
+  consumeMusicStudioUrlUnlock,
+} from './lib/devAtelier'
 import './styles/offline-ready-orb.css'
 /* После всех CSS: ПК plasma — без наружного ореола рамки (не править это в index.css — HMR ломает файл). */
 import './styles/plasma-badge-pc-no-outer-glow.css'
@@ -69,6 +74,7 @@ installCssDevGuard()
 installPwaInstallCapture()
 warmOfflineAssetsIfOnline()
 initAudioSubsystem()
+consumeMusicStudioUrlUnlock()
 window.addEventListener('online', () => warmOfflineAssetsIfOnline())
 
 // LAN: /play/ с порта сервера — WS + v2 до инициализации контекста
@@ -98,21 +104,29 @@ const isRulesLab = path === '/rules-lab' || path.startsWith('/rules-lab/')
 const isAudioSfxLab = path === '/audio-sfx-lab' || path.startsWith('/audio-sfx-lab/')
 const isSoundGlyphLab = path === '/sound-glyph-lab' || path.startsWith('/sound-glyph-lab/')
 // /mode-label-lab — локальная песочница меню; не прод-UI (не пушить как фичу меню)
-const devModeAllowed = typeof window !== 'undefined' && sessionStorage.getItem('updown-devMode') === '1'
+const needsDevLabGuard =
+  isDemo ||
+  isDealTrackLab ||
+  isTotalColorLab ||
+  isOnlineUiLab ||
+  isRulesLab ||
+  isScoringDemo ||
+  isCosmogenesisDemo ||
+  isModeLabelLab ||
+  isOrderStyleLab ||
+  isSoundGlyphLab
+const needsMusicStudioGuard = isAudioSfxLab
 
 function DemoGuard({ children }: { children: React.ReactNode }) {
+  const allowed = needsMusicStudioGuard
+    ? canAccessMusicStudio()
+    : needsDevLabGuard
+      ? canAccessDevLab()
+      : true
   useEffect(() => {
-    if (
-      (isDemo || isDealTrackLab || isTotalColorLab || isOnlineUiLab || isRulesLab || isAudioSfxLab) &&
-      !devModeAllowed
-    )
-      window.location.href = '/'
-  }, [])
-  if (
-    (isDemo || isDealTrackLab || isTotalColorLab || isOnlineUiLab || isRulesLab || isAudioSfxLab) &&
-    !devModeAllowed
-  )
-    return null
+    if (!allowed) window.location.href = '/'
+  }, [allowed])
+  if (!allowed) return null
   return <>{children}</>
 }
 
@@ -149,19 +163,27 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       </ThemeProvider>
     ) : isScoringDemo ? (
       <ThemeProvider>
-        <ScoringDemoPage onBack={() => (window.location.href = '/')} />
+        <DemoGuard>
+          <ScoringDemoPage onBack={() => (window.location.href = '/')} />
+        </DemoGuard>
       </ThemeProvider>
     ) : isCosmogenesisDemo ? (
       <ThemeProvider>
-        <CosmogenesisDemoPage onBack={() => (window.location.href = '/')} />
+        <DemoGuard>
+          <CosmogenesisDemoPage onBack={() => (window.location.href = '/')} />
+        </DemoGuard>
       </ThemeProvider>
     ) : isModeLabelLab ? (
       <ThemeProvider>
-        <ModeLabelLabPage onBack={() => (window.location.href = '/')} />
+        <DemoGuard>
+          <ModeLabelLabPage onBack={() => (window.location.href = '/')} />
+        </DemoGuard>
       </ThemeProvider>
     ) : isOrderStyleLab ? (
       <ThemeProvider>
-        <OrderStyleLabPage onBack={() => (window.location.href = '/')} />
+        <DemoGuard>
+          <OrderStyleLabPage onBack={() => (window.location.href = '/')} />
+        </DemoGuard>
       </ThemeProvider>
     ) : isRulesLab ? (
       <ThemeProvider>
@@ -179,7 +201,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       </AuthProvider>
     ) : isSoundGlyphLab ? (
       <ThemeProvider>
-        <SoundGlyphLabPage onBack={() => (window.location.href = '/')} />
+        <DemoGuard>
+          <SoundGlyphLabPage onBack={() => (window.location.href = '/')} />
+        </DemoGuard>
       </ThemeProvider>
     ) : (
       <AuthProvider>

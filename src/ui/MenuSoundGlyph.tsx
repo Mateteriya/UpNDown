@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactElement } from 'react';
+import { useEffect, useId, useRef, useState, type ReactElement } from 'react';
 import { subscribeAudioSettings } from '../audio';
 import {
   getMenuSoundGlyphId,
@@ -295,6 +295,7 @@ export function MenuSoundGlyphToggle({
   title,
   label,
   variant = 'mobile',
+  onLongPressStudio,
 }: {
   open: boolean;
   panelId: string;
@@ -303,10 +304,14 @@ export function MenuSoundGlyphToggle({
   /** Подпись (ПК); на мобилке не нужна. */
   label?: string;
   variant?: 'mobile' | 'pc';
+  /** Долгий тап (~1.1с) → музыкальная студия (секрет). */
+  onLongPressStudio?: () => void;
 }) {
   const [glyphId, setGlyphId] = useState<MenuSoundGlyphId>(() => getMenuSoundGlyphId());
   const [muted, setMuted] = useState(() => !audioSettingsAreAudible());
   const gradId = `msg-${useId().replace(/:/g, '')}`;
+  const longPressFired = useRef(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => subscribeMenuSoundGlyph(setGlyphId), []);
   useEffect(
@@ -316,6 +321,13 @@ export function MenuSoundGlyphToggle({
       }),
     [],
   );
+
+  const clearLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
 
   return (
     <button
@@ -332,7 +344,26 @@ export function MenuSoundGlyphToggle({
       aria-controls={open ? panelId : undefined}
       aria-label={title}
       title={title}
-      onClick={onToggle}
+      onPointerDown={(e) => {
+        if (e.button !== 0 || !onLongPressStudio) return;
+        longPressFired.current = false;
+        clearLongPress();
+        longPressTimer.current = setTimeout(() => {
+          longPressFired.current = true;
+          longPressTimer.current = null;
+          onLongPressStudio();
+        }, 1100);
+      }}
+      onPointerUp={clearLongPress}
+      onPointerLeave={clearLongPress}
+      onPointerCancel={clearLongPress}
+      onClick={() => {
+        if (longPressFired.current) {
+          longPressFired.current = false;
+          return;
+        }
+        onToggle();
+      }}
     >
       <span className="menu-sound-btn__rim" aria-hidden />
       <span className="menu-sound-btn__glow" aria-hidden />

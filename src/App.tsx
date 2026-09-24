@@ -42,11 +42,11 @@ import { LeaderboardPage } from './ui/LeaderboardPage'
 import { RATING_ROUTE_HASH, isRatingRouteHash } from './lib/ratingRoute'
 import { stopNudgeSounds, unlockAudio } from './audio'
 import { useT } from './i18n'
+import { enableFullDevMode, isFullDevModeEnabled, openMusicStudio } from './lib/devAtelier'
 
 /** Ленивая загрузка экрана игры: уменьшает начальный бандл и ускоряет первый показ меню; экран игры подгружается при переходе. */
 const GameTable = lazy(() => import('./ui/GameTable'))
 
-const DEV_MODE_KEY = 'updown-devMode'
 const DEFAULT_DISPLAY_NAME = 'Вы'
 
 type AppScreen = 'menu' | 'game' | 'rules' | 'account' | 'online' | 'support' | 'rating'
@@ -94,7 +94,7 @@ function App() {
   const [showPlayerCountModal, setShowPlayerCountModal] = useState(false)
   /** После выбора 3/4: старт с меню или новая партия уже на экране игры. */
   const playerCountThenRef = useRef<'menu' | 'in-game' | null>(null)
-  const [devMode, setDevMode] = useState(() => typeof sessionStorage !== 'undefined' && sessionStorage.getItem(DEV_MODE_KEY) === '1')
+  const [devMode, setDevMode] = useState(() => isFullDevModeEnabled())
   const [profile, setProfile] = useState<PlayerProfile>(() => getPlayerProfile())
   const [nameAvatarMode, setNameAvatarMode] = useState<NameAvatarModalResumeMode>(
     () => peekNameAvatarModalOpen() ?? 'profile',
@@ -288,8 +288,12 @@ function App() {
   }, [user?.id, user?.email ?? '', openNameAvatarModal])
 
   const enableDevMode = useCallback(() => {
-    sessionStorage.setItem(DEV_MODE_KEY, '1')
+    if (!enableFullDevMode()) return
     setDevMode(true)
+  }, [])
+
+  const goMusicStudio = useCallback(() => {
+    openMusicStudio()
   }, [])
 
   /** Не автоподнимать онлайн-комнату, пока играет офлайн-партия. */
@@ -561,6 +565,7 @@ function App() {
           })()}
           onlineResumeMessage={onlineResumeMessage}
           onTitleDevMode={enableDevMode}
+          onOpenMusicStudio={goMusicStudio}
           onOpenAccount={openAccountCabinet}
           onOpenSignIn={() => {
             setAuthMode('login')
