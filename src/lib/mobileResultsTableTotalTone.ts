@@ -249,6 +249,22 @@ export function getResultsTableFootTotalDigitStyle(
   };
 }
 
+/**
+ * ПК-бейдж «Очки» в панелях игроков: умный цвет цифры (та же шкала, что у «Итог»).
+ * Через CSS-переменные, чтобы перебить color:!important у плашки.
+ */
+export function getPanelScoreBadgeValueVars(score: number): CSSProperties {
+  const tone = toneForTotalScore(score);
+  const fill = tone.backgroundImage ? 'transparent' : tone.color;
+  return {
+    ['--pc-score-tone' as string]: fill,
+    ['--pc-score-fill' as string]: fill,
+    ['--pc-score-shadow' as string]: tone.textShadow || 'none',
+    ['--pc-score-bg' as string]: tone.backgroundImage ?? 'none',
+    ['--pc-score-clip' as string]: tone.backgroundImage ? 'text' : 'border-box',
+  };
+}
+
 /** @deprecated используйте getResultsTableFootTotalDigitStyle(score, { variant: 'mobile', isWinner }) */
 export function getMobileResultsTableTotalDigitStyle(score: number, options?: { isWinner?: boolean }): CSSProperties {
   return getResultsTableFootTotalDigitStyle(score, { ...options, variant: 'mobile' });

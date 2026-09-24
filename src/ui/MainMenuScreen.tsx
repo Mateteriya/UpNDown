@@ -15,6 +15,7 @@ import {
 } from '../lib/menuAssets';
 import { getMenuSectionGlyphsOnly, setMenuSectionGlyphsOnly, hasSeenSoloMapHint, markSoloMapHintSeen } from '../lib/menuSectionPrefs';
 import { MenuCapsuleButton, MenuPlaySplitCapsule, MenuSection } from './MenuEntryActions';
+import { MenuAccountSessionChrome } from './MenuAccountSessionChrome';
 import { SupportMenuButton } from './SupportMenuButton';
 import { MenuPcDrift } from './MenuPcDrift';
 import { PlayerAvatar } from './PlayerAvatar';
@@ -24,6 +25,7 @@ import { getMenuIdentityStatus } from '../lib/menuIdentityStatus';
 import { OfflineReadyOrb } from './OfflineReadyOrb';
 import { MenuGlassLadder } from './MenuGlassLadder';
 import { AudioSettingsPanel } from './AudioSettingsPanel';
+import { MenuSoundGlyphToggle } from './MenuSoundGlyph';
 import { LanguageSwitch } from './LanguageSwitch';
 import { useT } from '../i18n';
 
@@ -94,6 +96,8 @@ export type MainMenuScreenProps = {
   onlineResumeMessage: string | null;
   onTitleDevMode?: () => void;
   onOpenAccount: () => void;
+  /** ПК: после «сменить аккаунт» — открыть AuthModal (логин). */
+  onOpenSignIn?: () => void;
   onOpenSupport?: () => void;
   /** Мобилка: под «Поддержать» — таблица лидеров. */
   onOpenRating?: () => void;
@@ -116,6 +120,7 @@ export function MainMenuScreen({
   onlineResumeMessage,
   onTitleDevMode,
   onOpenAccount,
+  onOpenSignIn,
   onOpenSupport,
   onOpenRating,
   onResumeOnline,
@@ -536,7 +541,6 @@ export function MainMenuScreen({
       </div>
       <div className="menu-screen__stack">
         <div className="menu-screen__pc-topbar">
-          <LanguageSwitch className="menu-screen__lang" />
           <header className="menu-screen__header">
             <div className="menu-screen__brand">
               <span className="menu-screen__brand-mark" aria-hidden="true">
@@ -664,90 +668,142 @@ export function MainMenuScreen({
             </div>
           </header>
 
-          <button
-            ref={accountBtnRef}
-            type="button"
-            className={[
-              'menu-screen__player',
-              isGuestIdentity ? 'menu-screen__player--guest' : '',
-              isProfileIdentity || isAccountIdentity ? 'menu-screen__player--signed' : '',
-              accountExpanded ? 'menu-screen__player--expanded' : 'menu-screen__player--collapsed',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            onClick={onAccountChipClick}
-            aria-label={
-              accountExpanded
-                ? t('menu.cabinetCollapse')
-                : isGuestIdentity
-                  ? t('menu.identityGuest')
-                  : isProfileIdentity
-                    ? t('menu.identityProfile')
-                    : isAccountIdentity
-                      ? t('menu.identityAccount')
-                      : t('menu.cabinetShow')
-            }
-            aria-expanded={accountExpanded}
-          >
-            {isGuestIdentity ? (
-              <MenuGuestIdentityCycle showMapHint={showGuestMapHint} onHideMapHint={dismissGuestMapHint} />
-            ) : isProfileIdentity || isAccountIdentity ? (
-              <MenuSignedIdentityMark
-                status={isAccountIdentity ? 'account' : 'profile'}
-                name={displayName}
-                avatarDataUrl={avatarDataUrl}
-                avatarBgColor={avatarBgColor}
-                sizePx={44}
-                onOpenCabinet={onOpenAccount}
-              />
-            ) : (
-              <span className="menu-screen__player-avatar-ring">
-                <PlayerAvatar
-                  name={displayName}
-                  avatarDataUrl={avatarDataUrl}
-                  avatarBgColor={avatarBgColor}
-                  sizePx={44}
-                  className="menu-screen__player-avatar"
-                />
-              </span>
-            )}
-            <span className="menu-screen__player-text">
+          <div className="menu-screen__chrome-trail">
+            <button
+              ref={accountBtnRef}
+              type="button"
+              className={[
+                'menu-screen__player',
+                isGuestIdentity ? 'menu-screen__player--guest' : '',
+                isProfileIdentity || isAccountIdentity ? 'menu-screen__player--signed' : '',
+                accountExpanded ? 'menu-screen__player--expanded' : 'menu-screen__player--collapsed',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={onAccountChipClick}
+              aria-label={
+                accountExpanded
+                  ? t('menu.cabinetCollapse')
+                  : isGuestIdentity
+                    ? t('menu.identityGuest')
+                    : isProfileIdentity
+                      ? t('menu.identityProfile')
+                      : isAccountIdentity
+                        ? t('menu.identityAccount')
+                        : t('menu.cabinetShow')
+              }
+              aria-expanded={accountExpanded}
+            >
               {isPcMenu ? (
                 <>
-                  <span className="menu-screen__player-label">{t('menu.cabinet')}</span>
-                  <strong className="menu-screen__player-name">{displayName}</strong>
-                  <span className="menu-screen__player-sub">
-                    {isGuestIdentity
-                      ? t('menu.subGuest')
-                      : signedIn
-                        ? t('menu.subSigned')
-                        : t('menu.subProfile')}
+                  {isGuestIdentity ? (
+                    <MenuGuestIdentityCycle showMapHint={showGuestMapHint} onHideMapHint={dismissGuestMapHint} />
+                  ) : isProfileIdentity || isAccountIdentity ? (
+                    <MenuSignedIdentityMark
+                      status={isAccountIdentity ? 'account' : 'profile'}
+                      name={displayName}
+                      avatarDataUrl={avatarDataUrl}
+                      avatarBgColor={avatarBgColor}
+                      sizePx={44}
+                      onOpenCabinet={onOpenAccount}
+                    />
+                  ) : (
+                    <span className="menu-screen__player-avatar-ring">
+                      <PlayerAvatar
+                        name={displayName}
+                        avatarDataUrl={avatarDataUrl}
+                        avatarBgColor={avatarBgColor}
+                        sizePx={44}
+                        className="menu-screen__player-avatar"
+                      />
+                    </span>
+                  )}
+                  <span className="menu-screen__player-text">
+                    <span className="menu-screen__player-label">{t('menu.cabinet')}</span>
+                    <strong className="menu-screen__player-name">{displayName}</strong>
+                    <span className="menu-screen__player-sub">
+                      {isGuestIdentity
+                        ? t('menu.subGuest')
+                        : signedIn
+                          ? t('menu.subSigned')
+                          : t('menu.subProfile')}
+                    </span>
                   </span>
                 </>
               ) : (
                 <>
-                  <strong className="menu-screen__player-name">{displayName}</strong>
-                  <span
-                    className="menu-screen__player-sub menu-screen__player-sub--inline"
-                    role="button"
-                    tabIndex={0}
-                    onClick={onAccountEnterClick}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onAccountEnterClick(e);
-                      }
-                    }}
-                  >
-                    {signedIn ? t('menu.cabinetOpen') : t('menu.cabinetEnter')}
+                  <span className="menu-screen__player-head">
+                    {isGuestIdentity ? (
+                      <MenuGuestIdentityCycle showMapHint={showGuestMapHint} onHideMapHint={dismissGuestMapHint} />
+                    ) : isProfileIdentity || isAccountIdentity ? (
+                      <MenuSignedIdentityMark
+                        status={isAccountIdentity ? 'account' : 'profile'}
+                        name={displayName}
+                        avatarDataUrl={avatarDataUrl}
+                        avatarBgColor={avatarBgColor}
+                        sizePx={44}
+                        onOpenCabinet={onOpenAccount}
+                      />
+                    ) : (
+                      <span className="menu-screen__player-avatar-ring">
+                        <PlayerAvatar
+                          name={displayName}
+                          avatarDataUrl={avatarDataUrl}
+                          avatarBgColor={avatarBgColor}
+                          sizePx={44}
+                          className="menu-screen__player-avatar"
+                        />
+                      </span>
+                    )}
+                    <span
+                      className="menu-screen__player-cta"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={signedIn ? t('menu.cabinetOpen') : t('menu.cabinetEnter')}
+                      onClick={onAccountEnterClick}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onAccountEnterClick(e);
+                        }
+                      }}
+                    >
+                      <span className="menu-screen__player-cta-line menu-screen__player-cta-line--a">
+                        {signedIn ? t('menu.cabinetOpenL1') : t('menu.cabinetEnterL1')}
+                      </span>
+                      <span className="menu-screen__player-cta-line menu-screen__player-cta-line--b">
+                        {signedIn ? t('menu.cabinetOpenL2') : t('menu.cabinetEnterL2')}
+                      </span>
+                    </span>
+                  </span>
+                  <span className="menu-screen__player-text">
+                    <span
+                      className={[
+                        'menu-screen__player-presence',
+                        isAccountIdentity
+                          ? 'menu-screen__player-presence--online'
+                          : 'menu-screen__player-presence--offline',
+                      ].join(' ')}
+                    >
+                      <span className="menu-screen__player-presence-dot" aria-hidden="true" />
+                      <span className="menu-screen__player-presence-label">
+                        {isAccountIdentity ? t('menu.presenceOnline') : t('menu.presenceOffline')}
+                      </span>
+                    </span>
+                    <strong className="menu-screen__player-name">{displayName}</strong>
+                    {isAccountIdentity && userEmail ? (
+                      <span className="menu-screen__player-email" title={userEmail}>
+                        {userEmail}
+                      </span>
+                    ) : null}
                   </span>
                 </>
               )}
-            </span>
-            <span className="menu-screen__player-chev" aria-hidden="true">
-              ▸
-            </span>
-          </button>
+              <span className="menu-screen__player-chev" aria-hidden="true">
+                ▸
+              </span>
+            </button>
+          </div>
         </div>
 
         {onlineResumeMessage ? (
@@ -802,28 +858,50 @@ export function MainMenuScreen({
               ) : null}
             </div>
             <MenuPcDrift id="account" className="menu-screen__drift--account" movable>
-              <MenuCapsuleButton
-                variant="account"
-                eyebrow={t('menu.cabinet')}
-                title={displayName}
-                hint={signedIn ? t('menu.subSigned') : t('menu.subProfile')}
-                avatarName={displayName}
-                avatarDataUrl={avatarDataUrl}
-                identityStatus={
-                  isAccountIdentity ? 'account' : isProfileIdentity ? 'profile' : undefined
-                }
-                onClick={onOpenAccount}
-              />
+              <MenuAccountSessionChrome
+                enabled={Boolean(isPcMenu && isAccountIdentity)}
+                email={userEmail}
+                onSwitchAccount={() => onOpenSignIn?.()}
+              >
+                <MenuCapsuleButton
+                  variant="account"
+                  eyebrow={t('menu.cabinet')}
+                  eyebrowAside={
+                    isAccountIdentity
+                      ? t('menu.identityTagAccount')
+                      : isProfileIdentity
+                        ? t('menu.identityTagProfile')
+                        : t('menu.identityTagGuest')
+                  }
+                  showSettingsGlyph
+                  showTitleSignOut={Boolean(isPcMenu && isAccountIdentity)}
+                  title={displayName}
+                  metaLine={
+                    isAccountIdentity && userEmail
+                      ? userEmail
+                      : isProfileIdentity
+                        ? t('menu.cabinetMetaProfile')
+                        : t('menu.cabinetMetaGuest')
+                  }
+                  metaTone={
+                    isAccountIdentity ? 'email' : isProfileIdentity ? 'profile' : 'guest'
+                  }
+                  cabinetIdentity={
+                    isAccountIdentity ? 'account' : isProfileIdentity ? 'profile' : 'guest'
+                  }
+                  avatarName={displayName}
+                  avatarDataUrl={avatarDataUrl}
+                  identityStatus={
+                    isAccountIdentity ? 'account' : isProfileIdentity ? 'profile' : undefined
+                  }
+                  onClick={onOpenAccount}
+                />
+              </MenuAccountSessionChrome>
             </MenuPcDrift>
             {/* ПК: «Поддержать» в дрейфе. На мобиле — только внизу у «Правила», без дубля. */}
             {onOpenSupport && isPcMenu ? (
               <MenuPcDrift id="support" className="menu-screen__drift--support" movable>
                 <SupportMenuButton onClick={onOpenSupport} />
-              </MenuPcDrift>
-            ) : null}
-            {isPcMenu ? (
-              <MenuPcDrift id="audio" className="menu-screen__drift--audio" movable>
-                <AudioSettingsPanel />
               </MenuPcDrift>
             ) : null}
             {isPcMenu ? (
@@ -860,6 +938,7 @@ export function MainMenuScreen({
               <MenuCapsuleButton variant="link" title={t('menu.devOnlineUi')} href="/online-ui-lab" compact />
               <MenuCapsuleButton variant="link" title={t('menu.devRules')} href="/rules-lab" compact />
               <MenuCapsuleButton variant="link" title={t('menu.devAudio')} href="/audio-sfx-lab" compact />
+              <MenuCapsuleButton variant="link" title={t('menu.devSoundGlyph')} href="/sound-glyph-lab" compact />
               <MenuCapsuleButton variant="link" title={t('menu.devChips')} href="/scoring-demo" compact />
               <MenuCapsuleButton variant="link" title={t('menu.devCosmo')} href="/cosmogenesis-demo.html" compact />
             </div>
@@ -1018,9 +1097,6 @@ export function MainMenuScreen({
               {onOpenSupport ? (
                 <SupportMenuButton onClick={onOpenSupport} />
               ) : null}
-              <div className="menu-screen__mobile-audio">
-                <AudioSettingsPanel />
-              </div>
               {onOpenRating ? (
                 <MenuCapsuleButton
                   variant="rating"
@@ -1034,6 +1110,36 @@ export function MainMenuScreen({
             </div>
           ) : null}
       </div>
+      {!isPcMenu ? (
+        <div className="menu-screen__sound">
+          <AudioSettingsPanel
+            renderToggle={({ open, panelId, onToggle }) => (
+              <MenuSoundGlyphToggle
+                open={open}
+                panelId={panelId}
+                onToggle={onToggle}
+                title={t('audio.title')}
+              />
+            )}
+          />
+        </div>
+      ) : (
+        <MenuPcDrift id="audio-topleft" className="menu-screen__drift--audio" movable>
+          <AudioSettingsPanel
+            renderToggle={({ open, panelId, onToggle }) => (
+              <MenuSoundGlyphToggle
+                open={open}
+                panelId={panelId}
+                onToggle={onToggle}
+                title={t('audio.title')}
+                label={t('audio.toggle')}
+                variant="pc"
+              />
+            )}
+          />
+        </MenuPcDrift>
+      )}
+      <LanguageSwitch className="menu-screen__lang" />
       <OfflineReadyOrb />
     </main>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { GameState } from '../game/GameEngine';
+import { playerAtLeftFrom, playerCountOf, type GameState } from '../game/GameEngine';
 import {
   playOtherSound,
   playSound,
@@ -181,9 +181,14 @@ export function useGameTableAudio({
       if (nextLen > prevLen && (state.phase === 'playing' || state.phase === 'trick-complete')) {
         const lastIdx =
           state.currentTrick.length > 0
-            ? (state.trickLeaderIndex + state.currentTrick.length - 1) % nPlayers
+            ? playerAtLeftFrom(
+                state.trickLeaderIndex,
+                state.currentTrick.length - 1,
+                playerCountOf(state),
+              )
             : -1;
-        if (lastIdx !== humanIdx && lastIdx >= 0 && !isOnline) {
+        /* Юг — из клика (playCardPlaySouth). Чужие, в том числе онлайн/LAN — от дельты взятки. */
+        if (lastIdx !== humanIdx && lastIdx >= 0) {
           playOtherSound('card_play');
         }
       }

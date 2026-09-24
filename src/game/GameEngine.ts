@@ -113,11 +113,36 @@ export function maxCardsPerPlayer(playerCount: PlayerCount): number {
   return playerCount === 3 ? 12 : 9;
 }
 
-/** Раздач в партии для данного числа игроков (4 → 28, 3 → 31). */
-export function dealsPerMatch(playerCount: PlayerCount = 4): number {
+/** Границы фаз партии: у тройки три раздачи по 12 карт — №12 (пик вверх) + №13–14 (плато). */
+export function dealPhaseEnds(playerCount: PlayerCount = 4): {
+  max: number;
+  n: number;
+  plateauEnd: number;
+  downEnd: number;
+  ntEnd: number;
+  darkEnd: number;
+} {
   const max = maxCardsPerPlayer(playerCount);
   const n = playerCount;
-  return max + (n - 1) + (max - 1) + n + n;
+  const plateauEnd = max + (n - 1);
+  const downEnd = plateauEnd + (max - 1);
+  const ntEnd = downEnd + n;
+  const darkEnd = ntEnd + n;
+  return { max, n, plateauEnd, downEnd, ntEnd, darkEnd };
+}
+
+/** Дуги орбиты: обычные (до downEnd) → бескозырка (n) → тёмная (n). */
+export function dealOrbitPhaseDegrees(playerCount: PlayerCount = 4): { normDeg: number; ntDeg: number } {
+  const { downEnd, n, darkEnd } = dealPhaseEnds(playerCount);
+  return {
+    normDeg: (downEnd / darkEnd) * 360,
+    ntDeg: (n / darkEnd) * 360,
+  };
+}
+
+/** Раздач в партии для данного числа игроков (4 → 28, 3 → 31). */
+export function dealsPerMatch(playerCount: PlayerCount = 4): number {
+  return dealPhaseEnds(playerCount).darkEnd;
 }
 
 /** Раздач в одной полной партии на 4 игроков (алиас для лаб/старых вызовов). */
@@ -125,20 +150,15 @@ export const DEALS_PER_MATCH = dealsPerMatch(4);
 
 /**
  * Карт в раздаче по номеру.
- * 4: вверх 1→9, плато 9×4, вниз 8→1, бескозырка×4, тёмная×4.
- * 3: вверх 1→12, плато 12×3, вниз 11→1, бескозырка×3, тёмная×3.
+ * 4: вверх 1→9, плато 9×3 после пика (итого 4×9), вниз 8→1, бескозырка×4, тёмная×4.
+ * 3: вверх 1→12, три раздачи по 12 (№12–14), вниз 11→1, бескозырка×3, тёмная×3.
  */
 export function getTricksInDeal(dealNumber: number, playerCount: PlayerCount = 4): number {
-  const max = maxCardsPerPlayer(playerCount);
-  const n = playerCount;
+  const { max, plateauEnd, downEnd, ntEnd, darkEnd } = dealPhaseEnds(playerCount);
   if (dealNumber <= max) return dealNumber;
-  const plateauEnd = max + (n - 1);
   if (dealNumber <= plateauEnd) return max;
-  const downEnd = plateauEnd + (max - 1);
   if (dealNumber <= downEnd) return max - (dealNumber - plateauEnd);
-  const ntEnd = downEnd + n;
   if (dealNumber <= ntEnd) return max;
-  const darkEnd = ntEnd + n;
   if (dealNumber <= darkEnd) return max;
   return 1;
 }
@@ -148,12 +168,7 @@ export function getDealType(
   dealNumber: number,
   playerCount: PlayerCount = 4
 ): 'normal' | 'no-trump' | 'dark' {
-  const max = maxCardsPerPlayer(playerCount);
-  const n = playerCount;
-  const plateauEnd = max + (n - 1);
-  const downEnd = plateauEnd + (max - 1);
-  const ntEnd = downEnd + n;
-  const darkEnd = ntEnd + n;
+  const { downEnd, ntEnd, darkEnd } = dealPhaseEnds(playerCount);
   if (dealNumber <= downEnd) return 'normal';
   if (dealNumber <= ntEnd) return 'no-trump';
   if (dealNumber <= darkEnd) return 'dark';

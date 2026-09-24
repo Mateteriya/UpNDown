@@ -1,66 +1,1064 @@
+/*
+ * Язык интерфейса — космический HUD.
+ * ПК: глиф глобус+A → выпадающее меню (эндонимы).
+ * Мобилка: ушко → список с полными эндонимами (LOCALE_OPTIONS).
+ */
+
+/*
+ * ПК: сегмент RU|EN — палитра как у мобильного чипа (циан/магента-ободок),
+ * без «ушка»: остаётся горизонтальный pill + thumb.
+ */
 .lang-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
+  --ls-pad: 3px;
+  --ls-count: 2;
+  --ls-idx: 0;
+  --ls-solo-fill: #15023cf7;
+  --ls-solo-rim: #0567aae0;
+  --ls-solo-rim-soft: color-mix(in srgb, #2711df 55%, #d708e1);
+  --ls-letter: #c98ad4;
+  --ls-letter-soft: #5bc4d4;
+  --ls-letter-on: #0ff9ce;
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(var(--ls-count), 1fr);
+  align-items: stretch;
+  gap: 0;
+  padding: var(--ls-pad);
+  isolation: isolate;
   border-radius: 999px;
-  border: 1px solid rgba(125, 211, 252, 0.35);
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--ls-solo-fill), var(--ls-solo-fill)) padding-box,
+    linear-gradient(135deg, var(--ls-solo-rim), var(--ls-solo-rim-soft), var(--ls-solo-rim))
+      border-box;
+  box-shadow:
+    0 0 0 1px rgba(167, 139, 250, 0.22),
+    0 0 14px color-mix(in srgb, var(--ls-solo-rim) 38%, transparent),
+    0 0 22px color-mix(in srgb, var(--ls-solo-rim-soft) 22%, transparent),
+    0 6px 16px rgba(4, 2, 16, 0.45),
+    inset 0 1px 0 rgba(245, 208, 254, 0.16);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   pointer-events: auto;
 }
 
+/* Верхний «глянец» — только у legacy-сегмента (не solo / picker / pc) */
+.lang-switch:not(.lang-switch--solo):not(.lang-switch--picker):not(.lang-switch--pc)::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 18%;
+  right: 18%;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--ls-solo-rim) 55%, #fff) 42%,
+    transparent
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.lang-switch__rim {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(
+      ellipse 80% 70% at 28% 16%,
+      color-mix(in srgb, var(--ls-solo-rim) 26%, transparent),
+      transparent 52%
+    ),
+    radial-gradient(ellipse 55% 50% at 78% 88%, rgba(232, 121, 249, 0.16), transparent 58%);
+  opacity: 0.95;
+}
+
+.lang-switch__thumb {
+  position: absolute;
+  top: var(--ls-pad);
+  bottom: var(--ls-pad);
+  left: var(--ls-pad);
+  width: calc((100% - 2 * var(--ls-pad)) / var(--ls-count));
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 0;
+  /* Активный сегмент — emboss как у выбранного пункта мобильного списка */
+  background: linear-gradient(
+    165deg,
+    rgba(92, 34, 138, 0.96) 0%,
+    rgba(52, 18, 92, 0.94) 42%,
+    rgba(22, 10, 56, 0.98) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(31, 162, 252, 0.55),
+    0 0 12px rgba(31, 162, 252, 0.32),
+    0 0 18px rgba(232, 121, 249, 0.16),
+    inset 0 2px 3px rgba(245, 208, 254, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -4px 8px rgba(4, 2, 20, 0.52),
+    inset 0 -1px 0 rgba(8, 2, 28, 0.65);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+  transform: translateX(calc(var(--ls-idx) * 100%));
+}
+
 .lang-switch__btn {
+  position: relative;
+  z-index: 1;
+  min-width: 38px;
+  height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ls-letter);
+  font: 700 11px/1 Orbitron, 'Share Tech Mono', ui-monospace, system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0.88;
+  text-shadow:
+    0 0 6px rgb(34 211 238 / 28%),
+    0 0 12px rgb(192 132 252 / 22%);
+  transition:
+    color 0.2s ease,
+    text-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.lang-switch__btn:hover {
+  color: var(--ls-letter-soft);
+  opacity: 1;
+  text-shadow:
+    0 0 8px rgb(8 112 172 / 70%),
+    0 0 14px rgb(212 11 206 / 38%),
+    0 0 18px rgb(79 183 227 / 35%);
+}
+
+.lang-switch__btn--on {
+  color: var(--ls-letter-on);
+  opacity: 1;
+  font-weight: 800;
+  text-shadow:
+    0 -1px 0 rgb(255 255 255 / 42%),
+    0 1px 0 rgb(8 2 28 / 72%),
+    0 0 8px rgb(15 249 206 / 85%),
+    0 0 16px rgb(15 249 206 / 48%),
+    0 0 22px rgb(246 206 154 / 28%);
+}
+
+.lang-switch__btn:focus-visible {
+  outline: 2px solid var(--ls-solo-rim, #0567aae0);
+  outline-offset: 2px;
+}
+
+/* Мобилка: одинарная кнопка — цвета + явная «рамка» (--ls-solo-rim) */
+.lang-switch--solo {
+  /* Крути в DevTools эти три переменные: */
+  --ls-solo-fill: #15023cf7;
+  --ls-solo-rim: #0567aae0;
+  --ls-solo-rim-soft: color-mix(in srgb, #2711df 55%, #d708e1);
+  --ls-solo-letter: #d40bce;
+  --ls-solo-letter-alt: #0b81ed;
+
+  display: inline-flex;
+  grid-template-columns: none;
+  padding: 0;
+  min-width: 34px;
+  min-height: 26px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--ls-solo-fill), var(--ls-solo-fill)) padding-box,
+    linear-gradient(135deg, var(--ls-solo-rim), var(--ls-solo-rim-soft), var(--ls-solo-rim))
+      border-box;
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--ls-solo-rim) 42%, transparent),
+    0 0 18px color-mix(in srgb, var(--ls-solo-rim) 22%, transparent),
+    0 4px 12px rgba(4, 2, 16, 0.4),
+    inset 0 1px 0 rgba(245, 208, 254, 0.14);
+}
+
+.lang-switch--solo .lang-switch__rim {
+  background: radial-gradient(
+    ellipse 90% 80% at 30% 15%,
+    color-mix(in srgb, var(--ls-solo-rim) 28%, transparent),
+    transparent 48%
+  );
+}
+
+.lang-switch--solo::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 22%;
+  right: 28%;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--ls-solo-rim) 55%, #fff) 42%,
+    transparent
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.lang-switch__solo-btn {
+  position: relative;
+  z-index: 1;
   min-width: 34px;
   height: 26px;
   padding: 0 8px;
   border: 0;
-  border-radius: 999px;
+  border-radius: inherit;
   background: transparent;
-  color: rgba(226, 232, 240, 0.78);
-  font: 700 11px/1 Orbitron, system-ui, sans-serif;
-  letter-spacing: 0.08em;
+  color: var(--ls-solo-letter);
+  font: 700 9.5px / 1 Orbitron, 'Share Tech Mono', ui-monospace, system-ui, sans-serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   cursor: pointer;
+  text-shadow:
+    0 0 6px rgb(8 112 172 / 85%),
+    0 0 12px rgb(79 183 227 / 41%),
+    0 0 18px rgb(204 179 230 / 39%);
+  animation: lang-switch-solo-letter 4.8s ease-in-out infinite;
 }
 
-.lang-switch__btn--on {
-  background: linear-gradient(180deg, rgba(56, 189, 248, 0.35), rgba(14, 165, 233, 0.22));
-  color: #f8fafc;
-  box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.35);
-}
-
-.lang-switch__btn:focus-visible {
-  outline: 2px solid rgb(5 231 189);
-  outline-offset: 1px;
-}
-
-/* Не в слогане: иначе шапка выше и перекрывает #1 в рейтинге-полоске */
-.menu-screen__lang {
-  position: absolute;
-  top: 8px;
-  left: 10px;
-  z-index: 5;
-  flex-shrink: 0;
-}
-
-@media (min-width: 1025px) {
-  .menu-screen__lang {
-    top: 14px;
-    left: auto;
-    right: clamp(16px, 2.4vw, 48px);
+@keyframes lang-switch-solo-letter {
+  0%,
+  100% {
+    color: var(--ls-solo-letter);
+  }
+  50% {
+    color: var(--ls-solo-letter-alt);
   }
 }
 
-/* Mobile cabinet: same pill as the menu, opposite the close control */
+.lang-switch__solo-btn:hover,
+.lang-switch__solo-btn:focus-visible {
+  animation-play-state: paused;
+  color: var(--ls-solo-letter-alt);
+  text-shadow:
+    0 0 8px rgb(8 112 172 / 90%),
+    0 0 14px rgb(212 11 206 / 45%),
+    0 0 18px rgb(79 183 227 / 40%);
+}
+
+.lang-switch__solo-btn:focus-visible {
+  outline: 2px solid var(--ls-solo-rim, #0567aae0);
+  outline-offset: 2px;
+}
+
+.lang-switch--solo:active {
+  transform: scale(0.96);
+}
+
+.lang-switch--picker {
+  --ls-solo-fill: #15023cf7;
+  --ls-solo-rim: #0567aae0;
+  --ls-solo-rim-soft: color-mix(in srgb, #2711df 55%, #d708e1);
+  z-index: 12;
+  display: block;
+  grid-template-columns: none;
+  padding: 0;
+  border-radius: 18px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--ls-solo-fill), var(--ls-solo-fill)) padding-box,
+    linear-gradient(160deg, var(--ls-solo-rim), var(--ls-solo-rim-soft), var(--ls-solo-rim)) border-box;
+  box-shadow:
+    0 0 0 1px rgba(167, 139, 250, 0.28),
+    0 12px 32px rgba(4, 2, 16, 0.5),
+    0 0 24px rgba(124, 58, 237, 0.28);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.lang-switch--picker .lang-switch__rim {
+  background:
+    radial-gradient(ellipse 70% 55% at 18% 8%, rgba(232, 121, 249, 0.28), transparent 52%),
+    radial-gradient(ellipse 55% 45% at 88% 92%, rgba(6, 103, 170, 0.32), transparent 58%);
+}
+
+.lang-switch__picker-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* запас под длинные эндонимы (Deutsch, Português…) + будущий скролл */
+  width: min(248px, calc(100vw - 24px));
+  max-height: min(58vh, 380px);
+  padding: 12px 11px 11px 13px;
+  box-sizing: border-box;
+}
+
+.lang-switch__picker-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px 8px;
+  border-bottom: 1px solid rgba(167, 139, 250, 0.22);
+  background: linear-gradient(90deg, rgba(232, 121, 249, 0.08), transparent 70%);
+  margin: 0 -2px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.lang-switch__picker-glyph {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  filter:
+    drop-shadow(0 0 3px rgb(103 232 249 / 80%))
+    drop-shadow(0 0 7px rgb(192 132 252 / 65%))
+    drop-shadow(0 0 12px rgb(232 121 249 / 45%))
+    brightness(1.12)
+    saturate(1.15);
+}
+
+.lang-switch__picker-glyph .lang-switch__solo-glyph-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lang-switch__picker-title {
+  font: 700 9.5px/1.2 Orbitron, 'Share Tech Mono', ui-monospace, system-ui, sans-serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #f0abfc;
+  text-shadow:
+    0 0 8px rgb(232 121 249 / 55%),
+    0 0 14px rgb(103 232 249 / 35%);
+}
+
+.lang-switch__picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 2px 2px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(167, 139, 250, 0.5) rgba(12, 6, 36, 0.35);
+}
+
+.lang-switch__picker-item {
+  margin: 0;
+  padding: 0;
+  animation: lang-switch-opt-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.lang-switch__picker-item:nth-child(1) {
+  animation-delay: 0.03s;
+}
+.lang-switch__picker-item:nth-child(2) {
+  animation-delay: 0.06s;
+}
+.lang-switch__picker-item:nth-child(3) {
+  animation-delay: 0.09s;
+}
+.lang-switch__picker-item:nth-child(4) {
+  animation-delay: 0.12s;
+}
+.lang-switch__picker-item:nth-child(5) {
+  animation-delay: 0.15s;
+}
+.lang-switch__picker-item:nth-child(n + 6) {
+  animation-delay: 0.18s;
+}
+
+@keyframes lang-switch-opt-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lang-switch__picker-opt {
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 11px;
+  border: 1px solid rgba(167, 139, 250, 0.16);
+  border-radius: 12px;
+  background:
+    linear-gradient(155deg, rgba(24, 10, 48, 0.58), rgba(10, 5, 28, 0.62));
+  color: #c4b5fd;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  opacity: 0.82;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.12s ease,
+    opacity 0.16s ease;
+}
+
+.lang-switch__picker-opt::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: linear-gradient(180deg, #67e8f9, #c084fc, #e879f9);
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.lang-switch__picker-opt:hover {
+  border-color: rgba(103, 232, 249, 0.32);
+  background: linear-gradient(155deg, rgba(36, 16, 70, 0.78), rgba(14, 7, 38, 0.82));
+  opacity: 0.94;
+  transform: translateX(-2px);
+}
+
+.lang-switch__picker-opt:hover::before {
+  opacity: 0.7;
+}
+
+.lang-switch__picker-opt--on:hover {
+  opacity: 1;
+  transform: translateY(-1px) translateX(-1px);
+}
+
+.lang-switch__picker-opt--on {
+  border-color: rgba(31, 162, 252, 0.72);
+  opacity: 1;
+  background:
+    linear-gradient(
+      165deg,
+      rgba(92, 34, 138, 1) 0%,
+      rgba(52, 18, 92, 0.98) 42%,
+      rgba(22, 10, 56, 1) 100%
+    );
+  box-shadow:
+    0 0 0 1px rgba(31, 162, 252, 0.4),
+    0 6px 16px rgba(4, 2, 16, 0.6),
+    0 0 26px rgba(31, 162, 252, 0.38),
+    0 0 36px rgba(232, 121, 249, 0.18),
+    inset 0 3px 4px rgba(245, 208, 254, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -5px 10px rgba(4, 2, 20, 0.58),
+    inset 0 -1px 0 rgba(8, 2, 28, 0.7);
+  transform: translateY(-1px);
+}
+
+.lang-switch__picker-opt--on::before {
+  opacity: 1;
+}
+
+.lang-switch__picker-opt:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 1px;
+}
+
+.lang-switch__picker-code {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1px solid rgba(103, 232, 249, 0.28);
+  background: rgba(6, 20, 48, 0.4);
+  font: 800 9.5px/1 Orbitron, 'Share Tech Mono', ui-monospace, system-ui, sans-serif;
+  letter-spacing: 0.1em;
+  color: #5bc4d4;
+  text-shadow:
+    0 0 5px rgb(34 211 238 / 40%),
+    0 0 10px rgb(103 232 249 / 28%);
+}
+
+.lang-switch__picker-opt--on .lang-switch__picker-code {
+  border-color: rgb(246 206 154);
+  background:
+    linear-gradient(
+      165deg,
+      rgb(112 24 188 / 92%) 0%,
+      rgb(71 4 135 / 81%) 48%,
+      rgb(48 2 98 / 92%) 100%
+    );
+  color: #0ff9ce;
+  box-shadow:
+    0 2px 8px rgba(4, 2, 16, 0.5),
+    0 0 14px rgb(15 249 206 / 42%),
+    0 0 22px rgb(246 206 154 / 22%),
+    inset 0 2px 3px rgba(246, 206, 154, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -3px 6px rgba(20, 2, 48, 0.58),
+    inset 0 -1px 0 rgba(8, 2, 28, 0.55);
+  text-shadow:
+    0 -1px 0 rgb(255 255 255 / 45%),
+    0 1px 0 rgb(8 2 28 / 75%),
+    0 0 10px rgb(15 249 206 / 90%),
+    0 0 18px rgb(15 249 206 / 55%),
+    0 0 26px rgb(246 206 154 / 38%);
+}
+
+.lang-switch__picker-name {
+  font: 650 13.5px/1.25 'Exo 2', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.015em;
+  color: #c98ad4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.lang-switch__picker-opt--on .lang-switch__picker-name {
+  color: #1fa2fc;
+  font-weight: 700;
+  text-shadow:
+    0 -1px 0 rgb(255 255 255 / 38%),
+    0 1px 0 rgb(8 2 28 / 70%),
+    0 0 10px rgb(31 162 252 / 70%),
+    0 0 18px rgb(31 162 252 / 45%),
+    0 0 26px rgb(103 232 249 / 25%);
+}
+
+.lang-switch__picker-check {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  justify-self: end;
+  background: radial-gradient(circle at 35% 30%, #f338e7, #126c8c 55%, #17b8f0);
+  box-shadow:
+    0 0 7px rgb(105 4 61),
+    0 0 14px rgb(65 84 82),
+    0 0 18px rgb(15 249 206 / 35%);
+}
+
+.lang-switch__picker-check--empty {
+  visibility: hidden;
+  background: none;
+  box-shadow: none;
+}
+
+/* ——— ПК: глобус + «A» (триггер) + выпадающее меню ——— */
+.lang-switch--pc {
+  --ls-solo-fill: #15023cf7;
+  --ls-solo-rim: #0567aae0;
+  --ls-solo-rim-soft: color-mix(in srgb, #2711df 55%, #d708e1);
+  display: inline-flex;
+  grid-template-columns: none;
+  align-items: stretch;
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--ls-solo-fill), var(--ls-solo-fill)) padding-box,
+    linear-gradient(135deg, var(--ls-solo-rim), var(--ls-solo-rim-soft), var(--ls-solo-rim))
+      border-box;
+  box-shadow:
+    0 0 0 1px rgba(167, 139, 250, 0.2),
+    0 0 10px color-mix(in srgb, var(--ls-solo-rim) 28%, transparent),
+    0 0 16px color-mix(in srgb, var(--ls-solo-rim-soft) 14%, transparent),
+    0 5px 12px rgba(4, 2, 16, 0.4),
+    inset 0 1px 0 rgba(245, 208, 254, 0.2),
+    inset 0 -3px 6px rgba(4, 2, 20, 0.4);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.lang-switch--pc::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 16%;
+  right: 18%;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--ls-solo-rim) 55%, #fff) 42%,
+    transparent
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.lang-switch--pc .lang-switch__rim {
+  background:
+    radial-gradient(
+      ellipse 70% 55% at 24% 18%,
+      color-mix(in srgb, var(--ls-solo-rim) 16%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(ellipse 50% 45% at 80% 88%, rgba(232, 121, 249, 0.14), transparent 58%);
+  opacity: 0.9;
+}
+
+.lang-switch__pc-btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 3px 11px 3px 5px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+  line-height: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lang-switch__pc-globe {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  filter:
+    drop-shadow(0 0 2px rgb(103 232 249 / 45%))
+    drop-shadow(0 0 5px rgb(192 132 252 / 30%));
+}
+
+.lang-switch__globe-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.lang-switch__pc-mark {
+  display: inline-block;
+  margin: 0 1px 0 0;
+  font: 900 13px/1 Orbitron, 'Share Tech Mono', ui-monospace, system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  color: #5d16d85e;
+  text-shadow:
+    0 -1px 0 rgb(103 233 238 / 73%),
+    0 1px 0 rgb(21 17 36 / 91%),
+    0 0 6px rgb(131 3 84 / 40%),
+    0 0 12px rgb(220 104 220 / 92%);
+}
+
+.lang-switch--pc:hover .lang-switch__pc-globe,
+.lang-switch--pc-open .lang-switch__pc-globe {
+  filter:
+    drop-shadow(0 0 3px rgb(103 232 249 / 60%))
+    drop-shadow(0 0 7px rgb(232 121 249 / 38%));
+}
+
+.lang-switch--pc:hover .lang-switch__pc-mark,
+.lang-switch--pc-open .lang-switch__pc-mark {
+  text-shadow:
+    0 -1px 0 rgb(103 233 238 / 85%),
+    0 1px 0 rgb(21 17 36 / 91%),
+    0 0 7px rgb(131 3 84 / 48%),
+    0 0 14px rgb(220 104 220 / 95%);
+}
+
+.lang-switch__pc-btn:focus-visible {
+  outline: 2px solid var(--ls-solo-rim, #0567aae0);
+  outline-offset: 2px;
+}
+
+.lang-switch--pc-open {
+  z-index: 30;
+  box-shadow:
+    0 0 0 1px rgba(103, 232, 249, 0.32),
+    0 0 12px color-mix(in srgb, var(--ls-solo-rim) 36%, transparent),
+    0 0 18px rgba(168, 85, 247, 0.22),
+    0 6px 14px rgba(4, 2, 16, 0.42),
+    inset 0 1px 0 rgba(245, 208, 254, 0.26),
+    inset 0 -3px 6px rgba(4, 2, 20, 0.38);
+}
+
+.lang-switch__pc-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  left: auto;
+  z-index: 40;
+  min-width: 248px;
+  border-radius: 18px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--ls-solo-fill), var(--ls-solo-fill)) padding-box,
+    linear-gradient(160deg, var(--ls-solo-rim), var(--ls-solo-rim-soft), var(--ls-solo-rim))
+      border-box;
+  box-shadow:
+    0 0 0 1px rgba(167, 139, 250, 0.28),
+    0 16px 40px rgba(4, 2, 16, 0.55),
+    0 0 28px rgba(124, 58, 237, 0.28),
+    inset 0 1px 0 rgba(245, 208, 254, 0.14);
+  overflow: visible;
+  animation: lang-switch-pc-menu-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.lang-switch__pc-menu::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 22px;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: linear-gradient(135deg, var(--ls-solo-rim), var(--ls-solo-fill) 55%);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ls-solo-rim) 40%, transparent);
+  transform: rotate(45deg);
+  z-index: 0;
+}
+
+.lang-switch__picker-panel--pc {
+  position: relative;
+  z-index: 1;
+  width: min(268px, calc(100vw - 32px));
+  max-height: min(62vh, 420px);
+  padding: 14px 12px 12px 14px;
+}
+
+.lang-switch__picker-panel--pc .lang-switch__picker-glyph {
+  width: 22px;
+  height: 22px;
+}
+
+.lang-switch__picker-panel--pc .lang-switch__globe-svg {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes lang-switch-pc-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lang-switch__thumb {
+    transition: none;
+  }
+
+  .lang-switch__solo-btn {
+    animation: none;
+  }
+
+  .lang-switch--solo:active {
+    transform: none;
+  }
+
+  .lang-switch__picker-item {
+    animation: none;
+  }
+
+  .lang-switch__pc-menu {
+    animation: none;
+  }
+
+  .menu-screen > .menu-screen__lang.lang-switch--picker {
+    animation: none;
+  }
+}
+
+/* ——— Главное меню: слот размещения ——— */
+
+.menu-screen__lang {
+  flex-shrink: 0;
+  position: static;
+  z-index: auto;
+  pointer-events: auto;
+}
+
+/*
+ * Мобилка: аватар в chrome-trail; язык — вертикальное «ушко» у правого края страницы.
+ * Высота ≈ чип аватара (44 + ring + padding ≈ 59px).
+ */
+.menu-screen__chrome-trail {
+  position: absolute;
+  top: calc(max(12px, env(safe-area-inset-top, 0px)) + 11px);
+  right: max(12px, env(safe-area-inset-right, 0px));
+  left: auto;
+  z-index: 8;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0;
+  pointer-events: none;
+}
+
+.menu-screen__chrome-trail .menu-screen__player {
+  pointer-events: auto;
+}
+
+@media (max-width: 1024px) {
+  .menu-screen {
+    --menu-chip-h: 59px;
+    --ls-ear-h: 53px;
+    --menu-chrome-top: calc(max(12px, env(safe-area-inset-top, 0px)) + 11px);
+    /* Ушко почти у самого верха; звук — под ним */
+    --menu-ear-top: max(4px, calc(env(safe-area-inset-top, 0px) + 2px));
+    --menu-sound-w: 40px;
+    --menu-sound-h: 34px;
+    --menu-sound-gap: 3px;
+  }
+
+  /* Аватар левее ушка/звука (~40px звук) + небольшой зазор */
+  .menu-screen__chrome-trail {
+    right: max(44px, calc(env(safe-area-inset-right, 0px) + 40px));
+  }
+
+  .menu-screen__chrome-trail:has(.menu-screen__player--expanded) {
+    z-index: 25;
+  }
+
+  /*
+   * Ушко — прямой ребёнок .menu-screen (не в flex-стеке), правый край страницы.
+   * Стек с absolute-декором начинается с y≈0 → top считаем как у chrome-trail
+   * (один safe-area, без двойного сложения).
+   */
+  .menu-screen > .menu-screen__lang.lang-switch--solo {
+    --ls-ear-h: 53px;
+    --menu-chip-h: 59px; /* 4+3.5+44+3.5+4 */
+    --ls-solo-fill: #15023cf7;
+    --ls-solo-rim: #0567aae0;
+    --ls-solo-rim-soft: color-mix(in srgb, #2711df 55%, #d708e1);
+    --ls-solo-letter: #d40bce;
+    --ls-solo-letter-alt: #0b81ed;
+
+    position: absolute;
+    top: var(--menu-ear-top);
+    right: 0;
+    left: auto;
+    z-index: 9;
+    width: 24px;
+    height: var(--ls-ear-h);
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border-radius: 14px 0 0 14px;
+    border: 1px solid transparent;
+    border-right-width: 0;
+    background:
+      linear-gradient(var(--ls-solo-fill), var(--ls-solo-fill)) padding-box,
+      linear-gradient(
+          180deg,
+          var(--ls-solo-rim),
+          var(--ls-solo-rim-soft) 48%,
+          var(--ls-solo-rim)
+        )
+        border-box;
+    box-shadow:
+      -4px 0 14px color-mix(in srgb, var(--ls-solo-rim) 38%, transparent),
+      -2px 0 8px color-mix(in srgb, var(--ls-solo-rim) 22%, transparent),
+      inset 1px 0 0 color-mix(in srgb, var(--ls-solo-rim) 35%, transparent);
+    transform: none;
+    pointer-events: auto;
+  }
+
+  /* Раскрытый список: панель у правого края, полные названия, скролл под будущие языки */
+  .menu-screen > .menu-screen__lang.lang-switch--picker {
+    --ls-solo-fill: #15023cf7;
+    --ls-solo-rim: #0567aae0;
+    --ls-solo-rim-soft: color-mix(in srgb, #2711df 55%, #d708e1);
+
+    position: absolute;
+    top: var(--menu-ear-top);
+    right: 0;
+    left: auto;
+    z-index: 20;
+    width: auto;
+    height: auto;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border-radius: 18px 0 0 18px;
+    border: 1px solid transparent;
+    border-right-width: 0;
+    background:
+      linear-gradient(var(--ls-solo-fill), var(--ls-solo-fill)) padding-box,
+      linear-gradient(
+          160deg,
+          var(--ls-solo-rim),
+          var(--ls-solo-rim-soft) 48%,
+          var(--ls-solo-rim)
+        )
+        border-box;
+    box-shadow:
+      -8px 0 28px color-mix(in srgb, var(--ls-solo-rim) 35%, transparent),
+      -4px 0 16px rgba(4, 2, 16, 0.55),
+      inset 1px 0 0 color-mix(in srgb, var(--ls-solo-rim) 35%, transparent);
+    transform: none;
+    pointer-events: auto;
+    animation: lang-switch-picker-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @keyframes lang-switch-picker-in {
+    from {
+      opacity: 0;
+      transform: translateX(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .menu-screen > .menu-screen__lang.lang-switch--solo::after {
+    top: 12%;
+    bottom: 12%;
+    left: 3px;
+    right: auto;
+    width: 1px;
+    height: auto;
+    background: linear-gradient(
+      180deg,
+      transparent,
+      color-mix(in srgb, var(--ls-solo-rim) 55%, #fff) 42%,
+      transparent
+    );
+  }
+
+  .menu-screen > .menu-screen__lang.lang-switch--solo:active {
+    transform: none;
+  }
+
+  .menu-screen > .menu-screen__lang .lang-switch__solo-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    padding: 3px 0 4px;
+    writing-mode: horizontal-tb;
+    transform: translateX(1px);
+    transform-origin: center center;
+  }
+
+  .menu-screen > .menu-screen__lang .lang-switch__solo-label {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    /* буквы ближе друг к другу по вертикали */
+    letter-spacing: -0.12em;
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 1;
+    transform: scaleX(0.75);
+    transform-origin: center center;
+    text-shadow:
+      0 -1px 0 rgb(255 255 255 / 42%),
+      0 1px 0 rgb(8 2 28 / 78%),
+      1px 1px 1px rgb(4 2 20 / 65%),
+      0 0 5px rgb(8 112 172 / 80%),
+      0 0 10px rgb(79 183 227 / 38%),
+      0 0 14px rgb(204 179 230 / 32%);
+  }
+
+  .menu-screen > .menu-screen__lang .lang-switch__solo-glyph {
+    display: grid;
+    place-items: center;
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    filter:
+      drop-shadow(0 0 3px rgb(103 232 249 / 55%))
+      drop-shadow(0 0 5px rgb(192 132 252 / 40%));
+  }
+
+  .menu-screen > .menu-screen__lang .lang-switch__solo-glyph-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .menu-screen > .menu-screen__lang .lang-switch__solo-btn:hover .lang-switch__solo-label,
+  .menu-screen > .menu-screen__lang .lang-switch__solo-btn:focus-visible .lang-switch__solo-label {
+    text-shadow:
+      0 -1px 0 rgb(255 255 255 / 55%),
+      0 1px 0 rgb(8 2 28 / 78%),
+      1px 1px 1px rgb(4 2 20 / 65%),
+      0 0 7px rgb(8 112 172 / 88%),
+      0 0 12px rgb(212 11 206 / 40%),
+      0 0 16px rgb(79 183 227 / 42%);
+  }
+
+  .menu-screen > .menu-screen__lang .lang-switch__solo-btn:hover .lang-switch__solo-glyph,
+  .menu-screen > .menu-screen__lang .lang-switch__solo-btn:focus-visible .lang-switch__solo-glyph {
+    filter:
+      drop-shadow(0 0 4px rgb(103 232 249 / 75%))
+      drop-shadow(0 0 7px rgb(232 121 249 / 55%));
+  }
+}
+
+/* ПК: правый верх страницы (вне стека, как на мобилке — без участия в flex) */
+@media (min-width: 1025px) {
+  .menu-screen__chrome-trail {
+    top: 6px;
+    left: auto;
+    right: 0;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
+    z-index: 5;
+    transform: none;
+  }
+
+  .menu-screen > .menu-screen__lang {
+    position: absolute;
+    top: calc(max(24px, env(safe-area-inset-top, 0px) + 12px) + 6px);
+    right: clamp(20px, 3.5vw, 56px);
+    left: auto;
+    z-index: 5;
+    pointer-events: auto;
+    transform: none;
+    transform-origin: top right;
+  }
+
+  .menu-screen > .menu-screen__lang.lang-switch--pc-open {
+    z-index: 40;
+  }
+}
+
+/* Mobile cabinet: opposite the close control */
 .lk-page:not(.lk-page--pc) .lk-page__lang {
   position: absolute;
   top: 16px;
   left: 16px;
   z-index: 10;
-}
-
-.lk-page:not(.lk-page--pc) .lang-switch {
-  border-color: rgba(167, 139, 250, 0.5);
-  background: rgba(15, 10, 36, 0.62);
 }

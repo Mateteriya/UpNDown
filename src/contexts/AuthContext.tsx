@@ -20,6 +20,29 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function isDeadRefreshTokenError(err: unknown): boolean {
+  const msg =
+    err && typeof err === 'object' && 'message' in err
+      ? String((err as { message: unknown }).message)
+      : String(err ?? '');
+  return /invalid refresh token|refresh token not found/i.test(msg);
+}
+
+/** Только ключи storage — без signOut (он шлёт SIGNED_OUT и может снести живую сессию). */
+function wipeAuthStorageKeys(): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && /^sb-[\w-]+-auth-token/.test(k)) keys.push(k);
+    }
+    for (const k of keys) localStorage.removeItem(k);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,8 +64,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      /* Не обнулять сессию на сбое/таймауте refresh — иначе лаба «сбрасывается» ~каждые 10 мин */
+      /* Не обнулять сессию на сбое/таймауте refresh — иначе лаба «сбрасывается» ~каждые 10 мин.
+       * SIGNED_OUT — всегда применяем (явный выход). */
       if (
+        event !== 'SIGNED_OUT' &&
         (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') &&
         nextSession == null &&
         sessionRef.current != null
@@ -53,8 +78,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     supabase.auth
       .getSession()
-      .then(({ data: { session: next } }) => finish(next, true))
-      .catch(() => finish(undefined, true));
+      .then(({ data: { session: next }, error }) => {
+        if (error && isDeadRefreshTokenError(error)) {
+          /* Мёртвый refresh в storage — снести ключи, не вызывая signOut (без лишнего SIGNED_OUT). */
+          wipeAuthStorageKeys();
+          finish(null, true);
+          return;
+        }
+        finish(next, true);
+      })
+      .catch((err) => {
+        if (isDeadRefreshTokenError(err)) {
+          wipeAuthStorageKeys();
+          finish(null, true);
+          return;
+        }
+        finish(undefined, true);
+      });
     /* Офлайн / висящий refresh: не держим весь UI в loading */
     const bootTimer = window.setTimeout(() => finish(undefined, true), AUTH_BOOT_TIMEOUT_MS);
     return () => {
@@ -65,14 +105,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!supabase) return { error: new Error('Supabase не настроен') };
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error ?? null };
+    const first = await supabase.auth.signInWithPassword({ email, password });
+    if (first.error && isDeadRefreshTokenError(first.error)) {
+      wipeAuthStorageKeys();
+      const retry = await supabase.auth.signInWithPassword({ email, password });
+      return { error: retry.error ?? null };
+    }
+    return { error: first.error ?? null };
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
     if (!supabase) return { error: new Error('Supabase не настроен') };
-    const { error } = await supabase.auth.signUp({ email, password });
-    return { error: error ?? null };
+    const first = await supabase.auth.signUp({ email, password });
+    if (first.error && isDeadRefreshTokenError(first.error)) {
+      wipeAuthStorageKeys();
+      const retry = await supabase.auth.signUp({ email, password });
+      return { error: retry.error ?? null };
+    }
+    return { error: first.error ?? null };
   }, []);
 
   const signInWithOAuth = useCallback(async (provider: Provider) => {
@@ -92,7 +142,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       provider,
       options,
     });
-    if (error) return { error };
+    if (error) {
+      if (isDeadRefreshTokenError(error)) {
+        wipeAuthStorageKeys();
+        const retry = await supabase.auth.signInWithOAuth({ provider, options });
+        if (retry.error) return { error: retry.error };
+        if (retry.data?.url && typeof window !== 'undefined') {
+          window.location.href = retry.data.url;
+          return { error: null };
+        }
+        return { error: retry.error ?? null };
+      }
+      return { error };
+    }
     if (data?.url && typeof window !== 'undefined') {
       // Редирект в той же вкладке (как GitHub) — новая вкладка давала чёрный экран после возврата
       window.location.href = data.url;

@@ -1,16 +1,21 @@
 /*
- * Тултип орбиты (портал в document.body) — подключается только с DealTrackLabPage,
- * чтобы стили гарантированно попадали в сборку и не зависели от хрупкого hsl(var() …).
- * Цвета рамки/рейки: кастомные свойства задаёт TS (классический hsl(H, S%, L%)).
+ * Тултип орбиты (портал в document.body или в <dialog>).
+ * Селекторы только по классу: id не обязателен, стили не зависят от портала.
+ * Рамка/рейка: --orbit-tip-c* из TS (классический hsl(H, S%, L%)).
  */
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip {
+.deal-track-lab-orbit-tooltip {
+  position: relative;
   z-index: 100000;
+  box-sizing: border-box;
   max-width: min(300px, calc(100vw - 24px));
   width: max-content;
   pointer-events: none;
   border-radius: 12px;
   padding: 1px;
   isolation: isolate;
+  color-scheme: dark;
+  color: rgb(241 245 249 / 0.98);
+  font-family: inherit;
   background: linear-gradient(
     135deg,
     var(--orbit-tip-c0, hsl(200, 88%, 62%)) 0%,
@@ -25,7 +30,7 @@
     0 0 80px rgb(56 189 248 / 0.08);
 }
 
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__shine {
+.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__shine {
   position: absolute;
   inset: 0;
   border-radius: inherit;
@@ -38,7 +43,7 @@
   pointer-events: none;
 }
 
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__inner {
+.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__inner {
   position: relative;
   display: flex;
   align-items: stretch;
@@ -59,7 +64,7 @@
     inset 0 0 0 1px rgb(255 255 255 / 0.04);
 }
 
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__rail {
+.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__rail {
   flex: 0 0 4px;
   background: linear-gradient(
     180deg,
@@ -73,7 +78,7 @@
     inset 0 0 8px rgb(255 255 255 / 0.12);
 }
 
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__text {
+.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__text {
   padding: 10px 14px 11px 12px;
   font-size: 12.5px;
   font-weight: 650;
@@ -81,45 +86,50 @@
   letter-spacing: 0.015em;
 }
 
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip--app .deal-track-lab-orbit-tooltip__text {
+.deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip--app .deal-track-lab-orbit-tooltip__text {
   font-size: 14px;
   line-height: 1.48;
 }
 
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__main {
-  color: rgb(241 245 249 / 0.98);
-  text-shadow: 0 1px 0 rgb(15 23 42 / 0.85);
+.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__main,
+.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__sub {
+  color: unset;
+  -webkit-text-fill-color: unset;
+  text-shadow: none;
 }
 
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__dot {
-  color: rgb(148 163 184 / 0.75);
+.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__dot {
+  color: hsl(190, 100%, 72%);
+  -webkit-text-fill-color: hsl(190, 100%, 72%);
   font-weight: 500;
+  text-shadow:
+    0 0 8px hsla(190, 100%, 68%, 0.9),
+    0 0 14px hsla(260, 100%, 70%, 0.45);
 }
 
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__sub {
-  color: rgb(186 198 216 / 0.92);
+.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__sub {
   font-weight: 580;
 }
 
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip
-  .deal-track-lab-orbit-tooltip__text--big-neon
+.deal-track-lab-orbit-tooltip
+  .deal-track-lab-orbit-tooltip__text--neon
   .deal-track-lab-orbit-tooltip__main,
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip
-  .deal-track-lab-orbit-tooltip__text--big-neon
+.deal-track-lab-orbit-tooltip
+  .deal-track-lab-orbit-tooltip__text--neon
   .deal-track-lab-orbit-tooltip__sub {
   display: inline;
 }
 
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__word-neon-main,
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__word-neon-sub {
-  --orbit-neon-h: calc(148 + (var(--orbit-neon-word-idx, 0) * 37));
-  color: hsl(var(--orbit-neon-h) 100% 74%);
+.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__word-neon-main,
+.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__word-neon-sub {
+  color: hsl(calc(148 + (var(--orbit-neon-word-idx, 0) * 37)), 100%, 74%);
+  -webkit-text-fill-color: hsl(calc(148 + (var(--orbit-neon-word-idx, 0) * 37)), 100%, 74%);
   text-shadow:
-    0 0 8px hsl(var(--orbit-neon-h) 100% 68% / 0.95),
-    0 0 16px hsl(var(--orbit-neon-h) 100% 58% / 0.78),
+    0 0 8px hsla(calc(148 + (var(--orbit-neon-word-idx, 0) * 37)), 100%, 68%, 0.95),
+    0 0 16px hsla(calc(148 + (var(--orbit-neon-word-idx, 0) * 37)), 100%, 58%, 0.78),
     0 1px 0 rgb(8 10 22 / 0.75);
 }
 
-#deal-track-lab-orbit-tooltip.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__word-neon-sub {
+.deal-track-lab-orbit-tooltip .deal-track-lab-orbit-tooltip__word-neon-sub {
   filter: saturate(1.12) brightness(1.08);
 }

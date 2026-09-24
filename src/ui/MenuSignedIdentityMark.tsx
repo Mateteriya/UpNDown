@@ -582,6 +582,10 @@ export function MenuSignedIdentityMark({
         />
       )}
       <span className="menu-signed-id__ring">
+        {/* ПК-капсула + аккаунт: радужный обод + стекло «слеза» (стили — menu-pc.css) */}
+        {surface === 'capsule' && isAccount ? (
+          <span className="menu-signed-id__spin" aria-hidden="true" />
+        ) : null}
         <PlayerAvatar
           name={name}
           avatarDataUrl={avatarDataUrl}
@@ -594,6 +598,9 @@ export function MenuSignedIdentityMark({
             .filter(Boolean)
             .join(' ')}
         />
+        {surface === 'capsule' && isAccount ? (
+          <span className="menu-signed-id__glass" aria-hidden="true" />
+        ) : null}
         {!isAccount ? (
           <WaveAntenna tipOpen={waveTipOpen} tipId={waveTipId} badgeRef={waveRef} onToggleTip={toggleWaveTip} />
         ) : (

@@ -23,9 +23,11 @@ import { ModeLabelLabPage } from './ui/ModeLabelLabPage'
 import { RulesLabPage } from './ui/RulesLabPage'
 import { OrderStyleLabPage } from './ui/OrderStyleLabPage'
 import { AudioSfxLabPage } from './ui/AudioSfxLabPage'
+import { SoundGlyphLabPage } from './ui/SoundGlyphLabPage'
 import './theme-standard.css'
 import './theme-neon.css'
 import './index.css'
+import './ui/deal-track-lab-orbit-tooltip.css'
 import './styles/mobile-order-panel.css'
 import './styles/mobile-hand-l-frame.css'
 import './styles/menu-pc.css'
@@ -94,6 +96,7 @@ const isModeLabelLab = path === '/mode-label-lab' || path.startsWith('/mode-labe
 const isOrderStyleLab = path === '/order-style-lab' || path.startsWith('/order-style-lab/')
 const isRulesLab = path === '/rules-lab' || path.startsWith('/rules-lab/')
 const isAudioSfxLab = path === '/audio-sfx-lab' || path.startsWith('/audio-sfx-lab/')
+const isSoundGlyphLab = path === '/sound-glyph-lab' || path.startsWith('/sound-glyph-lab/')
 // /mode-label-lab — локальная песочница меню; не прод-UI (не пушить как фичу меню)
 const devModeAllowed = typeof window !== 'undefined' && sessionStorage.getItem('updown-devMode') === '1'
 
@@ -174,6 +177,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           </DemoGuard>
         </ThemeProvider>
       </AuthProvider>
+    ) : isSoundGlyphLab ? (
+      <ThemeProvider>
+        <SoundGlyphLabPage onBack={() => (window.location.href = '/')} />
+      </ThemeProvider>
     ) : (
       <AuthProvider>
         <OnlineGameProvider>

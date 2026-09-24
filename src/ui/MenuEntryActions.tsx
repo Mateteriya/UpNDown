@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import {
   getMenuCapsuleGlyphOnly,
   setMenuCapsuleGlyphOnly,
@@ -14,6 +15,7 @@ import {
 import { PlayerAvatar } from './PlayerAvatar';
 import { MenuSignedIdentityMark, type MenuSignedStatus } from './MenuSignedIdentityMark';
 import { MenuMapTipDismiss } from './MenuMapTipDismiss';
+import { useMenuAccountSignOutRequest } from './MenuAccountSessionChrome';
 import { t, useT } from '../i18n';
 
 const PC_MENU_MQ = '(min-width: 1025px)';
@@ -32,6 +34,71 @@ function blurAfterTouch(e: PointerEvent<HTMLElement>) {
   if (e.pointerType === 'touch' || e.pointerType === 'pen') {
     e.currentTarget.blur();
   }
+}
+
+/** Космический hover-тултип (как у signed-id / solo-map в меню). */
+function MenuCapsuleCosmicTip({
+  open,
+  anchorRef,
+  tipId,
+  text,
+}: {
+  open: boolean;
+  anchorRef: RefObject<HTMLElement | null>;
+  tipId: string;
+  text: string;
+}) {
+  const [pos, setPos] = useState<{ top: number; left: number; place: 'above' | 'below' } | null>(
+    null,
+  );
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    const el = anchorRef.current;
+    if (!el) return;
+    const place = () => {
+      const r = el.getBoundingClientRect();
+      const pad = 10;
+      let left = r.left + r.width / 2;
+      left = Math.min(Math.max(left, pad + 80), window.innerWidth - pad - 80);
+      const preferAbove = r.top >= 48;
+      if (preferAbove) {
+        setPos({ top: r.top - pad, left, place: 'above' });
+      } else {
+        setPos({ top: r.bottom + pad, left, place: 'below' });
+      }
+    };
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open, anchorRef]);
+
+  if (!open || !pos || typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      id={tipId}
+      role="tooltip"
+      className={[
+        'menu-capsule-cosmic-tip',
+        'game-table-tooltip-cosmic',
+        pos.place === 'below' ? 'menu-capsule-cosmic-tip--below' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      style={{ top: pos.top, left: pos.left }}
+    >
+      <p className="game-table-tooltip-cosmic-body-text menu-capsule-cosmic-tip__text">{text}</p>
+    </div>,
+    document.body,
+  );
 }
 
 function useCyclingLabel(labels: readonly string[], enabled: boolean, intervalMs: number): string {
@@ -607,12 +674,138 @@ const GLYPHS: Record<MenuCapsuleVariant, ReactNode> = {
   link: <GlyphMenuLink />,
 };
 
+/** Глиф «выйти» — крестик × в цветах двери / стрелки. */
+function MenuEdgeSignOutGlyph() {
+  const uid = useId().replace(/:/g, '');
+  /* Плюс → 45° = ×; насыщенный цвет, без белёсого блика */
+  const cross = 'M-1.55-6.2h3.1v4.65h4.65v3.1h-4.65v4.65h-3.1v-4.65h-4.65v-3.1h4.65z';
+  return (
+    <svg className="menu-capsule__signout-svg" viewBox="0 0 20 20" focusable="false" aria-hidden>
+      <defs>
+        <linearGradient id={`${uid}-body`} x1="12%" y1="4%" x2="88%" y2="96%">
+          <stop offset="0%" stopColor="#0e7490" />
+          <stop offset="28%" stopColor="#06b6d4" />
+          <stop offset="52%" stopColor="#7c3aed" />
+          <stop offset="76%" stopColor="#c026d3" />
+          <stop offset="100%" stopColor="#be185d" />
+        </linearGradient>
+        <linearGradient id={`${uid}-spec`} x1="20%" y1="0%" x2="70%" y2="80%">
+          <stop offset="0%" stopColor="#67e8f9" stopOpacity="0.55" />
+          <stop offset="40%" stopColor="#a78bfa" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={`${uid}-edge`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.75" />
+          <stop offset="45%" stopColor="#8b5cf6" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#9d174d" stopOpacity="0.95" />
+        </linearGradient>
+      </defs>
+      <g transform="translate(10 10) rotate(45)">
+        <path fill="#1e0538" opacity="0.55" transform="translate(0.4 0.55)" d={cross} />
+        <path fill={`url(#${uid}-body)`} opacity="0.28" d={cross} />
+        <path
+          fill="none"
+          stroke={`url(#${uid}-edge)`}
+          strokeWidth="2.15"
+          strokeLinejoin="round"
+          d={cross}
+        />
+        <path fill={`url(#${uid}-body)`} d={cross} />
+        <path
+          fill="none"
+          stroke={`url(#${uid}-body)`}
+          strokeWidth="1.35"
+          strokeLinejoin="round"
+          d={cross}
+        />
+        <path fill={`url(#${uid}-spec)`} opacity="0.55" d="M-1.05-5.75h2.1v2.55h-2.1z" />
+      </g>
+    </svg>
+  );
+}
+
+/** Цифровая шестерёнка — насыщенный цвет, объём без белёсого блика. */
+function MenuCabinetSettingsGlyph({ className = 'menu-capsule__settings-svg' }: { className?: string }) {
+  const uid = useId().replace(/:/g, '');
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      focusable="false"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id={`${uid}-body`} x1="14%" y1="6%" x2="86%" y2="94%">
+          <stop offset="0%" stopColor="#0e7490" />
+          <stop offset="28%" stopColor="#06b6d4" />
+          <stop offset="52%" stopColor="#7c3aed" />
+          <stop offset="76%" stopColor="#c026d3" />
+          <stop offset="100%" stopColor="#be185d" />
+        </linearGradient>
+        <linearGradient id={`${uid}-core`} x1="22%" y1="12%" x2="78%" y2="92%">
+          <stop offset="0%" stopColor="#0891b2" />
+          <stop offset="50%" stopColor="#9333ea" />
+          <stop offset="100%" stopColor="#db2777" />
+        </linearGradient>
+        <linearGradient id={`${uid}-emboss`} x1="30%" y1="0%" x2="70%" y2="100%">
+          <stop offset="0%" stopColor="#67e8f9" stopOpacity="0.55" />
+          <stop offset="40%" stopColor="#a78bfa" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#4c1d95" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* Тень «низа» — выпуклость */}
+      <path
+        fill="#1e0538"
+        fillRule="evenodd"
+        opacity="0.55"
+        transform="translate(0 0.7)"
+        d="M10.35 2.15h3.3l.42 2.05a7.2 7.2 0 0 1 1.72.71l1.78-.95 2.33 2.33-.95 1.78c.3.53.54 1.11.71 1.72l2.05.42v3.3l-2.05.42a7.2 7.2 0 0 1-.71 1.72l.95 1.78-2.33 2.33-1.78-.95a7.2 7.2 0 0 1-1.72.71l-.42 2.05h-3.3l-.42-2.05a7.2 7.2 0 0 1-1.72-.71l-1.78.95-2.33-2.33.95-1.78a7.2 7.2 0 0 1-.71-1.72L2.15 13.65v-3.3l2.05-.42c.17-.61.41-1.19.71-1.72l-.95-1.78 2.33-2.33 1.78.95c.53-.3 1.11-.54 1.72-.71l.42-2.05ZM12 7.35a4.65 4.65 0 1 0 0 9.3 4.65 4.65 0 0 0 0-9.3Z"
+      />
+      <path
+        fill={`url(#${uid}-body)`}
+        fillRule="evenodd"
+        d="M10.35 2.15h3.3l.42 2.05a7.2 7.2 0 0 1 1.72.71l1.78-.95 2.33 2.33-.95 1.78c.3.53.54 1.11.71 1.72l2.05.42v3.3l-2.05.42a7.2 7.2 0 0 1-.71 1.72l.95 1.78-2.33 2.33-1.78-.95a7.2 7.2 0 0 1-1.72.71l-.42 2.05h-3.3l-.42-2.05a7.2 7.2 0 0 1-1.72-.71l-1.78.95-2.33-2.33.95-1.78a7.2 7.2 0 0 1-.71-1.72L2.15 13.65v-3.3l2.05-.42c.17-.61.41-1.19.71-1.72l-.95-1.78 2.33-2.33 1.78.95c.53-.3 1.11-.54 1.72-.71l.42-2.05ZM12 7.35a4.65 4.65 0 1 0 0 9.3 4.65 4.65 0 0 0 0-9.3Z"
+      />
+      {/* Верхний цветной блик (не белый) */}
+      <path
+        fill={`url(#${uid}-emboss)`}
+        fillRule="evenodd"
+        opacity="0.55"
+        d="M10.35 2.15h3.3l.42 2.05a7.2 7.2 0 0 1 1.72.71l1.78-.95 2.33 2.33-.95 1.78c.3.53.54 1.11.71 1.72l2.05.42v3.3l-2.05.42a7.2 7.2 0 0 1-.71 1.72l.95 1.78-2.33 2.33-1.78-.95a7.2 7.2 0 0 1-1.72.71l-.42 2.05h-3.3l-.42-2.05a7.2 7.2 0 0 1-1.72-.71l-1.78.95-2.33-2.33.95-1.78a7.2 7.2 0 0 1-.71-1.72L2.15 13.65v-3.3l2.05-.42c.17-.61.41-1.19.71-1.72l-.95-1.78 2.33-2.33 1.78.95c.53-.3 1.11-.54 1.72-.71l.42-2.05ZM12 7.35a4.65 4.65 0 1 0 0 9.3 4.65 4.65 0 0 0 0-9.3Z"
+      />
+      <circle cx="12" cy="12.35" r="2.55" fill="#1e0538" opacity="0.45" />
+      <circle cx="12" cy="12" r="2.55" fill={`url(#${uid}-core)`} />
+      <circle
+        cx="12"
+        cy="12"
+        r="2.55"
+        fill="none"
+        stroke="#5b21b6"
+        strokeOpacity="0.7"
+        strokeWidth="0.75"
+      />
+    </svg>
+  );
+}
+
 export type MenuCapsuleButtonProps = {
   variant: MenuCapsuleVariant;
   title: string;
   hint?: string;
   /** Мелкая подпись над title (напр. «Кабинет»). */
   eyebrow?: string;
+  /** Справа в шапке от eyebrow (напр. «профиль» / «аккаунт»), через разделитель. */
+  eyebrowAside?: string;
+  /** ПК-кабинет: шестерёнка сразу после имени (без контейнера, со спином). */
+  showSettingsGlyph?: boolean;
+  /** ПК: «выйти» справа в вертикальном ободе (модалка через MenuAccountSessionChrome). */
+  showTitleSignOut?: boolean;
+  /** ПК-кабинет: строка под именем (email / статус). */
+  metaLine?: string;
+  /** Тон meta-строки. */
+  metaTone?: 'email' | 'profile' | 'guest';
+  /** ПК-кабинет: модификатор стиля по статусу личности. */
+  cabinetIdentity?: 'guest' | 'profile' | 'account';
   disabled?: boolean;
   href?: string;
   onClick?: () => void;
@@ -633,6 +826,12 @@ export function MenuCapsuleButton({
   title,
   hint,
   eyebrow,
+  eyebrowAside,
+  showSettingsGlyph,
+  showTitleSignOut,
+  metaLine,
+  metaTone,
+  cabinetIdentity,
   disabled,
   href,
   onClick,
@@ -643,9 +842,17 @@ export function MenuCapsuleButton({
   collapsible,
   collapseId,
 }: MenuCapsuleButtonProps) {
+  const tUi = useT();
+  const requestSignOut = useMenuAccountSignOutRequest();
   const [glyphOnly, setGlyphOnly] = useState(() =>
     collapsible && collapseId ? getMenuCapsuleGlyphOnly(collapseId) : false,
   );
+  const settingsTipId = useId().replace(/:/g, '');
+  const signOutTipId = useId().replace(/:/g, '');
+  const settingsAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const signOutAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const [settingsTipOpen, setSettingsTipOpen] = useState(false);
+  const [signOutTipOpen, setSignOutTipOpen] = useState(false);
 
   const toggleGlyphOnly = useCallback(
     (e: MouseEvent) => {
@@ -667,7 +874,11 @@ export function MenuCapsuleButton({
     compact ? 'menu-capsule--compact' : '',
     disabled ? 'menu-capsule--disabled' : '',
     avatarName ? 'menu-capsule--with-avatar' : '',
+    showSettingsGlyph ? 'menu-capsule--with-settings' : '',
+    showTitleSignOut ? 'menu-capsule--with-signout' : '',
     glyphOnly ? 'menu-capsule--glyph-only' : '',
+    cabinetIdentity ? `menu-capsule--id-${cabinetIdentity}` : '',
+    metaTone ? `menu-capsule--meta-${metaTone}` : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -691,10 +902,96 @@ export function MenuCapsuleButton({
         )}
       </span>
       <span className="menu-capsule__body">
-        {eyebrow ? <span className="menu-capsule__eyebrow">{eyebrow}</span> : null}
-        <span className="menu-capsule__title">{title}</span>
+        {eyebrow || eyebrowAside ? (
+          <span className="menu-capsule__eyebrow-row">
+            {eyebrow ? <span className="menu-capsule__eyebrow">{eyebrow}</span> : null}
+            {eyebrow && eyebrowAside ? (
+              <span className="menu-capsule__eyebrow-sep" aria-hidden="true" />
+            ) : null}
+            {eyebrowAside ? (
+              <span className="menu-capsule__eyebrow-aside">{eyebrowAside}</span>
+            ) : null}
+          </span>
+        ) : null}
+        <span className="menu-capsule__title-row">
+          <span className="menu-capsule__title">{title}</span>
+          {showSettingsGlyph ? (
+            <span
+              ref={settingsAnchorRef}
+              className="menu-capsule__title-settings"
+              aria-label={tUi('menu.cabinetSettingsTip')}
+              aria-describedby={settingsTipOpen ? settingsTipId : undefined}
+              onMouseEnter={() => setSettingsTipOpen(true)}
+              onMouseLeave={() => setSettingsTipOpen(false)}
+            >
+              <MenuCabinetSettingsGlyph className="menu-capsule__title-settings-svg" />
+              <MenuCapsuleCosmicTip
+                open={settingsTipOpen}
+                anchorRef={settingsAnchorRef}
+                tipId={settingsTipId}
+                text={tUi('menu.cabinetSettingsTip')}
+              />
+            </span>
+          ) : null}
+        </span>
+        {metaLine ? (
+          <span
+            className={[
+              'menu-capsule__meta',
+              metaTone ? `menu-capsule__meta--${metaTone}` : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            {metaTone === 'email' ? (
+              <span className="menu-capsule__meta-pulse" aria-hidden="true" />
+            ) : (
+              <span className="menu-capsule__meta-mark" aria-hidden="true" />
+            )}
+            <span className="menu-capsule__meta-text">{metaLine}</span>
+          </span>
+        ) : null}
         {hint ? <span className="menu-capsule__hint">{hint}</span> : null}
       </span>
+      {showTitleSignOut && requestSignOut ? (
+        <span
+          ref={signOutAnchorRef}
+          role="button"
+          tabIndex={0}
+          className="menu-capsule__glyph menu-capsule__glyph--signout"
+          aria-label={tUi('menu.accountSignOutAria')}
+          aria-describedby={signOutTipOpen ? signOutTipId : undefined}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setSignOutTipOpen(false);
+            requestSignOut();
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            e.stopPropagation();
+            setSignOutTipOpen(false);
+            requestSignOut();
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseEnter={() => setSignOutTipOpen(true)}
+          onMouseLeave={() => setSignOutTipOpen(false)}
+          onFocus={() => setSignOutTipOpen(true)}
+          onBlur={() => setSignOutTipOpen(false)}
+        >
+          <span className="menu-capsule__signout">
+            <MenuEdgeSignOutGlyph />
+            <span className="menu-capsule__signout-glass" />
+          </span>
+          <MenuCapsuleCosmicTip
+            open={signOutTipOpen}
+            anchorRef={signOutAnchorRef}
+            tipId={signOutTipId}
+            text={tUi('menu.accountSignOutTip')}
+          />
+        </span>
+      ) : null}
     </>
   );
 

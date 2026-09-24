@@ -562,6 +562,10 @@ function App() {
           onlineResumeMessage={onlineResumeMessage}
           onTitleDevMode={enableDevMode}
           onOpenAccount={openAccountCabinet}
+          onOpenSignIn={() => {
+            setAuthMode('login')
+            setShowAuthModal(true)
+          }}
           onOpenSupport={openSupportPage}
           onOpenRating={openRatingPage}
           onResumeOnline={() => { void handleResumeOnline() }}

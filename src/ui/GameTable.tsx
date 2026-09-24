@@ -220,7 +220,7 @@ import {
 import { readResultsChipView } from '../game/resultsChipView';
 import { computePartySettlement } from '../game/partySettlement';
 import { isPersonalAiReplacementEnabled } from '../lib/featureFlags';
-import { getResultsTableFootTotalDigitStyle } from '../lib/mobileResultsTableTotalTone';
+import { getPanelScoreBadgeValueVars, getResultsTableFootTotalDigitStyle } from '../lib/mobileResultsTableTotalTone';
 import {
   resolveMobileOrderPanelStyle,
   resolveMobileZeroCrossStyle,
@@ -14193,7 +14193,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           style={playerStatBadgeScoreStyle}
                         >
                           <span style={playerStatLabelStyle}>{t('table.score')}</span>
-                          <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
+                          <span style={withPcScoreBadgeValueChroma(playerStatValueStyle, state.players[humanIdx].score, !isMobile)}>{state.players[humanIdx].score}</span>
                         </div>
                         {state.dealerIndex === humanIdx ? (
                           <span
@@ -14217,7 +14217,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           style={playerStatBadgeScoreStyle}
                         >
                           <span style={playerStatLabelStyle}>{t('table.score')}</span>
-                          <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
+                          <span style={withPcScoreBadgeValueChroma(playerStatValueStyle, state.players[humanIdx].score, !isMobile)}>{state.players[humanIdx].score}</span>
                         </div>
                         {state.dealerIndex === humanIdx ? (
                           <span
@@ -14266,7 +14266,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     style={playerStatBadgeScoreStyle}
                   >
                     <span style={playerStatLabelStyle}>{t('table.score')}</span>
-                    <span style={playerStatValueStyle}>{state.players[humanIdx].score}</span>
+                    <span style={withPcScoreBadgeValueChroma(playerStatValueStyle, state.players[humanIdx].score, !isMobile)}>{state.players[humanIdx].score}</span>
                   </div>
                   {state.dealerIndex === humanIdx &&
                     (useTabletPcTableTuning ||
@@ -20959,6 +20959,12 @@ function opponentStatStyleWithoutTextColor(style: React.CSSProperties): React.CS
   return rest;
 }
 
+/** ПК: цифра в бейдже «Очки» — умная шкала hue (как «Итог»), не серый инлайн. */
+function withPcScoreBadgeValueChroma(base: React.CSSProperties, score: number, enabled: boolean): React.CSSProperties {
+  if (!enabled) return base;
+  return { ...base, ...getPanelScoreBadgeValueVars(score) };
+}
+
 const DEALER_SOUTH_SATURN_SPOTS: {
   left: string;
   top: string;
@@ -21892,7 +21898,9 @@ function OpponentSlot({
         const opponentScoreLabelStyleResolved: React.CSSProperties =
           isMobile && inline ? opponentStatStyleWithoutTextColor(opponentStatLabelStyle) : opponentStatLabelStyle;
         const opponentScoreValueStyleResolved: React.CSSProperties =
-          isMobile && inline ? opponentStatStyleWithoutTextColor(opponentStatValueStyle) : opponentStatValueStyle;
+          isMobile && inline
+            ? opponentStatStyleWithoutTextColor(opponentStatValueStyle)
+            : withPcScoreBadgeValueChroma(opponentStatValueStyle, p.score, !isMobile);
         const opponentScoreControl = pcNorthSideBySide
           ? null
           : isMobile && inline ? (
@@ -21953,7 +21961,7 @@ function OpponentSlot({
                   style={opponentStatBadgeScoreStyle}
                 >
                   <span style={opponentStatLabelStyle}>{t('table.score')}</span>
-                  <span style={opponentStatValueStyle}>{p.score}</span>
+                  <span style={opponentScoreValueStyleResolved}>{p.score}</span>
           </div>
         );
         const nameBlock =
@@ -22194,7 +22202,7 @@ function OpponentSlot({
                 style={opponentStatBadgeScoreStyle}
               >
                 <span style={opponentStatLabelStyle}>{t('table.score')}</span>
-                <span style={opponentStatValueStyle}>{p.score}</span>
+                <span style={opponentScoreValueStyleResolved}>{p.score}</span>
               </div>
             </div>
             <div className="opponent-north-pc-name-col">
