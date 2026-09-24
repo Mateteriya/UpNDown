@@ -1,6 +1,7 @@
 /**
  * Лаборатория SFX: чеклист звуков игры → клавиатура → сохранить в партию.
- * Маршрут: /audio-sfx-lab (sessionStorage updown-devMode=1).
+ * Маршрут: /audio-sfx-lab
+ * Доступ: жест / URL-ключ студии, либо полный РР на staging/localhost (см. lib/devAtelier).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
@@ -3040,14 +3041,14 @@ export function AudioSfxLabPage({ onBack }: Props) {
               bottom: 'auto',
               maxHeight: 'none',
             }
-          : mode === 'dock'
-            ? {
-                height: keyboardOpen
-                  ? Math.max(clampKeyboardPx(panelLayout.keyboardPx), 220)
-                  : 44,
-                flex: '0 0 auto',
-              }
-            : undefined
+          : {
+              // SFX inline раньше без height → body схлопывался (studio flex:1 / min-height:0)
+              height: keyboardOpen
+                ? Math.max(clampKeyboardPx(panelLayout.keyboardPx), 220)
+                : 44,
+              flex: '0 0 auto',
+              ...(mode === 'inline' ? { marginTop: 'auto' } : null),
+            }
       }
       onPointerMove={mode === 'float' ? onFloatKbPointerMove : undefined}
       onPointerUp={mode === 'float' ? onFloatKbPointerUp : undefined}

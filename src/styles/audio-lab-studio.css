@@ -2411,6 +2411,14 @@ html.lab-resizing-y * {
   max-height: none;
 }
 
+/* SFX inline: те же пропорции клавиш, что у dock в «Музыке» */
+.audio-sfx-lab--studio .audio-sfx-lab__keyboard-drawer:not(.audio-sfx-lab__keyboard-drawer--float):not(.audio-sfx-lab__keyboard-drawer--dock) .audio-sfx-lab__keyboard {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 148px;
+  margin-bottom: 0;
+}
+
 .audio-sfx-lab__lib-section {
   display: flex;
   flex-direction: column;

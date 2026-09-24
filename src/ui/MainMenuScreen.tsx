@@ -28,6 +28,7 @@ import { AudioSettingsPanel } from './AudioSettingsPanel';
 import { MenuSoundGlyphToggle } from './MenuSoundGlyph';
 import { LanguageSwitch } from './LanguageSwitch';
 import { useT } from '../i18n';
+import { createTripleTapHandler } from '../lib/devAtelier';
 
 const PC_MENU_MQ = '(min-width: 1025px)';
 /** Редкий автосвайп каста, пока сидят на главной. */
@@ -95,6 +96,8 @@ export type MainMenuScreenProps = {
   lastPartyCode: string | null;
   onlineResumeMessage: string | null;
   onTitleDevMode?: () => void;
+  /** Секрет: тройной тап по логотипу/звезде или долгий тап по глифу звука → музыкальная студия. */
+  onOpenMusicStudio?: () => void;
   onOpenAccount: () => void;
   /** ПК: после «сменить аккаунт» — открыть AuthModal (логин). */
   onOpenSignIn?: () => void;
@@ -119,6 +122,7 @@ export function MainMenuScreen({
   lastPartyCode,
   onlineResumeMessage,
   onTitleDevMode,
+  onOpenMusicStudio,
   onOpenAccount,
   onOpenSignIn,
   onOpenSupport,
@@ -130,6 +134,13 @@ export function MainMenuScreen({
   onOpenRules,
 }: MainMenuScreenProps) {
   const t = useT();
+  const onBrandTripleTap = useRef(createTripleTapHandler(() => onOpenMusicStudio?.()));
+  useEffect(() => {
+    onBrandTripleTap.current = createTripleTapHandler(() => onOpenMusicStudio?.());
+  }, [onOpenMusicStudio]);
+  const fireBrandTripleTap = useCallback(() => {
+    onBrandTripleTap.current();
+  }, []);
   const signedIn = Boolean(userEmail);
   const identityStatus = getMenuIdentityStatus({
     displayName,
@@ -569,6 +580,10 @@ export function MainMenuScreen({
                     <h1
                       className="menu-screen__title"
                       onContextMenu={(e) => e.preventDefault()}
+                      onPointerUp={(e) => {
+                        if (e.button !== 0) return;
+                        fireBrandTripleTap();
+                      }}
                       onPointerDown={(e) => {
                         if (e.button !== 0 || !onTitleDevMode) return;
                         const target = e.currentTarget;
@@ -581,7 +596,14 @@ export function MainMenuScreen({
                       Up&amp;Down
                     </h1>
                   </span>
-                  <span className="menu-screen__title-star" aria-hidden="true">
+                  <span
+                    className="menu-screen__title-star"
+                    aria-hidden="true"
+                    onPointerUp={(e) => {
+                      if (e.button !== 0) return;
+                      fireBrandTripleTap();
+                    }}
+                  >
                     <svg className="menu-screen__title-star__svg" viewBox="0 0 32 32" focusable="false">
                       <defs>
                         <linearGradient id="menu-title-star-grad" x1="12%" y1="0%" x2="88%" y2="100%">
@@ -1119,6 +1141,7 @@ export function MainMenuScreen({
                 panelId={panelId}
                 onToggle={onToggle}
                 title={t('audio.title')}
+                onLongPressStudio={onOpenMusicStudio}
               />
             )}
           />
@@ -1134,6 +1157,7 @@ export function MainMenuScreen({
                 title={t('audio.title')}
                 label={t('audio.toggle')}
                 variant="pc"
+                onLongPressStudio={onOpenMusicStudio}
               />
             )}
           />
