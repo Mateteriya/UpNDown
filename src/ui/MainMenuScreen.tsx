@@ -879,7 +879,7 @@ export function MainMenuScreen({
                 </div>
               ) : null}
             </div>
-            <MenuPcDrift id="account" className="menu-screen__drift--account" movable>
+            <MenuPcDrift id="account-mid" className="menu-screen__drift--account" movable>
               <MenuAccountSessionChrome
                 enabled={Boolean(isPcMenu && isAccountIdentity)}
                 email={userEmail}
@@ -922,7 +922,7 @@ export function MainMenuScreen({
             </MenuPcDrift>
             {/* ПК: «Поддержать» в дрейфе. На мобиле — только внизу у «Правила», без дубля. */}
             {onOpenSupport && isPcMenu ? (
-              <MenuPcDrift id="support" className="menu-screen__drift--support" movable>
+              <MenuPcDrift id="support-bl" className="menu-screen__drift--support" movable>
                 <SupportMenuButton onClick={onOpenSupport} />
               </MenuPcDrift>
             ) : null}
