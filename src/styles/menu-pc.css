@@ -1200,7 +1200,9 @@
   }
   /* Стартовые позиции (первый заход / после сброса drift v5):
    * ряд под шапкой — Офлайн слева, Онлайн справа;
-   * низ — Кабинет слева, Правила справа. */
+   * слева по высоте — Кабинет (~центр); самый низ слева — Поддержать;
+   * низ по центру — Рейтинг; низ справа — Правила.
+   * (Звук — отдельно слева сверху.) */
   .menu-screen__drift--offline {
     left: 3%;
     right: auto;
@@ -1229,20 +1231,39 @@
   .menu-screen__drift--online > .menu-screen__drift-bob {
     animation: none;
   }
+  /* Кабинет — слева около середины высоты */
   .menu-screen__drift--account {
     display: block;
     left: 4%;
     right: auto;
-    top: auto;
-    bottom: max(28px, 5vh);
+    top: 50%;
+    bottom: auto;
     width: min(380px, 32vw);
     min-width: 300px;
     z-index: 4;
+    translate: var(--menu-drift-x, 0px) calc(-50% + var(--menu-drift-y, 0px));
   }
   .menu-screen__drift--account > .menu-screen__drift-bob {
     animation: menu-pc-bob-c 7.8s ease-in-out infinite;
     animation-delay: -1.2s;
     overflow: visible;
+  }
+
+  /* Поддержать — самый низ слева (не пересекается со «Звук» сверху) */
+  .menu-screen__drift--support {
+    left: 4%;
+    right: auto;
+    top: auto;
+    bottom: max(28px, 5vh);
+    width: auto;
+    min-width: 0;
+    max-width: min(300px, 28vw);
+    z-index: 4;
+  }
+  .menu-screen__drift--support > .menu-screen__drift-bob {
+    width: auto;
+    animation: menu-pc-bob-a 7.4s ease-in-out infinite;
+    animation-delay: -2.6s;
   }
 
   /*

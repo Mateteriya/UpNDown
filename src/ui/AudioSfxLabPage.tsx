@@ -3041,14 +3041,18 @@ export function AudioSfxLabPage({ onBack }: Props) {
               bottom: 'auto',
               maxHeight: 'none',
             }
-          : {
-              // SFX inline раньше без height → body схлопывался (studio flex:1 / min-height:0)
-              height: keyboardOpen
-                ? Math.max(clampKeyboardPx(panelLayout.keyboardPx), 220)
-                : 44,
-              flex: '0 0 auto',
-              ...(mode === 'inline' ? { marginTop: 'auto' } : null),
-            }
+          : (() => {
+              // SFX inline: нужен запас под шапку/аккорд/фразу + клавиши 176px
+              // (у dock «Музыка» хром спрятан — там хватает ~220).
+              const openMin = mode === 'inline' ? 400 : 220;
+              return {
+                height: keyboardOpen
+                  ? Math.max(clampKeyboardPx(panelLayout.keyboardPx), openMin)
+                  : 44,
+                flex: '0 0 auto' as const,
+                ...(mode === 'inline' ? { marginTop: 'auto' } : null),
+              };
+            })()
       }
       onPointerMove={mode === 'float' ? onFloatKbPointerMove : undefined}
       onPointerUp={mode === 'float' ? onFloatKbPointerUp : undefined}
@@ -3117,8 +3121,13 @@ export function AudioSfxLabPage({ onBack }: Props) {
             onClick={() => {
               const next = !keyboardOpen;
               setKeyboardOpen(next);
-              if (next && panelLayoutRef.current.keyboardPx < 140) {
-                patchPanelLayout({ keyboardPx: Math.max(DEFAULT_LAB_PANEL_LAYOUT.keyboardPx, 200) }, true);
+              const floor = mode === 'inline' ? 400 : 140;
+              const bump = mode === 'inline' ? 400 : 200;
+              if (next && panelLayoutRef.current.keyboardPx < floor) {
+                patchPanelLayout(
+                  { keyboardPx: Math.max(DEFAULT_LAB_PANEL_LAYOUT.keyboardPx, bump) },
+                  true,
+                );
               }
             }}
           >
