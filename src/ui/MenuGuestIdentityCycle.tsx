@@ -272,6 +272,8 @@ type MenuGuestIdentityCycleProps = {
   showMapHint?: boolean;
   /** Скрыть guest-пунктир навсегда (свитч в тултипе / после клика по аватарке). */
   onHideMapHint?: () => void;
+  /** Native `title` (отключить, если есть космический tip). */
+  tipTitle?: boolean;
 };
 
 /**
@@ -504,6 +506,7 @@ export function MenuGuestIdentityCycle({
   showCaption = false,
   showMapHint = true,
   onHideMapHint,
+  tipTitle = true,
 }: MenuGuestIdentityCycleProps) {
   const t = useT();
   const rawId = useId();
@@ -514,7 +517,7 @@ export function MenuGuestIdentityCycle({
   return (
     <span
       className={['menu-guest-cycle', className].filter(Boolean).join(' ')}
-      title={t('menu.identityGuest')}
+      title={tipTitle ? t('menu.identityGuest') : undefined}
     >
       {showMapHint ? <GuestMapHint uid={uid} onHideMapHint={onHideMapHint} /> : null}
       <span className="menu-guest-cycle__stage" aria-hidden>

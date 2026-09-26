@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   getMenuCapsuleGlyphOnly,
@@ -14,8 +14,10 @@ import {
 } from './mode-label-lab/ModeLabelLabVariants';
 import { PlayerAvatar } from './PlayerAvatar';
 import { MenuSignedIdentityMark, type MenuSignedStatus } from './MenuSignedIdentityMark';
+import { MenuGuestIdentityCycle } from './MenuGuestIdentityCycle';
 import { MenuMapTipDismiss } from './MenuMapTipDismiss';
 import { useMenuAccountSignOutRequest } from './MenuAccountSessionChrome';
+import { MenuCapsuleCosmicTip } from './MenuCapsuleCosmicTip';
 import { t, useT } from '../i18n';
 
 const PC_MENU_MQ = '(min-width: 1025px)';
@@ -34,71 +36,6 @@ function blurAfterTouch(e: PointerEvent<HTMLElement>) {
   if (e.pointerType === 'touch' || e.pointerType === 'pen') {
     e.currentTarget.blur();
   }
-}
-
-/** Космический hover-тултип (как у signed-id / solo-map в меню). */
-function MenuCapsuleCosmicTip({
-  open,
-  anchorRef,
-  tipId,
-  text,
-}: {
-  open: boolean;
-  anchorRef: RefObject<HTMLElement | null>;
-  tipId: string;
-  text: string;
-}) {
-  const [pos, setPos] = useState<{ top: number; left: number; place: 'above' | 'below' } | null>(
-    null,
-  );
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setPos(null);
-      return;
-    }
-    const el = anchorRef.current;
-    if (!el) return;
-    const place = () => {
-      const r = el.getBoundingClientRect();
-      const pad = 10;
-      let left = r.left + r.width / 2;
-      left = Math.min(Math.max(left, pad + 80), window.innerWidth - pad - 80);
-      const preferAbove = r.top >= 48;
-      if (preferAbove) {
-        setPos({ top: r.top - pad, left, place: 'above' });
-      } else {
-        setPos({ top: r.bottom + pad, left, place: 'below' });
-      }
-    };
-    place();
-    window.addEventListener('scroll', place, true);
-    window.addEventListener('resize', place);
-    return () => {
-      window.removeEventListener('scroll', place, true);
-      window.removeEventListener('resize', place);
-    };
-  }, [open, anchorRef]);
-
-  if (!open || !pos || typeof document === 'undefined') return null;
-
-  return createPortal(
-    <div
-      id={tipId}
-      role="tooltip"
-      className={[
-        'menu-capsule-cosmic-tip',
-        'game-table-tooltip-cosmic',
-        pos.place === 'below' ? 'menu-capsule-cosmic-tip--below' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      style={{ top: pos.top, left: pos.left }}
-    >
-      <p className="game-table-tooltip-cosmic-body-text menu-capsule-cosmic-tip__text">{text}</p>
-    </div>,
-    document.body,
-  );
 }
 
 function useCyclingLabel(labels: readonly string[], enabled: boolean, intervalMs: number): string {
@@ -724,6 +661,890 @@ function MenuEdgeSignOutGlyph() {
   );
 }
 
+/** Глиф «войти» — стрелка в дверь (тот же цветовой стек, что у «выйти»). */
+/** Глиф «войти» — кольцо с разрывом на западе; на hover — полное кольцо + перелив. */
+function MenuEdgeSignInGlyph() {
+  const uid = useId().replace(/:/g, '');
+  const cx = 10;
+  const cy = 10;
+  const r = 8.55;
+  const gapDeg = 42;
+  const gapPct = (gapDeg / 360) * 100;
+  const arcPct = 100 - gapPct;
+  const dashOffset = 50 - gapPct / 2;
+  return (
+    <svg className="menu-capsule__signin-svg" viewBox="0 0 20 20" focusable="false" aria-hidden>
+      <defs>
+        {/* покой: статичный градиент, без анимации */}
+        <linearGradient id={`${uid}-ring`} x1="12%" y1="4%" x2="88%" y2="96%">
+          <stop offset="0%" stopColor="#22d3ee" />
+          <stop offset="35%" stopColor="#a78bfa" />
+          <stop offset="70%" stopColor="#e879f9" />
+          <stop offset="100%" stopColor="#fb7185" />
+        </linearGradient>
+        <linearGradient id={`${uid}-ring-edge`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#a5f3fc" stopOpacity="0.95" />
+          <stop offset="40%" stopColor="#c084fc" stopOpacity="0.95" />
+          <stop offset="100%" stopColor="#f472b6" stopOpacity="1" />
+        </linearGradient>
+        {/* hover-перелив — виден только когда opacity>0 */}
+        <linearGradient id={`${uid}-ring-flow`} x1="0%" y1="50%" x2="100%" y2="50%">
+          <stop offset="0%" stopColor="#67e8f9">
+            <animate
+              attributeName="stop-color"
+              values="#67e8f9;#fbbf24;#e879f9;#a78bfa;#22d3ee;#f472b6;#67e8f9"
+              dur="1.5s"
+              repeatCount="indefinite"
+            />
+          </stop>
+          <stop offset="50%" stopColor="#e879f9">
+            <animate
+              attributeName="stop-color"
+              values="#e879f9;#22d3ee;#fde68a;#c084fc;#38bdf8;#e879f9"
+              dur="1.5s"
+              repeatCount="indefinite"
+            />
+          </stop>
+          <stop offset="100%" stopColor="#a78bfa">
+            <animate
+              attributeName="stop-color"
+              values="#a78bfa;#f472b6;#67e8f9;#fbbf24;#e879f9;#a78bfa"
+              dur="1.5s"
+              repeatCount="indefinite"
+            />
+          </stop>
+          <animateTransform
+            attributeName="gradientTransform"
+            type="rotate"
+            from="0 10 10"
+            to="360 10 10"
+            dur="1.6s"
+            repeatCount="indefinite"
+          />
+        </linearGradient>
+        <radialGradient id={`${uid}-glow`} cx="38%" cy="32%" r="58%">
+          <stop offset="0%" stopColor="#e0f2fe" stopOpacity="0.75" />
+          <stop offset="22%" stopColor="#a5f3fc" stopOpacity="0.55" />
+          <stop offset="48%" stopColor="#a78bfa" stopOpacity="0.35" />
+          <stop offset="78%" stopColor="#4c1d95" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#0f172a" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={`${uid}-dome`} cx="42%" cy="30%" r="55%">
+          <stop offset="0%" stopColor="#fdf4ff" stopOpacity="0.55" />
+          <stop offset="40%" stopColor="#67e8f9" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#1e0538" stopOpacity="0.45" />
+        </radialGradient>
+        <linearGradient id={`${uid}-star`} x1="18%" y1="8%" x2="86%" y2="92%">
+          <stop offset="0%" stopColor="#ecfeff">
+            <animate
+              attributeName="stop-color"
+              values="#ecfeff;#f0abfc;#67e8f9;#e9d5ff;#ecfeff"
+              dur="3.2s"
+              repeatCount="indefinite"
+            />
+          </stop>
+          <stop offset="40%" stopColor="#a5f3fc">
+            <animate
+              attributeName="stop-color"
+              values="#a5f3fc;#c084fc;#f9a8d4;#38bdf8;#a5f3fc"
+              dur="3.2s"
+              repeatCount="indefinite"
+            />
+          </stop>
+          <stop offset="100%" stopColor="#e879f9">
+            <animate
+              attributeName="stop-color"
+              values="#e879f9;#22d3ee;#f0abfc;#a78bfa;#e879f9"
+              dur="3.2s"
+              repeatCount="indefinite"
+            />
+          </stop>
+        </linearGradient>
+      </defs>
+
+      <circle cx={cx} cy={cy} r="4.55" fill={`url(#${uid}-dome)`} opacity="0.9" />
+      <circle cx={cx} cy={cy} r="4.2" fill={`url(#${uid}-glow)`} opacity="0.92" />
+      <ellipse cx="8.15" cy="7.55" rx="1.35" ry="0.85" fill="#a5f3fc" opacity="0.55" />
+
+      {/* покой: кольцо с разрывом на западе */}
+      <g className="menu-capsule__signin-ring-gap">
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={`url(#${uid}-ring-edge)`}
+          strokeWidth="1.25"
+          strokeLinecap="round"
+          pathLength={100}
+          strokeDasharray={`${arcPct} ${gapPct}`}
+          strokeDashoffset={dashOffset}
+        />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={`url(#${uid}-ring)`}
+          strokeWidth="0.95"
+          strokeLinecap="round"
+          pathLength={100}
+          strokeDasharray={`${arcPct} ${gapPct}`}
+          strokeDashoffset={dashOffset}
+        />
+      </g>
+
+      {/* hover: полное сомкнутое кольцо + цветовой перелив */}
+      <g className="menu-capsule__signin-ring-closed">
+        {/* цветная подложка кольца на пике (не белый диск) */}
+        <circle
+          className="menu-capsule__signin-ring-bloom"
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={`url(#${uid}-ring-flow)`}
+          strokeWidth="2.55"
+          strokeLinecap="round"
+          opacity="0.55"
+        />
+        <circle
+          className="menu-capsule__signin-ring-edge"
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={`url(#${uid}-ring-edge)`}
+          strokeWidth="1.3"
+          strokeLinecap="round"
+        />
+        <circle
+          className="menu-capsule__signin-ring-flow"
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={`url(#${uid}-ring-flow)`}
+          strokeWidth="1.15"
+          strokeLinecap="round"
+        />
+      </g>
+
+      <g className="menu-capsule__signin-star">
+        <path
+          fill="none"
+          stroke={`url(#${uid}-star)`}
+          strokeWidth="1.35"
+          strokeLinecap="round"
+          d="M10 4.15v1.35M10 14.5v1.35M4.15 10h1.35M14.5 10h1.35"
+          opacity="0.95"
+        />
+        <path
+          fill="none"
+          stroke={`url(#${uid}-star)`}
+          strokeWidth="0.85"
+          strokeLinecap="round"
+          d="M5.85 5.85l0.95 0.95M13.2 13.2l0.95 0.95M13.2 5.85l-0.95 0.95M5.85 13.2l0.95-0.95"
+          opacity="0.7"
+        />
+        <path
+          fill="#1e0538"
+          opacity="0.4"
+          transform="translate(0.22 0.28)"
+          d="M10 5.05 11.15 8.45 14.4 9.4 11.15 10.35 10 13.75 8.85 10.35 5.6 9.4 8.85 8.45Z"
+        />
+        <path
+          fill={`url(#${uid}-star)`}
+          d="M10 4.85 11.2 8.4 14.55 9.4 11.2 10.4 10 13.95 8.8 10.4 5.45 9.4 8.8 8.4Z"
+        />
+        <path
+          fill="#ecfeff"
+          opacity="0.92"
+          d="M10 7.05 10.7 8.95 12.6 9.55 10.7 10.15 10 12.05 9.3 10.15 7.4 9.55 9.3 8.95Z"
+        >
+          <animate attributeName="opacity" values="0.75;1;0.75" dur="2.2s" repeatCount="indefinite" />
+        </path>
+        <circle cx={cx} cy={cy} r="1.05" fill="#fdf4ff">
+          <animate attributeName="r" values="0.9;1.2;0.9" dur="2.2s" repeatCount="indefinite" />
+        </circle>
+        <circle cx={cx} cy={cy} r="0.45" fill="#fff" opacity="0.95" />
+      </g>
+    </svg>
+  );
+}
+
+type SignInSpark = {
+  x: number;
+  y: number;
+  s: number;
+  delay: number;
+  dur: number;
+  kind: 'dot' | 'star';
+};
+
+/** Стрелка: переливы → хрусталь; звёзды на валу пружинят, над ней — нет. */
+function MenuSignInMidArrow() {
+  const uid = useId().replace(/:/g, '');
+  /* кончик — сплошной конус (остриё 58.8,11); вал — нитка из кружочков */
+  const tipCone = 'M46.9 6.55 58.8 11 46.9 15.45Z';
+  /* бусины вала до основания конуса; ry чуть больше — компенсирует preserveAspectRatio:none */
+  const shaftBeads: { x: number; r: number }[] = [];
+  for (let x = 2.1, i = 0; x <= 45.6; x += 2.45, i += 1) {
+    shaftBeads.push({ x, r: i % 3 === 1 ? 0.92 : 0.72 });
+  }
+  /* только над стрелкой — без пружины */
+  const aboveStars: { x: number; y: number; s: number; delay: number; dur: number }[] = [
+    { x: 10, y: 3.2, s: 0.55, delay: 0.2, dur: 2.8 },
+    { x: 18, y: 2.1, s: 0.7, delay: 0.9, dur: 3.1 },
+    { x: 27, y: 3.6, s: 0.5, delay: 1.5, dur: 2.6 },
+    { x: 35, y: 1.8, s: 0.75, delay: 0.4, dur: 3.4 },
+    { x: 43, y: 3.0, s: 0.6, delay: 1.1, dur: 2.9 },
+    { x: 51, y: 2.4, s: 0.65, delay: 0.7, dur: 3.2 },
+  ];
+  /* прямо на линии стрелки — пружинят вместе с ней */
+  const onStars: { x: number; y: number; s: number; delay: number; dur: number }[] = [
+    { x: 11, y: 11, s: 0.42, delay: 0.15, dur: 2.7 },
+    { x: 20, y: 11, s: 0.5, delay: 0.55, dur: 3.0 },
+    { x: 29, y: 11, s: 0.45, delay: 1.0, dur: 2.5 },
+    { x: 38, y: 11, s: 0.52, delay: 0.35, dur: 3.2 },
+    { x: 46, y: 11, s: 0.4, delay: 0.8, dur: 2.8 },
+  ];
+
+  const renderStar = (
+    sp: { x: number; y: number; s: number; delay: number; dur: number },
+    i: number,
+    keyPrefix: string,
+  ) => (
+    <g key={`${keyPrefix}-${i}`} transform={`translate(${sp.x} ${sp.y}) scale(${sp.s})`} opacity="0.15">
+      <animate
+        attributeName="opacity"
+        values="0.1;0.15;0.75;1;0.55;0.12;0.1"
+        keyTimes="0;0.35;0.48;0.58;0.7;0.85;1"
+        dur="7.2s"
+        begin={`${sp.delay}s`}
+        repeatCount="indefinite"
+      />
+      <path
+        fill="#ecfeff"
+        d="M0 -2.4 0.55 -0.55 2.4 0 0.55 0.55 0 2.4 -0.55 0.55 -2.4 0 -0.55 -0.55Z"
+      />
+      <path
+        fill="#f0abfc"
+        opacity="0.85"
+        d="M0 -1.15 0.28 -0.28 1.15 0 0.28 0.28 0 1.15 -0.28 0.28 -1.15 0 -0.28 -0.28Z"
+      >
+        <animate
+          attributeName="fill"
+          values="#f0abfc;#67e8f9;#fde68a;#e879f9;#f0abfc"
+          dur={sp.dur}
+          repeatCount="indefinite"
+        />
+      </path>
+    </g>
+  );
+
+  const renderBeads = (className: string, paint: string, rScale: number, opacity?: number) => (
+    <g className={className} opacity={opacity}>
+      {shaftBeads.map((b, i) => (
+        <ellipse
+          key={`${className}-bead-${i}`}
+          cx={b.x}
+          cy={11}
+          rx={b.r * rScale}
+          ry={b.r * rScale * 1.45}
+          fill={paint}
+        />
+      ))}
+    </g>
+  );
+
+  const gradientDefs = (
+    <defs>
+      <linearGradient id={`${uid}-flow`} x1="0%" y1="50%" x2="100%" y2="50%">
+        <stop offset="0%" stopColor="#22d3ee" />
+        <stop offset="45%" stopColor="#a78bfa" />
+        <stop offset="100%" stopColor="#f0abfc" />
+      </linearGradient>
+      {/* тот же edge+flow, что у сомкнутого кольца — единая реакция */}
+      <linearGradient id={`${uid}-react-edge`} x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#a5f3fc" stopOpacity="0.95" />
+        <stop offset="40%" stopColor="#c084fc" stopOpacity="0.95" />
+        <stop offset="100%" stopColor="#f472b6" stopOpacity="1" />
+      </linearGradient>
+      <linearGradient id={`${uid}-react`} x1="0%" y1="50%" x2="100%" y2="50%">
+        <stop offset="0%" stopColor="#67e8f9">
+          <animate
+            attributeName="stop-color"
+            values="#67e8f9;#fbbf24;#e879f9;#a78bfa;#22d3ee;#f472b6;#67e8f9"
+            dur="1.5s"
+            repeatCount="indefinite"
+          />
+        </stop>
+        <stop offset="50%" stopColor="#e879f9">
+          <animate
+            attributeName="stop-color"
+            values="#e879f9;#22d3ee;#fde68a;#c084fc;#38bdf8;#e879f9"
+            dur="1.5s"
+            repeatCount="indefinite"
+          />
+        </stop>
+        <stop offset="100%" stopColor="#a78bfa">
+          <animate
+            attributeName="stop-color"
+            values="#a78bfa;#f472b6;#67e8f9;#fbbf24;#e879f9;#a78bfa"
+            dur="1.5s"
+            repeatCount="indefinite"
+          />
+        </stop>
+        {/* вдоль вала — тот же хроматический цикл, что вращается в кольце */}
+        <animateTransform
+          attributeName="gradientTransform"
+          type="translate"
+          values="-0.85 0;0.85 0;-0.85 0"
+          dur="1.6s"
+          repeatCount="indefinite"
+        />
+      </linearGradient>
+      {/* яркая «подложка» под переливом — общий фон яркости со стрелкой↔кольцом */}
+      <linearGradient id={`${uid}-react-bloom`} x1="0%" y1="50%" x2="100%" y2="50%">
+        <stop offset="0%" stopColor="#ecfeff" stopOpacity="0.95" />
+        <stop offset="35%" stopColor="#fdf4ff" stopOpacity="0.85" />
+        <stop offset="65%" stopColor="#e0f2fe" stopOpacity="0.9" />
+        <stop offset="100%" stopColor="#fae8ff" stopOpacity="0.88" />
+      </linearGradient>
+      <linearGradient id={`${uid}-crystal`} x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#ecfeff" stopOpacity="0.95" />
+        <stop offset="35%" stopColor="#a5f3fc" stopOpacity="0.55" />
+        <stop offset="62%" stopColor="#e9d5ff" stopOpacity="0.7" />
+        <stop offset="100%" stopColor="#fdf4ff" stopOpacity="0.9" />
+      </linearGradient>
+      <linearGradient id={`${uid}-glint`} x1="0%" y1="50%" x2="100%" y2="50%">
+        <stop offset="0%" stopColor="#fff" stopOpacity="0" />
+        <stop offset="42%" stopColor="#fff" stopOpacity="0">
+          <animate attributeName="offset" values="0.15;0.55;0.15" dur="3.8s" repeatCount="indefinite" />
+        </stop>
+        <stop offset="50%" stopColor="#a5f3fc" stopOpacity="0.85">
+          <animate attributeName="offset" values="0.28;0.68;0.28" dur="3.8s" repeatCount="indefinite" />
+        </stop>
+        <stop offset="58%" stopColor="#e879f9" stopOpacity="0">
+          <animate attributeName="offset" values="0.4;0.8;0.4" dur="3.8s" repeatCount="indefinite" />
+        </stop>
+        <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+      </linearGradient>
+    </defs>
+  );
+
+  return (
+    <span className="menu-capsule__signin-mid-arrow-wrap">
+      {/* аура сверху — не пружинит */}
+      <svg
+        className="menu-capsule__signin-mid-arrow-aura"
+        viewBox="0 0 64 18"
+        preserveAspectRatio="none"
+        focusable="false"
+        aria-hidden
+      >
+        {aboveStars.map((sp, i) => renderStar(sp, i, 'above'))}
+      </svg>
+
+      {/* вал + звёзды на нём — пружина */}
+      <svg
+        className="menu-capsule__signin-mid-arrow"
+        viewBox="0 0 64 18"
+        preserveAspectRatio="none"
+        focusable="false"
+        aria-hidden
+      >
+        {gradientDefs}
+
+        {renderBeads(`menu-capsule__signin-mid-arrow__crystal`, `url(#${uid}-crystal)`, 1.35, 0.28)}
+        <path
+          className="menu-capsule__signin-mid-arrow__crystal"
+          d={tipCone}
+          fill={`url(#${uid}-crystal)`}
+          stroke="none"
+          opacity="0.22"
+        />
+
+        {renderBeads(`menu-capsule__signin-mid-arrow__shaft`, `url(#${uid}-flow)`, 1, 0.95)}
+        <path
+          className="menu-capsule__signin-mid-arrow__shaft"
+          d={tipCone}
+          fill={`url(#${uid}-flow)`}
+          stroke="none"
+          opacity="0.95"
+        />
+
+        {renderBeads(`menu-capsule__signin-mid-arrow__glint`, `url(#${uid}-glint)`, 0.78, 0.8)}
+        <path
+          className="menu-capsule__signin-mid-arrow__glint"
+          d={tipCone}
+          fill={`url(#${uid}-glint)`}
+          stroke="none"
+          opacity="0.75"
+        />
+
+        {/* реакция: bloom → edge → flow; на пике в центре — жирнее + яркий фон */}
+        {renderBeads(`menu-capsule__signin-mid-arrow__react-bloom`, `url(#${uid}-react-bloom)`, 1.45)}
+        <path
+          className="menu-capsule__signin-mid-arrow__react-bloom"
+          d={tipCone}
+          fill={`url(#${uid}-react-bloom)`}
+          stroke="none"
+        />
+        {renderBeads(`menu-capsule__signin-mid-arrow__react-edge`, `url(#${uid}-react-edge)`, 1.18)}
+        <path
+          className="menu-capsule__signin-mid-arrow__react-edge"
+          d={tipCone}
+          fill={`url(#${uid}-react-edge)`}
+          stroke="none"
+        />
+        {renderBeads(`menu-capsule__signin-mid-arrow__react`, `url(#${uid}-react)`, 1)}
+        <path
+          className="menu-capsule__signin-mid-arrow__react"
+          d={tipCone}
+          fill={`url(#${uid}-react)`}
+          stroke="none"
+        />
+
+        {onStars.map((sp, i) => renderStar(sp, i, 'on'))}
+      </svg>
+    </span>
+  );
+}
+
+/** Разлёт цветных точек/звёзд наружу — только на пике 6.2s (не на курсорном hover). */
+const SIGNIN_PEAK_BURST: { deg: number; color: string; size: number; kind: 'dot' | 'star' }[] = [
+  { deg: -12, color: '#67e8f9', size: 2.5, kind: 'dot' },
+  { deg: 8, color: '#f0abfc', size: 2.2, kind: 'dot' },
+  { deg: 28, color: '#fbbf24', size: 2.4, kind: 'star' },
+  { deg: 48, color: '#a78bfa', size: 2.1, kind: 'dot' },
+  { deg: 68, color: '#38bdf8', size: 2.3, kind: 'dot' },
+  { deg: 88, color: '#e879f9', size: 2.5, kind: 'star' },
+  { deg: 108, color: '#fde68a', size: 2.0, kind: 'dot' },
+  { deg: 128, color: '#c4b5fd', size: 2.3, kind: 'dot' },
+  { deg: 148, color: '#22d3ee', size: 2.4, kind: 'star' },
+  { deg: 168, color: '#fb7185', size: 2.1, kind: 'dot' },
+  { deg: 188, color: '#67e8f9', size: 2.2, kind: 'dot' },
+  { deg: 208, color: '#f0abfc', size: 2.5, kind: 'star' },
+  { deg: 228, color: '#fbbf24', size: 2.0, kind: 'dot' },
+  { deg: 248, color: '#a78bfa', size: 2.3, kind: 'dot' },
+  { deg: 268, color: '#38bdf8', size: 2.4, kind: 'dot' },
+  { deg: 288, color: '#e879f9', size: 2.1, kind: 'star' },
+  { deg: 308, color: '#fde68a', size: 2.2, kind: 'dot' },
+  { deg: 328, color: '#c4b5fd', size: 2.4, kind: 'dot' },
+  { deg: 348, color: '#22d3ee', size: 1.9, kind: 'dot' },
+  { deg: 18, color: '#fb7185', size: 1.8, kind: 'dot' },
+  { deg: 78, color: '#67e8f9', size: 1.85, kind: 'dot' },
+  { deg: 158, color: '#f0abfc', size: 1.9, kind: 'dot' },
+  { deg: 238, color: '#fbbf24', size: 1.8, kind: 'dot' },
+  { deg: 318, color: '#a78bfa', size: 1.85, kind: 'dot' },
+];
+
+function MenuSignInPeakBurst() {
+  return (
+    <span className="menu-capsule__signin-peak-burst" aria-hidden="true">
+      {SIGNIN_PEAK_BURST.map((sp, i) => (
+        <span
+          key={i}
+          className="menu-capsule__signin-peak-burst__ray"
+          style={{ transform: `rotate(${sp.deg}deg)` }}
+        >
+          <span
+            className={[
+              'menu-capsule__signin-peak-burst__spark',
+              sp.kind === 'star' ? 'menu-capsule__signin-peak-burst__spark--star' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            style={{
+              width: sp.size,
+              height: sp.size,
+              background: sp.color,
+            }}
+          />
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Электрическая вспышка в стыке стрелка → кольцо. */
+function MenuSignInConnectFlash() {
+  const uid = useId().replace(/:/g, '');
+  return (
+    <span className="menu-capsule__signin-connect" aria-hidden="true">
+      <svg className="menu-capsule__signin-connect__svg" viewBox="0 0 40 28" focusable="false">
+        <defs>
+          <linearGradient id={`${uid}-bolt`} x1="0%" y1="50%" x2="100%" y2="50%">
+            <stop offset="0%" stopColor="#67e8f9">
+              <animate
+                attributeName="stop-color"
+                values="#67e8f9;#fde68a;#e879f9;#67e8f9"
+                dur="0.7s"
+                repeatCount="indefinite"
+              />
+            </stop>
+            <stop offset="55%" stopColor="#f0abfc">
+              <animate
+                attributeName="stop-color"
+                values="#f0abfc;#22d3ee;#fbbf24;#f0abfc"
+                dur="0.7s"
+                repeatCount="indefinite"
+              />
+            </stop>
+            <stop offset="100%" stopColor="#fbbf24">
+              <animate
+                attributeName="stop-color"
+                values="#fbbf24;#a78bfa;#67e8f9;#fbbf24"
+                dur="0.7s"
+                repeatCount="indefinite"
+              />
+            </stop>
+          </linearGradient>
+        </defs>
+        <path
+          className="menu-capsule__signin-connect__bolt"
+          d="M2 15 9 9 12 18 18 7 23 17 29 10 37 14"
+          stroke={`url(#${uid}-bolt)`}
+          strokeWidth="1.35"
+        />
+        <path
+          className="menu-capsule__signin-connect__bolt"
+          d="M3 13 10 16 14 8 20 15 26 11 34 13"
+          stroke={`url(#${uid}-bolt)`}
+          strokeWidth="0.85"
+          opacity="0.75"
+        />
+        <circle cx="36" cy="13.5" r="2.2" fill="#ecfeff" opacity="0.9">
+          <animate attributeName="r" values="1.4;2.6;1.4" dur="0.55s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.55;1;0.55" dur="0.55s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="36" cy="13.5" r="4.5" fill="none" stroke="#a5f3fc" strokeWidth="0.6" opacity="0.7">
+          <animate attributeName="r" values="2.5;5.5;2.5" dur="0.55s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.8;0.15;0.8" dur="0.55s" repeatCount="indefinite" />
+        </circle>
+      </svg>
+    </span>
+  );
+}
+
+/** Общий перелив для мини-глифов под «в аккаунт». */
+function SignInMiniGradient({ id }: { id: string }) {
+  return (
+    <linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#67e8f9">
+        <animate
+          attributeName="stop-color"
+          values="#67e8f9;#a5b4fc;#f0abfc;#67e8f9"
+          dur="3.4s"
+          repeatCount="indefinite"
+        />
+      </stop>
+      <stop offset="50%" stopColor="#a5b4fc">
+        <animate
+          attributeName="stop-color"
+          values="#a5b4fc;#e9d5ff;#67e8f9;#a5b4fc"
+          dur="3.4s"
+          repeatCount="indefinite"
+        />
+      </stop>
+      <stop offset="100%" stopColor="#f0abfc">
+        <animate
+          attributeName="stop-color"
+          values="#f0abfc;#67e8f9;#a5b4fc;#f0abfc"
+          dur="3.4s"
+          repeatCount="indefinite"
+        />
+      </stop>
+    </linearGradient>
+  );
+}
+
+/** Мини-конвертик — тот же перелив, что у «в аккаунт». */
+function MenuSignInMiniMail() {
+  const uid = useId().replace(/:/g, '');
+  const g = `${uid}-g`;
+  return (
+    <svg className="menu-capsule__action-mini__svg" viewBox="0 0 16 16" focusable="false" aria-hidden>
+      <defs>
+        <SignInMiniGradient id={g} />
+      </defs>
+      <rect
+        x="1.5"
+        y="3.25"
+        width="13"
+        height="9.5"
+        rx="1.4"
+        fill="none"
+        stroke={`url(#${g})`}
+        strokeWidth="1.35"
+      />
+      <path
+        d="M2.1 4.1 8 8.35 13.9 4.1"
+        fill="none"
+        stroke={`url(#${g})`}
+        strokeWidth="1.35"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Мини-ключ: ушко + стержень + зубцы — читается как ключ. */
+function MenuSignInMiniKey() {
+  const uid = useId().replace(/:/g, '');
+  const g = `${uid}-g`;
+  return (
+    <svg className="menu-capsule__action-mini__svg" viewBox="0 0 16 16" focusable="false" aria-hidden>
+      <defs>
+        <SignInMiniGradient id={g} />
+      </defs>
+      {/* ушко */}
+      <circle cx="4.6" cy="8" r="3.15" fill="none" stroke={`url(#${g})`} strokeWidth="1.4" />
+      <circle cx="4.6" cy="8" r="1.15" fill="none" stroke={`url(#${g})`} strokeWidth="1.25" />
+      {/* стержень */}
+      <path
+        d="M7.6 7.15H14.2v1.7H12.55v1.85h-1.45V8.85H9.55v2.15H8.1V7.15Z"
+        fill={`url(#${g})`}
+      />
+    </svg>
+  );
+}
+
+/** Мини-онлайн: ядро + орбиты. */
+function MenuSignInMiniOnline() {
+  const uid = useId().replace(/:/g, '');
+  const g = `${uid}-g`;
+  return (
+    <svg className="menu-capsule__action-mini__svg" viewBox="0 0 16 16" focusable="false" aria-hidden>
+      <defs>
+        <SignInMiniGradient id={g} />
+      </defs>
+      <circle cx="8" cy="8" r="5.6" fill="none" stroke={`url(#${g})`} strokeWidth="1.1" opacity="0.55" />
+      <circle
+        cx="8"
+        cy="8"
+        r="3.5"
+        fill="none"
+        stroke={`url(#${g})`}
+        strokeWidth="1.15"
+        strokeDasharray="1.6 1.8"
+      />
+      <circle cx="8" cy="8" r="1.55" fill={`url(#${g})`} />
+      <circle cx="8" cy="2.35" r="1.05" fill={`url(#${g})`} />
+      <circle cx="13.1" cy="10.2" r="0.9" fill={`url(#${g})`} />
+      <circle cx="3.2" cy="10.6" r="0.85" fill={`url(#${g})`} />
+    </svg>
+  );
+}
+
+/** Мини-история: лист + часы. */
+function MenuSignInMiniHistory() {
+  const uid = useId().replace(/:/g, '');
+  const g = `${uid}-g`;
+  return (
+    <svg className="menu-capsule__action-mini__svg" viewBox="0 0 16 16" focusable="false" aria-hidden>
+      <defs>
+        <SignInMiniGradient id={g} />
+      </defs>
+      <rect
+        x="2.4"
+        y="1.8"
+        width="8.2"
+        height="11.2"
+        rx="1.2"
+        fill="none"
+        stroke={`url(#${g})`}
+        strokeWidth="1.3"
+      />
+      <path
+        d="M4.4 4.4h4.2M4.4 6.6h4.2M4.4 8.8h2.6"
+        fill="none"
+        stroke={`url(#${g})`}
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      <circle cx="11.35" cy="11.1" r="3.15" fill="none" stroke={`url(#${g})`} strokeWidth="1.3" />
+      <path
+        d="M11.35 9.55v1.7l1.25 0.85"
+        fill="none"
+        stroke={`url(#${g})`}
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Мини-рейтинг / турниры: звезда. */
+function MenuSignInMiniRating() {
+  const uid = useId().replace(/:/g, '');
+  const g = `${uid}-g`;
+  return (
+    <svg className="menu-capsule__action-mini__svg" viewBox="0 0 16 16" focusable="false" aria-hidden>
+      <defs>
+        <SignInMiniGradient id={g} />
+      </defs>
+      <path
+        d="M8 1.6 9.55 5.55l4.25.45-3.2 2.85.95 4.15L8 10.85l-3.55 2.15.95-4.15-3.2-2.85 4.25-.45Z"
+        fill="none"
+        stroke={`url(#${g})`}
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 4.1 8.85 6.35l2.35.25-1.8 1.55.55 2.3L8 9.2l-1.95 1.25.55-2.3-1.8-1.55 2.35-.25Z"
+        fill={`url(#${g})`}
+        opacity="0.9"
+      />
+    </svg>
+  );
+}
+
+/** Искры: от надписи → на стрелке → длинный путь к глифу → в обод. */
+function MenuSignInSparkTrail() {
+  const uid = useId().replace(/:/g, '');
+  /*
+   * viewBox на всю правую половину (preserveAspectRatio=none).
+   * Надписи по центру 1fr; глиф справа (~x 100), обод r≈24 (слот 52).
+   */
+  const gx = 100;
+  const gy = 32;
+  const rimR = 24;
+  const sparks: SignInSpark[] = [
+    /* у колонки надписей */
+    { x: 28, y: 26, s: 0.7, delay: 0.05, dur: 1.7, kind: 'dot' },
+    { x: 30, y: 31.5, s: 0.9, delay: 0.35, dur: 2.0, kind: 'star' },
+    { x: 32, y: 37, s: 0.65, delay: 0.7, dur: 1.6, kind: 'dot' },
+    { x: 34, y: 24, s: 0.8, delay: 0.2, dur: 1.9, kind: 'star' },
+    { x: 36, y: 33, s: 0.7, delay: 0.55, dur: 1.85, kind: 'dot' },
+    /* вдоль стрелки / моста к глифу */
+    { x: 42, y: 29, s: 0.85, delay: 0.15, dur: 2.1, kind: 'star' },
+    { x: 46, y: 35, s: 0.7, delay: 0.5, dur: 1.8, kind: 'dot' },
+    { x: 50, y: 27, s: 0.8, delay: 0.25, dur: 1.95, kind: 'star' },
+    { x: 54, y: 34, s: 0.75, delay: 0.7, dur: 1.7, kind: 'dot' },
+    { x: 58, y: 30, s: 0.9, delay: 0.1, dur: 2.05, kind: 'star' },
+    { x: 62, y: 36, s: 0.7, delay: 0.45, dur: 1.85, kind: 'dot' },
+    { x: 66, y: 28, s: 0.85, delay: 0.8, dur: 2.0, kind: 'star' },
+    { x: 70, y: 33, s: 0.75, delay: 0.2, dur: 1.75, kind: 'dot' },
+    { x: 74, y: 26, s: 0.8, delay: 0.55, dur: 1.9, kind: 'star' },
+    { x: 78, y: 35, s: 0.7, delay: 0.35, dur: 2.1, kind: 'dot' },
+    { x: 82, y: 30, s: 0.9, delay: 0.65, dur: 1.8, kind: 'star' },
+    { x: 86, y: 37, s: 0.7, delay: 0.15, dur: 1.95, kind: 'dot' },
+    { x: 90, y: 29, s: 0.85, delay: 0.5, dur: 2.0, kind: 'star' },
+    { x: 93, y: 34, s: 0.75, delay: 0.85, dur: 1.7, kind: 'dot' },
+  ];
+
+  /* звёздочки в обод */
+  const rimSpecs: { deg: number; inset: number; s: number }[] = [
+    { deg: -165, inset: 1.2, s: 0.85 },
+    { deg: -140, inset: 1.2, s: 0.7 },
+    { deg: -118, inset: 1.25, s: 0.8 },
+    { deg: -98, inset: 1.3, s: 0.7 },
+    { deg: -90, inset: 1.35, s: 0.75 },
+    { deg: 90, inset: 1.35, s: 0.75 },
+    { deg: 98, inset: 1.3, s: 0.7 },
+    { deg: 118, inset: 1.25, s: 0.8 },
+    { deg: 140, inset: 1.2, s: 0.7 },
+    { deg: 165, inset: 1.2, s: 0.85 },
+    { deg: -55, inset: 2.35, s: 0.55 },
+    { deg: -28, inset: 2.5, s: 0.5 },
+    { deg: 28, inset: 2.5, s: 0.5 },
+    { deg: 55, inset: 2.35, s: 0.55 },
+  ];
+  rimSpecs.forEach((spec, i) => {
+    const a = (spec.deg * Math.PI) / 180;
+    const rr = rimR - spec.inset;
+    sparks.push({
+      x: gx + Math.cos(a) * rr,
+      y: gy + Math.sin(a) * rr,
+      s: spec.s,
+      delay: (i * 0.1) % 1.15,
+      dur: 1.65 + (i % 4) * 0.12,
+      kind: i % 2 === 0 ? 'star' : 'dot',
+    });
+  });
+
+  return (
+    <svg
+      className="menu-capsule__signin-trail__svg"
+      viewBox="0 0 118 64"
+      preserveAspectRatio="none"
+      focusable="false"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id={`${uid}-arrow`} x1="0%" y1="50%" x2="100%" y2="50%">
+          <stop offset="0%" stopColor="#22d3ee">
+            <animate
+              attributeName="stop-color"
+              values="#22d3ee;#a78bfa;#e879f9;#67e8f9;#22d3ee"
+              dur="2.4s"
+              repeatCount="indefinite"
+            />
+          </stop>
+          <stop offset="100%" stopColor="#f0abfc">
+            <animate
+              attributeName="stop-color"
+              values="#f0abfc;#67e8f9;#e879f9;#22d3ee;#f0abfc"
+              dur="2.4s"
+              repeatCount="indefinite"
+            />
+          </stop>
+        </linearGradient>
+        <linearGradient id={`${uid}-spark`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ecfeff" />
+          <stop offset="45%" stopColor="#a5f3fc" />
+          <stop offset="100%" stopColor="#e879f9" />
+        </linearGradient>
+      </defs>
+
+      {sparks.map((sp, i) => {
+        const twinkle = (
+          <animate
+            attributeName="opacity"
+            values="0.2;1;0.35;0.95;0.25"
+            dur={`${sp.dur}s`}
+            begin={`${sp.delay}s`}
+            repeatCount="indefinite"
+          />
+        );
+        if (sp.kind === 'dot') {
+          return (
+            <circle
+              key={`d-${i}`}
+              className="menu-capsule__signin-trail__spark"
+              cx={sp.x}
+              cy={sp.y}
+              r={sp.s * 0.85}
+              fill={`url(#${uid}-spark)`}
+              opacity="0.7"
+            >
+              {twinkle}
+            </circle>
+          );
+        }
+        const k = sp.s * 1.15;
+        return (
+          <path
+            key={`s-${i}`}
+            className="menu-capsule__signin-trail__spark"
+            fill={`url(#${uid}-spark)`}
+            opacity="0.8"
+            d={`M${sp.x} ${sp.y - 1.5 * k} L${sp.x + 0.4 * k} ${sp.y - 0.35 * k} L${sp.x + 1.5 * k} ${sp.y} L${sp.x + 0.4 * k} ${sp.y + 0.35 * k} L${sp.x} ${sp.y + 1.5 * k} L${sp.x - 0.4 * k} ${sp.y + 0.35 * k} L${sp.x - 1.5 * k} ${sp.y} L${sp.x - 0.4 * k} ${sp.y - 0.35 * k}Z`}
+          >
+            {twinkle}
+          </path>
+        );
+      })}
+    </svg>
+  );
+}
+
+
 /** Цифровая шестерёнка — насыщенный цвет, объём без белёсого блика. */
 function MenuCabinetSettingsGlyph({ className = 'menu-capsule__settings-svg' }: { className?: string }) {
   const uid = useId().replace(/:/g, '');
@@ -800,6 +1621,9 @@ export type MenuCapsuleButtonProps = {
   showSettingsGlyph?: boolean;
   /** ПК: «выйти» справа в вертикальном ободе (модалка через MenuAccountSessionChrome). */
   showTitleSignOut?: boolean;
+  /** ПК: текстовая кнопка «Войти» + глиф справа (гость / профиль → AuthModal). */
+  showSignInAction?: boolean;
+  onSignIn?: () => void;
   /** ПК-кабинет: строка под именем (email / статус). */
   metaLine?: string;
   /** Тон meta-строки. */
@@ -815,6 +1639,8 @@ export type MenuCapsuleButtonProps = {
   avatarDataUrl?: string | null;
   /** profile/account: WAVE / online-stamp поверх аватара. */
   identityStatus?: MenuSignedStatus;
+  /** Гость: цикл из 4 глифов (как мобильный чип). */
+  guestGlyphCycle?: boolean;
   /** Стрелки на капсуле: свернуть до глифа / развернуть. */
   collapsible?: boolean;
   /** Ключ localStorage для свёртки (обязателен при collapsible). */
@@ -829,6 +1655,8 @@ export function MenuCapsuleButton({
   eyebrowAside,
   showSettingsGlyph,
   showTitleSignOut,
+  showSignInAction,
+  onSignIn,
   metaLine,
   metaTone,
   cabinetIdentity,
@@ -839,6 +1667,7 @@ export function MenuCapsuleButton({
   avatarName,
   avatarDataUrl,
   identityStatus,
+  guestGlyphCycle,
   collapsible,
   collapseId,
 }: MenuCapsuleButtonProps) {
@@ -849,10 +1678,28 @@ export function MenuCapsuleButton({
   );
   const settingsTipId = useId().replace(/:/g, '');
   const signOutTipId = useId().replace(/:/g, '');
+  const signInActionTipId = useId().replace(/:/g, '');
+  const signInMiniTipId = useId().replace(/:/g, '');
+  const guestGlyphTipId = useId().replace(/:/g, '');
+  const guestTitleTipId = useId().replace(/:/g, '');
   const settingsAnchorRef = useRef<HTMLSpanElement | null>(null);
   const signOutAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const signInActionAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const signInMiniMailRef = useRef<HTMLSpanElement | null>(null);
+  const signInMiniKeyRef = useRef<HTMLSpanElement | null>(null);
+  const signInMiniOnlineRef = useRef<HTMLSpanElement | null>(null);
+  const signInMiniHistoryRef = useRef<HTMLSpanElement | null>(null);
+  const signInMiniRatingRef = useRef<HTMLSpanElement | null>(null);
+  const guestGlyphAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const guestTitleAnchorRef = useRef<HTMLSpanElement | null>(null);
   const [settingsTipOpen, setSettingsTipOpen] = useState(false);
   const [signOutTipOpen, setSignOutTipOpen] = useState(false);
+  const [signInActionTipOpen, setSignInActionTipOpen] = useState(false);
+  const [signInMiniTip, setSignInMiniTip] = useState<
+    null | 'mail' | 'key' | 'online' | 'history' | 'rating'
+  >(null);
+  const [guestGlyphTipOpen, setGuestGlyphTipOpen] = useState(false);
+  const [guestTitleTipOpen, setGuestTitleTipOpen] = useState(false);
 
   const toggleGlyphOnly = useCallback(
     (e: MouseEvent) => {
@@ -868,14 +1715,21 @@ export function MenuCapsuleButton({
     [collapseId],
   );
 
+  const showEdgeSignOut = Boolean(showTitleSignOut && requestSignOut);
+  const showEndRail = Boolean(showSignInAction && onSignIn);
+
   const className = [
     'menu-capsule',
     `menu-capsule--${variant}`,
     compact ? 'menu-capsule--compact' : '',
     disabled ? 'menu-capsule--disabled' : '',
-    avatarName ? 'menu-capsule--with-avatar' : '',
+    avatarName || guestGlyphCycle ? 'menu-capsule--with-avatar' : '',
+    guestGlyphCycle ? 'menu-capsule--with-guest-cycle' : '',
+    showEndRail ? 'menu-capsule--with-actions' : '',
+    showEndRail ? 'menu-capsule--with-signin' : '',
+    showEndRail ? 'menu-capsule--split' : '',
     showSettingsGlyph ? 'menu-capsule--with-settings' : '',
-    showTitleSignOut ? 'menu-capsule--with-signout' : '',
+    showEdgeSignOut ? 'menu-capsule--with-signout' : '',
     glyphOnly ? 'menu-capsule--glyph-only' : '',
     cabinetIdentity ? `menu-capsule--id-${cabinetIdentity}` : '',
     metaTone ? `menu-capsule--meta-${metaTone}` : '',
@@ -883,77 +1737,294 @@ export function MenuCapsuleButton({
     .filter(Boolean)
     .join(' ');
 
-  const body = (
-    <>
-      <span className={['menu-capsule__glyph', avatarName ? 'menu-capsule__glyph--avatar' : ''].filter(Boolean).join(' ')}>
-        {avatarName && identityStatus ? (
-          <MenuSignedIdentityMark
-            status={identityStatus}
-            name={avatarName}
-            avatarDataUrl={avatarDataUrl}
-            sizePx={compact ? 36 : 42}
-            surface="capsule"
-            onOpenCabinet={() => onClick?.()}
-          />
-        ) : avatarName ? (
-          <PlayerAvatar name={avatarName} avatarDataUrl={avatarDataUrl} sizePx={compact ? 36 : 42} />
-        ) : (
-          GLYPHS[variant]
-        )}
-      </span>
-      <span className="menu-capsule__body">
-        {eyebrow || eyebrowAside ? (
-          <span className="menu-capsule__eyebrow-row">
-            {eyebrow ? <span className="menu-capsule__eyebrow">{eyebrow}</span> : null}
-            {eyebrow && eyebrowAside ? (
-              <span className="menu-capsule__eyebrow-sep" aria-hidden="true" />
-            ) : null}
-            {eyebrowAside ? (
-              <span className="menu-capsule__eyebrow-aside">{eyebrowAside}</span>
-            ) : null}
-          </span>
-        ) : null}
-        <span className="menu-capsule__title-row">
-          <span className="menu-capsule__title">{title}</span>
-          {showSettingsGlyph ? (
-            <span
-              ref={settingsAnchorRef}
-              className="menu-capsule__title-settings"
-              aria-label={tUi('menu.cabinetSettingsTip')}
-              aria-describedby={settingsTipOpen ? settingsTipId : undefined}
-              onMouseEnter={() => setSettingsTipOpen(true)}
-              onMouseLeave={() => setSettingsTipOpen(false)}
-            >
-              <MenuCabinetSettingsGlyph className="menu-capsule__title-settings-svg" />
-              <MenuCapsuleCosmicTip
-                open={settingsTipOpen}
-                anchorRef={settingsAnchorRef}
-                tipId={settingsTipId}
-                text={tUi('menu.cabinetSettingsTip')}
-              />
-            </span>
+  const glyphSlot = guestGlyphCycle ? (
+    <span
+      ref={guestGlyphAnchorRef}
+      className="menu-capsule__glyph menu-capsule__glyph--avatar menu-capsule__glyph--guest-cycle"
+      aria-label={tUi('menu.guestTip')}
+      aria-describedby={guestGlyphTipOpen ? guestGlyphTipId : undefined}
+      onMouseEnter={() => setGuestGlyphTipOpen(true)}
+      onMouseLeave={() => setGuestGlyphTipOpen(false)}
+      onFocus={() => setGuestGlyphTipOpen(true)}
+      onBlur={() => setGuestGlyphTipOpen(false)}
+    >
+      <MenuGuestIdentityCycle showMapHint={false} tipTitle={false} className="menu-capsule__guest-cycle" />
+      <MenuCapsuleCosmicTip
+        open={guestGlyphTipOpen}
+        anchorRef={guestGlyphAnchorRef}
+        tipId={guestGlyphTipId}
+        text={tUi('menu.guestTip')}
+        wide
+      />
+    </span>
+  ) : (
+    <span className={['menu-capsule__glyph', avatarName ? 'menu-capsule__glyph--avatar' : ''].filter(Boolean).join(' ')}>
+      {avatarName && identityStatus ? (
+        <MenuSignedIdentityMark
+          status={identityStatus}
+          name={avatarName}
+          avatarDataUrl={avatarDataUrl}
+          sizePx={compact ? 36 : 42}
+          surface="capsule"
+          onOpenCabinet={() => onClick?.()}
+        />
+      ) : avatarName ? (
+        <PlayerAvatar name={avatarName} avatarDataUrl={avatarDataUrl} sizePx={compact ? 36 : 42} />
+      ) : (
+        GLYPHS[variant]
+      )}
+    </span>
+  );
+
+  const identityBody = (
+    <span className="menu-capsule__body">
+      {eyebrow || eyebrowAside ? (
+        <span className="menu-capsule__eyebrow-row">
+          {eyebrow ? <span className="menu-capsule__eyebrow">{eyebrow}</span> : null}
+          {eyebrow && eyebrowAside ? (
+            <span className="menu-capsule__eyebrow-sep" aria-hidden="true" />
+          ) : null}
+          {eyebrowAside ? (
+            <span className="menu-capsule__eyebrow-aside">{eyebrowAside}</span>
           ) : null}
         </span>
-        {metaLine ? (
+      ) : null}
+      <span className="menu-capsule__title-row">
+        {cabinetIdentity === 'guest' ? (
           <span
-            className={[
-              'menu-capsule__meta',
-              metaTone ? `menu-capsule__meta--${metaTone}` : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
+            ref={guestTitleAnchorRef}
+            className="menu-capsule__title menu-capsule__title--guest"
+            aria-label={tUi('menu.cabinetGuestTitleTip')}
+            aria-describedby={guestTitleTipOpen ? guestTitleTipId : undefined}
+            onMouseEnter={() => setGuestTitleTipOpen(true)}
+            onMouseLeave={() => setGuestTitleTipOpen(false)}
+            onFocus={() => setGuestTitleTipOpen(true)}
+            onBlur={() => setGuestTitleTipOpen(false)}
           >
-            {metaTone === 'email' ? (
-              <span className="menu-capsule__meta-pulse" aria-hidden="true" />
-            ) : (
-              <span className="menu-capsule__meta-mark" aria-hidden="true" />
-            )}
-            <span className="menu-capsule__meta-text">{metaLine}</span>
+            {title}
+            <MenuCapsuleCosmicTip
+              open={guestTitleTipOpen}
+              anchorRef={guestTitleAnchorRef}
+              tipId={guestTitleTipId}
+              text={tUi('menu.cabinetGuestTitleTip')}
+            />
+          </span>
+        ) : (
+          <span className="menu-capsule__title">{title}</span>
+        )}
+        {showSettingsGlyph ? (
+          <span
+            ref={settingsAnchorRef}
+            className="menu-capsule__title-settings"
+            aria-label={tUi('menu.cabinetSettingsTip')}
+            aria-describedby={settingsTipOpen ? settingsTipId : undefined}
+            onMouseEnter={() => setSettingsTipOpen(true)}
+            onMouseLeave={() => setSettingsTipOpen(false)}
+          >
+            <MenuCabinetSettingsGlyph className="menu-capsule__title-settings-svg" />
+            <MenuCapsuleCosmicTip
+              open={settingsTipOpen}
+              anchorRef={settingsAnchorRef}
+              tipId={settingsTipId}
+              text={tUi('menu.cabinetSettingsTip')}
+              preferBelow
+            />
           </span>
         ) : null}
-        {hint ? <span className="menu-capsule__hint">{hint}</span> : null}
       </span>
-      {showTitleSignOut && requestSignOut ? (
+      {metaLine ? (
+        <span
+          className={[
+            'menu-capsule__meta',
+            metaTone ? `menu-capsule__meta--${metaTone}` : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {metaTone === 'email' ? (
+            <span className="menu-capsule__meta-pulse" aria-hidden="true" />
+          ) : (
+            <span className="menu-capsule__meta-mark" aria-hidden="true" />
+          )}
+          <span className="menu-capsule__meta-text">{metaLine}</span>
+        </span>
+      ) : null}
+      {hint ? <span className="menu-capsule__hint">{hint}</span> : null}
+    </span>
+  );
+
+  const endRail = showEndRail ? (
+    <span
+      ref={signInActionAnchorRef}
+      role="button"
+      tabIndex={0}
+      className={[
+        'menu-capsule__rail',
+        'menu-capsule__rail--end',
+        'menu-capsule__half',
+        'menu-capsule__half--end',
+        signInMiniTip ? 'menu-capsule__rail--end--over-mini' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-label={tUi('menu.accountSignInAria')}
+      aria-describedby={
+        signInActionTipOpen && !signInMiniTip ? signInActionTipId : undefined
+      }
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setSignInActionTipOpen(false);
+        setSignInMiniTip(null);
+        onSignIn?.();
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        e.stopPropagation();
+        setSignInActionTipOpen(false);
+        setSignInMiniTip(null);
+        onSignIn?.();
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onMouseEnter={() => setSignInActionTipOpen(true)}
+      onMouseLeave={() => {
+        setSignInActionTipOpen(false);
+        setSignInMiniTip(null);
+      }}
+      onFocus={() => setSignInActionTipOpen(true)}
+      onBlur={() => {
+        setSignInActionTipOpen(false);
+        setSignInMiniTip(null);
+      }}
+    >
+      <span className="menu-capsule__signin-trail" aria-hidden="true">
+        <MenuSignInSparkTrail />
+      </span>
+      <span className="menu-capsule__action-copy">
+        <span className="menu-capsule__action menu-capsule__action--primary">
+          {tUi('menu.cabinetSignInAction')}
+        </span>
+        <span className="menu-capsule__action-arrow" aria-hidden="true">
+          <MenuSignInMidArrow />
+        </span>
+        <span className="menu-capsule__action-foot">
+          <span className="menu-capsule__action menu-capsule__action--sub">
+            {tUi('menu.cabinetSignInActionSub')}
+          </span>
+          <span className="menu-capsule__action-minis">
+            {(
+              [
+                {
+                  id: 'mail' as const,
+                  ref: signInMiniMailRef,
+                  tip: 'menu.cabinetSignInMiniMailTip' as const,
+                  Glyph: MenuSignInMiniMail,
+                },
+                {
+                  id: 'key' as const,
+                  ref: signInMiniKeyRef,
+                  tip: 'menu.cabinetSignInMiniKeyTip' as const,
+                  Glyph: MenuSignInMiniKey,
+                },
+                {
+                  id: 'online' as const,
+                  ref: signInMiniOnlineRef,
+                  tip: 'menu.cabinetSignInMiniOnlineTip' as const,
+                  Glyph: MenuSignInMiniOnline,
+                },
+                {
+                  id: 'history' as const,
+                  ref: signInMiniHistoryRef,
+                  tip: 'menu.cabinetSignInMiniHistoryTip' as const,
+                  Glyph: MenuSignInMiniHistory,
+                },
+                {
+                  id: 'rating' as const,
+                  ref: signInMiniRatingRef,
+                  tip: 'menu.cabinetSignInMiniRatingTip' as const,
+                  Glyph: MenuSignInMiniRating,
+                },
+              ] as const
+            ).map(({ id, ref, tip, Glyph }) => {
+              const tipDomId = `${signInMiniTipId}-${id}`;
+              const open = signInMiniTip === id;
+              return (
+                <span
+                  key={id}
+                  ref={ref}
+                  className="menu-capsule__action-mini"
+                  aria-label={tUi(tip)}
+                  aria-describedby={open ? tipDomId : undefined}
+                  onMouseEnter={() => setSignInMiniTip(id)}
+                  onMouseLeave={() => setSignInMiniTip(null)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Glyph />
+                  <MenuCapsuleCosmicTip
+                    open={open}
+                    anchorRef={ref}
+                    tipId={tipDomId}
+                    text={tUi(tip)}
+                    preferBelow
+                  />
+                </span>
+              );
+            })}
+          </span>
+        </span>
+      </span>
+      <MenuSignInConnectFlash />
+      <span className="menu-capsule__signin-flow">
+        <span className="menu-capsule__glyph menu-capsule__glyph--signin">
+          <span className="menu-capsule__signin">
+            <MenuEdgeSignInGlyph />
+            <span className="menu-capsule__signin-glass" />
+            <MenuSignInPeakBurst />
+          </span>
+        </span>
+      </span>
+      <MenuCapsuleCosmicTip
+        open={signInActionTipOpen && !signInMiniTip}
+        anchorRef={signInActionAnchorRef}
+        tipId={signInActionTipId}
+        text={tUi('menu.cabinetSignInActionTip')}
+        detail={tUi('menu.cabinetSignInActionTipDetail')}
+        wide
+      />
+    </span>
+  ) : null;
+
+  const body = showEndRail ? (
+    <>
+      <span className="menu-capsule__half menu-capsule__half--start">
+        {glyphSlot}
+        {identityBody}
+      </span>
+      <span className="menu-capsule__seam" aria-hidden="true">
+        <span className="menu-capsule__seam__lane menu-capsule__seam__lane--side">
+          <span className="menu-capsule__seam__track" />
+        </span>
+        <span className="menu-capsule__seam__lane menu-capsule__seam__lane--mid">
+          <span className="menu-capsule__seam__track" />
+          <span className="menu-capsule__seam__scan" />
+          <span className="menu-capsule__seam__node">
+            <span className="menu-capsule__seam__node-ring" />
+            <span className="menu-capsule__seam__node-core" />
+          </span>
+        </span>
+        <span className="menu-capsule__seam__lane menu-capsule__seam__lane--side">
+          <span className="menu-capsule__seam__track" />
+        </span>
+      </span>
+      {endRail}
+    </>
+  ) : (
+    <>
+      {glyphSlot}
+      {identityBody}
+      {showEdgeSignOut ? (
         <span
           ref={signOutAnchorRef}
           role="button"
@@ -965,14 +2036,14 @@ export function MenuCapsuleButton({
             e.preventDefault();
             e.stopPropagation();
             setSignOutTipOpen(false);
-            requestSignOut();
+            requestSignOut?.();
           }}
           onKeyDown={(e) => {
             if (e.key !== 'Enter' && e.key !== ' ') return;
             e.preventDefault();
             e.stopPropagation();
             setSignOutTipOpen(false);
-            requestSignOut();
+            requestSignOut?.();
           }}
           onPointerDown={(e) => e.stopPropagation()}
           onMouseEnter={() => setSignOutTipOpen(true)}

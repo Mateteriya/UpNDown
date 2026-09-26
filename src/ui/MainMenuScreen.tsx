@@ -881,23 +881,32 @@ export function MainMenuScreen({
             </div>
             <MenuPcDrift id="account-mid" className="menu-screen__drift--account" movable>
               <MenuAccountSessionChrome
-                enabled={Boolean(isPcMenu && isAccountIdentity)}
+                enabled={Boolean(isPcMenu)}
+                presence={isAccountIdentity ? 'online' : 'offline'}
                 email={userEmail}
                 onSwitchAccount={() => onOpenSignIn?.()}
               >
                 <MenuCapsuleButton
                   variant="account"
-                  eyebrow={t('menu.cabinet')}
+                  eyebrow={
+                    isGuestIdentity ? t('menu.cabinetYourProfile') : t('menu.cabinet')
+                  }
                   eyebrowAside={
-                    isAccountIdentity
-                      ? t('menu.identityTagAccount')
-                      : isProfileIdentity
-                        ? t('menu.identityTagProfile')
-                        : t('menu.identityTagGuest')
+                    isGuestIdentity
+                      ? undefined
+                      : isAccountIdentity
+                        ? t('menu.identityTagAccount')
+                        : isProfileIdentity
+                          ? t('menu.identityTagProfile')
+                          : undefined
                   }
                   showSettingsGlyph
                   showTitleSignOut={Boolean(isPcMenu && isAccountIdentity)}
-                  title={displayName}
+                  showSignInAction={Boolean(isPcMenu && !isAccountIdentity && onOpenSignIn)}
+                  onSignIn={onOpenSignIn}
+                  title={
+                    isGuestIdentity ? t('menu.cabinetGuestTitle') : displayName
+                  }
                   metaLine={
                     isAccountIdentity && userEmail
                       ? userEmail
@@ -911,8 +920,9 @@ export function MainMenuScreen({
                   cabinetIdentity={
                     isAccountIdentity ? 'account' : isProfileIdentity ? 'profile' : 'guest'
                   }
-                  avatarName={displayName}
-                  avatarDataUrl={avatarDataUrl}
+                  avatarName={isGuestIdentity ? undefined : displayName}
+                  avatarDataUrl={isGuestIdentity ? undefined : avatarDataUrl}
+                  guestGlyphCycle={Boolean(isPcMenu && isGuestIdentity)}
                   identityStatus={
                     isAccountIdentity ? 'account' : isProfileIdentity ? 'profile' : undefined
                   }
