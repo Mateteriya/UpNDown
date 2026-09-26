@@ -1,6 +1,7 @@
 /**
- * ПК: «ушко» над капсулой кабинета для вошедшего — статус «онлайн».
- * Глиф выхода — справа в вертикальном ободе; модалка подтверждения — здесь.
+ * ПК: «ушко» над капсулой кабинета —
+ *   account → «онлайн» + контекст «выйти»;
+ *   profile/guest → «офлайн» (без модалки выхода).
  */
 
 import {
@@ -9,16 +10,22 @@ import {
   useContext,
   useEffect,
   useId,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useT } from '../i18n';
+import { MenuCapsuleCosmicTip } from './MenuCapsuleCosmicTip';
+
+export type MenuAccountPresence = 'online' | 'offline';
 
 type MenuAccountSessionChromeProps = {
-  /** Только вошедший + ПК-меню. */
+  /** ПК-меню: показать ушко сессии. */
   enabled: boolean;
+  /** online = вошедший; offline = профиль/гость. */
+  presence?: MenuAccountPresence;
   email?: string | null;
   /** После выхода открыть AuthModal (смена аккаунта). */
   onSwitchAccount: () => void;
@@ -47,8 +54,18 @@ function OnlineCheckGlyph() {
   );
 }
 
+function OfflineDotGlyph() {
+  return (
+    <svg className="menu-account-ear__offline-dot" viewBox="0 0 16 16" focusable="false" aria-hidden>
+      <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.35" opacity="0.4" />
+      <circle cx="8" cy="8" r="3.1" fill="currentColor" opacity="0.92" />
+    </svg>
+  );
+}
+
 export function MenuAccountSessionChrome({
   enabled,
+  presence = 'online',
   email,
   onSwitchAccount,
   children,
@@ -57,7 +74,11 @@ export function MenuAccountSessionChrome({
   const { signOut } = useAuth();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [offlineTipOpen, setOfflineTipOpen] = useState(false);
   const titleId = useId();
+  const offlineTipId = useId().replace(/:/g, '');
+  const offlineEarRef = useRef<HTMLDivElement | null>(null);
+  const isOnline = presence === 'online';
 
   const openConfirm = useCallback(() => setConfirmOpen(true), []);
 
@@ -99,7 +120,7 @@ export function MenuAccountSessionChrome({
   if (!enabled) return <>{children}</>;
 
   const modal =
-    confirmOpen && typeof document !== 'undefined'
+    isOnline && confirmOpen && typeof document !== 'undefined'
       ? createPortal(
           <div
             className="lk-modal menu-account-signout-modal"
@@ -166,18 +187,55 @@ export function MenuAccountSessionChrome({
         )
       : null;
 
-  return (
-    <MenuAccountSignOutCtx.Provider value={openConfirm}>
-      <div className="menu-account-wrap">
-        <div className="menu-account-ear" role="status">
+  const wrap = (
+    <div
+      className={[
+        'menu-account-wrap',
+        isOnline ? 'menu-account-wrap--online' : 'menu-account-wrap--offline',
+      ].join(' ')}
+    >
+      <div
+        ref={!isOnline ? offlineEarRef : undefined}
+        className={[
+          'menu-account-ear',
+          isOnline ? 'menu-account-ear--online' : 'menu-account-ear--offline',
+          !isOnline ? 'menu-account-ear--tippy' : '',
+        ].join(' ')}
+        role="status"
+        aria-describedby={!isOnline && offlineTipOpen ? offlineTipId : undefined}
+        onMouseEnter={!isOnline ? () => setOfflineTipOpen(true) : undefined}
+        onMouseLeave={!isOnline ? () => setOfflineTipOpen(false) : undefined}
+        onFocus={!isOnline ? () => setOfflineTipOpen(true) : undefined}
+        onBlur={!isOnline ? () => setOfflineTipOpen(false) : undefined}
+        tabIndex={!isOnline ? 0 : undefined}
+      >
+        {isOnline ? (
           <span className="menu-account-ear__online">
             <OnlineCheckGlyph />
             <span className="menu-account-ear__online-text">{t('menu.accountOnline')}</span>
           </span>
-        </div>
-        {children}
-        {modal}
+        ) : (
+          <span className="menu-account-ear__offline">
+            <span className="menu-account-ear__offline-text">{t('menu.accountOffline')}</span>
+            <OfflineDotGlyph />
+          </span>
+        )}
+        {!isOnline ? (
+          <MenuCapsuleCosmicTip
+            open={offlineTipOpen}
+            anchorRef={offlineEarRef}
+            tipId={offlineTipId}
+            text={t('menu.accountOfflineTip')}
+            wide
+          />
+        ) : null}
       </div>
-    </MenuAccountSignOutCtx.Provider>
+      {children}
+      {modal}
+    </div>
   );
+
+  if (!isOnline) return wrap;
+
+  return <MenuAccountSignOutCtx.Provider value={openConfirm}>{wrap}</MenuAccountSignOutCtx.Provider>;
 }

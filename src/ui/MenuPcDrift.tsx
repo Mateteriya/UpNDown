@@ -1,4 +1,15 @@
-import { type CSSProperties, type PointerEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type PointerEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
+import { useT } from '../i18n';
+import { MenuCapsuleCosmicTip } from './MenuCapsuleCosmicTip';
 
 const PC_MQ = '(min-width: 1025px)';
 /* v4: freeform — все слоты подвижны, сброс старых смещений */
@@ -49,12 +60,16 @@ type DragState = {
  * на ПК — слот созвездия; movable — drag только за «ушко».
  */
 export function MenuPcDrift({ id, className, movable = false, children }: MenuPcDriftProps) {
+  const t = useT();
+  const tipId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
+  const earRef = useRef<HTMLButtonElement>(null);
   const [offset, setOffset] = useState<DriftPos>(() =>
     movable ? (readPos(id) ?? { x: 0, y: 0 }) : { x: 0, y: 0 },
   );
   const dragRef = useRef<DragState | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [moveTipOpen, setMoveTipOpen] = useState(false);
   const suppressClickRef = useRef(false);
   const offsetRef = useRef(offset);
   offsetRef.current = offset;
@@ -146,6 +161,7 @@ export function MenuPcDrift({ id, className, movable = false, children }: MenuPc
         if (!d.moved) {
           d.moved = true;
           setDragging(true);
+          setMoveTipOpen(false);
           try {
             rootRef.current?.setPointerCapture(pointerId);
           } catch {
@@ -198,6 +214,7 @@ export function MenuPcDrift({ id, className, movable = false, children }: MenuPc
       if (!window.matchMedia(PC_MQ).matches) return;
       e.preventDefault();
       e.stopPropagation();
+      setMoveTipOpen(false);
 
       if (dragRef.current) {
         finishDrag({ save: false, pointerId: dragRef.current.pointerId });
@@ -225,6 +242,8 @@ export function MenuPcDrift({ id, className, movable = false, children }: MenuPc
         } as CSSProperties)
       : undefined;
 
+  const moveTipText = t('menu.capsuleMoveTip');
+
   return (
     <div
       ref={rootRef}
@@ -244,17 +263,32 @@ export function MenuPcDrift({ id, className, movable = false, children }: MenuPc
         {children}
         {movable ? (
           <button
+            ref={earRef}
             type="button"
             className="menu-screen__drift-ear"
-            aria-label="Переместить капсулу"
-            title="Переместить"
+            aria-label={moveTipText}
+            aria-describedby={moveTipOpen && !dragging ? tipId : undefined}
             onPointerDown={onEarPointerDown}
+            onMouseEnter={() => {
+              if (!dragging) setMoveTipOpen(true);
+            }}
+            onMouseLeave={() => setMoveTipOpen(false)}
+            onFocus={() => {
+              if (!dragging) setMoveTipOpen(true);
+            }}
+            onBlur={() => setMoveTipOpen(false)}
           >
             <span className="menu-screen__drift-ear__grip" aria-hidden="true">
               <span />
               <span />
               <span />
             </span>
+            <MenuCapsuleCosmicTip
+              open={moveTipOpen && !dragging}
+              anchorRef={earRef}
+              tipId={tipId}
+              text={moveTipText}
+            />
           </button>
         ) : null}
       </div>
