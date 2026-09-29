@@ -1,0 +1,11 @@
+---
+description: Стили редактора аватарки — только в avatar-editor.css (не в index.css)
+globs: src/ui/AvatarEditorModal.tsx,src/ui/avatarEditor/**/*,src/styles/avatar-editor.css
+alwaysApply: true
+---
+
+# Avatar editor CSS
+
+- **Все новые и правки стилей редактора аватарки** — только в `src/styles/avatar-editor.css`.
+- Подключать из `main.tsx` **после** `index.css` (иначе оверрайды перебиваются). Не импортировать CSS из `AvatarEditorModal.tsx` раньше `index.css`.
+- **Не править** блоки `.avatar-editor-*` в огромном `src/index.css`: HMR этого файла (~3MB) ломает CSS меню.

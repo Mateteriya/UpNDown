@@ -99,6 +99,10 @@ export type MainMenuScreenProps = {
   /** Секрет: тройной тап по логотипу/звезде или долгий тап по глифу звука → музыкальная студия. */
   onOpenMusicStudio?: () => void;
   onOpenAccount: () => void;
+  /** ПК: inline-rename в капсуле локального профиля. */
+  onRenameDisplayName?: (displayName: string) => void;
+  /** ПК: клик по аватару локального профиля → редактор. */
+  onEditAvatar?: () => void;
   /** ПК: после «сменить аккаунт» — открыть AuthModal (логин). */
   onOpenSignIn?: () => void;
   onOpenSupport?: () => void;
@@ -124,6 +128,8 @@ export function MainMenuScreen({
   onTitleDevMode,
   onOpenMusicStudio,
   onOpenAccount,
+  onRenameDisplayName,
+  onEditAvatar,
   onOpenSignIn,
   onOpenSupport,
   onOpenRating,
@@ -889,16 +895,14 @@ export function MainMenuScreen({
                 <MenuCapsuleButton
                   variant="account"
                   eyebrow={
-                    isGuestIdentity ? t('menu.cabinetYourProfile') : t('menu.cabinet')
+                    isAccountIdentity
+                      ? t('menu.cabinet')
+                      : isProfileIdentity
+                        ? undefined
+                        : t('menu.cabinetYourProfile')
                   }
                   eyebrowAside={
-                    isGuestIdentity
-                      ? undefined
-                      : isAccountIdentity
-                        ? t('menu.identityTagAccount')
-                        : isProfileIdentity
-                          ? t('menu.identityTagProfile')
-                          : undefined
+                    isAccountIdentity ? t('menu.identityTagAccount') : undefined
                   }
                   showSettingsGlyph
                   showTitleSignOut={Boolean(isPcMenu && isAccountIdentity)}
@@ -920,6 +924,8 @@ export function MainMenuScreen({
                   cabinetIdentity={
                     isAccountIdentity ? 'account' : isProfileIdentity ? 'profile' : 'guest'
                   }
+                  onRenameDisplayName={isProfileIdentity ? onRenameDisplayName : undefined}
+                  onEditAvatar={isProfileIdentity ? onEditAvatar : undefined}
                   avatarName={isGuestIdentity ? undefined : displayName}
                   avatarDataUrl={isGuestIdentity ? undefined : avatarDataUrl}
                   guestGlyphCycle={Boolean(isPcMenu && isGuestIdentity)}

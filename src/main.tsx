@@ -67,6 +67,8 @@ import './styles/offline-ready-orb.css'
 import './styles/plasma-badge-pc-no-outer-glow.css'
 /* Канон панели Юга (ПК/планшет): размеры, имя, аватар — единственный источник правды. */
 import './styles/user-south-panel.css'
+/* Редактор аватарки — ПОСЛЕ index.css, иначе оверрайды не видны */
+import './styles/avatar-editor.css'
 import './i18n'
 
 installPwaStaleRecovery()

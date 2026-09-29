@@ -25,6 +25,7 @@ import {
 import MobileOverlapHint from './ui/MobileOverlapHint'
 import { HistoryModal } from './ui/HistoryModal'
 import { NameAvatarModal } from './ui/NameAvatarModal'
+import { AvatarEditorModal } from './ui/AvatarEditorModal'
 import RulesScreen from './ui/RulesScreen'
 import { RatingModal } from './ui/RatingModal'
 import { AuthModal } from './ui/AuthModal'
@@ -102,6 +103,7 @@ function App() {
   const [showNameAvatarModal, setShowNameAvatarModal] = useState(
     () => peekNameAvatarModalOpen() != null || peekAvatarCameraPending(),
   )
+  const [showAvatarEditorModal, setShowAvatarEditorModal] = useState(false)
 
   const openNameAvatarModal = useCallback((mode: NameAvatarModalResumeMode) => {
     markNameAvatarModalOpen(mode)
@@ -112,6 +114,14 @@ function App() {
   const closeNameAvatarModal = useCallback(() => {
     clearNameAvatarModalOpen()
     setShowNameAvatarModal(false)
+  }, [])
+
+  const openAvatarEditorModal = useCallback(() => {
+    setShowAvatarEditorModal(true)
+  }, [])
+
+  const closeAvatarEditorModal = useCallback(() => {
+    setShowAvatarEditorModal(false)
   }, [])
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
@@ -567,6 +577,10 @@ function App() {
           onTitleDevMode={enableDevMode}
           onOpenMusicStudio={goMusicStudio}
           onOpenAccount={openAccountCabinet}
+          onRenameDisplayName={(displayName) => {
+            handleNameAvatarConfirm({ displayName, avatarDataUrl: profile.avatarDataUrl });
+          }}
+          onEditAvatar={openAvatarEditorModal}
           onOpenSignIn={() => {
             setAuthMode('login')
             setShowAuthModal(true)
@@ -742,6 +756,18 @@ function App() {
           onConfirm={handleNameAvatarConfirm}
           onPhotoCaptured={handlePhotoCaptured}
           onCancel={nameAvatarMode === 'profile' ? closeNameAvatarModal : undefined}
+        />
+      )}
+      {showAvatarEditorModal && (
+        <AvatarEditorModal
+          displayName={profile.displayName}
+          initialAvatarDataUrl={profile.avatarDataUrl}
+          onPhotoCaptured={handlePhotoCaptured}
+          onSave={(avatarDataUrl) => {
+            handleNameAvatarConfirm({ displayName: profile.displayName, avatarDataUrl })
+            closeAvatarEditorModal()
+          }}
+          onCancel={closeAvatarEditorModal}
         />
       )}
       {/* Только на экране игры: порталы итогов раздачи иначе попадают в document.body и видны поверх меню/лобби */}

@@ -104,25 +104,41 @@ export async function prepareAvatarForOnlineRoom(
   return best.length <= maxChars ? best : undefined;
 }
 
-/** Круглый экспорт слоя рисования + фона. */
+/** Круглый экспорт слоя рисования + фона.
+ *  keepBadgeOutside: кадр с полями; плашку дорисовывает вызывающий код
+ *  (или передайте paintBadge).
+ */
 export function exportCircularAvatarJpeg(
   baseCanvas: HTMLCanvasElement,
   drawCanvas: HTMLCanvasElement,
   size = AVATAR_MAX_PX,
+  opts?: {
+    keepBadgeOutside?: boolean;
+    paintBadge?: (ctx: CanvasRenderingContext2D, avatarSize: number, originX: number, originY: number) => void;
+  },
 ): string {
+  const pad = opts?.keepBadgeOutside ? Math.ceil(size * 0.14) : 0;
+  const outSize = size + pad * 2;
   const out = document.createElement('canvas');
-  out.width = size;
-  out.height = size;
+  out.width = outSize;
+  out.height = outSize;
   const ctx = out.getContext('2d');
   if (!ctx) return baseCanvas.toDataURL('image/jpeg', AVATAR_JPEG_QUALITY);
 
+  ctx.fillStyle = '#020617';
+  ctx.fillRect(0, 0, outSize, outSize);
+
   ctx.save();
   ctx.beginPath();
-  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.arc(pad + size / 2, pad + size / 2, size / 2, 0, Math.PI * 2);
   ctx.clip();
-  ctx.drawImage(baseCanvas, 0, 0, size, size);
-  ctx.drawImage(drawCanvas, 0, 0, size, size);
+  ctx.drawImage(baseCanvas, pad, pad, size, size);
+  ctx.drawImage(drawCanvas, pad, pad, size, size);
   ctx.restore();
+
+  if (opts?.paintBadge) {
+    opts.paintBadge(ctx, size, pad, pad);
+  }
 
   return out.toDataURL('image/jpeg', AVATAR_JPEG_QUALITY);
 }
