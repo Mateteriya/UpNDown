@@ -20,7 +20,7 @@ export const AVATAR_EDITOR_STICKERS: AvatarStickerDef[] = [
 
 const SUIT_COLORS: Record<'spade' | 'heart' | 'diamond' | 'club', string> = {
   spade: '#e2e8f0',
-  heart: '#f472b6',
+  heart: '#fb7185',
   diamond: '#f87171',
   club: '#4ade80',
 };
@@ -33,43 +33,104 @@ export function drawAvatarSticker(
   fallbackColor: string,
   scale = 1,
 ): void {
-  const size = 44 * scale;
+  const size = 48 * scale;
   ctx.save();
   ctx.translate(x, y);
 
   if (stickerId === 'ring') {
     ctx.strokeStyle = fallbackColor;
-    ctx.lineWidth = 3.5 * scale;
-    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = 3.2 * scale;
+    ctx.globalAlpha = 0.9;
     ctx.beginPath();
-    ctx.arc(0, 0, size * 0.55, 0, Math.PI * 2);
+    ctx.arc(0, 0, size * 0.52, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.globalAlpha = 0.35;
-    ctx.lineWidth = 1.5 * scale;
+    ctx.globalAlpha = 0.4;
+    ctx.lineWidth = 1.4 * scale;
     ctx.beginPath();
-    ctx.arc(0, 0, size * 0.42, 0, Math.PI * 2);
+    ctx.arc(0, 0, size * 0.38, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
     return;
   }
 
   if (stickerId === 'star' || stickerId === 'sparkle') {
-    drawStarPath(ctx, stickerId === 'sparkle' ? 5 : 5, size * 0.42, fallbackColor, stickerId === 'sparkle');
+    drawStarPath(ctx, 5, size * 0.44, fallbackColor, stickerId === 'sparkle');
     ctx.restore();
     return;
   }
 
   const suitColor = SUIT_COLORS[stickerId] ?? fallbackColor;
+  ctx.shadowColor = 'rgba(15, 23, 42, 0.45)';
+  ctx.shadowBlur = 4 * scale;
   ctx.fillStyle = suitColor;
-  ctx.strokeStyle = 'rgba(15,23,42,0.35)';
-  ctx.lineWidth = 1.2 * scale;
-  ctx.font = `700 ${Math.round(size)}px "Segoe UI Symbol", "Apple Color Emoji", system-ui, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const glyph = AVATAR_EDITOR_STICKERS.find((s) => s.id === stickerId)?.glyph ?? '♠';
-  ctx.strokeText(glyph, 0, 1);
-  ctx.fillText(glyph, 0, 1);
+  ctx.strokeStyle = 'rgba(15, 23, 42, 0.28)';
+  ctx.lineWidth = 1.1 * scale;
+  drawSuitPath(ctx, stickerId, size * 0.48);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.stroke();
   ctx.restore();
+}
+
+/** Векторные масти — Unicode на canvas часто не рисуется. */
+function drawSuitPath(
+  ctx: CanvasRenderingContext2D,
+  suit: 'spade' | 'heart' | 'diamond' | 'club',
+  r: number,
+): void {
+  if (suit === 'diamond') {
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.lineTo(r * 0.62, 0);
+    ctx.lineTo(0, r);
+    ctx.lineTo(-r * 0.62, 0);
+    ctx.closePath();
+    return;
+  }
+
+  if (suit === 'heart') {
+    ctx.beginPath();
+    ctx.moveTo(0, r * 0.72);
+    ctx.bezierCurveTo(r * 0.15, r * 0.4, r * 1.05, r * 0.05, r * 1.02, -r * 0.32);
+    ctx.bezierCurveTo(r * 1.0, -r * 0.72, r * 0.45, -r * 0.92, 0, -r * 0.42);
+    ctx.bezierCurveTo(-r * 0.45, -r * 0.92, -r * 1.0, -r * 0.72, -r * 1.02, -r * 0.32);
+    ctx.bezierCurveTo(-r * 1.05, r * 0.05, -r * 0.15, r * 0.4, 0, r * 0.72);
+    ctx.closePath();
+    return;
+  }
+
+  if (suit === 'spade') {
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.bezierCurveTo(r * 0.15, -r * 0.55, r * 1.05, -r * 0.15, r * 0.92, r * 0.28);
+    ctx.bezierCurveTo(r * 0.78, r * 0.55, r * 0.28, r * 0.48, 0, r * 0.18);
+    ctx.bezierCurveTo(-r * 0.28, r * 0.48, -r * 0.78, r * 0.55, -r * 0.92, r * 0.28);
+    ctx.bezierCurveTo(-r * 1.05, -r * 0.15, -r * 0.15, -r * 0.55, 0, -r);
+    ctx.closePath();
+    /* ножка */
+    ctx.moveTo(-r * 0.16, r * 0.22);
+    ctx.lineTo(-r * 0.28, r * 0.98);
+    ctx.lineTo(r * 0.28, r * 0.98);
+    ctx.lineTo(r * 0.16, r * 0.22);
+    ctx.quadraticCurveTo(0, r * 0.38, -r * 0.16, r * 0.22);
+    ctx.closePath();
+    return;
+  }
+
+  /* club — три доли + ножка */
+  const lobe = r * 0.36;
+  ctx.beginPath();
+  ctx.arc(0, -r * 0.38, lobe, 0, Math.PI * 2);
+  ctx.moveTo(lobe * 0.2, r * 0.05);
+  ctx.arc(-r * 0.38, r * 0.12, lobe, 0, Math.PI * 2);
+  ctx.moveTo(lobe * 0.2, r * 0.05);
+  ctx.arc(r * 0.38, r * 0.12, lobe, 0, Math.PI * 2);
+  ctx.moveTo(-r * 0.14, r * 0.28);
+  ctx.lineTo(-r * 0.26, r * 0.98);
+  ctx.lineTo(r * 0.26, r * 0.98);
+  ctx.lineTo(r * 0.14, r * 0.28);
+  ctx.quadraticCurveTo(0, r * 0.42, -r * 0.14, r * 0.28);
+  ctx.closePath();
 }
 
 function drawStarPath(
@@ -83,16 +144,19 @@ function drawStarPath(
   ctx.fillStyle = color;
   ctx.strokeStyle = 'rgba(255,255,255,0.45)';
   ctx.lineWidth = 1;
+  ctx.shadowColor = 'rgba(15, 23, 42, 0.4)';
+  ctx.shadowBlur = 3;
   ctx.beginPath();
   for (let i = 0; i < points * 2; i++) {
-    const r = i % 2 === 0 ? outerR : innerR;
+    const rad = i % 2 === 0 ? outerR : innerR;
     const a = (Math.PI / points) * i - Math.PI / 2;
-    const px = Math.cos(a) * r;
-    const py = Math.sin(a) * r;
+    const px = Math.cos(a) * rad;
+    const py = Math.sin(a) * rad;
     if (i === 0) ctx.moveTo(px, py);
     else ctx.lineTo(px, py);
   }
   ctx.closePath();
   ctx.fill();
+  ctx.shadowBlur = 0;
   ctx.stroke();
 }

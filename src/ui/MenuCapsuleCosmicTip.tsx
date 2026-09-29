@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 
 /** Космический hover-тултип (капсула кабинета / ушко / глифы). */
@@ -8,19 +8,30 @@ export function MenuCapsuleCosmicTip({
   tipId,
   text,
   detail,
+  children,
   wide = false,
   preferBelow = false,
+  onDismiss,
+  dismissLabel = 'Close',
+  className,
 }: {
   open: boolean;
   anchorRef: RefObject<HTMLElement | null>;
   tipId: string;
-  text: string;
+  text?: string;
   /** Приглушённое пояснение под основным текстом. */
   detail?: string;
+  /** Кастомное тело (напр. превью имени в 1–2 строки). */
+  children?: ReactNode;
   /** Длинные пояснения — шире и с переносом. */
   wide?: boolean;
   /** Прижать под якорь (удобно у правого края капсулы). */
   preferBelow?: boolean;
+  /** Крестик принудительного закрытия (включает pointer-events). */
+  onDismiss?: () => void;
+  dismissLabel?: string;
+  /** Доп. класс (напр. компактный tip редактора). */
+  className?: string;
 }) {
   const tipRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number; place: 'above' | 'below' } | null>(
@@ -58,7 +69,7 @@ export function MenuCapsuleCosmicTip({
       window.removeEventListener('scroll', place, true);
       window.removeEventListener('resize', place);
     };
-  }, [open, anchorRef, wide, preferBelow, text, detail]);
+  }, [open, anchorRef, wide, preferBelow, text, detail, children, onDismiss]);
 
   if (!open || !pos || typeof document === 'undefined') return null;
 
@@ -71,14 +82,44 @@ export function MenuCapsuleCosmicTip({
         'menu-capsule-cosmic-tip',
         'game-table-tooltip-cosmic',
         wide ? 'menu-capsule-cosmic-tip--wide' : '',
-        detail ? 'menu-capsule-cosmic-tip--with-detail' : '',
+        detail || children ? 'menu-capsule-cosmic-tip--with-detail' : '',
+        children ? 'menu-capsule-cosmic-tip--with-preview' : '',
+        onDismiss ? 'menu-capsule-cosmic-tip--dismissible' : '',
         pos.place === 'below' ? 'menu-capsule-cosmic-tip--below' : '',
+        className ?? '',
       ]
         .filter(Boolean)
         .join(' ')}
       style={{ top: pos.top, left: pos.left }}
     >
-      <p className="game-table-tooltip-cosmic-body-text menu-capsule-cosmic-tip__text">{text}</p>
+      {onDismiss ? (
+        <button
+          type="button"
+          className="menu-capsule-cosmic-tip__close"
+          aria-label={dismissLabel}
+          title={dismissLabel}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDismiss();
+          }}
+        >
+          <span className="menu-capsule-cosmic-tip__close-shine" aria-hidden />
+          <svg className="menu-capsule-cosmic-tip__close-icon" viewBox="0 0 16 16" aria-hidden>
+            <path
+              d="M4.2 4.2 11.8 11.8M11.8 4.2 4.2 11.8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.85"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      ) : null}
+      {text ? (
+        <p className="game-table-tooltip-cosmic-body-text menu-capsule-cosmic-tip__text">{text}</p>
+      ) : null}
+      {children ? <div className="menu-capsule-cosmic-tip__preview">{children}</div> : null}
       {detail ? (
         <p className="menu-capsule-cosmic-tip__detail">{detail}</p>
       ) : null}

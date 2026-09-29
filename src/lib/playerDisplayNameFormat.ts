@@ -91,3 +91,30 @@ export function formatPlayerNameForDisplay(raw: string): string {
     })
     .join(' ');
 }
+
+/**
+ * Имя в капсуле кабинета: до 2 строк.
+ * Перенос по пробелу у середины; без пробелов — по символам (не зависит от числа пробелов).
+ * Короткие имена (≤8) остаются одной строкой.
+ */
+export function splitDisplayNameTwoLines(raw: string): [string] | [string, string] {
+  const t = raw.trim().replace(/\s+/g, ' ');
+  if (!t) return [t];
+  if (t.length <= 8) return [t];
+
+  const mid = Math.ceil(t.length / 2);
+  let breakAt = -1;
+  let bestDist = Infinity;
+  for (let i = 1; i < t.length - 1; i++) {
+    if (t[i] !== ' ') continue;
+    const d = Math.abs(i - mid);
+    if (d < bestDist) {
+      bestDist = d;
+      breakAt = i;
+    }
+  }
+  if (breakAt > 0) {
+    return [t.slice(0, breakAt), t.slice(breakAt + 1)];
+  }
+  return [t.slice(0, mid), t.slice(mid)];
+}

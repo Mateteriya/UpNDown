@@ -4,6 +4,7 @@ import {
   formatPlayerNameForDisplay,
   getPlayerDisplayNameFontScale,
   shouldShrinkPlayerNameForDisplay,
+  splitDisplayNameTwoLines,
 } from './playerDisplayNameFormat';
 
 describe('formatPlayerNameForDisplay', () => {
@@ -32,5 +33,19 @@ describe('player name font scale', () => {
     expect(countPlayerNameUppercaseLetters('Я Маша Лучше Всех')).toBe(4);
     expect(shouldShrinkPlayerNameForDisplay('Я Маша Лучше Всех')).toBe(false);
     expect(getPlayerDisplayNameFontScale('Том Злой Кот Ус')).toBe(1);
+  });
+});
+
+describe('splitDisplayNameTwoLines', () => {
+  it('keeps short names on one line', () => {
+    expect(splitDisplayNameTwoLines('Анна')).toEqual(['Анна']);
+  });
+
+  it('splits on space near the middle', () => {
+    expect(splitDisplayNameTwoLines('Мария Суперзвезда')).toEqual(['Мария', 'Суперзвезда']);
+  });
+
+  it('splits by characters when there are no spaces', () => {
+    expect(splitDisplayNameTwoLines('Суперчемпиончик')).toEqual(['Суперчем', 'пиончик']);
   });
 });

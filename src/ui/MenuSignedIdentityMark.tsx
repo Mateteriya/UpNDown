@@ -11,10 +11,13 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
   type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { MenuIdentityStatus } from '../lib/menuIdentityStatus';
+import { useT } from '../i18n';
 import { PlayerAvatar } from './PlayerAvatar';
 
 export type MenuSignedStatus = Extract<MenuIdentityStatus, 'profile' | 'account'>;
@@ -55,6 +58,8 @@ type MenuSignedIdentityMarkProps = {
   avatarBgColor?: string | null;
   sizePx?: number;
   onOpenCabinet: () => void;
+  /** Локальный профиль: клик по лицу → редактор аватарки (не ЛК). */
+  onEditAvatar?: () => void;
   className?: string;
   /** chip = мобильный чип кабинета; capsule = ПК MenuCapsuleButton */
   surface?: 'chip' | 'capsule';
@@ -525,10 +530,13 @@ export function MenuSignedIdentityMark({
   avatarBgColor,
   sizePx = 44,
   onOpenCabinet,
+  onEditAvatar,
   className,
   surface = 'chip',
 }: MenuSignedIdentityMarkProps) {
+  const t = useT();
   const isAccount = status === 'account';
+  const canEditAvatar = Boolean(onEditAvatar && !isAccount);
   const waveTipId = useId();
   const statusTipId = useId();
   const waveRef = useRef<HTMLElement>(null);
@@ -552,6 +560,13 @@ export function MenuSignedIdentityMark({
     onOpenCabinet();
   }, [onOpenCabinet]);
 
+  const openAvatarEditor = useCallback(() => {
+    if (!onEditAvatar) return;
+    setWaveTipOpen(false);
+    setStatusTipOpen(false);
+    onEditAvatar();
+  }, [onEditAvatar]);
+
   const faceSize = surface === 'capsule' ? sizePx : isAccount ? sizePx + 4 : sizePx;
 
   return (
@@ -560,6 +575,7 @@ export function MenuSignedIdentityMark({
         'menu-signed-id',
         `menu-signed-id--${status}`,
         `menu-signed-id--${surface}`,
+        canEditAvatar ? 'menu-signed-id--edit-avatar' : '',
         className,
       ]
         .filter(Boolean)
@@ -581,7 +597,25 @@ export function MenuSignedIdentityMark({
           badgeRef={statusRef}
         />
       )}
-      <span className="menu-signed-id__ring">
+      <span
+        className={['menu-signed-id__ring', canEditAvatar ? 'menu-signed-id__ring--edit' : '']
+          .filter(Boolean)
+          .join(' ')}
+        {...(canEditAvatar
+          ? {
+              role: 'button' as const,
+              tabIndex: 0,
+              'aria-label': t('menu.cabinetEditAvatarAria'),
+              title: t('menu.cabinetEditAvatarTip'),
+              onClick: (e: MouseEvent) => {
+                stopNestedEvent(e);
+                openAvatarEditor();
+              },
+              onKeyDown: (e: KeyboardEvent<HTMLElement>) => onNestedActivateKey(e, openAvatarEditor),
+              onPointerDown: (e: PointerEvent) => e.stopPropagation(),
+            }
+          : {})}
+      >
         {/* ПК-капсула + аккаунт: радужный обод + стекло «слеза» (стили — menu-pc.css) */}
         {surface === 'capsule' && isAccount ? (
           <span className="menu-signed-id__spin" aria-hidden="true" />

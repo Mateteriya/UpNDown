@@ -54,6 +54,19 @@
     0 0 12px rgba(148, 163, 184, 0.14);
 }
 
+.menu-signed-id__ring--edit {
+  cursor: pointer;
+}
+
+.menu-signed-id__ring--edit:hover {
+  filter: brightness(1.08);
+}
+
+.menu-signed-id__ring--edit:focus-visible {
+  outline: 2px solid rgba(103, 232, 249, 0.85);
+  outline-offset: 2px;
+}
+
 /* Account: яркий ободок */
 .menu-signed-id--account .menu-signed-id__ring {
   background: linear-gradient(135deg, #67e8f9 0%, #c084fc 42%, #f472b6 72%, #fbbf24 100%);

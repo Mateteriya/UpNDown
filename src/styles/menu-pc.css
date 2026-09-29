@@ -1249,6 +1249,13 @@
     width: min(430px, 38vw);
     min-width: 380px;
   }
+
+  /* Профиль (имя без аккаунта) + Войти: по контенту, без лишней ширины */
+  .menu-screen__drift--account:has(.menu-capsule--id-profile.menu-capsule--split) {
+    width: max-content;
+    min-width: 0;
+    max-width: min(520px, 48vw);
+  }
   .menu-screen__drift--account > .menu-screen__drift-bob {
     animation: menu-pc-bob-c 7.8s ease-in-out infinite;
     animation-delay: -1.2s;
@@ -1428,6 +1435,12 @@
     gap: 8px;
     min-width: 0;
     max-width: 100%;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__title-row:has(.menu-capsule__title--twoline) {
+    align-items: flex-start;
   }
 
   .menu-screen__drift--account .menu-capsule--account .menu-capsule__title-settings {
@@ -1613,6 +1626,32 @@
 
   .menu-capsule-cosmic-tip--with-detail .menu-capsule-cosmic-tip__text.game-table-tooltip-cosmic-body-text {
     white-space: normal;
+  }
+
+  .menu-capsule-cosmic-tip__preview {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    min-width: 0;
+  }
+
+  .menu-capsule-cosmic-tip__preview-name {
+    display: block;
+    font: 500 15px/1.25 'Outfit', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.04em;
+    color: #f0f9ff;
+    text-shadow:
+      0 1px 0 rgb(12 6 28 / 55%),
+      0 0 10px rgb(103 232 249 / 0.35);
+    white-space: nowrap;
+  }
+
+  .menu-capsule-cosmic-tip__preview-line {
+    display: block;
+    max-width: 100%;
+    white-space: nowrap;
   }
 
   @keyframes menu-capsule-cosmic-tip-pop {
@@ -2046,9 +2085,12 @@
       0 0 8px rgb(251 113 133 / 50%);
   }
 
-  /* Гость: «Ваш профиль» — компактное стекло-текст, без широкой капсулы */
+  /* Гость / профиль: «Имя в игре:» — компактное стекло-текст, без широкой капсулы */
   .menu-screen__drift--account
     .menu-capsule--account.menu-capsule--id-guest
+    .menu-capsule__eyebrow,
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile
     .menu-capsule__eyebrow {
     display: inline-block;
     padding: 0;
@@ -2078,6 +2120,293 @@
       drop-shadow(0 0 5px rgb(103 232 249 / 40%))
       drop-shadow(0 0 9px rgb(167 139 250 / 28%));
     text-shadow: none;
+  }
+
+  /* Профиль (имя задано): крупнее «Имя в игре:» */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile
+    .menu-capsule__eyebrow {
+    font: 900 19px/1.15 'Nunito', 'Outfit', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile
+    .menu-capsule__eyebrow-row {
+    gap: 8px;
+  }
+
+  /*
+   * Профиль (имя задано, не в аккаунте): вместо шва — жирная кнопка настроек.
+   * Левый блок по содержимому.
+   */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split {
+    overflow: visible;
+    /* +5% к базовым 92px у with-avatar */
+    min-height: 97px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+    width: max-content;
+    max-width: 100%;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__half--start {
+    flex: 0 0 auto;
+    width: max-content;
+    max-width: none;
+    padding: 0;
+    min-width: 0;
+    overflow: visible;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__half--end {
+    flex: 0 0 auto;
+    width: max-content;
+    padding: 0;
+    min-width: 0;
+    /* явный зазор от левого блока (негатив раньше съедал ширину планки) */
+    margin-left: 7px;
+    justify-content: flex-end;
+  }
+
+  /* Профиль: старт-половина — body по контенту */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__half--start
+    .menu-capsule__body {
+    flex: 0 0 auto;
+    width: max-content;
+    max-width: 100%;
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings {
+    position: relative;
+    /* нижняя «планка»: половина высоты, рост только влево */
+    flex: 0 0 auto;
+    align-self: flex-end;
+    width: max-content;
+    min-width: 78px;
+    height: 38px;
+    margin: 0 4px 1px -59px;
+    translate: 0 4px;
+    padding: 1px 5px 1px 6px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    isolation: isolate;
+    border-radius: 999px;
+    outline: none;
+    z-index: 3;
+    background:
+      radial-gradient(120% 140% at 18% 40%, rgb(103 232 249 / 0.18), transparent 55%),
+      radial-gradient(110% 130% at 88% 60%, rgb(232 121 249 / 0.16), transparent 58%),
+      linear-gradient(165deg, rgb(24 14 52 / 0.92), rgb(10 8 32 / 0.88));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.14),
+      0 2px 10px rgb(2 6 23 / 0.35),
+      0 0 12px rgb(103 232 249 / 0.18);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings__aura {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    padding: 1.4px;
+    pointer-events: none;
+    background: linear-gradient(
+      120deg,
+      #67e8f9 0%,
+      #a78bfa 32%,
+      #e879f9 62%,
+      #fbbf24 88%,
+      #67e8f9 100%
+    );
+    background-size: 220% 100%;
+    animation: menu-capsule-name-plaque-rim 5.2s linear infinite;
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings__sep {
+    position: relative;
+    z-index: 1;
+    flex: 0 0 1px;
+    width: 1px;
+    height: 22px;
+    border-radius: 1px;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgb(165 243 252 / 0.55) 25%,
+      rgb(232 121 249 / 0.5) 75%,
+      transparent 100%
+    );
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings__gear {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 999px;
+    outline: none;
+    transition: transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings-svg {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 30px;
+    height: 30px;
+    transform-origin: center;
+    filter:
+      drop-shadow(0 1px 0 rgb(8 2 16 / 80%))
+      drop-shadow(0 0 5px rgb(34 211 238 / 55%))
+      drop-shadow(0 0 10px rgb(168 85 247 / 42%))
+      brightness(1.05)
+      saturate(1.4)
+      contrast(1.06);
+    animation: menu-account-settings-spin 28s cubic-bezier(0.42, 0.02, 0.18, 1) infinite;
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1),
+      filter 0.22s ease;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings__gear:hover,
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings__gear:focus-visible {
+    transform: scale(1.1);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings__gear:hover
+    .menu-capsule__mid-settings-svg,
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings__gear:focus-visible
+    .menu-capsule__mid-settings-svg {
+    animation-duration: 10s;
+    filter:
+      drop-shadow(0 1px 0 rgb(8 2 16 / 75%))
+      drop-shadow(0 0 7px rgb(34 211 238 / 65%))
+      drop-shadow(0 0 14px rgb(168 85 247 / 55%))
+      drop-shadow(0 0 18px rgb(232 121 249 / 40%))
+      brightness(1.12)
+      saturate(1.5)
+      contrast(1.08);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings__lk {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    min-width: 30px;
+    height: 32px;
+    margin: 0;
+    padding: 0 3px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 999px;
+    outline: none;
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1),
+      filter 0.22s ease;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings__lk-text {
+    display: block;
+    font: 900 15.5px/1 'Nunito', 'Outfit', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.05em;
+    color: transparent;
+    background-image: linear-gradient(
+      115deg,
+      #ecfeff 0%,
+      #67e8f9 18%,
+      #a78bfa 42%,
+      #e879f9 66%,
+      #fde68a 88%,
+      #67e8f9 100%
+    );
+    background-size: 220% 100%;
+    background-position: 0% 50%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter:
+      drop-shadow(0 1px 0 rgb(12 4 28 / 70%))
+      drop-shadow(0 0 5px rgb(103 232 249 / 55%))
+      drop-shadow(0 0 10px rgb(232 121 249 / 40%));
+    animation: menu-capsule-name-iridescent 3.6s ease-in-out infinite;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings__lk:hover,
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings__lk:focus-visible {
+    transform: translateY(-1px) scale(1.08);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings__lk:hover
+    .menu-capsule__mid-settings__lk-text,
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__mid-settings__lk:focus-visible
+    .menu-capsule__mid-settings__lk-text {
+    filter:
+      drop-shadow(0 1px 0 rgb(12 4 28 / 70%))
+      drop-shadow(0 0 8px rgb(103 232 249 / 70%))
+      drop-shadow(0 0 14px rgb(232 121 249 / 55%));
   }
 
   /*
@@ -2658,19 +2987,11 @@
   .menu-screen__drift--account
     .menu-capsule--account.menu-capsule--split
     .menu-capsule__half--end
-    > .menu-capsule__action-copy {
-    grid-column: 1;
-    justify-self: center;
+    > .menu-capsule__signin-hit {
+    grid-column: 1 / -1;
+    justify-self: end;
     width: max-content;
     max-width: 100%;
-  }
-
-  .menu-screen__drift--account
-    .menu-capsule--account.menu-capsule--split
-    .menu-capsule__half--end
-    > .menu-capsule__signin-flow {
-    grid-column: 2;
-    justify-self: end;
   }
 
   /*
@@ -3003,7 +3324,8 @@
       .menu-capsule__seam__track,
     .menu-screen__drift--account
       .menu-capsule--account.menu-capsule--split
-      .menu-capsule__seam__track::after {
+      .menu-capsule__seam__track::after,
+    .menu-screen__drift--account .menu-capsule--account .menu-capsule__title-edit {
       animation: none;
     }
     .menu-screen__drift--account
@@ -3011,6 +3333,625 @@
       .menu-capsule__seam__scan {
       top: 42%;
       opacity: 0.7;
+    }
+  }
+
+  /* Плашка имени: стильное окошко, ширина по содержимому, без «…» */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__title-row {
+    gap: 8px;
+    min-width: 0;
+    align-items: center;
+    overflow: visible;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque {
+    --menu-name-pen-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop stop-color='%2367e8f9'/%3E%3Cstop offset='.55' stop-color='%23a78bfa'/%3E%3Cstop offset='1' stop-color='%23e879f9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M4.5 27.2l1.2-4.6 14.2-14.2 3.4 3.4L9.1 26l-4.6 1.2z' fill='url(%23g)' stroke='%23ecfeff' stroke-width='1'/%3E%3Cpath d='M19.2 7.2l3.4 3.4 2.1-2.1a2.2 2.2 0 0 0-3.1-3.1l-2.4 1.8z' fill='%23ecfeff'/%3E%3Ccircle cx='25.2' cy='5.6' r='1.7' fill='%23a5f3fc'/%3E%3C/svg%3E")
+      3 28;
+    /* плашка обнимает имя; max — под 17 символов */
+    --menu-name-plaque-max: calc(17.2ch + 12px);
+    position: relative;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: max-content;
+    min-width: 0;
+    max-width: var(--menu-name-plaque-max);
+    padding: 2px 6px 3px 6px;
+    border-radius: 12px;
+    isolation: isolate;
+    overflow: visible;
+    /* Exo 2 condensed: реально уже в метриках, не через scaleX */
+    font: 550 18px/1.15 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    font-stretch: 75%;
+    font-variation-settings: 'wdth' 75;
+    letter-spacing: -0.02em;
+    background:
+      linear-gradient(
+        165deg,
+        rgb(18 12 48 / 0.72) 0%,
+        rgb(36 22 78 / 0.55) 45%,
+        rgb(12 8 36 / 0.78) 100%
+      );
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.16),
+      inset 0 -1px 0 rgb(8 2 28 / 0.35),
+      0 2px 8px rgb(2 6 23 / 0.28);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque--editing {
+    width: var(--menu-name-plaque-max);
+    min-width: var(--menu-name-plaque-max);
+    max-width: var(--menu-name-plaque-max);
+    padding-right: 22px;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__rim {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: linear-gradient(
+      120deg,
+      #67e8f9 0%,
+      #a78bfa 28%,
+      #e879f9 55%,
+      #fbbf24 78%,
+      #67e8f9 100%
+    );
+    background-size: 220% 100%;
+    animation: menu-capsule-name-plaque-rim 4.8s linear infinite;
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__sheen {
+    position: absolute;
+    inset: 1px;
+    z-index: 1;
+    border-radius: 11px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__sheen::before {
+    content: '';
+    position: absolute;
+    top: -30%;
+    left: -50%;
+    width: 40%;
+    height: 160%;
+    background: linear-gradient(
+      105deg,
+      transparent 0%,
+      rgb(255 255 255 / 0.03) 42%,
+      rgb(165 243 252 / 0.08) 50%,
+      rgb(255 255 255 / 0.03) 58%,
+      transparent 100%
+    );
+    transform: skewX(-16deg);
+    animation: menu-capsule-name-plaque-sheen 3.6s ease-in-out infinite;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque--editable {
+    cursor: var(--menu-name-pen-cursor), text;
+    transition:
+      transform 0.22s ease,
+      box-shadow 0.22s ease;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque--editable:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.2),
+      inset 0 -1px 0 rgb(8 2 28 / 0.3),
+      0 4px 14px rgb(2 6 23 / 0.35),
+      0 0 14px rgb(103 232 249 / 0.22);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__edit-mark {
+    position: absolute;
+    /* ушко на нижней кромке справа, свисает вниз (не в углу) */
+    right: 8px;
+    bottom: auto;
+    top: 100%;
+    margin-top: -1.5px;
+    z-index: 5;
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    width: 26px;
+    height: 15px;
+    padding: 2px 3px 3px;
+    border-radius: 0 0 10px 10px;
+    isolation: isolate;
+    overflow: visible;
+    pointer-events: auto;
+    cursor: var(--menu-name-pen-cursor), pointer;
+    transform-origin: top center;
+    /* тот же тёмный залив, что у плашки — сливается с окошком */
+    background:
+      linear-gradient(
+        180deg,
+        rgb(36 22 78 / 0.92) 0%,
+        rgb(18 12 48 / 0.95) 55%,
+        rgb(12 8 36 / 0.98) 100%
+      );
+    box-shadow:
+      0 3px 8px rgb(2 6 23 / 0.3),
+      inset 0 1px 0 rgb(255 255 255 / 0.1);
+    filter: none;
+    opacity: 1;
+    transition:
+      transform 0.2s cubic-bezier(0.34, 1.4, 0.64, 1),
+      box-shadow 0.2s ease;
+  }
+
+  /* цветная рамочка ушка = та же, что у окошка */
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__edit-mark::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    pointer-events: none;
+    background: linear-gradient(
+      120deg,
+      #67e8f9 0%,
+      #a78bfa 28%,
+      #e879f9 55%,
+      #fbbf24 78%,
+      #67e8f9 100%
+    );
+    background-size: 220% 100%;
+    animation: menu-capsule-name-plaque-rim 4.8s linear infinite;
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__edit-mark
+    svg {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 14px;
+    height: 9px;
+    margin: 0;
+    overflow: visible;
+    /* чуть ярче цветной градиент глифа */
+    filter: saturate(1.35) brightness(1.12);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque--editable:hover
+    .menu-capsule__name-plaque__edit-mark {
+    transform: translateY(1px) scale(1.06);
+    box-shadow:
+      0 4px 10px rgb(2 6 23 / 0.35),
+      0 0 10px rgb(103 232 249 / 0.25),
+      inset 0 1px 0 rgb(255 255 255 / 0.14);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__edit-mark:hover {
+    transform: translateY(3px) scale(1.14);
+    box-shadow:
+      0 6px 14px rgb(2 6 23 / 0.4),
+      0 0 14px rgb(103 232 249 / 0.45),
+      0 0 22px rgb(232 121 249 / 0.3),
+      inset 0 1px 0 rgb(255 255 255 / 0.22);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__edit-mark:hover::before {
+    animation-duration: 1.4s;
+    filter: brightness(1.15) saturate(1.2);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__edit-mark:hover
+    svg {
+    animation: menu-capsule-name-pen-wiggle 0.55s cubic-bezier(0.34, 1.45, 0.64, 1);
+    filter:
+      saturate(1.55)
+      brightness(1.22)
+      drop-shadow(0 0 3px rgb(103 232 249 / 0.75))
+      drop-shadow(0 0 6px rgb(232 121 249 / 0.45));
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque--editing
+    .menu-capsule__name-plaque__edit-mark {
+    box-shadow:
+      0 3px 8px rgb(2 6 23 / 0.32),
+      0 0 8px rgb(103 232 249 / 0.22),
+      inset 0 1px 0 rgb(255 255 255 / 0.12);
+  }
+
+  @keyframes menu-capsule-name-pen-wiggle {
+    0% {
+      transform: rotate(0deg) translate(0, 0);
+    }
+    22% {
+      transform: rotate(-14deg) translate(-0.5px, 0.5px);
+    }
+    48% {
+      transform: rotate(10deg) translate(0.5px, -0.5px);
+    }
+    72% {
+      transform: rotate(-6deg) translate(-0.25px, 0.25px);
+    }
+    100% {
+      transform: rotate(0deg) translate(0, 0);
+    }
+  }
+
+  /* Галочка «сохранить» — внутри плашки справа */
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__confirm {
+    position: absolute;
+    right: 3px;
+    left: auto;
+    top: 50%;
+    z-index: 6;
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 2px;
+    border: 0;
+    border-radius: 999px;
+    isolation: isolate;
+    overflow: visible;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    translate: 0 -50%;
+    transform-origin: center center;
+    background:
+      linear-gradient(
+        155deg,
+        rgb(18 12 48 / 0.95) 0%,
+        rgb(12 40 36 / 0.92) 55%,
+        rgb(8 28 24 / 0.96) 100%
+      );
+    box-shadow:
+      0 2px 8px rgb(2 6 23 / 0.35),
+      0 0 10px rgb(52 211 153 / 0.28),
+      inset 0 1px 0 rgb(255 255 255 / 0.16);
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.45, 0.64, 1),
+      box-shadow 0.22s ease,
+      filter 0.22s ease;
+    animation: menu-capsule-name-confirm-in 0.38s cubic-bezier(0.34, 1.45, 0.64, 1) both;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__confirm-rim {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    pointer-events: none;
+    background: linear-gradient(
+      135deg,
+      #67e8f9 0%,
+      #34d399 32%,
+      #a78bfa 58%,
+      #fbbf24 82%,
+      #67e8f9 100%
+    );
+    background-size: 220% 100%;
+    animation: menu-capsule-name-plaque-rim 4.8s linear infinite;
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__confirm
+    svg {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 12px;
+    height: 12px;
+    overflow: visible;
+    filter:
+      saturate(1.25)
+      drop-shadow(0 0 2px rgb(52 211 153 / 0.55));
+    transition: filter 0.2s ease, transform 0.2s ease;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__confirm:hover {
+    transform: scale(1.14);
+    box-shadow:
+      0 4px 12px rgb(2 6 23 / 0.4),
+      0 0 14px rgb(52 211 153 / 0.5),
+      0 0 22px rgb(103 232 249 / 0.35),
+      inset 0 1px 0 rgb(255 255 255 / 0.22);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__confirm:hover
+    .menu-capsule__name-plaque__confirm-rim {
+    animation-duration: 1.5s;
+    filter: brightness(1.12) saturate(1.2);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__confirm:hover
+    svg {
+    transform: scale(1.08);
+    filter:
+      saturate(1.45)
+      brightness(1.15)
+      drop-shadow(0 0 3px rgb(52 211 153 / 0.85))
+      drop-shadow(0 0 6px rgb(103 232 249 / 0.45));
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque__confirm:active {
+    transform: scale(0.96);
+  }
+
+  @keyframes menu-capsule-name-confirm-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.55);
+      filter: brightness(1.4);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+      filter: none;
+    }
+  }
+
+  /* Профиль: плашка имени к правому верхнему боку аватарки */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__body {
+    gap: 3px;
+    padding-top: 0;
+    margin-top: 0;
+    justify-content: center;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__title-row {
+    margin-top: 0;
+    margin-left: -18px;
+    translate: 0 -14px;
+  }
+
+  /* Имя на плашке: тонкий шрифт + яркий перелив, всегда 1 строка */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile
+    .menu-capsule__name-plaque
+    .menu-capsule__title {
+    position: relative;
+    z-index: 2;
+    display: block;
+    flex: 0 1 auto;
+    box-sizing: border-box;
+    width: max-content;
+    min-width: 0;
+    max-width: 17.2ch;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: clip;
+    font: 550 18px/1.15 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    font-stretch: 75%;
+    font-variation-settings: 'wdth' 75;
+    letter-spacing: -0.02em;
+    color: transparent;
+    background-image: linear-gradient(
+      110deg,
+      #ecfeff 0%,
+      #67e8f9 14%,
+      #38bdf8 28%,
+      #a78bfa 44%,
+      #e879f9 60%,
+      #fbbf24 76%,
+      #67e8f9 90%,
+      #ecfeff 100%
+    );
+    background-size: 240% 100%;
+    background-position: 0% 50%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    /* только лёгкая тень для читаемости — без неонового ореола */
+    filter: drop-shadow(0 1px 0 rgb(12 4 28 / 55%));
+    animation: menu-capsule-name-iridescent 3.8s ease-in-out infinite;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__title--editable {
+    cursor: inherit;
+    border-radius: 0;
+    outline: none;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__title--editable:hover {
+    transform: none;
+    filter: drop-shadow(0 1px 0 rgb(12 4 28 / 60%));
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__name-plaque
+    .menu-capsule__title-edit {
+    position: relative;
+    z-index: 2;
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    font: 550 18px/1.15 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    font-stretch: 75%;
+    font-variation-settings: 'wdth' 75;
+    letter-spacing: -0.02em;
+    color: #f0f9ff;
+    caret-color: #67e8f9;
+    outline: none;
+    cursor: var(--menu-name-pen-cursor), text;
+    background: transparent;
+    box-shadow: none;
+    -webkit-text-fill-color: #f0f9ff;
+    background-image: none;
+    filter: none;
+    animation: none;
+    text-shadow:
+      0 0 8px rgb(103 232 249 / 0.4),
+      0 0 12px rgb(232 121 249 / 0.22);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__title-edit::selection {
+    background: rgb(129 140 248 / 0.45);
+    color: #fff;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__title-edit:focus {
+    box-shadow: none;
+  }
+
+  @keyframes menu-capsule-name-iridescent {
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  @keyframes menu-capsule-name-plaque-rim {
+    0% {
+      background-position: 0% 50%;
+    }
+    100% {
+      background-position: 220% 50%;
+    }
+  }
+
+  @keyframes menu-capsule-name-plaque-sheen {
+    0%,
+    25% {
+      transform: translateX(0) skewX(-16deg);
+      opacity: 0;
+    }
+    40% {
+      opacity: 1;
+    }
+    70%,
+    100% {
+      transform: translateX(320%) skewX(-16deg);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .menu-screen__drift--account
+      .menu-capsule--account
+      .menu-capsule__name-plaque__rim,
+    .menu-screen__drift--account
+      .menu-capsule--account
+      .menu-capsule__name-plaque__edit-mark::before,
+    .menu-screen__drift--account
+      .menu-capsule--account
+      .menu-capsule__name-plaque__sheen::before,
+    .menu-screen__drift--account
+      .menu-capsule--account.menu-capsule--id-profile
+      .menu-capsule__name-plaque
+      .menu-capsule__title,
+    .menu-screen__drift--account
+      .menu-capsule--account
+      .menu-capsule__name-plaque__edit-mark:hover
+      svg,
+    .menu-screen__drift--account
+      .menu-capsule--account
+      .menu-capsule__name-plaque__confirm,
+    .menu-screen__drift--account
+      .menu-capsule--account
+      .menu-capsule__name-plaque__confirm-rim {
+      animation: none;
     }
   }
 
@@ -3024,6 +3965,23 @@
     overflow: visible;
     transform-origin: 85% 50%;
     transition: transform 0.28s cubic-bezier(0.34, 1.35, 0.64, 1);
+    /* пустые зоны rail не ловят курсор — только .signin-hit и мини */
+    pointer-events: none;
+  }
+
+  /* узкая hit-зона CTA: ВОЙТИ + стрелка + подпись + глиф */
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__signin-hit {
+    display: grid;
+    grid-template-columns: max-content auto;
+    align-items: center;
+    /* как у гостя: зона под дотягивание стрелки (+20px / margin -20px) */
+    column-gap: 20px;
+    width: max-content;
+    max-width: 100%;
+    pointer-events: auto;
+    cursor: pointer;
   }
 
   /* split: rail = правая половина — grid, без flex-gap */
@@ -3031,21 +3989,61 @@
     .menu-capsule--account.menu-capsule--split
     .menu-capsule__rail--end.menu-capsule__half--end {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
     margin: 0;
     padding: 0 0 0 4px;
     align-self: stretch;
     transform-origin: 92% 50%;
+    position: relative;
+    isolation: isolate;
+    overflow: visible;
+  }
+
+  /* мягкий сине-индиго / кислая малина: дымка без жёстких краёв */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--split
+    .menu-capsule__rail--end.menu-capsule__half--end::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: 0 999px 999px 0;
+    pointer-events: none;
+    background:
+      radial-gradient(90% 120% at 88% 42%, rgb(99 102 241 / 0.28), transparent 60%),
+      radial-gradient(75% 95% at 72% 78%, rgb(192 38 211 / 0.22), transparent 62%),
+      radial-gradient(65% 85% at 95% 22%, rgb(67 56 202 / 0.2), transparent 55%),
+      radial-gradient(55% 70% at 60% 55%, rgb(219 39 119 / 0.14), transparent 58%),
+      linear-gradient(
+        100deg,
+        transparent 0%,
+        rgb(67 56 202 / 0.08) 36%,
+        rgb(79 70 229 / 0.16) 55%,
+        rgb(147 51 234 / 0.18) 74%,
+        rgb(190 24 93 / 0.14) 100%
+      );
+    /* растворяем левый/верхний/нижний край — без «коробки» */
+    -webkit-mask-image:
+      linear-gradient(90deg, transparent 0%, #000 38%, #000 100%),
+      linear-gradient(180deg, transparent 0%, #000 18%, #000 82%, transparent 100%);
+    mask-image:
+      linear-gradient(90deg, transparent 0%, #000 38%, #000 100%),
+      linear-gradient(180deg, transparent 0%, #000 18%, #000 82%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+    opacity: 0.95;
   }
 
   /*
    * Курсор / focus: CTA (ВОЙТИ + стрелка + «в аккаунт» + глиф) —
    * одна приподнятая «кнопка»; цикл 6.2s со стрелкой стопается.
-   * Над мини-глифами преимуществ lift не включаем (--over-mini).
+   * Hover только по .signin-hit — мини-глифы не поднимают весь блок.
    */
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover:not(.menu-capsule__rail--end--over-mini),
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(
+      :has(.menu-capsule__action-mini:hover)
+    ),
   .menu-screen__drift--account
     .menu-capsule--account
     .menu-capsule__rail--end:focus-visible:not(.menu-capsule__rail--end--over-mini) {
@@ -3055,7 +4053,9 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:active:not(.menu-capsule__rail--end--over-mini) {
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:active):not(
+      :has(.menu-capsule__action-mini:hover)
+    ) {
     transform: translateY(-3px) scale(1.05);
     z-index: 6;
   }
@@ -3090,15 +4090,15 @@
     align-items: center;
     justify-content: flex-start;
     /*
-     * Покой: +20px вправо от колонки надписей.
-     * Дотягивание до центра глифа — только в keyframes пика и на :hover.
+     * Покой: +40px = 20px зазор до глифа + 20px вглубь к центру.
+     * Дотягивание до центра — в keyframes пика и на :hover (scaleX).
      */
-    width: calc(100% + 20px);
+    width: calc(100% + 40px);
     min-width: 0;
     height: 16px;
     margin: 0;
     margin-left: 0;
-    margin-right: -20px;
+    margin-right: -40px;
     /* −1px: кончик в SVG чуть ниже середины viewBox — поднимаем к центру глифа */
     transform: translateY(-1px);
     line-height: 0;
@@ -3144,7 +4144,7 @@
   @keyframes menu-signin-arrow-spring {
     0%,
     52% {
-      /* покой: база уже +20px; scale чуть короче колонки */
+      /* покой: база уже +40px; scale чуть короче */
       transform: translate(0, 0) scaleX(0.888);
     }
     58% {
@@ -3315,7 +4315,7 @@
   /* курсор: стоп пружины — стрелка замирает дотянутой до центра глифа */
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover:not(.menu-capsule__rail--end--over-mini)
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-mid-arrow,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -3327,19 +4327,19 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-mid-arrow__react,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-mid-arrow__react-edge,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:focus-visible
+    .menu-capsule__rail--end:focus-visible
     .menu-capsule__signin-mid-arrow__react,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:focus-visible
+    .menu-capsule__rail--end:focus-visible
     .menu-capsule__signin-mid-arrow__react-edge {
     animation: none;
     opacity: 1;
@@ -3347,33 +4347,33 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-mid-arrow__react-edge,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:focus-visible
+    .menu-capsule__rail--end:focus-visible
     .menu-capsule__signin-mid-arrow__react-edge {
     stroke-width: 2.35;
   }
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-mid-arrow__react,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:focus-visible
+    .menu-capsule__rail--end:focus-visible
     .menu-capsule__signin-mid-arrow__react {
     stroke-width: 2.05;
   }
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-mid-arrow__react-bloom,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:focus-visible
+    .menu-capsule__rail--end:focus-visible
     .menu-capsule__signin-mid-arrow__react-bloom {
     animation: none;
     opacity: 0.72;
@@ -3382,27 +4382,27 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-mid-arrow__shaft,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-mid-arrow__glint,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-mid-arrow__crystal,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:focus-visible
+    .menu-capsule__rail--end:focus-visible
     .menu-capsule__signin-mid-arrow__shaft,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:focus-visible
+    .menu-capsule__rail--end:focus-visible
     .menu-capsule__signin-mid-arrow__glint,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:focus-visible
+    .menu-capsule__rail--end:focus-visible
     .menu-capsule__signin-mid-arrow__crystal {
     animation: none;
     opacity: 0;
@@ -3410,7 +4410,7 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-mid-arrow-wrap,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -3426,11 +4426,11 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-mid-arrow-wrap,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:focus-visible
+    .menu-capsule__rail--end:focus-visible
     .menu-capsule__signin-mid-arrow-wrap {
     animation: none;
     filter:
@@ -3442,11 +4442,11 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-mid-arrow-aura,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:focus-visible
+    .menu-capsule__rail--end:focus-visible
     .menu-capsule__signin-mid-arrow-aura {
     filter:
       drop-shadow(0 0 3px rgb(103 232 249 / 85%))
@@ -3563,8 +4563,8 @@
     .menu-capsule__action-foot
     .menu-capsule__action--sub {
     margin-top: 0;
-    /* «в аккаунт»: +1px выше; мягкий scale в такт стрелке 6.2s */
-    transform: translateY(-5px) scale(1);
+    /* «в аккаунт»: мягкий scale в такт стрелке 6.2s */
+    transform: translateY(-2px) scale(1);
     transform-origin: left center;
     animation: menu-signin-sub-pulse 6.2s ease-in-out infinite;
   }
@@ -3572,29 +4572,29 @@
   @keyframes menu-signin-sub-pulse {
     0%,
     58% {
-      transform: translateY(-5px) scale(1);
+      transform: translateY(-2px) scale(1);
     }
     68%,
     96% {
       /* слегка крупнее и держим на всём пике стрелки — без рывков */
-      transform: translateY(-5px) scale(1.06);
+      transform: translateY(-2px) scale(1.06);
     }
     100% {
-      transform: translateY(-5px) scale(1);
+      transform: translateY(-2px) scale(1);
     }
   }
 
   /* ховер rail: как стрелка — держим увеличенный размер */
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover:not(.menu-capsule__rail--end--over-mini)
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__action--sub,
   .menu-screen__drift--account
     .menu-capsule--account
     .menu-capsule__rail--end:focus-visible:not(.menu-capsule__rail--end--over-mini)
     .menu-capsule__action--sub {
     animation: none;
-    transform: translateY(-5px) scale(1.06);
+    transform: translateY(-2px) scale(1.06);
   }
 
   .menu-screen__drift--account
@@ -3703,11 +4703,11 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__action,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:focus-visible
+    .menu-capsule__rail--end:focus-visible
     .menu-capsule__action {
     background-size: 280% 100%;
     animation-duration: 1.6s;
@@ -3715,11 +4715,11 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__action--primary,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:focus-visible
+    .menu-capsule__rail--end:focus-visible
     .menu-capsule__action--primary {
     filter:
       drop-shadow(0 -1px 0 rgb(236 254 255 / 88%))
@@ -3731,11 +4731,11 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-trail__svg,
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail:focus-visible
+    .menu-capsule__rail--end:focus-visible
     .menu-capsule__signin-trail__svg {
     filter:
       drop-shadow(0 0 3px rgb(103 232 249 / 65%))
@@ -3982,7 +4982,7 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-glass::after,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -4071,7 +5071,7 @@
   /* mouse-hover: держим сомкнутым + перелив всё время наведения */
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-ring-gap,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -4083,7 +5083,7 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-ring-closed,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -4095,7 +5095,7 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-ring-bloom,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -4108,7 +5108,7 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-ring-edge,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -4120,7 +5120,7 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-ring-flow,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -4189,7 +5189,7 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-connect,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -4310,7 +5310,7 @@
    */
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -4328,7 +5328,7 @@
   /* молния на hover даёт лишний светлый blob — прячем */
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-connect,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -4341,7 +5341,7 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin::before,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -4353,7 +5353,7 @@
   /* курсор: стоп циклов кольца / звезды внутри глифа */
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-star,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -4364,7 +5364,7 @@
 
   .menu-screen__drift--account
     .menu-capsule--id-guest
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin,
   .menu-screen__drift--account
     .menu-capsule--id-guest
@@ -4380,7 +5380,7 @@
 
   .menu-screen__drift--account
     .menu-capsule--id-guest
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin::before,
   .menu-screen__drift--account
     .menu-capsule--id-guest
@@ -4391,7 +5391,7 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:active
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:active):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin {
     transform: translateY(-1px) scale(1.14);
   }
@@ -4480,7 +5480,7 @@
   /* курсорный hover: не показываем пиковый burst */
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-peak-burst,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -4491,7 +5491,7 @@
 
   .menu-screen__drift--account
     .menu-capsule--account
-    .menu-capsule__rail--end:hover
+    .menu-capsule__rail--end:has(.menu-capsule__signin-hit:hover):not(:has(.menu-capsule__action-mini:hover))
     .menu-capsule__signin-peak-burst__spark,
   .menu-screen__drift--account
     .menu-capsule--account
@@ -4636,8 +5636,11 @@
     }
   }
 
-  /* Имя: зеркальный металлик — только текст */
-  .menu-screen__drift--account .menu-capsule--account .menu-capsule__title {
+  /* Имя: зеркальный металлик — только текст вне плашки профиля */
+  .menu-screen__drift--account
+    .menu-capsule--account
+    .menu-capsule__title-row
+    > .menu-capsule__title:not(.menu-capsule__title-edit) {
     min-width: 0;
     font: 800 21px/1.12 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
     letter-spacing: 0.035em;
@@ -4755,16 +5758,25 @@
     }
   }
 
+  .menu-screen__drift--account .menu-capsule--account .menu-capsule__meta--profile {
+    align-items: center;
+  }
+
   .menu-screen__drift--account .menu-capsule--account .menu-capsule__meta--profile .menu-capsule__meta-mark {
     flex-shrink: 0;
     width: 7px;
     height: 7px;
+    margin-top: 0;
     border-radius: 50%;
     background: radial-gradient(circle at 35% 30%, #f5d0fe, #e879f9 60%, #a21caf);
     box-shadow: 0 0 8px rgba(232, 121, 249, 0.55);
   }
 
   .menu-screen__drift--account .menu-capsule--account .menu-capsule__meta--profile .menu-capsule__meta-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
     color: #e9d5ff;
     text-shadow:
       0 1px 0 rgb(12 4 20 / 60%),
