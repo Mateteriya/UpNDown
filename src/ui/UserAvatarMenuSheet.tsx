@@ -540,7 +540,6 @@ export function UserAvatarMenuSheet({
         onPhotoCaptured={onPhotoCaptured}
         onSave={(url) => {
           onSaveAvatar(url);
-          setAvatarEditorOpen(false);
         }}
         onCancel={() => setAvatarEditorOpen(false)}
       />

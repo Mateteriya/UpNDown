@@ -765,7 +765,6 @@ function App() {
           onPhotoCaptured={handlePhotoCaptured}
           onSave={(avatarDataUrl) => {
             handleNameAvatarConfirm({ displayName: profile.displayName, avatarDataUrl })
-            closeAvatarEditorModal()
           }}
           onCancel={closeAvatarEditorModal}
         />

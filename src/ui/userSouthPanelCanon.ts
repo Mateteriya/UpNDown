@@ -8,9 +8,9 @@
  *  · Tablet shell 3p/4p — `useTabletPcTableTuning` (+ класс `.game-table-tablet-pc`)
  */
 
-/** ПК · розыгрыш: лицо; кольцо заказа ×1.2 → визуально ~70 */
-export const USER_SOUTH_AVATAR_PC_PLAY_PX = 58;
-/** ПК · торги: без кольца — компенсируем до визуальных ~70 */
+/** ПК · розыгрыш: лицо ≈ слот панели (без тёмного зазора) */
+export const USER_SOUTH_AVATAR_PC_PLAY_PX = 66;
+/** ПК · торги: без кольца — чуть крупнее слота */
 export const USER_SOUTH_AVATAR_PC_BIDDING_PX = 70;
 /** Планшет · розыгрыш */
 export const USER_SOUTH_AVATAR_TABLET_PLAY_PX = 38;

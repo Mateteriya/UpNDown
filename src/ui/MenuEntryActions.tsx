@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import {
   getMenuCapsuleGlyphOnly,
@@ -1728,13 +1728,14 @@ export function MenuNamePlaqueEditMark({
 }
 
 /** Кнопка-галочка: принять / сохранить имя. */
-function MenuNamePlaqueConfirmMark({
+export function MenuNamePlaqueConfirmMark({
   onConfirm,
   tipOpen,
   onTipOpenChange,
   tipId,
   tipText,
   ariaLabel,
+  className,
 }: {
   onConfirm: () => void;
   tipOpen: boolean;
@@ -1742,6 +1743,7 @@ function MenuNamePlaqueConfirmMark({
   tipId: string;
   tipText: string;
   ariaLabel: string;
+  className?: string;
 }) {
   const uid = useId().replace(/:/g, '');
   const anchorRef = useRef<HTMLButtonElement | null>(null);
@@ -1749,7 +1751,7 @@ function MenuNamePlaqueConfirmMark({
     <button
       ref={anchorRef}
       type="button"
-      className="menu-capsule__name-plaque__confirm"
+      className={['menu-capsule__name-plaque__confirm', className].filter(Boolean).join(' ')}
       aria-label={ariaLabel}
       aria-describedby={tipOpen ? tipId : undefined}
       onMouseEnter={() => onTipOpenChange(true)}
@@ -1770,34 +1772,38 @@ function MenuNamePlaqueConfirmMark({
       onKeyDown={(e) => e.stopPropagation()}
     >
       <span className="menu-capsule__name-plaque__confirm-rim" aria-hidden="true" />
-      <svg viewBox="0 0 20 20" width="100%" height="100%" focusable="false" aria-hidden="true">
+      <svg viewBox="0 0 22 14" width="100%" height="100%" focusable="false" aria-hidden="true">
         <defs>
           <linearGradient id={`${uid}-check`} x1="0%" y1="100%" x2="100%" y2="0%">
             <stop stopColor="#67e8f9" />
-            <stop offset="0.45" stopColor="#34d399" />
+            <stop offset="0.4" stopColor="#34d399" />
+            <stop offset="0.75" stopColor="#a3e635" />
             <stop offset="1" stopColor="#fbbf24" />
           </linearGradient>
-          <linearGradient id={`${uid}-stroke`} x1="0%" y1="100%" x2="100%" y2="0%">
+          <linearGradient id={`${uid}-glow`} x1="0%" y1="50%" x2="100%" y2="50%">
             <stop stopColor="#ecfeff" />
-            <stop offset="1" stopColor="#a7f3d0" />
+            <stop offset="0.55" stopColor="#a7f3d0" />
+            <stop offset="1" stopColor="#fef08a" />
           </linearGradient>
         </defs>
+        {/* жирная цветная галочка */}
         <path
-          d="M4.2 10.4 8.1 14.2 15.8 5.6"
+          d="M3.6 7.4 8.2 11.4 18.4 2.8"
           fill="none"
           stroke={`url(#${uid}-check)`}
-          strokeWidth="2.4"
+          strokeWidth="2.6"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+        {/* светлый блик поверх */}
         <path
-          d="M4.2 10.4 8.1 14.2 15.8 5.6"
+          d="M3.6 7.4 8.2 11.4 18.4 2.8"
           fill="none"
-          stroke={`url(#${uid}-stroke)`}
-          strokeWidth="1.1"
+          stroke={`url(#${uid}-glow)`}
+          strokeWidth="1.15"
           strokeLinecap="round"
           strokeLinejoin="round"
-          opacity="0.85"
+          opacity="0.9"
         />
       </svg>
       <MenuCapsuleCosmicTip
@@ -1810,6 +1816,7 @@ function MenuNamePlaqueConfirmMark({
     </button>
   );
 }
+
 function MenuCabinetSettingsGlyphRich({
   className = 'menu-capsule__mid-settings-svg',
 }: {
@@ -2000,7 +2007,9 @@ export function MenuCapsuleButton({
   const [confirmTipOpen, setConfirmTipOpen] = useState(false);
   const [nameEditing, setNameEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState(title);
+  const [namePlaqueWide, setNamePlaqueWide] = useState(false);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const namePlaqueRef = useRef<HTMLSpanElement | null>(null);
   const renameEarRef = useRef<HTMLSpanElement | null>(null);
   const renameTipId = useId().replace(/:/g, '');
   const confirmTipId = useId().replace(/:/g, '');
@@ -2065,9 +2074,53 @@ export function MenuCapsuleButton({
     glyphOnly ? 'menu-capsule--glyph-only' : '',
     cabinetIdentity ? `menu-capsule--id-${cabinetIdentity}` : '',
     metaTone ? `menu-capsule--meta-${metaTone}` : '',
+    cabinetIdentity === 'profile' && title.trim().length > 0 && title.trim().length <= 2
+      ? 'menu-capsule--name-xs'
+      : '',
+    /* ≤8: имя справа от аватара (не накладываем — экономить место незачем) */
+    cabinetIdentity === 'profile' && title.trim().length > 0 && title.trim().length <= 8
+      ? 'menu-capsule--name-short'
+      : '',
+    cabinetIdentity === 'profile' && title.trim().length > 8
+      ? 'menu-capsule--name-long'
+      : '',
+    cabinetIdentity === 'profile' && title.trim().length >= 11 && title.trim().length <= 13
+      ? 'menu-capsule--name-md'
+      : '',
+    cabinetIdentity === 'profile' && title.trim().length >= 14
+      ? 'menu-capsule--name-sm'
+      : '',
+    /* одна сетка для профиля+«войти»: без absolute-дока ЛК */
+    cabinetIdentity === 'profile' && showSettingsGlyph && showEndRail
+      ? 'menu-capsule--profile-grid'
+      : '',
+    namePlaqueWide ? 'menu-capsule--name-plaque-wide' : '',
   ]
     .filter(Boolean)
     .join(' ');
+
+  const profileSplitGrid =
+    cabinetIdentity === 'profile' && Boolean(showSettingsGlyph && showEndRail);
+
+  /** Плашка имени >192px → +8px между левой и правой половинами. */
+  useLayoutEffect(() => {
+    if (cabinetIdentity !== 'profile') {
+      setNamePlaqueWide(false);
+      return;
+    }
+    const el = namePlaqueRef.current;
+    if (!el) {
+      setNamePlaqueWide(false);
+      return;
+    }
+    const sync = () => {
+      setNamePlaqueWide(el.getBoundingClientRect().width > 192);
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [cabinetIdentity, title, nameDraft, nameEditing]);
 
   const glyphSlot = guestGlyphCycle ? (
     <span
@@ -2212,6 +2265,173 @@ export function MenuCapsuleButton({
       </span>
     ) : null;
 
+  const metaBlock =
+    metaLine && cabinetIdentity !== 'profile' ? (
+      <span
+        className={[
+          'menu-capsule__meta',
+          metaTone ? `menu-capsule__meta--${metaTone}` : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {metaTone === 'email' ? (
+          <span className="menu-capsule__meta-pulse" aria-hidden="true" />
+        ) : (
+          <span className="menu-capsule__meta-mark" aria-hidden="true" />
+        )}
+        <span className="menu-capsule__meta-text">{metaLine}</span>
+      </span>
+    ) : null;
+
+  /** Профиль: «вне аккаунта» — ушко снизу слева капсулы (как «сдающий»). */
+  const profileOutsideEar =
+    cabinetIdentity === 'profile' && metaLine ? (
+      <span className="menu-capsule__outside-ear" aria-label={metaLine}>
+        <span className="menu-capsule__outside-ear__mark" aria-hidden="true" />
+        <span className="menu-capsule__outside-ear__text">{metaLine}</span>
+      </span>
+    ) : null;
+
+  const namePlaqueBlock =
+    cabinetIdentity === 'guest' ? (
+      <span
+        ref={guestTitleAnchorRef}
+        className="menu-capsule__title menu-capsule__title--guest"
+        aria-label={tUi('menu.cabinetGuestTitleTip')}
+        aria-describedby={guestTitleTipOpen ? guestTitleTipId : undefined}
+        onMouseEnter={() => setGuestTitleTipOpen(true)}
+        onMouseLeave={() => setGuestTitleTipOpen(false)}
+        onFocus={() => setGuestTitleTipOpen(true)}
+        onBlur={() => setGuestTitleTipOpen(false)}
+      >
+        {title}
+        <MenuCapsuleCosmicTip
+          open={guestTitleTipOpen}
+          anchorRef={guestTitleAnchorRef}
+          tipId={guestTitleTipId}
+          text={tUi('menu.cabinetGuestTitleTip')}
+        />
+      </span>
+    ) : nameEditing && canInlineRename ? (
+      <span
+        ref={namePlaqueRef}
+        className="menu-capsule__name-plaque menu-capsule__name-plaque--editing"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <span className="menu-capsule__name-plaque__rim" aria-hidden="true" />
+        <span className="menu-capsule__name-plaque__sheen" aria-hidden="true" />
+        <input
+          ref={nameInputRef}
+          className="menu-capsule__title-edit"
+          value={nameDraft}
+          maxLength={17}
+          size={Math.max(nameDraft.length, 1)}
+          spellCheck={false}
+          autoComplete="off"
+          aria-label={tUi('menu.cabinetRenameNameAria')}
+          onChange={(e) => setNameDraft(e.target.value.slice(0, 17))}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitInlineName();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              cancelInlineName();
+            }
+          }}
+          onKeyUp={(e) => e.stopPropagation()}
+          onBlur={(e) => {
+            if (e.currentTarget.parentElement?.contains(e.relatedTarget as Node)) return;
+            commitInlineName();
+          }}
+        />
+        <MenuNamePlaqueConfirmMark
+          onConfirm={commitInlineName}
+          tipOpen={confirmTipOpen}
+          onTipOpenChange={setConfirmTipOpen}
+          tipId={confirmTipId}
+          tipText={tUi('menu.cabinetRenameConfirmTip')}
+          ariaLabel={tUi('menu.cabinetRenameConfirmAria')}
+        />
+      </span>
+    ) : (
+      <span
+        ref={namePlaqueRef}
+        className={[
+          'menu-capsule__name-plaque',
+          canInlineRename ? 'menu-capsule__name-plaque--editable' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-label={canInlineRename ? tUi('menu.cabinetRenameNameAria') : undefined}
+        aria-describedby={canInlineRename && renameTipOpen ? renameTipId : undefined}
+        role={canInlineRename ? 'button' : undefined}
+        tabIndex={canInlineRename ? 0 : undefined}
+        onMouseEnter={canInlineRename ? () => setRenameTipOpen(true) : undefined}
+        onMouseLeave={canInlineRename ? () => setRenameTipOpen(false) : undefined}
+        onFocus={canInlineRename ? () => setRenameTipOpen(true) : undefined}
+        onBlur={canInlineRename ? () => setRenameTipOpen(false) : undefined}
+        onClick={
+          canInlineRename
+            ? (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setRenameTipOpen(false);
+                setNameDraft(title);
+                setNameEditing(true);
+              }
+            : undefined
+        }
+        onKeyDown={
+          canInlineRename
+            ? (e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                e.stopPropagation();
+                setRenameTipOpen(false);
+                setNameDraft(title);
+                setNameEditing(true);
+              }
+            : undefined
+        }
+        onPointerDown={canInlineRename ? (e) => e.stopPropagation() : undefined}
+      >
+        <span className="menu-capsule__name-plaque__rim" aria-hidden="true" />
+        <span className="menu-capsule__name-plaque__sheen" aria-hidden="true" />
+        <span
+          className={[
+            'menu-capsule__title',
+            canInlineRename ? 'menu-capsule__title--editable' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {title}
+        </span>
+        {canInlineRename ? (
+          <MenuNamePlaqueEditMark
+            tipOpen={renameTipOpen}
+            tipId={renameTipId}
+            tipText={tUi('menu.cabinetRenameEditTip')}
+            anchorRef={renameEarRef}
+            onTipOpenChange={setRenameTipOpen}
+          />
+        ) : null}
+      </span>
+    );
+
   const identityBody = (
     <span className="menu-capsule__body">
       {eyebrow || eyebrowAside ? (
@@ -2226,159 +2446,10 @@ export function MenuCapsuleButton({
         </span>
       ) : null}
       <span className="menu-capsule__title-row">
-        {cabinetIdentity === 'guest' ? (
-          <span
-            ref={guestTitleAnchorRef}
-            className="menu-capsule__title menu-capsule__title--guest"
-            aria-label={tUi('menu.cabinetGuestTitleTip')}
-            aria-describedby={guestTitleTipOpen ? guestTitleTipId : undefined}
-            onMouseEnter={() => setGuestTitleTipOpen(true)}
-            onMouseLeave={() => setGuestTitleTipOpen(false)}
-            onFocus={() => setGuestTitleTipOpen(true)}
-            onBlur={() => setGuestTitleTipOpen(false)}
-          >
-            {title}
-            <MenuCapsuleCosmicTip
-              open={guestTitleTipOpen}
-              anchorRef={guestTitleAnchorRef}
-              tipId={guestTitleTipId}
-              text={tUi('menu.cabinetGuestTitleTip')}
-            />
-          </span>
-        ) : nameEditing && canInlineRename ? (
-          <span
-            className="menu-capsule__name-plaque menu-capsule__name-plaque--editing"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            <span className="menu-capsule__name-plaque__rim" aria-hidden="true" />
-            <span className="menu-capsule__name-plaque__sheen" aria-hidden="true" />
-            <input
-              ref={nameInputRef}
-              className="menu-capsule__title-edit"
-              value={nameDraft}
-              maxLength={17}
-              spellCheck={false}
-              autoComplete="off"
-              aria-label={tUi('menu.cabinetRenameNameAria')}
-              onChange={(e) => setNameDraft(e.target.value.slice(0, 17))}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  commitInlineName();
-                } else if (e.key === 'Escape') {
-                  e.preventDefault();
-                  cancelInlineName();
-                }
-              }}
-              onKeyUp={(e) => e.stopPropagation()}
-              onBlur={(e) => {
-                if (e.currentTarget.parentElement?.contains(e.relatedTarget as Node)) return;
-                commitInlineName();
-              }}
-            />
-            <MenuNamePlaqueConfirmMark
-              onConfirm={commitInlineName}
-              tipOpen={confirmTipOpen}
-              onTipOpenChange={setConfirmTipOpen}
-              tipId={confirmTipId}
-              tipText={tUi('menu.cabinetRenameConfirmTip')}
-              ariaLabel={tUi('menu.cabinetRenameConfirmAria')}
-            />
-          </span>
-        ) : (
-          <span
-            className={[
-              'menu-capsule__name-plaque',
-              canInlineRename ? 'menu-capsule__name-plaque--editable' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            aria-label={canInlineRename ? tUi('menu.cabinetRenameNameAria') : undefined}
-            aria-describedby={canInlineRename && renameTipOpen ? renameTipId : undefined}
-            role={canInlineRename ? 'button' : undefined}
-            tabIndex={canInlineRename ? 0 : undefined}
-            onMouseEnter={canInlineRename ? () => setRenameTipOpen(true) : undefined}
-            onMouseLeave={canInlineRename ? () => setRenameTipOpen(false) : undefined}
-            onFocus={canInlineRename ? () => setRenameTipOpen(true) : undefined}
-            onBlur={canInlineRename ? () => setRenameTipOpen(false) : undefined}
-            onClick={
-              canInlineRename
-                ? (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setRenameTipOpen(false);
-                    setNameDraft(title);
-                    setNameEditing(true);
-                  }
-                : undefined
-            }
-            onKeyDown={
-              canInlineRename
-                ? (e) => {
-                    if (e.key !== 'Enter' && e.key !== ' ') return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setRenameTipOpen(false);
-                    setNameDraft(title);
-                    setNameEditing(true);
-                  }
-                : undefined
-            }
-            onPointerDown={canInlineRename ? (e) => e.stopPropagation() : undefined}
-          >
-            <span className="menu-capsule__name-plaque__rim" aria-hidden="true" />
-            <span className="menu-capsule__name-plaque__sheen" aria-hidden="true" />
-            <span
-              className={[
-                'menu-capsule__title',
-                canInlineRename ? 'menu-capsule__title--editable' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-            >
-              {title}
-            </span>
-            {canInlineRename ? (
-              <MenuNamePlaqueEditMark
-                tipOpen={renameTipOpen}
-                tipId={renameTipId}
-                tipText={tUi('menu.cabinetRenameEditTip')}
-                anchorRef={renameEarRef}
-                onTipOpenChange={setRenameTipOpen}
-              />
-            ) : null}
-          </span>
-        )}
+        {namePlaqueBlock}
         {!settingsInMid ? settingsGlyph : null}
       </span>
-      {metaLine ? (
-        <span
-          className={[
-            'menu-capsule__meta',
-            metaTone ? `menu-capsule__meta--${metaTone}` : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-        >
-          {metaTone === 'email' ? (
-            <span className="menu-capsule__meta-pulse" aria-hidden="true" />
-          ) : (
-            <span className="menu-capsule__meta-mark" aria-hidden="true" />
-          )}
-          <span className="menu-capsule__meta-text">{metaLine}</span>
-        </span>
-      ) : null}
+      {metaBlock}
       {hint ? <span className="menu-capsule__hint">{hint}</span> : null}
     </span>
   );
@@ -2447,6 +2518,29 @@ export function MenuCapsuleButton({
     </span>
   );
 
+  const activateSignIn = () => {
+    setSignInActionTipOpen(false);
+    setSignInMiniTip(null);
+    onSignIn?.();
+  };
+
+  const signInActionCopy = (
+    <span className="menu-capsule__action-copy">
+      <span className="menu-capsule__action menu-capsule__action--primary">
+        {tUi('menu.cabinetSignInAction')}
+      </span>
+      <span className="menu-capsule__action-arrow" aria-hidden="true">
+        <MenuSignInMidArrow />
+      </span>
+      <span className="menu-capsule__action-foot">
+        <span className="menu-capsule__action menu-capsule__action--sub">
+          {tUi('menu.cabinetSignInActionSub')}
+        </span>
+        {signInMinis}
+      </span>
+    </span>
+  );
+
   const endRail = showEndRail ? (
     <span
       ref={signInActionAnchorRef}
@@ -2470,17 +2564,13 @@ export function MenuCapsuleButton({
         if (!(e.target as HTMLElement).closest('.menu-capsule__signin-hit')) return;
         e.preventDefault();
         e.stopPropagation();
-        setSignInActionTipOpen(false);
-        setSignInMiniTip(null);
-        onSignIn?.();
+        activateSignIn();
       }}
       onKeyDown={(e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
         e.preventDefault();
         e.stopPropagation();
-        setSignInActionTipOpen(false);
-        setSignInMiniTip(null);
-        onSignIn?.();
+        activateSignIn();
       }}
       onPointerDown={(e) => e.stopPropagation()}
       onFocus={() => setSignInActionTipOpen(true)}
@@ -2499,26 +2589,11 @@ export function MenuCapsuleButton({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setSignInActionTipOpen(false);
-          setSignInMiniTip(null);
-          onSignIn?.();
+          activateSignIn();
         }}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <span className="menu-capsule__action-copy">
-          <span className="menu-capsule__action menu-capsule__action--primary">
-            {tUi('menu.cabinetSignInAction')}
-          </span>
-          <span className="menu-capsule__action-arrow" aria-hidden="true">
-            <MenuSignInMidArrow />
-          </span>
-          <span className="menu-capsule__action-foot">
-            <span className="menu-capsule__action menu-capsule__action--sub">
-              {tUi('menu.cabinetSignInActionSub')}
-            </span>
-            {signInMinis}
-          </span>
-        </span>
+        {signInActionCopy}
         <MenuSignInConnectFlash />
         <span className="menu-capsule__signin-flow">
           <span className="menu-capsule__glyph menu-capsule__glyph--signin">
@@ -2543,29 +2618,45 @@ export function MenuCapsuleButton({
 
   const body = showEndRail ? (
     <>
-      <span className="menu-capsule__half menu-capsule__half--start">
-        {glyphSlot}
-        {identityBody}
-      </span>
-      {midSettings ?? (
-        <span className="menu-capsule__seam" aria-hidden="true">
-          <span className="menu-capsule__seam__lane menu-capsule__seam__lane--side">
-            <span className="menu-capsule__seam__track" />
+      {profileSplitGrid ? (
+        <>
+          <span className="menu-capsule__half menu-capsule__half--start menu-capsule__half--start--endcap">
+            {glyphSlot}
           </span>
-          <span className="menu-capsule__seam__lane menu-capsule__seam__lane--mid">
-            <span className="menu-capsule__seam__track" />
-            <span className="menu-capsule__seam__scan" />
-            <span className="menu-capsule__seam__node">
-              <span className="menu-capsule__seam__node-ring" />
-              <span className="menu-capsule__seam__node-core" />
+          <span className="menu-capsule__name-header">{namePlaqueBlock}</span>
+          <span className="menu-capsule__name-long-dock">{midSettings}</span>
+          {endRail}
+        </>
+      ) : (
+        <>
+          <span className="menu-capsule__half menu-capsule__half--start">
+            {glyphSlot}
+            <span className="menu-capsule__start-main">
+              {identityBody}
+              {midSettings}
             </span>
           </span>
-          <span className="menu-capsule__seam__lane menu-capsule__seam__lane--side">
-            <span className="menu-capsule__seam__track" />
-          </span>
-        </span>
+          {settingsInMid ? null : (
+            <span className="menu-capsule__seam" aria-hidden="true">
+              <span className="menu-capsule__seam__lane menu-capsule__seam__lane--side">
+                <span className="menu-capsule__seam__track" />
+              </span>
+              <span className="menu-capsule__seam__lane menu-capsule__seam__lane--mid">
+                <span className="menu-capsule__seam__track" />
+                <span className="menu-capsule__seam__scan" />
+                <span className="menu-capsule__seam__node">
+                  <span className="menu-capsule__seam__node-ring" />
+                  <span className="menu-capsule__seam__node-core" />
+                </span>
+              </span>
+              <span className="menu-capsule__seam__lane menu-capsule__seam__lane--side">
+                <span className="menu-capsule__seam__track" />
+              </span>
+            </span>
+          )}
+          {endRail}
+        </>
       )}
-      {endRail}
     </>
   ) : (
     <>
@@ -2622,6 +2713,7 @@ export function MenuCapsuleButton({
     href && !disabled ? (
       <a className={className} href={href} onPointerUp={blurAfterTouch}>
         {body}
+        {profileOutsideEar}
       </a>
     ) : nameEditing ? (
       <div
@@ -2635,6 +2727,7 @@ export function MenuCapsuleButton({
         onKeyDown={(e) => e.stopPropagation()}
       >
         {body}
+        {profileOutsideEar}
       </div>
     ) : (
       <button
@@ -2645,6 +2738,7 @@ export function MenuCapsuleButton({
         onPointerUp={blurAfterTouch}
       >
         {body}
+        {profileOutsideEar}
       </button>
     );
 

@@ -15,3 +15,9 @@ export function isPremiumAiAvatarCustomizationEnabled(_userId?: string | null): 
   return true;
   // В продакшне: return !!userSubscription?.isPremium;
 }
+
+/** Элитный стикер «Джокер» в редакторе аватарки — премиум; пока для тестов доступно всем. */
+export function isPremiumAvatarJokerStickerEnabled(_userId?: string | null): boolean {
+  return true;
+  // В продакшне: return !!userSubscription?.isPremium;
+}

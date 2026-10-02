@@ -8,6 +8,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -17,6 +18,9 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { MenuIdentityStatus } from '../lib/menuIdentityStatus';
+import { loadAvatarEditorProject } from '../lib/avatarEditorProject';
+import { defaultAvatarBadgeText } from '../lib/avatarEditorTemplates';
+import { getAvatar3dPolishFlag } from '../lib/avatar3dFinish';
 import { useT } from '../i18n';
 import { PlayerAvatar } from './PlayerAvatar';
 
@@ -535,8 +539,28 @@ export function MenuSignedIdentityMark({
   surface = 'chip',
 }: MenuSignedIdentityMarkProps) {
   const t = useT();
+  const editCueGradId = `menu-avatar-edit-cue-${useId().replace(/:/g, '')}`;
   const isAccount = status === 'account';
   const canEditAvatar = Boolean(onEditAvatar && !isAccount);
+  const polished3d = useMemo(
+    () => isAccount && getAvatar3dPolishFlag(),
+    [isAccount, avatarDataUrl],
+  );
+  const badgeMeta = useMemo(() => {
+    if (!avatarDataUrl) return null;
+    try {
+      const project = loadAvatarEditorProject();
+      if (!project || project.initialsStyle !== 'badge') return null;
+      const text =
+        (project.badgeText && project.badgeText.trim()) || defaultAvatarBadgeText(name);
+      return {
+        text,
+        color: project.initialsColor || '#c084fc',
+      };
+    } catch {
+      return null;
+    }
+  }, [avatarDataUrl, name]);
   const waveTipId = useId();
   const statusTipId = useId();
   const waveRef = useRef<HTMLElement>(null);
@@ -576,6 +600,8 @@ export function MenuSignedIdentityMark({
         `menu-signed-id--${status}`,
         `menu-signed-id--${surface}`,
         canEditAvatar ? 'menu-signed-id--edit-avatar' : '',
+        badgeMeta ? 'menu-signed-id--with-nameplate' : '',
+        polished3d ? 'menu-signed-id--polished' : '',
         className,
       ]
         .filter(Boolean)
@@ -628,10 +654,56 @@ export function MenuSignedIdentityMark({
           className={[
             'menu-signed-id__face',
             isAccount ? 'menu-signed-id__face--pop' : '',
+            badgeMeta ? 'menu-signed-id__face--has-nameplate' : '',
           ]
             .filter(Boolean)
             .join(' ')}
         />
+        {canEditAvatar && surface === 'capsule' ? (
+          <span className="menu-signed-id__edit-cue" aria-hidden="true">
+            <svg viewBox="0 0 22 14" width="11" height="7" focusable="false">
+              <defs>
+                <linearGradient id={editCueGradId} x1="0%" y1="50%" x2="100%" y2="50%">
+                  <stop stopColor="#67e8f9" />
+                  <stop offset="0.45" stopColor="#a78bfa" />
+                  <stop offset="1" stopColor="#e879f9" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M4.2 9.6 15.4 3.2l1.9 3.3-11.2 6.4-2.6.4.7-3.7z"
+                fill={`url(#${editCueGradId})`}
+                stroke="#ecfeff"
+                strokeWidth="0.7"
+                strokeLinejoin="round"
+              />
+              <path d="M4.2 9.6 2.4 12.6l3.4-.5z" fill="#fbbf24" />
+            </svg>
+          </span>
+        ) : null}
+        {badgeMeta ? (
+          <span
+            className="menu-signed-id__nameplate"
+            style={{ ['--badge-color' as string]: badgeMeta.color }}
+            title={badgeMeta.text}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (canEditAvatar) openAvatarEditor();
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            role={canEditAvatar ? 'button' : undefined}
+            tabIndex={canEditAvatar ? 0 : undefined}
+            aria-label={badgeMeta.text}
+            onKeyDown={
+              canEditAvatar
+                ? (e: KeyboardEvent<HTMLElement>) => onNestedActivateKey(e, openAvatarEditor)
+                : undefined
+            }
+          >
+            <span className="menu-signed-id__nameplate-lens" aria-hidden />
+            <span className="menu-signed-id__nameplate-glow" aria-hidden />
+            <span className="menu-signed-id__nameplate-text">{badgeMeta.text}</span>
+          </span>
+        ) : null}
         {surface === 'capsule' && isAccount ? (
           <span className="menu-signed-id__glass" aria-hidden="true" />
         ) : null}

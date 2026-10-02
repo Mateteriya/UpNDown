@@ -38,3 +38,16 @@
     background-position: 40% 50%;
   }
 }
+
+/* Старый PNG-экспорт плашки с полями — лицо на весь круг, без тёмного кольца */
+.player-avatar--crop-badge-pad {
+  background: transparent !important;
+}
+
+.player-avatar__img--crop-badge-pad {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  /* pad/outSize ≈ 0.16/1.32 */
+  object-view-box: inset(12.12%);
+}

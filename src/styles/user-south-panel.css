@@ -202,10 +202,10 @@ html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc).game
   .user-player-panel
   .user-player-panel-pc-avatar-wrap {
   height: auto !important;
-  min-height: 58px !important;
+  min-height: 66px !important;
   max-height: none !important;
   width: max-content !important;
-  min-width: 58px !important;
+  min-width: 66px !important;
   overflow: visible !important;
   display: inline-flex !important;
   align-items: center !important;

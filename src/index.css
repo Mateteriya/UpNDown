@@ -26531,8 +26531,9 @@
     z-index: 6 !important;
   }
 }
-/* Аватарка с фото: сильная выпуклость (шарик) */
+/* Аватарка с фото: сильная выпуклость (шарик); без тёмной подложки под фото */
 .game-table-root .player-avatar:has(img) {
+  background: transparent !important;
   box-shadow:
     inset 0 5px 14px 2px rgba(255, 255, 255, 0.55),
     inset 0 -5px 14px 2px rgba(0, 0, 0, 0.5),
@@ -26540,6 +26541,13 @@
     inset -2px -2px 6px rgba(0, 0, 0, 0.25),
     0 0 0 2px rgba(100, 150, 155, 0.45),
     0 4px 12px rgba(0, 0, 0, 0.35) !important;
+}
+.game-table-root .player-avatar:has(img) img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  border-radius: 50% !important;
 }
 /* Кольцо заказа на аватаре: внешняя рамка — у обёртки; класс на аватаре снимает штатный border/box-shadow с первого кадра */
 .game-table-root .player-avatar.player-avatar-order-ring-inner {

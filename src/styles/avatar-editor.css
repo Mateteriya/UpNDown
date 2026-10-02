@@ -2,6 +2,120 @@
  * Avatar editor — overrides (main.tsx, ПОСЛЕ index.css).
  */
 
+/* ═══════════════════════════════════════════════════════════════
+ * PERF: убрать непрерывную покраску в idle (тени/filter/backdrop).
+ * index.css крутит hub-chain / rim-idle / rail-pulse / cosmic forever —
+ * это главная причина рывков «даже когда ничего не делаешь».
+ * ═══════════════════════════════════════════════════════════════ */
+
+.avatar-editor-preset-thumb {
+  content-visibility: auto;
+  contain: layout paint style;
+}
+
+/* ✦ премиум выходит за край — contain:paint иначе срезает значок */
+.avatar-editor-preset-thumb:has(.avatar-editor-preset-thumb__premium) {
+  contain: none !important;
+  content-visibility: visible !important;
+  overflow: visible !important;
+}
+
+.avatar-editor-hub__tile {
+  animation: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.avatar-editor-hub__rim-spin,
+.avatar-editor-preset-thumb__rim-spin {
+  animation: none !important;
+  will-change: auto !important;
+  filter: none !important;
+  transform-origin: 50% 50% !important;
+}
+
+.avatar-editor-hub__tile:hover .avatar-editor-hub__rim-spin,
+.avatar-editor-hub__tile--active .avatar-editor-hub__rim-spin,
+.avatar-editor-dock__btn:hover .avatar-editor-hub__rim-spin,
+.avatar-editor-dock__btn--active .avatar-editor-hub__rim-spin {
+  /* лёгкий spin только на hover/active — без filter-keyframes */
+  animation: avatar-editor-hub-rim-spin-cheap 2.4s linear infinite !important;
+}
+
+.avatar-editor-hub__tile:hover .avatar-editor-hub__rim::after,
+.avatar-editor-preset-thumb:hover .avatar-editor-preset-thumb__rim::after,
+.avatar-editor-preset-thumb.avatar-editor-rail-hot .avatar-editor-preset-thumb__rim::after {
+  animation: none !important;
+  filter: none !important;
+  opacity: 0.7 !important;
+}
+
+/* Active preset: статичный обод, без бесконечного hot-pulse */
+.avatar-editor-preset-thumb--active .avatar-editor-preset-thumb__rim-spin {
+  animation: none !important;
+}
+
+.avatar-editor-preset-thumb--active .avatar-editor-preset-thumb__rim::after {
+  animation: none !important;
+  filter: none !important;
+  opacity: 0.55 !important;
+}
+
+.avatar-editor-preset-thumb:hover .avatar-editor-preset-thumb__rim-spin,
+.avatar-editor-preset-thumb.avatar-editor-rail-hot .avatar-editor-preset-thumb__rim-spin {
+  animation: avatar-editor-hub-rim-spin-cheap 2.4s linear infinite !important;
+}
+
+@keyframes avatar-editor-hub-rim-spin-cheap {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.avatar-editor-tools-rail--live {
+  animation: none !important;
+}
+
+.avatar-editor-left-save--dirty {
+  animation: none !important;
+}
+
+.avatar-editor-left-save--dirty .avatar-editor-left-save__dirty-dot {
+  animation: none !important;
+}
+
+.avatar-editor-modal-card__aurora,
+.avatar-editor-modal-card__hud,
+.avatar-editor-modal-card--desktop::after {
+  animation: none !important;
+}
+
+.avatar-editor-modal-card--desktop .avatar-editor-modal-card__title,
+.avatar-editor-modal-card--desktop .avatar-editor-section-label {
+  animation: none !important;
+  background-size: 100% auto !important;
+}
+
+/* Бейдж / карандаш — без idle-пульса */
+.avatar-editor-badge-plate__btn,
+.avatar-editor-badge-plate__gleam,
+.avatar-editor-badge-plate__spark,
+.avatar-editor-badge-laser,
+.avatar-editor-badge-pencil__rim,
+.avatar-editor-badge-pencil__rim-spin {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-editor-modal *,
+  .avatar-editor-modal *::before,
+  .avatar-editor-modal *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Двойная «Своё»: чуть компактнее по длине; глифы ближе к надписи */
 .avatar-editor-hub__tile--photo {
   height: 47px !important;
@@ -488,8 +602,66 @@
 .avatar-editor-stage__dock-tab .avatar-editor-hub__rim-spin,
 .avatar-editor-hub__tile--active .avatar-editor-hub__rim-spin {
   padding: 2.5px !important;
-  animation: avatar-editor-hub-rim-hot 1.6s linear infinite !important;
+  animation: avatar-editor-hub-rim-spin-cheap 2.4s linear infinite !important;
   background: conic-gradient(from 0deg, #67e8f9, #22d3ee, #c084fc, #e879f9, #67e8f9) !important;
+}
+
+/* «Своё»: видимая рамка — это rim, не сплошной box-shadow. Цвета бегут по ободу, форма не крутится. */
+.avatar-editor-stage__dock-tab.avatar-editor-hub__tile--photo {
+  border-color: transparent !important;
+  box-shadow:
+    inset 0 5px 12px rgba(0, 0, 0, 0.75),
+    inset 0 2px 0 rgba(255, 255, 255, 0.28),
+    0 0 16px rgba(34, 211, 238, 0.45),
+    0 0 22px rgba(232, 121, 249, 0.35),
+    0 6px 16px rgba(2, 4, 18, 0.5) !important;
+}
+
+.avatar-editor-stage__dock-tab.avatar-editor-hub__tile--photo .avatar-editor-hub__rim {
+  inset: -6px !important;
+  opacity: 1 !important;
+  z-index: 4 !important;
+  filter: none !important;
+}
+
+.avatar-editor-stage__dock-tab.avatar-editor-hub__tile--photo .avatar-editor-hub__rim::after {
+  opacity: 0 !important;
+  animation: none !important;
+}
+
+.avatar-editor-stage__dock-tab.avatar-editor-hub__tile--photo .avatar-editor-hub__rim-spin {
+  --photo-rim-angle: 0deg;
+  animation: avatar-editor-photo-dock-rim-flow 3.2s linear infinite !important;
+  transform: none !important;
+  padding: 5px !important;
+  background: conic-gradient(
+    from var(--photo-rim-angle),
+    #22d3ee,
+    #a3e635,
+    #fde047,
+    #fb923c,
+    #f472b6,
+    #e879f9,
+    #818cf8,
+    #22d3ee
+  ) !important;
+}
+
+@property --photo-rim-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes avatar-editor-photo-dock-rim-flow {
+  from {
+    --photo-rim-angle: 0deg;
+    filter: hue-rotate(0deg) saturate(1.55) brightness(1.25);
+  }
+  to {
+    --photo-rim-angle: 360deg;
+    filter: hue-rotate(360deg) saturate(1.55) brightness(1.25);
+  }
 }
 
 .avatar-editor-stage__dock-tab .avatar-editor-hub__glyph--photo-cam,
@@ -682,60 +854,105 @@
   -webkit-text-fill-color: rgba(233, 213, 255, 0.4) !important;
 }
 
-.avatar-editor-badge-edit__save {
-  flex: 0 0 auto !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 32px !important;
-  height: 32px !important;
-  padding: 0 !important;
-  border-radius: 999px !important;
-  border: 1px solid rgba(167, 243, 208, 0.7) !important;
-  background:
-    radial-gradient(ellipse 80% 60% at 30% 20%, rgba(255, 255, 255, 0.5), transparent 55%),
-    linear-gradient(155deg, rgba(52, 211, 153, 0.9), rgba(14, 116, 144, 0.78)) !important;
-  color: #ecfdf5 !important;
-  cursor: pointer !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 0 14px rgba(52, 211, 153, 0.5) !important;
-  transition: transform 0.12s ease, filter 0.12s ease !important;
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* Галочка снаружи капсулы — не сжимает плашку */
-.avatar-editor-badge-plate__save {
+/* Галочка «применить» — ушко снизу на месте карандаша (как в кабинете) */
+.avatar-editor-badge-plate .avatar-editor-badge-plate__confirm.menu-capsule__name-plaque__confirm {
   position: absolute !important;
-  left: calc(100% + 8px) !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
+  left: 50% !important;
+  right: auto !important;
+  top: 100% !important;
+  bottom: auto !important;
   z-index: 36 !important;
+  display: grid !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
+  width: 28px !important;
+  height: 16px !important;
+  margin: -1.5px 0 0 !important;
+  padding: 2px 3px 3px !important;
+  border: 0 !important;
+  border-radius: 0 0 10px 10px !important;
+  isolation: isolate !important;
+  overflow: visible !important;
+  cursor: pointer !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  transform: translateX(-50%) !important;
+  transform-origin: top center !important;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(10, 40, 36, 0.95) 0%,
+      rgba(8, 28, 32, 0.97) 55%,
+      rgba(6, 20, 24, 0.98) 100%
+    ) !important;
+  box-shadow:
+    0 3px 10px rgba(2, 6, 23, 0.38),
+    0 0 12px rgba(52, 211, 153, 0.4),
+    0 0 18px rgba(103, 232, 249, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  transition:
+    transform 0.22s cubic-bezier(0.34, 1.45, 0.64, 1),
+    box-shadow 0.22s ease,
+    filter 0.22s ease !important;
+  filter: none !important;
 }
 
-.avatar-editor-badge-edit__save:hover {
-  filter: brightness(1.1) !important;
-  transform: scale(1.06) !important;
+.avatar-editor-badge-plate
+  .avatar-editor-badge-plate__confirm.menu-capsule__name-plaque__confirm
+  .menu-capsule__name-plaque__confirm-rim {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  border-radius: inherit !important;
+  padding: 1.5px !important;
+  pointer-events: none !important;
+  background: linear-gradient(
+    120deg,
+    #67e8f9 0%,
+    #34d399 28%,
+    #a3e635 52%,
+    #fbbf24 78%,
+    #67e8f9 100%
+  ) !important;
+  background-size: 220% 100% !important;
+  animation: avatar-editor-badge-pencil-rim 3.6s linear infinite !important;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask-composite: exclude !important;
 }
 
-.avatar-editor-badge-edit__save:active {
-  transform: scale(0.95) !important;
-}
-
-.avatar-editor-badge-plate__save:hover {
-  filter: brightness(1.1) !important;
-  transform: translateY(-50%) scale(1.06) !important;
-}
-
-.avatar-editor-badge-plate__save:active {
-  transform: translateY(-50%) scale(0.95) !important;
-}
-
-.avatar-editor-badge-edit__save-icon {
+.avatar-editor-badge-plate .avatar-editor-badge-plate__confirm.menu-capsule__name-plaque__confirm svg {
+  position: relative !important;
+  z-index: 1 !important;
   display: block !important;
-  width: 14px !important;
-  height: 14px !important;
-  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.55));
+  width: 15px !important;
+  height: 9px !important;
+  overflow: visible !important;
+  filter:
+    saturate(1.4)
+    brightness(1.12)
+    drop-shadow(0 0 3px rgba(103, 232, 249, 0.65)) !important;
+}
+
+.avatar-editor-badge-plate
+  .avatar-editor-badge-plate__confirm.menu-capsule__name-plaque__confirm:hover {
+  transform: translateX(-50%) translateY(1px) scale(1.08) !important;
+  filter: brightness(1.12) !important;
+  box-shadow:
+    0 4px 12px rgba(2, 6, 23, 0.42),
+    0 0 16px rgba(52, 211, 153, 0.55),
+    0 0 22px rgba(103, 232, 249, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+.avatar-editor-badge-plate
+  .avatar-editor-badge-plate__confirm.menu-capsule__name-plaque__confirm:active {
+  transform: translateX(-50%) translateY(2px) scale(0.96) !important;
 }
 
 .avatar-editor-modal-card--desktop .avatar-editor-preview-ring {
@@ -753,6 +970,32 @@
   clip-path: circle(50% at 50% 50%) !important;
   -webkit-clip-path: circle(50% at 50% 50%) !important;
   box-sizing: border-box !important;
+  touch-action: none !important;
+}
+
+/* Курсор над превью: видно, что можно рисовать; тип = сплошная / пунктир */
+.avatar-editor-canvas--brush-solid {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%2367e8f9' stroke-width='2.4'/%3E%3Ccircle cx='16' cy='16' r='2.2' fill='%23ecfeff'/%3E%3C/svg%3E")
+      16 16,
+    crosshair !important;
+}
+
+.avatar-editor-canvas--brush-dashed {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23e879f9' stroke-width='2.4' stroke-dasharray='4.5 3.2'/%3E%3Ccircle cx='16' cy='16' r='2.2' fill='%23fce7f3'/%3E%3C/svg%3E")
+      16 16,
+    crosshair !important;
+}
+
+.avatar-editor-canvas--eraser {
+  cursor: cell !important;
+}
+
+.avatar-editor-canvas--fill {
+  cursor: cell !important;
+}
+
+.avatar-editor-canvas--stamp {
+  cursor: copy !important;
 }
 
 /* Плашка — HTML поверх круга, торчит за ring и за окно превью */
@@ -763,13 +1006,36 @@
   isolation: auto !important;
   contain: none !important;
   container-type: inline-size !important;
-  /* место снизу под свисающую плашку */
-  margin-bottom: 12% !important;
+  /* место снизу под свисающую плашку (компактнее) */
+  margin-bottom: 9% !important;
+  /* иначе border-radius кольца может клипать потомков в WebKit */
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+}
+
+/* Hub + stage: предки не должны резать свисающую плашку */
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge),
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) {
+  /* overflow-x:hidden + overflow-y:visible → браузер клипает оба оси */
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+}
+
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge) .avatar-editor-modal-body,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge) .avatar-editor-left-col,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge) .avatar-editor-left-stack,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge) .avatar-editor-hero,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) .avatar-editor-modal-body,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) .avatar-editor-left-col,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) .avatar-editor-left-stack,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) .avatar-editor-hero {
+  overflow: visible !important;
 }
 
 .avatar-editor-badge-plate {
   position: absolute !important;
-  z-index: 30 !important;
+  z-index: 40 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -793,10 +1059,10 @@
   display: grid !important;
   place-items: center !important;
   box-sizing: border-box !important;
-  width: 26px !important;
-  height: 15px !important;
-  padding: 2px 3px 3px !important;
-  border-radius: 0 0 10px 10px !important;
+  width: 22px !important;
+  height: 13px !important;
+  padding: 2px 2px 2px !important;
+  border-radius: 0 0 9px 9px !important;
   isolation: isolate !important;
   overflow: visible !important;
   pointer-events: auto !important;
@@ -842,8 +1108,8 @@
   position: relative !important;
   z-index: 1 !important;
   display: block !important;
-  width: 14px !important;
-  height: 9px !important;
+  width: 12px !important;
+  height: 8px !important;
   margin: 0 !important;
   overflow: visible !important;
   filter: saturate(1.35) brightness(1.12) !important;
@@ -1311,19 +1577,29 @@
 }
 
 .avatar-editor-preset-thumb:hover .avatar-editor-preset-thumb__rim-spin,
-.avatar-editor-preset-thumb.avatar-editor-rail-hot .avatar-editor-preset-thumb__rim-spin,
-.avatar-editor-preset-thumb--active .avatar-editor-preset-thumb__rim-spin {
+.avatar-editor-preset-thumb.avatar-editor-rail-hot .avatar-editor-preset-thumb__rim-spin {
   padding: 2.75px !important;
-  animation: avatar-editor-hub-rim-hot 0.55s ease-in-out infinite !important;
+  animation: avatar-editor-hub-rim-spin-cheap 2.4s linear infinite !important;
 }
 
 .avatar-editor-preset-thumb:hover .avatar-editor-preset-thumb__rim::after,
-.avatar-editor-preset-thumb.avatar-editor-rail-hot .avatar-editor-preset-thumb__rim::after,
-.avatar-editor-preset-thumb--active .avatar-editor-preset-thumb__rim::after {
+.avatar-editor-preset-thumb.avatar-editor-rail-hot .avatar-editor-preset-thumb__rim::after {
   inset: -5px !important;
-  opacity: 0.85 !important;
-  animation: avatar-editor-hub-sparks-hot 0.45s steps(2, end) infinite !important;
-  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.55)) drop-shadow(0 0 5px rgba(103, 232, 249, 0.5)) !important;
+  opacity: 0.7 !important;
+  animation: none !important;
+  filter: none !important;
+}
+
+/* Выбранный — обод всегда; без hover без бесконечного pulse */
+.avatar-editor-preset-thumb--active .avatar-editor-preset-thumb__rim-spin {
+  animation: none !important;
+}
+
+.avatar-editor-preset-thumb--active:not(:hover):not(.avatar-editor-rail-hot)
+  .avatar-editor-preset-thumb__rim::after {
+  animation: none !important;
+  filter: none !important;
+  opacity: 0.55 !important;
 }
 
 /* Выбранный — обод всегда; без hover чуть спокойнее */
@@ -1339,12 +1615,13 @@
 }
 
 .avatar-editor-preset-thumb--active:not(:hover):not(.avatar-editor-rail-hot) .avatar-editor-preset-thumb__rim-spin {
-  animation: avatar-editor-hub-rim-hot 1.6s ease-in-out infinite !important;
+  animation: none !important;
 }
 
 .avatar-editor-preset-thumb--active:not(:hover):not(.avatar-editor-rail-hot) .avatar-editor-preset-thumb__rim::after {
-  opacity: 0.65 !important;
-  animation: avatar-editor-hub-sparks-hot 0.7s steps(2, end) infinite !important;
+  opacity: 0.55 !important;
+  animation: none !important;
+  filter: none !important;
 }
 
 .avatar-editor-preset-thumb__neon {
@@ -1667,6 +1944,905 @@
 }
 
 /* -------------------------------------------------------------------------- */
+/* Кисть / Рамки / Стикеры: раскрытие ВНИЗ (как инициалы), не вправо          */
+/* -------------------------------------------------------------------------- */
+
+.avatar-editor-tools-fold {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 10px 10px 12px !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(167, 139, 250, 0.38) !important;
+  background:
+    linear-gradient(90deg, rgba(167, 139, 250, 0.12), transparent 32%, transparent 68%, rgba(34, 211, 238, 0.1)),
+    linear-gradient(180deg, rgba(40, 28, 88, 0.72), rgba(2, 6, 23, 0.78)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(196, 181, 253, 0.22),
+    inset 0 0 18px rgba(76, 29, 149, 0.25),
+    0 0 0 1px rgba(15, 23, 42, 0.65),
+    0 6px 16px rgba(2, 6, 23, 0.4) !important;
+  overflow: visible !important;
+  animation: avatar-editor-initials-expand 0.2s ease-out;
+}
+
+.avatar-editor-tools-fold .avatar-editor-tools-line--fold {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px 12px !important;
+  width: 100% !important;
+  margin: 0 !important;
+  overflow: visible !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Кисть: свёрнутые табы сверху → раскрытие вниз столбиком                     */
+/* -------------------------------------------------------------------------- */
+
+.avatar-editor-brush-dock {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.avatar-editor-brush-tabs {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+.avatar-editor-brush-tab {
+  display: grid !important;
+  place-items: center !important;
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(167, 139, 250, 0.4) !important;
+  background:
+    radial-gradient(ellipse 90% 70% at 35% 18%, rgba(255, 255, 255, 0.18), transparent 55%),
+    rgba(24, 16, 58, 0.88) !important;
+  cursor: pointer !important;
+  overflow: visible !important;
+  transition:
+    transform 0.14s ease,
+    filter 0.14s ease,
+    box-shadow 0.14s ease,
+    border-color 0.14s ease !important;
+}
+
+.avatar-editor-brush-tab__glyph {
+  display: grid !important;
+  place-items: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  line-height: 0 !important;
+  filter:
+    drop-shadow(0 0 3px rgba(103, 232, 249, 0.55))
+    drop-shadow(0 0 6px rgba(232, 121, 249, 0.4))
+    saturate(1.4)
+    brightness(1.14) !important;
+}
+
+.avatar-editor-brush-tab__glyph svg {
+  display: block !important;
+  width: 26px !important;
+  height: 26px !important;
+  overflow: visible !important;
+}
+
+.avatar-editor-brush-tab--size .avatar-editor-brush-tab__glyph {
+  /* полоски-заливка: без лишнего blur, чтобы не «съедало» глиф */
+  filter: saturate(1.45) brightness(1.18) !important;
+}
+
+.avatar-editor-brush-tab:hover {
+  transform: translateY(-1px) scale(1.04) !important;
+  filter: brightness(1.1) !important;
+}
+
+.avatar-editor-brush-tab.is-on {
+  border-color: rgba(34, 211, 238, 0.9) !important;
+  background:
+    radial-gradient(ellipse 95% 75% at 40% 15%, rgba(103, 232, 249, 0.35), transparent 55%),
+    rgba(14, 90, 120, 0.45) !important;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.35),
+    0 0 14px rgba(34, 211, 238, 0.4),
+    0 0 18px rgba(167, 139, 250, 0.28) !important;
+}
+
+.avatar-editor-brush-tab--color.is-on {
+  border-color: rgba(232, 121, 249, 0.85) !important;
+  box-shadow:
+    0 0 0 1px rgba(232, 121, 249, 0.35),
+    0 0 14px rgba(232, 121, 249, 0.4) !important;
+}
+
+.avatar-editor-brush-tab--shape.is-on {
+  border-color: rgba(251, 191, 36, 0.85) !important;
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.3),
+    0 0 14px rgba(244, 114, 182, 0.35) !important;
+}
+
+.avatar-editor-brush-tab--act.is-on {
+  border-color: rgba(251, 113, 133, 0.8) !important;
+  box-shadow:
+    0 0 0 1px rgba(251, 113, 133, 0.3),
+    0 0 12px rgba(103, 232, 249, 0.3) !important;
+}
+
+/* Раскрытие вниз — контролы в строку */
+.avatar-editor-brush-panel {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 10px 8px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(167, 139, 250, 0.28) !important;
+  background:
+    linear-gradient(180deg, rgba(167, 139, 250, 0.12), transparent 40%),
+    rgba(8, 6, 28, 0.55) !important;
+  animation: avatar-editor-initials-expand 0.18s ease-out;
+  overflow: visible !important;
+}
+
+.avatar-editor-brush-dock .avatar-editor-color {
+  width: 28px !important;
+  height: 28px !important;
+  flex: 0 0 28px !important;
+}
+
+.avatar-editor-brush-dock .avatar-editor-color--neon {
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  filter: saturate(1.3) brightness(1.06);
+}
+
+.avatar-editor-brush-mode {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  padding: 2px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(167, 139, 250, 0.4) !important;
+  background: rgba(15, 10, 40, 0.7) !important;
+}
+
+.avatar-editor-brush-mode__btn {
+  display: grid !important;
+  place-items: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 999px !important;
+  color: #94a3b8 !important;
+  background: transparent !important;
+  cursor: pointer !important;
+}
+
+.avatar-editor-brush-mode__btn.is-on {
+  color: #0f172a !important;
+  background: linear-gradient(135deg, #22d3ee 0%, #a855f7 100%) !important;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.4) !important;
+}
+
+.avatar-editor-brush-mode__btn--flat.is-on {
+  background: linear-gradient(145deg, #cbd5e1, #64748b) !important;
+  box-shadow: none !important;
+  color: #0f172a !important;
+}
+
+.avatar-editor-brush-dock .avatar-editor-brush-palette.avatar-neon-picker {
+  gap: 0 !important;
+}
+
+.avatar-editor-brush-dock .avatar-neon-picker__trigger {
+  position: relative !important;
+  isolation: isolate !important;
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  justify-content: center !important;
+  border-radius: 12px !important;
+  border: none !important;
+  background: rgba(12, 8, 36, 0.92) !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  flex: 0 0 40px !important;
+}
+
+/* Толстый переливающийся обод палитры */
+.avatar-editor-brush-dock .avatar-neon-picker__trigger::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: -2.5px !important;
+  z-index: 0 !important;
+  border-radius: 14px !important;
+  padding: 3.5px !important;
+  pointer-events: none !important;
+  background: linear-gradient(
+    120deg,
+    #67e8f9,
+    #22d3ee,
+    #a78bfa,
+    #e879f9,
+    #f472b6,
+    #fbbf24,
+    #34d399,
+    #67e8f9
+  ) !important;
+  background-size: 260% 100% !important;
+  animation: avatar-editor-brush-palette-rim 3.2s linear infinite !important;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask-composite: exclude !important;
+  box-shadow:
+    0 0 10px rgba(103, 232, 249, 0.45),
+    0 0 16px rgba(232, 121, 249, 0.35) !important;
+}
+
+.avatar-editor-brush-dock .avatar-neon-picker__trigger--open::before {
+  animation-duration: 1.6s !important;
+  filter: brightness(1.15) saturate(1.2);
+}
+
+.avatar-editor-brush-dock .avatar-neon-picker__trigger > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+@keyframes avatar-editor-brush-palette-rim {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 260% 50%;
+  }
+}
+
+.avatar-editor-brush-dock .avatar-neon-picker__trigger-label {
+  display: none !important;
+}
+
+.avatar-editor-brush-dock .avatar-neon-picker__trigger-swatch {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.avatar-editor-brush-size {
+  display: grid !important;
+  place-items: center !important;
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(148, 163, 184, 0.35) !important;
+  background: rgba(15, 23, 42, 0.55) !important;
+  cursor: pointer !important;
+  color: #e2e8f0 !important;
+}
+
+.avatar-editor-brush-size--lg {
+  width: 46px !important;
+  height: 46px !important;
+}
+
+.avatar-editor-brush-size.is-on {
+  border-color: rgba(34, 211, 238, 0.85) !important;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.35),
+    0 0 12px rgba(34, 211, 238, 0.35) !important;
+  background: rgba(14, 116, 144, 0.28) !important;
+}
+
+.avatar-editor-brush-size__dot {
+  display: block !important;
+  border-radius: 50% !important;
+  background: currentColor !important;
+  box-shadow: 0 0 8px rgba(103, 232, 249, 0.45) !important;
+}
+
+.avatar-editor-brush-dock--flat .avatar-editor-brush-size__dot {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35) !important;
+}
+
+.avatar-editor-brush-act-wrap {
+  position: relative !important;
+  display: inline-flex !important;
+  flex-shrink: 0 !important;
+  z-index: 4 !important;
+}
+
+.avatar-editor-brush-act-wrap--fill:has(.avatar-editor-fill-colors) {
+  z-index: 22 !important;
+}
+
+.avatar-editor-fill-colors {
+  left: 50% !important;
+  right: auto !important;
+  bottom: calc(100% + 10px) !important;
+  transform: translateX(-50%) !important;
+  z-index: 40 !important;
+  animation: avatar-editor-fill-colors-in 0.18s ease-out !important;
+}
+
+@keyframes avatar-editor-fill-colors-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.avatar-editor-brush-tips {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-right: 2px !important;
+}
+
+.avatar-editor-brush-tip {
+  display: grid !important;
+  place-items: center !important;
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(167, 139, 250, 0.4) !important;
+  background: rgba(30, 20, 70, 0.55) !important;
+  cursor: pointer !important;
+  overflow: visible !important;
+  transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease !important;
+}
+
+.avatar-editor-brush-tip svg {
+  display: block !important;
+  width: 22px !important;
+  height: 22px !important;
+  overflow: visible !important;
+  filter:
+    drop-shadow(0 0 3px rgba(103, 232, 249, 0.5))
+    saturate(1.3)
+    brightness(1.1) !important;
+}
+
+.avatar-editor-brush-tip--dashed svg {
+  filter:
+    drop-shadow(0 0 3px rgba(232, 121, 249, 0.55))
+    saturate(1.3)
+    brightness(1.1) !important;
+}
+
+.avatar-editor-brush-tip:hover {
+  transform: translateY(-1px) !important;
+  filter: brightness(1.1) !important;
+}
+
+.avatar-editor-brush-tip.is-on {
+  border-color: rgba(34, 211, 238, 0.9) !important;
+  background:
+    radial-gradient(ellipse 80% 60% at 35% 20%, rgba(103, 232, 249, 0.35), transparent 55%),
+    rgba(14, 116, 144, 0.35) !important;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.3),
+    0 0 12px rgba(34, 211, 238, 0.35) !important;
+}
+
+.avatar-editor-brush-tip--dashed.is-on {
+  border-color: rgba(232, 121, 249, 0.9) !important;
+  box-shadow:
+    0 0 0 1px rgba(232, 121, 249, 0.35),
+    0 0 12px rgba(232, 121, 249, 0.4) !important;
+}
+
+.avatar-editor-brush-shape,
+.avatar-editor-brush-act {
+  display: grid !important;
+  place-items: center !important;
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(167, 139, 250, 0.35) !important;
+  background: rgba(30, 20, 70, 0.55) !important;
+  color: #e9d5ff !important;
+  cursor: pointer !important;
+  overflow: visible !important;
+  transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease !important;
+}
+
+.avatar-editor-brush-shape svg,
+.avatar-editor-brush-act svg {
+  display: block !important;
+  width: 24px !important;
+  height: 24px !important;
+  overflow: visible !important;
+  filter:
+    drop-shadow(0 0 2px rgba(103, 232, 249, 0.45))
+    saturate(1.25)
+    brightness(1.08) !important;
+}
+
+.avatar-editor-brush-shape:hover,
+.avatar-editor-brush-act:hover {
+  filter: brightness(1.12) !important;
+  transform: translateY(-1px) !important;
+}
+
+.avatar-editor-brush-shape.is-on,
+.avatar-editor-brush-act.is-on {
+  border-color: rgba(34, 211, 238, 0.85) !important;
+  color: #ecfeff !important;
+  background:
+    radial-gradient(ellipse 80% 60% at 35% 20%, rgba(103, 232, 249, 0.35), transparent 55%),
+    rgba(14, 116, 144, 0.35) !important;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.3),
+    0 0 14px rgba(34, 211, 238, 0.35) !important;
+}
+
+/* Штампы — одна строка, компактно */
+.avatar-editor-brush-panel--shape {
+  flex-wrap: nowrap !important;
+  gap: 5px !important;
+  padding: 7px 6px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: none !important;
+}
+
+.avatar-editor-brush-panel--shape::-webkit-scrollbar {
+  display: none !important;
+}
+
+.avatar-editor-brush-panel--shape .avatar-editor-brush-shape {
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 9px !important;
+  flex: 0 0 30px !important;
+}
+
+.avatar-editor-brush-panel--shape .avatar-editor-brush-shape svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* Палитра неона для штампов — не кружок-штамп: капсула + радужный обод */
+.avatar-editor-brush-panel--shape .avatar-editor-stamp-palette.avatar-neon-picker {
+  gap: 0 !important;
+  margin-right: 2px !important;
+  flex: 0 0 auto !important;
+}
+
+.avatar-editor-brush-panel--shape .avatar-editor-stamp-palette .avatar-neon-picker__trigger {
+  position: relative !important;
+  isolation: isolate !important;
+  width: 38px !important;
+  height: 26px !important;
+  padding: 0 !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  border: none !important;
+  background:
+    radial-gradient(ellipse 70% 80% at 30% 25%, rgba(255, 255, 255, 0.22), transparent 55%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(49, 46, 129, 0.88)) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 2px 8px rgba(2, 6, 23, 0.45) !important;
+  overflow: visible !important;
+  flex: 0 0 38px !important;
+}
+
+.avatar-editor-brush-panel--shape .avatar-editor-stamp-palette .avatar-neon-picker__trigger::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: -2.5px !important;
+  z-index: 0 !important;
+  border-radius: 999px !important;
+  padding: 2.75px !important;
+  pointer-events: none !important;
+  background: linear-gradient(
+    110deg,
+    #67e8f9,
+    #22d3ee,
+    #a78bfa,
+    #e879f9,
+    #f472b6,
+    #fbbf24,
+    #34d399,
+    #67e8f9
+  ) !important;
+  background-size: 280% 100% !important;
+  animation: avatar-editor-brush-palette-rim 2.8s linear infinite !important;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask-composite: exclude !important;
+  box-shadow:
+    0 0 12px rgba(103, 232, 249, 0.5),
+    0 0 18px rgba(232, 121, 249, 0.35) !important;
+}
+
+.avatar-editor-brush-panel--shape .avatar-editor-stamp-palette .avatar-neon-picker__trigger--open::before {
+  animation-duration: 1.4s !important;
+  filter: brightness(1.18) saturate(1.25);
+}
+
+.avatar-editor-brush-panel--shape .avatar-editor-stamp-palette .avatar-neon-picker__trigger > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.avatar-editor-brush-panel--shape .avatar-editor-stamp-palette .avatar-neon-picker__trigger-label {
+  display: none !important;
+}
+
+.avatar-editor-brush-panel--shape .avatar-editor-stamp-palette .avatar-neon-picker__trigger-swatch {
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50% !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.85) !important;
+  box-shadow:
+    0 0 8px currentColor,
+    0 0 3px #fff !important;
+}
+
+.avatar-editor-brush-act--eraser.is-on {
+  color: #fda4af !important;
+  border-color: rgba(251, 113, 133, 0.75) !important;
+  background: rgba(127, 29, 29, 0.35) !important;
+  box-shadow: 0 0 12px rgba(251, 113, 133, 0.3) !important;
+}
+
+.avatar-editor-brush-act--fill.is-on {
+  color: #67e8f9 !important;
+}
+
+/* Палитра «Цвета» — поверх модалки редактора (backdrop z=12100) */
+.avatar-neon-picker__backdrop {
+  z-index: 12250 !important;
+}
+
+.avatar-neon-picker__panel {
+  z-index: 12260 !important;
+}
+
+.avatar-editor-tools-fold__chips.avatar-editor-preset-rail,
+.avatar-editor-tools-fold__chips {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.avatar-editor-tools-fold__chips .avatar-editor-preset-rail__glow {
+  display: none !important;
+}
+
+.avatar-editor-tools-fold__chips .avatar-editor-frame-btn,
+.avatar-editor-tools-fold__chips .avatar-editor-sticker-btn {
+  width: 48px !important;
+  min-width: 48px !important;
+  height: 48px !important;
+  flex: 0 0 48px !important;
+  padding: 4px !important;
+}
+
+.avatar-editor-tools-fold__chips .avatar-editor-frame-btn__img {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+.avatar-editor-tools-fold__chips .avatar-editor-sticker-btn__glyph {
+  font-size: 26px !important;
+  line-height: 1 !important;
+  filter: saturate(1.2) brightness(1.08) !important;
+}
+
+/* Стикеры: 2 ряда, компактные кнопки, крупные цветные глифы + палитра */
+.avatar-editor-stickers-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.avatar-editor-stickers-grid__row {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn {
+  position: relative !important;
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 40px !important;
+  flex: 0 0 40px !important;
+  padding: 2px !important;
+  border-radius: 11px !important;
+  border: 1px solid rgba(167, 139, 250, 0.35) !important;
+  background: rgba(15, 10, 40, 0.55) !important;
+  display: grid !important;
+  place-items: center !important;
+  cursor: pointer !important;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn--premium {
+  border-color: rgba(232, 121, 249, 0.65) !important;
+  background:
+    radial-gradient(ellipse 80% 70% at 40% 25%, rgba(232, 121, 249, 0.28), transparent 60%),
+    rgba(30, 10, 55, 0.75) !important;
+  box-shadow: 0 0 10px rgba(232, 121, 249, 0.25) !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn--locked {
+  opacity: 0.72 !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn__premium {
+  position: absolute !important;
+  top: -3px !important;
+  right: -3px !important;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 999px !important;
+  display: grid !important;
+  place-items: center !important;
+  font-size: 8px !important;
+  line-height: 1 !important;
+  color: #fdf4ff !important;
+  background: linear-gradient(135deg, #e879f9, #67e8f9) !important;
+  box-shadow: 0 0 6px rgba(232, 121, 249, 0.7) !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn__glyph--joker {
+  display: grid !important;
+  place-items: center !important;
+  filter:
+    drop-shadow(0 0 4px rgba(232, 121, 249, 0.85))
+    drop-shadow(0 0 2px rgba(103, 232, 249, 0.7)) !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn--brand {
+  border-color: rgba(103, 232, 249, 0.55) !important;
+  background:
+    radial-gradient(ellipse 80% 70% at 35% 20%, rgba(103, 232, 249, 0.22), transparent 55%),
+    radial-gradient(ellipse 70% 60% at 70% 80%, rgba(232, 121, 249, 0.18), transparent 50%),
+    rgba(10, 20, 48, 0.75) !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn__glyph--updown {
+  display: grid !important;
+  place-items: center !important;
+  filter:
+    drop-shadow(0 0 5px rgba(103, 232, 249, 0.75))
+    drop-shadow(0 0 3px rgba(232, 121, 249, 0.55)) !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn--clover {
+  border-color: rgba(74, 222, 128, 0.55) !important;
+  background:
+    radial-gradient(ellipse 80% 70% at 50% 30%, rgba(253, 230, 138, 0.22), transparent 55%),
+    radial-gradient(ellipse 70% 60% at 40% 85%, rgba(74, 222, 128, 0.2), transparent 50%),
+    rgba(10, 30, 18, 0.75) !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn__glyph--clover {
+  display: grid !important;
+  place-items: center !important;
+  filter:
+    drop-shadow(0 0 6px rgba(74, 222, 128, 0.85))
+    drop-shadow(0 0 3px rgba(253, 230, 138, 0.55)) !important;
+}
+
+@keyframes avatar-sticker-joker-shimmer {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 3px rgba(232, 121, 249, 0.7))
+      drop-shadow(0 0 2px rgba(103, 232, 249, 0.5));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 7px rgba(251, 191, 36, 0.95))
+      drop-shadow(0 0 4px rgba(255, 255, 255, 0.8));
+  }
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn__icon--joker {
+  animation: avatar-sticker-joker-shimmer 1.8s ease-in-out infinite !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn__bell {
+  animation: avatar-sticker-joker-shimmer 1.4s ease-in-out infinite !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn__j-letter {
+  animation: avatar-sticker-joker-shimmer 1.6s ease-in-out infinite !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn__icon {
+  width: 26px !important;
+  height: 26px !important;
+  display: block !important;
+  overflow: visible !important;
+}
+
+.avatar-editor-stickers-grid__premium-tip {
+  margin: 2px 0 0 !important;
+  padding: 0 8px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+  text-align: center !important;
+  color: #f0abfc !important;
+  text-shadow: 0 0 8px rgba(232, 121, 249, 0.45) !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn:hover {
+  transform: translateY(-1px) !important;
+  filter: brightness(1.08) !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn--active {
+  border-color: rgba(34, 211, 238, 0.9) !important;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.35),
+    0 0 12px rgba(34, 211, 238, 0.35) !important;
+  background: rgba(14, 116, 144, 0.28) !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-btn__glyph {
+  font-size: 28px !important;
+  line-height: 1 !important;
+  font-weight: 700 !important;
+  filter: saturate(1.45) brightness(1.12) !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-palette.avatar-neon-picker {
+  gap: 0 !important;
+  margin-right: 2px !important;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  display: flex !important;
+  place-items: unset !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-palette .avatar-neon-picker__trigger {
+  position: relative !important;
+  isolation: isolate !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 38px !important;
+  height: 26px !important;
+  min-width: 38px !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  justify-content: center !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background:
+    radial-gradient(ellipse 70% 80% at 30% 25%, rgba(255, 255, 255, 0.22), transparent 55%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(49, 46, 129, 0.88)) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 2px 8px rgba(2, 6, 23, 0.45) !important;
+  overflow: visible !important;
+  flex: 0 0 38px !important;
+}
+
+/* Капсула + радужный обод — как у штампов */
+.avatar-editor-stickers-grid .avatar-editor-sticker-palette .avatar-neon-picker__trigger::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: -2.5px !important;
+  z-index: 0 !important;
+  border-radius: 999px !important;
+  padding: 2.75px !important;
+  pointer-events: none !important;
+  background: linear-gradient(
+    110deg,
+    #67e8f9,
+    #22d3ee,
+    #a78bfa,
+    #e879f9,
+    #f472b6,
+    #fbbf24,
+    #34d399,
+    #67e8f9
+  ) !important;
+  background-size: 280% 100% !important;
+  animation: avatar-editor-brush-palette-rim 2.8s linear infinite !important;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask-composite: exclude !important;
+  box-shadow:
+    0 0 12px rgba(103, 232, 249, 0.5),
+    0 0 18px rgba(232, 121, 249, 0.35) !important;
+}
+
+.avatar-editor-stickers-grid
+  .avatar-editor-sticker-palette
+  .avatar-neon-picker__trigger--open::before {
+  animation-duration: 1.4s !important;
+  filter: brightness(1.18) saturate(1.25);
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-palette .avatar-neon-picker__trigger > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-palette .avatar-neon-picker__trigger-label {
+  display: none !important;
+}
+
+.avatar-editor-stickers-grid .avatar-editor-sticker-palette .avatar-neon-picker__trigger-swatch {
+  width: 12px !important;
+  height: 12px !important;
+  margin: 0 !important;
+  border-radius: 50% !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.85) !important;
+  box-shadow:
+    0 0 8px currentColor,
+    0 0 3px #fff !important;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Инициалы: раскрытая панель — сетка 2 ряда, все варианты сразу              */
 /* -------------------------------------------------------------------------- */
 
@@ -1697,11 +2873,41 @@
 }
 
 .avatar-editor-initials-rail--expanded {
+  flex-direction: column !important;
   height: auto !important;
   min-height: 0 !important;
   align-items: stretch !important;
+  gap: 0 !important;
   padding: 10px 10px 12px !important;
   animation: avatar-editor-initials-expand 0.2s ease-out;
+}
+
+.avatar-editor-initials-rail__band {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 6px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.avatar-editor-initials-rail__band + .avatar-editor-initials-rail__band {
+  margin-top: 10px !important;
+  padding-top: 10px !important;
+  border-top: 1px solid rgba(167, 139, 250, 0.28) !important;
+}
+
+.avatar-editor-initials-rail__band-label {
+  display: block !important;
+  margin: 0 2px !important;
+  padding: 0 !important;
+  font-family: 'Exo 2', 'Segoe UI', ui-sans-serif, system-ui, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgba(233, 213, 255, 0.78) !important;
+  text-shadow: 0 0 8px rgba(167, 139, 250, 0.35) !important;
 }
 
 .avatar-editor-initials-rail__grid {
@@ -1714,38 +2920,220 @@
   box-sizing: border-box !important;
 }
 
+.avatar-editor-initials-rail__row {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 5px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  /* без скролла: чипы всегда влезают, hover не рождает полосы */
+  overflow: visible !important;
+  padding: 2px 0 !important;
+  cursor: default !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.avatar-editor-initials-rail__row::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.avatar-editor-initials-rail__row--source {
+  gap: 5px !important;
+}
+
+.avatar-editor-initials-rail__row--style {
+  gap: 5px !important;
+  padding: 2px 0 !important;
+}
+
+/* Состав: прямоугольные чипы с образцом текста (не кружки как у стиля) */
+.avatar-editor-initials-source-chip {
+  appearance: none !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  max-width: 64px !important;
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 2px !important;
+  height: 44px !important;
+  margin: 0 !important;
+  padding: 4px 6px 3px !important;
+  border-radius: 12px !important;
+  border: 1.5px solid rgba(167, 139, 250, 0.45) !important;
+  cursor: pointer !important;
+  -webkit-tap-highlight-color: transparent !important;
+  background:
+    linear-gradient(165deg, rgba(58, 28, 98, 0.95), rgba(18, 10, 40, 0.98)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(245, 208, 254, 0.18),
+    0 2px 8px rgba(2, 6, 23, 0.4) !important;
+  transition:
+    transform 0.14s ease,
+    border-color 0.14s ease,
+    box-shadow 0.14s ease !important;
+}
+
+.avatar-editor-initials-rail__row .avatar-editor-preset-thumb {
+  cursor: pointer !important;
+}
+
+.avatar-editor-initials-source-chip:hover,
+.avatar-editor-initials-source-chip:focus-visible {
+  transform: scale(1.03) !important;
+  border-color: rgba(103, 232, 249, 0.55) !important;
+  outline: none !important;
+}
+
+.avatar-editor-initials-source-chip--active {
+  border-color: rgba(232, 121, 249, 0.85) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(245, 208, 254, 0.28),
+    0 0 0 1.5px rgba(232, 121, 249, 0.45),
+    0 0 14px rgba(168, 85, 247, 0.4) !important;
+}
+
+.avatar-editor-initials-source-chip--disabled {
+  opacity: 0.4 !important;
+  filter: grayscale(0.4) !important;
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
+.avatar-editor-initials-source-chip--off {
+  flex: 0 0 auto !important;
+  min-width: 56px !important;
+  max-width: 72px !important;
+  border-color: rgba(248, 113, 113, 0.45) !important;
+  background:
+    linear-gradient(165deg, rgba(72, 20, 40, 0.92), rgba(24, 8, 20, 0.98)) !important;
+}
+
+.avatar-editor-initials-source-chip__sample {
+  display: block !important;
+  font-family: 'Exo 2', 'Segoe UI', ui-sans-serif, system-ui, sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.02em !important;
+  max-width: 64px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  text-shadow: 0 1px 2px rgba(2, 6, 23, 0.85) !important;
+}
+
+.avatar-editor-initials-source-chip--off .avatar-editor-initials-source-chip__sample {
+  color: #fda4af !important;
+  font-size: 14px !important;
+}
+
+.avatar-editor-initials-source-chip__caption {
+  display: block !important;
+  font-family: 'Exo 2', 'Segoe UI', ui-sans-serif, system-ui, sans-serif !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: rgba(196, 181, 253, 0.72) !important;
+  line-height: 1 !important;
+  max-width: 64px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.avatar-editor-initials-source-chip--off .avatar-editor-initials-source-chip__caption {
+  color: rgba(253, 164, 175, 0.75) !important;
+  text-transform: none !important;
+  font-size: 8.5px !important;
+  letter-spacing: 0.02em !important;
+}
+
+.avatar-editor-preset-thumb--source-disabled {
+  opacity: 0.42 !important;
+  filter: grayscale(0.35) !important;
+  pointer-events: none !important;
+}
+
 .avatar-editor-initials-rail--expanded .avatar-editor-preset-thumb,
 .avatar-editor-initials-rail--expanded .avatar-editor-preset-thumb--glyph,
-.avatar-editor-initials-rail--expanded .avatar-editor-preset-thumb--glyph-off {
-  width: 48px !important;
-  height: 48px !important;
-  flex: 0 0 48px !important;
+.avatar-editor-initials-rail--expanded .avatar-editor-preset-thumb--glyph-off,
+.avatar-editor-initials-rail--expanded .avatar-editor-preset-thumb--style-chip {
+  width: auto !important;
+  height: auto !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  max-width: 42px !important;
+  aspect-ratio: 1 / 1 !important;
+}
+
+.avatar-editor-preset-thumb__premium {
+  position: absolute !important;
+  /* строго внутри чипа: overflow строки и contain:paint не срежут */
+  top: 1px !important;
+  bottom: auto !important;
+  right: 1px !important;
+  z-index: 6 !important;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 999px !important;
+  display: grid !important;
+  place-items: center !important;
+  font-size: 8px !important;
+  line-height: 1 !important;
+  color: #fdf4ff !important;
+  background: linear-gradient(135deg, #e879f9, #67e8f9) !important;
+  box-shadow:
+    0 0 0 1.5px rgba(12, 4, 28, 0.75),
+    0 0 8px rgba(232, 121, 249, 0.85) !important;
+  pointer-events: none !important;
+}
+
+.avatar-editor-initials-rail--expanded .avatar-editor-preset-thumb--badge,
+.avatar-editor-initials-rail--expanded .avatar-editor-preset-thumb--style-chip {
+  overflow: visible !important;
+  contain: none !important;
+  content-visibility: visible !important;
 }
 
 .avatar-editor-initials-rail--expanded .avatar-editor-preset-thumb:hover,
 .avatar-editor-initials-rail--expanded .avatar-editor-preset-thumb.avatar-editor-rail-hot {
-  transform: translateY(-2px) scale(1.06) !important;
+  transform: scale(1.06) !important;
 }
 
 .avatar-editor-initials-rail--expanded
   .avatar-editor-preset-thumb--active:not(:hover):not(.avatar-editor-rail-hot) {
-  transform: scale(1.05) !important;
+  transform: scale(1.04) !important;
 }
 
-/* Компактный фирменный tip для режимов инициалов */
+/* Компактный фирменный tip редактора — длинные RU-строки переносятся */
 .avatar-editor-glyph-tip.menu-capsule-cosmic-tip.game-table-tooltip-cosmic {
   padding: 8px 12px !important;
-  max-width: min(220px, calc(100vw - 24px)) !important;
+  width: max-content !important;
+  max-width: min(300px, calc(100vw - 20px)) !important;
   border-radius: 10px !important;
   pointer-events: none !important;
+  box-sizing: border-box !important;
 }
 
 .avatar-editor-glyph-tip .menu-capsule-cosmic-tip__text.game-table-tooltip-cosmic-body-text {
+  display: block !important;
   font-size: 13px !important;
   font-weight: 750 !important;
-  line-height: 1.25 !important;
+  line-height: 1.3 !important;
   letter-spacing: 0.03em !important;
-  white-space: nowrap !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  max-width: 100% !important;
 }
 
 .avatar-editor-glyph-tip .menu-capsule-cosmic-tip__detail {
@@ -1755,6 +3143,16 @@
   line-height: 1.35 !important;
   opacity: 0.9 !important;
   white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+}
+
+/* Тултип блокировки инструментов — тоже с переносом */
+#avatar-editor-tools-lock-tip .menu-capsule-cosmic-tip__text.game-table-tooltip-cosmic-body-text {
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  display: block !important;
 }
 
 @keyframes avatar-editor-initials-expand {
@@ -1774,6 +3172,11 @@
   position: relative !important;
   flex-shrink: 0 !important;
   z-index: 4 !important;
+  overflow: visible !important;
+}
+
+.avatar-editor-initials-rail__color-wrap:has(.avatar-editor-initials-colors) {
+  z-index: 22 !important;
 }
 
 .avatar-editor-initials-rail__tag {
@@ -1825,6 +3228,11 @@
   pointer-events: none !important;
 }
 
+/* Палитра цветов инициалов — ниже подписи под кругом, не перекрывает её */
+.avatar-editor-left-stack:has(.avatar-editor-initials-colors) {
+  margin-top: 42px !important;
+}
+
 .avatar-editor-initials-colors {
   position: absolute !important;
   left: 0 !important;
@@ -1832,30 +3240,42 @@
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  gap: 6px !important;
-  padding: 8px 9px !important;
-  border-radius: 12px !important;
-  border: 1px solid rgba(167, 139, 250, 0.45) !important;
+  gap: 8px !important;
+  padding: 11px 12px !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(167, 139, 250, 0.5) !important;
   background:
-    linear-gradient(165deg, rgba(46, 16, 86, 0.96), rgba(2, 6, 23, 0.96)) !important;
+    linear-gradient(165deg, rgba(46, 16, 86, 0.97), rgba(2, 6, 23, 0.97)) !important;
   box-shadow:
     0 0 0 1px rgba(15, 23, 42, 0.55),
-    0 10px 24px rgba(2, 6, 23, 0.55),
-    0 0 18px rgba(167, 139, 250, 0.25) !important;
-  z-index: 20 !important;
+    0 12px 28px rgba(2, 6, 23, 0.58),
+    0 0 22px rgba(167, 139, 250, 0.3) !important;
+  z-index: 30 !important;
+  animation: avatar-editor-initials-colors-in 0.18s ease-out !important;
+}
+
+@keyframes avatar-editor-initials-colors-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .avatar-editor-initials-colors__swatch {
-  width: 22px !important;
-  height: 22px !important;
+  width: 28px !important;
+  height: 28px !important;
   padding: 0 !important;
   border-radius: 50% !important;
   border: 2px solid rgba(15, 23, 42, 0.55) !important;
   cursor: pointer !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 0 10px currentColor,
-    0 0 14px rgba(255, 255, 255, 0.2) !important;
+    0 0 12px currentColor,
+    0 0 16px rgba(255, 255, 255, 0.2) !important;
   filter: saturate(1.25) brightness(1.08) !important;
   transition: transform 0.12s ease, box-shadow 0.12s ease !important;
   -webkit-tap-highlight-color: transparent;
@@ -1890,30 +3310,131 @@
   min-width: 0 !important;
   min-height: 0 !important;
   height: auto !important;
-  padding: 14px 8px !important;
+  padding: 16px 6px !important;
   border-radius: 10px !important;
-  font-size: 9.5px !important;
+  font-size: 11.5px !important;
   letter-spacing: 0.04em !important;
-  line-height: 1.15 !important;
+  line-height: 1.2 !important;
 }
 
 .avatar-editor-left-actions .avatar-editor-left-save {
-  flex: 1.28 1 0 !important;
+  flex: 1.15 1 0 !important;
   width: auto !important;
   min-width: 0 !important;
   min-height: 0 !important;
   height: auto !important;
-  padding: 14px 10px !important;
+  padding: 16px 8px !important;
   border-radius: 10px !important;
-  font-size: 9.5px !important;
+  font-size: 11.5px !important;
   letter-spacing: 0.04em !important;
-  line-height: 1.15 !important;
+  line-height: 1.2 !important;
   gap: 5px !important;
+}
+
+.avatar-editor-left-actions .avatar-editor-left-done {
+  flex: 1.2 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 11px 6px !important;
+  border-radius: 10px !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.03em !important;
+  line-height: 1.15 !important;
+  text-transform: uppercase !important;
+  border: 1px solid rgba(52, 211, 153, 0.65) !important;
+  color: #ecfdf5 !important;
+  background:
+    radial-gradient(ellipse 85% 65% at 28% 16%, rgba(255, 255, 255, 0.32), transparent 52%),
+    radial-gradient(ellipse 70% 50% at 88% 90%, rgba(16, 185, 129, 0.35), transparent 55%),
+    linear-gradient(
+      168deg,
+      rgba(6, 95, 70, 0.7) 0%,
+      rgba(14, 116, 144, 0.55) 42%,
+      rgba(30, 27, 75, 0.92) 78%,
+      rgba(15, 23, 42, 0.97) 100%
+    ) !important;
+  box-shadow:
+    0 0 0 1px rgba(6, 78, 59, 0.55),
+    0 0 18px rgba(52, 211, 153, 0.35),
+    0 0 14px rgba(34, 211, 238, 0.22),
+    inset 0 1px 0 rgba(167, 243, 208, 0.35),
+    inset 0 -8px 14px rgba(2, 6, 23, 0.45) !important;
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.55) !important;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    filter 0.15s ease !important;
+}
+
+.avatar-editor-left-actions .avatar-editor-left-done:hover:not(:disabled) {
+  filter: brightness(1.1) !important;
+  border-color: rgba(110, 231, 183, 0.85) !important;
+  box-shadow:
+    0 0 0 1px rgba(6, 95, 70, 0.5),
+    0 0 22px rgba(52, 211, 153, 0.48),
+    0 0 16px rgba(34, 211, 238, 0.3),
+    inset 0 1px 0 rgba(209, 250, 229, 0.4),
+    inset 0 -8px 14px rgba(2, 6, 23, 0.4) !important;
+}
+
+.avatar-editor-left-actions .avatar-editor-left-done:active:not(:disabled) {
+  filter: brightness(0.96) !important;
+  transform: translateY(1px) !important;
+}
+
+.avatar-editor-left-actions .avatar-editor-left-done__stack {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 1px !important;
+  line-height: 1.12 !important;
+}
+
+.avatar-editor-left-actions .avatar-editor-left-done__label {
+  background: linear-gradient(100deg, #a7f3d0 0%, #67e8f9 38%, #34d399 68%, #fde68a 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+}
+
+.avatar-editor-left-actions .avatar-editor-left-done__label--sub {
+  font-size: 0.92em !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  opacity: 0.92 !important;
 }
 
 .avatar-editor-left-actions .avatar-editor-left-save__dirty-dot {
   width: 6px !important;
   height: 6px !important;
+}
+
+.avatar-editor-left-save--saved {
+  /* Спокойный статус, не «нажми сюда» */
+  border-color: rgba(148, 163, 184, 0.45) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(165, 243, 252, 0.12),
+    inset 0 -6px 12px rgba(2, 6, 23, 0.35) !important;
+  animation: none !important;
+  pointer-events: none !important;
+  cursor: default !important;
+  opacity: 0.92 !important;
+}
+
+.avatar-editor-left-save--saved .avatar-editor-left-save__label {
+  background: linear-gradient(100deg, #94a3b8 0%, #67e8f9 50%, #a5b4fc 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  letter-spacing: 0.06em !important;
 }
 
 .avatar-editor-left-actions .avatar-editor-left-cancel__label,
@@ -2150,5 +3671,413 @@
   }
   50% {
     transform: translateY(-2px) scale(1.06);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * MOBILE (основная версия): базы в ряд, превью по центру
+ * ПК-столбик баз и асимметрия крыльев — только ≥769px
+ * ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Кружок «Варианты» / «Фон» на кромке вкладки — чуть ниже, чтобы не задевать «Сохранить» */
+  .avatar-editor-stage__dock-tab:not(.avatar-editor-hub__tile--photo) {
+    transform: translate(-50%, calc(-50% + 14px)) scale(0.97) !important;
+  }
+
+  .avatar-editor-stage__dock-tab:not(.avatar-editor-hub__tile--photo):hover {
+    transform: translate(-50%, calc(-50% + 14px)) scale(0.99) !important;
+  }
+
+  /* Превью + крылья: симметричная сетка (иначе 1fr|auto|max-content уезжает вправо) */
+  .avatar-editor-hero {
+    width: max-content !important;
+    max-width: 100% !important;
+    margin-inline: auto !important;
+    grid-template-columns: 40px auto 40px !important;
+    column-gap: 8px !important;
+    justify-content: center !important;
+  }
+
+  .avatar-editor-hero:has(.avatar-editor-hero__wing--right-wide) {
+    grid-template-columns: 40px auto minmax(40px, 78px) !important;
+  }
+
+  .avatar-editor-hero__wing--left,
+  .avatar-editor-hero__wing--right {
+    transform: none !important;
+    width: 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+    justify-self: center !important;
+    justify-items: center !important;
+  }
+
+  .avatar-editor-hero__wing--left {
+    justify-self: end !important;
+  }
+
+  .avatar-editor-hero__wing--right {
+    justify-self: start !important;
+  }
+
+  .avatar-editor-hero__wing--right-wide {
+    width: auto !important;
+    min-width: 40px !important;
+    max-width: 78px !important;
+    justify-items: start !important;
+  }
+
+  .avatar-editor-hero__meta {
+    justify-self: center !important;
+    width: 100% !important;
+    max-width: 200px !important;
+    margin-inline: auto !important;
+    text-align: center !important;
+  }
+
+  .avatar-editor-left-col,
+  .avatar-editor-left-stack {
+    width: 100% !important;
+    max-width: 100% !important;
+    align-items: center !important;
+  }
+
+  .avatar-editor-left-stack {
+    width: min(280px, 100%) !important;
+  }
+
+  /* Базы: строка внизу модалки (не столбик) */
+  .avatar-editor-hub {
+    width: 100% !important;
+  }
+
+  .avatar-editor-hub__bases,
+  .avatar-editor-hub__bases--column,
+  .avatar-editor-atelier--stage .avatar-editor-hub__bases--column,
+  .avatar-editor-atelier--round-photo .avatar-editor-hub__bases--column,
+  .avatar-editor-modal-card--hub .avatar-editor-hub__bases--column {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    justify-content: center !important;
+    align-items: center !important;
+    align-content: center !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 10px 0 0 !important;
+    padding: 2px 0 4px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    flex: 0 0 auto !important;
+    overflow: visible !important;
+  }
+
+  .avatar-editor-atelier--stage .avatar-editor-hub__bases--column .avatar-editor-hub__tile {
+    left: auto !important;
+  }
+
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile {
+    width: 56px !important;
+    height: 56px !important;
+    min-width: 56px !important;
+    max-width: 56px !important;
+  }
+
+  /*
+   * «Своё» — та же размерность, но ярче всех: живой переливающийся обод,
+   * искры и насыщенное стекло (главный CTA среди 4 баз).
+   */
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile--photo:not(.avatar-editor-hub__tile--ghost) {
+    border-color: rgba(103, 232, 249, 0.85) !important;
+    background:
+      radial-gradient(ellipse 85% 70% at 32% 18%, rgba(255, 255, 255, 0.55), transparent 52%),
+      radial-gradient(ellipse 70% 55% at 78% 88%, rgba(232, 121, 249, 0.55), transparent 58%),
+      linear-gradient(
+        155deg,
+        rgba(103, 232, 249, 0.55) 0%,
+        rgba(167, 139, 250, 0.72) 38%,
+        rgba(232, 121, 249, 0.5) 72%,
+        rgba(30, 12, 72, 0.95) 100%
+      ) !important;
+    box-shadow:
+      inset 0 2px 1px rgba(255, 255, 255, 0.55),
+      inset 0 8px 14px rgba(255, 255, 255, 0.12),
+      inset 0 -14px 20px rgba(8, 2, 28, 0.55),
+      0 0 0 1.5px rgba(103, 232, 249, 0.55),
+      0 0 18px rgba(34, 211, 238, 0.55),
+      0 0 28px rgba(232, 121, 249, 0.4),
+      0 6px 0 rgba(18, 8, 48, 0.75),
+      0 14px 24px rgba(2, 4, 18, 0.55) !important;
+    filter: saturate(1.25) brightness(1.08) !important;
+    z-index: 2 !important;
+  }
+
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile--photo:not(.avatar-editor-hub__tile--ghost) .avatar-editor-hub__rim {
+    opacity: 1 !important;
+    inset: -4px !important;
+  }
+
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo:not(.avatar-editor-hub__tile--ghost)
+    .avatar-editor-hub__rim-spin {
+    animation: avatar-editor-hub-rim-spin-cheap 2.2s linear infinite !important;
+    padding: 2.5px !important;
+    background: conic-gradient(
+      from 0deg,
+      #67e8f9,
+      #a5f3fc,
+      #e879f9,
+      #f0abfc,
+      #fbbf24,
+      #22d3ee,
+      #67e8f9
+    ) !important;
+    filter: saturate(1.45) brightness(1.15) !important;
+  }
+
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo:not(.avatar-editor-hub__tile--ghost)
+    .avatar-editor-hub__rim::after {
+    opacity: 0.85 !important;
+    transform: scale(1) !important;
+    animation: avatar-editor-photo-rim-spark 2.8s ease-in-out infinite !important;
+  }
+
+  /* В ряду «Своё» остаётся кругом (вертикальная капсула — для ПК-столбика) */
+  .avatar-editor-atelier--round-photo
+    .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round:not(.avatar-editor-hub__tile--ghost) {
+    width: 56px !important;
+    min-width: 56px !important;
+    max-width: 56px !important;
+    height: 56px !important;
+    border-radius: 50% !important;
+    flex-direction: column !important;
+  }
+
+  /* Два глифа (фото / галерея) в кружке: попеременно «кто сверху» */
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile--photo .avatar-editor-hub__glyph-pair,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round
+    .avatar-editor-hub__glyph-pair {
+    overflow: visible !important;
+  }
+
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile--photo .avatar-editor-hub__glyph--photo-cam,
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile--photo .avatar-editor-hub__glyph--photo-gal,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round
+    .avatar-editor-hub__glyph--photo-cam,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round
+    .avatar-editor-hub__glyph--photo-gal {
+    left: 50% !important;
+    right: auto !important;
+    top: 50% !important;
+    width: 30px !important;
+    height: 30px !important;
+    margin: 0 !important;
+    transform-origin: center center !important;
+    will-change: transform, opacity;
+  }
+
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile--photo .avatar-editor-hub__glyph--photo-cam,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round
+    .avatar-editor-hub__glyph--photo-cam {
+    animation: avatar-editor-photo-glyph-lead 3.6s cubic-bezier(0.45, 0.05, 0.25, 1) infinite !important;
+  }
+
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile--photo .avatar-editor-hub__glyph--photo-gal,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round
+    .avatar-editor-hub__glyph--photo-gal {
+    animation: avatar-editor-photo-glyph-trail 3.6s cubic-bezier(0.45, 0.05, 0.25, 1) infinite !important;
+  }
+
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo:hover
+    .avatar-editor-hub__glyph--photo-cam,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo:hover
+    .avatar-editor-hub__glyph--photo-gal,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round:hover
+    .avatar-editor-hub__glyph--photo-cam,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round:hover
+    .avatar-editor-hub__glyph--photo-gal {
+    /* hover не ломает swap-трансформ */
+    transform: none !important;
+  }
+
+  .avatar-editor-atelier--stage .avatar-editor-hub__tile--ghost {
+    position: absolute !important;
+  }
+
+  /* Touch: без «подскока» hover (на таче hover залипает) */
+  .avatar-editor-atelier--stage
+    .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile:not(.avatar-editor-hub__tile--active):not(
+      .avatar-editor-hub__tile--ghost
+    ):hover {
+    transform: none !important;
+  }
+
+  .avatar-editor-atelier--stage
+    .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile:not(.avatar-editor-hub__tile--ghost):active {
+    transform: translateY(1px) scale(0.96) !important;
+    filter: brightness(1.12) !important;
+  }
+
+  .avatar-editor-atelier {
+    width: 100% !important;
+    align-items: center !important;
+  }
+
+  .avatar-editor-atelier--stage {
+    align-items: stretch !important;
+  }
+
+  .avatar-editor-atelier--stage .avatar-editor-stage {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-right: 0 !important;
+    align-self: stretch !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile,
+  .avatar-editor-atelier--round-photo
+    .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round:not(.avatar-editor-hub__tile--ghost) {
+    width: 50px !important;
+    height: 50px !important;
+    min-width: 50px !important;
+    max-width: 50px !important;
+  }
+
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile--photo .avatar-editor-hub__glyph--photo-cam,
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile--photo .avatar-editor-hub__glyph--photo-gal,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round
+    .avatar-editor-hub__glyph--photo-cam,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round
+    .avatar-editor-hub__glyph--photo-gal {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  .avatar-editor-hub__bases--column,
+  .avatar-editor-atelier--stage .avatar-editor-hub__bases--column {
+    gap: 8px !important;
+  }
+}
+
+/* Кружок «Своё»: попеременная смена лидера (камера ↔ галерея) */
+@keyframes avatar-editor-photo-glyph-lead {
+  0%,
+  38% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    z-index: 4;
+    filter:
+      saturate(1.45) contrast(1.14)
+      drop-shadow(0 2px 4px rgba(2, 6, 23, 0.55))
+      drop-shadow(0 0 6px rgba(34, 211, 238, 0.55));
+  }
+  48%,
+  88% {
+    transform: translate(calc(-50% + 8px), calc(-50% + 7px)) scale(0.62);
+    opacity: 0.52;
+    z-index: 2;
+    filter:
+      saturate(1.1) contrast(1.05)
+      drop-shadow(0 1px 2px rgba(2, 6, 23, 0.4));
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    z-index: 4;
+    filter:
+      saturate(1.45) contrast(1.14)
+      drop-shadow(0 2px 4px rgba(2, 6, 23, 0.55))
+      drop-shadow(0 0 6px rgba(34, 211, 238, 0.55));
+  }
+}
+
+@keyframes avatar-editor-photo-glyph-trail {
+  0%,
+  38% {
+    transform: translate(calc(-50% - 8px), calc(-50% - 6px)) scale(0.62);
+    opacity: 0.52;
+    z-index: 2;
+    filter:
+      saturate(1.1) contrast(1.05)
+      drop-shadow(0 1px 2px rgba(2, 6, 23, 0.4));
+  }
+  48%,
+  88% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    z-index: 4;
+    filter:
+      saturate(1.45) contrast(1.14)
+      drop-shadow(0 2px 4px rgba(2, 6, 23, 0.55))
+      drop-shadow(0 0 6px rgba(192, 38, 211, 0.55));
+  }
+  100% {
+    transform: translate(calc(-50% - 8px), calc(-50% - 6px)) scale(0.62);
+    opacity: 0.52;
+    z-index: 2;
+    filter:
+      saturate(1.1) contrast(1.05)
+      drop-shadow(0 1px 2px rgba(2, 6, 23, 0.4));
+  }
+}
+
+@keyframes avatar-editor-photo-rim-spark {
+  0%,
+  100% {
+    opacity: 0.65;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile--photo .avatar-editor-hub__glyph--photo-cam,
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile--photo .avatar-editor-hub__glyph--photo-gal,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round
+    .avatar-editor-hub__glyph--photo-cam,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round
+    .avatar-editor-hub__glyph--photo-gal {
+    animation: none !important;
+  }
+
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile--photo .avatar-editor-hub__glyph--photo-cam,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round
+    .avatar-editor-hub__glyph--photo-cam {
+    transform: translate(-50%, -50%) scale(1) !important;
+    opacity: 1 !important;
+    z-index: 4 !important;
+  }
+
+  .avatar-editor-hub__bases--column .avatar-editor-hub__tile--photo .avatar-editor-hub__glyph--photo-gal,
+  .avatar-editor-hub__bases--column
+    .avatar-editor-hub__tile--photo-round
+    .avatar-editor-hub__glyph--photo-gal {
+    transform: translate(calc(-50% + 8px), calc(-50% + 7px)) scale(0.62) !important;
+    opacity: 0.55 !important;
+    z-index: 2 !important;
   }
 }
