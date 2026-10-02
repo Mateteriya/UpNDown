@@ -3,6 +3,12 @@
 export const AVATAR_MAX_PX = 512;
 export const AVATAR_JPEG_QUALITY = 0.88;
 export const MAX_AVATAR_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+/** Поля вокруг круга, чтобы плашка снизу не обрезалась при экспорте. */
+export const AVATAR_BADGE_OUTER_PAD_RATIO = 0.16;
+/** Во сколько раз полный кадр больше диаметра лица (для CSS bleed). */
+export const AVATAR_BADGE_OUTER_SCALE = 1 + 2 * AVATAR_BADGE_OUTER_PAD_RATIO;
+/** Доля inset с каждой стороны для object-view-box (старый PNG-экспорт с полями). */
+export const AVATAR_BADGE_PAD_INSET_FRAC = AVATAR_BADGE_OUTER_PAD_RATIO / AVATAR_BADGE_OUTER_SCALE;
 
 /**
  * Лимит data URL в слоте комнаты (LAN WS). Обычный JPEG 512px часто 40–80KB —
@@ -32,9 +38,17 @@ export function compressImageToDataUrl(dataUrl: string): Promise<string> {
         resolve(dataUrl);
         return;
       }
+      const keepPng = dataUrl.startsWith('data:image/png');
+      if (keepPng) {
+        ctx.clearRect(0, 0, cw, ch);
+      }
       ctx.drawImage(img, 0, 0, cw, ch);
       try {
-        resolve(canvas.toDataURL('image/jpeg', AVATAR_JPEG_QUALITY));
+        resolve(
+          keepPng
+            ? canvas.toDataURL('image/png')
+            : canvas.toDataURL('image/jpeg', AVATAR_JPEG_QUALITY),
+        );
       } catch {
         resolve(dataUrl);
       }
@@ -117,7 +131,7 @@ export function exportCircularAvatarJpeg(
     paintBadge?: (ctx: CanvasRenderingContext2D, avatarSize: number, originX: number, originY: number) => void;
   },
 ): string {
-  const pad = opts?.keepBadgeOutside ? Math.ceil(size * 0.14) : 0;
+  const pad = opts?.keepBadgeOutside ? Math.ceil(size * AVATAR_BADGE_OUTER_PAD_RATIO) : 0;
   const outSize = size + pad * 2;
   const out = document.createElement('canvas');
   out.width = outSize;
@@ -125,8 +139,12 @@ export function exportCircularAvatarJpeg(
   const ctx = out.getContext('2d');
   if (!ctx) return baseCanvas.toDataURL('image/jpeg', AVATAR_JPEG_QUALITY);
 
-  ctx.fillStyle = '#020617';
-  ctx.fillRect(0, 0, outSize, outSize);
+  if (pad > 0) {
+    ctx.clearRect(0, 0, outSize, outSize);
+  } else {
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(0, 0, outSize, outSize);
+  }
 
   ctx.save();
   ctx.beginPath();
@@ -140,5 +158,9 @@ export function exportCircularAvatarJpeg(
     opts.paintBadge(ctx, size, pad, pad);
   }
 
+  /* PNG с альфой — без чёрного кольца вокруг лица при показе в меню */
+  if (pad > 0) {
+    return out.toDataURL('image/png');
+  }
   return out.toDataURL('image/jpeg', AVATAR_JPEG_QUALITY);
 }

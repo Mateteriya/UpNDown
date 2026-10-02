@@ -5,7 +5,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { HexColorPicker } from 'react-colorful';
-import { t, useT } from '../i18n';
+import { useT } from '../i18n';
+import { AvatarEditorTipButton } from './avatarEditor/AvatarEditorTipButton';
 
 /** Быстрые цвета слева от кнопки палитры */
 export const BRUSH_QUICK_COLORS = ['#ffffff', '#22d3ee', '#f472b6'] as const;
@@ -57,8 +58,13 @@ function flatSwatchStyle(hex: string): CSSProperties {
   };
 }
 
-function swatchStyle(hex: string, neon: boolean): CSSProperties {
+/** Стиль превью быстрых цветов / сэмпла: неон светится, обычный — матовый. */
+export function brushSwatchPreviewStyle(hex: string, neon: boolean): CSSProperties {
   return neon ? neonSwatchStyle(hex) : flatSwatchStyle(hex);
+}
+
+function swatchStyle(hex: string, neon: boolean): CSSProperties {
+  return brushSwatchPreviewStyle(hex, neon);
 }
 
 function clampPanelPos(top: number, left: number, panelW: number, panelH: number) {
@@ -85,6 +91,8 @@ export interface AvatarNeonColorPickerProps {
   triggerLabel?: string;
   /** Скрыть Неон/Обычная внутри панели (только сетка + hex) */
   hidePanelModeToggle?: boolean;
+  /** Подсказка / aria для триггера */
+  tipText?: string;
 }
 
 function normalizeHex(raw: string): string {
@@ -109,10 +117,12 @@ export function AvatarNeonColorPicker({
   title,
   triggerLabel,
   hidePanelModeToggle = false,
+  tipText,
 }: AvatarNeonColorPickerProps) {
   const tr = useT();
   const panelTitle = title ?? tr('avatarEditor.brushColors');
   const colorsLabel = triggerLabel ?? tr('avatarEditor.colors');
+  const triggerTip = tipText ?? tr('avatarEditor.palette');
   const [open, setOpen] = useState(false);
   const [panelPos, setPanelPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -320,39 +330,39 @@ export function AvatarNeonColorPicker({
     <div className={['avatar-neon-picker', className].filter(Boolean).join(' ')}>
       {!hideExternalModeToggle ? (
         <div className="avatar-neon-picker__brush-mode" role="group" aria-label={tr('avatarEditor.brushMode')}>
-          <button
+          <AvatarEditorTipButton
             type="button"
             className={['avatar-neon-picker__brush-mode-btn', neonBrush ? 'avatar-neon-picker__brush-mode-btn--active' : ''].join(' ')}
             onClick={() => onNeonBrushChange(true)}
-            title={tr('avatarEditor.neonTitle')}
+            tipText={tr('avatarEditor.neonTitle')}
           >
             {tr('avatarEditor.neon')}
-          </button>
-          <button
+          </AvatarEditorTipButton>
+          <AvatarEditorTipButton
             type="button"
             className={['avatar-neon-picker__brush-mode-btn', !neonBrush ? 'avatar-neon-picker__brush-mode-btn--active' : ''].join(' ')}
             onClick={() => onNeonBrushChange(false)}
-            title={tr('avatarEditor.flatTitle')}
+            tipText={tr('avatarEditor.flatTitle')}
           >
             {tr('avatarEditor.flat')}
-          </button>
+          </AvatarEditorTipButton>
         </div>
       ) : null}
-      <button
+      <AvatarEditorTipButton
         ref={triggerRef}
         type="button"
         className={['avatar-neon-picker__trigger', open ? 'avatar-neon-picker__trigger--open' : ''].join(' ')}
         onClick={openPanel}
-        aria-label={t('nameAvatar.allColors')}
+        aria-label={triggerTip}
         aria-expanded={open}
-        title={tr('avatarEditor.palette')}
+        tipText={triggerTip}
       >
         <span
           className={['avatar-neon-picker__trigger-swatch', neonBrush ? '' : 'avatar-neon-picker__trigger-swatch--flat'].filter(Boolean).join(' ')}
           style={swatchStyle(hex, neonBrush)}
         />
         <span className="avatar-neon-picker__trigger-label">{colorsLabel}</span>
-      </button>
+      </AvatarEditorTipButton>
       {panel && createPortal(panel, document.body)}
     </div>
   );

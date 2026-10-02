@@ -3,7 +3,8 @@
  * Размер задаётся sizePx (по умолчанию 28).
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
+import { loadAvatarEditorProject } from '../lib/avatarEditorProject';
 import './player-avatar.css';
 
 /**
@@ -52,6 +53,16 @@ function classNameHasOfflineAiPalette(className?: string): boolean {
   return !!className && className.includes('player-avatar-ai-offline');
 }
 
+/** Старый экспорт плашки — PNG с полями; лицо нужно «дотянуть» до круга. */
+function shouldCropBadgeExportPad(avatarDataUrl: string): boolean {
+  if (!avatarDataUrl.startsWith('data:image/png')) return false;
+  try {
+    return loadAvatarEditorProject()?.initialsStyle === 'badge';
+  } catch {
+    return false;
+  }
+}
+
 export function PlayerAvatar({
   name,
   avatarDataUrl,
@@ -71,6 +82,11 @@ export function PlayerAvatar({
         ? avatarBgColor.trim()
         : hashToColor(name);
 
+  const cropBadgePad = useMemo(
+    () => (avatarDataUrl ? shouldCropBadgeExportPad(avatarDataUrl) : false),
+    [avatarDataUrl],
+  );
+
   const style: React.CSSProperties = {
     width: size,
     height: size,
@@ -82,19 +98,34 @@ export function PlayerAvatar({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    background: bg,
+    background: bg ?? (avatarDataUrl ? 'transparent' : undefined),
     fontSize: Math.round(size * (longInitials ? 0.32 : 0.45)),
     fontWeight: 800,
     lineHeight: 1,
+    position: 'relative',
+    boxSizing: 'border-box',
   };
 
-  const avatarClassName = className ? `player-avatar ${className}` : 'player-avatar';
+  const avatarClassName = [
+    'player-avatar',
+    cropBadgePad ? 'player-avatar--crop-badge-pad' : '',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   if (avatarDataUrl) {
     return (
       <span className={avatarClassName} style={style} title={title ?? name} role="img" aria-label={name}>
         <img
           src={avatarDataUrl}
           alt=""
+          className={[
+            'player-avatar__img',
+            cropBadgePad ? 'player-avatar__img--crop-badge-pad' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
       </span>

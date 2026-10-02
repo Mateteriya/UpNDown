@@ -1250,11 +1250,29 @@
     min-width: 380px;
   }
 
-  /* Профиль (имя без аккаунта) + Войти: по контенту, без лишней ширины */
+  /* Профиль + Войти: пол по ширине, растёт под длинное/широкое имя */
   .menu-screen__drift--account:has(.menu-capsule--id-profile.menu-capsule--split) {
     width: max-content;
-    min-width: 0;
-    max-width: min(520px, 48vw);
+    min-width: 400px;
+    max-width: min(640px, 58vw);
+  }
+
+  /* Короткое имя (≤8): имя справа от аватара, без наложения */
+  .menu-screen__drift--account:has(
+    .menu-capsule--id-profile.menu-capsule--split.menu-capsule--name-short
+  ) {
+    min-width: 400px;
+  }
+
+  /* Длинное имя / единая сетка профиля: ширина от ЛК+войти, не от глифов имени */
+  .menu-screen__drift--account:has(
+    .menu-capsule--id-profile.menu-capsule--split.menu-capsule--profile-grid
+  ),
+  .menu-screen__drift--account:has(
+    .menu-capsule--id-profile.menu-capsule--split.menu-capsule--name-long
+  ) {
+    min-width: 400px;
+    max-width: min(640px, 58vw);
   }
   .menu-screen__drift--account > .menu-screen__drift-bob {
     animation: menu-pc-bob-c 7.8s ease-in-out infinite;
@@ -1842,18 +1860,229 @@
     aspect-ratio: 1;
     flex-shrink: 0;
   }
+  /* Лицо почти во весь глиф — без увеличения слота капсулы */
   .menu-screen__drift--account .menu-capsule__glyph--avatar .player-avatar {
-    width: 58px !important;
-    height: 58px !important;
-    min-width: 58px !important;
-    min-height: 58px !important;
-    max-width: 58px !important;
-    max-height: 58px !important;
+    width: 62px !important;
+    height: 62px !important;
+    min-width: 62px !important;
+    min-height: 62px !important;
+    max-width: 62px !important;
+    max-height: 62px !important;
     aspect-ratio: 1 !important;
     border-radius: 50% !important;
     flex-shrink: 0 !important;
     font-size: 24px !important;
   }
+
+  /* Профиль (имя есть, не гость, ещё не в аккаунте): чуть крупнее слот+лицо */
+  .menu-screen__drift--account .menu-capsule--id-profile .menu-capsule__glyph--avatar {
+    width: 70px;
+    height: 70px;
+    min-width: 70px;
+    min-height: 70px;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-capsule__glyph--avatar
+    .player-avatar,
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-signed-id__face.player-avatar {
+    width: 70px !important;
+    height: 70px !important;
+    min-width: 70px !important;
+    min-height: 70px !important;
+    max-width: 70px !important;
+    max-height: 70px !important;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule__glyph--avatar:has(.menu-signed-id--with-nameplate)
+    .player-avatar,
+  .menu-screen__drift--account
+    .menu-capsule__glyph--avatar
+    .menu-signed-id--with-nameplate
+    .menu-signed-id__face.player-avatar {
+    width: 64px !important;
+    height: 64px !important;
+    min-width: 64px !important;
+    min-height: 64px !important;
+    max-width: 64px !important;
+    max-height: 64px !important;
+  }
+
+  /* id-profile + плашка: лицо на весь увеличенный слот */
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-capsule__glyph--avatar:has(.menu-signed-id--with-nameplate)
+    .player-avatar,
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-signed-id--with-nameplate
+    .menu-signed-id__face.player-avatar {
+    width: 70px !important;
+    height: 70px !important;
+    min-width: 70px !important;
+    min-height: 70px !important;
+    max-width: 70px !important;
+    max-height: 70px !important;
+  }
+
+  /*
+   * Профиль (имя есть, не в аккаунте): контрастный ободок аватара.
+   * Гостя / аккаунт не трогаем.
+   */
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-signed-id--capsule
+    .menu-signed-id__ring {
+    padding: 2.5px;
+    background: linear-gradient(
+      135deg,
+      #67e8f9 0%,
+      #a78bfa 28%,
+      #e879f9 52%,
+      #fbbf24 78%,
+      #67e8f9 100%
+    ) !important;
+    background-size: 220% 100%;
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.42),
+      0 0 0 2.5px rgb(12 4 28 / 0.82),
+      0 0 12px rgb(103 232 249 / 0.5),
+      0 0 20px rgb(232 121 249 / 0.38),
+      0 0 28px rgb(251 191 36 / 0.18),
+      0 4px 12px rgb(2 6 23 / 0.45) !important;
+    animation: menu-capsule-name-plaque-rim 5.2s linear infinite;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-signed-id--capsule
+    .menu-signed-id__ring::before {
+    display: block;
+    inset: 2.5px;
+    z-index: 0;
+    background:
+      radial-gradient(circle at 32% 28%, rgb(36 22 72 / 0.35), transparent 55%),
+      linear-gradient(165deg, rgb(18 10 42 / 0.15), rgb(8 4 24 / 0.55));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-signed-id--capsule
+    .menu-signed-id__face {
+    box-shadow:
+      0 0 0 1.5px rgb(12 4 28 / 0.92),
+      inset 0 0 10px rgb(0 0 0 / 0.28) !important;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-signed-id--capsule
+    .menu-signed-id__ring--edit:hover {
+    filter: brightness(1.1) saturate(1.12);
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.5),
+      0 0 0 2.5px rgb(12 4 28 / 0.75),
+      0 0 16px rgb(103 232 249 / 0.65),
+      0 0 26px rgb(232 121 249 / 0.48),
+      0 0 32px rgb(251 191 36 / 0.22),
+      0 5px 14px rgb(2 6 23 / 0.5) !important;
+  }
+
+  /* Намёк: аватар кликабелен / редактируем */
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-signed-id--edit-avatar
+    .menu-signed-id__ring--edit {
+    cursor: pointer;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-signed-id__edit-cue {
+    position: absolute;
+    right: -1px;
+    bottom: 2px;
+    z-index: 7;
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    pointer-events: none;
+    background:
+      linear-gradient(165deg, rgb(24 14 52 / 0.95), rgb(12 8 36 / 0.98));
+    box-shadow:
+      0 0 0 1.5px rgb(255 255 255 / 0.35),
+      0 0 0 2.5px rgb(12 4 28 / 0.7),
+      0 0 10px rgb(103 232 249 / 0.45),
+      0 2px 6px rgb(2 6 23 / 0.4);
+    animation: menu-profile-avatar-edit-cue 2.8s ease-in-out infinite;
+  }
+
+  /*
+   * Карандаш:
+   * — без плашки → справа снизу (WAVE по центру снизу диска);
+   * — с плашкой → слева сверху (снизу заняты плашка + WAVE).
+   */
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-signed-id--edit-avatar:not(.menu-signed-id--with-nameplate)
+    .menu-signed-id__edit-cue {
+    right: -1px;
+    bottom: 2px;
+    top: auto;
+    left: auto;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-signed-id--with-nameplate
+    .menu-signed-id__edit-cue {
+    left: -1px;
+    top: 1px;
+    right: auto;
+    bottom: auto;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-signed-id__edit-cue
+    svg {
+    display: block;
+    filter: drop-shadow(0 0 2px rgb(103 232 249 / 0.55));
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-profile
+    .menu-signed-id--edit-avatar:hover
+    .menu-signed-id__edit-cue {
+    animation: none;
+    transform: scale(1.12);
+    box-shadow:
+      0 0 0 1.5px rgb(255 255 255 / 0.5),
+      0 0 0 2.5px rgb(12 4 28 / 0.65),
+      0 0 14px rgb(232 121 249 / 0.55),
+      0 3px 8px rgb(2 6 23 / 0.45);
+  }
+
+  @keyframes menu-profile-avatar-edit-cue {
+    0%,
+    100% {
+      transform: scale(1);
+      filter: brightness(1);
+    }
+    50% {
+      transform: scale(1.08);
+      filter: brightness(1.12);
+    }
+  }
+
   .menu-screen__drift--account .menu-capsule__eyebrow {
     color: rgba(251, 113, 133, 0.9);
     font-size: 11px;
@@ -2142,37 +2371,204 @@
   .menu-screen__drift--account
     .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split {
     overflow: visible;
-    /* +5% к базовым 92px у with-avatar */
-    min-height: 97px;
-    padding-top: 9px;
-    padding-bottom: 9px;
+    /* место под ЛК/шестерёнку внутри капсулы */
+    min-height: 108px;
+    padding-top: 8px;
+    padding-bottom: 10px;
+    /* чуть больше воздуха у торцов — круги ближе к центру */
+    padding-left: 16px;
+    padding-right: 16px;
     width: max-content;
+    min-width: 100%;
     max-width: 100%;
   }
 
   .menu-screen__drift--account
     .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
     .menu-capsule__half--start {
-    flex: 0 0 auto;
-    width: max-content;
+    flex: 0 1 auto;
+    width: auto;
     max-width: none;
     padding: 0;
     min-width: 0;
     overflow: visible;
-    gap: 4px;
+    gap: 8px;
     align-items: center;
   }
 
   .menu-screen__drift--account
     .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
-    .menu-capsule__half--end {
-    flex: 0 0 auto;
-    width: max-content;
-    padding: 0;
+    .menu-capsule__start-main {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 0;
     min-width: 0;
-    /* явный зазор от левого блока (негатив раньше съедал ширину планки) */
-    margin-left: 7px;
+    flex: 0 0 auto;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__half--end {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 168px;
+    padding: 0;
+    margin-left: 12px;
     justify-content: flex-end;
+  }
+
+  /*
+   * Профиль + «войти»: одна сетка для ЛЮБОЙ длины имени.
+   * avatar | имя+ЛК | войти — без absolute и без translate на ЛК.
+   */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split.menu-capsule--profile-grid {
+    display: grid;
+    grid-template-columns: auto max-content auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    justify-items: stretch;
+    column-gap: 26px;
+    row-gap: 4px;
+    min-height: 128px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-left: 16px;
+    padding-right: 16px;
+    border-radius: 999px;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split.menu-capsule--profile-grid
+    .menu-capsule__half--start--endcap {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    align-self: center;
+    justify-self: start;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    gap: 0;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split.menu-capsule--profile-grid
+    .menu-capsule__name-header {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: flex-start;
+    box-sizing: border-box;
+    /*
+     * Длинное имя: плашка НЕ раздувает колонку сетки (иначе широкие глифы тянут
+     * всю капсулу и появляется пустой центр). Ширину колонки задаёт только ЛК.
+     * Плашка рисуется поверх целиком (без «…»).
+     */
+    width: 0;
+    max-width: 0;
+    min-width: 0;
+    overflow: visible;
+    margin-left: -62px;
+    padding: 0;
+    z-index: 5;
+    translate: 0 -6px;
+  }
+
+  /*
+   * ≤8 букв (name-short): имя целиком правее аватара, без наложения.
+   * Плашка участвует в ширине колонки — места хватает, пустот нет.
+   */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split.menu-capsule--profile-grid.menu-capsule--name-short
+    .menu-capsule__name-header {
+    width: max-content;
+    max-width: none;
+    margin-left: 0;
+    padding: 0;
+    translate: 0 0;
+    align-items: center;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split.menu-capsule--profile-grid.menu-capsule--name-short
+    .menu-capsule__name-header
+    .menu-capsule__name-plaque {
+    translate: 0 0;
+    max-width: none;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split.menu-capsule--profile-grid
+    .menu-capsule__name-header
+    .menu-capsule__name-plaque {
+    translate: 0 0;
+    width: max-content;
+    max-width: none;
+    overflow: visible;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split.menu-capsule--profile-grid
+    .menu-capsule__name-header
+    .menu-capsule__name-plaque
+    .menu-capsule__title,
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split.menu-capsule--profile-grid
+    .menu-capsule__name-header
+    .menu-capsule__name-plaque
+    .menu-capsule__title-edit {
+    width: max-content;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+  }
+
+  /* плашка >192px (JS): ещё +8px между левой и правой половинами */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split.menu-capsule--profile-grid.menu-capsule--name-plaque-wide {
+    column-gap: 34px;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split.menu-capsule--profile-grid
+    .menu-capsule__name-long-dock {
+    grid-column: 2;
+    grid-row: 2;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split.menu-capsule--profile-grid
+    .menu-capsule__half--end {
+    grid-column: 3;
+    grid-row: 1 / -1;
+    align-self: center;
+    justify-self: end;
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    /* зазор к левой половине уже в column-gap: 26px */
+    margin-left: 0;
+    padding: 0;
+    z-index: 1;
+    transform: none;
   }
 
   /* Профиль: старт-половина — body по контенту */
@@ -2187,19 +2583,24 @@
     overflow: visible;
   }
 
+  /*
+   * ЛК/шестерёнка: только relative в своей ячейке сетки.
+   * Никаких translate вправо — иначе наезд на «войти».
+   */
   .menu-screen__drift--account
     .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
     .menu-capsule__mid-settings {
     position: relative;
-    /* нижняя «планка»: половина высоты, рост только влево */
+    left: auto;
+    top: auto;
+    bottom: auto;
     flex: 0 0 auto;
-    align-self: flex-end;
+    align-self: flex-start;
     width: max-content;
-    min-width: 78px;
-    height: 38px;
-    margin: 0 4px 1px -59px;
-    translate: 0 4px;
-    padding: 1px 5px 1px 6px;
+    min-width: 108px;
+    height: 44px;
+    margin: 0;
+    padding: 2px 6px 2px 7px;
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -2208,15 +2609,30 @@
     isolation: isolate;
     border-radius: 999px;
     outline: none;
-    z-index: 3;
+    z-index: 2;
+    transform: none;
     background:
-      radial-gradient(120% 140% at 18% 40%, rgb(103 232 249 / 0.18), transparent 55%),
-      radial-gradient(110% 130% at 88% 60%, rgb(232 121 249 / 0.16), transparent 58%),
-      linear-gradient(165deg, rgb(24 14 52 / 0.92), rgb(10 8 32 / 0.88));
+      radial-gradient(ellipse 90% 55% at 30% 8%, rgb(232 121 249 / 0.38), transparent 42%),
+      radial-gradient(ellipse 75% 60% at 22% 22%, rgb(192 132 252 / 0.4), transparent 50%),
+      radial-gradient(ellipse 70% 65% at 78% 95%, rgb(76 16 120 / 0.7), transparent 55%),
+      radial-gradient(ellipse 50% 45% at 50% 55%, rgb(126 34 206 / 0.22), transparent 68%),
+      linear-gradient(
+        168deg,
+        rgb(62 22 98) 0%,
+        rgb(38 12 64) 42%,
+        rgb(16 6 32) 78%,
+        rgb(10 4 22) 100%
+      );
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.14),
-      0 2px 10px rgb(2 6 23 / 0.35),
-      0 0 12px rgb(103 232 249 / 0.18);
+      0 5px 0 rgb(40 8 72 / 0.65),
+      0 10px 22px rgb(2 6 23 / 0.55),
+      0 0 18px rgb(126 34 206 / 0.4),
+      0 0 32px rgb(88 28 135 / 0.28),
+      inset 0 3px 4px rgb(232 121 249 / 0.28),
+      inset 0 1px 0 rgb(192 132 252 / 0.42),
+      inset 0 -10px 18px rgb(6 2 16 / 0.85),
+      inset 0 -2px 0 rgb(4 2 12 / 0.55),
+      inset 0 0 0 1px rgb(167 139 250 / 0.28);
   }
 
   .menu-screen__drift--account
@@ -2253,9 +2669,9 @@
     .menu-capsule__mid-settings__sep {
     position: relative;
     z-index: 1;
-    flex: 0 0 1px;
-    width: 1px;
-    height: 22px;
+    flex: 0 0 1.5px;
+    width: 1.5px;
+    height: 30px;
     border-radius: 1px;
     background: linear-gradient(
       180deg,
@@ -2275,8 +2691,8 @@
     z-index: 1;
     display: grid;
     place-items: center;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     margin: 0;
     padding: 0;
     border: none;
@@ -2293,15 +2709,15 @@
     position: relative;
     z-index: 1;
     display: block;
-    width: 30px;
-    height: 30px;
+    width: 40px;
+    height: 40px;
     transform-origin: center;
     filter:
       drop-shadow(0 1px 0 rgb(8 2 16 / 80%))
-      drop-shadow(0 0 5px rgb(34 211 238 / 55%))
+      drop-shadow(0 0 5px rgb(192 132 252 / 55%))
       drop-shadow(0 0 10px rgb(168 85 247 / 42%))
       brightness(1.05)
-      saturate(1.4)
+      saturate(1.35)
       contrast(1.06);
     animation: menu-account-settings-spin 28s cubic-bezier(0.42, 0.02, 0.18, 1) infinite;
     transition:
@@ -2329,11 +2745,11 @@
     animation-duration: 10s;
     filter:
       drop-shadow(0 1px 0 rgb(8 2 16 / 75%))
-      drop-shadow(0 0 7px rgb(34 211 238 / 65%))
+      drop-shadow(0 0 7px rgb(232 121 249 / 65%))
       drop-shadow(0 0 14px rgb(168 85 247 / 55%))
-      drop-shadow(0 0 18px rgb(232 121 249 / 40%))
+      drop-shadow(0 0 18px rgb(192 132 252 / 40%))
       brightness(1.12)
-      saturate(1.5)
+      saturate(1.45)
       contrast(1.08);
   }
 
@@ -2344,8 +2760,8 @@
     z-index: 1;
     display: grid;
     place-items: center;
-    min-width: 30px;
-    height: 32px;
+    min-width: 42px;
+    height: 46px;
     margin: 0;
     padding: 0 3px;
     border: none;
@@ -2362,7 +2778,7 @@
     .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
     .menu-capsule__mid-settings__lk-text {
     display: block;
-    font: 900 15.5px/1 'Nunito', 'Outfit', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+    font: 900 21px/1 'Nunito', 'Outfit', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
     letter-spacing: 0.05em;
     color: transparent;
     background-image: linear-gradient(
@@ -3342,8 +3758,150 @@
     .menu-capsule__title-row {
     gap: 8px;
     min-width: 0;
-    align-items: center;
+    align-items: flex-start;
     overflow: visible;
+  }
+
+  /* Плашка имени профиля — чуть ниже центра аватара (длинные имена на аватаре) */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
+    .menu-capsule__name-plaque {
+    /* только визуально — layout/док ЛК не двигаем */
+    translate: 0 6px;
+    min-width: 33px;
+    position: relative;
+    z-index: 5;
+  }
+
+  /* ≤8 букв: плашка рядом с аватаром — нормальные поля, без «башенки» */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--name-short
+    .menu-capsule__name-plaque {
+    translate: 0 0;
+    min-width: 40px;
+    padding: 3px 10px 4px;
+    border-radius: 12px;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--name-xs
+    .menu-capsule__name-plaque
+    .menu-capsule__title {
+    font-size: 18px;
+    letter-spacing: 0;
+    text-align: center;
+    min-width: 1em;
+  }
+
+  /*
+   * Сохранённое имя на плашке: кегль по длине (редактирование не трогаем).
+   * ≤10 — 17px; 11–13 → 15px; 14–17 → 14px.
+   */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--name-md
+    .menu-capsule__name-plaque
+    .menu-capsule__title {
+    font-size: 15px;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile.menu-capsule--name-sm
+    .menu-capsule__name-plaque
+    .menu-capsule__title {
+    font-size: 14px;
+  }
+
+  /*
+   * «вне аккаунта» — ушко снизу капсулы.
+   * Капсула-пилюля (border-radius ≈ half-height): вешаем правее дуги угла.
+   */
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile
+    .menu-capsule__outside-ear {
+    position: absolute;
+    left: 48px;
+    /* чуть под кромку капсулы — верх ушка прячется */
+    top: calc(100% + 0.5px);
+    z-index: 6;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 3px 11px 5px;
+    border-radius: 0 0 11px 11px;
+    isolation: isolate;
+    pointer-events: none;
+    background:
+      linear-gradient(
+        180deg,
+        rgb(36 18 72 / 0.96) 0%,
+        rgb(18 10 42 / 0.98) 100%
+      );
+    box-shadow:
+      0 3px 10px rgb(2 6 23 / 0.4),
+      0 0 12px rgb(168 85 247 / 0.28);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile
+    .menu-capsule__outside-ear::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    /* без верхнего padding — верхняя кромка ободка не рисуется */
+    padding: 0 1.2px 1.2px;
+    pointer-events: none;
+    background: linear-gradient(
+      145deg,
+      #e879f9 0%,
+      #a78bfa 38%,
+      #67e8f9 72%,
+      #e879f9 100%
+    );
+    background-size: 200% 100%;
+    animation: menu-capsule-name-plaque-rim 5.2s linear infinite;
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile
+    .menu-capsule__outside-ear__mark {
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #f5d0fe, #e879f9 55%, #a21caf);
+    box-shadow:
+      0 0 6px rgb(232 121 249 / 0.7),
+      0 0 10px rgb(168 85 247 / 0.35);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--account.menu-capsule--id-profile
+    .menu-capsule__outside-ear__text {
+    position: relative;
+    z-index: 1;
+    white-space: nowrap;
+    font: 650 10.5px/1.15 'Outfit', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0.04em;
+    color: #f3e8ff;
+    text-shadow:
+      0 1px 0 rgb(12 4 20 / 65%),
+      0 0 8px rgb(192 132 252 / 45%);
   }
 
   .menu-screen__drift--account
@@ -3351,18 +3909,18 @@
     .menu-capsule__name-plaque {
     --menu-name-pen-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop stop-color='%2367e8f9'/%3E%3Cstop offset='.55' stop-color='%23a78bfa'/%3E%3Cstop offset='1' stop-color='%23e879f9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M4.5 27.2l1.2-4.6 14.2-14.2 3.4 3.4L9.1 26l-4.6 1.2z' fill='url(%23g)' stroke='%23ecfeff' stroke-width='1'/%3E%3Cpath d='M19.2 7.2l3.4 3.4 2.1-2.1a2.2 2.2 0 0 0-3.1-3.1l-2.4 1.8z' fill='%23ecfeff'/%3E%3Ccircle cx='25.2' cy='5.6' r='1.7' fill='%23a5f3fc'/%3E%3C/svg%3E")
       3 28;
-    /* плашка обнимает имя; max — под 17 символов */
-    --menu-name-plaque-max: calc(17.2ch + 12px);
+    /* плашка обнимает имя целиком; широкие глифы (Щ) > ch */
+    --menu-name-plaque-max: none;
     position: relative;
     display: inline-flex;
     flex-direction: row;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     flex: 0 0 auto;
     box-sizing: border-box;
     width: max-content;
-    min-width: 0;
-    max-width: var(--menu-name-plaque-max);
+    min-width: 33px;
+    max-width: none;
     padding: 2px 6px 3px 6px;
     border-radius: 12px;
     isolation: isolate;
@@ -3388,10 +3946,11 @@
   .menu-screen__drift--account
     .menu-capsule--account
     .menu-capsule__name-plaque--editing {
-    width: var(--menu-name-plaque-max);
-    min-width: var(--menu-name-plaque-max);
-    max-width: var(--menu-name-plaque-max);
-    padding-right: 22px;
+    /* обнимает текст, без пустого запаса справа под старую кнопку */
+    width: max-content;
+    min-width: 33px;
+    max-width: none;
+    padding-right: 6px;
   }
 
   .menu-screen__drift--account
@@ -3479,8 +4038,9 @@
     .menu-capsule--account
     .menu-capsule__name-plaque__edit-mark {
     position: absolute;
-    /* ушко на нижней кромке справа, свисает вниз (не в углу) */
-    right: 8px;
+    /* ушко по центру нижней кромки — ровно и на коротком, и на длинном имени */
+    left: 50%;
+    right: auto;
     bottom: auto;
     top: 100%;
     margin-top: -1.5px;
@@ -3496,6 +4056,7 @@
     overflow: visible;
     pointer-events: auto;
     cursor: var(--menu-name-pen-cursor), pointer;
+    transform: translateX(-50%);
     transform-origin: top center;
     /* тот же тёмный залив, что у плашки — сливается с окошком */
     background:
@@ -3565,7 +4126,7 @@
     .menu-capsule--account
     .menu-capsule__name-plaque--editable:hover
     .menu-capsule__name-plaque__edit-mark {
-    transform: translateY(1px) scale(1.06);
+    transform: translateX(-50%) translateY(1px) scale(1.06);
     box-shadow:
       0 4px 10px rgb(2 6 23 / 0.35),
       0 0 10px rgb(103 232 249 / 0.25),
@@ -3575,7 +4136,7 @@
   .menu-screen__drift--account
     .menu-capsule--account
     .menu-capsule__name-plaque__edit-mark:hover {
-    transform: translateY(3px) scale(1.14);
+    transform: translateX(-50%) translateY(3px) scale(1.14);
     box-shadow:
       0 6px 14px rgb(2 6 23 / 0.4),
       0 0 14px rgb(103 232 249 / 0.45),
@@ -3630,47 +4191,49 @@
     }
   }
 
-  /* Галочка «сохранить» — внутри плашки справа */
+  /* Галочка «сохранить» — ушко на месте карандаша (низ плашки) */
   .menu-screen__drift--account
     .menu-capsule--account
     .menu-capsule__name-plaque__confirm {
     position: absolute;
-    right: 3px;
-    left: auto;
-    top: 50%;
+    left: 50%;
+    right: auto;
+    top: 100%;
+    bottom: auto;
     z-index: 6;
     display: grid;
     place-items: center;
     box-sizing: border-box;
-    width: 18px;
-    height: 18px;
-    margin: 0;
-    padding: 2px;
+    width: 30px;
+    height: 17px;
+    margin: -1.5px 0 0;
+    padding: 2px 4px 3px;
     border: 0;
-    border-radius: 999px;
+    border-radius: 0 0 11px 11px;
     isolation: isolate;
     overflow: visible;
     cursor: pointer;
     appearance: none;
     -webkit-appearance: none;
-    translate: 0 -50%;
-    transform-origin: center center;
+    transform: translateX(-50%);
+    transform-origin: top center;
     background:
       linear-gradient(
-        155deg,
-        rgb(18 12 48 / 0.95) 0%,
-        rgb(12 40 36 / 0.92) 55%,
-        rgb(8 28 24 / 0.96) 100%
+        180deg,
+        rgb(10 40 36 / 0.95) 0%,
+        rgb(8 28 32 / 0.97) 55%,
+        rgb(6 20 24 / 0.98) 100%
       );
     box-shadow:
-      0 2px 8px rgb(2 6 23 / 0.35),
-      0 0 10px rgb(52 211 153 / 0.28),
-      inset 0 1px 0 rgb(255 255 255 / 0.16);
+      0 3px 10px rgb(2 6 23 / 0.38),
+      0 0 12px rgb(52 211 153 / 0.4),
+      0 0 18px rgb(103 232 249 / 0.22),
+      inset 0 1px 0 rgb(255 255 255 / 0.14);
     transition:
       transform 0.22s cubic-bezier(0.34, 1.45, 0.64, 1),
       box-shadow 0.22s ease,
       filter 0.22s ease;
-    animation: menu-capsule-name-confirm-in 0.38s cubic-bezier(0.34, 1.45, 0.64, 1) both;
+    animation: menu-capsule-name-confirm-in 0.4s cubic-bezier(0.34, 1.45, 0.64, 1) both;
   }
 
   .menu-screen__drift--account
@@ -3680,18 +4243,18 @@
     inset: 0;
     z-index: 0;
     border-radius: inherit;
-    padding: 1.5px;
+    padding: 1.6px;
     pointer-events: none;
     background: linear-gradient(
-      135deg,
+      120deg,
       #67e8f9 0%,
-      #34d399 32%,
-      #a78bfa 58%,
-      #fbbf24 82%,
+      #34d399 28%,
+      #a3e635 52%,
+      #fbbf24 78%,
       #67e8f9 100%
     );
     background-size: 220% 100%;
-    animation: menu-capsule-name-plaque-rim 4.8s linear infinite;
+    animation: menu-capsule-name-plaque-rim 3.6s linear infinite;
     -webkit-mask:
       linear-gradient(#fff 0 0) content-box,
       linear-gradient(#fff 0 0);
@@ -3709,23 +4272,25 @@
     position: relative;
     z-index: 1;
     display: block;
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 10px;
     overflow: visible;
     filter:
-      saturate(1.25)
-      drop-shadow(0 0 2px rgb(52 211 153 / 0.55));
+      saturate(1.4)
+      brightness(1.12)
+      drop-shadow(0 0 2px rgb(52 211 153 / 0.7))
+      drop-shadow(0 0 5px rgb(103 232 249 / 0.4));
     transition: filter 0.2s ease, transform 0.2s ease;
   }
 
   .menu-screen__drift--account
     .menu-capsule--account
     .menu-capsule__name-plaque__confirm:hover {
-    transform: scale(1.14);
+    transform: translateX(-50%) translateY(3px) scale(1.12);
     box-shadow:
-      0 4px 12px rgb(2 6 23 / 0.4),
-      0 0 14px rgb(52 211 153 / 0.5),
-      0 0 22px rgb(103 232 249 / 0.35),
+      0 6px 14px rgb(2 6 23 / 0.42),
+      0 0 16px rgb(52 211 153 / 0.55),
+      0 0 26px rgb(103 232 249 / 0.4),
       inset 0 1px 0 rgb(255 255 255 / 0.22);
   }
 
@@ -3733,37 +4298,38 @@
     .menu-capsule--account
     .menu-capsule__name-plaque__confirm:hover
     .menu-capsule__name-plaque__confirm-rim {
-    animation-duration: 1.5s;
-    filter: brightness(1.12) saturate(1.2);
+    animation-duration: 1.3s;
+    filter: brightness(1.18) saturate(1.25);
   }
 
   .menu-screen__drift--account
     .menu-capsule--account
     .menu-capsule__name-plaque__confirm:hover
     svg {
-    transform: scale(1.08);
+    transform: scale(1.1);
     filter:
-      saturate(1.45)
-      brightness(1.15)
-      drop-shadow(0 0 3px rgb(52 211 153 / 0.85))
-      drop-shadow(0 0 6px rgb(103 232 249 / 0.45));
+      saturate(1.55)
+      brightness(1.22)
+      drop-shadow(0 0 3px rgb(52 211 153 / 0.95))
+      drop-shadow(0 0 8px rgb(163 230 53 / 0.55))
+      drop-shadow(0 0 6px rgb(103 232 249 / 0.5));
   }
 
   .menu-screen__drift--account
     .menu-capsule--account
     .menu-capsule__name-plaque__confirm:active {
-    transform: scale(0.96);
+    transform: translateX(-50%) translateY(2px) scale(0.96);
   }
 
   @keyframes menu-capsule-name-confirm-in {
     0% {
       opacity: 0;
-      transform: scale(0.55);
-      filter: brightness(1.4);
+      transform: translateX(-50%) translateY(-4px) scale(0.55);
+      filter: brightness(1.5);
     }
     100% {
       opacity: 1;
-      transform: scale(1);
+      transform: translateX(-50%) translateY(0) scale(1);
       filter: none;
     }
   }
@@ -3782,8 +4348,9 @@
     .menu-capsule--account.menu-capsule--id-profile.menu-capsule--split
     .menu-capsule__title-row {
     margin-top: 0;
-    margin-left: -18px;
-    translate: 0 -14px;
+    /* плашка стартует с верха аватара (только профиль, не гость) */
+    margin-left: -56px;
+    translate: 0 -20px;
   }
 
   /* Имя на плашке: тонкий шрифт + яркий перелив, всегда 1 строка */
@@ -3794,17 +4361,17 @@
     position: relative;
     z-index: 2;
     display: block;
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     box-sizing: border-box;
     width: max-content;
     min-width: 0;
-    max-width: 17.2ch;
+    max-width: none;
     margin: 0;
     padding: 0;
-    overflow: hidden;
+    overflow: visible;
     white-space: nowrap;
     text-overflow: clip;
-    font: 550 18px/1.15 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    font: 550 17px/1.15 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
     font-stretch: 75%;
     font-variation-settings: 'wdth' 75;
     letter-spacing: -0.02em;
@@ -3853,9 +4420,10 @@
     z-index: 2;
     box-sizing: border-box;
     display: block;
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
+    width: auto;
+    min-width: 1ch;
+    max-width: none;
+    field-sizing: content;
     margin: 0;
     padding: 0;
     border: 0;
@@ -4483,17 +5051,17 @@
     width: max-content;
     max-width: 100%;
     box-sizing: border-box;
-    /* Nunito Black: ещё чуть пухлее/крупнее; line-height >1 — «Й» не режется */
-    font: 900 20.5px/1.2 'Nunito', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    /* Nunito Black; −2px чтобы длинное/широкое имя сверху не наезжало на «ВОЙТИ» */
+    font: 900 18.5px/1.2 'Nunito', 'Outfit', ui-sans-serif, system-ui, sans-serif;
     letter-spacing: 0.012em;
-    /* компенсируем больший кегль: чуть тянем к стрелке (без смещения самой стрелки) */
+    /* компенсируем кегль: чуть тянем к стрелке (без смещения самой стрелки) */
     margin: 0 0 -3px;
     padding: 0.06em 0.02em 0;
     overflow: visible;
     text-align: left;
     text-transform: none;
-    /* только «ВОЙТИ»: ещё +2px выше, +1px вправо */
-    transform: translate(1px, -2px);
+    /* только «ВОЙТИ»: ниже к стрелке, стрелку/подписи не двигаем */
+    transform: translate(1px, 4px);
     background-image: linear-gradient(
       112deg,
       #ecfeff 0%,
@@ -5812,6 +6380,7 @@
   /*
    * ПК: плашка «онлайн / имя» над аватаркой не нужна —
    * статус уже в шапке и meta-строке. На мобилке (chip) оставляем.
+   * На капсуле профиля «не в сети» = WAVE (низ по центру), не розовый орб.
    */
   .menu-screen__drift--account .menu-signed-id__status {
     display: none;
@@ -5879,6 +6448,7 @@
     display: grid;
     place-items: center;
     background: #312e81;
+    overflow: visible;
     transform: scale(1.045);
     transform-style: preserve-3d;
     box-shadow:
@@ -5898,12 +6468,12 @@
       filter 0.22s ease;
   }
 
-  /* Купольная подложка под фото */
+  /* Купольная подложка под фото — почти без зазора */
   .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__ring::before {
     content: '';
     display: block;
     position: absolute;
-    inset: 5px;
+    inset: 1px;
     z-index: 0;
     border-radius: 50%;
     pointer-events: none;
@@ -5932,8 +6502,8 @@
       #67e8f9 80%,
       #22d3ee 100%
     );
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5.5px), #000 calc(100% - 4.25px));
-    mask: radial-gradient(farthest-side, transparent calc(100% - 5.5px), #000 calc(100% - 4.25px));
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.25px), #000 calc(100% - 1.35px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 2.25px), #000 calc(100% - 1.35px));
     animation: menu-pc-account-avatar-spin 8.5s linear infinite;
     filter: saturate(1.22) brightness(1.12);
   }
@@ -5942,20 +6512,21 @@
   .menu-screen__drift--account .menu-capsule--id-account .menu-capsule__glyph--avatar .player-avatar {
     position: relative;
     z-index: 1;
-    width: 64px !important;
-    height: 64px !important;
-    min-width: 64px !important;
-    min-height: 64px !important;
-    max-width: 64px !important;
-    max-height: 64px !important;
+    width: 76px !important;
+    height: 76px !important;
+    min-width: 76px !important;
+    min-height: 76px !important;
+    max-width: 76px !important;
+    max-height: 76px !important;
     aspect-ratio: 1 !important;
     border-radius: 50% !important;
     flex-shrink: 0 !important;
     font-size: 26px !important;
     transform: none;
+    overflow: hidden !important;
     filter: contrast(1.1) saturate(1.08) brightness(1.03) !important;
     box-shadow:
-      0 0 0 1.5px rgba(12, 6, 32, 0.92),
+      0 0 0 1px rgba(12, 6, 32, 0.75),
       0 2px 3px rgba(0, 0, 0, 0.35),
       0 6px 10px rgba(0, 0, 0, 0.32),
       0 10px 18px rgba(0, 0, 0, 0.2),
@@ -5970,21 +6541,43 @@
   .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__face img,
   .menu-screen__drift--account .menu-capsule--id-account .player-avatar img {
     display: block;
-    width: 100%;
-    height: 100%;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
     object-fit: cover;
     border-radius: 50%;
-    transform: translateZ(0);
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
     image-rendering: auto;
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__nameplate {
+    height: 18px;
+    min-height: 16px;
+    bottom: -2px;
+    z-index: 12;
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__nameplate-text {
+    font-size: 11px;
+  }
+
+  .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__nameplate:hover,
+  .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__nameplate:focus-visible {
+    --nameplate-lift: -14px;
+    --nameplate-scale: 1.72;
   }
 
   /* Стекло: сферический виньет по краям, центр лица свободен */
   .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__glass {
     display: block;
     position: absolute;
-    inset: 7px;
+    inset: 1px;
     z-index: 2;
     border-radius: 50%;
     pointer-events: none;
@@ -6010,8 +6603,55 @@
   }
 
   /*
+   * Уже есть bake 3D-финиш: капсула даёт только живой sheen + лёгкий halo,
+   * без второй тяжёлой виньетки/блика поверх кабошона.
+   */
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id--polished
+    .menu-signed-id__glass {
+    background:
+      radial-gradient(
+        ellipse 62% 42% at 28% 12%,
+        rgba(186, 230, 253, 0.12) 0%,
+        transparent 46%
+      ),
+      radial-gradient(
+        circle at 50% 48%,
+        transparent 52%,
+        rgba(12, 8, 36, 0.06) 78%,
+        rgba(6, 3, 20, 0.16) 100%
+      ),
+      radial-gradient(ellipse 95% 70% at 50% 120%, rgba(0, 0, 0, 0.18) 0%, transparent 52%);
+    box-shadow:
+      inset 0 2px 4px rgba(186, 230, 253, 0.14),
+      inset 0 -6px 10px rgba(0, 0, 0, 0.18),
+      inset 0 0 0 1px rgba(167, 139, 250, 0.16);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id--polished
+    .menu-signed-id__face.player-avatar,
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id--polished
+    .menu-capsule__glyph--avatar
+    .player-avatar {
+    filter: contrast(1.04) saturate(1.04) brightness(1.01) !important;
+    box-shadow:
+      0 0 0 1px rgba(12, 6, 32, 0.7),
+      0 2px 3px rgba(0, 0, 0, 0.3),
+      0 6px 10px rgba(0, 0, 0, 0.26),
+      0 10px 16px rgba(0, 0, 0, 0.16),
+      inset 0 2px 4px rgba(255, 255, 255, 0.12),
+      inset 0 -4px 8px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  /*
    * Блик: узкая цветная полоса по стеклу (amber→rose→cyan),
    * пик ~0.45 — заметна, фото читается. ≠ комета шестерёнки.
+   * На polished — тише: bake уже дал статичные блики.
    */
   .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__glass::after {
     content: '';
@@ -6034,6 +6674,22 @@
     transform: rotate(28deg);
     opacity: 0;
     animation: menu-pc-account-avatar-sheen 6.8s cubic-bezier(0.4, 0.05, 0.2, 1) infinite;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id--polished
+    .menu-signed-id__glass::after {
+    background: linear-gradient(
+      108deg,
+      transparent 0%,
+      transparent 42%,
+      rgba(251, 191, 36, 0.1) 47%,
+      rgba(244, 114, 182, 0.22) 51%,
+      rgba(103, 232, 249, 0.2) 55%,
+      transparent 62%
+    );
+    animation-duration: 8.4s;
   }
 
   .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__stars {
@@ -6094,6 +6750,29 @@
 
   .menu-screen__drift--account
     .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-signed-id--polished
+    .menu-signed-id__glass {
+    background:
+      radial-gradient(
+        ellipse 62% 42% at 28% 12%,
+        rgba(186, 230, 253, 0.18) 0%,
+        transparent 48%
+      ),
+      radial-gradient(
+        circle at 50% 48%,
+        transparent 54%,
+        rgba(12, 8, 36, 0.08) 78%,
+        rgba(6, 3, 20, 0.2) 100%
+      ),
+      radial-gradient(ellipse 95% 70% at 50% 120%, rgba(0, 0, 0, 0.22) 0%, transparent 52%);
+    box-shadow:
+      inset 0 3px 5px rgba(186, 230, 253, 0.18),
+      inset 0 -7px 12px rgba(0, 0, 0, 0.22),
+      inset 0 0 8px rgba(244, 114, 182, 0.06);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
     .menu-signed-id__glass::after {
     animation-duration: 3.8s;
   }
@@ -6114,6 +6793,25 @@
       0 14px 22px rgba(0, 0, 0, 0.22),
       inset 0 5px 9px rgba(255, 255, 255, 0.3),
       inset 0 -8px 16px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-signed-id--polished
+    .menu-signed-id__face.player-avatar,
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-signed-id--polished
+    .menu-capsule__glyph--avatar
+    .player-avatar {
+    filter: contrast(1.06) saturate(1.05) brightness(1.02) !important;
+    box-shadow:
+      0 0 0 1.25px rgba(12, 6, 32, 0.85),
+      0 3px 5px rgba(0, 0, 0, 0.32),
+      0 8px 12px rgba(0, 0, 0, 0.26),
+      0 12px 18px rgba(0, 0, 0, 0.16),
+      inset 0 2px 5px rgba(255, 255, 255, 0.14),
+      inset 0 -5px 10px rgba(0, 0, 0, 0.22) !important;
   }
 
   @keyframes menu-pc-account-avatar-spin {

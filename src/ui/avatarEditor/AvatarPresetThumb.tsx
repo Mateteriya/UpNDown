@@ -3,13 +3,14 @@
  * Hover/active: ободок с переливом + аккуратные искры + лёгкий подъём кнопки.
  */
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { memo, useEffect, useId, useRef, useState } from 'react';
 import {
   AVATAR_INITIALS_COLORS,
   paintAvatarEditorBase,
   paintAvatarInitialsGlyphPreview,
   type AvatarEditorTemplateId,
-  type AvatarInitialsMode,
+  type AvatarInitialsSource,
+  type AvatarInitialsStyle,
 } from '../../lib/avatarEditorTemplates';
 import { MenuCapsuleCosmicTip } from '../MenuCapsuleCosmicTip';
 
@@ -17,7 +18,8 @@ const PREVIEW_SIZE = 72;
 
 export interface AvatarPresetThumbProps {
   templateId: AvatarEditorTemplateId;
-  initialsMode: AvatarInitialsMode;
+  initialsSource?: AvatarInitialsSource;
+  initialsStyle?: AvatarInitialsStyle;
   displayName: string;
   /** Цвет инициалов на превью (панель Aa). */
   initialsColor?: string;
@@ -29,15 +31,20 @@ export interface AvatarPresetThumbProps {
   presetId?: string;
   /** Превью режима инициалов (контрастные буквы на «дорогом» фоне). */
   glyphPreview?: boolean;
+  /** source = превью состава; style = превью расположения. */
+  glyphPreviewKind?: 'source' | 'style';
   /** Фирменный космический тултип (заголовок). */
   tipText?: string;
   /** Пояснение под заголовком. */
   tipDetail?: string;
+  /** Значок премиум (как у стикеров). */
+  premiumBadge?: boolean;
 }
 
-export function AvatarPresetThumb({
+export const AvatarPresetThumb = memo(function AvatarPresetThumb({
   templateId,
-  initialsMode,
+  initialsSource = 'capitals',
+  initialsStyle = 'off',
   displayName,
   initialsColor = AVATAR_INITIALS_COLORS[0],
   active,
@@ -46,14 +53,41 @@ export function AvatarPresetThumb({
   className,
   presetId,
   glyphPreview = false,
+  glyphPreviewKind = 'style',
   tipText,
   tipDetail,
+  premiumBadge = false,
 }: AvatarPresetThumbProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const [tipOpen, setTipOpen] = useState(false);
   const tipId = useId();
   const hasTip = Boolean(tipText);
+  const showTimerRef = useRef<number | null>(null);
+  const TIP_SHOW_DELAY_MS = 380;
+
+  const clearShowTimer = () => {
+    if (showTimerRef.current != null) {
+      window.clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    }
+  };
+
+  const scheduleShow = () => {
+    if (!hasTip) return;
+    clearShowTimer();
+    showTimerRef.current = window.setTimeout(() => {
+      showTimerRef.current = null;
+      setTipOpen(true);
+    }, TIP_SHOW_DELAY_MS);
+  };
+
+  const hideTip = () => {
+    clearShowTimer();
+    setTipOpen(false);
+  };
+
+  useEffect(() => () => clearShowTimer(), []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -63,11 +97,35 @@ export function AvatarPresetThumb({
     canvas.width = PREVIEW_SIZE;
     canvas.height = PREVIEW_SIZE;
     if (glyphPreview) {
-      paintAvatarInitialsGlyphPreview(ctx, PREVIEW_SIZE, displayName, initialsMode, initialsColor);
+      paintAvatarInitialsGlyphPreview(
+        ctx,
+        PREVIEW_SIZE,
+        displayName,
+        initialsSource,
+        initialsStyle,
+        initialsColor,
+        { previewKind: glyphPreviewKind },
+      );
     } else {
-      paintAvatarEditorBase(ctx, PREVIEW_SIZE, templateId, displayName, initialsMode, initialsColor);
+      paintAvatarEditorBase(
+        ctx,
+        PREVIEW_SIZE,
+        templateId,
+        displayName,
+        initialsSource,
+        initialsStyle,
+        initialsColor,
+      );
     }
-  }, [templateId, initialsMode, displayName, initialsColor, glyphPreview]);
+  }, [
+    templateId,
+    initialsSource,
+    initialsStyle,
+    displayName,
+    initialsColor,
+    glyphPreview,
+    glyphPreviewKind,
+  ]);
 
   return (
     <>
@@ -78,7 +136,7 @@ export function AvatarPresetThumb({
         className={[
           'avatar-editor-preset-thumb',
           active ? 'avatar-editor-preset-thumb--active' : '',
-          initialsMode === 'badge' ? 'avatar-editor-preset-thumb--badge' : '',
+          initialsStyle === 'badge' ? 'avatar-editor-preset-thumb--badge' : '',
           className,
         ]
           .filter(Boolean)
@@ -88,14 +146,10 @@ export function AvatarPresetThumb({
         aria-pressed={active}
         aria-describedby={hasTip && tipOpen ? tipId : undefined}
         title={hasTip ? undefined : ariaLabel}
-        onPointerEnter={() => {
-          if (hasTip) setTipOpen(true);
-        }}
-        onPointerLeave={() => setTipOpen(false)}
-        onFocus={() => {
-          if (hasTip) setTipOpen(true);
-        }}
-        onBlur={() => setTipOpen(false)}
+        onPointerEnter={scheduleShow}
+        onPointerLeave={hideTip}
+        onFocus={scheduleShow}
+        onBlur={hideTip}
       >
         <span className="avatar-editor-preset-thumb__rim" aria-hidden>
           <span className="avatar-editor-preset-thumb__rim-spin" />
@@ -107,6 +161,11 @@ export function AvatarPresetThumb({
           height={PREVIEW_SIZE}
           aria-hidden
         />
+        {premiumBadge ? (
+          <span className="avatar-editor-preset-thumb__premium" aria-hidden>
+            ✦
+          </span>
+        ) : null}
       </button>
       {hasTip ? (
         <MenuCapsuleCosmicTip
@@ -121,4 +180,4 @@ export function AvatarPresetThumb({
       ) : null}
     </>
   );
-}
+});

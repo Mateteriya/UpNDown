@@ -552,7 +552,6 @@ export function NameAvatarModal({
           onSave={(url) => {
             setAvatarDataUrl(url);
             if (url) onPhotoCaptured?.(url);
-            setAvatarEditorOpen(false);
           }}
           onCancel={() => setAvatarEditorOpen(false)}
         />

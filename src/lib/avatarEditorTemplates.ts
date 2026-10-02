@@ -26,7 +26,48 @@ export type AvatarEditorTemplateId =
 
 export type AvatarEditorTemplateGroup = 'native' | 'clever' | 'bg';
 
-/** Режимы инициалов: выкл / центр / цифры / дуга / призрак / неон / бейдж. */
+/** Состав текста инициалов (что писать). */
+export type AvatarInitialsSource = 'first' | 'firstDigits' | 'capitals';
+
+/** Расположение / стиль инициалов. `off` = инициалы не рисуем. */
+export type AvatarInitialsStyle = 'off' | 'center' | 'arc' | 'ghost' | 'neon' | 'badge';
+
+export const AVATAR_INITIALS_SOURCES: readonly AvatarInitialsSource[] = [
+  'first',
+  'firstDigits',
+  'capitals',
+] as const;
+
+export const AVATAR_INITIALS_STYLES: readonly AvatarInitialsStyle[] = [
+  'off',
+  'center',
+  'arc',
+  'ghost',
+  'neon',
+  'badge',
+] as const;
+
+/** Стили в панели (без off — off только условный чип «убрать»). */
+export const AVATAR_INITIALS_STYLE_CHIPS: readonly Exclude<AvatarInitialsStyle, 'off'>[] = [
+  'center',
+  'arc',
+  'ghost',
+  'neon',
+  'badge',
+] as const;
+
+export function isAvatarInitialsSource(v: unknown): v is AvatarInitialsSource {
+  return typeof v === 'string' && (AVATAR_INITIALS_SOURCES as readonly string[]).includes(v);
+}
+
+export function isAvatarInitialsStyle(v: unknown): v is AvatarInitialsStyle {
+  return typeof v === 'string' && (AVATAR_INITIALS_STYLES as readonly string[]).includes(v);
+}
+
+/**
+ * @deprecated Старый единый режим. Только для миграции LS.
+ * letters≈capitals+center, letters-digits≈firstDigits+center, остальное — style + capitals.
+ */
 export type AvatarInitialsMode =
   | 'off'
   | 'letters'
@@ -36,8 +77,7 @@ export type AvatarInitialsMode =
   | 'neon'
   | 'badge';
 
-/** Все режимы инициалов в порядке панели (прокрутка). */
-export const AVATAR_INITIALS_MODES: readonly AvatarInitialsMode[] = [
+const LEGACY_INITIALS_MODES: readonly AvatarInitialsMode[] = [
   'off',
   'letters',
   'letters-digits',
@@ -48,7 +88,32 @@ export const AVATAR_INITIALS_MODES: readonly AvatarInitialsMode[] = [
 ] as const;
 
 export function isAvatarInitialsMode(v: unknown): v is AvatarInitialsMode {
-  return typeof v === 'string' && (AVATAR_INITIALS_MODES as readonly string[]).includes(v);
+  return typeof v === 'string' && (LEGACY_INITIALS_MODES as readonly string[]).includes(v);
+}
+
+/** Миграция старого initialsMode → source + style. */
+export function migrateLegacyInitialsMode(mode: unknown): {
+  initialsSource: AvatarInitialsSource;
+  initialsStyle: AvatarInitialsStyle;
+} {
+  if (!isAvatarInitialsMode(mode)) {
+    return { initialsSource: 'capitals', initialsStyle: 'off' };
+  }
+  switch (mode) {
+    case 'off':
+      return { initialsSource: 'capitals', initialsStyle: 'off' };
+    case 'letters':
+      return { initialsSource: 'capitals', initialsStyle: 'center' };
+    case 'letters-digits':
+      return { initialsSource: 'firstDigits', initialsStyle: 'center' };
+    case 'arc':
+    case 'ghost':
+    case 'neon':
+    case 'badge':
+      return { initialsSource: 'capitals', initialsStyle: mode };
+    default:
+      return { initialsSource: 'capitals', initialsStyle: 'off' };
+  }
 }
 
 export interface AvatarEditorTemplate {
@@ -105,7 +170,22 @@ function hashHue(name: string): number {
   return Math.abs(h % 360);
 }
 
-/** Только буквы: до 2 первых букв слов имени (без цифр). */
+/** Первая буква первого слова (только буква). */
+export function getAvatarFirstLetter(name: string): string {
+  const t = name.trim();
+  if (!t) return '?';
+  const firstWord = t.split(/\s+/).filter(Boolean)[0] ?? t;
+  for (const ch of firstWord) {
+    if (/\p{L}/u.test(ch)) return ch.toUpperCase();
+  }
+  const fallback = firstWord[0];
+  return fallback ? fallback.toUpperCase() : '?';
+}
+
+/**
+ * До 2 первых букв слов (без учёта регистра) — для монограмм шаблонов / fallback плашки.
+ * Не путать с capitals (заглавные слова).
+ */
 export function getAvatarLettersOnly(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   const letters: string[] = [];
@@ -122,7 +202,7 @@ export function getAvatarLettersOnly(name: string): string {
   return '?';
 }
 
-/** Буква + цифры из имени (как плейсхолдер PlayerAvatar). */
+/** Буква первого слова + до 4 цифр из всего имени. */
 export function getAvatarLettersAndDigits(name: string): string {
   const t = name.trim();
   if (!t) return '?';
@@ -142,11 +222,36 @@ export function getAvatarLettersAndDigits(name: string): string {
   return fallback ? fallback.toUpperCase() : '?';
 }
 
-export function getAvatarEditorInitials(
-  name: string,
-  mode: Exclude<AvatarInitialsMode, 'off'>,
-): string {
-  return mode === 'letters-digits' ? getAvatarLettersAndDigits(name) : getAvatarLettersOnly(name);
+/**
+ * 1–3 буквы из слов, начинающихся с заглавной (split: пробелы + дефисы).
+ * «Мария фон Деер»→МД; «светка-Конфетка»→К; «Я о Чень уМный»→ЯЧ.
+ */
+export function getAvatarCapitalWordLetters(name: string): string {
+  const parts = name.trim().split(/[\s-]+/).filter(Boolean);
+  const letters: string[] = [];
+  for (const w of parts) {
+    const ch = w[0];
+    if (!ch || !/\p{L}/u.test(ch)) continue;
+    if (ch !== ch.toUpperCase() || ch === ch.toLowerCase()) continue;
+    letters.push(ch.toUpperCase());
+    if (letters.length >= 3) break;
+  }
+  if (letters.length) return letters.join('');
+  return getAvatarFirstLetter(name);
+}
+
+/** Текст инициалов по выбранному составу. */
+export function resolveAvatarInitialsText(name: string, source: AvatarInitialsSource): string {
+  switch (source) {
+    case 'first':
+      return getAvatarFirstLetter(name);
+    case 'firstDigits':
+      return getAvatarLettersAndDigits(name);
+    case 'capitals':
+      return getAvatarCapitalWordLetters(name);
+    default:
+      return getAvatarCapitalWordLetters(name);
+  }
 }
 
 function initialsFontPx(size: number, text: string, compact = false): number {
@@ -207,7 +312,8 @@ export function measureAvatarBadgeLayout(
   const len = Math.max(1, [...t].length);
   const showcase = Boolean(opts?.showcase);
   const boost = showcase ? 1.42 : 1;
-  const h = size * (showcase ? 0.29 : 0.195) * boost;
+  /* Превью: чуть компактнее (~9%), чтобы не наезжать на дуги кнопок */
+  const h = size * (showcase ? 0.29 : 0.178) * boost;
   if (showcase) {
     /* Витрина: целиком в кадре — нижний обод и буквы читаются */
     const y = size - h - size * 0.02;
@@ -234,14 +340,14 @@ export function measureAvatarBadgeLayout(
     return { x: (size - w) / 2, y, w, h, fontPx, text: t };
   }
 
-  /* Превью: чуть выше ободка (~8 CSS-px на типичном ring) */
-  const y = size - h * 0.55 - size * 0.045;
+  /* Превью: чуть выше ободка, скромный свес — не перекрывает кнопки снаружи */
+  const y = size - h * 0.52 - size * 0.04;
   const baseW = size * 0.5;
-  const maxW = size * 1.12;
+  const maxW = size * 1.08;
   /* Самый минимальный боковой зазор (CSS-шрифт чуть шире canvas-меры) */
   const padX = size * 0.038;
-  const maxFont = Math.min(h * 0.8, size * 0.17);
-  const minFont = size * 0.09;
+  const maxFont = Math.min(h * 0.78, size * 0.155);
+  const minFont = size * 0.085;
   let fontPx = Math.round(maxFont);
 
   const probe =
@@ -322,32 +428,69 @@ function drawCenterInitials(
   const fontPx = initialsFontPx(size, t);
   const fill = opts.fill ?? '#ffffff';
   const x = size / 2;
-  const y = size / 2 + size * 0.02;
+  /* Неон — строго в центре; остальным лёгкая оптическая поправка вниз */
+  const y = opts.neonPass ? size / 2 : size / 2 + size * 0.02;
   const outlined = opts.outlined !== false;
   ctx.save();
   ctx.globalAlpha = opts.alpha ?? 1;
   ctx.font = `800 ${fontPx}px ${opts.fontStack ?? '"Exo 2", system-ui, sans-serif'}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  if (opts.neonPass && 'letterSpacing' in ctx) {
+    try {
+      (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
+        t.length <= 2 ? '0.04em' : '0.02em';
+    } catch {
+      /* ignore */
+    }
+  }
 
   if (outlined) {
-    strokeInitialsGlyph(ctx, t, x, y, size, opts.neonPass ? 1.15 : opts.softEdge ? 0.55 : 1);
+    /* Неон: тонкий тёмный контур — иначе «съедает» свечение */
+    strokeInitialsGlyph(ctx, t, x, y, size, opts.neonPass ? 0.38 : opts.softEdge ? 0.55 : 1);
   }
 
   if (opts.neonPass) {
-    ctx.shadowColor = withAlpha(fill.startsWith('#') ? fill : '#22d3ee', 0.95);
-    ctx.shadowBlur = size * 0.085;
-    ctx.fillStyle = fill;
+    const neon = fill.startsWith('#') ? fill : '#22d3ee';
+    const hot = mixHexTowardWhite(neon, 0.35);
+
+    /* Глубокий bloom */
+    ctx.shadowColor = withAlpha(neon, 0.95);
+    ctx.shadowBlur = size * 0.2;
+    ctx.fillStyle = neon;
     ctx.fillText(t, x, y);
-    ctx.shadowColor = 'rgba(232, 121, 249, 0.75)';
-    ctx.shadowBlur = size * 0.055;
-    ctx.fillStyle = fill;
+
+    /* Второй цветной слой (чуть смещён — «хром» неона) */
+    ctx.shadowColor = withAlpha(hot, 0.85);
+    ctx.shadowBlur = size * 0.12;
+    ctx.fillStyle = neon;
+    ctx.fillText(t, x + size * 0.004, y);
+
+    /* Насыщенный корпус */
+    ctx.shadowColor = withAlpha(neon, 0.8);
+    ctx.shadowBlur = size * 0.06;
+    ctx.fillStyle = neon;
     ctx.fillText(t, x, y);
-    ctx.shadowBlur = 0;
+
+    /* Белая кромка / горячее ядро */
+    ctx.shadowBlur = size * 0.025;
+    ctx.shadowColor = withAlpha('#ffffff', 0.7);
     ctx.fillStyle = '#ffffff';
-    ctx.globalAlpha = Math.min(1, (opts.alpha ?? 1) * 0.95);
+    ctx.globalAlpha = Math.min(1, (opts.alpha ?? 1) * 0.78);
+    ctx.fillText(t, x, y);
+    ctx.globalAlpha = opts.alpha ?? 1;
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = hot;
+    ctx.globalAlpha = Math.min(1, (opts.alpha ?? 1) * 0.62);
     ctx.fillText(t, x, y);
   } else {
+    /* Лёгкий цветной ореол — цветные инициалы ближе к яркости палитры */
+    if (fill.startsWith('#') && fill.toLowerCase() !== '#ffffff' && fill.toLowerCase() !== '#f8fafc') {
+      ctx.shadowColor = withAlpha(fill, 0.7);
+      ctx.shadowBlur = size * 0.075;
+      ctx.fillStyle = fill;
+      ctx.fillText(t, x, y);
+    }
     ctx.shadowColor = opts.shadowColor ?? 'rgba(2, 6, 23, 0.75)';
     ctx.shadowBlur = opts.shadowBlur ?? size * 0.055;
     ctx.fillStyle = fill;
@@ -361,35 +504,73 @@ function drawCenterInitials(
   ctx.restore();
 }
 
+/** Смешать hex к белому (горячее ядро неона). */
+function mixHexTowardWhite(hex: string, t: number): string {
+  const c = hex.trim().toLowerCase();
+  if (!/^#[0-9a-f]{6}$/.test(c)) return '#e0f2fe';
+  const r = parseInt(c.slice(1, 3), 16);
+  const g = parseInt(c.slice(3, 5), 16);
+  const b = parseInt(c.slice(5, 7), 16);
+  const k = Math.min(1, Math.max(0, t));
+  const to = (n: number) =>
+    Math.round(n + (255 - n) * k)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${to(r)}${to(g)}${to(b)}`;
+}
+
 /** Неоновая аура за буквами — читаемый «неон» даже на мелком превью. */
 function drawNeonAura(ctx: CanvasRenderingContext2D, size: number, color: string): void {
   const c = color.startsWith('#') ? color : '#00f6ff';
+  const hot = mixHexTowardWhite(c, 0.4);
   const cx = size / 2;
-  const cy = size / 2 + size * 0.02;
+  const cy = size / 2;
   ctx.save();
-  const rings: Array<[number, number, number]> = [
-    [0.38, 0.16, 0.055],
-    [0.28, 0.28, 0.04],
-    [0.18, 0.45, 0.028],
+
+  /* Мягкая подложка — контраст на ярком фоне */
+  const pad = ctx.createRadialGradient(cx, cy, size * 0.06, cx, cy, size * 0.48);
+  pad.addColorStop(0, withAlpha('#020617', 0.45));
+  pad.addColorStop(0.55, withAlpha('#020617', 0.18));
+  pad.addColorStop(1, withAlpha('#020617', 0));
+  ctx.fillStyle = pad;
+  ctx.fillRect(0, 0, size, size);
+
+  const rings: Array<[number, number, number, string]> = [
+    [0.44, 0.22, 0.08, c],
+    [0.32, 0.38, 0.055, hot],
+    [0.2, 0.55, 0.036, c],
   ];
-  for (const [radius, alpha, width] of rings) {
+  for (const [radius, alpha, width, stroke] of rings) {
     ctx.beginPath();
     ctx.arc(cx, cy, size * radius, 0, Math.PI * 2);
-    ctx.strokeStyle = withAlpha(c, alpha);
+    ctx.strokeStyle = withAlpha(stroke, alpha);
     ctx.lineWidth = size * width;
-    ctx.shadowColor = withAlpha(c, 0.85);
-    ctx.shadowBlur = size * 0.1;
+    ctx.shadowColor = withAlpha(c, 0.95);
+    ctx.shadowBlur = size * 0.15;
     ctx.stroke();
   }
+
+  /* Ядро */
   ctx.beginPath();
   ctx.arc(cx, cy, size * 0.12, 0, Math.PI * 2);
-  ctx.fillStyle = withAlpha(c, 0.22);
-  ctx.shadowColor = withAlpha('#e879f9', 0.7);
-  ctx.shadowBlur = size * 0.12;
+  ctx.fillStyle = withAlpha(hot, 0.38);
+  ctx.shadowColor = withAlpha(c, 0.95);
+  ctx.shadowBlur = size * 0.18;
   ctx.fill();
+
+  /* Тонкие «лучи» — намёк на tube neon */
+  ctx.shadowBlur = size * 0.08;
+  ctx.strokeStyle = withAlpha(c, 0.28);
+  ctx.lineWidth = Math.max(1, size * 0.01);
+  for (let i = 0; i < 4; i += 1) {
+    const a = (Math.PI / 4) * i - Math.PI / 8;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * size * 0.16, cy + Math.sin(a) * size * 0.16);
+    ctx.lineTo(cx + Math.cos(a) * size * 0.4, cy + Math.sin(a) * size * 0.4);
+    ctx.stroke();
+  }
   ctx.restore();
 }
-
 /** Буквы по верхней дуге — Comic Sans, «живой» акцент. */
 function drawArcInitials(
   ctx: CanvasRenderingContext2D,
@@ -575,23 +756,29 @@ export function drawAvatarInitialsOverlay(
   drawCenterInitials(ctx, size, initials, { fill: color });
 }
 
-/** Отрисовка инициалов по режиму панели. */
-export function paintAvatarInitialsByMode(
+/** Отрисовка инициалов по составу + стилю. */
+export function paintAvatarInitials(
   ctx: CanvasRenderingContext2D,
   size: number,
   displayName: string,
-  mode: AvatarInitialsMode,
+  source: AvatarInitialsSource,
+  style: AvatarInitialsStyle,
   color: string = AVATAR_INITIALS_COLORS[0],
   badgeText?: string,
 ): void {
-  if (mode === 'off') return;
+  if (style === 'off') return;
   const c = color || AVATAR_INITIALS_COLORS[0];
-  switch (mode) {
+  if (style === 'badge') {
+    drawBadgeInitials(ctx, size, badgeText ?? defaultAvatarBadgeText(displayName), c);
+    return;
+  }
+  const text = resolveAvatarInitialsText(displayName, source);
+  switch (style) {
     case 'arc':
-      drawArcInitials(ctx, size, getAvatarEditorInitials(displayName, mode), c);
+      drawArcInitials(ctx, size, text, c);
       return;
     case 'ghost':
-      drawCenterInitials(ctx, size, getAvatarEditorInitials(displayName, mode), {
+      drawCenterInitials(ctx, size, text, {
         fill: c,
         alpha: 0.4,
         shadowColor: 'rgba(2, 6, 23, 0.35)',
@@ -602,19 +789,28 @@ export function paintAvatarInitialsByMode(
       return;
     case 'neon':
       drawNeonAura(ctx, size, c);
-      drawCenterInitials(ctx, size, getAvatarEditorInitials(displayName, mode), {
+      drawCenterInitials(ctx, size, text, {
         fill: c,
         neonPass: true,
       });
       return;
-    case 'badge':
-      drawBadgeInitials(ctx, size, badgeText ?? defaultAvatarBadgeText(displayName), c);
-      return;
-    case 'letters':
-    case 'letters-digits':
+    case 'center':
     default:
-      drawCenterInitials(ctx, size, getAvatarEditorInitials(displayName, mode), { fill: c });
+      drawCenterInitials(ctx, size, text, { fill: c });
   }
+}
+
+/** @deprecated используйте paintAvatarInitials */
+export function paintAvatarInitialsByMode(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  displayName: string,
+  mode: AvatarInitialsMode,
+  color: string = AVATAR_INITIALS_COLORS[0],
+  badgeText?: string,
+): void {
+  const { initialsSource, initialsStyle } = migrateLegacyInitialsMode(mode);
+  paintAvatarInitials(ctx, size, displayName, initialsSource, initialsStyle, color, badgeText);
 }
 
 /** Мягкая тёмная «лужа» под буквами — контраст на ярком превью-фоне. */
@@ -637,26 +833,28 @@ function fillInitialsContrastPad(ctx: CanvasRenderingContext2D, size: number): v
 }
 
 /**
- * Превью режима инициалов на кнопке: красивый фон + контрастная подложка + буквы.
- * Режимы «центр / призрак / неон» намеренно утрированы, чтобы не путались в сетке.
+ * Превью на кнопке: стиль или состав.
+ * stylePreview — утрированный стиль; иначе превью состава (буквы по центру).
  */
 export function paintAvatarInitialsGlyphPreview(
   ctx: CanvasRenderingContext2D,
   size: number,
   displayName: string,
-  mode: AvatarInitialsMode,
+  source: AvatarInitialsSource,
+  style: AvatarInitialsStyle,
   initialsColor: string = AVATAR_INITIALS_COLORS[0],
+  opts?: { previewKind?: 'source' | 'style' },
 ): void {
   drawAvatarTemplate(ctx, size, 'aurora', displayName);
   const c = initialsColor || AVATAR_INITIALS_COLORS[0];
-  const text = getAvatarEditorInitials(displayName, mode === 'off' ? 'letters' : mode);
+  const kind = opts?.previewKind ?? (style === 'off' ? 'style' : 'style');
+  const text = resolveAvatarInitialsText(displayName, source);
 
-  if (mode === 'off') {
+  if (style === 'off' && kind === 'style') {
     ctx.save();
     ctx.fillStyle = 'rgba(2, 6, 23, 0.34)';
     ctx.fillRect(0, 0, size, size);
     ctx.restore();
-    /* тонкий крест — «без букв» */
     ctx.save();
     ctx.strokeStyle = 'rgba(248, 250, 252, 0.35)';
     ctx.lineWidth = Math.max(1.5, size * 0.028);
@@ -671,8 +869,19 @@ export function paintAvatarInitialsGlyphPreview(
     return;
   }
 
-  if (mode === 'ghost') {
-    /* светлее фон + очень лёгкие буквы */
+  if (kind === 'source') {
+    fillInitialsContrastPad(ctx, size);
+    drawCenterInitials(ctx, size, text, {
+      fill: c,
+      alpha: 1,
+      shadowColor: 'rgba(2, 6, 23, 0.9)',
+      shadowBlur: size * 0.06,
+      outlined: true,
+    });
+    return;
+  }
+
+  if (style === 'ghost') {
     const g = ctx.createRadialGradient(size * 0.5, size * 0.5, 0, size * 0.5, size * 0.5, size * 0.55);
     g.addColorStop(0, 'rgba(248, 250, 252, 0.18)');
     g.addColorStop(1, 'rgba(2, 6, 23, 0.2)');
@@ -689,9 +898,8 @@ export function paintAvatarInitialsGlyphPreview(
     return;
   }
 
-  if (mode === 'neon') {
+  if (style === 'neon') {
     fillInitialsContrastPad(ctx, size);
-    /* усилить темноту под неоном */
     ctx.save();
     ctx.fillStyle = 'rgba(2, 6, 23, 0.28)';
     ctx.fillRect(0, 0, size, size);
@@ -701,22 +909,9 @@ export function paintAvatarInitialsGlyphPreview(
     return;
   }
 
-  if (mode === 'letters' || mode === 'letters-digits') {
-    fillInitialsContrastPad(ctx, size);
-    drawCenterInitials(ctx, size, text, {
-      fill: c,
-      alpha: 1,
-      shadowColor: 'rgba(2, 6, 23, 0.9)',
-      shadowBlur: size * 0.06,
-      outlined: true,
-    });
-    return;
-  }
-
   fillInitialsContrastPad(ctx, size);
-  if (mode === 'badge') {
+  if (style === 'badge') {
     clipAvatarCanvasToCircle(ctx, size);
-    /* Витрина: короткое имя, крупный кегль, обод целиком в кадре */
     const sample = (() => {
       const n = defaultAvatarBadgeText(displayName);
       const chars = [...n];
@@ -726,7 +921,19 @@ export function paintAvatarInitialsGlyphPreview(
     drawBadgeInitials(ctx, size, sample, c, { showcase: true });
     return;
   }
-  paintAvatarInitialsByMode(ctx, size, displayName, mode, c);
+
+  if (style === 'arc') {
+    drawArcInitials(ctx, size, text, c);
+    return;
+  }
+
+  drawCenterInitials(ctx, size, text, {
+    fill: c,
+    alpha: 1,
+    shadowColor: 'rgba(2, 6, 23, 0.9)',
+    shadowBlur: size * 0.06,
+    outlined: true,
+  });
 }
 
 /**
@@ -752,17 +959,26 @@ export function paintAvatarEditorBase(
   size: number,
   templateId: AvatarEditorTemplateId,
   displayName: string,
-  initialsMode: AvatarInitialsMode,
+  initialsSource: AvatarInitialsSource,
+  initialsStyle: AvatarInitialsStyle,
   initialsColor: string = AVATAR_INITIALS_COLORS[0],
   badgeText?: string,
 ): void {
   drawAvatarTemplate(ctx, size, templateId, displayName);
-  if (initialsMode === 'badge') {
+  if (initialsStyle === 'badge') {
     clipAvatarCanvasToCircle(ctx, size);
-    paintAvatarInitialsByMode(ctx, size, displayName, 'badge', initialsColor, badgeText);
+    paintAvatarInitials(ctx, size, displayName, initialsSource, 'badge', initialsColor, badgeText);
     return;
   }
-  paintAvatarInitialsByMode(ctx, size, displayName, initialsMode, initialsColor, badgeText);
+  paintAvatarInitials(
+    ctx,
+    size,
+    displayName,
+    initialsSource,
+    initialsStyle,
+    initialsColor,
+    badgeText,
+  );
 }
 
 function fillSoftDuo(ctx: CanvasRenderingContext2D, size: number, hue: number): void {
@@ -1049,40 +1265,142 @@ function drawNativeAndClever(
       return true;
     }
     case 'lucky-7': {
-      /* Шар: радиальный объём + блик + семёрка */
+      /*
+       * Премиум lucky-7: золотой 3D-шар + цельная золотая «7»
+       * (фон и цифра в одной «дорогой» палитре).
+       */
       const cx = size * 0.5;
       const cy = size * 0.5;
       const R = size * 0.5;
-      const ball = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.05, cx, cy + R * 0.1, R);
-      ball.addColorStop(0, '#fde68a');
-      ball.addColorStop(0.22, '#fbbf24');
-      ball.addColorStop(0.45, '#f472b6');
-      ball.addColorStop(0.7, '#a855f7');
-      ball.addColorStop(1, '#1e1b4b');
+
+      /* Базовый объём шара — радиальный «металл» */
+      const ball = ctx.createRadialGradient(
+        cx - R * 0.32,
+        cy - R * 0.36,
+        R * 0.04,
+        cx + R * 0.08,
+        cy + R * 0.12,
+        R * 1.12,
+      );
+      ball.addColorStop(0, '#fffbeb');
+      ball.addColorStop(0.12, '#fef3c7');
+      ball.addColorStop(0.28, '#fde68a');
+      ball.addColorStop(0.45, '#fbbf24');
+      ball.addColorStop(0.62, '#f59e0b');
+      ball.addColorStop(0.8, '#b45309');
+      ball.addColorStop(1, '#451a03');
       ctx.fillStyle = ball;
       ctx.fillRect(0, 0, size, size);
-      /* блик */
-      const hl = ctx.createRadialGradient(cx - R * 0.32, cy - R * 0.38, 0, cx - R * 0.2, cy - R * 0.28, R * 0.45);
-      hl.addColorStop(0, 'rgba(255,255,255,0.7)');
-      hl.addColorStop(0.35, 'rgba(255,255,255,0.2)');
-      hl.addColorStop(1, 'transparent');
-      ctx.fillStyle = hl;
+
+      /* Спекулярный блик — выпуклость */
+      const spec = ctx.createRadialGradient(
+        cx - R * 0.3,
+        cy - R * 0.34,
+        0,
+        cx - R * 0.18,
+        cy - R * 0.22,
+        R * 0.38,
+      );
+      spec.addColorStop(0, 'rgba(255,255,255,0.85)');
+      spec.addColorStop(0.35, 'rgba(254, 243, 199, 0.45)');
+      spec.addColorStop(0.7, 'rgba(251, 191, 36, 0.12)');
+      spec.addColorStop(1, 'transparent');
+      ctx.fillStyle = spec;
       ctx.fillRect(0, 0, size, size);
-      /* тень по низу */
-      const shade = ctx.createRadialGradient(cx + R * 0.15, cy + R * 0.35, 0, cx, cy, R);
-      shade.addColorStop(0, 'rgba(15, 23, 42, 0.35)');
+
+      /* Кольцевой fresnel по краю — шар «круглится» */
+      const rim = ctx.createRadialGradient(cx, cy, R * 0.55, cx, cy, R * 0.98);
+      rim.addColorStop(0, 'transparent');
+      rim.addColorStop(0.65, 'transparent');
+      rim.addColorStop(0.85, 'rgba(120, 53, 15, 0.25)');
+      rim.addColorStop(1, 'rgba(69, 26, 3, 0.55)');
+      ctx.fillStyle = rim;
+      ctx.fillRect(0, 0, size, size);
+
+      /* Нижняя контактная тень объёма */
+      const shade = ctx.createRadialGradient(
+        cx + R * 0.1,
+        cy + R * 0.4,
+        0,
+        cx + R * 0.02,
+        cy + R * 0.15,
+        R * 0.85,
+      );
+      shade.addColorStop(0, 'rgba(69, 26, 3, 0.5)');
+      shade.addColorStop(0.55, 'rgba(120, 53, 15, 0.18)');
       shade.addColorStop(1, 'transparent');
       ctx.fillStyle = shade;
       ctx.fillRect(0, 0, size, size);
-      ctx.save();
-      ctx.shadowColor = 'rgba(253, 224, 71, 0.75)';
-      ctx.shadowBlur = size * 0.06;
-      ctx.fillStyle = '#fffbeb';
-      ctx.font = `800 ${Math.round(size * 0.52)}px "Exo 2", system-ui, sans-serif`;
+
+      /* Тонкий золотой обод круга */
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 0.985, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(254, 243, 199, 0.55)';
+      ctx.lineWidth = size * 0.012;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 0.97, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(146, 64, 14, 0.45)';
+      ctx.lineWidth = size * 0.008;
+      ctx.stroke();
+
+      const sevenY = cy + size * 0.01;
+      const fontPx = Math.round(size * 0.56);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('7', cx, cy + size * 0.02);
+      ctx.font = `800 ${fontPx}px "Exo 2", system-ui, sans-serif`;
+      ctx.lineJoin = 'round';
+      ctx.miterLimit = 2;
+
+      /*
+       * Естественная тень на шаре: свет сверху-слева,
+       * поэтому тень мягкая, смещена вниз-вправо и чуть размыта.
+       */
+      ctx.save();
+      ctx.filter = `blur(${Math.max(2, size * 0.018)}px)`;
+      ctx.fillStyle = 'rgba(69, 26, 3, 0.42)';
+      ctx.fillText('7', cx + size * 0.028, sevenY + size * 0.04);
       ctx.restore();
+      ctx.save();
+      ctx.filter = `blur(${Math.max(1, size * 0.008)}px)`;
+      ctx.fillStyle = 'rgba(28, 10, 2, 0.55)';
+      ctx.fillText('7', cx + size * 0.014, sevenY + size * 0.02);
+      ctx.restore();
+
+      /* Контрастный «скос» — глубокий янтарь, не цвет шара */
+      ctx.fillStyle = '#451a03';
+      ctx.fillText('7', cx + size * 0.012, sevenY + size * 0.014);
+
+      /* Семёрка: жемчуг → белое золото → тёплый янтарь (читается на шаре) */
+      const gold = ctx.createLinearGradient(cx, sevenY - size * 0.3, cx, sevenY + size * 0.32);
+      gold.addColorStop(0, '#ffffff');
+      gold.addColorStop(0.18, '#fffbeb');
+      gold.addColorStop(0.4, '#fde68a');
+      gold.addColorStop(0.62, '#f59e0b');
+      gold.addColorStop(1, '#9a3412');
+      ctx.fillStyle = gold;
+      ctx.fillText('7', cx, sevenY);
+
+      ctx.strokeStyle = 'rgba(28, 10, 2, 0.85)';
+      ctx.lineWidth = size * 0.02;
+      ctx.strokeText('7', cx, sevenY);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.lineWidth = size * 0.007;
+      ctx.strokeText('7', cx - size * 0.004, sevenY - size * 0.005);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cx - size * 0.2, sevenY - size * 0.28);
+      ctx.lineTo(cx + size * 0.18, sevenY - size * 0.28);
+      ctx.lineTo(cx + size * 0.12, sevenY - size * 0.14);
+      ctx.lineTo(cx - size * 0.14, sevenY - size * 0.14);
+      ctx.closePath();
+      ctx.clip();
+      ctx.globalAlpha = 0.45;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('7', cx, sevenY);
+      ctx.restore();
+
       return true;
     }
     case 'mirror': {
