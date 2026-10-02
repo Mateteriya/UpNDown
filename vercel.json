@@ -6,13 +6,22 @@
   },
   "rewrites": [
     {
-      "source": "/((?!assets/|cards/|favicon|icon|manifest|registerSW|sw\\.js|workbox|auth-callback\\.html).*)",
+      "source": "/((?!assets/|audio/|cards/|favicon|icon|manifest|registerSW|sw\\.js|workbox|auth-callback\\.html).*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
     {
       "source": "/cards/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/audio/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

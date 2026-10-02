@@ -9,6 +9,7 @@ import {
   type AudioSettings,
   type SoundId,
 } from './types';
+import { isDevAtelierHost, isMusicStudioUnlocked } from '../lib/devAtelier';
 
 type PlayOpts = {
   mul?: number;
@@ -164,6 +165,12 @@ async function resumeCtx(c: AudioContext): Promise<void> {
 async function applyLabSlotOverrides(c: AudioContext): Promise<void> {
   if (labOverridesApplied) return;
   labOverridesApplied = true;
+  /*
+   * Черновики из SFX-лабы (IndexedDB) на проде подменяли нормальные WAV —
+   * локально другой origin → другой IDB, поэтому «у меня всё ок».
+   * Оверрайды только в DEV / localhost / staging / открытой студии.
+   */
+  if (!isDevAtelierHost() && !isMusicStudioUnlocked()) return;
   const slots = await loadAllLabSlots();
   await Promise.all(
     slots.map(async (slot) => {
