@@ -998,19 +998,39 @@
   cursor: copy !important;
 }
 
-/* Плашка — HTML поверх круга, торчит за ring и за окно превью */
+/* Плашка — HTML sibling снаружи круга; обод как у обычного превью (градиент + pad) */
 .avatar-editor-preview-ring--badge,
 .avatar-editor-preview-ring--badge-edit {
   overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
   z-index: 24 !important;
   isolation: auto !important;
   contain: none !important;
   container-type: inline-size !important;
-  /* место снизу под свисающую плашку (компактнее) */
   margin-bottom: 9% !important;
-  /* иначе border-radius кольца может клипать потомков в WebKit */
+  /* круг + pad = обод; radius:0 раньше давал квадрат */
+  border-radius: 50% !important;
+  padding: 3px !important;
+  background: linear-gradient(145deg, #22d3ee, #a78bfa, #c084fc, #22d3ee) !important;
+  box-shadow:
+    0 0 20px rgba(124, 58, 237, 0.32),
+    0 6px 18px rgba(0, 0, 0, 0.4) !important;
+  outline: none !important;
   clip-path: none !important;
   -webkit-clip-path: none !important;
+  mask: none !important;
+  -webkit-mask: none !important;
+}
+
+/* Круглый клип только у canvas — плашка-sibling снаружи */
+.avatar-editor-preview-ring--badge .avatar-editor-canvas,
+.avatar-editor-preview-ring--badge-edit .avatar-editor-canvas {
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  clip-path: circle(50% at 50% 50%) !important;
+  -webkit-clip-path: circle(50% at 50% 50%) !important;
+  background: transparent !important;
 }
 
 /* Hub + stage: предки не должны резать свисающую плашку */
@@ -1026,11 +1046,24 @@
 .avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge) .avatar-editor-left-col,
 .avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge) .avatar-editor-left-stack,
 .avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge) .avatar-editor-hero,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge) .avatar-editor-atelier,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge) .avatar-editor-atelier--stage,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge) .avatar-editor-stage,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge) .avatar-editor-hub,
 .avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) .avatar-editor-modal-body,
 .avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) .avatar-editor-left-col,
 .avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) .avatar-editor-left-stack,
-.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) .avatar-editor-hero {
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) .avatar-editor-hero,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) .avatar-editor-atelier,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) .avatar-editor-atelier--stage,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) .avatar-editor-stage,
+.avatar-editor-modal-card:has(.avatar-editor-preview-ring--badge-edit) .avatar-editor-hub {
   overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  contain: none !important;
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
 }
 
 .avatar-editor-badge-plate {

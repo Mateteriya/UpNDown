@@ -137,15 +137,18 @@ import {
 } from '../lib/aiBotAvatars';
 import { isPremiumAiAvatarCustomizationEnabled } from '../lib/featureFlags';
 import '../styles/plasma-badge-pc-no-outer-glow.css';
+/* Перелив имени на экранчике — после index.css / вместе с чанком GameTable */
+import '../styles/plasma-turn-name-flow.css';
 /* Канон Юга после plasma — чтобы HMR/чанк GameTable не перебил main.tsx */
 import '../styles/user-south-panel.css';
 import { playIllegal, playCardPlaySouth, playSound, stopAllSounds, stopNudgeSounds } from '../audio';
 import { useGameTableAudio } from '../audio/useGameTableAudio';
 import {
-  pcSouthNameCutChars,
+  southNameLongCompact,
   USER_SOUTH_TRICKS_PANEL_SCALE,
   userSouthAvatarSizePx,
 } from './userSouthPanelCanon';
+import { UserSouthPcNamePlaque } from './UserSouthPcNamePlaque';
 import { AiDifficultyControl, HeaderRoomExitIcon } from './AiDifficultyControl';
 import { getForbiddenDealerBid, getTrickWinner } from '../game/rules';
 import { getCanonicalIndexForDisplay, rotateStateForPlayer } from '../game/rotateState';
@@ -254,7 +257,7 @@ import {
   purgeDisabledMobileShortImmersiveStorage,
 } from '../lib/mobileViewportModes';
 import { MobileShortFullscreenFloatingBtn } from './MobileShortFullscreenFloatingBtn';
-import { MobileSouthChatNameTicker } from './MobileSouthChatNameTicker';
+import { UserSouthMobileNamePlaque } from './UserSouthMobileNamePlaque';
 import {
   formatPlayerNameForDisplay,
   getPlayerDisplayNameFontScale,
@@ -4813,6 +4816,33 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     !isWaitingInRoom &&
     !online.userOnPause;
 
+  /** Обычный портрет: кнопка «на весь экран» / «выйти» под Югом слева (без обрезки chrome-aid). */
+  const showPortraitNormalFullscreenBtn =
+    isMobile &&
+    !isMobileLandscape &&
+    !mobileViewportShort &&
+    !mobileStandardLayoutOnShortViewport &&
+    !appStandaloneDisplay &&
+    !isWaitingInRoom &&
+    !online.userOnPause &&
+    !tableChatMobileOpen;
+
+  /** В browser-FS портрета всегда держим «Выйти» на том же месте, даже если short-флаг мигнул. */
+  const showPortraitBrowserFsExitBtn =
+    browserFullscreenActive &&
+    isMobile &&
+    !isMobileLandscape &&
+    !showShortFullscreenEntryBtn &&
+    !appStandaloneDisplay &&
+    !isWaitingInRoom &&
+    !online.userOnPause &&
+    !tableChatMobileOpen;
+
+  const showMobileFullscreenEntryBtn =
+    showShortFullscreenEntryBtn || showPortraitNormalFullscreenBtn || showPortraitBrowserFsExitBtn;
+  const mobileFullscreenBtnDockSouthLeft =
+    (showPortraitNormalFullscreenBtn || showPortraitBrowserFsExitBtn) && !showShortFullscreenEntryBtn;
+
   const onShortVhSouthPullMenuChooseStandard = useCallback(() => {
     dismissShortVhSouthPullModeMenu();
     exitShortVhLowScreenLayoutForSession();
@@ -8031,6 +8061,22 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     return undefined;
   };
 
+  /** Онлайн: premium-плашка оппонента из player_slots (не localStorage зрителя). */
+  const resolveDisplayPlayerNameBadge = (
+    displayIdx: number,
+  ): { enabled: boolean; text?: string | null } | null => {
+    if (!Number.isFinite(displayIdx) || displayIdx === 0 || !online.roomId) return null;
+    const canon = getCanonicalIndexForDisplay(
+      displayIdx,
+      online.myServerIndex,
+      displayState.players.length === 3 ? 3 : 4,
+    );
+    const slot = online.playerSlots.find((s) => s.slotIndex === canon);
+    if (!slot || isOnlineAiControlledSlot(slot)) return null;
+    if (!slot.nameBadgeEnabled) return null;
+    return { enabled: true, text: slot.nameBadgeText ?? null };
+  };
+
   const isDisplayIndexAiPlayer = (displayIdx: number): boolean => {
     if (displayIdx === 0) return false;
     if (online.roomId) {
@@ -8249,8 +8295,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       : orderRingMode
         ? MOBILE_OPP_ORDER_RING_PAD_PX
         : MOBILE_OPP_ORDER_RING_PAD_PX * 2;
-    const avatarFaceSizePx =
-      (orderRingMode === 'exact' && !isMobileOrTablet ? avatarSizePx + 3 : avatarSizePx) + phoneLsFaceBoostPx;
+    /** Лицо одного размера — не раздувать при «заказ в руке» (иначе при переборе визуально сжимается). */
+    const avatarFaceSizePx = avatarSizePx + phoneLsFaceBoostPx;
     const avatarBtnStyle: CSSProperties = {
       background: 'none',
       border: 'none',
@@ -8259,7 +8305,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       display: 'inline-flex',
       lineHeight: 0,
     };
-    const title = online.roomId ? tr('table.menuPause') : tr('table.menuProfile');
     const ariaLabel = online.roomId ? tr('table.menuOf', { name: p.name }) : tr('table.profileOf', { name: p.name });
     const face = (
       <PlayerAvatar
@@ -8267,6 +8312,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         avatarDataUrl={playerAvatarDataUrl}
         avatarBgColor={playerAvatarBgColor}
         sizePx={avatarFaceSizePx}
+        nameBadge
         className={innerCls}
       />
     );
@@ -8280,13 +8326,43 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           setShowAvatarMenu(true);
         }}
         style={avatarBtnStyle}
-        title={title}
+        /* без title — нативный тултип дублирует имя рядом с плашкой Юга */
         aria-label={ariaLabel}
       >
         {face}
       </button>
     );
+    /*
+     * Розыгрыш с заказом: всегда scale-wrap + запас под ободок.
+     * Иначе при переборе (кольца нет) аватар «сдувается» — размер не должен зависеть от взяток.
+     */
+    const playWithBidFootprint =
+      (state.phase === 'playing' || state.phase === 'trick-complete') &&
+      bidN !== null &&
+      !humanCollectingTrickSlots;
+    const footprintPadPx = isMobileOrTablet ? MOBILE_USER_ORDER_RING_PAD_EXACT_PX : 6;
+
     if (!orderRingMode) {
+      if (playWithBidFootprint) {
+        return (
+          <span className="user-player-avatar-order-scale-wrap user-player-avatar-root">
+            <span
+              className="user-player-avatar-order-footprint"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+                padding: footprintPadPx,
+                boxSizing: 'border-box',
+                lineHeight: 0,
+              }}
+            >
+              {avatarButton}
+            </span>
+          </span>
+        );
+      }
       /* Phone LS: на торгах тот же scale(1.2), что у кольца в розыгрыше */
       if (phoneLsLargeFace) {
         return (
@@ -9292,7 +9368,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           }}
         >
           <div
-            className="opponent-slot-mobile-landscape-north-top user-player-panel-south-landscape-top user-player-panel-south-landscape-top--name-two-line"
+            className="opponent-slot-mobile-landscape-north-top user-player-panel-south-landscape-top"
           >
             <div
               className="opponent-slot-header"
@@ -9311,7 +9387,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 nameClassName={southPlayerNameClassName}
                 baseNameStyle={buildMobileSouthLandscapePlayerNameStyle(southUsePremiumNameClass)}
                 title={`${humanLandscapeNameRaw} — ${getCompassLabel(humanIdx)}`}
-                twoLine
                 fontScale={humanLandscapeNameFontScale}
               />
             </div>
@@ -9735,7 +9810,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             <GameInfoPlasmaTurnPlayerName
               name={mobileGameInfoTurnPresentation.name}
               style={mobileGameInfoTurnPresentation.valueStyle}
-              fitLongName={mobileLandscapeAfterShortVh}
             />
           </GameInfoPlasmaTurnBlock>
         )}
@@ -9755,7 +9829,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             <GameInfoPlasmaTurnPlayerName
               name={mobileGameInfoBidPresentation.name}
               style={mobileGameInfoBidPresentation.valueStyle}
-              fitLongName={mobileLandscapeAfterShortVh}
             />
           </GameInfoPlasmaTurnBlock>
         )}
@@ -10037,6 +10110,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         inline
         compactMode={isMobileOrTablet}
         avatarDataUrl={resolveDisplayPlayerAvatar(2)}
+        remoteNameBadge={resolveDisplayPlayerNameBadge(2)}
         replacedByAi={
           !!online.playerSlots.find(
             (s) =>
@@ -10117,6 +10191,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         inline
         compactMode={isMobileOrTablet}
         avatarDataUrl={resolveDisplayPlayerAvatar(1)}
+        remoteNameBadge={resolveDisplayPlayerNameBadge(1)}
         replacedByAi={
           !!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(1, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId
         }
@@ -10158,7 +10233,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         gameTableRootRef.current = el;
         setTabletNorthPortalHost((prev) => (prev === el ? prev : el));
       }}
-      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isThreeSeatTable ? ' game-table-seats-three' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${tableScaleControlEnabled ? ' game-table-has-table-scale' : ''}${useMidLandscapeScaleGears ? ' game-table-has-hand-scale' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileMidSquareLayout ? ' viewport-mobile-landscape-mid' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${mobileLandscapeAfterShortVh ? ' viewport-mobile-landscape-after-short' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileChatLsBottomChrome ? ' viewport-mobile-chat-ls-bottom' : ''}${onlineThreeSeatSideChatActive ? ' game-table-ls-3p-side-chat' : ''}${onlineThreeSeatSideChatActive && eastChatHeaderCollapsed ? ' game-table-ls-3p-side-chat--header-collapsed' : ''}${onlineThreeSeatSideChatActive && !eastChatHeaderCollapsed && mobileLsEastChatColW <= 200 ? ' game-table-ls-3p-side-chat--compact' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${gameInfoBadgeSkin === 'plasma' ? ` game-info-plasma-screen-tone-${plasmaScreenTone}` : ''}${!isMobile && gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma-pc-flat' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
+      className={`game-table-root${isMobile ? ' viewport-mobile' : ''}${isThreeSeatTable ? ' game-table-seats-three' : ''}${!isMobile && isThreeSeatTable ? ' game-table-seats-three-pc' : ''}${useTabletPcTableTuning ? ' game-table-tablet-pc' : ''}${tableScaleControlEnabled ? ' game-table-has-table-scale' : ''}${useMidLandscapeScaleGears ? ' game-table-has-hand-scale' : ''}${isMobileLandscape ? ' viewport-mobile-landscape' : ''}${isMobileMidSquareLayout ? ' viewport-mobile-landscape-mid' : ''}${isMobileLandscape && mobileLandscapeSouthLayoutTuned ? ' viewport-mobile-landscape-south-tuned' : ''}${mobileLandscapeAfterShortVh ? ' viewport-mobile-landscape-after-short' : ''}${isMobile && mobileViewportShort ? ' viewport-mobile-short' : ''}${mobileStandardLayoutOnShortViewport ? ' viewport-mobile-standard-from-short-vh' : ''}${isMobile && (mobileViewportShort || mobileStandardLayoutOnShortViewport || showPortraitNormalFullscreenBtn || showPortraitBrowserFsExitBtn) ? ' viewport-mobile-low-vh-fullscreen-btn' : ''}${browserFullscreenActive ? ' viewport-mobile-browser-fullscreen' : ''}${mobileStandardSouthPanelInDeal ? ' viewport-mobile-standard-from-short-vh-in-deal' : ''}${isMobile && mobileViewportShort && mobileShortHeaderImmersive ? ' viewport-mobile-short-header-immersive' : ''}${showTableChat && isMobile ? ' game-mobile-table-chat' : ''}${mobileChatLsBottomChrome ? ' viewport-mobile-chat-ls-bottom' : ''}${onlineThreeSeatSideChatActive ? ' game-table-ls-3p-side-chat' : ''}${onlineThreeSeatSideChatActive && eastChatHeaderCollapsed ? ' game-table-ls-3p-side-chat--header-collapsed' : ''}${onlineThreeSeatSideChatActive && !eastChatHeaderCollapsed && mobileLsEastChatColW <= 200 ? ' game-table-ls-3p-side-chat--compact' : ''}${mobileSouthHandLayout?.lHandExpanded ? ' game-mobile-l-hand-table-gutter' : ''}${trumpHighlightOn ? ' trump-highlight-on' : ''}${gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma' : ''}${gameInfoBadgeSkin === 'plasma' ? ` game-info-plasma-screen-tone-${plasmaScreenTone}` : ''}${!isMobile && gameInfoBadgeSkin === 'plasma' ? ' game-info-badge-plasma-pc-flat' : ''}${biddingPhaseClass}${dealTypeNoTrump ? ' deal-type-no-trump' : ''}${dealTypeDark ? ' deal-type-dark' : ''}`}
       style={{
         ...tableLayoutStyle,
         position: 'relative',
@@ -10520,10 +10595,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           )}
         </>
       )}
-      {showShortFullscreenEntryBtn && (
+      {showMobileFullscreenEntryBtn && (
         <MobileShortFullscreenFloatingBtn
           mode={browserFullscreenActive ? 'exit' : 'enter'}
           standaloneDisplay={appStandaloneDisplay}
+          dockSouthLeft={mobileFullscreenBtnDockSouthLeft}
           onTap={() => {
             void onShortVhFullscreenEntryTap();
           }}
@@ -11424,6 +11500,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             >
               <OpponentSlot state={displayState} index={2} position="left" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={resolveDisplayPlayerAvatar(2)}
+        remoteNameBadge={resolveDisplayPlayerNameBadge(2)}
                 replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(2, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
                 collectingCards={lastTrickInterstitialActive}
                 winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === 2}
@@ -11990,6 +12067,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               ) : null}
               <OpponentSlot state={displayState} index={mobileEastDisplayIndex} position="right" inline compactMode={isMobileOrTablet}
                 avatarDataUrl={resolveDisplayPlayerAvatar(mobileEastDisplayIndex)}
+        remoteNameBadge={resolveDisplayPlayerNameBadge(mobileEastDisplayIndex)}
                 replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(mobileEastDisplayIndex, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
                 collectingCards={lastTrickInterstitialActive}
                 winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === mobileEastDisplayIndex}
@@ -12764,7 +12842,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             {state.phase === 'playing' ? tr('table.yourTurnBang') : tr('table.yourBidBang')}
                           </span>
                         ) : (
-                          <MobileSouthChatNameTicker
+                          <UserSouthMobileNamePlaque
                             name={displayState.players[humanIdx].name}
                             chatBody={null}
                             chatKey={0}
@@ -12792,8 +12870,21 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                               </span>
                             </button>
                           ) : (
-                            <span style={dealerLampStyle} title={t('table.dealer')}>
-                              <span style={dealerLampBulbStyle} /> {t('table.dealer')}
+                            <span
+                              className={
+                                (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                                !(showYourTurnPrompt && isHumanBidding)
+                                  ? 'dealer-badge-lamp-only'
+                                  : undefined
+                              }
+                              style={dealerLampStyle}
+                              title={t('table.dealer')}
+                            >
+                              <span style={dealerLampBulbStyle} />
+                              {(state.phase !== 'bidding' && state.phase !== 'dark-bidding') ||
+                              (showYourTurnPrompt && isHumanBidding)
+                                ? ` ${t('table.dealer')}`
+                                : null}
                             </span>
                           ))}
                       </span>
@@ -13005,7 +13096,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                             {state.phase === 'playing' ? tr('table.yourTurnBang') : tr('table.yourBidBang')}
                           </span>
                         ) : (
-                          <MobileSouthChatNameTicker
+                          <UserSouthMobileNamePlaque
                             name={displayState.players[humanIdx].name}
                             chatBody={null}
                             chatKey={0}
@@ -13033,8 +13124,21 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                               </span>
                             </button>
                           ) : (
-                            <span style={dealerLampStyle} title={t('table.dealer')}>
-                              <span style={dealerLampBulbStyle} /> {t('table.dealer')}
+                            <span
+                              className={
+                                (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+                                !(showYourTurnPrompt && isHumanBidding)
+                                  ? 'dealer-badge-lamp-only'
+                                  : undefined
+                              }
+                              style={dealerLampStyle}
+                              title={t('table.dealer')}
+                            >
+                              <span style={dealerLampBulbStyle} />
+                              {(state.phase !== 'bidding' && state.phase !== 'dark-bidding') ||
+                              (showYourTurnPrompt && isHumanBidding)
+                                ? ` ${t('table.dealer')}`
+                                : null}
                             </span>
                           ))}
                       </span>
@@ -13309,7 +13413,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             onMetaClick={() => setShowDealContractHelp(true)}
                   >
                     <span style={gameInfoLabelStyle}>{t('table.nowTurn')}</span>
-                    <span className="game-info-value-name game-info-turn-player-name" style={gameInfoValueStyle}>{resolveDisplayPlayerName(state.currentPlayerIndex)}</span>
+                    <GameInfoPlasmaTurnPlayerName
+                      name={resolveDisplayPlayerName(state.currentPlayerIndex)}
+                      style={gameInfoValueStyle}
+                    />
                   </GameInfoPlasmaTurnBlock>
                 )}
                 {!isWaitingInRoom && (state.phase === 'bidding' || state.phase === 'dark-bidding') && (
@@ -13325,9 +13432,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             onMetaClick={() => setShowDealContractHelp(true)}
                   >
                     <span style={gameInfoLabelStyle}>{t('table.bidding')}</span>
-                    <span className="game-info-value-name game-info-turn-player-name" style={gameInfoValueStyle}>
-                      {resolveDisplayPlayerName(state.currentPlayerIndex)}
-                    </span>
+                    <GameInfoPlasmaTurnPlayerName
+                      name={resolveDisplayPlayerName(state.currentPlayerIndex)}
+                      style={gameInfoValueStyle}
+                    />
                   </GameInfoPlasmaTurnBlock>
                 )}
               </div>
@@ -13382,6 +13490,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     inline
                     compactMode={isMobileOrTablet}
                     avatarDataUrl={resolveDisplayPlayerAvatar(pcNorthDisplayIndex)}
+        remoteNameBadge={resolveDisplayPlayerNameBadge(pcNorthDisplayIndex)}
                     replacedByAi={
                       !!online.playerSlots.find(
                         (s) =>
@@ -13470,6 +13579,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         >
           <OpponentSlot state={displayState} index={pcWestDisplayIndex} position="left" inline compactMode={isMobileOrTablet}
             avatarDataUrl={resolveDisplayPlayerAvatar(pcWestDisplayIndex)}
+        remoteNameBadge={resolveDisplayPlayerNameBadge(pcWestDisplayIndex)}
             replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(pcWestDisplayIndex, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
             collectingCards={lastTrickInterstitialActive}
             winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcWestDisplayIndex}
@@ -13870,6 +13980,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         >
           <OpponentSlot state={displayState} index={pcEastDisplayIndex} position="right" inline compactMode={isMobileOrTablet}
             avatarDataUrl={resolveDisplayPlayerAvatar(pcEastDisplayIndex)}
+        remoteNameBadge={resolveDisplayPlayerNameBadge(pcEastDisplayIndex)}
             replacedByAi={!!online.playerSlots.find(s => s.slotIndex === getCanonicalIndexForDisplay(pcEastDisplayIndex, online.myServerIndex, displayState.players.length === 3 ? 3 : 4))?.replacedUserId}
             collectingCards={lastTrickInterstitialActive}
             winnerPanelBlink={lastTrickWinnerAnnounceActive && lastTrickWinnerIdx === pcEastDisplayIndex}
@@ -14107,14 +14218,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                   const isBiddingPhase =
                     state.phase === 'bidding' || state.phase === 'dark-bidding';
                   /** Канон: src/ui/userSouthPanelCanon.ts + user-south-panel.css */
-                  const pcSouthNameCut = pcSouthNameCutChars(
-                    humanPcTrickSlotCount,
-                    useTabletPcTableTuning,
-                  );
-                  const pcSouthDisplayName =
-                    pcSouthNameCut > 0 && fullSouthName.length > pcSouthNameCut
-                      ? `${fullSouthName.slice(0, fullSouthName.length - pcSouthNameCut)}…`
-                      : fullSouthName;
+                  const southNameCompact = southNameLongCompact({
+                    name: fullSouthName,
+                    hasPlacedBid: humanBidPc != null,
+                  });
                   return (
                 <div ref={pcUserPanelLeftClusterRef} className="user-player-panel-pc-left-cluster">
                   <div className="user-player-panel-pc-avatar-name-stack">
@@ -14126,17 +14233,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         }),
                       )}
                     </div>
-                    <div className="user-player-panel-pc-name-under-avatar">
-                      <span
-                        className={[southPlayerNameClassName, 'user-player-panel-pc-name-text']
-                          .filter(Boolean)
-                          .join(' ')}
-                        style={southPlayerNameStyle}
-                        title={pcSouthNameCut > 0 ? fullSouthName : undefined}
-                      >
-                        {pcSouthDisplayName}
-                      </span>
-                    </div>
+                    <UserSouthPcNamePlaque
+                      name={fullSouthName}
+                      isBiddingPhase={isBiddingPhase}
+                      longCompact={southNameCompact}
+                      textClassName={southPlayerNameClassName}
+                      textStyle={southPlayerNameStyle}
+                    />
                   </div>
                   {/* Заказ Юга: на торгах — сразу после своей ставки (не ждать конца торгов). */}
                   {(humanBidPc != null ||
@@ -21275,6 +21378,7 @@ function OpponentSlot({
   hideDealerBadge,
   mobileLandscapeLayout,
   avatarDataUrl,
+  remoteNameBadge,
   replacedByAi,
   onAvatarClick,
   onDealerBadgeClick,
@@ -21302,6 +21406,8 @@ function OpponentSlot({
   hideDealerBadge?: boolean;
   /** Фото игрока (Data URL), только для человеческого игрока */
   avatarDataUrl?: string | null;
+  /** Онлайн: плашка «снизу» из слота оппонента */
+  remoteNameBadge?: { enabled: boolean; text?: string | null } | null;
   /** Слот заменён на ИИ (игрок вышел/пауза) — показываем имя ушедшего и метку «ИИ» */
   replacedByAi?: boolean;
   /** По клику на аватар открыть панель с информацией об игроке */
@@ -22103,6 +22209,7 @@ function OpponentSlot({
               sizePx={avatarSizePx}
               title={`${displayName} — ${getCompassLabel(index, state.players.length, position)}`}
               className={playerAvatarMergedCls}
+              remoteNameBadge={remoteNameBadge}
             />
           </button>
         ) : (
@@ -22112,6 +22219,7 @@ function OpponentSlot({
             sizePx={avatarSizePx}
             title={`${displayName} — ${getCompassLabel(index, state.players.length, position)}`}
             className={playerAvatarMergedCls}
+            remoteNameBadge={remoteNameBadge}
           />
         );
         /* Звезда «ровно» — внутри кольца (якорь = круг лица), не на широком reserve/we-left. */

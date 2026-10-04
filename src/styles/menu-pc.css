@@ -6449,19 +6449,18 @@
     place-items: center;
     background: #312e81;
     overflow: visible;
-    transform: scale(1.045);
+    transform: scale(1);
     transform-style: preserve-3d;
     box-shadow:
-      0 0 0 1.5px rgba(255, 255, 255, 0.32),
-      0 1px 0 rgba(245, 208, 254, 0.45),
-      0 0 14px rgba(103, 232, 249, 0.55),
-      0 0 28px rgba(192, 132, 252, 0.48),
-      0 0 42px rgba(244, 114, 182, 0.22),
-      0 3px 0 rgba(8, 3, 20, 0.4),
-      0 7px 0 rgba(8, 3, 20, 0.28),
-      0 14px 20px rgba(4, 2, 16, 0.55),
-      0 22px 36px rgba(0, 0, 0, 0.38),
-      0 32px 48px rgba(0, 0, 0, 0.22);
+      0 0 0 1.25px rgba(255, 255, 255, 0.3),
+      0 1px 0 rgba(245, 208, 254, 0.4),
+      0 0 12px rgba(103, 232, 249, 0.45),
+      0 0 24px rgba(192, 132, 252, 0.38),
+      0 0 34px rgba(244, 114, 182, 0.16),
+      0 3px 0 rgba(8, 3, 20, 0.36),
+      0 7px 0 rgba(8, 3, 20, 0.24),
+      0 12px 18px rgba(4, 2, 16, 0.48),
+      0 20px 32px rgba(0, 0, 0, 0.32);
     transition:
       transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
       box-shadow 0.22s ease,
@@ -6502,40 +6501,115 @@
       #67e8f9 80%,
       #22d3ee 100%
     );
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.25px), #000 calc(100% - 1.35px));
-    mask: radial-gradient(farthest-side, transparent calc(100% - 2.25px), #000 calc(100% - 1.35px));
+    /* тонкий яркий радужный обод (~2.5px) */
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.6px), #000 calc(100% - 1.2px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 2.6px), #000 calc(100% - 1.2px));
     animation: menu-pc-account-avatar-spin 8.5s linear infinite;
-    filter: saturate(1.22) brightness(1.12);
+    filter: saturate(1.3) brightness(1.14);
   }
 
   .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__face.player-avatar,
   .menu-screen__drift--account .menu-capsule--id-account .menu-capsule__glyph--avatar .player-avatar {
     position: relative;
     z-index: 1;
-    width: 76px !important;
-    height: 76px !important;
-    min-width: 76px !important;
-    min-height: 76px !important;
-    max-width: 76px !important;
-    max-height: 76px !important;
+    /* 74px в 78px — почти как раньше, обод тонкий но читаемый */
+    width: 74px !important;
+    height: 74px !important;
+    min-width: 74px !important;
+    min-height: 74px !important;
+    max-width: 74px !important;
+    max-height: 74px !important;
     aspect-ratio: 1 !important;
     border-radius: 50% !important;
     flex-shrink: 0 !important;
-    font-size: 26px !important;
+    font-size: 25px !important;
     transform: none;
     overflow: hidden !important;
     filter: contrast(1.1) saturate(1.08) brightness(1.03) !important;
     box-shadow:
-      0 0 0 1px rgba(12, 6, 32, 0.75),
-      0 2px 3px rgba(0, 0, 0, 0.35),
-      0 6px 10px rgba(0, 0, 0, 0.32),
-      0 10px 18px rgba(0, 0, 0, 0.2),
-      inset 0 4px 8px rgba(255, 255, 255, 0.28),
-      inset 0 -7px 14px rgba(0, 0, 0, 0.38) !important;
+      0 0 0 1px rgba(167, 139, 250, 0.55),
+      0 2px 3px rgba(0, 0, 0, 0.28),
+      0 6px 10px rgba(0, 0, 0, 0.26),
+      0 10px 16px rgba(0, 0, 0, 0.16),
+      inset 0 4px 8px rgba(255, 255, 255, 0.3),
+      inset 0 -7px 14px rgba(30, 27, 75, 0.34) !important;
     transition:
       transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
       filter 0.22s ease,
       box-shadow 0.22s ease;
+  }
+
+  /*
+   * HTML-плашка: полный премиум-лук (обод / кабошон / стекло / блик).
+   * Корень visible — свисание плашки; лицо клипится; стекло маскируем снизу.
+   */
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id__face.player-avatar--name-badge {
+    z-index: 1 !important;
+    overflow: visible !important;
+    width: 72px !important;
+    height: 72px !important;
+    min-width: 72px !important;
+    min-height: 72px !important;
+    max-width: 72px !important;
+    max-height: 72px !important;
+    box-shadow:
+      0 0 0 1px rgba(167, 139, 250, 0.6),
+      0 2px 3px rgba(0, 0, 0, 0.28),
+      0 6px 10px rgba(0, 0, 0, 0.26),
+      0 10px 16px rgba(0, 0, 0, 0.16),
+      inset 0 4px 8px rgba(255, 255, 255, 0.32),
+      inset 0 -7px 14px rgba(30, 27, 75, 0.34) !important;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id__face.player-avatar--name-badge
+    .player-avatar__face {
+    overflow: hidden !important;
+    border-radius: 50% !important;
+  }
+
+  /* С плашкой: чуть толще обод, без раздутого idle-glow */
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id__ring:has(.player-avatar--name-badge) {
+    box-shadow:
+      0 0 0 1.35px rgba(255, 255, 255, 0.34),
+      0 1px 0 rgba(245, 208, 254, 0.45),
+      0 0 14px rgba(103, 232, 249, 0.52),
+      0 0 26px rgba(192, 132, 252, 0.42),
+      0 0 38px rgba(244, 114, 182, 0.2),
+      0 3px 0 rgba(8, 3, 20, 0.36),
+      0 7px 0 rgba(8, 3, 20, 0.24),
+      0 12px 18px rgba(4, 2, 16, 0.48),
+      0 20px 32px rgba(0, 0, 0, 0.32) !important;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id__ring:has(.player-avatar--name-badge)
+    .menu-signed-id__spin {
+    -webkit-mask: radial-gradient(
+      farthest-side,
+      transparent calc(100% - 3.4px),
+      #000 calc(100% - 1.35px)
+    );
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3.4px), #000 calc(100% - 1.35px));
+    filter: saturate(1.38) brightness(1.18);
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id__ring:has(.player-avatar--name-badge)::before {
+    inset: 2.5px;
+    background:
+      radial-gradient(circle at 34% 26%, #f5f3ff 0%, #ddd6fe 28%, #a78bfa 58%, #6366f1 82%, #312e81 100%);
+    box-shadow:
+      inset 0 3px 6px rgba(255, 255, 255, 0.52),
+      inset 0 -5px 12px rgba(30, 27, 75, 0.58),
+      inset 0 0 0 1px rgba(167, 139, 250, 0.42);
   }
 
   .menu-screen__drift--account .menu-capsule--id-account .menu-signed-id__face img,
@@ -6603,6 +6677,99 @@
   }
 
   /*
+   * HTML-плашка: полное стекло + блик (даже поверх --polished),
+   * маска снизу — плашка читается.
+   */
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id__ring:has(.player-avatar--name-badge)
+    .menu-signed-id__glass,
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id--polished
+    .menu-signed-id__ring:has(.player-avatar--name-badge)
+    .menu-signed-id__glass {
+    opacity: 1 !important;
+    pointer-events: none !important;
+    overflow: hidden !important;
+    z-index: 2 !important;
+    background:
+      radial-gradient(
+        ellipse 68% 48% at 30% 14%,
+        rgba(186, 230, 253, 0.38) 0%,
+        rgba(192, 132, 252, 0.14) 28%,
+        transparent 50%
+      ),
+      radial-gradient(
+        circle at 50% 48%,
+        transparent 36%,
+        rgba(12, 8, 36, 0.14) 66%,
+        rgba(6, 3, 20, 0.42) 100%
+      ),
+      radial-gradient(ellipse 95% 70% at 50% 120%, rgba(0, 0, 0, 0.5) 0%, transparent 52%) !important;
+    box-shadow:
+      inset 0 5px 8px rgba(186, 230, 253, 0.32),
+      inset 0 -11px 18px rgba(0, 0, 0, 0.42),
+      inset 0 0 0 1.25px rgba(167, 139, 250, 0.4) !important;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 70%,
+      rgba(0, 0, 0, 0.4) 82%,
+      transparent 96%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 70%,
+      rgba(0, 0, 0, 0.4) 82%,
+      transparent 96%
+    );
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id__ring:has(.player-avatar--name-badge)
+    .menu-signed-id__glass::after,
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id--polished
+    .menu-signed-id__ring:has(.player-avatar--name-badge)
+    .menu-signed-id__glass::after {
+    background: linear-gradient(
+      108deg,
+      transparent 0%,
+      transparent 40%,
+      rgba(251, 191, 36, 0.28) 46%,
+      rgba(244, 114, 182, 0.55) 51%,
+      rgba(103, 232, 249, 0.48) 55%,
+      rgba(167, 139, 250, 0.18) 59%,
+      transparent 66%
+    ) !important;
+    animation: menu-pc-account-avatar-sheen 5.8s cubic-bezier(0.4, 0.05, 0.2, 1) infinite !important;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id__ring:has(.player-avatar--name-badge)
+    .player-avatar__name-badge {
+    z-index: 5 !important;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id__ring:has(.player-avatar--badge-outside)
+    .menu-signed-id__glass {
+    background: radial-gradient(
+      ellipse 68% 48% at 30% 14%,
+      rgba(186, 230, 253, 0.22) 0%,
+      transparent 50%
+    ) !important;
+    box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.22) !important;
+    overflow: visible !important;
+  }
+
+  /*
    * Уже есть bake 3D-финиш: капсула даёт только живой sheen + лёгкий halo,
    * без второй тяжёлой виньетки/блика поверх кабошона.
    */
@@ -6632,20 +6799,37 @@
   .menu-screen__drift--account
     .menu-capsule--id-account
     .menu-signed-id--polished
-    .menu-signed-id__face.player-avatar,
+    .menu-signed-id__face.player-avatar:not(.player-avatar--name-badge),
   .menu-screen__drift--account
     .menu-capsule--id-account
     .menu-signed-id--polished
     .menu-capsule__glyph--avatar
-    .player-avatar {
+    .player-avatar:not(.player-avatar--name-badge) {
     filter: contrast(1.04) saturate(1.04) brightness(1.01) !important;
     box-shadow:
-      0 0 0 1px rgba(12, 6, 32, 0.7),
-      0 2px 3px rgba(0, 0, 0, 0.3),
-      0 6px 10px rgba(0, 0, 0, 0.26),
-      0 10px 16px rgba(0, 0, 0, 0.16),
-      inset 0 2px 4px rgba(255, 255, 255, 0.12),
-      inset 0 -4px 8px rgba(0, 0, 0, 0.2) !important;
+      0 0 0 1.25px rgba(167, 139, 250, 0.55),
+      0 0 0 2px rgba(103, 232, 249, 0.3),
+      0 2px 3px rgba(0, 0, 0, 0.28),
+      0 6px 10px rgba(0, 0, 0, 0.24),
+      0 10px 16px rgba(0, 0, 0, 0.14),
+      inset 0 2px 4px rgba(255, 255, 255, 0.14),
+      inset 0 -4px 8px rgba(30, 27, 75, 0.2) !important;
+  }
+
+  /* polished + плашка: не глушим кабошон — полный объём лица */
+  .menu-screen__drift--account
+    .menu-capsule--id-account
+    .menu-signed-id--polished
+    .menu-signed-id__face.player-avatar--name-badge {
+    filter: contrast(1.1) saturate(1.1) brightness(1.04) !important;
+    box-shadow:
+      0 0 0 1.5px rgba(167, 139, 250, 0.7),
+      0 0 0 2.75px rgba(103, 232, 249, 0.4),
+      0 2px 3px rgba(0, 0, 0, 0.28),
+      0 6px 10px rgba(0, 0, 0, 0.28),
+      0 10px 18px rgba(0, 0, 0, 0.18),
+      inset 0 4px 8px rgba(255, 255, 255, 0.34),
+      inset 0 -7px 14px rgba(30, 27, 75, 0.36) !important;
   }
 
   /*
@@ -6784,34 +6968,106 @@
     .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
     .menu-capsule__glyph--avatar
     .player-avatar {
-    transform: scale(1.03);
-    filter: contrast(1.12) saturate(1.1) brightness(1.05) !important;
+    transform: scale(1.05);
+    filter: contrast(1.14) saturate(1.14) brightness(1.08) !important;
     box-shadow:
-      0 0 0 1.5px rgba(12, 6, 32, 0.92),
-      0 3px 5px rgba(0, 0, 0, 0.38),
-      0 8px 14px rgba(0, 0, 0, 0.34),
-      0 14px 22px rgba(0, 0, 0, 0.22),
-      inset 0 5px 9px rgba(255, 255, 255, 0.3),
-      inset 0 -8px 16px rgba(0, 0, 0, 0.4) !important;
+      0 0 0 1.75px rgba(167, 139, 250, 0.85),
+      0 0 0 3px rgba(103, 232, 249, 0.55),
+      0 3px 5px rgba(0, 0, 0, 0.32),
+      0 8px 14px rgba(0, 0, 0, 0.3),
+      0 14px 22px rgba(0, 0, 0, 0.2),
+      inset 0 5px 9px rgba(255, 255, 255, 0.35),
+      inset 0 -8px 16px rgba(30, 27, 75, 0.38) !important;
+  }
+
+  /* С плашкой — живой hover без раздувания */
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-signed-id__ring:has(.player-avatar--name-badge) {
+    transform: scale(1.055) !important;
+    filter: brightness(1.1) saturate(1.14);
+    box-shadow:
+      0 0 0 1.75px rgba(255, 255, 255, 0.42),
+      0 1px 0 rgba(245, 208, 254, 0.55),
+      0 0 20px rgba(103, 232, 249, 0.7),
+      0 0 36px rgba(168, 85, 247, 0.55),
+      0 0 48px rgba(244, 114, 182, 0.3),
+      0 4px 0 rgba(8, 3, 20, 0.34),
+      0 9px 0 rgba(8, 3, 20, 0.22),
+      0 16px 24px rgba(0, 0, 0, 0.48),
+      0 26px 40px rgba(0, 0, 0, 0.28) !important;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-signed-id__ring:has(.player-avatar--name-badge)
+    .menu-signed-id__spin {
+    filter: saturate(1.5) brightness(1.28) !important;
+    animation-duration: 3.6s !important;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-signed-id__ring:has(.player-avatar--name-badge)
+    .menu-signed-id__glass {
+    background:
+      radial-gradient(
+        ellipse 68% 48% at 30% 14%,
+        rgba(186, 230, 253, 0.48) 0%,
+        rgba(192, 132, 252, 0.2) 28%,
+        transparent 50%
+      ),
+      radial-gradient(
+        circle at 50% 48%,
+        transparent 34%,
+        rgba(12, 8, 36, 0.16) 64%,
+        rgba(6, 3, 20, 0.48) 100%
+      ),
+      radial-gradient(ellipse 95% 70% at 50% 120%, rgba(0, 0, 0, 0.55) 0%, transparent 52%) !important;
+    box-shadow:
+      inset 0 6px 10px rgba(186, 230, 253, 0.4),
+      inset 0 -12px 20px rgba(0, 0, 0, 0.48),
+      inset 0 0 14px rgba(244, 114, 182, 0.16) !important;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-signed-id__ring:has(.player-avatar--name-badge)
+    .menu-signed-id__glass::after {
+    animation-duration: 2.4s !important;
+  }
+
+  .menu-screen__drift--account
+    .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
+    .menu-signed-id__face.player-avatar--name-badge {
+    transform: scale(1.04) !important;
+    filter: contrast(1.14) saturate(1.14) brightness(1.08) !important;
+    box-shadow:
+      0 0 0 1.5px rgba(167, 139, 250, 0.8),
+      0 0 0 2.5px rgba(103, 232, 249, 0.45),
+      0 3px 5px rgba(0, 0, 0, 0.28),
+      0 8px 14px rgba(0, 0, 0, 0.26),
+      inset 0 5px 9px rgba(255, 255, 255, 0.35),
+      inset 0 -8px 16px rgba(30, 27, 75, 0.34) !important;
   }
 
   .menu-screen__drift--account
     .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
     .menu-signed-id--polished
-    .menu-signed-id__face.player-avatar,
+    .menu-signed-id__face.player-avatar:not(.player-avatar--name-badge),
   .menu-screen__drift--account
     .menu-capsule--id-account:hover:not(:disabled):not(.menu-capsule--disabled)
     .menu-signed-id--polished
     .menu-capsule__glyph--avatar
-    .player-avatar {
+    .player-avatar:not(.player-avatar--name-badge) {
     filter: contrast(1.06) saturate(1.05) brightness(1.02) !important;
     box-shadow:
-      0 0 0 1.25px rgba(12, 6, 32, 0.85),
-      0 3px 5px rgba(0, 0, 0, 0.32),
-      0 8px 12px rgba(0, 0, 0, 0.26),
-      0 12px 18px rgba(0, 0, 0, 0.16),
-      inset 0 2px 5px rgba(255, 255, 255, 0.14),
-      inset 0 -5px 10px rgba(0, 0, 0, 0.22) !important;
+      0 0 0 1.5px rgba(167, 139, 250, 0.7),
+      0 0 0 2.5px rgba(103, 232, 249, 0.4),
+      0 3px 5px rgba(0, 0, 0, 0.28),
+      0 8px 12px rgba(0, 0, 0, 0.22),
+      inset 0 2px 5px rgba(255, 255, 255, 0.16),
+      inset 0 -5px 10px rgba(30, 27, 75, 0.22) !important;
   }
 
   @keyframes menu-pc-account-avatar-spin {

@@ -22,6 +22,12 @@ import {
   type RoomPeekResult,
 } from './roomSettlement';
 import { ONLINE_CLOUD_AVATAR_MAX_CHARS, prepareAvatarForOnlineRoom } from './avatarImage';
+import {
+  defaultAvatarBadgeText,
+  normalizeAvatarBadgeText,
+} from './avatarEditorTemplates';
+import { getAvatarNameBadgePref } from './avatarNameBadge';
+import { isPremiumAvatarNameBadgeEnabled } from './featureFlags';
 
 /** Имена пустых слотов при старте/выходе — как в OnlineGameContext.startGame (0..3). */
 const VACANT_AI_SLOT_NAMES = ['ИИ Юг', 'ИИ Север', 'ИИ Запад', 'ИИ Восток'] as const;
@@ -36,7 +42,48 @@ function vacantAiPlayerSlot(slotIndex: number): PlayerSlot {
     pausedByUser: undefined,
     shortLabel: undefined,
     avatarDataUrl: undefined,
+    nameBadgeEnabled: undefined,
+    nameBadgeText: undefined,
   };
+}
+
+/**
+ * Поля идентичности для слота комнаты: JPEG под лимит RPC/JSON + флаги плашки.
+ * Без prepare огромный data URL отбрасывается / ломает sync — у оппонентов пустой круг.
+ */
+export async function buildOnlineSlotIdentityFields(
+  userId: string | null | undefined,
+  displayName: string,
+  avatarDataUrl?: string | null,
+): Promise<{
+  avatarDataUrl?: string | null;
+  nameBadgeEnabled?: boolean;
+  nameBadgeText?: string | null;
+}> {
+  const prepared = await prepareAvatarForOnlineRoom(
+    avatarDataUrl ?? null,
+    ONLINE_CLOUD_AVATAR_MAX_CHARS,
+  );
+  const avatar = capAvatarDataUrl(prepared ?? undefined);
+  const out: {
+    avatarDataUrl?: string | null;
+    nameBadgeEnabled?: boolean;
+    nameBadgeText?: string | null;
+  } = {
+    avatarDataUrl: avatar != null && avatar !== '' ? avatar : null,
+  };
+  if (userId && isPremiumAvatarNameBadgeEnabled(userId)) {
+    const pref = getAvatarNameBadgePref(userId);
+    if (pref?.enabled) {
+      out.nameBadgeEnabled = true;
+      out.nameBadgeText =
+        normalizeAvatarBadgeText(pref.text ?? '') || defaultAvatarBadgeText(displayName);
+    } else {
+      out.nameBadgeEnabled = false;
+      out.nameBadgeText = null;
+    }
+  }
+  return out;
 }
 
 /** Слот в «родной» форме пустого ИИ (лобби / после leaveRoom): пустой userId, без паузы, имя как у шаблонного бота. */
@@ -128,6 +175,9 @@ export interface PlayerSlot {
   slotIndex: number;
   /** Data URL аватарки игрока (синхронизируется при входе и смене фото) */
   avatarDataUrl?: string | null;
+  /** Premium «плашка снизу» — видна всем клиентам из слота (не localStorage зрителя). */
+  nameBadgeEnabled?: boolean | null;
+  nameBadgeText?: string | null;
   /** Короткая метка (например часть email), чтобы различать игроков с одинаковым именем */
   shortLabel?: string | null;
   /** Если слот заменён на ИИ вручную через «Взять паузу» — id пользователя, который может вернуться */
@@ -447,11 +497,11 @@ export async function createRoom(
 ): Promise<{ room: GameRoomRow } | { error: string }> {
   if (!supabase) return { error: 'Supabase не настроен' };
 
-  const prepared = await prepareAvatarForOnlineRoom(
+  const identity = await buildOnlineSlotIdentityFields(
+    hostUserId,
+    hostDisplayName,
     hostAvatarDataUrl ?? null,
-    ONLINE_CLOUD_AVATAR_MAX_CHARS,
   );
-  const avatar = capAvatarDataUrl(prepared ?? undefined);
   const normalized = normalizeCreateRoomOptions(roomOpts);
 
   let lastMessage = 'Не удалось создать комнату';
@@ -466,7 +516,15 @@ export async function createRoom(
           ...(hostShortLabel != null && hostShortLabel !== ''
             ? { shortLabel: hostShortLabel.slice(0, 12) }
             : {}),
-          ...(avatar != null && avatar !== '' ? { avatarDataUrl: avatar } : {}),
+          ...(identity.avatarDataUrl != null && identity.avatarDataUrl !== ''
+            ? { avatarDataUrl: identity.avatarDataUrl }
+            : {}),
+          ...(identity.nameBadgeEnabled != null
+            ? {
+                nameBadgeEnabled: identity.nameBadgeEnabled,
+                nameBadgeText: identity.nameBadgeText ?? null,
+              }
+            : {}),
         },
       ];
 
@@ -586,11 +644,8 @@ export async function joinRoom(
   const normalizedCode = code.trim().toUpperCase();
   if (!normalizedCode) return { error: 'Введите код комнаты' };
 
-  const prepared = await prepareAvatarForOnlineRoom(
-    avatarDataUrl ?? null,
-    ONLINE_CLOUD_AVATAR_MAX_CHARS,
-  );
-  const av = capAvatarDataUrl(prepared ?? undefined);
+  const identity = await buildOnlineSlotIdentityFields(userId, displayName, avatarDataUrl ?? null);
+  const av = identity.avatarDataUrl ?? null;
 
   const already = await recoverJoinByCode(normalizedCode, userId);
   if (already) return already;
@@ -691,6 +746,12 @@ export async function joinRoom(
               pausedByUser: undefined,
               ...(shortLabel != null && shortLabel !== '' ? { shortLabel: shortLabel.slice(0, 12) } : {}),
               ...(av != null && av !== '' ? { avatarDataUrl: av } : {}),
+              ...(identity.nameBadgeEnabled != null
+                ? {
+                    nameBadgeEnabled: identity.nameBadgeEnabled,
+                    nameBadgeText: identity.nameBadgeText ?? null,
+                  }
+                : {}),
             }
           : s
       );
@@ -725,6 +786,12 @@ export async function joinRoom(
         slotIndex: mySlotIndex,
         ...(shortLabel != null && shortLabel !== '' ? { shortLabel: shortLabel.slice(0, 12) } : {}),
         ...(av != null && av !== '' ? { avatarDataUrl: av } : {}),
+        ...(identity.nameBadgeEnabled != null
+          ? {
+              nameBadgeEnabled: identity.nameBadgeEnabled,
+              nameBadgeText: identity.nameBadgeText ?? null,
+            }
+          : {}),
       },
     ];
 

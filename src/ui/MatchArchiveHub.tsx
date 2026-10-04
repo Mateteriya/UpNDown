@@ -474,8 +474,7 @@ export function MatchArchiveHub({
   onOpenRating,
 }: MatchArchiveHubProps) {
   const t = useT();
-  const { session, loading: authLoading } = useAuth();
-  const accessToken = session?.access_token ?? '';
+  const { loading: authLoading } = useAuth();
   const [filter, setFilter] = useState<MatchArchiveFilter>('all');
   const [localRows, setLocalRows] = useState<PartyArchiveRecord[]>([]);
   const [cloudRows, setCloudRows] = useState<MatchHistoryItem[] | null>(null);
@@ -503,7 +502,6 @@ export function MatchArchiveHub({
   const loadGen = useRef(0);
   const loadFeed = useCallback(async () => {
     if (authLoading) return;
-    void accessToken;
     const gen = ++loadGen.current;
     if (gen === 1) setLoading(true);
     try {
@@ -524,7 +522,8 @@ export function MatchArchiveHub({
     } finally {
       if (loadGen.current === gen) setLoading(false);
     }
-  }, [authLoading, configured, userId, accessToken, t]);
+    /* Не зависеть от access_token: TOKEN_REFRESHED иначе перезапускает fetch → шторм refresh → SIGNED_OUT. */
+  }, [authLoading, configured, userId, t]);
 
   useEffect(() => {
     void loadFeed();

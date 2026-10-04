@@ -2783,49 +2783,31 @@
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
 }
-/* Юг: премиум-имя — тёплый шампань (отличается от холодного premium-human у оппонентов) */
-.game-table-root .user-player-panel .player-panel-name--premium-user {
-  background: linear-gradient(
-    168deg,
-    #fffaf3 0%,
-    #fff1dc 12%,
-    #fde0b0 28%,
-    #f5c27a 46%,
-    #e8a86a 64%,
-    #f0c9a0 82%,
-    #fff6ea 100%
-  ) !important;
-  -webkit-background-clip: text !important;
-  background-clip: text !important;
-  color: transparent !important;
-  -webkit-text-fill-color: transparent !important;
-  text-shadow: none !important;
-  filter:
-    drop-shadow(0 1px 0 rgba(15, 23, 42, 0.35))
-    drop-shadow(0 0 10px rgba(251, 191, 36, 0.28))
-    drop-shadow(0 0 7px rgba(251, 146, 60, 0.18));
-}
+/* Юг: премиум-имя — перелив как на капсуле «Кабинет» (не шампань).
+ * Только longhands: shorthand `background` с !important убивает size/position и анимацию. */
+.game-table-root .user-player-panel .player-panel-name--premium-user,
 .theme-neon .game-table-root .user-player-panel .player-panel-name--premium-user,
 .theme-standard .game-table-root .user-player-panel .player-panel-name--premium-user {
-  background: linear-gradient(
-    168deg,
-    #fffaf3 0%,
-    #fff1dc 12%,
-    #fde0b0 28%,
-    #f5c27a 46%,
-    #e8a86a 64%,
-    #f0c9a0 82%,
-    #fff6ea 100%
+  background-image: linear-gradient(
+    110deg,
+    #ecfeff 0%,
+    #67e8f9 14%,
+    #38bdf8 28%,
+    #a78bfa 44%,
+    #e879f9 60%,
+    #fbbf24 76%,
+    #67e8f9 90%,
+    #ecfeff 100%
   ) !important;
+  background-size: 240% 100% !important;
+  background-repeat: no-repeat !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
-  filter:
-    drop-shadow(0 1px 0 rgba(15, 23, 42, 0.35))
-    drop-shadow(0 0 10px rgba(251, 191, 36, 0.28))
-    drop-shadow(0 0 7px rgba(251, 146, 60, 0.18));
+  filter: drop-shadow(0 1px 0 rgb(12 4 28 / 55%));
+  animation: south-name-iridescent 3.8s ease-in-out infinite;
 }
 /* Сдающий: единое окошко имени — голубо-сиреневый неон (онлайн и офлайн) */
 .game-table-root.viewport-mobile
@@ -14094,6 +14076,51 @@
     user-select: none !important;
     -webkit-user-select: none !important;
   }
+  /*
+   * Обычный портрет: стартовый якорь под Югом слева (пока нет custom drag-pos).
+   * После перетаскивания класс --undocked + inline left/top.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn:not(.viewport-mobile-landscape)
+    .mobile-short-fullscreen-entry-btn--dock-south-left:not(.mobile-short-fullscreen-entry-btn--undocked) {
+    left: max(8px, env(safe-area-inset-left, 0px)) !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: calc(
+      env(safe-area-inset-bottom, 0px) + 10px
+    ) !important;
+    transform: none !important;
+  }
+  /* Свёрнутый глиф (после ~40 с idle) — круглый, только иконка; drag сохраняется */
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
+    .mobile-short-fullscreen-entry-btn--collapsed {
+    padding: 9px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    border-radius: 999px !important;
+    gap: 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
+    .mobile-short-fullscreen-entry-btn--collapsed
+    .mobile-short-fullscreen-entry-btn__label,
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
+    .mobile-short-fullscreen-entry-btn--collapsed
+    .mobile-short-fullscreen-entry-btn__grip,
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
+    .mobile-short-fullscreen-entry-btn--collapsed
+    .mobile-short-fullscreen-entry-btn__drag-hint {
+    display: none !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
+    .mobile-short-fullscreen-entry-btn--collapsed
+    .mobile-short-fullscreen-entry-btn__main {
+    gap: 0 !important;
+  }
+  .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
+    .mobile-short-fullscreen-entry-btn--collapsed
+    .mobile-short-fullscreen-entry-btn__icon {
+    font-size: 16px !important;
+    line-height: 1 !important;
+  }
   .game-table-root.viewport-mobile.viewport-mobile-low-vh-fullscreen-btn
     .mobile-short-fullscreen-entry-btn--floating.mobile-short-fullscreen-entry-btn--with-hint {
     padding-bottom: 6px !important;
@@ -21128,9 +21155,9 @@
     .game-mobile-landscape-chassis
     .game-info-plasma-screen
     .game-info-turn-player-name {
-    font-size: 15px !important;
+    font-size: calc(var(--plasma-turn-name-base, 15px) * var(--plasma-turn-name-fit, 1)) !important;
     font-weight: 700 !important;
-    letter-spacing: 0.03em !important;
+    letter-spacing: calc(0.03em * max(0.5, var(--plasma-turn-name-fit, 1))) !important;
     transform: none !important;
     text-shadow:
       0 0 8px currentColor,
@@ -21138,8 +21165,8 @@
   }
 
   /*
-   * After-short · только имя: nowrap + кегль через --plasma-turn-name-fit.
-   * Размер/bleed экранчика не трогаем (max-width:100% ломал bleed → уже и влево).
+   * After-short · имя: nowrap + --plasma-turn-name-fit (база — общий plasma-блок выше).
+   * Размер/bleed экранчика не трогаем (max-width:100% на screen ломал bleed).
    */
   .game-table-root.game-info-badge-plasma.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-after-short:not(
       .viewport-mobile-landscape-mid
@@ -21167,7 +21194,7 @@
     white-space: nowrap !important;
     overflow: hidden !important;
     text-align: center !important;
-    font-size: calc(15px * var(--plasma-turn-name-fit, 1)) !important;
+    font-size: calc(var(--plasma-turn-name-base, 15px) * var(--plasma-turn-name-fit, 1)) !important;
   }
 
   .game-table-root.viewport-mobile.viewport-mobile-landscape:not(.viewport-mobile-landscape-mid).viewport-mobile-short,
@@ -26085,8 +26112,10 @@
   max-width: 100% !important;
   min-width: 0 !important;
 }
-/* Имена оппонентов: жемчужная расцветка, без лишних эффектов (чёткие буквы) */
-.game-table-root .opponent-slot-header .player-panel-name,
+/* Имена оппонентов: жемчужная расцветка, без лишних эффектов (чёткие буквы).
+ * Юг landscape тоже в .opponent-slot-header — не трогаем .user-south-mobile-name-text
+ * (shorthand background !important убивает background-position → перелив замирает). */
+.game-table-root .opponent-slot-header .player-panel-name:not(.user-south-mobile-name-text),
 .game-table-root .opponent-slot-header > span:not([class]),
 .game-table-root .opponent-slot-header .opponent-slot-header-display-name:not(.opponent-slot-header-display-name--premium-human),
 .game-table-root .opponent-slot-header button.opponent-name-offline-ai-pick {
@@ -26474,31 +26503,32 @@
     1px 1px 0 rgba(0, 0, 0, 0.12),
     2px 2px 1px rgba(0, 0, 0, 0.05) !important;
 }
-/* ФИНАЛ: премиум-имя Юга (шампань) — перебивает theme / your-turn; не путать с холодным premium-human */
+/* ФИНАЛ: премиум-имя Юга = кабинетный перелив; не путать с холодным premium-human */
 .theme-standard .game-table-root .user-player-panel .player-panel-name--premium-user,
 .theme-neon .game-table-root .user-player-panel .player-panel-name--premium-user,
 .game-table-root .user-player-panel .player-panel-name--premium-user,
 .game-table-root .player-info-panel-your-turn .player-panel-name--premium-user {
-  background: linear-gradient(
-    168deg,
-    #fffaf3 0%,
-    #fff1dc 12%,
-    #fde0b0 28%,
-    #f5c27a 46%,
-    #e8a86a 64%,
-    #f0c9a0 82%,
-    #fff6ea 100%
+  background-image: linear-gradient(
+    110deg,
+    #ecfeff 0%,
+    #67e8f9 14%,
+    #38bdf8 28%,
+    #a78bfa 44%,
+    #e879f9 60%,
+    #fbbf24 76%,
+    #67e8f9 90%,
+    #ecfeff 100%
   ) !important;
+  background-size: 240% 100% !important;
+  background-repeat: no-repeat !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   color: transparent !important;
   -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
   opacity: 1 !important;
-  filter:
-    drop-shadow(0 1px 0 rgba(15, 23, 42, 0.35))
-    drop-shadow(0 0 10px rgba(251, 191, 36, 0.28))
-    drop-shadow(0 0 7px rgba(251, 146, 60, 0.18));
+  filter: drop-shadow(0 1px 0 rgb(12 4 28 / 55%));
+  animation: south-name-iridescent 3.8s ease-in-out infinite;
 }
 
 /* Аватарка (ПК и мобильная): эффект выпуклости и серебристо-бирюзовая рамка */
@@ -26548,6 +26578,10 @@
   object-fit: cover !important;
   display: block !important;
   border-radius: 50% !important;
+}
+/* Плашка снизу: не клипать img кругом — геометрия в player-avatar.css */
+.game-table-root .player-avatar.player-avatar--badge-outside:has(img) img {
+  border-radius: 0 !important;
 }
 /* Кольцо заказа на аватаре: внешняя рамка — у обёртки; класс на аватаре снимает штатный border/box-shadow с первого кадра */
 .game-table-root .player-avatar.player-avatar-order-ring-inner {
@@ -33323,17 +33357,30 @@ body:has(.game-table-root.viewport-mobile):not(:fullscreen) {
   overscroll-behavior-y: auto !important;
 }
 /*
- * Пока aid активен: стол fixed к visual viewport — programmatic scroll документа
- * прячет шапку, не уезжая визуально вместе со страницей.
+ * Пока aid активен: стол fixed, чтобы programmatic scroll документа
+ * прятал шапку, не уезжая визуально вместе со страницей.
+ * inset:0 (не 100dvh): dvh растёт при скрытии chrome → сдвиг и обрезка верха.
+ * width/height:auto + left/right/top/bottom: без «100% + padding» обрезки L/R.
  */
 html.upd-chrome-collapse-aid .game-table-root.viewport-mobile:not(.viewport-mobile-browser-fullscreen) {
   position: fixed !important;
   top: 0 !important;
-  left: 0 !important;
   right: 0 !important;
-  width: 100% !important;
-  height: 100dvh !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
   max-height: none !important;
+  /* асимметричный padding-right:2px на fixed давал обрезку краёв */
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  box-sizing: border-box !important;
+}
+/* Портрет: ~1–2px слева обрезалось overflow — минимальный inset (4px торчал лишним) */
+html.upd-chrome-collapse-aid
+  .game-table-root.viewport-mobile:not(.viewport-mobile-landscape):not(.viewport-mobile-browser-fullscreen) {
+  padding-left: 2px !important;
 }
 html:has(.game-table-root.viewport-mobile.viewport-mobile-browser-fullscreen),
 html:has(.game-table-root.viewport-mobile):fullscreen {
@@ -74925,10 +74972,10 @@ body:has(.menu-screen) {
     Monaco,
     Consolas,
     monospace !important;
-  font-size: 15px !important;
+  font-size: calc(var(--plasma-turn-name-base, 15px) * var(--plasma-turn-name-fit, 1)) !important;
   font-weight: 600 !important;
   line-height: 1.14 !important;
-  letter-spacing: 0.045em !important;
+  letter-spacing: calc(0.045em * max(0.5, var(--plasma-turn-name-fit, 1))) !important;
   font-variant-numeric: tabular-nums lining-nums !important;
   font-feature-settings: "tnum" 1, "lnum" 1 !important;
   text-shadow:
@@ -74936,25 +74983,90 @@ body:has(.menu-screen) {
     0 0 22px rgba(196, 181, 253, 0.28) !important;
 }
 
+.game-table-root.game-info-badge-plasma.viewport-mobile {
+  --plasma-turn-name-base: 15px;
+}
+.game-table-root.game-info-badge-plasma:not(.viewport-mobile) {
+  --plasma-turn-name-base: 17px;
+}
+
 /*
- * Portrait mobile: без внешнего «фантомного» ореола вокруг имени
- * (слой 22px violet выглядел как контейнер под буквами).
- * Неон/лазер букв оставляем — только плотный currentColor + лёгкий контур.
- * Landscape не трогаем (там свой text-shadow).
+ * Имя на экранчике — всегда одна строка; длинные жмутся через --plasma-turn-name-fit (JS).
+ * Портрет уже широкий; LS / mid / планшет / ПК получают тот же nowrap+fit.
+ * Специфичность выше portrait `11ch`+ellipsis (иначе длинные режутся, а не жмутся).
+ */
+.game-table-root.game-info-badge-plasma
+  .game-info-plasma-screen
+  .game-info-turn-player-name,
+.game-table-root.game-info-badge-plasma
+  .game-info-plasma-screen
+  .game-info-value-name,
+.game-table-root.game-info-badge-plasma
+  .game-info-plasma-screen
+  > span:last-child,
+.game-table-root.game-info-badge-plasma.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-mobile-upper-board
+  .game-info-left-col
+  .game-info-left-section
+  .game-info-plasma-screen
+  .game-info-turn-player-name,
+.game-table-root.game-info-badge-plasma.viewport-mobile:not(.viewport-mobile-landscape)
+  .game-mobile-upper-board
+  .game-info-left-col
+  .game-info-left-section
+  .game-info-plasma-screen
+  .game-info-value-name {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: clip !important;
+  text-align: center !important;
+}
+
+/*
+ * Portrait: без внешнего «фантомного» ореола (22px violet), лёгкий неон букв.
+ * turn-player-name: перелив color — plasma-turn-name-flow.css (не text-shadow).
+ * Phone landscape не трогаем (там свой text-shadow).
  */
 .game-table-root.game-info-badge-plasma.viewport-mobile:not(.viewport-mobile-landscape)
   .game-info-left-section
-  .game-info-value-name,
-.game-table-root.game-info-badge-plasma.viewport-mobile:not(.viewport-mobile-landscape)
-  .game-info-left-section
-  .game-info-turn-player-name,
+  .game-info-value-name:not(.game-info-turn-player-name),
 .game-table-root.game-info-badge-plasma.viewport-mobile:not(.viewport-mobile-landscape)
   .game-info-plasma-screen
-  > span:last-child {
+  > span:last-child:not(.game-info-turn-player-name) {
   text-shadow:
     0 0 6px currentColor,
     0 1px 0 rgba(0, 0, 0, 0.5) !important;
   filter: none !important;
+}
+
+/*
+ * ПК: без цветного glow на non-turn именах.
+ * turn-player-name: перелив — plasma-turn-name-flow.css.
+ */
+.game-table-root.game-info-badge-plasma:not(.viewport-mobile)
+  .game-info-left-section
+  .game-info-value-name:not(.game-info-turn-player-name),
+.game-table-root.game-info-badge-plasma:not(.viewport-mobile)
+  .game-info-plasma-screen
+  > span:last-child:not(.game-info-turn-player-name) {
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.65),
+    0 0 1px rgba(0, 0, 0, 0.45) !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+/* ПК: приглушить holo-shimmer за именем — иначе светлая полоса вокруг букв */
+.game-table-root.game-info-badge-plasma:not(.viewport-mobile)
+  .game-info-row
+  .game-info-left-section::before {
+  opacity: 0.28 !important;
+  inset: -12% -8% !important;
 }
 
 .game-table-root.game-info-badge-plasma:not(.viewport-mobile)
@@ -74964,15 +75076,14 @@ body:has(.menu-screen) {
   .game-info-left-section
   > div
   > span:last-child {
-  font-size: 17px !important;
-  /* Плотнее между словами на 2-й строке — больше воздуха у низа экранчика */
-  line-height: 1.05 !important;
-  letter-spacing: 0.05em !important;
+  font-size: calc(var(--plasma-turn-name-base, 17px) * var(--plasma-turn-name-fit, 1)) !important;
+  line-height: 1.14 !important;
+  letter-spacing: calc(0.05em * max(0.5, var(--plasma-turn-name-fit, 1))) !important;
 }
 
 .game-table-root.game-info-badge-plasma:not(.viewport-mobile) .game-info-plasma-screen {
-  /* Было 5.5 / 7: чуть меньше сверху, заметнее снизу под 2-строчные имена */
-  padding: 4.5px 16px 11px !important;
+  /* Одна строка имени (раньше pad снизу под 2 строки) */
+  padding: 5px 16px 6px !important;
 }
 
 .game-table-root.game-info-badge-plasma.viewport-mobile
@@ -75014,143 +75125,6 @@ body:has(.menu-screen) {
     inset 0 -14px 26px rgba(3, 7, 18, 0.38),
     inset 0 0 36px rgba(124, 58, 237, 0.1),
     0 0 16px rgba(129, 140, 248, 0.12) !important;
-}
-
-/* Имя на экранчике: полный цикл (void / portrait / ПК / mid). Ход и торги. */
-.game-table-root.game-info-badge-plasma
-  .game-info-left-section
-  .game-info-turn-player-name {
-  animation: plasma-turn-player-name-cycle 36s linear infinite !important;
-}
-
-/*
- * Phone LS · prism (гориз. полоски): урезанный цикл — только выбранные 7.
- * Не трогает void и остальные режимы.
- */
-.game-table-root.game-info-badge-plasma.game-info-plasma-screen-tone-prism.viewport-mobile.viewport-mobile-landscape:not(
-    .viewport-mobile-landscape-mid
-  )
-  .game-mobile-landscape-chassis
-  .game-info-left-section
-  .game-info-turn-player-name {
-  animation: plasma-turn-player-name-cycle-prism 28s linear infinite !important;
-}
-
-@keyframes plasma-turn-player-name-cycle {
-  0%,
-  6.25% {
-    color: #fff566;
-    -webkit-text-fill-color: #fff566;
-  }
-  6.26%,
-  12.5% {
-    color: #ffea00;
-    -webkit-text-fill-color: #ffea00;
-  }
-  12.51%,
-  18.75% {
-    color: #d9f99d;
-    -webkit-text-fill-color: #d9f99d;
-  }
-  18.76%,
-  25% {
-    color: #a3e635;
-    -webkit-text-fill-color: #a3e635;
-  }
-  25.01%,
-  31.25% {
-    color: #39ff14;
-    -webkit-text-fill-color: #39ff14;
-  }
-  31.26%,
-  37.5% {
-    color: #4ade80;
-    -webkit-text-fill-color: #4ade80;
-  }
-  37.51%,
-  43.75% {
-    color: #00ff9c;
-    -webkit-text-fill-color: #00ff9c;
-  }
-  43.76%,
-  50% {
-    color: #2dd4bf;
-    -webkit-text-fill-color: #2dd4bf;
-  }
-  50.01%,
-  56.25% {
-    color: #00f5ff;
-    -webkit-text-fill-color: #00f5ff;
-  }
-  56.26%,
-  62.5% {
-    color: #22d3ee;
-    -webkit-text-fill-color: #22d3ee;
-  }
-  62.51%,
-  68.75% {
-    color: #67e8f9;
-    -webkit-text-fill-color: #67e8f9;
-  }
-  68.76%,
-  75% {
-    color: #38bdf8;
-    -webkit-text-fill-color: #38bdf8;
-  }
-  75.01%,
-  81.25% {
-    color: #60a5fa;
-    -webkit-text-fill-color: #60a5fa;
-  }
-  81.26%,
-  87.5% {
-    color: #3b82f6;
-    -webkit-text-fill-color: #3b82f6;
-  }
-  87.51%,
-  93.75% {
-    color: #6366f1;
-    -webkit-text-fill-color: #6366f1;
-  }
-  93.76%,
-  100% {
-    color: #818cf8;
-    -webkit-text-fill-color: #818cf8;
-  }
-}
-
-/* Phone LS prism · 6 цветов (без светло-синего #60a5fa) */
-@keyframes plasma-turn-player-name-cycle-prism {
-  0%,
-  16.666% {
-    color: #fff566;
-    -webkit-text-fill-color: #fff566;
-  }
-  16.667%,
-  33.333% {
-    color: #ffea00;
-    -webkit-text-fill-color: #ffea00;
-  }
-  33.334%,
-  50% {
-    color: #39ff14;
-    -webkit-text-fill-color: #39ff14;
-  }
-  50.001%,
-  66.666% {
-    color: #00ff9c;
-    -webkit-text-fill-color: #00ff9c;
-  }
-  66.667%,
-  83.333% {
-    color: #00f5ff;
-    -webkit-text-fill-color: #00f5ff;
-  }
-  83.334%,
-  100% {
-    color: #67e8f9;
-    -webkit-text-fill-color: #67e8f9;
-  }
 }
 
 .game-table-root.game-info-badge-plasma
@@ -75437,6 +75411,19 @@ body:has(.menu-screen) {
     padding-left: 0 !important;
     padding-right: 0 !important;
     box-sizing: border-box !important;
+  }
+
+  /*
+   * Browser fullscreen (портрет): бейдж на одной линии с шапкой (камера).
+   * Не padding-top на колонке — у plasma col overflow/clip + glow, и «пустота»
+   * под камеру заливается сиреневым прямоугольником в ширину бейджа.
+   * Двигаем весь fixed-блок через top — над бейджем прозрачный стол.
+   */
+  .game-table-root.viewport-mobile.viewport-mobile-browser-fullscreen:not(.viewport-mobile-landscape)
+    .game-mobile-upper-board
+    .game-info-left-col {
+    padding-top: 0 !important;
+    top: calc(env(safe-area-inset-top, 0px) + 1px) !important;
   }
 
   /*
@@ -76157,10 +76144,14 @@ body:has(.menu-screen) {
       .game-info-left-section
       .game-info-plasma-screen
       span:last-child:not(.game-info-plasma-deal-meta__value):not(.game-info-plasma-deal-meta__mode) {
-      font-size: 15px !important;
+      font-size: calc(var(--plasma-turn-name-base, 15px) * var(--plasma-turn-name-fit, 1)) !important;
       line-height: 1.16 !important;
-      letter-spacing: 0.04em !important;
+      letter-spacing: calc(0.04em * max(0.5, var(--plasma-turn-name-fit, 1))) !important;
       font-weight: 700 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: clip !important;
+      max-width: 100% !important;
     }
 
     .game-table-root.game-info-badge-plasma.viewport-mobile.viewport-mobile-landscape.viewport-mobile-landscape-mid
@@ -76612,13 +76603,6 @@ body:has(.menu-screen) {
     transform: none !important;
     filter: none !important;
     opacity: 0.92 !important;
-  }
-  .game-table-root.game-info-badge-plasma
-    .game-info-left-section
-    .game-info-turn-player-name {
-    animation: none !important;
-    color: #00f5ff !important;
-    -webkit-text-fill-color: #00f5ff !important;
   }
   .game-table-root.game-info-badge-plasma:not(.viewport-mobile-short-header-immersive)
     .game-info-left-col

@@ -21,3 +21,22 @@ export function isPremiumAvatarJokerStickerEnabled(_userId?: string | null): boo
   return true;
   // В продакшне: return !!userSubscription?.isPremium;
 }
+
+/**
+ * «Плашка снизу» на аватарке — только премиум в аккаунте.
+ * Вне аккаунта (локальный профиль/гость) — недоступна полностью.
+ * Пока для тестов: любой залогиненный; в прод — подписка.
+ */
+export function isPremiumAvatarNameBadgeEnabled(userId?: string | null): boolean {
+  if (!userId) return false;
+  return true;
+  // В продакшне: return !!userSubscription?.isPremium;
+}
+
+/**
+ * Локальный превью: плашки «снизу» у ИИ-оппонентов за столом
+ * (как у premium+аккаунт с вариантом инициалов). Только DEV.
+ */
+export function isLocalAiNameBadgePreviewEnabled(): boolean {
+  return import.meta.env.DEV === true;
+}

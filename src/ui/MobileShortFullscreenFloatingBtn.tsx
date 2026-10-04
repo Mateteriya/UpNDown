@@ -6,24 +6,29 @@ import {
 
 const POS_STORAGE_ENTER = 'upd.mobileShortFullscreenBtnPos.enter.v1';
 const POS_STORAGE_EXIT = 'upd.mobileShortFullscreenBtnPos.exit.v1';
+/** Портрет: enter и exit делят одну точку (кнопка «на том же месте»). */
+const POS_STORAGE_PORTRAIT_DOCK = 'upd.mobileShortFullscreenBtnPos.portraitDock.v1';
 const DRAG_HINT_SEEN_KEY = 'upd.mobileShortFullscreenBtnDragHintSeen.v1';
 const DRAG_THRESHOLD_PX = 10;
 /** Запас над видимым низом при авто-подъёме (px). */
 const OVERLAP_CLEARANCE_PX = 10;
 /** Зазор до кнопки «Чат», чтобы плавающий fullscreen её не перекрывал. */
 const CHAT_TOGGLE_CLEARANCE_PX = 14;
+/** После простоя сворачиваем подпись до глифа. */
+const COLLAPSE_IDLE_MS = 40_000;
 
 type StoredPos = { x: number; y: number };
 type Mode = 'enter' | 'exit';
 
-function storageKeyForMode(mode: Mode): string {
+function storageKeyForMode(mode: Mode, dockSouthLeft: boolean): string {
+  if (dockSouthLeft) return POS_STORAGE_PORTRAIT_DOCK;
   return mode === 'exit' ? POS_STORAGE_EXIT : POS_STORAGE_ENTER;
 }
 
-function readStoredPos(mode: Mode): StoredPos | null {
+function readStoredPos(mode: Mode, dockSouthLeft: boolean): StoredPos | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = localStorage.getItem(storageKeyForMode(mode));
+    const raw = localStorage.getItem(storageKeyForMode(mode, dockSouthLeft));
     if (!raw) return null;
     const p = JSON.parse(raw) as StoredPos;
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return null;
@@ -33,9 +38,9 @@ function readStoredPos(mode: Mode): StoredPos | null {
   }
 }
 
-function writeStoredPos(mode: Mode, pos: StoredPos): void {
+function writeStoredPos(mode: Mode, dockSouthLeft: boolean, pos: StoredPos): void {
   try {
-    localStorage.setItem(storageKeyForMode(mode), JSON.stringify(pos));
+    localStorage.setItem(storageKeyForMode(mode, dockSouthLeft), JSON.stringify(pos));
   } catch {
     /* ignore */
   }
@@ -144,13 +149,17 @@ function nudgeAwayFromChatToggle(pos: StoredPos, btn: HTMLElement | null): Store
 }
 
 /** Стартовая позиция: при чате — слева внизу (чат по центру); иначе справа внизу. */
-function defaultPosForMode(mode: Mode, standaloneDisplay = false): StoredPos {
+function defaultPosForMode(mode: Mode, standaloneDisplay = false, dockSouthLeft = false): StoredPos {
   const box = readViewportBox();
   const bottomInset = computeMobileBottomObstructionInsetPx({
     standaloneDisplay,
     marginPx: mode === 'exit' ? 8 : 10,
   });
   const y = box.top + box.height - bottomInset;
+  if (dockSouthLeft) {
+    // Центр ≈ CSS-якорь left:max(8,safe) + половина ширины полной кнопки
+    return clampPos(box.left + 64, y);
+  }
   const chatPresent = readChatToggleRect() != null;
   if (mode === 'enter') {
     if (chatPresent) {
@@ -164,8 +173,8 @@ function defaultPosForMode(mode: Mode, standaloneDisplay = false): StoredPos {
   return clampPos(box.left + box.width / 2, y);
 }
 
-function resolveInitialPos(mode: Mode, standaloneDisplay = false): StoredPos {
-  return readStoredPos(mode) ?? defaultPosForMode(mode, standaloneDisplay);
+function resolveInitialPos(mode: Mode, standaloneDisplay = false, dockSouthLeft = false): StoredPos {
+  return readStoredPos(mode, dockSouthLeft) ?? defaultPosForMode(mode, standaloneDisplay, dockSouthLeft);
 }
 
 /** Если кнопка уехала под системную шторку — поднять в видимую зону. */
@@ -186,16 +195,30 @@ type Props = {
   mode: Mode;
   onTap: () => void;
   standaloneDisplay?: boolean;
+  /** Обычный портрет: стартовый якорь под Югом слева; enter/exit делят позицию; drag включён. */
+  dockSouthLeft?: boolean;
 };
 
-export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDisplay = false }: Props) {
-  const [pos, setPos] = useState<StoredPos>(() => resolveInitialPos(mode, standaloneDisplay));
+export function MobileShortFullscreenFloatingBtn({
+  mode,
+  onTap,
+  standaloneDisplay = false,
+  dockSouthLeft = false,
+}: Props) {
+  const [pos, setPos] = useState<StoredPos>(() => resolveInitialPos(mode, standaloneDisplay, dockSouthLeft));
   const [dragging, setDragging] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [showDragHint, setShowDragHint] = useState(() => !readDragHintSeen());
-  const hasCustomPosRef = useRef(readStoredPos(mode) != null);
+  const [useFloatingPos, setUseFloatingPos] = useState(
+    () => !dockSouthLeft || readStoredPos(mode, dockSouthLeft) != null,
+  );
+  const hasCustomPosRef = useRef(readStoredPos(mode, dockSouthLeft) != null);
   const modeRef = useRef(mode);
+  const dockRef = useRef(dockSouthLeft);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const collapseTimerRef = useRef<number | null>(null);
   modeRef.current = mode;
+  dockRef.current = dockSouthLeft;
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -205,30 +228,57 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
     moved: boolean;
   } | null>(null);
 
+  const clearCollapseTimer = useCallback(() => {
+    if (collapseTimerRef.current != null) {
+      window.clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
+    }
+  }, []);
+
+  const bumpExpanded = useCallback(() => {
+    setCollapsed(false);
+    clearCollapseTimer();
+    collapseTimerRef.current = window.setTimeout(() => {
+      setCollapsed(true);
+      collapseTimerRef.current = null;
+    }, COLLAPSE_IDLE_MS);
+  }, [clearCollapseTimer]);
+
+  useEffect(() => {
+    bumpExpanded();
+    return clearCollapseTimer;
+  }, [mode, dockSouthLeft, bumpExpanded, clearCollapseTimer]);
+
   const applyAutoPosition = useCallback(
     (respectCustom: boolean) => {
+      if (dockSouthLeft && !hasCustomPosRef.current) return;
       if (respectCustom && hasCustomPosRef.current) {
         setPos((p) => finalizePos(clampPos(p.x, p.y), btnRef.current));
         return;
       }
-      const next = defaultPosForMode(modeRef.current, standaloneDisplay);
+      const next = defaultPosForMode(modeRef.current, standaloneDisplay, dockSouthLeft);
       setPos(finalizePos(next, btnRef.current));
     },
-    [standaloneDisplay],
+    [standaloneDisplay, dockSouthLeft],
   );
 
   useEffect(() => {
-    const saved = readStoredPos(mode);
+    const saved = readStoredPos(mode, dockSouthLeft);
     hasCustomPosRef.current = saved != null;
     if (saved) {
+      setUseFloatingPos(true);
       setPos(finalizePos(clampPos(saved.x, saved.y), btnRef.current));
       return;
     }
+    if (dockSouthLeft) {
+      setUseFloatingPos(false);
+      return;
+    }
     applyAutoPosition(false);
-  }, [mode, standaloneDisplay, applyAutoPosition]);
+  }, [mode, standaloneDisplay, applyAutoPosition, dockSouthLeft]);
 
   useEffect(() => {
-    if (dragging) return;
+    if (!useFloatingPos || dragging) return;
     const id = window.requestAnimationFrame(() => {
       const btn = btnRef.current;
       if (!btn) return;
@@ -238,9 +288,10 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
       });
     });
     return () => window.cancelAnimationFrame(id);
-  }, [pos.x, pos.y, mode, standaloneDisplay, dragging]);
+  }, [pos.x, pos.y, mode, standaloneDisplay, dragging, useFloatingPos]);
 
   useEffect(() => {
+    if (dockSouthLeft && !hasCustomPosRef.current) return;
     const onViewportChange = () => {
       if (dragging) return;
       applyAutoPosition(true);
@@ -257,11 +308,11 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
       window.visualViewport?.removeEventListener('resize', onViewportChange);
       window.visualViewport?.removeEventListener('scroll', onViewportChange);
     };
-  }, [dragging, applyAutoPosition]);
+  }, [dragging, applyAutoPosition, dockSouthLeft]);
 
   /** Чат может появиться позже (после join) — пересчитать, чтобы не перекрыть «Чат». */
   useEffect(() => {
-    if (dragging) return;
+    if (!useFloatingPos || dragging) return;
     const tick = () => {
       if (dragRef.current) return;
       setPos((p) => {
@@ -273,22 +324,35 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
     return () => {
       window.clearInterval(id);
     };
-  }, [dragging, mode]);
+  }, [dragging, mode, useFloatingPos]);
+
+  const seedPosFromDomIfNeeded = useCallback(() => {
+    if (useFloatingPos) return pos;
+    const btn = btnRef.current;
+    if (!btn) return defaultPosForMode(modeRef.current, standaloneDisplay, dockRef.current);
+    const r = btn.getBoundingClientRect();
+    const seeded = clampPos(r.left + r.width / 2, r.top + r.height / 2);
+    setPos(seeded);
+    setUseFloatingPos(true);
+    return seeded;
+  }, [useFloatingPos, pos, standaloneDisplay]);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLButtonElement>) => {
       e.stopPropagation();
+      bumpExpanded();
+      const origin = seedPosFromDomIfNeeded();
       dragRef.current = {
         pointerId: e.pointerId,
         startX: e.clientX,
         startY: e.clientY,
-        originX: pos.x,
-        originY: pos.y,
+        originX: origin.x,
+        originY: origin.y,
         moved: false,
       };
       e.currentTarget.setPointerCapture(e.pointerId);
     },
-    [pos.x, pos.y],
+    [bumpExpanded, seedPosFromDomIfNeeded],
   );
 
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
@@ -299,6 +363,7 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
     if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
     d.moved = true;
     setDragging(true);
+    setUseFloatingPos(true);
     setPos(clampPos(d.originX + dx, d.originY + dy));
   }, []);
 
@@ -313,20 +378,22 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
       } catch {
         /* ignore */
       }
+      bumpExpanded();
       if (d.moved) {
         hasCustomPosRef.current = true;
         markDragHintSeen();
         setShowDragHint(false);
+        setUseFloatingPos(true);
         setPos((current) => {
           const next = finalizePos(clampPos(current.x, current.y), btnRef.current);
-          writeStoredPos(modeRef.current, next);
+          writeStoredPos(modeRef.current, dockRef.current, next);
           return next;
         });
         return;
       }
       onTap();
     },
-    [onTap],
+    [onTap, bumpExpanded],
   );
 
   const onPointerCancel = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
@@ -337,7 +404,8 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
   }, []);
 
   const isExit = mode === 'exit';
-  const hintVisible = showDragHint && !dragging;
+  const floating = useFloatingPos || dragging;
+  const hintVisible = floating && showDragHint && !dragging && !collapsed;
 
   return (
     <button
@@ -347,16 +415,23 @@ export function MobileShortFullscreenFloatingBtn({ mode, onTap, standaloneDispla
         'mobile-short-fullscreen-entry-btn',
         isExit ? 'mobile-short-fullscreen-entry-btn--exit' : 'mobile-short-fullscreen-entry-btn--enter',
         'mobile-short-fullscreen-entry-btn--floating',
+        dockSouthLeft ? 'mobile-short-fullscreen-entry-btn--dock-south-left' : '',
+        floating ? 'mobile-short-fullscreen-entry-btn--undocked' : '',
+        collapsed ? 'mobile-short-fullscreen-entry-btn--collapsed' : '',
         hintVisible ? 'mobile-short-fullscreen-entry-btn--with-hint' : '',
         dragging ? 'mobile-short-fullscreen-entry-btn--dragging' : '',
       ]
         .filter(Boolean)
         .join(' ')}
-      style={{
-        left: pos.x,
-        top: pos.y,
-        transform: dragging ? 'translate(-50%, -50%) scale(1.04)' : 'translate(-50%, -50%)',
-      }}
+      style={
+        floating
+          ? {
+              left: pos.x,
+              top: pos.y,
+              transform: dragging ? 'translate(-50%, -50%) scale(1.04)' : 'translate(-50%, -50%)',
+            }
+          : undefined
+      }
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

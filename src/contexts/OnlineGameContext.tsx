@@ -34,6 +34,7 @@ import {
   hostResolveAbsent,
   normalizeRoomPhase,
   dedupePlayerSlotsByUserId,
+  buildOnlineSlotIdentityFields,
   type PlayerSlot,
   type GameRoomRow,
   type GameRoomPhase,
@@ -113,6 +114,26 @@ function gameStateJsonEqual(a: GameState | null, b: GameState | null): boolean {
   } catch {
     return false;
   }
+}
+
+/** Слоты без data-URL / с урезанным payload: не затираем уже известные аватары и плашки. */
+function mergePlayerSlotsKeepIdentity(prev: PlayerSlot[], next: PlayerSlot[]): PlayerSlot[] {
+  const prevBy = new Map(prev.map((s) => [s.slotIndex, s]));
+  return next.map((s) => {
+    const old = prevBy.get(s.slotIndex);
+    let out = s;
+    if (!s.avatarDataUrl && old?.avatarDataUrl) {
+      out = { ...out, avatarDataUrl: old.avatarDataUrl };
+    }
+    if (s.nameBadgeEnabled == null && old?.nameBadgeEnabled != null) {
+      out = {
+        ...out,
+        nameBadgeEnabled: old.nameBadgeEnabled,
+        nameBadgeText: old.nameBadgeText ?? null,
+      };
+    }
+    return out;
+  });
 }
 
 function playerSlotsJsonEqual(a: PlayerSlot[], b: PlayerSlot[]): boolean {
@@ -334,12 +355,22 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
   const prevHealDealNumberRef = useRef<number | null>(null);
   /** Realtime: один userId в двух слотах — пишем обратно родной ИИ (после F5/join). */
   const pendingSlotDedupeHealRef = useRef<PlayerSlot[] | null>(null);
-  const ingestRoomSlots = (raw: PlayerSlot[]): PlayerSlot[] => {
-    const next = dedupePlayerSlotsByUserId(raw);
-    if (!playerSlotsJsonEqual(raw, next)) {
-      pendingSlotDedupeHealRef.current = next;
+  const ingestRoomSlots = (raw: PlayerSlot[], prev: PlayerSlot[]): PlayerSlot[] => {
+    const deduped = dedupePlayerSlotsByUserId(raw);
+    if (!playerSlotsJsonEqual(raw, deduped)) {
+      pendingSlotDedupeHealRef.current = deduped;
     }
-    return next;
+    return prev.length ? mergePlayerSlotsKeepIdentity(prev, deduped) : deduped;
+  };
+
+  const commitRoomSlots = (raw: PlayerSlot[]): PlayerSlot[] => {
+    let committed = dedupePlayerSlotsByUserId(raw);
+    setPlayerSlots((prev) => {
+      const next = ingestRoomSlots(raw, prev);
+      committed = next;
+      return playerSlotsJsonEqual(prev, next) ? prev : next;
+    });
+    return committed;
   };
 
   // Порядок слотов ВЕЗДЕ один и тот же: 0=Юг, 1=Север, 2=Запад, 3=Восток. Не вращаем — только «я» = myServerIndex.
@@ -439,8 +470,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       setRoomId(room.id);
       setCode(room.code);
-      const nextSlotsApply = ingestRoomSlots((room.player_slots || []) as PlayerSlot[]);
-      setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsApply) ? prev : nextSlotsApply));
+      commitRoomSlots((room.player_slots || []) as PlayerSlot[]);
       syncRoomRowMeta(room);
       // playing без game_state в payload бывает при гонках Realtime/опроса — нельзя сбрасывать статус в waiting (гость «висит» на лобби при старте).
       if (isPlayingWithoutState) {
@@ -475,8 +505,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         r2 === lastRev &&
         gameStateJsonEqual(canonicalStateRef.current, incoming)
       ) {
-        const nextSlotsEq = ingestRoomSlots((room.player_slots || []) as PlayerSlot[]);
-        setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsEq) ? prev : nextSlotsEq));
+        const nextSlotsEq = commitRoomSlots((room.player_slots || []) as PlayerSlot[]);
         const patched = patchGameStateNamesFromSlots(incoming, nextSlotsEq);
         if (patched !== incoming) {
           setCanonicalState(patched);
@@ -511,8 +540,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         canonicalStateRef.current != null &&
         gameStateJsonEqual(canonicalStateRef.current, incoming)
       ) {
-        const nextSlotsEq = ingestRoomSlots((room.player_slots || []) as PlayerSlot[]);
-        setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsEq) ? prev : nextSlotsEq));
+        commitRoomSlots((room.player_slots || []) as PlayerSlot[]);
         if (r2 !== undefined) {
           lastAppliedGameStateRevisionRef.current = Math.max(lastAppliedGameStateRevisionRef.current, r2);
         }
@@ -554,8 +582,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       }
       setRoomId(room.id);
       setCode(room.code);
-      const nextSlotsM = ingestRoomSlots((room.player_slots || []) as PlayerSlot[]);
-      setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsM) ? prev : nextSlotsM));
+      commitRoomSlots((room.player_slots || []) as PlayerSlot[]);
       syncRoomRowMeta(room);
       // Сервер уже playing — UI не должен оставаться в лобби «ждём хоста», даже если JSON стола ещё не пришёл в этом payload.
       if (room.status === 'playing') setStatus('playing');
@@ -631,8 +658,7 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         if (k !== appliedRowMetaKeyRef.current) {
           setRoomId(room.id);
           setCode(room.code);
-          const nextSlotsS = ingestRoomSlots((room.player_slots || []) as PlayerSlot[]);
-          setPlayerSlots((prev) => (playerSlotsJsonEqual(prev, nextSlotsS) ? prev : nextSlotsS));
+          commitRoomSlots((room.player_slots || []) as PlayerSlot[]);
           syncRoomRowMeta(room);
           appliedRowMetaKeyRef.current = k;
         }
@@ -1107,7 +1133,11 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     async (displayName: string) => {
       if (!roomId || !displayName.trim()) return;
       const trimmed = displayName.trim().slice(0, 17);
-      const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
+      const identity = await buildOnlineSlotIdentityFields(
+        onlinePlayerId,
+        trimmed,
+        getPlayerProfile().avatarDataUrl ?? null,
+      );
 
       if (status === 'waiting') {
         const fresh = await getRoom(roomId);
@@ -1118,7 +1148,15 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         slots[idx] = {
           ...slots[idx],
           displayName: trimmed,
-          ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : {}),
+          ...(identity.avatarDataUrl != null && identity.avatarDataUrl !== ''
+            ? { avatarDataUrl: identity.avatarDataUrl }
+            : {}),
+          ...(identity.nameBadgeEnabled != null
+            ? {
+                nameBadgeEnabled: identity.nameBadgeEnabled,
+                nameBadgeText: identity.nameBadgeText ?? null,
+              }
+            : {}),
         };
         setPlayerSlots(slots);
         const { error: err } = await updateRoomPlayerSlots(roomId, slots, onlinePlayerId);
@@ -1134,7 +1172,15 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
         slots[idx] = {
           ...slots[idx],
           displayName: trimmed,
-          ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : {}),
+          ...(identity.avatarDataUrl != null && identity.avatarDataUrl !== ''
+            ? { avatarDataUrl: identity.avatarDataUrl }
+            : {}),
+          ...(identity.nameBadgeEnabled != null
+            ? {
+                nameBadgeEnabled: identity.nameBadgeEnabled,
+                nameBadgeText: identity.nameBadgeText ?? null,
+              }
+            : {}),
         };
         const nextState: GameState = {
           ...canonicalState,
@@ -1171,7 +1217,15 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
 
   const syncMySlotAvatar = useCallback(async () => {
     if (!roomId) return;
-    const avatarDataUrl = getPlayerProfile().avatarDataUrl ?? undefined;
+    const displayName =
+      playerSlots.find((s) => s.slotIndex === myServerIndex)?.displayName?.trim() ||
+      getPlayerProfile().displayName?.trim() ||
+      'Игрок';
+    const identity = await buildOnlineSlotIdentityFields(
+      onlinePlayerId,
+      displayName,
+      getPlayerProfile().avatarDataUrl ?? null,
+    );
     if (status === 'waiting') {
       const fresh = await getRoom(roomId);
       if (!fresh?.id || fresh.id !== roomId) return;
@@ -1180,7 +1234,15 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       if (idx === -1) return;
       slots[idx] = {
         ...slots[idx],
-        ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : { avatarDataUrl: null }),
+        ...(identity.avatarDataUrl != null && identity.avatarDataUrl !== ''
+          ? { avatarDataUrl: identity.avatarDataUrl }
+          : {}),
+        ...(identity.nameBadgeEnabled != null
+          ? {
+              nameBadgeEnabled: identity.nameBadgeEnabled,
+              nameBadgeText: identity.nameBadgeText ?? null,
+            }
+          : {}),
       };
       const { error: err } = await updateRoomPlayerSlots(roomId, slots, onlinePlayerId);
       if (!err) applyRoomData({ ...fresh, player_slots: slots });
@@ -1188,7 +1250,18 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
       const slots = playerSlots.slice();
       const idx = slots.findIndex((s) => s.slotIndex === myServerIndex);
       if (idx === -1) return;
-      slots[idx] = { ...slots[idx], ...(avatarDataUrl != null && avatarDataUrl !== '' ? { avatarDataUrl } : { avatarDataUrl: null }) };
+      slots[idx] = {
+        ...slots[idx],
+        ...(identity.avatarDataUrl != null && identity.avatarDataUrl !== ''
+          ? { avatarDataUrl: identity.avatarDataUrl }
+          : {}),
+        ...(identity.nameBadgeEnabled != null
+          ? {
+              nameBadgeEnabled: identity.nameBadgeEnabled,
+              nameBadgeText: identity.nameBadgeText ?? null,
+            }
+          : {}),
+      };
       gameWriteInFlightRef.current += 1;
       try {
         const exp =
@@ -1215,6 +1288,15 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     if (name) void syncMySlotDisplayName(name);
     void syncMySlotAvatar();
   }, [roomId, status, syncMySlotDisplayName, syncMySlotAvatar]);
+
+  /** В партии один раз дожать JPEG+плашку в слот (после деплоя / если лобби-sync не успел). */
+  const identitySyncedPlayingRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!roomId || status !== 'playing') return;
+    if (identitySyncedPlayingRef.current === roomId) return;
+    identitySyncedPlayingRef.current = roomId;
+    void syncMySlotAvatar();
+  }, [roomId, status, syncMySlotAvatar]);
 
   const [userLeftTemporarily, setUserLeftTemporarily] = useState(false);
   const [userOnPause, setUserOnPause] = useState(false);
@@ -1395,14 +1477,23 @@ export function OnlineGameProvider({ children }: { children: React.ReactNode }) 
     gameWriteInFlightRef.current += 1;
     try {
       const fullSlots: PlayerSlot[] = [];
-      const myAvatar = getPlayerProfile().avatarDataUrl ?? undefined;
+      const myIdentity = await buildOnlineSlotIdentityFields(
+        onlinePlayerId,
+        getPlayerProfile().displayName?.trim() || 'Игрок',
+        getPlayerProfile().avatarDataUrl ?? null,
+      );
       const maxPlayers: PlayerCount = fresh.max_players === 3 ? 3 : 4;
       for (let i = 0; i < maxPlayers; i++) {
         const existing = sourceSlots.find((s) => s.slotIndex === i);
         if (existing) {
           const slot =
-            existing.userId === onlinePlayerId && myAvatar
-              ? { ...existing, avatarDataUrl: myAvatar }
+            existing.userId === onlinePlayerId
+              ? {
+                  ...existing,
+                  avatarDataUrl: myIdentity.avatarDataUrl ?? existing.avatarDataUrl ?? null,
+                  nameBadgeEnabled: myIdentity.nameBadgeEnabled ?? existing.nameBadgeEnabled ?? null,
+                  nameBadgeText: myIdentity.nameBadgeText ?? existing.nameBadgeText ?? null,
+                }
               : existing;
           fullSlots.push(slot);
         } else {

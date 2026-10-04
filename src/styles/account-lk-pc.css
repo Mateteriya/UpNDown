@@ -553,6 +553,12 @@
       filter 0.22s ease;
   }
 
+  /* Плашка: без заливки кольца — иначе чёрный/индиго зазор вокруг лица */
+  .lk-page.lk-page--pc .lk-pc-hero__avatar-ring:has(.player-avatar--name-badge),
+  .lk-page.lk-page--pc .lk-pc-hero__avatar-ring:has(.player-avatar--badge-outside) {
+    background: transparent !important;
+  }
+
   /* Тонкое сиренево-индиго между радужным ободом и фото */
   .lk-page.lk-page--pc .lk-pc-hero__avatar-ring::before {
     content: '';
@@ -562,6 +568,23 @@
     border-radius: 50%;
     pointer-events: none;
     background: radial-gradient(circle at 40% 32%, #ddd6fe 0%, #a78bfa 42%, #6366f1 100%);
+  }
+
+  .lk-page.lk-page--pc .lk-pc-hero__avatar-ring:has(.player-avatar--name-badge)::before,
+  .lk-page.lk-page--pc .lk-pc-hero__avatar-ring:has(.player-avatar--badge-outside)::before {
+    background: transparent !important;
+  }
+
+  /* Тёмная «стеклянная» виньетка = чёрное кольцо поверх фото с плашкой */
+  .lk-page.lk-page--pc .lk-pc-hero__avatar-ring:has(.player-avatar--name-badge) .lk-pc-hero__avatar-glass,
+  .lk-page.lk-page--pc .lk-pc-hero__avatar-ring:has(.player-avatar--badge-outside) .lk-pc-hero__avatar-glass {
+    background: radial-gradient(
+      ellipse 78% 52% at 28% 14%,
+      rgba(255, 255, 255, 0.35) 0%,
+      transparent 55%
+    ) !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2) !important;
+    overflow: visible !important;
   }
 
   .lk-page.lk-page--pc .lk-pc-hero__avatar-spin {

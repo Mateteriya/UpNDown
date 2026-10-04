@@ -39,15 +39,686 @@
   }
 }
 
-/* Старый PNG-экспорт плашки с полями — лицо на весь круг, без тёмного кольца */
-.player-avatar--crop-badge-pad {
-  background: transparent !important;
+/* Круглый клип лица — JPEG-углы (#020617) не торчат при overflow:visible у плашки */
+.player-avatar__face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  pointer-events: none;
+  background: transparent;
 }
 
-.player-avatar__img--crop-badge-pad {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-  /* pad/outSize ≈ 0.16/1.32 */
-  object-view-box: inset(12.12%);
+.player-avatar__face--initials {
+  pointer-events: none;
+}
+
+.player-avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 0;
+}
+
+/*
+ * «Плашка снизу» — отдельный HTML поверх круглого лица.
+ * Корневой overflow:visible только для плашки; лицо клипится в .player-avatar__face.
+ */
+.player-avatar.player-avatar--name-badge {
+  overflow: visible !important;
+  background: transparent !important;
+  z-index: 5 !important;
+  isolation: isolate;
+}
+
+.player-avatar__name-badge {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  pointer-events: none;
+  /* Лёгкая тень — «вросла» в аватар, не отдельный стикер */
+  filter: drop-shadow(0 1px 2px rgba(2, 6, 23, 0.4));
+}
+
+/* Компактная капсула: буквы внутри границ */
+.player-avatar__name-badge__plate {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0 3px;
+  border-radius: 999px;
+  border: 1.25px solid transparent;
+  overflow: hidden;
+  box-sizing: border-box;
+  background-image:
+    linear-gradient(
+      165deg,
+      rgba(46, 16, 84, 0.94) 0%,
+      rgba(22, 12, 52, 0.96) 50%,
+      rgba(30, 16, 68, 0.94) 100%
+    ),
+    linear-gradient(120deg, #67e8f9, #a78bfa, #f472b6, #fbbf24, #34d399, #67e8f9);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  box-shadow:
+    inset 0 1px 0 rgba(233, 213, 255, 0.18),
+    0 0 0 1px rgba(124, 58, 237, 0.35);
+}
+
+.player-avatar__name-badge__text {
+  position: relative;
+  z-index: 2;
+  font-family: 'Cormorant Garamond', Cormorant, 'Palatino Linotype', Georgia, serif;
+  font-weight: 700;
+  font-size: var(--badge-font, 12px);
+  letter-spacing: 0;
+  white-space: nowrap;
+  line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+  padding: 0;
+  margin: 0;
+  color: #e9d5ff;
+  background-image: linear-gradient(
+    105deg,
+    #67e8f9 0%,
+    #e0f2fe 18%,
+    #e9d5ff 36%,
+    #f0abfc 54%,
+    #fde68a 72%,
+    #34d399 86%,
+    #67e8f9 100%
+  );
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter:
+    drop-shadow(0 0 1px rgba(2, 6, 23, 0.9))
+    drop-shadow(0 0 2px rgba(103, 232, 249, 0.55));
+}
+
+/*
+ * Только капсула «Кабинет» на Главной: крупнее кегль в той же плашке.
+ * ЛК / Профиль / Юг не трогаем.
+ */
+html body
+  .menu-screen__drift--account
+  .menu-capsule--id-account
+  .player-avatar--name-badge
+  .player-avatar__name-badge__plate {
+  overflow: visible;
+}
+
+html body
+  .menu-screen__drift--account
+  .menu-capsule--id-account
+  .player-avatar--name-badge
+  .player-avatar__name-badge__text {
+  font-size: calc(var(--badge-font, 12px) * 1.42) !important;
+  letter-spacing: -0.025em;
+  transform: scale(1.08);
+  transform-origin: center center;
+}
+
+/* Капсула: не гасим ::before кольца / кабошон — эффекты живут на face + spin */
+html body .menu-screen__drift--account .menu-capsule--id-account .player-avatar.player-avatar--name-badge,
+html body .menu-screen .menu-capsule__glyph--avatar .player-avatar.player-avatar--name-badge {
+  overflow: visible !important;
+}
+
+html body
+  .menu-screen__drift--account
+  .menu-capsule--id-account
+  .player-avatar--name-badge
+  .player-avatar__name-badge {
+  z-index: 6 !important;
+}
+
+html body .game-table-root .user-player-avatar-root:has(.player-avatar--name-badge),
+html body .game-table-root .user-player-avatar-order-scale-wrap:has(.player-avatar--name-badge),
+html body .game-table-root .opponent-avatar-order-ring:has(.player-avatar--name-badge),
+html body .game-table-root .opponent-slot-header-avatar-reserve-mobile:has(.player-avatar--name-badge),
+html body .game-table-root .opponent-slot-header-avatar-reserve-pc-east:has(.player-avatar--name-badge),
+html body .game-table-root .opponent-slot-header:has(.player-avatar--name-badge),
+html body .game-table-root .opponent-slot-header button:has(.player-avatar--name-badge),
+html body .game-table-root .user-player-panel-south-landscape-avatar-reserve:has(.player-avatar--name-badge),
+html body .menu-screen .menu-capsule__glyph--avatar:has(.player-avatar--name-badge),
+html body .menu-screen .menu-signed-id:has(.player-avatar--name-badge),
+html body .menu-screen .menu-screen__player-avatar-ring:has(.player-avatar--name-badge),
+html body .avatar-menu-sheet-root .avatar-menu-sheet-avatar-face:has(.player-avatar--name-badge),
+html body .avatar-menu-sheet-root:has(.player-avatar--name-badge),
+html body .name-avatar-modal__avatar-ring:has(.player-avatar--name-badge) {
+  overflow: visible !important;
+}
+
+html body .game-table-root .user-player-avatar-root:has(.player-avatar--name-badge),
+html body .game-table-root .user-player-avatar-order-scale-wrap:has(.player-avatar--name-badge),
+html body .game-table-root .opponent-slot-header-avatar-reserve-mobile:has(.player-avatar--name-badge) {
+  z-index: 6 !important;
+}
+
+/*
+ * Оппоненты (в т.ч. DEV-превью ИИ): плашка компактнее south-self,
+ * не клипать reserve/header; имя слота остаётся своим слоем.
+ */
+html body .game-table-root .opponent-slot .player-avatar--name-badge .player-avatar__name-badge,
+html body .game-table-root .opponent-slot-header .player-avatar--name-badge .player-avatar__name-badge {
+  z-index: 3 !important;
+  transform: scale(0.88);
+  transform-origin: center bottom;
+  pointer-events: none;
+}
+
+html body .game-table-root .opponent-slot-header:has(.player-avatar--name-badge),
+html body .game-table-root .opponent-slot-header-avatar-reserve-pc-east:has(.player-avatar--name-badge),
+html body .game-table-root .opponent-avatar-order-ring:has(.player-avatar--name-badge) {
+  overflow: visible !important;
+}
+
+/*
+ * Юг/стол + HTML-плашка: не штатная серебристая/чёрная рамка index.css,
+ * а тонкий цветной обод (чтобы в онлайне без order-ring лицо не было «голым»).
+ */
+html body .game-table-root .player-avatar.player-avatar--name-badge,
+html body .game-table-root .player-avatar.player-avatar--name-badge:has(img) {
+  border: 2px solid rgba(167, 139, 250, 0.78) !important;
+  box-shadow:
+    0 0 0 1.5px rgba(103, 232, 249, 0.42),
+    0 0 10px rgba(167, 139, 250, 0.28),
+    inset 0 2px 5px rgba(186, 230, 253, 0.28),
+    inset 0 -3px 6px rgba(91, 33, 182, 0.2) !important;
+}
+
+html body .game-table-root .player-info-panel-your-turn .player-avatar.player-avatar--name-badge,
+html body .game-table-root .player-info-panel-your-turn .player-avatar.player-avatar--name-badge:has(img) {
+  border: 1.5px solid rgba(80, 200, 255, 0.95) !important;
+  box-shadow:
+    0 0 0 1px rgba(180, 140, 255, 0.75),
+    0 0 0 2px rgba(80, 200, 255, 0.7),
+    0 0 12px 2px rgba(180, 140, 255, 0.4),
+    inset 0 2px 5px rgba(186, 230, 253, 0.3),
+    inset 0 -3px 6px rgba(91, 33, 182, 0.2) !important;
+}
+
+/* внутри order-ring обод даёт кольцо — у лица только inset */
+html body .game-table-root .opponent-avatar-order-ring .player-avatar.player-avatar--name-badge,
+html body .game-table-root .opponent-avatar-order-ring .player-avatar.player-avatar--name-badge:has(img),
+html body
+  .game-table-root
+  .user-player-avatar-order-scale-wrap
+  .opponent-avatar-order-ring
+  .player-avatar.player-avatar--name-badge,
+html body
+  .game-table-root
+  .user-player-avatar-order-scale-wrap
+  .opponent-avatar-order-ring
+  .player-avatar.player-avatar--name-badge:has(img) {
+  border: none !important;
+  box-shadow:
+    inset 0 2px 5px rgba(186, 230, 253, 0.28),
+    inset 0 -3px 6px rgba(91, 33, 182, 0.2) !important;
+}
+
+/*
+ * Слот Юг: плашка под ником.
+ * Idle — «серый засвет» фона плашки (буквы не обесцвечиваем).
+ * Импульс / hover — засвет гаснет, плашка чёткая и контрастная.
+ */
+html body .game-table-root .user-player-avatar-root .player-avatar--name-badge .player-avatar__name-badge,
+html body
+  .game-table-root
+  .user-player-panel-south-landscape-avatar-reserve
+  .player-avatar--name-badge
+  .player-avatar__name-badge {
+  z-index: 2 !important;
+  transform: scale(0.86);
+  transform-origin: center bottom;
+  opacity: 0.9;
+  filter: drop-shadow(0 1px 2px rgba(2, 6, 23, 0.3));
+  transition:
+    transform 0.2s cubic-bezier(0.34, 1.35, 0.64, 1),
+    opacity 0.18s ease,
+    filter 0.18s ease;
+}
+
+/*
+ * Idle: молочно-серый «засвет» заливки плашки (фон бледнеет).
+ * Импульс: тёмная контрастная заливка, вуаль = 0. Буквы сверху, цвет не трогаем.
+ */
+html body
+  .game-table-root
+  .user-player-avatar-root
+  .player-avatar--name-badge
+  .player-avatar__name-badge__plate,
+html body
+  .game-table-root
+  .user-player-panel-south-landscape-avatar-reserve
+  .player-avatar--name-badge
+  .player-avatar__name-badge__plate {
+  animation: player-avatar-badge-south-plate-wash 10s ease-in-out infinite;
+}
+
+html body
+  .game-table-root
+  .user-player-avatar-root
+  .player-avatar--name-badge
+  .player-avatar__name-badge__plate::before,
+html body
+  .game-table-root
+  .user-player-panel-south-landscape-avatar-reserve
+  .player-avatar--name-badge
+  .player-avatar__name-badge__plate::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  /* лёгкая серо-сиреневая дымка — не выбеливает плашку */
+  background: linear-gradient(
+    160deg,
+    rgba(226, 232, 240, 0.28) 0%,
+    rgba(203, 213, 225, 0.2) 45%,
+    rgba(196, 181, 253, 0.16) 100%
+  );
+  animation: player-avatar-badge-south-veil 10s ease-in-out infinite;
+}
+
+html body
+  .game-table-root
+  .user-player-avatar-root
+  .player-avatar--name-badge
+  .player-avatar__name-badge__text,
+html body
+  .game-table-root
+  .user-player-panel-south-landscape-avatar-reserve
+  .player-avatar--name-badge
+  .player-avatar__name-badge__text {
+  position: relative;
+  z-index: 2;
+  animation: player-avatar-badge-south-text-cycle 10s ease-in-out infinite;
+}
+
+@keyframes player-avatar-badge-south-plate-wash {
+  0%,
+  78%,
+  100% {
+    /* чуть приглушённый фон + мягкий ореол */
+    background-image:
+      linear-gradient(
+        165deg,
+        rgba(55, 32, 90, 0.9) 0%,
+        rgba(36, 28, 68, 0.92) 50%,
+        rgba(42, 30, 78, 0.9) 100%
+      ),
+      linear-gradient(120deg, #67e8f9, #a78bfa, #f472b6, #fbbf24, #34d399, #67e8f9);
+    box-shadow:
+      inset 0 1px 0 rgba(226, 232, 240, 0.22),
+      0 0 0 1px rgba(148, 163, 184, 0.32),
+      0 0 8px rgba(203, 213, 225, 0.22),
+      0 0 14px rgba(167, 139, 250, 0.16);
+  }
+  86%,
+  94% {
+    /* чёткий импульс той же длины, реже (~раз в 10с) */
+    background-image:
+      linear-gradient(
+        165deg,
+        rgba(46, 16, 84, 0.96) 0%,
+        rgba(22, 12, 52, 0.98) 50%,
+        rgba(30, 16, 68, 0.96) 100%
+      ),
+      linear-gradient(120deg, #67e8f9, #a78bfa, #f472b6, #fbbf24, #34d399, #67e8f9);
+    box-shadow:
+      inset 0 1px 0 rgba(233, 213, 255, 0.3),
+      0 0 0 1px rgba(124, 58, 237, 0.5);
+  }
+}
+
+@keyframes player-avatar-badge-south-veil {
+  0%,
+  78%,
+  100% {
+    opacity: 0.7;
+  }
+  86%,
+  94% {
+    opacity: 0;
+  }
+}
+
+@keyframes player-avatar-badge-south-text-cycle {
+  0%,
+  78%,
+  100% {
+    background-position: 12% 50%;
+    filter:
+      drop-shadow(0 0 1px rgba(2, 6, 23, 0.8))
+      drop-shadow(0 0 2px rgba(103, 232, 249, 0.35));
+  }
+  86%,
+  94% {
+    background-position: 55% 50%;
+    filter:
+      contrast(1.14)
+      drop-shadow(0 0 0.5px rgba(2, 6, 23, 0.9))
+      drop-shadow(0 0 1px rgba(224, 231, 255, 0.35));
+  }
+}
+
+/* Зеркальный блик на лице (как стекло капсулы на Главной) — idle тихий, hover ярче */
+html body .game-table-root .user-player-avatar-root .player-avatar__face::after,
+html body
+  .game-table-root
+  .user-player-panel-south-landscape-avatar-reserve
+  .player-avatar__face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: 50%;
+  pointer-events: none;
+  background: linear-gradient(
+    108deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(251, 191, 36, 0.14) 46%,
+    rgba(244, 114, 182, 0.32) 51%,
+    rgba(103, 232, 249, 0.28) 55%,
+    rgba(167, 139, 250, 0.1) 59%,
+    transparent 66%
+  );
+  background-size: 220% 220%;
+  opacity: 0;
+  transform: translateX(-80%) rotate(28deg) scale(1.15);
+  transition: opacity 0.2s ease;
+}
+
+html body .game-table-root .user-player-panel-pc-name-under-avatar,
+html body .game-table-root .user-south-mobile-name-plaque {
+  position: relative;
+  z-index: 8 !important;
+}
+
+/*
+ * Юг · hover на стеке (avatar внутри .user-player-panel-pc-avatar-wrap):
+ * — scale-wrap idle уже ×1.2 → hover ×1.36 (не сжимать до 1.08!)
+ * — без wrap: button ×1.14
+ * — не scale wrap и вложенный button сразу (иначе кольцо «остаётся на месте»)
+ */
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack
+  .user-player-panel-pc-avatar-wrap
+  > .user-player-avatar-order-scale-wrap,
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack
+  .user-player-panel-pc-avatar-wrap
+  > .user-player-avatar-root {
+  transform-origin: left bottom !important;
+  transition:
+    transform 0.22s cubic-bezier(0.34, 1.45, 0.64, 1),
+    filter 0.22s ease !important;
+}
+
+/* есть order-scale-wrap (idle ×1.2; часто +класс root на том же узле) → ×1.36 */
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap
+  > .user-player-avatar-order-scale-wrap {
+  transform: scale(1.36) translateY(-2px) !important;
+  z-index: 9 !important;
+  filter: drop-shadow(0 0 10px rgba(167, 139, 250, 0.4));
+}
+
+/* только button-root, без scale-wrap */
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap
+  > .user-player-avatar-root:not(.user-player-avatar-order-scale-wrap) {
+  transform: scale(1.14) translateY(-2px) !important;
+  z-index: 9 !important;
+  filter: drop-shadow(0 0 10px rgba(167, 139, 250, 0.4));
+}
+
+/* внутри scale-wrap — не масштабировать button/лицо повторно */
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-avatar-order-scale-wrap
+  .user-player-avatar-root,
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-avatar-order-scale-wrap
+  .player-avatar,
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-avatar-order-scale-wrap
+  .player-avatar:hover,
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap
+  > .user-player-avatar-root
+  .player-avatar,
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap
+  > .user-player-avatar-root
+  .player-avatar:hover {
+  transform: none !important;
+}
+
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-avatar-order-scale-wrap
+  button.user-player-avatar-root,
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-avatar-wrap
+  > .user-player-avatar-root {
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  border-radius: 50% !important;
+}
+
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .player-avatar,
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .player-avatar:has(img),
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .player-avatar:hover,
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .player-avatar:has(img):hover {
+  border: none !important;
+  border-color: transparent !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  box-shadow:
+    0 0 0 1.5px rgba(186, 230, 253, 0.95),
+    0 0 0 3px rgba(167, 139, 250, 0.65),
+    0 0 14px rgba(103, 232, 249, 0.4),
+    inset 0 2px 4px rgba(186, 230, 253, 0.28),
+    inset 0 -2px 5px rgba(124, 58, 237, 0.18) !important;
+}
+
+/* кольцо заказа: не рисовать второй обод «под» увеличенным лицом */
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .opponent-avatar-order-ring {
+  box-shadow:
+    0 0 12px rgba(167, 139, 250, 0.45),
+    0 0 20px rgba(103, 232, 249, 0.28) !important;
+}
+
+/* Hover: плашка чёткая (как импульс), вуаль/засвет выкл */
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .player-avatar--name-badge
+  .player-avatar__name-badge {
+  transform: scale(0.9) translateY(-1px) !important;
+  transform-origin: center bottom !important;
+  opacity: 1 !important;
+  filter: drop-shadow(0 0.5px 0.5px rgba(2, 6, 23, 0.55)) !important;
+}
+
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .player-avatar--name-badge
+  .player-avatar__name-badge__plate {
+  animation: none !important;
+  background-image:
+    linear-gradient(
+      165deg,
+      rgba(46, 16, 84, 0.96) 0%,
+      rgba(22, 12, 52, 0.98) 50%,
+      rgba(30, 16, 68, 0.96) 100%
+    ),
+    linear-gradient(120deg, #67e8f9, #a78bfa, #f472b6, #fbbf24, #34d399, #67e8f9) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(233, 213, 255, 0.3),
+    0 0 0 1px rgba(124, 58, 237, 0.55) !important;
+}
+
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .player-avatar--name-badge
+  .player-avatar__name-badge__plate::before {
+  animation: none !important;
+  opacity: 0 !important;
+}
+
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .player-avatar--name-badge
+  .player-avatar__name-badge__text {
+  animation: none !important;
+  background-position: 62% 50% !important;
+  filter:
+    contrast(1.18)
+    drop-shadow(0 0 0.5px rgba(2, 6, 23, 0.95))
+    drop-shadow(0 0 1px rgba(224, 231, 255, 0.4)) !important;
+}
+
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .player-avatar__face::after {
+  opacity: 1;
+  animation: player-avatar-south-face-sheen 1.6s cubic-bezier(0.4, 0.05, 0.2, 1) infinite;
+}
+
+html body
+  .game-table-root:not(.viewport-mobile)
+  .user-player-panel-pc-avatar-name-stack:hover
+  .user-player-panel-pc-name-under-avatar {
+  transform: scale(1.12) translateY(-2px) !important;
+  transform-origin: left bottom !important;
+  z-index: 10 !important;
+  filter: none;
+}
+
+@keyframes player-avatar-south-face-sheen {
+  0% {
+    transform: translateX(-95%) rotate(28deg) scale(1.15);
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateX(130%) rotate(28deg) scale(1.15);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body
+    .game-table-root
+    .user-player-avatar-root
+    .player-avatar--name-badge
+    .player-avatar__name-badge__plate,
+  html body
+    .game-table-root
+    .user-player-panel-south-landscape-avatar-reserve
+    .player-avatar--name-badge
+    .player-avatar__name-badge__plate,
+  html body
+    .game-table-root
+    .user-player-avatar-root
+    .player-avatar--name-badge
+    .player-avatar__name-badge__plate::before,
+  html body
+    .game-table-root
+    .user-player-panel-south-landscape-avatar-reserve
+    .player-avatar--name-badge
+    .player-avatar__name-badge__plate::before,
+  html body
+    .game-table-root
+    .user-player-avatar-root
+    .player-avatar--name-badge
+    .player-avatar__name-badge__text,
+  html body
+    .game-table-root
+    .user-player-panel-south-landscape-avatar-reserve
+    .player-avatar--name-badge
+    .player-avatar__name-badge__text,
+  html body
+    .game-table-root:not(.viewport-mobile)
+    .user-player-panel-pc-avatar-name-stack:hover
+    .player-avatar__face::after {
+    animation: none !important;
+  }
+
+  html body
+    .game-table-root
+    .user-player-avatar-root
+    .player-avatar--name-badge
+    .player-avatar__name-badge__plate::before,
+  html body
+    .game-table-root
+    .user-player-panel-south-landscape-avatar-reserve
+    .player-avatar--name-badge
+    .player-avatar__name-badge__plate::before {
+    opacity: 0.85;
+  }
 }

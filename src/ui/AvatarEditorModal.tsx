@@ -35,7 +35,10 @@ import {
   isPremiumSticker,
   type AvatarStickerId,
 } from '../lib/avatarEditorStickers';
-import { isPremiumAvatarJokerStickerEnabled } from '../lib/featureFlags';
+import {
+  isPremiumAvatarJokerStickerEnabled,
+  isPremiumAvatarNameBadgeEnabled,
+} from '../lib/featureFlags';
 import { useAuth } from '../contexts/AuthContext';
 import {
   AVATAR_EDITOR_FRAMES,
@@ -45,7 +48,9 @@ import {
 } from '../lib/avatarEditorFrames';
 import { bake3dPolishToBase, getAvatar3dPolishFlag, setAvatar3dPolishFlag } from '../lib/avatar3dFinish';
 import {
+  avatarImageHasTransparentBadgePad,
   compressImageToDataUrl,
+  cropAvatarFaceToJpegCache,
   exportCircularAvatarJpeg,
   MAX_AVATAR_IMAGE_SIZE_BYTES,
 } from '../lib/avatarImage';
@@ -65,6 +70,7 @@ import {
 } from '../lib/avatarCamera';
 import { persistAvatarToProfile } from '../lib/profileAvatarSave';
 import { loadAvatarEditorProject, saveAvatarEditorProject, clearAvatarEditorSourcePhoto, rememberAvatarEditorSourcePhoto, saveAvatarEditorWorkingFlat, clearAvatarEditorWorkingFlat } from '../lib/avatarEditorProject';
+import { getAvatarNameBadgePref, saveAvatarNameBadgePref } from '../lib/avatarNameBadge';
 import { AvatarPresetThumb } from './avatarEditor/AvatarPresetThumb';
 import { AvatarPresetRail } from './avatarEditor/AvatarPresetRail';
 import { AvatarStickerBtn } from './avatarEditor/AvatarStickerBtn';
@@ -630,7 +636,8 @@ function readAvatarEditorBoot(
   photoOffsetX: number;
   photoOffsetY: number;
 } {
-  const project = loadAvatarEditorProject();
+  /* working отсекается, если basedOnSig ≠ текущий аватар (Профиль≠Аккаунт) */
+  const project = loadAvatarEditorProject(undefined, initialAvatarDataUrl);
   const baked =
     initialAvatarDataUrl && initialAvatarDataUrl.length >= 32 ? initialAvatarDataUrl : null;
   const working =
@@ -640,16 +647,16 @@ function readAvatarEditorBoot(
 
   const restoredSource =
     project && isAvatarInitialsSource(project.initialsSource) ? project.initialsSource : 'capitals';
-  const restoredStyle =
+  /* badge — не из локального project (гость); из pref аккаунта подставляет эффект после mount */
+  const restoredStyleRaw =
     project && isAvatarInitialsStyle(project.initialsStyle) ? project.initialsStyle : 'off';
+  const restoredStyle: AvatarInitialsStyle =
+    restoredStyleRaw === 'badge' ? 'off' : restoredStyleRaw;
   const restoredColor =
     project && isAvatarInitialsColor(project.initialsColor)
       ? project.initialsColor
       : AVATAR_INITIALS_COLORS[0];
-  const restoredBadge =
-    project?.badgeText?.length
-      ? normalizeAvatarBadgeText(project.badgeText)
-      : defaultAvatarBadgeText(displayName);
+  const restoredBadge = defaultAvatarBadgeText(displayName);
 
   /*
    * Рабочий flat без инициалов (после save v3) — стикеры есть, глифы живые.
@@ -696,16 +703,15 @@ function readAvatarEditorBoot(
   if (project) {
     const baseMode: 'template' | 'photo' =
       project.baseMode === 'photo' && project.sourcePhotoDataUrl ? 'photo' : 'template';
+    const styleRaw = isAvatarInitialsStyle(project.initialsStyle) ? project.initialsStyle : 'off';
     return {
       templateId: project.templateId,
       initialsSource: isAvatarInitialsSource(project.initialsSource) ? project.initialsSource : 'capitals',
-      initialsStyle: isAvatarInitialsStyle(project.initialsStyle) ? project.initialsStyle : 'off',
+      initialsStyle: styleRaw === 'badge' ? 'off' : styleRaw,
       initialsColor: isAvatarInitialsColor(project.initialsColor)
         ? project.initialsColor
         : AVATAR_INITIALS_COLORS[0],
-      badgeText: project.badgeText?.length
-        ? normalizeAvatarBadgeText(project.badgeText)
-        : defaultAvatarBadgeText(displayName),
+      badgeText: defaultAvatarBadgeText(displayName),
       activeFrameId: project.activeFrameId,
       baseMode,
       photoDataUrl: baseMode === 'photo' ? project.sourcePhotoDataUrl : null,
@@ -755,6 +761,8 @@ export function AvatarEditorModal({
   const tr = useT();
   const { user } = useAuth();
   const premiumJokerOk = isPremiumAvatarJokerStickerEnabled(user?.id);
+  /** «Плашка снизу» — только премиум в аккаунте; локально чипа нет */
+  const nameBadgeOk = isPremiumAvatarNameBadgeEnabled(user?.id);
   const isDesktopProfileUi = useDesktopProfileUi();
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1265,6 +1273,52 @@ export function AvatarEditorModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- getEditorMeta только для первичного fingerprint
   }, [ensureBuffers, redrawBase]);
 
+  /* Плашка — pref аккаунта (HTML). Legacy PNG с полями → migrate pref + лицо без pad. */
+  useEffect(() => {
+    if (!nameBadgeOk) {
+      if (initialsStyle === 'badge') {
+        setInitialsStyle('off');
+        setBadgeEditing(false);
+      }
+      return;
+    }
+    const pref = getAvatarNameBadgePref(user?.id);
+    if (pref?.enabled) {
+      setInitialsStyle('badge');
+      if (pref.text) setBadgeText(pref.text);
+      if (pref.color) setInitialsColor(pref.color);
+      return;
+    }
+    const url = initialAvatarDataUrl;
+    if (!url?.startsWith('data:image/png') || initialsStyle === 'badge') return;
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled || !avatarImageHasTransparentBadgePad(img)) return;
+      setInitialsStyle('badge');
+      const text = defaultAvatarBadgeText(displayName);
+      setBadgeText((t) => t || text);
+      if (user?.id) {
+        saveAvatarNameBadgePref(user.id, { enabled: true, text, displayName });
+      }
+      void cropAvatarFaceToJpegCache(url, 512).then((face) => {
+        if (cancelled || !face) return;
+        setPhotoDataUrl(face);
+        setPhotoIsComposite(true);
+        setCompositeSansInitials(true);
+        setPhotoScale(1);
+        setPhotoOffsetX(0);
+        setPhotoOffsetY(0);
+      });
+    };
+    img.src = url;
+    return () => {
+      cancelled = true;
+    };
+    // один раз при открытии
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nameBadgeOk, initialAvatarDataUrl, user?.id]);
+
   useEffect(() => {
     if (!initialsExpanded) return;
     const onKey = (e: KeyboardEvent) => {
@@ -1389,8 +1443,12 @@ export function AvatarEditorModal({
   };
 
   const selectInitialsStyle = (style: AvatarInitialsStyle) => {
+    if (style === 'badge' && !nameBadgeOk) return;
     pushUndoMeta();
-    clearBakedInitialsIfNeeded();
+    /* badge — HTML поверх фото; сброс baked JPEG убивал сохранённую фотку аккаунта */
+    if (style !== 'badge') {
+      clearBakedInitialsIfNeeded();
+    }
     startTransition(() => {
       setInitialsStyle(style);
       if (style === 'badge') {
@@ -2010,28 +2068,19 @@ export function AvatarEditorModal({
           exportDraw = merged;
         }
       }
-      /* Плашка впечатывается в круг без внешних полей — в капсуле лицо заполняет кольцо */
-      let out = exportCircularAvatarJpeg(base, exportDraw, undefined, {
-        keepBadgeOutside: false,
-        paintBadge:
-          initialsStyle === 'badge'
-            ? (ctx, avatarSize, ox, oy) => {
-                ctx.save();
-                ctx.translate(ox, oy);
-                paintAvatarInitials(
-                  ctx,
-                  avatarSize,
-                  displayName,
-                  initialsSource,
-                  'badge',
-                  initialsColor,
-                  badgeText,
-                );
-                ctx.restore();
-              }
-            : undefined,
-      });
-      out = await compressImageToDataUrl(out);
+      /* Плашка — HTML; в файл только круглое лицо. Не пережимаем JPEG второй раз (мыло). */
+      let out = exportCircularAvatarJpeg(base, exportDraw);
+      if (!out.startsWith('data:image/jpeg')) {
+        out = await compressImageToDataUrl(out);
+      }
+      if (user?.id && nameBadgeOk) {
+        saveAvatarNameBadgePref(user.id, {
+          enabled: initialsStyle === 'badge',
+          text: badgeText || defaultAvatarBadgeText(displayName),
+          color: initialsColor,
+          displayName,
+        });
+      }
 
       /* Рабочий слой без инициалов — при следующем открытии глифы меняются чисто */
       let bakedWorking: string | null = null;
@@ -2060,7 +2109,8 @@ export function AvatarEditorModal({
           }
           if (!(photoIsComposite && !compositeSansInitials)) {
             const working = flat.toDataURL('image/jpeg', 0.92);
-            saveAvatarEditorWorkingFlat(working);
+            /* basedOn = экспорт профиля — при смене аватара (Аккаунт) working не подмешается */
+            saveAvatarEditorWorkingFlat(working, undefined, out);
             photoImageCacheRef.current = null;
             setPhotoDataUrl(working);
             setPhotoIsComposite(true);
@@ -2878,7 +2928,9 @@ export function AvatarEditorModal({
                   role="list"
                   aria-labelledby="avatar-editor-initials-style-label"
                 >
-                  {AVATAR_INITIALS_STYLE_CHIPS.map((style) => (
+                  {AVATAR_INITIALS_STYLE_CHIPS.filter(
+                    (style) => style !== 'badge' || nameBadgeOk,
+                  ).map((style) => (
                     <AvatarPresetThumb
                       key={style}
                       presetId={`sty-${style}`}

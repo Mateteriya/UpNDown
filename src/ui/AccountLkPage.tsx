@@ -18,6 +18,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getMyRatingSummary } from '../lib/onlineGameSupabase';
 import { getMenuIdentityStatus } from '../lib/menuIdentityStatus';
 import { LK_CAST_PRIMARY, LK_CAST_HERO, preloadLkCastUrl } from '../lib/lkCastAssets';
+import { authDebug, authDebugProbeSetItem, authDebugStorageSnapshot } from '../lib/authDebug';
 import { CosmicCockpit, CosmicGlassClose, CosmicPhysButton } from './CosmicCockpit';
 import { PlayerAvatar } from './PlayerAvatar';
 import { LobbyBackButton } from './LobbyEntryActions';
@@ -163,16 +164,40 @@ export function AccountLkPage({
   }, [focusSection]);
 
   useEffect(() => {
+    authDebug('AccountLkPage mount/auth', {
+      configured,
+      userId: user?.id ?? null,
+      authLoading,
+      storage: authDebugStorageSnapshot(),
+    });
+    authDebugProbeSetItem('AccountLkPage');
+  }, [configured, user?.id, authLoading]);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       if (!configured || !user?.id) {
+        authDebug('AccountLkPage rating skipped', {
+          configured,
+          userId: user?.id ?? null,
+        });
         setOnline(null);
         return;
       }
+      authDebug('AccountLkPage getMyRatingSummary start', { userId: user.id });
       try {
         const summary = await getMyRatingSummary(user.id);
-        if (!cancelled) setOnline(summary);
-      } catch {
+        if (!cancelled) {
+          authDebug('AccountLkPage getMyRatingSummary ok', {
+            games: summary?.games ?? null,
+          });
+          setOnline(summary);
+        }
+      } catch (e) {
+        authDebug('AccountLkPage getMyRatingSummary FAIL', {
+          error: e instanceof Error ? e.message : String(e),
+          storage: authDebugStorageSnapshot(),
+        });
         if (!cancelled) setOnline(null);
       }
     })();
@@ -265,7 +290,8 @@ export function AccountLkPage({
                       name={displayName}
                       avatarDataUrl={avatarDataUrl}
                       avatarBgColor={getPlayerProfile().avatarBgColor}
-                      sizePx={88}
+                      sizePx={94}
+                      nameBadge={loggedIn}
                     />
                     <span className="lk-pc-hero__avatar-glass" aria-hidden="true" />
                   </button>
@@ -570,6 +596,7 @@ export function AccountLkPage({
               avatarDataUrl={avatarDataUrl}
               avatarBgColor={getPlayerProfile().avatarBgColor}
               sizePx={72}
+              nameBadge={loggedIn}
             />
             <div className="lk-page__profile-text">
               <p className="lk-page__profile-name">{formatYouName(displayName, t)}</p>

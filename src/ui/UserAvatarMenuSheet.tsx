@@ -398,6 +398,7 @@ export function UserAvatarMenuSheet({
                     avatarDataUrl={avatarDataUrl}
                     avatarBgColor={avatarBgColor}
                     sizePx={menuAvatarSizePx}
+                    nameBadge
                     className="avatar-menu-sheet-avatar-face"
                   />
                 </div>

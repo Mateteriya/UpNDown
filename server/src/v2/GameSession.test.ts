@@ -125,12 +125,24 @@ describe('GameSession v2', () => {
     });
     store.joinRoom({ code: room.code, userId: 'user-1', displayName: 'Север' });
     const slots = store.getById(room.id)!.player_slots.map((s) =>
-      s.userId === 'user-1' ? { ...s, displayName: 'Новое', avatarDataUrl: 'data:tiny' } : { ...s, displayName: 'Хак' },
+      s.userId === 'user-1'
+        ? {
+            ...s,
+            displayName: 'Новое',
+            avatarDataUrl: 'data:tiny',
+            nameBadgeEnabled: true,
+            nameBadgeText: 'NEW',
+          }
+        : { ...s, displayName: 'Хак', nameBadgeEnabled: true, nameBadgeText: 'HACK' },
     );
     const updated = store.updatePlayerSlots(room.id, slots, 'user-1');
     expect('error' in updated).toBe(false);
     if ('error' in updated) return;
-    expect(updated.player_slots.find((s) => s.userId === 'user-1')?.displayName).toBe('Новое');
+    const mine = updated.player_slots.find((s) => s.userId === 'user-1');
+    expect(mine?.displayName).toBe('Новое');
+    expect(mine?.nameBadgeEnabled).toBe(true);
+    expect(mine?.nameBadgeText).toBe('NEW');
     expect(updated.player_slots.find((s) => s.userId === 'user-0')?.displayName).toBe('Юг');
+    expect(updated.player_slots.find((s) => s.userId === 'user-0')?.nameBadgeEnabled).toBeUndefined();
   });
 });

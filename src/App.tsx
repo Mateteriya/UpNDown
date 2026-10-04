@@ -6,7 +6,14 @@
 import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
 import { hasSavedGame, clearGameStateFromStorage, getPlayerProfile, savePlayerProfile, type PlayerProfile } from './game/persistence'
-import { loadProfileFromSupabase, mergeLocalAndRemoteProfile, saveProfileToSupabase } from './lib/profileSync'
+import {
+  adoptAccountProfile,
+  fitAvatarForLocalCache,
+  loadProfileFromSupabase,
+  saveProfileToSupabase,
+} from './lib/profileSync'
+import { clearAvatarEditorLocalState } from './lib/avatarEditorProject'
+import { authDebug, authDebugProbeSetItem, authDebugStorageSnapshot } from './lib/authDebug'
 import { useAuth } from './contexts/AuthContext'
 import { useOnlineGame } from './contexts/useOnlineGame'
 import { loadOnlineSession, markLobbyUiOpen, wasLobbyUiOpen, SUPPRESS_AUTO_OPEN_KEY } from './lib/onlineSession'
@@ -233,69 +240,117 @@ function App() {
     }
   }, [user?.id])
 
-  // Синхронизация профиля с Supabase при входе (имя/ник жёстко привязаны к аккаунту/почте).
+  // Вход в аккаунт: только облачный профиль. Локальный гостевой/«Профиль» полностью отключается.
   // Зависимости [user?.id, user?.email ?? '']: у сессии email иногда кратко undefined → снова строка; без ?? эффект дублируется и модалка «Задайте имя…» всплывает снова.
+  const prevSignedInUserIdRef = useRef<string | null>(null)
+
   useEffect(() => {
     if (!user?.id) {
+      authDebug('App: user=null', {
+        authLoading,
+        prevSignedIn: prevSignedInUserIdRef.current,
+        storage: authDebugStorageSnapshot(),
+      })
       newAccountGatePromptedRef.current = null
+      prevSignedInUserIdRef.current = null
+      /* Подтянуть LS после явного signOut (кэш уже очищен в AuthContext).
+       * При сбое JWT кэш не трогаем — не сбрасываем на «рандомные инициалы». */
+      if (!authLoading) setProfile(getPlayerProfile())
       return
     }
     const userEmailNorm = (user.email ?? '').trim().toLowerCase()
     const PENDING_NAME_KEY_PREFIX = 'updown_pending_name_'
+    const justSignedIn = prevSignedInUserIdRef.current !== user.id
+    prevSignedInUserIdRef.current = user.id
     let cancelled = false
     ;(async () => {
-      const remote = await loadProfileFromSupabase(user.id)
+      /* Только при смене userId: снять гостевой редактор. Не обнулять аватар в UI —
+       * это выглядело как «выкинуло», плюс гонка с HMR/reload. */
+      if (justSignedIn) clearAvatarEditorLocalState()
+
+      const loaded = await loadProfileFromSupabase(user.id)
       if (cancelled) return
-      if (remote) {
-        const local = getPlayerProfile()
-        const { profile: merged, push } = mergeLocalAndRemoteProfile(local, remote)
-        savePlayerProfile(merged)
-        setProfile(merged)
-        if (push) await saveProfileToSupabase(user.id, merged)
-      } else {
-        // Новый пользователь: имя при регистрации по email сохранено в sessionStorage; иначе — запросим в модалке
-        const emailKey = userEmailNorm || undefined
-        const pendingName = emailKey && typeof sessionStorage !== 'undefined'
-          ? sessionStorage.getItem(PENDING_NAME_KEY_PREFIX + emailKey)
-          : null
-        if (pendingName != null && pendingName.trim()) {
-          const defaultProfile: PlayerProfile = {
-            displayName: pendingName.trim().slice(0, 17),
-            avatarDataUrl: null,
-            profileId: getPlayerProfile().profileId,
-          }
-          await saveProfileToSupabase(user.id, defaultProfile)
-          savePlayerProfile(defaultProfile)
-          setProfile(defaultProfile)
-          try {
-            sessionStorage.removeItem(PENDING_NAME_KEY_PREFIX + emailKey)
-          } catch {
-            /* ignore */
-          }
-        } else {
-          // Уже есть локальное имя (офлайн / до входа) — отправим в Supabase и не дёргаем модалку повторно
-          const local = getPlayerProfile()
-          const localName = local.displayName?.trim()
-          if (localName && localName !== DEFAULT_DISPLAY_NAME) {
-            const merged: PlayerProfile = {
-              displayName: localName.slice(0, 17),
-              avatarDataUrl: local.avatarDataUrl ?? null,
-              profileId: local.profileId,
-            }
-            await saveProfileToSupabase(user.id, merged)
-            savePlayerProfile(merged)
-            setProfile(merged)
-            return
-          }
-          // OAuth или вход без регистрации — имя не задано, показываем модалку «Задайте имя для этого аккаунта»
-          if (newAccountGatePromptedRef.current === user.id) return
-          newAccountGatePromptedRef.current = user.id
-          openNameAvatarModal('new-account')
-        }
+
+      /* Сеть/RLS: НЕ трогаем облако и сессию — иначе «новый аккаунт» затирал профиль */
+      if (loaded.status === 'error') {
+        console.warn('[profileSync] load failed, keep session', loaded.message)
+        return
       }
+
+      if (loaded.status === 'found') {
+        const account = adoptAccountProfile(loaded.profile)
+        /* UI: полный облачный PNG (плашка). LS: крошечный JPEG лица — иначе logout в ЛК */
+        const remoteAvatar = account.avatarDataUrl ?? null
+        const localCache = await fitAvatarForLocalCache(remoteAvatar)
+        if (cancelled) return
+        const next: PlayerProfile = {
+          ...account,
+          avatarDataUrl: remoteAvatar,
+          avatarBgColor: null,
+          profileId:
+            account.profileId && account.profileId.length > 0 ? account.profileId : user.id,
+          updatedAt: account.updatedAt ?? new Date().toISOString(),
+        }
+        const cur = getPlayerProfile()
+        const cacheChanged = (cur.avatarDataUrl ?? null) !== (localCache ?? null)
+        const metaChanged =
+          cur.displayName !== next.displayName || (cur.profileId ?? '') !== (next.profileId ?? '')
+        if (cacheChanged || metaChanged) {
+          savePlayerProfile({ ...next, avatarDataUrl: localCache })
+        }
+        setProfile(next)
+        return
+      }
+
+      // status === 'missing' — действительно нет строки в profiles
+      if (justSignedIn) clearAvatarEditorLocalState()
+      const emailKey = userEmailNorm || undefined
+      const pendingName = emailKey && typeof sessionStorage !== 'undefined'
+        ? sessionStorage.getItem(PENDING_NAME_KEY_PREFIX + emailKey)
+        : null
+      if (pendingName != null && pendingName.trim()) {
+        const defaultProfile: PlayerProfile = {
+          displayName: pendingName.trim().slice(0, 17),
+          avatarDataUrl: null,
+          avatarBgColor: null,
+          profileId: user.id,
+          updatedAt: new Date().toISOString(),
+        }
+        await saveProfileToSupabase(user.id, defaultProfile)
+        if (cancelled) return
+        savePlayerProfile(defaultProfile)
+        setProfile(defaultProfile)
+        try {
+          sessionStorage.removeItem(PENDING_NAME_KEY_PREFIX + emailKey)
+        } catch {
+          /* ignore */
+        }
+        return
+      }
+
+      const local = getPlayerProfile()
+      const localName = local.displayName?.trim()
+      if (localName && localName !== DEFAULT_DISPLAY_NAME) {
+        const seeded: PlayerProfile = {
+          displayName: localName.slice(0, 17),
+          avatarDataUrl: null,
+          avatarBgColor: null,
+          profileId: user.id,
+          updatedAt: new Date().toISOString(),
+        }
+        await saveProfileToSupabase(user.id, seeded)
+        if (cancelled) return
+        savePlayerProfile(seeded)
+        setProfile(seeded)
+        return
+      }
+
+      if (newAccountGatePromptedRef.current === user.id) return
+      newAccountGatePromptedRef.current = user.id
+      openNameAvatarModal('new-account')
     })()
     return () => { cancelled = true }
-  }, [user?.id, user?.email ?? '', openNameAvatarModal])
+  }, [user?.id, user?.email ?? '', openNameAvatarModal, authLoading, setProfile])
 
   const enableDevMode = useCallback(() => {
     if (!enableFullDevMode()) return
@@ -370,13 +425,17 @@ function App() {
       profileId: current.profileId,
       updatedAt: new Date().toISOString(),
     }
-    savePlayerProfile(next)
+    /* UI — полный data URL; в LS только лёгкий кэш (async), чтобы не сносить auth */
     setProfile(next)
+    void fitAvatarForLocalCache(next.avatarDataUrl).then((cache) => {
+      savePlayerProfile({ ...next, avatarDataUrl: cache })
+    })
     closeNameAvatarModal()
     newAccountGatePromptedRef.current = null
     if (user?.id) {
       void saveProfileToSupabase(user.id, next).then((ok) => {
-        if (ok) setProfile(getPlayerProfile())
+        /* не setProfile(getPlayerProfile()) — там JPEG-кэш без плашки */
+        if (ok) setProfile((p) => ({ ...getPlayerProfile(), avatarDataUrl: p.avatarDataUrl }))
       })
     }
     if (online.roomId) {
@@ -392,11 +451,13 @@ function App() {
   /** Селфи на телефоне часто перезагружает вкладку — пишем аватар и слот сразу, не дожидаясь «Сохранить». */
   const handlePhotoCaptured = useCallback((avatarDataUrl: string) => {
     const next = { ...getPlayerProfile(), avatarDataUrl, updatedAt: new Date().toISOString() };
-    savePlayerProfile(next);
     setProfile(next);
+    void fitAvatarForLocalCache(avatarDataUrl).then((cache) => {
+      savePlayerProfile({ ...next, avatarDataUrl: cache });
+    });
     if (user?.id) {
       void saveProfileToSupabase(user.id, next).then((ok) => {
-        if (ok) setProfile(getPlayerProfile());
+        if (ok) setProfile((p) => ({ ...getPlayerProfile(), avatarDataUrl: p.avatarDataUrl }));
       });
     }
     if (online.roomId && online.syncMySlotAvatar) void online.syncMySlotAvatar();
@@ -462,13 +523,19 @@ function App() {
   }
 
   const openAccountCabinet = useCallback((focus?: AccountLkFocus) => {
+    authDebug('openAccountCabinet', {
+      focus: focus ?? null,
+      userId: user?.id ?? null,
+      storage: authDebugStorageSnapshot(),
+    })
+    authDebugProbeSetItem('openAccountCabinet')
     setUrlJoinCode(null)
     // Ignore accidental event args from onClick={openAccountCabinet}
     const next: AccountLkFocus =
       focus === 'rating' || focus === 'matches' ? focus : null
     setAccountFocus(next)
     setScreen('account')
-  }, [])
+  }, [user?.id])
 
   const openOnlinePage = useCallback(() => {
     try {

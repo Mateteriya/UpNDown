@@ -173,7 +173,22 @@ function writeStoredAvatar(avatarDataUrl: string | null | undefined): void {
   try {
     if (typeof localStorage === 'undefined') return;
     if (avatarDataUrl && avatarDataUrl.length >= 32) {
-      localStorage.setItem(PLAYER_AVATAR_STORAGE_KEY, avatarDataUrl);
+      /* Сначала снять старый — иначе quota при огромном PNG сносит sb-*-auth-token */
+      try {
+        localStorage.removeItem(PLAYER_AVATAR_STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+      try {
+        localStorage.setItem(PLAYER_AVATAR_STORAGE_KEY, avatarDataUrl);
+      } catch {
+        /* Не оставляем полузапись: лучше пустой аватар, чем logout из-за auth */
+        try {
+          localStorage.removeItem(PLAYER_AVATAR_STORAGE_KEY);
+        } catch {
+          /* ignore */
+        }
+      }
     } else {
       localStorage.removeItem(PLAYER_AVATAR_STORAGE_KEY);
     }
@@ -267,6 +282,7 @@ export function savePlayerProfile(profile: PlayerProfile): void {
     if (displayName.length > MAX_DISPLAY_NAME_LENGTH) displayName = displayName.slice(0, MAX_DISPLAY_NAME_LENGTH);
     const existing = getPlayerProfile();
     const profileId = profile.profileId ?? existing.profileId ?? generateProfileId();
+    /* undefined = не трогать; null = явная очистка (вход в аккаунт без аватара в облаке) */
     const avatarDataUrl =
       profile.avatarDataUrl === undefined ? existing.avatarDataUrl ?? null : profile.avatarDataUrl ?? null;
     const avatarBgColor =

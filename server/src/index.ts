@@ -173,7 +173,8 @@ function roomOnWire(
 }
 
 function sendRoomTo(ws: WebSocket, room: GameRoomRow, type: 'room_snapshot' | 'room_meta' = 'room_snapshot'): void {
-  send(ws, { type, room: roomOnWire(ws, room) });
+  /** Слоты/мета редкие: оставляем JPEG+плашку. Живой game_state по-прежнему slimPlayerSlots. */
+  send(ws, { type, room: roomOnWire(ws, room, { keepAvatars: true }) });
 }
 
 function broadcastGameStateV2(push: GameStatePush): void {
@@ -394,7 +395,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
         return;
       }
       subscribe(ws, msg.roomId);
-      send(ws, { type: 'room_snapshot', room: roomOnWire(ws, room), requestId });
+      send(ws, { type: 'room_snapshot', room: roomOnWire(ws, room, { keepAvatars: true }), requestId });
       if (room.status === 'finished') {
         send(ws, {
           type: 'match_recorded',
@@ -467,6 +468,8 @@ function handleMessage(ws: WebSocket, raw: string): void {
         displayName: msg.displayName,
         shortLabel: msg.shortLabel ?? undefined,
         avatarDataUrl: msg.avatarDataUrl,
+        nameBadgeEnabled: msg.nameBadgeEnabled,
+        nameBadgeText: msg.nameBadgeText,
         settlementMode: msg.settlementMode,
         buyIn: msg.buyIn,
         roomKind: msg.roomKind,
@@ -508,6 +511,8 @@ function handleMessage(ws: WebSocket, raw: string): void {
         displayName: msg.displayName,
         shortLabel: msg.shortLabel ?? undefined,
         avatarDataUrl: msg.avatarDataUrl,
+        nameBadgeEnabled: msg.nameBadgeEnabled,
+        nameBadgeText: msg.nameBadgeText,
       });
       if ('error' in result) {
         reply(ws, requestId, { type: 'join_room_result', ok: false, error: result.error });
@@ -541,7 +546,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
       reply(ws, requestId, {
         type: 'get_room_result',
         ok: true,
-        room: roomOnWire(ws, room),
+        room: roomOnWire(ws, room, { keepAvatars: true }),
       });
       return;
     }
@@ -626,7 +631,11 @@ function handleMessage(ws: WebSocket, raw: string): void {
         return;
       }
       broadcastRoom(updated);
-      reply(ws, requestId, { type: 'update_slots_result', ok: true, room: roomOnWire(ws, updated) });
+      reply(ws, requestId, {
+        type: 'update_slots_result',
+        ok: true,
+        room: roomOnWire(ws, updated, { keepAvatars: true }),
+      });
       return;
     }
     case 'update_display_name': {
@@ -664,7 +673,11 @@ function handleMessage(ws: WebSocket, raw: string): void {
         }
       }
       broadcastRoom(finalRoom);
-      reply(ws, requestId, { type: 'update_display_name_result', ok: true, room: roomOnWire(ws, finalRoom) });
+      reply(ws, requestId, {
+        type: 'update_display_name_result',
+        ok: true,
+        room: roomOnWire(ws, finalRoom, { keepAvatars: true }),
+      });
       return;
     }
     case 'update_state': {
@@ -694,7 +707,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
           type: 'update_state_result',
           ok: false,
           conflict: true,
-          room: result.room ? roomOnWire(ws, result.room) : result.room,
+          room: result.room ? roomOnWire(ws, result.room, { keepAvatars: true }) : result.room,
         });
         return;
       }
@@ -702,7 +715,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
       reply(ws, requestId, {
         type: 'update_state_result',
         ok: true,
-        room: result.room ? roomOnWire(ws, result.room) : result.room,
+        room: result.room ? roomOnWire(ws, result.room, { keepAvatars: true }) : result.room,
       });
       return;
     }

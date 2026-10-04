@@ -22,14 +22,15 @@
  *    · padding панели: 11px / 11px (верт. = база 9/8 +2 сверху +3 снизу), 10px / 16px (гориз.)
  *    · аватар (TS sizePx): 58 розыгрыш / 70 торги
  *    · ширина: fit-content; max = min(100%, 100vw−48px) — без потолка 800px
- *    · имя: космическая плашка + Cormorant (золото/cyan); укорочение в GameTable
- *      слоты 1–6: без среза; 7–9: −3; 10+: −5
+ *    · имя: плашка «кабинет»; >9 символов — полный кегль до заказа на торгах,
+ *      после заказа −5px, hover увеличивает плашку
  *    · зазор имя→взятки: 3px (5px при .trick-slots-pc-under)
  *    · «Очки»: без margin-right наружу
  *  Tablet:
  *    · padding: 7px все стороны-верт (не 9/8 и не bidding 10)
- *    · аватар (TS): 38 розыгрыш / 54 торги; wrap без min-height 58
- *    · имя ПОД аватаром (колонка); БЕЗ космической плашки
+ *    · аватар (TS): 50 розыгрыш / 58 торги
+ *    · имя ПОД/СПРАВА внизу от аватара (как ПК: ава слева, плашка справа внизу)
+ *    · та же плашка «кабинет», что на ПК
  *    · ширина: fit-content; max-width 100%
  *    · стол (.game-center-table): 3p translateY(−18px), 4p translateY(2px)
  *      (опущен на 10px относительно прежних −28 / −8)
@@ -38,37 +39,23 @@
  * =============================================================================
  */
 
-/* ─── shared keyframes (PC cosmic name) ─── */
-@keyframes pc-south-name-plate-sheen {
+/* ─── keyframes: плашка имени как на капсуле «кабинет» ─── */
+@keyframes south-name-plaque-rim {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 220% 50%;
+  }
+}
+
+@keyframes south-name-iridescent {
   0%,
   100% {
     background-position: 0% 50%;
   }
   50% {
     background-position: 100% 50%;
-  }
-}
-
-@keyframes pc-south-name-plate-twinkle {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-  40% {
-    opacity: 0.85;
-  }
-  70% {
-    opacity: 0.5;
-  }
-}
-
-@keyframes pc-south-name-gold-shimmer {
-  0%,
-  100% {
-    background-position: 0% 45%;
-  }
-  50% {
-    background-position: 100% 55%;
   }
 }
 
@@ -181,13 +168,14 @@ html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc).game
 .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
   .user-player-panel
   .user-player-panel-pc-left-cluster {
-  gap: 3px !important;
+  /* минимальный зазор имя ↔ полоска заказа (обод плашки съедает ~1–2px) */
+  gap: 5px !important;
 }
 
 .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
   .user-player-panel
   .user-player-panel-pc-left-cluster:has(.trick-slots-pc-under) {
-  gap: 5px !important;
+  gap: 6px !important;
 }
 
 /* Торги: не scale() — фантомная ширина выталкивает «Очки»; компакт = panelScale в TS */
@@ -230,7 +218,7 @@ html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc).game
 .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
   .user-player-panel
   .user-player-avatar-order-scale-wrap {
-  transform-origin: left center !important;
+  transform-origin: left bottom !important;
 }
 
 /* --- стек аватар+имя (имя юг+восток от аватара) --- */
@@ -254,157 +242,455 @@ html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc).game
   align-self: center !important;
 }
 
-/* --- космическая плашка имени --- */
+/*
+ * Плашка имени Юг = капсула «кабинет» на главной:
+ * тёмное стекло + радужный обод + Exo 2 condensed + иридесцентный текст.
+ * ПК и планшет-шелл (не мобилка). Розыгрыш: clamp 180/155px, тонкий обод, ellipsis + fade.
+ */
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+  width: max-content !important;
+  min-width: 33px !important;
+  max-width: none !important;
+  padding: 1px 8px 1px !important;
+  border-radius: 12px !important;
+  isolation: isolate !important;
+  overflow: visible !important;
+  border: none !important;
+  pointer-events: auto !important;
+  z-index: 5 !important;
+  gap: 0 !important;
+  background:
+    linear-gradient(
+      165deg,
+      rgb(18 12 48 / 0.78) 0%,
+      rgb(36 22 78 / 0.62) 45%,
+      rgb(12 8 36 / 0.82) 100%
+    ) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    inset 0 -1px 0 rgb(8 2 28 / 0.35),
+    0 2px 8px rgb(2 6 23 / 0.35) !important;
+}
+
+/* радужный обод (как .menu-capsule__name-plaque__rim) */
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  border-radius: inherit !important;
+  padding: 1.5px !important;
+  pointer-events: none !important;
+  background: linear-gradient(
+    120deg,
+    #67e8f9 0%,
+    #a78bfa 28%,
+    #e879f9 55%,
+    #fbbf24 78%,
+    #67e8f9 100%
+  ) !important;
+  background-size: 220% 100% !important;
+  animation: south-name-plaque-rim 4.8s linear infinite !important;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask-composite: exclude !important;
+  opacity: 1 !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Розыгрыш: обод чуть тоньше; hover — полный обод */
+html body .game-table-root:not(.viewport-mobile):not(.game-phase-bidding)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar::before {
+  padding: 1px !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque:hover::before {
+  padding: 1.5px !important;
+}
+
+/* Розыгрыш: лимит ширины плашки (канон: userSouthPanelCanon.ts) */
+html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque {
+  max-width: 180px !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  transform-origin: left bottom !important;
+  transition: transform 0.16s cubic-bezier(0.34, 1.4, 0.64, 1) !important;
+  cursor: default !important;
+}
+
+html body .game-table-root.game-table-tablet-pc:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque {
+  max-width: 155px !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  transform-origin: left bottom !important;
+  transition: transform 0.16s cubic-bezier(0.34, 1.4, 0.64, 1) !important;
+  cursor: default !important;
+}
+
+/* Окно имени внутри плашки — для ellipsis/автопрокрутки (только розыгрыш) */
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque
+  .user-player-panel-pc-name-viewport {
+  position: relative !important;
+  z-index: 2 !important;
+  display: block !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  overflow: hidden !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar:not(.user-player-panel-pc-name-under-avatar--play-plaque)
+  .user-player-panel-pc-name-viewport {
+  display: contents !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar:not(.user-player-panel-pc-name-under-avatar--play-plaque)
+  .user-player-panel-pc-name-track {
+  display: contents !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-track {
+  display: inline-flex !important;
+  align-items: center !important;
+  width: max-content !important;
+  max-width: none !important;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque
+  .user-player-panel-pc-name-text {
+  flex: 0 0 auto !important;
+  width: max-content !important;
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+/* Обрезка: яркий fade справа + жирные «…» со свечением */
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-truncated
+  .user-player-panel-pc-name-text {
+  filter:
+    drop-shadow(0 1px 0 rgb(12 4 28 / 80%))
+    drop-shadow(0 0 6px rgb(103 232 249 / 55%))
+    drop-shadow(0 0 14px rgb(232 121 249 / 40%)) !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-trunc-chrome {
+  position: absolute !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  z-index: 6 !important;
+  width: 38px !important;
+  pointer-events: none !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  border-radius: 0 11px 11px 0 !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-trunc-fade {
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: inherit !important;
+  /* мягкий космический фиолет → почти прозрачный слева */
+  background:
+    radial-gradient(1.1px 1.1px at 72% 28%, rgb(236 254 255 / 0.95), transparent 70%),
+    radial-gradient(1px 1px at 86% 62%, rgb(251 191 36 / 0.9), transparent 70%),
+    radial-gradient(1.2px 1.2px at 64% 74%, rgb(232 121 249 / 0.85), transparent 70%),
+    radial-gradient(0.9px 0.9px at 90% 38%, rgb(167 139 250 / 0.95), transparent 70%),
+    radial-gradient(1px 1px at 78% 88%, rgb(103 232 249 / 0.8), transparent 70%),
+    radial-gradient(0.85px 0.85px at 58% 42%, rgb(196 181 253 / 0.75), transparent 70%),
+    radial-gradient(1.15px 1.15px at 94% 78%, rgb(253 224 71 / 0.7), transparent 70%),
+    linear-gradient(
+      90deg,
+      rgb(48 20 78 / 0) 0%,
+      rgb(56 24 96 / 0.22) 40%,
+      rgb(42 16 78 / 0.55) 72%,
+      rgb(28 10 58 / 0.78) 100%
+    ) !important;
+  /* без inset -1px линии — давала артефакт-полоску рядом со «звёздами» */
+  box-shadow: inset -10px 0 16px rgb(88 28 135 / 22%) !important;
+  animation: south-name-trunc-stars 3.8s ease-in-out infinite !important;
+}
+
+@keyframes south-name-trunc-stars {
+  0%,
+  100% {
+    filter: brightness(1);
+    opacity: 0.92;
+  }
+  50% {
+    filter: brightness(1.18);
+    opacity: 1;
+  }
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-revealing
+  .user-player-panel-pc-name-trunc-chrome {
+  opacity: 0.35 !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque:hover {
+  max-width: none !important;
+  width: max-content !important;
+  overflow: visible !important;
+  transform: scale(1.14) !important;
+  z-index: 8 !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque:hover
+  .user-player-panel-pc-name-viewport {
+  overflow: visible !important;
+  width: max-content !important;
+  max-width: none !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque:hover
+  .user-player-panel-pc-name-trunc-chrome {
+  display: none !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque:hover
+  .user-player-panel-pc-name-text,
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque:hover
+  .user-player-panel-pc-name-text.player-panel-name--premium-user {
+  flex: 0 0 auto !important;
+  width: max-content !important;
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  filter: drop-shadow(0 1px 0 rgb(12 4 28 / 55%)) !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque:hover
+  .user-player-panel-pc-name-text.user-player-panel-pc-name-text--long-compact,
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque:hover
+  .user-player-panel-pc-name-text--long-compact.player-panel-name--premium-user {
+  font-size: 19px !important;
+}
+
+html body .game-table-root.game-table-tablet-pc:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque:hover
+  .user-player-panel-pc-name-text.user-player-panel-pc-name-text--long-compact,
+html body .game-table-root.game-table-tablet-pc:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--play-plaque:hover
+  .user-player-panel-pc-name-text--long-compact.player-panel-name--premium-user {
+  font-size: 17px !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-text,
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-text.player-panel-name--premium-user,
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel.player-info-panel-your-turn
+  .user-player-panel-pc-name-text.player-panel-name--premium-user {
+  position: relative !important;
+  z-index: 2 !important;
+  display: block !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+  width: max-content !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: center !important;
+  line-height: 1.15 !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  font-size: 19px !important;
+  font-weight: 550 !important;
+  font-style: normal !important;
+  font-stretch: 75% !important;
+  font-variation-settings: 'wdth' 75 !important;
+  letter-spacing: -0.02em !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  background-image: linear-gradient(
+    110deg,
+    #ecfeff 0%,
+    #67e8f9 14%,
+    #38bdf8 28%,
+    #a78bfa 44%,
+    #e879f9 60%,
+    #fbbf24 76%,
+    #67e8f9 90%,
+    #ecfeff 100%
+  ) !important;
+  background-size: 240% 100% !important;
+  /* без !important: иначе keyframes не двигают background-position */
+  background-position: 0% 50%;
+  background-repeat: no-repeat !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  filter: drop-shadow(0 1px 0 rgb(12 4 28 / 55%)) !important;
+  animation: south-name-iridescent 3.8s ease-in-out infinite !important;
+  -webkit-font-smoothing: antialiased !important;
+  transition: font-size 0.15s ease !important;
+}
+
+/* Имя >9 символов после заказа: компакт 14px (база 19);
+ * внешний размер плашки — за счёт нулевых вертикальных padding.
+ * Специфичность ≥ базового .pc-name-text.player-panel-name--premium-user (иначе база побеждает). */
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-text.user-player-panel-pc-name-text--long-compact,
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-text--long-compact.player-panel-name--premium-user,
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel.player-info-panel-your-turn
+  .user-player-panel-pc-name-text--long-compact.player-panel-name--premium-user {
+  font-size: 14px !important;
+  line-height: 1 !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--long-compact {
+  padding: 0 5px 0 !important;
+  min-width: 0 !important;
+  border-radius: 9px !important;
+  transform-origin: left bottom !important;
+  transition:
+    transform 0.16s cubic-bezier(0.34, 1.4, 0.64, 1),
+    padding 0.15s ease !important;
+  cursor: default !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--long-compact:hover {
+  padding: 1px 8px 1px !important;
+  border-radius: 12px !important;
+  transform: scale(1.14) !important;
+  z-index: 8 !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--long-compact:hover
+  .user-player-panel-pc-name-text.user-player-panel-pc-name-text--long-compact,
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--long-compact:hover
+  .user-player-panel-pc-name-text--long-compact.player-panel-name--premium-user {
+  font-size: 19px !important;
+}
+
+/* ПК: плашка в сетке слева у аватара */
 html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
   .user-player-panel
   .user-player-panel-pc-name-under-avatar {
-  display: flex !important;
   flex-direction: column !important;
   grid-column: 2 !important;
   grid-row: 2 !important;
-  position: relative !important;
   left: auto !important;
   top: auto !important;
   bottom: auto !important;
   right: auto !important;
   align-self: end !important;
   margin-left: -12px !important;
+  margin-right: 1px !important;
   margin-bottom: 0 !important;
   align-items: flex-start !important;
+  justify-content: center !important;
+}
+
+html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
+  .user-player-panel
+  .user-player-panel-pc-name-text {
   text-align: left !important;
-  max-width: none !important;
-  z-index: 5 !important;
-  gap: 0 !important;
-  pointer-events: auto !important;
-  padding: 2px 11px 3px 10px !important;
-  border-radius: 999px !important;
-  isolation: isolate !important;
-  overflow: hidden !important;
-  border: 1px solid rgba(165, 243, 252, 0.78) !important;
-  background:
-    radial-gradient(1.4px 1.4px at 14% 30%, rgba(255, 255, 255, 0.95) 0%, transparent 100%),
-    radial-gradient(1.1px 1.1px at 72% 24%, rgba(196, 181, 253, 0.95) 0%, transparent 100%),
-    radial-gradient(1.2px 1.2px at 88% 62%, rgba(103, 232, 249, 0.9) 0%, transparent 100%),
-    radial-gradient(1px 1px at 38% 78%, rgba(251, 191, 36, 0.75) 0%, transparent 100%),
-    radial-gradient(circle at 18% 20%, rgba(34, 211, 238, 0.5) 0%, transparent 40%),
-    radial-gradient(circle at 82% 88%, rgba(168, 85, 247, 0.48) 0%, transparent 44%),
-    radial-gradient(circle at 55% 45%, rgba(99, 102, 241, 0.22) 0%, transparent 55%),
-    linear-gradient(148deg, #020617 0%, #0f172a 28%, #1e1b4b 55%, #042f2e 82%, #020617 100%) !important;
-  box-shadow:
-    0 0 0 1px rgba(34, 211, 238, 0.4),
-    0 0 12px rgba(34, 211, 238, 0.38),
-    0 0 26px rgba(139, 92, 246, 0.32),
-    inset 0 1px 0 rgba(224, 242, 254, 0.28),
-    inset 0 -12px 18px rgba(2, 6, 23, 0.55) !important;
-}
-
-html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
-  .user-player-panel
-  .user-player-panel-pc-name-under-avatar::before {
-  content: '' !important;
-  position: absolute !important;
-  inset: 0 !important;
-  border-radius: inherit !important;
-  pointer-events: none !important;
-  z-index: 0 !important;
-  background: linear-gradient(
-    118deg,
-    transparent 0%,
-    transparent 34%,
-    rgba(165, 243, 252, 0.28) 46%,
-    rgba(255, 255, 255, 0.2) 50%,
-    rgba(216, 180, 254, 0.22) 54%,
-    transparent 66%,
-    transparent 100%
-  ) !important;
-  background-size: 240% 100% !important;
-  animation: pc-south-name-plate-sheen 3.2s ease-in-out infinite !important;
-  opacity: 0.9 !important;
-}
-
-html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
-  .user-player-panel
-  .user-player-panel-pc-name-under-avatar::after {
-  content: '' !important;
-  position: absolute !important;
-  inset: 0 !important;
-  border-radius: inherit !important;
-  pointer-events: none !important;
-  z-index: 0 !important;
-  background:
-    radial-gradient(1.2px 1.2px at 22% 40%, #fff 0%, transparent 100%),
-    radial-gradient(1px 1px at 64% 55%, #a5f3fc 0%, transparent 100%),
-    radial-gradient(1.1px 1.1px at 84% 28%, #e9d5ff 0%, transparent 100%) !important;
-  animation: pc-south-name-plate-twinkle 2.4s ease-in-out infinite !important;
-  opacity: 0.55 !important;
-}
-
-html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
-  .user-player-panel
-  .user-player-panel-pc-name-text,
-html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
-  .user-player-panel
-  .user-player-panel-pc-name-text.player-panel-name--premium-user,
-html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
-  .user-player-panel.player-info-panel-your-turn
-  .user-player-panel-pc-name-text.player-panel-name--premium-user {
-  position: relative !important;
-  z-index: 1 !important;
-  display: block !important;
-  text-align: left !important;
-  line-height: 1.05 !important;
-  font-size: clamp(23px, calc(2.1vw - 1px), 29px) !important;
-  font-family: 'Cormorant Garamond', 'Cormorant', Georgia, 'Times New Roman', serif !important;
-  font-weight: 500 !important;
-  font-style: italic !important;
-  letter-spacing: 0.04em !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-  white-space: nowrap !important;
-  max-width: none !important;
-  background: linear-gradient(
-    105deg,
-    #ecfeff 0%,
-    #fde68a 16%,
-    #fbbf24 30%,
-    #a5f3fc 44%,
-    #fcd34d 58%,
-    #e9d5ff 72%,
-    #fef08a 86%,
-    #f0f9ff 100%
-  ) !important;
-  background-size: 240% 100% !important;
-  -webkit-background-clip: text !important;
-  background-clip: text !important;
-  color: transparent !important;
-  -webkit-text-fill-color: transparent !important;
-  text-shadow: none !important;
-  opacity: 1 !important;
-  filter:
-    drop-shadow(0 1px 0 rgba(2, 6, 23, 0.7))
-    drop-shadow(0 0 5px rgba(34, 211, 238, 0.45))
-    drop-shadow(0 0 8px rgba(251, 191, 36, 0.5))
-    drop-shadow(0 0 14px rgba(168, 85, 247, 0.28)) !important;
-  animation: pc-south-name-gold-shimmer 2.8s ease-in-out infinite !important;
-  -webkit-font-smoothing: antialiased !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
+  html body .game-table-root:not(.viewport-mobile)
     .user-player-panel
     .user-player-panel-pc-name-under-avatar::before,
-  html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
+  html body .game-table-root:not(.viewport-mobile)
     .user-player-panel
-    .user-player-panel-pc-name-under-avatar::after,
-  html body .game-table-root:not(.viewport-mobile):not(.game-table-tablet-pc)
+    .user-player-panel-pc-name-text,
+  html body .game-table-root:not(.viewport-mobile)
     .user-player-panel
-    .user-player-panel-pc-name-text {
+    .user-player-panel-pc-name-trunc-fade {
     animation: none !important;
   }
 }
 
 /* =============================================================================
- * 3) TABLET SHELL · 3p + 4p — компакт, имя под аватаром, без космической плашки
+ * 3) TABLET SHELL · 3p + 4p — компакт; раскладка имени как на ПК (ава слева, имя справа внизу)
  * ============================================================================= */
 html body .game-table-root.game-table-tablet-pc:not(.viewport-mobile)
   .user-player-panel {
@@ -429,19 +715,26 @@ html body .game-table-root.game-table-tablet-pc.game-phase-bidding:not(.viewport
   padding-top: 0 !important;
 }
 
+/* как на ПК: сетка аватар | имя справа внизу — НЕ колонка «имя под аватаром» */
 .game-table-root.game-table-tablet-pc
   .user-player-panel
   .user-player-panel-pc-avatar-name-stack {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  gap: 6px !important;
   position: relative !important;
-  min-height: 0 !important;
+  display: grid !important;
+  grid-template-columns: auto minmax(0, max-content) !important;
+  grid-template-rows: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  justify-items: start !important;
+  column-gap: 0 !important;
+  row-gap: 0 !important;
+  gap: 0 !important;
   width: fit-content !important;
+  min-height: 0 !important;
   padding-bottom: 0 !important;
   margin-right: 0 !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  align-self: center !important;
 }
 
 .game-table-root.game-table-tablet-pc
@@ -453,59 +746,84 @@ html body .game-table-root.game-table-tablet-pc.game-phase-bidding:not(.viewport
   width: auto !important;
   min-width: 0 !important;
   margin: 0 !important;
+  grid-column: 1 !important;
+  grid-row: 1 / -1 !important;
   align-self: center !important;
-  justify-content: center !important;
+  justify-self: start !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
 }
 
 .game-table-root.game-table-tablet-pc
   .user-player-panel
   .user-player-panel-pc-name-under-avatar {
-  position: static !important;
+  position: relative !important;
   left: auto !important;
   top: auto !important;
   bottom: auto !important;
   right: auto !important;
-  margin: 0 !important;
-  max-width: 200px !important;
-  align-items: center !important;
-  text-align: center !important;
-  padding: 0 !important;
-  border: none !important;
-  background: none !important;
-  box-shadow: none !important;
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+  align-self: end !important;
+  justify-self: start !important;
+  margin: 0 1px 0 -8px !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+}
+
+/*
+ * Планшет + HTML-плашка: как на ПК — имя ближе к экрану (слой сверху),
+ * без сдвига вправо; tuck −8px сохраняем.
+ */
+html body
+  .game-table-root.game-table-tablet-pc:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-avatar-name-stack:has(.player-avatar--name-badge)
+  .user-player-panel-pc-name-under-avatar {
+  margin-left: -8px !important;
+  z-index: 12 !important;
+  position: relative !important;
+}
+
+html body
+  .game-table-root.game-table-tablet-pc:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-avatar-name-stack:has(.player-avatar--name-badge)
+  .user-player-panel-pc-avatar-wrap {
+  z-index: 3 !important;
   overflow: visible !important;
 }
 
 .game-table-root.game-table-tablet-pc
   .user-player-panel
-  .user-player-panel-pc-name-under-avatar::before,
-.game-table-root.game-table-tablet-pc
-  .user-player-panel
-  .user-player-panel-pc-name-under-avatar::after {
-  content: none !important;
-  display: none !important;
-  animation: none !important;
+  .user-player-panel-pc-name-text {
+  text-align: left !important;
+  font-size: 17px !important;
 }
 
-.game-table-root.game-table-tablet-pc
+html body .game-table-root.game-table-tablet-pc:not(.viewport-mobile)
   .user-player-panel
-  .user-player-panel-pc-name-text,
-.game-table-root.game-table-tablet-pc
+  .user-player-panel-pc-name-text.user-player-panel-pc-name-text--long-compact,
+html body .game-table-root.game-table-tablet-pc:not(.viewport-mobile)
   .user-player-panel
-  .user-player-panel-pc-name-text.player-panel-name--premium-user {
-  text-align: center !important;
-  /* планшет: обычный premium/champagne из index — не космический ПК */
-  font-family: inherit !important;
-  font-style: normal !important;
-  font-size: clamp(24px, 2.1vw, 30px) !important;
-  letter-spacing: normal !important;
-  filter: none !important;
-  animation: none !important;
-  background: none !important;
-  -webkit-background-clip: initial !important;
-  background-clip: initial !important;
-  -webkit-text-fill-color: unset !important;
-  color: inherit !important;
+  .user-player-panel-pc-name-text--long-compact.player-panel-name--premium-user,
+html body .game-table-root.game-table-tablet-pc:not(.viewport-mobile)
+  .user-player-panel.player-info-panel-your-turn
+  .user-player-panel-pc-name-text--long-compact.player-panel-name--premium-user {
+  font-size: 12px !important;
+  line-height: 1 !important;
+}
+
+html body .game-table-root.game-table-tablet-pc:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--long-compact:hover
+  .user-player-panel-pc-name-text.user-player-panel-pc-name-text--long-compact,
+html body .game-table-root.game-table-tablet-pc:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--long-compact:hover
+  .user-player-panel-pc-name-text--long-compact.player-panel-name--premium-user {
+  font-size: 17px !important;
 }
 
 /* =============================================================================
@@ -519,4 +837,400 @@ html body .game-table-root.game-table-tablet-pc.game-phase-bidding:not(.viewport
 .game-table-root.game-table-tablet-pc:not(.game-table-seats-three-pc):not(.viewport-mobile)
   .game-center-table {
   transform: translateY(2px) !important;
+}
+
+/* =============================================================================
+ * 5) MOBILE · viewport-mobile — плашка имени Юг (портрет + landscape)
+ * Портрет max 217px; landscape max 132px, 1 строка, cosmic fade + scroll (без «…»).
+ * ============================================================================= */
+
+html body .game-table-root.viewport-mobile .user-south-mobile-name-plaque {
+  position: relative !important;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  box-sizing: border-box !important;
+  width: max-content !important;
+  max-width: min(217px, 100%) !important;
+  min-width: 0 !important;
+  padding: 1px 6px 1px !important;
+  border-radius: 10px !important;
+  isolation: isolate !important;
+  overflow: hidden !important;
+  border: none !important;
+  pointer-events: auto !important;
+  z-index: 3 !important;
+  gap: 0 !important;
+  background:
+    linear-gradient(
+      165deg,
+      rgb(18 12 48 / 0.78) 0%,
+      rgb(36 22 78 / 0.62) 45%,
+      rgb(12 8 36 / 0.82) 100%
+    ) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    inset 0 -1px 0 rgb(8 2 28 / 0.35),
+    0 2px 6px rgb(2 6 23 / 0.32) !important;
+}
+
+html body .game-table-root.viewport-mobile .user-south-mobile-name-plaque::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  border-radius: inherit !important;
+  padding: 1.35px !important;
+  pointer-events: none !important;
+  background: linear-gradient(
+    120deg,
+    #67e8f9 0%,
+    #a78bfa 28%,
+    #e879f9 55%,
+    #fbbf24 78%,
+    #67e8f9 100%
+  ) !important;
+  background-size: 220% 100% !important;
+  animation: south-name-plaque-rim 4.8s linear infinite !important;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask-composite: exclude !important;
+  opacity: 1 !important;
+}
+
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-viewport {
+  position: relative !important;
+  z-index: 2 !important;
+  display: block !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  overflow: hidden !important;
+}
+
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-track {
+  display: inline-flex !important;
+  align-items: center !important;
+  width: max-content !important;
+  max-width: none !important;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-text,
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-text.player-panel-name--premium-user,
+html body .game-table-root.viewport-mobile
+  .player-info-panel-your-turn
+  .user-south-mobile-name-text.player-panel-name--premium-user {
+  position: relative !important;
+  z-index: 2 !important;
+  display: block !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+  width: max-content !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  font-family: 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 550 !important;
+  font-style: normal !important;
+  font-stretch: 75% !important;
+  font-variation-settings: 'wdth' 75 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.1 !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  background-image: linear-gradient(
+    110deg,
+    #ecfeff 0%,
+    #67e8f9 14%,
+    #38bdf8 28%,
+    #a78bfa 44%,
+    #e879f9 60%,
+    #fbbf24 76%,
+    #67e8f9 90%,
+    #ecfeff 100%
+  ) !important;
+  background-size: 240% 100% !important;
+  /* без !important: иначе keyframes не двигают background-position */
+  background-position: 0% 50%;
+  background-repeat: no-repeat !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  filter: drop-shadow(0 1px 0 rgb(12 4 28 / 55%)) !important;
+  animation: south-name-iridescent 3.8s ease-in-out infinite !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+/* Торги: базовый кегль имени +1px (портрет) */
+html body .game-table-root.viewport-mobile.game-phase-bidding
+  .user-south-mobile-name-text,
+html body .game-table-root.viewport-mobile.game-phase-bidding
+  .user-south-mobile-name-text.player-panel-name--premium-user,
+html body .game-table-root.viewport-mobile.game-phase-bidding
+  .player-info-panel-your-turn
+  .user-south-mobile-name-text.player-panel-name--premium-user {
+  font-size: 16px !important;
+}
+
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-plaque--truncated {
+  cursor: pointer !important;
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-plaque--truncated
+  .user-south-mobile-name-text {
+  filter:
+    drop-shadow(0 1px 0 rgb(12 4 28 / 80%))
+    drop-shadow(0 0 6px rgb(103 232 249 / 45%))
+    drop-shadow(0 0 12px rgb(232 121 249 / 32%)) !important;
+}
+
+/*
+ * При прокрутке: непрозрачный цвет (не background-clip — иначе пустой хвост).
+ * !important на color бьёт premium transparent из index.css; перелив — hue-rotate.
+ */
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-plaque--revealing
+  .user-south-mobile-name-text,
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-plaque--revealing
+  .user-south-mobile-name-text.player-panel-name--premium-user,
+html body .game-table-root.viewport-mobile
+  .player-info-panel-your-turn
+  .user-south-mobile-name-plaque--revealing
+  .user-south-mobile-name-text,
+html body .game-table-root.viewport-mobile
+  .player-info-panel-your-turn
+  .user-south-mobile-name-plaque--revealing
+  .user-south-mobile-name-text.player-panel-name--premium-user {
+  color: #67e8f9 !important;
+  -webkit-text-fill-color: #67e8f9 !important;
+  background: none !important;
+  background-image: none !important;
+  background-size: auto !important;
+  background-position: 0 0 !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  text-shadow: none !important;
+  filter:
+    drop-shadow(0 1px 0 rgb(12 4 28 / 55%))
+    drop-shadow(0 0 6px rgb(103 232 249 / 45%))
+    drop-shadow(0 0 10px rgb(232 121 249 / 30%))
+    hue-rotate(0deg) !important;
+  animation: south-name-reveal-hue 3.2s ease-in-out infinite !important;
+}
+
+@keyframes south-name-reveal-hue {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 1px 0 rgb(12 4 28 / 55%))
+      drop-shadow(0 0 6px rgb(103 232 249 / 45%))
+      drop-shadow(0 0 10px rgb(232 121 249 / 30%))
+      hue-rotate(0deg);
+  }
+  33% {
+    filter:
+      drop-shadow(0 1px 0 rgb(12 4 28 / 55%))
+      drop-shadow(0 0 6px rgb(167 139 250 / 45%))
+      drop-shadow(0 0 10px rgb(56 189 248 / 28%))
+      hue-rotate(55deg);
+  }
+  66% {
+    filter:
+      drop-shadow(0 1px 0 rgb(12 4 28 / 55%))
+      drop-shadow(0 0 6px rgb(232 121 249 / 45%))
+      drop-shadow(0 0 10px rgb(251 191 36 / 28%))
+      hue-rotate(115deg);
+  }
+}
+
+/*
+ * Тап по truncated имени: неон плашки (как --reveal-tap-chrome у оппонентов).
+ * Автопрокрутка класс --tap-chrome не получает.
+ */
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-plaque--revealing.user-south-mobile-name-plaque--tap-chrome {
+  background: #285aa3a1 !important;
+  box-shadow:
+    0 0 0 1px rgb(60 21 191 / 87%),
+    0 0 10px rgb(129 140 248 / 80%),
+    0 0 16px rgb(149 59 220 / 46%),
+    inset 0 1px 0 rgb(54 148 205 / 49%),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 18px rgba(56, 189, 248, 0.08) !important;
+}
+
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-plaque--revealing.user-south-mobile-name-plaque--tap-chrome
+  .user-south-mobile-name-text,
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-plaque--revealing.user-south-mobile-name-plaque--tap-chrome
+  .user-south-mobile-name-text.player-panel-name--premium-user,
+html body .game-table-root.viewport-mobile
+  .player-info-panel-your-turn
+  .user-south-mobile-name-plaque--revealing.user-south-mobile-name-plaque--tap-chrome
+  .user-south-mobile-name-text.player-panel-name--premium-user {
+  /* Solid fill — иначе background-clip снова прячет хвост при scroll */
+  color: #c4b5fd !important;
+  -webkit-text-fill-color: #c4b5fd !important;
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  filter:
+    drop-shadow(0 1px 0 rgb(12 4 28 / 55%))
+    drop-shadow(0 0 8px rgb(129 140 248 / 70%))
+    drop-shadow(0 0 12px rgb(217 70 239 / 45%)) !important;
+  animation: south-name-tap-chroma 2.4s ease-in-out infinite !important;
+}
+
+@keyframes south-name-tap-chroma {
+  0%,
+  100% {
+    color: #c4b5fd;
+    -webkit-text-fill-color: #c4b5fd;
+  }
+  33% {
+    color: #4bd6e3;
+    -webkit-text-fill-color: #4bd6e3;
+  }
+  66% {
+    color: #d75ce6;
+    -webkit-text-fill-color: #d75ce6;
+  }
+}
+
+html body .game-table-root.viewport-mobile .user-south-mobile-name-trunc-chrome {
+  position: absolute !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  z-index: 6 !important;
+  width: 34px !important;
+  pointer-events: none !important;
+  display: block !important;
+  overflow: hidden !important;
+  border-radius: 0 9px 9px 0 !important;
+}
+
+html body .game-table-root.viewport-mobile .user-south-mobile-name-trunc-fade {
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: inherit !important;
+  background:
+    radial-gradient(1.1px 1.1px at 72% 28%, rgb(236 254 255 / 0.95), transparent 70%),
+    radial-gradient(1px 1px at 86% 62%, rgb(251 191 36 / 0.9), transparent 70%),
+    radial-gradient(1.2px 1.2px at 64% 74%, rgb(232 121 249 / 0.85), transparent 70%),
+    radial-gradient(0.9px 0.9px at 90% 38%, rgb(167 139 250 / 0.95), transparent 70%),
+    radial-gradient(1px 1px at 78% 88%, rgb(103 232 249 / 0.8), transparent 70%),
+    linear-gradient(
+      90deg,
+      rgb(48 20 78 / 0) 0%,
+      rgb(56 24 96 / 0.28) 34%,
+      rgb(42 16 78 / 0.72) 62%,
+      rgb(28 10 58 / 0.9) 100%
+    ) !important;
+  /* без жёсткого inset -4px — давал полоску рядом со «звёздами» */
+  box-shadow: inset -10px 0 16px rgb(88 28 135 / 22%) !important;
+  animation: south-name-trunc-stars 3.8s ease-in-out infinite !important;
+}
+
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-plaque--revealing
+  .user-south-mobile-name-trunc-chrome {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Landscape: одна строка, уже clamp (132px), кегль из inline / адаптив */
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-plaque--landscape {
+  max-width: min(132px, 100%) !important;
+  width: auto !important;
+  align-items: center !important;
+  overflow: hidden !important;
+  padding: 0 5px 0 !important;
+  border-radius: 8px !important;
+  transform: translateY(7px) !important;
+}
+
+/* Landscape: fade только в покое; при прокрутке полностью убираем */
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-plaque--landscape
+  .user-south-mobile-name-trunc-chrome {
+  width: 14px !important;
+}
+
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-plaque--landscape.user-south-mobile-name-plaque--revealing
+  .user-south-mobile-name-trunc-chrome {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-text--landscape,
+html body .game-table-root.viewport-mobile
+  .user-south-mobile-name-text--landscape.player-panel-name--premium-user {
+  font-size: var(--south-ls-name-font, 14px) !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+/* Торги · landscape: +1px к адаптивному кеглю */
+html body .game-table-root.viewport-mobile.game-phase-bidding
+  .user-south-mobile-name-plaque--landscape
+  .user-south-mobile-name-text--landscape {
+  font-size: calc(var(--south-ls-name-font, 14px) + 1px) !important;
+}
+
+/* Торги · Юг: рядом с именем — только лампа «сдающий» (без слова) */
+html body .game-table-root.viewport-mobile
+  .user-player-panel
+  .dealer-badge-lamp-only {
+  gap: 0 !important;
+  padding: 3px 6px !important;
+  min-width: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body .game-table-root.viewport-mobile .user-south-mobile-name-plaque::before,
+  html body .game-table-root.viewport-mobile .user-south-mobile-name-text,
+  html body .game-table-root.viewport-mobile .user-south-mobile-name-trunc-fade {
+    animation: none !important;
+  }
+
+  html body .game-table-root.viewport-mobile
+    .user-south-mobile-name-plaque--revealing
+    .user-south-mobile-name-text {
+    color: #67e8f9 !important;
+    -webkit-text-fill-color: #67e8f9 !important;
+    animation: none !important;
+    filter: drop-shadow(0 1px 0 rgb(12 4 28 / 55%)) !important;
+  }
 }

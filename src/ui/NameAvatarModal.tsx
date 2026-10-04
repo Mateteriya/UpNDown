@@ -22,6 +22,7 @@ import {
 import { PlayerAvatar } from './PlayerAvatar';
 import { AvatarNeonColorPicker } from './AvatarNeonColorPicker';
 import { AvatarEditorModal } from './AvatarEditorModal';
+import { useAuth } from '../contexts/AuthContext';
 import { useT } from '../i18n';
 import '../styles/name-avatar-modal.css';
 
@@ -29,9 +30,6 @@ export const MAX_DISPLAY_NAME_LENGTH = 17;
 const MAX_NAME_LENGTH = MAX_DISPLAY_NAME_LENGTH;
 const MAX_IMAGE_SIZE_BYTES = MAX_AVATAR_IMAGE_SIZE_BYTES;
 const DEFAULT_AVATAR_BG = '#1a0033';
-const PREVIEW_SCALE_MIN = 1;
-const PREVIEW_SCALE_MAX = 2.6;
-const PREVIEW_SCALE_STEP = 0.25;
 
 export interface NameAvatarModalProps {
   initialDisplayName?: string;
@@ -63,6 +61,7 @@ export function NameAvatarModal({
   onPhotoCaptured,
 }: NameAvatarModalProps) {
   const t = useT();
+  const { user } = useAuth();
   const heading = title ?? t('nameAvatar.title');
   const saveLabel = confirmLabel ?? t('nameAvatar.save');
   const [displayName, setDisplayName] = useState(initialDisplayName.trim() || '');
@@ -77,8 +76,6 @@ export function NameAvatarModal({
   const [inputFocused, setInputFocused] = useState(false);
   const [selfieBusy, setSelfieBusy] = useState(false);
   const [inPageCameraOpen, setInPageCameraOpen] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewScale, setPreviewScale] = useState(1.35);
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -164,17 +161,6 @@ export function NameAvatarModal({
       cameraStreamRef.current = null;
     };
   }, []);
-
-  useEffect(() => {
-    if (!previewOpen && !avatarEditorOpen) return undefined;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (avatarEditorOpen) return;
-      if (previewOpen) setPreviewOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [previewOpen, avatarEditorOpen]);
 
   const allowBackdropCloseRef = useRef(false);
   const backdropPointerDownRef = useRef(false);
@@ -269,15 +255,8 @@ export function NameAvatarModal({
     if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
-  const openPreview = () => {
-    stopInPageCamera();
-    setPreviewScale(1.35);
-    setPreviewOpen(true);
-  };
-
   const openEditor = () => {
     stopInPageCamera();
-    setPreviewOpen(false);
     setAvatarEditorOpen(true);
   };
 
@@ -316,23 +295,17 @@ export function NameAvatarModal({
           <form className="name-avatar-modal__form" onSubmit={handleSubmit}>
             <div className="name-avatar-modal__identity">
               <div className="name-avatar-modal__avatar-col">
-                <button
-                  type="button"
-                  className="name-avatar-modal__avatar-hit"
-                  onClick={openPreview}
-                  title={t('nameAvatar.zoomAvatar')}
-                  aria-label={t('nameAvatar.zoomAvatar')}
-                >
+                <div className="name-avatar-modal__avatar-preview">
                   <span className="name-avatar-modal__avatar-ring">
                     <PlayerAvatar
                       name={displayName || '?'}
                       avatarDataUrl={avatarDataUrl}
                       avatarBgColor={avatarBgColor}
                       sizePx={112}
+                      nameBadge={Boolean(user?.id)}
                     />
                   </span>
-                  <span className="name-avatar-modal__avatar-zoom-hint">{t('nameAvatar.zoomHint')}</span>
-                </button>
+                </div>
                 {!avatarDataUrl ? (
                   <div className="name-avatar-modal__bg-palette" aria-label={t('nameAvatar.bgColor')}>
                     <AvatarNeonColorPicker
@@ -344,9 +317,7 @@ export function NameAvatarModal({
                       className="name-avatar-modal__color-picker"
                     />
                   </div>
-                ) : (
-                  <p className="name-avatar-modal__bg-note">{t('nameAvatar.bgNote')}</p>
-                )}
+                ) : null}
               </div>
               <div className="name-avatar-modal__name-block">
                 <div className="name-avatar-modal__name-meta">
@@ -477,69 +448,6 @@ export function NameAvatarModal({
           </form>
         </div>
       </div>
-
-      {previewOpen ? (
-        <div
-          className="name-avatar-modal__preview"
-          role="dialog"
-          aria-modal="true"
-          aria-label={t('nameAvatar.previewAria')}
-          onClick={() => setPreviewOpen(false)}
-        >
-          <div className="name-avatar-modal__preview-card" onClick={(e) => e.stopPropagation()}>
-            <div className="name-avatar-modal__preview-stage">
-              <div
-                className="name-avatar-modal__preview-zoom"
-                style={{ transform: `scale(${previewScale})` }}
-              >
-                <PlayerAvatar
-                  name={displayName || '?'}
-                  avatarDataUrl={avatarDataUrl}
-                  avatarBgColor={avatarBgColor}
-                  sizePx={260}
-                />
-              </div>
-            </div>
-            <div className="name-avatar-modal__preview-controls">
-              <button
-                type="button"
-                className="name-avatar-modal__chip name-avatar-modal__chip--gallery"
-                onClick={() =>
-                  setPreviewScale((s) => Math.max(PREVIEW_SCALE_MIN, +(s - PREVIEW_SCALE_STEP).toFixed(2)))
-                }
-                aria-label={t('nameAvatar.zoomOut')}
-              >
-                −
-              </button>
-              <span className="name-avatar-modal__preview-scale">{Math.round(previewScale * 100)}%</span>
-              <button
-                type="button"
-                className="name-avatar-modal__chip name-avatar-modal__chip--gallery"
-                onClick={() =>
-                  setPreviewScale((s) => Math.min(PREVIEW_SCALE_MAX, +(s + PREVIEW_SCALE_STEP).toFixed(2)))
-                }
-                aria-label={t('nameAvatar.zoomIn')}
-              >
-                +
-              </button>
-              <button
-                type="button"
-                className="name-avatar-modal__chip name-avatar-modal__chip--editor"
-                onClick={openEditor}
-              >
-                {t('nameAvatar.editorShort')}
-              </button>
-              <button
-                type="button"
-                className="name-avatar-modal__chip name-avatar-modal__chip--remove"
-                onClick={() => setPreviewOpen(false)}
-              >
-                {t('common.close')}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {avatarEditorOpen ? (
         <AvatarEditorModal

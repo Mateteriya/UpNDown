@@ -8,6 +8,9 @@ export interface PlayerSlot {
   slotIndex: number;
   avatarDataUrl?: string | null;
   shortLabel?: string | null;
+  /** Premium name plaque under avatar (synced to opponents). */
+  nameBadgeEnabled?: boolean | null;
+  nameBadgeText?: string | null;
   absent?: boolean | null;
   deviceId?: string | null;
   replacedUserId?: string | null;
@@ -54,6 +57,8 @@ export interface ClientMessage {
   displayName?: string;
   shortLabel?: string | null;
   avatarDataUrl?: string | null;
+  nameBadgeEnabled?: boolean | null;
+  nameBadgeText?: string | null;
   settlementMode?: string;
   buyIn?: number | null;
   roomKind?: string;
