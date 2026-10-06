@@ -5,6 +5,7 @@ import {
   getAudioSettings,
   patchAudioSettings,
   playPreviewSound,
+  previewTableMusicBed,
   setAudioSettings,
   startVolumePreview,
   stopAllSounds,
@@ -87,7 +88,7 @@ export function AudioSettingsMixer({
     setLocal(next);
   };
 
-  const toggleChannel = (ch: LiveAudioChannel, on: boolean) => {
+  const toggleChannel = (ch: AudioChannel, on: boolean) => {
     stopVolumePreview();
     apply(patchAudioSettings(settings, { muted: { [ch]: !on } }));
   };
@@ -138,35 +139,48 @@ export function AudioSettingsMixer({
         ) : null}
       </div>
 
-      <label className="audio-settings__master">
+      <div
+        className={[
+          'audio-settings__master',
+          settings.enabled ? 'audio-settings__master--on' : 'audio-settings__master--off',
+        ].join(' ')}
+      >
+        <span className="audio-settings__master-dot" aria-hidden="true" />
         <span className="audio-settings__master-copy">
           <span className="audio-settings__kicker">{t('audio.ether')}</span>
-          {t('audio.allSounds')}
+          <span className="audio-settings__master-title">{t('audio.allSounds')}</span>
         </span>
-        <span className="audio-settings__switch-wrap">
-          <input
-            type="checkbox"
-            className="audio-settings__switch-input"
-            checked={settings.enabled}
-            onChange={(e) => apply(patchAudioSettings(settings, { enabled: e.target.checked }))}
-          />
-          <span className="audio-settings__switch" aria-hidden />
-        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={settings.enabled}
+          className={['audio-settings__tog', 'audio-settings__tog--master', settings.enabled ? 'is-on' : '']
+            .filter(Boolean)
+            .join(' ')}
+          aria-label={t('audio.allSounds')}
+          onClick={() => apply(patchAudioSettings(settings, { enabled: !settings.enabled }))}
+        >
+          <span className="audio-settings__tog-glow" aria-hidden="true" />
+          <span className="audio-settings__tog-knob" aria-hidden="true" />
+        </button>
+      </div>
+      <label className="audio-settings__vol-block">
+        <span className="audio-settings__vol-cap">{t('audio.masterVolume')}</span>
+        <input
+          type="range"
+          className="audio-settings__master-vol audio-settings__range"
+          min={0}
+          max={100}
+          value={Math.round(settings.masterVolume * 100)}
+          disabled={!settings.enabled}
+          aria-label={t('audio.masterVolume')}
+          onPointerDown={hearMaster}
+          onChange={(e) => {
+            apply(patchAudioSettings(settings, { masterVolume: Number(e.target.value) / 100 }));
+            hearMaster();
+          }}
+        />
       </label>
-      <input
-        type="range"
-        className="audio-settings__master-vol audio-settings__range"
-        min={0}
-        max={100}
-        value={Math.round(settings.masterVolume * 100)}
-        disabled={!settings.enabled}
-        aria-label={t('audio.masterVolume')}
-        onPointerDown={hearMaster}
-        onChange={(e) => {
-          apply(patchAudioSettings(settings, { masterVolume: Number(e.target.value) / 100 }));
-          hearMaster();
-        }}
-      />
 
       <p className="audio-settings__section">{t('audio.whatPlays')}</p>
       <div className="audio-settings-checks" role="group" aria-label={t('audio.channels')}>
@@ -177,37 +191,18 @@ export function AudioSettingsMixer({
           const on = !settings.muted[ch];
           const live = settings.enabled && on;
           return (
-            <label
+            <div
               key={ch}
               className={[
                 'audio-settings-row',
+                `audio-settings-row--${ch}`,
                 on ? 'audio-settings-row--on' : '',
                 !settings.enabled ? 'audio-settings-row--disabled' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
             >
-              <span className="audio-settings-check">
-                <input
-                  type="checkbox"
-                  className="audio-settings-check__input"
-                  checked={on}
-                  disabled={!settings.enabled}
-                  aria-label={label}
-                  onChange={(e) => toggleChannel(ch, e.target.checked)}
-                />
-                <span className="audio-settings-check__box" aria-hidden>
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M3.2 8.4l3.1 3.2 6.5-7.2"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-              </span>
+              <span className="audio-settings-row__dot" aria-hidden="true" />
               <span className="audio-settings-row__copy">
                 <span className="audio-settings-row__name">{label}</span>
                 <span className="audio-settings-row__hint">{hint}</span>
@@ -217,35 +212,108 @@ export function AudioSettingsMixer({
                 className="audio-settings__test"
                 disabled={!live}
                 title={t('audio.preview', { name: label })}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
+                aria-label={t('audio.preview', { name: label })}
+                onClick={() => {
                   unlockAudio();
                   playPreviewSound(CHANNEL_TEST[ch], { channel: ch });
                 }}
               >
-                ▶
+                <span className="audio-settings__test-orb" aria-hidden="true">
+                  <i />
+                  <i />
+                </span>
               </button>
-            </label>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={on}
+                disabled={!settings.enabled}
+                className={['audio-settings__tog', on ? 'is-on' : ''].filter(Boolean).join(' ')}
+                aria-label={label}
+                onClick={() => toggleChannel(ch, !on)}
+              >
+                <span className="audio-settings__tog-glow" aria-hidden="true" />
+                <span className="audio-settings__tog-knob" aria-hidden="true" />
+              </button>
+            </div>
           );
         })}
-        <div className="audio-settings-row audio-settings-row--soon" title={t('audio.musicHint')}>
-          <span className="audio-settings-row__copy">
-            <span className="audio-settings-row__name">{t('audio.musicLabel')}</span>
-            <span className="audio-settings-row__hint">{t('audio.musicHint')}</span>
-          </span>
-          <span className="audio-settings-chip__soon">{t('audio.soon')}</span>
-        </div>
+        {(() => {
+          const musicOn = !settings.muted.music;
+          const musicLive = settings.enabled && musicOn;
+          return (
+            <div
+              className={[
+                'audio-settings-row',
+                'audio-settings-row--music',
+                musicOn ? 'audio-settings-row--on' : '',
+                !settings.enabled ? 'audio-settings-row--disabled' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <span className="audio-settings-row__dot" aria-hidden="true" />
+              <span className="audio-settings-row__copy">
+                <span className="audio-settings-row__name">{t('audio.musicLabel')}</span>
+                <span className="audio-settings-row__hint">{t('audio.musicHint')}</span>
+              </span>
+              <button
+                type="button"
+                className="audio-settings__test"
+                disabled={!musicLive}
+                title={t('audio.preview', { name: t('audio.musicLabel') })}
+                aria-label={t('audio.preview', { name: t('audio.musicLabel') })}
+                onClick={() => {
+                  unlockAudio();
+                  previewTableMusicBed(1800);
+                }}
+              >
+                <span className="audio-settings__test-orb" aria-hidden="true">
+                  <i />
+                  <i />
+                </span>
+              </button>
+              <button
+                type="button"
+                className="audio-settings__change"
+                disabled
+                title={t('audio.musicChangeHint')}
+                aria-label={t('audio.musicChange')}
+              >
+                <span className="audio-settings__change-label">{t('audio.musicChange')}</span>
+                <span className="audio-settings-chip__soon">{t('audio.soon')}</span>
+              </button>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={musicOn}
+                disabled={!settings.enabled}
+                className={['audio-settings__tog', musicOn ? 'is-on' : ''].filter(Boolean).join(' ')}
+                aria-label={t('audio.musicLabel')}
+                onClick={() => toggleChannel('music', !musicOn)}
+              >
+                <span className="audio-settings__tog-glow" aria-hidden="true" />
+                <span className="audio-settings__tog-knob" aria-hidden="true" />
+              </button>
+            </div>
+          );
+        })()}
       </div>
 
       <details className="audio-settings__more">
-        <summary>{t('audio.channelVolume')}</summary>
+        <summary>
+          <span className="audio-settings__more-orb" aria-hidden="true">
+            <i />
+            <i />
+          </span>
+          {t('audio.channelVolume')}
+        </summary>
         <div className="audio-settings__vols">
           {LIVE_AUDIO_CHANNELS.map((ch) => {
             const label = t(CHANNEL_I18N[ch].label);
             return (
-              <label key={ch} className="audio-settings__vol-row">
-                <span>{label}</span>
+              <label key={ch} className={`audio-settings__vol-row audio-settings__vol-row--${ch}`}>
+                <span className="audio-settings__vol-name">{label}</span>
                 <input
                   type="range"
                   min={0}
@@ -267,6 +335,28 @@ export function AudioSettingsMixer({
               </label>
             );
           })}
+          <label className="audio-settings__vol-row audio-settings__vol-row--music">
+            <span className="audio-settings__vol-name">{t('audio.musicLabel')}</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(settings.volume.music * 100)}
+              disabled={!settings.enabled || settings.muted.music}
+              className="audio-settings__range"
+              aria-label={t('audio.volumeOf', { name: t('audio.musicLabel') })}
+              onPointerDown={() => {
+                if (!settings.muted.music) previewTableMusicBed(900);
+              }}
+              onChange={(e) => {
+                apply(
+                  patchAudioSettings(settings, {
+                    volume: { music: Number(e.target.value) / 100 },
+                  }),
+                );
+              }}
+            />
+          </label>
         </div>
       </details>
     </div>

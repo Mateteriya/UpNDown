@@ -6,6 +6,7 @@
 
 import type { GameState } from './GameEngine';
 import { offlineAiDifficultyForNewBotId } from './aiSettings';
+import { type SkillCounters, emptySkillCounters } from './playerSkillStats';
 
 export const GAME_STATE_STORAGE_KEY = 'updown_game_state';
 
@@ -61,42 +62,87 @@ export function hasSavedGame(): boolean {
   return loadGameStateFromStorage() !== null;
 }
 
-/** Локальный рейтинг игрока (игр сыграно, побед) — привязан к profileId */
+/** Локальный рейтинг игрока (игр сыграно, побед, skill) — привязан к profileId */
 const LOCAL_RATING_KEY_PREFIX = 'updown_rating_';
 const LEGACY_RATING_STORAGE_KEY = 'updown_local_rating';
 
-export interface LocalRating {
+export interface LocalRating extends SkillCounters {
   gamesPlayed: number;
   wins: number;
   bidAccuracySum: number;
   bidAccuracyCount: number;
+  /** Версия skill-backfill; 0 = ещё не заливали из архива */
+  skillVersion: number;
+}
+
+export type LocalRatingMatchSkill = {
+  /** Точность партии 0..100 (для среднего по партиям) */
+  bidAccuracyPct: number;
+  /** Были ли раздачи с известным taken (тогда pct учитываем даже при 0%) */
+  hasDealSkill: boolean;
+  exact: number;
+  under: number;
+  over: number;
+  /** Исходы раздач по порядку — для серий */
+  outcomes: readonly ('exact' | 'under' | 'over')[];
+  place?: number;
+};
+
+function emptyLocalRating(): LocalRating {
+  return {
+    gamesPlayed: 0,
+    wins: 0,
+    bidAccuracySum: 0,
+    bidAccuracyCount: 0,
+    ...emptySkillCounters(),
+    skillVersion: 0,
+  };
 }
 
 function getRatingKey(profileId: string): string {
   return LOCAL_RATING_KEY_PREFIX + profileId;
 }
 
+function nonNegInt(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
+}
+
 function parseRating(raw: string | null): LocalRating {
-  const empty: LocalRating = { gamesPlayed: 0, wins: 0, bidAccuracySum: 0, bidAccuracyCount: 0 };
+  const empty = emptyLocalRating();
   if (!raw) return empty;
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return empty;
     const r = parsed as Record<string, unknown>;
-    const gamesPlayed = typeof r.gamesPlayed === 'number' && r.gamesPlayed >= 0 ? r.gamesPlayed : 0;
-    const wins = typeof r.wins === 'number' && r.wins >= 0 ? r.wins : 0;
-    const bidAccuracySum = typeof r.bidAccuracySum === 'number' && r.bidAccuracySum >= 0 ? r.bidAccuracySum : 0;
-    const bidAccuracyCount = typeof r.bidAccuracyCount === 'number' && r.bidAccuracyCount >= 0 ? r.bidAccuracyCount : 0;
-    return { gamesPlayed, wins: Math.min(wins, gamesPlayed), bidAccuracySum, bidAccuracyCount };
+    const gamesPlayed = nonNegInt(r.gamesPlayed);
+    const wins = Math.min(nonNegInt(r.wins), gamesPlayed);
+    return {
+      gamesPlayed,
+      wins,
+      bidAccuracySum: nonNegInt(r.bidAccuracySum),
+      bidAccuracyCount: nonNegInt(r.bidAccuracyCount),
+      exactDeals: nonNegInt(r.exactDeals),
+      underDeals: nonNegInt(r.underDeals),
+      overDeals: nonNegInt(r.overDeals),
+      placeSum: nonNegInt(r.placeSum),
+      placeCount: nonNegInt(r.placeCount),
+      bestExactStreak: nonNegInt(r.bestExactStreak),
+      currentExactStreak: nonNegInt(r.currentExactStreak),
+      skillVersion: nonNegInt(r.skillVersion),
+    };
   } catch {
     return empty;
   }
 }
 
+function writeRating(key: string, rating: LocalRating): void {
+  localStorage.setItem(key, JSON.stringify(rating));
+}
+
 /** Рейтинг текущего профиля; при первом вызове с profileId мигрирует данные со старого ключа (устройство) */
 export function getLocalRating(profileId?: string): LocalRating {
   try {
-    if (typeof localStorage === 'undefined') return { gamesPlayed: 0, wins: 0, bidAccuracySum: 0, bidAccuracyCount: 0 };
+    if (typeof localStorage === 'undefined') return emptyLocalRating();
     const pid = profileId ?? getPlayerProfile().profileId ?? '';
     if (pid) {
       const key = getRatingKey(pid);
@@ -104,34 +150,114 @@ export function getLocalRating(profileId?: string): LocalRating {
       if (rating.gamesPlayed === 0 && rating.wins === 0) {
         const legacy = parseRating(localStorage.getItem(LEGACY_RATING_STORAGE_KEY));
         if (legacy.gamesPlayed > 0 || legacy.wins > 0) {
-          const migrated: LocalRating = { ...legacy, bidAccuracySum: legacy.bidAccuracySum ?? 0, bidAccuracyCount: legacy.bidAccuracyCount ?? 0 };
-          localStorage.setItem(key, JSON.stringify(migrated));
+          writeRating(key, legacy);
           localStorage.removeItem(LEGACY_RATING_STORAGE_KEY);
-          return migrated;
+          return legacy;
         }
       }
       return rating;
     }
     return parseRating(localStorage.getItem(LEGACY_RATING_STORAGE_KEY));
   } catch {
-    return { gamesPlayed: 0, wins: 0, bidAccuracySum: 0, bidAccuracyCount: 0 };
+    return emptyLocalRating();
   }
 }
 
-export function updateLocalRating(won: boolean, profileId?: string, bidAccuracy?: number): void {
+export type LocalRatingBasicsPatch = Partial<
+  Pick<LocalRating, 'gamesPlayed' | 'wins' | 'bidAccuracySum' | 'bidAccuracyCount'>
+>;
+
+/** Записать skill-counters (backfill). basics — только если gamesPlayed ещё 0. */
+export function replaceLocalSkillCounters(
+  counters: SkillCounters,
+  skillVersion: number,
+  profileId?: string,
+  basics?: LocalRatingBasicsPatch,
+): void {
   try {
     if (typeof localStorage === 'undefined') return;
     const pid = profileId ?? getPlayerProfile().profileId ?? '';
     const key = pid ? getRatingKey(pid) : LEGACY_RATING_STORAGE_KEY;
     const prev = pid ? getLocalRating(pid) : parseRating(localStorage.getItem(LEGACY_RATING_STORAGE_KEY));
-    const acc = typeof bidAccuracy === 'number' && bidAccuracy >= 0 && bidAccuracy <= 100 ? bidAccuracy : 0;
+    const next: LocalRating = {
+      ...prev,
+      ...counters,
+      skillVersion,
+    };
+    if (basics && prev.gamesPlayed === 0) {
+      if (typeof basics.gamesPlayed === 'number') next.gamesPlayed = basics.gamesPlayed;
+      if (typeof basics.wins === 'number') next.wins = Math.min(basics.wins, next.gamesPlayed);
+      if (typeof basics.bidAccuracySum === 'number') next.bidAccuracySum = basics.bidAccuracySum;
+      if (typeof basics.bidAccuracyCount === 'number') next.bidAccuracyCount = basics.bidAccuracyCount;
+    }
+    writeRating(key, next);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function updateLocalRating(
+  won: boolean,
+  profileId?: string,
+  bidAccuracyOrSkill?: number | LocalRatingMatchSkill,
+): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const pid = profileId ?? getPlayerProfile().profileId ?? '';
+    const key = pid ? getRatingKey(pid) : LEGACY_RATING_STORAGE_KEY;
+    const prev = pid ? getLocalRating(pid) : parseRating(localStorage.getItem(LEGACY_RATING_STORAGE_KEY));
+
+    let acc = 0;
+    let countAcc = false;
+    let exactAdd = 0;
+    let underAdd = 0;
+    let overAdd = 0;
+    let outcomes: readonly ('exact' | 'under' | 'over')[] = [];
+    let place: number | undefined;
+
+    if (typeof bidAccuracyOrSkill === 'number') {
+      acc = bidAccuracyOrSkill >= 0 && bidAccuracyOrSkill <= 100 ? bidAccuracyOrSkill : 0;
+      countAcc = true;
+    } else if (bidAccuracyOrSkill && typeof bidAccuracyOrSkill === 'object') {
+      const s = bidAccuracyOrSkill;
+      acc = s.bidAccuracyPct >= 0 && s.bidAccuracyPct <= 100 ? s.bidAccuracyPct : 0;
+      countAcc = s.hasDealSkill;
+      exactAdd = s.exact;
+      underAdd = s.under;
+      overAdd = s.over;
+      outcomes = s.outcomes ?? [];
+      place = s.place;
+    }
+
+    let currentExactStreak = prev.currentExactStreak;
+    let bestExactStreak = prev.bestExactStreak;
+    if (outcomes.length > 0) {
+      for (const o of outcomes) {
+        if (o === 'exact') {
+          currentExactStreak++;
+          if (currentExactStreak > bestExactStreak) bestExactStreak = currentExactStreak;
+        } else {
+          currentExactStreak = 0;
+        }
+      }
+    }
+
     const next: LocalRating = {
       gamesPlayed: prev.gamesPlayed + 1,
       wins: prev.wins + (won ? 1 : 0),
-      bidAccuracySum: prev.bidAccuracySum + acc,
-      bidAccuracyCount: prev.bidAccuracyCount + (acc > 0 ? 1 : 0),
+      bidAccuracySum: prev.bidAccuracySum + (countAcc ? acc : 0),
+      bidAccuracyCount: prev.bidAccuracyCount + (countAcc ? 1 : 0),
+      exactDeals: prev.exactDeals + exactAdd,
+      underDeals: prev.underDeals + underAdd,
+      overDeals: prev.overDeals + overAdd,
+      placeSum: prev.placeSum + (typeof place === 'number' && place >= 1 ? place : 0),
+      placeCount: prev.placeCount + (typeof place === 'number' && place >= 1 ? 1 : 0),
+      bestExactStreak,
+      currentExactStreak,
+      // skillVersion поднимает только ensureLocalSkillBackfill
+      skillVersion: prev.skillVersion,
     };
-    localStorage.setItem(key, JSON.stringify(next));
+    writeRating(key, next);
   } catch {
     /* ignore */
   }

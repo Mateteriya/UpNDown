@@ -657,11 +657,46 @@
   -webkit-text-fill-color: transparent;
 }
 
-.lk-archive__list-toggle-chev {
-  color: #67e8f9;
-  font-size: 1.15rem;
-  line-height: 1;
-  text-shadow: 0 0 10px rgba(103, 232, 249, 0.55);
+.lk-archive__list-toggle-orb {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.75), transparent 28%),
+    radial-gradient(circle at 50% 55%, #67e8f9, rgba(12, 8, 32, 0.9) 70%);
+  box-shadow:
+    0 0 0 1px rgba(103, 232, 249, 0.45),
+    0 0 12px rgba(34, 211, 238, 0.35);
+}
+
+.lk-archive__list-toggle-orb i {
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px #67e8f9;
+}
+
+.lk-archive__list-toggle-orb i:nth-child(1) {
+  width: 4px;
+  height: 4px;
+  top: -1px;
+  right: 2px;
+}
+
+.lk-archive__list-toggle-orb i:nth-child(2) {
+  width: 2px;
+  height: 2px;
+  bottom: 2px;
+  left: 0;
+}
+
+.lk-archive__list-toggle-orb i:nth-child(3) {
+  width: 3px;
+  height: 3px;
+  top: 40%;
+  right: -3px;
 }
 
 /* Mobile-only: collapsible list (default collapsed) */

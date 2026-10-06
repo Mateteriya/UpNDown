@@ -23,7 +23,8 @@ const PARTY_HISTORY_KEY_PREFIX = 'updown_party_history_';
 /** Журнал последних партий на устройстве (не рейтинг). ~50 партий/день × 30 дней. */
 export const PARTY_HISTORY_MAX_STORED = 1500;
 /** Старше — удаляем при записи. */
-export const PARTY_HISTORY_RETENTION_DAYS = 90;
+/** Локальный архив: дольше держим — офлайн-тесты не должны «исчезать» через квартал. */
+export const PARTY_HISTORY_RETENTION_DAYS = 400;
 
 export interface PartyHistoryPlayerRow {
   name: string;

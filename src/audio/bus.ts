@@ -417,7 +417,101 @@ export function setAudioSettings(next: AudioSettings): void {
   saveAudioSettings(next);
   ensureGraph();
   applyGains();
+  syncTableMusicBed();
   listeners.forEach((fn) => fn(settings));
+}
+
+const MUSIC_BASE = '/audio/music';
+const MUSIC_VER = '1';
+/** Петля между раздачами (table_bed.wav). */
+let tableMusicWanted = false;
+let tableMusicBuf: AudioBuffer | null = null;
+let tableMusicLoad: Promise<AudioBuffer | null> | null = null;
+let tableMusicVoice: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
+
+async function ensureTableMusicBuffer(c: AudioContext): Promise<AudioBuffer | null> {
+  if (tableMusicBuf) return tableMusicBuf;
+  if (tableMusicLoad) return tableMusicLoad;
+  tableMusicLoad = (async () => {
+    try {
+      const res = await fetch(`${MUSIC_BASE}/table_bed.wav?v=${MUSIC_VER}`, { cache: 'no-store' });
+      if (!res.ok) return null;
+      const raw = await res.arrayBuffer();
+      tableMusicBuf = await c.decodeAudioData(raw.slice(0));
+      return tableMusicBuf;
+    } catch {
+      return null;
+    } finally {
+      tableMusicLoad = null;
+    }
+  })();
+  return tableMusicLoad;
+}
+
+function stopTableMusicVoice(): void {
+  if (!tableMusicVoice) return;
+  stopActiveVoice(tableMusicVoice);
+  tableMusicVoice = null;
+}
+
+function syncTableMusicBed(): void {
+  const should =
+    tableMusicWanted && settings.enabled && !settings.muted.music && settings.volume.music > 0.001;
+  if (!should) {
+    stopTableMusicVoice();
+    return;
+  }
+  if (tableMusicVoice) return;
+  bindUnlock();
+  noteGesture();
+  const c = ensureGraph();
+  if (!c || !channelGain) return;
+  void resumeCtx(c)
+    .then(() => ensureTableMusicBuffer(c))
+    .then((buf) => {
+      if (!buf || !channelGain) return;
+      if (
+        !tableMusicWanted ||
+        !settings.enabled ||
+        settings.muted.music ||
+        tableMusicVoice
+      ) {
+        return;
+      }
+      const voice = c.createGain();
+      voice.gain.value = 0.85;
+      voice.connect(channelGain.music);
+      const src = c.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(voice);
+      src.start();
+      tableMusicVoice = { src, gain: voice };
+    });
+}
+
+/** Играть петлю между раздачами (фаза deal-complete). */
+export function setTableMusicBedWanted(on: boolean): void {
+  tableMusicWanted = on;
+  syncTableMusicBed();
+}
+
+export function stopTableMusicBed(): void {
+  tableMusicWanted = false;
+  stopTableMusicVoice();
+}
+
+/** Короткое превью петли в микшере. */
+export function previewTableMusicBed(ms = 1600): void {
+  stopVolumePreview();
+  stopTableMusicVoice();
+  for (const id of [...activeBySlot.keys()]) stopSlot(id);
+  const prevWanted = tableMusicWanted;
+  setTableMusicBedWanted(true);
+  window.setTimeout(() => {
+    if (!prevWanted) setTableMusicBedWanted(false);
+    else syncTableMusicBed();
+  }, ms);
 }
 
 export function stopNudgeSounds(): void {
@@ -496,6 +590,7 @@ export function startVolumePreview(id: SoundId, opts?: PlayOpts): void {
 
 export function stopAllSounds(): void {
   stopVolumePreview();
+  /* table_bed не гасим — у него свой setTableMusicBedWanted / stopTableMusicBed */
   for (const id of [...activeBySlot.keys()]) stopSlot(id);
 }
 

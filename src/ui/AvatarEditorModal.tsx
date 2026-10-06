@@ -38,6 +38,7 @@ import {
 import {
   isPremiumAvatarJokerStickerEnabled,
   isPremiumAvatarNameBadgeEnabled,
+  isMilestoneCosmeticPremiumEnabled,
 } from '../lib/featureFlags';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -46,6 +47,15 @@ import {
   loadAvatarFrameImage,
   type AvatarFrameId,
 } from '../lib/avatarEditorFrames';
+import {
+  evaluateMilestones,
+  loadAchievementsStore,
+  milestoneForFrame,
+  syncAchievementsFromMilestones,
+  unlockedFrameIds,
+} from '../game/playerMilestones';
+import { peekLocalSkillView } from '../game/localSkillCache';
+import { getPlayerProfile } from '../game/persistence';
 import { bake3dPolishToBase, getAvatar3dPolishFlag, setAvatar3dPolishFlag } from '../lib/avatar3dFinish';
 import {
   avatarImageHasTransparentBadgePad,
@@ -763,6 +773,9 @@ export function AvatarEditorModal({
   const premiumJokerOk = isPremiumAvatarJokerStickerEnabled(user?.id);
   /** «Плашка снизу» — только премиум в аккаунте; локально чипа нет */
   const nameBadgeOk = isPremiumAvatarNameBadgeEnabled(user?.id);
+  const premiumCosmeticOk = isMilestoneCosmeticPremiumEnabled(user?.id);
+  const [allowedFrames, setAllowedFrames] = useState(() => new Set<AvatarFrameId>(['cosmic']));
+  const [frameLockTip, setFrameLockTip] = useState<'goal' | 'premium' | null>(null);
   const isDesktopProfileUi = useDesktopProfileUi();
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -852,6 +865,25 @@ export function AvatarEditorModal({
   const toolsLockTipTimerRef = useRef<number | null>(null);
   const savedFingerprintRef = useRef<string | null>(null);
   const savedAckTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const profileId = getPlayerProfile().profileId ?? '';
+    const view = peekLocalSkillView(profileId || undefined);
+    const statuses = evaluateMilestones({
+      bestExactStreak: view.bestExactStreak,
+      exactDeals: view.rating.exactDeals,
+      onlineWins: 0,
+      elo: null,
+      style: view.style,
+    });
+    syncAchievementsFromMilestones(statuses, profileId, {
+      premiumCosmeticEnabled: premiumCosmeticOk,
+    });
+    const persisted = loadAchievementsStore(profileId);
+    const frames = unlockedFrameIds(persisted, statuses);
+    if (!premiumCosmeticOk) frames.delete('gold');
+    setAllowedFrames(frames);
+  }, [premiumCosmeticOk, user?.id]);
 
   const ensureBuffers = useCallback(() => {
     if (!baseCanvasRef.current) {
@@ -1698,6 +1730,12 @@ export function AvatarEditorModal({
   };
 
   const applyFrame = (frameId: AvatarFrameId) => {
+    if (!allowedFrames.has(frameId)) {
+      const gate = milestoneForFrame(frameId);
+      setFrameLockTip(gate?.reward.premiumRequired ? 'premium' : 'goal');
+      return;
+    }
+    setFrameLockTip(null);
     pushUndoAll();
     /* Рамка — оверлей; не сбрасываем composite и не воскрешаем фото */
     setError(null);
@@ -3474,24 +3512,48 @@ export function AvatarEditorModal({
                   onSelectId={(id) => applyFrame(id as AvatarFrameId)}
                   aria-label={tr('avatarEditor.foldFrames')}
                 >
-                  {AVATAR_EDITOR_FRAMES.map((f) => (
-                    <AvatarEditorTipButton
-                      key={f.id}
-                      type="button"
-                      data-preset-id={f.id}
-                      role="listitem"
-                      className={[
-                        'avatar-editor-frame-btn',
-                        activeFrameId === f.id ? 'avatar-editor-frame-btn--active' : '',
-                      ].join(' ')}
-                      onClick={() => applyFrame(f.id)}
-                      tipText={frameLabel(f.id, tr)}
-                      aria-pressed={activeFrameId === f.id}
-                    >
-                      <img src={f.src} alt="" className="avatar-editor-frame-btn__img" />
-                    </AvatarEditorTipButton>
-                  ))}
+                  {AVATAR_EDITOR_FRAMES.map((f) => {
+                    const locked = !allowedFrames.has(f.id);
+                    const gate = milestoneForFrame(f.id);
+                    const tip = locked
+                      ? gate?.reward.premiumRequired
+                        ? tr('cabinet.avatarFrameLockedPremium')
+                        : tr('cabinet.avatarFrameLockedGoal')
+                      : frameLabel(f.id, tr);
+                    return (
+                      <AvatarEditorTipButton
+                        key={f.id}
+                        type="button"
+                        data-preset-id={f.id}
+                        role="listitem"
+                        className={[
+                          'avatar-editor-frame-btn',
+                          activeFrameId === f.id ? 'avatar-editor-frame-btn--active' : '',
+                          locked ? 'avatar-editor-frame-btn--locked' : '',
+                          gate?.reward.premiumRequired ? 'avatar-editor-frame-btn--premium' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        onClick={() => applyFrame(f.id)}
+                        tipText={tip}
+                        aria-pressed={activeFrameId === f.id}
+                        aria-disabled={locked || undefined}
+                      >
+                        <img src={f.src} alt="" className="avatar-editor-frame-btn__img" />
+                        {locked ? (
+                          <span className="avatar-editor-frame-btn__lock" aria-hidden="true" />
+                        ) : null}
+                      </AvatarEditorTipButton>
+                    );
+                  })}
                 </AvatarPresetRail>
+              ) : null}
+              {foldSection === 'frames' && frameLockTip ? (
+                <p className="avatar-editor-frames__lock-tip" role="status">
+                  {frameLockTip === 'premium'
+                    ? tr('cabinet.avatarFrameLockedPremium')
+                    : tr('cabinet.avatarFrameLockedGoal')}
+                </p>
               ) : null}
 
               {foldSection === 'stickers' ? (

@@ -18,7 +18,7 @@ export const AUDIO_CHANNEL_META: Record<
   others: { label: 'Стол', hint: 'соперники и раздача' },
   ui: { label: 'Система', hint: 'кнопки и запрет' },
   nudge: { label: 'Ход', hint: 'напоминание ходить' },
-  music: { label: 'Музыка', hint: 'фоновые темы — скоро', comingSoon: true },
+  music: { label: 'Между раздачами', hint: 'мелодия в паузе после раздачи' },
 };
 
 /** Идентификаторы событий (контракт для ассетов и хуков). */

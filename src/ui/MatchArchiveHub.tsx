@@ -752,8 +752,13 @@ export function MatchArchiveHub({
                   ? t('archive.listWithCount', { label: t('archive.listMatches'), n: feed.length })
                   : t('archive.listMatches')}
             </span>
-            <span className="lk-archive__list-toggle-chev" aria-hidden>
-              {listOpen ? '▴' : '▾'}
+            <span
+              className={['lk-archive__list-toggle-orb', listOpen ? 'is-on' : ''].filter(Boolean).join(' ')}
+              aria-hidden="true"
+            >
+              <i />
+              <i />
+              <i />
             </span>
           </button>
 

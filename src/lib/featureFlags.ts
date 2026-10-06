@@ -34,6 +34,15 @@ export function isPremiumAvatarNameBadgeEnabled(userId?: string | null): boolean
 }
 
 /**
+ * Косметика вех (рамка «Золото» и т.п.) — премиум.
+ * Пока для тестов доступно всем; в прод — подписка.
+ */
+export function isMilestoneCosmeticPremiumEnabled(_userId?: string | null): boolean {
+  return true;
+  // В продакшне: return !!userSubscription?.isPremium;
+}
+
+/**
  * Локальный превью: плашки «снизу» у ИИ-оппонентов за столом
  * (как у premium+аккаунт с вариантом инициалов). Только DEV.
  */

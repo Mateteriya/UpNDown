@@ -42,6 +42,7 @@ import {
   trickCompleteHoldMs,
 } from '../game/onlineTimings';
 import { loadGameStateFromStorage, saveGameStateToStorage, updateLocalRating, getLocalRating, getPlayerProfile } from '../game/persistence';
+import { dealOutcomesForPlayer, summarizeDealSkill } from '../game/playerSkillStats';
 import {
   bumpPcFourHandScalePct,
   bumpPcThreeHandScalePct,
@@ -193,6 +194,7 @@ import {
   GameOverCelebrationMiniTable,
   GameOverCloudStatus,
 } from './CosmicBridgeControls';
+import { MatchBidSkillInsight } from './BidSkillStatsPanel';
 import { preloadCardImages } from '../cardAssets';
 import {
   GAME_INFO_BADGE_LONGPRESS_MS,
@@ -2287,6 +2289,14 @@ function GameOverModal({
     return dealHistory.length > 0 ? Math.round((metCount / dealHistory.length) * 100) : 0;
   });
   const bestAccuracy = bidAccuracyPerPlayer.length > 0 ? Math.max(...bidAccuracyPerPlayer) : 0;
+  const humanMatchSkill = summarizeDealSkill(dealHistory, humanIdx);
+  const deviceAccuracyExcludingMatch =
+    localRating.bidAccuracyCount > 1
+      ? Math.round(
+          (localRating.bidAccuracySum - humanMatchSkill.accuracyPct) /
+            (localRating.bidAccuracyCount - 1),
+        )
+      : null;
   const isMobileLayout = useIsMobileOrTablet();
   const isPhoneViewport = useIsMobile();
   const isTabletPcShell = useIsTabletPcShell();
@@ -2451,6 +2461,11 @@ function GameOverModal({
               neonByIndex={(i) => (['cyan', 'magenta', 'amber', 'lime'] as const)[i] ?? 'violet'}
               compact
             />
+            <MatchBidSkillInsight
+              match={humanMatchSkill}
+              deviceAccuracyPct={deviceAccuracyExcludingMatch}
+              compact
+            />
             <BridgeTelemetryDashboard
               humanPlace={humanPlace}
               gamesPlayed={localRating.gamesPlayed}
@@ -2569,6 +2584,10 @@ function GameOverModal({
               humanIdx={humanIdx}
               bestAccuracy={bestAccuracy}
               neonByIndex={(i) => (['cyan', 'magenta', 'amber', 'lime'] as const)[i] ?? 'violet'}
+            />
+            <MatchBidSkillInsight
+              match={humanMatchSkill}
+              deviceAccuracyPct={deviceAccuracyExcludingMatch}
             />
             <BridgeTelemetryDashboard
               humanPlace={humanPlace}
@@ -7519,19 +7538,20 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 setGameOverCloudSave(userRef.current?.id ? 'pending' : 'no-auth');
                 const maxScore = Math.max(...snap.players.map((p) => p.score));
                 const humanWon = snap.players[0].score === maxScore;
-                let bidAccuracy = 0;
-                if (snap.dealHistory?.length) {
-                  let met = 0;
-                  for (const d of snap.dealHistory) {
-                    const bid = d.bids[0];
-                    const pts = d.points[0];
-                    if (bid == null) continue;
-                    const taken = getTakenFromDealPoints(bid, pts);
-                    if (bid === taken) met++;
-                  }
-                  bidAccuracy = Math.round((met / snap.dealHistory.length) * 100);
-                }
-                updateLocalRating(humanWon, undefined, bidAccuracy);
+                const ranked = snap.players
+                  .map((p, i) => ({ i, score: p.score }))
+                  .sort((a, b) => b.score - a.score);
+                const humanPlace = ranked.findIndex((p) => p.i === 0) + 1;
+                const matchSkill = summarizeDealSkill(snap.dealHistory, 0);
+                updateLocalRating(humanWon, undefined, {
+                  bidAccuracyPct: matchSkill.accuracyPct,
+                  hasDealSkill: matchSkill.deals > 0,
+                  exact: matchSkill.exact,
+                  under: matchSkill.under,
+                  over: matchSkill.over,
+                  outcomes: dealOutcomesForPlayer(snap.dealHistory, 0),
+                  place: humanPlace > 0 ? humanPlace : undefined,
+                });
                 let offlineArchId: string | null = null;
                 if (!partyHistoryRecordedRef.current) {
                   partyHistoryRecordedRef.current = true;

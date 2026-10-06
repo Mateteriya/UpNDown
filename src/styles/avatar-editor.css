@@ -2607,6 +2607,54 @@
   height: 34px !important;
 }
 
+.avatar-editor-tools-fold__chips .avatar-editor-frame-btn {
+  position: relative !important;
+}
+
+.avatar-editor-tools-fold__chips .avatar-editor-frame-btn--locked {
+  opacity: 0.58 !important;
+  filter: grayscale(0.4) !important;
+}
+
+.avatar-editor-tools-fold__chips .avatar-editor-frame-btn--premium:not(.avatar-editor-frame-btn--locked) {
+  border-color: rgba(250, 204, 21, 0.55) !important;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.22) !important;
+}
+
+.avatar-editor-tools-fold__chips .avatar-editor-frame-btn__lock {
+  position: absolute !important;
+  right: 3px !important;
+  bottom: 3px !important;
+  width: 12px !important;
+  height: 10px !important;
+  border-radius: 2px !important;
+  border: 1.5px solid #fdf4ff !important;
+  background: linear-gradient(135deg, rgba(232, 121, 249, 0.85), rgba(103, 232, 249, 0.7)) !important;
+  box-shadow: 0 0 5px rgba(15, 10, 36, 0.8) !important;
+}
+
+.avatar-editor-tools-fold__chips .avatar-editor-frame-btn__lock::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: -5px !important;
+  width: 6px !important;
+  height: 5px !important;
+  margin-left: -3px !important;
+  border: 1.5px solid #fdf4ff !important;
+  border-bottom: none !important;
+  border-radius: 6px 6px 0 0 !important;
+  box-sizing: border-box !important;
+}
+
+.avatar-editor-frames__lock-tip {
+  margin: 6px 10px 0 !important;
+  font-size: 0.72rem !important;
+  font-weight: 650 !important;
+  line-height: 1.35 !important;
+  color: #f5d0fe !important;
+}
+
 .avatar-editor-tools-fold__chips .avatar-editor-sticker-btn__glyph {
   font-size: 26px !important;
   line-height: 1 !important;
