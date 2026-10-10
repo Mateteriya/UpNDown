@@ -12,6 +12,19 @@ describe('WsRateLimiter', () => {
     expect(lim.allowCreate('1.1.1.1', 1, 2)).toEqual({ ok: false, error: 'too_many_rooms' });
     expect(lim.allowCreate('1.1.1.1', 1, 1).ok).toBe(true);
   });
+
+  it('skipRateLimit allows burst creates for dedicated host panel', () => {
+    const lim = new WsRateLimiter({
+      ...readWsLimitConfig(),
+      maxRoomsPerIp: 20,
+      createPerMin: 2,
+      maxRooms: 80,
+    });
+    expect(lim.allowCreate('2.2.2.2', 0, 0).ok).toBe(true);
+    expect(lim.allowCreate('2.2.2.2', 1, 1).ok).toBe(true);
+    expect(lim.allowCreate('2.2.2.2', 2, 2)).toEqual({ ok: false, error: 'rate_limited' });
+    expect(lim.allowCreate('2.2.2.2', 2, 2, { skipRateLimit: true }).ok).toBe(true);
+  });
 });
 
 describe('clientIpFromUpgrade', () => {

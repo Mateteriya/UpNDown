@@ -1,16 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
     <radialGradient id="orbit" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0.7" stop-color="transparent"/>
-      <stop offset="0.92" stop-color="rgba(148,163,184,0.15)"/>
-      <stop offset="1" stop-color="rgba(226,232,240,0.85)"/>
+      <stop offset="0.72" stop-color="transparent"/>
+      <stop offset="0.9" stop-color="rgba(34,211,238,0.22)"/>
+      <stop offset="1" stop-color="rgba(167,139,250,0.85)"/>
     </radialGradient>
+    <linearGradient id="orbitRing" x1="64" y1="96" x2="448" y2="416" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#67e8f9"/>
+      <stop offset="0.5" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
   </defs>
   <circle cx="256" cy="256" r="250" fill="url(#orbit)"/>
-  <circle cx="256" cy="256" r="236" stroke="rgba(241,245,249,0.75)" stroke-width="6"/>
-  <circle cx="120" cy="180" r="6" fill="#a5f3fc"/>
-  <circle cx="390" cy="140" r="5" fill="#e9d5ff"/>
+  <circle cx="256" cy="256" r="236" stroke="url(#orbitRing)" stroke-width="8"/>
+  <circle cx="256" cy="256" r="218" stroke="#67e8f9" stroke-width="2.5" opacity="0.55"/>
+  <circle cx="120" cy="180" r="7" fill="#22d3ee"/>
+  <circle cx="390" cy="140" r="6" fill="#e879f9"/>
   <circle cx="400" cy="340" r="7" fill="#fde68a"/>
-  <circle cx="140" cy="360" r="5" fill="#86efac"/>
-  <circle cx="256" cy="70" r="4" fill="#fff"/>
+  <circle cx="140" cy="360" r="6" fill="#a78bfa"/>
+  <circle cx="256" cy="70" r="5" fill="#67e8f9"/>
 </svg>

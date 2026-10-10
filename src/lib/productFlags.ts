@@ -33,3 +33,25 @@ export const FREE_FULL_DEAL_LIMIT = 3;
 
 /** Дефолтный demo buy-in для банковой комнаты (волна 1, без wallet) */
 export const DEFAULT_BANK_DEMO_BUY_IN = 100;
+
+/**
+ * Кнопка «Свой хост / вечеринка» на главной.
+ * По умолчанию: на localhost / 127.0.0.1 / LAN hostname, или VITE_PARTY_HOST_UI=1.
+ * Выключить: VITE_PARTY_HOST_UI=0.
+ */
+export function isPartyHostUiEnabled(): boolean {
+  const raw = (import.meta.env.VITE_PARTY_HOST_UI as string | undefined)?.trim().toLowerCase();
+  if (raw === '0' || raw === 'false' || raw === 'no' || raw === 'off') return false;
+  if (raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on') return true;
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname;
+  if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]') return true;
+  /* Частный LAN */
+  if (/^192\.168\.\d+\.\d+$/.test(h)) return true;
+  if (/^10\.\d+\.\d+\.\d+$/.test(h)) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(h)) return true;
+  return false;
+}
+
+/** Лимит столов клуба / вечеринки (совпадает с LAN default WS_MAX_ROOMS). */
+export const PARTY_HOST_MAX_ROOMS = 22;

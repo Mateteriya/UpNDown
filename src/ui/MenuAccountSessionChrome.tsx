@@ -96,25 +96,18 @@ export function MenuAccountSessionChrome({
     return () => window.removeEventListener('keydown', onKey);
   }, [confirmOpen, closeConfirm]);
 
-  const handleSignOut = useCallback(async () => {
+  const handleSignOut = useCallback(() => {
     setBusy(true);
-    try {
-      await signOut();
-      setConfirmOpen(false);
-    } finally {
-      setBusy(false);
-    }
+    setConfirmOpen(false);
+    void signOut().finally(() => setBusy(false));
   }, [signOut]);
 
-  const handleSwitch = useCallback(async () => {
+  const handleSwitch = useCallback(() => {
     setBusy(true);
-    try {
-      await signOut();
-      setConfirmOpen(false);
-      onSwitchAccount();
-    } finally {
-      setBusy(false);
-    }
+    setConfirmOpen(false);
+    void signOut()
+      .then(() => onSwitchAccount())
+      .finally(() => setBusy(false));
   }, [signOut, onSwitchAccount]);
 
   if (!enabled) return <>{children}</>;

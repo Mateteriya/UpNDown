@@ -105,7 +105,7 @@ describe('playerMilestones', () => {
     expect(loadAchievementsStore(pid)).toEqual(emptyAchievementsStore());
   });
 
-  it('exposes top-5 featured in stable order', () => {
+  it('exposes featured milestones in stable order', () => {
     const featured = featuredMilestoneStatuses(evaluateMilestones(baseInput()));
     expect(featured.map((s) => s.id)).toEqual([
       'streak_5',
@@ -113,12 +113,36 @@ describe('playerMilestones', () => {
       'exact_100',
       'elo_expert',
       'gold_frame_premium',
+      'saturn_premium',
+      'neural_premium',
+      'pulsar_premium',
     ]);
     expect(featured.filter((s) => s.spotlight).map((s) => s.id)).toEqual([
       'streak_5',
       'online_wins_10',
       'exact_100',
       'gold_frame_premium',
+      'saturn_premium',
+      'neural_premium',
+      'pulsar_premium',
     ]);
+  });
+
+  it('gates premium tech frames by streak/style/wins', () => {
+    const cold = evaluateMilestones(baseInput());
+    expect(cold.find((s) => s.id === 'saturn_premium')!.unlocked).toBe(false);
+    expect(cold.find((s) => s.id === 'neural_premium')!.unlocked).toBe(false);
+    expect(cold.find((s) => s.id === 'pulsar_premium')!.unlocked).toBe(false);
+
+    const hot = evaluateMilestones({
+      ...baseInput(),
+      bestExactStreak: 10,
+      exactDeals: 50,
+      onlineWins: 25,
+      style: 'sniper',
+    });
+    expect(hot.find((s) => s.id === 'saturn_premium')!.unlocked).toBe(true);
+    expect(hot.find((s) => s.id === 'neural_premium')!.unlocked).toBe(true);
+    expect(hot.find((s) => s.id === 'pulsar_premium')!.unlocked).toBe(true);
   });
 });

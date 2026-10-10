@@ -3,9 +3,33 @@
  * Стиль — стекло / Orbitron, как ПК-кабинет.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useT } from '../i18n';
+import { isAuthNetworkError, isAuthStorageFullError } from '../lib/authErrors';
+import {
+  OAUTH_VKID,
+  OAUTH_YANDEX,
+  type AppOAuthProvider,
+} from '../lib/oauthProviders';
+import { useT, type MsgKey, type TFunc } from '../i18n';
+
+function authErrorText(err: Error | null | undefined, t: TFunc, fallbackKey: MsgKey): string {
+  if (!err) return t(fallbackKey);
+  if (isAuthNetworkError(err)) return t('auth.networkBusy');
+  if (isAuthStorageFullError(err)) return t('auth.storageFull');
+  const msg = String(err.message || '');
+  if (/exceeded the quota|QuotaExceeded|code-verifier/i.test(msg)) {
+    return t('auth.storageFull');
+  }
+  if (
+    /failed to fetch|networkerror|load failed|timed?\s*out|abort|err_internet|err_name_not_resolved/i.test(
+      msg,
+    )
+  ) {
+    return t('auth.needInternet');
+  }
+  return msg || t(fallbackKey);
+}
 
 export type AuthMode = 'login' | 'register';
 
@@ -32,6 +56,26 @@ const GoogleIcon = () => (
   </svg>
 );
 
+const YandexIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
+    <rect width="24" height="24" rx="6" fill="#FC3F1D" />
+    <path
+      fill="#fff"
+      d="M13.2 6.2h-1.7c-2.1 0-3.2 1.1-3.2 2.8 0 1.9 0.9 2.8 2.7 3.9l1.5.9-4.3 4.9H10l3.7-4.3V18h1.9V6.2h-2.4zm-1.5 5.3c-1.2-.8-1.7-1.4-1.7-2.4 0-.9.5-1.4 1.5-1.4h.3v3.8h-.1z"
+    />
+  </svg>
+);
+
+const VkIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
+    <rect width="24" height="24" rx="6" fill="#0077FF" />
+    <path
+      fill="#fff"
+      d="M12.8 17.5h1.1s.3 0 .5-.2c.1-.1.1-.4.1-.4s0-1.3.6-1.5c.6-.2 1.4 1.3 2.2 1.8.6.4 1.1.3 1.1.3l2.2-.03s1.2-.07.6-.97c-.05-.07-.34-.7-1.74-2-.1-.1-.17-.18-.05-.3.1-.1.95-.9 1.08-1.3.13-.4-.1-.6-.1-.6h-2.2s-.16-.02-.28.05c-.12.07-.2.22-.2.22s-.36.95-.84 1.76c-.1.17-.2.24-.33.15-.2-.13-.15-.53-.15-1.02 0-1.12.17-1.58-.33-1.7-.16-.04-.28-.07-.7-.07-.53 0-1 .01-1.26.2-.17.13-.12.4-.12.4s.1.75.2 1.02c.14.4-.1.48-.22.5-.2.04-.47-.16-.95-.75-.49-.6-.81-1.26-.81-1.26s-.07-.16-.18-.25c-.14-.1-.33-.14-.33-.14H9.1s-.4.01-.54.18c-.12.15 0 .45 0 .45s1.7 4 3.62 6.02c1.76 1.85 3.76 1.73 3.76 1.73z"
+    />
+  </svg>
+);
+
 const PENDING_NAME_KEY_PREFIX = 'updown_pending_name_';
 
 export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
@@ -45,6 +89,8 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+  const errorRef = useRef<HTMLParagraphElement | null>(null);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -54,17 +100,26 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const handleOAuth = async (provider: 'github' | 'google') => {
+  useEffect(() => {
+    if (!error) return;
+    errorRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [error]);
+
+  const handleOAuth = async (provider: AppOAuthProvider) => {
     if (!configured) return;
     setError(null);
     setOauthLoading(provider);
-    const { error: authError } = await signInWithOAuth(provider);
-    setOauthLoading(null);
-    if (authError) setError(authError.message || t('auth.loginError'));
+    try {
+      const { error: authError } = await signInWithOAuth(provider);
+      if (authError) setError(authErrorText(authError, t, 'auth.loginError'));
+    } finally {
+      setOauthLoading(null);
+    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: { preventDefault?: () => void }) => {
+    e?.preventDefault?.();
+    if (loading || submittingRef.current) return;
     setError(null);
     setSuccessMessage(null);
     const em = email.trim().toLowerCase();
@@ -99,6 +154,7 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
       setSuccessMessage(t('auth.notConfigured'));
       return;
     }
+    submittingRef.current = true;
     setLoading(true);
     if (mode === 'register') {
       try {
@@ -107,17 +163,21 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
         /* ignore */
       }
     }
-    const { error: authError } =
-      mode === 'login' ? await signIn(em, password) : await signUp(em, password);
-    setLoading(false);
-    if (authError) {
-      setError(authError.message || t('auth.authError'));
-      return;
-    }
-    if (mode === 'login') {
-      onClose();
-    } else {
-      setSuccessMessage(t('auth.checkEmail'));
+    try {
+      const { error: authError } =
+        mode === 'login' ? await signIn(em, password) : await signUp(em, password);
+      if (authError) {
+        setError(authErrorText(authError, t, 'auth.authError'));
+        return;
+      }
+      if (mode === 'login') {
+        onClose();
+      } else {
+        setSuccessMessage(em ? t('auth.checkEmail', { email: em }) : t('auth.checkEmailNoAddr'));
+      }
+    } finally {
+      submittingRef.current = false;
+      setLoading(false);
     }
   };
 
@@ -155,7 +215,7 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
 
   return (
     <div
-      className="lk-modal"
+      className={`lk-modal${mode === 'register' ? ' lk-modal--top' : ''}`}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
@@ -174,27 +234,47 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
         <div className="lk-modal__oauth">
           <button
             type="button"
-            className="lk-modal__oauth-btn lk-modal__oauth-btn--github"
-            onClick={() => handleOAuth('github')}
-            disabled={!configured || !!oauthLoading}
+            className="lk-modal__oauth-btn lk-modal__oauth-btn--yandex"
+            onClick={() => void handleOAuth(OAUTH_YANDEX)}
+            disabled={!configured || !!oauthLoading || loading}
           >
-            <GitHubIcon />
-            {oauthLoading === 'github' ? '…' : 'GitHub'}
+            <YandexIcon />
+            {oauthLoading === OAUTH_YANDEX ? '…' : t('auth.oauthYandex')}
+          </button>
+          <button
+            type="button"
+            className="lk-modal__oauth-btn lk-modal__oauth-btn--vkid"
+            onClick={() => void handleOAuth(OAUTH_VKID)}
+            disabled={!configured || !!oauthLoading || loading}
+            title={t('auth.oauthVkidHint')}
+          >
+            <VkIcon />
+            {oauthLoading === OAUTH_VKID ? '…' : t('auth.oauthVkid')}
           </button>
           <button
             type="button"
             className="lk-modal__oauth-btn lk-modal__oauth-btn--google"
-            onClick={() => handleOAuth('google')}
-            disabled={!configured || !!oauthLoading}
+            onClick={() => void handleOAuth('google')}
+            disabled={!configured || !!oauthLoading || loading}
           >
             <GoogleIcon />
             {oauthLoading === 'google' ? '…' : 'Google'}
+          </button>
+          <button
+            type="button"
+            className="lk-modal__oauth-btn lk-modal__oauth-btn--github"
+            onClick={() => void handleOAuth('github')}
+            disabled={!configured || !!oauthLoading || loading}
+          >
+            <GitHubIcon />
+            {oauthLoading === 'github' ? '…' : 'GitHub'}
           </button>
         </div>
 
         <div className="lk-modal__divider">{t('auth.orEmail')}</div>
 
-        <form className="lk-modal__form" onSubmit={handleSubmit}>
+        {/* noValidate: на Android WebView нативная проверка email часто глотает submit без сообщения */}
+        <form className="lk-modal__form" onSubmit={(e) => void handleSubmit(e)} noValidate>
           <div className="lk-modal__field">
             <label className="lk-modal__label" htmlFor="auth-email">
               Email
@@ -203,6 +283,7 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
               id="auth-email"
               className="lk-modal__input"
               type="email"
+              inputMode="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
@@ -256,9 +337,24 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
               </div>
             </>
           ) : null}
-          {error ? <p className="lk-modal__error">{error}</p> : null}
-          <button type="submit" className="lk-modal__submit" disabled={loading}>
-            {loading ? '…' : mode === 'login' ? t('auth.submitLogin') : t('auth.submitRegister')}
+          {error ? (
+            <p className="lk-modal__error" ref={errorRef} role="alert">
+              {error}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className="lk-modal__submit"
+            disabled={loading || !!oauthLoading}
+            onClick={() => void handleSubmit()}
+          >
+            {loading
+              ? mode === 'login'
+                ? t('auth.signingIn')
+                : t('auth.registering')
+              : mode === 'login'
+                ? t('auth.submitLogin')
+                : t('auth.submitRegister')}
           </button>
         </form>
 

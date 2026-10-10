@@ -82,9 +82,11 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 Пользователю нужно ввести свой Gmail и продолжить — это не ошибка приложения.
 
-### Яндекс
+### Яндекс и VK ID (Mail.ru)
 
-Яндекс не входит в список встроенных провайдеров Supabase. Для поддержки потребуется отдельная интеграция (например, через Keycloak или свой бэкенд).
+Пошагово: [AUTH-YANDEX-VK-MAIL.md](./AUTH-YANDEX-VK-MAIL.md).  
+Кратко: Custom Provider `custom:yandex` / `custom:vkid`; в кабинете Яндекса/VK в Redirect URI — **только**  
+`https://<PROJECT_REF>.supabase.co/auth/v1/callback` (не URL игры).
 
 ## 6. Проверка
 

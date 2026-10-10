@@ -38,6 +38,17 @@ applyEnvFile(join(repoRoot, '.env'));
 applyEnvFile(join(repoRoot, '.env.local'));
 applyEnvFile(join(serverDir, '.env'));
 
+/** LAN-хост / клуб: до 22 столов с одного IP. Не перебиваем явный .env. */
+const lanDefaults: Record<string, string> = {
+  WS_MAX_ROOMS: '22',
+  WS_MAX_ROOMS_PER_IP: '22',
+  WS_CREATE_PER_MIN: '40',
+};
+for (const [key, val] of Object.entries(lanDefaults)) {
+  const cur = process.env[key];
+  if (cur === undefined || cur.trim() === '') process.env[key] = val;
+}
+
 if (!(process.env.SUPABASE_URL ?? '').trim()) {
   const fromVite = (process.env.VITE_SUPABASE_URL ?? '').trim();
   if (fromVite) process.env.SUPABASE_URL = fromVite;

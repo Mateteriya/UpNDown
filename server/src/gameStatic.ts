@@ -10,7 +10,7 @@ const FALLBACK_GAME_DIST = join(REPO_ROOT, 'dist');
 const CWD_GAME_DIST = join(process.cwd(), 'dist-host');
 const CWD_FALLBACK_DIST = join(process.cwd(), 'dist');
 
-function resolveGameDist(): string {
+export function resolveGameDistDir(): string {
   const fromEnv = (process.env.GAME_DIST ?? '').trim();
   if (fromEnv) return fromEnv;
   if (existsSync(join(DEFAULT_GAME_DIST, 'index.html'))) return DEFAULT_GAME_DIST;
@@ -20,7 +20,7 @@ function resolveGameDist(): string {
 }
 
 function gameDistDir(): string {
-  return resolveGameDist();
+  return resolveGameDistDir();
 }
 
 export function isGameDistAvailable(): boolean {
@@ -41,9 +41,17 @@ const MIME: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
   '.ico': 'image/x-icon',
   '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
   '.webmanifest': 'application/manifest+json',
 };
 
@@ -52,19 +60,34 @@ function mimeFor(path: string): string {
   return MIME[path.slice(dot)] ?? 'application/octet-stream';
 }
 
-/** Раздача `npm run build` из /play/ — для установщика без второго терминала. */
-export function tryServeGameStatic(
+/**
+ * Старые/корневые URL без `/play/` (логотип `/icon-192.png`, `/МЕНЮ/…`, `/cards/…`).
+ * Телефон иначе получает 404, хотя файлы лежат в dist-host.
+ */
+const STATIC_FILE_EXT =
+  /\.(png|jpe?g|webp|gif|svg|ico|woff2?|ttf|otf|wav|mp3|ogg|json|webmanifest|map|txt|mp4|webm)$/i;
+
+function decodeRelPath(rel: string): string {
+  try {
+    return decodeURIComponent(rel);
+  } catch {
+    return rel;
+  }
+}
+
+function isSafeDistRel(rel: string): boolean {
+  if (!rel || rel.includes('..')) return false;
+  if (rel.startsWith('api/') || rel === 'api') return false;
+  return true;
+}
+
+function serveDistFile(
   req: IncomingMessage,
   res: ServerResponse,
-  pathname: string,
+  root: string,
+  relRaw: string,
 ): boolean {
-  if (!pathname.startsWith('/play')) return false;
-  if (req.method !== 'GET' && req.method !== 'HEAD') return false;
-
-  const root = normalize(gameDistDir());
-  if (!existsSync(join(root, 'index.html'))) return false;
-
-  let rel = pathname.replace(/^\/play\/?/, '') || 'index.html';
+  const rel = decodeRelPath(relRaw);
   if (rel.includes('..')) {
     res.writeHead(400);
     res.end();
@@ -105,4 +128,41 @@ export function tryServeGameStatic(
   }
   createReadStream(file).pipe(res);
   return true;
+}
+
+/** Раздача `npm run build` из /play/ — для установщика без второго терминала. */
+export function tryServeGameStatic(
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathname: string,
+): boolean {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+
+  const root = normalize(gameDistDir());
+  if (!existsSync(join(root, 'index.html'))) return false;
+
+  const path = (() => {
+    try {
+      return decodeURIComponent(pathname);
+    } catch {
+      return pathname;
+    }
+  })();
+
+  if (path.startsWith('/play')) {
+    const rel = path.replace(/^\/play\/?/, '') || 'index.html';
+    return serveDistFile(req, res, root, rel);
+  }
+
+  /* Любой существующий static из dist-host с корня сайта (без /play/). */
+  if (STATIC_FILE_EXT.test(path)) {
+    const rel = path.replace(/^\//, '');
+    if (!isSafeDistRel(rel)) return false;
+    const file = normalize(join(root, decodeRelPath(rel)));
+    if (file.startsWith(root) && existsSync(file) && !statSync(file).isDirectory()) {
+      return serveDistFile(req, res, root, rel);
+    }
+  }
+
+  return false;
 }

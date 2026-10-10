@@ -1,22 +1,24 @@
+import { publicAssetUrl } from './publicAssetUrl';
+
 /** Иллюстрации легенд режимов (public/МЕНЮ). */
-export const MENU_ONLINE_LEGEND_ART_URL = encodeURI('/МЕНЮ/Онлайн.jpg');
-export const MENU_OFFLINE_LEGEND_ART_URL = encodeURI('/МЕНЮ/офлайн.jpg');
+export const MENU_ONLINE_LEGEND_ART_URL = publicAssetUrl('/МЕНЮ/Онлайн.jpg');
+export const MENU_OFFLINE_LEGEND_ART_URL = publicAssetUrl('/МЕНЮ/офлайн.jpg');
 
 /** ПК-меню: кот-герой (сейчас не используется на главной). */
-export const MENU_PC_HERO_ART_URL = encodeURI('/МЕНЮ/для меню ПК.jpg');
+export const MENU_PC_HERO_ART_URL = publicAssetUrl('/МЕНЮ/для меню ПК.jpg');
 
 /**
  * Ротация каста меню (ПК + мобилка): 7 кадров.
  * За раз грузится один файл (~200–400 KB); следующий — prefetch по желанию.
  */
 export const MENU_PC_CAST_ART_URLS = [
-  encodeURI('/МЕНЮ/для меню ПК 7.jpg'),
-  encodeURI('/МЕНЮ/для меню ПК 70.jpg'),
-  encodeURI('/МЕНЮ/для меню ПК 71.jpg'),
-  encodeURI('/МЕНЮ/для меню ПК 72.jpg'),
-  encodeURI('/МЕНЮ/для меню ПК 77.jpg'),
-  encodeURI('/МЕНЮ/для меню ПК 79.jpg'),
-  encodeURI('/МЕНЮ/для меню ПК 8.jpg'),
+  publicAssetUrl('/МЕНЮ/для меню ПК 7.jpg'),
+  publicAssetUrl('/МЕНЮ/для меню ПК 70.jpg'),
+  publicAssetUrl('/МЕНЮ/для меню ПК 71.jpg'),
+  publicAssetUrl('/МЕНЮ/для меню ПК 72.jpg'),
+  publicAssetUrl('/МЕНЮ/для меню ПК 77.jpg'),
+  publicAssetUrl('/МЕНЮ/для меню ПК 79.jpg'),
+  publicAssetUrl('/МЕНЮ/для меню ПК 8.jpg'),
 ] as const;
 
 const CAST_IDX_LS = 'upnd-menu-pc-cast-idx';

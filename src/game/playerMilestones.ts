@@ -10,6 +10,7 @@ import type { AvatarFrameId } from '../lib/avatarEditorFrames';
 import { eloTierFor, type EloTierId } from './eloTiers';
 import { getPlayerProfile } from './persistence';
 import type { BidPlayStyle } from './playerSkillStats';
+import { grantStarsForNewlyUnlockedMilestones } from './playerStars';
 
 export type MilestoneId =
   | 'streak_5'
@@ -20,7 +21,10 @@ export type MilestoneId =
   | 'elo_adept'
   | 'elo_expert'
   | 'style_formed'
-  | 'gold_frame_premium';
+  | 'gold_frame_premium'
+  | 'saturn_premium'
+  | 'neural_premium'
+  | 'pulsar_premium';
 
 export type MilestoneRewardType = 'badge' | 'title' | 'frame';
 
@@ -38,11 +42,11 @@ export type MilestoneDef = {
   target: number;
   reward: MilestoneReward;
   /**
-   * 1..5 — показ в ЛК «топ-5». Остальные считаются для unlock/рамок,
+   * 1..8 — показ в ЛК «избранные». Остальные считаются для unlock/рамок,
    * но не засоряют список.
    */
-  featuredRank?: 1 | 2 | 3 | 4 | 5;
-  /** Культивируемые «звёзды» среди топ-5 */
+  featuredRank?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  /** Культивируемые «звёзды» среди избранных */
   spotlight?: boolean;
 };
 
@@ -132,9 +136,45 @@ export const MILESTONE_DEFS: readonly MilestoneDef[] = [
     featuredRank: 5,
     spotlight: true,
   },
+  {
+    id: 'saturn_premium',
+    target: 10,
+    reward: {
+      type: 'frame',
+      frameId: 'saturn',
+      titleKey: 'saturn',
+      premiumRequired: true,
+    },
+    featuredRank: 6,
+    spotlight: true,
+  },
+  {
+    id: 'neural_premium',
+    target: 50,
+    reward: {
+      type: 'frame',
+      frameId: 'neural',
+      titleKey: 'neural',
+      premiumRequired: true,
+    },
+    featuredRank: 7,
+    spotlight: true,
+  },
+  {
+    id: 'pulsar_premium',
+    target: 25,
+    reward: {
+      type: 'frame',
+      frameId: 'pulsar',
+      titleKey: 'pulsar',
+      premiumRequired: true,
+    },
+    featuredRank: 8,
+    spotlight: true,
+  },
 ] as const;
 
-/** Топ-5 вех для UI (порядок featuredRank). */
+/** Избранные вехи для UI (порядок featuredRank). */
 export const FEATURED_MILESTONE_IDS: readonly MilestoneId[] = MILESTONE_DEFS.filter(
   (d) => d.featuredRank != null,
 )
@@ -176,6 +216,14 @@ function currentFor(def: MilestoneDef, input: MilestoneInput): number {
       // Unlock condition: reached adept tier (same as elo_adept), rewarded only with premium
       if (input.elo == null || !Number.isFinite(input.elo)) return 0;
       return TIER_RANK[eloTierFor(input.elo).id] >= TIER_RANK.adept ? 1 : 0;
+    case 'saturn_premium':
+      return Math.max(0, input.bestExactStreak);
+    case 'neural_premium':
+      // Модель характера + объём точных раздач
+      if (input.style === 'learning') return 0;
+      return Math.max(0, input.exactDeals);
+    case 'pulsar_premium':
+      return Math.max(0, input.onlineWins);
     default:
       return 0;
   }
@@ -198,7 +246,7 @@ export function evaluateMilestones(input: MilestoneInput): MilestoneStatus[] {
   });
 }
 
-/** Только топ-5 для панели ЛК (остальные всё равно синкаются в store). */
+/** Избранные вехи для панели ЛК (остальные всё равно синкаются в store). */
 export function featuredMilestoneStatuses(
   statuses: readonly MilestoneStatus[],
 ): MilestoneStatus[] {
@@ -264,7 +312,10 @@ export function syncAchievementsFromMilestones(
     }
   }
 
-  if (newlyUnlocked.length > 0) saveAchievementsStore(store, profileId);
+  if (newlyUnlocked.length > 0) {
+    saveAchievementsStore(store, profileId);
+    grantStarsForNewlyUnlockedMilestones(newlyUnlocked, profileId);
+  }
   return { store, newlyUnlocked };
 }
 

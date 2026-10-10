@@ -1,0 +1,2921 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Up&amp;Down · хост</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #050510;
+    --panel: rgba(10, 8, 28, 0.88);
+    --inset: rgba(6, 4, 22, 0.95);
+    --ink: #c4b5fd;
+    --ink-strong: #e9d5ff;
+    --cyan: #67e8f9;
+    --violet: #a78bfa;
+    --magenta: #e879f9;
+    --gold: #fcd34d;
+    --green: #5ee89a;
+    --rose: #f07167;
+    /* Один UI-шрифт; жирный Orbitron/Exo в мелком кегле «слипался» */
+    --font-d: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    --font-u: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    --font-m: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
+    --sheen: linear-gradient(105deg, #67e8f9 0%, #22d3ee 16%, #a78bfa 38%, #e879f9 55%, #f472b6 72%, #fcd34d 100%);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+
+  /* фирменные скроллбары (не серые системные) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(167, 139, 250, 0.7) rgba(8, 6, 24, 0.92);
+  }
+  *::-webkit-scrollbar { width: 9px; height: 9px; }
+  *::-webkit-scrollbar-track {
+    background:
+      linear-gradient(180deg, rgba(103,232,249,0.06), rgba(232,121,249,0.06)),
+      rgba(6, 4, 22, 0.95);
+    border-radius: 999px;
+    border: 1px solid rgba(167, 139, 250, 0.18);
+    box-shadow: inset 0 0 8px rgba(0,0,0,0.45);
+  }
+  *::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    border: 2px solid rgba(6, 4, 22, 0.85);
+    background: linear-gradient(180deg, #67e8f9 0%, #a78bfa 45%, #e879f9 100%);
+    box-shadow: 0 0 10px rgba(167, 139, 250, 0.45), inset 0 1px 0 rgba(255,255,255,0.35);
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #a5f3fc 0%, #e879f9 50%, #fcd34d 100%);
+    box-shadow: 0 0 14px rgba(232, 121, 249, 0.55);
+  }
+  *::-webkit-scrollbar-corner { background: transparent; }
+  body {
+    color: var(--ink); font-family: var(--font-u);
+    background:
+      radial-gradient(ellipse 90% 70% at 12% 18%, rgba(139, 92, 246, 0.28), transparent 55%),
+      radial-gradient(ellipse 80% 65% at 88% 78%, rgba(79, 70, 229, 0.32), transparent 52%),
+      radial-gradient(ellipse 50% 40% at 50% 100%, rgba(34, 211, 238, 0.06), transparent 50%),
+      var(--bg);
+    padding: 10px 14px 22px;
+  }
+  .shell { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+
+  /* Мгновенные глянцевые поповеры (не title-тултипы) */
+  .host-tip { position: relative; display: inline-flex; align-items: center; vertical-align: middle; }
+  .host-tip__btn {
+    appearance: none; cursor: pointer; flex-shrink: 0;
+    width: 22px; height: 22px; border-radius: 50%; padding: 0;
+    border: 1px solid rgba(167,139,250,0.55);
+    background:
+      radial-gradient(ellipse 70% 55% at 30% 22%, rgba(255,255,255,0.55), transparent 55%),
+      linear-gradient(160deg, rgba(103,232,249,0.35), rgba(167,139,250,0.25));
+    color: #041018; font: 800 0.7rem/1 var(--font-d);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 0 10px rgba(103,232,249,0.25);
+  }
+  .host-tip__btn:hover, .host-tip.is-open .host-tip__btn {
+    border-color: rgba(103,232,249,0.8);
+    box-shadow: 0 0 14px rgba(103,232,249,0.45), inset 0 1px 0 rgba(255,255,255,0.7);
+  }
+  .host-tip__pop {
+    display: none; position: absolute; z-index: 80;
+    left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%);
+    width: min(280px, calc(100vw - 28px));
+    padding: 12px 13px 11px; border-radius: 14px;
+    border: 1px solid rgba(167,139,250,0.45);
+    background:
+      radial-gradient(120% 90% at 18% 0%, rgba(56,189,248,0.16), transparent 55%),
+      radial-gradient(100% 90% at 88% 100%, rgba(232,121,249,0.14), transparent 60%),
+      linear-gradient(158deg, rgba(14,12,42,0.98), rgba(8,6,24,0.99));
+    box-shadow:
+      0 0 0 1px rgba(103,232,249,0.22),
+      0 0 24px rgba(167,139,250,0.35),
+      0 12px 28px rgba(0,0,0,0.5);
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .host-tip.is-open .host-tip__pop { display: block; }
+  .host-tip__pop::before {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(ellipse 78% 50% at 28% 12%, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.08) 36%, transparent 58%),
+      linear-gradient(160deg, rgba(255,255,255,0.14) 0%, transparent 38%);
+  }
+  .host-tip__pop::after {
+    content: ''; position: absolute; top: -45%; left: -60%; width: 46%; height: 190%; z-index: 1; pointer-events: none;
+    background: linear-gradient(105deg, transparent 36%, rgba(255,255,255,0.7) 50%, rgba(186,230,253,0.25) 56%, transparent 68%);
+    transform: rotate(24deg);
+    animation: host-tip-flash 4.8s ease-in-out infinite;
+  }
+  @keyframes host-tip-flash {
+    0%, 55%, 100% { transform: translateX(0) rotate(24deg); opacity: 0; }
+    60% { opacity: 0.95; }
+    82% { transform: translateX(320%) rotate(24deg); opacity: 0; }
+  }
+  .host-tip__pop-arrow {
+    position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px;
+    transform: translateX(-50%) rotate(45deg); z-index: 2;
+    background: rgba(12,10,32,0.98);
+    border-right: 1px solid rgba(103,232,249,0.45);
+    border-bottom: 1px solid rgba(167,139,250,0.45);
+  }
+  .host-tip__title {
+    position: relative; z-index: 2; display: block; margin: 0 0 4px;
+    font: 800 0.68rem/1.2 var(--font-d); letter-spacing: 0.08em; text-transform: uppercase; color: #a5f3fc;
+  }
+  .host-tip__body {
+    position: relative; z-index: 2; display: block; margin: 0;
+    font-size: 0.78rem; line-height: 1.4; font-weight: 600; color: rgba(233,213,255,0.9);
+  }
+  .host-tip--right .host-tip__pop { left: auto; right: 0; transform: none; }
+  .host-tip--right .host-tip__pop-arrow { left: auto; right: 12px; transform: rotate(45deg); }
+  .host-tip--below .host-tip__pop {
+    bottom: auto; top: calc(100% + 10px);
+  }
+  .host-tip--below .host-tip__pop-arrow {
+    bottom: auto; top: -5px;
+    border-right: 0; border-bottom: 0;
+    border-left: 1px solid rgba(103,232,249,0.45);
+    border-top: 1px solid rgba(167,139,250,0.45);
+  }
+
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .panel-rev-badge {
+    margin-left: auto; margin-right: 8px; padding: 6px 10px; border-radius: 999px;
+    font: 800 0.68rem/1 var(--font-d); letter-spacing: 0.06em; text-transform: uppercase;
+    color: #041018;
+    background: linear-gradient(135deg, #fde68a, #fbbf24 55%, #f472b6);
+    box-shadow: 0 0 16px rgba(251,191,36,0.45);
+    white-space: nowrap;
+  }
+  .brand .pills { margin-left: 0; }
+  .brand-mark {
+    width: 42px; height: 42px;
+    filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.4)) drop-shadow(0 0 20px rgba(160, 4, 173, 0.35));
+  }
+  .brand h1 {
+    margin: 0; font: 700 1.2rem/1.1 var(--font-d); letter-spacing: 0.04em;
+    background-image: var(--sheen); background-size: 200% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: sheen-flow 5.5s linear infinite;
+  }
+  @keyframes sheen-flow { to { background-position: 200% 0; } }
+  .brand .tag { margin: 3px 0 0; font: 700 0.62rem/1 var(--font-d); letter-spacing: 0.14em; text-transform: uppercase; color: rgba(103,232,249,0.75); }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
+    border: 1px solid rgba(103,232,249,0.35); background: rgba(103,232,249,0.08);
+    font: 700 0.6rem/1 var(--font-d); letter-spacing: 0.08em; text-transform: uppercase; color: var(--cyan);
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--violet); }
+  .pill.ok { border-color: rgba(94,232,154,0.45); color: var(--green); background: rgba(94,232,154,0.1); }
+  .pill.ok .dot { background: var(--green); box-shadow: 0 0 8px rgba(94,232,154,0.7); }
+  .pill.err { border-color: rgba(240,113,103,0.45); color: var(--rose); background: rgba(240,113,103,0.1); }
+  .pill.err .dot { background: var(--rose); }
+  .pill.warn { border-color: rgba(252,211,77,0.45); color: var(--gold); background: rgba(252,211,77,0.1); }
+  .pill.warn .dot, .pill.busy .dot { background: var(--gold); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+
+  .build-banner {
+    display: none; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px;
+    border: 1px solid rgba(252, 211, 77, 0.45);
+    background: radial-gradient(ellipse 80% 120% at 0% 50%, rgba(252,211,77,0.16), transparent 55%), rgba(20, 14, 8, 0.88);
+    box-shadow: 0 0 0 1px rgba(6,4,22,0.8), 0 0 0 3px rgba(252,211,77,0.1), 0 0 0 4px rgba(232,121,249,0.12);
+  }
+  .build-banner.on { display: flex; }
+  .build-banner__spin {
+    width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%;
+    border: 3px solid rgba(252,211,77,0.25); border-top-color: var(--gold);
+    animation: spin 0.85s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .build-banner__title { margin: 0; font: 800 0.78rem/1.2 var(--font-d); letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); }
+  .build-banner__sub { margin: 3px 0 0; font-size: 0.74rem; font-weight: 600; color: rgba(252,211,77,0.75); }
+
+  /* —— приборные панели —— */
+  .bridge {
+    position: relative; border-radius: 18px; padding: 8px 10px 10px;
+    border: 1px solid rgba(167, 139, 250, 0.45);
+    background:
+      linear-gradient(180deg, rgba(36, 28, 72, 0.55), rgba(8, 6, 24, 0.92)),
+      repeating-linear-gradient(90deg, transparent 0 11px, rgba(103,232,249,0.03) 11px 12px);
+    box-shadow:
+      0 0 0 1px rgba(4, 2, 16, 0.9),
+      0 0 0 3px rgba(103, 232, 249, 0.1),
+      0 0 0 5px rgba(167, 139, 250, 0.22),
+      0 16px 36px rgba(0,0,0,0.45),
+      inset 0 1px 0 rgba(233,213,255,0.12),
+      inset 0 -18px 40px rgba(0,0,0,0.25);
+  }
+  .bridge::before {
+    content: ''; pointer-events: none; position: absolute; inset: 5px; border-radius: 17px;
+    border: 1px solid rgba(232, 121, 249, 0.18);
+    box-shadow: inset 0 0 0 1px rgba(103, 232, 249, 0.08);
+  }
+  .bridge > * { position: relative; z-index: 1; }
+  .bridge__head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;
+  }
+  .bridge__label {
+    display: flex; align-items: center; gap: 8px;
+    font: 800 0.62rem/1 var(--font-d); letter-spacing: 0.16em; text-transform: uppercase;
+    color: rgba(196,181,253,0.7);
+  }
+  .bridge__label i {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--cyan);
+    box-shadow: 0 0 10px rgba(103,232,249,0.8); animation: pulse 1.6s infinite;
+  }
+  .bridge__label--deck i { background: var(--magenta); box-shadow: 0 0 10px rgba(232,121,249,0.8); }
+  .bridge__serial { font: 600 0.62rem/1 var(--font-m); color: rgba(196,181,253,0.4); letter-spacing: 0.08em; }
+
+  .bridge__rail {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px;
+    padding: 10px 12px; border-radius: 14px;
+    background: rgba(4, 2, 14, 0.55);
+    border: 1px solid rgba(167,139,250,0.18);
+    box-shadow: inset 0 0 24px rgba(0,0,0,0.35);
+  }
+  .bridge__rail--deck {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 10px 14px;
+    padding: 8px 12px;
+  }
+  .deck-cluster {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+  }
+  .deck-cluster--seats { justify-content: flex-start; }
+  .deck-cluster--gauge { justify-content: center; }
+  .deck-cluster--create { justify-content: flex-end; margin-left: auto; }
+  @media (max-width: 720px) {
+    .bridge__rail--deck { grid-template-columns: 1fr; justify-items: center; }
+    .deck-cluster--seats,
+    .deck-cluster--create { justify-content: center; margin-left: 0; }
+  }
+
+  /* индикаторы */
+  .leds { display: flex; gap: 10px; align-items: center; }
+  .led {
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    font: 700 0.52rem/1 var(--font-d); letter-spacing: 0.08em; text-transform: uppercase;
+    color: rgba(196,181,253,0.45);
+  }
+  .led__lamp {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #2a2040; border: 1px solid rgba(167,139,250,0.3);
+    box-shadow: inset 0 0 4px rgba(0,0,0,0.6);
+  }
+  .led.on-green .led__lamp {
+    background: radial-gradient(circle at 35% 30%, #bbf7d0, #22c55e 60%, #166534);
+    box-shadow: 0 0 10px rgba(94,232,154,0.85), 0 0 18px rgba(34,197,94,0.4);
+  }
+  .led.on-cyan .led__lamp {
+    background: radial-gradient(circle at 35% 30%, #cffafe, #22d3ee 60%, #0e7490);
+    box-shadow: 0 0 10px rgba(103,232,249,0.85);
+  }
+  .led.on-gold .led__lamp {
+    background: radial-gradient(circle at 35% 30%, #fef08a, #eab308 60%, #a16207);
+    box-shadow: 0 0 10px rgba(252,211,77,0.85); animation: pulse 1s infinite;
+  }
+  .led.on-rose .led__lamp {
+    background: radial-gradient(circle at 35% 30%, #fecdd3, #f43f5e 60%, #9f1239);
+    box-shadow: 0 0 10px rgba(244,63,94,0.75);
+  }
+
+  /* крутилки / gauges — подпись СНИЗУ, не внутри кольца */
+  .gauge {
+    width: 58px; flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+  }
+  .gauge__ring {
+    width: 54px; height: 54px; position: relative; flex-shrink: 0;
+  }
+  .gauge__ring svg { width: 100%; height: 100%; transform: rotate(-90deg); display: block; }
+  .gauge__track { fill: none; stroke: rgba(167,139,250,0.2); stroke-width: 5; }
+  .gauge__val { fill: none; stroke: var(--cyan); stroke-width: 5; stroke-linecap: round;
+    transition: stroke-dashoffset 0.45s ease; filter: drop-shadow(0 0 4px rgba(103,232,249,0.6)); }
+  .gauge__val.gold { stroke: var(--gold); filter: drop-shadow(0 0 4px rgba(252,211,77,0.55)); }
+  .gauge__val.green { stroke: var(--green); filter: drop-shadow(0 0 4px rgba(94,232,154,0.55)); }
+  .gauge__val.rose { stroke: var(--rose); }
+  .gauge__num {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font: 800 0.7rem/1 var(--font-d); color: var(--ink-strong);
+    pointer-events: none;
+  }
+  .gauge__caption {
+    margin: 0; font: 700 0.52rem/1 var(--font-d); letter-spacing: 0.1em;
+    text-transform: uppercase; color: rgba(196,181,253,0.65);
+    white-space: nowrap;
+  }
+
+  .divider {
+    width: 1px; align-self: stretch; min-height: 48px;
+    background: linear-gradient(180deg, transparent, rgba(167,139,250,0.35), transparent);
+  }
+  @media (max-width: 640px) { .divider { display: none; } }
+
+  .guest-chip {
+    flex: 1; min-width: 140px; max-width: 280px;
+    padding: 8px 12px; border-radius: 999px; text-decoration: none; text-align: center;
+    border: 1px solid rgba(103,232,249,0.35); background: var(--inset);
+    color: var(--cyan); font: 0.7rem/1.25 var(--font-m); word-break: break-all;
+  }
+  .guest-chip:hover { box-shadow: 0 0 14px rgba(103,232,249,0.2); }
+  .guest-empty { font: 600 0.72rem/1.3 var(--font-u); color: rgba(196,181,253,0.45); }
+
+  .log-mini {
+    flex: 1; min-width: 160px; max-height: 52px; overflow: auto; margin: 0;
+    padding: 6px 8px; border-radius: 10px; border: 1px solid rgba(167,139,250,0.18);
+    background: #03020c; font: 0.58rem/1.3 var(--font-m); color: rgba(196,181,253,0.55); white-space: pre-wrap;
+  }
+
+  /* орбы */
+  .orb-row { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: flex-start; }
+  .orb {
+    appearance: none; border: 0; background: transparent; padding: 0; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    font: 700 0.62rem/1.1 var(--font-d); letter-spacing: 0.06em; text-transform: uppercase;
+    color: rgba(196,181,253,0.75); transition: color 0.2s, opacity 0.2s;
+  }
+  .orb:disabled { opacity: 0.34; cursor: wait; filter: grayscale(0.25); pointer-events: none; }
+  .orb__disc {
+    position: relative; width: 72px; height: 72px; border-radius: 50%;
+    display: grid; place-items: center;
+    border: 1px solid rgba(167,139,250,0.4);
+    background:
+      radial-gradient(circle at 32% 28%, rgba(233,213,255,0.22), transparent 42%),
+      radial-gradient(circle at 50% 50%, rgba(30, 20, 70, 0.95), rgba(8, 4, 24, 0.98));
+    box-shadow:
+      0 0 0 1px rgba(103,232,249,0.08),
+      0 0 0 3px rgba(10, 6, 28, 0.9),
+      0 0 0 4px rgba(167,139,250,0.28),
+      0 8px 18px rgba(0,0,0,0.45),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+    color: var(--violet);
+    transition: transform 0.2s, box-shadow 0.2s, filter 0.2s, color 0.2s;
+  }
+  .orb__disc::before {
+    content: ''; position: absolute; inset: -4px; border-radius: 50%; pointer-events: none; opacity: 0;
+    background: conic-gradient(from 200deg, transparent 0%, rgba(103,232,249,0.35), rgba(167,139,250,0.45), rgba(232,121,249,0.35), transparent 55%);
+    transition: opacity 0.25s;
+    mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+  }
+  .orb__disc svg { width: 30px; height: 30px; position: relative; z-index: 1; }
+  .orb:hover .orb__disc, .orb:focus-visible .orb__disc {
+    transform: scale(1.08); color: var(--ink-strong);
+    filter: drop-shadow(0 0 6px rgba(124, 58, 237, 0.85)) drop-shadow(0 0 14px rgba(103, 232, 249, 0.35));
+  }
+  .orb:hover .orb__disc::before, .orb:focus-visible .orb__disc::before { opacity: 1; }
+  .orb:hover, .orb:focus-visible { color: var(--ink-strong); outline: none; }
+  .orb:active .orb__disc { transform: scale(0.94); }
+  .orb--go .orb__disc {
+    color: #03141a; border-color: rgba(34,211,238,0.55);
+    background: radial-gradient(circle at 32% 28%, rgba(165,243,252,0.55), transparent 45%), linear-gradient(160deg, #67e8f9, #0891b2 70%);
+    box-shadow: 0 0 20px rgba(34,211,238,0.35), 0 0 0 3px rgba(10,6,28,0.9), 0 0 0 4px rgba(34,211,238,0.28);
+  }
+  .orb--rebuild .orb__disc {
+    color: var(--cyan);
+    border-color: rgba(103,232,249,0.4);
+    background: radial-gradient(circle at 35% 30%, rgba(103,232,249,0.18), rgba(8,18,32,0.9));
+  }
+  .orb--stop .orb__disc {
+    color: #2a0a12; border-color: rgba(244,63,94,0.5);
+    background: radial-gradient(circle at 32% 28%, rgba(253,164,175,0.5), transparent 45%), linear-gradient(160deg, #fda4af, #be123c 72%);
+  }
+  .orb--create .orb__disc {
+    width: 108px; height: 108px; color: #0a0618; border-color: rgba(232,121,249,0.75);
+    background:
+      radial-gradient(circle at 28% 24%, rgba(255,255,255,0.55), transparent 40%),
+      radial-gradient(circle at 70% 80%, rgba(103,232,249,0.35), transparent 45%),
+      linear-gradient(155deg, #f5d0fe, #e879f9 35%, #a78bfa 62%, #7c3aed);
+    box-shadow:
+      0 0 0 3px rgba(10,6,28,0.9),
+      0 0 0 6px rgba(232,121,249,0.45),
+      0 0 36px rgba(232,121,249,0.55),
+      0 0 56px rgba(103,232,249,0.25),
+      inset 0 1px 0 rgba(255,255,255,0.5);
+    animation: create-pulse 2.4s ease-in-out infinite;
+  }
+  .orb--create .orb__disc svg { width: 46px; height: 46px; stroke-width: 2.4; }
+  .orb--create { font-size: 0.78rem; gap: 8px; color: var(--ink-strong); }
+  .orb--create:hover .orb__disc {
+    filter: drop-shadow(0 0 14px rgba(232,121,249,0.95)) drop-shadow(0 0 28px rgba(103,232,249,0.55));
+    transform: scale(1.1);
+  }
+  .bridge__rail--deck .orb--create .orb__disc { width: 86px; height: 86px; }
+  .bridge__rail--deck .orb--create .orb__disc svg { width: 38px; height: 38px; }
+  .bridge__rail--deck .seat__disc { width: 48px; height: 48px; font: 800 1.05rem/1 var(--font-d); }
+  @keyframes create-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(10,6,28,0.9), 0 0 0 6px rgba(232,121,249,0.4), 0 0 28px rgba(232,121,249,0.45); }
+    50% { box-shadow: 0 0 0 3px rgba(10,6,28,0.9), 0 0 0 7px rgba(103,232,249,0.45), 0 0 42px rgba(232,121,249,0.7); }
+  }
+  .orb--cyan .orb__disc { color: var(--cyan); border-color: rgba(103,232,249,0.45); }
+  .orb--gold .orb__disc { color: var(--gold); border-color: rgba(252,211,77,0.4); }
+  .orb--rose .orb__disc { color: var(--rose); border-color: rgba(240,113,103,0.4); }
+  .orb--close .orb__disc {
+    width: 58px; height: 58px; color: #2a0a12;
+    border-color: rgba(244,63,94,0.75);
+    background: radial-gradient(circle at 32% 28%, rgba(254,202,202,0.7), transparent 45%), linear-gradient(160deg, #fda4af, #e11d48 55%, #9f1239);
+    box-shadow: 0 0 0 3px rgba(10,6,28,0.9), 0 0 0 5px rgba(244,63,94,0.4), 0 0 22px rgba(244,63,94,0.45);
+  }
+  .orb--close .orb__disc svg { width: 26px; height: 26px; }
+  .orb--close { font-size: 0.62rem; color: #fda4af; font-weight: 800; }
+  .orb--close:hover .orb__disc {
+    filter: drop-shadow(0 0 12px rgba(244,63,94,0.95));
+    transform: scale(1.1);
+  }
+  .orb--sm .orb__disc { width: 52px; height: 52px; }
+  .orb--sm .orb__disc svg { width: 22px; height: 22px; }
+  .orb--sm { font-size: 0.56rem; gap: 4px; }
+
+  /* места + тумблер */
+  .seat-row { display: flex; gap: 10px; align-items: center; }
+  .seat {
+    appearance: none; border: 0; background: transparent; padding: 0; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    font: 700 0.55rem/1 var(--font-d); letter-spacing: 0.06em; text-transform: uppercase;
+    color: rgba(196,181,253,0.5);
+  }
+  .seat__disc {
+    width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center;
+    border: 1px solid rgba(167,139,250,0.35); background: var(--inset);
+    font: 800 1.15rem/1 var(--font-d); color: rgba(196,181,253,0.55);
+    box-shadow: 0 0 0 3px rgba(10,6,28,0.85), 0 0 0 4px rgba(167,139,250,0.2);
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s, color 0.2s;
+  }
+  .seat:hover .seat__disc { transform: scale(1.06); color: var(--cyan); }
+  .seat[aria-pressed="true"] { color: var(--cyan); }
+  .seat[aria-pressed="true"] .seat__disc {
+    color: #041018;
+    background: linear-gradient(145deg, #a5f3fc, #22d3ee 55%, #0891b2);
+    box-shadow: 0 0 16px rgba(34,211,238,0.4), 0 0 0 3px rgba(103,232,249,0.18);
+  }
+
+  .switch {
+    display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;
+    font: 700 0.62rem/1 var(--font-d); letter-spacing: 0.08em; text-transform: uppercase;
+    color: rgba(196,181,253,0.55);
+  }
+  .switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch__track {
+    width: 46px; height: 24px; border-radius: 999px; position: relative;
+    background: #1a1230; border: 1px solid rgba(167,139,250,0.35);
+    box-shadow: inset 0 0 8px rgba(0,0,0,0.5);
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  }
+  .switch__knob {
+    position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%;
+    background: linear-gradient(160deg, #c4b5fd, #7c3aed);
+    box-shadow: 0 0 8px rgba(167,139,250,0.4);
+    transition: transform 0.2s;
+  }
+  .switch input:checked + .switch__track {
+    background: rgba(94,232,154,0.18); border-color: rgba(94,232,154,0.5);
+    box-shadow: inset 0 0 10px rgba(94,232,154,0.15), 0 0 12px rgba(94,232,154,0.2);
+  }
+  .switch input:checked + .switch__track .switch__knob {
+    transform: translateX(22px);
+    background: linear-gradient(160deg, #bbf7d0, #22c55e);
+    box-shadow: 0 0 10px rgba(94,232,154,0.7);
+  }
+  .switch input:checked ~ .switch__txt { color: var(--green); }
+
+  .bridge.is-locked { opacity: 0.55; }
+  .bridge.is-locked .bridge__rail { pointer-events: none; filter: grayscale(0.2); }
+
+  .hero-empty {
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: 36px 16px; gap: 8px; border-radius: 18px;
+    border: 1px dashed rgba(167,139,250,0.3); background: rgba(10,8,28,0.45);
+  }
+  .hero-empty h3 {
+    margin: 0; font: 800 1rem/1.2 var(--font-d); letter-spacing: 0.04em; text-transform: uppercase;
+    background-image: var(--sheen); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-empty p { margin: 0; max-width: 360px; font-size: 0.84rem; font-weight: 600; color: rgba(196,181,253,0.62); }
+
+  .rooms-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px;
+  }
+
+  .table-card {
+    position: relative; overflow: hidden;
+    border-radius: 20px; padding: 0;
+    border: 1px solid rgba(167, 139, 250, 0.42);
+    background: var(--panel);
+    box-shadow:
+      0 0 0 1px rgba(6, 4, 22, 0.85),
+      0 0 0 3px rgba(103, 232, 249, 0.1),
+      0 0 0 4px rgba(167, 139, 250, 0.22),
+      0 14px 32px rgba(0,0,0,0.42);
+  }
+  .table-card::before {
+    content: ''; pointer-events: none; position: absolute; inset: 5px; border-radius: 15px;
+    border: 1px solid rgba(232, 121, 249, 0.16);
+  }
+  .table-card > * { position: relative; z-index: 1; }
+
+  /* —— ×3 ТРОЙКА: cyan, округлее, места в ОДИН ряд —— */
+  .table-card[data-cap="3"] {
+    border-radius: 28px;
+    border-color: rgba(34, 211, 238, 0.65);
+    background:
+      radial-gradient(90% 70% at 0% 0%, rgba(34,211,238,0.28), transparent 55%),
+      radial-gradient(70% 60% at 100% 100%, rgba(103,232,249,0.12), transparent 60%),
+      var(--panel);
+    box-shadow:
+      0 0 0 1px rgba(6, 4, 22, 0.85),
+      0 0 0 3px rgba(34, 211, 238, 0.2),
+      0 0 0 5px rgba(103, 232, 249, 0.18),
+      0 0 28px rgba(34,211,238,0.18),
+      0 14px 32px rgba(0,0,0,0.42);
+  }
+  .table-card[data-cap="3"]::after {
+    content: '×3'; position: absolute; top: 10px; right: 12px; z-index: 2;
+    font: 800 1.6rem/1 var(--font-d); letter-spacing: -0.04em;
+    color: rgba(34,211,238,0.22); pointer-events: none;
+  }
+  .table-card[data-cap="3"]::before { border-radius: 23px; border-color: rgba(34,211,238,0.28); }
+
+  /* —— ×4 КВАРТЕТ: magenta/gold, квадратнее, места 2×2 —— */
+  .table-card[data-cap="4"] {
+    border-radius: 14px;
+    border-color: rgba(232, 121, 249, 0.65);
+    background:
+      radial-gradient(90% 70% at 100% 0%, rgba(232,121,249,0.28), transparent 55%),
+      radial-gradient(70% 60% at 0% 100%, rgba(252,211,77,0.12), transparent 60%),
+      var(--panel);
+    box-shadow:
+      0 0 0 1px rgba(6, 4, 22, 0.85),
+      0 0 0 3px rgba(232, 121, 249, 0.2),
+      0 0 0 5px rgba(167, 139, 250, 0.22),
+      0 0 28px rgba(232,121,249,0.2),
+      0 14px 32px rgba(0,0,0,0.42);
+  }
+  .table-card[data-cap="4"]::after {
+    content: '×4'; position: absolute; top: 8px; right: 10px; z-index: 2;
+    font: 800 1.6rem/1 var(--font-d); letter-spacing: -0.04em;
+    color: rgba(232,121,249,0.22); pointer-events: none;
+  }
+  .table-card[data-cap="4"]::before { border-radius: 10px; border-color: rgba(232,121,249,0.28); }
+
+  .table-card__top {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 44px 7px 12px;
+    border-bottom: 1px solid rgba(167,139,250,0.18);
+  }
+  .table-card[data-cap="3"] .table-card__top {
+    background: linear-gradient(90deg, rgba(34,211,238,0.2), transparent 60%);
+    border-bottom-color: rgba(34,211,238,0.28);
+  }
+  .table-card[data-cap="4"] .table-card__top {
+    background: linear-gradient(90deg, rgba(232,121,249,0.2), transparent 60%);
+    border-bottom-color: rgba(232,121,249,0.28);
+  }
+  .table-card__id { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .table-no {
+    display: inline-flex; align-items: center; padding: 4px 9px; border-radius: 999px;
+    font: 800 0.68rem/1 var(--font-d); letter-spacing: 0.06em;
+    color: #041018; flex-shrink: 0;
+  }
+  .table-card[data-cap="3"] .table-no {
+    background: linear-gradient(135deg, #a5f3fc, #22d3ee);
+    box-shadow: 0 0 12px rgba(34,211,238,0.5);
+  }
+  .table-card[data-cap="4"] .table-no {
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f5d0fe, #e879f9 55%, #fcd34d);
+    box-shadow: 0 0 12px rgba(232,121,249,0.5);
+  }
+  .mode-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    font: 800 0.55rem/1 var(--font-d); letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .table-card[data-cap="3"] .mode-tag { color: var(--cyan); }
+  .table-card[data-cap="4"] .mode-tag { color: var(--magenta); }
+  .table-card .code {
+    margin: 0;
+    font: 800 1.2rem/1 var(--font-d); letter-spacing: 0.12em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .table-card[data-cap="3"] .code { color: var(--cyan); text-shadow: 0 0 14px rgba(34,211,238,0.5); }
+  .table-card[data-cap="4"] .code { color: #f0abfc; text-shadow: 0 0 14px rgba(232,121,249,0.5); }
+  .table-card .badges { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; flex-shrink: 0; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 999px;
+    font: 800 0.62rem/1 var(--font-d); letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .badge--seats3 {
+    color: #041018; background: linear-gradient(135deg, #a5f3fc, #22d3ee);
+    box-shadow: 0 0 10px rgba(34,211,238,0.45);
+  }
+  .badge--seats4 {
+    border-radius: 7px;
+    color: #041018; background: linear-gradient(135deg, #f5d0fe, #e879f9 50%, #fcd34d);
+    box-shadow: 0 0 10px rgba(232,121,249,0.5);
+  }
+  .badge--status {
+    color: rgba(196,181,253,0.9); background: rgba(167,139,250,0.12);
+    border: 1px solid rgba(167,139,250,0.35); font-weight: 700; font-size: 0.55rem;
+  }
+  .badge--status.is-full { color: var(--gold); border-color: rgba(252,211,77,0.5); background: rgba(252,211,77,0.12); }
+  .badge--status.is-play { color: var(--green); border-color: rgba(94,232,154,0.5); background: rgba(94,232,154,0.12); }
+
+  .table-card__body {
+    display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center;
+    padding: 10px 12px 4px 12px;
+  }
+
+  /* QR: эффекты только на цветной рамке; сам код — чёткий ч/б без бликов */
+  .table-card .qr-col { display: flex; flex-direction: column; align-items: center; }
+  .table-card .qr-wrap {
+    position: relative; width: 112px; height: 112px; flex-shrink: 0;
+    border-radius: 14px; padding: 8px;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, #a5f3fc 0%, #67e8f9 18%, #a78bfa 42%, #e879f9 68%, #fcd34d 100%);
+    background-size: 200% 200%;
+    animation: qr-frame-shift 4.5s ease-in-out infinite;
+    box-shadow:
+      0 0 0 2px rgba(10, 6, 28, 0.9),
+      0 0 22px rgba(167,139,250,0.55),
+      0 0 36px rgba(34,211,238,0.28);
+    overflow: visible;
+  }
+  @keyframes qr-frame-shift {
+    0%, 100% { background-position: 0% 40%; }
+    50% { background-position: 100% 60%; }
+  }
+  .table-card[data-cap="3"] .qr-wrap {
+    border-radius: 20px;
+    background: conic-gradient(from var(--qr-angle, 200deg), #67e8f9, #22d3ee, #a5f3fc, #e0f2fe, #a78bfa, #67e8f9, #22d3ee);
+    animation: qr-spin-hue 6s linear infinite;
+    box-shadow:
+      0 0 0 2px rgba(10, 6, 28, 0.9),
+      0 0 28px rgba(34,211,238,0.55),
+      0 0 40px rgba(103,232,249,0.25);
+  }
+  .table-card[data-cap="4"] .qr-wrap {
+    border-radius: 10px;
+    background: linear-gradient(145deg, #fde68a, #fcd34d 18%, #e879f9 45%, #a78bfa 70%, #67e8f9 100%);
+    background-size: 220% 220%;
+    animation: qr-frame-shift 3.8s ease-in-out infinite;
+    box-shadow:
+      0 0 0 2px rgba(10, 6, 28, 0.9),
+      0 0 28px rgba(232,121,249,0.55),
+      0 0 40px rgba(252,211,77,0.22);
+  }
+  @property --qr-angle {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 200deg;
+  }
+  @keyframes qr-spin-hue { to { --qr-angle: 560deg; } }
+  /* Блик только на кольце рамки (mask), не поверх модулей QR */
+  .table-card .qr-wrap::before {
+    content: ''; pointer-events: none; position: absolute; inset: 0; z-index: 0;
+    border-radius: inherit; padding: 8px;
+    background:
+      linear-gradient(118deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.35) 22%, transparent 42%),
+      linear-gradient(300deg, transparent 60%, rgba(255,255,255,0.35) 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    animation: qr-gloss-sweep 3.2s ease-in-out infinite;
+  }
+  @keyframes qr-gloss-sweep {
+    0%, 100% { opacity: 0.65; }
+    50% { opacity: 1; }
+  }
+  .table-card .qr-pad {
+    position: relative; z-index: 2;
+    width: 100%; height: 100%; border-radius: 6px; padding: 6px;
+    display: grid; place-items: center;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: none;
+    isolation: isolate;
+  }
+  .table-card[data-cap="3"] .qr-pad { border-radius: 10px; }
+  .table-card[data-cap="4"] .qr-pad { border-radius: 4px; }
+  .table-card .qr-wrap img {
+    width: 100%; height: 100%; object-fit: contain; display: block;
+    border-radius: 0;
+    background: #fff;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    filter: none !important;
+    mix-blend-mode: normal;
+    opacity: 1;
+  }
+
+  /* адрес гостя на карточке — читаемый, не микротекст */
+  .table-card .qr-hint {
+    appearance: none; -webkit-appearance: none;
+    display: block; width: 100%;
+    margin: 0; padding: 11px 14px;
+    border: 0; border-radius: 0;
+    background: rgba(4, 2, 14, 0.72);
+    border-top: 1px solid rgba(167,139,250,0.22);
+    border-bottom: 1px solid rgba(167,139,250,0.22);
+    font: 600 0.95rem/1.35 var(--font-m);
+    letter-spacing: 0.01em;
+    color: #a5f3fc;
+    text-align: left; word-break: break-all; cursor: pointer;
+  }
+  .table-card[data-cap="3"] .qr-hint {
+    color: #a5f3fc;
+    background: linear-gradient(90deg, rgba(34,211,238,0.16), rgba(4,2,14,0.75), rgba(34,211,238,0.1));
+  }
+  .table-card[data-cap="4"] .qr-hint {
+    color: #f0abfc;
+    background: linear-gradient(90deg, rgba(232,121,249,0.16), rgba(4,2,14,0.75), rgba(232,121,249,0.1));
+  }
+  .table-card .qr-hint:hover {
+    color: #fff;
+    filter: brightness(1.08);
+  }
+  body.club-mode .table-card .qr-hint { font-size: 1.05rem; padding: 12px 16px; }
+
+  /* Сворачиваемые блоки — меньше «стены» панелей */
+  .host-fold {
+    border-radius: 12px;
+    border: 1px solid rgba(167,139,250,0.28);
+    background: rgba(8, 6, 24, 0.75);
+    overflow: hidden;
+  }
+  .host-fold > summary {
+    cursor: pointer; list-style: none;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 9px 12px;
+    font: 600 0.82rem/1.2 var(--font-u); color: rgba(233,213,255,0.88);
+    user-select: none;
+  }
+  .host-fold > summary::-webkit-details-marker { display: none; }
+  .host-fold > summary::before {
+    content: '▸'; color: var(--cyan); font-weight: 700; width: 1ch;
+  }
+  .host-fold[open] > summary::before { content: '▾'; }
+  .host-fold > summary .fold-meta {
+    margin-left: auto; font-size: 0.72rem; font-weight: 600; color: rgba(196,181,253,0.55);
+  }
+  .host-fold__body { padding: 0 10px 10px; display: flex; flex-direction: column; gap: 8px; }
+
+  /* Клуб / витрина: крупные QR на стойке */
+  body.club-mode .rooms-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 18px;
+  }
+  body.club-mode .table-card .qr-wrap {
+    width: 220px; height: 220px;
+  }
+  body.club-mode .table-card .qr-wrap img {
+    width: 196px; height: 196px;
+  }
+  .club-banner {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 8px 11px; border-radius: 12px; height: 100%;
+    border: 1px solid rgba(103, 232, 249, 0.4);
+    background:
+      radial-gradient(ellipse 70% 120% at 0% 50%, rgba(103,232,249,0.14), transparent 55%),
+      rgba(8, 12, 28, 0.9);
+  }
+  .club-banner__title {
+    margin: 0; font: 800 0.72rem/1.2 var(--font-d); letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--cyan);
+  }
+  .club-banner__sub {
+    margin: 2px 0 0; font-size: 0.74rem; font-weight: 600; color: rgba(196,181,253,0.75);
+  }
+  .showcase-dock {
+    display: none; position: sticky; bottom: 8px; z-index: 5;
+    margin-top: 8px; padding: 14px 16px; border-radius: 18px;
+    border: 1px solid rgba(232, 121, 249, 0.35);
+    background: rgba(6, 4, 22, 0.92);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+    align-items: stretch; gap: 16px; flex-wrap: wrap;
+  }
+  body.club-mode .showcase-dock { display: flex; }
+  .showcase-dock__qr {
+    width: 260px; height: 260px; border-radius: 16px; padding: 12px;
+    background:
+      linear-gradient(135deg, #67e8f9, #a78bfa 45%, #e879f9 75%, #fcd34d);
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px rgba(10,6,28,0.9), 0 0 24px rgba(167,139,250,0.35);
+    display: grid; place-items: center;
+  }
+  .showcase-dock__qr img {
+    width: 100%; height: 100%; display: block; object-fit: contain;
+    background: #fff; border-radius: 8px; padding: 8px; box-sizing: border-box;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+    filter: none;
+  }
+  .showcase-dock__meta { display: flex; flex-direction: column; gap: 6px; min-width: 160px; flex: 1; }
+  .showcase-dock__code {
+    font: 800 1.6rem/1 var(--font-d); letter-spacing: 0.12em; color: var(--gold);
+  }
+  .showcase-dock__hint { margin: 0; font-size: 0.78rem; color: rgba(196,181,253,0.7); }
+  .showcase-dock__list {
+    display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow: auto;
+    min-width: min(280px, 100%); flex: 1.2;
+    padding: 4px; border-radius: 12px; background: rgba(4,2,14,0.55);
+    border: 1px solid rgba(167,139,250,0.25);
+  }
+  .showcase-dock__list-title {
+    margin: 0 4px 4px; font: 800 0.58rem/1 var(--font-d); letter-spacing: 0.12em;
+    text-transform: uppercase; color: rgba(196,181,253,0.5);
+  }
+  .showcase-row {
+    appearance: none; border: 1px solid rgba(103,232,249,0.22); background: rgba(10,8,28,0.85);
+    color: var(--ink); border-radius: 10px; padding: 8px 10px; cursor: pointer;
+    display: grid; grid-template-columns: auto auto 1fr auto; gap: 8px; align-items: center;
+    font: 600 0.78rem/1.2 var(--font-u); text-align: left;
+  }
+  .showcase-row:hover { border-color: rgba(103,232,249,0.55); background: rgba(20,16,48,0.95); }
+  .showcase-row.is-active {
+    border-color: rgba(252,211,77,0.65);
+    box-shadow: 0 0 0 1px rgba(252,211,77,0.25), 0 0 16px rgba(232,121,249,0.2);
+  }
+  .showcase-row__no { font: 800 0.72rem/1 var(--font-d); color: var(--cyan); }
+  .showcase-row__cap { font: 800 0.65rem/1 var(--font-d); color: var(--magenta); }
+  .showcase-row__code { font: 700 0.85rem/1 var(--font-m); letter-spacing: 0.08em; color: var(--gold); }
+  .showcase-row__stat { font-size: 0.7rem; color: rgba(196,181,253,0.65); white-space: nowrap; }
+  .showcase-row.is-stale {
+    border-color: rgba(252, 211, 77, 0.55);
+    background: rgba(40, 28, 8, 0.9);
+  }
+  .showcase-row.is-stale-long {
+    border-color: rgba(240, 113, 103, 0.65);
+    animation: stale-pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes stale-pulse {
+    50% { box-shadow: 0 0 14px rgba(240, 113, 103, 0.35); }
+  }
+  .table-card.is-stale {
+    outline: 2px solid rgba(252, 211, 77, 0.55);
+    outline-offset: 2px;
+  }
+  .table-card.is-stale-long {
+    outline: 2px solid rgba(240, 113, 103, 0.7);
+    outline-offset: 2px;
+    animation: stale-pulse 2.2s ease-in-out infinite;
+  }
+  .stale-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 999px;
+    font: 800 0.55rem/1 var(--font-d); letter-spacing: 0.08em; text-transform: uppercase;
+    color: #fcd34d; border: 1px solid rgba(252,211,77,0.45); background: rgba(252,211,77,0.12);
+  }
+  .stale-badge--long { color: #fca5a5; border-color: rgba(240,113,103,0.5); background: rgba(240,113,103,0.12); }
+  /* Сценарии вечеринки — только кнопки */
+  .party-flow {
+    padding: 10px 12px 11px; border-radius: 14px;
+    border: 1px solid rgba(34, 211, 238, 0.4);
+    background:
+      radial-gradient(ellipse 80% 120% at 0% 0%, rgba(34,211,238,0.14), transparent 55%),
+      rgba(6, 12, 28, 0.92);
+  }
+  .party-flow__head {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;
+  }
+  .party-flow__title {
+    margin: 0; font: 800 0.7rem/1.2 var(--font-d); letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--cyan);
+  }
+  .party-flow__lead {
+    margin: 0 0 8px; font-size: 0.76rem; font-weight: 600; color: rgba(196,181,253,0.78); max-width: 68ch;
+  }
+  .party-cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px;
+  }
+  .party-card {
+    appearance: none; cursor: pointer; text-align: left;
+    padding: 11px 12px 10px; border-radius: 12px;
+    border: 1px solid rgba(167,139,250,0.35);
+    background: rgba(4, 2, 14, 0.65);
+    color: var(--ink); transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  }
+  .party-card:hover {
+    border-color: rgba(103,232,249,0.55);
+    transform: translateY(-1px);
+    box-shadow: 0 0 16px rgba(34,211,238,0.2);
+  }
+  .party-card.is-selected {
+    border-color: #5ee89a;
+    border-width: 2px;
+    background:
+      radial-gradient(ellipse 90% 80% at 50% 0%, rgba(94,232,154,0.22), transparent 60%),
+      rgba(6, 28, 18, 0.9);
+    box-shadow:
+      0 0 0 2px rgba(94,232,154,0.35),
+      0 0 28px rgba(34,211,238,0.28);
+  }
+  .party-card--hotspot {
+    border-color: rgba(252,211,77,0.4);
+    background:
+      radial-gradient(ellipse 80% 100% at 0% 0%, rgba(252,211,77,0.12), transparent 55%),
+      rgba(24, 16, 8, 0.75);
+  }
+  .party-card--hotspot.is-selected {
+    border-color: #fbbf24;
+    border-width: 2px;
+    background:
+      radial-gradient(ellipse 90% 80% at 50% 0%, rgba(252,211,77,0.28), transparent 60%),
+      rgba(28, 20, 6, 0.95);
+    box-shadow:
+      0 0 0 2px rgba(252,211,77,0.4),
+      0 0 28px rgba(251,191,36,0.3);
+  }
+  .party-card__kicker {
+    margin: 0 0 6px; font: 800 0.55rem/1 var(--font-d); letter-spacing: 0.12em;
+    text-transform: uppercase; color: rgba(103,232,249,0.75);
+  }
+  .party-card--hotspot .party-card__kicker { color: rgba(252,211,77,0.85); }
+  .party-card__title {
+    margin: 0; font: 800 0.95rem/1.2 var(--font-d); color: var(--ink-strong);
+  }
+  .party-card__cta {
+    margin: 8px 0 0; display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border-radius: 999px;
+    font: 800 0.65rem/1 var(--font-d); letter-spacing: 0.06em; text-transform: uppercase;
+    color: #041018; background: linear-gradient(135deg, #a5f3fc, #22d3ee);
+  }
+  .party-card.is-selected .party-card__cta {
+    background: linear-gradient(135deg, #5ee89a, #22d3ee);
+    box-shadow: 0 0 12px rgba(94,232,154,0.45);
+  }
+  .party-card--hotspot .party-card__cta {
+    background: linear-gradient(135deg, #fde68a, #fbbf24);
+  }
+  .party-card--hotspot.is-selected .party-card__cta {
+    background: linear-gradient(135deg, #fde68a, #f59e0b);
+    box-shadow: 0 0 12px rgba(251,191,36,0.45);
+  }
+  .next-action {
+    margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    padding: 5px 8px 5px 10px; border-radius: 10px;
+    border: 1px solid rgba(94,232,154,0.32);
+    background: rgba(8, 28, 20, 0.65);
+  }
+  .next-action__body {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; flex: 1; min-width: 0;
+  }
+  .next-action__label {
+    margin: 0; font: 700 0.55rem/1 var(--font-d); letter-spacing: 0.1em;
+    text-transform: uppercase; color: rgba(94,232,154,0.7); flex-shrink: 0;
+  }
+  .next-action__text {
+    margin: 0; font-size: 0.78rem; font-weight: 650; color: var(--ink-strong); line-height: 1.25;
+  }
+  .next-action__btn {
+    margin-left: auto; appearance: none; cursor: pointer; border: 0;
+    padding: 7px 12px; border-radius: 999px;
+    font: 800 0.68rem/1 var(--font-d); letter-spacing: 0.03em;
+    color: #041018;
+    background: linear-gradient(135deg, #5ee89a, #22d3ee 60%, #67e8f9);
+    box-shadow: 0 0 12px rgba(94,232,154,0.28);
+    transition: filter 0.15s, transform 0.15s;
+  }
+  .next-action__btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .next-action__btn:disabled {
+    opacity: 0.45; cursor: default; transform: none; filter: none;
+  }
+  .party-flow__ip {
+    margin: 6px 0 0; padding: 5px 10px; border-radius: 10px;
+    border: 1px solid rgba(252,211,77,0.28);
+    background: rgba(16, 12, 6, 0.55);
+    font-size: 0.74rem; line-height: 1.35; font-weight: 650; color: rgba(233,213,255,0.78);
+  }
+  .party-flow__ip .guest-links-compact {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
+  }
+  .party-flow__ip .guest-links-compact .gl-muted {
+    color: rgba(196,181,253,0.55); font-weight: 600; font-size: 0.68rem;
+  }
+  .party-flow__ip strong { color: var(--gold); word-break: break-all; font-size: 0.74rem; font-weight: 750; }
+  .party-flow__ip a { color: #67e8f9; font-weight: 750; word-break: break-all; }
+  .party-flow__ip .pc-play-hint {
+    display: inline; margin: 0; font-size: inherit; line-height: inherit;
+    color: rgba(252,211,77,0.9); font-weight: 700;
+  }
+  .party-flow__ip .pc-play-hint a {
+    color: #fde68a; text-decoration: underline; text-underline-offset: 2px;
+    word-break: break-all; font-size: inherit; font-weight: 750;
+  }
+  .host-aux {
+    display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 8px; align-items: stretch;
+  }
+  @media (max-width: 820px) {
+    .host-aux { grid-template-columns: 1fr; }
+  }
+  .hotspot-sheet {
+    position: fixed; inset: 0; z-index: 60; display: none; place-items: center;
+    padding: 20px 16px; background: rgba(4,2,14,0.75); backdrop-filter: blur(6px);
+  }
+  .hotspot-sheet.open { display: grid; }
+  .hotspot-sheet__card {
+    width: min(480px, 100%); max-height: 88dvh; overflow: auto;
+    padding: 20px 18px 16px; border-radius: 18px;
+    border: 1px solid rgba(252,211,77,0.45);
+    background: rgba(16, 12, 8, 0.97);
+    box-shadow: 0 0 0 3px rgba(252,211,77,0.12), 0 20px 40px rgba(0,0,0,0.5);
+  }
+  .hotspot-sheet__title {
+    margin: 0 0 8px; font: 800 1.05rem/1.2 var(--font-d); color: var(--gold);
+  }
+  .hotspot-sheet__lead {
+    margin: 0 0 12px; font-size: 0.85rem; color: rgba(196,181,253,0.8); line-height: 1.4;
+  }
+  .hotspot-sheet__steps {
+    margin: 0; padding-left: 1.2rem; font-size: 0.82rem; color: rgba(233,213,255,0.88); line-height: 1.45;
+  }
+  .hotspot-sheet__steps li { margin: 0 0 8px; }
+  .hotspot-sheet__actions {
+    margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .hotspot-sheet__btn {
+    appearance: none; cursor: pointer; border: 0; border-radius: 999px;
+    padding: 11px 16px; font: 800 0.72rem/1 var(--font-d); letter-spacing: 0.04em;
+  }
+  .hotspot-sheet__btn--go {
+    color: #041018; background: linear-gradient(135deg, #fde68a, #fbbf24);
+  }
+  .hotspot-sheet__btn--close {
+    color: var(--ink); background: rgba(167,139,250,0.15);
+    border: 1px solid rgba(167,139,250,0.35);
+  }
+
+  .distro-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    padding: 8px 11px; border-radius: 12px; height: 100%;
+    border: 1px solid rgba(167, 139, 250, 0.35);
+    background: rgba(12, 8, 32, 0.88);
+  }
+  .distro-bar.is-missing {
+    border-color: rgba(252, 211, 77, 0.55);
+    background:
+      radial-gradient(ellipse 70% 120% at 0% 50%, rgba(252,211,77,0.12), transparent 55%),
+      rgba(28, 18, 8, 0.92);
+    box-shadow: 0 0 0 1px rgba(252,211,77,0.12);
+  }
+  .distro-bar__title {
+    margin: 0; font: 800 0.62rem/1 var(--font-d); letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--violet);
+  }
+  .distro-bar.is-missing .distro-bar__title { color: var(--gold); }
+  .distro-bar__sub { margin: 2px 0 0; font-size: 0.74rem; color: rgba(196,181,253,0.7); }
+  .distro-bar a.guest-chip { text-decoration: none; }
+  .distro-bar__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .distro-cta {
+    appearance: none; border: 1px solid rgba(252, 211, 77, 0.55); cursor: pointer;
+    padding: 8px 14px; border-radius: 999px;
+    font: 800 0.68rem/1 var(--font-d); letter-spacing: 0.06em; text-transform: uppercase;
+    color: #041018;
+    background: linear-gradient(135deg, #fde68a, #fbbf24 55%, #f59e0b);
+    box-shadow: 0 0 14px rgba(251, 191, 36, 0.35);
+    transition: filter 0.15s, transform 0.15s, box-shadow 0.15s;
+  }
+  .distro-cta:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+  }
+  .distro-cta:active { transform: translateY(1px); filter: brightness(0.96); }
+  .apk-wizard {
+    padding: 12px 14px; border-radius: 14px;
+    border: 1px dashed rgba(252, 211, 77, 0.45);
+    background: rgba(28, 18, 8, 0.88);
+  }
+  .apk-wizard__title {
+    margin: 0 0 8px; font: 800 0.68rem/1 var(--font-d); letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--gold);
+  }
+  .apk-wizard__steps {
+    margin: 0; padding-left: 1.2rem; font-size: 0.78rem; color: rgba(196,181,253,0.8); line-height: 1.45;
+  }
+  .apk-wizard__steps code { color: #a5f3fc; font-size: 0.85em; }
+  .apk-wizard__note { margin: 8px 0 0; font-size: 0.72rem; color: rgba(252,211,77,0.75); }
+  .showcase-focus-btn {
+    appearance: none; cursor: pointer;
+    width: auto; padding: 10px 16px; border-radius: 999px;
+    border: 1px solid rgba(103, 232, 249, 0.55);
+    font: 800 0.72rem/1.15 var(--font-d); letter-spacing: 0.04em;
+    color: #041018;
+    background: linear-gradient(135deg, #a5f3fc, #22d3ee 50%, #67e8f9);
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.2),
+      0 0 16px rgba(34, 211, 238, 0.35);
+    transition: filter 0.15s, transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  }
+  .showcase-focus-btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    border-color: rgba(165, 243, 252, 0.9);
+    box-shadow:
+      0 0 0 2px rgba(103, 232, 249, 0.35),
+      0 0 24px rgba(34, 211, 238, 0.55),
+      0 0 8px rgba(252, 211, 77, 0.25);
+  }
+  .showcase-focus-btn:focus-visible {
+    outline: none;
+    border-color: #fcd34d;
+    box-shadow:
+      0 0 0 3px rgba(252, 211, 77, 0.45),
+      0 0 20px rgba(34, 211, 238, 0.45);
+  }
+  .showcase-focus-btn:active {
+    transform: translateY(1px);
+    filter: brightness(0.95);
+  }
+
+  .table-card__main { min-width: 0; display: flex; flex-direction: column; gap: 0; align-self: stretch; justify-content: center; }
+
+  /* ×3 — одна линия из 3 чипов */
+  .roster {
+    margin: 0; padding: 6px; gap: 5px;
+    background: rgba(4, 2, 14, 0.55);
+    box-shadow: inset 0 0 16px rgba(0,0,0,0.28);
+  }
+  .roster--3 {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    border-radius: 999px; border: 1px solid rgba(34,211,238,0.35);
+    background: linear-gradient(90deg, rgba(34,211,238,0.12), rgba(4,2,14,0.55) 40%, rgba(34,211,238,0.08));
+  }
+  /* ×4 — сетка 2×2 */
+  .roster--4 {
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    border-radius: 12px; border: 1px solid rgba(232,121,249,0.4);
+    background: linear-gradient(135deg, rgba(232,121,249,0.14), rgba(4,2,14,0.55) 50%, rgba(252,211,77,0.08));
+  }
+  .seat-chip {
+    display: flex; align-items: center; gap: 6px; min-width: 0;
+    padding: 5px 6px 5px 5px; border-radius: 10px;
+    border: 1px solid rgba(167,139,250,0.25);
+    background: rgba(6,4,22,0.45);
+  }
+  .roster--3 .seat-chip {
+    flex-direction: column; text-align: center; gap: 3px;
+    border-radius: 999px; padding: 6px 4px;
+    border-color: rgba(34,211,238,0.3);
+  }
+  .roster--4 .seat-chip {
+    border-radius: 8px;
+    border-color: rgba(232,121,249,0.3);
+  }
+  .seat-chip.is-filled {
+    border-color: rgba(94,232,154,0.55);
+    background: linear-gradient(135deg, rgba(94,232,154,0.2), rgba(6,4,22,0.5));
+    box-shadow: 0 0 10px rgba(94,232,154,0.18);
+  }
+  .seat-chip.is-empty {
+    border-style: dashed; opacity: 0.85;
+  }
+  .seat-chip__av, .seat-chip__ph {
+    width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+  }
+  .roster--3 .seat-chip__av, .roster--3 .seat-chip__ph { width: 28px; height: 28px; }
+  .seat-chip__ph {
+    display: grid; place-items: center;
+    font: 800 0.62rem/1 var(--font-d); color: #041018;
+  }
+  .roster--3 .seat-chip__ph {
+    background: linear-gradient(135deg, #67e8f9, #22d3ee);
+    box-shadow: 0 0 8px rgba(34,211,238,0.35);
+  }
+  .roster--4 .seat-chip__ph {
+    border-radius: 7px;
+    background: linear-gradient(135deg, #e879f9, #a78bfa);
+    box-shadow: 0 0 8px rgba(232,121,249,0.35);
+  }
+  .seat-chip.is-empty .seat-chip__ph {
+    background: rgba(167,139,250,0.12) !important; color: rgba(196,181,253,0.45);
+    border: 1px dashed rgba(167,139,250,0.4); box-shadow: none !important;
+  }
+  .seat-chip__meta { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .roster--3 .seat-chip__meta { align-items: center; width: 100%; }
+  .seat-chip__n {
+    font: 800 0.48rem/1 var(--font-d); letter-spacing: 0.08em; text-transform: uppercase;
+    color: rgba(196,181,253,0.45);
+  }
+  .roster--3 .seat-chip.is-filled .seat-chip__n { color: rgba(34,211,238,0.8); }
+  .roster--4 .seat-chip.is-filled .seat-chip__n { color: rgba(232,121,249,0.85); }
+  .seat-chip__name {
+    font: 700 0.68rem/1.1 var(--font-u); color: var(--ink-strong);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 100%;
+  }
+  .roster--3 .seat-chip__name { font-size: 0.62rem; max-width: 100%; }
+  .seat-chip.is-empty .seat-chip__name { color: rgba(196,181,253,0.4); font-weight: 600; }
+
+  .table-card__actions {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 4px; align-items: start; justify-items: center;
+    padding: 8px 8px 10px;
+    border-top: 0;
+  }
+  .table-card[data-cap="3"] .table-card__actions {
+    background: linear-gradient(180deg, transparent, rgba(34,211,238,0.06));
+  }
+  .table-card[data-cap="4"] .table-card__actions {
+    background: linear-gradient(180deg, transparent, rgba(232,121,249,0.06));
+  }
+  .table-card__actions.orb-row { flex-wrap: nowrap; gap: 4px; }
+  .table-card__actions .orb {
+    width: 100%; max-width: 88px; margin: 0;
+    filter: drop-shadow(0 0 6px rgba(167,139,250,0.25));
+  }
+  .table-card__actions .orb--cyan { filter: drop-shadow(0 0 8px rgba(34,211,238,0.45)); }
+  .table-card__actions .orb--gold { filter: drop-shadow(0 0 8px rgba(252,211,77,0.4)); }
+  .table-card__actions .orb--go { filter: drop-shadow(0 0 8px rgba(34,211,238,0.4)); }
+  .table-card__actions .orb--close { filter: drop-shadow(0 0 10px rgba(244,63,94,0.5)); }
+  .table-card__actions .orb--sm .orb__disc,
+  .table-card__actions .orb--close .orb__disc {
+    width: 48px; height: 48px;
+  }
+  .table-card__actions .orb--sm .orb__disc svg,
+  .table-card__actions .orb--close .orb__disc svg { width: 20px; height: 20px; }
+  .table-card__actions .orb--cyan .orb__disc {
+    box-shadow: 0 0 0 3px rgba(10,6,28,0.9), 0 0 0 4px rgba(34,211,238,0.35), 0 0 14px rgba(34,211,238,0.35);
+  }
+  .table-card__actions .orb--gold .orb__disc {
+    box-shadow: 0 0 0 3px rgba(10,6,28,0.9), 0 0 0 4px rgba(252,211,77,0.35), 0 0 14px rgba(252,211,77,0.3);
+  }
+  .table-card__actions .orb--go .orb__disc {
+    box-shadow: 0 0 0 3px rgba(10,6,28,0.9), 0 0 0 4px rgba(34,211,238,0.3), 0 0 14px rgba(34,211,238,0.3);
+  }
+  .table-card__actions .orb--close .orb__disc {
+    width: 48px; height: 48px;
+    box-shadow: 0 0 0 3px rgba(10,6,28,0.9), 0 0 0 4px rgba(244,63,94,0.45), 0 0 16px rgba(244,63,94,0.4);
+  }
+
+  @media (max-width: 420px) {
+    .table-card__body { grid-template-columns: 1fr; justify-items: center; }
+    .table-card__main { width: 100%; }
+    .roster--3 { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .live-bar {
+    display: flex; flex-direction: column; gap: 8px;
+    width: 100%; margin-top: 2px; padding-top: 10px;
+    border-top: 1px solid rgba(167,139,250,0.15);
+  }
+  .live-bar__top {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  }
+  .live-bar__title {
+    font: 700 0.55rem/1 var(--font-d); letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(196,181,253,0.5);
+  }
+  .live-bar__summary {
+    font: 700 0.72rem/1 var(--font-u); color: var(--ink-strong);
+  }
+  .live-bar__summary em { font-style: normal; color: var(--cyan); }
+  .live-groups {
+    display: flex; flex-direction: column; gap: 6px; max-height: 148px; overflow: auto;
+    padding-right: 4px;
+  }
+  .live-group {
+    display: grid; grid-template-columns: auto auto 1fr; gap: 8px; align-items: start;
+    padding: 8px 10px; border-radius: 12px;
+    border: 1px solid rgba(167,139,250,0.28);
+    background:
+      linear-gradient(90deg, rgba(103,232,249,0.06), transparent 40%),
+      rgba(6,4,22,0.55);
+  }
+  .live-group[data-cap="3"] {
+    border-color: rgba(34,211,238,0.35);
+    background: linear-gradient(90deg, rgba(34,211,238,0.12), transparent 45%), rgba(6,4,22,0.55);
+  }
+  .live-group[data-cap="4"] {
+    border-color: rgba(232,121,249,0.35);
+    background: linear-gradient(90deg, rgba(232,121,249,0.12), transparent 45%), rgba(6,4,22,0.55);
+  }
+  .live-group__no {
+    font: 800 0.7rem/1 var(--font-d); color: #041018;
+    padding: 4px 8px; border-radius: 999px;
+    background: linear-gradient(135deg, #a5f3fc, #a78bfa);
+  }
+  .live-group__cap {
+    font: 800 0.62rem/1 var(--font-d); padding: 4px 8px; border-radius: 999px;
+    color: #041018;
+  }
+  .live-group__cap.x3 { background: linear-gradient(135deg, #a5f3fc, #22d3ee); }
+  .live-group__cap.x4 { background: linear-gradient(135deg, #e9d5ff, #a78bfa); }
+  .live-group__people {
+    display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+  }
+  .live-pill {
+    display: inline-flex; align-items: center; gap: 5px; max-width: 130px;
+    padding: 3px 8px 3px 3px; border-radius: 999px;
+    border: 1px solid rgba(94,232,154,0.35); background: rgba(94,232,154,0.1);
+    font: 700 0.68rem/1 var(--font-u); color: var(--green);
+  }
+  .live-pill img, .live-pill .ph {
+    width: 20px; height: 20px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+  }
+  .live-pill .ph {
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, #a78bfa, #22d3ee);
+    font: 800 0.5rem/1 var(--font-d); color: #041018;
+  }
+  .live-pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .live-pill--wait {
+    border-style: dashed; border-color: rgba(167,139,250,0.3); background: transparent;
+    color: rgba(196,181,253,0.4); padding: 3px 8px;
+  }
+  .player-empty {
+    font: 600 0.72rem/1.2 var(--font-u); color: rgba(196,181,253,0.4);
+  }
+
+  [hidden] { display: none !important; }
+  body.is-building .bridge { filter: saturate(0.75); }
+
+  .flash {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    padding: 9px 16px; border-radius: 999px; z-index: 80;
+    background: #12081f; border: 1px solid rgba(167,139,250,0.35);
+    font: 700 0.78rem/1 var(--font-u); color: var(--ink-strong);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .flash.on { opacity: 1; }
+
+  .sheet-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.62); z-index: 40;
+    opacity: 0; pointer-events: none; transition: opacity 0.22s;
+  }
+  .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+  .share-sheet {
+    position: fixed; left: 50%; bottom: 0; z-index: 50; width: min(520px, 100%);
+    max-height: 88dvh; transform: translate(-50%, 108%);
+    transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    background: linear-gradient(180deg, #1a1230 0%, #0a0618 100%);
+    border: 1px solid rgba(167,139,250,0.35); border-radius: 24px 24px 0 0;
+    display: flex; flex-direction: column;
+  }
+  .share-sheet.open { transform: translate(-50%, 0); }
+  .sheet-head { padding: 12px 16px 8px; text-align: center; }
+  .sheet-handle { width: 44px; height: 4px; border-radius: 2px; background: var(--violet); margin: 0 auto 12px; }
+  .sheet-title { margin: 0; font: 800 1.05rem/1.2 var(--font-d); color: var(--ink-strong); }
+  .sheet-sub { margin: 6px 0 0; font-size: 0.8rem; color: rgba(196,181,253,0.55); }
+  .sheet-body { overflow: auto; padding: 4px 12px 12px; }
+  .share-group-title {
+    margin: 10px 6px 8px; font: 700 0.65rem/1 var(--font-d); letter-spacing: 0.12em;
+    text-transform: uppercase; color: rgba(196,181,253,0.45);
+  }
+  .share-grid { display: flex; flex-wrap: wrap; gap: 12px; padding: 0 4px 8px; }
+  .share-orb {
+    appearance: none; border: 0; background: transparent; padding: 0; cursor: pointer;
+    width: 76px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    font: 700 0.62rem/1.15 var(--font-u); color: rgba(196,181,253,0.75);
+  }
+  .share-orb .ico {
+    width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.35); transition: transform 0.18s, filter 0.18s;
+  }
+  .share-orb .ico svg { width: 22px; height: 22px; }
+  .share-orb:hover .ico { transform: scale(1.1); filter: drop-shadow(0 0 10px rgba(233,213,255,0.45)); }
+  .ico-wa { background: #25d366; } .ico-tg { background: #2aabee; } .ico-vb { background: #7360f2; }
+  .ico-dc { background: #5865f2; } .ico-vk { background: #0077ff; }
+  .ico-gmail { background: #ea4335; } .ico-yandex { background: #fc3f1d; } .ico-mail { background: #8b6914; }
+  .ico-sms { background: #3d5a80; } .ico-qr { background: #2d4a3e; }
+  .ico-os { background: linear-gradient(135deg, #5ee89a, #22b8cf); }
+  .sheet-foot { padding: 0 14px 16px; }
+  .sheet-close {
+    width: 100%; padding: 12px; border: none; border-radius: 999px; cursor: pointer;
+    background: rgba(167,139,250,0.12); color: var(--ink); font: 700 0.88rem var(--font-u);
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <defs>
+          <linearGradient id="upFill" x1="20%" y1="100%" x2="80%" y2="0%">
+            <stop offset="0%" stop-color="#a004ad"/><stop offset="40%" stop-color="#61077c"/>
+            <stop offset="78%" stop-color="#3405a5"/><stop offset="100%" stop-color="#fbbf24"/>
+          </linearGradient>
+          <radialGradient id="upGlow" cx="50%" cy="45%" r="58%">
+            <stop offset="0%" stop-color="#e19802" stop-opacity="0.45"/>
+            <stop offset="55%" stop-color="#96028f" stop-opacity="0.22"/>
+            <stop offset="100%" stop-color="#26017e" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <circle cx="20" cy="20" r="18" fill="url(#upGlow)"/>
+        <path fill="url(#upFill)" d="M20 5.5 L30.5 17.2 L24.2 17.2 L24.2 33.5 L15.8 33.5 L15.8 17.2 L9.5 17.2 Z"/>
+        <path fill="#ffe8a3" opacity="0.92" d="M20 11.5 L24.6 16.5 L21.4 16.5 L21.4 28.5 L18.6 28.5 L18.6 16.5 L15.4 16.5 Z"/>
+      </svg>
+      <div>
+        <h1>Up&amp;Down</h1>
+        <p class="tag">мост · Wi‑Fi хост</p>
+      </div>
+      <div class="panel-rev-badge" id="panelRevBadge" title="Версия UI панели">rev 11</div>
+      <div class="pills" id="statusLine"><span class="pill warn"><i class="dot"></i>…</span></div>
+    </div>
+
+    <div class="party-flow" id="basementWizard">
+      <div class="party-flow__head">
+        <p class="party-flow__title">Вечеринка · выберите ситуацию</p>
+        <span class="host-tip host-tip--below">
+          <button type="button" class="host-tip__btn" aria-expanded="false" aria-label="Как пользоваться панелью">?</button>
+          <span class="host-tip__pop" role="dialog">
+            <span class="host-tip__pop-arrow" aria-hidden="true"></span>
+            <span class="host-tip__title">Панель хоста</span>
+            <span class="host-tip__body">Только на этом ПК. Друзьям на телефонах — камера на QR. Сначала выберите сеть, затем большая кнопка «Дальше» ведёт по шагам.</span>
+          </span>
+        </span>
+      </div>
+      <div class="party-cards">
+        <button type="button" class="party-card" id="cardHomeWifi" data-scenario="home" aria-pressed="false">
+          <p class="party-card__title">Уже есть Wi‑Fi</p>
+          <span class="party-card__cta" data-cta-default="Выбрать" data-cta-on="Выбрано">Выбрать</span>
+        </button>
+        <button type="button" class="party-card party-card--hotspot" id="cardHotspot" data-scenario="hotspot" aria-pressed="false">
+          <p class="party-card__title">Нет Wi‑Fi — с телефона</p>
+          <span class="party-card__cta" data-cta-default="Как сделать" data-cta-on="Выбрано">Как сделать</span>
+        </button>
+      </div>
+      <div class="next-action" id="nextAction">
+        <div class="next-action__body">
+          <p class="next-action__label">Дальше</p>
+          <p class="next-action__text" id="nextActionText">Сначала выберите ситуацию выше</p>
+        </div>
+        <button type="button" class="next-action__btn" id="btnNextAction" disabled>Выберите ситуацию</button>
+      </div>
+      <div class="party-flow__ip" id="basementIpLine">Ссылка для гостей появится после запуска</div>
+    </div>
+
+    <div class="hotspot-sheet" id="hotspotSheet" role="dialog" aria-modal="true" hidden>
+      <div class="hotspot-sheet__card">
+        <h2 class="hotspot-sheet__title">Нет роутера? Телефон создаст Wi‑Fi</h2>
+        <p class="hotspot-sheet__lead">
+          «Новая сеть» — это не роутер и не интернет из розетки.
+          Её <strong>создаёт один телефон</strong> (точка доступа / режим модема).
+          В списке Wi‑Fi на ноуте появится имя вроде «iPhone Мария» или «AndroidAP» — к нему и подключаетесь.
+        </p>
+        <ol class="hotspot-sheet__steps">
+          <li><strong>Шаг 1 — телефон-раздатчик</strong> (ваш или друга, не обязательно игровой):
+            <br><em>Android:</em> Настройки → Сеть → Точка доступа / Hotspot → включить. Запомните <strong>имя сети</strong> и пароль.
+            <br><em>iPhone:</em> Настройки → Режим модема → «Разрешить другим». Запомните имя и пароль.
+          </li>
+          <li><strong>Шаг 2 — этот ноут:</strong> значок Wi‑Fi → найдите <em>то самое имя</em> с шага 1 → подключитесь паролем с телефона.
+            (Как к обычному Wi‑Fi кафе — только сеть сделал телефон.)</li>
+          <li><strong>Шаг 3 — гости:</strong> на своих телефонах тоже выберите ту же сеть из шага 1.</li>
+          <li><strong>Шаг 4:</strong> вернитесь на эту страницу → «Готово — запустить игру» → создайте стол с QR.</li>
+        </ol>
+        <p class="hotspot-sheet__lead" style="margin-top:12px;margin-bottom:0;font-size:0.82rem;color:rgba(252,211,77,0.85)">
+          Важно: интернет на раздатчике не обязателен. Нужна только общая «локальная» сеть телефона, чтобы ноут и гости друг друга видели.
+        </p>
+        <div class="hotspot-sheet__actions">
+          <button type="button" class="hotspot-sheet__btn hotspot-sheet__btn--go" id="btnHotspotDone">Готово — ноут уже в сети телефона</button>
+          <button type="button" class="hotspot-sheet__btn hotspot-sheet__btn--close" id="btnHotspotClose">Закрыть</button>
+        </div>
+      </div>
+    </div>
+
+    <details class="host-fold" id="foldExtras">
+      <summary>Клуб · APK · журнал <span class="fold-meta">по желанию</span></summary>
+      <div class="host-fold__body">
+        <div class="host-aux">
+          <div class="club-banner" id="clubBanner" role="status">
+            <div style="flex:1;min-width:140px">
+              <p class="club-banner__title">Клуб
+                <span class="host-tip host-tip--below">
+                  <button type="button" class="host-tip__btn" aria-expanded="false" aria-label="Про клуб">?</button>
+                  <span class="host-tip__pop" role="dialog">
+                    <span class="host-tip__pop-arrow" aria-hidden="true"></span>
+                    <span class="host-tip__title">Клуб</span>
+                    <span class="host-tip__body">До 22 столов, автостарт и крупные QR на витрине.</span>
+                  </span>
+                </span>
+              </p>
+              <p class="club-banner__sub" id="clubBannerSub">до 22 столов</p>
+            </div>
+            <label class="switch" style="margin-left:auto">
+              <input type="checkbox" id="chkClubMode" />
+              <span class="switch__track"><span class="switch__knob"></span></span>
+              <span class="switch__txt">Клуб</span>
+            </label>
+          </div>
+
+          <div class="distro-bar is-missing" id="distroBar">
+            <div style="flex:1;min-width:160px">
+              <p class="distro-bar__title">APK
+                <span class="host-tip host-tip--below host-tip--right">
+                  <button type="button" class="host-tip__btn" aria-expanded="false" aria-label="Про APK">?</button>
+                  <span class="host-tip__pop" role="dialog">
+                    <span class="host-tip__pop-arrow" aria-hidden="true"></span>
+                    <span class="host-tip__title">APK</span>
+                    <span class="host-tip__body">iPhone — Safari по QR. Android — файл в dist-host/apk.</span>
+                  </span>
+                </span>
+              </p>
+              <p class="distro-bar__sub" id="distroSub">по желанию</p>
+            </div>
+            <div class="distro-bar__actions">
+              <button type="button" class="distro-cta" id="btnGetApk" hidden>Получить APK</button>
+              <a class="guest-chip" id="distroApkLink" href="#" target="_blank" rel="noopener">APK</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="apk-wizard" id="apkWizard" hidden>
+          <p class="apk-wizard__title">Как передать игру гостям</p>
+          <ol class="apk-wizard__steps">
+            <li><strong>iPhone:</strong> QR → «Открыть в браузере».</li>
+            <li><strong>Android APK:</strong> положите <code>updown.apk</code> в <code>dist-host/apk/</code>.</li>
+            <li><strong>Гость Android:</strong> QR → «Скачать APK» → снова QR.</li>
+          </ol>
+          <p class="apk-wizard__note" id="apkWizardNote">Полный APK ~100 МБ. Гостю: QR → открыть в Chrome (не браузер камеры) → «Скачать APK» → «Всё равно скачать» → подождать. Или сразу «Открыть в браузере» без установки.</p>
+        </div>
+
+        <div class="apk-wizard" id="oauthWizard" style="margin-top:12px">
+          <p class="apk-wizard__title">Google + рейтинг (Supabase) — без VPN</p>
+          <p class="apk-wizard__note" style="margin-bottom:8px">
+            Вечеринка = только <strong>:3001/play/</strong> (QR/ссылка). Не сайт up2down.online, не Vite :5173.
+            Если Site URL = сайт — после Google унесёт туда (часто нужен VPN).
+          </p>
+          <ol class="apk-wizard__steps">
+            <li><strong>Redirect URLs</strong> — скопируйте и вставьте в Supabase:</li>
+          </ol>
+          <p style="margin:6px 0;word-break:break-all">
+            <code id="oauthRedirectLine">—</code>
+            <button type="button" class="distro-cta" id="btnCopyOauthRedirect" style="margin-left:6px">Копировать</button>
+          </p>
+          <p style="margin:6px 0;word-break:break-all;font-size:0.85em">
+            Wildcard: <code id="oauthWildcardLine">http://192.168.*.*:3001/**</code>
+            <button type="button" class="distro-cta" id="btnCopyOauthWildcard" style="margin-left:6px">Копировать</button>
+          </p>
+          <ol class="apk-wizard__steps" start="2">
+            <li><strong>Site URL на вечер вечеринки</strong> (без ?code= и без #):</li>
+          </ol>
+          <p style="margin:6px 0;word-break:break-all">
+            <code id="oauthSiteLine">—</code>
+            <button type="button" class="distro-cta" id="btnCopyOauthSite" style="margin-left:6px">Копировать</button>
+          </p>
+          <p class="apk-wizard__note">После вечеринки Site URL верните на <code>https://up2down.online</code>. Redirect URLs с IP можно оставить.</p>
+        </div>
+        <pre class="log-mini" id="log">—</pre>
+      </div>
+    </details>
+
+    <div class="build-banner" id="buildBanner" role="status" aria-live="polite">
+      <div class="build-banner__spin" aria-hidden="true"></div>
+      <div>
+        <p class="build-banner__title" id="buildBannerTitle">Сборка игры…</p>
+        <p class="build-banner__sub" id="buildBannerSub">Кнопки пока неактивны — готовим файлы для телефонов</p>
+      </div>
+    </div>
+
+    <!-- ПАНЕЛЬ 1: энергия / сервер -->
+    <section class="bridge" id="powerBridge">
+      <div class="bridge__head">
+        <div class="bridge__label"><i></i>Запуск игры для телефонов</div>
+        <span class="bridge__serial" id="bootHint">ожидание</span>
+      </div>
+      <div class="bridge__rail">
+        <div class="leds" id="powerLeds">
+          <div class="led" id="ledBuild"><span class="led__lamp"></span>сборка</div>
+          <div class="led" id="ledSrv"><span class="led__lamp"></span>питание</div>
+          <div class="led" id="ledNet"><span class="led__lamp"></span>сеть</div>
+        </div>
+        <div class="divider" aria-hidden="true"></div>
+        <div class="gauge" title="Сборка">
+          <div class="gauge__ring">
+            <svg viewBox="0 0 36 36" aria-hidden="true">
+              <circle class="gauge__track" cx="18" cy="18" r="14"/>
+              <circle class="gauge__val gold" id="gaugeBuild" cx="18" cy="18" r="14"
+                stroke-dasharray="88" stroke-dashoffset="88"/>
+            </svg>
+            <div class="gauge__num" id="gaugeBuildN">0</div>
+          </div>
+          <p class="gauge__caption">сборка</p>
+        </div>
+        <div class="gauge" title="Столы">
+          <div class="gauge__ring">
+            <svg viewBox="0 0 36 36" aria-hidden="true">
+              <circle class="gauge__track" cx="18" cy="18" r="14"/>
+              <circle class="gauge__val green" id="gaugeTables" cx="18" cy="18" r="14"
+                stroke-dasharray="88" stroke-dashoffset="88"/>
+            </svg>
+            <div class="gauge__num" id="gaugeTablesN">0</div>
+          </div>
+          <p class="gauge__caption">столы</p>
+        </div>
+        <div class="divider" aria-hidden="true"></div>
+        <div class="orb-row">
+          <button type="button" class="orb orb--go" id="btnStart" disabled>
+            <span class="orb__disc" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.2v13.6L19 12z"/></svg></span>
+            Старт
+          </button>
+          <span class="host-tip">
+            <button type="button" class="host-tip__btn" aria-expanded="false" aria-label="Про Старт">?</button>
+            <span class="host-tip__pop" role="dialog">
+              <span class="host-tip__pop-arrow" aria-hidden="true"></span>
+              <span class="host-tip__title">Старт</span>
+              <span class="host-tip__body">Поднимает один игровой сервер на этом ПК (до 22 столов). Если уже запущен — не дублирует.</span>
+            </span>
+          </span>
+          <button type="button" class="orb orb--stop" id="btnStop" disabled>
+            <span class="orb__disc" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg></span>
+            Стоп
+          </button>
+          <span class="host-tip">
+            <button type="button" class="host-tip__btn" aria-expanded="false" aria-label="Про Стоп">?</button>
+            <span class="host-tip__pop" role="dialog">
+              <span class="host-tip__pop-arrow" aria-hidden="true"></span>
+              <span class="host-tip__title">Стоп</span>
+              <span class="host-tip__body">Закрывает столы панели и останавливает сервер. Гости отключатся.</span>
+            </span>
+          </span>
+          <button type="button" class="orb orb--rebuild" id="btnRebuild" disabled>
+            <span class="orb__disc" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12a8 8 0 0 1 14-5M20 12a8 8 0 0 1-14 5"/><path d="M18 4v5h-5M6 20v-5h5"/></svg></span>
+            Сборка
+          </button>
+          <span class="host-tip">
+            <button type="button" class="host-tip__btn" aria-expanded="false" aria-label="Про Сборку">?</button>
+            <span class="host-tip__pop" role="dialog">
+              <span class="host-tip__pop-arrow" aria-hidden="true"></span>
+              <span class="host-tip__title">Сборка</span>
+              <span class="host-tip__body">Обновляет файлы игры для телефонов (dist-host). Уже запущенный сервер не перезапускает.</span>
+            </span>
+          </span>
+        </div>
+        <div class="divider" aria-hidden="true"></div>
+        <div id="guestLinks" style="display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:140px"><span class="guest-empty">ссылка после старта</span></div>
+        <div class="live-bar" id="liveBar">
+          <div class="live-bar__top">
+            <span class="live-bar__title">игроки</span>
+            <span class="live-bar__summary" id="liveSummary">0</span>
+          </div>
+          <div class="live-groups" id="livePlayers"><span class="player-empty">—</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ПАНЕЛЬ 2: палуба / новый стол -->
+    <section class="bridge is-locked" id="deckBridge">
+      <div class="bridge__head">
+        <div class="bridge__label bridge__label--deck"><i></i>Новый стол + QR</div>
+        <span class="bridge__serial">после запуска</span>
+      </div>
+      <div class="bridge__rail bridge__rail--deck">
+        <div class="deck-cluster deck-cluster--seats">
+          <div class="seat-row" role="group" aria-label="Игроков">
+            <button type="button" class="seat" id="seatBtn3" aria-pressed="false"><span class="seat__disc">3</span>×3</button>
+            <button type="button" class="seat" id="seatBtn4" aria-pressed="true"><span class="seat__disc">4</span>×4</button>
+          </div>
+          <label class="switch" title="Показывать в Зале столов">
+            <input type="checkbox" id="chkShowHall" checked />
+            <span class="switch__track"><span class="switch__knob"></span></span>
+            <span class="switch__txt">Зал</span>
+          </label>
+        </div>
+        <div class="deck-cluster deck-cluster--gauge">
+          <div class="gauge" title="Свободно столов">
+            <div class="gauge__ring">
+              <svg viewBox="0 0 36 36" aria-hidden="true">
+                <circle class="gauge__track" cx="18" cy="18" r="14"/>
+                <circle class="gauge__val" id="gaugeSlots" cx="18" cy="18" r="14"
+                  stroke-dasharray="88" stroke-dashoffset="88"/>
+              </svg>
+              <div class="gauge__num" id="gaugeSlotsN">22</div>
+            </div>
+            <p class="gauge__caption">свободно</p>
+          </div>
+        </div>
+        <div class="deck-cluster deck-cluster--create">
+          <button type="button" class="orb orb--create" id="btnCreate" disabled>
+            <span class="orb__disc" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </span>
+            Создать
+          </button>
+          <span class="host-tip host-tip--right">
+            <button type="button" class="host-tip__btn" aria-expanded="false" aria-label="Про создание стола">?</button>
+            <span class="host-tip__pop" role="dialog">
+              <span class="host-tip__pop-arrow" aria-hidden="true"></span>
+              <span class="host-tip__title">Стол + QR</span>
+              <span class="host-tip__body">Создаёт комнату с QR. Гости сканируют камерой. На этом ПК второй браузер — только ссылка :3001/play/, не Vite :5173.</span>
+            </span>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <div class="hero-empty" id="heroEmpty">
+      <h3 id="heroTitle">Столов пока нет</h3>
+      <p id="heroSub">PWR → Старт, затем DECK → Создать. Можно несколько независимых комнат.</p>
+    </div>
+    <div class="rooms-grid" id="roomsGrid" hidden></div>
+
+    <div class="showcase-dock" id="showcaseDock" hidden>
+      <div class="showcase-dock__qr" id="showcaseQr"></div>
+      <div class="showcase-dock__meta">
+        <div class="showcase-dock__code" id="showcaseCode">—</div>
+        <p class="showcase-dock__hint" id="showcaseHint">Клик по строке — крупный QR на стойку</p>
+        <button type="button" class="showcase-focus-btn" id="btnShowcaseFocus" hidden title="Показать крупный QR стола, где уже сидят люди">
+          К столу, где уже есть игроки
+        </button>
+      </div>
+      <div class="showcase-dock__list" id="showcaseList" aria-label="Активные столы">
+        <p class="showcase-dock__list-title">Активные комнаты</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet-backdrop" id="shareBackdrop" hidden></div>
+  <aside class="share-sheet" id="shareSheet" role="dialog" hidden>
+    <div class="sheet-head">
+      <div class="sheet-handle"></div>
+      <h2 class="sheet-title">Куда отправить</h2>
+      <p class="sheet-sub">Мессенджер, почта или копировать</p>
+    </div>
+    <div class="sheet-body" id="shareBody"></div>
+    <div class="sheet-foot"><button type="button" class="sheet-close" id="btnShareClose">Закрыть</button></div>
+  </aside>
+  <div class="flash" id="flash"></div>
+
+<script>
+(() => {
+  const LAN = '/lan';
+  const STORE_KEY = 'updown_host_rooms_v2';
+  const CLUB_KEY = 'updown_host_club_mode';
+  const CIRC = 2 * Math.PI * 14; // r=14
+  /** randomUUID может отсутствовать вне secure-context — не валим панель. */
+  function newId() {
+    try {
+      if (globalThis.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    } catch { /* */ }
+    try {
+      if (globalThis.crypto && crypto.getRandomValues) {
+        const a = new Uint8Array(16);
+        crypto.getRandomValues(a);
+        a[6] = (a[6] & 0x0f) | 0x40;
+        a[8] = (a[8] & 0x3f) | 0x80;
+        const h = [...a].map((b) => b.toString(16).padStart(2, '0')).join('');
+        return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
+      }
+    } catch { /* */ }
+    return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+  }
+  const hostId = localStorage.getItem('updown_host_id') || (() => {
+    const id = 'host-' + newId();
+    localStorage.setItem('updown_host_id', id);
+    return id;
+  })();
+
+  /** @type {Map<string, any>} */
+  const rooms = new Map();
+  let nextTableNo = 1;
+  let ws = null, pending = new Map(), network = null;
+  let maxPlayers = 4;
+  let serverUp = false, ctlBusy = false, builtOnce = false, building = false, distOk = false;
+  let shareRoomId = null;
+  let roomCapLimit = 22;
+  let clubMode = localStorage.getItem(CLUB_KEY) === '1';
+  let clubAutoStartPref = false;
+  let showcaseRoomId = null;
+  let didClubAutoStart = false;
+
+  const logEl = document.getElementById('log');
+  const statusLine = document.getElementById('statusLine');
+  const bootHint = document.getElementById('bootHint');
+  const deckBridge = document.getElementById('deckBridge');
+  const heroEmpty = document.getElementById('heroEmpty');
+  const heroTitle = document.getElementById('heroTitle');
+  const heroSub = document.getElementById('heroSub');
+  const roomsGrid = document.getElementById('roomsGrid');
+  const flashEl = document.getElementById('flash');
+  const btnStart = document.getElementById('btnStart');
+  const btnStop = document.getElementById('btnStop');
+  const btnRebuild = document.getElementById('btnRebuild');
+  const btnCreate = document.getElementById('btnCreate');
+  const guestLinks = document.getElementById('guestLinks');
+  const buildBanner = document.getElementById('buildBanner');
+  const buildBannerTitle = document.getElementById('buildBannerTitle');
+  const buildBannerSub = document.getElementById('buildBannerSub');
+
+  function flash(t) {
+    flashEl.textContent = t;
+    flashEl.classList.add('on');
+    setTimeout(() => flashEl.classList.remove('on'), 1800);
+  }
+  function pill(cls, label) {
+    return '<span class="pill ' + cls + '"><i class="dot"></i>' + label + '</span>';
+  }
+  async function ctl(act) {
+    const r = await fetch('/api/' + act, { method: act === 'status' || act === 'logs' ? 'GET' : 'POST' });
+    let data = null;
+    try {
+      data = await r.json();
+    } catch {
+      data = { ok: false, error: 'bad_json' };
+    }
+    if (r.status === 404 || data?.error === 'unknown action') {
+      data = {
+        ok: false,
+        error: 'unknown action',
+        stalePanel: true,
+        hint: 'Панель устарела. Закройте окно cmd панели и снова запустите «Открыть-панель-хоста.cmd», затем обновите вкладку (F5).',
+      };
+    }
+    return data;
+  }
+  const NEED_PANEL_REV = 11;
+  function setGauge(el, nEl, value, max) {
+    const v = Math.max(0, Math.min(1, max ? value / max : value));
+    el.style.strokeDashoffset = String(CIRC * (1 - v));
+    if (nEl) nEl.textContent = String(value);
+  }
+  function friendlyError(code) {
+    const map = {
+      too_many_rooms: 'Слишком много столов на сервере — нажмите Стоп и Старт, или закройте лишние',
+      rate_limited: 'Слишком часто создаёте — подождите чуть-чуть',
+      server_full: 'Сервер заполнен',
+    };
+    return map[code] || code;
+  }
+  function setLed(id, mode) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'led' + (mode ? ' ' + mode : '');
+  }
+  function setBuildUi(on, title, sub) {
+    building = !!on;
+    document.body.classList.toggle('is-building', building);
+    buildBanner.classList.toggle('on', building);
+    if (title) buildBannerTitle.textContent = title;
+    if (sub) buildBannerSub.textContent = sub;
+  }
+  function setCtlBusy(v) { ctlBusy = v; syncControls(); }
+
+  function persist() {
+    const payload = {
+      nextTableNo,
+      rooms: [...rooms.values()].map((r) => ({
+        id: r.id, code: r.code, tableNo: r.tableNo,
+        max_players: r.max_players, status: r.status,
+        player_slots: r.player_slots, updated_at: r.updated_at,
+        createdAtMs: r.createdAtMs || Date.now(),
+      })),
+    };
+    localStorage.setItem(STORE_KEY, JSON.stringify(payload));
+  }
+  function loadPersist() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (!raw) return;
+      if (typeof raw.nextTableNo === 'number') nextTableNo = raw.nextTableNo;
+      if (Array.isArray(raw.rooms)) {
+        for (const r of raw.rooms) {
+          if (r?.id) rooms.set(r.id, r);
+        }
+      }
+    } catch { /* */ }
+  }
+
+  function roomCap(room) {
+    return room.max_players === 3 ? 3 : 4;
+  }
+  function humans(room) {
+    return (room.player_slots || []).filter((s) => s.userId);
+  }
+  function slotByIndex(room, idx) {
+    return (room.player_slots || []).find((s) => Number(s.slotIndex) === idx && s.userId) || null;
+  }
+  function roomStatusLabel(room) {
+    const n = humans(room).length;
+    const cap = roomCap(room);
+    if (room.status === 'playing') return { text: 'игра ' + n + '/' + cap, cls: 'is-play' };
+    if (n >= cap) return { text: 'полный ' + n + '/' + cap, cls: 'is-full' };
+    if (n) return { text: 'лобби ' + n + '/' + cap, cls: '' };
+    return { text: 'ждём 0/' + cap, cls: '' };
+  }
+  function escapeHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  function avatarHtml(s, empty) {
+    if (empty) return '<span class="seat-chip__ph">·</span>';
+    const initial = escapeHtml((s.displayName || '?').trim().charAt(0).toUpperCase() || '?');
+    if (s.avatarDataUrl) return '<img class="seat-chip__av" src="' + escapeHtml(s.avatarDataUrl) + '" alt=""/>';
+    return '<span class="seat-chip__ph">' + initial + '</span>';
+  }
+  /** ×3 — ряд из 3; ×4 — сетка 2×2. */
+  function rosterHtml(room) {
+    const cap = roomCap(room);
+    let html = '<div class="roster roster--' + cap + '" role="list" aria-label="' + (cap === 3 ? 'Тройка' : 'Квартет') + '">';
+    for (let i = 0; i < cap; i++) {
+      const s = slotByIndex(room, i);
+      if (s) {
+        const name = escapeHtml(s.displayName || s.shortLabel || 'Игрок');
+        html +=
+          '<div class="seat-chip is-filled" role="listitem" title="' + name + '">' +
+            avatarHtml(s, false) +
+            '<span class="seat-chip__meta">' +
+              '<span class="seat-chip__n">' + (i + 1) + '</span>' +
+              '<span class="seat-chip__name">' + name + '</span>' +
+            '</span>' +
+          '</div>';
+      } else {
+        html +=
+          '<div class="seat-chip is-empty" role="listitem">' +
+            avatarHtml(null, true) +
+            '<span class="seat-chip__meta">' +
+              '<span class="seat-chip__n">' + (i + 1) + '</span>' +
+              '<span class="seat-chip__name">—</span>' +
+            '</span>' +
+          '</div>';
+      }
+    }
+    html += '</div>';
+    return html;
+  }
+  function renderLiveBar() {
+    const el = document.getElementById('livePlayers');
+    const sum = document.getElementById('liveSummary');
+    if (!el) return;
+    const list = [...rooms.values()].sort((a, b) => (a.tableNo || 0) - (b.tableNo || 0));
+    let totalHumans = 0;
+    let tablesWithPeople = 0;
+    for (const room of list) {
+      const n = humans(room).length;
+      totalHumans += n;
+      if (n) tablesWithPeople += 1;
+    }
+    if (sum) {
+      sum.innerHTML = totalHumans
+        ? '<em>' + totalHumans + '</em> игрок(ов) · <em>' + tablesWithPeople + '</em> стол(ов)'
+        : '0 за столами';
+    }
+    if (!list.length) {
+      el.innerHTML = '<span class="player-empty">столов нет</span>';
+      return;
+    }
+    el.innerHTML = list.map((room) => {
+      const cap = roomCap(room);
+      const people = [];
+      for (let i = 0; i < cap; i++) {
+        const s = slotByIndex(room, i);
+        if (s) {
+          const name = escapeHtml(s.displayName || 'Игрок');
+          const initial = escapeHtml((s.displayName || '?').trim().charAt(0).toUpperCase() || '?');
+          const av = s.avatarDataUrl
+            ? '<img src="' + escapeHtml(s.avatarDataUrl) + '" alt=""/>'
+            : '<span class="ph">' + initial + '</span>';
+          people.push('<span class="live-pill" title="' + name + '">' + av + '<span>' + name + '</span></span>');
+        } else {
+          people.push('<span class="live-pill live-pill--wait">' + (i + 1) + '·</span>');
+        }
+      }
+      return (
+        '<div class="live-group" data-cap="' + cap + '">' +
+          '<span class="live-group__no">#' + (room.tableNo || '·') + '</span>' +
+          '<span class="live-group__cap x' + cap + '">×' + cap + '</span>' +
+          '<div class="live-group__people">' + people.join('') + '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+  /** Wi‑Fi IP для гостей (не 172.31 WSL). */
+  function guestLanIp() {
+    if (network?.primaryLanIp) return String(network.primaryLanIp);
+    const ips = Array.isArray(network?.lanIps) ? network.lanIps.map(String) : [];
+    const wifi = ips.find((ip) => ip.startsWith('192.168.') && !/^192\.168\.(56|57|59)\./.test(ip));
+    if (wifi) return wifi;
+    const ten = ips.find((ip) => ip.startsWith('10.'));
+    if (ten) return ten;
+    return ips.find((ip) => !/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) || ips[0] || '';
+  }
+  /** Invite-лендинг /join (открыть /play или deep link в приложение). */
+  function joinLink(code) {
+    const ip = guestLanIp();
+    if (!ip || !code) return '';
+    return 'http://' + ip + ':3001/join?code=' + encodeURIComponent(code);
+  }
+  function qrImgUrl(code, bust) {
+    const ip = guestLanIp();
+    let q = LAN + '/api/qr?code=' + encodeURIComponent(code);
+    if (ip) q += '&ip=' + encodeURIComponent(ip);
+    if (bust) q += '&_=' + encodeURIComponent(bust);
+    return q;
+  }
+  function sharePayload() {
+    const room = shareRoomId ? rooms.get(shareRoomId) : null;
+    const code = room?.code || '';
+    const link = joinLink(code);
+    const no = room?.tableNo ? 'стол #' + room.tableNo + ' · ' : '';
+    const text = (link ? link + '\n\n' : '') + 'Up&Down — ' + no + 'код: ' + code + '\n(та же Wi‑Fi)';
+    return { code, link, text, title: 'Up&Down — ' + no + code };
+  }
+
+  /** Возраст стола: warning ≥45 мин пустой, long ≥2 ч или ≥90 мин пустой. */
+  function roomStaleKind(room) {
+    const created = Number(room?.createdAtMs) || 0;
+    if (!created) return '';
+    const ageMin = (Date.now() - created) / 60000;
+    const empty = humans(room).length === 0;
+    if (ageMin >= 120 || (empty && ageMin >= 90)) return 'long';
+    if (ageMin >= 45 && empty) return 'warn';
+    if (ageMin >= 75) return 'warn';
+    return '';
+  }
+  function ageLabel(room) {
+    const created = Number(room?.createdAtMs) || 0;
+    if (!created) return '';
+    const m = Math.floor((Date.now() - created) / 60000);
+    if (m < 60) return m + ' мин';
+    return Math.floor(m / 60) + ' ч ' + (m % 60) + ' мин';
+  }
+  function upsertRoom(room) {
+    if (!room?.id) return;
+    const prev = rooms.get(room.id);
+    if (prev?.tableNo && !room.tableNo) room.tableNo = prev.tableNo;
+    if (!room.tableNo) {
+      room.tableNo = nextTableNo++;
+    } else if (room.tableNo >= nextTableNo) {
+      nextTableNo = room.tableNo + 1;
+    }
+    const createdAtMs = prev?.createdAtMs || room.createdAtMs || Date.now();
+    rooms.set(room.id, { ...prev, ...room, createdAtMs });
+    persist();
+    renderRooms();
+    updateGauges();
+  }
+  function removeRoom(id) {
+    rooms.delete(id);
+    persist();
+    renderRooms();
+    updateGauges();
+  }
+
+  function applyClubModeUi() {
+    document.body.classList.toggle('club-mode', clubMode);
+    const chk = document.getElementById('chkClubMode');
+    if (chk) chk.checked = clubMode;
+    const sub = document.getElementById('clubBannerSub');
+    if (sub) {
+      sub.textContent = 'До ' + roomCapLimit + ' столов · ' +
+        (clubMode ? 'автостарт после сборки · крупные QR' : 'включите для стойки / вечеринки');
+    }
+    const dock = document.getElementById('showcaseDock');
+    if (dock) dock.hidden = !clubMode;
+    renderShowcase();
+  }
+  function renderShowcase() {
+    const dock = document.getElementById('showcaseDock');
+    const qrEl = document.getElementById('showcaseQr');
+    const codeEl = document.getElementById('showcaseCode');
+    const hintEl = document.getElementById('showcaseHint');
+    const listEl = document.getElementById('showcaseList');
+    if (!dock || !qrEl || !codeEl) return;
+    if (!clubMode) return;
+    const list = [...rooms.values()].sort((a, b) => (a.tableNo || 0) - (b.tableNo || 0));
+    let room = showcaseRoomId ? rooms.get(showcaseRoomId) : null;
+    if (!room) {
+      room = list.find((r) => humans(r).length > 0) || list[0] || null;
+      showcaseRoomId = room?.id || null;
+    }
+    if (listEl) {
+      const rows = list.map((r) => {
+        const n = humans(r).length;
+        const cap = roomCap(r);
+        const st = roomStatusLabel(r);
+        const active = r.id === showcaseRoomId ? ' is-active' : '';
+        const stale = roomStaleKind(r);
+        const staleCls = stale === 'long' ? ' is-stale-long' : (stale === 'warn' ? ' is-stale' : '');
+        const age = ageLabel(r);
+        return (
+          '<button type="button" class="showcase-row' + active + staleCls + '" data-showcase-id="' + r.id + '">' +
+            '<span class="showcase-row__no">#' + (r.tableNo || '·') + '</span>' +
+            '<span class="showcase-row__cap">×' + cap + '</span>' +
+            '<span class="showcase-row__code">' + escapeHtml(r.code || '') + '</span>' +
+            '<span class="showcase-row__stat">' + escapeHtml(st.text) + ' · ' + n + '/' + cap +
+              (age ? ' · ' + age : '') + '</span>' +
+          '</button>'
+        );
+      }).join('');
+      listEl.innerHTML =
+        '<p class="showcase-dock__list-title">Активные комнаты · ' + list.length + '/' + roomCapLimit + '</p>' +
+        (rows || '<p class="showcase-dock__hint" style="padding:8px">Пока пусто — создайте стол на DECK</p>');
+      listEl.querySelectorAll('[data-showcase-id]').forEach((btn) => {
+        btn.onclick = () => {
+          showcaseRoomId = btn.getAttribute('data-showcase-id');
+          renderShowcase();
+        };
+      });
+    }
+    const focusBtn = document.getElementById('btnShowcaseFocus');
+    const occupied = list.filter((r) => humans(r).length > 0);
+    if (focusBtn) {
+      focusBtn.hidden = occupied.length === 0;
+      focusBtn.textContent = occupied.length
+        ? 'К столу, где уже есть игроки'
+        : '';
+    }
+    if (!room?.code) {
+      qrEl.innerHTML = '';
+      codeEl.textContent = '—';
+      if (hintEl) hintEl.textContent = 'Создайте стол — QR появится на витрине';
+      return;
+    }
+    qrEl.innerHTML = '<img alt="QR" src="' + qrImgUrl(room.code, room.updated_at || room.code) + '"/>';
+    codeEl.textContent = room.code;
+    if (hintEl) {
+      const n = humans(room).length;
+      const stale = roomStaleKind(room);
+      hintEl.textContent =
+        'Стол #' + (room.tableNo || '·') + ' · ' + n + '/' + roomCap(room) +
+        ' · гости сканируют QR (та же Wi‑Fi)' +
+        (stale ? ' · открыт ' + ageLabel(room) : '');
+    }
+  }
+  function updateGauges() {
+    setGauge(document.getElementById('gaugeBuild'), null, distOk || builtOnce ? 100 : (building ? 45 : 0), 100);
+    document.getElementById('gaugeBuildN').textContent = distOk || builtOnce ? 'OK' : (building ? '…' : '—');
+    const n = rooms.size;
+    const cap = roomCapLimit || 22;
+    setGauge(document.getElementById('gaugeTables'), document.getElementById('gaugeTablesN'), n, cap);
+    setGauge(document.getElementById('gaugeSlots'), document.getElementById('gaugeSlotsN'), Math.max(0, cap - n), cap);
+  }
+
+  function renderRooms() {
+    const list = [...rooms.values()].sort((a, b) => (a.tableNo || 0) - (b.tableNo || 0));
+    const has = list.length > 0;
+    roomsGrid.hidden = !has;
+    heroEmpty.hidden = has;
+    if (!has) {
+      if (!serverUp) {
+        heroTitle.textContent = 'Сервер выключен';
+        heroSub.textContent = builtOnce ? 'На панели PWR нажмите «Старт».' : 'Сначала сборка, потом «Старт».';
+      } else {
+        heroTitle.textContent = 'Столов пока нет';
+        heroSub.textContent = 'На панели DECK выберите 3/4 и «Создать».';
+      }
+    }
+    roomsGrid.innerHTML = list.map((room) => {
+      const qr = qrImgUrl(room.code, room.updated_at || room.code);
+      const no = room.tableNo || '·';
+      const cap = roomCap(room);
+      const st = roomStatusLabel(room);
+      const link = joinLink(room.code);
+      const stale = roomStaleKind(room);
+      const staleCls = stale === 'long' ? ' is-stale-long' : (stale === 'warn' ? ' is-stale' : '');
+      const staleBadge = stale
+        ? '<span class="stale-badge' + (stale === 'long' ? ' stale-badge--long' : '') + '" title="Стол открыт давно">' +
+            (stale === 'long' ? 'давно' : 'висит') + ' · ' + ageLabel(room) +
+          '</span>'
+        : '';
+      const shortHint = (() => {
+        if (!link) return room.code;
+        return String(link).replace(/^https?:\/\//i, '');
+      })();
+      return (
+        '<article class="table-card' + staleCls + '" data-id="' + room.id + '" data-cap="' + cap + '">' +
+          '<div class="table-card__top">' +
+            '<div class="table-card__id">' +
+              '<span class="table-no">#' + no + '</span>' +
+              '<div class="code" title="' + room.code + '">' + room.code + '</div>' +
+            '</div>' +
+            '<div class="badges">' +
+              '<span class="badge badge--status ' + st.cls + '">' + st.text + '</span>' +
+              staleBadge +
+            '</div>' +
+          '</div>' +
+          '<div class="table-card__body">' +
+            '<div class="qr-col">' +
+              '<div class="qr-wrap" title="Сканировать QR">' +
+                '<div class="qr-pad"><img src="' + qr + '" width="96" height="96" alt="QR ' + room.code + '"/></div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="table-card__main">' + rosterHtml(room) + '</div>' +
+          '</div>' +
+          (link
+            ? '<button type="button" class="qr-hint" data-act="link" title="Скопировать ссылку для гостей">' + escapeHtml(shortHint) + '</button>'
+            : '') +
+          '<div class="table-card__actions orb-row">' +
+            '<button type="button" class="orb orb--cyan orb--sm" data-act="link"><span class="orb__disc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07L11 5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.81 13.12a5 5 0 0 0 7.07 7.07L13 19"/></svg></span>Ссылка</button>' +
+            '<button type="button" class="orb orb--gold orb--sm" data-act="code"><span class="orb__disc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></span>Код</button>' +
+            '<button type="button" class="orb orb--go orb--sm" data-act="share"><span class="orb__disc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.4 10.8l7.2-4.2M8.4 13.2l7.2 4.2"/></svg></span>Шаринг</button>' +
+            '<button type="button" class="orb orb--close" data-act="close"><span class="orb__disc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg></span>Закрыть</button>' +
+          '</div>' +
+        '</article>'
+      );
+    }).join('');
+    renderLiveBar();
+
+    roomsGrid.querySelectorAll('.table-card').forEach((card) => {
+      const id = card.getAttribute('data-id');
+      card.addEventListener('click', (ev) => {
+        if (ev.target.closest('[data-act]')) return;
+        showcaseRoomId = id;
+        renderShowcase();
+      });
+      card.querySelectorAll('[data-act]').forEach((btn) => {
+        btn.onclick = async () => {
+          const room = rooms.get(id);
+          if (!room) return;
+          const act = btn.getAttribute('data-act');
+          if (act === 'link') {
+            const link = joinLink(room.code);
+            if (link) copyText(link, 'Ссылка скопирована');
+          } else if (act === 'code') {
+            copyText(room.code, 'Код скопирован');
+          } else if (act === 'share') {
+            shareRoomId = id;
+            openShareSheet();
+          } else if (act === 'close') {
+            try {
+              const r = await fetch(LAN + '/api/host/close-room', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ roomId: id }),
+              }).then((x) => x.json());
+              if (!r?.ok) {
+                await sendRequest({ type: 'leave_room', roomId: id, playerId: hostId });
+              }
+            } catch {
+              try { await sendRequest({ type: 'leave_room', roomId: id, playerId: hostId }); } catch { /* */ }
+            }
+            removeRoom(id);
+            flash('Стол #' + (room.tableNo || '') + ' закрыт');
+            /* сразу синк — если сервер не удалил, стол вернётся; иначе исчезнет насовсем */
+            await syncDedicatedFromServer();
+          }
+        };
+      });
+    });
+    updateGauges();
+    renderShowcase();
+  }
+
+  function syncControls() {
+    btnStart.disabled = ctlBusy || !(builtOnce || distOk) || serverUp;
+    if (btnRebuild) btnRebuild.disabled = ctlBusy;
+    btnStop.disabled = ctlBusy || !serverUp;
+    const canCreate = serverUp && !ctlBusy && !building;
+    btnCreate.disabled = !canCreate;
+    deckBridge.classList.toggle('is-locked', !canCreate);
+    setLed('ledBuild', building ? 'on-gold' : (distOk || builtOnce ? 'on-green' : ''));
+    setLed('ledSrv', serverUp ? 'on-green' : (ctlBusy ? 'on-gold' : 'on-rose'));
+    setLed('ledNet', serverUp && network?.lanIps?.length ? 'on-cyan' : (serverUp ? 'on-gold' : ''));
+    renderRooms();
+  }
+
+  function setMaxPlayers(n) {
+    maxPlayers = n === 3 ? 3 : 4;
+    document.getElementById('seatBtn3').setAttribute('aria-pressed', maxPlayers === 3 ? 'true' : 'false');
+    document.getElementById('seatBtn4').setAttribute('aria-pressed', maxPlayers === 4 ? 'true' : 'false');
+  }
+  document.getElementById('seatBtn3').onclick = () => setMaxPlayers(3);
+  document.getElementById('seatBtn4').onclick = () => setMaxPlayers(4);
+
+  function wsBase() {
+    return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host;
+  }
+  async function copyText(text, label) {
+    try { await navigator.clipboard.writeText(text); flash(label); }
+    catch { flash('Не удалось скопировать'); }
+  }
+  function openUrl(url) { window.open(url, '_blank', 'noopener,noreferrer'); }
+  function openShareSheet() {
+    const b = document.getElementById('shareBackdrop');
+    const s = document.getElementById('shareSheet');
+    b.hidden = false; s.hidden = false;
+    requestAnimationFrame(() => { b.classList.add('open'); s.classList.add('open'); });
+  }
+  function closeShareSheet() {
+    const b = document.getElementById('shareBackdrop');
+    const s = document.getElementById('shareSheet');
+    b.classList.remove('open'); s.classList.remove('open');
+    setTimeout(() => { b.hidden = true; s.hidden = true; }, 300);
+  }
+  async function nativeShare() {
+    const { title, text, link, code } = sharePayload();
+    if (!code) return;
+    const payload = { title, text };
+    if (link) payload.url = link;
+    try { if (navigator.share) { await navigator.share(payload); closeShareSheet(); } }
+    catch (e) { if (e.name !== 'AbortError') flash('Выберите способ из списка'); }
+  }
+
+  const SVG = {
+    wa: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.8 4.9-1.3A10 10 0 1 0 12 2z"/></svg>',
+    tg: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M9.7 15.6l-.3 4.2c.9-.2 3.8-2.2 5.4-9.1L4 10.6l5.7 5z"/></svg>',
+    dc: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M20 5.5A15 15 0 0 0 15.2 4l-.7 1.3a13 13 0 0 0-5 0L8.8 4A15 15 0 0 0 4 5.5C2.2 8.2 1.6 13.2 2 17.2A15 15 0 0 0 6.8 20l1-1.3a10 10 0 0 1-1.5-.7l.3-.3c2.8 1.3 5.8 1.3 8.6 0l.3.3c-.5.3-1 .5-1.5.7l1 1.3A15 15 0 0 0 22 17.2c.4-4-.2-9-2-11.7zM9.5 14.5c-.8 0-1.5-.7-1.5-1.5S8.7 11.5 9.5 11.5 11 12.2 11 13s-.7 1.5-1.5 1.5zm5 0c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5 1.5.7 1.5 1.5-.7 1.5-1.5 1.5z"/></svg>',
+    vk: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12.5 2C6.7 2 2 6.7 2 12.5S6.7 23 12.5 23 23 18.3 23 12.5 18.3 2 12.5 2zm5.2 15.2h-1.7c-.5 0-.8-.2-1.4-.9-.5-.6-1.1-1.5-1.6-1.5-.3 0-.5.2-.5.7v1.3c0 .4-.1.7-1.2.7-1.9 0-4-1.1-5.5-3.2C4.5 11.6 4 9.4 4 9.1c0-.3.2-.5.7-.5h1.7c.4 0 .5.2.7.6.8 2.2 2.1 4.1 2.6 4.1.2 0 .3-.1.3-.5V10c-.1-1-.5-1.1-.5-1.5 0-.2.2-.4.5-.4h2.6c.3 0 .5.2.5.5v3.3c0 .3.1.4.3.4.2 0 .4-.1.8-.5 1.1-1.2 1.9-3.1 1.9-3.1.1-.2.3-.4.7-.4h1.7c.5 0 .6.3.5.5-.2.9-2.1 3.6-2.1 3.6-.2.3-.2.4 0 .7.1.2.6.6 1 1 .6.6 1.1 1.1 1.2 1.5.2.4 0 .7-.4.7z"/></svg>',
+    gmail: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M4 4h16v16H4V4zm2 2v12h12V8l-6 4-6-4z"/></svg>',
+    yandex: '<svg viewBox="0 0 24 24" fill="#fff"><text x="5" y="17" font-size="14" font-weight="bold">Я</text></svg>',
+    mail: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
+    sms: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M4 6h16v10H8l-4 4V6z"/></svg>',
+    qr: '<svg viewBox="0 0 24 24" fill="none" stroke="#5ee89a" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+    os: '<svg viewBox="0 0 24 24" fill="none" stroke="#0a1628" stroke-width="2"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M5 19h14"/></svg>',
+    vb: '<svg viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="12" r="9"/></svg>',
+  };
+  const SHARE_SECTIONS = [
+    { title: 'Быстро', items: [{ id: 'native', ico: 'ico-os', svg: 'os', name: 'Система', run: nativeShare }] },
+    { title: 'Мессенджеры', items: [
+      { id: 'wa', ico: 'ico-wa', svg: 'wa', name: 'WhatsApp', run: () => openUrl('https://wa.me/?text=' + encodeURIComponent(sharePayload().text)) },
+      { id: 'tg', ico: 'ico-tg', svg: 'tg', name: 'Telegram', run: () => {
+        const { link, code } = sharePayload();
+        openUrl(link ? 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent('Up&Down · код ' + code) : 'https://t.me/share/url?text=' + encodeURIComponent(sharePayload().text));
+      }},
+      { id: 'vb', ico: 'ico-vb', svg: 'vb', name: 'Viber', run: () => openUrl('viber://forward?text=' + encodeURIComponent(sharePayload().text)) },
+      { id: 'dc', ico: 'ico-dc', svg: 'dc', name: 'Discord', run: async () => { await copyText(sharePayload().text, 'Вставьте в Discord'); openUrl('https://discord.com/channels/@me'); } },
+    ]},
+    { title: 'Ещё', items: [
+      { id: 'gmail', ico: 'ico-gmail', svg: 'gmail', name: 'Gmail', run: () => { const { text, title } = sharePayload(); openUrl('https://mail.google.com/mail/?view=cm&fs=1&su=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(text)); } },
+      { id: 'yandex', ico: 'ico-yandex', svg: 'yandex', name: 'Яндекс', run: () => { const { text, title } = sharePayload(); openUrl('https://mail.yandex.ru/compose?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(text)); } },
+      { id: 'mail', ico: 'ico-mail', svg: 'mail', name: 'Почта', run: () => { const { text, title } = sharePayload(); openUrl('mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(text)); } },
+      { id: 'sms', ico: 'ico-sms', svg: 'sms', name: 'СМС', run: () => openUrl('sms:?body=' + encodeURIComponent(sharePayload().text)) },
+      { id: 'vk', ico: 'ico-vk', svg: 'vk', name: 'VK', run: () => { const { link, title } = sharePayload(); if (link) openUrl('https://vk.com/share.php?url=' + encodeURIComponent(link) + '&title=' + encodeURIComponent(title)); else copyText(sharePayload().text, 'Скопировано'); } },
+      { id: 'qr', ico: 'ico-qr', svg: 'qr', name: 'QR', run: () => {
+        const a = document.createElement('a');
+        a.href = qrImgUrl(sharePayload().code);
+        a.download = 'updown-' + sharePayload().code + '.png';
+        a.click();
+        flash('QR сохранён');
+      }},
+    ]},
+  ];
+  function buildShareSheet() {
+    const shareBody = document.getElementById('shareBody');
+    shareBody.innerHTML = '';
+    for (const section of SHARE_SECTIONS) {
+      const wrap = document.createElement('div');
+      const h = document.createElement('p');
+      h.className = 'share-group-title';
+      h.textContent = section.title;
+      wrap.appendChild(h);
+      const grid = document.createElement('div');
+      grid.className = 'share-grid';
+      for (const item of section.items) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'share-orb';
+        btn.innerHTML = '<span class="ico ' + item.ico + '">' + (SVG[item.svg] || '') + '</span><span class="name">' + item.name + '</span>';
+        btn.onclick = async () => { await item.run(); if (item.id !== 'native') closeShareSheet(); };
+        grid.appendChild(btn);
+      }
+      wrap.appendChild(grid);
+      shareBody.appendChild(wrap);
+    }
+  }
+
+  function onSocketMessage(ev) {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch { return; }
+    if (msg.type === 'room_snapshot' && msg.room) upsertRoom(msg.room);
+    if (msg.requestId && pending.has(msg.requestId)) {
+      const p = pending.get(msg.requestId);
+      clearTimeout(p.timer);
+      pending.delete(msg.requestId);
+      p.resolve(msg);
+    }
+  }
+  function connect() {
+    return new Promise((resolve, reject) => {
+      const s = new WebSocket(wsBase());
+      ws = s;
+      s.onmessage = onSocketMessage;
+      s.onclose = () => { ws = null; };
+      const t = setTimeout(() => reject(new Error('Нет связи')), 12000);
+      s.onopen = () => { clearTimeout(t); resolve(); };
+      s.onerror = () => { clearTimeout(t); reject(new Error('Нет связи')); };
+    });
+  }
+  async function ensureSocket() {
+    if (ws?.readyState === WebSocket.OPEN) return;
+    await connect();
+  }
+  async function sendRequest(payload) {
+    await ensureSocket();
+    return new Promise((resolve, reject) => {
+      const id = newId();
+      const timer = setTimeout(() => { pending.delete(id); reject(new Error('Таймаут')); }, 25000);
+      pending.set(id, { resolve, reject, timer });
+      ws.send(JSON.stringify({ ...payload, requestId: id }));
+    });
+  }
+  async function refreshNetwork() {
+    try { network = await fetch(LAN + '/api/network/status', { cache: 'no-store' }).then((r) => r.json()); }
+    catch { network = null; }
+  }
+  async function syncDedicatedFromServer() {
+    try {
+      const data = await fetch(LAN + '/api/host/dedicated-rooms', { cache: 'no-store' }).then((r) => r.json());
+      if (!data?.ok || !Array.isArray(data.rooms)) return;
+      const alive = new Set(data.rooms.map((r) => r.id));
+      for (const id of [...rooms.keys()]) if (!alive.has(id)) rooms.delete(id);
+      for (const r of data.rooms) {
+        const prev = rooms.get(r.id);
+        const merged = { ...prev, ...r, tableNo: prev?.tableNo || r.tableNo };
+        if (!merged.tableNo) {
+          merged.tableNo = nextTableNo++;
+        } else if (merged.tableNo >= nextTableNo) {
+          nextTableNo = merged.tableNo + 1;
+        }
+        rooms.set(r.id, merged);
+        try { await sendRequest({ type: 'subscribe_room', roomId: r.id }); } catch { /* */ }
+      }
+      persist();
+      renderRooms();
+    } catch { /* */ }
+  }
+
+  async function refreshStatus() {
+    try {
+      const s = await ctl('status');
+      const logs = await ctl('logs');
+      const wasUp = serverUp;
+      serverUp = !!s.serverUp;
+      distOk = !!s.distHost;
+      if (distOk) builtOnce = true;
+      if (typeof s.maxRooms === 'number' && s.maxRooms > 0) roomCapLimit = s.maxRooms;
+      if (s.clubAutoStart) clubAutoStartPref = true;
+      if (s.panelRev == null || Number(s.panelRev) < NEED_PANEL_REV || s.apkReady === undefined) {
+        flash('Панель устарела (rev ' + (s.panelRev ?? '?') + '). Перезапустите «Открыть-панель-хоста.cmd» — одного F5 мало.');
+      }
+      let html = serverUp ? pill('ok', 'сервер') : pill('err', 'выкл');
+      html += distOk ? pill('ok', 'сборка') : pill('warn', 'сборка');
+      html += s.apkReady ? pill('ok', 'apk') : pill('warn', 'apk');
+      html += pill(rooms.size ? 'ok' : 'warn', 'столы ' + rooms.size + '/' + roomCapLimit);
+      if (clubMode) html += pill('ok', 'клуб');
+      if (s.busy || logs.busy || ctlBusy) html += pill('busy', '…');
+      statusLine.innerHTML = html;
+      applyClubModeUi();
+      updateGauges();
+      const distroBar = document.getElementById('distroBar');
+      const distroSub = document.getElementById('distroSub');
+      const distroLink = document.getElementById('distroApkLink');
+      const btnGetApk = document.getElementById('btnGetApk');
+      const apkUrl = (s.apkUrls && s.apkUrls[0]) || (s.lanIps && s.lanIps[0] ? ('http://' + s.lanIps[0] + ':3001/apk/updown.apk') : '/apk/updown.apk');
+      if (distroBar) distroBar.classList.toggle('is-missing', !s.apkReady);
+      if (btnGetApk) {
+        btnGetApk.hidden = false;
+        btnGetApk.textContent = s.apkReady ? 'Обновить APK' : 'Получить APK';
+      }
+      const apkWizard = document.getElementById('apkWizard');
+      if (apkWizard) apkWizard.hidden = !!s.apkReady;
+      if (distroSub) {
+        distroSub.textContent = s.apkReady
+          ? 'APK готов для Android: QR → «Скачать APK». iPhone: QR → «Открыть в браузере» (без установки).'
+          : 'iPhone: только Safari по QR. Android APK: «Получить APK» откроет папку — положите updown.apk (или соберите SDK).';
+      }
+      if (distroLink) {
+        distroLink.href = apkUrl;
+        distroLink.textContent = s.apkReady ? 'Скачать APK' : 'Страница подсказки';
+      }
+      updateBasementWizard(s);
+      {
+        const redir =
+          (s.oauthRedirectUrls && s.oauthRedirectUrls[0]) ||
+          (s.lanIps && s.lanIps[0] ? 'http://' + s.lanIps[0] + ':3001/play/auth-callback.html' : '');
+        const site =
+          s.oauthSiteUrlParty ||
+          (s.lanIps && s.lanIps[0] ? 'http://' + s.lanIps[0] + ':3001/play/' : '');
+        const wild = s.oauthWildcardHint || 'http://192.168.*.*:3001/**';
+        const elR = document.getElementById('oauthRedirectLine');
+        const elS = document.getElementById('oauthSiteLine');
+        const elW = document.getElementById('oauthWildcardLine');
+        if (elR) elR.textContent = redir || '— (сначала Старт)';
+        if (elS) elS.textContent = site || '— (сначала Старт)';
+        if (elW) elW.textContent = wild;
+      }
+      {
+        const raw = String(logs.log || '');
+        const cleaned = raw
+          .split('\n')
+          .filter((ln) => !/curl\s+-x|api\.openai\.com|\bPROXY\s+\S+:\S+@/i.test(ln))
+          .join('\n')
+          .trim();
+        logEl.textContent = cleaned || '—';
+      }
+      bootHint.textContent = serverUp ? 'игра для телефонов' : (builtOnce ? 'готово к запуску' : 'сборка…');
+      const urls = s.guestUrls || [];
+      guestLinks.innerHTML = urls.length
+        ? urls.map((u) => '<a class="guest-chip" href="' + u + '" target="_blank" rel="noopener">' + u + '</a>').join('')
+        : '<span class="guest-empty">Wi‑Fi ссылка после старта</span>';
+      await refreshNetwork();
+      syncControls();
+      if (serverUp && !ws) { try { await connect(); } catch { /* */ } }
+      if (serverUp && (!wasUp || true)) await syncDedicatedFromServer();
+      if (!serverUp) { rooms.clear(); persist(); renderRooms(); }
+    } catch {
+      statusLine.innerHTML = pill('err', 'нет связи');
+    }
+  }
+
+  async function runBuildGame(label) {
+    setCtlBusy(true);
+    setBuildUi(true, label || 'Сборка игры…', 'Файлы для телефонов (обычно 20–60 сек). Уже запущенный сервер не перезапускается.');
+    flash('Сборка…');
+    const tick = setInterval(() => {
+      buildBannerTitle.textContent = 'Сборка игры' + '.'.repeat(1 + (Math.floor(Date.now() / 700) % 3));
+      setGauge(document.getElementById('gaugeBuild'), null, 30 + ((Date.now() / 80) % 50), 100);
+      document.getElementById('gaugeBuildN').textContent = '…';
+    }, 400);
+    try {
+      const res = await ctl('build-game');
+      builtOnce = !!res.ok;
+      flash(builtOnce ? 'Сборка готова' : (res.error || 'Ошибка сборки'));
+      return !!res.ok;
+    } catch (e) {
+      flash(String(e.message || e));
+      return false;
+    } finally {
+      clearInterval(tick);
+      setCtlBusy(false);
+      setBuildUi(false);
+      await refreshStatus();
+    }
+  }
+
+  btnStart.onclick = async () => {
+    if (ctlBusy) return;
+    setCtlBusy(true);
+    setBuildUi(true, 'Запуск сервера…', 'Один сервер на этом ПК. Если уже запущен — просто подключимся.');
+    try {
+      const res = await ctl('start-party');
+      if (res.error) flash(res.error);
+      else if (res.already) flash('Сервер уже работал — продолжаем');
+      else flash('Сервер запущен');
+      await refreshStatus();
+      try { await connect(); } catch { flash('Ждём связь…'); }
+      await syncDedicatedFromServer();
+    } finally {
+      setCtlBusy(false);
+      setBuildUi(false);
+      await refreshStatus();
+    }
+  };
+
+  if (btnRebuild) {
+    btnRebuild.onclick = async () => {
+      if (ctlBusy) return;
+      await runBuildGame('Пересборка…');
+    };
+  }
+
+  btnStop.onclick = async () => {
+    if (ctlBusy) return;
+    setCtlBusy(true);
+    try {
+      for (const id of [...rooms.keys()]) {
+        try {
+          await fetch(LAN + '/api/host/close-room', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ roomId: id }),
+          });
+        } catch { /* */ }
+        try { await sendRequest({ type: 'leave_room', roomId: id, playerId: hostId }); } catch { /* */ }
+      }
+      rooms.clear();
+      persist();
+      if (ws) { try { ws.close(); } catch { /* */ } ws = null; }
+      await ctl('stop-server');
+      flash('Остановлено');
+    } finally {
+      setCtlBusy(false);
+      await refreshStatus();
+    }
+  };
+
+  btnCreate.onclick = async () => {
+    btnCreate.disabled = true;
+    try {
+      await refreshNetwork();
+      if (!network?.gameReady) { flash('Сервер не готов'); return; }
+      const inHall = document.getElementById('chkShowHall').checked;
+      const res = await sendRequest({
+        type: 'create_room',
+        playerId: hostId,
+        displayName: 'Сервер',
+        hostDedicated: true,
+        roomKind: inHall ? 'public' : 'private',
+        maxPlayers,
+        protocolVersion: 2,
+      });
+      if (!res.ok || !res.room) throw new Error(friendlyError(res.error) || 'Не вышло');
+      await sendRequest({ type: 'subscribe_room', roomId: res.room.id });
+      upsertRoom(res.room);
+      flash('Стол #' + rooms.get(res.room.id).tableNo + ' · ' + res.room.code);
+    } catch (e) {
+      flash(friendlyError(e.message) || e.message || 'Ошибка');
+    } finally {
+      syncControls();
+    }
+  };
+
+  document.getElementById('btnShareClose').onclick = closeShareSheet;
+  document.getElementById('shareBackdrop').onclick = closeShareSheet;
+  document.getElementById('chkClubMode').onchange = (e) => {
+    clubMode = !!e.target.checked;
+    localStorage.setItem(CLUB_KEY, clubMode ? '1' : '0');
+    applyClubModeUi();
+    updateGauges();
+    flash(clubMode ? 'Клубный режим' : 'Обычный режим');
+  };
+  document.getElementById('btnShowcaseFocus').onclick = () => {
+    const list = [...rooms.values()].sort((a, b) => (a.tableNo || 0) - (b.tableNo || 0));
+    const playing = list.find((r) => humans(r).length > 0) || list[0];
+    showcaseRoomId = playing?.id || null;
+    renderShowcase();
+  };
+  const SCENARIO_KEY = 'updown_host_scenario';
+  let partyScenario = localStorage.getItem(SCENARIO_KEY) || '';
+  let nextActionKind = '';
+
+  function setPartyScenario(sc) {
+    partyScenario = sc === 'hotspot' ? 'hotspot' : sc === 'home' ? 'home' : '';
+    if (partyScenario) localStorage.setItem(SCENARIO_KEY, partyScenario);
+    const home = document.getElementById('cardHomeWifi');
+    const hot = document.getElementById('cardHotspot');
+    const homeOn = partyScenario === 'home';
+    const hotOn = partyScenario === 'hotspot';
+    home?.classList.toggle('is-selected', homeOn);
+    hot?.classList.toggle('is-selected', hotOn);
+    if (home) home.setAttribute('aria-pressed', homeOn ? 'true' : 'false');
+    if (hot) hot.setAttribute('aria-pressed', hotOn ? 'true' : 'false');
+    const syncCta = (card, on) => {
+      const cta = card?.querySelector('.party-card__cta');
+      if (!cta) return;
+      const def = cta.getAttribute('data-cta-default') || 'Выбрать';
+      const sel = cta.getAttribute('data-cta-on') || 'Выбрано';
+      cta.textContent = on ? sel : def;
+    };
+    syncCta(home, homeOn);
+    syncCta(hot, hotOn);
+  }
+
+  function openHotspotSheet(open) {
+    const sheet = document.getElementById('hotspotSheet');
+    if (!sheet) return;
+    sheet.hidden = !open;
+    sheet.classList.toggle('open', !!open);
+  }
+
+  function updateBasementWizard(s) {
+    const lan = (s.lanIps && s.lanIps[0]) || '';
+    const invite = (s.inviteBaseUrls && s.inviteBaseUrls[0]) || (lan ? ('http://' + lan + ':3001/join') : '');
+    const line = document.getElementById('basementIpLine');
+    if (line) {
+      const play = (s.guestUrls && s.guestUrls[0]) || (lan ? ('http://' + lan + ':3001/play/') : '');
+      if (invite) {
+        line.innerHTML =
+          '<span class="guest-links-compact">' +
+          '<span><span class="gl-muted">Гости</span> <strong><a href="' +
+          invite +
+          '" target="_blank" rel="noopener">' +
+          invite +
+          '</a></strong></span>' +
+          (play
+            ? '<span class="pc-play-hint"><span class="gl-muted">ПК</span> <a href="' +
+              play +
+              '" target="_blank" rel="noopener" title="Второй браузер на этом ПК — не Vite :5173">' +
+              play +
+              '</a></span>'
+            : '') +
+          '</span>';
+      } else if (lan) {
+        line.innerHTML = 'Сеть: <strong>' + lan + '</strong> — «Запустить», затем стол.';
+      } else {
+        line.textContent = partyScenario === 'hotspot'
+          ? 'Сеть телефона ещё не видна — включите точку доступа и подключите ноут.'
+          : 'Ссылка для гостей появится после запуска.';
+      }
+    }
+
+    const hasLan = !!(lan || (s.lanIps && s.lanIps.length));
+    const hasServer = !!s.serverUp;
+    const hasRoom = rooms.size > 0;
+    const textEl = document.getElementById('nextActionText');
+    const btn = document.getElementById('btnNextAction');
+    if (!textEl || !btn) return;
+
+    if (!partyScenario) {
+      nextActionKind = '';
+      textEl.textContent = 'Выберите ситуацию выше';
+      btn.disabled = true;
+      btn.textContent = 'Ситуация';
+      return;
+    }
+    if (partyScenario === 'hotspot' && !hasLan) {
+      nextActionKind = 'hotspot-help';
+      textEl.textContent = 'Телефон → точка доступа, ноут → к её Wi‑Fi.';
+      btn.disabled = false;
+      btn.textContent = 'Как сделать';
+      return;
+    }
+    if (!hasServer) {
+      nextActionKind = 'start';
+      textEl.textContent = 'Поднять игру для телефонов.';
+      btn.disabled = !!ctlBusy || !(builtOnce || distOk);
+      btn.textContent = 'Запустить';
+      return;
+    }
+    if (!hasRoom) {
+      nextActionKind = 'create';
+      textEl.textContent = 'Создайте стол — появится QR.';
+      btn.disabled = !!ctlBusy;
+      btn.textContent = 'Стол + QR';
+      return;
+    }
+    nextActionKind = 'done';
+    textEl.textContent = 'Готово — покажите QR на карточке стола.';
+    btn.disabled = false;
+    btn.textContent = 'К QR';
+  }
+
+  document.getElementById('cardHomeWifi').onclick = () => {
+    setPartyScenario('home');
+    openHotspotSheet(false);
+    updateBasementWizard({ lanIps: network?.lanIps || [], inviteBaseUrls: [], serverUp });
+    flash('Ок: домашний Wi‑Fi');
+    void refreshStatus();
+  };
+  document.getElementById('cardHotspot').onclick = () => {
+    setPartyScenario('hotspot');
+    openHotspotSheet(true);
+    updateBasementWizard({ lanIps: network?.lanIps || [], inviteBaseUrls: [], serverUp });
+  };
+  document.getElementById('btnHotspotClose').onclick = () => openHotspotSheet(false);
+  document.getElementById('btnHotspotDone').onclick = () => {
+    openHotspotSheet(false);
+    setPartyScenario('hotspot');
+    flash('Ноут в сети телефона? Дальше — Запустить игру');
+    void refreshStatus().then(() => {
+      if (nextActionKind === 'start') document.getElementById('btnNextAction')?.click();
+    });
+  };
+  document.getElementById('btnNextAction').onclick = async () => {
+    if (nextActionKind === 'hotspot-help') {
+      openHotspotSheet(true);
+      return;
+    }
+    if (nextActionKind === 'start') {
+      document.getElementById('powerBridge')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (!btnStart.disabled) btnStart.click();
+      return;
+    }
+    if (nextActionKind === 'create') {
+      document.getElementById('deckBridge')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (!btnCreate.disabled) btnCreate.click();
+      return;
+    }
+    if (nextActionKind === 'done') {
+      document.getElementById('roomsGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+  if (partyScenario) setPartyScenario(partyScenario);
+
+  document.getElementById('btnCopyOauthRedirect').onclick = () => {
+    const t = document.getElementById('oauthRedirectLine')?.textContent?.trim();
+    if (t && t !== '—' && !t.startsWith('—')) void copyText(t, 'Redirect URL скопирован');
+    else flash('Сначала Старт — появится IP');
+  };
+  document.getElementById('btnCopyOauthWildcard').onclick = () => {
+    const t = document.getElementById('oauthWildcardLine')?.textContent?.trim();
+    if (t) void copyText(t, 'Wildcard скопирован');
+  };
+  document.getElementById('btnCopyOauthSite').onclick = () => {
+    const t = document.getElementById('oauthSiteLine')?.textContent?.trim();
+    if (t && t !== '—' && !t.startsWith('—')) void copyText(t, 'Site URL для вечеринки скопирован');
+    else flash('Сначала Старт — появится IP');
+  };
+
+  document.getElementById('btnGetApk').onclick = async () => {
+    const fold = document.getElementById('foldExtras');
+    if (fold) fold.open = true;
+    const wiz = document.getElementById('apkWizard');
+    if (wiz) wiz.hidden = false;
+    setCtlBusy(true);
+    setBuildUi(true, 'APK…', 'Пробуем собрать и скопировать в раздачу');
+    try {
+      const res = await ctl('build-party-apk');
+      if (res.stalePanel) {
+        flash(res.hint);
+        return;
+      }
+      if (res.apkReady) {
+        flash('APK готов на этом ПК. Вам ничего скачивать не нужно — гости Android качают с QR после «Запустить».');
+      } else {
+        const prep = await ctl('prepare-apk-folder');
+        if (prep.stalePanel) {
+          flash(prep.hint);
+          return;
+        }
+        flash(res.hint || prep.hint || 'Автосборка недоступна — смотрите 3 шага и папку apk');
+        const note = document.getElementById('apkWizardNote');
+        if (note && (res.hint || prep.hint)) note.textContent = res.hint || prep.hint;
+      }
+      await refreshStatus();
+    } catch (e) {
+      flash(String(e.message || e));
+      try { await ctl('prepare-apk-folder'); } catch { /* */ }
+    } finally {
+      setCtlBusy(false);
+      setBuildUi(false);
+      await refreshStatus();
+    }
+  };
+  buildShareSheet();
+  loadPersist();
+  applyClubModeUi();
+
+  /** Мгновенные глянцевые поповеры у «?» — клик рядом с кнопкой, без задержки title. */
+  function initHostTips() {
+    document.querySelectorAll('.host-tip__btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tip = btn.closest('.host-tip');
+        if (!tip) return;
+        const willOpen = !tip.classList.contains('is-open');
+        document.querySelectorAll('.host-tip.is-open').forEach((t) => {
+          t.classList.remove('is-open');
+          t.querySelector('.host-tip__btn')?.setAttribute('aria-expanded', 'false');
+        });
+        if (willOpen) {
+          tip.classList.add('is-open');
+          btn.setAttribute('aria-expanded', 'true');
+        }
+      });
+    });
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.host-tip.is-open').forEach((t) => {
+        t.classList.remove('is-open');
+        t.querySelector('.host-tip__btn')?.setAttribute('aria-expanded', 'false');
+      });
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      document.querySelectorAll('.host-tip.is-open').forEach((t) => {
+        t.classList.remove('is-open');
+        t.querySelector('.host-tip__btn')?.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
+  initHostTips();
+
+  async function maybeClubAutoStart() {
+    if (didClubAutoStart) return;
+    if (!(clubMode || clubAutoStartPref)) return;
+    if (!builtOnce && !distOk) return;
+    if (serverUp || ctlBusy) return;
+    didClubAutoStart = true;
+    flash('Клуб: автостарт…');
+    setCtlBusy(true);
+    setBuildUi(true, 'Автостарт сервера…', 'Один сервер — если уже жив, не поднимаем второй');
+    try {
+      const res = await ctl('start-party');
+      if (res.error) flash(res.error);
+      else if (res.already) flash('Сервер уже работал');
+      else flash('Сервер запущен (клуб)');
+      await refreshStatus();
+      try { await connect(); } catch { /* */ }
+      await syncDedicatedFromServer();
+    } finally {
+      setCtlBusy(false);
+      setBuildUi(false);
+      await refreshStatus();
+    }
+  }
+
+  (async () => {
+    await refreshStatus();
+    /* F5 не должен снова гонять vite и плодить окна npm — только если нет dist-host. */
+    if (distOk) {
+      builtOnce = true;
+      flash(serverUp ? 'Панель обновлена · сервер уже работает' : 'Сборка на месте · можно жать Старт');
+      syncControls();
+    } else {
+      await runBuildGame('Сборка игры…');
+    }
+    await maybeClubAutoStart();
+    setInterval(refreshStatus, 4000);
+    /** Живой лобби: опрос dedicated-комнат (WS-снимки + HTTP). */
+    setInterval(() => {
+      if (serverUp && !ctlBusy) syncDedicatedFromServer();
+    }, 2000);
+    /** Подсветка «давно висит» обновляется раз в минуту. */
+    setInterval(() => {
+      if (rooms.size) {
+        renderRooms();
+        if (clubMode) renderShowcase();
+      }
+    }, 60_000);
+  })();
+})();
+</script>
+</body>
+</html>

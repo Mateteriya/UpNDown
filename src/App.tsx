@@ -37,7 +37,8 @@ import RulesScreen from './ui/RulesScreen'
 import { RatingModal } from './ui/RatingModal'
 import { AuthModal } from './ui/AuthModal'
 import { CosmicCockpit, CosmicPhysButton } from './ui/CosmicCockpit'
-import { applyLanJoinParamsFromUrl } from './lib/lanJoinLink'
+import { applyJoinDeepLinkRaw, applyLanJoinParamsFromUrl } from './lib/lanJoinLink'
+import { subscribeNativeJoinUrls } from './lib/nativeDeepLink'
 import { LobbyScreen } from './ui/LobbyScreen'
 import { OfflinePlayerCountModal, type OfflinePlayerCount } from './ui/OfflinePlayerCountModal'
 import { AccountLkPage, type AccountLkFocus } from './ui/AccountLkPage'
@@ -140,7 +141,7 @@ function App() {
     const { code } = applyLanJoinParamsFromUrl()
     return code
   })
-  const [urlLanAutojoin] = useState(() => {
+  const [urlLanAutojoin, setUrlLanAutojoin] = useState(() => {
     if (typeof window === 'undefined') return false
     return applyLanJoinParamsFromUrl().autojoin === true
   })
@@ -152,6 +153,23 @@ function App() {
   useEffect(() => {
     setProfile(getPlayerProfile())
   }, [screen])
+
+  /** Deep link: updown://join?code= / Capacitor appUrlOpen → сразу «Вход в комнату». */
+  useEffect(() => {
+    return subscribeNativeJoinUrls((url) => {
+      if (/auth-callback|access_token=|[?&#]code=/i.test(url)) return
+      const { code, autojoin } = applyJoinDeepLinkRaw(url)
+      if (!code) return
+      setUrlJoinCode(code)
+      if (autojoin) setUrlLanAutojoin(true)
+      try {
+        sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
+      } catch {
+        /* ignore */
+      }
+      setScreen('online')
+    })
+  }, [])
 
   /** После нативной камеры вкладка часто перезагружается — подтянуть аватар и комнату. */
   useEffect(() => {
@@ -226,6 +244,27 @@ function App() {
     const t = setTimeout(() => setRoomFinishedMessage(null), 4000)
     return () => clearTimeout(t)
   }, [roomFinishedMessage])
+
+  /** OAuth упал на стороне Supabase → редирект на /play/?error=…#menu */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const u = new URL(window.location.href)
+      const code = u.searchParams.get('error_code') || u.searchParams.get('error') || ''
+      const desc = (u.searchParams.get('error_description') || '').replace(/\+/g, ' ').trim()
+      if (!code && !desc) return
+      const msg =
+        code === 'oauth_client_state_not_found'
+          ? 'Яндекс: сбой OAuth state (Supabase). Выполните: node scripts/fix-yandex-custom-provider.mjs'
+          : desc || code
+      setRoomFinishedMessage(msg)
+      ;['error', 'error_code', 'error_description'].forEach((k) => u.searchParams.delete(k))
+      const next = u.pathname + (u.searchParams.toString() ? `?${u.searchParams}` : '') + (u.hash || '#menu')
+      window.history.replaceState(null, '', next)
+    } catch {
+      /* ignore */
+    }
+  }, [])
 
   // Модалки при возврате после авторизации
   useEffect(() => {
@@ -659,6 +698,9 @@ function App() {
           onResumeOffline={() => { void handleResumeOffline() }}
           onOfflinePlay={handleOfflineClick}
           onOpenRules={() => setScreen('rules')}
+          onOpenPartyHost={() => {
+            /* Включение кнопки; открытие панели — в MainMenuScreen.openPartyHostPanel */
+          }}
         />
       )}
       {showPlayerCountModal && (
@@ -789,6 +831,8 @@ function App() {
         <LobbyScreen
           onBack={() => { setUrlJoinCode(null); setScreen('menu') }}
           playerName={profile.displayName}
+          avatarDataUrl={profile.avatarDataUrl}
+          avatarBgColor={profile.avatarBgColor}
           onEditProfile={() => openNameAvatarModal('profile')}
           onOpenAccount={openAccountCabinet}
           initialJoinCode={urlJoinCode ?? undefined}

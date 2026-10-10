@@ -1,11 +1,34 @@
 /**
  * Вход по ссылке от панели хоста: ?code=ABC&ws=ws://…&transport=ws
+ * + deep link updown://join?code= / #join?code=
  * Позволяет гостям подключаться без .env.local (ссылка с панели на ПК в той же Wi‑Fi).
  */
+
+import {
+  parseJoinDeepLink,
+  readJoinDeepLinkFromLocation,
+  type JoinDeepLink,
+} from './deepLinkJoin';
 
 const WS_OVERRIDE_KEY = 'updown_ws_url_override';
 const TRANSPORT_OVERRIDE_KEY = 'updown_transport_override';
 const WS_PROTOCOL_OVERRIDE_KEY = 'updown_ws_protocol_override';
+
+function applyJoinDeepLinkSideEffects(link: JoinDeepLink): void {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    if (link.ws) {
+      sessionStorage.setItem(WS_OVERRIDE_KEY, link.ws);
+      sessionStorage.setItem(TRANSPORT_OVERRIDE_KEY, 'ws');
+    } else if (link.transport === 'ws') {
+      sessionStorage.setItem(TRANSPORT_OVERRIDE_KEY, 'ws');
+    }
+    if (link.wsProtocol === 'v2') sessionStorage.setItem(WS_PROTOCOL_OVERRIDE_KEY, 'v2');
+    if (link.wsProtocol === 'v1') sessionStorage.removeItem(WS_PROTOCOL_OVERRIDE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * Игра с того же порта, что и сервер (/play/) — WS и протокол v2 без ?ws= в URL.
@@ -30,39 +53,16 @@ export function bootstrapLanPlayFromServer(): void {
 
 export function applyLanJoinParamsFromUrl(): { code: string | null; autojoin?: boolean } {
   if (typeof window === 'undefined') return { code: null };
-  const p = new URLSearchParams(window.location.search);
-  const ws = p.get('ws')?.trim();
-  if (ws) {
-    try {
-      sessionStorage.setItem(WS_OVERRIDE_KEY, ws);
-      sessionStorage.setItem(TRANSPORT_OVERRIDE_KEY, 'ws');
-    } catch {
-      /* ignore */
-    }
-  } else if (p.get('transport') === 'ws') {
-    try {
-      sessionStorage.setItem(TRANSPORT_OVERRIDE_KEY, 'ws');
-    } catch {
-      /* ignore */
-    }
-  }
-  const wsProtocol = p.get('wsProtocol')?.trim().toLowerCase();
-  if (wsProtocol === 'v2' || wsProtocol === '2') {
-    try {
-      sessionStorage.setItem(WS_PROTOCOL_OVERRIDE_KEY, 'v2');
-    } catch {
-      /* ignore */
-    }
-  } else if (wsProtocol === 'v1' || wsProtocol === '1') {
-    try {
-      sessionStorage.removeItem(WS_PROTOCOL_OVERRIDE_KEY);
-    } catch {
-      /* ignore */
-    }
-  }
-  const code = p.get('code')?.trim().toUpperCase() ?? null;
-  const autojoin = p.get('autojoin') === '1';
-  return { code, autojoin };
+  const link = readJoinDeepLinkFromLocation(window.location);
+  applyJoinDeepLinkSideEffects(link);
+  return { code: link.code, autojoin: link.autojoin || undefined };
+}
+
+/** Применить join из произвольной строки (Capacitor appUrlOpen, share). */
+export function applyJoinDeepLinkRaw(raw: string): { code: string | null; autojoin?: boolean } {
+  const link = parseJoinDeepLink(raw);
+  applyJoinDeepLinkSideEffects(link);
+  return { code: link.code, autojoin: link.autojoin || undefined };
 }
 
 export function getWsProtocolOverride(): 'v1' | 'v2' | null {
@@ -84,6 +84,8 @@ export function isLanGuestInvite(): boolean {
 
 export function shouldAutoJoinFromLanLink(): boolean {
   if (typeof window === 'undefined') return false;
+  const link = readJoinDeepLinkFromLocation(window.location);
+  if (link.autojoin && (link.code || hasWsTransportOverride())) return true;
   const p = new URLSearchParams(window.location.search);
   return p.get('autojoin') === '1' && hasWsTransportOverride();
 }

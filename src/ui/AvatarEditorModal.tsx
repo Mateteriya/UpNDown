@@ -561,6 +561,9 @@ function frameLabel(id: AvatarFrameId, tr: TFunc): string {
   if (id === 'gold') return tr('avatarEditor.frameGold');
   if (id === 'neon') return tr('avatarEditor.frameNeon');
   if (id === 'orbit') return tr('avatarEditor.frameOrbit');
+  if (id === 'saturn') return tr('avatarEditor.frameSaturn');
+  if (id === 'neural') return tr('avatarEditor.frameNeural');
+  if (id === 'pulsar') return tr('avatarEditor.framePulsar');
   return id;
 }
 

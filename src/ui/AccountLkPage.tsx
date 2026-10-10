@@ -14,7 +14,11 @@ import {
 import { loadLocalSkillView, toLocalSkillView, type LocalSkillView } from '../game/localSkillCache';
 import { BidSkillLifetimeRow } from './BidSkillStatsPanel';
 import { PlayerProgressPanel, ProgressSparkline } from './PlayerProgressPanel';
+import { PlayerGoalsOpportunitiesPanel } from './PlayerGoalsOpportunitiesPanel';
 import { PlayerMilestonesPanel } from './PlayerMilestonesPanel';
+import { PlayerStarsRewardsPanel } from './PlayerStarsRewardsPanel';
+import { StarsBalanceBadge } from './StarsBalanceBadge';
+import type { MilestoneId } from '../game/playerMilestones';
 import { getAiDifficulty, setAiDifficulty } from '../game/aiSettings';
 import type { AIDifficulty } from '../game/types';
 import { getAudioSettings, subscribeAudioSettings } from '../audio';
@@ -36,6 +40,7 @@ import { MenuCapsuleButton } from './MenuEntryActions';
 import { SupportMenuButton } from './SupportMenuButton';
 import { LanguageSwitch } from './LanguageSwitch';
 import { MatchArchiveHub } from './MatchArchiveHub';
+import { PartyClaimInbox } from './PartyClaimInbox';
 import { AudioSettingsMixer, audioSettingsAreAudible } from './AudioSettingsPanel';
 import { MenuSoundGlyph } from './MenuSoundGlyph';
 import { MenuCapsuleCosmicTip } from './MenuCapsuleCosmicTip';
@@ -310,6 +315,9 @@ export function AccountLkPage({
   const [chipView, setChipView] = useResultsChipView();
   const [expandArchiveList, setExpandArchiveList] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  const [offlineStatsOpen, setOfflineStatsOpen] = useState(false);
+  const [goalsOpen, setGoalsOpen] = useState(false);
+  const [goalsFocusId, setGoalsFocusId] = useState<MilestoneId | null>(null);
   const [settingsTab, setSettingsTab] = useState<'theme' | 'sound' | 'ai' | 'score' | null>(null);
   const soundGlyphGradId = `lk-snd-${useId().replace(/:/g, '')}`;
 
@@ -478,15 +486,18 @@ export function AccountLkPage({
   const unfinishedShown = [...unfinished].reverse().slice(0, 2);
 
   const archiveHub = (
-    <MatchArchiveHub
-      userId={user?.id ?? null}
-      configured={configured}
-      focus={archiveFocus}
-      expandList={expandArchiveList}
-      onContinueOffline={onContinueOffline}
-      onOpenRating={onOpenRating}
-      onOpenPremium={onOpenPremium}
-    />
+    <>
+      <PartyClaimInbox />
+      <MatchArchiveHub
+        userId={user?.id ?? null}
+        configured={configured}
+        focus={archiveFocus}
+        expandList={expandArchiveList}
+        onContinueOffline={onContinueOffline}
+        onOpenRating={onOpenRating}
+        onOpenPremium={onOpenPremium}
+      />
+    </>
   );
 
   if (isPc) {
@@ -538,6 +549,7 @@ export function AccountLkPage({
                       nameBadge={loggedIn}
                     />
                     <span className="lk-pc-hero__avatar-glass" aria-hidden="true" />
+                    <StarsBalanceBadge className="lk-pc-hero__stars" size="md" />
                   </button>
                 </div>
                 <div className="lk-pc-hero__text">
@@ -1067,65 +1079,134 @@ export function AccountLkPage({
                           />
                         </>
                       ) : null}
-                      <LkPcStatTile
-                        tone="cyan"
-                        value={progressForUi.offline.matches}
-                        label={t('cabinet.statCardOfflineGames')}
-                        tipText={t('cabinet.tipOfflineGames')}
-                        tipDetail={t('cabinet.tipOfflineGamesDetail')}
-                        railPct={
-                          progressForUi.offline.matches > 0
-                            ? (progressForUi.offline.wins / progressForUi.offline.matches) * 100
-                            : 0
-                        }
-                      />
-                      <LkPcStatTile
-                        tone="violet"
-                        value={progressForUi.offline.wins}
-                        label={t('cabinet.statCardOfflineWins')}
-                        tipText={t('cabinet.tipOfflineWins')}
-                        tipDetail={t('cabinet.tipOfflineWinsDetail')}
-                      />
-                      <LkPcStatTile
-                        tone="violet"
-                        value={gamesShown}
-                        label={t('cabinet.deviceGames')}
-                        tipText={t('cabinet.tipDeviceGames')}
-                        tipDetail={t('cabinet.tipDeviceGamesDetail')}
-                      />
-                      <LkPcStatTile
-                        tone="magenta"
-                        value={
-                          <>
-                            {winsShown}
-                            {gamesShown > 0 ? ` · ${winRate}%` : ''}
-                          </>
-                        }
-                        label={t('cabinet.localWins')}
-                        tipText={t('cabinet.tipLocalWins')}
-                        tipDetail={t('cabinet.tipLocalWinsDetail')}
-                        railPct={winRate}
-                      />
-                      {avgBidAccuracy != null && skillView.dealTotal <= 0 ? (
-                        <LkPcStatTile
-                          tone="cyan"
-                          value={`${avgBidAccuracy}%`}
-                          label={t('cabinet.bidAcc')}
-                          tipText={t('cabinet.tipBidAcc')}
-                          tipDetail={t('cabinet.tipBidAccDetail')}
-                          railPct={avgBidAccuracy}
-                        />
-                      ) : null}
                       </div>
-                      <PlayerMilestonesPanel
+                      <div
+                        className={[
+                          'lk-pc-stats-offline',
+                          offlineStatsOpen ? 'lk-pc-stats-offline--open' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
+                        <button
+                          type="button"
+                          className="lk-pc-stats-offline__toggle"
+                          aria-expanded={offlineStatsOpen}
+                          aria-controls="lk-pc-stats-offline-body"
+                          onClick={() => setOfflineStatsOpen((v) => !v)}
+                        >
+                          <span className="lk-pc-stats-offline__head-row">
+                            <span className="lk-pc-stats-offline__titles">
+                              <span className="lk-pc-stats-offline__title lk-pc-stats-offline__title--sheen">
+                                {t('cabinet.statsOfflineFold')}
+                              </span>
+                              {!offlineStatsOpen ? (
+                                <span className="lk-pc-stats-offline__peek">
+                                  {t('cabinet.statsOfflineFoldPeek', {
+                                    offlineGames: progressForUi.offline.matches,
+                                    offlineWins: progressForUi.offline.wins,
+                                    deviceGames: gamesShown,
+                                  })}
+                                </span>
+                              ) : null}
+                            </span>
+                            <span
+                              className="lk-pc-stats-offline__chev"
+                              aria-hidden="true"
+                              data-open={offlineStatsOpen ? '1' : '0'}
+                            />
+                          </span>
+                        </button>
+                        {offlineStatsOpen ? (
+                          <div
+                            id="lk-pc-stats-offline-body"
+                            className="lk-pc-stats lk-pc-stats--telemetry lk-pc-stats--offline"
+                            role="list"
+                          >
+                            <LkPcStatTile
+                              tone="cyan"
+                              value={progressForUi.offline.matches}
+                              label={t('cabinet.statCardOfflineGames')}
+                              tipText={t('cabinet.tipOfflineGames')}
+                              tipDetail={t('cabinet.tipOfflineGamesDetail')}
+                              railPct={
+                                progressForUi.offline.matches > 0
+                                  ? (progressForUi.offline.wins / progressForUi.offline.matches) *
+                                    100
+                                  : 0
+                              }
+                            />
+                            <LkPcStatTile
+                              tone="violet"
+                              value={progressForUi.offline.wins}
+                              label={t('cabinet.statCardOfflineWins')}
+                              tipText={t('cabinet.tipOfflineWins')}
+                              tipDetail={t('cabinet.tipOfflineWinsDetail')}
+                            />
+                            <LkPcStatTile
+                              tone="violet"
+                              value={gamesShown}
+                              label={t('cabinet.deviceGames')}
+                              tipText={t('cabinet.tipDeviceGames')}
+                              tipDetail={t('cabinet.tipDeviceGamesDetail')}
+                            />
+                            <LkPcStatTile
+                              tone="magenta"
+                              value={
+                                <>
+                                  {winsShown}
+                                  {gamesShown > 0 ? ` · ${winRate}%` : ''}
+                                </>
+                              }
+                              label={t('cabinet.localWins')}
+                              tipText={t('cabinet.tipLocalWins')}
+                              tipDetail={t('cabinet.tipLocalWinsDetail')}
+                              railPct={winRate}
+                            />
+                            {avgBidAccuracy != null && skillView.dealTotal <= 0 ? (
+                              <LkPcStatTile
+                                tone="cyan"
+                                value={`${avgBidAccuracy}%`}
+                                label={t('cabinet.bidAcc')}
+                                tipText={t('cabinet.tipBidAcc')}
+                                tipDetail={t('cabinet.tipBidAccDetail')}
+                                railPct={avgBidAccuracy}
+                              />
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                      <BidSkillLifetimeRow view={skillView} showPremiumHint />
+                    </div>
+                    <div className="lk-pc-mid-col">
+                      <PlayerStarsRewardsPanel
+                        compact
+                        defaultOpen={false}
+                        skillView={skillView}
+                        onlineWins={onlineKpi?.wins ?? progressForUi.online.wins}
+                        elo={ladderMe?.elo ?? null}
+                        userId={user?.id}
+                        onOpenGoal={(id) => {
+                          setGoalsOpen(true);
+                          setGoalsFocusId(id);
+                        }}
+                      />
+                      <PlayerGoalsOpportunitiesPanel
                         compact
                         skillView={skillView}
                         onlineWins={onlineKpi?.wins ?? progressForUi.online.wins}
                         elo={ladderMe?.elo ?? null}
                         userId={user?.id}
+                        showList
+                        open={goalsOpen}
+                        onOpenChange={(open) => {
+                          setGoalsOpen(open);
+                          if (!open) setGoalsFocusId(null);
+                        }}
+                        focusId={goalsFocusId}
+                        onFocusIdChange={setGoalsFocusId}
                       />
                     </div>
-                    <BidSkillLifetimeRow view={skillView} showPremiumHint />
                     <PlayerProgressPanel
                       progress={progressForUi}
                       ladderMe={ladderMe}
@@ -1160,15 +1241,21 @@ export function AccountLkPage({
           <h1 className="lk-page__title cosmic-iridescent-text">{t('cabinet.title')}</h1>
 
           <div className="lk-page__profile">
-            <PlayerAvatar
-              name={displayName}
-              avatarDataUrl={avatarDataUrl}
-              avatarBgColor={getPlayerProfile().avatarBgColor}
-              sizePx={72}
-              nameBadge={loggedIn}
-            />
+            <div className="lk-page__profile-avatar-wrap">
+              <PlayerAvatar
+                name={displayName}
+                avatarDataUrl={avatarDataUrl}
+                avatarBgColor={getPlayerProfile().avatarBgColor}
+                sizePx={72}
+                nameBadge={loggedIn}
+              />
+              <StarsBalanceBadge className="lk-page__profile-stars" size="sm" />
+            </div>
             <div className="lk-page__profile-text">
-              <p className="lk-page__profile-name">{formatYouName(displayName, t)}</p>
+              <p className="lk-page__profile-name">
+                {formatYouName(displayName, t)}
+                <StarsBalanceBadge className="lk-page__profile-stars-inline" size="sm" />
+              </p>
               {loggedIn && user?.email ? (
                 <p className="lk-page__profile-email">{user.email}</p>
               ) : (

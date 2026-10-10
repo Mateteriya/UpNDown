@@ -10,6 +10,7 @@ import {
   type SoundId,
 } from './types';
 import { isDevAtelierHost, isMusicStudioUnlocked } from '../lib/devAtelier';
+import { publicAssetUrl } from '../lib/publicAssetUrl';
 
 type PlayOpts = {
   mul?: number;
@@ -18,7 +19,7 @@ type PlayOpts = {
   preview?: boolean;
 };
 
-const SAMPLE_BASE = '/audio/sfx';
+const SAMPLE_BASE = publicAssetUrl('/audio/sfx').replace(/\/$/, '');
 /** Бамп при смене wav — иначе браузер держит старый force-cache. */
 const SAMPLE_VER = '8';
 
@@ -421,7 +422,7 @@ export function setAudioSettings(next: AudioSettings): void {
   listeners.forEach((fn) => fn(settings));
 }
 
-const MUSIC_BASE = '/audio/music';
+const MUSIC_BASE = publicAssetUrl('/audio/music').replace(/\/$/, '');
 const MUSIC_VER = '1';
 /** Петля между раздачами (table_bed.wav). */
 let tableMusicWanted = false;

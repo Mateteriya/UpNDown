@@ -2,6 +2,7 @@
  * Аватары ИИ-ботов по уровню сложности (public/ИИ-боты).
  */
 import type { AIDifficulty } from '../game/types';
+import { publicAssetUrl } from './publicAssetUrl';
 
 const AI_BOTS_PUBLIC_DIR = '/ИИ-боты';
 
@@ -46,8 +47,7 @@ export type AiBotTableSeat = {
 
 function encodePublicAssetPath(dir: string, fileName: string): string {
   const normalizedDir = dir.replace(/\/+$/, '');
-  /* encodeURI: кириллица в path → %XX, «/» остаётся — совпадает с запросом браузера/SW */
-  return encodeURI(`${normalizedDir}/${fileName}`);
+  return publicAssetUrl(`${normalizedDir}/${fileName}`);
 }
 
 function clampVariantIndex(variantIndex: number): number {

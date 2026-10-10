@@ -1,0 +1,18 @@
+<!--
+  Уже в android/app/src/main/AndroidManifest.xml (MainActivity).
+  Supabase → Authentication → URL Configuration → Redirect URLs:
+    updown://auth-callback
+  См. docs/OFFLINE-PARTY.md
+-->
+<intent-filter>
+  <action android:name="android.intent.action.VIEW" />
+  <category android:name="android.intent.category.DEFAULT" />
+  <category android:name="android.intent.category.BROWSABLE" />
+  <data android:scheme="updown" android:host="join" />
+</intent-filter>
+<intent-filter>
+  <action android:name="android.intent.action.VIEW" />
+  <category android:name="android.intent.category.DEFAULT" />
+  <category android:name="android.intent.category.BROWSABLE" />
+  <data android:scheme="updown" android:host="auth-callback" />
+</intent-filter>

@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import QRCode from 'qrcode';
-import { buildGuestJoinLink } from './joinLink.js';
+import { buildGuestInviteLandingLink, buildGuestJoinLink } from './joinLink.js';
 
 export async function tryServeJoinQr(
   req: IncomingMessage,
@@ -13,13 +13,18 @@ export async function tryServeJoinQr(
 
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
   const code = (url.searchParams.get('code') ?? '').trim().toUpperCase();
+  const preferredIp = (url.searchParams.get('ip') ?? '').trim() || null;
   if (!code) {
     res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('code required');
     return true;
   }
 
-  const link = buildGuestJoinLink(code, httpPort, gameAppPort);
+  const direct = (url.searchParams.get('direct') ?? '').trim() === '1';
+  const link = direct
+    ? buildGuestJoinLink(code, httpPort, gameAppPort, undefined, preferredIp)
+    : buildGuestInviteLandingLink(code, httpPort, preferredIp) ||
+      buildGuestJoinLink(code, httpPort, gameAppPort, undefined, preferredIp);
   if (!link) {
     res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('game not ready');
@@ -29,9 +34,10 @@ export async function tryServeJoinQr(
   try {
     const png = await QRCode.toBuffer(link, {
       type: 'png',
-      width: 280,
-      margin: 1,
-      color: { dark: '#120e08', light: '#e8b84a' },
+      width: 360,
+      margin: 2,
+      errorCorrectionLevel: 'H',
+      color: { dark: '#000000', light: '#ffffff' },
     });
     res.writeHead(200, {
       'Content-Type': 'image/png',

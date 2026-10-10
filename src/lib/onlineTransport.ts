@@ -7,8 +7,23 @@ import { getWsProtocolOverride, getWsUrlOverride, hasWsTransportOverride } from 
 export type OnlineTransport = 'supabase' | 'ws';
 export type WsProtocol = 'v1' | 'v2';
 
+/** Сборка вечеринки (base /play/) или URL с того же порта сервера. */
+function isPartyPlayOrigin(): boolean {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname || '';
+  if (path === '/play' || path.startsWith('/play/')) return true;
+  const base = String(import.meta.env.BASE_URL || '/');
+  return base === '/play/' || base.startsWith('/play');
+}
+
+function sameOriginWsUrl(): string {
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}`;
+}
+
 export function getOnlineTransport(): OnlineTransport {
   if (hasWsTransportOverride()) return 'ws';
+  if (isPartyPlayOrigin()) return 'ws';
   const raw = (import.meta.env.VITE_ONLINE_TRANSPORT as string | undefined)?.trim().toLowerCase();
   if (raw === 'ws' || raw === 'websocket') return 'ws';
   return 'supabase';
@@ -22,7 +37,10 @@ export function getWsUrl(): string | null {
   const override = getWsUrlOverride();
   if (override) return override;
   const url = (import.meta.env.VITE_WS_URL as string | undefined)?.trim();
-  return url || null;
+  if (url) return url;
+  /** dist-host / QR :3001/play/ — WS на том же host:port, без VITE_WS_URL в .env */
+  if (isPartyPlayOrigin()) return sameOriginWsUrl();
+  return null;
 }
 
 export function isWsOnlineConfigured(): boolean {

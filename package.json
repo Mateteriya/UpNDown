@@ -25,6 +25,9 @@
     "build:host-game": "node scripts/gen-favicon.mjs && vite build --config vite.host.config.ts",
     "host:kill": "powershell -ExecutionPolicy Bypass -File scripts/kill-host-ports.ps1",
     "host:app": "node scripts/host-open-browser.mjs",
+    "host:control": "node scripts/host-control-panel.mjs",
+    "party:apk": "node scripts/party-apk.mjs",
+    "party:apk:build": "node scripts/party-apk.mjs --build",
     "host:desktop:dev": "node scripts/host-desktop-dev.mjs",
     "host:desktop:prep": "node scripts/host-desktop-prep.mjs",
     "host:desktop:install": "npm install --prefix host-desktop",
@@ -36,6 +39,7 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
+    "@capacitor/app": "^8.1.2",
     "@capacitor/cli": "^8.0.2",
     "@capacitor/core": "^8.0.2",
     "@supabase/supabase-js": "^2.45.0",

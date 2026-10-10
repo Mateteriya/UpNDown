@@ -51,6 +51,11 @@ export interface PartyHistoryRecord {
   players: PartyHistoryPlayerRow[];
   /** Имена по слотам стола (индекс = колонка dealHistory). Надёжнее place-сортировки players. */
   seatNames?: string[];
+  /**
+   * Общий ключ партии (LAN: room:…; офлайн: uuid).
+   * Для склейки квитанций с разных устройств и outbox claim.
+   */
+  matchKey?: string;
 }
 
 function historyKey(profileId: string): string {
@@ -107,6 +112,7 @@ export function buildPartyHistoryRecord(
     buyIn?: number | null;
     /** Явные имена по слотам (онлайн: из playerSlots displayName/shortLabel). */
     seatNames?: string[];
+    matchKey?: string;
   },
 ): PartyHistoryRecord | null {
   const profileId = opts.profileId ?? getPlayerProfile().profileId ?? '';
@@ -158,6 +164,7 @@ export function buildPartyHistoryRecord(
     humanChips,
     dealCount: dealHistory.length,
     seatNames,
+    matchKey: opts.matchKey?.trim() || undefined,
     players: sorted.map((p, rank) => ({
       name: p.name,
       score: p.score,

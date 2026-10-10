@@ -76,6 +76,7 @@ export function buildPartyArchiveRecord(
     source?: PartyArchiveSource;
     cloudMatchId?: string | null;
     seatNames?: string[];
+    matchKey?: string;
   },
 ): PartyArchiveRecord | null {
   const base = buildPartyHistoryRecord(snap, opts);

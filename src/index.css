@@ -70960,6 +70960,38 @@ body:has(.menu-screen) {
   box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.32);
   color: #c7d2fe;
 }
+.menu-capsule--partyHost {
+  border-color: rgba(34, 211, 238, 0.42);
+  background: linear-gradient(102deg, rgba(8, 40, 52, 0.94) 0%, rgba(4, 18, 32, 1) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(103, 232, 249, 0.1),
+    0 2px 12px rgba(0, 0, 0, 0.3);
+}
+.menu-capsule--partyHost .menu-capsule__title {
+  color: var(--lobby-laser-cyan-hot, #67e8f9);
+  text-shadow:
+    0 0 10px rgba(34, 211, 238, 0.55),
+    0 0 18px rgba(103, 232, 249, 0.3);
+}
+.menu-capsule--partyHost .menu-capsule__hint {
+  color: var(--lobby-laser-cyan, #22d3ee);
+  text-shadow: 0 0 8px rgba(34, 211, 238, 0.35);
+}
+.menu-capsule--partyHost .menu-capsule__glyph {
+  background:
+    radial-gradient(circle at 40% 35%, rgba(103, 232, 249, 0.28), rgba(4, 18, 32, 0.92) 65%);
+  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.35);
+  color: #67e8f9;
+}
+.menu-capsule-shell:has(.menu-capsule--partyHost) .menu-capsule__fold {
+  color: #67e8f9;
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(8, 40, 52, 0.9);
+}
+.menu-capsule-shell:has(.menu-capsule--partyHost) .menu-capsule__fold-arrows {
+  color: #a5f3fc;
+  text-shadow: 0 0 8px rgba(34, 211, 238, 0.45);
+}
 .menu-capsule--account {
   border-color: rgba(244, 114, 182, 0.35);
   background: linear-gradient(102deg, rgba(36, 16, 48, 0.92) 0%, rgba(12, 4, 22, 1) 100%);

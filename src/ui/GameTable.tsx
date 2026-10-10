@@ -113,6 +113,9 @@ import {
   readTabletViewportScale,
 } from '../game/tabletViewportScale';
 import { appendPartyArchiveRecord, buildPartyArchiveRecord, linkPartyArchiveCloudMatch } from '../game/partyArchive';
+import type { PartyArchiveRecord } from '../game/partyArchive';
+import { matchKeyForRoom, newMatchKey } from '../game/matchKey';
+import { PartyClaimOffer } from './PartyClaimOffer';
 import { logDealOutcome } from '../game/aiLearning';
 import { aiBid, aiPlay } from '../game/ai';
 import {
@@ -237,6 +240,7 @@ import { GameInfoPlasmaTurnBlock } from './GameInfoPlasmaTurnBlock';
 import { GameInfoPlasmaTurnPlayerName } from './GameInfoPlasmaTurnPlayerName';
 import { getMobileDealContractMetaTooltip, resolveMobileDealContractBadgeFace } from '../lib/mobileDealContractBadgeFace';
 import { PlayerAvatar } from './PlayerAvatar';
+import { StarsBalanceBadge } from './StarsBalanceBadge';
 import { PlayerInfoPanel, type PlayerInfoPanelProps } from './PlayerInfoPanel';
 import { UserAvatarMenuSheet } from './UserAvatarMenuSheet';
 import { canDriveOnlineRoomHost, isLanWsOnline } from '../lib/onlineHost';
@@ -2229,6 +2233,7 @@ function GameOverModal({
   topbarSlotRef,
   fixedSettlementMode,
   fixedBuyIn,
+  claimArchive = null,
 }: {
   snapshot: GameState;
   gameId: number;
@@ -2243,6 +2248,8 @@ function GameOverModal({
   /** Онлайн: режим из комнаты — без переключателя localStorage */
   fixedSettlementMode?: SettlementMode;
   fixedBuyIn?: number | null;
+  /** Без сессии: предложить email-claim */
+  claimArchive?: PartyArchiveRecord | null;
 }) {
   const tr = useT();
   const [showExpanded, setShowExpanded] = useState(false);
@@ -2342,10 +2349,16 @@ function GameOverModal({
                   {tr('table.details')}
                 </CosmicGlassButton>
                 <GameOverCloudStatus cloudSave={cloudSave} isOfflineEnd={isOfflineEnd} compact />
+                {cloudSave === 'no-auth' && claimArchive ? (
+                  <PartyClaimOffer archive={claimArchive} />
+                ) : null}
               </>
             ) : (
               <>
                 <GameOverCloudStatus cloudSave={cloudSave} isOfflineEnd={isOfflineEnd} />
+                {cloudSave === 'no-auth' && claimArchive ? (
+                  <PartyClaimOffer archive={claimArchive} />
+                ) : null}
                 {dealHistory.length > 0 && (
                   <p className="game-over-celebration__teaser">
                     {tr('table.yourChips')}:{' '}
@@ -2485,6 +2498,9 @@ function GameOverModal({
         <BridgeDock onExit={onExit} onOpenTable={onOpenTable} onNewGame={onNewGame} hideNewGame={hideNewGame} />
         <div className="game-over-bridge__cloud-footer">
           <GameOverCloudStatus cloudSave={cloudSave} isOfflineEnd={isOfflineEnd} />
+          {cloudSave === 'no-auth' && claimArchive ? (
+            <PartyClaimOffer archive={claimArchive} />
+          ) : null}
         </div>
       </div>
         </div>
@@ -2507,6 +2523,9 @@ function GameOverModal({
             isHumanWinner={!isTie && winners[0]?.idx === humanIdx}
           />
           <GameOverCloudStatus cloudSave={cloudSave} isOfflineEnd={isOfflineEnd} />
+          {cloudSave === 'no-auth' && claimArchive ? (
+            <PartyClaimOffer archive={claimArchive} />
+          ) : null}
           {dealHistory.length > 0 && (
             <div className="game-over-chip-bar">
               <span className="game-over-chip-bar__label">
@@ -3612,6 +3631,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   const [gameOverCloudSave, setGameOverCloudSave] = useState<'none' | 'pending' | 'ok' | 'fail' | 'no-auth'>('none');
   /** Для онлайна — канонический снимок + слот; иначе dealHistory и players расходятся по индексам. */
   const [gameOverViewerSlot, setGameOverViewerSlot] = useState<number | null>(null);
+  const [gameOverClaimArchive, setGameOverClaimArchive] = useState<PartyArchiveRecord | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const gameOverTopbarRef = useRef<HTMLDivElement>(null);
   const startFromWaitingLockRef = useRef(false);
@@ -5387,6 +5407,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     setGameOverSnapshot(null);
     setShowGameOverModal(false);
     setGameOverCloudSave('none');
+    setGameOverClaimArchive(null);
     // offlinePlayerCount только для новой партии (когда сейва нет); не в deps —
     // иначе HMR/ремонт App сбрасывал бы счётчик в 4 и перезапускал стол.
   }, [gameId, isOnline, isWaitingInRoom, online.onlineHydratedFromStorage]);
@@ -7559,10 +7580,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     gameId,
                     source: 'offline',
                     settlementMode: readResultsChipView(),
+                    matchKey: newMatchKey(),
                   });
                   if (arch) {
                     offlineArchId = arch.id;
                     void appendPartyArchiveRecord(arch);
+                    if (!userRef.current?.id) setGameOverClaimArchive(arch);
                   }
                 }
                 if (userRef.current?.id && !offlineMatchRecordedRef.current) {
@@ -7627,12 +7650,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       : 'accuracy_bonus',
                     buyIn: o.buyIn ?? snap.buyIn ?? null,
                     seatNames,
+                    matchKey: o.roomId ? matchKeyForRoom(o.roomId) : newMatchKey(),
                   });
                   if (arch) {
                     onlineArchiveIdRef.current = arch.id;
                     void appendPartyArchiveRecord(arch);
                     const already = onlineCloudMatchIdRef.current;
                     if (already) void linkPartyArchiveCloudMatch(arch.id, already);
+                    if (!userRef.current?.id) setGameOverClaimArchive(arch);
                   }
                 }
                 if (userRef.current?.id && !onlineMatchRecordedRef.current) {
@@ -8327,14 +8352,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     };
     const ariaLabel = online.roomId ? tr('table.menuOf', { name: p.name }) : tr('table.profileOf', { name: p.name });
     const face = (
-      <PlayerAvatar
-        name={displayState.players[humanIdx].name}
-        avatarDataUrl={playerAvatarDataUrl}
-        avatarBgColor={playerAvatarBgColor}
-        sizePx={avatarFaceSizePx}
-        nameBadge
-        className={innerCls}
-      />
+      <span className="user-player-avatar-stars-wrap">
+        <PlayerAvatar
+          name={displayState.players[humanIdx].name}
+          avatarDataUrl={playerAvatarDataUrl}
+          avatarBgColor={playerAvatarBgColor}
+          sizePx={avatarFaceSizePx}
+          nameBadge
+          className={innerCls}
+        />
+        <StarsBalanceBadge size="sm" className="user-player-avatar-stars-badge" />
+      </span>
     );
     const avatarRootCls = 'user-player-avatar-root';
     const avatarButton = (
@@ -14768,6 +14796,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               topbarSlotRef={gameOverTopbarRef}
               cloudSave={gameOverCloudSave}
               isOfflineEnd={!isOnline}
+              claimArchive={gameOverClaimArchive}
               fixedSettlementMode={
                 isOnline ? online.settlementMode ?? gameOverSnapshot.settlementMode : undefined
               }
@@ -14777,6 +14806,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 setShowGameOverModal(false);
                 setGameOverSnapshot(null);
                 setGameOverViewerSlot(null);
+                setGameOverClaimArchive(null);
                 if (isOnline && online.leaveRoom) {
                   await online.leaveRoom();
                 }
@@ -14786,6 +14816,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 setShowGameOverModal(false);
                 setGameOverSnapshot(null);
                 setGameOverViewerSlot(null);
+                setGameOverClaimArchive(null);
                 if (isOnline && online.leaveRoom) await online.leaveRoom();
                 handleExit();
               }}

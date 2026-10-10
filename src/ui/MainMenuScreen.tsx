@@ -29,6 +29,9 @@ import { MenuSoundGlyphToggle } from './MenuSoundGlyph';
 import { LanguageSwitch } from './LanguageSwitch';
 import { useT } from '../i18n';
 import { createTripleTapHandler } from '../lib/devAtelier';
+import { publicAssetUrl } from '../lib/publicAssetUrl';
+import { isPartyHostUiEnabled } from '../lib/productFlags';
+import { openPartyHostPanel } from '../lib/partyHostLaunch';
 
 const PC_MENU_MQ = '(min-width: 1025px)';
 /** Редкий автосвайп каста, пока сидят на главной. */
@@ -113,6 +116,8 @@ export type MainMenuScreenProps = {
   onResumeOffline: () => void;
   onOfflinePlay: () => void;
   onOpenRules: () => void;
+  /** Спец. вечеринка: открыть панель хоста (ПК / LAN). */
+  onOpenPartyHost?: () => void;
 };
 
 export function MainMenuScreen({
@@ -138,8 +143,31 @@ export function MainMenuScreen({
   onResumeOffline,
   onOfflinePlay,
   onOpenRules,
+  onOpenPartyHost,
 }: MainMenuScreenProps) {
   const t = useT();
+  const showPartyHost = Boolean(onOpenPartyHost) && isPartyHostUiEnabled();
+  const [partyHostHelpOpen, setPartyHostHelpOpen] = useState(false);
+  /** mobile | native | panel_down — какой текст в диалоге «Свой хост». */
+  const [partyHostHelpKind, setPartyHostHelpKind] = useState<'mobile' | 'panel_down'>('mobile');
+  const [partyHostPanelUrl, setPartyHostPanelUrl] = useState('http://127.0.0.1:3927/');
+  const handlePartyHostClick = useCallback(() => {
+    if (!onOpenPartyHost) return;
+    void (async () => {
+      const res = await openPartyHostPanel();
+      if (!res.ok) {
+        if (res.url) setPartyHostPanelUrl(res.url);
+        setPartyHostHelpKind(res.reason === 'panel_down' ? 'panel_down' : 'mobile');
+        setPartyHostHelpOpen(true);
+        return;
+      }
+      try {
+        onOpenPartyHost();
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [onOpenPartyHost]);
   const onBrandTripleTap = useRef(createTripleTapHandler(() => onOpenMusicStudio?.()));
   useEffect(() => {
     onBrandTripleTap.current = createTripleTapHandler(() => onOpenMusicStudio?.());
@@ -566,7 +594,7 @@ export function MainMenuScreen({
                 <span className="menu-screen__brand-mark__frame">
                   <img
                     className="menu-screen__brand-icon"
-                    src="/icon-192.png"
+                    src={publicAssetUrl('/icon-192.png')}
                     alt=""
                     width={48}
                     height={48}
@@ -942,6 +970,18 @@ export function MainMenuScreen({
                 <SupportMenuButton onClick={onOpenSupport} />
               </MenuPcDrift>
             ) : null}
+            {isPcMenu && showPartyHost ? (
+              <MenuPcDrift id="party-host-v2" className="menu-screen__drift--party-host" movable>
+                <MenuCapsuleButton
+                  variant="partyHost"
+                  title={t('menu.partyHostTitle')}
+                  hint={t('menu.partyHostHint')}
+                  collapsible
+                  collapseId="party-host"
+                  onClick={handlePartyHostClick}
+                />
+              </MenuPcDrift>
+            ) : null}
             {isPcMenu ? (
               <MenuPcDrift id="rules-v1" className="menu-screen__drift--rules" movable>
                 <MenuCapsuleButton
@@ -1124,6 +1164,16 @@ export function MainMenuScreen({
 
           {!isPcMenu ? (
             <div className="menu-screen__mobile-rules">
+              {showPartyHost ? (
+                <MenuCapsuleButton
+                  variant="partyHost"
+                  title={t('menu.partyHostTitle')}
+                  hint={t('menu.partyHostHint')}
+                  collapsible
+                  collapseId="party-host"
+                  onClick={handlePartyHostClick}
+                />
+              ) : null}
               <MenuCapsuleButton
                 variant="rules"
                 title={t('menu.rulesTitle')}
@@ -1181,6 +1231,90 @@ export function MainMenuScreen({
       )}
       <LanguageSwitch className="menu-screen__lang" />
       <OfflineReadyOrb />
+      {partyHostHelpOpen ? (
+        <div
+          className="menu-party-host-help"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="menu-party-host-help-title"
+        >
+          <button
+            type="button"
+            className="menu-party-host-help__backdrop"
+            aria-label={
+              partyHostHelpKind === 'panel_down' ? t('menu.partyHostDesktopOk') : t('menu.partyHostMobileOk')
+            }
+            onClick={() => setPartyHostHelpOpen(false)}
+          />
+          <div className="menu-party-host-help__card">
+            <h2 id="menu-party-host-help-title" className="menu-party-host-help__title">
+              {partyHostHelpKind === 'panel_down'
+                ? t('menu.partyHostDesktopTitle')
+                : t('menu.partyHostMobileTitle')}
+            </h2>
+            <p className="menu-party-host-help__body">
+              {partyHostHelpKind === 'panel_down'
+                ? t('menu.partyHostDesktopBody')
+                : t('menu.partyHostMobileBody')}
+            </p>
+            <div className="menu-party-host-help__actions">
+              {partyHostHelpKind === 'panel_down' ? (
+                <>
+                  <button
+                    type="button"
+                    className="menu-party-host-help__ok"
+                    onClick={() => {
+                      try {
+                        window.open(partyHostPanelUrl, '_blank', 'noopener,noreferrer');
+                      } catch {
+                        window.location.href = partyHostPanelUrl;
+                      }
+                      setPartyHostHelpOpen(false);
+                    }}
+                  >
+                    {t('menu.partyHostDesktopOpen')}
+                  </button>
+                  <button
+                    type="button"
+                    className="menu-party-host-help__secondary"
+                    onClick={() => setPartyHostHelpOpen(false)}
+                  >
+                    {t('menu.partyHostDesktopOk')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="menu-party-host-help__ok"
+                    onClick={() => {
+                      setPartyHostHelpOpen(false);
+                      onOpenOnline();
+                    }}
+                  >
+                    {t('menu.partyHostMobileJoin')}
+                  </button>
+                  <button
+                    type="button"
+                    className="menu-party-host-help__secondary"
+                    onClick={() => setPartyHostHelpOpen(false)}
+                  >
+                    {t('menu.partyHostMobileGuestTip')}
+                  </button>
+                  <button
+                    type="button"
+                    className="menu-party-host-help__ghost"
+                    disabled
+                    title={t('menu.partyHostMobileHostSoon')}
+                  >
+                    {t('menu.partyHostMobileHostSoon')}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
