@@ -10,6 +10,7 @@ import { getOnlinePlayerId } from '../lib/deviceId';
 import { hostPanelUrlFromWsUrl, isLanGuestInvite } from '../lib/lanJoinLink';
 import { canStartOnlineRoom } from '../lib/onlineHost';
 import { getWsUrl, isWsOnlineTransport, isWsOnlineConfigured } from '../lib/onlineTransport';
+import { isLanPartyClient } from '../lib/offlineReady';
 import { settlementModeBadgeLabel, type RoomPeekResult } from '../lib/roomSettlement';
 import { PUBLIC_HALL_ENABLED } from '../lib/productFlags';
 import { ONLINE_LOBBY_MASCOT_URL } from '../lib/lobbyAssets';
@@ -17,10 +18,14 @@ import { MODE_LEGENDS } from '../lib/modeLegends';
 import { useT } from '../i18n';
 import { LobbyCapsuleButton, LobbyCreatePanel, LobbyLastPartyToggle, LobbyBackButton, LobbyPasteCodeButton } from './LobbyEntryActions';
 import { OnlineHallScreen } from './OnlineHallScreen';
+import { PlayerAvatar } from './PlayerAvatar';
+import { getMenuIdentityStatus } from '../lib/menuIdentityStatus';
 
 export interface LobbyScreenProps {
   onBack: () => void;
   playerName: string;
+  avatarDataUrl?: string | null;
+  avatarBgColor?: string | null;
   onEditProfile?: () => void;
   onOpenAccount?: () => void;
   onGoToGame?: () => void;
@@ -52,6 +57,8 @@ function normalizeJoinCode(raw: string): string {
 export function LobbyScreen({
   onBack,
   playerName,
+  avatarDataUrl = null,
+  avatarBgColor = null,
   onEditProfile,
   onOpenAccount,
   onGoToGame,
@@ -61,6 +68,70 @@ export function LobbyScreen({
 }: LobbyScreenProps) {
   const t = useT();
   const { user } = useAuth();
+  const identityStatus = getMenuIdentityStatus({
+    displayName: playerName,
+    avatarDataUrl,
+    userEmail: user?.email,
+  });
+  const isAccountIdentity = identityStatus === 'account';
+  const isProfileIdentity = identityStatus === 'profile';
+  const isGuestIdentity = identityStatus === 'guest';
+  const identityStatusLabel = isAccountIdentity
+    ? t('lobby.identityAccount')
+    : isProfileIdentity
+      ? t('lobby.identityProfile')
+      : t('lobby.identityGuest');
+  const renderLobbyIdentity = (compact: boolean) => (
+    <div
+      className={[
+        'lobby-screen__identity',
+        compact ? 'lobby-screen__identity--compact' : 'lobby-screen__identity--card',
+        isGuestIdentity ? 'lobby-screen__identity--guest' : '',
+        isProfileIdentity ? 'lobby-screen__identity--profile' : '',
+        isAccountIdentity ? 'lobby-screen__identity--account' : '',
+        !onOpenAccount ? 'lobby-screen__identity--disabled' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      role={onOpenAccount ? 'button' : undefined}
+      tabIndex={onOpenAccount ? 0 : undefined}
+      aria-label={t('lobby.openLk')}
+      onClick={() => onOpenAccount?.()}
+      onKeyDown={(e) => {
+        if (!onOpenAccount) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpenAccount();
+        }
+      }}
+    >
+      <span className="lobby-screen__identity-avatar">
+        <PlayerAvatar
+          name={playerName}
+          avatarDataUrl={avatarDataUrl}
+          avatarBgColor={avatarBgColor}
+          sizePx={compact ? 42 : 52}
+        />
+      </span>
+      <span className="lobby-screen__identity-text">
+        <strong className="lobby-screen__identity-name">{playerName}</strong>
+        <span
+          className={[
+            'lobby-screen__identity-status',
+            isAccountIdentity
+              ? 'lobby-screen__identity-status--online'
+              : 'lobby-screen__identity-status--offline',
+          ].join(' ')}
+        >
+          <span className="lobby-screen__identity-dot" aria-hidden="true" />
+          {identityStatusLabel}
+        </span>
+        {!compact ? (
+          <span className="lobby-screen__identity-hint">{t('lobby.identityTap')}</span>
+        ) : null}
+      </span>
+    </div>
+  );
   const {
     status,
     code: roomCode,
@@ -215,7 +286,8 @@ export function LobbyScreen({
     ? user.email.replace(/@.*$/, '').slice(-8)
     : undefined;
 
-  const lanWs = isWsOnlineConfigured();
+  /** /play/ с хоста = LAN даже если sessionStorage/bootstrap ещё не сработали */
+  const lanWs = isWsOnlineConfigured() || isLanPartyClient();
   const guestFromHostLink =
     lanGuestInvite === true || (Boolean(initialJoinCode) && isLanGuestInvite());
   const tryAutoJoin = lanAutoJoinFromLink === true;
@@ -638,6 +710,7 @@ export function LobbyScreen({
       <div className="lobby-screen__layout lobby-screen__layout--entry">
         <header className="lobby-screen__top-bar">
           <LobbyBackButton onClick={onBack} />
+          {renderLobbyIdentity(true)}
         </header>
         <div className="lobby-screen__entry-main">
         <div className="lobby-screen__hero-col">
@@ -690,15 +763,9 @@ export function LobbyScreen({
             : t('lobby.guestJoinHint')}
         </p>
       )}
-      <button
-        type="button"
-        className="lobby-entry-player lobby-entry-player--account"
-        onClick={() => onOpenAccount?.()}
-        disabled={!onOpenAccount}
-        aria-label={t('lobby.openLk')}
-      >
-        {t('lobby.youAre')} <strong>{playerName}</strong>
-      </button>
+      {guestFromHostLink ? (
+        <div className="lobby-screen__identity-wrap">{renderLobbyIdentity(false)}</div>
+      ) : null}
       {(error || joinError) && (
         <p className="lobby-entry-error">{joinError || error}</p>
       )}

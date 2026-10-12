@@ -1,7 +1,9 @@
 /** Кадр каста личного кабинета (public/ЛК). Пока фиксируем «ЛК 5». */
 
+import { publicAssetUrl } from './publicAssetUrl';
+
 export const LK_CAST_FRAMES = [
-  { id: 'lk-5', label: 'ЛК 5', url: encodeURI('/ЛК/ЛК 5.jpg') },
+  { id: 'lk-5', label: 'ЛК 5', url: publicAssetUrl('/ЛК/ЛК 5.jpg') },
 ] as const;
 
 export type LkCastFrame = (typeof LK_CAST_FRAMES)[number];
@@ -12,7 +14,7 @@ export const LK_CAST_PRIMARY = LK_CAST_FRAMES[0];
 export const LK_CAST_HERO = {
   id: 'lk-555',
   label: 'ЛК 555',
-  url: encodeURI('/ЛК/ЛК 555.jpg'),
+  url: publicAssetUrl('/ЛК/ЛК 555.jpg'),
 } as const;
 
 export function getLkCastFrameAt(index = 0): LkCastFrame {

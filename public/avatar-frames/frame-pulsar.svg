@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <radialGradient id="pulCore" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#e0f2fe"/>
+      <stop offset="0.45" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </radialGradient>
+  </defs>
+  <circle cx="256" cy="256" r="248" stroke="#38bdf8" stroke-width="4" opacity="0.35"/>
+  <circle cx="256" cy="256" r="228" stroke="#c084fc" stroke-width="6" opacity="0.55"/>
+  <circle cx="256" cy="256" r="208" stroke="#67e8f9" stroke-width="3" opacity="0.7"/>
+  <ellipse cx="256" cy="300" rx="150" ry="28" fill="none" stroke="#a5f3fc" stroke-width="5" opacity="0.75"/>
+  <ellipse cx="256" cy="300" rx="110" ry="16" fill="none" stroke="#e879f9" stroke-width="3" opacity="0.55"/>
+  <circle cx="256" cy="236" r="36" fill="url(#pulCore)" opacity="0.95"/>
+  <path d="M256 120v48M256 304v48M160 200l34 20M318 232l34 20M160 280l34-20M318 248l34-20" stroke="#e0f2fe" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+  <circle cx="120" cy="150" r="4" fill="#f0abfc"/>
+  <circle cx="400" cy="170" r="5" fill="#7dd3fc"/>
+  <circle cx="390" cy="360" r="4" fill="#ddd6fe"/>
+</svg>

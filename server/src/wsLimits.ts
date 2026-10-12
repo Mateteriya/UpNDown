@@ -74,11 +74,15 @@ export class WsRateLimiter {
     ip: string,
     roomCount: number,
     roomsForIp: number,
+    opts?: { skipRateLimit?: boolean },
   ): { ok: true } | { ok: false; error: string } {
     if (roomCount >= this.cfg.maxRooms) return { ok: false, error: 'server_full' };
     if (roomsForIp >= this.cfg.maxRoomsPerIp) return { ok: false, error: 'too_many_rooms' };
-    if (!this.hit(this.createBuckets, ip || 'unknown', 60_000, this.cfg.createPerMin)) {
-      return { ok: false, error: 'rate_limited' };
+    /** Панель хоста (несколько столов подряд) — не режем create/min. */
+    if (!opts?.skipRateLimit) {
+      if (!this.hit(this.createBuckets, ip || 'unknown', 60_000, this.cfg.createPerMin)) {
+        return { ok: false, error: 'rate_limited' };
+      }
     }
     return { ok: true };
   }

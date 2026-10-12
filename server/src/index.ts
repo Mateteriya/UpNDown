@@ -10,6 +10,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { HostAutomation } from './hostAutomation.js';
 import { tryServeGameStatic, isGameDistAvailable } from './gameStatic.js';
 import { tryServeJoinQr } from './qrHttp.js';
+import { tryServeJoinLanding, tryServePartyApk } from './joinLanding.js';
 import { SERVER_HTTP_BUILD, serveHostPanel, hostHtmlPath } from './hostPanelHtml.js';
 import { buildNetworkStatus, handleNetworkApi } from './networkHttp.js';
 import { parseLanBackupPorts } from './lanPorts.js';
@@ -173,7 +174,8 @@ function roomOnWire(
 }
 
 function sendRoomTo(ws: WebSocket, room: GameRoomRow, type: 'room_snapshot' | 'room_meta' = 'room_snapshot'): void {
-  send(ws, { type, room: roomOnWire(ws, room) });
+  /** Слоты/мета редкие: оставляем JPEG+плашку. Живой game_state по-прежнему slimPlayerSlots. */
+  send(ws, { type, room: roomOnWire(ws, room, { keepAvatars: true }) });
 }
 
 function broadcastGameStateV2(push: GameStatePush): void {
@@ -394,7 +396,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
         return;
       }
       subscribe(ws, msg.roomId);
-      send(ws, { type: 'room_snapshot', room: roomOnWire(ws, room), requestId });
+      send(ws, { type: 'room_snapshot', room: roomOnWire(ws, room, { keepAvatars: true }), requestId });
       if (room.status === 'finished') {
         send(ws, {
           type: 'match_recorded',
@@ -455,7 +457,10 @@ function handleMessage(ws: WebSocket, raw: string): void {
         reply(ws, requestId, { type: 'error', ok: false, error: 'player_required' });
         return;
       }
-      const createGate = wsLimits.allowCreate(ip, store.listAll().length, store.countRoomsByCreatorIp(ip));
+      const hostDedicated = msg.hostDedicated === true;
+      const createGate = wsLimits.allowCreate(ip, store.listAll().length, store.countRoomsByCreatorIp(ip), {
+        skipRateLimit: hostDedicated,
+      });
       if (!createGate.ok) {
         reply(ws, requestId, { type: 'create_room_result', ok: false, error: createGate.error });
         return;
@@ -467,11 +472,13 @@ function handleMessage(ws: WebSocket, raw: string): void {
         displayName: msg.displayName,
         shortLabel: msg.shortLabel ?? undefined,
         avatarDataUrl: msg.avatarDataUrl,
+        nameBadgeEnabled: msg.nameBadgeEnabled,
+        nameBadgeText: msg.nameBadgeText,
         settlementMode: msg.settlementMode,
         buyIn: msg.buyIn,
         roomKind: msg.roomKind,
         maxPlayers: parseMaxPlayers(msg.maxPlayers),
-        hostDedicated: msg.hostDedicated === true,
+        hostDedicated,
         protocolVersion,
         createdByIp: ip,
       });
@@ -508,6 +515,8 @@ function handleMessage(ws: WebSocket, raw: string): void {
         displayName: msg.displayName,
         shortLabel: msg.shortLabel ?? undefined,
         avatarDataUrl: msg.avatarDataUrl,
+        nameBadgeEnabled: msg.nameBadgeEnabled,
+        nameBadgeText: msg.nameBadgeText,
       });
       if ('error' in result) {
         reply(ws, requestId, { type: 'join_room_result', ok: false, error: result.error });
@@ -541,7 +550,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
       reply(ws, requestId, {
         type: 'get_room_result',
         ok: true,
-        room: roomOnWire(ws, room),
+        room: roomOnWire(ws, room, { keepAvatars: true }),
       });
       return;
     }
@@ -626,7 +635,11 @@ function handleMessage(ws: WebSocket, raw: string): void {
         return;
       }
       broadcastRoom(updated);
-      reply(ws, requestId, { type: 'update_slots_result', ok: true, room: roomOnWire(ws, updated) });
+      reply(ws, requestId, {
+        type: 'update_slots_result',
+        ok: true,
+        room: roomOnWire(ws, updated, { keepAvatars: true }),
+      });
       return;
     }
     case 'update_display_name': {
@@ -664,7 +677,11 @@ function handleMessage(ws: WebSocket, raw: string): void {
         }
       }
       broadcastRoom(finalRoom);
-      reply(ws, requestId, { type: 'update_display_name_result', ok: true, room: roomOnWire(ws, finalRoom) });
+      reply(ws, requestId, {
+        type: 'update_display_name_result',
+        ok: true,
+        room: roomOnWire(ws, finalRoom, { keepAvatars: true }),
+      });
       return;
     }
     case 'update_state': {
@@ -694,7 +711,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
           type: 'update_state_result',
           ok: false,
           conflict: true,
-          room: result.room ? roomOnWire(ws, result.room) : result.room,
+          room: result.room ? roomOnWire(ws, result.room, { keepAvatars: true }) : result.room,
         });
         return;
       }
@@ -702,7 +719,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
       reply(ws, requestId, {
         type: 'update_state_result',
         ok: true,
-        room: result.room ? roomOnWire(ws, result.room) : result.room,
+        room: result.room ? roomOnWire(ws, result.room, { keepAvatars: true }) : result.room,
       });
       return;
     }
@@ -716,9 +733,29 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
+async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
+  if (chunks.length === 0) return {};
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function decodeRequestPathname(pathname: string): string {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return pathname;
+  }
+}
+
 async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
-  const path = url.pathname.replace(/\/+$/, '') || '/';
+  /** Браузер шлёт /МЕНЮ/… как %D0%9C… — без decode static 404, каст на телефоне пустой. */
+  const path = decodeRequestPathname(url.pathname).replace(/\/+$/, '') || '/';
 
   if (path === '/api/health' && req.method === 'GET') {
     sendJson(res, 200, {
@@ -771,6 +808,7 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
   if (path === '/api/info' && req.method === 'GET') {
     const net = buildNetworkStatus(PORT, GAME_APP_PORT, tunnelManager);
     const primaryIp = (net.lanIps as string[])[0] ?? '127.0.0.1';
+    const playBase = `http://${primaryIp}:${PORT}/play/`;
     sendJson(res, 200, {
       port: PORT,
       lanIps: net.lanIps,
@@ -779,14 +817,58 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
       gameAppUrlLan: net.gameAppUrlLan,
       gameAppUrl: (process.env.PUBLIC_GAME_URL ?? '').trim() || (net.gameAppUrlLan as string),
       hostPanelUrl: `http://${primaryIp}:${PORT}/host`,
+      /** Для Supabase Redirect URLs (Google → обратно в LAN, без up2down.online / VPN) */
+      oauthRedirectUrl: `${playBase}auth-callback.html`,
+      /** На вечер вечеринки можно временно поставить как Site URL (без ?code= / #) */
+      oauthSiteUrlParty: playBase,
       network: net,
     });
+    return;
+  }
+
+  /** Список dedicated-столов для панели хоста (LAN). */
+  if (path === '/api/host/dedicated-rooms' && req.method === 'GET') {
+    const rooms = store.listDedicatedActive().map((r) => ({
+      id: r.id,
+      code: r.code,
+      status: r.status,
+      max_players: r.max_players === 3 ? 3 : 4,
+      player_slots: r.player_slots ?? [],
+      room_kind: r.room_kind,
+      updated_at: r.updated_at,
+    }));
+    sendJson(res, 200, { ok: true, rooms });
+    return;
+  }
+
+  /** Закрыть стол с панели хоста (удаляет dedicated-комнату целиком). */
+  if (path === '/api/host/close-room' && req.method === 'POST') {
+    readJsonBody(req)
+      .then((body) => {
+        const roomId = typeof body?.roomId === 'string' ? body.roomId.trim() : '';
+        if (!roomId) {
+          sendJson(res, 400, { ok: false, error: 'roomId_required' });
+          return;
+        }
+        const before = store.getById(roomId);
+        const err = store.closeDedicatedRoom(roomId);
+        if (err.error === 'not_dedicated') {
+          sendJson(res, 400, { ok: false, error: err.error });
+          return;
+        }
+        if (before) chatStore.dropRoom(roomId);
+        sendJson(res, 200, { ok: true, closed: !store.getById(roomId), code: before?.code ?? null });
+      })
+      .catch(() => sendJson(res, 400, { ok: false, error: 'bad_json' }));
     return;
   }
 
   if (await handleNetworkApi(req, res, path, PORT, GAME_APP_PORT, tunnelManager)) {
     return;
   }
+
+  if (tryServeJoinLanding(req, res, path, PORT, GAME_APP_PORT)) return;
+  if (tryServePartyApk(req, res, path)) return;
 
   if (tryServeGameStatic(req, res, path)) return;
 

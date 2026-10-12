@@ -53,7 +53,7 @@ const room: GameRoomRow = {
 };
 
 describe('slimPlayerSlots', () => {
-  it('drops data-URL avatars and keeps pause flags', () => {
+  it('drops data-URL avatars and keeps pause flags and name badge', () => {
     const slim = slimPlayerSlots([
       {
         slotIndex: 0,
@@ -61,11 +61,15 @@ describe('slimPlayerSlots', () => {
         userId: 'u1',
         avatarDataUrl: 'data:image/jpeg;base64,' + 'x'.repeat(80),
         pausedByUser: true,
+        nameBadgeEnabled: true,
+        nameBadgeText: 'ACE',
       },
       { slotIndex: 1, displayName: 'B', userId: 'u2' },
     ]);
     expect(slim?.[0]).not.toHaveProperty('avatarDataUrl');
     expect(slim?.[0].pausedByUser).toBe(true);
+    expect(slim?.[0].nameBadgeEnabled).toBe(true);
+    expect(slim?.[0].nameBadgeText).toBe('ACE');
     expect(slim?.[1].displayName).toBe('B');
   });
 });

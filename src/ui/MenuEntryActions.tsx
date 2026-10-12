@@ -178,6 +178,7 @@ type MenuCapsuleVariant =
   | 'resumeOffline'
   | 'offline'
   | 'rules'
+  | 'partyHost'
   | 'account'
   | 'profile'
   | 'rating'
@@ -438,6 +439,40 @@ function GlyphMenuRules() {
   );
 }
 
+/** Wi‑Fi / свой хост — «маяк» раздачи. */
+function GlyphMenuPartyHost() {
+  return (
+    <svg className="menu-capsule-glyph-svg" viewBox="0 0 44 44" aria-hidden="true">
+      <circle cx="22" cy="30" r="2.4" fill="currentColor" />
+      <path
+        d="M14.5 24.5a10.5 10.5 0 0 1 15 0"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity="0.95"
+      />
+      <path
+        d="M10 19.5a16 16 0 0 1 24 0"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        opacity="0.7"
+      />
+      <path
+        d="M6 14.5a21.5 21.5 0 0 1 32 0"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        opacity="0.45"
+      />
+      <rect x="19.2" y="31.5" width="5.6" height="5" rx="1.2" fill="currentColor" opacity="0.85" />
+    </svg>
+  );
+}
+
 function GlyphMenuAccount() {
   return (
     <svg className="menu-capsule-glyph-svg" viewBox="0 0 44 44" aria-hidden="true">
@@ -601,6 +636,7 @@ const GLYPHS: Record<MenuCapsuleVariant, ReactNode> = {
   resumeOffline: <GlyphMenuResume />,
   offline: <GlyphMenuOffline />,
   rules: <GlyphMenuRules />,
+  partyHost: <GlyphMenuPartyHost />,
   account: <GlyphMenuAccount />,
   profile: <GlyphMenuProfile />,
   rating: <GlyphMenuRating />,

@@ -4,6 +4,7 @@ import {
   playOtherSound,
   playSound,
   stopNudgeSounds,
+  stopTableMusicBed,
   YOUR_TURN_NUDGE_IDLE_MS,
   YOUR_TURN_NUDGE_LONG_MS,
   YOUR_TURN_NUDGE_REPEAT_MS,
@@ -263,4 +264,10 @@ export function useGameTableAudio({
   }, []);
 
   useEffect(() => () => clearNudge(), []);
+
+  /* table_bed только из микшера (превью). На deal-complete уже играет deal_complete(_south). */
+  useEffect(() => {
+    stopTableMusicBed();
+    return () => stopTableMusicBed();
+  }, []);
 }

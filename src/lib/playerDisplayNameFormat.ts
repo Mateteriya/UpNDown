@@ -50,9 +50,9 @@ function titleCaseWord(word: string): string {
     .join('');
 }
 
-/** Первое слово: первая буква всегда заглавная; целиком КАПС → «Петя»-стиль. */
+/** Первое слово: первая буква заглавная; КАПС целиком — как ввёл пользователь. */
 function formatDisplayFirstWord(word: string): string {
-  if (isAllLettersUpper(word)) return titleCaseWord(word);
+  if (isAllLettersUpper(word)) return word;
   const chars = [...word];
   const firstIdx = firstLetterIndex(word);
   if (firstIdx < 0) return word;
@@ -72,13 +72,19 @@ function isPreservedSecondaryWord(word: string): boolean {
 
 /**
  * Отображаемое имя игрока (профиль не меняется).
- * Первое слово: первая буква заглавная; КАПС целиком → title case.
- * Если заглавных букв в исходнике > 4 — слова со 2-го: title case (кроме исключений).
- * Иначе слова 2+ без изменений.
+ * Полный КАПС — без изменений (как ввёл пользователь).
+ * Иначе: первое слово — первая буква заглавная; при >4 заглавных в исходнике
+ * слова со 2-го — title case (кроме исключений).
  */
 export function formatPlayerNameForDisplay(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return trimmed;
+
+  const letters = [...trimmed].filter(isLetter);
+  if (letters.length >= 1 && letters.every(isUppercaseLetter)) {
+    return trimmed;
+  }
+
   const words = trimmed.split(/\s+/);
   const uppercaseCount = countPlayerNameUppercaseLetters(trimmed);
   const softenRest = uppercaseCount > PLAYER_DISPLAY_NAME_CAPS_SHRINK_THRESHOLD;

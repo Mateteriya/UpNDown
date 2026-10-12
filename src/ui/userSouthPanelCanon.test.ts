@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  pcSouthNameCutChars,
+  southNameLongCompact,
   USER_SOUTH_AVATAR_PC_BIDDING_PX,
   USER_SOUTH_AVATAR_PC_PLAY_PX,
   USER_SOUTH_AVATAR_TABLET_BIDDING_PX,
@@ -9,12 +9,12 @@ import {
 } from './userSouthPanelCanon';
 
 describe('userSouthPanelCanon', () => {
-  it('cuts PC names by trick slot count; tablet never cuts', () => {
-    expect(pcSouthNameCutChars(6, false)).toBe(0);
-    expect(pcSouthNameCutChars(7, false)).toBe(3);
-    expect(pcSouthNameCutChars(9, false)).toBe(3);
-    expect(pcSouthNameCutChars(10, false)).toBe(5);
-    expect(pcSouthNameCutChars(12, true)).toBe(0);
+  it('compacts long names only after bid is placed', () => {
+    expect(southNameLongCompact({ name: 'Мария', hasPlacedBid: true })).toBe(false);
+    expect(southNameLongCompact({ name: 'СуперМария17', hasPlacedBid: false })).toBe(false);
+    expect(southNameLongCompact({ name: 'СуперМария17', hasPlacedBid: true })).toBe(true);
+    expect(southNameLongCompact({ name: '123456789', hasPlacedBid: true })).toBe(false);
+    expect(southNameLongCompact({ name: '1234567890', hasPlacedBid: true })).toBe(true);
   });
 
   it('picks avatar size by shell and phase', () => {

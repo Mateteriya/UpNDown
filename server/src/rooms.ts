@@ -163,6 +163,8 @@ export class RoomStore {
         continue;
       }
       if (room.status === 'waiting' && t <= waitingCut) {
+        /** Столы с панели хоста (QR) не вычищаем по таймауту лобби — хост закрывает сам. */
+        if (room.host_dedicated) continue;
         this.deleteRoom(room);
         counts.waiting += 1;
         continue;
@@ -230,6 +232,8 @@ export class RoomStore {
     displayName: string;
     shortLabel?: string;
     avatarDataUrl?: string | null;
+    nameBadgeEnabled?: boolean | null;
+    nameBadgeText?: string | null;
     settlementMode?: string;
     buyIn?: number | null;
     roomKind?: string;
@@ -249,11 +253,21 @@ export class RoomStore {
       slotIndex: 0,
       ...(opts.shortLabel ? { shortLabel: opts.shortLabel.slice(0, 12) } : {}),
       ...(capAvatar(opts.avatarDataUrl) ? { avatarDataUrl: capAvatar(opts.avatarDataUrl) } : {}),
+      ...(opts.nameBadgeEnabled != null
+        ? {
+            nameBadgeEnabled: !!opts.nameBadgeEnabled,
+            nameBadgeText:
+              opts.nameBadgeEnabled && opts.nameBadgeText != null
+                ? String(opts.nameBadgeText).slice(0, 32)
+                : null,
+          }
+        : {}),
     };
     const room: GameRoomRow = {
       id,
       code,
       host_user_id: opts.hostUserId,
+      panel_host_user_id: dedicated ? opts.hostUserId : null,
       protocol_version: opts.protocolVersion === 2 ? 2 : 1,
       host_dedicated: dedicated,
       status: 'waiting',
@@ -319,6 +333,8 @@ export class RoomStore {
     displayName: string;
     shortLabel?: string;
     avatarDataUrl?: string | null;
+    nameBadgeEnabled?: boolean | null;
+    nameBadgeText?: string | null;
   }): { room: GameRoomRow; mySlotIndex: number } | { error: string } {
     const normalized = opts.code.trim().toUpperCase();
     const existing = this.recoverJoin(normalized, opts.userId);
@@ -353,6 +369,15 @@ export class RoomStore {
       slotIndex,
       ...(opts.shortLabel ? { shortLabel: opts.shortLabel.slice(0, 12) } : {}),
       ...(capAvatar(opts.avatarDataUrl) ? { avatarDataUrl: capAvatar(opts.avatarDataUrl) } : {}),
+      ...(opts.nameBadgeEnabled != null
+        ? {
+            nameBadgeEnabled: !!opts.nameBadgeEnabled,
+            nameBadgeText:
+              opts.nameBadgeEnabled && opts.nameBadgeText != null
+                ? String(opts.nameBadgeText).slice(0, 32)
+                : null,
+          }
+        : {}),
     };
     const at = slots.findIndex((s) => s.slotIndex === slotIndex);
     if (at >= 0) slots[at] = newSlot;
@@ -363,9 +388,41 @@ export class RoomStore {
     return { room, mySlotIndex: slotIndex };
   }
 
+  /**
+   * Принудительно закрыть dedicated-стол с панели (даже если идёт партия).
+   * host_user_id мог уже стать первым игроком — панель закрывает по panel_host_user_id / host-*.
+   */
+  closeDedicatedRoom(roomId: string): { error?: string } {
+    const room = this.rooms.get(roomId);
+    if (!room) return {};
+    if (!room.host_dedicated) return { error: 'not_dedicated' };
+    this.deleteRoom(room);
+    this.touch();
+    return {};
+  }
+
   leaveRoom(roomId: string, userId: string): { error?: string } {
     const room = this.rooms.get(roomId);
     if (!room) return {};
+
+    /**
+     * Панель ПК (host_dedicated): закрытие стола ≠ выход игрока.
+     * После первого join host_user_id = игрок-ведущий; панель остаётся в panel_host_user_id (host-…).
+     * Иначе «Закрыть» на панели не удаляло комнату, а syncDedicated раз в 2с возвращал её в UI.
+     */
+    if (room.host_dedicated) {
+      const panelId = room.panel_host_user_id || '';
+      const isPanelClose =
+        (panelId && panelId === userId) ||
+        (!panelId && userId.startsWith('host-')) ||
+        (room.host_user_id === userId &&
+          !(room.player_slots ?? []).some((s) => s.userId === userId));
+      if (isPanelClose) {
+        this.deleteRoom(room);
+        this.touch();
+        return {};
+      }
+    }
 
     if (room.status === 'playing') {
       const slots = fullSlotsFromPartial(room.player_slots ?? [], roomPlayerCount(room));
@@ -406,7 +463,7 @@ export class RoomStore {
   /**
    * Обновить слоты.
    * Хост — полная замена (нормализованная).
-   * Обычный игрок — только свои displayName / shortLabel / avatarDataUrl.
+   * Обычный игрок — только свои displayName / shortLabel / avatarDataUrl / nameBadge*.
    */
   updatePlayerSlots(
     roomId: string,
@@ -426,16 +483,40 @@ export class RoomStore {
       return { error: 'player_required' };
     }
 
+    const mergeBadge = (
+      s: PlayerSlot,
+      prev: PlayerSlot | undefined,
+    ): Pick<PlayerSlot, 'nameBadgeEnabled' | 'nameBadgeText'> => {
+      if (s.nameBadgeEnabled === undefined) {
+        return {
+          nameBadgeEnabled: prev?.nameBadgeEnabled,
+          nameBadgeText: prev?.nameBadgeText,
+        };
+      }
+      if (!s.nameBadgeEnabled) {
+        return { nameBadgeEnabled: false, nameBadgeText: null };
+      }
+      return {
+        nameBadgeEnabled: true,
+        nameBadgeText:
+          s.nameBadgeText != null
+            ? String(s.nameBadgeText).slice(0, 32)
+            : prev?.nameBadgeText ?? null,
+      };
+    };
+
     if (isHost) {
-      /** Не затирать чужие аватарки, если в snapshot хоста их нет / они не прошли cap. */
+      /** Не затирать чужие аватарки/плашки, если в snapshot хоста их нет / они не прошли cap. */
       const merged = incoming.map((s) => {
         const prev = current.find((c) => c.slotIndex === s.slotIndex);
-        if (s.avatarDataUrl === null) return { ...s, avatarDataUrl: null };
+        const badge = mergeBadge(s, prev);
+        if (s.avatarDataUrl === null) return { ...s, ...badge, avatarDataUrl: null };
         if (s.avatarDataUrl === undefined) {
-          return { ...s, avatarDataUrl: prev?.avatarDataUrl ?? null };
+          return { ...s, ...badge, avatarDataUrl: prev?.avatarDataUrl ?? null };
         }
         return {
           ...s,
+          ...badge,
           avatarDataUrl: capAvatar(s.avatarDataUrl) ?? prev?.avatarDataUrl ?? null,
         };
       });
@@ -447,6 +528,7 @@ export class RoomStore {
       if (!fromClient) return { error: 'Слот не найден' };
       const next = current.map((s, i) => {
         if (i !== mineIdx) return s;
+        const badge = mergeBadge(fromClient, s);
         return {
           ...s,
           displayName: String(fromClient.displayName ?? s.displayName).slice(0, 17),
@@ -457,6 +539,7 @@ export class RoomStore {
             fromClient.avatarDataUrl === null
               ? null
               : capAvatar(fromClient.avatarDataUrl) ?? s.avatarDataUrl ?? null,
+          ...badge,
         };
       });
       room.player_slots = fullSlotsFromPartial(next, maxPlayers);

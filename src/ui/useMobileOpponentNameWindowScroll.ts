@@ -175,8 +175,15 @@ export function useMobileOpponentNameWindowScroll({
       /* vertical-rl + upright: overflow может лечь на height или width — берём оба */
       const dy = el.scrollHeight - el.clientHeight;
       const dx = el.scrollWidth - el.clientWidth;
-      const overflow = axis === 'y' ? dy > 1 || dx > 1 : dx > 1;
-      setMeasuredScrollable(overflow);
+      const overflowPx = axis === 'y' ? Math.max(dy, dx) : dx;
+      /*
+       * Гистерезис: иначе chrome-aid / vv resize дёргают размер на 1–2px
+       * → scrollable мигает → контент панели Запад «пропадает/появляется».
+       */
+      setMeasuredScrollable((prev) => {
+        if (prev) return overflowPx > 0.5;
+        return overflowPx > 3;
+      });
     };
     measure();
     const ro =

@@ -124,17 +124,14 @@
   max-width: 140px;
 }
 
-.name-avatar-modal__avatar-hit {
+.name-avatar-modal__avatar-preview {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
   margin: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: zoom-in;
-  -webkit-tap-highlight-color: transparent;
+  padding: 0 0 10px;
+  /* место под свисающую HTML-плашку, без клика «увеличить» */
+  overflow: visible;
 }
 
 .name-avatar-modal__avatar-ring {
@@ -147,20 +144,7 @@
   line-height: 0;
   background: conic-gradient(from 180deg, #a78bfa, #22d3ee, #f472b6, #fcd34d, #a78bfa);
   box-shadow: 0 0 18px rgba(167, 139, 250, 0.4);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
-}
-
-.name-avatar-modal__avatar-hit:hover .name-avatar-modal__avatar-ring {
-  transform: scale(1.04);
-  box-shadow: 0 0 24px rgba(34, 211, 238, 0.45);
-}
-
-.name-avatar-modal__avatar-zoom-hint {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #67e8f9;
+  overflow: visible;
 }
 
 .name-avatar-modal__bg-palette {

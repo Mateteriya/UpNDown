@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Up&amp;Down · шпаргалка хоста</title>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@600;800&family=Orbitron:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #050510; --ink: #c4b5fd; --cyan: #67e8f9; --violet: #a78bfa; --gold: #fcd34d;
+    --sheen: linear-gradient(105deg, #67e8f9, #a78bfa 40%, #e879f9 70%, #fcd34d);
+  }
+  body {
+    margin: 0; min-height: 100dvh; padding: 24px 16px; color: var(--ink);
+    font-family: 'Exo 2', system-ui, sans-serif;
+    background:
+      radial-gradient(ellipse 90% 70% at 12% 18%, rgba(139, 92, 246, 0.28), transparent 55%),
+      radial-gradient(ellipse 80% 65% at 88% 78%, rgba(79, 70, 229, 0.32), transparent 52%),
+      var(--bg);
+  }
+  .wrap { max-width: 440px; margin: 0 auto; }
+  h1 {
+    font-family: Orbitron, sans-serif; font-size: 1.1rem; letter-spacing: 0.06em;
+    text-transform: uppercase; margin: 0 0 16px;
+    background-image: var(--sheen); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .box {
+    border: 1px solid rgba(167, 139, 250, 0.28); border-radius: 16px; padding: 16px;
+    background: rgba(10, 8, 28, 0.82); margin-bottom: 12px;
+  }
+  .n {
+    font-family: Orbitron, sans-serif; font-size: 1.35rem;
+    background-image: var(--sheen); -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin-right: 8px;
+  }
+  .step { margin: 12px 0; font-weight: 800; color: #e9d5ff; }
+  kbd {
+    font-family: ui-monospace, monospace; background: #03020c; color: var(--cyan);
+    padding: 2px 7px; border-radius: 6px; border: 1px solid rgba(103, 232, 249, 0.35);
+  }
+  .ok { color: var(--cyan); font-weight: 700; }
+  p { margin: 8px 0; color: rgba(196, 181, 253, 0.65); font-weight: 600; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Up&amp;Down · Wi‑Fi</h1>
+  <div class="box">
+    <p class="ok"><kbd>Открыть-панель-хоста.cmd</kbd></p>
+    <div class="step"><span class="n">1</span>Собрать</div>
+    <div class="step"><span class="n">2</span>Старт</div>
+    <div class="step"><span class="n">3</span>/host · QR</div>
+    <div class="step"><span class="n">★</span><kbd>:3001/play/</kbd></div>
+    <div class="step"><span class="n">■</span>Стоп</div>
+  </div>
+</div>
+</body>
+</html>

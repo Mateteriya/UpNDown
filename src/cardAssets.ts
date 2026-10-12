@@ -2,6 +2,13 @@
  * Пути к PNG фигурных карт и предзагрузка для быстрого отображения.
  */
 
+import { publicAssetUrl } from './lib/publicAssetUrl';
+
+/** URL картинки из public/cards с учётом Vite base (`/play/` на LAN-хосте). */
+export function cardImageUrl(fileName: string): string {
+  return publicAssetUrl(`/cards/${fileName}`);
+}
+
 const JACK_CAT_BY_SUIT: Record<string, string> = {
   '♠': 'jack-cat-hat-spades.png',
   '♥': 'jack-cat-hat-hearts.png',
@@ -32,7 +39,7 @@ const ACE_IMAGE_BY_SUIT: Record<string, string> = {
 
 function getAllCardImagePaths(): string[] {
   const paths: string[] = [];
-  const add = (name: string) => paths.push(`/cards/${encodeURIComponent(name)}`);
+  const add = (name: string) => paths.push(cardImageUrl(name));
   Object.values(JACK_CAT_BY_SUIT).forEach(add);
   Object.values(QUEEN_IMAGE_BY_SUIT).forEach(add);
   Object.values(KING_IMAGE_BY_SUIT).forEach(add);
@@ -79,16 +86,16 @@ export function getFaceRankLabel(rank: string): string {
 /** PNG фигурной карты для мини-иллюстрации рядом с козырем. */
 export function getFaceCardImageSrc(rank: string, suit: string): string | null {
   if (rank === 'J' && JACK_CAT_BY_SUIT[suit]) {
-    return `/cards/${JACK_CAT_BY_SUIT[suit]}`;
+    return cardImageUrl(JACK_CAT_BY_SUIT[suit]);
   }
   if (rank === 'Q' && QUEEN_IMAGE_BY_SUIT[suit]) {
-    return `/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[suit])}`;
+    return cardImageUrl(QUEEN_IMAGE_BY_SUIT[suit]);
   }
   if (rank === 'K' && KING_IMAGE_BY_SUIT[suit]) {
-    return `/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[suit])}`;
+    return cardImageUrl(KING_IMAGE_BY_SUIT[suit]);
   }
   if (rank === 'A' && ACE_IMAGE_BY_SUIT[suit]) {
-    return `/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[suit])}`;
+    return cardImageUrl(ACE_IMAGE_BY_SUIT[suit]);
   }
   return null;
 }

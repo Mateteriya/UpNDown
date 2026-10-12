@@ -10,6 +10,7 @@ export default defineConfig({
   define: {
     'import.meta.env.VITE_WS_PROTOCOL': JSON.stringify('v2'),
     'import.meta.env.VITE_ONLINE_TRANSPORT': JSON.stringify('ws'),
+    /** Реальный ws:// в runtime = тот же host, что /play/ (см. getWsUrl). */
   },
   base: '/play/',
   build: {
@@ -18,6 +19,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
+        /** Google/GitHub: возврат на локальный хост, не на up2down.online */
+        'auth-callback': resolve(__dirname, 'auth-callback.html'),
       },
     },
   },

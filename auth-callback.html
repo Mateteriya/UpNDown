@@ -16,6 +16,55 @@
   <p id="msg">Завершение входа…</p>
   <p id="err" class="err" style="display:none"></p>
   <a id="link" href="/" style="display:none">Перейти на главную</a>
+  <script>
+    /**
+     * Синхронный мост LAN←прод (до module): Google возвращает code на up2down.online,
+     * PKCE verifier — на http://IP:3001. Параметр ud_return = локальный auth-callback.
+     */
+    (function () {
+      var a = document.getElementById('link');
+      if (a && location.pathname.indexOf('/play') === 0) a.setAttribute('href', '/play/');
+
+      var PARAM = 'ud_return';
+      try {
+        var url = new URL(location.href);
+        var raw = url.searchParams.get(PARAM);
+        if (!raw) return;
+        var target = new URL(raw);
+        var host = target.hostname.toLowerCase();
+        var pathOk = /auth-callback/i.test(target.pathname);
+        var privateHost =
+          host === 'localhost' ||
+          host === '127.0.0.1' ||
+          /^192\.168\.\d{1,3}\.\d{1,3}$/.test(host) ||
+          /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+          /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(host);
+        if (!pathOk || !privateHost) return;
+        if (target.protocol !== 'http:' && target.protocol !== 'https:') return;
+        if (target.username || target.password) return;
+        var same =
+          target.origin === url.origin &&
+          target.pathname.replace(/\/$/, '') === url.pathname.replace(/\/$/, '');
+        if (same) return;
+        var hash = url.hash.charAt(0) === '#' ? url.hash.slice(1) : url.hash;
+        var hp = new URLSearchParams(hash);
+        var hasPayload =
+          url.searchParams.get('code') ||
+          hp.get('access_token') ||
+          url.searchParams.get('error') ||
+          url.searchParams.get('error_description');
+        if (!hasPayload) return;
+        url.searchParams.forEach(function (v, k) {
+          if (k === PARAM) return;
+          target.searchParams.set(k, v);
+        });
+        if (url.hash) target.hash = url.hash;
+        location.replace(target.toString());
+      } catch (e) {
+        /* module path will handle */
+      }
+    })();
+  </script>
   <script type="module" src="/src/auth-callback.ts"></script>
 </body>
 </html>

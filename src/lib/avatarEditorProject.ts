@@ -85,20 +85,56 @@ function writeSessionSourcePhoto(dataUrl: string | null): void {
   }
 }
 
-function readWorkingFlat(profileId: string): string | null {
+/** Короткий отпечаток data URL — связать working flat с текущим сохранённым аватаром. */
+export function avatarDataUrlSig(dataUrl: string | null | undefined): string {
+  if (!dataUrl || dataUrl.length < 32) return '';
+  const head = dataUrl.slice(0, 48);
+  const mid = dataUrl.slice(Math.floor(dataUrl.length / 2), Math.floor(dataUrl.length / 2) + 24);
+  const tail = dataUrl.slice(-24);
+  return `${dataUrl.length}:${head}:${mid}:${tail}`;
+}
+
+function readWorkingFlat(
+  profileId: string,
+  currentAvatarDataUrl?: string | null,
+): string | null {
   try {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(WORKING_FLAT_KEY) : null;
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { profileId?: string; dataUrl?: string };
+    const parsed = JSON.parse(raw) as {
+      profileId?: string;
+      dataUrl?: string;
+      basedOnSig?: string;
+    };
     if (!parsed?.dataUrl || parsed.dataUrl.length < 32) return null;
     if (profileId && parsed.profileId && parsed.profileId !== profileId) return null;
+    const currentSig = avatarDataUrlSig(currentAvatarDataUrl);
+    /*
+     * Working — черновик поверх КОНКРЕТНОГО сохранённого аватара.
+     * Иначе аватар Профиля (working) накладывается на аватар Аккаунта при входе.
+     * Legacy без basedOnSig: при наличии текущего аватара не доверяем.
+     */
+    if (currentSig) {
+      if (!parsed.basedOnSig || parsed.basedOnSig !== currentSig) {
+        try {
+          localStorage.removeItem(WORKING_FLAT_KEY);
+        } catch {
+          /* ignore */
+        }
+        return null;
+      }
+    }
     return parsed.dataUrl;
   } catch {
     return null;
   }
 }
 
-export function saveAvatarEditorWorkingFlat(dataUrl: string | null, profileId?: string): void {
+export function saveAvatarEditorWorkingFlat(
+  dataUrl: string | null,
+  profileId?: string,
+  basedOnAvatarDataUrl?: string | null,
+): void {
   try {
     if (typeof localStorage === 'undefined') return;
     if (!dataUrl || dataUrl.length < 32) {
@@ -106,7 +142,15 @@ export function saveAvatarEditorWorkingFlat(dataUrl: string | null, profileId?: 
       return;
     }
     const pid = profileId ?? getPlayerProfile().profileId ?? '';
-    localStorage.setItem(WORKING_FLAT_KEY, JSON.stringify({ profileId: pid, dataUrl }));
+    const basedOnSig = avatarDataUrlSig(basedOnAvatarDataUrl);
+    localStorage.setItem(
+      WORKING_FLAT_KEY,
+      JSON.stringify({
+        profileId: pid,
+        dataUrl,
+        ...(basedOnSig ? { basedOnSig } : {}),
+      }),
+    );
   } catch {
     /* quota */
   }
@@ -126,7 +170,34 @@ export function clearAvatarEditorSourcePhoto(): void {
   purgeLegacySourcePhoto();
 }
 
-export function loadAvatarEditorProject(profileId?: string): AvatarEditorProject | null {
+/**
+ * Полный сброс локального редактора (гость/Профиль) при входе в аккаунт.
+ * Иначе working/meta/плашка гостя накладываются на облачный аватар.
+ */
+export function clearAvatarEditorLocalState(): void {
+  clearAvatarEditorWorkingFlat();
+  clearAvatarEditorSourcePhoto();
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(META_KEY);
+      localStorage.removeItem('updown_avatar_3d_polish');
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('updown_avatar_pending');
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+export function loadAvatarEditorProject(
+  profileId?: string,
+  currentAvatarDataUrl?: string | null,
+): AvatarEditorProject | null {
   purgeLegacySourcePhoto();
   try {
     const pid = profileId ?? getPlayerProfile().profileId ?? '';
@@ -136,7 +207,12 @@ export function loadAvatarEditorProject(profileId?: string): AvatarEditorProject
     if (!meta || typeof meta !== 'object') return null;
     if (pid && meta.profileId && meta.profileId !== pid) return null;
     const sourcePhotoDataUrl = readSessionSourcePhoto();
-    const workingFlatDataUrl = readWorkingFlat(pid);
+    /* Явный current (открытый редактор) или профиль — отсекает stale working Профиль↔Аккаунт */
+    const currentAvatar =
+      currentAvatarDataUrl !== undefined
+        ? currentAvatarDataUrl
+        : (getPlayerProfile().avatarDataUrl ?? null);
+    const workingFlatDataUrl = readWorkingFlat(pid, currentAvatar);
     const version = typeof meta.projectVersion === 'number' ? meta.projectVersion : 1;
     let baseMode: 'template' | 'photo' = meta.baseMode === 'photo' ? 'photo' : 'template';
     /* v1: save всегда писал photo при наличии source — не доверяем */
@@ -197,9 +273,13 @@ export function saveAvatarEditorProject(project: {
       initialsSource: isAvatarInitialsSource(project.initialsSource)
         ? project.initialsSource
         : 'capitals',
-      initialsStyle: isAvatarInitialsStyle(project.initialsStyle) ? project.initialsStyle : 'off',
+      /* badge не персистим локально — только в облачном PNG аккаунта */
+      initialsStyle:
+        isAvatarInitialsStyle(project.initialsStyle) && project.initialsStyle !== 'badge'
+          ? project.initialsStyle
+          : 'off',
       initialsColor: project.initialsColor,
-      badgeText: project.badgeText,
+      badgeText: '',
       activeFrameId: project.activeFrameId,
       baseMode,
       photoScale: project.photoScale,

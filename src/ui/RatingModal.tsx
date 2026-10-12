@@ -5,12 +5,15 @@
 import { useEffect, useState } from 'react';
 import { getLocalRating, getPlayerProfile } from '../game/persistence';
 import { getPartyHistory, type PartyHistoryRecord } from '../game/partyHistory';
+import { loadLocalSkillView, toLocalSkillView, type LocalSkillView } from '../game/localSkillCache';
 import { SETTLEMENT_MODE_LABELS } from '../game/partySettlement';
 import { useAuth } from '../contexts/AuthContext';
 import { getMyRatingSummary } from '../lib/onlineGameSupabase';
 import { CosmicCockpit, CosmicPhysButton } from './CosmicCockpit';
 import { PlayerAvatar } from './PlayerAvatar';
 import { chipColor } from './DealResultsSettlement';
+import { BidSkillLifetimeRow } from './BidSkillStatsPanel';
+import { useT } from '../i18n';
 
 export interface RatingModalProps {
   onClose: () => void;
@@ -55,8 +58,9 @@ function PartyHistoryTeaser({ row }: { row: PartyHistoryRecord }) {
 }
 
 export function RatingModal({ onClose, playerAvatarDataUrl, onOpenCabinet }: RatingModalProps) {
+  const t = useT();
   const profile = getPlayerProfile();
-  const rating = getLocalRating();
+  const [skillView, setSkillView] = useState<LocalSkillView>(() => toLocalSkillView(getLocalRating()));
   const partyTeasers = getPartyHistory(undefined, TEASER_MAX);
   const { user, configured } = useAuth();
   const [online, setOnline] = useState<{ games: number; ratedGames: number; wins: number; points: number } | null>(null);
@@ -66,6 +70,17 @@ export function RatingModal({ onClose, playerAvatarDataUrl, onOpenCabinet }: Rat
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
   }, [onClose]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const view = await loadLocalSkillView();
+      if (!cancelled) setSkillView(view);
+    })().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -78,9 +93,10 @@ export function RatingModal({ onClose, playerAvatarDataUrl, onOpenCabinet }: Rat
     })().catch(() => {});
   }, [configured, user?.id]);
 
-  const winRate = rating.gamesPlayed > 0 ? Math.round((rating.wins / rating.gamesPlayed) * 100) : 0;
-  const avgBidAccuracy = rating.bidAccuracyCount > 0 ? Math.round(rating.bidAccuracySum / rating.bidAccuracyCount) : null;
-  const showOfflineBlock = !(online && online.games > 0 && rating.gamesPlayed === 0);
+  const winRate = skillView.winRateShown ?? 0;
+  const gamesShown = skillView.matchesShown;
+  const winsShown = skillView.winsShown;
+  const showOfflineBlock = !(online && online.games > 0 && gamesShown === 0);
   const loggedIn = !!(configured && user?.id);
 
   return (
@@ -109,7 +125,7 @@ export function RatingModal({ onClose, playerAvatarDataUrl, onOpenCabinet }: Rat
             </CosmicPhysButton>
           </div>
           <h2 id="rating-modal-title" className="rating-modal__title cosmic-iridescent-text">
-            Моя статистика
+            {t('cabinet.myStats')}
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
             <PlayerAvatar
@@ -142,26 +158,23 @@ export function RatingModal({ onClose, playerAvatarDataUrl, onOpenCabinet }: Rat
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span className="rating-modal__stat-label">На устройстве: игр</span>
-                    <span className="rating-modal__stat-value">{rating.gamesPlayed}</span>
+                    <span className="rating-modal__stat-value">{gamesShown}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span className="rating-modal__stat-label">На устройстве: побед</span>
-                    <span className="rating-modal__stat-value">{rating.wins}</span>
+                    <span className="rating-modal__stat-value">{winsShown}</span>
                   </div>
-                  {rating.gamesPlayed > 0 && (
+                  {gamesShown > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span className="rating-modal__stat-label">Процент побед</span>
                       <span className="rating-modal__stat-value">{winRate}%</span>
                     </div>
                   )}
-                  {avgBidAccuracy !== null && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span className="rating-modal__stat-label">Точность заказов</span>
-                      <span className="rating-modal__stat-value">{avgBidAccuracy}%</span>
-                    </div>
-                  )}
                 </>
               )}
+              <div className="rating-modal__skill">
+                <BidSkillLifetimeRow view={skillView} compact={false} showPremiumHint={false} />
+              </div>
             </div>
 
             {partyTeasers.length > 0 && (

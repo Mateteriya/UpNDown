@@ -82,16 +82,35 @@ export function installMobileViewportBottomInsetTracking(): () => void {
   }
   viewportBottomInsetTrackingInstalled = true;
 
-  const upd = () => syncMobileViewportBottomInsetCssVar();
-  upd();
+  let debounceTimer: number | undefined;
+  let lastGap = Number.NaN;
+
+  const updNow = () => {
+    const gap = computeMobileViewportBottomGapPx();
+    if (gap === lastGap) return;
+    lastGap = gap;
+    document.documentElement.style.setProperty('--mobile-viewport-bottom-gap', `${gap}px`);
+  };
+
+  const upd = () => {
+    if (debounceTimer !== undefined) window.clearTimeout(debounceTimer);
+    debounceTimer = window.setTimeout(() => {
+      debounceTimer = undefined;
+      updNow();
+    }, 120) as unknown as number;
+  };
+
+  updNow();
   window.addEventListener('resize', upd);
   window.addEventListener('orientationchange', upd);
   window.visualViewport?.addEventListener('resize', upd);
+  /* vv.scroll: debounce — иначе CSS-анимации (волна руки, пульс бейджей) дёргаются */
   window.visualViewport?.addEventListener('scroll', upd);
   document.addEventListener('visibilitychange', upd);
 
   return () => {
     viewportBottomInsetTrackingInstalled = false;
+    if (debounceTimer !== undefined) window.clearTimeout(debounceTimer);
     window.removeEventListener('resize', upd);
     window.removeEventListener('orientationchange', upd);
     window.visualViewport?.removeEventListener('resize', upd);
@@ -191,28 +210,37 @@ export function installMobileBrowserFullscreenResume(): () => void {
 }
 
 /** Запас скролла документа ≈ высота URL-бара — иначе при 100dvh/100vh = visible скроллить нечего. */
-const CHROME_COLLAPSE_SCROLL_ROOM_PX = 100;
+const CHROME_COLLAPSE_SCROLL_ROOM_PX = 120;
+const CHROME_COLLAPSE_SCROLL_ROOM_LANDSCAPE_PX = 140;
 
-function readVisualViewportHeightPx(): number {
-  const vv = window.visualViewport;
-  if (vv != null && vv.height > 0) return Math.round(vv.height);
-  return Math.round(window.innerHeight);
+function isLandscapeViewport(): boolean {
+  return (
+    window.matchMedia('(orientation: landscape)').matches || window.innerWidth > window.innerHeight
+  );
+}
+
+function chromeCollapseScrollRoomPx(): number {
+  return isLandscapeViewport() ? CHROME_COLLAPSE_SCROLL_ROOM_LANDSCAPE_PX : CHROME_COLLAPSE_SCROLL_ROOM_PX;
+}
+
+/** Стабильная база высоты: innerHeight, не visualViewport (vv скачет → layout thrash / мигание Запада). */
+function readChromeCollapseBaseHeightPx(): number {
+  return Math.round(window.innerHeight || document.documentElement.clientHeight || 0);
 }
 
 function shouldAidMobileBrowserChromeCollapse(): boolean {
   if (typeof window === 'undefined') return false;
   if (isAppStandaloneDisplayMode()) return false;
   if (isMobileBrowserFullscreenActive()) return false;
-  /* Телефон / узкий viewport; не ПК с мышью */
   if (!window.matchMedia('(max-width: 1024px)').matches) return false;
   return true;
 }
 
 /**
  * Жест «подтянуть страницу вверх» → скрыть шапку браузера.
- * Современный Chrome часто даёт 100vh ≈ visible + overflow:hidden на корне стола —
- * document не скроллится и chrome не прячется. Держим min-height документа
- * выше visualViewport и на finger-up программно scroll'им window.
+ * Стол: position:fixed; inset:0 (без 100dvh — не прыгает при скрытии chrome).
+ * min-height документа стабилен (innerHeight + room), обновляется только
+ * при установке / orientation — не на каждый vv.resize (иначе мигание Запада + лаги анимаций).
  */
 export function installMobileBrowserChromeCollapseAid(): () => void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
@@ -222,26 +250,32 @@ export function installMobileBrowserChromeCollapseAid(): () => void {
   let tracking = false;
   let armed = false;
   let lastAppliedScrollY = 0;
+  let lastMinHPx = 0;
 
   const clearRoomStyles = () => {
     const html = document.documentElement;
     html.style.removeProperty('min-height');
+    html.style.removeProperty('--upd-vv-offset-top');
+    html.style.removeProperty('--upd-vv-height');
     html.classList.remove('upd-chrome-collapse-aid');
     document.body.style.removeProperty('min-height');
     document.body.classList.remove('upd-chrome-collapse-aid');
+    lastMinHPx = 0;
   };
 
-  const ensureScrollRoom = () => {
+  const ensureScrollRoom = (force = false) => {
     if (!shouldAidMobileBrowserChromeCollapse()) {
       clearRoomStyles();
       return;
     }
-    const visual = readVisualViewportHeightPx();
-    const minH = `${visual + CHROME_COLLAPSE_SCROLL_ROOM_PX}px`;
+    const nextPx = readChromeCollapseBaseHeightPx() + chromeCollapseScrollRoomPx();
     const html = document.documentElement;
     html.classList.add('upd-chrome-collapse-aid');
-    html.style.minHeight = minH;
     document.body.classList.add('upd-chrome-collapse-aid');
+    if (!force && Math.abs(nextPx - lastMinHPx) < 24) return;
+    lastMinHPx = nextPx;
+    const minH = `${nextPx}px`;
+    html.style.minHeight = minH;
     document.body.style.minHeight = minH;
   };
 
@@ -275,7 +309,7 @@ export function installMobileBrowserChromeCollapseAid(): () => void {
     if (!tracking || !shouldAidMobileBrowserChromeCollapse()) return;
     const t = e.touches[0];
     if (!t) return;
-    const dyUp = startY - t.clientY; /* палец вверх → страница «вверх» → scroll вниз */
+    const dyUp = startY - t.clientY;
     const dx = t.clientX - startX;
     if (!armed) {
       if (Math.abs(dyUp) < 8 && Math.abs(dx) < 8) return;
@@ -283,15 +317,14 @@ export function installMobileBrowserChromeCollapseAid(): () => void {
         tracking = false;
         return;
       }
-      /* Только «подтянуть вверх»; вниз оставляем браузеру (pull-to-refresh / показать chrome) */
-      if (dyUp < 10) return;
+      if (dyUp < 8) return;
       armed = true;
       ensureScrollRoom();
     }
     if (dyUp <= 0) return;
-    const room = CHROME_COLLAPSE_SCROLL_ROOM_PX;
+    const room = chromeCollapseScrollRoomPx();
     const cur = window.scrollY || document.documentElement.scrollTop || 0;
-    const next = Math.min(room, Math.max(0, lastAppliedScrollY + Math.min(dyUp * 0.45, 28)));
+    const next = Math.min(room, Math.max(0, lastAppliedScrollY + Math.min(dyUp * 0.5, 32)));
     if (next !== cur) {
       window.scrollTo(0, next);
     }
@@ -299,22 +332,24 @@ export function installMobileBrowserChromeCollapseAid(): () => void {
 
   const onTouchEnd = () => {
     if (!tracking && !armed) return;
+    const wasArmed = armed;
     tracking = false;
     armed = false;
     if (!shouldAidMobileBrowserChromeCollapse()) return;
-    /* После скрытия chrome visual растёт — оставляем 1px, чтобы часть WebKit не вернула шапку */
     window.requestAnimationFrame(() => {
       ensureScrollRoom();
       const y = window.scrollY || document.documentElement.scrollTop || 0;
-      if (y > 1) window.scrollTo(0, 1);
+      if (wasArmed && y > 1) window.scrollTo(0, 1);
     });
   };
 
-  const onViewportChange = () => {
-    ensureScrollRoom();
+  const onOrientationChange = () => {
+    ensureScrollRoom(true);
+    window.setTimeout(() => ensureScrollRoom(true), 150);
+    window.setTimeout(() => ensureScrollRoom(true), 450);
   };
 
-  ensureScrollRoom();
+  ensureScrollRoom(true);
   document.documentElement.classList.add('upd-chrome-collapse-aid');
 
   const opts: AddEventListenerOptions = { capture: true, passive: true };
@@ -322,20 +357,15 @@ export function installMobileBrowserChromeCollapseAid(): () => void {
   window.addEventListener('touchmove', onTouchMove, opts);
   window.addEventListener('touchend', onTouchEnd, opts);
   window.addEventListener('touchcancel', onTouchEnd, opts);
-  window.addEventListener('resize', onViewportChange);
-  window.addEventListener('orientationchange', onViewportChange);
-  window.visualViewport?.addEventListener('resize', onViewportChange);
-  window.visualViewport?.addEventListener('scroll', onViewportChange);
+  window.addEventListener('orientationchange', onOrientationChange);
+  /* resize/vv.resize НЕ трогаем min-height — это давало мигание Запада и дёрганье анимаций */
 
   return () => {
     window.removeEventListener('touchstart', onTouchStart, opts);
     window.removeEventListener('touchmove', onTouchMove, opts);
     window.removeEventListener('touchend', onTouchEnd, opts);
     window.removeEventListener('touchcancel', onTouchEnd, opts);
-    window.removeEventListener('resize', onViewportChange);
-    window.removeEventListener('orientationchange', onViewportChange);
-    window.visualViewport?.removeEventListener('resize', onViewportChange);
-    window.visualViewport?.removeEventListener('scroll', onViewportChange);
+    window.removeEventListener('orientationchange', onOrientationChange);
     clearRoomStyles();
   };
 }

@@ -42,7 +42,7 @@ import {
 } from '../lib/onlineIgnoredRooms';
 import { getOnlinePlayerId } from '../lib/deviceId';
 import { isWsOnlineConfigured } from '../lib/onlineTransport';
-import { ONLINE_ROOM_AVATAR_MAX_CHARS, prepareAvatarForOnlineRoom } from '../lib/avatarImage';
+import { buildOnlineSlotIdentityFields } from '../lib/onlineGameSupabase';
 import {
   wsSubscribeToGameState,
   wsV2StartGame,
@@ -61,14 +61,23 @@ import {
   type OnlineStatus,
 } from './OnlineGameContext';
 
-/** Слоты в live-push без data-URL: не затираем уже известные аватары. */
+/** Слоты в live-push без data-URL: не затираем уже известные аватары/плашки. */
 function mergePlayerSlotsKeepAvatars(prev: PlayerSlot[], next: PlayerSlot[]): PlayerSlot[] {
   const prevBy = new Map(prev.map((s) => [s.slotIndex, s]));
   return next.map((s) => {
-    if (s.avatarDataUrl) return s;
     const old = prevBy.get(s.slotIndex);
-    if (old?.avatarDataUrl) return { ...s, avatarDataUrl: old.avatarDataUrl };
-    return s;
+    let out = s;
+    if (!s.avatarDataUrl && old?.avatarDataUrl) {
+      out = { ...out, avatarDataUrl: old.avatarDataUrl };
+    }
+    if (s.nameBadgeEnabled == null && old?.nameBadgeEnabled != null) {
+      out = {
+        ...out,
+        nameBadgeEnabled: old.nameBadgeEnabled,
+        nameBadgeText: old.nameBadgeText ?? null,
+      };
+    }
+    return out;
   });
 }
 
@@ -682,13 +691,28 @@ export function OnlineGameProviderV2({ children }: { children: React.ReactNode }
 
   const syncMySlotAvatar = useCallback(async () => {
     if (!roomId) return;
-    const raw = getPlayerProfile().avatarDataUrl ?? undefined;
-    const avatar = await prepareAvatarForOnlineRoom(raw ?? null, ONLINE_ROOM_AVATAR_MAX_CHARS);
-    const slots = playerSlots.map((s) =>
-      s.userId === onlinePlayerId
-        ? { ...s, ...(avatar != null && avatar !== '' ? { avatarDataUrl: avatar } : { avatarDataUrl: null }) }
-        : s,
+    const displayName =
+      playerSlots.find((s) => s.userId === onlinePlayerId)?.displayName?.trim() ||
+      getPlayerProfile().displayName?.trim() ||
+      'Игрок';
+    const identity = await buildOnlineSlotIdentityFields(
+      onlinePlayerId,
+      displayName,
+      getPlayerProfile().avatarDataUrl ?? null,
     );
+    const slots = playerSlots.map((s) => {
+      if (s.userId !== onlinePlayerId) return s;
+      const next: PlayerSlot = { ...s };
+      /** Не затирать слот null'ом, если prepare не смог — у оппонентов пропадёт фото. */
+      if (identity.avatarDataUrl != null && identity.avatarDataUrl !== '') {
+        next.avatarDataUrl = identity.avatarDataUrl;
+      }
+      if (identity.nameBadgeEnabled != null) {
+        next.nameBadgeEnabled = identity.nameBadgeEnabled;
+        next.nameBadgeText = identity.nameBadgeText ?? null;
+      }
+      return next;
+    });
     await updateRoomPlayerSlots(roomId, slots, onlinePlayerId);
     await refreshRoom();
   }, [roomId, playerSlots, onlinePlayerId, refreshRoom]);

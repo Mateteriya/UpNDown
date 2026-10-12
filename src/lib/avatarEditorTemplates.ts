@@ -1,5 +1,10 @@
 /** Шаблоны для мини-редактора аватарки (рисуются на canvas). */
 
+import {
+  avatarImageHasTransparentBadgePad,
+  getAvatarBadgePadFaceRect,
+} from './avatarImage';
+
 export type AvatarEditorTemplateId =
   /* фоны */
   | 'none'
@@ -1750,7 +1755,9 @@ export function drawPhotoCover(ctx: CanvasRenderingContext2D, size: number, img:
   drawPhotoWithTransform(ctx, size, img, 1, 0, 0);
 }
 
-/** Фото поверх фона: масштаб (1 = cover) и сдвиг в пикселях холста. */
+/** Фото поверх фона: масштаб (1 = cover) и сдвиг в пикселях холста.
+ *  Авто: PNG с полями «плашка снизу» — рисуем только лицо (без чёрного кольца в редакторе).
+ */
 export function drawPhotoWithTransform(
   ctx: CanvasRenderingContext2D,
   size: number,
@@ -1758,14 +1765,27 @@ export function drawPhotoWithTransform(
   userScale: number,
   offsetX: number,
   offsetY: number,
+  opts?: { cropBadgePad?: boolean },
 ): void {
-  const cover = Math.max(size / img.width, size / img.height);
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  let sx = 0;
+  let sy = 0;
+  let sw = iw;
+  let sh = ih;
+  const crop =
+    opts?.cropBadgePad === true ||
+    (opts?.cropBadgePad !== false && avatarImageHasTransparentBadgePad(img));
+  if (crop) {
+    ({ sx, sy, sw, sh } = getAvatarBadgePadFaceRect(img));
+  }
+  const cover = Math.max(size / sw, size / sh);
   const scale = cover * Math.max(0.2, userScale);
-  const w = img.width * scale;
-  const h = img.height * scale;
+  const w = sw * scale;
+  const h = sh * scale;
   const x = (size - w) / 2 + offsetX;
   const y = (size - h) / 2 + offsetY;
-  ctx.drawImage(img, x, y, w, h);
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 }
 
 export function drawInitialsBase(

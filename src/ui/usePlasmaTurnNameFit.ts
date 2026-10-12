@@ -1,14 +1,18 @@
 import { useLayoutEffect, type RefObject } from 'react';
 
-/** CSS var: `font-size: calc(15px * var(--plasma-turn-name-fit, 1))` (after-short only). */
+/**
+ * CSS var: `font-size: calc(var(--plasma-turn-name-base, 15px) * var(--plasma-turn-name-fit, 1))`.
+ * Масштаб ставит JS, если имя не влезает в ширину экранчика (портрет / LS / mid / ПК).
+ */
 export const PLASMA_TURN_NAME_FIT_VAR = '--plasma-turn-name-fit';
 
-const MIN_SCALE = 0.72;
+/** Ниже — для «Щ»×16+ на узком LS/ПК экранчике. */
+const MIN_SCALE = 0.36;
 const FIT_EPS_PX = 0.75;
 
 /**
- * After-short · экранчик plasma: если имя не влезает при 15px — чуть уменьшить кегль.
- * Короткие имена остаются 1.0. В обычном phone LS не включать.
+ * Экранчик plasma («Сейчас ход» / «Заказывает»): если имя не влезает при базовом кегле —
+ * уменьшить `--plasma-turn-name-fit`. Короткие имена остаются 1.0.
  */
 export function usePlasmaTurnNameFit(
   ref: RefObject<HTMLElement | null>,
@@ -39,9 +43,12 @@ export function usePlasmaTurnNameFit(
       el.style.setProperty(PLASMA_TURN_NAME_FIT_VAR, String(Number(scale.toFixed(3))));
       void el.offsetWidth;
 
-      if (el.scrollWidth > el.clientWidth + FIT_EPS_PX && scale > MIN_SCALE) {
+      // 2–3 прохода: после уменьшения кегля scrollWidth пересчитывается нелинейно
+      for (let i = 0; i < 2; i += 1) {
+        if (el.scrollWidth <= el.clientWidth + FIT_EPS_PX || scale <= MIN_SCALE) break;
         scale = Math.max(MIN_SCALE, scale * (el.clientWidth / el.scrollWidth) * 0.98);
         el.style.setProperty(PLASMA_TURN_NAME_FIT_VAR, String(Number(scale.toFixed(3))));
+        void el.offsetWidth;
       }
     };
 
@@ -51,6 +58,8 @@ export function usePlasmaTurnNameFit(
     ro.observe(el);
     const parent = el.parentElement;
     if (parent) ro.observe(parent);
+    const screen = el.closest('.game-info-plasma-screen');
+    if (screen && screen !== parent) ro.observe(screen);
 
     return () => {
       ro.disconnect();

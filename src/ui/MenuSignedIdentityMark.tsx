@@ -18,8 +18,6 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { MenuIdentityStatus } from '../lib/menuIdentityStatus';
-import { loadAvatarEditorProject } from '../lib/avatarEditorProject';
-import { defaultAvatarBadgeText } from '../lib/avatarEditorTemplates';
 import { getAvatar3dPolishFlag } from '../lib/avatar3dFinish';
 import { useT } from '../i18n';
 import { PlayerAvatar } from './PlayerAvatar';
@@ -546,21 +544,7 @@ export function MenuSignedIdentityMark({
     () => isAccount && getAvatar3dPolishFlag(),
     [isAccount, avatarDataUrl],
   );
-  const badgeMeta = useMemo(() => {
-    if (!avatarDataUrl) return null;
-    try {
-      const project = loadAvatarEditorProject();
-      if (!project || project.initialsStyle !== 'badge') return null;
-      const text =
-        (project.badgeText && project.badgeText.trim()) || defaultAvatarBadgeText(name);
-      return {
-        text,
-        color: project.initialsColor || '#c084fc',
-      };
-    } catch {
-      return null;
-    }
-  }, [avatarDataUrl, name]);
+  /* Плашка только внутри облачного PNG (PlayerAvatar); локальный HTML-nameplate снят */
   const waveTipId = useId();
   const statusTipId = useId();
   const waveRef = useRef<HTMLElement>(null);
@@ -600,7 +584,6 @@ export function MenuSignedIdentityMark({
         `menu-signed-id--${status}`,
         `menu-signed-id--${surface}`,
         canEditAvatar ? 'menu-signed-id--edit-avatar' : '',
-        badgeMeta ? 'menu-signed-id--with-nameplate' : '',
         polished3d ? 'menu-signed-id--polished' : '',
         className,
       ]
@@ -651,10 +634,10 @@ export function MenuSignedIdentityMark({
           avatarDataUrl={avatarDataUrl}
           avatarBgColor={avatarBgColor}
           sizePx={faceSize}
+          nameBadge={isAccount ? true : false}
           className={[
             'menu-signed-id__face',
             isAccount ? 'menu-signed-id__face--pop' : '',
-            badgeMeta ? 'menu-signed-id__face--has-nameplate' : '',
           ]
             .filter(Boolean)
             .join(' ')}
@@ -678,30 +661,6 @@ export function MenuSignedIdentityMark({
               />
               <path d="M4.2 9.6 2.4 12.6l3.4-.5z" fill="#fbbf24" />
             </svg>
-          </span>
-        ) : null}
-        {badgeMeta ? (
-          <span
-            className="menu-signed-id__nameplate"
-            style={{ ['--badge-color' as string]: badgeMeta.color }}
-            title={badgeMeta.text}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (canEditAvatar) openAvatarEditor();
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-            role={canEditAvatar ? 'button' : undefined}
-            tabIndex={canEditAvatar ? 0 : undefined}
-            aria-label={badgeMeta.text}
-            onKeyDown={
-              canEditAvatar
-                ? (e: KeyboardEvent<HTMLElement>) => onNestedActivateKey(e, openAvatarEditor)
-                : undefined
-            }
-          >
-            <span className="menu-signed-id__nameplate-lens" aria-hidden />
-            <span className="menu-signed-id__nameplate-glow" aria-hidden />
-            <span className="menu-signed-id__nameplate-text">{badgeMeta.text}</span>
           </span>
         ) : null}
         {surface === 'capsule' && isAccount ? (

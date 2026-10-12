@@ -9,7 +9,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import type { CardTheme } from '../lib/cardPaletteLock';
 import { getCardThemeV3Variant } from '../lib/cardThemeSpec';
 import { t } from '../i18n';
-import { JACK_CAT_BY_SUIT, QUEEN_IMAGE_BY_SUIT, KING_IMAGE_BY_SUIT, ACE_IMAGE_BY_SUIT, isCardImageCached, markCardImageLoaded } from '../cardAssets';
+import { JACK_CAT_BY_SUIT, QUEEN_IMAGE_BY_SUIT, KING_IMAGE_BY_SUIT, ACE_IMAGE_BY_SUIT, isCardImageCached, markCardImageLoaded, cardImageUrl } from '../cardAssets';
 
 /** Ранги: 6–10 числовые, J/Q/K/A фигуры */
 const RANK_NUMERIC = ['6', '7', '8', '9', '10'] as const;
@@ -1681,7 +1681,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                           >
                             <CardFaceImage
                               className={useMobileLayout ? `card-ace-central-img${aceClubsImgClass ? ` ${aceClubsImgClass}` : ''}` : aceClubsImgClass}
-                              src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`}
+                              src={cardImageUrl(ACE_IMAGE_BY_SUIT[card.suit])}
                               alt="Т"
                               style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }}
                             />
@@ -1691,7 +1691,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                             className={
                               card.rank === 'Q' && darkQueenSpadesFaceGlow ? 'card-queen-spades-dark-face' : undefined
                             }
-                            src={card.rank === 'J' ? `/cards/${JACK_CAT_BY_SUIT[card.suit]}` : card.rank === 'Q' ? `/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}` : `/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`}
+                            src={card.rank === 'J' ? cardImageUrl(JACK_CAT_BY_SUIT[card.suit]) : card.rank === 'Q' ? cardImageUrl(QUEEN_IMAGE_BY_SUIT[card.suit]) : cardImageUrl(KING_IMAGE_BY_SUIT[card.suit])}
                             alt={FACE_LABEL[card.rank] ?? card.rank}
                             style={{ maxWidth: suitIndexInHandMobile ? '96%' : useMobileLayout ? '94%' : '92%', maxHeight: suitIndexInHandMobile ? '76%' : useMobileLayout ? '74%' : '72%', objectFit: 'contain' }}
                           />
@@ -1709,7 +1709,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                         </span>
                       ) : null}
                       <span style={labFaceArtWrapStyle ?? { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto' }}>
-                        <CardFaceImage src={`/cards/${JACK_CAT_BY_SUIT[card.suit]}`} alt="В" style={withLabFaceArt({ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' })} />
+                        <CardFaceImage src={cardImageUrl(JACK_CAT_BY_SUIT[card.suit])} alt="В" style={withLabFaceArt({ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' })} />
                       </span>
                     </>
                   ) : card.rank === 'Q' ? (
@@ -1723,7 +1723,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                       <span style={labFaceArtWrapStyle ?? { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto' }}>
                         <CardFaceImage
                           className={darkQueenSpadesFaceGlow ? 'card-queen-spades-dark-face' : undefined}
-                          src={`/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}`}
+                          src={cardImageUrl(QUEEN_IMAGE_BY_SUIT[card.suit])}
                           alt="Д"
                           style={withLabFaceArt({ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' })}
                         />
@@ -1738,7 +1738,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                         </span>
                       ) : null}
                       <span style={labFaceArtWrapStyle ?? { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, lineHeight: 1, marginTop: 'auto', marginBottom: 'auto' }}>
-                        <CardFaceImage src={`/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`} alt="К" style={withLabFaceArt({ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' })} />
+                        <CardFaceImage src={cardImageUrl(KING_IMAGE_BY_SUIT[card.suit])} alt="К" style={withLabFaceArt({ maxWidth: '95%', maxHeight: '85%', objectFit: 'contain' })} />
                       </span>
                     </>
                   ) : (
@@ -1757,7 +1757,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                             : {}),
                         }
                       }>
-                        <CardFaceImage className={aceClubsImgClass} src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`} alt="Т" style={withLabFaceArt({ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) })} />
+                        <CardFaceImage className={aceClubsImgClass} src={cardImageUrl(ACE_IMAGE_BY_SUIT[card.suit])} alt="Т" style={withLabFaceArt({ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) })} />
                       </span>
                     </>
                   )
@@ -1996,7 +1996,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                       ))
                     ) : card.rank === 'J' && !hideJackCat && JACK_CAT_BY_SUIT[card.suit] ? (
                       <CardFaceImage
-                        src={`/cards/${JACK_CAT_BY_SUIT[card.suit]}`}
+                        src={cardImageUrl(JACK_CAT_BY_SUIT[card.suit])}
                         alt="В"
                         style={{
                           maxWidth: '98%',
@@ -2006,7 +2006,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                       />
                     ) : card.rank === 'Q' && QUEEN_IMAGE_BY_SUIT[card.suit] ? (
                       <CardFaceImage
-                        src={`/cards/${encodeURIComponent(QUEEN_IMAGE_BY_SUIT[card.suit])}`}
+                        src={cardImageUrl(QUEEN_IMAGE_BY_SUIT[card.suit])}
                         alt="Д"
                         style={{
                           maxWidth: '98%',
@@ -2016,7 +2016,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                       />
                     ) : card.rank === 'K' && KING_IMAGE_BY_SUIT[card.suit] ? (
                       <CardFaceImage
-                        src={`/cards/${encodeURIComponent(KING_IMAGE_BY_SUIT[card.suit])}`}
+                        src={cardImageUrl(KING_IMAGE_BY_SUIT[card.suit])}
                         alt="К"
                         style={{
                           maxWidth: '98%',
@@ -2033,7 +2033,7 @@ export function CardView({ card, onClick, disabled, compact, isTrumpOnTable, dou
                       }}>
                         <CardFaceImage
                           className={aceClubsImgClass}
-                          src={`/cards/${encodeURIComponent(ACE_IMAGE_BY_SUIT[card.suit])}`}
+                          src={cardImageUrl(ACE_IMAGE_BY_SUIT[card.suit])}
                           alt="Т"
                           style={{ width: '100%', height: '100%', objectFit: 'contain', ...(card.suit === '♣' ? { transform: 'scale(1.90)', transformOrigin: 'center' } : {}) }}
                         />

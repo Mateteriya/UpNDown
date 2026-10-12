@@ -8,6 +8,9 @@ export interface PlayerSlot {
   slotIndex: number;
   avatarDataUrl?: string | null;
   shortLabel?: string | null;
+  /** Premium name plaque under avatar (synced to opponents). */
+  nameBadgeEnabled?: boolean | null;
+  nameBadgeText?: string | null;
   absent?: boolean | null;
   deviceId?: string | null;
   replacedUserId?: string | null;
@@ -23,6 +26,12 @@ export interface GameRoomRow {
   protocol_version?: 1 | 2;
   /** Хост только управляет сервером, не занимает слот за столом (панель Up&Down Host). */
   host_dedicated?: boolean;
+  /**
+   * Id панели ПК при создании dedicated-стола (host-…).
+   * Не меняется, когда первый игрок становится ведущим (host_user_id).
+   * «Закрыть» на панели сверяется с этим полем.
+   */
+  panel_host_user_id?: string | null;
   status: 'waiting' | 'playing' | 'finished';
   game_state: unknown;
   game_state_revision?: number;
@@ -54,6 +63,8 @@ export interface ClientMessage {
   displayName?: string;
   shortLabel?: string | null;
   avatarDataUrl?: string | null;
+  nameBadgeEnabled?: boolean | null;
+  nameBadgeText?: string | null;
   settlementMode?: string;
   buyIn?: number | null;
   roomKind?: string;

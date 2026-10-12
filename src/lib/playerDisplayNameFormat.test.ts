@@ -12,6 +12,11 @@ describe('formatPlayerNameForDisplay', () => {
     expect(formatPlayerNameForDisplay('петя СУПЕР ЧЕмпион')).toBe('Петя Супер Чемпион');
   });
 
+  it('preserves full ALL-CAPS names as typed', () => {
+    expect(formatPlayerNameForDisplay('ЩЩЩЩЩЩЩЩЩЩЩЩЩЩЩ')).toBe('ЩЩЩЩЩЩЩЩЩЩЩЩЩЩЩ');
+    expect(formatPlayerNameForDisplay('МАРИЯ АНАТОЛЬЕВНА')).toBe('МАРИЯ АНАТОЛЬЕВНА');
+  });
+
   it('keeps short caps words when ≤4 caps total', () => {
     expect(formatPlayerNameForDisplay('петя супер Чемпион')).toBe('Петя супер Чемпион');
     expect(formatPlayerNameForDisplay('петя 1987 ДА!')).toBe('Петя 1987 ДА!');

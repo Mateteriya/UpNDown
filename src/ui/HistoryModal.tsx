@@ -74,8 +74,7 @@ export function HistoryModal({
   onOpenCabinet?: () => void;
 }) {
   const t = useT();
-  const { user, configured, session, loading: authLoading } = useAuth();
-  const accessToken = session?.access_token ?? '';
+  const { user, configured, loading: authLoading } = useAuth();
   const [items, setItems] = useState<MatchHistoryItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const offlineAvailable = hasSavedGame();
@@ -91,7 +90,6 @@ export function HistoryModal({
 
   useEffect(() => {
     if (authLoading) return;
-    void accessToken;
     (async () => {
       if (!configured || !user?.id) {
         setItems([]);
@@ -100,7 +98,8 @@ export function HistoryModal({
       const data = await getMyMatchHistory(user.id, CLOUD_TEASER_MAX);
       setItems(data);
     })().catch((e) => setError(String(e)));
-  }, [authLoading, configured, user?.id, accessToken]);
+    /* Не зависеть от access_token — иначе TOKEN_REFRESHED перезапускает fetch и валит сессию. */
+  }, [authLoading, configured, user?.id]);
 
   const cloudTeasers = items?.slice(0, CLOUD_TEASER_MAX) ?? null;
   const hasTeasers =

@@ -388,6 +388,16 @@
   background: linear-gradient(145deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.88));
 }
 
+.lk-modal__oauth-btn--yandex {
+  border-color: rgba(252, 63, 29, 0.55);
+  background: linear-gradient(145deg, rgba(60, 20, 12, 0.95), rgba(15, 23, 42, 0.9));
+}
+
+.lk-modal__oauth-btn--vkid {
+  border-color: rgba(0, 119, 255, 0.5);
+  background: linear-gradient(145deg, rgba(12, 40, 80, 0.95), rgba(15, 23, 42, 0.9));
+}
+
 .lk-modal__divider {
   display: flex;
   align-items: center;

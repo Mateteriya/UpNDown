@@ -1,0 +1,91 @@
+/*
+ * Перелив имени на plasma-экранчике («Сейчас ход» / «Заказывает»).
+ * Смена color — без background-clip (в WebKit замирает).
+ * Грузится после index.css из main.tsx и GameTable.tsx.
+ *
+ * Не ставить color/text-fill с !important на элементе — иначе keyframes не двигают цвет.
+ */
+
+@keyframes plasma-turn-name-chroma {
+  0%,
+  100% {
+    color: #f8fafc;
+    -webkit-text-fill-color: #f8fafc;
+  }
+  7% {
+    color: #fef9c3;
+    -webkit-text-fill-color: #fef9c3;
+  }
+  14% {
+    color: #fde047;
+    -webkit-text-fill-color: #fde047;
+  }
+  21% {
+    color: #bef264;
+    -webkit-text-fill-color: #bef264;
+  }
+  28% {
+    color: #4ade80;
+    -webkit-text-fill-color: #4ade80;
+  }
+  35% {
+    color: #2dd4bf;
+    -webkit-text-fill-color: #2dd4bf;
+  }
+  42% {
+    color: #67e8f9;
+    -webkit-text-fill-color: #67e8f9;
+  }
+  49% {
+    color: #22d3ee;
+    -webkit-text-fill-color: #22d3ee;
+  }
+  56% {
+    color: #38bdf8;
+    -webkit-text-fill-color: #38bdf8;
+  }
+  63% {
+    color: #818cf8;
+    -webkit-text-fill-color: #818cf8;
+  }
+  70% {
+    color: #a78bfa;
+    -webkit-text-fill-color: #a78bfa;
+  }
+  77% {
+    color: #c4b5fd;
+    -webkit-text-fill-color: #c4b5fd;
+  }
+  84% {
+    color: #e9d5ff;
+    -webkit-text-fill-color: #e9d5ff;
+  }
+  91% {
+    color: #ddd6fe;
+    -webkit-text-fill-color: #ddd6fe;
+  }
+  96% {
+    color: #e0f2fe;
+    -webkit-text-fill-color: #e0f2fe;
+  }
+}
+
+html body .game-table-root.game-info-badge-plasma .game-info-turn-player-name,
+html body .game-table-root.game-info-badge-plasma .game-info-plasma-screen .game-info-turn-player-name,
+html body .game-table-root.game-info-badge-plasma .game-info-left-section .game-info-turn-player-name {
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  animation: plasma-turn-name-chroma 12s ease-in-out infinite !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body .game-table-root.game-info-badge-plasma .game-info-turn-player-name,
+  html body .game-table-root.game-info-badge-plasma .game-info-plasma-screen .game-info-turn-player-name,
+  html body .game-table-root.game-info-badge-plasma .game-info-left-section .game-info-turn-player-name {
+    animation: plasma-turn-name-chroma 22s ease-in-out infinite !important;
+  }
+}

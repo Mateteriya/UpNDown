@@ -5,6 +5,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getWsUrl, isServerAuthoritativeOnline, isWsProtocolV2 } from './onlineTransport';
 import { ONLINE_ROOM_AVATAR_MAX_CHARS, prepareAvatarForOnlineRoom } from './avatarImage';
+import { buildOnlineSlotIdentityFields } from './onlineGameSupabase';
 import type { GameState } from '../game/GameEngine';
 import type {
   CreateRoomOptions,
@@ -407,10 +408,16 @@ export async function wsCreateRoom(
   roomOpts?: CreateRoomOptions,
 ): Promise<{ room: GameRoomRow } | { error: string }> {
   const normalized = normalizeCreateRoomOptions(roomOpts);
-  const avatarDataUrl = await prepareAvatarForOnlineRoom(
+  const identity = await buildOnlineSlotIdentityFields(
+    hostUserId,
+    hostDisplayName,
     hostAvatarDataUrl ?? null,
-    ONLINE_ROOM_AVATAR_MAX_CHARS,
   );
+  /** Identity уже cloud-sized; если prepare там сдал — пробуем LAN ROOM-cap. */
+  const avatarDataUrl =
+    identity.avatarDataUrl ??
+    (await prepareAvatarForOnlineRoom(hostAvatarDataUrl ?? null, ONLINE_ROOM_AVATAR_MAX_CHARS)) ??
+    null;
   const res = await sendRequest<{
     ok?: boolean;
     error?: string;
@@ -421,6 +428,12 @@ export async function wsCreateRoom(
     displayName: hostDisplayName,
     shortLabel: hostShortLabel ?? null,
     avatarDataUrl: avatarDataUrl ?? null,
+    ...(identity.nameBadgeEnabled != null
+      ? {
+          nameBadgeEnabled: identity.nameBadgeEnabled,
+          nameBadgeText: identity.nameBadgeText ?? null,
+        }
+      : {}),
     settlementMode: normalized.settlementMode,
     buyIn: normalized.buyIn,
     roomKind: normalized.roomKind,
@@ -440,10 +453,11 @@ export async function wsJoinRoom(
   shortLabel?: string,
   avatarDataUrl?: string | null,
 ): Promise<{ roomId: string; mySlotIndex: number; room: GameRoomRow } | { error: string }> {
-  const preparedAvatar = await prepareAvatarForOnlineRoom(
-    avatarDataUrl ?? null,
-    ONLINE_ROOM_AVATAR_MAX_CHARS,
-  );
+  const identity = await buildOnlineSlotIdentityFields(userId, displayName, avatarDataUrl ?? null);
+  const preparedAvatar =
+    identity.avatarDataUrl ??
+    (await prepareAvatarForOnlineRoom(avatarDataUrl ?? null, ONLINE_ROOM_AVATAR_MAX_CHARS)) ??
+    null;
   const res = await sendRequest<{
     ok?: boolean;
     error?: string;
@@ -457,6 +471,12 @@ export async function wsJoinRoom(
     displayName,
     shortLabel: shortLabel ?? null,
     avatarDataUrl: preparedAvatar ?? null,
+    ...(identity.nameBadgeEnabled != null
+      ? {
+          nameBadgeEnabled: identity.nameBadgeEnabled,
+          nameBadgeText: identity.nameBadgeText ?? null,
+        }
+      : {}),
   });
   if (!res.ok || !res.room || res.roomId == null || res.mySlotIndex == null) {
     return { error: res.error ?? 'Не удалось войти в комнату' };

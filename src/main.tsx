@@ -37,7 +37,9 @@ import './styles/menu-guest-identity.css'
 import './styles/menu-signed-identity.css'
 import './styles/menu-brand-mark.css'
 import './styles/lobby-online-legend.css'
+import './styles/lobby-identity.css'
 import './styles/account-lk-pc.css'
+import './styles/player-skill-stats.css'
 import './styles/name-avatar-modal.css'
 import './styles/match-archive.css'
 import './styles/leaderboard.css'
@@ -65,6 +67,8 @@ import {
 import './styles/offline-ready-orb.css'
 /* После всех CSS: ПК plasma — без наружного ореола рамки (не править это в index.css — HMR ломает файл). */
 import './styles/plasma-badge-pc-no-outer-glow.css'
+/* Имя на экранчике plasma — бегущий спектр (отдельный файл: HMR index.css часто не подхватывает). */
+import './styles/plasma-turn-name-flow.css'
 /* Канон панели Юга (ПК/планшет): размеры, имя, аватар — единственный источник правды. */
 import './styles/user-south-panel.css'
 /* Редактор аватарки — ПОСЛЕ index.css, иначе оверрайды не видны */

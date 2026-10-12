@@ -3,7 +3,7 @@ import type { TunnelManager } from './tunnelManager.js';
 import { getUpnpState, tryUpnpPortForward, clearUpnpMappings } from './upnpHelper.js';
 import { isGameDistAvailable, lanGameAppUrl } from './gameStatic.js';
 import { parseGameBackupPorts, parseLanBackupPorts } from './lanPorts.js';
-import { listLanIPv4 } from './networkInfo.js';
+import { listLanIPv4, pickGuestLanIp } from './networkInfo.js';
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -27,7 +27,7 @@ export function buildNetworkStatus(
   _tunnels?: TunnelManager,
 ): Record<string, unknown> {
   const ips = listLanIPv4();
-  const primaryIp = ips[0] ?? '127.0.0.1';
+  const primaryIp = pickGuestLanIp();
   const wsBackupPorts = parseLanBackupPorts(port, process.env.WS_BACKUP_PORTS);
   const gameBackupPorts = parseGameBackupPorts(gameAppPort, process.env.GAME_BACKUP_PORTS);
 
@@ -40,6 +40,7 @@ export function buildNetworkStatus(
     wsBackupPorts,
     gameBackupPorts,
     lanIps: ips,
+    primaryLanIp: primaryIp,
     wsUrlLan,
     gameAppUrlLan,
     lanWsAlternates: wsBackupPorts.map((p) => `ws://${primaryIp}:${p}`),
