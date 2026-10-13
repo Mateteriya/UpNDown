@@ -4,6 +4,8 @@
 Мир остаётся на `https://up2down.online` (Vercel).  
 Тот же билд (`npm run build` → папка `dist/`).
 
+**Актуально:** зеркало на **SpaceWeb «Старт»** — пошагово: [RU-MIRROR-SPACEWEB.md](./RU-MIRROR-SPACEWEB.md).
+
 ---
 
 ## Итоговая схема
