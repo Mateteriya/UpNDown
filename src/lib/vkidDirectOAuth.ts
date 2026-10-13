@@ -62,7 +62,8 @@ export async function startVkidDirectOAuth(): Promise<{ error: Error | null }> {
     vk.searchParams.set('client_id', VK_CLIENT_ID);
     vk.searchParams.set('redirect_uri', bridgeRedirectUri());
     vk.searchParams.set('state', packState(nonce, ret));
-    vk.searchParams.set('scope', 'email');
+    /** Пробел, не запятая — см. доки VK ID scopes. */
+    vk.searchParams.set('scope', 'vkid.personal_info email');
     vk.searchParams.set('code_challenge', challenge);
     vk.searchParams.set('code_challenge_method', 'S256');
 
