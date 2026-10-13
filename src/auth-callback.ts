@@ -8,6 +8,10 @@ import { supabase } from './lib/supabase';
 import { bounceOAuthPayloadToReturnUrl, getAuthReturnHomePath } from './lib/nativeAuth';
 import { consumePendingClaimToken, peekClaimTokenFromUrl, rememberPendingClaimToken } from './game/partyClaim';
 import { bindPartyClaimsAfterAuth } from './lib/partyClaimCloud';
+import {
+  completeVkidDirectOAuthFromUrl,
+  isVkidBridgeCallback,
+} from './lib/vkidDirectOAuth';
 
 const COPY = {
   ru: {
@@ -122,6 +126,34 @@ async function run() {
   if (errDesc) {
     window.clearTimeout(hardTimer);
     showError(copy, errDesc);
+    return;
+  }
+
+  /** Прямой VK ID (не GoTrue): ?vk_bridge=1&code=&device_id=&state= */
+  if (isVkidBridgeCallback(window.location.href)) {
+    const vkDone = await raceOrTimeout(
+      completeVkidDirectOAuthFromUrl(window.location.href),
+      EXCHANGE_MS,
+    );
+    if (!vkDone.ok) {
+      window.clearTimeout(hardTimer);
+      showError(
+        copy,
+        vkDone.reason === 'timeout'
+          ? 'Обмен VK превысил время ожидания.'
+          : String(vkDone.error ?? 'vk_exchange_failed'),
+      );
+      return;
+    }
+    if (vkDone.value.error) {
+      window.clearTimeout(hardTimer);
+      showError(copy, vkDone.value.error.message);
+      return;
+    }
+    const claimToken = claimFromUrl || consumePendingClaimToken();
+    void raceOrTimeout(bindPartyClaimsAfterAuth({ claimToken }), CLAIMS_MS);
+    window.clearTimeout(hardTimer);
+    window.location.replace(getAuthReturnHomePath());
     return;
   }
 

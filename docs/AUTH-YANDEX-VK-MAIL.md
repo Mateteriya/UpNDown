@@ -386,11 +386,16 @@ npx supabase secrets set VK_CLIENT_ID=<App ID> --project-ref jrgnsqbwwhovonxyxow
 node scripts/fix-vkid-custom-provider.mjs
 ```
 
-**Почему мост:** ошибка `Unable to exchange external code: vk2` = GoTrue не передаёт **`device_id`** в token exchange VK.  
-Мост: authorize → VK → bridge (код+device_id) → sealed code в GoTrue → token-прокси шлёт `device_id` на `id.vk.ru`.  
-Код: `supabase/functions/vk-oauth-*`, общий модуль `_shared/vkOAuthBridge.ts`.
+**Актуальный вход VK (прямой, без GoTrue custom OAuth):**  
+игра → PKCE → VK → `vk-oauth-bridge` → `auth-callback?vk_bridge=1` → `vk-oauth-exchange` → `setSession`.  
+Так обходим `Unable to exchange… vk2`, `oauth_client_state_not_found` и «вспышку» сессии.  
+Код: `src/lib/vkidDirectOAuth.ts`, `supabase/functions/vk-oauth-bridge`, `vk-oauth-exchange`.
 
-**Важно:** в authorize URL у VK `redirect_uri` должен быть **`https://`…/vk-oauth-bridge** (не `http://`). Edge иногда видит http на входе — в коде принудительно https.
+Redirect в кабинете VK по-прежнему:
+
+```
+https://jrgnsqbwwhovonxyxown.supabase.co/functions/v1/vk-oauth-bridge
+```
 
 ### Шаг V5 — тест в игре
 

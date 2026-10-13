@@ -1,12 +1,11 @@
 /**
  * Authorization URL для custom:vkid.
- * GoTrue → сюда → редирект на id.vk.ru с redirect_uri = vk-oauth-bridge
- * (чтобы поймать device_id; GoTrue сам его не пробрасывает в token exchange).
+ * GoTrue → сюда → VK. state GoTrue передаём КАК ЕСТЬ (без pack) —
+ * иначе oauth_client_state_not_found после долгого VK / in-app.
  *
  * verify_jwt = false
- * Deploy: npx supabase functions deploy vk-oauth-authorize --project-ref jrgnsqbwwhovonxyxown
  */
-import { bridgeRedirectUri, packAuthState } from '../_shared/vkOAuthBridge.ts';
+import { bridgeRedirectUri } from '../_shared/vkOAuthBridge.ts';
 
 Deno.serve((req) => {
   if (req.method === 'OPTIONS') {
@@ -36,13 +35,13 @@ Deno.serve((req) => {
   }
 
   const bridgeUri = bridgeRedirectUri(req.url);
-  const vkState = packAuthState({ s: state, cb: sbRedirect });
 
   const vk = new URL('https://id.vk.ru/authorize');
   vk.searchParams.set('response_type', responseType);
   vk.searchParams.set('client_id', clientId);
   vk.searchParams.set('redirect_uri', bridgeUri);
-  vk.searchParams.set('state', vkState);
+  /** Важно: тот же state, что создал GoTrue — без base64-обёртки. */
+  vk.searchParams.set('state', state);
   vk.searchParams.set('scope', scope);
   if (challenge) {
     vk.searchParams.set('code_challenge', challenge);

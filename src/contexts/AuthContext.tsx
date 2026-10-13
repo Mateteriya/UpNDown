@@ -11,10 +11,12 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import type { Session, User } from '@supabase/supabase-js';
 import {
   isGoogleProvider,
+  isVkidProvider,
   isYandexProvider,
   toSupabaseOAuthProvider,
   type AppOAuthProvider,
 } from '../lib/oauthProviders';
+import { startVkidDirectOAuth } from '../lib/vkidDirectOAuth';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import {
   AUTH_BOOT_OFFLINE_MS,
@@ -639,6 +641,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     if (!storageProbeOk(1024)) {
       return { error: storageFullAuthError() };
+    }
+    /** VK ID: свой PKCE+bridge+exchange — GoTrue custom OAuth нестабилен (state / session drop). */
+    if (isVkidProvider(provider)) {
+      return startVkidDirectOAuth();
     }
     const sbProvider = toSupabaseOAuthProvider(provider);
     const options: Parameters<typeof supabase.auth.signInWithOAuth>[0]['options'] = {

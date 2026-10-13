@@ -11,11 +11,19 @@
  * verify_jwt = false
  */
 import {
+  bridgeRedirectUri,
   bridgeSecret,
   openBridgeCode,
   openRefreshToken,
   sealRefreshToken,
 } from '../_shared/vkOAuthBridge.ts';
+
+function resolveVkRedirectUri(stored: string, reqUrl: string): string {
+  if (stored === 'b' || stored === 'bridge') {
+    return bridgeRedirectUri(reqUrl);
+  }
+  return stored;
+}
 
 async function readForm(req: Request): Promise<URLSearchParams> {
   const ct = req.headers.get('content-type') || '';
@@ -189,7 +197,7 @@ Deno.serve(async (req) => {
   body.set('grant_type', 'authorization_code');
   body.set('code', payload.c);
   body.set('device_id', payload.d);
-  body.set('redirect_uri', payload.r);
+  body.set('redirect_uri', resolveVkRedirectUri(payload.r, req.url));
   body.set('client_id', clientId);
   if (clientSecret) body.set('client_secret', clientSecret);
   if (codeVerifier) body.set('code_verifier', codeVerifier);

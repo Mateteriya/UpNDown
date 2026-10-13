@@ -19,6 +19,10 @@ export function isYandexProvider(p: AppOAuthProvider): boolean {
   return p === OAUTH_YANDEX;
 }
 
+export function isVkidProvider(p: AppOAuthProvider): boolean {
+  return p === OAUTH_VKID;
+}
+
 /**
  * VK ID проверяет «базовый домен» страницы входа. LAN IP и localhost
  * (в т.ч. вечеринка :3001/play/) в кабинете VK не проходят — кнопку скрываем.
