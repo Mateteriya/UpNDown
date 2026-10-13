@@ -9,6 +9,7 @@ import { isAuthNetworkError, isAuthStorageFullError } from '../lib/authErrors';
 import {
   OAUTH_VKID,
   OAUTH_YANDEX,
+  isVkidOAuthAvailableHere,
   type AppOAuthProvider,
 } from '../lib/oauthProviders';
 import { useT, type MsgKey, type TFunc } from '../i18n';
@@ -91,6 +92,8 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const errorRef = useRef<HTMLParagraphElement | null>(null);
   const submittingRef = useRef(false);
+  /** VK ID · Mail.ru только на публичном домене (не LAN / localhost). */
+  const showVkid = isVkidOAuthAvailableHere();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -241,16 +244,18 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
             <YandexIcon />
             {oauthLoading === OAUTH_YANDEX ? '…' : t('auth.oauthYandex')}
           </button>
-          <button
-            type="button"
-            className="lk-modal__oauth-btn lk-modal__oauth-btn--vkid"
-            onClick={() => void handleOAuth(OAUTH_VKID)}
-            disabled={!configured || !!oauthLoading || loading}
-            title={t('auth.oauthVkidHint')}
-          >
-            <VkIcon />
-            {oauthLoading === OAUTH_VKID ? '…' : t('auth.oauthVkid')}
-          </button>
+          {showVkid ? (
+            <button
+              type="button"
+              className="lk-modal__oauth-btn lk-modal__oauth-btn--vkid"
+              onClick={() => void handleOAuth(OAUTH_VKID)}
+              disabled={!configured || !!oauthLoading || loading}
+              title={t('auth.oauthVkidHint')}
+            >
+              <VkIcon />
+              {oauthLoading === OAUTH_VKID ? '…' : t('auth.oauthVkid')}
+            </button>
+          ) : null}
           <button
             type="button"
             className="lk-modal__oauth-btn lk-modal__oauth-btn--google"
