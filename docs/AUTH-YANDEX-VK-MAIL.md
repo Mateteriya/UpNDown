@@ -287,11 +287,14 @@ http://192.168.1.113:3001/play/
 
 В коде провайдер один: `custom:vkid` (кнопка в `AuthModal` **только на публичном домене**).
 
-**Redirect URI у VK — тот же, что у Яндекса (Callback Supabase), не URL игры:**
+**Redirect URI у VK — мост Edge Function (не callback GoTrue и не URL игры):**
 
 ```
-https://jrgnsqbwwhovonxyxown.supabase.co/auth/v1/callback
+https://jrgnsqbwwhovonxyxown.supabase.co/functions/v1/vk-oauth-bridge
 ```
+
+Без моста после «Разрешить» будет:  
+`Unable to exchange external code: vk2` на `/auth-callback.html`.
 
 ### Вечеринка / LAN / localhost — VK недоступен (не баг игры)
 
@@ -328,16 +331,16 @@ VK · Mail.ru — с сайта [up2down.online](https://up2down.online) (обл
 ### Шаг V2 — Redirect / доверенный Redirect URL
 
 1. В настройках приложения найти **Redirect URL** / **Trusted redirect URL** / «Базовый домен» + redirect.
-2. Добавить **ровно** (как у Яндекса):
+2. Добавить **ровно мост** (не `/auth/v1/callback` — иначе `Unable to exchange external code: vk2`):
 
    ```
-   https://jrgnsqbwwhovonxyxown.supabase.co/auth/v1/callback
+   https://jrgnsqbwwhovonxyxown.supabase.co/functions/v1/vk-oauth-bridge
    ```
 
 3. **Не** вставлять сюда `up2down.online`, `localhost`, `192.168…:3001`, `updown://…`.  
-   Цепочка та же: игра → VK → **Supabase callback** → снова игра (`/play/auth-callback.html`).
+   Цепочка: игра → GoTrue → **vk-oauth-authorize** → VK → **vk-oauth-bridge** (`device_id`) → Supabase `/auth/v1/callback` → игра (`/auth-callback.html`).
 4. Если просят **домен сайта** / Host: укажите то, что реально открывается без VPN  
-   (`https://up2down.online` или Vercel-хост) — это **не** Redirect URI.
+   (`https://up2down.online` или будущий RU-домен) — это **не** Redirect URI.
 5. Сохранить. Скопировать **App ID** (Client ID) и **Secure key** / Secret.
 
 ### Шаг V3 — права (scopes) в кабинете VK
@@ -362,23 +365,30 @@ VK · Mail.ru — с сайта [up2down.online](https://up2down.online) (обл
 | Name | `VK ID` (или `VK ID · Mail.ru`) |
 | Client ID | App ID из кабинета VK |
 | Client Secret | Secure key из кабинета VK |
-| Authorization URL | `https://id.vk.ru/authorize` |
-| Token URL | `https://id.vk.ru/oauth2/auth` |
-| UserInfo URL | `https://id.vk.ru/oauth2/user_info` |
-| Scopes | `email` (через пробел можно `email phone`, если включали) |
-| PKCE | **включить** (как у Яндекса) |
-| Allow users without email | можно вкл. на всякий случай |
+| Issuer URL | `https://id.vk.ru` |
+| Authorization URL | `https://jrgnsqbwwhovonxyxown.supabase.co/functions/v1/vk-oauth-authorize` |
+| Token URL | `https://jrgnsqbwwhovonxyxown.supabase.co/functions/v1/vk-oauth-token` |
+| UserInfo URL | `https://jrgnsqbwwhovonxyxown.supabase.co/functions/v1/vk-oauth-userinfo` |
+| JWKS URI | пусто |
+| Scopes | `email` |
+| PKCE | **включить** |
+| Allow users without email | можно вкл. |
 | Enabled | **вкл.** |
 
-4. Save.
+4. Save **или** после деплоя функций одной командой:
 
-**Важно про VK ID и Supabase:** у VK в обмене `code → token` часто нужен нестандартный параметр `device_id`.  
-Классический GoTrue OAuth2 его сам не шлёт. Поэтому:
+```bash
+npx supabase functions deploy vk-oauth-authorize --project-ref jrgnsqbwwhovonxyxown
+npx supabase functions deploy vk-oauth-bridge --project-ref jrgnsqbwwhovonxyxown
+npx supabase functions deploy vk-oauth-token --project-ref jrgnsqbwwhovonxyxown
+npx supabase functions deploy vk-oauth-userinfo --project-ref jrgnsqbwwhovonxyxown
+npx supabase secrets set VK_CLIENT_ID=<App ID> --project-ref jrgnsqbwwhovonxyxown
+node scripts/fix-vkid-custom-provider.mjs
+```
 
-1. Сначала заводим провайдер и пробуем вход (шаг V5).
-2. Если ошибка на обмене кода / «missing device_id» / пустой user — **пишите мне**: сделаем Edge Function-прокси (как `yandex-userinfo` для Яндекса) и поправим UserInfo/Token URL.
-
-Не тратьте сутки на угадывание URL — после V4 достаточно одного тестового клика.
+**Почему мост:** ошибка `Unable to exchange external code: vk2` = GoTrue не передаёт **`device_id`** в token exchange VK.  
+Мост: authorize → VK → bridge (код+device_id) → sealed code в GoTrue → token-прокси шлёт `device_id` на `id.vk.ru`.  
+Код: `supabase/functions/vk-oauth-*`, общий модуль `_shared/vkOAuthBridge.ts`.
 
 ### Шаг V5 — тест в игре
 
@@ -430,9 +440,11 @@ Secret в чат **не** кидайте — только в Supabase.
 - [x] SQL party claim `20261009140000_party_claim_receipts.sql` (применён)
 - [x] VK: кнопка скрыта на LAN/localhost (Party Version)
 - [ ] VK ID: базовый домен = `up2down.online`
-- [ ] VK ID: Redirect = Callback Supabase  
+- [ ] VK ID: Redirect = **`…/functions/v1/vk-oauth-bridge`** (не `/auth/v1/callback`)
+- [ ] Edge Functions `vk-oauth-*` задеплоены + `VK_CLIENT_ID` secret
+- [ ] `node scripts/fix-vkid-custom-provider.mjs` (или ручные URL в V4)
 - [ ] VK ID: право **email**  
-- [ ] Supabase Custom Provider `custom:vkid` Enabled + PKCE  
-- [ ] Тест на **проде**: кнопка **VK ID · Mail.ru** → кабинет  
-- [ ] Redirect URLs игры в Supabase URL Configuration (те же, что для Яндекса)  
+- [ ] Тест на **проде** Incognito: VK → кабинет (без `Unable to exchange… vk2`)
+- [ ] Redirect URLs игры в Supabase URL Configuration (те же, что для Яндекса)
+- [ ] (далее) RU-зеркало статики без Vercel — см. план после VK  
 

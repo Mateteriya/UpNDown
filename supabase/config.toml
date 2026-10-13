@@ -406,3 +406,16 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # GoTrue шлёт сюда Bearer = access token Яндекса (не JWT Supabase).
 [functions.yandex-userinfo]
 verify_jwt = false
+
+# VK ID OAuth bridge (device_id): authorize → bridge → token → userinfo.
+[functions.vk-oauth-authorize]
+verify_jwt = false
+
+[functions.vk-oauth-bridge]
+verify_jwt = false
+
+[functions.vk-oauth-token]
+verify_jwt = false
+
+[functions.vk-oauth-userinfo]
+verify_jwt = false
