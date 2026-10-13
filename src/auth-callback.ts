@@ -188,6 +188,13 @@ async function run() {
       return;
     }
 
+    /** Только если сессия реально есть — иначе «успешный вход» на главной врёт. */
+    const okSession = await sessionProbe();
+    if (!okSession) {
+      throw new Error(
+        'Код обменяли, но сессия не сохранилась. Попробуйте ещё раз (Incognito) или другой вход (Яндекс/Google).',
+      );
+    }
     try {
       sessionStorage.setItem('updown_from_oauth_redirect', '1');
     } catch {
