@@ -74,19 +74,45 @@ export async function sealBridgeCode(payload: BridgePayload, secret: string): Pr
   return b64urlFromBytes(packed);
 }
 
-export async function openBridgeCode(token: string, secret: string): Promise<BridgePayload> {
+async function unsealJson<T>(token: string, secret: string): Promise<T> {
   const packed = bytesFromB64url(token);
-  if (packed.length < 13) throw new Error('bridge_code_short');
+  if (packed.length < 13) throw new Error('seal_short');
   const iv = packed.slice(0, 12);
   const cipher = packed.slice(12);
   const key = await aesKey(secret);
   const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipher);
-  const payload = JSON.parse(td.decode(plain)) as BridgePayload;
+  return JSON.parse(td.decode(plain)) as T;
+}
+
+export async function openBridgeCode(token: string, secret: string): Promise<BridgePayload> {
+  const payload = await unsealJson<BridgePayload>(token, secret);
   if (!payload?.c || !payload?.d || !payload?.r || !payload?.e) {
     throw new Error('bridge_code_bad');
   }
   if (Date.now() / 1000 > payload.e) throw new Error('bridge_code_expired');
   return payload;
+}
+
+/** refresh_token для GoTrue: внутри VK refresh + device_id (нужен на каждый refresh). */
+export type RefreshPayload = {
+  rt: string;
+  d: string;
+  e: number;
+};
+
+export async function sealRefreshToken(payload: RefreshPayload, secret: string): Promise<string> {
+  return sealBridgeCode(
+    { c: `rt:${payload.rt}`, d: payload.d, r: 'refresh', e: payload.e },
+    secret,
+  );
+}
+
+export async function openRefreshToken(token: string, secret: string): Promise<RefreshPayload> {
+  const payload = await openBridgeCode(token, secret);
+  if (payload.r !== 'refresh' || !payload.c.startsWith('rt:')) {
+    throw new Error('refresh_seal_bad');
+  }
+  return { rt: payload.c.slice(3), d: payload.d, e: payload.e };
 }
 
 /** state для VK: упаковать исходный state GoTrue (+ опц. redirect Supabase). */
