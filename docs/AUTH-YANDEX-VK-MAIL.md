@@ -198,6 +198,10 @@ node scripts/fix-yandex-custom-provider.mjs
 ```
 https://up2down.online/auth-callback.html
 https://up2down.online/**
+https://up2down.ru/auth-callback.html
+https://up2down.ru/**
+https://www.up2down.ru/auth-callback.html
+https://www.up2down.ru/**
 http://192.168.1.113:3001/play/auth-callback.html
 http://192.168.*.*:3001/**
 http://localhost:3001/play/auth-callback.html
@@ -205,6 +209,8 @@ http://localhost:5173/auth-callback.html
 http://127.0.0.1:5173/auth-callback.html
 updown://auth-callback
 ```
+
+Зеркало РФ (статика не на Vercel): [RU-MIRROR-up2down.ru.md](./RU-MIRROR-up2down.ru.md).
 
 На вечер вечеринки **Site URL** можно временно:
 
