@@ -3948,7 +3948,9 @@ export function MenuPlaySplitCapsule({
           modeLabel={modeLabel}
           glyph={GLYPHS[mainVariant]}
           legendOpen={onlinePcDirectOpen ? false : legendOpen}
-          onGlyphClick={handleOnlineGlyphClick}
+          onGlyphClick={
+            mode === 'offline' ? toggleLegend : handleOnlineGlyphClick
+          }
           legendPanelId={legendPanelId}
           modeLabelSlot={resolvedModeLabelSlot}
           glyphAriaLabel={onlinePcDirectOpen ? t('menu.openOnline') : undefined}

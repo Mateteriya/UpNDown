@@ -1032,6 +1032,144 @@
     min-height: var(--menu-pc-capsule-h);
     height: var(--menu-pc-capsule-h);
   }
+  /*
+   * Solo-легенда на ПК: НЕ grid 0fr/1fr (в auto-shell трек = 0 → только ширина растёт).
+   * Раскрытие через max-height; shell height:auto; слот остаётся шапкой капсулы.
+   */
+  .menu-screen__drift--offline
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open
+    > .menu-split-capsule__shell,
+  .menu-screen__drift--online
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open
+    > .menu-split-capsule__shell {
+    height: auto !important;
+    max-height: none !important;
+    min-height: var(--menu-pc-capsule-h);
+    overflow: hidden;
+    border-radius: 28px;
+  }
+  .menu-screen__drift--offline
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open
+    .menu-split-capsule__solo-glyph-slot,
+  .menu-screen__drift--online
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open
+    .menu-split-capsule__solo-glyph-slot {
+    flex-shrink: 0;
+    height: var(--menu-pc-capsule-h);
+    min-height: var(--menu-pc-capsule-h);
+  }
+  .menu-screen__drift--offline .menu-split-capsule--solo-glyph .menu-split-capsule__legend,
+  .menu-screen__drift--online .menu-split-capsule--solo-glyph .menu-split-capsule__legend {
+    display: block !important;
+    grid-template-rows: none !important;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+    transition:
+      max-height 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.2s ease 0.04s !important;
+  }
+  .menu-screen__drift--offline
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open:not(
+      .menu-split-capsule--legend-closing
+    )
+    .menu-split-capsule__legend,
+  .menu-screen__drift--online
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open:not(
+      .menu-split-capsule--legend-closing
+    )
+    .menu-split-capsule__legend {
+    max-height: 720px;
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .menu-screen__drift--offline
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open.menu-split-capsule--legend-closing
+    .menu-split-capsule__legend,
+  .menu-screen__drift--online
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open.menu-split-capsule--legend-closing
+    .menu-split-capsule__legend {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity 0.07s linear,
+      max-height 0.26s cubic-bezier(0.55, 0.05, 0.9, 0.35) !important;
+  }
+  .menu-screen__drift--offline
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open:not(
+      .menu-split-capsule--legend-closing
+    )
+    .menu-split-capsule__legend-inner,
+  .menu-screen__drift--online
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open:not(
+      .menu-split-capsule--legend-closing
+    )
+    .menu-split-capsule__legend-inner {
+    min-height: auto !important;
+    overflow: visible;
+    border-radius: 0;
+    opacity: 1;
+    padding: 12px 16px 16px;
+  }
+  .menu-screen__drift--offline
+    .menu-split-capsule--offline.menu-split-capsule--legend-open
+    > .menu-split-capsule__shell,
+  .menu-screen__drift--online
+    .menu-split-capsule--online.menu-split-capsule--legend-open
+    > .menu-split-capsule__shell {
+    overflow: hidden !important;
+    border-radius: 28px !important;
+    clip-path: inset(0 round 24px);
+  }
+  /*
+   * Раздвоенная капсула: half держит pill 999px на всех внешних углах.
+   * При legend-open shell = 28px → полукруги half торчат сверху (и у шва с легендой).
+   */
+  .menu-screen__drift--offline
+    .menu-split-capsule--legend-open
+    .menu-split-capsule__half--main,
+  .menu-screen__drift--online
+    .menu-split-capsule--legend-open
+    .menu-split-capsule__half--main {
+    border-radius: 24px 0 0 0 !important;
+  }
+  .menu-screen__drift--offline
+    .menu-split-capsule--legend-open
+    .menu-split-capsule__half--resume,
+  .menu-screen__drift--online
+    .menu-split-capsule--legend-open
+    .menu-split-capsule__half--resume {
+    border-radius: 0 24px 0 0 !important;
+  }
+  .menu-screen__drift--offline
+    .menu-split-capsule--offline.menu-split-capsule--legend-open
+    .menu-split-capsule__legend,
+  .menu-screen__drift--offline
+    .menu-split-capsule--offline.menu-split-capsule--legend-open
+    .menu-split-capsule__legend-inner,
+  .menu-screen__drift--online
+    .menu-split-capsule--online.menu-split-capsule--legend-open
+    .menu-split-capsule__legend,
+  .menu-screen__drift--online
+    .menu-split-capsule--online.menu-split-capsule--legend-open
+    .menu-split-capsule__legend-inner {
+    border-radius: 0 !important;
+  }
+  /* Solo офлайн: не растягивать на весь drift (~520px) */
+  .menu-screen__drift--offline
+    .menu-split-capsule--solo-glyph.menu-split-capsule--legend-open:not(
+      .menu-split-capsule--legend-closing
+    ) {
+    width: min(100%, 380px);
+    max-width: 380px;
+  }
+  /* Открытая легенда поверх соседних капсул (автосворот — ок) */
+  .menu-screen__drift--offline:has(.menu-split-capsule--legend-open),
+  .menu-screen__drift--online:has(.menu-split-capsule--legend-open) {
+    z-index: 40;
+  }
   /* ????????? ?????? ? ???? ???? ???????? solo (258px) */
   .menu-screen__drift--online .menu-split-capsule--solo-glyph {
     width: 88%;
@@ -1105,6 +1243,8 @@
   }
   .menu-screen__drift--offline .menu-split-capsule__mode-glyph-btn,
   .menu-screen__drift--online .menu-split-capsule__mode-glyph-btn {
+    position: relative;
+    z-index: 12;
     pointer-events: auto !important;
   }
   .menu-screen__drift--offline .menu-split-capsule__mode-glyph-btn .menu-capsule-glyph-svg,
