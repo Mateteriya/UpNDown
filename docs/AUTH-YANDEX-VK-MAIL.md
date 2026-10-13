@@ -390,6 +390,8 @@ node scripts/fix-vkid-custom-provider.mjs
 Мост: authorize → VK → bridge (код+device_id) → sealed code в GoTrue → token-прокси шлёт `device_id` на `id.vk.ru`.  
 Код: `supabase/functions/vk-oauth-*`, общий модуль `_shared/vkOAuthBridge.ts`.
 
+**Важно:** в authorize URL у VK `redirect_uri` должен быть **`https://`…/vk-oauth-bridge** (не `http://`). Edge иногда видит http на входе — в коде принудительно https.
+
 ### Шаг V5 — тест в игре
 
 1. Incognito (или другой браузер).

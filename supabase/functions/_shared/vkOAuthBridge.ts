@@ -6,8 +6,19 @@
 const te = new TextEncoder();
 const td = new TextDecoder();
 
+/**
+ * Edge runtime часто видит req.url как http://…supabase.co (без TLS на входе).
+ * VK требует точное совпадение Redirect URI — только https.
+ */
 export function projectFunctionsBase(reqUrl: string): string {
+  const envBase = (Deno.env.get('SUPABASE_URL') || Deno.env.get('SB_URL') || '').replace(/\/$/, '');
+  if (envBase) {
+    return `${envBase.replace(/^http:\/\//i, 'https://')}/functions/v1/`;
+  }
   const u = new URL(reqUrl);
+  if (u.protocol === 'http:' && /\.supabase\.co$/i.test(u.hostname)) {
+    u.protocol = 'https:';
+  }
   // https://<ref>.supabase.co/functions/v1/<name>
   const marker = '/functions/v1/';
   const i = u.pathname.indexOf(marker);
