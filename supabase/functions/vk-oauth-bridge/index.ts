@@ -1,16 +1,22 @@
 /**
- * Redirect URI для VK ID (указать в кабинете VK вместо /auth/v1/callback).
- * Ловит code + device_id → sealed code → редирект на Supabase /auth/v1/callback.
+ * Redirect URI для VK ID.
+ * code + device_id → sealed code → Supabase /auth/v1/callback с исходным state.
  *
  * verify_jwt = false
- * Deploy: npx supabase functions deploy vk-oauth-bridge --project-ref jrgnsqbwwhovonxyxown
  */
 import {
-  bridgeRedirectUri,
   bridgeSecret,
   sealBridgeCode,
   unpackAuthState,
 } from '../_shared/vkOAuthBridge.ts';
+
+function supabaseAuthCallback(): string {
+  const base = (Deno.env.get('SUPABASE_URL') || Deno.env.get('SB_URL') || '')
+    .replace(/\/$/, '')
+    .replace(/^http:\/\//i, 'https://');
+  if (base) return `${base}/auth/v1/callback`;
+  return '';
+}
 
 function redirectError(callback: string, desc: string): Response {
   const u = new URL(callback);
@@ -31,49 +37,78 @@ Deno.serve(async (req) => {
   const src = new URL(req.url);
   const err = src.searchParams.get('error') || src.searchParams.get('error_description');
   const stateRaw = src.searchParams.get('state') || '';
-  let pack: { s: string; cb: string };
-  try {
-    pack = unpackAuthState(stateRaw);
-  } catch {
-    return new Response(
-      JSON.stringify({ error: 'bad_state', hint: 'state from VK is not our pack' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
-    );
+
+  /** Новый путь: state = UUID GoTrue. Старый: base64 pack {s,cb}. */
+  let goTrueState = stateRaw;
+  let callback = supabaseAuthCallback();
+  if (!callback) {
+    try {
+      const pack = unpackAuthState(stateRaw);
+      goTrueState = pack.s;
+      callback = pack.cb;
+    } catch {
+      return new Response(
+        JSON.stringify({
+          error: 'missing_supabase_url',
+          hint: 'SUPABASE_URL must be set on Edge, or use legacy packed state',
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+  } else if (stateRaw.length > 80) {
+    /** На всякий случай всё ещё понимаем старый pack. */
+    try {
+      const pack = unpackAuthState(stateRaw);
+      goTrueState = pack.s;
+      if (pack.cb) callback = pack.cb;
+    } catch {
+      /* leave as raw UUID / opaque */
+    }
+  }
+
+  if (!callback) {
+    return new Response(JSON.stringify({ error: 'no_callback' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   if (err) {
-    return redirectError(pack.cb, String(err).slice(0, 200));
+    return redirectError(callback, String(err).slice(0, 200));
   }
 
   const code = src.searchParams.get('code') || '';
   const deviceId = src.searchParams.get('device_id') || '';
   if (!code || !deviceId) {
     return redirectError(
-      pack.cb,
+      callback,
       'VK bridge: missing code or device_id (Unable to exchange without device_id)',
     );
+  }
+  if (!goTrueState) {
+    return redirectError(callback, 'VK bridge: missing state');
   }
 
   let secret: string;
   try {
     secret = bridgeSecret();
   } catch {
-    return redirectError(pack.cb, 'VK bridge: missing VK_OAUTH_BRIDGE_SECRET / service role');
+    return redirectError(callback, 'VK bridge: missing bridge secret');
   }
 
-  const bridgeUri = bridgeRedirectUri(req.url);
+  /** Короткий seal: r='b' → token подставит полный bridge URL. */
   const sealed = await sealBridgeCode(
     {
       c: code,
       d: deviceId,
-      r: bridgeUri,
+      r: 'b',
       e: Math.floor(Date.now() / 1000) + 5 * 60,
     },
     secret,
   );
 
-  const dest = new URL(pack.cb);
+  const dest = new URL(callback);
   dest.searchParams.set('code', sealed);
-  dest.searchParams.set('state', pack.s);
+  dest.searchParams.set('state', goTrueState);
   return Response.redirect(dest.toString(), 302);
 });
