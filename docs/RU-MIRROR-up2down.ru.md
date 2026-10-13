@@ -106,9 +106,20 @@ OAuth: Redirect URI у Яндекса/VK **не меняем** (как сейч�
 
 ---
 
-## Шаг 1D — классический hosting.timeweb.ru (не нужен, если есть Cloud)
+## Шаг 1D — классический hosting.timeweb.ru (дешёвый тариф, не App Platform)
 
-Панель: [https://hosting.timeweb.ru](https://hosting.timeweb.ru) — только если сознательно заведёте **отдельный** виртуальный хостинг. Аккаунт Cloud туда **не** переносится автоматически.
+Панель: [https://hosting.timeweb.ru](https://hosting.timeweb.ru).
+
+**Это не смена тарифа внутри Cloud Apps.**  
+App Platform (депозит ~2000 ₽) и «виртуальный хостинг» — разные продукты. Настройки Apps (GitHub, переменные в панели) **не переносятся**.  
+Зато **переиспользуется**: домен `up2down.ru`, тот же `npm run build` → `dist/`, те же Redirect URLs / VK позже.
+
+1. Заказать **виртуальный хостинг** (минимальный тариф, не Cloud / не Apps).
+2. Если просит новый логин — это нормально (Cloud ≠ hosting).
+3. Дальше шаги как в старой инструкции «Сайты → public_html» (раздел ниже / файловый менеджер).
+4. Переменные `VITE_*` в панели **не** нужны: соберите билд на ПК с прод-значениями Supabase в `.env.local`, залейте уже готовый `dist/`.
+
+Альтернативы с той же моделью (сайт + FTP): **Beget**, Reg.ru, SpaceWeb.
 
 Официально: [привязка домена](https://timeweb.com/ru/docs/virtualnyj-hosting/rabota-s-sajtom/privyazka-domena/), [работа с сайтом](https://timeweb.com/ru/docs/virtualnyj-hosting/rabota-s-sajtom/).
 
