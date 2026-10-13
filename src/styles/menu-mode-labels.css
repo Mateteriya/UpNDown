@@ -471,9 +471,23 @@
   .menu-split-capsule--pc-mode-holo .menu-split-capsule__mode-glyph-cluster,
   .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__mode-crest-head,
   .menu-split-capsule--pc-mode-holo .menu-split-capsule__mode-crest-head,
-  .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__shell,
-  .menu-split-capsule--pc-mode-holo .menu-split-capsule__shell {
+  .menu-split-capsule--pc-mode-hybrid:not(.menu-split-capsule--legend-open) .menu-split-capsule__shell,
+  .menu-split-capsule--pc-mode-holo:not(.menu-split-capsule--legend-open) .menu-split-capsule__shell {
     overflow: visible;
+  }
+
+  /* Легенда (в т.ч. раздвоенный офлайн): клип по shell + без radius у панели */
+  .menu-split-capsule--pc-mode-hybrid.menu-split-capsule--legend-open > .menu-split-capsule__shell,
+  .menu-split-capsule--pc-mode-holo.menu-split-capsule--legend-open > .menu-split-capsule__shell {
+    overflow: hidden !important;
+    border-radius: 28px !important;
+    clip-path: inset(0 round 24px);
+  }
+  .menu-split-capsule--pc-mode-hybrid.menu-split-capsule--legend-open .menu-split-capsule__legend,
+  .menu-split-capsule--pc-mode-holo.menu-split-capsule--legend-open .menu-split-capsule__legend,
+  .menu-split-capsule--pc-mode-hybrid.menu-split-capsule--legend-open .menu-split-capsule__legend-inner,
+  .menu-split-capsule--pc-mode-holo.menu-split-capsule--legend-open .menu-split-capsule__legend-inner {
+    border-radius: 0 !important;
   }
 
   .menu-split-capsule--pc-mode-hybrid .menu-split-capsule__mode-crest-head,

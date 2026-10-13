@@ -274,32 +274,114 @@ http://192.168.1.113:3001/play/
 
 ---
 
-## Mail.ru — почему VK ID
+## Mail.ru — почему только VK ID (один провайдер на двоих)
 
-С **1 июля 2025** новые OAuth-приложения «чистого» Mail.ru оформляют через **VK ID**. Старый кабинет [o2.mail.ru](https://o2.mail.ru/app/) для **новых** клиентов часто ведёт туда же.
+Отдельного «нового» OAuth Mail.ru для сайтов почти нет: с **1 июля 2025** новые клиенты ведут в **VK ID**.  
+Старый [o2.mail.ru](https://o2.mail.ru/app/) для новых приложений обычно бесполезен.
 
-Для игрока это нормально: на экране VK ID можно войти **почтой Mail.ru**, аккаунтом VK или ОК — один поток.
+**Для игрока:** одна кнопка **«VK ID · Mail.ru»** → на экране VK можно войти:
 
-В приложении кнопка: **«VK ID · Mail.ru»** → провайдер `custom:vkid`.
+- аккаунтом **VK**
+- почтой **Mail.ru**
+- телефоном
 
-### VK ID — кратко
+В коде провайдер один: `custom:vkid` (кнопка уже в `AuthModal`).
 
-1. Кабинет: [https://id.vk.com/business/go](https://id.vk.com/business/go) / [dev.vk.com](https://dev.vk.com/ru/vkid).
-2. Создайте приложение (Web).
-3. **Redirect URL** = тот же Callback Supabase:  
-   `https://ВАШ_PROJECT_REF.supabase.co/auth/v1/callback`
-4. Скопируйте Client ID / Secret (и при необходимости параметры Web).
-5. В Supabase → Custom Provider:
+**Redirect URI у VK — тот же, что у Яндекса (Callback Supabase), не URL игры:**
+
+```
+https://jrgnsqbwwhovonxyxown.supabase.co/auth/v1/callback
+```
+
+---
+
+## С нуля: куда кликать (VK ID · Mail.ru)
+
+Официальная дока VK (без SDK):  
+[Авторизация без SDK для Web](https://id.vk.com/about/business/go/docs/ru/vkid/latest/vk-id/connection/start-integration/auth-without-sdk/auth-without-sdk-web)
+
+### Шаг V1 — кабинет VK ID
+
+1. Браузер → [https://id.vk.com/business/go](https://id.vk.com/business/go)  
+   (запасной вход: [dev.vk.com](https://dev.vk.com/ru/vkid) → продукты → VK ID).
+2. Войти аккаунтом VK (лучше тот, которым владеете как разработчик).
+3. **Создать приложение** / добавить сервис → тип **Web** (сайт).
+4. Заполнить название (например `Up&Down`), сохранить.
+
+### Шаг V2 — Redirect / доверенный Redirect URL
+
+1. В настройках приложения найти **Redirect URL** / **Trusted redirect URL** / «Базовый домен» + redirect.
+2. Добавить **ровно** (как у Яндекса):
+
+   ```
+   https://jrgnsqbwwhovonxyxown.supabase.co/auth/v1/callback
+   ```
+
+3. **Не** вставлять сюда `up2down.online`, `localhost`, `192.168…:3001`, `updown://…`.  
+   Цепочка та же: игра → VK → **Supabase callback** → снова игра (`/play/auth-callback.html`).
+4. Если просят **домен сайта** / Host: укажите то, что реально открывается без VPN  
+   (`https://up2down.online` или Vercel-хост) — это **не** Redirect URI.
+5. Сохранить. Скопировать **App ID** (Client ID) и **Secure key** / Secret.
+
+### Шаг V3 — права (scopes) в кабинете VK
+
+Включить доступ минимум к:
+
+- **email** (обязательно — иначе не склеим с Google/Яндекс по почте)
+- профиль / имя (personal info) — обычно есть по умолчанию (`vkid.personal_info`)
+
+Телефон (`phone`) — по желанию, нам для входа не обязателен.
+
+### Шаг V4 — Custom Provider в Supabase
+
+1. [Supabase Dashboard](https://supabase.com/dashboard) → ваш проект → **Authentication** → **Sign In / Providers**  
+   (или **Auth** → **Providers** → блок **Custom**).
+2. **Add provider** → тип **Manual OAuth2** (не OIDC, пока не подтвердите discovery у VK).
+3. Заполнить:
 
 | Поле | Значение |
 |------|----------|
-| Identifier | `custom:vkid` |
-| Name | VK ID |
-| Client ID / Secret | из кабинета VK ID |
-| Authorization / Token / UserInfo | по [доке VK ID OAuth без SDK](https://id.vk.com/about/business/go/docs/ru/vkid/latest/vk-id/connection/start-integration/auth-without-sdk/auth-without-sdk-web) (актуальные URL на момент настройки) |
-| Scopes | обычно `email` (и openid, если OIDC) |
+| Identifier | `custom:vkid` ← **буква в букву** (как в коде) |
+| Name | `VK ID` (или `VK ID · Mail.ru`) |
+| Client ID | App ID из кабинета VK |
+| Client Secret | Secure key из кабинета VK |
+| Authorization URL | `https://id.vk.ru/authorize` |
+| Token URL | `https://id.vk.ru/oauth2/auth` |
+| UserInfo URL | `https://id.vk.ru/oauth2/user_info` |
+| Scopes | `email` (через пробел можно `email phone`, если включали) |
+| PKCE | **включить** (как у Яндекса) |
+| Allow users without email | можно вкл. на всякий случай |
+| Enabled | **вкл.** |
 
-Точные URL VK ID иногда меняют — берите из их «OAuth без SDK» / OpenAPI на дату настройки. Если VK отдаёт OIDC discovery — в Supabase можно выбрать **Auto-discovery (OIDC)** и указать Issuer.
+4. Save.
+
+**Важно про VK ID и Supabase:** у VK в обмене `code → token` часто нужен нестандартный параметр `device_id`.  
+Классический GoTrue OAuth2 его сам не шлёт. Поэтому:
+
+1. Сначала заводим провайдер и пробуем вход (шаг V5).
+2. Если ошибка на обмене кода / «missing device_id» / пустой user — **пишите мне**: сделаем Edge Function-прокси (как `yandex-userinfo` для Яндекса) и поправим UserInfo/Token URL.
+
+Не тратьте сутки на угадывание URL — после V4 достаточно одного тестового клика.
+
+### Шаг V5 — тест в игре
+
+1. Incognito (или другой браузер).
+2. `https://up2down.online` **или** LAN `http://ВАШ_IP:3001/play/` (Redirect URLs игры уже должны быть в Supabase URL Configuration — те же, что для Яндекса).
+3. **Вход** → **VK ID · Mail.ru**.
+4. На экране VK: выбрать VK / Mail.ru / телефон → согласие.
+5. Возврат в игру → кабинет с email (если VK отдал email).
+
+**Склейка аккаунтов:** если email совпал с уже существующим (Google/Яндекс) — Supabase сам привяжет к тому же user (как у вас с Google+Яндекс).
+
+### Шаг V6 — что прислать мне, если не зашло
+
+Без секретов в чат:
+
+- скрин/текст ошибки с `auth-callback` или из модалки;
+- подтверждение: Identifier = `custom:vkid`, Enabled, Redirect в VK = Callback Supabase;
+- отдаёт ли VK email (в кабинете право email включено).
+
+Secret в чат **не** кидайте — только в Supabase.
 
 ---
 
@@ -308,7 +390,7 @@ http://192.168.1.113:3001/play/
 | Провайдер | Что включить в кабинете приложения | Что писать в Supabase Scopes |
 |-----------|-------------------------------------|------------------------------|
 | **Яндекс** | Доступ к email + к имени/фамилии (группа Login) | `login:email` `login:info` (+ опц. `login:avatar`) |
-| **VK ID** | Email / базовый профиль (как в мастере приложения) | как в доке VK ID (часто `email`) |
+| **VK ID** | Email + базовый профиль | `email` (+ опц. `phone`) |
 
 Смотреть разрешённые у Яндекса:  
 `https://oauth.yandex.ru/client/<ClientID>/info`
@@ -327,9 +409,11 @@ http://192.168.1.113:3001/play/
 
 ## Чеклист
 
-- [ ] Callback Supabase скопирован и вставлен в Яндекс Redirect URI  
-- [ ] В Яндексе включены `login:email` + `login:info`  
-- [ ] Supabase Custom Provider `custom:yandex` Enabled  
-- [ ] (Опц.) VK ID → `custom:vkid`  
-- [ ] Redirect URLs игры (список выше) сохранены в URL Configuration  
-- [ ] Тест: кнопка Яндекс → вход → кабинет с email  
+- [x] Яндекс: Callback + scopes + `custom:yandex` (уже работает в проде/LAN)
+- [x] SQL party claim `20261009140000_party_claim_receipts.sql` (применён)
+- [ ] VK ID: Redirect = Callback Supabase  
+- [ ] VK ID: право **email**  
+- [ ] Supabase Custom Provider `custom:vkid` Enabled + PKCE  
+- [ ] Тест: кнопка **VK ID · Mail.ru** → кабинет  
+- [ ] Redirect URLs игры в Supabase URL Configuration (те же, что для Яндекса)  
+
