@@ -419,3 +419,6 @@ verify_jwt = false
 
 [functions.vk-oauth-userinfo]
 verify_jwt = false
+
+[functions.vk-oauth-exchange]
+verify_jwt = false

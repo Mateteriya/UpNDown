@@ -1,32 +1,37 @@
 /**
- * Redirect URI для VK ID.
- * code + device_id → sealed code → Supabase /auth/v1/callback с исходным state.
+ * Redirect URI для VK ID (кабинет VK).
+ * Прямой вход (без GoTrue): code+device_id → auth-callback игры.
+ * state = base64url({ n: nonce, ret: https://…/auth-callback.html })
  *
  * verify_jwt = false
  */
-import {
-  bridgeSecret,
-  sealBridgeCode,
-  unpackAuthState,
-} from '../_shared/vkOAuthBridge.ts';
+import { bytesFromB64url } from '../_shared/vkOAuthBridge.ts';
 
-function supabaseAuthCallback(): string {
-  const base = (Deno.env.get('SUPABASE_URL') || Deno.env.get('SB_URL') || '')
-    .replace(/\/$/, '')
-    .replace(/^http:\/\//i, 'https://');
-  if (base) return `${base}/auth/v1/callback`;
-  return '';
+const td = new TextDecoder();
+
+type DirectState = { n: string; ret: string };
+
+function parseDirectState(raw: string): DirectState | null {
+  try {
+    const pack = JSON.parse(td.decode(bytesFromB64url(raw))) as DirectState;
+    if (!pack?.n || !pack?.ret) return null;
+    if (!/^https?:\/\//i.test(pack.ret)) return null;
+    if (!/auth-callback\.html/i.test(pack.ret)) return null;
+    return pack;
+  } catch {
+    return null;
+  }
 }
 
-function redirectError(callback: string, desc: string): Response {
-  const u = new URL(callback);
+function redirectError(ret: string, desc: string): Response {
+  const u = new URL(ret);
   u.searchParams.set('error', 'server_error');
-  u.searchParams.set('error_code', 'unexpected_failure');
-  u.searchParams.set('error_description', desc);
+  u.searchParams.set('error_code', 'vk_bridge');
+  u.searchParams.set('error_description', desc.slice(0, 200));
   return Response.redirect(u.toString(), 302);
 }
 
-Deno.serve(async (req) => {
+Deno.serve((req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204 });
   }
@@ -35,80 +40,31 @@ Deno.serve(async (req) => {
   }
 
   const src = new URL(req.url);
-  const err = src.searchParams.get('error') || src.searchParams.get('error_description');
   const stateRaw = src.searchParams.get('state') || '';
-
-  /** Новый путь: state = UUID GoTrue. Старый: base64 pack {s,cb}. */
-  let goTrueState = stateRaw;
-  let callback = supabaseAuthCallback();
-  if (!callback) {
-    try {
-      const pack = unpackAuthState(stateRaw);
-      goTrueState = pack.s;
-      callback = pack.cb;
-    } catch {
-      return new Response(
-        JSON.stringify({
-          error: 'missing_supabase_url',
-          hint: 'SUPABASE_URL must be set on Edge, or use legacy packed state',
-        }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } },
-      );
-    }
-  } else if (stateRaw.length > 80) {
-    /** На всякий случай всё ещё понимаем старый pack. */
-    try {
-      const pack = unpackAuthState(stateRaw);
-      goTrueState = pack.s;
-      if (pack.cb) callback = pack.cb;
-    } catch {
-      /* leave as raw UUID / opaque */
-    }
+  const pack = parseDirectState(stateRaw);
+  if (!pack) {
+    return new Response(
+      JSON.stringify({
+        error: 'bad_state',
+        hint: 'Expected direct VK state {n,ret}. Start login from the game button again.',
+      }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
   }
 
-  if (!callback) {
-    return new Response(JSON.stringify({ error: 'no_callback' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  if (err) {
-    return redirectError(callback, String(err).slice(0, 200));
-  }
+  const err = src.searchParams.get('error') || src.searchParams.get('error_description');
+  if (err) return redirectError(pack.ret, String(err));
 
   const code = src.searchParams.get('code') || '';
   const deviceId = src.searchParams.get('device_id') || '';
   if (!code || !deviceId) {
-    return redirectError(
-      callback,
-      'VK bridge: missing code or device_id (Unable to exchange without device_id)',
-    );
-  }
-  if (!goTrueState) {
-    return redirectError(callback, 'VK bridge: missing state');
+    return redirectError(pack.ret, 'missing code or device_id');
   }
 
-  let secret: string;
-  try {
-    secret = bridgeSecret();
-  } catch {
-    return redirectError(callback, 'VK bridge: missing bridge secret');
-  }
-
-  /** Короткий seal: r='b' → token подставит полный bridge URL. */
-  const sealed = await sealBridgeCode(
-    {
-      c: code,
-      d: deviceId,
-      r: 'b',
-      e: Math.floor(Date.now() / 1000) + 5 * 60,
-    },
-    secret,
-  );
-
-  const dest = new URL(callback);
-  dest.searchParams.set('code', sealed);
-  dest.searchParams.set('state', goTrueState);
+  const dest = new URL(pack.ret);
+  dest.searchParams.set('vk_bridge', '1');
+  dest.searchParams.set('code', code);
+  dest.searchParams.set('device_id', deviceId);
+  dest.searchParams.set('state', pack.n);
   return Response.redirect(dest.toString(), 302);
 });

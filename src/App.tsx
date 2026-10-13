@@ -266,9 +266,12 @@ function App() {
     }
   }, [])
 
-  // Модалки при возврате после авторизации
+  // Модалки при возврате после авторизации (только при живом user)
   useEffect(() => {
-    if (!user) return
+    if (!user) {
+      setShowOAuthSuccessModal(false)
+      return
+    }
     const storage = typeof sessionStorage !== 'undefined' ? sessionStorage : null
     if (storage?.getItem('updown_from_email_confirm') === '1') {
       storage.removeItem('updown_from_email_confirm')
