@@ -285,13 +285,30 @@ http://192.168.1.113:3001/play/
 - почтой **Mail.ru**
 - телефоном
 
-В коде провайдер один: `custom:vkid` (кнопка уже в `AuthModal`).
+В коде провайдер один: `custom:vkid` (кнопка в `AuthModal` **только на публичном домене**).
 
 **Redirect URI у VK — тот же, что у Яндекса (Callback Supabase), не URL игры:**
 
 ```
 https://jrgnsqbwwhovonxyxown.supabase.co/auth/v1/callback
 ```
+
+### Вечеринка / LAN / localhost — VK недоступен (не баг игры)
+
+VK ID требует **базовый домен** страницы, с которой нажали «Войти».  
+Домашний IP (`192.168…`), `localhost:5173` / `:3001` в кабинете VK **нельзя** указать нормально → ошибка «базовый домен не указан».
+
+| Место | Google / Яндекс | VK ID · Mail.ru |
+|-------|-----------------|-----------------|
+| `https://up2down.online` | да | да (базовый домен = `up2down.online`) |
+| LAN хост `http://IP:3001/play/` (ЧПец.Версия) | да | **нет** — кнопка скрыта |
+| Vite `localhost` / LAN `:5173` | да | **нет** — кнопка скрыта |
+
+На вечеринке по Wi‑Fi вход: **Яндекс / Google / email**.  
+VK · Mail.ru — с сайта [up2down.online](https://up2down.online) (облачный онлайн / ЛК).  
+Туннель (Cloudflare/ngrok) — только для **вашей** отладки, не для каждого хоста вечеринки.
+
+Логика скрытия: `isVkidOAuthAvailableHere()` в `src/lib/oauthProviders.ts`.
 
 ---
 
@@ -366,7 +383,7 @@ https://jrgnsqbwwhovonxyxown.supabase.co/auth/v1/callback
 ### Шаг V5 — тест в игре
 
 1. Incognito (или другой браузер).
-2. `https://up2down.online` **или** LAN `http://ВАШ_IP:3001/play/` (Redirect URLs игры уже должны быть в Supabase URL Configuration — те же, что для Яндекса).
+2. **Только** `https://up2down.online` (на LAN кнопки VK нет — см. выше). Redirect URLs игры в Supabase URL Configuration — те же, что для Яндекса.
 3. **Вход** → **VK ID · Mail.ru**.
 4. На экране VK: выбрать VK / Mail.ru / телефон → согласие.
 5. Возврат в игру → кабинет с email (если VK отдал email).
@@ -399,11 +416,11 @@ Secret в чат **не** кидайте — только в Supabase.
 
 ## Код приложения
 
-- Кнопки: `src/ui/AuthModal.tsx`
-- Провайдеры: `src/lib/oauthProviders.ts` — `custom:yandex`, `custom:vkid`
+- Кнопки: `src/ui/AuthModal.tsx` (VK скрыта на LAN/localhost)
+- Провайдеры: `src/lib/oauthProviders.ts` — `custom:yandex`, `custom:vkid`, `isVkidOAuthAvailableHere`
 - Identifier в Supabase **обязан** совпадать с этими строками.
 
-Пока Custom Provider не создан/не Enabled, кнопка покажет ошибку от Supabase — это ожидаемо.
+Пока Custom Provider не создан/не Enabled, на проде кнопка покажет ошибку от Supabase — это ожидаемо.
 
 ---
 
@@ -411,9 +428,11 @@ Secret в чат **не** кидайте — только в Supabase.
 
 - [x] Яндекс: Callback + scopes + `custom:yandex` (уже работает в проде/LAN)
 - [x] SQL party claim `20261009140000_party_claim_receipts.sql` (применён)
+- [x] VK: кнопка скрыта на LAN/localhost (Party Version)
+- [ ] VK ID: базовый домен = `up2down.online`
 - [ ] VK ID: Redirect = Callback Supabase  
 - [ ] VK ID: право **email**  
 - [ ] Supabase Custom Provider `custom:vkid` Enabled + PKCE  
-- [ ] Тест: кнопка **VK ID · Mail.ru** → кабинет  
+- [ ] Тест на **проде**: кнопка **VK ID · Mail.ru** → кабинет  
 - [ ] Redirect URLs игры в Supabase URL Configuration (те же, что для Яндекса)  
 
