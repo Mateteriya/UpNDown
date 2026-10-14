@@ -24,17 +24,48 @@ export function isNativePlatform(): boolean {
   }
 }
 
+/**
+ * Канонический origin для OAuth (PKCE в sessionStorage привязан к хосту).
+ * www.up2down.ru и up2down.ru — разные origin → иначе «код есть, вход не завершается».
+ */
+export function getCanonicalWebOrigin(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    const u = new URL(window.location.href);
+    if (u.hostname.toLowerCase() === 'www.up2down.ru') {
+      u.hostname = 'up2down.ru';
+    }
+    return u.origin;
+  } catch {
+    return window.location.origin;
+  }
+}
+
 /** Локальный (или текущий) URL страницы auth-callback — куда нужен PKCE exchange. */
 export function getLocalAuthCallbackUrl(): string | undefined {
   if (typeof window === 'undefined') return undefined;
   if (isNativePlatform()) return NATIVE_AUTH_CALLBACK;
-  const origin = window.location.origin;
+  const origin = getCanonicalWebOrigin() || window.location.origin;
   const path = window.location.pathname || '';
   const base = typeof import.meta !== 'undefined' ? String(import.meta.env?.BASE_URL || '/') : '/';
   if (path.startsWith('/play') || base === '/play/' || base.startsWith('/play')) {
     return `${origin}/play/auth-callback.html`;
   }
   return `${origin}/auth-callback.html`;
+}
+
+/** Если открыли www — сразу на канон (сохраняя path+query+hash). */
+export function bounceWwwToCanonicalHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const u = new URL(window.location.href);
+    if (u.hostname.toLowerCase() !== 'www.up2down.ru') return false;
+    u.hostname = 'up2down.ru';
+    window.location.replace(u.toString());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Куда вернуть после Google — всегда текущий origin (LAN / Vite / прод). Без моста на другой домен. */
@@ -181,10 +212,18 @@ export function getAuthReturnHomePath(): string {
   if (typeof window === 'undefined') return '/';
   const path = window.location.pathname || '';
   const base = typeof import.meta !== 'undefined' ? String(import.meta.env?.BASE_URL || '/') : '/';
-  if (path.startsWith('/play') || base === '/play/' || base.startsWith('/play')) {
-    return '/play/';
+  const home =
+    path.startsWith('/play') || base === '/play/' || base.startsWith('/play') ? '/play/' : '/';
+  /** Сохранить #online / #menu — иначе replace('/') теряет раздел; не тащить oauth-hash. */
+  try {
+    const hash = window.location.hash || '';
+    if (hash && !/access_token|refresh_token|error|type=/i.test(hash)) {
+      return `${home === '/' ? '/' : home.replace(/\/$/, '/')}${hash}`.replace(/\/{2,}#/, '/#');
+    }
+  } catch {
+    /* ignore */
   }
-  return '/';
+  return home;
 }
 
 export function isAuthCallbackUrl(url: string): boolean {

@@ -321,10 +321,10 @@ function GuestMapHint({ uid, onHideMapHint }: { uid: string; onHideMapHint?: () 
 
   useEffect(() => {
     if (!tipOpen) return;
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape') setTipOpen(false);
     };
-    const onPointer = (e: PointerEvent) => {
+    const onPointer = (e: globalThis.PointerEvent) => {
       const t = e.target;
       if (!(t instanceof Element)) return;
       if (t.closest('.menu-guest-map-hint') || t.closest('.menu-guest-map-hint__tip')) return;

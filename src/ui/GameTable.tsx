@@ -2952,14 +2952,14 @@ export default function GameTable({ gameId, offlinePlayerCount = 4, playerDispla
   );
   const [eastChatResizeHintOn, setEastChatResizeHintOn] = useState(false);
   const [eastChatResizeHintKey, setEastChatResizeHintKey] = useState(0);
-  const eastChatResizeHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const eastChatResizeHintTimerRef = useRef<number | null>(null);
   /** Точки ручки: intro (кислота) → mid (спокойно) → soft (ещё мягче). */
   const [eastChatDiamondPhase, setEastChatDiamondPhase] = useState<'off' | 'intro' | 'mid' | 'soft'>(
     'off',
   );
   const eastChatDiamondPhaseTimersRef = useRef<{
-    mid: ReturnType<typeof setTimeout> | null;
-    soft: ReturnType<typeof setTimeout> | null;
+    mid: number | null;
+    soft: number | null;
   }>({ mid: null, soft: null });
   const eastChatResizeSessionRef = useRef<{
     pointerId: number;

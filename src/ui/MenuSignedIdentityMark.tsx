@@ -148,10 +148,10 @@ function StatusTip({
   }, [anchorRef]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    const onPointer = (e: PointerEvent) => {
+    const onPointer = (e: globalThis.PointerEvent) => {
       const t = e.target;
       if (!(t instanceof Element)) return;
       if (t.closest('.menu-signed-id__tip') || t.closest('[data-signed-status-anchor]')) return;
@@ -209,7 +209,7 @@ function AccountStatusBadge({
   tipId: string;
   tipOpen: boolean;
   onToggleTip: () => void;
-  badgeRef: RefObject<HTMLElement | null>;
+  badgeRef: RefObject<HTMLSpanElement | null>;
   accountName: string;
 }) {
   const fullName = accountName.trim() || 'аккаунт';
@@ -268,7 +268,7 @@ function AccountStatusBadge({
 
   return (
     <span
-      ref={badgeRef}
+      ref={badgeRef as RefObject<HTMLSpanElement>}
       role="button"
       tabIndex={0}
       data-signed-status-anchor
@@ -319,11 +319,11 @@ function ProfileStatusBadge({
   tipId: string;
   tipOpen: boolean;
   onToggleTip: () => void;
-  badgeRef: RefObject<HTMLElement | null>;
+  badgeRef: RefObject<HTMLSpanElement | null>;
 }) {
   return (
     <span
-      ref={badgeRef}
+      ref={badgeRef as RefObject<HTMLSpanElement>}
       role="button"
       tabIndex={0}
       data-signed-status-anchor
@@ -361,12 +361,12 @@ function WaveAntenna({
 }: {
   tipOpen: boolean;
   tipId: string;
-  badgeRef: RefObject<HTMLElement | null>;
+  badgeRef: RefObject<HTMLSpanElement | null>;
   onToggleTip: () => void;
 }) {
   return (
     <span
-      ref={badgeRef}
+      ref={badgeRef as RefObject<HTMLSpanElement>}
       role="button"
       tabIndex={0}
       className={[
@@ -464,10 +464,10 @@ function ProfileWaveTip({
   }, [anchorRef]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    const onPointer = (e: PointerEvent) => {
+    const onPointer = (e: globalThis.PointerEvent) => {
       const t = e.target;
       if (!(t instanceof Element)) return;
       if (t.closest('.menu-signed-id__tip') || t.closest('.menu-signed-id__wave')) return;
@@ -547,8 +547,8 @@ export function MenuSignedIdentityMark({
   /* Плашка только внутри облачного PNG (PlayerAvatar); локальный HTML-nameplate снят */
   const waveTipId = useId();
   const statusTipId = useId();
-  const waveRef = useRef<HTMLElement>(null);
-  const statusRef = useRef<HTMLElement>(null);
+  const waveRef = useRef<HTMLSpanElement>(null);
+  const statusRef = useRef<HTMLSpanElement>(null);
   const [waveTipOpen, setWaveTipOpen] = useState(false);
   const [statusTipOpen, setStatusTipOpen] = useState(false);
 

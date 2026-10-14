@@ -3639,7 +3639,7 @@ export function AudioSfxLabPage({ onBack }: Props) {
             ? 'audio-sfx-lab__stitch audio-sfx-lab__stitch--inspector'
             : 'audio-sfx-lab__stitch'
         }
-        ref={opts?.panelRef}
+        ref={opts?.panelRef as RefObject<HTMLDivElement> | undefined}
       >
         <p className="audio-sfx-lab__stitch-title">
           Пришить +{stitchAddDelta} такт ({cur}→{stitchTargetBars}): отметь дорожки для копии в новый

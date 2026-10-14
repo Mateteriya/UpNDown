@@ -1668,7 +1668,7 @@ export function MenuNamePlaqueEditMark({
   const resolvedRef = anchorRef ?? localRef;
   return (
     <span
-      ref={resolvedRef}
+      ref={resolvedRef as RefObject<HTMLSpanElement>}
       className={['menu-capsule__name-plaque__edit-mark', className].filter(Boolean).join(' ')}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}

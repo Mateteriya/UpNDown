@@ -100,6 +100,7 @@ function startPing(ws: WebSocket): void {
 
 async function sendWsAuth(ws: WebSocket): Promise<void> {
   try {
+    if (!supabase) return;
     const { data } = await supabase.auth.getSession();
     const accessToken = data.session?.access_token;
     if (!accessToken) return;

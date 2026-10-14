@@ -7,7 +7,7 @@
     "dev": "vite",
     "dev:host": "vite --host",
     "dev:cosmo": "vite --port 5199 --open /cosmogenesis-demo.html",
-    "build": "node scripts/gen-favicon.mjs && tsc && vite build",
+    "build": "node scripts/gen-favicon.mjs && tsc && vite build && node scripts/patch-sw-auth-callback.mjs",
     "preview": "vite preview",
     "preview:host": "vite preview --host",
     "test": "vitest",

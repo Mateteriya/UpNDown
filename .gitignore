@@ -33,3 +33,9 @@ npm-debug.log*
 
 # Supabase CLI (linked project, versions; not for repo)
 supabase/.temp/
+
+# OAuth/debug dumps
+*.har
+*.har.bak
+NUL.css
+
