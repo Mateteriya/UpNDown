@@ -664,7 +664,7 @@ export function LabStaffEditor({
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
   };
 
-  const onBgDoubleClick = (e: ReactPointerEvent) => {
+  const onBgDoubleClick = (e: { clientX: number; clientY: number }) => {
     const svg = wrapRef.current?.querySelector('svg');
     if (!svg) return;
     const rect = svg.getBoundingClientRect();

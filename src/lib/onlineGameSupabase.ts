@@ -1243,31 +1243,33 @@ function chipsFromSlot(
 }
 
 function mapMatchHistoryRows(data: unknown[]): MatchHistoryItem[] {
-  const mapped = (data as any[]).map((row) => {
-    const nested = row.matches;
-    const id = (nested?.id ?? row.id) as string | undefined;
-    const finishedAt = (nested?.finished_at ?? row.finished_at) as string | undefined;
-    if (!id || !finishedAt) return null;
-    const chipsBySlot = (nested?.chips_by_slot ?? null) as Record<string, number> | null;
-    const chipsDirect = row.chips != null ? Number(row.chips) : null;
-    const chips =
-      chipsDirect != null && Number.isFinite(chipsDirect)
-        ? chipsDirect
-        : chipsFromSlot(chipsBySlot, row.slot_index);
-    return {
-      id,
-      code: String(nested?.code ?? row.code ?? ''),
-      finished_at: finishedAt,
-      deals_count: nested?.deals_count ?? row.deals_count ?? null,
-      place: (row as any).place ?? null,
-      final_score: row.final_score ?? null,
-      interrupted: !!row.interrupted,
-      is_rated: !!row.is_rated,
-      is_offline: !!(nested?.is_offline ?? row.is_offline),
-      settlement_mode: ((nested?.settlement_mode ?? row.settlement_mode) as SettlementMode) ?? null,
-      chips,
-    } satisfies MatchHistoryItem;
-  }).filter((row): row is MatchHistoryItem => row != null);
+  const mapped: MatchHistoryItem[] = (data as any[])
+    .map((row): MatchHistoryItem | null => {
+      const nested = row.matches;
+      const id = (nested?.id ?? row.id) as string | undefined;
+      const finishedAt = (nested?.finished_at ?? row.finished_at) as string | undefined;
+      if (!id || !finishedAt) return null;
+      const chipsBySlot = (nested?.chips_by_slot ?? null) as Record<string, number> | null;
+      const chipsDirect = row.chips != null ? Number(row.chips) : null;
+      const chips =
+        chipsDirect != null && Number.isFinite(chipsDirect)
+          ? chipsDirect
+          : chipsFromSlot(chipsBySlot, row.slot_index);
+      return {
+        id,
+        code: String(nested?.code ?? row.code ?? ''),
+        finished_at: finishedAt,
+        deals_count: nested?.deals_count ?? row.deals_count ?? null,
+        place: (row as any).place ?? null,
+        final_score: row.final_score ?? null,
+        interrupted: !!row.interrupted,
+        is_rated: !!row.is_rated,
+        is_offline: !!(nested?.is_offline ?? row.is_offline),
+        settlement_mode: ((nested?.settlement_mode ?? row.settlement_mode) as SettlementMode) ?? null,
+        chips,
+      };
+    })
+    .filter((row): row is MatchHistoryItem => row != null);
   // PostgREST/join и повторные RPC дают дубли — схлопываем по id и по снимку результата.
   const seenId = new Set<string>();
   const seenSig = new Set<string>();
@@ -1667,11 +1669,11 @@ function parseLeaderboardPayload(data: unknown, rpcError?: string): LeaderboardR
 
 /** Битый JWT на сессии роняет RPC — тот же вызов с anon-ключом отдаёт публичный топ. */
 async function fetchLeaderboardAnon(limit: number): Promise<LeaderboardResult> {
-  if (!supabase) {
+  const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
+  const key = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
+  if (!url || !key) {
     return parseLeaderboardPayload(null, 'Supabase не настроен');
   }
-  const url = supabase.supabaseUrl;
-  const key = supabase.supabaseKey;
   try {
     const res = await fetch(`${url}/rest/v1/rpc/updown_get_leaderboard`, {
       method: 'POST',

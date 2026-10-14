@@ -53,8 +53,14 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/host/, /auth-callback\.html/, /cosmogenesis-demo\.html/],
+        /**
+         * НЕ использовать navigateFallback→index.html.
+         * vite-plugin-pwa/workbox в нашей сборке отдаёт NavigationRoute БЕЗ denylist →
+         * запрос auth-callback.html перехватывается SW и подменяется меню (main-*.js).
+         * HAR: auth-callback URL → тело index.html, обмена VK нет.
+         * SPA на SpaceWeb уже делает .htaccess; SW только precache ассетов.
+         */
+        navigateFallback: null,
         runtimeCaching: [
           {
             urlPattern: /\/(?:favicon\.ico|icon-\d+\.png)$/,

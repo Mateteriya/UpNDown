@@ -1,3 +1,35 @@
+// www ≠ apex: PKCE/sessionStorage на другом origin → OAuth «висит» на auth-callback.
+if (typeof window !== 'undefined' && window.location.hostname.toLowerCase() === 'www.up2down.ru') {
+  const u = new URL(window.location.href)
+  u.hostname = 'up2down.ru'
+  window.location.replace(u.toString())
+}
+
+/**
+ * SW иногда отдаёт index.html на URL auth-callback.html (NavigationRoute).
+ * Признак: в документе есть #root (меню), а не #msg callback.
+ * Тогда сбрасываем SW и жёстко перезапрашиваем настоящий callback.
+ */
+const authCallbackWrongShell =
+  typeof window !== 'undefined' &&
+  /auth-callback\.html/i.test(window.location.pathname || '') &&
+  !!document.getElementById('root')
+
+if (authCallbackWrongShell) {
+  const bust = new URL(window.location.href)
+  bust.searchParams.set('_swfix', String(Date.now()))
+  const go = () => window.location.replace(bust.toString())
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((regs) => Promise.all(regs.map((r) => r.unregister())))
+      .catch(() => undefined)
+      .finally(go)
+  } else {
+    go()
+  }
+}
+
 // Сохраняем флаги «пришли по ссылке» до того, как Supabase очистит hash
 if (typeof window !== 'undefined' && window.location.hash) {
   const h = window.location.hash
@@ -138,6 +170,9 @@ function DemoGuard({ children }: { children: React.ReactNode }) {
 }
 
 // StrictMode отключён — двойной вызов эффектов ломал таймеры AI (зависания на 4й, 6й раздаче)
+if (authCallbackWrongShell) {
+  /* ждём replace на настоящий auth-callback.html — не монтируем меню */
+} else
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
     {isDemo ? (

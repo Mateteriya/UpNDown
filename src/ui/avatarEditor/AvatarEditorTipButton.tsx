@@ -81,7 +81,7 @@ export const AvatarEditorTipButton = forwardRef<
       <button
         {...rest}
         ref={(el) => {
-          btnRef.current = el;
+          assignRef(btnRef, el);
           assignRef(ref, el);
         }}
         title={undefined}

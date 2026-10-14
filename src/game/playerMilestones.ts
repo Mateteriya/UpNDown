@@ -65,7 +65,7 @@ export type MilestoneStatus = {
   progress: number;
   unlocked: boolean;
   reward: MilestoneReward;
-  featuredRank?: 1 | 2 | 3 | 4 | 5;
+  featuredRank?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   spotlight?: boolean;
 };
 

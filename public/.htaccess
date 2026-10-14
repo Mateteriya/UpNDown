@@ -1,0 +1,18 @@
+Options -MultiViews
+RewriteEngine On
+
+# ВАЖНО: не форсить HTTP→HTTPS здесь.
+# На SpaceWeb TLS терминирует nginx, для Apache %{HTTPS} часто «off» → вечный 301
+# на тот же URL и ломается OAuth (PKCE / exchange на auth-callback).
+
+# www → без www (query string Apache сохраняет сам)
+RewriteCond %{HTTP_HOST} ^www\.up2down\.ru$ [NC]
+RewriteRule ^(.*)$ https://up2down.ru/$1 [L,R=301]
+
+# Реальные файлы и папки — как есть
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# SPA
+RewriteRule ^ index.html [L]

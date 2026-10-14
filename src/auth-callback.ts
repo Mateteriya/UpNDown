@@ -1,13 +1,16 @@
 /**
- * Возврат с OAuth (Google/GitHub/Yandex).
- * PKCE: ?code=… → exchangeCodeForSession
- * Legacy implicit: #access_token=… → setSession
+ * Возврат с OAuth (Google/GitHub/Yandex/VK).
+ * Лёгкий бандл: без тяжёлого partyClaimCloud на старте (иначе при зависании
+ * чанка страница вечно показывает «Завершение входа…» без красной ошибки).
  */
 
 import { supabase } from './lib/supabase';
-import { bounceOAuthPayloadToReturnUrl, getAuthReturnHomePath } from './lib/nativeAuth';
+import {
+  bounceOAuthPayloadToReturnUrl,
+  bounceWwwToCanonicalHost,
+  getAuthReturnHomePath,
+} from './lib/nativeAuth';
 import { consumePendingClaimToken, peekClaimTokenFromUrl, rememberPendingClaimToken } from './game/partyClaim';
-import { bindPartyClaimsAfterAuth } from './lib/partyClaimCloud';
 import {
   completeVkidDirectOAuthFromUrl,
   isVkidBridgeCallback,
@@ -22,6 +25,10 @@ const COPY = {
     noToken: 'Код входа не получен',
     errorPrefix: 'Ошибка: ',
     slowHint: 'Долго нет ответа. Можно открыть главную — если вход прошёл, кабинет уже будет.',
+    exchanging: 'Обмен кода входа…',
+    vkExchanging: 'Обмен VK…',
+    supabaseUnreachable:
+      'Не удалось связаться с Supabase (*.supabase.co). Из РФ без VPN это бывает. DevTools → Network: красные supabase.co? Временно VPN или https://up2down.online',
   },
   en: {
     title: 'Signing in…',
@@ -31,14 +38,26 @@ const COPY = {
     noToken: 'No sign-in code received',
     errorPrefix: 'Error: ',
     slowHint: 'Taking too long. You can open home — if sign-in worked, you will be in the account.',
+    exchanging: 'Exchanging sign-in code…',
+    vkExchanging: 'Finishing VK…',
+    supabaseUnreachable:
+      'Could not reach Supabase (*.supabase.co). Check Network for failed supabase.co. Try VPN or https://up2down.online',
   },
 } as const;
 
+type AuthCallbackCopy = (typeof COPY)[keyof typeof COPY];
+
 const EXCHANGE_MS = 25_000;
 const CLAIMS_MS = 2_000;
-const HARD_MS = 30_000;
+const HARD_MS = 18_000;
 
-function readCopy() {
+declare global {
+  interface Window {
+    __updownAuthCbBoot?: () => void;
+  }
+}
+
+function readCopy(): AuthCallbackCopy {
   try {
     return localStorage.getItem('updown-locale') === 'en' ? COPY.en : COPY.ru;
   } catch {
@@ -46,7 +65,12 @@ function readCopy() {
   }
 }
 
-function showError(copy: (typeof COPY)['ru'], msg: string) {
+function setMsg(text: string) {
+  const msgEl = document.getElementById('msg');
+  if (msgEl) msgEl.textContent = text;
+}
+
+function showError(copy: AuthCallbackCopy, msg: string) {
   const msgEl = document.getElementById('msg');
   const errEl = document.getElementById('err');
   const linkEl = document.getElementById('link');
@@ -56,14 +80,30 @@ function showError(copy: (typeof COPY)['ru'], msg: string) {
     errEl.style.display = 'block';
   }
   if (linkEl) linkEl.style.display = 'inline';
+  try {
+    console.error('[auth-callback]', msg);
+  } catch {
+    /* ignore */
+  }
 }
 
-function showLink(copy: (typeof COPY)['ru']) {
+function showLink(copy: AuthCallbackCopy) {
   const linkEl = document.getElementById('link');
   if (linkEl) {
     linkEl.textContent = copy.goHome;
     linkEl.style.display = 'inline';
   }
+}
+
+function humanizeAuthError(copy: AuthCallbackCopy, raw: unknown): string {
+  const msg = raw instanceof Error ? raw.message : String(raw ?? '');
+  if (/failed to fetch|networkerror|load failed|aborted|timed out|timeout|AbortError/i.test(msg)) {
+    return `${copy.supabaseUnreachable} (${msg || 'network'})`;
+  }
+  if (/code verifier|pkce/i.test(msg)) {
+    return `${msg} — начните вход снова с https://up2down.ru (Incognito), одна вкладка.`;
+  }
+  return msg || 'unknown_error';
 }
 
 async function raceOrTimeout<T>(
@@ -87,23 +127,39 @@ async function raceOrTimeout<T>(
   }
 }
 
+async function bindClaimsBestEffort(claimToken: string | null) {
+  try {
+    const mod = await import('./lib/partyClaimCloud');
+    await raceOrTimeout(mod.bindPartyClaimsAfterAuth({ claimToken }), CLAIMS_MS);
+  } catch {
+    /* вход важнее квитанций */
+  }
+}
+
 async function run() {
+  try {
+    window.__updownAuthCbBoot?.();
+  } catch {
+    /* ignore */
+  }
+
+  if (bounceWwwToCanonicalHost()) return;
+
   const copy = readCopy();
   document.documentElement.lang = copy === COPY.en ? 'en' : 'ru';
   document.title = copy.title;
-  const msgEl = document.getElementById('msg');
-  if (msgEl) msgEl.textContent = copy.finishing;
+  setMsg(copy.finishing);
   showLink(copy);
 
+  window.addEventListener('unhandledrejection', (ev) => {
+    showError(copy, humanizeAuthError(copy, ev.reason));
+  });
+
   const hardTimer = window.setTimeout(() => {
-    if (msgEl) msgEl.textContent = copy.slowHint;
+    setMsg(copy.slowHint);
     showLink(copy);
   }, HARD_MS);
 
-  /**
-   * Прод-мост: Google вернул code сюда (Site URL allowlisted),
-   * а PKCE verifier — на LAN. Сразу уводим на локальный auth-callback с тем же code.
-   */
   if (bounceOAuthPayloadToReturnUrl(window.location.href)) {
     window.clearTimeout(hardTimer);
     return;
@@ -112,7 +168,8 @@ async function run() {
   const claimFromUrl = peekClaimTokenFromUrl(window.location.href);
   if (claimFromUrl) rememberPendingClaimToken(claimFromUrl);
 
-  if (!supabase) {
+  const client = supabase;
+  if (!client) {
     window.clearTimeout(hardTimer);
     showError(copy, copy.supabaseOff);
     return;
@@ -129,8 +186,8 @@ async function run() {
     return;
   }
 
-  /** Прямой VK ID (не GoTrue): ?vk_bridge=1&code=&device_id=&state= */
   if (isVkidBridgeCallback(window.location.href)) {
+    setMsg(copy.vkExchanging);
     const vkDone = await raceOrTimeout(
       completeVkidDirectOAuthFromUrl(window.location.href),
       EXCHANGE_MS,
@@ -140,18 +197,18 @@ async function run() {
       showError(
         copy,
         vkDone.reason === 'timeout'
-          ? 'Обмен VK превысил время ожидания.'
-          : String(vkDone.error ?? 'vk_exchange_failed'),
+          ? humanizeAuthError(copy, new Error('timeout'))
+          : humanizeAuthError(copy, vkDone.error),
       );
       return;
     }
     if (vkDone.value.error) {
       window.clearTimeout(hardTimer);
-      showError(copy, vkDone.value.error.message);
+      showError(copy, humanizeAuthError(copy, vkDone.value.error));
       return;
     }
     const claimToken = claimFromUrl || consumePendingClaimToken();
-    void raceOrTimeout(bindPartyClaimsAfterAuth({ claimToken }), CLAIMS_MS);
+    void bindClaimsBestEffort(claimToken);
     window.clearTimeout(hardTimer);
     window.location.replace(getAuthReturnHomePath());
     return;
@@ -166,23 +223,22 @@ async function run() {
   const refreshToken = hashParams.get('refresh_token') || '';
 
   const sessionProbe = async (): Promise<boolean> => {
-    const probed = await raceOrTimeout(supabase.auth.getSession(), 4_000);
+    const probed = await raceOrTimeout(client.auth.getSession(), 4_000);
     if (!probed.ok) return false;
     return Boolean(probed.value.data.session);
   };
 
   try {
     if (code) {
+      setMsg(copy.exchanging);
       const exchanged = await raceOrTimeout(
-        supabase.auth.exchangeCodeForSession(code),
+        client.auth.exchangeCodeForSession(code),
         EXCHANGE_MS,
       );
       if (!exchanged.ok) {
         if (!(await sessionProbe())) {
           if (exchanged.reason === 'timeout') {
-            throw new Error(
-              'Обмен кода входа превысил время ожидания. Откройте главную и попробуйте ещё раз.',
-            );
+            throw new Error(copy.supabaseUnreachable);
           }
           throw exchanged.error instanceof Error
             ? exchanged.error
@@ -192,8 +248,9 @@ async function run() {
         if (!(await sessionProbe())) throw exchanged.value.error;
       }
     } else if (accessToken) {
+      setMsg(copy.exchanging);
       const set = await raceOrTimeout(
-        supabase.auth.setSession({
+        client.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         }),
@@ -202,7 +259,7 @@ async function run() {
       if (!set.ok) {
         if (!(await sessionProbe())) {
           throw set.reason === 'timeout'
-            ? new Error('Сохранение сессии превысило время ожидания.')
+            ? new Error(copy.supabaseUnreachable)
             : set.error instanceof Error
               ? set.error
               : new Error(String(set.error ?? 'set_session_failed'));
@@ -220,7 +277,6 @@ async function run() {
       return;
     }
 
-    /** Только если сессия реально есть — иначе «успешный вход» на главной врёт. */
     const okSession = await sessionProbe();
     if (!okSession) {
       throw new Error(
@@ -233,15 +289,16 @@ async function run() {
       /* ignore */
     }
     const claimToken = claimFromUrl || consumePendingClaimToken();
-    /** Не блокировать редирект на RPC (REST timeout до 70с). */
-    void raceOrTimeout(bindPartyClaimsAfterAuth({ claimToken }), CLAIMS_MS);
+    void bindClaimsBestEffort(claimToken);
     window.clearTimeout(hardTimer);
     window.location.replace(getAuthReturnHomePath());
   } catch (e) {
     window.clearTimeout(hardTimer);
-    const msg = e instanceof Error ? e.message : String(e);
-    showError(copy, msg);
+    showError(copy, humanizeAuthError(copy, e));
   }
 }
 
-void run();
+void run().catch((e) => {
+  const copy = readCopy();
+  showError(copy, humanizeAuthError(copy, e));
+});

@@ -2,6 +2,56 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    /* До module/SW: www и apex — разные origin, PKCE не переносится. */
+    (function () {
+      try {
+        if (location.hostname.toLowerCase() !== 'www.up2down.ru') return;
+        var u = new URL(location.href);
+        u.hostname = 'up2down.ru';
+        location.replace(u.toString());
+      } catch (e) {}
+    })();
+  </script>
+  <script>
+    /**
+     * OAuth не должен зависеть от PWA-кэша. Если module не вызвал boot за 4с —
+     * показываем ошибку (иначе вечно «Завершение входа…» без красного текста).
+     */
+    (function () {
+      var booted = false;
+      window.__updownAuthCbBoot = function () {
+        booted = true;
+      };
+      try {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            regs.forEach(function (r) {
+              try {
+                r.unregister();
+              } catch (e) {}
+            });
+          });
+        }
+      } catch (e2) {}
+      setTimeout(function () {
+        if (booted) return;
+        var msg = document.getElementById('msg');
+        var err = document.getElementById('err');
+        var link = document.getElementById('link');
+        if (msg) msg.textContent = '';
+        if (err) {
+          err.style.display = 'block';
+          err.textContent =
+            'Ошибка: скрипт входа не запустился (часто кэш PWA). Откройте Incognito или: настройки сайта → удалить данные для up2down.ru. F12→Console/Network: ошибка auth-callback-*.js?';
+        }
+        if (link) {
+          link.textContent = 'Перейти на главную';
+          link.style.display = 'inline';
+        }
+      }, 4000);
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0f172a" />
   <title>Вход…</title>
