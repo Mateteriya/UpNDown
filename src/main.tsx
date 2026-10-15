@@ -105,6 +105,8 @@ import './styles/plasma-turn-name-flow.css'
 import './styles/user-south-panel.css'
 /* Редактор аватарки — ПОСЛЕ index.css, иначе оверрайды не видны */
 import './styles/avatar-editor.css'
+/* Юг: ★ NW + имя NE на аватаре */
+import './styles/south-avatar-chrome.css'
 import './i18n'
 
 installPwaStaleRecovery()

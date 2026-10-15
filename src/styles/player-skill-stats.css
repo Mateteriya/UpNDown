@@ -7280,6 +7280,21 @@
   filter: drop-shadow(0 0 5px rgba(167, 139, 250, 0.75));
 }
 
+/* 0 ★ — приглушённая капсула + полый глиф */
+.stars-badge--empty {
+  border-color: rgba(148, 163, 184, 0.55);
+  background:
+    linear-gradient(145deg, rgba(148, 163, 184, 0.14), transparent 55%),
+    rgba(15, 23, 42, 0.72);
+  box-shadow: 0 0 6px rgba(100, 116, 139, 0.28);
+  color: #cbd5e1;
+}
+
+.stars-badge--empty .stars-badge__glyph {
+  filter: drop-shadow(0 0 3px rgba(148, 163, 184, 0.45));
+  opacity: 0.9;
+}
+
 .lk-page__profile-avatar-wrap {
   position: relative;
   display: inline-flex;

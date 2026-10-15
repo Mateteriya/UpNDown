@@ -8352,7 +8352,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     };
     const ariaLabel = online.roomId ? tr('table.menuOf', { name: p.name }) : tr('table.profileOf', { name: p.name });
     const face = (
-      <span className="user-player-avatar-stars-wrap">
+      <span
+        className="south-av-chrome"
+        style={{ width: avatarFaceSizePx, height: avatarFaceSizePx }}
+      >
         <PlayerAvatar
           name={displayState.players[humanIdx].name}
           avatarDataUrl={playerAvatarDataUrl}
@@ -8361,7 +8364,9 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           nameBadge
           className={innerCls}
         />
-        <StarsBalanceBadge size="sm" className="user-player-avatar-stars-badge" />
+        <span className="south-av-stars">
+          <StarsBalanceBadge size="sm" />
+        </span>
       </span>
     );
     const avatarRootCls = 'user-player-avatar-root';
@@ -9351,6 +9356,19 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             }}
           >
             {renderUserPlayerAvatar(southLandscapeAvatarFacePx)}
+            {!(showYourTurnPrompt && (isHumanTurn || isHumanBidding)) ? (
+              <div className="south-av-name south-av-name--landscape">
+                <MobileSouthLandscapePlayerName
+                  name={humanLandscapeNameFormatted}
+                  chatBody={null}
+                  chatKey={0}
+                  nameClassName={southPlayerNameClassName}
+                  baseNameStyle={buildMobileSouthLandscapePlayerNameStyle(southUsePremiumNameClass)}
+                  title={`${humanLandscapeNameRaw} — ${getCompassLabel(humanIdx)}`}
+                  fontScale={humanLandscapeNameFontScale}
+                />
+              </div>
+            ) : null}
             {isMobile && userOrderRingExact ? (
               <div
                 className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
@@ -9428,15 +9446,18 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 minWidth: 0,
               }}
             >
-              <MobileSouthLandscapePlayerName
-                name={humanLandscapeNameFormatted}
-                chatBody={null}
-                chatKey={0}
-                nameClassName={southPlayerNameClassName}
-                baseNameStyle={buildMobileSouthLandscapePlayerNameStyle(southUsePremiumNameClass)}
-                title={`${humanLandscapeNameRaw} — ${getCompassLabel(humanIdx)}`}
-                fontScale={humanLandscapeNameFontScale}
-              />
+              {showYourTurnPrompt && (isHumanTurn || isHumanBidding) ? (
+                <span
+                  className={['player-panel-name', 'your-turn-prompt'].join(' ')}
+                  style={{
+                    ...buildMobileSouthLandscapePlayerNameStyle(false),
+                    ...yourTurnPromptStyle,
+                  }}
+                  title={`${humanLandscapeNameRaw} — ${getCompassLabel(humanIdx)}`}
+                >
+                  {state.phase === 'playing' ? tr('table.yourTurnBang') : tr('table.yourBidBang')}
+                </span>
+              ) : null}
             </div>
           </div>
           <div
@@ -12811,6 +12832,21 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           MOBILE_SOUTH_USER_AVATAR_SHORT_EXTRA_SCALE,
                       ),
                     )}
+                    {!(showYourTurnPrompt && (isHumanTurn || isHumanBidding)) ? (
+                      <div className="south-av-name south-av-name--mobile">
+                        <UserSouthMobileNamePlaque
+                          name={displayState.players[humanIdx].name}
+                          chatBody={null}
+                          chatKey={0}
+                          nameClassName={southPlayerNameClassName}
+                          nameStyle={buildMobileSouthPlayerNameStyle(
+                            Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE * 0.9),
+                            southUsePremiumNameClass,
+                          )}
+                          title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
+                        />
+                      </div>
+                    ) : null}
                     {isMobile && userOrderRingExact ? (
                       <div
                         className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
@@ -12889,19 +12925,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           >
                             {state.phase === 'playing' ? tr('table.yourTurnBang') : tr('table.yourBidBang')}
                           </span>
-                        ) : (
-                          <UserSouthMobileNamePlaque
-                            name={displayState.players[humanIdx].name}
-                            chatBody={null}
-                            chatKey={0}
-                            nameClassName={southPlayerNameClassName}
-                            nameStyle={buildMobileSouthPlayerNameStyle(
-                              Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE * 0.9),
-                              southUsePremiumNameClass,
-                            )}
-                            title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
-                          />
-                        )}
+                        ) : null}
                         {dealerSouthMobilePanelHighlight &&
                           (isMobileOrTablet && state.phase === 'playing' ? (
                             <button
@@ -13056,6 +13080,21 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     {renderUserPlayerAvatar(
                       Math.round(34 * MOBILE_SOUTH_PLAYER_CARD_SCALE * MOBILE_SOUTH_USER_AVATAR_RELATIVE_SCALE),
                     )}
+                    {!(showYourTurnPrompt && (isHumanTurn || isHumanBidding)) ? (
+                      <div className="south-av-name south-av-name--mobile">
+                        <UserSouthMobileNamePlaque
+                          name={displayState.players[humanIdx].name}
+                          chatBody={null}
+                          chatKey={0}
+                          nameClassName={southPlayerNameClassName}
+                          nameStyle={buildMobileSouthPlayerNameStyle(
+                            Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                            southUsePremiumNameClass,
+                          )}
+                          title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
+                        />
+                      </div>
+                    ) : null}
                     {isMobile && userOrderRingExact ? (
                       <div
                         className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
@@ -13143,19 +13182,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           >
                             {state.phase === 'playing' ? tr('table.yourTurnBang') : tr('table.yourBidBang')}
                           </span>
-                        ) : (
-                          <UserSouthMobileNamePlaque
-                            name={displayState.players[humanIdx].name}
-                            chatBody={null}
-                            chatKey={0}
-                            nameClassName={southPlayerNameClassName}
-                            nameStyle={buildMobileSouthPlayerNameStyle(
-                              Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-                              southUsePremiumNameClass,
-                            )}
-                            title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
-                          />
-                        )}
+                        ) : null}
                         {dealerSouthMobilePanelHighlight &&
                           (isMobileOrTablet && state.phase === 'playing' ? (
                             <button
@@ -14280,14 +14307,16 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           isBidding: isBiddingPhase,
                         }),
                       )}
+                      <div className="south-av-name">
+                        <UserSouthPcNamePlaque
+                          name={fullSouthName}
+                          isBiddingPhase={isBiddingPhase}
+                          longCompact={southNameCompact}
+                          textClassName={southPlayerNameClassName}
+                          textStyle={southPlayerNameStyle}
+                        />
+                      </div>
                     </div>
-                    <UserSouthPcNamePlaque
-                      name={fullSouthName}
-                      isBiddingPhase={isBiddingPhase}
-                      longCompact={southNameCompact}
-                      textClassName={southPlayerNameClassName}
-                      textStyle={southPlayerNameStyle}
-                    />
                   </div>
                   {/* Заказ Юга: на торгах — сразу после своей ставки (не ждать конца торгов). */}
                   {(humanBidPc != null ||
@@ -22243,6 +22272,24 @@ function OpponentSlot({
           ? `player-avatar-ai-offline player-avatar-ai-offline--${p.aiDifficulty ?? 'amateur'}`
           : '';
         const playerAvatarMergedCls = [avatarOrderRingInnerCls, playerAvatarPcAiCls].filter(Boolean).join(' ') || undefined;
+        const opponentStarsFace = (
+          <span
+            className="opp-av-chrome"
+            style={{ width: avatarSizePx, height: avatarSizePx }}
+          >
+            <PlayerAvatar
+              name={displayName}
+              avatarDataUrl={avatarDataUrl}
+              sizePx={avatarSizePx}
+              title={`${displayName} — ${getCompassLabel(index, state.players.length, position)}`}
+              className={playerAvatarMergedCls}
+              remoteNameBadge={remoteNameBadge}
+            />
+            <span className="opp-av-stars">
+              <StarsBalanceBadge size="sm" balance={0} />
+            </span>
+          </span>
+        );
         const avatarControl = onAvatarClick ? (
           <button
             type="button"
@@ -22254,24 +22301,10 @@ function OpponentSlot({
             title={isAiSlotBot ? t('ai.infoAndLevel', { name: displayName }) : t('ai.playerInfo')}
             aria-label={isAiSlotBot ? t('ai.cardAndLevel', { name: displayName }) : t('ai.playerInfoNamed', { name: displayName })}
           >
-            <PlayerAvatar
-              name={displayName}
-              avatarDataUrl={avatarDataUrl}
-              sizePx={avatarSizePx}
-              title={`${displayName} — ${getCompassLabel(index, state.players.length, position)}`}
-              className={playerAvatarMergedCls}
-              remoteNameBadge={remoteNameBadge}
-            />
+            {opponentStarsFace}
           </button>
         ) : (
-          <PlayerAvatar
-            name={displayName}
-            avatarDataUrl={avatarDataUrl}
-            sizePx={avatarSizePx}
-            title={`${displayName} — ${getCompassLabel(index, state.players.length, position)}`}
-            className={playerAvatarMergedCls}
-            remoteNameBadge={remoteNameBadge}
-          />
+          opponentStarsFace
         );
         /* Звезда «ровно» — внутри кольца (якорь = круг лица), не на широком reserve/we-left. */
         const avatarEl =

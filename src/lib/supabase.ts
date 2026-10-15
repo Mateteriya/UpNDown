@@ -136,16 +136,40 @@ try {
      * На auth-callback.html обмен ?code= делает auth-callback.ts вручную.
      * Если detectSessionInUrl=true — клиент съедает PKCE verifier раньше →
      * «PKCE code verifier not found in storage».
+     *
+     * Site URL иногда = /play/ (без auth-callback) → Google возвращает ?code=UUID на SPA.
+     * Тогда SPA (detectSessionInUrl) и повторный заход дают flow_state_already_used.
+     * Отскок на auth-callback.html на том же origin до обмена.
      */
-    const onAuthCallback =
-      typeof window !== 'undefined' &&
-      /auth-callback\.html/i.test(window.location.pathname || '');
+    const path = typeof window !== 'undefined' ? window.location.pathname || '' : '';
+    const onAuthCallback = /auth-callback\.html/i.test(path);
+    let spaOAuthCodeBounce = false;
+    if (typeof window !== 'undefined' && !onAuthCallback) {
+      try {
+        const u = new URL(window.location.href);
+        const code = (u.searchParams.get('code') || '').trim();
+        const isRoomJoin = u.searchParams.get('autojoin') === '1';
+        const isAuthUuid =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(code);
+        if (code && isAuthUuid && !isRoomJoin && !u.searchParams.get('error')) {
+          const destPath = path.startsWith('/play')
+            ? '/play/auth-callback.html'
+            : '/auth-callback.html';
+          const dest = new URL(destPath, u.origin);
+          u.searchParams.forEach((v, k) => dest.searchParams.set(k, v));
+          spaOAuthCodeBounce = true;
+          window.location.replace(dest.toString());
+        }
+      } catch {
+        /* ignore */
+      }
+    }
     _supabase = createClient(url, anonKey, {
       global: { fetch: fetchForSupabase },
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: !onAuthCallback,
+        detectSessionInUrl: !onAuthCallback && !spaOAuthCodeBounce,
         /**
          * PKCE: в redirect уходит ?code=… (query).
          * Implicit (#access_token) на Android в updown:// не доходит — ОС отрезает hash.

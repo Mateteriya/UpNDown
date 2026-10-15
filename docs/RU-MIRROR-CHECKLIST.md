@@ -13,29 +13,10 @@
 
 ## Добить сейчас
 
-### 1. Google Authorized JavaScript origins
+### 1–2. Google origins + вход без VPN — ✅ (2026-10-14)
 
-1. [Google Cloud Console](https://console.cloud.google.com/) → нужный проект.  
-2. **APIs & Services** → **Credentials** → OAuth 2.0 Client (**Web**).  
-3. В **Authorized JavaScript origins** добавить (не удаляя старые):
-   - `https://up2down.ru`
-   - `https://www.up2down.ru`
-4. **Authorized redirect URIs** — по-прежнему только callback Supabase  
-   (`https://….supabase.co/auth/v1/callback`), не `auth-callback.html` игры.  
-5. Save.
-
-### 2. Вход без VPN (инкогнито)
-
-С `https://up2down.ru` (без www), VPN выкл.:
-
-| Провайдер | Ок? | Заметка |
-|-----------|-----|---------|
-| Яндекс | ☐ | |
-| VK ID · Mail.ru | ☐ | |
-| Google | ☐ | если нет — п.1 |
-| GitHub | ☐ | |
-
-После успеха: кабинет / имя / аватар на месте.
+Проверено на `https://up2down.ru`: Яндекс, VK, Google, GitHub.  
+Origins в Cloud Console: `https://up2down.ru` + `https://www.up2down.ru`.
 
 **Если зависает «Завершение входа…» / «Обмен кода…» уже на `up2down.ru` (без www):**  
 1. **PWA bug (было в HAR):** SW `NavigationRoute` подменял `auth-callback.html` на `index.html` (грузился `main-*.js`, **не было** `POST …/vk-oauth-exchange`). Лечится сборкой с `scripts/patch-sw-auth-callback.mjs` + заливка `dist` + **удалить данные сайта** / Incognito.  

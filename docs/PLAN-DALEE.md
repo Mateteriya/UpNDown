@@ -106,8 +106,8 @@
 | 1b.1 | SpaceWeb + `up2down.ru` + SSL + заливка `dist` | ✅ |
 | 1b.2 | Supabase Redirect URLs + VK/Яндекс домены | ✅ |
 | 1b.3 | www → без www (`.htaccess`) | ✅ |
-| 1b.4 | Google Authorized JS origins (`up2down.ru` + www) | 🔲 проверить в Cloud Console |
-| 1b.5 | Чеклист входа без VPN (Яндекс, VK, Google, GitHub) | 🔲 [RU-MIRROR-CHECKLIST.md](./RU-MIRROR-CHECKLIST.md) |
+| 1b.4 | Google Authorized JS origins (`up2down.ru` + www) | ✅ |
+| 1b.5 | Чеклист входа без VPN (Яндекс, VK, Google, GitHub) | ✅ (2026-10-14) |
 | 1b.6 | Памятка двойного деплоя (Vercel + SpaceWeb) | ✅ см. чеклист |
 | 1b.7 | CI / скрипт заливки на SpaceWeb | ⏸ позже |
 

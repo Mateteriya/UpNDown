@@ -1,0 +1,85 @@
+/**
+ * Юг / оппоненты: ★ NW, имя NE, плашка инициалов снизу.
+ * Подключать последним в main.tsx (после user-south-panel.css).
+ */
+
+.game-table-root .south-av-chrome,
+.game-table-root .opp-av-chrome {
+  position: relative;
+  display: block;
+  line-height: 0;
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.game-table-root .south-av-stars,
+.game-table-root .opp-av-stars {
+  position: absolute;
+  top: -2px;
+  left: -4px;
+  z-index: 6;
+  pointer-events: none;
+  line-height: 0;
+}
+
+.game-table-root .south-av-stars .stars-badge,
+.game-table-root .opp-av-stars .stars-badge {
+  transform: scale(0.92);
+  transform-origin: top left;
+  pointer-events: none;
+}
+
+.game-table-root.viewport-mobile .south-av-stars .stars-badge,
+.game-table-root.viewport-mobile .opp-av-stars .stars-badge {
+  transform: scale(0.82);
+}
+
+/* ПК / tablet-shell: стек = только аватар; имя absolute NE */
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-avatar-name-stack {
+  display: block;
+  position: relative;
+  width: fit-content;
+  overflow: visible;
+}
+
+.game-table-root:not(.viewport-mobile) .user-player-panel .user-player-panel-pc-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  overflow: visible;
+}
+
+.game-table-root:not(.viewport-mobile) .user-player-panel .south-av-name {
+  position: absolute;
+  top: 2px;
+  right: -8px;
+  z-index: 8;
+  max-width: min(180px, 42vw);
+}
+
+.game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .south-av-name
+  .user-player-panel-pc-name-under-avatar {
+  margin: 0;
+}
+
+/* Моб. Юг: имя на аватаре NE */
+.game-table-root.viewport-mobile .game-mobile-user-south-avatar-stack,
+.game-table-root.viewport-mobile .user-player-panel-south-landscape-avatar-reserve {
+  position: relative;
+  overflow: visible;
+}
+
+.game-table-root.viewport-mobile .south-av-name--mobile,
+.game-table-root.viewport-mobile .south-av-name--landscape {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  z-index: 8;
+  max-width: min(140px, 46vw);
+  transform: translateX(40%);
+}
+
+.game-table-root.viewport-mobile .south-av-name--landscape {
+  max-width: min(120px, 40vw);
+}

@@ -12,8 +12,7 @@ import { supabase } from './supabase';
 
 export const NATIVE_AUTH_CALLBACK = 'updown://auth-callback';
 
-/** @deprecated мост через прод отключён (VPN). Оставлено для старых ссылок с ud_return. */
-export const PROD_AUTH_BRIDGE = 'https://up2down.online/auth-callback.html';
+/** Параметр LAN-моста: code на прод → увести на локальный auth-callback (см. bounceOAuthPayloadToReturnUrl). */
 export const OAUTH_RETURN_PARAM = 'ud_return';
 
 export function isNativePlatform(): boolean {
@@ -70,11 +69,6 @@ export function bounceWwwToCanonicalHost(): boolean {
 
 /** Куда вернуть после Google — всегда текущий origin (LAN / Vite / прод). Без моста на другой домен. */
 export function getAuthRedirectTo(): string | undefined {
-  return getLocalAuthCallbackUrl();
-}
-
-/** @deprecated не использовать — уводит на прод и VPN. */
-export function getAuthBridgeRedirectTo(): string | undefined {
   return getLocalAuthCallbackUrl();
 }
 

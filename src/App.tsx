@@ -256,7 +256,9 @@ function App() {
       const msg =
         code === 'oauth_client_state_not_found'
           ? 'Яндекс: сбой OAuth state (Supabase). Выполните: node scripts/fix-yandex-custom-provider.mjs'
-          : desc || code
+          : code === 'flow_state_already_used' || /state has already been used/i.test(desc)
+            ? 'Google: код входа уже использован (часто из‑за :5173 ↔ :3001). Войдите снова с того же адреса, где играете (для вечеринки — http://IP:3001/play/), одной вкладкой. В Supabase Redirect URLs должен быть …/play/auth-callback.html'
+            : desc || code
       setRoomFinishedMessage(msg)
       ;['error', 'error_code', 'error_description'].forEach((k) => u.searchParams.delete(k))
       const next = u.pathname + (u.searchParams.toString() ? `?${u.searchParams}` : '') + (u.hash || '#menu')

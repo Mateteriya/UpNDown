@@ -8,18 +8,28 @@ export function StarBrandGlyph({
   className,
   size = 40,
   pulse,
+  hollow,
 }: {
   className?: string;
   size?: number;
   pulse?: boolean;
+  /** 0 ★ — контур без заливки */
+  hollow?: boolean;
 }) {
   const uid = useId().replace(/:/g, '');
   const gCore = `star-core-${uid}`;
   const gRay = `star-ray-${uid}`;
+  const starPath =
+    'M24 4 L28.8 18.2 L44 18.2 L32.1 27.4 L36.6 42 L24 33.2 L11.4 42 L15.9 27.4 L4 18.2 L19.2 18.2 Z';
 
   return (
     <svg
-      className={['star-brand-glyph', pulse ? 'star-brand-glyph--pulse' : '', className]
+      className={[
+        'star-brand-glyph',
+        pulse ? 'star-brand-glyph--pulse' : '',
+        hollow ? 'star-brand-glyph--hollow' : '',
+        className,
+      ]
         .filter(Boolean)
         .join(' ')}
       width={size}
@@ -41,18 +51,37 @@ export function StarBrandGlyph({
           <stop offset="100%" stopColor="#f472b6" stopOpacity="0.15" />
         </linearGradient>
       </defs>
-      <circle className="star-brand-glyph__halo" cx="24" cy="24" r="21" fill={`url(#${gRay})`} />
-      <path
-        className="star-brand-glyph__body"
-        fill={`url(#${gCore})`}
-        d="M24 4 L28.8 18.2 L44 18.2 L32.1 27.4 L36.6 42 L24 33.2 L11.4 42 L15.9 27.4 L4 18.2 L19.2 18.2 Z"
-      />
-      <path
-        className="star-brand-glyph__core"
-        fill="#faf5ff"
-        opacity="0.92"
-        d="M24 14.5 L26.2 21.8 L33.8 21.8 L27.8 26.2 L29.8 33.8 L24 29.8 L18.2 33.8 L20.2 26.2 L14.2 21.8 L21.8 21.8 Z"
-      />
+      {hollow ? (
+        <>
+          <circle
+            className="star-brand-glyph__halo"
+            cx="24"
+            cy="24"
+            r="21"
+            fill={`url(#${gRay})`}
+            opacity="0.35"
+          />
+          <path
+            className="star-brand-glyph__body star-brand-glyph__body--hollow"
+            fill="none"
+            stroke={`url(#${gCore})`}
+            strokeWidth="2.4"
+            strokeLinejoin="round"
+            d={starPath}
+          />
+        </>
+      ) : (
+        <>
+          <circle className="star-brand-glyph__halo" cx="24" cy="24" r="21" fill={`url(#${gRay})`} />
+          <path className="star-brand-glyph__body" fill={`url(#${gCore})`} d={starPath} />
+          <path
+            className="star-brand-glyph__core"
+            fill="#faf5ff"
+            opacity="0.92"
+            d="M24 14.5 L26.2 21.8 L33.8 21.8 L27.8 26.2 L29.8 33.8 L24 29.8 L18.2 33.8 L20.2 26.2 L14.2 21.8 L21.8 21.8 Z"
+          />
+        </>
+      )}
     </svg>
   );
 }
