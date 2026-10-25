@@ -18,6 +18,7 @@ export function parkAuthTokensForOAuthCallback(): void {
     const hasOAuthPayload =
       !!u.searchParams.get('code') ||
       !!hp.get('access_token') ||
+      u.searchParams.get('vk_bridge') === '1' ||
       /vkid|vk_auth|payload=/i.test(u.href);
     if (!hasOAuthPayload) return;
 

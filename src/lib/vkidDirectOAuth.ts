@@ -203,11 +203,6 @@ export async function completeVkidDirectOAuthFromUrl(href: string): Promise<Vkid
   if (typeof access !== 'string' || typeof refresh !== 'string') {
     return { error: new Error('VK exchange: нет access/refresh token') };
   }
-  const { error } = await supabase.auth.setSession({
-    access_token: access,
-    refresh_token: refresh,
-  });
-  if (error) return { error };
 
   let lanFinal = '';
   try {
@@ -216,11 +211,42 @@ export async function completeVkidDirectOAuthFromUrl(href: string): Promise<Vkid
   } catch {
     /* ignore */
   }
+  /**
+   * LAN / .ru hop: НЕ setSession на online — refresh к supabase.co часто
+   * висит (ERR_CONNECTION_CLOSED), страница навечно «Завершение входа…».
+   * Токены кладём в hash целевого auth-callback.
+   */
   if (lanFinal && isSafeLanAuthCallbackUrl(lanFinal)) {
-    return {
-      error: null,
-      lanHop: { url: lanFinal, access_token: access, refresh_token: refresh },
-    };
+    try {
+      const here = typeof window !== 'undefined' ? window.location.origin : '';
+      const destOrigin = new URL(lanFinal).origin;
+      if (here && destOrigin !== here) {
+        return {
+          error: null,
+          lanHop: { url: lanFinal, access_token: access, refresh_token: refresh },
+        };
+      }
+    } catch {
+      return {
+        error: null,
+        lanHop: { url: lanFinal, access_token: access, refresh_token: refresh },
+      };
+    }
+  }
+
+  try {
+    const set = await Promise.race([
+      supabase.auth.setSession({ access_token: access, refresh_token: refresh }),
+      new Promise<{ error: Error }>((resolve) => {
+        window.setTimeout(
+          () => resolve({ error: new Error('VK setSession timeout') }),
+          12_000,
+        );
+      }),
+    ]);
+    if (set.error) return { error: set.error instanceof Error ? set.error : new Error(String(set.error)) };
+  } catch (e) {
+    return { error: e instanceof Error ? e : new Error(String(e)) };
   }
 
   try {
