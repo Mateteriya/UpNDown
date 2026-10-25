@@ -131,6 +131,16 @@
           showErr('Не удалось сохранить PKCE.');
           return;
         }
+        try {
+          document.cookie =
+            PKCE_PREFIX +
+            nonce +
+            '=' +
+            encodeURIComponent(verifier) +
+            '; Max-Age=600; Path=/; Secure; SameSite=Lax';
+        } catch (e2) {
+          /* sessionStorage уже есть */
+        }
 
         var bridge = sb + '/functions/v1/vk-oauth-bridge';
         var vk = new URL('https://id.vk.ru/authorize');
