@@ -11,7 +11,7 @@ import {
 import type { SettlementMode } from '../game/partySettlement';
 import type { DealResult } from '../game/GameEngine';
 import { hasSavedGame } from '../game/persistence';
-import { isFullDealRow, type GatedDealRow } from '../lib/historyAccess';
+import { gateDealHistoryForViewer, isFullDealRow, type GatedDealRow } from '../lib/historyAccess';
 import { useAuth } from '../contexts/AuthContext';
 import {
   getMatchDetail,
@@ -66,16 +66,9 @@ function fillMissingSeatNames(
   }
 }
 
-/** Показать полный срез, если bids есть; light — только уже сжатые в облаке строки. */
-function dealsForViewer(raw: DealResult[]): GatedDealRow[] {
-  return raw.map((d) => {
-    if (Array.isArray(d.bids)) return d;
-    return {
-      dealNumber: d.dealNumber,
-      points: Array.isArray(d.points) ? [...d.points] : [],
-      _light: true as const,
-    };
-  });
+/** Free/premium gate + уже сжатые в облаке строки. */
+function dealsForViewer(raw: DealResult[], userId: string | null): GatedDealRow[] {
+  return gateDealHistoryForViewer(raw, { userId });
 }
 
 function isGenericPlayerLabel(name: string): boolean {
@@ -145,6 +138,8 @@ export type MatchArchiveHubProps = {
   focus?: 'matches' | null;
   /** ПК: раскрыть список партий (капсула «История»). */
   expandList?: boolean;
+  /** Открыть конкретную партию: cloud uuid / local archive id / `cloud:…` / `local:…` */
+  focusMatchRef?: string | null;
   onContinueOffline?: () => void;
   /** Открыть экран «Рейтинг» */
   onOpenRating?: () => void;
@@ -470,8 +465,10 @@ export function MatchArchiveHub({
   configured,
   focus,
   expandList = false,
+  focusMatchRef = null,
   onContinueOffline,
   onOpenRating,
+  onOpenPremium,
 }: MatchArchiveHubProps) {
   const t = useT();
   const { loading: authLoading } = useAuth();
@@ -538,11 +535,11 @@ export function MatchArchiveHub({
   }, [loadFeed]);
 
   useEffect(() => {
-    if (focus === 'matches' || expandList) setListOpen(true);
-    if (focus === 'matches') {
+    if (focus === 'matches' || expandList || focusMatchRef) setListOpen(true);
+    if (focus === 'matches' || focusMatchRef) {
       document.getElementById('lk-archive-hub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, [focus, expandList]);
+  }, [focus, expandList, focusMatchRef]);
 
   const feed: FeedRow[] = useMemo(() => {
     const rows: FeedRow[] = [];
@@ -640,6 +637,25 @@ export function MatchArchiveHub({
       setDetailLoading(false);
     }
   };
+
+  const focusMatchOpened = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusMatchRef || loading || feed.length === 0) return;
+    if (focusMatchOpened.current === focusMatchRef) return;
+    const raw = focusMatchRef.replace(/^(cloud|local):/, '');
+    const row =
+      feed.find((r) => r.key === focusMatchRef) ??
+      feed.find((r) => r.key === `cloud:${raw}`) ??
+      feed.find((r) => r.key === `local:${raw}`) ??
+      feed.find((r) => r.kind === 'cloud' && r.cloud.id === raw) ??
+      feed.find(
+        (r) =>
+          r.kind === 'local' && (r.local.id === raw || r.local.cloudMatchId === raw),
+      );
+    if (!row) return;
+    focusMatchOpened.current = focusMatchRef;
+    void openDetail(row);
+  }, [focusMatchRef, feed, loading]);
 
   useLayoutEffect(() => {
     if (!isMobile || !detailKey || !listOpen) return;
@@ -932,7 +948,7 @@ export function MatchArchiveHub({
                           (!cloudDetail.is_offline && localDetail.source === 'online'))
                       ? localDetail.dealHistory
                       : [];
-                const deals = dealsForViewer(rawDeals);
+                const deals = dealsForViewer(rawDeals, userId);
                 const localOk =
                   localDetail &&
                   ((cloudDetail.is_offline && localDetail.source === 'offline') ||
@@ -950,13 +966,21 @@ export function MatchArchiveHub({
                         humanSlot: youSlot,
                       })
                     : localCols ?? { names: [] as string[], scores: [] as number[] };
+                const hasLight = deals.some((d) => !isFullDealRow(d));
                 return (
-                  <DealHistoryTable
-                    deals={deals}
-                    playerNames={cols.names}
-                    finalScores={cols.scores}
-                    youColumnIndex={youSlot}
-                  />
+                  <>
+                    <DealHistoryTable
+                      deals={deals}
+                      playerNames={cols.names}
+                      finalScores={cols.scores}
+                      youColumnIndex={youSlot}
+                    />
+                    {hasLight && onOpenPremium ? (
+                      <button type="button" className="lk-archive__premium-cta" onClick={onOpenPremium}>
+                        {t('premium.historySoft')}
+                      </button>
+                    ) : null}
+                  </>
                 );
               })()}
             </div>
@@ -998,15 +1022,23 @@ export function MatchArchiveHub({
                 ))}
               </ul>
               {(() => {
-                const deals = dealsForViewer(localDetail.dealHistory);
+                const deals = dealsForViewer(localDetail.dealHistory, userId);
                 const cols = seatColumnsFromLocal(localDetail, deals);
+                const hasLight = deals.some((d) => !isFullDealRow(d));
                 return (
-                  <DealHistoryTable
-                    deals={deals}
-                    playerNames={cols.names}
-                    finalScores={cols.scores}
-                    youColumnIndex={localDetail.humanIndex}
-                  />
+                  <>
+                    <DealHistoryTable
+                      deals={deals}
+                      playerNames={cols.names}
+                      finalScores={cols.scores}
+                      youColumnIndex={localDetail.humanIndex}
+                    />
+                    {hasLight && onOpenPremium ? (
+                      <button type="button" className="lk-archive__premium-cta" onClick={onOpenPremium}>
+                        {t('premium.historySoft')}
+                      </button>
+                    ) : null}
+                  </>
                 );
               })()}
             </div>

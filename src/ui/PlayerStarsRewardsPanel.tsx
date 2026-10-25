@@ -767,10 +767,13 @@ export function PlayerStarsRewardsPanel({
             const desc = milestoneDesc(t, s.id);
             const stateLabel = isOpen
               ? t('cabinet.milestoneOpen')
+              : t('cabinet.milestoneClosed');
+            const stateDetail = isOpen
+              ? stateLabel
               : `${t('cabinet.milestoneClosed')} · ${s.current}/${s.target}`;
             const label = desc
-              ? `${name}. ${kind}. ${stateLabel}. ${desc}`
-              : `${name}. ${kind}. ${stateLabel}`;
+              ? `${name}. ${kind}. ${stateDetail}. ${desc}`
+              : `${name}. ${kind}. ${stateDetail}`;
             return (
               <li key={s.id}>
                 <button
@@ -786,21 +789,24 @@ export function PlayerStarsRewardsPanel({
                     .join(' ')}
                   aria-label={label}
                   aria-pressed={ribbonExpanded && activeId === s.id}
-                  onClick={() => {
+                  onClick={(e) => {
                     if (!panelOpen) setPanelOpen(true);
                     if (!ribbonExpanded) {
                       setRibbonExpanded(true);
                       setActiveId(s.id);
                       onOpenGoal?.(s.id);
+                      (e.currentTarget as HTMLButtonElement).blur();
                       return;
                     }
                     if (activeId === s.id) {
                       setRibbonExpanded(false);
                       setActiveId(null);
+                      (e.currentTarget as HTMLButtonElement).blur();
                       return;
                     }
                     setActiveId(s.id);
                     onOpenGoal?.(s.id);
+                    (e.currentTarget as HTMLButtonElement).blur();
                   }}
                 >
                   <span
@@ -837,9 +843,9 @@ export function PlayerStarsRewardsPanel({
                   </span>
                   <span className="milestones__ribbon-chip-copy">
                     <span className="milestones__ribbon-chip-kind">{kind}</span>
-                    <strong className="milestones__ribbon-chip-name">
+                    <span className="milestones__ribbon-chip-name">
                       <span className="milestones__ribbon-chip-name-text">{name}</span>
-                    </strong>
+                    </span>
                     <em className="milestones__ribbon-chip-state">{stateLabel}</em>
                   </span>
                   <span className="milestones__ribbon-tip" aria-hidden="true">

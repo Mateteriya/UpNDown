@@ -46,19 +46,28 @@ import { MainMenuScreen } from './ui/MainMenuScreen'
 import { ACCOUNT_ROUTE_HASH, isAccountRouteHash } from './lib/accountRoute'
 import { ONLINE_ROUTE_HASH, isOnlineRouteHash } from './lib/onlineRoute'
 import { SUPPORT_ROUTE_HASH, isSupportRouteHash } from './lib/supportRoute'
+import { PREMIUM_ROUTE_HASH, isPremiumRouteHash } from './lib/premiumRoute'
 import { SupportDonatePage } from './ui/SupportDonatePage'
+import { PremiumPage } from './ui/PremiumPage'
 import { LeaderboardPage } from './ui/LeaderboardPage'
 import { RATING_ROUTE_HASH, isRatingRouteHash } from './lib/ratingRoute'
 import { stopNudgeSounds, unlockAudio } from './audio'
 import { useT } from './i18n'
 import { enableFullDevMode, isFullDevModeEnabled, openMusicStudio } from './lib/devAtelier'
+import {
+  authAppReturnHash,
+  clearAuthAppReturn,
+  consumeAuthAppReturn,
+  peekAuthAppReturn,
+  rememberAuthAppReturn,
+} from './lib/nativeAuth'
 
 /** Ленивая загрузка экрана игры: уменьшает начальный бандл и ускоряет первый показ меню; экран игры подгружается при переходе. */
 const GameTable = lazy(() => import('./ui/GameTable'))
 
 const DEFAULT_DISPLAY_NAME = 'Вы'
 
-type AppScreen = 'menu' | 'game' | 'rules' | 'account' | 'online' | 'support' | 'rating'
+type AppScreen = 'menu' | 'game' | 'rules' | 'account' | 'online' | 'support' | 'premium' | 'rating'
 
 function readInitialScreen(): AppScreen {
   if (typeof window === 'undefined') return 'menu'
@@ -67,6 +76,7 @@ function readInitialScreen(): AppScreen {
   if (h === '#rules' || h === '#training') return 'rules'
   if (isAccountRouteHash(h)) return 'account'
   if (isSupportRouteHash(h)) return 'support'
+  if (isPremiumRouteHash(h)) return 'premium'
   if (isRatingRouteHash(h)) return 'rating'
   if (isOnlineRouteHash(h)) return 'online'
   const { code } = applyLanJoinParamsFromUrl()
@@ -79,6 +89,7 @@ function hashForScreen(screen: AppScreen): string {
   if (screen === 'rules') return '#rules'
   if (screen === 'account') return ACCOUNT_ROUTE_HASH
   if (screen === 'support') return SUPPORT_ROUTE_HASH
+  if (screen === 'premium') return PREMIUM_ROUTE_HASH
   if (screen === 'rating') return RATING_ROUTE_HASH
   if (screen === 'online') return ONLINE_ROUTE_HASH
   return '#menu'
@@ -145,8 +156,20 @@ function App() {
     if (typeof window === 'undefined') return false
     return applyLanJoinParamsFromUrl().autojoin === true
   })
-  const [showRegistrationSuccessModal, setShowRegistrationSuccessModal] = useState(false)
-  const [showOAuthSuccessModal, setShowOAuthSuccessModal] = useState(false)
+  const [showRegistrationSuccessModal, setShowRegistrationSuccessModal] = useState(() => {
+    try {
+      return sessionStorage.getItem('updown_from_email_confirm') === '1'
+    } catch {
+      return false
+    }
+  })
+  const [showOAuthSuccessModal, setShowOAuthSuccessModal] = useState(() => {
+    try {
+      return sessionStorage.getItem('updown_from_oauth_redirect') === '1'
+    } catch {
+      return false
+    }
+  })
   const [roomFinishedMessage, setRoomFinishedMessage] = useState<string | null>(null)
   const [onlineResumeMessage, setOnlineResumeMessage] = useState<string | null>(null)
 
@@ -234,18 +257,28 @@ function App() {
       !mayStillRestore &&
       hadOnlineRoomRef.current
     ) {
+      /** «Сменить» со стола: не на главную, пока вход открыт или ждём возврат на #game/#online. */
+      if (showAuthModal) return
+      const pendingRet = authAppReturnHash(peekAuthAppReturn())
+      if (pendingRet === '#game' || (pendingRet != null && isOnlineRouteHash(pendingRet))) return
       setScreen('menu')
     }
     hadOnlineRoomRef.current = false
-  }, [online.status, online.roomId, screen, online.userLeftTemporarily])
+  }, [online.status, online.roomId, screen, online.userLeftTemporarily, showAuthModal])
 
   useEffect(() => {
     if (!roomFinishedMessage) return
-    const t = setTimeout(() => setRoomFinishedMessage(null), 4000)
+    /** OAuth-ошибки длинные — не прятать за 4с (иначе «белая страница и тишина»). */
+    const ms = roomFinishedMessage.length > 80 ? 16_000 : 4_000
+    const t = setTimeout(() => setRoomFinishedMessage(null), ms)
     return () => clearTimeout(t)
   }, [roomFinishedMessage])
 
-  /** OAuth упал на стороне Supabase → редирект на /play/?error=…#menu */
+  /**
+   * OAuth упал на стороне Supabase → /play/?error=…
+   * Частый ложный `flow_state_already_used`: auth-callback уже обменял code,
+   * а Site URL (/play/) ещё раз получает тот же state → страшный тост при живом входе.
+   */
   useEffect(() => {
     if (typeof window === 'undefined') return
     try {
@@ -253,20 +286,62 @@ function App() {
       const code = u.searchParams.get('error_code') || u.searchParams.get('error') || ''
       const desc = (u.searchParams.get('error_description') || '').replace(/\+/g, ' ').trim()
       if (!code && !desc) return
+
+      const scrubUrl = () => {
+        ;['error', 'error_code', 'error_description'].forEach((k) => u.searchParams.delete(k))
+        const next =
+          u.pathname + (u.searchParams.toString() ? `?${u.searchParams}` : '') + (u.hash || '#menu')
+        window.history.replaceState(null, '', next)
+      }
+
+      const flowAlreadyUsed =
+        code === 'flow_state_already_used' || /state has already been used/i.test(desc)
+      let oauthJustOk = false
+      let hasStoredSession = false
+      try {
+        oauthJustOk = sessionStorage.getItem('updown_from_oauth_redirect') === '1'
+      } catch {
+        /* ignore */
+      }
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (!k || !/^sb-[\w-]+-auth-token$/.test(k)) continue
+          const v = localStorage.getItem(k) || ''
+          if (v.length > 40 && /access_token/.test(v)) {
+            hasStoredSession = true
+            break
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+
+      if (flowAlreadyUsed && (oauthJustOk || hasStoredSession)) {
+        scrubUrl()
+        return
+      }
+
       const msg =
         code === 'oauth_client_state_not_found'
           ? 'Яндекс: сбой OAuth state (Supabase). Выполните: node scripts/fix-yandex-custom-provider.mjs'
-          : code === 'flow_state_already_used' || /state has already been used/i.test(desc)
-            ? 'Google: код входа уже использован (часто из‑за :5173 ↔ :3001). Войдите снова с того же адреса, где играете (для вечеринки — http://IP:3001/play/), одной вкладкой. В Supabase Redirect URLs должен быть …/play/auth-callback.html'
+          : flowAlreadyUsed
+            ? 'Вход: код уже использован (повторный клик / другая вкладка). Войдите снова с того же адреса одной вкладкой.'
             : desc || code
       setRoomFinishedMessage(msg)
-      ;['error', 'error_code', 'error_description'].forEach((k) => u.searchParams.delete(k))
-      const next = u.pathname + (u.searchParams.toString() ? `?${u.searchParams}` : '') + (u.hash || '#menu')
-      window.history.replaceState(null, '', next)
+      scrubUrl()
     } catch {
       /* ignore */
     }
   }, [])
+
+  /** Успешный вход после ложного flow_state — убрать тост. */
+  useEffect(() => {
+    if (!user || !roomFinishedMessage) return
+    if (/код уже использован|already been used|flow_state/i.test(roomFinishedMessage)) {
+      setRoomFinishedMessage(null)
+    }
+  }, [user?.id, roomFinishedMessage])
 
   // Модалки при возврате после авторизации (только при живом user)
   useEffect(() => {
@@ -283,6 +358,30 @@ function App() {
       setShowOAuthSuccessModal(true)
     }
   }, [user?.id])
+
+  const authModalWasOpenRef = useRef(false)
+  /** Email-вход со стола/лобби: вернуть screen после закрытия модалки (OAuth — через auth-callback). */
+  useEffect(() => {
+    const wasOpen = authModalWasOpenRef.current
+    authModalWasOpenRef.current = showAuthModal
+    if (!user || showAuthModal || !wasOpen) return
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('updown_from_oauth_redirect') === '1') {
+      return
+    }
+    const retHash = authAppReturnHash(peekAuthAppReturn())
+    if (!retHash || retHash === '#menu') {
+      clearAuthAppReturn()
+      return
+    }
+    consumeAuthAppReturn()
+    try {
+      sessionStorage.removeItem(SUPPRESS_AUTO_OPEN_KEY)
+    } catch {
+      /* ignore */
+    }
+    if (retHash === '#game') setScreen('game')
+    else if (isOnlineRouteHash(retHash)) setScreen('online')
+  }, [user?.id, showAuthModal])
 
   // Вход в аккаунт: только облачный профиль. Локальный гостевой/«Профиль» полностью отключается.
   // Зависимости [user?.id, user?.email ?? '']: у сессии email иногда кратко undefined → снова строка; без ?? эффект дублируется и модалка «Задайте имя…» всплывает снова.
@@ -595,6 +694,26 @@ function App() {
     setScreen('support')
   }, [])
 
+  const premiumReturnScreenRef = useRef<AppScreen>('account')
+
+  const openPremiumPage = useCallback(() => {
+    setUrlJoinCode(null)
+    setScreen((prev) => {
+      if (prev !== 'premium') premiumReturnScreenRef.current = prev
+      return 'premium'
+    })
+  }, [])
+
+  const closePremiumPage = useCallback(() => {
+    const back = premiumReturnScreenRef.current
+    const next: AppScreen = back && back !== 'premium' ? back : 'account'
+    const nextHash = hashForScreen(next)
+    if (window.location.hash !== nextHash) {
+      history.replaceState({ screen: next }, '', nextHash)
+    }
+    setScreen(next)
+  }, [])
+
   const openRatingPage = useCallback(() => {
     setUrlJoinCode(null)
     setScreen((prev) => {
@@ -630,6 +749,11 @@ function App() {
         setScreen('account')
       } else if (isSupportRouteHash(h)) {
         setScreen('support')
+      } else if (isPremiumRouteHash(h)) {
+        setScreen((prev) => {
+          if (prev !== 'premium') premiumReturnScreenRef.current = prev
+          return 'premium'
+        })
       } else if (isRatingRouteHash(h)) {
         setScreen((prev) => {
           if (prev !== 'rating') ratingReturnScreenRef.current = prev
@@ -657,11 +781,13 @@ function App() {
             ? ACCOUNT_ROUTE_HASH
             : screen === 'support'
               ? SUPPORT_ROUTE_HASH
-              : screen === 'rating'
-                ? RATING_ROUTE_HASH
-                : screen === 'online'
-                  ? ONLINE_ROUTE_HASH
-                  : '#menu'
+              : screen === 'premium'
+                ? PREMIUM_ROUTE_HASH
+                : screen === 'rating'
+                  ? RATING_ROUTE_HASH
+                  : screen === 'online'
+                    ? ONLINE_ROUTE_HASH
+                    : '#menu'
     if (window.location.hash !== targetHash) {
       history.pushState({ screen }, '', targetHash)
     }
@@ -693,6 +819,7 @@ function App() {
           }}
           onEditAvatar={openAvatarEditorModal}
           onOpenSignIn={() => {
+            rememberAuthAppReturn()
             setAuthMode('login')
             setShowAuthModal(true)
           }}
@@ -748,7 +875,15 @@ function App() {
       {showAuthModal && (
         <AuthModal
           mode={authMode}
-          onClose={() => setShowAuthModal(false)}
+          onClose={() => {
+            setShowAuthModal(false)
+            /**
+             * Email-вход сам остаётся на текущем screen; OAuth уносит со страницы
+             * и читает return в auth-callback. При закрытии крестиком/фоном —
+             * не оставлять «залипший» #game на следующий вход с меню.
+             */
+            if (!user) clearAuthAppReturn()
+          }}
           onSwitchMode={setAuthMode}
         />
       )}
@@ -805,6 +940,7 @@ function App() {
             void handleResumeOffline()
           }}
           onSignIn={() => {
+            rememberAuthAppReturn()
             setAuthMode('login')
             setShowAuthModal(true)
           }}
@@ -814,18 +950,28 @@ function App() {
           }}
           onOpenSupport={openSupportPage}
           onOpenRating={openRatingPage}
-          onOpenPremium={() => {
-            /* TODO: экран «Подписка / Премиум» */
-            window.location.hash = '#premium';
-          }}
+          onOpenPremium={openPremiumPage}
         />
       )}
       {screen === 'support' && <SupportDonatePage onBack={() => setScreen('menu')} />}
+      {screen === 'premium' && (
+        <PremiumPage
+          onBack={closePremiumPage}
+          onOpenSupport={openSupportPage}
+          onOpenCabinet={() => openAccountCabinet('matches')}
+          onSignIn={() => {
+            rememberAuthAppReturn()
+            setAuthMode('login')
+            setShowAuthModal(true)
+          }}
+        />
+      )}
       {screen === 'rating' && (
         <LeaderboardPage
           onBack={closeRatingPage}
           onGoToMenu={() => setScreen('menu')}
           onSignIn={() => {
+            rememberAuthAppReturn()
             setAuthMode('login')
             setShowAuthModal(true)
           }}
@@ -834,12 +980,30 @@ function App() {
       )}
       {screen === 'online' && (
         <LobbyScreen
-          onBack={() => { setUrlJoinCode(null); setScreen('menu') }}
+          onBack={() => {
+            setUrlJoinCode(null)
+            setUrlLanAutojoin(false)
+            setScreen('menu')
+          }}
           playerName={profile.displayName}
           avatarDataUrl={profile.avatarDataUrl}
           avatarBgColor={profile.avatarBgColor}
           onEditProfile={() => openNameAvatarModal('profile')}
           onOpenAccount={openAccountCabinet}
+          onClearJoinInvite={() => {
+            setUrlJoinCode(null)
+            setUrlLanAutojoin(false)
+            try {
+              const u = new URL(window.location.href)
+              u.searchParams.delete('code')
+              u.searchParams.delete('autojoin')
+              u.searchParams.delete('join')
+              const hash = u.hash.startsWith('#join') ? '' : u.hash
+              window.history.replaceState(null, '', `${u.pathname}${u.search}${hash}`)
+            } catch {
+              /* ignore */
+            }
+          }}
           initialJoinCode={urlJoinCode ?? undefined}
           lanGuestInvite={Boolean(urlJoinCode)}
           lanAutoJoinFromLink={urlLanAutojoin}
@@ -850,8 +1014,9 @@ function App() {
               /* ignore */
             }
             markLobbyUiOpen(false)
-            setUrlJoinCode(null);
-            setScreen('game');
+            setUrlJoinCode(null)
+            setUrlLanAutojoin(false)
+            setScreen('game')
           }}
         />
       )}
@@ -912,6 +1077,14 @@ function App() {
               onSaveDisplayName={(displayName) => {
                 handleNameAvatarConfirm({ displayName, avatarDataUrl: profile.avatarDataUrl });
               }}
+              onSignIn={() => {
+                rememberAuthAppReturn()
+                setAuthMode('login')
+                setShowAuthModal(true)
+              }}
+              acctOrbQuiet={
+                showAuthModal || showOAuthSuccessModal || showRegistrationSuccessModal
+              }
             />
           </Suspense>
           <MobileOverlapHint />

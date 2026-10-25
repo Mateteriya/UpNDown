@@ -24,15 +24,6 @@ import { PlayerAvatar } from './PlayerAvatar';
 
 export type MenuSignedStatus = Extract<MenuIdentityStatus, 'profile' | 'account'>;
 
-const PROFILE_WAVE_TIP_TEXT =
-  'Вы в локальном профиле. Для игр в интернет, сохранения в облаке и рейтинга войдите в аккаунт.';
-
-const ONLINE_STATUS_TIP =
-  'Онлайн: вы вошли в аккаунт. Доступны комнаты в интернет, облачная история и рейтинг.';
-
-const OFFLINE_STATUS_TIP =
-  'Офлайн-профиль: имя и прогресс на этом устройстве. Для онлайна и облака войдите в аккаунт.';
-
 /** Чередование «онлайн» / имя, затем только имя (мс). */
 const ONLINE_LABEL_CYCLE_MS = 8500;
 /** Интервал смены надписи во время чередования (мс). */
@@ -117,6 +108,7 @@ function StatusTip({
   body: string;
   onClose: () => void;
 }) {
+  const t = useT();
   const tipRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
@@ -183,7 +175,7 @@ function StatusTip({
       <button
         type="button"
         className="menu-signed-id__tip-close"
-        aria-label="Закрыть"
+        aria-label={t('common.close')}
         onClick={(e) => {
           e.stopPropagation();
           onClose();
@@ -212,7 +204,8 @@ function AccountStatusBadge({
   badgeRef: RefObject<HTMLSpanElement | null>;
   accountName: string;
 }) {
-  const fullName = accountName.trim() || 'аккаунт';
+  const t = useT();
+  const fullName = accountName.trim() || t('menu.identityAccountShort');
   const settledName =
     fullName.length <= SETTLED_NAME_CHARS ? fullName : fullName.slice(0, SETTLED_NAME_CHARS);
   const settledTruncated = fullName.length > SETTLED_NAME_CHARS;
@@ -236,7 +229,8 @@ function AccountStatusBadge({
     };
   }, [cycling]);
 
-  const label = showOnlineWord && cycling ? 'онлайн' : cycling ? fullName : settledName;
+  const onlineWord = t('menu.identityOnlineWord');
+  const label = showOnlineWord && cycling ? onlineWord : cycling ? fullName : settledName;
   const showFade = !cycling && settledTruncated;
 
   useLayoutEffect(() => {
@@ -281,7 +275,7 @@ function AccountStatusBadge({
       ]
         .filter(Boolean)
         .join(' ')}
-      aria-label={`Онлайн: ${fullName}. Показать пояснение`}
+      aria-label={t('menu.identityOnlineAria', { name: fullName })}
       aria-expanded={tipOpen}
       aria-controls={tipOpen ? tipId : undefined}
       onClick={(e) => {
@@ -296,7 +290,7 @@ function AccountStatusBadge({
         <span className="menu-signed-id__status-dot" />
       </span>
       <span className="menu-signed-id__online-label">
-        <ColorfulOnlineLabel text={label} preserveCase={label !== 'онлайн'} />
+        <ColorfulOnlineLabel text={label} preserveCase={label !== onlineWord} />
         {showFade ? (
           <span className="menu-signed-id__name-fade" aria-hidden>
             <span className="menu-signed-id__name-fade-dot" />
@@ -321,6 +315,7 @@ function ProfileStatusBadge({
   onToggleTip: () => void;
   badgeRef: RefObject<HTMLSpanElement | null>;
 }) {
+  const t = useT();
   return (
     <span
       ref={badgeRef as RefObject<HTMLSpanElement>}
@@ -335,7 +330,7 @@ function ProfileStatusBadge({
       ]
         .filter(Boolean)
         .join(' ')}
-      aria-label="Статус: офлайн-профиль. Показать пояснение"
+      aria-label={t('menu.identityOfflineAria')}
       aria-expanded={tipOpen}
       aria-controls={tipOpen ? tipId : undefined}
       onClick={(e) => {
@@ -364,6 +359,7 @@ function WaveAntenna({
   badgeRef: RefObject<HTMLSpanElement | null>;
   onToggleTip: () => void;
 }) {
+  const t = useT();
   return (
     <span
       ref={badgeRef as RefObject<HTMLSpanElement>}
@@ -375,7 +371,7 @@ function WaveAntenna({
       ]
         .filter(Boolean)
         .join(' ')}
-      aria-label="Подсказка: локальный профиль"
+      aria-label={t('menu.identityProfileHintAria')}
       aria-expanded={tipOpen}
       aria-controls={tipOpen ? tipId : undefined}
       onClick={(e) => {
@@ -433,6 +429,7 @@ function ProfileWaveTip({
   onClose: () => void;
   onOpenCabinet: () => void;
 }) {
+  const t = useT();
   const tipRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
@@ -489,7 +486,7 @@ function ProfileWaveTip({
       id={tipId}
       className="menu-signed-id__tip game-table-tooltip-cosmic"
       role="dialog"
-      aria-label="Локальный профиль"
+      aria-label={t('menu.identityProfileShort')}
       style={
         pos
           ? { top: pos.top, left: pos.left, visibility: 'visible' }
@@ -499,7 +496,7 @@ function ProfileWaveTip({
       <button
         type="button"
         className="menu-signed-id__tip-close"
-        aria-label="Закрыть"
+        aria-label={t('common.close')}
         onClick={(e) => {
           e.stopPropagation();
           onClose();
@@ -508,7 +505,9 @@ function ProfileWaveTip({
       >
         <span aria-hidden>×</span>
       </button>
-      <p className="game-table-tooltip-cosmic-body-text menu-signed-id__tip-text">{PROFILE_WAVE_TIP_TEXT}</p>
+      <p className="game-table-tooltip-cosmic-body-text menu-signed-id__tip-text">
+        {t('menu.identityProfileWaveTip')}
+      </p>
       <button
         type="button"
         className="menu-signed-id__tip-cta"
@@ -518,7 +517,7 @@ function ProfileWaveTip({
         }}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <span className="menu-signed-id__tip-cta__label">войти в кабинет</span>
+        <span className="menu-signed-id__tip-cta__label">{t('menu.identityOpenCabinetCta')}</span>
       </button>
     </div>,
     document.body,
@@ -676,8 +675,8 @@ export function MenuSignedIdentityMark({
         <StatusTip
           tipId={statusTipId}
           anchorRef={statusRef}
-          title={isAccount ? 'Онлайн' : 'Офлайн'}
-          body={isAccount ? ONLINE_STATUS_TIP : OFFLINE_STATUS_TIP}
+          title={isAccount ? t('menu.identityOnlineTitle') : t('menu.identityOfflineTitle')}
+          body={isAccount ? t('menu.identityOnlineStatusTip') : t('menu.identityOfflineStatusTip')}
           onClose={closeStatusTip}
         />
       ) : null}

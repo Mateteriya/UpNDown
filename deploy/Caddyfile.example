@@ -1,12 +1,13 @@
 # Пример Caddy для игрового WS (TLS + reverse_proxy).
-# Подставьте свой домен и перезагрузите: sudo systemctl reload caddy
+# Канон продукта: game.up2down.online → см. docs/TECH-DIRECTOR-WS-1PAGE.md
+# Перезагрузка: sudo systemctl reload caddy
 #
 # Проверка:
-#   curl -s https://game.example.com/api/health
-#   curl -s https://game.example.com/api/version
-# Клиент (Vercel): VITE_WS_URL=wss://game.example.com
+#   curl -s https://game.up2down.online/api/health
+#   curl -s https://game.up2down.online/api/ready
+# Клиент: VITE_WS_URL=wss://game.up2down.online
 
-game.example.com {
+game.up2down.online {
 	encode gzip
 	reverse_proxy 127.0.0.1:3001
 }

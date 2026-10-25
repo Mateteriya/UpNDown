@@ -14,6 +14,7 @@ import {
   type MilestoneId,
   type MilestoneStatus,
 } from '../game/playerMilestones';
+import { loadPlayerRecords } from '../game/playerRecords';
 import { AVATAR_EDITOR_FRAMES, type AvatarFrameId } from '../lib/avatarEditorFrames';
 import { isMilestoneCosmeticPremiumEnabled } from '../lib/featureFlags';
 import { useT, type TFunc } from '../i18n';
@@ -36,6 +37,14 @@ export function milestoneTitle(t: TFunc, id: MilestoneId): string {
       return t('cabinet.milestoneEloExpert');
     case 'style_formed':
       return t('cabinet.milestoneStyleFormed');
+    case 'party_300':
+      return t('cabinet.milestoneParty300');
+    case 'party_400':
+      return t('cabinet.milestoneParty400');
+    case 'party_500':
+      return t('cabinet.milestoneParty500');
+    case 'exact_deal_10':
+      return t('cabinet.milestoneExactDeal10');
     case 'gold_frame_premium':
       return t('cabinet.milestoneGoldFrame');
     case 'saturn_premium':
@@ -115,6 +124,14 @@ export function rewardLabel(t: TFunc, status: MilestoneStatus): string {
       return t('cabinet.milestoneRewardEloExpert');
     case 'styleFormed':
       return t('cabinet.milestoneRewardStyleFormed');
+    case 'party300':
+      return t('cabinet.milestoneRewardParty300');
+    case 'party400':
+      return t('cabinet.milestoneRewardParty400');
+    case 'party500':
+      return t('cabinet.milestoneRewardParty500');
+    case 'exactDeal10':
+      return t('cabinet.milestoneRewardExactDeal10');
     case 'goldFrame':
       return t('cabinet.milestoneRewardGoldFrame');
     case 'saturn':
@@ -273,17 +290,25 @@ export function useFeaturedMilestones(opts: {
   const profileId = getPlayerProfile().profileId ?? '';
   const premiumOk = isMilestoneCosmeticPremiumEnabled(userId);
 
-  const statuses = useMemo(
-    () =>
-      evaluateMilestones({
-        bestExactStreak: skillView.bestExactStreak,
-        exactDeals: skillView.rating.exactDeals,
-        onlineWins,
-        elo,
-        style: skillView.style,
-      }),
-    [skillView.bestExactStreak, skillView.rating.exactDeals, skillView.style, onlineWins, elo],
-  );
+  const statuses = useMemo(() => {
+    const rec = loadPlayerRecords(profileId);
+    return evaluateMilestones({
+      bestExactStreak: skillView.bestExactStreak,
+      exactDeals: skillView.rating.exactDeals,
+      onlineWins,
+      elo,
+      style: skillView.style,
+      bestPartyScore: rec.bestPartyScore,
+      exactDeal10Count: rec.exactDeal10Count,
+    });
+  }, [
+    skillView.bestExactStreak,
+    skillView.rating.exactDeals,
+    skillView.style,
+    onlineWins,
+    elo,
+    profileId,
+  ]);
 
   const featured = useMemo(() => featuredMilestoneStatuses(statuses), [statuses]);
   const [store, setStore] = useState<AchievementsStore>(() => ({ unlocked: {}, seen: {} }));

@@ -1,10 +1,19 @@
 /**
  * LAN: подхватить корневой .env.local (и server/.env), без утечки в Vite-бандл.
  * В браузер попадают только VITE_*; SUPABASE_SERVICE_ROLE_KEY остаётся в Node.
+ *
+ * Prod (`NODE_ENV=production` / `UPDOWN_MODE=prod`): файлы .env* не читаем —
+ * только systemd EnvironmentFile / явный env (как на VPS).
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+function isProdProfile(): boolean {
+  const mode = (process.env.UPDOWN_MODE ?? '').trim().toLowerCase();
+  if (mode === 'prod' || mode === 'production') return true;
+  return (process.env.NODE_ENV ?? '').trim().toLowerCase() === 'production';
+}
 
 function applyEnvFile(filePath: string): void {
   if (!existsSync(filePath)) return;
@@ -34,22 +43,24 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..');
 const serverDir = join(here, '..');
 
-applyEnvFile(join(repoRoot, '.env'));
-applyEnvFile(join(repoRoot, '.env.local'));
-applyEnvFile(join(serverDir, '.env'));
+if (!isProdProfile()) {
+  applyEnvFile(join(repoRoot, '.env'));
+  applyEnvFile(join(repoRoot, '.env.local'));
+  applyEnvFile(join(serverDir, '.env'));
 
-/** LAN-хост / клуб: до 22 столов с одного IP. Не перебиваем явный .env. */
-const lanDefaults: Record<string, string> = {
-  WS_MAX_ROOMS: '22',
-  WS_MAX_ROOMS_PER_IP: '22',
-  WS_CREATE_PER_MIN: '40',
-};
-for (const [key, val] of Object.entries(lanDefaults)) {
-  const cur = process.env[key];
-  if (cur === undefined || cur.trim() === '') process.env[key] = val;
-}
+  /** LAN-хост / клуб: до 22 столов с одного IP. Не перебиваем явный .env. */
+  const lanDefaults: Record<string, string> = {
+    WS_MAX_ROOMS: '22',
+    WS_MAX_ROOMS_PER_IP: '22',
+    WS_CREATE_PER_MIN: '40',
+  };
+  for (const [key, val] of Object.entries(lanDefaults)) {
+    const cur = process.env[key];
+    if (cur === undefined || cur.trim() === '') process.env[key] = val;
+  }
 
-if (!(process.env.SUPABASE_URL ?? '').trim()) {
-  const fromVite = (process.env.VITE_SUPABASE_URL ?? '').trim();
-  if (fromVite) process.env.SUPABASE_URL = fromVite;
+  if (!(process.env.SUPABASE_URL ?? '').trim()) {
+    const fromVite = (process.env.VITE_SUPABASE_URL ?? '').trim();
+    if (fromVite) process.env.SUPABASE_URL = fromVite;
+  }
 }

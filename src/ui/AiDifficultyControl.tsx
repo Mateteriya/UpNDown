@@ -150,11 +150,11 @@ export function AiDifficultyControl({
   const popoverInner = (
     <>
       <div className="ai-difficulty-popover-head">
-        <div className="ai-difficulty-popover-title">Боты за столом</div>
+        <div className="ai-difficulty-popover-title">{t('ai.botsAtTable')}</div>
         <button
           type="button"
           className="ai-difficulty-popover-dismiss"
-          aria-label="Закрыть"
+          aria-label={t('common.close')}
           onClick={(e) => {
             e.stopPropagation();
             close();
@@ -211,7 +211,7 @@ export function AiDifficultyControl({
           className="ai-difficulty-popover ai-difficulty-popover--portal-mobile ai-difficulty-popover-layer"
           style={{ top: popoverPos.top, left: popoverPos.left }}
           role="dialog"
-          aria-label="Уровень сложности ИИ"
+          aria-label={t('ai.levelDialog')}
           onPointerDown={(e) => e.stopPropagation()}
         >
           {popoverInner}
@@ -223,7 +223,7 @@ export function AiDifficultyControl({
         ref={popoverRef}
         className="ai-difficulty-popover"
         role="dialog"
-        aria-label="Уровень сложности ИИ"
+        aria-label={t('ai.levelDialog')}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {popoverInner}

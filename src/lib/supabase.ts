@@ -3,12 +3,15 @@
  * Требует VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY в .env.local
  */
 
+/** До createClient: LAN http://IP без crypto.subtle → иначе PKCE plain → 404. */
+import './polyfillCryptoSubtle';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   SUPABASE_AUTH_REFRESH_TIMEOUT_MS,
   SUPABASE_AUTH_TIMEOUT_MS,
   SUPABASE_REST_TIMEOUT_MS,
 } from './networkTimeouts';
+import { parkAuthTokensForOAuthCallback } from './authTokenPark';
 
 function abortReason(message: string): DOMException {
   return new DOMException(message, 'AbortError');
@@ -143,15 +146,29 @@ try {
      */
     const path = typeof window !== 'undefined' ? window.location.pathname || '' : '';
     const onAuthCallback = /auth-callback\.html/i.test(path);
+    /**
+     * До createClient: убрать старую сессию с пути callback+code,
+     * иначе _initialize → refresh держит lock и exchange «висит» минутами.
+     */
+    if (typeof window !== 'undefined' && onAuthCallback) {
+      parkAuthTokensForOAuthCallback();
+    }
     let spaOAuthCodeBounce = false;
     if (typeof window !== 'undefined' && !onAuthCallback) {
       try {
         const u = new URL(window.location.href);
         const code = (u.searchParams.get('code') || '').trim();
-        const isRoomJoin = u.searchParams.get('autojoin') === '1';
-        const isAuthUuid =
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(code);
-        if (code && isAuthUuid && !isRoomJoin && !u.searchParams.get('error')) {
+        const isRoomJoin =
+          u.searchParams.get('autojoin') === '1' || u.searchParams.get('join') === '1';
+        /**
+         * Комната LAN: 4–8 символов A–Z2–9 (без I/O/0/1).
+         * OAuth (Google UUID / Яндекс) — длиннее или с дефисами → auth-callback.
+         * Раньше bounce только для UUID → Яндекс оставался на /play/ → flow_state_already_used.
+         */
+        const isRoomCode = /^[A-HJ-NP-Z2-9]{4,8}$/i.test(code);
+        const looksLikeOAuthCode =
+          !!code && !isRoomJoin && !u.searchParams.get('error') && !isRoomCode;
+        if (looksLikeOAuthCode) {
           const destPath = path.startsWith('/play')
             ? '/play/auth-callback.html'
             : '/auth-callback.html';
@@ -168,7 +185,9 @@ try {
       global: { fetch: fetchForSupabase },
       auth: {
         persistSession: true,
-        autoRefreshToken: true,
+        /* На callback не авто-refresh: не конкурировать с exchangeCodeForSession. */
+        autoRefreshToken: !onAuthCallback,
+        /* На SPA с ?code= oauth — никогда не детектить: только auth-callback. */
         detectSessionInUrl: !onAuthCallback && !spaOAuthCodeBounce,
         /**
          * PKCE: в redirect уходит ?code=… (query).

@@ -29,13 +29,17 @@ import { clearLocalAccountAvatarCache } from '../lib/profileSync';
 import { authDebug, authDebugProbeSetItem, authDebugStorageSnapshot } from '../lib/authDebug';
 import { isBrowserOffline, shouldSkipCloudBootWait } from '../lib/offlineReady';
 import {
+  clearOAuthSessionBackup,
   completeNativeAuthFromUrl,
   getAuthRedirectTo,
+  getEmailConfirmRedirectTo,
   isAuthCallbackUrl,
   isNativePlatform,
   oauthAuthorizeUsesExpectedRedirect,
   oauthRedirectRejectedError,
   openAuthProviderUrl,
+  readOAuthSessionBackup,
+  rememberAuthAppReturn,
   rememberOAuthReturnTo,
 } from '../lib/nativeAuth';
 import { subscribeNativeJoinUrls } from '../lib/nativeDeepLink';
@@ -46,8 +50,18 @@ interface AuthContextValue {
   loading: boolean;
   configured: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: Error | null; needsEmailConfirm?: boolean }>;
   signInWithOAuth: (provider: AppOAuthProvider) => Promise<{ error: Error | null }>;
+  /** Смена / первичная установка пароля (email). currentPassword — если в Dashboard включён Require current password. */
+  changePassword: (
+    newPassword: string,
+    currentPassword?: string,
+  ) => Promise<{ error: Error | null }>;
+  /** Есть ли у пользователя identity email (пароль можно менять / уже задан). */
+  hasEmailPassword: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -92,6 +106,25 @@ function accessStillFresh(session: Session | null | undefined, skewMs = 20_000):
   const exp = session.expires_at;
   if (typeof exp !== 'number') return true;
   return exp * 1000 > Date.now() + skewMs;
+}
+
+/** Синхронно из localStorage — без auth-lock (если getSession завис на refresh). */
+function readStoredAuthSession(): Session | null {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !/^sb-[\w-]+-auth-token$/.test(k)) continue;
+      const raw = localStorage.getItem(k);
+      if (!raw || raw.length < 40) continue;
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const s = (parsed?.currentSession ?? parsed?.session ?? parsed) as Session | null;
+      if (s?.access_token && s.user?.id) return s;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 /** Только ключи storage — без signOut (он шлёт SIGNED_OUT и может снести живую сессию). */
@@ -263,6 +296,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authDebug('AuthProvider boot', authDebugStorageSnapshot());
     authDebugProbeSetItem('boot');
 
+    const cachedBoot = readStoredAuthSession();
+    /* Даже «протухший» access — сразу в UI; refresh догонит (иначе 1–30с «гость» при живом token). */
+    if (cachedBoot?.user?.id) {
+      authDebug('session.hydrate from storage', {
+        userId: cachedBoot.user.id,
+        fresh: accessStillFresh(cachedBoot, -60_000),
+      });
+      sessionRef.current = cachedBoot;
+      setSession(cachedBoot);
+      setLoading(false);
+      settled = true;
+    }
+
     const applySession = (next: Session | null | undefined, stopLoading = true, via = 'finish') => {
       if (cancelled) return;
       const prev = sessionRef.current;
@@ -386,8 +432,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       finish(nextSession, true, `onAuthStateChange:${event}`);
     });
 
-    client.auth
-      .getSession()
+    const restoreOAuthBackupOnce = async (via: string): Promise<boolean> => {
+      const fromLs = readStoredAuthSession();
+      if (fromLs?.user?.id) {
+        clearOAuthSessionBackup();
+        finish(fromLs, true, `storage:${via}`);
+        return true;
+      }
+      const backup = readOAuthSessionBackup({ consume: false });
+      if (!backup) return false;
+      authDebug(`oauth.backup.restore ← ${via}`);
+      try {
+        const { data, error } = await withTimeout(
+          client.auth.setSession({
+            access_token: backup.access_token,
+            refresh_token: backup.refresh_token,
+          }),
+          8_000,
+          'oauth.backup.setSession',
+        );
+        if (cancelled) return false;
+        if (error || !data.session) {
+          authDebug('oauth.backup.restore failed', { error: error?.message });
+          return false;
+        }
+        clearOAuthSessionBackup();
+        finish(data.session, true, `oauth.backup:${via}`);
+        return true;
+      } catch (e) {
+        authDebug('oauth.backup.restore threw', {
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return false;
+      }
+    };
+
+    void withTimeout(client.auth.getSession(), 6_000, 'getSession')
       .then(async ({ data: { session: next }, error }) => {
         if (cancelled) return;
         if (error) {
@@ -400,13 +480,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         /* Сеть/таймаут: не логинимся в ноль — оставляем то, что было / bootTimer. */
         if (error && isTransientAuthError(error)) {
-          finish(next ?? undefined, true, 'getSession.transient');
+          finish(next ?? readStoredAuthSession() ?? undefined, true, 'getSession.transient');
           return;
         }
         if (error && isDeadRefreshTokenError(error)) {
           freeStoragePressureForAuth('getSession.deadRefresh');
           try {
-            const retry = await client.auth.getSession();
+            const retry = await withTimeout(client.auth.getSession(), 4_000, 'getSession.retry');
             if (cancelled) return;
             if (!retry.error && retry.data.session) {
               authDebug('getSession retry OK after freeStorage');
@@ -426,6 +506,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           finish(null, true, 'getSession.wipe');
           return;
         }
+        if (!next) {
+          const fromLs = readStoredAuthSession();
+          if (fromLs?.user?.id) {
+            clearOAuthSessionBackup();
+            finish(fromLs, true, 'getSession.storage');
+            return;
+          }
+          if (await restoreOAuthBackupOnce('getSession')) return;
+        } else {
+          clearOAuthSessionBackup();
+        }
         finish(next, true, 'getSession');
       })
       .catch(async (err) => {
@@ -435,30 +526,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           deadRefresh: isDeadRefreshTokenError(err),
           transient: isTransientAuthError(err),
         });
-        if (isTransientAuthError(err)) {
+        const fromLs = readStoredAuthSession();
+        if (fromLs?.user?.id) {
+          finish(fromLs, true, 'getSession.catch.storage');
+          return;
+        }
+        if (isTransientAuthError(err) || /timed out/i.test(errMessage(err))) {
+          if (await restoreOAuthBackupOnce('getSession.catch')) return;
           finish(undefined, true, 'getSession.catch.transient');
           return;
         }
         if (isDeadRefreshTokenError(err)) {
           freeStoragePressureForAuth('getSession.catch.deadRefresh');
-          try {
-            const retry = await client.auth.getSession();
-            if (cancelled) return;
-            if (!retry.error && retry.data.session) {
-              finish(retry.data.session, true, 'getSession.catch.retry');
-              return;
-            }
-          } catch {
-            /* fall through */
-          }
           wipeAuthStorageKeys('getSession.catch.deadRefresh');
           finish(null, true, 'getSession.catch.wipe');
           return;
         }
+        if (await restoreOAuthBackupOnce('getSession.catch')) return;
         finish(undefined, true, 'getSession.catch');
       });
     /* Офлайн / LAN-party / висящий refresh: не держим весь UI в loading */
-    const bootMs = shouldSkipCloudBootWait() ? AUTH_BOOT_OFFLINE_MS : AUTH_BOOT_TIMEOUT_MS;
+    const bootMs = cachedBoot
+      ? Math.max(AUTH_BOOT_OFFLINE_MS, 1_200)
+      : shouldSkipCloudBootWait()
+        ? AUTH_BOOT_OFFLINE_MS
+        : AUTH_BOOT_TIMEOUT_MS;
     if (isBrowserOffline()) {
       try {
         client.auth.stopAutoRefresh();
@@ -466,7 +558,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         /* ignore */
       }
     }
-    const bootTimer = window.setTimeout(() => finish(undefined, true, 'bootTimer'), bootMs);
+    const bootTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      if (sessionRef.current) {
+        finish(undefined, true, 'bootTimer.already');
+        return;
+      }
+      const fromLs = readStoredAuthSession();
+      if (fromLs?.user?.id) {
+        finish(fromLs, true, 'bootTimer.storage');
+        return;
+      }
+      void restoreOAuthBackupOnce('bootTimer').then((ok) => {
+        if (!ok && !cancelled) finish(undefined, true, 'bootTimer');
+      });
+    }, bootMs);
 
     const onOnline = () => {
       try {
@@ -586,15 +692,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = useCallback(async (email: string, password: string) => {
     if (!supabase) return { error: new Error('Supabase не настроен') };
     const client = supabase;
-    const emailRedirectTo = getAuthRedirectTo();
+    /** Письмо должно вести на SPA (/play/), не на oauth auth-callback. */
+    const emailRedirectTo = getEmailConfirmRedirectTo() || getAuthRedirectTo();
+    rememberAuthAppReturn();
     freeStoragePressureForAuth('signUp.prep');
+    authDebug('signUp', { emailRedirectTo: emailRedirectTo ?? null });
     const doSignUp = () =>
       client.auth.signUp({
         email,
         password,
         options: emailRedirectTo ? { emailRedirectTo } : undefined,
       });
-    const run = async (): Promise<{ error: Error | null }> => {
+    const interpret = (data: {
+      session: Session | null;
+      user: User | null;
+    }): { error: Error | null; needsEmailConfirm?: boolean } => {
+      /* Supabase: повторная регистрация → user без identities (анти-enumeration). */
+      const identities = data.user?.identities;
+      if (data.user && Array.isArray(identities) && identities.length === 0) {
+        return {
+          error: new Error(
+            'Этот email уже зарегистрирован. Войдите или восстановите пароль. Если письма не было — войдите через Google/Яндекс.',
+          ),
+        };
+      }
+      if (data.session) {
+        setSession(data.session);
+        return { error: null, needsEmailConfirm: false };
+      }
+      return { error: null, needsEmailConfirm: true };
+    };
+    const run = async (): Promise<{ error: Error | null; needsEmailConfirm?: boolean }> => {
       try {
         const first = await doSignUp();
         if (first.error && (isDeadRefreshTokenError(first.error) || isTransientAuthError(first.error))) {
@@ -602,20 +730,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           freeStoragePressureForAuth('signUp.retry');
           const retry = await doSignUp();
           if (retry.error) return { error: mapAuthOpError(retry.error) };
-          if (retry.data.session) setSession(retry.data.session);
-          return { error: null };
+          return interpret(retry.data);
         }
         if (first.error) return { error: mapAuthOpError(first.error) };
-        if (first.data.session) setSession(first.data.session);
-        return { error: null };
+        return interpret(first.data);
       } catch (e) {
         if (isQuotaExceededError(e)) {
           freeStoragePressureForAuth('signUp.quota');
           try {
             const retry = await doSignUp();
             if (retry.error) return { error: mapAuthOpError(retry.error) };
-            if (retry.data.session) setSession(retry.data.session);
-            return { error: null };
+            return interpret(retry.data);
           } catch (e2) {
             return { error: mapAuthOpError(e2) };
           }
@@ -632,6 +757,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithOAuth = useCallback(async (provider: AppOAuthProvider) => {
     if (!supabase) return { error: new Error('Supabase не настроен') };
+    /** Стол/лобби до IdP — auth-callback вернёт сюда, не на голую главную. */
+    rememberAuthAppReturn();
     /** Только текущий origin — без ухода на up2down.online (VPN). */
     const redirectTo = getAuthRedirectTo();
     rememberOAuthReturnTo(redirectTo);
@@ -712,6 +839,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const changePassword = useCallback(
+    async (newPassword: string, currentPassword?: string) => {
+      const client = supabase;
+      if (!client) return { error: new Error('Supabase не настроен') };
+      const attrs: {
+        password: string;
+        current_password?: string;
+      } = { password: newPassword };
+      const cur = currentPassword?.trim();
+      if (cur) attrs.current_password = cur;
+      try {
+        const { error } = await withTimeout(
+          client.auth.updateUser(attrs as Parameters<typeof client.auth.updateUser>[0]),
+          SUPABASE_AUTH_SIGNIN_BUDGET_MS,
+          'changePassword',
+        );
+        if (error) return { error: mapAuthOpError(error) };
+        return { error: null };
+      } catch (e) {
+        return { error: mapAuthOpError(e) };
+      }
+    },
+    [],
+  );
+
+  const hasEmailPassword = Boolean(
+    session?.user?.identities?.some((i) => i.provider === 'email'),
+  );
+
   const signOut = useCallback(async () => {
     authDebug('signOut() explicit', {
       stack: new Error().stack?.split('\n').slice(0, 10),
@@ -769,6 +925,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signUp,
     signInWithOAuth,
+    changePassword,
+    hasEmailPassword,
     signOut,
   };
 

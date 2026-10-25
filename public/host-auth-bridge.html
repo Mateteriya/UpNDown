@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Up&amp;Down · auth bridge</title>
+<style>
+  html, body { margin: 0; background: transparent; color: transparent; }
+  body { font: 12px/1.3 system-ui, sans-serif; padding: 8px; }
+  /* Видно только если открыли вкладкой вручную */
+  .solo { display: none; color: #e9d5ff; background: #0a0618; min-height: 100dvh; padding: 24px; }
+  body.is-solo .solo { display: block; }
+  a { color: #67e8f9; }
+</style>
+</head>
+<body>
+<main class="solo">
+  <p>Мост аккаунта для панели хоста. Откройте <a href="./">игру</a> и войдите — панель :3927 подхватит сессию сама.</p>
+  <p id="soloStatus">…</p>
+</main>
+<script>
+(function () {
+  var SOURCE = 'updown-host-auth-bridge';
+  var PANEL_SOURCE = 'updown-host-panel';
+
+  function parseSession() {
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (!key || !/^sb-[\w-]+-auth-token$/.test(key)) continue;
+        var raw = localStorage.getItem(key);
+        if (!raw) continue;
+        var data = JSON.parse(raw);
+        var session = data && (data.currentSession || data);
+        if (!session || typeof session !== 'object') continue;
+        var user = session.user;
+        var accessToken = typeof session.access_token === 'string' ? session.access_token : '';
+        var userId = user && typeof user.id === 'string' ? user.id : '';
+        if (!userId || !accessToken) continue;
+        var email = user.email && String(user.email);
+        var metaName =
+          (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) || '';
+        var label = (email && email.replace(/@.*$/, '')) || String(metaName || '').trim() || null;
+        return { userId: userId, accessToken: accessToken, label: label };
+      }
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+
+  function report(targetOrigin) {
+    var session = parseSession();
+    var payload = {
+      source: SOURCE,
+      signedIn: !!session,
+      userId: session ? session.userId : null,
+      label: session ? session.label : null,
+      accessToken: session ? session.accessToken : null,
+      at: Date.now(),
+    };
+    var solo = document.getElementById('soloStatus');
+    if (solo) {
+      solo.textContent = session
+        ? ('В аккаунте · ' + (session.label || session.userId.slice(0, 8)))
+        : 'Не в аккаунте';
+    }
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(payload, targetOrigin || '*');
+      }
+    } catch (e) { /* ignore */ }
+    return payload;
+  }
+
+  window.addEventListener('message', function (ev) {
+    var data = ev.data;
+    if (!data || data.source !== PANEL_SOURCE) return;
+    if (data.type === 'ping' || data.type === 'refresh') {
+      report(ev.origin || '*');
+    }
+  });
+
+  if (window.parent === window) {
+    document.body.classList.add('is-solo');
+  }
+
+  report('*');
+  setInterval(function () { report('*'); }, 3500);
+
+  try {
+    window.addEventListener('storage', function () { report('*'); });
+  } catch (e) { /* ignore */ }
+})();
+</script>
+</body>
+</html>

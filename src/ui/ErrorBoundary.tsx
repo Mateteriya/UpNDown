@@ -4,6 +4,7 @@
 
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import { hardReloadPage, resetPwaCacheAndReload } from '../lib/pwaStaleRecovery';
+import { t } from '../i18n';
 
 interface Props {
   children: ReactNode;
@@ -84,7 +85,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 opacity: busy && busy !== 'reload' ? 0.6 : 1,
               }}
             >
-              {busy === 'reload' ? 'Обновляем…' : 'Обновить страницу'}
+              {busy === 'reload' ? t('errorBoundary.reloading') : t('errorBoundary.reload')}
             </button>
             <button
               type="button"
@@ -104,7 +105,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 opacity: busy && busy !== 'reset' ? 0.6 : 1,
               }}
             >
-              {busy === 'reset' ? 'Сбрасываем кэш…' : 'Сбросить кэш приложения'}
+              {busy === 'reset' ? t('errorBoundary.resettingCache') : t('errorBoundary.resetCache')}
             </button>
           </div>
         </div>

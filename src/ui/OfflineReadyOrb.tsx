@@ -23,12 +23,12 @@ import {
   type OfflinePackStatus,
 } from '../lib/warmOfflineAssets';
 import {
-  getIosAddToHomeTip,
   getPwaInstallKind,
   promptPwaInstall,
   subscribePwaInstallAvailability,
   type PwaInstallKind,
 } from '../lib/pwaInstallPrompt';
+import { useT } from '../i18n';
 
 const EXPANDED_LS = 'updown-offline-orb-expanded-v1';
 const DISMISS_READY_LS = 'updown-offline-orb-dismiss-ready-v1';
@@ -554,6 +554,7 @@ function OfflineIdleFabVisual({
 }
 
 export function OfflineReadyOrb() {
+  const t = useT();
   const uid = useId().replace(/:/g, '');
   const [entered, setEntered] = useState(false);
   const [expanded, setExpanded] = useState(readExpanded);
@@ -827,21 +828,21 @@ export function OfflineReadyOrb() {
     const kind = getPwaInstallKind();
     if (kind === 'prompt') {
       const outcome = await promptPwaInstall();
-      if (outcome === 'accepted') setInstallMsg('Ярлык добавлен.');
-      else if (outcome === 'dismissed') setInstallMsg('Установка отменена.');
-      else setInstallMsg('Установка сейчас недоступна в этом браузере.');
+      if (outcome === 'accepted') setInstallMsg(t('offlineOrb.installAccepted'));
+      else if (outcome === 'dismissed') setInstallMsg(t('offlineOrb.installDismissed'));
+      else setInstallMsg(t('offlineOrb.installUnavailable'));
       setInstallKind(getPwaInstallKind());
       return;
     }
     if (kind === 'ios-tip') {
-      setInstallMsg(getIosAddToHomeTip());
+      setInstallMsg(t('offlineOrb.iosSafariTip'));
       return;
     }
     if (kind === 'installed') {
-      setInstallMsg('Ярлык уже установлен — вы в приложении.');
+      setInstallMsg(t('offlineOrb.installAlready'));
       return;
     }
-    setInstallMsg('Браузер не предлагает ярлык здесь. Откройте сайт по HTTPS в Chrome / Safari.');
+    setInstallMsg(t('offlineOrb.installNoPrompt'));
   };
 
   const onDownloadAndInstall = () => {
@@ -858,24 +859,26 @@ export function OfflineReadyOrb() {
   const downloadTitleNode = running ? (
     <span className="offline-orb__panel-title">
       <span className="offline-orb__panel-title-rest">
-        Скачиваем… {cached}/{total}
+        {t('offlineOrb.downloading', { cached, total })}
       </span>
     </span>
   ) : ready ? (
     <span className="offline-orb__panel-title">
-      <span className="offline-orb__panel-title-rest">Офлайн готов · {total} файлов</span>
+      <span className="offline-orb__panel-title-rest">
+        {t('offlineOrb.readyFiles', { total })}
+      </span>
     </span>
   ) : cached > 0 ? (
     <OfflinePanelTitle
-      action="Докачать"
-      rest={` пакет · ${cached}/${total}`}
+      action={t('offlineOrb.resumeAction')}
+      rest={t('offlineOrb.resumeRest', { cached, total })}
       onAction={onDownload}
       disabled={downloadDisabled}
     />
   ) : (
     <OfflinePanelTitle
-      action="Скачать"
-      rest=" игру на устройство"
+      action={t('offlineOrb.downloadAction')}
+      rest={t('offlineOrb.downloadRest')}
       onAction={onDownload}
       disabled={downloadDisabled}
     />
@@ -884,24 +887,24 @@ export function OfflineReadyOrb() {
   const installTitleNode =
     installKind === 'installed' ? (
       <span className="offline-orb__panel-title">
-        <span className="offline-orb__panel-title-rest">Ярлык уже на устройстве</span>
+        <span className="offline-orb__panel-title-rest">{t('offlineOrb.shortcutOnDevice')}</span>
       </span>
     ) : installKind === 'ios-tip' ? (
       <span className="offline-orb__panel-title">
-        <span className="offline-orb__panel-title-rest">Как </span>
+        <span className="offline-orb__panel-title-rest">{t('offlineOrb.iosHowPrefix')}</span>
         <button
           type="button"
           className="offline-orb__title-action"
           onClick={() => void onInstall()}
         >
-          добавить
+          {t('offlineOrb.iosAddAction')}
         </button>
-        <span className="offline-orb__panel-title-rest"> ярлык (iPhone)</span>
+        <span className="offline-orb__panel-title-rest">{t('offlineOrb.iosHowSuffix')}</span>
       </span>
     ) : (
       <OfflinePanelTitle
-        action="Добавить"
-        rest=" ярлык на экран"
+        action={t('offlineOrb.addAction')}
+        rest={t('offlineOrb.addRest')}
         onAction={() => void onInstall()}
       />
     );
@@ -927,12 +930,11 @@ export function OfflineReadyOrb() {
     : running
       ? 'download'
       : 'orb';
-  const fabAria =
-    running
-      ? `Скачивание офлайн-пакета ${pct}% — открыть или перетащить`
-      : ready
-        ? 'Офлайн готов — открыть или перетащить'
-        : 'Играть без интернета — открыть или перетащить';
+  const fabAria = running
+    ? t('offlineOrb.fabRunning', { pct })
+    : ready
+      ? t('offlineOrb.fabReady')
+      : t('offlineOrb.fabIdle');
 
   const showDragHalo = entered && !pinned && !expanded && !dragging;
 
@@ -1031,7 +1033,7 @@ export function OfflineReadyOrb() {
               onPointerDown={onPointerDown}
               aria-expanded={false}
               aria-label={fabAria}
-              title="Перетащите или нажмите"
+              title={t('offlineOrb.dragOrTap')}
             />
           </div>
         ) : (
@@ -1043,7 +1045,7 @@ export function OfflineReadyOrb() {
             onPointerDown={onPointerDown}
             aria-expanded={false}
             aria-label={fabAria}
-            title="Перетащите или нажмите"
+            title={t('offlineOrb.dragOrTap')}
           >
             {showWell ? <OfflineFabWell /> : null}
             <span className="offline-orb__fab-face" aria-hidden />
@@ -1068,15 +1070,15 @@ export function OfflineReadyOrb() {
         )}
         </>
       ) : (
-        <div className="offline-orb__capsule" role="dialog" aria-label="Загрузка на устройство">
+        <div className="offline-orb__capsule" role="dialog" aria-label={t('offlineOrb.dialogAria')}>
           <span className="offline-orb__capsule-shine" aria-hidden />
           <header className="offline-orb__head">
             <button
               type="button"
               className="offline-orb__head-fab"
               onClick={close}
-              aria-label="Свернуть в кнопку офлайна"
-              title="Свернуть"
+              aria-label={t('offlineOrb.collapseToOrb')}
+              title={t('offlineOrb.collapse')}
             >
               {isIdleFab ? (
                 <div className="offline-orb__hybrid offline-orb__hybrid--pulse">
@@ -1133,11 +1135,16 @@ export function OfflineReadyOrb() {
               )}
             </button>
             <div className="offline-orb__head-text">
-              <p className="offline-orb__eyebrow">Для игры без интернета</p>
-              <h2 className="offline-orb__title">Загрузка на устройство</h2>
-              <p className="offline-orb__lead">«Офлайн vs ИИ» всегда доступен.</p>
+              <p className="offline-orb__eyebrow">{t('offlineOrb.eyebrow')}</p>
+              <h2 className="offline-orb__title">{t('offlineOrb.title')}</h2>
+              <p className="offline-orb__lead">{t('offlineOrb.lead')}</p>
             </div>
-            <button type="button" className="offline-orb__close" onClick={close} aria-label="Свернуть">
+            <button
+              type="button"
+              className="offline-orb__close"
+              onClick={close}
+              aria-label={t('offlineOrb.collapse')}
+            >
               ×
             </button>
           </header>
@@ -1167,7 +1174,9 @@ export function OfflineReadyOrb() {
                       .filter(Boolean)
                       .join(' ')}
                     aria-expanded={!!openPanels.download}
-                    aria-label={openPanels.download ? 'Свернуть описание' : 'Развернуть описание'}
+                    aria-label={
+                      openPanels.download ? t('offlineOrb.collapseDesc') : t('offlineOrb.expandDesc')
+                    }
                     onClick={() => togglePanel('download')}
                   >
                     <OfflineExpandHelpGlyph uid={`${uid}-dl-help`} />
@@ -1175,7 +1184,7 @@ export function OfflineReadyOrb() {
                   <button
                     type="button"
                     className="offline-orb__icon-btn offline-orb__icon-btn--go"
-                    aria-label="Скачать игру на устройство"
+                    aria-label={t('offlineOrb.downloadAria')}
                     disabled={downloadDisabled}
                     onClick={onDownload}
                   >
@@ -1191,30 +1200,26 @@ export function OfflineReadyOrb() {
               {openPanels.download ? (
                 <div className="offline-orb__panel-body">
                   {running ? (
-                    <p>Не выключайте интернет</p>
+                    <p>{t('offlineOrb.keepInternet')}</p>
                   ) : blocked ? (
-                    <p>Нужен HTTPS или ярлык с боевого сайта</p>
+                    <p>{t('offlineOrb.needHttps')}</p>
                   ) : (
                     <>
-                      <p>Нужные файлы будут храниться в браузере.</p>
-                      <p className="offline-orb__em">
-                        Важно: очистка cookie / данных сайта для этой игры сбрасывает
-                        офлайн-историю и часть визуала.
-                      </p>
+                      <p>{t('offlineOrb.filesInBrowser')}</p>
+                      <p className="offline-orb__em">{t('offlineOrb.cookieWarning')}</p>
+                      <p>{t('offlineOrb.redownloadHint')}</p>
                       <p>
-                        Если снова скачать игру на устройство — офлайн-режим полностью
-                        восстановится.
-                      </p>
-                      <p>
-                        История офлайн-матчей с устройства при очистке данных сайта{' '}
-                        <strong className="offline-orb__strong">не возвращается</strong>. Для
-                        хранения истории вне устройства играйте через{' '}
+                        {t('offlineOrb.historyClearLead')}{' '}
+                        <strong className="offline-orb__strong">
+                          {t('offlineOrb.historyNotRestored')}
+                        </strong>
+                        . {t('offlineOrb.historyCloudLead')}{' '}
                         <a href={accountRouteHref()} className="offline-orb__link">
-                          вход в аккаунт
+                          {t('offlineOrb.signInLink')}
                         </a>
                         :{' '}
                         <strong className="offline-orb__strong">
-                          партии, доигранные под логином, сохраняются в облаке
+                          {t('offlineOrb.historyCloudSuffix')}
                         </strong>
                         .
                       </p>
@@ -1246,7 +1251,9 @@ export function OfflineReadyOrb() {
                       .filter(Boolean)
                       .join(' ')}
                     aria-expanded={!!openPanels.install}
-                    aria-label={openPanels.install ? 'Свернуть описание' : 'Развернуть описание'}
+                    aria-label={
+                      openPanels.install ? t('offlineOrb.collapseDesc') : t('offlineOrb.expandDesc')
+                    }
                     onClick={() => togglePanel('install')}
                   >
                     <OfflineExpandHelpGlyph uid={`${uid}-in-help`} />
@@ -1254,7 +1261,7 @@ export function OfflineReadyOrb() {
                   <button
                     type="button"
                     className="offline-orb__icon-btn offline-orb__icon-btn--go"
-                    aria-label="Добавить ярлык на экран"
+                    aria-label={t('offlineOrb.addShortcutAria')}
                     onClick={() => void onInstall()}
                   >
                     <OfflineToolShortcutGlyph uid={`${uid}-in-go`} />
@@ -1264,15 +1271,13 @@ export function OfflineReadyOrb() {
               {openPanels.install ? (
                 <div className="offline-orb__panel-body">
                   {installKind === 'installed' ? (
-                    <p>Можно сразу качать офлайн-пакет выше</p>
+                    <p>{t('offlineOrb.installCanDownloadAbove')}</p>
                   ) : installKind === 'unavailable' ? (
-                    <p>На HTTPS в Chrome часто появляется установка</p>
+                    <p>{t('offlineOrb.installHttpsChrome')}</p>
                   ) : (
                     <>
-                      <p>Иконка игры на рабочий стол.</p>
-                      <p className="offline-orb__action-sub-lead">
-                        Открывает игру в один тап + полноэкранный режим.
-                      </p>
+                      <p>{t('offlineOrb.installIconDesktop')}</p>
+                      <p className="offline-orb__action-sub-lead">{t('offlineOrb.installOneTap')}</p>
                     </>
                   )}
                 </div>
@@ -1290,8 +1295,8 @@ export function OfflineReadyOrb() {
             >
               <div className="offline-orb__panel-row">
                 <OfflinePanelTitle
-                  action="Скачать"
-                  rest=" игру и установить ярлык"
+                  action={t('offlineOrb.downloadAction')}
+                  rest={t('offlineOrb.comboRest')}
                   onAction={onDownloadAndInstall}
                   disabled={downloadDisabled}
                 />
@@ -1306,7 +1311,9 @@ export function OfflineReadyOrb() {
                       .filter(Boolean)
                       .join(' ')}
                     aria-expanded={!!openPanels.combo}
-                    aria-label={openPanels.combo ? 'Свернуть описание' : 'Развернуть описание'}
+                    aria-label={
+                      openPanels.combo ? t('offlineOrb.collapseDesc') : t('offlineOrb.expandDesc')
+                    }
                     onClick={() => togglePanel('combo')}
                   >
                     <OfflineExpandHelpGlyph uid={`${uid}-cb-help`} />
@@ -1314,7 +1321,7 @@ export function OfflineReadyOrb() {
                   <button
                     type="button"
                     className="offline-orb__icon-btn offline-orb__icon-btn--go"
-                    aria-label="Скачать игру и установить ярлык"
+                    aria-label={t('offlineOrb.comboAria')}
                     disabled={downloadDisabled}
                     onClick={onDownloadAndInstall}
                   >
@@ -1324,7 +1331,7 @@ export function OfflineReadyOrb() {
               </div>
               {openPanels.combo ? (
                 <div className="offline-orb__panel-body">
-                  <p>Оба шага сразу: загрузка на устройство + иконка на экран.</p>
+                  <p>{t('offlineOrb.comboBody')}</p>
                 </div>
               ) : null}
             </div>

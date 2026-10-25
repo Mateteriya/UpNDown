@@ -291,7 +291,8 @@ http://192.168.1.113:3001/play/
 - почтой **Mail.ru**
 - телефоном
 
-В коде провайдер один: `custom:vkid` (кнопка в `AuthModal` **только на публичном домене**).
+Отдельной кнопки Mail.ru **нет и не будет**: с июля 2025 новые OAuth-клиенты Mail.ru = VK ID.  
+В коде провайдер один: прямой VK flow (`startVkidDirectOAuth`), кнопка видна и на проде, и на вечеринке `:3001`.
 
 **Redirect URI у VK — мост Edge Function (не callback GoTrue и не URL игры):**
 
@@ -302,22 +303,34 @@ https://jrgnsqbwwhovonxyxown.supabase.co/functions/v1/vk-oauth-bridge
 Без моста после «Разрешить» будет:  
 `Unable to exchange external code: vk2` на `/auth-callback.html`.
 
-### Вечеринка / LAN / localhost — VK недоступен (не баг игры)
+### Почему раньше кнопки не было на :3001
 
 VK ID требует **базовый домен** страницы, с которой нажали «Войти».  
-Домашний IP (`192.168…`), `localhost:5173` / `:3001` в кабинете VK **нельзя** указать нормально → ошибка «базовый домен не указан».
+`192.168.*` / `localhost` в кабинете VK **нельзя** указать → ошибка «базовый домен не указан».  
+Поэтому кнопку **скрывали** (`isVkidOAuthAvailableHere`), чтобы не пугать мёртвым OAuth.
+
+### Как работает сейчас на вечеринке (LAN-мост)
 
 | Место | Google / Яндекс | VK ID · Mail.ru |
 |-------|-----------------|-----------------|
-| `https://up2down.online` | да | да (базовый домен = `up2down.online`) |
-| LAN хост `http://IP:3001/play/` (ЧПец.Версия) | да | **нет** — кнопка скрыта |
-| Vite `localhost` / LAN `:5173` | да | **нет** — кнопка скрыта |
+| `https://up2down.online` | да | да (прямой старт) |
+| LAN `http://IP:3001/play/` | да | да через мост |
+| Vite `localhost` / `:5173` | да | да через мост |
 
-На вечеринке по Wi‑Fi вход: **Яндекс / Google / email**.  
-VK · Mail.ru — с сайта [up2down.online](https://up2down.online) (облачный онлайн / ЛК).  
-Туннель (Cloudflare/ngrok) — только для **вашей** отладки, не для каждого хоста вечеринки.
+Цепочка на `:3001`:
 
-Логика скрытия: `isVkidOAuthAvailableHere()` в `src/lib/oauthProviders.ts`.
+1. Игрок жмёт **VK ID · Mail.ru** на LAN.
+2. Браузер открывает `https://up2down.online/vk-lan-bridge.html?ret=http://IP:3001/play/auth-callback.html&…`
+3. Мост (публичный домен) пишет PKCE в `sessionStorage` и уводит в VK.
+4. VK → Edge `vk-oauth-bridge` → **online** `auth-callback.html?vk_bridge=1` (тот же origin, где verifier).
+5. Exchange → сессия; online callback читает `updown_vk_lan_final_ret` и редиректит на LAN  
+   `http://IP:3001/play/auth-callback.html#access_token=…&refresh_token=…`
+6. LAN callback делает `setSession` → домой `/play/`, игрок залогинен на вечеринке.
+
+**Нужно на проде:** файл `public/vk-lan-bridge.html` задеплоен на [up2down.online](https://up2down.online) (корень сайта), и актуальный `auth-callback` с hop-логикой.  
+Env (опционально): `VITE_PUBLIC_WEB_ORIGIN=https://up2down.online`.
+
+Логика «нужен мост»: `needsVkidLanBridge()` в `src/lib/oauthProviders.ts`.
 
 ---
 

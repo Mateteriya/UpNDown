@@ -1756,6 +1756,7 @@ export function MenuNamePlaqueEditMark({
           anchorRef={resolvedRef}
           tipId={tipId}
           text={tipText}
+          wide
           preferBelow
         />
       ) : null}
@@ -1847,6 +1848,7 @@ export function MenuNamePlaqueConfirmMark({
         anchorRef={anchorRef}
         tipId={tipId}
         text={tipText}
+        wide
         preferBelow
       />
     </button>
@@ -2790,7 +2792,7 @@ export function MenuCapsuleButton({
       <button
         type="button"
         className="menu-capsule__fold"
-        aria-label={glyphOnly ? 'Развернуть капсулу' : 'Свернуть капсулу до значка'}
+        aria-label={glyphOnly ? tUi('menu.capsuleExpand') : tUi('menu.capsuleCollapseToGlyph')}
         aria-pressed={glyphOnly}
         onClick={toggleGlyphOnly}
         onPointerDown={(e) => e.stopPropagation()}
@@ -3029,6 +3031,7 @@ function SplitCapsuleHalf({
   satelliteCode?: string | null;
   onClick: () => void;
 }) {
+  const tUi = useT();
   const showSatellite = side === 'resume' && satelliteCode;
   return (
     <button
@@ -3040,7 +3043,9 @@ function SplitCapsuleHalf({
       ].join(' ')}
       onClick={onClick}
       onPointerUp={blurAfterTouch}
-      aria-label={showSatellite ? `Продолжить, комната ${satelliteCode}` : undefined}
+      aria-label={
+        showSatellite ? tUi('menu.continueRoomAria', { code: satelliteCode ?? '' }) : undefined
+      }
     >
       {showSatellite ? (
         <span className="menu-split-capsule__satellite" aria-hidden="true">
@@ -3970,6 +3975,7 @@ export type MenuSectionProps = {
 };
 
 export function MenuSection({ children, compact, glyphsOnly }: MenuSectionProps) {
+  const tUi = useT();
   return (
     <section
       className={[
@@ -3979,7 +3985,7 @@ export function MenuSection({ children, compact, glyphsOnly }: MenuSectionProps)
       ]
         .filter(Boolean)
         .join(' ')}
-      aria-label="Играть"
+      aria-label={tUi('menu.play')}
     >
       <div className="menu-screen__section-body">{children}</div>
     </section>

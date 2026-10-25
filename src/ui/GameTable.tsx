@@ -113,6 +113,8 @@ import {
   readTabletViewportScale,
 } from '../game/tabletViewportScale';
 import { appendPartyArchiveRecord, buildPartyArchiveRecord, linkPartyArchiveCloudMatch } from '../game/partyArchive';
+import { ingestMatchRecords } from '../game/playerRecords';
+import { pickPrimaryCelebration, type MatchHighlight } from '../game/matchHighlights';
 import type { PartyArchiveRecord } from '../game/partyArchive';
 import { matchKeyForRoom, newMatchKey } from '../game/matchKey';
 import { PartyClaimOffer } from './PartyClaimOffer';
@@ -152,7 +154,7 @@ import {
   USER_SOUTH_TRICKS_PANEL_SCALE,
   userSouthAvatarSizePx,
 } from './userSouthPanelCanon';
-import { UserSouthPcNamePlaque } from './UserSouthPcNamePlaque';
+import { UserSouthPcAvatarRail } from './UserSouthPcAvatarRail';
 import { AiDifficultyControl, HeaderRoomExitIcon } from './AiDifficultyControl';
 import { getForbiddenDealerBid, getTrickWinner } from '../game/rules';
 import { getCanonicalIndexForDisplay, rotateStateForPlayer } from '../game/rotateState';
@@ -212,6 +214,8 @@ import {
   type PlasmaScreenTone,
 } from '../lib/gameInfoBadgeStyle';
 import { useAuth } from '../contexts/AuthContext';
+import { accountWhoFromUser, isUserSignedIn } from '../lib/accountStatusLabel';
+import { GameAcctCosmicOrb } from './GameAcctCosmicOrb';
 import { useTheme } from '../contexts/ThemeContext';
 import { useOnlineGame } from '../contexts/useOnlineGame';
 import {
@@ -224,6 +228,7 @@ import {
   isNativeVacantAiPlayerSlot,
   recordOfflineMatchFinish,
   finishMatch,
+  insertMatchHighlights,
 } from '../lib/onlineGameSupabase';
 import { readResultsChipView } from '../game/resultsChipView';
 import { computePartySettlement } from '../game/partySettlement';
@@ -271,7 +276,7 @@ import {
 import { MobileSouthLandscapePlayerName } from './MobileSouthLandscapePlayerName';
 import { MOBILE_SOUTH_LANDSCAPE_NAME_BASE_FONT_PX } from './mobileSouthLandscapeNameLayout';
 import {
-  OPPONENT_NAME_WINDOW_SCROLL_HINT,
+  getOpponentNameWindowScrollHint,
   useMobileOpponentNameWindowScroll,
 } from './useMobileOpponentNameWindowScroll';
 import {
@@ -1264,6 +1269,10 @@ interface GameTableProps {
   onPhotoCaptured?: (avatarDataUrl: string) => void;
   /** Сохранить имя из меню аватарки (inline, без модалки профиля). */
   onSaveDisplayName?: (displayName: string) => void;
+  /** Войти в аккаунт из меню аватара Юг. */
+  onSignIn?: () => void;
+  /** Не раскрывать плашку аккаунта (приветствие OAuth / модалка входа поверх стола). */
+  acctOrbQuiet?: boolean;
   /** Глушить стол (модалка «сколько игроков» поверх живой партии). */
   tableAudioSilenced?: boolean;
 }
@@ -2234,6 +2243,7 @@ function GameOverModal({
   fixedSettlementMode,
   fixedBuyIn,
   claimArchive = null,
+  celebration = null,
 }: {
   snapshot: GameState;
   gameId: number;
@@ -2250,6 +2260,8 @@ function GameOverModal({
   fixedBuyIn?: number | null;
   /** Без сессии: предложить email-claim */
   claimArchive?: PartyArchiveRecord | null;
+  /** Яркий момент (300+ / 10/10 / perfect) */
+  celebration?: MatchHighlight | null;
 }) {
   const tr = useT();
   const [showExpanded, setShowExpanded] = useState(false);
@@ -2338,6 +2350,13 @@ function GameOverModal({
               winnerName={!isTie ? (winners[0] ? overName(winners[0]) : undefined) : undefined}
               isHumanWinner={!isTie && winners[0]?.idx === humanIdx}
             />
+            {celebration ? (
+              <p className="game-over-celebration__feat" role="status">
+                {tr(`cabinet.highlight.${celebration.labelKey}` as 'cabinet.highlight.scoreTierMini', {
+                  n: celebration.value,
+                })}
+              </p>
+            ) : null}
             {isMobileLayout ? (
               <>
                 <GameOverCelebrationMiniTable
@@ -2478,6 +2497,7 @@ function GameOverModal({
               match={humanMatchSkill}
               deviceAccuracyPct={deviceAccuracyExcludingMatch}
               compact
+              celebration={celebration}
             />
             <BridgeTelemetryDashboard
               humanPlace={humanPlace}
@@ -2607,6 +2627,7 @@ function GameOverModal({
             <MatchBidSkillInsight
               match={humanMatchSkill}
               deviceAccuracyPct={deviceAccuracyExcludingMatch}
+              celebration={celebration}
             />
             <BridgeTelemetryDashboard
               humanPlace={humanPlace}
@@ -2639,9 +2660,9 @@ function difficultyForAiPlayMove(online: boolean, st: GameState, playerIndex: nu
   return st.players[playerIndex]?.aiDifficulty ?? getAiDifficulty();
 }
 
-export default function GameTable({ gameId, offlinePlayerCount = 4, playerDisplayName, playerAvatarDataUrl, playerAvatarBgColor, onExit, onNewGame, onOpenProfileModal, onSaveAvatar, onPhotoCaptured, onSaveDisplayName, tableAudioSilenced = false }: GameTableProps) {
+export default function GameTable({ gameId, offlinePlayerCount = 4, playerDisplayName, playerAvatarDataUrl, playerAvatarBgColor, onExit, onNewGame, onOpenProfileModal, onSaveAvatar, onPhotoCaptured, onSaveDisplayName, onSignIn, acctOrbQuiet = false, tableAudioSilenced = false }: GameTableProps) {
   const tr = useT();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { cardPaletteLock, cardThemeLabel, cycleCardTheme } = useTheme();
   const userRef = useRef(user);
   userRef.current = user;
@@ -3484,7 +3505,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     }
     setTrumpHighlightOn((v) => !v);
   }, []);
-  const trumpLampHintTitle = `Короткое нажатие — доп. подсветка козыря и стола. Удержание ~0,6 с — тема карт (сейчас: ${cardThemeLabel}): Стандарт → Тёмная → Легаси → Нео → снова Стандарт. Только телефон/планшет; стол ПК без смены листа.`;
+  const trumpLampHintTitle = t('table.trumpLampHint', { theme: cardThemeLabel });
   const gameInfoBadgeHintTitle =
     isPhoneLandscape && !isMobileMidSquareLayout && gameInfoBadgeSkin === 'plasma'
       ? gameInfoBadgeLongPressHint(gameInfoBadgeSkin, plasmaScreenTone)
@@ -3632,6 +3653,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   /** Для онлайна — канонический снимок + слот; иначе dealHistory и players расходятся по индексам. */
   const [gameOverViewerSlot, setGameOverViewerSlot] = useState<number | null>(null);
   const [gameOverClaimArchive, setGameOverClaimArchive] = useState<PartyArchiveRecord | null>(null);
+  const [gameOverCelebration, setGameOverCelebration] = useState<MatchHighlight | null>(null);
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const gameOverTopbarRef = useRef<HTMLDivElement>(null);
   const startFromWaitingLockRef = useRef(false);
@@ -4879,8 +4901,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
 
   const showMobileFullscreenEntryBtn =
     showShortFullscreenEntryBtn || showPortraitNormalFullscreenBtn || showPortraitBrowserFsExitBtn;
-  const mobileFullscreenBtnDockSouthLeft =
-    (showPortraitNormalFullscreenBtn || showPortraitBrowserFsExitBtn) && !showShortFullscreenEntryBtn;
+  /** Short / стандарт-после-short / иммерсив / обычный портрет — якорь слева внизу (справа — индикатор аккаунта). */
+  const mobileFullscreenBtnDockSouthLeft = showMobileFullscreenEntryBtn;
 
   const onShortVhSouthPullMenuChooseStandard = useCallback(() => {
     dismissShortVhSouthPullModeMenu();
@@ -5285,9 +5307,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       clearLHandleLongPress();
       lHandleLongPressTimerRef.current = window.setTimeout(() => {
         lHandleLongPressTimerRef.current = null;
-        setImmersiveLHandleHint(
-          'Потяните вниз от края экрана — страница сама вернётся под шапку (обычный вид стола).',
-        );
+        setImmersiveLHandleHint(t('table.headerPullDownHint'));
         try {
           if (!prefersReducedMotion && typeof navigator !== 'undefined' && navigator.vibrate) {
             navigator.vibrate([8, 40, 8]);
@@ -5333,6 +5353,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   const onlineMatchRecordedRef = useRef(false);
   const partyHistoryRecordedRef = useRef(false);
   const onlineArchiveIdRef = useRef<string | null>(null);
+  const lastMatchHighlightsRef = useRef<MatchHighlight[]>([]);
   const onlineCloudMatchIdRef = useRef<string | null>(null);
   /** Номер раздачи, для которой уже запущена анимация результатов (один раз на раздачу, без повторов при опросе). */
   const lastAnimatedDealNumberRef = useRef<number | null>(null);
@@ -6349,7 +6370,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             ]
               .filter(Boolean)
               .join(' ')}
-            aria-label={`Ещё ${tailHand.length} карт`}
+            aria-label={t('table.moreCardsAria', { n: tailHand.length })}
             aria-hidden={lHandFlat}
           >
             {lHandExpanded ? (
@@ -7586,6 +7607,16 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     offlineArchId = arch.id;
                     void appendPartyArchiveRecord(arch);
                     if (!userRef.current?.id) setGameOverClaimArchive(arch);
+                    const { highlights } = ingestMatchRecords({
+                      dealHistory: arch.dealHistory,
+                      players: snap.players,
+                      humanIndex: 0,
+                      source: 'offline',
+                      finishedAt: arch.finishedAt,
+                      matchRef: arch.id,
+                    });
+                    setGameOverCelebration(pickPrimaryCelebration(highlights));
+                    lastMatchHighlightsRef.current = highlights;
                   }
                 }
                 if (userRef.current?.id && !offlineMatchRecordedRef.current) {
@@ -7615,6 +7646,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         }
                         if (offlineArchId && r.matchId) {
                           void linkPartyArchiveCloudMatch(offlineArchId, r.matchId);
+                        }
+                        const hs = lastMatchHighlightsRef.current;
+                        if (hs.length) {
+                          void insertMatchHighlights({
+                            matchId: r.matchId,
+                            source: 'offline',
+                            isRated: false,
+                            highlights: hs,
+                          });
                         }
                         setGameOverCloudSave('ok');
                       } else {
@@ -7658,6 +7698,16 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     const already = onlineCloudMatchIdRef.current;
                     if (already) void linkPartyArchiveCloudMatch(arch.id, already);
                     if (!userRef.current?.id) setGameOverClaimArchive(arch);
+                    const { highlights } = ingestMatchRecords({
+                      dealHistory: arch.dealHistory,
+                      players: snap.players,
+                      humanIndex: humanIdx,
+                      source: 'online',
+                      finishedAt: arch.finishedAt,
+                      matchRef: arch.id,
+                    });
+                    setGameOverCelebration(pickPrimaryCelebration(highlights));
+                    lastMatchHighlightsRef.current = highlights;
                   }
                 }
                 if (userRef.current?.id && !onlineMatchRecordedRef.current) {
@@ -7670,6 +7720,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         onlineCloudMatchIdRef.current = ev.matchId;
                         const archId = onlineArchiveIdRef.current;
                         if (archId) void linkPartyArchiveCloudMatch(archId, ev.matchId);
+                        const hs = lastMatchHighlightsRef.current;
+                        if (hs.length && !ev.skipped) {
+                          void insertMatchHighlights({
+                            matchId: ev.matchId,
+                            source: 'online',
+                            isRated: true,
+                            highlights: hs,
+                          });
+                        }
                       }
                       if (ev.ok && ev.skipped) setGameOverCloudSave('none');
                       else if (ev.ok) setGameOverCloudSave('ok');
@@ -7705,6 +7764,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           onlineCloudMatchIdRef.current = r.matchId;
                           const archId = onlineArchiveIdRef.current;
                           if (archId) void linkPartyArchiveCloudMatch(archId, r.matchId);
+                          const hs = lastMatchHighlightsRef.current;
+                          if (hs.length) {
+                            void insertMatchHighlights({
+                              matchId: r.matchId,
+                              source: 'online',
+                              isRated: true,
+                              highlights: hs,
+                            });
+                          }
                         }
                         setGameOverCloudSave('ok');
                       } else {
@@ -8325,6 +8393,13 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         ? 'chasing'
         : null;
     const innerCls = orderRingMode ? 'player-avatar-order-ring-inner' : undefined;
+    /**
+     * ПК / планшет-шелл (не viewport-mobile): форма «D» —
+     * слева скруглённый квадрат (к рельсу имени), справа полукруг (к заказу).
+     */
+    const southDeskDShape = !isMobile;
+    /* Плоский левый бок (к имени) + полукруг справа (к заказу) */
+    const southAvatarShapeRadius = southDeskDShape ? '12% 50% 50% 12%' : '50%';
     /** Phone LS (не mid): лицо как в розыгрыше; без кольца (торги) — Ø = внешний с кольцом (40+12). */
     const phoneLsLargeFace = Boolean(isMobile && isMobileLandscape && !isMobileMidSquareLayout);
     const phoneLsThinOrderRing = Boolean(phoneLsLargeFace && orderRingMode);
@@ -8333,8 +8408,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       : orderRingMode === 'exact'
         ? isMobileOrTablet
           ? MOBILE_USER_ORDER_RING_PAD_EXACT_PX
-          : 6
-        : MOBILE_USER_ORDER_RING_PAD_CHASING_PX;
+          : southDeskDShape
+            ? 5
+            : 6
+        : southDeskDShape
+          ? Math.max(3, MOBILE_USER_ORDER_RING_PAD_CHASING_PX - 1)
+          : MOBILE_USER_ORDER_RING_PAD_CHASING_PX;
     const phoneLsFaceBoostPx = !phoneLsLargeFace
       ? 0
       : orderRingMode
@@ -8352,22 +8431,16 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     };
     const ariaLabel = online.roomId ? tr('table.menuOf', { name: p.name }) : tr('table.profileOf', { name: p.name });
     const face = (
-      <span
-        className="south-av-chrome"
-        style={{ width: avatarFaceSizePx, height: avatarFaceSizePx }}
-      >
-        <PlayerAvatar
-          name={displayState.players[humanIdx].name}
-          avatarDataUrl={playerAvatarDataUrl}
-          avatarBgColor={playerAvatarBgColor}
-          sizePx={avatarFaceSizePx}
-          nameBadge
-          className={innerCls}
-        />
-        <span className="south-av-stars">
-          <StarsBalanceBadge size="sm" />
-        </span>
-      </span>
+      <PlayerAvatar
+        name={displayState.players[humanIdx].name}
+        avatarDataUrl={playerAvatarDataUrl}
+        avatarBgColor={playerAvatarBgColor}
+        sizePx={avatarFaceSizePx}
+        nameBadge
+        className={[innerCls, southDeskDShape ? 'player-avatar--shape-d' : '']
+          .filter(Boolean)
+          .join(' ')}
+      />
     );
     const avatarRootCls = 'user-player-avatar-root';
     const avatarButton = (
@@ -8398,14 +8471,22 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     if (!orderRingMode) {
       if (playWithBidFootprint) {
         return (
-          <span className="user-player-avatar-order-scale-wrap user-player-avatar-root">
+          <span
+            className={[
+              'user-player-avatar-order-scale-wrap',
+              'user-player-avatar-root',
+              southDeskDShape ? 'user-player-avatar--shape-d' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
             <span
               className="user-player-avatar-order-footprint"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: '50%',
+                borderRadius: southAvatarShapeRadius,
                 padding: footprintPadPx,
                 boxSizing: 'border-box',
                 lineHeight: 0,
@@ -8429,7 +8510,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: '50%',
+      borderRadius: southAvatarShapeRadius,
       /* exact: на ПК ободок 6px; моб./планшет — 5px; chasing моб. — 4px */
       padding: ringPadPx,
       boxSizing: 'border-box',
@@ -8438,10 +8519,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       position: 'relative',
       zIndex: 2,
     };
-    const wrapCls =
+    const wrapCls = [
+      'opponent-avatar-order-ring',
       orderRingMode === 'exact'
-        ? 'opponent-avatar-order-ring opponent-avatar-order-ring--exact'
-        : 'opponent-avatar-order-ring opponent-avatar-order-ring--chasing';
+        ? 'opponent-avatar-order-ring--exact'
+        : 'opponent-avatar-order-ring--chasing',
+      southDeskDShape ? 'opponent-avatar-order-ring--shape-d' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
     const embedExactStar = Boolean(opts?.embedExactOrderStar && orderRingExact);
     const exactStarOnRing = embedExactStar ? (
       <div
@@ -8474,7 +8560,15 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     ) : null;
     /* Масштаб 1.2 снаружи: пульс chasing крутит transform на внутреннем span — не смешиваем с scale */
     return (
-      <span className="user-player-avatar-order-scale-wrap user-player-avatar-root">
+      <span
+        className={[
+          'user-player-avatar-order-scale-wrap',
+          'user-player-avatar-root',
+          southDeskDShape ? 'user-player-avatar--shape-d' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
         <span className={wrapCls} style={wrapStyle}>
           {avatarButton}
           {exactStarOnRing}
@@ -9183,7 +9277,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         aria-label={
           mobileSouthUserScoreExpanded
             ? t('table.scoreOfPlayerHide', { n: state.players[humanIdx].score })
-            : `${state.players[humanIdx].score} очков, показать подпись`
+            : t('table.scoreOfPlayerShow', { n: state.players[humanIdx].score })
         }
       >
         {mobileSouthUserScoreExpanded ? (
@@ -9356,19 +9450,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             }}
           >
             {renderUserPlayerAvatar(southLandscapeAvatarFacePx)}
-            {!(showYourTurnPrompt && (isHumanTurn || isHumanBidding)) ? (
-              <div className="south-av-name south-av-name--landscape">
-                <MobileSouthLandscapePlayerName
-                  name={humanLandscapeNameFormatted}
-                  chatBody={null}
-                  chatKey={0}
-                  nameClassName={southPlayerNameClassName}
-                  baseNameStyle={buildMobileSouthLandscapePlayerNameStyle(southUsePremiumNameClass)}
-                  title={`${humanLandscapeNameRaw} — ${getCompassLabel(humanIdx)}`}
-                  fontScale={humanLandscapeNameFontScale}
-                />
-              </div>
-            ) : null}
             {isMobile && userOrderRingExact ? (
               <div
                 className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
@@ -9457,7 +9538,17 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 >
                   {state.phase === 'playing' ? tr('table.yourTurnBang') : tr('table.yourBidBang')}
                 </span>
-              ) : null}
+              ) : (
+                <MobileSouthLandscapePlayerName
+                  name={humanLandscapeNameFormatted}
+                  chatBody={null}
+                  chatKey={0}
+                  nameClassName={southPlayerNameClassName}
+                  baseNameStyle={buildMobileSouthLandscapePlayerNameStyle(southUsePremiumNameClass)}
+                  title={`${humanLandscapeNameRaw} — ${getCompassLabel(humanIdx)}`}
+                  fontScale={humanLandscapeNameFontScale}
+                />
+              )}
             </div>
           </div>
           <div
@@ -9751,6 +9842,34 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
   const pcThreeSeatHeaderContractCenter = !isMobile && isThreeSeatTable && state != null;
   /** ПК/планшет · только трое: «ИИ» между Σ и лампой подсветки (не в левой колонке). */
   const pcThreeSeatAiInHeaderRight = !isMobile && isThreeSeatTable;
+  /** ПК 4p: бейдж режима под лампой — индикатор аккаунта вешаем под бейдж, не на него. */
+  const pcAcctUnderModeBadge = !isMobile && !isThreeSeatTable && state != null;
+
+  const renderPcGameAcctOrb = () => (
+    <GameAcctCosmicOrb
+      corner="top-right"
+      quiet={acctOrbQuiet}
+      signedIn={isUserSignedIn(user)}
+      who={accountWhoFromUser(user)}
+      onSignIn={
+        onSignIn
+          ? () => {
+              stopAllSounds();
+              onSignIn();
+            }
+          : undefined
+      }
+      onSignOut={async () => {
+        stopAllSounds();
+        await signOut();
+      }}
+      onChangeAccount={() => {
+        stopAllSounds();
+        /* Не signOut: закрытие модалки без смены должно оставить текущий аккаунт. */
+        onSignIn?.();
+      }}
+    />
+  );
 
   const renderMobileTrumpLampButton = (opts?: { landscapeToolbar?: boolean }) => (
     <button
@@ -10026,7 +10145,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           : 'game-mobile-landscape-toolbar-panel__row game-mobile-landscape-toolbar-panel__row-actions'
       }
       role={opts?.portraitStrip ? 'toolbar' : undefined}
-      aria-label={opts?.portraitStrip ? 'Управление игрой' : undefined}
+      aria-label={opts?.portraitStrip ? t('table.gameControls') : undefined}
     >
       <button
         type="button"
@@ -10094,8 +10213,8 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
       onClick={() => void handleStartFromWaiting()}
       title={
         waitingRoomHumanCount >= online.maxPlayers
-          ? 'Запустить партию для всех игроков в комнате'
-          : 'Недостающие места займут боты'
+          ? t('table.startPartyAll')
+          : t('table.startPartyBots')
       }
     >
       <span className="waiting-room-start-cta__label">{waitingRoomStartLabel}</span>
@@ -10106,10 +10225,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
     <div className="waiting-room-mobile-bar" role="region" aria-label={t('table.waitingRoom')}>
       <div className="waiting-room-mobile-bar__meta">
         <span className="waiting-room-mobile-bar__players">
-          Игроков: {waitingRoomHumanCount} из {online.maxPlayers}
+          {t('table.waitingPlayersOf', { n: waitingRoomHumanCount, max: online.maxPlayers })}
         </span>
         <span className="waiting-room-mobile-bar__code-hint">
-          Код комнаты — на сукне справа; нажмите, чтобы скопировать.
+          {t('table.waitingRoomCodeFelt')}
         </span>
       </div>
       {online.error ? <p className="waiting-room-mobile-bar__error">{online.error}</p> : null}
@@ -10416,10 +10535,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           <span className="mobile-turn-edge-glow__rail mobile-turn-edge-glow__rail--right" />
         </div>
       ) : null}
+      {/* GameAcctCosmicOrb: ПК — под лампой справа; мобилка — bottom-right под Югом */}
       {showAvatarMenu && state && createPortal(
         <div className={isMobile ? mobilePortalRootClass : undefined}>
         <UserAvatarMenuSheet
-          displayName={playerDisplayName || state.players[0]?.name || 'Вы'}
+          displayName={formatYouName(playerDisplayName || state.players[0]?.name, tr)}
           avatarDataUrl={playerAvatarDataUrl}
           avatarBgColor={playerAvatarBgColor}
           state={state}
@@ -10431,6 +10551,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           onSaveAvatar={onSaveAvatar}
           onPhotoCaptured={onPhotoCaptured}
           onSaveDisplayName={onSaveDisplayName}
+          onSignIn={onSignIn}
           onTakePause={async () => {
             setTakingPause(true);
             await online.takePause?.();
@@ -10582,19 +10703,31 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         lineHeight: 1.35,
                       }}
                     >
-                      Заказ: {dealContractStats.totalOrders}; Взяток: {dealContractStats.totalTricks}/{dealContractStats.tricksInDeal}
+                      {t('table.dealContractOrdersLine', {
+                        orders: dealContractStats.totalOrders,
+                        taken: dealContractStats.totalTricks,
+                        total: dealContractStats.tricksInDeal,
+                      })}
                     </div>
                   ) : null}
                   {displayState.players.map((p, i) => (
                     <div key={i} className="deal-contract-tooltip-player" style={{ fontSize: 13, opacity: 0.95, marginBottom: 4 }}>
-                      {p.name}: заказ {displayState.bids[i] ?? '—'}, взяток {p.tricksTaken}
+                      {t('table.dealContractPlayerLine', {
+                        name: p.name,
+                        bid: displayState.bids[i] ?? '—',
+                        taken: p.tricksTaken,
+                      })}
                     </div>
                   ))}
                   <div
                     className="deal-contract-tooltip-footer"
                     style={{ marginTop: 10, fontSize: 12, opacity: 0.88, lineHeight: 1.45 }}
                   >
-                    Сумма заказов — {dealContractStats.totalOrders}, сыграно взяток — {dealContractStats.totalTricks} из {dealContractStats.tricksInDeal}. Сумма заказов может не совпадать с числом взяток — это нормально.
+                    {t('table.dealContractFooter', {
+                      orders: dealContractStats.totalOrders,
+                      taken: dealContractStats.totalTricks,
+                      total: dealContractStats.tricksInDeal,
+                    })}
                     {getDealType(state.dealNumber, playerCountOf(state)) !== 'no-trump' && getDealType(state.dealNumber, playerCountOf(state)) !== 'dark' ? (
                       <> {t('table.cardsEach', { n: dealContractStats.tricksInDeal, word: dealContractStats.cardsWord })}</>
                     ) : null}
@@ -10603,10 +10736,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               ) : (
                 <>
                   <div className="deal-contract-tooltip-heading" style={{ fontWeight: 700, marginBottom: 6 }}>
-                    Размер раздачи
+                    {t('table.dealSizeHeading')}
                   </div>
                   <div className="deal-contract-tooltip-body" style={{ fontSize: 13, opacity: 0.95, lineHeight: 1.45 }}>
-                    В этой раздаче у каждого по {dealContractStats.tricksInDeal} {dealContractStats.cardsWord} на руке (всего {dealContractStats.tricksInDeal * 4} карт). Когда все игроки сделают заказы, бейдж покажет сумму заказов и взятых взяток — нажмите снова для списка по игрокам.
+                    {t('table.dealSizeBody', {
+                      n: dealContractStats.tricksInDeal,
+                      word: dealContractStats.cardsWord,
+                      total: dealContractStats.tricksInDeal * 4,
+                    })}
                   </div>
                 </>
               )}
@@ -11078,47 +11215,65 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               </div>
             ) : null}
             {isMobile ? null : (
-              !isWaitingInRoom && (
-              <button
-                type="button"
-                  className={cardPaletteLock ? 'trump-lamp-card-palette-lock-on' : undefined}
-                  onPointerDown={onTrumpLampPointerDown}
-                  onPointerUp={onTrumpLampPointerUpOrCancel}
-                  onPointerCancel={onTrumpLampPointerUpOrCancel}
-                  onPointerLeave={onTrumpLampPointerUpOrCancel}
-                  onClick={onTrumpLampClick}
-                style={{
-                    ...trumpHighlightBtnStyle,
-                    ...(trumpHighlightOn
-                      ? {
-                          border: '1px solid rgba(34, 211, 238, 0.9)',
-                          color: '#5eead4',
-                          boxShadow: '0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(94, 234, 212, 0.4), 0 0 18px rgba(34, 211, 238, 0.25)',
-                        }
-                      : { color: 'rgba(251, 146, 60, 0.7)' }),
-                  }}
-                  title={trumpLampHintTitle}
-                  aria-label={trumpLampHintTitle}
-                >
-                  <svg
-                    width="18"
-                    height="20"
-                    viewBox="0 0 18 20"
-                    fill="currentColor"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className={!trumpHighlightOn ? 'trump-btn-lamp-off' : undefined}
-                    style={trumpHighlightOn ? { filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.6)) drop-shadow(0 0 8px rgba(94, 234, 212, 0.5))' } : undefined}
+              <div
+                className={[
+                  'game-acct-pc-lamp-stack',
+                  !pcAcctUnderModeBadge ? 'game-acct-pc-anchor' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {!isWaitingInRoom && (
+                  <button
+                    type="button"
+                    className={cardPaletteLock ? 'trump-lamp-card-palette-lock-on' : undefined}
+                    onPointerDown={onTrumpLampPointerDown}
+                    onPointerUp={onTrumpLampPointerUpOrCancel}
+                    onPointerCancel={onTrumpLampPointerUpOrCancel}
+                    onPointerLeave={onTrumpLampPointerUpOrCancel}
+                    onClick={onTrumpLampClick}
+                    style={{
+                      ...trumpHighlightBtnStyle,
+                      ...(trumpHighlightOn
+                        ? {
+                            border: '1px solid rgba(34, 211, 238, 0.9)',
+                            color: '#5eead4',
+                            boxShadow:
+                              '0 0 0 1px rgba(34, 211, 238, 0.4), 0 0 12px rgba(94, 234, 212, 0.4), 0 0 18px rgba(34, 211, 238, 0.25)',
+                          }
+                        : { color: 'rgba(251, 146, 60, 0.7)' }),
+                    }}
+                    title={trumpLampHintTitle}
+                    aria-label={trumpLampHintTitle}
                   >
-                    <path d="M9 2c-3.3 0-6 2.7-6 6 0 2.2 1.2 4.1 3 5.2v2.3c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-2.3c1.8-1.1 3-3 3-5.2 0-3.3-2.7-6-6-6z" />
-                    <path d="M9 15v2" />
-                    <path d="M6 19h6" />
-                  </svg>
-                  {trumpHighlightOn ? t('table.highlightOff') : t('table.highlightOn')}
-              </button>
-              )
+                    <svg
+                      width="18"
+                      height="20"
+                      viewBox="0 0 18 20"
+                      fill="currentColor"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={!trumpHighlightOn ? 'trump-btn-lamp-off' : undefined}
+                      style={
+                        trumpHighlightOn
+                          ? {
+                              filter:
+                                'drop-shadow(0 0 6px rgba(34, 211, 238, 0.6)) drop-shadow(0 0 8px rgba(94, 234, 212, 0.5))',
+                            }
+                          : undefined
+                      }
+                    >
+                      <path d="M9 2c-3.3 0-6 2.7-6 6 0 2.2 1.2 4.1 3 5.2v2.3c0 .6.4 1 1 1h4c.6 0 1-.4 1-1v-2.3c1.8-1.1 3-3 3-5.2 0-3.3-2.7-6-6-6z" />
+                      <path d="M9 15v2" />
+                      <path d="M6 19h6" />
+                    </svg>
+                    {trumpHighlightOn ? t('table.highlightOff') : t('table.highlightOn')}
+                  </button>
+                )}
+                {!pcAcctUnderModeBadge ? renderPcGameAcctOrb() : null}
+              </div>
             )}
           </div>
           {isOnline && online.myServerIndex === 0 && online.returnSlotToPlayer && online.playerSlots.some((s) => s.replacedUserId) && (
@@ -11147,7 +11302,14 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             </div>
           )}
           {state != null && !isMobile && (
-            <div className="game-header-pc-deal-orbit-wrap">
+            <div
+              className={[
+                'game-header-pc-deal-orbit-wrap',
+                pcAcctUnderModeBadge ? 'game-acct-pc-anchor' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
             {(getDealType(state.dealNumber, playerCountOf(state)) === 'no-trump' || getDealType(state.dealNumber, playerCountOf(state)) === 'dark') ? (
             pcNoTrumpModeBadgeAsButton ? (
               <button
@@ -11372,6 +11534,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               </button>
             </div>
           )}
+            {pcAcctUnderModeBadge ? renderPcGameAcctOrb() : null}
           </div>
           )}
         </div>
@@ -11387,8 +11550,10 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             }}
           >
             {online.roomPhase === 'waiting_return' && online.absentUntil
-              ? `Ожидаем возврат игрока до ${new Date(online.absentUntil).toLocaleString()}.`
-              : 'Игрок вышел из партии. Хост выбирает, как продолжить.'}
+              ? t('table.absentWaitUntil', {
+                  when: new Date(online.absentUntil).toLocaleString(),
+                })
+              : t('table.absentHostChooses')}
           </div>
         )}
 
@@ -11944,12 +12109,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         t('table.darkBid')
                       ) : bidBadgeTwoLine ? (
                         <>
-                          Сколько хотите
+                          {t('table.bidHowManyLine1')}
                           <br />
-                          взять взяток:
+                          {t('table.bidHowManyLine2')}
                         </>
                       ) : (
-                        'Сколько хотите взять взяток:'
+                        t('table.bidHowMany')
                       );
                     return (
                       <>
@@ -12564,6 +12729,11 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               })()
             : {}),
         }}>
+            {!offlineMode ? (
+              <span className="panel-corner-stars panel-corner-stars--south">
+                <StarsBalanceBadge size="sm" interactive />
+              </span>
+            ) : null}
             {isMobileLandscape ? (
               <div className="user-player-panel-south-landscape-score-corner">
                 {renderMobileSouthScoreToggleBadge({ landscapeCorner: true })}
@@ -12832,21 +13002,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           MOBILE_SOUTH_USER_AVATAR_SHORT_EXTRA_SCALE,
                       ),
                     )}
-                    {!(showYourTurnPrompt && (isHumanTurn || isHumanBidding)) ? (
-                      <div className="south-av-name south-av-name--mobile">
-                        <UserSouthMobileNamePlaque
-                          name={displayState.players[humanIdx].name}
-                          chatBody={null}
-                          chatKey={0}
-                          nameClassName={southPlayerNameClassName}
-                          nameStyle={buildMobileSouthPlayerNameStyle(
-                            Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE * 0.9),
-                            southUsePremiumNameClass,
-                          )}
-                          title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
-                        />
-                      </div>
-                    ) : null}
                     {isMobile && userOrderRingExact ? (
                       <div
                         className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
@@ -12925,7 +13080,19 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           >
                             {state.phase === 'playing' ? tr('table.yourTurnBang') : tr('table.yourBidBang')}
                           </span>
-                        ) : null}
+                        ) : (
+                          <UserSouthMobileNamePlaque
+                            name={displayState.players[humanIdx].name}
+                            chatBody={null}
+                            chatKey={0}
+                            nameClassName={southPlayerNameClassName}
+                            nameStyle={buildMobileSouthPlayerNameStyle(
+                              Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE * 0.9),
+                              southUsePremiumNameClass,
+                            )}
+                            title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
+                          />
+                        )}
                         {dealerSouthMobilePanelHighlight &&
                           (isMobileOrTablet && state.phase === 'playing' ? (
                             <button
@@ -13080,21 +13247,6 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     {renderUserPlayerAvatar(
                       Math.round(34 * MOBILE_SOUTH_PLAYER_CARD_SCALE * MOBILE_SOUTH_USER_AVATAR_RELATIVE_SCALE),
                     )}
-                    {!(showYourTurnPrompt && (isHumanTurn || isHumanBidding)) ? (
-                      <div className="south-av-name south-av-name--mobile">
-                        <UserSouthMobileNamePlaque
-                          name={displayState.players[humanIdx].name}
-                          chatBody={null}
-                          chatKey={0}
-                          nameClassName={southPlayerNameClassName}
-                          nameStyle={buildMobileSouthPlayerNameStyle(
-                            Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
-                            southUsePremiumNameClass,
-                          )}
-                          title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
-                        />
-                      </div>
-                    ) : null}
                     {isMobile && userOrderRingExact ? (
                       <div
                         className="user-exact-order-star-with-flash user-exact-order-star-with-flash--south-avatar-se"
@@ -13182,7 +13334,19 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                           >
                             {state.phase === 'playing' ? tr('table.yourTurnBang') : tr('table.yourBidBang')}
                           </span>
-                        ) : null}
+                        ) : (
+                          <UserSouthMobileNamePlaque
+                            name={displayState.players[humanIdx].name}
+                            chatBody={null}
+                            chatKey={0}
+                            nameClassName={southPlayerNameClassName}
+                            nameStyle={buildMobileSouthPlayerNameStyle(
+                              Math.round(16 * MOBILE_SOUTH_PLAYER_CARD_SCALE),
+                              southUsePremiumNameClass,
+                            )}
+                            title={`${state.players[humanIdx].name} — ${getCompassLabel(humanIdx)}`}
+                          />
+                        )}
                         {dealerSouthMobilePanelHighlight &&
                           (isMobileOrTablet && state.phase === 'playing' ? (
                             <button
@@ -13324,12 +13488,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 : '';
         const southResizeAriaHint =
           southResizeStretchHint === 'down-only'
-            ? 'Можно потянуть только вниз, чтобы опустить панель'
+            ? t('table.southPanelPullDown')
             : southResizeStretchHint === 'up-only'
-              ? 'Можно потянуть только вверх, чтобы поднять панель'
+              ? t('table.southPanelPullUp')
               : southResizeStretchHint === 'both'
-                ? 'Потяните вверх или вниз, чтобы изменить высоту панели'
-                : 'Масштаб панели Юга';
+                ? t('table.southPanelPullBoth')
+                : t('table.southPanelScale');
         const southResizeShowDownArrow = southResizeStretchHint !== 'up-only';
         const southResizeShowUpArrow = southResizeStretchHint !== 'down-only';
         const southResizeShowArrowGap = southResizeShowDownArrow && southResizeShowUpArrow;
@@ -13384,6 +13548,44 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         </div>
         );
       })()}
+      {/* Аккаунт: правый низ; LS — микро над рукой у Востока (не под картами) */}
+      <div
+        className={[
+          'game-acct-mobile-slot',
+          isMobileLandscape ? 'game-acct-mobile-slot--landscape' : '',
+          isMobileLandscape &&
+          mobileHandLenForScale >= (isThreeSeatTable ? 12 : 9)
+            ? 'game-acct-mobile-slot--ls-lift'
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        <GameAcctCosmicOrb
+          corner="bottom-right"
+          landscapeMicro={isMobileLandscape}
+          quiet={acctOrbQuiet}
+          signedIn={isUserSignedIn(user)}
+          who={accountWhoFromUser(user)}
+          onSignIn={
+            onSignIn
+              ? () => {
+                  stopAllSounds();
+                  onSignIn();
+                }
+              : undefined
+          }
+          onSignOut={async () => {
+            stopAllSounds();
+            await signOut();
+          }}
+          onChangeAccount={() => {
+            stopAllSounds();
+            /* Не signOut: закрытие модалки без смены должно оставить текущий аккаунт. */
+            onSignIn?.();
+          }}
+        />
+      </div>
       </div>
       </div>
       {showTableChat && online.roomId && tableChatUserId && (
@@ -14220,7 +14422,21 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
         </div>
         <div
           ref={pcUserPanelRef}
-          className={['user-player-panel', state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '', (state.phase === 'bidding' || state.phase === 'dark-bidding') && state.bids.some(b => b === null) && state.trickLeaderIndex === humanIdx ? 'first-mover-bidding-panel' : '', !isMobileOrTablet && userTurnStrongNudgePc ? 'user-player-panel-idle-turn-nudge-pc' : ''].filter(Boolean).join(' ') || undefined}
+          className={[
+            'user-player-panel',
+            state.currentPlayerIndex === humanIdx ? 'player-info-panel-your-turn' : '',
+            state.dealerIndex === humanIdx && state.currentPlayerIndex !== humanIdx
+              ? 'user-player-panel--dealer'
+              : '',
+            (state.phase === 'bidding' || state.phase === 'dark-bidding') &&
+            state.bids.some((b) => b === null) &&
+            state.trickLeaderIndex === humanIdx
+              ? 'first-mover-bidding-panel'
+              : '',
+            !isMobileOrTablet && userTurnStrongNudgePc ? 'user-player-panel-idle-turn-nudge-pc' : '',
+          ]
+            .filter(Boolean)
+            .join(' ') || undefined}
           style={{
           ...playerInfoPanelStyle,
           position: 'relative',
@@ -14237,6 +14453,12 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
             return { boxShadow: [baseShadow, firstMoverBiddingGlowExtraShadow].filter(Boolean).join(', ') };
           })() : {}),
         }}>
+          {/* ПК: ★ в UserSouthPcAvatarRail над именем; мобилка — corner; только онлайн */}
+          {isMobileOrTablet && !offlineMode ? (
+            <span className="panel-corner-stars panel-corner-stars--south">
+              <StarsBalanceBadge size="sm" interactive />
+            </span>
+          ) : null}
           {!isMobileOrTablet && userOrderRingExact && shouldShowPcOrderOnHandExactBadge(state) ? (
             <span
               className="opponent-badge order-on-hand-badge-pc order-on-hand-badge-pc-user-side"
@@ -14297,27 +14519,32 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                     name: fullSouthName,
                     hasPlacedBid: humanBidPc != null,
                   });
+                  const southFacePx = userSouthAvatarSizePx({
+                    isTabletShell: useTabletPcTableTuning,
+                    isBidding: isBiddingPhase,
+                  });
+                  const southRailLayoutKey = [
+                    state.phase,
+                    humanBidPc ?? 'x',
+                    humanTricksPc,
+                    userOrderRingExact ? 'ex' : '',
+                    state.currentPlayerIndex === humanIdx ? 'turn' : '',
+                  ].join('|');
                   return (
                 <div ref={pcUserPanelLeftClusterRef} className="user-player-panel-pc-left-cluster">
-                  <div className="user-player-panel-pc-avatar-name-stack">
-                    <div className="user-player-panel-pc-avatar-wrap">
-                      {renderUserPlayerAvatar(
-                        userSouthAvatarSizePx({
-                          isTabletShell: useTabletPcTableTuning,
-                          isBidding: isBiddingPhase,
-                        }),
-                      )}
-                      <div className="south-av-name">
-                        <UserSouthPcNamePlaque
-                          name={fullSouthName}
-                          isBiddingPhase={isBiddingPhase}
-                          longCompact={southNameCompact}
-                          textClassName={southPlayerNameClassName}
-                          textStyle={southPlayerNameStyle}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                    <UserSouthPcAvatarRail
+                      facePx={southFacePx}
+                      name={fullSouthName}
+                      isBiddingPhase={isBiddingPhase}
+                      longCompact={southNameCompact}
+                      textClassName={southPlayerNameClassName}
+                      textStyle={southPlayerNameStyle}
+                      layoutKey={southRailLayoutKey}
+                      isTabletShell={useTabletPcTableTuning}
+                      showStars={!offlineMode}
+                      onSaveDisplayName={onSaveDisplayName}
+                      renderAvatar={renderUserPlayerAvatar}
+                    />
                   {/* Заказ Юга: на торгах — сразу после своей ставки (не ждать конца торгов). */}
                   {(humanBidPc != null ||
                     (state.phase !== 'bidding' && state.phase !== 'dark-bidding')) && (
@@ -14826,6 +15053,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
               cloudSave={gameOverCloudSave}
               isOfflineEnd={!isOnline}
               claimArchive={gameOverClaimArchive}
+              celebration={gameOverCelebration}
               fixedSettlementMode={
                 isOnline ? online.settlementMode ?? gameOverSnapshot.settlementMode : undefined
               }
@@ -14836,6 +15064,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 setGameOverSnapshot(null);
                 setGameOverViewerSlot(null);
                 setGameOverClaimArchive(null);
+                setGameOverCelebration(null);
                 if (isOnline && online.leaveRoom) {
                   await online.leaveRoom();
                 }
@@ -14846,6 +15075,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                 setGameOverSnapshot(null);
                 setGameOverViewerSlot(null);
                 setGameOverClaimArchive(null);
+                setGameOverCelebration(null);
                 if (isOnline && online.leaveRoom) await online.leaveRoom();
                 handleExit();
               }}
@@ -15063,9 +15293,7 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                         try {
                           if (isWaitingInRoom || isOnline) await online.leaveRoom();
                         } catch {
-                          setTransferHostExitError(
-                            'Хост передан, но выйти из комнаты не удалось. Попробуйте выйти из меню ещё раз или обновите страницу.',
-                          );
+                          setTransferHostExitError(t('table.transferHostLeaveFail'));
                           setTransferHostExitPhase('pick');
                           return;
                         }
@@ -15077,32 +15305,32 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
                       const c = (r.error ?? '').toLowerCase();
                       setTransferHostExitError(
                         c === 'not_host'
-                          ? 'Сервер не считает вас хостом (состояние устарело). Обновите страницу или откройте комнату заново.'
+                          ? t('table.transferHostNotHost')
                           : c === 'new_host_not_in_slots' || c.includes('not_in_slots')
-                            ? 'Выбранный игрок не числится в комнате. Обновите стол.'
+                            ? t('table.transferHostNotInSlots')
                             : c === 'same_host'
-                              ? 'Нужно выбрать другого игрока, не себя.'
+                              ? t('table.transferHostSameHost')
                               : c === 'not_authenticated'
-                                ? 'Сессия истекла. Войдите снова и откройте комнату по коду — иначе запросы к столу не проходят.'
+                                ? t('table.transferHostNotAuth')
                                 : c === 'not_found'
-                                  ? 'Комната на сервере не найдена (id или доступ). Обновите страницу и откройте стол по коду.'
+                                  ? t('table.transferHostNotFound')
                                   : c === 'bad_room_id' || c.includes('bad_room')
-                                    ? 'Неверный id комнаты. Обновите страницу и зайдите в комнату снова.'
+                                    ? t('table.transferHostBadRoom')
                                     : c === 'bad_new_host'
-                                      ? 'Неверный id нового хоста. Выберите игрока из списка ещё раз.'
-                                      : r.error ?? 'Не удалось передать хоста. Попробуйте ещё раз.',
+                                      ? t('table.transferHostBadNewHost')
+                                      : r.error ?? t('table.transferHostFailed'),
                       );
                     } catch {
-                      setTransferHostExitError(
-                        'Нет связи с сервером. Попробуйте ещё раз или обновите страницу.',
-                      );
+                      setTransferHostExitError(t('table.transferHostNoLink'));
                     } finally {
                       setTransferHostExitPhase('pick');
                     }
                   }}
                   style={newGameConfirmOkBtnStyle}
                 >
-                  {transferHostExitPhase === 'pick' ? 'Передать и далее' : 'Подождите…'}
+                  {transferHostExitPhase === 'pick'
+                    ? t('table.transferHostContinue')
+                    : t('table.pleaseWait')}
                 </button>
               </div>
             </div>
@@ -15319,6 +15547,26 @@ html body div.game-table-root.game-info-badge-plasma.game-info-badge-plasma-pc-f
           offlineAiDifficultyPicker={playerInfoOfflineAiDifficultyPicker}
           aiAvatarPicker={playerInfoAiAvatarPicker}
           isAiPlayer={selectedPlayerForInfo != null ? isDisplayIndexAiPlayer(selectedPlayerForInfo) : false}
+          dossier={(() => {
+            const idx = selectedPlayerForInfo;
+            const nPlayers = displayState.players.length === 3 ? 3 : 4;
+            const seatLabel = getCompassLabel(idx, nPlayers);
+            if (offlineMode) {
+              return { mode: 'offline' as const, seatLabel };
+            }
+            const canon = getCanonicalIndexForDisplay(idx, online.myServerIndex, nPlayers);
+            const slot = online.playerSlots.find((s) => s.slotIndex === canon);
+            return {
+              mode: 'online' as const,
+              seatLabel,
+              isHost: !!(slot?.userId && online.hostUserId && slot.userId === online.hostUserId),
+              replacedByAi: !!slot?.replacedUserId,
+              shortLabel: slot?.shortLabel?.trim() || null,
+              accountSignedIn: idx === 0 ? isUserSignedIn(user) : null,
+              accountWho: idx === 0 ? accountWhoFromUser(user) : null,
+              onSignIn: idx === 0 ? onSignIn : undefined,
+            };
+          })()}
         />,
         document.body
       )}
@@ -15484,8 +15732,10 @@ function OnlineRoomCodeBadge({
               onClick={handleTap}
               aria-label={
                 showTimerInBadge
-                  ? `Время партии ${formatOnlinePartyElapsed(partyElapsedSeconds)}. Нажмите, чтобы показать код комнаты и скопировать.`
-                  : `Код комнаты ${code}. Нажмите, чтобы скопировать.`
+                  ? t('table.partyElapsedShowCode', {
+                      elapsed: formatOnlinePartyElapsed(partyElapsedSeconds),
+                    })
+                  : t('table.roomCodeTapCopy', { code })
               }
               title={showTimerInBadge ? t('table.showRoomCode') : t('table.copyRoomCode')}
             >
@@ -15562,14 +15812,6 @@ const IMMERSIVE_DEAL_MARQUEE_SCROLL_LOOPS_BIDDING = 2;
 const IMMERSIVE_DEAL_MARQUEE_SCROLL_LOOPS_AFTER_BIDS = 1;
 const IMMERSIVE_DEAL_MARQUEE_LONG_PRESS_MS = 520;
 
-const IMMERSIVE_MODE_EXPLAIN_NO_TRUMP_TITLE = 'Режим «Бескозырка»';
-const IMMERSIVE_MODE_EXPLAIN_NO_TRUMP_BODY =
-  'В этой партии четыре раздачи подряд (№21–№24) идут без козыря: при раздаче козырь не назначается, старшинство в масти как обычно. Заказывайте взятки как в обычном раунде.';
-
-const IMMERSIVE_MODE_EXPLAIN_DARK_TITLE = 'Режим «Тёмная»';
-const IMMERSIVE_MODE_EXPLAIN_DARK_BODY =
-  'В этой партии четыре раздачи подряд (№25–№28) — «тёмные»: сначала все игроки делают заказ, не видя своих карт. После принятия заказов карты сдаются, козырь определяется последней картой у сдающего, дальше раздача идёт как обычно. Ориентируйтесь на счёт партии и договорённости за столом.';
-
 /** Short + immersive: «Взяток / Заказано»; после пар циклов — короткая статика; тап снова включает бегунок, удержание — подробности. */
 function ImmersiveDealContractMarquee({
   stats,
@@ -15617,12 +15859,24 @@ function ImmersiveDealContractMarquee({
         : 'equal';
 
   const modeSpoken =
-    dealType === 'no-trump' ? 'Режим бескозырка.' : dealType === 'dark' ? 'Режим тёмная.' : '';
+    dealType === 'no-trump'
+      ? `${t('table.modeNoTrumpSpoken')} `
+      : dealType === 'dark'
+        ? `${t('table.modeDarkSpoken')} `
+        : '';
 
   const ariaSummary =
     marqueeMode === 'compact' && !prefersReducedMotion
-      ? `${modeSpoken} Взяток в раздаче ${tricksInDeal}, заказано ${ordersSumSoFar}. На экране: В ${tricksInDeal}, З ${ordersSumSoFar}. Короткий тап — снова прокрутка. Удерживайте — подробности по раздаче`
-      : `${modeSpoken} Взяток в раздаче ${tricksInDeal}, заказано ${ordersSumSoFar}. Нажмите для подробностей по раздаче`;
+      ? t('table.marqueeAriaCompact', {
+          mode: modeSpoken,
+          tricks: tricksInDeal,
+          ordered: ordersSumSoFar,
+        })
+      : t('table.marqueeAriaScroll', {
+          mode: modeSpoken,
+          tricks: tricksInDeal,
+          ordered: ordersSumSoFar,
+        });
 
   const renderModeLead = (variant: 'scroll' | 'compact') => {
     if (dealType === 'normal') return null;
@@ -15748,12 +16002,11 @@ function ImmersiveDealContractMarquee({
     [marqueeMode, prefersReducedMotion, onOpenHelp],
   );
 
-  const modeTapHint =
-    dealType !== 'normal' ? ' Тап по «Бескозырка» или «Тёмная» — пояснение режима раздачи.' : '';
+  const modeTapHint = dealType !== 'normal' ? t('table.marqueeModeTapHint') : '';
   const titleHint =
     marqueeMode === 'compact' && !prefersReducedMotion
-      ? `Короткий тап — снова полная прокрутка. Удерживайте — подробности по раздаче.${modeTapHint}`
-      : `Сводка по раздаче — нажмите, как на бейдже в шапке.${modeTapHint}`;
+      ? t('table.marqueeTitleCompact', { hint: modeTapHint })
+      : t('table.marqueeTitleScroll', { hint: modeTapHint });
 
   const staticCompactLayout = marqueeMode === 'compact' || prefersReducedMotion;
 
@@ -15839,10 +16092,10 @@ function ImmersiveDealContractMarquee({
 }
 
 const PLAYER_POSITIONS = [
-  { idx: 0, side: 'bottom' as const, name: 'Юг' },
-  { idx: 1, side: 'top' as const, name: 'Север' },
-  { idx: 2, side: 'left' as const, name: 'Запад' },
-  { idx: 3, side: 'right' as const, name: 'Восток' },
+  { idx: 0, side: 'bottom' as const },
+  { idx: 1, side: 'top' as const },
+  { idx: 2, side: 'left' as const },
+  { idx: 3, side: 'right' as const },
 ];
 
 /** Раскладка панелей оверлея результатов:
@@ -15853,12 +16106,12 @@ function getOverlayPlayerPositions(
   playerCount: number,
   isMobile: boolean,
   isMobileLandscape = false,
-): Array<{ idx: number; side: 'top' | 'bottom' | 'left' | 'right'; name: string }> {
+): Array<{ idx: number; side: 'top' | 'bottom' | 'left' | 'right' }> {
   if (playerCount === 3 && (!isMobile || isMobileLandscape)) {
     return [
-      { idx: 0, side: 'bottom', name: 'Юг' },
-      { idx: 2, side: 'left', name: 'Запад' },
-      { idx: 1, side: 'right', name: 'Восток' },
+      { idx: 0, side: 'bottom' },
+      { idx: 2, side: 'left' },
+      { idx: 1, side: 'right' },
     ];
   }
   return PLAYER_POSITIONS.filter((p) => p.idx < playerCount);
@@ -19804,7 +20057,7 @@ function TrickSlotsDisplay({
           bid={null}
           tricksTaken={tricksTaken}
           tapHintEnabled={hideOppOrderWord}
-          ariaLabel={hideOppOrderWord ? 'Заказ ещё не сделан' : undefined}
+          ariaLabel={hideOppOrderWord ? t('table.orderTapPending') : undefined}
           orderHintSlot={opponentOrderHintSlot}
         >
           {nullInner}
@@ -19817,14 +20070,14 @@ function TrickSlotsDisplay({
           style={resolveTrickWrapStyle({ ...nullWrap, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 })}
           className={nullCls}
           role="status"
-          aria-label={`Заказ не выбран. Уже ${tricksPhrase(tricksTaken)}.`}
+          aria-label={t('table.orderPendingAlreadyTaken', { taken: tricksPhrase(tricksTaken) })}
         >
           <PcTrickBidTakenFigures bid={null} tricksTaken={tricksTaken} audience="player" fontSize={11} />
         </div>
       );
     }
     return (
-      <div style={resolveTrickWrapStyle(nullWrap)} className={nullCls} role="status" aria-label={hideOppOrderWord ? 'Заказ ещё не сделан' : undefined}>
+      <div style={resolveTrickWrapStyle(nullWrap)} className={nullCls} role="status" aria-label={hideOppOrderWord ? t('table.orderTapPending') : undefined}>
         {wrapMobileSouthLandscapeOrderInner(
           nullInner,
           variant === 'player' && !!playerMobileLandscapeTricks,
@@ -20850,7 +21103,14 @@ function TrickSlotsDisplay({
           bid={bid}
           tricksTaken={tricksTaken}
           tapHintEnabled={hideOppOrderWord}
-          ariaLabel={hideOppOrderWord ? `Заказ ${tricksPhrase(bid)}, взято ${tricksPhrase(tricksTaken)}` : undefined}
+          ariaLabel={
+            hideOppOrderWord
+              ? t('table.orderBidTakenShort', {
+                  bid: tricksPhrase(bid),
+                  taken: tricksPhrase(tricksTaken),
+                })
+              : undefined
+          }
           orderHintSlot={opponentOrderHintSlot}
         >
           {compactInner}
@@ -20965,7 +21225,10 @@ function TrickSlotsDisplay({
           .filter(Boolean)
           .join(' ')}
         role="status"
-        aria-label={`Взято ${tricksPhrase(tricksTaken)}, заказ ${tricksPhrase(bid)}`}
+        aria-label={t('table.takenBidShort', {
+          taken: tricksPhrase(tricksTaken),
+          bid: tricksPhrase(bid),
+        })}
       >
         <div
           style={{
@@ -21070,7 +21333,10 @@ function TrickSlotsDisplay({
         .filter(Boolean)
         .join(' ')}
       role="status"
-      aria-label={`Взято ${tricksPhrase(tricksTaken)}, заказ ${tricksPhrase(bid)}`}
+      aria-label={t('table.takenBidShort', {
+        taken: tricksPhrase(tricksTaken),
+        bid: tricksPhrase(bid),
+      })}
     >
       <div
         style={{
@@ -21501,19 +21767,9 @@ function OpponentSlot({
   /** Landscape З/В: вертикальные mid-панельки (имя столбиком) — mid и phone landscape */
   mobileLandscapeWeVertical?: boolean;
 }) {
-  const p = state.players[index];
-  if (!p) return null;
-  const displayName = localizeAiDisplayName(p.id, p.name, state.players.length);
+  const onlineCtx = useOnlineGame();
   const isMobileOrTabletVp = useIsMobileOrTablet();
   const isTabletPcShell = useIsTabletPcShell();
-  /** Планшет · 4p · Север: панель заказа −10% (в т.ч. заказ 0 на торгах/розыгрыше). */
-  const tabletFourNorthOrderPanelScale =
-    !isMobile &&
-    (isMobileOrTabletVp || isTabletPcShell) &&
-    position === 'top' &&
-    state.players.length === 4
-      ? 0.9
-      : undefined;
   /** Мобильные С/З/В: бейдж «Очки» по умолчанию только цифра; тап разворачивает подпись */
   const [mobileOpponentScoreExpanded, setMobileOpponentScoreExpanded] = useState(false);
   useEffect(() => {
@@ -21523,6 +21779,34 @@ function OpponentSlot({
   }, [mobileOpponentScoreExpanded]);
   /** Уникальный id градиента SVG звёздочки «ровно в заказ» (несколько слотов на экране). */
   const exactOrderStarGradientId = useId().replace(/:/g, '');
+  const p = state.players[index];
+  if (!p) return null;
+  const displayName = localizeAiDisplayName(p.id, p.name, state.players.length);
+  /** ★ только у живых оппонентов в онлайн-комнате (не офлайн, не ИИ-слот). */
+  const showStarsBadge = (() => {
+    const inOnlineRoom = !!(
+      onlineCtx.roomId &&
+      (onlineCtx.status === 'waiting' ||
+        onlineCtx.status === 'playing' ||
+        onlineCtx.status === 'finished')
+    );
+    if (!inOnlineRoom) return false;
+    const canon = getCanonicalIndexForDisplay(
+      index,
+      onlineCtx.myServerIndex,
+      state.players.length === 3 ? 3 : 4,
+    );
+    const slot = onlineCtx.playerSlots.find((s) => s.slotIndex === canon);
+    return !isOnlineAiControlledSlot(slot);
+  })();
+  /** Планшет · 4p · Север: панель заказа −10% (в т.ч. заказ 0 на торгах/розыгрыше). */
+  const tabletFourNorthOrderPanelScale =
+    !isMobile &&
+    (isMobileOrTabletVp || isTabletPcShell) &&
+    position === 'top' &&
+    state.players.length === 4
+      ? 0.9
+      : undefined;
   const scoreLeaderHighlight = isPartyScoreLeader(state, index);
   const isActive = state.currentPlayerIndex === index;
   const isDealer = state.dealerIndex === index;
@@ -21785,6 +22069,11 @@ function OpponentSlot({
           : {}),
       }}
     >
+      {showStarsBadge ? (
+        <span className="panel-corner-stars">
+          <StarsBalanceBadge size="sm" balance={0} interactive />
+        </span>
+      ) : null}
       {dealerOpponentMobilePanelHighlight ? (
         <DealerMobilePanelStars
           layout={
@@ -22129,7 +22418,7 @@ function OpponentSlot({
                   aria-label={
                     mobileOpponentScoreExpanded
                       ? t('table.scoreOfPlayerHide', { n: p.score })
-                      : `${p.score} очков, показать подпись`
+                      : t('table.scoreOfPlayerShow', { n: p.score })
                   }
                 >
                   {mobileOpponentScoreExpanded ? (
@@ -22186,12 +22475,12 @@ function OpponentSlot({
                     .join(' ') || undefined}
                   title={
                     opponentNameWindowHorizScroll && oppNameWindowScrollable
-                      ? `${displayName} — ${getCompassLabel(index, state.players.length, position)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
+                      ? `${displayName} — ${getCompassLabel(index, state.players.length, position)}. ${getOpponentNameWindowScrollHint()}`
                       : undefined
                   }
                   aria-label={
                     opponentNameWindowHorizScroll && oppNameWindowScrollable
-                      ? `${displayName}, ${getCompassLabel(index, state.players.length, position)}. ${OPPONENT_NAME_WINDOW_SCROLL_HINT}`
+                      ? `${displayName}, ${getCompassLabel(index, state.players.length, position)}. ${getOpponentNameWindowScrollHint()}`
                       : undefined
                   }
                   role={opponentNameWindowHorizScroll && oppNameWindowScrollable ? 'button' : undefined}
@@ -22273,22 +22562,14 @@ function OpponentSlot({
           : '';
         const playerAvatarMergedCls = [avatarOrderRingInnerCls, playerAvatarPcAiCls].filter(Boolean).join(' ') || undefined;
         const opponentStarsFace = (
-          <span
-            className="opp-av-chrome"
-            style={{ width: avatarSizePx, height: avatarSizePx }}
-          >
-            <PlayerAvatar
-              name={displayName}
-              avatarDataUrl={avatarDataUrl}
-              sizePx={avatarSizePx}
-              title={`${displayName} — ${getCompassLabel(index, state.players.length, position)}`}
-              className={playerAvatarMergedCls}
-              remoteNameBadge={remoteNameBadge}
-            />
-            <span className="opp-av-stars">
-              <StarsBalanceBadge size="sm" balance={0} />
-            </span>
-          </span>
+          <PlayerAvatar
+            name={displayName}
+            avatarDataUrl={avatarDataUrl}
+            sizePx={avatarSizePx}
+            title={`${displayName} — ${getCompassLabel(index, state.players.length, position)}`}
+            className={playerAvatarMergedCls}
+            remoteNameBadge={remoteNameBadge}
+          />
         );
         const avatarControl = onAvatarClick ? (
           <button

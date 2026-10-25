@@ -45,7 +45,8 @@ export function authDebugStorageSnapshot(): Record<string, unknown> {
       totalChars: total,
       totalApproxKB: Math.round(total / 1024),
       top: big.slice(0, 12),
-      hasAuthToken: big.some((x) => /^sb-[\w-]+-auth-token/.test(x.key)),
+      /* Только сессия, не code-verifier (иначе ложный hasAuthToken после срыва OAuth). */
+      hasAuthToken: big.some((x) => /^sb-[\w-]+-auth-token$/.test(x.key) && x.len > 40),
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

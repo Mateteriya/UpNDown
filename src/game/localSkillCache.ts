@@ -12,6 +12,7 @@ import {
   avgPlaceFromCounters,
   classifyBidBias,
   classifyBidPlayStyle,
+  classifyBidStyleFlavor,
   dealOutcomesForPlayer,
   emptySkillCounters,
   skillPct,
@@ -19,6 +20,7 @@ import {
   totalSkillDeals,
   type BidBias,
   type BidPlayStyle,
+  type BidStyleFlavor,
   type SkillCounters,
 } from './playerSkillStats';
 
@@ -41,6 +43,7 @@ export type LocalSkillView = {
   winRateShown: number | null;
   style: BidPlayStyle;
   bias: BidBias;
+  flavor: BidStyleFlavor;
 };
 
 const backfillInflight = new Map<string, Promise<LocalRating>>();
@@ -66,11 +69,14 @@ function resolveProfileId(profileId?: string): string {
 }
 
 /** Просканировать архив и записать skill-counters (если версия устарела или счётчики пусты при наличии раздач). */
-export async function ensureLocalSkillBackfill(profileId?: string): Promise<LocalRating> {
+export async function ensureLocalSkillBackfill(
+  profileId?: string,
+  opts?: { force?: boolean },
+): Promise<LocalRating> {
   const pid = resolveProfileId(profileId);
   const rating = getLocalRating(pid || undefined);
 
-  const key = pid || '__legacy__';
+  const key = `${pid || '__legacy__'}${opts?.force ? ':force' : ''}`;
   const existing = backfillInflight.get(key);
   if (existing) return existing;
 
@@ -79,7 +85,7 @@ export async function ensureLocalSkillBackfill(profileId?: string): Promise<Loca
       const archive = await getPartyArchive(pid || undefined, 1500);
       const countersEmpty = totalSkillDeals(rating) === 0 && rating.placeCount === 0;
       /* Пустые счётчики при непустом архиве — пересобрать (часто на втором устройстве/после бага версии). */
-      if (!needsSkillBackfill(rating) && !(countersEmpty && archive.length > 0)) {
+      if (!opts?.force && !needsSkillBackfill(rating) && !(countersEmpty && archive.length > 0)) {
         return rating;
       }
 
@@ -156,6 +162,8 @@ export function toLocalSkillView(rating: LocalRating): LocalSkillView {
   const matchesShown = Math.max(rating.gamesPlayed, rating.placeCount);
   const winsShown = Math.min(rating.wins, matchesShown || rating.wins);
   const winRateShown = matchesShown > 0 ? Math.round((winsShown / matchesShown) * 100) : null;
+  const style = classifyBidPlayStyle(exactPct, underPct, overPct, dealTotal);
+  const bias = classifyBidBias(underPct, overPct, dealTotal);
 
   return {
     rating,
@@ -171,8 +179,9 @@ export function toLocalSkillView(rating: LocalRating): LocalSkillView {
     matchesShown,
     winsShown,
     winRateShown,
-    style: classifyBidPlayStyle(exactPct, underPct, overPct, dealTotal),
-    bias: classifyBidBias(underPct, overPct, dealTotal),
+    style,
+    bias,
+    flavor: classifyBidStyleFlavor(style, bias),
   };
 }
 

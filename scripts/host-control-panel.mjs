@@ -22,7 +22,7 @@ const UI_HTML = join(dirname(fileURLToPath(import.meta.url)), 'host-control-ui.h
 const PANEL_PORT = Number(process.env.HOST_CONTROL_PORT ?? 3927);
 const GAME_PORT = Number(process.env.PORT ?? 3001);
 /** Версия API панели — при совпадении повторный host:control только открывает браузер. */
-const PANEL_REV = 11;
+const PANEL_REV = 18;
 /** Клубный лимит столов (совпадает с LAN WS_MAX_ROOMS). */
 const CLUB_MAX_ROOMS = Number(process.env.HOST_CLUB_MAX_ROOMS ?? process.env.WS_MAX_ROOMS ?? 22);
 /** Автостарт игрового сервера после открытия панели (клуб / стойка). */

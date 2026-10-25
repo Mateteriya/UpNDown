@@ -9,9 +9,12 @@ import {
   rejectPartyClaim,
   type CloudPartyClaimRow,
 } from '../lib/partyClaimCloud';
-import { getLocale, useT } from '../i18n';
+import { getLocale, useT, type TFunc } from '../i18n';
 
-function cardLines(row: CloudPartyClaimRow): { title: string; you: string; table: string } {
+function cardLines(
+  row: CloudPartyClaimRow,
+  tr: TFunc,
+): { title: string; you: string; table: string } {
   const locale = getLocale() === 'en' ? 'en' : 'ru';
   const viewer = (row.payload as { viewer?: Record<string, unknown> } | null)?.viewer;
   const d = new Date(row.finished_at);
@@ -24,16 +27,14 @@ function cardLines(row: CloudPartyClaimRow): { title: string; you: string; table
       })
     : row.finished_at;
   const shortKey = String(row.match_key || '').replace(/^room:/, '').slice(0, 8);
-  const title = locale === 'en' ? `${when} · key ${shortKey}…` : `${when} · ключ ${shortKey}…`;
+  const title = tr('partyClaim.inboxCardTitle', { when, key: shortKey });
   if (!viewer) return { title, you: '—', table: '—' };
   const place = Number(viewer.humanPlace) || 0;
   const score = Number(viewer.humanScore) || 0;
   const chips = Number(viewer.humanChips) || 0;
   const acc = Number(viewer.humanBidAccuracyPct) || 0;
-  const you =
-    locale === 'en'
-      ? `You: place ${place} · ${score} pts · ${chips >= 0 ? '+' : ''}${chips} chips · bid ${acc}%`
-      : `Вы: ${place}-е · ${score} очк. · ${chips >= 0 ? '+' : ''}${chips} фиш. · точн. ${acc}%`;
+  const chipsFmt = `${chips >= 0 ? '+' : ''}${chips}`;
+  const you = tr('partyClaim.inboxYouLine', { place, score, chips: chipsFmt, acc });
   const players = Array.isArray(viewer.players) ? viewer.players : [];
   const table = [...players]
     .sort((a, b) => Number((a as { place?: number }).place) - Number((b as { place?: number }).place))
@@ -116,7 +117,7 @@ export function PartyClaimInbox() {
       )}
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {rows.map((row) => {
-          const lines = cardLines(row);
+          const lines = cardLines(row, t);
           return (
             <li
               key={row.id}

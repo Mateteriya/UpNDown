@@ -1,0 +1,569 @@
+/**
+ * Юг ПК/планшет: космический tip (hover) + popover с правкой имени (click).
+ * Подключать после user-south-panel.css / south-avatar-chrome.css.
+ */
+
+/* —— Hover tip (self-contained: не зависим от menu-pc @media) —— */
+.south-name-cosmic-tip.menu-capsule-cosmic-tip.game-table-tooltip-cosmic {
+  position: fixed !important;
+  z-index: 2147483000 !important;
+  isolation: isolate !important;
+  display: block !important;
+  width: max-content !important;
+  max-width: min(300px, calc(100vw - 24px)) !important;
+  padding: 10px 16px 12px !important;
+  border-radius: 12px !important;
+  border: 2px solid transparent !important;
+  pointer-events: none !important;
+  overflow: visible !important;
+  transform: translate(-50%, calc(-100% - 2px)) !important;
+  background-color: #0e0c2a !important;
+  background-image:
+    radial-gradient(120% 90% at 20% 0%, rgb(56 189 248 / 0.18) 0%, rgb(14, 12, 42) 55%),
+    radial-gradient(100% 90% at 85% 100%, rgb(217 70 239 / 0.16) 0%, rgb(14, 12, 42) 62%),
+    linear-gradient(158deg, rgb(14, 12, 42) 0%, rgb(22, 18, 58) 42%, rgb(3, 6, 18) 100%),
+    conic-gradient(
+      from 225deg,
+      #22d3ee 0%,
+      #c084fc 18%,
+      #e879f9 34%,
+      #f472b6 50%,
+      #fbbf24 66%,
+      #4ade80 82%,
+      #22d3ee 100%
+    ) !important;
+  background-clip: padding-box, padding-box, padding-box, border-box !important;
+  background-origin: padding-box, padding-box, padding-box, border-box !important;
+  box-shadow:
+    0 0 0 1px rgb(34 211 238 / 0.55),
+    0 0 22px rgb(34 211 238 / 0.32),
+    0 0 34px rgb(168 85 247 / 0.28),
+    0 8px 22px rgb(2 6 23 / 0.58) !important;
+  animation: south-name-cosmic-tip-pop 0.22s ease-out both !important;
+}
+
+.south-name-cosmic-tip.menu-capsule-cosmic-tip--below.game-table-tooltip-cosmic {
+  transform: translate(-50%, 0) !important;
+}
+
+.south-name-cosmic-tip .menu-capsule-cosmic-tip__text.game-table-tooltip-cosmic-body-text {
+  font-family: 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+  opacity: 0.92;
+}
+
+.south-name-cosmic-tip .menu-capsule-cosmic-tip__preview {
+  margin-top: 8px !important;
+  align-items: stretch !important;
+}
+
+.south-name-cosmic-tip__callsign {
+  display: block;
+  max-width: 100%;
+  font-family: var(--font-south-name, 'Exo 2', 'Nunito', sans-serif);
+  font-size: clamp(1.05rem, 2.2vw, 1.35rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background-image: linear-gradient(
+    105deg,
+    #ecfeff 0%,
+    #67e8f9 18%,
+    #a78bfa 42%,
+    #e879f9 62%,
+    #fbbf24 82%,
+    #a5f3fc 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(103, 232, 249, 0.35));
+  animation: south-name-cosmic-callsign-flow 4.2s ease-in-out infinite;
+}
+
+.south-name-cosmic-tip .menu-capsule-cosmic-tip__detail {
+  margin-top: 8px !important;
+  font-family: 'Outfit', 'Exo 2', ui-sans-serif, system-ui, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 550 !important;
+  letter-spacing: 0.02em !important;
+}
+
+@keyframes south-name-cosmic-callsign-flow {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* —— Click popover —— */
+.south-name-cosmic-popover {
+  position: fixed;
+  z-index: 2147482000;
+  width: min(292px, calc(100vw - 20px));
+  padding: 14px 16px 14px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  isolation: isolate;
+  overflow: hidden;
+  text-align: left;
+  line-height: 1.35;
+  pointer-events: auto;
+  background-color: rgb(8, 6, 24);
+  background-image:
+    radial-gradient(120% 90% at 8% 0%, rgba(56, 189, 248, 0.32), transparent 55%),
+    radial-gradient(95% 85% at 100% 18%, rgba(192, 132, 252, 0.34), transparent 52%),
+    radial-gradient(80% 70% at 50% 110%, rgba(251, 191, 36, 0.12), transparent 55%),
+    linear-gradient(165deg, rgb(16, 12, 44), rgb(26, 14, 58) 55%, rgb(8, 6, 28)),
+    conic-gradient(
+      from 210deg,
+      #22d3ee 0%,
+      #a78bfa 22%,
+      #e879f9 44%,
+      #fbbf24 66%,
+      #34d399 84%,
+      #22d3ee 100%
+    );
+  background-clip: padding-box, padding-box, padding-box, padding-box, border-box;
+  background-origin: padding-box, padding-box, padding-box, padding-box, border-box;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.45),
+    0 0 28px rgba(34, 211, 238, 0.22),
+    0 0 40px rgba(168, 85, 247, 0.2),
+    0 16px 44px rgba(2, 6, 23, 0.78),
+    inset 0 1px 0 rgba(167, 139, 250, 0.22);
+  animation: south-name-cosmic-popover-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.south-name-cosmic-popover__aurora,
+.south-name-cosmic-popover__glow,
+.south-name-cosmic-popover__dust,
+.south-name-cosmic-popover__orbit {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none !important;
+}
+
+.south-name-cosmic-popover__aurora {
+  inset: -40% -30% auto -30%;
+  height: 85%;
+  background: radial-gradient(
+    ellipse at 35% 20%,
+    rgba(103, 232, 249, 0.28),
+    transparent 68%
+  );
+  opacity: 0.9;
+}
+
+.south-name-cosmic-popover__glow {
+  inset: auto -25% -35% -25%;
+  height: 70%;
+  background: radial-gradient(
+    ellipse at 60% 80%,
+    rgba(232, 121, 249, 0.22),
+    transparent 70%
+  );
+}
+
+.south-name-cosmic-popover__dust {
+  inset: 0;
+  opacity: 0.6;
+  background-image:
+    radial-gradient(1px 1px at 14% 22%, rgba(165, 243, 252, 0.95), transparent),
+    radial-gradient(1.2px 1.2px at 72% 16%, rgba(192, 132, 252, 0.95), transparent),
+    radial-gradient(1px 1px at 88% 58%, rgba(244, 114, 182, 0.85), transparent),
+    radial-gradient(1.1px 1.1px at 28% 74%, rgba(253, 224, 71, 0.85), transparent),
+    radial-gradient(1px 1px at 54% 40%, rgba(52, 211, 153, 0.8), transparent),
+    radial-gradient(1px 1px at 42% 88%, rgba(232, 121, 249, 0.75), transparent);
+}
+
+.south-name-cosmic-popover__orbit {
+  top: 10px;
+  right: 12px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px dashed rgba(103, 232, 249, 0.35);
+  box-shadow: inset 0 0 12px rgba(167, 139, 250, 0.2);
+  opacity: 0.7;
+  animation: south-name-cosmic-orbit 12s linear infinite;
+}
+
+.south-name-cosmic-popover__orbit::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fde68a 0%, #a78bfa 70%, transparent 100%);
+  box-shadow: 0 0 8px rgba(253, 224, 71, 0.8);
+}
+
+.south-name-cosmic-popover__eyebrow,
+.south-name-cosmic-popover__title,
+.south-name-cosmic-popover__hero,
+.south-name-cosmic-popover__lead,
+.south-name-cosmic-popover__edit,
+.south-name-cosmic-popover__actions,
+.south-name-cosmic-popover__label,
+.south-name-cosmic-popover__hint,
+.south-name-cosmic-popover__error {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+}
+
+.south-name-cosmic-popover__eyebrow {
+  font-family: 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #22d3ee;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.65);
+}
+
+.south-name-cosmic-popover__title {
+  margin-top: 4px;
+  font-family: var(--font-south-name, 'Exo 2', 'Nunito', sans-serif);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #c084fc;
+  text-shadow:
+    0 0 10px rgba(192, 132, 252, 0.7),
+    0 0 18px rgba(34, 211, 238, 0.35);
+}
+
+/* Только просмотр (без правки): яркий неон, не «мёртвый input» */
+.south-name-cosmic-popover__hero {
+  position: relative;
+  z-index: 2;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(103, 232, 249, 0.55);
+  background:
+    linear-gradient(145deg, rgba(56, 189, 248, 0.2), transparent 55%),
+    rgba(18, 8, 48, 0.96);
+  box-shadow:
+    inset 0 1px 0 rgba(167, 139, 250, 0.3),
+    0 0 18px rgba(34, 211, 238, 0.22);
+  font-family: var(--font-south-name, 'Exo 2', 'Nunito', sans-serif);
+  font-size: clamp(1.15rem, 2.4vw, 1.45rem);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1.25;
+  word-break: break-word;
+  color: #67e8f9;
+  -webkit-text-fill-color: #67e8f9;
+  text-shadow:
+    0 0 8px rgba(103, 232, 249, 0.75),
+    0 0 16px rgba(232, 121, 249, 0.45);
+}
+
+.south-name-cosmic-popover__lead {
+  margin-top: 8px;
+  font-family: 'Outfit', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  font-weight: 600;
+  color: #a78bfa;
+  text-shadow: 0 0 8px rgba(167, 139, 250, 0.45);
+}
+
+.south-name-cosmic-popover__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.south-name-cosmic-popover__btn {
+  appearance: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 232, 249, 0.45);
+  font-family: 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.12s ease;
+}
+
+.south-name-cosmic-popover__btn--primary {
+  color: #67e8f9;
+  -webkit-text-fill-color: #67e8f9;
+  background:
+    linear-gradient(145deg, rgba(56, 189, 248, 0.35), transparent 60%),
+    linear-gradient(120deg, rgba(124, 58, 237, 0.45), rgba(14, 116, 144, 0.35));
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+}
+
+.south-name-cosmic-popover__btn--ghost {
+  color: #e879f9;
+  -webkit-text-fill-color: #e879f9;
+  background: rgba(30, 12, 58, 0.85);
+}
+
+.south-name-cosmic-popover__btn-shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(103, 232, 249, 0.28) 48%,
+    transparent 62%
+  );
+  transform: translateX(-120%);
+  animation: south-name-cosmic-btn-shine 3.6s ease-in-out infinite;
+}
+
+.south-name-cosmic-popover__btn:hover,
+.south-name-cosmic-popover__btn:focus-visible {
+  outline: none;
+  border-color: rgba(253, 224, 71, 0.75);
+  color: #fde68a;
+  -webkit-text-fill-color: #fde68a;
+  box-shadow: 0 0 16px rgba(167, 139, 250, 0.45);
+  transform: translateY(-1px);
+}
+
+.south-name-cosmic-popover__btn:active {
+  transform: translateY(0);
+}
+
+.south-name-cosmic-popover__edit {
+  margin-top: 10px;
+  position: relative;
+  z-index: 4;
+  pointer-events: auto;
+}
+
+.south-name-cosmic-popover__label {
+  display: block;
+  font-family: 'Exo 2', 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #22d3ee;
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.55);
+}
+
+.south-name-cosmic-popover__field {
+  position: relative;
+  z-index: 5;
+  margin-top: 8px;
+  pointer-events: auto;
+  isolation: isolate;
+}
+
+.south-name-cosmic-popover__input {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  z-index: 5;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 52px 11px 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(34, 211, 238, 0.65);
+  background-color: rgb(18, 8, 48) !important;
+  background-image: linear-gradient(
+    160deg,
+    rgba(56, 189, 248, 0.2),
+    rgba(124, 58, 237, 0.12) 55%,
+    rgb(18, 8, 48) 100%
+  ) !important;
+  /* Неон, не белый/серый — как в name-avatar, ярче */
+  color: #e879f9 !important;
+  -webkit-text-fill-color: #e879f9 !important;
+  caret-color: #22d3ee !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+  font-family: var(--font-south-name, 'Exo 2', 'Nunito', sans-serif);
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(103, 232, 249, 0.22),
+    0 0 14px rgba(232, 121, 249, 0.2);
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease;
+}
+
+.south-name-cosmic-popover__input::placeholder {
+  color: #a78bfa !important;
+  -webkit-text-fill-color: #a78bfa !important;
+  font-weight: 650;
+  opacity: 0.85;
+}
+
+.south-name-cosmic-popover__input:focus {
+  border-color: rgba(103, 232, 249, 0.95);
+  color: #67e8f9 !important;
+  -webkit-text-fill-color: #67e8f9 !important;
+  caret-color: #fde68a !important;
+  box-shadow:
+    inset 0 1px 0 rgba(103, 232, 249, 0.35),
+    0 0 0 3px rgba(34, 211, 238, 0.28),
+    0 0 22px rgba(232, 121, 249, 0.35);
+}
+
+.south-name-cosmic-popover__input[aria-invalid='true'] {
+  border-color: rgba(251, 113, 133, 0.85);
+  box-shadow: 0 0 0 3px rgba(251, 113, 133, 0.2);
+}
+
+.south-name-cosmic-popover__counter {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  z-index: 6;
+  transform: translateY(-50%);
+  font-family: var(--font-pororoca, 'Exo 2', monospace);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fde68a;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.55);
+  pointer-events: none;
+}
+
+.south-name-cosmic-popover__hint {
+  margin-top: 8px;
+  font-family: 'Outfit', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  font-weight: 600;
+  color: #fbbf24;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.45);
+}
+
+.south-name-cosmic-popover__error {
+  margin-top: 8px;
+  font-family: 'Outfit', 'Exo 2', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #fb7185;
+  text-shadow: 0 0 10px rgba(244, 63, 94, 0.45);
+}
+
+/* Поля ввода внутри стола: явно разрешить выделение/каретку */
+.game-table-root .south-name-cosmic-popover__input {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+  pointer-events: auto !important;
+  color: #e879f9 !important;
+  -webkit-text-fill-color: #e879f9 !important;
+  caret-color: #22d3ee !important;
+}
+
+.game-table-root .south-name-cosmic-popover__input:focus {
+  color: #67e8f9 !important;
+  -webkit-text-fill-color: #67e8f9 !important;
+  caret-color: #fde68a !important;
+}
+
+.south-name-cosmic-popover--editing .south-name-cosmic-popover__orbit {
+  opacity: 0.35;
+}
+
+/* Плашка в режиме панели */
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--interactive {
+  cursor: pointer !important;
+}
+
+html body .game-table-root:not(.viewport-mobile)
+  .user-player-panel
+  .user-player-panel-pc-name-under-avatar--panel-open {
+  z-index: 9 !important;
+}
+
+@keyframes south-name-cosmic-tip-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-100% + 4px)) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, calc(-100% - 2px)) scale(1);
+  }
+}
+
+@keyframes south-name-cosmic-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes south-name-cosmic-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes south-name-cosmic-btn-shine {
+  0%,
+  55%,
+  100% {
+    transform: translateX(-120%);
+  }
+  70% {
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .south-name-cosmic-popover,
+  .south-name-cosmic-tip__callsign,
+  .south-name-cosmic-popover__orbit,
+  .south-name-cosmic-popover__btn-shine {
+    animation: none !important;
+  }
+}

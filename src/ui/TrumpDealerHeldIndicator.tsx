@@ -398,7 +398,7 @@ export function TrumpDealerHeldIndicator({
                     type="button"
                     className="trump-dealer-held-indicator__dealer-glyph-btn"
                     aria-expanded={dealerTooltipOpen}
-                    aria-label={`У кого козырь, ${rankLabel}`}
+                    aria-label={t('table.trumpWhoAria', { rank: rankLabel })}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (dealerTooltipOpen) {

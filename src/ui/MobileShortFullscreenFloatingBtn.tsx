@@ -3,6 +3,7 @@ import {
   computeMobileBottomObstructionInsetPx,
   readMobileVisibleViewportBottomPx,
 } from '../lib/mobileBrowserChrome';
+import { useT } from '../i18n';
 
 const POS_STORAGE_ENTER = 'upd.mobileShortFullscreenBtnPos.enter.v1';
 const POS_STORAGE_EXIT = 'upd.mobileShortFullscreenBtnPos.exit.v1';
@@ -148,7 +149,7 @@ function nudgeAwayFromChatToggle(pos: StoredPos, btn: HTMLElement | null): Store
   return tryLeftAbove;
 }
 
-/** Стартовая позиция: при чате — слева внизу (чат по центру); иначе справа внизу. */
+/** Стартовая позиция: по умолчанию слева внизу (аккаунт-орб справа). */
 function defaultPosForMode(mode: Mode, standaloneDisplay = false, dockSouthLeft = false): StoredPos {
   const box = readViewportBox();
   const bottomInset = computeMobileBottomObstructionInsetPx({
@@ -161,16 +162,14 @@ function defaultPosForMode(mode: Mode, standaloneDisplay = false, dockSouthLeft 
     return clampPos(box.left + 64, y);
   }
   const chatPresent = readChatToggleRect() != null;
+  /* fallback без dockSouthLeft — тоже слева, не перекрывать acct-orb справа */
   if (mode === 'enter') {
-    if (chatPresent) {
-      return clampPos(box.left + 72, y);
-    }
-    return clampPos(box.left + box.width - 72, y);
+    return clampPos(box.left + (chatPresent ? 72 : 64), y);
   }
   if (chatPresent) {
     return clampPos(box.left + box.width * 0.28, y);
   }
-  return clampPos(box.left + box.width / 2, y);
+  return clampPos(box.left + 64, y);
 }
 
 function resolveInitialPos(mode: Mode, standaloneDisplay = false, dockSouthLeft = false): StoredPos {
@@ -195,7 +194,7 @@ type Props = {
   mode: Mode;
   onTap: () => void;
   standaloneDisplay?: boolean;
-  /** Обычный портрет: стартовый якорь под Югом слева; enter/exit делят позицию; drag включён. */
+  /** Якорь слева внизу (short / стандарт-после-short / иммерсив / портрет); enter/exit; drag. */
   dockSouthLeft?: boolean;
 };
 
@@ -205,6 +204,7 @@ export function MobileShortFullscreenFloatingBtn({
   standaloneDisplay = false,
   dockSouthLeft = false,
 }: Props) {
+  const t = useT();
   const [pos, setPos] = useState<StoredPos>(() => resolveInitialPos(mode, standaloneDisplay, dockSouthLeft));
   const [dragging, setDragging] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -436,12 +436,8 @@ export function MobileShortFullscreenFloatingBtn({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
-      aria-label={
-        isExit
-          ? 'Выйти из полноэкранного режима. Удерживайте и перетащите, чтобы сменить место.'
-          : 'На весь экран. Удерживайте и перетащите, чтобы сменить место.'
-      }
-      title={isExit ? 'Выйти (перетащите)' : 'На весь экран (перетащите)'}
+      aria-label={isExit ? t('table.fullscreenExitAria') : t('table.fullscreenEnterAria')}
+      title={isExit ? t('table.fullscreenExitTitle') : t('table.fullscreenEnterTitle')}
     >
       <span className="mobile-short-fullscreen-entry-btn__main">
         <span className="mobile-short-fullscreen-entry-btn__grip" aria-hidden>
@@ -460,12 +456,12 @@ export function MobileShortFullscreenFloatingBtn({
             .filter(Boolean)
             .join(' ')}
         >
-          {isExit ? 'Выйти' : 'На весь экран'}
+          {isExit ? t('table.fullscreenExit') : t('table.fullscreenEnter')}
         </span>
       </span>
       {hintVisible && (
         <span className="mobile-short-fullscreen-entry-btn__drag-hint" aria-hidden>
-          удержите · перетащите
+          {t('table.fullscreenDragHint')}
         </span>
       )}
     </button>

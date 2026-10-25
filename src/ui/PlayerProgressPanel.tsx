@@ -289,6 +289,11 @@ function ChannelCard({
         </span>
         <span className="prog-channel__rate">{winRate != null ? `${winRate}%` : '—'}</span>
       </div>
+      <p className="prog-channel__win-line">
+        {wins > 0
+          ? t('cabinet.progChannelWinLine', { wins, matches })
+          : t('cabinet.progChannelWinZero')}
+      </p>
       <div className="prog-channel__diodes" aria-hidden="true">
         {Array.from({ length: 5 }, (_, i) => (
           <i key={i} className={i < lit ? 'is-on' : undefined} />
@@ -323,10 +328,11 @@ export function ProgressSparkline({
   const fillId = `progSparkFill-${uid}`;
   const strokeId = `progSparkStroke-${uid}`;
   if (values.length < 2) return null;
-  const padX = compact ? 2 : 4;
-  const padY = compact ? 2 : 4;
-  const w = compact ? 96 : 140;
-  const h = compact ? 28 : 36;
+  /* запас справа под последнюю точку — иначе кривая вылезает из карточки */
+  const padX = compact ? 4 : 6;
+  const padY = compact ? 3 : 4;
+  const w = compact ? 88 : 112;
+  const h = compact ? 28 : 34;
   const innerW = w - padX * 2;
   const innerH = h - padY * 2;
   const min = Math.min(...values);

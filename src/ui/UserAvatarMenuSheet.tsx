@@ -14,6 +14,9 @@ import { useDesktopProfileUi } from './useDesktopProfileUi';
 import { AudioSettingsPanel } from './AudioSettingsPanel';
 import { stopAllSounds } from '../audio';
 import { t, useT } from '../i18n';
+import { useAuth } from '../contexts/AuthContext';
+import { accountWhoFromUser, isUserSignedIn } from '../lib/accountStatusLabel';
+import { PlayerAccountStatusMark } from './PlayerAccountStatusMark';
 
 export interface UserAvatarMenuSheetProps {
   displayName: string;
@@ -32,6 +35,8 @@ export interface UserAvatarMenuSheetProps {
   /** Сохранить имя без отдельной модалки профиля. */
   onSaveDisplayName?: (displayName: string) => void;
   onTakePause?: () => void | Promise<void>;
+  /** Открыть вход в аккаунт (если не вошли). */
+  onSignIn?: () => void;
 }
 
 const ICON_STROKE = 2.1;
@@ -171,8 +176,12 @@ export function UserAvatarMenuSheet({
   onPhotoCaptured,
   onSaveDisplayName,
   onTakePause,
+  onSignIn,
 }: UserAvatarMenuSheetProps) {
   const tr = useT();
+  const { user } = useAuth();
+  const signedIn = isUserSignedIn(user);
+  const accountWho = accountWhoFromUser(user);
   const isDesktopProfileUi = useDesktopProfileUi();
   const menuAvatarSizePx = isDesktopProfileUi ? 92 : 68;
   const iconGradPrefix = useId().replace(/:/g, '');
@@ -282,8 +291,32 @@ export function UserAvatarMenuSheet({
 
         <div className="avatar-menu-sheet-header">
           <p className="avatar-menu-sheet-card__eyebrow" aria-hidden>
-            {offlineMode ? tr('avatarMenu.eyebrowOffline') : tr('avatarMenu.eyebrowOnline')}
+            {signedIn
+              ? offlineMode
+                ? tr('avatarMenu.eyebrowOfflineAcct', {
+                    who: accountWho || tr('playerDossier.acctAnon'),
+                  })
+                : tr('avatarMenu.eyebrowOnlineAcct', {
+                    who: accountWho || tr('playerDossier.acctAnon'),
+                  })
+              : offlineMode
+                ? tr('avatarMenu.eyebrowOfflineGuest')
+                : tr('avatarMenu.eyebrowOnlineGuest')}
           </p>
+          <div className="avatar-menu-sheet-acct">
+            <PlayerAccountStatusMark
+              signedIn={signedIn}
+              who={accountWho}
+              onSignIn={
+                !signedIn && onSignIn
+                  ? () => {
+                      onSignIn();
+                      onClose();
+                    }
+                  : undefined
+              }
+            />
+          </div>
           <div className="avatar-menu-sheet-header__main">
             <div className="avatar-menu-sheet-header__side avatar-menu-sheet-header__side--left">
               <div className="avatar-menu-sheet-name-panel">
@@ -468,6 +501,18 @@ export function UserAvatarMenuSheet({
         </div>
 
         <div className="avatar-menu-sheet-actions">
+          {!signedIn && onSignIn ? (
+            <button
+              type="button"
+              className="avatar-menu-sheet-btn avatar-menu-sheet-btn--signin"
+              onClick={() => {
+                onSignIn();
+                onClose();
+              }}
+            >
+              <span className="avatar-menu-sheet-btn-label">{tr('avatarMenu.openSignIn')}</span>
+            </button>
+          ) : null}
           {(onOpenProfileModal || onSaveAvatar || onSaveDisplayName) && (
             <div className="avatar-menu-sheet-profile-row">
               <button

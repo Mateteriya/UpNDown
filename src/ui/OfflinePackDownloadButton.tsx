@@ -9,8 +9,10 @@ import {
   subscribeOfflinePackStatus,
   type OfflinePackStatus,
 } from '../lib/warmOfflineAssets';
+import { useT } from '../i18n';
 
 export function OfflinePackDownloadButton() {
+  const t = useT();
   const [status, setStatus] = useState<OfflinePackStatus | null>(null);
   const totalHint = getOfflinePackManifest().length;
 
@@ -28,24 +30,24 @@ export function OfflinePackDownloadButton() {
   const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
 
   const label = blocked
-    ? 'Офлайн-скачивание здесь недоступно'
+    ? t('offlinePack.blocked')
     : running
-      ? `Скачиваем… ${cached} / ${total}`
+      ? t('offlinePack.downloading', { cached, total })
       : ready
-        ? `Офлайн готов · ${total} файлов`
+        ? t('offlinePack.ready', { total })
         : cached > 0 && cached < total
-          ? `Докачать офлайн · ${cached} / ${total}`
-          : 'Скачать игру для полного офлайна';
+          ? t('offlinePack.resume', { cached, total })
+          : t('offlinePack.download');
 
   const sub = blocked
-    ? 'Нужен HTTPS-сайт или ярлык с домашнего экрана (не http://IP в Wi‑Fi)'
+    ? t('offlinePack.subBlocked')
     : running
-      ? 'Не выключайте интернет, пока идёт загрузка'
+      ? t('offlinePack.subRunning')
       : ready
-        ? 'Можно в авиарежиме: карты, аватары ИИ, фоны'
+        ? t('offlinePack.subReady')
         : offline
-          ? 'Нужен интернет, чтобы скачать пакет'
-          : 'Карты, аватары ИИ и фоны меню — один раз';
+          ? t('offlinePack.subNeedInternet')
+          : t('offlinePack.subIdle');
 
   const canClick = !blocked && !running && !(offline && !ready);
 

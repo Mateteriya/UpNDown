@@ -1,8 +1,10 @@
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { t } from '../i18n';
 
-export const OPPONENT_NAME_WINDOW_SCROLL_HINT =
-  'Тап: неон и плавный просмотр туда-обратно. Пальцем: прокрутить длинное имя (через 3 с покоя — снова с первой буквы). Без тапа: раз в 15–30 с плавно показать конец имени и вернуться (без неона).';
+export function getOpponentNameWindowScrollHint(): string {
+  return t('table.oppNameWindowScrollHint');
+}
 
 const OPP_NAME_REVEAL_AUTO_IDLE_AFTER_USER_MS = 14000;
 const OPP_NAME_DRAG_THRESHOLD_PX = 8;

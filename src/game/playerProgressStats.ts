@@ -5,6 +5,10 @@
 
 import type { PartyArchiveRecord } from './partyArchive';
 import {
+  collectRecordsFromArchive,
+  type RecordsProgressExtras,
+} from './playerRecords';
+import {
   resolveTakenForPlayer,
   skillPct,
   summarizeDealSkill,
@@ -67,6 +71,8 @@ export interface PlayerProgressBundle {
   recentSeries: MatchAccuracyPoint[];
   bestDeals: HighlightDeal[];
   worstDeals: HighlightDeal[];
+  /** Рекорды итогов / крупные точные / тиры */
+  records: RecordsProgressExtras;
 }
 
 function emptyChannel(): ChannelSkillSummary {
@@ -261,6 +267,7 @@ export function buildPlayerProgressBundle(
     recentSeries: series.slice(-seriesLimit),
     bestDeals: highlights.best,
     worstDeals: highlights.worst,
+    records: collectRecordsFromArchive(chrono),
   };
 }
 
@@ -282,5 +289,12 @@ export function emptyPlayerProgressBundle(): PlayerProgressBundle {
     recentSeries: [],
     bestDeals: [],
     worstDeals: [],
+    records: {
+      bestPartyScores: [],
+      exactDeal10Count: 0,
+      exactDealBigCount: 0,
+      scoreTierCounts: {},
+      perfectParties: 0,
+    },
   };
 }

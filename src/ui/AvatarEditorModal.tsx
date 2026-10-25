@@ -55,6 +55,7 @@ import {
   unlockedFrameIds,
 } from '../game/playerMilestones';
 import { peekLocalSkillView } from '../game/localSkillCache';
+import { loadPlayerRecords } from '../game/playerRecords';
 import { getPlayerProfile } from '../game/persistence';
 import { bake3dPolishToBase, getAvatar3dPolishFlag, setAvatar3dPolishFlag } from '../lib/avatar3dFinish';
 import {
@@ -825,6 +826,9 @@ export function AvatarEditorModal({
   const badgeInputRef = useRef<HTMLInputElement | null>(null);
   const [badgePencilTipOpen, setBadgePencilTipOpen] = useState(false);
   const [badgeConfirmTipOpen, setBadgeConfirmTipOpen] = useState(false);
+  /** Короткий nudge галочки вместо error-баннера (не раздувает модалку) */
+  const [badgeConfirmNudge, setBadgeConfirmNudge] = useState(false);
+  const badgeConfirmNudgeTimerRef = useRef<number | null>(null);
   const badgePencilTipId = useId();
   const badgeConfirmTipId = useId();
   const brushUiId = useId().replace(/:/g, '');
@@ -872,12 +876,15 @@ export function AvatarEditorModal({
   useEffect(() => {
     const profileId = getPlayerProfile().profileId ?? '';
     const view = peekLocalSkillView(profileId || undefined);
+    const rec = loadPlayerRecords(profileId);
     const statuses = evaluateMilestones({
       bestExactStreak: view.bestExactStreak,
       exactDeals: view.rating.exactDeals,
       onlineWins: 0,
       elo: null,
       style: view.style,
+      bestPartyScore: rec.bestPartyScore,
+      exactDeal10Count: rec.exactDeal10Count,
     });
     syncAchievementsFromMilestones(statuses, profileId, {
       premiumCosmeticEnabled: premiumCosmeticOk,
@@ -1368,7 +1375,11 @@ export function AvatarEditorModal({
     if (savedFingerprintRef.current === null) return;
     const id = window.requestAnimationFrame(() => {
       const fp = fingerprintEditorState(getEditorMeta(), drawInkGenRef.current);
-      const dirty = fp !== savedFingerprintRef.current;
+      const badgeDraftDirty =
+        badgeEditing &&
+        normalizeAvatarBadgeText(badgeDraft) !==
+          (normalizeAvatarBadgeText(badgeText) || defaultAvatarBadgeText(displayName));
+      const dirty = fp !== savedFingerprintRef.current || badgeDraftDirty;
       setIsDirty(dirty);
       if (dirty) setSavedAck(false);
     });
@@ -1381,6 +1392,9 @@ export function AvatarEditorModal({
     initialsStyle,
     initialsColor,
     badgeText,
+    badgeEditing,
+    badgeDraft,
+    displayName,
     activeFrameId,
     photoDataUrl,
     photoScale,
@@ -1395,7 +1409,23 @@ export function AvatarEditorModal({
   useEffect(() => {
     return () => {
       if (savedAckTimerRef.current != null) window.clearTimeout(savedAckTimerRef.current);
+      if (badgeConfirmNudgeTimerRef.current != null) {
+        window.clearTimeout(badgeConfirmNudgeTimerRef.current);
+      }
     };
+  }, []);
+
+  const nudgeBadgeConfirm = useCallback(() => {
+    setBadgeConfirmTipOpen(true);
+    setBadgeConfirmNudge(true);
+    if (badgeConfirmNudgeTimerRef.current != null) {
+      window.clearTimeout(badgeConfirmNudgeTimerRef.current);
+    }
+    badgeConfirmNudgeTimerRef.current = window.setTimeout(() => {
+      setBadgeConfirmNudge(false);
+      setBadgeConfirmTipOpen(false);
+      badgeConfirmNudgeTimerRef.current = null;
+    }, 2800);
   }, []);
 
   const selectBackground = (id: AvatarEditorTemplateId) => {
@@ -1450,15 +1480,33 @@ export function AvatarEditorModal({
     setBaseChosen(true);
   };
 
-  /** Сброс запечённых старых инициалов при смене типа (не наслаивать). */
-  const clearBakedInitialsIfNeeded = () => {
-    if (photoIsComposite && !compositeSansInitials) {
-      setPhotoDataUrl(null);
+  /**
+   * Сброс legacy-JPEG с запечёнными глифами (не наслаивать поверх).
+   * Если есть исходное фото или под HTML-плашкой «чистые» пиксели — фото сохраняем.
+   */
+  const clearBakedInitialsIfNeeded = (opts?: { leavingBadge?: boolean }) => {
+    if (!(photoIsComposite && !compositeSansInitials)) return;
+    photoImageCacheRef.current = null;
+    if (sourcePhotoDataUrl) {
+      setPhotoDataUrl(sourcePhotoDataUrl);
       setPhotoIsComposite(false);
       setCompositeSansInitials(false);
-      photoImageCacheRef.current = null;
-      setBaseMode('template');
+      setBaseMode('photo');
+      setPhotoScale(1);
+      setPhotoOffsetX(0);
+      setPhotoOffsetY(0);
+      return;
     }
+    /* Плашка снизу — HTML поверх лица; пиксели фото не содержат глифов */
+    if (opts?.leavingBadge && photoDataUrl) {
+      setCompositeSansInitials(true);
+      setBaseMode('photo');
+      return;
+    }
+    setPhotoDataUrl(null);
+    setPhotoIsComposite(false);
+    setCompositeSansInitials(false);
+    setBaseMode('template');
   };
 
   const selectInitialsSource = (source: AvatarInitialsSource) => {
@@ -1480,9 +1528,9 @@ export function AvatarEditorModal({
   const selectInitialsStyle = (style: AvatarInitialsStyle) => {
     if (style === 'badge' && !nameBadgeOk) return;
     pushUndoMeta();
-    /* badge — HTML поверх фото; сброс baked JPEG убивал сохранённую фотку аккаунта */
+    /* badge — HTML поверх фото; уход с плашки не должен сносить фото */
     if (style !== 'badge') {
-      clearBakedInitialsIfNeeded();
+      clearBakedInitialsIfNeeded({ leavingBadge: initialsStyle === 'badge' });
     }
     startTransition(() => {
       setInitialsStyle(style);
@@ -1550,13 +1598,7 @@ export function AvatarEditorModal({
     if (color === initialsColor) return;
     pushUndoMeta();
     startTransition(() => {
-      if (photoIsComposite && !compositeSansInitials) {
-        setPhotoDataUrl(null);
-        setPhotoIsComposite(false);
-        setCompositeSansInitials(false);
-        photoImageCacheRef.current = null;
-        setBaseMode('template');
-      }
+      clearBakedInitialsIfNeeded({ leavingBadge: initialsStyle === 'badge' });
       setInitialsColor(color);
       setPolishApplied(false);
       setError(null);
@@ -2091,6 +2133,19 @@ export function AvatarEditorModal({
   };
 
   const handleSave = async (): Promise<boolean> => {
+    /* Черновик плашки — только галочка; не молча отбрасывать при «Сохранить / Применить» */
+    if (badgeEditing) {
+      const draftNorm =
+        normalizeAvatarBadgeText(badgeDraft) || defaultAvatarBadgeText(displayName);
+      const committedNorm =
+        normalizeAvatarBadgeText(badgeText) || defaultAvatarBadgeText(displayName);
+      if (draftNorm !== committedNorm) {
+        nudgeBadgeConfirm();
+        return false;
+      }
+      setBadgeEditing(false);
+      setBadgeConfirmTipOpen(false);
+    }
     const base = baseCanvasRef.current;
     const draw = drawCanvasRef.current;
     if (!base || !draw) return false;
@@ -2233,7 +2288,11 @@ export function AvatarEditorModal({
 
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') leaveEditor();
+      if (ev.key === 'Escape') {
+        /* Пока правим плашку — Esc только отменяет черновик, не закрывает редактор */
+        if (badgeEditing) return;
+        leaveEditor();
+      }
       const mod = ev.ctrlKey || ev.metaKey;
       if (mod && ev.key === 'z' && !ev.shiftKey) {
         ev.preventDefault();
@@ -2246,7 +2305,7 @@ export function AvatarEditorModal({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [leaveEditor, handleUndo, handleRedo]);
+  }, [leaveEditor, handleUndo, handleRedo, badgeEditing]);
 
   const canvasCursor =
     tool === 'sticker' || brushStamp
@@ -2434,13 +2493,27 @@ export function AvatarEditorModal({
                             }}
                           />
                           <MenuNamePlaqueConfirmMark
-                            className="avatar-editor-badge-plate__confirm"
+                            className={[
+                              'avatar-editor-badge-plate__confirm',
+                              badgeConfirmNudge
+                                ? 'avatar-editor-badge-plate__confirm--nudge'
+                                : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
                             onConfirm={commitBadgeEditor}
                             tipOpen={badgeConfirmTipOpen}
-                            onTipOpenChange={setBadgeConfirmTipOpen}
+                            onTipOpenChange={(open) => {
+                              if (!open && badgeConfirmNudge) return;
+                              setBadgeConfirmTipOpen(open);
+                            }}
                             tipId={badgeConfirmTipId}
-                            tipText={tr('common.save')}
-                            ariaLabel={tr('common.save')}
+                            tipText={
+                              badgeConfirmNudge
+                                ? tr('avatarEditor.badgeConfirmFirst')
+                                : tr('avatarEditor.badgeConfirmTip')
+                            }
+                            ariaLabel={tr('avatarEditor.badgeConfirmTip')}
                           />
                         </>
                       ) : (

@@ -265,7 +265,12 @@ export function buildMatchSkillInsight(
   return { kind: 'vs_avg', deltaVsAvg: 0 };
 }
 
-/** Характер заказа по долям exact/under/over. */
+/**
+ * Характер заказа по долям exact/under/over.
+ * Семантика Up&Down:
+ *  · over (взято > заказ) = недозаказ / страховка → conservative (`cautious`)
+ *  · under (взято < заказ) = перезаказ / риск → expansive (`hunter`)
+ */
 export function classifyBidPlayStyle(
   exactPct: number | null,
   underPct: number | null,
@@ -273,9 +278,9 @@ export function classifyBidPlayStyle(
   dealTotal: number,
 ): BidPlayStyle {
   if (dealTotal < 12 || exactPct == null || underPct == null || overPct == null) return 'learning';
-  // Сначала перекос стиля — даже при высокой точности «охотник» честнее «снайпера».
-  if (overPct >= underPct + 10 && overPct >= 22) return 'hunter';
-  if (underPct >= overPct + 10 && underPct >= 22) return 'cautious';
+  // Сначала перекос профиля — даже при высокой точности.
+  if (overPct >= underPct + 10 && overPct >= 22) return 'cautious';
+  if (underPct >= overPct + 10 && underPct >= 22) return 'hunter';
   if (exactPct >= 55) return 'sniper';
   if (exactPct < 40) return 'chaotic';
   return 'balanced';
@@ -291,4 +296,46 @@ export function classifyBidBias(
   if (underPct >= overPct + 8) return 'under';
   if (underPct + overPct <= 35) return 'exact';
   return 'mixed';
+}
+
+/**
+ * Оттенок стиля поверх класса + bias (без ломки BidPlayStyle).
+ * i18n: cabinet.skillFlavor*
+ */
+export type BidStyleFlavor =
+  | 'learning'
+  | 'precision_minimalist'
+  | 'precision_bold'
+  | 'precision_pure'
+  | 'hunter_sharp'
+  | 'hunter_wild'
+  | 'cautious_tight'
+  | 'cautious_soft'
+  | 'chaos_recovering'
+  | 'chaos_storm'
+  | 'balanced_flex'
+  | 'balanced_steady';
+
+export function classifyBidStyleFlavor(
+  style: BidPlayStyle,
+  bias: BidBias,
+): BidStyleFlavor {
+  if (style === 'learning') return 'learning';
+  if (style === 'sniper') {
+    if (bias === 'under') return 'precision_minimalist';
+    if (bias === 'over') return 'precision_bold';
+    return 'precision_pure';
+  }
+  if (style === 'hunter') {
+    /* hunter = перезаказ (under-исходы): острый vs дикий риск */
+    return bias === 'exact' || bias === 'mixed' ? 'hunter_sharp' : 'hunter_wild';
+  }
+  if (style === 'cautious') {
+    /* cautious = недозаказ (over-исходы): мягкая vs жёсткая страховка */
+    return bias === 'exact' ? 'cautious_soft' : 'cautious_tight';
+  }
+  if (style === 'chaotic') {
+    return bias === 'exact' || bias === 'under' ? 'chaos_recovering' : 'chaos_storm';
+  }
+  return bias === 'exact' ? 'balanced_steady' : 'balanced_flex';
 }

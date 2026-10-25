@@ -11,11 +11,17 @@ import {
   removeUnfinishedOnlineGame,
   type UnfinishedOnlineGame,
 } from '../game/persistence';
-import { loadLocalSkillView, toLocalSkillView, type LocalSkillView } from '../game/localSkillCache';
+import {
+  ensureLocalSkillBackfill,
+  loadLocalSkillView,
+  toLocalSkillView,
+  type LocalSkillView,
+} from '../game/localSkillCache';
 import { BidSkillLifetimeRow } from './BidSkillStatsPanel';
 import { PlayerProgressPanel, ProgressSparkline } from './PlayerProgressPanel';
 import { PlayerGoalsOpportunitiesPanel } from './PlayerGoalsOpportunitiesPanel';
 import { PlayerMilestonesPanel } from './PlayerMilestonesPanel';
+import { PlayerRecordsHallPanel } from './PlayerRecordsHallPanel';
 import { PlayerStarsRewardsPanel } from './PlayerStarsRewardsPanel';
 import { StarsBalanceBadge } from './StarsBalanceBadge';
 import type { MilestoneId } from '../game/playerMilestones';
@@ -23,11 +29,21 @@ import { getAiDifficulty, setAiDifficulty } from '../game/aiSettings';
 import type { AIDifficulty } from '../game/types';
 import { getAudioSettings, subscribeAudioSettings } from '../audio';
 import { useAuth } from '../contexts/AuthContext';
-import { getLeaderboard, getMyRatingSummary, type LeaderboardRow } from '../lib/onlineGameSupabase';
+import {
+  getLeaderboard,
+  getMyMatchHistoryResult,
+  getMyRatingSummary,
+  type LeaderboardRow,
+} from '../lib/onlineGameSupabase';
 import { getMenuIdentityStatus } from '../lib/menuIdentityStatus';
 import { getPartyArchive } from '../game/partyArchive';
 import {
-  buildPlayerProgressBundle,
+  enrichRecordsFromCloudHistory,
+  hydrateCloudMatchesIntoArchive,
+  mergeCloudHistoryIntoProgress,
+} from '../game/cloudStatsEnrich';
+import { ensureRecordsBackfill } from '../game/playerRecords';
+import {
   emptyPlayerProgressBundle,
   type PlayerProgressBundle,
 } from '../game/playerProgressStats';
@@ -40,6 +56,7 @@ import { MenuCapsuleButton } from './MenuEntryActions';
 import { SupportMenuButton } from './SupportMenuButton';
 import { LanguageSwitch } from './LanguageSwitch';
 import { MatchArchiveHub } from './MatchArchiveHub';
+import { LkChangePasswordForm } from './LkChangePasswordForm';
 import { PartyClaimInbox } from './PartyClaimInbox';
 import { AudioSettingsMixer, audioSettingsAreAudible } from './AudioSettingsPanel';
 import { MenuSoundGlyph } from './MenuSoundGlyph';
@@ -155,7 +172,7 @@ export type AccountLkPageProps = {
   onJoinUnfinished?: (code: string) => void;
   /** Открыть страницу донатов. */
   onOpenSupport?: () => void;
-  /** Stub: страница Подписка / Премиум. */
+  /** Страница Premium / подписка. */
   onOpenPremium?: () => void;
   focusSection?: AccountLkFocus;
   onContinueOffline?: () => void;
@@ -314,6 +331,7 @@ export function AccountLkPage({
   const [audio, setAudio] = useState(() => getAudioSettings());
   const [chipView, setChipView] = useResultsChipView();
   const [expandArchiveList, setExpandArchiveList] = useState(false);
+  const [archiveMatchRef, setArchiveMatchRef] = useState<string | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
   const [offlineStatsOpen, setOfflineStatsOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
@@ -326,9 +344,22 @@ export function AccountLkPage({
   const avgBidAccuracy = skillView.accuracyPct;
   const gamesShown = skillView.matchesShown;
   const winsShown = skillView.winsShown;
+  /** Без аккаунта не подмешиваем онлайн-канал — иначе путаница «я не в аккаунте, а вижу онлайн». */
+  const emptyOnline = {
+    matches: 0,
+    wins: 0,
+    winRate: null as number | null,
+    avgPlace: null as number | null,
+    dealTotal: 0,
+    exact: 0,
+    under: 0,
+    over: 0,
+    accuracyPct: null as number | null,
+  };
   /** Онлайн из облака, если локальный архив ещё пуст по source=online */
-  const progressForUi: PlayerProgressBundle =
-    progress.online.matches > 0 || !online || online.games <= 0
+  const progressForUi: PlayerProgressBundle = !loggedIn
+    ? { ...progress, online: emptyOnline }
+    : progress.online.matches > 0 || !online || online.games <= 0
       ? progress
       : {
           ...progress,
@@ -351,16 +382,46 @@ export function AccountLkPage({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [view, archive] = await Promise.all([loadLocalSkillView(), getPartyArchive(undefined, 1500)]);
+      const profileId = getPlayerProfile().profileId ?? '';
+      let archive = await getPartyArchive(undefined, 1500);
+      let view = await loadLocalSkillView(profileId || undefined);
       if (cancelled) return;
       setSkillView(view);
-      setProgress(buildPlayerProgressBundle(archive));
+      setProgress(mergeCloudHistoryIntoProgress(archive, []));
+
+      if (!(configured && user?.id)) return;
+      const { rows: cloudRows } = await getMyMatchHistoryResult(user.id, 150);
+      if (cancelled || !cloudRows.length) return;
+
+      const imported = await hydrateCloudMatchesIntoArchive({
+        userId: user.id,
+        cloud: cloudRows,
+        profileId: profileId || undefined,
+        limit: 12,
+      });
+      if (cancelled) return;
+
+      if (imported > 0) {
+        archive = await getPartyArchive(undefined, 1500);
+        const rating = await ensureLocalSkillBackfill(profileId || undefined, { force: true });
+        view = toLocalSkillView(rating);
+        await ensureRecordsBackfill(profileId || undefined, { force: true });
+      }
+
+      const haveCloud = new Set(
+        archive.map((r) => r.cloudMatchId).filter((id): id is string => !!id),
+      );
+      enrichRecordsFromCloudHistory(cloudRows, profileId || undefined, { skipCloudIds: haveCloud });
+      if (cancelled) return;
+      setSkillView(view);
+      setProgress(mergeCloudHistoryIntoProgress(archive, cloudRows));
+      window.dispatchEvent(new CustomEvent('upndown:records-refresh'));
     })().catch(() => {});
     return () => {
       cancelled = true;
     };
     /* Перезагрузка при смене аккаунта / профиля — иначе мобилка может держать пустой skill. */
-  }, [user?.id, displayName]);
+  }, [user?.id, displayName, configured]);
   const identityStatus = getMenuIdentityStatus({
     displayName,
     avatarDataUrl,
@@ -493,6 +554,7 @@ export function AccountLkPage({
         configured={configured}
         focus={archiveFocus}
         expandList={expandArchiveList}
+        focusMatchRef={archiveMatchRef}
         onContinueOffline={onContinueOffline}
         onOpenRating={onOpenRating}
         onOpenPremium={onOpenPremium}
@@ -514,6 +576,11 @@ export function AccountLkPage({
             <LobbyBackButton onClick={onBack} />
             <h1 className="lk-page__pc-title">{t('cabinet.title')}</h1>
             <div className="lk-page__pc-tools">
+              {onOpenPremium ? (
+                <button type="button" className="lk-page__premium-chip" onClick={onOpenPremium}>
+                  {t('premium.navChip')}
+                </button>
+              ) : null}
               {onOpenSupport ? (
                 <SupportMenuButton className="lk-page__pc-support" onClick={onOpenSupport} />
               ) : null}
@@ -574,6 +641,7 @@ export function AccountLkPage({
                           void signOut();
                         }}
                       />
+                      <LkChangePasswordForm className="lk-pwd--pc-hero" />
                     </div>
                   ) : (
                     <div className="lk-pc-hero__sign-in">
@@ -1213,6 +1281,19 @@ export function AccountLkPage({
                       ladderMedianElo={ladderMedianElo}
                       onOpenLeaderboard={onOpenRating}
                     />
+                    <PlayerRecordsHallPanel
+                      showOnlineMoments={loggedIn}
+                      onOpenMatch={(matchRef) => {
+                        setArchiveMatchRef(matchRef);
+                        setExpandArchiveList(true);
+                        setStatsOpen(true);
+                        window.setTimeout(() => {
+                          document
+                            .getElementById('lk-archive-hub')
+                            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 80);
+                      }}
+                    />
                     {onOpenRating ? (
                       <button type="button" className="lk-pc-chip__btn" onClick={onOpenRating}>
                         {t('cabinet.leaderboard')}
@@ -1318,6 +1399,7 @@ export function AccountLkPage({
             <div className="lk-page__actions lk-page__actions--in-section">
               {loggedIn ? (
                 <div className="lk-page__actions-auth lk-page__actions-auth--out">
+                  <LkChangePasswordForm />
                   <CosmicPhysButton
                     variant="secondary"
                     onClick={() => {
@@ -1432,6 +1514,19 @@ export function AccountLkPage({
               ladderMedianElo={ladderMedianElo}
               onOpenLeaderboard={onOpenRating}
             />
+            <PlayerRecordsHallPanel
+              compact
+              showOnlineMoments={loggedIn}
+              onOpenMatch={(matchRef) => {
+                setArchiveMatchRef(matchRef);
+                setExpandArchiveList(true);
+                window.setTimeout(() => {
+                  document
+                    .getElementById('lk-archive-hub')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 80);
+              }}
+            />
             <div className="lk-page__section-links">
               {onOpenRating ? (
                 <button type="button" className="lk-page__text-link" onClick={onOpenRating}>
@@ -1445,6 +1540,11 @@ export function AccountLkPage({
               <button type="button" className="lk-page__text-link" onClick={handleCapsuleHistory}>
                 {t('cabinet.matchHistory')}
               </button>
+              {onOpenPremium ? (
+                <button type="button" className="lk-page__text-link lk-page__text-link--premium" onClick={onOpenPremium}>
+                  {t('premium.navChip')}
+                </button>
+              ) : null}
               {onOpenSupport ? (
                 <button type="button" className="lk-page__text-link" onClick={onOpenSupport}>
                   {t('support.title')}

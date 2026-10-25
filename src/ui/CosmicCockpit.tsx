@@ -4,6 +4,7 @@
  */
 
 import type { ReactNode } from 'react';
+import { t } from '../i18n';
 
 export interface CosmicCockpitProps {
   children: ReactNode;
@@ -39,12 +40,14 @@ export function CosmicPhysButton({
   type = 'button',
   onClick,
   title,
+  disabled,
 }: {
   children: ReactNode;
   variant?: 'primary' | 'secondary';
-  type?: 'button';
+  type?: 'button' | 'submit';
   onClick?: () => void;
   title?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -52,6 +55,7 @@ export function CosmicPhysButton({
       className={`cosmic-phys-btn cosmic-phys-btn--${variant}`}
       onClick={onClick}
       title={title}
+      disabled={disabled}
     >
       <span className="cosmic-phys-btn__rim" aria-hidden />
       <span className="cosmic-phys-btn__face">{children}</span>
@@ -63,7 +67,7 @@ export function CosmicPhysButton({
 export function CosmicGlassClose({
   onClick,
   className,
-  label = 'Закрыть',
+  label,
 }: {
   onClick: () => void;
   className?: string;
@@ -74,7 +78,7 @@ export function CosmicGlassClose({
       type="button"
       className={['cosmic-glass-close', className].filter(Boolean).join(' ')}
       onClick={onClick}
-      aria-label={label}
+      aria-label={label ?? t('common.close')}
     >
       <span className="cosmic-glass-close__bezel" aria-hidden />
       <span className="cosmic-glass-close__shine" aria-hidden />

@@ -3,29 +3,30 @@
  */
 
 import type { AIDifficulty } from '../game/GameEngine';
+import { useT } from '../i18n';
 
 const ROWS: {
   id: AIDifficulty;
-  title: string;
-  hint: string;
+  titleKey: 'ai.novice' | 'ai.amateur' | 'ai.expert';
+  hintKey: 'ai.noviceHint' | 'ai.amateurHint' | 'ai.expertHint';
   ballClass: string;
 }[] = [
   {
     id: 'novice',
-    title: 'Новичок',
-    hint: 'Всегда слабейшая легальная карта',
+    titleKey: 'ai.novice',
+    hintKey: 'ai.noviceHint',
     ballClass: 'ai-difficulty-ball--novice',
   },
   {
     id: 'amateur',
-    title: 'Любитель',
-    hint: 'Заказ и взятки, перебор — добирать очки',
+    titleKey: 'ai.amateur',
+    hintKey: 'ai.amateurHint',
     ballClass: 'ai-difficulty-ball--amateur',
   },
   {
     id: 'expert',
-    title: 'Эксперт',
-    hint: 'Как любитель + темп: не тратить топ на заходе впустую',
+    titleKey: 'ai.expert',
+    hintKey: 'ai.expertHint',
     ballClass: 'ai-difficulty-ball--expert',
   },
 ];
@@ -36,8 +37,10 @@ type Props = {
 };
 
 export function OfflineAiDifficultyOptionList({ current, onSelect }: Props) {
+  const t = useT();
+
   return (
-    <div className="ai-difficulty-popover-list" role="radiogroup" aria-label="Уровень сложности">
+    <div className="ai-difficulty-popover-list" role="radiogroup" aria-label={t('ai.levelGroup')}>
       {ROWS.map((row) => {
         const selected = current === row.id;
         return (
@@ -57,8 +60,8 @@ export function OfflineAiDifficultyOptionList({ current, onSelect }: Props) {
               </span>
             </span>
             <span className="ai-difficulty-option-text">
-              <span className="ai-difficulty-option-title">{row.title}</span>
-              <span className="ai-difficulty-option-hint">{row.hint}</span>
+              <span className="ai-difficulty-option-title">{t(row.titleKey)}</span>
+              <span className="ai-difficulty-option-hint">{t(row.hintKey)}</span>
             </span>
           </button>
         );
