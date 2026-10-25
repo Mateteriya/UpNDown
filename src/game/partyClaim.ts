@@ -9,8 +9,15 @@ import { newMatchKey } from './matchKey';
 import { getPlayerProfile } from './persistence';
 import { summarizeDealSkill } from './playerSkillStats';
 
+import {
+  consumePendingClaimToken,
+  peekClaimTokenFromUrl,
+  rememberPendingClaimToken,
+} from '../lib/authClaimToken';
+
+export { consumePendingClaimToken, peekClaimTokenFromUrl, rememberPendingClaimToken };
+
 const OUTBOX_KEY = 'updown_party_claim_outbox_v1';
-const CLAIM_TOKEN_PENDING_KEY = 'updown_party_claim_pending_token';
 
 export type PartyClaimIntent = 'existing_account' | 'new_account';
 
@@ -107,39 +114,6 @@ export function updateClaimOutbox(
 
 export function removeClaimOutbox(claimToken: string): void {
   writeClaimOutbox(readClaimOutbox().filter((r) => r.claimToken !== claimToken));
-}
-
-export function rememberPendingClaimToken(token: string): void {
-  try {
-    if (typeof sessionStorage === 'undefined') return;
-    sessionStorage.setItem(CLAIM_TOKEN_PENDING_KEY, token);
-  } catch {
-    /* ignore */
-  }
-}
-
-export function consumePendingClaimToken(): string | null {
-  try {
-    if (typeof sessionStorage === 'undefined') return null;
-    const t = sessionStorage.getItem(CLAIM_TOKEN_PENDING_KEY)?.trim() || null;
-    if (t) sessionStorage.removeItem(CLAIM_TOKEN_PENDING_KEY);
-    return t;
-  } catch {
-    return null;
-  }
-}
-
-export function peekClaimTokenFromUrl(href: string): string | null {
-  try {
-    const u = new URL(href);
-    return (
-      u.searchParams.get('ud_claim')?.trim() ||
-      u.searchParams.get('claim')?.trim() ||
-      null
-    );
-  } catch {
-    return null;
-  }
 }
 
 export function buildViewerSnapshotFromArchive(
