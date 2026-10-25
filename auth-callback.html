@@ -54,6 +54,8 @@
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0f172a" />
+  <!-- Vite injects real URL at build/serve (см. injectSupabaseUrlHtml). -->
+  <meta name="updown-supabase-url" content="%VITE_SUPABASE_URL%" />
   <title>Вход…</title>
   <style>
     body{margin:0;background:#0f172a;color:#94a3b8;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;text-align:center}
@@ -67,14 +69,198 @@
   <p id="err" class="err" style="display:none"></p>
   <a id="link" href="/" style="display:none">Перейти на главную</a>
   <script>
-    /* До module: сразу понятный статус для VK, не «вечное Завершение…». */
+    /**
+     * VK LAN/.ru: обмен ЗДЕСЬ, до type=module (HAR: HTML ~0.3с, auth-callback.js ~19с).
+     * Hop на :3001 с #tokens — модуль на online для этого пути не нужен.
+     */
     (function () {
-      try {
-        if (new URLSearchParams(location.search).get('vk_bridge') === '1') {
-          var m = document.getElementById('msg');
-          if (m) m.textContent = 'Обмен VK…';
+      var PKCE_PREFIX = 'updown_vk_pkce_';
+      var LAN_FINAL_KEY = 'updown_vk_lan_final_ret';
+      window.__updownVkBridgeInline = { status: 'skip' };
+
+      function setMsg(t) {
+        var m = document.getElementById('msg');
+        if (m) m.textContent = t;
+      }
+      function showErr(t) {
+        var msg = document.getElementById('msg');
+        var err = document.getElementById('err');
+        var link = document.getElementById('link');
+        if (msg) msg.textContent = '';
+        if (err) {
+          err.style.display = 'block';
+          err.textContent = 'Ошибка: ' + t;
         }
-      } catch (e) {}
+        if (link) {
+          link.textContent = 'Перейти на главную';
+          link.style.display = 'inline';
+        }
+        window.__updownVkBridgeInline = { status: 'done', kind: 'error', message: t };
+        try {
+          window.dispatchEvent(new Event('updown-vk-bridge-inline'));
+        } catch (e0) {}
+      }
+      function isSafeLan(raw) {
+        try {
+          var u = new URL(raw);
+          if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+          if (!/auth-callback\.html/i.test(u.pathname)) return false;
+          var h = u.hostname.toLowerCase();
+          if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]') return true;
+          if (h === 'up2down.ru' || h === 'www.up2down.ru') return true;
+          if (h === 'up2down.online' || h === 'www.up2down.online') return true;
+          if (/\.vercel\.app$/i.test(h)) return true;
+          if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+          if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+          var m = /^172\.(\d{1,2})\.\d{1,3}\.\d{1,3}$/.exec(h);
+          if (m) {
+            var n = Number(m[1]);
+            if (n >= 16 && n <= 31) return true;
+          }
+          return false;
+        } catch (e1) {
+          return false;
+        }
+      }
+      function readVerifier(nonce) {
+        var verifier = '';
+        try {
+          verifier = sessionStorage.getItem(PKCE_PREFIX + nonce) || '';
+          sessionStorage.removeItem(PKCE_PREFIX + nonce);
+        } catch (e2) {}
+        if (!verifier) {
+          try {
+            var key = PKCE_PREFIX + nonce + '=';
+            var row = document.cookie
+              .split(';')
+              .map(function (s) {
+                return s.trim();
+              })
+              .find(function (s) {
+                return s.indexOf(key) === 0;
+              });
+            if (row) {
+              verifier = decodeURIComponent(row.slice(key.length));
+              document.cookie = PKCE_PREFIX + nonce + '=; Max-Age=0; Path=/; Secure; SameSite=Lax';
+            }
+          } catch (e3) {}
+        }
+        return verifier;
+      }
+
+      var q;
+      try {
+        q = new URLSearchParams(location.search);
+      } catch (e4) {
+        return;
+      }
+      if (q.get('vk_bridge') !== '1') return;
+
+      setMsg('Обмен VK…');
+      try {
+        if (typeof window.__updownAuthCbBoot === 'function') window.__updownAuthCbBoot();
+      } catch (e5) {}
+
+      window.__updownVkBridgeInline = { status: 'pending' };
+      var code = q.get('code') || '';
+      var deviceId = q.get('device_id') || '';
+      var nonce = q.get('state') || '';
+      if (!code || !deviceId || !nonce) {
+        showErr('VK bridge: нет code / device_id / state');
+        return;
+      }
+      var verifier = readVerifier(nonce);
+      if (!verifier) {
+        showErr(
+          'VK: потерян PKCE verifier (другая вкладка / Incognito). Начните вход с той же вкладки снова.',
+        );
+        return;
+      }
+      var meta = document.querySelector('meta[name="updown-supabase-url"]');
+      var sb = ((meta && meta.getAttribute('content')) || '').replace(/\/$/, '');
+      if (!sb || sb.indexOf('%VITE_') === 0 || sb.indexOf('your-project') >= 0) {
+        showErr('VITE_SUPABASE_URL не задан в сборке');
+        return;
+      }
+
+      fetch(sb + '/functions/v1/vk-oauth-exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: code,
+          device_id: deviceId,
+          code_verifier: verifier,
+        }),
+      })
+        .then(function (res) {
+          return res.json().catch(function () {
+            return {};
+          }).then(function (raw) {
+            return { res: res, raw: raw };
+          });
+        })
+        .then(function (pack) {
+          var res = pack.res;
+          var raw = pack.raw || {};
+          if (!res.ok) {
+            var msg =
+              (typeof raw.hint === 'string' && raw.hint) ||
+              (typeof raw.message === 'string' && raw.message) ||
+              (typeof raw.error === 'string' && raw.error) ||
+              'VK exchange HTTP ' + res.status;
+            showErr(msg);
+            return;
+          }
+          var access = raw.access_token;
+          var refresh = raw.refresh_token;
+          if (typeof access !== 'string' || typeof refresh !== 'string') {
+            showErr('VK exchange: нет access/refresh token');
+            return;
+          }
+          var lanFinal = '';
+          try {
+            lanFinal = sessionStorage.getItem(LAN_FINAL_KEY) || '';
+            sessionStorage.removeItem(LAN_FINAL_KEY);
+          } catch (e6) {}
+          if (lanFinal && isSafeLan(lanFinal)) {
+            try {
+              var dest = new URL(lanFinal);
+              if (dest.origin !== location.origin) {
+                dest.hash = new URLSearchParams({
+                  access_token: access,
+                  refresh_token: refresh,
+                  token_type: 'bearer',
+                  type: 'bearer',
+                }).toString();
+                window.__updownVkBridgeInline = {
+                  status: 'done',
+                  kind: 'hop',
+                  url: dest.toString(),
+                };
+                setMsg('Возврат в игру…');
+                location.replace(dest.toString());
+                return;
+              }
+            } catch (e7) {}
+          }
+          window.__updownVkBridgeInline = {
+            status: 'done',
+            kind: 'session',
+            access_token: access,
+            refresh_token: refresh,
+          };
+          try {
+            window.dispatchEvent(new Event('updown-vk-bridge-inline'));
+          } catch (e8) {}
+        })
+        .catch(function (e) {
+          var detail = e && e.message ? e.message : String(e);
+          showErr(
+            'VK: нет связи с Supabase (' +
+              detail +
+              '). Из РФ часто ERR_CONNECTION_CLOSED — VPN или повтор.',
+          );
+        });
     })();
   </script>
   <script>

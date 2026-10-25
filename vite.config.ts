@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { labSfxWritePlugin } from './vite-plugin-lab-sfx-write'
 import { safeLargeCssPlugin } from './vite-plugin-safe-large-css'
+import { injectSupabaseUrlHtml } from './vite-plugin-inject-supabase-url'
 
 export default defineConfig({
   build: {
@@ -17,6 +18,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    injectSupabaseUrlHtml(),
     safeLargeCssPlugin(),
     labSfxWritePlugin(), // POST /__updown_lab_sfx writes public/audio/sfx
     VitePWA({

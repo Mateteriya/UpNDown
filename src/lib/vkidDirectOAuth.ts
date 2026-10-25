@@ -10,6 +10,9 @@
 import { getLocalAuthCallbackUrl, rememberAuthAppReturn } from './nativeAuth';
 import { needsVkidLanBridge } from './oauthProviders';
 import { supabase } from './supabase';
+import { isSafeLanAuthCallbackUrl, VK_LAN_FINAL_RET_KEY } from './vkBridgeSafeUrl';
+
+export { isSafeLanAuthCallbackUrl, VK_LAN_FINAL_RET_KEY } from './vkBridgeSafeUrl';
 
 const VK_CLIENT_ID =
   (typeof import.meta !== 'undefined' && String(import.meta.env?.VITE_VK_CLIENT_ID || '')) ||
@@ -22,7 +25,6 @@ const VK_LAN_BRIDGE_ORIGIN =
   'https://up2down.online';
 
 const PKCE_STORAGE_PREFIX = 'updown_vk_pkce_';
-export const VK_LAN_FINAL_RET_KEY = 'updown_vk_lan_final_ret';
 
 function b64url(bytes: ArrayBuffer | Uint8Array): string {
   const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -54,35 +56,6 @@ function bridgeRedirectUri(): string {
 function exchangeUrl(): string {
   const base = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
   return `${base}/functions/v1/vk-oauth-exchange`;
-}
-
-/**
- * Куда можно hop'нуть токены после exchange на online:
- * LAN / loopback, зеркало .ru, preview Vercel — не произвольный URL (open redirect).
- */
-export function isSafeLanAuthCallbackUrl(raw: string): boolean {
-  try {
-    const u = new URL(raw);
-    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
-    if (!/auth-callback\.html/i.test(u.pathname)) return false;
-    const h = u.hostname.toLowerCase();
-    if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1') return true;
-    if (h === 'up2down.ru' || h === 'www.up2down.ru') return true;
-    if (h === 'up2down.online' || h === 'www.up2down.online') return true;
-    if (/\.vercel\.app$/i.test(h)) return true;
-    if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(h)) {
-      if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
-      if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
-      const m = /^172\.(\d{1,2})\.\d{1,3}\.\d{1,3}$/.exec(h);
-      if (m) {
-        const n = Number(m[1]);
-        if (n >= 16 && n <= 31) return true;
-      }
-    }
-    return false;
-  } catch {
-    return false;
-  }
 }
 
 export type VkidCompleteResult = {
@@ -124,6 +97,11 @@ export async function startVkidDirectOAuth(): Promise<{ error: Error | null }> {
     } catch {
       return { error: new Error('Не удалось сохранить PKCE (хранилище переполнено)') };
     }
+    try {
+      document.cookie = `${PKCE_STORAGE_PREFIX}${nonce}=${encodeURIComponent(verifier)}; Max-Age=600; Path=/; Secure; SameSite=Lax`;
+    } catch {
+      /* sessionStorage уже есть */
+    }
 
     const vk = new URL('https://id.vk.ru/authorize');
     vk.searchParams.set('response_type', 'code');
@@ -162,10 +140,23 @@ export async function completeVkidDirectOAuthFromUrl(href: string): Promise<Vkid
   } catch {
     /* ignore */
   }
+  /** Запас: cookie SameSite=Lax с моста (если sessionStorage сбросили на длинном редиректе VK). */
+  if (!verifier && typeof document !== 'undefined') {
+    try {
+      const key = `${PKCE_STORAGE_PREFIX}${nonce}=`;
+      const row = document.cookie.split(';').map((s) => s.trim()).find((s) => s.startsWith(key));
+      if (row) {
+        verifier = decodeURIComponent(row.slice(key.length));
+        document.cookie = `${PKCE_STORAGE_PREFIX}${nonce}=; Max-Age=0; Path=/; Secure; SameSite=Lax`;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
   if (!verifier) {
     return {
       error: new Error(
-        'VK: потерян PKCE verifier (другая вкладка / Incognito). Начните вход с той же вкладки снова.',
+        'VK: потерян PKCE verifier (другая вкладка / Incognito / блок cookie). Начните вход с той же вкладки снова.',
       ),
     };
   }
