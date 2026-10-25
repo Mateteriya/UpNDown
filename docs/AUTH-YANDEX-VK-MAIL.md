@@ -317,20 +317,21 @@ VK ID требует **базовый домен** страницы, с кото
 | LAN `http://IP:3001/play/` | да | да через мост |
 | Vite `localhost` / `:5173` | да | да через мост |
 
-Цепочка на `:3001`:
+Цепочка (LAN / `up2down.ru` / preview — всё, кроме канона `up2down.online`):
 
-1. Игрок жмёт **VK ID · Mail.ru** на LAN.
-2. Браузер открывает `https://up2down.online/vk-lan-bridge.html?ret=http://IP:3001/play/auth-callback.html&…`
-3. Мост (публичный домен) пишет PKCE в `sessionStorage` и уводит в VK.
-4. VK → Edge `vk-oauth-bridge` → **online** `auth-callback.html?vk_bridge=1` (тот же origin, где verifier).
-5. Exchange → сессия; online callback читает `updown_vk_lan_final_ret` и редиректит на LAN  
-   `http://IP:3001/play/auth-callback.html#access_token=…&refresh_token=…`
-6. LAN callback делает `setSession` → домой `/play/`, игрок залогинен на вечеринке.
+1. Игрок жмёт **VK ID · Mail.ru**.
+2. Браузер → `https://up2down.online/vk-lan-bridge.html?ret=<auth-callback текущего origin>&…`
+3. Мост пишет PKCE и уводит в VK (базовый домен = online).
+4. VK → Edge `vk-oauth-bridge` → **online** `auth-callback.html?vk_bridge=1`.
+5. Exchange → hop на `ret` с `#access_token=…`.
+6. Локальный callback → `setSession` → домой.
 
-**Нужно на проде:** файл `public/vk-lan-bridge.html` задеплоен на [up2down.online](https://up2down.online) (корень сайта), и актуальный `auth-callback` с hop-логикой.  
-Env (опционально): `VITE_PUBLIC_WEB_ORIGIN=https://up2down.online`.
+На самом **up2down.online** мост не нужен — прямой старт.
 
-Логика «нужен мост»: `needsVkidLanBridge()` в `src/lib/oauthProviders.ts`.
+**Прод:** `vk-lan-bridge.html` в корне online; в `vercel.json` файл **исключён** из SPA-rewrite (иначе отдаётся меню вместо моста).  
+`needsVkidLanBridge()` / `VKID_CANONICAL_HOST` в `src/lib/oauthProviders.ts`.
+
+Если в консоли `ERR_CONNECTION_CLOSED` к `*.supabase.co` — это сеть до Supabase (часто РФ без VPN), не баг кнопки VK. CSP `mark.js` / `chrome-extension://…` — расширение браузера, игнор.
 
 ---
 

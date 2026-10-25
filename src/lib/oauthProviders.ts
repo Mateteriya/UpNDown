@@ -40,18 +40,19 @@ export function isLineProvider(p: AppOAuthProvider): boolean {
 }
 
 /**
- * Нужен ли публичный мост (up2down.online/vk-lan-bridge.html):
- * VK ID проверяет «базовый домен» страницы входа — LAN IP / localhost
- * в кабинете VK не проходят. Кнопку всё равно показываем; старт уходит на мост.
+ * Канон для VK ID «базовый домен» в кабинете — только этот хост стартует OAuth напрямую.
+ * Остальное (LAN, localhost, up2down.ru, vercel.app) → мост /vk-lan-bridge.html на online.
+ */
+export const VKID_CANONICAL_HOST = 'up2down.online';
+
+/**
+ * Нужен ли публичный мост (up2down.online/vk-lan-bridge.html).
  */
 export function needsVkidLanBridge(hostname?: string): boolean {
   const host = (hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '')).toLowerCase();
   if (!host) return true;
-  if (host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1') return true;
-  // IPv4 / IPv6 literal — домашний хост вечеринки (:3001)
-  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) return true;
-  if (host.includes(':')) return true;
-  return false;
+  if (host === VKID_CANONICAL_HOST || host === `www.${VKID_CANONICAL_HOST}`) return false;
+  return true;
 }
 
 /** @deprecated используйте needsVkidLanBridge — кнопка VK больше не скрывается на LAN */
