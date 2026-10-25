@@ -5,6 +5,7 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import react from '@vitejs/plugin-react';
+import { injectSupabaseUrlHtml } from './vite-plugin-inject-supabase-url';
 
 export default defineConfig({
   define: {
@@ -24,5 +25,5 @@ export default defineConfig({
       },
     },
   },
-  plugins: [react()],
+  plugins: [react(), injectSupabaseUrlHtml()],
 });

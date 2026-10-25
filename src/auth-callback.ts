@@ -1,27 +1,19 @@
 /**
  * Возврат с OAuth (Google/GitHub/Yandex/VK).
- * Лёгкий бандл: без тяжёлого partyClaimCloud на старте (иначе при зависании
- * чанка страница вечно показывает «Завершение входа…» без красной ошибки).
+ * VK bridge: сначала лёгкий vkBridgeBoot (fetch exchange + hop) — без supabase (~200KB),
+ * иначе на медленной сети вечно «Завершение входа…» до любого обмена.
  */
 
-/** LAN http://IP: без crypto.subtle GoTrue уходит в PKCE plain → 404. */
 import './lib/polyfillCryptoSubtle';
-import { supabase } from './lib/supabase';
-import {
-  bounceOAuthPayloadToReturnUrl,
-  bounceWwwToCanonicalHost,
-  getAuthReturnHomePath,
-  stashOAuthSessionBackup,
-} from './lib/nativeAuth';
 import {
   discardParkedAuthTokens,
   restoreParkedAuthTokens,
 } from './lib/authTokenPark';
-import { consumePendingClaimToken, peekClaimTokenFromUrl, rememberPendingClaimToken } from './game/partyClaim';
 import {
-  completeVkidDirectOAuthFromUrl,
-  isVkidBridgeCallback,
-} from './lib/vkidDirectOAuth';
+  consumePendingClaimToken,
+  peekClaimTokenFromUrl,
+  rememberPendingClaimToken,
+} from './lib/authClaimToken';
 
 const COPY = {
   ru: {
@@ -56,16 +48,48 @@ const COPY = {
 
 type AuthCallbackCopy = (typeof COPY)[keyof typeof COPY];
 
-/** VK exchange + hop: короче, чем общий OAuth — иначе «вечный» экран при висящем supabase. */
 const EXCHANGE_MS = 28_000;
 const VK_EXCHANGE_MS = 22_000;
 const CLAIMS_MS = 2_000;
 const HARD_MS = 28_000;
 
+type VkBridgeInlineState =
+  | { status: 'skip' }
+  | { status: 'pending' }
+  | { status: 'done'; kind: 'hop'; url: string }
+  | { status: 'done'; kind: 'session'; access_token: string; refresh_token: string }
+  | { status: 'done'; kind: 'error'; message: string };
+
 declare global {
   interface Window {
     __updownAuthCbBoot?: () => void;
+    __updownVkBridgeInline?: VkBridgeInlineState;
   }
+}
+
+function waitVkBridgeInline(ms: number): Promise<VkBridgeInlineState | null> {
+  const cur = window.__updownVkBridgeInline;
+  if (!cur || cur.status === 'skip') return Promise.resolve(null);
+  if (cur.status === 'done') return Promise.resolve(cur);
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v: VkBridgeInlineState | null) => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(timer);
+      window.removeEventListener('updown-vk-bridge-inline', onEvt);
+      resolve(v);
+    };
+    const onEvt = () => {
+      const s = window.__updownVkBridgeInline;
+      if (s && s.status === 'done') finish(s);
+    };
+    const timer = window.setTimeout(() => {
+      const s = window.__updownVkBridgeInline;
+      finish(s && s.status === 'done' ? s : null);
+    }, ms);
+    window.addEventListener('updown-vk-bridge-inline', onEvt);
+  });
 }
 
 function readCopy(): AuthCallbackCopy {
@@ -112,7 +136,7 @@ function humanizeAuthError(copy: AuthCallbackCopy, raw: unknown): string {
     return `${copy.supabaseUnreachable} (${msg || 'network'})`;
   }
   if (/code verifier|pkce/i.test(msg)) {
-    return `${msg} — начните вход снова с https://up2down.ru (Incognito), одна вкладка.`;
+    return `${msg} — начните вход снова с одной вкладки (Incognito).`;
   }
   return msg || 'unknown_error';
 }
@@ -147,6 +171,26 @@ async function bindClaimsBestEffort(claimToken: string | null) {
   }
 }
 
+function bounceWwwInline(): boolean {
+  try {
+    const u = new URL(window.location.href);
+    if (u.hostname.toLowerCase() !== 'www.up2down.ru') return false;
+    u.hostname = 'up2down.ru';
+    window.location.replace(u.toString());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isVkBridgeUrl(href: string): boolean {
+  try {
+    return new URL(href).searchParams.get('vk_bridge') === '1';
+  } catch {
+    return false;
+  }
+}
+
 async function run() {
   try {
     window.__updownAuthCbBoot?.();
@@ -154,13 +198,12 @@ async function run() {
     /* ignore */
   }
 
-  if (bounceWwwToCanonicalHost()) return;
+  if (bounceWwwInline()) return;
 
   const copy = readCopy();
   document.documentElement.lang = copy === COPY.en ? 'en' : 'ru';
   document.title = copy.title;
   setMsg(copy.finishing);
-  /* Ссылку «на главную» не показываем сразу — иначе кажется, что вход завис. */
 
   window.addEventListener('unhandledrejection', (ev) => {
     showError(copy, humanizeAuthError(copy, ev.reason));
@@ -170,6 +213,131 @@ async function run() {
     setMsg(copy.slowHint);
     showLink(copy);
   }, HARD_MS);
+
+  /**
+   * VK: сначала результат inline-скрипта в HTML (без ожидания auth-callback.js ~19с),
+   * иначе лёгкий vkBridgeBoot (fetch, без supabase).
+   */
+  if (isVkBridgeUrl(window.location.href)) {
+    setMsg(copy.vkExchanging);
+    let r:
+      | { kind: 'hop'; url: string }
+      | { kind: 'session'; access_token: string; refresh_token: string }
+      | { kind: 'error'; message: string }
+      | { kind: 'skip' }
+      | null = null;
+
+    const inline = await waitVkBridgeInline(VK_EXCHANGE_MS);
+    if (inline && inline.status === 'done') {
+      if (inline.kind === 'hop') {
+        /* уже location.replace в HTML; на всякий случай */
+        window.clearTimeout(hardTimer);
+        return;
+      }
+      if (inline.kind === 'error') {
+        restoreParkedAuthTokens();
+        window.clearTimeout(hardTimer);
+        showError(copy, inline.message);
+        return;
+      }
+      if (inline.kind === 'session') {
+        r = {
+          kind: 'session',
+          access_token: inline.access_token,
+          refresh_token: inline.refresh_token,
+        };
+      }
+    } else if (!inline || inline.status === 'skip') {
+      const bootMod = await import('./lib/vkBridgeBoot');
+      const vkDone = await raceOrTimeout(bootMod.runVkBridgeBoot(window.location.href), VK_EXCHANGE_MS);
+      if (!vkDone.ok) {
+        restoreParkedAuthTokens();
+        window.clearTimeout(hardTimer);
+        showError(
+          copy,
+          vkDone.reason === 'timeout'
+            ? humanizeAuthError(copy, new Error('timeout'))
+            : humanizeAuthError(copy, vkDone.error),
+        );
+        return;
+      }
+      r = vkDone.value;
+    } else {
+      restoreParkedAuthTokens();
+      window.clearTimeout(hardTimer);
+      showError(copy, humanizeAuthError(copy, new Error('timeout')));
+      return;
+    }
+
+    if (!r || r.kind === 'skip') {
+      /* fall through to generic OAuth */
+    } else if (r.kind === 'error') {
+      restoreParkedAuthTokens();
+      window.clearTimeout(hardTimer);
+      showError(copy, r.message);
+      return;
+    } else if (r.kind === 'hop') {
+      discardParkedAuthTokens();
+      window.clearTimeout(hardTimer);
+      setMsg(copy.finishing);
+      window.location.replace(r.url);
+      return;
+    } else if (r.kind === 'session') {
+      const { supabase } = await import('./lib/supabase');
+      const { getAuthReturnHomePath, stashOAuthSessionBackup } = await import('./lib/nativeAuth');
+      if (!supabase) {
+        window.clearTimeout(hardTimer);
+        showError(copy, copy.supabaseOff);
+        return;
+      }
+      const set = await raceOrTimeout(
+        supabase.auth.setSession({
+          access_token: r.access_token,
+          refresh_token: r.refresh_token,
+        }),
+        12_000,
+      );
+      if (!set.ok || set.value.error) {
+        restoreParkedAuthTokens();
+        window.clearTimeout(hardTimer);
+        showError(
+          copy,
+          humanizeAuthError(
+            copy,
+            !set.ok
+              ? set.reason === 'timeout'
+                ? new Error('timeout')
+                : set.error
+              : set.value.error,
+          ),
+        );
+        return;
+      }
+      stashOAuthSessionBackup({
+        access_token: r.access_token,
+        refresh_token: r.refresh_token,
+      });
+      try {
+        sessionStorage.setItem('updown_from_oauth_redirect', '1');
+      } catch {
+        /* ignore */
+      }
+      const claimFromUrl = peekClaimTokenFromUrl(window.location.href);
+      if (claimFromUrl) rememberPendingClaimToken(claimFromUrl);
+      void bindClaimsBestEffort(claimFromUrl || consumePendingClaimToken());
+      discardParkedAuthTokens();
+      window.clearTimeout(hardTimer);
+      window.location.replace(getAuthReturnHomePath());
+      return;
+    }
+  }
+
+  const {
+    bounceOAuthPayloadToReturnUrl,
+    getAuthReturnHomePath,
+    stashOAuthSessionBackup,
+  } = await import('./lib/nativeAuth');
+  const { supabase } = await import('./lib/supabase');
 
   if (bounceOAuthPayloadToReturnUrl(window.location.href)) {
     window.clearTimeout(hardTimer);
@@ -188,63 +356,10 @@ async function run() {
 
   const url = new URL(window.location.href);
   const errDesc =
-    url.searchParams.get('error_description') ||
-    url.searchParams.get('error') ||
-    '';
+    url.searchParams.get('error_description') || url.searchParams.get('error') || '';
   if (errDesc) {
     window.clearTimeout(hardTimer);
     showError(copy, errDesc);
-    return;
-  }
-
-  if (isVkidBridgeCallback(window.location.href)) {
-    setMsg(copy.vkExchanging);
-    const vkDone = await raceOrTimeout(
-      completeVkidDirectOAuthFromUrl(window.location.href),
-      VK_EXCHANGE_MS,
-    );
-    if (!vkDone.ok) {
-      restoreParkedAuthTokens();
-      window.clearTimeout(hardTimer);
-      showError(
-        copy,
-        vkDone.reason === 'timeout'
-          ? humanizeAuthError(copy, new Error('timeout'))
-          : humanizeAuthError(copy, vkDone.error),
-      );
-      return;
-    }
-    if (vkDone.value.error) {
-      restoreParkedAuthTokens();
-      window.clearTimeout(hardTimer);
-      showError(copy, humanizeAuthError(copy, vkDone.value.error));
-      return;
-    }
-    /** LAN-мост: сессия собрана на up2down.online → перенос токенов на вечеринку. */
-    const hop = vkDone.value.lanHop;
-    if (hop) {
-      discardParkedAuthTokens();
-      window.clearTimeout(hardTimer);
-      setMsg(copy.finishing);
-      try {
-        const dest = new URL(hop.url);
-        dest.hash = new URLSearchParams({
-          access_token: hop.access_token,
-          refresh_token: hop.refresh_token,
-          token_type: 'bearer',
-          type: 'bearer',
-        }).toString();
-        window.location.replace(dest.toString());
-      } catch (e) {
-        showError(copy, humanizeAuthError(copy, e));
-      }
-      return;
-    }
-    discardParkedAuthTokens();
-    const claimToken = claimFromUrl || consumePendingClaimToken();
-    void bindClaimsBestEffort(claimToken);
-    window.clearTimeout(hardTimer);
-    window.location.replace(getAuthReturnHomePath());
     return;
   }
 
@@ -291,11 +406,7 @@ async function run() {
     let tokens: { access_token: string; refresh_token: string } | null = null;
     if (code) {
       setMsg(copy.exchanging);
-      /** Один exchange: повтор съедает code-verifier → ложный PKCE error. */
-      const exchanged = await raceOrTimeout(
-        client.auth.exchangeCodeForSession(code),
-        EXCHANGE_MS,
-      );
+      const exchanged = await raceOrTimeout(client.auth.exchangeCodeForSession(code), EXCHANGE_MS);
       if (!exchanged.ok) {
         if (!(await sessionProbe()) && !storageHasSessionToken()) {
           if (exchanged.reason === 'timeout') {
@@ -350,10 +461,6 @@ async function run() {
       return;
     }
 
-    /**
-     * Есть JWT из exchange → сразу домой (не ждать getSession: на LAN он часто
-     * висит, а сессия уже в storage — отсюда «висит auth-callback, но вход есть»).
-     */
     if (tokens) {
       stashOAuthSessionBackup(tokens);
     } else {
@@ -382,7 +489,7 @@ async function run() {
   }
 }
 
-void run().catch((e) => {
+run().catch((e) => {
   const copy = readCopy();
   showError(copy, humanizeAuthError(copy, e));
 });
