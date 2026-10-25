@@ -62,10 +62,17 @@
     p{margin:0 0 12px;font-size:16px}
     a{color:#22d3ee}
     .err{color:#f87171}
+    .spin{width:28px;height:28px;margin:0 0 16px;border:3px solid #334155;border-top-color:#22d3ee;border-radius:50%;animation:udspin .7s linear infinite}
+    .spin[hidden]{display:none}
+    @keyframes udspin{to{transform:rotate(360deg)}}
+    #hint{margin:0;font-size:13px;color:#64748b;max-width:22rem;line-height:1.4}
+    #hint[hidden]{display:none}
   </style>
 </head>
 <body>
+  <div id="spin" class="spin" aria-hidden="true"></div>
   <p id="msg">Завершение входа…</p>
+  <p id="hint">Не закрывайте вкладку — идёт обмен с сервером.</p>
   <p id="err" class="err" style="display:none"></p>
   <a id="link" href="/" style="display:none">Перейти на главную</a>
   <script>
@@ -78,11 +85,39 @@
       var LAN_FINAL_KEY = 'updown_vk_lan_final_ret';
       window.__updownVkBridgeInline = { status: 'skip' };
 
+      var pulseTimer = 0;
+      function setBusy(on) {
+        var spin = document.getElementById('spin');
+        var hint = document.getElementById('hint');
+        if (spin) spin.hidden = !on;
+        if (hint) hint.hidden = !on;
+        if (!on && pulseTimer) {
+          clearInterval(pulseTimer);
+          pulseTimer = 0;
+        }
+      }
       function setMsg(t) {
         var m = document.getElementById('msg');
         if (m) m.textContent = t;
       }
+      function startPulse(baseRu) {
+        var t0 = Date.now();
+        var tips = [
+          baseRu,
+          'Ещё секунда — сервер отвечает…',
+          'Почти готово, не обновляйте страницу…',
+        ];
+        var i = 0;
+        setMsg(tips[0]);
+        if (pulseTimer) clearInterval(pulseTimer);
+        pulseTimer = setInterval(function () {
+          i = (i + 1) % tips.length;
+          var sec = Math.floor((Date.now() - t0) / 1000);
+          setMsg(tips[i] + (sec >= 3 ? ' (' + sec + ' с)' : ''));
+        }, 2200);
+      }
       function showErr(t) {
+        setBusy(false);
         var msg = document.getElementById('msg');
         var err = document.getElementById('err');
         var link = document.getElementById('link');
@@ -156,7 +191,8 @@
       }
       if (q.get('vk_bridge') !== '1') return;
 
-      setMsg('Обмен VK…');
+      setBusy(true);
+      startPulse('Обмен с VK…');
       try {
         if (typeof window.__updownAuthCbBoot === 'function') window.__updownAuthCbBoot();
       } catch (e5) {}
@@ -237,7 +273,10 @@
                   kind: 'hop',
                   url: dest.toString(),
                 };
+                if (pulseTimer) clearInterval(pulseTimer);
                 setMsg('Возврат в игру…');
+                var hintEl = document.getElementById('hint');
+                if (hintEl) hintEl.textContent = 'Сейчас откроется локальная вкладка с сессией.';
                 location.replace(dest.toString());
                 return;
               }

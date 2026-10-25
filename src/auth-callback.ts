@@ -100,12 +100,23 @@ function readCopy(): AuthCallbackCopy {
   }
 }
 
+function setBusy(on: boolean, hint?: string) {
+  const spin = document.getElementById('spin');
+  const hintEl = document.getElementById('hint');
+  if (spin) spin.hidden = !on;
+  if (hintEl) {
+    hintEl.hidden = !on;
+    if (on && hint) hintEl.textContent = hint;
+  }
+}
+
 function setMsg(text: string) {
   const msgEl = document.getElementById('msg');
   if (msgEl) msgEl.textContent = text;
 }
 
 function showError(copy: AuthCallbackCopy, msg: string) {
+  setBusy(false);
   const msgEl = document.getElementById('msg');
   const errEl = document.getElementById('err');
   const linkEl = document.getElementById('link');
@@ -203,6 +214,12 @@ async function run() {
   const copy = readCopy();
   document.documentElement.lang = copy === COPY.en ? 'en' : 'ru';
   document.title = copy.title;
+  setBusy(
+    true,
+    copy === COPY.en
+      ? 'Please wait — talking to the server. Don’t close this tab.'
+      : 'Не закрывайте вкладку — идёт обмен с сервером.',
+  );
   setMsg(copy.finishing);
 
   window.addEventListener('unhandledrejection', (ev) => {
