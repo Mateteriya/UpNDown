@@ -67,6 +67,17 @@
   <p id="err" class="err" style="display:none"></p>
   <a id="link" href="/" style="display:none">Перейти на главную</a>
   <script>
+    /* До module: сразу понятный статус для VK, не «вечное Завершение…». */
+    (function () {
+      try {
+        if (new URLSearchParams(location.search).get('vk_bridge') === '1') {
+          var m = document.getElementById('msg');
+          if (m) m.textContent = 'Обмен VK…';
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <script>
     /**
      * Синхронный мост LAN←прод (до module): Google возвращает code на up2down.online,
      * PKCE verifier — на http://IP:3001. Параметр ud_return = локальный auth-callback.

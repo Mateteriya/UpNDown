@@ -56,10 +56,11 @@ const COPY = {
 
 type AuthCallbackCopy = (typeof COPY)[keyof typeof COPY];
 
-/** Чуть выше типичного auth refresh timeout — иначе race рвёт обмен. */
-const EXCHANGE_MS = 42_000;
+/** VK exchange + hop: короче, чем общий OAuth — иначе «вечный» экран при висящем supabase. */
+const EXCHANGE_MS = 28_000;
+const VK_EXCHANGE_MS = 22_000;
 const CLAIMS_MS = 2_000;
-const HARD_MS = 40_000;
+const HARD_MS = 28_000;
 
 declare global {
   interface Window {
@@ -200,7 +201,7 @@ async function run() {
     setMsg(copy.vkExchanging);
     const vkDone = await raceOrTimeout(
       completeVkidDirectOAuthFromUrl(window.location.href),
-      EXCHANGE_MS,
+      VK_EXCHANGE_MS,
     );
     if (!vkDone.ok) {
       restoreParkedAuthTokens();
