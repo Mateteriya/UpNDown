@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Up&amp;Down · VK · LAN</title>
+  <title>Up&amp;Down · VK</title>
   <style>
     body {
       margin: 0;
@@ -27,12 +27,9 @@
   </div>
   <script>
     /**
-     * Старт VK OAuth с публичного домена (up2down.online).
-     * PKCE verifier живёт на ЭТОМ origin → state.ret = online auth-callback.
-     * LAN-адрес возврата кладём в sessionStorage; после exchange online
-     * auth-callback прыгает на LAN с #access_token.
-     *
-     * Почему не сразу на LAN: VK не принимает базовый домен = 192.168.* / localhost.
+     * Старт VK OAuth с канона up2down.online (базовый домен в кабинете VK).
+     * PKCE verifier на ЭТОМ origin → state.ret = online auth-callback.
+     * Финальный возврат (LAN / .ru / preview) в sessionStorage → hop после exchange.
      */
     (function () {
       var DEFAULT_CID = '54819532';
@@ -64,13 +61,16 @@
         return b64url(new TextEncoder().encode(JSON.stringify({ n: nonce, ret: ret })));
       }
 
-      function isSafeLanRet(raw) {
+      function isSafeReturn(raw) {
         try {
           var u = new URL(raw);
           if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
           if (!/auth-callback\.html/i.test(u.pathname)) return false;
           var h = u.hostname.toLowerCase();
           if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]') return true;
+          if (h === 'up2down.ru' || h === 'www.up2down.ru') return true;
+          if (h === 'up2down.online' || h === 'www.up2down.online') return true;
+          if (/\.vercel\.app$/i.test(h)) return true;
           if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
           if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
           var m = /^172\.(\d{1,2})\.\d{1,3}\.\d{1,3}$/.exec(h);
@@ -84,7 +84,6 @@
         }
       }
 
-      /** Тот же origin, что у этой страницы — иначе PKCE verifier не найдётся. */
       function onlineAuthCallbackUrl() {
         var path = location.pathname || '';
         if (path.indexOf('/play/') === 0) {
@@ -95,11 +94,14 @@
 
       async function main() {
         var q = new URLSearchParams(location.search);
-        var lanRet = (q.get('ret') || '').trim();
+        var finalRet = (q.get('ret') || '').trim();
         var sb = (q.get('sb') || '').replace(/\/$/, '');
         var cid = (q.get('cid') || DEFAULT_CID).trim() || DEFAULT_CID;
-        if (!lanRet || !isSafeLanRet(lanRet)) {
-          showErr('Нет безопасного адреса возврата (ожидался LAN …/auth-callback.html).');
+        if (!finalRet || !isSafeReturn(finalRet)) {
+          showErr(
+            'Нет безопасного адреса возврата (?ret=…/auth-callback.html).\n' +
+              'Откройте вход снова из игры (LAN :3001, up2down.ru или online).',
+          );
           return;
         }
         if (!sb || !/^https:\/\/[\w.-]+\.supabase\.co$/i.test(sb)) {
@@ -113,9 +115,9 @@
 
         var onlineRet = onlineAuthCallbackUrl();
         try {
-          sessionStorage.setItem(LAN_FINAL_KEY, lanRet);
+          sessionStorage.setItem(LAN_FINAL_KEY, finalRet);
         } catch (e) {
-          showErr('Не удалось сохранить адрес возврата на LAN.');
+          showErr('Не удалось сохранить адрес возврата.');
           return;
         }
 

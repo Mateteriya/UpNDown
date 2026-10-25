@@ -56,7 +56,10 @@ function exchangeUrl(): string {
   return `${base}/functions/v1/vk-oauth-exchange`;
 }
 
-/** Только LAN / loopback auth-callback — куда можно безопасно hop'нуть токены. */
+/**
+ * Куда можно hop'нуть токены после exchange на online:
+ * LAN / loopback, зеркало .ru, preview Vercel — не произвольный URL (open redirect).
+ */
 export function isSafeLanAuthCallbackUrl(raw: string): boolean {
   try {
     const u = new URL(raw);
@@ -64,12 +67,17 @@ export function isSafeLanAuthCallbackUrl(raw: string): boolean {
     if (!/auth-callback\.html/i.test(u.pathname)) return false;
     const h = u.hostname.toLowerCase();
     if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1') return true;
-    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
-    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
-    const m = /^172\.(\d{1,2})\.\d{1,3}\.\d{1,3}$/.exec(h);
-    if (m) {
-      const n = Number(m[1]);
-      if (n >= 16 && n <= 31) return true;
+    if (h === 'up2down.ru' || h === 'www.up2down.ru') return true;
+    if (h === 'up2down.online' || h === 'www.up2down.online') return true;
+    if (/\.vercel\.app$/i.test(h)) return true;
+    if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(h)) {
+      if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+      if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+      const m = /^172\.(\d{1,2})\.\d{1,3}\.\d{1,3}$/.exec(h);
+      if (m) {
+        const n = Number(m[1]);
+        if (n >= 16 && n <= 31) return true;
+      }
     }
     return false;
   } catch {
@@ -90,13 +98,16 @@ export async function startVkidDirectOAuth(): Promise<{ error: Error | null }> {
     if (!ret) return { error: new Error('Нет URL для возврата после VK') };
 
     /**
-     * Вечеринка :3001 / localhost: VK не принимает IP как «базовый домен».
-     * Цепочка: LAN → online /vk-lan-bridge.html (PKCE там) → VK → Edge bridge
-     * → online auth-callback (exchange) → LAN auth-callback #access_token.
+     * Не на up2down.online (LAN / .ru / preview): VK «базовый домен» = online.
+     * Цепочка: текущий origin → online /vk-lan-bridge.html (PKCE) → VK → Edge
+     * → online auth-callback (exchange) → hop на ret #access_token.
      */
     if (needsVkidLanBridge()) {
       const sb = String(import.meta.env?.VITE_SUPABASE_URL || '').replace(/\/$/, '');
       if (!sb) return { error: new Error('VITE_SUPABASE_URL не задан') };
+      if (!isSafeLanAuthCallbackUrl(ret)) {
+        return { error: new Error('VK: небезопасный URL возврата') };
+      }
       const bridgePage = new URL('/vk-lan-bridge.html', VK_LAN_BRIDGE_ORIGIN + '/');
       bridgePage.searchParams.set('ret', ret);
       bridgePage.searchParams.set('sb', sb);
@@ -159,15 +170,25 @@ export async function completeVkidDirectOAuthFromUrl(href: string): Promise<Vkid
     };
   }
 
-  const res = await fetch(exchangeUrl(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      code,
-      device_id: deviceId,
-      code_verifier: verifier,
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(exchangeUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        device_id: deviceId,
+        code_verifier: verifier,
+      }),
+    });
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    return {
+      error: new Error(
+        `VK: нет связи с Supabase (${detail}). Из РФ часто ERR_CONNECTION_CLOSED — VPN или повтор позже.`,
+      ),
+    };
+  }
   const raw = await res.json().catch(() => ({}));
   if (!res.ok) {
     const msg =
